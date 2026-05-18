@@ -82,9 +82,7 @@ function RootLayout() {
   return (
     <div className="h-full overflow-hidden bg-background-base text-text-base flex min-h-0 flex-col">
       <ReleaseUpdateWatcher />
-      {!isOnboarding && !isDirectoryChat && !isSettings && (
-        <DesktopTitlebar />
-      )}
+      {!isOnboarding && !isDirectoryChat && !isSettings && <DesktopTitlebar />}
       <div className="min-h-0 flex-1">
         <Outlet />
       </div>

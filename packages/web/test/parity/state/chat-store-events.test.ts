@@ -304,7 +304,9 @@ describe("chat-store parity events", () => {
     let next = useChatStore.getState().directories[directory]
     expect(next?.loadingSessionID).toBe("session_1")
 
-    store.setMessages(directory, "session_1", [{ info: userMessage("message_1", "session_1"), parts: [] }])
+    store.setMessages(directory, "session_1", [
+      { info: userMessage("message_1", "session_1"), parts: [] },
+    ])
     next = useChatStore.getState().directories[directory]
     expect(next?.loadingSessionID).toBeUndefined()
 

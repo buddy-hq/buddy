@@ -10,11 +10,7 @@ import {
   createUserMessageInfo,
 } from "./test-utils"
 
-function createTextMessage(input: {
-  id: string
-  role: "user" | "assistant"
-  text: string
-}) {
+function createTextMessage(input: { id: string; role: "user" | "assistant"; text: string }) {
   const info =
     input.role === "user"
       ? createUserMessageInfo({
@@ -78,8 +74,10 @@ describe("prompt select performance", () => {
   })
 
   test("prefers native selects for long math-heavy chats", () => {
-    const heavyMathChunk = Array.from({ length: 420 }, () =>
-      String.raw`$$\mathcal{L}_{\text{QED}} = \bar{\psi}(i\gamma^\mu \partial_\mu - m)\psi - \frac{1}{4}F_{\mu\nu}F^{\mu\nu}$$`,
+    const heavyMathChunk = Array.from(
+      { length: 420 },
+      () =>
+        String.raw`$$\mathcal{L}_{\text{QED}} = \bar{\psi}(i\gamma^\mu \partial_\mu - m)\psi - \frac{1}{4}F_{\mu\nu}F^{\mu\nu}$$`,
     ).join("\n\n")
 
     const summary = getPromptSelectPerformanceSummary([

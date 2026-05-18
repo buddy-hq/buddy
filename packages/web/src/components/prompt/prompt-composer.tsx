@@ -660,319 +660,326 @@ export function PromptComposer(props: PromptComposerProps) {
         </div>
       ) : null}
       <div className="group/prompt-input relative z-10 overflow-hidden rounded-[16px] border bg-surface-raised-base shadow-sm transition-colors has-[:focus-visible]:border-border-interactive-base/45">
-      <form
-        id="prompt-composer-form"
-        data-component="prompt-composer"
-        className="relative"
-        onSubmit={(event) => {
-          event.preventDefault()
-          if (props.isBusy) return
-          handleSubmit()
-        }}
-        onDragEnter={(event) => {
-          event.preventDefault()
-          setDragging(true)
-        }}
-        onDragOver={(event) => {
-          event.preventDefault()
-          if (!dragging) setDragging(true)
-        }}
-        onDragLeave={(event) => {
-          if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
-          setDragging(false)
-        }}
-        onDrop={(event) => {
-          event.preventDefault()
-          setDragging(false)
-          void attachmentState.addAttachments(event.dataTransfer.files)
-        }}
-      >
-        <div className="relative">
-          <PromptAutocompleteMenu
-            slashVisible={slashMenuVisible}
-            mentionVisible={mentionMenuVisible}
-            showMentionLoading={viewState.showMentionLoading}
-            slashOptions={viewState.slashOptions}
-            slashIndex={viewState.slashIndex}
-            mentionOptions={viewState.mentionOptions}
-            mentionIndex={viewState.mentionIndex}
-            onApplySlash={applySlash}
-            onApplyMention={applyMention}
-            onSetSlashIndex={viewState.setSlashIndex}
-            onSetMentionIndex={viewState.setMentionIndex}
-          />
+        <form
+          id="prompt-composer-form"
+          data-component="prompt-composer"
+          className="relative"
+          onSubmit={(event) => {
+            event.preventDefault()
+            if (props.isBusy) return
+            handleSubmit()
+          }}
+          onDragEnter={(event) => {
+            event.preventDefault()
+            setDragging(true)
+          }}
+          onDragOver={(event) => {
+            event.preventDefault()
+            if (!dragging) setDragging(true)
+          }}
+          onDragLeave={(event) => {
+            if (event.currentTarget.contains(event.relatedTarget as Node | null)) return
+            setDragging(false)
+          }}
+          onDrop={(event) => {
+            event.preventDefault()
+            setDragging(false)
+            void attachmentState.addAttachments(event.dataTransfer.files)
+          }}
+        >
+          <div className="relative">
+            <PromptAutocompleteMenu
+              slashVisible={slashMenuVisible}
+              mentionVisible={mentionMenuVisible}
+              showMentionLoading={viewState.showMentionLoading}
+              slashOptions={viewState.slashOptions}
+              slashIndex={viewState.slashIndex}
+              mentionOptions={viewState.mentionOptions}
+              mentionIndex={viewState.mentionIndex}
+              onApplySlash={applySlash}
+              onApplyMention={applyMention}
+              onSetSlashIndex={viewState.setSlashIndex}
+              onSetMentionIndex={viewState.setMentionIndex}
+            />
 
-          {dragging ? (
-            <div className="absolute inset-2 z-10 flex items-center justify-center rounded-xl border border-dashed border-border-interactive-base/40 bg-background-base/95 text-sm text-text-base shadow-sm">
-              {language.t("prompt.composer.draggingHint")}
-            </div>
-          ) : null}
+            {dragging ? (
+              <div className="absolute inset-2 z-10 flex items-center justify-center rounded-xl border border-dashed border-border-interactive-base/40 bg-background-base/95 text-sm text-text-base shadow-sm">
+                {language.t("prompt.composer.draggingHint")}
+              </div>
+            ) : null}
 
-          {!draftEditorValue && draft.attachments.length === 0 && !hasSubmittableParts ? (
+            {!draftEditorValue && draft.attachments.length === 0 && !hasSubmittableParts ? (
+              <div
+                className="pointer-events-none absolute left-3 top-3 right-20 text-sm leading-6 text-text-weak transition-opacity duration-250 ease-out"
+                style={{ opacity: viewState.placeholderOpacity }}
+              >
+                {viewState.displayedPlaceholder}
+              </div>
+            ) : null}
+
             <div
-              className="pointer-events-none absolute left-3 top-3 right-20 text-sm leading-6 text-text-weak transition-opacity duration-250 ease-out"
-              style={{ opacity: viewState.placeholderOpacity }}
-            >
-              {viewState.displayedPlaceholder}
-            </div>
-          ) : null}
+              ref={editorRef}
+              data-component="prompt-editor"
+              contentEditable
+              suppressContentEditableWarning
+              role="textbox"
+              aria-multiline="true"
+              className="min-h-[84px] max-h-[240px] w-full overflow-y-auto rounded-[16px] border-0 bg-transparent px-3 pt-3 pb-12 text-sm leading-6 text-text-base focus:outline-none"
+              onInput={() => {
+                handleEditorInput()
+              }}
+              onFocus={() => {
+                const editor = editorRef.current
+                if (!editor) return
 
-          <div
-            ref={editorRef}
-            data-component="prompt-editor"
-            contentEditable
-            suppressContentEditableWarning
-            role="textbox"
-            aria-multiline="true"
-            className="min-h-[84px] max-h-[240px] w-full overflow-y-auto rounded-[16px] border-0 bg-transparent px-3 pt-3 pb-12 text-sm leading-6 text-text-base focus:outline-none"
-            onInput={() => {
-              handleEditorInput()
-            }}
-            onFocus={() => {
-              const editor = editorRef.current
-              if (!editor) return
+                const selection = window.getSelection()
+                if (
+                  selection &&
+                  selection.rangeCount > 0 &&
+                  editor.contains(selection.anchorNode)
+                ) {
+                  const currentCursor = getCursorPosition(editor)
+                  setCursorOffset(currentCursor)
+                  setDraftCursor(promptKey, currentCursor)
+                  return
+                }
 
-              const selection = window.getSelection()
-              if (selection && selection.rangeCount > 0 && editor.contains(selection.anchorNode)) {
+                const nextCursor = Math.max(0, Math.min(draft.cursor, draftEditorValue.length))
+                setCursorPosition(editor, nextCursor)
+                setCursorOffset(nextCursor)
+                setDraftCursor(promptKey, nextCursor)
+              }}
+              onClick={() => {
+                const editor = editorRef.current
+                if (!editor) return
                 const currentCursor = getCursorPosition(editor)
                 setCursorOffset(currentCursor)
                 setDraftCursor(promptKey, currentCursor)
-                return
-              }
+              }}
+              onKeyDown={(event) => {
+                const editor = editorRef.current
+                const currentCursor = editor ? getCursorPosition(editor) : draftEditorValue.length
+                setCursorOffset(currentCursor)
+                setDraftCursor(promptKey, currentCursor)
 
-              const nextCursor = Math.max(0, Math.min(draft.cursor, draftEditorValue.length))
-              setCursorPosition(editor, nextCursor)
-              setCursorOffset(nextCursor)
-              setDraftCursor(promptKey, nextCursor)
-            }}
-            onClick={() => {
-              const editor = editorRef.current
-              if (!editor) return
-              const currentCursor = getCursorPosition(editor)
-              setCursorOffset(currentCursor)
-              setDraftCursor(promptKey, currentCursor)
-            }}
-            onKeyDown={(event) => {
-              const editor = editorRef.current
-              const currentCursor = editor ? getCursorPosition(editor) : draftEditorValue.length
-              setCursorOffset(currentCursor)
-              setDraftCursor(promptKey, currentCursor)
+                if (viewState.slashVisible) {
+                  if (event.key === "ArrowDown") {
+                    event.preventDefault()
+                    viewState.setSlashIndex(
+                      (current) => (current + 1) % viewState.slashOptions.length,
+                    )
+                    return
+                  }
 
-              if (viewState.slashVisible) {
-                if (event.key === "ArrowDown") {
-                  event.preventDefault()
-                  viewState.setSlashIndex(
-                    (current) => (current + 1) % viewState.slashOptions.length,
-                  )
-                  return
+                  if (event.key === "ArrowUp") {
+                    event.preventDefault()
+                    viewState.setSlashIndex(
+                      (current) =>
+                        (current - 1 + viewState.slashOptions.length) %
+                        viewState.slashOptions.length,
+                    )
+                    return
+                  }
+
+                  if (
+                    event.key === "Tab" ||
+                    (event.key === "Enter" &&
+                      !event.nativeEvent.isComposing &&
+                      !event.shiftKey &&
+                      !event.ctrlKey &&
+                      !event.metaKey &&
+                      !event.altKey)
+                  ) {
+                    event.preventDefault()
+                    const selected = viewState.slashOptions[viewState.slashIndex]
+                    if (selected) applySlash(selected)
+                    return
+                  }
+
+                  if (event.key === "Escape") {
+                    event.preventDefault()
+                    viewState.setDismissedSlashKey(viewState.slashKey)
+                    return
+                  }
                 }
 
-                if (event.key === "ArrowUp") {
-                  event.preventDefault()
-                  viewState.setSlashIndex(
-                    (current) =>
-                      (current - 1 + viewState.slashOptions.length) % viewState.slashOptions.length,
-                  )
-                  return
+                if (viewState.mentionVisible) {
+                  if (event.key === "ArrowDown") {
+                    event.preventDefault()
+                    viewState.setMentionIndex(
+                      (current) => (current + 1) % viewState.mentionOptions.length,
+                    )
+                    return
+                  }
+
+                  if (event.key === "ArrowUp") {
+                    event.preventDefault()
+                    viewState.setMentionIndex(
+                      (current) =>
+                        (current - 1 + viewState.mentionOptions.length) %
+                        viewState.mentionOptions.length,
+                    )
+                    return
+                  }
+
+                  if (
+                    event.key === "Tab" ||
+                    (event.key === "Enter" &&
+                      !event.nativeEvent.isComposing &&
+                      !event.shiftKey &&
+                      !event.ctrlKey &&
+                      !event.metaKey &&
+                      !event.altKey)
+                  ) {
+                    event.preventDefault()
+                    const selected = viewState.mentionOptions[viewState.mentionIndex]
+                    if (selected) applyMention(selected)
+                    return
+                  }
+
+                  if (event.key === "Escape") {
+                    event.preventDefault()
+                    viewState.setDismissedMentionKey(viewState.mentionKey)
+                    return
+                  }
                 }
 
                 if (
-                  event.key === "Tab" ||
-                  (event.key === "Enter" &&
-                    !event.nativeEvent.isComposing &&
-                    !event.shiftKey &&
-                    !event.ctrlKey &&
-                    !event.metaKey &&
-                    !event.altKey)
-                ) {
-                  event.preventDefault()
-                  const selected = viewState.slashOptions[viewState.slashIndex]
-                  if (selected) applySlash(selected)
-                  return
-                }
-
-                if (event.key === "Escape") {
-                  event.preventDefault()
-                  viewState.setDismissedSlashKey(viewState.slashKey)
-                  return
-                }
-              }
-
-              if (viewState.mentionVisible) {
-                if (event.key === "ArrowDown") {
-                  event.preventDefault()
-                  viewState.setMentionIndex(
-                    (current) => (current + 1) % viewState.mentionOptions.length,
+                  (event.key === "ArrowUp" || event.key === "ArrowDown") &&
+                  canNavigateHistoryAtCursor(
+                    event.key === "ArrowUp" ? "up" : "down",
+                    draftEditorValue,
+                    currentCursor,
+                    historyIndex !== -1,
                   )
-                  return
-                }
-
-                if (event.key === "ArrowUp") {
-                  event.preventDefault()
-                  viewState.setMentionIndex(
-                    (current) =>
-                      (current - 1 + viewState.mentionOptions.length) %
-                      viewState.mentionOptions.length,
-                  )
-                  return
-                }
-
-                if (
-                  event.key === "Tab" ||
-                  (event.key === "Enter" &&
-                    !event.nativeEvent.isComposing &&
-                    !event.shiftKey &&
-                    !event.ctrlKey &&
-                    !event.metaKey &&
-                    !event.altKey)
                 ) {
-                  event.preventDefault()
-                  const selected = viewState.mentionOptions[viewState.mentionIndex]
-                  if (selected) applyMention(selected)
-                  return
-                }
-
-                if (event.key === "Escape") {
-                  event.preventDefault()
-                  viewState.setDismissedMentionKey(viewState.mentionKey)
-                  return
-                }
-              }
-
-              if (
-                (event.key === "ArrowUp" || event.key === "ArrowDown") &&
-                canNavigateHistoryAtCursor(
-                  event.key === "ArrowUp" ? "up" : "down",
-                  draftEditorValue,
-                  currentCursor,
-                  historyIndex !== -1,
-                )
-              ) {
-                const result = navigatePromptHistory({
-                  direction: event.key === "ArrowUp" ? "up" : "down",
-                  entries: historyEntries,
-                  historyIndex,
-                  current: {
-                    value: draftEditorValue,
-                    attachments: cloneAttachments(draft.attachments),
-                    parts: clonePromptParts(draft.parts),
-                  },
-                  savedDraft: savedHistoryDraft,
-                })
-                if (result.handled) {
-                  event.preventDefault()
-                  setHistoryNavigation(promptKey, {
-                    historyIndex: result.historyIndex,
-                    savedDraft: result.savedDraft,
+                  const result = navigatePromptHistory({
+                    direction: event.key === "ArrowUp" ? "up" : "down",
+                    entries: historyEntries,
+                    historyIndex,
+                    current: {
+                      value: draftEditorValue,
+                      attachments: cloneAttachments(draft.attachments),
+                      parts: clonePromptParts(draft.parts),
+                    },
+                    savedDraft: savedHistoryDraft,
                   })
-                  applyDraftSnapshot(result.entry, result.cursor)
+                  if (result.handled) {
+                    event.preventDefault()
+                    setHistoryNavigation(promptKey, {
+                      historyIndex: result.historyIndex,
+                      savedDraft: result.savedDraft,
+                    })
+                    applyDraftSnapshot(result.entry, result.cursor)
+                    return
+                  }
+                }
+
+                if (
+                  shouldSubmitComposer({
+                    key: event.key,
+                    shiftKey: event.shiftKey,
+                    ctrlKey: event.ctrlKey,
+                    metaKey: event.metaKey,
+                    altKey: event.altKey,
+                    isComposing: event.nativeEvent.isComposing,
+                  })
+                ) {
+                  if (props.isBusy) {
+                    // Allow typing while busy; block keyboard submit/abort.
+                    return
+                  }
+                  event.preventDefault()
+                  handleSubmit()
+                }
+              }}
+              onPaste={(event) => {
+                const clipboardData = event.clipboardData
+                if (!clipboardData) return
+
+                const items = Array.from(clipboardData.items)
+                const fileItems = items.filter((item) => item.kind === "file")
+                const imageItems = fileItems.filter((item) =>
+                  ACCEPTED_FILE_TYPES.includes(item.type),
+                )
+
+                if (imageItems.length > 0) {
+                  event.preventDefault()
+                  for (const item of imageItems) {
+                    const file = item.getAsFile()
+                    if (file) attachmentState.addAttachments([file])
+                  }
                   return
                 }
-              }
 
-              if (
-                shouldSubmitComposer({
-                  key: event.key,
-                  shiftKey: event.shiftKey,
-                  ctrlKey: event.ctrlKey,
-                  metaKey: event.metaKey,
-                  altKey: event.altKey,
-                  isComposing: event.nativeEvent.isComposing,
-                })
-              ) {
-                if (props.isBusy) {
-                  // Allow typing while busy; block keyboard submit/abort.
-                  return
-                }
+                const text = clipboardData.getData("text/plain")
+                if (!text) return
                 event.preventDefault()
-                handleSubmit()
-              }
-            }}
-            onPaste={(event) => {
-              const clipboardData = event.clipboardData
-              if (!clipboardData) return
+                insertTextAtSelection(text)
+              }}
+            />
 
-              const items = Array.from(clipboardData.items)
-              const fileItems = items.filter((item) => item.kind === "file")
-              const imageItems = fileItems.filter((item) => ACCEPTED_FILE_TYPES.includes(item.type))
-
-              if (imageItems.length > 0) {
-                event.preventDefault()
-                for (const item of imageItems) {
-                  const file = item.getAsFile()
-                  if (file) attachmentState.addAttachments([file])
-                }
-                return
-              }
-
-              const text = clipboardData.getData("text/plain")
-              if (!text) return
-              event.preventDefault()
-              insertTextAtSelection(text)
-            }}
-          />
-
-          <input
-            ref={fileInputRef}
-            data-action="prompt-file-input"
-            type="file"
-            multiple
-            accept={(props.selectedModelAcceptsImages
-              ? ACCEPTED_FILE_TYPES
-              : ACCEPTED_NON_IMAGE_FILE_TYPES
-            ).join(",")}
-            className="hidden"
-            onChange={(event) => {
-              const files = event.target.files
-              if (!files || files.length === 0) return
-              void attachmentState.addAttachments(files)
-              event.currentTarget.value = ""
-            }}
-          />
-        </div>
-
-        <ImageAttachments
-          attachments={draft.attachments}
-          unsupportedAttachmentIds={unsupportedImageAttachmentIds}
-          onRemove={attachmentState.removeAttachment}
-          onOpen={attachmentState.openPreviewAttachment}
-        />
-        {hasUnsupportedImageAttachments ? (
-          <div className="mx-3 mt-2 rounded-md border border-border-warning-base bg-surface-warning-weak px-2.5 py-2 text-xs text-text-base">
-            This model cannot accept image attachments. Remove the image or switch to a vision model
-            before sending.
+            <input
+              ref={fileInputRef}
+              data-action="prompt-file-input"
+              type="file"
+              multiple
+              accept={(props.selectedModelAcceptsImages
+                ? ACCEPTED_FILE_TYPES
+                : ACCEPTED_NON_IMAGE_FILE_TYPES
+              ).join(",")}
+              className="hidden"
+              onChange={(event) => {
+                const files = event.target.files
+                if (!files || files.length === 0) return
+                void attachmentState.addAttachments(files)
+                event.currentTarget.value = ""
+              }}
+            />
           </div>
-        ) : null}
-      </form>
 
-      <PromptComposerToolbar
-        pendingSteerLabel={props.pendingSteerLabel}
-        onClearPendingSteer={props.onClearPendingSteer}
-        selectedPersona={props.selectedPersona}
-        personaOptions={viewState.personaOptions}
-        onPersonaChange={props.onPersonaChange}
-        selectedModel={props.selectedModel}
-        selectedModelAcceptsImages={props.selectedModelAcceptsImages}
-        onModelChange={props.onModelChange}
-        modelMenuOpenRequest={modelMenuOpenRequest}
-        modelNativeTriggerRef={modelNativeTriggerRef}
-        modelRadixTriggerRef={modelRadixTriggerRef}
-        groupedModelOptions={viewState.groupedModelOptions}
-        selectorMode={props.selectorMode}
-        selectedThinking={props.selectedThinking}
-        thinkingOptions={props.thinkingOptions}
-        onThinkingChange={props.onThinkingChange}
-        isBusy={props.isBusy}
-        canSubmit={canSubmit}
-        onAttach={() => fileInputRef.current?.click()}
-        onAbort={props.onAbort}
-        attachLabel={language.t("prompt.composer.attachFilesTitle")}
-        attachAriaLabel={language.t("prompt.composer.attachFilesAria")}
-        sendLabel={language.t("prompt.composer.send")}
-        sendAriaLabel={language.t("prompt.composer.send")}
-        stopLabel={language.t("prompt.composer.stop")}
-        stopAriaLabel={language.t("prompt.composer.stop")}
-      />
+          <ImageAttachments
+            attachments={draft.attachments}
+            unsupportedAttachmentIds={unsupportedImageAttachmentIds}
+            onRemove={attachmentState.removeAttachment}
+            onOpen={attachmentState.openPreviewAttachment}
+          />
+          {hasUnsupportedImageAttachments ? (
+            <div className="mx-3 mt-2 rounded-md border border-border-warning-base bg-surface-warning-weak px-2.5 py-2 text-xs text-text-base">
+              This model cannot accept image attachments. Remove the image or switch to a vision
+              model before sending.
+            </div>
+          ) : null}
+        </form>
+
+        <PromptComposerToolbar
+          pendingSteerLabel={props.pendingSteerLabel}
+          onClearPendingSteer={props.onClearPendingSteer}
+          selectedPersona={props.selectedPersona}
+          personaOptions={viewState.personaOptions}
+          onPersonaChange={props.onPersonaChange}
+          selectedModel={props.selectedModel}
+          selectedModelAcceptsImages={props.selectedModelAcceptsImages}
+          onModelChange={props.onModelChange}
+          modelMenuOpenRequest={modelMenuOpenRequest}
+          modelNativeTriggerRef={modelNativeTriggerRef}
+          modelRadixTriggerRef={modelRadixTriggerRef}
+          groupedModelOptions={viewState.groupedModelOptions}
+          selectorMode={props.selectorMode}
+          selectedThinking={props.selectedThinking}
+          thinkingOptions={props.thinkingOptions}
+          onThinkingChange={props.onThinkingChange}
+          isBusy={props.isBusy}
+          canSubmit={canSubmit}
+          onAttach={() => fileInputRef.current?.click()}
+          onAbort={props.onAbort}
+          attachLabel={language.t("prompt.composer.attachFilesTitle")}
+          attachAriaLabel={language.t("prompt.composer.attachFilesAria")}
+          sendLabel={language.t("prompt.composer.send")}
+          sendAriaLabel={language.t("prompt.composer.send")}
+          stopLabel={language.t("prompt.composer.stop")}
+          stopAriaLabel={language.t("prompt.composer.stop")}
+        />
       </div>
 
       {props.sessionContextUsage ? (

@@ -1,10 +1,5 @@
 import { useMemo, type ReactNode } from "react"
-import {
-  ResizeHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-  useResizablePanelRef,
-} from "@buddy/ui"
+import { ResizeHandle, ResizablePanel, ResizablePanelGroup, useResizablePanelRef } from "@buddy/ui"
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
 import { usePersistentResizablePanelLayout } from "@/components/layout/use-persistent-resizable-panel-layout"
 import { RIGHT_SIDEBAR_COLLAPSE_THRESHOLD_PX } from "@/lib/directory-chat/right-sidebar-layout"

@@ -527,11 +527,7 @@ export function MarkdownHtmlSegment(props: {
       let html: string
       try {
         html = sanitizeMarkdownHtml(
-          await parseMarkdownToHtml(
-            props.text,
-            props.streaming,
-            props.cacheKey,
-          ),
+          await parseMarkdownToHtml(props.text, props.streaming, props.cacheKey),
         )
       } catch {
         html = sanitizeRawMarkdownFallback(props.text)

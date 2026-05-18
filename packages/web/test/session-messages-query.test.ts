@@ -30,8 +30,6 @@ describe("session messages query options", () => {
   })
 
   test("prefetches session messages with a one minute stale window", () => {
-    expect(directorySessionMessagesQueryOptions("/tmp/notebook", "ses_123").staleTime).toBe(
-      60_000,
-    )
+    expect(directorySessionMessagesQueryOptions("/tmp/notebook", "ses_123").staleTime).toBe(60_000)
   })
 })

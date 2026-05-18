@@ -9,7 +9,9 @@ export type InlineAssetActivation = {
   ref: RefObject<HTMLDivElement>
 }
 
-export function useInlineAssetActivation(options?: { rootMarginPx?: number }): InlineAssetActivation {
+export function useInlineAssetActivation(options?: {
+  rootMarginPx?: number
+}): InlineAssetActivation {
   const scrollViewportRef = useChatScrollViewport()
   const ref = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(false)

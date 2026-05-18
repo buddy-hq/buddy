@@ -489,7 +489,9 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
   )
   const sessions = directoryState?.sessions ?? EMPTY_LIST
   const sessionFamily = useMemo(() => getSessionFamily(sessions, sessionID), [sessionID, sessions])
-  const sessionTitle = formatSessionTitle(sessionFamily.current?.title ?? directoryState?.sessionTitle ?? "New thread")
+  const sessionTitle = formatSessionTitle(
+    sessionFamily.current?.title ?? directoryState?.sessionTitle ?? "New thread",
+  )
   const parentSession = useMemo(
     () =>
       sessionFamily.current?.parentID

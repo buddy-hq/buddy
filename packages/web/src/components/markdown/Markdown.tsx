@@ -5,8 +5,7 @@ import { MarkdownMermaidSegment, type MarkdownMermaidContext } from "./markdown-
 import { parseMarkdownSegments } from "./markdown-segments"
 import { shouldVirtualizeMarkdown, VirtualizedMarkdown } from "./virtualized-markdown"
 
-const POSSIBLE_MERMAID_BLOCK_RE =
-  /(^|\n)[ \t]{0,3}(`{3,}|~{3,})[ \t]*mermaid(?:[ \t][^\n]*)?\r?\n/u
+const POSSIBLE_MERMAID_BLOCK_RE = /(^|\n)[ \t]{0,3}(`{3,}|~{3,})[ \t]*mermaid(?:[ \t][^\n]*)?\r?\n/u
 
 export function canContainMermaidBlock(markdown: string): boolean {
   return POSSIBLE_MERMAID_BLOCK_RE.test(markdown)

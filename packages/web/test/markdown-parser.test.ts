@@ -58,9 +58,7 @@ $$\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$$
   })
 
   test("renders spaced inline chemistry notation with mhchem", async () => {
-    const html = await parseMarkdownToHtml(
-      String.raw`$ \ce{H2SO4 + 2NaOH -> Na2SO4 + 2H2O} $`,
-    )
+    const html = await parseMarkdownToHtml(String.raw`$ \ce{H2SO4 + 2NaOH -> Na2SO4 + 2H2O} $`)
 
     expect(html).toContain('class="katex"')
     expect(html).not.toContain("katex-error")
@@ -88,7 +86,9 @@ $$\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$$
   })
 
   test("renders same-line display math as a block token", async () => {
-    const html = await parseMarkdownToHtml(String.raw`$$\begin{pmatrix} a & b \\ c & d \end{pmatrix}$$`)
+    const html = await parseMarkdownToHtml(
+      String.raw`$$\begin{pmatrix} a & b \\ c & d \end{pmatrix}$$`,
+    )
 
     expect(html.trim().startsWith('<span class="katex-display"')).toBe(true)
     expect(html).not.toContain("<p>")

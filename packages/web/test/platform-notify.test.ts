@@ -8,9 +8,7 @@ type NotificationInstance = {
   dispatch: (type: string) => void
 }
 
-function createNotificationStub(input: {
-  permission: NotificationPermission
-}) {
+function createNotificationStub(input: { permission: NotificationPermission }) {
   const instances: NotificationInstance[] = []
 
   class NotificationStub {
@@ -66,7 +64,11 @@ describe("browser platform notifications", () => {
     window.addEventListener("buddy:notification-click", clickSpy)
 
     try {
-      await createBrowserPlatform().notify("Ready", "Buddy finished", "/encoded/chat?session=ses_123")
+      await createBrowserPlatform().notify(
+        "Ready",
+        "Buddy finished",
+        "/encoded/chat?session=ses_123",
+      )
 
       expect(instances).toHaveLength(1)
       instances[0]?.dispatch("click")

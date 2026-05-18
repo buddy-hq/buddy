@@ -67,7 +67,9 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
 
   useEffect(() => {
     if (!isMac) return
-    void platform.getIsFullscreen?.().then((v) => { if (typeof v === "boolean") setIsFullscreen(v) })
+    void platform.getIsFullscreen?.().then((v) => {
+      if (typeof v === "boolean") setIsFullscreen(v)
+    })
     const handler = (e: Event) => {
       if (e instanceof CustomEvent && typeof e.detail?.isFullscreen === "boolean") {
         setIsFullscreen(e.detail.isFullscreen as boolean)
@@ -96,7 +98,8 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   //   Mac non-fullscreen closed: 90px (traffic lights) + 40px (toggle + gap) = 130px
   //   Mac fullscreen / Windows closed: 8px (toggle left) + 40px (toggle + gap) = 48px
   //   Sidebar open (Col 2 at x≥280): 0px — toggle is inside the sidebar area
-  const chatToggleLeft = isMac && !isFullscreen ? CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX : CHAT_SIDEBAR_TOGGLE_LEFT_DEFAULT_PX
+  const chatToggleLeft =
+    isMac && !isFullscreen ? CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX : CHAT_SIDEBAR_TOGGLE_LEFT_DEFAULT_PX
   const chatLeftSpacerWidth =
     placement === "chat" && isDesktop
       ? resolvedLeftSidebarOpen
@@ -259,7 +262,10 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
           style={{
             position: "fixed",
             top: (CHAT_TITLEBAR_HEIGHT_PX - CHAT_SIDEBAR_TOGGLE_HEIGHT_PX) / 2,
-            left: isMac && !isFullscreen ? CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX : CHAT_SIDEBAR_TOGGLE_LEFT_DEFAULT_PX,
+            left:
+              isMac && !isFullscreen
+                ? CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX
+                : CHAT_SIDEBAR_TOGGLE_LEFT_DEFAULT_PX,
             zIndex: 50,
             transition: "left 200ms ease-out",
           }}
@@ -302,12 +308,10 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
           />
         ) : null}
         {showLeftSidebarToggle ? (
-          <div className="ml-2 flex h-6 w-8 shrink-0 items-center">
-            {leftSidebarToggleButton}
-          </div>
+          <div className="ml-2 flex h-6 w-8 shrink-0 items-center">{leftSidebarToggleButton}</div>
         ) : null}
-        {!isShellVariant && (
-          placement === "chat" ? (
+        {!isShellVariant &&
+          (placement === "chat" ? (
             <div className="flex min-w-0 flex-1 items-center gap-2 pl-4 pr-2">
               <h1 className="min-w-0 truncate text-sm font-medium text-text-strong">
                 {props.chatTitle}
@@ -343,8 +347,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                 </div>
               ) : null}
             </div>
-          )
-        )}
+          ))}
         <div className="flex shrink-0 items-center gap-1 mr-2 ml-auto">
           {!isShellVariant && rightSidebarToggle}
 

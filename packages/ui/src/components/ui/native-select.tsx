@@ -37,7 +37,11 @@ function NativeSelect({
         aria-hidden="true"
         data-slot="native-select-icon-wrapper"
       >
-        <ChevronDownIcon className="size-3.5 select-none" aria-hidden="true" data-slot="native-select-icon" />
+        <ChevronDownIcon
+          className="size-3.5 select-none"
+          aria-hidden="true"
+          data-slot="native-select-icon"
+        />
       </div>
     </div>
   )

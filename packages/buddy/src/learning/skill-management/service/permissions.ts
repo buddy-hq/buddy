@@ -1,7 +1,12 @@
 import { PermissionNext, type PermissionAction } from "@buddy/opencode-adapter/permission"
 import { Wildcard } from "@buddy/opencode-adapter/wildcard"
 import { Config } from "@buddy/backend/config"
-import type { PermissionRule, PermissionRuleset, SkillPermissionSource, SkillRuleAction } from "./contracts"
+import type {
+  PermissionRule,
+  PermissionRuleset,
+  SkillPermissionSource,
+  SkillRuleAction,
+} from "./contracts"
 
 const SKILL_RULE_DEFAULTS = {
   permission: "skill",

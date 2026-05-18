@@ -122,9 +122,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
       }),
     [sessionID, turns],
   )
-  const [stagedTurnCount, setStagedTurnCount] = useState<number | undefined>(
-    initialStagedTurnCount,
-  )
+  const [stagedTurnCount, setStagedTurnCount] = useState<number | undefined>(initialStagedTurnCount)
   const stagedSessionRef = useRef<string | undefined>(sessionID)
   const stagedTurnsLengthRef = useRef(turns.length)
   const entryFadeSessionRef = useRef<string | undefined>(sessionID)

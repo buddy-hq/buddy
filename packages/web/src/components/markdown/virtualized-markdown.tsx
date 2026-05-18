@@ -58,10 +58,7 @@ function splitMarkdownIntoBlocks(markdown: string, salt: string): MarkdownBlock[
     const raw = token.raw
     if (!raw) continue
 
-    if (
-      buffer.length > 0 &&
-      buffer.length + raw.length > VIRTUAL_MARKDOWN_TARGET_CHARS
-    ) {
+    if (buffer.length > 0 && buffer.length + raw.length > VIRTUAL_MARKDOWN_TARGET_CHARS) {
       pushMarkdownBlock(blocks, buffer, salt)
       buffer = ""
     }

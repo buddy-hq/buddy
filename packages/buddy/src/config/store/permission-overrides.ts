@@ -49,7 +49,10 @@ function normalizeSkillPermissionRule(rule: PermissionRule): PermissionRule {
   }
 
   return Object.fromEntries(
-    Object.entries(rule).map(([pattern, action]) => [pattern, normalizeSkillPermissionAction(action)]),
+    Object.entries(rule).map(([pattern, action]) => [
+      pattern,
+      normalizeSkillPermissionAction(action),
+    ]),
   )
 }
 

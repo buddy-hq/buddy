@@ -46,12 +46,7 @@ const SETTLE_DURATION_MS = 300
 const THREAD_SWITCH_SNAP_WINDOW_MS = 8_000
 const SCROLL_TOP_CHANGE_THRESHOLD_PX = 1
 
-const SCROLL_DETACH_KEYS = new Set([
-  "ArrowUp",
-  "PageUp",
-  "Home",
-  " ",
-])
+const SCROLL_DETACH_KEYS = new Set(["ArrowUp", "PageUp", "Home", " "])
 
 const SCROLL_GESTURE_KEYS = new Set([
   "ArrowUp",

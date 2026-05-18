@@ -6,9 +6,7 @@ import {
 import { estimateTurnHeight } from "./utils/message-utils"
 import type { ChatTurn } from "./types"
 
-export function shouldStageTranscriptEntry(input: {
-  turns: ChatTurn[]
-}) {
+export function shouldStageTranscriptEntry(input: { turns: ChatTurn[] }) {
   if (input.turns.length <= VIRTUAL_CHAT_STAGE_INITIAL_TURNS) {
     return false
   }

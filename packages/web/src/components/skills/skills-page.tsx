@@ -123,10 +123,7 @@ async function copyWithSuccessToast(text: string, message: string) {
   }
 }
 
-function SkillCard(props: {
-  skill: InstalledSkillInfo
-  onManage: () => void
-}) {
+function SkillCard(props: { skill: InstalledSkillInfo; onManage: () => void }) {
   const isActive = props.skill.permissionAction !== "deny"
   return (
     <Card

@@ -1,13 +1,7 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import { useQueries, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo } from "react"
-import {
-  Button,
-  ResizeHandle,
-  Separator,
-  cn,
-  toast,
-} from "@buddy/ui"
+import { Button, ResizeHandle, Separator, cn, toast } from "@buddy/ui"
 import { ArrowLeftIcon } from "lucide-react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
 import {

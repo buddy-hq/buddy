@@ -9,10 +9,7 @@ const PROVIDER_SOURCE_LABELS: Record<string, string> = {
   custom: "Custom",
 }
 
-export function SettingsContent(props: {
-  children: ReactNode
-  fillHeight?: boolean
-}) {
+export function SettingsContent(props: { children: ReactNode; fillHeight?: boolean }) {
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       <div
@@ -71,9 +68,7 @@ export function SettingsSection(props: {
             </span>
           ) : null}
         </h3>
-        {props.headerAction ? (
-          <div className="flex items-center">{props.headerAction}</div>
-        ) : null}
+        {props.headerAction ? <div className="flex items-center">{props.headerAction}</div> : null}
       </div>
       <SettingsListCard>{props.children}</SettingsListCard>
     </div>

@@ -133,7 +133,9 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
 
   useEffect(() => {
     if (!isMacDesktop) return
-    void platform.getIsFullscreen?.().then((v) => { if (typeof v === "boolean") setIsFullscreen(v) })
+    void platform.getIsFullscreen?.().then((v) => {
+      if (typeof v === "boolean") setIsFullscreen(v)
+    })
     const handler = (e: Event) => {
       if (e instanceof CustomEvent && typeof e.detail?.isFullscreen === "boolean") {
         setIsFullscreen(e.detail.isFullscreen as boolean)

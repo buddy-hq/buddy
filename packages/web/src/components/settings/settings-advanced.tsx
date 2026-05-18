@@ -32,10 +32,7 @@ import {
   SettingsSectionHeader,
 } from "./settings-primitives"
 import type { SettingsWorkbench } from "./settings-workbench"
-import {
-  formatRuntimeVersion,
-  useAdvancedMathRuntime,
-} from "./use-advanced-math-runtime"
+import { formatRuntimeVersion, useAdvancedMathRuntime } from "./use-advanced-math-runtime"
 import { useStandardsRuntime } from "./use-standards-runtime"
 
 const DEFAULT_LOG_LEVEL_VALUE = "__default__"
