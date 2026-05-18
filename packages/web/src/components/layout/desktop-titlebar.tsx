@@ -59,12 +59,15 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
 
   useEffect(() => {
     if (!isMac) return
-    const media = window.matchMedia("(display-mode: fullscreen)")
-    const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsFullscreen(e.matches)
-    handler(media)
-    media.addEventListener("change", handler)
-    return () => media.removeEventListener("change", handler)
-  }, [isMac])
+    void platform.getIsFullscreen?.().then((v) => { if (typeof v === "boolean") setIsFullscreen(v) })
+    const handler = (e: Event) => {
+      if (e instanceof CustomEvent && typeof e.detail?.isFullscreen === "boolean") {
+        setIsFullscreen(e.detail.isFullscreen as boolean)
+      }
+    }
+    window.addEventListener("buddy:fullscreen-changed", handler)
+    return () => window.removeEventListener("buddy:fullscreen-changed", handler)
+  }, [isMac, platform])
 
   useEffect(() => {
     if (rightSidebarTab === "files") return

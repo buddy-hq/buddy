@@ -1,25 +1,18 @@
-import { useEffect, useMemo, useState, type MouseEvent, type ReactNode } from "react"
+import { useMemo, type ReactNode } from "react"
 import {
-  Button,
   ResizeHandle,
   ResizablePanel,
   ResizablePanelGroup,
   useResizablePanelRef,
 } from "@buddy/ui"
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
-import { isTitlebarInteractiveTarget } from "@/components/layout/desktop-titlebar-helpers"
-import { LayoutLeftPartialIcon } from "@/components/layout/sidebar-icons"
 import { usePersistentResizablePanelLayout } from "@/components/layout/use-persistent-resizable-panel-layout"
-import { language } from "@/context/language"
-import { usePlatform } from "@/context/platform"
 import { RIGHT_SIDEBAR_COLLAPSE_THRESHOLD_PX } from "@/lib/directory-chat/right-sidebar-layout"
 
 const DIRECTORY_CHAT_LAYOUT_ID = "directory-chat-layout"
 const DIRECTORY_CHAT_MAIN_PANEL_ID = "directory-chat-main-pane"
 const DIRECTORY_CHAT_RIGHT_SIDEBAR_PANEL_ID = "directory-chat-right-sidebar"
-const LEFT_SIDEBAR_COLLAPSED_WIDTH = 0
 const CHAT_TITLEBAR_HEIGHT_PX = 52
-const MAC_WINDOW_CONTROL_INSET_CLASS = "w-[90px]"
 
 type DirectoryChatShellProps = {
   leftSidebar: ReactNode
@@ -68,10 +61,10 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     onRightSidebarCollapse,
   } = props
 
-  const platform = usePlatform()
-  const isMac = platform.platform === "desktop" && platform.os === "macos"
-  const [isFullscreen, setIsFullscreen] = useState(false)
   const rightSidebarPanelRef = useResizablePanelRef()
+
+  const leftSidebarResolvedWidth = leftSidebarOpen ? leftSidebarDisplayWidth : 0
+
   const layoutPanelIds = useMemo(() => {
     const panelIds: string[] = []
     panelIds.push(DIRECTORY_CHAT_MAIN_PANEL_ID)
@@ -84,34 +77,6 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     id: DIRECTORY_CHAT_LAYOUT_ID,
     panelIds: layoutPanelIds,
   })
-  const leftSidebarResolvedWidth = leftSidebarOpen
-    ? leftSidebarDisplayWidth
-    : LEFT_SIDEBAR_COLLAPSED_WIDTH
-  useEffect(() => {
-    if (!isMac) return
-    const media = window.matchMedia("(display-mode: fullscreen)")
-    const handler = (event: MediaQueryListEvent | MediaQueryList) => setIsFullscreen(event.matches)
-    handler(media)
-    media.addEventListener("change", handler)
-    return () => media.removeEventListener("change", handler)
-  }, [isMac])
-
-  function onTitlebarMouseDown(event: MouseEvent<HTMLElement>) {
-    if (!platform.startWindowDragging) return
-    if (event.buttons !== 1) return
-    if (isTitlebarInteractiveTarget(event.target)) return
-
-    event.preventDefault()
-    void platform.startWindowDragging().catch(() => undefined)
-  }
-
-  function onTitlebarDoubleClick(event: MouseEvent<HTMLElement>) {
-    if (!platform.toggleWindowMaximize) return
-    if (isTitlebarInteractiveTarget(event.target)) return
-
-    event.preventDefault()
-    void platform.toggleWindowMaximize().catch(() => undefined)
-  }
 
   return (
     <div
@@ -122,33 +87,26 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
         gridTemplateRows: `${CHAT_TITLEBAR_HEIGHT_PX}px minmax(0, 1fr)`,
       }}
     >
+      {/* Row 1, Col 1: Sidebar header area — provides background continuity with the sidebar below.
+          The no-drag placeholder covers the toggle button area (x=0..130) so Electron's
+          webkit-app-region exclusion prevents Col 1's drag region from intercepting toggle clicks
+          when the sidebar is open. The actual button lives inside DesktopTitlebar's header. */}
       <div
-        className="relative col-start-1 row-start-1 flex h-full items-center overflow-hidden bg-surface-raised-base px-2 text-text-base select-none [-webkit-app-region:drag]"
-        onMouseDown={onTitlebarMouseDown}
-        onDoubleClick={onTitlebarDoubleClick}
+        className={`relative col-start-1 row-start-1 select-none [-webkit-app-region:drag] ${leftSidebarOpen ? "border-r border-border-weaker-base" : ""}`}
       >
-        {isMac && !isFullscreen ? (
-          <div className={`${MAC_WINDOW_CONTROL_INSET_CLASS} shrink-0`} />
-        ) : null}
-        {leftSidebarOpen ? (
-          <Button
-            type="button"
-            data-action="titlebar-toggle-left-sidebar"
-            variant="ghost"
-            className="ml-1 h-6 w-8 p-0 box-border text-text-weak hover:bg-surface-base-hover hover:text-text-strong [-webkit-app-region:no-drag]"
-            aria-label={language.t("desktopTitlebar.collapseLeftPanel")}
-            aria-expanded={leftSidebarOpen}
-            title={language.t("desktopTitlebar.collapseLeftPanel")}
-            onClick={() => onLeftSidebarCollapse()}
-          >
-            <LayoutLeftPartialIcon className="size-4" />
-          </Button>
-        ) : null}
-        {leftSidebarOpen ? (
-          <div className="absolute inset-y-0 right-0 w-px bg-border-weaker-base" />
-        ) : null}
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: 130,
+            height: CHAT_TITLEBAR_HEIGHT_PX,
+          }}
+          className="[-webkit-app-region:no-drag]"
+        />
       </div>
 
+      {/* Row 1, Col 2: Main titlebar */}
       <div className="col-start-2 row-start-1 min-w-0">
         <DesktopTitlebar
           placement="chat"
@@ -156,7 +114,6 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           projectName={projectName}
           variant={titlebarVariant}
           leftSidebarOpen={leftSidebarOpen}
-          reserveLeftSidebarToggleSlot
         />
       </div>
 

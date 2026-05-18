@@ -133,12 +133,15 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
 
   useEffect(() => {
     if (!isMacDesktop) return
-    const media = window.matchMedia("(display-mode: fullscreen)")
-    const handler = (e: MediaQueryListEvent | MediaQueryList) => setIsFullscreen(e.matches)
-    handler(media)
-    media.addEventListener("change", handler)
-    return () => media.removeEventListener("change", handler)
-  }, [isMacDesktop])
+    void platform.getIsFullscreen?.().then((v) => { if (typeof v === "boolean") setIsFullscreen(v) })
+    const handler = (e: Event) => {
+      if (e instanceof CustomEvent && typeof e.detail?.isFullscreen === "boolean") {
+        setIsFullscreen(e.detail.isFullscreen as boolean)
+      }
+    }
+    window.addEventListener("buddy:fullscreen-changed", handler)
+    return () => window.removeEventListener("buddy:fullscreen-changed", handler)
+  }, [isMacDesktop, platform])
 
   const directoryGroups = useDirectoryGroups({
     directories: props.directories,
