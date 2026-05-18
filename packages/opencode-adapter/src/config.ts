@@ -7,8 +7,10 @@ import * as OpenCodeConfigModelID from "opencode/config/model-id"
 import * as OpenCodeConfigPermission from "opencode/config/permission"
 import * as OpenCodeConfigProvider from "opencode/config/provider"
 import * as OpenCodeConfigSkills from "opencode/config/skills"
+import { Schema } from "effect"
 import { makeRuntime } from "opencode/effect/run-service"
-import { Instance } from "opencode/project/instance"
+import { withCurrentInstance } from "./effect-runtime"
+import { Instance } from "./instance"
 
 type RuntimeConfig = OpenCodeConfig.Info
 
@@ -103,35 +105,35 @@ export function clearConfigOverlay(directory: string) {
 
 export namespace Config {
   export const Info = OpenCodeConfig.Info
-  export type Info = OpenCodeConfig.Info
+  export type Info = Schema.Schema.Type<typeof OpenCodeConfig.Info>
 
   export const Agent = OpenCodeConfigAgent.Info
-  export type Agent = OpenCodeConfigAgent.Info
+  export type Agent = Schema.Schema.Type<typeof OpenCodeConfigAgent.Info>
 
-  export const Skills = OpenCodeConfigSkills.Info.zod
-  export type Skills = OpenCodeConfigSkills.Info
+  export const Skills = OpenCodeConfigSkills.Info
+  export type Skills = Schema.Schema.Type<typeof OpenCodeConfigSkills.Info>
 
-  export const ModelID = OpenCodeConfigModelID.ConfigModelID.zod
-  export type ModelID = OpenCodeConfigModelID.ConfigModelID
+  export const ModelID = OpenCodeConfigModelID.ConfigModelID
+  export type ModelID = Schema.Schema.Type<typeof OpenCodeConfigModelID.ConfigModelID>
 
-  export const Provider = OpenCodeConfigProvider.Info.zod
-  export type Provider = OpenCodeConfigProvider.Info
+  export const Provider = OpenCodeConfigProvider.Info
+  export type Provider = Schema.Schema.Type<typeof OpenCodeConfigProvider.Info>
 
   export const Permission = OpenCodeConfigPermission.Info
-  export type Permission = OpenCodeConfigPermission.Info
+  export type Permission = Schema.Schema.Type<typeof OpenCodeConfigPermission.Info>
 
-  export const PermissionAction = OpenCodeConfigPermission.Action.zod
-  export type PermissionAction = OpenCodeConfigPermission.Action
+  export const PermissionAction = OpenCodeConfigPermission.Action
+  export type PermissionAction = Schema.Schema.Type<typeof OpenCodeConfigPermission.Action>
 
-  export const PermissionRule = OpenCodeConfigPermission.Rule.zod
-  export type PermissionRule = OpenCodeConfigPermission.Rule
+  export const PermissionRule = OpenCodeConfigPermission.Rule
+  export type PermissionRule = Schema.Schema.Type<typeof OpenCodeConfigPermission.Rule>
 
-  export const Mcp = OpenCodeConfigMCP.Info.zod
-  export type Mcp = OpenCodeConfigMCP.Info
+  export const Mcp = OpenCodeConfigMCP.Info
+  export type Mcp = Schema.Schema.Type<typeof OpenCodeConfigMCP.Info>
 
   export async function get() {
     ensurePatched()
-    const config = await runtime.runPromise((svc) => svc.get())
+    const config = await runtime.runPromise((svc) => withCurrentInstance(svc.get()))
     const overlay = overlays.get(key(Instance.directory))
     if (!overlay) return config
     return mergeConfigValue(config, overlay)
@@ -143,10 +145,10 @@ export namespace Config {
 
   export async function directories() {
     ensurePatched()
-    return runtime.runPromise((svc) => svc.directories())
+    return runtime.runPromise((svc) => withCurrentInstance(svc.directories()))
   }
 
   export async function waitForDependencies() {
-    return runtime.runPromise((svc) => svc.waitForDependencies())
+    return runtime.runPromise((svc) => withCurrentInstance(svc.waitForDependencies()))
   }
 }

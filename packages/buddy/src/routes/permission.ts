@@ -1,7 +1,9 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
+import { Schema } from "effect"
 import z from "zod"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
+import { toOpenApiSchema } from "../http/effect-schema"
 import {
   booleanJsonResponse,
   routeErrors,
@@ -11,7 +13,7 @@ import {
 import { proxyToOpenCode } from "../http"
 
 const permissionReplyRequestSchema = z.object({
-  reply: PermissionNext.Reply.zod,
+  reply: z.enum(["once", "always", "reject"]),
   message: z.string().optional(),
 })
 
@@ -26,7 +28,7 @@ export const PermissionRoutes = new Hono()
           description: "Pending permission requests",
           content: {
             "application/json": {
-              schema: resolver(PermissionNext.Request.zod.array()),
+              schema: resolver(toOpenApiSchema(Schema.Array(PermissionNext.Request))),
             },
           },
         },

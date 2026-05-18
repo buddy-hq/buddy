@@ -1,4 +1,4 @@
-import { Permission } from "opencode/permission/index"
+import { Permission as OpenCodePermission } from "opencode/permission/index"
 
 export type PermissionAction = "allow" | "deny" | "ask"
 
@@ -12,5 +12,6 @@ export type PermissionRuleset = PermissionRule[]
 
 // Compile-safe bridge to vendored OpenCode permission runtime.
 // Keep Buddy imports routed through adapter seams.
-export { Permission }
+export const Permission = OpenCodePermission
+
 export const PermissionNext = Permission

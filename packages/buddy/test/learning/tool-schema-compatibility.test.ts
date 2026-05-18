@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import z from "zod"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
+import { ToolJsonSchema } from "@buddy/opencode-adapter/tool"
 import { dynamicToolSearchTools } from "../../src/learning/runtime/dynamic-tool-discovery"
 import { allBuddyFeatureIds, allBuddyTools } from "../../src/learning/runtime/feature-registry"
 import { registerRuntimeTools } from "../../src/learning/runtime/register-tools"
@@ -33,7 +33,10 @@ describe("tool schema compatibility", () => {
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         return tools
           .filter((tool) => CREATED_BUDDY_TOOL_IDS.has(tool.id))
-          .map((tool) => ({ id: tool.id, schema: z.toJSONSchema(tool.parameters) }))
+          .map((tool) => ({
+            id: tool.id,
+            schema: tool.jsonSchema ?? ToolJsonSchema.fromSchema(tool.parameters),
+          }))
       },
     })
 

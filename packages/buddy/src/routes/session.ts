@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { createFactory } from "hono/factory"
 import { describeRoute, resolver, validator } from "hono-openapi"
+import { Schema } from "effect"
 import z from "zod"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { SessionStatus as OpenCodeSessionStatus } from "@buddy/opencode-adapter/session-status"
@@ -10,6 +11,7 @@ import {
   PERSONA_SURFACES,
   TEACHING_WORKSPACE_STATES,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import { toOpenApiSchema } from "../http/effect-schema"
 import {
   routeErrors,
   directoryQuerySchema,
@@ -247,7 +249,7 @@ export const SessionRoutes = new Hono()
           description: "Session list",
           content: {
             "application/json": {
-              schema: resolver(OpenCodeSession.Info.array()),
+              schema: resolver(toOpenApiSchema(Schema.Array(OpenCodeSession.Info))),
             },
           },
         },
@@ -266,14 +268,14 @@ export const SessionRoutes = new Hono()
         200: {
           description: "Created session",
           content: {
-            "application/json": { schema: resolver(OpenCodeSession.Info) },
+            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeSession.Info)) },
           },
         },
         ...routeErrors(403),
       },
     }),
     validator("query", directoryQuerySchema),
-    validator("json", OpenCodeSession.create.schema.optional()),
+    validator("json", toOpenApiSchema(Schema.optional(OpenCodeSession.create.schema))),
     createSessionHandler,
   )
   .get(
@@ -286,7 +288,9 @@ export const SessionRoutes = new Hono()
           description: "Session status map",
           content: {
             "application/json": {
-              schema: resolver(z.record(z.string(), OpenCodeSessionStatus.Info)),
+              schema: resolver(
+                toOpenApiSchema(Schema.Record(Schema.String, OpenCodeSessionStatus.Info)),
+              ),
             },
           },
         },
@@ -305,7 +309,7 @@ export const SessionRoutes = new Hono()
         200: {
           description: "Session info",
           content: {
-            "application/json": { schema: resolver(OpenCodeSession.Info) },
+            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeSession.Info)) },
           },
         },
         ...routeErrors(403, 404),
@@ -324,7 +328,7 @@ export const SessionRoutes = new Hono()
         200: {
           description: "Updated session info",
           content: {
-            "application/json": { schema: resolver(OpenCodeSession.Info) },
+            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeSession.Info)) },
           },
         },
         ...routeErrors(403, 404),
@@ -345,7 +349,7 @@ export const SessionRoutes = new Hono()
           description: "Message list",
           content: {
             "application/json": {
-              schema: resolver(OpenCodeMessage.WithParts.array()),
+              schema: resolver(toOpenApiSchema(Schema.Array(OpenCodeMessage.WithParts))),
             },
           },
         },
@@ -397,7 +401,7 @@ export const SessionRoutes = new Hono()
         200: {
           description: "Created user message",
           content: {
-            "application/json": { schema: resolver(OpenCodeMessage.WithParts) },
+            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeMessage.WithParts)) },
           },
         },
         ...routeErrors(400, 403, 409),
@@ -446,7 +450,7 @@ export const SessionRoutes = new Hono()
         200: {
           description: "Created command message",
           content: {
-            "application/json": { schema: resolver(OpenCodeMessage.WithParts) },
+            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeMessage.WithParts)) },
           },
         },
         ...routeErrors(400, 403, 409),
@@ -545,7 +549,7 @@ export const SessionRoutes = new Hono()
         200: {
           description: "Updated session after revert",
           content: {
-            "application/json": { schema: resolver(OpenCodeSession.Info) },
+            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeSession.Info)) },
           },
         },
         ...routeErrors(400, 403, 404, 409),
@@ -565,7 +569,7 @@ export const SessionRoutes = new Hono()
         200: {
           description: "Updated session after restoring reverted state",
           content: {
-            "application/json": { schema: resolver(OpenCodeSession.Info) },
+            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeSession.Info)) },
           },
         },
         ...routeErrors(403, 404, 409),

@@ -15,13 +15,13 @@ export type SessionInfo = Pick<SdkSession, "id" | "title" | "parentID" | "time" 
 export type MessageOutputFormat = SdkOutputFormat
 type MessageTime = {
   created: number
-  completed?: number
+  completed?: number | null
 }
 
 type MessageModel = {
   providerID: string
   modelID: string
-  variant?: string
+  variant?: string | null
 }
 
 type SdkAssistantError = NonNullable<Extract<SdkMessage, { role: "assistant" }>["error"]>
@@ -29,7 +29,7 @@ type SdkAssistantError = NonNullable<Extract<SdkMessage, { role: "assistant" }>[
 export type MessageError = {
   name: SdkAssistantError["name"] | string
   message?: string
-  data?: Record<string, unknown>
+  data?: unknown
   [key: string]: unknown
 }
 
@@ -39,7 +39,7 @@ export type UserMessageInfo = Omit<
 > & {
   model: MessageModel
   time: MessageTime
-  format?: MessageOutputFormat
+  format?: MessageOutputFormat | null
 }
 
 export type AssistantMessageInfo = Omit<
@@ -47,7 +47,7 @@ export type AssistantMessageInfo = Omit<
   "error" | "time"
 > & {
   time: MessageTime
-  error?: MessageError
+  error?: MessageError | null
 }
 
 export type MessageInfo = UserMessageInfo | AssistantMessageInfo

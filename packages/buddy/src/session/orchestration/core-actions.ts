@@ -1,4 +1,5 @@
 import type { Context } from "hono"
+import { Effect } from "effect"
 import { SessionID } from "@buddy/opencode-adapter/id"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { MessageV2 as OpenCodeMessage } from "@buddy/opencode-adapter/message"
@@ -6,6 +7,7 @@ import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { ensureAllowedDirectory } from "../../http"
 import { proxyToOpenCode } from "../../http"
 import { isSessionInRequestedProject } from "../../http"
+import { safeDecodeSchema } from "../../http/effect-schema"
 import { withConfigSync } from "../../http/route-helpers"
 import { runLearnerMemoryStartupPipeline } from "../../learning/features/memory"
 import { clearDynamicLearningToolsForEndedSession } from "../../learning/runtime/dynamic-tool-grants"
@@ -165,7 +167,7 @@ export async function proxySessionCollection(c: Context): Promise<Response> {
       .clone()
       .json()
       .then((body: unknown) => {
-        const parsed = OpenCodeSession.Info.safeParse(body)
+        const parsed = safeDecodeSchema(OpenCodeSession.Info, body)
         if (!parsed.success) return
         runLearnerMemoryStartupPipeline({
           directory: sessionCreationDirectory,
@@ -300,11 +302,13 @@ export async function listSessionMessages(c: Context): Promise<Response> {
           }
         }
 
-        return OpenCodeMessage.page({
-          sessionID: runtimeSessionID,
-          limit: query.limit,
-          before: query.before,
-        })
+        return Effect.runPromise(
+          OpenCodeMessage.page({
+            sessionID: runtimeSessionID,
+            limit: query.limit,
+            before: query.before,
+          }),
+        )
       },
     })
 

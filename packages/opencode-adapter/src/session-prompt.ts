@@ -1,6 +1,7 @@
 import * as OpenCodeSessionPrompt from "opencode/session/prompt"
 import type * as OpenCodeMessageV2 from "opencode/session/message-v2"
 import { makeRuntime } from "opencode/effect/run-service"
+import { withCurrentInstance } from "./effect-runtime"
 import { ensureSessionToolUiPatched } from "./session-tool-ui"
 
 const runtime = makeRuntime(OpenCodeSessionPrompt.Service, OpenCodeSessionPrompt.defaultLayer)
@@ -49,33 +50,33 @@ export namespace SessionPrompt {
   export async function cancel(
     sessionID: Parameters<OpenCodeSessionPrompt.Interface["cancel"]>[0],
   ) {
-    return runtime.runPromise((svc) => svc.cancel(sessionID))
+    return runtime.runPromise((svc) => withCurrentInstance(svc.cancel(sessionID)))
   }
 
   export async function prompt(input: Parameters<OpenCodeSessionPrompt.Interface["prompt"]>[0]) {
     await ensureSessionToolUiPatched()
     return runPromptInterceptors(input, (nextInput) =>
-      runtime.runPromise((svc) => svc.prompt(nextInput)),
+      runtime.runPromise((svc) => withCurrentInstance(svc.prompt(nextInput))),
     )
   }
 
   export async function loop(input: Parameters<OpenCodeSessionPrompt.Interface["loop"]>[0]) {
     await ensureSessionToolUiPatched()
-    return runtime.runPromise((svc) => svc.loop(input))
+    return runtime.runPromise((svc) => withCurrentInstance(svc.loop(input)))
   }
 
   export async function shell(input: Parameters<OpenCodeSessionPrompt.Interface["shell"]>[0]) {
     await ensureSessionToolUiPatched()
-    return runtime.runPromise((svc) => svc.shell(input))
+    return runtime.runPromise((svc) => withCurrentInstance(svc.shell(input)))
   }
 
   export async function command(input: Parameters<OpenCodeSessionPrompt.Interface["command"]>[0]) {
     await ensureSessionToolUiPatched()
-    return runtime.runPromise((svc) => svc.command(input))
+    return runtime.runPromise((svc) => withCurrentInstance(svc.command(input)))
   }
 
   export async function resolvePromptParts(template: string) {
-    return runtime.runPromise((svc) => svc.resolvePromptParts(template))
+    return runtime.runPromise((svc) => withCurrentInstance(svc.resolvePromptParts(template)))
   }
 
   export function registerPromptInputInterceptor(interceptor: PromptInputInterceptor) {

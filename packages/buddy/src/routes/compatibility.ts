@@ -2,10 +2,12 @@ import fs from "node:fs"
 import path from "node:path"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
+import { Schema } from "effect"
 import z from "zod"
 import { Command as OpenCodeCommand } from "@buddy/opencode-adapter/command"
 import { File as OpenCodeFile } from "@buddy/opencode-adapter/file"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { toOpenApiSchema } from "../http/effect-schema"
 import {
   routeErrors,
   directoryForbiddenResponse,
@@ -211,7 +213,7 @@ export const CompatibilityRoutes = new Hono()
           description: "Project file and directory entries",
           content: {
             "application/json": {
-              schema: resolver(OpenCodeFile.Node.array()),
+              schema: resolver(toOpenApiSchema(Schema.Array(OpenCodeFile.Node))),
             },
           },
         },
@@ -243,7 +245,7 @@ export const CompatibilityRoutes = new Hono()
           description: "Project file content payload",
           content: {
             "application/json": {
-              schema: resolver(OpenCodeFile.Content),
+              schema: resolver(toOpenApiSchema(OpenCodeFile.Content)),
             },
           },
         },
@@ -507,7 +509,9 @@ export const CompatibilityRoutes = new Hono()
         200: {
           description: "Project command metadata",
           content: {
-            "application/json": { schema: resolver(OpenCodeCommand.Info.array()) },
+            "application/json": {
+              schema: resolver(toOpenApiSchema(Schema.Array(OpenCodeCommand.Info))),
+            },
           },
         },
         ...routeErrors(403),

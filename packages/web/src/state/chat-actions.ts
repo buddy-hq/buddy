@@ -15,8 +15,6 @@ import type {
   GlobalNotebookHomePutResponses,
   GlobalNotebooksListResponses,
   LearnerMemoryListResponses,
-  McpLocalConfig,
-  McpRemoteConfig,
   MermaidArtifactsListResponses,
   McpStatusResponses,
   OpenProjectsCreateResponses,
@@ -53,6 +51,7 @@ import { stringifyError } from "../lib/api-client"
 import { OPENCODE_PROVIDER_ID } from "../lib/provider-ids"
 
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
+import type { McpLocalConfig, McpRemoteConfig } from "../components/mcp-dialog/mcp-config-schema"
 import type { PromptFilePart, PromptSubmissionPart } from "../components/prompt/prompt-types"
 import {
   BUSY_SESSION_STATUS,
@@ -2513,13 +2512,13 @@ export async function loadAgentCatalog(directory: string) {
     .filter((agent): agent is AgentConfigOption => agent !== undefined)
 }
 
-export async function loadCommandCatalog(directory: string) {
+export async function loadCommandCatalog(directory: string): Promise<PromptCommandOption[]> {
   const result = await getBuddyClient(directory).command.list()
   const commands = requireBuddyData<CommandListResponses[200]>(result)
   return commands.map((command) => ({
     name: command.name,
-    description: command.description,
-    source: command.source,
+    description: command.description ?? undefined,
+    source: command.source ?? undefined,
   }))
 }
 

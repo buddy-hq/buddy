@@ -1,9 +1,10 @@
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 import { makeRuntime } from "opencode/effect/run-service"
 import { Plugin } from "opencode/plugin/index"
 import * as OpenCodeLLM from "opencode/session/llm"
 import * as OpenCodeSession from "opencode/session/session"
 import type * as OpenCodeMessageV2 from "opencode/session/message-v2"
+import { withCurrentInstance } from "./effect-runtime"
 import { ToolRegistry } from "./registry"
 import { cloneToolUiMetadata, type ToolUiMetadata } from "./tool-ui-metadata"
 
@@ -13,6 +14,7 @@ const llmRuntime = makeRuntime(OpenCodeLLM.Service, OpenCodeLLM.defaultLayer)
 const patchedSessionServices = new WeakSet<OpenCodeSession.Interface>()
 const patchedPluginServices = new WeakSet<Plugin.Interface>()
 const patchedLLMServices = new WeakSet<OpenCodeLLM.Interface>()
+const sessionDirectoryBySessionID = new Map<ToolPart["sessionID"], string>()
 let patchPromise: Promise<void> | undefined
 
 type ToolPart = OpenCodeMessageV2.MessageV2.ToolPart
@@ -66,7 +68,7 @@ function mergeToolUiMetadata(
   }
 }
 
-function toolUiForPart(part: ToolPart): ToolUiMetadata | undefined {
+function toolUiForPart(part: ToolPart, directory?: string): ToolUiMetadata | undefined {
   const partToolUi = readToolUiMetadata(
     isRecord(part.metadata?.buddy) ? part.metadata.buddy.toolUi : undefined,
   )
@@ -79,7 +81,7 @@ function toolUiForPart(part: ToolPart): ToolUiMetadata | undefined {
     if (stateToolUi) return stateToolUi
   }
 
-  return ToolRegistry.getToolUiMetadata(part.tool)
+  return ToolRegistry.getToolUiMetadata(part.tool, directory)
 }
 
 function withToolUiOnState(state: ToolState, toolUi: ToolUiMetadata | undefined): ToolState {
@@ -110,10 +112,10 @@ function withToolUiOnState(state: ToolState, toolUi: ToolUiMetadata | undefined)
   }
 }
 
-function withToolUiOnPart<T extends OpenCodeMessageV2.MessageV2.Part>(part: T): T {
+function withToolUiOnPart<T extends OpenCodeMessageV2.MessageV2.Part>(part: T, directory?: string): T {
   if (part.type !== "tool") return part
 
-  const toolUi = toolUiForPart(part)
+  const toolUi = toolUiForPart(part, directory)
   if (!toolUi) return part
 
   return {
@@ -122,6 +124,21 @@ function withToolUiOnPart<T extends OpenCodeMessageV2.MessageV2.Part>(part: T): 
     state: withToolUiOnState(part.state, toolUi),
   }
 }
+
+const resolveSessionDirectory = Effect.fn("BuddySessionToolUi.resolveSessionDirectory")(function* (
+  service: OpenCodeSession.Interface,
+  sessionID: ToolPart["sessionID"],
+) {
+  const cached = sessionDirectoryBySessionID.get(sessionID)
+  if (cached) return cached
+
+  const session = yield* Effect.option(service.get(sessionID))
+  if (Option.isNone(session)) return undefined
+
+  const directory = session.value.directory
+  sessionDirectoryBySessionID.set(sessionID, directory)
+  return directory
+})
 
 function stripBuddyToolUi(
   metadata: Record<string, unknown> | undefined,
@@ -222,8 +239,16 @@ function ensureSessionPatched(service: OpenCodeSession.Interface) {
 
   const originalUpdatePart = service.updatePart.bind(service)
 
-  const updatePart: OpenCodeSession.Interface["updatePart"] = (part) =>
-    originalUpdatePart(withToolUiOnPart(part))
+  const updatePart: OpenCodeSession.Interface["updatePart"] = Effect.fn("BuddySession.updatePart")(
+    function* (part) {
+      if (part.type !== "tool") {
+        return yield* originalUpdatePart(part)
+      }
+
+      const directory = yield* resolveSessionDirectory(service, part.sessionID)
+      return yield* originalUpdatePart(withToolUiOnPart(part, directory))
+    },
+  )
 
   Object.defineProperties(service, {
     updatePart: { value: updatePart },
@@ -270,9 +295,9 @@ function ensureLLMPatched(service: OpenCodeLLM.Interface) {
 
 export async function ensureSessionToolUiPatched() {
   patchPromise ??= Promise.all([
-    sessionRuntime.runPromise((svc) => Effect.sync(() => ensureSessionPatched(svc))),
-    pluginRuntime.runPromise((svc) => Effect.sync(() => ensurePluginPatched(svc))),
-    llmRuntime.runPromise((svc) => Effect.sync(() => ensureLLMPatched(svc))),
+    sessionRuntime.runPromise((svc) => withCurrentInstance(Effect.sync(() => ensureSessionPatched(svc)))),
+    pluginRuntime.runPromise((svc) => withCurrentInstance(Effect.sync(() => ensurePluginPatched(svc)))),
+    llmRuntime.runPromise((svc) => withCurrentInstance(Effect.sync(() => ensureLLMPatched(svc)))),
   ])
     .then(() => undefined)
     .catch((error) => {

@@ -1,13 +1,13 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
+import { Schema } from "effect"
 import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
+import { toOpenApiSchema } from "../http/effect-schema"
 import { routeErrors, directoryQuerySchema, ProjectIDParamSchema } from "../http"
 import { proxyToOpenCode } from "../http"
 import { updateProjectFromPayload } from "../project"
 
-const projectUpdateBodySchema = OpenCodeProject.UpdateInput.omit({
-  projectID: true,
-})
+const projectUpdateBodySchema = toOpenApiSchema(OpenCodeProject.UpdatePayload)
 
 export const ProjectRoutes = new Hono()
   .get(
@@ -20,7 +20,7 @@ export const ProjectRoutes = new Hono()
           description: "OpenCode project list",
           content: {
             "application/json": {
-              schema: resolver(OpenCodeProject.Info.array()),
+              schema: resolver(toOpenApiSchema(Schema.Array(OpenCodeProject.Info))),
             },
           },
         },
@@ -37,7 +37,7 @@ export const ProjectRoutes = new Hono()
         200: {
           description: "Current project",
           content: {
-            "application/json": { schema: resolver(OpenCodeProject.Info) },
+            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeProject.Info)) },
           },
         },
         ...routeErrors(403),
@@ -58,7 +58,7 @@ export const ProjectRoutes = new Hono()
         200: {
           description: "Updated project",
           content: {
-            "application/json": { schema: resolver(OpenCodeProject.Info) },
+            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeProject.Info)) },
           },
         },
         ...routeErrors(400, 404),

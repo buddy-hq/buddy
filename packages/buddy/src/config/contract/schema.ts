@@ -2,31 +2,32 @@ import path from "node:path"
 import z from "zod"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
 import { PERSONA_SURFACES, PERSONAS } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import { zodFromEffectSchema } from "../../http/effect-schema"
 import { resolveBuddyPersonaMetadata } from "../../learning/personas/wiring/persona-metadata"
 
 export namespace ConfigSchema {
   const NOTEBOOK_HOME_PATH_ERROR_MESSAGE = "notebook_home must be an absolute path" as const
   const NonNegativeInteger = z.number().int().nonnegative()
 
-  export const Mcp = OpenCodeConfig.Mcp
-  export type Mcp = z.infer<typeof Mcp>
+  export const Mcp = zodFromEffectSchema(OpenCodeConfig.Mcp)
+  export type Mcp = z.output<typeof Mcp>
 
-  export const Skills = OpenCodeConfig.Skills
-  export type Skills = z.infer<typeof Skills>
+  export const Skills = zodFromEffectSchema(OpenCodeConfig.Skills)
+  export type Skills = z.output<typeof Skills>
 
-  export const ModelID = OpenCodeConfig.ModelID
-  export type ModelID = z.infer<typeof ModelID>
+  export const ModelID = zodFromEffectSchema(OpenCodeConfig.ModelID)
+  export type ModelID = z.output<typeof ModelID>
 
-  export const Provider = OpenCodeConfig.Provider
-  export type Provider = z.infer<typeof Provider>
+  export const Provider = zodFromEffectSchema(OpenCodeConfig.Provider)
+  export type Provider = z.output<typeof Provider>
 
-  export type PermissionAction = z.infer<typeof OpenCodeConfig.PermissionAction>
-  export type PermissionRule = z.infer<typeof OpenCodeConfig.PermissionRule>
+  export type PermissionAction = OpenCodeConfig.PermissionAction
+  export type PermissionRule = OpenCodeConfig.PermissionRule
 
-  export const Permission = OpenCodeConfig.Permission
-  export type Permission = z.infer<typeof Permission>
+  export const Permission = zodFromEffectSchema(OpenCodeConfig.Permission)
+  export type Permission = z.output<typeof Permission>
 
-  export const Agent = OpenCodeConfig.Agent
+  export const Agent = zodFromEffectSchema(OpenCodeConfig.Agent)
   export type Agent = z.output<typeof Agent>
 
   const TOOL_TOGGLE_MAP = z.record(z.string(), z.boolean()).optional()

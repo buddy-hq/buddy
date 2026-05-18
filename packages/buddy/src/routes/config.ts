@@ -1,5 +1,6 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
+import { Schema } from "effect"
 import z from "zod"
 import { Config } from "@buddy/backend/config"
 import {
@@ -11,6 +12,7 @@ import {
 } from "@buddy/backend/config/orchestration"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
 import { Provider as OpenCodeProvider } from "@buddy/opencode-adapter/provider"
+import { toOpenApiSchema } from "../http/effect-schema"
 import {
   directoryQuerySchema,
   McpNameParamSchema,
@@ -44,10 +46,12 @@ const agentConfigEntrySchema = z.object({
   variant: z.string().optional(),
 })
 
-const providerConfigResponseSchema = z.object({
-  providers: OpenCodeProvider.Info.array(),
-  default: z.record(z.string(), z.string()),
-})
+const providerConfigResponseSchema = toOpenApiSchema(
+  Schema.Struct({
+    providers: Schema.Array(OpenCodeProvider.Info),
+    default: Schema.Record(Schema.String, Schema.String),
+  }),
+)
 const projectConfigPatchSchema = z.record(z.string(), z.unknown())
 
 export const ConfigRoutes = new Hono()

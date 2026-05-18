@@ -1,0 +1,54 @@
+diff --git a/dist/effect-IriD2QG7.cjs b/dist/effect-IriD2QG7.cjs
+index 1a27781..2546bcf 100644
+--- a/dist/effect-IriD2QG7.cjs
++++ b/dist/effect-IriD2QG7.cjs
+@@ -5,8 +5,20 @@ require('quansync');
+ 
+ async function getToJsonSchemaFn() {
+   try {
+-    const { JSONSchema } = await import('effect');
+-    return (schema) => JSONSchema.make(schema);
++    const effect = await import('effect');
++    const jsonSchemaModule = effect.JsonSchema ?? effect.JSONSchema;
++    const schemaModule = effect.Schema;
++    if (!jsonSchemaModule || !schemaModule || typeof schemaModule.toJsonSchemaDocument !== "function") {
++      throw new Error("Effect Schema JSON conversion helpers not found");
++    }
++    return (schema, options) => {
++      const document = schemaModule.toJsonSchemaDocument(schema, options);
++      return {
++        $schema: jsonSchemaModule.META_SCHEMA_URI_DRAFT_2020_12,
++        ...document.schema,
++        ...(Object.keys(document.definitions).length > 0 ? { $defs: document.definitions } : {}),
++      };
++    };
+   } catch {
+     throw new index.MissingDependencyError("effect");
+   }
+diff --git a/dist/effect-QlVUlMFu.js b/dist/effect-QlVUlMFu.js
+index 21ed043..2b3f9ea 100644
+--- a/dist/effect-QlVUlMFu.js
++++ b/dist/effect-QlVUlMFu.js
+@@ -3,8 +3,20 @@ import 'quansync';
+ 
+ async function getToJsonSchemaFn() {
+   try {
+-    const { JSONSchema } = await import('effect');
+-    return (schema) => JSONSchema.make(schema);
++    const effect = await import('effect');
++    const jsonSchemaModule = effect.JsonSchema ?? effect.JSONSchema;
++    const schemaModule = effect.Schema;
++    if (!jsonSchemaModule || !schemaModule || typeof schemaModule.toJsonSchemaDocument !== "function") {
++      throw new Error("Effect Schema JSON conversion helpers not found");
++    }
++    return (schema, options) => {
++      const document = schemaModule.toJsonSchemaDocument(schema, options);
++      return {
++        $schema: jsonSchemaModule.META_SCHEMA_URI_DRAFT_2020_12,
++        ...document.schema,
++        ...(Object.keys(document.definitions).length > 0 ? { $defs: document.definitions } : {}),
++      };
++    };
+   } catch {
+     throw new MissingDependencyError("effect");
+   }

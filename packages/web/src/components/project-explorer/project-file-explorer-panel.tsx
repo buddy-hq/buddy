@@ -604,7 +604,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
       if (
         classifyWorkspaceMedia({
           path: activePath,
-          mimeType: activeContent.mimeType,
+          mimeType: activeContent.mimeType ?? undefined,
           sizeBytes: undefined,
         }).mediaKind === "image"
       ) {

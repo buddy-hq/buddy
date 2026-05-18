@@ -2,13 +2,15 @@ import { realpathSync } from "node:fs"
 import path from "node:path"
 import { Effect, Layer, ManagedRuntime } from "effect"
 import * as OpenCodeAgent from "opencode/agent/agent"
+import { InstanceRef } from "opencode/effect/instance-ref"
 import { attach, makeRuntime } from "opencode/effect/run-service"
-import { Instance } from "opencode/project/instance"
 import * as OpenCodeToolRegistry from "opencode/tool/registry"
 import * as OpenCodeTruncate from "opencode/tool/truncate"
 import * as OpenCodeTool from "opencode/tool/tool"
 import { Agent } from "./agent"
 import { withConfigOverlay } from "./config"
+import { withCurrentInstance } from "./effect-runtime"
+import { Instance } from "./instance"
 import { cloneToolUiMetadata, type ToolUiMetadata } from "./tool-ui-metadata"
 
 const runtime = makeRuntime(OpenCodeToolRegistry.Service, OpenCodeToolRegistry.defaultLayer)
@@ -45,6 +47,14 @@ type ToolDefTransformer = <TTool extends OpenCodeTool.Def>(input: {
 const customTools = new Map<string, Map<string, CustomToolInfo>>()
 const customToolUiMetadata = new Map<string, Map<string, ToolUiMetadata>>()
 const toolDefTransformers = new Set<ToolDefTransformer>()
+
+const getInstanceDirectory = Effect.gen(function* () {
+  const instance = yield* InstanceRef
+  if (!instance) {
+    return yield* Effect.die(new Error("InstanceRef not provided"))
+  }
+  return instance.directory
+})
 
 function key(directory: string) {
   const resolved = path.resolve(directory)
@@ -99,7 +109,16 @@ function toRuntimeTool(tool: OpenCodeTool.Def): RuntimeTool {
   return {
     ...tool,
     execute(args, ctx) {
-      return Effect.runPromise(tool.execute(args, ctx))
+      return Effect.runPromise(withCurrentInstance(tool.execute(args, ctx)))
+    },
+  }
+}
+
+function withRuntimeInstance(tool: OpenCodeTool.Def): OpenCodeTool.Def {
+  return {
+    ...tool,
+    execute(args, ctx) {
+      return withCurrentInstance(tool.execute(args, ctx))
     },
   }
 }
@@ -109,7 +128,7 @@ async function resolveCustomToolInfo(tool: CustomToolInfo): Promise<OpenCodeTool
     return tool
   }
 
-  return customToolRuntime.runPromise(attach(tool))
+  return customToolRuntime.runPromise(withCurrentInstance(attach(tool)))
 }
 
 async function customToolDefs(directory: string): Promise<OpenCodeTool.Def[]> {
@@ -128,35 +147,39 @@ function ensurePatched(service: OpenCodeToolRegistry.Interface) {
 
   const ids: OpenCodeToolRegistry.Interface["ids"] = Effect.fn("BuddyToolRegistry.ids")(
     function* () {
+      const directory = yield* getInstanceDirectory
       const base = yield* originalIds()
-      const extra = getCustomToolInfos(Instance.directory).map((tool) => tool.id)
+      const extra = getCustomToolInfos(directory).map((tool) => tool.id)
       return [...new Set([...base, ...extra])]
     },
   )
 
   const all: OpenCodeToolRegistry.Interface["all"] = Effect.fn("BuddyToolRegistry.all")(
     function* () {
+      const directory = yield* getInstanceDirectory
       const base = yield* originalAll()
-      const extra = yield* Effect.promise(() => customToolDefs(Instance.directory))
-      return applyToolDefTransformers(Instance.directory, mergeToolDefs(base, extra))
+      const extra = yield* Effect.promise(() => customToolDefs(directory))
+      return applyToolDefTransformers(directory, mergeToolDefs(base, extra))
     },
   )
 
   const named: OpenCodeToolRegistry.Interface["named"] = Effect.fn("BuddyToolRegistry.named")(
     function* () {
+      const directory = yield* getInstanceDirectory
       const base = yield* originalNamed()
       return {
-        task: applyToolDefTransformer(Instance.directory, base.task),
-        read: applyToolDefTransformer(Instance.directory, base.read),
+        task: applyToolDefTransformer(directory, base.task),
+        read: applyToolDefTransformer(directory, base.read),
       }
     },
   )
 
   const tools: OpenCodeToolRegistry.Interface["tools"] = Effect.fn("BuddyToolRegistry.tools")(
     function* (model) {
+      const directory = yield* getInstanceDirectory
       const base = yield* originalTools(model)
-      const extra = yield* Effect.promise(() => customToolDefs(Instance.directory))
-      return applyToolDefTransformers(Instance.directory, mergeToolDefs(base, extra))
+      const extra = yield* Effect.promise(() => customToolDefs(directory))
+      return applyToolDefTransformers(directory, mergeToolDefs(base, extra))
     },
   )
 
@@ -170,7 +193,7 @@ function ensurePatched(service: OpenCodeToolRegistry.Interface) {
 
 async function ensureRuntimePatched() {
   await withConfigOverlay(Instance.directory, () =>
-    runtime.runPromise((svc) => Effect.sync(() => ensurePatched(svc))),
+    runtime.runPromise((svc) => withCurrentInstance(Effect.sync(() => ensurePatched(svc)))),
   )
 }
 
@@ -237,23 +260,44 @@ export namespace ToolRegistry {
     }
   }
 
-  export function getToolUiMetadata(toolID: string, directory = Instance.directory) {
-    return getCustomToolUiMetadata(directory, toolID)
+  export function getToolUiMetadata(toolID: string, directory?: string) {
+    if (directory) {
+      return getCustomToolUiMetadata(directory, toolID)
+    }
+
+    try {
+      return getCustomToolUiMetadata(Instance.directory, toolID)
+    } catch {
+      return undefined
+    }
   }
 
   export async function ids() {
     await ensureRuntimePatched()
-    return withConfigOverlay(Instance.directory, () => runtime.runPromise((svc) => svc.ids()))
+    return withConfigOverlay(Instance.directory, () =>
+      runtime.runPromise((svc) => withCurrentInstance(svc.ids())),
+    )
   }
 
   export async function all() {
     await ensureRuntimePatched()
-    return withConfigOverlay(Instance.directory, () => runtime.runPromise((svc) => svc.all()))
+    return withConfigOverlay(Instance.directory, () =>
+      runtime.runPromise((svc) => withCurrentInstance(svc.all())),
+    )
   }
 
   export async function named() {
     await ensureRuntimePatched()
-    return withConfigOverlay(Instance.directory, () => runtime.runPromise((svc) => svc.named()))
+    return withConfigOverlay(Instance.directory, () =>
+      runtime.runPromise((svc) =>
+        withCurrentInstance(
+          Effect.map(svc.named(), (named) => ({
+            task: withRuntimeInstance(named.task),
+            read: withRuntimeInstance(named.read),
+          })),
+        ),
+      ),
+    )
   }
 
   export async function tools(model: ToolModelInput, agent?: ToolAgentInput) {
@@ -261,10 +305,12 @@ export namespace ToolRegistry {
     const resolvedAgent = await resolveToolAgent(agent)
     const tools = await withConfigOverlay(Instance.directory, () =>
       runtime.runPromise((svc) =>
-        svc.tools({
-          ...model,
-          agent: resolvedAgent,
-        }),
+        withCurrentInstance(
+          svc.tools({
+            ...model,
+            agent: resolvedAgent,
+          }),
+        ),
       ),
     )
     return tools.map(toRuntimeTool)

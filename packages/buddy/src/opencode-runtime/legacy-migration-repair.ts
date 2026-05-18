@@ -120,11 +120,12 @@ export function repairLegacyMigrationJournal(db: Database): string[] {
 }
 
 export async function repairLegacyOpenCodeMigrations() {
-  if (OpenCodeDatabasePath === ":memory:" || !existsSync(OpenCodeDatabasePath)) {
+  const databasePath = OpenCodeDatabasePath()
+  if (databasePath === ":memory:" || !existsSync(databasePath)) {
     return []
   }
 
-  const db = new Database(OpenCodeDatabasePath)
+  const db = new Database(databasePath)
   try {
     db.exec("PRAGMA busy_timeout = 5000")
     return repairLegacyMigrationJournal(db)

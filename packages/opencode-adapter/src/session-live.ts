@@ -1,6 +1,7 @@
 import { Effect } from "effect"
 import * as OpenCodeSession from "opencode/session/session"
 import { makeRuntime } from "opencode/effect/run-service"
+import { withCurrentInstance } from "./effect-runtime"
 
 const runtime = makeRuntime(OpenCodeSession.Service, OpenCodeSession.defaultLayer)
 const patchedServices = new WeakSet<OpenCodeSession.Interface>()
@@ -170,7 +171,7 @@ function ensurePatched(service: OpenCodeSession.Interface) {
 
 export async function ensureSessionServicePatched() {
   patchPromise ??= runtime
-    .runPromise((svc) => Effect.sync(() => ensurePatched(svc)))
+    .runPromise((svc) => withCurrentInstance(Effect.sync(() => ensurePatched(svc))))
     .catch((error) => {
       patchPromise = undefined
       throw error

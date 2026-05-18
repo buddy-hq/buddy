@@ -4,6 +4,7 @@ import * as OpenCodeLLM from "opencode/session/llm"
 import * as OpenCodeSession from "opencode/session/session"
 import { createStructuredOutputTool } from "opencode/session/prompt"
 import { makeRuntime } from "opencode/effect/run-service"
+import { withCurrentInstance } from "./effect-runtime"
 import { MessageID, ModelID, ProviderID, SessionID } from "./id"
 import { Permission } from "./permission"
 import type { Provider } from "./provider"
@@ -87,40 +88,42 @@ async function generateSmallText(input: SmallTextInput): Promise<SmallTextResult
   let text = ""
   let usage: SmallTextUsage | undefined
   await runtime.runPromise((svc) =>
-    svc
-      .stream({
-        user: learnerMemoryUser(input),
-        sessionID: input.sessionID,
-        agent: learnerMemoryAgent(),
-        model: input.model,
-        system: [input.system],
-        messages: [{ role: "user", content: input.prompt }],
-        small: true,
-        tools: {},
-        toolChoice: "none",
-        retries: input.retries ?? DEFAULT_RETRIES,
-      })
-      .pipe(
-        Stream.runForEach((event) =>
-          Effect.sync(() => {
-            if (event.type === "text-delta") {
-              text += event.text
-            }
-            if (event.type === "finish-step") {
-              usage = OpenCodeSession.getUsage({
-                model: input.model,
-                usage: event.usage,
-                metadata: event.providerMetadata,
-              })
-            }
+    withCurrentInstance(
+      svc
+        .stream({
+          user: learnerMemoryUser(input),
+          sessionID: input.sessionID,
+          agent: learnerMemoryAgent(),
+          model: input.model,
+          system: [input.system],
+          messages: [{ role: "user", content: input.prompt }],
+          small: true,
+          tools: {},
+          toolChoice: "none",
+          retries: input.retries ?? DEFAULT_RETRIES,
+        })
+        .pipe(
+          Stream.runForEach((event) =>
+            Effect.sync(() => {
+              if (event.type === "text-delta") {
+                text += event.text
+              }
+              if (event.type === "finish-step") {
+                usage = OpenCodeSession.getUsage({
+                  model: input.model,
+                  usage: event.usage,
+                  metadata: event.providerMetadata,
+                })
+              }
+            }),
+          ),
+          Effect.timeoutOrElse({
+            duration: input.timeoutMs ?? DEFAULT_SMALL_TEXT_TIMEOUT_MS,
+            orElse: () => Effect.die(new Error("Small model text generation timed out")),
           }),
+          Effect.orDie,
         ),
-        Effect.timeoutOrElse({
-          duration: input.timeoutMs ?? DEFAULT_SMALL_TEXT_TIMEOUT_MS,
-          orElse: () => Effect.die(new Error("Small model text generation timed out")),
-        }),
-        Effect.orDie,
-      ),
+    ),
   )
 
   return {
@@ -136,47 +139,49 @@ async function generateStructuredText(input: StructuredTextInput): Promise<Struc
   let usage: SmallTextUsage | undefined
   let structured: unknown
   await runtime.runPromise((svc) =>
-    svc
-      .stream({
-        user: learnerMemoryUser(input),
-        sessionID: input.sessionID,
-        agent: learnerMemoryAgent(),
-        model: input.model,
-        system: [input.system, STRUCTURED_OUTPUT_SYSTEM_PROMPT],
-        messages: [{ role: "user", content: input.prompt }],
-        small: true,
-        tools: {
-          StructuredOutput: createStructuredOutputTool({
-            schema: input.schema,
-            onSuccess(output) {
-              structured = output
-            },
+    withCurrentInstance(
+      svc
+        .stream({
+          user: learnerMemoryUser(input),
+          sessionID: input.sessionID,
+          agent: learnerMemoryAgent(),
+          model: input.model,
+          system: [input.system, STRUCTURED_OUTPUT_SYSTEM_PROMPT],
+          messages: [{ role: "user", content: input.prompt }],
+          small: true,
+          tools: {
+            StructuredOutput: createStructuredOutputTool({
+              schema: input.schema,
+              onSuccess(output) {
+                structured = output
+              },
+            }),
+          },
+          toolChoice: "required",
+          retries: input.retries ?? DEFAULT_RETRIES,
+        })
+        .pipe(
+          Stream.runForEach((event) =>
+            Effect.sync(() => {
+              if (event.type === "text-delta") {
+                text += event.text
+              }
+              if (event.type === "finish-step") {
+                usage = OpenCodeSession.getUsage({
+                  model: input.model,
+                  usage: event.usage,
+                  metadata: event.providerMetadata,
+                })
+              }
+            }),
+          ),
+          Effect.timeoutOrElse({
+            duration: input.timeoutMs ?? DEFAULT_SMALL_TEXT_TIMEOUT_MS,
+            orElse: () => Effect.die(new Error("Small model structured generation timed out")),
           }),
-        },
-        toolChoice: "required",
-        retries: input.retries ?? DEFAULT_RETRIES,
-      })
-      .pipe(
-        Stream.runForEach((event) =>
-          Effect.sync(() => {
-            if (event.type === "text-delta") {
-              text += event.text
-            }
-            if (event.type === "finish-step") {
-              usage = OpenCodeSession.getUsage({
-                model: input.model,
-                usage: event.usage,
-                metadata: event.providerMetadata,
-              })
-            }
-          }),
+          Effect.orDie,
         ),
-        Effect.timeoutOrElse({
-          duration: input.timeoutMs ?? DEFAULT_SMALL_TEXT_TIMEOUT_MS,
-          orElse: () => Effect.die(new Error("Small model structured generation timed out")),
-        }),
-        Effect.orDie,
-      ),
+    ),
   )
 
   if (structured === undefined) {

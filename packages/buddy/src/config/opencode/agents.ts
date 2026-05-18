@@ -75,14 +75,14 @@ function mergePermissionConfig(
   base: Config.Permission,
   override: Config.Permission,
 ): Config.Permission {
-  const merged: Config.Permission = { ...base }
+  const merged = new Map<string, Config.PermissionRule>(Object.entries(base))
 
   for (const [permission, rule] of Object.entries(override)) {
-    const existing = merged[permission]
-    merged[permission] = existing ? mergePermissionRule(existing, rule) : rule
+    const existing = merged.get(permission)
+    merged.set(permission, existing ? mergePermissionRule(existing, rule) : rule)
   }
 
-  return merged
+  return Object.fromEntries(merged)
 }
 
 function mergeBuddyAndConfiguredAgents(

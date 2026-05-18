@@ -2,7 +2,6 @@ import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import z from "zod"
 import { buildPresentedMediaArtifactID, PresentedMediaArtifactPath } from "./artifact-path"
 
@@ -106,6 +105,9 @@ type ResolvedPresentedMediaFile = {
   displayPath: string
   workspacePath: string | null
   stats: Awaited<ReturnType<typeof fs.stat>>
+}
+type PresentedMediaWorkspaceBoundary = {
+  directoryPath: string
 }
 
 const ARTIFACT_MANIFEST_VERSION = 1
@@ -231,6 +233,19 @@ async function resolveExistingFile(absolutePath: string) {
   }
 
   return { realPath, stats }
+}
+
+async function resolvePresentedMediaWorkspaceBoundary(
+  directory: string,
+): Promise<PresentedMediaWorkspaceBoundary> {
+  const resolvedDirectory = path.resolve(directory)
+  const directoryPath = await fs.realpath(resolvedDirectory).catch(() => resolvedDirectory)
+  return { directoryPath }
+}
+
+function isPathWithinBoundary(boundaryPath: string, targetPath: string) {
+  const relative = path.relative(boundaryPath, targetPath)
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
 }
 
 async function writeArtifactManifest(
@@ -377,12 +392,13 @@ export function normalizePresentedMediaPermissionPath(directory: string, inputPa
 async function resolvePresentedMediaFile(
   directory: string,
   inputPath: string,
+  workspaceBoundary: PresentedMediaWorkspaceBoundary,
 ): Promise<ResolvedPresentedMediaFile> {
   const absolutePath = normalizeInputSourcePath(directory, inputPath)
   const file = await resolveExistingFile(absolutePath)
-  const canOpenInWorkspacePanel = OpenCodeInstance.containsPath(file.realPath)
+  const canOpenInWorkspacePanel = isPathWithinBoundary(workspaceBoundary.directoryPath, file.realPath)
   const workspacePath = canOpenInWorkspacePanel
-    ? normalizeRelativePath(path.relative(directory, file.realPath))
+    ? normalizeRelativePath(path.relative(workspaceBoundary.directoryPath, file.realPath))
     : null
 
   return {
@@ -434,9 +450,10 @@ export async function buildPresentedMediaOutput(input: {
 
   const artifactID = buildPresentedMediaArtifactID()
   const items: PresentedMediaItem[] = []
+  const workspaceBoundary = await resolvePresentedMediaWorkspaceBoundary(input.directory)
 
   for (const [index, item] of input.items.entries()) {
-    const file = await resolvePresentedMediaFile(input.directory, item.path)
+    const file = await resolvePresentedMediaFile(input.directory, item.path, workspaceBoundary)
     const sizeBytes = readStatNumber(file.stats.size)
     const modifiedAt = new Date(readStatNumber(file.stats.mtimeMs)).toISOString()
     const mimeType = fileMimeType(file.absolutePath)

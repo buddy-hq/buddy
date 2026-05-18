@@ -1,8 +1,9 @@
 import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
 import { ProjectID } from "@buddy/opencode-adapter/id"
+import { safeDecodeSchema } from "../../http/effect-schema"
 import { isAllowedDirectory, resolveDirectory } from "../directory"
 
-const projectUpdateBodySchema = OpenCodeProject.UpdateInput.omit({ projectID: true })
+const projectUpdateBodySchema = OpenCodeProject.UpdatePayload
 
 export function readOpenProjectDirectory(payload: unknown): string | undefined {
   if (!payload || typeof payload !== "object" || !("directory" in payload)) {
@@ -14,7 +15,7 @@ export function readOpenProjectDirectory(payload: unknown): string | undefined {
 }
 
 export function parseProjectUpdateBody(payload: unknown) {
-  return projectUpdateBodySchema.safeParse(payload)
+  return safeDecodeSchema(projectUpdateBodySchema, payload)
 }
 
 export function projectUpdateErrorMessage(error: unknown) {

@@ -1,8 +1,10 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
+import { Schema } from "effect"
 import z from "zod"
 import { Provider as OpenCodeProvider } from "@buddy/opencode-adapter/provider"
 import { ProviderAuth as OpenCodeProviderAuth } from "@buddy/opencode-adapter/provider-auth"
+import { toOpenApiSchema } from "../http/effect-schema"
 import { routeErrors, directoryQuerySchema, ProviderIDParamSchema } from "../http"
 import { proxyToOpenCode } from "../http"
 
@@ -15,13 +17,17 @@ const oauthCallbackRequestSchema = z.object({
   code: z.string().optional(),
 })
 
-const providerListResponseSchema = z.object({
-  all: OpenCodeProvider.Info.array(),
-  default: z.record(z.string(), z.string()),
-  connected: z.array(z.string()),
-})
+const providerListResponseSchema = toOpenApiSchema(
+  Schema.Struct({
+    all: Schema.Array(OpenCodeProvider.Info),
+    default: Schema.Record(Schema.String, Schema.String),
+    connected: Schema.Array(Schema.String),
+  }),
+)
 
-const providerAuthResponseSchema = z.record(z.string(), z.array(OpenCodeProviderAuth.Method))
+const providerAuthResponseSchema = toOpenApiSchema(
+  Schema.Record(Schema.String, Schema.Array(OpenCodeProviderAuth.Method)),
+)
 
 export const ProviderRoutes = new Hono()
   .get(
@@ -76,7 +82,11 @@ export const ProviderRoutes = new Hono()
         200: {
           description: "Provider auth initiation payload",
           content: {
-            "application/json": { schema: resolver(OpenCodeProviderAuth.Authorization.optional()) },
+            "application/json": {
+              schema: resolver(
+                toOpenApiSchema(Schema.optional(OpenCodeProviderAuth.Authorization)),
+              ),
+            },
           },
         },
         ...routeErrors(400, 403),

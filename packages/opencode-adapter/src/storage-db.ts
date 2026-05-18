@@ -1,1 +1,1 @@
-export { Path as DatabasePath } from "opencode/storage/db"
+export { getPath as DatabasePath } from "opencode/storage/db"

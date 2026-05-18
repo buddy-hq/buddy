@@ -14,6 +14,8 @@ type OpenAPISchema = {
   [key: string]: unknown
 }
 
+const SCALAR_OPENAPI_TYPES = new Set(["string", "number", "integer", "boolean"])
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
@@ -62,6 +64,100 @@ function normalizePaths(schema: OpenAPISchema) {
   }
 }
 
+function isScalarAllOfSchema(value: Record<string, unknown>) {
+  return typeof value.type === "string" && SCALAR_OPENAPI_TYPES.has(value.type) && Array.isArray(value.allOf)
+}
+
+function getScalarAllOfLayers(value: Record<string, unknown>) {
+  if (!isScalarAllOfSchema(value)) {
+    return undefined
+  }
+
+  const allOf = value.allOf
+  if (!Array.isArray(allOf)) {
+    return undefined
+  }
+
+  const layers = allOf.filter(isRecord)
+  if (layers.length !== allOf.length) {
+    return undefined
+  }
+
+  return layers
+}
+
+function canFlattenScalarAllOf(
+  parent: Record<string, unknown>,
+  layers: Record<string, unknown>[],
+) {
+  const seen = new Map<string, unknown>()
+  for (const [key, value] of Object.entries(parent)) {
+    if (key === "allOf") continue
+    seen.set(key, value)
+  }
+
+  for (const layer of layers) {
+    if (["$ref", "allOf", "anyOf", "oneOf", "not"].some((key) => key in layer)) {
+      return false
+    }
+
+    for (const [key, value] of Object.entries(layer)) {
+      const existing = seen.get(key)
+      if (existing !== undefined && existing !== value) {
+        return false
+      }
+      seen.set(key, value)
+    }
+  }
+
+  return true
+}
+
+function normalizeOpenApiValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeOpenApiValue(item))
+  }
+
+  if (!isRecord(value)) {
+    return value
+  }
+
+  const normalized = Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [key, normalizeOpenApiValue(item)]),
+  )
+
+  // @hey-api/openapi-ts currently degrades primitive schemas shaped like
+  // `{ type: "string", allOf: [{ pattern: "^ses" }] }` to `unknown`.
+  // Flatten equivalent scalar constraints before generation so the SDK keeps
+  // concrete string/number types without changing runtime validation.
+  if (!isScalarAllOfSchema(normalized)) {
+    return normalized
+  }
+
+  const layers = getScalarAllOfLayers(normalized)
+  if (!layers) {
+    return normalized
+  }
+  if (!canFlattenScalarAllOf(normalized, layers)) {
+    return normalized
+  }
+
+  const { allOf: _allOf, ...rest } = normalized
+  return Object.assign({}, ...layers, rest)
+}
+
+function normalizeSchemaForSdk(schema: OpenAPISchema): OpenAPISchema {
+  const normalized = normalizeOpenApiValue(schema)
+  if (!isRecord(normalized)) {
+    return schema
+  }
+
+  return {
+    ...normalized,
+    ...(isRecord(normalized.paths) ? { paths: normalized.paths } : {}),
+  }
+}
+
 async function loadSchema() {
   try {
     const response = await fetch(API_URL)
@@ -69,7 +165,7 @@ async function loadSchema() {
       throw new Error(`Failed to fetch OpenAPI schema from ${API_URL}: ${response.status}`)
     }
     const schema = (await response.json()) as OpenAPISchema
-    return normalizePaths(schema)
+    return normalizeSchemaForSdk(normalizePaths(schema))
   } catch {
     const app = await loadBackendApp()
     const response = await app.request("/doc")
@@ -77,7 +173,7 @@ async function loadSchema() {
       throw new Error(`Failed to fetch OpenAPI schema from backend app: ${response.status}`)
     }
     const schema = (await response.json()) as OpenAPISchema
-    return normalizePaths(schema)
+    return normalizeSchemaForSdk(normalizePaths(schema))
   }
 }
 

@@ -3,6 +3,7 @@ import { Agent } from "@buddy/opencode-adapter/agent"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { syncOpenCodeProjectConfig } from "@buddy/backend/config/runtime"
+import { decodeSchema } from "../../src/http/effect-schema"
 import { resolveSessionRuntime } from "../../src/learning/access/resolve-session-runtime"
 import { buildBuddyRuntimeSessionPermissions } from "../../src/learning/agent-execution/permissions/session-permissions"
 import { REGISTERED_BUDDY_PERSONAS } from "../../src/learning/personas/registry"
@@ -41,7 +42,7 @@ describe("skill tool visibility", () => {
         const permission = buildBuddyRuntimeSessionPermissions({
           sessionRuntime,
         })
-        const agent = Agent.Info.parse({
+        const agent = decodeSchema(Agent.Info, {
           name: "buddy",
           mode: "primary",
           permission,

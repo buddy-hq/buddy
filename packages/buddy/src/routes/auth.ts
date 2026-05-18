@@ -2,6 +2,7 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { Auth as OpenCodeAuth } from "@buddy/opencode-adapter/auth"
+import { toOpenApiSchema } from "../http/effect-schema"
 import { routeErrors, directoryQuerySchema, ProviderIDParamSchema } from "../http"
 import { proxyToOpenCode } from "../http"
 
@@ -25,7 +26,7 @@ export const AuthRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     validator("param", ProviderIDParamSchema),
-    validator("json", OpenCodeAuth.Info.zod),
+    validator("json", toOpenApiSchema(OpenCodeAuth.Info)),
     async (c) => {
       return proxyToOpenCode(c, {
         targetPath: `/auth/${encodeURIComponent(c.req.valid("param").providerID)}`,

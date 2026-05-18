@@ -62,7 +62,9 @@ export function useAssistantDerivedState(
   const assistantError = useMemo(
     () =>
       assistantMessages
-        .map((message) => (message.info.role === "assistant" ? message.info.error : undefined))
+        .map((message) =>
+          message.info.role === "assistant" ? (message.info.error ?? undefined) : undefined,
+        )
         .findLast((error) => !!error && !isMessageAbortError(error)),
     [assistantMessages],
   )

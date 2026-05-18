@@ -4,11 +4,14 @@ import { makeRuntime } from "opencode/effect/run-service"
 const runtime = makeRuntime(OpenCodeProject.Service, OpenCodeProject.defaultLayer)
 
 export namespace Project {
-  export const Info = OpenCodeProject.Info.zod
+  export const Info = OpenCodeProject.Info
   export type Info = OpenCodeProject.Info
 
   export const UpdateInput = OpenCodeProject.UpdateInput
   export type UpdateInput = OpenCodeProject.UpdateInput
+
+  export const UpdatePayload = OpenCodeProject.UpdatePayload
+  export type UpdatePayload = OpenCodeProject.UpdatePayload
 
   export function list() {
     return OpenCodeProject.list()

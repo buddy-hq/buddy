@@ -1,7 +1,8 @@
-import { Effect } from "effect"
-import type z from "zod"
+import { Effect, Schema } from "effect"
+import z from "zod"
 import { Tool, type ToolRuntimeServices } from "@buddy/opencode-adapter/tool"
 import { cloneToolUiMetadata, type ToolUiMetadata } from "@buddy/opencode-adapter/tool-ui-metadata"
+import { withCurrentInstance } from "@buddy/opencode-adapter/effect-runtime"
 import {
   ACTIVE_TEACHING_WORKSPACE,
   ADVANCED_MATH_RUNTIME,
@@ -45,7 +46,7 @@ type BuddyToolDefinition<
 
 type BuddyTool<
   Id extends string = string,
-  Parameters extends z.ZodType = z.ZodType,
+  _Parameters extends z.ZodType = z.ZodType,
   Metadata extends BuddyToolMetadata = BuddyToolMetadata,
 > = {
   id: Id
@@ -55,11 +56,55 @@ type BuddyTool<
   ui?: ToolUiMetadata
   toTool(
     directory: string,
-  ): Effect.Effect<Tool.Info<Parameters, Metadata>, never, ToolRuntimeServices> & { id: Id }
+  ): Effect.Effect<Tool.Info<typeof Schema.Unknown, Metadata>, never, ToolRuntimeServices> & {
+    id: Id
+  }
 }
 
 function createAbortError() {
   return new DOMException("Aborted", "AbortError")
+}
+
+function isJsonSchemaObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function normalizeZodJsonSchema(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeZodJsonSchema(item))
+  }
+  if (!isJsonSchemaObject(value)) {
+    return value
+  }
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key, item]) => {
+        return !(
+          (key === "exclusiveMaximum" || key === "exclusiveMinimum") &&
+          typeof item === "boolean"
+        )
+      })
+      .map(([key, item]) => [key, normalizeZodJsonSchema(item)]),
+  )
+}
+
+function toToolJsonSchema(id: string, parameters: z.ZodType) {
+  const raw = z.toJSONSchema(parameters, { io: "input" })
+  const normalized = normalizeZodJsonSchema(raw)
+  if (!isJsonSchemaObject(normalized)) {
+    throw new Error(`Tool ${id} produced a non-object JSON Schema.`)
+  }
+  if (normalized.type !== "object") {
+    throw new Error(`Tool ${id} parameters must be a JSON Schema object.`)
+  }
+
+  const schema = { ...normalized }
+  delete schema.$schema
+  if (isJsonSchemaObject(schema.$defs)) {
+    schema.definitions = schema.$defs
+  }
+  delete schema.$defs
+  return schema
 }
 
 async function executeUntilAbort<T>(abort: AbortSignal, execute: () => Promise<T>) {
@@ -90,6 +135,7 @@ function createBuddyTool<
   const clonedConstraints = cloneConstraints(definition.constraints)
   const clonedDynamic = cloneDynamicMetadata(definition.dynamic)
   const clonedUi = normalizeToolUiMetadata(definition)
+  const jsonSchema = toToolJsonSchema(definition.id, definition.parameters)
 
   return {
     id: definition.id,
@@ -103,7 +149,9 @@ function createBuddyTool<
         Effect.promise(async () => {
           return {
             ...definition,
-            execute(args: z.infer<Parameters>, ctx: Tool.Context<Metadata>) {
+            parameters: Schema.Unknown,
+            jsonSchema,
+            execute(args: unknown, ctx: Tool.Context<Metadata>) {
               const nextCtx: BuddyToolContext<Metadata> = {
                 directory,
                 sessionID: ctx.sessionID,
@@ -114,17 +162,25 @@ function createBuddyTool<
                 ...(ctx.extra ? { extra: ctx.extra } : {}),
                 messages: ctx.messages,
                 metadata(input) {
-                  return Effect.runPromise(ctx.metadata(input))
+                  return Effect.runPromise(withCurrentInstance(ctx.metadata(input)))
                 },
                 ask(input) {
-                  return Effect.runPromise(ctx.ask(input))
+                  return Effect.runPromise(withCurrentInstance(ctx.ask(input)))
                 },
               }
 
               return Effect.promise(async () => {
+                const parsed = definition.parameters.safeParse(args)
+                if (!parsed.success) {
+                  const message = definition.formatValidationError
+                    ? definition.formatValidationError(parsed.error)
+                    : `The ${definition.id} tool was called with invalid arguments: ${parsed.error}.\nPlease rewrite the input so it satisfies the expected schema.`
+                  throw new Error(message, { cause: parsed.error })
+                }
+
                 nextCtx.abort.throwIfAborted()
                 return executeUntilAbort(nextCtx.abort, async () =>
-                  definition.execute(args, nextCtx),
+                  definition.execute(parsed.data, nextCtx),
                 )
               })
             },

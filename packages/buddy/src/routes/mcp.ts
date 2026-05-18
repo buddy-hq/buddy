@@ -1,7 +1,9 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
+import { Schema } from "effect"
 import z from "zod"
 import { MCP as OpenCodeMcp } from "@buddy/opencode-adapter/mcp"
+import { toOpenApiSchema } from "../http/effect-schema"
 import {
   booleanJsonResponse,
   createConfigSyncMiddleware,
@@ -11,7 +13,8 @@ import {
 } from "../http"
 import { proxyToOpenCode } from "../http"
 
-const mcpStatusMapSchema = z.record(z.string(), OpenCodeMcp.Status)
+const mcpStatusMapSchema = toOpenApiSchema(Schema.Record(Schema.String, OpenCodeMcp.Status))
+const mcpStatusSchema = toOpenApiSchema(OpenCodeMcp.Status)
 
 const mcpAuthCallbackSchema = z.object({
   code: z.string(),
@@ -94,7 +97,7 @@ export const McpRoutes = new Hono()
         200: {
           description: "MCP auth callback payload",
           content: {
-            "application/json": { schema: resolver(OpenCodeMcp.Status) },
+            "application/json": { schema: resolver(mcpStatusSchema) },
           },
         },
         ...routeErrors(400, 403, 404),
@@ -117,7 +120,7 @@ export const McpRoutes = new Hono()
         200: {
           description: "MCP auth authentication payload",
           content: {
-            "application/json": { schema: resolver(OpenCodeMcp.Status) },
+            "application/json": { schema: resolver(mcpStatusSchema) },
           },
         },
         ...routeErrors(400, 403, 404),
