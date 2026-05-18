@@ -1,15 +1,14 @@
 import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
 import { ConfigPermission } from "@/config/permission"
-import { InstanceState } from "@/effect"
+import { InstanceState } from "@/effect/instance-state"
 import { ProjectID } from "@/project/schema"
 import { MessageID, SessionID } from "@/session/schema"
 import { PermissionTable } from "@/session/session.sql"
-import { Database, eq } from "@/storage"
-import { zod } from "@/util/effect-zod"
-import { Log } from "@/util"
-import { withStatics } from "@/util/schema"
-import { Wildcard } from "@/util"
+import { Database } from "@/storage/db"
+import { eq } from "drizzle-orm"
+import * as Log from "@opencode-ai/core/util/log"
+import { Wildcard } from "@/util/wildcard"
 import { Deferred, Effect, Layer, Schema, Context } from "effect"
 import os from "os"
 import { evaluate as evalRule } from "./evaluate"
@@ -17,22 +16,17 @@ import { PermissionID } from "./schema"
 
 const log = Log.create({ service: "permission" })
 
-export const Action = Schema.Literals(["allow", "deny", "ask"])
-  .annotate({ identifier: "PermissionAction" })
-  .pipe(withStatics((s) => ({ zod: zod(s) })))
+export const Action = Schema.Literals(["allow", "deny", "ask"]).annotate({ identifier: "PermissionAction" })
 export type Action = Schema.Schema.Type<typeof Action>
 
-export class Rule extends Schema.Class<Rule>("PermissionRule")({
+export const Rule = Schema.Struct({
   permission: Schema.String,
   pattern: Schema.String,
   action: Action,
-}) {
-  static readonly zod = zod(this)
-}
+}).annotate({ identifier: "PermissionRule" })
+export type Rule = Schema.Schema.Type<typeof Rule>
 
-export const Ruleset = Schema.mutable(Schema.Array(Rule))
-  .annotate({ identifier: "PermissionRuleset" })
-  .pipe(withStatics((s) => ({ zod: zod(s) })))
+export const Ruleset = Schema.mutable(Schema.Array(Rule)).annotate({ identifier: "PermissionRuleset" })
 export type Ruleset = Schema.Schema.Type<typeof Ruleset>
 
 export class Request extends Schema.Class<Request>("PermissionRequest")({
@@ -48,11 +42,9 @@ export class Request extends Schema.Class<Request>("PermissionRequest")({
       callID: Schema.String,
     }),
   ),
-}) {
-  static readonly zod = zod(this)
-}
+}) {}
 
-export const Reply = Schema.Literals(["once", "always", "reject"]).pipe(withStatics((s) => ({ zod: zod(s) })))
+export const Reply = Schema.Literals(["once", "always", "reject"])
 export type Reply = Schema.Schema.Type<typeof Reply>
 
 const reply = {
@@ -60,29 +52,23 @@ const reply = {
   message: Schema.optional(Schema.String),
 }
 
-export const ReplyBody = Schema.Struct(reply)
-  .annotate({ identifier: "PermissionReplyBody" })
-  .pipe(withStatics((s) => ({ zod: zod(s) })))
+export const ReplyBody = Schema.Struct(reply).annotate({ identifier: "PermissionReplyBody" })
 export type ReplyBody = Schema.Schema.Type<typeof ReplyBody>
 
 export class Approval extends Schema.Class<Approval>("PermissionApproval")({
   projectID: ProjectID,
   patterns: Schema.Array(Schema.String),
-}) {
-  static readonly zod = zod(this)
-}
+}) {}
 
 export const Event = {
-  Asked: BusEvent.define("permission.asked", Request.zod),
+  Asked: BusEvent.define("permission.asked", Request),
   Replied: BusEvent.define(
     "permission.replied",
-    zod(
-      Schema.Struct({
-        sessionID: SessionID,
-        requestID: PermissionID,
-        reply: Reply,
-      }),
-    ),
+    Schema.Struct({
+      sessionID: SessionID,
+      requestID: PermissionID,
+      reply: Reply,
+    }),
   ),
 }
 
@@ -114,17 +100,13 @@ export const AskInput = Schema.Struct({
   ...Request.fields,
   id: Schema.optional(PermissionID),
   ruleset: Ruleset,
-})
-  .annotate({ identifier: "PermissionAskInput" })
-  .pipe(withStatics((s) => ({ zod: zod(s) })))
+}).annotate({ identifier: "PermissionAskInput" })
 export type AskInput = Schema.Schema.Type<typeof AskInput>
 
 export const ReplyInput = Schema.Struct({
   requestID: PermissionID,
   ...reply,
-})
-  .annotate({ identifier: "PermissionReplyInput" })
-  .pipe(withStatics((s) => ({ zod: zod(s) })))
+}).annotate({ identifier: "PermissionReplyInput" })
 export type ReplyInput = Schema.Schema.Type<typeof ReplyInput>
 
 export interface Interface {
@@ -144,7 +126,6 @@ interface State {
 }
 
 export function evaluate(permission: string, pattern: string, ...rulesets: Ruleset[]): Rule {
-  log.info("evaluate", { permission, pattern, ruleset: rulesets.flat() })
   return evalRule(permission, pattern, ...rulesets)
 }
 
@@ -307,7 +288,7 @@ export function merge(...rulesets: Ruleset[]): Ruleset {
   return rulesets.flat()
 }
 
-const EDIT_TOOLS = ["edit", "write", "apply_patch", "multiedit"]
+const EDIT_TOOLS = ["edit", "write", "apply_patch"]
 
 export function disabled(tools: string[], ruleset: Ruleset): Set<string> {
   const result = new Set<string>()
