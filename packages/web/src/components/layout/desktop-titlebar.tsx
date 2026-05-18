@@ -24,12 +24,19 @@ type DesktopTitlebarProps = {
   projectName?: string
   variant?: "chat" | "shell"
   leftSidebarOpen?: boolean
-  reserveLeftSidebarToggleSlot?: boolean
 }
 
 const ROOT_TITLEBAR_HEIGHT_CLASS = "h-10"
 const CHAT_TITLEBAR_HEIGHT_CLASS = "h-[52px]"
+const CHAT_TITLEBAR_HEIGHT_PX = 52
 const MAC_WINDOW_CONTROL_INSET_CLASS = "w-[90px]"
+const MAC_WINDOW_CONTROL_INSET_WIDTH = 90
+// When sidebar is closed, reserve space for the fixed toggle (w-8 = 32px) + 8px gap
+const CHAT_SIDEBAR_TOGGLE_RESERVED_PX = 40
+// Fixed toggle left positions
+const CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX = MAC_WINDOW_CONTROL_INSET_WIDTH
+const CHAT_SIDEBAR_TOGGLE_LEFT_DEFAULT_PX = 8
+const CHAT_SIDEBAR_TOGGLE_HEIGHT_PX = 24 // h-6
 
 export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const placement = props.placement ?? "root"
@@ -81,13 +88,20 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const resolvedLeftSidebarOpen = props.leftSidebarOpen ?? leftSidebarOpen
   const showSidebarToggles =
     placement === "chat" || (pathname !== "/chat" && pathname.endsWith("/chat"))
-  const showLeftSidebarToggle = placement === "chat" ? !resolvedLeftSidebarOpen : showSidebarToggles
-  const shouldReserveMacWindowControls =
-    isMac &&
-    !isFullscreen &&
-    (placement === "root" || (placement === "chat" && !resolvedLeftSidebarOpen))
-  const shouldReserveLeftSidebarToggleSlot =
-    showLeftSidebarToggle || props.reserveLeftSidebarToggleSlot
+  // In chat placement the toggle is a fixed element inside the header — not in the flow
+  const showLeftSidebarToggle = placement === "chat" ? false : showSidebarToggles
+  const shouldReserveMacWindowControls = placement === "chat" ? false : isMac && !isFullscreen
+  // Animated spacer clears the fixed toggle from the title in ALL desktop variants:
+  //   Mac non-fullscreen closed: 90px (traffic lights) + 40px (toggle + gap) = 130px
+  //   Mac fullscreen / Windows closed: 8px (toggle left) + 40px (toggle + gap) = 48px
+  //   Sidebar open (Col 2 at x≥280): 0px — toggle is inside the sidebar area
+  const chatToggleLeft = isMac && !isFullscreen ? CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX : CHAT_SIDEBAR_TOGGLE_LEFT_DEFAULT_PX
+  const chatLeftSpacerWidth =
+    placement === "chat" && isDesktop
+      ? resolvedLeftSidebarOpen
+        ? 0
+        : chatToggleLeft + CHAT_SIDEBAR_TOGGLE_RESERVED_PX
+      : 0
 
   function onToggleRightSidebar() {
     if (rightSidebarOpen) {
@@ -237,51 +251,98 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       onMouseDown={onMouseDown}
       onDoubleClick={onDoubleClick}
     >
+      {/* Chat-placement fixed sidebar toggle — rendered inside this drag header so Electron's
+          webkit-app-region exclusion recognises it as a no-drag child of the drag region. */}
+      {placement === "chat" && isDesktop ? (
+        <div
+          style={{
+            position: "fixed",
+            top: (CHAT_TITLEBAR_HEIGHT_PX - CHAT_SIDEBAR_TOGGLE_HEIGHT_PX) / 2,
+            left: isMac && !isFullscreen ? CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX : CHAT_SIDEBAR_TOGGLE_LEFT_DEFAULT_PX,
+            zIndex: 50,
+            transition: "left 200ms ease-out",
+          }}
+          className="motion-reduce:transition-none [-webkit-app-region:no-drag]"
+        >
+          <Button
+            type="button"
+            data-action="chat-toggle-left-sidebar"
+            variant="ghost"
+            className="box-border h-6 w-8 p-0 text-text-weak hover:bg-surface-base-hover hover:text-text-strong [-webkit-app-region:no-drag]"
+            aria-label={
+              resolvedLeftSidebarOpen
+                ? language.t("desktopTitlebar.collapseLeftPanel")
+                : language.t("desktopTitlebar.expandLeftPanel")
+            }
+            aria-expanded={resolvedLeftSidebarOpen}
+            title={
+              resolvedLeftSidebarOpen
+                ? language.t("desktopTitlebar.collapseLeftPanel")
+                : language.t("desktopTitlebar.expandLeftPanel")
+            }
+            onClick={() => setLeftSidebarOpen(!resolvedLeftSidebarOpen)}
+          >
+            {resolvedLeftSidebarOpen ? (
+              <LayoutLeftPartialIcon className="size-4" />
+            ) : (
+              <LayoutLeftIcon className="size-4" />
+            )}
+          </Button>
+        </div>
+      ) : null}
       <div className="flex h-full items-center">
         {shouldReserveMacWindowControls ? (
           <div className={`${MAC_WINDOW_CONTROL_INSET_CLASS} shrink-0`} />
         ) : null}
-        {shouldReserveLeftSidebarToggleSlot ? (
-          <div className="ml-2 flex h-6 w-8 shrink-0 items-center gap-1">
-            {showLeftSidebarToggle ? leftSidebarToggleButton : null}
+        {placement === "chat" && isDesktop ? (
+          <div
+            className="shrink-0 transition-[width] duration-200 ease-out motion-reduce:transition-none"
+            style={{ width: chatLeftSpacerWidth }}
+          />
+        ) : null}
+        {showLeftSidebarToggle ? (
+          <div className="ml-2 flex h-6 w-8 shrink-0 items-center">
+            {leftSidebarToggleButton}
           </div>
         ) : null}
         {!isShellVariant && (
-          <div className="min-w-0 flex-1">
-            {placement === "chat" ? (
-              <div className="flex min-w-0 items-center gap-2 px-3">
-                <h1 className="min-w-0 truncate text-sm font-medium text-text-strong">
-                  {props.chatTitle}
-                </h1>
-                {props.projectName ? (
-                  <Badge variant="outline" className="min-w-0 shrink overflow-hidden">
-                    <span className="min-w-0 truncate">{props.projectName}</span>
-                  </Badge>
-                ) : null}
-              </div>
-            ) : isReadingPage ? (
-              <div className="flex items-center gap-2 px-3 animate-in fade-in slide-in-from-left-2 duration-300 cubic-bezier(0.23, 1, 0.32, 1)">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label={language.t("sidebar.resourcesBackToChat")}
-                  title={language.t("sidebar.resourcesBackToChat")}
-                  className="transition-transform active:scale-90 [-webkit-app-region:no-drag]"
-                  onClick={() => {
-                    void navigate({
-                      to: "/$directory/chat",
-                      params: {
-                        directory: directoryToken!,
-                      },
-                    })
-                  }}
-                >
-                  <MoveLeftIcon className="size-5" />
-                </Button>
-              </div>
-            ) : null}
-          </div>
+          placement === "chat" ? (
+            <div className="flex min-w-0 flex-1 items-center gap-2 px-2">
+              <h1 className="min-w-0 truncate text-sm font-medium text-text-strong">
+                {props.chatTitle}
+              </h1>
+              {props.projectName ? (
+                <Badge variant="outline" className="min-w-0 shrink overflow-hidden">
+                  <span className="min-w-0 truncate">{props.projectName}</span>
+                </Badge>
+              ) : null}
+            </div>
+          ) : (
+            <div className="min-w-0 flex-1">
+              {isReadingPage ? (
+                <div className="flex items-center gap-2 px-3 animate-in fade-in slide-in-from-left-2 duration-300 cubic-bezier(0.23, 1, 0.32, 1)">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={language.t("sidebar.resourcesBackToChat")}
+                    title={language.t("sidebar.resourcesBackToChat")}
+                    className="transition-transform active:scale-90 [-webkit-app-region:no-drag]"
+                    onClick={() => {
+                      void navigate({
+                        to: "/$directory/chat",
+                        params: {
+                          directory: directoryToken!,
+                        },
+                      })
+                    }}
+                  >
+                    <MoveLeftIcon className="size-5" />
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          )
         )}
         <div className="flex shrink-0 items-center gap-1 mr-2 ml-auto">
           {!isShellVariant && rightSidebarToggle}
