@@ -396,7 +396,10 @@ async function resolvePresentedMediaFile(
 ): Promise<ResolvedPresentedMediaFile> {
   const absolutePath = normalizeInputSourcePath(directory, inputPath)
   const file = await resolveExistingFile(absolutePath)
-  const canOpenInWorkspacePanel = isPathWithinBoundary(workspaceBoundary.directoryPath, file.realPath)
+  const canOpenInWorkspacePanel = isPathWithinBoundary(
+    workspaceBoundary.directoryPath,
+    file.realPath,
+  )
   const workspacePath = canOpenInWorkspacePanel
     ? normalizeRelativePath(path.relative(workspaceBoundary.directoryPath, file.realPath))
     : null

@@ -112,7 +112,10 @@ function withToolUiOnState(state: ToolState, toolUi: ToolUiMetadata | undefined)
   }
 }
 
-function withToolUiOnPart<T extends OpenCodeMessageV2.MessageV2.Part>(part: T, directory?: string): T {
+function withToolUiOnPart<T extends OpenCodeMessageV2.MessageV2.Part>(
+  part: T,
+  directory?: string,
+): T {
   if (part.type !== "tool") return part
 
   const toolUi = toolUiForPart(part, directory)
@@ -295,8 +298,12 @@ function ensureLLMPatched(service: OpenCodeLLM.Interface) {
 
 export async function ensureSessionToolUiPatched() {
   patchPromise ??= Promise.all([
-    sessionRuntime.runPromise((svc) => withCurrentInstance(Effect.sync(() => ensureSessionPatched(svc)))),
-    pluginRuntime.runPromise((svc) => withCurrentInstance(Effect.sync(() => ensurePluginPatched(svc)))),
+    sessionRuntime.runPromise((svc) =>
+      withCurrentInstance(Effect.sync(() => ensureSessionPatched(svc))),
+    ),
+    pluginRuntime.runPromise((svc) =>
+      withCurrentInstance(Effect.sync(() => ensurePluginPatched(svc))),
+    ),
     llmRuntime.runPromise((svc) => withCurrentInstance(Effect.sync(() => ensureLLMPatched(svc)))),
   ])
     .then(() => undefined)

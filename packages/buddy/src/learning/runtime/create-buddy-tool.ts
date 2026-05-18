@@ -54,9 +54,11 @@ type BuddyTool<
   constraints?: BuddyToolConstraints
   dynamic?: DynamicBuddyToolMetadata
   ui?: ToolUiMetadata
-  toTool(
-    directory: string,
-  ): Effect.Effect<Tool.Info<typeof Schema.Unknown, Metadata>, never, ToolRuntimeServices> & {
+  toTool(directory: string): Effect.Effect<
+    Tool.Info<typeof Schema.Unknown, Metadata>,
+    never,
+    ToolRuntimeServices
+  > & {
     id: Id
   }
 }

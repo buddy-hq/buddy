@@ -65,7 +65,11 @@ function normalizePaths(schema: OpenAPISchema) {
 }
 
 function isScalarAllOfSchema(value: Record<string, unknown>) {
-  return typeof value.type === "string" && SCALAR_OPENAPI_TYPES.has(value.type) && Array.isArray(value.allOf)
+  return (
+    typeof value.type === "string" &&
+    SCALAR_OPENAPI_TYPES.has(value.type) &&
+    Array.isArray(value.allOf)
+  )
 }
 
 function getScalarAllOfLayers(value: Record<string, unknown>) {
@@ -86,10 +90,7 @@ function getScalarAllOfLayers(value: Record<string, unknown>) {
   return layers
 }
 
-function canFlattenScalarAllOf(
-  parent: Record<string, unknown>,
-  layers: Record<string, unknown>[],
-) {
+function canFlattenScalarAllOf(parent: Record<string, unknown>, layers: Record<string, unknown>[]) {
   const seen = new Map<string, unknown>()
   for (const [key, value] of Object.entries(parent)) {
     if (key === "allOf") continue
