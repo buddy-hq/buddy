@@ -102,10 +102,7 @@ export function AppearanceSettings() {
 
   return (
     <>
-      <SettingsContent
-        title={language.t("settings.appearance.title")}
-        description={language.t("settings.appearance.description")}
-      >
+      <SettingsContent>
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-text-base">
             {language.t("settings.appearance.themeSection")}

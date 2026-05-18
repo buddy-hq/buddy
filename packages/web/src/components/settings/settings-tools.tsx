@@ -176,10 +176,7 @@ function StandardsSettingsPanel(props: {
   const someGlobalEnabled = STANDARDS_TOOL_IDS.some((toolId) => selection.globalDefaults[toolId])
 
   return (
-    <SettingsContent
-      title={language.t("settings.standards.title")}
-      description={language.t("settings.standards.description")}
-    >
+    <SettingsContent>
       <div className="space-y-2">
         <div className="space-y-1">
           <h3 className="text-sm font-medium text-text-base">

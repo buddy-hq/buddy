@@ -1,6 +1,5 @@
 import { McpEditorDialog } from "@/components/mcp-dialog/mcp-editor-dialog"
 import { McpListPanel } from "@/components/mcp-dialog/mcp-list-panel"
-import { language } from "@/context/language"
 import { useMcpDirectoryData } from "@/components/mcp-dialog/use-mcp-directory-data"
 import { useMcpEditorState } from "@/components/mcp-dialog/use-mcp-editor-state"
 import { SettingsContent } from "./settings-primitives"
@@ -22,14 +21,7 @@ export function McpsSettings({ workbench }: { workbench: SettingsWorkbench }) {
 
   return (
     <>
-      <SettingsContent
-        title={language.t("settings.mcps.title")}
-        description={language.t("settings.mcps.description", {
-          enabledCount: directoryState.enabledCount,
-          totalCount: directoryState.totalCount,
-        })}
-        eyebrow="Global settings"
-      >
+      <SettingsContent>
         <div data-component="settings-mcp-panel" className="contents">
           <McpListPanel
             allNames={directoryState.allNames}

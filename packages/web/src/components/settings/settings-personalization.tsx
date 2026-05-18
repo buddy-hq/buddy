@@ -40,10 +40,7 @@ export function PersonalizationSettings({
   }, [form, settingsQuery.error])
 
   return (
-    <SettingsContent
-      title={language.t("settings.personalization.title")}
-      description={language.t("settings.personalization.description")}
-    >
+    <SettingsContent>
       <div className="space-y-6">
         <div className="space-y-2">
           <SettingsSectionHeader

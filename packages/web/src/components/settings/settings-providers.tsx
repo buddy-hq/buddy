@@ -375,11 +375,7 @@ export function ProvidersSettings({ workbench }: { workbench: SettingsWorkbench 
 
   return (
     <>
-      <SettingsContent
-        title={language.t("settings.providers.title")}
-        description={language.t("settings.providers.description")}
-        eyebrow="Global settings"
-      >
+      <SettingsContent>
         {providers.length > 0 ? (
           <ProviderSection title={language.t("settings.providers.connectedSection")}>
             <SettingsListCard>

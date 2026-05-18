@@ -332,11 +332,7 @@ export function LearnerMemorySettings({ workbench }: { workbench: SettingsWorkbe
   )
 
   return (
-    <SettingsContent
-      title={language.t("settings.learnerMemory.title")}
-      description={language.t("settings.learnerMemory.description")}
-      eyebrow="Global settings"
-    >
+    <SettingsContent>
       <GlobalDefaultsSection description="These controls apply to Buddy's learner memory system across notebooks.">
         <SettingsListCard>
           <SettingsRow
