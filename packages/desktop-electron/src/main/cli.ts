@@ -171,7 +171,7 @@ async function buildRuntimeEnvironment(password: string, port: number) {
     PORT: String(port),
     OPENCODE_EXPERIMENTAL_ICON_DISCOVERY: "true",
     OPENCODE_EXPERIMENTAL_FILEWATCHER: "true",
-    OPENCODE_CLIENT: "desktop-electron",
+    OPENCODE_CLIENT: "desktop",
   }
 
   const advancedMathAssetDir = resolveDevelopmentAdvancedMathAssetDir()
