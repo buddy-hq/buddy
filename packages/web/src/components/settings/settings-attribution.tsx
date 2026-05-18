@@ -1,4 +1,4 @@
-import { ExternalLinkIcon, ScaleIcon } from "lucide-react"
+import { ExternalLinkIcon } from "lucide-react"
 import { usePlatform } from "@/context/platform"
 import { language } from "@/context/language"
 import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primitives"
@@ -25,11 +25,7 @@ function AttributionLink({ href, children }: { href: string; children: React.Rea
 
 export function AttributionSettings() {
   return (
-    <SettingsContent
-      title={language.t("settings.attribution.title")}
-      description={language.t("settings.attribution.description")}
-      eyebrow="App information"
-    >
+    <SettingsContent>
       <div className="space-y-6">
         <SettingsListCard>
           <SettingsRow
@@ -79,35 +75,6 @@ export function AttributionSettings() {
             }
           />
         </SettingsListCard>
-
-        <div className="space-y-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-6 items-center justify-center rounded-md bg-surface-tertiary">
-              <ScaleIcon className="size-3.5 text-text-weak" />
-            </div>
-            <h3 className="text-sm font-medium text-text-base">
-              {language.t("settings.attribution.additionalAttributions.title")}
-            </h3>
-          </div>
-          <SettingsListCard>
-            <SettingsRow
-              title={
-                <AttributionLink href="https://github.com/prashantbhudwal/buddy">
-                  {language.t("settings.attribution.buddy.title")}
-                </AttributionLink>
-              }
-              description={language.t("settings.attribution.buddy.description")}
-              last
-              control={
-                <div className="flex justify-end">
-                  <span className="inline-flex items-center rounded-full border border-border-base/60 bg-surface-tertiary px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-text-weaker">
-                    O’Saasy License
-                  </span>
-                </div>
-              }
-            />
-          </SettingsListCard>
-        </div>
       </div>
     </SettingsContent>
   )

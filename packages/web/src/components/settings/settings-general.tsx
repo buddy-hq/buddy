@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Button,
   Input,
@@ -13,11 +12,7 @@ import {
 } from "@buddy/ui"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
-import { pickProjectDirectory } from "@/lib/directory-picker"
-import { useGeneralSettings } from "@/state/general-settings"
 import { useNotificationPreferences } from "@/state/notification-preferences"
-import { saveNotebookHome } from "@/state/chat-actions"
-import { notebookHomeQueryOptions, setNotebookHomeQueryData } from "@/state/bootstrap-query"
 import { showDesktopUpdateToast } from "@/lib/desktop-updates"
 import { useTheme, type ColorScheme } from "@/theme"
 import {
@@ -30,7 +25,7 @@ import {
   uiFontFamily,
   useAppearancePreferences,
 } from "@/state/appearance-preferences"
-import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primitives"
+import { SettingsContent, SettingsSection, SettingsRow } from "./settings-primitives"
 import type { SettingsWorkbench } from "./settings-workbench"
 
 function isColorScheme(value: string): value is ColorScheme {
@@ -91,14 +86,9 @@ function FontSizeInput(props: {
   )
 }
 
-export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench }) {
+export function GeneralSettings({ workbench: _workbench }: { workbench: SettingsWorkbench }) {
   const platform = usePlatform()
-  const queryClient = useQueryClient()
-  const generalSettings = useGeneralSettings({
-    cleanupDirectories: workbench.openDirectories,
-  })
   const [checkingForUpdates, setCheckingForUpdates] = useState(false)
-  const [changingBuddyHome, setChangingBuddyHome] = useState(false)
   const { themeId, colorScheme, themes, setTheme, setColorScheme } = useTheme()
   const uiFont = useAppearancePreferences((state) => state.uiFont)
   const codeFont = useAppearancePreferences((state) => state.codeFont)
@@ -112,8 +102,6 @@ export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench })
   const setAgentNotifications = useNotificationPreferences((state) => state.setAgent)
   const setPermissionNotifications = useNotificationPreferences((state) => state.setPermissions)
   const setErrorNotifications = useNotificationPreferences((state) => state.setErrors)
-  const notebookHomeQuery = useQuery(notebookHomeQueryOptions())
-  const notebookHome = notebookHomeQuery.data
 
   const colorSchemeOptions: ReadonlyArray<{ value: ColorScheme; label: string }> = [
     { value: "system", label: language.t("settings.appearance.colorSchemes.system") },
@@ -171,30 +159,9 @@ export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench })
     }
   }
 
-  async function onChangeBuddyHome() {
-    try {
-      const picked = await pickProjectDirectory()
-      if (!picked) return
-
-      setChangingBuddyHome(true)
-      const nextNotebookHome = await saveNotebookHome(picked)
-      setNotebookHomeQueryData(queryClient, nextNotebookHome)
-      toast.success(language.t("settings.general.buddyHomeSaved"))
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : language.t("settings.general.buddyHomeSaveFailed"),
-      )
-    } finally {
-      setChangingBuddyHome(false)
-    }
-  }
-
   return (
-    <SettingsContent
-      title={language.t("settings.general.title")}
-      description={language.t("settings.general.description")}
-    >
-      <SettingsListCard>
+    <SettingsContent>
+      <SettingsSection title="Appearance">
         <SettingsRow
           title={language.t("settings.appearance.colorSchemeTitle")}
           description={language.t("settings.appearance.colorSchemeDescription")}
@@ -292,135 +259,52 @@ export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench })
             />
           }
         />
-        <SettingsRow
-          title={language.t("settings.general.fullTextTitle")}
-          description="Allow Buddy to read an entire prepared resource into context when there is enough live context budget. Turn this off to avoid expensive full-book reads."
-          control={
-            <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
-              <span className="text-sm text-text-weak">
-                {generalSettings.selection.fullTextReadingEnabled
-                  ? language.t("settings.notebook.on")
-                  : language.t("settings.notebook.off")}
-              </span>
-              <Switch
-                data-action="settings-global-full-text"
-                checked={generalSettings.selection.fullTextReadingEnabled}
-                onCheckedChange={generalSettings.actions.setFullTextReadingEnabled}
-                disabled={generalSettings.status.loading}
-                aria-label={language.t("settings.general.fullTextAria")}
-              />
-            </div>
-          }
-        />
-        <SettingsRow
-          title={language.t("settings.general.autoCompactionTitle")}
-          description="Automatically compact the session when context reaches the model limit window. Turn this off to keep full history and compact manually with slash commands."
-          control={
-            <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
-              <span className="text-sm text-text-weak">
-                {generalSettings.selection.autoCompactionEnabled
-                  ? language.t("settings.notebook.on")
-                  : language.t("settings.notebook.off")}
-              </span>
-              <Switch
-                data-action="settings-global-auto-compaction"
-                checked={generalSettings.selection.autoCompactionEnabled}
-                onCheckedChange={generalSettings.actions.setAutoCompactionEnabled}
-                disabled={generalSettings.status.loading}
-                aria-label={language.t("settings.general.autoCompactionAria")}
-              />
-            </div>
-          }
-        />
-        <SettingsRow
-          title={language.t("settings.general.buddyHomeTitle")}
-          description={language.t("settings.general.buddyHomeDescription")}
-          control={
-            <div className="space-y-2">
-              <Button
-                data-action="settings-change-buddy-home"
-                type="button"
-                size="xs"
-                variant="outline"
-                className="w-full"
-                onClick={() => void onChangeBuddyHome()}
-                disabled={changingBuddyHome || notebookHomeQuery.isPending}
-              >
-                {changingBuddyHome
-                  ? language.t("settings.general.buddyHomeChanging")
-                  : language.t("settings.general.buddyHomeChange")}
-              </Button>
-              {notebookHome?.resolvedDirectory ? (
-                <p className="text-xs text-text-weak break-words">
-                  {notebookHome.resolvedDirectory}
-                </p>
-              ) : null}
-            </div>
-          }
-        />
+      </SettingsSection>
+
+      <SettingsSection title="Notifications">
         <SettingsRow
           title={language.t("settings.general.notificationsAgentTitle")}
           description={language.t("settings.general.notificationsAgentDescription")}
           control={
-            <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
-              <span className="text-sm text-text-weak">
-                {notificationPreferences.agent
-                  ? language.t("settings.notebook.on")
-                  : language.t("settings.notebook.off")}
-              </span>
-              <Switch
-                data-action="settings-notifications-agent"
-                checked={notificationPreferences.agent}
-                onCheckedChange={setAgentNotifications}
-                aria-label={language.t("settings.general.notificationsAgentAria")}
-              />
-            </div>
+            <Switch
+              data-action="settings-notifications-agent"
+              checked={notificationPreferences.agent}
+              onCheckedChange={setAgentNotifications}
+              aria-label={language.t("settings.general.notificationsAgentAria")}
+            />
           }
         />
         <SettingsRow
           title={language.t("settings.general.notificationsPermissionsTitle")}
           description={language.t("settings.general.notificationsPermissionsDescription")}
           control={
-            <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
-              <span className="text-sm text-text-weak">
-                {notificationPreferences.permissions
-                  ? language.t("settings.notebook.on")
-                  : language.t("settings.notebook.off")}
-              </span>
-              <Switch
-                data-action="settings-notifications-permissions"
-                checked={notificationPreferences.permissions}
-                onCheckedChange={setPermissionNotifications}
-                aria-label={language.t("settings.general.notificationsPermissionsAria")}
-              />
-            </div>
+            <Switch
+              data-action="settings-notifications-permissions"
+              checked={notificationPreferences.permissions}
+              onCheckedChange={setPermissionNotifications}
+              aria-label={language.t("settings.general.notificationsPermissionsAria")}
+            />
           }
         />
         <SettingsRow
           title={language.t("settings.general.notificationsErrorsTitle")}
           description={language.t("settings.general.notificationsErrorsDescription")}
-          last={!showDesktopUpdateControls}
           control={
-            <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
-              <span className="text-sm text-text-weak">
-                {notificationPreferences.errors
-                  ? language.t("settings.notebook.on")
-                  : language.t("settings.notebook.off")}
-              </span>
-              <Switch
-                data-action="settings-notifications-errors"
-                checked={notificationPreferences.errors}
-                onCheckedChange={setErrorNotifications}
-                aria-label={language.t("settings.general.notificationsErrorsAria")}
-              />
-            </div>
+            <Switch
+              data-action="settings-notifications-errors"
+              checked={notificationPreferences.errors}
+              onCheckedChange={setErrorNotifications}
+              aria-label={language.t("settings.general.notificationsErrorsAria")}
+            />
           }
         />
-        {showDesktopUpdateControls ? (
+      </SettingsSection>
+
+      {showDesktopUpdateControls ? (
+        <SettingsSection title="Updates">
           <SettingsRow
             title={language.t("settings.appearance.updatesTitle")}
             description={language.t("settings.appearance.updatesDescription")}
-            last
             control={
               <Button
                 data-action="settings-check-updates"
@@ -436,8 +320,8 @@ export function GeneralSettings({ workbench }: { workbench: SettingsWorkbench })
               </Button>
             }
           />
-        ) : null}
-      </SettingsListCard>
+        </SettingsSection>
+      ) : null}
     </SettingsContent>
   )
 }
