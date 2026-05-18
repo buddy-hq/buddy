@@ -20,6 +20,8 @@ type LearnerMemoryModel = {
   model: Provider.Model
 }
 
+const LEARNER_MEMORY_NO_AUTOMATIC_MODEL_REASON = "learner_memory_no_automatic_model"
+
 type ParsedModel = {
   providerID: string
   modelID: string
@@ -89,7 +91,8 @@ async function fallbackConfiguredModel(): Promise<LearnerMemoryModel> {
 async function resolveLearnerMemoryModel(input: {
   directory: string
   purpose: LearnerMemoryModelPurpose
-}): Promise<LearnerMemoryModel> {
+  allowGenericFallback?: boolean
+}): Promise<LearnerMemoryModel | undefined> {
   await ensureOpenCodeProjectOverlay(input.directory)
   const config = await readProjectConfig(input.directory)
   const settings = readLearnerMemorySettings(config)
@@ -102,6 +105,10 @@ async function resolveLearnerMemoryModel(input: {
   const openAIModel = await exactOpenAIModelForPurpose(input.purpose)
   if (openAIModel) return openAIModel
 
+  if (input.allowGenericFallback === false) {
+    return undefined
+  }
+
   if (input.purpose === "extract") {
     const smallModel = await fallbackSmallModel()
     if (smallModel) return smallModel
@@ -113,6 +120,7 @@ async function resolveLearnerMemoryModel(input: {
 export {
   DEFAULT_OPENAI_CONSOLIDATION_MODEL,
   DEFAULT_OPENAI_EXTRACT_MODEL,
+  LEARNER_MEMORY_NO_AUTOMATIC_MODEL_REASON,
   OPENAI_PROVIDER_ID,
   resolveLearnerMemoryModel,
 }

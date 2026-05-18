@@ -6,7 +6,7 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { ulid } from "ulid"
 import z from "zod"
-import { resolveLearnerMemoryModel } from "./models"
+import { LEARNER_MEMORY_NO_AUTOMATIC_MODEL_REASON, resolveLearnerMemoryModel } from "./models"
 import { LearnerMemoryPath } from "./paths"
 import { readProjectConfig, syncOpenCodeProjectConfig } from "../../../config/runtime"
 import { readLearnerMemorySettings } from "./settings"
@@ -203,7 +203,7 @@ async function assertConsolidationOutputReferencesTargetFiles(input: {
 
 async function runConsolidationSubagent(input: {
   directory: string
-  model: Awaited<ReturnType<typeof resolveLearnerMemoryModel>>
+  model: NonNullable<Awaited<ReturnType<typeof resolveLearnerMemoryModel>>>
   prompt: string
 }): Promise<z.infer<typeof ConsolidationModelOutputSchema>> {
   const permissionPatterns = await memoryRootPermissionPatterns({
@@ -356,8 +356,25 @@ async function runLearnerMemoryConsolidation(input: {
     const model = await OpenCodeInstance.provide({
       directory: input.directory,
       fn: async () =>
-        resolveLearnerMemoryModel({ directory: input.directory, purpose: "consolidate" }),
+        resolveLearnerMemoryModel({
+          directory: input.directory,
+          purpose: "consolidate",
+          allowGenericFallback: input.force === true,
+        }),
     })
+    if (!model) {
+      await markLearnerMemoryPhaseTwoJobFailed({
+        directory: input.directory,
+        claim: claimOutcome.claim,
+        error: new Error(LEARNER_MEMORY_NO_AUTOMATIC_MODEL_REASON),
+      })
+      return {
+        claimed: true,
+        skippedReason: LEARNER_MEMORY_NO_AUTOMATIC_MODEL_REASON,
+        selectedCandidateCount: 0,
+        memoryIds: [],
+      }
+    }
     const parsed = await OpenCodeInstance.provide({
       directory: input.directory,
       fn: async () =>

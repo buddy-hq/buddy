@@ -11,6 +11,7 @@ import {
   resolveLearnerMemoryExtractionModel,
 } from "./extractor"
 import { internalLearnerMemorySession } from "./internal-session"
+import { LEARNER_MEMORY_NO_AUTOMATIC_MODEL_REASON } from "./models"
 import { readLearnerMemorySettings } from "./settings"
 import { buildFilteredSessionSource, truncateSessionSource } from "./session-source"
 import {
@@ -267,8 +268,35 @@ async function extractLearnerMemoryFromSession(input: {
   try {
     const extractionModel = await OpenCodeInstance.provide({
       directory: input.directory,
-      fn: async () => resolveLearnerMemoryExtractionModel(input.directory),
+      fn: async () => resolveLearnerMemoryExtractionModel(input.directory, input.force === true),
     })
+    if (!extractionModel) {
+      await releaseLearnerMemoryStageOneJobSkipped({
+        directory: input.directory,
+        claim: claimOutcome.claim,
+      })
+      await appendLearnerEvent(
+        input.directory,
+        createLearnerEvent({
+          type: "session_extraction_skipped",
+          sessionId: input.sessionID,
+          projectPath: input.directory,
+          sourceKind: "model_selection",
+          sourceId: input.sessionID,
+          searchableText: `Learner memory extraction skipped for ${input.sessionID}: ${LEARNER_MEMORY_NO_AUTOMATIC_MODEL_REASON}`,
+          payload: { reason: LEARNER_MEMORY_NO_AUTOMATIC_MODEL_REASON },
+        }),
+      )
+      return {
+        enabled: true,
+        sessionID: input.sessionID,
+        decision,
+        candidateCount: 0,
+        approvedCount: 0,
+        memoryIds: [],
+        skippedReason: LEARNER_MEMORY_NO_AUTOMATIC_MODEL_REASON,
+      }
+    }
     const truncatedSource = truncateSessionSource({
       source,
       tokenBudget: tokenBudgetFromContextWindow({

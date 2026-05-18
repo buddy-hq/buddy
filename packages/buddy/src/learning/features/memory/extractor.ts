@@ -264,8 +264,9 @@ function candidatesFromModelOutput(input: { fixture: EvaluationFixture; structur
 
 function resolveLearnerMemoryExtractionModel(
   directory: string,
+  allowGenericFallback = true,
 ): ReturnType<typeof resolveLearnerMemoryModel> {
-  return resolveLearnerMemoryModel({ directory, purpose: "extract" })
+  return resolveLearnerMemoryModel({ directory, purpose: "extract", allowGenericFallback })
 }
 
 async function extractCandidatePatchesWithModel(input: {
@@ -278,6 +279,9 @@ async function extractCandidatePatchesWithModel(input: {
     directory: input.directory,
     fn: async () => resolveLearnerMemoryExtractionModel(input.directory),
   })
+  if (!extractionModel) {
+    throw new Error("Learner memory extraction model resolution failed")
+  }
   const response = await OpenCodeInstance.provide({
     directory: input.directory,
     fn: async () =>
@@ -338,6 +342,9 @@ async function extractLearnerMemoryStageOneWithModel(input: {
     directory: input.directory,
     fn: async () => resolveLearnerMemoryExtractionModel(input.directory),
   })
+  if (!extractionModel) {
+    throw new Error("Learner memory extraction model resolution failed")
+  }
   const response = await OpenCodeInstance.provide({
     directory: input.directory,
     fn: async () =>
