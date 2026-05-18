@@ -613,8 +613,8 @@ export const dict = {
   "settings.advanced.skillDiscoverySection": "Skill discovery",
   "settings.advanced.title": "Advanced",
   "settings.appearance.advancedMathDescription":
-    "Optional machine-wide runtime for Python-based math and plotting.",
-  "settings.appearance.advancedMathTitle": "Advanced math runtime",
+    "Uses python to do advanced mathematics and graph work.",
+  "settings.appearance.advancedMathTitle": "Advanced Math Package",
   "settings.appearance.advancedMathToggleAria": "Toggle advanced math runtime",
   "settings.appearance.checkForUpdates": "Check for updates",
   "settings.appearance.checking": "Checking...",
@@ -666,7 +666,7 @@ export const dict = {
   "settings.general.buddyHomeTitle": "Buddy Home",
   "settings.general.buddyHomeDescription":
     "Choose where Buddy creates managed notebooks by default. You can still open or create notebooks elsewhere later.",
-  "settings.general.buddyHomeChange": "Change Buddy Home",
+  "settings.general.buddyHomeChange": "Change Home",
   "settings.general.buddyHomeChanging": "Changing Buddy Home...",
   "settings.general.buddyHomeSaved": "Buddy Home updated",
   "settings.general.buddyHomeSaveFailed": "Couldn't update Buddy Home. Try again.",
@@ -817,7 +817,7 @@ export const dict = {
   "settings.tools.removeStandardsTitle": "Remove standards package?",
   "settings.tools.standardsSection": "Standards",
   "settings.tools.standardsRuntimeDescription":
-    "Optional machine-wide package for standards graph lookups and progressions.",
+    "Look up teaching standards, progressions and crosswalks.",
   "settings.tools.standardsRuntimeSection": "Standards package",
   "settings.tools.standardsRuntimeTitle": "Standards package",
   "settings.tools.standardsRuntimeToggleAria": "Toggle standards package",

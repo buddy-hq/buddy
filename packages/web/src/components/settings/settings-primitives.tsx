@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { Badge, Card, CardContent, Separator, cn } from "@buddy/ui"
+import { Badge, cn } from "@buddy/ui"
 import type { ProviderInfo } from "@/state/chat-types"
 import type { SettingsWorkbench } from "./settings-workbench"
 
@@ -10,34 +10,20 @@ const PROVIDER_SOURCE_LABELS: Record<string, string> = {
 }
 
 export function SettingsContent(props: {
-  title?: string
-  description?: string
-  eyebrow?: string
   children: ReactNode
   fillHeight?: boolean
 }) {
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-      {props.title && (
-        <div className="shrink-0 border-b border-border-base/60 px-5 py-5">
-          {props.eyebrow ? (
-            <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.14em] text-text-weaker">
-              {props.eyebrow}
-            </p>
-          ) : null}
-          <h2 className="text-base font-medium text-text-base">{props.title}</h2>
-          {props.description && <p className="mt-1 text-sm text-text-weak">{props.description}</p>}
-        </div>
-      )}
       <div
         className={cn(
-          "min-h-0 flex-1 px-5 py-5",
+          "min-h-0 flex-1 px-6 py-6 sm:px-8 sm:py-8",
           props.fillHeight ? "overflow-hidden" : "overflow-x-hidden overflow-y-auto",
         )}
       >
         <div
           className={cn(
-            "mx-auto flex w-full max-w-3xl flex-col gap-6",
+            "mx-auto flex w-full max-w-3xl flex-col gap-8",
             props.fillHeight ? "h-full min-h-0" : "min-h-full",
           )}
         >
@@ -54,23 +40,49 @@ export function SettingsSectionHeader(props: {
   badge?: string
 }) {
   return (
-    <div className="space-y-1">
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-sm font-medium text-text-base">{props.title}</h3>
+    <div className="space-y-1 px-1">
+      <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-weaker">
+        {props.title}
         {props.badge ? (
-          <span className="rounded-full border border-border-base/60 bg-surface-tertiary px-2 py-0.5 text-[11px] font-medium text-text-weaker">
+          <span className="rounded-full border border-border-base/60 bg-surface-tertiary px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-text-weaker">
             {props.badge}
           </span>
         ) : null}
-      </div>
+      </h3>
       {props.description ? <p className="text-xs text-text-weak">{props.description}</p> : null}
+    </div>
+  )
+}
+
+export function SettingsSection(props: {
+  title: string
+  badge?: string
+  headerAction?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <div className="space-y-2.5">
+      <div className="flex items-center justify-between px-1">
+        <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-weaker">
+          {props.title}
+          {props.badge ? (
+            <span className="rounded-full border border-border-base/60 bg-surface-tertiary px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-text-weaker">
+              {props.badge}
+            </span>
+          ) : null}
+        </h3>
+        {props.headerAction ? (
+          <div className="flex items-center">{props.headerAction}</div>
+        ) : null}
+      </div>
+      <SettingsListCard>{props.children}</SettingsListCard>
     </div>
   )
 }
 
 export function GlobalDefaultsSection(props: { children: ReactNode; description?: string }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <SettingsSectionHeader
         title="Global defaults"
         description={
@@ -90,7 +102,7 @@ export function NotebookCustomizationSection(props: {
   description?: string
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <SettingsSectionHeader
         title="Current notebook customization"
         description={
@@ -102,7 +114,7 @@ export function NotebookCustomizationSection(props: {
       {props.workbench.hasSelectedNotebook ? (
         props.children
       ) : (
-        <div className="rounded-md border border-border-base/60 p-3 text-sm text-text-weak">
+        <div className="rounded-2xl border border-border-base/50 p-4 text-sm text-text-weak">
           Open a notebook to customize notebook-specific behavior.
         </div>
       )}
@@ -112,7 +124,7 @@ export function NotebookCustomizationSection(props: {
 
 export function EffectiveBehaviorSection(props: { children: ReactNode; description?: string }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <SettingsSectionHeader
         title="Effective behavior"
         description={props.description ?? "This is what Buddy will do for the selected notebook."}
@@ -125,9 +137,9 @@ export function EffectiveBehaviorSection(props: { children: ReactNode; descripti
 
 export function SettingsListCard(props: { children: ReactNode }) {
   return (
-    <Card size="sm" className="gap-0 py-0">
-      <CardContent className="px-0">{props.children}</CardContent>
-    </Card>
+    <div className="relative overflow-hidden rounded-2xl border border-border-base/50 bg-surface-raised-base shadow-xs">
+      {props.children}
+    </div>
   )
 }
 
@@ -135,21 +147,21 @@ export function SettingsRow(props: {
   title: ReactNode
   description: string
   control: ReactNode
+  /** @deprecated No longer needed — rows use CSS border-t separators automatically */
   last?: boolean
 }) {
   return (
-    <>
-      <div className="px-4 py-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-text-base">{props.title}</p>
-            <p className="mt-1 text-xs text-text-weak">{props.description}</p>
-          </div>
-          <div className="min-w-0 lg:w-[260px] lg:max-w-[260px]">{props.control}</div>
+    <div className="border-t border-border-base/60 px-4 py-3.5 first:border-t-0 sm:px-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-[13px] font-medium tracking-[-0.01em] text-text-base">{props.title}</p>
+          <p className="text-xs text-text-weak">{props.description}</p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 sm:min-w-44 sm:justify-end">
+          {props.control}
         </div>
       </div>
-      {props.last ? null : <Separator />}
-    </>
+    </div>
   )
 }
 
