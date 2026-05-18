@@ -52,14 +52,14 @@ function AttachmentItem(props: {
         <img
           src={props.attachment.dataUrl}
           alt={props.attachment.filename}
-          className={`size-16 rounded-md border ${borderClassName} bg-surface-weak object-cover transition-colors hover:border-border-hover ${props.unsupported ? "opacity-60" : "cursor-pointer"}`}
+          className={`size-16 rounded-lg border ${borderClassName} bg-surface-weak object-cover transition-colors hover:border-border-hover ${props.unsupported ? "opacity-60" : "cursor-pointer"}`}
           onClick={() => {
             if (!props.unsupported) props.onOpen?.(props.attachment)
           }}
         />
       ) : (
         <div
-          className={`size-16 rounded-md border ${borderClassName} bg-surface-weak flex items-center justify-center`}
+          className={`size-16 rounded-lg border ${borderClassName} bg-surface-weak flex items-center justify-center`}
         >
           <FolderIcon className="size-6 text-text-weak" />
         </div>
@@ -77,7 +77,7 @@ function AttachmentItem(props: {
         <XIcon className="size-3 text-text-weak" />
       </button>
 
-      <div className="absolute right-0 bottom-0 left-0 rounded-b-md bg-[color:color-mix(in_oklab,var(--surface-raised-stronger-non-alpha)_78%,transparent)] px-1 py-0.5 backdrop-blur-[2px]">
+      <div className="absolute right-0 bottom-0 left-0 rounded-b-lg bg-[color:color-mix(in_oklab,var(--surface-raised-stronger-non-alpha)_78%,transparent)] px-1 py-0.5 backdrop-blur-[2px]">
         <span className="block truncate text-[10px] text-text-base">
           {props.attachment.filename}
         </span>

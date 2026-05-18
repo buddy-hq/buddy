@@ -109,7 +109,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
   const isNativeMode = props.selectorMode === "native"
 
   return (
-    <div className="-mt-3.5 rounded-[12px] rounded-tl-none rounded-tr-none border border-t-0 bg-surface-raised-base/95 px-2 pt-5 pb-2">
+    <div className="bg-transparent px-2 py-2">
       {props.pendingSteerLabel ? (
         <div className="mb-2 flex min-w-0 items-center gap-2 px-1">
           <Badge variant="secondary" className="max-w-full gap-1.5 px-2 py-1 text-[11px]">
@@ -133,7 +133,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
           <button
             type="button"
             data-action="prompt-attach"
-            className="inline-flex size-7 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-weak/60 hover:text-text-base"
+            className="inline-flex size-7 items-center justify-center rounded-full text-text-weak transition-colors hover:bg-surface-weak/60 hover:text-text-base"
             title={props.attachLabel}
             aria-label={props.attachAriaLabel}
             onClick={props.onAttach}
@@ -306,7 +306,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
             type={props.isBusy ? "button" : "submit"}
             form="prompt-composer-form"
             data-action="prompt-submit"
-            className="inline-flex size-7 items-center justify-center rounded-md bg-surface-interactive-base text-text-on-interactive-base transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex size-7 items-center justify-center rounded-full bg-surface-interactive-base text-text-on-interactive-base transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={!props.isBusy && !props.canSubmit}
             aria-label={props.isBusy ? props.stopAriaLabel : props.sendAriaLabel}
             title={props.isBusy ? props.stopLabel : props.sendLabel}

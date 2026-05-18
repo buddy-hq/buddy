@@ -104,7 +104,7 @@ export const UserMessagePart = memo(function UserMessagePart({
       <div className="ml-auto flex w-fit max-w-[min(82%,64ch)] flex-col items-end">
         <div
           className={cn(
-            "inline-block max-w-full overflow-hidden rounded-md border border-border-weak-base bg-surface-base px-3 py-2 whitespace-pre-wrap break-words text-sm",
+            "inline-block max-w-full overflow-hidden rounded-2xl rounded-br-sm border border-border-weak-base bg-surface-base px-4 py-3 whitespace-pre-wrap break-words text-sm",
             queued && "opacity-60",
           )}
         >
@@ -148,7 +148,7 @@ export const UserMessagePart = memo(function UserMessagePart({
                 event.stopPropagation()
                 void handleRevertClick()
               }}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-weak hover:text-text-base disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-text-weak transition-colors hover:bg-surface-weak hover:text-text-base disabled:cursor-not-allowed disabled:opacity-60"
               aria-label={language.t("chat.userMessage.undoMessage")}
             >
               <Undo2Icon className="h-4 w-4" />

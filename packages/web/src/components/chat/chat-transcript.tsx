@@ -308,7 +308,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     <ChatScrollProvider viewportRef={scrollViewportRef}>
       <TooltipProvider>
         <div
-          className={`flex min-w-0 w-full max-w-full flex-col items-start gap-12 ${
+          className={`flex min-w-0 w-full max-w-full flex-col items-start gap-8 ${
             shouldBottomPackStagedTail ? "min-h-full justify-end" : ""
           }`}
           style={{
@@ -368,7 +368,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
               </div>
 
               {liveTurns.length > 0 ? (
-                <div className="flex min-w-0 w-full max-w-full flex-col gap-12">
+                <div className="flex min-w-0 w-full max-w-full flex-col gap-8">
                   {liveTurns.map((turn, offset) => (
                     <div key={turn.key} className="min-w-0 w-full max-w-full">
                       <TurnRow

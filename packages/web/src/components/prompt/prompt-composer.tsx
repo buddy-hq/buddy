@@ -631,7 +631,7 @@ export function PromptComposer(props: PromptComposerProps) {
           {readingSelectionEntries.map(({ part, key }) => (
             <div
               key={key}
-              className="animate-in fade-in slide-in-from-top-1 zoom-in-95 duration-300 transition-all ease-out flex max-w-[min(72%,56ch)] items-center gap-1.5 rounded-md border border-border-base bg-surface-weak px-2 py-1"
+              className="animate-in fade-in slide-in-from-top-1 zoom-in-95 duration-300 transition-all ease-out flex max-w-[min(72%,56ch)] items-center gap-1.5 rounded-lg border border-border-base bg-surface-weak px-2 py-1"
             >
               <div className="min-w-0 flex-1 truncate text-[11px] leading-4 text-text-base">
                 {part.text}
@@ -649,7 +649,7 @@ export function PromptComposer(props: PromptComposerProps) {
           {dismissedSelectionPreviews.map((selection) => (
             <div
               key={`dismissed_${selection.key}`}
-              className="animate-out fade-out slide-out-to-top-1 zoom-out-95 duration-200 pointer-events-none flex max-w-[min(72%,56ch)] items-center gap-1.5 rounded-md border border-border-base bg-surface-weak px-2 py-1 opacity-0"
+              className="animate-out fade-out slide-out-to-top-1 zoom-out-95 duration-200 pointer-events-none flex max-w-[min(72%,56ch)] items-center gap-1.5 rounded-lg border border-border-base bg-surface-weak px-2 py-1 opacity-0"
             >
               <div className="min-w-0 flex-1 truncate text-[11px] leading-4 text-text-base">
                 {selection.text}
@@ -659,10 +659,11 @@ export function PromptComposer(props: PromptComposerProps) {
           ))}
         </div>
       ) : null}
+      <div className="group/prompt-input relative z-10 overflow-hidden rounded-[16px] border bg-surface-raised-base shadow-sm transition-colors has-[:focus-visible]:border-border-interactive-base/45">
       <form
         id="prompt-composer-form"
         data-component="prompt-composer"
-        className="group/prompt-input relative z-10 rounded-[12px] rounded-b-none border border-b-0 bg-surface-raised-base shadow-none"
+        className="relative"
         onSubmit={(event) => {
           event.preventDefault()
           if (props.isBusy) return
@@ -723,7 +724,7 @@ export function PromptComposer(props: PromptComposerProps) {
             suppressContentEditableWarning
             role="textbox"
             aria-multiline="true"
-            className="min-h-[84px] max-h-[240px] w-full overflow-y-auto rounded-[12px] border-0 bg-transparent px-3 pt-3 pb-12 text-sm leading-6 text-text-base focus:outline-none"
+            className="min-h-[84px] max-h-[240px] w-full overflow-y-auto rounded-[16px] border-0 bg-transparent px-3 pt-3 pb-12 text-sm leading-6 text-text-base focus:outline-none"
             onInput={() => {
               handleEditorInput()
             }}
@@ -972,6 +973,7 @@ export function PromptComposer(props: PromptComposerProps) {
         stopLabel={language.t("prompt.composer.stop")}
         stopAriaLabel={language.t("prompt.composer.stop")}
       />
+      </div>
 
       {props.sessionContextUsage ? (
         <div className="flex items-center justify-between px-2 pt-1.5 pb-1">

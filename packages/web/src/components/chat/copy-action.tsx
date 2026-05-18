@@ -31,7 +31,7 @@ export function CopyAction({ value, label }: CopyActionProps) {
           void onCopy()
         }}
         onMouseDown={(e) => e.preventDefault()}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-weak hover:text-text-base"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-text-weak transition-colors hover:bg-surface-weak hover:text-text-base"
         aria-label={copied ? "Copied" : (label ?? "Copy")}
       >
         {copied ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}

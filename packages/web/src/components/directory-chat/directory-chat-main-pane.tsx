@@ -210,7 +210,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex min-h-0 flex-1 flex-col">
           {props.topContent ? (
-            <div className="mx-auto w-full max-w-full px-4 pt-4 md:max-w-200 2xl:max-w-[1000px]">
+            <div className="mx-auto w-full max-w-full px-4 pt-4 md:max-w-200">
               <div className="mb-4">{props.topContent}</div>
             </div>
           ) : null}
@@ -231,7 +231,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
             <div
               ref={transcriptContentRef as React.Ref<HTMLDivElement>}
               onClick={onTranscriptInteraction}
-              className={`mx-auto min-w-0 w-full max-w-full px-4 pt-4 pb-12 space-y-4 md:max-w-200 2xl:max-w-[1000px] ${
+              className={`mx-auto min-w-0 w-full max-w-full px-4 pt-4 pb-12 space-y-4 md:max-w-200 ${
                 chatState.messages.length === 0 && chatState.isReady ? "h-full" : ""
               }`}
             >
@@ -272,7 +272,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
           </ScrollArea>
 
           {chatState.error ? (
-            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200 2xl:max-w-[1000px]">
+            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
               <div className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 p-3 text-sm text-icon-critical-base">
                 {chatState.error}
               </div>
@@ -280,7 +280,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
           ) : null}
 
           {activeQuestion ? (
-            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200 2xl:max-w-[1000px]">
+            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
               <QuestionDock
                 key={activeQuestion.id}
                 request={activeQuestion}
@@ -292,7 +292,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
           ) : null}
 
           {chatState.pendingPermissions.length > 0 ? (
-            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200 2xl:max-w-[1000px]">
+            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
               <PermissionDock
                 request={chatState.pendingPermissions[0]!}
                 pendingCount={Math.max(0, chatState.pendingPermissions.length - 1)}
@@ -304,7 +304,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
           ) : null}
 
           {autoCompactionWarning ? (
-            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200 2xl:max-w-[1000px]">
+            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
               <div className="rounded-md border border-border-base/70 bg-surface-weak/35 px-3 py-2 text-xs text-text-weak">
                 <p className="font-medium text-text-base">
                   {language.t("prompt.compactionNotice.title")}
@@ -322,7 +322,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
           ) : null}
 
           {revertedUserMessageCount > 0 && onRestoreRevertedMessages ? (
-            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200 2xl:max-w-[1000px]">
+            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
               <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/70 bg-surface-weak/35 px-3 py-2 text-xs text-text-weak">
                 <div className="min-w-0">
                   <p className="font-medium text-text-base">
@@ -351,7 +351,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
             </div>
           ) : null}
 
-          <div className="mx-auto w-full max-w-full px-4 md:max-w-200 2xl:max-w-[1000px]">
+          <div className="mx-auto w-full max-w-full px-4 md:max-w-200">
             {!chatState.parentSession && (
               <PromptComposer
                 {...promptComposerProps}
