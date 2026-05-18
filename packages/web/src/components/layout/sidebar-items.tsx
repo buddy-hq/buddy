@@ -3,6 +3,7 @@ import { language } from "@/context/language"
 import { projectInitials, relativeTime } from "./sidebar-helpers"
 import { PlusIcon } from "./sidebar-icons"
 import { LoaderCircleIcon } from "lucide-react"
+import { formatSessionTitle } from "@/lib/session-title"
 
 type ProjectIconProps = {
   project: string
@@ -55,7 +56,7 @@ export function SessionItem(props: SessionItemProps) {
       </div>
       <div className="flex items-center min-w-0">
         <span className="text-sm truncate">
-          {props.session.title || language.t("sidebar.newChat")}
+          {formatSessionTitle(props.session.title || language.t("sidebar.newChat"))}
         </span>
       </div>
       <div className="mt-0.5 flex items-center justify-between text-[11px] text-text-weak">

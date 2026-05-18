@@ -24,6 +24,7 @@ import {
 } from "@/state/directory-chat-query"
 import { getSessionFamily, type SessionFamily } from "../session-family"
 import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
+import { formatSessionTitle } from "@/lib/session-title"
 import type {
   ProviderInfo,
   ProviderModelInfo,
@@ -488,7 +489,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
   )
   const sessions = directoryState?.sessions ?? EMPTY_LIST
   const sessionFamily = useMemo(() => getSessionFamily(sessions, sessionID), [sessionID, sessions])
-  const sessionTitle = sessionFamily.current?.title ?? directoryState?.sessionTitle ?? "New thread"
+  const sessionTitle = formatSessionTitle(sessionFamily.current?.title ?? directoryState?.sessionTitle ?? "New thread")
   const parentSession = useMemo(
     () =>
       sessionFamily.current?.parentID

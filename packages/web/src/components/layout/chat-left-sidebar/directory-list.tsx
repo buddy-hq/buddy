@@ -29,6 +29,7 @@ import {
   BotIcon,
 } from "@buddy/ui"
 import { language } from "@/context/language"
+import { formatSessionTitle } from "@/lib/session-title"
 import {
   DIRECTORY_CHAT_SHELL_VIEW,
   type DirectoryChatShellView,
@@ -708,7 +709,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
     .map((sessionID) => props.sessionsByID.get(sessionID))
     .filter(isSessionInfo)
   const display = parseSubagentSession(props.session)
-  const title = display.title || language.t("sidebar.untitledThread")
+  const title = formatSessionTitle(display.title || language.t("sidebar.untitledThread"))
   const age = formatThreadAge(props.session.time.updated ?? props.session.time.created)
   const leftPadding = THREAD_ROW_PADDING_LEFT_PX + depth * THREAD_CHILD_INDENT_PX
   const statusOffset = THREAD_STATUS_OFFSET_PX + depth * THREAD_CHILD_INDENT_PX
