@@ -6,7 +6,6 @@ import type {
   SkillsLibraryInstallResponses,
   SkillsListResponses,
   SkillsSettingsPatchResponses,
-  SkillsUpdateData,
   SkillsUpdateResponses,
 } from "@buddy/sdk"
 import { getBuddyClient, requireBuddyData } from "../lib/buddy-client"
@@ -21,16 +20,24 @@ export type SkillLibraryEntry = {
   sourceLabel: string
   state: "available" | "installed" | "withdrawn_installed"
 }
-export type SkillsCatalog = Omit<SkillsListResponses[200], "library"> & {
+export type SkillPermissionAction = "allow" | "deny"
+type RawInstalledSkillInfo = SkillsListResponses[200]["installed"][number]
+export type InstalledSkillInfo = Omit<RawInstalledSkillInfo, "permissionAction"> & {
+  permissionAction: SkillPermissionAction
+}
+type RawSkillsUpdateResult = SkillsUpdateResponses[200]
+export type SkillsUpdateResult = Omit<RawSkillsUpdateResult, "skill" | "action"> & {
+  skill: InstalledSkillInfo
+  action: SkillRuleAction
+}
+export type SkillsCatalog = Omit<SkillsListResponses[200], "library" | "installed"> & {
+  installed: InstalledSkillInfo[]
   library: SkillLibraryEntry[]
 }
-export type InstalledSkillInfo = SkillsCatalog["installed"][number]
 export type CreateCustomSkillInput = NonNullable<SkillsCreateData["body"]>
-export type SkillRuleAction = NonNullable<NonNullable<SkillsUpdateData["body"]>["action"]>
-export type SkillPermissionAction = Exclude<SkillRuleAction, "inherit">
+export type SkillRuleAction = SkillPermissionAction
 export type SkillSource = InstalledSkillInfo["source"]
 export type SkillScope = InstalledSkillInfo["scope"]
-export type SkillPermissionSource = InstalledSkillInfo["permissionSource"]
 
 function objectRecord(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
@@ -74,9 +81,17 @@ function parseSkillLibraryEntry(value: unknown): SkillLibraryEntry {
   }
 }
 
+function normalizeInstalledSkill(skill: RawInstalledSkillInfo): InstalledSkillInfo {
+  return {
+    ...skill,
+    permissionAction: skill.permissionAction === "deny" ? "deny" : "allow",
+  }
+}
+
 function parseSkillsCatalog(rawCatalog: SkillsListResponses[200]): SkillsCatalog {
   return {
     ...rawCatalog,
+    installed: rawCatalog.installed.map((skill) => normalizeInstalledSkill(skill)),
     library: rawCatalog.library.map((entry) => parseSkillLibraryEntry(entry)),
   }
 }
@@ -123,7 +138,15 @@ export async function setSkillPermissionAction(
     name,
     action,
   })
-  return requireBuddyData<SkillsUpdateResponses[200]>(result)
+  const raw = requireBuddyData<SkillsUpdateResponses[200]>(result)
+  return {
+    ...raw,
+    action: raw.action === "deny" ? "deny" : "allow",
+    skill: {
+      ...raw.skill,
+      permissionAction: raw.skill.permissionAction === "deny" ? "deny" : "allow",
+    },
+  } satisfies SkillsUpdateResult
 }
 
 export async function removeSkill(name: string, directory?: string) {

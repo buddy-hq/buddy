@@ -9,7 +9,7 @@ import {
 } from "./skills.constants"
 
 type SkillToggleInput = {
-  action?: "allow" | "deny" | "ask" | "inherit"
+  action?: "allow" | "deny"
   enabled?: boolean
 }
 

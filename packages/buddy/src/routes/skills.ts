@@ -41,7 +41,7 @@ const installedSkillSchema = z.object({
   content: z.string(),
   examplePrompt: z.string().optional(),
   enabled: z.boolean(),
-  permissionAction: z.enum(["allow", "deny", "ask"]),
+  permissionAction: z.enum(["allow", "deny"]),
   permissionSource: z.enum(["explicit", "inherited", "default"]),
   source: z.enum(["custom", "library", "external"]),
   scope: z.enum(["global", "workspace"]),
@@ -78,7 +78,7 @@ const skillCreatedResponseSchema = z.object({
 const skillUpdatedResponseSchema = z.object({
   ok: z.literal(true),
   skill: installedSkillSchema,
-  action: z.enum(["allow", "deny", "ask", "inherit"]),
+  action: z.enum(["allow", "deny"]),
 })
 
 const skillsSettingsResponseSchema = z.object({

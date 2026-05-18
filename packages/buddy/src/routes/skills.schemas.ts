@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-const SKILL_TOGGLE_ACTIONS = ["allow", "deny", "ask", "inherit"] as const
+const SKILL_TOGGLE_ACTIONS = ["allow", "deny"] as const
 
 export const createSkillBodySchema = z.object({
   name: z.string().trim().min(1),

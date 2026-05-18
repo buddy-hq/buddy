@@ -3,7 +3,11 @@ import { Flag } from "../../flag"
 import { loadConfigFile, loadConfigText } from "../contract/document.js"
 import { getCachedGlobalConfig } from "./global-cache.js"
 import { resolveProjectConfigContext, resolveProjectConfigFile } from "./config-paths.js"
-import { applyEnvironmentPermission, applyToolPermissionDefaults } from "./permission-overrides.js"
+import {
+  applyEnvironmentPermission,
+  applySkillPermissionDefaults,
+  applyToolPermissionDefaults,
+} from "./permission-overrides.js"
 import type { Info } from "./types.js"
 
 function mergeInfo(target: Info, source: Info): Info {
@@ -59,6 +63,7 @@ export async function loadProjectConfig(directory: string): Promise<Info> {
   }
 
   applyToolPermissionDefaults(result)
+  applySkillPermissionDefaults(result)
 
   return result
 }

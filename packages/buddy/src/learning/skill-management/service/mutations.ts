@@ -403,11 +403,7 @@ export async function setInstalledSkillAction(
   const normalizedName = requiredSkillName(name)
   const existing = await findInstalledSkillOrThrow(normalizedName, directory)
 
-  if (action === "inherit") {
-    await clearSkillPermission(existing.name)
-  } else {
-    await setSkillPermission(existing.name, action)
-  }
+  await setSkillPermission(existing.name, action)
   await refreshSkillRuntime()
 
   const updatedCatalog = await listSkillsCatalog(directory)

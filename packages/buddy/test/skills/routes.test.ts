@@ -150,7 +150,7 @@ Use the local review workflow for this repository.
           (skill) =>
             skill.name === "local-review" &&
             skill.scope === "workspace" &&
-            skill.permissionAction === "ask",
+            skill.permissionAction === "allow",
         ),
       ).toBe(true)
       const localRuleResponse = await app.request("/api/skills/local-review", {

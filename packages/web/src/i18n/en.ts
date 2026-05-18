@@ -958,7 +958,7 @@ export const dict = {
   "skills.install": "Install",
   "skills.installed": "Installed",
   "skills.installedSection.description":
-    "Set allow, ask, or block rules for each skill name, inspect details, and remove Buddy-managed skills.",
+    "Allow or block each skill name, inspect details, and remove Buddy-managed skills.",
   "skills.installedSection.empty":
     "No installed skills matched your search. Add a curated skill below or create a new custom one.",
   "skills.installedSection.title": "Installed",
@@ -988,8 +988,8 @@ export const dict = {
   "skills.source.custom": "Custom",
   "skills.source.detected": "Detected",
   "skills.source.library": "Library",
-  "skills.status.allow": "Always available",
-  "skills.status.ask": "On-demand approval",
+  "skills.status.allow": "Allowed",
+  "skills.status.ask": "Allowed",
   "skills.status.deny": "Blocked",
   "skills.withdrawn": "Withdrawn",
   "teaching.createFileDialog.create": "Create",

@@ -482,7 +482,7 @@ describe("config routes", () => {
       }>
       expect(
         listBody.map((entry) => ({
-          ...entry,
+          name: entry.name,
           directory: normalizePathForAssertion(entry.directory),
         })),
       ).toEqual([

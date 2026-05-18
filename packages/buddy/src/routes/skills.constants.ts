@@ -22,7 +22,7 @@ export const SKILL_ROUTE_QUERY = {
 } as const
 
 export const SKILL_ROUTE_ACTIONS = {
-  whenEnabled: "ask",
+  whenEnabled: "allow",
   whenDisabled: "deny",
 } as const
 

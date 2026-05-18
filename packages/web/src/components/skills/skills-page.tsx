@@ -13,17 +13,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   Input,
-  SettingsIcon,
-  SparklesIcon,
   Switch,
   Textarea,
-  XIcon,
-  cn,
   toast,
   Tabs,
   TabsContent,
@@ -46,14 +38,11 @@ import {
   createColumnHelper,
 } from "@tanstack/react-table"
 import {
-  PlusIcon,
   RefreshCwIcon,
   LayoutGridIcon,
   ListIcon,
   CopyIcon,
-  ChevronDownIcon,
   FolderSearchIcon,
-  CheckIcon,
   BadgeCheckIcon,
 } from "lucide-react"
 import { language } from "@/context/language"
@@ -62,7 +51,6 @@ import {
   installLibrarySkill,
   loadSkillsCatalog,
   removeLibrarySkill,
-  removeSkill,
   setSkillPermissionAction,
   type CreateCustomSkillInput,
   type InstalledSkillInfo,
@@ -95,9 +83,7 @@ const SKELETON_CARD_KEYS = [
 ] as const
 
 function statusLabel(action: InstalledSkillInfo["permissionAction"]) {
-  if (action === "allow") return language.t("skills.status.allow")
-  if (action === "deny") return language.t("skills.status.deny")
-  return language.t("skills.status.ask")
+  return action === "allow" ? language.t("skills.status.allow") : language.t("skills.status.deny")
 }
 
 function sourceLabel(source: InstalledSkillInfo["source"]) {
@@ -112,12 +98,6 @@ function scopeLabel(scope: InstalledSkillInfo["scope"]) {
     : language.t("skills.scope.global")
 }
 
-function scopeDescription(scope: InstalledSkillInfo["scope"]) {
-  return scope === "workspace"
-    ? language.t("skills.scope.workspaceDescription")
-    : language.t("skills.scope.globalDescription")
-}
-
 function permissionUpdateMessage(name: string, action: InstalledSkillInfo["permissionAction"]) {
   return language.t("skills.permissionUpdated", {
     name: name,
@@ -126,33 +106,7 @@ function permissionUpdateMessage(name: string, action: InstalledSkillInfo["permi
 }
 
 function permissionRuleMessage(name: string, action: SkillRuleAction) {
-  if (action === "inherit") {
-    return language.t("skills.permissionReset", { name: name })
-  }
-
   return permissionUpdateMessage(name, action)
-}
-
-function permissionSourceLabel(source: InstalledSkillInfo["permissionSource"]) {
-  if (source === "explicit") return language.t("skills.permissionSource.explicit")
-  if (source === "inherited") return language.t("skills.permissionSource.inherited")
-  return language.t("skills.permissionSource.default")
-}
-
-function permissionSourceDescription(skill: InstalledSkillInfo) {
-  if (skill.permissionSource === "explicit") {
-    return language.t("skills.permissionSource.explicitDescription")
-  }
-
-  if (skill.permissionSource === "inherited") {
-    return language.t("skills.permissionSource.inheritedDescription")
-  }
-
-  return language.t("skills.permissionSource.defaultDescription")
-}
-
-function resetPermissionLabel() {
-  return language.t("skills.resetPermissionLabel")
 }
 
 async function copyText(text: string) {
@@ -169,61 +123,8 @@ async function copyWithSuccessToast(text: string, message: string) {
   }
 }
 
-function PermissionActionMenu(props: {
-  action: InstalledSkillInfo["permissionAction"]
-  source: InstalledSkillInfo["permissionSource"]
-  disabled?: boolean
-  onSelect: (action: SkillRuleAction) => void
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={props.disabled}
-          className="w-full justify-between font-normal bg-surface-base border-border-base/60 hover:bg-surface-weak/20 px-2.5 h-8"
-        >
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-text-weaker/80 shrink-0">
-              Access
-            </span>
-            <div className="w-px h-3 bg-border-base/40 shrink-0" />
-            <span className="text-xs text-text-weak truncate">{statusLabel(props.action)}</span>
-          </div>
-          <ChevronDownIcon className="size-3 text-text-weaker ml-1.5 shrink-0" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem
-          disabled={props.disabled || props.source !== "explicit"}
-          onSelect={() => props.onSelect("inherit")}
-        >
-          {resetPermissionLabel()}
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect("allow")}>
-          {language.t("skills.status.allow")}
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect("ask")}>
-          {language.t("skills.status.ask")}
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled={props.disabled} onSelect={() => props.onSelect("deny")}>
-          {language.t("skills.status.deny")}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
-function scopeBadgeVariant() {
-  return "border-border-base/60 bg-surface-weak/30 text-text-weak rounded-md"
-}
-
 function SkillCard(props: {
   skill: InstalledSkillInfo
-  disabled?: boolean
-  onToggleEnabled: (enabled: boolean) => void
   onManage: () => void
 }) {
   const isActive = props.skill.permissionAction !== "deny"
@@ -303,10 +204,9 @@ const installedColumnHelper = createColumnHelper<InstalledSkillInfo>()
 
 function InstalledSkillTable(props: {
   skills: InstalledSkillInfo[]
-  busyKey: string | undefined
-  onToggleEnabled: (skill: InstalledSkillInfo, enabled: boolean) => void
   onManage: (skill: InstalledSkillInfo) => void
 }) {
+  const { skills, onManage } = props
   const columns = useMemo(
     () => [
       installedColumnHelper.accessor("name", {
@@ -342,11 +242,11 @@ function InstalledSkillTable(props: {
         },
       }),
     ],
-    [props],
+    [],
   )
 
   const table = useReactTable({
-    data: props.skills,
+    data: skills,
     columns,
     getCoreRowModel: getCoreRowModel(),
   })
@@ -373,7 +273,7 @@ function InstalledSkillTable(props: {
               <TableRow
                 key={row.id}
                 className="border-border-base/60 transition-colors hover:bg-surface-weak/30 cursor-pointer"
-                onClick={() => props.onManage(row.original)}
+                onClick={() => onManage(row.original)}
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id} className="py-3">
@@ -404,6 +304,7 @@ function LibrarySkillTable(props: {
   onRemove: (skill: SkillLibraryEntry) => void
   onManage: (skill: SkillLibraryEntry) => void
 }) {
+  const { busyKey, onInstall, onRemove, onManage, skills } = props
   const columns = useMemo(
     () => [
       libraryColumnHelper.accessor("displayName", {
@@ -433,11 +334,11 @@ function LibrarySkillTable(props: {
                 variant={available ? "default" : withdrawn ? "destructive" : "outline"}
                 size="sm"
                 className="h-8 w-24 text-xs"
-                disabled={props.busyKey === `install:${skill.id}` || skill.state === "installed"}
+                disabled={busyKey === `install:${skill.id}` || skill.state === "installed"}
                 onClick={(e) => {
                   e.stopPropagation()
-                  if (withdrawn) props.onRemove(skill)
-                  else props.onInstall(skill)
+                  if (withdrawn) onRemove(skill)
+                  else onInstall(skill)
                 }}
               >
                 {available
@@ -451,11 +352,11 @@ function LibrarySkillTable(props: {
         },
       }),
     ],
-    [props],
+    [busyKey, onInstall, onRemove],
   )
 
   const table = useReactTable({
-    data: props.skills,
+    data: skills,
     columns,
     getCoreRowModel: getCoreRowModel(),
   })
@@ -482,7 +383,7 @@ function LibrarySkillTable(props: {
               <TableRow
                 key={row.id}
                 className="border-border-base/60 transition-colors hover:bg-surface-weak/30 cursor-pointer"
-                onClick={() => props.onManage(row.original)}
+                onClick={() => onManage(row.original)}
               >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id} className="py-3">
@@ -691,15 +592,7 @@ export function SkillsPage(props: { directory?: string }) {
   }
 
   function updateSkillPermission(skill: InstalledSkillInfo, action: SkillRuleAction) {
-    if (action === "inherit" && skill.permissionSource !== "explicit") {
-      return
-    }
-
-    if (
-      action !== "inherit" &&
-      skill.permissionSource === "explicit" &&
-      skill.permissionAction === action
-    ) {
+    if (skill.permissionAction === action) {
       return
     }
 
@@ -721,7 +614,7 @@ export function SkillsPage(props: { directory?: string }) {
   }
 
   function toggleSkillEnabled(skill: InstalledSkillInfo, enabled: boolean) {
-    const nextAction: SkillRuleAction = enabled ? "ask" : "deny"
+    const nextAction: SkillRuleAction = enabled ? "allow" : "deny"
 
     if (enabled && skill.permissionAction !== "deny") {
       return
@@ -849,8 +742,6 @@ export function SkillsPage(props: { directory?: string }) {
                     <SkillCard
                       key={skill.name}
                       skill={skill}
-                      disabled={busyKey === `permission:${skill.name}`}
-                      onToggleEnabled={(enabled) => toggleSkillEnabled(skill, enabled)}
                       onManage={() => setSelectedSkillName(skill.name)}
                     />
                   ))}
@@ -865,8 +756,6 @@ export function SkillsPage(props: { directory?: string }) {
             ) : (
               <InstalledSkillTable
                 skills={filteredInstalled}
-                busyKey={busyKey}
-                onToggleEnabled={toggleSkillEnabled}
                 onManage={(skill) => setSelectedSkillName(skill.name)}
               />
             )}
@@ -977,13 +866,6 @@ export function SkillsPage(props: { directory?: string }) {
                   >
                     {scopeLabel(selectedSkill.scope)}
                   </Badge>
-                  <Badge
-                    variant="outline"
-                    className="h-6 rounded-md border-border-base/60 bg-surface-base/50 text-text-weak text-xs px-2.5 py-0.5"
-                  >
-                    {permissionSourceLabel(selectedSkill.permissionSource)}
-                  </Badge>
-
                   {selectedSkill.libraryID ? (
                     <Badge
                       variant="outline"
@@ -995,15 +877,6 @@ export function SkillsPage(props: { directory?: string }) {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 mt-8">
-                  <div className="w-64">
-                    <PermissionActionMenu
-                      action={selectedSkill.permissionAction}
-                      source={selectedSkill.permissionSource}
-                      disabled={busyKey === `permission:${selectedSkill.name}`}
-                      onSelect={(action) => updateSkillPermission(selectedSkill, action)}
-                    />
-                  </div>
-
                   <div className="flex items-center gap-3 px-3 bg-surface-base rounded-lg border border-border-base/60 shadow-sm h-8 scale-95 origin-left">
                     <span className="text-[9px] font-bold uppercase tracking-widest text-text-weaker/80">
                       Active
