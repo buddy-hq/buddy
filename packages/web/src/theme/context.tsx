@@ -125,13 +125,13 @@ export function ThemeProvider({
 
   const [colorScheme, setColorSchemeState] = useState<ColorScheme>(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.COLOR_SCHEME)
-    return isColorScheme(saved) ? saved : "system"
+    return isColorScheme(saved) ? saved : "dark"
   })
 
   const [mode, setMode] = useState<"light" | "dark">(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.COLOR_SCHEME)
     if (saved === "light" || saved === "dark") return saved
-    return getSystemMode()
+    return "dark"
   })
 
   const [previewState, setPreviewState] = useState<{

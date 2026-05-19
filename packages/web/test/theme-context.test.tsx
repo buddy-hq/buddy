@@ -105,7 +105,7 @@ describe("ThemeProvider", () => {
 
     expect(localStorage.getItem("opencode-theme-css-light")).toContain("--background-base:")
     expect(localStorage.getItem("opencode-theme-css-dark")).toContain("--background-base:")
-    expect(document.documentElement.classList.contains("dark")).toBe(false)
+    expect(document.documentElement.classList.contains("dark")).toBe(true)
 
     await act(async () => {
       api.setColorScheme("dark")

@@ -43,7 +43,7 @@ export function applyThemePreload(environment: ThemePreloadEnvironment) {
     environment.storage.setItem(STORAGE_KEYS.THEME_ID, themeID)
   }
 
-  const scheme = environment.storage.getItem(STORAGE_KEYS.COLOR_SCHEME) ?? "system"
+  const scheme = environment.storage.getItem(STORAGE_KEYS.COLOR_SCHEME) ?? "dark"
   const isDark =
     scheme === "dark" ||
     (scheme === "system" && environment.matchMedia("(prefers-color-scheme: dark)").matches)

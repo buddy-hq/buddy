@@ -44,9 +44,9 @@ describe("theme preload", () => {
     run()
 
     expect(document.documentElement.dataset.theme).toBe("dracula")
-    expect(document.documentElement.dataset.colorScheme).toBe("light")
-    expect(document.documentElement.classList.contains("dark")).toBe(false)
-    expect(document.documentElement.style.colorScheme).toBe("light")
+    expect(document.documentElement.dataset.colorScheme).toBe("dark")
+    expect(document.documentElement.classList.contains("dark")).toBe(true)
+    expect(document.documentElement.style.colorScheme).toBe("dark")
     expect(localStorage.getItem("opencode-theme-id")).toBe("dracula")
     expect(localStorage.getItem("opencode-theme-css-light")).toContain("--background-base:")
     expect(localStorage.getItem("opencode-theme-css-dark")).toContain("--background-base:")
