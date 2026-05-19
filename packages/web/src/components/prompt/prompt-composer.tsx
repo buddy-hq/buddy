@@ -11,7 +11,7 @@ import {
   toast,
 } from "@buddy/ui"
 import { XIcon } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { language } from "@/context/language"
 import { shouldSubmitComposer } from "../../lib/chat-input"
 import {
@@ -58,6 +58,10 @@ import { ImageAttachments } from "./image-attachments"
 import { usePromptComposerAttachments } from "./use-prompt-composer-attachments"
 import { usePromptComposerViewState } from "./use-prompt-composer-view-state"
 import { usePromptEditorSync } from "./use-prompt-editor-sync"
+import {
+  consumePromptComposerFocusRequest,
+  subscribePromptComposerFocusRequests,
+} from "./prompt-composer-focus"
 import type { PromptSelectMode } from "./prompt-select-performance"
 import {
   getPromptDraft,
@@ -198,6 +202,7 @@ export function PromptComposer(props: PromptComposerProps) {
   const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
   const [dragging, setDragging] = useState(false)
   const [modelMenuOpenRequest, setModelMenuOpenRequest] = useState(0)
+  const [focusRequestID, setFocusRequestID] = useState(0)
   const [dismissedSelectionPreviews, setDismissedSelectionPreviews] = useState<
     DismissedSelectionPreview[]
   >([])
@@ -245,22 +250,57 @@ export function PromptComposer(props: PromptComposerProps) {
   })
 
   const previousReadingSelectionCountRef = useRef(readingSelectionEntries.length)
+  const consumedFocusRequestIDRef = useRef(0)
+
+  const focusEditorAtDraftCursor = useCallback(() => {
+    const editor = editorRef.current
+    if (!editor) return
+
+    editor.focus()
+    const nextCursor = Math.max(0, Math.min(draft.cursor, draftEditorValue.length))
+    setCursorPosition(editor, nextCursor)
+    setCursorOffset(nextCursor)
+    setDraftCursor(promptKey, nextCursor)
+  }, [draft.cursor, draftEditorValue.length, promptKey, setDraftCursor])
+
+  useEffect(() => {
+    const requestID = consumePromptComposerFocusRequest(
+      props.directory,
+      consumedFocusRequestIDRef.current,
+    )
+    if (requestID === undefined) return
+    consumedFocusRequestIDRef.current = requestID
+    setFocusRequestID(requestID)
+  }, [props.directory])
+
+  useEffect(
+    () =>
+      subscribePromptComposerFocusRequests(props.directory, (requestID) => {
+        if (requestID <= consumedFocusRequestIDRef.current) return
+        consumedFocusRequestIDRef.current = requestID
+        setFocusRequestID(requestID)
+      }),
+    [props.directory],
+  )
+
+  useEffect(() => {
+    if (focusRequestID === 0) return
+    const frame = window.requestAnimationFrame(focusEditorAtDraftCursor)
+    return () => {
+      window.cancelAnimationFrame(frame)
+    }
+  }, [focusEditorAtDraftCursor, focusRequestID])
 
   useEffect(() => {
     const previous = previousReadingSelectionCountRef.current
     previousReadingSelectionCountRef.current = readingSelectionEntries.length
     if (readingSelectionEntries.length <= previous) return
 
-    const editor = editorRef.current
-    if (!editor) return
-    editor.focus()
-    const nextCursor = Math.max(0, Math.min(draft.cursor, draftEditorValue.length))
-    setCursorPosition(editor, nextCursor)
-    setCursorOffset(nextCursor)
-    setDraftCursor(promptKey, nextCursor)
+    focusEditorAtDraftCursor()
   }, [
     draft.cursor,
     draftEditorValue.length,
+    focusEditorAtDraftCursor,
     promptKey,
     readingSelectionEntries.length,
     setDraftCursor,
@@ -275,20 +315,20 @@ export function PromptComposer(props: PromptComposerProps) {
     }
 
     const frame = window.requestAnimationFrame(() => {
-      const editor = editorRef.current
-      if (!editor) return
-
-      editor.focus()
-      const nextCursor = Math.max(0, Math.min(draft.cursor, draftEditorValue.length))
-      setCursorPosition(editor, nextCursor)
-      setCursorOffset(nextCursor)
-      setDraftCursor(promptKey, nextCursor)
+      focusEditorAtDraftCursor()
     })
 
     return () => {
       window.cancelAnimationFrame(frame)
     }
-  }, [draft.cursor, draftEditorValue.length, promptKey, props.isBusy, setDraftCursor])
+  }, [
+    draft.cursor,
+    draftEditorValue.length,
+    focusEditorAtDraftCursor,
+    promptKey,
+    props.isBusy,
+    setDraftCursor,
+  ])
 
   function replaceDraftFromComposer(draftState: Omit<typeof draft, "updatedAt">) {
     mirrorInputRef.current = true
@@ -659,7 +699,7 @@ export function PromptComposer(props: PromptComposerProps) {
           ))}
         </div>
       ) : null}
-      <div className="group/prompt-input relative z-10 overflow-hidden rounded-[16px] border bg-surface-raised-base shadow-sm transition-colors has-[:focus-visible]:border-border-interactive-base/45">
+      <div className="group/prompt-input relative z-10 rounded-[16px] border bg-surface-raised-base shadow-sm transition-colors has-[:focus-visible]:border-border-interactive-base/45">
         <form
           id="prompt-composer-form"
           data-component="prompt-composer"

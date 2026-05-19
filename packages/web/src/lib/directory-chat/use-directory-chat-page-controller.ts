@@ -8,6 +8,7 @@ import {
   PROMPT_PART_TYPE_TEXT,
   RESOURCE_REFERENCE_PART_TYPE,
 } from "@/components/prompt/prompt-types"
+import { requestPromptComposerFocus } from "@/components/prompt/prompt-composer-focus"
 import type { PromptComposerAttachment, PromptComposerPart } from "@/components/prompt/prompt-types"
 import {
   COMPACT_SLASH_COMMAND_ALIASES,
@@ -567,6 +568,7 @@ export function useDirectoryChatPageController(
       showWorkspace()
       startNewSessionDraft(targetDirectory)
       seedDraftModelSelection(targetDirectory)
+      requestPromptComposerFocus(targetDirectory)
       if (targetDirectory !== decodedDirectory) onSwitchDirectory(targetDirectory)
     } catch {
       // Store already captures and displays errors.
