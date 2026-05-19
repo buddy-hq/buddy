@@ -14,10 +14,6 @@ export {
   VIRTUAL_CHAT_TURN_ESTIMATE_PX,
 }
 
-const CHAT_SCROLL_ANCHOR_THRESHOLD_PX = 96
-
-export { CHAT_SCROLL_ANCHOR_THRESHOLD_PX }
-
 export function toolDefaultOpen(
   tool: string,
   shellToolDefaultOpen: boolean,

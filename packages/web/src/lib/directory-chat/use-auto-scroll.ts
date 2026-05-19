@@ -33,17 +33,6 @@ const SCROLL_ANIMATION_SPEED_PX_PER_S = 1200
 const MIN_SCROLL_ANIMATION_DURATION_S = 0.08
 const MAX_SCROLL_ANIMATION_DURATION_S = 0.24
 
-/**
- * After streaming ends, keep scrolling for a brief settle window
- * so late-arriving content (e.g. markdown rendering) is caught.
- */
-const SETTLE_DURATION_MS = 300
-
-/**
- * Thread-switch snap window: after switching sessions, snap instantly
- * to the bottom for this duration to avoid visible scroll animation.
- */
-const THREAD_SWITCH_SNAP_WINDOW_MS = 8_000
 const SCROLL_TOP_CHANGE_THRESHOLD_PX = 1
 
 const SCROLL_DETACH_KEYS = new Set(["ArrowUp", "PageUp", "Home", " "])
@@ -167,13 +156,9 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
 
   // ─── Refs (synchronous, no render) ──────────────────────────────
   const userScrolledRef = useRef(false)
-  const workingRef = useRef(options.working)
-  const settlingRef = useRef(false)
-  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const autoMarkerRef = useRef<{ top: number; time: number } | undefined>(undefined)
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const animationRef = useRef<AnimationPlaybackControls | null>(null)
-  const threadSwitchSnapUntilRef = useRef(0)
   const scrollGestureUntilRef = useRef(0)
   const touchGestureYRef = useRef<number | undefined>(undefined)
   const userDetachUntilRef = useRef(0)
@@ -183,9 +168,7 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
   const [userScrolled, setUserScrolled] = useState(false)
 
   // ─── Derived ────────────────────────────────────────────────────
-  const active = () => workingRef.current || settlingRef.current
   const hasScrollGesture = () => Date.now() < scrollGestureUntilRef.current
-  const shouldHonorThreadSwitchSnap = () => Date.now() < threadSwitchSnapUntilRef.current
 
   const markScrollGesture = useCallback(() => {
     scrollGestureUntilRef.current = Date.now() + SCROLL_GESTURE_WINDOW_MS
@@ -195,17 +178,20 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
   // After we programmatically set scrollTop, mark the expected position
   // so the scroll handler can distinguish it from user scrolling.
 
-  const markAuto = useCallback((el: HTMLElement) => {
-    autoMarkerRef.current = {
-      top: Math.max(0, el.scrollHeight - el.clientHeight),
-      time: Date.now(),
-    }
-    if (autoTimerRef.current) clearTimeout(autoTimerRef.current)
-    autoTimerRef.current = setTimeout(() => {
-      autoMarkerRef.current = undefined
-      autoTimerRef.current = undefined
-    }, AUTO_SCROLL_MARKER_TTL_MS)
-  }, [])
+  const markAuto = useCallback(
+    (el: HTMLElement, top = Math.max(0, el.scrollHeight - el.clientHeight)) => {
+      autoMarkerRef.current = {
+        top,
+        time: Date.now(),
+      }
+      if (autoTimerRef.current) clearTimeout(autoTimerRef.current)
+      autoTimerRef.current = setTimeout(() => {
+        autoMarkerRef.current = undefined
+        autoTimerRef.current = undefined
+      }, AUTO_SCROLL_MARKER_TTL_MS)
+    },
+    [],
+  )
 
   const isAuto = useCallback((el: HTMLElement) => {
     const a = autoMarkerRef.current
@@ -277,8 +263,10 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
   const scrollToBottomInstant = useCallback(
     (el: HTMLElement) => {
       stopAnimation()
-      el.scrollTop = Math.max(0, el.scrollHeight - el.clientHeight)
-      markAuto(el)
+      const top = Math.max(0, el.scrollHeight - el.clientHeight)
+      markAuto(el, top)
+      lastScrollTopRef.current = top
+      el.scrollTop = top
     },
     [markAuto, stopAnimation],
   )
@@ -337,27 +325,21 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
   }, [scrollToBottomAnimated, setScrolledAway])
 
   const snapToBottomForThreadSwitch = useCallback(() => {
-    threadSwitchSnapUntilRef.current = Date.now() + THREAD_SWITCH_SNAP_WINDOW_MS
     stopAnimation()
     setScrolledAway(false)
-  }, [setScrolledAway, stopAnimation])
+    const el = scrollRef.current
+    if (el) scrollToBottomInstant(el)
+  }, [scrollToBottomInstant, setScrolledAway, stopAnimation])
 
   // ─── Streaming follow via content changes ───────────────────────
-  // This replaces the old smooth-follow RAF loop. On every content change
-  // (message array update or isBusy toggle), we just snap to the bottom
-  // if we're following. ResizeObserver below handles mid-frame catches.
+  // While the user remains attached, every transcript mutation should
+  // preserve the bottom anchor. ResizeObserver below catches late height
+  // changes from measurement, markdown, and media rendering.
 
   useLayoutEffect(() => {
     if (userScrolledRef.current) return
     const el = scrollRef.current
     if (!el) return
-
-    if (shouldHonorThreadSwitchSnap()) {
-      scrollToBottomInstant(el)
-      return
-    }
-
-    if (!active()) return
     scrollToBottomInstant(el)
   }, [options.contentDep, options.working, scrollToBottomInstant])
 
@@ -370,36 +352,12 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
 
     const observer = new ResizeObserver(() => {
       if (userScrolledRef.current) return
-      if (shouldHonorThreadSwitchSnap()) {
-        scrollToBottomInstant(container)
-        return
-      }
-      if (!active()) return
       scrollToBottomInstant(container)
     })
     observer.observe(content)
 
     return () => observer.disconnect()
   }, [scrollToBottomInstant])
-
-  // ─── Track working → settling transition ────────────────────────
-
-  useEffect(() => {
-    workingRef.current = options.working
-    if (options.working) {
-      settlingRef.current = false
-      if (settleTimerRef.current) {
-        clearTimeout(settleTimerRef.current)
-        settleTimerRef.current = undefined
-      }
-    } else {
-      settlingRef.current = true
-      settleTimerRef.current = setTimeout(() => {
-        settlingRef.current = false
-        settleTimerRef.current = undefined
-      }, SETTLE_DURATION_MS)
-    }
-  }, [options.working])
 
   // ─── Overflow anchor sync ───────────────────────────────────────
 
@@ -423,7 +381,6 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
     () => () => {
       stopAnimation()
       if (autoTimerRef.current) clearTimeout(autoTimerRef.current)
-      if (settleTimerRef.current) clearTimeout(settleTimerRef.current)
     },
     [stopAnimation],
   )
@@ -483,7 +440,7 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
   )
 
   const handleInteraction = useCallback(() => {
-    if (!active()) return
+    if (userScrolledRef.current) return
     const selection = window.getSelection()
     if (selection && selection.toString().length > 0) {
       pause()
