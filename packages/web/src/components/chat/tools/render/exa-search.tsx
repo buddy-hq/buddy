@@ -38,7 +38,6 @@ export function renderExaSearchTool({ state, defaultOpen, info, icon }: ToolPart
       }}
       status={state.status}
       defaultOpen={defaultOpen}
-      suppressAutoOpen={denied}
       hideStatus={denied}
     >
       {!denied ? (

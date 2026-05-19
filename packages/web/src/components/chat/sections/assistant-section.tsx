@@ -3,14 +3,13 @@ import { HiddenStepsPlaceholder } from "../tools/hidden-steps/thinking-placehold
 import { HiddenSteps } from "../tools/hidden-steps/index"
 import { AssistantPartRenderer } from "../parts/assistant-part/assistant-part"
 import { parseToolState } from "../tools/parse-tool-state"
-import { parseRenderFigureOutput } from "../tools/render/render-figure"
-import { parseRenderMermaidSources } from "../tools/render/mermaid"
+import { parseRenderFigureOutput, GroupedFigureToolCard } from "../tools/render/render-figure"
+import { parseRenderMermaidSources, GroupedMermaidToolCard } from "../tools/render/mermaid"
 import { toolDefaultOpen } from "../utils/constants"
 import type { AssistantSectionProps } from "../types"
 
 export const AssistantSection = memo(function AssistantSection({
   assistantItems,
-  collapsedAbstractedKeys,
   assistantCopyPartID,
   assistantMetaText,
   assistantAborted,
@@ -40,10 +39,21 @@ export const AssistantSection = memo(function AssistantSection({
               metaText={assistantMetaText}
               interrupted={assistantAborted}
               isBusy={isBusy}
-              collapsePreview={collapsedAbstractedKeys.has(item.key)}
               shellToolDefaultOpen={shellToolDefaultOpen}
             />
           )
+        }
+
+        if (item.type === "grouped-parts") {
+          if (item.tool === "render_mermaid") {
+            return (
+              <GroupedMermaidToolCard key={item.key} parts={item.parts} directory={directory} />
+            )
+          }
+          if (item.tool === "render_figure" || item.tool === "render_freeform_figure") {
+            return <GroupedFigureToolCard key={item.key} parts={item.parts} directory={directory} />
+          }
+          return null
         }
 
         const previousItem = assistantItems[itemIndex - 1]

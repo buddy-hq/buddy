@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { motion } from "motion/react"
 import { Collapsible, CollapsibleTrigger, CollapsibleContent, ChevronRightIcon } from "@buddy/ui"
 import { ToolStatusIndicator } from "../tools/tool-header"
@@ -20,8 +20,6 @@ export interface BasicToolProps {
   trigger: BasicToolTrigger | ReactNode
   status?: ToolState["status"]
   hideStatus?: boolean
-  /** When true, prevents the panel from auto-expanding on error (e.g. permission denials). */
-  suppressAutoOpen?: boolean
   defaultOpen?: boolean
   hideDetails?: boolean
   children?: ReactNode
@@ -41,17 +39,12 @@ export function BasicTool({
   trigger,
   status,
   hideStatus = false,
-  suppressAutoOpen = false,
   defaultOpen = false,
   hideDetails = false,
   children,
 }: BasicToolProps) {
   const [open, setOpen] = useState(defaultOpen)
   const running = status === "pending" || status === "running"
-
-  useEffect(() => {
-    if (status === "error" && !suppressAutoOpen) setOpen(true)
-  }, [status, suppressAutoOpen])
 
   return (
     <Collapsible

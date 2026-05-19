@@ -82,6 +82,17 @@ export const ToolPartCard = memo(function ToolPartCard({
     defaultOpen,
   }
 
+  if (renderer.inline && state.status === "error") {
+    return (
+      <BasicTool
+        icon={renderer.icon?.("h-3.5 w-3.5")}
+        trigger={{ title: info.title }}
+        status={state.status}
+        hideDetails
+      />
+    )
+  }
+
   if (renderer.deferUntilVisible && state.status === "completed") {
     return (
       <InlineAssetBoundary fallback={<DeferredToolCardFallback {...props} />}>

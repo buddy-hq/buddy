@@ -1,15 +1,13 @@
 import type { MessagePart } from "@/state/chat-types"
 
 import { reasoningHeading } from "../../utils/markdown"
-import { stripAnsi } from "../../utils/path"
 import { parseToolState } from "../parse-tool-state"
 import { parseToolUiMetadata } from "../parse-tool-ui-metadata"
 import { getToolInfo } from "../tool-info"
 import { isPermissionDenied } from "../tool-permission"
 import type {
-  ResolvedToolSummaryAggregate,
-  ResolvedSummaryContentFormat,
   ResolvedToolSummary,
+  ToolCountSummary,
   ToolIconRenderer,
   ToolInfo,
   ToolPartProps,
@@ -19,44 +17,20 @@ import { resolveToolRenderer } from "../tool-renderer-resolver"
 import { resolveToolSummary } from "../tool-summary-resolver"
 import { isRecord } from "../types"
 
-const SUMMARY_MAX_LABEL_COUNT = 3
 export const ABSTRACTED_THINKING_LABEL = "Thinking"
 const ABSTRACTED_THOUGHT_LABEL = "Thought"
-const ABSTRACTED_WORKING_LABEL = "Working"
 
 export type HiddenStepsEntry = {
   part: MessagePart
   state?: ToolState
   info?: ToolInfo
   summary?: ResolvedToolSummary
+  countSummary?: ToolCountSummary
   icon?: ToolIconRenderer
-}
-
-export type HiddenStepsPreview = {
-  title: string
-  detail?: string
-  kind: ResolvedSummaryContentFormat | "error"
-}
-
-type SummaryBucket = {
-  key: string
-  count: number
-  latestLabel: string
-  latestIndex: number
-  aggregate?: ResolvedToolSummaryAggregate
 }
 
 export function getHiddenStepsReasoningLabel(text: string): string {
   return reasoningHeading(text) ?? ABSTRACTED_THINKING_LABEL
-}
-
-function normalizeHiddenStepsPreviewText(value: string | undefined): string | undefined {
-  if (typeof value !== "string") {
-    return undefined
-  }
-
-  const normalized = stripAnsi(value).replace(/\r\n?/g, "\n").trim()
-  return normalized || undefined
 }
 
 function isReasoningActive(part: MessagePart): boolean {
@@ -91,6 +65,7 @@ export function createHiddenStepsEntry(part: MessagePart): HiddenStepsEntry {
     state,
     info,
     summary: renderer.summary ? resolveToolSummary(renderer.summary, props) : undefined,
+    countSummary: renderer.summary?.countSummary,
     icon: renderer.icon,
   }
 }
@@ -105,6 +80,37 @@ export function hiddenStepsEntryIsActive(entry: HiddenStepsEntry): boolean {
   return false
 }
 
+export function getHiddenStepsEntryLabel(entry: HiddenStepsEntry): string {
+  if (entry.part.type === "reasoning") {
+    return getHiddenStepsReasoningLabel(String(entry.part.text ?? "").trim())
+  }
+  return entry.summary?.label ?? entry.info?.title ?? "Tool"
+}
+
+export function getGroupDominantIcon(entries: HiddenStepsEntry[]): ToolIconRenderer | undefined {
+  const counts = new Map<string, { count: number; icon: ToolIconRenderer }>()
+  for (const entry of entries) {
+    if (entry.part.type !== "tool" || !entry.icon) continue
+    const key = entry.info?.title ?? "unknown"
+    const existing = counts.get(key)
+    if (existing) {
+      existing.count++
+    } else {
+      counts.set(key, { count: 1, icon: entry.icon })
+    }
+  }
+
+  let max = 0
+  let dominant: ToolIconRenderer | undefined
+  for (const { count, icon } of counts.values()) {
+    if (count > max) {
+      max = count
+      dominant = icon
+    }
+  }
+  return dominant
+}
+
 function hiddenStepsEntryHasError(entry: HiddenStepsEntry): boolean {
   return entry.part.type === "tool" && entry.state?.status === "error"
 }
@@ -115,136 +121,58 @@ export function hiddenStepsEntryHasVisibleError(entry: HiddenStepsEntry): boolea
   return hiddenStepsEntryHasError(entry) && entry.summary?.errorVisibility === "visible"
 }
 
-function hiddenStepsEntrySummaryLabel(entry: HiddenStepsEntry): string | undefined {
-  if (entry.part.type === "reasoning") {
-    return getHiddenStepsReasoningLabel(String(entry.part.text ?? "").trim())
-  }
+const SUMMARY_CUTOFF = 3
 
-  return entry.summary?.label ?? entry.info?.title
+function formatCountSummary(cs: ToolCountSummary, count: number): string {
+  return `${cs.verb} ${count} ${count === 1 ? cs.singular : cs.plural}`
 }
 
-function hiddenStepsEntrySummaryBucket(
-  entry: HiddenStepsEntry,
-): { key: string; label: string; aggregate?: ResolvedToolSummaryAggregate } | undefined {
-  if (entry.part.type === "reasoning") {
-    return undefined
-  }
-
-  const aggregate = entry.summary?.aggregate
-  if (!aggregate) {
-    return undefined
-  }
-
-  const label = hiddenStepsEntrySummaryLabel(entry)
-  if (!label) {
-    return undefined
-  }
-
-  const bucketLabel =
-    aggregate.mode === "label-times" && aggregate.entryLabel === "title"
-      ? (entry.info?.title ?? label)
-      : label
-
-  return { key: aggregate.key, label: bucketLabel, aggregate }
-}
-
-function formatSummaryBucket(bucket: SummaryBucket): string {
-  if (bucket.aggregate) {
-    switch (bucket.aggregate.mode) {
-      case "label-times":
-        return bucket.count === 1
-          ? bucket.latestLabel
-          : `${bucket.aggregate.label} ×${bucket.count}`
-      case "action-times":
-        return bucket.count === 1
-          ? bucket.latestLabel
-          : `${bucket.aggregate.action} ×${bucket.count}`
-      case "count-items":
-        return bucket.count === 1
-          ? bucket.latestLabel
-          : `${bucket.aggregate.past} ${bucket.count} ${bucket.count === 1 ? bucket.aggregate.singular : bucket.aggregate.plural}`
-    }
-  }
-
-  return bucket.count === 1 ? bucket.latestLabel : `${bucket.latestLabel} ×${bucket.count}`
-}
-
-export function buildHiddenStepsSummary(entries: HiddenStepsEntry[]): string | undefined {
-  const buckets = new Map<string, SummaryBucket>()
+export function buildHiddenStepsSummary(
+  entries: HiddenStepsEntry[],
+  isBusy: boolean,
+): string | undefined {
   let hasReasoning = false
+  let hasActiveReasoning = false
 
-  for (const [index, entry] of entries.entries()) {
+  type Group = { count: number; entry: HiddenStepsEntry }
+  const groups = new Map<string, Group>()
+
+  for (const entry of entries) {
     if (entry.part.type === "reasoning") {
       hasReasoning = true
-    }
-
-    const bucket = hiddenStepsEntrySummaryBucket(entry)
-    if (!bucket) {
-      continue
-    }
-
-    const existing = buckets.get(bucket.key)
-    if (existing) {
-      existing.count += 1
-      existing.latestLabel = bucket.label
-      existing.latestIndex = index
-      continue
-    }
-
-    buckets.set(bucket.key, {
-      key: bucket.key,
-      count: 1,
-      latestLabel: bucket.label,
-      latestIndex: index,
-      aggregate: bucket.aggregate,
-    })
-  }
-
-  const detail = [...buckets.values()]
-    .toSorted((left, right) => right.latestIndex - left.latestIndex)
-    .slice(0, SUMMARY_MAX_LABEL_COUNT)
-    .map((bucket) => formatSummaryBucket(bucket))
-    .join(" · ")
-
-  if (detail) {
-    return detail
-  }
-
-  return hasReasoning ? ABSTRACTED_THOUGHT_LABEL : undefined
-}
-
-export function buildHiddenStepsPreview(entry: HiddenStepsEntry | undefined): HiddenStepsPreview {
-  if (!entry) {
-    return { title: ABSTRACTED_WORKING_LABEL, kind: "text" }
-  }
-
-  if (entry.part.type === "reasoning") {
-    const text = String(entry.part.text ?? "").trim()
-
-    return {
-      title: getHiddenStepsReasoningLabel(text),
-      detail: text || undefined,
-      kind: "markdown",
+      if (isBusy && isReasoningActive(entry.part)) hasActiveReasoning = true
+    } else if (entry.part.type === "tool" && entry.info?.title) {
+      const key = entry.info.title
+      const existing = groups.get(key)
+      if (existing) {
+        existing.count++
+      } else {
+        groups.set(key, { count: 1, entry })
+      }
     }
   }
 
-  if (entry.part.type === "tool" && entry.info) {
-    const errorText =
-      entry.state?.status === "error" &&
-      entry.summary?.errorVisibility === "visible" &&
-      !isPermissionDenied(entry.state)
-        ? entry.summary.errorPreview
-        : undefined
-    const previewText = normalizeHiddenStepsPreviewText(
-      entry.summary?.preview?.value ?? entry.state?.output,
-    )
+  let detail: string | undefined
 
-    return {
-      title: entry.info.title,
-      detail: errorText ?? previewText ?? entry.info.summary ?? entry.info.subtitle,
-      kind: errorText ? "error" : (entry.summary?.preview?.format ?? "text"),
-    }
+  if (groups.size > 0) {
+    detail = [...groups.values()]
+      .toSorted((a, b) => b.count - a.count)
+      .slice(0, SUMMARY_CUTOFF)
+      .map(({ count, entry }) =>
+        entry.countSummary
+          ? formatCountSummary(entry.countSummary, count)
+          : count === 1
+            ? (entry.info?.title ?? "Tool")
+            : `${entry.info?.title ?? "Tool"} ×${count}`,
+      )
+      .join(" · ")
   }
 
-  return { title: ABSTRACTED_WORKING_LABEL, kind: "text" }
+  if (detail) return detail
+
+  if (hasReasoning) {
+    return hasActiveReasoning ? ABSTRACTED_THINKING_LABEL : ABSTRACTED_THOUGHT_LABEL
+  }
+
+  return undefined
 }

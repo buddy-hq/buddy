@@ -81,7 +81,6 @@ export const TurnRenderer = memo(function TurnRenderer({
 
   const {
     assistantItems,
-    collapsedAbstractedKeys,
     assistantTextParts,
     currentReasoningHeading,
     assistantError,
@@ -144,7 +143,6 @@ export const TurnRenderer = memo(function TurnRenderer({
       {showAssistantSection ? (
         <AssistantSection
           assistantItems={assistantItems}
-          collapsedAbstractedKeys={collapsedAbstractedKeys}
           assistantCopyPartID={assistantCopyPartID}
           assistantMetaText={assistantMetaText}
           assistantAborted={assistantAborted}

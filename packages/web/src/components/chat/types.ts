@@ -20,6 +20,12 @@ export type AssistantRenderItem =
       key: string
       part: MessagePart
     }
+  | {
+      type: "grouped-parts"
+      key: string
+      tool: string
+      parts: MessagePart[]
+    }
 
 export type ChatTurn = {
   key: string
@@ -74,7 +80,6 @@ export interface TurnRendererProps {
 
 export interface AssistantSectionProps {
   assistantItems: AssistantRenderItem[]
-  collapsedAbstractedKeys: Set<string>
   assistantCopyPartID: string | undefined
   assistantMetaText: string
   assistantAborted: boolean
@@ -100,7 +105,6 @@ export interface UserSectionProps {
 
 export interface AssistantDerivedState {
   assistantItems: AssistantRenderItem[]
-  collapsedAbstractedKeys: Set<string>
   assistantTextParts: MessagePart[]
   currentReasoningHeading: string | undefined
   assistantError: MessageError | undefined

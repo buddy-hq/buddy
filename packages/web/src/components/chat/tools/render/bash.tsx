@@ -27,7 +27,6 @@ export function renderBashTool({ state, defaultOpen, icon }: ToolPartProps) {
       }}
       status={state.status}
       defaultOpen={defaultOpen}
-      suppressAutoOpen={denied}
       hideStatus={denied}
     >
       {!denied ? (

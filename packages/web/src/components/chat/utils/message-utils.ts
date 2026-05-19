@@ -50,7 +50,7 @@ export function assistantPartStartsFollowup(part: MessagePart): boolean {
     const tool = part.tool
     const state = parseToolState(part)
     const renderer = resolveToolRenderer(tool, parseToolUiMetadata(state.metadata))
-    if (renderer.hidden || renderer.summary) return false
+    if (renderer.hidden || !renderer.inline) return false
 
     if (tool === "question") {
       return state.status !== "running"
@@ -87,26 +87,121 @@ export function groupAssistantParts(
     contextStart = -1
   }
 
-  visibleParts.forEach((part, index) => {
-    const partIsAbstractable =
-      (isChatToolPart(part) &&
-        Boolean(
-          resolveToolRenderer(part.tool, parseToolUiMetadata(parseToolState(part).metadata))
-            .summary,
-        )) ||
-      isChatReasoningPart(part)
-    if (partIsAbstractable) {
-      if (contextStart < 0) contextStart = index
-      return
+  let i = 0
+  while (i < visibleParts.length) {
+    const part = visibleParts[i]
+    if (!part) {
+      i++
+      continue
     }
 
-    flushContext(index - 1)
+    // Check if it's a render_mermaid tool call
+    if (isChatToolPart(part) && part.tool === "render_mermaid") {
+      flushContext(i - 1)
+
+      // Collect all consecutive render_mermaid tool calls
+      const mermaidParts: MessagePart[] = [part]
+      let j = i + 1
+      while (j < visibleParts.length) {
+        const nextPart = visibleParts[j]
+        if (nextPart && isChatToolPart(nextPart) && nextPart.tool === "render_mermaid") {
+          mermaidParts.push(nextPart)
+          j++
+        } else {
+          break
+        }
+      }
+
+      if (mermaidParts.length > 1) {
+        items.push({
+          type: "grouped-parts",
+          key: `grouped-parts:render_mermaid:${part.id}`,
+          tool: "render_mermaid",
+          parts: mermaidParts,
+        })
+        i = j
+        continue
+      }
+    }
+
+    // Check if it's a render_figure tool call
+    if (isChatToolPart(part) && part.tool === "render_figure") {
+      flushContext(i - 1)
+
+      // Collect all consecutive render_figure tool calls
+      const figureParts: MessagePart[] = [part]
+      let j = i + 1
+      while (j < visibleParts.length) {
+        const nextPart = visibleParts[j]
+        if (nextPart && isChatToolPart(nextPart) && nextPart.tool === "render_figure") {
+          figureParts.push(nextPart)
+          j++
+        } else {
+          break
+        }
+      }
+
+      if (figureParts.length > 1) {
+        items.push({
+          type: "grouped-parts",
+          key: `grouped-parts:render_figure:${part.id}`,
+          tool: "render_figure",
+          parts: figureParts,
+        })
+        i = j
+        continue
+      }
+    }
+
+    // Check if it's a render_freeform_figure tool call
+    if (isChatToolPart(part) && part.tool === "render_freeform_figure") {
+      flushContext(i - 1)
+
+      // Collect all consecutive render_freeform_figure tool calls
+      const freeformParts: MessagePart[] = [part]
+      let j = i + 1
+      while (j < visibleParts.length) {
+        const nextPart = visibleParts[j]
+        if (nextPart && isChatToolPart(nextPart) && nextPart.tool === "render_freeform_figure") {
+          freeformParts.push(nextPart)
+          j++
+        } else {
+          break
+        }
+      }
+
+      if (freeformParts.length > 1) {
+        items.push({
+          type: "grouped-parts",
+          key: `grouped-parts:render_freeform_figure:${part.id}`,
+          tool: "render_freeform_figure",
+          parts: freeformParts,
+        })
+        i = j
+        continue
+      }
+    }
+
+    const partIsAbstractable =
+      (isChatToolPart(part) &&
+        !resolveToolRenderer(part.tool, parseToolUiMetadata(parseToolState(part).metadata))
+          .inline) ||
+      isChatReasoningPart(part)
+
+    if (partIsAbstractable) {
+      if (contextStart < 0) contextStart = i
+      i++
+      continue
+    }
+
+    flushContext(i - 1)
     items.push({
       type: "part",
       key: `part:${part.id}`,
       part,
     })
-  })
+    i++
+  }
 
   flushContext(visibleParts.length - 1)
 
