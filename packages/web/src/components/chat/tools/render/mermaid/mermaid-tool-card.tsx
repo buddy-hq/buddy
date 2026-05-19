@@ -28,6 +28,7 @@ export function MermaidToolCard({
       hideStatus={hideStatus}
       actions={actions}
       contentClassName={contentClassName}
+      headerPosition="bottom"
       showGrid
     >
       {children}

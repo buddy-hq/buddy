@@ -24,7 +24,7 @@ import { findSupersedingMermaidArtifactID } from "@/components/chat/tools/render
 
 const MERMAID_STREAM_STABLE_DELAY_MS = 600
 const MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS = 1_000
-const MARKDOWN_MERMAID_VIEWPORT_HEIGHT_CLASS = "h-[32rem]"
+const MARKDOWN_MERMAID_VIEWPORT_HEIGHT_CLASS = "h-[30rem]"
 const MARKDOWN_MERMAID_DEFAULT_TITLE = "Mermaid diagram"
 const MARKDOWN_MERMAID_DEFAULT_TYPE = "mermaid"
 

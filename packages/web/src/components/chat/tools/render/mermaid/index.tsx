@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ToolErrorPanel } from "../../../tools/tool-error-panel"
+import { MultiViewShell } from "../../multi-view-shell"
+import { parseToolState } from "../../parse-tool-state"
+import { getToolInfo } from "../../tool-info"
 import { MermaidDiagram } from "./mermaid-diagram"
+import { useMermaidRender } from "./use-mermaid-render"
 import { MermaidToolCard } from "./mermaid-tool-card"
 import { language } from "@/context/language"
 import { isRecord, readNonEmptyString } from "../../../tools/types"
@@ -553,7 +557,7 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
         title={pendingAlt}
         diagramType={pendingDiagramType}
         status={state.status}
-        contentClassName="h-[32rem]"
+        contentClassName="h-[30rem]"
       >
         <div
           data-component="mermaid-tool-loading"
@@ -623,7 +627,7 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
           diagramType={diagramType}
           hideStatus
           actions={actions}
-          contentClassName="h-[32rem]"
+          contentClassName="h-[30rem]"
         >
           <div className="h-full w-full">{diagramElement}</div>
         </MermaidToolCard>
@@ -634,4 +638,79 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
 
 export function renderRenderMermaidTool(props: ToolPartProps) {
   return <RenderMermaidToolCard {...props} />
+}
+
+function StaticMermaidSVG({
+  source,
+  artifactID,
+  directory,
+}: {
+  source: string
+  artifactID?: string
+  directory?: string
+}) {
+  const { state } = useMermaidRender({
+    source,
+    artifactID,
+    directory,
+    enabled: true,
+    priority: 1,
+  })
+
+  if (state.status !== "ready") {
+    return (
+      <div className="flex h-full w-full items-center justify-center text-xs text-text-weak bg-background-base animate-pulse">
+        ...
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="h-full w-full flex items-center justify-center p-1.5 [&>svg]:!w-full [&>svg]:!h-full [&>svg]:!max-w-full [&>svg]:!max-h-full"
+      dangerouslySetInnerHTML={{ __html: state.value.svg }}
+    />
+  )
+}
+
+export function GroupedMermaidToolCard({
+  parts,
+  directory,
+}: {
+  parts: MessagePart[]
+  directory?: string
+}) {
+  const items = parts.map((part) => {
+    const state = parseToolState(part)
+    const parsed = state.status === "completed" ? parseRenderMermaidReference(state) : undefined
+    const source = parsed?.source ?? readNonEmptyString(state.input.source) ?? ""
+    const info = getToolInfo("render_mermaid", state)
+
+    return {
+      key: part.id,
+      thumbnail: (
+        <div className="h-full w-full pointer-events-none flex items-center justify-center p-1 bg-background-base rounded-md overflow-hidden">
+          <StaticMermaidSVG directory={directory} source={source} artifactID={parsed?.artifactID} />
+        </div>
+      ),
+      children: (
+        <RenderMermaidToolCard
+          part={part}
+          state={state}
+          info={info}
+          tool="render_mermaid"
+          directory={directory}
+        />
+      ),
+    }
+  })
+
+  return (
+    <MultiViewShell
+      items={items}
+      contentClassName="bg-transparent rounded-none border-none p-0 h-auto w-full shadow-none"
+      className="mt-2"
+      thumbnailSize="lg"
+    />
+  )
 }

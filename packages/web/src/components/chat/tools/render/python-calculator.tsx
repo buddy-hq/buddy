@@ -1,34 +1,85 @@
-import { BasicTool } from "../../tools/basic-tool"
+import { ArtifactCard } from "../../tools/artifact-card"
 import { ToolOutputPanel } from "../../tools/tool-output-panel"
-import { ToolErrorPanel } from "../../tools/tool-error-panel"
-import { ToolAttachmentGallery } from "../tool-attachments"
+import { MultiViewShell } from "../../tools/multi-view-shell"
 import { language } from "@/context/language"
+import { resolveAssetUrl } from "@/lib/resource-url"
 import type { ToolPartProps } from "../registry"
 
-export function renderPythonCalculatorTool({ state, defaultOpen }: ToolPartProps) {
+function resolvePlotUrl(url: string): string {
+  if (url.startsWith("data:") || url.startsWith("blob:")) return url
+  return resolveAssetUrl(url)
+}
+
+export function renderPythonCalculatorTool({ state }: ToolPartProps) {
+  const running = state.status === "pending" || state.status === "running"
+
+  const codeFirstLine =
+    typeof state.input.code === "string" ? state.input.code.split("\n")[0]?.trim() : undefined
+
+  if (running) {
+    return (
+      <ArtifactCard
+        title={language.t("chatTools.info.pythonCalculator.running")}
+        badge={language.t("chatTools.python")}
+        status={state.status}
+      >
+        <div className="space-y-2 p-4">
+          <div className="h-2.5 w-3/5 animate-pulse rounded-sm bg-surface-weak/70" />
+          <div className="h-2.5 w-2/5 animate-pulse rounded-sm bg-surface-weak/50" />
+        </div>
+      </ArtifactCard>
+    )
+  }
+
   const output = state.output || (state.error ?? "")
-  const hasContent = output.trim().length > 0
-  const hasError = state.status === "error" && hasContent
+  const hasOutput = output.trim().length > 0
   const value = state.metadata.value
   const valueText = value === undefined ? "" : JSON.stringify(value, null, 2)
+  const plots = state.attachments.filter((a) => a.mime.startsWith("image/"))
+  const hasPlots = plots.length > 0
 
   return (
-    <BasicTool
-      trigger={{ title: language.t("chatTools.python") }}
-      status={state.status}
-      defaultOpen={defaultOpen ?? state.status !== "pending"}
+    <ArtifactCard
+      title={language.t("chatTools.python")}
+      badge={language.t("chatTools.python")}
+      subtitle={codeFirstLine}
+      hideStatus
     >
-      {hasError ? (
-        <ToolErrorPanel error={output} />
-      ) : hasContent ? (
-        <ToolOutputPanel output={output} copyLabel={language.t("chatTools.copyResult")} />
+      {hasPlots ? (
+        <>
+          <MultiViewShell
+            items={plots.map((plot) => {
+              const url = resolvePlotUrl(plot.url)
+              const alt = plot.filename ?? language.t("chatTools.python")
+              return {
+                key: plot.id,
+                thumbnail: (
+                  <img src={url} alt={alt} loading="lazy" className="h-full w-full object-cover" />
+                ),
+                children: (
+                  <img
+                    src={url}
+                    alt={alt}
+                    loading="lazy"
+                    className="h-full w-full object-contain"
+                  />
+                ),
+              }
+            })}
+          />
+          {hasOutput ? (
+            <div className="border-t border-border-base/40 px-3 pb-3">
+              <ToolOutputPanel output={output} copyLabel={language.t("chatTools.copyResult")} />
+            </div>
+          ) : null}
+        </>
+      ) : hasOutput ? (
+        <div className="px-3 pb-3">
+          <ToolOutputPanel output={output} copyLabel={language.t("chatTools.copyResult")} />
+        </div>
+      ) : valueText ? (
+        <pre className="p-3 font-mono text-xs text-text-weaker">{valueText}</pre>
       ) : null}
-      {!hasContent && valueText ? (
-        <pre className="max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border-base bg-background-base p-2 text-xs text-text-weak">
-          {valueText}
-        </pre>
-      ) : null}
-      <ToolAttachmentGallery attachments={state.attachments} />
-    </BasicTool>
+    </ArtifactCard>
   )
 }

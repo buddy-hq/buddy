@@ -1,11 +1,14 @@
-import { BasicTool } from "../../tools/basic-tool"
-import { ToolErrorPanel } from "../../tools/tool-error-panel"
-import { ToolEmptyState } from "../../tools/tool-empty-state"
-import { CopyAction } from "../../copy-action"
+import { useState } from "react"
 import { language } from "@/context/language"
 import { isRecord, readString, readNonEmptyString, readNonNegativeInt } from "../../tools/types"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import type { ToolPartProps } from "../registry"
+import { ImageZoomDialog } from "../image-zoom-dialog"
+import { MultiViewShell } from "../multi-view-shell"
+import type { MessagePart } from "@/state/chat-types"
+import { parseToolState } from "../parse-tool-state"
+import { getToolInfo } from "../tool-info"
+
 interface RenderFigureToolOutput {
   figureID: string
   mime: "image/svg+xml"
@@ -13,17 +16,6 @@ interface RenderFigureToolOutput {
   alt: string
   caption?: string
   repairAttempts: number
-}
-
-function stripUrlCredentials(value: string): string {
-  try {
-    const url = new URL(value)
-    url.username = ""
-    url.password = ""
-    return url.toString()
-  } catch {
-    return value
-  }
 }
 
 function readProducerArtifact(
@@ -68,62 +60,120 @@ export function parseRenderFigureOutput(
   return { figureID, mime, url, alt, caption, repairAttempts }
 }
 
-export function renderRenderFigureTool({ state, info }: ToolPartProps) {
+export function renderRenderFigureTool({ state }: ToolPartProps) {
+  const [open, setOpen] = useState(false)
+  const running = state.status === "pending" || state.status === "running"
   const renderFigure = state.status === "completed" ? parseRenderFigureOutput(state) : undefined
-  const output = state.output || (state.error ?? "")
-  const showOutput = output.trim().length > 0
+
+  if (running) {
+    return (
+      <div className="w-full h-48 animate-pulse border border-border-base/40 bg-surface-weak/30 rounded-xl" />
+    )
+  }
 
   if (!renderFigure) {
     return (
-      <BasicTool
-        trigger={{ title: info.title, subtitle: info.subtitle }}
-        status={state.status}
-        hideDetails
-      >
-        {state.status === "pending" || state.status === "running" ? (
-          <div className="text-xs text-text-weak">{language.t("chatTools.generatingFigure")}</div>
-        ) : state.status === "error" && showOutput ? (
-          <ToolErrorPanel error={output} />
-        ) : state.status === "completed" && !showOutput ? (
-          <ToolEmptyState />
-        ) : null}
-      </BasicTool>
+      <div className="w-full p-4 border border-border-base/40 bg-surface-weak/30 rounded-xl text-center text-xs text-text-weak">
+        {language.t("chatTools.info.figure")}
+      </div>
     )
   }
 
   const imageUrl = resolveAssetUrl(renderFigure.url)
-  const copyableImageUrl = stripUrlCredentials(imageUrl)
+  const captionText = renderFigure.caption || renderFigure.alt
 
   return (
-    <BasicTool
-      trigger={{ title: info.title, subtitle: info.subtitle }}
-      status={state.status}
-      hideDetails
-    >
-      <figure className="rounded-lg border border-border-base bg-background-base p-2">
-        <img
-          src={imageUrl}
-          alt={renderFigure.alt}
-          loading="lazy"
-          className="h-auto w-full rounded-md"
-        />
-      </figure>
-      {renderFigure.caption ? (
-        <div className="mt-1 text-sm text-text-weak">{renderFigure.caption}</div>
-      ) : null}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <CopyAction value={copyableImageUrl} label={language.t("chatTools.copyImageUrl")} />
-        <span className="text-xs text-text-weak">
-          {renderFigure.repairAttempts > 0
-            ? language.t(
-                renderFigure.repairAttempts === 1
-                  ? "chatTools.repairedLabel.one"
-                  : "chatTools.repairedLabel.other",
-                { attempts: renderFigure.repairAttempts },
-              )
-            : language.t("chatTools.renderedAutomatically")}
-        </span>
+    <>
+      <div className="relative w-full overflow-hidden border border-border-base/40 bg-surface-weak/20 rounded-xl flex flex-col">
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="w-full flex items-center justify-center cursor-zoom-in hover:bg-surface-weak/10 transition-colors focus-visible:outline-none rounded-t-xl rounded-b-none"
+        >
+          <img
+            src={imageUrl}
+            alt={renderFigure.alt}
+            loading="lazy"
+            className="block w-full max-h-[50dvh] object-contain rounded-t-xl rounded-b-none select-none"
+          />
+        </button>
+        {captionText ? (
+          <div className="w-full px-3 py-2 border-t border-border-base/30 bg-surface-base/80 text-xs text-text-weaker text-center">
+            {captionText}
+          </div>
+        ) : null}
       </div>
-    </BasicTool>
+
+      <ImageZoomDialog
+        open={open}
+        onOpenChange={setOpen}
+        imageUrl={imageUrl}
+        title={renderFigure.alt}
+        description={renderFigure.caption}
+      >
+        {captionText ? (
+          <p className="px-4 py-1.5 bg-background-base/75 text-text-base text-xs font-medium rounded-full shadow-lg border border-border-base/10 max-w-xl text-center backdrop-blur-sm select-none">
+            {captionText}
+          </p>
+        ) : null}
+      </ImageZoomDialog>
+    </>
+  )
+}
+
+function FigureThumbnail({ part }: { part: MessagePart }) {
+  const state = parseToolState(part)
+  const renderFigure = state.status === "completed" ? parseRenderFigureOutput(state) : undefined
+  if (!renderFigure) {
+    return <div className="h-full w-full bg-surface-weak/30 animate-pulse rounded-md" />
+  }
+  const imageUrl = resolveAssetUrl(renderFigure.url)
+  return (
+    <div className="h-full w-full pointer-events-none flex items-center justify-center bg-background-base rounded-md overflow-hidden">
+      <img
+        src={imageUrl}
+        alt={renderFigure.alt}
+        className="block max-h-full max-w-full object-contain select-none"
+      />
+    </div>
+  )
+}
+
+function SingleFigureToolCard({ part, directory }: { part: MessagePart; directory?: string }) {
+  const state = parseToolState(part)
+  const toolName =
+    part.type === "tool" && typeof part.tool === "string" ? part.tool : "render_figure"
+  const info = getToolInfo(toolName, state)
+  return renderRenderFigureTool({
+    part,
+    state,
+    info,
+    tool: toolName,
+    directory,
+  })
+}
+
+export function GroupedFigureToolCard({
+  parts,
+  directory,
+}: {
+  parts: MessagePart[]
+  directory?: string
+}) {
+  const items = parts.map((part) => {
+    return {
+      key: part.id,
+      thumbnail: <FigureThumbnail part={part} />,
+      children: <SingleFigureToolCard part={part} directory={directory} />,
+    }
+  })
+
+  return (
+    <MultiViewShell
+      items={items}
+      contentClassName="bg-transparent rounded-none border-none p-0 h-auto w-full shadow-none"
+      className="mt-2"
+      thumbnailSize="lg"
+    />
   )
 }

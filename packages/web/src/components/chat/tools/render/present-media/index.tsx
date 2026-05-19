@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useQueries } from "@tanstack/react-query"
 import {
-  Button,
+  cn,
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -13,14 +13,12 @@ import {
   DialogHeader,
   DialogTitle,
   Skeleton,
-  Slider,
   Table,
   TableBody,
   TableCell,
   TableRow,
   toast,
 } from "@buddy/ui"
-import { ZoomInIcon, ZoomOutIcon } from "lucide-react"
 import { ToolRow, ToolRowIcon, ToolRowAction } from "../../tool-row"
 import { TextShimmer } from "../../text-shimmer"
 import { ToolErrorPanel } from "../../tool-error-panel"
@@ -38,12 +36,8 @@ import {
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { usePlatform } from "@/context/platform"
 import { useWorkspaceFilePanelStore } from "@/state/workspace-file-panel-store"
+import { MultiViewShell } from "../../multi-view-shell"
 import type { ToolPartProps } from "../../registry"
-
-const IMAGE_DIALOG_FIT_SCALE = 1
-const IMAGE_DIALOG_MIN_SCALE = 0.5
-const IMAGE_DIALOG_MAX_SCALE = 3
-const IMAGE_DIALOG_SCALE_STEP = 0.25
 
 type PresentMediaResolvedItem = PresentMediaItem & {
   resolvedAvailability: PresentMediaItem["availability"]
@@ -172,8 +166,15 @@ function InlineImage(props: {
   className: string
 }) {
   const url = resolvePresentedMediaStreamUrl(props.item)
-  if (!url) return <Skeleton className={props.className} />
-  return <img src={url} alt={props.alt} loading="lazy" className={props.className} />
+  if (!url) return <Skeleton className={cn("rounded-[inherit]", props.className)} />
+  return (
+    <img
+      src={url}
+      alt={props.alt}
+      loading="lazy"
+      className={cn("rounded-[inherit]", props.className)}
+    />
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -280,13 +281,12 @@ function MediaFileRow(props: { directory: string; item: PresentMediaResolvedItem
 }
 
 // ---------------------------------------------------------------------------
-// Image gallery — compact grid + zoom dialog
+// Image gallery — main+strip layout with zoom dialog
 // ---------------------------------------------------------------------------
 
 function MediaImageGallery(props: { directory: string; items: PresentMediaResolvedItem[] }) {
   const [open, setOpen] = useState(false)
   const [idx, setIdx] = useState(0)
-  const [scale, setScale] = useState(IMAGE_DIALOG_FIT_SCALE)
 
   const previewable = props.items.filter(
     (i) =>
@@ -298,7 +298,6 @@ function MediaImageGallery(props: { directory: string; items: PresentMediaResolv
     (i) => !previewable.some((candidate) => candidate.id === i.id),
   )
   const current = previewable[idx] ?? previewable[0] ?? props.items[0]
-  const currentUrl = resolvePresentedMediaStreamUrl(current)
 
   useEffect(() => {
     if (!open || previewable.length <= 1) return
@@ -330,33 +329,38 @@ function MediaImageGallery(props: { directory: string; items: PresentMediaResolv
     )
   }
 
-  const single = previewable.length === 1
-
   return (
     <>
-      <div className={single ? "" : "grid grid-cols-2 gap-1.5"}>
-        {previewable.map((item, i) => (
-          <button
-            key={item.id}
-            type="button"
-            className="overflow-hidden rounded-lg"
-            onClick={() => {
-              setIdx(i)
-              setScale(IMAGE_DIALOG_FIT_SCALE)
-              setOpen(true)
-            }}
-          >
+      <MultiViewShell
+        items={previewable.map((item, i) => ({
+          key: item.id,
+          thumbnail: (
             <InlineImage
               directory={props.directory}
               item={item}
               alt={item.fileName}
-              className={
-                single ? "max-h-[14rem] w-full object-contain" : "h-28 w-full object-cover"
-              }
+              className="h-full w-full object-cover"
             />
-          </button>
-        ))}
-      </div>
+          ),
+          children: (
+            <button
+              type="button"
+              className="flex h-full w-full items-center justify-center cursor-zoom-in"
+              onClick={() => {
+                setIdx(i)
+                setOpen(true)
+              }}
+            >
+              <InlineImage
+                directory={props.directory}
+                item={item}
+                alt={item.fileName}
+                className="h-full w-full object-contain"
+              />
+            </button>
+          ),
+        }))}
+      />
       {fallbackFiles.length > 0 ? (
         <div className="mt-2 w-full max-w-full overflow-hidden">
           <Table>
@@ -374,102 +378,67 @@ function MediaImageGallery(props: { directory: string; items: PresentMediaResolv
       ) : null}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-6xl">
-          <DialogHeader>
+        <DialogContent
+          showCloseButton={false}
+          className="!border-none !bg-transparent !shadow-none p-0 flex flex-col gap-4 sm:max-w-[90vw] md:max-w-[85vw] max-h-[90vh] w-full focus:outline-none"
+        >
+          <DialogHeader className="sr-only">
             <DialogTitle>{current.fileName}</DialogTitle>
-            <DialogDescription>Preview</DialogDescription>
+            <DialogDescription>Media gallery preview</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            <div className="flex items-center gap-2 text-xs text-text-weak">
-              <Button size="xs" variant="outline" onClick={() => setScale(IMAGE_DIALOG_FIT_SCALE)}>
-                Fit
-              </Button>
-              <Button size="xs" variant="outline" onClick={() => setScale(1)}>
-                1:1
-              </Button>
-              <Button
-                size="icon-xs"
-                variant="outline"
-                onClick={() =>
-                  setScale((c) => Math.max(c - IMAGE_DIALOG_SCALE_STEP, IMAGE_DIALOG_MIN_SCALE))
-                }
-              >
-                <ZoomOutIcon className="size-3" />
-                <span className="sr-only">Zoom out</span>
-              </Button>
-              <div className="min-w-32 max-w-56 flex-1 px-1">
-                <Slider
-                  value={[scale]}
-                  min={IMAGE_DIALOG_MIN_SCALE}
-                  max={IMAGE_DIALOG_MAX_SCALE}
-                  step={IMAGE_DIALOG_SCALE_STEP}
-                  onValueChange={(v) => setScale(v[0] ?? IMAGE_DIALOG_FIT_SCALE)}
-                />
-              </div>
-              <span>{Math.round(scale * 100)}%</span>
-              <Button
-                size="icon-xs"
-                variant="outline"
-                onClick={() =>
-                  setScale((c) => Math.min(c + IMAGE_DIALOG_SCALE_STEP, IMAGE_DIALOG_MAX_SCALE))
-                }
-              >
-                <ZoomInIcon className="size-3" />
-                <span className="sr-only">Zoom in</span>
-              </Button>
-            </div>
-            <figure className="overflow-auto rounded-lg border border-border-base bg-background-base p-3">
-              {currentUrl ? (
-                <img
-                  src={currentUrl}
-                  alt={current.fileName}
-                  loading="lazy"
-                  className="mx-auto max-h-[70vh] object-contain"
-                  style={{ transform: `scale(${scale})`, transformOrigin: "center center" }}
-                />
-              ) : (
-                <Skeleton className="mx-auto h-[28rem] w-full rounded-lg" />
-              )}
-            </figure>
-            {previewable.length > 1 ? (
-              <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                {previewable.map((item, i) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setIdx(i)}
-                    className={
-                      i === idx
-                        ? "overflow-hidden rounded-md ring-2 ring-border-base"
-                        : "overflow-hidden rounded-md border border-border-base/50"
-                    }
-                  >
+          <div className="w-full flex-1">
+            <MultiViewShell
+              thumbnailSize="lg"
+              defaultIndex={idx}
+              onIndexChange={setIdx}
+              showZoomControls={true}
+              contentClassName="h-[60vh] md:h-[70vh] !bg-transparent !border-none"
+              items={previewable.map((item) => {
+                const url = resolvePresentedMediaStreamUrl(item)
+                return {
+                  key: item.id,
+                  thumbnail: (
                     <InlineImage
                       directory={props.directory}
                       item={item}
                       alt={item.fileName}
-                      className="h-14 w-14 object-cover"
+                      className="h-full w-full object-cover"
                     />
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            {fallbackFiles.length > 0 ? (
-              <div className="w-full max-w-full overflow-hidden">
-                <Table>
-                  <TableBody>
-                    {fallbackFiles.map((item) => (
-                      <MediaFileRow
-                        key={`image-fallback-${item.id}`}
-                        directory={props.directory}
-                        item={item}
-                      />
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            ) : null}
+                  ),
+                  children: (
+                    <div className="relative w-full h-full flex items-center justify-center">
+                      {url ? (
+                        <img
+                          src={url}
+                          alt={item.fileName}
+                          loading="lazy"
+                          className="w-full h-full max-h-[60vh] md:max-h-[70vh] max-w-[75vw] object-contain rounded-xl shadow-2xl select-none"
+                        />
+                      ) : (
+                        <Skeleton className="h-[28rem] w-full max-w-[75vw] rounded-xl" />
+                      )}
+                    </div>
+                  ),
+                }
+              })}
+            />
           </div>
+
+          {fallbackFiles.length > 0 ? (
+            <div className="w-full max-w-full overflow-hidden px-4 py-2 bg-background-base/80 border border-border-base/20 rounded-xl shadow-lg mt-2">
+              <Table>
+                <TableBody>
+                  {fallbackFiles.map((item) => (
+                    <MediaFileRow
+                      key={`image-fallback-${item.id}`}
+                      directory={props.directory}
+                      item={item}
+                    />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </>
