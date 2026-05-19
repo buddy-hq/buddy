@@ -52,7 +52,11 @@ import { OPENCODE_PROVIDER_ID } from "../lib/provider-ids"
 
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
 import type { McpLocalConfig, McpRemoteConfig } from "../components/mcp-dialog/mcp-config-schema"
-import type { PromptFilePart, PromptSubmissionPart } from "../components/prompt/prompt-types"
+import {
+  WORKSPACE_FILE_REFERENCE_PART_TYPE,
+  type PromptFilePart,
+  type PromptSubmissionPart,
+} from "../components/prompt/prompt-types"
 import {
   BUSY_SESSION_STATUS,
   IDLE_SESSION_STATUS,
@@ -573,7 +577,13 @@ function createOptimisticPromptParts(input: {
       : []
 
   const visibleParts = input.parts
-    .filter((part) => part.type === "text" || part.type === "file" || part.type === "agent")
+    .filter(
+      (part) =>
+        part.type === "text" ||
+        part.type === "file" ||
+        part.type === "agent" ||
+        part.type === WORKSPACE_FILE_REFERENCE_PART_TYPE,
+    )
     .map((part) =>
       Object.assign({}, part, {
         id: createOptimisticID(OPTIMISTIC_PART_ID_PREFIX),

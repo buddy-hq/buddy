@@ -13,8 +13,8 @@ import {
 export const MAX_INLINE_PRESENTED_MEDIA_BYTES = 512 * 1024 * 1024
 
 const LOCAL_MEDIA_EXTENSION_PATTERN = String.raw`(?:[a-z0-9][a-z0-9_+-]{0,15})`
-const LOCAL_MEDIA_FILENAME_PATTERN = String.raw`[^\r\n/\\>'"]+\.${LOCAL_MEDIA_EXTENSION_PATTERN}`
-const LOCAL_MEDIA_CANDIDATE_PATTERN = String.raw`(?:file:\/\/[^\r\n>'"]*[\\/]${LOCAL_MEDIA_FILENAME_PATTERN}|~[\\/][^\r\n>'"]*[\\/]${LOCAL_MEDIA_FILENAME_PATTERN}|(?:[A-Za-z]:[\\/]|\/)[^\r\n>'"]*[\\/]${LOCAL_MEDIA_FILENAME_PATTERN}|(?:\.\.?[\\/]|[^\r\n>'"]+[\\/])[^\r\n>'"]*[\\/]?${LOCAL_MEDIA_FILENAME_PATTERN})`
+const LOCAL_MEDIA_FILENAME_PATTERN = String.raw`[^\r\n/\\>'"()]+\.${LOCAL_MEDIA_EXTENSION_PATTERN}`
+const LOCAL_MEDIA_CANDIDATE_PATTERN = String.raw`(?:file:\/\/[^\r\n>'"]*[\\/]${LOCAL_MEDIA_FILENAME_PATTERN}|~[\\/][^\r\n>'"]*[\\/]${LOCAL_MEDIA_FILENAME_PATTERN}|(?:[A-Za-z]:[\\/]|\/)[^\r\n>'"]*[\\/]${LOCAL_MEDIA_FILENAME_PATTERN}|(?:\.\.?[\\/]|[^\r\n>'"]+[\\/])[^\r\n>'"()]*[\\/]?${LOCAL_MEDIA_FILENAME_PATTERN})`
 const LOCAL_MEDIA_CANDIDATE_REGEX = new RegExp(LOCAL_MEDIA_CANDIDATE_PATTERN, "giu")
 const LOCAL_MEDIA_CANDIDATE_EXACT_REGEX = new RegExp(`^(?:${LOCAL_MEDIA_CANDIDATE_PATTERN})$`, "iu")
 const LOCAL_MEDIA_CANDIDATE_PREFIX_BOUNDARY_REGEX = /[\s([{"'`:,;=-]/u

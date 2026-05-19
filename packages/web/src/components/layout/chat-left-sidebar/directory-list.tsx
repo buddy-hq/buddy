@@ -607,13 +607,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
           }}
           aria-hidden={shouldShowContent ? undefined : true}
         >
-          <div
-            className="min-h-0 overflow-hidden"
-            style={{
-              minHeight:
-                shouldShowContent && !isQuickChatGroup && !props.collapsed ? "7rem" : undefined,
-            }}
-          >
+          <div className="min-h-0 overflow-hidden">
             <div className="space-y-0.5 p-[2px] -m-[2px] flex flex-col">
               {props.group.sessions.length === 0 ? (
                 <button

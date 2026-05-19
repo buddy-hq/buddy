@@ -378,7 +378,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
       )}
 
       {props.footer !== null && (
-        <footer className="border-t border-border-base/40 px-1.5 py-2">
+        <footer className="px-1.5 py-2">
           {props.footer !== undefined ? (
             props.footer
           ) : (

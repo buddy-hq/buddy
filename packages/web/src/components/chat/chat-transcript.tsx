@@ -8,7 +8,6 @@ import {
   sliceStagedTurns,
   shouldStageTranscriptEntry,
 } from "./transcript-staging"
-import { CHAT_SCROLL_ANCHOR_THRESHOLD_PX } from "./utils/constants"
 import {
   VIRTUAL_CHAT_BUSY_TAIL_TURNS,
   VIRTUAL_CHAT_MIN_ESTIMATED_HEIGHT_PX,
@@ -226,15 +225,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   useEffect(() => {
     if (!shouldVirtualizeTurns) return
 
-    rowVirtualizer.shouldAdjustScrollPositionOnItemSizeChange = (_item, _delta, instance) => {
-      const scrollElement = instance.scrollElement
-      if (!(scrollElement instanceof HTMLElement)) return userScrolled
-      if (userScrolled) return true
-
-      const remainingDistance =
-        scrollElement.scrollHeight - (scrollElement.scrollTop + scrollElement.clientHeight)
-      return remainingDistance > CHAT_SCROLL_ANCHOR_THRESHOLD_PX
-    }
+    rowVirtualizer.shouldAdjustScrollPositionOnItemSizeChange = () => userScrolled
 
     return () => {
       rowVirtualizer.shouldAdjustScrollPositionOnItemSizeChange = undefined

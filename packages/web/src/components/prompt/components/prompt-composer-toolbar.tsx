@@ -258,7 +258,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
             </Select>
           )}
 
-          {isNativeMode ? (
+          {props.thinkingOptions.length <= 1 ? null : isNativeMode ? (
             <NativeSelect
               value={props.selectedThinking}
               onChange={(event) => props.onThinkingChange(event.currentTarget.value)}

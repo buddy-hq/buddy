@@ -43,7 +43,7 @@ const sanitizeConfig = {
 }
 
 const markdownClassName = [
-  "min-w-0 max-w-full break-words text-sm leading-[1.6] text-text-strong",
+  "min-w-0 max-w-full break-words text-sm leading-[1.6] text-text-base",
   "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
   "[&_h1]:mt-0 [&_h1]:mb-6 [&_h1]:text-sm [&_h1]:font-medium [&_h1]:leading-[1.667] [&_h1]:text-text-strong",
   "[&_h2]:mt-0 [&_h2]:mb-6 [&_h2]:text-sm [&_h2]:font-medium [&_h2]:leading-[1.667] [&_h2]:text-text-strong",
@@ -61,7 +61,7 @@ const markdownClassName = [
   "[&_li>p+p]:mt-2 [&_li>p+p]:block",
   "[&_li>ul]:my-1 [&_li>ul]:pl-4 [&_li>ol]:my-1 [&_li>ol]:pl-7",
   "[&_blockquote]:my-6 [&_blockquote]:border-l-2 [&_blockquote]:border-border-weak-base [&_blockquote]:pl-2 [&_blockquote]:not-italic [&_blockquote]:text-text-weak",
-  "[&_hr]:my-10 [&_hr]:h-0 [&_hr]:border-0",
+  "[&_hr]:my-10 [&_hr]:border-t [&_hr]:border-border-weak-base",
   "[&_pre]:mt-3 [&_pre]:mb-8 [&_pre]:overflow-auto [&_pre]:[scrollbar-width:none] [&_pre::-webkit-scrollbar]:hidden",
   "[&_.shiki]:rounded [&_.shiki]:border [&_.shiki]:border-border-weak-base [&_.shiki]:p-3 [&_.shiki]:text-[13px]",
   "[&_code]:font-mono [&_code]:[font-feature-settings:var(--font-family-mono--font-feature-settings)] [&_code]:text-syntax-string [&_code]:font-medium",

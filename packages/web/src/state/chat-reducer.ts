@@ -1,4 +1,5 @@
 import type { MessageInfo, MessagePart, MessageWithParts } from "./chat-types"
+import { WORKSPACE_FILE_REFERENCE_PART_TYPE } from "../components/prompt/prompt-types"
 
 function isAssistantMessage(
   message: MessageWithParts,
@@ -85,6 +86,13 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
       }
       return typeof existing.text === "string" && existing.text === incoming.text
     case "file":
+      if (
+        existing.type === WORKSPACE_FILE_REFERENCE_PART_TYPE &&
+        typeof existing.path === "string" &&
+        typeof incoming.filename === "string"
+      ) {
+        return existing.path === incoming.filename
+      }
       if (existing.type !== incoming.type) {
         return false
       }
@@ -101,7 +109,7 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
         return false
       }
       return typeof existing.name === "string" && existing.name === incoming.name
-    case "workspace-file-reference":
+    case WORKSPACE_FILE_REFERENCE_PART_TYPE:
       if (existing.type !== incoming.type) {
         return false
       }
