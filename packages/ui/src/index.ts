@@ -173,6 +173,7 @@ export {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
+  type CarouselApi,
 } from "./components/ui/carousel"
 export {
   Command,
