@@ -5,8 +5,15 @@
       "id": "anthropic-pptx",
       "displayName": "PowerPoint Presentation",
       "summary": "Create, edit, inspect, and analyze PowerPoint presentations with the Anthropic PPTX skill.",
-      "categories": ["productivity", "documents"],
-      "tags": ["pptx", "presentations", "anthropic"],
+      "categories": [
+        "productivity",
+        "documents"
+      ],
+      "tags": [
+        "pptx",
+        "presentations",
+        "anthropic"
+      ],
       "source": {
         "type": "github",
         "repo": "anthropics/skills",
@@ -23,7 +30,10 @@
         "approvedAt": "2026-05-10T00:00:00.000Z",
         "approvedBy": "Buddy maintainers",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": ["executable-script", "network-fetch"],
+        "approvedWarningRuleIDs": [
+          "executable-script",
+          "network-fetch"
+        ],
         "notes": "Trusted local-test catalog entry. Scanner warnings for executable scripts and normal network references were reviewed."
       },
       "status": "approved"
@@ -32,8 +42,16 @@
       "id": "anthropics-financial-services-xlsx-author",
       "displayName": "xlsx-author",
       "summary": "Produce a .xlsx file on disk (headless) instead of driving a live Excel workbook — for managed-agent sessions with no open Office app.",
-      "categories": ["teaching", "productivity"],
-      "tags": ["excel", "spreadsheets", "finance", "education"],
+      "categories": [
+        "teaching",
+        "productivity"
+      ],
+      "tags": [
+        "excel",
+        "spreadsheets",
+        "finance",
+        "education"
+      ],
       "source": {
         "type": "github",
         "repo": "anthropics/financial-services",
@@ -55,11 +73,55 @@
       "status": "approved"
     },
     {
+      "id": "anthropics-skills-docx",
+      "displayName": "DOCX",
+      "summary": "Create, read, and edit DOCX files programmatically",
+      "categories": [
+        "productivity"
+      ],
+      "tags": [
+        "docx",
+        "office",
+        "document"
+      ],
+      "source": {
+        "type": "github",
+        "repo": "anthropics/skills",
+        "path": "skills/docx",
+        "ref": "6a5bb06904ab164a345e41c381fc9097954b83da"
+      },
+      "integrity": {
+        "algorithm": "tree-sha256-v1",
+        "sha256": "105945129eddc743fd9148faeb3b89a830c416a38dd64cd38e04d573655de2f2",
+        "sizeBytes": 1121303,
+        "fileCount": 61
+      },
+      "review": {
+        "approvedAt": "2026-05-19T11:18:50.632Z",
+        "approvedBy": "prashant",
+        "policyVersion": 1,
+        "approvedWarningRuleIDs": [
+          "executable-script",
+          "network-fetch"
+        ],
+        "notes": "Review pack at docs/features/skill-library/reviews/generated/anthropics-skills-skills-docx-6a5bb069/review.md"
+      },
+      "status": "approved"
+    },
+    {
       "id": "hermes-excalidraw",
       "displayName": "Excalidraw",
       "summary": "Create hand-drawn Excalidraw JSON diagrams for concept maps, flows, and architecture visuals.",
-      "categories": ["productivity", "diagramming"],
-      "tags": ["excalidraw", "diagrams", "visualization", "teaching"],
+      "categories": [
+        "productivity",
+        "diagramming"
+      ],
+      "tags": [
+        "excalidraw",
+        "diagrams",
+        "visualization",
+        "teaching"
+      ],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -76,7 +138,10 @@
         "approvedAt": "2026-05-15T08:55:10.893Z",
         "approvedBy": "Buddy maintainers",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": ["broad-filesystem-reference", "network-fetch"],
+        "approvedWarningRuleIDs": [
+          "broad-filesystem-reference",
+          "network-fetch"
+        ],
         "notes": "Reviewed Excalidraw skill. Approved expected broad path references and network fetch usage."
       },
       "status": "approved"
@@ -85,8 +150,16 @@
       "id": "nousresearch-hermes-agent-concept-diagrams",
       "displayName": "concept-diagrams",
       "summary": "Generate flat, minimal light/dark-aware SVG diagrams as standalone HTML files, using a unified educational visual language with 9 semantic color ramps, sentence-case typography, and automatic dark mode. Best suited for educational and non-software visuals — physics setups, chemistry mechanisms, math curves, physical objects (aircraft, turbines, smartphones, mechanical watches), anatomy, floor plans, cross-sections, narrative journeys (lifecycle of X, process of Y), hub-spoke system integrations (smart city, IoT), and exploded layer views. If a more specialized skill exists for the subject (dedicated software/cloud architecture, hand-drawn sketches, animated explainers, etc.), prefer that — otherwise this skill can also serve as a general-purpose SVG diagram fallback with a clean educational look. Ships with 15 example diagrams.",
-      "categories": ["teaching", "diagramming"],
-      "tags": ["concept-diagrams", "svg", "education", "visualization"],
+      "categories": [
+        "teaching",
+        "diagramming"
+      ],
+      "tags": [
+        "concept-diagrams",
+        "svg",
+        "education",
+        "visualization"
+      ],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -103,8 +176,13 @@
         "approvedAt": "2026-05-15T10:01:34.679Z",
         "approvedBy": "Buddy maintainers",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": ["broad-filesystem-reference", "network-fetch"],
-        "approvedBlockRuleIDs": ["hidden-html-instruction"],
+        "approvedWarningRuleIDs": [
+          "broad-filesystem-reference",
+          "network-fetch"
+        ],
+        "approvedBlockRuleIDs": [
+          "hidden-html-instruction"
+        ],
         "notes": "Reviewed. hidden-html-instruction: FALSE POSITIVE — template.html is a clean CSS scaffold with zero scripts, zero hidden elements, zero external loads. broad-filesystem-reference: expected for diagram output files. network-fetch: optional opt-in localhost server only, 127.0.0.1 bound."
       },
       "status": "approved"
@@ -113,8 +191,14 @@
       "id": "nousresearch-hermes-agent-duckduckgo-search",
       "displayName": "duckduckgo-search",
       "summary": "Free web search via DuckDuckGo — text, news, images, videos. No API key needed. Prefer the `ddgs` CLI when installed; use the Python DDGS library only after verifying that `ddgs` is available in the current runtime.",
-      "categories": ["research"],
-      "tags": ["duckduckgo", "search", "web"],
+      "categories": [
+        "research"
+      ],
+      "tags": [
+        "duckduckgo",
+        "search",
+        "web"
+      ],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -131,7 +215,10 @@
         "approvedAt": "2026-05-15T09:39:32.568Z",
         "approvedBy": "Buddy maintainers",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": ["executable-script", "network-fetch"],
+        "approvedWarningRuleIDs": [
+          "executable-script",
+          "network-fetch"
+        ],
         "notes": "Reviewed. executable-script: 28-line safe wrapper, no destructive ops, no file I/O, no eval/curl. network-fetch: expected for web search, contacts DuckDuckGo endpoints only."
       },
       "status": "approved"
@@ -140,8 +227,16 @@
       "id": "nousresearch-hermes-agent-youtube-content",
       "displayName": "youtube-content",
       "summary": "YouTube transcripts to summaries, threads, blogs.",
-      "categories": ["teaching", "research"],
-      "tags": ["youtube", "transcript", "video", "education"],
+      "categories": [
+        "teaching",
+        "research"
+      ],
+      "tags": [
+        "youtube",
+        "transcript",
+        "video",
+        "education"
+      ],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -158,7 +253,9 @@
         "approvedAt": "2026-05-15T10:49:01.318Z",
         "approvedBy": "Buddy maintainers",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": ["network-fetch"],
+        "approvedWarningRuleIDs": [
+          "network-fetch"
+        ],
         "notes": "Reviewed. network-fetch: expected — uses youtube-transcript-api to fetch public YouTube transcripts. No API keys, no auth, no data exfiltration beyond transcript retrieval."
       },
       "status": "approved"
