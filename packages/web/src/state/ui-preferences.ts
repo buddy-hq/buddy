@@ -15,6 +15,7 @@ export type NotebookMainPaneTab =
   | "library"
 
 const DEFAULT_SIDEBAR_WIDTH_PX = 344
+const DEFAULT_PROJECT_FILE_TREE_OPEN = false
 
 type PersistedUiPreferences = {
   pinnedByDirectory?: Record<string, string[]>
@@ -25,6 +26,7 @@ type PersistedUiPreferences = {
   settingsSidebarWidth?: number
   rightSidebarOpen?: boolean
   rightSidebarWidth?: number
+  projectFileTreeOpen?: boolean
   mainPaneTab?: NotebookMainPaneTab
   rightSidebarTab?: UiPreferencesStore["rightSidebarTab"]
 }
@@ -48,6 +50,7 @@ export type UiPreferencesStore = {
   settingsSidebarWidth: number
   rightSidebarOpen: boolean
   rightSidebarWidth: number
+  projectFileTreeOpen: boolean
   mainPaneTab: NotebookMainPaneTab
   rightSidebarTab:
     | "curriculum"
@@ -73,6 +76,7 @@ export type UiPreferencesStore = {
   setSettingsSidebarWidth: (width: number) => void
   setRightSidebarOpen: (open: boolean) => void
   setRightSidebarWidth: (width: number) => void
+  setProjectFileTreeOpen: (open: boolean) => void
   setMainPaneTab: (tab: NotebookMainPaneTab) => void
   setRightSidebarTab: (
     tab:
@@ -160,6 +164,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         | "settingsSidebarWidth"
         | "rightSidebarOpen"
         | "rightSidebarWidth"
+        | "projectFileTreeOpen"
         | "mainPaneTab"
         | "rightSidebarTab"
         | "setLeftSidebarOpen"
@@ -167,6 +172,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         | "setSettingsSidebarWidth"
         | "setRightSidebarOpen"
         | "setRightSidebarWidth"
+        | "setProjectFileTreeOpen"
         | "setMainPaneTab"
         | "setRightSidebarTab"
       > = {
@@ -175,6 +181,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         settingsSidebarWidth: 260,
         rightSidebarOpen: false,
         rightSidebarWidth: 380,
+        projectFileTreeOpen: DEFAULT_PROJECT_FILE_TREE_OPEN,
         mainPaneTab: "chat",
         rightSidebarTab: "curriculum",
         setLeftSidebarOpen(open) {
@@ -200,6 +207,11 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         setRightSidebarWidth(width) {
           set((state) => {
             state.rightSidebarWidth = width
+          })
+        },
+        setProjectFileTreeOpen(open) {
+          set((state) => {
+            state.projectFileTreeOpen = open
           })
         },
         setMainPaneTab(tab) {
@@ -234,6 +246,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           settingsSidebarWidth: state?.settingsSidebarWidth ?? legacyLeftSidebarWidth,
           rightSidebarOpen: state?.rightSidebarOpen ?? false,
           rightSidebarWidth: state?.rightSidebarWidth ?? DEFAULT_SIDEBAR_WIDTH_PX,
+          projectFileTreeOpen: state?.projectFileTreeOpen ?? DEFAULT_PROJECT_FILE_TREE_OPEN,
           mainPaneTab:
             state?.mainPaneTab === "resources"
               ? "resources"
@@ -281,6 +294,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           settingsSidebarWidth: state.settingsSidebarWidth,
           rightSidebarOpen: state.rightSidebarOpen,
           rightSidebarWidth: state.rightSidebarWidth,
+          projectFileTreeOpen: state.projectFileTreeOpen,
           mainPaneTab: state.mainPaneTab,
           rightSidebarTab: state.rightSidebarTab,
         }

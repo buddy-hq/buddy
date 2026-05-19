@@ -44,6 +44,7 @@ import {
   useWorkspaceFilePanelStore,
   type WorkspaceFilePanelItem,
 } from "@/state/workspace-file-panel-store"
+import { useUiPreferences } from "@/state/ui-preferences"
 
 const ROOT_DIRECTORY_PATH = ""
 const EMPTY_CHILDREN: string[] = []
@@ -178,6 +179,8 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   const selectedFileItem = useWorkspaceFilePanelStore(
     (state) => state.selectedItemByDirectory[props.directory],
   )
+  const treeOpen = useUiPreferences((state) => state.projectFileTreeOpen)
+  const setTreeOpen = useUiPreferences((state) => state.setProjectFileTreeOpen)
   const consumePendingOpen = useWorkspaceFilePanelStore((state) => state.consumePendingOpen)
   const openQueuedFile = useWorkspaceFilePanelStore((state) => state.openFile)
   const editorRefs = useRef<Record<string, VersionedTextFileEditorHandle | null>>({})
@@ -193,7 +196,6 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   const [fileViewByPath, setFileViewByPath] = useState<ExplorerFileViewStateMap>({})
   const [readerViewByPath, setReaderViewByPath] = useState<ExplorerReaderViewStateMap>({})
   const [openPathError, setOpenPathError] = useState<string | undefined>(undefined)
-  const [treeOpen, setTreeOpen] = useState(true)
 
   useEffect(() => {
     for (const controller of Object.values(readerLoadAbortControllersRef.current)) {
@@ -208,7 +210,6 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
     setFileViewByPath({})
     setReaderViewByPath({})
     setOpenPathError(undefined)
-    setTreeOpen(true)
   }, [props.directory])
 
   useEffect(() => {
@@ -515,10 +516,20 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
 
   const openWorkspaceFile = useCallback(
     (path: string) => {
-      openFile({ path })
+      const item = { path }
+      openFile(item)
+      openQueuedFile(props.directory, item)
     },
-    [openFile],
+    [openFile, openQueuedFile, props.directory],
   )
+
+  useEffect(() => {
+    if (!selectedFileItem) return
+    const normalizedPath = normalizeRelativePath(selectedFileItem.path)
+    if (activePath === normalizedPath && openTabs.includes(normalizedPath)) return
+
+    openFile(selectedFileItem)
+  }, [activePath, openFile, openTabs, selectedFileItem])
 
   useEffect(() => {
     if (!pendingOpenPath) return
@@ -758,7 +769,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
                 ? language.t("projectExplorer.hideTree")
                 : language.t("projectExplorer.showTree")
             }
-            onClick={() => setTreeOpen((current) => !current)}
+            onClick={() => setTreeOpen(!treeOpen)}
           >
             {treeOpen ? (
               <PanelRightCloseIcon className="size-4" />
