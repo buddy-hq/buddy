@@ -18,6 +18,7 @@ import {
   updateMermaidRepairRequest,
   updateMermaidV2AutoRepairState,
 } from "../service/v2-store"
+import { MermaidArtifactPathV2 } from "../service/v2-path"
 
 const nonEmptyString = z.string().trim().min(1)
 
@@ -115,6 +116,7 @@ const renderMermaidTool = createBuddyTool({
       sourceHash: artifact.sourceHash,
       preflightRepairs: artifact.preflightRepairs,
       artifactUrl: buildMermaidArtifactUrl(ctx.directory, artifact.artifactID),
+      filesystemPath: MermaidArtifactPathV2.artifactDirectory(ctx.directory, artifact.artifactID),
       ...(artifact.supersedesArtifactID
         ? { supersedesArtifactID: artifact.supersedesArtifactID }
         : {}),

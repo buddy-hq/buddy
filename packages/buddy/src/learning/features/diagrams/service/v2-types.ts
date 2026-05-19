@@ -153,6 +153,7 @@ const RenderMermaidOutputSchema = z.object({
   sourceHash: sha256Hex,
   preflightRepairs: z.array(MermaidPreflightRepairSchema),
   artifactUrl: nonEmptyString,
+  filesystemPath: nonEmptyString,
   supersedesArtifactID: sha256Hex.optional(),
 })
 
