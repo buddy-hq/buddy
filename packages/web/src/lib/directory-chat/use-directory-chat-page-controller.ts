@@ -110,6 +110,7 @@ import {
 } from "@/lib/directory-chat/directory-chat-shell-view"
 import { bootstrapLearnerMemoryForNotebookBestEffort } from "@/lib/learner-memory"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
+import { useWorkspaceFilePanelStore } from "@/state/workspace-file-panel-store"
 
 const SIDEBAR_MIN_WIDTH = 220
 const READING_PREFETCH_BLOCKED_STATUSES = new Set<NonNullable<ResourceCardTarget["status"]>>([
@@ -230,6 +231,13 @@ export function useDirectoryChatPageController(
   } = cs
 
   const { slashCommands } = chatConfig
+  const pendingAutoFileOpen = useWorkspaceFilePanelStore((state) =>
+    decodedDirectory ? state.pendingAutoOpenByDirectory[decodedDirectory] : undefined,
+  )
+  const consumePendingAutoFileOpen = useWorkspaceFilePanelStore(
+    (state) => state.consumePendingAutoOpen,
+  )
+  const openQueuedWorkspaceFile = useWorkspaceFilePanelStore((state) => state.openFile)
   const slashCommandCandidates = useMemo(() => {
     const candidates = new Map<string, { name: string; aliases?: string[] }>()
     for (const name of SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES) {
@@ -382,6 +390,26 @@ export function useDirectoryChatPageController(
       fallbackTab: cs.selectedPersonaDefaultSurface,
     })
   }, [cs.selectedPersonaDefaultSurface, decodedDirectory, openWorkspaceQuestionSet])
+
+  useEffect(() => {
+    if (!decodedDirectory || !pendingAutoFileOpen) {
+      return
+    }
+
+    const pendingItem = consumePendingAutoFileOpen(decodedDirectory)
+    if (pendingItem) {
+      openQueuedWorkspaceFile(decodedDirectory, pendingItem)
+    }
+    setRightSidebarTab("files")
+    setRightSidebarOpen(true)
+  }, [
+    consumePendingAutoFileOpen,
+    decodedDirectory,
+    openQueuedWorkspaceFile,
+    pendingAutoFileOpen,
+    setRightSidebarOpen,
+    setRightSidebarTab,
+  ])
 
   useEffect(() => {
     if (decodedDirectory === "/") {
