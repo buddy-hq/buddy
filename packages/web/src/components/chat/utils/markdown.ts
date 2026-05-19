@@ -33,15 +33,5 @@ export function reasoningHeading(text: string): string | undefined {
     if (value) return value
   }
 
-  // Fallback: first non-empty line
-  const firstLine = markdown
-    .split("\n")
-    .map((line) => line.trim())
-    .find((line) => line.length > 0)
-  if (firstLine) {
-    const value = cleanReasoningHeading(firstLine)
-    if (value && value.length < 60) return value
-  }
-
   return undefined
 }

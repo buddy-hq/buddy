@@ -14,6 +14,7 @@ import {
   Network,
   PenLine,
   Search,
+  Sigma,
   Terminal,
   Wrench,
 } from "lucide-react"
@@ -54,13 +55,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
       display: "card",
       pattern: "read",
       suppressError: true,
-      aggregate: {
-        key: "read",
-        mode: "count-items",
-        past: "Read",
-        singular: "file",
-        plural: "files",
-      },
+      countSummary: { verb: "Read", singular: "file", plural: "files" },
     },
   }),
   list: createToolRenderer({
@@ -69,7 +64,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     summary: {
       display: "card",
       pattern: "query",
-      aggregate: { key: "search", mode: "action-times", action: "Searched" },
+      countSummary: { verb: "Listed", singular: "directory", plural: "directories" },
     },
   }),
   glob: createToolRenderer({
@@ -78,7 +73,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     summary: {
       display: "card",
       pattern: "query",
-      aggregate: { key: "search", mode: "action-times", action: "Searched" },
+      countSummary: { verb: "Searched", singular: "pattern", plural: "patterns" },
     },
   }),
   grep: createToolRenderer({
@@ -87,7 +82,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     summary: {
       display: "card",
       pattern: "query",
-      aggregate: { key: "search", mode: "action-times", action: "Searched" },
+      countSummary: { verb: "Searched", singular: "pattern", plural: "patterns" },
     },
   }),
   edit: createToolRenderer({
@@ -96,13 +91,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     summary: {
       display: "card",
       pattern: "info",
-      aggregate: {
-        key: "edit",
-        mode: "count-items",
-        past: "Edited",
-        singular: "file",
-        plural: "files",
-      },
+      countSummary: { verb: "Edited", singular: "file", plural: "files" },
     },
   }),
   write: createToolRenderer({
@@ -111,13 +100,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     summary: {
       display: "card",
       pattern: "info",
-      aggregate: {
-        key: "write",
-        mode: "count-items",
-        past: "Wrote",
-        singular: "file",
-        plural: "files",
-      },
+      countSummary: { verb: "Wrote", singular: "file", plural: "files" },
     },
   }),
   apply_patch: createToolRenderer({
@@ -126,13 +109,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     summary: {
       display: "card",
       pattern: "info",
-      aggregate: {
-        key: "edit",
-        mode: "count-items",
-        past: "Edited",
-        singular: "file",
-        plural: "files",
-      },
+      countSummary: { verb: "Applied", singular: "patch", plural: "patches" },
     },
   }),
   bash: createToolRenderer({
@@ -141,16 +118,12 @@ export const builtInTools: Record<string, ToolRenderer> = {
     summary: {
       display: "card",
       pattern: "command",
-      aggregate: {
-        key: "terminal",
-        mode: "label-times",
-        label: "Terminal",
-        entryLabel: "title",
-      },
+      countSummary: { verb: "Ran", singular: "command", plural: "commands" },
     },
   }),
   python_calculator: createToolRenderer({
-    icon: (cn) => createElement(Wrench, { className: cn }),
+    inline: true,
+    icon: (cn) => createElement(Sigma, { className: cn }),
     card: renderPythonCalculatorTool,
     deferUntilVisible: true,
   }),
@@ -161,12 +134,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
       display: "card",
       pattern: "link",
       suppressError: true,
-      aggregate: {
-        key: "fetch",
-        mode: "label-times",
-        label: "Fetch",
-        entryLabel: "title",
-      },
+      countSummary: { verb: "Fetched", singular: "page", plural: "pages" },
     },
   }),
   websearch: createToolRenderer({
@@ -175,7 +143,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     summary: {
       display: "card",
       pattern: "query",
-      aggregate: { key: "search", mode: "action-times", action: "Searched" },
+      countSummary: { verb: "Searched", singular: "query", plural: "queries" },
     },
   }),
   codesearch: createToolRenderer({
@@ -184,10 +152,11 @@ export const builtInTools: Record<string, ToolRenderer> = {
     summary: {
       display: "card",
       pattern: "query",
-      aggregate: { key: "search", mode: "action-times", action: "Searched" },
+      countSummary: { verb: "Searched", singular: "query", plural: "queries" },
     },
   }),
   task: createToolRenderer({
+    inline: true,
     icon: (cn) => createElement(Bot, { className: cn }),
     card: renderTaskTool,
   }),
@@ -198,40 +167,40 @@ export const builtInTools: Record<string, ToolRenderer> = {
       display: "card",
       pattern: "info",
       suppressError: true,
-      aggregate: {
-        key: "skill",
-        mode: "count-items",
-        past: "Loaded",
-        singular: "skill",
-        plural: "skills",
-      },
+      countSummary: { verb: "Loaded", singular: "skill", plural: "skills" },
     },
   }),
   render_figure: createToolRenderer({
+    inline: true,
     icon: (cn) => createElement(Image, { className: cn }),
     card: renderRenderFigureTool,
     deferUntilVisible: true,
   }),
   render_freeform_figure: createToolRenderer({
+    inline: true,
     icon: (cn) => createElement(Image, { className: cn }),
     card: renderRenderFigureTool,
     deferUntilVisible: true,
   }),
   render_mermaid: createToolRenderer({
+    inline: true,
     icon: (cn) => createElement(GitBranch, { className: cn }),
     card: renderRenderMermaidTool,
     deferUntilVisible: true,
   }),
   render_saved_question_set: createToolRenderer({
+    inline: true,
     icon: (cn) => createElement(BookOpen, { className: cn }),
     card: renderSavedQuestionSetTool,
   }),
   present_media: createToolRenderer({
+    inline: true,
     icon: (cn) => createElement(Image, { className: cn }),
     card: renderPresentMediaTool,
     deferUntilVisible: true,
   }),
   question: createToolRenderer({
+    inline: true,
     icon: (cn) => createElement(HelpCircle, { className: cn }),
     card: renderQuestionTool,
   }),
@@ -241,11 +210,6 @@ export const builtInTools: Record<string, ToolRenderer> = {
     summary: {
       display: "card",
       pattern: "info",
-      aggregate: {
-        key: "tool-search",
-        mode: "label-times",
-        label: "Search Tools",
-      },
     },
   }),
   learning_tool_load: createToolRenderer({
@@ -255,7 +219,6 @@ export const builtInTools: Record<string, ToolRenderer> = {
       display: "card",
       pattern: "info",
       suppressError: true,
-      aggregate: { key: "tool-load", mode: "label-times", label: "Load Tools" },
     },
   }),
   goal_state: createToolRenderer({
@@ -285,11 +248,6 @@ export const builtInTools: Record<string, ToolRenderer> = {
       display: "card",
       pattern: "info",
       suppressError: true,
-      aggregate: {
-        key: "knowledge-graph",
-        mode: "label-times",
-        label: "Knowledge Graph",
-      },
     },
   }),
   get_standard: createToolRenderer({
@@ -299,11 +257,6 @@ export const builtInTools: Record<string, ToolRenderer> = {
       display: "card",
       pattern: "info",
       suppressError: true,
-      aggregate: {
-        key: "knowledge-graph",
-        mode: "label-times",
-        label: "Knowledge Graph",
-      },
     },
   }),
   get_learning_components: createToolRenderer({
@@ -313,11 +266,6 @@ export const builtInTools: Record<string, ToolRenderer> = {
       display: "card",
       pattern: "info",
       suppressError: true,
-      aggregate: {
-        key: "knowledge-graph",
-        mode: "label-times",
-        label: "Knowledge Graph",
-      },
     },
   }),
   get_prerequisites: createToolRenderer({
@@ -327,11 +275,6 @@ export const builtInTools: Record<string, ToolRenderer> = {
       display: "card",
       pattern: "info",
       suppressError: true,
-      aggregate: {
-        key: "knowledge-graph",
-        mode: "label-times",
-        label: "Knowledge Graph",
-      },
     },
   }),
   get_next_standards: createToolRenderer({
@@ -341,11 +284,6 @@ export const builtInTools: Record<string, ToolRenderer> = {
       display: "card",
       pattern: "info",
       suppressError: true,
-      aggregate: {
-        key: "knowledge-graph",
-        mode: "label-times",
-        label: "Knowledge Graph",
-      },
     },
   }),
   get_crosswalk: createToolRenderer({
@@ -355,11 +293,6 @@ export const builtInTools: Record<string, ToolRenderer> = {
       display: "card",
       pattern: "info",
       suppressError: true,
-      aggregate: {
-        key: "knowledge-graph",
-        mode: "label-times",
-        label: "Knowledge Graph",
-      },
     },
   }),
   query_standards_sql: createToolRenderer({
@@ -369,11 +302,6 @@ export const builtInTools: Record<string, ToolRenderer> = {
       display: "card",
       pattern: "info",
       suppressError: true,
-      aggregate: {
-        key: "knowledge-graph",
-        mode: "label-times",
-        label: "Knowledge Graph",
-      },
     },
   }),
   ingest_full_text: createToolRenderer({

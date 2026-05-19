@@ -23,43 +23,26 @@ export type ToolPartProps = {
 
 export type ToolSummaryDisplay = "row" | "card"
 
-export type ToolSummaryPattern =
-  | "info"
-  | "metadata"
-  | "query"
-  | "read"
-  | "artifact"
-  | "command"
-  | "link"
+export type ToolSummaryPattern = "info" | "metadata" | "query" | "read" | "command" | "link"
 
-export type ToolSummaryAggregate =
-  | { key: string; mode: "none" }
-  | {
-      key: string
-      mode: "label-times"
-      label: string
-      entryLabel?: "label" | "title"
-    }
-  | { key: string; mode: "action-times"; action: string }
-  | {
-      key: string
-      mode: "count-items"
-      past: string
-      singular: string
-      plural: string
-    }
+export type ToolCountSummary = {
+  verb: string
+  singular: string
+  plural: string
+}
 
 export type ToolSummary = {
   display: ToolSummaryDisplay
   pattern: ToolSummaryPattern
   suppressError?: boolean
-  aggregate?: ToolSummaryAggregate
+  countSummary?: ToolCountSummary
 }
 
 export type ToolCardRenderer = (props: ToolPartProps) => ReactNode
 
 export type ToolRenderer = {
   hidden?: boolean
+  inline?: boolean
   card?: ToolCardRenderer
   summary?: ToolSummary
   icon?: ToolIconRenderer
@@ -73,31 +56,11 @@ export type ResolvedSummaryContent = {
   format: ResolvedSummaryContentFormat
 }
 
-export type ResolvedToolSummaryAggregate =
-  | {
-      key: string
-      mode: "label-times"
-      label: string
-      entryLabel?: "label" | "title"
-    }
-  | { key: string; mode: "action-times"; action: string }
-  | {
-      key: string
-      mode: "count-items"
-      past: string
-      singular: string
-      plural: string
-    }
-
 export type ResolvedToolSummary = {
   display: ToolSummaryDisplay
   label: string
-  preview?: ResolvedSummaryContent
   details?: ResolvedSummaryContent[]
-  errorPreview?: string
   errorVisibility: "visible" | "suppressed"
-  suppressError?: boolean
-  aggregate?: ResolvedToolSummaryAggregate
 }
 
 export type { ToolAttachment, ToolInfo, ToolState } from "./types"

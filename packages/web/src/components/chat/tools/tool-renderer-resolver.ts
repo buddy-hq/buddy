@@ -1,10 +1,14 @@
+import { createElement } from "react"
+import { Wrench } from "lucide-react"
 import { isBuddyCustomTool } from "../utils/tool"
 
 import type { ParsedToolUiMetadata } from "./parse-tool-ui-metadata"
 import { renderBuddyCustomTool } from "./render/buddy-custom"
 import { renderGenericTool } from "./render/generic"
 import { builtInTools } from "./built-in-tool-renderers"
-import type { ToolRenderer, ToolSummary } from "./tool-registry-types"
+import type { ToolIconRenderer, ToolRenderer, ToolSummary } from "./tool-registry-types"
+
+const FALLBACK_ICON: ToolIconRenderer = (cn) => createElement(Wrench, { className: cn })
 
 function resolveInlineCardRenderer(tool: string) {
   if (isBuddyCustomTool(tool) && tool !== "python_calculator") {
@@ -21,6 +25,7 @@ export function resolveInlineToolRenderer(tool: string): ToolRenderer {
   }
 
   return {
+    icon: FALLBACK_ICON,
     card: resolveInlineCardRenderer(tool),
   }
 }
