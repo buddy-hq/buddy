@@ -82,3 +82,4 @@ docs/commands/build-reader.md
 docs/local
 docs/artifacts/distilled/
 .agents/skills/local/
+buddy.jsonc
