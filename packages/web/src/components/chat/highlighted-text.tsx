@@ -59,13 +59,21 @@ function stripMentionPrefix(value: string) {
 function InlineFileReference({ text }: { text: string }) {
   return (
     <span className="mx-1 inline-flex max-w-full items-baseline gap-1 align-baseline font-medium text-text-interactive-base">
-      <FileTypeIcon fileName={stripMentionPrefix(text)} className="relative top-px size-3 shrink-0" />
+      <FileTypeIcon
+        fileName={stripMentionPrefix(text)}
+        className="relative top-px size-3 shrink-0"
+      />
       <span className="truncate">{stripMentionPrefix(text)}</span>
     </span>
   )
 }
 
-export function HighlightedText({ text, references, agents, inlineReferences = [] }: HighlightedTextProps) {
+export function HighlightedText({
+  text,
+  references,
+  agents,
+  inlineReferences = [],
+}: HighlightedTextProps) {
   const segments = useMemo(() => {
     const allRefs = [
       ...references.map(readFileHighlightReference),
@@ -131,18 +139,15 @@ export function HighlightedText({ text, references, agents, inlineReferences = [
 
   return (
     <>
-      {keyedSegments.map(({ key, segment }) => (
+      {keyedSegments.map(({ key, segment }) =>
         segment.type === "file" ? (
           <InlineFileReference key={key} text={segment.text} />
         ) : (
-          <span
-            key={key}
-            className={cn(segment.type === "agent" && "text-text-base font-medium")}
-          >
+          <span key={key} className={cn(segment.type === "agent" && "text-text-base font-medium")}>
             {segment.text}
           </span>
-        )
-      ))}
+        ),
+      )}
     </>
   )
 }

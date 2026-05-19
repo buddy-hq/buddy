@@ -38,7 +38,9 @@ type ChatWorkspaceFileReferencePart = MessagePart & {
 
 type StandaloneReferencePart = ChatAgentPart | ChatFilePart | ChatWorkspaceFileReferencePart
 
-function isChatWorkspaceFileReferencePart(part: MessagePart): part is ChatWorkspaceFileReferencePart {
+function isChatWorkspaceFileReferencePart(
+  part: MessagePart,
+): part is ChatWorkspaceFileReferencePart {
   return part.type === WORKSPACE_FILE_REFERENCE_PART_TYPE && typeof part.path === "string"
 }
 
@@ -121,7 +123,10 @@ export const UserSection = memo(function UserSection({
       }
       return []
     })
-    const text = displayParts.join("").replace(/[ \t]{2,}/g, " ").trim()
+    const text = displayParts
+      .join("")
+      .replace(/[ \t]{2,}/g, " ")
+      .trim()
     if (!text) return undefined
     const firstPart = userTextParts[0] ?? userParts.find(isChatTextPart)
     if (!firstPart) {
@@ -138,7 +143,13 @@ export const UserSection = memo(function UserSection({
       synthetic: false,
       text,
     }
-  }, [standaloneReferenceParts, userMessage?.info.id, userMessage?.info.sessionID, userParts, userTextParts])
+  }, [
+    standaloneReferenceParts,
+    userMessage?.info.id,
+    userMessage?.info.sessionID,
+    userParts,
+    userTextParts,
+  ])
   const inlineReferences = useMemo(
     () => Array.from(standaloneReferenceParts, (part) => getReferenceText(part)),
     [standaloneReferenceParts],

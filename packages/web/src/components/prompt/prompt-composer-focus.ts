@@ -17,7 +17,10 @@ export function requestPromptComposerFocus(directory: string) {
   )
 }
 
-export function consumePromptComposerFocusRequest(directory: string, lastConsumedRequestID: number) {
+export function consumePromptComposerFocusRequest(
+  directory: string,
+  lastConsumedRequestID: number,
+) {
   const requestID = pendingFocusRequestsByDirectory.get(directory) ?? 0
   if (requestID <= lastConsumedRequestID) return undefined
   return requestID
