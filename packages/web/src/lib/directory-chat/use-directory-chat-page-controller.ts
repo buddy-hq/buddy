@@ -544,9 +544,10 @@ export function useDirectoryChatPageController(
   function seedDraftModelSelection(targetDirectory: string) {
     const scopeKey = getModelSelectionScopeKey(targetDirectory)
     const carryModelKey = cs.selectedModelKey || undefined
+    const carryVariantKey = selectedThinking === "default" ? null : selectedThinking
     setSelectedAgent(scopeKey, undefined)
     setSelectedModel(scopeKey, carryModelKey)
-    setSelectedVariant(scopeKey, undefined)
+    setSelectedVariant(scopeKey, carryVariantKey)
   }
 
   function showWorkspace() {
