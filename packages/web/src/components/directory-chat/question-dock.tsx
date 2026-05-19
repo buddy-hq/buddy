@@ -26,6 +26,14 @@ function isCustomEnabled(v: boolean | undefined) {
   return v !== false
 }
 
+function isTextEntryElement(element: Element | null) {
+  return (
+    element instanceof HTMLInputElement ||
+    element instanceof HTMLTextAreaElement ||
+    (element instanceof HTMLElement && element.isContentEditable)
+  )
+}
+
 export function QuestionDock(props: QuestionDockProps) {
   const requestID = props.request.id
   const questions = props.request.questions
@@ -54,6 +62,18 @@ export function QuestionDock(props: QuestionDockProps) {
     setEditing(false)
     setResponding(false)
   }, [requestID])
+
+  useEffect(() => {
+    if (editing) return
+    const container = containerRef.current
+    if (!container) return
+    const frame = window.requestAnimationFrame(() => {
+      container.focus({ preventScroll: true })
+    })
+    return () => {
+      window.cancelAnimationFrame(frame)
+    }
+  }, [editing, requestID])
 
   // Derived state
   const question = questions[tab]
@@ -201,18 +221,13 @@ export function QuestionDock(props: QuestionDockProps) {
 
       // Don't intercept keys when the user is typing in an external input
       const active = document.activeElement
-      if (
-        active &&
-        (active.tagName === "INPUT" ||
-          active.tagName === "TEXTAREA" ||
-          active.getAttribute("contenteditable") === "true") &&
-        !containerRef.current?.contains(active)
-      ) {
+      if (isTextEntryElement(active) && !containerRef.current?.contains(active)) {
         return
       }
 
-      // Skip if a dialog is open
-      if (document.querySelector("[role='dialog']")) return
+      // Skip only when focus is inside a different dialog.
+      const activeDialog = active instanceof HTMLElement ? active.closest("[role='dialog']") : null
+      if (activeDialog && !containerRef.current?.contains(activeDialog)) return
 
       // --- editing custom text ---
       if (editing && !isConfirm) {
