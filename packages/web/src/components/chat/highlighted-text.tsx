@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 import { cn } from "@buddy/ui"
 import { isRecord } from "./tools/types"
+import { FileTypeIcon } from "../files/file-type-icon"
 import type { ChatAgentPart, ChatFilePart } from "./utils/part-guards"
 
 type HighlightSegment = { text: string; type?: "file" | "agent" }
@@ -48,9 +49,23 @@ interface HighlightedTextProps {
   text: string
   references: ChatFilePart[]
   agents: ChatAgentPart[]
+  inlineReferences?: string[]
 }
 
-export function HighlightedText({ text, references, agents }: HighlightedTextProps) {
+function stripMentionPrefix(value: string) {
+  return value.startsWith("@") ? value.slice(1) : value
+}
+
+function InlineFileReference({ text }: { text: string }) {
+  return (
+    <span className="mx-1 inline-flex max-w-full items-baseline gap-1 align-baseline font-medium text-text-interactive-base">
+      <FileTypeIcon fileName={stripMentionPrefix(text)} className="relative top-px size-3 shrink-0" />
+      <span className="truncate">{stripMentionPrefix(text)}</span>
+    </span>
+  )
+}
+
+export function HighlightedText({ text, references, agents, inlineReferences = [] }: HighlightedTextProps) {
   const segments = useMemo(() => {
     const allRefs = [
       ...references.map(readFileHighlightReference),
@@ -77,8 +92,30 @@ export function HighlightedText({ text, references, agents }: HighlightedTextPro
       result.push({ text: text.slice(lastIndex) })
     }
 
-    return result
-  }, [agents, references, text])
+    if (inlineReferences.length === 0) return result
+
+    const inlineReferenceSet = new Set(inlineReferences)
+    return result.flatMap((segment): HighlightSegment[] => {
+      if (segment.type !== undefined) return [segment]
+      const nestedSegments: HighlightSegment[] = []
+      let cursor = 0
+      const pattern = /@\S+/g
+      for (const match of segment.text.matchAll(pattern)) {
+        const token = match[0] ?? ""
+        const index = match.index ?? 0
+        if (!inlineReferenceSet.has(token)) continue
+        if (index > cursor) {
+          nestedSegments.push({ text: segment.text.slice(cursor, index) })
+        }
+        nestedSegments.push({ text: token, type: "file" })
+        cursor = index + token.length
+      }
+      if (cursor < segment.text.length) {
+        nestedSegments.push({ text: segment.text.slice(cursor) })
+      }
+      return nestedSegments.length > 0 ? nestedSegments : [segment]
+    })
+  }, [agents, inlineReferences, references, text])
 
   const keyedSegments = useMemo(() => {
     let cursor = 0
@@ -95,15 +132,16 @@ export function HighlightedText({ text, references, agents }: HighlightedTextPro
   return (
     <>
       {keyedSegments.map(({ key, segment }) => (
-        <span
-          key={key}
-          className={cn(
-            segment.type === "file" && "text-text-interactive-base",
-            segment.type === "agent" && "text-text-base font-medium",
-          )}
-        >
-          {segment.text}
-        </span>
+        segment.type === "file" ? (
+          <InlineFileReference key={key} text={segment.text} />
+        ) : (
+          <span
+            key={key}
+            className={cn(segment.type === "agent" && "text-text-base font-medium")}
+          >
+            {segment.text}
+          </span>
+        )
       ))}
     </>
   )

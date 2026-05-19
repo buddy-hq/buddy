@@ -13,6 +13,7 @@ type UserMessagePartProps = {
   info: MessageInfo
   references: ChatFilePart[]
   agents: ChatAgentPart[]
+  inlineReferences?: string[]
   providers?: ProviderInfo[]
   queued?: boolean
   onForkMessage?: () => Promise<void> | void
@@ -58,6 +59,7 @@ function userMessagePartEqual(
   // Compare arrays by reference (they're memoized in parent)
   if (prevProps.references !== nextProps.references) return false
   if (prevProps.agents !== nextProps.agents) return false
+  if (prevProps.inlineReferences !== nextProps.inlineReferences) return false
   if (prevProps.providers !== nextProps.providers) return false
   if (prevProps.onForkMessage !== nextProps.onForkMessage) return false
   if (prevProps.onRevertMessage !== nextProps.onRevertMessage) return false
@@ -70,6 +72,7 @@ export const UserMessagePart = memo(function UserMessagePart({
   info,
   references,
   agents,
+  inlineReferences,
   providers,
   queued,
   onForkMessage,
@@ -108,7 +111,12 @@ export const UserMessagePart = memo(function UserMessagePart({
             queued && "opacity-60",
           )}
         >
-          <HighlightedText text={text} references={references} agents={agents} />
+          <HighlightedText
+            text={text}
+            references={references}
+            agents={agents}
+            inlineReferences={inlineReferences}
+          />
         </div>
         {queued && (
           <div className="mt-1.5 mr-0.5 text-xs text-text-weak">
