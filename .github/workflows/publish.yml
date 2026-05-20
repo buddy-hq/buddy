@@ -218,6 +218,10 @@ jobs:
 
       - run: bun install
 
+      - name: Restore packaged icons
+        run: bun ./scripts/copy-icons.ts prod
+        working-directory: packages/desktop-electron
+
       - uses: actions/download-artifact@v5
         with:
           name: electron-app-out
@@ -252,7 +256,7 @@ jobs:
           BUDDY_RUST_TARGET: aarch64-apple-darwin
           BUDDY_SIDECAR_ARTIFACT_DIR: ${{ github.workspace }}/packages/buddy/dist/release-sidecars
 
-      - run: bunx --bun electron-builder --mac --arm64 --config electron-builder.config.ts
+      - run: bunx --bun electron-builder --mac --arm64 --publish never --config electron-builder.config.ts
         working-directory: packages/desktop-electron
 
       - name: Upload packaged binaries
@@ -311,6 +315,10 @@ jobs:
 
       - run: bun install
 
+      - name: Restore packaged icons
+        run: bun ./scripts/copy-icons.ts prod
+        working-directory: packages/desktop-electron
+
       - uses: actions/download-artifact@v5
         with:
           name: electron-app-out
@@ -345,7 +353,7 @@ jobs:
           BUDDY_RUST_TARGET: x86_64-apple-darwin
           BUDDY_SIDECAR_ARTIFACT_DIR: ${{ github.workspace }}/packages/buddy/dist/release-sidecars
 
-      - run: bunx --bun electron-builder --mac --x64 --config electron-builder.config.ts
+      - run: bunx --bun electron-builder --mac --x64 --publish never --config electron-builder.config.ts
         working-directory: packages/desktop-electron
 
       - name: Upload packaged binaries
@@ -404,6 +412,10 @@ jobs:
 
       - run: bun install
 
+      - name: Restore packaged icons
+        run: bun ./scripts/copy-icons.ts prod
+        working-directory: packages/desktop-electron
+
       - uses: actions/download-artifact@v5
         with:
           name: electron-app-out
@@ -438,7 +450,7 @@ jobs:
           BUDDY_RUST_TARGET: x86_64-pc-windows-msvc
           BUDDY_SIDECAR_ARTIFACT_DIR: ${{ github.workspace }}/packages/buddy/dist/release-sidecars
 
-      - run: bunx --bun electron-builder --win --x64 --config electron-builder.config.ts
+      - run: bunx --bun electron-builder --win --x64 --publish never --config electron-builder.config.ts
         working-directory: packages/desktop-electron
 
       - name: Upload packaged binaries

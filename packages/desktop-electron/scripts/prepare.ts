@@ -3,6 +3,7 @@ import {
   copyBinaryToResources,
   getCurrentSidecar,
   syncBackendRuntimeResources,
+  syncKnowledgeGraphResources,
   syncMigrations,
   updateDesktopPackageVersion,
   windowsify,
@@ -31,8 +32,10 @@ const runtimeSourceDir = path.resolve(artifactDir, config.sidecarDir, "app")
 updateDesktopPackageVersion(version)
 const destination = copyBinaryToResources(source, config.rustTarget)
 const entrypoint = syncBackendRuntimeResources(runtimeSourceDir, config.rustTarget)
+const knowledgeGraphArchive = syncKnowledgeGraphResources()
 syncMigrations()
 
 console.log(`Prepared electron desktop release assets for ${config.rustTarget}`)
 console.log(`Copied Buddy sidecar to ${destination}`)
 console.log(`Copied Buddy backend entrypoint to ${entrypoint}`)
+console.log(`Copied Knowledge Graph bundle to ${knowledgeGraphArchive}`)
