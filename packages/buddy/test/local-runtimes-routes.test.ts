@@ -2,7 +2,10 @@ import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { describe, expect, test } from "bun:test"
-import { KNOWLEDGE_GRAPH_DB_ENV } from "../src/learning/features/standards/constants"
+import {
+  KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME,
+  KNOWLEDGE_GRAPH_DB_ENV,
+} from "../src/learning/features/standards/constants"
 import { app } from "../src/index.ts"
 import { AdvancedMathRuntimeService } from "../src/local-runtimes/advanced-math/service"
 import { StandardsRuntimeService } from "../src/local-runtimes/standards/service"
@@ -13,7 +16,13 @@ import {
 import {
   withLocalMockStandardsRuntimeAssets,
   withMockStandardsRuntimeAssets,
+  withWritableLocalMockStandardsRuntimeAssets,
 } from "./helpers/standards-runtime"
+
+const AUTO_UPDATE_POLL_ATTEMPTS = 50
+const AUTO_UPDATE_POLL_INTERVAL_MS = 20
+const INVALID_CHECKSUM =
+  "0000000000000000000000000000000000000000000000000000000000000000"
 
 describe("local runtime routes", () => {
   test("installs and removes the advanced math runtime through the API", async () => {
@@ -113,6 +122,98 @@ describe("local runtime routes", () => {
         ready: true,
       })
       expect(StandardsRuntimeService.runtimeAssetInfo().baseUrl).toContain("releases/download")
+    })
+  })
+
+  test("auto-updates installed standards when the bundled dataset version changes", async () => {
+    await withWritableLocalMockStandardsRuntimeAssets(async ({ writeBundle }) => {
+      const initialManifest = await writeBundle({
+        marker: "v1",
+        version: "test-standards-v1",
+      })
+      const initialInstall = await StandardsRuntimeService.install()
+      expect(initialInstall).toMatchObject({
+        state: "ready",
+        ready: true,
+        installedDatasetVersion: initialManifest.version,
+        installedArchiveChecksum: initialManifest.archiveChecksum,
+      })
+
+      const updatedManifest = await writeBundle({
+        marker: "v2",
+        version: "test-standards-v2",
+      })
+
+      const statusBeforeAutoUpdate = await StandardsRuntimeService.getStatus()
+      expect(statusBeforeAutoUpdate.ready).toBe(true)
+      expect(statusBeforeAutoUpdate.installedDatasetVersion).toBe(initialManifest.version)
+
+      let currentStatus = statusBeforeAutoUpdate
+      for (let attempt = 0; attempt < AUTO_UPDATE_POLL_ATTEMPTS; attempt += 1) {
+        await Bun.sleep(AUTO_UPDATE_POLL_INTERVAL_MS)
+        currentStatus = await StandardsRuntimeService.getStatus()
+        if (
+          currentStatus.ready &&
+          currentStatus.installedDatasetVersion === updatedManifest.version &&
+          currentStatus.installedArchiveChecksum === updatedManifest.archiveChecksum
+        ) {
+          break
+        }
+      }
+
+      expect(currentStatus).toMatchObject({
+        state: "ready",
+        ready: true,
+        installedDatasetVersion: updatedManifest.version,
+        installedArchiveChecksum: updatedManifest.archiveChecksum,
+      })
+    })
+  })
+
+  test("preserves the current standards install when an automatic update fails", async () => {
+    await withWritableLocalMockStandardsRuntimeAssets(async ({ localAssetRoot, writeBundle }) => {
+      const initialManifest = await writeBundle({
+        marker: "v1",
+        version: "test-standards-stable",
+      })
+      const initialInstall = await StandardsRuntimeService.install()
+      expect(initialInstall).toMatchObject({
+        state: "ready",
+        ready: true,
+        installedDatasetVersion: initialManifest.version,
+        installedArchiveChecksum: initialManifest.archiveChecksum,
+      })
+
+      const brokenManifest = await writeBundle({
+        marker: "broken",
+        version: "test-standards-broken",
+      })
+      await fs.writeFile(
+        path.join(localAssetRoot, KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME),
+        `${INVALID_CHECKSUM}  learning-commons-knowledge-graph.db.zst\n`,
+        "utf8",
+      )
+
+      const statusBeforeAutoUpdate = await StandardsRuntimeService.getStatus()
+      expect(statusBeforeAutoUpdate.ready).toBe(true)
+      expect(statusBeforeAutoUpdate.installedDatasetVersion).toBe(initialManifest.version)
+
+      let currentStatus = statusBeforeAutoUpdate
+      for (let attempt = 0; attempt < AUTO_UPDATE_POLL_ATTEMPTS; attempt += 1) {
+        await Bun.sleep(AUTO_UPDATE_POLL_INTERVAL_MS)
+        currentStatus = await StandardsRuntimeService.getStatus()
+        if (!StandardsRuntimeService.isOperationInProgress()) {
+          break
+        }
+      }
+
+      expect(currentStatus).toMatchObject({
+        state: "ready",
+        ready: true,
+        installedDatasetVersion: initialManifest.version,
+        installedArchiveChecksum: initialManifest.archiveChecksum,
+      })
+      expect(currentStatus.installedDatasetVersion).not.toBe(brokenManifest.version)
     })
   })
 

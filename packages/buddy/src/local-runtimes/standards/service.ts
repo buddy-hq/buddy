@@ -168,6 +168,27 @@ function localDevelopmentAssetsExist() {
   )
 }
 
+function bundledKnowledgeGraphManifestSync() {
+  if (!localDevelopmentAssetsExist()) {
+    return undefined
+  }
+
+  try {
+    const raw = fs.readFileSync(localDevelopmentAssetPath(KNOWLEDGE_GRAPH_MANIFEST_FILENAME), "utf8")
+    return parseManifest(JSON.parse(raw))
+  } catch (error) {
+    logStandardsEvent("bundled-manifest-read-failed", {
+      error: errorMessage(error),
+      manifestPath: localDevelopmentAssetPath(KNOWLEDGE_GRAPH_MANIFEST_FILENAME),
+    })
+    return undefined
+  }
+}
+
+function bundledDatasetSignature(manifest: KnowledgeGraphArtifactManifest) {
+  return `${manifest.version}:${manifest.archiveChecksum}`
+}
+
 function configuredKnowledgeGraphDatabasePath() {
   const configured = process.env[KNOWLEDGE_GRAPH_DB_ENV]?.trim()
   if (!configured || configured === "undefined") {
@@ -188,6 +209,15 @@ function externalKnowledgeGraphDatabasePath() {
   }
 
   return fs.existsSync(configured) ? configured : undefined
+}
+
+function hasExternalKnowledgeGraphDatabaseOverride() {
+  const externalDatabasePath = externalKnowledgeGraphDatabasePath()
+  if (!externalDatabasePath) {
+    return false
+  }
+
+  return externalDatabasePath !== runtimeState.databasePath
 }
 
 function installRoot(version: string) {
@@ -488,6 +518,7 @@ let runtimeState = (() => {
 })()
 
 let runtimeOperation: Promise<StandardsRuntimeStatus> | undefined
+let lastFailedAutoUpdateSignature: string | undefined
 
 async function setRuntimeState(next: z.infer<typeof standardsRuntimeStateSchema>) {
   runtimeState = standardsRuntimeStateSchema.parse(next)
@@ -517,6 +548,7 @@ function currentStatus() {
 }
 
 function shouldAutoRepair() {
+  if (hasExternalKnowledgeGraphDatabaseOverride()) return false
   if (!runtimeState.enabled) return false
   if (runtimeOperation !== undefined) return false
   if (IN_PROGRESS_STATES.has(runtimeState.state)) return false
@@ -524,6 +556,35 @@ function shouldAutoRepair() {
 
   const status = nextStatus(runtimeState)
   return !status.ready
+}
+
+function bundledDatasetUpdatePending() {
+  if (hasExternalKnowledgeGraphDatabaseOverride()) return false
+
+  const bundledManifest = bundledKnowledgeGraphManifestSync()
+  if (!bundledManifest) return false
+
+  return (
+    runtimeState.installedDatasetVersion !== bundledManifest.version ||
+    runtimeState.installedArchiveChecksum !== bundledManifest.archiveChecksum
+  )
+}
+
+function shouldAutoUpdate() {
+  if (!runtimeState.enabled) return false
+  if (runtimeOperation !== undefined) return false
+  if (IN_PROGRESS_STATES.has(runtimeState.state)) return false
+  if (runtimeState.state === "error") return false
+  const bundledManifest = bundledKnowledgeGraphManifestSync()
+  if (!bundledManifest) return false
+  if (lastFailedAutoUpdateSignature === bundledDatasetSignature(bundledManifest)) return false
+  if (!bundledDatasetUpdatePending()) return false
+
+  return (
+    runtimeState.state === READY_STATE &&
+    typeof runtimeState.installedDatasetVersion === "string" &&
+    runtimeState.installedDatasetVersion.length > 0
+  )
 }
 
 async function updateRuntimeState(input: Partial<z.infer<typeof standardsRuntimeStateSchema>>) {
@@ -549,16 +610,27 @@ async function withRuntimeOperation(task: () => Promise<StandardsRuntimeStatus>)
   return runtimeOperation
 }
 
-async function installRuntime() {
+async function installRuntime(input?: { preserveReadyOnFailure?: boolean }) {
   return withRuntimeOperation(async () => {
-    if (currentStatus().ready) {
-      return currentStatus()
+    const status = currentStatus()
+    const bundledManifest = bundledKnowledgeGraphManifestSync()
+    const updating =
+      status.ready &&
+      bundledManifest !== undefined &&
+      (runtimeState.installedDatasetVersion !== bundledManifest.version ||
+        runtimeState.installedArchiveChecksum !== bundledManifest.archiveChecksum)
+    const updateSignature = bundledManifest ? bundledDatasetSignature(bundledManifest) : undefined
+
+    if (status.ready && !updating) {
+      return status
     }
 
+    const previousReadyState = status.ready ? { ...runtimeState } : undefined
     const repairing =
       runtimeState.enabled &&
       (!!runtimeState.lastError ||
         runtimeState.state === "error" ||
+        updating ||
         !runtimeState.databasePath ||
         !fs.existsSync(runtimeState.databasePath))
 
@@ -570,12 +642,15 @@ async function installRuntime() {
       databasePath: runtimeState.databasePath,
       progressPercent: 5,
       progressMessage: repairing
-        ? "Preparing standards repair..."
+        ? updating
+          ? "Preparing standards update..."
+          : "Preparing standards repair..."
         : "Preparing standards installation...",
     })
 
     try {
       const installation = await installBundleFromRelease(reportRuntimeProgress)
+      lastFailedAutoUpdateSignature = undefined
       return await setRuntimeState({
         enabled: true,
         state: READY_STATE,
@@ -589,7 +664,23 @@ async function installRuntime() {
     } catch (error) {
       logStandardsEvent("install-failed", {
         error: errorMessage(error),
+        preservingReadyInstall: input?.preserveReadyOnFailure === true,
       })
+
+      if (input?.preserveReadyOnFailure && previousReadyState) {
+        lastFailedAutoUpdateSignature = updateSignature
+        logStandardsEvent("install-restored-previous-ready", {
+          installedDatasetVersion: previousReadyState.installedDatasetVersion,
+          databasePath: previousReadyState.databasePath,
+        })
+        return await setRuntimeState({
+          ...previousReadyState,
+          lastError: undefined,
+          progressPercent: undefined,
+          progressMessage: undefined,
+        })
+      }
+
       return await setRuntimeState({
         ...runtimeState,
         enabled: true,
@@ -602,8 +693,28 @@ async function installRuntime() {
   })
 }
 
+function maybeStartAutomaticMaintenance() {
+  if (shouldAutoUpdate()) {
+    void installRuntime({ preserveReadyOnFailure: true }).catch((error) => {
+      logStandardsEvent("auto-update-failed", {
+        error: errorMessage(error),
+      })
+    })
+    return
+  }
+
+  if (shouldAutoRepair()) {
+    void installRuntime().catch((error) => {
+      logStandardsEvent("auto-repair-failed", {
+        error: errorMessage(error),
+      })
+    })
+  }
+}
+
 async function removeRuntime() {
   return withRuntimeOperation(async () => {
+    lastFailedAutoUpdateSignature = undefined
     await updateRuntimeState({
       enabled: false,
       state: "removing",
@@ -637,20 +748,15 @@ async function removeRuntime() {
 
 export const StandardsRuntimeService = {
   getStatus() {
-    if (shouldAutoRepair()) {
-      void installRuntime().catch((error) => {
-        logStandardsEvent("auto-repair-failed", {
-          error: errorMessage(error),
-        })
-      })
-    }
-
+    maybeStartAutomaticMaintenance()
     return Promise.resolve(currentStatus())
   },
   getStatusSync() {
+    maybeStartAutomaticMaintenance()
     return currentStatus()
   },
   isReady() {
+    maybeStartAutomaticMaintenance()
     return currentStatus().ready
   },
   isOperationInProgress() {

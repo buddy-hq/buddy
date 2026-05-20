@@ -6,6 +6,8 @@ import { compress, init as initZstd } from "@bokuweb/zstd-wasm"
 import {
   createKnowledgeGraphArtifactManifest,
   knowledgeGraphArchiveChecksumFileContents,
+  parseKnowledgeGraphArtifactManifest,
+  type KnowledgeGraphArtifactManifest,
 } from "../../src/learning/features/standards/artifact"
 import {
   KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME,
@@ -24,6 +26,7 @@ const DEFAULT_BUNDLE_MARKER = "default"
 
 type MockStandardsBundleOptions = {
   marker?: string
+  version?: string
 }
 
 type MockStandardsBundle = {
@@ -49,7 +52,7 @@ async function buildMockStandardsBundle(
   await ensureZstdInitialized()
 
   const marker = options.marker ?? DEFAULT_BUNDLE_MARKER
-  const version = `test-${randomUUID()}`
+  const version = options.version ?? `test-${randomUUID()}`
   const databaseBytes = Buffer.from(`buddy-standards-db-${version}-${marker}`, "utf8")
   const archiveBytes = Uint8Array.from(compress(databaseBytes, 19))
   const archiveChecksum = sha256Bytes(archiveBytes)
@@ -71,6 +74,34 @@ async function buildMockStandardsBundle(
     checksumText: knowledgeGraphArchiveChecksumFileContents(manifest),
     manifestJson: `${JSON.stringify(manifest, null, 2)}\n`,
   }
+}
+
+async function writeMockStandardsBundle(
+  localAssetRoot: string,
+  options: MockStandardsBundleOptions = {},
+): Promise<KnowledgeGraphArtifactManifest> {
+  const bundle = await buildMockStandardsBundle(options)
+  const manifest = parseKnowledgeGraphArtifactManifest(JSON.parse(bundle.manifestJson))
+  if (!manifest) {
+    throw new Error("Generated mock standards manifest is invalid")
+  }
+
+  await fs.writeFile(
+    path.join(localAssetRoot, KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME),
+    bundle.archiveBytes,
+  )
+  await fs.writeFile(
+    path.join(localAssetRoot, KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME),
+    bundle.checksumText,
+    "utf8",
+  )
+  await fs.writeFile(
+    path.join(localAssetRoot, KNOWLEDGE_GRAPH_MANIFEST_FILENAME),
+    bundle.manifestJson,
+    "utf8",
+  )
+
+  return manifest
 }
 
 export async function withMockStandardsRuntimeAssets<T>(run: () => Promise<T>) {
@@ -117,27 +148,13 @@ export async function withLocalMockStandardsRuntimeAssets<T>(run: () => Promise<
   const previousAssetBaseUrl = process.env[STANDARDS_ASSET_BASE_URL_ENV]
   const previousLocalAssetDir = process.env[STANDARDS_LOCAL_ASSET_DIR_ENV]
   const localAssetRoot = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-standards-local-assets-"))
-  const bundle = await buildMockStandardsBundle()
 
   delete process.env[STANDARDS_ASSET_BASE_URL_ENV]
   process.env[STANDARDS_LOCAL_ASSET_DIR_ENV] = localAssetRoot
 
   await StandardsRuntimeService.remove().catch(() => undefined)
 
-  await fs.writeFile(
-    path.join(localAssetRoot, KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME),
-    bundle.archiveBytes,
-  )
-  await fs.writeFile(
-    path.join(localAssetRoot, KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME),
-    bundle.checksumText,
-    "utf8",
-  )
-  await fs.writeFile(
-    path.join(localAssetRoot, KNOWLEDGE_GRAPH_MANIFEST_FILENAME),
-    bundle.manifestJson,
-    "utf8",
-  )
+  await writeMockStandardsBundle(localAssetRoot)
 
   try {
     return await run()
@@ -151,4 +168,25 @@ export async function withLocalMockStandardsRuntimeAssets<T>(run: () => Promise<
     if (previousLocalAssetDir === undefined) delete process.env[STANDARDS_LOCAL_ASSET_DIR_ENV]
     else process.env[STANDARDS_LOCAL_ASSET_DIR_ENV] = previousLocalAssetDir
   }
+}
+
+export async function withWritableLocalMockStandardsRuntimeAssets<T>(
+  run: (input: {
+    localAssetRoot: string
+    writeBundle: (
+      options?: MockStandardsBundleOptions,
+    ) => Promise<KnowledgeGraphArtifactManifest>
+  }) => Promise<T>,
+) {
+  return withLocalMockStandardsRuntimeAssets(async () => {
+    const localAssetRoot = process.env[STANDARDS_LOCAL_ASSET_DIR_ENV]
+    if (!localAssetRoot) {
+      throw new Error("Expected local standards asset directory to be configured")
+    }
+
+    return run({
+      localAssetRoot,
+      writeBundle: (options) => writeMockStandardsBundle(localAssetRoot, options),
+    })
+  })
 }
