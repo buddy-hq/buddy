@@ -174,7 +174,10 @@ function bundledKnowledgeGraphManifestSync() {
   }
 
   try {
-    const raw = fs.readFileSync(localDevelopmentAssetPath(KNOWLEDGE_GRAPH_MANIFEST_FILENAME), "utf8")
+    const raw = fs.readFileSync(
+      localDevelopmentAssetPath(KNOWLEDGE_GRAPH_MANIFEST_FILENAME),
+      "utf8",
+    )
     return parseManifest(JSON.parse(raw))
   } catch (error) {
     logStandardsEvent("bundled-manifest-read-failed", {

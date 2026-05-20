@@ -173,9 +173,7 @@ export async function withLocalMockStandardsRuntimeAssets<T>(run: () => Promise<
 export async function withWritableLocalMockStandardsRuntimeAssets<T>(
   run: (input: {
     localAssetRoot: string
-    writeBundle: (
-      options?: MockStandardsBundleOptions,
-    ) => Promise<KnowledgeGraphArtifactManifest>
+    writeBundle: (options?: MockStandardsBundleOptions) => Promise<KnowledgeGraphArtifactManifest>
   }) => Promise<T>,
 ) {
   return withLocalMockStandardsRuntimeAssets(async () => {

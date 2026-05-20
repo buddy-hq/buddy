@@ -13,7 +13,9 @@ import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tool
 
 function buddySessionPermission() {
   const persona = getBuddyPersona("buddy")
-  const personaDefinition = REGISTERED_BUDDY_PERSONAS.find((definition) => definition.id === "buddy")
+  const personaDefinition = REGISTERED_BUDDY_PERSONAS.find(
+    (definition) => definition.id === "buddy",
+  )
   if (!personaDefinition) {
     throw new Error('Missing "buddy" persona definition')
   }

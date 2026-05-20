@@ -72,11 +72,7 @@ async function syncRuntimeToolRegistration(
   config?: Awaited<ReturnType<typeof readProjectConfig>>,
 ) {
   const resolvedConfig = config ?? (await readProjectConfig(directory))
-  await registerRuntimeTools(
-    directory,
-    resolveFeatureRegistrationFlags(),
-    resolvedConfig.tools,
-  )
+  await registerRuntimeTools(directory, resolveFeatureRegistrationFlags(), resolvedConfig.tools)
 }
 
 async function resolveProjectConfigFingerprint(config: Config.Info, overlay: unknown) {

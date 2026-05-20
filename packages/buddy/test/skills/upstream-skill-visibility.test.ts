@@ -12,12 +12,7 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 const CUSTOMIZE_OPENCODE_SKILL_NAME = "customize-opencode" as const
 
 function writeProjectCustomizeOpencodeSkill(directory: string) {
-  const skillDirectory = path.join(
-    directory,
-    ".opencode",
-    "skills",
-    CUSTOMIZE_OPENCODE_SKILL_NAME,
-  )
+  const skillDirectory = path.join(directory, ".opencode", "skills", CUSTOMIZE_OPENCODE_SKILL_NAME)
   mkdirSync(skillDirectory, { recursive: true })
   writeFileSync(
     path.join(skillDirectory, "SKILL.md"),
@@ -79,7 +74,9 @@ describe("upstream skill visibility", () => {
         return OpenCodeSkill.available(agent)
       })
 
-      expect(availableSkills.map((skill) => skill.name)).not.toContain(CUSTOMIZE_OPENCODE_SKILL_NAME)
+      expect(availableSkills.map((skill) => skill.name)).not.toContain(
+        CUSTOMIZE_OPENCODE_SKILL_NAME,
+      )
     } finally {
       await OpenCodeInstance.disposeAll()
     }

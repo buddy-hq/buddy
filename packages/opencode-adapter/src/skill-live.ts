@@ -6,9 +6,7 @@ import { withCurrentInstance } from "./effect-runtime"
 const runtime = makeRuntime(OpenCodeSkill.Service, OpenCodeSkill.defaultLayer)
 const patchedServices = new WeakSet<OpenCodeSkill.Interface>()
 let patchPromise: Promise<void> | undefined
-let visibilityFilter:
-  | ((skill: { name: string; location: string }) => boolean)
-  | undefined
+let visibilityFilter: ((skill: { name: string; location: string }) => boolean) | undefined
 
 function filterVisibleSkills<T extends { name: string; location: string }>(skills: T[]): T[] {
   return visibilityFilter ? skills.filter((skill) => visibilityFilter?.(skill) !== false) : skills
