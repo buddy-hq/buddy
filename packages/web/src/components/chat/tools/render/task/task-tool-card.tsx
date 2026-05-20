@@ -1,41 +1,40 @@
-import { motion } from "motion/react"
-import { ToolErrorPanel } from "../../tool-error-panel"
 import type { ToolPartProps } from "../../registry"
-import { useTaskCardHeader, TaskCardHeaderContent, SubagentLoadingRow } from "./task-card-header"
-import { TASK_CARD_TRANSITION } from "../task-motion"
+import { useSubagentCardData } from "./task-card-header"
+import { SubagentCard } from "./subagent-card"
+
+const TASK_RESULT_RE = /<task_result>([\s\S]*?)<\/task_result>/
+
+function extractTaskResult(output: string): string | undefined {
+  const match = TASK_RESULT_RE.exec(output)
+  const result = match?.[1]?.trim()
+  return result || undefined
+}
 
 export function TaskToolCard({
   state,
   onOpenSession,
   directory,
 }: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">) {
-  const { displayAgent, openChildSession } = useTaskCardHeader({
-    state,
-    onOpenSession,
-    directory,
-  })
-  const output = state.output || (state.error ?? "")
-  const showOutput = output.trim().length > 0
-  const isPending = state.status === "pending"
+  const { agentName, openChildSession, activityLine, activityIcon, activityActive, status } =
+    useSubagentCardData({ state, onOpenSession, directory })
+  const error = state.status === "error" ? (state.output || state.error || "") : undefined
+  const taskResult =
+    state.status === "completed" && state.output ? extractTaskResult(state.output) : undefined
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4 }}
-      transition={TASK_CARD_TRANSITION}
-      className="flex flex-col gap-1.5"
+    <SubagentCard
+      agentName={agentName}
+      status={status}
+      onOpenSession={openChildSession}
+      activityLine={activityLine}
+      activityIcon={activityIcon}
+      activityActive={activityActive}
+      error={error}
     >
-      {isPending ? (
-        <SubagentLoadingRow />
-      ) : (
-        <TaskCardHeaderContent
-          displayAgent={displayAgent}
-          status={state.status}
-          onOpenSession={state.status !== "error" ? openChildSession : undefined}
-        />
-      )}
-      {state.status === "error" && showOutput ? <ToolErrorPanel error={output} /> : null}
-    </motion.div>
+      {taskResult ? (
+        <p className="px-1 py-0.5 text-sm text-text-base">{taskResult}</p>
+      ) : null}
+    </SubagentCard>
   )
 }
+
