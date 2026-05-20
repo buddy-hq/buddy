@@ -588,7 +588,10 @@ async function main() {
       )
 
       console.log(`Draft release ready: ${release.url}`)
-      if (flags.fast || (await confirm(rl, `Dispatch the publish workflow for ${tag} now?`, true))) {
+      if (
+        flags.fast ||
+        (await confirm(rl, `Dispatch the publish workflow for ${tag} now?`, true))
+      ) {
         runRequiredGates()
         await ensureCleanTree()
 
@@ -596,7 +599,10 @@ async function main() {
         console.log(`Workflow dispatched: ${runUrl}`)
 
         const runId = runIdFromUrl(runUrl)
-        if (runId && (flags.fast || (await confirm(rl, "Watch the release workflow until it finishes?", true)))) {
+        if (
+          runId &&
+          (flags.fast || (await confirm(rl, "Watch the release workflow until it finishes?", true)))
+        ) {
           watchRun(runId)
         }
 

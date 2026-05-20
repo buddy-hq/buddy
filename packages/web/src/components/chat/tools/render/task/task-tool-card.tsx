@@ -17,7 +17,7 @@ export function TaskToolCard({
 }: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">) {
   const { agentName, openChildSession, activityLine, activityIcon, activityActive, status } =
     useSubagentCardData({ state, onOpenSession, directory })
-  const error = state.status === "error" ? (state.output || state.error || "") : undefined
+  const error = state.status === "error" ? state.output || state.error || "" : undefined
   const taskResult =
     state.status === "completed" && state.output ? extractTaskResult(state.output) : undefined
 
@@ -31,10 +31,7 @@ export function TaskToolCard({
       activityActive={activityActive}
       error={error}
     >
-      {taskResult ? (
-        <p className="px-1 py-0.5 text-sm text-text-base">{taskResult}</p>
-      ) : null}
+      {taskResult ? <p className="px-1 py-0.5 text-sm text-text-base">{taskResult}</p> : null}
     </SubagentCard>
   )
 }
-

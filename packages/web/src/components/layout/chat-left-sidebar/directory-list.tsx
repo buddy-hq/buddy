@@ -257,43 +257,45 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
         return (
           <div key={group.directory}>
             <DirectoryGroupSection
-            group={group}
-            currentDirectory={props.currentDirectory}
-            shellView={props.shellView}
-            activeSessionID={props.activeSessionID}
-            allSessions={allSessions}
-            sessionStatusByID={sessionStatusByID}
-            pinnedSet={pinnedSet}
-            unreadMap={unreadMap}
-            expanded={expanded}
-            collapsed={collapsed}
-            draggedDirectory={props.draggedDirectory}
-            dragOverDirectory={props.dragOverDirectory}
-            dragOverPosition={props.dragOverPosition}
-            organizeMode={props.organizeMode}
-            onToggleCollapsed={(isOpen) =>
-              props.onToggleCollapsedDirectory(group.directory, isOpen)
-            }
-            onToggleExpanded={() => props.onToggleExpandedDirectory(group.directory)}
-            onSelectSession={(sessionID) => props.onSelectSession(group.directory, sessionID)}
-            onPrefetchSession={(sessionID) => props.onPrefetchSession?.(group.directory, sessionID)}
-            onTogglePin={(sessionID) => props.onTogglePin(group.directory, sessionID)}
-            onToggleUnread={(sessionID, unread) =>
-              props.onToggleUnread(group.directory, sessionID, unread)
-            }
-            onRequestArchive={(sessionID, title) =>
-              props.onRequestArchive(group.directory, sessionID, title)
-            }
-            onRequestRename={(sessionID, title) =>
-              props.onRequestRename(group.directory, sessionID, title)
-            }
-            onLabelPointerDown={(event) => props.onLabelPointerDown(event, group.directory)}
-            onSectionRef={props.onSectionRef(group.directory)}
-            onOpenNotebook={() => props.onSelectSession(group.directory)}
-            onCloseNotebook={() => props.onCloseDirectory(group.directory)}
-            onNewSession={() => props.onNewSession(group.directory)}
-            mainPaneTab={props.mainPaneTab}
-            onMainPaneTabChange={(tab) => props.onMainPaneTabChange?.(group.directory, tab)}
+              group={group}
+              currentDirectory={props.currentDirectory}
+              shellView={props.shellView}
+              activeSessionID={props.activeSessionID}
+              allSessions={allSessions}
+              sessionStatusByID={sessionStatusByID}
+              pinnedSet={pinnedSet}
+              unreadMap={unreadMap}
+              expanded={expanded}
+              collapsed={collapsed}
+              draggedDirectory={props.draggedDirectory}
+              dragOverDirectory={props.dragOverDirectory}
+              dragOverPosition={props.dragOverPosition}
+              organizeMode={props.organizeMode}
+              onToggleCollapsed={(isOpen) =>
+                props.onToggleCollapsedDirectory(group.directory, isOpen)
+              }
+              onToggleExpanded={() => props.onToggleExpandedDirectory(group.directory)}
+              onSelectSession={(sessionID) => props.onSelectSession(group.directory, sessionID)}
+              onPrefetchSession={(sessionID) =>
+                props.onPrefetchSession?.(group.directory, sessionID)
+              }
+              onTogglePin={(sessionID) => props.onTogglePin(group.directory, sessionID)}
+              onToggleUnread={(sessionID, unread) =>
+                props.onToggleUnread(group.directory, sessionID, unread)
+              }
+              onRequestArchive={(sessionID, title) =>
+                props.onRequestArchive(group.directory, sessionID, title)
+              }
+              onRequestRename={(sessionID, title) =>
+                props.onRequestRename(group.directory, sessionID, title)
+              }
+              onLabelPointerDown={(event) => props.onLabelPointerDown(event, group.directory)}
+              onSectionRef={props.onSectionRef(group.directory)}
+              onOpenNotebook={() => props.onSelectSession(group.directory)}
+              onCloseNotebook={() => props.onCloseDirectory(group.directory)}
+              onNewSession={() => props.onNewSession(group.directory)}
+              mainPaneTab={props.mainPaneTab}
+              onMainPaneTabChange={(tab) => props.onMainPaneTabChange?.(group.directory, tab)}
             />
           </div>
         )

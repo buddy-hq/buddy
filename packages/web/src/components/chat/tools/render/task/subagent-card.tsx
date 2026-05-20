@@ -55,7 +55,13 @@ type CardHeaderProps = {
   activityIcon?: ToolIconRenderer
 }
 
-function CardHeader({ status, displayName, activityLine, activityActive, activityIcon }: CardHeaderProps) {
+function CardHeader({
+  status,
+  displayName,
+  activityLine,
+  activityActive,
+  activityIcon,
+}: CardHeaderProps) {
   if (status === "pending") {
     return (
       <div className="flex items-center gap-2">

@@ -320,9 +320,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
           (placement === "chat" ? (
             <div className="flex min-w-0 flex-1 items-stretch">
               {props.projectName ? (
-                <div
-                  className="shrink-0 overflow-hidden max-w-[12rem] transition-[max-width] duration-150 ease-in hover:max-w-[20rem] hover:duration-300 hover:ease-out [-webkit-app-region:no-drag] flex items-center border-r border-border-weaker-base [box-shadow:-2px_0_4px_rgba(0,0,0,0.08)]"
-                >
+                <div className="shrink-0 overflow-hidden max-w-[12rem] transition-[max-width] duration-150 ease-in hover:max-w-[20rem] hover:duration-300 hover:ease-out [-webkit-app-region:no-drag] flex items-center border-r border-border-weaker-base [box-shadow:-2px_0_4px_rgba(0,0,0,0.08)]">
                   <span className="block truncate pl-4 pr-3 text-xs font-medium text-text-weak select-none">
                     {props.projectName}
                   </span>
