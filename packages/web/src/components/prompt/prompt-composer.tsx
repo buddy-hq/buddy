@@ -9,10 +9,16 @@ import {
   SelectTrigger,
   SelectValue,
   toast,
+  cn,
 } from "@buddy/ui"
 import { XIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
+import { GameDock } from "../game/game-dock"
+import { GameBall } from "../game/game-ball"
+import { useGameStore } from "@/state/game-store"
+
 import { shouldSubmitComposer } from "../../lib/chat-input"
 import {
   createTextFragment,
@@ -72,7 +78,8 @@ import {
   type PromptDraftState,
 } from "../../state/prompt-store"
 
-const IMMEDIATE_BUILTIN_SLASH_COMMANDS = new Set(["new", "persona", "model", "mcp"])
+const IMMEDIATE_BUILTIN_SLASH_COMMANDS = new Set(["new", "persona", "model", "mcp", "play"])
+const GAME_BALL_DELAY_MS = 60_000
 
 type PromptComposerProps = {
   directory: string
@@ -117,6 +124,7 @@ type PromptComposerProps = {
   selectorMode?: PromptSelectMode
   className?: string
   sessionContextUsage?: React.ReactNode
+  isQuestionActive?: boolean
 }
 
 const NON_EMPTY_TEXT = /[^\s\u200B]/
@@ -206,6 +214,16 @@ export function PromptComposer(props: PromptComposerProps) {
   const [dismissedSelectionPreviews, setDismissedSelectionPreviews] = useState<
     DismissedSelectionPreview[]
   >([])
+
+  const isGameVisible = useGameStore((state) => state.isGameVisible)
+  const setGameVisible = useGameStore((state) => state.setGameVisible)
+  const setPaused = useGameStore((state) => state.setPaused)
+  const isMinimized = useGameStore((state) => state.isMinimized)
+  const setMinimized = useGameStore((state) => state.setMinimized)
+
+  const [busyStartTime, setBusyStartTime] = useState<number | null>(null)
+  const [showGameBall, setShowGameBall] = useState(false)
+
   const historyIndex = historyNavigation.historyIndex
   const savedHistoryDraft = historyNavigation.savedDraft
 
@@ -305,6 +323,46 @@ export function PromptComposer(props: PromptComposerProps) {
     readingSelectionEntries.length,
     setDraftCursor,
   ])
+
+  const lastBusyRef = useRef(props.isBusy)
+
+  useEffect(() => {
+    const wasBusy = lastBusyRef.current
+    lastBusyRef.current = props.isBusy
+
+    if (props.isBusy) {
+      if (!busyStartTime) {
+        setBusyStartTime(Date.now())
+      }
+    } else {
+      setBusyStartTime(null)
+      setShowGameBall(false)
+      // Auto-pause game when turn completes (transitions from busy to idle)
+      if (wasBusy && isGameVisible) {
+        setPaused(true)
+        setMinimized(true)
+        setGameVisible(false)
+      }
+    }
+  }, [props.isBusy, busyStartTime, isGameVisible, setPaused, setMinimized, setGameVisible])
+
+  useEffect(() => {
+    if (!busyStartTime) return
+    const elapsedMs = Date.now() - busyStartTime
+    const remainingMs = Math.max(0, GAME_BALL_DELAY_MS - elapsedMs)
+    const timeout = window.setTimeout(() => {
+      setShowGameBall(true)
+    }, remainingMs)
+    return () => window.clearTimeout(timeout)
+  }, [busyStartTime])
+
+  useEffect(() => {
+    if (props.isQuestionActive && isGameVisible) {
+      setPaused(true)
+      setMinimized(true)
+      setGameVisible(false)
+    }
+  }, [props.isQuestionActive, isGameVisible, setPaused, setMinimized, setGameVisible])
 
   useEffect(() => {
     const wasBusy = previousBusyRef.current
@@ -587,6 +645,18 @@ export function PromptComposer(props: PromptComposerProps) {
     clearDraft(promptKey)
   }
 
+  function openArcade() {
+    if (props.isQuestionActive) {
+      toast.error("Finish answering the question first!")
+      return
+    }
+    clearComposer()
+    editorRef.current?.blur()
+    setGameVisible(true)
+    setPaused(false)
+    setMinimized(false)
+  }
+
   function runBuiltinSlashCommand(name: string) {
     switch (name) {
       case "new":
@@ -613,6 +683,9 @@ export function PromptComposer(props: PromptComposerProps) {
       case "mcp":
         clearComposer()
         props.onOpenMcpDialog?.()
+        return true
+      case "play":
+        openArcade()
         return true
       default:
         return false
@@ -643,6 +716,17 @@ export function PromptComposer(props: PromptComposerProps) {
     if (hasUnsupportedImageAttachments) return
 
     const currentDraft = readEditorDraft()
+
+    // Intercept UI-only slash commands
+    const text = currentDraft.value.trim()
+    if (text.startsWith("/")) {
+      const command = text.slice(1).split(/\s+/)[0]
+      if (command === "play") {
+        openArcade()
+        return
+      }
+    }
+
     const currentHasSubmittableParts = hasSubmittablePromptParts(currentDraft.parts)
 
     if (
@@ -664,8 +748,55 @@ export function PromptComposer(props: PromptComposerProps) {
   const mentionMenuVisible =
     viewState.mentionMatch !== undefined && viewState.mentionKey !== viewState.dismissedMentionKey
 
+  // The ball should only show if the timer hit 1m OR if the game was minimized/paused by a question.
+  // We check showGameBall (local timer) and isMinimized (store).
+  const shouldShowBall = (showGameBall || isMinimized) && !isGameVisible
+
   return (
-    <div className={props.className ?? "mx-4 mb-4"}>
+    <div className={cn("relative", props.className ?? "mx-4 mb-4")}>
+      {/* Arcade Layer - Rendered outside the main flow to avoid layout shifts/fluctuations */}
+      <div className="absolute bottom-[calc(100%+8px)] left-0 right-0 z-50 flex flex-col items-end pointer-events-none">
+        <div className="w-full pointer-events-auto">
+          <AnimatePresence>
+            {isGameVisible && (
+              <GameDock
+                className="w-full"
+                onClose={() => {
+                  setGameVisible(false)
+                  setMinimized(false)
+                  setPaused(true)
+                  setShowGameBall(false)
+                }}
+                onMinimize={() => {
+                  setGameVisible(false)
+                  setMinimized(true)
+                  setPaused(true)
+                }}
+              />
+            )}
+          </AnimatePresence>
+        </div>
+
+        <div className="pointer-events-auto">
+          <AnimatePresence>
+            {shouldShowBall && (
+              <GameBall
+                onClick={() => {
+                  if (props.isQuestionActive) {
+                    toast.error("Finish answering the question first!")
+                    return
+                  }
+                  editorRef.current?.blur()
+                  setGameVisible(true)
+                  setMinimized(false)
+                  setPaused(false)
+                }}
+              />
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
       {readingSelectionEntries.length > 0 || dismissedSelectionPreviews.length > 0 ? (
         <div className="mb-2 flex flex-wrap gap-1.5">
           {readingSelectionEntries.map(({ part, key }) => (
@@ -801,6 +932,9 @@ export function PromptComposer(props: PromptComposerProps) {
                 const currentCursor = editor ? getCursorPosition(editor) : draftEditorValue.length
                 setCursorOffset(currentCursor)
                 setDraftCursor(promptKey, currentCursor)
+
+                // No longer preventing composer from reacting when game is visible
+                // Game keydown handlers now check document.activeElement
 
                 if (viewState.slashVisible) {
                   if (event.key === "ArrowDown") {

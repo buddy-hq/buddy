@@ -355,6 +355,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
             {!chatState.parentSession && (
               <PromptComposer
                 {...promptComposerProps}
+                isQuestionActive={!!activeQuestion}
                 selectorMode={promptSelectorMode}
                 className="mb-1"
                 sessionContextUsage={

@@ -453,6 +453,8 @@ export const dict = {
   "prompt.slash.undo.description": "Undo the last message.",
   "prompt.slash.undo.title": "Undo last message",
   "prompt.slash.quiz.description": "Create a quiz in assess mode.",
+  "prompt.slash.play.title": "Play",
+  "prompt.slash.play.description": "Open a game to pass time.",
   "prompt.slash.quiz.title": "Start quiz",
   "prompt.slash.flashcard.description": "Generate flashcards from context in learn mode.",
   "prompt.slash.flashcard.title": "Create flashcards",

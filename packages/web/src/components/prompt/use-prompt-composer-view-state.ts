@@ -66,6 +66,12 @@ const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
     title: language.t("prompt.slash.quiz.title"),
     description: language.t("prompt.slash.quiz.description"),
   },
+  {
+    type: "builtin",
+    name: "play",
+    title: language.t("prompt.slash.play.title"),
+    description: language.t("prompt.slash.play.description"),
+  },
 ]
 
 function translatePromptPlaceholder(key: string, params?: Record<string, string>) {
