@@ -25,20 +25,37 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref_type == 'ta
 permissions:
   contents: write
 
+env:
+  BUN_VERSION: "1.3.11"
+
 jobs:
   version:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ github.sha }}
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3.11"
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
 
       - run: bun install
+
+      - name: Verify mac updater signer tooling
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bun run --cwd packages/desktop-electron verify:update-signing
 
       - id: version
         run: bun ./script/version.ts
@@ -52,148 +69,429 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       repo: ${{ steps.version.outputs.repo }}
 
-  release-preflight:
-    needs:
-      - version
+  build-electron-app:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
-          fetch-depth: 0
           ref: ${{ github.sha }}
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3.11"
+          bun-version: ${{ env.BUN_VERSION }}
 
-      - run: bun install
-
-      - name: Verify mac updater signer tooling
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: bun run --cwd packages/desktop-electron verify:update-signing
-
-  build-sidecar:
-    needs:
-      - version
-      - release-preflight
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - uses: actions/cache@v5
         with:
-          fetch-depth: 0
-          ref: ${{ github.sha }}
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: "1.3.11"
-
-      - run: bun install
-
-      - run: bun run --cwd packages/buddy build:release-sidecars
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: buddy-sidecars
-          path: packages/buddy/dist/release-sidecars
-
-  build-electron:
-    needs:
-      - version
-      - release-preflight
-      - build-sidecar
-    strategy:
-      fail-fast: false
-      matrix:
-        settings:
-          - host: macos-latest
-            target: aarch64-apple-darwin
-            package_args: --mac --arm64
-          - host: macos-latest
-            target: x86_64-apple-darwin
-            package_args: --mac --x64
-          - host: windows-latest
-            target: x86_64-pc-windows-msvc
-            package_args: --win --x64
-    runs-on: ${{ matrix.settings.host }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.sha }}
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: "1.3.11"
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
 
       - run: bun install
 
       - run: bun run sdk:generate
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: buddy-sidecars
-          path: packages/buddy/dist/release-sidecars
-
-      - run: bun run --cwd packages/desktop-electron prepare:release
-        env:
-          BUDDY_CHANNEL: prod
-          BUDDY_VERSION: ${{ needs.version.outputs.version }}
-          BUDDY_RUST_TARGET: ${{ matrix.settings.target }}
-          BUDDY_SIDECAR_ARTIFACT_DIR: ${{ github.workspace }}/packages/buddy/dist/release-sidecars
-
       - run: bun run --cwd packages/desktop-electron build
         env:
           BUDDY_CHANNEL: prod
 
-      - run: bunx --bun electron-builder ${{ matrix.settings.package_args }} --config electron-builder.config.ts
-        working-directory: packages/desktop-electron
+      - uses: actions/upload-artifact@v6
+        with:
+          name: electron-app-out
+          path: packages/desktop-electron/out
+
+  build-sidecar-macos-arm64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - run: bun install
+
+      - run: bun run --cwd packages/buddy build:release-sidecar --target aarch64-apple-darwin
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: buddy-sidecar-aarch64-apple-darwin
+          path: packages/buddy/dist/release-sidecars
+
+  build-sidecar-macos-x64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - run: bun install
+
+      - run: bun run --cwd packages/buddy build:release-sidecar --target x86_64-apple-darwin
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: buddy-sidecar-x86_64-apple-darwin
+          path: packages/buddy/dist/release-sidecars
+
+  build-sidecar-windows-x64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - run: bun install
+
+      - run: bun run --cwd packages/buddy build:release-sidecar --target x86_64-pc-windows-msvc
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: buddy-sidecar-x86_64-pc-windows-msvc
+          path: packages/buddy/dist/release-sidecars
+
+  build-electron-macos-arm64:
+    needs:
+      - version
+      - build-electron-app
+      - build-sidecar-macos-arm64
+    runs-on: macos-latest
+    env:
+      BUDDY_CHANNEL: prod
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            .cache/electron
+            .cache/electron-builder
+          key: ${{ runner.os }}-electron-builder-${{ hashFiles('packages/desktop-electron/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-builder-
+
+      - run: bun install
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: electron-app-out
+          path: electron-app-artifact
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: buddy-sidecar-aarch64-apple-darwin
+          path: sidecar-artifact
+
+      - shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf packages/desktop-electron/out
+          if [ -d electron-app-artifact/out ]; then
+            mv electron-app-artifact/out packages/desktop-electron/out
+          else
+            mv electron-app-artifact packages/desktop-electron/out
+          fi
+
+          rm -rf packages/buddy/dist/release-sidecars
+          mkdir -p packages/buddy/dist
+          if [ -d sidecar-artifact/release-sidecars ]; then
+            mv sidecar-artifact/release-sidecars packages/buddy/dist/release-sidecars
+          else
+            mv sidecar-artifact packages/buddy/dist/release-sidecars
+          fi
+
+      - run: bun run --cwd packages/desktop-electron prepare:release
         env:
-          BUDDY_CHANNEL: prod
+          BUDDY_VERSION: ${{ needs.version.outputs.version }}
+          BUDDY_RUST_TARGET: aarch64-apple-darwin
+          BUDDY_SIDECAR_ARTIFACT_DIR: ${{ github.workspace }}/packages/buddy/dist/release-sidecars
+
+      - run: bunx --bun electron-builder --mac --arm64 --config electron-builder.config.ts
+        working-directory: packages/desktop-electron
 
       - name: Upload packaged binaries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
-          name: electron-package-${{ matrix.settings.target }}
+          name: electron-package-aarch64-apple-darwin
           path: |
             packages/desktop-electron/dist/*.dmg
             packages/desktop-electron/dist/*.zip
             packages/desktop-electron/dist/*.exe
             packages/desktop-electron/dist/*.blockmap
+          compression-level: 0
 
       - name: Upload latest yml
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
-          name: latest-yml-${{ matrix.settings.target }}
+          name: latest-yml-aarch64-apple-darwin
           path: |
             packages/desktop-electron/dist/latest*.yml
+          if-no-files-found: ignore
 
-  upload-electron-release:
+  build-electron-macos-x64:
     needs:
       - version
-      - build-electron
-    runs-on: ubuntu-latest
+      - build-electron-app
+      - build-sidecar-macos-x64
+    runs-on: macos-latest
+    env:
+      BUDDY_CHANNEL: prod
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
-          fetch-depth: 0
           ref: ${{ github.sha }}
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3.11"
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            .cache/electron
+            .cache/electron-builder
+          key: ${{ runner.os }}-electron-builder-${{ hashFiles('packages/desktop-electron/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-builder-
 
       - run: bun install
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
+        with:
+          name: electron-app-out
+          path: electron-app-artifact
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: buddy-sidecar-x86_64-apple-darwin
+          path: sidecar-artifact
+
+      - shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf packages/desktop-electron/out
+          if [ -d electron-app-artifact/out ]; then
+            mv electron-app-artifact/out packages/desktop-electron/out
+          else
+            mv electron-app-artifact packages/desktop-electron/out
+          fi
+
+          rm -rf packages/buddy/dist/release-sidecars
+          mkdir -p packages/buddy/dist
+          if [ -d sidecar-artifact/release-sidecars ]; then
+            mv sidecar-artifact/release-sidecars packages/buddy/dist/release-sidecars
+          else
+            mv sidecar-artifact packages/buddy/dist/release-sidecars
+          fi
+
+      - run: bun run --cwd packages/desktop-electron prepare:release
+        env:
+          BUDDY_VERSION: ${{ needs.version.outputs.version }}
+          BUDDY_RUST_TARGET: x86_64-apple-darwin
+          BUDDY_SIDECAR_ARTIFACT_DIR: ${{ github.workspace }}/packages/buddy/dist/release-sidecars
+
+      - run: bunx --bun electron-builder --mac --x64 --config electron-builder.config.ts
+        working-directory: packages/desktop-electron
+
+      - name: Upload packaged binaries
+        uses: actions/upload-artifact@v6
+        with:
+          name: electron-package-x86_64-apple-darwin
+          path: |
+            packages/desktop-electron/dist/*.dmg
+            packages/desktop-electron/dist/*.zip
+            packages/desktop-electron/dist/*.exe
+            packages/desktop-electron/dist/*.blockmap
+          compression-level: 0
+
+      - name: Upload latest yml
+        uses: actions/upload-artifact@v6
+        with:
+          name: latest-yml-x86_64-apple-darwin
+          path: |
+            packages/desktop-electron/dist/latest*.yml
+          if-no-files-found: ignore
+
+  build-electron-windows-x64:
+    needs:
+      - version
+      - build-electron-app
+      - build-sidecar-windows-x64
+    runs-on: windows-2025
+    env:
+      BUDDY_CHANNEL: prod
+      ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            .cache/electron
+            .cache/electron-builder
+          key: ${{ runner.os }}-electron-builder-${{ hashFiles('packages/desktop-electron/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-builder-
+
+      - run: bun install
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: electron-app-out
+          path: electron-app-artifact
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: buddy-sidecar-x86_64-pc-windows-msvc
+          path: sidecar-artifact
+
+      - shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf packages/desktop-electron/out
+          if [ -d electron-app-artifact/out ]; then
+            mv electron-app-artifact/out packages/desktop-electron/out
+          else
+            mv electron-app-artifact packages/desktop-electron/out
+          fi
+
+          rm -rf packages/buddy/dist/release-sidecars
+          mkdir -p packages/buddy/dist
+          if [ -d sidecar-artifact/release-sidecars ]; then
+            mv sidecar-artifact/release-sidecars packages/buddy/dist/release-sidecars
+          else
+            mv sidecar-artifact packages/buddy/dist/release-sidecars
+          fi
+
+      - run: bun run --cwd packages/desktop-electron prepare:release
+        env:
+          BUDDY_VERSION: ${{ needs.version.outputs.version }}
+          BUDDY_RUST_TARGET: x86_64-pc-windows-msvc
+          BUDDY_SIDECAR_ARTIFACT_DIR: ${{ github.workspace }}/packages/buddy/dist/release-sidecars
+
+      - run: bunx --bun electron-builder --win --x64 --config electron-builder.config.ts
+        working-directory: packages/desktop-electron
+
+      - name: Upload packaged binaries
+        uses: actions/upload-artifact@v6
+        with:
+          name: electron-package-x86_64-pc-windows-msvc
+          path: |
+            packages/desktop-electron/dist/*.dmg
+            packages/desktop-electron/dist/*.zip
+            packages/desktop-electron/dist/*.exe
+            packages/desktop-electron/dist/*.blockmap
+          compression-level: 0
+
+      - name: Upload latest yml
+        uses: actions/upload-artifact@v6
+        with:
+          name: latest-yml-x86_64-pc-windows-msvc
+          path: |
+            packages/desktop-electron/dist/latest*.yml
+          if-no-files-found: ignore
+
+  upload-electron-release:
+    needs:
+      - version
+      - build-electron-macos-arm64
+      - build-electron-macos-x64
+      - build-electron-windows-x64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - run: bun install
+
+      - uses: actions/download-artifact@v5
         with:
           pattern: electron-package-*
           path: electron-dist
           merge-multiple: true
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           pattern: latest-yml-*
           path: latest-yml
@@ -243,7 +541,6 @@ jobs:
   build-advanced-math:
     needs:
       - version
-      - release-preflight
     strategy:
       fail-fast: false
       matrix:
@@ -254,14 +551,21 @@ jobs:
             target: x86_64-apple-darwin
     runs-on: ${{ matrix.settings.host }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           ref: ${{ github.sha }}
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3.11"
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
 
       - id: runtime-version
         shell: bash
@@ -376,17 +680,22 @@ jobs:
   build-standards:
     needs:
       - version
-      - release-preflight
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
-          fetch-depth: 0
           ref: ${{ github.sha }}
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3.11"
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
 
       - run: bun install
 
@@ -415,14 +724,20 @@ jobs:
       - build-standards
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
-          fetch-depth: 0
           ref: ${{ github.sha }}
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "1.3.11"
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
 
       - run: bun install
 
