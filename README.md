@@ -25,6 +25,22 @@ If Buddy is blocked after install, run:
 xattr -rd com.apple.quarantine "/Applications/Buddy.app"
 ```
 
+## Install (Windows)
+
+Run in PowerShell:
+
+```powershell
+irm -UseBasicParsing https://raw.githubusercontent.com/prashantbhudwal/buddy/main/scripts/install-buddy-windows.ps1 | iex
+```
+
+What this does:
+
+- Downloads the latest Windows Buddy installer for your architecture.
+- Falls back to x64 installer when arm64 is unavailable.
+- Removes the Mark of the Web (MotW) flag from the downloaded installer.
+- Starts the downloaded installer.
+- Uses only built-in PowerShell tools.
+
 ## Constitution
 
 ### Local
