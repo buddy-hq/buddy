@@ -27,6 +27,7 @@ permissions:
 
 env:
   BUN_VERSION: "1.3.11"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   version:
@@ -222,12 +223,12 @@ jobs:
         run: bun ./scripts/copy-icons.ts prod
         working-directory: packages/desktop-electron
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           name: electron-app-out
           path: electron-app-artifact
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           name: buddy-sidecar-aarch64-apple-darwin
           path: sidecar-artifact
@@ -319,12 +320,12 @@ jobs:
         run: bun ./scripts/copy-icons.ts prod
         working-directory: packages/desktop-electron
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           name: electron-app-out
           path: electron-app-artifact
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           name: buddy-sidecar-x86_64-apple-darwin
           path: sidecar-artifact
@@ -380,7 +381,7 @@ jobs:
       - version
       - build-electron-app
       - build-sidecar-windows-x64
-    runs-on: windows-2025
+    runs-on: windows-2025-vs2026
     env:
       BUDDY_CHANNEL: prod
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
@@ -416,12 +417,12 @@ jobs:
         run: bun ./scripts/copy-icons.ts prod
         working-directory: packages/desktop-electron
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           name: electron-app-out
           path: electron-app-artifact
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           name: buddy-sidecar-x86_64-pc-windows-msvc
           path: sidecar-artifact
@@ -497,13 +498,13 @@ jobs:
 
       - run: bun install
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           pattern: electron-package-*
           path: electron-dist
           merge-multiple: true
 
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           pattern: latest-yml-*
           path: latest-yml
