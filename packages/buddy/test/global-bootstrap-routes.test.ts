@@ -7,11 +7,7 @@ import { Global } from "../src/storage/global"
 
 const originalDirectoryBase = process.env.BUDDY_DIRECTORY_BASE
 const originalBuddyGlobalConfigDir = process.env.BUDDY_GLOBAL_CONFIG_DIR
-const missingNotebookHome = path.join(
-  Global.Path.home,
-  "Documents",
-  "Buddy Missing Bootstrap Test",
-)
+const missingNotebookHome = path.join(Global.Path.home, "Documents", "Buddy Missing Bootstrap Test")
 const bootstrapConfigDir = path.join(Global.Path.home, ".buddy-bootstrap-routes-test")
 
 const proxiedRequests: FetchOpenCodeInput[] = []

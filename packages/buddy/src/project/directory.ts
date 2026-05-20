@@ -15,7 +15,10 @@ function resolveDefaultNotebookHomeDirectory() {
 }
 
 function resolveBuddyGlobalConfigDirectory() {
-  return resolveConfiguredPath(process.env.BUDDY_GLOBAL_CONFIG_DIR) ?? resolveDefaultBuddyGlobalConfigDir()
+  return (
+    resolveConfiguredPath(process.env.BUDDY_GLOBAL_CONFIG_DIR) ??
+    resolveDefaultBuddyGlobalConfigDir()
+  )
 }
 
 function findMonorepoRoot(start: string) {

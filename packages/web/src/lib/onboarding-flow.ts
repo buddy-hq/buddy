@@ -46,10 +46,7 @@ export function shouldShowOnboardingPersonalizationStep(input: {
   showProviderSelectionStep: boolean
   exitPending: boolean
 }) {
-  return (
-    !input.showProviderSelectionStep &&
-    (input.personalizationStepPending || input.exitPending)
-  )
+  return !input.showProviderSelectionStep && (input.personalizationStepPending || input.exitPending)
 }
 
 export async function connectChatGptPlusForOnboarding(input: {
