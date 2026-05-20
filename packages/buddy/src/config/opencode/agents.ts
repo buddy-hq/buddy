@@ -175,4 +175,8 @@ function resolveConfiguredAgentKey(
   return matches.length === 1 ? matches[0]! : name
 }
 
-export { applyBuddyPersonaHiddenFlags, mergeBuddyAndConfiguredAgents, resolveConfiguredAgentKey }
+export {
+  applyBuddyPersonaHiddenFlags,
+  mergeBuddyAndConfiguredAgents,
+  resolveConfiguredAgentKey,
+}
