@@ -171,7 +171,7 @@ export function HiddenSteps({
   }
 
   return (
-    <div className="w-full">
+    <div className="my-2 w-full">
       <button
         type="button"
         onClick={() => setIsOpen((v) => !v)}

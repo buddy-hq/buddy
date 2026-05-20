@@ -1,23 +1,18 @@
-import { cn } from "@buddy/ui"
+import { Panda } from "lucide-react"
+import { TextShimmer } from "../text-shimmer"
+import { ABSTRACTED_THINKING_LABEL } from "./entries"
 
 type HiddenStepsPlaceholderProps = {
   detail?: string
 }
 
-export function HiddenStepsPlaceholder(props: HiddenStepsPlaceholderProps) {
+export function HiddenStepsPlaceholder({ detail }: HiddenStepsPlaceholderProps) {
   return (
     <div className="w-full" data-abstracted-thinking-placeholder="">
-      <div className="group flex w-full flex-col items-stretch text-left">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className={cn("min-w-0 truncate text-xs animate-pulse text-text-weak")}>
-            Thinking
-          </span>
-          {props.detail ? (
-            <span className="min-w-0 truncate text-xs animate-pulse text-text-weak/30">
-              {props.detail}
-            </span>
-          ) : null}
-        </div>
+      <div className="flex w-full cursor-default items-center gap-2 text-xs text-text-weaker">
+        <Panda className="h-3.5 w-3.5 shrink-0" />
+        <TextShimmer text={detail ?? ABSTRACTED_THINKING_LABEL} />
+        <div className="h-px grow bg-linear-to-r from-border to-transparent" />
       </div>
     </div>
   )

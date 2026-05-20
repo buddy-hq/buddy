@@ -82,7 +82,19 @@ export function hiddenStepsEntryIsActive(entry: HiddenStepsEntry): boolean {
 
 export function getHiddenStepsEntryLabel(entry: HiddenStepsEntry): string {
   if (entry.part.type === "reasoning") {
-    return getHiddenStepsReasoningLabel(String(entry.part.text ?? "").trim())
+    const heading = reasoningHeading(String(entry.part.text ?? "").trim())
+    if (heading) return heading
+    if (!hiddenStepsEntryIsActive(entry)) {
+      const time = isRecord(entry.part.time) ? entry.part.time : undefined
+      const start = typeof time?.start === "number" ? time.start : undefined
+      const end = typeof time?.end === "number" ? time.end : undefined
+      if (start !== undefined && end !== undefined) {
+        const seconds = Math.max(1, Math.ceil((end - start) / 1000))
+        return `${ABSTRACTED_THOUGHT_LABEL} for ${seconds}s`
+      }
+      return ABSTRACTED_THOUGHT_LABEL
+    }
+    return ABSTRACTED_THINKING_LABEL
   }
   return entry.summary?.label ?? entry.info?.title ?? "Tool"
 }
@@ -127,22 +139,46 @@ function formatCountSummary(cs: ToolCountSummary, count: number): string {
   return `${cs.verb} ${count} ${count === 1 ? cs.singular : cs.plural}`
 }
 
+function getReasoningDurationLabel(entries: HiddenStepsEntry[]): string {
+  let totalMs = 0
+  let hasTiming = false
+  for (const entry of entries) {
+    if (entry.part.type !== "reasoning") continue
+    const time = isRecord(entry.part.time) ? entry.part.time : undefined
+    const start = typeof time?.start === "number" ? time.start : undefined
+    const end = typeof time?.end === "number" ? time.end : undefined
+    if (start !== undefined && end !== undefined) {
+      totalMs += end - start
+      hasTiming = true
+    }
+  }
+  if (!hasTiming) return ABSTRACTED_THOUGHT_LABEL
+  const seconds = Math.max(1, Math.ceil(totalMs / 1000))
+  return `${ABSTRACTED_THOUGHT_LABEL} for ${seconds}s`
+}
+
 export function buildHiddenStepsSummary(
   entries: HiddenStepsEntry[],
   isBusy: boolean,
 ): string | undefined {
-  let hasReasoning = false
-  let hasActiveReasoning = false
+  // While busy, surface only the active step — count summaries are end-state labels.
+  if (isBusy) {
+    const activeEntry = entries.toReversed().find(hiddenStepsEntryIsActive)
+    if (activeEntry) return getHiddenStepsEntryLabel(activeEntry)
+  }
 
+  // Completed (or no active step): build count summary.
+  let hasReasoning = false
   type Group = { count: number; entry: HiddenStepsEntry }
   const groups = new Map<string, Group>()
 
   for (const entry of entries) {
     if (entry.part.type === "reasoning") {
       hasReasoning = true
-      if (isBusy && isReasoningActive(entry.part)) hasActiveReasoning = true
     } else if (entry.part.type === "tool" && entry.info?.title) {
-      const key = entry.info.title
+      const key = entry.countSummary
+        ? `${entry.countSummary.verb}:${entry.countSummary.plural}`
+        : entry.info.title
       const existing = groups.get(key)
       if (existing) {
         existing.count++
@@ -152,10 +188,8 @@ export function buildHiddenStepsSummary(
     }
   }
 
-  let detail: string | undefined
-
   if (groups.size > 0) {
-    detail = [...groups.values()]
+    const toolSummary = [...groups.values()]
       .toSorted((a, b) => b.count - a.count)
       .slice(0, SUMMARY_CUTOFF)
       .map(({ count, entry }) =>
@@ -166,13 +200,11 @@ export function buildHiddenStepsSummary(
             : `${entry.info?.title ?? "Tool"} ×${count}`,
       )
       .join(" · ")
+    if (hasReasoning) return `${toolSummary} · ${getReasoningDurationLabel(entries)}`
+    return toolSummary
   }
 
-  if (detail) return detail
-
-  if (hasReasoning) {
-    return hasActiveReasoning ? ABSTRACTED_THINKING_LABEL : ABSTRACTED_THOUGHT_LABEL
-  }
+  if (hasReasoning) return getReasoningDurationLabel(entries)
 
   return undefined
 }
