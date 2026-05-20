@@ -67,8 +67,16 @@ async function buildAndApplyProjectOverlay(directory: string) {
   }
 }
 
-async function syncRuntimeToolRegistration(directory: string) {
-  await registerRuntimeTools(directory, resolveFeatureRegistrationFlags())
+async function syncRuntimeToolRegistration(
+  directory: string,
+  config?: Awaited<ReturnType<typeof readProjectConfig>>,
+) {
+  const resolvedConfig = config ?? (await readProjectConfig(directory))
+  await registerRuntimeTools(
+    directory,
+    resolveFeatureRegistrationFlags(),
+    resolvedConfig.tools,
+  )
 }
 
 async function resolveProjectConfigFingerprint(config: Config.Info, overlay: unknown) {
@@ -82,8 +90,8 @@ async function resolveProjectConfigFingerprint(config: Config.Info, overlay: unk
 }
 
 export async function ensureOpenCodeProjectOverlay(directory: string): Promise<void> {
-  await buildAndApplyProjectOverlay(directory)
-  await syncRuntimeToolRegistration(directory)
+  const { config } = await buildAndApplyProjectOverlay(directory)
+  await syncRuntimeToolRegistration(directory, config)
 }
 
 export async function syncOpenCodeProjectConfig(directory: string, force = false): Promise<void> {
@@ -96,7 +104,7 @@ export async function syncOpenCodeProjectConfig(directory: string, force = false
     const nextFingerprint = await resolveProjectConfigFingerprint(config, overlay)
     const previousFingerprint = configFingerprintByDirectory.get(directory)
     if (!force && previousFingerprint === nextFingerprint) {
-      await syncRuntimeToolRegistration(directory)
+      await syncRuntimeToolRegistration(directory, config)
       return
     }
 
@@ -111,7 +119,7 @@ export async function syncOpenCodeProjectConfig(directory: string, force = false
     })
 
     configFingerprintByDirectory.set(directory, nextFingerprint)
-    await syncRuntimeToolRegistration(directory)
+    await syncRuntimeToolRegistration(directory, config)
   })().finally(() => {
     configSyncTaskByDirectory.delete(directory)
   })

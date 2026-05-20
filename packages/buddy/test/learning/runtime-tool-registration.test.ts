@@ -64,6 +64,37 @@ afterEach(async () => {
 })
 
 describe("runtime tool registration", () => {
+  test("configured tool toggles prevent disabled tools from registering", async () => {
+    await using project = await tmpdir({ git: true })
+
+    await registerRuntimeTools(
+      project.path,
+      {
+        ...disabledToolFlags(),
+        standards: true,
+      },
+      {
+        search_standards: false,
+      },
+    )
+
+    expect(await listToolIDs(project.path)).not.toContain("search_standards")
+    expect(await listToolIDs(project.path)).toContain("get_standard")
+
+    await registerRuntimeTools(
+      project.path,
+      {
+        ...disabledToolFlags(),
+        standards: true,
+      },
+      {
+        search_standards: true,
+      },
+    )
+
+    expect(await listToolIDs(project.path)).toContain("search_standards")
+  })
+
   test("removes question-set tools after the group is disabled in the same directory", async () => {
     await using project = await tmpdir({ git: true })
 

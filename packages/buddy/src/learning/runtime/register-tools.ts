@@ -1,3 +1,4 @@
+import type { Config } from "@buddy/backend/config"
 import { registerBuddyTools, unregisterBuddyTools } from "../runtime/register-buddy-tools"
 import { allBuddyFeatures } from "./feature-registry"
 import type { BuddyTool } from "./create-buddy-tool"
@@ -19,18 +20,26 @@ function collectFeatureTools(feature: DefinedBuddyFeature): BuddyTool[] {
 async function registerRuntimeTools(
   directory: string,
   flags: Record<string, boolean>,
+  configuredToolToggles?: Config.Info["tools"],
 ): Promise<void> {
   const toolsToRegister: BuddyTool[] = [...dynamicToolSearchTools]
-  const toolsToUnregister: string[] = []
+  const toolsToUnregister = new Set<string>()
   const registeredToolIDs = new Set<string>(dynamicToolSearchTools.map((tool) => tool.id))
 
   for (const feature of allBuddyFeatures()) {
     const featureTools = collectFeatureTools(feature)
 
     if (flags[feature.id] === false) {
-      toolsToUnregister.push(...featureTools.map((tool) => tool.id))
+      for (const tool of featureTools) {
+        toolsToUnregister.add(tool.id)
+      }
     } else {
       for (const tool of featureTools) {
+        if (configuredToolToggles?.[tool.id] === false) {
+          toolsToUnregister.add(tool.id)
+          continue
+        }
+
         if (registeredToolIDs.has(tool.id)) continue
         registeredToolIDs.add(tool.id)
         toolsToRegister.push(tool)
@@ -38,8 +47,8 @@ async function registerRuntimeTools(
     }
   }
 
-  if (toolsToUnregister.length > 0) {
-    await unregisterBuddyTools(directory, toolsToUnregister).catch((error) => {
+  if (toolsToUnregister.size > 0) {
+    await unregisterBuddyTools(directory, [...toolsToUnregister]).catch((error) => {
       console.warn("Failed to unregister Buddy tools:", error)
     })
   }

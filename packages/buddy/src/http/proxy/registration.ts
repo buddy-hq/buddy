@@ -1,3 +1,4 @@
+import { Config } from "@buddy/backend/config"
 import { registerRuntimeTools } from "../../learning/runtime/register-tools"
 import type { ProxyRegistrationFlags, ProxyRegistrationOption, ProxyToOpenCodeInput } from "./types"
 import { allBuddyFeatures } from "../../learning/runtime/feature-registry"
@@ -6,7 +7,8 @@ async function registerOpenCodeTools(
   directory: string,
   flags: ProxyRegistrationFlags,
 ): Promise<void> {
-  await registerRuntimeTools(directory, flags)
+  const projectConfig = await Config.getProject(directory)
+  await registerRuntimeTools(directory, flags, projectConfig.tools)
 }
 
 function resolveRegistration(

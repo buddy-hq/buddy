@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
+import path from "node:path"
+import { writeFileSync } from "node:fs"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { allBuddyFeatureIds } from "../src/learning/runtime/feature-registry"
@@ -61,5 +63,38 @@ describe("proxy registration", () => {
     for (const toolID of BUDDY_FEATURE_TOOL_IDS) {
       expect(afterToolIDs).toContain(toolID)
     }
+  })
+
+  test("respects per-tool project toggles during proxied registration", async () => {
+    await using project = await tmpdir({ git: true })
+
+    writeFileSync(
+      path.join(project.path, "buddy.jsonc"),
+      JSON.stringify(
+        {
+          tools: {
+            ingest_full_text: false,
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+
+    await registerRuntimeTools(project.path, disabledToolFlags())
+
+    await fetchOpenCode({
+      directory: project.path,
+      method: "GET",
+      path: SESSION_STATUS_PATH,
+      headers: new Headers(),
+      toolRegistrations: {
+        [READING_FEATURE_ID]: true,
+      },
+    })
+
+    const toolIDs = await listToolIDs(project.path)
+    expect(toolIDs).toContain("prepare_resource")
+    expect(toolIDs).not.toContain("ingest_full_text")
   })
 })
