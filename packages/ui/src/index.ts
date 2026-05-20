@@ -126,6 +126,7 @@ export {
   ArrowUpDownIcon,
   ArrowUpIcon,
   BookOpenIcon,
+  BookIcon,
   BotIcon,
   BrainIcon,
   CheckIcon,
@@ -162,6 +163,7 @@ export {
   FileSlidersIcon,
   ZapIcon,
   XIcon,
+  MessagesSquareIcon,
 } from "lucide-react"
 export { cn } from "./lib/utils"
 export { toast } from "sonner"
