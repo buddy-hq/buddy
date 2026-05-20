@@ -1,10 +1,12 @@
 import type { MouseEvent } from "react"
 import { useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate, useRouterState } from "@tanstack/react-router"
-import { Badge, FolderOpenIcon, Button, MoveLeftIcon } from "@buddy/ui"
+import { FolderOpenIcon, Button, MoveLeftIcon } from "@buddy/ui"
+import { ScrollTextIcon, SquareLibraryIcon } from "lucide-react"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useUiPreferences } from "@/state/ui-preferences"
+import type { NotebookMainPaneTab } from "@/state/ui-preferences"
 import { isTitlebarInteractiveTarget } from "./desktop-titlebar-helpers"
 import {
   LayoutLeftIcon,
@@ -17,13 +19,17 @@ import {
   getRightSidebarDefaultWidth,
   getRightSidebarMinWidth,
 } from "@/lib/directory-chat/right-sidebar-layout"
+import { TextShimmer } from "@/components/chat/tools/text-shimmer"
 
 type DesktopTitlebarProps = {
   placement?: "root" | "chat" | "settings"
   chatTitle?: string
   projectName?: string
+  isTurnActive?: boolean
   variant?: "chat" | "shell"
   leftSidebarOpen?: boolean
+  mainPaneTab?: NotebookMainPaneTab
+  onMainPaneTabChange?: (tab: NotebookMainPaneTab) => void
 }
 
 const ROOT_TITLEBAR_HEIGHT_CLASS = "h-10"
@@ -312,15 +318,21 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         ) : null}
         {!isShellVariant &&
           (placement === "chat" ? (
-            <div className="flex min-w-0 flex-1 items-center gap-2 pl-4 pr-2">
-              <h1 className="min-w-0 truncate text-sm font-medium text-text-strong">
-                {props.chatTitle}
-              </h1>
+            <div className="flex min-w-0 flex-1 items-stretch">
               {props.projectName ? (
-                <Badge variant="outline" className="min-w-0 shrink overflow-hidden">
-                  <span className="min-w-0 truncate">{props.projectName}</span>
-                </Badge>
+                <div
+                  className="shrink-0 overflow-hidden max-w-[12rem] transition-[max-width] duration-150 ease-in hover:max-w-[20rem] hover:duration-300 hover:ease-out [-webkit-app-region:no-drag] flex items-center border-r border-border-weaker-base [box-shadow:-2px_0_4px_rgba(0,0,0,0.08)]"
+                >
+                  <span className="block truncate pl-4 pr-3 text-xs font-medium text-text-weak select-none">
+                    {props.projectName}
+                  </span>
+                </div>
               ) : null}
+              <h1 className="min-w-0 flex-1 self-center truncate px-4 text-sm font-medium text-text-strong">
+                {props.chatTitle ? (
+                  <TextShimmer text={props.chatTitle} active={props.isTurnActive ?? false} />
+                ) : null}
+              </h1>
             </div>
           ) : (
             <div className="min-w-0 flex-1">
@@ -349,6 +361,40 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
             </div>
           ))}
         <div className="flex shrink-0 items-center gap-1 mr-2 ml-auto">
+          {placement === "chat" && !isShellVariant && props.onMainPaneTabChange ? (
+            <div className="flex items-center gap-0.5 [-webkit-app-region:no-drag]">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={language.t("sidebar.mainPane.instructions")}
+                title={language.t("sidebar.mainPane.instructions")}
+                className={`h-7 w-7 transition-colors ${
+                  props.mainPaneTab === "instructions"
+                    ? "text-text-strong bg-surface-raised-base-hover"
+                    : "text-text-weak"
+                }`}
+                onClick={() => props.onMainPaneTabChange?.("instructions")}
+              >
+                <ScrollTextIcon className="size-3.5" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={language.t("sidebar.library")}
+                title={language.t("sidebar.library")}
+                className={`h-7 w-7 transition-colors ${
+                  props.mainPaneTab === "library"
+                    ? "text-text-strong bg-surface-raised-base-hover"
+                    : "text-text-weak"
+                }`}
+                onClick={() => props.onMainPaneTabChange?.("library")}
+              >
+                <SquareLibraryIcon className="size-3.5" />
+              </Button>
+            </div>
+          ) : null}
           {!isShellVariant && rightSidebarToggle}
 
           {isWindows ? (

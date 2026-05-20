@@ -3,6 +3,7 @@ import { ResizeHandle, ResizablePanel, ResizablePanelGroup, useResizablePanelRef
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
 import { usePersistentResizablePanelLayout } from "@/components/layout/use-persistent-resizable-panel-layout"
 import { RIGHT_SIDEBAR_COLLAPSE_THRESHOLD_PX } from "@/lib/directory-chat/right-sidebar-layout"
+import type { NotebookMainPaneTab } from "@/state/ui-preferences"
 
 const DIRECTORY_CHAT_LAYOUT_ID = "directory-chat-layout"
 const DIRECTORY_CHAT_MAIN_PANEL_ID = "directory-chat-main-pane"
@@ -16,7 +17,10 @@ type DirectoryChatShellProps = {
   createTeachingFileDialog: ReactNode
   chatTitle?: string
   projectName?: string
+  isTurnActive?: boolean
   titlebarVariant?: "chat" | "shell"
+  mainPaneTab?: NotebookMainPaneTab
+  onMainPaneTabChange?: (tab: NotebookMainPaneTab) => void
   leftSidebarOpen: boolean
   leftSidebarDisplayWidth: number
   leftSidebarWidth: number
@@ -40,7 +44,10 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     createTeachingFileDialog,
     chatTitle,
     projectName,
+    isTurnActive,
     titlebarVariant,
+    mainPaneTab,
+    onMainPaneTabChange,
     leftSidebarOpen,
     leftSidebarDisplayWidth,
     leftSidebarWidth,
@@ -106,8 +113,11 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           placement="chat"
           chatTitle={chatTitle}
           projectName={projectName}
+          isTurnActive={isTurnActive}
           variant={titlebarVariant}
           leftSidebarOpen={leftSidebarOpen}
+          mainPaneTab={mainPaneTab}
+          onMainPaneTabChange={onMainPaneTabChange}
         />
       </div>
 

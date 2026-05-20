@@ -112,6 +112,7 @@ import {
 import { bootstrapLearnerMemoryForNotebookBestEffort } from "@/lib/learner-memory"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 import { useWorkspaceFilePanelStore } from "@/state/workspace-file-panel-store"
+import { language } from "@/context/language"
 
 const SIDEBAR_MIN_WIDTH = 220
 const READING_PREFETCH_BLOCKED_STATUSES = new Set<NonNullable<ResourceCardTarget["status"]>>([
@@ -1547,13 +1548,24 @@ export function useDirectoryChatPageController(
   }
 
   const shellProps: ReadyDirectoryChatPageControllerState["shellProps"] = {
-    chatTitle: cs.sessionTitle,
+    chatTitle:
+      cs.mainPaneTab === "library"
+        ? language.t("sidebar.library")
+        : cs.mainPaneTab === "instructions"
+          ? language.t("sidebar.mainPane.instructions")
+          : cs.sessionTitle,
     projectName: getFilename(decodedDirectory),
+    isTurnActive: cs.isBusy,
     titlebarVariant:
       shellView === DIRECTORY_CHAT_SHELL_VIEW.SKILLS ||
       shellView === DIRECTORY_CHAT_SHELL_VIEW.LIBRARY
         ? "shell"
         : "chat",
+    mainPaneTab: cs.mainPaneTab,
+    onMainPaneTabChange: (tab) => {
+      showWorkspace()
+      cs.setMainPaneTab(tab)
+    },
     leftSidebarOpen: cs.leftSidebarOpen,
     leftSidebarDisplayWidth: cs.leftSidebarDisplayWidth,
     leftSidebarWidth: cs.leftSidebarWidth,
