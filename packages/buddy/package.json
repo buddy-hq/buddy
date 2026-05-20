@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "bun run ensure:advanced-math-runtime && bun --env-file=../../.env run src/dev/start-with-safe-env.ts --watch",
     "build": "tsc",
-    "lint": "oxlint",
+    "lint": "bun ../../node_modules/oxlint/bin/oxlint",
     "build:single": "bun ./script/build-single.ts",
     "build:desktop-sidecar": "bun run build:single",
     "build:release-sidecar": "bun ./script/build-sidecar.ts",
@@ -21,7 +21,7 @@
     "skill:curate": "bun ./script/skill-curation.ts",
     "build:advanced-math-runtime": "bun ./script/build-advanced-math-runtime.ts",
     "ensure:advanced-math-runtime": "bun ./script/ensure-advanced-math-runtime.ts",
-    "typecheck": "tsgo --noEmit",
+    "typecheck": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit",
     "start": "bun run ensure:advanced-math-runtime && bun --env-file=../../.env run src/dev/start-with-safe-env.ts",
     "test": "bun test --preload ./test/preload.ts test",
     "test:architecture": "bun test --preload ./test/preload.ts test/architecture",

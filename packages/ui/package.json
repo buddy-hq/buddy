@@ -20,8 +20,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "lint": "oxlint",
-    "typecheck": "tsgo --noEmit"
+    "lint": "bun ../../node_modules/oxlint/bin/oxlint",
+    "typecheck": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",

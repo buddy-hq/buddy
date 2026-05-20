@@ -16,10 +16,10 @@
     "prepare:web": "bun ./scripts/prepare.ts full",
     "prepare:web:typecheck": "bun ./scripts/prepare.ts typecheck",
     "prebuild": "bun run prepare:web",
-    "lint": "oxlint",
+    "lint": "bun ../../node_modules/oxlint/bin/oxlint",
     "build": "tsc -p tsconfig.app.json && vite build",
     "pretypecheck": "bun run prepare:web:typecheck",
-    "typecheck": "tsgo -b",
+    "typecheck": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js -b",
     "preview": "vite preview",
     "test": "bun test --preload ./happydom.ts test",
     "test:contracts": "bun test --preload ./happydom.ts test/parity"

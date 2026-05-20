@@ -31,6 +31,7 @@
     "./session-status": "./src/session-status.ts",
     "./session-prompt": "./src/session-prompt.ts",
     "./file": "./src/file.ts",
+    "./global": "./src/global.ts",
     "./provider": "./src/provider.ts",
     "./llm": "./src/llm.ts",
     "./theme": "./src/theme.ts",
@@ -38,8 +39,8 @@
     "./storage-db": "./src/storage-db.ts"
   },
   "scripts": {
-    "lint": "oxlint",
-    "typecheck": "tsgo --noEmit"
+    "lint": "bun ../../node_modules/oxlint/bin/oxlint",
+    "typecheck": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit"
   },
   "dependencies": {
     "ai": "5.0.124",

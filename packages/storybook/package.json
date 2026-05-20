@@ -5,8 +5,8 @@
   "scripts": {
     "storybook": "storybook dev -p 6006",
     "build": "storybook build",
-    "lint": "oxlint",
-    "typecheck": "tsgo --noEmit"
+    "lint": "bun ../../node_modules/oxlint/bin/oxlint",
+    "typecheck": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit"
   },
   "devDependencies": {
     "@buddy/opencode-adapter": "workspace:*",

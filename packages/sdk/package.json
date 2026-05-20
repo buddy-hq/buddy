@@ -11,8 +11,8 @@
   },
   "scripts": {
     "generate": "bun run scripts/generate.ts && tsc -b --force",
-    "lint": "oxlint",
-    "typecheck": "tsgo --noEmit && tsgo -p tsconfig.scripts.json --noEmit",
+    "lint": "bun ../../node_modules/oxlint/bin/oxlint",
+    "typecheck": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit && bun ../../node_modules/@typescript/native-preview/bin/tsgo.js -p tsconfig.scripts.json --noEmit",
     "build": "tsc -b --force"
   },
   "dependencies": {},
