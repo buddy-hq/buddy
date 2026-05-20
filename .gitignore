@@ -83,3 +83,4 @@ docs/local
 docs/artifacts/distilled/
 .agents/skills/local/
 buddy.jsonc
+.antigravitycli/
