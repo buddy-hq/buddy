@@ -5,6 +5,7 @@ import { Config } from "@buddy/backend/config"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ensureOpenCodeProjectOverlay } from "@buddy/backend/config/runtime"
+import { isSuppressedOpenCodeSkill } from "../../../opencode-runtime/hidden-opencode-skills"
 import { fetchOpenCode } from "../../../http"
 import { SkillServiceError, type OpenCodeSkill } from "./contracts"
 import { loadManagedSkillFile } from "./documents"
@@ -192,11 +193,17 @@ function filterOpenCodeSkillsByProjectSettings(input: {
   openCodeSkills: OpenCodeSkill[]
   externalVendorRootsEnabled: boolean
 }) {
-  if (input.externalVendorRootsEnabled) {
-    return input.openCodeSkills
-  }
+  return input.openCodeSkills.filter((skill) => {
+    if (isSuppressedOpenCodeSkill(skill)) {
+      return false
+    }
 
-  return input.openCodeSkills.filter((skill) => !isExternalVendorSkill(skill.location))
+    if (input.externalVendorRootsEnabled) {
+      return true
+    }
+
+    return !isExternalVendorSkill(skill.location)
+  })
 }
 
 export async function loadVisibleSkills(

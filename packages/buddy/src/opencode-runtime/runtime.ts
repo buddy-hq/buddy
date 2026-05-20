@@ -12,6 +12,7 @@ import { Server } from "@buddy/opencode-adapter/server"
 import { ensureSessionToolUiPatched } from "@buddy/opencode-adapter/session-tool-ui"
 import { repairLegacyOpenCodeMigrations } from "./legacy-migration-repair"
 import { ensureSessionPromptToolForwardingPatched } from "./session-prompt-tool-forwarding"
+import { ensureSkillServicePatched } from "./skill-filtering"
 import { ensureTaskToolForwardingPatched } from "./task-tool-forwarding"
 
 let appPromise: Promise<{ fetch(request: Request): Response | Promise<Response> }> | undefined
@@ -43,6 +44,7 @@ export async function loadOpenCodeApp() {
       await ensureSessionServicePatched()
       await ensureSessionToolUiPatched()
       await ensureSessionPromptToolForwardingPatched()
+      await ensureSkillServicePatched()
       ensureTaskToolForwardingPatched()
       const built = await Server.Default()
       return {
