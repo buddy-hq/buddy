@@ -41,6 +41,17 @@ export function shouldAutoContinueConnectedOpenAiOnboarding(input: {
   )
 }
 
+export function shouldShowOnboardingPersonalizationStep(input: {
+  personalizationStepPending: boolean
+  showProviderSelectionStep: boolean
+  exitPending: boolean
+}) {
+  return (
+    !input.showProviderSelectionStep &&
+    (input.personalizationStepPending || input.exitPending)
+  )
+}
+
 export async function connectChatGptPlusForOnboarding(input: {
   openLink: (url: string) => void
   loadProviderCatalogSnapshot: () => Promise<ProviderCatalogState>

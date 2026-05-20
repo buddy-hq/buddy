@@ -29,6 +29,7 @@ import {
   configureNotebookForOnboarding,
   connectChatGptPlusForOnboarding,
   shouldAutoContinueConnectedOpenAiOnboarding,
+  shouldShowOnboardingPersonalizationStep,
   shouldResumeOnboardingPersonalization,
 } from "@/lib/onboarding-flow"
 import { applyOnboardingModelSelection } from "@/lib/onboarding-model-selection"
@@ -158,6 +159,7 @@ function OnboardingRoute() {
   const [folderBusy, setFolderBusy] = useState(false)
   const [showFolderRecovery, setShowFolderRecovery] = useState(false)
   const [personalizationBusy, setPersonalizationBusy] = useState(false)
+  const [personalizationExitPending, setPersonalizationExitPending] = useState(false)
   const [authAbort, setAuthAbort] = useState<AbortController | undefined>(undefined)
   const [showProviderSelectionStep, setShowProviderSelectionStep] = useState(false)
   const [personalizationDirectory, setPersonalizationDirectory] = useState<string | undefined>(
@@ -173,10 +175,14 @@ function OnboardingRoute() {
     defaultValues: EMPTY_PERSONALIZATION_SETTINGS,
     onSubmit: async () => undefined,
   })
-  const personalizationStepVisible =
+  const personalizationStepPending =
     personalizationVersionActive !== undefined &&
-    personalizationVersionActive !== personalizationVersionCompleted &&
-    !showProviderSelectionStep
+    personalizationVersionActive !== personalizationVersionCompleted
+  const personalizationStepVisible = shouldShowOnboardingPersonalizationStep({
+    personalizationStepPending,
+    showProviderSelectionStep,
+    exitPending: personalizationExitPending,
+  })
 
   useEffect(() => {
     void queryClient.ensureQueryData(personalizationSettingsQueryOptions()).then((bundle) => {
@@ -241,12 +247,35 @@ function OnboardingRoute() {
     test,
   ])
 
-  function navigateToChat(directory: string) {
-    navigate({
+  function navigateToDirectoryChat(directory: string) {
+    return navigate({
       to: "/$directory/chat",
       params: { directory: encodeDirectory(directory) },
       replace: true,
     })
+  }
+
+  async function completePersonalizationAndNavigate(markCompleted: () => void) {
+    // Keep step 2 mounted until the route transition completes to avoid flashing step 1.
+    setPersonalizationExitPending(true)
+    markCompleted()
+    setShowProviderSelectionStep(false)
+
+    try {
+      const nextDirectory = useChatStore.getState().activeDirectory
+      if (nextDirectory) {
+        await navigateToDirectoryChat(nextDirectory)
+        return
+      }
+
+      await navigate({
+        to: "/chat",
+        replace: true,
+      })
+    } catch (error) {
+      setPersonalizationExitPending(false)
+      throw error
+    }
   }
 
   async function completeSetupAndContinue(directory: string) {
@@ -258,7 +287,7 @@ function OnboardingRoute() {
     setError(undefined)
 
     if (!useOnboardingStore.getState().shouldShowPersonalizationStep()) {
-      navigateToChat(directory)
+      await navigateToDirectoryChat(directory)
     }
   }
 
@@ -341,13 +370,9 @@ function OnboardingRoute() {
         },
       )
       form.setErrorMap({ onSubmit: undefined })
-      markPersonalizationCompleted()
-      setShowProviderSelectionStep(false)
-
-      const nextDirectory = useChatStore.getState().activeDirectory
-      if (nextDirectory) {
-        navigateToChat(nextDirectory)
-      }
+      await completePersonalizationAndNavigate(() => {
+        markPersonalizationCompleted()
+      })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       form.setErrorMap({ onSubmit: { form: message, fields: {} } })
@@ -357,15 +382,22 @@ function OnboardingRoute() {
     }
   }
 
-  function handleSkipPersonalization() {
+  async function handleSkipPersonalization() {
     form.setErrorMap({ onSubmit: undefined })
     setError(undefined)
-    markPersonalizationSkipped()
-    setShowProviderSelectionStep(false)
 
-    const nextDirectory = useChatStore.getState().activeDirectory
-    if (nextDirectory) {
-      navigateToChat(nextDirectory)
+    setPersonalizationBusy(true)
+
+    try {
+      await completePersonalizationAndNavigate(() => {
+        markPersonalizationSkipped()
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      form.setErrorMap({ onSubmit: { form: message, fields: {} } })
+      setError(message)
+    } finally {
+      setPersonalizationBusy(false)
     }
   }
 
@@ -542,7 +574,9 @@ function OnboardingRoute() {
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={handleSkipPersonalization}
+                  onClick={() => {
+                    void handleSkipPersonalization()
+                  }}
                   disabled={personalizationBusy}
                 >
                   {language.t("onboardingPersonalization.skip")}

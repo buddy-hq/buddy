@@ -3,6 +3,7 @@ import {
   configureNotebookForOnboarding,
   connectChatGptPlusForOnboarding,
   shouldAutoContinueConnectedOpenAiOnboarding,
+  shouldShowOnboardingPersonalizationStep,
   shouldResumeOnboardingPersonalization,
 } from "../src/lib/onboarding-flow"
 import {
@@ -132,8 +133,6 @@ describe("desktop onboarding entry routing", () => {
   })
 
   test("skips onboarding when open projects already exist in the backend registry", async () => {
-    let markedCompleted = false
-
     await expect(
       resolveDesktopEntryPathWithSnapshots({
         state: {
@@ -149,23 +148,11 @@ describe("desktop onboarding entry routing", () => {
         async loadOpenProjectsSnapshot() {
           return ["/repo"]
         },
-        async loadProviderCatalogSnapshot() {
-          return createCatalog({
-            providers: [],
-          })
-        },
-        markOnboardingCompleted() {
-          markedCompleted = true
-        },
       }),
     ).resolves.toBe("/chat")
-
-    expect(markedCompleted).toBe(false)
   })
 
-  test("skips onboarding when OpenAI is already connected", async () => {
-    let markedCompleted = false
-
+  test("keeps onboarding when the backend has no open projects yet", async () => {
     await expect(
       resolveDesktopEntryPathWithSnapshots({
         state: {
@@ -180,56 +167,29 @@ describe("desktop onboarding entry routing", () => {
         },
         async loadOpenProjectsSnapshot() {
           return []
-        },
-        async loadProviderCatalogSnapshot() {
-          return createCatalog({
-            providers: [
-              createProvider({
-                id: "openai",
-                name: "OpenAI",
-                connected: true,
-                methods: [{ type: "oauth", label: "ChatGPT Pro/Plus (browser)" }],
-              }),
-            ],
-          })
-        },
-        markOnboardingCompleted() {
-          markedCompleted = true
-        },
-      }),
-    ).resolves.toBe("/chat")
-
-    expect(markedCompleted).toBe(true)
-  })
-
-  test("keeps onboarding when provider catalog cannot be read", async () => {
-    let markedCompleted = false
-
-    await expect(
-      resolveDesktopEntryPathWithSnapshots({
-        state: {
-          platform: "desktop",
-          setupCompleted: false,
-          personalizationStepPending: false,
-          openProjects: [],
-          activeDirectory: undefined,
-          pendingActiveDirectory: undefined,
-          lastSessionByDirectory: {},
-          directories: {},
-        },
-        async loadOpenProjectsSnapshot() {
-          return []
-        },
-        async loadProviderCatalogSnapshot() {
-          throw new Error("network down")
-        },
-        markOnboardingCompleted() {
-          markedCompleted = true
         },
       }),
     ).resolves.toBe("/onboarding")
+  })
 
-    expect(markedCompleted).toBe(false)
+  test("keeps onboarding when the backend snapshot cannot be read", async () => {
+    await expect(
+      resolveDesktopEntryPathWithSnapshots({
+        state: {
+          platform: "desktop",
+          setupCompleted: false,
+          personalizationStepPending: false,
+          openProjects: [],
+          activeDirectory: undefined,
+          pendingActiveDirectory: undefined,
+          lastSessionByDirectory: {},
+          directories: {},
+        },
+        async loadOpenProjectsSnapshot() {
+          throw new Error("network down")
+        },
+      }),
+    ).resolves.toBe("/onboarding")
   })
 
   test("auto-continues onboarding to the active open project when OpenAI is connected", () => {
@@ -289,12 +249,6 @@ describe("desktop onboarding entry routing", () => {
         async loadOpenProjectsSnapshot() {
           return ["/repo"]
         },
-        async loadProviderCatalogSnapshot() {
-          return createCatalog({
-            providers: [],
-          })
-        },
-        markOnboardingCompleted() {},
       }),
     ).resolves.toBe("/onboarding")
   })
@@ -391,6 +345,24 @@ describe("onboarding personalization resume", () => {
         alreadyHandled: false,
       }),
     ).toBe(true)
+  })
+
+  test("keeps the personalization step visible while the final chat navigation is pending", () => {
+    expect(
+      shouldShowOnboardingPersonalizationStep({
+        personalizationStepPending: false,
+        showProviderSelectionStep: false,
+        exitPending: true,
+      }),
+    ).toBe(true)
+
+    expect(
+      shouldShowOnboardingPersonalizationStep({
+        personalizationStepPending: true,
+        showProviderSelectionStep: true,
+        exitPending: true,
+      }),
+    ).toBe(false)
   })
 })
 

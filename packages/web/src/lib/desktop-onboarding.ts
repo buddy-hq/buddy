@@ -1,5 +1,5 @@
 import { getPlatform } from "@/context/platform"
-import { loadOpenProjects, loadProviderCatalogSnapshot } from "@/state/chat-actions"
+import { loadOpenProjects } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
 import type { DirectoryChatState } from "@/state/chat-types"
 import type { ProviderCatalogState } from "@/state/chat-types"
@@ -77,8 +77,6 @@ export function resolveDesktopOnboardingAutoContinueDirectory(input: {
 export async function resolveDesktopEntryPathWithSnapshots(input: {
   state: DesktopOnboardingState
   loadOpenProjectsSnapshot: () => Promise<string[]>
-  loadProviderCatalogSnapshot: () => Promise<ProviderCatalogState>
-  markOnboardingCompleted: () => void
 }) {
   if (!shouldShowDesktopOnboarding(input.state)) {
     return "/chat"
@@ -88,18 +86,12 @@ export async function resolveDesktopEntryPathWithSnapshots(input: {
     return "/onboarding"
   }
 
-  const [openProjectsResult, providersResult] = await Promise.allSettled([
-    input.loadOpenProjectsSnapshot(),
-    input.loadProviderCatalogSnapshot(),
-  ])
-
-  if (openProjectsResult.status === "fulfilled" && openProjectsResult.value.length > 0) {
-    return "/chat"
-  }
-
-  if (providersResult.status === "fulfilled" && hasConnectedOpenAiProvider(providersResult.value)) {
-    input.markOnboardingCompleted()
-    return "/chat"
+  try {
+    if ((await input.loadOpenProjectsSnapshot()).length > 0) {
+      return "/chat"
+    }
+  } catch {
+    return "/onboarding"
   }
 
   return "/onboarding"
@@ -130,7 +122,5 @@ export async function resolveCurrentDesktopEntryPath() {
   return resolveDesktopEntryPathWithSnapshots({
     state: readDesktopOnboardingState(),
     loadOpenProjectsSnapshot: loadOpenProjects,
-    loadProviderCatalogSnapshot,
-    markOnboardingCompleted: () => useOnboardingStore.getState().markSetupCompleted(),
   })
 }
