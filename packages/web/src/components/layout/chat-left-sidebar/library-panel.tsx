@@ -11,7 +11,6 @@ import {
   HelpCircleIcon,
   LayoutTemplateIcon,
   Layers2Icon,
-  LibraryBigIcon,
   Loader2Icon,
   PlusIcon,
   UploadIcon,
@@ -2107,8 +2106,6 @@ export function LibraryPanel({
   initialTab,
 }: LibraryPanelProps) {
   const [activeTab, setActiveTab] = useState<LibraryTab>(initialTab ?? "resources")
-  const libraryTitle =
-    directories.length === 1 ? getFilename(directories[0] ?? "") : language.t("sidebar.appLibrary")
 
   useEffect(() => {
     if (initialTab === undefined) {
@@ -2135,11 +2132,6 @@ export function LibraryPanel({
 
   return (
     <div data-component="library-panel" className="space-y-6">
-      <div className="flex items-center gap-2.5">
-        <LibraryBigIcon className="size-5 text-text-weak" />
-        <h2 className="text-base font-semibold text-text-strong">{libraryTitle}</h2>
-      </div>
-
       <div className="flex gap-1 border-b border-border-base">
         {LIBRARY_TABS.map(({ tab, labelKey }) => (
           <button

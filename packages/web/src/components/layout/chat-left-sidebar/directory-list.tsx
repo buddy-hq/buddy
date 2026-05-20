@@ -1,4 +1,4 @@
-import { LibraryBigIcon, type LucideIcon } from "lucide-react"
+import { SquareLibraryIcon, ScrollTextIcon, type LucideIcon } from "lucide-react"
 import {
   ArchiveIcon,
   ChevronDownIcon,
@@ -11,8 +11,6 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
   Switch,
-  FolderIcon,
-  FileSlidersIcon,
   MailIcon,
   MailOpenIcon,
   PencilIcon,
@@ -25,8 +23,9 @@ import {
   TooltipContent,
   TooltipTrigger,
   XIcon,
-  ZapIcon,
   BotIcon,
+  MessagesSquareIcon,
+  BookIcon,
 } from "@buddy/ui"
 import { language } from "@/context/language"
 import { formatSessionTitle } from "@/lib/session-title"
@@ -151,12 +150,12 @@ const MAIN_PANE_SHORTCUTS: MainPaneShortcut[] = [
   {
     tab: "instructions",
     label: language.t("sidebar.mainPane.instructions"),
-    Icon: FileSlidersIcon,
+    Icon: ScrollTextIcon,
   },
   {
     tab: "library",
     label: language.t("sidebar.notebookLibrary"),
-    Icon: LibraryBigIcon,
+    Icon: SquareLibraryIcon,
   },
 ]
 const SUBAGENT_TONE_CLASSES = [
@@ -246,7 +245,7 @@ function NotebookLearnerMemoryContextItems(props: { directory: string }) {
 
 export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryListProps) {
   return (
-    <div data-component="left-sidebar-directory-list" className="space-y-0.5 mt-0.5">
+    <div data-component="left-sidebar-directory-list" className="space-y-0.5 mt-2">
       {props.directoryGroups.map((group) => {
         const allSessions = props.sessionsByDirectory[group.directory] ?? []
         const sessionStatusByID = props.sessionStatusByDirectory[group.directory] ?? {}
@@ -256,8 +255,8 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
         const collapsed = !!props.collapsedDirectories[group.directory]
 
         return (
-          <DirectoryGroupSection
-            key={group.directory}
+          <div key={group.directory}>
+            <DirectoryGroupSection
             group={group}
             currentDirectory={props.currentDirectory}
             shellView={props.shellView}
@@ -295,7 +294,8 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
             onNewSession={() => props.onNewSession(group.directory)}
             mainPaneTab={props.mainPaneTab}
             onMainPaneTabChange={(tab) => props.onMainPaneTabChange?.(group.directory, tab)}
-          />
+            />
+          </div>
         )
       })}
     </div>
@@ -359,18 +359,16 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
           type="button"
           data-action="left-sidebar-directory-toggle"
           data-directory={props.group.directory}
-          className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-0 py-1 text-left text-sm font-light text-text-weak hover:text-text-strong ${
-            canDrag && !isQuickChatGroup ? "cursor-grab active:cursor-grabbing" : ""
-          }`}
+          className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 py-1 text-left text-sm font-light text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong cursor-pointer`}
           onPointerDown={
             canDrag && !isQuickChatGroup ? (event) => props.onLabelPointerDown(event) : undefined
           }
         >
           {isQuickChatGroup ? (
-            <ZapIcon className="size-3.5 shrink-0" />
+            <MessagesSquareIcon className="size-3.5 shrink-0" />
           ) : (
             <span className="relative flex size-3.5 shrink-0">
-              <FolderIcon
+              <BookIcon
                 className={`absolute inset-0 size-3.5 transition-opacity duration-200 ${
                   props.collapsed
                     ? "opacity-100 group-hover/notebook-header:opacity-0"
@@ -430,7 +428,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                       }
                     }}
                   >
-                    <Icon className="size-3" strokeWidth={2} />
+                    <Icon className="size-3.5" strokeWidth={2} />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
@@ -460,7 +458,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
               }}
             >
               <SquarePenIcon
-                className="size-3 transition-transform duration-100 ease-out group-active/new-thread:-rotate-12 group-active/new-thread:scale-110"
+                className="size-3.5 transition-transform duration-100 ease-out group-active/new-thread:-rotate-12 group-active/new-thread:scale-110"
                 strokeWidth={2}
               />
             </button>
