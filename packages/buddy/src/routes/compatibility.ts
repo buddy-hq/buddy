@@ -144,6 +144,7 @@ export const CompatibilityRoutes = new Hono()
     async (c) => {
       return proxyToOpenCode(c, {
         targetPath: "/global/health",
+        directoryMode: "none",
       })
     },
   )

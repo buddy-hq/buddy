@@ -4,6 +4,7 @@ export type ProxyRegistrationOption = boolean | ProxyRegistrationPredicate
 
 export type ProxyRegistrationFlags = Record<string, boolean>
 export type ProxyRegistrationInput = Partial<Record<string, ProxyRegistrationOption>>
+export type ProxyDirectoryMode = "required" | "optional" | "bootstrap" | "none"
 
 export type ProxyToOpenCodeInput = {
   targetPath: string
@@ -12,10 +13,11 @@ export type ProxyToOpenCodeInput = {
   ) => Record<string, unknown> | Promise<Record<string, unknown>>
   forceBusyAs409?: boolean
   toolRegistrations?: ProxyRegistrationInput
+  directoryMode?: ProxyDirectoryMode
 }
 
 export type FetchOpenCodeInput = {
-  directory: string
+  directory?: string
   method: string
   path: string
   query?: string

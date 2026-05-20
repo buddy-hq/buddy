@@ -205,6 +205,7 @@ export const GlobalRoutes = new Hono()
     async (c) =>
       proxyToOpenCode(c, {
         targetPath: "/global/dispose",
+        directoryMode: "none",
       }),
   )
   .get(

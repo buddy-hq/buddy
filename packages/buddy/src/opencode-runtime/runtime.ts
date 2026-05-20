@@ -1,5 +1,6 @@
 import fs from "node:fs/promises"
 import {
+  BUDDY_TMP_DIR,
   BUDDY_XDG_CACHE_HOME,
   BUDDY_XDG_CONFIG_HOME,
   BUDDY_XDG_DATA_HOME,
@@ -23,6 +24,7 @@ export async function ensureRuntimeDirectories() {
     fs.mkdir(process.env.XDG_CACHE_HOME ?? BUDDY_XDG_CACHE_HOME, { recursive: true }),
     fs.mkdir(process.env.XDG_CONFIG_HOME ?? BUDDY_XDG_CONFIG_HOME, { recursive: true }),
     fs.mkdir(process.env.XDG_STATE_HOME ?? BUDDY_XDG_STATE_HOME, { recursive: true }),
+    fs.mkdir(BUDDY_TMP_DIR, { recursive: true }),
   ])
 }
 

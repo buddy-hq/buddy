@@ -4,6 +4,9 @@ import type { FetchOpenCodeInput } from "./types"
 
 async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response> {
   if (input.toolRegistrations !== undefined) {
+    if (!input.directory) {
+      throw new Error("Tool registration proxying requires a workspace directory")
+    }
     await registerOpenCodeTools(
       input.directory,
       normalizeToolRegistrationFlags(input.toolRegistrations),
@@ -26,7 +29,11 @@ async function fetchOpenCode(input: FetchOpenCodeInput): Promise<Response> {
     headers.set("authorization", `Basic ${token}`)
   }
   headers.delete("x-buddy-directory")
-  headers.set("x-opencode-directory", input.directory)
+  if (input.directory) {
+    headers.set("x-opencode-directory", input.directory)
+  } else {
+    headers.delete("x-opencode-directory")
+  }
   headers.delete("host")
   headers.delete("content-length")
 

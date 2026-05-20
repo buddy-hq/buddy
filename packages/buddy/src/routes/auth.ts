@@ -30,6 +30,7 @@ export const AuthRoutes = new Hono()
     async (c) => {
       return proxyToOpenCode(c, {
         targetPath: `/auth/${encodeURIComponent(c.req.valid("param").providerID)}`,
+        directoryMode: "optional",
       })
     },
   )
@@ -53,6 +54,7 @@ export const AuthRoutes = new Hono()
     async (c) => {
       return proxyToOpenCode(c, {
         targetPath: `/auth/${encodeURIComponent(c.req.valid("param").providerID)}`,
+        directoryMode: "optional",
       })
     },
   )

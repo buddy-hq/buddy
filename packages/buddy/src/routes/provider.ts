@@ -49,6 +49,7 @@ export const ProviderRoutes = new Hono()
     async (c) =>
       proxyToOpenCode(c, {
         targetPath: "/provider",
+        directoryMode: "bootstrap",
       }),
   )
   .get(
@@ -70,6 +71,7 @@ export const ProviderRoutes = new Hono()
     async (c) => {
       return proxyToOpenCode(c, {
         targetPath: "/provider/auth",
+        directoryMode: "bootstrap",
       })
     },
   )
@@ -98,6 +100,7 @@ export const ProviderRoutes = new Hono()
     async (c) => {
       return proxyToOpenCode(c, {
         targetPath: `/provider/${encodeURIComponent(c.req.valid("param").providerID)}/oauth/authorize`,
+        directoryMode: "bootstrap",
       })
     },
   )
@@ -122,6 +125,7 @@ export const ProviderRoutes = new Hono()
     async (c) => {
       return proxyToOpenCode(c, {
         targetPath: `/provider/${encodeURIComponent(c.req.valid("param").providerID)}/oauth/callback`,
+        directoryMode: "bootstrap",
       })
     },
   )

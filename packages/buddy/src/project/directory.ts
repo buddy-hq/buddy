@@ -1,11 +1,21 @@
 import os from "node:os"
 import fs from "node:fs"
 import path from "node:path"
-import { resolveBuddyHomeDirectory } from "../storage"
+import {
+  resolveBuddyHomeDirectory,
+  resolveConfiguredPath,
+  resolveDefaultBuddyGlobalConfigDir,
+} from "../storage"
 import { BUDDY_HOME_DEFAULT_PATH_SEGMENTS } from "./notebook-constants"
+
+const BUDDY_BOOTSTRAP_DIRECTORY_PATH_SEGMENTS = ["bootstrap", "http-proxy"] as const
 
 function resolveDefaultNotebookHomeDirectory() {
   return path.join(resolveBuddyHomeDirectory(), ...BUDDY_HOME_DEFAULT_PATH_SEGMENTS)
+}
+
+function resolveBuddyGlobalConfigDirectory() {
+  return resolveConfiguredPath(process.env.BUDDY_GLOBAL_CONFIG_DIR) ?? resolveDefaultBuddyGlobalConfigDir()
 }
 
 function findMonorepoRoot(start: string) {
@@ -119,6 +129,15 @@ export function isInsideDirectoryRoot(directory: string, root: string) {
 
 export function resolveDirectory(raw: string) {
   return canonicalizeDirectory(resolveDirectoryPath(raw))
+}
+
+export function ensureGlobalBootstrapWorkspaceDirectory() {
+  const directory = path.join(
+    resolveBuddyGlobalConfigDirectory(),
+    ...BUDDY_BOOTSTRAP_DIRECTORY_PATH_SEGMENTS,
+  )
+  fs.mkdirSync(directory, { recursive: true })
+  return canonicalizeDirectory(directory)
 }
 
 export function allowedDirectoryRoots() {

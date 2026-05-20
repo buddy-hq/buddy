@@ -29,6 +29,11 @@ export type DirectoryRequestContext = {
   directory: string
 }
 
+export type OptionalDirectoryRequestContext = {
+  requestURL: URL
+  directory?: string
+}
+
 const DIRECTORY_FORBIDDEN_STATUS = 403
 const DIRECTORY_NOT_FOUND_STATUS = 404
 const DIRECTORY_ACCESS_DENIED_ERROR_CODES = new Set(["EACCES", "EPERM"])
@@ -99,22 +104,29 @@ function readSourceHeader(source: DirectoryRequestSource, name: string): string 
   return source.req.header(name) ?? null
 }
 
-function requestDirectory(source: DirectoryRequestSource): { requestURL: URL; directory: string } {
+function readRawDirectory(source: DirectoryRequestSource) {
   const requestURL = readSourceURL(source)
   const rawDirectory =
     requestURL.searchParams.get("directory") ??
     readSourceHeader(source, "x-buddy-directory") ??
-    readSourceHeader(source, "x-opencode-directory") ??
-    ""
+    readSourceHeader(source, "x-opencode-directory")
 
   return {
     requestURL,
-    directory: resolveDirectory(rawDirectory),
+    rawDirectory,
   }
 }
 
-export const ensureAllowedDirectory: EnsureAllowedDirectory = (source) => {
-  const { requestURL, directory } = requestDirectory(source)
+function requestDirectory(source: DirectoryRequestSource): { requestURL: URL; directory: string } {
+  const { requestURL, rawDirectory } = readRawDirectory(source)
+
+  return {
+    requestURL,
+    directory: resolveDirectory(rawDirectory ?? ""),
+  }
+}
+
+function validateAllowedDirectory(requestURL: URL, directory: string): AllowedDirectoryResult {
   const allowedByRoots = isAllowedDirectory(directory, allowedDirectoryRoots())
   const allowedByOpenProjectRegistry = isDirectoryInOpenProjectRegistry(directory)
 
@@ -137,6 +149,42 @@ export const ensureAllowedDirectory: EnsureAllowedDirectory = (source) => {
     ok: true,
     directory,
     requestURL,
+  }
+}
+
+export const ensureAllowedDirectory: EnsureAllowedDirectory = (source) => {
+  const { requestURL, directory } = requestDirectory(source)
+  return validateAllowedDirectory(requestURL, directory)
+}
+
+export function resolveOptionalDirectoryRequestContext(source: DirectoryRequestSource):
+  | {
+      ok: true
+      context: OptionalDirectoryRequestContext
+    }
+  | {
+      ok: false
+      response: Response
+    } {
+  const { requestURL, rawDirectory } = readRawDirectory(source)
+  if (typeof rawDirectory !== "string" || rawDirectory.trim().length === 0) {
+    return {
+      ok: true,
+      context: {
+        requestURL,
+      },
+    }
+  }
+
+  const allowed = validateAllowedDirectory(requestURL, resolveDirectory(rawDirectory))
+  if (!allowed.ok) return allowed
+
+  return {
+    ok: true,
+    context: {
+      requestURL,
+      directory: allowed.directory,
+    },
   }
 }
 

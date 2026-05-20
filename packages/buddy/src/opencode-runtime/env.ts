@@ -27,8 +27,11 @@ export const BUDDY_XDG_DATA_HOME = path.join(runtimeRootPath, "data")
 export const BUDDY_XDG_CACHE_HOME = path.join(runtimeRootPath, "cache")
 export const BUDDY_XDG_CONFIG_HOME = path.join(runtimeRootPath, "config")
 export const BUDDY_XDG_STATE_HOME = path.join(runtimeRootPath, "state")
+export const BUDDY_TMP_DIR = path.join(runtimeRootPath, "tmp")
 export const BUDDY_RUNTIME_CONFIG_DIR = path.join(BUDDY_XDG_CONFIG_HOME, BUDDY_APP_NAME)
 export const BUDDY_DEFAULT_GLOBAL_CONFIG_DIR = resolveDefaultBuddyGlobalConfigDir()
+
+let openCodeGlobal: typeof import("@buddy/opencode-adapter/global").Global | undefined
 
 function findRepoPath(relativePath: string): string | undefined {
   const searchRoots = [process.cwd(), path.dirname(process.execPath)]
@@ -68,6 +71,13 @@ function applyOptionalPathEnv(name: string, resolvedPath: string | undefined) {
   delete process.env[name]
 }
 
+function configureBuddyTempDirectory() {
+  fs.mkdirSync(BUDDY_TMP_DIR, { recursive: true })
+  if (openCodeGlobal) {
+    openCodeGlobal.Path.tmp = BUDDY_TMP_DIR
+  }
+}
+
 export function configureOpenCodeEnvironment() {
   const buddyConfigDir =
     resolveConfiguredPath(process.env.BUDDY_GLOBAL_CONFIG_DIR) ?? BUDDY_DEFAULT_GLOBAL_CONFIG_DIR
@@ -84,6 +94,11 @@ export function configureOpenCodeEnvironment() {
   process.env.OPENCODE_ENABLE_QUESTION_TOOL ||= OPENCODE_ENABLE_FLAG
   process.env.OPENCODE_ENABLE_EXA ||= "1"
   applyOptionalPathEnv("BUDDY_MIGRATION_DIR", findRepoPath("packages/buddy/migration"))
+  configureBuddyTempDirectory()
 }
 
 configureOpenCodeEnvironment()
+
+const { Global } = await import("@buddy/opencode-adapter/global")
+openCodeGlobal = Global
+configureBuddyTempDirectory()

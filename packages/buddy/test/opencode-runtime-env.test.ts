@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { spawnSync } from "node:child_process"
+import { mkdtempSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { mkdtempSync } from "node:fs"
-import { spawnSync } from "node:child_process"
 import { configureOpenCodeEnvironment } from "../src/opencode-runtime"
 
 const originalCwd = process.cwd()
 const originalBuddyMigrationDir = process.env.BUDDY_MIGRATION_DIR
+const bunExecutable = process.execPath
 
 function restoreEnv(name: "BUDDY_MIGRATION_DIR", value: string | undefined) {
   if (value === undefined) {
@@ -39,11 +40,12 @@ describe("opencode runtime env", () => {
         data: process.env.XDG_DATA_HOME,
         cache: process.env.XDG_CACHE_HOME,
         config: process.env.XDG_CONFIG_HOME,
-        state: process.env.XDG_STATE_HOME
+        state: process.env.XDG_STATE_HOME,
+        tmp: mod.BUDDY_TMP_DIR
       }));
     `
 
-    const result = spawnSync("bun", ["-e", script], {
+    const result = spawnSync(bunExecutable, ["-e", script], {
       env: {
         ...process.env,
         BUDDY_RUNTIME_ROOT: runtimeRoot,
@@ -58,12 +60,44 @@ describe("opencode runtime env", () => {
       cache: string
       config: string
       state: string
+      tmp: string
     }
 
     expect(parsed.data).toBe(path.join(runtimeRoot, "data"))
     expect(parsed.cache).toBe(path.join(runtimeRoot, "cache"))
     expect(parsed.config).toBe(path.join(runtimeRoot, "config"))
     expect(parsed.state).toBe(path.join(runtimeRoot, "state"))
+    expect(parsed.tmp).toBe(path.join(runtimeRoot, "tmp"))
+  })
+
+  test("rewrites the shared OpenCode temp path to Buddy runtime tmp", () => {
+    const runtimeRoot = mkdtempSync(path.join(os.tmpdir(), "buddy-runtime-root-"))
+    const modulePath = path.resolve(import.meta.dir, "../src/opencode-runtime/env.ts")
+
+    const script = `
+      const mod = await import(${JSON.stringify(modulePath)});
+      mod.configureOpenCodeEnvironment();
+      const { Global } = await import("@buddy/opencode-adapter/global");
+      console.log(JSON.stringify({
+        tmp: Global.Path.tmp
+      }));
+    `
+
+    const result = spawnSync(bunExecutable, ["-e", script], {
+      env: {
+        ...process.env,
+        BUDDY_RUNTIME_ROOT: runtimeRoot,
+      },
+      encoding: "utf8",
+    })
+
+    expect(result.status).toBe(0)
+
+    const parsed = JSON.parse(result.stdout.trim()) as {
+      tmp: string
+    }
+
+    expect(parsed.tmp).toBe(path.join(runtimeRoot, "tmp"))
   })
 
   test("keeps Global storage data/cache/state under runtime root after env bootstrap", () => {
@@ -83,7 +117,7 @@ describe("opencode runtime env", () => {
       }));
     `
 
-    const result = spawnSync("bun", ["-e", script], {
+    const result = spawnSync(bunExecutable, ["-e", script], {
       env: {
         ...process.env,
         BUDDY_RUNTIME_ROOT: runtimeRoot,
@@ -131,7 +165,7 @@ describe("opencode runtime env", () => {
       }));
     `
 
-    const result = spawnSync("bun", ["-e", script], {
+    const result = spawnSync(bunExecutable, ["-e", script], {
       env: {
         ...process.env,
         BUDDY_RUNTIME_ROOT: runtimeRoot,
@@ -166,7 +200,7 @@ describe("opencode runtime env", () => {
       }));
     `
 
-    const result = spawnSync("bun", ["-e", script], {
+    const result = spawnSync(bunExecutable, ["-e", script], {
       env: {
         ...process.env,
         OPENCODE_CLIENT: "",

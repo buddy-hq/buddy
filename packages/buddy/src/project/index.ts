@@ -1,4 +1,9 @@
-export { allowedDirectoryRoots, isAllowedDirectory, resolveDirectory } from "./directory"
+export {
+  allowedDirectoryRoots,
+  ensureGlobalBootstrapWorkspaceDirectory,
+  isAllowedDirectory,
+  resolveDirectory,
+} from "./directory"
 export {
   INBOX_NOTEBOOK_NAME,
   createManagedNotebook,
