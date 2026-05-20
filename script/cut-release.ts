@@ -270,11 +270,21 @@ async function alignWithOriginMain(rl: ReturnType<typeof createInterface>) {
   }
 }
 
-async function chooseVersion(rl: ReturnType<typeof createInterface>) {
+async function chooseVersion(rl: ReturnType<typeof createInterface>, fast = false) {
   const latest = await getLatestRelease()
   const patchSuggestion = latest ? bumpVersion(latest, "patch") : "0.0.1"
   const minorSuggestion = latest ? bumpVersion(latest, "minor") : "0.1.0"
   const majorSuggestion = latest ? bumpVersion(latest, "major") : "1.0.0"
+
+  if (fast) {
+    printStep(
+      "Version",
+      latest
+        ? `Latest stable release: v${latest}\nUsing suggested patch version: v${patchSuggestion}`
+        : `No prior stable release found.\nUsing first stable release: v${patchSuggestion}`,
+    )
+    return patchSuggestion
+  }
 
   printStep(
     "Version",
@@ -350,10 +360,21 @@ async function editReleaseDraft(
   rl: ReturnType<typeof createInterface>,
   version: string,
   existingDraft: ReleaseSummary | undefined,
+  fast = false,
 ) {
   const tag = `v${version}`
-  const title = await promptLine(rl, "Release title", existingDraft?.name || tag)
+  const title = fast ? tag : await promptLine(rl, "Release title", existingDraft?.name || tag)
   const initialBody = await initialReleaseBody(version, existingDraft)
+
+  if (fast) {
+    return {
+      body: initialBody,
+      notesPath: undefined,
+      tempDir: undefined,
+      title,
+    }
+  }
+
   const tempDir = mkdtempSync(path.join(os.tmpdir(), "buddy-release-notes-"))
   const notesPath = path.join(tempDir, `${tag}.md`)
   await Bun.write(notesPath, initialBody ? `${initialBody}\n` : "")
@@ -399,7 +420,8 @@ async function editReleaseDraft(
 async function upsertDraftRelease(
   version: string,
   title: string,
-  notesPath: string,
+  notesPath: string | undefined,
+  body: string,
   targetSha: string,
   existingDraft: ReleaseSummary | undefined,
 ) {
@@ -407,13 +429,25 @@ async function upsertDraftRelease(
   printStep("Draft Release", `Creating or updating draft release ${tag}.`)
 
   if (existingDraft?.isDraft) {
-    await $`gh release edit ${tag} --title ${title} --notes-file ${notesPath} --repo ${releaseRepo()}`.cwd(
-      ROOT_DIR,
-    )
+    if (notesPath) {
+      await $`gh release edit ${tag} --title ${title} --notes-file ${notesPath} --repo ${releaseRepo()}`.cwd(
+        ROOT_DIR,
+      )
+    } else {
+      await $`gh release edit ${tag} --title ${title} --notes ${body} --repo ${releaseRepo()}`.cwd(
+        ROOT_DIR,
+      )
+    }
   } else {
-    await $`gh release create ${tag} -d --title ${title} --notes-file ${notesPath} --target ${targetSha} --repo ${releaseRepo()}`.cwd(
-      ROOT_DIR,
-    )
+    if (notesPath) {
+      await $`gh release create ${tag} -d --title ${title} --notes-file ${notesPath} --target ${targetSha} --repo ${releaseRepo()}`.cwd(
+        ROOT_DIR,
+      )
+    } else {
+      await $`gh release create ${tag} -d --title ${title} --notes ${body} --target ${targetSha} --repo ${releaseRepo()}`.cwd(
+        ROOT_DIR,
+      )
+    }
   }
 
   const release = await loadRelease(tag)
@@ -502,7 +536,7 @@ function syncTagsFromOrigin() {
   runCommand("git", ["fetch", "origin", "+refs/tags/*:refs/tags/*"])
 }
 
-async function maybePullReleaseSync(rl: ReturnType<typeof createInterface>) {
+async function maybePullReleaseSync(rl: ReturnType<typeof createInterface>, fast = false) {
   await fetchOriginMain()
   const state = await syncState()
   if (state.state !== "behind") {
@@ -510,7 +544,7 @@ async function maybePullReleaseSync(rl: ReturnType<typeof createInterface>) {
   }
 
   console.log(`origin/main gained ${state.behind} new commit(s) during release publishing.`)
-  if (!(await confirm(rl, "Pull the release-sync commit into local main now?", true))) {
+  if (!fast && !(await confirm(rl, "Pull the release-sync commit into local main now?", true))) {
     return
   }
 
@@ -518,7 +552,15 @@ async function maybePullReleaseSync(rl: ReturnType<typeof createInterface>) {
   runCommand("git", ["pull", "--rebase", "origin", RELEASE_BRANCH])
 }
 
+function parseArgs() {
+  const args = process.argv.slice(2)
+  return {
+    fast: args.includes("--fast"),
+  }
+}
+
 async function main() {
+  const flags = parseArgs()
   ensureInteractiveTerminal()
   await ensureMainBranch()
   await ensureCleanTree()
@@ -531,51 +573,53 @@ async function main() {
     const targetSha = await alignWithOriginMain(rl)
     await ensureCleanTree()
 
-    const version = await chooseVersion(rl)
+    const version = await chooseVersion(rl, flags.fast)
     const tag = `v${version}`
     const existingDraft = await ensureVersionIsAvailable(version)
-    const editedDraft = await editReleaseDraft(rl, version, existingDraft)
+    const editedDraft = await editReleaseDraft(rl, version, existingDraft, flags.fast)
     try {
       const release = await upsertDraftRelease(
         version,
         editedDraft.title,
         editedDraft.notesPath,
+        editedDraft.body,
         targetSha,
         existingDraft,
       )
 
       console.log(`Draft release ready: ${release.url}`)
-      if (!(await confirm(rl, `Dispatch the publish workflow for ${tag} now?`, true))) {
-        console.log("Release draft updated, but workflow dispatch was skipped.")
-        return
-      }
+      if (flags.fast || (await confirm(rl, `Dispatch the publish workflow for ${tag} now?`, true))) {
+        runRequiredGates()
+        await ensureCleanTree()
 
-      runRequiredGates()
-      await ensureCleanTree()
+        const runUrl = await dispatchRelease(version, targetSha)
+        console.log(`Workflow dispatched: ${runUrl}`)
 
-      const runUrl = await dispatchRelease(version, targetSha)
-      console.log(`Workflow dispatched: ${runUrl}`)
+        const runId = runIdFromUrl(runUrl)
+        if (runId && (flags.fast || (await confirm(rl, "Watch the release workflow until it finishes?", true)))) {
+          watchRun(runId)
+        }
 
-      const runId = runIdFromUrl(runUrl)
-      if (runId && (await confirm(rl, "Watch the release workflow until it finishes?", true))) {
-        watchRun(runId)
-      }
+        const published = await loadRelease(tag)
+        if (published && !published.isDraft) {
+          console.log(`Release published: ${published.url}`)
+        } else {
+          console.log(`Release draft: ${release.url}`)
+        }
 
-      const published = await loadRelease(tag)
-      if (published && !published.isDraft) {
-        console.log(`Release published: ${published.url}`)
+        await maybePullReleaseSync(rl, flags.fast)
+
+        console.log("\nNext steps:")
+        console.log(`- Install or update from GitHub Release ${tag}`)
+        console.log(`- Smoke test the app and updater banner`)
+        console.log(`- If needed, use bun run install:release ${tag}`)
       } else {
-        console.log(`Release draft: ${release.url}`)
+        console.log("Release draft updated, but workflow dispatch was skipped.")
       }
-
-      await maybePullReleaseSync(rl)
-
-      console.log("\nNext steps:")
-      console.log(`- Install or update from GitHub Release ${tag}`)
-      console.log(`- Smoke test the app and updater banner`)
-      console.log(`- If needed, use bun run install:release ${tag}`)
     } finally {
-      rmSync(editedDraft.tempDir, { recursive: true, force: true })
+      if (editedDraft.tempDir) {
+        rmSync(editedDraft.tempDir, { recursive: true, force: true })
+      }
     }
   } finally {
     rl.close()
