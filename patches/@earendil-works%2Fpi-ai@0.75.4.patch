@@ -1,0 +1,60 @@
+diff --git a/dist/utils/oauth/oauth-page.js b/dist/utils/oauth/oauth-page.js
+index 101153587214ac271bd363ffef65b3addcf5257a..392a0123d87d1c8a9997ac570f7ce4313a578f96 100644
+--- a/dist/utils/oauth/oauth-page.js
++++ b/dist/utils/oauth/oauth-page.js
+@@ -1,4 +1,4 @@
+-const LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" aria-hidden="true"><path fill="#fff" fill-rule="evenodd" d="M165.29 165.29 H517.36 V400 H400 V517.36 H282.65 V634.72 H165.29 Z M282.65 282.65 V400 H400 V282.65 Z"/><path fill="#fff" d="M517.36 400 H634.72 V634.72 H517.36 Z"/></svg>`;
++const LOGO_MARKUP = `<div class="wordmark" aria-label="Buddy">Buddy</div>`;
+ function escapeHtml(value) {
+     return value
+         .replaceAll("&", "&amp;")
+@@ -49,11 +49,25 @@ function renderPage(options) {
+       justify-content: center;
+     }
+     .logo {
+-      width: 72px;
+-      height: 72px;
+       display: block;
+       margin-bottom: 24px;
+     }
++    .wordmark {
++      min-width: 112px;
++      height: 72px;
++      display: inline-flex;
++      align-items: center;
++      justify-content: center;
++      padding: 0 22px;
++      border: 1px solid rgba(255, 255, 255, 0.1);
++      border-radius: 22px;
++      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
++      color: var(--text);
++      font-size: 28px;
++      font-weight: 700;
++      letter-spacing: -0.05em;
++      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
++    }
+     h1 {
+       margin: 0 0 10px;
+       font-size: 28px;
+@@ -79,7 +93,7 @@ function renderPage(options) {
+ </head>
+ <body>
+   <main>
+-    <div class="logo">${LOGO_SVG}</div>
++    <div class="logo">${LOGO_MARKUP}</div>
+     <h1>${heading}</h1>
+     <p>${message}</p>
+     ${details ? `<div class="details">${details}</div>` : ""}
+diff --git a/dist/utils/oauth/openai-codex.js b/dist/utils/oauth/openai-codex.js
+index c20a6db691c86cfa15d2fd19d20400422f24f6b2..b1c718f1020886f0d73f1d361db82785f32f4f9d 100644
+--- a/dist/utils/oauth/openai-codex.js
++++ b/dist/utils/oauth/openai-codex.js
+@@ -198,7 +198,7 @@ function startLocalOAuthServer(state) {
+             }
+             res.statusCode = 200;
+             res.setHeader("Content-Type", "text/html; charset=utf-8");
+-            res.end(oauthSuccessHtml("OpenAI authentication completed. You can close this window."));
++            res.end(oauthSuccessHtml("OpenAI authentication completed in Buddy. You can close this window."));
+             settleWait?.({ code });
+         }
+         catch {

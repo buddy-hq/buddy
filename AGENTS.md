@@ -67,3 +67,20 @@ Long term maintainability is a core priority. If you add new functionality, firs
   - Strict and sound: no casts, no `any`. Prefer `unknown` plus narrowing (zod, type guards, `in`).
   - Use `import type { ... }` for type-only imports.
   - Infer local types; annotate exports and public APIs.
+
+----
+# pi migration
+
+- we are now migrating from opencode to pi
+- pi codebase is in ~/code/pi
+  - use it for native patterns and examples
+- openclaw is also built on pi and it is in ~/code/openclaw
+  - you can use it for inspiration
+- you don't have to preserve old opencode patterns or apis just for the sake of it.
+  - use pi native patterns wherever possible
+- don't make compatibility shims
+- don't make shallow patches.
+- when prioritizing prioritize the core agent loop, tools, subagents, skills, mcps, dynamic tools
+- then go to what's left
+- remember making the ui work with your code too; ui should behave functionally like it was behaving before
+- pi native does not mean using pi tokens, auth, or config on users machine. all config realted stuff, chats, tokens etc should be in .buddy; not in .pi
