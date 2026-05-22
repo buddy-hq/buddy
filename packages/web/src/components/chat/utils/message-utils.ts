@@ -5,6 +5,7 @@ import { VIRTUAL_CHAT_TURN_ESTIMATE_PX } from "@/components/virtualization/virtu
 import { parseToolState } from "../tools/parse-tool-state"
 import { parseToolUiMetadata } from "../tools/parse-tool-ui-metadata"
 import { resolveToolRenderer } from "../tools/registry"
+import { isRecord } from "../tools/types"
 import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "./part-guards"
 import type { AssistantRenderItem, ChatTranscriptProps, ChatTurn } from "../types"
 
@@ -63,6 +64,32 @@ export function assistantPartStartsFollowup(part: MessagePart): boolean {
   return true
 }
 
+export function prioritizeReasoningParts<T extends { type: string }>(parts: readonly T[]): T[] {
+  const reasoning: T[] = []
+  const remainder: T[] = []
+
+  for (const part of parts) {
+    if (part.type === "reasoning") {
+      reasoning.push(part)
+      continue
+    }
+    remainder.push(part)
+  }
+
+  if (reasoning.length === 0) {
+    return [...parts]
+  }
+
+  return [...reasoning, ...remainder]
+}
+
+function partStartTime(part: MessagePart): number | undefined {
+  const time = isRecord(part.time) ? part.time : undefined
+  if (typeof time?.start === "number") return time.start
+  if (!isChatToolPart(part)) return undefined
+  return parseToolState(part).start
+}
+
 export function groupAssistantParts(
   parts: MessagePart[],
   showReasoningSummaries: boolean,
@@ -72,7 +99,7 @@ export function groupAssistantParts(
   const items: AssistantRenderItem[] = []
   let contextStart = -1
 
-  const flushContext = (endIndex: number) => {
+  const flushContext = (endIndex: number, followupPart?: MessagePart) => {
     if (contextStart < 0 || endIndex < contextStart) return
     const contextParts = visibleParts.slice(contextStart, endIndex + 1)
     if (contextParts.length === 0) {
@@ -83,6 +110,7 @@ export function groupAssistantParts(
       type: "abstracted",
       key: `abstracted:${contextParts[0]?.id ?? endIndex}`,
       parts: contextParts,
+      followupStartedAt: followupPart ? partStartTime(followupPart) : undefined,
     })
     contextStart = -1
   }
@@ -97,7 +125,7 @@ export function groupAssistantParts(
 
     // Check if it's a render_mermaid tool call
     if (isChatToolPart(part) && part.tool === "render_mermaid") {
-      flushContext(i - 1)
+      flushContext(i - 1, part)
 
       // Collect all consecutive render_mermaid tool calls
       const mermaidParts: MessagePart[] = [part]
@@ -126,7 +154,7 @@ export function groupAssistantParts(
 
     // Check if it's a render_figure tool call
     if (isChatToolPart(part) && part.tool === "render_figure") {
-      flushContext(i - 1)
+      flushContext(i - 1, part)
 
       // Collect all consecutive render_figure tool calls
       const figureParts: MessagePart[] = [part]
@@ -155,7 +183,7 @@ export function groupAssistantParts(
 
     // Check if it's a render_freeform_figure tool call
     if (isChatToolPart(part) && part.tool === "render_freeform_figure") {
-      flushContext(i - 1)
+      flushContext(i - 1, part)
 
       // Collect all consecutive render_freeform_figure tool calls
       const freeformParts: MessagePart[] = [part]
@@ -194,7 +222,7 @@ export function groupAssistantParts(
       continue
     }
 
-    flushContext(i - 1)
+    flushContext(i - 1, part)
     items.push({
       type: "part",
       key: `part:${part.id}`,

@@ -33,6 +33,7 @@ export const AssistantSection = memo(function AssistantSection({
             <HiddenSteps
               key={item.key}
               parts={item.parts}
+              followupStartedAt={item.followupStartedAt}
               onOpenSession={onOpenSession}
               directory={directory}
               copyPartID={assistantCopyPartID}

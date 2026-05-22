@@ -46,6 +46,7 @@ import {
   saveNotebookHome,
   type NotebookHomeState,
 } from "@/state/chat-actions"
+import { isAbortLikeError } from "@/state/chat-error"
 import {
   notebookHomeAccessQueryOptions,
   openProjectsQueryOptions,
@@ -474,24 +475,18 @@ function OnboardingRoute() {
     setAuthAbort(abort)
 
     try {
-      await Promise.race([
-        connectChatGptPlusForOnboarding({
-          openLink: (url) => platform.openLink(url),
-          loadProviderCatalogSnapshot: () =>
-            queryClient.fetchQuery({
-              ...providerCatalogSnapshotQueryOptions(),
-              staleTime: 0,
-            }),
-          authorizeProviderOAuth,
-          completeProviderOAuth,
-          reloadProviderRuntime: () => reloadProviderRuntime(),
-        }),
-        new Promise<void>((_, reject) => {
-          abort.signal.addEventListener("abort", () =>
-            reject(new Error(language.t("routes.onboarding.signInCancelled"))),
-          )
-        }),
-      ])
+      await connectChatGptPlusForOnboarding({
+        openLink: (url) => platform.openLink(url),
+        loadProviderCatalogSnapshot: () =>
+          queryClient.fetchQuery({
+            ...providerCatalogSnapshotQueryOptions(),
+            staleTime: 0,
+          }),
+        authorizeProviderOAuth,
+        completeProviderOAuth,
+        reloadProviderRuntime: () => reloadProviderRuntime(),
+        signal: abort.signal,
+      })
 
       setConnectedAuthChoice(choice)
       setAuthChoice(choice)
@@ -502,7 +497,7 @@ function OnboardingRoute() {
       if (!abort.signal.aborted) {
         abort.abort()
       }
-      if (err instanceof Error && err.message === language.t("routes.onboarding.signInCancelled")) {
+      if (isAbortLikeError(err)) {
         return
       }
       setError(formatProviderAuthError(err, language.t("routes.onboarding.signInFailed")))
@@ -510,6 +505,12 @@ function OnboardingRoute() {
       setBusyChoice(undefined)
       setAuthAbort(undefined)
     }
+  }
+
+  function handleCancelAuth() {
+    authAbort?.abort()
+    setBusyChoice(undefined)
+    setAuthAbort(undefined)
   }
 
   const currentStep = personalizationStepVisible ? 2 : 1
@@ -620,9 +621,7 @@ function OnboardingRoute() {
                 onPickFolder={() => {
                   void handlePickFolder()
                 }}
-                onCancelAuth={() => {
-                  authAbort?.abort()
-                }}
+                onCancelAuth={handleCancelAuth}
               />
             </motion.div>
           )}

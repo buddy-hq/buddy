@@ -30,7 +30,9 @@ import type {
   QuestionRequest,
   SessionStatusInfo,
   SessionInfo,
+  TranscriptEntry,
 } from "@/state/chat-types"
+import { buildMessageFromTranscriptEntry } from "@/state/pi-transcript-view"
 import { encodeDirectory } from "../directory-token"
 
 const DOCUMENT_VISIBILITY_VISIBLE = "visible"
@@ -71,6 +73,52 @@ function isViewedInCurrentSession(directory: string, sessionID: string | undefin
   return (
     store.activeDirectory === directory && store.directories[directory]?.sessionID === sessionID
   )
+}
+
+function sessionMessages(directory: string, sessionID: string) {
+  const directoryState = useChatStore.getState().directories[directory]
+  return (
+    directoryState?.messagesBySessionID?.[sessionID] ??
+    (directoryState?.sessionID === sessionID ? directoryState.messages : undefined) ??
+    []
+  )
+}
+
+function isOptimisticUserMessage(message: { info: MessageInfo; parts: MessagePart[] }) {
+  return message.info.role === "user" && message.parts.some((part) => part.optimistic === true)
+}
+
+export function promoteOptimisticUserMessage(directory: string, message: {
+  info: MessageInfo
+  parts: MessagePart[]
+}) {
+  if (message.info.role !== "user") return
+
+  const currentMessages = sessionMessages(directory, message.info.sessionID)
+  if (currentMessages.some((currentMessage) => currentMessage.info.id === message.info.id)) return
+
+  const optimistic = currentMessages
+    .toReversed()
+    .find(
+      (currentMessage) =>
+        currentMessage.info.id !== message.info.id && isOptimisticUserMessage(currentMessage),
+    )
+  if (!optimistic) return
+
+  const store = useChatStore.getState()
+  if (message.parts.length === 0) {
+    for (const part of optimistic.parts) {
+      store.applyPartUpdated(directory, {
+        ...part,
+        sessionID: message.info.sessionID,
+        messageID: message.info.id,
+      })
+    }
+  }
+  store.applyMessageRemoved(directory, {
+    sessionID: message.info.sessionID,
+    messageID: optimistic.info.id,
+  })
 }
 
 function normalizeNotificationText(text: string) {
@@ -137,7 +185,10 @@ type UseChatSyncProps = {
   hasRegisteredProject: boolean
   applySessionUpdated: (directory: string, info: SessionInfo) => void
   applySessionStatus: (directory: string, sessionID: string, status: SessionStatusInfo) => void
-  applyMessageUpdated: (directory: string, info: MessageInfo) => void
+  applyMessageUpdated: (
+    directory: string,
+    input: { sessionID: string; message: TranscriptEntry; completed: boolean },
+  ) => void
   applyMessageRemoved: (directory: string, input: { sessionID: string; messageID: string }) => void
   applyPartUpdated: (directory: string, part: MessagePart) => void
   applyPartRemoved: (
@@ -330,28 +381,46 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "message.updated") {
-          const info = properties.info as MessageInfo
-          applyMessageUpdated(directory, info)
-          if (info.role === "user" && info.sessionID) {
+          const transcriptEntry = properties.message as TranscriptEntry
+          const completed = properties.completed === true
+          const projectedMessage = buildMessageFromTranscriptEntry(transcriptEntry, {
+            completed,
+          })
+          if (projectedMessage) {
+            promoteOptimisticUserMessage(directory, projectedMessage)
+          }
+          applyMessageUpdated(directory, {
+            sessionID: transcriptEntry.sessionID,
+            message: transcriptEntry,
+            completed,
+          })
+          if (projectedMessage?.info.role === "user" && projectedMessage.info.sessionID) {
             useModelSelectionStore
               .getState()
-              .restoreSessionSelection(getModelSelectionScopeKey(directory, info.sessionID), {
-                agent: info.agent,
-                model: `${info.model.providerID}/${info.model.modelID}`,
-                variant: info.model.variant ?? null,
-                messageCreatedAt: info.time.created,
-              })
+              .restoreSessionSelection(
+                getModelSelectionScopeKey(directory, projectedMessage.info.sessionID),
+                {
+                  agent: projectedMessage.info.agent,
+                  model: `${projectedMessage.info.model.providerID}/${projectedMessage.info.model.modelID}`,
+                  variant: projectedMessage.info.model.variant ?? null,
+                  messageCreatedAt: projectedMessage.info.time.created,
+                },
+              )
           }
           if (
-            info.role === "assistant" &&
-            !info.error &&
-            (!!info.finish || !!info.time.completed)
+            projectedMessage?.info.role === "assistant" &&
+            !projectedMessage.info.error &&
+            (!!projectedMessage.info.finish || !!projectedMessage.info.time.completed)
           ) {
             clearDirectoryError(directory)
           }
           const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
-          if (info.role === "assistant" && info.sessionID && info.sessionID !== activeSessionID) {
-            useUiPreferences.getState().markUnread(directory, info.sessionID)
+          if (
+            projectedMessage?.info.role === "assistant" &&
+            projectedMessage.info.sessionID &&
+            projectedMessage.info.sessionID !== activeSessionID
+          ) {
+            useUiPreferences.getState().markUnread(directory, projectedMessage.info.sessionID)
           }
           return
         }

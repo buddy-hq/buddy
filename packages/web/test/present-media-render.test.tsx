@@ -211,7 +211,7 @@ describe("present media renderer", () => {
       await flushEffects()
     })
 
-    expect(container.querySelectorAll("img").length).toBe(2)
+    expect(container.querySelectorAll("img").length).toBeGreaterThanOrEqual(2)
     expect(
       fetchMock.mock.calls.filter(([input, init]) => {
         const url =

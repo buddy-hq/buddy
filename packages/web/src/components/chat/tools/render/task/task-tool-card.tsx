@@ -1,14 +1,7 @@
 import type { ToolPartProps } from "../../registry"
 import { useSubagentCardData } from "./task-card-header"
 import { SubagentCard } from "./subagent-card"
-
-const TASK_RESULT_RE = /<task_result>([\s\S]*?)<\/task_result>/
-
-function extractTaskResult(output: string): string | undefined {
-  const match = TASK_RESULT_RE.exec(output)
-  const result = match?.[1]?.trim()
-  return result || undefined
-}
+import { parseTaskResultOutput } from "./task-utils"
 
 export function TaskToolCard({
   state,
@@ -19,7 +12,7 @@ export function TaskToolCard({
     useSubagentCardData({ state, onOpenSession, directory })
   const error = state.status === "error" ? state.output || state.error || "" : undefined
   const taskResult =
-    state.status === "completed" && state.output ? extractTaskResult(state.output) : undefined
+    state.status === "completed" && state.output ? parseTaskResultOutput(state.output) : undefined
 
   return (
     <SubagentCard

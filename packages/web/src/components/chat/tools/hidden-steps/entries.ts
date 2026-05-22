@@ -1,5 +1,6 @@
 import type { MessagePart } from "@/state/chat-types"
 
+import { formatDuration } from "../../utils/format"
 import { reasoningHeading } from "../../utils/markdown"
 import { parseToolState } from "../parse-tool-state"
 import { parseToolUiMetadata } from "../parse-tool-ui-metadata"
@@ -29,15 +30,39 @@ export type HiddenStepsEntry = {
   icon?: ToolIconRenderer
 }
 
+export type HiddenStepsContext = {
+  followupStartedAt?: number
+}
+
 export function getHiddenStepsReasoningLabel(text: string): string {
   return reasoningHeading(text) ?? ABSTRACTED_THINKING_LABEL
 }
 
-function isReasoningActive(part: MessagePart): boolean {
+function readReasoningTime(part: MessagePart) {
+  return isRecord(part.time) ? part.time : undefined
+}
+
+function reasoningDurationLabel(start: number, end: number): string {
+  return formatDuration(Math.max(1000, end - start))
+}
+
+function reasoningEffectiveEnd(
+  part: MessagePart,
+  context?: HiddenStepsContext,
+): number | undefined {
+  const time = readReasoningTime(part)
+  if (typeof time?.end === "number") return time.end
+  const followupStartedAt = context?.followupStartedAt
+  if (typeof followupStartedAt !== "number") return undefined
+  return typeof time?.start === "number" && followupStartedAt >= time.start
+    ? followupStartedAt
+    : undefined
+}
+
+function isReasoningActive(part: MessagePart, context?: HiddenStepsContext): boolean {
   if (part.type !== "reasoning") return false
 
-  const time = isRecord(part.time) ? part.time : undefined
-  return typeof time?.end !== "number"
+  return reasoningEffectiveEnd(part, context) === undefined
 }
 
 function isToolActive(state: ToolState | undefined): boolean {
@@ -74,27 +99,38 @@ export function hiddenStepsEntryUsesSummaryRow(entry: HiddenStepsEntry): boolean
   return entry.part.type === "tool" && entry.summary?.display === "row"
 }
 
-export function hiddenStepsEntryIsActive(entry: HiddenStepsEntry): boolean {
-  if (entry.part.type === "reasoning") return isReasoningActive(entry.part)
-  if (entry.part.type === "tool") return isToolActive(entry.state)
+export function hiddenStepsEntryIsActive(
+  entry: HiddenStepsEntry,
+  context?: HiddenStepsContext,
+): boolean {
+  if (entry.part.type === "reasoning") return isReasoningActive(entry.part, context)
+  if (entry.part.type === "tool") {
+    return typeof context?.followupStartedAt === "number" ? false : isToolActive(entry.state)
+  }
   return false
 }
 
-export function getHiddenStepsEntryLabel(entry: HiddenStepsEntry): string {
+export function getHiddenStepsEntryLabel(
+  entry: HiddenStepsEntry,
+  context?: HiddenStepsContext,
+): string {
   if (entry.part.type === "reasoning") {
     const heading = reasoningHeading(String(entry.part.text ?? "").trim())
-    if (heading) return heading
-    if (!hiddenStepsEntryIsActive(entry)) {
-      const time = isRecord(entry.part.time) ? entry.part.time : undefined
+    if (!hiddenStepsEntryIsActive(entry, context)) {
+      const time = readReasoningTime(entry.part)
       const start = typeof time?.start === "number" ? time.start : undefined
-      const end = typeof time?.end === "number" ? time.end : undefined
+      const end = reasoningEffectiveEnd(entry.part, context)
       if (start !== undefined && end !== undefined) {
-        const seconds = Math.max(1, Math.ceil((end - start) / 1000))
-        return `${ABSTRACTED_THOUGHT_LABEL} for ${seconds}s`
+        const durationLabel = reasoningDurationLabel(start, end)
+        if (heading) {
+          return `${ABSTRACTED_THOUGHT_LABEL}: ${heading} · ${durationLabel}`
+        }
+        return `${ABSTRACTED_THOUGHT_LABEL} for ${durationLabel}`
       }
+      if (heading) return `${ABSTRACTED_THOUGHT_LABEL}: ${heading}`
       return ABSTRACTED_THOUGHT_LABEL
     }
-    return ABSTRACTED_THINKING_LABEL
+    return heading ?? ABSTRACTED_THINKING_LABEL
   }
   return entry.summary?.label ?? entry.info?.title ?? "Tool"
 }
@@ -139,32 +175,38 @@ function formatCountSummary(cs: ToolCountSummary, count: number): string {
   return `${cs.verb} ${count} ${count === 1 ? cs.singular : cs.plural}`
 }
 
-function getReasoningDurationLabel(entries: HiddenStepsEntry[]): string {
+function getReasoningDurationLabel(
+  entries: HiddenStepsEntry[],
+  context?: HiddenStepsContext,
+): string {
   let totalMs = 0
   let hasTiming = false
   for (const entry of entries) {
     if (entry.part.type !== "reasoning") continue
-    const time = isRecord(entry.part.time) ? entry.part.time : undefined
+    const time = readReasoningTime(entry.part)
     const start = typeof time?.start === "number" ? time.start : undefined
-    const end = typeof time?.end === "number" ? time.end : undefined
+    const end = reasoningEffectiveEnd(entry.part, context)
     if (start !== undefined && end !== undefined) {
       totalMs += end - start
       hasTiming = true
     }
   }
   if (!hasTiming) return ABSTRACTED_THOUGHT_LABEL
-  const seconds = Math.max(1, Math.ceil(totalMs / 1000))
-  return `${ABSTRACTED_THOUGHT_LABEL} for ${seconds}s`
+  return `${ABSTRACTED_THOUGHT_LABEL} for ${formatDuration(Math.max(1000, totalMs))}`
 }
 
 export function buildHiddenStepsSummary(
   entries: HiddenStepsEntry[],
-  isBusy: boolean,
+  input: { isBusy: boolean; followupStartedAt?: number },
 ): string | undefined {
+  const context: HiddenStepsContext = {
+    followupStartedAt: input.followupStartedAt,
+  }
+
   // While busy, surface only the active step — count summaries are end-state labels.
-  if (isBusy) {
-    const activeEntry = entries.toReversed().find(hiddenStepsEntryIsActive)
-    if (activeEntry) return getHiddenStepsEntryLabel(activeEntry)
+  if (input.isBusy) {
+    const activeEntry = entries.toReversed().find((entry) => hiddenStepsEntryIsActive(entry, context))
+    if (activeEntry) return getHiddenStepsEntryLabel(activeEntry, context)
   }
 
   // Completed (or no active step): build count summary.
@@ -200,11 +242,16 @@ export function buildHiddenStepsSummary(
             : `${entry.info?.title ?? "Tool"} ×${count}`,
       )
       .join(" · ")
-    if (hasReasoning) return `${toolSummary} · ${getReasoningDurationLabel(entries)}`
+    if (hasReasoning) return `${toolSummary} · ${getReasoningDurationLabel(entries, context)}`
     return toolSummary
   }
 
-  if (hasReasoning) return getReasoningDurationLabel(entries)
+  if (hasReasoning) {
+    if (entries.length === 1 && entries[0]?.part.type === "reasoning") {
+      return getHiddenStepsEntryLabel(entries[0], context)
+    }
+    return getReasoningDurationLabel(entries, context)
+  }
 
   return undefined
 }

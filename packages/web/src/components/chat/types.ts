@@ -14,6 +14,7 @@ export type AssistantRenderItem =
       type: "abstracted"
       key: string
       parts: MessagePart[]
+      followupStartedAt?: number
     }
   | {
       type: "part"

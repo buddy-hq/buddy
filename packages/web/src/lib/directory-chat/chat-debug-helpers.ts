@@ -47,7 +47,8 @@ function slimPart(part: MessagePart): SlimRecord | null {
   if (part.type === "tool") {
     const state = part.state
     if (!isRecord(state)) return omitKeys(part, PART_OMIT_KEYS)
-    const { output: _o, metadata: _m, time: _t, ...slimState } = state
+    const stateRecord: SlimRecord = state
+    const { output: _o, metadata: _m, time: _t, ...slimState } = stateRecord
     const { state: _s, ...rest } = part
     return omitKeys({ ...rest, state: slimState }, PART_OMIT_KEYS)
   }

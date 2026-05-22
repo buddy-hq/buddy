@@ -13,6 +13,7 @@ import { useChatSettings } from "@/state/chat-settings"
 import { IDLE_SESSION_STATUS } from "@/state/session-status"
 import { useShallow } from "zustand/react/shallow"
 import type { TurnRendererProps } from "./types"
+import { prioritizeReasoningParts } from "./utils/message-utils"
 
 export function areTurnRendererPropsEqual(
   prevProps: TurnRendererProps,
@@ -42,6 +43,23 @@ export function areTurnRendererPropsEqual(
   }
 
   return true
+}
+
+export function shouldShowThinkingPlaceholder(input: {
+  isBusy: boolean
+  isLastTurn: boolean
+  assistantErrored: boolean
+  sessionStatusType: "idle" | "busy" | "retry"
+  turnHasCompaction: boolean
+  assistantItemCount: number
+}): boolean {
+  return (
+    input.isBusy &&
+    input.isLastTurn &&
+    !input.assistantErrored &&
+    (input.sessionStatusType === "busy" || input.turnHasCompaction) &&
+    input.assistantItemCount === 0
+  )
 }
 
 export const TurnRenderer = memo(function TurnRenderer({
@@ -75,7 +93,7 @@ export const TurnRenderer = memo(function TurnRenderer({
   )
 
   const assistantParts = useMemo(
-    () => assistantMessages.flatMap((message) => message.parts),
+    () => assistantMessages.flatMap((message) => prioritizeReasoningParts(message.parts)),
     [assistantMessages],
   )
 
@@ -117,12 +135,14 @@ export const TurnRenderer = memo(function TurnRenderer({
   const turnSessionStatus = isLastTurn ? activeSessionStatus : IDLE_SESSION_STATUS
 
   const showAssistantSection = assistantMessages.length > 0 || (isBusy && isLastTurn)
-  const showThinking =
-    isBusy &&
-    isLastTurn &&
-    !assistantErrored &&
-    (turnSessionStatus.type === "busy" || turnHasCompaction) &&
-    (showReasoningSummaries ? assistantItems.length === 0 : true)
+  const showThinking = shouldShowThinkingPlaceholder({
+    isBusy,
+    isLastTurn,
+    assistantErrored,
+    sessionStatusType: turnSessionStatus.type,
+    turnHasCompaction,
+    assistantItemCount: assistantItems.length,
+  })
   const canRevertTurn = Boolean(onRevertMessage && userMessage && isLastTurn)
 
   return (

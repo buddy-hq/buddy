@@ -3,10 +3,10 @@ import type {
   ConfigGetResponses,
   ConfigGetRawResponses,
   ConfigPersonasResponses,
+  ExplorerFileListResponses,
+  ExplorerFileReadResponses,
   ExplorerFileEditReadResponses,
   ExplorerFileEditSaveResponses,
-  FileContent,
-  FileNode,
   FindFilesResponses,
   FlashcardDecksListResponse,
   GlobalConfigGetResponses,
@@ -21,16 +21,13 @@ import type {
   PermissionListResponses,
   ProjectListResponses,
   QuestionSetArtifactsListResponse,
-  SessionCommandResponses,
   SessionTeachingStateResponses,
-  ProviderAuthMethod,
   ProviderAuthResponse,
   ProviderListResponse,
 } from "@buddy/sdk"
 import { useChatStore } from "./chat-store"
 import { getModelSelectionScopeKey, useModelSelectionStore } from "./model-selection-store"
 import type {
-  MessageInfo,
   MessagePart,
   MessageWithParts,
   McpStatusMap,
@@ -38,6 +35,8 @@ import type {
   QuestionRequest,
   ProviderCatalogState,
   ProviderInfo,
+  RawProviderInfo,
+  RawProviderModelInfo,
   SessionInfo,
 } from "./chat-types"
 import {
@@ -308,8 +307,7 @@ export function resolveDefaultPersonaID(
   return selectablePersonas[0]?.id
 }
 
-type RawProvider = ProviderListResponse["all"][number]
-type RawProviderModel = RawProvider["models"][string]
+type RawProviderModel = RawProviderModelInfo
 type LearnerSnapshotPersona = "buddy" | "code-buddy" | "math-buddy" | "reading-buddy"
 type LearnerMemoryRecord = LearnerMemoryListResponses[200]["memories"][number]
 const DEFAULT_PERSONA_SURFACE: PersonaConfigOption["defaultSurface"] = "curriculum"
@@ -423,11 +421,6 @@ type DirectorySessionLoadResult = {
 }
 const pendingDirectorySessionLoads = new Map<string, Promise<DirectorySessionLoadResult>>()
 
-type SessionMutationResponse = {
-  info: MessageInfo
-  parts: MessagePart[]
-}
-
 type OptimisticPromptInput = {
   directory: string
   sessionID: string
@@ -471,6 +464,95 @@ function asStringArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === "string")
 }
 
+function asBooleanStrict(value: unknown): boolean {
+  return value === true
+}
+
+function asNumber(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback
+}
+
+function asRawProviderModel(providerID: string, value: unknown): RawProviderModelInfo | undefined {
+  const record = asRecord(value)
+  const limit = asRecord(record?.limit)
+  const capabilities = asRecord(record?.capabilities)
+  const input = asRecord(capabilities?.input)
+  const output = asRecord(capabilities?.output)
+  const cost = asRecord(record?.cost)
+  if (!record || !limit || !capabilities || !input || !output || !cost) return undefined
+
+  const id = asString(record.id)
+  const name = asString(record.name)
+  if (!id || !name) return undefined
+
+  return {
+    id,
+    providerID,
+    name,
+    family: asString(record.family, name),
+    status: asString(record.status, "active"),
+    release_date: asString(record.release_date) || undefined,
+    variants: asRecord(record.variants) ?? {},
+    cost: {
+      input: asNumber(cost.input),
+    },
+    limit: {
+      context: asNumber(limit.context),
+      ...(typeof limit.input === "number" ? { input: limit.input } : {}),
+      output: asNumber(limit.output),
+    },
+    capabilities: {
+      reasoning: asBooleanStrict(capabilities.reasoning),
+      attachment: asBooleanStrict(capabilities.attachment),
+      toolcall: asBooleanStrict(capabilities.toolcall),
+      input: {
+        text: asBooleanStrict(input.text),
+        audio: asBooleanStrict(input.audio),
+        image: asBooleanStrict(input.image),
+        video: asBooleanStrict(input.video),
+        pdf: asBooleanStrict(input.pdf),
+      },
+      output: {
+        text: asBooleanStrict(output.text),
+        audio: asBooleanStrict(output.audio),
+        image: asBooleanStrict(output.image),
+        video: asBooleanStrict(output.video),
+        pdf: asBooleanStrict(output.pdf),
+      },
+      interleaved: asBooleanStrict(capabilities.interleaved),
+    },
+  }
+}
+
+function asRawProvider(value: unknown): RawProviderInfo | undefined {
+  const record = asRecord(value)
+  const id = asString(record?.id)
+  const name = asString(record?.name)
+  const models = asRecord(record?.models)
+  if (!record || !id || !name || !models) return undefined
+
+  const source =
+    record.source === "env" ||
+    record.source === "config" ||
+    record.source === "custom" ||
+    record.source === "api"
+      ? record.source
+      : "custom"
+
+  return {
+    id,
+    name,
+    source,
+    env: asStringArray(record.env),
+    models: Object.fromEntries(
+      Object.entries(models).flatMap(([modelID, model]) => {
+        const parsed = asRawProviderModel(id, model)
+        return parsed ? [[modelID, parsed]] : []
+      }),
+    ),
+  }
+}
+
 function restoreSessionSelectionFromMessages(
   directory: string,
   sessionID: string,
@@ -487,71 +569,6 @@ function restoreSessionSelectionFromMessages(
       variant: lastUserMessage.info.model.variant ?? null,
       messageCreatedAt: lastUserMessage.info.time.created,
     })
-}
-
-function promoteSessionMutation(input: {
-  directory: string
-  sessionID: string
-  response: SessionMutationResponse
-  optimisticMessageID?: string
-}) {
-  const store = useChatStore.getState()
-  invalidateTranscripts(input.directory)
-  const activeState = store.directories[input.directory]
-  const isActiveSession = activeState?.sessionID === input.sessionID
-  store.setDirectoryReady(input.directory, true)
-  const sessionMessages =
-    activeState?.messagesBySessionID?.[input.sessionID] ??
-    (isActiveSession ? (activeState?.messages ?? []) : [])
-
-  const optimisticReplacementParts =
-    input.response.info.role === "user" &&
-    input.optimisticMessageID &&
-    input.optimisticMessageID !== input.response.info.id
-      ? (sessionMessages
-          .find((message) => message.info.id === input.optimisticMessageID)
-          ?.parts.map((part) =>
-            Object.assign({}, part, {
-              id: createOptimisticID(OPTIMISTIC_PART_ID_PREFIX),
-              sessionID: input.sessionID,
-              messageID: input.response.info.id,
-            }),
-          ) ?? [])
-      : []
-
-  store.applyMessageUpdated(input.directory, input.response.info)
-  for (const part of input.response.parts) {
-    store.applyPartUpdated(input.directory, part)
-  }
-  if (input.response.parts.length === 0) {
-    for (const part of optimisticReplacementParts) {
-      store.applyPartUpdated(input.directory, part)
-    }
-  }
-
-  if (
-    input.response.info.role === "user" &&
-    input.optimisticMessageID &&
-    input.optimisticMessageID !== input.response.info.id
-  ) {
-    store.applyMessageRemoved(input.directory, {
-      sessionID: input.sessionID,
-      messageID: input.optimisticMessageID,
-    })
-  }
-  if (input.response.info.role === "user") {
-    useModelSelectionStore
-      .getState()
-      .restoreSessionSelection(getModelSelectionScopeKey(input.directory, input.sessionID), {
-        agent: input.response.info.agent,
-        model: `${input.response.info.model.providerID}/${input.response.info.model.modelID}`,
-        variant: input.response.info.model.variant ?? null,
-        messageCreatedAt: input.response.info.time.created,
-      })
-  }
-  if (isActiveSession) {
-    store.clearDirectoryError(input.directory)
-  }
 }
 
 function createOptimisticPromptParts(input: {
@@ -741,7 +758,10 @@ function normalizeMcpStatusMap(input: McpStatusResponses[200]): McpStatusMap {
 }
 
 function normalizeProviderSource(input: unknown, connected: boolean): ProviderInfo["source"] {
-  if (input === "env" || input === "config" || input === "custom" || input === "api") {
+  if (input === "config") {
+    return "api"
+  }
+  if (input === "env" || input === "custom" || input === "api") {
     return input
   }
   return connected ? "api" : "custom"
@@ -761,7 +781,7 @@ function normalizeProviderModel(
     status: input.status ?? "active",
     limit: {
       context: input.limit.context,
-      input: input.limit.input,
+      input: input.limit.input ?? input.limit.context,
       output: input.limit.output,
     },
     capabilities: {
@@ -797,10 +817,14 @@ export function normalizeProviderCatalog(
 ): ProviderCatalogState {
   const connected = new Set(providers.connected)
   const normalizedDefault = { ...providers.default }
+  const parsedProviders = providers.all.flatMap((provider) => {
+    const parsed = asRawProvider(provider)
+    return parsed ? [parsed] : []
+  })
 
   return {
     default: normalizedDefault,
-    providers: providers.all
+    providers: parsedProviders
       .map((provider) => {
         const isConnected = connected.has(provider.id)
         const rawModels = Object.values(provider.models).filter(
@@ -836,10 +860,13 @@ export function normalizeProviderCatalog(
           source,
           env: provider.env,
           connected: treatAsConnected,
-          methods: (authMethods[provider.id] ?? []).map((method: ProviderAuthMethod) => ({
-            type: method.type,
-            label: method.label,
-          })),
+          methods: (authMethods[provider.id] ?? []).flatMap((method): ProviderInfo["methods"] => {
+            const methodRecord = asRecord(method)
+            const type = methodRecord?.type
+            const label = asString(methodRecord?.label)
+            if ((type !== "api" && type !== "oauth") || !label) return []
+            return [{ type, label }]
+          }),
           models: visibleModels
             .map((model) => normalizeProviderModel(provider.id, model))
             .toSorted((a, b) => a.name.localeCompare(b.name)),
@@ -1171,7 +1198,11 @@ export async function loadMessages(directory: string, sessionID: string) {
 
     store.setMessages(directory, sessionID, messages)
     setDirectorySessionMessagesQueryData(appQueryClient, directory, sessionID, messages)
-    restoreSessionSelectionFromMessages(directory, sessionID, messages)
+    restoreSessionSelectionFromMessages(
+      directory,
+      sessionID,
+      useChatStore.getState().directories[directory]?.messagesBySessionID?.[sessionID] ?? [],
+    )
     store.setDirectoryError(directory, undefined)
     return messages
   } catch (error) {
@@ -1193,14 +1224,14 @@ export async function prefetchSessionMessages(directory: string, sessionID: stri
   const store = useChatStore.getState()
   const directoryState = store.directories[directory]
   if (
-    directoryState?.messagesBySessionID &&
-    Object.hasOwn(directoryState.messagesBySessionID, sessionID)
+    directoryState?.transcriptBySessionID &&
+    Object.hasOwn(directoryState.transcriptBySessionID, sessionID)
   ) {
-    return directoryState.messagesBySessionID[sessionID] ?? []
+    return directoryState.transcriptBySessionID[sessionID] ?? []
   }
 
-  if (directoryState?.sessionID === sessionID && directoryState.messages.length > 0) {
-    return directoryState.messages
+  if (directoryState?.sessionID === sessionID && directoryState.transcript.length > 0) {
+    return directoryState.transcript
   }
 
   const messages = await appQueryClient.fetchQuery(
@@ -1715,6 +1746,7 @@ export async function sendCommand(
   const store = useChatStore.getState()
   store.clearDirectoryError(directory)
   let sessionID: string | undefined
+  const commandMessageID = createOptimisticID(OPTIMISTIC_MESSAGE_ID_PREFIX)
 
   try {
     const resolvedSessionID = await resolveSessionForSend(directory)
@@ -1723,29 +1755,27 @@ export async function sendCommand(
 
     const target = resolvePromptTarget(input)
     const commandBody = {
+      messageID: commandMessageID,
       command,
       arguments: argumentsText,
       ...(input?.parts && input.parts.length > 0 ? { parts: input.parts } : {}),
       ...target,
-      ...(input?.model ? { model: `${input.model.providerID}/${input.model.modelID}` } : {}),
+      ...(input?.model ? { model: input.model } : {}),
       ...(input?.variant ? { variant: input.variant } : {}),
     }
 
-    const postCommand = async (targetSessionID: string): Promise<SessionMutationResponse> =>
-      requireBuddyData<SessionCommandResponses[200]>(
-        await getBuddyClient(directory).session.command({
-          sessionID: targetSessionID,
-          body: commandBody,
-        }),
-      )
+    const postCommand = async (targetSessionID: string): Promise<void> => {
+      const result = await getBuddyClient(directory).session.command({
+        sessionID: targetSessionID,
+        body: commandBody,
+      })
+      if (!result.response || !result.response.ok || result.error !== undefined) {
+        throw new Error(buddyResultMessage(result))
+      }
+    }
 
     try {
-      const response = await postCommand(resolvedSessionID)
-      promoteSessionMutation({
-        directory,
-        sessionID: resolvedSessionID,
-        response,
-      })
+      await postCommand(resolvedSessionID)
     } catch (error) {
       const shouldRecover = await shouldRecoverMissingSession(directory, resolvedSessionID, error)
       if (!shouldRecover) {
@@ -1757,12 +1787,7 @@ export async function sendCommand(
       const recoveredSessionID = await resolveSessionForSend(directory)
       sessionID = recoveredSessionID
       store.applySessionStatus(directory, recoveredSessionID, BUSY_SESSION_STATUS)
-      const response = await postCommand(recoveredSessionID)
-      promoteSessionMutation({
-        directory,
-        sessionID: recoveredSessionID,
-        response,
-      })
+      await postCommand(recoveredSessionID)
       void loadSessions(directory).catch(() => undefined)
     }
 
@@ -2493,7 +2518,7 @@ export async function saveProjectMcpConfig(
 ) {
   const result = await getBuddyClient(directory).config.mcp.put({
     name,
-    body: config,
+    ...config,
   })
 
   return asRecord(requireBuddyData(result)) ?? {}
@@ -2528,7 +2553,6 @@ export async function loadCommandCatalog(directory: string): Promise<PromptComma
   return commands.map((command) => ({
     name: command.name,
     description: command.description ?? undefined,
-    source: command.source ?? undefined,
   }))
 }
 
@@ -2568,8 +2592,8 @@ export async function authenticateMcpServer(directory: string, name: string) {
   return loadMcpStatus(directory)
 }
 
-export type ProjectExplorerFileNode = FileNode
-export type ProjectExplorerFileContent = FileContent
+export type ProjectExplorerFileNode = ExplorerFileListResponses[200][number]
+export type ProjectExplorerFileContent = ExplorerFileReadResponses[200]
 export type ProjectExplorerEditableFileState = ExplorerFileEditReadResponses[200]
 export type ProjectExplorerEditableFileSaveResult = ExplorerFileEditSaveResponses[200]
 

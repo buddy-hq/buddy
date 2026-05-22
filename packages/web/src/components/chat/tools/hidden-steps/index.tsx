@@ -43,6 +43,7 @@ type HiddenStepsItemEntryProps = {
   metaText?: string
   interrupted?: boolean
   shellToolDefaultOpen?: boolean
+  followupStartedAt?: number
 }
 
 function HiddenStepsItemContent({
@@ -76,9 +77,9 @@ function HiddenStepsItemContent({
 
 function HiddenStepsItemRow(props: HiddenStepsItemEntryProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const { entry } = props
+  const { entry, followupStartedAt } = props
   const icon = entryIcon(entry)
-  const label = getHiddenStepsEntryLabel(entry)
+  const label = getHiddenStepsEntryLabel(entry, { followupStartedAt })
 
   return (
     <div>
@@ -130,6 +131,7 @@ type HiddenStepsProps = {
   interrupted?: boolean
   isBusy?: boolean
   shellToolDefaultOpen?: boolean
+  followupStartedAt?: number
 }
 
 export function HiddenSteps({
@@ -141,21 +143,26 @@ export function HiddenSteps({
   interrupted,
   isBusy,
   shellToolDefaultOpen,
+  followupStartedAt,
 }: HiddenStepsProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   const { entries, isActive, hasError, summaryDetail, dominantIcon } = useMemo(() => {
     const entries = parts.map((part) => createHiddenStepsEntry(part))
-    const isActive = entries.some(hiddenStepsEntryIsActive)
+    const context = { followupStartedAt }
+    const isActive = entries.some((entry) => hiddenStepsEntryIsActive(entry, context))
     const hasError = entries.some(hiddenStepsEntryHasVisibleError)
     return {
       entries,
       isActive,
       hasError,
-      summaryDetail: buildHiddenStepsSummary(entries, Boolean(isBusy)),
+      summaryDetail: buildHiddenStepsSummary(entries, {
+        isBusy: Boolean(isBusy),
+        followupStartedAt,
+      }),
       dominantIcon: getGroupDominantIcon(entries),
     }
-  }, [parts, isBusy])
+  }, [followupStartedAt, parts, isBusy])
 
   const title = summaryDetail ?? DEFAULT_STEPS_TITLE
   const animateTitle = isActive && Boolean(isBusy)
@@ -168,6 +175,7 @@ export function HiddenSteps({
     metaText,
     interrupted,
     shellToolDefaultOpen,
+    followupStartedAt,
   }
 
   return (

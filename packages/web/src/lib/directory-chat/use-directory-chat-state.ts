@@ -50,10 +50,11 @@ const EMPTY_RECORD: Record<string, never> = {}
 const EMPTY_SESSIONS: SessionInfo[] = []
 const EMPTY_SESSION_STATUS: Record<string, SessionStatusInfo> = {}
 const THINKING_DEFAULT_KEY = "default" as const
-const THINKING_LEVEL_ORDER = ["none", "low", "medium", "high", "xhigh"] as const
+const THINKING_LEVEL_ORDER = ["off", "minimal", "low", "medium", "high", "xhigh"] as const
 type ThinkingLevel = (typeof THINKING_LEVEL_ORDER)[number]
 const THINKING_LEVEL_LABELS: Record<ThinkingLevel, string> = {
-  none: "None",
+  off: "Off",
+  minimal: "Minimal",
   low: "Low",
   medium: "Medium",
   high: "High",
@@ -64,6 +65,8 @@ function asThinkingLevel(value: string): ThinkingLevel | undefined {
   const normalized = value.trim().toLowerCase()
   if (
     normalized !== "none" &&
+    normalized !== "off" &&
+    normalized !== "minimal" &&
     normalized !== "low" &&
     normalized !== "medium" &&
     normalized !== "high" &&
@@ -71,7 +74,7 @@ function asThinkingLevel(value: string): ThinkingLevel | undefined {
   ) {
     return undefined
   }
-  return normalized
+  return normalized === "none" ? "off" : normalized
 }
 
 function thinkingLevelRank(value: string) {

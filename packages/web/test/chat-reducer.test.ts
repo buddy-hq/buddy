@@ -57,6 +57,28 @@ describe("chat reducer", () => {
     expect(next[0]?.parts.map((part) => part.id)).toEqual(["part_1", "part_2"])
   })
 
+  test("upsertPart orders PI streaming parts by content index before part kind", () => {
+    const current = upsertPart(makeMessages(), {
+      id: "prt_msg_session_000000_text_000001",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: "text",
+      text: "answer",
+    })
+    const next = upsertPart(current, {
+      id: "prt_msg_session_000000_thinking_000000",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: "reasoning",
+      text: "thought",
+      time: {
+        start: 1,
+      },
+    })
+
+    expect(next[0]?.parts.map((part) => part.type)).toEqual(["reasoning", "text"])
+  })
+
   test("upsertPart replaces matching optimistic text with the server text part", () => {
     const current = upsertPart(makeMessages(), {
       id: "prt_0196_test_optimistic",
@@ -122,6 +144,27 @@ describe("chat reducer", () => {
     expect(textPart?.type).toBe("text")
     if (textPart?.type === "text") {
       expect(textPart.text).toBe("hello world")
+    }
+  })
+
+  test("appendPartDelta trims duplicated overlap from repeated stream chunks", () => {
+    const withPart = upsertPart(makeMessages(), {
+      id: "part_1",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: "text",
+      text: "Not much",
+    })
+    const next = appendPartDelta(withPart, {
+      messageID: "message_1",
+      partID: "part_1",
+      field: "text",
+      delta: "Not much! We",
+    })
+    const textPart = next[0]?.parts[0]
+    expect(textPart?.type).toBe("text")
+    if (textPart?.type === "text") {
+      expect(textPart.text).toBe("Not much! We")
     }
   })
 

@@ -6,6 +6,7 @@ import type { SettingsWorkbench } from "./settings-workbench"
 const PROVIDER_SOURCE_LABELS: Record<string, string> = {
   env: "Environment",
   api: "API key",
+  config: "API key",
   custom: "Custom",
 }
 
@@ -161,7 +162,7 @@ export function SettingsRow(props: {
 }
 
 export function ProviderSourceBadge(props: { provider: ProviderInfo }) {
-  const label = PROVIDER_SOURCE_LABELS[props.provider.source] ?? "Config"
+  const label = PROVIDER_SOURCE_LABELS[props.provider.source] ?? "Custom"
 
   return (
     <Badge variant="outline" className="h-5">

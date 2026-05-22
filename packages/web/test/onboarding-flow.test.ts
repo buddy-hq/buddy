@@ -519,6 +519,53 @@ describe("ChatGPT Plus onboarding auth", () => {
     expect(completeCalled).toBe(false)
     expect(reloadCalled).toBe(false)
   })
+
+  test("aborts the OpenAI polling loop when sign-in is cancelled", async () => {
+    const abort = new AbortController()
+    const calls: string[] = []
+
+    await expect(
+      connectChatGptPlusForOnboarding({
+        openLink() {
+          calls.push("openLink")
+          abort.abort()
+        },
+        async loadProviderCatalogSnapshot() {
+          calls.push("loadCatalog")
+          return createCatalog({
+            providers: [
+              createProvider({
+                id: "openai",
+                name: "OpenAI",
+                connected: false,
+                methods: [{ type: "oauth", label: "ChatGPT Pro/Plus (browser)" }],
+                models: [createModel("gpt-5", "GPT-5")],
+              }),
+            ],
+          })
+        },
+        async authorizeProviderOAuth() {
+          calls.push("authorize")
+          return {
+            url: "https://chatgpt.example/auth",
+            method: "code",
+            instructions: "Complete authorization in your browser.",
+          }
+        },
+        async completeProviderOAuth() {
+          calls.push("complete")
+        },
+        async reloadProviderRuntime() {
+          calls.push("reload")
+        },
+        signal: abort.signal,
+      }),
+    ).rejects.toMatchObject({
+      name: "AbortError",
+    })
+
+    expect(calls).toEqual(["loadCatalog", "authorize", "openLink"])
+  })
 })
 
 describe("notebook onboarding configuration", () => {

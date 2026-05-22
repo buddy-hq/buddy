@@ -11,11 +11,10 @@ import {
 } from "@/state/workspace-artifacts-query"
 import { ToolOutputPanel } from "../../tool-output-panel"
 import type { ToolPartProps } from "../../registry"
-import { readString } from "../../types"
 import { TASK_CARD_TRANSITION } from "../task-motion"
 import { useSubagentCardData } from "./task-card-header"
 import { SubagentCard } from "./subagent-card"
-import { parseTaskResultOutput } from "./task-utils"
+import { parseTaskResultOutput, readTaskSessionId } from "./task-utils"
 import type { FlashcardDecksListResponse } from "@buddy/sdk"
 
 function FlashcardDeckTaskPreview(props: {
@@ -82,7 +81,7 @@ export function FlashcardAuthorTaskCard({
   const taskResultOutput = parseTaskResultOutput(output)
   const [reviewDeck, setReviewDeck] = useState<{ deckID: string; title: string } | null>(null)
 
-  const childSessionID = readString(state.metadata.sessionId)
+  const childSessionID = readTaskSessionId(state.metadata)
   const decksQuery = useQuery({
     ...workspaceFlashcardDecksQueryOptions(directory ?? ""),
     enabled: state.status === "completed" && !!directory && !!childSessionID,

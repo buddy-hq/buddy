@@ -7,6 +7,9 @@ function isAssistantMessage(
   return message.info.role === "assistant"
 }
 
+const MESSAGE_ID_INDEX_RADIX = 36
+const GENERATED_MESSAGE_ID_SUFFIX_PATTERN = /^msg_.+_([0-9a-z]{6})$/
+
 export function inferBusyFromMessages(messages: MessageWithParts[]) {
   if (!Array.isArray(messages)) {
     return false
@@ -25,7 +28,7 @@ export function inferBusyFromMessages(messages: MessageWithParts[]) {
 export function upsertMessage(current: MessageWithParts[], incoming: MessageInfo) {
   const index = current.findIndex((entry) => entry.info.id === incoming.id)
   if (index === -1) {
-    const insertIndex = current.findIndex((entry) => entry.info.id > incoming.id)
+    const insertIndex = current.findIndex((entry) => compareMessageOrder(entry.info, incoming) > 0)
     const nextMessage = { info: incoming, parts: [] }
     if (insertIndex === -1) {
       return [...current, nextMessage]
@@ -39,6 +42,29 @@ export function upsertMessage(current: MessageWithParts[], incoming: MessageInfo
     info: incoming,
   }
   return next
+}
+
+function messageIndexFromID(messageID: string): number | undefined {
+  const match = GENERATED_MESSAGE_ID_SUFFIX_PATTERN.exec(messageID)
+  const index = match?.[1]
+  if (!index) return undefined
+  const parsed = Number.parseInt(index, MESSAGE_ID_INDEX_RADIX)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+function compareMessageOrder(left: MessageInfo, right: MessageInfo) {
+  const leftIndex = messageIndexFromID(left.id)
+  const rightIndex = messageIndexFromID(right.id)
+  if (leftIndex !== undefined && rightIndex !== undefined && leftIndex !== rightIndex) {
+    return leftIndex - rightIndex
+  }
+
+  if (left.time.created !== right.time.created) {
+    return left.time.created - right.time.created
+  }
+
+  if (left.id === right.id) return 0
+  return left.id > right.id ? 1 : -1
 }
 
 function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePart) {
@@ -147,7 +173,9 @@ export function upsertPart(current: MessageWithParts[], incoming: MessagePart) {
     const partsWithoutReplacedOptimistic = message.parts.filter(
       (part) => !shouldReplaceOptimisticPart(part, incoming),
     )
-    const insertIndex = partsWithoutReplacedOptimistic.findIndex((part) => part.id > incoming.id)
+    const insertIndex = partsWithoutReplacedOptimistic.findIndex(
+      (part) => comparePartOrder(part.id, incoming.id) > 0,
+    )
     const nextParts =
       insertIndex === -1
         ? [...partsWithoutReplacedOptimistic, incoming]
@@ -170,6 +198,37 @@ export function upsertPart(current: MessageWithParts[], incoming: MessagePart) {
     parts,
   }
   return next
+}
+
+const PART_ID_INDEX_RADIX = 36
+const GENERATED_PART_ID_SUFFIX_PATTERN = /_(?:file|text|thinking|tool)_([0-9a-z]{6})$/
+
+function partIndexFromID(partID: string): number | undefined {
+  const match = GENERATED_PART_ID_SUFFIX_PATTERN.exec(partID)
+  const index = match?.[1]
+  if (!index) return undefined
+  const parsed = Number.parseInt(index, PART_ID_INDEX_RADIX)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+function comparePartOrder(leftID: string, rightID: string) {
+  const leftIndex = partIndexFromID(leftID)
+  const rightIndex = partIndexFromID(rightID)
+  if (leftIndex !== undefined && rightIndex !== undefined && leftIndex !== rightIndex) {
+    return leftIndex - rightIndex
+  }
+  if (leftID === rightID) return 0
+  return leftID > rightID ? 1 : -1
+}
+
+function overlapSuffixPrefix(existing: string, incomingDelta: string) {
+  const maxOverlap = Math.min(existing.length, incomingDelta.length)
+  for (let length = maxOverlap; length > 0; length -= 1) {
+    if (existing.slice(-length) === incomingDelta.slice(0, length)) {
+      return length
+    }
+  }
+  return 0
 }
 
 export function appendPartDelta(
@@ -195,9 +254,10 @@ export function appendPartDelta(
   }
 
   const parts = [...message.parts]
+  const overlap = overlapSuffixPrefix(currentFieldValue, input.delta)
   parts[partIndex] = {
     ...part,
-    [input.field]: currentFieldValue + input.delta,
+    [input.field]: currentFieldValue + input.delta.slice(overlap),
   }
   next[messageIndex] = {
     ...message,

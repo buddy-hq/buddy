@@ -1,5 +1,5 @@
 import type { SessionMessagesResponses } from "@buddy/sdk"
-import type { MessageWithParts } from "./chat-types"
+import type { TranscriptEntry } from "./chat-types"
 import { getBuddyClient, requireBuddyData } from "../lib/buddy-client"
 import { retry } from "../lib/retry"
 
@@ -19,29 +19,32 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
 
-function isMessageWithParts(value: unknown): value is MessageWithParts {
+function isTranscriptEntry(value: unknown): value is TranscriptEntry {
   const record = isRecord(value) ? value : undefined
   if (!record) return false
-  if (!("info" in record)) return false
-  if (!Array.isArray(record.parts)) return false
-  return true
+  return (
+    typeof record.id === "string" &&
+    typeof record.sessionID === "string" &&
+    isRecord(record.message) &&
+    typeof record.message.role === "string"
+  )
 }
 
-function isMessageWithPartsArray(value: unknown): value is MessageWithParts[] {
-  return Array.isArray(value) && value.every((entry) => isMessageWithParts(entry))
+function isTranscriptEntryArray(value: unknown): value is TranscriptEntry[] {
+  return Array.isArray(value) && value.every((entry) => isTranscriptEntry(entry))
 }
 
-export function parseSessionMessagesPayload(value: unknown): MessageWithParts[] {
-  if (isMessageWithPartsArray(value)) {
+export function parseSessionMessagesPayload(value: unknown): TranscriptEntry[] {
+  if (isTranscriptEntryArray(value)) {
     return value
   }
 
   const record = isRecord(value) ? value : undefined
-  if (record && isMessageWithPartsArray(record.messages)) {
+  if (record && isTranscriptEntryArray(record.messages)) {
     return record.messages
   }
 
-  throw new Error("Session messages payload must be an array of message parts.")
+  throw new Error("Session messages payload must be an array of transcript entries.")
 }
 
 export async function fetchSessionMessages(directory: string, sessionID: string) {

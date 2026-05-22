@@ -7,7 +7,6 @@ import { stringifyError } from "@/lib/api-client"
 import { workspaceQuestionSetArtifactsQueryOptions } from "@/state/workspace-artifacts-query"
 import { ToolOutputPanel } from "../../tool-output-panel"
 import type { ToolPartProps } from "../../registry"
-import { readString } from "../../types"
 import {
   QuestionSetInlineView,
   type SubmitQuestionSetAttemptOutput,
@@ -15,7 +14,7 @@ import {
 import { TASK_CARD_TRANSITION } from "../task-motion"
 import { useSubagentCardData } from "./task-card-header"
 import { SubagentCard } from "./subagent-card"
-import { parseTaskResultOutput } from "./task-utils"
+import { parseTaskResultOutput, readTaskSessionId } from "./task-utils"
 import type { QuestionSetArtifactsListResponse } from "@buddy/sdk"
 
 type QuestionSetArtifact = QuestionSetArtifactsListResponse["artifacts"][number]
@@ -67,7 +66,7 @@ export function QuestionSetAuthorTaskCard({
   const taskResultOutput = parseTaskResultOutput(output)
   const [openArtifact, setOpenArtifact] = useState<QuestionSetArtifact | undefined>(undefined)
 
-  const childSessionID = readString(state.metadata.sessionId)
+  const childSessionID = readTaskSessionId(state.metadata)
   const artifactsQuery = useQuery({
     ...workspaceQuestionSetArtifactsQueryOptions(directory ?? ""),
     enabled: state.status === "completed" && !!directory && !!childSessionID,

@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useRef, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Badge,
@@ -25,6 +25,7 @@ import {
   reloadProviderRuntime,
 } from "@/lib/provider-auth"
 import { loadProviderCatalog, loadProviderCatalogSnapshot } from "@/state/chat-actions"
+import { isAbortLikeError } from "@/state/chat-error"
 import type { ProviderInfo } from "@/state/chat-types"
 import { connectedProviders } from "@/state/project-settings-store"
 import { ProviderSourceBadge, SettingsListCard, SettingsContent } from "./settings-primitives"
@@ -312,6 +313,7 @@ export function ProvidersSettings({ workbench }: { workbench: SettingsWorkbench 
   const [chatGptErrorState, setChatGptError] = useState<string | undefined>(undefined)
   const latestChatGptRequestRef = useRef(0)
   const dismissedChatGptRequestRef = useRef<number | undefined>(undefined)
+  const chatGptAbortRef = useRef<AbortController | undefined>(undefined)
 
   const providersByID = useMemo(
     () => new Map(allProviders.map((provider) => [provider.id, provider])),
@@ -325,6 +327,12 @@ export function ProvidersSettings({ workbench }: { workbench: SettingsWorkbench 
     setProviderDialogOpen(true)
   }
 
+  useEffect(() => {
+    return () => {
+      chatGptAbortRef.current?.abort()
+    }
+  }, [])
+
   async function handleProvidersUpdated() {
     await queryClient.invalidateQueries({
       queryKey: ["provider-catalog", directory || "__global__"],
@@ -336,8 +344,12 @@ export function ProvidersSettings({ workbench }: { workbench: SettingsWorkbench 
     if (!chatGptProvider) return
 
     const requestID = latestChatGptRequestRef.current + 1
+    const abort = new AbortController()
+
     latestChatGptRequestRef.current = requestID
     dismissedChatGptRequestRef.current = undefined
+    chatGptAbortRef.current?.abort()
+    chatGptAbortRef.current = abort
     setChatGptConnecting(true)
     setChatGptWaitingOpen(true)
     setChatGptError(undefined)
@@ -351,16 +363,20 @@ export function ProvidersSettings({ workbench }: { workbench: SettingsWorkbench 
         completeProviderOAuth: ({ providerID, methodIndex }) =>
           completeProviderOAuth({ directory, providerID, methodIndex }),
         reloadProviderRuntime: () => reloadProviderRuntime(directory),
+        signal: abort.signal,
       })
       await handleProvidersUpdated()
       setChatGptError(undefined)
     } catch (error) {
-      if (dismissedChatGptRequestRef.current === requestID) {
+      if (dismissedChatGptRequestRef.current === requestID || isAbortLikeError(error)) {
         return
       }
 
       setChatGptError(formatProviderAuthError(error, language.t("routes.onboarding.signInFailed")))
     } finally {
+      if (chatGptAbortRef.current === abort) {
+        chatGptAbortRef.current = undefined
+      }
       if (latestChatGptRequestRef.current === requestID) {
         setChatGptConnecting(false)
         setChatGptWaitingOpen(false)
@@ -370,6 +386,10 @@ export function ProvidersSettings({ workbench }: { workbench: SettingsWorkbench 
 
   function dismissChatGptWaiting() {
     dismissedChatGptRequestRef.current = latestChatGptRequestRef.current
+    const abort = chatGptAbortRef.current
+    chatGptAbortRef.current = undefined
+    abort?.abort()
+    setChatGptConnecting(false)
     setChatGptWaitingOpen(false)
   }
 

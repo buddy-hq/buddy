@@ -1,62 +1,134 @@
 import type {
-  McpStatus as SdkMcpStatus,
-  Message as SdkMessage,
-  OutputFormat as SdkOutputFormat,
-  Part as SdkPart,
-  PermissionRequest as SdkPermissionRequest,
-  Provider as SdkProvider,
-  ProviderAuthMethod as SdkProviderAuthMethod,
-  Session as SdkSession,
-  SessionStatus as SdkSessionStatus,
+  McpStatusResponse,
+  PermissionListResponse,
+  QuestionListResponse,
+  SessionListResponse,
+  SessionMessagesResponse,
 } from "@buddy/sdk"
 
-export type SessionInfo = Pick<SdkSession, "id" | "title" | "parentID" | "time" | "revert">
+export type SessionInfo = Pick<
+  SessionListResponse[number],
+  "id" | "title" | "time" | "parentID" | "revert"
+>
 
-export type MessageOutputFormat = SdkOutputFormat
+export type MessageOutputFormat = "text"
 type MessageTime = {
   created: number
   completed?: number | null
 }
 
-type MessageModel = {
+export type TranscriptEntry = SessionMessagesResponse[number]
+export type TranscriptMessage = TranscriptEntry["message"]
+export type TranscriptUserMessage = Extract<TranscriptMessage, { role: "user" }>
+export type TranscriptAssistantMessage = Extract<TranscriptMessage, { role: "assistant" }>
+export type TranscriptToolResultMessage = Extract<TranscriptMessage, { role: "toolResult" }>
+export type TranscriptPromptCustomMessage = Extract<
+  TranscriptMessage,
+  { role: "custom"; customType: "buddy-user-prompt" }
+>
+export type TranscriptGenericCustomMessage = Extract<TranscriptMessage, { role: "custom" }>
+export type TranscriptTextContent = Extract<
+  TranscriptAssistantMessage["content"][number],
+  { type: "text" }
+>
+export type TranscriptThinkingContent = Extract<
+  TranscriptAssistantMessage["content"][number],
+  { type: "thinking" }
+>
+export type TranscriptToolCallContent = Extract<
+  TranscriptAssistantMessage["content"][number],
+  { type: "toolCall" }
+>
+
+export type MessageModel = {
   providerID: string
   modelID: string
   variant?: string | null
 }
 
-type SdkAssistantError = NonNullable<Extract<SdkMessage, { role: "assistant" }>["error"]>
-
 export type MessageError = {
-  name: SdkAssistantError["name"] | string
-  message?: string
-  data?: unknown
+  name: string
+  message?: string | null
   [key: string]: unknown
 }
 
-export type UserMessageInfo = Omit<
-  Extract<SdkMessage, { role: "user" }>,
-  "format" | "model" | "time"
-> & {
+export type UserMessageInfo = {
+  id: string
+  sessionID: string
+  role: "user"
   model: MessageModel
   time: MessageTime
+  agent: string
+  tools?: Record<string, boolean>
   format?: MessageOutputFormat | null
 }
 
-export type AssistantMessageInfo = Omit<
-  Extract<SdkMessage, { role: "assistant" }>,
-  "error" | "time"
-> & {
+export type AssistantMessageInfo = {
+  id: string
+  sessionID: string
+  role: "assistant"
   time: MessageTime
+  parentID: string
+  modelID: string
+  providerID: string
+  mode: string
+  agent: string
+  path: {
+    cwd: string
+    root: string
+  }
+  cost: number
+  tokens: {
+    total?: number
+    input: number
+    output: number
+    reasoning: number
+    cache: {
+      read: number
+      write: number
+    }
+  }
+  variant?: string | null
+  finish?: string | null
   error?: MessageError | null
+  structured?: unknown
+  summary?: unknown
 }
 
 export type MessageInfo = UserMessageInfo | AssistantMessageInfo
 
-type MessagePartID = Pick<SdkPart, "id" | "sessionID" | "messageID">
+type MessagePartID = {
+  id: string
+  sessionID: string
+  messageID: string
+}
+type MessagePartToolState = Record<string, unknown>
 
-// Keep dynamic field access and partial payloads available during incremental event handling.
+// Persisted transcript parts come from the SDK contract. Buddy also keeps a few local-only
+// prompt/rendering fields on the same objects before those parts are echoed back by the server.
 export type MessagePart = MessagePartID & {
-  type: SdkPart["type"] | (string & {})
+  type: "text" | "reasoning" | "file" | "tool" | (string & {})
+  text?: string
+  time?: { start: number; end?: number }
+  mime?: string
+  filename?: string
+  url?: string
+  source?: unknown
+  synthetic?: boolean
+  callID?: string
+  tool?: string
+  state?: MessagePartToolState
+  metadata?: Record<string, unknown>
+  optimistic?: boolean
+  path?: string
+  key?: string
+  name?: string
+  cfi?: string
+  index?: number
+  tocLabel?: string
+  pageLabel?: string
+  locationLabel?: string
+  buddyPromptPart?: Record<string, unknown>
   [key: string]: unknown
 }
 
@@ -80,39 +152,69 @@ export type GlobalEvent = {
   payload: GlobalBusPayload | GlobalSyncPayload
 }
 
-export type SessionStatusInfo = SdkSessionStatus
+export type SessionStatusInfo =
+  | { type: "idle" }
+  | { type: "busy" }
+  | { type: "retry"; attempt: number; message: string; next: number }
 
-export type PermissionRequest = SdkPermissionRequest
+export type PermissionRequest = PermissionListResponse[number]
+export type QuestionRequest = QuestionListResponse[number]
 
-export type QuestionOption = {
-  label: string
-  description: string
-}
+export type ProviderSource = "env" | "config" | "custom" | "api"
 
-export type QuestionInfo = {
-  question: string
-  header: string
-  options: QuestionOption[]
-  multiple?: boolean
-  custom?: boolean
-}
-
-export type QuestionRequest = {
+export type RawProviderModelInfo = {
   id: string
-  sessionID: string
-  questions: QuestionInfo[]
-  tool?: {
-    messageID: string
-    callID: string
+  providerID: string
+  name: string
+  family: string
+  status: string
+  release_date?: string
+  variants?: Record<string, unknown>
+  cost: {
+    input: number
+  }
+  limit: {
+    context: number
+    input?: number
+    output: number
+  }
+  capabilities: {
+    reasoning: boolean
+    attachment: boolean
+    toolcall: boolean
+    input: {
+      text: boolean
+      audio: boolean
+      image: boolean
+      video: boolean
+      pdf: boolean
+    }
+    output: {
+      text: boolean
+      audio: boolean
+      image: boolean
+      video: boolean
+      pdf: boolean
+    }
+    interleaved?: boolean
   }
 }
 
-type SdkProviderModel = SdkProvider["models"][string]
+export type RawProviderInfo = {
+  id: string
+  name: string
+  source: ProviderSource
+  env: string[]
+  models: Record<string, RawProviderModelInfo>
+}
+
+type SdkProviderModel = RawProviderModelInfo
 
 export type ProviderModelInfo = Pick<
   SdkProviderModel,
-  "id" | "providerID" | "name" | "family" | "status" | "limit"
+  "id" | "providerID" | "name" | "status" | "limit"
 > & {
+  family?: string
   releaseDate?: SdkProviderModel["release_date"]
   variants: string[]
   capabilities: Pick<
@@ -121,9 +223,12 @@ export type ProviderModelInfo = Pick<
   >
 }
 
-export type ProviderMethodInfo = Pick<SdkProviderAuthMethod, "type" | "label">
+export type ProviderMethodInfo = {
+  type: "api" | "oauth"
+  label: string
+}
 
-export type ProviderInfo = Pick<SdkProvider, "id" | "name" | "source" | "env"> & {
+export type ProviderInfo = Pick<RawProviderInfo, "id" | "name" | "source" | "env"> & {
   connected: boolean
   methods: ProviderMethodInfo[]
   models: ProviderModelInfo[]
@@ -135,7 +240,7 @@ export type ProviderCatalogState = {
 }
 
 export type McpStatusInfo = {
-  status: SdkMcpStatus["status"]
+  status: McpStatusResponse[string]["status"]
   error?: string
 }
 
@@ -148,6 +253,8 @@ export type DirectoryChatState = {
   sessionTitle: string
   sessions: SessionInfo[]
   sessionStatusByID: Record<string, SessionStatusInfo>
+  transcript: TranscriptEntry[]
+  transcriptBySessionID?: Record<string, TranscriptEntry[]>
   messages: MessageWithParts[]
   messagesBySessionID?: Record<string, MessageWithParts[]>
   orphanPartsByMessageID?: Record<string, MessagePart[]>

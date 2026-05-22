@@ -1,7 +1,7 @@
 import { useShallow } from "zustand/react/shallow"
 import { parseSubagentSession } from "@/lib/session-family"
 import { useChatStore } from "@/state/chat-store"
-import { readString } from "../../types"
+import type { MessageWithParts } from "@/state/chat-types"
 import type { ToolPartProps } from "../../registry"
 import {
   buildHiddenStepsSummary,
@@ -9,7 +9,9 @@ import {
   getGroupDominantIcon,
   hiddenStepsEntryIsActive,
 } from "../../hidden-steps/entries"
+import { groupAssistantParts, prioritizeReasoningParts } from "../../../utils/message-utils"
 import type { SubagentCardStatus } from "./subagent-card"
+import { readTaskAgent, readTaskSessionId } from "./task-utils"
 
 /** Convert snake_case / kebab-case agent identifiers to Title Case display names. */
 function formatAgentName(raw: string): string {
@@ -34,11 +36,65 @@ export function toolStateToSubagentStatus(
   }
 }
 
+export function buildSubagentActivityState(input: {
+  messages: MessageWithParts[]
+  toolIsActive: boolean
+}) {
+  const assistantItems = groupAssistantParts(
+    input.messages
+      .filter((message) => message.info.role === "assistant")
+      .flatMap((message) => prioritizeReasoningParts(message.parts)),
+    true,
+  )
+
+  const abstractedItems = assistantItems.filter(
+    (item): item is Extract<(typeof assistantItems)[number], { type: "abstracted" }> =>
+      item.type === "abstracted",
+  )
+  const allEntries = abstractedItems.flatMap((item) => item.parts.map(createHiddenStepsEntry))
+
+  if (input.toolIsActive) {
+    const currentItem = abstractedItems[abstractedItems.length - 1]
+    if (!currentItem) {
+      return {
+        activityLine: undefined,
+        activityIcon: undefined,
+      }
+    }
+
+    const currentEntries = currentItem.parts.map(createHiddenStepsEntry)
+    const currentContext = {
+      followupStartedAt: currentItem.followupStartedAt,
+    }
+    const hasActiveEntry = currentEntries.some((entry) => hiddenStepsEntryIsActive(entry, currentContext))
+
+    return {
+      activityLine: hasActiveEntry
+        ? buildHiddenStepsSummary(currentEntries, {
+            isBusy: true,
+            followupStartedAt: currentItem.followupStartedAt,
+          })
+        : undefined,
+      activityIcon: getGroupDominantIcon(currentEntries) ?? getGroupDominantIcon(allEntries),
+    }
+  }
+
+  return {
+    activityLine:
+      allEntries.length > 0
+        ? buildHiddenStepsSummary(allEntries, {
+            isBusy: false,
+          })
+        : undefined,
+    activityIcon: getGroupDominantIcon(allEntries),
+  }
+}
+
 export function useSubagentCardData(
   input: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">,
 ) {
-  const childSessionID = readString(input.state.metadata.sessionId)
-  const configuredSubagent = readString(input.state.input.subagent_type)
+  const childSessionID = readTaskSessionId(input.state.metadata)
+  const configuredSubagent = readTaskAgent(input.state.input, input.state.metadata)
   const onOpenSession = input.onOpenSession
   const openChildSession =
     childSessionID && onOpenSession ? () => onOpenSession(childSessionID) : undefined
@@ -62,16 +118,10 @@ export function useSubagentCardData(
       const childMessages = childSessionID
         ? (dirState?.messagesBySessionID?.[childSessionID] ?? [])
         : []
-      const allEntries = childMessages
-        .filter((m) => m.info.role === "assistant")
-        .flatMap((m) => m.parts.map(createHiddenStepsEntry))
-      const rawSummary = buildHiddenStepsSummary(allEntries, toolIsActive)
-      // When busy but no child tool is active (child finished last tool, parent still running),
-      // rawSummary falls through to the stale count summary. Suppress it so the card
-      // shows "Working..." instead of a completed-state label.
-      const activityLine =
-        toolIsActive && !allEntries.some(hiddenStepsEntryIsActive) ? undefined : rawSummary
-      const activityIcon = getGroupDominantIcon(allEntries)
+      const { activityLine, activityIcon } = buildSubagentActivityState({
+        messages: childMessages,
+        toolIsActive,
+      })
 
       return { agentName, activityLine, activityIcon }
     }),

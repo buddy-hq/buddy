@@ -107,6 +107,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
   ])
 
   const isNativeMode = props.selectorMode === "native"
+  const thinkingDisabled = props.thinkingOptions.length <= 1
 
   return (
     <div className="bg-transparent px-2 py-2">
@@ -258,11 +259,12 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
             </Select>
           )}
 
-          {props.thinkingOptions.length <= 1 ? null : isNativeMode ? (
+          {isNativeMode ? (
             <NativeSelect
               value={props.selectedThinking}
               onChange={(event) => props.onThinkingChange(event.currentTarget.value)}
               size="sm"
+              disabled={thinkingDisabled}
               aria-label={language.t("prompt.toolbar.aria.thinking")}
               wrapperClassName="w-[160px] max-w-[160px] min-w-0"
               className="h-7 border-0 bg-surface-raised-base/95 text-xs text-text-weak shadow-none hover:bg-surface-raised-base-hover focus-visible:bg-surface-raised-base-hover focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
@@ -274,13 +276,18 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
               ))}
             </NativeSelect>
           ) : (
-            <Select value={props.selectedThinking} onValueChange={props.onThinkingChange}>
+            <Select
+              value={props.selectedThinking}
+              onValueChange={props.onThinkingChange}
+              disabled={thinkingDisabled}
+            >
               <SelectTrigger
                 type="button"
                 size="sm"
                 data-action="prompt-thinking-select"
                 className="h-7 max-w-[160px] min-w-0 border-0 bg-surface-raised-base/95 px-2 text-xs text-text-weak shadow-none hover:bg-surface-raised-base-hover focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:bg-surface-raised-base-hover data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
                 aria-label={language.t("prompt.toolbar.aria.thinking")}
+                disabled={thinkingDisabled}
               >
                 <SelectValue placeholder={language.t("prompt.toolbar.placeholders.thinking")} />
               </SelectTrigger>

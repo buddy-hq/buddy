@@ -2,11 +2,14 @@ import type { ToolPartProps } from "../registry"
 import { TaskToolCard } from "./task/task-tool-card"
 import { FlashcardAuthorTaskCard } from "./task/flashcard-author-task-card"
 import { QuestionSetAuthorTaskCard } from "./task/question-set-author-task-card"
-import { FLASHCARD_AUTHOR_SUBAGENT, QUESTION_SET_AUTHOR_SUBAGENT } from "./task/task-utils"
-import { readString } from "../types"
+import {
+  FLASHCARD_AUTHOR_SUBAGENT,
+  QUESTION_SET_AUTHOR_SUBAGENT,
+  readTaskAgent,
+} from "./task/task-utils"
 
 export function renderTaskTool({ state, onOpenSession, directory }: ToolPartProps) {
-  const configuredSubagent = readString(state.input.subagent_type)
+  const configuredSubagent = readTaskAgent(state.input, state.metadata)
   if (configuredSubagent === FLASHCARD_AUTHOR_SUBAGENT) {
     return (
       <FlashcardAuthorTaskCard state={state} onOpenSession={onOpenSession} directory={directory} />

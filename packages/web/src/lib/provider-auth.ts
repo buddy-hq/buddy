@@ -1,6 +1,14 @@
-import type { ProviderAuthAuthorization } from "@opencode-ai/sdk/v2/client"
+import type { ProviderOauthAuthorizeResponse } from "@buddy/sdk"
 import type { ProviderInfo } from "@/state/chat-types"
-import { getOpenCodeClient } from "./opencode-client"
+import { buddyResultMessage, getBuddyClient, requireBuddyData } from "./buddy-client"
+
+export type ProviderAuthAuthorization = {
+  type?: string
+  url: string
+  method?: "auto" | "code"
+  instructions?: string
+  code?: string
+}
 
 function hasErrorData(error: unknown): error is { data?: { message?: unknown } } {
   return Boolean(error && typeof error === "object" && "data" in error)
@@ -57,15 +65,28 @@ export async function authorizeProviderOAuth(input: {
   providerID: string
   methodIndex: number
 }) {
-  const client = getOpenCodeClient(input.directory)
-  const result = await client.provider.oauth.authorize(
-    {
-      providerID: input.providerID,
-      method: input.methodIndex,
-    },
-    { throwOnError: true },
+  const client = getBuddyClient(input.directory)
+  const result = await client.provider.oauth.authorize({
+    providerID: input.providerID,
+    method: input.methodIndex,
+  })
+  return normalizeProviderAuthAuthorization(
+    requireBuddyData<ProviderOauthAuthorizeResponse>(result),
   )
-  return result.data as ProviderAuthAuthorization | undefined
+}
+
+function normalizeProviderAuthAuthorization(
+  response: ProviderOauthAuthorizeResponse,
+): ProviderAuthAuthorization | undefined {
+  if (!response.url) return undefined
+  const method = response.type === "code" ? "code" : "auto"
+  return {
+    type: response.type,
+    url: response.url,
+    method,
+    instructions: response.code ? `code: ${response.code}` : undefined,
+    code: response.code,
+  }
 }
 
 export async function completeProviderOAuth(input: {
@@ -74,28 +95,29 @@ export async function completeProviderOAuth(input: {
   methodIndex: number
   code?: string
 }) {
-  const client = getOpenCodeClient(input.directory)
-  await client.provider.oauth.callback(
-    {
+  const client = getBuddyClient(input.directory)
+  requireBuddyData(
+    await client.provider.oauth.callback({
       providerID: input.providerID,
       method: input.methodIndex,
       ...(input.code ? { code: input.code } : {}),
-    },
-    { throwOnError: true },
+    }),
   )
 }
 
 export async function removeProviderAuth(input: { directory?: string; providerID: string }) {
-  const client = getOpenCodeClient(input.directory)
-  await client.auth.remove(
-    {
+  const client = getBuddyClient(input.directory)
+  requireBuddyData(
+    await client.auth.remove({
       providerID: input.providerID,
-    },
-    { throwOnError: true },
+    }),
   )
 }
 
 export async function reloadProviderRuntime(directory?: string) {
-  const client = getOpenCodeClient(directory)
-  await client.global.dispose({ throwOnError: true })
+  const client = getBuddyClient(directory)
+  const result = await client.provider.list()
+  if (!result.response?.ok || result.error !== undefined) {
+    throw new Error(buddyResultMessage(result))
+  }
 }

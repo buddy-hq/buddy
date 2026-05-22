@@ -1,21 +1,34 @@
-import type {
-  AgentPart as SdkAgentPart,
-  FilePart as SdkFilePart,
-  ReasoningPart as SdkReasoningPart,
-  TextPart as SdkTextPart,
-  ToolPart as SdkToolPart,
-} from "@buddy/sdk"
 import type { MessagePart } from "@/state/chat-types"
 import {
   READING_SELECTION_PART_TYPE,
   readPromptReadingSelectionMetadata,
 } from "@/components/prompt/prompt-types"
 
-export type ChatFilePart = MessagePart & SdkFilePart
-export type ChatAgentPart = MessagePart & SdkAgentPart
-export type ChatTextPart = MessagePart & SdkTextPart
-export type ChatReasoningPart = MessagePart & SdkReasoningPart
-export type ChatToolPart = MessagePart & SdkToolPart
+export type ChatFilePart = MessagePart & {
+  type: "file"
+  mime: string
+  url: string
+  filename?: string
+}
+export type ChatAgentPart = MessagePart & {
+  type: "agent"
+  name: string
+}
+export type ChatTextPart = MessagePart & {
+  type: "text"
+  text: string
+}
+export type ChatReasoningPart = MessagePart & {
+  type: "reasoning"
+  text: string
+}
+export type ChatToolPart = MessagePart & {
+  type: "tool"
+  callID?: string
+  tool: string
+  state?: unknown
+  metadata?: unknown
+}
 export type ChatReadingSelectionPart = MessagePart & {
   type: typeof READING_SELECTION_PART_TYPE
   text: string

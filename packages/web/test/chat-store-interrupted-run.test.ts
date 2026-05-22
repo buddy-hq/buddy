@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test"
 import { useChatStore } from "../src/state/chat-store"
 import type { QuestionRequest, SessionInfo } from "../src/state/chat-types"
 import { BUSY_SESSION_STATUS, IDLE_SESSION_STATUS } from "../src/state/session-status"
-import { createAssistantMessageInfo } from "./test-utils"
+import { createAssistantMessageInfo, createAssistantTranscriptEntry } from "./test-utils"
 
 const directory = "/tmp/interrupted-run"
 
@@ -69,16 +69,14 @@ describe("chat-store interrupted runs", () => {
     store.ensureOpenProject(directory)
     store.setSessions(directory, [session("session_1", 2)])
     store.setActiveSession(directory, "session_1")
-    store.setMessages(directory, "session_1", [
-      {
-        info: createAssistantMessageInfo({
-          id: "message_1",
-          sessionID: "session_1",
-          time: { created: 1 },
-        }),
-        parts: [],
-      },
-    ])
+    store.applyMessageUpdated(
+      directory,
+      createAssistantMessageInfo({
+        id: "message_1",
+        sessionID: "session_1",
+        time: { created: 1 },
+      }),
+    )
     store.applySessionStatus(directory, "session_1", BUSY_SESSION_STATUS)
 
     expect(useChatStore.getState().directories[directory]?.isBusy).toBe(true)
@@ -100,15 +98,12 @@ describe("chat-store interrupted runs", () => {
     store.setSessions(directory, [session("session_1", 2)])
     store.setActiveSession(directory, "session_1")
     store.setMessages(directory, "session_1", [
-      {
-        info: createAssistantMessageInfo({
-          id: "message_1",
-          sessionID: "session_1",
-          time: { created: 1 },
-          finish: "interrupted",
-        }),
-        parts: [],
-      },
+      createAssistantTranscriptEntry({
+        id: "message_1",
+        sessionID: "session_1",
+        timestamp: 1,
+        finish: "interrupted",
+      }),
     ])
     store.applySessionStatus(directory, "session_1", IDLE_SESSION_STATUS)
 

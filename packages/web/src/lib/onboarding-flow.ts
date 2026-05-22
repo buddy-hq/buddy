@@ -1,13 +1,52 @@
-import type { ProviderAuthAuthorization } from "@opencode-ai/sdk/v2/client"
 import type { OnboardingAuthChoice } from "@/components/onboarding"
 import { language } from "@/context/language"
 import type { ProviderCatalogState } from "@/state/chat-types"
 import { resolveCatalogProviderModelSelection } from "./provider-catalog"
 import { OPENAI_PROVIDER_ID, OPENCODE_PROVIDER_ID } from "./provider-ids"
-import { findPreferredOAuthMethodIndex } from "./provider-auth"
+import { findPreferredOAuthMethodIndex, type ProviderAuthAuthorization } from "./provider-auth"
 
 const PROVIDER_CONNECTION_POLL_INTERVAL_MS = 1_000
 const PROVIDER_CONNECTION_TIMEOUT_MS = 45_000
+
+function createAbortError() {
+  return new DOMException("The operation was aborted.", "AbortError")
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (signal?.aborted) {
+    throw createAbortError()
+  }
+}
+
+async function waitForAbortableTimeout(durationMs: number, signal?: AbortSignal) {
+  if (!signal) {
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, durationMs)
+    })
+    return
+  }
+
+  throwIfAborted(signal)
+
+  await new Promise<void>((resolve, reject) => {
+    let timeoutID: ReturnType<typeof setTimeout> | undefined
+
+    const handleAbort = () => {
+      if (timeoutID !== undefined) {
+        clearTimeout(timeoutID)
+      }
+      signal.removeEventListener("abort", handleAbort)
+      reject(createAbortError())
+    }
+
+    timeoutID = setTimeout(() => {
+      signal.removeEventListener("abort", handleAbort)
+      resolve()
+    }, durationMs)
+
+    signal.addEventListener("abort", handleAbort, { once: true })
+  })
+}
 
 export function resolveOnboardingProviderID(choice: OnboardingAuthChoice) {
   return choice === "chatgpt_plus" ? OPENAI_PROVIDER_ID : OPENCODE_PROVIDER_ID
@@ -58,8 +97,13 @@ export async function connectChatGptPlusForOnboarding(input: {
   }) => Promise<ProviderAuthAuthorization | undefined>
   completeProviderOAuth: (request: { providerID: string; methodIndex: number }) => Promise<void>
   reloadProviderRuntime: () => Promise<void>
+  signal?: AbortSignal
 }) {
+  throwIfAborted(input.signal)
+
   const catalog = await input.loadProviderCatalogSnapshot()
+  throwIfAborted(input.signal)
+
   const provider = catalog.providers.find((entry) => entry.id === OPENAI_PROVIDER_ID)
   if (!provider) {
     throw new Error(language.t("onboardingFlow.openAiUnavailable"))
@@ -78,14 +122,18 @@ export async function connectChatGptPlusForOnboarding(input: {
     providerID: OPENAI_PROVIDER_ID,
     methodIndex,
   })
+  throwIfAborted(input.signal)
 
   if (!authorization) {
     throw new Error(language.t("onboardingFlow.startFlowFailed"))
   }
 
+  throwIfAborted(input.signal)
   input.openLink(authorization.url)
+  throwIfAborted(input.signal)
 
   if (authorization.method === "auto") {
+    throwIfAborted(input.signal)
     await input.completeProviderOAuth({
       providerID: OPENAI_PROVIDER_ID,
       methodIndex,
@@ -93,10 +141,12 @@ export async function connectChatGptPlusForOnboarding(input: {
   }
 
   await input.reloadProviderRuntime()
+  throwIfAborted(input.signal)
 
   const didConnect = await waitForConnectedProvider({
     loadProviderCatalogSnapshot: input.loadProviderCatalogSnapshot,
     providerID: OPENAI_PROVIDER_ID,
+    signal: input.signal,
   })
   if (!didConnect) {
     throw new Error(language.t("onboardingFlow.confirmConnectionFailed"))
@@ -106,11 +156,16 @@ export async function connectChatGptPlusForOnboarding(input: {
 async function waitForConnectedProvider(input: {
   loadProviderCatalogSnapshot: () => Promise<ProviderCatalogState>
   providerID: string
+  signal?: AbortSignal
 }) {
   const deadline = Date.now() + PROVIDER_CONNECTION_TIMEOUT_MS
 
   while (Date.now() <= deadline) {
+    throwIfAborted(input.signal)
+
     const catalog = await input.loadProviderCatalogSnapshot()
+    throwIfAborted(input.signal)
+
     const connected = catalog.providers.some(
       (entry) => entry.id === input.providerID && entry.connected,
     )
@@ -118,11 +173,10 @@ async function waitForConnectedProvider(input: {
       return true
     }
 
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, PROVIDER_CONNECTION_POLL_INTERVAL_MS)
-    })
+    await waitForAbortableTimeout(PROVIDER_CONNECTION_POLL_INTERVAL_MS, input.signal)
   }
 
+  throwIfAborted(input.signal)
   return false
 }
 

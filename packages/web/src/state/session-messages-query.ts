@@ -1,6 +1,6 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import { fetchSessionMessages } from "./session-messages"
-import type { MessageWithParts } from "./chat-types"
+import type { TranscriptEntry } from "./chat-types"
 
 const DIRECTORY_CHAT_QUERY_SCOPE = "directory-chat" as const
 const DIRECTORY_CHAT_MESSAGES_QUERY_KEY = "messages" as const
@@ -34,7 +34,7 @@ export function setDirectorySessionMessagesQueryData(
   queryClient: QueryClient,
   directory: string,
   sessionID: string,
-  messages: MessageWithParts[],
+  messages: TranscriptEntry[],
 ) {
   queryClient.setQueryData(sessionMessagesQueryKeys.messages(directory, sessionID), messages)
 }

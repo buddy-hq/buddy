@@ -8,6 +8,7 @@ import type {
   ProviderInfo,
   ProviderMethodInfo,
   ProviderModelInfo,
+  TranscriptEntry,
   UserMessageInfo,
 } from "../src/state/chat-types"
 
@@ -24,7 +25,11 @@ export function createDirectoryChatState(
     sessionTitle: "New thread",
     sessions: [],
     sessionStatusByID: {},
+    transcript: [],
+    transcriptBySessionID: {},
     messages: [],
+    messagesBySessionID: {},
+    orphanPartsByMessageID: {},
     pendingPermissions: [],
     pendingQuestions: [],
     providers: [],
@@ -37,6 +42,10 @@ export function createDirectoryChatState(
 
   return {
     ...merged,
+    transcript: merged.transcript ?? [],
+    transcriptBySessionID: merged.transcriptBySessionID ?? {},
+    messagesBySessionID: merged.messagesBySessionID ?? {},
+    orphanPartsByMessageID: merged.orphanPartsByMessageID ?? {},
     pendingQuestions: merged.pendingQuestions ?? [],
   }
 }
@@ -139,6 +148,74 @@ export function createMessageWithParts(
   }
 }
 
+export function createUserTranscriptEntry(input: {
+  id: string
+  sessionID: string
+  text?: string
+  timestamp?: number
+}): TranscriptEntry {
+  return {
+    id: input.id,
+    sessionID: input.sessionID,
+    message: {
+      role: "user",
+      content: input.text ?? "",
+      timestamp: input.timestamp ?? 1,
+    },
+  }
+}
+
+export function createAssistantTranscriptEntry(input: {
+  id: string
+  sessionID: string
+  text?: string
+  timestamp?: number
+  finish?: string
+}): TranscriptEntry {
+  const stopReason =
+    input.finish === undefined || input.finish === "stop"
+      ? "stop"
+      : input.finish === "interrupted"
+        ? "aborted"
+        : input.finish === "length" || input.finish === "toolUse" || input.finish === "error"
+          ? input.finish
+          : "stop"
+  return {
+    id: input.id,
+    sessionID: input.sessionID,
+    message: {
+      role: "assistant",
+      content: input.text
+        ? [
+            {
+              type: "text",
+              text: input.text,
+            },
+          ]
+        : [],
+      api: "test",
+      provider: "test",
+      model: "test-model",
+      usage: {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 0,
+        cost: {
+          input: 0,
+          output: 0,
+          cacheRead: 0,
+          cacheWrite: 0,
+          total: 0,
+        },
+      },
+      stopReason,
+      timestamp: input.timestamp ?? 1,
+    },
+  }
+}
+
 export function createProviderModelInfo(
   input: Pick<ProviderModelInfo, "id" | "providerID"> & Partial<ProviderModelInfo>,
 ): ProviderModelInfo {
@@ -159,8 +236,8 @@ export function createProviderModelInfo(
     id,
     providerID,
     name: name ?? id,
-    family,
-    releaseDate,
+    ...(family ? { family } : {}),
+    ...(releaseDate ? { releaseDate } : {}),
     variants: variants ?? [],
     status: status ?? "active",
     limit: limit ?? {

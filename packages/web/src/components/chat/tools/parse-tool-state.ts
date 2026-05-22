@@ -2,11 +2,50 @@ import { isRecord, readNonEmptyString } from "../tools/types"
 import { toToolStatus } from "../utils/tool"
 import type { ToolState, ToolAttachment } from "./registry"
 import type { MessagePart } from "@/state/chat-types"
-import type {
-  FilePart as SdkFilePart,
-  ToolPart as SdkToolPart,
-  ToolState as SdkToolState,
-} from "@buddy/sdk"
+
+type SdkFilePart = MessagePart & {
+  type: "file"
+  mime: string
+  url: string
+  filename?: string
+}
+
+type SdkToolState =
+  | {
+      status: "pending"
+      input: Record<string, unknown>
+      raw: string
+    }
+  | {
+      status: "running"
+      input: Record<string, unknown>
+      title?: string
+      metadata?: Record<string, unknown>
+      time: { start: number }
+    }
+  | {
+      status: "completed"
+      input: Record<string, unknown>
+      output: string
+      title: string
+      metadata: Record<string, unknown>
+      time: { start: number; end: number; compacted?: number }
+      attachments?: SdkFilePart[]
+    }
+  | {
+      status: "error"
+      input: Record<string, unknown>
+      error: string
+      metadata?: Record<string, unknown>
+      time: { start: number; end: number }
+    }
+
+type SdkToolPart = MessagePart & {
+  type: "tool"
+  callID: string
+  tool: string
+  state: SdkToolState
+}
 
 function isSdkFilePart(value: unknown): value is SdkFilePart {
   if (!isRecord(value)) return false
@@ -121,10 +160,10 @@ export function parseToolState(part: MessagePart): ToolState {
     return parseFromSdkToolPart(part)
   }
 
-  const rawState = isRecord(part.state) ? part.state : {}
+  const rawState: Record<string, unknown> = isRecord(part.state) ? part.state : {}
   const status = toToolStatus(rawState.status)
   const input = isRecord(rawState.input) ? rawState.input : {}
-  const rawTime = isRecord(rawState.time) ? rawState.time : {}
+  const rawTime: Record<string, unknown> = isRecord(rawState.time) ? rawState.time : {}
   const stateMetadata = isRecord(rawState.metadata) ? rawState.metadata : {}
   const partMetadata = isRecord(part.metadata) ? part.metadata : {}
   const metadata = {
@@ -138,7 +177,7 @@ export function parseToolState(part: MessagePart): ToolState {
   const error = typeof rawState.error === "string" ? rawState.error : undefined
   const title = typeof rawState.title === "string" ? rawState.title : undefined
   const attachments: ToolAttachment[] = Array.isArray(rawState.attachments)
-    ? rawState.attachments.flatMap((attachment, index): ToolAttachment[] => {
+    ? rawState.attachments.flatMap((attachment: unknown, index: number): ToolAttachment[] => {
         if (!isRecord(attachment)) return []
 
         const mime = readNonEmptyString(attachment.mime)

@@ -140,8 +140,18 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
   const include = typeof input.include === "string" ? input.include : undefined
   const url = typeof input.url === "string" ? input.url : undefined
   const query = typeof input.query === "string" ? input.query : undefined
-  const description = typeof input.description === "string" ? input.description : undefined
-  const subagent = typeof input.subagent_type === "string" ? input.subagent_type : undefined
+  const metadataDescription =
+    typeof state.metadata.description === "string" ? state.metadata.description : undefined
+  const metadataAgent = typeof state.metadata.agent === "string" ? state.metadata.agent : undefined
+  const description =
+    metadataDescription ?? (typeof input.description === "string" ? input.description : undefined)
+  const subagent =
+    metadataAgent ??
+    (typeof input.agent === "string"
+      ? input.agent
+      : typeof input.subagent_type === "string"
+        ? input.subagent_type
+        : undefined)
   const alt = typeof input.alt === "string" ? input.alt : undefined
   const caption = typeof input.caption === "string" ? input.caption : undefined
   const code = typeof input.code === "string" ? input.code : undefined

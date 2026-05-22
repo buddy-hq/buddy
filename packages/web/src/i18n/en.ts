@@ -181,16 +181,30 @@ export const dict = {
   "chatTools.write": "Write",
   "chatTools.yes": "Yes",
   "connectProviderDialog.apiKeyLabel": "API key",
+  "connectProviderDialog.apiMethodBadge": "API key",
+  "connectProviderDialog.apiMethodDescription":
+    "Paste a personal {{providerName}} API key when you want direct key-based access.",
+  "connectProviderDialog.apiMethodTitle": "Use an API key",
+  "connectProviderDialog.apiPanelDescription":
+    "Buddy will store this {{providerName}} API key locally on this machine.",
+  "connectProviderDialog.apiPanelTitle": "Connect with an API key",
   "connectProviderDialog.apiKeyRequired": "API key is required",
   "connectProviderDialog.authCodeRequired": "Authorization code is required",
   "connectProviderDialog.authMethodLabel": "Auth method",
+  "connectProviderDialog.authMethodHelp":
+    "{{providerName}} supports more than one connection flow. Choose the one you want Buddy to use.",
   "connectProviderDialog.authorizationCodeLabel": "Authorization code",
   "connectProviderDialog.authorizationCodePlaceholder": "Paste authorization code",
   "connectProviderDialog.authorizationHelpPrefix":
     "Open the authorization page in your browser to continue connecting",
   "connectProviderDialog.authorizationLinkLabel": "Authorization link",
+  "connectProviderDialog.chooseMethodBadge": "Choose this flow",
   "connectProviderDialog.confirmationCodeLabel": "Confirmation code",
   "connectProviderDialog.connected": "Connected.",
+  "connectProviderDialog.connectedBadge": "Connected",
+  "connectProviderDialog.connectedStateDescription":
+    "Buddy can use your {{providerName}} connection right away.",
+  "connectProviderDialog.connectedStateTitle": "{{providerName}} is connected",
   "connectProviderDialog.connectedAsReadOnly":
     "Configured outside Buddy via environment variables. This connection is read-only here.",
   "connectProviderDialog.connectedViaEnv": "Configured outside Buddy via environment variables.",
@@ -203,18 +217,37 @@ export const dict = {
   "connectProviderDialog.fallbackApiMethodLabel": "API key",
   "connectProviderDialog.invalidAuthCode": "Invalid authorization code",
   "connectProviderDialog.noProvidersForNotebook": "No providers are available for this notebook.",
+  "connectProviderDialog.notConnectedBadge": "Not connected",
   "connectProviderDialog.notConnected": "Not connected.",
+  "connectProviderDialog.notConnectedStateDescriptionApi":
+    "Add an API key to let Buddy use {{providerName}} from this machine.",
+  "connectProviderDialog.notConnectedStateDescriptionOauth":
+    "You can either sign in with {{providerName}} or add an API key.",
+  "connectProviderDialog.notConnectedStateTitle": "{{providerName}} is not connected",
   "connectProviderDialog.openAuthorizationPage": "Open authorization page",
+  "connectProviderDialog.oauthMethodBadge": "OAuth",
+  "connectProviderDialog.oauthMethodDescription":
+    "Sign in with your existing {{providerName}} account or subscription in the browser.",
+  "connectProviderDialog.oauthMethodTitle": "Sign in with {{providerName}}",
+  "connectProviderDialog.oauthPanelDescription":
+    "Buddy will open your browser and finish the {{providerName}} sign-in flow locally.",
+  "connectProviderDialog.oauthPanelTitle": "Connect with browser sign-in",
   "connectProviderDialog.providerLabel": "Provider",
+  "connectProviderDialog.recommendedBadge": "Recommended",
   "connectProviderDialog.removeCredentialsFailed": "Failed to remove provider credentials",
+  "connectProviderDialog.reopenAuthorizationPage": "Open authorization page again",
   "connectProviderDialog.saveCredentials": "Save credentials",
   "connectProviderDialog.saveCredentialsFailed": "Failed to save provider credentials",
+  "connectProviderDialog.selectedMethodBadge": "Selected flow",
   "connectProviderDialog.signInToConnectPrefix": "Sign in to connect",
   "connectProviderDialog.startLogin": "Start login",
+  "connectProviderDialog.startOAuth": "Continue with {{providerName}}",
   "connectProviderDialog.startProviderLoginFailed": "Failed to start provider login",
   "connectProviderDialog.submitCode": "Submit code",
   "connectProviderDialog.title": "Connect provider",
   "connectProviderDialog.waitingForAuthorization": "Waiting for authorization...",
+  "connectProviderDialog.waitingForAuthorizationHelp":
+    "If your browser did not open, use the button above or the link in this panel.",
   "debug.systemPrompt.capturedPrefix": "Captured:",
   "debug.systemPrompt.capturing": "Capturing the latest system prompt...",
   "debug.systemPrompt.charsSuffix": "chars",

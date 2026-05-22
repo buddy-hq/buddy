@@ -1,8 +1,15 @@
 import { beforeEach, describe, expect, test } from "bun:test"
+import { promoteOptimisticUserMessage } from "../../../src/lib/directory-chat/use-chat-sync"
 import { useChatStore } from "../../../src/state/chat-store"
 import type { MessageInfo, PermissionRequest, SessionInfo } from "../../../src/state/chat-types"
+import { buildMessageFromTranscriptEntry } from "../../../src/state/pi-transcript-view"
 import { BUSY_SESSION_STATUS, IDLE_SESSION_STATUS } from "../../../src/state/session-status"
-import { createAssistantMessageInfo, createUserMessageInfo } from "../../test-utils"
+import {
+  createAssistantMessageInfo,
+  createAssistantTranscriptEntry,
+  createUserMessageInfo,
+  createUserTranscriptEntry,
+} from "../../test-utils"
 
 const directory = "/tmp/parity"
 
@@ -187,7 +194,7 @@ describe("chat-store parity events", () => {
     store.setSessions(directory, [session("session_1", 2)])
     store.setActiveSession(directory, "session_1")
     store.setMessages(directory, "session_1", [
-      { info: assistantMessage("message_1", "session_1"), parts: [] },
+      createAssistantTranscriptEntry({ id: "message_1", sessionID: "session_1" }),
     ])
     store.setEntryError("stale backend")
     store.setStreamStatus("connected")
@@ -229,7 +236,7 @@ describe("chat-store parity events", () => {
     store.setSessions(directory, [session("session_1", 1), session("session_2", 2)])
     store.setActiveSession(directory, "session_1")
     store.setMessages(directory, "session_1", [
-      { info: assistantMessage("message_1", "session_1"), parts: [] },
+      createAssistantTranscriptEntry({ id: "message_1", sessionID: "session_1" }),
     ])
     store.applySessionStatus(directory, "session_1", BUSY_SESSION_STATUS)
     store.applySessionStatus(directory, "session_2", IDLE_SESSION_STATUS)
@@ -305,7 +312,7 @@ describe("chat-store parity events", () => {
     expect(next?.loadingSessionID).toBe("session_1")
 
     store.setMessages(directory, "session_1", [
-      { info: userMessage("message_1", "session_1"), parts: [] },
+      createUserTranscriptEntry({ id: "message_1", sessionID: "session_1" }),
     ])
     next = useChatStore.getState().directories[directory]
     expect(next?.loadingSessionID).toBeUndefined()
@@ -326,15 +333,23 @@ describe("chat-store parity events", () => {
     store.setSessions(directory, [session("session_1", 2)])
     store.setActiveSession(directory, "session_1")
     store.setMessages(directory, "session_1", [
-      { info: userMessage("message_1", "session_1"), parts: [] },
-      { info: assistantMessage("message_2", "session_1", "stop"), parts: [] },
+      createUserTranscriptEntry({ id: "message_1", sessionID: "session_1" }),
+      createAssistantTranscriptEntry({
+        id: "message_2",
+        sessionID: "session_1",
+        finish: "stop",
+      }),
     ])
     store.applySessionStatus(directory, "session_1", BUSY_SESSION_STATUS)
     store.applyMessageUpdated(directory, userMessage("message_3", "session_1"))
 
     store.setMessages(directory, "session_1", [
-      { info: userMessage("message_1", "session_1"), parts: [] },
-      { info: assistantMessage("message_2", "session_1", "stop"), parts: [] },
+      createUserTranscriptEntry({ id: "message_1", sessionID: "session_1" }),
+      createAssistantTranscriptEntry({
+        id: "message_2",
+        sessionID: "session_1",
+        finish: "stop",
+      }),
     ])
 
     let next = useChatStore.getState().directories[directory]
@@ -347,13 +362,142 @@ describe("chat-store parity events", () => {
 
     store.applySessionStatus(directory, "session_1", IDLE_SESSION_STATUS)
     store.setMessages(directory, "session_1", [
-      { info: userMessage("message_1", "session_1"), parts: [] },
-      { info: assistantMessage("message_2", "session_1", "stop"), parts: [] },
+      createUserTranscriptEntry({ id: "message_1", sessionID: "session_1" }),
+      createAssistantTranscriptEntry({
+        id: "message_2",
+        sessionID: "session_1",
+        finish: "stop",
+      }),
     ])
 
     next = useChatStore.getState().directories[directory]
     expect(next?.messages.map((message) => message.info.id)).toEqual(["message_1", "message_2"])
     expect(next?.isBusy).toBe(false)
+  })
+
+  test("promotes the optimistic user turn into the streamed PI user message", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 2)])
+    store.setActiveSession(directory, "session_1")
+    store.applyMessageUpdated(directory, userMessage("optimistic_1", "session_1"))
+    store.applyPartUpdated(directory, {
+      id: "optimistic_part_1",
+      sessionID: "session_1",
+      messageID: "optimistic_1",
+      type: "text",
+      text: "hello",
+      optimistic: true,
+    })
+
+    promoteOptimisticUserMessage(directory, {
+      info: userMessage("message_2", "session_1"),
+      parts: [],
+    })
+    store.applyMessageUpdated(directory, userMessage("message_2", "session_1"))
+
+    const next = useChatStore.getState().directories[directory]
+    expect(next?.messages.map((message) => message.info.id)).toEqual(["message_2"])
+    expect(next?.messages[0]?.parts.map((part) => part.messageID)).toEqual(["message_2"])
+    expect(next?.messages[0]?.parts.map((part) => part.optimistic)).toEqual([true])
+  })
+
+  test("keeps optimistic user messages anchored by creation time", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 2)])
+    store.setActiveSession(directory, "session_1")
+    store.applyMessageUpdated(directory, userMessage("msg_session_1_000000", "session_1"))
+    store.applyMessageUpdated(directory, {
+      ...userMessage("msg_000000000000optimistic", "session_1"),
+      time: { created: Date.now() + 10_000 },
+    })
+
+    const next = useChatStore.getState().directories[directory]
+    expect(next?.messages.map((message) => message.info.id)).toEqual([
+      "msg_session_1_000000",
+      "msg_000000000000optimistic",
+    ])
+  })
+
+  test("renders prompt custom transcript entries as user messages", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 2)])
+    store.setActiveSession(directory, "session_1")
+    store.setMessages(directory, "session_1", [
+      {
+        id: "custom_1",
+        sessionID: "session_1",
+        message: {
+          role: "custom",
+          customType: "buddy-user-prompt",
+          display: true,
+          timestamp: 1,
+          details: {
+            agent: "buddy",
+            parts: [{ type: "text", text: "hihi" }],
+          },
+          content: "hihi",
+        },
+      },
+    ])
+
+    const next = useChatStore.getState().directories[directory]
+    expect(next?.messages.map((message) => message.info.id)).toEqual(["custom_1"])
+    expect(next?.messages[0]?.parts.map((part) => part.type)).toEqual(["text"])
+  })
+
+  test("does not duplicate prompt text when optimistic user messages promote into prompt custom rows", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 2)])
+    store.setActiveSession(directory, "session_1")
+    store.applyMessageUpdated(directory, userMessage("optimistic_1", "session_1"))
+    store.applyPartUpdated(directory, {
+      id: "optimistic_part_1",
+      sessionID: "session_1",
+      messageID: "optimistic_1",
+      type: "text",
+      text: "sure?",
+      optimistic: true,
+    })
+
+    const transcriptEntry = {
+      id: "custom_1",
+      sessionID: "session_1",
+      message: {
+        role: "custom" as const,
+        customType: "buddy-user-prompt",
+        display: true,
+        timestamp: 1,
+        details: {
+          agent: "buddy",
+          parts: [{ type: "text" as const, text: "sure?" }],
+        },
+        content: "sure?",
+      },
+    }
+    const projectedMessage = buildMessageFromTranscriptEntry(transcriptEntry)
+    if (!projectedMessage) {
+      throw new Error("Expected prompt custom message projection.")
+    }
+
+    promoteOptimisticUserMessage(directory, projectedMessage)
+    store.applyMessageUpdated(directory, {
+      sessionID: "session_1",
+      message: transcriptEntry,
+      completed: true,
+    })
+
+    const next = useChatStore.getState().directories[directory]
+    expect(next?.messages.map((message) => message.info.id)).toEqual(["custom_1"])
+    expect(next?.messages[0]?.parts.map((part) => part.type)).toEqual(["text"])
+    expect(next?.messages[0]?.parts.map((part) => part.text)).toEqual(["sure?"])
   })
 
   test("keeps live parts when a stale transcript snapshot lands during a run", () => {
@@ -363,46 +507,72 @@ describe("chat-store parity events", () => {
     store.setSessions(directory, [session("session_1", 2)])
     store.setActiveSession(directory, "session_1")
     store.setMessages(directory, "session_1", [
-      {
-        info: assistantMessage("message_1", "session_1"),
-        parts: [
-          {
-            id: "part_1",
-            sessionID: "session_1",
-            messageID: "message_1",
-            type: "text",
-            text: "hello",
-          },
-        ],
-      },
+      createAssistantTranscriptEntry({
+        id: "message_1",
+        sessionID: "session_1",
+        text: "hello",
+      }),
     ])
     store.applySessionStatus(directory, "session_1", BUSY_SESSION_STATUS)
     store.applyPartDelta(directory, {
       sessionID: "session_1",
       messageID: "message_1",
-      partID: "part_1",
+      partID: "prt_message_1_text_000000",
       field: "text",
       delta: " there",
     })
 
     store.setMessages(directory, "session_1", [
-      {
-        info: assistantMessage("message_1", "session_1"),
-        parts: [
-          {
-            id: "part_1",
-            sessionID: "session_1",
-            messageID: "message_1",
-            type: "text",
-            text: "hello",
-          },
-        ],
-      },
+      createAssistantTranscriptEntry({
+        id: "message_1",
+        sessionID: "session_1",
+        text: "hello",
+      }),
     ])
 
     const next = useChatStore.getState().directories[directory]
     expect(next?.messages[0]?.parts[0]?.text).toBe("hello there")
     expect(next?.isBusy).toBe(true)
+  })
+
+  test("does not rewind live assistant text when an incomplete transcript update arrives", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 2)])
+    store.setActiveSession(directory, "session_1")
+    store.setMessages(directory, "session_1", [
+      createAssistantTranscriptEntry({
+        id: "msg_session_1_000000",
+        sessionID: "session_1",
+        text: "All",
+      }),
+    ])
+    store.applySessionStatus(directory, "session_1", BUSY_SESSION_STATUS)
+    store.applyPartDelta(directory, {
+      sessionID: "session_1",
+      messageID: "msg_session_1_000000",
+      partID: "prt_msg_session_1_000000_text_000000",
+      field: "text",
+      delta: " ran again",
+    })
+
+    store.applyMessageUpdated(directory, {
+      sessionID: "session_1",
+      message: createAssistantTranscriptEntry({
+        id: "msg_session_1_000000",
+        sessionID: "session_1",
+        text: "All",
+      }),
+      completed: false,
+    })
+
+    const next = useChatStore.getState().directories[directory]
+    expect(next?.messages[0]?.parts[0]?.text).toBe("All ran again")
+    expect(next?.messages[0]?.info.role).toBe("assistant")
+    if (next?.messages[0]?.info.role === "assistant") {
+      expect(next.messages[0].info.time.completed).toBeNull()
+    }
   })
 
   test("keeps a live active session when a stale session list omits it", () => {
@@ -421,6 +591,22 @@ describe("chat-store parity events", () => {
     expect(next?.messages.map((message) => message.info.id)).toEqual(["message_2"])
     expect(next?.isBusy).toBe(true)
     expect(useChatStore.getState().lastSessionByDirectory[directory]).toBe("session_2")
+  })
+
+  test("keeps the active session selected while the stream is reconnecting", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 1)])
+    store.setActiveSession(directory, "session_2")
+    store.applyMessageUpdated(directory, userMessage("message_2", "session_2"))
+    store.setStreamStatus("connecting")
+
+    store.setSessions(directory, [session("session_1", 3)])
+
+    const next = useChatStore.getState().directories[directory]
+    expect(next?.sessionID).toBe("session_2")
+    expect(next?.messages.map((message) => message.info.id)).toEqual(["message_2"])
   })
 
   test("drops an idle missing active session when session list no longer includes it", () => {

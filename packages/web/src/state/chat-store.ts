@@ -13,6 +13,7 @@ import type {
   ProviderCatalogState,
   SessionStatusInfo,
   SessionInfo,
+  TranscriptEntry,
 } from "./chat-types"
 import {
   appendPartDelta,
@@ -21,6 +22,7 @@ import {
   upsertMessage,
   upsertPart,
 } from "./chat-reducer"
+import { buildMessageFromTranscriptEntry, buildMessageViewFromTranscript } from "./pi-transcript-view"
 import { IDLE_SESSION_STATUS, isSessionWorking, sessionStatusEquals } from "./session-status"
 
 type StreamStatus = "idle" | "connecting" | "connected" | "error"
@@ -87,11 +89,20 @@ export type ChatStore = {
   setActiveSession: (directory: string, sessionID?: string) => void
   startSessionDraft: (directory: string) => void
   setSessionInfo: (directory: string, info: SessionInfo) => void
-  setMessages: (directory: string, sessionID: string, messages: MessageWithParts[]) => void
+  setMessages: (directory: string, sessionID: string, messages: TranscriptEntry[]) => void
   clearLoadingSession: (directory: string, sessionID: string) => void
   applySessionUpdated: (directory: string, info: SessionInfo) => void
   applySessionStatus: (directory: string, sessionID: string, status: SessionStatusInfo) => void
-  applyMessageUpdated: (directory: string, info: MessageInfo) => void
+  applyMessageUpdated: (
+    directory: string,
+    input:
+      | MessageInfo
+      | {
+          sessionID: string
+          message: TranscriptEntry
+          completed: boolean
+        },
+  ) => void
   applyMessageRemoved: (directory: string, input: { sessionID: string; messageID: string }) => void
   applyPartUpdated: (directory: string, part: MessagePart) => void
   applyPartRemoved: (
@@ -310,6 +321,8 @@ function emptyDirectoryState(): DirectoryChatState {
     sessionTitle: DEFAULT_TITLE,
     sessions: [],
     sessionStatusByID: {},
+    transcript: [],
+    transcriptBySessionID: {},
     messages: [],
     messagesBySessionID: {},
     orphanPartsByMessageID: {},
@@ -408,9 +421,17 @@ function sessionMessages(state: DirectoryChatState, sessionID: string | undefine
   )
 }
 
-function hasCachedSessionMessages(state: DirectoryChatState, sessionID: string | undefined) {
+function sessionTranscript(state: DirectoryChatState, sessionID: string | undefined) {
+  if (!sessionID) return []
+  return (
+    state.transcriptBySessionID?.[sessionID] ??
+    (state.sessionID === sessionID ? state.transcript : [])
+  )
+}
+
+function hasCachedSessionTranscript(state: DirectoryChatState, sessionID: string | undefined) {
   if (!sessionID) return false
-  return Object.hasOwn(state.messagesBySessionID ?? {}, sessionID)
+  return Object.hasOwn(state.transcriptBySessionID ?? {}, sessionID)
 }
 
 function nextMessagesBySession(
@@ -422,6 +443,28 @@ function nextMessagesBySession(
     ...state.messagesBySessionID,
     [sessionID]: messages,
   }
+}
+
+function nextTranscriptBySession(
+  state: DirectoryChatState,
+  sessionID: string,
+  transcript: TranscriptEntry[],
+) {
+  return {
+    ...state.transcriptBySessionID,
+    [sessionID]: transcript,
+  }
+}
+
+function upsertTranscriptEntry(current: TranscriptEntry[], incoming: TranscriptEntry) {
+  const index = current.findIndex((entry) => entry.id === incoming.id)
+  if (index === -1) {
+    return [...current, incoming]
+  }
+
+  const next = [...current]
+  next[index] = incoming
+  return next
 }
 
 function mergeLiveSessionMessages(
@@ -445,9 +488,10 @@ function mergeLiveSessionMessages(
 function shouldPreserveMissingActiveSession(
   state: DirectoryChatState,
   sessionID: string | undefined,
+  streamStatus: StreamStatus,
 ) {
   if (!sessionID) return false
-  return state.isBusy
+  return state.isBusy || streamStatus === "connecting" || streamStatus === "error"
 }
 
 function upsertOrphanPart(parts: MessagePart[], incoming: MessagePart) {
@@ -718,7 +762,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const currentSessionID =
             current.sessionID &&
             (nextSessions.some((session) => session.id === current.sessionID) ||
-              shouldPreserveMissingActiveSession(current, current.sessionID))
+              shouldPreserveMissingActiveSession(current, current.sessionID, state.streamStatus))
               ? current.sessionID
               : undefined
           if (
@@ -743,6 +787,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             ? nextSessions.find((session) => session.id === activeSessionID)
             : undefined
           const switchedSession = activeSessionID !== current.sessionID
+          const nextTranscript = sessionTranscript(current, activeSessionID)
           const nextMessages = sessionMessages(current, activeSessionID)
           const nextBusy = resolveActiveSessionBusy({
             sessionID: activeSessionID,
@@ -758,6 +803,8 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             sessionID: activeSessionID,
             sessionTitle: activeInfo?.title ?? DEFAULT_TITLE,
             sessionStatusByID: nextSessionStatusByID,
+            transcript: nextTranscript,
+            transcriptBySessionID: current.transcriptBySessionID ?? {},
             messages: nextMessages,
             messagesBySessionID: current.messagesBySessionID ?? {},
             orphanPartsByMessageID: current.orphanPartsByMessageID ?? {},
@@ -787,6 +834,8 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
               sessionID: undefined,
               loadingSessionID: undefined,
               sessionTitle: DEFAULT_TITLE,
+              transcript: [],
+              transcriptBySessionID: current.transcriptBySessionID ?? {},
               messages: [],
               messagesBySessionID: current.messagesBySessionID ?? {},
               orphanPartsByMessageID: current.orphanPartsByMessageID ?? {},
@@ -801,7 +850,8 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             (session: SessionInfo) => session.id === sessionID,
           )
           const switchedSession = current.sessionID !== sessionID
-          const hasCachedMessages = hasCachedSessionMessages(current, sessionID)
+          const hasCachedMessages = hasCachedSessionTranscript(current, sessionID)
+          const nextTranscript = sessionTranscript(current, sessionID)
           const nextMessages = sessionMessages(current, sessionID)
           state.directories[directory] = {
             ...current,
@@ -809,6 +859,8 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             sessionID,
             loadingSessionID: hasCachedMessages ? undefined : sessionID,
             sessionTitle: activeInfo?.title ?? current.sessionTitle,
+            transcript: nextTranscript,
+            transcriptBySessionID: current.transcriptBySessionID ?? {},
             messages: nextMessages,
             messagesBySessionID: current.messagesBySessionID ?? {},
             orphanPartsByMessageID: current.orphanPartsByMessageID ?? {},
@@ -836,7 +888,8 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const current = state.directories[directory] ?? emptyDirectoryState()
           const nextSessions = upsertSession(current.sessions, info)
           state.lastSessionByDirectory[directory] = info.id
-          const hasCachedMessages = hasCachedSessionMessages(current, info.id)
+          const hasCachedMessages = hasCachedSessionTranscript(current, info.id)
+          const nextTranscript = sessionTranscript(current, info.id)
           const nextMessages = sessionMessages(current, info.id)
           state.directories[directory] = {
             ...current,
@@ -845,6 +898,8 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             sessionID: info.id,
             loadingSessionID: hasCachedMessages ? undefined : info.id,
             sessionTitle: info.title || DEFAULT_TITLE,
+            transcript: nextTranscript,
+            transcriptBySessionID: current.transcriptBySessionID ?? {},
             messages: nextMessages,
             messagesBySessionID: current.messagesBySessionID ?? {},
             orphanPartsByMessageID: current.orphanPartsByMessageID ?? {},
@@ -860,11 +915,12 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
       setMessages(directory, sessionID, messages) {
         set((state) => {
           const current = state.directories[directory] ?? emptyDirectoryState()
-          const incomingMessages = Array.isArray(messages) ? messages : []
+          const incomingTranscript = Array.isArray(messages) ? messages : []
           const nextSessionID = current.sessionID
           const isActiveSession = nextSessionID === sessionID
+          const derivedIncomingMessages = buildMessageViewFromTranscript(incomingTranscript)
           const incomingWithOrphans = mergeOrphanPartsIntoMessages(
-            incomingMessages,
+            derivedIncomingMessages,
             current.orphanPartsByMessageID ?? {},
           )
           const currentWithOrphans =
@@ -897,6 +953,8 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
                 ? undefined
                 : current.loadingSessionID,
             sessionTitle: activeInfo?.title ?? current.sessionTitle,
+            transcript: isActiveSession ? incomingTranscript : current.transcript,
+            transcriptBySessionID: nextTranscriptBySession(current, sessionID, incomingTranscript),
             messages: isActiveSession ? nextMessages : current.messages,
             messagesBySessionID: nextMessagesBySession(current, sessionID, nextMessages),
             orphanPartsByMessageID:
@@ -942,11 +1000,14 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const nextActiveInfo = nextSessionID
             ? nextSessions.find((session) => session.id === nextSessionID)
             : undefined
+          const nextTranscript = switchedActiveSession
+            ? sessionTranscript(current, nextSessionID)
+            : current.transcript
           const nextMessages = switchedActiveSession
             ? sessionMessages(current, nextSessionID)
             : current.messages
           const nextLoadingSessionID = switchedActiveSession
-            ? hasCachedSessionMessages(current, nextSessionID)
+            ? hasCachedSessionTranscript(current, nextSessionID)
               ? undefined
               : nextSessionID
             : current.loadingSessionID
@@ -964,6 +1025,14 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             sessionID: nextSessionID,
             loadingSessionID: nextLoadingSessionID,
             sessionTitle: nextActiveInfo?.title ?? DEFAULT_TITLE,
+            transcript: nextTranscript,
+            transcriptBySessionID: info.time.archived
+              ? Object.fromEntries(
+                  Object.entries(current.transcriptBySessionID ?? {}).filter(
+                    ([transcriptSessionID]) => transcriptSessionID !== info.id,
+                  ),
+                )
+              : (current.transcriptBySessionID ?? {}),
             messages: nextMessages,
             messagesBySessionID: info.time.archived
               ? Object.fromEntries(
@@ -1026,17 +1095,70 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           }
         })
       },
-      applyMessageUpdated(directory, info) {
+      applyMessageUpdated(directory, input) {
         set((state) => {
           const current = state.directories[directory] ?? emptyDirectoryState()
+          if (!("message" in input)) {
+            const merged = mergeOrphanPartsIntoMessages(
+              upsertMessage(sessionMessages(current, input.sessionID), input),
+              current.orphanPartsByMessageID ?? {},
+            )
+            const messages = merged.messages
+            const isActiveSession = current.sessionID === input.sessionID
+            const nextBusy = resolveActiveSessionBusy({
+              sessionID: input.sessionID,
+              sessions: current.sessions,
+              sessionStatusByID: current.sessionStatusByID,
+              messages,
+            })
+            state.directories[directory] = {
+              ...current,
+              isDraft: isActiveSession ? false : current.isDraft,
+              messages: isActiveSession ? messages : current.messages,
+              messagesBySessionID: nextMessagesBySession(current, input.sessionID, messages),
+              orphanPartsByMessageID: merged.orphanPartsByMessageID,
+              isBusy: isActiveSession ? nextBusy : current.isBusy,
+            }
+            return
+          }
+
+          const transcript = upsertTranscriptEntry(
+            sessionTranscript(current, input.sessionID),
+            input.message,
+          )
+          const currentMessages = sessionMessages(current, input.sessionID)
+          const existingMessage = currentMessages.find((message) => message.info.id === input.message.id)
+          const previousVisibleMessageID =
+            existingMessage?.info.role === "assistant"
+              ? existingMessage.info.parentID
+              : currentMessages
+                  .toReversed()
+                  .find((message) => message.info.id !== input.message.id)
+                  ?.info.id
+          const projectedMessage = buildMessageFromTranscriptEntry(input.message, {
+            previousVisibleMessageID,
+            completed: input.completed,
+            includeAssistantParts: input.completed,
+          })
+          let normalizedDerivedMessages = currentMessages
+          if (projectedMessage) {
+            normalizedDerivedMessages = upsertMessage(currentMessages, projectedMessage.info)
+            const shouldApplyProjectedParts =
+              projectedMessage.info.role !== "assistant" || input.completed
+            if (shouldApplyProjectedParts) {
+              for (const part of projectedMessage.parts) {
+                normalizedDerivedMessages = upsertPart(normalizedDerivedMessages, part)
+              }
+            }
+          }
           const merged = mergeOrphanPartsIntoMessages(
-            upsertMessage(sessionMessages(current, info.sessionID), info),
+            normalizedDerivedMessages,
             current.orphanPartsByMessageID ?? {},
           )
           const messages = merged.messages
-          const isActiveSession = current.sessionID === info.sessionID
+          const isActiveSession = current.sessionID === input.sessionID
           const nextBusy = resolveActiveSessionBusy({
-            sessionID: info.sessionID,
+            sessionID: input.sessionID,
             sessions: current.sessions,
             sessionStatusByID: current.sessionStatusByID,
             messages,
@@ -1044,8 +1166,10 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           state.directories[directory] = {
             ...current,
             isDraft: isActiveSession ? false : current.isDraft,
+            transcript: isActiveSession ? transcript : current.transcript,
+            transcriptBySessionID: nextTranscriptBySession(current, input.sessionID, transcript),
             messages: isActiveSession ? messages : current.messages,
-            messagesBySessionID: nextMessagesBySession(current, info.sessionID, messages),
+            messagesBySessionID: nextMessagesBySession(current, input.sessionID, messages),
             orphanPartsByMessageID: merged.orphanPartsByMessageID,
             isBusy: isActiveSession ? nextBusy : current.isBusy,
           }
