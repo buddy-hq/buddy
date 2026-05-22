@@ -1,16 +1,42 @@
+import fsp from "node:fs/promises"
 import { loadConfigFile } from "../contract/document.js"
 import { resolveGlobalConfigFile } from "./config-paths.js"
 import type { Info } from "./types.js"
 
-let globalConfigPromise: Promise<Info> | undefined
+type GlobalConfigCacheEntry = {
+  fingerprint: string
+  promise: Promise<Info>
+}
+
+let globalConfigCacheEntry: GlobalConfigCacheEntry | undefined
+
+async function globalConfigFingerprint(filepath: string): Promise<string> {
+  try {
+    const stats = await fsp.stat(filepath)
+    return [filepath, stats.mtimeMs, stats.size].join(":")
+  } catch (error) {
+    const candidate = error as { code?: string }
+    if (candidate.code === "ENOENT") {
+      return `${filepath}:missing`
+    }
+    throw error
+  }
+}
 
 export async function getCachedGlobalConfig(): Promise<Info> {
-  if (!globalConfigPromise) {
-    globalConfigPromise = loadConfigFile(resolveGlobalConfigFile())
+  const filepath = resolveGlobalConfigFile()
+  const fingerprint = await globalConfigFingerprint(filepath)
+
+  if (!globalConfigCacheEntry || globalConfigCacheEntry.fingerprint !== fingerprint) {
+    globalConfigCacheEntry = {
+      fingerprint,
+      promise: loadConfigFile(filepath),
+    }
   }
-  return globalConfigPromise
+
+  return globalConfigCacheEntry.promise
 }
 
 export function resetGlobalConfigCache(): void {
-  globalConfigPromise = undefined
+  globalConfigCacheEntry = undefined
 }

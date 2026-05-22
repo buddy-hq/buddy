@@ -1,7 +1,8 @@
 import fsp from "node:fs/promises"
 import path from "node:path"
 import { mergeDeep } from "remeda"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { piRuntime } from "../../pi-backend/runtime"
+import { syncGlobalPiMcpConfig, syncProjectPiMcpConfig } from "../../pi-backend/mcp-runtime"
 import { parseConfigText, patchJsoncDocument, replaceJsoncDocument } from "../contract/document.js"
 import { JsonError } from "../contract/errors.js"
 import { resetGlobalConfigCache } from "./global-cache.js"
@@ -37,12 +38,16 @@ export async function updateProjectConfig(directory: string, config: ConfigInfo)
   const before = await readConfigTextOrDefault(filepath)
   if (!filepath.endsWith(".jsonc")) {
     await writeJsonFile(filepath, config)
+    await syncProjectPiMcpConfig(directory)
+    piRuntime.disposeAll()
     return
   }
 
   const updated = replaceJsoncDocument(before, config)
   parseConfigText(updated, filepath)
   await fsp.writeFile(filepath, updated, "utf8")
+  await syncProjectPiMcpConfig(directory)
+  piRuntime.disposeAll()
 }
 
 export async function setProjectMcpConfig(
@@ -65,6 +70,8 @@ export async function setProjectMcpConfig(
       },
     })
     await writeJsonFile(filepath, next)
+    await syncProjectPiMcpConfig(directory)
+    piRuntime.disposeAll()
     return
   }
 
@@ -75,6 +82,8 @@ export async function setProjectMcpConfig(
   })
   parseConfigText(updated, filepath)
   await fsp.writeFile(filepath, updated, "utf8")
+  await syncProjectPiMcpConfig(directory)
+  piRuntime.disposeAll()
 }
 
 export async function updateGlobalConfig(config: ConfigInfo): Promise<ConfigInfo> {
@@ -97,7 +106,8 @@ export async function updateGlobalConfig(config: ConfigInfo): Promise<ConfigInfo
   })()
 
   resetGlobalConfigCache()
-  await OpenCodeInstance.disposeAll()
+  await syncGlobalPiMcpConfig()
+  piRuntime.disposeAll()
 
   return next
 }

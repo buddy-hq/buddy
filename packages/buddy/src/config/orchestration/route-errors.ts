@@ -1,5 +1,5 @@
 import { ZodError } from "zod"
-import { configErrorMessage, isConfigValidationError } from "../runtime/opencode-sync.js"
+import { configErrorMessage, isConfigValidationError } from "../runtime/config-access.js"
 
 export function configRouteValidationResponse(error: unknown): Response | undefined {
   if (error instanceof ZodError) {

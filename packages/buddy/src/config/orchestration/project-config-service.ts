@@ -1,15 +1,9 @@
 import fsp from "node:fs/promises"
 import path from "node:path"
-import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { personaCatalogEntries } from "../../learning/personas/wiring/persona-metadata"
+import { listBuddySubagentDefinitions } from "../../learning/subagent-manifest"
 import { Config } from "../config.js"
-import {
-  isConfigValidationError,
-  readProjectConfigFile,
-  readProjectConfig,
-  syncOpenCodeProjectConfig,
-} from "../runtime/opencode-sync.js"
+import { readProjectConfig, readProjectConfigFile } from "../runtime/config-access.js"
 import { resolveProjectConfigContext, resolveProjectConfigFile } from "../store/config-paths.js"
 import { InvalidError } from "../contract/errors.js"
 
@@ -19,29 +13,42 @@ export async function listProjectPersonas(directory: string) {
 }
 
 export async function listProjectAgents(directory: string) {
-  await syncOpenCodeProjectConfig(directory).catch((error) => {
-    if (isConfigValidationError(error)) {
-      throw error
+  const config = await readProjectConfig(directory)
+  const personas = personaCatalogEntries(config.personas).map((persona) => {
+    const entry: {
+      name: string
+      description?: string
+      mode: string
+      hidden: boolean
+      model?: string
+    } = {
+      name: persona.id,
+      description: persona.description,
+      mode: "primary",
+      hidden: persona.hidden,
     }
-    throw new Error(
-      `Failed to sync config before listing agents: ${String(error instanceof Error ? error.message : error)}`,
-      { cause: error },
-    )
+    if (config.model) entry.model = config.model
+    return entry
+  })
+  const subagents = listBuddySubagentDefinitions().map((agent) => {
+    const model = "model" in agent && typeof agent.model === "string" ? agent.model : config.model
+    const entry: {
+      name: string
+      description?: string
+      mode: string
+      hidden: boolean
+      model?: string
+    } = {
+      name: agent.key,
+      description: agent.description,
+      mode: "subagent",
+      hidden: false,
+    }
+    if (model) entry.model = model
+    return entry
   })
 
-  const agents = await OpenCodeInstance.provide({
-    directory,
-    fn: () => OpenCodeAgent.list(),
-  })
-
-  return agents.map((agent) => ({
-    name: agent.name,
-    description: agent.description,
-    mode: agent.mode,
-    hidden: agent.hidden,
-    model: agent.model,
-    variant: agent.variant,
-  }))
+  return [...personas, ...subagents]
 }
 
 type ProjectConfigSnapshot = {
@@ -115,18 +122,10 @@ async function applyAndSyncProjectConfigChange(input: {
 
     try {
       await input.apply()
-      await syncOpenCodeProjectConfig(input.directory)
     } catch (error) {
-      let recoveryError: unknown
-
       try {
         await restoreProjectConfigSnapshot(snapshot)
-        await syncOpenCodeProjectConfig(input.directory, true)
-      } catch (syncError) {
-        recoveryError = syncError
-      }
-
-      if (recoveryError !== undefined) {
+      } catch {
         throw new Error(
           "Failed to apply project config change and failed to recover previous config",
           {

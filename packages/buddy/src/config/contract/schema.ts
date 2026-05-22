@@ -1,33 +1,83 @@
 import path from "node:path"
 import z from "zod"
-import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
 import { PERSONA_SURFACES, PERSONAS } from "@buddy/backend/learning/shared/teaching-vocabulary"
-import { zodFromEffectSchema } from "../../http/effect-schema"
 import { resolveBuddyPersonaMetadata } from "../../learning/personas/wiring/persona-metadata"
 
 export namespace ConfigSchema {
   const NOTEBOOK_HOME_PATH_ERROR_MESSAGE = "notebook_home must be an absolute path" as const
   const NonNegativeInteger = z.number().int().nonnegative()
+  const PermissionActionSchema = z.enum(["allow", "deny", "ask"])
 
-  export const Mcp = zodFromEffectSchema(OpenCodeConfig.Mcp)
+  const McpOAuth = z
+    .union([
+      z.literal(false),
+      z
+        .object({
+          grantType: z.enum(["authorization_code", "client_credentials"]).optional(),
+          clientId: z.string().optional(),
+          clientSecret: z.string().optional(),
+          scope: z.string().optional(),
+        })
+        .strict(),
+    ])
+    .optional()
+
+  export const Mcp = z
+    .object({
+      type: z.enum(["local", "remote"]).optional(),
+      enabled: z.boolean().optional(),
+      command: z.array(z.string()).optional(),
+      environment: z.record(z.string(), z.string()).optional(),
+      url: z.string().optional(),
+      headers: z.record(z.string(), z.string()).optional(),
+      oauth: McpOAuth,
+      directTools: z.union([z.boolean(), z.array(z.string())]).optional(),
+      excludeTools: z.array(z.string()).optional(),
+      debug: z.boolean().optional(),
+    })
+    .passthrough()
   export type Mcp = z.output<typeof Mcp>
 
-  export const Skills = zodFromEffectSchema(OpenCodeConfig.Skills)
+  export const Skills = z
+    .object({
+      paths: z.array(z.string()).optional(),
+    })
+    .passthrough()
   export type Skills = z.output<typeof Skills>
 
-  export const ModelID = zodFromEffectSchema(OpenCodeConfig.ModelID)
+  export const ModelID = z.string().min(1)
   export type ModelID = z.output<typeof ModelID>
 
-  export const Provider = zodFromEffectSchema(OpenCodeConfig.Provider)
+  export const Provider = z.record(z.string(), z.unknown())
   export type Provider = z.output<typeof Provider>
 
-  export type PermissionAction = OpenCodeConfig.PermissionAction
-  export type PermissionRule = OpenCodeConfig.PermissionRule
+  export type PermissionAction = z.output<typeof PermissionActionSchema>
+  export type PermissionRule = z.output<typeof PermissionRule>
 
-  export const Permission = zodFromEffectSchema(OpenCodeConfig.Permission)
+  export const PermissionRule = z.union([
+    PermissionActionSchema,
+    z.record(z.string(), PermissionActionSchema),
+  ])
+  export const Permission = z.record(z.string(), PermissionRule)
   export type Permission = z.output<typeof Permission>
 
-  export const Agent = zodFromEffectSchema(OpenCodeConfig.Agent)
+  export const Agent = z
+    .object({
+      name: z.string().optional(),
+      description: z.string().optional(),
+      prompt: z.string().optional(),
+      mode: z.enum(["primary", "subagent"]).optional(),
+      model: ModelID.optional(),
+      temperature: z.number().optional(),
+      topP: z.number().optional(),
+      maxSteps: NonNegativeInteger.optional(),
+      steps: NonNegativeInteger.optional(),
+      permission: Permission.optional(),
+      options: z.record(z.string(), z.unknown()).optional(),
+      hidden: z.boolean().optional(),
+      disable: z.boolean().optional(),
+    })
+    .passthrough()
   export type Agent = z.output<typeof Agent>
 
   const TOOL_TOGGLE_MAP = z.record(z.string(), z.boolean()).optional()

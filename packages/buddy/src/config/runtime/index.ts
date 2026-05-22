@@ -1,2 +1,2 @@
-export * from "./opencode-sync.js"
-export { resolveBuddyBundledSkillRoots } from "../opencode/skills.js"
+export * from "./config-access.js"
+export { resolveBuddyBundledSkillRoots, resolveBuddySkillPaths } from "../skills/paths.js"

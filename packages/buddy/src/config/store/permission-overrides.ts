@@ -1,6 +1,6 @@
 import { mergeDeep } from "remeda"
-import { Wildcard } from "@buddy/opencode-adapter/wildcard"
 import { InvalidError } from "../contract/errors.js"
+import { wildcardMatch } from "../permissions/wildcard.js"
 import { Permission } from "./types.js"
 import type { Info, PermissionAction, PermissionRule } from "./types.js"
 
@@ -99,7 +99,7 @@ function defaultSkillPermissionRule(permission: Record<string, PermissionRule>):
       return []
     }
 
-    if (!Wildcard.match(SKILL_PERMISSION_KEY, permissionKey)) {
+    if (!wildcardMatch(permissionKey, SKILL_PERMISSION_KEY)) {
       return []
     }
 
