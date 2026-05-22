@@ -8,6 +8,7 @@ import { SessionID } from "@buddy/opencode-adapter/id"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
 import { resolveSessionRuntime } from "../../src/learning/access/resolve-session-runtime"
 import { buildBuddyRuntimeSessionPermissions } from "../../src/learning/agent-execution/permissions/session-permissions"
+import { readTeachingSessionState } from "../../src/learning/agent-execution/state/session-state"
 import { listBuddySubagents } from "../../src/learning/runtime-subagents"
 import { dynamicDebugAttemptTool } from "../../src/learning/features/debug-guidance/tools/debug-attempt"
 import { dynamicReflectionTool } from "../../src/learning/features/teaching-guidance/tools/reflection"
@@ -179,6 +180,9 @@ describe("runtime tool registration", () => {
           }),
         )
         const updatedSession = await OpenCodeSession.get(SessionID.make(session.id))
+        const buddyPermission = buildBuddyRuntimeSessionPermissions({
+          sessionRuntime: readTeachingSessionState(project.path, session.id)?.sessionRuntime,
+        })
 
         return {
           searchOutput: searchResult.output,
@@ -188,6 +192,10 @@ describe("runtime tool registration", () => {
           ),
           reflectionOutput: reflectionResult.output,
           permission: updatedSession.permission ?? [],
+          reflectionDisabledInBuddyPermission: PermissionNext.disabled(
+            [DYNAMIC_REFLECTION_TOOL_ID],
+            buddyPermission,
+          ).has(DYNAMIC_REFLECTION_TOOL_ID),
           hasDebugTool: nextTools.some((tool) => tool.id === DYNAMIC_DEBUG_ATTEMPT_TOOL_ID),
         }
       },
@@ -203,6 +211,7 @@ describe("runtime tool registration", () => {
       pattern: "*",
       action: "allow",
     })
+    expect(result.reflectionDisabledInBuddyPermission).toBe(false)
     expect(result.hasDebugTool).toBe(false)
   })
 

@@ -1,7 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test"
-import { MessageID, ModelID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import { describe, expect, test } from "bun:test"
 import { app } from "../../src/index.ts"
 import {
   readTeachingSessionState,
@@ -14,63 +11,24 @@ import {
 } from "../../src/learning/features/diagrams/service/v2-store"
 import { tmpdir } from "../helpers/tmpdir"
 
-type RouteMessage = Awaited<ReturnType<typeof OpenCodeSession.messages>>[number]
-
-afterEach(async () => {
-  await OpenCodeInstance.disposeAll()
-})
-
 async function createSession(directory: string) {
-  return OpenCodeInstance.provide({
-    directory,
-    fn: async () => {
-      const session = await OpenCodeSession.create({})
-      return session.id
+  const response = await app.request("/api/session", {
+    method: "POST",
+    headers: {
+      "x-buddy-directory": directory,
+      "content-type": "application/json",
     },
+    body: "{}",
   })
-}
-
-async function seedAssistantMessage(input: {
-  directory: string
-  sessionID: string
-  messageID: string
-}): Promise<void> {
-  await OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => {
-      await OpenCodeSession.updateMessage({
-        id: MessageID.make(input.messageID),
-        sessionID: SessionID.make(input.sessionID),
-        role: "assistant",
-        parentID: MessageID.make("msg_parent"),
-        time: { created: Date.now(), completed: Date.now() },
-        mode: "buddy",
-        agent: "buddy",
-        providerID: ProviderID.opencode,
-        modelID: ModelID.make("claude-sonnet"),
-        path: { cwd: input.directory, root: input.directory },
-        cost: 0,
-        tokens: {
-          input: 0,
-          output: 0,
-          reasoning: 0,
-          cache: { read: 0, write: 0 },
-          total: 0,
-        },
-      } satisfies RouteMessage["info"])
-    },
-  })
+  expect(response.status).toBe(200)
+  const body = (await response.json()) as { id: string }
+  return body.id
 }
 
 describe("mermaid repair routes", () => {
   test("starts one repair attempt and rejects the second attempt", async () => {
     await using project = await tmpdir({ git: true })
     const sessionID = await createSession(project.path)
-    await seedAssistantMessage({
-      directory: project.path,
-      sessionID,
-      messageID: "msg_tool",
-    })
     writeTeachingSessionState(project.path, {
       sessionId: sessionID,
       persona: "buddy",
@@ -132,11 +90,6 @@ describe("mermaid repair routes", () => {
     }
     expect(outboundPayload).toMatchObject({
       messageID: firstBody.repairRequestID,
-      agent: "buddy",
-      model: {
-        providerID: ProviderID.opencode,
-        modelID: ModelID.make("claude-sonnet"),
-      },
     })
     expect(outboundPayload).not.toHaveProperty("metadata")
     expect(outboundPayload).not.toHaveProperty("content")

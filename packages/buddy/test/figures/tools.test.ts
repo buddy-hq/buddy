@@ -5,6 +5,7 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { renderGeometryFigure } from "../../src/learning/features/figure-rendering/geometry/render-figure"
 import { ensureFigureToolsRegistered } from "../../src/learning/features/figure-rendering/geometry/tools/register"
+import { renderFigureTool } from "../../src/learning/features/figure-rendering/geometry/tools/render-figure"
 import { RenderFigureOutputSchema } from "../../src/learning/features/figure-rendering/geometry/types"
 import type { RenderFigureInput } from "../../src/learning/features/figure-rendering/geometry/tools/render-figure"
 import { tmpdir } from "../helpers/tmpdir"
@@ -141,6 +142,30 @@ describe("figure tools", () => {
     expect(metadataValue?.items?.[0]?.rawUrl).toContain("/api/presented-media/")
     expect(producerArtifact?.artifact).toBe("RenderFigureOutput")
     expect(producerArtifact?.value?.relativePath).toMatch(/^\.buddy\/figures\/[a-f0-9]{64}\.svg$/)
+  })
+
+  test("Pi tool schema preserves nested render_figure object structure", () => {
+    const schema = renderFigureTool.toPiTool("/tmp/example").parameters as {
+      properties?: {
+        spec?: {
+          type?: string
+          properties?: {
+            canvas?: {
+              type?: string
+              properties?: {
+                width?: {
+                  type?: string
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    expect(schema.properties?.spec?.type).toBe("object")
+    expect(schema.properties?.spec?.properties?.canvas?.type).toBe("object")
+    expect(schema.properties?.spec?.properties?.canvas?.properties?.width?.type).toBe("number")
   })
 
   test("resolves perpendicular-foot constraints so derived helper lines land exactly on the base", async () => {

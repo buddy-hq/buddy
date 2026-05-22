@@ -33,14 +33,11 @@ describe("active reading context", () => {
       projectConfig: config,
     })
 
-    const parts = result.transformed.parts as Array<Record<string, unknown>>
-    const reminderText = parts.find(
-      (part) => typeof part.text === "string" && part.text.includes("<system-reminder>"),
-    )?.text
+    const reminderText = result.transformed.turnPrelude
     const systemText = result.transformed.system
 
     expect(typeof reminderText).toBe("string")
-    expect(reminderText).toContain("current_passage:")
+    expect(String(reminderText)).toContain("current_passage:")
     expect(reminderText).toContain(
       "This is the visible excerpt the learner is currently looking at in the reader.",
     )

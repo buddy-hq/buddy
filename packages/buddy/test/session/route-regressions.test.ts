@@ -4,6 +4,7 @@ import {
   readTeachingSessionState,
   writeTeachingSessionState,
 } from "../../src/learning/agent-execution/state/session-state"
+import { piRuntime } from "../../src/pi-backend/runtime"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("session route regressions", () => {
@@ -138,6 +139,49 @@ describe("session route regressions", () => {
     expect(readTeachingSessionState(project.path, "ses_missing_cmd")).toBeUndefined()
   })
 
+  test(
+    "returns 204 for accepted session command requests",
+    async () => {
+      await using project = await tmpdir({ git: true })
+
+      const createResponse = await app.request("/api/session", {
+        method: "POST",
+        headers: {
+          "x-buddy-directory": project.path,
+          "content-type": "application/json",
+        },
+        body: "{}",
+      })
+      expect(createResponse.status).toBe(200)
+      const created = (await createResponse.json()) as { id: string }
+
+      const originalPromptAsync = piRuntime.promptAsync
+
+      try {
+        piRuntime.promptAsync = async () => undefined
+
+        const response = await app.request(`/api/session/${created.id}/command`, {
+          method: "POST",
+          headers: {
+            "x-buddy-directory": project.path,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            command: "flashcard",
+            arguments: "cell biology",
+            agent: "buddy",
+          }),
+        })
+
+        expect(response.status).toBe(204)
+        await expect(response.text()).resolves.toBe("")
+      } finally {
+        piRuntime.promptAsync = originalPromptAsync
+      }
+    },
+    15_000,
+  )
+
   test("does not create teaching state when an async prompt targets a missing session", async () => {
     await using project = await tmpdir({ git: true })
 
@@ -160,7 +204,7 @@ describe("session route regressions", () => {
     expect(readTeachingSessionState(project.path, "ses_missing_async")).toBeUndefined()
   })
 
-  test("forwards abort even when no active status is cached", async () => {
+  test("returns false when abort targets a missing PI session", async () => {
     await using project = await tmpdir({ git: true })
 
     const response = await app.request("/api/session/ses_missing/abort", {
@@ -171,7 +215,7 @@ describe("session route regressions", () => {
     })
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toBe(true)
+    await expect(response.json()).resolves.toBe(false)
   })
 
   test("resolves /session/status as status endpoint instead of session-id route", async () => {

@@ -6,7 +6,8 @@ import { clearConfigOverlay, setConfigOverlay } from "@buddy/opencode-adapter/co
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { Config } from "@buddy/backend/config"
-import { buildOpenCodeConfigOverlay } from "../../src/index"
+import { buildOpenCodeConfigOverlay } from "../../src/config/runtime/opencode-sync"
+import { buddyOpenCodeInternalDirectoryGlobs } from "../../src/pi-backend/opencode-environment"
 import { tmpdir } from "../helpers/tmpdir"
 
 const OVERLAY_PERMISSION = "buddy_overlay_test_permission"
@@ -125,6 +126,22 @@ describe("opencode config overlay isolation", () => {
     } finally {
       clearConfigOverlay(firstProject.path)
       clearConfigOverlay(secondProject.path)
+    }
+  })
+
+  test("auto-allows Buddy-managed OpenCode internal directories", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const overlay = await buildOpenCodeConfigOverlay({
+      config: await Config.getProject(project.path),
+      directory: project.path,
+    })
+    const permission = overlay.permission as
+      | { external_directory?: Record<string, string> }
+      | undefined
+
+    for (const pattern of buddyOpenCodeInternalDirectoryGlobs()) {
+      expect(permission?.external_directory?.[pattern]).toBe("allow")
     }
   })
 })

@@ -42,11 +42,11 @@ describe("learner context delivery", () => {
       projectConfig: config,
     })
 
-    const parts = result.transformed.parts as Array<Record<string, unknown>>
-    expect(parts[0]?.type).toBe("text")
-    expect(parts[0]?.text).toContain("<learner_context fingerprint=")
-    expect(parts[0]?.text).toContain("Learner profile:")
-    expect(parts[0]?.text).toContain("Concrete examples first")
+    const turnPrelude = result.transformed.turnPrelude
+    expect(typeof turnPrelude).toBe("string")
+    expect(String(turnPrelude)).toContain("<learner_context fingerprint=")
+    expect(String(turnPrelude)).toContain("Learner profile:")
+    expect(String(turnPrelude)).toContain("Concrete examples first")
     expect(result.learnerContextDelivery?.kind).toBe("bootstrap")
   })
 
@@ -82,15 +82,10 @@ describe("learner context delivery", () => {
       },
     })
 
-    const parts = second.transformed.parts as Array<Record<string, unknown>>
-    expect(
-      parts.some((part) => typeof part.text === "string" && part.text.includes("<learner_context")),
-    ).toBe(false)
-    expect(
-      parts.some(
-        (part) => typeof part.text === "string" && part.text.includes("<learner_context_delta"),
-      ),
-    ).toBe(false)
+    const turnPrelude =
+      typeof second.transformed.turnPrelude === "string" ? second.transformed.turnPrelude : ""
+    expect(turnPrelude.includes("<learner_context")).toBe(false)
+    expect(turnPrelude.includes("<learner_context_delta")).toBe(false)
     expect(second.learnerContextDelivery).toBeUndefined()
   })
 
@@ -137,10 +132,8 @@ describe("learner context delivery", () => {
       },
     })
 
-    const parts = second.transformed.parts as Array<Record<string, unknown>>
-    const deltaText = parts.find(
-      (part) => typeof part.text === "string" && part.text.includes("<learner_context_delta"),
-    )?.text
+    const deltaText =
+      typeof second.transformed.turnPrelude === "string" ? second.transformed.turnPrelude : ""
     expect(deltaText).toContain("<learner_context_delta")
     expect(deltaText).toContain("Added:")
     expect(deltaText).toContain("Goal: Implement bridge validation")
@@ -211,10 +204,8 @@ describe("learner context delivery", () => {
       },
     })
 
-    const parts = second.transformed.parts as Array<Record<string, unknown>>
-    const deltaText = parts.find(
-      (part) => typeof part.text === "string" && part.text.includes("<learner_context_delta"),
-    )?.text
+    const deltaText =
+      typeof second.transformed.turnPrelude === "string" ? second.transformed.turnPrelude : ""
     expect(deltaText).toContain("<learner_context_delta")
     expect(deltaText).toContain("Added:")
     expect(second.learnerContextDelivery?.kind).toBe("delta")
