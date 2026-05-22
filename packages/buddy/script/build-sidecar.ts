@@ -42,7 +42,5 @@ for (const config of selected) {
   if (built.bundleOutputFile) {
     console.log(`Built ${config.rustTarget} runtime entry at ${built.bundleOutputFile}`)
   }
-  console.log(
-    `Embedded migrations: buddy=${built.buddyMigrationCount}, opencode=${built.opencodeMigrationCount}`,
-  )
+  console.log(`Embedded migrations: buddy=${built.buddyMigrationCount}`)
 }

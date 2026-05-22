@@ -1,7 +1,7 @@
 import fsp from "node:fs/promises"
 import path from "node:path"
 import type { SkillSourceRef } from "../src/learning/skill-management/service/catalog-schemas"
-import type { OpenCodeSkill } from "../src/learning/skill-management/service/contracts"
+import type { BuddySkillDocument } from "../src/learning/skill-management/service/contracts"
 import {
   loadManagedSkillFile,
   sanitizeSkillName,
@@ -314,7 +314,7 @@ function reviewGateMessage(input: {
 
 export function buildCurationOutput(input: {
   args: CurationArgs
-  skill: Pick<OpenCodeSkill, "name" | "description">
+  skill: Pick<BuddySkillDocument, "name" | "description">
   source: SkillSourceRef
   stats: SkillFetchStats
   scan: SkillScanResult

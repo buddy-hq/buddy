@@ -11,5 +11,5 @@ const built = await buildCompiledBuddyBinary({
 })
 
 console.log(
-  `Built sidecar at ${built.outputFile} with runtime entry ${built.bundleOutputFile} (buddy migrations: ${built.buddyMigrationCount}, opencode migrations: ${built.opencodeMigrationCount})`,
+  `Built sidecar at ${built.outputFile} with runtime entry ${built.bundleOutputFile} (buddy migrations: ${built.buddyMigrationCount})`,
 )

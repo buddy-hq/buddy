@@ -3,7 +3,7 @@ import path from "node:path"
 import { spawnSync } from "node:child_process"
 import { z } from "zod"
 import type { SkillSourceRef } from "../src/learning/skill-management/service/catalog-schemas"
-import type { OpenCodeSkill } from "../src/learning/skill-management/service/contracts"
+import type { BuddySkillDocument } from "../src/learning/skill-management/service/contracts"
 import {
   loadManagedSkillFile,
   sanitizeSkillName,
@@ -598,7 +598,7 @@ function fetchedGitHubAuditTarget(fetched: FetchedGitHubSkill): SkillAuditTarget
   }
 }
 
-function metadataCheck(skill: OpenCodeSkill | undefined): SkillAuditCheck {
+function metadataCheck(skill: BuddySkillDocument | undefined): SkillAuditCheck {
   if (!skill) {
     return {
       id: METADATA_CHECK_ID,

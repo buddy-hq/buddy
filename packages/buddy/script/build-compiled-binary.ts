@@ -98,23 +98,13 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
   const bundleOutputFile = input.bundleOutputFile ? path.resolve(input.bundleOutputFile) : undefined
   const compileEntrypoint = bundleOutputFile ?? sourceEntrypoint
   const buddyMigrationDir = path.resolve(backendDir, "migration")
-  const opencodeMigrationDir = path.resolve(
-    backendDir,
-    "../../vendor/opencode/packages/opencode/migration",
-  )
   const buddySkillsDir = path.resolve(backendDir, "src/learning/capabilities/pedagogy/skills")
-  const opencodeRuntimePluginsDir = path.resolve(backendDir, "src/opencode-runtime/plugins")
-  const systemPromptCaptureModule = path.resolve(
-    backendDir,
-    "src/opencode-runtime/system-prompt-capture.ts",
-  )
   const skillCatalogPath = path.resolve(
     backendDir,
     "src/learning/skill-management/service/catalog.json",
   )
 
   const buddyMigrations = loadMigrations(buddyMigrationDir, "Buddy")
-  const opencodeMigrations = loadMigrations(opencodeMigrationDir, "OpenCode")
   const runtimeVersion = resolveAdvancedMathRuntimeVersion()
 
   mkdirSync(path.dirname(outputFile), { recursive: true })
@@ -124,7 +114,6 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
 
   const define = {
     BUDDY_MIGRATIONS: JSON.stringify(buddyMigrations),
-    OPENCODE_MIGRATIONS: JSON.stringify(opencodeMigrations),
     [BUNDLED_ADVANCED_MATH_RUNTIME_VERSION_DEFINE]: JSON.stringify(runtimeVersion),
   }
 
@@ -160,21 +149,6 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
         cpSync(buddySkillsDir, bundledSkillsTarget, { recursive: true, dereference: true })
       }
 
-      if (existsSync(opencodeRuntimePluginsDir)) {
-        const bundledPluginsTarget = path.resolve(bundleOutdir, "plugins")
-        rmSync(bundledPluginsTarget, { recursive: true, force: true })
-        mkdirSync(path.dirname(bundledPluginsTarget), { recursive: true })
-        cpSync(opencodeRuntimePluginsDir, bundledPluginsTarget, {
-          recursive: true,
-          dereference: true,
-        })
-      }
-
-      if (existsSync(systemPromptCaptureModule)) {
-        const bundledCaptureTarget = path.resolve(bundleOutdir, "system-prompt-capture.ts")
-        copyFileSync(systemPromptCaptureModule, bundledCaptureTarget)
-      }
-
       if (existsSync(skillCatalogPath)) {
         const bundledCatalogTarget = path.resolve(bundleOutdir, "catalog.json")
         copyFileSync(skillCatalogPath, bundledCatalogTarget)
@@ -204,7 +178,6 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
       bundleOutputFile,
       outputFile,
       buddyMigrationCount: buddyMigrations.length,
-      opencodeMigrationCount: opencodeMigrations.length,
     }
   } finally {
     for (const directory of cleanupDirs) {
