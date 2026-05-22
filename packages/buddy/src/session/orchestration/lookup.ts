@@ -1,33 +1,10 @@
-import { normalizeErrorResponse } from "../../http"
-import { fetchOpenCode } from "../../http"
+import { piRuntime, PiSessionNotFoundError } from "../../pi-backend/runtime"
 import { SessionLookupError } from "./errors"
-
-type OpenCodeNotFoundError = {
-  name?: unknown
-  message?: unknown
-  data?: {
-    message?: unknown
-  }
-}
 
 const SESSION_NOT_FOUND_ERROR = "Session not found"
 
-function readSessionNotFoundMessage(error: unknown): string | undefined {
-  if (!error || typeof error !== "object") return undefined
-  const payload = error as OpenCodeNotFoundError
-  const fromData = payload.data?.message
-  if (typeof fromData === "string") return fromData
-  if (typeof payload.message === "string") return payload.message
-  return undefined
-}
-
 export function isSessionNotFoundError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false
-  const errorName = "name" in error ? (error as OpenCodeNotFoundError).name : undefined
-  if (errorName !== "NotFoundError") return false
-
-  const message = readSessionNotFoundMessage(error)
-  return typeof message === "string" && message.startsWith("Session not found:")
+  return error instanceof PiSessionNotFoundError
 }
 
 export async function ensureSessionExistsInDirectory(input: {
@@ -35,21 +12,15 @@ export async function ensureSessionExistsInDirectory(input: {
   sessionID: string
   request: Request
 }): Promise<Response | undefined> {
-  const response = await fetchOpenCode({
-    directory: input.directory,
-    method: "GET",
-    path: `/session/${encodeURIComponent(input.sessionID)}`,
-    headers: new Headers(input.request.headers),
-  })
-  const normalized = await normalizeErrorResponse(response)
-  if (!normalized.ok) {
-    if (normalized.status === 404) {
+  try {
+    await piRuntime.getSessionInfo(input.directory, input.sessionID)
+    return undefined
+  } catch (error) {
+    if (isSessionNotFoundError(error)) {
       return Response.json({ error: SESSION_NOT_FOUND_ERROR }, { status: 404 })
     }
-    return normalized
+    throw error
   }
-
-  return undefined
 }
 
 export async function assertSessionExistsInDirectory(input: {

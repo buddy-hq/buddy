@@ -1,6 +1,5 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
-import { Schema } from "effect"
 import z from "zod"
 import { Config } from "@buddy/backend/config"
 import {
@@ -10,9 +9,7 @@ import {
   patchProjectConfig,
   putProjectMcpConfig,
 } from "@buddy/backend/config/orchestration"
-import { readProjectConfig } from "@buddy/backend/config/runtime"
-import { Provider as OpenCodeProvider } from "@buddy/opencode-adapter/provider"
-import { toOpenApiSchema } from "../http/effect-schema"
+import { readProjectConfig } from "../config/runtime/config-access"
 import {
   directoryQuerySchema,
   McpNameParamSchema,
@@ -21,7 +18,7 @@ import {
   withConfigSyncRoute,
   withDirectoryRoute,
 } from "../http"
-import { proxyToOpenCode } from "../http"
+import { readPiProviderCatalog } from "../pi-backend/provider-actions"
 
 const personaCatalogEntrySchema = z.object({
   id: z.string(),
@@ -46,12 +43,70 @@ const agentConfigEntrySchema = z.object({
   variant: z.string().optional(),
 })
 
-const providerConfigResponseSchema = toOpenApiSchema(
-  Schema.Struct({
-    providers: Schema.Array(OpenCodeProvider.Info),
-    default: Schema.Record(Schema.String, Schema.String),
+const providerModelSchema = z.object({
+  id: z.string(),
+  providerID: z.string(),
+  api: z.object({
+    id: z.string(),
+    url: z.string(),
+    npm: z.string(),
   }),
-)
+  name: z.string(),
+  family: z.string(),
+  capabilities: z.object({
+    temperature: z.boolean(),
+    reasoning: z.boolean(),
+    attachment: z.boolean(),
+    toolcall: z.boolean(),
+    input: z.object({
+      text: z.boolean(),
+      audio: z.boolean(),
+      image: z.boolean(),
+      video: z.boolean(),
+      pdf: z.boolean(),
+    }),
+    output: z.object({
+      text: z.boolean(),
+      audio: z.boolean(),
+      image: z.boolean(),
+      video: z.boolean(),
+      pdf: z.boolean(),
+    }),
+    interleaved: z.boolean(),
+  }),
+  cost: z.object({
+    input: z.number(),
+    output: z.number(),
+    cache: z.object({
+      read: z.number(),
+      write: z.number(),
+    }),
+  }),
+  limit: z.object({
+    context: z.number(),
+    input: z.number(),
+    output: z.number(),
+  }),
+  status: z.enum(["alpha", "beta", "deprecated", "active"]),
+  options: z.record(z.string(), z.unknown()),
+  headers: z.record(z.string(), z.string()),
+  release_date: z.string(),
+  variants: z.record(z.string(), z.record(z.string(), z.unknown())),
+})
+
+const providerConfigResponseSchema = z.object({
+  providers: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      source: z.enum(["env", "config", "custom", "api"]),
+      env: z.array(z.string()),
+      options: z.record(z.string(), z.unknown()),
+      models: z.record(z.string(), providerModelSchema),
+    }),
+  ),
+  default: z.record(z.string(), z.string()),
+})
 const projectConfigPatchSchema = z.record(z.string(), z.unknown())
 
 export const ConfigRoutes = new Hono()
@@ -132,10 +187,13 @@ export const ConfigRoutes = new Hono()
     async (c) =>
       withConfigSyncRoute(c, {
         operation: "listing providers",
-        handler: async () =>
-          proxyToOpenCode(c, {
-            targetPath: "/config/providers",
-          }),
+        handler: async () => {
+          const catalog = await readPiProviderCatalog()
+          return c.json({
+            providers: catalog.all,
+            default: catalog.default,
+          })
+        },
       }),
   )
   .get(

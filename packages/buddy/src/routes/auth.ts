@@ -1,12 +1,11 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
-import { Auth as OpenCodeAuth } from "@buddy/opencode-adapter/auth"
-import { toOpenApiSchema } from "../http/effect-schema"
 import { routeErrors, directoryQuerySchema, ProviderIDParamSchema } from "../http"
-import { proxyToOpenCode } from "../http"
+import { piRemoveAuth, piSetAuth } from "../pi-backend/auth-actions"
 
 const credentialSetResponseSchema = resolver(z.boolean())
+const authCredentialSchema = z.record(z.string(), z.unknown())
 
 export const AuthRoutes = new Hono()
   .put(
@@ -26,13 +25,8 @@ export const AuthRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     validator("param", ProviderIDParamSchema),
-    validator("json", toOpenApiSchema(OpenCodeAuth.Info)),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: `/auth/${encodeURIComponent(c.req.valid("param").providerID)}`,
-        directoryMode: "optional",
-      })
-    },
+    validator("json", authCredentialSchema),
+    piSetAuth,
   )
   .delete(
     "/:providerID",
@@ -51,10 +45,5 @@ export const AuthRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     validator("param", ProviderIDParamSchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: `/auth/${encodeURIComponent(c.req.valid("param").providerID)}`,
-        directoryMode: "optional",
-      })
-    },
+    piRemoveAuth,
   )

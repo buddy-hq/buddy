@@ -1,12 +1,9 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
-import { Schema } from "effect"
 import z from "zod"
-import { Provider as OpenCodeProvider } from "@buddy/opencode-adapter/provider"
-import { ProviderAuth as OpenCodeProviderAuth } from "@buddy/opencode-adapter/provider-auth"
-import { toOpenApiSchema } from "../http/effect-schema"
 import { routeErrors, directoryQuerySchema, ProviderIDParamSchema } from "../http"
-import { proxyToOpenCode } from "../http"
+import { piListProviders, piProviderAuthMethods } from "../pi-backend/provider-actions"
+import { piAuthorizeProviderOAuth, piCompleteProviderOAuth } from "../pi-backend/oauth-actions"
 
 const oauthMethodRequestSchema = z.object({
   method: z.number().int(),
@@ -17,17 +14,20 @@ const oauthCallbackRequestSchema = z.object({
   code: z.string().optional(),
 })
 
-const providerListResponseSchema = toOpenApiSchema(
-  Schema.Struct({
-    all: Schema.Array(OpenCodeProvider.Info),
-    default: Schema.Record(Schema.String, Schema.String),
-    connected: Schema.Array(Schema.String),
-  }),
-)
+const providerListResponseSchema = z.object({
+  all: z.array(z.record(z.string(), z.unknown())),
+  default: z.record(z.string(), z.string()),
+  connected: z.array(z.string()),
+})
 
-const providerAuthResponseSchema = toOpenApiSchema(
-  Schema.Record(Schema.String, Schema.Array(OpenCodeProviderAuth.Method)),
-)
+const providerAuthResponseSchema = z.record(z.string(), z.array(z.record(z.string(), z.unknown())))
+const oauthAuthorizationResponseSchema = z
+  .object({
+    type: z.string().optional(),
+    url: z.string().optional(),
+    code: z.string().optional(),
+  })
+  .optional()
 
 export const ProviderRoutes = new Hono()
   .get(
@@ -37,7 +37,7 @@ export const ProviderRoutes = new Hono()
       summary: "List providers",
       responses: {
         200: {
-          description: "OpenCode provider list payload",
+          description: "Provider list payload",
           content: {
             "application/json": { schema: resolver(providerListResponseSchema) },
           },
@@ -46,11 +46,7 @@ export const ProviderRoutes = new Hono()
       },
     }),
     validator("query", directoryQuerySchema),
-    async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: "/provider",
-        directoryMode: "bootstrap",
-      }),
+    piListProviders,
   )
   .get(
     "/auth",
@@ -59,7 +55,7 @@ export const ProviderRoutes = new Hono()
       summary: "List provider auth methods",
       responses: {
         200: {
-          description: "OpenCode provider auth method payload",
+          description: "Provider auth method payload",
           content: {
             "application/json": { schema: resolver(providerAuthResponseSchema) },
           },
@@ -68,12 +64,7 @@ export const ProviderRoutes = new Hono()
       },
     }),
     validator("query", directoryQuerySchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: "/provider/auth",
-        directoryMode: "bootstrap",
-      })
-    },
+    piProviderAuthMethods,
   )
   .post(
     "/:providerID/oauth/authorize",
@@ -85,9 +76,7 @@ export const ProviderRoutes = new Hono()
           description: "Provider auth initiation payload",
           content: {
             "application/json": {
-              schema: resolver(
-                toOpenApiSchema(Schema.optional(OpenCodeProviderAuth.Authorization)),
-              ),
+              schema: resolver(oauthAuthorizationResponseSchema),
             },
           },
         },
@@ -97,12 +86,7 @@ export const ProviderRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", ProviderIDParamSchema),
     validator("json", oauthMethodRequestSchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: `/provider/${encodeURIComponent(c.req.valid("param").providerID)}/oauth/authorize`,
-        directoryMode: "bootstrap",
-      })
-    },
+    piAuthorizeProviderOAuth,
   )
   .post(
     "/:providerID/oauth/callback",
@@ -122,10 +106,5 @@ export const ProviderRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", ProviderIDParamSchema),
     validator("json", oauthCallbackRequestSchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: `/provider/${encodeURIComponent(c.req.valid("param").providerID)}/oauth/callback`,
-        directoryMode: "bootstrap",
-      })
-    },
+    piCompleteProviderOAuth,
   )

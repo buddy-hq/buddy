@@ -1,16 +1,33 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
-import { Schema } from "effect"
 import z from "zod"
-import { PermissionNext } from "@buddy/opencode-adapter/permission"
-import { toOpenApiSchema } from "../http/effect-schema"
 import {
   booleanJsonResponse,
   routeErrors,
   directoryQuerySchema,
   RequestIDParamSchema,
+  withDirectoryRoute,
 } from "../http"
-import { proxyToOpenCode } from "../http"
+import {
+  listPendingPermissionRequests,
+  replyPendingPermissionRequest,
+} from "../pi-backend/ui-requests"
+
+const permissionRequestSchema = z.object({
+  id: z.string(),
+  sessionID: z.string(),
+  permission: z.string(),
+  patterns: z.array(z.string()),
+  metadata: z.record(z.string(), z.unknown()),
+  always: z.array(z.string()),
+  tool: z
+    .object({
+      messageID: z.string(),
+      callID: z.string(),
+    })
+    .nullable()
+    .optional(),
+})
 
 const permissionReplyRequestSchema = z.object({
   reply: z.enum(["once", "always", "reject"]),
@@ -28,7 +45,7 @@ export const PermissionRoutes = new Hono()
           description: "Pending permission requests",
           content: {
             "application/json": {
-              schema: resolver(toOpenApiSchema(Schema.Array(PermissionNext.Request))),
+              schema: resolver(z.array(permissionRequestSchema)),
             },
           },
         },
@@ -36,11 +53,10 @@ export const PermissionRoutes = new Hono()
       },
     }),
     validator("query", directoryQuerySchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: "/permission",
-      })
-    },
+    async (c) =>
+      withDirectoryRoute(c, async (context) =>
+        c.json(listPendingPermissionRequests(context.directory)),
+      ),
   )
   .post(
     "/:requestID/reply",
@@ -54,15 +70,23 @@ export const PermissionRoutes = new Hono()
             "application/json": booleanJsonResponse,
           },
         },
-        ...routeErrors(400, 403),
+        ...routeErrors(400, 403, 404),
       },
     }),
     validator("query", directoryQuerySchema),
     validator("param", RequestIDParamSchema),
     validator("json", permissionReplyRequestSchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: `/permission/${encodeURIComponent(c.req.valid("param").requestID)}/reply`,
-      })
-    },
+    async (c) =>
+      withDirectoryRoute(c, async (context) => {
+        const ok = replyPendingPermissionRequest(
+          context.directory,
+          c.req.valid("param").requestID,
+          c.req.valid("json").reply,
+          c.req.valid("json").message,
+        )
+        if (!ok) {
+          return c.json({ error: "Permission request not found" }, 404)
+        }
+        return c.json(true)
+      }),
   )

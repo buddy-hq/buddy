@@ -2,28 +2,23 @@ import fs from "node:fs"
 import path from "node:path"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
-import { Schema } from "effect"
 import z from "zod"
-import { Command as OpenCodeCommand } from "@buddy/opencode-adapter/command"
-import { File as OpenCodeFile } from "@buddy/opencode-adapter/file"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { toOpenApiSchema } from "../http/effect-schema"
 import {
   routeErrors,
   directoryForbiddenResponse,
   directoryQuerySchema,
   resolveDirectoryRequestContext,
   runRouteTask,
-  withConfigSync,
   withDirectoryRoute,
 } from "../http"
-import { proxyToOpenCode } from "../http"
+import { piEventStream } from "../pi-backend/event-bus"
 import {
   mapProjectTextFileEditorError,
   readProjectTextFile,
   saveProjectTextFile,
 } from "../project/project-file-editor-service"
 import { resolvePresentedMediaItem } from "../learning/features/media-presentations/service/file-media"
+import { listPiCommands } from "../pi-backend/commands"
 
 const findFileQuerySchema = z.object({
   query: z.string(),
@@ -67,6 +62,29 @@ const fileEditResponseSchema = z.object({
   version: z.string().nullable(),
 })
 
+const fileNodeSchema = z.object({
+  name: z.string(),
+  path: z.string(),
+  absolute: z.string(),
+  type: z.enum(["file", "directory"]),
+  ignored: z.boolean(),
+})
+
+const fileContentResponseSchema = z.object({
+  type: z.enum(["text", "binary"]),
+  content: z.string(),
+  diff: z.string().nullable().optional(),
+  patch: z.unknown().nullable().optional(),
+  encoding: z.literal("base64").nullable().optional(),
+  mimeType: z.string().nullable().optional(),
+})
+
+const commandInfoSchema = z.object({
+  name: z.string(),
+  description: z.string().nullable().optional(),
+  agent: z.string().nullable().optional(),
+})
+
 const healthResponseSchema = z.object({
   healthy: z.literal(true),
   version: z.string(),
@@ -74,13 +92,148 @@ const healthResponseSchema = z.object({
 
 const FILE_NOT_FOUND_ERROR = "File not found"
 const FILE_ESCAPE_ERROR = "Access denied: path escapes project directory"
+const FILE_READ_ERROR = "Unable to read file"
 const DEFAULT_BINARY_MIME_TYPE = "application/octet-stream"
+const TEXT_DECODER_FATAL = true
 const CONTENT_LENGTH_HEADER = "content-length"
 const CONTENT_TYPE_HEADER = "content-type"
 const INLINE_CONTENT_DISPOSITION_PREFIX = "inline; filename*=UTF-8''"
+const PI_HEALTH_VERSION = "pi"
+const PROJECT_FILE_IGNORED = false
+const FIND_SKIP_DIRECTORIES = new Set([".git", "node_modules", ".turbo", "dist"])
 
 function resolveProjectFilePath(directory: string, relativePath: string) {
   return path.resolve(directory, relativePath)
+}
+
+function relativeProjectPath(directory: string, absolutePath: string) {
+  const relative = path.relative(directory, absolutePath)
+  return relative || "."
+}
+
+function containsProjectPath(directory: string, filepath: string) {
+  const realDirectory = fs.realpathSync.native(directory)
+  const relative = path.relative(realDirectory, filepath)
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
+}
+
+function readContainedProjectFileRecord(directory: string, requestedPath: string) {
+  const absolutePath = resolveProjectFilePath(directory, requestedPath)
+  const fileRecord = readProjectFileRecord(absolutePath)
+  if (!fileRecord.ok) return fileRecord
+  if (!containsProjectPath(directory, fileRecord.filepath)) {
+    return {
+      ok: false as const,
+      response: Response.json({ error: FILE_ESCAPE_ERROR }, { status: 403 }),
+    }
+  }
+  return fileRecord
+}
+
+function fileNode(directory: string, absolutePath: string, stats: fs.Stats) {
+  return {
+    name: path.basename(absolutePath),
+    path: relativeProjectPath(directory, absolutePath),
+    absolute: absolutePath,
+    type: stats.isDirectory() ? ("directory" as const) : ("file" as const),
+    ignored: PROJECT_FILE_IGNORED,
+  }
+}
+
+function listProjectDirectory(directory: string, requestedPath: string) {
+  const absolutePath = resolveProjectFilePath(directory, requestedPath)
+  if (!containsProjectPath(directory, absolutePath)) {
+    return Response.json({ error: FILE_ESCAPE_ERROR }, { status: 403 })
+  }
+
+  const stats = fs.statSync(absolutePath)
+  if (!stats.isDirectory()) {
+    return Response.json({ error: FILE_NOT_FOUND_ERROR }, { status: 404 })
+  }
+
+  const entries = fs.readdirSync(absolutePath, { withFileTypes: true })
+  return Response.json(
+    entries
+      .map((entry) => {
+        const entryPath = path.join(absolutePath, entry.name)
+        return fileNode(directory, entryPath, fs.statSync(entryPath))
+      })
+      .toSorted((left, right) => {
+        if (left.type !== right.type) return left.type === "directory" ? -1 : 1
+        return left.name.localeCompare(right.name)
+      }),
+  )
+}
+
+function isTextBuffer(buffer: Buffer) {
+  try {
+    new TextDecoder("utf-8", { fatal: TEXT_DECODER_FATAL }).decode(buffer)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function readProjectFileContent(directory: string, requestedPath: string) {
+  const fileRecord = readContainedProjectFileRecord(directory, requestedPath)
+  if (!fileRecord.ok) return fileRecord.response
+
+  const buffer = fs.readFileSync(fileRecord.filepath)
+  const mimeType = readProjectFileMimeType(fileRecord.filepath)
+  if (isTextBuffer(buffer)) {
+    return Response.json({
+      type: "text",
+      content: buffer.toString("utf8"),
+      mimeType,
+    })
+  }
+
+  return Response.json({
+    type: "binary",
+    content: buffer.toString("base64"),
+    encoding: "base64",
+    mimeType,
+  })
+}
+
+function shouldSkipFindDirectory(name: string) {
+  return FIND_SKIP_DIRECTORIES.has(name)
+}
+
+function findProjectFiles(input: {
+  directory: string
+  query: string
+  includeDirectories: boolean
+  type?: "file" | "directory"
+  limit: number
+}) {
+  const needle = input.query.trim().toLowerCase()
+  const matches: string[] = []
+
+  function visit(directory: string) {
+    if (matches.length >= input.limit) return
+    const entries = fs.readdirSync(directory, { withFileTypes: true })
+    for (const entry of entries) {
+      if (matches.length >= input.limit) return
+      const entryPath = path.join(directory, entry.name)
+      const isDirectory = entry.isDirectory()
+      if (isDirectory && shouldSkipFindDirectory(entry.name)) continue
+
+      const entryType = isDirectory ? "directory" : "file"
+      const relative = relativeProjectPath(input.directory, entryPath)
+      const typeMatches = input.type
+        ? entryType === input.type
+        : input.includeDirectories || entryType === "file"
+      if (typeMatches && relative.toLowerCase().includes(needle)) {
+        matches.push(relative)
+      }
+
+      if (isDirectory) visit(entryPath)
+    }
+  }
+
+  visit(input.directory)
+  return matches
 }
 
 function buildInlineContentDisposition(filename: string) {
@@ -142,10 +295,7 @@ export const CompatibilityRoutes = new Hono()
       },
     }),
     async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: "/global/health",
-        directoryMode: "none",
-      })
+      return c.json({ healthy: true, version: PI_HEALTH_VERSION })
     },
   )
   .get(
@@ -167,9 +317,9 @@ export const CompatibilityRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: "/global/event",
-      })
+      const directoryContext = resolveDirectoryRequestContext(c)
+      if (!directoryContext.ok) return directoryContext.response
+      return piEventStream(directoryContext.context.directory)
     },
   )
   .get(
@@ -193,15 +343,16 @@ export const CompatibilityRoutes = new Hono()
     async (c) => {
       const directoryContext = resolveDirectoryRequestContext(c)
       if (!directoryContext.ok) return directoryContext.response
-      await OpenCodeInstance.provide({
-        directory: directoryContext.context.directory,
-        fn: async () => {
-          await OpenCodeFile.init()
-        },
-      }).catch(() => undefined)
-      return proxyToOpenCode(c, {
-        targetPath: "/find/file",
-      })
+      const query = c.req.valid("query")
+      return c.json(
+        findProjectFiles({
+          directory: directoryContext.context.directory,
+          query: query.query,
+          includeDirectories: query.dirs === "true",
+          type: query.type,
+          limit: query.limit ?? 20,
+        }),
+      )
     },
   )
   .get(
@@ -214,7 +365,7 @@ export const CompatibilityRoutes = new Hono()
           description: "Project file and directory entries",
           content: {
             "application/json": {
-              schema: resolver(toOpenApiSchema(Schema.Array(OpenCodeFile.Node))),
+              schema: resolver(z.array(fileNodeSchema)),
             },
           },
         },
@@ -225,15 +376,11 @@ export const CompatibilityRoutes = new Hono()
     async (c) => {
       const directoryContext = resolveDirectoryRequestContext(c)
       if (!directoryContext.ok) return directoryContext.response
-      await OpenCodeInstance.provide({
-        directory: directoryContext.context.directory,
-        fn: async () => {
-          await OpenCodeFile.init()
-        },
-      }).catch(() => undefined)
-      return proxyToOpenCode(c, {
-        targetPath: "/file",
-      })
+      try {
+        return listProjectDirectory(directoryContext.context.directory, c.req.valid("query").path)
+      } catch {
+        return Response.json({ error: FILE_NOT_FOUND_ERROR }, { status: 404 })
+      }
     },
   )
   .get(
@@ -246,7 +393,7 @@ export const CompatibilityRoutes = new Hono()
           description: "Project file content payload",
           content: {
             "application/json": {
-              schema: resolver(toOpenApiSchema(OpenCodeFile.Content)),
+              schema: resolver(fileContentResponseSchema),
             },
           },
         },
@@ -257,15 +404,11 @@ export const CompatibilityRoutes = new Hono()
     async (c) => {
       const directoryContext = resolveDirectoryRequestContext(c)
       if (!directoryContext.ok) return directoryContext.response
-      await OpenCodeInstance.provide({
-        directory: directoryContext.context.directory,
-        fn: async () => {
-          await OpenCodeFile.init()
-        },
-      }).catch(() => undefined)
-      return proxyToOpenCode(c, {
-        targetPath: "/file/content",
-      })
+      try {
+        return readProjectFileContent(directoryContext.context.directory, c.req.valid("query").path)
+      } catch {
+        return Response.json({ error: FILE_READ_ERROR }, { status: 500 })
+      }
     },
   )
   .get(
@@ -291,29 +434,20 @@ export const CompatibilityRoutes = new Hono()
       const directoryContext = resolveDirectoryRequestContext(c)
       if (!directoryContext.ok) return directoryContext.response
 
-      return OpenCodeInstance.provide({
-        directory: directoryContext.context.directory,
-        fn: async () => {
-          const requestedPath = c.req.valid("query").path
-          const absolutePath = resolveProjectFilePath(
-            directoryContext.context.directory,
-            requestedPath,
-          )
-          const fileRecord = readProjectFileRecord(absolutePath)
-          if (!fileRecord.ok) return fileRecord.response
-          if (!OpenCodeInstance.containsPath(fileRecord.filepath)) {
-            return Response.json({ error: FILE_ESCAPE_ERROR }, { status: 403 })
-          }
+      const requestedPath = c.req.valid("query").path
+      const fileRecord = readContainedProjectFileRecord(
+        directoryContext.context.directory,
+        requestedPath,
+      )
+      if (!fileRecord.ok) return fileRecord.response
 
-          const downloadName = path.basename(requestedPath) || c.req.valid("param").fileName
-          return new Response(Bun.file(fileRecord.filepath), {
-            headers: buildRawProjectFileHeaders({
-              downloadName,
-              filepath: fileRecord.filepath,
-              size: fileRecord.size,
-            }),
-          })
-        },
+      const downloadName = path.basename(requestedPath) || c.req.valid("param").fileName
+      return new Response(Bun.file(fileRecord.filepath), {
+        headers: buildRawProjectFileHeaders({
+          downloadName,
+          filepath: fileRecord.filepath,
+          size: fileRecord.size,
+        }),
       })
     },
   )
@@ -326,29 +460,20 @@ export const CompatibilityRoutes = new Hono()
       const directoryContext = resolveDirectoryRequestContext(c)
       if (!directoryContext.ok) return directoryContext.response
 
-      return OpenCodeInstance.provide({
-        directory: directoryContext.context.directory,
-        fn: async () => {
-          const requestedPath = c.req.valid("query").path
-          const absolutePath = resolveProjectFilePath(
-            directoryContext.context.directory,
-            requestedPath,
-          )
-          const fileRecord = readProjectFileRecord(absolutePath)
-          if (!fileRecord.ok) return fileRecord.response
-          if (!OpenCodeInstance.containsPath(fileRecord.filepath)) {
-            return Response.json({ error: FILE_ESCAPE_ERROR }, { status: 403 })
-          }
+      const requestedPath = c.req.valid("query").path
+      const fileRecord = readContainedProjectFileRecord(
+        directoryContext.context.directory,
+        requestedPath,
+      )
+      if (!fileRecord.ok) return fileRecord.response
 
-          const downloadName = path.basename(requestedPath) || c.req.valid("param").fileName
-          return new Response(null, {
-            headers: buildRawProjectFileHeaders({
-              downloadName,
-              filepath: fileRecord.filepath,
-              size: fileRecord.size,
-            }),
-          })
-        },
+      const downloadName = path.basename(requestedPath) || c.req.valid("param").fileName
+      return new Response(null, {
+        headers: buildRawProjectFileHeaders({
+          downloadName,
+          filepath: fileRecord.filepath,
+          size: fileRecord.size,
+        }),
       })
     },
   )
@@ -511,7 +636,7 @@ export const CompatibilityRoutes = new Hono()
           description: "Project command metadata",
           content: {
             "application/json": {
-              schema: resolver(toOpenApiSchema(Schema.Array(OpenCodeCommand.Info))),
+              schema: resolver(z.array(commandInfoSchema)),
             },
           },
         },
@@ -520,13 +645,8 @@ export const CompatibilityRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     async (c) => {
-      const syncResult = await withConfigSync(c, {
-        operation: "listing commands",
-      })
-      if (!syncResult.ok) return syncResult.response
-
-      return proxyToOpenCode(c, {
-        targetPath: "/command",
-      })
+      const directoryContext = resolveDirectoryRequestContext(c)
+      if (!directoryContext.ok) return directoryContext.response
+      return c.json(await listPiCommands(directoryContext.context.directory))
     },
   )

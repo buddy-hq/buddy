@@ -1,13 +1,7 @@
 import type { Context } from "hono"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
-import { SessionID } from "@buddy/opencode-adapter/id"
-import { fetchOpenCode, normalizeErrorResponse, withConfigSync } from "../../http"
+import { withConfigSync } from "../../http"
 import { createSessionCommandTransform } from "../../learning/agent-execution/transforms/command-transform"
 import { createSessionMessageTransform } from "../../learning/agent-execution/transforms/message-transform"
-import { flattenPromptPartsForRuntime } from "../../learning/prompt/workspace-file-references"
-import type { SessionTransformContext } from "../../learning/agent-execution/transforms/types"
-import { resolveFeatureRegistrationFlags } from "../../learning/runtime/tool-registration-policy"
 import {
   createMermaidRepairRequest,
   isMermaidRepairExpired,
@@ -19,13 +13,21 @@ import {
   updateMermaidV2AutoRepairState,
 } from "../../learning/features/diagrams/service/v2-store"
 import { mapMermaidArtifactRouteError } from "../../learning/features/diagrams/errors"
-import { assertSessionExistsInDirectory } from "./lookup"
-import { mapSessionTransformError, runSessionTransformProxy } from "./proxy-transform"
+import type { SessionTransformContext } from "../../learning/agent-execution/transforms/types"
+import { flattenPromptPartsForRuntime } from "../../learning/prompt/workspace-file-references"
+import {
+  piPromptAsyncResponse,
+  piPromptResponse,
+} from "../../pi-backend/actions"
+import { piRuntime, readPiCommandPromptRequest, readPiPromptRequest } from "../../pi-backend/runtime"
+import { mapSessionTransformError } from "./proxy-transform"
 import type {
   MermaidArtifactReadResult,
   MermaidAutoRepairState,
 } from "../../learning/features/diagrams/service/v2-types"
 
+const INVALID_JSON_BODY_ERROR = "Invalid JSON body"
+const MISSING_PROMPT_CONTENT_ERROR = "content or parts must be provided"
 const MERMAID_AUTO_REPAIR_TIMEOUT_MESSAGE =
   "Automatic Mermaid repair timed out before a replacement diagram was created."
 
@@ -33,69 +35,47 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
 
-type JsonValidatorRequest = {
-  valid: (target: "json") => unknown
+function isJsonValidatorRequest(value: unknown): value is {
+  valid: (...args: unknown[]) => unknown
+} {
+  return isRecord(value) && typeof value.valid === "function"
 }
 
-function validatedJsonBody(c: Context): unknown {
-  const request = c.req as unknown as JsonValidatorRequest
-  return request.valid("json")
+function validatedJsonRecord(c: Context): Record<string, unknown> | undefined {
+  if (!isJsonValidatorRequest(c.req)) return undefined
+  const body = Reflect.apply(c.req.valid, c.req, ["json"])
+  return isRecord(body) ? body : undefined
 }
 
-function buildPromptAsyncQuery(request: Request, directory: string): string {
-  const params = new URL(request.url).searchParams
-  if (params.has("directory")) {
-    params.set("directory", directory)
+function runtimeSafePromptBody(body: Record<string, unknown>) {
+  if (!Array.isArray(body.parts)) return body
+  return {
+    ...body,
+    parts: flattenPromptPartsForRuntime(body.parts),
   }
-  const query = params.toString()
-  return query ? `?${query}` : ""
 }
 
-async function queueSessionPromptAsync(input: {
-  directory: string
-  sessionID: string
-  request: Request
-  body: Record<string, unknown>
-}): Promise<Response> {
-  const transformContext: SessionTransformContext = {
-    directory: input.directory,
-    sessionID: input.sessionID,
-    request: input.request,
+async function acceptedPromptResponse(input: {
+  response: Response
+  rollbackState?: () => void
+  onAccepted?: () => Promise<void>
+}) {
+  if (!input.response.ok) {
+    input.rollbackState?.()
+    return input.response
   }
-  const promptTransform = createSessionMessageTransform({
-    context: transformContext,
+
+  await input.onAccepted?.().catch((error) => {
+    console.warn("Failed to record learner evidence after accepted prompt:", error)
   })
+  return input.response
+}
 
-  try {
-    const transformed = await promptTransform.onTransform(input.body)
-    const runtimeSafeBody = Array.isArray(transformed.parts)
-      ? {
-          ...transformed,
-          parts: flattenPromptPartsForRuntime(transformed.parts),
-        }
-      : transformed
-    const response = await fetchOpenCode({
-      directory: input.directory,
-      method: "POST",
-      path: `/session/${encodeURIComponent(input.sessionID)}/prompt_async`,
-      query: buildPromptAsyncQuery(input.request, input.directory),
-      headers: new Headers(input.request.headers),
-      body: JSON.stringify(runtimeSafeBody),
-      toolRegistrations: resolveFeatureRegistrationFlags(),
-    }).then((result) => normalizeErrorResponse(result, true))
-
-    if (!response.ok) {
-      promptTransform.rollbackState?.()
-      return response
-    }
-
-    await promptTransform.onAccepted?.().catch((error) => {
-      console.warn("Failed to record learner evidence after accepted prompt:", error)
-    })
-    return response
-  } catch (error) {
-    promptTransform.rollbackState?.()
-    throw error
+function transformContext(c: Context, directory: string): SessionTransformContext {
+  return {
+    directory,
+    sessionID: c.req.param("sessionID"),
+    request: c.req.raw,
   }
 }
 
@@ -110,10 +90,12 @@ async function responseErrorMessage(response: Response): Promise<string> {
       return payload.error
     }
   }
+
   const text = (await response.clone().text()).trim()
   if (text.length > 0) {
     return text
   }
+
   return response.statusText || `Request failed (${response.status})`
 }
 
@@ -207,26 +189,54 @@ async function resolveMermaidRepairPromptRuntime(input: {
   artifact: MermaidArtifactReadResult
   directory: string
 }): Promise<MermaidRepairPromptRuntime | undefined> {
-  return OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => {
-      const messages = await OpenCodeSession.messages({
-        sessionID: SessionID.make(input.artifact.origin.sessionID),
-      })
-      const message = messages.find((entry) => entry.info.id === input.artifact.origin.messageID)
-      if (!message || message.info.role !== "assistant") {
-        return undefined
-      }
-      return {
-        agent: message.info.agent,
-        model: {
-          providerID: message.info.providerID,
-          modelID: message.info.modelID,
-        },
-        ...(message.info.variant ? { variant: message.info.variant } : {}),
-      }
+  const messages = await piRuntime.listMessages(input.directory, input.artifact.origin.sessionID)
+  const message = messages.find((entry) => entry.info.id === input.artifact.origin.messageID)
+  if (!message || message.info.role !== "assistant") {
+    return undefined
+  }
+
+  return {
+    agent: message.info.agent,
+    model: {
+      providerID: message.info.providerID,
+      modelID: message.info.modelID,
+    },
+    ...(message.info.variant ? { variant: message.info.variant } : {}),
+  }
+}
+
+export async function queueSessionPromptAsync(input: {
+  directory: string
+  sessionID: string
+  request: Request
+  body: Record<string, unknown>
+}): Promise<Response> {
+  const promptTransform = createSessionMessageTransform({
+    context: {
+      directory: input.directory,
+      sessionID: input.sessionID,
+      request: input.request,
     },
   })
+
+  try {
+    const transformed = await promptTransform.onTransform(input.body)
+    const request = readPiPromptRequest(runtimeSafePromptBody(transformed))
+    if (!request) {
+      promptTransform.rollbackState?.()
+      return Response.json({ error: MISSING_PROMPT_CONTENT_ERROR }, { status: 400 })
+    }
+
+    const response = await piPromptAsyncResponse(input.directory, input.sessionID, request)
+    return acceptedPromptResponse({
+      response,
+      rollbackState: promptTransform.rollbackState,
+      onAccepted: promptTransform.onAccepted,
+    })
+  } catch (error) {
+    promptTransform.rollbackState?.()
+    throw error
+  }
 }
 
 export async function postSessionPrompt(c: Context): Promise<Response> {
@@ -235,32 +245,29 @@ export async function postSessionPrompt(c: Context): Promise<Response> {
   })
   if (!syncResult.ok) return syncResult.response
 
+  const body = validatedJsonRecord(c)
+  if (!body) return Response.json({ error: INVALID_JSON_BODY_ERROR }, { status: 400 })
+
   const sessionID = c.req.param("sessionID")
-  const transformContext: SessionTransformContext = {
-    directory: syncResult.value.directory,
-    sessionID,
-    request: c.req.raw,
-  }
   const promptTransform = createSessionMessageTransform({
-    context: transformContext,
+    context: transformContext(c, syncResult.value.directory),
   })
 
   try {
-    return await runSessionTransformProxy({
-      c,
-      targetPath: `/session/${encodeURIComponent(sessionID)}/message`,
-      onAccepted: promptTransform.onAccepted,
+    const transformed = await promptTransform.onTransform(body)
+    const request = readPiPromptRequest(runtimeSafePromptBody(transformed))
+    if (!request) return Response.json({ error: MISSING_PROMPT_CONTENT_ERROR }, { status: 400 })
+
+    const response = await piPromptResponse(c, syncResult.value.directory, sessionID, request)
+    return acceptedPromptResponse({
+      response,
       rollbackState: promptTransform.rollbackState,
-      onTransform: promptTransform.onTransform,
-      beforeProxy: () =>
-        assertSessionExistsInDirectory({
-          directory: syncResult.value.directory,
-          sessionID,
-          request: c.req.raw,
-        }),
+      onAccepted: promptTransform.onAccepted,
     })
   } catch (error) {
     promptTransform.rollbackState?.()
+    const piResponse = piRuntime.mapRouteError(error)
+    if (piResponse) return piResponse
     const response = mapSessionTransformError(c, error)
     if (response) return response
     throw error
@@ -273,22 +280,29 @@ export async function postSessionPromptAsync(c: Context): Promise<Response> {
   })
   if (!syncResult.ok) return syncResult.response
 
+  const body = validatedJsonRecord(c)
+  if (!body) return Response.json({ error: INVALID_JSON_BODY_ERROR }, { status: 400 })
+
   const sessionID = c.req.param("sessionID")
+  const promptTransform = createSessionMessageTransform({
+    context: transformContext(c, syncResult.value.directory),
+  })
+
   try {
-    await assertSessionExistsInDirectory({
-      directory: syncResult.value.directory,
-      sessionID,
-      request: c.req.raw,
-    })
-    return await queueSessionPromptAsync({
-      directory: syncResult.value.directory,
-      sessionID,
-      request: c.req.raw,
-      body: validatedJsonBody(c) as Record<string, unknown>,
+    const transformed = await promptTransform.onTransform(body)
+    const request = readPiPromptRequest(runtimeSafePromptBody(transformed))
+    if (!request) return Response.json({ error: MISSING_PROMPT_CONTENT_ERROR }, { status: 400 })
+
+    const response = await piPromptAsyncResponse(syncResult.value.directory, sessionID, request)
+    return acceptedPromptResponse({
+      response,
+      rollbackState: promptTransform.rollbackState,
+      onAccepted: promptTransform.onAccepted,
     })
   } catch (error) {
-    const mermaidResponse = mapMermaidArtifactRouteError(error)
-    if (mermaidResponse) return mermaidResponse
+    promptTransform.rollbackState?.()
+    const piResponse = piRuntime.mapRouteError(error)
+    if (piResponse) return piResponse
     const response = mapSessionTransformError(c, error)
     if (response) return response
     throw error
@@ -301,31 +315,31 @@ export async function postSessionCommand(c: Context): Promise<Response> {
   })
   if (!syncResult.ok) return syncResult.response
 
+  const body = validatedJsonRecord(c)
+  if (!body) return Response.json({ error: INVALID_JSON_BODY_ERROR }, { status: 400 })
+
   const sessionID = c.req.param("sessionID")
-  const transformContext: SessionTransformContext = {
-    directory: syncResult.value.directory,
-    sessionID,
-    request: c.req.raw,
-  }
   const commandTransform = createSessionCommandTransform({
-    context: transformContext,
+    context: transformContext(c, syncResult.value.directory),
   })
 
   try {
-    return await runSessionTransformProxy({
-      c,
-      targetPath: `/session/${encodeURIComponent(sessionID)}/command`,
-      rollbackState: commandTransform.rollbackState,
-      onTransform: commandTransform.onTransform,
-      beforeProxy: () =>
-        assertSessionExistsInDirectory({
-          directory: syncResult.value.directory,
-          sessionID,
-          request: c.req.raw,
-        }),
-    })
+    const transformed = await commandTransform.onTransform(body)
+    const request = readPiCommandPromptRequest(transformed)
+    if (!request) {
+      commandTransform.rollbackState?.()
+      return Response.json({ error: INVALID_JSON_BODY_ERROR }, { status: 400 })
+    }
+
+    const response = await piPromptResponse(c, syncResult.value.directory, sessionID, request)
+    if (!response.ok) {
+      commandTransform.rollbackState?.()
+    }
+    return response
   } catch (error) {
     commandTransform.rollbackState?.()
+    const piResponse = piRuntime.mapRouteError(error)
+    if (piResponse) return piResponse
     const response = mapSessionTransformError(c, error)
     if (response) return response
     throw error
@@ -339,9 +353,9 @@ export async function postSessionMermaidRepairAsync(c: Context): Promise<Respons
   if (!syncResult.ok) return syncResult.response
 
   const sessionID = c.req.param("sessionID")
-  const body = validatedJsonBody(c)
-  if (!isRecord(body)) {
-    return Response.json({ error: "Invalid JSON body" }, { status: 400 })
+  const body = validatedJsonRecord(c)
+  if (!body) {
+    return Response.json({ error: INVALID_JSON_BODY_ERROR }, { status: 400 })
   }
 
   const artifactID = typeof body.artifactID === "string" ? body.artifactID : undefined
@@ -352,12 +366,6 @@ export async function postSessionMermaidRepairAsync(c: Context): Promise<Respons
   }
 
   try {
-    await assertSessionExistsInDirectory({
-      directory: syncResult.value.directory,
-      sessionID,
-      request: c.req.raw,
-    })
-
     const artifact = await readMermaidV2Artifact(syncResult.value.directory, artifactID)
     if (artifact.origin.sessionID !== sessionID) {
       return Response.json(
@@ -365,6 +373,7 @@ export async function postSessionMermaidRepairAsync(c: Context): Promise<Respons
         { status: 404 },
       )
     }
+
     const failedRender = await readMermaidV2RenderRecord(
       syncResult.value.directory,
       artifact.artifactID,
@@ -449,12 +458,12 @@ export async function postSessionMermaidRepairAsync(c: Context): Promise<Respons
     }
 
     if (!response.ok) {
-      const errorMessage = await responseErrorMessage(response)
+      const message = await responseErrorMessage(response)
       return exhaustMermaidRepairAttempt({
         directory: syncResult.value.directory,
         artifactID: artifact.artifactID,
         repairRequestID: request.repairRequestID,
-        errorMessage,
+        errorMessage: message,
       })
     }
 
@@ -481,12 +490,6 @@ export async function getSessionMermaidRepairStatus(c: Context): Promise<Respons
   const repairRequestID = c.req.param("repairRequestID")
 
   try {
-    await assertSessionExistsInDirectory({
-      directory: syncResult.value.directory,
-      sessionID,
-      request: c.req.raw,
-    })
-
     const request = await readMermaidRepairRequest(syncResult.value.directory, repairRequestID)
     if (request.sessionID !== sessionID) {
       return Response.json({ error: "Mermaid repair request was not found." }, { status: 404 })
@@ -524,5 +527,3 @@ export async function getSessionMermaidRepairStatus(c: Context): Promise<Respons
     throw error
   }
 }
-
-export { queueSessionPromptAsync }

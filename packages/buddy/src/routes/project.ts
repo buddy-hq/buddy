@@ -1,13 +1,14 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
-import { Schema } from "effect"
-import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
-import { toOpenApiSchema } from "../http/effect-schema"
-import { routeErrors, directoryQuerySchema, ProjectIDParamSchema } from "../http"
-import { proxyToOpenCode } from "../http"
+import {
+  routeErrors,
+  directoryQuerySchema,
+  ProjectIDParamSchema,
+  withDirectoryRoute,
+} from "../http"
 import { updateProjectFromPayload } from "../project"
-
-const projectUpdateBodySchema = toOpenApiSchema(OpenCodeProject.UpdatePayload)
+import { BuddyProjectInfoSchema, BuddyProjectUpdateSchema } from "../project/project-contract"
+import { upsertProjectInfoForDirectory, listProjectInfos } from "../project/project-info"
 
 export const ProjectRoutes = new Hono()
   .get(
@@ -17,16 +18,16 @@ export const ProjectRoutes = new Hono()
       summary: "List projects",
       responses: {
         200: {
-          description: "OpenCode project list",
+          description: "Project list",
           content: {
             "application/json": {
-              schema: resolver(toOpenApiSchema(Schema.Array(OpenCodeProject.Info))),
+              schema: resolver(BuddyProjectInfoSchema.array()),
             },
           },
         },
       },
     }),
-    (c) => c.json(OpenCodeProject.list()),
+    async (c) => c.json(await listProjectInfos()),
   )
   .get(
     "/current",
@@ -37,7 +38,7 @@ export const ProjectRoutes = new Hono()
         200: {
           description: "Current project",
           content: {
-            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeProject.Info)) },
+            "application/json": { schema: resolver(BuddyProjectInfoSchema) },
           },
         },
         ...routeErrors(403),
@@ -45,9 +46,9 @@ export const ProjectRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: "/project/current",
-      }),
+      withDirectoryRoute(c, async (context) =>
+        c.json(await upsertProjectInfoForDirectory(context.directory)),
+      ),
   )
   .patch(
     "/:projectID",
@@ -58,14 +59,14 @@ export const ProjectRoutes = new Hono()
         200: {
           description: "Updated project",
           content: {
-            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeProject.Info)) },
+            "application/json": { schema: resolver(BuddyProjectInfoSchema) },
           },
         },
         ...routeErrors(400, 404),
       },
     }),
     validator("param", ProjectIDParamSchema),
-    validator("json", projectUpdateBodySchema),
+    validator("json", BuddyProjectUpdateSchema),
     async (c) => {
       const updateResult = await updateProjectFromPayload({
         projectID: c.req.valid("param").projectID,

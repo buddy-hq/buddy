@@ -1,4 +1,3 @@
-import "./opencode-runtime/env.js"
 import path from "node:path"
 import { Hono } from "hono"
 import { openAPIRouteHandler } from "hono-openapi"
@@ -157,7 +156,7 @@ const generatedOpenApiHandler = openAPIRouteHandler(app, {
     info: {
       title: "Buddy API",
       version: "1.0.0",
-      description: "Buddy compatibility API over vendored OpenCode core.",
+      description: "Buddy local PI-backed agent API.",
     },
     openapi: "3.1.1",
   },
@@ -267,4 +266,3 @@ if (import.meta.main || isCompiledSidecarProcess()) {
 }
 
 export { app }
-export { buildOpenCodeConfigOverlay } from "@buddy/backend/config/runtime"

@@ -7,7 +7,12 @@ import {
   directoryQuerySchema,
   RequestIDParamSchema,
 } from "../http"
-import { proxyToOpenCode } from "../http"
+import { withDirectoryRoute } from "../http"
+import {
+  listPendingQuestionRequests,
+  rejectPendingQuestionRequest,
+  replyPendingQuestionRequest,
+} from "../pi-backend/ui-requests"
 
 const questionOptionSchema = z.object({
   label: z.string(),
@@ -57,11 +62,10 @@ export const QuestionRoutes = new Hono()
       },
     }),
     validator("query", directoryQuerySchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: "/question",
-      })
-    },
+    async (c) =>
+      withDirectoryRoute(c, async (context) =>
+        c.json(listPendingQuestionRequests(context.directory)),
+      ),
   )
   .post(
     "/:requestID/reply",
@@ -75,17 +79,24 @@ export const QuestionRoutes = new Hono()
             "application/json": booleanJsonResponse,
           },
         },
-        ...routeErrors(400, 403),
+        ...routeErrors(400, 403, 404),
       },
     }),
     validator("query", directoryQuerySchema),
     validator("param", RequestIDParamSchema),
     validator("json", questionReplyRequestSchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: `/question/${encodeURIComponent(c.req.valid("param").requestID)}/reply`,
-      })
-    },
+    async (c) =>
+      withDirectoryRoute(c, async (context) => {
+        const ok = replyPendingQuestionRequest(
+          context.directory,
+          c.req.valid("param").requestID,
+          c.req.valid("json").answers,
+        )
+        if (!ok) {
+          return c.json({ error: "Question request not found" }, 404)
+        }
+        return c.json(true)
+      }),
   )
   .post(
     "/:requestID/reject",
@@ -99,14 +110,17 @@ export const QuestionRoutes = new Hono()
             "application/json": booleanJsonResponse,
           },
         },
-        ...routeErrors(400, 403),
+        ...routeErrors(400, 403, 404),
       },
     }),
     validator("query", directoryQuerySchema),
     validator("param", RequestIDParamSchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: `/question/${encodeURIComponent(c.req.valid("param").requestID)}/reject`,
-      })
-    },
+    async (c) =>
+      withDirectoryRoute(c, async (context) => {
+        const ok = rejectPendingQuestionRequest(context.directory, c.req.valid("param").requestID)
+        if (!ok) {
+          return c.json({ error: "Question request not found" }, 404)
+        }
+        return c.json(true)
+      }),
   )

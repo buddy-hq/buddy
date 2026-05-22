@@ -107,9 +107,7 @@ function readSourceHeader(source: DirectoryRequestSource, name: string): string 
 function readRawDirectory(source: DirectoryRequestSource) {
   const requestURL = readSourceURL(source)
   const rawDirectory =
-    requestURL.searchParams.get("directory") ??
-    readSourceHeader(source, "x-buddy-directory") ??
-    readSourceHeader(source, "x-opencode-directory")
+    requestURL.searchParams.get("directory") ?? readSourceHeader(source, "x-buddy-directory")
 
   return {
     requestURL,

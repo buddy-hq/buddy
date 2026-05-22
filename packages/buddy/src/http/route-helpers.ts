@@ -1,8 +1,5 @@
-import {
-  configErrorMessage,
-  isConfigValidationError,
-  syncOpenCodeProjectConfig,
-} from "@buddy/backend/config/runtime"
+import { configErrorMessage, isConfigValidationError } from "../config/runtime/config-access"
+import { syncOpenCodeProjectConfig } from "../config/runtime/opencode-sync"
 import type { Context } from "hono"
 import type { DirectoryRequestContext, DirectoryRequestSource } from "./directory"
 import { resolveDirectoryRequestContext } from "./directory"

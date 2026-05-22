@@ -3,7 +3,7 @@ import { describeRoute, resolver, validator } from "hono-openapi"
 import fs from "node:fs/promises"
 import path from "node:path"
 import z from "zod"
-import { readProjectConfig } from "../config/runtime"
+import { readProjectConfig } from "../config/runtime/config-access"
 import { directoryQuerySchema, routeErrors, withDirectoryRoute } from "../http"
 import {
   EvaluationReportSchema,

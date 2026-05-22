@@ -8,8 +8,8 @@ import {
   readGlobalAgentsMd,
   saveGlobalAgentsMd,
 } from "../agents-md/service"
+import { piRuntime } from "../pi-backend/runtime"
 import { booleanJsonResponse, routeErrors, runRouteTask } from "../http"
-import { proxyToOpenCode } from "../http"
 import {
   listManagedNotebooks,
   mapManagedNotebookError,
@@ -203,9 +203,8 @@ export const GlobalRoutes = new Hono()
       },
     }),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: "/global/dispose",
-        directoryMode: "none",
+      runRouteTask({
+        task: async () => c.json(piRuntime.disposeAll()),
       }),
   )
   .get(

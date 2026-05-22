@@ -1,20 +1,35 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
-import { Schema } from "effect"
 import z from "zod"
-import { MCP as OpenCodeMcp } from "@buddy/opencode-adapter/mcp"
-import { toOpenApiSchema } from "../http/effect-schema"
 import {
   booleanJsonResponse,
   createConfigSyncMiddleware,
   routeErrors,
   directoryQuerySchema,
   McpNameParamSchema,
+  runRouteTask,
+  withDirectoryRoute,
 } from "../http"
-import { proxyToOpenCode } from "../http"
+import {
+  authenticateMcpServer,
+  completeMcpServerAuth,
+  connectMcpServer,
+  disconnectMcpServer,
+  listMcpStatus,
+  refreshMcpStatus,
+  removeMcpServerAuth,
+  startMcpServerAuth,
+} from "../pi-backend/mcp-runtime"
 
-const mcpStatusMapSchema = toOpenApiSchema(Schema.Record(Schema.String, OpenCodeMcp.Status))
-const mcpStatusSchema = toOpenApiSchema(OpenCodeMcp.Status)
+const mcpStatusSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("connected") }),
+  z.object({ status: z.literal("disabled") }),
+  z.object({ status: z.literal("failed"), error: z.string() }),
+  z.object({ status: z.literal("needs_auth") }),
+  z.object({ status: z.literal("needs_client_registration"), error: z.string() }),
+])
+
+const mcpStatusMapSchema = z.record(z.string(), mcpStatusSchema)
 
 const mcpAuthCallbackSchema = z.object({
   code: z.string(),
@@ -46,7 +61,8 @@ export const McpRoutes = new Hono()
       },
     }),
     validator("query", directoryQuerySchema),
-    async (c) => proxyToOpenCode(c, { targetPath: "/mcp" }),
+    async (c) =>
+      withDirectoryRoute(c, async (context) => c.json(await listMcpStatus(context.directory))),
   )
   .post(
     "/",
@@ -64,7 +80,8 @@ export const McpRoutes = new Hono()
       },
     }),
     validator("query", directoryQuerySchema),
-    async (c) => proxyToOpenCode(c, { targetPath: "/mcp" }),
+    async (c) =>
+      withDirectoryRoute(c, async (context) => c.json(await refreshMcpStatus(context.directory))),
   )
   .post(
     "/:name/auth",
@@ -84,9 +101,17 @@ export const McpRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", McpNameParamSchema),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: `/mcp/${encodeURIComponent(c.req.valid("param").name)}/auth`,
-      }),
+      withDirectoryRoute(c, async (context) =>
+        runRouteTask({
+          task: async () =>
+            c.json(await startMcpServerAuth(context.directory, c.req.valid("param").name)),
+          mapError: (error) =>
+            Response.json(
+              { error: error instanceof Error ? error.message : String(error) },
+              { status: 400 },
+            ),
+        }),
+      ),
   )
   .post(
     "/:name/auth/callback",
@@ -107,9 +132,23 @@ export const McpRoutes = new Hono()
     validator("param", McpNameParamSchema),
     validator("json", mcpAuthCallbackSchema),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: `/mcp/${encodeURIComponent(c.req.valid("param").name)}/auth/callback`,
-      }),
+      withDirectoryRoute(c, async (context) =>
+        runRouteTask({
+          task: async () =>
+            c.json(
+              await completeMcpServerAuth(
+                context.directory,
+                c.req.valid("param").name,
+                c.req.valid("json").code,
+              ),
+            ),
+          mapError: (error) =>
+            Response.json(
+              { error: error instanceof Error ? error.message : String(error) },
+              { status: 400 },
+            ),
+        }),
+      ),
   )
   .post(
     "/:name/auth/authenticate",
@@ -129,9 +168,17 @@ export const McpRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", McpNameParamSchema),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: `/mcp/${encodeURIComponent(c.req.valid("param").name)}/auth/authenticate`,
-      }),
+      withDirectoryRoute(c, async (context) =>
+        runRouteTask({
+          task: async () =>
+            c.json(await authenticateMcpServer(context.directory, c.req.valid("param").name)),
+          mapError: (error) =>
+            Response.json(
+              { error: error instanceof Error ? error.message : String(error) },
+              { status: 400 },
+            ),
+        }),
+      ),
   )
   .delete(
     "/:name/auth",
@@ -151,9 +198,17 @@ export const McpRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", McpNameParamSchema),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: `/mcp/${encodeURIComponent(c.req.valid("param").name)}/auth`,
-      }),
+      withDirectoryRoute(c, async (context) =>
+        runRouteTask({
+          task: async () =>
+            c.json(await removeMcpServerAuth(context.directory, c.req.valid("param").name)),
+          mapError: (error) =>
+            Response.json(
+              { error: error instanceof Error ? error.message : String(error) },
+              { status: 400 },
+            ),
+        }),
+      ),
   )
   .post(
     "/:name/connect",
@@ -173,9 +228,17 @@ export const McpRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", McpNameParamSchema),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: `/mcp/${encodeURIComponent(c.req.valid("param").name)}/connect`,
-      }),
+      withDirectoryRoute(c, async (context) =>
+        runRouteTask({
+          task: async () =>
+            c.json(await connectMcpServer(context.directory, c.req.valid("param").name)),
+          mapError: (error) =>
+            Response.json(
+              { error: error instanceof Error ? error.message : String(error) },
+              { status: 400 },
+            ),
+        }),
+      ),
   )
   .post(
     "/:name/disconnect",
@@ -195,7 +258,15 @@ export const McpRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", McpNameParamSchema),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: `/mcp/${encodeURIComponent(c.req.valid("param").name)}/disconnect`,
-      }),
+      withDirectoryRoute(c, async (context) =>
+        runRouteTask({
+          task: async () =>
+            c.json(await disconnectMcpServer(context.directory, c.req.valid("param").name)),
+          mapError: (error) =>
+            Response.json(
+              { error: error instanceof Error ? error.message : String(error) },
+              { status: 400 },
+            ),
+        }),
+      ),
   )
