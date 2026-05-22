@@ -1,9 +1,8 @@
-import type { PermissionAction } from "@buddy/opencode-adapter/permission"
-
 export type SkillSource = "custom" | "library" | "external"
 export type SkillScope = "global" | "workspace"
 export type SkillPermissionSource = "explicit" | "inherited" | "default"
 export type SkillRuleAction = "allow" | "deny"
+export type PermissionAction = SkillRuleAction | "ask"
 
 export type InstalledSkillInfo = {
   name: string
@@ -76,7 +75,7 @@ export type PermissionRule = {
 
 export type PermissionRuleset = PermissionRule[]
 
-export type OpenCodeSkill = {
+export type BuddySkillDocument = {
   name: string
   description: string
   location: string

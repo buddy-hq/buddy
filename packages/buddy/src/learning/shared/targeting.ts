@@ -2,7 +2,7 @@ import {
   mergeBuddyAndConfiguredAgents,
   resolveConfiguredAgentKey,
   type readProjectConfig,
-} from "@buddy/backend/config/runtime"
+} from "../../config/runtime/config-access"
 import {
   isPersona,
   type Persona as BuddyPersona,
@@ -19,7 +19,10 @@ export function hasExplicitModel(value: unknown): value is { providerID: string;
 }
 
 export function hasExplicitCommandModel(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0
+  return (
+    (typeof value === "string" && value.trim().length > 0) ||
+    hasExplicitModel(value)
+  )
 }
 
 export function normalizePersonaTarget(input: {
@@ -28,12 +31,22 @@ export function normalizePersonaTarget(input: {
 }) {
   const rawPersona = typeof input.body.persona === "string" ? input.body.persona.trim() : ""
   const rawAgent = typeof input.body.agent === "string" ? input.body.agent : undefined
+  const mergedAgents = mergeBuddyAndConfiguredAgents(input.config.agent ?? {})
 
   if (rawPersona && rawAgent) {
-    throw new SessionTransformValidationError('Provide either "persona" or "agent", not both')
-  }
+    if (!isPersona(rawPersona)) {
+      throw new SessionTransformValidationError(`Unknown Buddy persona "${rawPersona}"`)
+    }
 
-  const mergedAgents = mergeBuddyAndConfiguredAgents(input.config.agent ?? {})
+    const personaAgent = resolveConfiguredAgentKey(rawPersona, mergedAgents)
+    const explicitAgent = resolveConfiguredAgentKey(rawAgent, mergedAgents)
+
+    if (explicitAgent !== personaAgent) {
+      throw new SessionTransformValidationError(
+        `Mismatched "persona" and "agent": persona "${rawPersona}" resolves to "${personaAgent}" but agent "${rawAgent}" resolves to "${explicitAgent}"`,
+      )
+    }
+  }
 
   if (rawPersona) {
     if (!isPersona(rawPersona)) {

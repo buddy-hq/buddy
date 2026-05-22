@@ -1,6 +1,6 @@
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
-import { readProjectConfig } from "../../../config/runtime"
+import { readProjectConfig } from "../../../config/runtime/config-access"
+import type { BuddySessionInfo } from "../../../pi-backend/types"
+import { piRuntime } from "../../../pi-backend/runtime"
 import { internalLearnerMemorySession } from "./internal-session"
 import { readLearnerMemorySettings } from "./settings"
 import { extractLearnerMemoryFromSession } from "./session-extraction"
@@ -27,7 +27,7 @@ type LearnerMemoryStartupSessionResult = {
 type LearnerMemoryStartupPlan = {
   scanned: number
   startupConcurrency: number
-  eligible: OpenCodeSession.Info[]
+  eligible: BuddySessionInfo[]
   skippedReason?: string
 }
 
@@ -38,7 +38,7 @@ type LearnerMemoryStartupObserver = {
 }
 
 function eligibleSession(input: {
-  session: OpenCodeSession.Info
+  session: BuddySessionInfo
   currentSessionID?: string
   now: number
   minIdleMs: number
@@ -81,11 +81,11 @@ async function runWithConcurrency<T>(
 }
 
 function startupSessionSummary(
-  session: OpenCodeSession.Info,
+  session: BuddySessionInfo,
 ): Omit<LearnerMemoryStartupSessionResult, "extraction" | "error"> {
   return {
     sessionID: session.id,
-    ...(session.title ? { title: session.title } : {}),
+    ...(session.title.trim() ? { title: session.title } : {}),
     updatedAtMs: session.time.updated,
   }
 }
@@ -105,10 +105,7 @@ async function buildLearnerMemoryStartupPlan(input: {
     }
   }
 
-  const sessions = await OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => OpenCodeSession.list({ directory: input.directory }),
-  })
+  const sessions = await piRuntime.listSessions(input.directory)
   const now = Date.now()
   const eligible = sessions
     .filter((session) =>

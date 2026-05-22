@@ -1,6 +1,6 @@
 import fsp from "node:fs/promises"
 import matter from "gray-matter"
-import type { OpenCodeSkill } from "./contracts"
+import type { BuddySkillDocument } from "./contracts"
 
 export function readOptionalString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined
@@ -31,7 +31,9 @@ export function skillDocument(input: {
   return [...frontmatter, "", input.content.trim(), ""].join("\n")
 }
 
-export async function loadManagedSkillFile(filepath: string): Promise<OpenCodeSkill | undefined> {
+export async function loadManagedSkillFile(
+  filepath: string,
+): Promise<BuddySkillDocument | undefined> {
   const source = await fsp.readFile(filepath, "utf8").catch(() => undefined)
   if (!source) return undefined
 
@@ -47,5 +49,5 @@ export async function loadManagedSkillFile(filepath: string): Promise<OpenCodeSk
     description,
     location: filepath,
     content: parsed.content.trim(),
-  } satisfies OpenCodeSkill
+  } satisfies BuddySkillDocument
 }

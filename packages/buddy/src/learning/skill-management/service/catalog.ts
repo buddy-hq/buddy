@@ -2,6 +2,7 @@ import fsp from "node:fs/promises"
 import path from "node:path"
 import matter from "gray-matter"
 import { Config } from "@buddy/backend/config"
+import { readProjectConfig } from "../../../config/runtime/config-access"
 import type { InstalledSkillInfo, SkillsCatalog } from "./contracts"
 import { readOptionalString } from "./documents"
 import { loadVisibleSkills } from "./discovery"
@@ -99,19 +100,19 @@ export async function listSkillsCatalog(
 ): Promise<SkillsCatalog> {
   await reconcileWithdrawnLibrarySkills()
 
-  const [installed, library, globalConfig] = await Promise.all([
+  const [installed, library, projectConfig] = await Promise.all([
     readInstalledSkillEntries({
       directory,
       refresh: options?.refresh,
     }),
     readCuratedLibraryEntries(),
-    Config.getGlobal(),
+    readProjectConfig(directory),
   ])
 
   return {
     directory,
     managedRoot: managedSkillsRoot(),
-    externalVendorRootsEnabled: globalConfig.skills_external_vendor_roots_enabled === true,
+    externalVendorRootsEnabled: projectConfig.skills_external_vendor_roots_enabled === true,
     installed,
     library: library.entries,
   }

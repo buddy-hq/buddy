@@ -38,7 +38,7 @@ const PLAN_AGENT_PERMISSION_DELTA: BuddyPermissionInput = {
   plan_exit: "allow",
   edit: {
     "*": "deny",
-    ".opencode/plans/*.md": "allow",
+    ".buddy/plans/*.md": "allow",
   },
 }
 

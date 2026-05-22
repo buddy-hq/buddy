@@ -1,4 +1,4 @@
-import { readProjectConfig } from "../../../../config/runtime"
+import { readProjectConfig } from "../../../../config/runtime/config-access"
 import fs from "node:fs/promises"
 import { listActiveGoals } from "../goals/storage"
 import { LearnerMemoryPath } from "../paths"

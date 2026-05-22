@@ -1,17 +1,13 @@
-import { MessageID, ModelID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
-import { SessionPrompt as OpenCodeSessionPrompt } from "@buddy/opencode-adapter/session-prompt"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { ulid } from "ulid"
 import z from "zod"
 import { LEARNER_MEMORY_NO_AUTOMATIC_MODEL_REASON, resolveLearnerMemoryModel } from "./models"
 import { LearnerMemoryPath } from "./paths"
-import { readProjectConfig, syncOpenCodeProjectConfig } from "../../../config/runtime"
+import { readProjectConfig } from "../../../config/runtime/config-access"
+import { piRuntime } from "../../../pi-backend/runtime"
 import { readLearnerMemorySettings } from "./settings"
 import { LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY } from "./subagents/memory-consolidator"
-import { LEARNER_MEMORY_CONSOLIDATION_SESSION_TITLE } from "./internal-session"
 import { LEARNER_MEMORY_CONSOLIDATION_TUNING } from "./tuning"
 import {
   heartbeatLearnerMemoryPhaseTwoJob,
@@ -25,26 +21,6 @@ import {
 import { appendLearnerEvent, createLearnerEvent } from "./storage"
 import type { LearnerMemoryStageOneOutput } from "./types"
 
-const CONSOLIDATION_TOOLS: Record<string, boolean> = {
-  apply_patch: false,
-  bash: false,
-  batch: false,
-  codesearch: false,
-  edit: true,
-  glob: true,
-  grep: true,
-  list: false,
-  lsp: false,
-  question: false,
-  read: true,
-  skill: false,
-  task: false,
-  todoread: false,
-  todowrite: false,
-  webfetch: false,
-  websearch: false,
-  write: true,
-}
 const CONSOLIDATION_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
   type: "object",
   additionalProperties: false,
@@ -66,6 +42,7 @@ const CONSOLIDATION_OUTPUT_JSON_SCHEMA: Record<string, unknown> = {
   },
   required: ["selectedCandidateIds", "rejectedCandidateIds", "filesWritten", "rationale"],
 }
+const JSON_CODE_FENCE_PATTERN = /```(?:json)?\s*([\s\S]*?)```/iu
 
 const ConsolidationModelOutputSchema = z.object({
   selectedCandidateIds: z.array(z.string().min(1)),
@@ -119,28 +96,6 @@ function buildConsolidationPrompt(input: {
     "The selected candidate ids must be the source candidates represented in the files you wrote.",
     "The filesWritten field must include the absolute paths of the memory registry and memory summary.",
   ].join("\n")
-}
-
-function uniqueStrings(values: readonly string[]): string[] {
-  return Array.from(new Set(values))
-}
-
-async function memoryRootPermissionPatterns(input: {
-  directory: string
-  worktree: string
-}): Promise<{ read: string[]; edit: string[]; write: string[]; externalDirectory: string[] }> {
-  const memoryRoot = LearnerMemoryPath.root(input.directory)
-  const realMemoryRoot = await fs.realpath(memoryRoot).catch(() => memoryRoot)
-  const read = uniqueStrings([path.join(memoryRoot, "*"), path.join(realMemoryRoot, "*")])
-  const externalDirectory = uniqueStrings([memoryRoot, realMemoryRoot, ...read])
-  const edit = uniqueStrings([
-    path.join(memoryRoot, "*"),
-    path.join(realMemoryRoot, "*"),
-    path.join(path.relative(input.worktree, memoryRoot), "*"),
-    path.join(path.relative(input.worktree, realMemoryRoot), "*"),
-    LEARNER_MEMORY_CONSOLIDATION_TUNING.memoryRootRelativePattern,
-  ])
-  return { read, edit, write: edit, externalDirectory }
 }
 
 async function writeFileIfMissing(filePath: string, content: string): Promise<void> {
@@ -206,67 +161,22 @@ async function runConsolidationSubagent(input: {
   model: NonNullable<Awaited<ReturnType<typeof resolveLearnerMemoryModel>>>
   prompt: string
 }): Promise<z.infer<typeof ConsolidationModelOutputSchema>> {
-  const permissionPatterns = await memoryRootPermissionPatterns({
+  const result = await piRuntime.runSubagent({
     directory: input.directory,
-    worktree: OpenCodeInstance.worktree,
+    systemPrompt:
+      "You are Buddy's learner-memory consolidation agent. Return only JSON after writing the requested files.",
+    agent: LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY,
+    description: "Learner memory consolidation",
+    task: [
+      input.prompt,
+      "",
+      "Return only JSON matching this schema:",
+      JSON.stringify(CONSOLIDATION_OUTPUT_JSON_SCHEMA),
+    ].join("\n"),
+    model: input.model.model,
   })
-  const session = await OpenCodeSession.create({
-    title: LEARNER_MEMORY_CONSOLIDATION_SESSION_TITLE,
-    permission: [
-      { permission: "*", pattern: "*", action: "deny" },
-      { permission: "read", pattern: "*", action: "deny" },
-      { permission: "edit", pattern: "*", action: "deny" },
-      { permission: "write", pattern: "*", action: "deny" },
-      { permission: "glob", pattern: "*", action: "allow" },
-      { permission: "grep", pattern: "*", action: "allow" },
-      ...permissionPatterns.externalDirectory.map((pattern) => ({
-        permission: "external_directory" as const,
-        pattern,
-        action: "allow" as const,
-      })),
-      ...permissionPatterns.read.map((pattern) => ({
-        permission: "read" as const,
-        pattern,
-        action: "allow" as const,
-      })),
-      ...permissionPatterns.edit.map((pattern) => ({
-        permission: "edit" as const,
-        pattern,
-        action: "allow" as const,
-      })),
-      ...permissionPatterns.write.map((pattern) => ({
-        permission: "write" as const,
-        pattern,
-        action: "allow" as const,
-      })),
-    ],
-  })
-  try {
-    const result = await OpenCodeSessionPrompt.prompt({
-      sessionID: SessionID.make(session.id),
-      messageID: MessageID.ascending(),
-      model: {
-        providerID: ProviderID.make(input.model.providerID),
-        modelID: ModelID.make(input.model.modelID),
-      },
-      agent: LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY,
-      format: {
-        type: "json_schema",
-        schema: CONSOLIDATION_OUTPUT_JSON_SCHEMA,
-        retryCount: LEARNER_MEMORY_CONSOLIDATION_TUNING.modelRetries,
-      },
-      tools: CONSOLIDATION_TOOLS,
-      parts: [{ type: "text", text: input.prompt }],
-    })
-    return ConsolidationModelOutputSchema.parse(
-      result.info.role === "assistant" ? result.info.structured : undefined,
-    )
-  } finally {
-    await OpenCodeSession.setArchived({
-      sessionID: SessionID.make(session.id),
-      time: Date.now(),
-    })
-  }
+  const fenced = JSON_CODE_FENCE_PATTERN.exec(result.output)?.[1]
+  return ConsolidationModelOutputSchema.parse(JSON.parse((fenced ?? result.output).trim()))
 }
 
 async function recordSelectedCandidateUsage(input: {
@@ -323,7 +233,6 @@ async function runLearnerMemoryConsolidation(input: {
   }, LEARNER_MEMORY_CONSOLIDATION_TUNING.heartbeatIntervalMs)
 
   try {
-    await syncOpenCodeProjectConfig(input.directory)
     const settings = readLearnerMemorySettings(await readProjectConfig(input.directory))
     await pruneLearnerMemoryStageOneOutputs({
       directory: input.directory,
@@ -353,14 +262,10 @@ async function runLearnerMemoryConsolidation(input: {
     }
     await ensureConsolidationTargetFiles(input.directory)
 
-    const model = await OpenCodeInstance.provide({
+    const model = await resolveLearnerMemoryModel({
       directory: input.directory,
-      fn: async () =>
-        resolveLearnerMemoryModel({
-          directory: input.directory,
-          purpose: "consolidate",
-          allowGenericFallback: input.force === true,
-        }),
+      purpose: "consolidate",
+      allowGenericFallback: input.force === true,
     })
     if (!model) {
       await markLearnerMemoryPhaseTwoJobFailed({
@@ -375,20 +280,16 @@ async function runLearnerMemoryConsolidation(input: {
         memoryIds: [],
       }
     }
-    const parsed = await OpenCodeInstance.provide({
+    const parsed = await runConsolidationSubagent({
       directory: input.directory,
-      fn: async () =>
-        runConsolidationSubagent({
-          directory: input.directory,
-          model,
-          prompt: buildConsolidationPrompt({
-            directory: input.directory,
-            outputs,
-            rawMemoriesPath: artifacts.rawMemoriesPath,
-            rolloutSummaryPaths: artifacts.rolloutSummaryPaths,
-            diff: selection.diff,
-          }),
-        }),
+      model,
+      prompt: buildConsolidationPrompt({
+        directory: input.directory,
+        outputs,
+        rawMemoriesPath: artifacts.rawMemoriesPath,
+        rolloutSummaryPaths: artifacts.rolloutSummaryPaths,
+        diff: selection.diff,
+      }),
     })
     await assertConsolidationOutputReferencesTargetFiles({
       directory: input.directory,

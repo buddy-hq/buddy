@@ -1,6 +1,6 @@
 import z from "zod"
 import type { Config } from "@buddy/backend/config"
-import { readProjectConfig } from "@buddy/backend/config/runtime"
+import { readProjectConfig } from "../../config/runtime/config-access"
 import { createBuddyTool } from "./create-buddy-tool"
 import {
   DynamicLearningToolSearchResultSchema,

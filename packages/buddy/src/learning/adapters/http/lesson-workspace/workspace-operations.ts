@@ -2,7 +2,7 @@ import {
   configErrorMessage,
   isConfigValidationError,
   readProjectConfig,
-} from "@buddy/backend/config/runtime"
+} from "../../../../config/runtime/config-access"
 import { isPersona } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import {
   TeachingWorkspaceFileError,

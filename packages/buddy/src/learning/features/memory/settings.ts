@@ -1,4 +1,4 @@
-import type { readProjectConfig } from "../../../config/runtime"
+import type { readProjectConfig } from "../../../config/runtime/config-access"
 import { learnerMemoryLabSettingsOverride } from "./lab-context"
 import { LEARNER_MEMORY_SETTINGS_DEFAULTS } from "./tuning"
 

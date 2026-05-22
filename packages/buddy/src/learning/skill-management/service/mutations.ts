@@ -1,6 +1,6 @@
 import fsp from "node:fs/promises"
 import path from "node:path"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { piRuntime } from "../../../pi-backend/runtime"
 import type { CreateCustomSkillInput, SkillRuleAction } from "./contracts"
 import { SkillServiceError } from "./contracts"
 import {
@@ -9,7 +9,7 @@ import {
   sanitizeSkillName,
   skillDocument,
 } from "./documents"
-import { resolveInstalledSkillByName } from "./discovery"
+import { invalidateVisibleSkillCache, resolveInstalledSkillByName } from "./discovery"
 import { fetchPinnedGitHubSkill } from "./github-fetcher"
 import { readCatalogEntryByID } from "./library"
 import { readInstalledSkillLock, writeInstalledSkillLock } from "./lock"
@@ -38,7 +38,8 @@ async function writeManagedSkillFile(folder: string, document: string) {
 }
 
 async function refreshSkillRuntime() {
-  await OpenCodeInstance.disposeAll()
+  piRuntime.disposeAll()
+  invalidateVisibleSkillCache()
 }
 
 function requiredSkillName(name: string) {

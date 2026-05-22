@@ -1,7 +1,10 @@
 import path from "node:path"
-import { parseConfiguredModel, type readProjectConfig } from "@buddy/backend/config/runtime"
-import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
-import { Provider } from "@buddy/opencode-adapter/provider"
+import { parseConfiguredModel, type readProjectConfig } from "../../config/runtime/config-access"
+import { getPiModelRegistry, refreshPiModels } from "../../pi-backend/host"
+import {
+  buddyProviderIDFromPi,
+  piProviderCandidatesFromBuddy,
+} from "../../pi-backend/provider-aliases"
 import type { TeachingPromptContext } from "../features/lesson-workspace/model/types"
 import { TeachingPromptContextSchema } from "../features/lesson-workspace/model/types"
 import { resolveSessionRuntime } from "../access/resolve-session-runtime"
@@ -226,20 +229,21 @@ async function resolvePromptModel(input: {
   const modelRef = explicitModel ?? configuredModel
   if (!modelRef) return runtimeSnapshot
 
-  const resolvedModel = await Provider.getModel(
-    ProviderID.make(modelRef.providerID),
-    ModelID.make(modelRef.modelID),
-  ).catch(() => undefined)
+  refreshPiModels()
+  const registry = getPiModelRegistry()
+  const resolvedModel = piProviderCandidatesFromBuddy(modelRef.providerID)
+    .map((providerID) => registry.find(providerID, modelRef.modelID))
+    .find((candidate) => !!candidate)
   if (!resolvedModel) return runtimeSnapshot
 
-  const image = resolvedModel.capabilities?.input?.image ?? false
+  const image = resolvedModel.input.includes("image")
 
   return {
-    providerID: resolvedModel.providerID,
+    providerID: buddyProviderIDFromPi(resolvedModel.provider),
     modelID: resolvedModel.id,
-    contextWindow: resolvedModel.limit.context,
-    ...(resolvedModel.limit.input !== undefined ? { inputWindow: resolvedModel.limit.input } : {}),
-    outputWindow: resolvedModel.limit.output,
+    contextWindow: resolvedModel.contextWindow,
+    inputWindow: resolvedModel.contextWindow,
+    outputWindow: resolvedModel.maxTokens,
     ...(image ? { image } : {}),
   }
 }

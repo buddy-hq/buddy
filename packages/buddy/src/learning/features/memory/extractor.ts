@@ -1,7 +1,6 @@
 import { ulid } from "ulid"
 import z from "zod"
-import { LLM } from "@buddy/opencode-adapter/llm"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { piRuntime } from "../../../pi-backend/runtime"
 import {
   CandidateMemoryPatchSchema,
   type CandidateMemoryPatch,
@@ -56,6 +55,8 @@ const MODEL_EXTRACTION_JSON_SCHEMA: Record<string, unknown> = {
   },
   required: ["session_summary", "session_slug", "raw_learner_memory", "candidates"],
 }
+
+const JSON_CODE_FENCE_PATTERN = /```(?:json)?\s*([\s\S]*?)```/iu
 
 const ModelCandidateSchema = z.object({
   operation: z.literal("create"),
@@ -262,6 +263,20 @@ function candidatesFromModelOutput(input: { fixture: EvaluationFixture; structur
   }
 }
 
+function parseStructuredJson(text: string): unknown {
+  const fenced = JSON_CODE_FENCE_PATTERN.exec(text)?.[1]
+  return JSON.parse((fenced ?? text).trim())
+}
+
+function structuredJsonTask(prompt: string): string {
+  return [
+    prompt,
+    "",
+    "Return only JSON matching this schema:",
+    JSON.stringify(MODEL_EXTRACTION_JSON_SCHEMA),
+  ].join("\n")
+}
+
 function resolveLearnerMemoryExtractionModel(
   directory: string,
   allowGenericFallback = true,
@@ -275,40 +290,28 @@ async function extractCandidatePatchesWithModel(input: {
   sessionID: string
   messageID?: string
 }): Promise<ModelExtractionResult> {
-  const extractionModel = await OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => resolveLearnerMemoryExtractionModel(input.directory),
-  })
+  const extractionModel = await resolveLearnerMemoryExtractionModel(input.directory)
   if (!extractionModel) {
     throw new Error("Learner memory extraction model resolution failed")
   }
-  const response = await OpenCodeInstance.provide({
+  const response = await piRuntime.runSubagent({
     directory: input.directory,
-    fn: async () =>
-      LLM.generateStructuredText({
-        sessionID: input.sessionID,
-        messageID: input.messageID ?? `msg_learner_memory_${input.fixture.id}`,
-        providerID: extractionModel.providerID,
-        modelID: extractionModel.modelID,
-        model: extractionModel.model,
-        system: LEARNER_MEMORY_EXTRACTOR_PROMPT,
-        prompt: buildModelPrompt(input.fixture),
-        schema: MODEL_EXTRACTION_JSON_SCHEMA,
-        retries: LEARNER_MEMORY_EXTRACTION_TUNING.modelRetries,
-        timeoutMs: LEARNER_MEMORY_EXTRACTION_TUNING.modelTimeoutMs,
-      }),
+    systemPrompt: LEARNER_MEMORY_EXTRACTOR_PROMPT,
+    agent: "learner-memory-extractor",
+    description: "Learner memory extraction",
+    task: structuredJsonTask(buildModelPrompt(input.fixture)),
+    model: extractionModel.model,
   })
 
   return {
     ...candidatesFromModelOutput({
       fixture: input.fixture,
-      structured: response.structured,
+      structured: parseStructuredJson(response.output),
     }),
     model: {
-      providerID: response.providerID,
-      modelID: response.modelID,
+      providerID: extractionModel.providerID,
+      modelID: extractionModel.modelID,
     },
-    ...(response.usage ? { usage: response.usage } : {}),
   }
 }
 
@@ -338,44 +341,34 @@ async function extractLearnerMemoryStageOneWithModel(input: {
   sessionID: string
   messageID?: string
 }): Promise<ModelExtractionResult> {
-  const extractionModel = await OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => resolveLearnerMemoryExtractionModel(input.directory),
-  })
+  const extractionModel = await resolveLearnerMemoryExtractionModel(input.directory)
   if (!extractionModel) {
     throw new Error("Learner memory extraction model resolution failed")
   }
-  const response = await OpenCodeInstance.provide({
+  const response = await piRuntime.runSubagent({
     directory: input.directory,
-    fn: async () =>
-      LLM.generateStructuredText({
-        sessionID: input.sessionID,
-        messageID: input.messageID ?? `msg_learner_memory_${input.fixture.id}`,
-        providerID: extractionModel.providerID,
-        modelID: extractionModel.modelID,
-        model: extractionModel.model,
-        system: LEARNER_MEMORY_EXTRACTOR_PROMPT,
-        prompt: buildStageOneModelPrompt({
-          projectPath: input.directory,
-          sessionID: input.fixture.id,
-          source: input.source,
-        }),
-        schema: MODEL_EXTRACTION_JSON_SCHEMA,
-        retries: LEARNER_MEMORY_EXTRACTION_TUNING.modelRetries,
-        timeoutMs: LEARNER_MEMORY_EXTRACTION_TUNING.modelTimeoutMs,
+    systemPrompt: LEARNER_MEMORY_EXTRACTOR_PROMPT,
+    agent: "learner-memory-extractor",
+    description: "Learner memory stage-one extraction",
+    task: structuredJsonTask(
+      buildStageOneModelPrompt({
+        projectPath: input.directory,
+        sessionID: input.fixture.id,
+        source: input.source,
       }),
+    ),
+    model: extractionModel.model,
   })
 
   return {
     ...candidatesFromModelOutput({
       fixture: input.fixture,
-      structured: response.structured,
+      structured: parseStructuredJson(response.output),
     }),
     model: {
-      providerID: response.providerID,
-      modelID: response.modelID,
+      providerID: extractionModel.providerID,
+      modelID: extractionModel.modelID,
     },
-    ...(response.usage ? { usage: response.usage } : {}),
   }
 }
 

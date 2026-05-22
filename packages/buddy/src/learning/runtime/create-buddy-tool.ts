@@ -1,8 +1,23 @@
-import { Effect, Schema } from "effect"
+import crypto from "node:crypto"
+import "../../pi-backend/opencode-environment"
+import type { TSchema } from "typebox"
 import z from "zod"
+import type {
+  AgentToolResult,
+  ExtensionContext,
+  ToolDefinition,
+} from "@earendil-works/pi-coding-agent"
+import { Effect, Schema } from "effect"
 import { Tool, type ToolRuntimeServices } from "@buddy/opencode-adapter/tool"
-import { cloneToolUiMetadata, type ToolUiMetadata } from "@buddy/opencode-adapter/tool-ui-metadata"
 import { withCurrentInstance } from "@buddy/opencode-adapter/effect-runtime"
+import {
+  executeUntilAbort,
+  livePiMessageID as livePiLeafMessageID,
+  livePiSessionMessages,
+} from "../../pi-backend/live-tool-context"
+import { mapPiMessagesToBuddyMessages } from "../../pi-backend/mapper"
+import { requestBuddyToolPermission } from "../../pi-backend/permissions"
+import { buddySessionIDFromPi } from "../../pi-backend/session-ids"
 import {
   ACTIVE_TEACHING_WORKSPACE,
   ADVANCED_MATH_RUNTIME,
@@ -11,19 +26,46 @@ import {
   type BuddyToolRuntimeDependency,
 } from "../runtime/tool-constraint-types"
 import type { DynamicBuddyToolMetadata } from "./dynamic-tool-metadata"
+import { typeboxSchemaFromJsonSchema } from "./json-schema-typebox"
+import { normalizeToolCallArgs } from "./normalize-tool-call-args"
+import { mergeToolResultMetadata } from "./tool-result-metadata"
 
 type BuddyToolMetadata = Record<string, unknown>
+type PiToolDefinition = ToolDefinition<TSchema, unknown>
+type BuddyPermissionRequestInput = {
+  permission: string
+  patterns: string[]
+  always?: string[]
+  metadata?: Record<string, unknown>
+}
+type BuddyToolExecuteResult<Metadata extends BuddyToolMetadata = BuddyToolMetadata> = {
+  title?: string
+  output: string
+  metadata?: Metadata
+}
+type ToolUiMetadata = {
+  presentation?: "default" | "hidden-summary"
+  labels?: {
+    idle?: string
+    running?: string
+  }
+}
+type PiToolContext = ExtensionContext
+type PiToolExtra = Record<string, unknown>
+type PiToolOptions = {
+  extra?: (context: PiToolContext | undefined) => PiToolExtra | undefined
+}
 type BuddyToolContext<Metadata extends BuddyToolMetadata = BuddyToolMetadata> = {
   directory: string
-  sessionID: Tool.Context<Metadata>["sessionID"]
-  messageID: Tool.Context<Metadata>["messageID"]
-  agent: Tool.Context<Metadata>["agent"]
-  abort: Tool.Context<Metadata>["abort"]
-  callID?: Tool.Context<Metadata>["callID"]
-  extra?: Tool.Context<Metadata>["extra"]
-  messages: Tool.Context<Metadata>["messages"]
+  sessionID: string
+  messageID: string
+  agent: string
+  abort: AbortSignal
+  callID?: string
+  extra?: Record<string, unknown>
+  messages: ReturnType<typeof mapPiMessagesToBuddyMessages>
   metadata(input: { title?: string; metadata?: Metadata }): Promise<void>
-  ask(input: Parameters<Tool.Context<Metadata>["ask"]>[0]): Promise<void>
+  ask(input: BuddyPermissionRequestInput): Promise<void>
 }
 
 type BuddyToolDefinition<
@@ -37,7 +79,7 @@ type BuddyToolDefinition<
   execute(
     args: z.infer<Parameters>,
     ctx: BuddyToolContext<Metadata>,
-  ): Promise<Tool.ExecuteResult<Metadata>> | Tool.ExecuteResult<Metadata>
+  ): Promise<BuddyToolExecuteResult<Metadata>> | BuddyToolExecuteResult<Metadata>
   formatValidationError?(error: z.ZodError): string
   constraints?: BuddyToolConstraints
   dynamic?: DynamicBuddyToolMetadata
@@ -47,7 +89,7 @@ type BuddyToolDefinition<
 type BuddyTool<
   Id extends string = string,
   _Parameters extends z.ZodType = z.ZodType,
-  Metadata extends BuddyToolMetadata = BuddyToolMetadata,
+  _Metadata extends BuddyToolMetadata = BuddyToolMetadata,
 > = {
   id: Id
   description: string
@@ -55,16 +97,13 @@ type BuddyTool<
   dynamic?: DynamicBuddyToolMetadata
   ui?: ToolUiMetadata
   toTool(directory: string): Effect.Effect<
-    Tool.Info<typeof Schema.Unknown, Metadata>,
+    Tool.Info<typeof Schema.Unknown, BuddyToolMetadata>,
     never,
     ToolRuntimeServices
   > & {
     id: Id
   }
-}
-
-function createAbortError() {
-  return new DOMException("Aborted", "AbortError")
+  toPiTool(directory: string, options?: PiToolOptions): PiToolDefinition
 }
 
 function isJsonSchemaObject(value: unknown): value is Record<string, unknown> {
@@ -105,28 +144,74 @@ function toToolJsonSchema(id: string, parameters: z.ZodType) {
   if (isJsonSchemaObject(schema.$defs)) {
     schema.definitions = schema.$defs
   }
-  delete schema.$defs
   return schema
 }
 
-async function executeUntilAbort<T>(abort: AbortSignal, execute: () => Promise<T>) {
-  abort.throwIfAborted()
-
-  let onAbort: (() => void) | undefined
-  const aborted = new Promise<never>((_, reject) => {
-    onAbort = () => reject(createAbortError())
-    abort.addEventListener("abort", onAbort, { once: true })
-  })
-
-  try {
-    const result = await Promise.race([execute(), aborted])
-    abort.throwIfAborted()
-    return result
-  } finally {
-    if (onAbort) {
-      abort.removeEventListener("abort", onAbort)
-    }
+function toPiToolResult<Metadata extends BuddyToolMetadata>(
+  result: BuddyToolExecuteResult<Metadata>,
+): AgentToolResult<unknown> {
+  return {
+    content: [{ type: "text", text: result.output }],
+    details: mergeToolResultMetadata({
+      title: result.title,
+      metadata: result.metadata,
+    }),
   }
+}
+
+function livePiSessionID(context: PiToolContext | undefined) {
+  return context
+    ? buddySessionIDFromPi(context.sessionManager.getSessionId())
+    : `ses_${crypto.randomUUID().replaceAll("-", "")}`
+}
+
+function livePiMessageID(context: PiToolContext | undefined) {
+  return livePiLeafMessageID(context)
+}
+
+function livePiMessages(directory: string, context: PiToolContext | undefined) {
+  return mapPiMessagesToBuddyMessages({
+    sessionID: String(livePiSessionID(context)),
+    directory,
+    messages: livePiSessionMessages(context),
+    ...(context?.model ? { model: context.model } : {}),
+  })
+}
+
+function emptyBuddyMessages(): ReturnType<typeof mapPiMessagesToBuddyMessages> {
+  return []
+}
+
+function livePiModelExtra(model: PiToolContext["model"] | undefined): PiToolExtra | undefined {
+  if (!model) return undefined
+  return {
+    model: {
+      providerID: model.provider,
+      id: model.id,
+      limit: {
+        context: model.contextWindow,
+        input: model.contextWindow,
+        output: model.maxTokens,
+      },
+    },
+  }
+}
+
+function livePiSessionExtra(
+  directory: string,
+  context: PiToolContext | undefined,
+): PiToolExtra | undefined {
+  if (livePiSessionMessages(context).length === 0) {
+    return undefined
+  }
+  return {
+    sessionMessages: livePiMessages(directory, context),
+  }
+}
+
+function mergePiExtras(...extras: Array<PiToolExtra | undefined>) {
+  const merged = Object.assign({}, ...extras.filter((extra): extra is PiToolExtra => !!extra))
+  return Object.keys(merged).length > 0 ? merged : undefined
 }
 
 function createBuddyTool<
@@ -138,6 +223,7 @@ function createBuddyTool<
   const clonedDynamic = cloneDynamicMetadata(definition.dynamic)
   const clonedUi = normalizeToolUiMetadata(definition)
   const jsonSchema = toToolJsonSchema(definition.id, definition.parameters)
+  const piParameters = typeboxSchemaFromJsonSchema(jsonSchema)
 
   return {
     id: definition.id,
@@ -162,17 +248,26 @@ function createBuddyTool<
                 abort: ctx.abort,
                 ...(ctx.callID ? { callID: ctx.callID } : {}),
                 ...(ctx.extra ? { extra: ctx.extra } : {}),
-                messages: ctx.messages,
+                messages: emptyBuddyMessages(),
                 metadata(input) {
                   return Effect.runPromise(withCurrentInstance(ctx.metadata(input)))
                 },
                 ask(input) {
-                  return Effect.runPromise(withCurrentInstance(ctx.ask(input)))
+                  return Effect.runPromise(
+                    withCurrentInstance(
+                      ctx.ask({
+                        permission: input.permission,
+                        patterns: [...input.patterns],
+                        always: [...(input.always ?? [])],
+                        metadata: input.metadata ?? {},
+                      }),
+                    ),
+                  )
                 },
               }
 
               return Effect.promise(async () => {
-                const parsed = definition.parameters.safeParse(args)
+                const parsed = definition.parameters.safeParse(normalizeToolCallArgs(args))
                 if (!parsed.success) {
                   const message = definition.formatValidationError
                     ? definition.formatValidationError(parsed.error)
@@ -181,14 +276,81 @@ function createBuddyTool<
                 }
 
                 nextCtx.abort.throwIfAborted()
-                return executeUntilAbort(nextCtx.abort, async () =>
+                const result = await executeUntilAbort(nextCtx.abort, async () =>
                   definition.execute(parsed.data, nextCtx),
                 )
+                return {
+                  title: result.title ?? definition.id,
+                  metadata: result.metadata ?? {},
+                  output: result.output,
+                }
               })
             },
           }
         }),
       )
+    },
+    toPiTool(directory: string, options?: PiToolOptions) {
+      return {
+        name: definition.id,
+        label: definition.dynamic?.title ?? definition.id,
+        description: definition.description,
+        promptSnippet: definition.description,
+        parameters: piParameters,
+        async execute(toolCallId, args, signal, onUpdate, context) {
+          const abort = signal ?? new AbortController().signal
+          const parsed = definition.parameters.safeParse(normalizeToolCallArgs(args))
+          if (!parsed.success) {
+            const message = definition.formatValidationError
+              ? definition.formatValidationError(parsed.error)
+              : `The ${definition.id} tool was called with invalid arguments: ${parsed.error}.\nPlease rewrite the input so it satisfies the expected schema.`
+            throw new Error(message, { cause: parsed.error })
+          }
+
+          abort.throwIfAborted()
+          const extra = mergePiExtras(
+            livePiModelExtra(context?.model),
+            livePiSessionExtra(directory, context),
+            options?.extra?.(context),
+          )
+          const result = await executeUntilAbort(abort, async () =>
+            definition.execute(parsed.data, {
+              directory,
+              sessionID: livePiSessionID(context),
+              messageID: livePiMessageID(context),
+              agent: "buddy",
+              abort,
+              callID: toolCallId,
+              messages: livePiMessages(directory, context),
+              metadata: async (input) => {
+                if (!input.metadata && !input.title) return
+                onUpdate?.({
+                  content: [],
+                  details: mergeToolResultMetadata({
+                    title: input.title,
+                    metadata: input.metadata,
+                  }),
+                })
+              },
+              ...(extra ? { extra } : {}),
+              ask: async (input) => {
+                await requestBuddyToolPermission({
+                  directory,
+                  sessionID: livePiSessionID(context),
+                  messageID: livePiMessageID(context),
+                  toolCallID: toolCallId,
+                  permission: input.permission,
+                  patterns: [...input.patterns],
+                  always: [...(input.always ?? [])],
+                  metadata: input.metadata ?? {},
+                  signal: abort,
+                })
+              },
+            }),
+          )
+          return toPiToolResult(result)
+        },
+      }
     },
   }
 }
@@ -236,7 +398,10 @@ function normalizeToolUiMetadata(
       : undefined)
 
   if (!presentation && !labels?.idle && !labels?.running) return undefined
-  return cloneToolUiMetadata({ presentation, labels })
+  return {
+    ...(presentation ? { presentation } : {}),
+    ...(labels ? { labels } : {}),
+  }
 }
 
 export { createBuddyTool }
@@ -244,6 +409,12 @@ export { ACTIVE_TEACHING_WORKSPACE, ADVANCED_MATH_RUNTIME, STANDARDS_RUNTIME }
 
 export { normalizeToolUiMetadata }
 
-export type { BuddyTool, BuddyToolConstraints, BuddyToolContext, BuddyToolDefinition }
+export type {
+  BuddyTool,
+  BuddyToolConstraints,
+  BuddyToolContext,
+  BuddyToolDefinition,
+  PiToolDefinition,
+}
 export type { BuddyToolRuntimeDependency }
 export type { ToolUiMetadata }

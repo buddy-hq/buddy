@@ -1,4 +1,4 @@
-import { readProjectConfig } from "@buddy/backend/config/runtime"
+import { readProjectConfig } from "../../../config/runtime/config-access"
 import { appendLearnerEvent, createLearnerEvent } from "../../features/memory"
 import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-session-permissions"
 import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"

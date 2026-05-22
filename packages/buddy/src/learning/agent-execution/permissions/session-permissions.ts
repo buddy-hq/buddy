@@ -1,10 +1,11 @@
-import type { PermissionRule, PermissionRuleset } from "@buddy/opencode-adapter/permission"
 import { SUBAGENT_IDS } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { ResolvedSessionRuntime } from "../../access/types"
 import { managedBuddySkillNames } from "../../skill-management/managed-buddy-skills"
 import {
   dynamicLearningToolDefaultDenyRules,
   isDynamicLearningToolSessionRule,
+  type PermissionRule,
+  type PermissionRuleset,
 } from "../../runtime/dynamic-tool-permissions"
 import { allLearningToolIds } from "../../runtime/tool-metadata"
 
@@ -116,5 +117,5 @@ export function buildBuddyRuntimeSessionPermissions(input: {
   }
 
   const { allowRules, denyRules } = buildManagedRuntimeRules(input.sessionRuntime)
-  return [...allowRules, ...preservedRules, ...denyRules, ...dynamicLearningToolDefaultDenyRules()]
+  return [...preservedRules, ...allowRules, ...denyRules]
 }

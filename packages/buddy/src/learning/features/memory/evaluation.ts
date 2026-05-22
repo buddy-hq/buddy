@@ -1,6 +1,6 @@
 import { LearnerMemoryPath } from "./paths"
 import { decideLearnerMemoryAttention } from "./attention-gate"
-import { readProjectConfig } from "../../../config/runtime"
+import { readProjectConfig } from "../../../config/runtime/config-access"
 import {
   extractCandidatePatchesDeterministic,
   extractCandidatePatchesWithModel,

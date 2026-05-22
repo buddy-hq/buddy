@@ -2,9 +2,10 @@ import os from "node:os"
 import path from "node:path"
 import { promises as fs } from "node:fs"
 import { pathToFileURL } from "node:url"
-import { Agent } from "@buddy/opencode-adapter/agent"
 import { SessionTransformValidationError } from "../../session"
 import { resolveResourceReference } from "../../resources/resource-registry-service"
+import { REGISTERED_BUDDY_PERSONAS } from "../personas/registry"
+import { listBuddySubagentDefinitions } from "../subagent-manifest"
 
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
 export const WORKSPACE_FILE_REFERENCE_PART_TYPE = "workspace-file-reference" as const
@@ -417,10 +418,11 @@ function isPathInsideWorkspace(directory: string, filepath: string) {
 }
 
 async function resolveAgentReferenceName(rawName: string): Promise<string | undefined> {
-  try {
-    const agent = await Agent.get(rawName)
-    return agent?.name
-  } catch {
-    return undefined
+  const normalized = rawName.trim()
+  if (!normalized) return undefined
+  if (REGISTERED_BUDDY_PERSONAS.some((persona) => persona.id === normalized)) return normalized
+  if (listBuddySubagentDefinitions().some((subagent) => subagent.key === normalized)) {
+    return normalized
   }
+  return undefined
 }

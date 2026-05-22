@@ -1,5 +1,5 @@
-import { parseConfiguredModel, type readProjectConfig } from "@buddy/backend/config/runtime"
-import { buildBuddyPromptEnvelope } from "./buddy-prompt-compiler"
+import { parseConfiguredModel, type readProjectConfig } from "../../config/runtime/config-access"
+import { buildBuddyPromptEnvelope, type BuddyPromptEnvelope } from "./buddy-prompt-compiler"
 import { createPromptContext, type CreatePromptContextResult } from "./context"
 import { normalizePromptParts } from "./workspace-file-references"
 import type { TeachingSessionState } from "../shared/teaching-session-state"
@@ -8,7 +8,6 @@ import {
   hasExplicitModel,
   normalizePersonaTarget,
 } from "../shared/targeting"
-import { resolveSubagentToolForwarding } from "../agent-execution/transforms/subagent-tool-forwarding"
 
 export type MessagePromptPipelineContext = {
   directory: string
@@ -30,6 +29,13 @@ export type MessagePromptPipelineResult = {
     currentTeachingFingerprint?: string
     deliveredTeachingFingerprint?: string
   }
+}
+
+function userPreludeSystemContext(promptEnvelope: BuddyPromptEnvelope): string {
+  return promptEnvelope.userPreludeParts
+    .map((part) => part.text)
+    .join("\n\n")
+    .trim()
 }
 
 export async function runMessagePromptPipeline(input: {
@@ -80,13 +86,12 @@ export async function runMessagePromptPipeline(input: {
     sessionRuntimeForPermissions = promptContextResult.sessionRuntimeForPermissions
     nextTeachingState = promptContextResult.nextTeachingState
     buddySystem = promptEnvelope.systemContext
+    const preludeSystem = userPreludeSystemContext(promptEnvelope)
+    if (preludeSystem) {
+      transformed.turnPrelude = preludeSystem
+    }
     learnerContextDelivery = promptEnvelope.deliveredLearnerContext
     turnContextDelivery = promptEnvelope.turnContextDelivery
-
-    if (promptEnvelope.userPreludeParts.length > 0) {
-      parts.unshift(...promptEnvelope.userPreludeParts)
-      transformed.parts = parts
-    }
   }
 
   const mergedSystem = [existingSystem, buddySystem].filter(Boolean).join("\n\n").trim()
@@ -99,20 +104,6 @@ export async function runMessagePromptPipeline(input: {
     transformed.model = configuredModel
   }
   transformed.agent = target.agent
-  const subagentForwarding = await resolveSubagentToolForwarding({
-    currentTools: transformed.tools,
-    directory: input.context.directory,
-    previousState: input.previousState,
-    projectConfig: input.projectConfig,
-    sessionID: input.context.sessionID,
-    targetAgent: target.agent,
-  })
-  if (subagentForwarding.toolOverrides) {
-    transformed.tools = subagentForwarding.toolOverrides
-  }
-  if (subagentForwarding.stateSeed && !nextTeachingState) {
-    nextTeachingState = subagentForwarding.stateSeed
-  }
   delete transformed.content
   delete transformed.persona
   delete transformed.focusGoalIds

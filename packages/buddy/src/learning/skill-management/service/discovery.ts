@@ -1,209 +1,85 @@
 import fsp from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
-import { Config } from "@buddy/backend/config"
-import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ensureOpenCodeProjectOverlay } from "@buddy/backend/config/runtime"
-import { isSuppressedOpenCodeSkill } from "../../../opencode-runtime/hidden-opencode-skills"
-import { fetchOpenCode } from "../../../http"
-import { SkillServiceError, type OpenCodeSkill } from "./contracts"
-import { loadManagedSkillFile } from "./documents"
-import { OPENCODE_SKILL_CACHE_ROOT, isWithinPath, managedSkillsRoot } from "./paths"
+import matter from "gray-matter"
+import type { Skill as PiSkill } from "@earendil-works/pi-coding-agent"
+import { readProjectConfig } from "../../../config/runtime/config-access"
+import { createBuddyPiResourceLoader } from "../../../pi-backend/host"
+import { type BuddySkillDocument } from "./contracts"
+import { readOptionalString } from "./documents"
+import { isWithinPath, OPENCODE_SKILL_CACHE_ROOT } from "./paths"
 
-async function readDirectoryEntries(directory: string) {
-  return fsp
-    .readdir(directory, {
-      withFileTypes: true,
-    })
-    .catch(() => [])
+type LoadedPiSkill = {
+  skill: BuddySkillDocument
 }
 
-async function collectSkillFiles(root: string) {
-  const entries = await readDirectoryEntries(root)
+const visibleSkillsCache = new Map<string, BuddySkillDocument[]>()
 
-  const matches: string[] = []
-  for (const entry of entries) {
-    const fullPath = path.join(root, entry.name)
-    if (entry.isDirectory()) {
-      matches.push(...(await collectSkillFiles(fullPath)))
-      continue
-    }
-
-    if (entry.isFile() && entry.name === "SKILL.md") {
-      matches.push(fullPath)
-    }
+async function readSkillContent(filepath: string) {
+  const source = await fsp.readFile(filepath, "utf8").catch(() => undefined)
+  if (!source) {
+    return ""
   }
 
-  return matches
+  const parsed = matter(source)
+  return parsed.content.trim()
 }
 
-function expandSkillPath(skillPath: string, directory: string) {
-  const expanded = skillPath.startsWith("~/")
-    ? path.join(os.homedir(), skillPath.slice(2))
-    : skillPath
-  return path.isAbsolute(expanded) ? expanded : path.join(directory, expanded)
+async function mapPiSkill(skill: PiSkill): Promise<LoadedPiSkill> {
+  return {
+    skill: {
+      name: skill.name,
+      description: skill.description,
+      location: skill.filePath,
+      content: await readSkillContent(skill.filePath),
+    },
+  }
 }
 
-function mergeSkillsByName(skills: OpenCodeSkill[]) {
-  const merged = new Map<string, OpenCodeSkill>()
+function isCachedRemoteSkill(skill: BuddySkillDocument) {
+  return isWithinPath(OPENCODE_SKILL_CACHE_ROOT, skill.location)
+}
+
+function mergeSkillsByName(skills: BuddySkillDocument[]) {
+  const merged = new Map<string, BuddySkillDocument>()
   for (const skill of skills) {
     merged.set(skill.name, skill)
   }
   return Array.from(merged.values())
 }
 
-async function appendSkillsFromRoot(root: string, skills: Map<string, OpenCodeSkill>) {
-  const stats = await fsp.stat(root).catch(() => undefined)
-  if (!stats?.isDirectory()) {
+function readSkillByName(skills: BuddySkillDocument[], name: string) {
+  return skills.find((skill) => skill.name === name)
+}
+
+function normalizedDirectory(directory: string) {
+  return path.resolve(directory)
+}
+
+async function visibleSkillCacheKey(directory: string) {
+  const config = await readProjectConfig(directory)
+  return JSON.stringify({
+    directory: normalizedDirectory(directory),
+    skills: config.skills,
+    skillsExternalVendorRootsEnabled: config.skills_external_vendor_roots_enabled === true,
+  })
+}
+
+function clearVisibleSkillCacheForDirectory(directory: string) {
+  const directoryKey = normalizedDirectory(directory)
+  for (const key of visibleSkillsCache.keys()) {
+    if (key.includes(`"directory":"${directoryKey}"`)) {
+      visibleSkillsCache.delete(key)
+    }
+  }
+}
+
+export function invalidateVisibleSkillCache(directory?: string) {
+  if (!directory) {
+    visibleSkillsCache.clear()
     return
   }
 
-  const matches = await collectSkillFiles(root)
-  for (const match of matches) {
-    const skill = await loadManagedSkillFile(match)
-    if (skill) {
-      skills.set(skill.name, skill)
-    }
-  }
-}
-
-async function loadCachedOpenCodeSkills(directory: string): Promise<OpenCodeSkill[]> {
-  const response = await fetchOpenCode({
-    directory,
-    method: "GET",
-    path: "/skill",
-  })
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => undefined)) as
-      | { error?: string; message?: string }
-      | undefined
-    throw new SkillServiceError(
-      "upstream_failure",
-      payload?.error ?? payload?.message ?? `Failed to list skills (${response.status})`,
-    )
-  }
-
-  return (await response.json()) as OpenCodeSkill[]
-}
-
-async function loadFreshLocalOpenCodeSkills(directory: string): Promise<OpenCodeSkill[]> {
-  const runtimeContext = await OpenCodeInstance.provide({
-    directory,
-    fn: async () => {
-      const config = await OpenCodeConfig.get()
-      const configDirectories = await OpenCodeConfig.directories()
-
-      return {
-        config,
-        configDirectories,
-      }
-    },
-  })
-
-  const skills = new Map<string, OpenCodeSkill>()
-
-  for (const configDirectory of runtimeContext.configDirectories) {
-    await appendSkillsFromRoot(path.join(configDirectory, "skill"), skills)
-    await appendSkillsFromRoot(path.join(configDirectory, "skills"), skills)
-  }
-
-  for (const skillPath of runtimeContext.config.skills?.paths ?? []) {
-    const resolved = expandSkillPath(skillPath, directory)
-    await appendSkillsFromRoot(resolved, skills)
-  }
-
-  return Array.from(skills.values())
-}
-
-function isCachedRemoteSkill(skill: OpenCodeSkill) {
-  return isWithinPath(OPENCODE_SKILL_CACHE_ROOT, skill.location)
-}
-
-function mergeRefreshedOpenCodeSkills(
-  cachedSkills: OpenCodeSkill[],
-  freshLocalSkills: OpenCodeSkill[],
-) {
-  return mergeSkillsByName([...cachedSkills.filter(isCachedRemoteSkill), ...freshLocalSkills])
-}
-
-async function loadBuddyManagedSkills() {
-  const root = managedSkillsRoot()
-  const entries = await readDirectoryEntries(root)
-
-  const skills: OpenCodeSkill[] = []
-
-  for (const group of entries) {
-    if (!group.isDirectory()) continue
-    const groupPath = path.join(root, group.name)
-    const groupEntries = await readDirectoryEntries(groupPath)
-
-    for (const skillDir of groupEntries) {
-      if (!skillDir.isDirectory()) continue
-      const skill = await loadManagedSkillFile(path.join(groupPath, skillDir.name, "SKILL.md"))
-      if (skill) {
-        skills.push(skill)
-      }
-    }
-  }
-
-  return skills
-}
-
-async function loadOpenCodeSkills(directory: string, refresh: boolean | undefined) {
-  if (!refresh) {
-    return loadCachedOpenCodeSkills(directory)
-  }
-
-  const [cachedSkills, freshLocalSkills] = await Promise.all([
-    loadCachedOpenCodeSkills(directory),
-    loadFreshLocalOpenCodeSkills(directory),
-  ])
-  return mergeRefreshedOpenCodeSkills(cachedSkills, freshLocalSkills)
-}
-
-function mergeOpenCodeAndManagedSkills(
-  openCodeSkills: OpenCodeSkill[],
-  managedSkills: OpenCodeSkill[],
-) {
-  const merged = new Map(managedSkills.map((skill) => [skill.name, skill]))
-  for (const skill of openCodeSkills) {
-    if (!merged.has(skill.name)) {
-      merged.set(skill.name, skill)
-    }
-  }
-  return Array.from(merged.values())
-}
-
-function isExternalVendorSkill(location: string) {
-  const segments = path.resolve(location).split(path.sep)
-  for (let index = 0; index < segments.length - 1; index += 1) {
-    const current = segments[index]
-    const next = segments[index + 1]
-    if ((current === ".claude" || current === ".agents") && next === "skills") {
-      return true
-    }
-  }
-
-  return false
-}
-
-function filterOpenCodeSkillsByProjectSettings(input: {
-  openCodeSkills: OpenCodeSkill[]
-  externalVendorRootsEnabled: boolean
-}) {
-  return input.openCodeSkills.filter((skill) => {
-    if (isSuppressedOpenCodeSkill(skill)) {
-      return false
-    }
-
-    if (input.externalVendorRootsEnabled) {
-      return true
-    }
-
-    return !isExternalVendorSkill(skill.location)
-  })
+  clearVisibleSkillCacheForDirectory(directory)
 }
 
 export async function loadVisibleSkills(
@@ -212,26 +88,35 @@ export async function loadVisibleSkills(
     refresh?: boolean
   },
 ) {
-  const globalConfig = await Config.getGlobal()
-  await ensureOpenCodeProjectOverlay(directory)
+  const cacheKey = await visibleSkillCacheKey(directory)
+  if (!options?.refresh) {
+    const cached = visibleSkillsCache.get(cacheKey)
+    if (cached) {
+      return cached
+    }
+  }
 
-  const [openCodeSkills, managedSkills] = await Promise.all([
-    loadOpenCodeSkills(directory, options?.refresh),
-    loadBuddyManagedSkills(),
-  ])
-
-  return mergeOpenCodeAndManagedSkills(
-    filterOpenCodeSkillsByProjectSettings({
-      openCodeSkills,
-      externalVendorRootsEnabled: globalConfig.skills_external_vendor_roots_enabled === true,
-    }),
-    managedSkills,
+  const { resourceLoader } = await createBuddyPiResourceLoader({ directory })
+  const skills = await Promise.all(resourceLoader.getSkills().skills.map(mapPiSkill))
+  const visible = mergeSkillsByName(
+    skills
+      .filter((skill) => {
+        const normalizedDescription = readOptionalString(skill.skill.description)
+        return !!normalizedDescription || isCachedRemoteSkill(skill.skill)
+      })
+      .map((skill) => skill.skill),
   )
+
+  clearVisibleSkillCacheForDirectory(directory)
+  visibleSkillsCache.set(cacheKey, visible)
+  return visible
 }
 
 export async function resolveInstalledSkillByName(name: string, directory: string) {
-  const skills = await loadVisibleSkills(directory, {
-    refresh: true,
-  })
-  return skills.find((skill) => skill.name === name)
+  return readSkillByName(
+    await loadVisibleSkills(directory, {
+      refresh: true,
+    }),
+    name,
+  )
 }

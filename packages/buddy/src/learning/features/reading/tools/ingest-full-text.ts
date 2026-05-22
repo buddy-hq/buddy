@@ -2,9 +2,9 @@ import RESOURCE_INGEST_FULL_TEXT_DESCRIPTION from "./ingest-full-text.md"
 import { promises as fs } from "node:fs"
 import matter from "gray-matter"
 import z from "zod"
-import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
-import type { MessageV2 } from "@buddy/opencode-adapter/message"
-import { Provider } from "@buddy/opencode-adapter/provider"
+import type { BuddyMessageWithParts } from "../../../../pi-backend/types"
+import { getPiModelRegistry, refreshPiModels } from "../../../../pi-backend/model-services"
+import { piProviderCandidatesFromBuddy } from "../../../../pi-backend/provider-aliases"
 import {
   RESOURCE_PACK_STATUS_READY,
   estimateTokenCountFromText,
@@ -15,6 +15,21 @@ import { createBuddyTool } from "../../../runtime/create-buddy-tool"
 const MINIMUM_SPARE_AFTER_INGESTION_TOKENS = 100_000
 const MINIMUM_OUTPUT_RESERVE_TOKENS = 8_000
 const SAFETY_RESERVE_TOKENS = 12_000
+
+type RuntimeMessage = BuddyMessageWithParts
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+function isRuntimeMessage(value: unknown): value is RuntimeMessage {
+  return (
+    isRecord(value) &&
+    isRecord(value.info) &&
+    typeof value.info.role === "string" &&
+    Array.isArray(value.parts)
+  )
+}
 
 const ResourceIngestFullTextParameters = z.object({
   resource: z
@@ -42,7 +57,7 @@ function readOptionalNumber(value: unknown) {
   return undefined
 }
 
-function assistantTokenTotal(message: MessageV2.Assistant) {
+function assistantTokenTotal(message: RuntimeMessage["info"] & { role: "assistant" }) {
   return (
     message.tokens.total ??
     message.tokens.input +
@@ -53,7 +68,7 @@ function assistantTokenTotal(message: MessageV2.Assistant) {
   )
 }
 
-function lastAssistantTokenTotal(messages: MessageV2.WithParts[]) {
+function lastAssistantTokenTotal(messages: RuntimeMessage[]) {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]
     if (message.info.role !== "assistant") continue
@@ -65,11 +80,13 @@ function lastAssistantTokenTotal(messages: MessageV2.WithParts[]) {
   return 0
 }
 
-function extractMessageText(message: MessageV2.WithParts) {
+function extractMessageText(message: RuntimeMessage) {
   const segments: string[] = []
 
   if (message.info.role === "user") {
-    if (message.info.system) segments.push(message.info.system)
+    if ("system" in message.info && typeof message.info.system === "string") {
+      segments.push(message.info.system)
+    }
   }
 
   for (const part of message.parts) {
@@ -87,17 +104,9 @@ function extractMessageText(message: MessageV2.WithParts) {
           segments.push(JSON.stringify(part.state.input))
         }
         break
-      case "subtask":
-        segments.push(part.prompt)
-        segments.push(part.description)
-        break
-      case "agent":
-        segments.push(part.name)
-        if (part.source?.value) segments.push(part.source.value)
-        break
       case "file":
         if (part.filename) segments.push(part.filename)
-        if (part.source?.text?.value) segments.push(part.source.text.value)
+        segments.push(part.url)
         break
       default:
         break
@@ -107,12 +116,34 @@ function extractMessageText(message: MessageV2.WithParts) {
   return segments.join("\n")
 }
 
-function estimateMessageHistoryTokens(messages: MessageV2.WithParts[]) {
+function estimateMessageHistoryTokens(messages: RuntimeMessage[]) {
   const serialized = messages.map((message) => extractMessageText(message)).join("\n\n")
   return estimateTokenCountFromText(serialized)
 }
 
-async function resolveActiveModel(messages: MessageV2.WithParts[], extra: unknown) {
+function sessionMessagesFromExtra(extra: unknown): RuntimeMessage[] {
+  if (
+    !extra ||
+    typeof extra !== "object" ||
+    Array.isArray(extra) ||
+    !("sessionMessages" in extra)
+  ) {
+    return []
+  }
+  const { sessionMessages } = extra
+  return Array.isArray(sessionMessages)
+    ? sessionMessages.filter((message): message is RuntimeMessage => isRuntimeMessage(message))
+    : []
+}
+
+function resolveRuntimeMessages(
+  messages: BuddyMessageWithParts[],
+  extra: unknown,
+): RuntimeMessage[] {
+  return messages.length > 0 ? messages : sessionMessagesFromExtra(extra)
+}
+
+async function resolveActiveModel(messages: RuntimeMessage[], extra: unknown) {
   const direct = ActiveModelSchema.safeParse(extra)
   if (direct.success) {
     return direct.data
@@ -122,11 +153,24 @@ async function resolveActiveModel(messages: MessageV2.WithParts[], extra: unknow
     const message = messages[index]
     if (message.info.role !== "user") continue
 
-    const model = await Provider.getModel(
-      ProviderID.make(message.info.model.providerID),
-      ModelID.make(message.info.model.modelID),
-    ).catch(() => undefined)
-    if (model) return model
+    const providerID = message.info.model.providerID
+    const modelID = message.info.model.modelID
+    refreshPiModels()
+    const registry = getPiModelRegistry()
+    const model = piProviderCandidatesFromBuddy(providerID)
+      .map((candidateProviderID) => registry.find(candidateProviderID, modelID))
+      .find((candidate) => !!candidate)
+    if (model) {
+      return {
+        providerID,
+        id: model.id,
+        limit: {
+          context: model.contextWindow,
+          input: model.contextWindow,
+          output: model.maxTokens,
+        },
+      }
+    }
   }
 
   return undefined
@@ -134,7 +178,7 @@ async function resolveActiveModel(messages: MessageV2.WithParts[], extra: unknow
 
 function resolveContextBudget(input: {
   model: z.infer<typeof ActiveModelSchema>
-  messages: MessageV2.WithParts[]
+  messages: RuntimeMessage[]
 }) {
   const inputWindow = input.model.limit.input ?? input.model.limit.context
   const contextWindow = input.model.limit.context
@@ -215,7 +259,8 @@ export const ingestFullTextTool = createBuddyTool({
       throw new Error(`Resource "${resource.alias}" does not expose a prepared full-text file.`)
     }
 
-    const model = await resolveActiveModel(ctx.messages, ctx.extra?.model)
+    const runtimeMessages = resolveRuntimeMessages(ctx.messages, ctx.extra)
+    const model = await resolveActiveModel(runtimeMessages, ctx.extra?.model)
     if (!model) {
       throw new Error("Could not resolve the active model for full-text ingestion.")
     }
@@ -234,7 +279,7 @@ export const ingestFullTextTool = createBuddyTool({
 
     const budget = resolveContextBudget({
       model,
-      messages: ctx.messages,
+      messages: runtimeMessages,
     })
     const remainingAfterIngestion = budget.remainingBeforeIngestion - fullTextTokens
     if (remainingAfterIngestion < budget.reserve) {

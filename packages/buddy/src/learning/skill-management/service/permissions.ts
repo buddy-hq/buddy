@@ -1,7 +1,7 @@
-import { PermissionNext, type PermissionAction } from "@buddy/opencode-adapter/permission"
-import { Wildcard } from "@buddy/opencode-adapter/wildcard"
 import { Config } from "@buddy/backend/config"
+import { wildcardMatch } from "@buddy/backend/config/permissions/wildcard"
 import type {
+  PermissionAction,
   PermissionRule,
   PermissionRuleset,
   SkillPermissionSource,
@@ -32,8 +32,8 @@ function matchSkillRule(name: string, ruleset: PermissionRuleset) {
   for (let index = ruleset.length - 1; index >= 0; index -= 1) {
     const rule = ruleset[index]
     if (!rule) continue
-    if (!Wildcard.match(SKILL_RULE_DEFAULTS.permission, rule.permission)) continue
-    if (!Wildcard.match(name, rule.pattern)) continue
+    if (!wildcardMatch(rule.permission, SKILL_RULE_DEFAULTS.permission)) continue
+    if (!wildcardMatch(rule.pattern, name)) continue
     return rule
   }
 
@@ -70,7 +70,33 @@ export function resolveSkillPermission(name: string, ruleset: PermissionRuleset)
 
 export function skillRuleset(config: Config.Info): PermissionRuleset {
   if (!config.permission) return []
-  return PermissionNext.fromConfig(config.permission)
+  if (typeof config.permission === "string") {
+    return [
+      {
+        permission: SKILL_RULE_DEFAULTS.wildcardPattern,
+        pattern: SKILL_RULE_DEFAULTS.wildcardPattern,
+        action: config.permission,
+      },
+    ]
+  }
+
+  return Object.entries(config.permission).flatMap(([permission, rule]) => {
+    if (typeof rule === "string") {
+      return [
+        {
+          permission,
+          pattern: SKILL_RULE_DEFAULTS.wildcardPattern,
+          action: rule,
+        },
+      ]
+    }
+
+    return Object.entries(rule).map(([pattern, action]) => ({
+      permission,
+      pattern,
+      action,
+    }))
+  })
 }
 
 export function enabledAction(action: SkillRuleAction) {

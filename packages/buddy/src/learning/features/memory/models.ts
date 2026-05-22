@@ -1,10 +1,10 @@
-import { Provider } from "@buddy/opencode-adapter/provider"
-import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
+import { parseConfiguredModel, readProjectConfig } from "../../../config/runtime/config-access"
+import { getPiModelRegistry, refreshPiModels } from "../../../pi-backend/host"
 import {
-  ensureOpenCodeProjectOverlay,
-  parseConfiguredModel,
-  readProjectConfig,
-} from "../../../config/runtime"
+  buddyProviderIDFromPi,
+  piProviderCandidatesFromBuddy,
+} from "../../../pi-backend/provider-aliases"
+import type { PiModel } from "../../../pi-backend/types"
 import { readLearnerMemorySettings } from "./settings"
 import {
   DEFAULT_OPENAI_CONSOLIDATION_MODEL,
@@ -17,7 +17,7 @@ type LearnerMemoryModelPurpose = "extract" | "consolidate"
 type LearnerMemoryModel = {
   providerID: string
   modelID: string
-  model: Provider.Model
+  model: PiModel
 }
 
 const LEARNER_MEMORY_NO_AUTOMATIC_MODEL_REASON = "learner_memory_no_automatic_model"
@@ -27,31 +27,40 @@ type ParsedModel = {
   modelID: string
 }
 
-async function modelIfAvailable(input: ParsedModel): Promise<LearnerMemoryModel | undefined> {
-  try {
-    const model = await Provider.getModel(
-      ProviderID.make(input.providerID),
-      ModelID.make(input.modelID),
-    )
-    return {
-      providerID: model.providerID,
-      modelID: model.id,
-      model,
-    }
-  } catch {
-    return undefined
+function learnerMemoryModel(model: PiModel): LearnerMemoryModel {
+  return {
+    providerID: buddyProviderIDFromPi(model.provider),
+    modelID: model.id,
+    model,
   }
 }
 
-async function openAIConnected(): Promise<boolean> {
-  const providers = await Provider.list()
-  return Object.values(providers).some((provider) => provider.id === OPENAI_PROVIDER_ID)
+function modelIfAvailable(input: ParsedModel): LearnerMemoryModel | undefined {
+  const registry = getPiModelRegistry()
+  for (const providerID of piProviderCandidatesFromBuddy(input.providerID)) {
+    const model = registry.find(providerID, input.modelID)
+    if (model && registry.hasConfiguredAuth(model)) {
+      return learnerMemoryModel(model)
+    }
+  }
+  return undefined
 }
 
-async function exactOpenAIModelForPurpose(
+function availableModels(): PiModel[] {
+  refreshPiModels()
+  return getPiModelRegistry().getAvailable()
+}
+
+function openAIConnected(): boolean {
+  return availableModels().some(
+    (model) => buddyProviderIDFromPi(model.provider) === OPENAI_PROVIDER_ID,
+  )
+}
+
+function exactOpenAIModelForPurpose(
   purpose: LearnerMemoryModelPurpose,
-): Promise<LearnerMemoryModel | undefined> {
-  if (!(await openAIConnected())) return undefined
+): LearnerMemoryModel | undefined {
+  if (!openAIConnected()) return undefined
   return modelIfAvailable({
     providerID: OPENAI_PROVIDER_ID,
     modelID:
@@ -59,33 +68,16 @@ async function exactOpenAIModelForPurpose(
   })
 }
 
-async function fallbackSmallModel(): Promise<LearnerMemoryModel | undefined> {
-  const providers = await Provider.list()
-  for (const provider of Object.values(providers)) {
-    const smallModel = await Provider.getSmallModel(ProviderID.make(provider.id))
-    if (smallModel) {
-      return {
-        providerID: smallModel.providerID,
-        modelID: smallModel.id,
-        model: smallModel,
-      }
-    }
-  }
-
-  return undefined
+function fallbackSmallModel(): LearnerMemoryModel | undefined {
+  const model = availableModels().toSorted(
+    (left, right) => left.contextWindow - right.contextWindow,
+  )[0]
+  return model ? learnerMemoryModel(model) : undefined
 }
 
-async function fallbackConfiguredModel(): Promise<LearnerMemoryModel> {
-  const configuredModel = await Provider.defaultModel()
-  const model = await Provider.getModel(
-    ProviderID.make(configuredModel.providerID),
-    ModelID.make(configuredModel.modelID),
-  )
-  return {
-    providerID: model.providerID,
-    modelID: model.id,
-    model,
-  }
+function fallbackConfiguredModel(): LearnerMemoryModel | undefined {
+  const model = availableModels()[0]
+  return model ? learnerMemoryModel(model) : undefined
 }
 
 async function resolveLearnerMemoryModel(input: {
@@ -93,16 +85,15 @@ async function resolveLearnerMemoryModel(input: {
   purpose: LearnerMemoryModelPurpose
   allowGenericFallback?: boolean
 }): Promise<LearnerMemoryModel | undefined> {
-  await ensureOpenCodeProjectOverlay(input.directory)
   const config = await readProjectConfig(input.directory)
   const settings = readLearnerMemorySettings(config)
   const configured =
     input.purpose === "extract" ? settings.extractModel : settings.consolidationModel
   const configuredModel = configured ? parseConfiguredModel(configured) : undefined
-  const resolvedConfigured = configuredModel ? await modelIfAvailable(configuredModel) : undefined
+  const resolvedConfigured = configuredModel ? modelIfAvailable(configuredModel) : undefined
   if (resolvedConfigured) return resolvedConfigured
 
-  const openAIModel = await exactOpenAIModelForPurpose(input.purpose)
+  const openAIModel = exactOpenAIModelForPurpose(input.purpose)
   if (openAIModel) return openAIModel
 
   if (input.allowGenericFallback === false) {
@@ -110,7 +101,7 @@ async function resolveLearnerMemoryModel(input: {
   }
 
   if (input.purpose === "extract") {
-    const smallModel = await fallbackSmallModel()
+    const smallModel = fallbackSmallModel()
     if (smallModel) return smallModel
   }
 

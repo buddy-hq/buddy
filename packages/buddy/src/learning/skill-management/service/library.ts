@@ -2,7 +2,7 @@ import fsp from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { z } from "zod"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { piRuntime } from "../../../pi-backend/runtime"
 import {
   skillArtifactIntegritySchema,
   skillSourceRefSchema,
@@ -184,7 +184,7 @@ export async function readCatalogEntryByID(
 }
 
 async function refreshSkillRuntime(): Promise<void> {
-  await OpenCodeInstance.disposeAll()
+  piRuntime.disposeAll()
 }
 
 async function nextWithdrawnSkillPath(catalogId: string): Promise<string> {

@@ -1,14 +1,8 @@
-import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
-import { SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { PermissionNext, type PermissionRuleset } from "@buddy/opencode-adapter/permission"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import type { Config } from "@buddy/backend/config"
-import type { readProjectConfig } from "@buddy/backend/config/runtime"
+import type { readProjectConfig } from "../../../config/runtime/config-access"
+import { piRuntime } from "../../../pi-backend/runtime"
 import type { BuddyPermissionInput } from "../../agent-factories"
 import { resolveSessionRuntime } from "../../access/resolve-session-runtime"
-import { buildBuddyRuntimeSessionPermissions } from "../permissions/session-permissions"
 import { readTeachingSessionState } from "../state/session-state"
 import { getBuddyPersona, getDefaultBuddyPersona } from "../../personas/wiring/persona-profiles"
 import { REGISTERED_BUDDY_PERSONAS } from "../../personas/registry"
@@ -19,12 +13,15 @@ import {
   type Persona,
   type TeachingWorkspaceState,
 } from "../../shared/teaching-vocabulary"
+import { allBuddyTools } from "../../runtime/feature-registry"
+import { dynamicToolSearchTools } from "../../runtime/dynamic-tool-discovery"
 import { getLearningToolMetadata } from "../../runtime/tool-metadata"
 import { toolMatchesRuntimeConstraints } from "../../runtime/tool-constraints"
 import { getBuddySubagentDefinition } from "../../subagent-manifest"
-import { isDynamicLearningToolSessionRule } from "../../runtime/dynamic-tool-permissions"
+import { DEFAULT_BRIDGED_OPENCODE_TOOL_NAMES } from "../../../pi-backend/opencode-tool-bridge"
 
 const EDIT_PERMISSION_TOOL_IDS = new Set(["apply_patch", "edit", "multiedit", "write"])
+const DEFAULT_BRIDGED_OPENCODE_TOOL_ID_SET = new Set(DEFAULT_BRIDGED_OPENCODE_TOOL_NAMES)
 
 type ToolOverrideMap = Record<string, boolean>
 type MessageProjectConfig = Awaited<ReturnType<typeof readProjectConfig>>
@@ -34,9 +31,8 @@ type SubagentPolicyContext = {
   focusGoalIds: string[]
   hasParentSession: boolean
   policy: true | { denyTools?: readonly string[] }
-  currentSessionPermission?: PermissionRuleset
+  parentSessionRuntime?: TeachingSessionState["sessionRuntime"]
   teachingWorkspaceState: TeachingWorkspaceState
-  parentSessionPermission?: PermissionRuleset
   parentUserAgent?: string
   parentUserTools?: ToolOverrideMap
 }
@@ -46,35 +42,13 @@ type SubagentForwardingResult = {
     TeachingSessionState,
     "currentSurface" | "focusGoalIds" | "persona" | "sessionId" | "teachingWorkspaceState"
   >
-  sessionPermission?: PermissionRuleset
   toolOverrides?: ToolOverrideMap
 }
 
-type ToolModelInput = Parameters<typeof ToolRegistry.tools>[0]
+type ToolModelInput = unknown
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
-}
-
-function isSessionNotFoundError(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
-    return false
-  }
-  const payload = error as {
-    name?: unknown
-    message?: unknown
-    data?: { message?: unknown }
-  }
-  if (payload.name !== "NotFoundError") {
-    return false
-  }
-  const message =
-    typeof payload.data?.message === "string"
-      ? payload.data.message
-      : typeof payload.message === "string"
-        ? payload.message
-        : undefined
-  return typeof message === "string" && message.startsWith("Session not found:")
 }
 
 function toolPermissionKey(toolID: string): string {
@@ -94,36 +68,6 @@ function parseToolOverrides(value: unknown): ToolOverrideMap | undefined {
   }
 
   return Object.fromEntries(entries)
-}
-
-function clonePermissionRules(
-  permission: PermissionRuleset | undefined,
-): PermissionRuleset | undefined {
-  return permission?.map((rule) => ({ ...rule }))
-}
-
-function hasExplicitStandaloneSessionPermission(
-  permission: PermissionRuleset | undefined,
-): boolean {
-  return (permission ?? []).some((rule) => !isDynamicLearningToolSessionRule(rule))
-}
-
-function visibleToolIDs(input: {
-  agentPermission: PermissionRuleset | undefined
-  allToolIDs: readonly string[]
-  sessionPermission?: PermissionRuleset
-  toolOverrides?: ToolOverrideMap
-}): Set<string> {
-  const disabled = PermissionNext.disabled(
-    [...input.allToolIDs],
-    PermissionNext.merge(input.agentPermission ?? [], input.sessionPermission ?? []),
-  )
-
-  return new Set(
-    input.allToolIDs.filter(
-      (toolID) => input.toolOverrides?.[toolID] !== false && !disabled.has(toolID),
-    ),
-  )
 }
 
 function collectPermissionKeys(
@@ -190,7 +134,7 @@ function currentRuntimeAllowsTool(input: {
   return true
 }
 
-function specializedToolIDs(input: {
+export function specializedToolIDs(input: {
   allToolIDs: readonly string[]
   configuredToolToggles: Config.Info["tools"] | undefined
   targetAgent: string
@@ -270,13 +214,7 @@ function buildToolOverrides(input: {
 }
 
 async function readLatestUserPromptContext(input: { directory: string; sessionID: string }) {
-  const messages = await OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: () =>
-      OpenCodeSession.messages({
-        sessionID: SessionID.make(input.sessionID),
-      }),
-  })
+  const messages = await piRuntime.listMessages(input.directory, input.sessionID)
   const message = messages.findLast((entry) => entry.info.role === "user")
   if (!message || message.info.role !== "user") {
     return undefined
@@ -295,29 +233,15 @@ async function resolveSubagentPolicyContext(input: {
   sessionID: string
   targetAgent: string
 }): Promise<SubagentPolicyContext | undefined> {
-  const session = await OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: () => OpenCodeSession.get(SessionID.make(input.sessionID)),
-  }).catch((error) => {
-    if (isSessionNotFoundError(error)) {
-      return undefined
-    }
-    throw error
-  })
+  const session = await piRuntime
+    .getSessionInfo(input.directory, input.sessionID)
+    .catch(() => undefined)
   if (!session) {
     return undefined
   }
   const parentSessionID = session.parentID
   const parentSession = parentSessionID
-    ? await OpenCodeInstance.provide({
-        directory: input.directory,
-        fn: () => OpenCodeSession.get(SessionID.make(parentSessionID)),
-      }).catch((error) => {
-        if (isSessionNotFoundError(error)) {
-          return undefined
-        }
-        throw error
-      })
+    ? await piRuntime.getSessionInfo(input.directory, parentSessionID).catch(() => undefined)
     : undefined
   const parentState = parentSession
     ? readTeachingSessionState(input.directory, parentSession.id)
@@ -361,20 +285,18 @@ async function resolveSubagentPolicyContext(input: {
     hasParentSession: !!parentSessionID,
     policy,
     teachingWorkspaceState,
-    ...(session.permission ? { currentSessionPermission: session.permission } : {}),
-    ...(parentSession?.permission ? { parentSessionPermission: parentSession.permission } : {}),
+    ...(parentState?.sessionRuntime ? { parentSessionRuntime: parentState.sessionRuntime } : {}),
     ...(parentUserPrompt?.tools ? { parentUserTools: parentUserPrompt.tools } : {}),
     ...(parentUserPrompt?.agent ? { parentUserAgent: parentUserPrompt.agent } : {}),
   }
 }
 
-async function resolvePersonaVisibility(input: {
+function resolvePersonaVisibleToolIDs(input: {
   allToolIDs: readonly string[]
-  directory: string
   personaID: Persona
   projectConfig: MessageProjectConfig
   teachingWorkspaceState: TeachingWorkspaceState
-}): Promise<{ sessionPermission: PermissionRuleset; visibleToolIDs: Set<string> }> {
+}): Set<string> {
   const personaDefinition = REGISTERED_BUDDY_PERSONAS.find(
     (definition) => definition.id === input.personaID,
   )
@@ -392,116 +314,44 @@ async function resolvePersonaVisibility(input: {
     teachingWorkspaceState: input.teachingWorkspaceState,
     configuredToolToggles: input.projectConfig.tools,
   })
-  const personaAgent = await OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: () => OpenCodeAgent.get(input.personaID),
-  })
-  if (!personaAgent) {
-    throw new Error(`Unknown Buddy agent "${input.personaID}"`)
-  }
 
-  const sessionPermission = buildBuddyRuntimeSessionPermissions({
-    sessionRuntime,
-  })
-
-  return {
-    sessionPermission,
-    visibleToolIDs: visibleToolIDs({
-      agentPermission: personaAgent.permission,
-      allToolIDs: input.allToolIDs,
-      sessionPermission,
-    }),
-  }
-}
-
-function forwardedPermissionKeys(allToolIDs: readonly string[]): Set<string> {
-  return new Set(allToolIDs.map((toolID) => toolPermissionKey(toolID)))
-}
-
-function forwardedToolPermissionRules(input: {
-  allowedToolIDs: Set<string>
-  allToolIDs: readonly string[]
-}): PermissionRuleset {
-  const toolIDsByPermission = new Map<string, string[]>()
-
-  for (const toolID of input.allToolIDs) {
-    const permissionKey = toolPermissionKey(toolID)
-    const existing = toolIDsByPermission.get(permissionKey)
-    if (existing) {
-      existing.push(toolID)
-      continue
-    }
-    toolIDsByPermission.set(permissionKey, [toolID])
-  }
-
-  const rules: PermissionRuleset = []
-  for (const [permissionKey, toolIDs] of toolIDsByPermission.entries()) {
-    if (permissionKey === "task" || permissionKey === "skill") {
-      continue
-    }
-
-    rules.push({
-      permission: permissionKey,
-      pattern: "*",
-      action: toolIDs.some((toolID) => input.allowedToolIDs.has(toolID)) ? "allow" : "deny",
-    })
-  }
-
-  return rules
-}
-
-function forwardedPatternPermissionRules(input: {
-  allowedToolIDs: Set<string>
-  basePermission?: PermissionRuleset
-}): PermissionRuleset {
-  const rules: PermissionRuleset = []
-  const basePermission = clonePermissionRules(input.basePermission) ?? []
-
-  if (input.allowedToolIDs.has("task")) {
-    rules.push(...basePermission.filter((rule) => rule.permission === "task"))
-  } else {
-    rules.push({
-      permission: "task",
-      pattern: "*",
-      action: "deny",
-    })
-  }
-
-  if (input.allowedToolIDs.has("skill")) {
-    rules.push(...basePermission.filter((rule) => rule.permission === "skill"))
-  } else {
-    rules.push({
-      permission: "skill",
-      pattern: "*",
-      action: "deny",
-    })
-  }
-
-  return rules
-}
-
-function buildForwardedSessionPermission(input: {
-  allowedToolIDs: Set<string>
-  allToolIDs: readonly string[]
-  basePermission?: PermissionRuleset
-  existingPermission?: PermissionRuleset
-}): PermissionRuleset {
-  const managedPermissionKeys = forwardedPermissionKeys(input.allToolIDs)
-  const preservedRules = (clonePermissionRules(input.existingPermission) ?? []).filter(
-    (rule) => !managedPermissionKeys.has(rule.permission),
+  return new Set(
+    input.allToolIDs.filter(
+      (toolID) =>
+        DEFAULT_BRIDGED_OPENCODE_TOOL_ID_SET.has(toolID) ||
+        sessionRuntime.access.tools[toolID] === "allow" ||
+        dynamicToolSearchTools.some((tool) => tool.id === toolID),
+    ),
   )
+}
 
-  return [
-    ...preservedRules,
-    ...forwardedToolPermissionRules({
-      allowedToolIDs: input.allowedToolIDs,
-      allToolIDs: input.allToolIDs,
+function resolveSessionRuntimeVisibleToolIDs(input: {
+  allToolIDs: readonly string[]
+  configuredToolToggles: Config.Info["tools"] | undefined
+  sessionRuntime: NonNullable<TeachingSessionState["sessionRuntime"]>
+  teachingWorkspaceState: TeachingWorkspaceState
+}): Set<string> {
+  return new Set(
+    input.allToolIDs.filter((toolID) => {
+      if (DEFAULT_BRIDGED_OPENCODE_TOOL_ID_SET.has(toolID)) {
+        return true
+      }
+
+      if (dynamicToolSearchTools.some((tool) => tool.id === toolID)) {
+        return true
+      }
+
+      if (input.sessionRuntime.access.tools[toolID] !== "allow") {
+        return false
+      }
+
+      return currentRuntimeAllowsTool({
+        configuredToolToggles: input.configuredToolToggles,
+        teachingWorkspaceState: input.teachingWorkspaceState,
+        toolID,
+      })
     }),
-    ...forwardedPatternPermissionRules({
-      allowedToolIDs: input.allowedToolIDs,
-      basePermission: input.basePermission,
-    }),
-  ]
+  )
 }
 
 function stateSeed(input: {
@@ -542,62 +392,53 @@ export async function resolveSubagentToolForwarding(input: {
   }
 
   const explicitCurrentTools = parseToolOverrides(input.currentTools)
-  if (
-    !input.previousState &&
-    !context.hasParentSession &&
-    (explicitCurrentTools ||
-      hasExplicitStandaloneSessionPermission(context.currentSessionPermission))
-  ) {
+  if (!input.previousState && !context.hasParentSession && explicitCurrentTools) {
     return {}
   }
 
-  const registryToolIDs = await OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: () => ToolRegistry.ids(),
-  })
-  const model = input.model
-  const modelToolIDs = model
-    ? await OpenCodeInstance.provide({
-        directory: input.directory,
-        fn: async () => (await ToolRegistry.tools(model, input.targetAgent)).map((tool) => tool.id),
-      })
-    : []
-  const allToolIDs = [...new Set([...registryToolIDs, ...modelToolIDs])]
-  let baseSessionPermission = clonePermissionRules(context.parentSessionPermission)
+  const allToolIDs = [
+    ...new Set([
+      ...DEFAULT_BRIDGED_OPENCODE_TOOL_NAMES,
+      ...dynamicToolSearchTools.map((tool) => tool.id),
+      ...allBuddyTools().map((tool) => tool.id),
+      "task",
+    ]),
+  ]
   const personaVisibility = context.parentUserAgent
     ? undefined
-    : await resolvePersonaVisibility({
+    : resolvePersonaVisibleToolIDs({
         allToolIDs,
-        directory: input.directory,
         personaID: context.personaID,
         projectConfig: input.projectConfig,
         teachingWorkspaceState: context.teachingWorkspaceState,
       })
+  const parentRuntimeVisibility = context.parentSessionRuntime
+    ? resolveSessionRuntimeVisibleToolIDs({
+        allToolIDs,
+        configuredToolToggles: input.projectConfig.tools,
+        sessionRuntime: context.parentSessionRuntime,
+        teachingWorkspaceState: context.teachingWorkspaceState,
+      })
+    : undefined
 
   const inheritedToolIDs = context.parentUserAgent
-    ? await (async () => {
-        const parentUserAgent = context.parentUserAgent
-        if (!parentUserAgent) {
-          return []
-        }
-
-        return visibleToolIDs({
-          agentPermission: (
-            await OpenCodeInstance.provide({
-              directory: input.directory,
-              fn: () => OpenCodeAgent.get(parentUserAgent),
-            })
-          )?.permission,
-          allToolIDs,
-          sessionPermission: context.parentSessionPermission,
-          toolOverrides: context.parentUserTools,
-        })
-      })()
-    : (personaVisibility?.visibleToolIDs ?? new Set<string>())
-
-  if (personaVisibility) {
-    baseSessionPermission = personaVisibility.sessionPermission
-  }
+    ? context.parentUserTools
+      ? new Set(
+          [...(parentRuntimeVisibility ?? resolvePersonaVisibleToolIDs({
+            allToolIDs,
+            personaID: context.personaID,
+            projectConfig: input.projectConfig,
+            teachingWorkspaceState: context.teachingWorkspaceState,
+          }))].filter((toolID) => context.parentUserTools?.[toolID] !== false),
+        )
+      : (parentRuntimeVisibility ??
+          resolvePersonaVisibleToolIDs({
+            allToolIDs,
+            personaID: context.personaID,
+            projectConfig: input.projectConfig,
+            teachingWorkspaceState: context.teachingWorkspaceState,
+          }))
+    : (personaVisibility ?? new Set<string>())
 
   const allowedToolIDs = new Set<string>([
     ...inheritedToolIDs,
@@ -616,12 +457,6 @@ export async function resolveSubagentToolForwarding(input: {
   }
 
   return {
-    sessionPermission: buildForwardedSessionPermission({
-      allowedToolIDs,
-      allToolIDs,
-      basePermission: baseSessionPermission,
-      existingPermission: context.currentSessionPermission,
-    }),
     toolOverrides: buildToolOverrides({
       allowedToolIDs,
       allToolIDs,

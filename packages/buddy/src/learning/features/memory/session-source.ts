@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto"
-import type { MessageV2 } from "@buddy/opencode-adapter/message"
+import type {
+  BuddyAssistantMessageInfo,
+  BuddyMessagePart,
+  BuddyMessageWithParts,
+} from "../../../pi-backend/types"
 import type { LearnerEvent } from "./types"
 import { redactSecrets } from "./redaction"
 import { truncateHeadTail, type TruncatedText } from "./text-budget"
@@ -41,47 +45,35 @@ function isScaffoldText(value: string): boolean {
   )
 }
 
-function partText(part: MessageV2.Part): string | undefined {
+function partText(part: BuddyMessagePart): string | undefined {
   switch (part.type) {
     case "text":
-      if (part.ignored || part.synthetic || isScaffoldText(part.text)) return undefined
+      if (isScaffoldText(part.text)) return undefined
       return part.text
     case "tool":
       if (part.state.status === "completed") return part.state.output
       if (part.state.status === "error") return part.state.error
       return undefined
-    case "subtask":
-      return [part.description, part.prompt].filter(Boolean).join("\n")
-    case "agent":
-      return [part.name, part.source?.value].filter(Boolean).join("\n")
     case "file":
-      return [part.filename, part.source?.text.value].filter(Boolean).join("\n")
-    case "patch":
-      return part.files.join("\n")
-    case "step-finish":
-      return `finish=${part.reason} tokens=${part.tokens.total ?? part.tokens.input + part.tokens.output + part.tokens.reasoning}`
+      return part.filename
     case "reasoning":
-    case "snapshot":
-    case "step-start":
-    case "retry":
-    case "compaction":
       return undefined
   }
 }
 
-function messageToolNames(message: MessageV2.WithParts): string[] {
+function messageToolNames(message: BuddyMessageWithParts): string[] {
   return message.parts.flatMap((part) => (part.type === "tool" ? [part.tool] : []))
 }
 
-function assistantOutputTokens(info: MessageV2.Assistant): number {
+function assistantOutputTokens(info: BuddyAssistantMessageInfo): number {
   return info.tokens.total ?? info.tokens.output + info.tokens.reasoning
 }
 
-function messageCreatedAt(info: MessageV2.Info): string {
+function messageCreatedAt(info: BuddyMessageWithParts["info"]): string {
   return new Date(info.time.created).toISOString()
 }
 
-function filteredMessage(message: MessageV2.WithParts): FilteredSessionMessage | undefined {
+function filteredMessage(message: BuddyMessageWithParts): FilteredSessionMessage | undefined {
   if (message.info.role !== "user" && message.info.role !== "assistant") return undefined
   const text = redactSecrets(
     message.parts
@@ -158,7 +150,7 @@ function renderStructuredSource(input: {
 }
 
 function buildFilteredSessionSource(input: {
-  messages: readonly MessageV2.WithParts[]
+  messages: readonly BuddyMessageWithParts[]
   learningEvents: readonly LearnerEvent[]
 }): FilteredSessionSource {
   const messages = input.messages.flatMap((message) => {

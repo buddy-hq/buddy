@@ -1,19 +1,22 @@
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { SessionID } from "@buddy/opencode-adapter/id"
-import type { PermissionRule, PermissionRuleset } from "@buddy/opencode-adapter/permission"
-import { Session } from "@buddy/opencode-adapter/session"
 import type { BuddyTool } from "./create-buddy-tool"
+import { readProjectConfig } from "../../config/runtime/config-access"
 import {
   allDynamicLearningToolCatalogEntries,
   isDynamicLearningToolID,
 } from "./dynamic-tool-catalog"
+import { resolveSessionRuntime } from "../access/resolve-session-runtime"
 import {
-  dynamicLearningToolDefaultDenyRules,
   isExactDynamicLearningToolAllowRule,
-  removeDynamicLearningToolSessionRules,
+  type PermissionRule,
+  type PermissionRuleset,
 } from "./dynamic-tool-permissions"
-import { registerBuddyTools, unregisterBuddyTools } from "../runtime/register-buddy-tools"
-import { isSessionNotFoundError } from "../../session"
+import {
+  readTeachingSessionState,
+  writeTeachingSessionState,
+} from "../agent-execution/state/session-state"
+import { syncBuddyRuntimeSessionPermissions } from "../agent-execution/permissions/runtime-session-permissions"
+import { REGISTERED_BUDDY_PERSONAS } from "../personas/registry"
+import { getBuddyPersona, getDefaultBuddyPersona } from "../personas/wiring/persona-profiles"
 
 type DynamicGrantKey = string
 type DynamicSessionSearchCandidates = {
@@ -36,8 +39,18 @@ function exactAllowRule(toolID: string): PermissionRule {
   }
 }
 
-function exactDynamicAllowToolIDs(permission: PermissionRuleset | undefined): string[] {
-  return exactDynamicAllowRules(permission).map((rule) => rule.permission)
+function exactDynamicAllowToolIDsFromSessionRuntime(input: {
+  directory: string
+  sessionID: string
+}): string[] {
+  const sessionRuntime = readTeachingSessionState(input.directory, input.sessionID)?.sessionRuntime
+  if (!sessionRuntime) {
+    return []
+  }
+
+  return allDynamicLearningToolCatalogEntries()
+    .map((entry) => entry.id)
+    .filter((toolID) => sessionRuntime.access.tools[toolID] === "allow")
 }
 
 function withDynamicLearningToolAllows(input: {
@@ -54,45 +67,6 @@ function withDynamicLearningToolAllows(input: {
   )
 
   return [...withoutDynamicAllowRules, ...Array.from(grantedToolIDs).map(exactAllowRule)]
-}
-
-async function withSessionInfo<Result>(input: {
-  directory: string
-  sessionID: string
-  handle: (session: Session.Info) => Promise<Result>
-}): Promise<Result | undefined> {
-  const sessionID = SessionID.make(input.sessionID)
-  return OpenCodeInstance.provide({
-    directory: input.directory,
-    async fn() {
-      const session = await Session.get(sessionID).catch((error) => {
-        if (isSessionNotFoundError(error)) return undefined
-        throw error
-      })
-      if (!session) return undefined
-      return input.handle(session)
-    },
-  })
-}
-
-async function updateSessionPermission(input: {
-  directory: string
-  sessionID: string
-  update: (permission: PermissionRuleset | undefined) => PermissionRuleset
-}): Promise<boolean> {
-  const sessionID = SessionID.make(input.sessionID)
-  const updated = await withSessionInfo({
-    directory: input.directory,
-    sessionID: input.sessionID,
-    async handle(session) {
-      await Session.setPermission({
-        sessionID,
-        permission: input.update(session.permission),
-      })
-      return true
-    },
-  })
-  return updated ?? false
 }
 
 function recordDynamicLearningToolSearchCandidates(input: {
@@ -118,15 +92,7 @@ async function grantedDynamicLearningToolIDsForSession(input: {
   directory: string
   sessionID: string
 }): Promise<string[]> {
-  return (
-    (await withSessionInfo({
-      directory: input.directory,
-      sessionID: input.sessionID,
-      async handle(session) {
-        return exactDynamicAllowToolIDs(session.permission)
-      },
-    })) ?? []
-  )
+  return exactDynamicAllowToolIDsFromSessionRuntime(input)
 }
 
 function grantedDynamicLearningTools(toolIDs: readonly string[]): BuddyTool[] {
@@ -136,39 +102,101 @@ function grantedDynamicLearningTools(toolIDs: readonly string[]): BuddyTool[] {
     .map((entry) => entry.tool)
 }
 
-async function referencedToolIDs(input: {
+async function ensureTeachingSessionRuntimeState(input: {
   directory: string
-  excludedSessionID?: string
-}): Promise<Set<string>> {
-  const referenced = new Set<string>()
-  const sessions = await OpenCodeInstance.provide({
-    directory: input.directory,
-    async fn() {
-      return Session.list({ directory: input.directory })
-    },
-  })
-  for (const session of sessions) {
-    if (session.id === input.excludedSessionID) continue
-    for (const toolID of exactDynamicAllowToolIDs(session.permission)) {
-      referenced.add(toolID)
-    }
+  sessionID: string
+}) {
+  const existingState = readTeachingSessionState(input.directory, input.sessionID)
+  if (existingState?.sessionRuntime) {
+    return existingState
   }
-  return referenced
+
+  const projectConfig = await readProjectConfig(input.directory)
+  const personaID =
+    existingState?.persona ??
+    getDefaultBuddyPersona({
+      defaultPersona: projectConfig.default_persona,
+      overrides: projectConfig.personas,
+    }).id
+  const persona = getBuddyPersona(personaID, projectConfig.personas)
+  const personaDefinition = REGISTERED_BUDDY_PERSONAS.find((definition) => definition.id === persona.id)
+  if (!personaDefinition) {
+    throw new Error(`Unknown Buddy persona "${persona.id}"`)
+  }
+
+  const teachingWorkspaceState = existingState?.teachingWorkspaceState ?? "inactive"
+  const sessionRuntime = resolveSessionRuntime({
+    persona: {
+      id: persona.id,
+      features: personaDefinition.features,
+      defaultSurface: persona.defaultSurface,
+    },
+    teachingWorkspaceState,
+    configuredToolToggles: projectConfig.tools,
+  })
+  const nextState = {
+    ...existingState,
+    sessionId: input.sessionID,
+    persona: persona.id,
+    currentSurface: existingState?.currentSurface ?? persona.defaultSurface,
+    teachingWorkspaceState,
+    sessionRuntime,
+    focusGoalIds: existingState?.focusGoalIds ?? [],
+  }
+
+  writeTeachingSessionState(input.directory, nextState)
+  return nextState
 }
 
-async function unregisterUnreferencedDynamicTools(input: {
+async function syncDynamicLearningToolSessionRuntime(input: {
   directory: string
-  previousToolIDs: readonly string[]
-  excludedSessionID?: string
-}): Promise<void> {
-  const referenced = await referencedToolIDs({
+  sessionID: string
+  toolIDs: readonly string[]
+  reset: boolean
+}): Promise<boolean> {
+  const existingState = await ensureTeachingSessionRuntimeState({
     directory: input.directory,
-    excludedSessionID: input.excludedSessionID,
+    sessionID: input.sessionID,
   })
-  const unreferenced = input.previousToolIDs.filter((toolID) => !referenced.has(toolID))
-  if (unreferenced.length === 0) return
+  if (!existingState.sessionRuntime) {
+    return false
+  }
 
-  await unregisterBuddyTools(input.directory, unreferenced)
+  const dynamicToolIDs = new Set(allDynamicLearningToolCatalogEntries().map((entry) => entry.id))
+  const nextToolAccess = {
+    ...existingState.sessionRuntime.access.tools,
+  }
+
+  if (input.reset) {
+    for (const toolID of dynamicToolIDs) {
+      nextToolAccess[toolID] = "deny"
+    }
+  }
+
+  for (const toolID of input.toolIDs) {
+    if (dynamicToolIDs.has(toolID)) {
+      nextToolAccess[toolID] = "allow"
+    }
+  }
+
+  const nextState = {
+    ...existingState,
+    sessionRuntime: {
+      ...existingState.sessionRuntime,
+      access: {
+        ...existingState.sessionRuntime.access,
+        tools: nextToolAccess,
+      },
+    },
+  }
+
+  writeTeachingSessionState(input.directory, nextState)
+  await syncBuddyRuntimeSessionPermissions({
+    directory: input.directory,
+    sessionID: input.sessionID,
+    sessionRuntime: nextState.sessionRuntime,
+  })
+  return true
 }
 
 type ReleaseDynamicLearningToolsForSessionInput = {
@@ -180,26 +208,13 @@ type ReleaseDynamicLearningToolsForSessionInput = {
 async function releaseDynamicLearningToolsForSession(
   input: ReleaseDynamicLearningToolsForSessionInput,
 ): Promise<void> {
-  const previousToolIDs = allDynamicLearningToolCatalogEntries().map((entry) => entry.id)
   searchCandidatesBySession.delete(grantKey(input.directory, input.sessionID))
 
-  if (input.resetPermission) {
-    await updateSessionPermission({
-      directory: input.directory,
-      sessionID: input.sessionID,
-      update(permission) {
-        return [
-          ...removeDynamicLearningToolSessionRules(permission),
-          ...dynamicLearningToolDefaultDenyRules(),
-        ]
-      },
-    })
-  }
-
-  await unregisterUnreferencedDynamicTools({
+  await syncDynamicLearningToolSessionRuntime({
     directory: input.directory,
-    previousToolIDs,
-    excludedSessionID: input.sessionID,
+    sessionID: input.sessionID,
+    toolIDs: [],
+    reset: true,
   })
 }
 
@@ -212,20 +227,14 @@ async function grantDynamicLearningToolsForSession(input: {
   if (dynamicTools.length === 0) return []
 
   const toolIDs = dynamicTools.map((tool) => tool.id)
-
-  const granted = await updateSessionPermission({
+  const piGranted = await syncDynamicLearningToolSessionRuntime({
     directory: input.directory,
     sessionID: input.sessionID,
-    update(permission) {
-      return withDynamicLearningToolAllows({
-        existing: permission,
-        toolIDs,
-      })
-    },
+    toolIDs,
+    reset: false,
   })
-  if (!granted) return []
 
-  await registerBuddyTools(input.directory, dynamicTools)
+  if (!piGranted) return []
 
   return toolIDs
 }
@@ -266,7 +275,11 @@ async function ensureDynamicLearningToolsRegisteredForSession(input: {
   const tools = grantedDynamicLearningTools(toolIDs)
   if (tools.length === 0) return []
 
-  await registerBuddyTools(input.directory, tools)
+  await syncBuddyRuntimeSessionPermissions({
+    directory: input.directory,
+    sessionID: input.sessionID,
+    sessionRuntime: readTeachingSessionState(input.directory, input.sessionID)?.sessionRuntime,
+  })
   return tools.map((tool) => tool.id)
 }
 
