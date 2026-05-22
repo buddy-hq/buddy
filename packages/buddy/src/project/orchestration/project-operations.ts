@@ -1,9 +1,10 @@
-import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
-import { ProjectID } from "@buddy/opencode-adapter/id"
-import { safeDecodeSchema } from "../../http/effect-schema"
 import { isAllowedDirectory, resolveDirectory } from "../directory"
-
-const projectUpdateBodySchema = OpenCodeProject.UpdatePayload
+import { BuddyProjectUpdateSchema } from "../project-contract"
+import {
+  ensureProjectDirectory,
+  updateProjectInfoByID,
+  upsertProjectInfoForDirectory,
+} from "../project-info"
 
 export function readOpenProjectDirectory(payload: unknown): string | undefined {
   if (!payload || typeof payload !== "object" || !("directory" in payload)) {
@@ -15,7 +16,7 @@ export function readOpenProjectDirectory(payload: unknown): string | undefined {
 }
 
 export function parseProjectUpdateBody(payload: unknown) {
-  return safeDecodeSchema(projectUpdateBodySchema, payload)
+  return BuddyProjectUpdateSchema.safeParse(payload)
 }
 
 export function projectUpdateErrorMessage(error: unknown) {
@@ -95,7 +96,8 @@ export async function openProjectFromPayload(payload: unknown): Promise<
       }
     }
 
-    await OpenCodeProject.fromDirectory(directory)
+    await ensureProjectDirectory(directory)
+    await upsertProjectInfoForDirectory(directory)
     return {
       ok: true,
       directory,
@@ -115,7 +117,7 @@ export async function updateProjectFromPayload(input: {
 }): Promise<
   | {
       ok: true
-      project: Awaited<ReturnType<typeof OpenCodeProject.update>>
+      project: Awaited<ReturnType<typeof updateProjectInfoByID>>
     }
   | {
       ok: false
@@ -133,10 +135,14 @@ export async function updateProjectFromPayload(input: {
   }
 
   try {
-    const project = await OpenCodeProject.update({
-      ...body.data,
-      projectID: ProjectID.make(input.projectID),
-    })
+    const project = await updateProjectInfoByID(input.projectID, body.data)
+    if (!project) {
+      return {
+        ok: false,
+        status: 404,
+        error: `Project not found: ${input.projectID}`,
+      }
+    }
     return {
       ok: true,
       project,

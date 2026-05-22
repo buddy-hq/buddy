@@ -1,10 +1,9 @@
 import fs from "node:fs/promises"
 import { readFileSync } from "node:fs"
 import path from "node:path"
-import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
 import { Global } from "../storage/global"
 import { resolveDirectory } from "./directory"
-import { projectUpdateErrorMessage } from "./orchestration/project-operations"
+import { ensureProjectDirectory, upsertProjectInfoForDirectory } from "./project-info"
 
 const OPEN_PROJECTS_FILENAME = "desktop-notebooks.json"
 
@@ -143,9 +142,13 @@ export async function openProjectRegistryEntry(rawDirectory: string) {
   const directory = requireRegistryDirectory(rawDirectory)
 
   try {
-    await OpenCodeProject.fromDirectory(directory)
+    await ensureProjectDirectory(directory)
+    await upsertProjectInfoForDirectory(directory)
   } catch (error) {
-    throw new OpenProjectRegistryError(400, projectUpdateErrorMessage(error))
+    throw new OpenProjectRegistryError(
+      400,
+      error instanceof Error ? error.message : "Invalid project directory",
+    )
   }
 
   await updateRegistry((current) =>
@@ -178,9 +181,13 @@ export async function setOpenProjectRegistryEntries(rawDirectories: string[]) {
   const directories = normalizeRegistryDirectories(rawDirectories)
   for (const directory of directories) {
     try {
-      await OpenCodeProject.fromDirectory(directory)
+      await ensureProjectDirectory(directory)
+      await upsertProjectInfoForDirectory(directory)
     } catch (error) {
-      throw new OpenProjectRegistryError(400, projectUpdateErrorMessage(error))
+      throw new OpenProjectRegistryError(
+        400,
+        error instanceof Error ? error.message : "Invalid project directory",
+      )
     }
   }
 
