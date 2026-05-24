@@ -39,12 +39,10 @@ import {
   resolveConnectedModelSelection,
   type ProviderModelSelection,
 } from "@/lib/provider-catalog"
-import { OPENCODE_PROVIDER_ID } from "@/lib/provider-ids"
 import { resolveCurrentAgent } from "./agent-catalog"
 import { getRightSidebarMaxWidth, getRightSidebarMinWidth } from "./right-sidebar-layout"
 import type { NotebookMainPaneTab } from "@/state/ui-preferences"
 
-const MODEL_VISIBILITY_WINDOW_MS = 1000 * 60 * 60 * 24 * 31 * 6
 const EMPTY_LIST: never[] = []
 const EMPTY_RECORD: Record<string, never> = {}
 const EMPTY_SESSIONS: SessionInfo[] = []
@@ -123,47 +121,18 @@ function isModelSelection(
   return value !== undefined
 }
 
-function isAlwaysVisibleProviderModel(providerID: string) {
-  return providerID === OPENCODE_PROVIDER_ID
-}
-
 export function resolveVisibleModelKeys(input: {
   connectedProviders: ProviderInfo[]
   autoModelSelection: ProviderModelSelection | undefined
   selectedModelOverrideKey: string | undefined
-  now?: number
 }) {
   const visible = new Set<string>()
-  const latestByFamily = new Map<string, { key: string; releaseTime: number }>()
-  const now = input.now ?? Date.now()
 
   for (const provider of input.connectedProviders) {
     for (const model of provider.models) {
       const key = modelSelectionKey({ providerID: provider.id, modelID: model.id })
-      if (isAlwaysVisibleProviderModel(provider.id)) {
-        visible.add(key)
-        continue
-      }
-
-      const releaseTime = model.releaseDate ? Date.parse(model.releaseDate) : Number.NaN
-
-      if (!Number.isFinite(releaseTime)) {
-        visible.add(key)
-        continue
-      }
-      if (Math.abs(now - releaseTime) >= MODEL_VISIBILITY_WINDOW_MS) continue
-
-      const family = model.family || model.id
-      const familyKey = `${provider.id}:${family}`
-      const existing = latestByFamily.get(familyKey)
-      if (!existing || releaseTime > existing.releaseTime) {
-        latestByFamily.set(familyKey, { key, releaseTime })
-      }
+      visible.add(key)
     }
-  }
-
-  for (const latest of latestByFamily.values()) {
-    visible.add(latest.key)
   }
 
   if (input.autoModelSelection) visible.add(modelSelectionKey(input.autoModelSelection))
