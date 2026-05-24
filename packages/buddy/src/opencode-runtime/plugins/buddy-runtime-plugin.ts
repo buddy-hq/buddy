@@ -1,5 +1,6 @@
 import path from "node:path"
 import type { Hooks, Plugin } from "@opencode-ai/plugin"
+import { createOpenAICodexAuthHook } from "./openai-codex-auth"
 import { stripToolUiFromMessages } from "../tool-ui-strip"
 import { captureSessionSystemPrompt } from "../system-prompt-capture"
 
@@ -129,6 +130,7 @@ export async function createBuddyRuntimeHooks(input: {
 
   return {
     tool: toolMap,
+    auth: createOpenAICodexAuthHook(),
     ...createSystemPromptGuard({ directory: input.directory }),
   }
 }

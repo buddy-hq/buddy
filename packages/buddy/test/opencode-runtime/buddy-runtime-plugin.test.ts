@@ -120,4 +120,20 @@ describe("Buddy runtime plugin", () => {
     expect(output.system[0]).not.toContain(externalClaudePath)
     expect(output.system[0]).not.toContain("Drop this CLAUDE block.")
   }, 30_000)
+
+  test("runtime hooks override the OpenAI auth flow with Buddy branding", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const hooks = await createBuddyRuntimeHooks({
+      directory: project.path,
+      worktree: project.path,
+    })
+
+    expect(hooks.auth?.provider).toBe("openai")
+    expect(hooks.auth?.methods.map((method) => method.label)).toEqual([
+      "ChatGPT Pro/Plus (browser)",
+      "ChatGPT Pro/Plus (headless)",
+      "Manually enter API Key",
+    ])
+  })
 })
