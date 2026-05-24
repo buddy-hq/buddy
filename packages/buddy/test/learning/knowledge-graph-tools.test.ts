@@ -5,9 +5,8 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { KnowledgeGraphService } from "../../src/learning/features/standards/service"
 import { KNOWLEDGE_GRAPH_DB_ENV } from "../../src/learning/features/standards/constants"
-import { ensureKnowledgeGraphToolsRegistered } from "../../src/learning/features/standards/tools/register"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import { createToolContext, ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 function createFixtureDatabase(databasePath: string) {
   const database = new Database(databasePath)
@@ -244,10 +243,11 @@ describe("knowledge graph tools", () => {
     process.env[KNOWLEDGE_GRAPH_DB_ENV] = databasePath
 
     try {
+      await ensureBuddyPluginTools(project.path)
+
       const result = await OpenCodeInstance.provide({
         directory: project.path,
         async fn() {
-          await ensureKnowledgeGraphToolsRegistered(project.path)
           const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
           const searchTool = requireTool(tools, "search_standards")
           const getStandardTool = requireTool(tools, "get_standard")

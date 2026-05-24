@@ -1,6 +1,7 @@
 import { readProjectConfig } from "@buddy/backend/config/runtime"
 import { SessionID } from "@buddy/opencode-adapter/id"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { getBuddyPersona } from "../../personas/wiring/persona-profiles"
 import { REGISTERED_BUDDY_PERSONAS } from "../../personas/registry"
@@ -26,6 +27,11 @@ export function createSessionCommandTransform(input: {
   return {
     onTransform: async (body: Record<string, unknown>): Promise<Record<string, unknown>> => {
       assertNoLegacyRuntimeOverrides(body)
+
+      await OpenCodeInstance.provide({
+        directory: input.context.directory,
+        fn: () => ToolRegistry.prime(),
+      })
 
       const projectConfig = await readProjectConfig(input.context.directory)
       const previousState = readTeachingSessionState(

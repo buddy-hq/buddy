@@ -1,4 +1,4 @@
-import { Hono } from "hono"
+import { Hono, type Context } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import { Schema } from "effect"
 import z from "zod"
@@ -10,8 +10,14 @@ import {
   routeErrors,
   directoryQuerySchema,
   McpNameParamSchema,
+  ensureAllowedDirectory,
+  isJsonContentType,
+  parseJsonText,
+  respondWithSdkResult,
+  runSdkRoute,
+  openCodeDirectoryParams,
 } from "../http"
-import { proxyToOpenCode } from "../http"
+import { getOpenCodeClient } from "../opencode-runtime/client"
 
 const mcpStatusMapSchema = toOpenApiSchema(Schema.Record(Schema.String, OpenCodeMcp.Status))
 const mcpStatusSchema = toOpenApiSchema(OpenCodeMcp.Status)
@@ -27,6 +33,30 @@ const mcpAuthStartSchema = z.object({
 const mcpAuthRemovedSchema = z.object({
   success: z.literal(true),
 })
+
+const mcpAddPayloadSchema = z.object({
+  name: z.string().min(1),
+  config: z.unknown(),
+})
+
+async function readMcpAddPayload(c: Context) {
+  const contentType = c.req.header("content-type")
+  if (!isJsonContentType(contentType)) {
+    return {}
+  }
+
+  const raw = await c.req.raw.text()
+  if (raw.trim().length === 0) {
+    return {}
+  }
+
+  const parsed = parseJsonText(raw)
+  if (!parsed.ok || !parsed.value || typeof parsed.value !== "object" || Array.isArray(parsed.value)) {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 })
+  }
+
+  return parsed.value as Record<string, unknown>
+}
 
 export const McpRoutes = new Hono()
   .use("*", createConfigSyncMiddleware("MCP request"))
@@ -46,7 +76,15 @@ export const McpRoutes = new Hono()
       },
     }),
     validator("query", directoryQuerySchema),
-    async (c) => proxyToOpenCode(c, { targetPath: "/mcp" }),
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = ensureAllowedDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.mcp.status(openCodeDirectoryParams(directoryResult.directory))
+        return respondWithSdkResult(c, result)
+      }),
   )
   .post(
     "/",
@@ -64,7 +102,31 @@ export const McpRoutes = new Hono()
       },
     }),
     validator("query", directoryQuerySchema),
-    async (c) => proxyToOpenCode(c, { targetPath: "/mcp" }),
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = ensureAllowedDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const payload = await readMcpAddPayload(c)
+        if (payload instanceof Response) return payload
+
+        const parsedPayload = mcpAddPayloadSchema.safeParse(payload)
+        if (!parsedPayload.success) {
+          return Response.json({ error: "Invalid MCP payload" }, { status: 400 })
+        }
+
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.mcp.add({
+          ...openCodeDirectoryParams(directoryResult.directory),
+          name: parsedPayload.data.name,
+          config: parsedPayload.data.config as Parameters<typeof client.mcp.add>[0] extends infer T
+            ? T extends { config?: infer C }
+              ? C
+              : never
+            : never,
+        })
+        return respondWithSdkResult(c, result)
+      }),
   )
   .post(
     "/:name/auth",
@@ -84,8 +146,17 @@ export const McpRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", McpNameParamSchema),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: `/mcp/${encodeURIComponent(c.req.valid("param").name)}/auth`,
+      runSdkRoute(c, async () => {
+        const directoryResult = ensureAllowedDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const name = c.req.valid("param").name
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.mcp.auth.start({
+          name,
+          ...openCodeDirectoryParams(directoryResult.directory),
+        })
+        return respondWithSdkResult(c, result)
       }),
   )
   .post(
@@ -107,8 +178,18 @@ export const McpRoutes = new Hono()
     validator("param", McpNameParamSchema),
     validator("json", mcpAuthCallbackSchema),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: `/mcp/${encodeURIComponent(c.req.valid("param").name)}/auth/callback`,
+      runSdkRoute(c, async () => {
+        const directoryResult = ensureAllowedDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const name = c.req.valid("param").name
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.mcp.auth.callback({
+          name,
+          code: c.req.valid("json").code,
+          ...openCodeDirectoryParams(directoryResult.directory),
+        })
+        return respondWithSdkResult(c, result)
       }),
   )
   .post(
@@ -129,8 +210,17 @@ export const McpRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", McpNameParamSchema),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: `/mcp/${encodeURIComponent(c.req.valid("param").name)}/auth/authenticate`,
+      runSdkRoute(c, async () => {
+        const directoryResult = ensureAllowedDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const name = c.req.valid("param").name
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.mcp.auth.authenticate({
+          name,
+          ...openCodeDirectoryParams(directoryResult.directory),
+        })
+        return respondWithSdkResult(c, result)
       }),
   )
   .delete(
@@ -151,8 +241,17 @@ export const McpRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", McpNameParamSchema),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: `/mcp/${encodeURIComponent(c.req.valid("param").name)}/auth`,
+      runSdkRoute(c, async () => {
+        const directoryResult = ensureAllowedDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const name = c.req.valid("param").name
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.mcp.auth.remove({
+          name,
+          ...openCodeDirectoryParams(directoryResult.directory),
+        })
+        return respondWithSdkResult(c, result)
       }),
   )
   .post(
@@ -173,8 +272,17 @@ export const McpRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", McpNameParamSchema),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: `/mcp/${encodeURIComponent(c.req.valid("param").name)}/connect`,
+      runSdkRoute(c, async () => {
+        const directoryResult = ensureAllowedDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const name = c.req.valid("param").name
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.mcp.connect({
+          name,
+          ...openCodeDirectoryParams(directoryResult.directory),
+        })
+        return respondWithSdkResult(c, result)
       }),
   )
   .post(
@@ -195,7 +303,16 @@ export const McpRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", McpNameParamSchema),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: `/mcp/${encodeURIComponent(c.req.valid("param").name)}/disconnect`,
+      runSdkRoute(c, async () => {
+        const directoryResult = ensureAllowedDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const name = c.req.valid("param").name
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.mcp.disconnect({
+          name,
+          ...openCodeDirectoryParams(directoryResult.directory),
+        })
+        return respondWithSdkResult(c, result)
       }),
   )

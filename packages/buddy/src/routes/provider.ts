@@ -5,8 +5,17 @@ import z from "zod"
 import { Provider as OpenCodeProvider } from "@buddy/opencode-adapter/provider"
 import { ProviderAuth as OpenCodeProviderAuth } from "@buddy/opencode-adapter/provider-auth"
 import { toOpenApiSchema } from "../http/effect-schema"
-import { routeErrors, directoryQuerySchema, ProviderIDParamSchema } from "../http"
-import { proxyToOpenCode } from "../http"
+import {
+  routeErrors,
+  directoryQuerySchema,
+  ProviderIDParamSchema,
+  resolveOptionalDirectoryRequestContext,
+  respondWithSdkResult,
+  runSdkRoute,
+  openCodeDirectoryParams,
+} from "../http"
+import { getOpenCodeClient } from "../opencode-runtime/client"
+import { ensureGlobalBootstrapWorkspaceDirectory } from "../project"
 
 const oauthMethodRequestSchema = z.object({
   method: z.number().int(),
@@ -29,6 +38,17 @@ const providerAuthResponseSchema = toOpenApiSchema(
   Schema.Record(Schema.String, Schema.Array(OpenCodeProviderAuth.Method)),
 )
 
+function resolveBootstrapDirectory(c: Parameters<typeof resolveOptionalDirectoryRequestContext>[0]) {
+  const directoryResult = resolveOptionalDirectoryRequestContext(c)
+  if (!directoryResult.ok) return directoryResult
+
+  return {
+    ok: true as const,
+    directory:
+      directoryResult.context.directory ?? ensureGlobalBootstrapWorkspaceDirectory(),
+  }
+}
+
 export const ProviderRoutes = new Hono()
   .get(
     "/",
@@ -47,9 +67,13 @@ export const ProviderRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: "/provider",
-        directoryMode: "bootstrap",
+      runSdkRoute(c, async () => {
+        const directoryResult = resolveBootstrapDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.provider.list(openCodeDirectoryParams(directoryResult.directory))
+        return respondWithSdkResult(c, result)
       }),
   )
   .get(
@@ -68,12 +92,15 @@ export const ProviderRoutes = new Hono()
       },
     }),
     validator("query", directoryQuerySchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: "/provider/auth",
-        directoryMode: "bootstrap",
-      })
-    },
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = resolveBootstrapDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.provider.auth(openCodeDirectoryParams(directoryResult.directory))
+        return respondWithSdkResult(c, result)
+      }),
   )
   .post(
     "/:providerID/oauth/authorize",
@@ -97,12 +124,21 @@ export const ProviderRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", ProviderIDParamSchema),
     validator("json", oauthMethodRequestSchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: `/provider/${encodeURIComponent(c.req.valid("param").providerID)}/oauth/authorize`,
-        directoryMode: "bootstrap",
-      })
-    },
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = resolveBootstrapDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const providerID = c.req.valid("param").providerID
+        const body = c.req.valid("json")
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.provider.oauth.authorize({
+          providerID,
+          method: body.method,
+          ...openCodeDirectoryParams(directoryResult.directory),
+        })
+        return respondWithSdkResult(c, result)
+      }),
   )
   .post(
     "/:providerID/oauth/callback",
@@ -122,10 +158,20 @@ export const ProviderRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", ProviderIDParamSchema),
     validator("json", oauthCallbackRequestSchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: `/provider/${encodeURIComponent(c.req.valid("param").providerID)}/oauth/callback`,
-        directoryMode: "bootstrap",
-      })
-    },
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = resolveBootstrapDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const providerID = c.req.valid("param").providerID
+        const body = c.req.valid("json")
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.provider.oauth.callback({
+          providerID,
+          method: body.method,
+          code: body.code,
+          ...openCodeDirectoryParams(directoryResult.directory),
+        })
+        return respondWithSdkResult(c, result)
+      }),
   )

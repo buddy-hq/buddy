@@ -6,8 +6,12 @@ import {
   routeErrors,
   directoryQuerySchema,
   RequestIDParamSchema,
+  ensureAllowedDirectory,
+  respondWithSdkResult,
+  runSdkRoute,
+  openCodeDirectoryParams,
 } from "../http"
-import { proxyToOpenCode } from "../http"
+import { getOpenCodeClient } from "../opencode-runtime/client"
 
 const questionOptionSchema = z.object({
   label: z.string(),
@@ -57,11 +61,15 @@ export const QuestionRoutes = new Hono()
       },
     }),
     validator("query", directoryQuerySchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: "/question",
-      })
-    },
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = ensureAllowedDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.question.list(openCodeDirectoryParams(directoryResult.directory))
+        return respondWithSdkResult(c, result)
+      }),
   )
   .post(
     "/:requestID/reply",
@@ -81,11 +89,19 @@ export const QuestionRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", RequestIDParamSchema),
     validator("json", questionReplyRequestSchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: `/question/${encodeURIComponent(c.req.valid("param").requestID)}/reply`,
-      })
-    },
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = ensureAllowedDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.question.reply({
+          requestID: c.req.valid("param").requestID,
+          answers: c.req.valid("json").answers,
+          ...openCodeDirectoryParams(directoryResult.directory),
+        })
+        return respondWithSdkResult(c, result)
+      }),
   )
   .post(
     "/:requestID/reject",
@@ -104,9 +120,16 @@ export const QuestionRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     validator("param", RequestIDParamSchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: `/question/${encodeURIComponent(c.req.valid("param").requestID)}/reject`,
-      })
-    },
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = ensureAllowedDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.question.reject({
+          requestID: c.req.valid("param").requestID,
+          ...openCodeDirectoryParams(directoryResult.directory),
+        })
+        return respondWithSdkResult(c, result)
+      }),
   )

@@ -20,8 +20,11 @@ import {
   runRouteTask,
   withConfigSyncRoute,
   withDirectoryRoute,
+  respondWithSdkResult,
+  runSdkRoute,
+  openCodeDirectoryParams,
 } from "../http"
-import { proxyToOpenCode } from "../http"
+import { getOpenCodeClient } from "../opencode-runtime/client"
 
 const personaCatalogEntrySchema = z.object({
   id: z.string(),
@@ -132,9 +135,13 @@ export const ConfigRoutes = new Hono()
     async (c) =>
       withConfigSyncRoute(c, {
         operation: "listing providers",
-        handler: async () =>
-          proxyToOpenCode(c, {
-            targetPath: "/config/providers",
+        handler: async (context) =>
+          runSdkRoute(c, async () => {
+            const client = await getOpenCodeClient(context.directory)
+            const result = await client.config.providers(
+              openCodeDirectoryParams(context.directory),
+            )
+            return respondWithSdkResult(c, result)
           }),
       }),
   )

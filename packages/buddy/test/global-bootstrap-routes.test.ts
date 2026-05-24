@@ -1,8 +1,6 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { rmSync } from "node:fs"
 import path from "node:path"
-import type { FetchOpenCodeInput } from "../src/http/proxy/types"
-import { ensureGlobalBootstrapWorkspaceDirectory } from "../src/project"
 import { Global } from "../src/storage/global"
 
 const originalDirectoryBase = process.env.BUDDY_DIRECTORY_BASE
@@ -10,24 +8,10 @@ const originalBuddyGlobalConfigDir = process.env.BUDDY_GLOBAL_CONFIG_DIR
 const missingNotebookHome = path.join(Global.Path.home, "Documents", "Buddy Missing Bootstrap Test")
 const bootstrapConfigDir = path.join(Global.Path.home, ".buddy-bootstrap-routes-test")
 
-const proxiedRequests: FetchOpenCodeInput[] = []
-
-mock.module("../src/http/proxy/fetch.ts", () => ({
-  fetchOpenCode: async (input: FetchOpenCodeInput) => {
-    proxiedRequests.push(input)
-    return Response.json({
-      path: input.path,
-      directory: input.directory ?? null,
-      query: input.query ?? "",
-    })
-  },
-}))
-
 const { app } = await import("../src/index.ts")
 
 describe("global bootstrap routes", () => {
   beforeEach(() => {
-    proxiedRequests.length = 0
     rmSync(missingNotebookHome, { recursive: true, force: true })
     rmSync(bootstrapConfigDir, { recursive: true, force: true })
     process.env.BUDDY_DIRECTORY_BASE = missingNotebookHome
@@ -53,53 +37,27 @@ describe("global bootstrap routes", () => {
     const response = await app.request("/api/health")
 
     expect(response.status).toBe(200)
-    await expect(response.json()).resolves.toEqual({
-      path: "/global/health",
-      directory: null,
-      query: "",
-    })
-    expect(proxiedRequests).toHaveLength(1)
-    expect(proxiedRequests[0]).toMatchObject({
-      path: "/global/health",
-      directory: undefined,
-      query: "",
+    await expect(response.json()).resolves.toMatchObject({
+      healthy: true,
+      version: expect.any(String),
     })
   })
 
   test("loads provider bootstrap routes without a workspace directory", async () => {
-    const bootstrapDirectory = ensureGlobalBootstrapWorkspaceDirectory()
     const [providerResponse, providerAuthResponse] = await Promise.all([
       app.request("/api/provider"),
       app.request("/api/provider/auth"),
     ])
 
     expect(providerResponse.status).toBe(200)
-    await expect(providerResponse.json()).resolves.toEqual({
-      path: "/provider",
-      directory: bootstrapDirectory,
-      query: "",
+    await expect(providerResponse.json()).resolves.toMatchObject({
+      all: expect.any(Array),
+      default: expect.any(Object),
+      connected: expect.any(Array),
     })
 
     expect(providerAuthResponse.status).toBe(200)
-    await expect(providerAuthResponse.json()).resolves.toEqual({
-      path: "/provider/auth",
-      directory: bootstrapDirectory,
-      query: "",
-    })
-
-    expect(proxiedRequests).toHaveLength(2)
-    expect(proxiedRequests).toMatchObject([
-      {
-        path: "/provider",
-        directory: bootstrapDirectory,
-        query: "",
-      },
-      {
-        path: "/provider/auth",
-        directory: bootstrapDirectory,
-        query: "",
-      },
-    ])
+    await expect(providerAuthResponse.json()).resolves.toEqual(expect.any(Object))
   })
 
   test("validates optional directories only when one is explicitly provided", async () => {
@@ -111,10 +69,10 @@ describe("global bootstrap routes", () => {
       `/api/provider?directory=${encodeURIComponent(existingDirectory)}`,
     )
     expect(explicitResponse.status).toBe(200)
-    await expect(explicitResponse.json()).resolves.toEqual({
-      path: "/provider",
-      directory: existingDirectory,
-      query: `?directory=${encodeURIComponent(existingDirectory)}`,
+    await expect(explicitResponse.json()).resolves.toMatchObject({
+      all: expect.any(Array),
+      default: expect.any(Object),
+      connected: expect.any(Array),
     })
 
     const missingResponse = await app.request(
@@ -123,12 +81,6 @@ describe("global bootstrap routes", () => {
     expect(missingResponse.status).toBe(404)
     await expect(missingResponse.json()).resolves.toEqual({
       error: `Directory not found: ${missingDirectory}`,
-    })
-
-    expect(proxiedRequests).toHaveLength(1)
-    expect(proxiedRequests[0]).toMatchObject({
-      path: "/provider",
-      directory: existingDirectory,
     })
   })
 })

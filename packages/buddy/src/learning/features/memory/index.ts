@@ -111,7 +111,6 @@ export {
   writeLearnerMemory,
 } from "./storage"
 
-export { ensureLearnerMemoryToolsRegistered } from "./tools/register"
 export { buildLearnerRuntimeSnapshot } from "./runtime/snapshot"
 export type { LearnerRuntimeSnapshot } from "./runtime/snapshot"
 export {

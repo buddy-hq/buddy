@@ -1,4 +1,6 @@
 import path from "node:path"
+import { Global } from "@buddy/opencode-adapter/global"
+import { Truncate } from "@buddy/opencode-adapter/tool"
 import { Config } from "../config.js"
 import {
   applyBuddyPersonaHiddenFlags,
@@ -9,7 +11,6 @@ import { fingerprintOpenCodeConfig } from "./fingerprint.js"
 import { parseConfiguredModel } from "./models.js"
 import { resolveBuddyBundledSkillRoots, resolveOpenCodeSkillPaths } from "./skills.js"
 import { getDefaultBuddyPersonaMetadata } from "../../learning/personas/wiring/persona-metadata"
-import { resolveBuddySystemPromptGuardPluginUrl } from "../../opencode-runtime"
 
 const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {
   "goal_*": "deny",
@@ -49,8 +50,14 @@ const ANY_PATTERN = "*" as const
 const ALLOW_ACTION: Config.PermissionAction = "allow"
 const ASK_ACTION: Config.PermissionAction = "ask"
 
-function buildSkillExternalDirectoryRules(skillPaths: string[] | undefined): Config.PermissionRule {
+function buildExternalDirectoryRules(skillPaths: string[] | undefined): Config.PermissionRule {
+  // Match OpenCode vendor defaults (agent.ts): ask for unknown externals, but allow
+  // tool-output, tmp, and skill dirs. Put `*` first to override project-level allow,
+  // then re-allow vendor paths so findLast resolves to allow for those patterns.
   const rules: Array<[string, Config.PermissionAction]> = [[ANY_PATTERN, ASK_ACTION]]
+
+  rules.push([Truncate.GLOB, ALLOW_ACTION])
+  rules.push([path.join(Global.Path.tmp, ANY_PATTERN), ALLOW_ACTION])
 
   for (const skillPath of skillPaths ?? []) {
     rules.push([path.join(skillPath, ANY_PATTERN), ALLOW_ACTION])
@@ -66,7 +73,7 @@ function buildOpenCodePermissionOverlay(
   return {
     ...permission,
     ...BUDDY_RUNTIME_PERMISSION_OVERLAY,
-    [EXTERNAL_DIRECTORY_PERMISSION]: buildSkillExternalDirectoryRules(skillPaths),
+    [EXTERNAL_DIRECTORY_PERMISSION]: buildExternalDirectoryRules(skillPaths),
   }
 }
 
@@ -86,7 +93,6 @@ function orderAgentsWithDefaultFirst(
 
 async function buildOpenCodeConfigOverlay(input: { config: Config.Info; directory: string }) {
   const skillPaths = await resolveOpenCodeSkillPaths(input.config, input.directory)
-  const systemPromptGuardPlugin = resolveBuddySystemPromptGuardPluginUrl()
   const mergedAgents = applyBuddyPersonaHiddenFlags(
     mergeBuddyAndConfiguredAgents(input.config.agent ?? {}),
     input.config.personas,
@@ -114,7 +120,6 @@ async function buildOpenCodeConfigOverlay(input: { config: Config.Info; director
       : {}),
     ...(input.config.provider ? { provider: input.config.provider } : {}),
     ...(skillPaths ? { skills: { paths: skillPaths } } : {}),
-    ...(systemPromptGuardPlugin ? { plugin: [systemPromptGuardPlugin] } : {}),
     ...(input.config.mcp ? { mcp: input.config.mcp } : {}),
     command: {
       ...BUDDY_BUILTIN_COMMANDS,

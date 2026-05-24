@@ -8,8 +8,8 @@ import {
   readGlobalAgentsMd,
   saveGlobalAgentsMd,
 } from "../agents-md/service"
-import { booleanJsonResponse, routeErrors, runRouteTask } from "../http"
-import { proxyToOpenCode } from "../http"
+import { booleanJsonResponse, routeErrors, runRouteTask, respondWithSdkResult, runSdkRoute } from "../http"
+import { getOpenCodeClient } from "../opencode-runtime/client"
 import {
   listManagedNotebooks,
   mapManagedNotebookError,
@@ -203,9 +203,10 @@ export const GlobalRoutes = new Hono()
       },
     }),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: "/global/dispose",
-        directoryMode: "none",
+      runSdkRoute(c, async () => {
+        const client = await getOpenCodeClient()
+        const result = await client.global.dispose()
+        return respondWithSdkResult(c, result)
       }),
   )
   .get(

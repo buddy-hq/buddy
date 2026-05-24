@@ -2,30 +2,38 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { ToolJsonSchema } from "@buddy/opencode-adapter/tool"
+import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
 import { dynamicToolSearchTools } from "../../src/learning/runtime/dynamic-tool-discovery"
-import { allBuddyFeatureIds, allBuddyTools } from "../../src/learning/runtime/feature-registry"
-import { registerRuntimeTools } from "../../src/learning/runtime/register-tools"
+import { allBuddyTools } from "../../src/learning/runtime/feature-registry"
+import { AdvancedMathRuntimeService } from "../../src/local-runtimes/advanced-math/service"
+import { StandardsRuntimeService } from "../../src/local-runtimes/standards/service"
+import { loadOpenCodeApp } from "../../src/opencode-runtime"
 import { TEST_TOOL_MODEL } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
-
-function enabledToolFlags(): Record<string, boolean> {
-  return Object.fromEntries(allBuddyFeatureIds().map((featureId) => [featureId, true]))
-}
 
 const CREATED_BUDDY_TOOL_IDS = new Set([
   ...allBuddyTools().map((tool) => tool.id),
   ...dynamicToolSearchTools.map((tool) => tool.id),
 ])
 
+const originalAdvancedMathReady = AdvancedMathRuntimeService.isReady.bind(AdvancedMathRuntimeService)
+const originalStandardsReady = StandardsRuntimeService.isReady.bind(StandardsRuntimeService)
+
 afterEach(async () => {
+  AdvancedMathRuntimeService.isReady = originalAdvancedMathReady
+  StandardsRuntimeService.isReady = originalStandardsReady
   await OpenCodeInstance.disposeAll()
 })
 
 describe("tool schema compatibility", () => {
   test("all Buddy createBuddyTool schemas serialize to object-root JSON Schema", async () => {
+    AdvancedMathRuntimeService.isReady = () => true
+    StandardsRuntimeService.isReady = () => true
+
     await using project = await tmpdir({ git: true })
 
-    await registerRuntimeTools(project.path, enabledToolFlags())
+    await loadOpenCodeApp()
+    await syncOpenCodeProjectConfig(project.path)
 
     const toolSchemas = await OpenCodeInstance.provide({
       directory: project.path,
@@ -55,5 +63,5 @@ describe("tool schema compatibility", () => {
       }))
 
     expect(invalidSchemas).toEqual([])
-  })
+  }, 30_000)
 })

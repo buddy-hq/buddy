@@ -9,6 +9,10 @@ import { File as OpenCodeFile } from "@buddy/opencode-adapter/file"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { toOpenApiSchema } from "../http/effect-schema"
 import {
+  buildOpenCodeEventStreamRequestHeaders,
+  transformOpenCodeEventStreamResponse,
+} from "../http/opencode-event-stream"
+import {
   routeErrors,
   directoryForbiddenResponse,
   directoryQuerySchema,
@@ -16,8 +20,12 @@ import {
   runRouteTask,
   withConfigSync,
   withDirectoryRoute,
+  respondWithSdkResult,
+  runSdkRoute,
+  openCodeDirectoryParams,
 } from "../http"
-import { proxyToOpenCode } from "../http"
+import { getOpenCodeClient } from "../opencode-runtime/client"
+import { fetchInProcessOpenCode } from "../opencode-runtime/in-process-fetch"
 import {
   mapProjectTextFileEditorError,
   readProjectTextFile,
@@ -141,12 +149,12 @@ export const CompatibilityRoutes = new Hono()
         },
       },
     }),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: "/global/health",
-        directoryMode: "none",
-      })
-    },
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const client = await getOpenCodeClient()
+        const result = await client.global.health()
+        return respondWithSdkResult(c, result)
+      }),
   )
   .get(
     "/event",
@@ -167,8 +175,23 @@ export const CompatibilityRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: "/global/event",
+      const directoryContext = resolveDirectoryRequestContext(c)
+      if (!directoryContext.ok) return directoryContext.response
+
+      const query = new URLSearchParams()
+      query.set("directory", directoryContext.context.directory)
+
+      const response = await fetchInProcessOpenCode({
+        directory: directoryContext.context.directory,
+        path: "/global/event",
+        query: query.size > 0 ? `?${query.toString()}` : "",
+        headers: buildOpenCodeEventStreamRequestHeaders(c.req.raw.headers),
+        signal: c.req.raw.signal,
+      })
+
+      return transformOpenCodeEventStreamResponse({
+        response,
+        directory: directoryContext.context.directory,
       })
     },
   )
@@ -190,19 +213,29 @@ export const CompatibilityRoutes = new Hono()
       },
     }),
     validator("query", findFileQuerySchema),
-    async (c) => {
-      const directoryContext = resolveDirectoryRequestContext(c)
-      if (!directoryContext.ok) return directoryContext.response
-      await OpenCodeInstance.provide({
-        directory: directoryContext.context.directory,
-        fn: async () => {
-          await OpenCodeFile.init()
-        },
-      }).catch(() => undefined)
-      return proxyToOpenCode(c, {
-        targetPath: "/find/file",
-      })
-    },
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryContext = resolveDirectoryRequestContext(c)
+        if (!directoryContext.ok) return directoryContext.response
+
+        await OpenCodeInstance.provide({
+          directory: directoryContext.context.directory,
+          fn: async () => {
+            await OpenCodeFile.init()
+          },
+        }).catch(() => undefined)
+
+        const query = c.req.valid("query")
+        const client = await getOpenCodeClient(directoryContext.context.directory)
+        const result = await client.find.files({
+          ...openCodeDirectoryParams(directoryContext.context.directory),
+          query: query.query,
+          dirs: query.dirs,
+          type: query.type,
+          limit: query.limit,
+        })
+        return respondWithSdkResult(c, result)
+      }),
   )
   .get(
     "/file",
@@ -222,19 +255,25 @@ export const CompatibilityRoutes = new Hono()
       },
     }),
     validator("query", fileListQuerySchema),
-    async (c) => {
-      const directoryContext = resolveDirectoryRequestContext(c)
-      if (!directoryContext.ok) return directoryContext.response
-      await OpenCodeInstance.provide({
-        directory: directoryContext.context.directory,
-        fn: async () => {
-          await OpenCodeFile.init()
-        },
-      }).catch(() => undefined)
-      return proxyToOpenCode(c, {
-        targetPath: "/file",
-      })
-    },
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryContext = resolveDirectoryRequestContext(c)
+        if (!directoryContext.ok) return directoryContext.response
+
+        await OpenCodeInstance.provide({
+          directory: directoryContext.context.directory,
+          fn: async () => {
+            await OpenCodeFile.init()
+          },
+        }).catch(() => undefined)
+
+        const client = await getOpenCodeClient(directoryContext.context.directory)
+        const result = await client.file.list({
+          ...openCodeDirectoryParams(directoryContext.context.directory),
+          path: c.req.valid("query").path,
+        })
+        return respondWithSdkResult(c, result)
+      }),
   )
   .get(
     "/file/content",
@@ -254,19 +293,25 @@ export const CompatibilityRoutes = new Hono()
       },
     }),
     validator("query", fileReadQuerySchema),
-    async (c) => {
-      const directoryContext = resolveDirectoryRequestContext(c)
-      if (!directoryContext.ok) return directoryContext.response
-      await OpenCodeInstance.provide({
-        directory: directoryContext.context.directory,
-        fn: async () => {
-          await OpenCodeFile.init()
-        },
-      }).catch(() => undefined)
-      return proxyToOpenCode(c, {
-        targetPath: "/file/content",
-      })
-    },
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryContext = resolveDirectoryRequestContext(c)
+        if (!directoryContext.ok) return directoryContext.response
+
+        await OpenCodeInstance.provide({
+          directory: directoryContext.context.directory,
+          fn: async () => {
+            await OpenCodeFile.init()
+          },
+        }).catch(() => undefined)
+
+        const client = await getOpenCodeClient(directoryContext.context.directory)
+        const result = await client.file.read({
+          ...openCodeDirectoryParams(directoryContext.context.directory),
+          path: c.req.valid("query").path,
+        })
+        return respondWithSdkResult(c, result)
+      }),
   )
   .get(
     "/file/raw/:fileName",
@@ -525,8 +570,12 @@ export const CompatibilityRoutes = new Hono()
       })
       if (!syncResult.ok) return syncResult.response
 
-      return proxyToOpenCode(c, {
-        targetPath: "/command",
+      return runSdkRoute(c, async () => {
+        const client = await getOpenCodeClient(syncResult.value.directory)
+        const result = await client.command.list(
+          openCodeDirectoryParams(syncResult.value.directory),
+        )
+        return respondWithSdkResult(c, result)
       })
     },
   )

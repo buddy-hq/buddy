@@ -4,13 +4,11 @@ import os from "node:os"
 import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { presentMediaTool } from "../../src/learning/features/media-presentations/tools/present-media"
 import {
   buildPresentedMediaOutput,
   PresentedMediaValidationError,
 } from "../../src/learning/features/media-presentations/service/file-media"
-import { registerBuddyTools } from "../../src/learning/runtime/register-buddy-tools"
-import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import { createToolContext, ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("present media", () => {
@@ -73,11 +71,11 @@ describe("present media", () => {
     await using project = await tmpdir({ git: true })
     await fs.mkdir(path.join(project.path, "generated"), { recursive: true })
     await fs.writeFile(path.join(project.path, "generated", "notes.pdf"), "pdf-content")
+    await ensureBuddyPluginTools(project.path)
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
-        await registerBuddyTools(project.path, [presentMediaTool])
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const presentMedia = requireTool(tools, "present_media")
 

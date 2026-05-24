@@ -6,9 +6,8 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src/index.ts"
 import { SaveQuestionSetOutputSchema } from "../../src/learning/features/question-sets/types"
 import type { SaveQuestionSetInput } from "../../src/learning/features/question-sets/tools/save-question-set"
-import { ensureQuestionSetToolsRegistered } from "../../src/learning/features/question-sets/tools/register"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import { createToolContext, ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 function sampleQuestionSetInput(): SaveQuestionSetInput {
   return {
@@ -62,6 +61,7 @@ function sampleQuestionSetInput(): SaveQuestionSetInput {
 describe("question-set tools and routes", () => {
   test("rejects saving question sets where none-of-the-above is correct with another choice", async () => {
     await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
 
     const invalidInput = sampleQuestionSetInput()
     const targetQuestion = invalidInput.questions.find((question) => question.id === "q2")
@@ -82,7 +82,6 @@ describe("question-set tools and routes", () => {
     await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
-        await ensureQuestionSetToolsRegistered(project.path)
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const saveQuestionSet = requireTool(tools, "save_question_set")
 
@@ -104,11 +103,11 @@ describe("question-set tools and routes", () => {
 
   test("saves answerful question sets and exposes public answerless artifacts with provenance", async () => {
     await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
 
     const saveOutput = await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
-        await ensureQuestionSetToolsRegistered(project.path)
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const saveQuestionSet = requireTool(tools, "save_question_set")
         return SaveQuestionSetOutputSchema.parse(
@@ -196,11 +195,11 @@ describe("question-set tools and routes", () => {
 
   test("grades submitted attempts and persists attempt records", async () => {
     await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
 
     const saveOutput = await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
-        await ensureQuestionSetToolsRegistered(project.path)
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const saveQuestionSet = requireTool(tools, "save_question_set")
         const result = await saveQuestionSet.execute(
@@ -267,11 +266,11 @@ describe("question-set tools and routes", () => {
 
   test("rejects invalid submitted choice ids and none-of-the-above exclusivity violations", async () => {
     await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
 
     const saveOutput = await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
-        await ensureQuestionSetToolsRegistered(project.path)
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const saveQuestionSet = requireTool(tools, "save_question_set")
         const result = await saveQuestionSet.execute(

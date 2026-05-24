@@ -4,11 +4,10 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src/index.ts"
 import { FlashcardPath } from "../../src/learning/features/flashcards/storage/path"
-import { ensureFlashcardToolsRegistered } from "../../src/learning/features/flashcards/tools/register"
 import { SaveFlashcardDeckOutputSchema } from "../../src/learning/features/flashcards/types"
 import type { SaveFlashcardDeckInput } from "../../src/learning/features/flashcards/tools/save-flashcard-deck"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import { createToolContext, ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 function sampleFlashcardDeckInput(): SaveFlashcardDeckInput {
   return {
@@ -37,11 +36,11 @@ function sampleFlashcardDeckInput(): SaveFlashcardDeckInput {
 describe("flashcard tools and routes", () => {
   test("lists deck provenance for decks created by the flashcard author session", async () => {
     await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
 
     const saveOutput = await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
-        await ensureFlashcardToolsRegistered(project.path)
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const saveFlashcardDeck = requireTool(tools, "save_flashcard_deck")
 
@@ -85,11 +84,11 @@ describe("flashcard tools and routes", () => {
 
   test("reports review availability instead of assuming due counts are immediately reviewable", async () => {
     await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
 
     const saveOutput = await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
-        await ensureFlashcardToolsRegistered(project.path)
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const saveFlashcardDeck = requireTool(tools, "save_flashcard_deck")
 
@@ -146,12 +145,12 @@ describe("flashcard tools and routes", () => {
 
   test("rejects malformed cloze notes that contain no cloze markers", async () => {
     await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
 
     await expect(
       OpenCodeInstance.provide({
         directory: project.path,
         async fn() {
-          await ensureFlashcardToolsRegistered(project.path)
           const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
           const saveFlashcardDeck = requireTool(tools, "save_flashcard_deck")
 
@@ -181,11 +180,11 @@ describe("flashcard tools and routes", () => {
 
   test("preserves non-contiguous cloze ordinals in generated cards", async () => {
     await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
 
     const saveOutput = await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
-        await ensureFlashcardToolsRegistered(project.path)
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const saveFlashcardDeck = requireTool(tools, "save_flashcard_deck")
 

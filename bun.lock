@@ -25,6 +25,8 @@
         "@buddy/opencode-adapter": "workspace:*",
         "@chonkiejs/core": "^0.0.8",
         "@hono/standard-validator": "^0.2.2",
+        "@opencode-ai/plugin": "workspace:*",
+        "@opencode-ai/sdk": "workspace:*",
         "@zip.js/zip.js": "^2.8.23",
         "ai": "5.0.124",
         "dedent": "^1.7.2",
@@ -89,7 +91,8 @@
       "name": "@buddy/opencode-adapter",
       "version": "0.0.34",
       "dependencies": {
-        "ai": "5.0.124",
+        "@opencode-ai/plugin": "workspace:*",
+        "ai": "catalog:",
         "effect": "catalog:",
         "opencode": "workspace:*",
       },

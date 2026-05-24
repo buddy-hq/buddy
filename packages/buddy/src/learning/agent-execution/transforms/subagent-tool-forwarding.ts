@@ -37,7 +37,6 @@ type SubagentPolicyContext = {
   currentSessionPermission?: PermissionRuleset
   teachingWorkspaceState: TeachingWorkspaceState
   parentSessionPermission?: PermissionRuleset
-  parentUserAgent?: string
   parentUserTools?: ToolOverrideMap
 }
 
@@ -251,12 +250,15 @@ function buildToolOverrides(input: {
   allowedToolIDs: Set<string>
   allToolIDs: readonly string[]
   existing: unknown
+  specializedToolIDs: Set<string>
 }): ToolOverrideMap {
   const existing = parseToolOverrides(input.existing) ?? {}
   const forwarded: ToolOverrideMap = {}
 
   for (const toolID of input.allToolIDs) {
-    forwarded[toolID] = input.allowedToolIDs.has(toolID) && existing[toolID] !== false
+    const forceAllow = input.specializedToolIDs.has(toolID)
+    forwarded[toolID] =
+      input.allowedToolIDs.has(toolID) && (forceAllow || existing[toolID] !== false)
   }
 
   for (const [toolID, enabled] of Object.entries(existing)) {
@@ -283,7 +285,6 @@ async function readLatestUserPromptContext(input: { directory: string; sessionID
   }
 
   return {
-    agent: message.info.agent,
     tools: parseToolOverrides(message.info.tools),
   }
 }
@@ -364,7 +365,6 @@ async function resolveSubagentPolicyContext(input: {
     ...(session.permission ? { currentSessionPermission: session.permission } : {}),
     ...(parentSession?.permission ? { parentSessionPermission: parentSession.permission } : {}),
     ...(parentUserPrompt?.tools ? { parentUserTools: parentUserPrompt.tools } : {}),
-    ...(parentUserPrompt?.agent ? { parentUserAgent: parentUserPrompt.agent } : {}),
   }
 }
 
@@ -542,7 +542,9 @@ export async function resolveSubagentToolForwarding(input: {
   }
 
   const explicitCurrentTools = parseToolOverrides(input.currentTools)
+  const targetIsPersonaDelegate = isPersonaDelegateId(input.targetAgent)
   if (
+    !targetIsPersonaDelegate &&
     !input.previousState &&
     !context.hasParentSession &&
     (explicitCurrentTools ||
@@ -563,51 +565,34 @@ export async function resolveSubagentToolForwarding(input: {
       })
     : []
   const allToolIDs = [...new Set([...registryToolIDs, ...modelToolIDs])]
-  let baseSessionPermission = clonePermissionRules(context.parentSessionPermission)
-  const personaVisibility = context.parentUserAgent
-    ? undefined
-    : await resolvePersonaVisibility({
-        allToolIDs,
+  const personaVisibility = await resolvePersonaVisibility({
+    allToolIDs,
+    directory: input.directory,
+    personaID: context.personaID,
+    projectConfig: input.projectConfig,
+    teachingWorkspaceState: context.teachingWorkspaceState,
+  })
+  const inheritedToolIDs = visibleToolIDs({
+    agentPermission: (
+      await OpenCodeInstance.provide({
         directory: input.directory,
-        personaID: context.personaID,
-        projectConfig: input.projectConfig,
-        teachingWorkspaceState: context.teachingWorkspaceState,
+        fn: () => OpenCodeAgent.get(context.personaID),
       })
+    )?.permission,
+    allToolIDs,
+    sessionPermission: context.parentSessionPermission ?? personaVisibility.sessionPermission,
+    toolOverrides: context.parentUserTools,
+  })
+  const baseSessionPermission =
+    clonePermissionRules(context.parentSessionPermission) ?? personaVisibility.sessionPermission
 
-  const inheritedToolIDs = context.parentUserAgent
-    ? await (async () => {
-        const parentUserAgent = context.parentUserAgent
-        if (!parentUserAgent) {
-          return []
-        }
-
-        return visibleToolIDs({
-          agentPermission: (
-            await OpenCodeInstance.provide({
-              directory: input.directory,
-              fn: () => OpenCodeAgent.get(parentUserAgent),
-            })
-          )?.permission,
-          allToolIDs,
-          sessionPermission: context.parentSessionPermission,
-          toolOverrides: context.parentUserTools,
-        })
-      })()
-    : (personaVisibility?.visibleToolIDs ?? new Set<string>())
-
-  if (personaVisibility) {
-    baseSessionPermission = personaVisibility.sessionPermission
-  }
-
-  const allowedToolIDs = new Set<string>([
-    ...inheritedToolIDs,
-    ...specializedToolIDs({
-      allToolIDs,
-      configuredToolToggles: input.projectConfig.tools,
-      targetAgent: input.targetAgent,
-      teachingWorkspaceState: context.teachingWorkspaceState,
-    }),
-  ])
+  const specialized = specializedToolIDs({
+    allToolIDs,
+    configuredToolToggles: input.projectConfig.tools,
+    targetAgent: input.targetAgent,
+    teachingWorkspaceState: context.teachingWorkspaceState,
+  })
+  const allowedToolIDs = new Set<string>([...inheritedToolIDs, ...specialized])
 
   if (context.policy !== true) {
     for (const toolID of context.policy.denyTools ?? []) {
@@ -626,6 +611,7 @@ export async function resolveSubagentToolForwarding(input: {
       allowedToolIDs,
       allToolIDs,
       existing: input.currentTools,
+      specializedToolIDs: specialized,
     }),
     ...(!input.previousState
       ? {

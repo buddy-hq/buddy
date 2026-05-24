@@ -3,8 +3,16 @@ import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { Auth as OpenCodeAuth } from "@buddy/opencode-adapter/auth"
 import { toOpenApiSchema } from "../http/effect-schema"
-import { routeErrors, directoryQuerySchema, ProviderIDParamSchema } from "../http"
-import { proxyToOpenCode } from "../http"
+import {
+  routeErrors,
+  directoryQuerySchema,
+  ProviderIDParamSchema,
+  resolveOptionalDirectoryRequestContext,
+  respondWithSdkResult,
+  runSdkRoute,
+  openCodeDirectoryParams,
+} from "../http"
+import { getOpenCodeClient } from "../opencode-runtime/client"
 
 const credentialSetResponseSchema = resolver(z.boolean())
 
@@ -27,12 +35,20 @@ export const AuthRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", ProviderIDParamSchema),
     validator("json", toOpenApiSchema(OpenCodeAuth.Info)),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: `/auth/${encodeURIComponent(c.req.valid("param").providerID)}`,
-        directoryMode: "optional",
-      })
-    },
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = resolveOptionalDirectoryRequestContext(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const providerID = c.req.valid("param").providerID
+        const client = await getOpenCodeClient(directoryResult.context.directory)
+        const result = await client.auth.set({
+          providerID,
+          auth: c.req.valid("json"),
+          ...openCodeDirectoryParams(directoryResult.context.directory),
+        })
+        return respondWithSdkResult(c, result)
+      }),
   )
   .delete(
     "/:providerID",
@@ -51,10 +67,17 @@ export const AuthRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     validator("param", ProviderIDParamSchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: `/auth/${encodeURIComponent(c.req.valid("param").providerID)}`,
-        directoryMode: "optional",
-      })
-    },
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = resolveOptionalDirectoryRequestContext(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const providerID = c.req.valid("param").providerID
+        const client = await getOpenCodeClient(directoryResult.context.directory)
+        const result = await client.auth.remove({
+          providerID,
+          ...openCodeDirectoryParams(directoryResult.context.directory),
+        })
+        return respondWithSdkResult(c, result)
+      }),
   )

@@ -6,7 +6,8 @@ import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ensureOpenCodeProjectOverlay } from "@buddy/backend/config/runtime"
 import { isSuppressedOpenCodeSkill } from "../../../opencode-runtime/hidden-opencode-skills"
-import { fetchOpenCode } from "../../../http"
+import { fetchInProcessOpenCode } from "../../../opencode-runtime/in-process-fetch"
+import { extractSdkErrorMessage, openCodeDirectoryParams } from "../../../http/sdk-response"
 import { SkillServiceError, type OpenCodeSkill } from "./contracts"
 import { loadManagedSkillFile } from "./documents"
 import { OPENCODE_SKILL_CACHE_ROOT, isWithinPath, managedSkillsRoot } from "./paths"
@@ -69,19 +70,22 @@ async function appendSkillsFromRoot(root: string, skills: Map<string, OpenCodeSk
 }
 
 async function loadCachedOpenCodeSkills(directory: string): Promise<OpenCodeSkill[]> {
-  const response = await fetchOpenCode({
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(openCodeDirectoryParams(directory))) {
+    params.set(key, String(value))
+  }
+
+  const response = await fetchInProcessOpenCode({
     directory,
-    method: "GET",
     path: "/skill",
+    query: params.size > 0 ? params.toString() : undefined,
   })
 
   if (!response.ok) {
-    const payload = (await response.json().catch(() => undefined)) as
-      | { error?: string; message?: string }
-      | undefined
+    const payload = await response.json().catch(() => undefined)
     throw new SkillServiceError(
       "upstream_failure",
-      payload?.error ?? payload?.message ?? `Failed to list skills (${response.status})`,
+      extractSdkErrorMessage(payload) ?? "Failed to list skills",
     )
   }
 

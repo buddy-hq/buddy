@@ -10,13 +10,14 @@
     "./command": "./src/command.ts",
     "./mcp": "./src/mcp.ts",
     "./message": "./src/message.ts",
-    "./provider-transform": "./src/provider-transform.ts",
     "./provider-auth": "./src/provider-auth.ts",
     "./id": "./src/id.ts",
     "./permission": "./src/permission.ts",
+    "./plugin-live": "./src/plugin-live.ts",
     "./wildcard": "./src/wildcard.ts",
     "./tool": "./src/tool.ts",
     "./tool-ui-metadata": "./src/tool-ui-metadata.ts",
+    "./tool-ui-strip": "./src/tool-ui-strip.ts",
     "./server": "./src/server.ts",
     "./instance": "./src/instance.ts",
     "./project": "./src/project.ts",
@@ -24,7 +25,6 @@
     "./agent": "./src/agent.ts",
     "./registry": "./src/registry.ts",
     "./config": "./src/config.ts",
-    "./bus": "./src/bus.ts",
     "./session": "./src/session.ts",
     "./session-live": "./src/session-live.ts",
     "./session-tool-ui": "./src/session-tool-ui.ts",
@@ -43,7 +43,8 @@
     "typecheck": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit"
   },
   "dependencies": {
-    "ai": "5.0.124",
+    "@opencode-ai/plugin": "workspace:*",
+    "ai": "catalog:",
     "effect": "catalog:",
     "opencode": "workspace:*"
   },

@@ -57,6 +57,11 @@ function buildToolPermissions(
   const permissions: Record<string, "allow" | "deny"> = {}
 
   for (const tool of tools) {
+    if (tool.dynamic) {
+      permissions[tool.id] = "deny"
+      continue
+    }
+
     if (configuredToolToggles?.[tool.id] === false) {
       permissions[tool.id] = "deny"
       continue

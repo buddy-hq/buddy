@@ -9,6 +9,7 @@ import {
   normalizePersonaTarget,
 } from "../shared/targeting"
 import { resolveSubagentToolForwarding } from "../agent-execution/transforms/subagent-tool-forwarding"
+import type { PermissionRuleset } from "@buddy/opencode-adapter/permission"
 
 export type MessagePromptPipelineContext = {
   directory: string
@@ -17,6 +18,7 @@ export type MessagePromptPipelineContext = {
 
 export type MessagePromptPipelineResult = {
   transformed: Record<string, unknown>
+  subagentSessionPermission?: PermissionRuleset
   sessionRuntimeForPermissions?: CreatePromptContextResult["sessionRuntimeForPermissions"]
   nextTeachingState?: TeachingSessionState
   learnerContextDelivery?: {
@@ -122,6 +124,9 @@ export async function runMessagePromptPipeline(input: {
   return {
     transformed,
     sessionRuntimeForPermissions,
+    ...(subagentForwarding.sessionPermission
+      ? { subagentSessionPermission: subagentForwarding.sessionPermission }
+      : {}),
     ...(nextTeachingState ? { nextTeachingState } : {}),
     ...(learnerContextDelivery ? { learnerContextDelivery } : {}),
     ...(turnContextDelivery ? { turnContextDelivery } : {}),

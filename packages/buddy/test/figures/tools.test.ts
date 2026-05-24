@@ -4,11 +4,10 @@ import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { renderGeometryFigure } from "../../src/learning/features/figure-rendering/geometry/render-figure"
-import { ensureFigureToolsRegistered } from "../../src/learning/features/figure-rendering/geometry/tools/register"
 import { RenderFigureOutputSchema } from "../../src/learning/features/figure-rendering/geometry/types"
 import type { RenderFigureInput } from "../../src/learning/features/figure-rendering/geometry/tools/render-figure"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import { createToolContext, ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 function baseFigureInput(): RenderFigureInput {
   return {
@@ -36,11 +35,11 @@ function baseFigureInput(): RenderFigureInput {
 describe("figure tools", () => {
   test("renders a valid geometry figure into a stable SVG artifact", async () => {
     await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
-        await ensureFigureToolsRegistered(project.path)
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const renderFigure = requireTool(tools, "render_figure")
 
@@ -74,11 +73,11 @@ describe("figure tools", () => {
 
   test("repairs removable spec issues before returning a rendered figure", async () => {
     await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
-        await ensureFigureToolsRegistered(project.path)
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const renderFigure = requireTool(tools, "render_figure")
 
@@ -110,11 +109,11 @@ describe("figure tools", () => {
 
   test("tool metadata also includes presented media output for the rendered figure", async () => {
     await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
-        await ensureFigureToolsRegistered(project.path)
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const renderFigure = requireTool(tools, "render_figure")
 

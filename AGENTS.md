@@ -60,10 +60,10 @@ Long term maintainability is a core priority. If you add new functionality, firs
 - Buddy uses `@hey-api/openapi-ts` to generate a type-safe SDK from its Hono backend. Always use the typed SDK (`BuddyClient`) for API interactions. Never use manual fetch or fetch helpers like `requestJson`.
 - NEVER use magic strings and magic numbers.
 - ALWAYS use types; NEVER interfaces.
-- Don't use subagents to delegate any work, unless the user explicitly asks for subagent invocation.
 - Run only tests for the packages you change. Never run vendor tests or the full suite.
 - Use `git mv` for tracked moves.
 - TypeScript
   - Strict and sound: no casts, no `any`. Prefer `unknown` plus narrowing (zod, type guards, `in`).
   - Use `import type { ... }` for type-only imports.
   - Infer local types; annotate exports and public APIs.
+- Skip tests for behavior that is fully guaranteed by TypeScript inference alone. Only write tests when there is observable runtime behavior, explicit API contract behavior, or a type-level edge case not naturally covered by normal compilation.

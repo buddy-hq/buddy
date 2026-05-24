@@ -3,8 +3,9 @@ import { describeRoute, resolver, validator } from "hono-openapi"
 import { Schema } from "effect"
 import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
 import { toOpenApiSchema } from "../http/effect-schema"
-import { routeErrors, directoryQuerySchema, ProjectIDParamSchema } from "../http"
-import { proxyToOpenCode } from "../http"
+import { directoryQuerySchema, ProjectIDParamSchema, routeErrors, runSdkRoute, withDirectoryRoute } from "../http"
+import { respondWithSdkResult } from "../http/sdk-response"
+import { getOpenCodeClient } from "../opencode-runtime/client"
 import { updateProjectFromPayload } from "../project"
 
 const projectUpdateBodySchema = toOpenApiSchema(OpenCodeProject.UpdatePayload)
@@ -45,9 +46,13 @@ export const ProjectRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     async (c) =>
-      proxyToOpenCode(c, {
-        targetPath: "/project/current",
-      }),
+      withDirectoryRoute(c, async (context) =>
+        runSdkRoute(c, async () => {
+          const client = await getOpenCodeClient(context.directory)
+          const result = await client.project.current({ directory: context.directory })
+          return respondWithSdkResult(c, result)
+        }),
+      ),
   )
   .patch(
     "/:projectID",

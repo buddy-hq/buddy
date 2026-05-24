@@ -42,6 +42,23 @@ function permissionRulesEqual(
   return true
 }
 
+export function nextManagedPermission(input: {
+  existing?: PermissionRuleset
+  hasParentSession: boolean
+  sessionRuntime?: ResolvedSessionRuntime
+}): PermissionRuleset {
+  if (!input.sessionRuntime && input.hasParentSession) {
+    // Child Buddy subagent sessions receive a delegated permission profile before their first turn.
+    // Preserve it until Buddy has an explicit runtime snapshot to replace it with.
+    return input.existing ?? buildBuddyRuntimeSessionPermissions({})
+  }
+
+  return buildBuddyRuntimeSessionPermissions({
+    existing: input.existing,
+    sessionRuntime: input.sessionRuntime,
+  })
+}
+
 export async function syncBuddyRuntimeSessionPermissions(input: {
   directory: string
   sessionID: string
@@ -61,8 +78,9 @@ export async function syncBuddyRuntimeSessionPermissions(input: {
       if (!session) {
         return
       }
-      const syncedPermission = buildBuddyRuntimeSessionPermissions({
+      const syncedPermission = nextManagedPermission({
         existing: session.permission,
+        hasParentSession: !!session.parentID,
         sessionRuntime: input.sessionRuntime,
       })
       const grantedDynamicToolIDs = await ensureDynamicLearningToolsRegisteredForSession({

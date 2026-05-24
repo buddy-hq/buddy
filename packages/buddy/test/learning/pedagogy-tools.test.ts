@@ -3,24 +3,9 @@ import { writeFileSync } from "node:fs"
 import path from "node:path"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { registerBuddyTools } from "../../src/learning/runtime/register-buddy-tools"
-import {
-  dynamicDebugAttemptTool,
-  debugAttemptTool,
-} from "../../src/learning/features/debug-guidance/tools/debug-attempt"
-import {
-  dynamicReflectionTool,
-  reflectionTool,
-} from "../../src/learning/features/teaching-guidance/tools/reflection"
-import {
-  dynamicStepwiseSolveTool,
-  stepwiseSolveTool,
-} from "../../src/learning/features/stepwise-solving/tools/stepwise-solve"
-import { prepareResourceTool } from "../../src/learning/features/reading/tools/prepare-resource"
-import { ingestFullTextTool } from "../../src/learning/features/reading/tools/ingest-full-text"
 import { writeTeachingSessionState } from "../../src/learning/agent-execution/state/session-state"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import { createToolContext, ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 describe("pedagogy tools", () => {
   test("registers first-class pedagogy tools and generates grounded teaching artifacts", async () => {
@@ -30,6 +15,7 @@ describe("pedagogy tools", () => {
       sampleResourcePath,
       "# Sample Resource\n\nThis is a sample resource used to validate tool-driven preparation.\n",
     )
+    await ensureBuddyPluginTools(project.path)
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
@@ -42,16 +28,6 @@ describe("pedagogy tools", () => {
           focusGoalIds: [],
         })
 
-        await registerBuddyTools(project.path, [
-          debugAttemptTool,
-          stepwiseSolveTool,
-          reflectionTool,
-          prepareResourceTool,
-          ingestFullTextTool,
-          dynamicDebugAttemptTool,
-          dynamicReflectionTool,
-          dynamicStepwiseSolveTool,
-        ])
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const toolIds = tools.map((tool) => tool.id)
 

@@ -4,68 +4,59 @@ import { SessionID } from "@buddy/opencode-adapter/id"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { MessageV2 as OpenCodeMessage } from "@buddy/opencode-adapter/message"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import type { PermissionRuleset } from "@buddy/opencode-adapter/permission"
+import { withToolUiOnMessages } from "@buddy/opencode-adapter/session-tool-ui"
 import { ensureAllowedDirectory } from "../../http"
-import { proxyToOpenCode } from "../../http"
-import { isSessionInRequestedProject } from "../../http"
-import { safeDecodeSchema } from "../../http/effect-schema"
+import { sdkErrorResponse } from "../../http/sdk-response"
 import { withConfigSync } from "../../http/route-helpers"
 import { runLearnerMemoryStartupPipeline } from "../../learning/features/memory"
 import { clearDynamicLearningToolsForEndedSession } from "../../learning/runtime/dynamic-tool-grants"
-import { isSessionNotFoundError } from "./lookup"
-
-type RuntimeSessionInfo = Awaited<ReturnType<typeof OpenCodeSession.get>>
+import { getOpenCodeClient } from "../../opencode-runtime/client"
+import { resolveDirectory } from "../../project"
+import {
+  ensureRuntimeSessionExists,
+  loadRuntimeSessionInDirectory,
+  runtimeSessionLookupErrorResponse,
+} from "./lookup"
 
 type SessionMessagesQuery = {
   limit?: number
   before?: string
 }
 
-type OpenCodeErrorPayload = {
-  message?: unknown
-  data?: {
-    message?: unknown
-  }
-}
-
 type SessionPatchBody = {
+  title?: unknown
+  permission?: PermissionRuleset
   time?: {
     archived?: unknown
   }
 }
 
+type SessionSummarizeBody = {
+  providerID?: unknown
+  modelID?: unknown
+  auto?: unknown
+}
+
 const SESSION_NOT_FOUND_ERROR = "Session not found"
-const REQUEST_FAILED_ERROR = "Request failed"
-const BAD_REQUEST_STATUS = 400
 const NOT_FOUND_STATUS = 404
-const SESSION_STATUS_PATH = "/session/status"
 const LINK_HEADER = "Link"
 const NEXT_CURSOR_HEADER = "X-Next-Cursor"
 const EXPOSE_HEADERS_HEADER = "Access-Control-Expose-Headers"
-const SESSION_REVERT_PATH_SUFFIX = "/revert"
-const SESSION_UNREVERT_PATH_SUFFIX = "/unrevert"
 
-function readOpenCodeErrorMessage(error: unknown): string | undefined {
-  if (!error || typeof error !== "object") return undefined
-  const payload = error as OpenCodeErrorPayload
-  if (typeof payload.data?.message === "string" && payload.data.message) {
-    return payload.data.message
-  }
-  if (typeof payload.message === "string" && payload.message) {
-    return payload.message
-  }
-  return undefined
-}
-
-function runtimeErrorResponse(error: unknown) {
-  const message = isSessionNotFoundError(error)
-    ? SESSION_NOT_FOUND_ERROR
-    : (readOpenCodeErrorMessage(error) ?? REQUEST_FAILED_ERROR)
-  const status = isSessionNotFoundError(error) ? NOT_FOUND_STATUS : BAD_REQUEST_STATUS
-  return Response.json({ error: message }, { status })
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value)
 }
 
 function parseSessionPatchBody(value: unknown): SessionPatchBody | undefined {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
+    return undefined
+  }
+  return value
+}
+
+function parseSessionSummarizeBody(value: unknown): SessionSummarizeBody | undefined {
+  if (!isRecord(value)) {
     return undefined
   }
   return value
@@ -97,94 +88,184 @@ function readSessionMessagesQuery(c: Context): SessionMessagesQuery {
   return Number.isFinite(limit) ? { limit, before } : { before }
 }
 
-async function isSessionListedInDirectory(directory: string, sessionID: string) {
-  return OpenCodeInstance.provide({
+function readSessionListQuery(c: Context) {
+  const params = new URL(c.req.url).searchParams
+  const query: Record<string, string | number | boolean> = {}
+
+  for (const key of ["scope", "path", "roots", "start", "search"] as const) {
+    const value = params.get(key)
+    if (value) {
+      query[key] = value
+    }
+  }
+
+  const rawLimit = params.get("limit")
+  if (rawLimit !== null) {
+    const limit = Number(rawLimit)
+    if (Number.isFinite(limit)) {
+      query.limit = limit
+    }
+  }
+
+  return query
+}
+
+function buildSessionListParams(c: Context) {
+  const params = new URL(c.req.url).searchParams
+  const query = readSessionListQuery(c)
+  const explicitDirectory = params.get("directory")
+
+  if (explicitDirectory) {
+    return {
+      ...query,
+      directory: resolveDirectory(explicitDirectory),
+    }
+  }
+
+  if (query.scope === undefined) {
+    return {
+      ...query,
+      scope: "project" as const,
+    }
+  }
+
+  return query
+}
+
+function buildSessionCreateParams(directory: string, body: Record<string, unknown>) {
+  const {
+    directory: _directory,
+    workspace: _workspace,
+    sessionID: _sessionID,
+    ...rest
+  } = body
+  return {
     directory,
-    fn: async () => {
-      const sessions = await OpenCodeSession.list({ directory })
-      return sessions.some((entry) => entry.id === sessionID)
-    },
-  })
-}
-
-async function loadSessionInDirectory(
-  directory: string,
-  sessionID: string,
-): Promise<RuntimeSessionInfo | undefined> {
-  const runtimeSessionID = SessionID.make(sessionID)
-
-  try {
-    const session = await OpenCodeInstance.provide({
-      directory,
-      fn: () => OpenCodeSession.get(runtimeSessionID),
-    })
-
-    const matchesProject = await isSessionInRequestedProject(directory, session)
-    if (matchesProject) {
-      return session
-    }
-
-    const listedInDirectory = await isSessionListedInDirectory(directory, sessionID)
-    return listedInDirectory ? session : undefined
-  } catch (error) {
-    if (isSessionNotFoundError(error)) {
-      return undefined
-    }
-    throw error
+    ...rest,
   }
 }
 
-async function ensureRuntimeSessionExists(
-  directory: string,
-  sessionID: string,
-): Promise<Response | undefined> {
-  try {
-    const session = await loadSessionInDirectory(directory, sessionID)
-    if (!session) {
-      return Response.json({ error: SESSION_NOT_FOUND_ERROR }, { status: NOT_FOUND_STATUS })
-    }
-    return undefined
-  } catch (error) {
-    return runtimeErrorResponse(error)
+function buildSessionUpdateParams(input: {
+  sessionID: string
+  directory: string
+  body: SessionPatchBody | undefined
+}) {
+  const params: {
+    sessionID: string
+    directory: string
+    title?: string
+    permission?: PermissionRuleset
+    time?: { archived?: number }
+  } = {
+    sessionID: input.sessionID,
+    directory: input.directory,
   }
+
+  if (typeof input.body?.title === "string") {
+    params.title = input.body.title
+  }
+  if (input.body?.permission !== undefined) {
+    params.permission = input.body.permission
+  }
+  if (isRecord(input.body?.time)) {
+    const archived = input.body.time.archived
+    if (typeof archived === "number") {
+      params.time = { archived }
+    }
+  }
+
+  return params
+}
+
+function buildSessionSummarizeParams(input: {
+  sessionID: string
+  directory: string
+  body: SessionSummarizeBody | undefined
+}) {
+  const params: {
+    sessionID: string
+    directory: string
+    providerID?: string
+    modelID?: string
+    auto?: boolean
+  } = {
+    sessionID: input.sessionID,
+    directory: input.directory,
+  }
+
+  if (typeof input.body?.providerID === "string") {
+    params.providerID = input.body.providerID
+  }
+  if (typeof input.body?.modelID === "string") {
+    params.modelID = input.body.modelID
+  }
+  if (typeof input.body?.auto === "boolean") {
+    params.auto = input.body.auto
+  }
+
+  return params
 }
 
 export async function proxySessionCollection(c: Context): Promise<Response> {
-  let sessionCreationDirectory: string | undefined
   if (c.req.method === "POST") {
     const syncResult = await withConfigSync(c, {
       operation: "session creation",
     })
     if (!syncResult.ok) return syncResult.response
-    sessionCreationDirectory = syncResult.value.directory
+
+    const rawBody = readValidatedJsonBody(c)
+    const body = isRecord(rawBody) ? rawBody : {}
+    const client = await getOpenCodeClient(syncResult.value.directory)
+    const result = await client.session.create(
+      buildSessionCreateParams(syncResult.value.directory, body),
+    )
+
+    if (result.error) {
+      return sdkErrorResponse(result)
+    }
+
+    const session = result.data
+    if (session?.id) {
+      runLearnerMemoryStartupPipeline({
+        directory: syncResult.value.directory,
+        currentSessionID: session.id,
+      }).catch((error) => {
+        console.warn("Learner memory startup pipeline failed:", error)
+      })
+    }
+
+    return Response.json(session)
   }
 
-  const response = await proxyToOpenCode(c, {
-    targetPath: "/session",
+  const directoryResult = ensureAllowedDirectory(c)
+  if (!directoryResult.ok) return directoryResult.response
+
+  const client = await getOpenCodeClient(directoryResult.directory)
+  const result = await client.session.list({
+    ...buildSessionListParams(c),
   })
-  if (c.req.method === "POST" && response.ok && sessionCreationDirectory) {
-    response
-      .clone()
-      .json()
-      .then((body: unknown) => {
-        const parsed = safeDecodeSchema(OpenCodeSession.Info, body)
-        if (!parsed.success) return
-        runLearnerMemoryStartupPipeline({
-          directory: sessionCreationDirectory,
-          currentSessionID: parsed.data.id,
-        }).catch((error) => {
-          console.warn("Learner memory startup pipeline failed:", error)
-        })
-      })
-      .catch(() => undefined)
+
+  if (result.error) {
+    return sdkErrorResponse(result)
   }
-  return response
+
+  return Response.json(result.data)
 }
 
 export async function getSessionStatus(c: Context): Promise<Response> {
-  return proxyToOpenCode(c, {
-    targetPath: SESSION_STATUS_PATH,
+  const directoryResult = ensureAllowedDirectory(c)
+  if (!directoryResult.ok) return directoryResult.response
+
+  const client = await getOpenCodeClient(directoryResult.directory)
+  const result = await client.session.status({
+    directory: directoryResult.directory,
   })
+
+  if (result.error) {
+    return sdkErrorResponse(result)
+  }
+
+  return Response.json(result.data)
 }
 
 export async function getSessionById(c: Context): Promise<Response> {
@@ -193,13 +274,13 @@ export async function getSessionById(c: Context): Promise<Response> {
 
   const sessionID = c.req.param("sessionID")
   try {
-    const session = await loadSessionInDirectory(directoryResult.directory, sessionID)
+    const session = await loadRuntimeSessionInDirectory(directoryResult.directory, sessionID)
     if (!session) {
       return c.json({ error: SESSION_NOT_FOUND_ERROR }, NOT_FOUND_STATUS)
     }
     return c.json(session)
   } catch (error) {
-    return runtimeErrorResponse(error)
+    return runtimeSessionLookupErrorResponse(error)
   }
 }
 
@@ -212,10 +293,20 @@ export async function patchSessionById(c: Context): Promise<Response> {
   if (lookupResponse) return lookupResponse
 
   const body = parseSessionPatchBody(readValidatedJsonBody(c))
-  const response = await proxyToOpenCode(c, {
-    targetPath: `/session/${encodeURIComponent(sessionID)}`,
-  })
-  if (body?.time?.archived !== undefined && response.ok) {
+  const client = await getOpenCodeClient(directoryResult.directory)
+  const result = await client.session.update(
+    buildSessionUpdateParams({
+      sessionID,
+      directory: directoryResult.directory,
+      body,
+    }),
+  )
+
+  if (result.error) {
+    return sdkErrorResponse(result)
+  }
+
+  if (body?.time?.archived !== undefined) {
     try {
       await clearDynamicLearningToolsForEndedSession({
         directory: directoryResult.directory,
@@ -226,7 +317,7 @@ export async function patchSessionById(c: Context): Promise<Response> {
     }
   }
 
-  return response
+  return Response.json(result.data)
 }
 
 export async function summarizeSessionById(c: Context): Promise<Response> {
@@ -239,10 +330,21 @@ export async function summarizeSessionById(c: Context): Promise<Response> {
   const lookupResponse = await ensureRuntimeSessionExists(syncResult.value.directory, sessionID)
   if (lookupResponse) return lookupResponse
 
-  return proxyToOpenCode(c, {
-    targetPath: `/session/${encodeURIComponent(sessionID)}/summarize`,
-    forceBusyAs409: true,
-  })
+  const body = parseSessionSummarizeBody(readValidatedJsonBody(c))
+  const client = await getOpenCodeClient(syncResult.value.directory)
+  const result = await client.session.summarize(
+    buildSessionSummarizeParams({
+      sessionID,
+      directory: syncResult.value.directory,
+      body,
+    }),
+  )
+
+  if (result.error) {
+    return sdkErrorResponse(result, { forceBusyAs409: true })
+  }
+
+  return Response.json(result.data ?? true)
 }
 
 export async function revertSessionById(c: Context): Promise<Response> {
@@ -255,10 +357,21 @@ export async function revertSessionById(c: Context): Promise<Response> {
   const lookupResponse = await ensureRuntimeSessionExists(syncResult.value.directory, sessionID)
   if (lookupResponse) return lookupResponse
 
-  return proxyToOpenCode(c, {
-    targetPath: `/session/${encodeURIComponent(sessionID)}${SESSION_REVERT_PATH_SUFFIX}`,
-    forceBusyAs409: true,
+  const client = await getOpenCodeClient(syncResult.value.directory)
+  const rawBody = readValidatedJsonBody(c)
+  const body = isRecord(rawBody) ? rawBody : {}
+  const result = await client.session.revert({
+    sessionID,
+    directory: syncResult.value.directory,
+    ...(typeof body.messageID === "string" ? { messageID: body.messageID } : {}),
+    ...(typeof body.partID === "string" ? { partID: body.partID } : {}),
   })
+
+  if (result.error) {
+    return sdkErrorResponse(result, { forceBusyAs409: true })
+  }
+
+  return Response.json(result.data ?? true)
 }
 
 export async function unrevertSessionById(c: Context): Promise<Response> {
@@ -271,10 +384,17 @@ export async function unrevertSessionById(c: Context): Promise<Response> {
   const lookupResponse = await ensureRuntimeSessionExists(syncResult.value.directory, sessionID)
   if (lookupResponse) return lookupResponse
 
-  return proxyToOpenCode(c, {
-    targetPath: `/session/${encodeURIComponent(sessionID)}${SESSION_UNREVERT_PATH_SUFFIX}`,
-    forceBusyAs409: true,
+  const client = await getOpenCodeClient(syncResult.value.directory)
+  const result = await client.session.unrevert({
+    sessionID,
+    directory: syncResult.value.directory,
   })
+
+  if (result.error) {
+    return sdkErrorResponse(result, { forceBusyAs409: true })
+  }
+
+  return Response.json(result.data ?? true)
 }
 
 export async function listSessionMessages(c: Context): Promise<Response> {
@@ -285,7 +405,7 @@ export async function listSessionMessages(c: Context): Promise<Response> {
   const query = readSessionMessagesQuery(c)
 
   try {
-    const session = await loadSessionInDirectory(directoryResult.directory, sessionID)
+    const session = await loadRuntimeSessionInDirectory(directoryResult.directory, sessionID)
     if (!session) {
       return c.json({ error: SESSION_NOT_FOUND_ERROR }, NOT_FOUND_STATUS)
     }
@@ -321,8 +441,8 @@ export async function listSessionMessages(c: Context): Promise<Response> {
       c.header(NEXT_CURSOR_HEADER, payload.cursor)
     }
 
-    return c.json(payload.items)
+    return c.json(withToolUiOnMessages(payload.items, directoryResult.directory))
   } catch (error) {
-    return runtimeErrorResponse(error)
+    return runtimeSessionLookupErrorResponse(error)
   }
 }

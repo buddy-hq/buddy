@@ -7,15 +7,18 @@ import {
   BUDDY_XDG_STATE_HOME,
   configureOpenCodeEnvironment,
 } from "./env"
-import { ensureSessionServicePatched } from "@buddy/opencode-adapter/session-live"
+import {
+  ensurePluginServicePatched,
+  registerRuntimePluginFactory,
+} from "@buddy/opencode-adapter/plugin-live"
 import { Server } from "@buddy/opencode-adapter/server"
-import { ensureSessionToolUiPatched } from "@buddy/opencode-adapter/session-tool-ui"
 import { repairLegacyOpenCodeMigrations } from "./legacy-migration-repair"
-import { ensureSessionPromptToolForwardingPatched } from "./session-prompt-tool-forwarding"
+import { ensureSubagentForwardingPatched } from "./subagent-forwarding"
 import { ensureSkillServicePatched } from "./skill-filtering"
-import { ensureTaskToolForwardingPatched } from "./task-tool-forwarding"
+import { createBuddyRuntimeHooks } from "./plugins/buddy-runtime-plugin"
 
 let appPromise: Promise<{ fetch(request: Request): Response | Promise<Response> }> | undefined
+let buddyRuntimePluginRegistered = false
 
 configureOpenCodeEnvironment()
 
@@ -41,11 +44,18 @@ export async function loadOpenCodeApp() {
       } catch (error) {
         console.warn("Skipping legacy OpenCode migration repair:", error)
       }
-      await ensureSessionServicePatched()
-      await ensureSessionToolUiPatched()
-      await ensureSessionPromptToolForwardingPatched()
+      if (!buddyRuntimePluginRegistered) {
+        registerRuntimePluginFactory(({ directory, worktree }) =>
+          createBuddyRuntimeHooks({
+            directory,
+            worktree,
+          }),
+        )
+        buddyRuntimePluginRegistered = true
+      }
+      await ensurePluginServicePatched()
+      await ensureSubagentForwardingPatched()
       await ensureSkillServicePatched()
-      ensureTaskToolForwardingPatched()
       const built = await Server.Default()
       return {
         fetch(request: Request) {

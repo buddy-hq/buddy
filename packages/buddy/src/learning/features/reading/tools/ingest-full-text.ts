@@ -42,6 +42,45 @@ function readOptionalNumber(value: unknown) {
   return undefined
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function readModelLimit(value: unknown) {
+  if (!isRecord(value)) return undefined
+  const context = readOptionalNumber(value.context)
+  if (context === undefined) return undefined
+  return {
+    context,
+    input: readOptionalNumber(value.input),
+    output: readOptionalNumber(value.output),
+  }
+}
+
+function normalizeActiveModel(value: unknown): z.infer<typeof ActiveModelSchema> | undefined {
+  const direct = ActiveModelSchema.safeParse(value)
+  if (direct.success) {
+    return direct.data
+  }
+
+  if (!isRecord(value)) return undefined
+
+  const limit = readModelLimit(value.limit)
+  if (!limit) return undefined
+
+  const providerID = value.providerID
+  const modelID = value.id ?? value.modelID
+  if (typeof providerID !== "string" || typeof modelID !== "string") {
+    return undefined
+  }
+
+  return {
+    providerID,
+    id: modelID,
+    limit,
+  }
+}
+
 function assistantTokenTotal(message: MessageV2.Assistant) {
   return (
     message.tokens.total ??
@@ -113,9 +152,9 @@ function estimateMessageHistoryTokens(messages: MessageV2.WithParts[]) {
 }
 
 async function resolveActiveModel(messages: MessageV2.WithParts[], extra: unknown) {
-  const direct = ActiveModelSchema.safeParse(extra)
-  if (direct.success) {
-    return direct.data
+  const fromExtra = normalizeActiveModel(extra)
+  if (fromExtra) {
+    return fromExtra
   }
 
   for (let index = messages.length - 1; index >= 0; index -= 1) {
@@ -126,7 +165,9 @@ async function resolveActiveModel(messages: MessageV2.WithParts[], extra: unknow
       ProviderID.make(message.info.model.providerID),
       ModelID.make(message.info.model.modelID),
     ).catch(() => undefined)
-    if (model) return model
+    if (model) {
+      return normalizeActiveModel(model)
+    }
   }
 
   return undefined

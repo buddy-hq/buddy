@@ -2,7 +2,6 @@ import * as OpenCodeSessionPrompt from "opencode/session/prompt"
 import type * as OpenCodeMessageV2 from "opencode/session/message-v2"
 import { makeRuntime } from "opencode/effect/run-service"
 import { withCurrentInstance } from "./effect-runtime"
-import { ensureSessionToolUiPatched } from "./session-tool-ui"
 
 const runtime = makeRuntime(OpenCodeSessionPrompt.Service, OpenCodeSessionPrompt.defaultLayer)
 type SessionPromptInput = Parameters<OpenCodeSessionPrompt.Interface["prompt"]>[0]
@@ -54,24 +53,20 @@ export namespace SessionPrompt {
   }
 
   export async function prompt(input: Parameters<OpenCodeSessionPrompt.Interface["prompt"]>[0]) {
-    await ensureSessionToolUiPatched()
     return runPromptInterceptors(input, (nextInput) =>
       runtime.runPromise((svc) => withCurrentInstance(svc.prompt(nextInput))),
     )
   }
 
   export async function loop(input: Parameters<OpenCodeSessionPrompt.Interface["loop"]>[0]) {
-    await ensureSessionToolUiPatched()
     return runtime.runPromise((svc) => withCurrentInstance(svc.loop(input)))
   }
 
   export async function shell(input: Parameters<OpenCodeSessionPrompt.Interface["shell"]>[0]) {
-    await ensureSessionToolUiPatched()
     return runtime.runPromise((svc) => withCurrentInstance(svc.shell(input)))
   }
 
   export async function command(input: Parameters<OpenCodeSessionPrompt.Interface["command"]>[0]) {
-    await ensureSessionToolUiPatched()
     return runtime.runPromise((svc) => withCurrentInstance(svc.command(input)))
   }
 

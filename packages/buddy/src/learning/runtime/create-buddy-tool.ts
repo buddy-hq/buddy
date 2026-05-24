@@ -46,14 +46,19 @@ type BuddyToolDefinition<
 
 type BuddyTool<
   Id extends string = string,
-  _Parameters extends z.ZodType = z.ZodType,
+  Parameters extends z.ZodType = z.ZodType,
   Metadata extends BuddyToolMetadata = BuddyToolMetadata,
 > = {
   id: Id
   description: string
+  parameters: Parameters
   constraints?: BuddyToolConstraints
   dynamic?: DynamicBuddyToolMetadata
   ui?: ToolUiMetadata
+  run(
+    rawArgs: unknown,
+    ctx: BuddyToolContext<Metadata>,
+  ): Promise<Tool.ExecuteResult<Metadata>>
   toTool(directory: string): Effect.Effect<
     Tool.Info<typeof Schema.Unknown, Metadata>,
     never,
@@ -129,6 +134,49 @@ async function executeUntilAbort<T>(abort: AbortSignal, execute: () => Promise<T
   }
 }
 
+function buddyToolContextFromEffectContext<Metadata extends BuddyToolMetadata>(
+  directory: string,
+  ctx: Tool.Context<Metadata>,
+): BuddyToolContext<Metadata> {
+  return {
+    directory,
+    sessionID: ctx.sessionID,
+    messageID: ctx.messageID,
+    agent: ctx.agent,
+    abort: ctx.abort,
+    ...(ctx.callID ? { callID: ctx.callID } : {}),
+    ...(ctx.extra ? { extra: ctx.extra } : {}),
+    messages: ctx.messages,
+    metadata(input) {
+      return Effect.runPromise(withCurrentInstance(ctx.metadata(input)))
+    },
+    ask(input) {
+      return Effect.runPromise(withCurrentInstance(ctx.ask(input)))
+    },
+  }
+}
+
+async function runBuddyTool<
+  const Id extends string,
+  Parameters extends z.ZodType,
+  Metadata extends BuddyToolMetadata,
+>(
+  definition: BuddyToolDefinition<Id, Parameters, Metadata>,
+  rawArgs: unknown,
+  ctx: BuddyToolContext<Metadata>,
+): Promise<Tool.ExecuteResult<Metadata>> {
+  const parsed = definition.parameters.safeParse(rawArgs)
+  if (!parsed.success) {
+    const message = definition.formatValidationError
+      ? definition.formatValidationError(parsed.error)
+      : `The ${definition.id} tool was called with invalid arguments: ${parsed.error}.\nPlease rewrite the input so it satisfies the expected schema.`
+    throw new Error(message, { cause: parsed.error })
+  }
+
+  ctx.abort.throwIfAborted()
+  return executeUntilAbort(ctx.abort, async () => definition.execute(parsed.data, ctx))
+}
+
 function createBuddyTool<
   const Id extends string,
   Parameters extends z.ZodType,
@@ -142,9 +190,13 @@ function createBuddyTool<
   return {
     id: definition.id,
     description: definition.description,
+    parameters: definition.parameters,
     constraints: clonedConstraints,
     ...(clonedDynamic ? { dynamic: clonedDynamic } : {}),
     ...(clonedUi ? { ui: clonedUi } : {}),
+    run(rawArgs, ctx) {
+      return runBuddyTool(definition, rawArgs, ctx)
+    },
     toTool(directory: string) {
       return Tool.define(
         definition.id,
@@ -154,37 +206,8 @@ function createBuddyTool<
             parameters: Schema.Unknown,
             jsonSchema,
             execute(args: unknown, ctx: Tool.Context<Metadata>) {
-              const nextCtx: BuddyToolContext<Metadata> = {
-                directory,
-                sessionID: ctx.sessionID,
-                messageID: ctx.messageID,
-                agent: ctx.agent,
-                abort: ctx.abort,
-                ...(ctx.callID ? { callID: ctx.callID } : {}),
-                ...(ctx.extra ? { extra: ctx.extra } : {}),
-                messages: ctx.messages,
-                metadata(input) {
-                  return Effect.runPromise(withCurrentInstance(ctx.metadata(input)))
-                },
-                ask(input) {
-                  return Effect.runPromise(withCurrentInstance(ctx.ask(input)))
-                },
-              }
-
-              return Effect.promise(async () => {
-                const parsed = definition.parameters.safeParse(args)
-                if (!parsed.success) {
-                  const message = definition.formatValidationError
-                    ? definition.formatValidationError(parsed.error)
-                    : `The ${definition.id} tool was called with invalid arguments: ${parsed.error}.\nPlease rewrite the input so it satisfies the expected schema.`
-                  throw new Error(message, { cause: parsed.error })
-                }
-
-                nextCtx.abort.throwIfAborted()
-                return executeUntilAbort(nextCtx.abort, async () =>
-                  definition.execute(parsed.data, nextCtx),
-                )
-              })
+              const nextCtx = buddyToolContextFromEffectContext(directory, ctx)
+              return Effect.promise(() => runBuddyTool(definition, args, nextCtx))
             },
           }
         }),

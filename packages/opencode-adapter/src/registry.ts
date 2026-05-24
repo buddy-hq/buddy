@@ -1,11 +1,9 @@
 import { realpathSync } from "node:fs"
 import path from "node:path"
-import { Effect, Layer, ManagedRuntime } from "effect"
-import * as OpenCodeAgent from "opencode/agent/agent"
+import { Effect } from "effect"
 import { InstanceRef } from "opencode/effect/instance-ref"
-import { attach, makeRuntime } from "opencode/effect/run-service"
+import { makeRuntime } from "opencode/effect/run-service"
 import * as OpenCodeToolRegistry from "opencode/tool/registry"
-import * as OpenCodeTruncate from "opencode/tool/truncate"
 import * as OpenCodeTool from "opencode/tool/tool"
 import { Agent } from "./agent"
 import { withConfigOverlay } from "./config"
@@ -14,26 +12,11 @@ import { Instance } from "./instance"
 import { cloneToolUiMetadata, type ToolUiMetadata } from "./tool-ui-metadata"
 
 const runtime = makeRuntime(OpenCodeToolRegistry.Service, OpenCodeToolRegistry.defaultLayer)
-const customToolRuntime = ManagedRuntime.make(
-  Layer.mergeAll(OpenCodeAgent.defaultLayer, OpenCodeTruncate.defaultLayer),
-)
 const patchedServices = new WeakSet<OpenCodeToolRegistry.Interface>()
 
 type ToolModelInput = Omit<Parameters<OpenCodeToolRegistry.Interface["tools"]>[0], "agent">
 type ToolAgentInfo = Awaited<ReturnType<typeof Agent.get>>
 type ToolAgentInput = string | ToolAgentInfo
-type DeferredToolInfo = Effect.Effect<
-  OpenCodeTool.Info,
-  never,
-  OpenCodeAgent.Service | OpenCodeTruncate.Service
-> & {
-  id: string
-}
-type CustomToolInfo = OpenCodeTool.Info | DeferredToolInfo
-type RegisteredCustomTool = {
-  info: CustomToolInfo
-  toolUi?: ToolUiMetadata
-}
 type RuntimeTool = Omit<OpenCodeTool.Def, "execute"> & {
   execute: (
     args: Parameters<OpenCodeTool.Def["execute"]>[0],
@@ -44,19 +27,11 @@ type ToolDefTransformer = <TTool extends OpenCodeTool.Def>(input: {
   directory: string
   tool: TTool
 }) => TTool
-const customTools = new Map<string, Map<string, CustomToolInfo>>()
-const customToolUiMetadata = new Map<string, Map<string, ToolUiMetadata>>()
+
 const toolDefTransformers = new Set<ToolDefTransformer>()
+const customToolUiMetadata = new Map<string, Map<string, ToolUiMetadata>>()
 
-const getInstanceDirectory = Effect.gen(function* () {
-  const instance = yield* InstanceRef
-  if (!instance) {
-    return yield* Effect.die(new Error("InstanceRef not provided"))
-  }
-  return instance.directory
-})
-
-function key(directory: string) {
+function directoryKey(directory: string) {
   const resolved = path.resolve(directory)
   try {
     return realpathSync.native(resolved)
@@ -65,24 +40,17 @@ function key(directory: string) {
   }
 }
 
-function getCustomToolInfos(directory: string) {
-  return [...(customTools.get(key(directory))?.values() ?? [])]
-}
-
 function getCustomToolUiMetadata(directory: string, toolID: string): ToolUiMetadata | undefined {
-  return cloneToolUiMetadata(customToolUiMetadata.get(key(directory))?.get(toolID))
+  return cloneToolUiMetadata(customToolUiMetadata.get(directoryKey(directory))?.get(toolID))
 }
 
-function mergeToolDefs(base: readonly OpenCodeTool.Def[], extra: readonly OpenCodeTool.Def[]) {
-  const merged = new Map<string, OpenCodeTool.Def>()
-  for (const tool of base) {
-    merged.set(tool.id, tool)
+const getInstanceDirectory = Effect.gen(function* () {
+  const instance = yield* InstanceRef
+  if (!instance) {
+    return yield* Effect.die(new Error("InstanceRef not provided"))
   }
-  for (const tool of extra) {
-    merged.set(tool.id, tool)
-  }
-  return [...merged.values()]
-}
+  return instance.directory
+})
 
 function applyToolDefTransformer<TTool extends OpenCodeTool.Def>(
   directory: string,
@@ -123,43 +91,19 @@ function withRuntimeInstance(tool: OpenCodeTool.Def): OpenCodeTool.Def {
   }
 }
 
-async function resolveCustomToolInfo(tool: CustomToolInfo): Promise<OpenCodeTool.Info> {
-  if ("init" in tool) {
-    return tool
-  }
-
-  return customToolRuntime.runPromise(withCurrentInstance(attach(tool)))
-}
-
-async function customToolDefs(directory: string): Promise<OpenCodeTool.Def[]> {
-  const tools = await Promise.all(getCustomToolInfos(directory).map(resolveCustomToolInfo))
-  return Promise.all(tools.map((tool) => Effect.runPromise(OpenCodeTool.init(tool))))
-}
-
 function ensurePatched(service: OpenCodeToolRegistry.Interface) {
   if (patchedServices.has(service)) return
   patchedServices.add(service)
 
-  const originalIds = service.ids.bind(service)
   const originalAll = service.all.bind(service)
   const originalNamed = service.named.bind(service)
   const originalTools = service.tools.bind(service)
-
-  const ids: OpenCodeToolRegistry.Interface["ids"] = Effect.fn("BuddyToolRegistry.ids")(
-    function* () {
-      const directory = yield* getInstanceDirectory
-      const base = yield* originalIds()
-      const extra = getCustomToolInfos(directory).map((tool) => tool.id)
-      return [...new Set([...base, ...extra])]
-    },
-  )
 
   const all: OpenCodeToolRegistry.Interface["all"] = Effect.fn("BuddyToolRegistry.all")(
     function* () {
       const directory = yield* getInstanceDirectory
       const base = yield* originalAll()
-      const extra = yield* Effect.promise(() => customToolDefs(directory))
-      return applyToolDefTransformers(directory, mergeToolDefs(base, extra))
+      return applyToolDefTransformers(directory, base)
     },
   )
 
@@ -178,13 +122,11 @@ function ensurePatched(service: OpenCodeToolRegistry.Interface) {
     function* (model) {
       const directory = yield* getInstanceDirectory
       const base = yield* originalTools(model)
-      const extra = yield* Effect.promise(() => customToolDefs(directory))
-      return applyToolDefTransformers(directory, mergeToolDefs(base, extra))
+      return applyToolDefTransformers(directory, base)
     },
   )
 
   Object.defineProperties(service, {
-    ids: { value: ids },
     all: { value: all },
     named: { value: named },
     tools: { value: tools },
@@ -217,46 +159,45 @@ export namespace ToolRegistry {
     }
   }
 
-  export async function register(input: RegisteredCustomTool | CustomToolInfo) {
-    const directory = key(Instance.directory)
-    const tools = customTools.get(directory) ?? new Map<string, CustomToolInfo>()
-    const registration = "info" in input ? input : { info: input }
-    tools.set(registration.info.id, registration.info)
-    customTools.set(directory, tools)
-
-    if (registration.toolUi) {
-      const metadataByTool =
-        customToolUiMetadata.get(directory) ?? new Map<string, ToolUiMetadata>()
-      metadataByTool.set(
-        registration.info.id,
-        cloneToolUiMetadata(registration.toolUi) ?? registration.toolUi,
-      )
-      customToolUiMetadata.set(directory, metadataByTool)
-    } else {
-      const metadataByTool = customToolUiMetadata.get(directory)
-      metadataByTool?.delete(registration.info.id)
-      if (metadataByTool && metadataByTool.size === 0) {
-        customToolUiMetadata.delete(directory)
-      }
-    }
-
+  export async function prime() {
     await ensureRuntimePatched()
   }
 
-  export async function unregister(toolIDs: readonly string[]) {
-    const directory = key(Instance.directory)
-    const tools = customTools.get(directory)
-    const metadataByTool = customToolUiMetadata.get(directory)
-    if (!tools) return
+  export type ToolUiRegistration = {
+    id: string
+    toolUi?: ToolUiMetadata
+  }
+
+  export function registerToolUiCatalog(directory: string, tools: readonly ToolUiRegistration[]) {
+    const key = directoryKey(directory)
+    const metadataByTool = customToolUiMetadata.get(key) ?? new Map<string, ToolUiMetadata>()
+
+    for (const tool of tools) {
+      if (tool.toolUi) {
+        metadataByTool.set(tool.id, cloneToolUiMetadata(tool.toolUi) ?? tool.toolUi)
+      } else {
+        metadataByTool.delete(tool.id)
+      }
+    }
+
+    if (metadataByTool.size === 0) {
+      customToolUiMetadata.delete(key)
+    } else {
+      customToolUiMetadata.set(key, metadataByTool)
+    }
+  }
+
+  export function unregisterToolUi(directory: string, toolIDs: readonly string[]) {
+    const key = directoryKey(directory)
+    const metadataByTool = customToolUiMetadata.get(key)
+    if (!metadataByTool) return
+
     for (const toolID of toolIDs) {
-      tools.delete(toolID)
-      metadataByTool?.delete(toolID)
+      metadataByTool.delete(toolID)
     }
-    if (tools.size === 0) {
-      customTools.delete(directory)
-    }
-    if (metadataByTool && metadataByTool.size === 0) {
-      customToolUiMetadata.delete(directory)
+
+    if (metadataByTool.size === 0) {
+      customToolUiMetadata.delete(key)
     }
   }
 

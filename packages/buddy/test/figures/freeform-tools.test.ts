@@ -5,11 +5,10 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { FreeformFigureRenderError } from "../../src/learning/features/figure-rendering/freeform/service/errors"
 import { renderFreeformFigure } from "../../src/learning/features/figure-rendering/freeform/service/render"
-import { ensureFreeformFigureToolsRegistered } from "../../src/learning/features/figure-rendering/freeform/tools/register"
 import { RenderFreeformFigureOutputSchema } from "../../src/learning/features/figure-rendering/freeform/types"
 import type { RenderFreeformFigureInput } from "../../src/learning/features/figure-rendering/freeform/tools/render-freeform-figure"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import { createToolContext, ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 function baseFreeformFigureInput(): RenderFreeformFigureInput {
   return {
@@ -28,11 +27,11 @@ function baseFreeformFigureInput(): RenderFreeformFigureInput {
 describe("freeform figure tools", () => {
   test("renders valid unrestricted SVG into a stable artifact", async () => {
     await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
-        await ensureFreeformFigureToolsRegistered(project.path)
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const renderFreeformFigure = requireTool(tools, "render_freeform_figure")
 
@@ -109,11 +108,11 @@ describe("freeform figure tools", () => {
 
   test("tool metadata also includes presented media output for the rendered freeform figure", async () => {
     await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
-        await ensureFreeformFigureToolsRegistered(project.path)
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const renderFreeformFigure = requireTool(tools, "render_freeform_figure")
 

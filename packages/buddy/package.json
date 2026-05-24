@@ -33,9 +33,12 @@
     "test:parity": "bun test --preload ./test/preload.ts test/parity",
     "test:contracts": "bun test --preload ./test/preload.ts test/parity",
     "learner-memory:evaluate": "bun ./script/learner-memory-evaluation.ts",
+    "smoke": "bun ./script/smoke.ts",
     "db": "bun drizzle-kit"
   },
   "dependencies": {
+    "@opencode-ai/plugin": "workspace:*",
+    "@opencode-ai/sdk": "workspace:*",
     "@ai-sdk/anthropic": "2.0.62",
     "@bokuweb/zstd-wasm": "^0.0.27",
     "@buddy/opencode-adapter": "workspace:*",

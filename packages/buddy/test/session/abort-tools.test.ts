@@ -1,14 +1,11 @@
 import { describe, expect, test } from "bun:test"
-import { Effect } from "effect"
 import z from "zod"
-import { MessageID, SessionID } from "@buddy/opencode-adapter/id"
-import { Tool } from "@buddy/opencode-adapter/tool"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
+import { loadOpenCodeApp } from "../../src/opencode-runtime"
+import { createCompatiblePluginAskHandler } from "../../src/opencode-runtime/plugin-ask-compat"
+import { buddyToolToPluginTool } from "../../src/opencode-runtime/buddy-tool-shim"
 import { createBuddyTool } from "../../src/learning/runtime/create-buddy-tool"
-import { registerBuddyTools } from "../../src/learning/runtime/register-buddy-tools"
 import { tmpdir } from "../helpers/tmpdir"
-import { requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 const slowAbortTool = createBuddyTool({
   id: "slow_abort_test",
@@ -49,93 +46,73 @@ const permissionBridgeTool = createBuddyTool({
   },
 })
 
-function createEffectContext(input: {
-  ask: Tool.Context["ask"]
-  metadata: Tool.Context["metadata"]
-}): Tool.Context {
-  return {
-    sessionID: SessionID.make("ses_test"),
-    messageID: MessageID.make("msg_test"),
-    agent: "math-buddy",
-    abort: new AbortController().signal,
-    messages: [],
-    ask: input.ask,
-    metadata: input.metadata,
-  }
-}
-
 describe("buddy tool abort handling", () => {
   test("rejects promptly when the tool context aborts", async () => {
     await using project = await tmpdir({ git: true })
 
-    const execution = OpenCodeInstance.provide({
-      directory: project.path,
-      async fn() {
-        await registerBuddyTools(project.path, [slowAbortTool])
+    const pluginTool = buddyToolToPluginTool(slowAbortTool, project.path)
+    const abortController = new AbortController()
+    setTimeout(() => abortController.abort(), 25)
 
-        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-        const slowTool = requireTool(tools, "slow_abort_test")
-        const abortController = new AbortController()
-        setTimeout(() => abortController.abort(), 25)
-
-        return slowTool.execute(
-          { value: "late result" },
-          {
-            sessionID: SessionID.make("ses_abort"),
-            messageID: MessageID.make("msg_abort"),
-            agent: "math-buddy",
-            abort: abortController.signal,
-            messages: [],
-            metadata() {
-              return Effect.void
-            },
-            ask() {
-              return Effect.void
-            },
-          },
-        )
+    const execution = pluginTool.execute(
+      { value: "late result" },
+      {
+        sessionID: "ses_abort",
+        messageID: "msg_abort",
+        agent: "math-buddy",
+        directory: project.path,
+        worktree: project.path,
+        abort: abortController.signal,
+        metadata() {},
+        ask: createCompatiblePluginAskHandler(),
       },
-    })
+    )
 
     await expect(execution).rejects.toMatchObject({
       name: "AbortError",
     })
   })
 
-  test("runs permission and metadata effects through the Buddy tool bridge", async () => {
+  test("runs permission and metadata through the plugin tool path", async () => {
     await using project = await tmpdir({ git: true })
+    await loadOpenCodeApp()
 
-    let permissionCalls = 0
-    let metadataCalls = 0
+    const asks: Array<Record<string, unknown>> = []
+    const metadataUpdates: Array<{ title?: string; metadata?: Record<string, unknown> }> = []
 
-    const execution = await OpenCodeInstance.provide({
+    const pluginTool = buddyToolToPluginTool(permissionBridgeTool, project.path)
+
+    const result = await OpenCodeInstance.provide({
       directory: project.path,
-      async fn() {
-        await registerBuddyTools(project.path, [permissionBridgeTool])
-
-        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-        const tool = requireTool(tools, "permission_bridge_test")
-
-        return tool.execute(
+      fn: async () => {
+        const execution = await pluginTool.execute(
           {},
-          createEffectContext({
-            ask() {
-              return Effect.sync(() => {
-                permissionCalls += 1
-              })
+          {
+            sessionID: "ses_test",
+            messageID: "msg_test",
+            agent: "math-buddy",
+            directory: project.path,
+            worktree: project.path,
+            abort: new AbortController().signal,
+            metadata(input) {
+              metadataUpdates.push(input)
             },
-            metadata() {
-              return Effect.sync(() => {
-                metadataCalls += 1
-              })
-            },
-          }),
+            ask: createCompatiblePluginAskHandler((input) => {
+              asks.push(input)
+            }),
+          },
         )
+
+        if (typeof execution === "string") {
+          throw new Error("Expected tool result object")
+        }
+
+        return execution
       },
     })
 
-    expect(execution.output).toBe("ok")
-    expect(permissionCalls).toBe(1)
-    expect(metadataCalls).toBe(1)
+    expect(result.output).toBe("ok")
+    expect(asks).toHaveLength(1)
+    expect(metadataUpdates).toEqual([{ title: "permission-bridge-test", metadata: {} }])
   })
 })

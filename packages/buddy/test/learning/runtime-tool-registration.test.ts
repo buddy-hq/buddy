@@ -6,6 +6,7 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { SessionID } from "@buddy/opencode-adapter/id"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
+import { loadOpenCodeApp } from "../../src/opencode-runtime"
 import { resolveSessionRuntime } from "../../src/learning/access/resolve-session-runtime"
 import { buildBuddyRuntimeSessionPermissions } from "../../src/learning/agent-execution/permissions/session-permissions"
 import { listBuddySubagents } from "../../src/learning/runtime-subagents"
@@ -18,12 +19,10 @@ import {
   dynamicLearningToolAgentPermission,
   dynamicLearningToolDefaultDenyRules,
 } from "../../src/learning/runtime/dynamic-tool-permissions"
-import { registerRuntimeTools } from "../../src/learning/runtime/register-tools"
 import {
   clearDynamicLearningToolsForEndedSession,
   clearDynamicLearningToolGrantsForSession,
 } from "../../src/learning/runtime/dynamic-tool-grants"
-import { allBuddyFeatureIds } from "../../src/learning/runtime/feature-registry"
 import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
 
@@ -31,17 +30,15 @@ const DYNAMIC_DEBUG_ATTEMPT_TOOL_ID = dynamicDebugAttemptTool.id
 const DYNAMIC_REFLECTION_TOOL_ID = dynamicReflectionTool.id
 const DYNAMIC_STEPWISE_SOLVE_TOOL_ID = dynamicStepwiseSolveTool.id
 
-function disabledToolFlags(): Record<string, boolean> {
-  return Object.fromEntries(allBuddyFeatureIds().map((featureId) => [featureId, false]))
+async function ensureBuddyPluginTools(directory: string) {
+  await loadOpenCodeApp()
+  await syncOpenCodeProjectConfig(directory)
 }
 
-async function listToolIDs(directory: string): Promise<string[]> {
+async function listRegisteredToolIDs(directory: string): Promise<string[]> {
   return OpenCodeInstance.provide({
     directory,
-    async fn() {
-      const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-      return tools.map((tool) => tool.id)
-    },
+    fn: () => ToolRegistry.ids(),
   })
 }
 
@@ -64,84 +61,95 @@ afterEach(async () => {
 })
 
 describe("runtime tool registration", () => {
-  test("configured tool toggles prevent disabled tools from registering", async () => {
+  test("configured tool toggles keep disabled tools in the registry but denied by session permissions", async () => {
     await using project = await tmpdir({ git: true })
 
-    await registerRuntimeTools(
-      project.path,
-      {
-        ...disabledToolFlags(),
-        standards: true,
+    await ensureBuddyPluginTools(project.path)
+
+    expect(await listRegisteredToolIDs(project.path)).toContain("search_standards")
+    expect(await listRegisteredToolIDs(project.path)).toContain("get_standard")
+
+    const buddyDefinition = REGISTERED_BUDDY_PERSONAS.find((definition) => definition.id === "buddy")
+    if (!buddyDefinition) {
+      throw new Error('Missing "buddy" persona definition')
+    }
+
+    const persona = getBuddyPersona("buddy")
+    const sessionRuntime = resolveSessionRuntime({
+      persona: {
+        id: persona.id,
+        features: buddyDefinition.features,
+        defaultSurface: persona.defaultSurface,
       },
-      {
+      teachingWorkspaceState: "inactive",
+      configuredToolToggles: {
         search_standards: false,
       },
-    )
-
-    expect(await listToolIDs(project.path)).not.toContain("search_standards")
-    expect(await listToolIDs(project.path)).toContain("get_standard")
-
-    await registerRuntimeTools(
-      project.path,
-      {
-        ...disabledToolFlags(),
-        standards: true,
-      },
-      {
-        search_standards: true,
-      },
-    )
-
-    expect(await listToolIDs(project.path)).toContain("search_standards")
-  })
-
-  test("removes question-set tools after the group is disabled in the same directory", async () => {
-    await using project = await tmpdir({ git: true })
-
-    await registerRuntimeTools(project.path, {
-      ...disabledToolFlags(),
-      "question-sets": true,
+    })
+    const permission = buildBuddyRuntimeSessionPermissions({
+      sessionRuntime,
     })
 
-    expect(await listToolIDs(project.path)).toContain("save_question_set")
-
-    await registerRuntimeTools(project.path, disabledToolFlags())
-
-    expect(await listToolIDs(project.path)).not.toContain("save_question_set")
+    expect(permission).toContainEqual({
+      permission: "search_standards",
+      pattern: "*",
+      action: "deny",
+    })
   })
 
-  test("keeps Buddy custom tool registrations isolated by directory across runtime resets", async () => {
+  test("disabled feature tools stay in the registry and are denied via session runtime permissions", async () => {
+    await using project = await tmpdir({ git: true })
+
+    await ensureBuddyPluginTools(project.path)
+    expect(await listRegisteredToolIDs(project.path)).toContain("save_question_set")
+
+    const buddyDefinition = REGISTERED_BUDDY_PERSONAS.find((definition) => definition.id === "buddy")
+    if (!buddyDefinition) {
+      throw new Error('Missing "buddy" persona definition')
+    }
+
+    const persona = getBuddyPersona("buddy")
+    const runtimeWithoutQuestionSets = resolveSessionRuntime({
+      persona: {
+        id: persona.id,
+        features: buddyDefinition.features.filter((feature) => feature.id !== "question-sets"),
+        defaultSurface: persona.defaultSurface,
+      },
+      teachingWorkspaceState: "inactive",
+    })
+    const permission = buildBuddyRuntimeSessionPermissions({
+      sessionRuntime: runtimeWithoutQuestionSets,
+    })
+
+    expect(permission).toContainEqual({
+      permission: "save_question_set",
+      pattern: "*",
+      action: "deny",
+    })
+  })
+
+  test("plugin pre-registers Buddy tools independently per project directory", async () => {
     await using firstProject = await tmpdir({ git: true })
     await using secondProject = await tmpdir({ git: true })
 
-    await registerRuntimeTools(firstProject.path, {
-      ...disabledToolFlags(),
-      "question-sets": true,
-    })
-    await registerRuntimeTools(secondProject.path, {
-      ...disabledToolFlags(),
-      flashcards: true,
-    })
+    await ensureBuddyPluginTools(firstProject.path)
+    await ensureBuddyPluginTools(secondProject.path)
 
-    expect(await listToolIDs(firstProject.path)).toContain("save_question_set")
-    expect(await listToolIDs(firstProject.path)).not.toContain("save_flashcard_deck")
-
-    expect(await listToolIDs(secondProject.path)).toContain("save_flashcard_deck")
-    expect(await listToolIDs(secondProject.path)).not.toContain("save_question_set")
+    expect(await listRegisteredToolIDs(firstProject.path)).toContain("save_question_set")
+    expect(await listRegisteredToolIDs(firstProject.path)).toContain("save_flashcard_deck")
+    expect(await listRegisteredToolIDs(secondProject.path)).toContain("save_question_set")
+    expect(await listRegisteredToolIDs(secondProject.path)).toContain("save_flashcard_deck")
 
     await OpenCodeInstance.disposeAll()
 
-    expect(await listToolIDs(firstProject.path)).toContain("save_question_set")
-    expect(await listToolIDs(firstProject.path)).not.toContain("save_flashcard_deck")
-
-    expect(await listToolIDs(secondProject.path)).toContain("save_flashcard_deck")
-    expect(await listToolIDs(secondProject.path)).not.toContain("save_question_set")
+    expect(await listRegisteredToolIDs(firstProject.path)).toContain("save_question_set")
+    expect(await listRegisteredToolIDs(secondProject.path)).toContain("save_flashcard_deck")
   })
 
   test("dynamic tool search finds candidates and load exposes them for the current session", async () => {
     await using project = await tmpdir({ git: true })
 
-    await registerRuntimeTools(project.path, disabledToolFlags())
+    await ensureBuddyPluginTools(project.path)
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
@@ -157,6 +165,8 @@ describe("runtime tool registration", () => {
             agent: "buddy",
           }),
         )
+        const permissionAfterSearch =
+          (await OpenCodeSession.get(SessionID.make(session.id))).permission ?? []
         const toolsAfterSearch = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const loadTool = requireTool(toolsAfterSearch, "learning_tool_load")
         const loadResult = await loadTool.execute(
@@ -183,12 +193,18 @@ describe("runtime tool registration", () => {
         return {
           searchOutput: searchResult.output,
           loadOutput: loadResult.output,
-          visibleAfterSearch: toolsAfterSearch.some(
-            (tool) => tool.id === DYNAMIC_REFLECTION_TOOL_ID,
-          ),
+          visibleAfterSearch: !disabledByModelToolFilter({
+            toolIDs: [DYNAMIC_REFLECTION_TOOL_ID],
+            agentPermission: dynamicLearningToolAgentPermission(),
+            sessionPermission: permissionAfterSearch,
+          }).has(DYNAMIC_REFLECTION_TOOL_ID),
           reflectionOutput: reflectionResult.output,
           permission: updatedSession.permission ?? [],
-          hasDebugTool: nextTools.some((tool) => tool.id === DYNAMIC_DEBUG_ATTEMPT_TOOL_ID),
+          debugToolDenied: disabledByModelToolFilter({
+            toolIDs: [DYNAMIC_DEBUG_ATTEMPT_TOOL_ID],
+            agentPermission: dynamicLearningToolAgentPermission(),
+            sessionPermission: updatedSession.permission ?? [],
+          }).has(DYNAMIC_DEBUG_ATTEMPT_TOOL_ID),
         }
       },
     })
@@ -203,13 +219,13 @@ describe("runtime tool registration", () => {
       pattern: "*",
       action: "allow",
     })
-    expect(result.hasDebugTool).toBe(false)
+    expect(result.debugToolDenied).toBe(true)
   })
 
   test("dynamic tools are directory-visible but denied outside exact session grants", async () => {
     await using project = await tmpdir({ git: true })
 
-    await registerRuntimeTools(project.path, disabledToolFlags())
+    await ensureBuddyPluginTools(project.path)
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
@@ -242,7 +258,7 @@ describe("runtime tool registration", () => {
           }),
         )
 
-        const toolIDs = await listToolIDs(project.path)
+        const toolIDs = await listRegisteredToolIDs(project.path)
         const searched = await OpenCodeSession.get(SessionID.make(searchedSession.id))
         const untouched = await OpenCodeSession.get(SessionID.make(untouchedSession.id))
 
@@ -277,10 +293,10 @@ describe("runtime tool registration", () => {
     ).toBe(true)
   })
 
-  test("dynamic load without a valid session does not register directory-visible tools", async () => {
+  test("dynamic load without a valid session does not grant session permissions", async () => {
     await using project = await tmpdir({ git: true })
 
-    await registerRuntimeTools(project.path, disabledToolFlags())
+    await ensureBuddyPluginTools(project.path)
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
@@ -310,25 +326,25 @@ describe("runtime tool registration", () => {
             agent: "buddy",
           }),
         )
-        const toolIDs = (await ToolRegistry.tools(TEST_TOOL_MODEL)).map((tool) => tool.id)
+        const registeredToolIDs = await ToolRegistry.ids()
 
         return {
           searchOutput: searchResult.output,
           loadOutput: loadResult.output,
-          toolIDs,
+          registeredToolIDs,
         }
       },
     })
 
     expect(result.searchOutput).toContain(DYNAMIC_REFLECTION_TOOL_ID)
     expect(result.loadOutput).toContain("No dynamic learning tools were exposed")
-    expect(result.toolIDs).not.toContain(DYNAMIC_REFLECTION_TOOL_ID)
+    expect(result.registeredToolIDs).toContain(DYNAMIC_REFLECTION_TOOL_ID)
   })
 
-  test("dynamic grants are cleared and unregistered when the session grant is explicitly reset", async () => {
+  test("dynamic grants are cleared via session permissions while tools stay registered", async () => {
     await using project = await tmpdir({ git: true })
 
-    await registerRuntimeTools(project.path, disabledToolFlags())
+    await ensureBuddyPluginTools(project.path)
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
@@ -388,12 +404,12 @@ describe("runtime tool registration", () => {
         const clearedPermission = (clearedSession.permission ?? []).map((rule) =>
           Object.assign({}, rule),
         )
-        const remainingToolIDs = (await ToolRegistry.tools(TEST_TOOL_MODEL)).map((tool) => tool.id)
+        const remainingRegisteredToolIDs = await ToolRegistry.ids()
 
         return {
           grantedPermission,
           clearedPermission,
-          remainingToolIDs,
+          remainingRegisteredToolIDs,
         }
       },
     })
@@ -416,14 +432,21 @@ describe("runtime tool registration", () => {
     expect(result.clearedPermission).toEqual(
       expect.arrayContaining(dynamicLearningToolDefaultDenyRules()),
     )
-    expect(result.remainingToolIDs).not.toContain(DYNAMIC_REFLECTION_TOOL_ID)
-    expect(result.remainingToolIDs).not.toContain(DYNAMIC_STEPWISE_SOLVE_TOOL_ID)
+    expect(result.remainingRegisteredToolIDs).toContain(DYNAMIC_REFLECTION_TOOL_ID)
+    expect(result.remainingRegisteredToolIDs).toContain(DYNAMIC_STEPWISE_SOLVE_TOOL_ID)
+    expect(
+      disabledByModelToolFilter({
+        toolIDs: [DYNAMIC_REFLECTION_TOOL_ID, DYNAMIC_STEPWISE_SOLVE_TOOL_ID],
+        agentPermission: dynamicLearningToolAgentPermission(),
+        sessionPermission: result.clearedPermission,
+      }).has(DYNAMIC_REFLECTION_TOOL_ID),
+    ).toBe(true)
   })
 
-  test("dynamic grants are unregistered when a session ends before the next Buddy turn", async () => {
+  test("dynamic grants are cleared when a session ends while tools stay registered", async () => {
     await using project = await tmpdir({ git: true })
 
-    await registerRuntimeTools(project.path, disabledToolFlags())
+    await ensureBuddyPluginTools(project.path)
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,
@@ -463,12 +486,12 @@ describe("runtime tool registration", () => {
           directory: project.path,
           sessionID: session.id,
         })
-        const remainingToolIDs = (await ToolRegistry.tools(TEST_TOOL_MODEL)).map((tool) => tool.id)
+        const remainingRegisteredToolIDs = await ToolRegistry.ids()
         const preservedSession = await OpenCodeSession.get(SessionID.make(session.id))
 
         return {
           grantedPermission,
-          remainingToolIDs,
+          remainingRegisteredToolIDs,
           endedSessionPermission: preservedSession.permission ?? [],
         }
       },
@@ -479,7 +502,7 @@ describe("runtime tool registration", () => {
       pattern: "*",
       action: "allow",
     })
-    expect(result.remainingToolIDs).not.toContain(DYNAMIC_REFLECTION_TOOL_ID)
+    expect(result.remainingRegisteredToolIDs).toContain(DYNAMIC_REFLECTION_TOOL_ID)
     expect(result.endedSessionPermission).not.toContainEqual({
       permission: DYNAMIC_REFLECTION_TOOL_ID,
       pattern: "*",
@@ -488,6 +511,13 @@ describe("runtime tool registration", () => {
     expect(result.endedSessionPermission).toEqual(
       expect.arrayContaining(dynamicLearningToolDefaultDenyRules()),
     )
+    expect(
+      disabledByModelToolFilter({
+        toolIDs: [DYNAMIC_REFLECTION_TOOL_ID],
+        agentPermission: dynamicLearningToolAgentPermission(),
+        sessionPermission: result.endedSessionPermission,
+      }).has(DYNAMIC_REFLECTION_TOOL_ID),
+    ).toBe(true)
   })
 
   test("runtime subagents default-deny directory-registered dynamic tools", () => {
@@ -507,11 +537,7 @@ describe("runtime tool registration", () => {
   test("primary session denies subagent-only authoring tools while owning subagents allow them", async () => {
     await using project = await tmpdir({ git: true })
 
-    await registerRuntimeTools(project.path, {
-      ...disabledToolFlags(),
-      "question-sets": true,
-      flashcards: true,
-    })
+    await ensureBuddyPluginTools(project.path)
 
     const result = await OpenCodeInstance.provide({
       directory: project.path,

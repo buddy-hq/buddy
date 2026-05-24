@@ -3,6 +3,7 @@ import { describeRoute, resolver } from "hono-openapi"
 import z from "zod"
 import { AdvancedMathRuntimeService } from "../local-runtimes/advanced-math/service"
 import { StandardsRuntimeService } from "../local-runtimes/standards/service"
+import { refreshSessionsForLocalRuntimeChange } from "../local-runtimes/runtime-session-refresh"
 import { routeErrors } from "../http"
 
 const localRuntimeStateSchema = z.enum([
@@ -42,6 +43,20 @@ const standardsRuntimeStatusSchema = z.object({
   progressMessage: z.string().optional(),
 })
 
+async function respondWithRuntimeChange<
+  TStatus extends {
+    state: "not_installed" | "downloading" | "installing" | "ready" | "repairing" | "removing" | "error"
+  },
+>(task: () => Promise<TStatus>) {
+  const status = await task()
+  await refreshSessionsForLocalRuntimeChange()
+  const httpStatus: 200 | 500 = status.state === "error" ? 500 : 200
+  return {
+    status,
+    httpStatus,
+  }
+}
+
 export const LocalRuntimeRoutes = new Hono()
   .get(
     "/advanced-math",
@@ -76,8 +91,8 @@ export const LocalRuntimeRoutes = new Hono()
       },
     }),
     async (c) => {
-      const status = await AdvancedMathRuntimeService.install()
-      return c.json(status, status.state === "error" ? 500 : 200)
+      const result = await respondWithRuntimeChange(() => AdvancedMathRuntimeService.install())
+      return c.json(result.status, result.httpStatus)
     },
   )
   .delete(
@@ -95,7 +110,10 @@ export const LocalRuntimeRoutes = new Hono()
         ...routeErrors(500),
       },
     }),
-    async (c) => c.json(await AdvancedMathRuntimeService.remove()),
+    async (c) => {
+      const result = await respondWithRuntimeChange(() => AdvancedMathRuntimeService.remove())
+      return c.json(result.status, result.httpStatus)
+    },
   )
   .get(
     "/standards",
@@ -130,8 +148,8 @@ export const LocalRuntimeRoutes = new Hono()
       },
     }),
     async (c) => {
-      const status = await StandardsRuntimeService.install()
-      return c.json(status, status.state === "error" ? 500 : 200)
+      const result = await respondWithRuntimeChange(() => StandardsRuntimeService.install())
+      return c.json(result.status, result.httpStatus)
     },
   )
   .delete(
@@ -149,5 +167,8 @@ export const LocalRuntimeRoutes = new Hono()
         ...routeErrors(500),
       },
     }),
-    async (c) => c.json(await StandardsRuntimeService.remove()),
+    async (c) => {
+      const result = await respondWithRuntimeChange(() => StandardsRuntimeService.remove())
+      return c.json(result.status, result.httpStatus)
+    },
   )

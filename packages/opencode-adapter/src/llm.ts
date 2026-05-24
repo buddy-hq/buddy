@@ -1,15 +1,13 @@
+import { jsonSchema, streamText, tool, type LanguageModelUsage } from "ai"
 import { Effect } from "effect"
-import * as Stream from "effect/Stream"
-import * as OpenCodeLLM from "opencode/session/llm"
 import * as OpenCodeSession from "opencode/session/session"
-import { createStructuredOutputTool } from "opencode/session/prompt"
+import * as OpenCodeProvider from "opencode/provider/provider"
+import * as ProviderTransform from "opencode/provider/transform"
 import { makeRuntime } from "opencode/effect/run-service"
 import { withCurrentInstance } from "./effect-runtime"
-import { MessageID, ModelID, ProviderID, SessionID } from "./id"
-import { Permission } from "./permission"
 import type { Provider } from "./provider"
 
-const runtime = makeRuntime(OpenCodeLLM.Service, OpenCodeLLM.defaultLayer)
+const runtime = makeRuntime(OpenCodeProvider.Service, OpenCodeProvider.defaultLayer)
 
 type SmallTextInput = {
   sessionID: string
@@ -52,135 +50,178 @@ type StructuredTextResult = SmallTextResult & {
   structured: unknown
 }
 
-const LEARNER_MEMORY_AGENT_NAME = "learner-memory"
 const DEFAULT_RETRIES = 1
 const DEFAULT_SMALL_TEXT_TIMEOUT_MS = 45_000
 const STRUCTURED_OUTPUT_SYSTEM_PROMPT =
   "IMPORTANT: The user has requested structured output. You MUST use the StructuredOutput tool to provide your final response. Do NOT respond with plain text."
 
-function learnerMemoryAgent(): OpenCodeLLM.StreamInput["agent"] {
+type ProviderMetadataInput = Parameters<typeof OpenCodeSession.getUsage>[0]["metadata"]
+
+type ModelOptions = Record<string, unknown>
+
+function buildSmallModelHeaders(input: SmallTextInput): Record<string, string> {
   return {
-    name: LEARNER_MEMORY_AGENT_NAME,
-    description: "Extract durable learner memory candidates.",
-    mode: "primary",
-    permission: Permission.fromConfig({ "*": "deny" }),
-    options: {},
+    "x-session-affinity": input.sessionID,
+    ...input.model.headers,
   }
 }
 
-function learnerMemoryUser(input: SmallTextInput): OpenCodeLLM.StreamInput["user"] {
-  return {
-    id: MessageID.make(input.messageID),
-    sessionID: SessionID.make(input.sessionID),
-    role: "user",
-    time: {
-      created: Date.now(),
-    },
-    agent: LEARNER_MEMORY_AGENT_NAME,
-    model: {
-      providerID: ProviderID.make(input.providerID),
-      modelID: ModelID.make(input.modelID),
-    },
+function normalizeUsage(input: {
+  model: Provider.Model
+  usage: LanguageModelUsage
+  providerMetadata?: ProviderMetadataInput
+}): SmallTextUsage {
+  const usage = {
+    inputTokens: input.usage.inputTokens,
+    outputTokens: input.usage.outputTokens,
+    totalTokens: input.usage.totalTokens,
+    reasoningTokens: input.usage.outputTokenDetails?.reasoningTokens ?? input.usage.reasoningTokens,
+    cachedInputTokens: input.usage.cachedInputTokens,
+    inputTokenDetails: input.usage.inputTokenDetails,
+    outputTokenDetails: input.usage.outputTokenDetails,
+    cacheReadInputTokens: input.usage.inputTokenDetails?.cacheReadTokens ?? input.usage.cachedInputTokens,
+    cacheWriteInputTokens: input.usage.inputTokenDetails?.cacheWriteTokens,
+    nonCachedInputTokens:
+      input.usage.inputTokens === undefined
+        ? undefined
+        : Math.max(
+            0,
+            input.usage.inputTokens -
+              (input.usage.inputTokenDetails?.cacheReadTokens ?? input.usage.cachedInputTokens ?? 0) -
+              (input.usage.inputTokenDetails?.cacheWriteTokens ?? 0),
+          ),
+    providerMetadata: input.providerMetadata,
+    visibleOutputTokens: Math.max(
+      0,
+      (input.usage.outputTokens ?? 0) -
+        (input.usage.outputTokenDetails?.reasoningTokens ?? input.usage.reasoningTokens ?? 0),
+    ),
   }
+
+  return OpenCodeSession.getUsage({
+    model: input.model,
+    usage,
+    metadata: input.providerMetadata,
+  })
 }
 
 async function generateSmallText(input: SmallTextInput): Promise<SmallTextResult> {
-  let text = ""
-  let usage: SmallTextUsage | undefined
-  await runtime.runPromise((svc) =>
+  return runtime.runPromise((svc) =>
     withCurrentInstance(
-      svc
-        .stream({
-          user: learnerMemoryUser(input),
-          sessionID: input.sessionID,
-          agent: learnerMemoryAgent(),
-          model: input.model,
-          system: [input.system],
-          messages: [{ role: "user", content: input.prompt }],
-          small: true,
-          tools: {},
-          toolChoice: "none",
-          retries: input.retries ?? DEFAULT_RETRIES,
-        })
-        .pipe(
-          Stream.runForEach((event) =>
-            Effect.sync(() => {
-              if (event.type === "text-delta") {
-                text += event.text
-              }
-              if (event.type === "finish-step") {
-                usage = OpenCodeSession.getUsage({
-                  model: input.model,
-                  usage: event.usage,
-                  metadata: event.providerMetadata,
-                })
-              }
+      Effect.gen(function* () {
+        const languageModel = yield* svc.getLanguage(input.model)
+        const options: ModelOptions = {
+          ...ProviderTransform.smallOptions(input.model),
+          ...input.model.options,
+        }
+        const messages = ProviderTransform.message(
+          [{ role: "user", content: input.prompt }],
+          input.model,
+          options,
+        )
+        const timeoutMessage = "Small model text generation timed out"
+        const controller = new AbortController()
+        const timer = setTimeout(
+          () => controller.abort(new Error(timeoutMessage)),
+          input.timeoutMs ?? DEFAULT_SMALL_TEXT_TIMEOUT_MS,
+        )
+
+        try {
+          const result = streamText({
+            model: languageModel,
+            system: input.system,
+            messages,
+            providerOptions: ProviderTransform.providerOptions(input.model, options),
+            headers: buildSmallModelHeaders(input),
+            maxRetries: input.retries ?? DEFAULT_RETRIES,
+            abortSignal: controller.signal,
+            toolChoice: "none",
+          })
+
+          const [text, rawUsage, providerMetadata] = yield* Effect.promise(() =>
+            Promise.all([result.text, result.totalUsage, result.providerMetadata]),
+          )
+
+          return {
+            text,
+            providerID: input.model.providerID,
+            modelID: input.model.id,
+            usage: normalizeUsage({
+              model: input.model,
+              usage: rawUsage,
+              providerMetadata,
             }),
-          ),
-          Effect.timeoutOrElse({
-            duration: input.timeoutMs ?? DEFAULT_SMALL_TEXT_TIMEOUT_MS,
-            orElse: () => Effect.die(new Error("Small model text generation timed out")),
-          }),
-          Effect.orDie,
-        ),
+          }
+        } finally {
+          clearTimeout(timer)
+        }
+      }),
     ),
   )
-
-  return {
-    text,
-    providerID: input.model.providerID,
-    modelID: input.model.id,
-    ...(usage ? { usage } : {}),
-  }
 }
 
 async function generateStructuredText(input: StructuredTextInput): Promise<StructuredTextResult> {
-  let text = ""
-  let usage: SmallTextUsage | undefined
   let structured: unknown
-  await runtime.runPromise((svc) =>
+  const { text, usage } = await runtime.runPromise((svc) =>
     withCurrentInstance(
-      svc
-        .stream({
-          user: learnerMemoryUser(input),
-          sessionID: input.sessionID,
-          agent: learnerMemoryAgent(),
-          model: input.model,
-          system: [input.system, STRUCTURED_OUTPUT_SYSTEM_PROMPT],
-          messages: [{ role: "user", content: input.prompt }],
-          small: true,
-          tools: {
-            StructuredOutput: createStructuredOutputTool({
-              schema: input.schema,
-              onSuccess(output) {
-                structured = output
-              },
+      Effect.gen(function* () {
+        const languageModel = yield* svc.getLanguage(input.model)
+        const options: ModelOptions = {
+          ...ProviderTransform.smallOptions(input.model),
+          ...input.model.options,
+        }
+        const messages = ProviderTransform.message(
+          [{ role: "user", content: input.prompt }],
+          input.model,
+          options,
+        )
+        const timeoutMessage = "Small model structured generation timed out"
+        const controller = new AbortController()
+        const timer = setTimeout(
+          () => controller.abort(new Error(timeoutMessage)),
+          input.timeoutMs ?? DEFAULT_SMALL_TEXT_TIMEOUT_MS,
+        )
+
+        try {
+          const result = streamText({
+            model: languageModel,
+            system: [input.system, STRUCTURED_OUTPUT_SYSTEM_PROMPT].join("\n"),
+            messages,
+            providerOptions: ProviderTransform.providerOptions(input.model, options),
+            headers: buildSmallModelHeaders(input),
+            maxRetries: input.retries ?? DEFAULT_RETRIES,
+            abortSignal: controller.signal,
+            toolChoice: "required",
+            tools: {
+              StructuredOutput: tool({
+                description: "Return the final answer using the required JSON schema.",
+                inputSchema: jsonSchema(input.schema),
+                execute: async (output) => {
+                  structured = output
+                  return {
+                    ok: true,
+                  }
+                },
+              }),
+            },
+          })
+
+          const [text, rawUsage, providerMetadata] = yield* Effect.promise(() =>
+            Promise.all([result.text, result.totalUsage, result.providerMetadata]),
+          )
+
+          return {
+            text,
+            usage: normalizeUsage({
+              model: input.model,
+              usage: rawUsage,
+              providerMetadata,
             }),
-          },
-          toolChoice: "required",
-          retries: input.retries ?? DEFAULT_RETRIES,
-        })
-        .pipe(
-          Stream.runForEach((event) =>
-            Effect.sync(() => {
-              if (event.type === "text-delta") {
-                text += event.text
-              }
-              if (event.type === "finish-step") {
-                usage = OpenCodeSession.getUsage({
-                  model: input.model,
-                  usage: event.usage,
-                  metadata: event.providerMetadata,
-                })
-              }
-            }),
-          ),
-          Effect.timeoutOrElse({
-            duration: input.timeoutMs ?? DEFAULT_SMALL_TEXT_TIMEOUT_MS,
-            orElse: () => Effect.die(new Error("Small model structured generation timed out")),
-          }),
-          Effect.orDie,
-        ),
+          }
+        } finally {
+          clearTimeout(timer)
+        }
+      }),
     ),
   )
 

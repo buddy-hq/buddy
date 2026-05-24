@@ -1,21 +1,22 @@
 import type { Context } from "hono"
 import { ensureAllowedDirectory } from "../../http"
-import { normalizeErrorResponse } from "../../http"
-import { fetchOpenCode } from "../../http"
+import { respondWithSdkResult } from "../../http/sdk-response"
+import { getOpenCodeClient } from "../../opencode-runtime/client"
 
 export async function abortSessionRun(c: Context): Promise<Response> {
   const directoryResult = ensureAllowedDirectory(c)
   if (!directoryResult.ok) return directoryResult.response
 
   const sessionID = c.req.param("sessionID")
-  const response = await fetchOpenCode({
+  const client = await getOpenCodeClient(directoryResult.directory)
+  const result = await client.session.abort({
+    sessionID,
     directory: directoryResult.directory,
-    method: c.req.method.toUpperCase(),
-    path: `/session/${encodeURIComponent(sessionID)}/abort`,
-    headers: new Headers(c.req.raw.headers),
   })
-  const normalized = await normalizeErrorResponse(response)
 
-  if (!normalized.ok) return normalized
+  if (result.error) {
+    return respondWithSdkResult(c, result)
+  }
+
   return c.json(true)
 }

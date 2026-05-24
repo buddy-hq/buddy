@@ -12,7 +12,6 @@ import {
   isExactDynamicLearningToolAllowRule,
   removeDynamicLearningToolSessionRules,
 } from "./dynamic-tool-permissions"
-import { registerBuddyTools, unregisterBuddyTools } from "../runtime/register-buddy-tools"
 import { isSessionNotFoundError } from "../../session"
 
 type DynamicGrantKey = string
@@ -136,41 +135,6 @@ function grantedDynamicLearningTools(toolIDs: readonly string[]): BuddyTool[] {
     .map((entry) => entry.tool)
 }
 
-async function referencedToolIDs(input: {
-  directory: string
-  excludedSessionID?: string
-}): Promise<Set<string>> {
-  const referenced = new Set<string>()
-  const sessions = await OpenCodeInstance.provide({
-    directory: input.directory,
-    async fn() {
-      return Session.list({ directory: input.directory })
-    },
-  })
-  for (const session of sessions) {
-    if (session.id === input.excludedSessionID) continue
-    for (const toolID of exactDynamicAllowToolIDs(session.permission)) {
-      referenced.add(toolID)
-    }
-  }
-  return referenced
-}
-
-async function unregisterUnreferencedDynamicTools(input: {
-  directory: string
-  previousToolIDs: readonly string[]
-  excludedSessionID?: string
-}): Promise<void> {
-  const referenced = await referencedToolIDs({
-    directory: input.directory,
-    excludedSessionID: input.excludedSessionID,
-  })
-  const unreferenced = input.previousToolIDs.filter((toolID) => !referenced.has(toolID))
-  if (unreferenced.length === 0) return
-
-  await unregisterBuddyTools(input.directory, unreferenced)
-}
-
 type ReleaseDynamicLearningToolsForSessionInput = {
   directory: string
   sessionID: string
@@ -180,7 +144,6 @@ type ReleaseDynamicLearningToolsForSessionInput = {
 async function releaseDynamicLearningToolsForSession(
   input: ReleaseDynamicLearningToolsForSessionInput,
 ): Promise<void> {
-  const previousToolIDs = allDynamicLearningToolCatalogEntries().map((entry) => entry.id)
   searchCandidatesBySession.delete(grantKey(input.directory, input.sessionID))
 
   if (input.resetPermission) {
@@ -195,12 +158,6 @@ async function releaseDynamicLearningToolsForSession(
       },
     })
   }
-
-  await unregisterUnreferencedDynamicTools({
-    directory: input.directory,
-    previousToolIDs,
-    excludedSessionID: input.sessionID,
-  })
 }
 
 async function grantDynamicLearningToolsForSession(input: {
@@ -224,8 +181,6 @@ async function grantDynamicLearningToolsForSession(input: {
     },
   })
   if (!granted) return []
-
-  await registerBuddyTools(input.directory, dynamicTools)
 
   return toolIDs
 }
@@ -264,9 +219,6 @@ async function ensureDynamicLearningToolsRegisteredForSession(input: {
   if (toolIDs.length === 0) return []
 
   const tools = grantedDynamicLearningTools(toolIDs)
-  if (tools.length === 0) return []
-
-  await registerBuddyTools(input.directory, tools)
   return tools.map((tool) => tool.id)
 }
 
@@ -279,5 +231,6 @@ export {
   grantedDynamicLearningToolIDsForSession,
   grantDynamicLearningToolsForSession,
   recordDynamicLearningToolSearchCandidates,
+  releaseDynamicLearningToolsForSession,
   withDynamicLearningToolAllows,
 }

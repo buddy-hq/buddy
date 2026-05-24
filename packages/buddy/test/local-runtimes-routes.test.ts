@@ -1,14 +1,29 @@
 import fs from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
+import { readProjectConfig } from "@buddy/backend/config/runtime"
+import { SessionID } from "@buddy/opencode-adapter/id"
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import {
   KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME,
   KNOWLEDGE_GRAPH_DB_ENV,
 } from "../src/learning/features/standards/constants"
+import { resolveSessionRuntime } from "../src/learning/access/resolve-session-runtime"
+import { syncBuddyRuntimeSessionPermissions } from "../src/learning/agent-execution/permissions/runtime-session-permissions"
+import {
+  clearAllTeachingSessionState,
+  writeTeachingSessionState,
+} from "../src/learning/agent-execution/state/session-state"
+import { REGISTERED_BUDDY_PERSONAS } from "../src/learning/personas/registry"
+import { getBuddyPersona } from "../src/learning/personas/wiring/persona-profiles"
 import { app } from "../src/index.ts"
 import { AdvancedMathRuntimeService } from "../src/local-runtimes/advanced-math/service"
 import { StandardsRuntimeService } from "../src/local-runtimes/standards/service"
+import { loadOpenCodeApp } from "../src/opencode-runtime"
+import { syncOpenCodeProjectConfig } from "../src/config/runtime/opencode-sync"
+import { PermissionNext } from "@buddy/opencode-adapter/permission"
+import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import {
   withLocalMockAdvancedMathRuntimeAssets,
   withMockAdvancedMathRuntimeAssets,
@@ -18,10 +33,73 @@ import {
   withMockStandardsRuntimeAssets,
   withWritableLocalMockStandardsRuntimeAssets,
 } from "./helpers/standards-runtime"
+import { tmpdir } from "./helpers/tmpdir"
 
 const AUTO_UPDATE_POLL_ATTEMPTS = 50
 const AUTO_UPDATE_POLL_INTERVAL_MS = 20
 const INVALID_CHECKSUM = "0000000000000000000000000000000000000000000000000000000000000000"
+
+afterEach(async () => {
+  clearAllTeachingSessionState()
+  await OpenCodeInstance.disposeAll()
+})
+
+async function createSession(directory: string) {
+  return OpenCodeInstance.provide({
+    directory,
+    fn: async () => {
+      const session = await OpenCodeSession.create()
+      return session.id
+    },
+  })
+}
+
+async function seedBuddyPersonaRuntime(directory: string, sessionID: string) {
+  const projectConfig = await readProjectConfig(directory)
+  const persona = getBuddyPersona("buddy", projectConfig.personas)
+  const personaDefinition = REGISTERED_BUDDY_PERSONAS.find((entry) => entry.id === "buddy")
+  if (!personaDefinition) {
+    throw new Error('Unknown Buddy persona "buddy"')
+  }
+
+  const sessionRuntime = resolveSessionRuntime({
+    persona: {
+      id: persona.id,
+      features: personaDefinition.features,
+      defaultSurface: persona.defaultSurface,
+    },
+    teachingWorkspaceState: "inactive",
+    configuredToolToggles: projectConfig.tools,
+  })
+
+  writeTeachingSessionState(directory, {
+    sessionId: sessionID,
+    persona: "buddy",
+    currentSurface: persona.defaultSurface,
+    teachingWorkspaceState: "inactive",
+    sessionRuntime,
+    focusGoalIds: [],
+  })
+
+  await syncBuddyRuntimeSessionPermissions({
+    directory,
+    sessionID,
+    sessionRuntime,
+  })
+}
+
+async function readPermissionAction(input: {
+  directory: string
+  permission: string
+  sessionID: string
+}) {
+  const session = await OpenCodeInstance.provide({
+    directory: input.directory,
+    fn: () => OpenCodeSession.get(SessionID.make(input.sessionID)),
+  })
+
+  return PermissionNext.evaluate(input.permission, "*", session.permission ?? []).action
+}
 
 describe("local runtime routes", () => {
   test("installs and removes the advanced math runtime through the API", async () => {
@@ -121,6 +199,57 @@ describe("local runtime routes", () => {
         ready: true,
       })
       expect(StandardsRuntimeService.runtimeAssetInfo().baseUrl).toContain("releases/download")
+    })
+  })
+
+  test("refreshes Buddy session permissions immediately after standards install and removal", async () => {
+    await withMockStandardsRuntimeAssets(async () => {
+      await using project = await tmpdir({ git: true })
+      await syncOpenCodeProjectConfig(project.path)
+      await loadOpenCodeApp()
+
+      const sessionID = await createSession(project.path)
+      await seedBuddyPersonaRuntime(project.path, sessionID)
+
+      expect(
+        await readPermissionAction({
+          directory: project.path,
+          permission: "search_standards",
+          sessionID,
+        }),
+      ).toBe("deny")
+
+      const install = await app.request("/api/local-runtimes/standards/install", {
+        method: "POST",
+        headers: {
+          "x-buddy-directory": project.path,
+        },
+      })
+      expect(install.status).toBe(200)
+
+      expect(
+        await readPermissionAction({
+          directory: project.path,
+          permission: "search_standards",
+          sessionID,
+        }),
+      ).toBe("allow")
+
+      const remove = await app.request("/api/local-runtimes/standards/install", {
+        method: "DELETE",
+        headers: {
+          "x-buddy-directory": project.path,
+        },
+      })
+      expect(remove.status).toBe(200)
+
+      expect(
+        await readPermissionAction({
+          directory: project.path,
+          permission: "search_standards",
+          sessionID,
+        }),
+      ).toBe("deny")
     })
   })
 

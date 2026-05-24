@@ -183,6 +183,36 @@ afterEach(async () => {
 })
 
 describe("subagent tool forwarding", () => {
+  test("direct subagent prompts still forward tools when the session already has Buddy runtime permissions", async () => {
+    await using project = await tmpdir({ git: true })
+    await syncOpenCodeProjectConfig(project.path)
+    await loadOpenCodeApp()
+
+    const sessionID = await createSession({
+      directory: project.path,
+    })
+    await seedPersonaRuntime({
+      directory: project.path,
+      sessionID,
+      personaID: "buddy",
+    })
+
+    const projectConfig = await readProjectConfig(project.path)
+    const { resolveSubagentToolForwarding: resolveForwarding } = await import(
+      "../../src/learning/agent-execution/transforms/subagent-tool-forwarding"
+    )
+    const forwarding = await resolveForwarding({
+      currentTools: undefined,
+      directory: project.path,
+      projectConfig,
+      sessionID,
+      targetAgent: "flashcard-author",
+    })
+
+    expect(forwarding.toolOverrides?.ingest_full_text).toBe(true)
+    expect(forwarding.toolOverrides?.save_flashcard_deck).toBe(true)
+  }, 40_000)
+
   test("direct Buddy subagents inherit the default persona tools and keep only their own extras", async () => {
     await using project = await tmpdir({ git: true })
     await syncOpenCodeProjectConfig(project.path)
@@ -352,7 +382,7 @@ describe("subagent tool forwarding", () => {
     })
   }, 40_000)
 
-  test("standalone subagent prompts keep explicit tool and permission inputs untouched", async () => {
+  test("standalone subagent prompts merge explicit tool hints with forwarded runtime tools", async () => {
     await using project = await tmpdir({ git: true })
     await syncOpenCodeProjectConfig(project.path)
     await loadOpenCodeApp()
@@ -369,23 +399,6 @@ describe("subagent tool forwarding", () => {
       write: true,
       task: false,
     } satisfies Record<string, boolean>
-    const expectedPromptPermission: PermissionRuleset = [
-      {
-        permission: "read",
-        pattern: "*",
-        action: "allow",
-      },
-      {
-        permission: "write",
-        pattern: "*",
-        action: "allow",
-      },
-      {
-        permission: "task",
-        pattern: "*",
-        action: "deny",
-      },
-    ]
 
     const sessionID = await createSession({
       directory: project.path,
@@ -422,17 +435,18 @@ describe("subagent tool forwarding", () => {
       throw new Error("Expected the prompt to persist a user message.")
     }
 
-    expect(userMessage.info.tools).toEqual(explicitTools)
-    expect(userMessage.info.tools?.goal_state).toBeUndefined()
-    expect(userMessage.info.tools?.save_question_set).toBeUndefined()
+    expect(userMessage.info.tools?.read).toBe(true)
+    expect(userMessage.info.tools?.write).toBe(true)
+    expect(userMessage.info.tools?.task).toBe(false)
+    expect(userMessage.info.tools?.learner_memory_search).toBe(true)
 
     const session = await OpenCodeInstance.provide({
       directory: project.path,
       fn: () => OpenCodeSession.get(SessionID.make(sessionID)),
     })
-    expect(session.permission).toEqual(expectedPromptPermission)
-    expect(session.permission?.some((rule) => rule.permission === "goal_state")).toBe(false)
-    expect(session.permission?.some((rule) => rule.permission === "save_question_set")).toBe(false)
+    expect(session.permission?.some((rule) => rule.permission === "learner_memory_search")).toBe(
+      true,
+    )
   }, 40_000)
 
   test("delegated task prompts inherit parent runtime tools through the patched task tool", async () => {
@@ -710,4 +724,136 @@ describe("subagent tool forwarding", () => {
     expect(capturedChildPrompt.tools?.debug_attempt).toBe(false)
     expect(capturedChildPrompt.tools?.save_question_set).toBe(true)
   }, 40_000)
+
+  test("delegated flashcard-author prompts inherit ingest_full_text and save_flashcard_deck", async () => {
+    await using project = await tmpdir({ git: true })
+    await syncOpenCodeProjectConfig(project.path)
+    await loadOpenCodeApp()
+
+    const parentSessionID = await createSession({
+      directory: project.path,
+    })
+    await seedPersonaRuntime({
+      directory: project.path,
+      sessionID: parentSessionID,
+      personaID: "reading-buddy",
+    })
+    await seedUserPromptMessage({
+      directory: project.path,
+      sessionID: parentSessionID,
+      agent: "reading-buddy",
+    })
+    const parentAssistantMessageID = await seedAssistantMessage({
+      directory: project.path,
+      sessionID: parentSessionID,
+      agent: "reading-buddy",
+    })
+
+    let capturedChildPrompt:
+      | {
+          agent: string
+          sessionID: string
+          tools?: Record<string, boolean>
+        }
+      | undefined
+
+    const tools = await OpenCodeInstance.provide({
+      directory: project.path,
+      fn: () => ToolRegistry.tools(TEST_TOOL_MODEL),
+    })
+    const taskTool = requireTool(tools, "task")
+
+    await OpenCodeInstance.provide({
+      directory: project.path,
+      fn: () =>
+        taskTool.execute(
+          {
+            description: "Author flashcards",
+            prompt: "Reply with your tools only.",
+            subagent_type: "flashcard-author",
+          },
+          {
+            sessionID: SessionID.make(parentSessionID),
+            messageID: MessageID.make(parentAssistantMessageID),
+            agent: "reading-buddy",
+            abort: new AbortController().signal,
+            messages: [],
+            metadata() {
+              return Effect.void
+            },
+            ask() {
+              return Effect.void
+            },
+            extra: {
+              bypassAgentCheck: true,
+              promptOps: {
+                cancel() {},
+                resolvePromptParts(template: string) {
+                  return Effect.succeed([
+                    {
+                      type: "text" as const,
+                      text: template,
+                    },
+                  ])
+                },
+                prompt(input: PromptInput) {
+                  if (!input.messageID || !input.model || typeof input.agent !== "string") {
+                    throw new Error(
+                      "Expected delegated task prompt input to include agent metadata.",
+                    )
+                  }
+
+                  capturedChildPrompt = {
+                    agent: input.agent,
+                    sessionID: input.sessionID,
+                    tools: input.tools,
+                  }
+                  return Effect.succeed({
+                    info: {
+                      id: MessageID.make("msg_flashcard_child_assistant"),
+                      sessionID: SessionID.make(input.sessionID),
+                      role: "assistant" as const,
+                      parentID: MessageID.make(input.messageID),
+                      time: { created: Date.now(), completed: Date.now() },
+                      mode: "flashcard-author",
+                      agent: input.agent,
+                      providerID: input.model.providerID,
+                      modelID: input.model.modelID,
+                      path: { cwd: project.path, root: project.path },
+                      cost: 0,
+                      tokens: {
+                        input: 0,
+                        output: 0,
+                        reasoning: 0,
+                        cache: { read: 0, write: 0 },
+                        total: 0,
+                      },
+                    },
+                    parts: [
+                      {
+                        id: "prt_flashcard_child_text",
+                        sessionID: SessionID.make(input.sessionID),
+                        messageID: MessageID.make("msg_flashcard_child_assistant"),
+                        type: "text" as const,
+                        text: "done",
+                      },
+                    ],
+                  })
+                },
+              },
+            },
+          },
+        ),
+    })
+
+    if (!capturedChildPrompt) {
+      throw new Error("Expected task prompt forwarding to capture the child prompt.")
+    }
+
+    expect(capturedChildPrompt.agent).toBe("flashcard-author")
+    expect(capturedChildPrompt.tools?.ingest_full_text).toBe(true)
+    expect(capturedChildPrompt.tools?.save_flashcard_deck).toBe(true)
+    expect(capturedChildPrompt.tools?.save_question_set).toBe(false)
+  }, 40_000)
+
 })

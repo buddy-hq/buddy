@@ -9,8 +9,12 @@ import {
   routeErrors,
   directoryQuerySchema,
   RequestIDParamSchema,
+  ensureAllowedDirectory,
+  respondWithSdkResult,
+  runSdkRoute,
+  openCodeDirectoryParams,
 } from "../http"
-import { proxyToOpenCode } from "../http"
+import { getOpenCodeClient } from "../opencode-runtime/client"
 
 const permissionReplyRequestSchema = z.object({
   reply: z.enum(["once", "always", "reject"]),
@@ -36,11 +40,17 @@ export const PermissionRoutes = new Hono()
       },
     }),
     validator("query", directoryQuerySchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: "/permission",
-      })
-    },
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = ensureAllowedDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.permission.list(
+          openCodeDirectoryParams(directoryResult.directory),
+        )
+        return respondWithSdkResult(c, result)
+      }),
   )
   .post(
     "/:requestID/reply",
@@ -60,9 +70,19 @@ export const PermissionRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", RequestIDParamSchema),
     validator("json", permissionReplyRequestSchema),
-    async (c) => {
-      return proxyToOpenCode(c, {
-        targetPath: `/permission/${encodeURIComponent(c.req.valid("param").requestID)}/reply`,
-      })
-    },
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = ensureAllowedDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const body = c.req.valid("json")
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.permission.reply({
+          requestID: c.req.valid("param").requestID,
+          reply: body.reply,
+          message: body.message,
+          ...openCodeDirectoryParams(directoryResult.directory),
+        })
+        return respondWithSdkResult(c, result)
+      }),
   )

@@ -2,18 +2,17 @@ import { describe, expect, test } from "bun:test"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { listActiveGoals } from "../../src/learning/features/memory/goals/storage"
-import { ensureGoalToolsRegistered } from "../../src/learning/features/curriculum-planning/tools/register"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import { createToolContext, ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
 
 describe("goal tools", () => {
   test("goal_commit persists learner goals as markdown artifacts", async () => {
     await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
 
     await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
-        await ensureGoalToolsRegistered(project.path)
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const goalCommit = requireTool(tools, "goal_commit")
 

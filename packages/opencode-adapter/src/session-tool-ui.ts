@@ -1,29 +1,23 @@
-import { Effect, Option } from "effect"
-import { makeRuntime } from "opencode/effect/run-service"
-import { Plugin } from "opencode/plugin/index"
-import * as OpenCodeLLM from "opencode/session/llm"
-import * as OpenCodeSession from "opencode/session/session"
 import type * as OpenCodeMessageV2 from "opencode/session/message-v2"
-import { withCurrentInstance } from "./effect-runtime"
 import { ToolRegistry } from "./registry"
 import { cloneToolUiMetadata, type ToolUiMetadata } from "./tool-ui-metadata"
 
-const sessionRuntime = makeRuntime(OpenCodeSession.Service, OpenCodeSession.defaultLayer)
-const pluginRuntime = makeRuntime(Plugin.Service, Plugin.defaultLayer)
-const llmRuntime = makeRuntime(OpenCodeLLM.Service, OpenCodeLLM.defaultLayer)
-const patchedSessionServices = new WeakSet<OpenCodeSession.Interface>()
-const patchedPluginServices = new WeakSet<Plugin.Interface>()
-const patchedLLMServices = new WeakSet<OpenCodeLLM.Interface>()
-const sessionDirectoryBySessionID = new Map<ToolPart["sessionID"], string>()
-let patchPromise: Promise<void> | undefined
-
 type ToolPart = OpenCodeMessageV2.MessageV2.ToolPart
 type ToolState = ToolPart["state"]
-type MessageWithParts = OpenCodeMessageV2.MessageV2.WithParts
-type ModelMessages = Parameters<OpenCodeLLM.Interface["stream"]>[0]["messages"]
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function isToolPart(value: unknown): value is ToolPart {
+  return (
+    isRecord(value) &&
+    value.type === "tool" &&
+    typeof value.callID === "string" &&
+    typeof value.tool === "string" &&
+    isRecord(value.state) &&
+    typeof value.state.status === "string"
+  )
 }
 
 function readToolUiMetadata(value: unknown): ToolUiMetadata | undefined {
@@ -112,7 +106,7 @@ function withToolUiOnState(state: ToolState, toolUi: ToolUiMetadata | undefined)
   }
 }
 
-function withToolUiOnPart<T extends OpenCodeMessageV2.MessageV2.Part>(
+export function withToolUiOnPart<T extends OpenCodeMessageV2.MessageV2.Part>(
   part: T,
   directory?: string,
 ): T {
@@ -128,191 +122,35 @@ function withToolUiOnPart<T extends OpenCodeMessageV2.MessageV2.Part>(
   }
 }
 
-const resolveSessionDirectory = Effect.fn("BuddySessionToolUi.resolveSessionDirectory")(function* (
-  service: OpenCodeSession.Interface,
-  sessionID: ToolPart["sessionID"],
-) {
-  const cached = sessionDirectoryBySessionID.get(sessionID)
-  if (cached) return cached
-
-  const session = yield* Effect.option(service.get(sessionID))
-  if (Option.isNone(session)) return undefined
-
-  const directory = session.value.directory
-  sessionDirectoryBySessionID.set(sessionID, directory)
-  return directory
-})
-
-function stripBuddyToolUi(
-  metadata: Record<string, unknown> | undefined,
-): Record<string, unknown> | undefined {
-  if (!metadata || !isRecord(metadata)) return metadata
-  if (!isRecord(metadata.buddy) || !("toolUi" in metadata.buddy)) return metadata
-
-  const { toolUi: _toolUi, ...restBuddy } = metadata.buddy
-  if (Object.keys(restBuddy).length === 0) {
-    const { buddy: _buddy, ...restMetadata } = metadata
-    return Object.keys(restMetadata).length > 0 ? restMetadata : undefined
+export function withToolUiOnUnknownPart(part: unknown, directory?: string): unknown {
+  if (!isToolPart(part)) {
+    return part
   }
 
+  return withToolUiOnPart(part, directory)
+}
+
+export function withToolUiOnMessage<T extends OpenCodeMessageV2.MessageV2.WithParts>(
+  message: T,
+  directory?: string,
+): T {
   return {
-    ...metadata,
-    buddy: restBuddy,
+    ...message,
+    parts: message.parts.map((part) => withToolUiOnPart(part, directory)),
   }
 }
 
-function stripToolUiFromMessages(messages: MessageWithParts[]) {
-  for (const message of messages) {
-    for (let index = 0; index < message.parts.length; index++) {
-      const part = message.parts[index]
-      if (part.type !== "tool") continue
-
-      part.metadata = stripBuddyToolUi(isRecord(part.metadata) ? part.metadata : undefined)
-
-      if (part.state.status === "pending") {
-        continue
-      }
-
-      if (part.state.status === "running") {
-        part.state.metadata = stripBuddyToolUi(
-          isRecord(part.state.metadata) ? part.state.metadata : undefined,
-        )
-        continue
-      }
-
-      if (part.state.status === "completed") {
-        part.state.metadata =
-          stripBuddyToolUi(isRecord(part.state.metadata) ? part.state.metadata : undefined) ?? {}
-        continue
-      }
-
-      part.state.metadata = stripBuddyToolUi(
-        isRecord(part.state.metadata) ? part.state.metadata : undefined,
-      )
-    }
-  }
+export function withToolUiOnMessages(
+  messages: ReadonlyArray<OpenCodeMessageV2.MessageV2.WithParts>,
+  directory?: string,
+): OpenCodeMessageV2.MessageV2.WithParts[] {
+  return messages.map((message) => withToolUiOnMessage(message, directory))
 }
 
-function stripToolUiFromModelMessageNode(value: unknown): void {
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      stripToolUiFromModelMessageNode(item)
-    }
-    return
-  }
-
-  if (!isRecord(value)) return
-
-  if ("providerMetadata" in value) {
-    const stripped = stripBuddyToolUi(
-      isRecord(value.providerMetadata) ? value.providerMetadata : undefined,
-    )
-    if (stripped) {
-      value.providerMetadata = stripped
-    } else {
-      delete value.providerMetadata
-    }
-  }
-
-  if ("callProviderMetadata" in value) {
-    const stripped = stripBuddyToolUi(
-      isRecord(value.callProviderMetadata) ? value.callProviderMetadata : undefined,
-    )
-    if (stripped) {
-      value.callProviderMetadata = stripped
-    } else {
-      delete value.callProviderMetadata
-    }
-  }
-
-  for (const child of Object.values(value)) {
-    stripToolUiFromModelMessageNode(child)
-  }
-}
-
-function stripToolUiFromModelMessages(messages: ModelMessages): ModelMessages {
-  const next = structuredClone(messages)
-  stripToolUiFromModelMessageNode(next)
-  return next
-}
-
-function ensureSessionPatched(service: OpenCodeSession.Interface) {
-  if (patchedSessionServices.has(service)) return
-  patchedSessionServices.add(service)
-
-  const originalUpdatePart = service.updatePart.bind(service)
-
-  const updatePart: OpenCodeSession.Interface["updatePart"] = Effect.fn("BuddySession.updatePart")(
-    function* (part) {
-      if (part.type !== "tool") {
-        return yield* originalUpdatePart(part)
-      }
-
-      const directory = yield* resolveSessionDirectory(service, part.sessionID)
-      return yield* originalUpdatePart(withToolUiOnPart(part, directory))
-    },
-  )
-
-  Object.defineProperties(service, {
-    updatePart: { value: updatePart },
-  })
-}
-
-function ensurePluginPatched(service: Plugin.Interface) {
-  if (patchedPluginServices.has(service)) return
-  patchedPluginServices.add(service)
-
-  const originalTrigger = service.trigger.bind(service)
-
-  const trigger: Plugin.Interface["trigger"] = Effect.fn("BuddyPlugin.trigger")(
-    function* (name, input, output) {
-      if (name === "experimental.chat.messages.transform") {
-        stripToolUiFromMessages((output as { messages: MessageWithParts[] }).messages)
-      }
-
-      return yield* originalTrigger(name, input, output)
-    },
-  )
-
-  Object.defineProperties(service, {
-    trigger: { value: trigger },
-  })
-}
-
-function ensureLLMPatched(service: OpenCodeLLM.Interface) {
-  if (patchedLLMServices.has(service)) return
-  patchedLLMServices.add(service)
-
-  const originalStream = service.stream.bind(service)
-
-  const stream: OpenCodeLLM.Interface["stream"] = (input) =>
-    originalStream({
-      ...input,
-      messages: stripToolUiFromModelMessages(input.messages),
-    })
-
-  Object.defineProperties(service, {
-    stream: { value: stream },
-  })
-}
-
+// Preserved as a no-op so existing bootstrap call sites can keep their wiring
+// while tool UI presentation now lives on Buddy-owned HTTP/SSE boundaries.
 export async function ensureSessionToolUiPatched() {
-  patchPromise ??= Promise.all([
-    sessionRuntime.runPromise((svc) =>
-      withCurrentInstance(Effect.sync(() => ensureSessionPatched(svc))),
-    ),
-    pluginRuntime.runPromise((svc) =>
-      withCurrentInstance(Effect.sync(() => ensurePluginPatched(svc))),
-    ),
-    llmRuntime.runPromise((svc) => withCurrentInstance(Effect.sync(() => ensureLLMPatched(svc)))),
-  ])
-    .then(() => undefined)
-    .catch((error) => {
-      patchPromise = undefined
-      throw error
-    })
-
-  await patchPromise
+  return undefined
 }
 
-export { stripBuddyToolUi, withToolUiOnPart }
+export { stripBuddyToolUi } from "./tool-ui-strip"
