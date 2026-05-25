@@ -51,7 +51,12 @@ async function readMcpAddPayload(c: Context) {
   }
 
   const parsed = parseJsonText(raw)
-  if (!parsed.ok || !parsed.value || typeof parsed.value !== "object" || Array.isArray(parsed.value)) {
+  if (
+    !parsed.ok ||
+    !parsed.value ||
+    typeof parsed.value !== "object" ||
+    Array.isArray(parsed.value)
+  ) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 })
   }
 

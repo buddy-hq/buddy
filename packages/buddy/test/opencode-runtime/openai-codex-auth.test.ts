@@ -39,7 +39,8 @@ describe("OpenAI Codex auth hook", () => {
       return new Response(null, { status: 200 })
     })
     const fetchStub = Object.assign(
-      async (input: RequestInfo | URL, init?: Parameters<typeof fetch>[1]) => fetchMock(input, init),
+      async (input: RequestInfo | URL, init?: Parameters<typeof fetch>[1]) =>
+        fetchMock(input, init),
       {
         preconnect: originalFetch.preconnect,
       },

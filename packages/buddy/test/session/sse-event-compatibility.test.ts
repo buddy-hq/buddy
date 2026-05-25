@@ -23,5 +23,4 @@ describe("SSE event streaming compatibility", () => {
 
     await response.body?.cancel()
   })
-
 })

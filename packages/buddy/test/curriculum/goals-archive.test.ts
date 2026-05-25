@@ -3,7 +3,12 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { listGoals } from "../../src/learning/features/memory/goals/storage"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import {
+  createToolContext,
+  ensureBuddyPluginTools,
+  requireTool,
+  TEST_TOOL_MODEL,
+} from "../helpers/tools"
 
 describe("learner-store goal archiving", () => {
   test("committing a new set archives the previous active set for the same (scope, contextLabel)", async () => {

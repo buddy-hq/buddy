@@ -25,9 +25,9 @@ const MIN_COMPLETED_TOOL_PARTS = 2
 
 const SMOKE_PROMPT_TEXT = [
   "Smoke test only. Execute these tool calls in order, then stop:",
-  "1. Call learning_tool_search with query \"reflection\".",
+  '1. Call learning_tool_search with query "reflection".',
   "2. Call learning_tool_load with the first tool id returned in step 1.",
-  "3. Call learner_memory_search with query \"smoke\".",
+  '3. Call learner_memory_search with query "smoke".',
   "Reply with exactly: SMOKE_OK",
 ].join("\n")
 

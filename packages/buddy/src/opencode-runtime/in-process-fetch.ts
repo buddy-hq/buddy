@@ -14,7 +14,9 @@ function buildOpenCodeAuthHeaders(): Record<string, string> | undefined {
   if (!process.env.OPENCODE_SERVER_PASSWORD) return undefined
 
   const username = process.env.OPENCODE_SERVER_USERNAME ?? "opencode"
-  const token = Buffer.from(`${username}:${process.env.OPENCODE_SERVER_PASSWORD}`).toString("base64")
+  const token = Buffer.from(`${username}:${process.env.OPENCODE_SERVER_PASSWORD}`).toString(
+    "base64",
+  )
   return {
     authorization: `Basic ${token}`,
   }
@@ -55,4 +57,3 @@ export async function fetchInProcessOpenCode(
     input.directory,
   )
 }
-

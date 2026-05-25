@@ -79,7 +79,8 @@ function normalizeUsage(input: {
     cachedInputTokens: input.usage.cachedInputTokens,
     inputTokenDetails: input.usage.inputTokenDetails,
     outputTokenDetails: input.usage.outputTokenDetails,
-    cacheReadInputTokens: input.usage.inputTokenDetails?.cacheReadTokens ?? input.usage.cachedInputTokens,
+    cacheReadInputTokens:
+      input.usage.inputTokenDetails?.cacheReadTokens ?? input.usage.cachedInputTokens,
     cacheWriteInputTokens: input.usage.inputTokenDetails?.cacheWriteTokens,
     nonCachedInputTokens:
       input.usage.inputTokens === undefined
@@ -87,7 +88,9 @@ function normalizeUsage(input: {
         : Math.max(
             0,
             input.usage.inputTokens -
-              (input.usage.inputTokenDetails?.cacheReadTokens ?? input.usage.cachedInputTokens ?? 0) -
+              (input.usage.inputTokenDetails?.cacheReadTokens ??
+                input.usage.cachedInputTokens ??
+                0) -
               (input.usage.inputTokenDetails?.cacheWriteTokens ?? 0),
           ),
     providerMetadata: input.providerMetadata,

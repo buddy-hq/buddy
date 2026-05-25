@@ -51,12 +51,7 @@ type StoredOauthAuth = {
 const SUPERSEDED_AUTHORIZATION_ERROR = "Superseded by a newer authorization request"
 
 function isStoredOauthAuth(value: StoredOauthAuth | { type: string }): value is StoredOauthAuth {
-  return (
-    value.type === "oauth" &&
-    "access" in value &&
-    "refresh" in value &&
-    "expires" in value
-  )
+  return value.type === "oauth" && "access" in value && "refresh" in value && "expires" in value
 }
 
 function escapeHtml(value: string) {
@@ -455,11 +450,14 @@ function waitForOAuthCallback(pkce: PkceCodes, state: string): Promise<TokenResp
   return new Promise((resolve, reject) => {
     pendingOAuth?.reject(new Error(SUPERSEDED_AUTHORIZATION_ERROR))
 
-    const timeout = setTimeout(() => {
-      if (!pendingOAuth) return
-      pendingOAuth = undefined
-      reject(new Error("OAuth callback timeout - authorization took too long"))
-    }, 5 * 60 * 1_000)
+    const timeout = setTimeout(
+      () => {
+        if (!pendingOAuth) return
+        pendingOAuth = undefined
+        reject(new Error("OAuth callback timeout - authorization took too long"))
+      },
+      5 * 60 * 1_000,
+    )
 
     pendingOAuth = {
       pkce,
@@ -566,9 +564,9 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
                 const response = await fetch(`${ISSUER}/api/accounts/deviceauth/token`, {
                   method: "POST",
                   headers: {
-                      "Content-Type": "application/json",
-                      "User-Agent": OPENCODE_OAUTH_USER_AGENT,
-                    },
+                    "Content-Type": "application/json",
+                    "User-Agent": OPENCODE_OAUTH_USER_AGENT,
+                  },
                   body: JSON.stringify({
                     device_auth_id: deviceData.device_auth_id,
                     user_code: deviceData.user_code,

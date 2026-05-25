@@ -138,9 +138,7 @@ export const ConfigRoutes = new Hono()
         handler: async (context) =>
           runSdkRoute(c, async () => {
             const client = await getOpenCodeClient(context.directory)
-            const result = await client.config.providers(
-              openCodeDirectoryParams(context.directory),
-            )
+            const result = await client.config.providers(openCodeDirectoryParams(context.directory))
             return respondWithSdkResult(c, result)
           }),
       }),

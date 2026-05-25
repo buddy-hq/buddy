@@ -6,7 +6,12 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { KnowledgeGraphService } from "../../src/learning/features/standards/service"
 import { KNOWLEDGE_GRAPH_DB_ENV } from "../../src/learning/features/standards/constants"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import {
+  createToolContext,
+  ensureBuddyPluginTools,
+  requireTool,
+  TEST_TOOL_MODEL,
+} from "../helpers/tools"
 
 function createFixtureDatabase(databasePath: string) {
   const database = new Database(databasePath)

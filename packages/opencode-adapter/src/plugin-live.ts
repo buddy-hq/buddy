@@ -21,7 +21,9 @@ type RuntimePluginContext = {
 
 type RuntimePluginFactory = (context: RuntimePluginContext) => Promise<Hooks>
 type TriggerName = {
-  [K in keyof Hooks]-?: NonNullable<Hooks[K]> extends (input: any, output: any) => Promise<void> ? K : never
+  [K in keyof Hooks]-?: NonNullable<Hooks[K]> extends (input: any, output: any) => Promise<void>
+    ? K
+    : never
 }[keyof Hooks]
 
 function normalizePath(value: string) {
@@ -76,7 +78,12 @@ const getRuntimeHooks = Effect.fn("BuddyPlugin.getRuntimeHooks")(function* () {
   return yield* Effect.promise(() => loadRuntimeHooks(context)).pipe(Effect.orDie)
 })
 
-async function invokeRuntimeTrigger(hook: Hooks, name: TriggerName, input: unknown, output: unknown) {
+async function invokeRuntimeTrigger(
+  hook: Hooks,
+  name: TriggerName,
+  input: unknown,
+  output: unknown,
+) {
   const fn = hook[name] as ((input: unknown, output: unknown) => Promise<void>) | undefined
   if (typeof fn !== "function") return
   await fn(input, output)

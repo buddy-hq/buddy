@@ -6,9 +6,7 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Config } from "@buddy/backend/config"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
 import { loadOpenCodeApp } from "../../src/opencode-runtime"
-import {
-  writeTeachingSessionState,
-} from "../../src/learning/agent-execution/state/session-state"
+import { writeTeachingSessionState } from "../../src/learning/agent-execution/state/session-state"
 import { buildBuddyRuntimeSessionPermissions } from "../../src/learning/agent-execution/permissions/session-permissions"
 import { resolveSessionRuntime } from "../../src/learning/access/resolve-session-runtime"
 import { REGISTERED_BUDDY_PERSONAS } from "../../src/learning/personas/registry"
@@ -17,9 +15,7 @@ import {
   grantDynamicLearningToolsForSession,
   releaseDynamicLearningToolsForSession,
 } from "../../src/learning/runtime/dynamic-tool-grants"
-import {
-  dynamicLearningToolDefaultDenyRules,
-} from "../../src/learning/runtime/dynamic-tool-permissions"
+import { dynamicLearningToolDefaultDenyRules } from "../../src/learning/runtime/dynamic-tool-permissions"
 import { dynamicReflectionTool } from "../../src/learning/features/teaching-guidance/tools/reflection"
 import { tmpdir } from "../helpers/tmpdir"
 

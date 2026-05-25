@@ -46,7 +46,9 @@ export function stripToolUiFromMessages(messages: ToolUiStripMessage[]) {
       if (!isToolUiStripToolPart(part)) continue
 
       const toolPart = part
-      toolPart.metadata = stripBuddyToolUi(isRecord(toolPart.metadata) ? toolPart.metadata : undefined)
+      toolPart.metadata = stripBuddyToolUi(
+        isRecord(toolPart.metadata) ? toolPart.metadata : undefined,
+      )
 
       if (toolPart.state.status === "pending") {
         continue
@@ -61,8 +63,9 @@ export function stripToolUiFromMessages(messages: ToolUiStripMessage[]) {
 
       if (toolPart.state.status === "completed") {
         toolPart.state.metadata =
-          stripBuddyToolUi(isRecord(toolPart.state.metadata) ? toolPart.state.metadata : undefined) ??
-          {}
+          stripBuddyToolUi(
+            isRecord(toolPart.state.metadata) ? toolPart.state.metadata : undefined,
+          ) ?? {}
         continue
       }
 

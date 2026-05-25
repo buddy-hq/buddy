@@ -198,9 +198,8 @@ describe("subagent tool forwarding", () => {
     })
 
     const projectConfig = await readProjectConfig(project.path)
-    const { resolveSubagentToolForwarding: resolveForwarding } = await import(
-      "../../src/learning/agent-execution/transforms/subagent-tool-forwarding"
-    )
+    const { resolveSubagentToolForwarding: resolveForwarding } =
+      await import("../../src/learning/agent-execution/transforms/subagent-tool-forwarding")
     const forwarding = await resolveForwarding({
       currentTools: undefined,
       directory: project.path,
@@ -855,5 +854,4 @@ describe("subagent tool forwarding", () => {
     expect(capturedChildPrompt.tools?.save_flashcard_deck).toBe(true)
     expect(capturedChildPrompt.tools?.save_question_set).toBe(false)
   }, 40_000)
-
 })

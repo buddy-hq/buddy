@@ -154,7 +154,9 @@ export function buddyToolToPluginTool(tool: BuddyTool, directory?: string): Tool
   } satisfies ToolDefinition
 }
 
-export async function allBuddyPluginTools(directory: string): Promise<Record<string, ToolDefinition>> {
+export async function allBuddyPluginTools(
+  directory: string,
+): Promise<Record<string, ToolDefinition>> {
   const toolMap: Record<string, ToolDefinition> = {}
   const seen = new Set<string>()
 

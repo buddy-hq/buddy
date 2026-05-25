@@ -52,13 +52,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function createPluginExecuteContext(
-  input: {
-    directory: string
-    messages?: MessageV2.WithParts[]
-    extra?: Record<string, unknown>
-  },
-): ToolContext & {
+function createPluginExecuteContext(input: {
+  directory: string
+  messages?: MessageV2.WithParts[]
+  extra?: Record<string, unknown>
+}): ToolContext & {
   messages: MessageV2.WithParts[]
   extra?: Record<string, unknown>
 } {

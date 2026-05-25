@@ -99,7 +99,8 @@ describe("ingest_full_text via plugin shim", () => {
         }
 
         const preparePlugin = buddyToolToPluginTool(
-          (await import("../../src/learning/features/reading/tools/prepare-resource")).prepareResourceTool,
+          (await import("../../src/learning/features/reading/tools/prepare-resource"))
+            .prepareResourceTool,
           project.path,
         )
         const prepareResult = await preparePlugin.execute(

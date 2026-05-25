@@ -45,7 +45,14 @@ const standardsRuntimeStatusSchema = z.object({
 
 async function respondWithRuntimeChange<
   TStatus extends {
-    state: "not_installed" | "downloading" | "installing" | "ready" | "repairing" | "removing" | "error"
+    state:
+      | "not_installed"
+      | "downloading"
+      | "installing"
+      | "ready"
+      | "repairing"
+      | "removing"
+      | "error"
   },
 >(task: () => Promise<TStatus>) {
   const status = await task()

@@ -82,10 +82,9 @@ function normalizeSystemSegments(segments: string[]) {
   return segments.map((segment) => segment.trim()).filter((segment) => segment.length > 0)
 }
 
-const stripToolUiFromChatMessages: NonNullable<Hooks["experimental.chat.messages.transform"]> = async (
-  _hookInput,
-  output,
-) => {
+const stripToolUiFromChatMessages: NonNullable<
+  Hooks["experimental.chat.messages.transform"]
+> = async (_hookInput, output) => {
   stripToolUiFromMessages(output.messages)
 }
 
@@ -120,10 +119,7 @@ function createSystemPromptGuard(input: { directory: string }) {
   }
 }
 
-export async function createBuddyRuntimeHooks(input: {
-  directory: string
-  worktree: string
-}) {
+export async function createBuddyRuntimeHooks(input: { directory: string; worktree: string }) {
   const { allBuddyPluginTools, registerBuddyToolUiCatalog } = await import("../buddy-tool-shim")
   const toolMap = await allBuddyPluginTools(input.directory)
   registerBuddyToolUiCatalog(input.directory)
@@ -135,9 +131,10 @@ export async function createBuddyRuntimeHooks(input: {
   }
 }
 
-const plugin: Plugin = async (input) => createBuddyRuntimeHooks({
-  directory: input.directory,
-  worktree: input.worktree,
-})
+const plugin: Plugin = async (input) =>
+  createBuddyRuntimeHooks({
+    directory: input.directory,
+    worktree: input.worktree,
+  })
 
 export default plugin

@@ -5,7 +5,12 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { writeTeachingSessionState } from "../../src/learning/agent-execution/state/session-state"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import {
+  createToolContext,
+  ensureBuddyPluginTools,
+  requireTool,
+  TEST_TOOL_MODEL,
+} from "../helpers/tools"
 
 describe("pedagogy tools", () => {
   test("registers first-class pedagogy tools and generates grounded teaching artifacts", async () => {

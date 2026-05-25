@@ -68,9 +68,7 @@ describe("transformOpenCodeEventStreamResponse", () => {
     })
 
     const text = await response.text()
-    const dataLine = text
-      .split("\n")
-      .find((line) => line.startsWith("data: "))
+    const dataLine = text.split("\n").find((line) => line.startsWith("data: "))
 
     expect(dataLine).toBeDefined()
     const payload = JSON.parse((dataLine ?? "").slice("data: ".length)) as {

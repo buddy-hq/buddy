@@ -8,7 +8,12 @@ import { renderFreeformFigure } from "../../src/learning/features/figure-renderi
 import { RenderFreeformFigureOutputSchema } from "../../src/learning/features/figure-rendering/freeform/types"
 import type { RenderFreeformFigureInput } from "../../src/learning/features/figure-rendering/freeform/tools/render-freeform-figure"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import {
+  createToolContext,
+  ensureBuddyPluginTools,
+  requireTool,
+  TEST_TOOL_MODEL,
+} from "../helpers/tools"
 
 function baseFreeformFigureInput(): RenderFreeformFigureInput {
   return {

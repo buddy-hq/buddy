@@ -133,12 +133,7 @@ function buildSessionListParams(c: Context) {
 }
 
 function buildSessionCreateParams(directory: string, body: Record<string, unknown>) {
-  const {
-    directory: _directory,
-    workspace: _workspace,
-    sessionID: _sessionID,
-    ...rest
-  } = body
+  const { directory: _directory, workspace: _workspace, sessionID: _sessionID, ...rest } = body
   return {
     directory,
     ...rest,

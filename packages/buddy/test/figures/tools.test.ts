@@ -7,7 +7,12 @@ import { renderGeometryFigure } from "../../src/learning/features/figure-renderi
 import { RenderFigureOutputSchema } from "../../src/learning/features/figure-rendering/geometry/types"
 import type { RenderFigureInput } from "../../src/learning/features/figure-rendering/geometry/tools/render-figure"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import {
+  createToolContext,
+  ensureBuddyPluginTools,
+  requireTool,
+  TEST_TOOL_MODEL,
+} from "../helpers/tools"
 
 function baseFigureInput(): RenderFigureInput {
   return {

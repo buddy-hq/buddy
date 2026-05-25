@@ -15,9 +15,7 @@ const ALLOW_ACTION = "allow"
 const ASK_ACTION = "ask"
 
 describe("config external_directory permission", () => {
-  test(
-    "forces external directory access to ask even when project config sets allow",
-    async () => {
+  test("forces external directory access to ask even when project config sets allow", async () => {
     const repo = createGitRepo("buddy-config-external-directory-ask")
 
     writeFileSync(
@@ -43,12 +41,9 @@ describe("config external_directory permission", () => {
     })
 
     expect(action).toBe(ASK_ACTION)
-  },
-  30_000)
+  }, 30_000)
 
-  test(
-    "allows preloaded managed system skill paths without prompting",
-    async () => {
+  test("allows preloaded managed system skill paths without prompting", async () => {
     const repo = createGitRepo("buddy-config-external-directory-skills")
 
     const action = await withSyncedOpenCodeConfig(repo, async () => {
@@ -61,8 +56,7 @@ describe("config external_directory permission", () => {
     })
 
     expect(action).toBe(ALLOW_ACTION)
-  },
-  30_000)
+  }, 30_000)
 
   test("allows vendor tmp and tool-output paths without prompting", async () => {
     const repo = createGitRepo("buddy-config-external-directory-vendor-paths")

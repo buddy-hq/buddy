@@ -51,7 +51,8 @@ describe("runtime session permissions", () => {
 
     expect(
       nextPermission.some(
-        (rule) => rule.permission === "ingest_full_text" && rule.pattern === "*" && rule.action === "allow",
+        (rule) =>
+          rule.permission === "ingest_full_text" && rule.pattern === "*" && rule.action === "allow",
       ),
     ).toBe(false)
     expect(

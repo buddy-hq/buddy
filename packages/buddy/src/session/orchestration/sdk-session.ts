@@ -38,7 +38,9 @@ async function parseRawJsonObject(c: Context): Promise<Record<string, unknown> |
   return parsed
 }
 
-export async function readValidatedJsonObject(c: Context): Promise<Record<string, unknown> | Response> {
+export async function readValidatedJsonObject(
+  c: Context,
+): Promise<Record<string, unknown> | Response> {
   const contentType = c.req.header("content-type")
   if (!isJsonContentType(contentType)) {
     return invalidJsonResponse()
@@ -86,7 +88,12 @@ export function buildSessionSdkParameters(input: {
   directory: string
   body: Record<string, unknown>
 }) {
-  const { sessionID: _sessionID, directory: _directory, workspace: _workspace, ...rest } = input.body
+  const {
+    sessionID: _sessionID,
+    directory: _directory,
+    workspace: _workspace,
+    ...rest
+  } = input.body
   return {
     sessionID: input.sessionID,
     directory: input.directory,

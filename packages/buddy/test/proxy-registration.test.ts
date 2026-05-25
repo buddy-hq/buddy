@@ -81,7 +81,9 @@ describe("proxy registration", () => {
 
     expect(await listRegisteredToolIDs(project.path)).toContain("ingest_full_text")
 
-    const buddyDefinition = REGISTERED_BUDDY_PERSONAS.find((definition) => definition.id === "buddy")
+    const buddyDefinition = REGISTERED_BUDDY_PERSONAS.find(
+      (definition) => definition.id === "buddy",
+    )
     if (!buddyDefinition) {
       throw new Error('Missing "buddy" persona definition')
     }

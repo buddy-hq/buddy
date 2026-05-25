@@ -15,9 +15,7 @@ function cacheKey(sessionID: string): string {
   return String(sessionID)
 }
 
-function clonePermission(
-  permission: SessionPermissionInput,
-): OpenCodeSession.Info["permission"] {
+function clonePermission(permission: SessionPermissionInput): OpenCodeSession.Info["permission"] {
   return permission?.map((rule) => ({ ...rule }))
 }
 

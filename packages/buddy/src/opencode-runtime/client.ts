@@ -8,7 +8,9 @@ function openCodeAuthHeaders(): Record<string, string> | undefined {
   if (!process.env.OPENCODE_SERVER_PASSWORD) return undefined
 
   const username = process.env.OPENCODE_SERVER_USERNAME ?? "opencode"
-  const token = Buffer.from(`${username}:${process.env.OPENCODE_SERVER_PASSWORD}`).toString("base64")
+  const token = Buffer.from(`${username}:${process.env.OPENCODE_SERVER_PASSWORD}`).toString(
+    "base64",
+  )
   return {
     authorization: `Basic ${token}`,
   }
@@ -20,7 +22,10 @@ async function createInProcessClient(directory?: string) {
     ...(directory ? { directory } : {}),
     headers: openCodeAuthHeaders(),
     fetch: (async (request: Request) =>
-      fetchOpenCodeApp(request, readOpenCodeRequestDirectory(request) ?? directory)) as typeof fetch,
+      fetchOpenCodeApp(
+        request,
+        readOpenCodeRequestDirectory(request) ?? directory,
+      )) as typeof fetch,
   })
 
   return createBuddyOpenCodeClient(rawClient)

@@ -16,7 +16,9 @@ const CREATED_BUDDY_TOOL_IDS = new Set([
   ...dynamicToolSearchTools.map((tool) => tool.id),
 ])
 
-const originalAdvancedMathReady = AdvancedMathRuntimeService.isReady.bind(AdvancedMathRuntimeService)
+const originalAdvancedMathReady = AdvancedMathRuntimeService.isReady.bind(
+  AdvancedMathRuntimeService,
+)
 const originalStandardsReady = StandardsRuntimeService.isReady.bind(StandardsRuntimeService)
 
 afterEach(async () => {

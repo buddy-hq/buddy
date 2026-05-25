@@ -15,10 +15,7 @@ export function readOpenCodeRequestDirectory(request: Request): string | undefin
   return decodeDirectoryHeader(header)
 }
 
-export async function fetchOpenCodeApp(
-  request: Request,
-  directory?: string,
-): Promise<Response> {
+export async function fetchOpenCodeApp(request: Request, directory?: string): Promise<Response> {
   const app = await loadOpenCodeApp()
   const resolvedDirectory = directory ?? readOpenCodeRequestDirectory(request)
 

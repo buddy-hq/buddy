@@ -55,10 +55,7 @@ type BuddyTool<
   constraints?: BuddyToolConstraints
   dynamic?: DynamicBuddyToolMetadata
   ui?: ToolUiMetadata
-  run(
-    rawArgs: unknown,
-    ctx: BuddyToolContext<Metadata>,
-  ): Promise<Tool.ExecuteResult<Metadata>>
+  run(rawArgs: unknown, ctx: BuddyToolContext<Metadata>): Promise<Tool.ExecuteResult<Metadata>>
   toTool(directory: string): Effect.Effect<
     Tool.Info<typeof Schema.Unknown, Metadata>,
     never,

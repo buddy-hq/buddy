@@ -38,14 +38,15 @@ const providerAuthResponseSchema = toOpenApiSchema(
   Schema.Record(Schema.String, Schema.Array(OpenCodeProviderAuth.Method)),
 )
 
-function resolveBootstrapDirectory(c: Parameters<typeof resolveOptionalDirectoryRequestContext>[0]) {
+function resolveBootstrapDirectory(
+  c: Parameters<typeof resolveOptionalDirectoryRequestContext>[0],
+) {
   const directoryResult = resolveOptionalDirectoryRequestContext(c)
   if (!directoryResult.ok) return directoryResult
 
   return {
     ok: true as const,
-    directory:
-      directoryResult.context.directory ?? ensureGlobalBootstrapWorkspaceDirectory(),
+    directory: directoryResult.context.directory ?? ensureGlobalBootstrapWorkspaceDirectory(),
   }
 }
 
@@ -72,7 +73,9 @@ export const ProviderRoutes = new Hono()
         if (!directoryResult.ok) return directoryResult.response
 
         const client = await getOpenCodeClient(directoryResult.directory)
-        const result = await client.provider.list(openCodeDirectoryParams(directoryResult.directory))
+        const result = await client.provider.list(
+          openCodeDirectoryParams(directoryResult.directory),
+        )
         return respondWithSdkResult(c, result)
       }),
   )
@@ -98,7 +101,9 @@ export const ProviderRoutes = new Hono()
         if (!directoryResult.ok) return directoryResult.response
 
         const client = await getOpenCodeClient(directoryResult.directory)
-        const result = await client.provider.auth(openCodeDirectoryParams(directoryResult.directory))
+        const result = await client.provider.auth(
+          openCodeDirectoryParams(directoryResult.directory),
+        )
         return respondWithSdkResult(c, result)
       }),
   )

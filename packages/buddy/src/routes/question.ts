@@ -67,7 +67,9 @@ export const QuestionRoutes = new Hono()
         if (!directoryResult.ok) return directoryResult.response
 
         const client = await getOpenCodeClient(directoryResult.directory)
-        const result = await client.question.list(openCodeDirectoryParams(directoryResult.directory))
+        const result = await client.question.list(
+          openCodeDirectoryParams(directoryResult.directory),
+        )
         return respondWithSdkResult(c, result)
       }),
   )

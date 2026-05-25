@@ -3,7 +3,12 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { listActiveGoals } from "../../src/learning/features/memory/goals/storage"
 import { tmpdir } from "../helpers/tmpdir"
-import { createToolContext, ensureBuddyPluginTools, requireTool, TEST_TOOL_MODEL } from "../helpers/tools"
+import {
+  createToolContext,
+  ensureBuddyPluginTools,
+  requireTool,
+  TEST_TOOL_MODEL,
+} from "../helpers/tools"
 
 describe("goal tools", () => {
   test("goal_commit persists learner goals as markdown artifacts", async () => {

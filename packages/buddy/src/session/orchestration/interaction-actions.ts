@@ -3,10 +3,17 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { SessionID } from "@buddy/opencode-adapter/id"
 import { withConfigSync } from "../../http"
-import { extractSdkErrorMessage, respondWithStreamSdkResult, sdkErrorResponse } from "../../http/sdk-response"
+import {
+  extractSdkErrorMessage,
+  respondWithStreamSdkResult,
+  sdkErrorResponse,
+} from "../../http/sdk-response"
 import { createSessionCommandTransform } from "../../learning/agent-execution/transforms/command-transform"
 import { createSessionMessageTransform } from "../../learning/agent-execution/transforms/message-transform"
-import type { SessionTransform, SessionTransformContext } from "../../learning/agent-execution/transforms/types"
+import type {
+  SessionTransform,
+  SessionTransformContext,
+} from "../../learning/agent-execution/transforms/types"
 import {
   createMermaidRepairRequest,
   isMermaidRepairExpired,

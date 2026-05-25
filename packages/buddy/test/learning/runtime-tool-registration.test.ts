@@ -69,7 +69,9 @@ describe("runtime tool registration", () => {
     expect(await listRegisteredToolIDs(project.path)).toContain("search_standards")
     expect(await listRegisteredToolIDs(project.path)).toContain("get_standard")
 
-    const buddyDefinition = REGISTERED_BUDDY_PERSONAS.find((definition) => definition.id === "buddy")
+    const buddyDefinition = REGISTERED_BUDDY_PERSONAS.find(
+      (definition) => definition.id === "buddy",
+    )
     if (!buddyDefinition) {
       throw new Error('Missing "buddy" persona definition')
     }
@@ -103,7 +105,9 @@ describe("runtime tool registration", () => {
     await ensureBuddyPluginTools(project.path)
     expect(await listRegisteredToolIDs(project.path)).toContain("save_question_set")
 
-    const buddyDefinition = REGISTERED_BUDDY_PERSONAS.find((definition) => definition.id === "buddy")
+    const buddyDefinition = REGISTERED_BUDDY_PERSONAS.find(
+      (definition) => definition.id === "buddy",
+    )
     if (!buddyDefinition) {
       throw new Error('Missing "buddy" persona definition')
     }

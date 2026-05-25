@@ -3,7 +3,13 @@ import { describeRoute, resolver, validator } from "hono-openapi"
 import { Schema } from "effect"
 import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
 import { toOpenApiSchema } from "../http/effect-schema"
-import { directoryQuerySchema, ProjectIDParamSchema, routeErrors, runSdkRoute, withDirectoryRoute } from "../http"
+import {
+  directoryQuerySchema,
+  ProjectIDParamSchema,
+  routeErrors,
+  runSdkRoute,
+  withDirectoryRoute,
+} from "../http"
 import { respondWithSdkResult } from "../http/sdk-response"
 import { getOpenCodeClient } from "../opencode-runtime/client"
 import { updateProjectFromPayload } from "../project"
