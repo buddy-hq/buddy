@@ -8,9 +8,9 @@ const alertVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-surface-raised-base text-text-base",
+        default: "border-border-base bg-surface-raised-base text-text-base",
         destructive:
-          "text-icon-critical-base bg-surface-raised-base *:data-[slot=alert-description]:text-icon-critical-base/90 *:[svg]:text-current",
+          "border-border-critical-base bg-surface-critical-weak text-text-on-critical-weak *:data-[slot=alert-description]:text-text-on-critical-weak *:[svg]:text-current",
       },
     },
     defaultVariants: {

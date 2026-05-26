@@ -27,7 +27,7 @@ function NativeSelect({
         data-slot="native-select"
         data-size={size}
         className={cn(
-          "border-border-base data-placeholder:text-text-weak bg-input-base hover:bg-input-hover focus-visible:border-border-base focus-visible:ring-border-interactive-base/50 aria-invalid:ring-border-critical-base/20 dark:aria-invalid:ring-border-critical-base/40 aria-invalid:border-border-critical-base dark:aria-invalid:border-border-critical-base/50 text-text-base w-full min-w-0 appearance-none rounded-lg border bg-transparent py-2 pr-9 pl-2.5 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-[background-color,border-color,color,box-shadow] select-none whitespace-nowrap outline-none focus-visible:ring-2 aria-invalid:ring-3 data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] data-[size=sm]:py-0.5 disabled:pointer-events-none disabled:cursor-not-allowed",
+          "border-border-base data-placeholder:text-text-weak bg-input-base hover:bg-input-hover focus-visible:border-border-interactive-base focus-visible:ring-border-interactive-base/50 aria-invalid:ring-border-critical-base/35 aria-invalid:border-border-critical-base text-text-base w-full min-w-0 appearance-none rounded-lg border py-2 pr-9 pl-2.5 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-[background-color,border-color,color,box-shadow] select-none whitespace-nowrap outline-none focus-visible:ring-2 aria-invalid:ring-3 data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] data-[size=sm]:py-0.5 disabled:pointer-events-none disabled:cursor-not-allowed",
           className,
         )}
         {...props}

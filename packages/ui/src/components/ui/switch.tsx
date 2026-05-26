@@ -17,14 +17,14 @@ function Switch({
       data-slot="switch"
       data-size={size}
       className={cn(
-        "data-checked:bg-surface-interactive-base data-unchecked:bg-input-base focus-visible:border-border-interactive-base focus-visible:ring-border-interactive-base/50 aria-invalid:ring-border-critical-base/20 dark:aria-invalid:ring-border-critical-base/40 aria-invalid:border-border-critical-base dark:aria-invalid:border-border-critical-base/50 shrink-0 rounded-full border border-transparent focus-visible:ring-3 aria-invalid:ring-3 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] peer group/switch relative inline-flex items-center transition-all outline-none after:absolute after:-inset-x-3 after:-inset-y-2 data-disabled:cursor-not-allowed data-disabled:opacity-50",
+        "data-checked:border-border-interactive-base data-checked:bg-surface-interactive-base data-unchecked:border-border-base data-unchecked:bg-surface-inset-base focus-visible:border-border-interactive-base focus-visible:ring-border-interactive-base/50 aria-invalid:ring-border-critical-base/35 aria-invalid:border-border-critical-base shrink-0 rounded-full border focus-visible:ring-3 aria-invalid:ring-3 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] peer group/switch relative inline-flex items-center transition-all outline-none after:absolute after:-inset-x-3 after:-inset-y-2 data-disabled:cursor-not-allowed data-disabled:opacity-50",
         className,
       )}
       {...props}
     >
       <SwitchPrimitive.Thumb
         data-slot="switch-thumb"
-        className="bg-background-base dark:data-unchecked:bg-text-base dark:data-checked:bg-text-on-interactive-base rounded-full group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 pointer-events-none block ring-0 transition-transform"
+        className="group-data-checked/switch:bg-text-on-interactive-base group-data-unchecked/switch:bg-text-strong rounded-full shadow-xs group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 pointer-events-none block ring-0 transition-transform"
       />
     </SwitchPrimitive.Root>
   )

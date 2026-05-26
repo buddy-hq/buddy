@@ -268,7 +268,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
                   onClick={() => props.onChoose("chatgpt_plus")}
                   disabled={Boolean(props.busyChoice)}
                   className={cn(
-                    "group relative flex w-full items-center gap-4 rounded-2xl border p-4 text-left outline-none transition-[border-color,background-color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:ring-2 focus-visible:ring-interactive-base focus-visible:ring-offset-2 active:scale-[0.98]",
+                    "group relative flex w-full items-center gap-4 rounded-2xl border p-4 text-left outline-none transition-[border-color,background-color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:ring-2 focus-visible:ring-border-interactive-base focus-visible:ring-offset-2 active:scale-[0.98]",
                     props.authChoice === "chatgpt_plus"
                       ? "border-border-success-base bg-surface-success-weak"
                       : isChatGptConnected
@@ -323,7 +323,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
                         onClick={() => props.onChoose("free_models")}
                         disabled={Boolean(props.busyChoice)}
                         className={cn(
-                          "group relative flex w-full items-center gap-4 rounded-2xl border p-4 text-left outline-none transition-[border-color,background-color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:ring-2 focus-visible:ring-interactive-base focus-visible:ring-offset-2 active:scale-[0.98]",
+                          "group relative flex w-full items-center gap-4 rounded-2xl border p-4 text-left outline-none transition-[border-color,background-color,opacity,transform] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] focus-visible:ring-2 focus-visible:ring-border-interactive-base focus-visible:ring-offset-2 active:scale-[0.98]",
                           props.authChoice === "free_models"
                             ? "border-border-interactive-base bg-surface-interactive-weak"
                             : "border-border-base bg-surface-raised-base hover:border-border-interactive-base hover:bg-surface-raised-base-hover",

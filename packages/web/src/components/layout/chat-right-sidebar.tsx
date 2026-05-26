@@ -303,7 +303,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                   variant={activeTab === "curriculum" ? "secondary" : "ghost"}
                   size="sm"
                   onClick={() => props.onTabChange("curriculum")}
-                  className="border border-dashed border-yellow-500/60"
+                  className="border border-dashed border-border-warning-base/60"
                 >
                   {language.t("rightSidebar.tabs.snapshot")}
                 </Button>
@@ -314,7 +314,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                   variant={activeTab === "capabilities" ? "secondary" : "ghost"}
                   size="sm"
                   onClick={() => props.onTabChange("capabilities")}
-                  className="border border-dashed border-yellow-500/60"
+                  className="border border-dashed border-border-warning-base/60"
                 >
                   {language.t("rightSidebar.tabs.runtime")}
                 </Button>
@@ -325,7 +325,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                   variant={activeTab === "system-prompt" ? "secondary" : "ghost"}
                   size="sm"
                   onClick={() => props.onTabChange("system-prompt")}
-                  className="border border-dashed border-yellow-500/60"
+                  className="border border-dashed border-border-warning-base/60"
                 >
                   {language.t("rightSidebar.tabs.system")}
                 </Button>
@@ -336,7 +336,7 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                   variant={activeTab === "palette" ? "secondary" : "ghost"}
                   size="sm"
                   onClick={() => props.onTabChange("palette")}
-                  className="border border-dashed border-yellow-500/60"
+                  className="border border-dashed border-border-warning-base/60"
                 >
                   Palette
                 </Button>

@@ -83,21 +83,6 @@
   html {
     @apply font-sans;
   }
-
-  /* Fix Switch visibility and contrast */
-  [data-slot="switch"] {
-    /* Ensure track is visible even if background matches */
-    &[data-state="unchecked"] {
-      background-color: var(--surface-inset-base) !important;
-      border-color: var(--border-base) !important;
-    }
-  }
-
-  [data-slot="switch-thumb"] {
-    /* Use a high-contrast color for the handle */
-    background-color: var(--text-on-interactive-base) !important;
-    box-shadow: var(--shadow-xs);
-  }
 }
 
 @utility no-scrollbar {

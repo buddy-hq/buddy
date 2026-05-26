@@ -121,7 +121,7 @@ function BasicCardDisplay(props: {
           className="absolute inset-0 flex flex-col overflow-hidden rounded-2xl border border-border-base bg-surface-base shadow-md hover:shadow-lg transition-shadow"
           style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
         >
-          <div className="absolute left-0 right-0 top-8 h-px bg-brand-base/20" />
+          <div className="absolute left-0 right-0 top-8 h-px bg-surface-brand-base/20" />
 
           <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pb-6 pt-12">
             <Markdown
@@ -145,7 +145,7 @@ function BasicCardDisplay(props: {
             transform: "rotateY(180deg)",
           }}
         >
-          <div className="absolute left-0 right-0 top-8 h-px bg-brand-base/20" />
+          <div className="absolute left-0 right-0 top-8 h-px bg-surface-brand-base/20" />
 
           <div className="flex w-full shrink-0 items-center justify-center px-6 pt-12">
             <p className="max-w-prose truncate text-center text-[13px] font-medium text-text-weaker">
@@ -155,7 +155,7 @@ function BasicCardDisplay(props: {
           <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pb-10 pt-4">
             <Markdown
               text={props.back}
-              className="max-w-prose text-center text-xl font-medium leading-relaxed text-brand-base"
+              className="max-w-prose text-center text-xl font-medium leading-relaxed text-text-interactive-base"
             />
           </div>
         </div>
@@ -203,7 +203,7 @@ function ClozeCardDisplay(props: {
           className="absolute inset-0 flex flex-col overflow-hidden rounded-2xl border border-border-base bg-surface-base shadow-md hover:shadow-lg transition-shadow"
           style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
         >
-          <div className="absolute left-0 right-0 top-8 h-px bg-brand-base/20" />
+          <div className="absolute left-0 right-0 top-8 h-px bg-surface-brand-base/20" />
 
           <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pb-6 pt-12">
             <Markdown
@@ -228,12 +228,12 @@ function ClozeCardDisplay(props: {
             transform: "rotateY(180deg)",
           }}
         >
-          <div className="absolute left-0 right-0 top-8 h-px bg-brand-base/20" />
+          <div className="absolute left-0 right-0 top-8 h-px bg-surface-brand-base/20" />
 
           <div className="flex flex-1 items-center justify-center overflow-y-auto px-6 pb-6 pt-12">
             <Markdown
               text={backText}
-              className="max-w-prose text-center text-xl font-medium leading-relaxed text-brand-base"
+              className="max-w-prose text-center text-xl font-medium leading-relaxed text-text-interactive-base"
             />
           </div>
         </div>

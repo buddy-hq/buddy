@@ -186,7 +186,7 @@ function ComboboxSeparator({ className, ...props }: ComboboxPrimitive.Separator.
   return (
     <ComboboxPrimitive.Separator
       data-slot="combobox-separator"
-      className={cn("bg-border -mx-1 my-1 h-px", className)}
+      className={cn("bg-border-base -mx-1 my-1 h-px", className)}
       {...props}
     />
   )
@@ -200,7 +200,7 @@ function ComboboxChips({
     <ComboboxPrimitive.Chips
       data-slot="combobox-chips"
       className={cn(
-        "bg-input-base border-border-base focus-within:border-border-interactive-base focus-within:ring-border-interactive-base/50 has-aria-invalid:ring-border-critical-base/20 dark:has-aria-invalid:ring-border-critical-base/40 has-aria-invalid:border-border-critical-base dark:has-aria-invalid:border-border-critical-base/50 flex min-h-8 flex-wrap items-center gap-1 rounded-lg border bg-transparent bg-clip-padding px-2.5 py-1 text-sm transition-colors focus-within:ring-3 has-aria-invalid:ring-3 has-data-[slot=combobox-chip]:px-1",
+        "bg-input-base border-border-base focus-within:border-border-interactive-base focus-within:ring-border-interactive-base/50 has-aria-invalid:ring-border-critical-base/35 has-aria-invalid:border-border-critical-base flex min-h-8 flex-wrap items-center gap-1 rounded-lg border bg-clip-padding px-2.5 py-1 text-sm transition-colors focus-within:ring-3 has-aria-invalid:ring-3 has-data-[slot=combobox-chip]:px-1",
         className,
       )}
       {...props}

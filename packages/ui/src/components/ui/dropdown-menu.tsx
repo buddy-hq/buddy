@@ -63,7 +63,7 @@ function DropdownMenuItem({
       data-inset={inset}
       data-variant={variant}
       className={cn(
-        "data-[highlighted]:bg-surface-raised-base-hover data-[highlighted]:text-text-strong data-[variant=destructive]:text-icon-critical-base data-[variant=destructive]:data-[highlighted]:bg-surface-critical-base/10 dark:data-[variant=destructive]:data-[highlighted]:bg-surface-critical-base/20 data-[variant=destructive]:data-[highlighted]:text-icon-critical-base data-[variant=destructive]:*:[svg]:text-icon-critical-base not-data-[variant=destructive]:data-[highlighted]:**:text-text-strong gap-1.5 rounded-md px-1.5 py-1 text-sm data-inset:pl-7 [&_svg:not([class*='size-'])]:size-4 group/dropdown-menu-item relative flex cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "data-[highlighted]:bg-surface-raised-base-hover data-[highlighted]:text-text-strong data-[variant=destructive]:text-icon-critical-base data-[variant=destructive]:data-[highlighted]:bg-surface-critical-weak data-[variant=destructive]:data-[highlighted]:text-text-on-critical-weak data-[variant=destructive]:data-[highlighted]:*:[svg]:text-text-on-critical-weak data-[variant=destructive]:*:[svg]:text-icon-critical-base not-data-[variant=destructive]:data-[highlighted]:**:text-text-strong gap-1.5 rounded-md px-1.5 py-1 text-sm data-inset:pl-7 [&_svg:not([class*='size-'])]:size-4 group/dropdown-menu-item relative flex cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         className,
       )}
       {...props}
@@ -165,7 +165,7 @@ function DropdownMenuSeparator({
   return (
     <DropdownMenuPrimitive.Separator
       data-slot="dropdown-menu-separator"
-      className={cn("bg-border -mx-1 my-1 h-px", className)}
+      className={cn("bg-border-base -mx-1 my-1 h-px", className)}
       {...props}
     />
   )

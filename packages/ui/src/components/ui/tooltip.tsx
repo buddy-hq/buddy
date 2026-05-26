@@ -38,13 +38,13 @@ function TooltipContent({
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         className={cn(
-          "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 rounded-md px-3 py-1.5 text-xs bg-surface-strong text-text-invert-base z-50 w-fit max-w-xs origin-(--radix-tooltip-content-transform-origin)",
+          "data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 bg-surface-raised-stronger-non-alpha text-text-strong ring-border-weak-base z-50 w-fit max-w-xs origin-(--radix-tooltip-content-transform-origin) rounded-md px-3 py-1.5 text-xs shadow-md ring-1",
           className,
         )}
         {...props}
       >
         {children}
-        <TooltipPrimitive.Arrow className="size-2.5 rotate-45 rounded-[2px] bg-surface-strong fill-surface-strong z-50 translate-y-[calc(-50%_-_2px)]" />
+        <TooltipPrimitive.Arrow className="bg-surface-raised-stronger-non-alpha fill-surface-raised-stronger-non-alpha z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px]" />
       </TooltipPrimitive.Content>
     </TooltipPrimitive.Portal>
   )

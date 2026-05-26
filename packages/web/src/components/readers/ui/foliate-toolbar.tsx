@@ -161,7 +161,7 @@ export function FoliateToolbar({
         <button
           type="button"
           onClick={onOpenLocationDialog}
-          className="min-w-0 rounded-[1.15rem] border border-border-base/70 bg-surface-raised-base/62 px-3 py-2.5 text-left shadow-[inset_0_1px_0_color-mix(in_oklab,var(--surface-stronger)_14%,transparent)] transition hover:border-border-strong hover:bg-surface-raised-base/78"
+          className="min-w-0 rounded-[1.15rem] border border-border-base/70 bg-surface-raised-base/62 px-3 py-2.5 text-left shadow-[inset_0_1px_0_color-mix(in_oklab,var(--surface-raised-stronger)_14%,transparent)] transition hover:border-border-strong-base hover:bg-surface-raised-base/78"
           aria-label="Open location and jumps"
         >
           <div className="flex items-start justify-between gap-3">

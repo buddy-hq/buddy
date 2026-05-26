@@ -5,14 +5,14 @@ import { Slot } from "radix-ui"
 import { cn } from "@buddy/ui/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-border-interactive-base focus-visible:ring-border-interactive-base/50 focus-visible:ring-[3px] aria-invalid:ring-border-critical-base/20 dark:aria-invalid:ring-border-critical-base/40 aria-invalid:border-border-critical-base",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-border-interactive-base focus-visible:ring-border-interactive-base/50 focus-visible:ring-[3px] aria-invalid:ring-border-critical-base/35 aria-invalid:border-border-critical-base",
   {
     variants: {
       variant: {
         default:
-          "bg-surface-interactive-base text-text-on-interactive-base hover:bg-surface-interactive-base/90",
+          "bg-button-primary-base text-text-on-button-primary-base hover:bg-button-primary-hover",
         destructive:
-          "bg-surface-critical-base text-text-on-critical-base hover:bg-surface-critical-base/90 focus-visible:ring-border-critical-base/20 dark:focus-visible:ring-border-critical-base/40 dark:bg-surface-critical-base/60",
+          "bg-surface-critical-weak text-icon-critical-base hover:bg-surface-critical-weak/80 focus-visible:ring-border-critical-base/35",
         outline:
           "border border-border-base bg-background-base shadow-xs hover:bg-surface-base-hover hover:text-text-strong",
         secondary:

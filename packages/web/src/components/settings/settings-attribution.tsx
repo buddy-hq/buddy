@@ -37,7 +37,7 @@ export function AttributionSettings() {
             description={language.t("settings.attribution.knowledgeGraph.description")}
             control={
               <div className="flex justify-end">
-                <span className="inline-flex items-center rounded-full border border-border-base/60 bg-surface-tertiary px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+                <span className="inline-flex items-center rounded-full border border-border-base/60 bg-surface-weak px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-text-weaker">
                   CC BY 4.0 / MIT
                 </span>
               </div>
@@ -52,7 +52,7 @@ export function AttributionSettings() {
             description={language.t("settings.attribution.evaluators.description")}
             control={
               <div className="flex justify-end">
-                <span className="inline-flex items-center rounded-full border border-border-base/60 bg-surface-tertiary px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+                <span className="inline-flex items-center rounded-full border border-border-base/60 bg-surface-weak px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-text-weaker">
                   CC BY 4.0 / MIT
                 </span>
               </div>
@@ -68,7 +68,7 @@ export function AttributionSettings() {
             last
             control={
               <div className="flex justify-end">
-                <span className="inline-flex items-center rounded-full border border-border-base/60 bg-surface-tertiary px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-text-weaker">
+                <span className="inline-flex items-center rounded-full border border-border-base/60 bg-surface-weak px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-text-weaker">
                   MIT
                 </span>
               </div>

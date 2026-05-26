@@ -36,7 +36,7 @@ const SelectTrigger = React.forwardRef<
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "border-border-base data-placeholder:text-text-weak bg-input-base hover:bg-input-hover focus-visible:border-border-base focus-visible:ring-border-interactive-base/50 aria-invalid:ring-border-critical-base/20 dark:aria-invalid:ring-border-critical-base/40 aria-invalid:border-border-critical-base dark:aria-invalid:border-border-critical-base/50 gap-1.5 rounded-lg border bg-transparent py-2 pr-2 pl-2.5 text-sm transition-colors select-none focus-visible:ring-2 aria-invalid:ring-3 data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] *:data-[slot=select-value]:gap-1.5 [&_svg:not([class*='size-'])]:size-4 flex w-fit items-center justify-between whitespace-nowrap outline-none disabled:cursor-not-allowed disabled:opacity-50 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "border-border-base data-placeholder:text-text-weak bg-input-base hover:bg-input-hover focus-visible:border-border-interactive-base focus-visible:ring-border-interactive-base/50 aria-invalid:ring-border-critical-base/35 aria-invalid:border-border-critical-base gap-1.5 rounded-lg border py-2 pr-2 pl-2.5 text-sm transition-colors select-none focus-visible:ring-2 aria-invalid:ring-3 data-[size=default]:h-8 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] *:data-[slot=select-value]:gap-1.5 [&_svg:not([class*='size-'])]:size-4 flex w-fit items-center justify-between whitespace-nowrap outline-none disabled:cursor-not-allowed disabled:opacity-50 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center [&_svg]:pointer-events-none [&_svg]:shrink-0",
         className,
       )}
       {...props}
@@ -123,7 +123,7 @@ function SelectSeparator({
   return (
     <SelectPrimitive.Separator
       data-slot="select-separator"
-      className={cn("bg-border -mx-1 my-1 h-px pointer-events-none", className)}
+      className={cn("bg-border-base -mx-1 my-1 h-px pointer-events-none", className)}
       {...props}
     />
   )

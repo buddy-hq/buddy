@@ -434,9 +434,11 @@ export function QuestionSetInlineView(props: {
                                   // Default states
                                   !evaluation &&
                                     !selected &&
-                                    "border-border-base/50 bg-surface-base hover:border-brand-base/50 hover:bg-surface-base-hover",
+                                    "border-border-base/50 bg-surface-base hover:border-border-interactive-base/50 hover:bg-surface-base-hover",
                                   // Selected but unevaluated
-                                  !evaluation && selected && "border-brand-base bg-brand-base/5",
+                                  !evaluation &&
+                                    selected &&
+                                    "border-border-interactive-base bg-surface-interactive-weak",
                                   // Evaluated correct
                                   evaluation &&
                                     isCorrect &&
@@ -461,20 +463,20 @@ export function QuestionSetInlineView(props: {
                                         : "rounded-full",
                                       !evaluation &&
                                         selected &&
-                                        "border-brand-base bg-brand-base text-white",
+                                        "border-border-interactive-base bg-surface-interactive-base text-text-on-interactive-base",
                                       !evaluation &&
                                         !selected &&
-                                        "border-border-strong bg-surface-base",
+                                        "border-border-strong-base bg-surface-base",
                                       evaluation &&
                                         isCorrect &&
-                                        "border-border-success-base bg-surface-success-base text-white",
+                                        "border-border-success-base bg-surface-success-base text-text-on-success-base",
                                       evaluation &&
                                         isWrongSelection &&
-                                        "border-border-critical-base bg-surface-critical-base text-white",
+                                        "border-border-critical-base bg-surface-critical-base text-text-on-critical-base",
                                       evaluation &&
                                         !isCorrect &&
                                         !isWrongSelection &&
-                                        "border-border-base/50 bg-surface-base text-icon-weak",
+                                        "border-border-base/50 bg-surface-base text-icon-weak-base",
                                     )}
                                   >
                                     {evaluation && isCorrect ? (

@@ -32,7 +32,7 @@ function InputOTPGroup({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="input-otp-group"
       className={cn(
-        "has-aria-invalid:ring-border-critical-base/20 dark:has-aria-invalid:ring-border-critical-base/40 has-aria-invalid:border-border-critical-base rounded-lg has-aria-invalid:ring-3 flex items-center",
+        "has-aria-invalid:ring-border-critical-base/35 has-aria-invalid:border-border-critical-base rounded-lg has-aria-invalid:ring-3 flex items-center",
         className,
       )}
       {...props}
@@ -55,7 +55,7 @@ function InputOTPSlot({
       data-slot="input-otp-slot"
       data-active={isActive}
       className={cn(
-        "bg-input-base border-border-base data-[active=true]:border-border-interactive-base data-[active=true]:ring-border-interactive-base/50 data-[active=true]:aria-invalid:ring-border-critical-base/20 dark:data-[active=true]:aria-invalid:ring-border-critical-base/40 aria-invalid:border-border-critical-base data-[active=true]:aria-invalid:border-border-critical-base size-8 border-y border-r text-sm transition-all outline-none first:rounded-l-lg first:border-l last:rounded-r-lg data-[active=true]:ring-3 relative flex items-center justify-center data-[active=true]:z-10",
+        "bg-input-base border-border-base data-[active=true]:border-border-interactive-base data-[active=true]:ring-border-interactive-base/50 data-[active=true]:aria-invalid:ring-border-critical-base/35 aria-invalid:border-border-critical-base data-[active=true]:aria-invalid:border-border-critical-base size-8 border-y border-r text-sm transition-all outline-none first:rounded-l-lg first:border-l last:rounded-r-lg data-[active=true]:ring-3 relative flex items-center justify-center data-[active=true]:z-10",
         className,
       )}
       {...props}

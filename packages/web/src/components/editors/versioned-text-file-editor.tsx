@@ -373,7 +373,7 @@ export const VersionedTextFileEditor = forwardRef<
       {statusIndicator === "dot" && exists && !conflictMessage ? (
         <div className="flex justify-end">
           <span
-            className={`size-2 rounded-full ${hasUnsaved ? "bg-amber-500" : showSaved ? "bg-emerald-500" : "bg-transparent"}`}
+            className={`size-2 rounded-full ${hasUnsaved ? "bg-surface-warning-base" : showSaved ? "bg-surface-success-base" : "bg-transparent"}`}
           />
         </div>
       ) : null}
@@ -414,7 +414,7 @@ export const VersionedTextFileEditor = forwardRef<
       ) : null}
 
       {conflictMessage ? (
-        <div className="rounded-md border border-amber-400/50 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200">
+        <div className="rounded-md border border-border-warning-base/50 bg-surface-warning-weak px-3 py-2 text-xs text-text-warning-base">
           <div className="flex items-center gap-2">
             <AlertTriangleIcon className="size-4 shrink-0" />
             <p>{conflictMessage}</p>
