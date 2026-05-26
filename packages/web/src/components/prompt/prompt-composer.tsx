@@ -347,17 +347,19 @@ export function PromptComposer(props: PromptComposerProps) {
   }, [props.isBusy, busyStartTime, isGameVisible, setPaused, setMinimized, setGameVisible])
 
   useEffect(() => {
-    if (!busyStartTime) return
+    if (!busyStartTime || props.isQuestionActive) return
     const elapsedMs = Date.now() - busyStartTime
     const remainingMs = Math.max(0, GAME_BALL_DELAY_MS - elapsedMs)
     const timeout = window.setTimeout(() => {
       setShowGameBall(true)
     }, remainingMs)
     return () => window.clearTimeout(timeout)
-  }, [busyStartTime])
+  }, [busyStartTime, props.isQuestionActive])
 
   useEffect(() => {
-    if (props.isQuestionActive && isGameVisible) {
+    if (!props.isQuestionActive) return
+    setShowGameBall(false)
+    if (isGameVisible) {
       setPaused(true)
       setMinimized(true)
       setGameVisible(false)
@@ -748,9 +750,9 @@ export function PromptComposer(props: PromptComposerProps) {
   const mentionMenuVisible =
     viewState.mentionMatch !== undefined && viewState.mentionKey !== viewState.dismissedMentionKey
 
-  // The ball should only show if the timer hit 1m OR if the game was minimized/paused by a question.
-  // We check showGameBall (local timer) and isMinimized (store).
-  const shouldShowBall = (showGameBall || isMinimized) && !isGameVisible
+  // The ball shows after the idle timer or when minimized — never during an active question dock.
+  const shouldShowBall =
+    (showGameBall || isMinimized) && !isGameVisible && !props.isQuestionActive
 
   return (
     <div className={cn("relative", props.className ?? "mx-4 mb-4")}>

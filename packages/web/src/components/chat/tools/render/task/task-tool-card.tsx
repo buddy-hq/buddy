@@ -31,7 +31,7 @@ export function TaskToolCard({
       activityActive={activityActive}
       error={error}
     >
-      {taskResult ? <p className="px-1 py-0.5 text-sm text-text-base">{taskResult}</p> : null}
+      {taskResult}
     </SubagentCard>
   )
 }

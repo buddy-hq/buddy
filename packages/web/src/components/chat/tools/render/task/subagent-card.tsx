@@ -1,9 +1,10 @@
-import type { ReactNode } from "react"
+import { useState, useRef, useEffect, type ReactNode } from "react"
 import { motion, AnimatePresence } from "motion/react"
-import { Bot, BotMessageSquare, PhoneCall, XCircle } from "lucide-react"
+import { Bot, BotMessageSquare, PhoneCall, XCircle, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@buddy/ui"
 import { TextShimmer } from "../../text-shimmer"
 import { ToolErrorPanel } from "../../tool-error-panel"
+import { Markdown } from "@/components/markdown/Markdown"
 import type { ToolIconRenderer } from "../../tool-registry-types"
 import { TASK_CARD_TRANSITION } from "../task-motion"
 
@@ -30,6 +31,59 @@ type HeaderAreaProps = {
   onClick?: () => void
   className: string
   children: ReactNode
+}
+
+function ExpandableMarkdown({ text }: { text: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const [isOverflowing, setIsOverflowing] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setExpanded(false)
+    const node = contentRef.current
+    if (!node) return
+
+    const measure = () => {
+      if (!contentRef.current) return
+      setIsOverflowing(contentRef.current.scrollHeight > 300)
+    }
+
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [text])
+
+  return (
+    <div className="relative flex flex-col">
+      <motion.div
+        initial={false}
+        animate={{ height: !isOverflowing ? "auto" : expanded ? "auto" : 300 }}
+        transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+        className="overflow-hidden"
+      >
+        <div ref={contentRef}>
+          <Markdown text={text} className="px-3 py-2.5 text-sm text-text-base" />
+        </div>
+      </motion.div>
+
+      {(isOverflowing || expanded) && (
+        <div className="mt-2 flex flex-col relative">
+          {!expanded && (
+            <div className="pointer-events-none absolute bottom-full left-0 right-0 h-16 bg-gradient-to-t from-surface-base to-transparent" />
+          )}
+          <div className="h-px w-full bg-border-weak-base" />
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="flex w-full items-center justify-center py-2 text-text-weak transition-colors hover:bg-surface-base-hover hover:text-text-base rounded-b-xl"
+          >
+            {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function HeaderArea({ onClick, className, children }: HeaderAreaProps) {
@@ -155,9 +209,13 @@ export function SubagentCard({
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
             transition={TASK_CARD_TRANSITION}
-            className="flex flex-col gap-1.5 p-2"
+            className="flex flex-col"
           >
-            {children}
+            {typeof children === "string" ? (
+              <ExpandableMarkdown text={children} />
+            ) : (
+              children
+            )}
           </motion.div>
         ) : null}
       </AnimatePresence>

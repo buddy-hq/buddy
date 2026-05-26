@@ -32,7 +32,7 @@ function FlashcardDeckTaskPreview(props: {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={TASK_CARD_TRANSITION}
-        className="flex items-center justify-between gap-4"
+        className="flex items-center justify-between gap-4 px-3 py-2.5"
       >
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-text-strong">{props.deck.title}</p>
@@ -53,7 +53,7 @@ function FlashcardDeckTaskPreview(props: {
       transition={TASK_CARD_TRANSITION}
       whileHover={{ backgroundColor: "var(--surface-weak)" }}
       whileTap={{ scale: 0.995 }}
-      className="w-full cursor-pointer rounded px-1 py-1.5 text-left transition-colors"
+      className="w-full cursor-pointer px-3 py-2.5 text-left transition-colors"
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
@@ -117,7 +117,7 @@ export function FlashcardAuthorTaskCard({
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={TASK_CARD_TRANSITION}
-                className="text-sm text-text-weak"
+                className="text-sm text-text-weak px-3 py-2.5"
               >
                 {language.t("chatTools.loadingFlashcards", {
                   defaultValue: "Loading generated flashcard deck...",
@@ -136,14 +136,16 @@ export function FlashcardAuthorTaskCard({
               ))}
             </AnimatePresence>
             {!decksQuery.isPending && items.length === 0 && taskResultOutput.length > 0 ? (
-              <ToolOutputPanel output={taskResultOutput} />
+              <div className="px-3 py-2.5">
+                <ToolOutputPanel output={taskResultOutput} />
+              </div>
             ) : null}
             {decksQuery.error ? (
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={TASK_CARD_TRANSITION}
-                className="text-xs text-icon-critical-base"
+                className="text-xs text-icon-critical-base px-3 py-2.5"
               >
                 {stringifyError(decksQuery.error)}
               </motion.p>
