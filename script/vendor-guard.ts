@@ -4,8 +4,13 @@ import { execFileSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 
 const VENDOR_PREFIX = "vendor/opencode/"
+const VENDOR_DIFF_FILTER = "ACMRD"
 
-type Mode = { kind: "staged" } | { kind: "range"; range: string } | { kind: "stdin" }
+type Mode =
+  | { kind: "staged" }
+  | { kind: "worktree" }
+  | { kind: "range"; range: string }
+  | { kind: "stdin" }
 
 type RefUpdate = {
   oldSha: string
@@ -18,6 +23,8 @@ function parseMode(argv: string[]): Mode {
 
   if (argv[0] === "--staged") return { kind: "staged" }
 
+  if (argv[0] === "--worktree") return { kind: "worktree" }
+
   if (argv[0] === "--range") {
     const range = argv[1]
     if (!range) {
@@ -29,7 +36,7 @@ function parseMode(argv: string[]): Mode {
   if (argv[0] === "--stdin") return { kind: "stdin" }
 
   throw new Error(
-    `Unknown arguments: ${argv.join(" ")}\nUsage: bun run script/vendor-guard.ts [--staged | --range <a..b> | --stdin]`,
+    `Unknown arguments: ${argv.join(" ")}\nUsage: bun run script/vendor-guard.ts [--staged | --worktree | --range <a..b> | --stdin]`,
   )
 }
 
@@ -38,13 +45,46 @@ function gitOutput(args: string[]): string {
 }
 
 function gitChangedFilesForRange(range: string): string[] {
-  const output = execFileSync("git", ["diff", "--name-only", "--diff-filter=ACMR", range], {
+  const output = execFileSync("git", ["diff", "--name-only", `--diff-filter=${VENDOR_DIFF_FILTER}`, range], {
     encoding: "utf8",
   })
   return output
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
+}
+
+function gitUntrackedVendorFiles(): string[] {
+  const output = execFileSync(
+    "git",
+    ["ls-files", "--others", "--exclude-standard", "--", VENDOR_PREFIX],
+    {
+      encoding: "utf8",
+    },
+  )
+
+  return output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+}
+
+function gitChangedFilesForWorktree(): string[] {
+  const tracked = execFileSync(
+    "git",
+    ["diff", "--name-only", `--diff-filter=${VENDOR_DIFF_FILTER}`, "HEAD", "--", VENDOR_PREFIX],
+    {
+      encoding: "utf8",
+    },
+  )
+
+  return [
+    ...tracked
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean),
+    ...gitUntrackedVendorFiles(),
+  ]
 }
 
 function isGitSha(value: string): boolean {
@@ -122,13 +162,21 @@ function gitChangedFilesForRefUpdates(updates: RefUpdate[]): string[] {
 
 function gitChangedFilesForMode(mode: Mode): string[] {
   if (mode.kind === "staged") {
-    const output = execFileSync("git", ["diff", "--cached", "--name-only", "--diff-filter=ACMR"], {
-      encoding: "utf8",
-    })
+    const output = execFileSync(
+      "git",
+      ["diff", "--cached", "--name-only", `--diff-filter=${VENDOR_DIFF_FILTER}`],
+      {
+        encoding: "utf8",
+      },
+    )
     return output
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean)
+  }
+
+  if (mode.kind === "worktree") {
+    return gitChangedFilesForWorktree()
   }
 
   if (mode.kind === "range") {
@@ -153,6 +201,8 @@ function printFailure(vendorPaths: string[], mode: Mode): void {
   const scope =
     mode.kind === "staged"
       ? "staged changes"
+      : mode.kind === "worktree"
+        ? "the current worktree"
       : mode.kind === "range"
         ? `range ${mode.range}`
         : "incoming push diff"

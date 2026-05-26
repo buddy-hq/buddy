@@ -43,7 +43,7 @@ do
     range="$remote_sha..$local_sha"
   fi
 
-  git diff --name-only --diff-filter=ACMR "$range" >> "$tmp_file"
+  git diff --name-only --diff-filter=ACMRD "$range" >> "$tmp_file"
 done
 
 if [ -s "$tmp_file" ]; then
