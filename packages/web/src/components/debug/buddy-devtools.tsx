@@ -41,10 +41,10 @@ import { language } from "@/context/language"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { useChatStore } from "@/state/chat-store"
 import type { MessageWithParts } from "@/state/chat-types"
+import { useGlobalLearnerMemorySettings } from "@/state/learner-memory-settings"
 import { teachingSessionKey, useTeachingRuntime } from "@/state/teaching-runtime"
 import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
 import { useOnboardingStore } from "@/state/onboarding-store"
-import { useNotebookSettingsWorkbench } from "@/state/project-settings"
 import { SystemPromptPanel } from "./system-prompt-panel"
 import { PalettePanel } from "./palette-panel"
 import { buildSessionTrace, copyToClipboard } from "@/lib/directory-chat/chat-debug-helpers"
@@ -61,8 +61,17 @@ import {
   readOnboardingTestReturnTo,
   buildOnboardingChatEntryReturnTo,
 } from "@/lib/onboarding-test-mode"
+import { ProviderDialogPlayground } from "../designs/provider-dialog"
 
-type BuddyDevToolsTab = "palette" | "trace" | "system" | "snapshot" | "memory" | "query" | "actions"
+type BuddyDevToolsTab =
+  | "palette"
+  | "trace"
+  | "system"
+  | "snapshot"
+  | "memory"
+  | "query"
+  | "actions"
+  | "playground"
 
 type Rect = {
   left: number
@@ -147,7 +156,8 @@ function isBuddyDevToolsTab(value: string): value is BuddyDevToolsTab {
     value === "snapshot" ||
     value === "memory" ||
     value === "query" ||
-    value === "actions"
+    value === "actions" ||
+    value === "playground"
   )
 }
 
@@ -1037,7 +1047,7 @@ function createMemoryTestSettingsDraft(input?: LearnerMemorySettings): MemoryTes
 }
 
 function MemoryTestLab(props: { directory: string; sessionID?: string; onAfterRun: () => void }) {
-  const settings = useNotebookSettingsWorkbench(props.directory, true)
+  const settings = useGlobalLearnerMemorySettings()
   const onAfterRun = props.onAfterRun
   const settingsQuery = useQuery({
     queryKey: ["devtools", "learner-memory-settings", props.directory],
@@ -2335,9 +2345,9 @@ function readDevInstanceName(): string | undefined {
 }
 
 export function BuddyDevTools() {
-  const [buddyOpen, setBuddyOpen] = useState(false)
+  const [buddyOpen, setBuddyOpen] = useState(true)
   const [routerOpen, setRouterOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<BuddyDevToolsTab>("palette")
+  const [activeTab, setActiveTab] = useState<BuddyDevToolsTab>("playground")
   const [isCopied, setIsCopied] = useState(false)
   const [isDisconnectingOpenAi, setIsDisconnectingOpenAi] = useState(false)
 
@@ -2662,6 +2672,9 @@ export function BuddyDevTools() {
 
               <div className="min-w-0 overflow-x-auto border-b border-border-weaker-base">
                 <TabsList variant="line" className="h-9 w-max justify-start px-2">
+                  <TabsTrigger value="playground" className="text-xs">
+                    Playground
+                  </TabsTrigger>
                   <TabsTrigger value="palette" className="text-xs">
                     Palette
                   </TabsTrigger>
@@ -2737,6 +2750,10 @@ export function BuddyDevTools() {
                   </div>
                 </div>
               </div>
+            </TabsContent>
+
+            <TabsContent value="playground" className="min-h-0 flex-1 overflow-y-auto mt-0">
+              <ProviderDialogPlayground />
             </TabsContent>
 
             <TabsContent value="system" className="min-h-0 flex-1 overflow-hidden mt-0">

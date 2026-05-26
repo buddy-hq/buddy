@@ -8,9 +8,10 @@ const ISSUER = "https://auth.openai.com"
 const CODEX_API_ENDPOINT = "https://chatgpt.com/backend-api/codex/responses"
 const OAUTH_PORT = 1455
 const OAUTH_POLLING_SAFETY_MARGIN_MS = 3_000
-const OPENAI_PROVIDER_ID = "openai"
+export const OPENAI_PROVIDER_ID = "openai"
 const WINDOW_CLOSE_DELAY_MS = 1_500
 const OPENCODE_OAUTH_USER_AGENT = "opencode/local"
+const CANCELLED_AUTHORIZATION_ERROR = "Authorization cancelled"
 
 type PkceCodes = {
   verifier: string
@@ -50,6 +51,18 @@ type StoredOauthAuth = {
 
 const SUPERSEDED_AUTHORIZATION_ERROR = "Superseded by a newer authorization request"
 
+type OpenAICodexAuthAbortKind = "cancelled" | "superseded"
+
+class OpenAICodexAuthAbortError extends Error {
+  readonly kind: OpenAICodexAuthAbortKind
+
+  constructor(kind: OpenAICodexAuthAbortKind, message: string) {
+    super(message)
+    this.kind = kind
+    this.name = "OpenAICodexAuthAbortError"
+  }
+}
+
 function isStoredOauthAuth(value: StoredOauthAuth | { type: string }): value is StoredOauthAuth {
   return value.type === "oauth" && "access" in value && "refresh" in value && "expires" in value
 }
@@ -65,6 +78,19 @@ function escapeHtml(value: string) {
 
 let oauthServer: ReturnType<typeof createServer> | undefined
 let pendingOAuth: PendingOAuth | undefined
+
+function rejectPendingOAuth(kind: OpenAICodexAuthAbortKind, message: string) {
+  const current = pendingOAuth
+  pendingOAuth = undefined
+  current?.reject(new OpenAICodexAuthAbortError(kind, message))
+  return Boolean(current)
+}
+
+export function cancelOpenAICodexAuthorization() {
+  const cancelled = rejectPendingOAuth("cancelled", CANCELLED_AUTHORIZATION_ERROR)
+  stopOAuthServer()
+  return cancelled
+}
 
 function generateRandomString(length: number) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
@@ -422,10 +448,9 @@ async function startOAuthServer() {
     }
 
     if (url.pathname === "/cancel") {
-      pendingOAuth?.reject(new Error("Login cancelled"))
-      pendingOAuth = undefined
+      cancelOpenAICodexAuthorization()
       res.writeHead(200)
-      res.end("Login cancelled")
+      res.end(CANCELLED_AUTHORIZATION_ERROR)
       return
     }
 
@@ -448,7 +473,7 @@ function stopOAuthServer() {
 
 function waitForOAuthCallback(pkce: PkceCodes, state: string): Promise<TokenResponse> {
   return new Promise((resolve, reject) => {
-    pendingOAuth?.reject(new Error(SUPERSEDED_AUTHORIZATION_ERROR))
+    rejectPendingOAuth("superseded", SUPERSEDED_AUTHORIZATION_ERROR)
 
     const timeout = setTimeout(
       () => {
@@ -517,15 +542,18 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
               "Complete authorization in your browser. Buddy will reconnect automatically.",
             method: "auto" as const,
             callback: async () => {
-              const tokens = await callbackPromise
-              stopOAuthServer()
-              const accountId = extractAccountId(tokens)
-              return {
-                type: "success" as const,
-                refresh: tokens.refresh_token,
-                access: tokens.access_token,
-                expires: Date.now() + (tokens.expires_in ?? 3_600) * 1_000,
-                ...(accountId ? { accountId } : {}),
+              try {
+                const tokens = await callbackPromise
+                const accountId = extractAccountId(tokens)
+                return {
+                  type: "success" as const,
+                  refresh: tokens.refresh_token,
+                  access: tokens.access_token,
+                  expires: Date.now() + (tokens.expires_in ?? 3_600) * 1_000,
+                  ...(accountId ? { accountId } : {}),
+                }
+              } finally {
+                stopOAuthServer()
               }
             },
           }

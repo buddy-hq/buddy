@@ -15,6 +15,10 @@ import {
   openCodeDirectoryParams,
 } from "../http"
 import { getOpenCodeClient } from "../opencode-runtime/client"
+import {
+  cancelOpenAICodexAuthorization,
+  OPENAI_PROVIDER_ID,
+} from "../opencode-runtime/plugins/openai-codex-auth"
 import { ensureGlobalBootstrapWorkspaceDirectory } from "../project"
 
 const oauthMethodRequestSchema = z.object({
@@ -178,5 +182,41 @@ export const ProviderRoutes = new Hono()
           ...openCodeDirectoryParams(directoryResult.directory),
         })
         return respondWithSdkResult(c, result)
+      }),
+  )
+  .post(
+    "/:providerID/oauth/cancel",
+    describeRoute({
+      operationId: "provider.oauth.cancel",
+      summary: "Cancel provider OAuth",
+      responses: {
+        200: {
+          description: "Provider auth cancellation payload",
+          content: {
+            "application/json": { schema: resolver(z.boolean()) },
+          },
+        },
+        ...routeErrors(403),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", ProviderIDParamSchema),
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = resolveBootstrapDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        const providerID = c.req.valid("param").providerID
+        const localCancelled =
+          providerID === OPENAI_PROVIDER_ID ? cancelOpenAICodexAuthorization() : false
+        const client = await getOpenCodeClient(directoryResult.directory)
+        const result = await client.provider.oauth.cancel({
+          providerID,
+          ...openCodeDirectoryParams(directoryResult.directory),
+        })
+        if (result.error !== undefined) {
+          return respondWithSdkResult(c, result)
+        }
+        return c.json(localCancelled || result.data === true)
       }),
   )

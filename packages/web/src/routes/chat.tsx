@@ -6,6 +6,11 @@ import { NotebookCreationDialog } from "@/components/layout/chat-left-sidebar/di
 import { FolderOpenIcon, FolderPlusIcon, SparklesIcon } from "@/components/layout/sidebar-icons"
 import { language } from "@/context/language"
 import { getPlatform, usePlatform } from "@/context/platform"
+import { globalConfigQueryOptions } from "@/state/global-config-query"
+import {
+  loadNotebookLearnerMemoryDefaults,
+  resolveNotebookLearnerMemorySelection,
+} from "@/state/learner-memory-settings"
 import { bootstrapLearnerMemoryForNotebookBestEffort } from "@/lib/learner-memory"
 import { resolveBuddyIconUrl } from "@/lib/static-asset"
 import { stringifyError } from "../lib/api-client"
@@ -206,13 +211,41 @@ type EmptyProjectsStateProps = {
 
 function EmptyProjectsState(props: EmptyProjectsStateProps) {
   const platform = usePlatform()
+  const queryClient = useQueryClient()
   const buddyIconUrl = resolveBuddyIconUrl()
   const [directory, setDirectory] = useState("")
   const [notebookName, setNotebookName] = useState("")
   const [notebookDialogOpen, setNotebookDialogOpen] = useState(false)
   const [learnerMemoryEnabled, setLearnerMemoryEnabled] = useState(true)
   const [autoExtractEnabled, setAutoExtractEnabled] = useState(true)
+  const globalConfigQuery = useQuery(globalConfigQueryOptions())
   const hasNativePicker = typeof platform.openDirectoryPickerDialog === "function"
+  const learnerMemoryDefaults = resolveNotebookLearnerMemorySelection(
+    globalConfigQuery.data ?? {},
+    {},
+  )
+
+  async function resetNotebookCreationDefaults() {
+    try {
+      const defaults = await loadNotebookLearnerMemoryDefaults(queryClient)
+      setLearnerMemoryEnabled(defaults.enabled)
+      setAutoExtractEnabled(defaults.autoExtract)
+      return
+    } catch {
+      if (!globalConfigQuery.data) {
+        return
+      }
+    }
+
+    setLearnerMemoryEnabled(learnerMemoryDefaults.enabled)
+    setAutoExtractEnabled(learnerMemoryDefaults.autoExtract)
+  }
+
+  async function openNotebookDialog() {
+    setNotebookName(language.t("sidebar.newNotebookDefaultName"))
+    await resetNotebookCreationDefaults()
+    setNotebookDialogOpen(true)
+  }
 
   return (
     <div
@@ -266,8 +299,7 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
             size="lg"
             disabled={props.busyAction !== undefined}
             onClick={() => {
-              setNotebookName(language.t("sidebar.newNotebookDefaultName"))
-              setNotebookDialogOpen(true)
+              void openNotebookDialog()
             }}
           >
             <FolderPlusIcon className="mr-2 h-4 w-4" />
@@ -336,8 +368,7 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
           setNotebookDialogOpen(open)
           if (!open) {
             setNotebookName("")
-            setLearnerMemoryEnabled(true)
-            setAutoExtractEnabled(true)
+            void resetNotebookCreationDefaults()
           }
         }}
         onNotebookNameChange={setNotebookName}

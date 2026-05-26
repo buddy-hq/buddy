@@ -1,6 +1,9 @@
-import type { ProviderAuthAuthorization } from "@opencode-ai/sdk/v2/client"
+import type { ProviderAuthAuthorization } from "@buddy/sdk/types"
 import type { ProviderInfo } from "@/state/chat-types"
-import { getOpenCodeClient } from "./opencode-client"
+import { getBuddyClient } from "./buddy-client"
+
+const CANCELLED_AUTHORIZATION_ERROR = "Authorization cancelled"
+const SUPERSEDED_AUTHORIZATION_ERROR = "Superseded by a newer authorization request"
 
 function hasErrorData(error: unknown): error is { data?: { message?: unknown } } {
   return Boolean(error && typeof error === "object" && "data" in error)
@@ -32,8 +35,8 @@ export function formatProviderAuthError(error: unknown, fallback: string): strin
 
 export function parseProviderConfirmationCode(input?: string) {
   if (!input) return ""
-  if (!input.includes(":")) return input
-  return input.split(":")[1]?.trim() ?? input
+  if (!input.includes(":")) return ""
+  return input.split(":")[1]?.trim() ?? ""
 }
 
 export function findPreferredOAuthMethodIndex(provider: ProviderInfo) {
@@ -56,8 +59,8 @@ export async function authorizeProviderOAuth(input: {
   directory?: string
   providerID: string
   methodIndex: number
-}) {
-  const client = getOpenCodeClient(input.directory)
+}): Promise<ProviderAuthAuthorization | undefined> {
+  const client = getBuddyClient(input.directory)
   const result = await client.provider.oauth.authorize(
     {
       providerID: input.providerID,
@@ -65,7 +68,7 @@ export async function authorizeProviderOAuth(input: {
     },
     { throwOnError: true },
   )
-  return result.data as ProviderAuthAuthorization | undefined
+  return result.data ?? undefined
 }
 
 export async function completeProviderOAuth(input: {
@@ -74,7 +77,7 @@ export async function completeProviderOAuth(input: {
   methodIndex: number
   code?: string
 }) {
-  const client = getOpenCodeClient(input.directory)
+  const client = getBuddyClient(input.directory)
   await client.provider.oauth.callback(
     {
       providerID: input.providerID,
@@ -85,8 +88,23 @@ export async function completeProviderOAuth(input: {
   )
 }
 
-export async function removeProviderAuth(input: { directory?: string; providerID: string }) {
-  const client = getOpenCodeClient(input.directory)
+export async function cancelProviderOAuth(input: { directory?: string; providerID: string }) {
+  const client = getBuddyClient(input.directory)
+  await client.provider.oauth.cancel(
+    {
+      providerID: input.providerID,
+    },
+    { throwOnError: true },
+  )
+}
+
+export function isProviderAuthFlowInterrupted(error: unknown) {
+  const message = formatProviderAuthError(error, "")
+  return message === CANCELLED_AUTHORIZATION_ERROR || message === SUPERSEDED_AUTHORIZATION_ERROR
+}
+
+export async function removeProviderAuth(input: { providerID: string }) {
+  const client = getBuddyClient()
   await client.auth.remove(
     {
       providerID: input.providerID,
@@ -95,7 +113,7 @@ export async function removeProviderAuth(input: { directory?: string; providerID
   )
 }
 
-export async function reloadProviderRuntime(directory?: string) {
-  const client = getOpenCodeClient(directory)
+export async function reloadProviderRuntime() {
+  const client = getBuddyClient()
   await client.global.dispose({ throwOnError: true })
 }

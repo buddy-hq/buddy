@@ -32,7 +32,10 @@ function sessionPathParams(
   }
 }
 
-function namedPathParams(input: { name: string; directory?: string; [key: string]: unknown }, key = "name") {
+function namedPathParams(
+  input: { name: string; directory?: string; [key: string]: unknown },
+  key = "name",
+) {
   const { name, directory, ...rest } = input
   const bodyEntries = Object.entries(rest).filter(([, value]) => value !== undefined)
 
@@ -43,7 +46,11 @@ function namedPathParams(input: { name: string; directory?: string; [key: string
   }
 }
 
-function providerPathParams(input: { providerID: string; directory?: string; [key: string]: unknown }) {
+function providerPathParams(input: {
+  providerID: string
+  directory?: string
+  [key: string]: unknown
+}) {
   const { providerID, directory, ...rest } = input
   const bodyEntries = Object.entries(rest).filter(([, value]) => value !== undefined)
 
@@ -122,6 +129,13 @@ export function createBuddyOpenCodeClient(raw: OpencodeClient) {
             ...providerPathParams(params),
             body: { method: params.method, code: params.code ?? "" },
           } as never),
+        cancel: (params: { providerID: string; directory?: string }) =>
+          fetchSdkRoute({
+            directory: params.directory,
+            method: "POST",
+            path: `/provider/${encodeURIComponent(params.providerID)}/oauth/cancel`,
+            query: params.directory ? { directory: params.directory } : undefined,
+          }),
       },
     },
     find: {
@@ -162,20 +176,16 @@ export function createBuddyOpenCodeClient(raw: OpencodeClient) {
       list: (params: DirectoryParams = {}) => raw.command.list(directoryQuery(params)),
     },
     auth: {
-      set: (params: { providerID: string; auth: unknown; directory?: string }) =>
+      set: (params: { providerID: string; auth: unknown }) =>
         fetchSdkRoute({
-          directory: params.directory,
           method: "PUT",
           path: `/auth/${encodeURIComponent(params.providerID)}`,
-          query: params.directory ? { directory: params.directory } : undefined,
           body: params.auth,
         }),
-      remove: (params: { providerID: string; directory?: string }) =>
+      remove: (params: { providerID: string }) =>
         fetchSdkRoute({
-          directory: params.directory,
           method: "DELETE",
           path: `/auth/${encodeURIComponent(params.providerID)}`,
-          query: params.directory ? { directory: params.directory } : undefined,
         }),
     },
     permission: {
@@ -253,7 +263,12 @@ export function createBuddyOpenCodeClient(raw: OpencodeClient) {
       },
     },
     session: {
-      create: (params: { directory?: string; parentID?: string; title?: string; [key: string]: unknown }) => {
+      create: (params: {
+        directory?: string
+        parentID?: string
+        title?: string
+        [key: string]: unknown
+      }) => {
         const { directory, ...rest } = params
         const bodyEntries = Object.entries(rest).filter(([, value]) => value !== undefined)
         return raw.session.create({
