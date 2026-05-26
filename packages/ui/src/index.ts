@@ -200,3 +200,11 @@ export {
   TableRow,
 } from "./components/ui/table"
 export * from "./components/ui/item"
+export {
+  ComposerDock,
+  ComposerDockHeader,
+  ComposerDockTitle,
+  ComposerDockActions,
+  ComposerDockBody,
+  ComposerDockFooter,
+} from "./components/ui/composer-dock"
