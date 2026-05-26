@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Provider Connection Flow Prototype</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts for Diverse Aesthetics -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..750&family=JetBrains+Mono:wght@100..800&family=Lora:ital,wght@0,400..700;1,400..700&family=Outfit:wght@100..900&family=Sora:wght@100..800&family=Cinzel:wght@400..950&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              cyber: ['"JetBrains Mono"', "monospace"],
+              glass: ['"Sora"', '"Outfit"', "sans-serif"],
+              serifHeading: ['"Cinzel"', "serif"],
+              serifBody: ['"Lora"', "serif"],
+              tui: ['"Space Mono"', "monospace"],
+              playful: ['"Fredoka"', "sans-serif"],
+            },
+            animation: {
+              "pulse-fast": "pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+              "terminal-blink": "blink 1.2s step-start infinite",
+            },
+            keyframes: {
+              blink: {
+                "50%": { opacity: "0" },
+              },
+            },
+          },
+        },
+      }
+    </script>
+
+    <style>
+      /* Custom Scrollbars */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(156, 163, 175, 0.2);
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(156, 163, 175, 0.4);
+      }
+
+      /* Terminal Scanlines Overlay */
+      .scanlines {
+        background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%);
+        background-size: 100% 4px;
+      }
+    </style>
+  </head>
+  <body class="h-full bg-slate-950 text-slate-100 flex flex-col font-sans overflow-hidden">
+    <!-- Header Banner -->
+    <header
+      class="border-b border-slate-800 bg-slate-900/80 backdrop-blur px-6 py-4 flex items-center justify-between flex-shrink-0 z-10"
+    >
+      <div class="flex items-center gap-3">
+        <div
+          class="h-8 w-8 rounded-lg bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/25"
+        >
+          <svg class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+            />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-sm font-bold tracking-tight text-white flex items-center gap-2">
+            Connection Flow Simulator
+            <span
+              class="text-xs font-mono font-medium px-2 py-0.5 rounded bg-slate-800 text-slate-400"
+              >Step-by-Step Flow</span
+            >
+          </h1>
+          <p class="text-xs text-slate-400">
+            Multi-option selectors, detail inputs, loading sequences, success / error states
+          </p>
+        </div>
+      </div>
+
+      <!-- Theme Selector -->
+      <div
+        class="flex items-center gap-1.5 overflow-x-auto bg-slate-900 border border-slate-800 p-1 rounded-lg"
+      >
+        <button
+          id="theme-btn-neo-brutalist"
+          onclick="setVisualTheme('neo-brutalist')"
+          class="px-3 py-1.5 text-xs font-semibold rounded-md bg-slate-800 text-white border border-slate-700"
+        >
+          🌐 Neo-Brutalist
+        </button>
+        <button
+          id="theme-btn-glassmorphic"
+          onclick="setVisualTheme('glassmorphic')"
+          class="px-3 py-1.5 text-xs font-medium rounded-md text-slate-400 hover:text-slate-200"
+        >
+          ✨ Glassmorphic
+        </button>
+        <button
+          id="theme-btn-warm-editorial"
+          onclick="setVisualTheme('warm-editorial')"
+          class="px-3 py-1.5 text-xs font-medium rounded-md text-slate-400 hover:text-slate-200"
+        >
+          📜 Warm Editorial
+        </button>
+        <button
+          id="theme-btn-terminal-tui"
+          onclick="setVisualTheme('terminal-tui')"
+          class="px-3 py-1.5 text-xs font-medium rounded-md text-slate-400 hover:text-slate-200"
+        >
+          📟 TUI Terminal
+        </button>
+        <button
+          id="theme-btn-playful-tactile"
+          onclick="setVisualTheme('playful-tactile')"
+          class="px-3 py-1.5 text-xs font-medium rounded-md text-slate-400 hover:text-slate-200"
+        >
+          🎨 Playful Tactile
+        </button>
+      </div>
+    </header>
+
+    <!-- Interactive Sandbox -->
+    <main class="flex-1 flex overflow-hidden min-h-0">
+      <!-- LEFT PANEL: Simulator Controls -->
+      <aside
+        class="w-80 border-r border-slate-800 bg-slate-900/40 p-5 flex flex-col gap-5 flex-shrink-0"
+      >
+        <div>
+          <h2 class="text-[10px] font-bold tracking-widest text-slate-400 uppercase mb-2">
+            Simulate Response States
+          </h2>
+          <p class="text-xs text-slate-500 mb-3 leading-relaxed">
+            Configure the simulated response of Step 2 credentials verification.
+          </p>
+
+          <div class="space-y-2">
+            <!-- Simulation Status Switcher -->
+            <div class="flex flex-col gap-1.5">
+              <span class="text-xs text-slate-400 font-medium">Verify Trigger Action:</span>
+              <div
+                class="grid grid-cols-2 gap-2 bg-slate-850 p-1.5 rounded border border-slate-800"
+              >
+                <button
+                  onclick="setSimResponse('success')"
+                  id="btn-sim-success"
+                  class="px-2.5 py-1 text-xs rounded bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 font-medium transition-all"
+                >
+                  Simulate Success
+                </button>
+                <button
+                  onclick="setSimResponse('error')"
+                  id="btn-sim-error"
+                  class="px-2.5 py-1 text-xs rounded bg-slate-800 text-slate-400 border border-slate-750 hover:bg-slate-700 hover:text-slate-200 transition-all"
+                >
+                  Simulate Error
+                </button>
+              </div>
+            </div>
+
+            <!-- Custom error messages simulator -->
+            <div id="custom-error-field" class="hidden">
+              <label class="block text-xs text-slate-450 mb-1">Simulated Error Content</label>
+              <textarea
+                id="sim-error-content"
+                oninput="updateSimErrorText(this.value)"
+                rows="3"
+                class="w-full bg-slate-800 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none"
+              >
+Credentials validation failed: API response code 401 unauthorized. Please inspect API Key syntax.</textarea
+              >
+            </div>
+          </div>
+        </div>
+
+        <hr class="border-slate-800" />
+
+        <div class="flex-1 flex flex-col justify-between">
+          <div class="space-y-4">
+            <h2 class="text-[10px] font-bold tracking-widest text-slate-400 uppercase">
+              State Trace Logs
+            </h2>
+            <div
+              class="bg-black/50 border border-slate-850 p-3 rounded font-mono text-[10px] text-slate-400 space-y-1 overflow-y-auto max-h-[220px]"
+              id="sim-trace-logs"
+            >
+              <div>[System] Simulator initialized.</div>
+              <div>[System] Theme: Neo-Brutalist active.</div>
+            </div>
+          </div>
+
+          <div class="text-[10px] text-slate-500 font-mono leading-relaxed">
+            Interactive client-side flow router. Click "Edit Connection" on the mock dashboard on
+            the right to start.
+          </div>
+        </div>
+      </aside>
+
+      <!-- RIGHT PANEL: Flow Showcase area -->
+      <section
+        class="flex-1 overflow-y-auto p-8 bg-slate-900/10 flex flex-col items-center justify-center relative min-h-0"
+      >
+        <!-- Backing gradient circles for Glassmorphism backdrop -->
+        <div id="aurora-glow" class="absolute inset-0 pointer-events-none overflow-hidden hidden">
+          <div
+            class="absolute -z-10 w-96 h-96 rounded-full bg-indigo-650/15 blur-[90px] top-1/4 left-1/4"
+          ></div>
+          <div
+            class="absolute -z-10 w-72 h-72 rounded-full bg-rose-500/10 blur-[85px] top-1/2 left-1/2"
+          ></div>
+        </div>
+
+        <!-- Mount Element -->
+        <div id="flow-workspace" class="w-full max-w-2xl flex justify-center items-center py-6">
+          <!-- populated dynamically -->
+        </div>
+      </section>
+    </main>
+
+    <!-- Interactive Sandbox script -->
+    <script>
+      // State model
+      const state = {
+        activeTheme: "neo-brutalist",
+        activeScreen: "dashboard", // 'dashboard', 'dialog-step1', 'dialog-step2', 'success'
+
+        // Selected provider parameters
+        selectedProvider: null,
+        selectedMethod: null,
+
+        // Verification states
+        busy: false,
+        error: null,
+        simResult: "success", // 'success' or 'error'
+        customError:
+          "Credentials validation failed: API response code 401 unauthorized. Please inspect API Key syntax.",
+
+        // Providers list database
+        providers: [
+          {
+            id: "openai",
+            name: "OpenAI",
+            connected: false,
+            source: "user",
+            methods: [
+              {
+                id: "headless",
+                type: "headless",
+                name: "Headless SSH",
+                desc: "Secure host process connection via command prompt handshake.",
+              },
+              {
+                id: "oauth",
+                type: "oauth",
+                name: "Browser Console Login",
+                desc: "Authenticate instantly via OpenAI platform authentication web page.",
+              },
+              {
+                id: "api",
+                type: "api",
+                name: "Custom API Key",
+                desc: "Input your secret credential tokens directly.",
+              },
+            ],
+          },
+          {
+            id: "github",
+            name: "GitHub Copilot",
+            connected: true,
+            source: "env",
+            methods: [
+              {
+                id: "oauth",
+                type: "oauth",
+                name: "Browser OAuth Sync",
+                desc: "Link workspace repositories via secure GitHub token authorizations.",
+              },
+              {
+                id: "pat",
+                type: "api",
+                name: "Personal Access Token",
+                desc: "Paste a fine-grained access token with repository sync permissions.",
+              },
+            ],
+          },
+          {
+            id: "anthropic",
+            name: "Anthropic Claude",
+            connected: false,
+            source: "user",
+            methods: [
+              {
+                id: "oauth",
+                type: "oauth",
+                name: "Developer SSO Console",
+                desc: "Sign in to the Anthropic developer dashboard directly.",
+              },
+              {
+                id: "api",
+                type: "api",
+                name: "Access Token API",
+                desc: "Configure custom Claude endpoints using secret API keys.",
+              },
+            ],
+          },
+        ],
+      }
+
+      // Styling constants
+      const themeStyles = {
+        "neo-brutalist": {
+          card: "border-4 border-cyan-400 bg-slate-950 text-white font-cyber p-6 shadow-[8px_8px_0px_#f43f5e] relative overflow-hidden text-sm",
+          subCard: "border-2 border-dashed border-cyan-400/40 p-4 bg-slate-900/50",
+          title: "text-xl font-black tracking-wider uppercase text-cyan-400",
+          desc: "text-xs text-slate-400 font-mono leading-relaxed",
+          input:
+            "bg-slate-900 text-white border-2 border-cyan-400 px-3 py-2 text-xs focus:outline-none rounded-none w-full disabled:opacity-50",
+          btnPrimary:
+            "bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black border-2 border-slate-950 px-4 py-2.5 uppercase shadow-[3px_3px_0px_#f43f5e] active:translate-y-0.5 active:shadow-none transition-all text-xs text-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
+          btnSecondary:
+            "bg-slate-800 hover:bg-slate-700 text-cyan-400 font-black border-2 border-cyan-400 px-4 py-2.5 uppercase shadow-[3px_3px_0px_#000] active:translate-y-0.5 active:shadow-none transition-all text-xs text-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
+          btnDanger:
+            "bg-rose-600 hover:bg-rose-500 text-white font-black border-2 border-slate-950 px-4 py-2.5 uppercase shadow-[3px_3px_0px_#06b6d4] active:translate-y-0.5 active:shadow-none transition-all text-xs text-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
+          badgeConnected:
+            "bg-emerald-500 text-slate-950 text-[10px] px-2 py-0.5 font-black uppercase border-2 border-slate-950 shadow-[1px_1px_0px_#000]",
+          badgeEnv:
+            "bg-amber-400 text-slate-950 text-[10px] px-2 py-0.5 font-black uppercase border-2 border-slate-950 shadow-[1px_1px_0px_#000]",
+          badgeDisconnected:
+            "bg-rose-500 text-slate-950 text-[10px] px-2 py-0.5 font-black uppercase border-2 border-slate-950 shadow-[1px_1px_0px_#000]",
+          errorBox:
+            "border-2 border-rose-500 bg-rose-950/40 text-rose-350 p-3 text-xs leading-normal",
+          successBox:
+            "border-2 border-emerald-500 bg-emerald-950/40 text-emerald-350 p-3 text-xs leading-normal",
+          optionCard:
+            "border-2 border-cyan-400 bg-slate-900/50 hover:bg-cyan-400/10 p-4 transition-all cursor-pointer flex flex-col justify-between items-start",
+          textLink: "text-rose-400 hover:text-rose-300 underline font-bold text-xs",
+          divider: "border-t-2 border-dashed border-cyan-400/20 my-4",
+        },
+        glassmorphic: {
+          card: "border border-white/10 bg-slate-900/40 backdrop-blur-2xl text-white font-glass p-8 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5),_0_0_2px_1px_rgba(255,255,255,0.05)] relative overflow-hidden text-sm",
+          subCard: "bg-white/5 border border-white/5 p-4 rounded-2xl",
+          title:
+            "text-xl font-bold bg-gradient-to-r from-indigo-200 via-white to-rose-200 bg-clip-text text-transparent",
+          desc: "text-xs text-slate-450 font-normal leading-relaxed",
+          input:
+            "bg-white/5 border border-white/10 text-white rounded-xl px-4 py-2.5 text-xs focus:outline-none focus:border-indigo-500 w-full disabled:opacity-40",
+          btnPrimary:
+            "bg-gradient-to-r from-indigo-500 to-violet-650 hover:from-indigo-400 hover:to-violet-550 text-white font-semibold px-5 py-3 rounded-xl shadow-md transition-all text-xs text-center cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed",
+          btnSecondary:
+            "bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 font-semibold px-5 py-3 rounded-xl transition-all text-xs text-center cursor-pointer disabled:opacity-45",
+          btnDanger:
+            "bg-white/5 hover:bg-white/10 hover:text-rose-400 border border-white/10 hover:border-rose-500/20 text-slate-350 font-semibold px-5 py-3 rounded-xl transition-all text-xs text-center cursor-pointer disabled:opacity-45",
+          badgeConnected:
+            "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 font-semibold",
+          badgeEnv:
+            "bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 font-semibold",
+          badgeDisconnected:
+            "bg-white/5 text-slate-400 border border-white/10 text-[10px] px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 font-semibold",
+          errorBox: "border border-rose-500/20 bg-rose-500/5 text-rose-200 p-4 rounded-2xl text-xs",
+          successBox:
+            "border border-emerald-500/20 bg-emerald-500/5 text-emerald-200 p-4 rounded-2xl text-xs",
+          optionCard:
+            "border border-white/10 bg-white/5 hover:bg-white/10 hover:border-indigo-500/40 p-5 rounded-2xl transition-all cursor-pointer flex flex-col justify-between items-start",
+          textLink: "text-indigo-300 hover:text-indigo-250 underline text-xs",
+          divider: "border-t border-white/5 my-4",
+        },
+        "warm-editorial": {
+          card: "border border-stone-200 bg-[#fdfcfa] text-stone-900 font-serif p-8 rounded-xl shadow-[0_8px_30px_rgba(28,27,25,0.03)] relative overflow-hidden text-sm",
+          subCard: "bg-stone-50 border border-stone-150 p-4 rounded-lg",
+          title: "text-xl font-bold tracking-tight text-stone-850",
+          desc: "text-xs font-sans text-stone-500 font-light leading-relaxed",
+          input:
+            "bg-[#f8f6f1] border border-stone-200 text-stone-800 rounded px-3 py-2 text-xs focus:outline-none w-full disabled:opacity-50",
+          btnPrimary:
+            "font-sans bg-stone-900 hover:bg-stone-800 text-white font-medium px-4 py-2.5 rounded text-xs transition-colors text-center cursor-pointer disabled:opacity-50",
+          btnSecondary:
+            "font-sans border border-stone-300 hover:bg-stone-50 text-stone-600 px-4 py-2.5 rounded text-xs transition-colors text-center cursor-pointer disabled:opacity-50",
+          btnDanger:
+            "font-sans border border-stone-300 hover:bg-stone-50 text-stone-600 px-4 py-2.5 rounded text-xs transition-colors text-center cursor-pointer disabled:opacity-50",
+          badgeConnected:
+            "font-sans bg-emerald-50 text-emerald-800 border border-emerald-250/50 text-[10px] px-2 py-0.5 rounded font-medium inline-block text-center",
+          badgeEnv:
+            "font-sans bg-amber-50 text-amber-800 border border-amber-250/50 text-[10px] px-2 py-0.5 rounded font-medium inline-block text-center",
+          badgeDisconnected:
+            "font-sans bg-stone-100 text-stone-400 border border-stone-200/60 text-[10px] px-2 py-0.5 rounded font-medium inline-block text-center",
+          errorBox:
+            "border border-rose-200 bg-rose-50/40 text-rose-900 p-3.5 rounded text-xs font-sans leading-normal",
+          successBox:
+            "border border-emerald-200 bg-emerald-50/40 text-emerald-950 p-3.5 rounded text-xs font-sans leading-normal",
+          optionCard:
+            "border border-stone-200 bg-stone-50/50 hover:bg-stone-50 hover:border-stone-400 p-5 rounded-lg transition-all cursor-pointer flex flex-col justify-between items-start font-sans",
+          textLink: "text-stone-600 hover:text-stone-850 underline italic font-serif text-xs",
+          divider: "border-t border-stone-150 my-4",
+        },
+        "terminal-tui": {
+          card: "border-2 border-green-500 bg-black text-green-500 font-tui tracking-widest text-lg p-6 rounded-none relative overflow-hidden scanlines",
+          subCard: "border border-green-950 p-4 bg-black",
+          title: "text-xl font-bold uppercase",
+          desc: "text-sm text-green-655 font-mono leading-normal uppercase",
+          input:
+            "bg-black border border-green-555 text-green-500 px-3 py-2 text-sm focus:outline-none w-full rounded-none disabled:opacity-40",
+          btnPrimary:
+            "bg-green-500 text-black font-bold px-4 py-2.5 text-xs border border-green-500 hover:bg-black hover:text-green-500 transition-all text-center cursor-pointer uppercase disabled:opacity-40",
+          btnSecondary:
+            "border border-green-500 text-green-555 hover:bg-green-950 px-4 py-2.5 text-xs transition-all text-center cursor-pointer uppercase disabled:opacity-40",
+          btnDanger:
+            "border border-red-500 text-red-500 hover:bg-red-950 px-4 py-2.5 text-xs transition-all text-center cursor-pointer uppercase disabled:opacity-40",
+          badgeConnected:
+            "border border-green-500 px-2 py-0.5 text-xs text-black bg-green-500 font-bold inline-block text-center",
+          badgeEnv:
+            "border border-yellow-500 px-2 py-0.5 text-xs text-black bg-yellow-500 font-bold inline-block text-center",
+          badgeDisconnected:
+            "border border-green-500/40 px-2 py-0.5 text-xs text-green-550/70 inline-block text-center",
+          errorBox:
+            "border border-red-555 bg-black text-red-500 p-3 text-xs font-mono uppercase leading-snug",
+          successBox:
+            "border border-green-555 bg-black text-green-400 p-3 text-xs font-mono uppercase leading-snug",
+          optionCard:
+            "border border-green-900 bg-black hover:bg-green-950/20 hover:border-green-500 p-4 transition-all cursor-pointer flex flex-col justify-between items-start text-xs",
+          textLink: "text-green-400 hover:text-green-300 underline text-xs",
+          divider: "border-b border-dashed border-green-950 my-4",
+        },
+        "playful-tactile": {
+          card: "border-4 border-slate-800 bg-white text-slate-800 font-playful p-6 rounded-[28px] shadow-[6px_6px_0px_rgba(30,41,59,1)] relative overflow-hidden text-sm",
+          subCard: "bg-slate-50 border-3 border-slate-800 p-4 rounded-2xl",
+          title: "text-xl font-black text-slate-800 tracking-tight",
+          desc: "text-xs text-slate-555 font-semibold leading-relaxed",
+          input:
+            "bg-slate-50 border-3 border-slate-800 text-slate-850 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none focus:ring-4 focus:ring-yellow-300 w-full shadow-[inset_1px_1px_0px_rgba(0,0,0,0.06)] disabled:opacity-50",
+          btnPrimary:
+            "bg-yellow-400 hover:bg-yellow-350 text-slate-800 font-extrabold px-4 py-2.5 rounded-xl border-3 border-slate-800 shadow-[3px_3px_0px_rgba(30,41,59,1)] active:translate-y-0.5 active:shadow-[1px_1px_0px_rgba(30,41,59,1)] transition-all text-xs text-center cursor-pointer uppercase tracking-wider disabled:opacity-50",
+          btnSecondary:
+            "bg-slate-100 hover:bg-slate-50 text-slate-600 font-extrabold px-4 py-2.5 rounded-xl border-3 border-slate-300 shadow-[3px_3px_0px_rgba(0,0,0,0.08)] active:translate-y-0.5 active:shadow-[1px_1px_0px_rgba(0,0,0,0.02)] transition-all text-xs text-center cursor-pointer uppercase tracking-wider",
+          btnDanger:
+            "bg-rose-455 hover:bg-rose-400 text-slate-800 font-extrabold px-4 py-2.5 rounded-xl border-3 border-slate-800 shadow-[3px_3px_0px_rgba(30,41,59,1)] active:translate-y-0.5 active:shadow-[1px_1px_0px_rgba(30,41,59,1)] transition-all text-xs text-center cursor-pointer uppercase tracking-wider disabled:opacity-50",
+          badgeConnected:
+            "bg-emerald-400 text-slate-800 border-3 border-slate-800 text-[10px] px-2 py-0.5 rounded-full font-bold shadow-[1px_1px_0px_rgba(30,41,59,1)] inline-block text-center",
+          badgeEnv:
+            "bg-amber-400 text-slate-800 border-3 border-slate-800 text-[10px] px-2 py-0.5 rounded-full font-bold shadow-[1px_1px_0px_rgba(30,41,59,1)] inline-block text-center",
+          badgeDisconnected:
+            "bg-slate-100 text-slate-400 border-3 border-slate-300 text-[10px] px-2 py-0.5 rounded-full font-bold inline-block text-center",
+          errorBox:
+            "border-3 border-rose-500 bg-rose-50 text-rose-800 p-3 rounded-xl text-xs font-semibold shadow-[2px_2px_0px_rgba(239,68,68,0.2)] leading-tight",
+          successBox:
+            "border-3 border-emerald-500 bg-emerald-50 text-emerald-800 p-3 rounded-xl text-xs font-semibold shadow-[2px_2px_0px_rgba(16,185,129,0.2)] leading-tight",
+          optionCard:
+            "border-3 border-slate-800 bg-slate-50 hover:bg-slate-100 p-5 rounded-2xl transition-all cursor-pointer flex flex-col justify-between items-start shadow-[3px_3px_0px_rgba(30,41,59,1)] active:translate-y-0.5 active:shadow-[1px_1px_0px_rgba(30,41,59,1)]",
+          textLink: "text-sky-600 hover:text-sky-555 hover:underline font-bold text-xs",
+          divider: "border-t-3 border-slate-100 my-4",
+        },
+      }
+
+      window.addEventListener("DOMContentLoaded", () => {
+        // Initialize view
+        setVisualTheme("neo-brutalist")
+      })
+
+      // Logging trace updates
+      function addTraceLog(message) {
+        const logger = document.getElementById("sim-trace-logs")
+        if (logger) {
+          const line = document.createElement("div")
+          const now = new Date()
+          const tStr = now.toTimeString().split(" ")[0]
+          line.innerText = `[${tStr}] ${message}`
+          logger.appendChild(line)
+          logger.scrollTop = logger.scrollHeight
+        }
+      }
+
+      // SIMULATOR PANEL EVENTS
+      function setVisualTheme(themeId) {
+        state.activeTheme = themeId
+
+        const themes = [
+          "neo-brutalist",
+          "glassmorphic",
+          "warm-editorial",
+          "terminal-tui",
+          "playful-tactile",
+        ]
+        themes.forEach((t) => {
+          const btn = document.getElementById(`theme-btn-${t}`)
+          if (t === themeId) {
+            btn.className =
+              "px-3 py-1.5 text-xs font-semibold rounded-md bg-slate-800 text-white border border-slate-700"
+          } else {
+            btn.className =
+              "px-3 py-1.5 text-xs font-medium rounded-md text-slate-400 hover:text-slate-200"
+          }
+        })
+
+        // Special visual aura trigger for Glassmorphic
+        const aurora = document.getElementById("aurora-glow")
+        if (themeId === "glassmorphic") {
+          aurora.classList.remove("hidden")
+        } else {
+          aurora.classList.add("hidden")
+        }
+
+        addTraceLog(`Visual theme changed: ${themeId}`)
+        renderWorkspace()
+      }
+
+      function setSimResponse(type) {
+        state.simResult = type
+        const sBtn = document.getElementById("btn-sim-success")
+        const eBtn = document.getElementById("btn-sim-error")
+        const customErrGroup = document.getElementById("custom-error-field")
+
+        if (type === "success") {
+          sBtn.className =
+            "px-2.5 py-1 text-xs rounded bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 font-medium transition-all"
+          eBtn.className =
+            "px-2.5 py-1 text-xs rounded bg-slate-800 text-slate-400 border border-slate-750 hover:bg-slate-700 hover:text-slate-200 transition-all"
+          customErrGroup.classList.add("hidden")
+        } else {
+          sBtn.className =
+            "px-2.5 py-1 text-xs rounded bg-slate-800 text-slate-400 border border-slate-750 hover:bg-slate-700 hover:text-slate-200 transition-all"
+          eBtn.className =
+            "px-2.5 py-1 text-xs rounded bg-rose-600/20 text-rose-400 border border-rose-500/30 font-medium transition-all"
+          customErrGroup.classList.remove("hidden")
+        }
+
+        addTraceLog(`Submit action will simulate: ${type}`)
+      }
+
+      function updateSimErrorText(txt) {
+        state.customError = txt
+        addTraceLog(`Simulated error text altered.`)
+      }
+
+      // ACTIONS FOR PROTOTYPE
+      function triggerEditConnection(providerId) {
+        const p = state.providers.find((x) => x.id === providerId)
+        if (!p) return
+
+        state.selectedProvider = p
+        state.selectedMethod = null
+        state.error = null
+        state.busy = false
+        state.activeScreen = "dialog-step1"
+
+        addTraceLog(`Edit Connection clicked: ${p.name}`)
+        renderWorkspace()
+      }
+
+      function selectConnectionMethod(methodId) {
+        if (!state.selectedProvider) return
+        const m = state.selectedProvider.methods.find((x) => x.id === methodId)
+        if (!m) return
+
+        state.selectedMethod = m
+        state.error = null
+        state.busy = false
+        state.activeScreen = "dialog-step2"
+
+        addTraceLog(`Connection method picked: ${m.name}`)
+        renderWorkspace()
+      }
+
+      function goBackToStep1() {
+        state.selectedMethod = null
+        state.error = null
+        state.activeScreen = "dialog-step1"
+        addTraceLog(`Navigated back to Method Selection.`)
+        renderWorkspace()
+      }
+
+      function triggerSubmitConfiguration() {
+        state.busy = true
+        state.error = null
+        addTraceLog(`Trigger verification submit. busy = true`)
+        renderWorkspace()
+
+        setTimeout(() => {
+          state.busy = false
+          if (state.simResult === "success") {
+            state.activeScreen = "success"
+            state.selectedProvider.connected = true
+            addTraceLog(`Verification succeeded. Connection activated.`)
+          } else {
+            state.error = state.customError
+            addTraceLog(`Verification failed: ${state.error}`)
+          }
+          renderWorkspace()
+        }, 1500)
+      }
+
+      function triggerDisconnect() {
+        if (!state.selectedProvider) return
+        state.busy = true
+        state.error = null
+        addTraceLog(`Flush request submitted. busy = true`)
+        renderWorkspace()
+
+        setTimeout(() => {
+          state.busy = false
+          state.selectedProvider.connected = false
+          state.selectedProvider.source = "user" // Reset env locks on manually flushing
+          state.activeScreen = "dashboard"
+          addTraceLog(`Credentials flushed. Status disconnected.`)
+          renderWorkspace()
+        }, 1000)
+      }
+
+      function closeDialogAndReset() {
+        state.selectedProvider = null
+        state.selectedMethod = null
+        state.error = null
+        state.activeScreen = "dashboard"
+        addTraceLog(`Dialog closed. Focus returned to dashboard.`)
+        renderWorkspace()
+      }
+
+      // WORKSPACE COMPONENT BUILDER
+      function renderWorkspace() {
+        const mount = document.getElementById("flow-workspace")
+        const theme = themeStyles[state.activeTheme]
+
+        // ----------------------------------------------------
+        // SCREEN A: INTEGRATIONS DASHBOARD
+        // ----------------------------------------------------
+        if (state.activeScreen === "dashboard") {
+          let rowsHTML = ""
+          state.providers.forEach((p) => {
+            let badge = ""
+            if (p.connected) {
+              badge =
+                p.source === "env"
+                  ? `<span class="${theme.badgeEnv}">Connected via Env</span>`
+                  : `<span class="${theme.badgeConnected}">Connected</span>`
+            } else {
+              badge = `<span class="${theme.badgeDisconnected}">Disconnected</span>`
+            }
+
+            rowsHTML += `
+            <div class="flex items-center justify-between p-4 bg-slate-900/40 border ${state.activeTheme === "terminal-tui" ? "border-green-950 font-mono" : "border-slate-800/60"} rounded-xl">
+              <div class="flex items-center gap-3">
+                <span class="text-xl">${p.id === "openai" ? "🤖" : p.id === "github" ? "💻" : "🔮"}</span>
+                <div>
+                  <h5 class="font-bold text-sm text-white">${p.name}</h5>
+                  <p class="text-[10px] text-slate-500 font-medium">Driver packages: ${p.methods.length} options available</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-4">
+                ${badge}
+                <button onclick="triggerEditConnection('${p.id}')" class="${theme.btnSecondary} py-1.5 px-3 text-[11px]">
+                  Edit Connection
+                </button>
+              </div>
+            </div>
+          `
+          })
+
+          mount.innerHTML = `
+          <div class="${theme.card} w-full max-w-xl">
+            <div class="border-b ${state.activeTheme === "terminal-tui" ? "border-green-900" : "border-slate-800/10"} pb-3 mb-4">
+              <h4 class="${theme.title}">Notebook Integrations</h4>
+              <p class="${theme.desc}">Active workspace external intelligence modules catalog.</p>
+            </div>
+            
+            <div class="space-y-3">
+              ${rowsHTML}
+            </div>
+          </div>
+        `
+          return
+        }
+
+        // ----------------------------------------------------
+        // SCREEN B: DIALOG STEP 1 (Connection options layout matching header name spec)
+        // ----------------------------------------------------
+        if (state.activeScreen === "dialog-step1") {
+          const p = state.selectedProvider
+          let optionsGridHTML = ""
+
+          p.methods.forEach((m) => {
+            let mIcon = "🔗"
+            if (m.type === "headless") mIcon = "📟"
+            if (m.type === "oauth") mIcon = "🌐"
+            if (m.type === "api") mIcon = "🔑"
+
+            optionsGridHTML += `
+            <div onclick="selectConnectionMethod('${m.id}')" class="${theme.optionCard}">
+              <div class="flex justify-between items-center w-full mb-3">
+                <span class="text-xl">${mIcon}</span>
+                <span class="text-[9px] uppercase tracking-wider text-slate-555 font-bold bg-slate-800/50 px-1.5 py-0.5 rounded">Protocol: ${m.type}</span>
+              </div>
+              <div class="w-full text-left">
+                <h5 class="font-black text-xs uppercase tracking-wide text-white group-hover:text-indigo-400">${m.name}</h5>
+                <p class="text-[10px] text-slate-400 font-medium leading-relaxed mt-1.5">${m.desc}</p>
+              </div>
+            </div>
+          `
+          })
+
+          mount.innerHTML = `
+          <div class="${theme.card} w-full max-w-xl relative">
+            <!-- Dialog close visual button -->
+            <button onclick="closeDialogAndReset()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-200 font-mono text-xs">✕ CLOSE</button>
+            
+            <div class="border-b ${state.activeTheme === "terminal-tui" ? "border-green-900" : "border-slate-800/10"} pb-4 mb-5">
+              <h4 class="${theme.title}">Connect ${p.name}</h4>
+              <p class="${theme.desc}">Step 1: Choose how you want to link your active notebook workspace to ${p.name}.</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              ${optionsGridHTML}
+            </div>
+
+            ${theme.divider}
+
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-slate-500 font-mono text-[10px]">Step 1 of 2</span>
+              <button onclick="closeDialogAndReset()" class="${theme.btnSecondary} py-1.5 px-3">Cancel</button>
+            </div>
+          </div>
+        `
+          return
+        }
+
+        // ----------------------------------------------------
+        // SCREEN C: DIALOG STEP 2 (Details Input & actions flow)
+        // ----------------------------------------------------
+        if (state.activeScreen === "dialog-step2") {
+          const p = state.selectedProvider
+          const m = state.selectedMethod
+
+          // Custom config inputs based on method types
+          let inputContentHTML = ""
+          if (m.type === "api") {
+            inputContentHTML = `
+            <div class="space-y-1.5">
+              <label class="block text-[10px] font-bold text-slate-400 uppercase">Secret API Key Token</label>
+              <input type="password" placeholder="Enter secret API token (e.g. sk-proj-...)" class="${theme.input}" ${state.busy ? "disabled" : ""}>
+              <p class="text-[10px] text-slate-500 leading-snug">Credentials reside strictly inside local configuration caches on your local storage.</p>
+            </div>
+          `
+          } else if (m.type === "oauth") {
+            inputContentHTML = `
+            <div class="space-y-3">
+              <p class="text-xs text-slate-400 leading-relaxed">Sign in to the ${p.name} identity server to grant notebook access permissions.</p>
+              
+              <div class="bg-slate-900/30 p-4 border ${state.activeTheme === "terminal-tui" ? "border-green-950" : "border-slate-800/60"} rounded-xl space-y-2.5">
+                <span class="block text-[9px] uppercase font-bold text-slate-550">Authorization Steps</span>
+                <p class="text-[11px] text-slate-400 leading-normal">Authenticate access details in the opened browser window:</p>
+                <a href="https://${p.id}.com/oauth/authorize?client=buddy" target="_blank" class="${theme.textLink} truncate block font-mono">https://${p.id}.com/oauth/authorize?client=buddy</a>
+                
+                <div class="space-y-1.5 pt-2 border-t ${state.activeTheme === "terminal-tui" ? "border-green-950" : "border-slate-850/5"}">
+                  <label class="block text-[9px] font-bold text-slate-450 uppercase">Paste Return Verification Code</label>
+                  <input type="text" placeholder="Enter authorization verification code" class="${theme.input}" ${state.busy ? "disabled" : ""}>
+                </div>
+              </div>
+            </div>
+          `
+          } else if (m.type === "headless") {
+            inputContentHTML = `
+            <div class="space-y-3">
+              <p class="text-xs text-slate-400 leading-relaxed">Headless connections trigger dynamic verification codes via SSH prompts.</p>
+              
+              <div class="bg-slate-900/30 p-4 border ${state.activeTheme === "terminal-tui" ? "border-green-950" : "border-slate-800/60"} rounded-xl space-y-2 text-center">
+                <span class="block text-[9px] uppercase font-bold text-slate-550 text-left">Headless Sync Code</span>
+                <input type="text" readOnly value="7721-AC8E-FLOW" class="${theme.input} text-center font-bold tracking-widest text-xs py-1.5">
+                <p class="text-[9px] text-slate-500 leading-normal text-left">Copy and submit this confirmation code on your hosting console prompt.</p>
+              </div>
+            </div>
+          `
+          }
+
+          mount.innerHTML = `
+          <div class="${theme.card} w-full max-w-xl relative">
+            <button onclick="closeDialogAndReset()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-200 font-mono text-xs">✕ CLOSE</button>
+
+            <div class="border-b ${state.activeTheme === "terminal-tui" ? "border-green-900" : "border-slate-800/10"} pb-4 mb-4">
+              <h4 class="${theme.title}">Connect ${p.name} via ${m.name}</h4>
+              <p class="${theme.desc}">Step 2: Enter access keys or authorize the handshake protocol.</p>
+            </div>
+
+            <!-- Error Box displaying failure states -->
+            ${
+              state.error
+                ? `
+              <div class="${theme.errorBox} mb-4">
+                <div class="font-extrabold uppercase mb-0.5">Verification Failed</div>
+                <div>${state.error}</div>
+              </div>
+            `
+                : ""
+            }
+
+            <!-- Configuration fields -->
+            <div class="space-y-4 py-2">
+              ${inputContentHTML}
+            </div>
+
+            ${theme.divider}
+
+            <!-- Dialog footer actions -->
+            <div class="flex items-center justify-between">
+              <button onclick="goBackToStep1()" class="${theme.btnSecondary} py-2 px-4" ${state.busy ? "disabled" : ""}>
+                &larr; Choose Method
+              </button>
+              
+              <div class="flex gap-2">
+                ${
+                  p.connected && p.source !== "env"
+                    ? `
+                  <button onclick="triggerDisconnect()" class="${theme.btnDanger} py-2 px-4" ${state.busy ? "disabled" : ""}>
+                    ${state.busy ? "Loading..." : "Disconnect"}
+                  </button>
+                `
+                    : ""
+                }
+                <button onclick="triggerSubmitConfiguration()" class="${theme.btnPrimary} py-2 px-5" ${state.busy ? "disabled" : ""}>
+                  ${state.busy ? "Verifying..." : "Submit Connection"}
+                </button>
+              </div>
+            </div>
+          </div>
+        `
+          return
+        }
+
+        // ----------------------------------------------------
+        // SCREEN D: SUCCESS STATE DETAILS
+        // ----------------------------------------------------
+        if (state.activeScreen === "success") {
+          const p = state.selectedProvider
+          const m = state.selectedMethod
+
+          mount.innerHTML = `
+          <div class="${theme.card} w-full max-w-md text-center py-8 px-6 relative">
+            <button onclick="closeDialogAndReset()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-200 font-mono text-xs">✕ CLOSE</button>
+
+            <div class="w-12 h-12 rounded-full bg-emerald-500/10 border-2 border-emerald-500 text-emerald-400 flex items-center justify-center mx-auto mb-4 text-xl font-bold">✓</div>
+            
+            <h4 class="${theme.title} text-lg mb-1">Link Completed</h4>
+            <p class="text-xs text-slate-500 font-medium">Successfully activated provider integration</p>
+
+            <div class="my-5 bg-slate-900/50 p-4 border ${state.activeTheme === "terminal-tui" ? "border-green-950" : "border-slate-800/40"} rounded-xl space-y-2 text-xs text-left leading-relaxed">
+              <div class="flex justify-between border-b ${state.activeTheme === "terminal-tui" ? "border-green-950" : "border-slate-850/5"} pb-1.5">
+                <span class="text-slate-500 font-bold">Provider Service:</span>
+                <span class="text-white font-semibold">${p.name}</span>
+              </div>
+              <div class="flex justify-between border-b ${state.activeTheme === "terminal-tui" ? "border-green-950" : "border-slate-850/5"} pb-1.5">
+                <span class="text-slate-500 font-bold">Connection Method:</span>
+                <span class="text-white font-semibold">${m.name}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500 font-bold">Access Scope:</span>
+                <span class="text-emerald-400 font-semibold">Active & Validated</span>
+              </div>
+            </div>
+
+            <button onclick="closeDialogAndReset()" class="${theme.btnPrimary} w-full py-2.5">
+              Return to Catalog
+            </button>
+          </div>
+        `
+          return
+        }
+      }
+    </script>
+  </body>
+</html>
