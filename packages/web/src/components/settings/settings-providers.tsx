@@ -17,6 +17,7 @@ import { ProviderIcon } from "@/components/provider-icon"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { connectChatGptPlusForOnboarding } from "@/lib/onboarding-flow"
+import { getConnectedProviders } from "@/lib/provider-catalog"
 import { OPENCODE_PROVIDER_ID, OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
 import {
   authorizeProviderOAuth,
@@ -25,10 +26,13 @@ import {
   reloadProviderRuntime,
 } from "@/lib/provider-auth"
 import { loadProviderCatalog, loadProviderCatalogSnapshot } from "@/state/chat-actions"
+import { useChatStore } from "@/state/chat-store"
 import type { ProviderInfo } from "@/state/chat-types"
-import { connectedProviders } from "@/state/project-settings-store"
+import {
+  invalidateAllProviderCatalogSnapshotQueries,
+  providerCatalogSnapshotQueryOptions,
+} from "@/state/bootstrap-query"
 import { ProviderSourceBadge, SettingsListCard, SettingsContent } from "./settings-primitives"
-import type { SettingsWorkbench } from "./settings-workbench"
 
 const OPENCODE_GO_PROVIDER_ID = "opencode-go"
 type RecommendedProviderDefinition = {
@@ -285,18 +289,14 @@ function ProviderListRow(props: {
   )
 }
 
-export function ProvidersSettings({ workbench }: { workbench: SettingsWorkbench }) {
-  const directory = workbench.selectedDirectory
+export function ProvidersSettings() {
   const platform = usePlatform()
   const queryClient = useQueryClient()
-  const providerQuery = useQuery({
-    queryKey: ["provider-catalog", directory || "__global__"],
-    queryFn: () => loadProviderCatalog(directory),
-    enabled: true,
-  })
+  const openProjects = useChatStore((state) => state.openProjects)
+  const providerQuery = useQuery(providerCatalogSnapshotQueryOptions())
   const providerCatalog = providerQuery.data
   const providers = useMemo(
-    () => (providerCatalog ? connectedProviders(providerCatalog) : []),
+    () => (providerCatalog ? getConnectedProviders(providerCatalog.providers) : []),
     [providerCatalog],
   )
   const allProviders = useMemo(() => providerCatalog?.providers ?? [], [providerCatalog?.providers])
@@ -318,6 +318,9 @@ export function ProvidersSettings({ workbench }: { workbench: SettingsWorkbench 
     [allProviders],
   )
   const chatGptProvider = providersByID.get(OPENAI_PROVIDER_ID)
+  const dialogProvider = providerDialogTarget
+    ? providersByID.get(providerDialogTarget)
+    : allProviders[0]
   const chatGptError = chatGptProvider?.connected ? undefined : chatGptErrorState
 
   function openProviderDialog(initialProvider?: string) {
@@ -326,10 +329,8 @@ export function ProvidersSettings({ workbench }: { workbench: SettingsWorkbench 
   }
 
   async function handleProvidersUpdated() {
-    await queryClient.invalidateQueries({
-      queryKey: ["provider-catalog", directory || "__global__"],
-    })
-    await providerQuery.refetch()
+    await invalidateAllProviderCatalogSnapshotQueries(queryClient)
+    await Promise.allSettled(openProjects.map((directory) => loadProviderCatalog(directory)))
   }
 
   async function handleConnectChatGpt() {
@@ -345,12 +346,12 @@ export function ProvidersSettings({ workbench }: { workbench: SettingsWorkbench 
     try {
       await connectChatGptPlusForOnboarding({
         openLink: (url) => platform.openLink(url),
-        loadProviderCatalogSnapshot: () => loadProviderCatalogSnapshot(directory),
+        loadProviderCatalogSnapshot: () => loadProviderCatalogSnapshot(),
         authorizeProviderOAuth: ({ providerID, methodIndex }) =>
-          authorizeProviderOAuth({ directory, providerID, methodIndex }),
+          authorizeProviderOAuth({ providerID, methodIndex }),
         completeProviderOAuth: ({ providerID, methodIndex }) =>
-          completeProviderOAuth({ directory, providerID, methodIndex }),
-        reloadProviderRuntime: () => reloadProviderRuntime(directory),
+          completeProviderOAuth({ providerID, methodIndex }),
+        reloadProviderRuntime,
       })
       await handleProvidersUpdated()
       setChatGptError(undefined)
@@ -510,14 +511,14 @@ export function ProvidersSettings({ workbench }: { workbench: SettingsWorkbench 
         </DialogContent>
       </Dialog>
 
-      <ConnectProviderDialog
-        directory={directory}
-        open={providerDialogOpen}
-        providers={allProviders}
-        initialProvider={providerDialogTarget}
-        onOpenChange={setProviderDialogOpen}
-        onUpdated={handleProvidersUpdated}
-      />
+      {dialogProvider ? (
+        <ConnectProviderDialog
+          open={providerDialogOpen}
+          provider={dialogProvider}
+          onOpenChange={setProviderDialogOpen}
+          onUpdated={handleProvidersUpdated}
+        />
+      ) : null}
     </>
   )
 }

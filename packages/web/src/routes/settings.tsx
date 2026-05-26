@@ -19,7 +19,6 @@ import {
   type SettingsTab,
   type SettingsTabDefinition,
 } from "@/components/settings/settings-tabs"
-import { createSettingsWorkbench } from "@/components/settings/settings-workbench"
 import { encodeDirectory } from "../lib/directory-token"
 import {
   closeOpenProject,
@@ -102,14 +101,6 @@ function SettingsRoute() {
   })
 
   const currentDirectory = activeDirectory ?? openProjects[0] ?? ""
-  const settingsWorkbench = useMemo(
-    () =>
-      createSettingsWorkbench({
-        selectedDirectory: currentDirectory,
-        openDirectories: openProjects,
-      }),
-    [currentDirectory, openProjects],
-  )
   const activeSessionID = currentDirectory ? directories[currentDirectory]?.sessionID : undefined
   const leftSidebarMaxWidth = 320
   const visibleTabs = useMemo(
@@ -375,7 +366,7 @@ function SettingsRoute() {
         )}
       >
         <main className="flex h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background-base">
-          <SettingsPage workbench={settingsWorkbench} activeTab={tab} />
+          <SettingsPage activeTab={tab} />
         </main>
       </div>
     </div>

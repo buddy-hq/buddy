@@ -79,6 +79,21 @@ export function providerCatalogSnapshotQueryOptions(directory?: string) {
   })
 }
 
+export function invalidateProviderCatalogSnapshotQuery(
+  queryClient: QueryClient,
+  directory?: string,
+) {
+  return queryClient.invalidateQueries({
+    queryKey: bootstrapQueryKeys.providerSnapshot(directory),
+  })
+}
+
+export function invalidateAllProviderCatalogSnapshotQueries(queryClient: QueryClient) {
+  return queryClient.invalidateQueries({
+    queryKey: [BOOTSTRAP_QUERY_SCOPE, PROVIDER_SNAPSHOT_QUERY_KEY],
+  })
+}
+
 export function preloadedProjectSessionsQueryOptions(directories: readonly string[]) {
   const normalizedDirectories = normalizeDirectories(directories)
   return queryOptions({

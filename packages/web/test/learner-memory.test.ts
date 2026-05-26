@@ -1,14 +1,21 @@
 import { describe, expect, test } from "bun:test"
+import { QueryClient } from "@tanstack/react-query"
 import {
   buildLearnerMemoryGlobalBootstrapPatch,
-  buildLearnerMemoryProjectBootstrapPatch,
+  buildLearnerMemoryNotebookBootstrapPatch,
 } from "../src/lib/learner-memory"
+import { loadNotebookLearnerMemoryDefaults } from "../src/state/learner-memory-settings"
+import { globalConfigQueryKeys } from "../src/state/global-config-query"
 
 describe("buildLearnerMemoryGlobalBootstrapPatch", () => {
-  test("enables the global learner-memory master switch when notebook bootstrap opts in", () => {
+  test("enables the global master switch when notebook creation explicitly opts in", () => {
     expect(
       buildLearnerMemoryGlobalBootstrapPatch({
-        directory: "/tmp/notebook",
+        globalConfig: {
+          learner_memory: {
+            master_enabled: false,
+          },
+        },
         enabled: true,
       }),
     ).toEqual({
@@ -18,54 +25,89 @@ describe("buildLearnerMemoryGlobalBootstrapPatch", () => {
     })
   })
 
-  test("skips the global patch when notebook bootstrap leaves learner memory off", () => {
+  test("skips the global patch when learner memory is already available", () => {
     expect(
       buildLearnerMemoryGlobalBootstrapPatch({
-        directory: "/tmp/notebook",
-        enabled: false,
+        globalConfig: {
+          learner_memory: {
+            master_enabled: true,
+          },
+        },
+        enabled: true,
       }),
     ).toBeUndefined()
   })
 })
 
-describe("buildLearnerMemoryProjectBootstrapPatch", () => {
-  test("writes notebook participation and auto-extract settings for opt-in notebooks", () => {
+describe("buildLearnerMemoryNotebookBootstrapPatch", () => {
+  test("skips the notebook patch when the selection matches the global defaults", () => {
     expect(
-      buildLearnerMemoryProjectBootstrapPatch({
-        directory: "/tmp/notebook",
+      buildLearnerMemoryNotebookBootstrapPatch({
+        globalConfig: {
+          learner_memory: {
+            enabled: true,
+            auto_extract: true,
+          },
+        },
         enabled: true,
         autoExtract: true,
       }),
-    ).toEqual({
-      learner_memory: {
-        enabled: true,
-        auto_extract: true,
-      },
-    })
+    ).toBeUndefined()
   })
 
-  test("forces auto-extract off when notebook bootstrap does not opt into it", () => {
+  test("writes an opt-out override when notebook creation disables learner memory", () => {
     expect(
-      buildLearnerMemoryProjectBootstrapPatch({
-        directory: "/tmp/notebook",
-        enabled: true,
+      buildLearnerMemoryNotebookBootstrapPatch({
+        globalConfig: {
+          learner_memory: {
+            enabled: true,
+            auto_extract: true,
+          },
+        },
+        enabled: false,
         autoExtract: false,
       }),
     ).toEqual({
       learner_memory: {
-        enabled: true,
-        auto_extract: false,
+        enabled: false,
       },
     })
   })
 
-  test("skips the notebook patch when learner memory is not enabled", () => {
+  test("writes only the auto-extract override when notebook creation changes that default", () => {
     expect(
-      buildLearnerMemoryProjectBootstrapPatch({
-        directory: "/tmp/notebook",
-        enabled: false,
+      buildLearnerMemoryNotebookBootstrapPatch({
+        globalConfig: {
+          learner_memory: {
+            enabled: true,
+            auto_extract: false,
+          },
+        },
+        enabled: true,
         autoExtract: true,
       }),
-    ).toBeUndefined()
+    ).toEqual({
+      learner_memory: {
+        auto_extract: true,
+      },
+    })
+  })
+})
+
+describe("loadNotebookLearnerMemoryDefaults", () => {
+  test("reads persisted global notebook defaults before opening notebook creation", async () => {
+    const queryClient = new QueryClient()
+    queryClient.setQueryData(globalConfigQueryKeys.bundle(), {
+      learner_memory: {
+        master_enabled: true,
+        enabled: true,
+        auto_extract: true,
+      },
+    })
+
+    await expect(loadNotebookLearnerMemoryDefaults(queryClient)).resolves.toMatchObject({
+      enabled: true,
+      autoExtract: true,
+    })
   })
 })

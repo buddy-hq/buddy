@@ -4,14 +4,9 @@ import { SettingsContent, SettingsSectionHeader } from "./settings-primitives"
 import { GlobalAgentsMdSettingsPanel } from "./global-agents-md-settings-panel"
 import { language } from "@/context/language"
 import { usePersonalizationSettingsAutosave } from "@/state/personalization-settings"
-import type { SettingsWorkbench } from "./settings-workbench"
 import { SharedPersonalizationFormFields } from "./shared-personalization-form"
 
-export function PersonalizationSettings({
-  workbench: _workbench,
-}: {
-  workbench: SettingsWorkbench
-}) {
+export function PersonalizationSettings() {
   const form = useForm({
     defaultValues: {
       preferredName: "",

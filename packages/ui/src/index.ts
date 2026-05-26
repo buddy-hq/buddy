@@ -130,6 +130,7 @@ export {
   BotIcon,
   BrainIcon,
   CheckIcon,
+  CircleCheckIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,

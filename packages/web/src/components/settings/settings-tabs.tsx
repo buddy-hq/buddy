@@ -18,7 +18,6 @@ import { StandardsSettings } from "./settings-tools"
 import { AttributionSettings } from "./settings-attribution"
 import { LearnerMemorySettings } from "./settings-learner-memory"
 import { PersonalizationSettings } from "./settings-personalization"
-import type { SettingsWorkbench } from "./settings-workbench"
 
 export type SettingsTab =
   | "general"
@@ -32,7 +31,7 @@ export type SettingsTab =
 
 export type SettingsTabGroup = "main" | "optional"
 
-export type SettingsTabScope = "global" | "notebook" | "mixed" | "info"
+export type SettingsTabScope = "global" | "info"
 
 export type SettingsTabDefinition = {
   id: SettingsTab
@@ -41,7 +40,7 @@ export type SettingsTabDefinition = {
   layout: "standard" | "full-page"
   group: SettingsTabGroup
   scope: SettingsTabScope
-  render: (workbench: SettingsWorkbench) => ReactNode
+  render: () => ReactNode
 }
 
 const SETTINGS_TAB_ALIAS_MAP = {
@@ -60,7 +59,7 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     layout: "standard",
     group: "main",
     scope: "global",
-    render: (workbench) => <GeneralSettings workbench={workbench} />,
+    render: () => <GeneralSettings />,
   },
   {
     id: "providers",
@@ -69,7 +68,7 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     layout: "standard",
     group: "main",
     scope: "global",
-    render: (workbench) => <ProvidersSettings workbench={workbench} />,
+    render: () => <ProvidersSettings />,
   },
   {
     id: "mcps",
@@ -78,7 +77,7 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     layout: "standard",
     group: "main",
     scope: "global",
-    render: (workbench) => <McpsSettings workbench={workbench} />,
+    render: () => <McpsSettings />,
   },
   {
     id: "personalization",
@@ -87,7 +86,7 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     layout: "standard",
     group: "main",
     scope: "global",
-    render: (workbench) => <PersonalizationSettings workbench={workbench} />,
+    render: () => <PersonalizationSettings />,
   },
   {
     id: "learnerMemory",
@@ -95,8 +94,8 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     icon: BrainIcon,
     layout: "standard",
     group: "main",
-    scope: "mixed",
-    render: (workbench) => <LearnerMemorySettings workbench={workbench} />,
+    scope: "global",
+    render: () => <LearnerMemorySettings />,
   },
   {
     id: "advanced",
@@ -105,7 +104,7 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     layout: "standard",
     group: "main",
     scope: "global",
-    render: (workbench) => <AdvancedSettings workbench={workbench} />,
+    render: () => <AdvancedSettings />,
   },
   {
     id: "attribution",
@@ -122,8 +121,8 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     icon: BookOpenIcon,
     layout: "standard",
     group: "optional",
-    scope: "mixed",
-    render: (workbench) => <StandardsSettings workbench={workbench} />,
+    scope: "global",
+    render: () => <StandardsSettings />,
   },
 ]
 

@@ -1,7 +1,6 @@
 import type { ReactNode } from "react"
-import { Badge, cn } from "@buddy/ui"
+import { Badge, Switch, cn } from "@buddy/ui"
 import type { ProviderInfo } from "@/state/chat-types"
-import type { SettingsWorkbench } from "./settings-workbench"
 
 const PROVIDER_SOURCE_LABELS: Record<string, string> = {
   env: "Environment",
@@ -41,7 +40,7 @@ export function SettingsSectionHeader(props: {
       <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-weaker">
         {props.title}
         {props.badge ? (
-          <span className="rounded-full border border-border-base/60 bg-surface-tertiary px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-text-weaker">
+          <span className="rounded-full border border-border-base/60 bg-surface-weak px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-text-weaker">
             {props.badge}
           </span>
         ) : null}
@@ -63,7 +62,7 @@ export function SettingsSection(props: {
         <h3 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-weaker">
           {props.title}
           {props.badge ? (
-            <span className="rounded-full border border-border-base/60 bg-surface-tertiary px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-text-weaker">
+            <span className="rounded-full border border-border-base/60 bg-surface-weak px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-text-weaker">
               {props.badge}
             </span>
           ) : null}
@@ -85,45 +84,6 @@ export function GlobalDefaultsSection(props: { children: ReactNode; description?
           "These defaults apply across Buddy unless a notebook customizes them."
         }
         badge="Global"
-      />
-      {props.children}
-    </div>
-  )
-}
-
-export function NotebookCustomizationSection(props: {
-  workbench: SettingsWorkbench
-  children: ReactNode
-  description?: string
-}) {
-  return (
-    <div className="space-y-2.5">
-      <SettingsSectionHeader
-        title="Current notebook customization"
-        description={
-          props.description ??
-          "These controls customize the selected notebook without changing global defaults."
-        }
-        badge={props.workbench.selectedNotebookName}
-      />
-      {props.workbench.hasSelectedNotebook ? (
-        props.children
-      ) : (
-        <div className="rounded-2xl border border-border-base/50 p-4 text-sm text-text-weak">
-          Open a notebook to customize notebook-specific behavior.
-        </div>
-      )}
-    </div>
-  )
-}
-
-export function EffectiveBehaviorSection(props: { children: ReactNode; description?: string }) {
-  return (
-    <div className="space-y-2.5">
-      <SettingsSectionHeader
-        title="Effective behavior"
-        description={props.description ?? "This is what Buddy will do for the selected notebook."}
-        badge="Preview"
       />
       {props.children}
     </div>
@@ -156,6 +116,31 @@ export function SettingsRow(props: {
           {props.control}
         </div>
       </div>
+    </div>
+  )
+}
+
+export function SettingsSwitchControl(props: {
+  checked: boolean
+  disabled?: boolean
+  dataAction: string
+  ariaLabel: string
+  onLabel: string
+  offLabel: string
+  onCheckedChange: (checked: boolean) => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
+      <span className="text-sm text-text-weak">
+        {props.checked ? props.onLabel : props.offLabel}
+      </span>
+      <Switch
+        data-action={props.dataAction}
+        checked={props.checked}
+        onCheckedChange={props.onCheckedChange}
+        disabled={props.disabled}
+        aria-label={props.ariaLabel}
+      />
     </div>
   )
 }

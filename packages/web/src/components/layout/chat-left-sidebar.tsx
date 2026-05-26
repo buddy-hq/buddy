@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { SquareLibraryIcon, SparklesIcon } from "lucide-react"
 import { Button } from "@buddy/ui"
 import { language } from "@/context/language"
@@ -8,9 +9,18 @@ import {
   DIRECTORY_CHAT_SHELL_VIEW,
   type DirectoryChatShellView,
 } from "@/lib/directory-chat/directory-chat-shell-view"
+import { globalConfigQueryOptions } from "@/state/global-config-query"
+import {
+  loadNotebookLearnerMemoryDefaults,
+  resolveNotebookLearnerMemorySelection,
+} from "@/state/learner-memory-settings"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import type { NotebookMainPaneTab } from "@/state/ui-preferences"
-import { ChatLeftSidebarDialogs, NotebookCreationDialog } from "./chat-left-sidebar/dialogs"
+import {
+  ChatLeftSidebarDialogs,
+  NotebookCreationDialog,
+  NotebookSettingsDialog,
+} from "./chat-left-sidebar/dialogs"
 import { ChatLeftSidebarDirectoryList } from "./chat-left-sidebar/directory-list"
 import { ChatLeftSidebarToolbar } from "./chat-left-sidebar/toolbar"
 import { useDirectoryGroups } from "./chat-left-sidebar/use-directory-groups"
@@ -111,6 +121,7 @@ function buildCollapsedDirectories(
 
 export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const platform = usePlatform()
+  const queryClient = useQueryClient()
   const isMacDesktop = platform.platform === "desktop" && platform.os === "macos"
   const [isFullscreen, setIsFullscreen] = useState(false)
   const libraryOpen = props.shellView === DIRECTORY_CHAT_SHELL_VIEW.LIBRARY
@@ -127,9 +138,15 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [notebookCreationOpen, setNotebookCreationOpen] = useState(false)
   const [notebookName, setNotebookName] = useState("")
   const [notebookSaving, setNotebookSaving] = useState(false)
+  const [notebookSettingsDirectory, setNotebookSettingsDirectory] = useState<string>()
   const [learnerMemoryEnabled, setLearnerMemoryEnabled] = useState(true)
   const [autoExtractEnabled, setAutoExtractEnabled] = useState(true)
+  const globalConfigQuery = useQuery(globalConfigQueryOptions())
   const hasInitializedCollapsedDirectoriesRef = useRef(false)
+  const learnerMemoryDefaults = useMemo(
+    () => resolveNotebookLearnerMemorySelection(globalConfigQuery.data ?? {}, {}),
+    [globalConfigQuery.data],
+  )
 
   useEffect(() => {
     if (!isMacDesktop) return
@@ -238,13 +255,33 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
       await props.onCreateNotebook(name, learnerMemoryEnabled, autoExtractEnabled)
       setNotebookCreationOpen(false)
       setNotebookName("")
-      setLearnerMemoryEnabled(true)
-      setAutoExtractEnabled(true)
+      void resetNotebookCreationDefaults()
     } catch {
       // Parent-level handlers own error surfacing.
     } finally {
       setNotebookSaving(false)
     }
+  }
+
+  async function resetNotebookCreationDefaults() {
+    try {
+      const defaults = await loadNotebookLearnerMemoryDefaults(queryClient)
+      setLearnerMemoryEnabled(defaults.enabled)
+      setAutoExtractEnabled(defaults.autoExtract)
+      return
+    } catch {
+      if (!globalConfigQuery.data) {
+        return
+      }
+    }
+
+    setLearnerMemoryEnabled(learnerMemoryDefaults.enabled)
+    setAutoExtractEnabled(learnerMemoryDefaults.autoExtract)
+  }
+
+  async function openNotebookCreationDialog() {
+    await resetNotebookCreationDefaults()
+    setNotebookCreationOpen(true)
   }
 
   return (
@@ -305,7 +342,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             sortMode={sortMode}
             showMode={showMode}
             onRequestCreateNotebook={() => {
-              setNotebookCreationOpen(true)
+              void openNotebookCreationDialog()
             }}
             onOrganizeModeChange={setOrganizeMode}
             onSortModeChange={setSortMode}
@@ -366,6 +403,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
               }
               props.onNewSession(directory)
             }}
+            onOpenNotebookSettings={setNotebookSettingsDirectory}
             onCloseDirectory={props.onCloseDirectory}
             mainPaneTab={props.mainPaneTab}
             onMainPaneTabChange={(directory, tab) => {
@@ -424,8 +462,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           setNotebookCreationOpen(open)
           if (!open) {
             setNotebookName("")
-            setLearnerMemoryEnabled(true)
-            setAutoExtractEnabled(true)
+            void resetNotebookCreationDefaults()
           }
         }}
         onNotebookNameChange={setNotebookName}
@@ -444,6 +481,17 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         onLearnerMemoryChange={setLearnerMemoryEnabled}
         enableAutoExtract={autoExtractEnabled}
         onAutoExtractChange={setAutoExtractEnabled}
+      />
+
+      <NotebookSettingsDialog
+        open={notebookSettingsDirectory !== undefined}
+        directory={notebookSettingsDirectory ?? ""}
+        notebookName={notebookSettingsDirectory ? getFilename(notebookSettingsDirectory) : ""}
+        onOpenChange={(open) => {
+          if (!open) {
+            setNotebookSettingsDirectory(undefined)
+          }
+        }}
       />
     </aside>
   )

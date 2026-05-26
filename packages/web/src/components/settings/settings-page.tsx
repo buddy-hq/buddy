@@ -1,8 +1,6 @@
 import { getSettingsTabDefinition, type SettingsTab } from "./settings-tabs"
-import type { SettingsWorkbench } from "./settings-workbench"
 
 type SettingsPageProps = {
-  workbench: SettingsWorkbench
   activeTab: SettingsTab
 }
 
@@ -17,10 +15,10 @@ export function SettingsPage(props: SettingsPageProps) {
     >
       {tabDef.layout === "full-page" ? (
         <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
-          {tabDef.render(props.workbench)}
+          {tabDef.render()}
         </div>
       ) : (
-        tabDef.render(props.workbench)
+        tabDef.render()
       )}
     </div>
   )

@@ -1,4 +1,9 @@
-import { SquareLibraryIcon, ScrollTextIcon, type LucideIcon } from "lucide-react"
+import {
+  SlidersHorizontalIcon,
+  SquareLibraryIcon,
+  ScrollTextIcon,
+  type LucideIcon,
+} from "lucide-react"
 import {
   ArchiveIcon,
   ChevronDownIcon,
@@ -10,7 +15,6 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-  Switch,
   MailIcon,
   MailOpenIcon,
   PencilIcon,
@@ -35,7 +39,6 @@ import {
 } from "@/lib/directory-chat/directory-chat-shell-view"
 import { collectSessionFamilyIDs } from "@/lib/session-family"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
-import { useNotebookSettingsWorkbench } from "@/state/project-settings"
 import { isSessionWorking } from "@/state/session-status"
 import type { NotebookMainPaneTab } from "@/state/ui-preferences"
 import { getFilename } from "../sidebar-helpers"
@@ -74,6 +77,7 @@ type ChatLeftSidebarDirectoryListProps = {
   onLabelPointerDown: (event: ReactPointerEvent<HTMLButtonElement>, directory: string) => void
   onSectionRef: (directory: string) => (element: HTMLElement | null) => void
   onNewSession: (directory?: string) => void
+  onOpenNotebookSettings: (directory: string) => void
   onCloseDirectory: (directory: string) => void
   mainPaneTab?: NotebookMainPaneTab
   onMainPaneTabChange?: (directory: string, tab: NotebookMainPaneTab) => void
@@ -105,6 +109,7 @@ type DirectoryGroupSectionProps = {
   onLabelPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void
   onSectionRef: (element: HTMLElement | null) => void
   onOpenNotebook: () => void
+  onOpenNotebookSettings: () => void
   onCloseNotebook: () => void
   onNewSession: () => void
   mainPaneTab?: NotebookMainPaneTab
@@ -182,61 +187,6 @@ function isSessionInfo(value: SessionInfo | undefined): value is SessionInfo {
   return value !== undefined
 }
 
-function NotebookLearnerMemoryContextItems(props: { directory: string }) {
-  const settings = useNotebookSettingsWorkbench(props.directory, true)
-  const notebookControlsDisabled =
-    settings.status.loading || !settings.selection.learnerMemoryMasterEnabled
-  const autoExtractDisabled =
-    settings.status.loading ||
-    !settings.selection.learnerMemoryMasterEnabled ||
-    !settings.selection.learnerMemoryEnabled
-
-  function toggleLearnerMemory(event: Event) {
-    event.preventDefault()
-    if (notebookControlsDisabled) return
-    settings.actions.setLearnerMemoryEnabled(!settings.selection.learnerMemoryEnabled)
-  }
-
-  function toggleAutoExtract(event: Event) {
-    event.preventDefault()
-    if (autoExtractDisabled) return
-    settings.actions.setLearnerMemoryAutoExtract(!settings.selection.learnerMemoryAutoExtract)
-  }
-
-  return (
-    <>
-      <ContextMenuItem
-        data-action="left-sidebar-directory-learner-memory"
-        onSelect={toggleLearnerMemory}
-        disabled={notebookControlsDisabled}
-        className="flex items-center justify-between gap-3"
-      >
-        <span>{language.t("sidebar.notebookLearnerMemory")}</span>
-        <Switch
-          checked={settings.selection.learnerMemoryEnabled}
-          disabled={notebookControlsDisabled}
-          tabIndex={-1}
-          className="pointer-events-none"
-        />
-      </ContextMenuItem>
-      <ContextMenuItem
-        data-action="left-sidebar-directory-learner-memory-auto"
-        onSelect={toggleAutoExtract}
-        disabled={autoExtractDisabled}
-        className="flex items-center justify-between gap-3"
-      >
-        <span>{language.t("sidebar.notebookLearnerMemoryAutoExtract")}</span>
-        <Switch
-          checked={settings.selection.learnerMemoryAutoExtract}
-          disabled={autoExtractDisabled}
-          tabIndex={-1}
-          className="pointer-events-none"
-        />
-      </ContextMenuItem>
-    </>
-  )
-}
-
 // ---------------------------------------------------------------------------
 // Notebook library popover
 // ---------------------------------------------------------------------------
@@ -292,6 +242,7 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
               onLabelPointerDown={(event) => props.onLabelPointerDown(event, group.directory)}
               onSectionRef={props.onSectionRef(group.directory)}
               onOpenNotebook={() => props.onSelectSession(group.directory)}
+              onOpenNotebookSettings={() => props.onOpenNotebookSettings(group.directory)}
               onCloseNotebook={() => props.onCloseDirectory(group.directory)}
               onNewSession={() => props.onNewSession(group.directory)}
               mainPaneTab={props.mainPaneTab}
@@ -520,7 +471,13 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 </PopoverTrigger>
               </ContextMenuTrigger>
               <ContextMenuContent className="w-44">
-                <NotebookLearnerMemoryContextItems directory={props.group.directory} />
+                <ContextMenuItem
+                  data-action="left-sidebar-directory-settings"
+                  onSelect={props.onOpenNotebookSettings}
+                >
+                  <SlidersHorizontalIcon className="mr-2 size-3.5" />
+                  {language.t("sidebar.notebookSettings")}
+                </ContextMenuItem>
                 <ContextMenuSeparator />
                 <ContextMenuItem
                   data-action="left-sidebar-directory-close"
@@ -561,7 +518,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 </div>
                 {props.group.sessions.length === 0 && (
                   <>
-                    <div className="mx-3 my-0.5 h-px bg-border-weaker" />
+                    <div className="mx-3 my-0.5 h-px bg-border-weaker-base" />
                     <p className="py-3 text-center text-[11px] text-text-weakest">
                       {language.t("sidebar.noThreads")}
                     </p>

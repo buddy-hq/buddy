@@ -1,66 +1,49 @@
 import { describe, expect, test } from "bun:test"
 import {
-  TOOL_OVERRIDE_MODE,
-  buildGlobalToolsPatch,
-  buildProjectToolsPatch,
-  createToolsSettingsStore,
-  resolveEffectiveToolSelection,
-} from "../src/state/tools-settings-store"
+  buildGlobalStandardsPatch,
+  buildNotebookStandardsOverridePatch,
+  buildGlobalStandardsDefaults,
+  notebookStandardUsesGlobalDefault,
+  resolveNotebookStandardEnabled,
+} from "../src/state/standards-settings"
 
-describe("resolveEffectiveToolSelection", () => {
-  test("prefers notebook overrides and falls back to global defaults", () => {
+describe("resolveNotebookStandardEnabled", () => {
+  test("prefers notebook overrides and falls back to the global default", () => {
     expect(
-      resolveEffectiveToolSelection(
-        {
-          search_standards: true,
-          get_standard: true,
-          get_learning_components: true,
-          get_prerequisites: true,
-          get_next_standards: true,
-          get_crosswalk: false,
-          query_standards_sql: false,
-        },
-        {
-          search_standards: TOOL_OVERRIDE_MODE.inherit,
-          get_standard: TOOL_OVERRIDE_MODE.disabled,
-          get_learning_components: TOOL_OVERRIDE_MODE.inherit,
-          get_prerequisites: TOOL_OVERRIDE_MODE.enabled,
-          get_next_standards: TOOL_OVERRIDE_MODE.inherit,
-          get_crosswalk: TOOL_OVERRIDE_MODE.inherit,
-          query_standards_sql: TOOL_OVERRIDE_MODE.enabled,
-        },
-      ),
-    ).toEqual({
-      search_standards: true,
-      get_standard: false,
-      get_learning_components: true,
-      get_prerequisites: true,
-      get_next_standards: true,
-      get_crosswalk: false,
-      query_standards_sql: true,
-    })
-  })
-})
-
-describe("tools settings patches", () => {
-  test("buildProjectToolsPatch clears inherited notebook overrides", () => {
-    expect(
-      buildProjectToolsPatch(
+      resolveNotebookStandardEnabled(
         {
           tools: {
             search_standards: true,
           },
         },
         {
-          search_standards: TOOL_OVERRIDE_MODE.inherit,
-          get_standard: TOOL_OVERRIDE_MODE.inherit,
-          get_learning_components: TOOL_OVERRIDE_MODE.inherit,
-          get_prerequisites: TOOL_OVERRIDE_MODE.inherit,
-          get_next_standards: TOOL_OVERRIDE_MODE.inherit,
-          get_crosswalk: TOOL_OVERRIDE_MODE.inherit,
-          query_standards_sql: TOOL_OVERRIDE_MODE.inherit,
+          tools: {
+            search_standards: false,
+          },
         },
+        "search_standards",
       ),
+    ).toBe(false)
+  })
+})
+
+describe("buildNotebookStandardsOverridePatch", () => {
+  test("clears inherited notebook overrides when toggled back to the default", () => {
+    expect(
+      buildNotebookStandardsOverridePatch({
+        globalConfig: {
+          tools: {
+            search_standards: true,
+          },
+        },
+        rawProjectConfig: {
+          tools: {
+            search_standards: false,
+          },
+        },
+        toolId: "search_standards",
+        enabled: true,
+      }),
     ).toEqual({
       tools: {
         search_standards: null,
@@ -68,9 +51,30 @@ describe("tools settings patches", () => {
     })
   })
 
-  test("buildGlobalToolsPatch only includes changed tool defaults", () => {
+  test("writes an explicit notebook override when changing the default", () => {
     expect(
-      buildGlobalToolsPatch(
+      buildNotebookStandardsOverridePatch({
+        globalConfig: {
+          tools: {
+            query_standards_sql: false,
+          },
+        },
+        rawProjectConfig: {},
+        toolId: "query_standards_sql",
+        enabled: true,
+      }),
+    ).toEqual({
+      tools: {
+        query_standards_sql: true,
+      },
+    })
+  })
+})
+
+describe("global standards defaults", () => {
+  test("buildGlobalStandardsPatch only includes changed tool defaults", () => {
+    expect(
+      buildGlobalStandardsPatch(
         {
           tools: {
             search_standards: true,
@@ -78,13 +82,8 @@ describe("tools settings patches", () => {
           },
         },
         {
+          ...buildGlobalStandardsDefaults({}),
           search_standards: false,
-          get_standard: true,
-          get_learning_components: true,
-          get_prerequisites: true,
-          get_next_standards: true,
-          get_crosswalk: true,
-          query_standards_sql: true,
         },
       ),
     ).toEqual({
@@ -93,24 +92,17 @@ describe("tools settings patches", () => {
       },
     })
   })
-})
 
-describe("createToolsSettingsStore", () => {
-  test("initializeFromBundle preserves unsaved edits for the active directory", () => {
-    const store = createToolsSettingsStore()
-    const bundle = {
-      globalConfig: {
-        tools: {
-          search_standards: true,
+  test("reports when a notebook is inheriting the global default", () => {
+    expect(
+      notebookStandardUsesGlobalDefault(
+        {
+          tools: {
+            get_standard: false,
+          },
         },
-      },
-      rawProjectConfig: {},
-    }
-
-    store.getState().initializeFromBundle("/repo", bundle)
-    store.getState().setGlobalToolEnabled("search_standards", false)
-    store.getState().initializeFromBundle("/repo", bundle)
-
-    expect(store.getState().globalDraft.search_standards).toBe(false)
+        "search_standards",
+      ),
+    ).toBe(true)
   })
 })

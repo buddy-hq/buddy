@@ -31,3 +31,9 @@ export function invalidateSkillsCatalogQuery(queryClient: QueryClient, directory
     queryKey: skillsCatalogQueryKeys.catalog(directory),
   })
 }
+
+export function invalidateAllSkillsCatalogQueries(queryClient: QueryClient) {
+  return queryClient.invalidateQueries({
+    queryKey: [SKILLS_QUERY_SCOPE, SKILLS_CATALOG_QUERY_KEY],
+  })
+}

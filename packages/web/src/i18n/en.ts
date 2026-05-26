@@ -6,7 +6,9 @@ export const dict = {
   "agentsMd.notebookEmptyDescription": "Instructions file lets you customize Buddy's behaviour.",
   "agentsMd.notebookEmptyTitle": "No instructions file",
   "common.cancel": "Cancel",
+  "common.close": "Close",
   "common.connect": "Connect",
+  "common.remove": "Remove",
   "common.disconnect": "Disconnect",
   "common.model": "Model",
   "common.refresh": "Refresh",
@@ -190,7 +192,7 @@ export const dict = {
     "Open the authorization page in your browser to continue connecting",
   "connectProviderDialog.authorizationLinkLabel": "Authorization link",
   "connectProviderDialog.confirmationCodeLabel": "Confirmation code",
-  "connectProviderDialog.connected": "Connected.",
+  "connectProviderDialog.connected": "Connected",
   "connectProviderDialog.connectedAsReadOnly":
     "Configured outside Buddy via environment variables. This connection is read-only here.",
   "connectProviderDialog.connectedViaEnv": "Configured outside Buddy via environment variables.",
@@ -202,15 +204,19 @@ export const dict = {
     "Remove or change the provider environment variable outside Buddy to stop using this connection.",
   "connectProviderDialog.fallbackApiMethodLabel": "API key",
   "connectProviderDialog.invalidAuthCode": "Invalid authorization code",
-  "connectProviderDialog.noProvidersForNotebook": "No providers are available for this notebook.",
+  "connectProviderDialog.noProvidersForNotebook": "No providers are available right now.",
   "connectProviderDialog.notConnected": "Not connected.",
   "connectProviderDialog.openAuthorizationPage": "Open authorization page",
+  "connectProviderDialog.openingAuthorizationPage": "Opening authorization page...",
+  "connectProviderDialog.clickToOpenAgain": "Click to open again",
   "connectProviderDialog.providerLabel": "Provider",
   "connectProviderDialog.removeCredentialsFailed": "Failed to remove provider credentials",
   "connectProviderDialog.saveCredentials": "Save credentials",
   "connectProviderDialog.saveCredentialsFailed": "Failed to save provider credentials",
   "connectProviderDialog.signInToConnectPrefix": "Sign in to connect",
   "connectProviderDialog.startLogin": "Start login",
+  "connectProviderDialog.reconnect": "Reconnect",
+  "connectProviderDialog.updateApiKey": "Update API key",
   "connectProviderDialog.startProviderLoginFailed": "Failed to start provider login",
   "connectProviderDialog.submitCode": "Submit code",
   "connectProviderDialog.title": "Connect provider",
@@ -299,7 +305,7 @@ export const dict = {
   "markdownEditor.reload": "Reload",
   "markdownEditor.saveError": "Save error",
   "mcp.editorDialog.addTitle": "Add extension",
-  "mcp.editorDialog.description": "Save an extension definition for this notebook.",
+  "mcp.editorDialog.description": "Save an extension definition for Buddy across notebooks.",
   "mcp.editorDialog.enabledByDefault": "Enabled by default",
   "mcp.editorDialog.enabledByDefaultDescription": "Saved as the MCP's initial enabled state.",
   "mcp.editorDialog.local": "Local",
@@ -330,6 +336,12 @@ export const dict = {
   "mcp.listPanel.noneConfigured": "No MCPs configured yet.",
   "mcp.listPanel.signingIn": "Signing in...",
   "mcp.listPanel.title": "MCP definitions",
+  "mcp.settings.defaultOff": "Off by default",
+  "mcp.settings.defaultOn": "On by default",
+  "mcp.settings.description":
+    "Manage global MCP definitions here. Notebook settings control whether each notebook participates.",
+  "mcp.settings.emptyDescription":
+    "No global MCPs configured yet. Add one here to make it available to notebooks.",
   "mcp.localFields.commandHelp":
     "Use a JSON array to preserve exact argv values, especially when arguments contain spaces. Plain text still works for simple commands.",
   "mcp.localFields.commandLabel": "Local command",
@@ -739,11 +751,13 @@ export const dict = {
   "settings.notebook.learnerMemoryDescription":
     "Allow this notebook to use the global learner memory store and attach notebook metadata to new memories.",
   "settings.notebook.learnerMemoryTitle": "Learner memory",
+  "settings.notebook.inherited": "Inherited",
   "settings.notebook.learnerMemoryAutoExtractAria":
     "Enable automatic learner memory extraction from real chats",
   "settings.notebook.learnerMemoryAutoExtractDescription":
     "When enabled here, Buddy can run delayed extraction over this notebook's real chat sessions that pass the global attention gate.",
   "settings.notebook.learnerMemoryAutoExtractTitle": "Auto-extract from chats",
+  "settings.notebook.overridden": "Override",
   "settings.advanced.logLevelDescription": "Controls backend logging verbosity for Buddy.",
   "settings.advanced.logLevels.debug": "debug",
   "settings.advanced.logLevels.error": "error",
@@ -755,7 +769,7 @@ export const dict = {
   "settings.notebook.on": "On",
   "settings.notebook.title": "Notebook",
   "settings.learnerMemory.description":
-    "Control Buddy's global learner memory store, global extraction defaults, and whether this notebook participates.",
+    "Control Buddy's global learner memory store and the defaults that notebooks inherit.",
   "settings.learnerMemory.title": "Learner Memory",
   "settings.providers.allConnected": "All available providers are already connected.",
   "settings.providers.allProvidersSection": "All providers",
@@ -794,7 +808,7 @@ export const dict = {
   "settings.standards.title": "Standards",
   "settings.tools.disabledForNotebook": "Disabled for this notebook",
   "settings.tools.description":
-    "Control standards tools with a global default for all notebooks, then override specific notebooks only when needed.",
+    "Control the default standards-tool availability for notebooks on this machine.",
   "settings.tools.disabled": "Disabled",
   "settings.tools.enabledForNotebook": "Enabled for this notebook",
   "settings.tools.enabled": "Enabled",
@@ -837,6 +851,24 @@ export const dict = {
   "sidebar.create": "Create",
   "sidebar.createNotebook": "Create",
   "sidebar.closeNotebook": "Close notebook",
+  "sidebar.notebookSettings": "Notebook settings",
+  "sidebar.notebookSettingsAutosaveHint": "Changes save automatically.",
+  "sidebar.notebookSettingsBadge": "Notebook",
+  "sidebar.notebookSettingsDescription": "Customize overrides for {notebook} only.",
+  "sidebar.notebookSettingsLearnerMemoryGlobalDisabled":
+    "Global learner memory is off. Turn it on in Settings to use notebook memory features.",
+  "sidebar.notebookSettingsLearnerMemorySectionDescription":
+    "These controls customize learner memory behavior for this notebook only.",
+  "sidebar.notebookSettingsLearnerMemorySectionTitle": "Learner memory",
+  "sidebar.notebookSettingsMcpEmpty":
+    "No global MCPs are configured yet. Add one in Settings to make it available here.",
+  "sidebar.notebookSettingsMcpSectionDescription":
+    "Turn global MCPs on or off for this notebook and resolve any notebook-specific runtime issues.",
+  "sidebar.notebookSettingsMcpSectionTitle": "MCPs",
+  "sidebar.notebookSettingsStandardsSectionDescription":
+    "Override the global standards-tool defaults for this notebook only.",
+  "sidebar.notebookSettingsStandardsSectionTitle": "Standards",
+  "sidebar.notebookSettingsTitle": "Notebook settings",
   "sidebar.notebookLearnerMemory": "Learner memory",
   "sidebar.notebookLearnerMemoryAutoExtract": "Auto-extract from chats",
   "sidebar.closeProject": "Close project",

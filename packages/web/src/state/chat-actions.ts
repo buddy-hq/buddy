@@ -2486,6 +2486,22 @@ export async function patchGlobalConfig(patch: Record<string, unknown>) {
   return asRecord(requireBuddyData(result)) ?? {}
 }
 
+export async function saveGlobalMcpConfig(name: string, config: McpLocalConfig | McpRemoteConfig) {
+  return patchGlobalConfig({
+    mcp: {
+      [name]: config,
+    },
+  })
+}
+
+export async function removeGlobalMcpConfig(name: string) {
+  return patchGlobalConfig({
+    mcp: {
+      [name]: null,
+    },
+  })
+}
+
 export async function saveProjectMcpConfig(
   directory: string,
   name: string,

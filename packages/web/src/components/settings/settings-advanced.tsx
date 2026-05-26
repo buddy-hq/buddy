@@ -14,14 +14,17 @@ import {
 import { pickProjectDirectory } from "@/lib/directory-picker"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
-import {
-  invalidateSkillsCatalogQuery,
-  skillsCatalogQueryOptions,
-} from "@/state/skills-catalog-query"
-import { updateSkillsSettings, type SkillsCatalog } from "@/state/skills-actions"
-import { loadGlobalConfig, patchGlobalConfig, saveNotebookHome } from "@/state/chat-actions"
+import { useChatStore } from "@/state/chat-store"
+import { invalidateAllSkillsCatalogQueries } from "@/state/skills-catalog-query"
+import { updateSkillsSettings } from "@/state/skills-actions"
+import { patchGlobalConfig, saveNotebookHome } from "@/state/chat-actions"
 import { notebookHomeQueryOptions, setNotebookHomeQueryData } from "@/state/bootstrap-query"
 import { useGeneralSettings } from "@/state/general-settings"
+import {
+  globalConfigQueryKeys,
+  globalConfigQueryOptions,
+  setGlobalConfigQueryData,
+} from "@/state/global-config-query"
 import { ConfirmRemoveMathRuntimeDialog } from "./confirm-remove-math-runtime-dialog"
 import { ConfirmRemoveStandardsRuntimeDialog } from "./confirm-remove-standards-runtime-dialog"
 import {
@@ -31,12 +34,12 @@ import {
   SettingsSection,
   SettingsSectionHeader,
 } from "./settings-primitives"
-import type { SettingsWorkbench } from "./settings-workbench"
 import { formatRuntimeVersion, useAdvancedMathRuntime } from "./use-advanced-math-runtime"
 import { useStandardsRuntime } from "./use-standards-runtime"
 
 const DEFAULT_LOG_LEVEL_VALUE = "__default__"
 const ADVANCED_LOG_LEVELS = ["debug", "info", "warn", "error"] as const
+const SKILLS_EXTERNAL_VENDOR_ROOTS_ENABLED_CONFIG_KEY = "skills_external_vendor_roots_enabled"
 
 type AdvancedLogLevel = (typeof ADVANCED_LOG_LEVELS)[number]
 
@@ -44,28 +47,26 @@ function isAdvancedLogLevel(value: string): value is AdvancedLogLevel {
   return ADVANCED_LOG_LEVELS.some((level) => level === value)
 }
 
-export function AdvancedSettings({ workbench }: { workbench: SettingsWorkbench }) {
+export function AdvancedSettings() {
   const queryClient = useQueryClient()
   const platform = usePlatform()
+  const openProjects = useChatStore((state) => state.openProjects)
   const [busyKey, setBusyKey] = useState<string | undefined>(undefined)
   const [logLevelDraft, setLogLevelDraft] = useState<string>(DEFAULT_LOG_LEVEL_VALUE)
   const [logLevelBusy, setLogLevelBusy] = useState(false)
   const [changingBuddyHome, setChangingBuddyHome] = useState(false)
   const generalSettings = useGeneralSettings({
-    cleanupDirectories: workbench.openDirectories,
+    cleanupDirectories: openProjects,
   })
   const notebookHomeQuery = useQuery(notebookHomeQueryOptions())
   const notebookHome = notebookHomeQuery.data
-  const globalConfigQuery = useQuery({
-    queryKey: ["settings", "global-config"],
-    queryFn: loadGlobalConfig,
-  })
+  const globalConfigQuery = useQuery(globalConfigQueryOptions())
   const logLevelLoading = globalConfigQuery.isPending || globalConfigQuery.isFetching
   const logLevelSelectValue = logLevelDraft
   const showRuntimeControls = platform.platform === "desktop"
-  const catalogQuery = useQuery(skillsCatalogQueryOptions(workbench.selectedDirectory))
-  const catalog = catalogQuery.data
-  const loading = catalogQuery.isPending || catalogQuery.isFetching
+  const externalVendorRootsEnabled =
+    globalConfigQuery.data?.[SKILLS_EXTERNAL_VENDOR_ROOTS_ENABLED_CONFIG_KEY] === true
+  const skillsSettingsLoading = globalConfigQuery.isPending || globalConfigQuery.isFetching
   const {
     advancedMathStatus,
     advancedMathBusy,
@@ -92,16 +93,6 @@ export function AdvancedSettings({ workbench }: { workbench: SettingsWorkbench }
   })
 
   useEffect(() => {
-    if (!catalogQuery.error) return
-
-    const message =
-      catalogQuery.error instanceof Error
-        ? catalogQuery.error.message
-        : language.t("settings.advanced.loadSettingsFailed")
-    toast.error(message)
-  }, [catalogQuery.error])
-
-  useEffect(() => {
     if (!globalConfigQuery.error) return
 
     const message =
@@ -122,18 +113,15 @@ export function AdvancedSettings({ workbench }: { workbench: SettingsWorkbench }
   }, [globalConfigQuery.data])
 
   function setExternalVendorRootsEnabled(enabled: boolean) {
-    queryClient.setQueryData<SkillsCatalog>(
-      skillsCatalogQueryOptions(workbench.selectedDirectory).queryKey,
-      (current) => {
-        if (!current) {
-          return current
-        }
-
-        return {
-          ...current,
-          externalVendorRootsEnabled: enabled,
-        }
-      },
+    queryClient.setQueryData<Record<string, unknown> | undefined>(
+      globalConfigQueryKeys.bundle(),
+      (current) =>
+        current
+          ? {
+              ...current,
+              [SKILLS_EXTERNAL_VENDOR_ROOTS_ENABLED_CONFIG_KEY]: enabled,
+            }
+          : current,
     )
   }
 
@@ -142,7 +130,8 @@ export function AdvancedSettings({ workbench }: { workbench: SettingsWorkbench }
     setLogLevelDraft(value)
     setLogLevelBusy(true)
     try {
-      await patchGlobalConfig({ logLevel: value || null })
+      const updatedGlobal = await patchGlobalConfig({ logLevel: value || null })
+      setGlobalConfigQueryData(queryClient, updatedGlobal)
     } catch (error) {
       setLogLevelDraft(previous)
       const message =
@@ -172,25 +161,22 @@ export function AdvancedSettings({ workbench }: { workbench: SettingsWorkbench }
   }
 
   function toggleExternalVendorRoots(enabled: boolean) {
-    if (!catalog) {
-      return
-    }
-    if (catalog.externalVendorRootsEnabled === enabled) {
+    if (externalVendorRootsEnabled === enabled) {
       return
     }
 
     void (async () => {
       const key = "settings:external-roots"
-      const previous = catalog.externalVendorRootsEnabled
+      const previous = externalVendorRootsEnabled
       setBusyKey(key)
       setExternalVendorRootsEnabled(enabled)
 
       try {
-        await updateSkillsSettings(enabled)
-        await invalidateSkillsCatalogQuery(queryClient, workbench.selectedDirectory)
-        await catalogQuery.refetch()
+        const result = await updateSkillsSettings(enabled)
+        setExternalVendorRootsEnabled(result.externalVendorRootsEnabled)
+        await invalidateAllSkillsCatalogQueries(queryClient)
         toast.success(
-          enabled
+          result.externalVendorRootsEnabled
             ? language.t("settings.advanced.externalRootsEnabled")
             : language.t("settings.advanced.externalRootsDisabled"),
         )
@@ -418,14 +404,14 @@ export function AdvancedSettings({ workbench }: { workbench: SettingsWorkbench }
               control={
                 <div className="flex items-center justify-between gap-3 rounded-md border border-border-base/60 px-3 py-2">
                   <span className="text-sm text-text-weak">
-                    {catalog?.externalVendorRootsEnabled
+                    {externalVendorRootsEnabled
                       ? language.t("settings.advanced.on")
                       : language.t("settings.advanced.off")}
                   </span>
                   <Switch
-                    checked={catalog?.externalVendorRootsEnabled ?? false}
+                    checked={externalVendorRootsEnabled}
                     onCheckedChange={toggleExternalVendorRoots}
-                    disabled={loading || busyKey === "settings:external-roots"}
+                    disabled={skillsSettingsLoading || busyKey === "settings:external-roots"}
                     aria-label={language.t("settings.advanced.discoverExternalRootsAria")}
                   />
                 </div>

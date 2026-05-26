@@ -26,7 +26,6 @@ import {
   useAppearancePreferences,
 } from "@/state/appearance-preferences"
 import { SettingsContent, SettingsSection, SettingsRow } from "./settings-primitives"
-import type { SettingsWorkbench } from "./settings-workbench"
 
 function isColorScheme(value: string): value is ColorScheme {
   return value === "system" || value === "light" || value === "dark"
@@ -86,7 +85,7 @@ function FontSizeInput(props: {
   )
 }
 
-export function GeneralSettings({ workbench: _workbench }: { workbench: SettingsWorkbench }) {
+export function GeneralSettings() {
   const platform = usePlatform()
   const [checkingForUpdates, setCheckingForUpdates] = useState(false)
   const { themeId, colorScheme, themes, setTheme, setColorScheme } = useTheme()
