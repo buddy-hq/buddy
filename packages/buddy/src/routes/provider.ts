@@ -207,16 +207,8 @@ export const ProviderRoutes = new Hono()
         if (!directoryResult.ok) return directoryResult.response
 
         const providerID = c.req.valid("param").providerID
-        const localCancelled =
-          providerID === OPENAI_PROVIDER_ID ? cancelOpenAICodexAuthorization() : false
-        const client = await getOpenCodeClient(directoryResult.directory)
-        const result = await client.provider.oauth.cancel({
-          providerID,
-          ...openCodeDirectoryParams(directoryResult.directory),
-        })
-        if (result.error !== undefined) {
-          return respondWithSdkResult(c, result)
-        }
-        return c.json(localCancelled || result.data === true)
+        return c.json(
+          providerID === OPENAI_PROVIDER_ID ? cancelOpenAICodexAuthorization() : false,
+        )
       }),
   )

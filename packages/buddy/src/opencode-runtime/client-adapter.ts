@@ -129,13 +129,6 @@ export function createBuddyOpenCodeClient(raw: OpencodeClient) {
             ...providerPathParams(params),
             body: { method: params.method, code: params.code ?? "" },
           } as never),
-        cancel: (params: { providerID: string; directory?: string }) =>
-          fetchSdkRoute({
-            directory: params.directory,
-            method: "POST",
-            path: `/provider/${encodeURIComponent(params.providerID)}/oauth/cancel`,
-            query: params.directory ? { directory: params.directory } : undefined,
-          }),
       },
     },
     find: {
