@@ -1,6 +1,14 @@
-import { useState, useEffect, useRef } from "react"
+import { useState } from "react"
 import { motion, AnimatePresence } from "motion/react"
-import { cn } from "@buddy/ui"
+import {
+  ComposerDock,
+  ComposerDockHeader,
+  ComposerDockTitle,
+  ComposerDockActions,
+  ComposerDockBody,
+  ComposerDockFooter,
+  cn,
+} from "@buddy/ui"
 import { XIcon, Gamepad2Icon, TrophyIcon, MinusIcon } from "lucide-react"
 import { Snake } from "./games/snake"
 import { ReactionTime } from "./games/reaction"
@@ -28,46 +36,30 @@ const GAME_TABS: Array<{ id: GameType; label: string }> = [
 ]
 
 export function GameDock({ onClose, onMinimize, className }: GameDockProps) {
-  const dockRef = useRef<HTMLDivElement>(null)
   const [activeTab, setActiveTab] = useState<GameType>("snake")
   const highScores = useGameStore((state) => state.highScores)
   const [gameStatus, setGameStatus] = useState<GameStatus | null>(null)
 
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      dockRef.current?.focus({ preventScroll: true })
-    })
-    return () => window.cancelAnimationFrame(frame)
-  }, [])
-
   return (
-    <div
-      ref={dockRef}
-      tabIndex={-1}
-      className={cn(
-        "relative flex flex-col overflow-hidden rounded-2xl border border-border-base bg-surface-raised-base backdrop-blur-xl shadow-lg h-[440px] mb-0 outline-none",
-        className,
-      )}
-    >
+    <ComposerDock size="md" className={className}>
       <motion.div
         initial={{ opacity: 0, y: 20, scale: 0.95, filter: "blur(10px)" }}
         animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
         exit={{ opacity: 0, y: 20, scale: 0.95, filter: "blur(10px)" }}
-        className="flex flex-col flex-1 h-full min-h-0"
+        className="flex min-h-0 flex-1 flex-col"
       >
-        {/* Header */}
-        <div className="relative flex items-center justify-between px-4 py-2 border-b border-border-weak-base bg-surface-base/50 gap-4">
+        <ComposerDockHeader>
           {/* Navigation Tabs on the Start */}
-          <div className="flex items-center gap-4 shrink-0">
-            <div className="flex h-8 items-center gap-4 bg-transparent p-0 border-0 shrink-0">
+          <div className="flex shrink-0 items-center gap-4">
+            <div className="flex h-8 shrink-0 items-center gap-4 border-0 bg-transparent p-0">
               {GAME_TABS.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={cn(
-                    "relative px-1 py-0.5 text-[11px] font-semibold transition-all duration-150 cursor-pointer border-0 rounded-none bg-transparent shadow-none outline-none select-none",
+                    "relative border-0 bg-transparent px-1 py-0.5 text-[11px] font-semibold tracking-wide shadow-none outline-none transition-all duration-150 select-none",
                     activeTab === tab.id
-                      ? "text-text-base font-bold"
+                      ? "font-bold text-text-base"
                       : "text-text-weak hover:text-text-base",
                   )}
                 >
@@ -88,32 +80,25 @@ export function GameDock({ onClose, onMinimize, className }: GameDockProps) {
             </div>
           </div>
 
-          {/* Centered Buddy Arcade Banner */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none hidden sm:flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-surface-weak border border-border-weak-base shadow-sm">
-            <Gamepad2Icon className="size-3 text-text-weak" />
-            <h3 className="text-[9px] font-black tracking-wider text-text-base uppercase">
-              Buddy Arcade
-            </h3>
-          </div>
+          <ComposerDockTitle icon={Gamepad2Icon} title="Buddy Arcade" />
 
-          <div className="flex items-center gap-1 shrink-0">
+          <ComposerDockActions>
             <button
               onClick={onMinimize}
-              className="rounded-full size-6 flex items-center justify-center text-text-weak hover:bg-surface-base-hover hover:text-text-base transition-all active:scale-95"
+              className="flex size-6 items-center justify-center rounded-full text-text-weak transition-all hover:bg-surface-base-hover hover:text-text-base active:scale-95"
             >
               <MinusIcon className="size-3" />
             </button>
             <button
               onClick={onClose}
-              className="rounded-full size-6 flex items-center justify-center text-text-weak hover:bg-surface-critical-base/10 hover:text-text-on-critical-base transition-all active:scale-95"
+              className="flex size-6 items-center justify-center rounded-full text-text-weak transition-all hover:bg-surface-critical-base/10 hover:text-text-on-critical-base active:scale-95"
             >
               <XIcon className="size-3" />
             </button>
-          </div>
-        </div>
+          </ComposerDockActions>
+        </ComposerDockHeader>
 
-        {/* Game Stage */}
-        <div className="relative flex-1 flex items-center justify-center p-4 overflow-hidden">
+        <ComposerDockBody padded>
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -121,27 +106,26 @@ export function GameDock({ onClose, onMinimize, className }: GameDockProps) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 1.1, y: -10 }}
               transition={{ type: "spring", damping: 20, stiffness: 300 }}
-              className="w-full h-full flex items-center justify-center min-h-0"
+              className="flex min-h-0 h-full w-full items-center justify-center"
             >
               {activeTab === "snake" && <Snake onStatusChange={setGameStatus} />}
               {activeTab === "reaction" && <ReactionTime onStatusChange={setGameStatus} />}
               {activeTab === "memory" && <MemoryGame onStatusChange={setGameStatus} />}
             </motion.div>
           </AnimatePresence>
-        </div>
+        </ComposerDockBody>
 
-        {/* Footer Info */}
-        <div className="px-5 py-3 border-t border-border-weak-base bg-surface-base/30 shrink-0 min-h-[52px] flex items-center">
+        <ComposerDockFooter>
           {gameStatus ? (
-            <div className="flex items-center justify-between w-full">
+            <div className="flex w-full items-center justify-between">
               {/* Score and level/controls */}
               <div className="flex items-center gap-5">
                 {/* Current Score */}
                 <div className="flex items-center gap-2">
-                  <span className="text-[9px] font-bold text-text-weak uppercase tracking-wider">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-text-weak">
                     {gameStatus.scoreLabel}:
                   </span>
-                  <span className="text-sm font-black text-text-base tabular-nums leading-none">
+                  <span className="text-sm font-black leading-none tabular-nums text-text-base">
                     {gameStatus.scoreValue}
                   </span>
                 </div>
@@ -149,15 +133,15 @@ export function GameDock({ onClose, onMinimize, className }: GameDockProps) {
                 {/* Best Score */}
                 <div className="flex items-center gap-2 border-l border-border-weak-base pl-5">
                   <TrophyIcon className="size-3 text-icon-warning-base" />
-                  <span className="text-[9px] font-bold text-text-weak uppercase tracking-wider">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-text-weak">
                     Best:
                   </span>
-                  <span className="text-sm font-black text-text-base tabular-nums leading-none">
+                  <span className="text-sm font-black leading-none tabular-nums text-text-base">
                     {highScores[activeTab]}
                   </span>
                 </div>
 
-                {/* Extra controls (e.g. Snake level selector) */}
+                {/* Extra controls */}
                 {gameStatus.extraControls && (
                   <div className="flex items-center gap-1.5 border-l border-border-weak-base pl-5">
                     {gameStatus.extraControls}
@@ -168,16 +152,17 @@ export function GameDock({ onClose, onMinimize, className }: GameDockProps) {
               {/* Game reset/action button */}
               <button
                 onClick={gameStatus.onAction}
-                className="rounded-xl bg-surface-weak border border-border-weak-base px-4 py-2 text-xs font-bold text-text-base hover:bg-surface-base-hover transition-all active:scale-95 shadow-sm cursor-pointer"
+                className="cursor-pointer rounded-xl border border-border-weak-base bg-surface-weak px-4 py-2 text-xs font-bold text-text-base shadow-sm transition-all hover:bg-surface-base-hover active:scale-95"
               >
                 {gameStatus.actionLabel}
               </button>
             </div>
           ) : (
-            <span className="text-[10px] text-text-weak font-medium">Initializing...</span>
+            <span className="text-[10px] font-medium text-text-weak">Initializing...</span>
           )}
-        </div>
+        </ComposerDockFooter>
       </motion.div>
-    </div>
+    </ComposerDock>
   )
 }
+

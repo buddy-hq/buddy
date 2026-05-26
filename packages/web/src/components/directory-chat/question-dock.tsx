@@ -1,6 +1,16 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { motion } from "motion/react"
-import { Tabs, TabsList, TabsTrigger, cn } from "@buddy/ui"
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  cn,
+  ComposerDock,
+  ComposerDockFooter,
+  Button,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "@buddy/ui"
 import { language } from "@/context/language"
 import type { QuestionRequest } from "@/state/chat-types"
 import {
@@ -31,6 +41,162 @@ function isTextEntryElement(element: Element | null) {
     element instanceof HTMLInputElement ||
     element instanceof HTMLTextAreaElement ||
     (element instanceof HTMLElement && element.isContentEditable)
+  )
+}
+
+type QuestionDockTabBarProps = {
+  requestID: string
+  questions: QuestionRequest["questions"]
+  tab: number
+  answers: string[][]
+  onSelectTab: (index: number) => void
+}
+
+function QuestionDockTabBar({
+  requestID,
+  questions,
+  tab,
+  answers,
+  onSelectTab,
+}: QuestionDockTabBarProps) {
+  const tabScrollRef = useRef<HTMLDivElement>(null)
+  const [showLeftChevron, setShowLeftChevron] = useState(false)
+  const [showRightChevron, setShowRightChevron] = useState(false)
+
+  const updateScrollAffordance = useCallback(() => {
+    const el = tabScrollRef.current
+    if (!el) return
+    const { scrollLeft, scrollWidth, clientWidth } = el
+    setShowLeftChevron(scrollLeft > 0)
+    setShowRightChevron(Math.ceil(scrollLeft + clientWidth) < scrollWidth - 1)
+  }, [])
+
+  useEffect(() => {
+    const el = tabScrollRef.current
+    if (!el) return
+
+    updateScrollAffordance()
+    el.addEventListener("scroll", updateScrollAffordance)
+    const observer = new ResizeObserver(updateScrollAffordance)
+    observer.observe(el)
+    const content = el.firstElementChild
+    if (content) observer.observe(content)
+
+    return () => {
+      el.removeEventListener("scroll", updateScrollAffordance)
+      observer.disconnect()
+    }
+  }, [updateScrollAffordance, requestID, questions.length])
+
+  useEffect(() => {
+    const scrollEl = tabScrollRef.current
+    if (!scrollEl) return
+
+    const activeTrigger = scrollEl.querySelector<HTMLElement>(
+      '[data-slot="tabs-trigger"][data-state="active"]',
+    )
+    if (!activeTrigger) return
+
+    activeTrigger.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" })
+
+    const syncAffordance = () => updateScrollAffordance()
+    scrollEl.addEventListener("scroll", syncAffordance, { once: true })
+    const timeout = window.setTimeout(syncAffordance, 350)
+    return () => {
+      scrollEl.removeEventListener("scroll", syncAffordance)
+      window.clearTimeout(timeout)
+    }
+  }, [tab, requestID, updateScrollAffordance])
+
+  return (
+    <Tabs
+      value={String(tab)}
+      onValueChange={(v: string) => onSelectTab(Number(v))}
+      activationMode="manual"
+      className="flex shrink-0 flex-col"
+    >
+      <div className="relative shrink-0">
+        <div
+          ref={tabScrollRef}
+          className="min-w-0 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <TabsList
+            variant="line"
+            className="!flex !h-auto w-max min-w-full justify-start gap-1 rounded-none px-4 pt-3 pb-2"
+          >
+            {questions.map((q, i) => {
+              const isAnswered = (answers[i]?.length ?? 0) > 0
+              return (
+                <TabsTrigger
+                  key={`tab-${requestID}-${q.header}`}
+                  value={String(i)}
+                  className={cn(
+                    "h-auto flex-none rounded px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none",
+                    "data-[state=active]:bg-surface-interactive-base data-[state=active]:text-text-on-interactive-base",
+                    "data-[state=inactive]:hover:bg-surface-base-hover",
+                    isAnswered
+                      ? "data-[state=inactive]:text-text-base"
+                      : "data-[state=inactive]:text-text-weak",
+                  )}
+                >
+                  {q.header}
+                </TabsTrigger>
+              )
+            })}
+            <TabsTrigger
+              value={String(questions.length)}
+              className={cn(
+                "h-auto flex-none rounded px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none",
+                "data-[state=active]:bg-surface-interactive-base data-[state=active]:text-text-on-interactive-base",
+                "data-[state=inactive]:text-text-weak data-[state=inactive]:hover:bg-surface-base-hover",
+              )}
+            >
+              {language.t("chat.questionDock.review")}
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        {showLeftChevron ? (
+          <div className="absolute inset-y-0 left-0 z-10 flex items-center bg-surface-base pr-1 pl-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="shrink-0 bg-surface-base"
+              aria-label={language.t("chat.questionDock.scrollTabsBack", {
+                defaultValue: "Scroll tabs back",
+              })}
+              onClick={() => {
+                const el = tabScrollRef.current
+                if (el) el.scrollBy({ left: -el.clientWidth, behavior: "smooth" })
+              }}
+            >
+              <ChevronLeftIcon className="size-4 text-text-weak" />
+            </Button>
+            <div className="pointer-events-none absolute -right-4 inset-y-0 w-4 bg-gradient-to-r from-surface-base to-transparent" />
+          </div>
+        ) : null}
+        {showRightChevron ? (
+          <div className="absolute inset-y-0 right-0 z-10 flex items-center bg-surface-base pl-1 pr-1">
+            <div className="pointer-events-none absolute -left-4 inset-y-0 w-4 bg-gradient-to-l from-surface-base to-transparent" />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="shrink-0 bg-surface-base"
+              aria-label={language.t("chat.questionDock.scrollTabsForward", {
+                defaultValue: "Scroll tabs forward",
+              })}
+              onClick={() => {
+                const el = tabScrollRef.current
+                if (el) el.scrollBy({ left: el.clientWidth, behavior: "smooth" })
+              }}
+            >
+              <ChevronRightIcon className="size-4 text-text-weak" />
+            </Button>
+          </div>
+        ) : null}
+      </div>
+    </Tabs>
   )
 }
 
@@ -323,63 +489,31 @@ export function QuestionDock(props: QuestionDockProps) {
   const enterLabel = isConfirm ? "submit" : isMulti ? "toggle" : isSingle ? "submit" : "confirm"
 
   return (
-    <div
+    <ComposerDock
       ref={containerRef}
-      tabIndex={-1}
-      className="flex flex-col overflow-hidden rounded-lg border border-border-weak-base border-l-2 border-l-border-interactive-base bg-surface-base focus:outline-none"
+      autoFocus={false}
+      className={cn(
+        "max-h-none rounded-lg border-border-weak-base bg-surface-base shadow-none backdrop-blur-none",
+        "border-l-2 border-l-border-interactive-base",
+      )}
       role="region"
       aria-label={language.t("chat.questionDock.responseRequired")}
     >
-      {/* Tab bar (multi-question only) */}
-      {!isSingle && (
-        <Tabs
-          value={String(tab)}
-          onValueChange={(v: string) => doSelectTab(Number(v))}
-          activationMode="manual"
-          className="flex flex-col"
-        >
-          <TabsList
-            variant="line"
-            className="flex h-auto w-full justify-start gap-1 rounded-none px-4 pt-3 pb-2"
-          >
-            {questions.map((q, i) => {
-              const isAnswered = (answers[i]?.length ?? 0) > 0
-              return (
-                <TabsTrigger
-                  key={`tab-${requestID}-${q.header}`}
-                  value={String(i)}
-                  className={cn(
-                    "h-auto flex-none rounded px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none",
-                    "data-[state=active]:bg-surface-interactive-base data-[state=active]:text-text-on-interactive-base",
-                    "data-[state=inactive]:hover:bg-surface-base-hover",
-                    isAnswered
-                      ? "data-[state=inactive]:text-text-base"
-                      : "data-[state=inactive]:text-text-weak",
-                  )}
-                >
-                  {q.header}
-                </TabsTrigger>
-              )
-            })}
-            <TabsTrigger
-              value={String(questions.length)}
-              className={cn(
-                "h-auto flex-none rounded px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none",
-                "data-[state=active]:bg-surface-interactive-base data-[state=active]:text-text-on-interactive-base",
-                "data-[state=inactive]:text-text-weak data-[state=inactive]:hover:bg-surface-base-hover",
-              )}
-            >
-              {language.t("chat.questionDock.review")}
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      )}
+      {!isSingle ? (
+        <QuestionDockTabBar
+          requestID={requestID}
+          questions={questions}
+          tab={tab}
+          answers={answers}
+          onSelectTab={doSelectTab}
+        />
+      ) : null}
 
       {/* Grid-stack: all panels share the same grid cell (1/1), only the active
          one is visible. Keeps MarkdownHtmlSegment mounted so its async parse
          happens once on first render, avoiding the layout flicker that
          AnimatePresence+popLayout caused with the initially-empty markdown divs. */}
-      <div className="grid overflow-hidden" style={{ gridTemplate: "1fr / 1fr" }}>
+      <div className="relative grid min-h-0 overflow-hidden" style={{ gridTemplate: "1fr / 1fr" }}>
         {/* Question panels */}
         {questions.map((q, qi) => {
           const isActivePanel = !isSingle ? tab === qi : true
@@ -406,16 +540,22 @@ export function QuestionDock(props: QuestionDockProps) {
                   : { opacity: 0, x: qi < tab ? -TAB_SLIDE_PX : TAB_SLIDE_PX }
               }
               transition={TAB_PANEL_TRANSITION}
-              className={isActivePanel ? undefined : "pointer-events-none"}
+              className={cn(
+                "min-w-0",
+                isActivePanel
+                  ? "relative z-10"
+                  : "pointer-events-none absolute inset-0 z-0 overflow-hidden",
+              )}
               style={{ gridArea: "1 / 1" }}
               role={!isSingle ? "tabpanel" : undefined}
+              aria-hidden={!isActivePanel}
             >
               <div className="flex flex-col gap-3 px-4 py-3">
                 <QuestionMarkdown
                   text={q.question}
                   cacheKey={`${panelCacheKey}:prompt`}
                   variant="compact"
-                  className="text-text-base"
+                  className="[&_p]:text-[1rem] [&_p]:leading-relaxed [&_li]:text-[1rem]"
                 />
                 {panelIsMulti ? (
                   <p className="text-xs text-text-weak">
@@ -577,9 +717,15 @@ export function QuestionDock(props: QuestionDockProps) {
           <motion.div
             animate={isConfirm ? { opacity: 1, x: 0 } : { opacity: 0, x: -TAB_SLIDE_PX }}
             transition={TAB_PANEL_TRANSITION}
-            className={isConfirm ? undefined : "pointer-events-none"}
+            className={cn(
+              "min-w-0",
+              isConfirm
+                ? "relative z-10"
+                : "pointer-events-none absolute inset-0 z-0 overflow-hidden",
+            )}
             style={{ gridArea: "1 / 1" }}
             role="tabpanel"
+            aria-hidden={!isConfirm}
           >
             <div className="flex flex-col gap-2 px-4 py-3">
               <p className="text-sm font-medium text-text-base">
@@ -636,7 +782,7 @@ export function QuestionDock(props: QuestionDockProps) {
       )}
 
       {/* Keyboard shortcuts footer */}
-      <div className="flex items-center gap-3 border-t border-border-weak-base px-4 py-2 text-xs">
+      <ComposerDockFooter className="gap-3 px-4 py-2 text-xs">
         {!isSingle && (
           <span>
             <span className="text-text-base">{"\u21C6"}</span>{" "}
@@ -657,24 +803,23 @@ export function QuestionDock(props: QuestionDockProps) {
           <span className="text-text-base">esc</span>{" "}
           <span className="text-text-weak">dismiss</span>
         </span>
-        {isConfirm && (
-          <button
+        {isConfirm ? (
+          <Button
             type="button"
+            size="lg"
             onClick={doSubmit}
             disabled={responding}
             className={cn(
-              "ml-auto rounded px-3 py-1 text-xs font-medium transition-opacity",
-              "bg-surface-interactive-base text-text-on-interactive-base",
-              "hover:opacity-90 active:scale-[0.98]",
-              "disabled:cursor-not-allowed disabled:opacity-40",
+              "ml-auto bg-surface-interactive-base text-text-on-interactive-base",
+              "hover:bg-surface-interactive-base/90 active:scale-[0.98]",
             )}
           >
             {responding
               ? language.t("chat.questionDock.submitting")
               : language.t("chat.questionDock.submit")}
-          </button>
-        )}
-      </div>
-    </div>
+          </Button>
+        ) : null}
+      </ComposerDockFooter>
+    </ComposerDock>
   )
 }
