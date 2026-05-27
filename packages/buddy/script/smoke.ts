@@ -79,7 +79,7 @@ async function smokeFetch(path: string, init?: RequestInit & { query?: Record<st
       headers: {
         accept: "application/json",
         ...(authorization ? { authorization } : {}),
-        ...(init?.headers ?? {}),
+        ...init?.headers,
       },
     })
 
@@ -478,4 +478,4 @@ async function runChecks() {
 const exitCode = await runChecks()
 process.exit(exitCode)
 
-export {}
+export { runChecks }
