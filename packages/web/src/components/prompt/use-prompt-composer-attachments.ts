@@ -7,9 +7,8 @@ import {
 import type { PromptComposerAttachment } from "./prompt-types"
 
 type UsePromptComposerAttachmentsProps = {
-  promptKey: string
   attachments: PromptComposerAttachment[]
-  setDraftAttachments: (key: string, attachments: PromptComposerAttachment[]) => void
+  setDraftAttachments: (attachments: PromptComposerAttachment[]) => void
   resetHistoryNavigation: () => void
   acceptsImages: boolean
   onUnsupportedImages?: (count: number) => void
@@ -43,15 +42,12 @@ export function usePromptComposerAttachments(props: UsePromptComposerAttachments
     if (!next) return
 
     props.resetHistoryNavigation()
-    props.setDraftAttachments(props.promptKey, [...props.attachments, ...next])
+    props.setDraftAttachments([...props.attachments, ...next])
   }
 
   function removeAttachment(id: string) {
     props.resetHistoryNavigation()
-    props.setDraftAttachments(
-      props.promptKey,
-      props.attachments.filter((attachment) => attachment.id !== id),
-    )
+    props.setDraftAttachments(props.attachments.filter((attachment) => attachment.id !== id))
   }
 
   return {

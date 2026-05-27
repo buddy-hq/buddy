@@ -97,6 +97,47 @@ export function clonePromptParts(parts: PromptComposerPart[]): PromptComposerPar
   })
 }
 
+export function arePromptPartsEqual(left: PromptComposerPart[], right: PromptComposerPart[]) {
+  if (left.length !== right.length) return false
+
+  for (let index = 0; index < left.length; index += 1) {
+    const leftPart = left[index]
+    const rightPart = right[index]
+    if (!leftPart || !rightPart) return false
+    if (leftPart.type !== rightPart.type) return false
+    if (leftPart.type === PROMPT_PART_TYPE_TEXT) {
+      if (rightPart.type !== PROMPT_PART_TYPE_TEXT || leftPart.text !== rightPart.text) return false
+      continue
+    }
+    if (leftPart.type === PROMPT_PART_TYPE_AGENT) {
+      if (rightPart.type !== PROMPT_PART_TYPE_AGENT || leftPart.name !== rightPart.name) return false
+      continue
+    }
+    if (leftPart.type === WORKSPACE_FILE_REFERENCE_PART_TYPE) {
+      if (rightPart.type !== WORKSPACE_FILE_REFERENCE_PART_TYPE || leftPart.path !== rightPart.path)
+        return false
+      continue
+    }
+    if (leftPart.type === RESOURCE_REFERENCE_PART_TYPE) {
+      if (rightPart.type !== RESOURCE_REFERENCE_PART_TYPE || leftPart.key !== rightPart.key)
+        return false
+      continue
+    }
+
+    if (rightPart.type !== READING_SELECTION_PART_TYPE) return false
+    if (leftPart.text !== rightPart.text) return false
+    if (leftPart.selectionKey !== rightPart.selectionKey) return false
+    if (leftPart.resourceKey !== rightPart.resourceKey) return false
+    if (leftPart.cfi !== rightPart.cfi) return false
+    if (leftPart.index !== rightPart.index) return false
+    if (leftPart.tocLabel !== rightPart.tocLabel) return false
+    if (leftPart.pageLabel !== rightPart.pageLabel) return false
+    if (leftPart.locationLabel !== rightPart.locationLabel) return false
+  }
+
+  return true
+}
+
 export function extractWorkspaceFileReferenceParts(
   parts: PromptComposerPart[],
 ): PromptWorkspaceFileReferencePart[] {

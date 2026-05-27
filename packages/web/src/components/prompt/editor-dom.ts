@@ -74,6 +74,48 @@ export function getTextLength(node: Node): number {
   return length
 }
 
+function getTextLengthToPosition(
+  node: Node,
+  target: Node,
+  offset: number,
+): { found: boolean; length: number } {
+  if (node === target) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return {
+        found: true,
+        length: (node.textContent ?? "").slice(0, offset).replace(/\u200B/g, "").length,
+      }
+    }
+
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      let length = 0
+      const childLimit = Math.min(offset, node.childNodes.length)
+      for (let index = 0; index < childLimit; index += 1) {
+        const child = node.childNodes.item(index)
+        if (child) length += getTextLength(child)
+      }
+      return { found: true, length }
+    }
+
+    return { found: true, length: 0 }
+  }
+
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return { found: false, length: getTextLength(node) }
+  }
+
+  let length = 0
+  for (let index = 0; index < node.childNodes.length; index += 1) {
+    const child = node.childNodes.item(index)
+    if (!child) continue
+    const result = getTextLengthToPosition(child, target, offset)
+    length += result.length
+    if (result.found) return { found: true, length }
+  }
+
+  return { found: false, length }
+}
+
 export function getCursorPosition(parent: HTMLElement): number {
   const selection = window.getSelection()
   if (!selection || selection.rangeCount === 0) return 0
@@ -81,10 +123,8 @@ export function getCursorPosition(parent: HTMLElement): number {
   const range = selection.getRangeAt(0)
   if (!parent.contains(range.startContainer)) return 0
 
-  const preCaretRange = range.cloneRange()
-  preCaretRange.selectNodeContents(parent)
-  preCaretRange.setEnd(range.startContainer, range.startOffset)
-  return getTextLength(preCaretRange.cloneContents())
+  const result = getTextLengthToPosition(parent, range.startContainer, range.startOffset)
+  return result.found ? result.length : 0
 }
 
 export function setCursorPosition(parent: HTMLElement, position: number) {

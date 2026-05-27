@@ -1,7 +1,8 @@
 import { create } from "zustand"
-import { persist } from "zustand/middleware"
+import { persist, type PersistStorage, type StateStorage, type StorageValue } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 import {
+  arePromptPartsEqual,
   createPromptPartsFromValue,
   clonePromptParts,
   serializePromptParts,
@@ -20,9 +21,11 @@ import {
   type PromptComposerAttachment,
   type PromptComposerPart,
 } from "@/components/prompt/prompt-types"
-import { createPlatformJsonStorage } from "../context/platform"
+import { getPlatform } from "../context/platform"
 
 export const PROMPT_STORE_STORAGE_KEY = "buddy.prompt.v1"
+export const PROMPT_STORE_STORAGE_FILE = "buddy.prompt.dat"
+export const PROMPT_STORE_PERSIST_DEBOUNCE_MS = 250
 export const WORKSPACE_PROMPT_SCOPE = "__workspace__"
 export const MAX_PROMPT_DRAFTS = 20
 
@@ -192,6 +195,135 @@ function readPersistedPromptStoreState(value: unknown): PersistedPromptStoreStat
   }
 }
 
+type PersistedPromptStorageValue = StorageValue<PersistedPromptStoreState>
+
+const memoryPromptStorage = new Map<string, string>()
+let pendingPromptStorageName: string | undefined
+let pendingPromptStorageValue: PersistedPromptStorageValue | undefined
+let pendingPromptStorageTimer: ReturnType<typeof setTimeout> | undefined
+let promptStorageFlushEventsInstalled = false
+
+const fallbackPromptStorage: StateStorage = {
+  getItem(name) {
+    return memoryPromptStorage.get(name) ?? null
+  },
+  setItem(name, value) {
+    memoryPromptStorage.set(name, value)
+  },
+  removeItem(name) {
+    memoryPromptStorage.delete(name)
+  },
+}
+
+function parseJson(value: string): unknown {
+  try {
+    return JSON.parse(value)
+  } catch {
+    return undefined
+  }
+}
+
+function getPromptStateStorage(): StateStorage {
+  const platformStorage = getPlatform().storage?.(PROMPT_STORE_STORAGE_FILE)
+  if (platformStorage) return platformStorage
+  if (typeof localStorage !== "undefined") return localStorage
+  return fallbackPromptStorage
+}
+
+function isFlushableStorage(
+  storage: StateStorage,
+): storage is StateStorage & { flush: () => Promise<void> | void } {
+  return "flush" in storage && typeof storage.flush === "function"
+}
+
+function readPersistedPromptStorageValue(raw: string): PersistedPromptStorageValue | null {
+  const parsed = parseJson(raw)
+  if (!isRecord(parsed)) return null
+
+  return {
+    state: readPersistedPromptStoreState(parsed.state),
+    ...(typeof parsed.version === "number" ? { version: parsed.version } : {}),
+  }
+}
+
+export function flushPromptStorePersistence() {
+  if (pendingPromptStorageTimer !== undefined) {
+    clearTimeout(pendingPromptStorageTimer)
+    pendingPromptStorageTimer = undefined
+  }
+
+  if (!pendingPromptStorageName || !pendingPromptStorageValue) return
+
+  const name = pendingPromptStorageName
+  const value = pendingPromptStorageValue
+  pendingPromptStorageName = undefined
+  pendingPromptStorageValue = undefined
+
+  const storage = getPromptStateStorage()
+  void storage.setItem(name, JSON.stringify(value))
+  if (isFlushableStorage(storage)) {
+    void storage.flush()
+  }
+}
+
+function schedulePromptStorePersistence() {
+  if (pendingPromptStorageTimer !== undefined) {
+    clearTimeout(pendingPromptStorageTimer)
+  }
+
+  pendingPromptStorageTimer = setTimeout(() => {
+    flushPromptStorePersistence()
+  }, PROMPT_STORE_PERSIST_DEBOUNCE_MS)
+}
+
+function installPromptStorePersistenceFlushEvents() {
+  if (promptStorageFlushEventsInstalled || typeof window === "undefined") return
+  promptStorageFlushEventsInstalled = true
+
+  window.addEventListener("pagehide", flushPromptStorePersistence)
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "hidden") return
+    flushPromptStorePersistence()
+  })
+}
+
+function createPromptStoreStorage(): PersistStorage<PersistedPromptStoreState> {
+  installPromptStorePersistenceFlushEvents()
+
+  return {
+    getItem(name) {
+      if (pendingPromptStorageName === name && pendingPromptStorageValue) {
+        return pendingPromptStorageValue
+      }
+
+      const raw = getPromptStateStorage().getItem(name)
+      if (raw !== null && typeof raw === "object") {
+        return raw.then((value) =>
+          typeof value === "string" ? readPersistedPromptStorageValue(value) : null,
+        )
+      }
+      if (typeof raw !== "string") return null
+      return readPersistedPromptStorageValue(raw)
+    },
+    setItem(name, value) {
+      pendingPromptStorageName = name
+      pendingPromptStorageValue = value
+      schedulePromptStorePersistence()
+    },
+    removeItem(name) {
+      if (pendingPromptStorageName === name) {
+        pendingPromptStorageName = undefined
+        pendingPromptStorageValue = undefined
+      }
+      if (pendingPromptStorageTimer !== undefined) {
+        clearTimeout(pendingPromptStorageTimer)
+        pendingPromptStorageTimer = undefined
+      }
+      void getPromptStateStorage().removeItem(name)
+    },
+  }
+}
+
 function cloneAttachments(attachments: PromptComposerAttachment[]) {
   return attachments.map((attachment) => ({ ...attachment }))
 }
@@ -210,7 +342,7 @@ function isDraftEmpty(draft: PromptDraftState) {
   return !draft.value.trim() && draft.attachments.length === 0 && draft.parts.length === 0
 }
 
-function normalizePromptDraft(
+export function normalizePromptDraft(
   draft: Omit<PromptDraftState, "updatedAt">,
   updatedAt = Date.now(),
 ): PromptDraftState {
@@ -226,6 +358,35 @@ function normalizePromptDraft(
     cursor: Math.max(0, Math.min(draft.cursor, cursorLimit)),
     updatedAt,
   }
+}
+
+function areAttachmentsEqual(
+  left: PromptComposerAttachment[],
+  right: PromptComposerAttachment[],
+) {
+  if (left.length !== right.length) return false
+
+  for (let index = 0; index < left.length; index += 1) {
+    const leftAttachment = left[index]
+    const rightAttachment = right[index]
+    if (!leftAttachment || !rightAttachment) return false
+    if (leftAttachment.id !== rightAttachment.id) return false
+    if (leftAttachment.filename !== rightAttachment.filename) return false
+    if (leftAttachment.mime !== rightAttachment.mime) return false
+    if (leftAttachment.dataUrl !== rightAttachment.dataUrl) return false
+    if (leftAttachment.kind !== rightAttachment.kind) return false
+  }
+
+  return true
+}
+
+export function arePromptDraftContentsEqual(left: PromptDraftState, right: PromptDraftState) {
+  return (
+    left.value === right.value &&
+    left.cursor === right.cursor &&
+    arePromptPartsEqual(left.parts, right.parts) &&
+    areAttachmentsEqual(left.attachments, right.attachments)
+  )
 }
 
 function pruneDraftEntries(entries: Record<string, PromptDraftState>, max = MAX_PROMPT_DRAFTS) {
@@ -290,7 +451,12 @@ export const usePromptStore = create<PromptStore>()(
         replaceDraft(key, draft) {
           set((state) => {
             const nextDraft = normalizePromptDraft(draft)
+            const currentDraft = state.draftsByKey[key]
+            if (currentDraft && arePromptDraftContentsEqual(currentDraft, nextDraft)) {
+              return
+            }
             if (isDraftEmpty(nextDraft)) {
+              if (!currentDraft) return
               delete state.draftsByKey[key]
             } else {
               state.draftsByKey = pruneDraftEntries({
@@ -389,7 +555,7 @@ export const usePromptStore = create<PromptStore>()(
     {
       name: PROMPT_STORE_STORAGE_KEY,
       version: 1,
-      storage: createPlatformJsonStorage("buddy.prompt.dat"),
+      storage: createPromptStoreStorage(),
       partialize(state) {
         return {
           draftsByKey: state.draftsByKey,

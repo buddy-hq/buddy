@@ -1,40 +1,12 @@
 import { useEffect, type MutableRefObject, type RefObject } from "react"
-import { collectPromptParts, createPromptPartsFromValue, renderPromptParts } from "./prompt-parts"
+import {
+  arePromptPartsEqual,
+  collectPromptParts,
+  createPromptPartsFromValue,
+  renderPromptParts,
+} from "./prompt-parts"
 import { getCursorPosition, setCursorPosition } from "./editor-dom"
 import type { PromptComposerPart } from "./prompt-types"
-
-function arePromptPartsEqual(left: PromptComposerPart[], right: PromptComposerPart[]) {
-  if (left.length !== right.length) return false
-
-  for (let index = 0; index < left.length; index += 1) {
-    const leftPart = left[index]
-    const rightPart = right[index]
-    if (!leftPart || !rightPart) return false
-    if (leftPart.type !== rightPart.type) return false
-    if ("text" in leftPart && "text" in rightPart && leftPart.text !== rightPart.text) return false
-    if ("name" in leftPart && "name" in rightPart && leftPart.name !== rightPart.name) return false
-    if ("path" in leftPart && "path" in rightPart && leftPart.path !== rightPart.path) return false
-    if ("key" in leftPart && "key" in rightPart && leftPart.key !== rightPart.key) return false
-    if ("resourceKey" in leftPart && "resourceKey" in rightPart) {
-      if (leftPart.resourceKey !== rightPart.resourceKey) return false
-    }
-    if ("cfi" in leftPart && "cfi" in rightPart && leftPart.cfi !== rightPart.cfi) return false
-    if ("index" in leftPart && "index" in rightPart && leftPart.index !== rightPart.index) {
-      return false
-    }
-    if ("tocLabel" in leftPart && "tocLabel" in rightPart) {
-      if (leftPart.tocLabel !== rightPart.tocLabel) return false
-    }
-    if ("pageLabel" in leftPart && "pageLabel" in rightPart) {
-      if (leftPart.pageLabel !== rightPart.pageLabel) return false
-    }
-    if ("locationLabel" in leftPart && "locationLabel" in rightPart) {
-      if (leftPart.locationLabel !== rightPart.locationLabel) return false
-    }
-  }
-
-  return true
-}
 
 type UsePromptEditorSyncProps = {
   editorRef: RefObject<HTMLDivElement | null>
@@ -64,20 +36,22 @@ export function usePromptEditorSync(props: UsePromptEditorSyncProps) {
       draft.parts.length > 0 ? draft.parts : createPromptPartsFromValue(draft.value, knownAgents)
     const nextCursor = Math.max(0, Math.min(draft.cursor, draft.value.length))
     const domParts = collectPromptParts(editor)
+    const editorFocused = document.activeElement === editor
 
     if (arePromptPartsEqual(domParts, nextParts)) {
-      if (document.activeElement === editor) {
+      if (editorFocused) {
         const currentCursor = getCursorPosition(editor)
-        if (currentCursor !== nextCursor) {
-          setCursorPosition(editor, nextCursor)
-        }
+        setCursorOffset(currentCursor)
+        return
       }
+
       setCursorOffset(nextCursor)
       return
     }
 
+    // Parts genuinely differ (clear after submit, store sync, etc.) — render.
     renderPromptParts(editor, nextParts)
-    if (document.activeElement === editor) {
+    if (editorFocused) {
       setCursorPosition(editor, nextCursor)
     }
     setCursorOffset(nextCursor)

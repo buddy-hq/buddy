@@ -12,7 +12,7 @@ import {
   cn,
 } from "@buddy/ui"
 import { XIcon } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
 import { GameDock } from "../game/game-dock"
@@ -50,8 +50,8 @@ import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_TEXT,
   READING_SELECTION_PART_TYPE,
+  type PromptComposerAttachment,
   type PromptComposerPart,
-  RESOURCE_REFERENCE_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "./prompt-types"
 import {
@@ -74,12 +74,25 @@ import {
   getPromptHistoryEntries,
   getPromptHistoryNavigation,
   getPromptScopeKey,
+  normalizePromptDraft,
   usePromptStore,
+  arePromptDraftContentsEqual,
   type PromptDraftState,
 } from "../../state/prompt-store"
 
 const IMMEDIATE_BUILTIN_SLASH_COMMANDS = new Set(["new", "persona", "model", "mcp", "play"])
 const GAME_BALL_DELAY_MS = 60_000
+const DRAFT_STORE_SYNC_DELAY_MS = 250
+const CURSOR_NAVIGATION_KEYS = new Set([
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowDown",
+  "Home",
+  "End",
+  "PageUp",
+  "PageDown",
+])
 
 type PromptComposerProps = {
   directory: string
@@ -133,6 +146,14 @@ function hasSubmittablePromptParts(parts: PromptComposerPart[]) {
   return parts.some((part) => part.type !== PROMPT_PART_TYPE_TEXT || part.text.trim().length > 0)
 }
 
+function isPromptPlaceholderVisible(draft: Pick<PromptDraftState, "parts" | "attachments">) {
+  return (
+    !serializePromptEditorParts(draft.parts) &&
+    draft.attachments.length === 0 &&
+    !hasSubmittablePromptParts(draft.parts)
+  )
+}
+
 function buildReadingSelectionEntryKey(
   part: Extract<PromptComposerPart, { type: typeof READING_SELECTION_PART_TYPE }>,
 ) {
@@ -159,12 +180,15 @@ export function PromptComposer(props: PromptComposerProps) {
     () => getPromptScopeKey(props.directory, props.sessionID),
     [props.directory, props.sessionID],
   )
-  const draft = usePromptStore((state) => getPromptDraft(state, promptKey))
+  const storeDraft = usePromptStore((state) => getPromptDraft(state, promptKey))
+  const [draft, setDraft] = useState(() => storeDraft)
+  const draftRef = useRef(draft)
+  const pendingStoreDraftRef = useRef<Omit<PromptDraftState, "updatedAt"> | undefined>(undefined)
+  const storeSyncTimerRef = useRef<number | undefined>(undefined)
+  const draftRenderTimerRef = useRef<number | undefined>(undefined)
   const historyEntries = usePromptStore((state) => getPromptHistoryEntries(state, props.directory))
   const historyNavigation = usePromptStore((state) => getPromptHistoryNavigation(state, promptKey))
   const replaceDraft = usePromptStore((state) => state.replaceDraft)
-  const setDraftAttachments = usePromptStore((state) => state.setAttachments)
-  const setDraftCursor = usePromptStore((state) => state.setCursor)
   const clearDraft = usePromptStore((state) => state.clearDraft)
   const pushHistoryEntry = usePromptStore((state) => state.pushHistoryEntry)
   const setHistoryNavigation = usePromptStore((state) => state.setHistoryNavigation)
@@ -211,6 +235,9 @@ export function PromptComposer(props: PromptComposerProps) {
   const [dragging, setDragging] = useState(false)
   const [modelMenuOpenRequest, setModelMenuOpenRequest] = useState(0)
   const [focusRequestID, setFocusRequestID] = useState(0)
+  const [placeholderVisible, setPlaceholderVisible] = useState(() =>
+    isPromptPlaceholderVisible(draft),
+  )
   const [dismissedSelectionPreviews, setDismissedSelectionPreviews] = useState<
     DismissedSelectionPreview[]
   >([])
@@ -223,6 +250,25 @@ export function PromptComposer(props: PromptComposerProps) {
 
   const [busyStartTime, setBusyStartTime] = useState<number | null>(null)
   const [showGameBall, setShowGameBall] = useState(false)
+
+  useEffect(() => {
+    if (arePromptDraftContentsEqual(draftRef.current, storeDraft)) return
+    pendingStoreDraftRef.current = undefined
+    if (storeSyncTimerRef.current !== undefined) {
+      window.clearTimeout(storeSyncTimerRef.current)
+      storeSyncTimerRef.current = undefined
+    }
+    if (draftRenderTimerRef.current !== undefined) {
+      window.clearTimeout(draftRenderTimerRef.current)
+      draftRenderTimerRef.current = undefined
+    }
+    draftRef.current = storeDraft
+    setDraft(storeDraft)
+  }, [storeDraft])
+
+  useEffect(() => {
+    setPlaceholderVisible(isPromptPlaceholderVisible(draft))
+  }, [draft])
 
   const historyIndex = historyNavigation.historyIndex
   const savedHistoryDraft = historyNavigation.savedDraft
@@ -244,17 +290,6 @@ export function PromptComposer(props: PromptComposerProps) {
     setCursorOffset(draftEditorValue.length)
   }, [cursorOffset, draftEditorValue])
 
-  const attachmentState = usePromptComposerAttachments({
-    promptKey,
-    attachments: draft.attachments,
-    setDraftAttachments,
-    resetHistoryNavigation,
-    acceptsImages: props.selectedModelAcceptsImages,
-    onUnsupportedImages: () => {
-      toast.error("This model cannot accept image attachments.")
-    },
-  })
-
   usePromptEditorSync({
     editorRef,
     mirrorInputRef,
@@ -270,16 +305,142 @@ export function PromptComposer(props: PromptComposerProps) {
   const previousReadingSelectionCountRef = useRef(readingSelectionEntries.length)
   const consumedFocusRequestIDRef = useRef(0)
 
+  const flushPendingStoreDraft = useCallback(() => {
+    if (storeSyncTimerRef.current !== undefined) {
+      window.clearTimeout(storeSyncTimerRef.current)
+      storeSyncTimerRef.current = undefined
+    }
+
+    const pending = pendingStoreDraftRef.current
+    if (!pending) return
+
+    pendingStoreDraftRef.current = undefined
+    replaceDraft(promptKey, pending)
+  }, [promptKey, replaceDraft])
+
+  const flushDeferredDraftRender = useCallback(() => {
+    if (draftRenderTimerRef.current !== undefined) {
+      window.clearTimeout(draftRenderTimerRef.current)
+      draftRenderTimerRef.current = undefined
+    }
+
+    startTransition(() => {
+      const nextDraft = draftRef.current
+      setDraft(() => nextDraft)
+      setPlaceholderVisible(isPromptPlaceholderVisible(nextDraft))
+    })
+  }, [])
+
+  const scheduleDeferredDraftRender = useCallback(() => {
+    if (draftRenderTimerRef.current !== undefined) {
+      window.clearTimeout(draftRenderTimerRef.current)
+    }
+
+    draftRenderTimerRef.current = window.setTimeout(() => {
+      flushDeferredDraftRender()
+    }, DRAFT_STORE_SYNC_DELAY_MS)
+  }, [flushDeferredDraftRender])
+
+  const replaceDraftFromComposer = useCallback(
+    (
+      draftState: Omit<PromptDraftState, "updatedAt">,
+      syncMode: "immediate" | "debounced" = "immediate",
+      renderPriority: "sync" | "transition" = "sync",
+    ) => {
+      mirrorInputRef.current = true
+      const nextDraft = normalizePromptDraft(draftState)
+      draftRef.current = nextDraft
+
+      if (renderPriority === "sync") {
+        if (draftRenderTimerRef.current !== undefined) {
+          window.clearTimeout(draftRenderTimerRef.current)
+          draftRenderTimerRef.current = undefined
+        }
+        setPlaceholderVisible(isPromptPlaceholderVisible(nextDraft))
+        setDraft(nextDraft)
+      } else {
+        scheduleDeferredDraftRender()
+      }
+
+      const pendingDraft = {
+        value: nextDraft.value,
+        parts: nextDraft.parts,
+        attachments: nextDraft.attachments,
+        cursor: nextDraft.cursor,
+      }
+
+      if (syncMode === "immediate") {
+        pendingStoreDraftRef.current = pendingDraft
+        flushPendingStoreDraft()
+        return
+      }
+
+      pendingStoreDraftRef.current = pendingDraft
+      if (storeSyncTimerRef.current !== undefined) {
+        window.clearTimeout(storeSyncTimerRef.current)
+      }
+      storeSyncTimerRef.current = window.setTimeout(() => {
+        flushPendingStoreDraft()
+      }, DRAFT_STORE_SYNC_DELAY_MS)
+    },
+    [flushPendingStoreDraft, scheduleDeferredDraftRender],
+  )
+
+  const updateDraftCursorFromComposer = useCallback(
+    (
+      cursor: number,
+      syncMode: "immediate" | "debounced",
+      renderPriority: "sync" | "transition" = "sync",
+    ) => {
+      replaceDraftFromComposer(
+        {
+          value: draftRef.current.value,
+          parts: draftRef.current.parts,
+          attachments: draftRef.current.attachments,
+          cursor,
+        },
+        syncMode,
+        renderPriority,
+      )
+    },
+    [replaceDraftFromComposer],
+  )
+
+  const setDraftAttachmentsFromComposer = useCallback(
+    (attachments: PromptComposerAttachment[]) => {
+      const currentDraft = draftRef.current
+      replaceDraftFromComposer({
+        value: currentDraft.value,
+        parts: currentDraft.parts,
+        attachments,
+        cursor: currentDraft.cursor,
+      })
+    },
+    [replaceDraftFromComposer],
+  )
+
+  const attachmentState = usePromptComposerAttachments({
+    attachments: draft.attachments,
+    setDraftAttachments: setDraftAttachmentsFromComposer,
+    resetHistoryNavigation,
+    acceptsImages: props.selectedModelAcceptsImages,
+    onUnsupportedImages: () => {
+      toast.error("This model cannot accept image attachments.")
+    },
+  })
+
   const focusEditorAtDraftCursor = useCallback(() => {
     const editor = editorRef.current
     if (!editor) return
 
     editor.focus()
-    const nextCursor = Math.max(0, Math.min(draft.cursor, draftEditorValue.length))
+    const currentDraft = draftRef.current
+    const editorValueLength = serializePromptEditorParts(currentDraft.parts).length
+    const nextCursor = Math.max(0, Math.min(currentDraft.cursor, editorValueLength))
     setCursorPosition(editor, nextCursor)
     setCursorOffset(nextCursor)
-    setDraftCursor(promptKey, nextCursor)
-  }, [draft.cursor, draftEditorValue.length, promptKey, setDraftCursor])
+    updateDraftCursorFromComposer(nextCursor, "debounced")
+  }, [updateDraftCursorFromComposer])
 
   useEffect(() => {
     const requestID = consumePromptComposerFocusRequest(
@@ -316,12 +477,8 @@ export function PromptComposer(props: PromptComposerProps) {
 
     focusEditorAtDraftCursor()
   }, [
-    draft.cursor,
-    draftEditorValue.length,
     focusEditorAtDraftCursor,
-    promptKey,
     readingSelectionEntries.length,
-    setDraftCursor,
   ])
 
   const lastBusyRef = useRef(props.isBusy)
@@ -367,6 +524,16 @@ export function PromptComposer(props: PromptComposerProps) {
   }, [props.isQuestionActive, isGameVisible, setPaused, setMinimized, setGameVisible])
 
   useEffect(() => {
+    return () => {
+      if (draftRenderTimerRef.current !== undefined) {
+        window.clearTimeout(draftRenderTimerRef.current)
+        draftRenderTimerRef.current = undefined
+      }
+      flushPendingStoreDraft()
+    }
+  }, [flushPendingStoreDraft])
+
+  useEffect(() => {
     const wasBusy = previousBusyRef.current
     previousBusyRef.current = props.isBusy
 
@@ -382,17 +549,16 @@ export function PromptComposer(props: PromptComposerProps) {
       window.cancelAnimationFrame(frame)
     }
   }, [
-    draft.cursor,
-    draftEditorValue.length,
     focusEditorAtDraftCursor,
-    promptKey,
     props.isBusy,
-    setDraftCursor,
   ])
 
-  function replaceDraftFromComposer(draftState: Omit<typeof draft, "updatedAt">) {
-    mirrorInputRef.current = true
-    replaceDraft(promptKey, draftState)
+  function syncEditorCursorToDraft() {
+    const editor = editorRef.current
+    if (!editor) return
+    const currentCursor = getCursorPosition(editor)
+    setCursorOffset(currentCursor)
+    updateDraftCursorFromComposer(currentCursor, "debounced")
   }
 
   function renderEditorAtCursor(parts: PromptComposerPart[], cursor: number, focus = false) {
@@ -439,16 +605,18 @@ export function PromptComposer(props: PromptComposerProps) {
 
   function readEditorDraft() {
     const editor = editorRef.current
-    const readingSelectionParts = draft.parts.filter(
+    const currentDraft = draftRef.current
+    const currentEditorValue = serializePromptEditorParts(currentDraft.parts)
+    const readingSelectionParts = currentDraft.parts.filter(
       (part): part is Extract<PromptComposerPart, { type: typeof READING_SELECTION_PART_TYPE }> =>
         part.type === READING_SELECTION_PART_TYPE,
     )
     if (!editor) {
       return {
-        value: draftEditorValue,
-        parts: clonePromptParts(draft.parts),
-        attachments: cloneAttachments(draft.attachments),
-        cursor: draft.cursor,
+        value: currentEditorValue,
+        parts: clonePromptParts(currentDraft.parts),
+        attachments: cloneAttachments(currentDraft.attachments),
+        cursor: currentDraft.cursor,
       }
     }
 
@@ -459,7 +627,7 @@ export function PromptComposer(props: PromptComposerProps) {
     return {
       value,
       parts,
-      attachments: cloneAttachments(draft.attachments),
+      attachments: cloneAttachments(currentDraft.attachments),
       cursor,
     }
   }
@@ -478,7 +646,7 @@ export function PromptComposer(props: PromptComposerProps) {
       }, 220)
     }
 
-    const currentDraft = getPromptDraft(usePromptStore.getState(), promptKey)
+    const currentDraft = draftRef.current
     const nextParts = currentDraft.parts.filter((part) => {
       if (part.type !== READING_SELECTION_PART_TYPE) return true
       if (part.selectionKey) {
@@ -509,7 +677,8 @@ export function PromptComposer(props: PromptComposerProps) {
     const editor = editorRef.current
     if (!editor) return
 
-    const readingSelectionParts = draft.parts.filter(
+    const currentDraft = draftRef.current
+    const readingSelectionParts = currentDraft.parts.filter(
       (part): part is Extract<PromptComposerPart, { type: typeof READING_SELECTION_PART_TYPE }> =>
         part.type === READING_SELECTION_PART_TYPE,
     )
@@ -517,48 +686,62 @@ export function PromptComposer(props: PromptComposerProps) {
     const nextParts = [...readingSelectionParts, ...nextEditorParts]
     const nextValue = serializePromptEditorParts(nextEditorParts)
     const nextCursor = getCursorPosition(editor)
+    const hasInlineStructuredPart = nextEditorParts.some(
+      (part) => part.type !== PROMPT_PART_TYPE_TEXT,
+    )
     const shouldReset =
       !NON_EMPTY_TEXT.test(nextValue) &&
-      draft.attachments.length === 0 &&
-      !Array.from(
-        editor.querySelectorAll(
-          `[data-type='${PROMPT_PART_TYPE_AGENT}'], [data-type='${WORKSPACE_FILE_REFERENCE_PART_TYPE}'], [data-type='${RESOURCE_REFERENCE_PART_TYPE}']`,
-        ),
-      ).length
+      currentDraft.attachments.length === 0 &&
+      !hasInlineStructuredPart
 
-    setCursorOffset(nextCursor)
+    setPlaceholderVisible(shouldReset && readingSelectionParts.length === 0)
+    startTransition(() => {
+      setCursorOffset(nextCursor)
+    })
     viewState.setDismissedMentionKey(undefined)
     viewState.setDismissedSlashKey(undefined)
 
     if (shouldReset && readingSelectionParts.length === 0) {
       resetHistoryNavigation()
-      replaceDraftFromComposer({
-        value: "",
-        parts: [],
-        attachments: draft.attachments,
-        cursor: 0,
-      })
+      replaceDraftFromComposer(
+        {
+          value: "",
+          parts: [],
+          attachments: currentDraft.attachments,
+          cursor: 0,
+        },
+        "debounced",
+        "transition",
+      )
       return
     }
 
     if (shouldReset) {
       resetHistoryNavigation()
-      replaceDraftFromComposer({
-        value: "",
-        parts: readingSelectionParts,
-        attachments: draft.attachments,
-        cursor: 0,
-      })
+      replaceDraftFromComposer(
+        {
+          value: "",
+          parts: readingSelectionParts,
+          attachments: currentDraft.attachments,
+          cursor: 0,
+        },
+        "debounced",
+        "transition",
+      )
       return
     }
 
     resetHistoryNavigation()
-    replaceDraftFromComposer({
-      value: nextValue,
-      parts: nextParts,
-      attachments: draft.attachments,
-      cursor: nextCursor,
-    })
+    replaceDraftFromComposer(
+      {
+        value: nextValue,
+        parts: nextParts,
+        attachments: currentDraft.attachments,
+        cursor: nextCursor,
+      },
+      "debounced",
+      "transition",
+    )
   }
 
   function insertTextAtSelection(text: string) {
@@ -570,7 +753,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
     if (selection.rangeCount === 0 || !editor.contains(selection.anchorNode)) {
       editor.focus()
-      setCursorPosition(editor, draft.cursor)
+      setCursorPosition(editor, draftRef.current.cursor)
       selection = window.getSelection()
       if (!selection) return
     }
@@ -644,6 +827,20 @@ export function PromptComposer(props: PromptComposerProps) {
   function clearComposer() {
     resetHistoryNavigation()
     renderEditorAtCursor([], 0)
+    pendingStoreDraftRef.current = undefined
+    if (storeSyncTimerRef.current !== undefined) {
+      window.clearTimeout(storeSyncTimerRef.current)
+      storeSyncTimerRef.current = undefined
+    }
+    const emptyDraft = normalizePromptDraft({
+      value: "",
+      parts: [],
+      attachments: [],
+      cursor: 0,
+    })
+    draftRef.current = emptyDraft
+    setDraft(emptyDraft)
+    setPlaceholderVisible(true)
     clearDraft(promptKey)
   }
 
@@ -881,7 +1078,7 @@ export function PromptComposer(props: PromptComposerProps) {
               </div>
             ) : null}
 
-            {!draftEditorValue && draft.attachments.length === 0 && !hasSubmittableParts ? (
+            {placeholderVisible ? (
               <div
                 className="pointer-events-none absolute left-3 top-3 right-20 text-sm leading-6 text-text-weak transition-opacity duration-250 ease-out"
                 style={{ opacity: viewState.placeholderOpacity }}
@@ -913,28 +1110,21 @@ export function PromptComposer(props: PromptComposerProps) {
                 ) {
                   const currentCursor = getCursorPosition(editor)
                   setCursorOffset(currentCursor)
-                  setDraftCursor(promptKey, currentCursor)
+                  updateDraftCursorFromComposer(currentCursor, "debounced")
                   return
                 }
 
-                const nextCursor = Math.max(0, Math.min(draft.cursor, draftEditorValue.length))
+                const currentDraft = draftRef.current
+                const editorValueLength = serializePromptEditorParts(currentDraft.parts).length
+                const nextCursor = Math.max(0, Math.min(currentDraft.cursor, editorValueLength))
                 setCursorPosition(editor, nextCursor)
                 setCursorOffset(nextCursor)
-                setDraftCursor(promptKey, nextCursor)
+                updateDraftCursorFromComposer(nextCursor, "debounced")
               }}
               onClick={() => {
-                const editor = editorRef.current
-                if (!editor) return
-                const currentCursor = getCursorPosition(editor)
-                setCursorOffset(currentCursor)
-                setDraftCursor(promptKey, currentCursor)
+                syncEditorCursorToDraft()
               }}
               onKeyDown={(event) => {
-                const editor = editorRef.current
-                const currentCursor = editor ? getCursorPosition(editor) : draftEditorValue.length
-                setCursorOffset(currentCursor)
-                setDraftCursor(promptKey, currentCursor)
-
                 // No longer preventing composer from reacting when game is visible
                 // Game keydown handlers now check document.activeElement
 
@@ -1020,24 +1210,25 @@ export function PromptComposer(props: PromptComposerProps) {
                   }
                 }
 
-                if (
-                  (event.key === "ArrowUp" || event.key === "ArrowDown") &&
-                  canNavigateHistoryAtCursor(
-                    event.key === "ArrowUp" ? "up" : "down",
-                    draftEditorValue,
-                    currentCursor,
-                    historyIndex !== -1,
-                  )
-                ) {
+                if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                  const currentDraft = readEditorDraft()
+                  const direction = event.key === "ArrowUp" ? "up" : "down"
+                  if (
+                    !canNavigateHistoryAtCursor(
+                      direction,
+                      currentDraft.value,
+                      currentDraft.cursor,
+                      historyIndex !== -1,
+                    )
+                  ) {
+                    return
+                  }
+
                   const result = navigatePromptHistory({
-                    direction: event.key === "ArrowUp" ? "up" : "down",
+                    direction,
                     entries: historyEntries,
                     historyIndex,
-                    current: {
-                      value: draftEditorValue,
-                      attachments: cloneAttachments(draft.attachments),
-                      parts: clonePromptParts(draft.parts),
-                    },
+                    current: currentDraft,
                     savedDraft: savedHistoryDraft,
                   })
                   if (result.handled) {
@@ -1068,6 +1259,10 @@ export function PromptComposer(props: PromptComposerProps) {
                   event.preventDefault()
                   handleSubmit()
                 }
+              }}
+              onKeyUp={(event) => {
+                if (!CURSOR_NAVIGATION_KEYS.has(event.key)) return
+                syncEditorCursorToDraft()
               }}
               onPaste={(event) => {
                 const clipboardData = event.clipboardData
