@@ -18,7 +18,7 @@ const BUDDY_ICON_FILENAME = "buddy-icon.png"
 
 const platform = createDesktopPlatform()
 installLegacyElectronApiBridge(platform)
-wireDesktopEvents()
+wireDesktopEvents(platform)
 normalizeInitialRoute()
 
 function normalizeInitialRoute() {
@@ -146,7 +146,22 @@ function installLegacyElectronApiBridge(nextPlatform: Platform) {
   }
 }
 
-function wireDesktopEvents() {
+function wireExternalLinkClicks(nextPlatform: Platform) {
+  const handleClick = (event: MouseEvent) => {
+    const target = event.target
+    if (!(target instanceof Element)) return
+    const link = target.closest("a.external-link")
+    if (!(link instanceof HTMLAnchorElement) || !link.href) return
+    event.preventDefault()
+    nextPlatform.openLink(link.href)
+  }
+
+  document.addEventListener("click", handleClick)
+}
+
+function wireDesktopEvents(nextPlatform: Platform) {
+  wireExternalLinkClicks(nextPlatform)
+
   window.api.onMenuCommand((id) => {
     window.dispatchEvent(new CustomEvent("buddy:menu-command", { detail: { id } }))
   })
