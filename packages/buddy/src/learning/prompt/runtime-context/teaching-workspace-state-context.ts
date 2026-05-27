@@ -22,9 +22,12 @@ export const teachingWorkspaceStateSection = defineRuntimeSection({
         ? "Teach primarily through chat. Render a figure only when it materially improves the current explanation."
         : "Teach through normal chat. Use learner state and project context to stay grounded."
 
-    return TEACHING_WORKSPACE_STATE_CONTEXT_TEMPLATE.render({
+    TEACHING_WORKSPACE_STATE_CONTEXT_TEMPLATE.render({
       workspace_state: teachingWorkspaceState,
       guidance,
     })
+
+    //  disabled until we find a better use of workspace state in the runtime context
+    return ""
   },
 })
