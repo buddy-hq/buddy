@@ -34,44 +34,6 @@ describe("config default_persona", () => {
     expect(selected).toBe("code-buddy")
   })
 
-  test("uses configured math-buddy as default_persona", async () => {
-    const repo = createGitRepo("buddy-config-default-persona-math")
-
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
-      JSON.stringify(
-        {
-          default_persona: "math-buddy",
-        },
-        null,
-        2,
-      ) + "\n",
-    )
-
-    const selected = await withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent())
-
-    expect(selected).toBe("math-buddy")
-  })
-
-  test("uses configured reading-buddy as default_persona", async () => {
-    const repo = createGitRepo("buddy-config-default-persona-reading")
-
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
-      JSON.stringify(
-        {
-          default_persona: "reading-buddy",
-        },
-        null,
-        2,
-      ) + "\n",
-    )
-
-    const selected = await withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent())
-
-    expect(selected).toBe("reading-buddy")
-  })
-
   test("propagates hidden personas into the runtime agent catalog", async () => {
     const repo = createGitRepo("buddy-config-hidden-persona")
 
@@ -109,12 +71,6 @@ describe("config default_persona", () => {
               hidden: true,
             },
             "code-buddy": {
-              hidden: true,
-            },
-            "math-buddy": {
-              hidden: true,
-            },
-            "reading-buddy": {
               hidden: true,
             },
           },
@@ -174,7 +130,7 @@ describe("config default_persona", () => {
       JSON.stringify(
         {
           personas: {
-            buddy: {
+            "code-buddy": {
               defaultSurface: "figure",
             },
           },
@@ -189,7 +145,7 @@ describe("config default_persona", () => {
       data: {
         issues: expect.arrayContaining([
           expect.objectContaining({
-            message: 'defaultSurface "figure" must remain available for buddy',
+            message: 'defaultSurface "figure" must remain available for code-buddy',
           }),
         ]),
       },

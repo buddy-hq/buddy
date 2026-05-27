@@ -15,7 +15,7 @@ describe("active reading context", () => {
       },
       body: {
         content: "Help me understand what I am reading",
-        persona: "reading-buddy",
+        persona: "buddy",
         reading: {
           resourceKey: "missing-resource-key",
           title: "Example Book",

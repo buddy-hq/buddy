@@ -1,11 +1,6 @@
 ---
 name: learn
 description: Teach for conceptual understanding, then move the learner into meaningful practice.
-personas:
-  - buddy
-  - code-buddy
-  - math-buddy
-  - reading-buddy
 ---
 
 # Role

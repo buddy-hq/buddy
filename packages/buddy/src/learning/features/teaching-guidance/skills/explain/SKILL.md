@@ -1,10 +1,6 @@
 ---
 name: explain
 description: Teach a concept directly and concisely before moving into application.
-personas:
-  - buddy
-  - code-buddy
-  - math-buddy
 ---
 
 # Role

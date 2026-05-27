@@ -54,7 +54,7 @@ describe("config routes", () => {
     const repo = createGitRepo("buddy-route-config-root-only")
     const nested = path.join(repo, "nested")
     fs.mkdirSync(nested, { recursive: true })
-    writeFileSync(path.join(nested, "buddy.jsonc"), '{"default_persona":"math-buddy"}\n')
+    writeFileSync(path.join(nested, "buddy.jsonc"), '{"default_persona":"buddy"}\n')
 
     const patchResponse = await app.request("/api/config", {
       method: "PATCH",
@@ -82,7 +82,7 @@ describe("config routes", () => {
 
     expect(body.default_persona).toBe("code-buddy")
     expect(fs.readFileSync(path.join(nested, "buddy.jsonc"), "utf8")).toContain(
-      '"default_persona":"math-buddy"',
+      '"default_persona":"buddy"',
     )
     expect(
       fs.existsSync(path.join(repo, "buddy.jsonc")) || fs.existsSync(path.join(repo, "buddy.json")),
@@ -561,12 +561,6 @@ describe("config routes", () => {
               hidden: true,
             },
             "code-buddy": {
-              hidden: true,
-            },
-            "math-buddy": {
-              hidden: true,
-            },
-            "reading-buddy": {
               hidden: true,
             },
           },

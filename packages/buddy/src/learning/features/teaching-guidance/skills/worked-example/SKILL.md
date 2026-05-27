@@ -1,10 +1,6 @@
 ---
 name: worked-example
 description: Show a complete example with explicit reasoning and transition to learner action.
-personas:
-  - buddy
-  - code-buddy
-  - math-buddy
 ---
 
 # Role

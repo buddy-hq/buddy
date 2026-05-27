@@ -1,9 +1,6 @@
 ---
 name: analogy
 description: Guidelines for writing good analogies to make your explanations better. Use when the learner needs a concrete bridge from something already known to something new, or when the learner needs an intuitive anchor for an abstract or unfamiliar idea or when the learner has a misconception that needs a bridge from something they already understand.
-personas:
-  - buddy
-  - math-buddy
 ---
 
 # Role

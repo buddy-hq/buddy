@@ -1,11 +1,6 @@
 ---
 name: practice
 description: Give the learner concrete practice tasks that build expert thinking.
-personas:
-  - buddy
-  - code-buddy
-  - math-buddy
-  - reading-buddy
 ---
 
 # Role

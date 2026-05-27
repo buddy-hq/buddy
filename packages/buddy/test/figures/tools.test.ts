@@ -53,7 +53,7 @@ describe("figure tools", () => {
           createToolContext({
             sessionID: "ses_math",
             messageID: "msg_math",
-            agent: "math-buddy",
+            agent: "buddy",
           }),
         )
       },
@@ -96,7 +96,7 @@ describe("figure tools", () => {
           createToolContext({
             sessionID: "ses_math",
             messageID: "msg_math",
-            agent: "math-buddy",
+            agent: "buddy",
           }),
         )
       },
@@ -127,7 +127,7 @@ describe("figure tools", () => {
           createToolContext({
             sessionID: "ses_math",
             messageID: "msg_math",
-            agent: "math-buddy",
+            agent: "buddy",
           }),
         )
       },

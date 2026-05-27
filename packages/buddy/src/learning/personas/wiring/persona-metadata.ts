@@ -18,7 +18,7 @@ const BUILTIN_BUDDY_PERSONA_METADATA = {
     id: "buddy",
     label: "Buddy",
     description: "The default Buddy persona for learning conversations and project help.",
-    surfaces: ["curriculum", "flashcard", "question-set"],
+    surfaces: ["curriculum", "figure", "flashcard", "question-set"],
     defaultSurface: "curriculum",
     hidden: false,
   },
@@ -28,23 +28,6 @@ const BUILTIN_BUDDY_PERSONA_METADATA = {
     description: "Interactive code Buddy persona for the in-app lesson editor.",
     surfaces: ["curriculum", "editor", "question-set"],
     defaultSurface: "editor",
-    hidden: false,
-  },
-  "math-buddy": {
-    id: "math-buddy",
-    label: "Math Buddy",
-    description:
-      "Chat-first math Buddy persona with inline constrained geometry and unrestricted SVG figures.",
-    surfaces: ["curriculum", "figure", "question-set"],
-    defaultSurface: "figure",
-    hidden: false,
-  },
-  "reading-buddy": {
-    id: "reading-buddy",
-    label: "Reading Buddy",
-    description: "Reading-focused Buddy persona for building comprehension and literacy skills.",
-    surfaces: ["curriculum", "question-set"],
-    defaultSurface: "curriculum",
     hidden: false,
   },
 } as const satisfies Record<BuddyPersona, BuddyPersonaMetadata>

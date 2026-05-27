@@ -79,7 +79,7 @@ describe("opencode config overlay isolation", () => {
       path.join(secondProject.path, "buddy.jsonc"),
       JSON.stringify(
         {
-          default_persona: "math-buddy",
+          default_persona: "buddy",
           permission: {
             [OVERLAY_PERMISSION]: "deny",
           },
@@ -105,7 +105,7 @@ describe("opencode config overlay isolation", () => {
       expect(firstInitial.curriculumOrchestrator?.description).toBe("first project curriculum")
       expect(firstInitial.overlayPermissionAction).toBe("allow")
 
-      expect(secondInitial.defaultAgent).toBe("math-buddy")
+      expect(secondInitial.defaultAgent).toBe("buddy")
       expect(secondInitial.curriculumOrchestrator?.description).toBe("second project curriculum")
       expect(secondInitial.overlayPermissionAction).toBe("deny")
 
@@ -119,7 +119,7 @@ describe("opencode config overlay isolation", () => {
       expect(firstAfterReset.curriculumOrchestrator?.description).toBe("first project curriculum")
       expect(firstAfterReset.overlayPermissionAction).toBe("allow")
 
-      expect(secondAfterReset.defaultAgent).toBe("math-buddy")
+      expect(secondAfterReset.defaultAgent).toBe("buddy")
       expect(secondAfterReset.curriculumOrchestrator?.description).toBe("second project curriculum")
       expect(secondAfterReset.overlayPermissionAction).toBe("deny")
     } finally {

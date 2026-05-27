@@ -1,4 +1,4 @@
-export const PERSONAS = ["buddy", "code-buddy", "math-buddy", "reading-buddy"] as const
+export const PERSONAS = ["buddy", "code-buddy"] as const
 export type Persona = (typeof PERSONAS)[number]
 
 export const SURFACES = ["curriculum", "editor", "figure", "flashcard", "question-set"] as const

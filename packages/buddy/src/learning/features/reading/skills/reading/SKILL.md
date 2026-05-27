@@ -1,12 +1,6 @@
 ---
 name: reading
 description: Resource-grounded reading workflow for books, papers, articles, and long-form workspace resources. Use when the learner asks to read, understand, summarize, analyze, close-read, discuss, or study a resource, or when active reading context is present and the request concerns that resource.
-
-personas:
-  - buddy
-  - code-buddy
-  - math-buddy
-  - reading-buddy
 ---
 
 # Role

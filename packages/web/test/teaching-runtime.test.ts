@@ -18,7 +18,7 @@ describe("teaching runtime", () => {
     const store = useTeachingRuntime.getState()
     const sessionKey = teachingSessionKey("/repo", "session-1")
 
-    store.setSessionPersona(sessionKey, "reading-buddy")
+    store.setSessionPersona(sessionKey, "buddy")
     store.clearSessionPersona(sessionKey)
 
     expect(useTeachingRuntime.getState().selectedPersonaBySession[sessionKey]).toBeUndefined()
@@ -29,10 +29,10 @@ describe("teaching runtime", () => {
     const workspaceKey = teachingSelectionKey("/repo")
     const sessionKey = teachingSessionKey("/repo", "session-1")
 
-    store.setSessionPersona(workspaceKey, "reading-buddy")
+    store.setSessionPersona(workspaceKey, "buddy")
     store.migrateWorkspaceSelection("/repo", "session-1")
 
     expect(useTeachingRuntime.getState().selectedPersonaBySession[workspaceKey]).toBeUndefined()
-    expect(useTeachingRuntime.getState().selectedPersonaBySession[sessionKey]).toBe("reading-buddy")
+    expect(useTeachingRuntime.getState().selectedPersonaBySession[sessionKey]).toBe("buddy")
   })
 })

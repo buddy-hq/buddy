@@ -1,10 +1,6 @@
 ---
 name: compare-concepts
 description: Contrast two related concepts so the learner stops conflating them.
-personas:
-  - buddy
-  - code-buddy
-  - math-buddy
 ---
 
 # Role

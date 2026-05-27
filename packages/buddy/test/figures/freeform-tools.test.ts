@@ -45,7 +45,7 @@ describe("freeform figure tools", () => {
           createToolContext({
             sessionID: "ses_math",
             messageID: "msg_math",
-            agent: "math-buddy",
+            agent: "buddy",
           }),
         )
       },
@@ -126,7 +126,7 @@ describe("freeform figure tools", () => {
           createToolContext({
             sessionID: "ses_math",
             messageID: "msg_math",
-            agent: "math-buddy",
+            agent: "buddy",
           }),
         )
       },

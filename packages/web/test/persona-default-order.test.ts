@@ -15,17 +15,17 @@ function persona(id: PersonaConfigOption["id"], hidden = false): PersonaConfigOp
 
 describe("resolveDefaultPersonaID", () => {
   test("prefers configured default when visible", () => {
-    const personas = [persona("buddy"), persona("code-buddy"), persona("math-buddy")]
-    expect(resolveDefaultPersonaID(personas, "math-buddy")).toBe("math-buddy")
+    const personas = [persona("buddy"), persona("code-buddy")]
+    expect(resolveDefaultPersonaID(personas, "code-buddy")).toBe("code-buddy")
   })
 
   test("falls back to the first visible persona in catalog order", () => {
-    const personas = [persona("math-buddy"), persona("reading-buddy"), persona("code-buddy")]
-    expect(resolveDefaultPersonaID(personas, "unknown-persona")).toBe("math-buddy")
+    const personas = [persona("buddy"), persona("code-buddy")]
+    expect(resolveDefaultPersonaID(personas, "unknown-persona")).toBe("buddy")
   })
 
   test("skips hidden personas during default resolution", () => {
-    const personas = [persona("buddy", true), persona("code-buddy"), persona("reading-buddy")]
+    const personas = [persona("buddy", true), persona("code-buddy")]
     expect(resolveDefaultPersonaID(personas)).toBe("code-buddy")
   })
 })

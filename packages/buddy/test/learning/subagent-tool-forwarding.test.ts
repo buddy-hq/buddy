@@ -142,7 +142,7 @@ async function appendSessionToolDeny(input: {
 
 async function seedPersonaRuntime(input: {
   directory: string
-  personaID: "buddy" | "reading-buddy"
+  personaID: "buddy"
   sessionID: string
 }) {
   const projectConfig = await readProjectConfig(input.directory)
@@ -280,12 +280,12 @@ describe("subagent tool forwarding", () => {
     await seedPersonaRuntime({
       directory: project.path,
       sessionID: parentSessionID,
-      personaID: "reading-buddy",
+      personaID: "buddy",
     })
     await seedUserPromptMessage({
       directory: project.path,
       sessionID: parentSessionID,
-      agent: "reading-buddy",
+      agent: "buddy",
     })
     await appendSessionToolDeny({
       directory: project.path,
@@ -459,12 +459,12 @@ describe("subagent tool forwarding", () => {
     await seedPersonaRuntime({
       directory: project.path,
       sessionID: parentSessionID,
-      personaID: "reading-buddy",
+      personaID: "buddy",
     })
     await seedUserPromptMessage({
       directory: project.path,
       sessionID: parentSessionID,
-      agent: "reading-buddy",
+      agent: "buddy",
     })
     await appendSessionToolDeny({
       directory: project.path,
@@ -474,7 +474,7 @@ describe("subagent tool forwarding", () => {
     const parentAssistantMessageID = await seedAssistantMessage({
       directory: project.path,
       sessionID: parentSessionID,
-      agent: "reading-buddy",
+      agent: "buddy",
     })
 
     let capturedChildPrompt:
@@ -503,7 +503,7 @@ describe("subagent tool forwarding", () => {
           {
             sessionID: SessionID.make(parentSessionID),
             messageID: MessageID.make(parentAssistantMessageID),
-            agent: "reading-buddy",
+            agent: "buddy",
             abort: new AbortController().signal,
             messages: [],
             metadata() {
@@ -584,7 +584,7 @@ describe("subagent tool forwarding", () => {
     expect(capturedChildPrompt.tools?.debug_attempt).toBe(false)
     expect(capturedChildPrompt.tools?.save_question_set).toBe(true)
     expect(readTeachingSessionState(project.path, capturedChildPrompt.sessionID)).toMatchObject({
-      persona: "reading-buddy",
+      persona: "buddy",
     })
   }, 40_000)
 
@@ -599,12 +599,12 @@ describe("subagent tool forwarding", () => {
     await seedPersonaRuntime({
       directory: project.path,
       sessionID: parentSessionID,
-      personaID: "reading-buddy",
+      personaID: "buddy",
     })
     await seedUserPromptMessage({
       directory: project.path,
       sessionID: parentSessionID,
-      agent: "reading-buddy",
+      agent: "buddy",
     })
     await appendSessionToolDeny({
       directory: project.path,
@@ -614,7 +614,7 @@ describe("subagent tool forwarding", () => {
     const parentAssistantMessageID = await seedAssistantMessage({
       directory: project.path,
       sessionID: parentSessionID,
-      agent: "reading-buddy",
+      agent: "buddy",
     })
 
     let capturedChildPrompt:
@@ -640,7 +640,7 @@ describe("subagent tool forwarding", () => {
             {
               sessionID: SessionID.make(parentSessionID),
               messageID: MessageID.make(parentAssistantMessageID),
-              agent: "reading-buddy",
+              agent: "buddy",
               abort: new AbortController().signal,
               messages: [],
               metadata() {
@@ -735,17 +735,17 @@ describe("subagent tool forwarding", () => {
     await seedPersonaRuntime({
       directory: project.path,
       sessionID: parentSessionID,
-      personaID: "reading-buddy",
+      personaID: "buddy",
     })
     await seedUserPromptMessage({
       directory: project.path,
       sessionID: parentSessionID,
-      agent: "reading-buddy",
+      agent: "buddy",
     })
     const parentAssistantMessageID = await seedAssistantMessage({
       directory: project.path,
       sessionID: parentSessionID,
-      agent: "reading-buddy",
+      agent: "buddy",
     })
 
     let capturedChildPrompt:
@@ -774,7 +774,7 @@ describe("subagent tool forwarding", () => {
           {
             sessionID: SessionID.make(parentSessionID),
             messageID: MessageID.make(parentAssistantMessageID),
-            agent: "reading-buddy",
+            agent: "buddy",
             abort: new AbortController().signal,
             messages: [],
             metadata() {

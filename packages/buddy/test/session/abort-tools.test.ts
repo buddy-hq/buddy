@@ -59,7 +59,7 @@ describe("buddy tool abort handling", () => {
       {
         sessionID: "ses_abort",
         messageID: "msg_abort",
-        agent: "math-buddy",
+        agent: "buddy",
         directory: project.path,
         worktree: project.path,
         abort: abortController.signal,
@@ -90,7 +90,7 @@ describe("buddy tool abort handling", () => {
           {
             sessionID: "ses_test",
             messageID: "msg_test",
-            agent: "math-buddy",
+            agent: "buddy",
             directory: project.path,
             worktree: project.path,
             abort: new AbortController().signal,

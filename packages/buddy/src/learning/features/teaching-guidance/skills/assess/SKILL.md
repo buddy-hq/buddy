@@ -1,11 +1,6 @@
 ---
 name: assess
 description: conduct better assessments. has subject matter expertise about about condu
-personas:
-  - buddy
-  - code-buddy
-  - math-buddy
-  - reading-buddy
 ---
 
 # Role

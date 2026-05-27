@@ -9,8 +9,6 @@ describe("tool permission compiler", () => {
     const personas = [
       getBuddyPersona("buddy"),
       getBuddyPersona("code-buddy"),
-      getBuddyPersona("math-buddy"),
-      getBuddyPersona("reading-buddy"),
     ]
 
     for (const persona of personas) {
