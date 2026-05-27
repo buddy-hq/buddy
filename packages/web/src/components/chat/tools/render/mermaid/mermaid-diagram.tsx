@@ -8,7 +8,7 @@ import { MermaidActionBar } from "./mermaid-action-bar"
 import { MermaidFullscreenDialog } from "./mermaid-fullscreen-dialog"
 import { MODAL_EXPAND_SPRING } from "./motion"
 import { mermaidConstants } from "./constants"
-import { useMermaidViewport } from "./use-mermaid-viewport"
+import { useMermaidViewport, type MermaidViewportZoomState } from "./use-mermaid-viewport"
 import { useInlineAssetActivation } from "@/components/chat/inline-asset-boundary"
 
 export const DIAGRAM_REVEAL_SPRING = {
@@ -120,6 +120,10 @@ export function MermaidDiagram(props: {
 }) {
   const { artifactID, source, onRenderFailure } = props
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
+  const [sharedZoomState, setSharedZoomState] = useState<MermaidViewportZoomState>({
+    zoom: mermaidConstants.zoom.DEFAULT,
+    isAutoZoom: true,
+  })
   const [copiedErrorDetails, setCopiedErrorDetails] = useState(false)
   const copyResetTimeoutRef = useRef<number | undefined>(undefined)
   const activation = useInlineAssetActivation()
@@ -158,10 +162,6 @@ export function MermaidDiagram(props: {
     }
   }, [])
 
-  const handleFullscreenOpen = useCallback(() => {
-    setFullscreenOpen(true)
-  }, [])
-
   const handleCopyErrorDetails = useCallback(async () => {
     if (state.status !== "error" || !("clipboard" in navigator)) {
       return
@@ -185,6 +185,13 @@ export function MermaidDiagram(props: {
   }, [props.showRawSourceOnError, props.source, state])
 
   const readyValue = state.status === "ready" ? state.value : undefined
+
+  useEffect(() => {
+    setSharedZoomState({
+      zoom: mermaidConstants.zoom.DEFAULT,
+      isAutoZoom: true,
+    })
+  }, [source])
   const errorSummary =
     state.status === "error" ? summarizeMermaidErrorText(state.message) : undefined
   const errorMetaSummary =
@@ -193,7 +200,9 @@ export function MermaidDiagram(props: {
       : props.errorMeta
   const inlineViewport = useMermaidViewport({
     value: readyValue,
-    enabled: state.status === "ready",
+    enabled: state.status === "ready" && !fullscreenOpen,
+    zoomState: sharedZoomState,
+    onZoomStateChange: setSharedZoomState,
     canvasPadding: mermaidConstants.viewport.INLINE_CANVAS_PADDING,
     panOverscan: mermaidConstants.viewport.INLINE_PAN_OVERSCAN,
     defaultZoomMode: "responsive",
@@ -202,6 +211,10 @@ export function MermaidDiagram(props: {
       maxViewportWidths: mermaidConstants.viewport.INLINE_AUTO_MAX_VIEWPORT_WIDTHS,
     },
   })
+
+  const handleFullscreenOpen = useCallback(() => {
+    setFullscreenOpen(true)
+  }, [])
 
   const actions =
     state.status === "ready" ? (
@@ -335,6 +348,8 @@ export function MermaidDiagram(props: {
         open={fullscreenOpen}
         onOpenChange={setFullscreenOpen}
         alt={props.alt}
+        zoomState={sharedZoomState}
+        onZoomStateChange={setSharedZoomState}
       />
     </div>
   )

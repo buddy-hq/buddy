@@ -33,6 +33,13 @@ type UseMermaidViewportOptions = {
   getFitPadding?: (viewport: MermaidViewportSize) => MermaidViewportFitPadding
   mountSvg?: boolean
   responsiveAutoZoomStrategy?: MermaidResponsiveAutoZoomStrategy
+  zoomState?: MermaidViewportZoomState
+  onZoomStateChange?: (state: MermaidViewportZoomState) => void
+}
+
+export type MermaidViewportZoomState = {
+  zoom: number
+  isAutoZoom: boolean
 }
 
 export type MermaidViewportController = {
@@ -224,9 +231,17 @@ export function useMermaidViewport({
   getFitPadding,
   mountSvg = true,
   responsiveAutoZoomStrategy,
+  zoomState,
+  onZoomStateChange,
 }: UseMermaidViewportOptions): MermaidViewportController {
-  const [zoom, setZoom] = useState<number>(mermaidConstants.zoom.DEFAULT)
-  const [isAutoZoom, setIsAutoZoom] = useState(true)
+  const isControlled = zoomState !== undefined && onZoomStateChange !== undefined
+  const [internalZoomState, setInternalZoomState] = useState<MermaidViewportZoomState>({
+    zoom: mermaidConstants.zoom.DEFAULT,
+    isAutoZoom: true,
+  })
+  const resolvedZoomState = isControlled ? zoomState : internalZoomState
+  const zoom = resolvedZoomState.zoom
+  const isAutoZoom = resolvedZoomState.isAutoZoom
   const [isInitialized, setIsInitialized] = useState(false)
   const [svgBounds, setSvgBounds] = useState<MermaidSvgBounds>({
     width: mermaidConstants.svg.DEFAULT_WIDTH,
@@ -248,16 +263,32 @@ export function useMermaidViewport({
   const dragAbortControllerRef = useRef<AbortController | undefined>(undefined)
   const activePointerIDRef = useRef<number | undefined>(undefined)
 
+  const commitZoomState = useCallback(
+    (next: MermaidViewportZoomState) => {
+      autoFitRef.current = next.isAutoZoom
+      if (isControlled) {
+        onZoomStateChange(next)
+        return
+      }
+
+      setInternalZoomState(next)
+    },
+    [isControlled, onZoomStateChange],
+  )
+
   const applyAutoZoom = useCallback(() => {
     const viewportSize = readViewportSize(viewportRef.current)
     if (!viewportSize) {
-      setZoom(mermaidConstants.zoom.DEFAULT)
+      commitZoomState({
+        zoom: mermaidConstants.zoom.DEFAULT,
+        isAutoZoom: true,
+      })
       return
     }
 
     const fitPadding = getFitPadding?.(viewportSize) ?? ZERO_FIT_PADDING
-    setZoom(
-      resolveMermaidAutoZoom({
+    commitZoomState({
+      zoom: resolveMermaidAutoZoom({
         defaultZoomMode,
         svgBounds,
         viewportSize,
@@ -265,13 +296,21 @@ export function useMermaidViewport({
         fitPadding,
         responsiveAutoZoomStrategy,
       }),
-    )
+      isAutoZoom: true,
+    })
 
     if (!initializedRef.current) {
       initializedRef.current = true
       setIsInitialized(true)
     }
-  }, [canvasPadding, defaultZoomMode, getFitPadding, responsiveAutoZoomStrategy, svgBounds])
+  }, [
+    canvasPadding,
+    commitZoomState,
+    defaultZoomMode,
+    getFitPadding,
+    responsiveAutoZoomStrategy,
+    svgBounds,
+  ])
 
   const scheduleAutoZoom = useCallback(() => {
     if (!enabled || value === undefined) {
@@ -318,21 +357,57 @@ export function useMermaidViewport({
       return
     }
 
-    autoFitRef.current = true
     resetScrollPositionRef.current = true
+    setSvgBounds(measureSvgBounds(value.svg))
+
+    if (isControlled) {
+      autoFitRef.current = resolvedZoomState.isAutoZoom
+      initializedRef.current = true
+      setIsInitialized(true)
+      return
+    }
+
+    autoFitRef.current = true
     initializedRef.current = false
     setIsInitialized(false)
-    setIsAutoZoom(true)
-    setSvgBounds(measureSvgBounds(value.svg))
-  }, [enabled, value])
+    setInternalZoomState({
+      zoom: mermaidConstants.zoom.DEFAULT,
+      isAutoZoom: true,
+    })
+  }, [enabled, isControlled, resolvedZoomState.isAutoZoom, value])
+
+  useEffect(() => {
+    if (!isControlled) {
+      return
+    }
+
+    autoFitRef.current = resolvedZoomState.isAutoZoom
+  }, [isControlled, resolvedZoomState.isAutoZoom])
 
   useEffect(() => {
     if (!enabled || value === undefined) {
       return
     }
 
+    if (isControlled) {
+      if (
+        !resolvedZoomState.isAutoZoom ||
+        resolvedZoomState.zoom !== mermaidConstants.zoom.DEFAULT
+      ) {
+        return
+      }
+    }
+
     scheduleAutoZoom()
-  }, [enabled, scheduleAutoZoom, svgBounds, value])
+  }, [
+    enabled,
+    isControlled,
+    resolvedZoomState.isAutoZoom,
+    resolvedZoomState.zoom,
+    scheduleAutoZoom,
+    svgBounds,
+    value,
+  ])
 
   useEffect(() => {
     if (!enabled || value === undefined || !viewportRef.current) {
@@ -502,31 +577,35 @@ export function useMermaidViewport({
   }, [enabled, finishDrag])
 
   const zoomIn = useCallback(() => {
-    autoFitRef.current = false
-    setIsAutoZoom(false)
     if (!initializedRef.current) {
       initializedRef.current = true
       setIsInitialized(true)
     }
-    setZoom((current) => clampZoom(current + mermaidConstants.zoom.STEP))
-  }, [])
+    commitZoomState({
+      zoom: clampZoom(zoom + mermaidConstants.zoom.STEP),
+      isAutoZoom: false,
+    })
+  }, [commitZoomState, zoom])
 
   const zoomOut = useCallback(() => {
-    autoFitRef.current = false
-    setIsAutoZoom(false)
     if (!initializedRef.current) {
       initializedRef.current = true
       setIsInitialized(true)
     }
-    setZoom((current) => clampZoom(current - mermaidConstants.zoom.STEP))
-  }, [])
+    commitZoomState({
+      zoom: clampZoom(zoom - mermaidConstants.zoom.STEP),
+      isAutoZoom: false,
+    })
+  }, [commitZoomState, zoom])
 
   const resetZoom = useCallback(() => {
-    autoFitRef.current = true
     resetScrollPositionRef.current = true
-    setIsAutoZoom(true)
+    commitZoomState({
+      zoom,
+      isAutoZoom: true,
+    })
     scheduleAutoZoom()
-  }, [scheduleAutoZoom])
+  }, [commitZoomState, scheduleAutoZoom, zoom])
 
   const renderedWidth = svgBounds.width * zoom
   const renderedHeight = svgBounds.height * zoom
