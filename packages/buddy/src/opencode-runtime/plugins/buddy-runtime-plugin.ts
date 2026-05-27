@@ -3,6 +3,7 @@ import type { Hooks, Plugin } from "@opencode-ai/plugin"
 import { createOpenAICodexAuthHook } from "./openai-codex-auth"
 import { stripToolUiFromMessages } from "../tool-ui-strip"
 import { captureSessionSystemPrompt } from "../system-prompt-capture"
+import { preloadBuddyBootstrapGraph } from "../../learning/runtime/bootstrap-preload"
 
 type SystemTransformInput = {
   sessionID?: string
@@ -120,9 +121,10 @@ function createSystemPromptGuard(input: { directory: string }) {
 }
 
 export async function createBuddyRuntimeHooks(input: { directory: string; worktree: string }) {
+  await preloadBuddyBootstrapGraph()
   const { allBuddyPluginTools, registerBuddyToolUiCatalog } = await import("../buddy-tool-shim")
   const toolMap = await allBuddyPluginTools(input.directory)
-  registerBuddyToolUiCatalog(input.directory)
+  await registerBuddyToolUiCatalog(input.directory)
 
   return {
     tool: toolMap,

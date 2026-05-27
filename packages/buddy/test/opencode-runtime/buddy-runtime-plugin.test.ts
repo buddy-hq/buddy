@@ -121,6 +121,26 @@ describe("Buddy runtime plugin", () => {
     expect(output.system[0]).not.toContain("Drop this CLAUDE block.")
   }, 30_000)
 
+  test("config overlay build and runtime hook creation can run concurrently", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const config = await Config.getProject(project.path)
+    await Promise.all(
+      Array.from({ length: 10 }, async () =>
+        Promise.all([
+          buildOpenCodeConfigOverlay({
+            config,
+            directory: project.path,
+          }),
+          createBuddyRuntimeHooks({
+            directory: project.path,
+            worktree: project.path,
+          }),
+        ]),
+      ),
+    )
+  }, 30_000)
+
   test("runtime hooks override the OpenAI auth flow with Buddy branding", async () => {
     await using project = await tmpdir({ git: true })
 

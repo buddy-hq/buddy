@@ -7,7 +7,9 @@ const DENY_ACTION = "deny" as const
 
 type DynamicLearningToolAgentPermission = Record<string, typeof DENY_ACTION>
 
-const DYNAMIC_LEARNING_TOOL_IDS = allDynamicLearningToolIds()
+function dynamicLearningToolIDs(): string[] {
+  return allDynamicLearningToolIds()
+}
 
 function dynamicLearningToolDenyRule(toolID: string): PermissionRule {
   return {
@@ -18,18 +20,18 @@ function dynamicLearningToolDenyRule(toolID: string): PermissionRule {
 }
 
 function dynamicLearningToolDefaultDenyRules(): PermissionRuleset {
-  return DYNAMIC_LEARNING_TOOL_IDS.map(dynamicLearningToolDenyRule)
+  return dynamicLearningToolIDs().map(dynamicLearningToolDenyRule)
 }
 
 function dynamicLearningToolAgentPermission(): DynamicLearningToolAgentPermission {
   return Object.fromEntries(
-    DYNAMIC_LEARNING_TOOL_IDS.map((toolID) => [toolID, DENY_ACTION]),
+    dynamicLearningToolIDs().map((toolID) => [toolID, DENY_ACTION]),
   ) as DynamicLearningToolAgentPermission
 }
 
 function isExactDynamicLearningToolRule(rule: PermissionRule): boolean {
   return (
-    DYNAMIC_LEARNING_TOOL_IDS.some((toolID) => toolID === rule.permission) &&
+    dynamicLearningToolIDs().some((toolID) => toolID === rule.permission) &&
     rule.pattern === ANY_PATTERN
   )
 }

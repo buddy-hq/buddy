@@ -3,7 +3,7 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { ToolJsonSchema } from "@buddy/opencode-adapter/tool"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
-import { dynamicToolSearchTools } from "../../src/learning/runtime/dynamic-tool-discovery"
+import { getDynamicToolSearchTools } from "../../src/learning/runtime/dynamic-tool-discovery"
 import { allBuddyTools } from "../../src/learning/runtime/feature-registry"
 import { AdvancedMathRuntimeService } from "../../src/local-runtimes/advanced-math/service"
 import { StandardsRuntimeService } from "../../src/local-runtimes/standards/service"
@@ -13,7 +13,7 @@ import { tmpdir } from "../helpers/tmpdir"
 
 const CREATED_BUDDY_TOOL_IDS = new Set([
   ...allBuddyTools().map((tool) => tool.id),
-  ...dynamicToolSearchTools.map((tool) => tool.id),
+  ...getDynamicToolSearchTools().map((tool) => tool.id),
 ])
 
 const originalAdvancedMathReady = AdvancedMathRuntimeService.isReady.bind(

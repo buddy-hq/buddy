@@ -1,12 +1,12 @@
 import type { BuddyTool } from "./create-buddy-tool"
 import { allBuddyTools } from "./feature-registry"
-import { dynamicToolSearchTools } from "../runtime/dynamic-tool-discovery"
+import { getDynamicToolSearchTools } from "../runtime/dynamic-tool-discovery"
 
 type RegisteredLearningTool = BuddyTool
 
 function collectAllTools(): BuddyTool[] {
   const seen = new Set<string>()
-  const tools: BuddyTool[] = [...dynamicToolSearchTools]
+  const tools: BuddyTool[] = [...getDynamicToolSearchTools()]
 
   for (const tool of tools) {
     seen.add(tool.id)

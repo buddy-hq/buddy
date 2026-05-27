@@ -6,8 +6,6 @@ import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Tool } from "@buddy/opencode-adapter/tool"
 import z from "zod"
 import type { BuddyTool, BuddyToolContext } from "../learning/runtime/create-buddy-tool"
-import { dynamicToolSearchTools } from "../learning/runtime/dynamic-tool-discovery"
-import { allBuddyTools } from "../learning/runtime/feature-registry"
 import { runCompatiblePluginAskResult } from "./plugin-ask-compat"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -115,8 +113,27 @@ async function executeBuddyTool(
   })
 }
 
-export function registerBuddyToolUiCatalog(directory: string) {
-  const registrations = [...allBuddyTools(), ...dynamicToolSearchTools].map((tool) => {
+async function loadBuddyToolCollections(): Promise<{
+  featureTools: BuddyTool[]
+  dynamicTools: readonly BuddyTool[]
+}> {
+  const { allBuddyTools } = await import("../learning/runtime/feature-registry")
+  const featureTools = allBuddyTools()
+  const { getDynamicToolSearchTools } = await import("../learning/runtime/dynamic-tool-discovery")
+
+  return {
+    featureTools,
+    dynamicTools: getDynamicToolSearchTools(),
+  }
+}
+
+async function loadAllBuddyPluginSourceTools(): Promise<BuddyTool[]> {
+  const { featureTools, dynamicTools } = await loadBuddyToolCollections()
+  return [...featureTools, ...dynamicTools]
+}
+
+export async function registerBuddyToolUiCatalog(directory: string) {
+  const registrations = (await loadAllBuddyPluginSourceTools()).map((tool) => {
     if (!tool.ui) {
       return { id: tool.id }
     }
@@ -160,7 +177,7 @@ export async function allBuddyPluginTools(
   const toolMap: Record<string, ToolDefinition> = {}
   const seen = new Set<string>()
 
-  for (const tool of [...allBuddyTools(), ...dynamicToolSearchTools]) {
+  for (const tool of await loadAllBuddyPluginSourceTools()) {
     if (seen.has(tool.id)) {
       throw new Error(`Duplicate Buddy tool id "${tool.id}" in plugin export`)
     }

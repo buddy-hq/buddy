@@ -13,7 +13,7 @@ import {
   registerBuddyToolUiCatalog,
 } from "../../src/opencode-runtime/buddy-tool-shim"
 import { createCompatiblePluginAskHandler } from "../../src/opencode-runtime/plugin-ask-compat"
-import { dynamicToolSearchTools } from "../../src/learning/runtime/dynamic-tool-discovery"
+import { getDynamicToolSearchTools } from "../../src/learning/runtime/dynamic-tool-discovery"
 import { allBuddyTools } from "../../src/learning/runtime/feature-registry"
 import { tmpdir } from "../helpers/tmpdir"
 
@@ -90,7 +90,7 @@ describe("buddyToolToPluginTool shim", () => {
   test("registerBuddyToolUiCatalog restores session tool UI metadata lookup", async () => {
     await using project = await tmpdir({ git: true })
 
-    registerBuddyToolUiCatalog(project.path)
+    await registerBuddyToolUiCatalog(project.path)
 
     const memorySearch = allBuddyTools().find((tool) => tool.id === "learner_memory_search")
     expect(memorySearch?.ui?.presentation).toBe("hidden-summary")
@@ -99,7 +99,7 @@ describe("buddyToolToPluginTool shim", () => {
       memorySearch?.ui,
     )
 
-    const dynamicSearch = dynamicToolSearchTools.find((tool) => tool.id === "learning_tool_search")
+    const dynamicSearch = getDynamicToolSearchTools().find((tool) => tool.id === "learning_tool_search")
     expect(ToolRegistry.getToolUiMetadata("learning_tool_search", project.path)?.presentation).toBe(
       "hidden-summary",
     )
