@@ -1,10 +1,10 @@
 import { Config } from "@buddy/backend/config"
-import { dynamicLearningToolAgentPermission } from "./runtime/dynamic-tool-permissions"
 
 type BuddyAgentAuthoring = Parameters<(typeof Config.Agent)["parse"]>[0]
 type BuddyPermissionRuleInput = Config.PermissionRule
 type BuddyPermissionInput = Config.PermissionAction | Record<string, Config.PermissionRule>
 type AgentMode = "primary" | "subagent"
+type DynamicToolDenyPermission = Record<string, "deny">
 
 type BaseAgentDefinition = Omit<BuddyAgentAuthoring, "mode" | "permission"> & {
   description?: string
@@ -99,10 +99,13 @@ function mergePermissionPreset(
   }
 }
 
-function applyDynamicLearningToolDeny(
+function mergeDynamicToolDeny(
   permission: BuddyPermissionInput | undefined,
-): BuddyPermissionInput {
-  const dynamicDeny = dynamicLearningToolAgentPermission()
+  dynamicDeny: DynamicToolDenyPermission | undefined,
+): BuddyPermissionInput | undefined {
+  if (!dynamicDeny || Object.keys(dynamicDeny).length === 0) {
+    return permission
+  }
   if (permission === undefined) return dynamicDeny
 
   if (typeof permission === "string") {
@@ -118,49 +121,65 @@ function applyDynamicLearningToolDeny(
   }
 }
 
-function defineAgentWithMode(input: CoreAgentDefinition): DefinedPrimaryAgent | DefinedSubagent {
+function defineAgentWithMode(
+  input: CoreAgentDefinition,
+  dynamicToolDeny?: DynamicToolDenyPermission,
+): DefinedPrimaryAgent | DefinedSubagent {
   if (input.mode === "subagent") {
     const { mode: _mode, availableSubagents: _availableSubagents, ...agent } = input
-    return createSubagent(agent)
+    return createSubagent(agent, dynamicToolDeny)
   }
 
   const { mode: _mode, ...agent } = input
-  return createPrimaryAgent(agent)
+  return createPrimaryAgent(agent, dynamicToolDeny)
 }
 
-function createPrimaryAgent(input: PrimaryAgentDefinition): DefinedPrimaryAgent {
+function createPrimaryAgent(
+  input: PrimaryAgentDefinition,
+  dynamicToolDeny?: DynamicToolDenyPermission,
+): DefinedPrimaryAgent {
   const { availableSubagents, permission, ...agent } = input
 
   return {
     ...agent,
     mode: "primary",
-    permission: applyDynamicLearningToolDeny(
+    permission: mergeDynamicToolDeny(
       mergePermission(permission, taskPermission(availableSubagents)),
+      dynamicToolDeny,
     ),
   }
 }
 
-function createSubagent(input: SubagentDefinition): DefinedSubagent {
+function createSubagent(
+  input: SubagentDefinition,
+  dynamicToolDeny?: DynamicToolDenyPermission,
+): DefinedSubagent {
   const { permission, ...agent } = input
   return {
     ...agent,
     mode: "subagent",
-    permission: applyDynamicLearningToolDeny(permission),
+    permission: mergeDynamicToolDeny(permission, dynamicToolDeny),
   }
 }
 
-function createBuildAgent(input: CoreAgentDefinition): DefinedPrimaryAgent | DefinedSubagent {
+function createBuildAgent(
+  input: CoreAgentDefinition,
+  dynamicToolDeny?: DynamicToolDenyPermission,
+): DefinedPrimaryAgent | DefinedSubagent {
   return defineAgentWithMode({
     ...input,
     permission: mergePermissionPreset(BUILD_AGENT_PERMISSION_DELTA, input.permission),
-  })
+  }, dynamicToolDeny)
 }
 
-function createPlanAgent(input: CoreAgentDefinition): DefinedPrimaryAgent | DefinedSubagent {
+function createPlanAgent(
+  input: CoreAgentDefinition,
+  dynamicToolDeny?: DynamicToolDenyPermission,
+): DefinedPrimaryAgent | DefinedSubagent {
   return defineAgentWithMode({
     ...input,
     permission: mergePermissionPreset(PLAN_AGENT_PERMISSION_DELTA, input.permission),
-  })
+  }, dynamicToolDeny)
 }
 
 export { createBuildAgent, createPlanAgent, createPrimaryAgent, createSubagent }

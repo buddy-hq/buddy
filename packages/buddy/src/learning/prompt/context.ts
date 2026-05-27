@@ -6,7 +6,10 @@ import type { TeachingPromptContext } from "../features/lesson-workspace/model/t
 import { TeachingPromptContextSchema } from "../features/lesson-workspace/model/types"
 import { resolveSessionRuntime } from "../access/resolve-session-runtime"
 import type { ResolvedSessionRuntime } from "../access/types"
-import { buildLearnerRuntimeSnapshot, type LearnerRuntimeSnapshot } from "../features/memory"
+import {
+  buildLearnerRuntimeSnapshot,
+  type LearnerRuntimeSnapshot,
+} from "../features/memory/runtime/snapshot"
 import { getBuddyPersona } from "../personas/wiring/persona-profiles"
 import { REGISTERED_BUDDY_PERSONAS } from "../personas/registry"
 import {

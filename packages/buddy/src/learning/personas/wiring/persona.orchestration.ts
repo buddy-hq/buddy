@@ -1,45 +1,13 @@
-import { createBuildAgent, createPrimaryAgent } from "../../agent-factories"
-import { defineBuddyAgent } from "../../register-buddy-agent"
+import { REGISTERED_BUDDY_PERSONAS } from "../registry"
 import type { DefinedBuddyPersona } from "./define-buddy-persona"
-import {
-  BUILTIN_BUDDY_PERSONA_DEFINITIONS,
-  type BuiltinBuddyPersonaDefinition,
-  buildPersonaProfileFromDefinition,
-} from "./persona-profiles"
+import { createBuddyPersonaAgent } from "./create-buddy-persona-agent"
 
-function resolvePersonaAvailableSubagents(definition: BuiltinBuddyPersonaDefinition): string[] {
-  if (definition.runtime.subagents) {
-    return Object.keys(definition.runtime.subagents)
-  }
-
-  const personaProfile = buildPersonaProfileFromDefinition(definition)
-  return Object.entries(personaProfile.subagents)
-    .filter(([, access]) => access === "allow")
-    .map(([subagentID]) => subagentID)
-}
-
-export function createBuddyPersonaAgent(definition: BuiltinBuddyPersonaDefinition) {
-  const { runtime, ...profile } = definition
-  const { kind, subagents: _subagents, ...runtimeAgent } = runtime
-  const availableSubagents = resolvePersonaAvailableSubagents(definition)
-
-  const agentInput = {
-    ...runtimeAgent,
-    description: runtimeAgent.description ?? profile.description,
-    prompt: runtimeAgent.prompt.trim(),
-    availableSubagents,
-  }
-
-  return defineBuddyAgent({
-    key: profile.id,
-    agent: kind === "build" ? createBuildAgent(agentInput) : createPrimaryAgent(agentInput),
-  })
-}
+type BuiltinBuddyPersonaDefinition = (typeof REGISTERED_BUDDY_PERSONAS)[number]
 
 export function builtinBuddyPersonaAgents() {
-  return BUILTIN_BUDDY_PERSONA_DEFINITIONS.map((definition) => createBuddyPersonaAgent(definition))
+  return REGISTERED_BUDDY_PERSONAS.map((definition) => createBuddyPersonaAgent(definition))
 }
 
-export { BUILTIN_BUDDY_PERSONA_DEFINITIONS }
+export const BUILTIN_BUDDY_PERSONA_DEFINITIONS = REGISTERED_BUDDY_PERSONAS
 
 export type { BuiltinBuddyPersonaDefinition, DefinedBuddyPersona }

@@ -1,5 +1,5 @@
-import { readProjectConfig } from "../../../../config/runtime"
 import fs from "node:fs/promises"
+import { readProjectConfig } from "../../../../config/runtime/project-config.js"
 import { listActiveGoals } from "../goals/storage"
 import { LearnerMemoryPath } from "../paths"
 import { readLearnerMemorySettings } from "../settings"
