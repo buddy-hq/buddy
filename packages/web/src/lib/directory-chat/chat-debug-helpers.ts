@@ -1,5 +1,4 @@
-import { useChatStore } from "@/state/chat-store"
-import type { MessagePart, MessageWithParts } from "@/state/chat-types"
+import type { DirectoryChatState, MessagePart, MessageWithParts } from "@/state/chat-types"
 
 type SlimRecord = Record<string, unknown>
 
@@ -108,11 +107,11 @@ function slimMessage(msg: MessageWithParts) {
 
 export function buildSessionTrace(input: {
   directory: string
+  directoryState?: DirectoryChatState
   sessionID?: string
   streamStatus: string
 }) {
-  const state = useChatStore.getState()
-  const directoryState = state.directories[input.directory]
+  const directoryState = input.directoryState
   const sid = input.sessionID
 
   return JSON.stringify(

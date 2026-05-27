@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import type {
   LearnerMemoryArtifactsResponses,
@@ -61,8 +61,6 @@ import {
   readOnboardingTestReturnTo,
   buildOnboardingChatEntryReturnTo,
 } from "@/lib/onboarding-test-mode"
-import { ProviderDialogPlayground } from "../designs/provider-dialog"
-
 type BuddyDevToolsTab =
   | "palette"
   | "trace"
@@ -71,7 +69,6 @@ type BuddyDevToolsTab =
   | "memory"
   | "query"
   | "actions"
-  | "playground"
 
 type Rect = {
   left: number
@@ -84,7 +81,9 @@ type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw"
 
 const MIN_DEVTOOLS_WIDTH = 320
 const MIN_DEVTOOLS_HEIGHT = 200
+const DEFAULT_DEVTOOLS_HEIGHT = 480
 const DEVTOOLS_FLOATING_PADDING_PX = 12
+const DEVTOOLS_RECT_STORAGE_KEY = "buddy-devtools-rect-v2"
 const DESKTOP_TITLEBAR_SELECTOR = '[data-component="desktop-titlebar"]'
 const MEMORY_DEVTOOLS_LIMIT = 30
 const MEMORY_TEST_AUTO_MODEL_VALUE = "__auto__"
@@ -156,9 +155,12 @@ function isBuddyDevToolsTab(value: string): value is BuddyDevToolsTab {
     value === "snapshot" ||
     value === "memory" ||
     value === "query" ||
-    value === "actions" ||
-    value === "playground"
+    value === "actions"
   )
+}
+
+function readDefaultDevToolsHeight(maxHeight: number) {
+  return Math.min(DEFAULT_DEVTOOLS_HEIGHT, maxHeight)
 }
 
 function getDefaultDevToolsRect(): Rect {
@@ -168,8 +170,53 @@ function getDefaultDevToolsRect(): Rect {
     left: vw - width,
     top: topInset,
     width,
-    height: maxHeight,
+    height: readDefaultDevToolsHeight(maxHeight),
   }
+}
+
+function isStoredRect(value: unknown): value is Rect {
+  if (!value || typeof value !== "object") {
+    return false
+  }
+  const record = value as Record<string, unknown>
+  return (
+    typeof record.left === "number" &&
+    Number.isFinite(record.left) &&
+    typeof record.top === "number" &&
+    Number.isFinite(record.top) &&
+    typeof record.width === "number" &&
+    Number.isFinite(record.width) &&
+    typeof record.height === "number" &&
+    Number.isFinite(record.height)
+  )
+}
+
+function readStoredDevToolsRect(): Rect | undefined {
+  try {
+    const raw = sessionStorage.getItem(DEVTOOLS_RECT_STORAGE_KEY)
+    if (!raw) {
+      return undefined
+    }
+    const parsed: unknown = JSON.parse(raw)
+    if (!isStoredRect(parsed)) {
+      return undefined
+    }
+    return clampRectToViewport(parsed)
+  } catch {
+    return undefined
+  }
+}
+
+function writeStoredDevToolsRect(rect: Rect) {
+  try {
+    sessionStorage.setItem(DEVTOOLS_RECT_STORAGE_KEY, JSON.stringify(rect))
+  } catch {
+    // Ignore quota or private-mode storage failures in devtools.
+  }
+}
+
+function readInitialDevToolsRect(): Rect {
+  return readStoredDevToolsRect() ?? getDefaultDevToolsRect()
 }
 
 function clampRectToViewport(r: Rect): Rect {
@@ -183,17 +230,23 @@ function clampRectToViewport(r: Rect): Rect {
 }
 
 function readDesktopTitlebarBottomOffset(): number {
-  const titlebar = document.querySelector(DESKTOP_TITLEBAR_SELECTOR)
-  if (!(titlebar instanceof HTMLElement)) {
-    return 0
+  const titlebars = document.querySelectorAll(DESKTOP_TITLEBAR_SELECTOR)
+  let maxBottom = 0
+
+  for (const titlebar of titlebars) {
+    if (!(titlebar instanceof HTMLElement)) {
+      continue
+    }
+
+    const { bottom } = titlebar.getBoundingClientRect()
+    if (!Number.isFinite(bottom) || bottom <= 0) {
+      continue
+    }
+
+    maxBottom = Math.max(maxBottom, bottom)
   }
 
-  const { bottom } = titlebar.getBoundingClientRect()
-  if (!Number.isFinite(bottom) || bottom <= 0) {
-    return 0
-  }
-
-  return Math.ceil(bottom)
+  return Math.ceil(maxBottom)
 }
 
 function readViewportBounds() {
@@ -205,7 +258,7 @@ function readViewportBounds() {
 }
 
 function useDevToolsRect() {
-  const [rect, setRect] = useState<Rect>(getDefaultDevToolsRect)
+  const [rect, setRect] = useState<Rect>(readInitialDevToolsRect)
   const draggingRef = useRef(false)
   const resizingRef = useRef(false)
   const startRef = useRef({
@@ -214,13 +267,44 @@ function useDevToolsRect() {
     rect: { left: 0, top: 0, width: 0, height: 0 },
   })
 
+  const syncRectToViewport = useCallback(() => {
+    setRect((prev) => clampRectToViewport(prev))
+  }, [])
+
+  useLayoutEffect(() => {
+    syncRectToViewport()
+  }, [syncRectToViewport])
+
+  useEffect(() => {
+    writeStoredDevToolsRect(rect)
+  }, [rect])
+
   useEffect(() => {
     const handleResize = () => {
-      setRect((prev) => clampRectToViewport(prev))
+      syncRectToViewport()
     }
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
-  }, [])
+  }, [syncRectToViewport])
+
+  useEffect(() => {
+    const titlebars = document.querySelectorAll(DESKTOP_TITLEBAR_SELECTOR)
+    if (titlebars.length === 0) {
+      return
+    }
+
+    const observer = new ResizeObserver(() => {
+      syncRectToViewport()
+    })
+
+    for (const titlebar of titlebars) {
+      if (titlebar instanceof HTMLElement) {
+        observer.observe(titlebar)
+      }
+    }
+
+    return () => observer.disconnect()
+  }, [syncRectToViewport])
 
   const onDragPointerDown = useCallback(
     (event: React.PointerEvent) => {
@@ -354,7 +438,7 @@ function useDevToolsRect() {
         left: 0,
         top: topInset,
         width: Math.min(420, vw),
-        height: maxHeight,
+        height: readDefaultDevToolsHeight(maxHeight),
       }),
     )
   }, [])
@@ -362,7 +446,14 @@ function useDevToolsRect() {
   const snapRight = useCallback(() => {
     const { vw, topInset, maxHeight } = readViewportBounds()
     const width = Math.min(420, vw)
-    setRect(clampRectToViewport({ left: vw - width, top: topInset, width, height: maxHeight }))
+    setRect(
+      clampRectToViewport({
+        left: vw - width,
+        top: topInset,
+        width,
+        height: readDefaultDevToolsHeight(maxHeight),
+      }),
+    )
   }, [])
 
   const snapBottom = useCallback(() => {
@@ -2345,9 +2436,9 @@ function readDevInstanceName(): string | undefined {
 }
 
 export function BuddyDevTools() {
-  const [buddyOpen, setBuddyOpen] = useState(true)
+  const [buddyOpen, setBuddyOpen] = useState(false)
   const [routerOpen, setRouterOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<BuddyDevToolsTab>("playground")
+  const [activeTab, setActiveTab] = useState<BuddyDevToolsTab>("palette")
   const [isCopied, setIsCopied] = useState(false)
   const [isDisconnectingOpenAi, setIsDisconnectingOpenAi] = useState(false)
 
@@ -2362,11 +2453,18 @@ export function BuddyDevTools() {
     snapFloating,
   } = useDevToolsRect()
 
-  const activeDirectory = useChatStore((s) => s.activeDirectory)
-  const streamStatus = useChatStore((s) => s.streamStatus)
-  const sessionID = useChatStore((s) =>
-    activeDirectory ? s.directories[activeDirectory]?.sessionID : undefined,
-  )
+  const traceSnapshot = useChatStore((s) => {
+    const nextActiveDirectory = s.activeDirectory
+    const nextDirectoryState = nextActiveDirectory ? s.directories[nextActiveDirectory] : undefined
+    return {
+      activeDirectory: nextActiveDirectory,
+      directoryState: nextDirectoryState,
+      sessionID: nextDirectoryState?.sessionID,
+      streamStatus: s.streamStatus,
+    }
+  })
+  const activeDirectory = traceSnapshot.activeDirectory
+  const sessionID = traceSnapshot.sessionID
   const activeSessionTitle = useChatStore((state) => {
     if (!activeDirectory) {
       return undefined
@@ -2399,15 +2497,17 @@ export function BuddyDevTools() {
       : language.t("desktopTitlebar.testOnboarding")
 
   const sessionTrace = useMemo(() => {
-    if (!activeDirectory) {
+    const directory = traceSnapshot.activeDirectory
+    if (!directory) {
       return ""
     }
     return buildSessionTrace({
-      directory: activeDirectory,
-      sessionID,
-      streamStatus,
+      directory,
+      directoryState: traceSnapshot.directoryState,
+      sessionID: traceSnapshot.sessionID,
+      streamStatus: traceSnapshot.streamStatus,
     })
-  }, [activeDirectory, sessionID, streamStatus])
+  }, [traceSnapshot])
 
   const handleCopySessionTrace = useCallback(() => {
     if (!sessionTrace) {
@@ -2500,7 +2600,7 @@ export function BuddyDevTools() {
                 <span>Buddy</span>
               </button>
             </ContextMenuTrigger>
-            <ContextMenuContent>
+            <ContextMenuContent className="z-[10000]">
               <ContextMenuItem disabled={!sessionTrace} onClick={handleCopySessionTrace}>
                 <CopyIcon className="mr-2 size-3.5" />
                 Copy Session Trace
@@ -2672,9 +2772,6 @@ export function BuddyDevTools() {
 
               <div className="min-w-0 overflow-x-auto border-b border-border-weaker-base">
                 <TabsList variant="line" className="h-9 w-max justify-start px-2">
-                  <TabsTrigger value="playground" className="text-xs">
-                    Playground
-                  </TabsTrigger>
                   <TabsTrigger value="palette" className="text-xs">
                     Palette
                   </TabsTrigger>
@@ -2750,10 +2847,6 @@ export function BuddyDevTools() {
                   </div>
                 </div>
               </div>
-            </TabsContent>
-
-            <TabsContent value="playground" className="min-h-0 flex-1 overflow-y-auto mt-0">
-              <ProviderDialogPlayground />
             </TabsContent>
 
             <TabsContent value="system" className="min-h-0 flex-1 overflow-hidden mt-0">
