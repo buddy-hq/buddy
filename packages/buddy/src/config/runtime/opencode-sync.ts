@@ -11,6 +11,7 @@ import {
   parseConfiguredModel,
   resolveConfiguredAgentKey,
 } from "../opencode/overlay-builder.js"
+import { readProjectConfig, readProjectConfigFile } from "./project-config.js"
 
 const OPENCODE_SYNC_STATE_KEY = Symbol.for("buddy.opencodeSyncState")
 
@@ -40,15 +41,9 @@ export {
   isConfigValidationError,
   mergeBuddyAndConfiguredAgents,
   parseConfiguredModel,
+  readProjectConfig,
+  readProjectConfigFile,
   resolveConfiguredAgentKey,
-}
-
-export async function readProjectConfig(directory: string): Promise<Config.Info> {
-  return Config.getProject(directory)
-}
-
-export async function readProjectConfigFile(directory: string): Promise<Config.Info> {
-  return Config.getProjectFile(directory)
 }
 
 async function buildAndApplyProjectOverlay(directory: string) {

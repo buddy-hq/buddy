@@ -11,6 +11,7 @@ import { fingerprintOpenCodeConfig } from "./fingerprint.js"
 import { parseConfiguredModel } from "./models.js"
 import { resolveBuddyBundledSkillRoots, resolveOpenCodeSkillPaths } from "./skills.js"
 import { getDefaultBuddyPersonaMetadata } from "../../learning/personas/wiring/persona-metadata"
+import { preloadBuddyBootstrapGraph } from "../../learning/runtime/bootstrap-preload"
 
 const BUDDY_RUNTIME_PERMISSION_OVERLAY: Config.Permission = {
   "goal_*": "deny",
@@ -92,6 +93,7 @@ function orderAgentsWithDefaultFirst(
 }
 
 async function buildOpenCodeConfigOverlay(input: { config: Config.Info; directory: string }) {
+  await preloadBuddyBootstrapGraph()
   const skillPaths = await resolveOpenCodeSkillPaths(input.config, input.directory)
   const mergedAgents = applyBuddyPersonaHiddenFlags(
     mergeBuddyAndConfiguredAgents(input.config.agent ?? {}),

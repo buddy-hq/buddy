@@ -7,7 +7,9 @@ import {
   getBuddyPersona,
   resolveBuddyPersonaProfiles,
 } from "../../learning/personas/wiring/persona-profiles"
-import { indexBuddyAgents } from "../../learning/runtime/register-agents"
+import { createBuddyPersonaAgent } from "../../learning/personas/wiring/create-buddy-persona-agent"
+import { REGISTERED_BUDDY_PERSONAS } from "../../learning/personas/registry"
+import { listBuddySubagents } from "../../learning/runtime-subagents"
 import { deriveStaticPersonaToolPermissionsFromProfile } from "../../learning/runtime/persona-tool-permissions"
 import { Config } from "../config.js"
 
@@ -100,7 +102,12 @@ function mergeBuddyAndConfiguredAgents(
 }
 
 function compileBuddyAgentOverlay(): Record<string, Config.Agent> {
-  return applyPersonaLearningToolPermissions(indexBuddyAgents())
+  const personaAgents = REGISTERED_BUDDY_PERSONAS.map((definition) => createBuddyPersonaAgent(definition))
+  const mergedAgents = Object.fromEntries(
+    [...personaAgents, ...listBuddySubagents()].map(({ key, agent }) => [key, agent]),
+  )
+
+  return applyPersonaLearningToolPermissions(mergedAgents)
 }
 
 function removeDisableFlag(agent: Config.Agent) {
