@@ -135,6 +135,24 @@ describe("prompt template engine", () => {
     expect(template.render({ name: "Buddy" })).toBe("Header\nBuddy\nFooter\n")
   })
 
+  test("preserves literal tag wrappers in embedded templates", () => {
+    const template = definePromptTemplate({
+      source: "<wrapper>\n{{ body }}\n</wrapper>",
+      debugName: "test-template.md",
+    })
+
+    expect(template.render({ body: "Buddy" })).toBe("<wrapper>\nBuddy\n</wrapper>")
+  })
+
+  test("still unwraps rendered markdown html", () => {
+    const template = definePromptTemplate({
+      source: "<p>Header</p><p>{{ body }}</p><p>&lt;wrapper&gt;literal&lt;/wrapper&gt;</p>",
+      debugName: "test-template.md",
+    })
+
+    expect(template.render({ body: "Buddy" })).toBe("Header\n\nBuddy\n\n<wrapper>literal</wrapper>")
+  })
+
   test("reports the debug name when embedded template parsing fails", () => {
     try {
       definePromptTemplate({

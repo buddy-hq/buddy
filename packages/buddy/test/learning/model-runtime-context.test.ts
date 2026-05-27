@@ -5,6 +5,44 @@ import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
 import { tmpdir } from "../helpers/tmpdir"
 
+const HTML_TAG_NAMES = new Set([
+  "a",
+  "blockquote",
+  "br",
+  "code",
+  "em",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "hr",
+  "li",
+  "ol",
+  "p",
+  "pre",
+  "strong",
+  "ul",
+])
+
+function countNonHtmlTags(source: string) {
+  const openings = new Map<string, number>()
+  const closings = new Map<string, number>()
+
+  for (const match of source.matchAll(/<(\/?)([a-zA-Z][\w:-]*)\b[^>]*>/g)) {
+    const isClosing = match[1] === "/"
+    const name = match[2]?.toLowerCase()
+    if (!name || HTML_TAG_NAMES.has(name)) {
+      continue
+    }
+    const target = isClosing ? closings : openings
+    target.set(name, (target.get(name) ?? 0) + 1)
+  }
+
+  return { openings, closings }
+}
+
 describe("model runtime context", () => {
   test("falls back to request model runtime when provider lookup misses", async () => {
     await using project = await tmpdir({ git: true })
@@ -50,5 +88,32 @@ describe("model runtime context", () => {
     expect(result.transformed.system).toContain(
       "vision: yes [this model supports vision; you can use read tool to view images]",
     )
+  })
+
+  test("preserves non-html tag structure in the assembled system prompt", async () => {
+    await using project = await tmpdir({ git: true })
+    const config = await readProjectConfig(project.path)
+
+    const result = await runMessagePromptPipeline({
+      context: {
+        directory: project.path,
+        sessionID: "ses_tag_preservation",
+      },
+      body: {
+        content: "Give me a short overview.",
+        persona: "buddy",
+      },
+      projectConfig: config,
+    })
+
+    const systemPrompt = typeof result.transformed.system === "string" ? result.transformed.system : ""
+    const { openings, closings } = countNonHtmlTags(systemPrompt)
+
+    expect(openings.size).toBeGreaterThan(0)
+    expect(closings.size).toBeGreaterThan(0)
+
+    for (const [tagName, count] of openings) {
+      expect(closings.get(tagName)).toBe(count)
+    }
   })
 })

@@ -20,6 +20,28 @@ const NEWLINE = "\n" as const
 const SURROGATE_PAIR_WIDTH = 2
 const CODE_POINT_MAX_UTF16_SINGLE = 0xffff
 const HTML_ENTITY_PATTERN = /&(?:#(\d+)|#x([\da-fA-F]+)|([a-zA-Z][\da-zA-Z]+));/g
+const TAG_NAME_PATTERN = /<\/?([a-zA-Z][\w:-]*)\b[^>]*>/g
+
+const RENDERED_MARKDOWN_TAGS = new Set([
+  "a",
+  "blockquote",
+  "br",
+  "code",
+  "em",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "hr",
+  "li",
+  "ol",
+  "p",
+  "pre",
+  "strong",
+  "ul",
+])
 
 const HTML_ENTITIES: Readonly<Record<string, string>> = {
   amp: "&",
@@ -196,9 +218,27 @@ function decodeHtmlEntity(input: string): string {
   )
 }
 
+function tagNames(source: string): string[] {
+  return [...source.matchAll(TAG_NAME_PATTERN)].map((match) => match[1]?.toLowerCase() ?? "")
+}
+
+function looksLikeRenderedMarkdown(source: string): boolean {
+  const tags = tagNames(source)
+  if (tags.length === 0) {
+    return false
+  }
+
+  const firstTag = tags[0]
+  if (!RENDERED_MARKDOWN_TAGS.has(firstTag)) {
+    return false
+  }
+
+  return tags.every((tag) => RENDERED_MARKDOWN_TAGS.has(tag))
+}
+
 function normalizeRenderedMarkdown(source: string): string {
   const trimmed = source.trim()
-  if (!trimmed.startsWith("<") || !trimmed.includes("</")) {
+  if (!trimmed.startsWith("<") || !trimmed.includes("</") || !looksLikeRenderedMarkdown(trimmed)) {
     return source
   }
 
