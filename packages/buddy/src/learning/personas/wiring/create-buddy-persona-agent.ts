@@ -6,9 +6,7 @@ import type { DefinedBuddyPersona } from "./define-buddy-persona"
 
 type DynamicToolDenyPermission = Record<string, "deny">
 
-function collectDynamicTools(
-  feature: DefinedBuddyFeature,
-): BuddyTool[] {
+function collectDynamicTools(feature: DefinedBuddyFeature): BuddyTool[] {
   return [
     ...feature.tools,
     ...feature.subagents.flatMap((subagent) => subagent.tools ?? []),

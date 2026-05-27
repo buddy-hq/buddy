@@ -70,7 +70,8 @@ async function loadDynamicLearningToolSearchRuntime(): Promise<DynamicLearningTo
     dynamicLearningToolSearchCandidateIDsForSession:
       grantModule.dynamicLearningToolSearchCandidateIDsForSession,
     grantDynamicLearningToolsForSession: grantModule.grantDynamicLearningToolsForSession,
-    recordDynamicLearningToolSearchCandidates: grantModule.recordDynamicLearningToolSearchCandidates,
+    recordDynamicLearningToolSearchCandidates:
+      grantModule.recordDynamicLearningToolSearchCandidates,
   }
 }
 

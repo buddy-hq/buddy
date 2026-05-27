@@ -45,9 +45,13 @@ function gitOutput(args: string[]): string {
 }
 
 function gitChangedFilesForRange(range: string): string[] {
-  const output = execFileSync("git", ["diff", "--name-only", `--diff-filter=${VENDOR_DIFF_FILTER}`, range], {
-    encoding: "utf8",
-  })
+  const output = execFileSync(
+    "git",
+    ["diff", "--name-only", `--diff-filter=${VENDOR_DIFF_FILTER}`, range],
+    {
+      encoding: "utf8",
+    },
+  )
   return output
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -203,9 +207,9 @@ function printFailure(vendorPaths: string[], mode: Mode): void {
       ? "staged changes"
       : mode.kind === "worktree"
         ? "the current worktree"
-      : mode.kind === "range"
-        ? `range ${mode.range}`
-        : "incoming push diff"
+        : mode.kind === "range"
+          ? `range ${mode.range}`
+          : "incoming push diff"
   const list = vendorPaths.map((path) => `  - ${path}`).join("\n")
   const message = `ERROR: Protected vendored source was modified.
 

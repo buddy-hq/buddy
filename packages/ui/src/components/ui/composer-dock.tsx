@@ -16,7 +16,7 @@ const composerDockVariants = cva(
     defaultVariants: {
       size: "auto",
     },
-  }
+  },
 )
 
 type ComposerDockProps = React.HTMLAttributes<HTMLDivElement> &
@@ -39,7 +39,7 @@ const ComposerDock = React.forwardRef<HTMLDivElement, ComposerDockProps>(
           ;(forwardedRef as React.MutableRefObject<HTMLDivElement | null>).current = node
         }
       },
-      [forwardedRef]
+      [forwardedRef],
     )
 
     React.useEffect(() => {
@@ -62,7 +62,7 @@ const ComposerDock = React.forwardRef<HTMLDivElement, ComposerDockProps>(
         {children}
       </div>
     )
-  }
+  },
 )
 ComposerDock.displayName = "ComposerDock"
 
@@ -72,11 +72,11 @@ const ComposerDockHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes
       ref={ref}
       className={cn(
         "relative flex shrink-0 items-center justify-between border-b border-border-weak-base bg-surface-base/50 px-4 py-2 gap-4",
-        className
+        className,
       )}
       {...props}
     />
-  )
+  ),
 )
 ComposerDockHeader.displayName = "ComposerDockHeader"
 
@@ -88,7 +88,7 @@ const ComposerDockTitle = React.forwardRef<
     ref={ref}
     className={cn(
       "pointer-events-none absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-1 rounded-full border border-border-weak-base bg-surface-weak px-2.5 py-0.5 shadow-sm sm:flex",
-      className
+      className,
     )}
     {...props}
   >
@@ -101,7 +101,7 @@ ComposerDockTitle.displayName = "ComposerDockTitle"
 const ComposerDockActions = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (
     <div ref={ref} className={cn("flex shrink-0 items-center gap-1", className)} {...props} />
-  )
+  ),
 )
 ComposerDockActions.displayName = "ComposerDockActions"
 
@@ -114,7 +114,7 @@ const ComposerDockBody = React.forwardRef<
     className={cn(
       "relative flex min-h-0 flex-1 items-center justify-center overflow-hidden",
       padded && "p-4",
-      className
+      className,
     )}
     {...props}
   />
@@ -127,11 +127,11 @@ const ComposerDockFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes
       ref={ref}
       className={cn(
         "flex shrink-0 min-h-[52px] items-center border-t border-border-weak-base bg-surface-base/30 px-5 py-3",
-        className
+        className,
       )}
       {...props}
     />
-  )
+  ),
 )
 ComposerDockFooter.displayName = "ComposerDockFooter"
 

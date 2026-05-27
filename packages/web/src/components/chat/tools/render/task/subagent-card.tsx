@@ -211,11 +211,7 @@ export function SubagentCard({
             transition={TASK_CARD_TRANSITION}
             className="flex flex-col"
           >
-            {typeof children === "string" ? (
-              <ExpandableMarkdown text={children} />
-            ) : (
-              children
-            )}
+            {typeof children === "string" ? <ExpandableMarkdown text={children} /> : children}
           </motion.div>
         ) : null}
       </AnimatePresence>

@@ -165,4 +165,3 @@ export function GameDock({ onClose, onMinimize, className }: GameDockProps) {
     </ComposerDock>
   )
 }
-

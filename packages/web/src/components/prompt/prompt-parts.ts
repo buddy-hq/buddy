@@ -110,7 +110,8 @@ export function arePromptPartsEqual(left: PromptComposerPart[], right: PromptCom
       continue
     }
     if (leftPart.type === PROMPT_PART_TYPE_AGENT) {
-      if (rightPart.type !== PROMPT_PART_TYPE_AGENT || leftPart.name !== rightPart.name) return false
+      if (rightPart.type !== PROMPT_PART_TYPE_AGENT || leftPart.name !== rightPart.name)
+        return false
       continue
     }
     if (leftPart.type === WORKSPACE_FILE_REFERENCE_PART_TYPE) {

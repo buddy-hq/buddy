@@ -1,5 +1,10 @@
 import { create } from "zustand"
-import { persist, type PersistStorage, type StateStorage, type StorageValue } from "zustand/middleware"
+import {
+  persist,
+  type PersistStorage,
+  type StateStorage,
+  type StorageValue,
+} from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 import {
   arePromptPartsEqual,
@@ -360,10 +365,7 @@ export function normalizePromptDraft(
   }
 }
 
-function areAttachmentsEqual(
-  left: PromptComposerAttachment[],
-  right: PromptComposerAttachment[],
-) {
+function areAttachmentsEqual(left: PromptComposerAttachment[], right: PromptComposerAttachment[]) {
   if (left.length !== right.length) return false
 
   for (let index = 0; index < left.length; index += 1) {

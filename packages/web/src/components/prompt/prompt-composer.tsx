@@ -476,10 +476,7 @@ export function PromptComposer(props: PromptComposerProps) {
     if (readingSelectionEntries.length <= previous) return
 
     focusEditorAtDraftCursor()
-  }, [
-    focusEditorAtDraftCursor,
-    readingSelectionEntries.length,
-  ])
+  }, [focusEditorAtDraftCursor, readingSelectionEntries.length])
 
   const lastBusyRef = useRef(props.isBusy)
 
@@ -548,10 +545,7 @@ export function PromptComposer(props: PromptComposerProps) {
     return () => {
       window.cancelAnimationFrame(frame)
     }
-  }, [
-    focusEditorAtDraftCursor,
-    props.isBusy,
-  ])
+  }, [focusEditorAtDraftCursor, props.isBusy])
 
   function syncEditorCursorToDraft() {
     const editor = editorRef.current
@@ -948,8 +942,7 @@ export function PromptComposer(props: PromptComposerProps) {
     viewState.mentionMatch !== undefined && viewState.mentionKey !== viewState.dismissedMentionKey
 
   // The ball shows after the idle timer or when minimized — never during an active question dock.
-  const shouldShowBall =
-    (showGameBall || isMinimized) && !isGameVisible && !props.isQuestionActive
+  const shouldShowBall = (showGameBall || isMinimized) && !isGameVisible && !props.isQuestionActive
 
   return (
     <div className={cn("relative", props.className ?? "mx-4 mb-4")}>

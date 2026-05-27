@@ -99,7 +99,9 @@ describe("buddyToolToPluginTool shim", () => {
       memorySearch?.ui,
     )
 
-    const dynamicSearch = getDynamicToolSearchTools().find((tool) => tool.id === "learning_tool_search")
+    const dynamicSearch = getDynamicToolSearchTools().find(
+      (tool) => tool.id === "learning_tool_search",
+    )
     expect(ToolRegistry.getToolUiMetadata("learning_tool_search", project.path)?.presentation).toBe(
       "hidden-summary",
     )

@@ -166,20 +166,26 @@ function createBuildAgent(
   input: CoreAgentDefinition,
   dynamicToolDeny?: DynamicToolDenyPermission,
 ): DefinedPrimaryAgent | DefinedSubagent {
-  return defineAgentWithMode({
-    ...input,
-    permission: mergePermissionPreset(BUILD_AGENT_PERMISSION_DELTA, input.permission),
-  }, dynamicToolDeny)
+  return defineAgentWithMode(
+    {
+      ...input,
+      permission: mergePermissionPreset(BUILD_AGENT_PERMISSION_DELTA, input.permission),
+    },
+    dynamicToolDeny,
+  )
 }
 
 function createPlanAgent(
   input: CoreAgentDefinition,
   dynamicToolDeny?: DynamicToolDenyPermission,
 ): DefinedPrimaryAgent | DefinedSubagent {
-  return defineAgentWithMode({
-    ...input,
-    permission: mergePermissionPreset(PLAN_AGENT_PERMISSION_DELTA, input.permission),
-  }, dynamicToolDeny)
+  return defineAgentWithMode(
+    {
+      ...input,
+      permission: mergePermissionPreset(PLAN_AGENT_PERMISSION_DELTA, input.permission),
+    },
+    dynamicToolDeny,
+  )
 }
 
 export { createBuildAgent, createPlanAgent, createPrimaryAgent, createSubagent }

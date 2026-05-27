@@ -102,7 +102,9 @@ function mergeBuddyAndConfiguredAgents(
 }
 
 function compileBuddyAgentOverlay(): Record<string, Config.Agent> {
-  const personaAgents = REGISTERED_BUDDY_PERSONAS.map((definition) => createBuddyPersonaAgent(definition))
+  const personaAgents = REGISTERED_BUDDY_PERSONAS.map((definition) =>
+    createBuddyPersonaAgent(definition),
+  )
   const mergedAgents = Object.fromEntries(
     [...personaAgents, ...listBuddySubagents()].map(({ key, agent }) => [key, agent]),
   )

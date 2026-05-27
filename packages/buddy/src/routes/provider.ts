@@ -207,8 +207,6 @@ export const ProviderRoutes = new Hono()
         if (!directoryResult.ok) return directoryResult.response
 
         const providerID = c.req.valid("param").providerID
-        return c.json(
-          providerID === OPENAI_PROVIDER_ID ? cancelOpenAICodexAuthorization() : false,
-        )
+        return c.json(providerID === OPENAI_PROVIDER_ID ? cancelOpenAICodexAuthorization() : false)
       }),
   )
