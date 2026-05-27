@@ -9,6 +9,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
+  Input,
   Separator,
   cn,
 } from "@buddy/ui"
@@ -18,6 +19,7 @@ import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { connectChatGptPlusForOnboarding } from "@/lib/onboarding-flow"
 import { getConnectedProviders } from "@/lib/provider-catalog"
+import { resolveProviderSearchResults } from "@/lib/provider-search"
 import { OPENCODE_PROVIDER_ID, OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
 import {
   authorizeProviderOAuth,
@@ -35,6 +37,7 @@ import {
 import { ProviderSourceBadge, SettingsListCard, SettingsContent } from "./settings-primitives"
 
 const OPENCODE_GO_PROVIDER_ID = "opencode-go"
+const PROVIDER_SEARCH_VISIBLE_THRESHOLD = 3
 type RecommendedProviderDefinition = {
   providerID: string
   title: string
@@ -305,6 +308,35 @@ export function ProvidersSettings() {
     [allProviders],
   )
   const availableProviders = useMemo(() => resolveAvailableProviders(allProviders), [allProviders])
+  const recommendedSearchLabelsByID = useMemo(
+    () =>
+      new Map(
+        RECOMMENDED_PROVIDER_DEFINITIONS.map((definition) => [
+          definition.providerID,
+          [definition.title, definition.description],
+        ]),
+      ),
+    [],
+  )
+  const [query, setQuery] = useState("")
+  const showSearch = allProviders.length >= PROVIDER_SEARCH_VISIBLE_THRESHOLD
+  const searchResults = useMemo(
+    () =>
+      resolveProviderSearchResults({
+        allProviders,
+        connectedProviders: providers,
+        availableProviders,
+        query,
+        extraLabelsByID: recommendedSearchLabelsByID,
+      }),
+    [allProviders, providers, availableProviders, query, recommendedSearchLabelsByID],
+  )
+  const filteredConnectedProviders = searchResults.connected
+  const filteredAvailableProviders = searchResults.available
+  const filteredRecommendedProviders = useMemo(() => {
+    if (!searchResults.matchedIDs) return recommendedProviders
+    return recommendedProviders.filter((provider) => searchResults.matchedIDs?.has(provider.id))
+  }, [recommendedProviders, searchResults.matchedIDs])
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
   const [providerDialogTarget, setProviderDialogTarget] = useState<string | undefined>(undefined)
   const [chatGptConnecting, setChatGptConnecting] = useState(false)
@@ -377,15 +409,27 @@ export function ProvidersSettings() {
   return (
     <>
       <SettingsContent>
-        {providers.length > 0 ? (
+        {showSearch ? (
+          <Input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={language.t("settings.providers.searchPlaceholder")}
+            spellCheck={false}
+            autoComplete="off"
+            autoCapitalize="off"
+          />
+        ) : null}
+
+        {filteredConnectedProviders.length > 0 ? (
           <ProviderSection title={language.t("settings.providers.connectedSection")}>
             <SettingsListCard>
-              {providers.map((provider, index) => (
+              {filteredConnectedProviders.map((provider, index) => (
                 <ProviderListRow
                   key={provider.id}
                   provider={provider}
                   connected
-                  last={index === providers.length - 1}
+                  last={index === filteredConnectedProviders.length - 1}
                   onOpenDialog={openProviderDialog}
                 />
               ))}
@@ -393,10 +437,10 @@ export function ProvidersSettings() {
           </ProviderSection>
         ) : null}
 
-        {recommendedProviders.length > 0 ? (
+        {filteredRecommendedProviders.length > 0 ? (
           <ProviderSection title={language.t("settings.providers.recommendedSection")}>
             <div className="grid gap-3 md:grid-cols-2">
-              {recommendedProviders.map((provider) => {
+              {filteredRecommendedProviders.map((provider) => {
                 const definition = RECOMMENDED_PROVIDER_DEFINITIONS.find(
                   (item) => item.providerID === provider.id,
                 )
@@ -437,13 +481,13 @@ export function ProvidersSettings() {
             </p>
           ) : null}
           <SettingsListCard>
-            {availableProviders.length > 0 ? (
-              availableProviders.map((provider, index) => (
+            {filteredAvailableProviders.length > 0 ? (
+              filteredAvailableProviders.map((provider, index) => (
                 <ProviderListRow
                   key={provider.id}
                   provider={provider}
                   connected={false}
-                  last={index === availableProviders.length - 1}
+                  last={index === filteredAvailableProviders.length - 1}
                   onOpenDialog={(providerID) => {
                     if (providerID === OPENAI_PROVIDER_ID) {
                       void handleConnectChatGpt()
@@ -456,7 +500,9 @@ export function ProvidersSettings() {
               ))
             ) : (
               <div className="px-4 py-6 text-center text-sm text-text-weak">
-                {language.t("settings.providers.allConnected")}
+                {query.trim()
+                  ? language.t("settings.providers.noResults")
+                  : language.t("settings.providers.allConnected")}
               </div>
             )}
           </SettingsListCard>

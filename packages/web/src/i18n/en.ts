@@ -136,8 +136,6 @@ export const dict = {
   "chatTools.mermaidDiagram.fullscreenAriaSuffix": "fullscreen",
   "chatTools.mermaidDiagram.fullscreenDescription":
     "Fullscreen diagram with zoom and pan controls.",
-  "chatTools.mermaidDiagram.fullscreenHint":
-    "Fit-to-view on open. Scroll to pan wide diagrams and zoom for detail.",
   "chatTools.mermaidDiagram.openFullscreen": "Open fullscreen",
   "chatTools.mermaidDiagram.renderErrorDescriptionCompact":
     "Copy error details if you need the full renderer output.",
@@ -786,6 +784,8 @@ export const dict = {
   "settings.providers.description":
     "Connect your recommended providers first, then browse the full catalog only when needed. Changes save automatically.",
   "settings.providers.editConnection": "Edit connection",
+  "settings.providers.searchPlaceholder": "Search providers",
+  "settings.providers.noResults": "No providers found",
   "settings.providers.hideAllProviders": "Hide all providers",
   "settings.providers.noProvidersConnected": "No providers are connected yet.",
   "settings.providers.noOtherProviders": "No other providers are available right now.",

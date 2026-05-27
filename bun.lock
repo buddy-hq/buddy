@@ -192,6 +192,7 @@
         "diff": "catalog:",
         "dompurify": "^3.3.1",
         "foliate-js": "github:johnfactotum/foliate-js#399248a67a8862ffb5e6463a33f9d52b317ca2eb",
+        "fuzzysort": "catalog:",
         "immer": "^11.1.4",
         "katex": "^0.16.22",
         "lucide-react": "^0.574.0",
