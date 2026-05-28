@@ -7,6 +7,7 @@ import { learnSkill } from "./skills/learn"
 import { learningDesignFrameworksSkill } from "./skills/learning-design-frameworks"
 import { practiceSkill } from "./skills/practice"
 import { teachingModelsSkill } from "./skills/teaching-models"
+import { teachingResourceAuthoringSkill } from "./skills/teaching-resource-authoring"
 import { workedExampleSkill } from "./skills/worked-example"
 import { resolveConfusionSkill } from "./skills/resolve-confusion"
 
@@ -23,6 +24,7 @@ export const teachingGuidanceFeature = defineBuddyFeature({
     resolveConfusionSkill,
     learningDesignFrameworksSkill,
     teachingModelsSkill,
+    teachingResourceAuthoringSkill,
   ],
   subagents: [],
   surfaces: [],
