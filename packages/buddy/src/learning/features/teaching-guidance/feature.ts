@@ -4,6 +4,7 @@ import { assessSkill } from "./skills/assess"
 import { compareConceptsSkill } from "./skills/compare-concepts"
 import { explainSkill } from "./skills/explain"
 import { learnSkill } from "./skills/learn"
+import { learningDesignFrameworksSkill } from "./skills/learning-design-frameworks"
 import { practiceSkill } from "./skills/practice"
 import { teachingModelsSkill } from "./skills/teaching-models"
 import { workedExampleSkill } from "./skills/worked-example"
@@ -20,6 +21,7 @@ export const teachingGuidanceFeature = defineBuddyFeature({
     workedExampleSkill,
     compareConceptsSkill,
     resolveConfusionSkill,
+    learningDesignFrameworksSkill,
     teachingModelsSkill,
   ],
   subagents: [],
