@@ -30,11 +30,12 @@ export type SessionContextMetrics = {
 
 function tokenTotal(assistant: AssistantMessageInfo) {
   return (
+    assistant.tokens.total ??
     assistant.tokens.input +
-    assistant.tokens.output +
-    assistant.tokens.reasoning +
-    assistant.tokens.cache.read +
-    assistant.tokens.cache.write
+      assistant.tokens.output +
+      assistant.tokens.reasoning +
+      assistant.tokens.cache.read +
+      assistant.tokens.cache.write
   )
 }
 

@@ -109,4 +109,48 @@ describe("getSessionContextMetrics", () => {
     expect(metrics.context?.usage).toBeNull()
     expect(metrics.context?.remaining).toBeUndefined()
   })
+
+  test("prefers provider-reported total tokens when present", () => {
+    const messages = [
+      createMessageWithParts(
+        createAssistantMessageInfo({
+          id: "a1",
+          sessionID: "session_1",
+          providerID: "anthropic",
+          modelID: "k2p5",
+          cost: 0.1,
+          tokens: {
+            total: 308_341,
+            input: 60_000,
+            output: 1_000,
+            reasoning: 96,
+            cache: {
+              read: 0,
+              write: 0,
+            },
+          },
+        }),
+      ),
+    ]
+
+    const providers: ProviderInfo[] = [
+      createProviderInfo({
+        id: "anthropic",
+        name: "Anthropic",
+        models: [
+          createProviderModelInfo({
+            id: "k2p5",
+            providerID: "anthropic",
+            name: "Kimi K2.5",
+            limit: { context: 1_000_000, output: 32_000 },
+          }),
+        ],
+      }),
+    ]
+
+    const metrics = getSessionContextMetrics(messages, providers)
+    expect(metrics.context?.total).toBe(308_341)
+    expect(metrics.context?.usage).toBe(31)
+    expect(metrics.context?.remaining).toBe(691_659)
+  })
 })
