@@ -12,6 +12,7 @@ import { renderExaSearchTool } from "../exa-search"
 import { renderGenericTool } from "../generic"
 import { renderSkillTool } from "../skill"
 import { renderBuddyCustomTool } from "../buddy-custom"
+import { renderIngestFullTextTool } from "../ingest-full-text"
 import { renderPythonCalculatorTool } from "../python-calculator"
 import { renderRenderFigureTool } from "../render-figure"
 import { renderQuestionTool } from "../question"
@@ -476,7 +477,7 @@ function buildSections(): GallerySection[] {
         ),
         card(
           "ingest_full_text",
-          renderBuddyCustomTool,
+          renderIngestFullTextTool,
           "Full text ingest",
           {
             status: "completed",

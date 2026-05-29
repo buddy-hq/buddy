@@ -14,11 +14,16 @@ import {
   DIRECTORY_CHAT_SHELL_VIEW,
   type DirectoryChatShellView,
 } from "@/lib/directory-chat/directory-chat-shell-view"
+import type { ResourceOpenOptions } from "@/state/resources-query"
 import type { NotebookMainPaneTab } from "@/state/ui-preferences"
 
 type DirectoryChatConversationPaneProps = ComponentProps<typeof DirectoryChatMainPane> & {
   mainPaneTab: NotebookMainPaneTab
-  onOpenResource: (directory: string, resource: LibraryPanelResourceTarget) => void
+  onOpenResource: (
+    directory: string,
+    resource: LibraryPanelResourceTarget,
+    options?: ResourceOpenOptions,
+  ) => void
   onOpenQuestionSet: (directory: string, artifactID: string, selectedArtifactID?: string) => void
   selectedPersonaDefaultSurface: "curriculum" | "editor" | "figure" | "question-set"
   shellView?: DirectoryChatShellView
@@ -62,7 +67,7 @@ export function DirectoryChatConversationPane(props: DirectoryChatConversationPa
         </div>
       </div>
     ) : mainPaneTab === "chat" ? (
-      <DirectoryChatMainPane {...mainPaneProps} />
+      <DirectoryChatMainPane {...mainPaneProps} onOpenResource={onOpenResource} />
     ) : mainPaneTab === "library" ? (
       <div
         data-library-scroll-container

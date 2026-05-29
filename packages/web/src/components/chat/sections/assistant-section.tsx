@@ -19,6 +19,7 @@ export const AssistantSection = memo(function AssistantSection({
   editToolDefaultOpen,
   directory,
   onOpenSession,
+  onOpenResource,
   onAssistantTextFinalRender,
   isLastTurn,
   lastAssistantTextID,
@@ -86,6 +87,7 @@ export const AssistantSection = memo(function AssistantSection({
             interrupted={assistantAborted}
             preferEagerMarkdown={preferEagerMarkdown}
             onOpenSession={onOpenSession}
+            onOpenResource={onOpenResource}
             stripLeadingFigureImage={stripLeadingFigureImage}
             stripLeadingMermaidSources={stripLeadingMermaidSources}
             directory={directory}

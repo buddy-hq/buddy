@@ -22,6 +22,7 @@ import {
 import { renderApplyPatchTool } from "./render/apply-patch"
 import { renderBashTool } from "./render/bash"
 import { renderBuddyCustomTool } from "./render/buddy-custom"
+import { renderIngestFullTextTool } from "./render/ingest-full-text"
 import { renderEditTool } from "./render/edit"
 import { renderExaSearchTool } from "./render/exa-search"
 import { renderGenericTool } from "./render/generic"
@@ -305,9 +306,10 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   ingest_full_text: createToolRenderer({
+    inline: true,
+    renderInlineErrorCard: true,
     icon: (cn) => createElement(FileText, { className: cn }),
-    card: renderBuddyCustomTool,
-    summary: { display: "card", pattern: "info", suppressError: true },
+    card: renderIngestFullTextTool,
   }),
   prepare_resource: createToolRenderer({
     icon: (cn) => createElement(Wrench, { className: cn }),

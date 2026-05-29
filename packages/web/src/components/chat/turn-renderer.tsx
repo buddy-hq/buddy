@@ -26,6 +26,7 @@ export function areTurnRendererPropsEqual(
   if (prevProps.directory !== nextProps.directory) return false
   if (prevProps.onAssistantTextFinalRender !== nextProps.onAssistantTextFinalRender) return false
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
+  if (prevProps.onOpenResource !== nextProps.onOpenResource) return false
   if (prevProps.onForkMessage !== nextProps.onForkMessage) return false
   if (prevProps.onRevertMessage !== nextProps.onRevertMessage) return false
   if (prevProps.providers !== nextProps.providers) return false
@@ -55,6 +56,7 @@ export const TurnRenderer = memo(function TurnRenderer({
   directory,
   onAssistantTextFinalRender,
   onOpenSession,
+  onOpenResource,
   onForkMessage,
   onRevertMessage,
 }: TurnRendererProps) {
@@ -152,6 +154,7 @@ export const TurnRenderer = memo(function TurnRenderer({
           editToolDefaultOpen={editToolDefaultOpen}
           directory={directory}
           onOpenSession={onOpenSession}
+          onOpenResource={onOpenResource}
           onAssistantTextFinalRender={onAssistantTextFinalRender}
           isLastTurn={isLastTurn}
           lastAssistantTextID={lastAssistantTextID}

@@ -281,6 +281,7 @@ export function chatTranscriptEqual(
     prevProps.userScrolled === nextProps.userScrolled &&
     prevProps.onAssistantTextFinalRender === nextProps.onAssistantTextFinalRender &&
     prevProps.onOpenSession === nextProps.onOpenSession &&
+    prevProps.onOpenResource === nextProps.onOpenResource &&
     prevProps.onForkMessage === nextProps.onForkMessage &&
     prevProps.onRevertMessage === nextProps.onRevertMessage
   )

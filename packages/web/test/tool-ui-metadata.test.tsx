@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { estimateApproxWordCountFromTokens } from "../src/components/chat/tools/full-text-metadata"
 import { parseToolUiMetadata } from "../src/components/chat/tools/parse-tool-ui-metadata"
 import { getToolInfo } from "../src/components/chat/tools/tool-info"
 import {
@@ -172,5 +173,51 @@ describe("tool UI metadata", () => {
 
     expect(pendingInfo.title).toBe("Searching learning tools")
     expect(completedInfo.title).toBe("Search learning tools")
+  })
+
+  test("estimateApproxWordCountFromTokens uses four chars per token", () => {
+    expect(estimateApproxWordCountFromTokens(308_341)).toBe(246_673)
+  })
+
+  test("ingest_full_text renders inline instead of in abstracted steps", () => {
+    const part = {
+      id: "prt_ingest_inline",
+      sessionID: "ses_1",
+      messageID: "msg_1",
+      type: "tool" as const,
+      tool: "ingest_full_text",
+      state: {
+        status: "completed" as const,
+        input: { resource: "guns-of-august" },
+        metadata: { resource: "guns-of-august", fullTextEstTokens: 4200, truncated: false },
+        attachments: [],
+        output: "",
+      },
+    }
+    const grouped = groupAssistantParts([part], true)
+
+    expect(grouped).toHaveLength(1)
+    expect(grouped[0]?.type).toBe("part")
+    expect(assistantPartStartsFollowup(part)).toBe(true)
+  })
+
+  test("ingest_full_text summaries reflect truncation instead of claiming full context load", () => {
+    const completedInfo = getToolInfo("ingest_full_text", {
+      status: "completed",
+      input: {
+        resource: "guns-of-august",
+      },
+      metadata: {
+        resource: "guns-of-august",
+        fullTextEstTokens: 308341,
+        truncated: true,
+        outputPath: "/tmp/tool-output",
+      },
+      attachments: [],
+      output: "truncated preview",
+    })
+
+    expect(completedInfo.subtitle).toBe("guns-of-august")
+    expect(completedInfo.summary).toBe("308,341 tokens in source; output truncated")
   })
 })

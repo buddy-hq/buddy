@@ -1,4 +1,5 @@
 import type { RefObject } from "react"
+import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
 import type {
   MessageError,
   MessagePart,
@@ -39,6 +40,11 @@ export interface ChatTranscriptProps {
   userScrolled?: boolean
   onAssistantTextFinalRender?: () => void
   onOpenSession?: (sessionID: string) => void
+  onOpenResource?: (
+    directory: string,
+    resource: ResourceReadingTarget,
+    options?: ResourceOpenOptions,
+  ) => void
   onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
 }
@@ -55,6 +61,9 @@ export interface TurnRowProps {
   directory: string | undefined
   onAssistantTextFinalRender: () => void
   onOpenSession: ((sessionID: string) => void) | undefined
+  onOpenResource:
+    | ((directory: string, resource: ResourceReadingTarget, options?: ResourceOpenOptions) => void)
+    | undefined
   onForkMessage:
     | ((input: { sessionID: string; messageID: string }) => Promise<void> | void)
     | undefined
@@ -74,6 +83,11 @@ export interface TurnRendererProps {
   directory?: string
   onAssistantTextFinalRender?: () => void
   onOpenSession?: (sessionID: string) => void
+  onOpenResource?: (
+    directory: string,
+    resource: ResourceReadingTarget,
+    options?: ResourceOpenOptions,
+  ) => void
   onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
 }
@@ -89,6 +103,11 @@ export interface AssistantSectionProps {
   editToolDefaultOpen: boolean
   directory?: string
   onOpenSession?: (sessionID: string) => void
+  onOpenResource?: (
+    directory: string,
+    resource: ResourceReadingTarget,
+    options?: ResourceOpenOptions,
+  ) => void
   onAssistantTextFinalRender?: () => void
   isLastTurn: boolean
   lastAssistantTextID: string | undefined

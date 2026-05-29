@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { DirectoryInvalidNotebook } from "./directory-invalid-notebook"
-import { ResizeHandle, ResizablePanel, ResizablePanelGroup, useResizablePanelRef } from "@buddy/ui"
+import {
+  ResizeHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  cn,
+  useResizablePanelRef,
+} from "@buddy/ui"
 import { DirectoryChatConversationPane } from "@/components/directory-chat/directory-chat-conversation-pane"
 import { DirectoryChatReadingReaderPane } from "@/components/directory-chat/directory-chat-reading-reader-pane"
 import { DirectoryChatReadingThreadBrowser } from "@/components/directory-chat/directory-chat-reading-thread-browser"
@@ -13,7 +19,7 @@ import { language } from "@/context/language"
 import { fileNameFromPath, normalizeRelativePath } from "@/lib/workspace-file-paths"
 import { useChatStore } from "@/state/chat-store"
 import { getPromptDraft, usePromptStore } from "@/state/prompt-store"
-import { resourcesQueryOptions } from "@/state/resources-query"
+import { resourceFileExtensionFromFormat, resourcesQueryOptions } from "@/state/resources-query"
 import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runtime"
 import { type ResourceRecord } from "@/state/resource-actions"
 
@@ -37,6 +43,8 @@ const READING_READER_PANEL_ID = "directory-chat-reading-reader"
 const READING_CONVERSATION_PANEL_ID = "directory-chat-reading-conversation"
 const READING_LAYOUT_PANEL_IDS = [READING_READER_PANEL_ID, READING_CONVERSATION_PANEL_ID]
 const READING_DRAFT_SESSION_ID = undefined
+const READING_LAYOUT_ENTER_EASING = "ease-[cubic-bezier(0.23,1,0.32,1)]"
+const READING_LAYOUT_ENTER_DURATION_CLASS = "duration-220"
 
 function createReadingSelectionKey() {
   const random = Math.random().toString(36).slice(2, 10)
@@ -73,6 +81,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       getReadingChatPanelMaxWidth(),
     )
   })
+  const [layoutEntered, setLayoutEntered] = useState(false)
   const setActiveReadingResource = useChatStore((state) => state.setActiveReadingResource)
   const updateActiveReadingResourceLocation = useChatStore(
     (state) => state.updateActiveReadingResourceLocation,
@@ -102,6 +111,17 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     id: READING_LAYOUT_ID,
     panelIds: READING_LAYOUT_PANEL_IDS,
   })
+
+  useEffect(() => {
+    setLayoutEntered(false)
+    const frame = window.requestAnimationFrame(() => {
+      setLayoutEntered(true)
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+    }
+  }, [normalizedPath])
 
   useEffect(() => {
     window.localStorage.setItem(READING_CHAT_PANEL_WIDTH_STORAGE_KEY, chatPanelWidth.toString())
@@ -293,13 +313,22 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
           minSize={READING_READER_PANEL_MIN_WIDTH_PX}
           className="min-h-0 min-w-0 overflow-hidden"
         >
-          <div className="min-w-0 h-full border-r border-border-weaker-base bg-background-base">
+          <div
+            className={cn(
+              "min-w-0 h-full border-r border-border-weaker-base bg-background-base transition-[opacity,transform] motion-reduce:translate-x-0 motion-reduce:opacity-100 motion-reduce:transition-none",
+              READING_LAYOUT_ENTER_DURATION_CLASS,
+              READING_LAYOUT_ENTER_EASING,
+              layoutEntered ? "translate-x-0 opacity-100" : "-translate-x-3 opacity-0",
+            )}
+          >
             {readyDirectory && normalizedPath ? (
               <DirectoryChatReadingReaderPane
                 directory={readyDirectory}
                 resourceName={resourceName}
                 resourcePath={normalizedPath}
                 resourceID={resourceRecord?.id}
+                coverRelpath={resourceRecord?.coverRelpath}
+                coverExtension={resourceFileExtensionFromFormat(resourceRecord?.format ?? "")}
                 resourceStatus={resourceRecord?.status}
                 onLocationChange={(location) => {
                   updateActiveReadingResourceLocation(readyDirectory, {
@@ -347,26 +376,38 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
           maxSize={getReadingChatPanelMaxWidth()}
           className="relative flex min-h-0 min-w-0 overflow-hidden"
         >
-          <DirectoryChatConversationPane
-            {...readyController.mainPaneProps}
-            topContent={
-              <DirectoryChatReadingThreadBrowser
-                sessionTitle={threadBrowserState.sessionTitle}
-                sessions={threadBrowserState.sessions}
-                activeSessionID={threadBrowserState.sessionID}
-                linkedSessionID={linkedReadingSessionID}
-                parentSession={threadBrowserState.parentSession}
-                onNewSession={() => {
-                  void readyController.leftSidebarProps.onNewSession(currentDirectory)
-                }}
-                onSelectSession={(sessionID) => {
-                  void readyController.leftSidebarProps.onSelectSession(currentDirectory, sessionID)
-                }}
-              />
-            }
-            mainPaneTab="chat"
-            className="h-full w-full"
-          />
+          <div
+            className={cn(
+              "h-full w-full transition-[opacity,transform] motion-reduce:translate-x-0 motion-reduce:opacity-100 motion-reduce:transition-none",
+              READING_LAYOUT_ENTER_DURATION_CLASS,
+              READING_LAYOUT_ENTER_EASING,
+              layoutEntered ? "translate-x-0 opacity-100" : "-translate-x-8 opacity-0",
+            )}
+          >
+            <DirectoryChatConversationPane
+              {...readyController.mainPaneProps}
+              topContent={
+                <DirectoryChatReadingThreadBrowser
+                  sessionTitle={threadBrowserState.sessionTitle}
+                  sessions={threadBrowserState.sessions}
+                  activeSessionID={threadBrowserState.sessionID}
+                  linkedSessionID={linkedReadingSessionID}
+                  parentSession={threadBrowserState.parentSession}
+                  onNewSession={() => {
+                    void readyController.leftSidebarProps.onNewSession(currentDirectory)
+                  }}
+                  onSelectSession={(sessionID) => {
+                    void readyController.leftSidebarProps.onSelectSession(
+                      currentDirectory,
+                      sessionID,
+                    )
+                  }}
+                />
+              }
+              mainPaneTab="chat"
+              className="h-full w-full"
+            />
+          </div>
           <ResizeHandle
             direction="horizontal"
             edge="start"

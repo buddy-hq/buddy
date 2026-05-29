@@ -1,4 +1,5 @@
 import { memo } from "react"
+import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
 import { BasicTool } from "../../tools/basic-tool"
 import { InlineAssetBoundary } from "../../inline-asset-boundary"
 import { parseToolState } from "../../tools/parse-tool-state"
@@ -12,6 +13,11 @@ interface ToolPartRendererProps {
   part: ChatToolPart
   directory?: string
   onOpenSession?: (sessionID: string) => void
+  onOpenResource?: (
+    directory: string,
+    resource: ResourceReadingTarget,
+    options?: ResourceOpenOptions,
+  ) => void
   defaultOpen?: boolean
 }
 
@@ -22,6 +28,7 @@ function toolPartCardEqual(
   if (prevProps.part.id !== nextProps.part.id) return false
   if (prevProps.directory !== nextProps.directory) return false
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
+  if (prevProps.onOpenResource !== nextProps.onOpenResource) return false
   if (prevProps.defaultOpen !== nextProps.defaultOpen) return false
 
   const prevState = parseToolState(prevProps.part)
@@ -59,6 +66,7 @@ export const ToolPartCard = memo(function ToolPartCard({
   part,
   directory,
   onOpenSession,
+  onOpenResource,
   defaultOpen,
 }: ToolPartRendererProps) {
   const tool = part.tool
@@ -79,10 +87,11 @@ export const ToolPartCard = memo(function ToolPartCard({
     icon: renderer.icon,
     directory,
     onOpenSession,
+    onOpenResource,
     defaultOpen,
   }
 
-  if (renderer.inline && state.status === "error") {
+  if (renderer.inline && state.status === "error" && !renderer.renderInlineErrorCard) {
     return (
       <BasicTool
         icon={renderer.icon?.("h-3.5 w-3.5")}

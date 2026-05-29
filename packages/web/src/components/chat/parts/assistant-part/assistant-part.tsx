@@ -1,4 +1,5 @@
 import { memo } from "react"
+import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
 import { parseToolState } from "../../tools/parse-tool-state"
 import { AssistantTextPart } from "./text-part"
 import { ReasoningPart } from "./reasoning-part"
@@ -22,6 +23,11 @@ export interface AssistantPartRendererProps {
   interrupted?: boolean
   preferEagerMarkdown?: boolean
   onOpenSession?: (sessionID: string) => void
+  onOpenResource?: (
+    directory: string,
+    resource: ResourceReadingTarget,
+    options?: ResourceOpenOptions,
+  ) => void
   stripLeadingFigureImage?: boolean
   stripLeadingMermaidSources?: string[]
   directory?: string
@@ -43,6 +49,7 @@ function assistantPartRendererEqual(
   if (prevProps.stripLeadingMermaidSources !== nextProps.stripLeadingMermaidSources) return false
   if (prevProps.directory !== nextProps.directory) return false
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
+  if (prevProps.onOpenResource !== nextProps.onOpenResource) return false
   if (prevProps.defaultOpen !== nextProps.defaultOpen) return false
   if (prevProps.onTextFinalRender !== nextProps.onTextFinalRender) return false
 
@@ -67,6 +74,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
   interrupted,
   preferEagerMarkdown,
   onOpenSession,
+  onOpenResource,
   stripLeadingFigureImage,
   stripLeadingMermaidSources,
   directory,
@@ -114,6 +122,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
           part={part}
           directory={directory}
           onOpenSession={onOpenSession}
+          onOpenResource={onOpenResource}
           defaultOpen={defaultOpen}
         />
       </motion.div>

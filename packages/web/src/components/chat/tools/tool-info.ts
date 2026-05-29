@@ -1,5 +1,6 @@
 import { basename, dirname } from "../utils/path"
 import { language } from "@/context/language"
+import { readIngestFullTextMetadata } from "./full-text-metadata"
 import { isRecord, readNonEmptyString, readNonNegativeInt } from "./types"
 import { parseToolUiMetadata } from "./parse-tool-ui-metadata"
 import type { ToolInfo, ToolState } from "./types"
@@ -372,22 +373,24 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
         metadataTitle,
       )
     case "ingest_full_text": {
-      const resource =
-        typeof state.metadata.resource === "string" ? state.metadata.resource : undefined
-      const fullTextEstTokens =
-        typeof state.metadata.fullTextEstTokens === "number"
-          ? state.metadata.fullTextEstTokens
-          : undefined
+      const { resource, fullTextEstTokens, truncated } = readIngestFullTextMetadata(state)
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.fullText.running" : "chatTools.info.fullText"),
           subtitle: resource,
           summary:
             fullTextEstTokens !== undefined
-              ? language.t("chatTools.info.tokensLoaded", {
-                  count: fullTextEstTokens.toLocaleString(),
-                })
-              : summary,
+              ? language.t(
+                  truncated
+                    ? "chatTools.info.tokensLoadedTruncated"
+                    : "chatTools.info.tokensLoaded",
+                  {
+                    count: fullTextEstTokens.toLocaleString(),
+                  },
+                )
+              : truncated
+                ? language.t("chatTools.info.outputTruncated")
+                : summary,
         },
         metadataTitle,
       )

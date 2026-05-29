@@ -42,6 +42,7 @@ const TurnRow = memo(function TurnRow({
   directory,
   onAssistantTextFinalRender,
   onOpenSession,
+  onOpenResource,
   onForkMessage,
   onRevertMessage,
 }: TurnRowProps) {
@@ -66,6 +67,7 @@ const TurnRow = memo(function TurnRow({
           turnIndex === totalTurns - 1 ? onAssistantTextFinalRender : undefined
         }
         onOpenSession={onOpenSession}
+        onOpenResource={onOpenResource}
         onForkMessage={onForkMessage}
         onRevertMessage={onRevertMessage}
       />
@@ -79,6 +81,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     onAssistantTextFinalRender,
     onForkMessage,
     onOpenSession,
+    onOpenResource,
     onRevertMessage,
     scrollViewportRef,
     userScrolled = false,
@@ -348,6 +351,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                         directory={directory}
                         onAssistantTextFinalRender={handleAssistantTextFinalRender}
                         onOpenSession={onOpenSession}
+                        onOpenResource={onOpenResource}
                         onForkMessage={onForkMessage}
                         onRevertMessage={onRevertMessage}
                       />
@@ -371,6 +375,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                         directory={directory}
                         onAssistantTextFinalRender={handleAssistantTextFinalRender}
                         onOpenSession={onOpenSession}
+                        onOpenResource={onOpenResource}
                         onForkMessage={onForkMessage}
                         onRevertMessage={onRevertMessage}
                       />
@@ -394,6 +399,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                   directory={directory}
                   onAssistantTextFinalRender={handleAssistantTextFinalRender}
                   onOpenSession={onOpenSession}
+                  onOpenResource={onOpenResource}
                   onForkMessage={onForkMessage}
                   onRevertMessage={onRevertMessage}
                 />

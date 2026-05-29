@@ -21,6 +21,7 @@ import { PromptComposer } from "@/components/prompt/prompt-composer"
 import { useAdaptiveSelectMode } from "@/components/prompt/use-adaptive-select-mode"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
 import { getSessionContextMetrics } from "@/state/context-metrics"
+import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
 import type { MessageWithParts, ProviderInfo, QuestionRequest } from "@/state/chat-types"
 import { Redo2Icon } from "lucide-react"
 
@@ -46,6 +47,11 @@ type DirectoryChatMainPaneProps = {
   onTranscriptInteraction?: () => void
   onAssistantTextFinalRender?: () => void
   onOpenSession: (sessionID: string) => void
+  onOpenResource: (
+    directory: string,
+    resource: ResourceReadingTarget,
+    options?: ResourceOpenOptions,
+  ) => void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRestoreRevertedMessages?: () => Promise<void> | void
   onPermissionReply: (reply: "once" | "always" | "reject") => Promise<void>
@@ -166,6 +172,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     onTranscriptInteraction,
     onAssistantTextFinalRender,
     onOpenSession,
+    onOpenResource,
     onRevertMessage,
     onRestoreRevertedMessages,
     onPermissionReply,
@@ -264,6 +271,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     userScrolled={userScrolled}
                     onAssistantTextFinalRender={onAssistantTextFinalRender}
                     onOpenSession={onOpenSession}
+                    onOpenResource={onOpenResource}
                     onRevertMessage={onRevertMessage}
                   />
                 </>

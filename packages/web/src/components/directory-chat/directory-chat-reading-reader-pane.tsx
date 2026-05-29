@@ -1,17 +1,21 @@
-import { useMemo } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Loader2Icon } from "lucide-react"
+import { cn } from "@buddy/ui"
 import {
   FoliateReader,
   type FoliateReaderLocation,
   type FoliateReaderSelection,
   type FoliateReaderSource,
+  type FoliateReaderSnapshot,
 } from "@/components/readers/foliate-reader"
 import type { ReaderAnnotation } from "@/components/readers/foliate-reader-types"
+import { ResourceCover } from "@/components/resources/resource-cover"
 import { language } from "@/context/language"
 import {
   isSupportedReadingResourcePath,
   readingResourceBlobQueryOptions,
+  type ResourceFileExtension,
 } from "@/state/resources-query"
 
 type DirectoryChatReadingReaderPaneProps = {
@@ -19,6 +23,8 @@ type DirectoryChatReadingReaderPaneProps = {
   resourceName: string
   resourcePath: string
   resourceID?: string
+  coverRelpath?: string
+  coverExtension?: ResourceFileExtension
   resourceStatus?: "preparing" | "ready" | "unsupported" | "error" | "stale" | "unprocessed"
   onLocationChange?: (location: FoliateReaderLocation) => void
   onChatSelection?: (selection: FoliateReaderSelection) => void
@@ -27,12 +33,16 @@ type DirectoryChatReadingReaderPaneProps = {
 }
 
 const NOTEBOOK_PERSISTENCE_SUFFIX_PREFIX = "notebook"
+const READER_REVEAL_EASING = "ease-[cubic-bezier(0.23,1,0.32,1)]"
+const READER_REVEAL_DURATION_CLASS = "duration-220"
 
 const RESOURCE_STATUS_PREPARING = "preparing"
 const RESOURCE_STATUS_UNSUPPORTED = "unsupported"
 const RESOURCE_STATUS_ERROR = "error"
 
 export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReaderPaneProps) {
+  const [readerReady, setReaderReady] = useState(false)
+  const [readerFailed, setReaderFailed] = useState(false)
   const resourceSupported = isSupportedReadingResourcePath(props.resourcePath)
   const resourceBlocked =
     props.resourceStatus === RESOURCE_STATUS_PREPARING ||
@@ -42,6 +52,42 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
     ...readingResourceBlobQueryOptions(props.directory, props.resourcePath),
     enabled: Boolean(props.resourcePath) && resourceSupported && !resourceBlocked,
   })
+
+  useEffect(() => {
+    setReaderReady(false)
+    setReaderFailed(false)
+  }, [props.resourcePath])
+
+  const handleReaderReady = useCallback((_snapshot: FoliateReaderSnapshot) => {
+    setReaderReady(true)
+  }, [])
+
+  const handleReaderError = useCallback((_error: Error) => {
+    setReaderFailed(true)
+  }, [])
+
+  function renderOpeningState(label: string) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-5 px-6">
+        {props.coverExtension ? (
+          <ResourceCover
+            directory={props.directory}
+            coverRelpath={props.coverRelpath}
+            title={props.resourceName}
+            extension={props.coverExtension}
+            className="w-[clamp(12rem,28vw,22rem)] shadow-[0_18px_60px_color-mix(in_oklab,var(--surface-strong)_16%,transparent)]"
+          />
+        ) : (
+          <div className="aspect-[3/4] w-[clamp(12rem,28vw,22rem)] rounded-xl border border-border-weaker-base bg-surface-raised-stronger shadow-[0_18px_60px_color-mix(in_oklab,var(--surface-strong)_16%,transparent)]" />
+        )}
+
+        <div className="inline-flex items-center gap-2 rounded-full border border-border-base/50 bg-surface-raised-base/88 px-3 py-1.5 text-xs text-text-weaker shadow-sm backdrop-blur">
+          <Loader2Icon className="size-3.5 animate-spin" />
+          {label}
+        </div>
+      </div>
+    )
+  }
 
   if (!props.resourcePath) {
     return (
@@ -65,11 +111,9 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
 
   if (props.resourceStatus === RESOURCE_STATUS_PREPARING) {
     return (
-      <div className="flex h-full items-center justify-center px-6">
-        <div className="flex max-w-xl items-center gap-2 rounded-2xl border border-border-info-base/40 bg-surface-info-base/10 px-4 py-3 text-sm text-icon-info-base">
-          <Loader2Icon className="size-4 animate-spin" />
-          {language.t("sidebar.resourcesPreparing")}
-        </div>
+      <div className="h-full bg-background-base">
+        <div className="sr-only">{language.t("sidebar.resourcesPreparing")}</div>
+        {renderOpeningState(language.t("sidebar.resourcesPreparing"))}
       </div>
     )
   }
@@ -104,9 +148,9 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
 
   if (readerBlobQuery.isPending) {
     return (
-      <div className="flex h-full items-center justify-center gap-2 text-sm text-text-weak">
-        <Loader2Icon className="size-4 animate-spin" />
-        {language.t("projectExplorer.loadingFile")}
+      <div className="h-full bg-background-base">
+        <div className="sr-only">{language.t("projectExplorer.loadingFile")}</div>
+        {renderOpeningState(language.t("projectExplorer.loadingFile"))}
       </div>
     )
   }
@@ -132,16 +176,42 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
   const persistenceSuffix = props.resourceID
     ? `${NOTEBOOK_PERSISTENCE_SUFFIX_PREFIX}:${props.resourceID}`
     : undefined
+  const readerSettled = readerReady || readerFailed
 
   return (
-    <FoliateReader
-      source={readerSource}
-      className="h-full min-h-0"
-      persistenceSuffix={persistenceSuffix}
-      onLocationChange={props.onLocationChange}
-      onChatSelection={props.onChatSelection}
-      onChatSelectionRemoved={props.onChatSelectionRemoved}
-      onAnnotationsChange={props.onAnnotationsChange}
-    />
+    <div className="relative h-full min-h-0 overflow-hidden bg-background-base">
+      <div
+        aria-hidden={readerSettled}
+        className={cn(
+          "pointer-events-none absolute inset-0 z-10 transition-[opacity,transform,filter] motion-reduce:transition-none",
+          READER_REVEAL_DURATION_CLASS,
+          READER_REVEAL_EASING,
+          readerSettled ? "scale-[1.015] opacity-0 blur-[2px]" : "scale-100 opacity-100 blur-0",
+        )}
+      >
+        {renderOpeningState(language.t("projectExplorer.loadingFile"))}
+      </div>
+
+      <div
+        className={cn(
+          "h-full transition-[opacity,transform,filter] motion-reduce:transition-none",
+          READER_REVEAL_DURATION_CLASS,
+          READER_REVEAL_EASING,
+          readerSettled ? "scale-100 opacity-100 blur-0" : "scale-[0.985] opacity-0 blur-[6px]",
+        )}
+      >
+        <FoliateReader
+          source={readerSource}
+          className="h-full min-h-0"
+          persistenceSuffix={persistenceSuffix}
+          onReady={handleReaderReady}
+          onError={handleReaderError}
+          onLocationChange={props.onLocationChange}
+          onChatSelection={props.onChatSelection}
+          onChatSelectionRemoved={props.onChatSelectionRemoved}
+          onAnnotationsChange={props.onAnnotationsChange}
+        />
+      </div>
+    </div>
   )
 }

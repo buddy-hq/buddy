@@ -1,6 +1,7 @@
 import type { MessagePart } from "@/state/chat-types"
 import type { ReactNode } from "react"
 
+import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
 import type { ToolAttachment, ToolInfo, ToolState } from "./types"
 
 /**
@@ -18,6 +19,11 @@ export type ToolPartProps = {
   icon?: ToolIconRenderer
   directory?: string
   onOpenSession?: (sessionID: string) => void
+  onOpenResource?: (
+    directory: string,
+    resource: ResourceReadingTarget,
+    options?: ResourceOpenOptions,
+  ) => void
   defaultOpen?: boolean
 }
 
@@ -43,6 +49,7 @@ export type ToolCardRenderer = (props: ToolPartProps) => ReactNode
 export type ToolRenderer = {
   hidden?: boolean
   inline?: boolean
+  renderInlineErrorCard?: boolean
   card?: ToolCardRenderer
   summary?: ToolSummary
   icon?: ToolIconRenderer
