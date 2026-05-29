@@ -128,7 +128,7 @@ type PromptComposerProps = {
   onClearPendingSteer?: () => void
   onModelChange: (model: string) => void
   onThinkingChange: (thinking: string) => void
-  onSubmit: () => void
+  onSubmit: (draft: Omit<PromptDraftState, "updatedAt">) => void | Promise<void>
   onAbort: () => void
   onNewSession: () => void
   onOpenMcpDialog?: () => void
@@ -166,6 +166,15 @@ function buildReadingSelectionEntryKey(
 type DismissedSelectionPreview = {
   key: string
   text: string
+}
+
+function createEmptyPromptDraftState() {
+  return normalizePromptDraft({
+    value: "",
+    parts: [],
+    attachments: [],
+    cursor: 0,
+  })
 }
 
 export function PromptComposer(props: PromptComposerProps) {
@@ -818,24 +827,27 @@ export function PromptComposer(props: PromptComposerProps) {
     handleEditorInput()
   }
 
-  function clearComposer() {
-    resetHistoryNavigation()
+  function clearComposer(input?: { clearStore?: boolean; resetHistory?: boolean }) {
+    if (input?.resetHistory ?? true) {
+      resetHistoryNavigation()
+    }
     renderEditorAtCursor([], 0)
     pendingStoreDraftRef.current = undefined
     if (storeSyncTimerRef.current !== undefined) {
       window.clearTimeout(storeSyncTimerRef.current)
       storeSyncTimerRef.current = undefined
     }
-    const emptyDraft = normalizePromptDraft({
-      value: "",
-      parts: [],
-      attachments: [],
-      cursor: 0,
-    })
+    if (draftRenderTimerRef.current !== undefined) {
+      window.clearTimeout(draftRenderTimerRef.current)
+      draftRenderTimerRef.current = undefined
+    }
+    const emptyDraft = createEmptyPromptDraftState()
     draftRef.current = emptyDraft
     setDraft(emptyDraft)
     setPlaceholderVisible(true)
-    clearDraft(promptKey)
+    if (input?.clearStore ?? true) {
+      clearDraft(promptKey)
+    }
   }
 
   function openArcade() {
@@ -930,10 +942,9 @@ export function PromptComposer(props: PromptComposerProps) {
       return
     }
 
-    replaceDraftFromComposer(currentDraft)
-    mirrorInputRef.current = false
     commitDraftToHistory(currentDraft)
-    props.onSubmit()
+    clearComposer({ resetHistory: false })
+    props.onSubmit(currentDraft)
   }
 
   const slashMenuVisible =

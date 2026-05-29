@@ -68,6 +68,9 @@ import {
   isSupportedReadingResourcePath,
   readingResourceBlobQueryOptions,
   resourcesQueryOptions,
+  RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT,
+  type ResourceOpenOptions,
+  type ResourceReadingTarget,
 } from "../../state/resources-query"
 import { setOpenProjectsQueryData } from "../../state/bootstrap-query"
 import {
@@ -83,7 +86,9 @@ import {
   createTextPromptDraft,
   getPromptDraft,
   getPromptScopeKey,
+  normalizePromptDraft,
   usePromptStore,
+  type PromptDraftState,
 } from "../../state/prompt-store"
 import { getModelSelectionScopeKey } from "../../state/model-selection-store"
 import { useChatStore } from "../../state/chat-store"
@@ -103,7 +108,6 @@ import { useChatConfig } from "./use-chat-config"
 import { useTeachingWorkspace } from "./use-teaching-workspace"
 import { useAutoScroll } from "./use-auto-scroll"
 import { getRightSidebarDefaultWidth, RIGHT_SIDEBAR_EDITOR_MIN_WIDTH } from "./right-sidebar-layout"
-import type { ResourceCardTarget } from "@/components/layout/chat-left-sidebar/resource-card-grid"
 import { useQuestionSetSidebarActions } from "@/components/question-set/use-question-set-sidebar-actions"
 import {
   DIRECTORY_CHAT_SHELL_VIEW,
@@ -115,7 +119,7 @@ import { useWorkspaceFilePanelStore } from "@/state/workspace-file-panel-store"
 import { language } from "@/context/language"
 
 const SIDEBAR_MIN_WIDTH = 220
-const READING_PREFETCH_BLOCKED_STATUSES = new Set<NonNullable<ResourceCardTarget["status"]>>([
+const READING_PREFETCH_BLOCKED_STATUSES = new Set<NonNullable<ResourceReadingTarget["status"]>>([
   "preparing",
   "unsupported",
   "error",
@@ -218,9 +222,11 @@ export function useDirectoryChatPageController(
     migrateWorkspaceDraft,
     currentAgentName,
     selectedThinking,
+    selectedModelKey,
     sessionID,
     sessionKey,
     rightSidebarWidth,
+    setMainPaneTab,
     setRightSidebarOpen,
     setRightSidebarTab,
     setRightSidebarWidth,
@@ -306,11 +312,15 @@ export function useDirectoryChatPageController(
     key: string
   }
 
-  function readPromptSnapshot() {
+  function createPromptSnapshot(draft: Omit<PromptDraftState, "updatedAt">) {
     return {
       key: cs.promptKey,
-      ...clonePromptDraft(getPromptDraft(usePromptStore.getState(), cs.promptKey)),
+      ...clonePromptDraft(normalizePromptDraft(draft)),
     } satisfies PromptSnapshot
+  }
+
+  function readPromptSnapshot() {
+    return createPromptSnapshot(getPromptDraft(usePromptStore.getState(), cs.promptKey))
   }
 
   function restorePromptSnapshot(snapshot: PromptSnapshot) {
@@ -831,48 +841,82 @@ export function useDirectoryChatPageController(
     navigate({ to: "/settings", search: { tab: "general" } })
   }
 
-  function openResourceInReadingMode(targetDirectory: string, resource: ResourceCardTarget) {
-    const openingFromLibrary = shellView === DIRECTORY_CHAT_SHELL_VIEW.LIBRARY
-    const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
-    const linkedSessionID = resource.resourceID
-      ? linkedSessionByResource[`${targetDirectory}::${resource.resourceID}`]
-      : undefined
+  const openResourceInReadingMode = useCallback(
+    (
+      targetDirectory: string,
+      resource: ResourceReadingTarget,
+      options?: ResourceOpenOptions,
+    ) => {
+      const openingFromLibrary = shellView === DIRECTORY_CHAT_SHELL_VIEW.LIBRARY
+      const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
+      const preferCurrentSession =
+        options?.sessionPreference === RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT
+      const linkedSessionID = resource.resourceID
+        ? linkedSessionByResource[`${targetDirectory}::${resource.resourceID}`]
+        : undefined
 
-    if (openingFromLibrary) {
-      showWorkspace()
-      cs.setMainPaneTab("chat")
-    }
-
-    void queryClient.prefetchQuery(resourcesQueryOptions(targetDirectory))
-    const canPrefetchReadingBlob =
-      isSupportedReadingResourcePath(resource.path) &&
-      (resource.status === undefined || !READING_PREFETCH_BLOCKED_STATUSES.has(resource.status))
-    if (canPrefetchReadingBlob) {
-      void queryClient.prefetchQuery(
-        readingResourceBlobQueryOptions(targetDirectory, resource.path),
-      )
-    }
-
-    void (async () => {
-      if (linkedSessionID && linkedSessionID !== activeSessionID) {
-        await selectSession(targetDirectory, linkedSessionID).catch(() => undefined)
-      } else if (openingFromLibrary) {
-        startNewSessionDraft(targetDirectory)
-        seedDraftModelSelection(targetDirectory)
+      if (preferCurrentSession && activeSessionID && resource.resourceID) {
+        linkReadingResourceSession(targetDirectory, resource.resourceID, activeSessionID)
       }
 
-      void navigate({
-        to: "/$directory/read",
-        params: {
-          directory: encodeDirectory(targetDirectory),
-        },
-        search: {
-          path: resource.path,
-          ...(resource.resourceID ? { resource: resource.resourceID } : {}),
-        },
-      })
-    })()
-  }
+      if (openingFromLibrary) {
+        setMainPaneTab("chat")
+        setShellView(DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE)
+      }
+
+      void queryClient.prefetchQuery(resourcesQueryOptions(targetDirectory))
+      const canPrefetchReadingBlob =
+        isSupportedReadingResourcePath(resource.path) &&
+        (resource.status === undefined || !READING_PREFETCH_BLOCKED_STATUSES.has(resource.status))
+      if (canPrefetchReadingBlob) {
+        void queryClient.prefetchQuery(
+          readingResourceBlobQueryOptions(targetDirectory, resource.path),
+        )
+      }
+
+      void (async () => {
+        if (
+          !preferCurrentSession &&
+          linkedSessionID &&
+          linkedSessionID !== activeSessionID
+        ) {
+          await selectSession(targetDirectory, linkedSessionID).catch(() => undefined)
+        } else if (openingFromLibrary) {
+          const scopeKey = getModelSelectionScopeKey(targetDirectory)
+          const carryModelKey = selectedModelKey || undefined
+          const carryVariantKey = selectedThinking === "default" ? null : selectedThinking
+          startNewSessionDraft(targetDirectory)
+          setSelectedAgent(scopeKey, undefined)
+          setSelectedModel(scopeKey, carryModelKey)
+          setSelectedVariant(scopeKey, carryVariantKey)
+        }
+
+        void navigate({
+          to: "/$directory/read",
+          params: {
+            directory: encodeDirectory(targetDirectory),
+          },
+          search: {
+            path: resource.path,
+            ...(resource.resourceID ? { resource: resource.resourceID } : {}),
+          },
+        })
+      })()
+    },
+    [
+      linkReadingResourceSession,
+      linkedSessionByResource,
+      navigate,
+      queryClient,
+      selectedModelKey,
+      selectedThinking,
+      setMainPaneTab,
+      setSelectedAgent,
+      setSelectedModel,
+      setSelectedVariant,
+      shellView,
+    ],
+  )
 
   function openQuestionSetFromLibrary(
     targetDirectory: string,
@@ -1107,12 +1151,12 @@ export function useDirectoryChatPageController(
     return true
   }
 
-  async function onSend() {
+  async function onSend(draft: Omit<PromptDraftState, "updatedAt">) {
     if (!decodedDirectory) return
-    const draftSnapshot = readPromptSnapshot()
-    const rawContent = draftSnapshot.value
-    const promptParts = draftSnapshot.parts
-    const rawAttachments = draftSnapshot.attachments
+    const draftSnapshot = createPromptSnapshot(draft)
+    const rawContent = draft.value
+    const promptParts = draft.parts
+    const rawAttachments = draft.attachments
     const content = rawContent.trim()
     if (!content && rawAttachments.length === 0 && promptParts.length === 0) return
 
@@ -1180,11 +1224,13 @@ export function useDirectoryChatPageController(
       if (slashCommand.command.name === COMPACT_SLASH_COMMAND_NAME) {
         if (!cs.effectiveModelSelection) {
           cs.setDirectoryError(decodedDirectory, COMPACT_SESSION_MISSING_MODEL_ERROR)
+          restorePromptSnapshot(draftSnapshot)
           return
         }
 
         if (!sessionID) {
           cs.setDirectoryError(decodedDirectory, COMPACT_SESSION_MISSING_SESSION_ERROR)
+          restorePromptSnapshot(draftSnapshot)
           return
         }
 
@@ -1403,8 +1449,8 @@ export function useDirectoryChatPageController(
     },
     onSearchFiles: onSearchMentionFiles,
     onRefreshSlashCommands: chatConfig.refreshSlashCommands,
-    onSubmit: () => {
-      void onSend()
+    onSubmit: (draft) => {
+      void onSend(draft)
     },
   } satisfies DirectoryChatMainPaneProps["promptComposerProps"]
 
