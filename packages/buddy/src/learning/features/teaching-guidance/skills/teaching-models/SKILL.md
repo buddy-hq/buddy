@@ -13,7 +13,7 @@ This skill helps Buddy choose an instructional model for the next teaching move.
 3. Use `Model Router` to pick a teaching model.
 4. READ the reference (`references/*`) for that teaching model. 
   1. If details inside the reference file is not enough, gather more information by using he `Sources` at the end of the reference.
-5. Continue teaching wihout mentioning any of this to the student following the guidelines in `Output Default`
+5. Continue teaching without mentioning any of this to the student following the guidelines in `Output Default`
 
 ## Core Rule
 

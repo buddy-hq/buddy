@@ -5,4 +5,4 @@
 - avoid using hardcoded colors or var(--x) format
 - prefer using shared `@buddy/ui` components (Buddy extensions built on shadcn primitives) instead of inventing your own components
   - invent only when none of the components fit perfectly for the job.
-- avoid using js sytles, unless you want to do somthing tailwind can't do
+- avoid using js styles, unless you want to do something tailwind can't do

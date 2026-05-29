@@ -381,7 +381,7 @@ If the deck fails these checks, revise before saving.
 # Response Format for final message to the user:
 
 ## Success Format 
-If you saved a deck, respond according to this exact schema. No additional descriptoin. No other data or text.
+If you saved a deck, respond according to this exact schema. No additional description. No other data or text.
 
 ```json
 {

@@ -104,7 +104,8 @@
     "vendor:check-catalog": "bun ./script/sync-opencode-catalog.ts --check",
     "vendor:sync": "git subtree pull --prefix vendor/opencode opencode-upstream dev --squash -m \"chore(vendor): sync opencode mirror\"",
     "hooks:install": "git config core.hooksPath .githooks",
-    "lint": "bun ./script/vendor-guard.ts --worktree && bun ./script/check-import-contract.ts && bun run theme:audit && bun ./node_modules/oxlint/bin/oxlint --config ./.oxlintrc.json --format unix --report-unused-disable-directives",
+    "lint": "bun ./script/vendor-guard.ts --worktree && bun ./script/check-import-contract.ts && bun run theme:audit && bun run spellcheck && bun ./node_modules/oxlint/bin/oxlint --config ./.oxlintrc.json --format unix --report-unused-disable-directives",
+    "spellcheck": "cspell --no-progress --no-summary",
     "fmt": "node ./node_modules/oxfmt/dist/cli.js",
     "fmt:check": "node ./node_modules/oxfmt/dist/cli.js --check",
     "sdk:generate": "bun run --cwd packages/sdk generate",
@@ -126,6 +127,7 @@
     "@tanstack/eslint-plugin-query": "^5.99.0",
     "@tsconfig/node22": "catalog:",
     "@typescript/native-preview": "7.0.0-dev.20251207.1",
+    "cspell": "^10.0.0",
     "oxfmt": "^0.40.0",
     "oxlint": "^1.55.0",
     "turbo": "^2.0.0"

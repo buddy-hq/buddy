@@ -56,7 +56,7 @@ Choose and deliver the right analogy-based teaching move so the learner can conn
    - After the analogy does its job, name the real principle, model, or definition directly.
    - Use analogies to build logic, not to bypass it or merely persuade.
    - Do not let the analogy become a standalone artifact when the lesson needs the real concept.
-9. Use `references/internal-scaffolds.md` provides you with scaffoldding to write analogies - these are internal templates you can use to write analogies more efficiently. Never show the user the internal scaffold directly.
+9. Use `references/internal-scaffolds.md` provides you with scaffolding to write analogies - these are internal templates you can use to write analogies more efficiently. Never show the user the internal scaffold directly.
 
 # Tool Hints
 - Draft mapping tables, rubrics, and failure scans privately unless the user explicitly asks to inspect the analogy.

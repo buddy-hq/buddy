@@ -1,4 +1,4 @@
-Register and prepare a workspace resource from a source path and make it easily digestable for LLMs. Parses, splits, chunks big resources into digestable chunks and creates a single `{{ full_text_file_prefix }}-*.md` file.
+Register and prepare a workspace resource from a source path and make it easily digestible for LLMs. Parses, splits, chunks big resources into digestible chunks and creates a single `{{ full_text_file_prefix }}-*.md` file.
 What this tool does:
 - uses the exact same backend pipeline as Add Resource / drag-and-drop in the UI or /resource add.
 - accepts an absolute path or a workspace-relative path
