@@ -31,14 +31,35 @@ const BOARD_MASCOT_DROP_SHADOW_CLASS = "drop-shadow-[0_8px_24px_rgba(0,0,0,0.32)
 
 /** Copy column — wide notebook names must not shift the mascot slot. */
 const BOARD_COPY_MAX_WIDTH_CLASS = "max-w-[58%]" as const
+
+/** Headline width sets the grid column; combobox row uses `w-0 min-w-full` to match it. */
+const BOARD_COPY_BLOCK_CLASS = "inline-grid w-max min-w-0 max-w-[20rem]" as const
+const BOARD_COMBOBOX_ROW_CLASS = "col-start-1 row-start-2 mt-4 w-0 min-w-full" as const
+
+/** Chevron on the trigger is hidden until the board is hovered, focused, or the menu is open. */
+const BOARD_CARD_CLASS = "group/board" as const
 const BOARD_MASCOT_SLOT_WIDTH_CLASS = "w-[42%]" as const
 
-const BOARD_GRAIN_BACKGROUND_IMAGE = `url("data:image/svg+xml,${encodeURIComponent(
-  "<svg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(#n)'/></svg>",
-)}")`
+/** Same inset from board edge → text start (left) and mascot (right). */
+const BOARD_COPY_GUTTER_CLASS = "pl-16" as const
+const BOARD_MASCOT_GUTTER_CLASS = "pr-12" as const
+
+const BOARD_COMBOBOX_CONTENT_CLASS =
+  "chat-empty-board-combobox-content min-w-[14rem] max-w-[20rem] text-text-base !ring-0" as const
+
+const BOARD_COMBOBOX_ITEM_CLASS =
+  "min-w-0 data-[highlighted]:bg-surface-weak/50 data-[selected]:bg-surface-weak/70" as const
+
+/** Icon flush with headline; negative margin keeps a wider hover target without shifting layout. */
+const BOARD_COMBOBOX_TRIGGER_CLASS =
+  "-ml-2 flex h-9 w-full min-w-0 items-center justify-start gap-2 overflow-hidden rounded-md border-0 bg-transparent py-0 pl-2 pr-2 text-left text-base font-medium text-text-interactive-base shadow-none hover:bg-surface-weak/60 hover:text-text-interactive-base data-popup-open:bg-surface-weak/60 data-pressed:bg-surface-weak/80 [&>svg:last-child]:hidden [&>svg:last-child]:size-4 [&>svg:last-child]:shrink-0 [&>svg:last-child]:text-text-weak group-hover/board:[&>svg:last-child]:block group-focus-within/board:[&>svg:last-child]:block data-popup-open:[&>svg:last-child]:block" as const
+const BOARD_COMBOBOX_LABEL_CLASS = "min-w-0 flex-1 truncate" as const
 
 const BOARD_DATE_CHALK_STROKE_WIDTH = 1.75
 const BOARD_DATE_CHALK_STROKE_OPACITY = 0.48
+
+/** Padding inside the chalk L-bracket (board edge is the top/left border). */
+const BOARD_DATE_CORNER_PADDING_CLASS = "pt-3 px-5 pb-4" as const
 
 type BoardDateCornerProps = {
   dateLine: string
@@ -49,7 +70,7 @@ type BoardDateCornerProps = {
 function BoardDateCorner(props: BoardDateCornerProps) {
   return (
     <div className="absolute left-0 top-0 z-[3] w-fit">
-      <div className="relative w-fit pt-4 pl-3 pr-4 pb-3.5">
+      <div className={`relative w-fit ${BOARD_DATE_CORNER_PADDING_CLASS}`}>
         <svg
           aria-hidden
           className="pointer-events-none absolute inset-0 h-full w-full text-text-weaker"
@@ -130,68 +151,69 @@ export function ChatEmptyStateBoard(props: ChatEmptyStateBoardProps) {
       <div className={`relative w-full ${BOARD_MAX_WIDTH_CLASS} px-4`}>
         <AspectRatio ratio={EMPTY_STATE_BOARD_ASPECT_RATIO} className={`w-full ${BOARD_MAX_WIDTH_CLASS}`}>
           <article
-            className={`absolute inset-0 overflow-hidden border border-border-weaker-base bg-background-base shadow-[0_8px_32px_rgba(0,0,0,0.28)] ${BOARD_CORNER_RADIUS_CLASS}`}
+            className={`${BOARD_CARD_CLASS} absolute inset-0 overflow-hidden border border-border-weaker-base bg-background-base shadow-[0_8px_32px_rgba(0,0,0,0.28)] ${BOARD_CORNER_RADIUS_CLASS}`}
           >
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-0 z-[1] opacity-[0.12]"
-              style={{ backgroundImage: BOARD_GRAIN_BACKGROUND_IMAGE }}
+              className="chat-empty-board-grain pointer-events-none absolute inset-0 z-[1] opacity-[0.12]"
             />
 
             <BoardDateCorner dateLine={boardDate.dateLine} weekday={boardDate.weekday} />
 
             <div
-              className={`relative z-[2] flex min-h-full min-w-0 flex-col justify-center pl-14 pr-5 py-6 md:pl-16 md:pr-6 ${BOARD_COPY_MAX_WIDTH_CLASS}`}
+              className={`relative z-[2] flex min-h-full min-w-0 flex-col justify-center py-6 ${BOARD_COPY_GUTTER_CLASS} ${BOARD_COPY_MAX_WIDTH_CLASS}`}
             >
-              <h1 className="max-w-[20rem] text-4xl font-bold leading-[1.1] tracking-tight text-text-stronger">
-                {headline}
-              </h1>
-              {props.directories.length > 0 ? (
-                <div className="mt-4 w-fit max-w-[20rem]">
-                  <Combobox
-                    value={props.directory}
-                    onValueChange={(nextDirectory) => {
-                      if (!nextDirectory || nextDirectory === props.directory) return
-                      props.onSelectNotebook(nextDirectory)
-                    }}
-                  >
-                    <ComboboxTrigger
-                      data-action="chat-empty-state-notebook-select"
-                      className="inline-flex h-9 w-fit max-w-full items-center justify-start gap-2 overflow-hidden border-0 bg-transparent p-0 text-left text-base font-medium text-text-interactive-base shadow-none hover:bg-transparent hover:text-text-interactive-base data-pressed:bg-transparent [&>svg:last-child]:size-4 [&>svg:last-child]:shrink-0 [&>svg:last-child]:text-text-weak"
-                      aria-label={language.t("sidebar.optionsForDirectory", {
-                        directoryLabel: notebookLabel(props.directory),
-                      })}
+              <div className={BOARD_COPY_BLOCK_CLASS}>
+                <h1 className="col-start-1 row-start-1 text-4xl font-bold leading-[1.1] tracking-tight text-text-subtle">
+                  {headline}
+                </h1>
+                {props.directories.length > 0 ? (
+                  <div className={BOARD_COMBOBOX_ROW_CLASS}>
+                    <Combobox
+                      value={props.directory}
+                      onValueChange={(nextDirectory) => {
+                        if (!nextDirectory || nextDirectory === props.directory) return
+                        props.onSelectNotebook(nextDirectory)
+                      }}
                     >
-                      {isInbox ? (
-                        <MessagesSquareIcon className="size-4 shrink-0" />
-                      ) : (
-                        <BookIcon className="size-4 shrink-0" />
-                      )}
-                      <span className="max-w-full truncate">{notebookLabel(props.directory)}</span>
-                    </ComboboxTrigger>
-                    <ComboboxContent className="min-w-[14rem] max-w-[20rem]">
-                      <ComboboxList>
-                        {props.directories.map((directory) => (
-                          <ComboboxItem key={directory} value={directory} className="min-w-0">
-                            <span className="flex min-w-0 items-center gap-1.5">
-                              {isInboxDirectory(directory) ? (
-                                <MessagesSquareIcon className="size-3.5 shrink-0" />
-                              ) : (
-                                <BookIcon className="size-3.5 shrink-0" />
-                              )}
-                              <span className="truncate">{notebookLabel(directory)}</span>
-                            </span>
-                          </ComboboxItem>
-                        ))}
-                      </ComboboxList>
-                    </ComboboxContent>
-                  </Combobox>
-                </div>
-              ) : null}
+                      <ComboboxTrigger
+                        data-action="chat-empty-state-notebook-select"
+                        className={BOARD_COMBOBOX_TRIGGER_CLASS}
+                        aria-label={language.t("sidebar.optionsForDirectory", {
+                          directoryLabel: notebookLabel(props.directory),
+                        })}
+                      >
+                        {isInbox ? (
+                          <MessagesSquareIcon className="size-4 shrink-0" />
+                        ) : (
+                          <BookIcon className="size-4 shrink-0" />
+                        )}
+                        <span className={BOARD_COMBOBOX_LABEL_CLASS}>{notebookLabel(props.directory)}</span>
+                      </ComboboxTrigger>
+                      <ComboboxContent className={BOARD_COMBOBOX_CONTENT_CLASS}>
+                        <ComboboxList>
+                          {props.directories.map((directory) => (
+                            <ComboboxItem key={directory} value={directory} className={BOARD_COMBOBOX_ITEM_CLASS}>
+                              <span className="flex min-w-0 items-center gap-1.5">
+                                {isInboxDirectory(directory) ? (
+                                  <MessagesSquareIcon className="size-3.5 shrink-0" />
+                                ) : (
+                                  <BookIcon className="size-3.5 shrink-0" />
+                                )}
+                                <span className="truncate">{notebookLabel(directory)}</span>
+                              </span>
+                            </ComboboxItem>
+                          ))}
+                        </ComboboxList>
+                      </ComboboxContent>
+                    </Combobox>
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <div
-              className={`pointer-events-none absolute inset-y-0 right-0 z-[2] flex items-end justify-center ${BOARD_MASCOT_SLOT_WIDTH_CLASS}`}
+              className={`pointer-events-none absolute inset-y-0 right-0 z-[2] flex items-end justify-end ${BOARD_MASCOT_GUTTER_CLASS} ${BOARD_MASCOT_SLOT_WIDTH_CLASS}`}
             >
               <img
                 src={buddyMascotWaveUrl}
