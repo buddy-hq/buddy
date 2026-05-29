@@ -117,9 +117,7 @@ function isInboxDirectory(directory: string) {
 }
 
 function notebookLabel(directory: string) {
-  return isInboxDirectory(directory)
-    ? language.t("sidebar.quickChat")
-    : getFilename(directory)
+  return isInboxDirectory(directory) ? language.t("sidebar.quickChat") : getFilename(directory)
 }
 
 function formatBoardDate(now: Date) {
@@ -138,9 +136,7 @@ function formatBoardDate(now: Date) {
 
 export function ChatEmptyStateBoard(props: ChatEmptyStateBoardProps) {
   const isInbox = isInboxDirectory(props.directory)
-  const headline = isInbox
-    ? language.t("sidebar.quickChat")
-    : language.t("chat.emptyState.title")
+  const headline = isInbox ? language.t("sidebar.quickChat") : language.t("chat.emptyState.title")
   const boardDate = useMemo(() => formatBoardDate(new Date()), [])
 
   return (
@@ -149,7 +145,10 @@ export function ChatEmptyStateBoard(props: ChatEmptyStateBoardProps) {
       className="animate-in fade-in slide-in-from-bottom-2 flex flex-1 items-center justify-center duration-700"
     >
       <div className={`relative w-full ${BOARD_MAX_WIDTH_CLASS} px-4`}>
-        <AspectRatio ratio={EMPTY_STATE_BOARD_ASPECT_RATIO} className={`w-full ${BOARD_MAX_WIDTH_CLASS}`}>
+        <AspectRatio
+          ratio={EMPTY_STATE_BOARD_ASPECT_RATIO}
+          className={`w-full ${BOARD_MAX_WIDTH_CLASS}`}
+        >
           <article
             className={`${BOARD_CARD_CLASS} absolute inset-0 overflow-hidden border border-border-weaker-base bg-background-base shadow-[0_8px_32px_rgba(0,0,0,0.28)] ${BOARD_CORNER_RADIUS_CLASS}`}
           >
@@ -188,12 +187,18 @@ export function ChatEmptyStateBoard(props: ChatEmptyStateBoardProps) {
                         ) : (
                           <BookIcon className="size-4 shrink-0" />
                         )}
-                        <span className={BOARD_COMBOBOX_LABEL_CLASS}>{notebookLabel(props.directory)}</span>
+                        <span className={BOARD_COMBOBOX_LABEL_CLASS}>
+                          {notebookLabel(props.directory)}
+                        </span>
                       </ComboboxTrigger>
                       <ComboboxContent className={BOARD_COMBOBOX_CONTENT_CLASS}>
                         <ComboboxList>
                           {props.directories.map((directory) => (
-                            <ComboboxItem key={directory} value={directory} className={BOARD_COMBOBOX_ITEM_CLASS}>
+                            <ComboboxItem
+                              key={directory}
+                              value={directory}
+                              className={BOARD_COMBOBOX_ITEM_CLASS}
+                            >
                               <span className="flex min-w-0 items-center gap-1.5">
                                 {isInboxDirectory(directory) ? (
                                   <MessagesSquareIcon className="size-3.5 shrink-0" />

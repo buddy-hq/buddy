@@ -976,10 +976,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
   // The ball shows after the idle timer or when minimized — never during an active question dock.
   const shouldShowBall =
-    !isGameBallSuppressed &&
-    (showGameBall || isMinimized) &&
-    !isGameVisible &&
-    !isQuestionActive
+    !isGameBallSuppressed && (showGameBall || isMinimized) && !isGameVisible && !isQuestionActive
 
   return (
     <div className={cn("relative", props.className ?? "mx-4 mb-4")}>

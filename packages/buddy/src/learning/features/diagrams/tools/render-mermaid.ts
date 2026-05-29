@@ -30,7 +30,9 @@ const RenderMermaidInputSchema = z.object({
   caption: nonEmptyString
     .optional()
     .describe("Optional concise caption. Omit unless a visible caption helps the learner."),
-  source: nonEmptyString.describe("Mermaid source to render as a fresh diagram or repaired diagram."),
+  source: nonEmptyString.describe(
+    "Mermaid source to render as a fresh diagram or repaired diagram.",
+  ),
   repairOfArtifactID: z
     .string()
     .regex(/^[a-f0-9]{64}$/u)
