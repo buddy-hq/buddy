@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { motion } from "motion/react"
+import { ResourceCoverButton } from "@/components/resources/resource-cover"
 import { useQueryClient } from "@tanstack/react-query"
 import { useSearch } from "@tanstack/react-router"
 import {
@@ -27,25 +28,27 @@ import { addResource, rebuildResource, removeResource } from "@/state/resource-a
 import { useChatStore } from "@/state/chat-store"
 import {
   invalidateResourcesQueries,
-  resourceCoverQueryOptions,
   type ResourceListItem,
+  type ResourceOpenOptions,
+  type ResourceReadingTarget,
   type ResourceViewStatus,
 } from "@/state/resources-query"
-import { useQuery } from "@tanstack/react-query"
 
 const SHOW_MORE_BUTTON_CLASS = "pt-1"
 const SHOW_MORE_BATCH_LABEL_KEY = "sidebar.libraryShowMoreCount"
 const STICKY_READING_RESET_DELAY_MS = 500
 const CONTEXT_MENU_WIDTH_CLASS = "w-48"
 
-export type ResourceCardTarget = Pick<ResourceListItem, "path" | "name" | "resourceID"> & {
-  status?: ResourceViewStatus
-}
+export type ResourceCardTarget = ResourceReadingTarget
 
 type ResourceCardGridProps = {
   directory: string
   resources: ResourceListItem[]
-  onOpenResource: (directory: string, resource: ResourceCardTarget) => void
+  onOpenResource: (
+    directory: string,
+    resource: ResourceCardTarget,
+    options?: ResourceOpenOptions,
+  ) => void
   pageSize?: number
 }
 
@@ -91,58 +94,6 @@ function useVisibleResourceCount(totalCount: number, pageSize?: number) {
       setVisibleCount((current) => Math.min(current + pageSize, totalCount))
     },
   }
-}
-
-function ResourceCoverThumbnail({
-  directory,
-  coverRelpath,
-  title,
-  extension,
-}: {
-  directory: string
-  coverRelpath?: string
-  title?: string
-  extension: "pdf" | "epub"
-}) {
-  const coverQuery = useQuery({
-    ...resourceCoverQueryOptions(directory, coverRelpath ?? ""),
-    enabled: !!coverRelpath,
-  })
-  const [objectUrl, setObjectUrl] = useState<string | undefined>(undefined)
-
-  useEffect(() => {
-    if (!coverQuery.data) {
-      setObjectUrl(undefined)
-      return
-    }
-
-    const nextObjectUrl = URL.createObjectURL(coverQuery.data)
-    setObjectUrl(nextObjectUrl)
-
-    return () => {
-      URL.revokeObjectURL(nextObjectUrl)
-    }
-  }, [coverQuery.data])
-
-  const displayName = title || extension.toUpperCase()
-
-  if (objectUrl) {
-    return <img src={objectUrl} alt={displayName} className="size-full object-cover" />
-  }
-
-  return (
-    <div className="flex size-full flex-col items-center justify-center bg-surface-raised-stronger px-4 text-center">
-      <div className="mb-3 flex size-12 items-center justify-center rounded-xl bg-surface-base shadow-sm ring-1 ring-border-weaker-base">
-        <FileTextIcon className="size-6 text-text-weaker" />
-      </div>
-      <span className="mb-1 text-[10px] font-bold uppercase tracking-widest text-text-weaker opacity-50">
-        {extension}
-      </span>
-      <span className="line-clamp-3 text-[11px] font-medium leading-relaxed text-text-stronger">
-        {title || extension.toUpperCase()}
-      </span>
-    </div>
-  )
 }
 
 function ResourceHoverPopover({
@@ -384,10 +335,14 @@ export function ResourceCardGrid(props: ResourceCardGridProps) {
               <ContextMenuTrigger asChild>
                 <motion.div
                   layoutId={isReading ? "resource-view" : undefined}
-                  className="relative aspect-[3/4] overflow-hidden rounded-xl border border-border-weaker-base bg-surface-base"
+                  className="relative"
                 >
-                  <button
-                    type="button"
+                  <ResourceCoverButton
+                    directory={props.directory}
+                    coverRelpath={resource.coverRelpath}
+                    title={resource.title}
+                    extension={resource.extension}
+                    ariaLabel={language.t("sidebar.openResource", { name: displayName })}
                     onClick={() =>
                       props.onOpenResource(props.directory, {
                         path: resource.path,
@@ -396,15 +351,7 @@ export function ResourceCardGrid(props: ResourceCardGridProps) {
                         status: resource.status,
                       })
                     }
-                    className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus"
-                  >
-                    <ResourceCoverThumbnail
-                      directory={props.directory}
-                      coverRelpath={resource.coverRelpath}
-                      title={resource.title}
-                      extension={resource.extension}
-                    />
-                  </button>
+                  />
 
                   <div className="pointer-events-none absolute left-2 top-2 z-10 flex gap-1">
                     <ResourceStatusIndicator status={resource.status} isBusy={isBusy} />

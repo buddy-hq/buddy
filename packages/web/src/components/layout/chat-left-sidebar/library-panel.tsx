@@ -33,7 +33,11 @@ import { pickResourceFilePath } from "@/lib/resource-file-picker"
 import { fileExtensionFromPath } from "@/lib/workspace-file-paths"
 import { addResource } from "@/state/resource-actions"
 import { useUiPreferences } from "@/state/ui-preferences"
-import { invalidateResourcesQueries, resourcesQueryOptions } from "@/state/resources-query"
+import {
+  invalidateResourcesQueries,
+  type ResourceOpenOptions,
+  resourcesQueryOptions,
+} from "@/state/resources-query"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 import {
   workspaceArtifactsQueryKeys,
@@ -73,7 +77,11 @@ export type LibraryPanelResourceTarget = ResourceCardTarget
 
 type LibraryPanelProps = {
   directories: string[]
-  onOpenResource: (directory: string, resource: LibraryPanelResourceTarget) => void
+  onOpenResource: (
+    directory: string,
+    resource: LibraryPanelResourceTarget,
+    options?: ResourceOpenOptions,
+  ) => void
   onOpenQuestionSet: (directory: string, artifactID: string, selectedArtifactID?: string) => void
   initialTab?: LibraryTab
 }
@@ -694,7 +702,11 @@ function ResourceNotebookShelf({
   emptyMessage,
 }: {
   directory: string
-  onOpenResource: (directory: string, resource: LibraryPanelResourceTarget) => void
+  onOpenResource: (
+    directory: string,
+    resource: LibraryPanelResourceTarget,
+    options?: ResourceOpenOptions,
+  ) => void
   showHeader: boolean
   pageSize?: number
   emptyMessage?: string
@@ -758,7 +770,11 @@ function ResourcesTab({
   onOpenResource,
 }: {
   directories: string[]
-  onOpenResource: (directory: string, resource: LibraryPanelResourceTarget) => void
+  onOpenResource: (
+    directory: string,
+    resource: LibraryPanelResourceTarget,
+    options?: ResourceOpenOptions,
+  ) => void
 }) {
   const queryClient = useQueryClient()
   const [isAddingResource, setIsAddingResource] = useState(false)

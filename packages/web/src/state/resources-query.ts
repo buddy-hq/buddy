@@ -26,10 +26,12 @@ const RESOURCE_DISCOVERY_EXTENSIONS: ReadonlyArray<string> = [
   RESOURCE_FILE_EXTENSION_EPUB,
 ]
 
+export type ResourceFileExtension = "pdf" | "epub"
+
 type DiscoveredResource = {
   path: string
   name: string
-  extension: "pdf" | "epub"
+  extension: ResourceFileExtension
 }
 
 export type ResourceViewStatus = ResourceRecord["status"] | "unprocessed"
@@ -38,7 +40,7 @@ export type ResourceListItem = {
   key: string
   path: string
   name: string
-  extension: "pdf" | "epub"
+  extension: ResourceFileExtension
   status: ResourceViewStatus
   resourceID?: string
   coverRelpath?: string
@@ -127,10 +129,40 @@ function buildProcessedResourceByPath(records: ResourceRecord[]) {
   return map
 }
 
-function extensionFromRecordFormat(format: string): "pdf" | "epub" | undefined {
+export function resourceFileExtensionFromFormat(
+  format: string,
+): ResourceFileExtension | undefined {
   if (format === RESOURCE_FILE_EXTENSION_PDF) return RESOURCE_FILE_EXTENSION_PDF
   if (format === RESOURCE_FILE_EXTENSION_EPUB) return RESOURCE_FILE_EXTENSION_EPUB
   return undefined
+}
+
+function buildResourceListItemFromProcessedRecord(
+  record: ResourceRecord,
+): ResourceListItem | undefined {
+  const sourceOriginPath = normalizeRenderableResourcePath(record.sourceOriginRelpath)
+  const sourcePath = normalizeRenderableResourcePath(record.sourceRelpath)
+  const resolvedPath = sourceOriginPath ?? sourcePath
+  if (!resolvedPath) return undefined
+
+  const extension =
+    (isResourceFilePath(resolvedPath) ? fileExtensionFromPath(resolvedPath) : undefined) ??
+    resourceFileExtensionFromFormat(record.format)
+  if (extension !== RESOURCE_FILE_EXTENSION_PDF && extension !== RESOURCE_FILE_EXTENSION_EPUB) {
+    return undefined
+  }
+
+  return {
+    key: `${RESOURCE_RECORD_KEY_PREFIX}${record.id}`,
+    path: resolvedPath,
+    name: fileNameFromPath(resolvedPath) || record.alias,
+    extension,
+    status: record.status,
+    resourceID: record.id,
+    ...(record.coverRelpath ? { coverRelpath: record.coverRelpath } : {}),
+    ...(record.title ? { title: record.title } : {}),
+    ...(record.author ? { author: record.author } : {}),
+  }
 }
 
 function buildResourceListItems(input: {
@@ -175,35 +207,64 @@ function buildResourceListItems(input: {
   }
 
   for (const record of input.processed) {
-    const sourceOriginPath = normalizeRenderableResourcePath(record.sourceOriginRelpath)
-    const sourcePath = normalizeRenderableResourcePath(record.sourceRelpath)
-    const resolvedPath = sourceOriginPath ?? sourcePath
-    if (!resolvedPath) continue
-    if (seenPaths.has(resolvedPath)) continue
+    const item = buildResourceListItemFromProcessedRecord(record)
+    if (!item) continue
+    if (seenPaths.has(item.path)) continue
 
-    const extension =
-      (isResourceFilePath(resolvedPath) ? fileExtensionFromPath(resolvedPath) : undefined) ??
-      extensionFromRecordFormat(record.format)
-    if (extension !== RESOURCE_FILE_EXTENSION_PDF && extension !== RESOURCE_FILE_EXTENSION_EPUB) {
-      continue
-    }
-
-    items.push({
-      key: `${RESOURCE_RECORD_KEY_PREFIX}${record.id}`,
-      path: resolvedPath,
-      name: fileNameFromPath(resolvedPath) || record.alias,
-      extension,
-      status: record.status,
-      resourceID: record.id,
-      ...(record.coverRelpath ? { coverRelpath: record.coverRelpath } : {}),
-      ...(record.title ? { title: record.title } : {}),
-      ...(record.author ? { author: record.author } : {}),
-    })
-    seenPaths.add(resolvedPath)
+    items.push(item)
+    seenPaths.add(item.path)
     seenResourceIDs.add(record.id)
   }
 
   return items.toSorted((left, right) => left.path.localeCompare(right.path))
+}
+
+export type ResourceReadingTarget = {
+  path: string
+  name: string
+  resourceID?: string
+  status?: ResourceViewStatus
+}
+
+export const RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT = "current" as const
+export const RESOURCE_OPEN_SESSION_PREFERENCE_LINKED = "linked" as const
+
+export type ResourceOpenSessionPreference =
+  | typeof RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT
+  | typeof RESOURCE_OPEN_SESSION_PREFERENCE_LINKED
+
+export type ResourceOpenOptions = {
+  sessionPreference?: ResourceOpenSessionPreference
+}
+
+function toResourceReadingTarget(item: ResourceListItem): ResourceReadingTarget {
+  return {
+    path: item.path,
+    name: item.name,
+    ...(item.resourceID ? { resourceID: item.resourceID } : {}),
+    status: item.status,
+  }
+}
+
+export function findProcessedResourceByKey(
+  processed: ResourceRecord[],
+  resourceKey: string,
+): ResourceRecord | undefined {
+  return processed.find((entry) => entry.alias === resourceKey || entry.id === resourceKey)
+}
+
+/** Same path/name resolution as the library grid (`buildResourceListItems`). */
+export function resolveResourceReadingTarget(
+  record: ResourceRecord,
+  items: ResourceListItem[],
+): ResourceReadingTarget | undefined {
+  const fromList = items.find((item) => item.resourceID === record.id)
+  if (fromList) {
+    return toResourceReadingTarget(fromList)
+  }
+
+  const item = buildResourceListItemFromProcessedRecord(record)
+  return item ? toResourceReadingTarget(item) : undefined
 }
 
 async function loadResourceDirectoryData(directory: string): Promise<ResourceDirectoryData> {
