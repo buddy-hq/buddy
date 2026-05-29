@@ -2,7 +2,7 @@ import type { MouseEvent } from "react"
 import { useEffect, useRef, useState } from "react"
 import { useLocation, useNavigate, useRouterState } from "@tanstack/react-router"
 import { FolderOpenIcon, Button, MoveLeftIcon } from "@buddy/ui"
-import { ScrollTextIcon, SquareLibraryIcon } from "lucide-react"
+import { ScrollTextIcon, SquareLibraryIcon, type LucideIcon } from "lucide-react"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useUiPreferences } from "@/state/ui-preferences"
@@ -44,6 +44,20 @@ const CHAT_SIDEBAR_TOGGLE_RESERVED_PX = 40
 const CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX = MAC_WINDOW_CONTROL_INSET_WIDTH
 const CHAT_SIDEBAR_TOGGLE_LEFT_DEFAULT_PX = 8
 const CHAT_SIDEBAR_TOGGLE_HEIGHT_PX = 24 // h-6
+
+const TITLEBAR_ICON_STROKE_WIDTH = 1.5
+
+/** 14px Lucide icons with a constant on-screen stroke (avoids blurry sub-pixel scaling). */
+function TitlebarIcon(props: { icon: LucideIcon }) {
+  const Icon = props.icon
+  return (
+    <Icon
+      className="size-3.5 shrink-0"
+      absoluteStrokeWidth
+      strokeWidth={TITLEBAR_ICON_STROKE_WIDTH}
+    />
+  )
+}
 
 export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const placement = props.placement ?? "root"
@@ -179,8 +193,8 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         variant="ghost"
         className={`h-6 w-8 p-0 box-border [-webkit-app-region:no-drag] ${
           rightSidebarOpen && rightSidebarTab === "files"
-            ? "bg-surface-base-hover text-text-strong"
-            : "text-text-weak hover:bg-surface-base-hover hover:text-text-strong"
+            ? "bg-surface-base-hover text-icon-base"
+            : "text-icon-base hover:bg-surface-base-hover"
         }`}
         aria-label={
           rightSidebarOpen && rightSidebarTab === "files"
@@ -195,13 +209,13 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         }
         onClick={onToggleFilesPanel}
       >
-        <FolderOpenIcon className="size-4" />
+        <TitlebarIcon icon={FolderOpenIcon} />
       </Button>
       <Button
         type="button"
         data-action="titlebar-toggle-right-sidebar"
         variant="ghost"
-        className="h-6 w-8 p-0 box-border text-text-weak hover:bg-surface-base-hover hover:text-text-strong [-webkit-app-region:no-drag]"
+        className="h-6 w-8 p-0 box-border text-icon-base hover:bg-surface-base-hover [-webkit-app-region:no-drag]"
         aria-label={
           rightSidebarOpen
             ? language.t("desktopTitlebar.collapseRightPanel")
@@ -216,9 +230,9 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         onClick={onToggleRightSidebar}
       >
         {rightSidebarOpen ? (
-          <LayoutRightPartialIcon className="size-4" />
+          <TitlebarIcon icon={LayoutRightPartialIcon} />
         ) : (
-          <LayoutRightIcon className="size-4" />
+          <TitlebarIcon icon={LayoutRightIcon} />
         )}
       </Button>
     </div>
@@ -246,9 +260,9 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       onClick={() => setLeftSidebarOpen(!resolvedLeftSidebarOpen)}
     >
       {resolvedLeftSidebarOpen ? (
-        <LayoutLeftPartialIcon className="size-4" />
+        <TitlebarIcon icon={LayoutLeftPartialIcon} />
       ) : (
-        <LayoutLeftIcon className="size-4" />
+        <TitlebarIcon icon={LayoutLeftIcon} />
       )}
     </Button>
   )
@@ -296,9 +310,9 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
             onClick={() => setLeftSidebarOpen(!resolvedLeftSidebarOpen)}
           >
             {resolvedLeftSidebarOpen ? (
-              <LayoutLeftPartialIcon className="size-4" />
+              <TitlebarIcon icon={LayoutLeftPartialIcon} />
             ) : (
-              <LayoutLeftIcon className="size-4" />
+              <TitlebarIcon icon={LayoutLeftIcon} />
             )}
           </Button>
         </div>
@@ -352,7 +366,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                       })
                     }}
                   >
-                    <MoveLeftIcon className="size-5" />
+                    <TitlebarIcon icon={MoveLeftIcon} />
                   </Button>
                 </div>
               ) : null}
@@ -369,12 +383,12 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                 title={language.t("sidebar.mainPane.instructions")}
                 className={`h-7 w-7 transition-colors ${
                   props.mainPaneTab === "instructions"
-                    ? "text-text-strong bg-surface-raised-base-hover"
-                    : "text-text-weak"
+                    ? "bg-surface-raised-base-hover text-icon-base"
+                    : "text-icon-base"
                 }`}
                 onClick={() => props.onMainPaneTabChange?.("instructions")}
               >
-                <ScrollTextIcon className="size-3.5" />
+                <TitlebarIcon icon={ScrollTextIcon} />
               </Button>
               <Button
                 type="button"
@@ -384,12 +398,12 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                 title={language.t("sidebar.library")}
                 className={`h-7 w-7 transition-colors ${
                   props.mainPaneTab === "library"
-                    ? "text-text-strong bg-surface-raised-base-hover"
-                    : "text-text-weak"
+                    ? "bg-surface-raised-base-hover text-icon-base"
+                    : "text-icon-base"
                 }`}
                 onClick={() => props.onMainPaneTabChange?.("library")}
               >
-                <SquareLibraryIcon className="size-3.5" />
+                <TitlebarIcon icon={SquareLibraryIcon} />
               </Button>
             </div>
           ) : null}

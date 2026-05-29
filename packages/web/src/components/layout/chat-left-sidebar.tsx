@@ -287,7 +287,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   return (
     <aside
       data-component="chat-left-sidebar"
-      className={`shrink-0 border-r border-border-weaker-base bg-surface-raised-base text-text-base flex flex-col min-h-0 ${
+      className={`group/sidebar shrink-0 border-r border-border-weaker-base bg-surface-raised-base text-text-base flex flex-col min-h-0 ${
         props.className ?? ""
       }`}
     >

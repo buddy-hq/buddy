@@ -28,7 +28,7 @@ export function ChatLeftSidebarToolbar(props: ChatLeftSidebarToolbarProps) {
     <>
       <div className="flex items-center justify-between px-2 text-text-weaker">
         <p className="text-sm">{language.t("sidebar.threads")}</p>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 opacity-0 pointer-events-none transition-opacity group-hover/sidebar:opacity-100 group-hover/sidebar:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto [&:has([data-state=open])]:opacity-100 [&:has([data-state=open])]:pointer-events-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button

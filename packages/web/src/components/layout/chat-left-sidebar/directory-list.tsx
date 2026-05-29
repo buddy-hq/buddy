@@ -1,12 +1,14 @@
-import {
-  SlidersHorizontalIcon,
-  SquareLibraryIcon,
-  ScrollTextIcon,
-  type LucideIcon,
-} from "lucide-react"
+// Instructions + library icons live in desktop-titlebar.tsx; sidebar header shortcuts disabled.
+// import {
+//   SlidersHorizontalIcon,
+//   SquareLibraryIcon,
+//   ScrollTextIcon,
+//   type LucideIcon,
+// } from "lucide-react"
+import { SlidersHorizontalIcon } from "lucide-react"
 import {
   ArchiveIcon,
-  ChevronDownIcon,
+  BookOpenIcon,
   ChevronRightIcon,
   Collapsible,
   CollapsibleTrigger,
@@ -22,7 +24,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  SquarePenIcon,
+  PlusIcon,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -44,7 +46,7 @@ import type { NotebookMainPaneTab } from "@/state/ui-preferences"
 import { getFilename } from "../sidebar-helpers"
 import {
   buildSessionChildrenByParent,
-  formatThreadAge,
+  // formatThreadAge,
   parseSubagentSession,
   ThreadStatusIndicator,
 } from "./thread-helpers"
@@ -116,11 +118,11 @@ type DirectoryGroupSectionProps = {
   onMainPaneTabChange?: (tab: NotebookMainPaneTab) => void
 }
 
-type MainPaneShortcut = {
-  tab: Exclude<NotebookMainPaneTab, "chat">
-  label: string
-  Icon: LucideIcon
-}
+// type MainPaneShortcut = {
+//   tab: Exclude<NotebookMainPaneTab, "chat">
+//   label: string
+//   Icon: LucideIcon
+// }
 
 type DirectoryThreadRowProps = {
   directory: string
@@ -142,27 +144,34 @@ type DirectoryThreadRowProps = {
   depth?: number
 }
 
-const COLLAPSED_COUNT = 5
+const COLLAPSED_COUNT = 10
 const QUICK_CHAT_COLLAPSED_COUNT = 3
-const THREAD_ROW_PADDING_LEFT_PX = 20
+// Keep thread title inset in sync with notebook header (list px-1.5 + button px-1 + icon + gap-2).
+const NOTEBOOK_HEADER_BUTTON_PADDING_X_PX = 4
+const NOTEBOOK_HEADER_ICON_SIZE_PX = 14
+const NOTEBOOK_HEADER_ICON_GAP_PX = 8
+const THREAD_ROW_PADDING_LEFT_PX =
+  NOTEBOOK_HEADER_BUTTON_PADDING_X_PX +
+  NOTEBOOK_HEADER_ICON_SIZE_PX +
+  NOTEBOOK_HEADER_ICON_GAP_PX
 const THREAD_CHILD_INDENT_PX = 10
 const THREAD_STATUS_OFFSET_PX = 6
 // Maximum number of subagent child rows visible before the "show more" button appears
 const MAX_VISIBLE_SUBAGENTS = 5
 const SESSION_PREFETCH_HOVER_DELAY_MS = 120
 
-const MAIN_PANE_SHORTCUTS: MainPaneShortcut[] = [
-  {
-    tab: "instructions",
-    label: language.t("sidebar.mainPane.instructions"),
-    Icon: ScrollTextIcon,
-  },
-  {
-    tab: "library",
-    label: language.t("sidebar.notebookLibrary"),
-    Icon: SquareLibraryIcon,
-  },
-]
+// const MAIN_PANE_SHORTCUTS: MainPaneShortcut[] = [
+//   {
+//     tab: "instructions",
+//     label: language.t("sidebar.mainPane.instructions"),
+//     Icon: ScrollTextIcon,
+//   },
+//   {
+//     tab: "library",
+//     label: language.t("sidebar.notebookLibrary"),
+//     Icon: SquareLibraryIcon,
+//   },
+// ]
 const SUBAGENT_TONE_CLASSES = [
   "text-text-interactive-base",
   "text-text-success-base",
@@ -275,11 +284,8 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   const activeMainPaneTab = isCurrentDirectory ? (props.mainPaneTab ?? "chat") : "chat"
   const allowActiveThreadHighlight = isWorkspaceView && activeMainPaneTab === "chat"
 
-  const activeSession = props.group.sessions.find((s) => s.id === props.activeSessionID)
-  const isChatActive = isCurrentDirectory && allowActiveThreadHighlight && !!activeSession
-  const shouldShowContent = !props.collapsed || isChatActive
-  const sessionsToRender =
-    props.collapsed && isChatActive && activeSession ? [activeSession] : visibleSessions
+  const shouldShowContent = !props.collapsed
+  const sessionsToRender = visibleSessions
 
   const [popoverOpen, setPopoverOpen] = useState(false)
   const popoverTimeoutRef = useRef<any>(null)
@@ -312,7 +318,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
           type="button"
           data-action="left-sidebar-directory-toggle"
           data-directory={props.group.directory}
-          className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-lg px-1 py-1 text-left text-sm font-light text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong cursor-pointer`}
+          className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left text-sm font-light text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong cursor-pointer`}
           onPointerDown={
             canDrag && !isQuickChatGroup ? (event) => props.onLabelPointerDown(event) : undefined
           }
@@ -335,7 +341,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                     : "opacity-0"
                 }`}
               />
-              <ChevronDownIcon
+              <BookOpenIcon
                 className={`absolute inset-0 size-3.5 transition-opacity duration-200 ${
                   !props.collapsed ? "opacity-100" : "opacity-0"
                 }`}
@@ -348,13 +354,8 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
         </button>
       </CollapsibleTrigger>
 
-      <div
-        className={`relative z-10 flex items-center gap-0.5 pl-1 transition-opacity focus-within:opacity-100 focus-within:pointer-events-auto group-data-[state=open]/notebook-header:opacity-100 group-data-[state=open]/notebook-header:pointer-events-auto ${
-          !props.collapsed || isCurrentDirectory
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
-        }`}
-      >
+      <div className="relative z-10 flex items-center gap-0.5 pl-1 opacity-0 pointer-events-none transition-opacity group-hover/directory:opacity-100 group-hover/directory:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto">
+        {/* Instructions + library — use desktop titlebar instead
         {!isQuickChatGroup &&
           props.mainPaneTab &&
           props.onMainPaneTabChange &&
@@ -390,17 +391,14 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
               </Tooltip>
             )
           })}
+        */}
         <Tooltip delayDuration={1000}>
           <TooltipTrigger asChild>
             <button
               type="button"
               data-action="left-sidebar-directory-new-thread"
               data-directory={props.group.directory}
-              className={`group/new-thread inline-flex h-6 min-w-0 items-center justify-center rounded-md text-text-base transition-all duration-500 ease-out overflow-hidden hover:bg-surface-raised-base-hover hover:text-text-strong active:scale-[0.97] ${
-                !props.collapsed || isCurrentDirectory
-                  ? "w-6 opacity-100 pointer-events-auto"
-                  : "w-0 opacity-0 px-0 pointer-events-none"
-              }`}
+              className="group/new-thread inline-flex h-6 w-6 items-center justify-center rounded-md text-text-base transition-colors hover:bg-surface-raised-base-hover hover:text-text-strong active:scale-[0.97]"
               aria-label={language.t("sidebar.startNewThreadIn", {
                 directoryLabel: isQuickChatGroup ? language.t("sidebar.quickChat") : directoryLabel,
               })}
@@ -410,8 +408,8 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 props.onNewSession()
               }}
             >
-              <SquarePenIcon
-                className="size-3.5 transition-transform duration-100 ease-out group-active/new-thread:-rotate-12 group-active/new-thread:scale-110"
+              <PlusIcon
+                className="size-3.5 transition-transform duration-100 ease-out group-active/new-thread:scale-110"
                 strokeWidth={2}
               />
             </button>
@@ -445,7 +443,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
         }`}
       >
         {isDragOver && props.dragOverPosition === "before" ? (
-          <div className="h-0.5 rounded-full bg-surface-interactive-base/70 mx-2 mb-1" />
+          <div className="mx-1.5 mb-1 h-0.5 rounded-full bg-surface-interactive-base/70" />
         ) : null}
 
         <Popover
@@ -504,7 +502,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                   <button
                     type="button"
                     className="group/new-thread-btn flex w-full items-center gap-2 rounded-lg py-1.5 pr-2.5 text-xs font-light text-text-weaker hover:bg-surface-raised-base-hover hover:text-text-base transition active:scale-[0.97]"
-                    style={{ paddingLeft: "20px" }}
+                    style={{ paddingLeft: `${THREAD_ROW_PADDING_LEFT_PX}px` }}
                     onClick={(event) => {
                       event.preventDefault()
                       event.stopPropagation()
@@ -512,7 +510,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                       props.onNewSession()
                     }}
                   >
-                    <SquarePenIcon className="size-3.5 transition-transform duration-100 ease-out group-active/new-thread-btn:-rotate-12 group-active/new-thread-btn:scale-110" />
+                    <PlusIcon className="size-3.5 transition-transform duration-100 ease-out group-active/new-thread-btn:scale-110" />
                     {language.t("sidebar.newThread")}
                   </button>
                 </div>
@@ -565,7 +563,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
           aria-hidden={shouldShowContent ? undefined : true}
         >
           <div className="min-h-0 overflow-hidden">
-            <div className="space-y-0.5 p-[2px] -m-[2px] flex flex-col">
+            <div className="flex flex-col space-y-0.5 px-1.5">
               {props.group.sessions.length === 0 ? (
                 <button
                   type="button"
@@ -577,7 +575,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                     props.onNewSession()
                   }}
                 >
-                  <SquarePenIcon className="size-3.5" />
+                  <PlusIcon className="size-3.5" />
                   {language.t("sidebar.newThread")}
                 </button>
               ) : (
@@ -603,18 +601,12 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                   />
                 ))
               )}
-              {hasMore && (
-                <div className="mx-2">
+              {hasMore ? (
+                <div className="group/sibling relative last:mb-1">
                   <button
                     type="button"
-                    className="py-1 text-[10px] text-text-weaker hover:text-text-base"
-                    style={{
-                      paddingLeft: `${
-                        isQuickChatGroup
-                          ? THREAD_ROW_PADDING_LEFT_PX + THREAD_CHILD_INDENT_PX
-                          : THREAD_ROW_PADDING_LEFT_PX
-                      }px`,
-                    }}
+                    className="relative w-full py-1 pr-2.5 text-left text-[10px] text-text-weaker hover:text-text-base"
+                    style={{ paddingLeft: `${THREAD_ROW_PADDING_LEFT_PX}px` }}
                     onClick={props.onToggleExpanded}
                   >
                     {props.expanded
@@ -622,12 +614,12 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                       : language.t("sidebar.showMore")}
                   </button>
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
         {isDragOver && props.dragOverPosition === "after" ? (
-          <div className="h-0.5 rounded-full bg-surface-interactive-base/70 mx-2 mt-1" />
+          <div className="mx-1.5 mt-1 h-0.5 rounded-full bg-surface-interactive-base/70" />
         ) : null}
       </section>
     </Collapsible>
@@ -661,7 +653,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
     .filter(isSessionInfo)
   const display = parseSubagentSession(props.session)
   const title = formatSessionTitle(display.title || language.t("sidebar.untitledThread"))
-  const age = formatThreadAge(props.session.time.updated ?? props.session.time.created)
+  // const age = formatThreadAge(props.session.time.updated ?? props.session.time.created)
   const leftPadding = THREAD_ROW_PADDING_LEFT_PX + depth * THREAD_CHILD_INDENT_PX
   const statusOffset = THREAD_STATUS_OFFSET_PX + depth * THREAD_CHILD_INDENT_PX
   const canToggleChildren = childSessions.length > 0
@@ -735,7 +727,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
   }
 
   return (
-    <div className="mx-2 last:mb-1 group/sibling relative">
+    <div className="group/sibling relative last:mb-1">
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div
@@ -808,7 +800,7 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
                           {display.agent}
                         </span>
                       ) : null}
-                      <span className="text-[11px] text-text-weaker">{age}</span>
+                      {/* <span className="text-[11px] text-text-weaker">{age}</span> */}
                     </div>
                   </>
                 )}
@@ -903,10 +895,10 @@ export function DirectoryThreadRow(props: DirectoryThreadRowProps) {
               ))
             : null}
           {childrenMounted && hiddenChildCount > 0 ? (
-            <div className="mx-2">
+            <div className="group/sibling relative last:mb-1">
               <button
                 type="button"
-                className="py-1 text-[10px] text-text-weaker hover:text-text-base"
+                className="relative w-full py-1 pr-2.5 text-left text-[10px] text-text-weaker hover:text-text-base"
                 style={{
                   paddingLeft: `${THREAD_ROW_PADDING_LEFT_PX + (depth + 1) * THREAD_CHILD_INDENT_PX}px`,
                 }}
