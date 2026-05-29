@@ -6,10 +6,13 @@ import {
 import z from "zod"
 import {
   MERMAID_ARTIFACT_KIND,
+  MERMAID_AUTO_REPAIR_MESSAGE_ID_PREFIX,
   RenderMermaidOutputSchema,
+  type MermaidArtifactReadResult,
   type MermaidAutoRepairState,
   type RenderMermaidOutput,
 } from "../service/v2-types"
+import { MermaidArtifactNotFoundError } from "../errors"
 import {
   buildMermaidArtifactUrl,
   createToolMermaidArtifact,
@@ -23,13 +26,18 @@ import { MermaidArtifactPathV2 } from "../service/v2-path"
 const nonEmptyString = z.string().trim().min(1)
 
 const RenderMermaidInputSchema = z.object({
-  alt: nonEmptyString,
-  caption: nonEmptyString.optional(),
-  source: nonEmptyString,
+  alt: nonEmptyString.describe("Short, learner-facing alt text for the diagram."),
+  caption: nonEmptyString
+    .optional()
+    .describe("Optional concise caption. Omit unless a visible caption helps the learner."),
+  source: nonEmptyString.describe("Mermaid source to render as a fresh diagram or repaired diagram."),
   repairOfArtifactID: z
     .string()
     .regex(/^[a-f0-9]{64}$/u)
-    .optional(),
+    .optional()
+    .describe(
+      "Optional repair target. Only pass this when repairing or superseding an existing Mermaid artifact ID copied verbatim from a prior failed diagram or repair prompt. Omit for every new diagram. Never invent IDs, use placeholders, or use repeated-character sample IDs.",
+    ),
 })
 
 type RenderMermaidInput = z.infer<typeof RenderMermaidInputSchema>
@@ -46,6 +54,46 @@ function nextSucceededAutoRepairState(
     status: "succeeded",
     attempts,
     replacementArtifactID,
+  }
+}
+
+function isAutoRepairMessage(messageID: unknown): boolean {
+  return String(messageID).startsWith(MERMAID_AUTO_REPAIR_MESSAGE_ID_PREFIX)
+}
+
+function isAutoRepairTurn(messages: BuddyToolContext["messages"]): boolean {
+  return isAutoRepairMessage(messages.findLast((message) => message.info.role === "user")?.info.id)
+}
+
+async function resolveRepairTarget(input: {
+  directory: string
+  isAutoRepair: boolean
+  repairOfArtifactID?: string
+}): Promise<{
+  previousArtifact?: MermaidArtifactReadResult
+  ignoredRepairOfArtifactID?: string
+}> {
+  if (!input.repairOfArtifactID) {
+    return {}
+  }
+
+  try {
+    return {
+      previousArtifact: await readMermaidV2Artifact(input.directory, input.repairOfArtifactID),
+    }
+  } catch (error) {
+    if (!(error instanceof MermaidArtifactNotFoundError)) {
+      throw error
+    }
+    if (input.isAutoRepair) {
+      throw new Error(
+        `Mermaid repair target '${input.repairOfArtifactID}' was not found. Use the exact artifact ID from the repair prompt; omit repairOfArtifactID for a fresh diagram.`,
+        { cause: error },
+      )
+    }
+    return {
+      ignoredRepairOfArtifactID: input.repairOfArtifactID,
+    }
   }
 }
 
@@ -66,9 +114,11 @@ const renderMermaidTool = createBuddyTool({
 
     const parsed = RenderMermaidInputSchema.parse(params)
     const repairOfArtifactID = parsed.repairOfArtifactID
-    const previousArtifact = repairOfArtifactID
-      ? await readMermaidV2Artifact(ctx.directory, repairOfArtifactID)
-      : undefined
+    const { previousArtifact, ignoredRepairOfArtifactID } = await resolveRepairTarget({
+      directory: ctx.directory,
+      isAutoRepair: isAutoRepairTurn(ctx.messages),
+      ...(repairOfArtifactID ? { repairOfArtifactID } : {}),
+    })
     if (previousArtifact && previousArtifact.origin.sessionID !== String(ctx.sessionID)) {
       throw new Error("Mermaid repair target must belong to the current session.")
     }
@@ -81,7 +131,7 @@ const renderMermaidTool = createBuddyTool({
       alt: parsed.alt,
       ...(parsed.caption ? { caption: parsed.caption } : {}),
       source: parsed.source,
-      ...(repairOfArtifactID ? { supersedesArtifactID: repairOfArtifactID } : {}),
+      ...(previousArtifact ? { supersedesArtifactID: previousArtifact.artifactID } : {}),
     })
 
     if (previousArtifact) {
@@ -124,7 +174,15 @@ const renderMermaidTool = createBuddyTool({
 
     return {
       title: "Mermaid diagram queued",
-      output: "Mermaid diagram artifact created and queued for browser rendering.",
+      output: [
+        "Mermaid diagram artifact created and queued for browser rendering.",
+        ...(ignoredRepairOfArtifactID
+          ? [
+              "",
+              `Ignored repairOfArtifactID "${ignoredRepairOfArtifactID}" because no existing Mermaid artifact with that ID was found. Omit repairOfArtifactID for new diagrams; only pass an ID copied from a prior failed Mermaid artifact when repairing it.`,
+            ]
+          : []),
+      ].join("\n"),
       metadata: {
         artifact: "RenderMermaidOutput",
         value: output,

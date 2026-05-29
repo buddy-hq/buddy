@@ -197,6 +197,7 @@ function mermaidAutoRepairPrompt(input: {
       ? [`6. Use exactly this caption in the render_mermaid call: "${input.caption}".`]
       : ["6. Do not invent a caption; omit caption unless the source itself requires one."]),
     "7. Do not answer with a visible explanation before calling render_mermaid.",
+    "8. Copy the artifact ID verbatim. Do not replace it with a placeholder, zeros, repeated characters, or a guessed ID.",
     "",
     "Original user-facing labels:",
     `Alt: ${input.alt}`,
