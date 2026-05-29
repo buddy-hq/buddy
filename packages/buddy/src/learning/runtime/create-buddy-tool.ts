@@ -42,6 +42,12 @@ type BuddyToolDefinition<
   constraints?: BuddyToolConstraints
   dynamic?: DynamicBuddyToolMetadata
   ui?: ToolUiMetadata
+  output?: BuddyToolOutputPolicy
+}
+
+type BuddyToolOutputPolicy = {
+  maxLines?: number
+  maxBytes?: number
 }
 
 type BuddyTool<
@@ -55,6 +61,7 @@ type BuddyTool<
   constraints?: BuddyToolConstraints
   dynamic?: DynamicBuddyToolMetadata
   ui?: ToolUiMetadata
+  output?: BuddyToolOutputPolicy
   run(rawArgs: unknown, ctx: BuddyToolContext<Metadata>): Promise<Tool.ExecuteResult<Metadata>>
   toTool(directory: string): Effect.Effect<
     Tool.Info<typeof Schema.Unknown, Metadata>,
@@ -182,6 +189,7 @@ function createBuddyTool<
   const clonedConstraints = cloneConstraints(definition.constraints)
   const clonedDynamic = cloneDynamicMetadata(definition.dynamic)
   const clonedUi = normalizeToolUiMetadata(definition)
+  const clonedOutput = cloneOutputPolicy(definition.output)
   const jsonSchema = toToolJsonSchema(definition.id, definition.parameters)
 
   return {
@@ -191,6 +199,7 @@ function createBuddyTool<
     constraints: clonedConstraints,
     ...(clonedDynamic ? { dynamic: clonedDynamic } : {}),
     ...(clonedUi ? { ui: clonedUi } : {}),
+    ...(clonedOutput ? { output: clonedOutput } : {}),
     run(rawArgs, ctx) {
       return runBuddyTool(definition, rawArgs, ctx)
     },
@@ -210,6 +219,14 @@ function createBuddyTool<
         }),
       )
     },
+  }
+}
+
+function cloneOutputPolicy(policy: BuddyToolOutputPolicy | undefined): BuddyToolOutputPolicy | undefined {
+  if (!policy) return undefined
+  return {
+    ...(policy.maxLines !== undefined ? { maxLines: policy.maxLines } : {}),
+    ...(policy.maxBytes !== undefined ? { maxBytes: policy.maxBytes } : {}),
   }
 }
 

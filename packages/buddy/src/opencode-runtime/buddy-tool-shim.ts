@@ -133,13 +133,22 @@ async function loadAllBuddyPluginSourceTools(): Promise<BuddyTool[]> {
 }
 
 export async function registerBuddyToolUiCatalog(directory: string) {
-  const registrations = (await loadAllBuddyPluginSourceTools()).map((tool) => {
+  const sourceTools = await loadAllBuddyPluginSourceTools()
+  const uiRegistrations = sourceTools.map((tool) => {
     if (!tool.ui) {
       return { id: tool.id }
     }
     return { id: tool.id, toolUi: tool.ui }
   })
-  ToolRegistry.registerToolUiCatalog(directory, registrations)
+  const outputPolicyRegistrations = sourceTools.map((tool) => {
+    if (!tool.output) {
+      return { id: tool.id }
+    }
+    return { id: tool.id, outputPolicy: tool.output }
+  })
+
+  ToolRegistry.registerToolUiCatalog(directory, uiRegistrations)
+  ToolRegistry.registerToolOutputPolicyCatalog(directory, outputPolicyRegistrations)
 }
 
 function toPluginToolResult(

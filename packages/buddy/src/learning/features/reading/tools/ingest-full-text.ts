@@ -15,6 +15,8 @@ import { createBuddyTool } from "../../../runtime/create-buddy-tool"
 const MINIMUM_SPARE_AFTER_INGESTION_TOKENS = 100_000
 const MINIMUM_OUTPUT_RESERVE_TOKENS = 8_000
 const SAFETY_RESERVE_TOKENS = 12_000
+const FULL_TEXT_TOOL_MAX_OUTPUT_LINES = 500_000
+const FULL_TEXT_TOOL_MAX_OUTPUT_BYTES = 5_000_000
 
 const ResourceIngestFullTextParameters = z.object({
   resource: z
@@ -227,6 +229,10 @@ export const ingestFullTextTool = createBuddyTool({
   id: "ingest_full_text",
   description: RESOURCE_INGEST_FULL_TEXT_DESCRIPTION,
   parameters: ResourceIngestFullTextParameters,
+  output: {
+    maxLines: FULL_TEXT_TOOL_MAX_OUTPUT_LINES,
+    maxBytes: FULL_TEXT_TOOL_MAX_OUTPUT_BYTES,
+  },
   async execute(params, ctx) {
     await ctx.ask({
       permission: "ingest_full_text",
