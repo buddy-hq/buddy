@@ -67,7 +67,11 @@ export function DirectoryChatConversationPane(props: DirectoryChatConversationPa
         </div>
       </div>
     ) : mainPaneTab === "chat" ? (
-      <DirectoryChatMainPane {...mainPaneProps} onOpenResource={onOpenResource} />
+      <DirectoryChatMainPane
+        {...mainPaneProps}
+        directories={directories ?? []}
+        onOpenResource={onOpenResource}
+      />
     ) : mainPaneTab === "library" ? (
       <div
         data-library-scroll-container

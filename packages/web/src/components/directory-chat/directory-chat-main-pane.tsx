@@ -10,13 +10,12 @@ import {
   type UIEvent,
   type WheelEvent,
 } from "react"
-import { ChatEmptyState } from "@/components/directory-chat/chat-empty-state"
+import { ChatEmptyStateBoard } from "@/components/directory-chat/chat-empty-state-board"
 import { SessionContextUsage } from "@/components/directory-chat/session-context-usage"
 import { ChatTranscript } from "@/components/chat/chat-transcript"
 import { PermissionDock } from "@/components/directory-chat/permission-dock"
 import { QuestionDock } from "@/components/directory-chat/question-dock"
 import { language } from "@/context/language"
-import { getFilename } from "@/components/layout/sidebar-helpers"
 import { PromptComposer } from "@/components/prompt/prompt-composer"
 import { useAdaptiveSelectMode } from "@/components/prompt/use-adaptive-select-mode"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
@@ -59,6 +58,8 @@ type DirectoryChatMainPaneProps = {
   onQuestionReject: (requestID: string) => Promise<void>
   promptComposerProps: PromptComposerProps
   topContent?: ReactNode
+  directories: string[]
+  onSelectNotebook: (directory: string) => void
 }
 
 const COMPACTION_BUFFER_TOKENS = 20_000
@@ -261,7 +262,11 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                 </div>
               ) : chatState.messages.length === 0 ? (
                 <div className="h-full flex flex-col">
-                  <ChatEmptyState directoryLabel={getFilename(directory)} />
+                  <ChatEmptyStateBoard
+                    directory={directory}
+                    directories={props.directories}
+                    onSelectNotebook={props.onSelectNotebook}
+                  />
                 </div>
               ) : (
                 <>
@@ -363,7 +368,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
             {!chatState.parentSession && (
               <PromptComposer
                 {...promptComposerProps}
-                isQuestionActive={!!activeQuestion}
+                activeQuestionID={activeQuestion?.id}
                 selectorMode={promptSelectorMode}
                 className="mb-1"
                 sessionContextUsage={

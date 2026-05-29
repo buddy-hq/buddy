@@ -45,6 +45,15 @@ export {
   AccordionItem,
   AccordionTrigger,
 } from "./components/ui/accordion"
+export { AspectRatio } from "./components/ui/aspect-ratio"
+export {
+  Combobox,
+  ComboboxContent,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxTrigger,
+  ComboboxValue,
+} from "./components/ui/combobox"
 export {
   AlertDialog,
   AlertDialogAction,

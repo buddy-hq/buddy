@@ -1558,6 +1558,9 @@ export function useDirectoryChatPageController(
     selectedPersonaDefaultSurface: cs.selectedPersonaDefaultSurface,
     shellView,
     directories: cs.sidebarDirectories,
+    onSelectNotebook: (targetDirectory) => {
+      void onNewSession(targetDirectory)
+    },
   }
 
   const rightSidebarProps: DirectoryChatRightSidebarProps = {

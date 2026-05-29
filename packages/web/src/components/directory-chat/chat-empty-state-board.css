@@ -1,0 +1,17 @@
+/* Excalifont (OFL-1.1) — bundled via Vite; Latin subset covers MM/DD/YYYY. */
+@font-face {
+  font-family: Excalifont;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../assets/fonts/Excalifont.woff2") format("woff2");
+}
+
+@layer components {
+  .chat-empty-board-chalk {
+    font-family: Excalifont, ui-sans-serif, sans-serif;
+    font-style: normal;
+    font-synthesis: none;
+    font-variant-numeric: tabular-nums;
+  }
+}
