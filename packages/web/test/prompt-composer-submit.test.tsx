@@ -119,7 +119,9 @@ describe("prompt composer submit", () => {
 
     expect(submittedValue).toBe(TEST_PROMPT)
     expect(getPromptDraft(usePromptStore.getState(), promptKey).value).toBe("")
-    expect(container.querySelector('[data-component="prompt-editor"]')?.textContent?.trim()).toBe("")
+    expect(container.querySelector('[data-component="prompt-editor"]')?.textContent?.trim()).toBe(
+      "",
+    )
   })
 
   test("restores the editor when the submit flow restores the draft in the store", async () => {
@@ -150,7 +152,9 @@ describe("prompt composer submit", () => {
       await flushEffects()
     })
 
-    expect(container.querySelector('[data-component="prompt-editor"]')?.textContent?.trim()).toBe("")
+    expect(container.querySelector('[data-component="prompt-editor"]')?.textContent?.trim()).toBe(
+      "",
+    )
 
     await act(async () => {
       restoreDraft?.()

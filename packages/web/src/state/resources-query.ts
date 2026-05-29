@@ -129,9 +129,7 @@ function buildProcessedResourceByPath(records: ResourceRecord[]) {
   return map
 }
 
-export function resourceFileExtensionFromFormat(
-  format: string,
-): ResourceFileExtension | undefined {
+export function resourceFileExtensionFromFormat(format: string): ResourceFileExtension | undefined {
   if (format === RESOURCE_FILE_EXTENSION_PDF) return RESOURCE_FILE_EXTENSION_PDF
   if (format === RESOURCE_FILE_EXTENSION_EPUB) return RESOURCE_FILE_EXTENSION_EPUB
   return undefined

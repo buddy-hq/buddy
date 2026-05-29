@@ -60,9 +60,7 @@ function IngestFullTextTool({ state, directory, onOpenResource }: ToolPartProps)
   }, [directory, onOpenResource, readingTarget])
 
   if (denied) {
-    return (
-      <p className="text-sm text-text-weaker">{language.t("chatTools.readFullTextDenied")}</p>
-    )
+    return <p className="text-sm text-text-weaker">{language.t("chatTools.readFullTextDenied")}</p>
   }
 
   if (running) {

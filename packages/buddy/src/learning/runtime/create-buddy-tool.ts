@@ -222,7 +222,9 @@ function createBuddyTool<
   }
 }
 
-function cloneOutputPolicy(policy: BuddyToolOutputPolicy | undefined): BuddyToolOutputPolicy | undefined {
+function cloneOutputPolicy(
+  policy: BuddyToolOutputPolicy | undefined,
+): BuddyToolOutputPolicy | undefined {
   if (!policy) return undefined
   return {
     ...(policy.maxLines !== undefined ? { maxLines: policy.maxLines } : {}),

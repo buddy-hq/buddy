@@ -105,11 +105,7 @@ export function ResourceCoverButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={cn(
-        RESOURCE_COVER_FRAME_CLASS,
-        RESOURCE_COVER_BUTTON_CLASS,
-        className,
-      )}
+      className={cn(RESOURCE_COVER_FRAME_CLASS, RESOURCE_COVER_BUTTON_CLASS, className)}
     >
       <ResourceCoverContent {...coverProps} />
     </button>

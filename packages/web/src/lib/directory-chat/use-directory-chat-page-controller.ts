@@ -842,11 +842,7 @@ export function useDirectoryChatPageController(
   }
 
   const openResourceInReadingMode = useCallback(
-    (
-      targetDirectory: string,
-      resource: ResourceReadingTarget,
-      options?: ResourceOpenOptions,
-    ) => {
+    (targetDirectory: string, resource: ResourceReadingTarget, options?: ResourceOpenOptions) => {
       const openingFromLibrary = shellView === DIRECTORY_CHAT_SHELL_VIEW.LIBRARY
       const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
       const preferCurrentSession =
@@ -875,11 +871,7 @@ export function useDirectoryChatPageController(
       }
 
       void (async () => {
-        if (
-          !preferCurrentSession &&
-          linkedSessionID &&
-          linkedSessionID !== activeSessionID
-        ) {
+        if (!preferCurrentSession && linkedSessionID && linkedSessionID !== activeSessionID) {
           await selectSession(targetDirectory, linkedSessionID).catch(() => undefined)
         } else if (openingFromLibrary) {
           const scopeKey = getModelSelectionScopeKey(targetDirectory)

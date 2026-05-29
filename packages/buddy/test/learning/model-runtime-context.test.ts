@@ -106,7 +106,8 @@ describe("model runtime context", () => {
       projectConfig: config,
     })
 
-    const systemPrompt = typeof result.transformed.system === "string" ? result.transformed.system : ""
+    const systemPrompt =
+      typeof result.transformed.system === "string" ? result.transformed.system : ""
     const { openings, closings } = countNonHtmlTags(systemPrompt)
 
     expect(openings.size).toBeGreaterThan(0)

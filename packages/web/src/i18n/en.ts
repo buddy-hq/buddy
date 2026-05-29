@@ -1144,7 +1144,8 @@ export const dict = {
   "chatTools.questionCount.other": "{{count}} questions",
   "chatTools.askingQuestions": "Asking Questions...",
   "chatTools.tokensLoaded": "{{count}} tokens loaded into context",
-  "chatTools.tokensLoadedTruncated": "Source estimated at {{count}} tokens; tool output was truncated",
+  "chatTools.tokensLoadedTruncated":
+    "Source estimated at {{count}} tokens; tool output was truncated",
   "chatTools.fullTextTruncatedDetail":
     "The plugin runtime truncated this full-text output. The full text did not all enter the live chat context.",
   "chatTools.info.agent": "Agent ({{subagent}})",

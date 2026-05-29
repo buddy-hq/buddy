@@ -61,14 +61,7 @@ import {
   readOnboardingTestReturnTo,
   buildOnboardingChatEntryReturnTo,
 } from "@/lib/onboarding-test-mode"
-type BuddyDevToolsTab =
-  | "palette"
-  | "trace"
-  | "system"
-  | "snapshot"
-  | "memory"
-  | "query"
-  | "actions"
+type BuddyDevToolsTab = "palette" | "trace" | "system" | "snapshot" | "memory" | "query" | "actions"
 
 type Rect = {
   left: number

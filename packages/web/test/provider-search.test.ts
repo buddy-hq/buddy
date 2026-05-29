@@ -38,7 +38,9 @@ describe("filterProvidersByQuery", () => {
 
   test("matches extra labels such as recommended titles", () => {
     const providers = [createProviderInfo({ id: "openai", name: "OpenAI" })]
-    const extraLabelsByID = new Map([["openai", ["ChatGPT", "Use your active ChatGPT subscription."]]])
+    const extraLabelsByID = new Map([
+      ["openai", ["ChatGPT", "Use your active ChatGPT subscription."]],
+    ])
 
     expect(
       filterProvidersByQuery(providers, "chatgpt", extraLabelsByID).map((provider) => provider.id),

@@ -333,10 +333,7 @@ export function ResourceCardGrid(props: ResourceCardGridProps) {
           return (
             <ContextMenu key={resource.key}>
               <ContextMenuTrigger asChild>
-                <motion.div
-                  layoutId={isReading ? "resource-view" : undefined}
-                  className="relative"
-                >
+                <motion.div layoutId={isReading ? "resource-view" : undefined} className="relative">
                   <ResourceCoverButton
                     directory={props.directory}
                     coverRelpath={resource.coverRelpath}
