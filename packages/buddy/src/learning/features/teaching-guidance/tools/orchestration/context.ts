@@ -1,6 +1,6 @@
 import { readTeachingSessionState } from "../../../../agent-execution/state/session-state"
 import type { BuddyToolContext } from "../../../../runtime/create-buddy-tool"
-import { buildLearnerRuntimeSnapshot } from "../../../../features/memory"
+import { buildLearnerRuntimeSnapshot } from "../../../../features/memory/runtime/snapshot"
 import { listActiveGoals, type GoalRecord } from "../../../../features/memory/goals/storage"
 import type { PedagogyToolContext, PedagogyToolParams } from "./contracts"
 
