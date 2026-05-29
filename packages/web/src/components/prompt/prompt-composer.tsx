@@ -81,7 +81,7 @@ import {
 } from "../../state/prompt-store"
 
 const IMMEDIATE_BUILTIN_SLASH_COMMANDS = new Set(["new", "persona", "model", "mcp", "play"])
-const GAME_BALL_DELAY_MS = 60_000
+const GAME_BALL_DELAY_MS = 45_000
 const DRAFT_STORE_SYNC_DELAY_MS = 250
 const CURSOR_NAVIGATION_KEYS = new Set([
   "ArrowLeft",
@@ -137,7 +137,7 @@ type PromptComposerProps = {
   selectorMode?: PromptSelectMode
   className?: string
   sessionContextUsage?: React.ReactNode
-  isQuestionActive?: boolean
+  activeQuestionID?: string
 }
 
 const NON_EMPTY_TEXT = /[^\s\u200B]/
@@ -178,6 +178,7 @@ function createEmptyPromptDraftState() {
 }
 
 export function PromptComposer(props: PromptComposerProps) {
+  const isQuestionActive = props.activeQuestionID !== undefined
   const editorRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const modelNativeTriggerRef = useRef<HTMLSelectElement>(null)
@@ -259,6 +260,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
   const [busyStartTime, setBusyStartTime] = useState<number | null>(null)
   const [showGameBall, setShowGameBall] = useState(false)
+  const [isGameBallSuppressed, setIsGameBallSuppressed] = useState(false)
 
   useEffect(() => {
     if (arePromptDraftContentsEqual(draftRef.current, storeDraft)) return
@@ -488,6 +490,19 @@ export function PromptComposer(props: PromptComposerProps) {
   }, [focusEditorAtDraftCursor, readingSelectionEntries.length])
 
   const lastBusyRef = useRef(props.isBusy)
+  const previousActiveQuestionIDRef = useRef(props.activeQuestionID)
+
+  useEffect(() => {
+    const previousQuestionID = previousActiveQuestionIDRef.current
+    previousActiveQuestionIDRef.current = props.activeQuestionID
+
+    if (!props.isBusy || previousQuestionID === props.activeQuestionID) return
+
+    if (previousQuestionID !== undefined || props.activeQuestionID !== undefined) {
+      setBusyStartTime(Date.now())
+      setShowGameBall(false)
+    }
+  }, [props.activeQuestionID, props.isBusy])
 
   useEffect(() => {
     const wasBusy = lastBusyRef.current
@@ -500,6 +515,7 @@ export function PromptComposer(props: PromptComposerProps) {
     } else {
       setBusyStartTime(null)
       setShowGameBall(false)
+      setIsGameBallSuppressed(false)
       // Auto-pause game when turn completes (transitions from busy to idle)
       if (wasBusy && isGameVisible) {
         setPaused(true)
@@ -510,24 +526,30 @@ export function PromptComposer(props: PromptComposerProps) {
   }, [props.isBusy, busyStartTime, isGameVisible, setPaused, setMinimized, setGameVisible])
 
   useEffect(() => {
-    if (!busyStartTime || props.isQuestionActive) return
+    if (!busyStartTime || isQuestionActive || isGameBallSuppressed) return
     const elapsedMs = Date.now() - busyStartTime
     const remainingMs = Math.max(0, GAME_BALL_DELAY_MS - elapsedMs)
     const timeout = window.setTimeout(() => {
       setShowGameBall(true)
     }, remainingMs)
     return () => window.clearTimeout(timeout)
-  }, [busyStartTime, props.isQuestionActive])
+  }, [busyStartTime, isQuestionActive, isGameBallSuppressed])
+
+  const dismissGameBall = useCallback(() => {
+    setIsGameBallSuppressed(true)
+    setShowGameBall(false)
+    setMinimized(false)
+  }, [setMinimized])
 
   useEffect(() => {
-    if (!props.isQuestionActive) return
+    if (!isQuestionActive) return
     setShowGameBall(false)
     if (isGameVisible) {
       setPaused(true)
       setMinimized(true)
       setGameVisible(false)
     }
-  }, [props.isQuestionActive, isGameVisible, setPaused, setMinimized, setGameVisible])
+  }, [isQuestionActive, isGameVisible, setPaused, setMinimized, setGameVisible])
 
   useEffect(() => {
     return () => {
@@ -851,7 +873,7 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   function openArcade() {
-    if (props.isQuestionActive) {
+    if (isQuestionActive) {
       toast.error("Finish answering the question first!")
       return
     }
@@ -953,7 +975,11 @@ export function PromptComposer(props: PromptComposerProps) {
     viewState.mentionMatch !== undefined && viewState.mentionKey !== viewState.dismissedMentionKey
 
   // The ball shows after the idle timer or when minimized — never during an active question dock.
-  const shouldShowBall = (showGameBall || isMinimized) && !isGameVisible && !props.isQuestionActive
+  const shouldShowBall =
+    !isGameBallSuppressed &&
+    (showGameBall || isMinimized) &&
+    !isGameVisible &&
+    !isQuestionActive
 
   return (
     <div className={cn("relative", props.className ?? "mx-4 mb-4")}>
@@ -984,8 +1010,8 @@ export function PromptComposer(props: PromptComposerProps) {
           <AnimatePresence>
             {shouldShowBall && (
               <GameBall
-                onClick={() => {
-                  if (props.isQuestionActive) {
+                onOpen={() => {
+                  if (isQuestionActive) {
                     toast.error("Finish answering the question first!")
                     return
                   }
@@ -994,6 +1020,7 @@ export function PromptComposer(props: PromptComposerProps) {
                   setMinimized(false)
                   setPaused(false)
                 }}
+                onHide={dismissGameBall}
               />
             )}
           </AnimatePresence>

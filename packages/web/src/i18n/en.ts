@@ -470,6 +470,8 @@ export const dict = {
   "prompt.slash.quiz.description": "Create a quiz in assess mode.",
   "prompt.slash.play.title": "Play",
   "prompt.slash.play.description": "Open a game to pass time.",
+  "game.ball.title": "Take a break?",
+  "game.ball.hide": "Hide",
   "prompt.slash.quiz.title": "Start quiz",
   "prompt.slash.flashcard.description": "Generate flashcards from context in learn mode.",
   "prompt.slash.flashcard.title": "Create flashcards",
