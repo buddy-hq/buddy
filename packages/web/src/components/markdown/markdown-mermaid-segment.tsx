@@ -164,6 +164,7 @@ function formatFixPrompt(input: {
     "```",
     "",
     `Please fix the Mermaid source and call render_mermaid exactly once with repairOfArtifactID: "${input.artifactID}".`,
+    "Copy the artifact ID verbatim; do not replace it with a placeholder, zeros, repeated characters, or a guessed ID.",
   ].join("\n")
 }
 

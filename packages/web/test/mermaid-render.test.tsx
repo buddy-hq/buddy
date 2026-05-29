@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
-import { shouldStartMermaidAutoRepair } from "../src/components/chat/tools/render/mermaid"
+import {
+  resolveGroupedMermaidDefaultIndex,
+  shouldStartMermaidAutoRepair,
+} from "../src/components/chat/tools/render/mermaid"
 import {
   MERMAID_RENDER_CONFIG_VERSION,
   MERMAID_RENDERER_VERSION,
@@ -8,6 +11,7 @@ import {
 } from "../src/components/chat/tools/render/mermaid/lib/render"
 import { startMermaidAutoRepair } from "../src/components/chat/tools/render/mermaid/lib/persisted-renders"
 import { scheduleMermaidRender } from "../src/components/chat/tools/render/mermaid/lib/scheduler"
+import type { MessagePart } from "../src/state/chat-types"
 
 const originalFetch = globalThis.fetch
 
@@ -17,6 +21,67 @@ afterEach(() => {
 })
 
 describe("mermaid render pipeline", () => {
+  test("selects the latest renderable grouped Mermaid part by default", () => {
+    const parts = [
+      {
+        id: "part_error",
+        sessionID: "ses_test",
+        messageID: "msg_test",
+        type: "tool",
+        tool: "render_mermaid",
+        state: {
+          status: "error",
+          input: {
+            source: "flowchart LR\nA-->B",
+          },
+          error: "Mermaid artifact was not found.",
+        },
+      },
+      {
+        id: "part_completed",
+        sessionID: "ses_test",
+        messageID: "msg_test",
+        type: "tool",
+        tool: "render_mermaid",
+        state: {
+          status: "completed",
+          input: {},
+          metadata: {
+            artifact: "RenderMermaidOutput",
+            value: {
+              kind: "mermaid.v2",
+              artifactID: "a".repeat(64),
+              source: "flowchart LR\nA-->B",
+            },
+          },
+        },
+      },
+    ] satisfies MessagePart[]
+
+    expect(resolveGroupedMermaidDefaultIndex(parts)).toBe(1)
+  })
+
+  test("keeps grouped Mermaid selection on the first item when no part completed", () => {
+    const parts = [
+      {
+        id: "part_error",
+        sessionID: "ses_test",
+        messageID: "msg_test",
+        type: "tool",
+        tool: "render_mermaid",
+        state: {
+          status: "error",
+          input: {
+            source: "flowchart LR\nA-->B",
+          },
+          error: "Mermaid artifact was not found.",
+        },
+      },
+    ] satisfies MessagePart[]
+
+    expect(resolveGroupedMermaidDefaultIndex(parts)).toBe(0)
+  })
+
   test("rejects empty source early", async () => {
     await expect(renderMermaidSvg({ source: "   " })).rejects.toThrow("Diagram source is empty.")
   })

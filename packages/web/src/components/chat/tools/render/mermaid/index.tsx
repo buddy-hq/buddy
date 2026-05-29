@@ -253,6 +253,7 @@ function formatMermaidFixFeedback(input: {
     "```",
     "",
     `Please fix the Mermaid source and call render_mermaid exactly once with repairOfArtifactID: "${input.artifactID}".`,
+    "Copy the artifact ID verbatim; do not replace it with a placeholder, zeros, repeated characters, or a guessed ID.",
   ].join("\n")
 }
 
@@ -673,6 +674,25 @@ function StaticMermaidSVG({
   )
 }
 
+function isRenderableGroupedMermaidPart(part: MessagePart): boolean {
+  const state = parseToolState(part)
+  if (state.status !== "completed") {
+    return false
+  }
+  const parsed = parseRenderMermaidReference(state)
+  return !!(parsed?.source ?? readNonEmptyString(state.input.source))
+}
+
+export function resolveGroupedMermaidDefaultIndex(parts: MessagePart[]): number {
+  for (let index = parts.length - 1; index >= 0; index--) {
+    const part = parts[index]
+    if (part && isRenderableGroupedMermaidPart(part)) {
+      return index
+    }
+  }
+  return 0
+}
+
 export function GroupedMermaidToolCard({
   parts,
   directory,
@@ -683,14 +703,28 @@ export function GroupedMermaidToolCard({
   const items = parts.map((part) => {
     const state = parseToolState(part)
     const parsed = state.status === "completed" ? parseRenderMermaidReference(state) : undefined
-    const source = parsed?.source ?? readNonEmptyString(state.input.source) ?? ""
+    const source =
+      state.status === "completed" ? (parsed?.source ?? readNonEmptyString(state.input.source)) : ""
     const info = getToolInfo("render_mermaid", state)
+    const canRenderThumbnail = !!source
 
     return {
       key: part.id,
       thumbnail: (
         <div className="h-full w-full pointer-events-none flex items-center justify-center p-1 bg-background-base rounded-md overflow-hidden">
-          <StaticMermaidSVG directory={directory} source={source} artifactID={parsed?.artifactID} />
+          {canRenderThumbnail ? (
+            <StaticMermaidSVG
+              directory={directory}
+              source={source}
+              artifactID={parsed?.artifactID}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs font-medium text-text-weak">
+              {state.status === "error"
+                ? language.t("chatTools.status.error")
+                : language.t("chatTools.status.pending")}
+            </div>
+          )}
         </div>
       ),
       children: (
@@ -711,6 +745,7 @@ export function GroupedMermaidToolCard({
       contentClassName="bg-transparent rounded-none border-none p-0 h-auto w-full shadow-none"
       className="mt-2"
       thumbnailSize="lg"
+      defaultIndex={resolveGroupedMermaidDefaultIndex(parts)}
     />
   )
 }
