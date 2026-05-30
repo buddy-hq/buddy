@@ -63,6 +63,30 @@ export function assistantPartStartsFollowup(part: MessagePart): boolean {
   return true
 }
 
+function isToolPartNamed(part: MessagePart, tool: string): boolean {
+  return isChatToolPart(part) && part.tool === tool
+}
+
+function collectConsecutiveToolParts(
+  parts: MessagePart[],
+  startIndex: number,
+  tool: string,
+): { parts: MessagePart[]; nextIndex: number } {
+  const groupedParts: MessagePart[] = []
+  let nextIndex = startIndex
+
+  while (nextIndex < parts.length) {
+    const part = parts[nextIndex]
+    if (!part || !isToolPartNamed(part, tool)) {
+      break
+    }
+    groupedParts.push(part)
+    nextIndex += 1
+  }
+
+  return { parts: groupedParts, nextIndex }
+}
+
 export function groupAssistantParts(
   parts: MessagePart[],
   showReasoningSummaries: boolean,
@@ -95,22 +119,14 @@ export function groupAssistantParts(
       continue
     }
 
-    // Check if it's a render_mermaid tool call
-    if (isChatToolPart(part) && part.tool === "render_mermaid") {
+    if (isToolPartNamed(part, "render_mermaid")) {
       flushContext(i - 1)
 
-      // Collect all consecutive render_mermaid tool calls
-      const mermaidParts: MessagePart[] = [part]
-      let j = i + 1
-      while (j < visibleParts.length) {
-        const nextPart = visibleParts[j]
-        if (nextPart && isChatToolPart(nextPart) && nextPart.tool === "render_mermaid") {
-          mermaidParts.push(nextPart)
-          j++
-        } else {
-          break
-        }
-      }
+      const { parts: mermaidParts, nextIndex } = collectConsecutiveToolParts(
+        visibleParts,
+        i,
+        "render_mermaid",
+      )
 
       if (mermaidParts.length > 1) {
         items.push({
@@ -119,27 +135,19 @@ export function groupAssistantParts(
           tool: "render_mermaid",
           parts: mermaidParts,
         })
-        i = j
+        i = nextIndex
         continue
       }
     }
 
-    // Check if it's a render_figure tool call
-    if (isChatToolPart(part) && part.tool === "render_figure") {
+    if (isToolPartNamed(part, "render_figure")) {
       flushContext(i - 1)
 
-      // Collect all consecutive render_figure tool calls
-      const figureParts: MessagePart[] = [part]
-      let j = i + 1
-      while (j < visibleParts.length) {
-        const nextPart = visibleParts[j]
-        if (nextPart && isChatToolPart(nextPart) && nextPart.tool === "render_figure") {
-          figureParts.push(nextPart)
-          j++
-        } else {
-          break
-        }
-      }
+      const { parts: figureParts, nextIndex } = collectConsecutiveToolParts(
+        visibleParts,
+        i,
+        "render_figure",
+      )
 
       if (figureParts.length > 1) {
         items.push({
@@ -148,27 +156,19 @@ export function groupAssistantParts(
           tool: "render_figure",
           parts: figureParts,
         })
-        i = j
+        i = nextIndex
         continue
       }
     }
 
-    // Check if it's a render_freeform_figure tool call
-    if (isChatToolPart(part) && part.tool === "render_freeform_figure") {
+    if (isToolPartNamed(part, "render_freeform_figure")) {
       flushContext(i - 1)
 
-      // Collect all consecutive render_freeform_figure tool calls
-      const freeformParts: MessagePart[] = [part]
-      let j = i + 1
-      while (j < visibleParts.length) {
-        const nextPart = visibleParts[j]
-        if (nextPart && isChatToolPart(nextPart) && nextPart.tool === "render_freeform_figure") {
-          freeformParts.push(nextPart)
-          j++
-        } else {
-          break
-        }
-      }
+      const { parts: freeformParts, nextIndex } = collectConsecutiveToolParts(
+        visibleParts,
+        i,
+        "render_freeform_figure",
+      )
 
       if (freeformParts.length > 1) {
         items.push({
@@ -177,7 +177,28 @@ export function groupAssistantParts(
           tool: "render_freeform_figure",
           parts: freeformParts,
         })
-        i = j
+        i = nextIndex
+        continue
+      }
+    }
+
+    if (isToolPartNamed(part, "ingest_full_text")) {
+      flushContext(i - 1)
+
+      const { parts: fullTextParts, nextIndex } = collectConsecutiveToolParts(
+        visibleParts,
+        i,
+        "ingest_full_text",
+      )
+
+      if (fullTextParts.length > 1) {
+        items.push({
+          type: "grouped-parts",
+          key: `grouped-parts:ingest_full_text:${part.id}`,
+          tool: "ingest_full_text",
+          parts: fullTextParts,
+        })
+        i = nextIndex
         continue
       }
     }

@@ -101,6 +101,24 @@ function hiddenSummaryToolPart(input?: {
   }
 }
 
+function visibleToolPart(input: { id: string; tool: string }): MessagePart {
+  return {
+    id: input.id,
+    sessionID: "ses_visible_tool",
+    messageID: "msg_visible_tool",
+    type: "tool",
+    tool: input.tool,
+    callID: `call_${input.id}`,
+    state: {
+      status: "completed",
+      input: {},
+      metadata: {},
+      attachments: [],
+      output: "",
+    },
+  }
+}
+
 describe("tool UI metadata", () => {
   test("parses valid and invalid tool UI metadata shapes", () => {
     expect(
@@ -199,6 +217,61 @@ describe("tool UI metadata", () => {
     expect(grouped).toHaveLength(1)
     expect(grouped[0]?.type).toBe("part")
     expect(assistantPartStartsFollowup(part)).toBe(true)
+  })
+
+  test("groups consecutive render_figure tool calls", () => {
+    const first = visibleToolPart({ id: "prt_figure_1", tool: "render_figure" })
+    const second = visibleToolPart({ id: "prt_figure_2", tool: "render_figure" })
+    const grouped = groupAssistantParts([first, second], true)
+
+    expect(grouped).toHaveLength(1)
+    expect(grouped[0]).toMatchObject({
+      type: "grouped-parts",
+      tool: "render_figure",
+      parts: [first, second],
+    })
+  })
+
+  test("groups consecutive render_freeform_figure tool calls", () => {
+    const first = visibleToolPart({ id: "prt_freeform_1", tool: "render_freeform_figure" })
+    const second = visibleToolPart({ id: "prt_freeform_2", tool: "render_freeform_figure" })
+    const grouped = groupAssistantParts([first, second], true)
+
+    expect(grouped).toHaveLength(1)
+    expect(grouped[0]).toMatchObject({
+      type: "grouped-parts",
+      tool: "render_freeform_figure",
+      parts: [first, second],
+    })
+  })
+
+  test("keeps render_figure and render_freeform_figure in separate groups", () => {
+    const figure = visibleToolPart({ id: "prt_figure", tool: "render_figure" })
+    const freeform = visibleToolPart({ id: "prt_freeform", tool: "render_freeform_figure" })
+    const grouped = groupAssistantParts([figure, freeform], true)
+
+    expect(grouped).toHaveLength(2)
+    expect(grouped[0]).toMatchObject({
+      type: "part",
+      part: figure,
+    })
+    expect(grouped[1]).toMatchObject({
+      type: "part",
+      part: freeform,
+    })
+  })
+
+  test("groups consecutive full text ingests", () => {
+    const first = visibleToolPart({ id: "prt_full_text_1", tool: "ingest_full_text" })
+    const second = visibleToolPart({ id: "prt_full_text_2", tool: "ingest_full_text" })
+    const grouped = groupAssistantParts([first, second], true)
+
+    expect(grouped).toHaveLength(1)
+    expect(grouped[0]).toMatchObject({
+      type: "grouped-parts",
+      tool: "ingest_full_text",
+      parts: [first, second],
+    })
   })
 
   test("ingest_full_text summaries reflect truncation instead of claiming full context load", () => {
