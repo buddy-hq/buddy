@@ -16,11 +16,23 @@ import {
 } from "../full-text-metadata"
 import { HIDDEN_STEPS_ERROR_CLASS_NAME } from "../hidden-steps/styles"
 import { isPermissionDenied } from "../tool-permission"
+import { parseToolState } from "../parse-tool-state"
+import { getToolInfo } from "../tool-info"
 import type { ToolPartProps } from "../registry"
+import type { MessagePart } from "@/state/chat-types"
 
 const FULL_TEXT_COVER_CLASS = "w-[9.5rem] max-w-full"
 
-function IngestFullTextTool({ state, directory, onOpenResource }: ToolPartProps) {
+type IngestFullTextToolProps = ToolPartProps & {
+  grouped?: boolean
+}
+
+function IngestFullTextTool({
+  state,
+  directory,
+  onOpenResource,
+  grouped,
+}: IngestFullTextToolProps) {
   const { resource, fullTextEstTokens, outputPath, truncated } = readIngestFullTextMetadata(state)
   const denied = isPermissionDenied(state)
   const running = state.status === "pending" || state.status === "running"
@@ -65,7 +77,7 @@ function IngestFullTextTool({ state, directory, onOpenResource }: ToolPartProps)
 
   if (running) {
     return (
-      <div className="flex w-full max-w-[9.5rem] flex-col gap-2">
+      <div className="flex w-[9.5rem] max-w-full flex-col gap-2">
         <TextShimmer
           text={language.t("chatTools.readFullText.running")}
           active
@@ -77,16 +89,21 @@ function IngestFullTextTool({ state, directory, onOpenResource }: ToolPartProps)
   }
 
   return (
-    <div className="flex w-full max-w-sm flex-col gap-2">
-      <p className="text-sm font-medium text-text-base">
-        {approxWordCount !== undefined
-          ? language.t("chatTools.readFullTextHeading", {
-              count: approxWordCount.toLocaleString(),
-            })
-          : language.t("chatTools.readFullText")}
-      </p>
-      {displayTitle ? (
-        <p className="line-clamp-2 text-sm leading-snug text-text-weaker">{displayTitle}</p>
+    <div
+      className={
+        grouped
+          ? "flex w-[9.5rem] max-w-full flex-col gap-2"
+          : "flex w-full max-w-sm flex-col gap-2"
+      }
+    >
+      {!grouped ? (
+        <p className="text-sm font-medium text-text-base">
+          {approxWordCount !== undefined
+            ? language.t("chatTools.readFullTextHeading", {
+                count: approxWordCount.toLocaleString(),
+              })
+            : language.t("chatTools.readFullText")}
+        </p>
       ) : null}
       {directory && canOpenReading ? (
         <ResourceCoverButton
@@ -126,4 +143,54 @@ function IngestFullTextTool({ state, directory, onOpenResource }: ToolPartProps)
 
 export function renderIngestFullTextTool(props: ToolPartProps) {
   return <IngestFullTextTool {...props} />
+}
+
+function SingleIngestFullTextToolCard({
+  part,
+  directory,
+  onOpenResource,
+}: {
+  part: MessagePart
+  directory?: string
+  onOpenResource: ToolPartProps["onOpenResource"]
+}) {
+  const state = parseToolState(part)
+  const toolName =
+    part.type === "tool" && typeof part.tool === "string" ? part.tool : "ingest_full_text"
+  const info = getToolInfo(toolName, state)
+
+  return (
+    <IngestFullTextTool
+      part={part}
+      state={state}
+      info={info}
+      tool={toolName}
+      directory={directory}
+      onOpenResource={onOpenResource}
+      grouped
+    />
+  )
+}
+
+export function GroupedIngestFullTextToolCard({
+  parts,
+  directory,
+  onOpenResource,
+}: {
+  parts: MessagePart[]
+  directory?: string
+  onOpenResource: ToolPartProps["onOpenResource"]
+}) {
+  return (
+    <div className="flex w-full flex-row flex-wrap items-start gap-3">
+      {parts.map((part) => (
+        <SingleIngestFullTextToolCard
+          key={part.id}
+          part={part}
+          directory={directory}
+          onOpenResource={onOpenResource}
+        />
+      ))}
+    </div>
+  )
 }

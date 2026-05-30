@@ -3,6 +3,7 @@ import { HiddenStepsPlaceholder } from "../tools/hidden-steps/thinking-placehold
 import { HiddenSteps } from "../tools/hidden-steps/index"
 import { AssistantPartRenderer } from "../parts/assistant-part/assistant-part"
 import { parseToolState } from "../tools/parse-tool-state"
+import { GroupedIngestFullTextToolCard } from "../tools/render/ingest-full-text"
 import { parseRenderFigureOutput, GroupedFigureToolCard } from "../tools/render/render-figure"
 import { parseRenderMermaidSources, GroupedMermaidToolCard } from "../tools/render/mermaid"
 import { toolDefaultOpen } from "../utils/constants"
@@ -53,6 +54,16 @@ export const AssistantSection = memo(function AssistantSection({
           }
           if (item.tool === "render_figure" || item.tool === "render_freeform_figure") {
             return <GroupedFigureToolCard key={item.key} parts={item.parts} directory={directory} />
+          }
+          if (item.tool === "ingest_full_text") {
+            return (
+              <GroupedIngestFullTextToolCard
+                key={item.key}
+                parts={item.parts}
+                directory={directory}
+                onOpenResource={onOpenResource}
+              />
+            )
           }
           return null
         }

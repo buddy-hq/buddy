@@ -82,7 +82,7 @@ describe("ingest_full_text tool rendering", () => {
     })
 
     expect(container.textContent).toContain("Read Full Text: ~246,673 words")
-    expect(container.textContent).toContain("guns-of-august")
+    expect(container.textContent).not.toContain("guns-of-august")
     expect(container.textContent).not.toContain("tokens loaded")
     expect(container.textContent).toContain(
       "The plugin runtime truncated this full-text output. The full text did not all enter the live chat context.",
