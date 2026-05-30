@@ -20,7 +20,7 @@ import {
 } from "@/components/virtualization/virtualization-defaults"
 import { useChatStore } from "@/state/chat-store"
 import { IDLE_SESSION_STATUS } from "@/state/session-status"
-import type { ChatTranscriptProps, TurnRowProps } from "./types"
+import type { ChatTranscriptProps, ChatTurn, TurnRowProps } from "./types"
 import { TurnRenderer } from "./turn-renderer"
 import { isHiddenFromUserMessage } from "./utils/message-visibility"
 import { ChatScrollProvider } from "./chat-scroll-context"
@@ -107,11 +107,27 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   const activeSessionStatus = directoryState?.sessionID
     ? (directoryState.sessionStatusByID[directoryState.sessionID] ?? IDLE_SESSION_STATUS)
     : IDLE_SESSION_STATUS
-  const turns = useMemo(() => buildTurns(messages), [messages])
+  const baseTurns = useMemo(() => buildTurns(messages), [messages])
+  const hasBusyPlaceholderTurn = isBusy && baseTurns.length === 0
+  const turns = useMemo<ChatTurn[]>(
+    () =>
+      hasBusyPlaceholderTurn
+        ? [
+            {
+              key: `turn:busy:${sessionID ?? directory ?? "active"}`,
+              assistants: [],
+            },
+          ]
+        : baseTurns,
+    [baseTurns, directory, hasBusyPlaceholderTurn, sessionID],
+  )
 
   const lastMessage = messages[messages.length - 1]
   const isLastTurnBusy =
-    isBusy && (lastMessage?.info.role === "assistant" || lastMessage?.info.role === "user")
+    isBusy &&
+    (hasBusyPlaceholderTurn ||
+      lastMessage?.info.role === "assistant" ||
+      lastMessage?.info.role === "user")
 
   const shouldStageEntry = shouldStageTranscriptEntry({
     turns,

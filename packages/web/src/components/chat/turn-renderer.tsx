@@ -10,7 +10,7 @@ import { MessageDivider } from "./parts/assistant-part/message-divider"
 import { AssistantErrorCard } from "./assistant-error-card"
 import { SessionRetryNotice } from "./session-retry-notice"
 import { useChatSettings } from "@/state/chat-settings"
-import { IDLE_SESSION_STATUS } from "@/state/session-status"
+import { IDLE_SESSION_STATUS, isSessionStatusActive } from "@/state/session-status"
 import { useShallow } from "zustand/react/shallow"
 import type { TurnRendererProps } from "./types"
 
@@ -123,7 +123,7 @@ export const TurnRenderer = memo(function TurnRenderer({
     isBusy &&
     isLastTurn &&
     !assistantErrored &&
-    (turnSessionStatus.type === "busy" || turnHasCompaction) &&
+    (isSessionStatusActive(turnSessionStatus) || turnHasCompaction) &&
     (showReasoningSummaries ? assistantItems.length === 0 : true)
   const canRevertTurn = Boolean(onRevertMessage && userMessage && isLastTurn)
 
