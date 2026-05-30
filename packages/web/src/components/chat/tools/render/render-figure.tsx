@@ -1,15 +1,13 @@
-import { useState } from "react"
 import { language } from "@/context/language"
 import { isRecord, readString, readNonEmptyString, readNonNegativeInt } from "../../tools/types"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import type { ToolPartProps } from "../registry"
-import { ImageZoomDialog } from "../image-zoom-dialog"
-import { MultiViewShell } from "../multi-view-shell"
 import type { MessagePart } from "@/state/chat-types"
 import { parseToolState } from "../parse-tool-state"
 import { getToolInfo } from "../tool-info"
+import { ToolImageGallery, type ToolImageGalleryItem } from "./image-gallery"
 
-interface RenderFigureToolOutput {
+type RenderFigureToolOutput = {
   figureID: string
   mime: "image/svg+xml"
   url: string
@@ -60,120 +58,89 @@ export function parseRenderFigureOutput(
   return { figureID, mime, url, alt, caption, repairAttempts }
 }
 
-export function renderRenderFigureTool({ state }: ToolPartProps) {
-  const [open, setOpen] = useState(false)
-  const running = state.status === "pending" || state.status === "running"
-  const renderFigure = state.status === "completed" ? parseRenderFigureOutput(state) : undefined
-
+function figureGalleryItem(input: {
+  id: string
+  state: ToolPartProps["state"]
+  fallbackTitle: string
+  allowUnavailablePlaceholder?: boolean
+}): ToolImageGalleryItem | undefined {
+  const running = input.state.status === "pending" || input.state.status === "running"
   if (running) {
-    return (
-      <div className="w-full h-48 animate-pulse border border-border-base/40 bg-surface-weak/30 rounded-xl" />
-    )
+    return {
+      id: input.id,
+      src: null,
+      alt: input.fallbackTitle,
+      title: input.fallbackTitle,
+    }
   }
 
+  const renderFigure =
+    input.state.status === "completed" ? parseRenderFigureOutput(input.state) : undefined
   if (!renderFigure) {
+    if (input.allowUnavailablePlaceholder) {
+      return {
+        id: input.id,
+        src: null,
+        alt: input.fallbackTitle,
+        title: input.fallbackTitle,
+      }
+    }
+    return undefined
+  }
+
+  return {
+    id: input.id,
+    src: resolveAssetUrl(renderFigure.url),
+    alt: renderFigure.alt,
+    title: renderFigure.alt,
+    caption: renderFigure.caption || renderFigure.alt,
+  }
+}
+
+function FigureGallery(props: { items: ToolImageGalleryItem[] }) {
+  if (props.items.length === 0) {
     return (
-      <div className="w-full p-4 border border-border-base/40 bg-surface-weak/30 rounded-xl text-center text-xs text-text-weak">
+      <div className="w-full rounded-xl border border-border-base/40 bg-surface-weak/30 p-4 text-center text-xs text-text-weak">
         {language.t("chatTools.info.figure")}
       </div>
     )
   }
 
-  const imageUrl = resolveAssetUrl(renderFigure.url)
-  const captionText = renderFigure.caption || renderFigure.alt
-
   return (
-    <>
-      <div className="relative w-full overflow-hidden border border-border-base/40 bg-surface-weak/20 rounded-xl flex flex-col">
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="w-full flex items-center justify-center cursor-zoom-in hover:bg-surface-weak/10 transition-colors focus-visible:outline-none rounded-t-xl rounded-b-none"
-        >
-          <img
-            src={imageUrl}
-            alt={renderFigure.alt}
-            loading="lazy"
-            className="block w-full max-h-[50dvh] object-contain rounded-t-xl rounded-b-none select-none"
-          />
-        </button>
-        {captionText ? (
-          <div className="w-full px-3 py-2 border-t border-border-base/30 bg-surface-base/80 text-xs text-text-weaker text-center">
-            {captionText}
-          </div>
-        ) : null}
-      </div>
-
-      <ImageZoomDialog
-        open={open}
-        onOpenChange={setOpen}
-        imageUrl={imageUrl}
-        title={renderFigure.alt}
-        description={renderFigure.caption}
-      >
-        {captionText ? (
-          <p className="px-4 py-1.5 bg-background-base/75 text-text-base text-xs font-medium rounded-full shadow-lg border border-border-base/10 max-w-xl text-center backdrop-blur-sm select-none">
-            {captionText}
-          </p>
-        ) : null}
-      </ImageZoomDialog>
-    </>
-  )
-}
-
-function FigureThumbnail({ part }: { part: MessagePart }) {
-  const state = parseToolState(part)
-  const renderFigure = state.status === "completed" ? parseRenderFigureOutput(state) : undefined
-  if (!renderFigure) {
-    return <div className="h-full w-full bg-surface-weak/30 animate-pulse rounded-md" />
-  }
-  const imageUrl = resolveAssetUrl(renderFigure.url)
-  return (
-    <div className="h-full w-full pointer-events-none flex items-center justify-center bg-background-base rounded-md overflow-hidden">
-      <img
-        src={imageUrl}
-        alt={renderFigure.alt}
-        className="block max-h-full max-w-full object-contain select-none"
+    <div className="w-full">
+      <ToolImageGallery
+        dialogDescription="Figure preview"
+        contentClassName="h-[24rem]"
+        items={props.items}
       />
     </div>
   )
 }
 
-function SingleFigureToolCard({ part, directory }: { part: MessagePart; directory?: string }) {
-  const state = parseToolState(part)
-  const toolName =
-    part.type === "tool" && typeof part.tool === "string" ? part.tool : "render_figure"
-  const info = getToolInfo(toolName, state)
-  return renderRenderFigureTool({
-    part,
+export function renderRenderFigureTool({ part, state, info }: ToolPartProps) {
+  const item = figureGalleryItem({
+    id: part.id,
     state,
-    info,
-    tool: toolName,
-    directory,
+    fallbackTitle: info.title,
   })
+
+  return <FigureGallery items={item ? [item] : []} />
 }
 
-export function GroupedFigureToolCard({
-  parts,
-  directory,
-}: {
-  parts: MessagePart[]
-  directory?: string
-}) {
-  const items = parts.map((part) => {
-    return {
-      key: part.id,
-      thumbnail: <FigureThumbnail part={part} />,
-      children: <SingleFigureToolCard part={part} directory={directory} />,
-    }
-  })
+export function GroupedFigureToolCard({ parts }: { parts: MessagePart[]; directory?: string }) {
+  const items = parts
+    .map((part) => {
+      const state = parseToolState(part)
+      const toolName =
+        part.type === "tool" && typeof part.tool === "string" ? part.tool : "render_figure"
+      return figureGalleryItem({
+        id: part.id,
+        state,
+        fallbackTitle: getToolInfo(toolName, state).title,
+        allowUnavailablePlaceholder: true,
+      })
+    })
+    .filter((item): item is ToolImageGalleryItem => item !== undefined)
 
-  return (
-    <MultiViewShell
-      items={items}
-      contentClassName="bg-transparent rounded-none border-none p-0 h-auto w-full shadow-none"
-      className="mt-2"
-      thumbnailSize="lg"
-    />
-  )
+  return <FigureGallery items={items} />
 }

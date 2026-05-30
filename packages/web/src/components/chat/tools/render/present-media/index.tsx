@@ -1,18 +1,11 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback } from "react"
 import { useQueries } from "@tanstack/react-query"
 import {
-  cn,
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  Skeleton,
   Table,
   TableBody,
   TableCell,
@@ -36,7 +29,7 @@ import {
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { usePlatform } from "@/context/platform"
 import { useWorkspaceFilePanelStore } from "@/state/workspace-file-panel-store"
-import { MultiViewShell } from "../../multi-view-shell"
+import { ToolImageGallery } from "../image-gallery"
 import type { ToolPartProps } from "../../registry"
 
 type PresentMediaResolvedItem = PresentMediaItem & {
@@ -159,24 +152,6 @@ function MediaFileIcon(props: { item: PresentMediaResolvedItem; className?: stri
   )
 }
 
-function InlineImage(props: {
-  directory: string
-  item: PresentMediaResolvedItem
-  alt: string
-  className: string
-}) {
-  const url = resolvePresentedMediaStreamUrl(props.item)
-  if (!url) return <Skeleton className={cn("rounded-[inherit]", props.className)} />
-  return (
-    <img
-      src={url}
-      alt={props.alt}
-      loading="lazy"
-      className={cn("rounded-[inherit]", props.className)}
-    />
-  )
-}
-
 // ---------------------------------------------------------------------------
 // Clickable file row with right-click context menu
 // ---------------------------------------------------------------------------
@@ -285,9 +260,6 @@ function MediaFileRow(props: { directory: string; item: PresentMediaResolvedItem
 // ---------------------------------------------------------------------------
 
 function MediaImageGallery(props: { directory: string; items: PresentMediaResolvedItem[] }) {
-  const [open, setOpen] = useState(false)
-  const [idx, setIdx] = useState(0)
-
   const previewable = props.items.filter(
     (i) =>
       i.mediaKind === "image" &&
@@ -297,151 +269,29 @@ function MediaImageGallery(props: { directory: string; items: PresentMediaResolv
   const fallbackFiles = props.items.filter(
     (i) => !previewable.some((candidate) => candidate.id === i.id),
   )
-  const current = previewable[idx] ?? previewable[0] ?? props.items[0]
 
-  useEffect(() => {
-    if (!open || previewable.length <= 1) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") {
-        e.preventDefault()
-        setIdx((c) => Math.max(c - 1, 0))
-      }
-      if (e.key === "ArrowRight") {
-        e.preventDefault()
-        setIdx((c) => Math.min(c + 1, previewable.length - 1))
-      }
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [open, previewable.length])
-
-  if (previewable.length === 0) {
-    return (
-      <div className="w-full max-w-full overflow-hidden">
-        <Table>
-          <TableBody>
-            {fallbackFiles.map((item) => (
-              <MediaFileRow key={`image-file-${item.id}`} directory={props.directory} item={item} />
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    )
-  }
+  const fallback =
+    fallbackFiles.length > 0 ? (
+      <Table>
+        <TableBody>
+          {fallbackFiles.map((item) => (
+            <MediaFileRow key={`image-file-${item.id}`} directory={props.directory} item={item} />
+          ))}
+        </TableBody>
+      </Table>
+    ) : undefined
 
   return (
-    <>
-      <MultiViewShell
-        items={previewable.map((item, i) => ({
-          key: item.id,
-          thumbnail: (
-            <InlineImage
-              directory={props.directory}
-              item={item}
-              alt={item.fileName}
-              className="h-full w-full object-cover"
-            />
-          ),
-          children: (
-            <button
-              type="button"
-              className="flex h-full w-full items-center justify-center cursor-zoom-in"
-              onClick={() => {
-                setIdx(i)
-                setOpen(true)
-              }}
-            >
-              <InlineImage
-                directory={props.directory}
-                item={item}
-                alt={item.fileName}
-                className="h-full w-full object-contain"
-              />
-            </button>
-          ),
-        }))}
-      />
-      {fallbackFiles.length > 0 ? (
-        <div className="mt-2 w-full max-w-full overflow-hidden">
-          <Table>
-            <TableBody>
-              {fallbackFiles.map((item) => (
-                <MediaFileRow
-                  key={`image-fallback-inline-${item.id}`}
-                  directory={props.directory}
-                  item={item}
-                />
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      ) : null}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          showCloseButton={false}
-          className="!border-none !bg-transparent !shadow-none p-0 flex flex-col gap-4 sm:max-w-[90vw] md:max-w-[85vw] max-h-[90vh] w-full focus:outline-none"
-        >
-          <DialogHeader className="sr-only">
-            <DialogTitle>{current.fileName}</DialogTitle>
-            <DialogDescription>Media gallery preview</DialogDescription>
-          </DialogHeader>
-          <div className="w-full flex-1">
-            <MultiViewShell
-              thumbnailSize="lg"
-              defaultIndex={idx}
-              onIndexChange={setIdx}
-              showZoomControls={true}
-              contentClassName="h-[60vh] md:h-[70vh] !bg-transparent !border-none"
-              items={previewable.map((item) => {
-                const url = resolvePresentedMediaStreamUrl(item)
-                return {
-                  key: item.id,
-                  thumbnail: (
-                    <InlineImage
-                      directory={props.directory}
-                      item={item}
-                      alt={item.fileName}
-                      className="h-full w-full object-cover"
-                    />
-                  ),
-                  children: (
-                    <div className="relative w-full h-full flex items-center justify-center">
-                      {url ? (
-                        <img
-                          src={url}
-                          alt={item.fileName}
-                          loading="lazy"
-                          className="w-full h-full max-h-[60vh] md:max-h-[70vh] max-w-[75vw] object-contain rounded-xl shadow-2xl select-none"
-                        />
-                      ) : (
-                        <Skeleton className="h-[28rem] w-full max-w-[75vw] rounded-xl" />
-                      )}
-                    </div>
-                  ),
-                }
-              })}
-            />
-          </div>
-
-          {fallbackFiles.length > 0 ? (
-            <div className="w-full max-w-full overflow-hidden px-4 py-2 bg-background-base/80 border border-border-base/20 rounded-xl shadow-lg mt-2">
-              <Table>
-                <TableBody>
-                  {fallbackFiles.map((item) => (
-                    <MediaFileRow
-                      key={`image-fallback-${item.id}`}
-                      directory={props.directory}
-                      item={item}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-    </>
+    <ToolImageGallery
+      dialogDescription="Media gallery preview"
+      fallback={fallback}
+      items={previewable.map((item) => ({
+        id: item.id,
+        src: resolvePresentedMediaStreamUrl(item),
+        alt: item.fileName,
+        title: item.fileName,
+      }))}
+    />
   )
 }
 
