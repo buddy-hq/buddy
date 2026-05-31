@@ -27,6 +27,7 @@ import { ResourceRoutes } from "./routes"
 import { SessionRoutes } from "./routes"
 import { SkillsRoutes } from "./routes"
 import { TeachingRoutes } from "./routes"
+import { WhiteboardRoutes } from "./routes"
 import { isJsonContentType, normalizeValidationFailureResponse } from "./http"
 
 const OPTION_PRINT_LOGS = "--print-logs"
@@ -119,6 +120,7 @@ api.route("/question-set-artifacts", QuestionSetArtifactRoutes)
 api.route("/flashcard-decks", FlashcardDeckRoutes)
 api.route("/learner", LearnerRoutes)
 api.route("/teaching", TeachingRoutes)
+api.route("/whiteboards", WhiteboardRoutes)
 api.route("/agents-md", AgentsMdRoutes)
 api.route("/", CompatibilityRoutes)
 api.route("/open-projects", OpenProjectsRoutes)

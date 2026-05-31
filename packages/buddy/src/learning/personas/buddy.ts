@@ -15,6 +15,7 @@ import { readingFeature } from "../features/reading/feature"
 import { standardsFeature } from "../features/standards/feature"
 import { stepwiseSolvingFeature } from "../features/stepwise-solving/feature"
 import { teachingGuidanceFeature } from "../features/teaching-guidance/feature"
+import { whiteboardFeature } from "../features/whiteboard/feature"
 
 export const BUDDY = defineBuddyPersona({
   id: "buddy",
@@ -37,6 +38,7 @@ export const BUDDY = defineBuddyPersona({
     flashcardsFeature,
     mediaPresentationsFeature,
     mathFeature,
+    whiteboardFeature,
   ],
   defaultSurface: "curriculum",
   hidden: false,
@@ -50,10 +52,6 @@ export const BUDDY = defineBuddyPersona({
   runtime: {
     kind: "build",
     prompt: "",
-    permission: {
-      todoread: "deny",
-      todowrite: "deny",
-    },
     subagents: {
       "question-set-author": true,
       "flashcard-author": true,

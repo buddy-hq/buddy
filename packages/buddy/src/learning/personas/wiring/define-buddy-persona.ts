@@ -58,8 +58,6 @@ function cloneSubagentConfig(
 const PRIMARY_PERSONA_PERMISSION = {
   question: "allow",
   plan_enter: "allow",
-  todoread: "deny",
-  todowrite: "deny",
 } as const satisfies BuddyPermissionInput
 
 export function defineBuddyPersona<const Id extends string>(

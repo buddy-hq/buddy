@@ -12,6 +12,7 @@ import { questionSetsFeature } from "../features/question-sets/feature"
 import { readingFeature } from "../features/reading/feature"
 import { standardsFeature } from "../features/standards/feature"
 import { teachingGuidanceFeature } from "../features/teaching-guidance/feature"
+import { whiteboardFeature } from "../features/whiteboard/feature"
 
 export const CODE_BUDDY = defineBuddyPersona({
   id: "code-buddy",
@@ -30,6 +31,7 @@ export const CODE_BUDDY = defineBuddyPersona({
     assessmentFeature,
     questionSetsFeature,
     mediaPresentationsFeature,
+    whiteboardFeature,
   ],
   defaultSurface: "editor",
   hidden: false,
