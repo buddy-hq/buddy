@@ -118,10 +118,7 @@ describe("whiteboard element conversion", () => {
 
   test("restores persisted viewport with matching zoom and scaled scroll", () => {
     expect(
-      viewportToAppState(
-        { x: 100, y: 50, width: 400, height: 300 },
-        { width: 800, height: 600 },
-      ),
+      viewportToAppState({ x: 100, y: 50, width: 400, height: 300 }, { width: 800, height: 600 }),
     ).toEqual({
       scrollX: -200,
       scrollY: -100,

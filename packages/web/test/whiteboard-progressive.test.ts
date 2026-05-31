@@ -51,9 +51,9 @@ describe("whiteboard progressive drawing", () => {
   })
 
   test("parses complete inner objects from an incomplete array", () => {
-    expect(parsePartialElements('[{"type":"cameraUpdate"},{"type":"rectangle","id":"node"}')).toEqual(
-      [{ type: "cameraUpdate" }, { type: "rectangle", id: "node" }],
-    )
+    expect(
+      parsePartialElements('[{"type":"cameraUpdate"},{"type":"rectangle","id":"node"}'),
+    ).toEqual([{ type: "cameraUpdate" }, { type: "rectangle", id: "node" }])
   })
 
   test("applies restore and delete while withholding the newest partial item", () => {
@@ -241,9 +241,7 @@ describe("whiteboard progressive drawing", () => {
         messages,
         activeSceneID: "previous-scene",
         baseRevisionID: "01H00000000000000000000000",
-        baseElements: [
-          { type: "rectangle", id: "previous", x: 0, y: 0, width: 120, height: 60 },
-        ],
+        baseElements: [{ type: "rectangle", id: "previous", x: 0, y: 0, width: 120, height: 60 }],
       })?.elements.map((element) => element.id),
     ).toEqual(["first", "second"])
   })
@@ -318,9 +316,7 @@ describe("whiteboard progressive drawing", () => {
         messages,
         activeSceneID: "previous-scene",
         baseRevisionID: "01H00000000000000000000000",
-        baseElements: [
-          { type: "rectangle", id: "previous", x: 0, y: 0, width: 120, height: 60 },
-        ],
+        baseElements: [{ type: "rectangle", id: "previous", x: 0, y: 0, width: 120, height: 60 }],
       })?.elements.map((element) => element.id),
     ).toEqual(["first", "second", "third"])
   })
@@ -518,15 +514,11 @@ describe("whiteboard progressive drawing", () => {
 
   test("clears sticky progressive previews after stopped streams without durable writes", () => {
     const current: ProgressiveWhiteboardPreview = {
-      elements: [
-        { type: "rectangle", id: "ghost", x: 0, y: 0, width: 120, height: 60 },
-      ],
+      elements: [{ type: "rectangle", id: "ghost", x: 0, y: 0, width: 120, height: 60 }],
       signature: "ghost:rectangle:0:0:120:60:",
     }
     const computed: ProgressiveWhiteboardPreview = {
-      elements: [
-        { type: "rectangle", id: "next", x: 0, y: 0, width: 120, height: 60 },
-      ],
+      elements: [{ type: "rectangle", id: "next", x: 0, y: 0, width: 120, height: 60 }],
       signature: "next:rectangle:0:0:120:60:",
     }
 
@@ -606,7 +598,13 @@ describe("whiteboard progressive drawing", () => {
           parts: [
             {
               ...messages[0].parts[0],
-              state: { status: "completed", input: {}, output: "", title: "", time: { start: 1, end: 2 } },
+              state: {
+                status: "completed",
+                input: {},
+                output: "",
+                title: "",
+                time: { start: 1, end: 2 },
+              },
             },
           ],
         },

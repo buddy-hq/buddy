@@ -85,9 +85,7 @@ async function createEncryptedPayload(json: string): Promise<{
       encryption: "AES-GCM",
     }),
   )
-  const exportedKey = ExportedKeySchema.parse(
-    await globalThis.crypto.subtle.exportKey("jwk", key),
-  )
+  const exportedKey = ExportedKeySchema.parse(await globalThis.crypto.subtle.exportKey("jwk", key))
   return {
     key: exportedKey.k,
     payload: concatBuffers(encodingMetadata, iv, new Uint8Array(encrypted)),
@@ -139,9 +137,5 @@ async function createExcalidrawShareLink(
   })
 }
 
-export {
-  WhiteboardShareRequestSchema,
-  WhiteboardShareResponseSchema,
-  createExcalidrawShareLink,
-}
+export { WhiteboardShareRequestSchema, WhiteboardShareResponseSchema, createExcalidrawShareLink }
 export type { WhiteboardShareRequest, WhiteboardShareResponse }

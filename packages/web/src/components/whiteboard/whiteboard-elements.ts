@@ -152,7 +152,9 @@ function buildUnsupportedWarning(input: {
   return `Skipped ${input.unsupported.length} unsupported whiteboard element(s): ${shown}${suffix}.`
 }
 
-function toEditorElementConversion(elements: PersistedWhiteboardElement[]): WhiteboardElementPreparation {
+function toEditorElementConversion(
+  elements: PersistedWhiteboardElement[],
+): WhiteboardElementPreparation {
   const groups: WhiteboardEditorElementGroup[] = []
   const unsupported: string[] = []
   for (let index = 0; index < elements.length; index += 1) {
@@ -184,10 +186,7 @@ function isPersistableEditorElement(value: unknown): value is PersistedWhiteboar
   if (value.isDeleted === true) return false
   if (typeof value.id !== "string" || value.id.trim().length === 0) return false
   if (!isSupportedSkeleton(value)) return false
-  if (
-    value.type !== "text" &&
-    (!isFiniteNumber(value.width) || !isFiniteNumber(value.height))
-  ) {
+  if (value.type !== "text" && (!isFiniteNumber(value.width) || !isFiniteNumber(value.height))) {
     return false
   }
   if (value.type === "freedraw" && !Array.isArray(value.points)) return false
@@ -195,9 +194,7 @@ function isPersistableEditorElement(value: unknown): value is PersistedWhiteboar
 }
 
 function toPersistedElements(elements: readonly unknown[]): PersistedWhiteboardElement[] {
-  return elements
-    .filter(isPersistableEditorElement)
-    .map((element) => Object.assign({}, element))
+  return elements.filter(isPersistableEditorElement).map((element) => Object.assign({}, element))
 }
 
 function elementVersionSignature(elements: readonly OrderedExcalidrawElement[]): string {

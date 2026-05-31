@@ -181,10 +181,7 @@ function WorkspaceViewShortcuts(props: { directory: string; messages: MessageWit
   if (!showWhiteboardShortcut && !showReadingShortcut) return null
 
   return (
-    <div
-      data-component="prompt-workspace-shortcuts"
-      className="flex items-center gap-0.5"
-    >
+    <div data-component="prompt-workspace-shortcuts" className="flex items-center gap-0.5">
       {showWhiteboardShortcut ? (
         <Button
           type="button"
@@ -310,10 +307,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       data-component="directory-chat-main-pane"
       className="relative flex-1 min-w-0 min-h-0 flex flex-col bg-background-stronger"
     >
-      <WhiteboardAutoOpen
-        directory={directory}
-        messages={chatState.messages}
-      />
+      <WhiteboardAutoOpen directory={directory} messages={chatState.messages} />
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex min-h-0 flex-1 flex-col">
           {props.topContent ? (
@@ -471,10 +465,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                 selectorMode={promptSelectorMode}
                 className="mb-1"
                 contextActions={
-                  <WorkspaceViewShortcuts
-                    directory={directory}
-                    messages={chatState.messages}
-                  />
+                  <WorkspaceViewShortcuts directory={directory} messages={chatState.messages} />
                 }
                 sessionContextUsage={
                   <SessionContextUsage

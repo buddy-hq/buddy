@@ -76,7 +76,9 @@ function loadWhiteboardFonts(): Promise<void> {
   return whiteboardFontsReadyPromise
 }
 
-function prepareConvertedElements(elements: OrderedExcalidrawElement[]): OrderedExcalidrawElement[] {
+function prepareConvertedElements(
+  elements: OrderedExcalidrawElement[],
+): OrderedExcalidrawElement[] {
   const normalized = elements.map((element) =>
     element.type === "text"
       ? {
@@ -85,12 +87,8 @@ function prepareConvertedElements(elements: OrderedExcalidrawElement[]): Ordered
         }
       : element,
   )
-  return restore(
-    { elements: normalized, files: {} },
-    null,
-    null,
-    { refreshDimensions: true },
-  ).elements
+  return restore({ elements: normalized, files: {} }, null, null, { refreshDimensions: true })
+    .elements
 }
 
 function convertPreparedElements(
@@ -170,25 +168,22 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
   const conversion = useMemo<{
     elements: OrderedExcalidrawElement[]
     warning?: string
-  }>(
-    () => {
-      if (!fontsReady) return { elements: [] }
-      const prepared = toEditorElementConversion(props.revision.elements)
-      try {
-        const converted = prepareConvertedElements(convertPreparedElements(prepared))
-        return {
-          elements: converted,
-          ...(prepared.warning ? { warning: prepared.warning } : {}),
-        }
-      } catch (error) {
-        return {
-          elements: [],
-          warning: `Whiteboard rendering skipped invalid element data: ${error instanceof Error ? error.message : String(error)}`,
-        }
+  }>(() => {
+    if (!fontsReady) return { elements: [] }
+    const prepared = toEditorElementConversion(props.revision.elements)
+    try {
+      const converted = prepareConvertedElements(convertPreparedElements(prepared))
+      return {
+        elements: converted,
+        ...(prepared.warning ? { warning: prepared.warning } : {}),
       }
-    },
-    [fontsReady, props.revision.elements],
-  )
+    } catch (error) {
+      return {
+        elements: [],
+        warning: `Whiteboard rendering skipped invalid element data: ${error instanceof Error ? error.message : String(error)}`,
+      }
+    }
+  }, [fontsReady, props.revision.elements])
   const elements = conversion.elements
 
   useEffect(() => {

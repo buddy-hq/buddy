@@ -210,10 +210,9 @@ function findRestoreCheckpoint(input: {
   return undefined
 }
 
-function resolveProgramBase(input: {
-  program: unknown[]
-  warnings: string[]
-}): { sceneID?: string } {
+function resolveProgramBase(input: { program: unknown[]; warnings: string[] }): {
+  sceneID?: string
+} {
   const restore = findRestoreCheckpoint({
     program: input.program,
     warnings: input.warnings,
@@ -253,9 +252,7 @@ function applyUpdate(input: {
 }): WhiteboardElement[] {
   const update = UpdateElementSchema.safeParse(input.value)
   if (!update.success) {
-    input.warnings.push(
-      `Skipped malformed update at index ${input.index}: ${update.error.message}`,
-    )
+    input.warnings.push(`Skipped malformed update at index ${input.index}: ${update.error.message}`)
     return input.elements
   }
   const elementIndex = input.elements.findIndex((element) => element.id === update.data.id)
@@ -402,7 +399,9 @@ function findLayoutCleanup(input: {
     if (readElementType(value) !== "layoutCleanup") continue
     const parsed = LayoutCleanupSchema.safeParse(value)
     if (!parsed.success) {
-      input.warnings.push(`Skipped malformed layoutCleanup at index ${index}: ${parsed.error.message}`)
+      input.warnings.push(
+        `Skipped malformed layoutCleanup at index ${index}: ${parsed.error.message}`,
+      )
       continue
     }
     if (cleanup) {
@@ -410,7 +409,9 @@ function findLayoutCleanup(input: {
       continue
     }
     if (parsed.data.strategy === "redraw_zone" && !parsed.data.zoneId) {
-      input.warnings.push(`Skipped redraw_zone layoutCleanup at index ${index}: zoneId is required.`)
+      input.warnings.push(
+        `Skipped redraw_zone layoutCleanup at index ${index}: zoneId is required.`,
+      )
       continue
     }
     cleanup = {
@@ -437,7 +438,9 @@ function assertValidLayoutCleanupProgram(input: {
   }
   const deletedIDs = readProgramDeletedIDs(input.program)
   if (!input.cleanup.zoneId || !deletedIDs.has(input.cleanup.zoneId)) {
-    throw new Error("redraw_zone layoutCleanup must delete its targeted zoneId before recreating it.")
+    throw new Error(
+      "redraw_zone layoutCleanup must delete its targeted zoneId before recreating it.",
+    )
   }
 }
 
@@ -486,10 +489,7 @@ function assertValidRedrawZoneScope(input: {
   return scope
 }
 
-function appendCameraRatioHint(input: {
-  camera: WhiteboardViewport
-  warnings: string[]
-}) {
+function appendCameraRatioHint(input: { camera: WhiteboardViewport; warnings: string[] }) {
   const ratio = input.camera.width / input.camera.height
   if (Math.abs(ratio - CAMERA_TARGET_ASPECT_RATIO) <= CAMERA_ASPECT_RATIO_TOLERANCE) return
   input.warnings.push(
@@ -636,7 +636,9 @@ async function applyWhiteboardDrawingProgram(input: {
     })
   }
   if (layoutCleanup && !base.sceneID) {
-    throw new Error("layoutCleanup requires restoreCheckpoint so the prior whiteboard head is preserved.")
+    throw new Error(
+      "layoutCleanup requires restoreCheckpoint so the prior whiteboard head is preserved.",
+    )
   }
   let layoutCleanupReview: WhiteboardLayoutCleanupReview | undefined
   let redrawZoneScope: WhiteboardLayoutZoneScope | undefined
@@ -665,10 +667,7 @@ async function applyWhiteboardDrawingProgram(input: {
     },
     ...(layoutCleanup
       ? {
-          shouldAppend: ({
-            base: latestBase,
-            next,
-          }) => {
+          shouldAppend: ({ base: latestBase, next }) => {
             if (layoutCleanup.strategy === "redraw_zone") {
               if (!redrawZoneScope) {
                 throw new Error("redraw_zone layoutCleanup could not resolve its targeted zone.")

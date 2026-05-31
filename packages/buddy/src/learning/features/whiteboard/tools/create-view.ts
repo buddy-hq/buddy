@@ -1,9 +1,6 @@
 import z from "zod"
 import CREATE_VIEW_DESCRIPTION from "./create-view.md"
-import {
-  createBuddyTool,
-  type BuddyToolContext,
-} from "../../../runtime/create-buddy-tool"
+import { createBuddyTool, type BuddyToolContext } from "../../../runtime/create-buddy-tool"
 import { applyWhiteboardDrawingProgram } from "../service/program"
 import { formatWhiteboardLayoutWarningsForModel } from "../service/layout-warnings"
 

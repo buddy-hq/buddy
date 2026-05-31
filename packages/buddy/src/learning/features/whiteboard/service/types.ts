@@ -163,9 +163,7 @@ function readMalformedLabelTextFallback(label: Record<string, unknown>): string 
   )
 }
 
-function normalizePersistableElementLabel(
-  value: Record<string, unknown>,
-): Record<string, unknown> {
+function normalizePersistableElementLabel(value: Record<string, unknown>): Record<string, unknown> {
   if (value.label === undefined) return value
   if (isRecord(value.label)) {
     const text = readMalformedLabelTextFallback(value.label)
@@ -192,9 +190,7 @@ function normalizePersistableElementLabel(
 
 function parsePersistableWhiteboardElement(value: unknown, index?: number): WhiteboardElement {
   if (!isRecord(value)) {
-    throw new WhiteboardElementValidationError(
-      `${formatElementLocation(index)} must be an object.`,
-    )
+    throw new WhiteboardElementValidationError(`${formatElementLocation(index)} must be an object.`)
   }
 
   const id = requireElementString({ value, key: "id", index })

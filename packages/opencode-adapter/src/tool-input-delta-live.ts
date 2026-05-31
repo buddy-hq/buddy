@@ -103,16 +103,11 @@ function toPendingWhiteboardToolPartDelta(input: {
   sessionID: string
   event: unknown
 }): PartDelta | undefined {
-  if (
-    !isToolInputDeltaEvent(input.event) ||
-    input.event.name !== WHITEBOARD_CREATE_VIEW_TOOL_ID
-  ) {
+  if (!isToolInputDeltaEvent(input.event) || input.event.name !== WHITEBOARD_CREATE_VIEW_TOOL_ID) {
     return undefined
   }
 
-  const part = pendingWhiteboardToolParts.get(
-    pendingToolKey(input.sessionID, input.event.id),
-  )
+  const part = pendingWhiteboardToolParts.get(pendingToolKey(input.sessionID, input.event.id))
   if (!part) return undefined
 
   return {
@@ -141,10 +136,7 @@ function patchSessionService(service: OpenCodeSession.Interface): void {
   })
 }
 
-function patchLlmService(
-  service: LlmService,
-  session: OpenCodeSession.Interface,
-): void {
+function patchLlmService(service: LlmService, session: OpenCodeSession.Interface): void {
   if (patchedLlmServices.has(service)) return
   patchedLlmServices.add(service)
 

@@ -169,11 +169,7 @@ export const WhiteboardRoutes = new Hono()
               request: c.req.raw,
             })
             return c.json(
-              await readWhiteboardRevision(
-                context.directory,
-                params.sessionID,
-                params.revisionID,
-              ),
+              await readWhiteboardRevision(context.directory, params.sessionID, params.revisionID),
             )
           },
           mapError: mapWhiteboardRouteError,

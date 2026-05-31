@@ -1,10 +1,7 @@
 import z from "zod"
 import READ_CONTEXT_DESCRIPTION from "./read-context.md"
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
-import {
-  readWhiteboardRevision,
-  readWhiteboardSession,
-} from "../service/store"
+import { readWhiteboardRevision, readWhiteboardSession } from "../service/store"
 import type { WhiteboardElement, WhiteboardRevision } from "../service/types"
 
 const ReadWhiteboardContextInputSchema = z.object({}).strict()
@@ -51,9 +48,7 @@ function truncateText(value: string): string {
 }
 
 function readTextCandidate(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim().length > 0
-    ? truncateText(value)
-    : undefined
+  return typeof value === "string" && value.trim().length > 0 ? truncateText(value) : undefined
 }
 
 function readElementText(element: WhiteboardElement): string | undefined {
@@ -211,7 +206,8 @@ const readWhiteboardContextTool = createBuddyTool({
     if (!activeScene) {
       return {
         title: "Read Whiteboard",
-        output: "No active whiteboard scene exists. Omit restoreCheckpoint to create a fresh scene.",
+        output:
+          "No active whiteboard scene exists. Omit restoreCheckpoint to create a fresh scene.",
         metadata: {},
       }
     }

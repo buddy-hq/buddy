@@ -121,9 +121,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
         }),
       ),
   })
-  const revision = previewRevisionID
-    ? previewQuery.data
-    : activeScene?.latestRevision
+  const revision = previewRevisionID ? previewQuery.data : activeScene?.latestRevision
   const computedProgressivePreview = useMemo(
     () =>
       buildProgressiveWhiteboardPreviewFromMessages({
@@ -153,8 +151,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
       }),
     [messages, progressiveBaseRevisionID],
   )
-  const [progressivePreview, setProgressivePreview] =
-    useState<ProgressiveWhiteboardPreview>()
+  const [progressivePreview, setProgressivePreview] = useState<ProgressiveWhiteboardPreview>()
   const displayedRevision = useMemo(() => {
     if (revision && !previewRevisionID && progressivePreview) {
       return {
@@ -254,9 +251,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     try {
       const saveSettled = await settleLearnerSaveRef.current?.()
       if (saveSettled === false && !liveDraftRevision) {
-        setSaveError(
-          "The pending whiteboard edit did not save. Try sharing again after it saves.",
-        )
+        setSaveError("The pending whiteboard edit did not save. Try sharing again after it saves.")
         return
       }
       const refetched = await refetchSession()
@@ -292,12 +287,9 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     sharingBoard,
   ])
 
-  const registerLearnerSaveSettler = useCallback(
-    (settle: (() => Promise<boolean>) | undefined) => {
-      settleLearnerSaveRef.current = settle
-    },
-    [],
-  )
+  const registerLearnerSaveSettler = useCallback((settle: (() => Promise<boolean>) | undefined) => {
+    settleLearnerSaveRef.current = settle
+  }, [])
 
   const saveLearnerEdit = useCallback<WhiteboardLearnerSaveHandler>(
     async (input: {

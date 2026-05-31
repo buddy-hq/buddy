@@ -14,10 +14,7 @@ const WHITEBOARD_ROUTE_SUFFIX = "/whiteboard" as const
 export function WhiteboardAutoOpen(props: WhiteboardAutoOpenProps) {
   const location = useLocation()
   const navigate = useNavigate()
-  const shouldOpen = useMemo(
-    () => hasActiveWhiteboardCreate(props.messages),
-    [props.messages],
-  )
+  const shouldOpen = useMemo(() => hasActiveWhiteboardCreate(props.messages), [props.messages])
 
   useEffect(() => {
     if (!shouldOpen || location.pathname.endsWith(WHITEBOARD_ROUTE_SUFFIX)) return

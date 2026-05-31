@@ -283,7 +283,8 @@ describe("whiteboard drawing program", () => {
       advisory: [["tn", "near_a", "near_b"]],
       hidden: 0,
       action: "continue",
-      instruction: "Advisory proximity only. Continue unless one cleanup would clearly improve readability.",
+      instruction:
+        "Advisory proximity only. Continue unless one cleanup would clearly improve readability.",
     })
   })
 
@@ -839,9 +840,7 @@ describe("whiteboard drawing program", () => {
         sceneID: first.sceneID,
         edit: {
           baseRevisionID: firstHeadRevisionID,
-          elements: [
-            { type: "rectangle", id: "first_node", x: 20, y: 20, width: 120, height: 60 },
-          ],
+          elements: [{ type: "rectangle", id: "first_node", x: 20, y: 20, width: 120, height: 60 }],
         },
       }),
     ).rejects.toBeInstanceOf(WhiteboardRevisionConflictError)

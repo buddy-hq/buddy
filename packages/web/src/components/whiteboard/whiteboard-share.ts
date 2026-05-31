@@ -4,13 +4,9 @@ import { toEditorElementConversion } from "./whiteboard-elements"
 
 type ShareableWhiteboardRevision = Pick<WhiteboardsRevisionReadResponse, "elements">
 
-async function createWhiteboardShareJson(
-  revision: ShareableWhiteboardRevision,
-): Promise<string> {
+async function createWhiteboardShareJson(revision: ShareableWhiteboardRevision): Promise<string> {
   const prepared = toEditorElementConversion(revision.elements)
-  const { convertToExcalidrawElements, serializeAsJSON } = await import(
-    "@excalidraw/excalidraw"
-  )
+  const { convertToExcalidrawElements, serializeAsJSON } = await import("@excalidraw/excalidraw")
   const elements = prepared.groups.flatMap((group) =>
     group.kind === "native"
       ? group.elements

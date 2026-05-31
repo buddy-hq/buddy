@@ -12,7 +12,8 @@ const whiteboardQueryKeys = {
 function whiteboardSessionQueryOptions(directory: string, sessionID: string) {
   return queryOptions({
     queryKey: whiteboardQueryKeys.session(directory, sessionID),
-    queryFn: async () => requireBuddyData(await getBuddyClient(directory).whiteboards.read({ sessionID })),
+    queryFn: async () =>
+      requireBuddyData(await getBuddyClient(directory).whiteboards.read({ sessionID })),
     staleTime: WHITEBOARD_QUERY_STALE_TIME_MS,
   })
 }

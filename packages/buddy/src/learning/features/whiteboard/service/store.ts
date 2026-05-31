@@ -269,9 +269,7 @@ async function appendWhiteboardRevision(input: {
   viewport?: WhiteboardViewport
 }): Promise<WhiteboardSessionRead> {
   return mutateState(input.directory, input.sessionID, (state) => {
-    const initial = input.sceneID
-      ? undefined
-      : createBlankSceneInState(state)
+    const initial = input.sceneID ? undefined : createBlankSceneInState(state)
     const sceneID = input.sceneID ?? initial?.sceneID
     if (!sceneID) {
       throw new Error("A whiteboard scene id is required.")
@@ -300,9 +298,7 @@ async function appendWhiteboardRevisionFromLatest(input: {
   }) => boolean
 }): Promise<WhiteboardRevisionAppendFromLatestResult> {
   return mutateState(input.directory, input.sessionID, (state) => {
-    const initial = input.sceneID
-      ? undefined
-      : createBlankSceneInState(state)
+    const initial = input.sceneID ? undefined : createBlankSceneInState(state)
     const sceneID = input.sceneID ?? initial?.sceneID
     if (!sceneID) {
       throw new Error("A whiteboard scene id is required.")

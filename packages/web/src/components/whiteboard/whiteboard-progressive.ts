@@ -145,10 +145,7 @@ function readProgramFromElementsString(
 }
 
 function readProgramFromRaw(raw: string | undefined, mode: ProgramReadMode): unknown[] {
-  return readProgramFromElementsString(
-    raw ? decodePartialElementsArgument(raw) : undefined,
-    mode,
-  )
+  return readProgramFromElementsString(raw ? decodePartialElementsArgument(raw) : undefined, mode)
 }
 
 function isPersistedElement(value: unknown): value is PersistedWhiteboardElement {

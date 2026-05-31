@@ -419,9 +419,9 @@ function pointIsInsideBounds(point: Point, bounds: Bounds): boolean {
 }
 
 function unionBoundsArea(bounds: Bounds[]): number {
-  const xValues = [...new Set(bounds.flatMap((value) => [value.x, value.x + value.width]))].toSorted(
-    (first, second) => first - second,
-  )
+  const xValues = [
+    ...new Set(bounds.flatMap((value) => [value.x, value.x + value.width])),
+  ].toSorted((first, second) => first - second)
   let area = 0
   for (let index = 1; index < xValues.length; index += 1) {
     const left = xValues[index - 1]
@@ -471,8 +471,7 @@ function pointToSegmentDistance(point: Point, segment: Segment): number {
   const dy = segment.end.y - segment.start.y
   const lengthSquared = dx * dx + dy * dy
   if (lengthSquared === 0) return Math.hypot(point.x - segment.start.x, point.y - segment.start.y)
-  const rawT =
-    ((point.x - segment.start.x) * dx + (point.y - segment.start.y) * dy) / lengthSquared
+  const rawT = ((point.x - segment.start.x) * dx + (point.y - segment.start.y) * dy) / lengthSquared
   const t = Math.max(0, Math.min(1, rawT))
   return Math.hypot(point.x - (segment.start.x + t * dx), point.y - (segment.start.y + t * dy))
 }
@@ -597,10 +596,7 @@ function warningRank(warning: RawWarning): number {
 
 function isHardWarning(warning: RawWarning): boolean {
   return (
-    warning.code === "of" ||
-    warning.code === "lt" ||
-    warning.code === "tt" ||
-    warning.code === "ss"
+    warning.code === "of" || warning.code === "lt" || warning.code === "tt" || warning.code === "ss"
   )
 }
 
@@ -824,9 +820,9 @@ function readZoneElementIDs(input: {
   }
   return [
     input.zone.id,
-    ...input.elements.filter((element) => element.id !== input.zone.id && ids.has(element.id)).map(
-      (element) => element.id,
-    ),
+    ...input.elements
+      .filter((element) => element.id !== input.zone.id && ids.has(element.id))
+      .map((element) => element.id),
   ]
 }
 
@@ -884,16 +880,16 @@ function buildCrowdedZone(input: {
   const zoneIDs = new Set(input.elementIDs)
   const hardWarnings = input.warnings
     .filter(isHardWarning)
-    .filter(
-      (warning) => zoneIDs.has(warning.primaryID) && zoneIDs.has(warning.secondaryID),
-    )
+    .filter((warning) => zoneIDs.has(warning.primaryID) && zoneIDs.has(warning.secondaryID))
   const affectedIDs = new Set(
     hardWarnings
       .flatMap((warning) => [warning.primaryID, warning.secondaryID])
       .filter((id) => id !== input.zone.id),
   )
   const paddedBounds = input.children
-    .map((child) => clipBounds(expandBounds(child.bounds, CROWDED_ZONE_CHILD_PADDING), input.zone.bounds))
+    .map((child) =>
+      clipBounds(expandBounds(child.bounds, CROWDED_ZONE_CHILD_PADDING), input.zone.bounds),
+    )
     .filter((bounds): bounds is Bounds => bounds !== undefined)
   const paddedOccupancyRatio = unionBoundsArea(paddedBounds) / boundsArea(input.zone.bounds)
   if (paddedOccupancyRatio < MIN_CROWDED_ZONE_PADDED_OCCUPANCY_RATIO) return undefined
@@ -983,7 +979,9 @@ function detectWhiteboardLayoutWarnings(
   const hasHardWarnings = warnings.some(isHardWarning)
   const redrawZone = findCrowdedZone({
     elements,
-    shapes: elements.map(readShapeBounds).filter((shape): shape is ShapeBounds => shape !== undefined),
+    shapes: elements
+      .map(readShapeBounds)
+      .filter((shape): shape is ShapeBounds => shape !== undefined),
     warnings,
   })
   const hasContainerTextOverflow = warnings.some((warning) => warning.code === "of")
@@ -1010,9 +1008,9 @@ function detectWhiteboardLayoutWarnings(
           ? WHITEBOARD_LAYOUT_REDRAW_ZONE_INSTRUCTION
           : action === WHITEBOARD_LAYOUT_RESIZE_CONTAINER_ACTION
             ? WHITEBOARD_LAYOUT_RESIZE_CONTAINER_INSTRUCTION
-        : action === WHITEBOARD_LAYOUT_CONTINUE_AFTER_RELAYOUT_ACTION
-          ? WHITEBOARD_LAYOUT_CONTINUE_AFTER_RELAYOUT_INSTRUCTION
-          : WHITEBOARD_LAYOUT_CONTINUE_INSTRUCTION,
+            : action === WHITEBOARD_LAYOUT_CONTINUE_AFTER_RELAYOUT_ACTION
+              ? WHITEBOARD_LAYOUT_CONTINUE_AFTER_RELAYOUT_INSTRUCTION
+              : WHITEBOARD_LAYOUT_CONTINUE_INSTRUCTION,
     ...(redrawZone ? { redrawZone } : {}),
   }
 }
