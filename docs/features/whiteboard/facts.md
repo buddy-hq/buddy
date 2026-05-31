@@ -1,0 +1,137 @@
+- The orange blocks in the sketch are implementation requirements that do not exist yet; the `<about>` blocks are notes for implementation and must never render.
+- The requested whiteboard is session-scoped persistent state, not an inline chat artifact and not a mirror of Excalidraw internals.
+- The temporary floating Excalidraw canvas is too space-constrained for the actual use case and must be replaced.
+- The requested whiteboard UI should behave like the existing reading view: the board occupies the large left workspace, chat moves to the right with the same transitions, and the chat-side top bar retains its existing behavior.
+- The whiteboard view should reuse or extract the reading-view layout primitives instead of copying that layout.
+- The learner must be able to pan and zoom the canvas; support for direct learner element edits should be accounted for in the data model.
+- The agent must be able to create a new scene and revise the active scene through tools.
+- The backend must persist whiteboard change history and the UI must expose a revision scrubber.
+- Scrubbing history should preview an older revision without changing the backend head; the next agent write applies to the latest head and returns the UI to latest.
+- The UI needs an affordance to create a new scene and a `Back to latest` affordance while previewing history.
+- Whiteboard tool activity must appear in the existing hidden-steps summary with a Presentation icon and the labels `Updating Whiteboard` while running and `Updated Whiteboard` when complete; repeated activity should aggregate like `Updated Whiteboard x 3`.
+- Buddy tools are defined through `packages/buddy/src/learning/runtime/create-buddy-tool.ts` with an id, description, Zod parameters, execute function, optional validation formatter, constraints, dynamic metadata, UI metadata, and output policy.
+- `createBuddyTool` converts Zod parameters to JSON Schema, rejects non-object root schemas, and validates tool arguments again with Zod before execution.
+- A root `z.discriminatedUnion(...)` generates root-level `anyOf`, so it is rejected by Buddy's current `createBuddyTool` implementation.
+- OpenAI strict Structured Outputs requires a root object and explicitly rejects root-level `anyOf`; OpenAI documents Zod discriminated unions as an example that will not work at the root.
+- OpenAI strict Structured Outputs permits nested `anyOf` only when each nested schema is valid within its supported subset.
+- OpenAI strict Structured Outputs requires every object to set `additionalProperties: false` and requires all fields; optional values can be represented with nullable fields.
+- OpenAI recommends clear function and parameter descriptions, object structure and enums that make invalid states hard to express, omitting model arguments already known by application code, combining operations that are always called in sequence, and keeping the initially available tool set small.
+- Anthropic recommends detailed tool descriptions that explain what a tool does, when to use and not use it, parameter meaning, behavior, caveats, and limitations.
+- Anthropic recommends consolidating related operations into fewer tools with an action parameter when that reduces tool-selection ambiguity.
+- Anthropic strict tool use constrains generated inputs to a supported JSON Schema subset.
+- Anthropic documents that optional parameters, nested objects, and union types increase strict-schema grammar complexity; strict requests have explicit limits and additional internal compilation limits.
+- AI SDK tools support a per-tool `strict: true` option, but strict mode is disabled by default and ignored by providers or models that do not support it.
+- Buddy's current AI SDK bridge in `vendor/opencode/packages/opencode/src/session/tools.ts` creates tools with description, input schema, and execute handler but does not pass `strict: true`.
+- A normal Zod `z.object(...)` does not emit `additionalProperties: false`; `z.object(...).strict()` does emit it.
+- Buddy therefore needs explicit strict-mode plumbing and schema compatibility tests before relying on provider-level constrained tool generation.
+- Runtime Zod validation remains necessary even after provider-level strict mode is added.
+- The official `excalidraw/excalidraw-mcp` repository is a relevant reference implementation for agent-authored Excalidraw scenes.
+- The official Excalidraw MCP exposes two model-visible tools: `read_me` and `create_view`.
+- Excalidraw MCP's `read_me` returns a large authoring reference with element formats, palettes, layout guidance, examples, and streaming instructions.
+- Excalidraw MCP's `create_view` exposes one input field: `elements`, a string containing a compact JSON array of drawing elements.
+- Excalidraw MCP manually parses the `elements` string and returns actionable JSON parse errors.
+- Excalidraw MCP rejects checkpoint payloads larger than 5 MB; Buddy applies the same 5 MB ceiling to agent programs and learner-edit snapshots.
+- Excalidraw MCP uses stringified JSON so partial tool-input text can be parsed incrementally and rendered progressively while the model is still generating the call.
+- Excalidraw MCP's compact drawing language includes normal Excalidraw shorthand elements and pseudo-elements including `cameraUpdate`, `restoreCheckpoint`, and `delete`.
+- Excalidraw MCP's `cameraUpdate` pseudo-element uses scene-space `x`, `y`, `width`, and `height`; recommended viewports use a 4:3 ratio.
+- Excalidraw MCP accepts `delete.ids` and falls back to `delete.id` when parsing deletion pseudo-elements.
+- Excalidraw MCP instructs authors never to reuse an element id after deleting it; replacements receive new stable ids.
+- Excalidraw MCP returns a checkpoint id after `create_view`; later calls can restore a checkpoint and append or delete elements without resending the whole scene.
+- Excalidraw MCP exposes app-only tools including `export_to_excalidraw`, `save_checkpoint`, and `read_checkpoint`; they are not intended for model selection.
+- Excalidraw MCP debounces learner edits, persists edited elements, updates the checkpoint, and sends a compact learner-edit summary into model context.
+- Excalidraw MCP is optimized for a streamed MCP widget; Buddy additionally needs durable per-session revisions and scrub-preview semantics.
+- Existing Mermaid support is a useful persistence and route precedent, but the whiteboard differs because it is persistent session state rendered in a focused workspace route rather than an inline immutable diagram artifact.
+- The current analogy-first recommendation is a feature-owned `whiteboard-authoring` skill plus model-visible `whiteboard_create_view` and `whiteboard_read_context` tools.
+- Buddy's existing system prompt tells the agent to load matching skills with the `skill` tool, and skill tool output is protected from session-output pruning.
+- The `whiteboard-authoring` skill should be Buddy's equivalent of Excalidraw MCP's `read_me` tool.
+- The current recommended `whiteboard_create_view` outer schema is a strict object with only `elements: string`; it avoids provider-facing discriminated unions.
+- The current recommended `whiteboard_create_view.elements` value is a compact JSON-array drawing program validated after parsing with an internal Zod DSL and actionable errors.
+- A `whiteboard_create_view` program without `restoreCheckpoint` creates a fresh scene; a program beginning with `restoreCheckpoint` continues an existing scene; `delete` removes existing elements.
+- The current recommended `whiteboard_read_context` outer schema is an empty strict object; it returns a compact latest-backend context before a precise edit.
+- The model should not provide `sessionID` or immutable revision ids when Buddy already knows the current session and backend head.
+- The model may provide a semantic checkpoint continuation handle inside `restoreCheckpoint` to identify which scene to continue; Buddy should resolve that handle to the latest backend head for that scene.
+- Buddy's implemented continuation resolver preserves prior scenes and resolves a `restoreCheckpoint` handle to that scene's latest backend head even after another scene became active.
+- The current recommended persistence model stores immutable revisions with full canonical Excalidraw snapshots for fidelity while exposing a compact agent-facing projection with stable semantic element ids.
+- Buddy disables Excalidraw image insertion in v1 because the whiteboard persistence contract does not include binary files.
+- Animated draw-on sequences and camera choreography are useful reference features but can be deferred until the durable revision model and learner-edit behavior are correct.
+- OpenAI also supports provider-specific custom tools with raw free-form string input and optional Lark or regex grammars, but Buddy's shared cross-provider tool abstraction is currently JSON-Schema-based.
+- A portable Buddy implementation should therefore use a normal JSON-Schema function tool with a string field rather than depend on OpenAI-only custom-tool grammars.
+- Excalidraw MCP instructs the agent to read widget context before editing an existing checkpoint so learner edits are accounted for.
+- Buddy needs an equivalent way to refresh model context before precise edits: an explicit read tool, automatic context injection, or both.
+- Excalidraw MCP's widget edit context includes user-added element type, visible text or label text, and position; Buddy's `whiteboard_read_context` must likewise expose visible text/labels from the latest persisted board, not only ids.
+- Buddy's current vendored session processor intentionally drops `tool-input-delta` fragments because no current consumer needs partial tool arguments.
+- The underlying provider stream already exists: AI SDK emits `tool-input-delta`, Buddy's LLM adapter preserves it, the pending tool state already includes `raw`, and Buddy already forwards generic `message.part.delta` events to the web client over SSE.
+- The newer vendored core session-message updater already accumulates `session.next.tool.input.delta` fragments for pending tool messages.
+- Buddy's current compatibility path needs a narrow bridge to expose pending whiteboard tool-input fragments to the web whiteboard view; it does not need a new HTTP API.
+- Partial tool input contains the outer function-argument JSON, so progressive drawing needs an incremental decoder for the escaped `elements` string before applying Excalidraw MCP's partial inner-array parser.
+- Progressive drawing should be included in v1 as an ephemeral best-effort preview; only the final parsed and validated drawing program creates a durable revision.
+- The shipped Buddy-owned frontend progressive consumer mirrors official Excalidraw MCP's partial-array approach and additionally decodes the escaped outer function-argument JSON string.
+- Repository policy and the vendor guard forbid a direct `vendor/opencode` patch for the producer hook.
+- Buddy can activate progressive frames without a vendor sync by adding an adapter startup patch that wraps the shared vendored LLM stream, observes normalized `tool-input-delta` before the processor discards it, and publishes pending `state.raw` deltas through the existing session-delta event path.
+- The adapter startup patch is implemented in `packages/opencode-adapter/src/tool-input-delta-live.ts`; it resolves the existing `@opencode/LLM` Effect service through its stable service tag and does not patch vendored files.
+- The adapter bridge regression test pins the upstream normalized event and processor discard branch, verifies startup installation, verifies whiteboard-only forwarding, verifies cleanup after pending state, and ignores malformed events.
+- Existing Buddy adapter monkey patches already have focused regression coverage: runtime plugin injection, skill visibility filtering, tool-registry and subagent forwarding, and config overlay isolation are covered by their existing Buddy tests.
+- The reading view is a sibling `/$directory/read` route that renders a horizontal `ResizablePanelGroup`: a large animated left reader pane and a width-persisted animated right conversation pane with a start-edge resize handle.
+- The reading view reuses `DirectoryChatConversationPane` on the right and injects a thread browser through `topContent`, preserving thread switching, new-thread creation, and the chat transcript/composer.
+- The whiteboard adds a sibling `/$directory/whiteboard` public route and places it with `/$directory/read` under a pathless `/$directory/_workspace` TanStack layout route so the router owns their shared focused-workspace shell.
+- The pathless workspace layout route uses the extracted reading split, generalizes the reading thread-browser wrapper for both focused routes, and extends the titlebar back-to-chat branch to both routes.
+- The frontend automatically navigates to `/$directory/whiteboard` while a `whiteboard_create_view` part is pending or running so the learner sees progressive drawing without a separate HTTP or navigation event.
+- First-call progressive rendering works before a durable scene exists by rendering complete ephemeral program elements against an empty base; final parsed and validated tool execution still owns persistence.
+- Excalidraw MCP avoids streaming jitter by parsing only complete inner-array objects, withholding the newest partial item, and skipping render work unless the complete drawable set changed.
+- Buddy's progressive whiteboard preview should stay visible across the pending-to-running-to-final handoff; otherwise the canvas disappears while the tool executes and only returns after the durable revision refetch.
+- Buddy keeps a sticky last-complete progressive preview only while a write is active or a completed write is newer than the fetched durable head; failed or stopped streams without a durable revision clear the sticky preview.
+- Buddy's progressive preview must fold completed `whiteboard_create_view` calls newer than the fetched backend head before applying the newest pending/running call; otherwise earlier same-turn edits disappear until the final refetch.
+- Buddy should refetch whiteboard session state when the completed whiteboard tool count changes, not only when the whole assistant turn becomes idle.
+- Buddy now assigns deterministic Excalidraw seeds to skeleton elements before conversion so repeated conversion of the same streamed element does not produce a new random rough stroke.
+- The `whiteboard-authoring` skill now copies Excalidraw MCP's `RECALL_CHEAT_SHEET` as its base reference and adds Buddy-specific notes for `whiteboard_create_view`, `whiteboard_read_context`, and continuation handles.
+- After a whiteboard tool has appeared in the current conversation, the composer context row should show a ghost Presentation button next to the persona selector that toggles the whiteboard workspace.
+- After a reading resource has been opened for the directory, the composer context row should show a ghost Book button next to the persona selector that toggles the reading workspace using the persisted last-opened reading resource.
+- Excalidraw MCP's prevention pattern is to keep pseudo-elements out of the conversion/storage path: `cameraUpdate`, `restoreCheckpoint`, and `delete` are program instructions, not persisted drawn elements.
+- Buddy write behavior is recoverable at the individual-element level: unsupported or malformed drawn elements are skipped with tool-result warnings, duplicate live ids are skipped, common malformed labels are normalized to `label.text`, and unrecoverable labels are dropped while preserving the drawn element.
+- Buddy still treats malformed outer JSON, non-array input, oversized payloads, and missing continuation scenes as program-level failures.
+- Buddy `whiteboard_read_context` now returns compact element geometry plus `visibleText` entries for text and label text, and a latest learner-edit summary when the latest revision came from a learner edit.
+- Buddy rejects fresh `whiteboard_create_view` programs that produce no valid drawable elements and rejects no-op continuations so recoverable warning behavior cannot create blank-success or unchanged revisions.
+- Buddy resolves a `whiteboard_create_view` continuation base inside the same per-session mutation lock that appends the new revision, so concurrent agent writes rebase on the latest scene head instead of overwriting each other.
+- Buddy learner-edit debounce captures the save handler and base revision with the pending snapshot, flushes before revision changes, and flushes on canvas unmount so edits conflict or save predictably instead of being dropped or applied to a newer head.
+- Buddy serializes learner-edit saves and rebases queued manual edits onto the revision returned by the previous successful save, avoiding self-conflicts from overlapping debounce flushes.
+- If a learner-save request receives a conflict after the same element content is already durable, Buddy treats it as a stale duplicate conflict and clears the error instead of showing a false red failure.
+- Buddy whiteboard reads now sanitize legacy invalid persisted elements before returning session or revision data.
+- Buddy's Excalidraw canvas conversion now skips unsupported elements and shows a warning overlay as a fallback instead of throwing through the router boundary.
+- Buddy's pure whiteboard element helpers do not top-level import Excalidraw's browser bundle; only the browser canvas component imports Excalidraw runtime conversion.
+- Buddy restores persisted whiteboard viewports by deriving zoom from the saved scene-space viewport width/height and current canvas dimensions.
+- Excalidraw knows the rendered canvas dimensions through `appState.width` and `appState.height`; Buddy's viewport restore uses those dimensions, so the whiteboard pane size directly affects the computed zoom for a fixed scene-space `cameraUpdate`.
+- Excalidraw MCP keeps model camera updates as a base scene-space viewport and layers user zoom/pan on top during streaming instead of replacing the user's camera each frame.
+- Buddy follows that behavior by applying agent/restored camera updates until the learner manually pans or zooms; after that, progressive element updates continue without forcing the viewport back to the model camera.
+- Excalidraw MCP explicitly preloads Excalifont and Assistant and refreshes text dimensions before revealing the editable Excalidraw editor; without this, bound label positions can shift after the final render when fonts finish loading.
+- Buddy's embedded Excalidraw canvas now waits for those fonts before converting shorthand labels, refreshes converted text dimensions, and uses non-undoable scene updates for streamed/durable remote revisions.
+- Buddy validates learner-saved elements with the same persistable-element parser used for agent writes before appending a learner revision.
+- Buddy accepts both `delete.ids` and Excalidraw MCP's `delete.id` fallback in backend writes and progressive previews.
+- Buddy returns non-4:3 camera ratio hints as recoverable write warnings instead of rejecting the diagram.
+- Buddy exposes the successful write continuation handle as both `sceneID` and `checkpointId` metadata so the result matches the Excalidraw MCP checkpoint mental model.
+- Buddy exposes a typed scene-latest whiteboard route so progressive `restoreCheckpoint` previews can load a non-active scene base like Excalidraw MCP's `read_checkpoint` app tool.
+- Buddy's `Share board` UI action mirrors Excalidraw MCP's `export_to_excalidraw` flow: serialize board JSON, encrypt locally on the Buddy backend, upload ciphertext to Excalidraw's JSON endpoint, and open the returned fragment-key share URL.
+- Buddy derives capped model-facing `layoutWarnings` after a successful write; hard collisions (`lt`, `tt`, `ss`) are listed before advisory proximity notices (`ln`, `tn`), warnings are not persisted or save-blocking, and obvious container and Venn-style shape overlaps are skipped.
+- When hard whiteboard collisions remain, the write tool emits a prominent roomy-relayout-required prefix and asks the model for at most one warning-driven cleanup write before replying; the instruction defaults to creating space before pair-by-pair repairs and explicitly forbids repeated warning-driven loops.
+- Buddy's drawing program supports patch-style `update`, grouped `translate`, and `layoutCleanup` pseudo-elements in addition to Excalidraw MCP's controls; positional patches and grouped translation also move bound text children with their container.
+- A warning-driven continuation marked with `layoutCleanup` is committed only when its candidate decreases the deterministic hard-collision count against the latest locked scene head; `redraw_zone` requires a meaningful reduction of at least two hard collisions or 30 percent of the prior count, whichever is greater. A rejected candidate leaves the prior revision active and does not trigger an automatic retry.
+- Buddy treats text or label overflow outside a container as a deterministic hard layout warning (`of`) distinct from collisions and proximity notices.
+- Buddy infers crowded container zones from contained child geometry, padded occupancy, and the hard-collision graph; dense zones receive one redraw-zone instruction instead of update/translate guidance.
+- Buddy rejects a `redraw_zone` cleanup that uses `update` or `translate`, or that does not delete the targeted zone, so the model must actually rebuild the crowded area.
+- Buddy returns the exact `redrawZone.ids` scope for crowded-zone repair and rejects `redraw_zone` programs that omit scoped deletions, delete outside elements, or recreate elements outside a bounded expansion around that container.
+- Buddy's whiteboard authoring skill asks simplified maps, battlefield maps, and geographic sketches to reserve a roomy 1200x900 or 1600x1200 camera in the first `cameraUpdate`.
+- Buddy preserves queued learner snapshots after an in-flight save failure; when a refetch returns a current head, the queued edit rebases onto it and flushes once without an automatic retry loop.
+- Buddy resets the learner viewport override when a new durable revision arrives, preserving manual pan and zoom during the current stream without suppressing future agent framing forever.
+- The tool-input delta bridge regression test verifies monkey-patch ordering and both patch hooks without booting OpenCode or opening runtime storage.
+- Buddy rejects learner autosaves for inactive whiteboard scenes, so a delayed save cannot reactivate or mutate an old scene after the user creates or switches scenes.
+- Buddy uses monotonic ULIDs for whiteboard scene and revision ids so same-millisecond writes preserve lexicographic ordering for frontend completed-tool replay.
+- Buddy caps retained whiteboard revisions per scene and prunes old revision bodies from the session JSON to prevent unbounded full-snapshot autosave history.
+- Buddy's whiteboard canvas settles pending learner saves before creating a new scene or sharing a board.
+- Buddy's `Share board` path serializes the live canvas draft when present and opens the Excalidraw URL through the platform external-link handler.
+- Buddy wraps malformed Excalidraw JSON upload responses in `WhiteboardShareUploadError` so routes return the documented upload failure mapping.
+- Buddy parses Excalidraw upload responses like the MCP server does: require `id`, but ignore extra response fields.
+- Buddy's render adapter skips `convertToExcalidrawElements` for persisted editor-native Excalidraw elements and restores them directly; only shorthand skeleton elements are converted. This keeps bound labels from being converted twice and shifting after final persistence.
+- Buddy treats a forced learner-save flush as a safe-to-continue contract: `New scene` aborts when a pending edit fails to persist instead of clearing the live draft.
+- Buddy's `Share board` action shares the revision the user is actually viewing: scrubbed history wins during preview, live canvas draft wins on editable latest, then fetched latest is the fallback.
+- Buddy skips completed `whiteboard_create_view` parts whose metadata explicitly reports `saved: false` during progressive replay and sticky-preview retention.
+- Buddy filters unsupported Excalidraw editor element types out of learner autosave payloads before they reach the backend whitelist.
+- Buddy preserves the newest queued learner edit when an in-flight save fails without a replacement base revision, so a stale failed snapshot cannot overwrite the latest pending edit.
