@@ -22,7 +22,12 @@ import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat
 import { getSessionContextMetrics } from "@/state/context-metrics"
 import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
 import type { MessageWithParts, ProviderInfo, QuestionRequest } from "@/state/chat-types"
-import { Redo2Icon } from "lucide-react"
+import { BookOpenIcon, PresentationIcon, Redo2Icon } from "lucide-react"
+import { WhiteboardAutoOpen } from "@/components/whiteboard/whiteboard-auto-open"
+import { hasWhiteboardCreate } from "@/components/whiteboard/whiteboard-progressive"
+import { useChatStore } from "@/state/chat-store"
+import { encodeDirectory } from "@/lib/directory-token"
+import { useLocation, useNavigate } from "@tanstack/react-router"
 
 type PromptComposerProps = Omit<
   ComponentProps<typeof PromptComposer>,
@@ -64,6 +69,12 @@ type DirectoryChatMainPaneProps = {
 
 const COMPACTION_BUFFER_TOKENS = 20_000
 const OUTPUT_TOKEN_MAX = 32_000
+const WHITEBOARD_ROUTE_SUFFIX = "/whiteboard"
+const READING_ROUTE_SUFFIX = "/read"
+const WORKSPACE_SHORTCUT_BUTTON_CLASS =
+  "text-text-weaker/70 hover:bg-surface-base-hover hover:text-text-base aria-pressed:text-text-interactive-base"
+const WHITEBOARD_SHORTCUT_LABEL = "Toggle whiteboard view"
+const READING_SHORTCUT_LABEL = "Toggle reading view"
 
 type AutoCompactionWarning = {
   usage: number
@@ -155,6 +166,90 @@ export function resolveRevertedUserMessageCount(input: {
   ).length
 }
 
+function WorkspaceViewShortcuts(props: { directory: string; messages: MessageWithParts[] }) {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const lastOpenedReadingResource = useChatStore(
+    (state) => state.lastOpenedReadingResourceByDirectory[props.directory],
+  )
+  const encodedDirectory = encodeDirectory(props.directory)
+  const isWhiteboardRoute = location.pathname.endsWith(WHITEBOARD_ROUTE_SUFFIX)
+  const isReadingRoute = location.pathname.endsWith(READING_ROUTE_SUFFIX)
+  const showWhiteboardShortcut = isWhiteboardRoute || hasWhiteboardCreate(props.messages)
+  const showReadingShortcut = isReadingRoute || lastOpenedReadingResource !== undefined
+
+  if (!showWhiteboardShortcut && !showReadingShortcut) return null
+
+  return (
+    <div
+      data-component="prompt-workspace-shortcuts"
+      className="flex items-center gap-0.5"
+    >
+      {showWhiteboardShortcut ? (
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          className={WORKSPACE_SHORTCUT_BUTTON_CLASS}
+          aria-label={WHITEBOARD_SHORTCUT_LABEL}
+          title={WHITEBOARD_SHORTCUT_LABEL}
+          aria-pressed={isWhiteboardRoute}
+          onClick={() => {
+            if (isWhiteboardRoute) {
+              void navigate({
+                to: "/$directory/chat",
+                params: { directory: encodedDirectory },
+              })
+              return
+            }
+            void navigate({
+              to: "/$directory/whiteboard",
+              params: { directory: encodedDirectory },
+            })
+          }}
+        >
+          <PresentationIcon />
+        </Button>
+      ) : null}
+      {showReadingShortcut ? (
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          className={WORKSPACE_SHORTCUT_BUTTON_CLASS}
+          aria-label={READING_SHORTCUT_LABEL}
+          title={READING_SHORTCUT_LABEL}
+          aria-pressed={isReadingRoute}
+          onClick={() => {
+            if (isReadingRoute || !lastOpenedReadingResource) {
+              void navigate({
+                to: "/$directory/chat",
+                params: { directory: encodedDirectory },
+              })
+              return
+            }
+
+            void navigate({
+              to: "/$directory/read",
+              params: { directory: encodedDirectory },
+              search: lastOpenedReadingResource.resourceID
+                ? {
+                    path: lastOpenedReadingResource.path,
+                    resource: lastOpenedReadingResource.resourceID,
+                  }
+                : {
+                    path: lastOpenedReadingResource.path,
+                  },
+            })
+          }}
+        >
+          <BookOpenIcon />
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
 export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
   const {
     directory,
@@ -213,8 +308,12 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
   return (
     <main
       data-component="directory-chat-main-pane"
-      className="flex-1 min-w-0 min-h-0 flex flex-col bg-background-stronger"
+      className="relative flex-1 min-w-0 min-h-0 flex flex-col bg-background-stronger"
     >
+      <WhiteboardAutoOpen
+        directory={directory}
+        messages={chatState.messages}
+      />
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex min-h-0 flex-1 flex-col">
           {props.topContent ? (
@@ -371,6 +470,12 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                 activeQuestionID={activeQuestion?.id}
                 selectorMode={promptSelectorMode}
                 className="mb-1"
+                contextActions={
+                  <WorkspaceViewShortcuts
+                    directory={directory}
+                    messages={chatState.messages}
+                  />
+                }
                 sessionContextUsage={
                   <SessionContextUsage
                     messages={chatState.messages}

@@ -13,7 +13,7 @@ type DirectoryReadingSearch = {
   resource?: string
 }
 
-export const Route = createFileRoute("/$directory/read")({
+export const Route = createFileRoute("/$directory/_workspace/read")({
   validateSearch: (search: Record<string, unknown>): DirectoryReadingSearch => ({
     path: typeof search.path === "string" ? search.path : undefined,
     resource: typeof search.resource === "string" ? search.resource : undefined,

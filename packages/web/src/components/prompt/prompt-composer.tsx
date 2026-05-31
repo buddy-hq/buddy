@@ -137,6 +137,7 @@ type PromptComposerProps = {
   selectorMode?: PromptSelectMode
   className?: string
   sessionContextUsage?: React.ReactNode
+  contextActions?: React.ReactNode
   activeQuestionID?: string
 }
 
@@ -1383,48 +1384,51 @@ export function PromptComposer(props: PromptComposerProps) {
 
       {props.sessionContextUsage ? (
         <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
-          {props.selectorMode === "native" ? (
-            <NativeSelect
-              value={props.selectedPersona}
-              onChange={(event) => props.onPersonaChange(event.currentTarget.value)}
-              size="sm"
-              data-action="prompt-persona-select"
-              wrapperClassName="w-[120px] max-w-[120px] min-w-0"
-              className="h-6 border-0 bg-transparent text-xs text-text-weaker shadow-none hover:bg-transparent focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
-              aria-label={language.t("prompt.toolbar.aria.persona")}
-            >
-              {viewState.personaOptions.map((persona) => (
-                <NativeSelectOption key={persona.name} value={persona.name}>
-                  {persona.label ?? persona.name}
-                </NativeSelectOption>
-              ))}
-            </NativeSelect>
-          ) : (
-            <Select value={props.selectedPersona} onValueChange={props.onPersonaChange}>
-              <SelectTrigger
-                type="button"
+          <div className="flex min-w-0 items-center gap-1.5">
+            {props.selectorMode === "native" ? (
+              <NativeSelect
+                value={props.selectedPersona}
+                onChange={(event) => props.onPersonaChange(event.currentTarget.value)}
                 size="sm"
                 data-action="prompt-persona-select"
-                className="h-6 max-w-[120px] min-w-0 border-0 bg-transparent px-0 text-xs text-text-weaker shadow-none hover:bg-transparent hover:text-text-base focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
+                wrapperClassName="w-[120px] max-w-[120px] min-w-0"
+                className="h-6 border-0 bg-transparent text-xs text-text-weaker shadow-none hover:bg-transparent focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
                 aria-label={language.t("prompt.toolbar.aria.persona")}
               >
-                <SelectValue placeholder={language.t("prompt.toolbar.placeholders.persona")} />
-              </SelectTrigger>
-              <SelectContent
-                side="top"
-                align="start"
-                position="popper"
-                sideOffset={6}
-                className="w-[min(16rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
-              >
                 {viewState.personaOptions.map((persona) => (
-                  <SelectItem key={persona.name} value={persona.name}>
+                  <NativeSelectOption key={persona.name} value={persona.name}>
                     {persona.label ?? persona.name}
-                  </SelectItem>
+                  </NativeSelectOption>
                 ))}
-              </SelectContent>
-            </Select>
-          )}
+              </NativeSelect>
+            ) : (
+              <Select value={props.selectedPersona} onValueChange={props.onPersonaChange}>
+                <SelectTrigger
+                  type="button"
+                  size="sm"
+                  data-action="prompt-persona-select"
+                  className="h-6 max-w-[120px] min-w-0 border-0 bg-transparent px-0 text-xs text-text-weaker shadow-none hover:bg-transparent hover:text-text-base focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
+                  aria-label={language.t("prompt.toolbar.aria.persona")}
+                >
+                  <SelectValue placeholder={language.t("prompt.toolbar.placeholders.persona")} />
+                </SelectTrigger>
+                <SelectContent
+                  side="top"
+                  align="start"
+                  position="popper"
+                  sideOffset={6}
+                  className="w-[min(16rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
+                >
+                  {viewState.personaOptions.map((persona) => (
+                    <SelectItem key={persona.name} value={persona.name}>
+                      {persona.label ?? persona.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {props.contextActions}
+          </div>
           {props.sessionContextUsage}
         </div>
       ) : null}

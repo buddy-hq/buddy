@@ -125,6 +125,30 @@ describe("chat reducer", () => {
     }
   })
 
+  test("appendPartDelta appends nested pending tool raw input", () => {
+    const withPart = upsertPart(makeMessages(), {
+      id: "part_1",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: "tool",
+      tool: "whiteboard_create_view",
+      state: {
+        status: "pending",
+        raw: '{"elements":"[',
+      },
+    })
+    const next = appendPartDelta(withPart, {
+      messageID: "message_1",
+      partID: "part_1",
+      field: "state.raw",
+      delta: '{\\"type\\":\\"rectangle\\"}',
+    })
+    expect(next[0]?.parts[0]?.state).toEqual({
+      status: "pending",
+      raw: '{"elements":"[{\\"type\\":\\"rectangle\\"}',
+    })
+  })
+
   test("inferBusyFromMessages checks assistant finish state", () => {
     expect(
       inferBusyFromMessages([

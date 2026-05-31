@@ -79,9 +79,16 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const setRightSidebarTab = useUiPreferences((state) => state.setRightSidebarTab)
   const setRightSidebarWidth = useUiPreferences((state) => state.setRightSidebarWidth)
   const routerState = useRouterState()
-  const isReadingPage = routerState.matches.some((m) => m.routeId === "/$directory/read")
-  const directoryToken = routerState.matches.find((m) => m.routeId === "/$directory/read")?.params
-    .directory as string | undefined
+  const focusedWorkspaceMatch = routerState.matches.find(
+    (match) =>
+      match.routeId === "/$directory/_workspace/read" ||
+      match.routeId === "/$directory/_workspace/whiteboard",
+  )
+  const isFocusedWorkspacePage = focusedWorkspaceMatch !== undefined
+  const directoryToken =
+    typeof focusedWorkspaceMatch?.params.directory === "string"
+      ? focusedWorkspaceMatch.params.directory
+      : undefined
   const [isFullscreen, setIsFullscreen] = useState(false)
   const lastWorkspaceSidebarTabRef = useRef<Exclude<ChatRightSidebarTab, "files">>("resources")
 
@@ -348,7 +355,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
             </div>
           ) : (
             <div className="min-w-0 flex-1">
-              {isReadingPage ? (
+              {isFocusedWorkspacePage && directoryToken ? (
                 <div className="flex items-center gap-2 px-3 animate-in fade-in slide-in-from-left-2 duration-300 cubic-bezier(0.23, 1, 0.32, 1)">
                   <Button
                     type="button"
@@ -361,7 +368,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                       void navigate({
                         to: "/$directory/chat",
                         params: {
-                          directory: directoryToken!,
+                          directory: directoryToken,
                         },
                       })
                     }}

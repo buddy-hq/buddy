@@ -158,7 +158,7 @@ type ChatStoreStateFields = Pick<
   | "streamStatus"
 >
 
-function resourceSessionKey(directory: string, resourceID: string) {
+export function resourceSessionKey(directory: string, resourceID: string) {
   return `${directory}::${resourceID}`
 }
 
@@ -474,15 +474,31 @@ function appendOrphanPartDelta(
     return parts
   }
 
-  const currentFieldValue = parts[index]?.[input.field]
-  if (typeof currentFieldValue !== "string") {
-    return parts
-  }
-
   const next = [...parts]
-  next[index] = {
-    ...next[index],
-    [input.field]: currentFieldValue + input.delta,
+  const part = parts[index]
+  if (!part) return parts
+  if (input.field === "state.raw") {
+    const state = part.state
+    if (!state || typeof state !== "object" || Array.isArray(state) || !("raw" in state)) {
+      return parts
+    }
+    if (typeof state.raw !== "string") return parts
+    next[index] = {
+      ...part,
+      state: {
+        ...state,
+        raw: state.raw + input.delta,
+      },
+    }
+  } else {
+    const currentFieldValue = part[input.field]
+    if (typeof currentFieldValue !== "string") {
+      return parts
+    }
+    next[index] = {
+      ...part,
+      [input.field]: currentFieldValue + input.delta,
+    }
   }
   return next
 }

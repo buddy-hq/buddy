@@ -1,17 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { DirectoryInvalidNotebook } from "./directory-invalid-notebook"
-import {
-  ResizeHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-  cn,
-  useResizablePanelRef,
-} from "@buddy/ui"
-import { DirectoryChatConversationPane } from "@/components/directory-chat/directory-chat-conversation-pane"
 import { DirectoryChatReadingReaderPane } from "@/components/directory-chat/directory-chat-reading-reader-pane"
-import { DirectoryChatReadingThreadBrowser } from "@/components/directory-chat/directory-chat-reading-thread-browser"
-import { usePersistentResizablePanelLayout } from "@/components/layout/use-persistent-resizable-panel-layout"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
 import { READING_SELECTION_PART_TYPE } from "@/components/prompt/prompt-types"
 import { serializePromptEditorParts } from "@/components/prompt/prompt-parts"
@@ -33,28 +23,11 @@ function normalizeResourceRecordPath(record: ResourceRecord) {
   return normalizeRelativePath(record.sourceOriginRelpath ?? record.sourceRelpath)
 }
 
-const READING_CHAT_PANEL_WIDTH_STORAGE_KEY = "directory-chat-reading-chat-panel-width"
-const READING_CHAT_PANEL_DEFAULT_WIDTH_PX = 480
-const READING_CHAT_PANEL_MIN_WIDTH_PX = 320
-const READING_CHAT_PANEL_MAX_VIEWPORT_RATIO = 0.55
-const READING_READER_PANEL_MIN_WIDTH_PX = 320
-const READING_LAYOUT_ID = "directory-chat-reading-layout"
-const READING_READER_PANEL_ID = "directory-chat-reading-reader"
-const READING_CONVERSATION_PANEL_ID = "directory-chat-reading-conversation"
-const READING_LAYOUT_PANEL_IDS = [READING_READER_PANEL_ID, READING_CONVERSATION_PANEL_ID]
 const READING_DRAFT_SESSION_ID = undefined
-const READING_LAYOUT_ENTER_EASING = "ease-[cubic-bezier(0.23,1,0.32,1)]"
-const READING_LAYOUT_ENTER_DURATION_CLASS = "duration-220"
 
 function createReadingSelectionKey() {
   const random = Math.random().toString(36).slice(2, 10)
   return `sel_${Date.now().toString(36)}_${random}`
-}
-
-function getReadingChatPanelMaxWidth() {
-  return typeof window === "undefined"
-    ? READING_CHAT_PANEL_DEFAULT_WIDTH_PX
-    : window.innerWidth * READING_CHAT_PANEL_MAX_VIEWPORT_RATIO
 }
 
 export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
@@ -65,23 +38,6 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     controller.status === "ready" ? controller.mainPaneProps.directory : undefined
   const readingSessionID =
     controller.status === "ready" ? controller.mainPaneProps.chatState.sessionID : undefined
-  const [chatPanelWidth, setChatPanelWidth] = useState(() => {
-    if (typeof window === "undefined") {
-      return READING_CHAT_PANEL_DEFAULT_WIDTH_PX
-    }
-
-    const saved = window.localStorage.getItem(READING_CHAT_PANEL_WIDTH_STORAGE_KEY)
-    const parsed = saved ? Number.parseInt(saved, 10) : Number.NaN
-    if (!Number.isFinite(parsed)) {
-      return READING_CHAT_PANEL_DEFAULT_WIDTH_PX
-    }
-
-    return Math.min(
-      Math.max(parsed, READING_CHAT_PANEL_MIN_WIDTH_PX),
-      getReadingChatPanelMaxWidth(),
-    )
-  })
-  const [layoutEntered, setLayoutEntered] = useState(false)
   const setActiveReadingResource = useChatStore((state) => state.setActiveReadingResource)
   const updateActiveReadingResourceLocation = useChatStore(
     (state) => state.updateActiveReadingResourceLocation,
@@ -91,7 +47,6 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     (state) => state.setActiveReadingAnnotationSummary,
   )
   const setLastOpenedReadingResource = useChatStore((state) => state.setLastOpenedReadingResource)
-  const linkedSessionByResource = useChatStore((state) => state.linkedSessionByResource)
   const setSessionPersona = useTeachingRuntime((state) => state.setSessionPersona)
   const clearSessionPersona = useTeachingRuntime((state) => state.clearSessionPersona)
   const readingPersonaSessionKey = useMemo(
@@ -102,31 +57,10 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     readingPersonaSessionKey ? state.selectedPersonaBySession[readingPersonaSessionKey] : undefined,
   )
   const previousPersonaBySessionRef = useRef<Record<string, string | undefined>>({})
-  const conversationPanelRef = useResizablePanelRef()
   const resourcesQuery = useQuery({
     ...resourcesQueryOptions(readyDirectory ?? ""),
     enabled: readyDirectory !== undefined,
   })
-  const { defaultLayout, onLayoutChanged } = usePersistentResizablePanelLayout({
-    id: READING_LAYOUT_ID,
-    panelIds: READING_LAYOUT_PANEL_IDS,
-  })
-
-  useEffect(() => {
-    setLayoutEntered(false)
-    const frame = window.requestAnimationFrame(() => {
-      setLayoutEntered(true)
-    })
-
-    return () => {
-      window.cancelAnimationFrame(frame)
-    }
-  }, [normalizedPath])
-
-  useEffect(() => {
-    window.localStorage.setItem(READING_CHAT_PANEL_WIDTH_STORAGE_KEY, chatPanelWidth.toString())
-  }, [chatPanelWidth])
-
   const resourceRecord = useMemo(() => {
     if (props.resourceKey) {
       return resourcesQuery.data?.processed.find(
@@ -140,14 +74,6 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       (resource) => normalizeResourceRecordPath(resource) === normalizedPath,
     )
   }, [normalizedPath, props.resourceKey, resourcesQuery.data?.processed])
-  const linkedReadingSessionID = useMemo(() => {
-    if (!readyDirectory || !resourceRecord?.id) {
-      return undefined
-    }
-
-    return linkedSessionByResource[`${readyDirectory}::${resourceRecord.id}`]
-  }, [linkedSessionByResource, readyDirectory, resourceRecord?.id])
-
   useEffect(() => {
     if (!readyDirectory) {
       return
@@ -233,9 +159,6 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   }
 
   const readyController = controller
-  const currentDirectory = readyController.mainPaneProps.directory
-  const threadBrowserState = readyController.mainPaneProps.chatState
-
   function stageReadingSelection(input: {
     text: string
     cfi: string
@@ -296,131 +219,48 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     })
   }
 
-  return (
-    <section
-      data-component="directory-chat-reading-page"
-      className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-surface-raised-base"
-    >
-      <ResizablePanelGroup
-        id={READING_LAYOUT_ID}
-        orientation="horizontal"
-        defaultLayout={defaultLayout}
-        onLayoutChanged={onLayoutChanged}
-        className="min-h-0 flex-1 w-full"
-      >
-        <ResizablePanel
-          id={READING_READER_PANEL_ID}
-          minSize={READING_READER_PANEL_MIN_WIDTH_PX}
-          className="min-h-0 min-w-0 overflow-hidden"
-        >
-          <div
-            className={cn(
-              "min-w-0 h-full border-r border-border-weaker-base bg-background-base transition-[opacity,transform] motion-reduce:translate-x-0 motion-reduce:opacity-100 motion-reduce:transition-none",
-              READING_LAYOUT_ENTER_DURATION_CLASS,
-              READING_LAYOUT_ENTER_EASING,
-              layoutEntered ? "translate-x-0 opacity-100" : "-translate-x-3 opacity-0",
-            )}
-          >
-            {readyDirectory && normalizedPath ? (
-              <DirectoryChatReadingReaderPane
-                directory={readyDirectory}
-                resourceName={resourceName}
-                resourcePath={normalizedPath}
-                resourceID={resourceRecord?.id}
-                coverRelpath={resourceRecord?.coverRelpath}
-                coverExtension={resourceFileExtensionFromFormat(resourceRecord?.format ?? "")}
-                resourceStatus={resourceRecord?.status}
-                onLocationChange={(location) => {
-                  updateActiveReadingResourceLocation(readyDirectory, {
-                    cfi: location.cfi,
-                    index: location.index,
-                    fraction: location.fraction,
-                    locationLabel: location.locationLabel,
-                    tocLabel: location.tocLabel,
-                    pageLabel: location.pageLabel,
-                    currentPassageText: location.currentPassageText,
-                  })
-                  if (location.tocLabel) {
-                    appendReadingTrailEntry(readyDirectory, {
-                      tocLabel: location.tocLabel,
-                      cfi: location.cfi,
-                      fraction: location.fraction,
-                    })
-                  }
-                }}
-                onChatSelection={(selection) => {
-                  stageReadingSelection(selection)
-                }}
-                onChatSelectionRemoved={(selectionKey) => {
-                  removeStagedReadingSelection(selectionKey)
-                }}
-                onAnnotationsChange={(annotations) => {
-                  const summary = annotations.slice(-10).map((annotation) => {
-                    const note = annotation.note?.trim()
-                    return note
-                      ? { text: annotation.text ?? "", note }
-                      : { text: annotation.text ?? "" }
-                  })
-                  setActiveReadingAnnotationSummary(readyDirectory, summary)
-                }}
-              />
-            ) : null}
-          </div>
-        </ResizablePanel>
-
-        <ResizablePanel
-          id={READING_CONVERSATION_PANEL_ID}
-          panelRef={conversationPanelRef}
-          defaultSize={chatPanelWidth}
-          minSize={READING_CHAT_PANEL_MIN_WIDTH_PX}
-          maxSize={getReadingChatPanelMaxWidth()}
-          className="relative flex min-h-0 min-w-0 overflow-hidden"
-        >
-          <div
-            className={cn(
-              "h-full w-full transition-[opacity,transform] motion-reduce:translate-x-0 motion-reduce:opacity-100 motion-reduce:transition-none",
-              READING_LAYOUT_ENTER_DURATION_CLASS,
-              READING_LAYOUT_ENTER_EASING,
-              layoutEntered ? "translate-x-0 opacity-100" : "-translate-x-8 opacity-0",
-            )}
-          >
-            <DirectoryChatConversationPane
-              {...readyController.mainPaneProps}
-              topContent={
-                <DirectoryChatReadingThreadBrowser
-                  sessionTitle={threadBrowserState.sessionTitle}
-                  sessions={threadBrowserState.sessions}
-                  activeSessionID={threadBrowserState.sessionID}
-                  linkedSessionID={linkedReadingSessionID}
-                  parentSession={threadBrowserState.parentSession}
-                  onNewSession={() => {
-                    void readyController.leftSidebarProps.onNewSession(currentDirectory)
-                  }}
-                  onSelectSession={(sessionID) => {
-                    void readyController.leftSidebarProps.onSelectSession(
-                      currentDirectory,
-                      sessionID,
-                    )
-                  }}
-                />
-              }
-              mainPaneTab="chat"
-              className="h-full w-full"
-            />
-          </div>
-          <ResizeHandle
-            direction="horizontal"
-            edge="start"
-            size={chatPanelWidth}
-            min={READING_CHAT_PANEL_MIN_WIDTH_PX}
-            max={getReadingChatPanelMaxWidth()}
-            onResize={(width) => {
-              conversationPanelRef.current?.resize(width)
-              setChatPanelWidth(width)
-            }}
-          />
-        </ResizablePanel>
-      </ResizablePanelGroup>
-    </section>
-  )
+  return readyDirectory && normalizedPath ? (
+    <div data-component="directory-chat-reading-page" className="h-full min-h-0 w-full">
+      <DirectoryChatReadingReaderPane
+        directory={readyDirectory}
+        resourceName={resourceName}
+        resourcePath={normalizedPath}
+        resourceID={resourceRecord?.id}
+        coverRelpath={resourceRecord?.coverRelpath}
+        coverExtension={resourceFileExtensionFromFormat(resourceRecord?.format ?? "")}
+        resourceStatus={resourceRecord?.status}
+        onLocationChange={(location) => {
+          updateActiveReadingResourceLocation(readyDirectory, {
+            cfi: location.cfi,
+            index: location.index,
+            fraction: location.fraction,
+            locationLabel: location.locationLabel,
+            tocLabel: location.tocLabel,
+            pageLabel: location.pageLabel,
+            currentPassageText: location.currentPassageText,
+          })
+          if (location.tocLabel) {
+            appendReadingTrailEntry(readyDirectory, {
+              tocLabel: location.tocLabel,
+              cfi: location.cfi,
+              fraction: location.fraction,
+            })
+          }
+        }}
+        onChatSelection={(selection) => {
+          stageReadingSelection(selection)
+        }}
+        onChatSelectionRemoved={(selectionKey) => {
+          removeStagedReadingSelection(selectionKey)
+        }}
+        onAnnotationsChange={(annotations) => {
+          const summary = annotations.slice(-10).map((annotation) => {
+            const note = annotation.note?.trim()
+            return note ? { text: annotation.text ?? "", note } : { text: annotation.text ?? "" }
+          })
+          setActiveReadingAnnotationSummary(readyDirectory, summary)
+        }}
+      />
+    </div>
+  ) : null
 }

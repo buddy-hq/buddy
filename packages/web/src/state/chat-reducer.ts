@@ -189,15 +189,29 @@ export function appendPartDelta(
   }
 
   const part = message.parts[partIndex]
-  const currentFieldValue = part[input.field]
-  if (typeof currentFieldValue !== "string") {
-    return current
-  }
-
   const parts = [...message.parts]
-  parts[partIndex] = {
-    ...part,
-    [input.field]: currentFieldValue + input.delta,
+  if (input.field === "state.raw") {
+    const state = part.state
+    if (!state || typeof state !== "object" || Array.isArray(state) || !("raw" in state)) {
+      return current
+    }
+    if (typeof state.raw !== "string") return current
+    parts[partIndex] = {
+      ...part,
+      state: {
+        ...state,
+        raw: state.raw + input.delta,
+      },
+    }
+  } else {
+    const currentFieldValue = part[input.field]
+    if (typeof currentFieldValue !== "string") {
+      return current
+    }
+    parts[partIndex] = {
+      ...part,
+      [input.field]: currentFieldValue + input.delta,
+    }
   }
   next[messageIndex] = {
     ...message,

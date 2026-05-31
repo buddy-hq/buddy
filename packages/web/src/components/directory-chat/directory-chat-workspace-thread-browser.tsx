@@ -17,7 +17,7 @@ import { formatThreadAge } from "@/components/layout/chat-left-sidebar/thread-he
 import { Popover, PopoverContent, PopoverTrigger } from "@buddy/ui/components/ui/popover"
 import { parseSubagentSession } from "@/lib/session-family"
 
-type DirectoryChatReadingThreadBrowserProps = {
+type DirectoryChatWorkspaceThreadBrowserProps = {
   sessionTitle: string
   sessions: SessionInfo[]
   activeSessionID?: string
@@ -36,7 +36,9 @@ function getThreadTitle(session: SessionInfo) {
   return title || language.t("sidebar.untitledThread")
 }
 
-export function DirectoryChatReadingThreadBrowser(props: DirectoryChatReadingThreadBrowserProps) {
+export function DirectoryChatWorkspaceThreadBrowser(
+  props: DirectoryChatWorkspaceThreadBrowserProps,
+) {
   const [query, setQuery] = useState("")
   const [isOpen, setIsOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -58,7 +60,7 @@ export function DirectoryChatReadingThreadBrowser(props: DirectoryChatReadingThr
 
   return (
     <div
-      data-component="directory-chat-reading-thread-browser"
+      data-component="directory-chat-workspace-thread-browser"
       className={cn("flex w-full items-center justify-between gap-4 py-1", props.className)}
     >
       <div className="flex min-w-0 items-center gap-1.5">
@@ -142,7 +144,7 @@ export function DirectoryChatReadingThreadBrowser(props: DirectoryChatReadingThr
                       key={session.id}
                       value={session.id}
                       keywords={[title]}
-                      data-action="directory-chat-reading-thread-select"
+                      data-action="directory-chat-workspace-thread-select"
                       data-session-id={session.id}
                       data-active={session.id === props.activeSessionID ? "true" : undefined}
                       aria-current={session.id === props.activeSessionID ? "true" : undefined}
