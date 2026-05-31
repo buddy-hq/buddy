@@ -11,8 +11,10 @@ import {
   HelpCircle,
   Image,
   Layers,
+  ListTodo,
   Network,
   PenLine,
+  Presentation,
   Search,
   Sigma,
   Terminal,
@@ -37,6 +39,7 @@ import { renderRenderFigureTool } from "./render/render-figure"
 import { renderSearchTool } from "./render/search"
 import { renderSkillTool } from "./render/skill"
 import { renderTaskTool } from "./render/task"
+import { renderTodoTool } from "./render/todo"
 import { renderWebfetchTool } from "./render/webfetch"
 import type { ToolRenderer } from "./tool-registry-types"
 
@@ -331,6 +334,20 @@ export const builtInTools: Record<string, ToolRenderer> = {
     card: renderBuddyCustomTool,
     summary: { display: "card", pattern: "info", suppressError: true },
   }),
-  todowrite: hiddenToolRenderer,
+  whiteboard_create_view: createToolRenderer({
+    icon: (cn) => createElement(Presentation, { className: cn }),
+    card: renderBuddyCustomTool,
+    summary: { display: "row", pattern: "metadata", suppressError: true },
+  }),
+  whiteboard_read_context: createToolRenderer({
+    icon: (cn) => createElement(Presentation, { className: cn }),
+    card: renderBuddyCustomTool,
+    summary: { display: "row", pattern: "metadata", suppressError: true },
+  }),
+  todowrite: createToolRenderer({
+    inline: true,
+    icon: (cn) => createElement(ListTodo, { className: cn }),
+    card: renderTodoTool,
+  }),
   todoread: hiddenToolRenderer,
 }

@@ -1,5 +1,6 @@
 export { Button, buttonVariants } from "./components/ui/button"
 export { Badge, badgeVariants } from "./components/ui/badge"
+export { Checkbox } from "./components/ui/checkbox"
 export {
   Card,
   CardHeader,

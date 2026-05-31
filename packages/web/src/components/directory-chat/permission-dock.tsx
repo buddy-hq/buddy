@@ -19,6 +19,7 @@ const TOOL_HINT: Record<string, string> = {
   apply_patch: language.t("chat.permissionDock.toolHint.applyPatch"),
   bash: language.t("chat.permissionDock.toolHint.bash"),
   task: language.t("chat.permissionDock.toolHint.task"),
+  todowrite: language.t("chat.permissionDock.toolHint.todowrite"),
   webfetch: language.t("chat.permissionDock.toolHint.webfetch"),
   curriculum_update: language.t("chat.permissionDock.toolHint.curriculumUpdate"),
 }

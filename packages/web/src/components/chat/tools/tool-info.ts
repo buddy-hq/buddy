@@ -359,6 +359,13 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
         },
         metadataTitle,
       )
+    case "todowrite":
+      return withMetadataTitle(
+        {
+          title: language.t(active ? "chatTools.todos.running" : "chatTools.todos"),
+        },
+        metadataTitle,
+      )
     case "python_calculator":
       return withMetadataTitle(
         {

@@ -219,6 +219,15 @@ describe("tool UI metadata", () => {
     expect(assistantPartStartsFollowup(part)).toBe(true)
   })
 
+  test("todowrite renders inline instead of being hidden", () => {
+    const part = visibleToolPart({ id: "todo_visible", tool: "todowrite" })
+    const grouped = groupAssistantParts([part], true)
+
+    expect(grouped).toHaveLength(1)
+    expect(grouped[0]?.type).toBe("part")
+    expect(assistantPartStartsFollowup(part)).toBe(true)
+  })
+
   test("groups consecutive render_figure tool calls", () => {
     const first = visibleToolPart({ id: "prt_figure_1", tool: "render_figure" })
     const second = visibleToolPart({ id: "prt_figure_2", tool: "render_figure" })
