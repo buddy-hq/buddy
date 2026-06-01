@@ -4,6 +4,7 @@ import { assessSkill } from "./skills/assess"
 import { compareConceptsSkill } from "./skills/compare-concepts"
 import { explainSkill } from "./skills/explain"
 import { learnSkill } from "./skills/learn"
+import { alignTeachingTopicsToGradeLevelAndAgeSkill } from "./skills/align-teaching-topics-to-grade-level-and-age"
 import { learningDesignFrameworksSkill } from "./skills/learning-design-frameworks"
 import { practiceSkill } from "./skills/practice"
 import { teachingModelsSkill } from "./skills/teaching-models"
@@ -25,6 +26,7 @@ export const teachingGuidanceFeature = defineBuddyFeature({
     learningDesignFrameworksSkill,
     teachingModelsSkill,
     teachingResourceAuthoringSkill,
+    alignTeachingTopicsToGradeLevelAndAgeSkill,
   ],
   subagents: [],
   surfaces: [],
