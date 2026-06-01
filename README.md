@@ -1,45 +1,47 @@
-# Buddy - An IDE for learning.
+# Buddy - A Learning App for Everyone.
 
 > Licensed under the O’Saasy License (see LICENSE).
 
-Buddy is an AI learning companion built for people who learn constantly and are tired of losing context between sessions.
+Buddy is made for anyone who wants to learn anything. You can be a student preparing for your exams or an adult exploring a curiosity. Or a teacher, teaching your class.
+
+## Built In
+
+### Pedagogical Layer
+- CCSS, NGSS, digital literacy standards, and standards from all 50 U.S. states
+- Ebook reader and PDF reader
+- Drawing canvas
+- Advanced math and graphing with Python
+- Flashcards
+- MCQ tests
+- Teaching models: Socratic, project-based learning, case studies, ...
+- Resource design: assessments, practice sets, revision sets, ...
+- Resource creation: DOCX, PPTs, sheets, ...
+- Learning frameworks: Bloom's Taxonomy, DOK, Gagne's model, formative assessment, SOLO, GRR, ...
+
+### Agent Layer
+- Subagents
+- MCPs
+- Skills
+- Agent files
+- Custom tools
+- ChatGPT login, GitHub Copilot login, BYOK, and 50+ other providers
 
 ## Install (macOS)
 
-Run:
+Paste this in your terminal, and run:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/prashantbhudwal/buddy/main/scripts/install-buddy-macos.sh | bash
 ```
 
-What this does:
-
-- Downloads the latest macOS Buddy release package for your architecture.
-- Removes the quarantine flag from the downloaded package.
-- Opens the downloaded package so you can install Buddy.
-- Uses only built-in macOS tools (`bash`, `curl`, `xattr`, `open`) and does not require Python.
-
-If Buddy is blocked after install, run:
-
-```bash
-xattr -rd com.apple.quarantine "/Applications/Buddy.app"
-```
-
 ## Install (Windows)
 
-Run in PowerShell:
+Run in PowerShell/Terminal, and run:
 
 ```powershell
 irm -UseBasicParsing https://raw.githubusercontent.com/prashantbhudwal/buddy/main/scripts/install-buddy-windows.ps1 | iex
 ```
 
-What this does:
-
-- Downloads the latest Windows Buddy installer for your architecture.
-- Falls back to x64 installer when arm64 is unavailable.
-- Removes the Mark of the Web (MotW) flag from the downloaded installer.
-- Starts the downloaded installer.
-- Uses only built-in PowerShell tools.
 
 ## Constitution
 
@@ -57,7 +59,7 @@ The app is free for anyone to use. You can bring your own subscriptions and API 
 
 ### Flexible
 
-Buddy is made for anyone who wants to learn anything. You can be a student preparing for your exams or an adult exploring a curiosity.
+Buddy is made for anyone who wants to learn anything. You can be a student preparing for your exams or an adult exploring a curiosity. Or a teacher, teaching your class.
 
 ### Extensible
 
@@ -77,12 +79,11 @@ Buddy maintains your learning context across sessions so you can pick up exactly
 - **Automatic notes** — Session summaries and key insights are saved automatically so your learning artifacts stay up to date
 - **Next topic suggestions** — Based on what you've covered, Buddy surfaces what to explore next
 
+
 ---
-
-## The Problem
-
-Most AI tools treat every learning session as a blank slate. You spend the first 10 minutes re-explaining what you've been studying, where you left off, and what you already know. Progress lives in your head (or a scattered collection of markdown files you're manually updating). There's no system that actually knows what you've learned and what's next.
 
 ## Contributing
 
 This is a personal project in active iteration. More details coming as the MVP takes shape.
+
+
