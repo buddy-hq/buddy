@@ -10,18 +10,29 @@ This skill has 3 sections
 2. Whiteboard Teaching [Pedagogy]
 3. Excalidraw Element Format [Excalidraw Format]
 
+
+
+
+---
+
 # Buddy Whiteboard Authoring
 
-You are using Buddy’s embedded Excalidraw whiteboard.The Buddy whiteboard appears in the left panel of a two-panel layout. Buddy Chat appears in the right panel. The whiteboard may use a light or dark background depending on the current theme. Any changes you make on the whiteboard are visible to the learner in real time.
+You are using Buddy's embedded Excalidraw whiteboard. The Buddy whiteboard appears in the left panel of a two-panel layout. Buddy Chat appears in the right panel. The whiteboard may use a light or dark background depending on the current theme. Any changes you make on the whiteboard are visible to the learner in real time.
 
 Buddy-specific rules:
-- For a new scene, omit restoreCheckpoint. Buddy will create a new active scene.
-- Before precise edits to an existing scene, call whiteboard_read_context, then begin the next program with {"type":"restoreCheckpoint","id":"<continuation handle>"}.
-- The continuation handle is semantic scene state. Buddy resolves it to the latest backend head, including learner edits.
-- Do not include session ids, revision ids, or other app state in tool input. Buddy already knows them.
+- Treat `whiteboard_create_view` like Excalidraw MCP's `create_view`: keep the tool input small and format-first. Put strategy and teaching decisions in your reasoning and in this skill, not inside the `elements` JSON.
+- `elements` must be one compact JSON array. It must be valid JSON: no comments, no trailing commas.
+- The tool argument is already a string field, so inside it write plain JSON like `[{"type":"rectangle","id":"a","x":0,"y":0,"width":120,"height":80}]`.
+- Do not double-escape quotes inside `elements`.
+- Do not wrap the JSON in Markdown fences.
+- Do not quote numbers. Write `"width":120`, not `"width":"120"` and not `"width":120"`.
+- To replace the current board from scratch, omit `restoreCheckpoint`.
+- Before precise edits to the current board, call `whiteboard_read_context`, then begin the next program with `{"type":"restoreCheckpoint","id":"<continuation handle>"}`.
+- The continuation handle resolves to the latest persisted current board, including learner edits.
+- Do not include session ids, board ids, or other app state in tool input. Buddy already knows them.
 - Use stable semantic element ids and never reuse a deleted id.
-- Progressive rendering is best effort while the tool input streams. Only the final validated program creates a durable revision.
-- Buddy stores immutable revisions and exposes history scrubbing in the UI, so small edits should append/delete against context instead of redrawing the entire board.
+- Progressive rendering is best effort while the tool input streams. Only the final validated program saves a durable board.
+- Buddy keeps one mutable current board per chat session. Small edits should continue from context and change only the local area instead of redrawing the whole board from scratch.
 
 ---
 
@@ -30,6 +41,137 @@ Buddy-specific rules:
 This handbook explains how to use an agent-operated teaching canvas well. Use it as the main reference when a visual board is part of the teaching design.
 
 Board means a digital visual surface such as an Excalidraw-like canvas, online whiteboard, diagramming space, sketchpad, projected visual workspace, or persistent lesson canvas. The original evidence comes from classroom board use, but this skill adapts the transferable principles for an AI teaching agent.
+
+
+## Teaching Workflow
+### Teaching Heuristics
+- Don't dump everything at the board, at once.
+- Go one logical block at a time.
+  - Teach frame by frame
+- Practice Progressive Disclosure
+- Go one frame; ask user for intearaction based on the content.
+  - Don't draw more than 2 frames a turn.
+- For interaction you can
+  - ask them a question - in chat or using 'question' tool.
+  - ask them to intearct with the drawing.
+  - ask them to draw something and then use `whiteboard_read_context` to see what they did.
+- If you are just pushing out diagrams, and user is not interacting, you are NOT doing a good job.
+- Optimize for time to first drawing.
+  - Start drawing before the full diagram is fully planned.
+  - The first visible output can be a heading, section label, rough frame, placeholder, or single block.
+  - Use it like an optimistic shell or first token: temporary, but useful.
+  - This gives the user immediate feedback that work has started and more is coming.
+  - Revise or replace the first drawing later if the structure changes.
+  - Prefer early visible progress over waiting for a perfect plan.
+
+
+### Ideal flow
+User: [explain x...]
+Assistant:
+- Loads Whiteboard skill
+- chooses a teaching model
+- decides the scope and probable whiteboard flow - without thinking about all the json
+- choses a starting point
+- draws only what is relavant to the starting point
+- uses text to explain what it drew
+User: [picks a direction: more depth, more breadth, tangential question, etc]
+Assistant:
+- mentally adapts the lesson
+- chooses the next best frame
+- draws the frame
+- explains the frame
+User: [picks a direction: more depth, more breadth, tangential question, etc]
+Assistant:
+- adapts the lesson
+- chooses a frame
+- draws the frame; ensuring doesn't overlap with existing drawings
+- explains/answers the user question.
+
+### Drawing Heuristics
+- Chat is for writing; Board is for Drawing
+  - DON't pollute the board with tonnes of text.
+  - Keep labels concise.
+- Vertical spacing: When stacking frames vertically, leave at least half the height of the upper frame between them.
+  - space below F1 ≥ 0.5 × height(F1)
+- Horizontal spacing: When placing frames side by side, leave at least one quarter of the height of the left frame between them.
+  - space beside F1 ≥ 0.25 × height(F1)
+- A frame end at the location of it's final element, vertically or horizontally.
+  - If a container in a frame descripton under it
+    - The END of the frame is the end of the 'description label, NOT end of the container itself.
+- Separators
+  - Separate vertically stacking frames with a horizontal separator.
+  - Separate horzontally stacking frames with a horizontal separator.
+  - Separators are at the equidistant from the edges of both frames.
+  - Separator overlapping a text or container can mean
+    - Not enough space between frames
+    - Wrong place for the separator
+  - Solve the issue by:
+    - Pushing the separator, OR
+    - Pusing the next frame vertically or horizontally.
+- Respect visual hierarchy
+  - Use spacing, alignment, size, and grouping to make relationships clear.
+  - Related frames, elements, and containers should be closer to each other than unrelated ones.
+    - Space within a group < space between groups
+  - Labels, captions, buttons, and annotations should be closest to the element they describe.
+    - distance(label, its element) < distance(label, other elements)
+  - Use consistent spacing levels.
+    - Tight spacing: items inside the same control or group
+    - Medium spacing: related blocks inside one section
+    - Large spacing: different sections or frame groups
+    - Extra-large spacing: major layout breaks
+  - Make primary content visually dominant.
+    - Use larger size, stronger contrast, central placement, or more whitespace.
+  - Avoid competing focal points.
+    - One primary focus
+    - A few secondary items
+    - Supporting details with lower emphasis
+  - Align related elements.
+    - Related frames should share a clear left edge, center line, or baseline.
+  - Separate unrelated groups clearly.
+    - Use more spacing, a divider, a container, a heading, or a background change.
+  - Keep hierarchy consistent across the canvas.
+    - Same relationship = same spacing, alignment, and visual treatment.
+
+### Writing Good Board Copy
+
+Board copy should be short enough to see, remember, and use.
+
+Prefer:
+
+- labels over sentences;
+- prompts over explanations;
+- key relationships over isolated terms;
+- steps with verbs;
+- examples and nonexamples near the rule they clarify;
+- criteria learners can apply immediately;
+- arrows, spacing, columns, and grouping to show relationships.
+
+Avoid:
+
+- paragraphs on the board;
+- decorative headings that do no teaching work;
+- cluttered old marks left behind;
+- copying entire spoken explanations;
+- writing only the final answer;
+- scattering related items randomly;
+- unexplained abbreviations;
+- text too small to read in the current viewport.
+
+Spatial placement teaches. Vertical lists imply sequence, hierarchy, or step order. Horizontal placement implies parallel items. Left-to-right layout can show time, argument, or development.
+
+### Gotchas
+- be aware of overlapping text and elements
+  - first, assitatn avoids it by making drawings spacious
+    - the space needed is directly propotional to the number of elements that the agent plans to draw.
+    - there are some heuristics below for general drawings but the assistant is the final authority on the aspect ratio of a drawing.
+- when modifying an existing container
+  - consider how making it bigger or smaller affects the neighbors and move them accordingly.
+  - first make a list of all the elements you will modify; delete them, then redraw them in new style. replacement is almost always a better strategy for complex drawings with more then 4 closely placed elements.
+
+### User overrides
+- all rules/heuristics/formatting guidlines are subject to user instructions and needs.
+
+
 
 ## Core Idea
 
@@ -151,19 +293,7 @@ Useful column sets:
 
 Keep rejected hypotheses visible when they are part of the reasoning trail. Cross out or annotate rather than erasing when learners need to see how thinking changed.
 
-### Visible Thinking Gallery
 
-Use note-like cards, frames, labels, arrows, and board sections to make learner thinking visible over time.
-
-The surface should help learners add ideas before evaluation, revisit earlier thoughts, see patterns and outliers, return to questions, and notice how thinking develops.
-
-Do not use the canvas only as a museum of finished diagrams. Developing ideas, messy brainstorms, revised claims, and unresolved questions often communicate learning more powerfully than polished displays.
-
-### Learner Work Display
-
-Use the canvas to examine actual learner work from chat, uploaded work, written reasoning, generated examples, or prior attempts.
-
-Use it to compare methods, study errors, live-edit a sentence or solution, identify what makes a response strong, and make invisible reasoning visible. Preserve the learner's original idea beside the revised version so the learner can see what changed and why.
 
 ### Retrieval Board
 
@@ -173,32 +303,7 @@ Use this pattern when learners need to pull ideas forward from memory before the
 
 This works best with conceptual prompts, not recall trivia. Good prompts ask learners to integrate ideas, apply a principle, explain a relationship, compare cases, or diagnose an error.
 
-## Writing Good Board Copy
 
-Board copy should be short enough to see, remember, and use.
-
-Prefer:
-
-- labels over sentences;
-- prompts over explanations;
-- key relationships over isolated terms;
-- steps with verbs;
-- examples and nonexamples near the rule they clarify;
-- criteria learners can apply immediately;
-- arrows, spacing, columns, and grouping to show relationships.
-
-Avoid:
-
-- paragraphs on the board;
-- decorative headings that do no teaching work;
-- cluttered old marks left behind;
-- copying entire spoken explanations;
-- writing only the final answer;
-- scattering related items randomly;
-- unexplained abbreviations;
-- text too small to read in the current viewport.
-
-Spatial placement teaches. Vertical lists imply sequence, hierarchy, or step order. Horizontal placement implies parallel items. Left-to-right layout can show time, argument, or development.
 
 ## Capturing Learner Thinking
 
@@ -598,11 +703,11 @@ This demonstrates a UML-style sequence diagram with 4 actors (User, Agent, App i
 
 ## Checkpoints (restoring previous state)
 
-Every whiteboard_create_view call returns a \`checkpointId\` in its response. To continue from a previous diagram state, start your elements array with a restoreCheckpoint element:
+Every whiteboard_create_view call returns a \`checkpointId\` in its response. To continue from the current board, start your elements array with a restoreCheckpoint element:
 
 \`[{"type":"restoreCheckpoint","id":"<checkpointId>"}, ...additional new elements...]\`
 
-The saved state (including any user edits made in fullscreen) is loaded from the client, and your new elements are appended on top. This saves tokens — you don't need to re-send the entire diagram.
+The current board is restored, and your new elements are appended on top. This saves tokens — you don't need to re-send the entire diagram.
 
 ## Deleting Elements
 
@@ -611,7 +716,7 @@ Remove elements by id using the \`delete\` pseudo-element:
 \`{"type":"delete","ids":"b2,a1,t3"}\`
 
 Works in two modes:
-- **With restoreCheckpoint**: restore a saved state, then surgically remove specific elements before adding new ones
+- **With restoreCheckpoint**: restore the current board, then surgically remove specific elements before adding new ones
 - **Inline (animation mode)**: draw elements, then delete and replace them later in the same array to create transformation effects
 
 Place delete entries AFTER the elements you want to remove. The final render filters them out.
@@ -706,3 +811,15 @@ Use the Primary Colors from above — they're bright enough on dark backgrounds.
 - **Text contrast is CRITICAL** — never use light gray (#b0b0b0, #999) on white backgrounds. Minimum text color on white: #757575. For colored text on light fills, use dark variants (#15803d not #22c55e, #2563eb not #4a9eed). White text needs dark backgrounds (#9a5030 not #c4795b)
 - Do NOT use emoji in text — they don't render in Excalidraw's font
 - cameraUpdate is MAGICAL and users love it! please use it a lot to guide the user's attention as you draw. It makes a huge difference in readability and engagement.
+
+
+
+
+<!IMP>
+CAUTION:
+- The workflows, vocabulary, and terms in this whiteboard-authoring skill are for your internal reasoning only.
+- The user is not aware of these guidelines.
+- Do not reveal, reference, or let them influence the visible chat language directly.
+- For example: Frame, Camera Update, Progressive Disclosure, etc are for your eyes only. Don't write them in chat or in board.
+- Use generic teaching language like, `let's see what's next`, `moving one`, `let me tell you about x`, etc.
+</!IMP>

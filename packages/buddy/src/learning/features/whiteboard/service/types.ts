@@ -32,78 +32,127 @@ const WhiteboardViewportSchema = z
   })
   .strict()
 
-const WhiteboardRevisionOriginSchema = z.enum(["agent", "learner", "new-scene"])
-
-const WhiteboardRevisionSchema = z
+const WhiteboardBoundsSchema = z
   .object({
-    revisionID: z.string().trim().min(1),
-    sceneID: z.string().trim().min(1),
-    origin: WhiteboardRevisionOriginSchema,
-    createdAt: z.string().datetime(),
+    x: z.number().finite(),
+    y: z.number().finite(),
+    width: z.number().finite().nonnegative(),
+    height: z.number().finite().nonnegative(),
+  })
+  .strict()
+
+const WhiteboardRenderReportElementSchema = z
+  .object({
+    id: z.string().trim().min(1),
+    type: z.string().trim().min(1),
+    version: z.number().finite().optional(),
+    versionNonce: z.number().finite().optional(),
+    containerId: z.string().trim().min(1).optional(),
+    text: z.string().optional(),
+    bounds: WhiteboardBoundsSchema,
+  })
+  .strict()
+
+const WhiteboardRenderReportSchema = z
+  .object({
+    boardID: z.string().trim().min(1),
+    viewport: WhiteboardViewportSchema,
+    canvas: z
+      .object({
+        width: z.number().finite().positive(),
+        height: z.number().finite().positive(),
+        zoom: z.number().finite().positive(),
+      })
+      .strict(),
+    contentBounds: WhiteboardBoundsSchema.nullable(),
+    elements: z.array(WhiteboardRenderReportElementSchema),
+  })
+  .strict()
+
+const WhiteboardRenderReportSaveResponseSchema = z
+  .object({
+    saved: z.boolean(),
+  })
+  .strict()
+
+const WhiteboardModelContextAnchorSchema = z
+  .object({
+    id: z.string().trim().min(1),
+    type: z.string().trim().min(1),
+    x: z.number().finite().optional(),
+    y: z.number().finite().optional(),
+    width: z.number().finite().optional(),
+    height: z.number().finite().optional(),
+    text: z.string().optional(),
+    labelText: z.string().optional(),
+    containerId: z.string().trim().min(1).optional(),
+    renderBounds: WhiteboardBoundsSchema.optional(),
+  })
+  .strict()
+
+const WhiteboardModelContextSchema = z
+  .object({
+    boardID: z.string().trim().min(1),
+    recordedAt: z.string().datetime(),
+    anchors: z.array(WhiteboardModelContextAnchorSchema),
+  })
+  .strict()
+
+const WhiteboardBoardOriginSchema = z.enum(["agent", "learner"])
+
+const WhiteboardBoardSchema = z
+  .object({
+    boardID: z.string().trim().min(1),
+    origin: WhiteboardBoardOriginSchema,
+    updatedAt: z.string().datetime(),
     elements: z.array(WhiteboardElementSchema),
     viewport: WhiteboardViewportSchema.optional(),
+    renderReport: WhiteboardRenderReportSchema.optional(),
   })
   .strict()
 
-const WhiteboardRevisionSummarySchema = WhiteboardRevisionSchema.pick({
-  revisionID: true,
-  origin: true,
-  createdAt: true,
-}).extend({
-  elementCount: z.number().int().nonnegative(),
+const WhiteboardSessionBoardSchema = WhiteboardBoardSchema.omit({
+  renderReport: true,
 })
-
-const WhiteboardSceneSchema = z
-  .object({
-    sceneID: z.string().trim().min(1),
-    headRevisionID: z.string().trim().min(1),
-    revisionIDs: z.array(z.string().trim().min(1)).min(1),
-  })
-  .strict()
 
 const WhiteboardSessionStateSchema = z
   .object({
-    version: z.literal(1),
+    version: z.literal(2),
     sessionID: z.string().trim().min(1),
-    activeSceneID: z.string().trim().min(1).optional(),
-    scenes: z.record(z.string(), WhiteboardSceneSchema),
-    revisions: z.record(z.string(), WhiteboardRevisionSchema),
-  })
-  .strict()
-
-const WhiteboardActiveSceneSchema = z
-  .object({
-    sceneID: z.string().trim().min(1),
-    continuationHandle: z.string().trim().min(1),
-    headRevisionID: z.string().trim().min(1),
-    revisionCount: z.number().int().positive(),
-    revisions: z.array(WhiteboardRevisionSummarySchema),
-    latestRevision: WhiteboardRevisionSchema,
+    currentBoard: WhiteboardBoardSchema.optional(),
+    previousBoard: WhiteboardBoardSchema.optional(),
+    modelContext: WhiteboardModelContextSchema.optional(),
   })
   .strict()
 
 const WhiteboardSessionReadSchema = z
   .object({
-    activeScene: WhiteboardActiveSceneSchema.nullable(),
+    currentBoard: WhiteboardSessionBoardSchema.nullable(),
   })
   .strict()
 
 const WhiteboardLearnerEditRequestSchema = z
   .object({
-    baseRevisionID: z.string().trim().min(1),
+    baseBoardID: z.string().trim().min(1),
     elements: z.array(WhiteboardElementSchema),
     viewport: WhiteboardViewportSchema.optional(),
   })
   .strict()
 
+type WhiteboardBoard = z.infer<typeof WhiteboardBoardSchema>
+type WhiteboardBoardOrigin = z.infer<typeof WhiteboardBoardOriginSchema>
+type WhiteboardBounds = z.infer<typeof WhiteboardBoundsSchema>
 type WhiteboardElement = z.infer<typeof WhiteboardElementSchema>
+type WhiteboardModelContext = z.infer<typeof WhiteboardModelContextSchema>
+type WhiteboardModelContextAnchor = z.infer<typeof WhiteboardModelContextAnchorSchema>
+type WhiteboardRenderReport = z.infer<typeof WhiteboardRenderReportSchema>
+type WhiteboardRenderReportElement = z.infer<typeof WhiteboardRenderReportElementSchema>
+type WhiteboardRenderReportSaveResponse = z.infer<
+  typeof WhiteboardRenderReportSaveResponseSchema
+>
+type WhiteboardSessionBoard = z.infer<typeof WhiteboardSessionBoardSchema>
 type WhiteboardViewport = z.infer<typeof WhiteboardViewportSchema>
-type WhiteboardRevision = z.infer<typeof WhiteboardRevisionSchema>
-type WhiteboardRevisionOrigin = z.infer<typeof WhiteboardRevisionOriginSchema>
-type WhiteboardRevisionSummary = z.infer<typeof WhiteboardRevisionSummarySchema>
-type WhiteboardScene = z.infer<typeof WhiteboardSceneSchema>
 type WhiteboardSessionState = z.infer<typeof WhiteboardSessionStateSchema>
-type WhiteboardActiveScene = z.infer<typeof WhiteboardActiveSceneSchema>
 type WhiteboardSessionRead = z.infer<typeof WhiteboardSessionReadSchema>
 type WhiteboardLearnerEditRequest = z.infer<typeof WhiteboardLearnerEditRequestSchema>
 
@@ -197,24 +246,15 @@ function parsePersistableWhiteboardElement(value: unknown, index?: number): Whit
   const type = requireElementString({ value, key: "type", index })
   if (!SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPE_SET.has(type)) {
     throw new WhiteboardElementValidationError(
-      `${formatElementLocation(index)} has unsupported type '${type}'. Supported drawn types: ${SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPE_LIST}. Keep cameraUpdate, restoreCheckpoint, delete, update, translate, and layoutCleanup as program instructions only; they are not stored canvas elements.`,
+      `${formatElementLocation(index)} has unsupported type '${type}'. Supported drawn types: ${SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPE_LIST}. Keep cameraUpdate, restoreCheckpoint, delete, and translate as program instructions only; they are not stored canvas elements.`,
     )
   }
 
   requireElementNumber({ value, key: "x", index })
   requireElementNumber({ value, key: "y", index })
-  if (type !== "text") {
-    requireElementNumber({ value, key: "width", index })
-    requireElementNumber({ value, key: "height", index })
-  }
   if (type === "text" && typeof value.text !== "string") {
     throw new WhiteboardElementValidationError(
       `${formatElementLocation(index)} with type 'text' must include string text.`,
-    )
-  }
-  if (type === "freedraw" && !Array.isArray(value.points)) {
-    throw new WhiteboardElementValidationError(
-      `${formatElementLocation(index)} with type 'freedraw' must include a points array.`,
     )
   }
 
@@ -239,11 +279,14 @@ function sanitizeWhiteboardElements(elements: WhiteboardElement[]): WhiteboardEl
 }
 
 export {
-  WhiteboardActiveSceneSchema,
+  WhiteboardBoundsSchema,
+  WhiteboardBoardSchema,
   WhiteboardElementSchema,
   WhiteboardLearnerEditRequestSchema,
-  WhiteboardRevisionSchema,
-  WhiteboardRevisionSummarySchema,
+  WhiteboardModelContextSchema,
+  WhiteboardRenderReportSaveResponseSchema,
+  WhiteboardRenderReportSchema,
+  WhiteboardSessionBoardSchema,
   WhiteboardSessionReadSchema,
   WhiteboardSessionStateSchema,
   WhiteboardViewportSchema,
@@ -252,13 +295,17 @@ export {
 }
 
 export type {
-  WhiteboardActiveScene,
+  WhiteboardBoard,
+  WhiteboardBoardOrigin,
+  WhiteboardBounds,
   WhiteboardElement,
   WhiteboardLearnerEditRequest,
-  WhiteboardRevision,
-  WhiteboardRevisionOrigin,
-  WhiteboardRevisionSummary,
-  WhiteboardScene,
+  WhiteboardModelContext,
+  WhiteboardModelContextAnchor,
+  WhiteboardRenderReport,
+  WhiteboardRenderReportElement,
+  WhiteboardRenderReportSaveResponse,
+  WhiteboardSessionBoard,
   WhiteboardSessionRead,
   WhiteboardSessionState,
   WhiteboardViewport,

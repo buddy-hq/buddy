@@ -1,8 +1,12 @@
 import z from "zod"
 import READ_CONTEXT_DESCRIPTION from "./read-context.md"
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
-import { readWhiteboardRevision, readWhiteboardSession } from "../service/store"
-import type { WhiteboardElement, WhiteboardRevision } from "../service/types"
+import {
+  readAndRecordWhiteboardBoardContext,
+  WHITEBOARD_CONTINUATION_HANDLE,
+} from "../service/store"
+import { buildWhiteboardLayoutDigest } from "../service/layout-digest"
+import type { WhiteboardBoard, WhiteboardElement } from "../service/types"
 
 const ReadWhiteboardContextInputSchema = z.object({}).strict()
 const MAX_CONTEXT_ELEMENTS = 120
@@ -122,8 +126,8 @@ function describeElement(element: WhiteboardElement): string {
 }
 
 function buildLearnerEditSummary(input: {
-  previous: WhiteboardRevision
-  latest: WhiteboardRevision
+  previous: WhiteboardBoard
+  latest: WhiteboardBoard
 }): LearnerEditSummary | undefined {
   if (input.latest.origin !== "learner") return undefined
 
@@ -167,28 +171,6 @@ function buildLearnerEditSummary(input: {
   return Object.keys(summary).length > 0 ? summary : undefined
 }
 
-async function readLatestLearnerEditSummary(input: {
-  directory: string
-  sessionID: string
-  latestRevision: WhiteboardRevision
-  revisionIDs: string[]
-}): Promise<LearnerEditSummary | undefined> {
-  if (input.latestRevision.origin !== "learner" || input.revisionIDs.length < 2) {
-    return undefined
-  }
-  const previousRevisionID = input.revisionIDs.at(-2)
-  if (!previousRevisionID) return undefined
-  const previousRevision = await readWhiteboardRevision(
-    input.directory,
-    input.sessionID,
-    previousRevisionID,
-  )
-  return buildLearnerEditSummary({
-    previous: previousRevision,
-    latest: input.latestRevision,
-  })
-}
-
 const readWhiteboardContextTool = createBuddyTool({
   id: "whiteboard_read_context",
   description: READ_CONTEXT_DESCRIPTION,
@@ -201,51 +183,45 @@ const readWhiteboardContextTool = createBuddyTool({
     },
   },
   async execute(_params, ctx) {
-    const state = await readWhiteboardSession(ctx.directory, String(ctx.sessionID))
-    const activeScene = state.activeScene
-    if (!activeScene) {
+    const context = await readAndRecordWhiteboardBoardContext(ctx.directory, String(ctx.sessionID))
+    const currentBoard = context.currentBoard
+    if (!currentBoard) {
       return {
         title: "Read Whiteboard",
-        output:
-          "No active whiteboard scene exists. Omit restoreCheckpoint to create a fresh scene.",
+        output: "No whiteboard board exists. Omit restoreCheckpoint to create the board.",
         metadata: {},
       }
     }
-    const latestRevision = activeScene.latestRevision
-    const learnerRevisionCount = activeScene.revisions.filter(
-      (revision) => revision.origin === "learner",
-    ).length
-    const latestLearnerEditSummary = await readLatestLearnerEditSummary({
-      directory: ctx.directory,
-      sessionID: String(ctx.sessionID),
-      latestRevision,
-      revisionIDs: activeScene.revisions.map((revision) => revision.revisionID),
-    })
-    const allVisibleText = latestRevision.elements
+    const latestLearnerEditSummary = context.previousBoard
+      ? buildLearnerEditSummary({
+          previous: context.previousBoard,
+          latest: currentBoard,
+        })
+      : undefined
+    const allVisibleText = currentBoard.elements
       .map(formatVisibleTextElement)
       .filter((element) => element !== undefined)
     const visibleText = allVisibleText.slice(0, MAX_VISIBLE_TEXT_ITEMS)
-    const elements = latestRevision.elements
+    const elements = currentBoard.elements
       .slice(0, MAX_CONTEXT_ELEMENTS)
       .map(formatContextElement)
+    const layout = buildWhiteboardLayoutDigest(currentBoard.renderReport)
     return {
       title: "Read Whiteboard",
       output: JSON.stringify({
-        continuationHandle: activeScene.continuationHandle,
-        headRevisionID: activeScene.headRevisionID,
-        revisionCount: activeScene.revisionCount,
-        learnerRevisionCount,
-        elementCount: latestRevision.elements.length,
-        elementsTruncated: latestRevision.elements.length > elements.length,
+        continuationHandle: WHITEBOARD_CONTINUATION_HANDLE,
+        currentBoardOrigin: currentBoard.origin,
+        elementCount: currentBoard.elements.length,
+        elementsTruncated: currentBoard.elements.length > elements.length,
         visibleText,
         visibleTextTruncated: allVisibleText.length > visibleText.length,
-        ...(latestRevision.viewport ? { viewport: latestRevision.viewport } : {}),
+        ...(layout ? { layout } : {}),
+        ...(currentBoard.viewport ? { viewport: currentBoard.viewport } : {}),
         ...(latestLearnerEditSummary ? { latestLearnerEditSummary } : {}),
         elements,
       }),
       metadata: {
-        sceneID: activeScene.sceneID,
-        revisionID: activeScene.headRevisionID,
+        boardID: currentBoard.boardID,
       },
     }
   },

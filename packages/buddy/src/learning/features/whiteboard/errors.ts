@@ -1,26 +1,5 @@
 import { InvalidWhiteboardSessionIDError } from "./service/path"
 
-class WhiteboardSceneNotFoundError extends Error {
-  constructor(sceneID: string) {
-    super(`Whiteboard scene '${sceneID}' was not found.`)
-    this.name = "WhiteboardSceneNotFoundError"
-  }
-}
-
-class WhiteboardRevisionNotFoundError extends Error {
-  constructor(revisionID: string) {
-    super(`Whiteboard revision '${revisionID}' was not found.`)
-    this.name = "WhiteboardRevisionNotFoundError"
-  }
-}
-
-class WhiteboardRevisionConflictError extends Error {
-  constructor() {
-    super("The whiteboard changed before this learner edit was saved. Reload the latest revision.")
-    this.name = "WhiteboardRevisionConflictError"
-  }
-}
-
 class WhiteboardPayloadTooLargeError extends Error {
   constructor(label: string, maxBytes: number) {
     super(`${label} exceeds ${maxBytes} bytes.`)
@@ -42,6 +21,20 @@ class WhiteboardShareUploadError extends Error {
   }
 }
 
+class WhiteboardStaleWriteError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "WhiteboardStaleWriteError"
+  }
+}
+
+class WhiteboardStaleLearnerEditError extends Error {
+  constructor() {
+    super("The whiteboard changed before this learner edit saved. Reload the latest board.")
+    this.name = "WhiteboardStaleLearnerEditError"
+  }
+}
+
 function mapWhiteboardRouteError(error: unknown): Response | undefined {
   if (error instanceof InvalidWhiteboardSessionIDError) {
     return Response.json({ error: error.message }, { status: 400 })
@@ -52,17 +45,14 @@ function mapWhiteboardRouteError(error: unknown): Response | undefined {
   if (error instanceof WhiteboardElementValidationError) {
     return Response.json({ error: error.message }, { status: 400 })
   }
-  if (
-    error instanceof WhiteboardSceneNotFoundError ||
-    error instanceof WhiteboardRevisionNotFoundError
-  ) {
-    return Response.json({ error: error.message }, { status: 404 })
-  }
-  if (error instanceof WhiteboardRevisionConflictError) {
-    return Response.json({ error: error.message }, { status: 409 })
-  }
   if (error instanceof WhiteboardShareUploadError) {
     return Response.json({ error: error.message }, { status: 502 })
+  }
+  if (error instanceof WhiteboardStaleWriteError) {
+    return Response.json({ error: error.message }, { status: 409 })
+  }
+  if (error instanceof WhiteboardStaleLearnerEditError) {
+    return Response.json({ error: error.message }, { status: 409 })
   }
   return undefined
 }
@@ -70,9 +60,8 @@ function mapWhiteboardRouteError(error: unknown): Response | undefined {
 export {
   WhiteboardElementValidationError,
   WhiteboardPayloadTooLargeError,
-  WhiteboardRevisionConflictError,
-  WhiteboardRevisionNotFoundError,
-  WhiteboardSceneNotFoundError,
   WhiteboardShareUploadError,
+  WhiteboardStaleLearnerEditError,
+  WhiteboardStaleWriteError,
   mapWhiteboardRouteError,
 }

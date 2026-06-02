@@ -9,8 +9,6 @@ const MIN_TEXT_OVERLAP_RATIO = 0.15
 const MIN_TEXT_NEAR_DISTANCE = 12
 const MAX_LINE_TEXT_DISTANCE = 2
 const LABEL_HORIZONTAL_PADDING = 12
-const CONTAINER_TEXT_PADDING = 8
-const MAX_CONTAINER_TEXT_OVERFLOW_RATIO = 0.02
 const CONTAINER_AREA_RATIO = 2.5
 const CONTAINER_CONTAINMENT_RATIO = 0.85
 const CROWDED_ZONE_CHILD_PADDING = 24
@@ -18,14 +16,12 @@ const MIN_CROWDED_ZONE_CHILD_COUNT = 4
 const MIN_CROWDED_ZONE_HARD_COLLISION_COUNT = 3
 const MIN_CROWDED_ZONE_AFFECTED_ELEMENT_COUNT = 4
 const MIN_CROWDED_ZONE_PADDED_OCCUPANCY_RATIO = 0.2
-const REDRAW_ZONE_EXPANSION_PADDING_RATIO = 1
 const VENN_MIN_AREA_RATIO = 0.5
 const VENN_MAX_AREA_RATIO = 2
 const VENN_MIN_OVERLAP_RATIO = 0.1
 const VENN_MAX_OVERLAP_RATIO = 0.75
 
 const WHITEBOARD_LAYOUT_WARNING_LEGEND = {
-  of: "text/label flows outside container",
   lt: "arrow/line crosses text/label",
   tt: "text/label overlaps text/label",
   ss: "sibling shapes overlap",
@@ -35,33 +31,23 @@ const WHITEBOARD_LAYOUT_WARNING_LEGEND = {
 
 const WHITEBOARD_LAYOUT_RELAYOUT_ACTION = "roomy_relayout_once_before_reply"
 const WHITEBOARD_LAYOUT_REDRAW_ZONE_ACTION = "redraw_crowded_zone_once_before_reply"
-const WHITEBOARD_LAYOUT_RESIZE_CONTAINER_ACTION = "resize_or_recreate_container_once_before_reply"
 const WHITEBOARD_LAYOUT_CONTINUE_ACTION = "continue"
-const WHITEBOARD_LAYOUT_CONTINUE_AFTER_RELAYOUT_ACTION = "continue_after_roomy_relayout"
 const WHITEBOARD_LAYOUT_RELAYOUT_INSTRUCTION =
-  'Before replying, make at most one roomy relayout whiteboard_create_view call. Start it with restoreCheckpoint and {"type":"layoutCleanup","strategy":"spread_zone"}. Default: create space before local fixes; expand the affected zone and camera to the next 4:3 size, then move related elements together with translate or patch individual coordinates with update. Preserve content and do not add detail. Use pair edits only for 1-2 isolated collisions. If a warning-driven relayout was already attempted in this answer, continue; do not loop.'
+  'Before replying, make at most one follow-up whiteboard_create_view call. Start it with restoreCheckpoint, create more space, and use translate to move related elements together when that is enough. If a local area is too crowded to patch cleanly, delete and redraw just that area with new ids. Preserve content and do not add detail.'
 const WHITEBOARD_LAYOUT_REDRAW_ZONE_INSTRUCTION =
-  'Before replying, make at most one redraw-zone whiteboard_create_view call. Start it with restoreCheckpoint and {"type":"layoutCleanup","strategy":"redraw_zone","zoneId":"<layoutWarnings.redrawZone.id>"}. Delete exactly layoutWarnings.redrawZone.ids, then recreate only that zone and its children with new ids in a substantially larger area and expand the camera to the next 4:3 size. Keep every element outside that zone unchanged. Do not redraw the whole diagram. Do not reposition the existing children with update or translate. Preserve content and do not add detail. Stop after this pass; do not loop.'
-const WHITEBOARD_LAYOUT_RESIZE_CONTAINER_INSTRUCTION =
-  'Before replying, make at most one resize-or-recreate whiteboard_create_view call. Start it with restoreCheckpoint and {"type":"layoutCleanup","strategy":"simplify_labels"}. Text flows outside a container: enlarge the container substantially, shorten the text, or recreate the text block in a larger area. Do not move the overflowing text alone. Stop after this pass; do not loop.'
+  "Before replying, make at most one follow-up whiteboard_create_view call. Start it with restoreCheckpoint. Delete exactly layoutWarnings.redrawZone.ids, then recreate only that zone and its children with new ids in a substantially larger area. Keep every element outside that zone unchanged. Expand the camera if needed. Preserve content and do not add detail."
 const WHITEBOARD_LAYOUT_CONTINUE_INSTRUCTION =
   "Advisory proximity only. Continue unless one cleanup would clearly improve readability."
-const WHITEBOARD_LAYOUT_CONTINUE_AFTER_RELAYOUT_INSTRUCTION =
-  "A warning-driven roomy relayout pass was already attempted. Continue; do not run another warning-driven cleanup call in this answer."
 const WHITEBOARD_LAYOUT_RELAYOUT_OUTPUT_PREFIX =
-  "WHITEBOARD ROOMY RELAYOUT REQUIRED BEFORE REPLYING."
+  "WHITEBOARD LAYOUT REPAIR SUGGESTED BEFORE REPLYING."
 const WHITEBOARD_LAYOUT_REDRAW_ZONE_OUTPUT_PREFIX =
-  "WHITEBOARD CROWDED ZONE REDRAW REQUIRED BEFORE REPLYING."
-const WHITEBOARD_LAYOUT_RESIZE_CONTAINER_OUTPUT_PREFIX =
-  "WHITEBOARD CONTAINER TEXT RESIZE REQUIRED BEFORE REPLYING."
+  "WHITEBOARD CROWDED ZONE REDRAW SUGGESTED BEFORE REPLYING."
 
 type WhiteboardLayoutWarningCode = keyof typeof WHITEBOARD_LAYOUT_WARNING_LEGEND
 type WhiteboardLayoutWarningAction =
   | typeof WHITEBOARD_LAYOUT_RELAYOUT_ACTION
   | typeof WHITEBOARD_LAYOUT_REDRAW_ZONE_ACTION
-  | typeof WHITEBOARD_LAYOUT_RESIZE_CONTAINER_ACTION
   | typeof WHITEBOARD_LAYOUT_CONTINUE_ACTION
-  | typeof WHITEBOARD_LAYOUT_CONTINUE_AFTER_RELAYOUT_ACTION
 
 type WhiteboardLayoutWarningTuple = [
   code: WhiteboardLayoutWarningCode,
@@ -79,14 +65,8 @@ type WhiteboardLayoutWarnings = {
   instruction:
     | typeof WHITEBOARD_LAYOUT_RELAYOUT_INSTRUCTION
     | typeof WHITEBOARD_LAYOUT_REDRAW_ZONE_INSTRUCTION
-    | typeof WHITEBOARD_LAYOUT_RESIZE_CONTAINER_INSTRUCTION
     | typeof WHITEBOARD_LAYOUT_CONTINUE_INSTRUCTION
-    | typeof WHITEBOARD_LAYOUT_CONTINUE_AFTER_RELAYOUT_INSTRUCTION
   redrawZone?: WhiteboardCrowdedZone
-}
-
-type WhiteboardLayoutWarningDetectionOptions = {
-  cleanupAttempted?: boolean
 }
 
 type Bounds = {
@@ -141,12 +121,6 @@ type WhiteboardCrowdedZone = {
   hardCollisionCount: number
   affectedElementCount: number
   paddedOccupancyRatio: number
-}
-
-type WhiteboardLayoutZoneScope = {
-  id: string
-  elementIDs: string[]
-  redrawBounds: Bounds
 }
 
 const SHAPE_TYPES = new Set(["rectangle", "diamond", "ellipse"])
@@ -377,15 +351,6 @@ function intersectionArea(first: Bounds, second: Bounds): number {
   return (right - left) * (bottom - top)
 }
 
-function insetBounds(bounds: Bounds, padding: number): Bounds {
-  return {
-    x: bounds.x + padding,
-    y: bounds.y + padding,
-    width: Math.max(0, bounds.width - padding * 2),
-    height: Math.max(0, bounds.height - padding * 2),
-  }
-}
-
 function expandBounds(bounds: Bounds, padding: number): Bounds {
   return {
     x: bounds.x - padding,
@@ -586,7 +551,6 @@ function toTuple(warning: RawWarning): WhiteboardLayoutWarningTuple {
 }
 
 function warningRank(warning: RawWarning): number {
-  if (warning.code === "of") return 0
   if (warning.code === "lt") return 1
   if (warning.code === "tt") return 2
   if (warning.code === "ss") return 3
@@ -595,9 +559,7 @@ function warningRank(warning: RawWarning): number {
 }
 
 function isHardWarning(warning: RawWarning): boolean {
-  return (
-    warning.code === "of" || warning.code === "lt" || warning.code === "tt" || warning.code === "ss"
-  )
+  return warning.code === "lt" || warning.code === "tt" || warning.code === "ss"
 }
 
 function pushWarning(input: {
@@ -609,53 +571,6 @@ function pushWarning(input: {
   if (input.seen.has(key)) return
   input.seen.add(key)
   input.warnings.push(input.warning)
-}
-
-function hasContainerTextOverflow(text: Bounds, container: Bounds): boolean {
-  const textArea = boundsArea(text)
-  if (textArea <= 0) return false
-  const containedArea = intersectionArea(text, insetBounds(container, CONTAINER_TEXT_PADDING))
-  return 1 - containedArea / textArea > MAX_CONTAINER_TEXT_OVERFLOW_RATIO
-}
-
-function inferStandaloneTextContainer(
-  text: TextBounds,
-  shapes: ShapeBounds[],
-): ShapeBounds | undefined {
-  if (text.containerId !== undefined) return undefined
-  return shapes
-    .filter((shape) => {
-      if (!pointIsInsideBounds({ x: text.bounds.x, y: text.bounds.y }, shape.bounds)) return false
-      const textArea = boundsArea(text.bounds)
-      if (textArea <= 0) return false
-      const overlapRatio = intersectionArea(text.bounds, shape.bounds) / textArea
-      return overlapRatio > MAX_CONTAINER_TEXT_OVERFLOW_RATIO && overlapRatio < 1
-    })
-    .toSorted((first, second) => boundsArea(first.bounds) - boundsArea(second.bounds))[0]
-}
-
-function detectContainerTextOverflowWarnings(input: {
-  texts: TextBounds[]
-  shapes: ShapeBounds[]
-  warnings: RawWarning[]
-  seen: Set<string>
-}): void {
-  const shapeByID = new Map(input.shapes.map((shape) => [shape.id, shape]))
-  for (const text of input.texts) {
-    const container =
-      (text.containerId ? shapeByID.get(text.containerId) : undefined) ??
-      inferStandaloneTextContainer(text, input.shapes)
-    if (!container || !hasContainerTextOverflow(text.bounds, container.bounds)) continue
-    pushWarning({
-      warnings: input.warnings,
-      seen: input.seen,
-      warning: {
-        code: "of",
-        primaryID: text.id,
-        secondaryID: container.id,
-      },
-    })
-  }
 }
 
 function detectTextWarnings(input: {
@@ -826,50 +741,6 @@ function readZoneElementIDs(input: {
   ]
 }
 
-function readWhiteboardLayoutZoneScope(
-  elements: WhiteboardElement[],
-  zoneID: string,
-): WhiteboardLayoutZoneScope | undefined {
-  const zone = elements
-    .map(readShapeBounds)
-    .find((shape): shape is ShapeBounds => shape?.id === zoneID && shape.type === "rectangle")
-  if (!zone) return undefined
-  const elementIDs = readZoneElementIDs({
-    zone,
-    elements,
-    layoutElements: readLayoutElementBounds(elements),
-  })
-  const redrawPadding =
-    Math.max(zone.bounds.width, zone.bounds.height) * REDRAW_ZONE_EXPANSION_PADDING_RATIO
-  return {
-    id: zone.id,
-    elementIDs,
-    redrawBounds: expandBounds(zone.bounds, redrawPadding),
-  }
-}
-
-function findWhiteboardRedrawZoneOutsideElementIDs(input: {
-  baseElements: WhiteboardElement[]
-  nextElements: WhiteboardElement[]
-  scope: WhiteboardLayoutZoneScope
-}): string[] {
-  const baseIDs = new Set(input.baseElements.map((element) => element.id))
-  return input.nextElements
-    .filter((element) => !baseIDs.has(element.id))
-    .filter((element) => {
-      const bounds = readElementBounds(element) ?? readTextBounds(element)?.bounds
-      if (!bounds) return true
-      return !pointIsInsideBounds(
-        {
-          x: bounds.x + bounds.width / 2,
-          y: bounds.y + bounds.height / 2,
-        },
-        input.scope.redrawBounds,
-      )
-    })
-    .map((element) => element.id)
-}
-
 function buildCrowdedZone(input: {
   zone: ShapeBounds
   elementIDs: string[]
@@ -951,7 +822,6 @@ function collectWhiteboardLayoutWarnings(elements: WhiteboardElement[]): RawWarn
 
   const seen = new Set<string>()
   const warnings: RawWarning[] = []
-  detectContainerTextOverflowWarnings({ texts, shapes, warnings, seen })
   detectLineTextWarnings({ lines, texts, warnings, seen })
   detectTextWarnings({ texts, warnings, seen })
   detectTextNearWarnings({ texts, warnings, seen })
@@ -959,14 +829,7 @@ function collectWhiteboardLayoutWarnings(elements: WhiteboardElement[]): RawWarn
   return warnings
 }
 
-function countWhiteboardHardLayoutWarnings(elements: WhiteboardElement[]): number {
-  return collectWhiteboardLayoutWarnings(elements).filter(isHardWarning).length
-}
-
-function detectWhiteboardLayoutWarnings(
-  elements: WhiteboardElement[],
-  options: WhiteboardLayoutWarningDetectionOptions = {},
-): WhiteboardLayoutWarnings | undefined {
+function detectWhiteboardLayoutWarnings(elements: WhiteboardElement[]): WhiteboardLayoutWarnings | undefined {
   const warnings = collectWhiteboardLayoutWarnings(elements)
   if (warnings.length === 0) return undefined
 
@@ -984,15 +847,10 @@ function detectWhiteboardLayoutWarnings(
       .filter((shape): shape is ShapeBounds => shape !== undefined),
     warnings,
   })
-  const hasContainerTextOverflow = warnings.some((warning) => warning.code === "of")
   const action = hasHardWarnings
-    ? options.cleanupAttempted
-      ? WHITEBOARD_LAYOUT_CONTINUE_AFTER_RELAYOUT_ACTION
-      : redrawZone
-        ? WHITEBOARD_LAYOUT_REDRAW_ZONE_ACTION
-        : hasContainerTextOverflow
-          ? WHITEBOARD_LAYOUT_RESIZE_CONTAINER_ACTION
-          : WHITEBOARD_LAYOUT_RELAYOUT_ACTION
+    ? redrawZone
+      ? WHITEBOARD_LAYOUT_REDRAW_ZONE_ACTION
+      : WHITEBOARD_LAYOUT_RELAYOUT_ACTION
     : WHITEBOARD_LAYOUT_CONTINUE_ACTION
   return {
     legend: WHITEBOARD_LAYOUT_WARNING_LEGEND,
@@ -1006,11 +864,7 @@ function detectWhiteboardLayoutWarnings(
         ? WHITEBOARD_LAYOUT_RELAYOUT_INSTRUCTION
         : action === WHITEBOARD_LAYOUT_REDRAW_ZONE_ACTION
           ? WHITEBOARD_LAYOUT_REDRAW_ZONE_INSTRUCTION
-          : action === WHITEBOARD_LAYOUT_RESIZE_CONTAINER_ACTION
-            ? WHITEBOARD_LAYOUT_RESIZE_CONTAINER_INSTRUCTION
-            : action === WHITEBOARD_LAYOUT_CONTINUE_AFTER_RELAYOUT_ACTION
-              ? WHITEBOARD_LAYOUT_CONTINUE_AFTER_RELAYOUT_INSTRUCTION
-              : WHITEBOARD_LAYOUT_CONTINUE_INSTRUCTION,
+          : WHITEBOARD_LAYOUT_CONTINUE_INSTRUCTION,
     ...(redrawZone ? { redrawZone } : {}),
   }
 }
@@ -1023,22 +877,15 @@ function formatWhiteboardLayoutWarningsForModel(warnings: WhiteboardLayoutWarnin
   if (warnings.action === WHITEBOARD_LAYOUT_REDRAW_ZONE_ACTION) {
     return [WHITEBOARD_LAYOUT_REDRAW_ZONE_OUTPUT_PREFIX, payload]
   }
-  if (warnings.action === WHITEBOARD_LAYOUT_RESIZE_CONTAINER_ACTION) {
-    return [WHITEBOARD_LAYOUT_RESIZE_CONTAINER_OUTPUT_PREFIX, payload]
-  }
   return [payload]
 }
 
 export {
   WHITEBOARD_LAYOUT_WARNING_LEGEND,
-  countWhiteboardHardLayoutWarnings,
   detectWhiteboardLayoutWarnings,
-  findWhiteboardRedrawZoneOutsideElementIDs,
   formatWhiteboardLayoutWarningsForModel,
-  readWhiteboardLayoutZoneScope,
 }
 export type {
-  WhiteboardLayoutZoneScope,
   WhiteboardLayoutWarningCode,
   WhiteboardLayoutWarningTuple,
   WhiteboardLayoutWarnings,

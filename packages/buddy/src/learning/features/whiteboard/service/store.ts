@@ -2,55 +2,56 @@ import { randomUUID } from "node:crypto"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { monotonicFactory } from "ulid"
-import {
-  WhiteboardRevisionConflictError,
-  WhiteboardRevisionNotFoundError,
-  WhiteboardSceneNotFoundError,
-} from "../errors"
+import { WhiteboardStaleLearnerEditError } from "../errors"
 import { WhiteboardPath } from "./path"
 import { assertWhiteboardPayloadWithinLimit } from "./payload"
+import { buildWhiteboardModelContext } from "./model-context"
 import {
-  WhiteboardRevisionSchema,
+  WhiteboardBoardSchema,
+  WhiteboardRenderReportSaveResponseSchema,
+  WhiteboardRenderReportSchema,
   WhiteboardSessionReadSchema,
   WhiteboardSessionStateSchema,
   parsePersistableWhiteboardElement,
   sanitizeWhiteboardElements,
+  type WhiteboardBoard,
+  type WhiteboardBoardOrigin,
   type WhiteboardElement,
   type WhiteboardLearnerEditRequest,
-  type WhiteboardRevision,
-  type WhiteboardRevisionOrigin,
+  type WhiteboardRenderReport,
+  type WhiteboardRenderReportSaveResponse,
+  type WhiteboardSessionBoard,
   type WhiteboardSessionRead,
   type WhiteboardSessionState,
   type WhiteboardViewport,
 } from "./types"
 
-const STATE_VERSION = 1
-const MAX_RETAINED_WHITEBOARD_SCENE_REVISIONS = 100
+const STATE_VERSION = 2
+const WHITEBOARD_CONTINUATION_HANDLE = "current"
 const mutationTails = new Map<string, Promise<void>>()
 const createWhiteboardID = monotonicFactory()
 
-type AppendRevisionInput = {
-  sceneID: string
-  origin: WhiteboardRevisionOrigin
+type WhiteboardBoardBuildBase = {
+  boardID?: string
   elements: WhiteboardElement[]
-  viewport?: WhiteboardViewport
-  activateScene?: boolean
-}
-
-type WhiteboardRevisionBuildBase = {
-  sceneID: string
-  elements: WhiteboardElement[]
+  hasCurrentBoard: boolean
+  currentBoard?: WhiteboardBoard
+  modelContext?: WhiteboardSessionState["modelContext"]
   viewport?: WhiteboardViewport
 }
 
-type WhiteboardRevisionBuildResult = {
+type WhiteboardBoardBuildResult = {
   elements: WhiteboardElement[]
   viewport?: WhiteboardViewport
 }
 
-type WhiteboardRevisionAppendFromLatestResult = {
+type WhiteboardCurrentWriteResult = {
   state: WhiteboardSessionRead
-  appended: boolean
+  saved: boolean
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 async function writeAtomicJson(targetPath: string, value: unknown): Promise<void> {
@@ -67,16 +68,17 @@ function emptyState(sessionID: string): WhiteboardSessionState {
   return WhiteboardSessionStateSchema.parse({
     version: STATE_VERSION,
     sessionID,
-    scenes: {},
-    revisions: {},
   })
 }
 
 async function readState(directory: string, sessionID: string): Promise<WhiteboardSessionState> {
   const filepath = WhiteboardPath.sessionFile(directory, sessionID)
   try {
-    const text = await fs.readFile(filepath, "utf8")
-    return WhiteboardSessionStateSchema.parse(JSON.parse(text) as unknown)
+    const parsed = JSON.parse(await fs.readFile(filepath, "utf8")) as unknown
+    if (!isRecord(parsed) || parsed.version !== STATE_VERSION) {
+      return emptyState(sessionID)
+    }
+    return WhiteboardSessionStateSchema.parse(parsed)
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
       return emptyState(sessionID)
@@ -113,112 +115,83 @@ async function mutateState<T>(
   }
 }
 
-function appendRevision(
-  state: WhiteboardSessionState,
-  input: AppendRevisionInput,
-): WhiteboardRevision {
-  const scene = state.scenes[input.sceneID]
-  if (!scene) {
-    throw new WhiteboardSceneNotFoundError(input.sceneID)
-  }
+function sanitizeBoard(board: WhiteboardBoard): WhiteboardBoard {
+  return WhiteboardBoardSchema.parse({
+    ...board,
+    elements: sanitizeWhiteboardElements(board.elements),
+  })
+}
 
-  const revision = WhiteboardRevisionSchema.parse({
-    revisionID: createWhiteboardID(),
-    sceneID: input.sceneID,
+function withoutRenderReport(board: WhiteboardBoard): WhiteboardSessionBoard {
+  const { renderReport: _renderReport, ...sessionBoard } = board
+  return sessionBoard
+}
+
+function toPreviousBoard(board: WhiteboardBoard): WhiteboardBoard {
+  const { renderReport: _renderReport, ...previousBoard } = board
+  return WhiteboardBoardSchema.parse(previousBoard)
+}
+
+function createBoard(input: {
+  origin: WhiteboardBoardOrigin
+  elements: WhiteboardElement[]
+  viewport?: WhiteboardViewport
+}): WhiteboardBoard {
+  return WhiteboardBoardSchema.parse({
+    boardID: createWhiteboardID(),
     origin: input.origin,
-    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     elements: input.elements,
     ...(input.viewport ? { viewport: input.viewport } : {}),
   })
-  state.revisions[revision.revisionID] = revision
-  scene.revisionIDs.push(revision.revisionID)
-  scene.headRevisionID = revision.revisionID
-  enforceSceneRevisionLimit(state, input.sceneID)
-  if (input.activateScene ?? true) {
-    state.activeSceneID = input.sceneID
-  }
-  return revision
 }
 
-function createBlankSceneInState(state: WhiteboardSessionState) {
-  const sceneID = createWhiteboardID()
-  const revisionID = createWhiteboardID()
-  const revision = WhiteboardRevisionSchema.parse({
-    revisionID,
-    sceneID,
-    origin: "new-scene",
-    createdAt: new Date().toISOString(),
-    elements: [],
+function writeCurrentBoard(
+  state: WhiteboardSessionState,
+  input: {
+    origin: WhiteboardBoardOrigin
+    elements: WhiteboardElement[]
+    viewport?: WhiteboardViewport
+  },
+): WhiteboardBoard {
+  if (state.currentBoard) {
+    state.previousBoard = toPreviousBoard(sanitizeBoard(state.currentBoard))
+  }
+  const board = createBoard(input)
+  state.currentBoard = board
+  return board
+}
+
+function saveLearnerBoard(
+  state: WhiteboardSessionState,
+  input: {
+    elements: WhiteboardElement[]
+    viewport?: WhiteboardViewport
+  },
+): WhiteboardBoard {
+  const currentBoard = state.currentBoard
+  if (!currentBoard) {
+    throw new WhiteboardStaleLearnerEditError()
+  }
+  state.previousBoard = toPreviousBoard(sanitizeBoard(currentBoard))
+  const board = WhiteboardBoardSchema.parse({
+    boardID: currentBoard.boardID,
+    origin: "learner",
+    updatedAt: new Date().toISOString(),
+    elements: input.elements,
+    ...(input.viewport
+      ? { viewport: input.viewport }
+      : currentBoard.viewport
+        ? { viewport: currentBoard.viewport }
+        : {}),
   })
-  state.scenes[sceneID] = {
-    sceneID,
-    headRevisionID: revisionID,
-    revisionIDs: [revisionID],
-  }
-  state.revisions[revisionID] = revision
-  state.activeSceneID = sceneID
-  return revision
-}
-
-function enforceSceneRevisionLimit(state: WhiteboardSessionState, sceneID: string): void {
-  const scene = state.scenes[sceneID]
-  if (!scene || scene.revisionIDs.length <= MAX_RETAINED_WHITEBOARD_SCENE_REVISIONS) {
-    return
-  }
-
-  scene.revisionIDs = scene.revisionIDs.slice(-MAX_RETAINED_WHITEBOARD_SCENE_REVISIONS)
-  const retainedRevisionIDs = new Set(
-    Object.values(state.scenes).flatMap((candidate) => candidate.revisionIDs),
-  )
-  for (const revisionID of Object.keys(state.revisions)) {
-    if (!retainedRevisionIDs.has(revisionID)) {
-      delete state.revisions[revisionID]
-    }
-  }
-}
-
-function readSceneRevision(state: WhiteboardSessionState, revisionID: string) {
-  const revision = state.revisions[revisionID]
-  if (!revision) {
-    throw new WhiteboardRevisionNotFoundError(revisionID)
-  }
-  return revision
-}
-
-function sanitizeRevision(revision: WhiteboardRevision): WhiteboardRevision {
-  return WhiteboardRevisionSchema.parse({
-    ...revision,
-    elements: sanitizeWhiteboardElements(revision.elements),
-  })
+  state.currentBoard = board
+  return board
 }
 
 function toSessionRead(state: WhiteboardSessionState): WhiteboardSessionRead {
-  const sceneID = state.activeSceneID
-  if (!sceneID) {
-    return { activeScene: null }
-  }
-  const scene = state.scenes[sceneID]
-  if (!scene) {
-    throw new WhiteboardSceneNotFoundError(sceneID)
-  }
-  const latestRevision = sanitizeRevision(readSceneRevision(state, scene.headRevisionID))
   return WhiteboardSessionReadSchema.parse({
-    activeScene: {
-      sceneID,
-      continuationHandle: sceneID,
-      headRevisionID: scene.headRevisionID,
-      revisionCount: scene.revisionIDs.length,
-      revisions: scene.revisionIDs.map((revisionID) => {
-        const revision = sanitizeRevision(readSceneRevision(state, revisionID))
-        return {
-          revisionID,
-          origin: revision.origin,
-          createdAt: revision.createdAt,
-          elementCount: revision.elements.length,
-        }
-      }),
-      latestRevision,
-    },
+    currentBoard: state.currentBoard ? withoutRenderReport(sanitizeBoard(state.currentBoard)) : null,
   })
 }
 
@@ -229,155 +202,136 @@ async function readWhiteboardSession(
   return toSessionRead(await readState(directory, sessionID))
 }
 
-async function readWhiteboardRevision(
+async function readWhiteboardBoardContext(
   directory: string,
   sessionID: string,
-  revisionID: string,
-): Promise<WhiteboardRevision> {
-  return sanitizeRevision(readSceneRevision(await readState(directory, sessionID), revisionID))
-}
-
-async function readWhiteboardSceneLatestRevision(
-  directory: string,
-  sessionID: string,
-  sceneID: string,
-): Promise<WhiteboardRevision> {
+): Promise<{
+  currentBoard: WhiteboardBoard | null
+  previousBoard?: WhiteboardBoard
+}> {
   const state = await readState(directory, sessionID)
-  const scene = state.scenes[sceneID]
-  if (!scene) {
-    throw new WhiteboardSceneNotFoundError(sceneID)
+  return {
+    currentBoard: state.currentBoard ? sanitizeBoard(state.currentBoard) : null,
+    ...(state.previousBoard ? { previousBoard: sanitizeBoard(state.previousBoard) } : {}),
   }
-  return sanitizeRevision(readSceneRevision(state, scene.headRevisionID))
 }
 
-async function createBlankWhiteboardScene(
+async function readAndRecordWhiteboardBoardContext(
   directory: string,
   sessionID: string,
-): Promise<WhiteboardSessionRead> {
+): Promise<{
+  currentBoard: WhiteboardBoard | null
+  previousBoard?: WhiteboardBoard
+}> {
   return mutateState(directory, sessionID, (state) => {
-    createBlankSceneInState(state)
-    return toSessionRead(state)
-  })
-}
-
-async function appendWhiteboardRevision(input: {
-  directory: string
-  sessionID: string
-  sceneID?: string
-  origin: WhiteboardRevisionOrigin
-  elements: WhiteboardElement[]
-  viewport?: WhiteboardViewport
-}): Promise<WhiteboardSessionRead> {
-  return mutateState(input.directory, input.sessionID, (state) => {
-    const initial = input.sceneID ? undefined : createBlankSceneInState(state)
-    const sceneID = input.sceneID ?? initial?.sceneID
-    if (!sceneID) {
-      throw new Error("A whiteboard scene id is required.")
+    const currentBoard = state.currentBoard ? sanitizeBoard(state.currentBoard) : undefined
+    if (currentBoard) {
+      state.modelContext = buildWhiteboardModelContext(currentBoard)
     }
-    appendRevision(state, {
-      sceneID,
-      origin: input.origin,
-      elements: input.elements.map((element, index) =>
-        parsePersistableWhiteboardElement(element, index),
-      ),
-      ...(input.viewport ? { viewport: input.viewport } : {}),
-    })
-    return toSessionRead(state)
+    return {
+      currentBoard: currentBoard ?? null,
+      ...(state.previousBoard ? { previousBoard: sanitizeBoard(state.previousBoard) } : {}),
+    }
   })
 }
 
-async function appendWhiteboardRevisionFromLatest(input: {
+async function writeWhiteboardCurrentFromLatest(input: {
   directory: string
   sessionID: string
-  sceneID?: string
-  origin: WhiteboardRevisionOrigin
-  buildRevision: (base: WhiteboardRevisionBuildBase) => WhiteboardRevisionBuildResult
-  shouldAppend?: (input: {
-    base: WhiteboardRevisionBuildBase
-    next: WhiteboardRevisionBuildResult
+  origin: WhiteboardBoardOrigin
+  buildBoard: (base: WhiteboardBoardBuildBase) => WhiteboardBoardBuildResult
+  validateBase?: (base: WhiteboardBoardBuildBase) => void
+  recordModelContext?: boolean
+  shouldSave?: (input: {
+    base: WhiteboardBoardBuildBase
+    next: WhiteboardBoardBuildResult
   }) => boolean
-}): Promise<WhiteboardRevisionAppendFromLatestResult> {
+}): Promise<WhiteboardCurrentWriteResult> {
   return mutateState(input.directory, input.sessionID, (state) => {
-    const initial = input.sceneID ? undefined : createBlankSceneInState(state)
-    const sceneID = input.sceneID ?? initial?.sceneID
-    if (!sceneID) {
-      throw new Error("A whiteboard scene id is required.")
-    }
-    const scene = state.scenes[sceneID]
-    if (!scene) {
-      throw new WhiteboardSceneNotFoundError(sceneID)
-    }
-    const latestRevision = sanitizeRevision(readSceneRevision(state, scene.headRevisionID))
+    const currentBoard = state.currentBoard ? sanitizeBoard(state.currentBoard) : undefined
     const base = {
-      sceneID,
-      elements: latestRevision.elements.map((element) => ({ ...element })),
-      ...(latestRevision.viewport ? { viewport: latestRevision.viewport } : {}),
+      ...(currentBoard ? { boardID: currentBoard.boardID, currentBoard } : {}),
+      elements: currentBoard?.elements.map((element) => ({ ...element })) ?? [],
+      hasCurrentBoard: currentBoard !== undefined,
+      ...(state.modelContext ? { modelContext: state.modelContext } : {}),
+      ...(currentBoard?.viewport ? { viewport: currentBoard.viewport } : {}),
     }
-    const next = input.buildRevision(base)
+    input.validateBase?.(base)
+    const next = input.buildBoard(base)
     const validatedNext = {
       elements: next.elements.map((element, index) =>
         parsePersistableWhiteboardElement(element, index),
       ),
       ...(next.viewport ? { viewport: next.viewport } : {}),
     }
-    if (input.shouldAppend && !input.shouldAppend({ base, next: validatedNext })) {
-      state.activeSceneID = sceneID
+    if (input.shouldSave && !input.shouldSave({ base, next: validatedNext })) {
       return {
         state: toSessionRead(state),
-        appended: false,
+        saved: false,
       }
     }
-    appendRevision(state, {
-      sceneID,
+    const board = writeCurrentBoard(state, {
       origin: input.origin,
       elements: validatedNext.elements,
       ...(validatedNext.viewport ? { viewport: validatedNext.viewport } : {}),
     })
+    if (input.recordModelContext) {
+      state.modelContext = buildWhiteboardModelContext(board)
+    }
     return {
       state: toSessionRead(state),
-      appended: true,
+      saved: true,
     }
+  })
+}
+
+async function saveWhiteboardRenderReport(input: {
+  directory: string
+  sessionID: string
+  report: WhiteboardRenderReport
+}): Promise<WhiteboardRenderReportSaveResponse> {
+  assertWhiteboardPayloadWithinLimit("Whiteboard render report", JSON.stringify(input.report))
+  const report = WhiteboardRenderReportSchema.parse(input.report)
+  return mutateState(input.directory, input.sessionID, (state) => {
+    if (!state.currentBoard || state.currentBoard.boardID !== report.boardID) {
+      return WhiteboardRenderReportSaveResponseSchema.parse({ saved: false })
+    }
+    state.currentBoard = WhiteboardBoardSchema.parse({
+      ...state.currentBoard,
+      renderReport: report,
+    })
+    return WhiteboardRenderReportSaveResponseSchema.parse({ saved: true })
   })
 }
 
 async function saveWhiteboardLearnerEdit(input: {
   directory: string
   sessionID: string
-  sceneID: string
   edit: WhiteboardLearnerEditRequest
 }): Promise<WhiteboardSessionRead> {
   assertWhiteboardPayloadWithinLimit("Whiteboard learner edit", JSON.stringify(input.edit))
   return mutateState(input.directory, input.sessionID, (state) => {
-    const scene = state.scenes[input.sceneID]
-    if (!scene) {
-      throw new WhiteboardSceneNotFoundError(input.sceneID)
+    if (!state.currentBoard || state.currentBoard.boardID !== input.edit.baseBoardID) {
+      throw new WhiteboardStaleLearnerEditError()
     }
-    if (state.activeSceneID !== input.sceneID) {
-      throw new WhiteboardRevisionConflictError()
-    }
-    if (scene.headRevisionID !== input.edit.baseRevisionID) {
-      throw new WhiteboardRevisionConflictError()
-    }
-    appendRevision(state, {
-      sceneID: input.sceneID,
-      origin: "learner",
-      elements: input.edit.elements.map((element, index) =>
-        parsePersistableWhiteboardElement(element, index),
-      ),
+    const elements = input.edit.elements.map((element, index) =>
+      parsePersistableWhiteboardElement(element, index),
+    )
+    saveLearnerBoard(state, {
+      elements,
       ...(input.edit.viewport ? { viewport: input.edit.viewport } : {}),
-      activateScene: false,
     })
     return toSessionRead(state)
   })
 }
 
 export {
-  appendWhiteboardRevision,
-  appendWhiteboardRevisionFromLatest,
-  createBlankWhiteboardScene,
-  MAX_RETAINED_WHITEBOARD_SCENE_REVISIONS,
-  readWhiteboardRevision,
-  readWhiteboardSceneLatestRevision,
+  readAndRecordWhiteboardBoardContext,
+  readWhiteboardBoardContext,
   readWhiteboardSession,
+  saveWhiteboardRenderReport,
   saveWhiteboardLearnerEdit,
+  WHITEBOARD_CONTINUATION_HANDLE,
+  writeWhiteboardCurrentFromLatest,
 }
+export type { WhiteboardBoardBuildBase, WhiteboardCurrentWriteResult }

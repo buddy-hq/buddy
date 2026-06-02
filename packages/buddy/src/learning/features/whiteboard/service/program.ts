@@ -1,20 +1,19 @@
 import z from "zod"
-import { appendWhiteboardRevisionFromLatest } from "./store"
+import { WHITEBOARD_CONTINUATION_HANDLE, writeWhiteboardCurrentFromLatest } from "./store"
 import { WhiteboardElementValidationError } from "../errors"
+import { assertWhiteboardTouchedAnchorsFresh } from "./model-context"
 import {
   WhiteboardViewportSchema,
   parsePersistableWhiteboardElement,
+  type WhiteboardBoard,
+  type WhiteboardBoardOrigin,
   type WhiteboardElement,
   type WhiteboardSessionRead,
   type WhiteboardViewport,
 } from "./types"
 import { assertWhiteboardPayloadWithinLimit } from "./payload"
 import {
-  countWhiteboardHardLayoutWarnings,
   detectWhiteboardLayoutWarnings,
-  findWhiteboardRedrawZoneOutsideElementIDs,
-  readWhiteboardLayoutZoneScope,
-  type WhiteboardLayoutZoneScope,
   type WhiteboardLayoutWarnings,
 } from "./layout-warnings"
 
@@ -22,9 +21,7 @@ const PSEUDO_ELEMENT_TYPES = new Set([
   "restoreCheckpoint",
   "delete",
   "cameraUpdate",
-  "update",
   "translate",
-  "layoutCleanup",
 ])
 
 const RestoreCheckpointSchema = z
@@ -52,13 +49,6 @@ const CameraUpdateSchema = z
   })
   .strict()
 
-const UpdateElementSchema = z
-  .object({
-    type: z.literal("update"),
-    id: z.string().trim().min(1),
-  })
-  .loose()
-
 const TranslateElementsSchema = z
   .object({
     type: z.literal("translate"),
@@ -68,47 +58,21 @@ const TranslateElementsSchema = z
   })
   .strict()
 
-const LAYOUT_CLEANUP_STRATEGIES = [
-  "spread_zone",
-  "move_isolated",
-  "split_sections",
-  "simplify_labels",
-  "redraw_zone",
-] as const
-
-const LayoutCleanupSchema = z
-  .object({
-    type: z.literal("layoutCleanup"),
-    strategy: z.enum(LAYOUT_CLEANUP_STRATEGIES),
-    zoneId: z.string().trim().min(1).optional(),
-  })
-  .strict()
-
 const CAMERA_TARGET_ASPECT_RATIO = 4 / 3
 const CAMERA_ASPECT_RATIO_TOLERANCE = 0.15
 
-type WhiteboardLayoutCleanupStrategy = z.infer<typeof LayoutCleanupSchema>["strategy"]
-type WhiteboardLayoutCleanupReview = {
-  strategy: WhiteboardLayoutCleanupStrategy
-  zoneId?: string
-  accepted: boolean
-  hardBefore: number
-  hardAfter: number
-}
-
 type WhiteboardProgramResult = {
   state: WhiteboardSessionRead
-  sceneID: string
-  revisionID: string
+  continuationHandle: string
+  boardID: string
   saved: boolean
   warnings: string[]
   layoutWarnings?: WhiteboardLayoutWarnings
-  layoutCleanup?: WhiteboardLayoutCleanupReview
 }
 
 type WhiteboardProgramBase = {
-  sceneID?: string
   elements: WhiteboardElement[]
+  hasCurrentBoard: boolean
   viewport?: WhiteboardViewport
 }
 
@@ -156,6 +120,49 @@ function parseDeleteIDs(input: { ids?: string; id?: string }): string[] | undefi
   return parseCommaSeparatedIDs(raw)
 }
 
+function addParsedIDs(input: { ids: string[] | undefined; touchedIDs: Set<string> }): void {
+  if (!input.ids) return
+  for (const id of input.ids) {
+    input.touchedIDs.add(id)
+  }
+}
+
+function addReferencedElementID(value: unknown, touchedIDs: Set<string>): void {
+  if (!isRecord(value)) return
+  const elementID = value.elementId
+  if (typeof elementID === "string" && elementID.trim().length > 0) {
+    touchedIDs.add(elementID)
+  }
+}
+
+function collectTouchedIDs(program: unknown[]): Set<string> {
+  const touchedIDs = new Set<string>()
+  for (const value of program) {
+    const type = readElementType(value)
+    if (type === "delete") {
+      const deletion = DeleteElementSchema.safeParse(value)
+      if (deletion.success) {
+        addParsedIDs({ ids: parseDeleteIDs(deletion.data), touchedIDs })
+      }
+      continue
+    }
+    if (type === "translate") {
+      const translation = TranslateElementsSchema.safeParse(value)
+      if (translation.success) {
+        addParsedIDs({ ids: parseCommaSeparatedIDs(translation.data.ids), touchedIDs })
+      }
+      continue
+    }
+    if (!isRecord(value) || PSEUDO_ELEMENT_TYPES.has(type ?? "")) continue
+    if (typeof value.containerId === "string" && value.containerId.trim().length > 0) {
+      touchedIDs.add(value.containerId)
+    }
+    addReferencedElementID(value.startBinding, touchedIDs)
+    addReferencedElementID(value.endBinding, touchedIDs)
+  }
+  return touchedIDs
+}
+
 function withoutDeletedElements(
   elements: WhiteboardElement[],
   ids: Set<string>,
@@ -183,44 +190,33 @@ function describeProgramValue(value: unknown): string {
   return `${type}:${id}`
 }
 
-function findRestoreCheckpoint(input: {
+function hasRestoreCheckpoint(input: {
   program: unknown[]
   warnings: string[]
-}): { sceneID: string; index: number } | undefined {
+}): boolean {
+  let found = false
   for (let index = 0; index < input.program.length; index += 1) {
     const value = input.program[index]
     if (readElementType(value) !== "restoreCheckpoint") continue
     const parsed = RestoreCheckpointSchema.safeParse(value)
     if (!parsed.success) {
-      input.warnings.push(
-        `Skipped malformed restoreCheckpoint at index ${index}: ${parsed.error.message}`,
+      throw new WhiteboardElementValidationError(
+        `Invalid restoreCheckpoint at index ${index}: expected {"type":"restoreCheckpoint","id":"${WHITEBOARD_CONTINUATION_HANDLE}"}.`,
       )
-      continue
+    }
+    if (parsed.data.id !== WHITEBOARD_CONTINUATION_HANDLE) {
+      throw new WhiteboardElementValidationError(
+        `Invalid restoreCheckpoint at index ${index}: expected id "${WHITEBOARD_CONTINUATION_HANDLE}", got "${parsed.data.id}".`,
+      )
     }
     if (index !== 0) {
       input.warnings.push(
-        `restoreCheckpoint appeared at index ${index}; applied it as the scene continuation anyway.`,
+        `restoreCheckpoint appeared at index ${index}; applied it as the current-board continuation anyway.`,
       )
     }
-    return {
-      sceneID: parsed.data.id,
-      index,
-    }
+    found = true
   }
-  return undefined
-}
-
-function resolveProgramBase(input: { program: unknown[]; warnings: string[] }): {
-  sceneID?: string
-} {
-  const restore = findRestoreCheckpoint({
-    program: input.program,
-    warnings: input.warnings,
-  })
-  if (restore) {
-    return { sceneID: restore.sceneID }
-  }
-  return {}
+  return found
 }
 
 function applyDeletion(input: {
@@ -242,84 +238,6 @@ function applyDeletion(input: {
     return input.elements
   }
   return withoutDeletedElements(input.elements, new Set(ids))
-}
-
-function applyUpdate(input: {
-  elements: WhiteboardElement[]
-  value: unknown
-  index: number
-  warnings: string[]
-}): WhiteboardElement[] {
-  const update = UpdateElementSchema.safeParse(input.value)
-  if (!update.success) {
-    input.warnings.push(`Skipped malformed update at index ${input.index}: ${update.error.message}`)
-    return input.elements
-  }
-  const elementIndex = input.elements.findIndex((element) => element.id === update.data.id)
-  if (elementIndex === -1) {
-    input.warnings.push(
-      `Skipped update at index ${input.index}: element '${update.data.id}' does not exist.`,
-    )
-    return input.elements
-  }
-  const patch = Object.fromEntries(
-    Object.entries(update.data).filter(([key]) => key !== "type" && key !== "id"),
-  )
-  if (Object.keys(patch).length === 0) {
-    input.warnings.push(`Skipped update at index ${input.index}: no patch fields were provided.`)
-    return input.elements
-  }
-  const existing = input.elements[elementIndex]
-  const updated = parseDrawableElement({
-    value: {
-      ...existing,
-      ...patch,
-      id: existing.id,
-      type: existing.type,
-    },
-    index: input.index,
-    warnings: input.warnings,
-  })
-  if (!updated) return input.elements
-  const nextElements = input.elements.with(elementIndex, updated)
-  if (
-    typeof existing.x !== "number" ||
-    typeof existing.y !== "number" ||
-    typeof updated.x !== "number" ||
-    typeof updated.y !== "number"
-  ) {
-    return nextElements
-  }
-  return translateBoundTextChildren({
-    elements: nextElements,
-    containerIDs: new Set([updated.id]),
-    dx: updated.x - existing.x,
-    dy: updated.y - existing.y,
-  })
-}
-
-function translateBoundTextChildren(input: {
-  elements: WhiteboardElement[]
-  containerIDs: Set<string>
-  dx: number
-  dy: number
-}): WhiteboardElement[] {
-  if (input.dx === 0 && input.dy === 0) return input.elements
-  return input.elements.map((element) => {
-    if (
-      typeof element.containerId !== "string" ||
-      !input.containerIDs.has(element.containerId) ||
-      typeof element.x !== "number" ||
-      typeof element.y !== "number"
-    ) {
-      return element
-    }
-    return {
-      ...element,
-      x: element.x + input.dx,
-      y: element.y + input.dy,
-    }
-  })
 }
 
 function translateElements(input: {
@@ -389,106 +307,6 @@ function applyTranslation(input: {
   })
 }
 
-function findLayoutCleanup(input: {
-  program: unknown[]
-  warnings: string[]
-}): { strategy: WhiteboardLayoutCleanupStrategy; zoneId?: string } | undefined {
-  let cleanup: { strategy: WhiteboardLayoutCleanupStrategy; zoneId?: string } | undefined
-  for (let index = 0; index < input.program.length; index += 1) {
-    const value = input.program[index]
-    if (readElementType(value) !== "layoutCleanup") continue
-    const parsed = LayoutCleanupSchema.safeParse(value)
-    if (!parsed.success) {
-      input.warnings.push(
-        `Skipped malformed layoutCleanup at index ${index}: ${parsed.error.message}`,
-      )
-      continue
-    }
-    if (cleanup) {
-      input.warnings.push(`Skipped duplicate layoutCleanup at index ${index}.`)
-      continue
-    }
-    if (parsed.data.strategy === "redraw_zone" && !parsed.data.zoneId) {
-      input.warnings.push(
-        `Skipped redraw_zone layoutCleanup at index ${index}: zoneId is required.`,
-      )
-      continue
-    }
-    cleanup = {
-      strategy: parsed.data.strategy,
-      ...(parsed.data.zoneId ? { zoneId: parsed.data.zoneId } : {}),
-    }
-  }
-  return cleanup
-}
-
-function assertValidLayoutCleanupProgram(input: {
-  program: unknown[]
-  cleanup: { strategy: WhiteboardLayoutCleanupStrategy; zoneId?: string }
-}): void {
-  if (input.cleanup.strategy !== "redraw_zone") return
-  const hasPositionalRepair = input.program.some((value) => {
-    const type = readElementType(value)
-    return type === "update" || type === "translate"
-  })
-  if (hasPositionalRepair) {
-    throw new Error(
-      "redraw_zone layoutCleanup must delete and recreate the crowded zone; do not use update or translate.",
-    )
-  }
-  const deletedIDs = readProgramDeletedIDs(input.program)
-  if (!input.cleanup.zoneId || !deletedIDs.has(input.cleanup.zoneId)) {
-    throw new Error(
-      "redraw_zone layoutCleanup must delete its targeted zoneId before recreating it.",
-    )
-  }
-}
-
-function readProgramDeletedIDs(program: unknown[]): Set<string> {
-  const deletedIDs = new Set<string>()
-  for (const value of program) {
-    if (readElementType(value) !== "delete") continue
-    const deletion = DeleteElementSchema.safeParse(value)
-    if (!deletion.success) continue
-    for (const id of parseDeleteIDs(deletion.data) ?? []) {
-      deletedIDs.add(id)
-    }
-  }
-  return deletedIDs
-}
-
-function assertValidRedrawZoneScope(input: {
-  elements: WhiteboardElement[]
-  program: unknown[]
-  cleanup: { strategy: WhiteboardLayoutCleanupStrategy; zoneId?: string }
-}): WhiteboardLayoutZoneScope | undefined {
-  if (input.cleanup.strategy !== "redraw_zone") return undefined
-  if (!input.cleanup.zoneId) {
-    throw new Error("redraw_zone layoutCleanup requires a targeted zoneId.")
-  }
-  const scope = readWhiteboardLayoutZoneScope(input.elements, input.cleanup.zoneId)
-  if (!scope) {
-    throw new Error(
-      `redraw_zone layoutCleanup targeted zone '${input.cleanup.zoneId}' does not exist.`,
-    )
-  }
-  const allowedIDs = new Set(scope.elementIDs)
-  const deletedIDs = readProgramDeletedIDs(input.program)
-  const outsideIDs = [...deletedIDs].filter((id) => !allowedIDs.has(id))
-  if (outsideIDs.length > 0) {
-    throw new Error(
-      `redraw_zone layoutCleanup must keep elements outside its targeted zone unchanged. Outside deletions: ${outsideIDs.join(", ")}.`,
-    )
-  }
-  const missingIDs = scope.elementIDs.filter((id) => !deletedIDs.has(id))
-  if (missingIDs.length > 0) {
-    throw new Error(
-      `redraw_zone layoutCleanup must delete exactly its targeted zone ids before recreating them. Missing deletions: ${missingIDs.join(", ")}.`,
-    )
-  }
-  return scope
-}
-
 function appendCameraRatioHint(input: { camera: WhiteboardViewport; warnings: string[] }) {
   const ratio = input.camera.width / input.camera.height
   if (Math.abs(ratio - CAMERA_TARGET_ASPECT_RATIO) <= CAMERA_ASPECT_RATIO_TOLERANCE) return
@@ -538,13 +356,14 @@ function parseDrawableElement(input: {
   }
 }
 
-function buildWhiteboardProgramRevision(input: {
+function buildWhiteboardProgramBoard(input: {
   program: unknown[]
   base: WhiteboardProgramBase
+  continueCurrent: boolean
   warnings: string[]
 }): { elements: WhiteboardElement[]; viewport?: WhiteboardViewport } {
-  let elements = input.base.elements.map((element) => ({ ...element }))
-  let viewport = input.base.viewport
+  let elements = input.continueCurrent ? input.base.elements.map((element) => ({ ...element })) : []
+  let viewport = input.continueCurrent ? input.base.viewport : undefined
   const initialSignature = buildProgramStateSignature({ elements, viewport })
 
   for (let index = 0; index < input.program.length; index += 1) {
@@ -563,10 +382,6 @@ function buildWhiteboardProgramRevision(input: {
       elements = applyDeletion({ elements, value, index, warnings: input.warnings })
       continue
     }
-    if (type === "update") {
-      elements = applyUpdate({ elements, value, index, warnings: input.warnings })
-      continue
-    }
     if (type === "translate") {
       elements = applyTranslation({ elements, value, index, warnings: input.warnings })
       continue
@@ -578,9 +393,6 @@ function buildWhiteboardProgramRevision(input: {
         viewport,
         warnings: input.warnings,
       })
-      continue
-    }
-    if (type === "layoutCleanup") {
       continue
     }
     if (PSEUDO_ELEMENT_TYPES.has(type)) {
@@ -599,13 +411,13 @@ function buildWhiteboardProgramRevision(input: {
     }
     elements.push(element)
   }
-  if (elements.length === 0 && !input.base.sceneID) {
+  if (elements.length === 0 && !(input.continueCurrent && input.base.hasCurrentBoard)) {
     throw new Error(
-      "Whiteboard program did not contain any valid drawable elements, so no revision was saved.",
+      "Whiteboard program did not contain any valid drawable elements, so no board was saved.",
     )
   }
   if (buildProgramStateSignature({ elements, viewport }) === initialSignature) {
-    throw new Error("Whiteboard program did not make any valid changes, so no revision was saved.")
+    throw new Error("Whiteboard program did not make any valid changes, so no board was saved.")
   }
 
   return {
@@ -621,103 +433,50 @@ async function applyWhiteboardDrawingProgram(input: {
 }): Promise<WhiteboardProgramResult> {
   const program = parseDrawingProgram(input.elements)
   const warnings: string[] = []
-  const base = resolveProgramBase({
+  const continueCurrent = hasRestoreCheckpoint({
     program,
     warnings,
   })
-  const layoutCleanup = findLayoutCleanup({
-    program,
-    warnings,
-  })
-  if (layoutCleanup) {
-    assertValidLayoutCleanupProgram({
-      program,
-      cleanup: layoutCleanup,
-    })
-  }
-  if (layoutCleanup && !base.sceneID) {
-    throw new Error(
-      "layoutCleanup requires restoreCheckpoint so the prior whiteboard head is preserved.",
-    )
-  }
-  let layoutCleanupReview: WhiteboardLayoutCleanupReview | undefined
-  let redrawZoneScope: WhiteboardLayoutZoneScope | undefined
-  const appendResult = await appendWhiteboardRevisionFromLatest({
+  const touchedIDs = continueCurrent ? collectTouchedIDs(program) : new Set<string>()
+  const writeResult = await writeWhiteboardCurrentFromLatest({
     directory: input.directory,
     sessionID: input.sessionID,
-    ...(base.sceneID ? { sceneID: base.sceneID } : {}),
-    origin: "agent",
-    buildRevision: (latestBase) => {
-      if (layoutCleanup) {
-        redrawZoneScope = assertValidRedrawZoneScope({
-          elements: latestBase.elements,
-          program,
-          cleanup: layoutCleanup,
-        })
-      }
-      return buildWhiteboardProgramRevision({
+    origin: "agent" satisfies WhiteboardBoardOrigin,
+    validateBase: continueCurrent
+      ? (latestBase) => {
+          assertWhiteboardTouchedAnchorsFresh({
+            currentBoard: latestBase.currentBoard,
+            modelContext: latestBase.modelContext,
+            touchedIDs,
+          })
+        }
+      : undefined,
+    buildBoard: (latestBase) =>
+      buildWhiteboardProgramBoard({
         program,
         base: {
-          ...(base.sceneID ? { sceneID: base.sceneID } : {}),
           elements: latestBase.elements,
+          hasCurrentBoard: latestBase.hasCurrentBoard,
           ...(latestBase.viewport ? { viewport: latestBase.viewport } : {}),
         },
+        continueCurrent,
         warnings,
-      })
-    },
-    ...(layoutCleanup
-      ? {
-          shouldAppend: ({ base: latestBase, next }) => {
-            if (layoutCleanup.strategy === "redraw_zone") {
-              if (!redrawZoneScope) {
-                throw new Error("redraw_zone layoutCleanup could not resolve its targeted zone.")
-              }
-              const outsideIDs = findWhiteboardRedrawZoneOutsideElementIDs({
-                baseElements: latestBase.elements,
-                nextElements: next.elements,
-                scope: redrawZoneScope,
-              })
-              if (outsideIDs.length > 0) {
-                throw new Error(
-                  `redraw_zone layoutCleanup must recreate only its targeted zone. New elements outside its bounded expansion: ${outsideIDs.join(", ")}.`,
-                )
-              }
-            }
-            const hardBefore = countWhiteboardHardLayoutWarnings(latestBase.elements)
-            const hardAfter = countWhiteboardHardLayoutWarnings(next.elements)
-            const requiredReduction =
-              layoutCleanup.strategy === "redraw_zone"
-                ? Math.max(2, Math.ceil(hardBefore * 0.3))
-                : 1
-            const accepted = hardBefore - hardAfter >= requiredReduction
-            layoutCleanupReview = {
-              strategy: layoutCleanup.strategy,
-              ...(layoutCleanup.zoneId ? { zoneId: layoutCleanup.zoneId } : {}),
-              accepted,
-              hardBefore,
-              hardAfter,
-            }
-            return accepted
-          },
-        }
-      : {}),
+      }),
+    recordModelContext: true,
   })
-  const state = appendResult.state
-  const activeScene = state.activeScene
-  if (!activeScene) {
-    throw new Error("Whiteboard program did not create an active scene.")
+  const state = writeResult.state
+  const currentBoard: WhiteboardBoard | null = state.currentBoard
+  if (!currentBoard) {
+    throw new Error("Whiteboard program did not create a current board.")
   }
-  const layoutWarnings = detectWhiteboardLayoutWarnings(activeScene.latestRevision.elements, {
-    cleanupAttempted: layoutCleanup !== undefined,
-  })
+  const layoutWarnings = detectWhiteboardLayoutWarnings(currentBoard.elements)
   return {
     state,
-    sceneID: activeScene.sceneID,
-    revisionID: activeScene.headRevisionID,
-    saved: appendResult.appended,
+    continuationHandle: WHITEBOARD_CONTINUATION_HANDLE,
+    boardID: currentBoard.boardID,
+    saved: writeResult.saved,
     warnings,
     ...(layoutWarnings ? { layoutWarnings } : {}),
-    ...(layoutCleanupReview ? { layoutCleanup: layoutCleanupReview } : {}),
   }
 }
 
