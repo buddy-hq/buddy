@@ -1,34 +1,33 @@
-import { Button, Slider } from "@buddy/ui"
-import type { WhiteboardsRevisionReadResponse, WhiteboardsReadResponse } from "@buddy/sdk"
+import { Button } from "@buddy/ui"
+import type { WhiteboardsReadResponse } from "@buddy/sdk"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ArrowUpToLineIcon, ExternalLinkIcon, PlusIcon, PresentationIcon } from "lucide-react"
+import { ExternalLinkIcon, PresentationIcon } from "lucide-react"
 import { usePlatform } from "@/context/platform"
-import { buddyResultMessage, getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
+import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { whiteboardQueryKeys, whiteboardSessionQueryOptions } from "./whiteboard-query"
-import type { PersistedWhiteboardElement, WhiteboardViewport } from "./whiteboard-elements"
+import type {
+  PersistedWhiteboardElement,
+  WhiteboardRenderReport,
+  WhiteboardViewport,
+} from "./whiteboard-elements"
 import {
   buildProgressiveWhiteboardPreviewFromMessages,
   countCompletedWhiteboardCreate,
   hasActiveWhiteboardCreate,
+  hasLatestFailedWhiteboardCreate,
   hasUnfetchedCompletedWhiteboardCreate,
-  readLatestStreamingWhiteboardRestoreSceneID,
   resolveStickyProgressiveWhiteboardPreview,
   type ProgressiveWhiteboardPreview,
 } from "./whiteboard-progressive"
 import { createWhiteboardShareJson } from "./whiteboard-share"
-import {
-  isLearnerEditContentAlreadyDurable,
-  type WhiteboardLearnerSaveHandler,
-} from "./whiteboard-learner-save"
+import type { WhiteboardLearnerSaveHandler } from "./whiteboard-learner-save"
 import type { MessageWithParts } from "@/state/chat-types"
 
 const WhiteboardCanvas = lazy(async () => {
   const module = await import("./whiteboard-canvas")
   return { default: module.WhiteboardCanvas }
 })
-
-const HTTP_CONFLICT_STATUS = 409
 
 type WhiteboardPaneProps = {
   directory: string
@@ -37,103 +36,106 @@ type WhiteboardPaneProps = {
   messages: MessageWithParts[]
 }
 
-type LiveWhiteboardRevision = {
+type LiveWhiteboardBoard = {
   elements: PersistedWhiteboardElement[]
   viewport: WhiteboardViewport
 }
 
-type ShareableWhiteboardRevision = Pick<WhiteboardsRevisionReadResponse, "elements">
-
-function readRevisionLabel(revision: WhiteboardsRevisionReadResponse) {
-  return revision.origin === "learner" ? "Learner edit" : "Whiteboard revision"
+type ShareableWhiteboardBoard = {
+  elements: PersistedWhiteboardElement[]
 }
 
-function resolveWhiteboardShareRevision(input: {
-  previewRevisionID?: string
-  displayedRevision?: ShareableWhiteboardRevision
-  liveDraftRevision?: LiveWhiteboardRevision
-  latestRevision?: ShareableWhiteboardRevision
-}): ShareableWhiteboardRevision | undefined {
-  if (input.previewRevisionID) return input.displayedRevision
-  return input.liveDraftRevision ?? input.latestRevision ?? input.displayedRevision
+const WHITEBOARD_CANVAS_EMPTY_KEY = "empty"
+
+function resolveWhiteboardCanvasKey(input: {
+  sessionID?: string
+}): string {
+  return input.sessionID ?? WHITEBOARD_CANVAS_EMPTY_KEY
+}
+
+function resolveWhiteboardCanvasViewport(input: {
+  sessionID?: string
+  liveViewport?: {
+    sessionID?: string
+    viewport: WhiteboardViewport
+  }
+  boardViewport?: WhiteboardViewport
+}): WhiteboardViewport | undefined {
+  const liveViewport = input.liveViewport
+  if (liveViewport && liveViewport.sessionID === input.sessionID) {
+    return liveViewport.viewport
+  }
+  return input.boardViewport
+}
+
+function resolveWhiteboardShareBoard(input: {
+  displayedBoard?: ShareableWhiteboardBoard
+  liveDraftBoard?: LiveWhiteboardBoard
+  latestBoard?: ShareableWhiteboardBoard | null
+}): ShareableWhiteboardBoard | undefined {
+  return input.liveDraftBoard ?? input.latestBoard ?? input.displayedBoard
+}
+
+function shouldRefetchWhiteboardAfterBusyChange(input: {
+  sessionID?: string
+  wasBusy: boolean
+  isBusy: boolean
+}): boolean {
+  return Boolean(input.sessionID && input.wasBusy && !input.isBusy)
+}
+
+function shouldRetainProgressiveWhiteboardPreview(input: {
+  hasActiveWhiteboardCreateTool: boolean
+  hasUnfetchedCompletedWhiteboardCreateTool: boolean
+  hasLatestFailedWhiteboardCreateTool: boolean
+  isBusy: boolean
+}): boolean {
+  return (
+    input.hasActiveWhiteboardCreateTool ||
+    input.hasUnfetchedCompletedWhiteboardCreateTool ||
+    (input.hasLatestFailedWhiteboardCreateTool && input.isBusy)
+  )
+}
+
+function resolveWhiteboardRenderReportKey(input: {
+  boardID?: string
+  updatedAt?: string
+}): string | undefined {
+  if (!input.boardID || !input.updatedAt) return undefined
+  return `${input.boardID}:${input.updatedAt}`
 }
 
 export function WhiteboardPane(props: WhiteboardPaneProps) {
   const { directory, sessionID, isBusy, messages } = props
   const platform = usePlatform()
   const queryClient = useQueryClient()
-  const [previewRevisionID, setPreviewRevisionID] = useState<string>()
-  const [creatingScene, setCreatingScene] = useState(false)
   const [sharingBoard, setSharingBoard] = useState(false)
   const [saveError, setSaveError] = useState<string>()
   const [shareStatus, setShareStatus] = useState<string>()
-  const [liveDraftRevision, setLiveDraftRevision] = useState<LiveWhiteboardRevision>()
-  const previousSceneKeyRef = useRef<string>()
+  const [liveDraftBoard, setLiveDraftBoard] = useState<LiveWhiteboardBoard>()
+  const liveViewportRef = useRef<{
+    sessionID?: string
+    viewport: WhiteboardViewport
+  }>()
+  const previousBoardKeyRef = useRef<string>()
+  const previousBusyRef = useRef(isBusy)
   const settleLearnerSaveRef = useRef<() => Promise<boolean>>()
   const sessionQuery = useQuery({
     ...whiteboardSessionQueryOptions(directory, sessionID ?? ""),
     enabled: Boolean(sessionID),
   })
   const refetchSession = sessionQuery.refetch
-  const activeScene = sessionQuery.data?.activeScene
-  const revisions = activeScene?.revisions ?? []
-  const streamingRestoreSceneID = useMemo(
-    () => readLatestStreamingWhiteboardRestoreSceneID(messages),
-    [messages],
-  )
-  const needsStreamingRestoreScene =
-    streamingRestoreSceneID !== undefined && streamingRestoreSceneID !== activeScene?.sceneID
-  const streamingRestoreSceneQuery = useQuery({
-    queryKey: ["whiteboard", directory, sessionID, "scene", streamingRestoreSceneID, "latest"],
-    enabled: Boolean(sessionID && needsStreamingRestoreScene),
-    queryFn: async () =>
-      requireBuddyData(
-        await getBuddyClient(directory).whiteboards.scene.latest.read({
-          sessionID: sessionID ?? "",
-          sceneID: streamingRestoreSceneID ?? "",
-        }),
-      ),
-  })
-  const progressiveBaseRevision = needsStreamingRestoreScene
-    ? streamingRestoreSceneQuery.data
-    : activeScene?.latestRevision
-  const progressiveBaseSceneID = needsStreamingRestoreScene
-    ? streamingRestoreSceneID
-    : activeScene?.sceneID
-  const progressiveBaseRevisionID = needsStreamingRestoreScene
-    ? streamingRestoreSceneQuery.data?.revisionID
-    : activeScene?.headRevisionID
-  const latestIndex = Math.max(0, revisions.length - 1)
-  const selectedIndex = previewRevisionID
-    ? Math.max(
-        0,
-        revisions.findIndex((revision) => revision.revisionID === previewRevisionID),
-      )
-    : latestIndex
-  const previewQuery = useQuery({
-    queryKey: ["whiteboard", directory, sessionID, "revision", previewRevisionID],
-    enabled: Boolean(sessionID && previewRevisionID),
-    queryFn: async () =>
-      requireBuddyData(
-        await getBuddyClient(directory).whiteboards.revision.read({
-          sessionID: sessionID ?? "",
-          revisionID: previewRevisionID ?? "",
-        }),
-      ),
-  })
-  const revision = previewRevisionID ? previewQuery.data : activeScene?.latestRevision
+  const currentBoard = sessionQuery.data?.currentBoard ?? undefined
+  const boardID = currentBoard?.boardID
   const computedProgressivePreview = useMemo(
     () =>
       buildProgressiveWhiteboardPreviewFromMessages({
         messages,
-        activeSceneID: progressiveBaseSceneID,
-        baseRevisionID: progressiveBaseRevisionID,
-        baseElements: progressiveBaseRevision?.elements ?? [],
-        ...(progressiveBaseRevision?.viewport
-          ? { baseViewport: progressiveBaseRevision.viewport }
-          : {}),
+        baseBoardID: boardID,
+        baseElements: currentBoard?.elements ?? [],
+        ...(currentBoard?.viewport ? { baseViewport: currentBoard.viewport } : {}),
       }),
-    [messages, progressiveBaseRevision, progressiveBaseRevisionID, progressiveBaseSceneID],
+    [boardID, currentBoard?.elements, currentBoard?.viewport, messages],
   )
   const completedWhiteboardCreateCount = useMemo(
     () => countCompletedWhiteboardCreate(messages),
@@ -147,46 +149,63 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     () =>
       hasUnfetchedCompletedWhiteboardCreate({
         messages,
-        baseRevisionID: progressiveBaseRevisionID,
+        baseBoardID: boardID,
       }),
-    [messages, progressiveBaseRevisionID],
+    [boardID, messages],
+  )
+  const hasLatestFailedWhiteboardCreateTool = useMemo(
+    () => hasLatestFailedWhiteboardCreate(messages),
+    [messages],
   )
   const [progressivePreview, setProgressivePreview] = useState<ProgressiveWhiteboardPreview>()
-  const displayedRevision = useMemo(() => {
-    if (revision && !previewRevisionID && progressivePreview) {
+  const displayedBoard = useMemo(() => {
+    if (currentBoard && progressivePreview) {
       return {
-        ...revision,
+        ...currentBoard,
         elements: progressivePreview.elements,
         ...(progressivePreview.viewport ? { viewport: progressivePreview.viewport } : {}),
       }
     }
-    if (revision) return revision
+    if (currentBoard) return currentBoard
     if (!progressivePreview) return undefined
     return {
       elements: progressivePreview.elements,
       ...(progressivePreview.viewport ? { viewport: progressivePreview.viewport } : {}),
     }
-  }, [previewRevisionID, progressivePreview, revision])
+  }, [currentBoard, progressivePreview])
+  const canvasKey = resolveWhiteboardCanvasKey({
+    sessionID,
+  })
+  const canvasViewport = resolveWhiteboardCanvasViewport({
+    sessionID,
+    liveViewport: liveViewportRef.current,
+    boardViewport: displayedBoard?.viewport,
+  })
+  const renderReportKey = resolveWhiteboardRenderReportKey({
+    boardID: currentBoard?.boardID,
+    updatedAt: currentBoard?.updatedAt,
+  })
 
   useEffect(() => {
     setProgressivePreview((current) =>
       resolveStickyProgressiveWhiteboardPreview({
         current,
         computed: computedProgressivePreview,
-        retainWithoutComputed:
-          hasActiveWhiteboardCreateTool || hasUnfetchedCompletedWhiteboardCreateTool,
+        retainWithoutComputed: shouldRetainProgressiveWhiteboardPreview({
+          hasActiveWhiteboardCreateTool,
+          hasUnfetchedCompletedWhiteboardCreateTool,
+          hasLatestFailedWhiteboardCreateTool,
+          isBusy,
+        }),
       }),
     )
   }, [
     computedProgressivePreview,
     hasActiveWhiteboardCreateTool,
+    hasLatestFailedWhiteboardCreateTool,
     hasUnfetchedCompletedWhiteboardCreateTool,
+    isBusy,
   ])
-
-  useEffect(() => {
-    if (!sessionID) return
-    void refetchSession()
-  }, [isBusy, refetchSession, sessionID])
 
   useEffect(() => {
     if (!sessionID || completedWhiteboardCreateCount === 0) return
@@ -194,82 +213,60 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
   }, [completedWhiteboardCreateCount, refetchSession, sessionID])
 
   useEffect(() => {
-    const sceneKey = `${sessionID ?? ""}:${activeScene?.headRevisionID ?? ""}`
-    if (previousSceneKeyRef.current === undefined) {
-      previousSceneKeyRef.current = sceneKey
+    const wasBusy = previousBusyRef.current
+    previousBusyRef.current = isBusy
+    if (!shouldRefetchWhiteboardAfterBusyChange({ sessionID, wasBusy, isBusy })) return
+    void refetchSession()
+  }, [isBusy, refetchSession, sessionID])
+
+  useEffect(() => {
+    const boardKey = `${sessionID ?? ""}:${boardID ?? ""}`
+    if (previousBoardKeyRef.current === undefined) {
+      previousBoardKeyRef.current = boardKey
       return
     }
-    if (previousSceneKeyRef.current === sceneKey) return
-    previousSceneKeyRef.current = sceneKey
-    setPreviewRevisionID(undefined)
+    if (previousBoardKeyRef.current === boardKey) return
+    previousBoardKeyRef.current = boardKey
     setProgressivePreview(undefined)
-    setLiveDraftRevision(undefined)
-  }, [activeScene?.headRevisionID, sessionID])
+    setLiveDraftBoard(undefined)
+    setSaveError(undefined)
+    setShareStatus(undefined)
+  }, [boardID, sessionID])
 
   const updateSessionData = useCallback(
     (data: WhiteboardsReadResponse) => {
       if (!sessionID) return
       queryClient.setQueryData(whiteboardQueryKeys.session(directory, sessionID), data)
-      setPreviewRevisionID(undefined)
     },
     [directory, queryClient, sessionID],
   )
 
-  const createScene = useCallback(async () => {
-    if (!sessionID || creatingScene) return
-    setCreatingScene(true)
-    setSaveError(undefined)
-    setShareStatus(undefined)
-    try {
-      const saveSettled = await settleLearnerSaveRef.current?.()
-      if (saveSettled === false) {
-        setSaveError(
-          "The pending whiteboard edit did not save. Resolve it before creating a new scene.",
-        )
-        return
-      }
-      setLiveDraftRevision(undefined)
-      updateSessionData(
-        requireBuddyData(
-          await getBuddyClient(directory).whiteboards.scene.create({
-            sessionID,
-          }),
-        ),
-      )
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : String(error))
-    } finally {
-      setCreatingScene(false)
-    }
-  }, [creatingScene, directory, sessionID, updateSessionData])
-
   const shareBoard = useCallback(async () => {
-    if (!sessionID || !displayedRevision || sharingBoard) return
+    if (!sessionID || !displayedBoard || sharingBoard) return
     setSharingBoard(true)
     setSaveError(undefined)
     setShareStatus(undefined)
     try {
       const saveSettled = await settleLearnerSaveRef.current?.()
-      if (saveSettled === false && !liveDraftRevision) {
+      if (saveSettled === false && !liveDraftBoard) {
         setSaveError("The pending whiteboard edit did not save. Try sharing again after it saves.")
         return
       }
       const refetched = await refetchSession()
-      const revisionToShare = resolveWhiteboardShareRevision({
-        previewRevisionID,
-        displayedRevision,
-        liveDraftRevision,
-        latestRevision: refetched.data?.activeScene?.latestRevision,
+      const boardToShare = resolveWhiteboardShareBoard({
+        displayedBoard,
+        liveDraftBoard,
+        latestBoard: refetched.data?.currentBoard ?? null,
       })
-      if (!revisionToShare) return
-      const json = await createWhiteboardShareJson(revisionToShare)
+      if (!boardToShare) return
+      const json = await createWhiteboardShareJson(boardToShare)
       const result = requireBuddyData(
         await getBuddyClient(directory).whiteboards.share.create({
           sessionID,
           json,
         }),
       )
-      setShareStatus("Opening shared board…")
+      setShareStatus("Opening shared board...")
       platform.openLink(result.url)
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : String(error))
@@ -278,10 +275,9 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     }
   }, [
     directory,
-    displayedRevision,
-    liveDraftRevision,
+    displayedBoard,
+    liveDraftBoard,
     platform,
-    previewRevisionID,
     refetchSession,
     sessionID,
     sharingBoard,
@@ -291,72 +287,70 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     settleLearnerSaveRef.current = settle
   }, [])
 
+  const captureLiveViewport = useCallback(
+    (viewport: WhiteboardViewport) => {
+      liveViewportRef.current = {
+        sessionID,
+        viewport,
+      }
+    },
+    [sessionID],
+  )
+
   const saveLearnerEdit = useCallback<WhiteboardLearnerSaveHandler>(
     async (input: {
+      baseBoardID: string
       elements: PersistedWhiteboardElement[]
       viewport: WhiteboardViewport
-      baseRevisionID?: string
     }) => {
-      if (!sessionID || !activeScene || previewRevisionID || !input.baseRevisionID) {
+      if (!sessionID) {
         return { status: "skipped" }
       }
       setSaveError(undefined)
       setShareStatus(undefined)
       try {
-        const result = await getBuddyClient(directory).whiteboards.scene.saveLearnerEdit({
+        const result = await getBuddyClient(directory).whiteboards.saveLearnerEdit({
           sessionID,
-          sceneID: activeScene.sceneID,
-          baseRevisionID: input.baseRevisionID,
+          baseBoardID: input.baseBoardID,
           elements: input.elements,
           viewport: input.viewport,
         })
-        if (result.response?.status === HTTP_CONFLICT_STATUS) {
-          const refetched = await refetchSession()
-          if (
-            refetched.data?.activeScene &&
-            isLearnerEditContentAlreadyDurable({
-              latestElements: refetched.data.activeScene.latestRevision.elements,
-              elements: input.elements,
-            })
-          ) {
-            setSaveError(undefined)
-            return {
-              status: "saved",
-              baseRevisionID: refetched.data.activeScene.headRevisionID,
-            }
-          }
-          setSaveError(buddyResultMessage(result))
-          return {
-            status: "failed",
-            ...(refetched.data?.activeScene
-              ? { baseRevisionID: refetched.data.activeScene.headRevisionID }
-              : {}),
-          }
+        if (result.response?.status === 409) {
+          await refetchSession()
+          setLiveDraftBoard(undefined)
+          return { status: "skipped" }
         }
         const data = requireBuddyData(result)
         updateSessionData(data)
-        return data.activeScene
-          ? { status: "saved", baseRevisionID: data.activeScene.headRevisionID }
+        setLiveDraftBoard(undefined)
+        return data.currentBoard
+          ? { status: "saved" }
           : { status: "failed" }
       } catch (error) {
-        const refetched = await refetchSession()
+        await refetchSession()
         setSaveError(error instanceof Error ? error.message : String(error))
-        return {
-          status: "failed",
-          ...(refetched.data?.activeScene
-            ? { baseRevisionID: refetched.data.activeScene.headRevisionID }
-            : {}),
-        }
+        return { status: "failed" }
       }
     },
-    [activeScene, directory, previewRevisionID, refetchSession, sessionID, updateSessionData],
+    [directory, refetchSession, sessionID, updateSessionData],
   )
 
-  const revisionStatus = useMemo(() => {
-    if (!revision) return undefined
-    if (!previewRevisionID) return `Latest · ${revisions.length} revisions`
-    return `${readRevisionLabel(revision)} · ${selectedIndex + 1} of ${revisions.length}`
-  }, [previewRevisionID, revision, revisions.length, selectedIndex])
+  const saveRenderReport = useCallback(
+    async (report: WhiteboardRenderReport) => {
+      if (!sessionID) return
+      try {
+        await getBuddyClient(directory).whiteboards.renderReport.save({
+          sessionID,
+          ...report,
+        })
+      } catch {
+        // Render feedback improves future model edits but should never surface as a save error.
+      }
+    },
+    [directory, sessionID],
+  )
+
+  const boardStatus = displayedBoard ? "Current board" : undefined
 
   return (
     <section
@@ -371,92 +365,57 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
             saveError ? "text-icon-critical-base" : "text-text-weaker"
           }`}
         >
-          {saveError ?? shareStatus ?? revisionStatus}
+          {saveError ?? shareStatus ?? boardStatus}
         </span>
-        {previewRevisionID ? (
-          <Button
-            type="button"
-            size="xs"
-            variant="ghost"
-            onClick={() => setPreviewRevisionID(undefined)}
-          >
-            <ArrowUpToLineIcon />
-            Back to latest
-          </Button>
-        ) : null}
         <Button
           type="button"
           size="xs"
           variant="outline"
-          disabled={!sessionID || creatingScene}
-          onClick={() => void createScene()}
-        >
-          <PlusIcon />
-          New scene
-        </Button>
-        <Button
-          type="button"
-          size="xs"
-          variant="outline"
-          disabled={!sessionID || !displayedRevision || sharingBoard}
+          disabled={!sessionID || !displayedBoard || sharingBoard || hasActiveWhiteboardCreateTool}
           title="Upload the encrypted board to excalidraw.com and open the share link"
           onClick={() => void shareBoard()}
         >
           <ExternalLinkIcon />
-          {sharingBoard ? "Sharing…" : "Share board"}
+          {sharingBoard ? "Sharing..." : "Share board"}
         </Button>
       </header>
       <div className="min-h-0 flex-1">
-        {displayedRevision ? (
+        {displayedBoard ? (
           <Suspense
             fallback={
               <div className="flex h-full items-center justify-center text-xs text-text-weaker">
-                Loading whiteboard…
+                Loading whiteboard...
               </div>
             }
           >
             <WhiteboardCanvas
-              revision={displayedRevision}
-              readOnly={Boolean(previewRevisionID || progressivePreview)}
+              key={canvasKey}
+              board={displayedBoard}
+              viewportOverride={canvasViewport}
+              renderReportKey={renderReportKey}
+              readOnly={Boolean(progressivePreview)}
+              onViewportChange={captureLiveViewport}
               onSave={saveLearnerEdit}
-              onLiveRevisionChange={setLiveDraftRevision}
+              onLiveBoardChange={setLiveDraftBoard}
               onSaveSettlerChange={registerLearnerSaveSettler}
+              onRenderReport={saveRenderReport}
             />
           </Suspense>
         ) : (
           <div className="flex h-full items-center justify-center px-6 text-center text-sm text-text-weaker">
-            {isBusy ? "Opening whiteboard…" : "Create a scene to start using the whiteboard."}
+            {isBusy ? "Opening whiteboard..." : "Ask Buddy to draw on the whiteboard."}
           </div>
         )}
       </div>
-      {activeScene ? (
-        <footer className="flex min-h-9 items-center gap-3 border-t border-border-base/60 bg-background-stronger/95 px-3">
-          <span className="text-[11px] text-text-weaker">History</span>
-          <Slider
-            min={0}
-            max={latestIndex}
-            step={1}
-            value={[selectedIndex]}
-            disabled={revisions.length <= 1}
-            onValueChange={(value) => {
-              const index = value[0] ?? latestIndex
-              setPreviewRevisionID(index === latestIndex ? undefined : revisions[index]?.revisionID)
-            }}
-            className="flex-1"
-          />
-          {saveError ? (
-            <span className="max-w-64 truncate text-[11px] text-icon-critical-base">
-              {saveError}
-            </span>
-          ) : (
-            <span className="text-[11px] tabular-nums text-text-weaker">
-              {selectedIndex + 1}/{revisions.length}
-            </span>
-          )}
-        </footer>
-      ) : null}
     </section>
   )
 }
 
-export { resolveWhiteboardShareRevision }
+export {
+  resolveWhiteboardCanvasKey,
+  resolveWhiteboardCanvasViewport,
+  resolveWhiteboardRenderReportKey,
+  resolveWhiteboardShareBoard,
+  shouldRetainProgressiveWhiteboardPreview,
+  shouldRefetchWhiteboardAfterBusyChange,
+}

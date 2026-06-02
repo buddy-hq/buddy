@@ -5,23 +5,27 @@ import {
   convertToExcalidrawElements,
   Excalidraw,
   FONT_FAMILY,
+  getCommonBounds,
   restore,
   zoomToFitBounds,
 } from "@excalidraw/excalidraw"
 import type { SceneBounds } from "@excalidraw/excalidraw/element/bounds"
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types"
 import type { AppState, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types"
-import type { WhiteboardsRevisionReadResponse } from "@buddy/sdk"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTheme } from "@/theme"
 import {
+  createWhiteboardRenderReport,
   elementVersionSignature,
+  resolveWhiteboardRemoteSceneViewport,
   toEditorElementConversion,
   toPersistedElements,
   viewportFromAppState,
   viewportToAppState,
+  whiteboardRenderReportSignature,
   type WhiteboardElementPreparation,
   type PersistedWhiteboardElement,
+  type WhiteboardRenderReport,
   type WhiteboardViewport,
 } from "./whiteboard-elements"
 import {
@@ -30,25 +34,40 @@ import {
 } from "./whiteboard-learner-save"
 
 const LEARNER_EDIT_DEBOUNCE_MS = 2_000
-const VIEWPORT_SIGNATURE_PRECISION = 100
 const WHITEBOARD_FONT_LOADS = [
   "20px Excalifont",
   "400 16px Assistant",
   "500 16px Assistant",
   "700 16px Assistant",
 ] as const
+const WHITEBOARD_EXCALIDRAW_UI_OPTIONS = {
+  canvasActions: {
+    saveToActiveFile: false,
+    loadScene: false,
+    export: false,
+    toggleTheme: false,
+  },
+  tools: {
+    image: false,
+  },
+} as const
 let whiteboardFontsReadyPromise: Promise<void> | undefined
 
 type RestoredViewportAppState = Pick<AppState, "scrollX" | "scrollY" | "zoom">
 
 type WhiteboardCanvasProps = {
-  revision: Pick<WhiteboardsRevisionReadResponse, "elements" | "viewport"> & {
-    revisionID?: string
+  board: {
+    elements: PersistedWhiteboardElement[]
+    viewport?: WhiteboardViewport
+    boardID?: string
   }
+  viewportOverride?: WhiteboardViewport
+  renderReportKey?: string
   readOnly: boolean
   onSave: WhiteboardLearnerSaveHandler
-  onLiveRevisionChange?: (
-    revision:
+  onViewportChange?: (viewport: WhiteboardViewport) => void
+  onLiveBoardChange?: (
+    board:
       | {
           elements: PersistedWhiteboardElement[]
           viewport: WhiteboardViewport
@@ -56,6 +75,7 @@ type WhiteboardCanvasProps = {
       | undefined,
   ) => void
   onSaveSettlerChange?: (settle: (() => Promise<boolean>) | undefined) => void
+  onRenderReport?: (report: WhiteboardRenderReport) => void
 }
 
 function viewportBounds(viewport: WhiteboardViewport): SceneBounds {
@@ -103,23 +123,6 @@ function convertPreparedElements(
   )
 }
 
-function roundedViewportValue(value: number): number {
-  return Math.round(value * VIEWPORT_SIGNATURE_PRECISION) / VIEWPORT_SIGNATURE_PRECISION
-}
-
-function viewportSignature(viewport: WhiteboardViewport): string {
-  return [
-    roundedViewportValue(viewport.x),
-    roundedViewportValue(viewport.y),
-    roundedViewportValue(viewport.width),
-    roundedViewportValue(viewport.height),
-  ].join(":")
-}
-
-function appStateViewportSignature(appState: AppState): string {
-  return viewportSignature(viewportFromAppState(appState))
-}
-
 function viewportToInitialAppState(
   viewport: WhiteboardViewport,
 ): Pick<AppState, "scrollX" | "scrollY"> {
@@ -153,15 +156,23 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
   const { mode } = useTheme()
   const onSaveSettlerChange = props.onSaveSettlerChange
   const [fontsReady, setFontsReady] = useState(false)
+  const [canvasSettled, setCanvasSettled] = useState(false)
   const apiRef = useRef<ExcalidrawImperativeAPI>()
+  const autosaveReadyRef = useRef(false)
   const baselineRef = useRef("")
+  const viewportRef = useRef(props.viewportOverride ?? props.board.viewport)
   const saveRef = useRef(props.onSave)
-  const liveRevisionChangeRef = useRef(props.onLiveRevisionChange)
+  const liveBoardChangeRef = useRef(props.onLiveBoardChange)
+  const renderReportRef = useRef(props.onRenderReport)
+  const viewportChangeRef = useRef(props.onViewportChange)
   const readOnlyRef = useRef(props.readOnly)
-  const baseRevisionIDRef = useRef(props.revision.revisionID)
-  const userViewportOverrideRef = useRef(false)
-  const lastAppliedViewportSignatureRef = useRef<string>()
-  const suppressedViewportSignatureRef = useRef<string>()
+  const fontsReadyRef = useRef(false)
+  const boardIDRef = useRef(props.board.boardID)
+  const pendingBoardIDRef = useRef(props.board.boardID)
+  const lastRenderReportSignatureRef = useRef<string>()
+  const pendingInitialSceneFrameRef = useRef<number>()
+  const pendingRenderReportFrameRef = useRef<number>()
+  const remoteSceneUpdateDepthRef = useRef(0)
   const saveSchedulerRef = useRef(
     createWhiteboardLearnerSaveScheduler({ delayMs: LEARNER_EDIT_DEBOUNCE_MS }),
   )
@@ -170,7 +181,7 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
     warning?: string
   }>(() => {
     if (!fontsReady) return { elements: [] }
-    const prepared = toEditorElementConversion(props.revision.elements)
+    const prepared = toEditorElementConversion(props.board.elements)
     try {
       const converted = prepareConvertedElements(convertPreparedElements(prepared))
       return {
@@ -183,8 +194,97 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
         warning: `Whiteboard rendering skipped invalid element data: ${error instanceof Error ? error.message : String(error)}`,
       }
     }
-  }, [fontsReady, props.revision.elements])
+  }, [fontsReady, props.board.elements])
   const elements = conversion.elements
+  const viewport = props.viewportOverride ?? props.board.viewport
+  const initialData = useMemo(
+    () => ({
+      elements,
+      appState: viewport ? viewportToInitialAppState(viewport) : undefined,
+    }),
+    [elements, viewport],
+  )
+
+  const cancelPendingInitialSceneFrame = useCallback(() => {
+    if (pendingInitialSceneFrameRef.current === undefined) return
+    window.cancelAnimationFrame(pendingInitialSceneFrameRef.current)
+    pendingInitialSceneFrameRef.current = undefined
+  }, [])
+
+  const cancelPendingRenderReportFrame = useCallback(() => {
+    if (pendingRenderReportFrameRef.current === undefined) return
+    window.cancelAnimationFrame(pendingRenderReportFrameRef.current)
+    pendingRenderReportFrameRef.current = undefined
+  }, [])
+
+  const scheduleRenderReport = useCallback(() => {
+    if (!renderReportRef.current || !fontsReadyRef.current || readOnlyRef.current) return
+    cancelPendingRenderReportFrame()
+    pendingRenderReportFrameRef.current = window.requestAnimationFrame(() => {
+      pendingRenderReportFrameRef.current = undefined
+      const api = apiRef.current
+      const boardID = boardIDRef.current
+      const onRenderReport = renderReportRef.current
+      if (!api || !boardID || !onRenderReport || !fontsReadyRef.current || readOnlyRef.current) {
+        return
+      }
+      const report = createWhiteboardRenderReport({
+        boardID,
+        elements: api.getSceneElements(),
+        appState: api.getAppState(),
+        readBounds: getCommonBounds,
+      })
+      const signature = whiteboardRenderReportSignature(report)
+      if (signature === lastRenderReportSignatureRef.current) return
+      lastRenderReportSignatureRef.current = signature
+      onRenderReport(report)
+    })
+  }, [cancelPendingRenderReportFrame])
+
+  const settleScene = useCallback(
+    (api: ExcalidrawImperativeAPI) => {
+      cancelPendingInitialSceneFrame()
+      const nextBoardID = pendingBoardIDRef.current
+      pendingInitialSceneFrameRef.current = window.requestAnimationFrame(() => {
+        pendingInitialSceneFrameRef.current = undefined
+        if (apiRef.current !== api || pendingBoardIDRef.current !== nextBoardID) return
+        baselineRef.current = elementVersionSignature(api.getSceneElements())
+        boardIDRef.current = nextBoardID
+        autosaveReadyRef.current = !readOnlyRef.current
+        viewportChangeRef.current?.(viewportFromAppState(api.getAppState()))
+        setCanvasSettled(true)
+        scheduleRenderReport()
+      })
+    },
+    [cancelPendingInitialSceneFrame, scheduleRenderReport],
+  )
+
+  const applySceneToApi = useCallback(
+    (
+      api: ExcalidrawImperativeAPI,
+      nextElements: OrderedExcalidrawElement[],
+      phase: "initial-mount" | "mounted-update",
+    ) => {
+      const viewport = resolveWhiteboardRemoteSceneViewport({
+        phase,
+        ...(viewportRef.current ? { viewport: viewportRef.current } : {}),
+      })
+      const appState = viewport ? viewportToRestoredAppState(viewport, api.getAppState()) : undefined
+      remoteSceneUpdateDepthRef.current += 1
+      try {
+        api.updateScene({
+          elements: nextElements,
+          ...(appState ? { appState } : {}),
+          captureUpdate: CaptureUpdateAction.NEVER,
+        })
+      } finally {
+        window.requestAnimationFrame(() => {
+          remoteSceneUpdateDepthRef.current = Math.max(0, remoteSceneUpdateDepthRef.current - 1)
+        })
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
     let mounted = true
@@ -201,19 +301,44 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
   }, [props.onSave])
 
   useEffect(() => {
-    liveRevisionChangeRef.current = props.onLiveRevisionChange
-  }, [props.onLiveRevisionChange])
+    liveBoardChangeRef.current = props.onLiveBoardChange
+  }, [props.onLiveBoardChange])
+
+  useEffect(() => {
+    renderReportRef.current = props.onRenderReport
+  }, [props.onRenderReport])
+
+  useEffect(() => {
+    viewportChangeRef.current = props.onViewportChange
+  }, [props.onViewportChange])
 
   useEffect(() => {
     readOnlyRef.current = props.readOnly
+    if (props.readOnly) {
+      autosaveReadyRef.current = false
+      void saveSchedulerRef.current.flush()
+    }
   }, [props.readOnly])
 
   useEffect(() => {
-    baseRevisionIDRef.current = props.revision.revisionID
-    // Preserve manual camera control during one stream, then allow the next durable revision to frame itself.
-    userViewportOverrideRef.current = false
-    liveRevisionChangeRef.current?.(undefined)
-  }, [props.revision.revisionID])
+    fontsReadyRef.current = fontsReady
+  }, [fontsReady])
+
+  useEffect(() => {
+    pendingBoardIDRef.current = props.board.boardID
+    autosaveReadyRef.current = false
+    lastRenderReportSignatureRef.current = undefined
+    liveBoardChangeRef.current?.(undefined)
+  }, [props.board.boardID])
+
+  useEffect(() => {
+    lastRenderReportSignatureRef.current = undefined
+    scheduleRenderReport()
+  }, [props.renderReportKey, scheduleRenderReport])
+
+  useEffect(() => {
+    viewportRef.current = viewport
+  }, [viewport])
 
   const settleSaves = useCallback(() => saveSchedulerRef.current.flush(), [])
 
@@ -226,80 +351,59 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
 
   useEffect(
     () => () => {
+      cancelPendingInitialSceneFrame()
+      cancelPendingRenderReportFrame()
+      autosaveReadyRef.current = false
+      apiRef.current = undefined
       void saveSchedulerRef.current.flush()
     },
-    [],
+    [cancelPendingInitialSceneFrame, cancelPendingRenderReportFrame],
   )
 
   useEffect(() => {
-    void saveSchedulerRef.current.flush()
     baselineRef.current = elementVersionSignature(elements)
     const api = apiRef.current
     if (!api) return
-    const appState =
-      props.revision.viewport && !userViewportOverrideRef.current
-        ? viewportToRestoredAppState(props.revision.viewport, api.getAppState())
-        : undefined
-    if (appState) {
-      const signature = appStateViewportSignature({
-        ...api.getAppState(),
-        ...appState,
-      })
-      lastAppliedViewportSignatureRef.current = signature
-      suppressedViewportSignatureRef.current = signature
+    if (elementVersionSignature(api.getSceneElements()) !== baselineRef.current) {
+      applySceneToApi(api, elements, "mounted-update")
     }
-    api.updateScene({
-      elements,
-      ...(appState ? { appState } : {}),
-      captureUpdate: CaptureUpdateAction.NEVER,
-    })
-  }, [elements, props.revision.viewport])
+    if (props.readOnly) return
+    void saveSchedulerRef.current.flush()
+    settleScene(api)
+    scheduleRenderReport()
+  }, [applySceneToApi, elements, props.readOnly, scheduleRenderReport, settleScene])
 
   const setApi = useCallback(
     (api: ExcalidrawImperativeAPI) => {
       apiRef.current = api
-      baselineRef.current = elementVersionSignature(elements)
-      if (props.revision.viewport) {
-        const appState = viewportToRestoredAppState(props.revision.viewport, api.getAppState())
-        const signature = appStateViewportSignature({
-          ...api.getAppState(),
-          ...appState,
-        })
-        lastAppliedViewportSignatureRef.current = signature
-        suppressedViewportSignatureRef.current = signature
-        api.updateScene({
-          elements,
-          appState,
-          captureUpdate: CaptureUpdateAction.NEVER,
-        })
+      setCanvasSettled(false)
+      if (viewportRef.current) {
+        applySceneToApi(api, [...api.getSceneElements()], "initial-mount")
       }
+      settleScene(api)
     },
-    [elements, props.revision.viewport],
+    [applySceneToApi, settleScene],
   )
 
   const handleChange = useCallback(
     (nextElements: readonly OrderedExcalidrawElement[], appState: AppState) => {
-      const currentViewportSignature = appStateViewportSignature(appState)
-      if (suppressedViewportSignatureRef.current === currentViewportSignature) {
-        suppressedViewportSignatureRef.current = undefined
-      } else if (
-        lastAppliedViewportSignatureRef.current !== undefined &&
-        currentViewportSignature !== lastAppliedViewportSignatureRef.current
-      ) {
-        userViewportOverrideRef.current = true
-      }
+      if (remoteSceneUpdateDepthRef.current > 0) return
+      const viewport = viewportFromAppState(appState)
+      viewportChangeRef.current?.(viewport)
       if (readOnlyRef.current) return
+      if (!autosaveReadyRef.current) return
       const signature = elementVersionSignature(nextElements)
       if (signature === baselineRef.current) return
+      const baseBoardID = boardIDRef.current
+      if (!baseBoardID) return
       const liveElements = toPersistedElements(nextElements)
-      const viewport = viewportFromAppState(appState)
       saveSchedulerRef.current.schedule({
         save: saveRef.current,
+        baseBoardID,
         elements: liveElements,
         viewport,
-        ...(baseRevisionIDRef.current ? { baseRevisionID: baseRevisionIDRef.current } : {}),
       })
-      liveRevisionChangeRef.current?.({
+      liveBoardChangeRef.current?.({
         elements: liveElements,
         viewport,
       })
@@ -309,7 +413,7 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
 
   return (
     <div className="relative h-full overflow-hidden">
-      {!fontsReady ? (
+      {!fontsReady || !canvasSettled ? (
         <div className="absolute inset-0 z-10 flex items-center justify-center text-xs text-text-weaker">
           Preparing whiteboard…
         </div>
@@ -319,29 +423,18 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
           {conversion.warning}
         </div>
       ) : null}
-      <Excalidraw
-        excalidrawAPI={setApi}
-        initialData={{
-          elements,
-          appState: props.revision.viewport
-            ? viewportToInitialAppState(props.revision.viewport)
-            : undefined,
-        }}
-        onChange={handleChange}
-        theme={mode}
-        viewModeEnabled={props.readOnly}
-        UIOptions={{
-          canvasActions: {
-            saveToActiveFile: false,
-            loadScene: false,
-            export: false,
-            toggleTheme: false,
-          },
-          tools: {
-            image: false,
-          },
-        }}
-      />
+      {fontsReady ? (
+        <div className={`h-full ${canvasSettled ? "" : "invisible"}`}>
+          <Excalidraw
+            excalidrawAPI={setApi}
+            initialData={initialData}
+            onChange={handleChange}
+            theme={mode}
+            viewModeEnabled={props.readOnly}
+            UIOptions={WHITEBOARD_EXCALIDRAW_UI_OPTIONS}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }

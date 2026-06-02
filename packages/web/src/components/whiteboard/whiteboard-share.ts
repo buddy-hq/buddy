@@ -1,11 +1,13 @@
 import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types"
-import type { WhiteboardsRevisionReadResponse } from "@buddy/sdk"
+import type { PersistedWhiteboardElement } from "./whiteboard-elements"
 import { toEditorElementConversion } from "./whiteboard-elements"
 
-type ShareableWhiteboardRevision = Pick<WhiteboardsRevisionReadResponse, "elements">
+type ShareableWhiteboardBoard = {
+  elements: PersistedWhiteboardElement[]
+}
 
-async function createWhiteboardShareJson(revision: ShareableWhiteboardRevision): Promise<string> {
-  const prepared = toEditorElementConversion(revision.elements)
+async function createWhiteboardShareJson(board: ShareableWhiteboardBoard): Promise<string> {
+  const prepared = toEditorElementConversion(board.elements)
   const { convertToExcalidrawElements, serializeAsJSON } = await import("@excalidraw/excalidraw")
   const elements = prepared.groups.flatMap((group) =>
     group.kind === "native"

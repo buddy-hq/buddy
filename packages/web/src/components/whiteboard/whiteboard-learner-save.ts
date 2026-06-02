@@ -1,14 +1,14 @@
 import type { PersistedWhiteboardElement, WhiteboardViewport } from "./whiteboard-elements"
 
 type WhiteboardLearnerSaveInput = {
+  baseBoardID: string
   elements: PersistedWhiteboardElement[]
   viewport: WhiteboardViewport
-  baseRevisionID?: string
 }
 
 type WhiteboardLearnerSaveResult =
-  | { status: "saved"; baseRevisionID: string }
-  | { status: "skipped" | "failed"; baseRevisionID?: string }
+  | { status: "saved" }
+  | { status: "skipped" | "failed" }
 
 type WhiteboardLearnerSaveHandler = (
   input: WhiteboardLearnerSaveInput,
@@ -22,21 +22,6 @@ type WhiteboardLearnerSaveScheduler = {
   schedule(input: PendingWhiteboardLearnerSave): void
   flush(): Promise<boolean>
   clear(): void
-}
-
-function whiteboardElementsSignature(elements: PersistedWhiteboardElement[]): string {
-  return JSON.stringify(elements)
-}
-
-function isLearnerEditContentAlreadyDurable(input: {
-  latestElements: PersistedWhiteboardElement[] | undefined
-  elements: PersistedWhiteboardElement[]
-}): boolean {
-  if (!input.latestElements) return false
-  return (
-    whiteboardElementsSignature(input.latestElements) ===
-    whiteboardElementsSignature(input.elements)
-  )
 }
 
 function createWhiteboardLearnerSaveScheduler(input: {
@@ -75,11 +60,10 @@ function createWhiteboardLearnerSaveScheduler(input: {
       try {
         const result = await save(payload)
         const queued = readPendingSave()
-        if (queued && result.baseRevisionID) {
-          pending = {
-            ...queued,
-            baseRevisionID: result.baseRevisionID,
-          }
+        if (result.status === "skipped" && queued?.baseBoardID === next.baseBoardID) {
+          pending = undefined
+        }
+        if (result.status !== "failed" && readPendingSave()) {
           saving = false
           activeSavePromise = undefined
           activeSaveToken = undefined
@@ -87,10 +71,7 @@ function createWhiteboardLearnerSaveScheduler(input: {
           return flush()
         }
         if (result.status === "failed") {
-          const retry = queued ?? next
-          pending = result.baseRevisionID
-            ? { ...retry, baseRevisionID: result.baseRevisionID }
-            : retry
+          if (!queued) pending = next
         }
         return result.status === "saved"
       } catch {
@@ -123,7 +104,7 @@ function createWhiteboardLearnerSaveScheduler(input: {
   }
 }
 
-export { createWhiteboardLearnerSaveScheduler, isLearnerEditContentAlreadyDurable }
+export { createWhiteboardLearnerSaveScheduler }
 export type {
   WhiteboardLearnerSaveHandler,
   WhiteboardLearnerSaveInput,

@@ -1,13 +1,12 @@
 import type { ExcalidrawElementSkeleton } from "@excalidraw/excalidraw/data/transform"
+import type { Bounds } from "@excalidraw/excalidraw/element/bounds"
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types"
 import type { AppState } from "@excalidraw/excalidraw/types"
-import type {
-  WhiteboardsRevisionReadResponse,
-  WhiteboardsSceneSaveLearnerEditData,
-} from "@buddy/sdk"
+import type { WhiteboardsReadResponse, WhiteboardsSaveLearnerEditData } from "@buddy/sdk"
 
-type PersistedWhiteboardElement = WhiteboardsRevisionReadResponse["elements"][number]
-type LearnerEditBody = NonNullable<WhiteboardsSceneSaveLearnerEditData["body"]>
+type CurrentWhiteboardBoard = NonNullable<WhiteboardsReadResponse["currentBoard"]>
+type PersistedWhiteboardElement = CurrentWhiteboardBoard["elements"][number]
+type LearnerEditBody = NonNullable<WhiteboardsSaveLearnerEditData["body"]>
 type WhiteboardViewport = NonNullable<LearnerEditBody["viewport"]>
 type WhiteboardEditorElementGroup =
   | {
@@ -25,6 +24,49 @@ type WhiteboardElementPreparation = {
 type WhiteboardViewportAppState = Pick<AppState, "scrollX" | "scrollY"> & {
   zoomValue: number
 }
+type WhiteboardRenderReportAppState = {
+  scrollX: number
+  scrollY: number
+  width: number
+  height: number
+  zoom: { value: number }
+}
+type WhiteboardRenderBounds = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+type WhiteboardRenderReportElement = {
+  id: string
+  type: string
+  version?: number
+  versionNonce?: number
+  containerId?: string
+  text?: string
+  bounds: WhiteboardRenderBounds
+}
+type WhiteboardRenderReport = {
+  boardID: string
+  viewport: WhiteboardViewport
+  canvas: {
+    width: number
+    height: number
+    zoom: number
+  }
+  contentBounds: WhiteboardRenderBounds | null
+  elements: WhiteboardRenderReportElement[]
+}
+type WhiteboardRenderedElementInput = {
+  id: string
+  type: string
+  isDeleted?: boolean
+  version?: number
+  versionNonce?: number
+}
+type WhiteboardElementBoundsReader<Element extends WhiteboardRenderedElementInput> = (
+  elements: readonly Element[],
+) => Bounds
 
 const SUPPORTED_ELEMENT_TYPES = new Set([
   "arrow",
@@ -39,6 +81,7 @@ const EXCALIDRAW_MAX_SEED = 2_147_483_647
 const FNV_OFFSET_BASIS = 2_166_136_261
 const FNV_PRIME = 16_777_619
 const MAX_UNSUPPORTED_ELEMENT_DESCRIPTIONS = 3
+const RENDER_REPORT_SIGNATURE_PRECISION = 100
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -186,15 +229,93 @@ function isPersistableEditorElement(value: unknown): value is PersistedWhiteboar
   if (value.isDeleted === true) return false
   if (typeof value.id !== "string" || value.id.trim().length === 0) return false
   if (!isSupportedSkeleton(value)) return false
-  if (value.type !== "text" && (!isFiniteNumber(value.width) || !isFiniteNumber(value.height))) {
-    return false
-  }
-  if (value.type === "freedraw" && !Array.isArray(value.points)) return false
   return true
 }
 
 function toPersistedElements(elements: readonly unknown[]): PersistedWhiteboardElement[] {
   return elements.filter(isPersistableEditorElement).map((element) => Object.assign({}, element))
+}
+
+function boundsToRenderBounds(bounds: Bounds): WhiteboardRenderBounds {
+  return {
+    x: bounds[0],
+    y: bounds[1],
+    width: bounds[2] - bounds[0],
+    height: bounds[3] - bounds[1],
+  }
+}
+
+function readRenderedElementText(element: WhiteboardRenderedElementInput): string | undefined {
+  return "text" in element && typeof element.text === "string" ? element.text : undefined
+}
+
+function readRenderedElementContainerID(
+  element: WhiteboardRenderedElementInput,
+): string | undefined {
+  return "containerId" in element && typeof element.containerId === "string"
+    ? element.containerId
+    : undefined
+}
+
+function createWhiteboardRenderReport<Element extends WhiteboardRenderedElementInput>(input: {
+  boardID: string
+  elements: readonly Element[]
+  appState: WhiteboardRenderReportAppState
+  readBounds: WhiteboardElementBoundsReader<Element>
+}): WhiteboardRenderReport {
+  const liveElements = input.elements.filter((element) => element.isDeleted !== true)
+  return {
+    boardID: input.boardID,
+    viewport: viewportFromAppState(input.appState),
+    canvas: {
+      width: input.appState.width,
+      height: input.appState.height,
+      zoom: input.appState.zoom.value,
+    },
+    contentBounds:
+      liveElements.length > 0 ? boundsToRenderBounds(input.readBounds(liveElements)) : null,
+    elements: liveElements.map((element) => {
+      const containerId = readRenderedElementContainerID(element)
+      const text = readRenderedElementText(element)
+      const reportElement: WhiteboardRenderReportElement = {
+        id: element.id,
+        type: element.type,
+        version: element.version,
+        versionNonce: element.versionNonce,
+        bounds: boundsToRenderBounds(input.readBounds([element])),
+      }
+      if (containerId) reportElement.containerId = containerId
+      if (text) reportElement.text = text
+      return reportElement
+    }),
+  }
+}
+
+function roundRenderSignatureValue(value: number): number {
+  return Math.round(value * RENDER_REPORT_SIGNATURE_PRECISION) / RENDER_REPORT_SIGNATURE_PRECISION
+}
+
+function whiteboardRenderReportSignature(report: WhiteboardRenderReport): string {
+  return JSON.stringify({
+    boardID: report.boardID,
+    viewport: {
+      x: roundRenderSignatureValue(report.viewport.x),
+      y: roundRenderSignatureValue(report.viewport.y),
+      width: roundRenderSignatureValue(report.viewport.width),
+      height: roundRenderSignatureValue(report.viewport.height),
+    },
+    canvas: {
+      width: roundRenderSignatureValue(report.canvas.width),
+      height: roundRenderSignatureValue(report.canvas.height),
+      zoom: roundRenderSignatureValue(report.canvas.zoom),
+    },
+    elements: report.elements.map((element) => [
+      element.id,
+      element.version ?? "",
+      element.versionNonce ?? "",
+      element.containerId ?? "",
+    ]),
+  })
 }
 
 function elementVersionSignature(elements: readonly OrderedExcalidrawElement[]): string {
@@ -203,7 +324,7 @@ function elementVersionSignature(elements: readonly OrderedExcalidrawElement[]):
     .join("|")
 }
 
-function viewportFromAppState(appState: AppState): WhiteboardViewport {
+function viewportFromAppState(appState: WhiteboardRenderReportAppState): WhiteboardViewport {
   const scale = appState.zoom.value
   return {
     x: -appState.scrollX / scale,
@@ -229,11 +350,26 @@ function viewportToAppState(
   }
 }
 
+function resolveWhiteboardRemoteSceneViewport(input: {
+  phase: "initial-mount" | "mounted-update"
+  viewport?: WhiteboardViewport
+}): WhiteboardViewport | undefined {
+  return input.phase === "initial-mount" ? input.viewport : undefined
+}
+
 export {
+  createWhiteboardRenderReport,
   elementVersionSignature,
+  resolveWhiteboardRemoteSceneViewport,
   toEditorElementConversion,
   toPersistedElements,
   viewportFromAppState,
   viewportToAppState,
+  whiteboardRenderReportSignature,
 }
-export type { PersistedWhiteboardElement, WhiteboardElementPreparation, WhiteboardViewport }
+export type {
+  PersistedWhiteboardElement,
+  WhiteboardElementPreparation,
+  WhiteboardRenderReport,
+  WhiteboardViewport,
+}

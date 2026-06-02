@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test"
 import {
+  createWhiteboardRenderReport,
+  resolveWhiteboardRemoteSceneViewport,
   toEditorElementConversion,
   toPersistedElements,
   viewportToAppState,
+  whiteboardRenderReportSignature,
   type PersistedWhiteboardElement,
 } from "../src/components/whiteboard/whiteboard-elements"
 
@@ -99,7 +102,7 @@ describe("whiteboard element conversion", () => {
         },
         {
           type: "line",
-          id: "malformed-line",
+          id: "dimensionless-line",
           x: 0,
           y: 0,
           isDeleted: false,
@@ -113,7 +116,7 @@ describe("whiteboard element conversion", () => {
           isDeleted: true,
         },
       ]).map((element) => element.id),
-    ).toEqual(["box"])
+    ).toEqual(["box", "dimensionless-line"])
   })
 
   test("restores persisted viewport with matching zoom and scaled scroll", () => {
@@ -124,5 +127,112 @@ describe("whiteboard element conversion", () => {
       scrollY: -100,
       zoomValue: 2,
     })
+  })
+
+  test("restores remote viewport only when the session canvas first mounts", () => {
+    const viewport = { x: 100, y: 50, width: 400, height: 300 }
+
+    expect(
+      resolveWhiteboardRemoteSceneViewport({
+        phase: "initial-mount",
+        viewport,
+      }),
+    ).toBe(viewport)
+    expect(
+      resolveWhiteboardRemoteSceneViewport({
+        phase: "mounted-update",
+        viewport,
+      }),
+    ).toBeUndefined()
+  })
+
+  test("builds rendered layout reports from measured scene element bounds", () => {
+    const report = createWhiteboardRenderReport({
+      boardID: "board_1",
+      appState: {
+        scrollX: -100,
+        scrollY: -50,
+        width: 800,
+        height: 600,
+        zoom: { value: 2 },
+      },
+      elements: [
+        {
+          id: "box",
+          type: "rectangle",
+          version: 1,
+          versionNonce: 11,
+        },
+        {
+          id: "label",
+          type: "text",
+          version: 2,
+          versionNonce: 12,
+          containerId: "box",
+          text: "Rendered label",
+        },
+        {
+          id: "deleted",
+          type: "text",
+          version: 1,
+          versionNonce: 13,
+          isDeleted: true,
+          text: "deleted",
+        },
+      ],
+      readBounds: (elements) => {
+        if (elements.length > 1) return [0, 0, 160, 90]
+        if (elements[0]?.id === "label") return [10, 20, 140, 44]
+        return [0, 0, 160, 90]
+      },
+    })
+
+    expect(report).toMatchObject({
+      boardID: "board_1",
+      viewport: { x: 50, y: 25, width: 400, height: 300 },
+      canvas: { width: 800, height: 600, zoom: 2 },
+      contentBounds: { x: 0, y: 0, width: 160, height: 90 },
+      elements: [
+        { id: "box", bounds: { x: 0, y: 0, width: 160, height: 90 } },
+        {
+          id: "label",
+          containerId: "box",
+          text: "Rendered label",
+          bounds: { x: 10, y: 20, width: 130, height: 24 },
+        },
+      ],
+    })
+  })
+
+  test("dedupes rendered layout reports by board, element versions, viewport, and canvas", () => {
+    const base = createWhiteboardRenderReport({
+      boardID: "board_1",
+      appState: {
+        scrollX: 0,
+        scrollY: 0,
+        width: 800,
+        height: 600,
+        zoom: { value: 1 },
+      },
+      elements: [{ id: "box", type: "rectangle", version: 1, versionNonce: 11 }],
+      readBounds: () => [0, 0, 100, 80],
+    })
+    const changedViewport = createWhiteboardRenderReport({
+      boardID: "board_1",
+      appState: {
+        scrollX: -100,
+        scrollY: 0,
+        width: 800,
+        height: 600,
+        zoom: { value: 1 },
+      },
+      elements: [{ id: "box", type: "rectangle", version: 1, versionNonce: 11 }],
+      readBounds: () => [0, 0, 100, 80],
+    })
+
+    expect(whiteboardRenderReportSignature(base)).toBe(whiteboardRenderReportSignature(base))
+    expect(whiteboardRenderReportSignature(base)).not.toBe(
+      whiteboardRenderReportSignature(changedViewport),
+    )
   })
 })

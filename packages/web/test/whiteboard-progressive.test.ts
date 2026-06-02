@@ -6,10 +6,10 @@ import {
   countCompletedWhiteboardCreate,
   decodePartialElementsArgument,
   hasActiveWhiteboardCreate,
+  hasLatestFailedWhiteboardCreate,
   hasUnfetchedCompletedWhiteboardCreate,
   hasWhiteboardCreate,
   parsePartialElements,
-  readLatestStreamingWhiteboardRestoreSceneID,
   readLatestStreamingWhiteboardRaw,
   resolveStickyProgressiveWhiteboardPreview,
   type ProgressiveWhiteboardPreview,
@@ -56,10 +56,10 @@ describe("whiteboard progressive drawing", () => {
     ).toEqual([{ type: "cameraUpdate" }, { type: "rectangle", id: "node" }])
   })
 
-  test("applies restore and delete while withholding the newest partial item", () => {
+  test("continues the current board when restoreCheckpoint is present", () => {
     const raw = JSON.stringify({
       elements: JSON.stringify([
-        { type: "restoreCheckpoint", id: "scene-1" },
+        { type: "restoreCheckpoint", id: "current" },
         { type: "delete", ids: "old-arrow" },
         { type: "rectangle", id: "new-node", x: 0, y: 0, width: 120, height: 60 },
         { type: "text", id: "still-buffered", x: 0, y: 80, text: "wait" },
@@ -68,7 +68,6 @@ describe("whiteboard progressive drawing", () => {
     expect(
       buildProgressiveWhiteboardElements({
         raw,
-        activeSceneID: "scene-1",
         baseElements: [
           { type: "rectangle", id: "existing", x: 0, y: 0, width: 120, height: 60 },
           { type: "arrow", id: "old-arrow", x: 120, y: 30, width: 100, height: 0 },
@@ -80,27 +79,25 @@ describe("whiteboard progressive drawing", () => {
     ])
   })
 
-  test("applies complete streaming delete controls immediately with id fallback", () => {
+  test("does not preview invalid continuation handles as current-board edits", () => {
     const raw = JSON.stringify({
       elements: JSON.stringify([
-        { type: "restoreCheckpoint", id: "scene-1" },
-        { type: "delete", id: "old-arrow" },
+        { type: "restoreCheckpoint", id: "stale-scene" },
+        { type: "translate", ids: "existing", dx: 100, dy: 0 },
       ]),
     })
 
     expect(
       buildProgressiveWhiteboardElements({
         raw,
-        activeSceneID: "scene-1",
         baseElements: [
           { type: "rectangle", id: "existing", x: 0, y: 0, width: 120, height: 60 },
-          { type: "arrow", id: "old-arrow", x: 120, y: 30, width: 100, height: 0 },
         ],
       }),
     ).toEqual([{ type: "rectangle", id: "existing", x: 0, y: 0, width: 120, height: 60 }])
   })
 
-  test("renders fresh-scene elements before the first durable revision exists", () => {
+  test("replaces the current board when restoreCheckpoint is omitted", () => {
     const raw = JSON.stringify({
       elements: JSON.stringify([
         { type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 },
@@ -111,9 +108,25 @@ describe("whiteboard progressive drawing", () => {
     expect(
       buildProgressiveWhiteboardElements({
         raw,
-        baseElements: [],
+        baseElements: [{ type: "rectangle", id: "old", x: 0, y: 0, width: 120, height: 60 }],
       }),
     ).toEqual([{ type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 }])
+  })
+
+  test("does not replace a visible board with an empty partial replacement preview", () => {
+    const raw = JSON.stringify({
+      elements: JSON.stringify([
+        { type: "cameraUpdate", x: 0, y: 0, width: 800, height: 600 },
+        { type: "rectangle", id: "still-buffered", x: 0, y: 0, width: 120, height: 60 },
+      ]),
+    })
+
+    expect(
+      buildProgressiveWhiteboardPreview({
+        raw,
+        baseElements: [{ type: "rectangle", id: "old", x: 0, y: 0, width: 120, height: 60 }],
+      }),
+    ).toBeUndefined()
   })
 
   test("keeps camera updates in the progressive preview signature", () => {
@@ -138,12 +151,10 @@ describe("whiteboard progressive drawing", () => {
     })
   })
 
-  test("applies complete streaming update and translate controls immediately", () => {
+  test("applies complete streaming translate controls immediately", () => {
     const raw = JSON.stringify({
       elements: JSON.stringify([
-        { type: "restoreCheckpoint", id: "scene-1" },
-        { type: "layoutCleanup", strategy: "spread_zone" },
-        { type: "update", id: "node", x: 10, width: 160, label: { text: "Updated" } },
+        { type: "restoreCheckpoint", id: "current" },
         { type: "translate", ids: "node", dx: 100, dy: 50 },
       ]),
     })
@@ -151,7 +162,6 @@ describe("whiteboard progressive drawing", () => {
     expect(
       buildProgressiveWhiteboardElements({
         raw,
-        activeSceneID: "scene-1",
         baseElements: [
           {
             type: "rectangle",
@@ -176,17 +186,17 @@ describe("whiteboard progressive drawing", () => {
       {
         type: "rectangle",
         id: "node",
-        x: 110,
+        x: 100,
         y: 50,
-        width: 160,
+        width: 120,
         height: 80,
-        label: { text: "Updated" },
+        label: { text: "Node" },
       },
       {
         type: "text",
         id: "node-bound-text",
         containerId: "node",
-        x: 130,
+        x: 120,
         y: 70,
         text: "Node",
       },
@@ -199,7 +209,7 @@ describe("whiteboard progressive drawing", () => {
     ])
     const secondRaw = JSON.stringify({
       elements: JSON.stringify([
-        { type: "restoreCheckpoint", id: "scene-1" },
+        { type: "restoreCheckpoint", id: "current" },
         { type: "rectangle", id: "second", x: 160, y: 0, width: 120, height: 60 },
         { type: "text", id: "still-buffered", x: 0, y: 90, text: "wait" },
       ]),
@@ -220,8 +230,7 @@ describe("whiteboard progressive drawing", () => {
             title: "",
             time: { start: 1, end: 2 },
             metadata: {
-              sceneID: "scene-1",
-              revisionID: "01J00000000000000000000001",
+              boardID: "01J00000000000000000000001",
             },
           },
         },
@@ -239,95 +248,19 @@ describe("whiteboard progressive drawing", () => {
     expect(
       buildProgressiveWhiteboardPreviewFromMessages({
         messages,
-        activeSceneID: "previous-scene",
-        baseRevisionID: "01H00000000000000000000000",
+        baseBoardID: "01H00000000000000000000000",
         baseElements: [{ type: "rectangle", id: "previous", x: 0, y: 0, width: 120, height: 60 }],
       })?.elements.map((element) => element.id),
     ).toEqual(["first", "second"])
   })
 
-  test("folds multiple completed same-turn edits before the newest streaming update", () => {
-    const firstElements = JSON.stringify([
-      { type: "rectangle", id: "first", x: 0, y: 0, width: 120, height: 60 },
-    ])
-    const secondElements = JSON.stringify([
-      { type: "restoreCheckpoint", id: "scene-1" },
-      { type: "rectangle", id: "second", x: 160, y: 0, width: 120, height: 60 },
-    ])
-    const thirdRaw = JSON.stringify({
-      elements: JSON.stringify([
-        { type: "restoreCheckpoint", id: "scene-1" },
-        { type: "rectangle", id: "third", x: 320, y: 0, width: 120, height: 60 },
-        { type: "text", id: "still-buffered", x: 0, y: 90, text: "wait" },
-      ]),
-    })
-
-    const messages = [
-      createAssistantMessage([
-        {
-          id: "part-1",
-          sessionID: "session-1",
-          messageID: "message-1",
-          type: "tool",
-          tool: "whiteboard_create_view",
-          state: {
-            status: "completed",
-            input: { elements: firstElements },
-            output: "",
-            title: "",
-            time: { start: 1, end: 2 },
-            metadata: {
-              sceneID: "scene-1",
-              revisionID: "01J00000000000000000000001",
-            },
-          },
-        },
-        {
-          id: "part-2",
-          sessionID: "session-1",
-          messageID: "message-1",
-          type: "tool",
-          tool: "whiteboard_create_view",
-          state: {
-            status: "completed",
-            input: { elements: secondElements },
-            output: "",
-            title: "",
-            time: { start: 3, end: 4 },
-            metadata: {
-              sceneID: "scene-1",
-              revisionID: "01J00000000000000000000002",
-            },
-          },
-        },
-        {
-          id: "part-3",
-          sessionID: "session-1",
-          messageID: "message-1",
-          type: "tool",
-          tool: "whiteboard_create_view",
-          state: { status: "pending", input: {}, raw: thirdRaw },
-        },
-      ]),
-    ] satisfies MessageWithParts[]
-
-    expect(
-      buildProgressiveWhiteboardPreviewFromMessages({
-        messages,
-        activeSceneID: "previous-scene",
-        baseRevisionID: "01H00000000000000000000000",
-        baseElements: [{ type: "rectangle", id: "previous", x: 0, y: 0, width: 120, height: 60 }],
-      })?.elements.map((element) => element.id),
-    ).toEqual(["first", "second", "third"])
-  })
-
-  test("does not replay stale completed tools over the latest fetched scene", () => {
+  test("does not replay stale completed tools over the fetched current board", () => {
     const oldElements = JSON.stringify([
       { type: "rectangle", id: "old", x: 0, y: 0, width: 120, height: 60 },
     ])
     const streamingRaw = JSON.stringify({
       elements: JSON.stringify([
-        { type: "restoreCheckpoint", id: "scene-1" },
+        { type: "restoreCheckpoint", id: "current" },
         { type: "rectangle", id: "new", x: 160, y: 0, width: 120, height: 60 },
         { type: "text", id: "still-buffered", x: 0, y: 90, text: "wait" },
       ]),
@@ -348,8 +281,7 @@ describe("whiteboard progressive drawing", () => {
             title: "",
             time: { start: 1, end: 2 },
             metadata: {
-              sceneID: "scene-1",
-              revisionID: "01H00000000000000000000001",
+              boardID: "01H00000000000000000000001",
             },
           },
         },
@@ -367,8 +299,7 @@ describe("whiteboard progressive drawing", () => {
     expect(
       buildProgressiveWhiteboardPreviewFromMessages({
         messages,
-        activeSceneID: "scene-1",
-        baseRevisionID: "01H00000000000000000000002",
+        baseBoardID: "01H00000000000000000000002",
         baseElements: [
           { type: "rectangle", id: "learner-edit", x: 0, y: 0, width: 120, height: 60 },
         ],
@@ -376,60 +307,7 @@ describe("whiteboard progressive drawing", () => {
     ).toEqual(["learner-edit", "new"])
   })
 
-  test("does not replay completed writes that the backend rejected", () => {
-    const rejectedElements = JSON.stringify([
-      { type: "rectangle", id: "rejected", x: 0, y: 0, width: 120, height: 60 },
-    ])
-    const streamingRaw = JSON.stringify({
-      elements: JSON.stringify([
-        { type: "restoreCheckpoint", id: "scene-1" },
-        { type: "rectangle", id: "next", x: 160, y: 0, width: 120, height: 60 },
-        { type: "text", id: "still-buffered", x: 0, y: 90, text: "wait" },
-      ]),
-    })
-    const messages = [
-      createAssistantMessage([
-        {
-          id: "part-1",
-          sessionID: "session-1",
-          messageID: "message-1",
-          type: "tool",
-          tool: "whiteboard_create_view",
-          state: {
-            status: "completed",
-            input: { elements: rejectedElements },
-            output: "",
-            title: "",
-            time: { start: 1, end: 2 },
-            metadata: {
-              saved: false,
-              sceneID: "scene-1",
-              revisionID: "01J00000000000000000000001",
-            },
-          },
-        },
-        {
-          id: "part-2",
-          sessionID: "session-1",
-          messageID: "message-1",
-          type: "tool",
-          tool: "whiteboard_create_view",
-          state: { status: "running", input: {}, raw: streamingRaw },
-        },
-      ]),
-    ] satisfies MessageWithParts[]
-
-    expect(
-      buildProgressiveWhiteboardPreviewFromMessages({
-        messages,
-        activeSceneID: "scene-1",
-        baseRevisionID: "01H00000000000000000000000",
-        baseElements: [{ type: "rectangle", id: "base", x: 0, y: 0, width: 120, height: 60 }],
-      })?.elements.map((element) => element.id),
-    ).toEqual(["base", "next"])
-  })
-
-  test("tracks completed whiteboard writes that are not fetched into the durable head yet", () => {
+  test("tracks completed whiteboard writes that are not fetched yet", () => {
     const messages = [
       createAssistantMessage([
         {
@@ -445,8 +323,7 @@ describe("whiteboard progressive drawing", () => {
             title: "",
             time: { start: 1, end: 2 },
             metadata: {
-              sceneID: "scene-1",
-              revisionID: "01J00000000000000000000001",
+              boardID: "01J00000000000000000000001",
             },
           },
         },
@@ -456,60 +333,16 @@ describe("whiteboard progressive drawing", () => {
     expect(
       hasUnfetchedCompletedWhiteboardCreate({
         messages,
-        baseRevisionID: "01H00000000000000000000000",
+        baseBoardID: "01H00000000000000000000000",
       }),
     ).toBeTrue()
     expect(
       hasUnfetchedCompletedWhiteboardCreate({
         messages,
-        baseRevisionID: "01J00000000000000000000001",
+        baseBoardID: "01J00000000000000000000001",
       }),
     ).toBeFalse()
     expect(hasUnfetchedCompletedWhiteboardCreate({ messages })).toBeTrue()
-    expect(
-      hasUnfetchedCompletedWhiteboardCreate({
-        messages: [
-          createAssistantMessage([
-            {
-              id: "part-1",
-              sessionID: "session-1",
-              messageID: "message-1",
-              type: "tool",
-              tool: "whiteboard_create_view",
-              state: { status: "error", input: {}, error: "failed" },
-            },
-          ]),
-        ],
-        baseRevisionID: "01H00000000000000000000000",
-      }),
-    ).toBeFalse()
-    expect(
-      hasUnfetchedCompletedWhiteboardCreate({
-        messages: [
-          createAssistantMessage([
-            {
-              id: "part-1",
-              sessionID: "session-1",
-              messageID: "message-1",
-              type: "tool",
-              tool: "whiteboard_create_view",
-              state: {
-                status: "completed",
-                input: { elements: "[]" },
-                output: "",
-                title: "",
-                time: { start: 1, end: 2 },
-                metadata: {
-                  saved: false,
-                  revisionID: "01J00000000000000000000002",
-                },
-              },
-            },
-          ]),
-        ],
-        baseRevisionID: "01H00000000000000000000000",
-      }),
-    ).toBeFalse()
   })
 
   test("clears sticky progressive previews after stopped streams without durable writes", () => {
@@ -543,48 +376,20 @@ describe("whiteboard progressive drawing", () => {
         retainWithoutComputed: false,
       }),
     ).toBe(computed)
-    expect(
-      resolveStickyProgressiveWhiteboardPreview({
-        current,
-        computed: current,
-        retainWithoutComputed: false,
-      }),
-    ).toBe(current)
   })
 
-  test("requests the whiteboard route while a create-view tool is active", () => {
+  test("detects active create-view tools and latest streaming raw input", () => {
     const messages = [
-      {
-        info: {
-          id: "message-1",
+      createAssistantMessage([
+        {
+          id: "part-1",
           sessionID: "session-1",
-          role: "assistant",
-          parentID: "message-0",
-          time: { created: 1 },
-          mode: "buddy",
-          agent: "buddy",
-          modelID: "model-1",
-          providerID: "provider-1",
-          path: { cwd: "", root: "" },
-          cost: 0,
-          tokens: {
-            input: 0,
-            output: 0,
-            reasoning: 0,
-            cache: { read: 0, write: 0 },
-          },
+          messageID: "message-1",
+          type: "tool",
+          tool: "whiteboard_create_view",
+          state: { status: "pending", input: {}, raw: "" },
         },
-        parts: [
-          {
-            id: "part-1",
-            sessionID: "session-1",
-            messageID: "message-1",
-            type: "tool",
-            tool: "whiteboard_create_view",
-            state: { status: "pending", input: {}, raw: "" },
-          },
-        ],
-      },
+      ]),
     ] satisfies MessageWithParts[]
 
     expect(hasActiveWhiteboardCreate(messages)).toBeTrue()
@@ -593,54 +398,43 @@ describe("whiteboard progressive drawing", () => {
     expect(readLatestStreamingWhiteboardRaw(messages)).toBe("")
     expect(
       hasActiveWhiteboardCreate([
-        {
-          ...messages[0],
-          parts: [
-            {
-              ...messages[0].parts[0],
-              state: {
-                status: "completed",
-                input: {},
-                output: "",
-                title: "",
-                time: { start: 1, end: 2 },
-              },
+        createAssistantMessage([
+          {
+            ...messages[0].parts[0],
+            state: {
+              status: "completed",
+              input: {},
+              output: "",
+              title: "",
+              time: { start: 1, end: 2 },
             },
-          ],
-        },
+          },
+        ]),
       ]),
     ).toBeFalse()
-    expect(
-      readLatestStreamingWhiteboardRaw([
-        {
-          ...messages[0],
-          parts: [
-            {
-              ...messages[0].parts[0],
-              state: { status: "running", input: {}, raw: "partial" },
-            },
-          ],
-        },
-      ]),
-    ).toBe("partial")
-    expect(
-      readLatestStreamingWhiteboardRestoreSceneID([
-        {
-          ...messages[0],
-          parts: [
-            {
-              ...messages[0].parts[0],
-              state: {
-                status: "running",
-                input: {},
-                raw: JSON.stringify({
-                  elements: JSON.stringify([{ type: "restoreCheckpoint", id: "scene-1" }]),
-                }),
-              },
-            },
-          ],
-        },
-      ]),
-    ).toBe("scene-1")
+  })
+
+  test("detects when the latest whiteboard attempt failed", () => {
+    const failed = {
+      id: "part-failed",
+      sessionID: "session-1",
+      messageID: "message-1",
+      type: "tool",
+      tool: "whiteboard_create_view",
+      state: {
+        status: "error",
+        input: {},
+        error: "Invalid JSON",
+        time: { start: 1, end: 2 },
+      },
+    } satisfies MessageWithParts["parts"][number]
+    const pending = {
+      ...failed,
+      id: "part-pending",
+      state: { status: "pending", input: {}, raw: "" },
+    } satisfies MessageWithParts["parts"][number]
+
+    expect(hasLatestFailedWhiteboardCreate([createAssistantMessage([failed])])).toBeTrue()
+    expect(hasLatestFailedWhiteboardCreate([createAssistantMessage([failed, pending])])).toBeFalse()
   })
 })

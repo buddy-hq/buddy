@@ -8,18 +8,26 @@ type ProgressiveWhiteboardPreview = {
 }
 
 type ProgressiveWhiteboardState = {
-  sceneID?: string
   elements: PersistedWhiteboardElement[]
   viewport?: WhiteboardViewport
 }
 
 type ProgramReadMode = "complete" | "streaming"
+type RestoreCheckpointMode = "none" | "current" | "invalid"
+const WHITEBOARD_CONTINUATION_HANDLE = "current"
+const SUPPORTED_WHITEBOARD_DRAWN_TYPES = new Set([
+  "arrow",
+  "diamond",
+  "ellipse",
+  "freedraw",
+  "line",
+  "rectangle",
+  "text",
+])
 const STREAMING_CONTROL_TYPES = new Set([
   "restoreCheckpoint",
   "delete",
-  "update",
   "translate",
-  "layoutCleanup",
 ])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -149,7 +157,10 @@ function readProgramFromRaw(raw: string | undefined, mode: ProgramReadMode): unk
 }
 
 function isPersistedElement(value: unknown): value is PersistedWhiteboardElement {
-  return isRecord(value) && typeof value.id === "string" && typeof value.type === "string"
+  if (!isRecord(value) || typeof value.id !== "string" || typeof value.type !== "string") {
+    return false
+  }
+  return SUPPORTED_WHITEBOARD_DRAWN_TYPES.has(value.type)
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -176,66 +187,6 @@ function parseDeleteIDs(value: unknown): Set<string> {
       .map((id) => id.trim())
       .filter(Boolean),
   )
-}
-
-function updateElement(
-  elements: PersistedWhiteboardElement[],
-  value: Record<string, unknown>,
-): PersistedWhiteboardElement[] {
-  if (typeof value.id !== "string") return elements
-  const elementIndex = elements.findIndex((element) => element.id === value.id)
-  if (elementIndex === -1) return elements
-  const existing = elements[elementIndex]
-  const patch = Object.fromEntries(
-    Object.entries(value).filter(([key]) => key !== "type" && key !== "id"),
-  )
-  const updated = {
-    ...existing,
-    ...patch,
-    id: existing.id,
-    type: existing.type,
-  }
-  const nextElements = elements.with(elementIndex, updated)
-  const updatedX = patch.x ?? existing.x
-  const updatedY = patch.y ?? existing.y
-  if (
-    !isFiniteNumber(existing.x) ||
-    !isFiniteNumber(existing.y) ||
-    !isFiniteNumber(updatedX) ||
-    !isFiniteNumber(updatedY)
-  ) {
-    return nextElements
-  }
-  return translateBoundTextChildren({
-    elements: nextElements,
-    containerIDs: new Set([updated.id]),
-    dx: updatedX - existing.x,
-    dy: updatedY - existing.y,
-  })
-}
-
-function translateBoundTextChildren(input: {
-  elements: PersistedWhiteboardElement[]
-  containerIDs: Set<string>
-  dx: number
-  dy: number
-}): PersistedWhiteboardElement[] {
-  if (input.dx === 0 && input.dy === 0) return input.elements
-  return input.elements.map((element) => {
-    if (
-      typeof element.containerId !== "string" ||
-      !input.containerIDs.has(element.containerId) ||
-      !isFiniteNumber(element.x) ||
-      !isFiniteNumber(element.y)
-    ) {
-      return element
-    }
-    return {
-      ...element,
-      x: element.x + input.dx,
-      y: element.y + input.dy,
-    }
-  })
 }
 
 function translateElements(
@@ -313,27 +264,31 @@ function toPreview(state: ProgressiveWhiteboardState): ProgressiveWhiteboardPrev
   }
 }
 
-function readRestoreSceneID(program: unknown[]): string | undefined {
+function toVisiblePreview(
+  state: ProgressiveWhiteboardState,
+): ProgressiveWhiteboardPreview | undefined {
+  return state.elements.length > 0 ? toPreview(state) : undefined
+}
+
+function readRestoreCheckpointMode(program: unknown[]): RestoreCheckpointMode {
   for (const value of program) {
     if (!isRecord(value) || value.type !== "restoreCheckpoint" || typeof value.id !== "string") {
       continue
     }
-    return value.id
+    return value.id === WHITEBOARD_CONTINUATION_HANDLE ? "current" : "invalid"
   }
-  return undefined
+  return "none"
 }
 
 function applyProgressiveProgram(input: {
   current: ProgressiveWhiteboardState
   program: unknown[]
-  completedSceneID?: string
 }): ProgressiveWhiteboardState {
-  const restoreSceneID = readRestoreSceneID(input.program)
-  const continuesCurrentScene =
-    restoreSceneID !== undefined && restoreSceneID === input.current.sceneID
-  let elements = continuesCurrentScene ? [...input.current.elements] : []
-  let viewport = continuesCurrentScene ? input.current.viewport : undefined
-  const sceneID = input.completedSceneID ?? restoreSceneID
+  const restoreCheckpointMode = readRestoreCheckpointMode(input.program)
+  if (restoreCheckpointMode === "invalid") return input.current
+  const continuesCurrentBoard = restoreCheckpointMode === "current"
+  let elements = continuesCurrentBoard ? [...input.current.elements] : []
+  let viewport = continuesCurrentBoard ? input.current.viewport : undefined
 
   for (let index = 0; index < input.program.length; index += 1) {
     const value = input.program[index]
@@ -347,38 +302,30 @@ function applyProgressiveProgram(input: {
       elements = deleteElements(elements, parseDeleteIDs(value))
       continue
     }
-    if (value.type === "update") {
-      elements = updateElement(elements, value)
-      continue
-    }
     if (value.type === "translate") {
       elements = translateElements(elements, value)
       continue
     }
-    if (value.type === "layoutCleanup") continue
     if (!isPersistedElement(value)) continue
     if (elements.some((element) => element.id === value.id)) continue
     elements.push(value)
   }
   return {
     elements,
-    ...(sceneID ? { sceneID } : {}),
     ...(viewport ? { viewport } : {}),
   }
 }
 
 function buildProgressiveWhiteboardPreview(input: {
   raw: string | undefined
-  activeSceneID?: string
   baseElements: PersistedWhiteboardElement[]
 }): ProgressiveWhiteboardPreview | undefined {
   const program = readProgramFromRaw(input.raw, "streaming")
   if (program.length === 0) return undefined
-  return toPreview(
+  return toVisiblePreview(
     applyProgressiveProgram({
       current: {
         elements: [...input.baseElements],
-        ...(input.activeSceneID ? { sceneID: input.activeSceneID } : {}),
       },
       program,
     }),
@@ -387,7 +334,6 @@ function buildProgressiveWhiteboardPreview(input: {
 
 function buildProgressiveWhiteboardElements(input: {
   raw: string | undefined
-  activeSceneID?: string
   baseElements: PersistedWhiteboardElement[]
 }): PersistedWhiteboardElement[] | undefined {
   return buildProgressiveWhiteboardPreview(input)?.elements
@@ -413,23 +359,21 @@ function didCompletedWhiteboardCreateSave(state: Record<string, unknown>): boole
 }
 
 function shouldApplyCompletedWhiteboardCreate(input: {
-  revisionID: string | undefined
-  baseRevisionID: string | undefined
+  boardID: string | undefined
+  baseBoardID: string | undefined
 }): boolean {
-  if (input.baseRevisionID === undefined) return true
-  return input.revisionID !== undefined && input.revisionID > input.baseRevisionID
+  if (input.baseBoardID === undefined) return true
+  return input.boardID !== undefined && input.boardID > input.baseBoardID
 }
 
 function buildProgressiveWhiteboardPreviewFromMessages(input: {
   messages: MessageWithParts[]
-  activeSceneID?: string
-  baseRevisionID?: string
+  baseBoardID?: string
   baseElements: PersistedWhiteboardElement[]
   baseViewport?: WhiteboardViewport
 }): ProgressiveWhiteboardPreview | undefined {
   let state: ProgressiveWhiteboardState = {
     elements: [...input.baseElements],
-    ...(input.activeSceneID ? { sceneID: input.activeSceneID } : {}),
     ...(input.baseViewport ? { viewport: input.baseViewport } : {}),
   }
   let appliedProgram = false
@@ -442,11 +386,11 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
 
       if (part.state.status === "completed") {
         if (!didCompletedWhiteboardCreateSave(part.state)) continue
-        const revisionID = readToolMetadataString(part.state, "revisionID")
+        const boardID = readToolMetadataString(part.state, "boardID")
         if (
           !shouldApplyCompletedWhiteboardCreate({
-            revisionID,
-            baseRevisionID: input.baseRevisionID,
+            boardID,
+            baseBoardID: input.baseBoardID,
           })
         ) {
           continue
@@ -456,9 +400,6 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
         state = applyProgressiveProgram({
           current: state,
           program,
-          ...(readToolMetadataString(part.state, "sceneID")
-            ? { completedSceneID: readToolMetadataString(part.state, "sceneID") }
-            : {}),
         })
         appliedProgram = true
         continue
@@ -477,8 +418,8 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
   }
 
   if (!appliedProgram) return undefined
-  if (!hasStreamingTool && input.baseRevisionID !== undefined) return undefined
-  return toPreview(state)
+  if (!hasStreamingTool && input.baseBoardID !== undefined) return undefined
+  return toVisiblePreview(state)
 }
 
 function hasActiveWhiteboardCreate(messages: MessageWithParts[]): boolean {
@@ -493,23 +434,34 @@ function hasActiveWhiteboardCreate(messages: MessageWithParts[]): boolean {
 
 function hasUnfetchedCompletedWhiteboardCreate(input: {
   messages: MessageWithParts[]
-  baseRevisionID?: string
+  baseBoardID?: string
 }): boolean {
   for (const message of input.messages) {
     for (const part of message.parts) {
       if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
       if (!isRecord(part.state) || part.state.status !== "completed") continue
       if (!didCompletedWhiteboardCreateSave(part.state)) continue
-      const revisionID = readToolMetadataString(part.state, "revisionID")
+      const boardID = readToolMetadataString(part.state, "boardID")
       if (
-        revisionID !== undefined &&
+        boardID !== undefined &&
         shouldApplyCompletedWhiteboardCreate({
-          revisionID,
-          baseRevisionID: input.baseRevisionID,
+          boardID,
+          baseBoardID: input.baseBoardID,
         })
       ) {
         return true
       }
+    }
+  }
+  return false
+}
+
+function hasLatestFailedWhiteboardCreate(messages: MessageWithParts[]): boolean {
+  for (const message of messages.toReversed()) {
+    for (const part of message.parts.toReversed()) {
+      if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
+      if (!isRecord(part.state)) continue
+      return part.state.status === "error"
     }
   }
   return false
@@ -556,14 +508,6 @@ function readLatestStreamingWhiteboardRaw(messages: MessageWithParts[]): string 
   return undefined
 }
 
-function readLatestStreamingWhiteboardRestoreSceneID(
-  messages: MessageWithParts[],
-): string | undefined {
-  const raw = readLatestStreamingWhiteboardRaw(messages)
-  if (raw === undefined) return undefined
-  return readRestoreSceneID(readProgramFromRaw(raw, "streaming"))
-}
-
 export {
   buildProgressiveWhiteboardElements,
   buildProgressiveWhiteboardPreview,
@@ -571,10 +515,10 @@ export {
   countCompletedWhiteboardCreate,
   decodePartialElementsArgument,
   hasActiveWhiteboardCreate,
+  hasLatestFailedWhiteboardCreate,
   hasUnfetchedCompletedWhiteboardCreate,
   hasWhiteboardCreate,
   parsePartialElements,
-  readLatestStreamingWhiteboardRestoreSceneID,
   readLatestStreamingWhiteboardRaw,
   resolveStickyProgressiveWhiteboardPreview,
 }

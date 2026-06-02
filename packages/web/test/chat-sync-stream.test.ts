@@ -13,6 +13,10 @@ function requestHeaders(input: RequestInfo | URL, init?: RequestInit) {
   return new Headers()
 }
 
+function sseData(value: unknown) {
+  return `data: ${JSON.stringify(value)}`
+}
+
 function setServerConnection(input: {
   url: string
   username?: string | null
@@ -187,6 +191,115 @@ describe("startChatSync fetch stream", () => {
         ?.text
     }
     expect(partText).toBe("final")
+  })
+
+  test("keeps whiteboard raw tool deltas when a part update is coalesced", async () => {
+    globalThis.fetch = createFetchStub(async () => {
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            new TextEncoder().encode(
+              [
+                sseData({
+                  directory: "/repo",
+                  payload: {
+                    type: "message.part.updated",
+                    properties: {
+                      part: {
+                        id: "p1",
+                        messageID: "m1",
+                        sessionID: "s1",
+                        type: "tool",
+                        tool: "whiteboard_create_view",
+                        state: { status: "pending", raw: "" },
+                      },
+                    },
+                  },
+                }),
+                "",
+                sseData({
+                  directory: "/repo",
+                  payload: {
+                    type: "message.part.delta",
+                    properties: {
+                      sessionID: "s1",
+                      messageID: "m1",
+                      partID: "p1",
+                      field: "state.raw",
+                      delta: '{"elements":"[{',
+                    },
+                  },
+                }),
+                "",
+                sseData({
+                  directory: "/repo",
+                  payload: {
+                    type: "message.part.updated",
+                    properties: {
+                      part: {
+                        id: "p1",
+                        messageID: "m1",
+                        sessionID: "s1",
+                        type: "tool",
+                        tool: "whiteboard_create_view",
+                        state: { status: "running", raw: "" },
+                      },
+                    },
+                  },
+                }),
+                "",
+                "",
+              ].join("\r\n"),
+            ),
+          )
+          controller.close()
+        },
+      })
+
+      return new Response(body, {
+        status: 200,
+        headers: {
+          "content-type": "text/event-stream",
+        },
+      })
+    })
+
+    setRuntimePlatform({
+      platform: "desktop",
+      fetch: globalThis.fetch,
+      openLink() {},
+      async restart() {},
+      back() {},
+      forward() {},
+      async notify() {},
+    } satisfies Platform)
+
+    const events = await new Promise<GlobalEvent[]>((resolve) => {
+      const received: GlobalEvent[] = []
+      const sync = startChatSync({
+        directory: "/repo",
+        onEvent(event) {
+          received.push(event)
+        },
+        onError() {},
+      })
+
+      setTimeout(() => {
+        sync.stop()
+        resolve(received)
+      }, 40)
+    })
+
+    expect(events.map((event) => event.payload.type)).toEqual([
+      "message.part.updated",
+      "message.part.delta",
+    ])
+    const deltaPayload = events[1]?.payload
+    let field: string | undefined
+    if (deltaPayload && "properties" in deltaPayload) {
+      field = (deltaPayload.properties as { field?: string }).field
+    }
+    expect(field).toBe("state.raw")
   })
 
   test("keeps streaming after vendor sync payloads", async () => {

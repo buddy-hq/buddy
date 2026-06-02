@@ -178,7 +178,7 @@ function isAbortError(error: unknown) {
 
 export function startChatSync(handlers: SyncHandlers) {
   let streamAbort: AbortController | undefined
-  let reconnectTimer: number | undefined
+  let reconnectTimer: ReturnType<typeof setTimeout> | undefined
   let attempt = 0
   let disposed = false
   let opened = false
@@ -186,7 +186,7 @@ export function startChatSync(handlers: SyncHandlers) {
   let queue: Array<GlobalEvent | undefined> = []
   const coalesced = new Map<string, number>()
   const staleDeltas = new Set<string>()
-  let flushTimer: number | undefined
+  let flushTimer: ReturnType<typeof setTimeout> | undefined
 
   const reportStatus = (status: "connecting" | "connected" | "error") => {
     handlers.onStatus?.(status)
@@ -194,7 +194,7 @@ export function startChatSync(handlers: SyncHandlers) {
 
   const clearReconnect = () => {
     if (reconnectTimer === undefined) return
-    window.clearTimeout(reconnectTimer)
+    globalThis.clearTimeout(reconnectTimer)
     reconnectTimer = undefined
   }
 
@@ -209,7 +209,7 @@ export function startChatSync(handlers: SyncHandlers) {
 
   const flush = () => {
     if (flushTimer !== undefined) {
-      window.clearTimeout(flushTimer)
+      globalThis.clearTimeout(flushTimer)
       flushTimer = undefined
     }
 
@@ -224,15 +224,15 @@ export function startChatSync(handlers: SyncHandlers) {
       if (!event) continue
       const properties = eventPayloadProperties(event)
       if (skip && event.payload.type === "message.part.delta" && properties) {
-        if (
-          skip.has(
-            deltaKey(
-              event.directory ?? GLOBAL_DIRECTORY,
-              String(properties.messageID ?? ""),
-              String(properties.partID ?? ""),
-            ),
-          )
-        ) {
+        const field = String(properties.field ?? "")
+        const skipsDelta = skip.has(
+          deltaKey(
+            event.directory ?? GLOBAL_DIRECTORY,
+            String(properties.messageID ?? ""),
+            String(properties.partID ?? ""),
+          ),
+        )
+        if (skipsDelta && field !== "state.raw") {
           continue
         }
       }
@@ -242,7 +242,7 @@ export function startChatSync(handlers: SyncHandlers) {
 
   const scheduleFlush = () => {
     if (flushTimer !== undefined) return
-    flushTimer = window.setTimeout(flush, FRAME_MS)
+    flushTimer = globalThis.setTimeout(flush, FRAME_MS)
   }
 
   const connect = () => {
@@ -300,7 +300,7 @@ export function startChatSync(handlers: SyncHandlers) {
       if (disposed) return
       attempt += 1
       const delay = Math.min(10_000, 500 * attempt)
-      reconnectTimer = window.setTimeout(() => {
+      reconnectTimer = globalThis.setTimeout(() => {
         connect()
       }, delay)
       reportStatus(status)
@@ -343,7 +343,7 @@ export function startChatSync(handlers: SyncHandlers) {
         const yieldToMainThread = async () => {
           if (Date.now() - yieldedAt < STREAM_YIELD_MS) return
           yieldedAt = Date.now()
-          await new Promise<void>((resolve) => window.setTimeout(resolve, 0))
+          await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0))
         }
 
         for await (const event of events.stream) {
