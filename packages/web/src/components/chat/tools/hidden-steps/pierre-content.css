@@ -1,0 +1,133 @@
+.pierre-content-viewer {
+  --font-family-mono: var(--buddy-font-family-mono);
+  --font-family-mono--font-feature-settings: normal;
+  --font-family-sans: var(--buddy-font-family-sans);
+  --font-size-small: var(--buddy-code-font-size);
+  --diffs-font-family: var(--font-family-mono);
+  --diffs-font-size: var(--font-size-small);
+  --diffs-line-height: 24px;
+  --diffs-tab-size: 2;
+  --diffs-font-features: var(--font-family-mono--font-feature-settings);
+  --diffs-header-font-family: var(--font-family-sans);
+  --diffs-gap-block: 0;
+  --diffs-min-number-column-width: 4ch;
+
+  max-height: 18rem;
+  overflow: auto;
+  border: 1px solid var(--border-weak-base);
+  border-radius: 0.25rem;
+  background: var(--background-stronger);
+  content-visibility: auto;
+}
+
+.pierre-content-viewer--embedded {
+  border-top: 0;
+  border-radius: 0;
+}
+
+.hidden-patch-file + .hidden-patch-file {
+  margin-top: -1px;
+}
+
+.hidden-patch-file-trigger {
+  display: flex;
+  width: 100%;
+  height: 32px;
+  padding: 8px 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  overflow: clip;
+  border: 1px solid var(--border-weak-base);
+  border-radius: 0;
+  background-color: var(--background-stronger);
+  color: var(--text-strong);
+  font-family: var(--buddy-font-family-sans);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.25rem;
+  transition: background-color 0.15s ease;
+}
+
+.hidden-patch-file-trigger:hover {
+  background-color: var(--surface-base-hover);
+}
+
+.hidden-patch-file:first-child .hidden-patch-file-trigger {
+  border-top-left-radius: 0.25rem;
+  border-top-right-radius: 0.25rem;
+}
+
+.hidden-patch-file:last-child[data-state="closed"] .hidden-patch-file-trigger,
+.hidden-patch-file:last-child .pierre-content-viewer--embedded {
+  border-bottom-left-radius: 0.25rem;
+  border-bottom-right-radius: 0.25rem;
+}
+
+.hidden-patch-file-info,
+.hidden-patch-file-name,
+.hidden-patch-file-actions,
+.hidden-patch-file-diff-changes {
+  display: flex;
+  align-items: center;
+}
+
+.hidden-patch-file-info,
+.hidden-patch-file-name {
+  min-width: 0;
+  flex-grow: 1;
+}
+
+.hidden-patch-file-info {
+  gap: 20px;
+}
+
+.hidden-patch-file-name {
+  overflow: hidden;
+}
+
+.hidden-patch-file-directory {
+  overflow: hidden;
+  color: var(--text-base);
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+}
+
+.hidden-patch-file-filename {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hidden-patch-file-actions {
+  flex-shrink: 0;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.hidden-patch-file-change {
+  font-family: var(--buddy-font-family-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.hidden-patch-file-diff-changes {
+  justify-content: flex-end;
+  gap: 8px;
+  font-family: var(--buddy-font-family-mono);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.25rem;
+}
+
+.hidden-patch-file-additions {
+  color: var(--text-diff-add-base);
+}
+
+.hidden-patch-file-deletions {
+  color: var(--text-diff-delete-base);
+}

@@ -7,6 +7,7 @@ type TextShimmerProps = {
   text: string
   active?: boolean
   className?: string
+  truncate?: boolean
 }
 
 /**
@@ -19,7 +20,7 @@ type TextShimmerProps = {
  *
  * Port of vendor/opencode/packages/ui/src/components/text-shimmer.tsx.
  */
-export function TextShimmer({ text, active = true, className }: TextShimmerProps) {
+export function TextShimmer({ text, active = true, className, truncate }: TextShimmerProps) {
   const [run, setRun] = useState(active)
 
   useEffect(() => {
@@ -35,8 +36,10 @@ export function TextShimmer({ text, active = true, className }: TextShimmerProps
     <span
       data-component="text-shimmer"
       data-active={active ? "true" : "false"}
+      data-truncate={truncate ? "true" : "false"}
       className={className}
       aria-label={text}
+      title={truncate ? text : undefined}
     >
       <span data-slot="text-shimmer-char">
         <span data-slot="text-shimmer-char-base" aria-hidden="true">

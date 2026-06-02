@@ -123,6 +123,10 @@ export function getGroupDominantIcon(entries: HiddenStepsEntry[]): ToolIconRende
   return dominant
 }
 
+function getActiveHiddenStepsEntry(entries: HiddenStepsEntry[]): HiddenStepsEntry | undefined {
+  return entries.toReversed().find(hiddenStepsEntryIsActive)
+}
+
 function hiddenStepsEntryHasError(entry: HiddenStepsEntry): boolean {
   return entry.part.type === "tool" && entry.state?.status === "error"
 }
@@ -163,7 +167,7 @@ export function buildHiddenStepsSummary(
 ): string | undefined {
   // While busy, surface only the active step — count summaries are end-state labels.
   if (isBusy) {
-    const activeEntry = entries.toReversed().find(hiddenStepsEntryIsActive)
+    const activeEntry = getActiveHiddenStepsEntry(entries)
     if (activeEntry) return getHiddenStepsEntryLabel(activeEntry)
   }
 
@@ -207,4 +211,22 @@ export function buildHiddenStepsSummary(
   if (hasReasoning) return getReasoningDurationLabel(entries)
 
   return undefined
+}
+
+export function resolveHiddenStepsHeader(
+  entries: HiddenStepsEntry[],
+  isBusy: boolean,
+): { label?: string; icon?: ToolIconRenderer } {
+  const activeEntry = isBusy ? getActiveHiddenStepsEntry(entries) : undefined
+  if (activeEntry) {
+    return {
+      label: getHiddenStepsEntryLabel(activeEntry),
+      icon: activeEntry.icon,
+    }
+  }
+
+  return {
+    label: buildHiddenStepsSummary(entries, isBusy),
+    icon: getGroupDominantIcon(entries),
+  }
 }

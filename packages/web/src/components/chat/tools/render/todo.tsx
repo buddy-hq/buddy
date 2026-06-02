@@ -79,7 +79,7 @@ function TodoCheckbox({ status }: { status: string }) {
 
 function TodoList({ todos }: { todos: TodoItem[] }) {
   return (
-    <ul className="flex max-h-[10.5rem] min-w-0 flex-col gap-1.5 overflow-y-auto py-2 pb-6">
+    <ul className="flex max-h-48 min-w-0 flex-col gap-1.5 overflow-y-auto py-2 pb-6">
       {todos.map((todo) => {
         const finished = todoIsFinished(todo.status)
         return (

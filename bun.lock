@@ -182,6 +182,7 @@
         "@excalidraw/excalidraw": "0.18.1",
         "@monaco-editor/react": "^4.7.0",
         "@opencode-ai/sdk": "workspace:*",
+        "@pierre/diffs": "catalog:",
         "@tanstack/react-form": "^1.29.1",
         "@tanstack/react-hotkeys": "^0.9.1",
         "@tanstack/react-query": "^5.99.0",

@@ -41,7 +41,6 @@ export const AssistantSection = memo(function AssistantSection({
               metaText={assistantMetaText}
               interrupted={assistantAborted}
               isBusy={isBusy}
-              shellToolDefaultOpen={shellToolDefaultOpen}
             />
           )
         }

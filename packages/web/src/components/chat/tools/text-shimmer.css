@@ -31,12 +31,24 @@
   line-height: inherit;
 }
 
+[data-component="text-shimmer"][data-truncate="true"] {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
 [data-component="text-shimmer"] [data-slot="text-shimmer-char"] {
   display: inline-grid;
   white-space: pre;
   font: inherit;
   letter-spacing: inherit;
   line-height: inherit;
+}
+
+[data-component="text-shimmer"][data-truncate="true"] [data-slot="text-shimmer-char"] {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 [data-component="text-shimmer"] [data-slot="text-shimmer-char-base"],
@@ -47,6 +59,15 @@
   font: inherit;
   letter-spacing: inherit;
   line-height: inherit;
+}
+
+[data-component="text-shimmer"][data-truncate="true"] [data-slot="text-shimmer-char-base"],
+[data-component="text-shimmer"][data-truncate="true"] [data-slot="text-shimmer-char-shimmer"] {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 [data-component="text-shimmer"] [data-slot="text-shimmer-char-base"] {

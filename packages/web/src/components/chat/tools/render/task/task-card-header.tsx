@@ -4,10 +4,9 @@ import { useChatStore } from "@/state/chat-store"
 import { readString } from "../../types"
 import type { ToolPartProps } from "../../registry"
 import {
-  buildHiddenStepsSummary,
   createHiddenStepsEntry,
-  getGroupDominantIcon,
   hiddenStepsEntryIsActive,
+  resolveHiddenStepsHeader,
 } from "../../hidden-steps/entries"
 import type { SubagentCardStatus } from "./subagent-card"
 
@@ -65,13 +64,13 @@ export function useSubagentCardData(
       const allEntries = childMessages
         .filter((m) => m.info.role === "assistant")
         .flatMap((m) => m.parts.map(createHiddenStepsEntry))
-      const rawSummary = buildHiddenStepsSummary(allEntries, toolIsActive)
+      const header = resolveHiddenStepsHeader(allEntries, toolIsActive)
       // When busy but no child tool is active (child finished last tool, parent still running),
       // rawSummary falls through to the stale count summary. Suppress it so the card
       // shows "Working..." instead of a completed-state label.
       const activityLine =
-        toolIsActive && !allEntries.some(hiddenStepsEntryIsActive) ? undefined : rawSummary
-      const activityIcon = getGroupDominantIcon(allEntries)
+        toolIsActive && !allEntries.some(hiddenStepsEntryIsActive) ? undefined : header.label
+      const activityIcon = header.icon
 
       return { agentName, activityLine, activityIcon }
     }),

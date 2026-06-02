@@ -48,6 +48,19 @@ function readArrayLength(value: unknown): number | undefined {
   return Array.isArray(value) ? value.length : undefined
 }
 
+function patchFileSummary(state: ToolState): string | undefined {
+  const files = Array.isArray(state.metadata.files) ? state.metadata.files.filter(isRecord) : []
+  if (files.length === 1) {
+    const path =
+      readNonEmptyString(files[0].relativePath) ?? readNonEmptyString(files[0].filePath)
+    return path ? basename(path) : undefined
+  }
+
+  return files.length > 1
+    ? language.t("chatTools.fileCount.other", { count: files.length })
+    : undefined
+}
+
 function formatCountSummary(count: number, singular: string, plural: string): string {
   return `${count.toLocaleString()} ${count === 1 ? singular : plural}`
 }
@@ -213,20 +226,22 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.glob.running" : "chatTools.info.glob"),
-          subtitle: path ? dirname(path) : "/",
+          subtitle: pattern ?? path,
+          detail: pattern && path ? path : undefined,
           summary,
-          args: pattern ? [`pattern=${pattern}`] : [],
+          args: pattern && path ? [`path=${path}`] : [],
         },
         metadataTitle,
       )
     case "grep": {
       const args: string[] = []
-      if (pattern) args.push(`pattern=${pattern}`)
       if (include) args.push(`include=${include}`)
+      if (path) args.push(`path=${path}`)
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.grep.running" : "chatTools.info.grep"),
-          subtitle: path ? dirname(path) : "/",
+          subtitle: pattern ?? include ?? path,
+          detail: path,
           summary,
           args,
         },
@@ -336,7 +351,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.patch.running" : "chatTools.info.patch"),
-          subtitle: description,
+          subtitle: patchFileSummary(state) ?? description,
         },
         metadataTitle,
       )

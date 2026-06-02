@@ -16,7 +16,7 @@ async function getSharedHighlighter() {
   return highlighterPromise
 }
 
-const openCodeTheme = {
+export const openCodeTheme = {
   name: "OpenCode",
   colors: {
     "editor.background": "var(--color-background-stronger)",
