@@ -1,3 +1,4 @@
+// cspell:ignore Persistable
 import z from "zod"
 import { WHITEBOARD_CONTINUATION_HANDLE, writeWhiteboardCurrentFromLatest } from "./store"
 import { WhiteboardElementValidationError } from "../errors"
@@ -12,13 +13,10 @@ import {
   type WhiteboardViewport,
 } from "./types"
 import { assertWhiteboardPayloadWithinLimit } from "./payload"
-import {
-  detectWhiteboardLayoutWarnings,
-  type WhiteboardLayoutWarnings,
-} from "./layout-warnings"
 
 const PSEUDO_ELEMENT_TYPES = new Set([
   "restoreCheckpoint",
+  "replaceCurrentBoard",
   "delete",
   "cameraUpdate",
   "translate",
@@ -28,6 +26,12 @@ const RestoreCheckpointSchema = z
   .object({
     type: z.literal("restoreCheckpoint"),
     id: z.string().trim().min(1),
+  })
+  .strict()
+
+const ReplaceCurrentBoardSchema = z
+  .object({
+    type: z.literal("replaceCurrentBoard"),
   })
   .strict()
 
@@ -67,7 +71,7 @@ type WhiteboardProgramResult = {
   boardID: string
   saved: boolean
   warnings: string[]
-  layoutWarnings?: WhiteboardLayoutWarnings
+  layoutPriorityElementIDs: string[]
 }
 
 type WhiteboardProgramBase = {
@@ -75,6 +79,9 @@ type WhiteboardProgramBase = {
   hasCurrentBoard: boolean
   viewport?: WhiteboardViewport
 }
+
+type WhiteboardProgramWriteMode = "auto" | "continue" | "replace"
+type WhiteboardProgramRequestedWriteMode = Exclude<WhiteboardProgramWriteMode, "auto">
 
 function parseDrawingProgram(elements: string): unknown[] {
   assertWhiteboardPayloadWithinLimit("Whiteboard drawing program", elements)
@@ -120,10 +127,10 @@ function parseDeleteIDs(input: { ids?: string; id?: string }): string[] | undefi
   return parseCommaSeparatedIDs(raw)
 }
 
-function addParsedIDs(input: { ids: string[] | undefined; touchedIDs: Set<string> }): void {
+function addIDsToSet(input: { ids: string[] | undefined; target: Set<string> }): void {
   if (!input.ids) return
   for (const id of input.ids) {
-    input.touchedIDs.add(id)
+    input.target.add(id)
   }
 }
 
@@ -142,14 +149,14 @@ function collectTouchedIDs(program: unknown[]): Set<string> {
     if (type === "delete") {
       const deletion = DeleteElementSchema.safeParse(value)
       if (deletion.success) {
-        addParsedIDs({ ids: parseDeleteIDs(deletion.data), touchedIDs })
+        addIDsToSet({ ids: parseDeleteIDs(deletion.data), target: touchedIDs })
       }
       continue
     }
     if (type === "translate") {
       const translation = TranslateElementsSchema.safeParse(value)
       if (translation.success) {
-        addParsedIDs({ ids: parseCommaSeparatedIDs(translation.data.ids), touchedIDs })
+        addIDsToSet({ ids: parseCommaSeparatedIDs(translation.data.ids), target: touchedIDs })
       }
       continue
     }
@@ -161,6 +168,45 @@ function collectTouchedIDs(program: unknown[]): Set<string> {
     addReferencedElementID(value.endBinding, touchedIDs)
   }
   return touchedIDs
+}
+
+function addOwnElementID(value: unknown, elementIDs: Set<string>): void {
+  if (!isRecord(value)) return
+  if (typeof value.id === "string" && value.id.trim().length > 0) {
+    elementIDs.add(value.id)
+  }
+}
+
+function collectLayoutPriorityElementIDs(program: unknown[]): Set<string> {
+  const elementIDs = new Set<string>()
+  for (const value of program) {
+    const type = readElementType(value)
+    if (type === "delete") {
+      const deletion = DeleteElementSchema.safeParse(value)
+      if (deletion.success) {
+        addIDsToSet({ ids: parseDeleteIDs(deletion.data), target: elementIDs })
+      }
+      continue
+    }
+    if (type === "translate") {
+      const translation = TranslateElementsSchema.safeParse(value)
+      if (translation.success) {
+        addIDsToSet({
+          ids: parseCommaSeparatedIDs(translation.data.ids),
+          target: elementIDs,
+        })
+      }
+      continue
+    }
+    if (!isRecord(value) || PSEUDO_ELEMENT_TYPES.has(type ?? "")) continue
+    addOwnElementID(value, elementIDs)
+    if (typeof value.containerId === "string" && value.containerId.trim().length > 0) {
+      elementIDs.add(value.containerId)
+    }
+    addReferencedElementID(value.startBinding, elementIDs)
+    addReferencedElementID(value.endBinding, elementIDs)
+  }
+  return elementIDs
 }
 
 function withoutDeletedElements(
@@ -190,33 +236,80 @@ function describeProgramValue(value: unknown): string {
   return `${type}:${id}`
 }
 
-function hasRestoreCheckpoint(input: {
+function readProgramWriteMode(input: {
   program: unknown[]
   warnings: string[]
-}): boolean {
-  let found = false
+}): WhiteboardProgramWriteMode {
+  let hasRestore = false
+  let hasReplacement = false
   for (let index = 0; index < input.program.length; index += 1) {
     const value = input.program[index]
-    if (readElementType(value) !== "restoreCheckpoint") continue
-    const parsed = RestoreCheckpointSchema.safeParse(value)
-    if (!parsed.success) {
-      throw new WhiteboardElementValidationError(
-        `Invalid restoreCheckpoint at index ${index}: expected {"type":"restoreCheckpoint","id":"${WHITEBOARD_CONTINUATION_HANDLE}"}.`,
-      )
+    const type = readElementType(value)
+    if (type === "replaceCurrentBoard") {
+      const parsed = ReplaceCurrentBoardSchema.safeParse(value)
+      if (!parsed.success) {
+        throw new WhiteboardElementValidationError(
+          `Invalid replaceCurrentBoard at index ${index}: expected {"type":"replaceCurrentBoard"}.`,
+        )
+      }
+      if (index !== 0) {
+        throw new WhiteboardElementValidationError(
+          `Invalid replaceCurrentBoard at index ${index}: replacement must be the first whiteboard program item.`,
+        )
+      }
+      hasReplacement = true
+      continue
     }
-    if (parsed.data.id !== WHITEBOARD_CONTINUATION_HANDLE) {
-      throw new WhiteboardElementValidationError(
-        `Invalid restoreCheckpoint at index ${index}: expected id "${WHITEBOARD_CONTINUATION_HANDLE}", got "${parsed.data.id}".`,
-      )
+    if (type === "restoreCheckpoint") {
+      const parsed = RestoreCheckpointSchema.safeParse(value)
+      if (!parsed.success) {
+        throw new WhiteboardElementValidationError(
+          `Invalid restoreCheckpoint at index ${index}: expected {"type":"restoreCheckpoint","id":"${WHITEBOARD_CONTINUATION_HANDLE}"}.`,
+        )
+      }
+      if (parsed.data.id !== WHITEBOARD_CONTINUATION_HANDLE) {
+        throw new WhiteboardElementValidationError(
+          `Invalid restoreCheckpoint at index ${index}: expected id "${WHITEBOARD_CONTINUATION_HANDLE}", got "${parsed.data.id}".`,
+        )
+      }
+      if (index !== 0) {
+        input.warnings.push(
+          `restoreCheckpoint appeared at index ${index}; applied it as the current-board continuation anyway.`,
+        )
+      }
+      hasRestore = true
     }
-    if (index !== 0) {
-      input.warnings.push(
-        `restoreCheckpoint appeared at index ${index}; applied it as the current-board continuation anyway.`,
-      )
-    }
-    found = true
   }
-  return found
+  if (hasRestore && hasReplacement) {
+    throw new WhiteboardElementValidationError(
+      "Invalid whiteboard program: use either restoreCheckpoint to continue or replaceCurrentBoard to discard the current board, not both.",
+    )
+  }
+  if (hasReplacement) return "replace"
+  if (hasRestore) return "continue"
+  return "auto"
+}
+
+function resolveProgramWriteMode(input: {
+  program: unknown[]
+  requestedWriteMode?: WhiteboardProgramRequestedWriteMode
+  warnings: string[]
+}): WhiteboardProgramWriteMode {
+  const embeddedWriteMode = readProgramWriteMode({
+    program: input.program,
+    warnings: input.warnings,
+  })
+  if (!input.requestedWriteMode) return embeddedWriteMode
+  if (embeddedWriteMode === "auto") return input.requestedWriteMode
+  if (embeddedWriteMode !== input.requestedWriteMode) {
+    throw new WhiteboardElementValidationError(
+      "Invalid whiteboard program: boardAction conflicts with restoreCheckpoint/replaceCurrentBoard inside elements. Use boardAction for the board write mode and keep board-action markers out of elements.",
+    )
+  }
+  input.warnings.push(
+    "Ignored deprecated restoreCheckpoint/replaceCurrentBoard marker inside elements because boardAction now controls whether the board continues or replaces. Remove board-action markers from elements.",
+  )
+  return input.requestedWriteMode
 }
 
 function applyDeletion(input: {
@@ -378,6 +471,9 @@ function buildWhiteboardProgramBoard(input: {
     if (type === "restoreCheckpoint") {
       continue
     }
+    if (type === "replaceCurrentBoard") {
+      continue
+    }
     if (type === "delete") {
       elements = applyDeletion({ elements, value, index, warnings: input.warnings })
       continue
@@ -430,29 +526,37 @@ async function applyWhiteboardDrawingProgram(input: {
   directory: string
   sessionID: string
   elements: string
+  writeMode?: WhiteboardProgramRequestedWriteMode
 }): Promise<WhiteboardProgramResult> {
   const program = parseDrawingProgram(input.elements)
   const warnings: string[] = []
-  const continueCurrent = hasRestoreCheckpoint({
+  const writeMode = resolveProgramWriteMode({
     program,
+    requestedWriteMode: input.writeMode,
     warnings,
   })
-  const touchedIDs = continueCurrent ? collectTouchedIDs(program) : new Set<string>()
+  const layoutPriorityElementIDs = collectLayoutPriorityElementIDs(program)
+  const touchedIDs = writeMode === "replace" ? new Set<string>() : collectTouchedIDs(program)
   const writeResult = await writeWhiteboardCurrentFromLatest({
     directory: input.directory,
     sessionID: input.sessionID,
     origin: "agent" satisfies WhiteboardBoardOrigin,
-    validateBase: continueCurrent
-      ? (latestBase) => {
-          assertWhiteboardTouchedAnchorsFresh({
-            currentBoard: latestBase.currentBoard,
-            modelContext: latestBase.modelContext,
-            touchedIDs,
-          })
-        }
-      : undefined,
-    buildBoard: (latestBase) =>
-      buildWhiteboardProgramBoard({
+    validateBase:
+      writeMode === "replace"
+        ? undefined
+        : (latestBase) => {
+            const continueCurrent = writeMode === "continue" || latestBase.hasCurrentBoard
+            if (!continueCurrent) return
+            assertWhiteboardTouchedAnchorsFresh({
+              currentBoard: latestBase.currentBoard,
+              modelContext: latestBase.modelContext,
+              touchedIDs,
+            })
+          },
+    buildBoard: (latestBase) => {
+      const continueCurrent =
+        writeMode === "continue" || (writeMode === "auto" && latestBase.hasCurrentBoard)
+      return buildWhiteboardProgramBoard({
         program,
         base: {
           elements: latestBase.elements,
@@ -461,7 +565,8 @@ async function applyWhiteboardDrawingProgram(input: {
         },
         continueCurrent,
         warnings,
-      }),
+      })
+    },
     recordModelContext: true,
   })
   const state = writeResult.state
@@ -469,16 +574,15 @@ async function applyWhiteboardDrawingProgram(input: {
   if (!currentBoard) {
     throw new Error("Whiteboard program did not create a current board.")
   }
-  const layoutWarnings = detectWhiteboardLayoutWarnings(currentBoard.elements)
   return {
     state,
     continuationHandle: WHITEBOARD_CONTINUATION_HANDLE,
     boardID: currentBoard.boardID,
     saved: writeResult.saved,
     warnings,
-    ...(layoutWarnings ? { layoutWarnings } : {}),
+    layoutPriorityElementIDs: [...layoutPriorityElementIDs],
   }
 }
 
 export { applyWhiteboardDrawingProgram, parseDrawingProgram }
-export type { WhiteboardProgramResult }
+export type { WhiteboardProgramRequestedWriteMode, WhiteboardProgramResult }

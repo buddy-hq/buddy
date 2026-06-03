@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { setTimeout as sleep } from "node:timers/promises"
 import { MessageID, SessionID } from "@buddy/opencode-adapter/id"
 import {
   applyWhiteboardDrawingProgram,
@@ -6,6 +7,7 @@ import {
 } from "../../src/learning/features/whiteboard/service/program"
 import {
   readWhiteboardSession,
+  readWhiteboardBoardContext,
   saveWhiteboardLearnerEdit,
   saveWhiteboardRenderReport,
 } from "../../src/learning/features/whiteboard/service/store"
@@ -19,8 +21,28 @@ import {
   createWhiteboardViewTool,
   readWhiteboardContextTool,
 } from "../../src/learning/features/whiteboard/tools/tools"
+import type { WhiteboardRenderReport } from "../../src/learning/features/whiteboard/service/types"
 import type { BuddyToolContext } from "../../src/learning/runtime/create-buddy-tool"
 import { tmpdir } from "../helpers/tmpdir"
+
+type LayoutMetadataForTest = {
+  layout?: {
+    status: string
+    issues?: Array<{
+      code: string
+      id?: string
+      containerId?: string
+      overflowDirection?: string
+      overflowPx?: { x?: number; y?: number }
+    }>
+    issuesTruncated?: boolean
+  }
+}
+
+type OverflowFixture = {
+  programElements: unknown[]
+  reportElements: WhiteboardRenderReport["elements"]
+}
 
 function createContext(input: { directory: string; sessionID: string }): BuddyToolContext {
   return {
@@ -35,12 +57,82 @@ function createContext(input: { directory: string; sessionID: string }): BuddyTo
   }
 }
 
+async function waitForWhiteboardBoardID(input: {
+  directory: string
+  sessionID: string
+}): Promise<string> {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const context = await readWhiteboardBoardContext(input.directory, input.sessionID)
+    if (context.currentBoard) return context.currentBoard.boardID
+    await sleep(25)
+  }
+  throw new Error("Expected whiteboard board to be saved")
+}
+
+async function waitForNextWhiteboardBoardID(input: {
+  directory: string
+  sessionID: string
+  previousBoardID: string
+}): Promise<string> {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const context = await readWhiteboardBoardContext(input.directory, input.sessionID)
+    const boardID = context.currentBoard?.boardID
+    if (boardID && boardID !== input.previousBoardID) return boardID
+    await sleep(25)
+  }
+  throw new Error("Expected next whiteboard board to be saved")
+}
+
+function buildNaturalWidthOverflowFixture(input: {
+  cardID: string
+  textID: string
+  y: number
+}): OverflowFixture {
+  const text =
+    "When you touch a ringing bell, what do you feel and how does the vibration move through matter?"
+  return {
+    programElements: [
+      {
+        type: "rectangle",
+        id: input.cardID,
+        x: 0,
+        y: input.y,
+        width: 280,
+        height: 120,
+      },
+      {
+        type: "text",
+        id: input.textID,
+        x: 20,
+        y: input.y + 25,
+        width: 230,
+        height: 24,
+        text,
+      },
+    ],
+    reportElements: [
+      {
+        id: input.cardID,
+        type: "rectangle",
+        bounds: { x: 0, y: input.y, width: 280, height: 120 },
+      },
+      {
+        id: input.textID,
+        type: "text",
+        text,
+        bounds: { x: 20, y: input.y + 25, width: 740, height: 24 },
+      },
+    ],
+  }
+}
+
 describe("whiteboard drawing program", () => {
-  test("creates, continues, and replaces the current board", async () => {
+  test("creates, continues, and replaces the current board with requested write mode", async () => {
     await using project = await tmpdir()
     const created = await applyWhiteboardDrawingProgram({
       directory: project.path,
       sessionID: "ses_whiteboard",
+      writeMode: "continue",
       elements: JSON.stringify([
         { type: "cameraUpdate", width: 800, height: 600, x: 0, y: 0 },
         { type: "rectangle", id: "solid", x: 80, y: 100, width: 160, height: 80 },
@@ -59,11 +151,13 @@ describe("whiteboard drawing program", () => {
       ]),
     })
 
+    expect(created.continuationHandle).toBe("current")
+
     const continued = await applyWhiteboardDrawingProgram({
       directory: project.path,
       sessionID: "ses_whiteboard",
+      writeMode: "continue",
       elements: JSON.stringify([
-        { type: "restoreCheckpoint", id: created.continuationHandle },
         { type: "delete", id: "melting" },
         {
           type: "arrow",
@@ -92,9 +186,25 @@ describe("whiteboard drawing program", () => {
       height: 600,
     })
 
+    const defaultContinued = await applyWhiteboardDrawingProgram({
+      directory: project.path,
+      sessionID: "ses_whiteboard",
+      writeMode: "continue",
+      elements: JSON.stringify([
+        { type: "text", id: "implicit-append", x: 20, y: 120, text: "More board work" },
+      ]),
+    })
+
+    expect(defaultContinued.state.currentBoard?.elements.map((element) => element.id)).toEqual([
+      "solid",
+      "melting-with-heat",
+      "implicit-append",
+    ])
+
     const replaced = await applyWhiteboardDrawingProgram({
       directory: project.path,
       sessionID: "ses_whiteboard",
+      writeMode: "replace",
       elements: JSON.stringify([
         { type: "rectangle", id: "replacement", x: 20, y: 20, width: 100, height: 60 },
       ]),
@@ -130,6 +240,44 @@ describe("whiteboard drawing program", () => {
     expect(state.currentBoard?.elements.map((element) => element.id)).toEqual(["base"])
   })
 
+  test("rejects conflicting requested write modes and legacy board-action controls", async () => {
+    await using project = await tmpdir()
+    await applyWhiteboardDrawingProgram({
+      directory: project.path,
+      sessionID: "ses_invalid_replacement_control",
+      elements: JSON.stringify([
+        { type: "rectangle", id: "base", x: 0, y: 0, width: 120, height: 60 },
+      ]),
+    })
+
+    await expect(
+      applyWhiteboardDrawingProgram({
+        directory: project.path,
+        sessionID: "ses_invalid_replacement_control",
+        writeMode: "replace",
+        elements: JSON.stringify([
+          { type: "text", id: "before-replace", x: 0, y: 80, text: "No" },
+          { type: "restoreCheckpoint", id: "current" },
+        ]),
+      }),
+    ).rejects.toThrow("boardAction conflicts with restoreCheckpoint/replaceCurrentBoard")
+
+    await expect(
+      applyWhiteboardDrawingProgram({
+        directory: project.path,
+        sessionID: "ses_invalid_replacement_control",
+        writeMode: "continue",
+        elements: JSON.stringify([
+          { type: "replaceCurrentBoard" },
+          { type: "text", id: "ambiguous", x: 0, y: 80, text: "No" },
+        ]),
+      }),
+    ).rejects.toThrow("boardAction conflicts with restoreCheckpoint/replaceCurrentBoard")
+
+    const state = await readWhiteboardSession(project.path, "ses_invalid_replacement_control")
+    expect(state.currentBoard?.elements.map((element) => element.id)).toEqual(["base"])
+  })
+
   test("returns a recoverable camera aspect-ratio hint", async () => {
     await using project = await tmpdir()
     const result = await applyWhiteboardDrawingProgram({
@@ -150,27 +298,140 @@ describe("whiteboard drawing program", () => {
     })
   })
 
-  test("returns compact model-facing warnings for layout overlaps", async () => {
+  test("returns compact measured layout feedback from create-view", async () => {
     await using project = await tmpdir()
+    const sessionID = "ses_layout_warning_tool"
 
-    const result = await createWhiteboardViewTool.run(
+    const toolResult = createWhiteboardViewTool.run(
       {
+        boardAction: "continue_current_board",
         elements: JSON.stringify([
-          { type: "rectangle", id: "box_a", x: 0, y: 0, width: 100, height: 70 },
-          { type: "rectangle", id: "box_b", x: 50, y: 20, width: 100, height: 70 },
+          { type: "rectangle", id: "box", x: 0, y: 0, width: 120, height: 60 },
+          { type: "text", id: "box-text", containerId: "box", x: 10, y: 20, text: "Overflow" },
         ]),
       },
-      createContext({ directory: project.path, sessionID: "ses_layout_warning_tool" }),
+      createContext({ directory: project.path, sessionID }),
+    )
+    const reportResult = (async () => {
+      const boardID = await waitForWhiteboardBoardID({
+        directory: project.path,
+        sessionID,
+      })
+      await saveWhiteboardRenderReport({
+        directory: project.path,
+        sessionID,
+        report: {
+          boardID,
+          viewport: { x: 0, y: 0, width: 800, height: 600 },
+          canvas: { width: 800, height: 600, zoom: 1 },
+          contentBounds: { x: 0, y: 0, width: 230, height: 60 },
+          elements: [
+            {
+              id: "box",
+              type: "rectangle",
+              version: 1,
+              versionNonce: 11,
+              bounds: { x: 0, y: 0, width: 120, height: 60 },
+            },
+            {
+              id: "box-text",
+              type: "text",
+              version: 1,
+              versionNonce: 12,
+              containerId: "box",
+              text: "Overflow",
+              bounds: { x: 10, y: 20, width: 180, height: 24 },
+            },
+          ],
+        },
+      })
+    })()
+
+    const [result] = await Promise.all([toolResult, reportResult])
+
+    expect(result.output).not.toContain("WHITEBOARD LAYOUT REPAIR SUGGESTED BEFORE REPLYING.")
+    expect(result.output).toContain("Measured whiteboard layout issues from rendered bounds:")
+    expect(result.output).toContain('"code":"text_overflow"')
+    expect(result.metadata?.layoutWarnings).toBeUndefined()
+    expect(result.metadata?.layout).toMatchObject({
+      status: "issues",
+      issues: [
+        {
+          code: "text_overflow",
+          id: "box-text",
+          containerId: "box",
+          overflowDirection: "horizontal",
+          overflowPx: { x: 70 },
+        },
+      ],
+    })
+  })
+
+  test("create-view prioritizes current write layout feedback when old issues fill the cap", async () => {
+    await using project = await tmpdir()
+    const sessionID = "ses_layout_priority_current_write"
+    const oldFixtures = Array.from({ length: 10 }, (_, index) =>
+      buildNaturalWidthOverflowFixture({
+        cardID: `old-card-${index}`,
+        textID: `old-text-${index}`,
+        y: index * 180,
+      }),
     )
 
-    expect(result.output).toContain("WHITEBOARD LAYOUT REPAIR SUGGESTED BEFORE REPLYING.")
-    expect(result.output).toContain('"ss","box_a","box_b"')
-    expect(result.metadata?.layoutWarnings).toMatchObject({
-      total: 1,
-      hard: [["ss", "box_a", "box_b"]],
-      advisory: [],
-      hidden: 0,
-      action: "roomy_relayout_once_before_reply",
+    const initialBoard = await applyWhiteboardDrawingProgram({
+      directory: project.path,
+      sessionID,
+      writeMode: "continue",
+      elements: JSON.stringify(oldFixtures.flatMap((fixture) => fixture.programElements)),
+    })
+
+    const newFixture = buildNaturalWidthOverflowFixture({
+      cardID: "r3-card",
+      textID: "r3-body",
+      y: 1900,
+    })
+    const toolResult = createWhiteboardViewTool.run(
+      {
+        boardAction: "continue_current_board",
+        elements: JSON.stringify(newFixture.programElements),
+      },
+      createContext({ directory: project.path, sessionID }),
+    )
+    const reportResult = (async () => {
+      const boardID = await waitForNextWhiteboardBoardID({
+        directory: project.path,
+        sessionID,
+        previousBoardID: initialBoard.boardID,
+      })
+      await saveWhiteboardRenderReport({
+        directory: project.path,
+        sessionID,
+        report: {
+          boardID,
+          viewport: { x: 0, y: 0, width: 1000, height: 800 },
+          canvas: { width: 1000, height: 800, zoom: 1 },
+          contentBounds: { x: 0, y: 0, width: 760, height: 2020 },
+          elements: [
+            ...oldFixtures.flatMap((fixture) => fixture.reportElements),
+            ...newFixture.reportElements,
+          ],
+        },
+      })
+    })()
+
+    const [result] = await Promise.all([toolResult, reportResult])
+    const metadata = result.metadata as LayoutMetadataForTest
+
+    expect(result.output).toContain('"issuesTruncated":true')
+    expect(result.output).toContain('"id":"r3-body"')
+    expect(metadata.layout?.status).toBe("issues")
+    expect(metadata.layout?.issuesTruncated).toBe(true)
+    expect(metadata.layout?.issues?.[0]).toMatchObject({
+      code: "text_overflow",
+      id: "r3-body",
+      containerId: "r3-card",
+      overflowDirection: "horizontal",
+      overflowPx: { x: 480 },
     })
   })
 
@@ -404,7 +665,16 @@ describe("whiteboard drawing program", () => {
       sessionID: "ses_render_layout_context",
       elements: JSON.stringify([
         { type: "rectangle", id: "box", x: 0, y: 0, width: 120, height: 60 },
-        { type: "text", id: "box-text", containerId: "box", x: 10, y: 20, text: "Overflowing" },
+        {
+          type: "text",
+          id: "box-text",
+          containerId: "box",
+          x: 10,
+          y: 20,
+          width: 120,
+          height: 24,
+          text: "Overflowing",
+        },
       ]),
     })
 
@@ -444,17 +714,102 @@ describe("whiteboard drawing program", () => {
     const output = JSON.parse(result.output) as {
       layout?: {
         status: string
-        issues?: Array<{ code: string; id?: string; containerId?: string }>
+        issues?: Array<{
+          code: string
+          id?: string
+          containerId?: string
+          overflowDirection?: string
+        }>
       }
+      elements?: Array<{
+        id: string
+        renderBounds?: {
+          x: number
+          y: number
+          width: number
+          height: number
+        }
+      }>
       renderReport?: unknown
     }
 
     expect(output.renderReport).toBeUndefined()
+    expect(output.elements?.find((element) => element.id === "box-text")).toMatchObject({
+      renderBounds: { x: 10, y: 20, width: 180, height: 24 },
+    })
     expect(output.layout?.status).toBe("issues")
     expect(output.layout?.issues?.[0]).toMatchObject({
       code: "text_overflow",
       id: "box-text",
       containerId: "box",
+      overflowDirection: "horizontal",
+    })
+  })
+
+  test("render layout digest reports text that is too small at the current zoom", async () => {
+    await using project = await tmpdir()
+    const created = await applyWhiteboardDrawingProgram({
+      directory: project.path,
+      sessionID: "ses_render_layout_text_too_small",
+      elements: JSON.stringify([
+        {
+          type: "text",
+          id: "small-note",
+          x: 40,
+          y: 40,
+          text: "Pathshalas, William Adam",
+          fontSize: 13,
+        },
+      ]),
+    })
+
+    await saveWhiteboardRenderReport({
+      directory: project.path,
+      sessionID: "ses_render_layout_text_too_small",
+      report: {
+        boardID: created.boardID,
+        viewport: { x: 0, y: 0, width: 1143, height: 857 },
+        canvas: { width: 800, height: 600, zoom: 0.7 },
+        contentBounds: { x: 40, y: 40, width: 155, height: 16.25 },
+        elements: [
+          {
+            id: "small-note",
+            type: "text",
+            text: "Pathshalas, William Adam",
+            fontSize: 13,
+            bounds: { x: 40, y: 40, width: 155, height: 16.25 },
+          },
+        ],
+      },
+    })
+
+    const result = await readWhiteboardContextTool.run(
+      {},
+      createContext({
+        directory: project.path,
+        sessionID: "ses_render_layout_text_too_small",
+      }),
+    )
+    const output = JSON.parse(result.output) as {
+      layout?: {
+        status: string
+        issues?: Array<{
+          code: string
+          id?: string
+          fontSize?: number
+          renderedFontPx?: number
+          zoom?: number
+        }>
+      }
+    }
+
+    expect(output.layout?.status).toBe("issues")
+    expect(output.layout?.issues?.[0]).toMatchObject({
+      code: "text_too_small",
+      id: "small-note",
+      fontSize: 13,
+      renderedFontPx: 9.1,
+      zoom: 0.7,
     })
   })
 
@@ -511,6 +866,303 @@ describe("whiteboard drawing program", () => {
     expect(output.layout?.issues).toBeUndefined()
   })
 
+  test("render layout digest ignores text contained by earlier background panels", async () => {
+    await using project = await tmpdir()
+    const created = await applyWhiteboardDrawingProgram({
+      directory: project.path,
+      sessionID: "ses_render_layout_background_panels",
+      elements: JSON.stringify([
+        { type: "rectangle", id: "bg-left", x: 40, y: 40, width: 320, height: 820 },
+        { type: "rectangle", id: "bg-center", x: 390, y: 40, width: 520, height: 820 },
+        { type: "text", id: "title-left", x: 80, y: 60, text: "ANCHOR ZONE" },
+        { type: "rectangle", id: "rule-box", x: 70, y: 230, width: 260, height: 160 },
+        { type: "text", id: "rule-title", x: 85, y: 242, text: "RULES" },
+        { type: "text", id: "rule1", x: 85, y: 270, text: "Unit digits: 0,1,4,5,6,9" },
+        { type: "text", id: "center-label", x: 420, y: 100, text: "Visual Proof" },
+      ]),
+    })
+
+    await saveWhiteboardRenderReport({
+      directory: project.path,
+      sessionID: "ses_render_layout_background_panels",
+      report: {
+        boardID: created.boardID,
+        viewport: { x: 0, y: 0, width: 1200, height: 900 },
+        canvas: { width: 1053, height: 1004, zoom: 0.7 },
+        contentBounds: { x: 40, y: 40, width: 870, height: 820 },
+        elements: [
+          {
+            id: "bg-left",
+            type: "rectangle",
+            bounds: { x: 40, y: 40, width: 320, height: 820 },
+          },
+          {
+            id: "bg-center",
+            type: "rectangle",
+            bounds: { x: 390, y: 40, width: 520, height: 820 },
+          },
+          {
+            id: "title-left",
+            type: "text",
+            text: "ANCHOR ZONE",
+            bounds: { x: 80, y: 60, width: 140, height: 28 },
+          },
+          {
+            id: "rule-box",
+            type: "rectangle",
+            bounds: { x: 70, y: 230, width: 260, height: 160 },
+          },
+          {
+            id: "rule-title",
+            type: "text",
+            text: "RULES",
+            bounds: { x: 85, y: 242, width: 60, height: 24 },
+          },
+          {
+            id: "rule1",
+            type: "text",
+            text: "Unit digits: 0,1,4,5,6,9",
+            bounds: { x: 85, y: 270, width: 220, height: 22 },
+          },
+          {
+            id: "center-label",
+            type: "text",
+            text: "Visual Proof",
+            bounds: { x: 420, y: 100, width: 120, height: 24 },
+          },
+        ],
+      },
+    })
+
+    const result = await readWhiteboardContextTool.run(
+      {},
+      createContext({ directory: project.path, sessionID: "ses_render_layout_background_panels" }),
+    )
+    const output = JSON.parse(result.output) as { layout?: { status: string; issues?: unknown[] } }
+
+    expect(output.layout?.status).toBe("ok")
+    expect(output.layout?.issues).toBeUndefined()
+  })
+
+  test("render layout digest reports implicit container text overflow instead of overlap", async () => {
+    await using project = await tmpdir()
+    const created = await applyWhiteboardDrawingProgram({
+      directory: project.path,
+      sessionID: "ses_render_layout_implicit_container_overflow",
+      elements: JSON.stringify([
+        { type: "rectangle", id: "rules-box", x: 40, y: 40, width: 220, height: 80 },
+        { type: "text", id: "rules-line", x: 55, y: 96, text: "n^a x m^a = (nm)^a" },
+      ]),
+    })
+
+    await saveWhiteboardRenderReport({
+      directory: project.path,
+      sessionID: "ses_render_layout_implicit_container_overflow",
+      report: {
+        boardID: created.boardID,
+        viewport: { x: 0, y: 0, width: 800, height: 600 },
+        canvas: { width: 800, height: 600, zoom: 1 },
+        contentBounds: { x: 40, y: 40, width: 220, height: 104 },
+        elements: [
+          {
+            id: "rules-box",
+            type: "rectangle",
+            bounds: { x: 40, y: 40, width: 220, height: 80 },
+          },
+          {
+            id: "rules-line",
+            type: "text",
+            text: "n^a x m^a = (nm)^a",
+            bounds: { x: 55, y: 96, width: 180, height: 48 },
+          },
+        ],
+      },
+    })
+
+    const result = await readWhiteboardContextTool.run(
+      {},
+      createContext({
+        directory: project.path,
+        sessionID: "ses_render_layout_implicit_container_overflow",
+      }),
+    )
+    const output = JSON.parse(result.output) as {
+      layout?: {
+        status: string
+        issues?: {
+          code: string
+          id?: string
+          containerId?: string
+          a?: string
+          b?: string
+          overflowDirection?: string
+        }[]
+      }
+    }
+
+    expect(output.layout?.status).toBe("issues")
+    expect(output.layout?.issues?.[0]).toMatchObject({
+      code: "text_overflow",
+      id: "rules-line",
+      containerId: "rules-box",
+      overflowDirection: "vertical",
+    })
+    expect(output.layout?.issues?.[0]?.code).not.toBe("sibling_collision")
+  })
+
+  test("render layout digest reports horizontal text overflow and sibling collision separately", async () => {
+    await using project = await tmpdir()
+    const created = await applyWhiteboardDrawingProgram({
+      directory: project.path,
+      sessionID: "ses_render_layout_horizontal_overflow_cascade",
+      elements: JSON.stringify([
+        { type: "rectangle", id: "p1", x: 60, y: 1140, width: 280, height: 380 },
+        {
+          type: "text",
+          id: "p1b",
+          x: 80,
+          y: 1185,
+          text: "When you touch a ringing bell, what do you feel?",
+        },
+        { type: "rectangle", id: "p2", x: 360, y: 1140, width: 280, height: 380 },
+      ]),
+    })
+
+    await saveWhiteboardRenderReport({
+      directory: project.path,
+      sessionID: "ses_render_layout_horizontal_overflow_cascade",
+      report: {
+        boardID: created.boardID,
+        viewport: { x: 0, y: 0, width: 1600, height: 1200 },
+        canvas: { width: 1200, height: 900, zoom: 1 },
+        contentBounds: { x: 60, y: 1140, width: 580, height: 380 },
+        elements: [
+          { id: "p1", type: "rectangle", bounds: { x: 60, y: 1140, width: 280, height: 380 } },
+          {
+            id: "p1b",
+            type: "text",
+            text: "When you touch a ringing bell, what do you feel?",
+            bounds: { x: 80, y: 1185, width: 352, height: 300 },
+          },
+          { id: "p2", type: "rectangle", bounds: { x: 360, y: 1140, width: 280, height: 380 } },
+        ],
+      },
+    })
+
+    const result = await readWhiteboardContextTool.run(
+      {},
+      createContext({
+        directory: project.path,
+        sessionID: "ses_render_layout_horizontal_overflow_cascade",
+      }),
+    )
+    const output = JSON.parse(result.output) as {
+      layout?: {
+        status: string
+        issues?: Array<{
+          code: string
+          id?: string
+          containerId?: string
+          overflowDirection?: string
+          overflowPx?: { x?: number; y?: number }
+          a?: string
+          b?: string
+          separationAxis?: string
+          overlapPx?: { x: number; y: number }
+        }>
+      }
+    }
+
+    expect(output.layout?.status).toBe("issues")
+    expect(output.layout?.issues?.[0]).toMatchObject({
+      code: "text_overflow",
+      id: "p1b",
+      containerId: "p1",
+      overflowDirection: "horizontal",
+      overflowPx: { x: 92 },
+    })
+    expect(output.layout?.issues?.[1]).toMatchObject({
+      code: "sibling_collision",
+      a: "p1b",
+      b: "p2",
+      separationAxis: "horizontal",
+      overlapPx: { x: 72, y: 300 },
+    })
+  })
+
+  test("render layout digest reports overflow when a natural-width line starts inside a card", async () => {
+    await using project = await tmpdir()
+    const created = await applyWhiteboardDrawingProgram({
+      directory: project.path,
+      sessionID: "ses_render_layout_text_anchor_overflow",
+      elements: JSON.stringify([
+        { type: "rectangle", id: "test-card-1", x: 0, y: 100, width: 280, height: 150 },
+        {
+          type: "text",
+          id: "test-card-1-body",
+          x: 20,
+          y: 125,
+          width: 230,
+          height: 24,
+          text: "When you touch a ringing bell, what do you feel and how do you know the vibration is moving through matter?",
+        },
+      ]),
+    })
+
+    await saveWhiteboardRenderReport({
+      directory: project.path,
+      sessionID: "ses_render_layout_text_anchor_overflow",
+      report: {
+        boardID: created.boardID,
+        viewport: { x: 0, y: 0, width: 1000, height: 600 },
+        canvas: { width: 1000, height: 600, zoom: 1 },
+        contentBounds: { x: 0, y: 100, width: 760, height: 150 },
+        elements: [
+          {
+            id: "test-card-1",
+            type: "rectangle",
+            bounds: { x: 0, y: 100, width: 280, height: 150 },
+          },
+          {
+            id: "test-card-1-body",
+            type: "text",
+            text: "When you touch a ringing bell, what do you feel and how do you know the vibration is moving through matter?",
+            bounds: { x: 20, y: 125, width: 740, height: 24 },
+          },
+        ],
+      },
+    })
+
+    const result = await readWhiteboardContextTool.run(
+      {},
+      createContext({
+        directory: project.path,
+        sessionID: "ses_render_layout_text_anchor_overflow",
+      }),
+    )
+    const output = JSON.parse(result.output) as {
+      layout?: {
+        status: string
+        issues?: Array<{
+          code: string
+          id?: string
+          containerId?: string
+          overflowDirection?: string
+          overflowPx?: { x?: number; y?: number }
+        }>
+      }
+    }
+
+    expect(output.layout?.status).toBe("issues")
+    expect(output.layout?.issues?.[0]).toMatchObject({
+      code: "text_overflow",
+      id: "test-card-1-body",
+      containerId: "test-card-1",
+      overflowDirection: "horizontal",
+      overflowPx: { x: 480 },
+    })
+  })
+
   test("render layout digest moves a bound label with its container", async () => {
     await using project = await tmpdir()
     const created = await applyWhiteboardDrawingProgram({
@@ -554,15 +1206,90 @@ describe("whiteboard drawing program", () => {
         issues?: Array<{
           code: string
           a?: string
-          suggested?: { ids?: string }
+          moveTogetherId?: string
         }>
       }
     }
     const issue = output.layout?.issues?.find(
-      (candidate) => candidate.code === "overlap" && candidate.a === "box-text",
+      (candidate) => candidate.code === "sibling_collision" && candidate.a === "box-text",
     )
 
-    expect(issue?.suggested?.ids).toBe("box")
+    expect(issue?.moveTogetherId).toBe("box")
+  })
+
+  test("render layout digest reports later opaque shapes covering text", async () => {
+    await using project = await tmpdir()
+    const created = await applyWhiteboardDrawingProgram({
+      directory: project.path,
+      sessionID: "ses_render_layout_text_occlusion",
+      elements: JSON.stringify([
+        { type: "text", id: "covered-text", x: 20, y: 20, text: "Covered" },
+        {
+          type: "rectangle",
+          id: "cover",
+          x: 0,
+          y: 0,
+          width: 160,
+          height: 80,
+          backgroundColor: "#663333",
+          fillStyle: "solid",
+        },
+      ]),
+    })
+
+    await saveWhiteboardRenderReport({
+      directory: project.path,
+      sessionID: "ses_render_layout_text_occlusion",
+      report: {
+        boardID: created.boardID,
+        viewport: { x: 0, y: 0, width: 800, height: 600 },
+        canvas: { width: 800, height: 600, zoom: 1 },
+        contentBounds: { x: 0, y: 0, width: 160, height: 80 },
+        elements: [
+          {
+            id: "covered-text",
+            type: "text",
+            text: "Covered",
+            bounds: { x: 20, y: 20, width: 90, height: 24 },
+          },
+          {
+            id: "cover",
+            type: "rectangle",
+            backgroundColor: "#663333",
+            fillStyle: "solid",
+            opacity: 100,
+            bounds: { x: 0, y: 0, width: 160, height: 80 },
+          },
+        ],
+      },
+    })
+
+    const result = await readWhiteboardContextTool.run(
+      {},
+      createContext({ directory: project.path, sessionID: "ses_render_layout_text_occlusion" }),
+    )
+    const output = JSON.parse(result.output) as {
+      layout?: {
+        status: string
+        issues?: Array<{
+          code: string
+          textId?: string
+          occluderId?: string
+          overlapPx?: { x: number; y: number }
+          occluderOpacity?: number
+        }>
+      }
+    }
+
+    expect(output.layout?.status).toBe("issues")
+    expect(output.layout?.issues?.[0]).toMatchObject({
+      code: "text_occluded",
+      textId: "covered-text",
+      occluderId: "cover",
+      overlapPx: { x: 90, y: 24 },
+      occluderOpacity: 100,
+    })
+    expect(output.layout?.issues?.some((issue) => issue.code === "sibling_collision")).toBeFalse()
   })
 
   test("rebases concurrent continuation writes against the latest locked board", async () => {

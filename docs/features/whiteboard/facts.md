@@ -1,3 +1,5 @@
+<!-- cspell:ignore baselined ciphertext coalescer Excalifont freedraw refetches repost titlebar viewports -->
+
 - The orange blocks in the sketch are implementation requirements that do not exist yet; the `<about>` blocks are notes for implementation and must never render.
 - The requested whiteboard is session-scoped persistent state, not an inline chat artifact and not a mirror of Excalidraw internals.
 - The temporary floating Excalidraw canvas is too space-constrained for the actual use case and must be replaced.
@@ -31,11 +33,11 @@
 - Excalidraw MCP manually parses the `elements` string and returns actionable JSON parse errors.
 - Excalidraw MCP rejects checkpoint payloads larger than 5 MB; Buddy applies the same 5 MB ceiling to agent programs and learner-edit snapshots.
 - Excalidraw MCP uses stringified JSON so partial tool-input text can be parsed incrementally and rendered progressively while the model is still generating the call.
-- Excalidraw MCP's compact drawing language includes normal Excalidraw shorthand elements and pseudo-elements including `cameraUpdate`, `restoreCheckpoint`, and `delete`.
+- Excalidraw MCP's compact drawing language includes normal Excalidraw shorthand elements plus pseudo-elements. Buddy keeps local drawing pseudo-elements such as `cameraUpdate` and `delete` inside `elements`, but moves board persistence out to `boardAction`.
 - Excalidraw MCP's `cameraUpdate` pseudo-element uses scene-space `x`, `y`, `width`, and `height`; recommended viewports use a 4:3 ratio.
 - Excalidraw MCP accepts `delete.ids` and falls back to `delete.id` when parsing deletion pseudo-elements.
 - Excalidraw MCP instructs authors never to reuse an element id after deleting it; replacements receive new stable ids.
-- Excalidraw MCP returns a checkpoint id after `create_view`; later calls can restore a checkpoint and append or delete elements without resending the whole scene.
+- Excalidraw MCP returns a checkpoint id after `create_view`; later upstream calls can restore a checkpoint and append or delete elements without resending the whole scene. Buddy resolves the current board internally from `boardAction` instead of asking the model to send a checkpoint marker in `elements`.
 - Excalidraw MCP exposes app-only tools including `export_to_excalidraw`, `save_checkpoint`, and `read_checkpoint`; they are not intended for model selection.
 - Excalidraw MCP debounces learner edits, persists edited elements, updates the checkpoint, and sends a compact learner-edit summary into model context.
 - Excalidraw MCP is optimized for a streamed MCP widget; Buddy additionally needs durable per-session state and learner-edit persistence inside the workspace app.
@@ -43,13 +45,17 @@
 - The current analogy-first recommendation is a feature-owned `whiteboard-authoring` skill plus model-visible `whiteboard_create_view` and `whiteboard_read_context` tools.
 - Buddy's existing system prompt tells the agent to load matching skills with the `skill` tool, and skill tool output is protected from session-output pruning.
 - The `whiteboard-authoring` skill should be Buddy's equivalent of Excalidraw MCP's `read_me` tool.
-- The current recommended `whiteboard_create_view` outer schema is a strict object with only `elements: string`; it avoids provider-facing discriminated unions.
+- The current recommended `whiteboard_create_view` outer schema is a strict object with `boardAction` and `elements`; it avoids provider-facing discriminated unions.
 - The current recommended `whiteboard_create_view.elements` value is a compact JSON-array drawing program validated after parsing with an internal Zod DSL and actionable errors.
-- Buddy's `whiteboard_create_view` wording should stay close to Excalidraw MCP's `create_view`: short valid-JSON instructions on the tool, with richer Buddy workflow guidance delegated to `whiteboard_read_context` and the `whiteboard-authoring` skill.
-- A `whiteboard_create_view` program without `restoreCheckpoint` replaces the current board from scratch; a program beginning with `restoreCheckpoint` continues the current board only when the handle is `current`; `delete` removes existing elements.
+- Buddy's `whiteboard_create_view` wording should stay close to Excalidraw MCP's `create_view` for the drawing string, but Buddy separates app-owned board persistence into the `boardAction` enum because official tool-design guidance favors explicit, named parameters and enums for important choices.
+- `boardAction: "continue_current_board"` preserves the current board and applies `elements`; if no board exists yet, it creates the first board from an empty base.
+- `boardAction: "destructively_replace_current_board"` explicitly replaces the current board from scratch.
+- `destructively_replace_current_board` is destructive for the viewer because Buddy has one current board and no viewer-facing history picker. It should be used only when the user explicitly asks to discard, clear, overwrite, or replace the whole board. Clean-canvas preference, a new topic, or a structurally different visualization should still continue the board and use a new zone unless the user asks to discard the old board.
+- The model should not include `restoreCheckpoint` or `replaceCurrentBoard` inside `elements`; those markers are deprecated compatibility inputs only, and conflicting `boardAction` plus embedded marker calls are invalid.
+- `delete` removes existing elements.
 - The current recommended `whiteboard_read_context` outer schema is an empty strict object; it returns a compact latest-backend context before a precise edit.
 - The model should not provide `sessionID` or immutable storage ids when Buddy already knows the current session and current board.
-- The model may provide the `current` checkpoint continuation handle inside `restoreCheckpoint`; Buddy resolves that handle to the latest current board. Any other non-empty handle is invalid and must be rejected rather than treated as current.
+- The `current` checkpoint continuation handle remains tool metadata for model context, but new calls should not send it back. Buddy resolves `boardAction: "continue_current_board"` to the latest current board internally.
 - Buddy now exposes one continuation handle, `current`; it resolves under the session mutation lock so concurrent writes rebase on the latest board.
 - The current V2 persistence model stores one mutable current board plus a previous-board snapshot for compact learner-edit context.
 - Buddy disables Excalidraw image insertion in v1 because the whiteboard persistence contract does not include binary files.
@@ -91,10 +97,10 @@
 - The `whiteboard-authoring` skill now copies Excalidraw MCP's `RECALL_CHEAT_SHEET` as its base reference and adds Buddy-specific notes for `whiteboard_create_view`, `whiteboard_read_context`, and continuation handles.
 - After a whiteboard tool has appeared in the current conversation, the composer context row should show a ghost Presentation button next to the persona selector that toggles the whiteboard workspace.
 - After a reading resource has been opened for the directory, the composer context row should show a ghost Book button next to the persona selector that toggles the reading workspace using the persisted last-opened reading resource.
-- Excalidraw MCP's prevention pattern is to keep pseudo-elements out of the conversion/storage path: `cameraUpdate`, `restoreCheckpoint`, and `delete` are program instructions, not persisted drawn elements.
+- Excalidraw MCP's prevention pattern is to keep pseudo-elements out of the conversion/storage path. Buddy follows it for `cameraUpdate` and `delete`: they are program instructions, not persisted drawn elements. Deprecated `restoreCheckpoint` and `replaceCurrentBoard` markers are also stripped when encountered in legacy programs.
 - Buddy write behavior is recoverable at the individual-element level: unsupported drawn elements are skipped with tool-result warnings, duplicate live ids are skipped, common malformed labels are normalized to `label.text`, and supported raw skeleton/native element objects are preserved without requiring optional width/height or freedraw point fields up front.
 - Buddy still treats malformed outer JSON, non-array input, and oversized payloads as program-level failures.
-- Buddy `whiteboard_read_context` now returns compact element geometry plus `visibleText` entries for text and label text, and a latest learner-edit summary derived from `previousBoard`.
+- Buddy `whiteboard_read_context` now returns compact element geometry plus `visibleText` entries for text and label text, compact rendered bounds when frontend measurements materially differ from raw geometry, and a latest learner-edit summary derived from `previousBoard`.
 - Buddy rejects fresh `whiteboard_create_view` programs that produce no valid drawable elements and rejects no-op continuations so recoverable warning behavior cannot create blank-success or unchanged boards.
 - Buddy resolves a `whiteboard_create_view` continuation base inside the same per-session mutation lock that writes the new board, so concurrent agent writes rebase on the latest current board instead of overwriting each other.
 - Buddy learner-edit debounce captures the save handler with the pending snapshot, flushes before board changes, and flushes on canvas unmount so edits save predictably instead of being dropped.
@@ -110,18 +116,22 @@
 - Buddy applies progressive partial fragments as element-only `updateScene` calls on the existing session canvas. Partial frames do not flush learner saves, rebind durable autosave baselines, or write viewport app state; the final editable checkpoint performs one durable baseline rebind.
 - Excalidraw MCP explicitly preloads Excalifont and Assistant and refreshes text dimensions before revealing the editable Excalidraw editor; without this, bound label positions can shift after the final render when fonts finish loading.
 - Buddy's embedded Excalidraw canvas now waits for those fonts before converting shorthand labels, refreshes converted text dimensions, and uses non-undoable scene updates for streamed/durable remote board updates.
+- Buddy's embedded Excalidraw canvas runs a guarded post-mount `api.refresh()` after fonts and scene application settle, before revealing a newly mounted canvas. This preserves viewport/content while guarding first-paint canvas state; text that is blurry because it is too small at the current zoom is handled by measured layout feedback, not by changing the user's zoom.
 - Buddy validates learner-saved elements with the same persistable-element parser used for agent writes before storing the current learner board.
 - Buddy accepts both `delete.ids` and Excalidraw MCP's `delete.id` fallback in backend writes and progressive previews.
 - Buddy returns non-4:3 camera ratio hints as recoverable write warnings instead of rejecting the diagram.
 - Buddy exposes the successful write continuation handle as `checkpointId` metadata and the saved board as `boardID`.
-- Buddy no longer exposes scene-latest or revision-read whiteboard routes; progressive `restoreCheckpoint` previews use the latest current board already in the pane.
-- Buddy progressive preview uses only `restoreCheckpoint.id === "current"` as a current-board continuation. Invalid handles do not preview as current-board edits.
+- Buddy no longer exposes scene-latest or revision-read whiteboard routes; progressive `continue_current_board` previews use the latest current board already in the pane.
+- Buddy progressive preview reads `boardAction` from the outer tool arguments. `continue_current_board` uses the latest current board as the preview base, `destructively_replace_current_board` starts from an empty base, and invalid legacy `restoreCheckpoint` handles do not preview as current-board edits.
 - Buddy's `Share board` UI action mirrors Excalidraw MCP's `export_to_excalidraw` flow: serialize board JSON, encrypt locally on the Buddy backend, upload ciphertext to Excalidraw's JSON endpoint, and open the returned fragment-key share URL.
-- Buddy stores a frontend-generated post-render layout report per current board through `whiteboards.renderReport.save`. The report includes actual rendered bounds plus viewport/canvas dimensions; model-facing tools expose only a compact digest when useful to avoid context pollution.
+- Buddy stores a frontend-generated post-render layout report per current board through `whiteboards.renderReport.save`. The report includes actual rendered bounds, minimal rendered style facts for layout checks, and viewport/canvas dimensions; model-facing tools expose only a compact digest when useful to avoid context pollution.
 - Buddy render-report emission is deduped by rendered signature and current board `updatedAt`, so same-board learner autosaves can repost measurements after the backend rebuilds the current checkpoint.
 - Buddy's stale-write protection is targeted: conflict output names touched ids that are missing or materially changed, plus render-bounds changes for those touched ids, rather than dumping the whole board back into context. Render bounds only count as changed when both the model-seen anchor and current board have measurements; bounds becoming newly available or temporarily unavailable are not conflicts.
-- Buddy derives capped model-facing `layoutWarnings` after a successful write; hard collisions (`lt`, `tt`, `ss`) are listed before advisory proximity notices (`ln`, `tn`), warnings are not persisted or save-blocking, and obvious container and Venn-style shape overlaps are skipped.
-- When hard whiteboard collisions remain, the write tool emits a prominent repair-suggested prefix and returns plain warning guidance for one normal continuation write before replying.
+- Buddy derives capped model-facing measured `layout` feedback after a successful write when frontend render facts are available. The frontend computes actual Excalidraw-rendered bounds and the backend only classifies those measured rectangles into a compact digest.
+- The layout digest intentionally returns few precise fields: `text_too_small` with actual `fontSize`, current `zoom`, and effective `renderedFontPx`, directional `text_overflow` with axis-specific `overflowPx`, rendered `elementSize`/`containerSize`, `text_occluded` when a later opaque filled shape covers text, and `sibling_collision` with `separationAxis` and `overlapPx`.
+- `whiteboard_create_view` prioritizes measured layout issues that touch ids from the current drawing program before applying the digest cap, so old board issues cannot make a new write appear clean.
+- Obvious containment layouts where text sits inside an earlier larger rectangle, ellipse, or diamond are skipped, and unbound text mostly inside a container-like shape but protruding beyond it is reported as directional `text_overflow` instead of generic collision.
+- When measured whiteboard layout issues remain, the write tool returns compact issue guidance for at most one normal continuation repair before replying.
 - Buddy's drawing program now supports grouped `translate` in addition to Excalidraw MCP's controls; grouped translation also moves bound text children with their container.
 - Buddy no longer treats backend-estimated text or label overflow as a hard layout warning. Overflow feedback comes only from frontend render reports and only when actual rendered bounds protrude outside a container by a meaningful margin.
 - Buddy infers crowded container zones from contained child geometry, padded occupancy, and the hard-collision graph; dense zones receive one redraw-zone suggestion with exact `redrawZone.ids` scope so the model can rebuild that area locally.
@@ -139,6 +149,7 @@
 - Buddy wraps malformed Excalidraw JSON upload responses in `WhiteboardShareUploadError` so routes return the documented upload failure mapping.
 - Buddy parses Excalidraw upload responses like the MCP server does: require `id`, but ignore extra response fields.
 - Buddy's render adapter skips `convertToExcalidrawElements` for persisted editor-native Excalidraw elements and restores them directly; only shorthand skeleton elements are converted. This keeps bound labels from being converted twice and shifting after final persistence.
+- Buddy's render adapter does not override Excalidraw's standalone shorthand text sizing. If a standalone text element renders wider or taller than its raw geometry suggests, the frontend render report and `whiteboard_read_context` expose the measured bounds instead of pretending the raw `width` created wrapping. If a text element renders too small because the board is zoomed out, the digest reports `text_too_small` so the model can increase font size, reduce density, or narrow the camera viewport.
 - Buddy treats a forced learner-save flush as a safe-to-share contract: sharing aborts when a pending edit fails to persist instead of sharing a stale draft.
 - Buddy's `Share board` action shares the current board: live canvas draft wins when present, then fetched latest is the fallback.
 - Buddy skips completed `whiteboard_create_view` parts whose metadata explicitly reports `saved: false` during progressive replay and sticky-preview retention.
@@ -149,7 +160,7 @@
 - Buddy allows empty learner autosaves like Excalidraw MCP's `save_checkpoint`, so a learner can clear the board. A stale canvas instance remains bound to its older `baseBoardID` and cannot clear or shrink a newer agent checkpoint.
 - Buddy whiteboard session reads return the current board only, and the whiteboard header has no scene switcher or history control.
 - The whiteboard UI no longer exposes a saved-state scrubber. The model-visible continuation target is the single current-board handle, `current`; there is no scene or history timeline to browse.
-- Buddy tool and skill wording now says `restoreCheckpoint` is used for every edit, repair, continuation, or follow-up; omitting it replaces the current board from scratch. The only valid continuation handle is `current`.
+- Buddy tool and skill wording now requires `boardAction` for the board write mode. `continue_current_board` is for first board, appends, repairs, and local edits; `destructively_replace_current_board` is for destructive full-board replacement. The only continuation handle is still `current`, but it is metadata and not a model input for new calls.
 - Buddy saves render reports only for the current `boardID`; stale render reports return `{ saved: false }` and leave board state unchanged.
 - Buddy session reads strip full render reports. `whiteboard_read_context` returns compact layout status/issues derived from stored render facts and never dumps the full report.
 - `whiteboard_read_context` records `modelContext` anchors for the latest board. Successful agent writes refresh those anchors; learner edits and render reports do not.

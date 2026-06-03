@@ -49,6 +49,10 @@ const WhiteboardRenderReportElementSchema = z
     versionNonce: z.number().finite().optional(),
     containerId: z.string().trim().min(1).optional(),
     text: z.string().optional(),
+    fontSize: z.number().finite().positive().optional(),
+    backgroundColor: z.string().optional(),
+    fillStyle: z.string().optional(),
+    opacity: z.number().finite().optional(),
     bounds: WhiteboardBoundsSchema,
   })
   .strict()
@@ -246,7 +250,7 @@ function parsePersistableWhiteboardElement(value: unknown, index?: number): Whit
   const type = requireElementString({ value, key: "type", index })
   if (!SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPE_SET.has(type)) {
     throw new WhiteboardElementValidationError(
-      `${formatElementLocation(index)} has unsupported type '${type}'. Supported drawn types: ${SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPE_LIST}. Keep cameraUpdate, restoreCheckpoint, delete, and translate as program instructions only; they are not stored canvas elements.`,
+      `${formatElementLocation(index)} has unsupported type '${type}'. Supported drawn types: ${SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPE_LIST}. Keep cameraUpdate, delete, and translate as program instructions only; they are not stored canvas elements. Deprecated restoreCheckpoint and replaceCurrentBoard markers are accepted only as legacy board-action controls.`,
     )
   }
 

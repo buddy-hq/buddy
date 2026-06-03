@@ -26,8 +26,12 @@ Buddy-specific rules:
 - Do not double-escape quotes inside `elements`.
 - Do not wrap the JSON in Markdown fences.
 - Do not quote numbers. Write `"width":120`, not `"width":"120"` and not `"width":120"`.
-- To replace the current board from scratch, omit `restoreCheckpoint`.
-- Before precise edits to the current board, call `whiteboard_read_context`, then begin the next program with `{"type":"restoreCheckpoint","id":"<continuation handle>"}`.
+- Set `boardAction` to `continue_current_board` for the first board, normal appends, repairs, local edits, delete/translate operations, new zones below or beside existing work, and anything that should preserve existing content or learner edits.
+- Set `boardAction` to `destructively_replace_current_board` only when the user explicitly asks to discard, clear, overwrite, or replace the entire current board.
+- Treat `destructively_replace_current_board` as destructive: Buddy has one current board, so the viewer has no in-app way to go back to the overwritten board.
+- Do not use `destructively_replace_current_board` merely because a clean canvas, a different layout, a new lesson/topic, or a structurally different visualization would be easier. Continue the board and draw in a new zone unless the user explicitly asks to discard the old board.
+- Do not put `restoreCheckpoint` or `replaceCurrentBoard` inside `elements`. Board persistence is controlled by `boardAction`.
+- Before precise edits to the current board, call `whiteboard_read_context`, then use `boardAction:"continue_current_board"`.
 - The continuation handle resolves to the latest persisted current board, including learner edits.
 - Do not include session ids, board ids, or other app state in tool input. Buddy already knows them.
 - Use stable semantic element ids and never reuse a deleted id.
@@ -156,6 +160,13 @@ Avoid:
 - scattering related items randomly;
 - unexplained abbreviations;
 - text too small to read in the current viewport.
+
+Text layout:
+
+- Do not assume a standalone `text` element's `width` will automatically wrap long copy. The rendered Excalidraw bounds are authoritative.
+- For card body copy, bullet lists, or multi-line explanations, choose the visible line structure yourself: use explicit newline characters in one text element, or use separate text elements with stable ids for each line/bullet.
+- Size the surrounding card or zone for the rendered lines you chose. If measured feedback says the text is wider or taller than expected, fix the local card/zone by shortening copy, adding line breaks, splitting bullets into separate text elements, widening the card, or increasing local spacing.
+- Use shape `label` for short titles or simple shape-attached labels, not as the default for flexible card body copy.
 
 Spatial placement teaches. Vertical lists imply sequence, hierarchy, or step order. Horizontal placement implies parallel items. Left-to-right layout can show time, argument, or development.
 
@@ -471,19 +482,19 @@ Canvas background is white.
 
 **Diamond**: \`{ "type": "diamond", "id": "d1", "x": 100, "y": 100, "width": 150, "height": 150 }\`
 
-**Labeled shape (PREFERRED)**: Add \`label\` to any shape for auto-centered text. No separate text element needed.
+**Labeled shape**: Add `label` to a shape for short auto-centered titles or simple shape-attached labels. Do not use this as the default for card body copy, bullet lists, or flexible multi-line explanations.
 \`{ "type": "rectangle", "id": "r1", "x": 100, "y": 100, "width": 200, "height": 80, "label": { "text": "Hello", "fontSize": 20 } }\`
 - Works on rectangle, ellipse, diamond
 - Text auto-centers and container auto-resizes to fit
-- Saves tokens vs separate text elements
+- Useful for short labels; use standalone text elements when you need manual line layout or multiple independent bullets
 
 **Labeled arrow**: \`"label": { "text": "connects" }\` on an arrow element.
 
-**Standalone text** (titles, annotations only):
+**Standalone text**:
 \`{ "type": "text", "id": "t1", "x": 150, "y": 138, "text": "Hello", "fontSize": 20 }\`
 - x is the LEFT edge of the text. To center text at position cx: set x = cx - estimatedWidth/2
 - estimatedWidth ≈ text.length × fontSize × 0.5
-- Do NOT rely on textAlign or width for positioning — they only affect multi-line wrapping
+- Do NOT rely on `width` to wrap long standalone copy. Use explicit newline characters or separate text elements when you need visible line breaks.
 
 **Arrow**: \`{ "type": "arrow", "id": "a1", "x": 300, "y": 150, "width": 200, "height": 0, "points": [[0,0],[200,0]], "endArrowhead": "arrow" }\`
 - points: [dx, dy] offsets from element x,y
@@ -703,11 +714,21 @@ This demonstrates a UML-style sequence diagram with 4 actors (User, Agent, App i
 
 ## Checkpoints (restoring previous state)
 
-Every whiteboard_create_view call returns a \`checkpointId\` in its response. To continue from the current board, start your elements array with a restoreCheckpoint element:
+Every whiteboard_create_view call returns a `checkpointId` in its response, but you do not put that id inside `elements`. Buddy already knows the current session and resolves the current board internally.
 
-\`[{"type":"restoreCheckpoint","id":"<checkpointId>"}, ...additional new elements...]\`
+To preserve the current board and apply local drawing changes, set `boardAction` to `continue_current_board`:
 
-The current board is restored, and your new elements are appended on top. This saves tokens — you don't need to re-send the entire diagram.
+`{"boardAction":"continue_current_board","elements":"[{\"type\":\"text\",\"id\":\"next-note\",\"x\":80,\"y\":420,\"text\":\"Next step\"}]"}`
+
+The current board is continued, and your new elements or local controls are applied on top. This saves tokens — you don't need to re-send the entire diagram.
+
+To intentionally discard the current board and start over, make replacement explicit only after the user asks for that destructive overwrite:
+
+`{"boardAction":"destructively_replace_current_board","elements":"[{\"type\":\"rectangle\",\"id\":\"new-frame\",\"x\":0,\"y\":0,\"width\":400,\"height\":300}]"}`
+
+Replacement overwrites Buddy's single current board. The learner/viewer has no in-app way to return to the overwritten board, so do not choose it for visual cleanliness or because a new layout would be easier to draw.
+
+Do not use `restoreCheckpoint` or `replaceCurrentBoard` in `elements`. Those are deprecated compatibility markers; the tool's `boardAction` parameter is the source of truth.
 
 ## Deleting Elements
 
@@ -716,7 +737,7 @@ Remove elements by id using the \`delete\` pseudo-element:
 \`{"type":"delete","ids":"b2,a1,t3"}\`
 
 Works in two modes:
-- **With restoreCheckpoint**: restore the current board, then surgically remove specific elements before adding new ones
+- **Continuation/default mode**: continue the current board, then surgically remove specific elements before adding new ones
 - **Inline (animation mode)**: draw elements, then delete and replace them later in the same array to create transformation effects
 
 Place delete entries AFTER the elements you want to remove. The final render filters them out.

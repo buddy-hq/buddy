@@ -6,12 +6,13 @@ import {
   WHITEBOARD_CONTINUATION_HANDLE,
 } from "../service/store"
 import { buildWhiteboardLayoutDigest } from "../service/layout-digest"
-import type { WhiteboardBoard, WhiteboardElement } from "../service/types"
+import type { WhiteboardBoard, WhiteboardBounds, WhiteboardElement } from "../service/types"
 
 const ReadWhiteboardContextInputSchema = z.object({}).strict()
 const MAX_CONTEXT_ELEMENTS = 120
 const MAX_VISIBLE_TEXT_ITEMS = 80
 const MAX_CONTEXT_TEXT_CHARS = 500
+const RENDER_BOUNDS_DIFF_THRESHOLD = 2
 
 type ContextElement = {
   id: string
@@ -23,6 +24,7 @@ type ContextElement = {
   text?: string
   labelText?: string
   containerId?: string
+  renderBounds?: WhiteboardBounds
 }
 
 type LearnerEditSummary = {
@@ -72,7 +74,45 @@ function round(value: number | undefined): number | undefined {
   return value === undefined ? undefined : Math.round(value)
 }
 
-function formatContextElement(element: WhiteboardElement): ContextElement {
+function roundBounds(bounds: WhiteboardBounds): WhiteboardBounds {
+  return {
+    x: Math.round(bounds.x),
+    y: Math.round(bounds.y),
+    width: Math.round(bounds.width),
+    height: Math.round(bounds.height),
+  }
+}
+
+function readElementBounds(element: WhiteboardElement): WhiteboardBounds | undefined {
+  const x = readFiniteNumber(element, "x")
+  const y = readFiniteNumber(element, "y")
+  const width = readFiniteNumber(element, "width")
+  const height = readFiniteNumber(element, "height")
+  if (x === undefined || y === undefined || width === undefined || height === undefined) {
+    return undefined
+  }
+  return { x, y, width, height }
+}
+
+function boundsDiffer(a: WhiteboardBounds, b: WhiteboardBounds): boolean {
+  return (
+    Math.abs(a.x - b.x) > RENDER_BOUNDS_DIFF_THRESHOLD ||
+    Math.abs(a.y - b.y) > RENDER_BOUNDS_DIFF_THRESHOLD ||
+    Math.abs(a.width - b.width) > RENDER_BOUNDS_DIFF_THRESHOLD ||
+    Math.abs(a.height - b.height) > RENDER_BOUNDS_DIFF_THRESHOLD
+  )
+}
+
+function renderBoundsByElementID(board: WhiteboardBoard): Map<string, WhiteboardBounds> {
+  return new Map(
+    board.renderReport?.elements.map((element) => [element.id, element.bounds] as const) ?? [],
+  )
+}
+
+function formatContextElement(
+  element: WhiteboardElement,
+  renderBounds?: WhiteboardBounds,
+): ContextElement {
   const formatted: ContextElement = {
     id: element.id,
     type: element.type,
@@ -90,6 +130,10 @@ function formatContextElement(element: WhiteboardElement): ContextElement {
   if (text) formatted.text = text
   if (labelText) formatted.labelText = labelText
   if (typeof element.containerId === "string") formatted.containerId = element.containerId
+  const rawBounds = readElementBounds(element)
+  if (renderBounds && (!rawBounds || boundsDiffer(rawBounds, renderBounds))) {
+    formatted.renderBounds = roundBounds(renderBounds)
+  }
   return formatted
 }
 
@@ -188,7 +232,8 @@ const readWhiteboardContextTool = createBuddyTool({
     if (!currentBoard) {
       return {
         title: "Read Whiteboard",
-        output: "No whiteboard board exists. Omit restoreCheckpoint to create the board.",
+        output:
+          'No whiteboard board exists. Create the first board with whiteboard_create_view using boardAction: "continue_current_board".',
         metadata: {},
       }
     }
@@ -202,9 +247,10 @@ const readWhiteboardContextTool = createBuddyTool({
       .map(formatVisibleTextElement)
       .filter((element) => element !== undefined)
     const visibleText = allVisibleText.slice(0, MAX_VISIBLE_TEXT_ITEMS)
+    const renderBoundsByID = renderBoundsByElementID(currentBoard)
     const elements = currentBoard.elements
       .slice(0, MAX_CONTEXT_ELEMENTS)
-      .map(formatContextElement)
+      .map((element) => formatContextElement(element, renderBoundsByID.get(element.id)))
     const layout = buildWhiteboardLayoutDigest(currentBoard.renderReport)
     return {
       title: "Read Whiteboard",

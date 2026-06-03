@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import fs from "node:fs/promises"
 import path from "node:path"
+import { setTimeout as sleep } from "node:timers/promises"
 import { monotonicFactory } from "ulid"
 import { WhiteboardStaleLearnerEditError } from "../errors"
 import { WhiteboardPath } from "./path"
@@ -28,6 +29,8 @@ import {
 
 const STATE_VERSION = 2
 const WHITEBOARD_CONTINUATION_HANDLE = "current"
+const RENDER_REPORT_WAIT_TIMEOUT_MS = 4_000
+const RENDER_REPORT_POLL_INTERVAL_MS = 100
 const mutationTails = new Map<string, Promise<void>>()
 const createWhiteboardID = monotonicFactory()
 
@@ -304,6 +307,23 @@ async function saveWhiteboardRenderReport(input: {
   })
 }
 
+async function waitForCurrentWhiteboardRenderReport(input: {
+  directory: string
+  sessionID: string
+  boardID: string
+}): Promise<WhiteboardBoard | undefined> {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt <= RENDER_REPORT_WAIT_TIMEOUT_MS) {
+    const context = await readWhiteboardBoardContext(input.directory, input.sessionID)
+    const currentBoard = context.currentBoard
+    if (currentBoard?.boardID === input.boardID && currentBoard.renderReport) {
+      return currentBoard
+    }
+    await sleep(RENDER_REPORT_POLL_INTERVAL_MS)
+  }
+  return undefined
+}
+
 async function saveWhiteboardLearnerEdit(input: {
   directory: string
   sessionID: string
@@ -331,6 +351,7 @@ export {
   readWhiteboardSession,
   saveWhiteboardRenderReport,
   saveWhiteboardLearnerEdit,
+  waitForCurrentWhiteboardRenderReport,
   WHITEBOARD_CONTINUATION_HANDLE,
   writeWhiteboardCurrentFromLatest,
 }
