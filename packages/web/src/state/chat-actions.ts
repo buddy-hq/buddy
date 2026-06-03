@@ -322,6 +322,8 @@ const EMPTY_ALIGNMENT_SUMMARY: LearnerCurriculumView["alignmentSummary"] = {
 const SESSION_NOT_FOUND_ERROR = "Session not found"
 const UNDO_MISSING_SESSION_ERROR = "Start a session before undoing the last message."
 const UNDO_NO_MESSAGE_ERROR = "No user message is available to undo."
+const FORK_MISSING_SESSION_ERROR = "Start a session before forking."
+const FORK_NO_MESSAGE_ERROR = "No user message is available to fork from."
 const RESTORE_NO_MESSAGE_ERROR = "No undone message is available to restore."
 const pendingSessionCreations = new Map<string, Promise<SessionInfo>>()
 export const DEFAULT_INBOX_NOTEBOOK_NAME = "Inbox" as const
@@ -1508,6 +1510,7 @@ export async function sendPrompt(
   directory: string,
   content: string,
   input?: {
+    sessionID?: string
     parts?: PromptSubmissionPart[]
     persona?: string
     focusGoalIds?: string[]
@@ -1526,6 +1529,7 @@ export async function sendPrompt(
     }
     variant?: string
     teaching?: TeachingPromptContext
+    optimistic?: boolean
     reading?: {
       resourceKey?: string
       title: string
@@ -1548,9 +1552,12 @@ export async function sendPrompt(
   store.clearDirectoryError(directory)
   let sessionID: string | undefined
   let optimisticMessageID: string | undefined
+  let optimisticAdded = false
+  const requestedSessionID = input?.sessionID
 
   try {
-    const resolvedSessionID = await resolveSessionForSend(directory)
+    const resolvedSessionID = requestedSessionID ?? (await resolveSessionForSend(directory))
+    const shouldAddOptimistic = input?.optimistic !== false
     sessionID = resolvedSessionID
     store.applySessionStatus(directory, resolvedSessionID, BUSY_SESSION_STATUS)
 
@@ -1571,17 +1578,19 @@ export async function sendPrompt(
       ...(input?.teaching ? { teaching: input.teaching } : {}),
       ...(input?.reading ? { reading: input.reading } : {}),
     }
-    const optimisticAdded = addOptimisticPromptMessage({
-      directory,
-      sessionID: resolvedSessionID,
-      messageID: optimisticMessageID,
-      content,
-      parts: promptParts,
-      agent: input?.agent,
-      persona: input?.persona,
-      model: input?.model,
-      variant: input?.variant,
-    })
+    optimisticAdded = shouldAddOptimistic
+      ? addOptimisticPromptMessage({
+          directory,
+          sessionID: resolvedSessionID,
+          messageID: optimisticMessageID,
+          content,
+          parts: promptParts,
+          agent: input?.agent,
+          persona: input?.persona,
+          model: input?.model,
+          variant: input?.variant,
+        })
+      : false
 
     const postPrompt = async (targetSessionID: string): Promise<void> => {
       const result = await getBuddyClient(directory).session.promptAsync({
@@ -1602,7 +1611,8 @@ export async function sendPrompt(
     try {
       await postPrompt(resolvedSessionID)
     } catch (error) {
-      const shouldRecover = await shouldRecoverMissingSession(directory, resolvedSessionID, error)
+      const shouldRecover =
+        !requestedSessionID && (await shouldRecoverMissingSession(directory, resolvedSessionID, error))
       if (!shouldRecover) {
         throw error
       }
@@ -1618,17 +1628,19 @@ export async function sendPrompt(
       const recoveredSessionID = await resolveSessionForSend(directory)
       sessionID = recoveredSessionID
       store.applySessionStatus(directory, recoveredSessionID, BUSY_SESSION_STATUS)
-      addOptimisticPromptMessage({
-        directory,
-        sessionID: recoveredSessionID,
-        messageID: optimisticMessageID,
-        content,
-        parts: promptParts,
-        agent: input?.agent,
-        persona: input?.persona,
-        model: input?.model,
-        variant: input?.variant,
-      })
+      optimisticAdded = shouldAddOptimistic
+        ? addOptimisticPromptMessage({
+            directory,
+            sessionID: recoveredSessionID,
+            messageID: optimisticMessageID,
+            content,
+            parts: promptParts,
+            agent: input?.agent,
+            persona: input?.persona,
+            model: input?.model,
+            variant: input?.variant,
+          })
+        : false
 
       console.warn("[chat-action] prompt.retry-missing-session", {
         directory,
@@ -1659,13 +1671,13 @@ export async function sendPrompt(
     const missingSession = isMissingSessionError(error)
     if (sessionID) {
       store.applySessionStatus(directory, sessionID, IDLE_SESSION_STATUS)
-      if (optimisticMessageID) {
+      if (optimisticAdded && optimisticMessageID) {
         store.applyMessageRemoved(directory, {
           sessionID,
           messageID: optimisticMessageID,
         })
       }
-      if (missingSession) {
+      if (missingSession && !requestedSessionID) {
         selectDraftSession(directory)
       } else {
         void loadMessages(directory, sessionID).catch(() => undefined)
@@ -1903,13 +1915,10 @@ export async function abortPrompt(directory: string) {
   return aborted
 }
 
-function resolveUndoTargetMessageID(input: {
+function resolveLatestVisibleUserMessageID(input: {
   messages: MessageWithParts[]
   session: SessionInfo | undefined
-  explicitMessageID?: string
 }) {
-  if (input.explicitMessageID) return input.explicitMessageID
-
   const revertMessageID = input.session?.revert?.messageID
   const latestUserMessage = input.messages.findLast(
     (message) =>
@@ -1921,6 +1930,22 @@ function resolveUndoTargetMessageID(input: {
   }
 
   return latestUserMessage.info.id
+}
+
+function resolveUndoTargetMessageID(input: {
+  messages: MessageWithParts[]
+  session: SessionInfo | undefined
+  explicitMessageID?: string
+}) {
+  return input.explicitMessageID ?? resolveLatestVisibleUserMessageID(input)
+}
+
+function resolveForkTargetMessageID(input: {
+  messages: MessageWithParts[]
+  session: SessionInfo | undefined
+  explicitMessageID?: string
+}) {
+  return input.explicitMessageID ?? resolveLatestVisibleUserMessageID(input)
 }
 
 function resolveRestoreTargetMessageID(input: {
@@ -2016,6 +2041,64 @@ export async function undoLastSessionMessage(
         }),
       ),
   })
+}
+
+export async function forkSessionFromMessage(
+  directory: string,
+  input?: {
+    sessionID?: string
+    messageID?: string
+  },
+) {
+  const store = useChatStore.getState()
+  store.clearDirectoryError(directory)
+
+  const state = store.directories[directory]
+  const sessionID = input?.sessionID ?? state?.sessionID
+  if (!sessionID) {
+    const error = new Error(FORK_MISSING_SESSION_ERROR)
+    store.setDirectoryError(directory, error.message)
+    throw error
+  }
+
+  const activeSession = state?.sessions.find((session) => session.id === sessionID)
+  const messageID = resolveForkTargetMessageID({
+    messages: state?.messages ?? [],
+    session: activeSession,
+    explicitMessageID: input?.messageID,
+  })
+
+  if (!messageID) {
+    const error = new Error(FORK_NO_MESSAGE_ERROR)
+    store.setDirectoryError(directory, error.message)
+    throw error
+  }
+
+  try {
+    const forkedSession = requireBuddyData<SessionInfo>(
+      await getBuddyClient(directory).session.fork({
+        sessionID,
+        messageID,
+      }),
+    )
+
+    selectCanonicalSession(directory, forkedSession)
+    await loadMessages(directory, forkedSession.id)
+    void loadSessions(directory).catch(() => undefined)
+    store.applySessionStatus(directory, forkedSession.id, IDLE_SESSION_STATUS)
+    store.clearDirectoryError(directory)
+    return forkedSession
+  } catch (error) {
+    const missingSession = isMissingSessionError(error)
+    if (missingSession) {
+      selectDraftSession(directory)
+    } else {
+      void loadMessages(directory, sessionID).catch(() => undefined)
+    }
+    void loadSessions(directory).catch(() => undefined)
+    store.setDirectoryError(directory, stringifyError(error))
+    throw error
+  }
 }
 
 export async function restoreRevertedSessionMessage(
