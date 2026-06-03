@@ -22,6 +22,10 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
   CopyIcon,
   Select,
@@ -63,6 +67,15 @@ import {
 } from "@/lib/onboarding-test-mode"
 type BuddyDevToolsTab = "palette" | "trace" | "system" | "snapshot" | "memory" | "query" | "actions"
 
+const DEVTOOLS_AFFORDANCE_POSITIONS = [
+  "bottom-right",
+  "top-right",
+  "bottom-left",
+  "top-left",
+] as const
+
+type DevToolsAffordancePosition = (typeof DEVTOOLS_AFFORDANCE_POSITIONS)[number]
+
 type Rect = {
   left: number
   top: number
@@ -74,9 +87,11 @@ type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw"
 
 const MIN_DEVTOOLS_WIDTH = 320
 const MIN_DEVTOOLS_HEIGHT = 200
-const DEFAULT_DEVTOOLS_HEIGHT = 480
+const DEFAULT_DEVTOOLS_WIDTH = 420
 const DEVTOOLS_FLOATING_PADDING_PX = 12
-const DEVTOOLS_RECT_STORAGE_KEY = "buddy-devtools-rect-v2"
+const DEVTOOLS_RECT_STORAGE_KEY = "buddy-devtools-rect-v3"
+const DEVTOOLS_AFFORDANCE_POSITION_STORAGE_KEY = "buddy-devtools-affordance-position-v1"
+const DEFAULT_DEVTOOLS_AFFORDANCE_POSITION: DevToolsAffordancePosition = "bottom-right"
 const DESKTOP_TITLEBAR_SELECTOR = '[data-component="desktop-titlebar"]'
 const MEMORY_DEVTOOLS_LIMIT = 30
 const MEMORY_TEST_AUTO_MODEL_VALUE = "__auto__"
@@ -85,6 +100,18 @@ const MEMORY_TEST_MILLISECONDS_PER_MINUTE = 60_000
 const MEMORY_TEST_MILLISECONDS_PER_HOUR = 60 * MEMORY_TEST_MILLISECONDS_PER_MINUTE
 const MEMORY_TEST_MILLISECONDS_PER_DAY = 24 * MEMORY_TEST_MILLISECONDS_PER_HOUR
 const EMPTY_MESSAGES: MessageWithParts[] = []
+const DEVTOOLS_AFFORDANCE_POSITION_LABELS: Record<DevToolsAffordancePosition, string> = {
+  "bottom-right": "Bottom right",
+  "top-right": "Top right",
+  "bottom-left": "Bottom left",
+  "top-left": "Top left",
+}
+const DEVTOOLS_AFFORDANCE_POSITION_CLASS_NAMES: Record<DevToolsAffordancePosition, string> = {
+  "bottom-right": "bottom-3 right-3 items-end",
+  "top-right": "right-3 items-end",
+  "bottom-left": "bottom-3 left-3 items-start",
+  "top-left": "left-3 items-start",
+}
 
 type LearnerMemoryRecord = LearnerMemoryListResponses[200]["memories"][number]
 type LearnerMemoryEvaluationReport = LearnerMemoryEvaluationRunResponses[200]
@@ -152,18 +179,35 @@ function isBuddyDevToolsTab(value: string): value is BuddyDevToolsTab {
   )
 }
 
-function readDefaultDevToolsHeight(maxHeight: number) {
-  return Math.min(DEFAULT_DEVTOOLS_HEIGHT, maxHeight)
+function isDevToolsAffordancePosition(value: string): value is DevToolsAffordancePosition {
+  return (
+    value === "bottom-right" ||
+    value === "top-right" ||
+    value === "bottom-left" ||
+    value === "top-left"
+  )
 }
 
-function getDefaultDevToolsRect(): Rect {
+function isRightDevToolsAffordancePosition(position: DevToolsAffordancePosition): boolean {
+  return position === "bottom-right" || position === "top-right"
+}
+
+function isTopDevToolsAffordancePosition(position: DevToolsAffordancePosition): boolean {
+  return position === "top-right" || position === "top-left"
+}
+
+function readDefaultDevToolsWidth(maxWidth: number) {
+  return Math.min(DEFAULT_DEVTOOLS_WIDTH, maxWidth)
+}
+
+function getDefaultDevToolsRect(position: DevToolsAffordancePosition): Rect {
   const { vw, topInset, maxHeight } = readViewportBounds()
-  const width = Math.min(420, vw)
+  const width = readDefaultDevToolsWidth(vw)
   return {
-    left: vw - width,
+    left: isRightDevToolsAffordancePosition(position) ? vw - width : 0,
     top: topInset,
     width,
-    height: readDefaultDevToolsHeight(maxHeight),
+    height: maxHeight,
   }
 }
 
@@ -208,8 +252,28 @@ function writeStoredDevToolsRect(rect: Rect) {
   }
 }
 
-function readInitialDevToolsRect(): Rect {
-  return readStoredDevToolsRect() ?? getDefaultDevToolsRect()
+function readStoredDevToolsAffordancePosition(): DevToolsAffordancePosition {
+  try {
+    const raw = localStorage.getItem(DEVTOOLS_AFFORDANCE_POSITION_STORAGE_KEY)
+    if (raw && isDevToolsAffordancePosition(raw)) {
+      return raw
+    }
+  } catch {
+    // Ignore storage failures in devtools.
+  }
+  return DEFAULT_DEVTOOLS_AFFORDANCE_POSITION
+}
+
+function writeStoredDevToolsAffordancePosition(position: DevToolsAffordancePosition) {
+  try {
+    localStorage.setItem(DEVTOOLS_AFFORDANCE_POSITION_STORAGE_KEY, position)
+  } catch {
+    // Ignore quota or private-mode storage failures in devtools.
+  }
+}
+
+function readInitialDevToolsRect(position: DevToolsAffordancePosition): Rect {
+  return readStoredDevToolsRect() ?? getDefaultDevToolsRect(position)
 }
 
 function clampRectToViewport(r: Rect): Rect {
@@ -250,8 +314,8 @@ function readViewportBounds() {
   return { vw, vh, topInset, maxHeight }
 }
 
-function useDevToolsRect() {
-  const [rect, setRect] = useState<Rect>(readInitialDevToolsRect)
+function useDevToolsRect(affordancePosition: DevToolsAffordancePosition) {
+  const [rect, setRect] = useState<Rect>(() => readInitialDevToolsRect(affordancePosition))
   const draggingRef = useRef(false)
   const resizingRef = useRef(false)
   const startRef = useRef({
@@ -420,9 +484,13 @@ function useDevToolsRect() {
     [rect],
   )
 
-  const reset = useCallback(() => {
-    setRect(getDefaultDevToolsRect())
+  const snapToAffordance = useCallback((position: DevToolsAffordancePosition) => {
+    setRect(getDefaultDevToolsRect(position))
   }, [])
+
+  const reset = useCallback(() => {
+    snapToAffordance(affordancePosition)
+  }, [affordancePosition, snapToAffordance])
 
   const snapLeft = useCallback(() => {
     const { vw, topInset, maxHeight } = readViewportBounds()
@@ -430,21 +498,21 @@ function useDevToolsRect() {
       clampRectToViewport({
         left: 0,
         top: topInset,
-        width: Math.min(420, vw),
-        height: readDefaultDevToolsHeight(maxHeight),
+        width: readDefaultDevToolsWidth(vw),
+        height: maxHeight,
       }),
     )
   }, [])
 
   const snapRight = useCallback(() => {
     const { vw, topInset, maxHeight } = readViewportBounds()
-    const width = Math.min(420, vw)
+    const width = readDefaultDevToolsWidth(vw)
     setRect(
       clampRectToViewport({
         left: vw - width,
         top: topInset,
         width,
-        height: readDefaultDevToolsHeight(maxHeight),
+        height: maxHeight,
       }),
     )
   }, [])
@@ -484,11 +552,62 @@ function useDevToolsRect() {
     setRect,
     onDragPointerDown,
     onResizePointerDown,
+    snapToAffordance,
     reset,
     snapLeft,
     snapRight,
     snapBottom,
     snapFloating,
+  }
+}
+
+function useDesktopTitlebarTopInset() {
+  const [topInset, setTopInset] = useState(readDesktopTitlebarBottomOffset)
+
+  const syncTopInset = useCallback(() => {
+    setTopInset(readDesktopTitlebarBottomOffset())
+  }, [])
+
+  useLayoutEffect(() => {
+    syncTopInset()
+  }, [syncTopInset])
+
+  useEffect(() => {
+    window.addEventListener("resize", syncTopInset)
+    return () => window.removeEventListener("resize", syncTopInset)
+  }, [syncTopInset])
+
+  useEffect(() => {
+    const titlebars = document.querySelectorAll(DESKTOP_TITLEBAR_SELECTOR)
+    if (titlebars.length === 0) {
+      return
+    }
+
+    const observer = new ResizeObserver(syncTopInset)
+
+    for (const titlebar of titlebars) {
+      if (titlebar instanceof HTMLElement) {
+        observer.observe(titlebar)
+      }
+    }
+
+    return () => observer.disconnect()
+  }, [syncTopInset])
+
+  return topInset
+}
+
+function getDevToolsAffordanceClassName(position: DevToolsAffordancePosition) {
+  return `fixed z-[9999] flex flex-col gap-1.5 [-webkit-app-region:no-drag] ${DEVTOOLS_AFFORDANCE_POSITION_CLASS_NAMES[position]}`
+}
+
+function getDevToolsAffordanceStyle(position: DevToolsAffordancePosition, topInset: number) {
+  if (!isTopDevToolsAffordancePosition(position)) {
+    return undefined
+  }
+
+  return {
+    top: topInset + DEVTOOLS_FLOATING_PADDING_PX,
   }
 }
 
@@ -2434,17 +2553,22 @@ export function BuddyDevTools() {
   const [activeTab, setActiveTab] = useState<BuddyDevToolsTab>("palette")
   const [isCopied, setIsCopied] = useState(false)
   const [isDisconnectingOpenAi, setIsDisconnectingOpenAi] = useState(false)
+  const [affordancePosition, setAffordancePosition] = useState<DevToolsAffordancePosition>(
+    readStoredDevToolsAffordancePosition,
+  )
+  const affordanceTopInset = useDesktopTitlebarTopInset()
 
   const {
     rect,
     onDragPointerDown,
     onResizePointerDown,
+    snapToAffordance,
     reset,
     snapLeft,
     snapRight,
     snapBottom,
     snapFloating,
-  } = useDevToolsRect()
+  } = useDevToolsRect(affordancePosition)
 
   const traceSnapshot = useChatStore((s) => {
     const nextActiveDirectory = s.activeDirectory
@@ -2515,6 +2639,19 @@ export function BuddyDevTools() {
     setTimeout(() => setIsCopied(false), 2000)
   }, [sessionTrace])
 
+  const handleAffordancePositionChange = useCallback(
+    (value: string) => {
+      if (!isDevToolsAffordancePosition(value)) {
+        return
+      }
+
+      setAffordancePosition(value)
+      writeStoredDevToolsAffordancePosition(value)
+      snapToAffordance(value)
+    },
+    [snapToAffordance],
+  )
+
   const handleDisconnectOpenAi = useCallback(async () => {
     setIsDisconnectingOpenAi(true)
     try {
@@ -2569,8 +2706,11 @@ export function BuddyDevTools() {
       {/* Router devtools — native floating on lower left */}
       {routerOpen && <TanStackRouterDevtools position="bottom-left" />}
 
-      {/* Unified trigger bar at bottom right */}
-      <div className="fixed bottom-3 right-3 z-[9999] flex flex-col items-end gap-1.5 [-webkit-app-region:no-drag]">
+      {/* Unified trigger bar follows the selected affordance corner. */}
+      <div
+        className={getDevToolsAffordanceClassName(affordancePosition)}
+        style={getDevToolsAffordanceStyle(affordancePosition, affordanceTopInset)}
+      >
         {devInstanceName ? (
           <div className="max-w-72 truncate rounded-md border border-border-base bg-background-base/95 px-2 py-1 text-[11px] font-medium text-text-weak shadow-xl">
             {devInstanceName}
@@ -2598,6 +2738,18 @@ export function BuddyDevTools() {
                 <CopyIcon className="mr-2 size-3.5" />
                 Copy Session Trace
               </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuLabel>Affordance position</ContextMenuLabel>
+              <ContextMenuRadioGroup
+                value={affordancePosition}
+                onValueChange={handleAffordancePositionChange}
+              >
+                {DEVTOOLS_AFFORDANCE_POSITIONS.map((position) => (
+                  <ContextMenuRadioItem key={position} value={position}>
+                    {DEVTOOLS_AFFORDANCE_POSITION_LABELS[position]}
+                  </ContextMenuRadioItem>
+                ))}
+              </ContextMenuRadioGroup>
             </ContextMenuContent>
           </ContextMenu>
           <div className="h-4 w-px bg-border-weaker-base" />
