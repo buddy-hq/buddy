@@ -1,6 +1,12 @@
 import katex, { type KatexOptions } from "katex"
 import "katex/contrib/mhchem"
 import type { MarkedExtension, Tokens } from "marked"
+import {
+  MARKDOWN_MATH_PLACEHOLDER_BLOCK_DISPLAY,
+  MARKDOWN_MATH_PLACEHOLDER_COMPONENT,
+  MARKDOWN_MATH_PLACEHOLDER_INLINE_DISPLAY,
+  MARKDOWN_MATH_PLACEHOLDER_LINE_SLOT,
+} from "./markdown-math-placeholder"
 
 type MathDelimiter = {
   left: string
@@ -86,6 +92,7 @@ const inlineDelimiters: MathDelimiter[] = [
   { left: "$", right: "$", displayMode: false, includeDelimiters: false },
   ...blockDelimiters.filter((delimiter) => delimiter.includeDelimiters),
 ]
+const streamingOpenMathDelimiters = inlineDelimiters.filter((delimiter) => delimiter.left !== "$")
 
 const displayOnlyEnvironmentNames = [
   "equation",
@@ -106,6 +113,14 @@ function escapeHtml(value: string): string {
     .replace(/>/gu, "&gt;")
     .replace(/"/gu, "&quot;")
     .replace(/'/gu, "&#39;")
+}
+
+function renderMathPlaceholder(displayMode: boolean): string {
+  if (!displayMode) {
+    return `<span data-component="${MARKDOWN_MATH_PLACEHOLDER_COMPONENT}" data-display="${MARKDOWN_MATH_PLACEHOLDER_INLINE_DISPLAY}" aria-hidden="true"><span data-slot="${MARKDOWN_MATH_PLACEHOLDER_LINE_SLOT}"></span></span>`
+  }
+
+  return `<div data-component="${MARKDOWN_MATH_PLACEHOLDER_COMPONENT}" data-display="${MARKDOWN_MATH_PLACEHOLDER_BLOCK_DISPLAY}" aria-hidden="true"><span data-slot="${MARKDOWN_MATH_PLACEHOLDER_LINE_SLOT}"></span><span data-slot="${MARKDOWN_MATH_PLACEHOLDER_LINE_SLOT}"></span></div>`
 }
 
 function findEndOfMath(delimiter: string, text: string, startIndex: number): number {
@@ -140,6 +155,56 @@ function hasOddBackslashRunBefore(src: string, index: number): boolean {
     cursor -= 1
   }
   return count % 2 === 1
+}
+
+function findNextStreamingOpenDelimiter(
+  src: string,
+  searchIndex: number,
+): { delimiter: MathDelimiter; index: number } | undefined {
+  let next: { delimiter: MathDelimiter; index: number } | undefined
+
+  for (const delimiter of streamingOpenMathDelimiters) {
+    let index = src.indexOf(delimiter.left, searchIndex)
+    while (index >= 0) {
+      if (
+        (delimiter.left === "$$" || delimiter.left === "$") &&
+        hasOddBackslashRunBefore(src, index)
+      ) {
+        index = src.indexOf(delimiter.left, index + 1)
+        continue
+      }
+
+      if (
+        !next ||
+        index < next.index ||
+        (index === next.index && delimiter.left.length > next.delimiter.left.length)
+      ) {
+        next = { delimiter, index }
+      }
+      break
+    }
+  }
+
+  return next
+}
+
+export function hasOpenStreamingMath(src: string): boolean {
+  let searchIndex = 0
+
+  while (searchIndex < src.length) {
+    const next = findNextStreamingOpenDelimiter(src, searchIndex)
+    if (!next) return false
+
+    const endIndex = findEndOfMath(
+      next.delimiter.right,
+      src,
+      next.index + next.delimiter.left.length,
+    )
+    if (endIndex < 0) return true
+    searchIndex = endIndex + next.delimiter.right.length
+  }
+
+  return false
 }
 
 function trimOneTrailingLineBreak(value: string): string {
@@ -224,7 +289,23 @@ function matchInlineMath(src: string): MathMatch | undefined {
   return undefined
 }
 
-function findInlineMathStart(src: string): number | undefined {
+function matchIncompleteInlineMath(src: string): MathMatch | undefined {
+  for (const delimiter of inlineDelimiters) {
+    if (delimiter.left === "$") continue
+    if (!src.startsWith(delimiter.left)) continue
+    const endIndex = findEndOfMath(delimiter.right, src, delimiter.left.length)
+    if (endIndex >= 0) return undefined
+
+    return {
+      raw: src,
+      text: "",
+      displayMode: delimiter.displayMode,
+    }
+  }
+  return undefined
+}
+
+function findInlineMathStart(src: string, includeIncomplete: boolean): number | undefined {
   let searchIndex = 0
   while (searchIndex < src.length) {
     let nextIndex = -1
@@ -251,6 +332,7 @@ function findInlineMathStart(src: string): number | undefined {
 
     const match = matchInlineMath(src.slice(nextIndex))
     if (match) return nextIndex
+    if (includeIncomplete && matchIncompleteInlineMath(src.slice(nextIndex))) return nextIndex
     searchIndex = nextIndex + 1
   }
   return undefined
@@ -283,6 +365,26 @@ function matchBlockMath(src: string): MathMatch | undefined {
   return undefined
 }
 
+function matchIncompleteBlockMath(src: string): MathMatch | undefined {
+  const indentMatch = src.match(/^ {0,3}/u)
+  const indent = indentMatch?.[0] ?? ""
+  const body = src.slice(indent.length)
+
+  for (const delimiter of blockDelimiters) {
+    if (!body.startsWith(delimiter.left)) continue
+    const endIndex = findEndOfMath(delimiter.right, body, delimiter.left.length)
+    if (endIndex >= 0) return undefined
+
+    return {
+      raw: src,
+      text: "",
+      displayMode: true,
+    }
+  }
+
+  return undefined
+}
+
 function renderMathToken(token: Tokens.Generic, options: BuddyMathExtensionOptions): string {
   const text = typeof token["text"] === "string" ? token["text"] : ""
   const raw = typeof token["raw"] === "string" ? token["raw"] : text
@@ -296,6 +398,9 @@ function renderMathToken(token: Tokens.Generic, options: BuddyMathExtensionOptio
       throwOnError: options.suppressErrors ? true : katexOptions.throwOnError,
     })
   } catch {
+    if (options.suppressErrors) {
+      return renderMathPlaceholder(displayMode)
+    }
     return escapeHtml(raw)
   }
 }
@@ -308,7 +413,16 @@ export function buddyMathExtension(options: BuddyMathExtensionOptions = {}): Mar
         level: "block",
         tokenizer(src) {
           const match = matchBlockMath(src)
-          if (!match) return undefined
+          if (!match) {
+            if (!options.suppressErrors) return undefined
+            const incompleteMatch = matchIncompleteBlockMath(src)
+            if (!incompleteMatch) return undefined
+            return {
+              type: "buddyBlockMathPlaceholder",
+              raw: incompleteMatch.raw,
+              displayMode: true,
+            }
+          }
           return {
             type: "buddyBlockMath",
             raw: match.raw,
@@ -321,14 +435,33 @@ export function buddyMathExtension(options: BuddyMathExtensionOptions = {}): Mar
         },
       },
       {
+        name: "buddyBlockMathPlaceholder",
+        level: "block",
+        tokenizer() {
+          return undefined
+        },
+        renderer(token) {
+          return `${renderMathPlaceholder(token["displayMode"] === true)}\n`
+        },
+      },
+      {
         name: "buddyInlineMath",
         level: "inline",
         start(src) {
-          return findInlineMathStart(src)
+          return findInlineMathStart(src, options.suppressErrors === true)
         },
         tokenizer(src) {
           const match = matchInlineMath(src)
-          if (!match) return undefined
+          if (!match) {
+            if (!options.suppressErrors) return undefined
+            const incompleteMatch = matchIncompleteInlineMath(src)
+            if (!incompleteMatch) return undefined
+            return {
+              type: "buddyInlineMathPlaceholder",
+              raw: incompleteMatch.raw,
+              displayMode: incompleteMatch.displayMode,
+            }
+          }
           return {
             type: "buddyInlineMath",
             raw: match.raw,
@@ -338,6 +471,16 @@ export function buddyMathExtension(options: BuddyMathExtensionOptions = {}): Mar
         },
         renderer(token) {
           return renderMathToken(token, options)
+        },
+      },
+      {
+        name: "buddyInlineMathPlaceholder",
+        level: "inline",
+        tokenizer() {
+          return undefined
+        },
+        renderer(token) {
+          return renderMathPlaceholder(token["displayMode"] === true)
         },
       },
     ],

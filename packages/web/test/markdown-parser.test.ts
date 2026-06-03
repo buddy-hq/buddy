@@ -126,12 +126,14 @@ $$\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$$
     expect(html).toContain("multline")
   })
 
-  test("suppresses transient latex error styling while streaming", async () => {
+  test("uses a placeholder for transient latex errors while streaming", async () => {
     const markdown = String.raw`$\begin{multline} a + b + c \\ = d + e + f \end{multline}$`
     const html = await parseMarkdownToHtml(markdown, true, "streaming-latex-error")
 
     expect(html).not.toContain("katex-error")
-    expect(html).toContain("\\begin{multline}")
+    expect(html).toContain('data-component="markdown-math-placeholder"')
+    expect(html).toContain('data-display="inline"')
+    expect(html).not.toContain("\\begin{multline}")
   })
 
   test("still renders valid latex while streaming", async () => {
@@ -141,7 +143,7 @@ $$\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$$
     expect(html).not.toContain("katex-error")
   })
 
-  test("keeps invalid display math stable as raw text while streaming", async () => {
+  test("uses a fixed block placeholder for invalid display math while streaming", async () => {
     const html = await parseMarkdownToHtml(
       String.raw`$$\begin{multline} a + b + c \\ = d + e + f \end{multline}$$`,
       true,
@@ -149,8 +151,31 @@ $$\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$$
     )
 
     expect(html).not.toContain("katex-error")
-    expect(html).not.toContain("data-math-pending")
-    expect(html).toContain("\\begin{multline}")
+    expect(html).toContain('data-component="markdown-math-placeholder"')
+    expect(html).toContain('data-display="block"')
+    expect(html.match(/data-slot="math-placeholder-line"/gu)?.length).toBe(2)
+    expect(html).not.toContain("\\begin{multline}")
+  })
+
+  test("uses a fixed block placeholder for incomplete display math while streaming", async () => {
+    const html = await parseMarkdownToHtml(
+      String.raw`$$ Q(\mathbf{x}) = \mathbf{x}^T \mathbf{A} \mathbf{x}`,
+      true,
+      "streaming-incomplete-display-latex",
+    )
+
+    expect(html).toContain('data-component="markdown-math-placeholder"')
+    expect(html).toContain('data-display="block"')
+    expect(html).not.toContain("Q(")
+  })
+
+  test("keeps final incomplete display math visible instead of hiding model output", async () => {
+    const html = await parseMarkdownToHtml(
+      String.raw`$$ Q(\mathbf{x}) = \mathbf{x}^T \mathbf{A} \mathbf{x}`,
+    )
+
+    expect(html).not.toContain("markdown-math-placeholder")
+    expect(html).toContain("$$ Q")
   })
 
   test("renders display-only environments even when models wrap them in single dollars", async () => {

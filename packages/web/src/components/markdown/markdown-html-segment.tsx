@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import DOMPurify from "dompurify"
 import morphdom from "morphdom"
 import "katex/dist/katex.min.css"
+import "@/components/chat/tools/text-shimmer.css"
 import { resolveFileTypeIconUrl } from "@/components/files/file-type-icon"
 import {
   findPresentedMediaCandidateMatches,

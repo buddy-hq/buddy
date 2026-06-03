@@ -2,7 +2,7 @@ import { Marked, marked } from "marked"
 import markedShiki from "marked-shiki"
 import { bundledLanguages, createHighlighter, type BundledLanguage } from "shiki"
 import remend from "remend"
-import { buddyMathExtension } from "./markdown-math"
+import { buddyMathExtension, hasOpenStreamingMath } from "./markdown-math"
 
 let highlighterPromise: ReturnType<typeof createHighlighter> | undefined
 
@@ -324,7 +324,7 @@ function heal(text: string) {
 
 export function streamBlocks(text: string, live: boolean): Block[] {
   if (!live) return [{ raw: text, src: text, mode: "full" }]
-  const src = heal(text)
+  const src = hasOpenStreamingMath(text) ? text : heal(text)
   if (refs(text)) return [{ raw: text, src, mode: "live" }]
   const tokens = marked.lexer(text)
   const tail = tokens.findLastIndex((token) => token.type !== "space")
