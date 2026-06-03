@@ -940,7 +940,6 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   function handleSubmit() {
-    if (props.isBusy) return
     if (hasUnsupportedImageAttachments) return
 
     const currentDraft = readEditorDraft()
@@ -1065,7 +1064,6 @@ export function PromptComposer(props: PromptComposerProps) {
           className="relative"
           onSubmit={(event) => {
             event.preventDefault()
-            if (props.isBusy) return
             handleSubmit()
           }}
           onDragEnter={(event) => {
@@ -1281,10 +1279,6 @@ export function PromptComposer(props: PromptComposerProps) {
                     isComposing: event.nativeEvent.isComposing,
                   })
                 ) {
-                  if (props.isBusy) {
-                    // Allow typing while busy; block keyboard submit/abort.
-                    return
-                  }
                   event.preventDefault()
                   handleSubmit()
                 }

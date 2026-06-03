@@ -107,6 +107,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
   ])
 
   const isNativeMode = props.selectorMode === "native"
+  const primaryButtonStopsRun = !!props.isBusy && !props.canSubmit
 
   return (
     <div className="bg-transparent px-2 py-2">
@@ -303,19 +304,19 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
 
         <div className="flex items-center gap-1">
           <button
-            type={props.isBusy ? "button" : "submit"}
+            type={primaryButtonStopsRun ? "button" : "submit"}
             form="prompt-composer-form"
             data-action="prompt-submit"
             className="inline-flex size-7 items-center justify-center rounded-full bg-surface-interactive-base text-text-on-interactive-base transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            disabled={!props.isBusy && !props.canSubmit}
-            aria-label={props.isBusy ? props.stopAriaLabel : props.sendAriaLabel}
-            title={props.isBusy ? props.stopLabel : props.sendLabel}
+            disabled={!primaryButtonStopsRun && !props.canSubmit}
+            aria-label={primaryButtonStopsRun ? props.stopAriaLabel : props.sendAriaLabel}
+            title={primaryButtonStopsRun ? props.stopLabel : props.sendLabel}
             onClick={() => {
-              if (!props.isBusy) return
+              if (!primaryButtonStopsRun) return
               props.onAbort?.()
             }}
           >
-            {props.isBusy ? (
+            {primaryButtonStopsRun ? (
               <SquareIcon className="size-3.5" />
             ) : (
               <ArrowUpIcon className="size-4" />

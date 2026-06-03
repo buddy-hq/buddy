@@ -2,6 +2,12 @@ import type { DirectoryChatState, MessagePart, MessageWithParts } from "@/state/
 
 type SlimRecord = Record<string, unknown>
 
+const FILE_PART_TYPE = "file"
+const IMAGE_MIME_PREFIX = "image/"
+const TEXT_PART_TYPE = "text"
+const ATTACHED_FILE_TEXT_PREFIX = "Attached file ("
+const ATTACHED_FILE_TEXT_SEPARATOR = "):\n"
+
 export async function copyToClipboard(text: string) {
   if (!text) return false
   if (!("clipboard" in navigator)) return false
@@ -37,10 +43,63 @@ const SKIP_PART_TYPES = new Set(["step-start", "step-finish"])
 
 const PART_OMIT_KEYS = new Set(["sessionID", "messageID"])
 
+function isImageMime(value: unknown): boolean {
+  return typeof value === "string" && value.startsWith(IMAGE_MIME_PREFIX)
+}
+
+function readAttachedFileNameFromText(text: string): string | undefined {
+  if (!text.startsWith(ATTACHED_FILE_TEXT_PREFIX)) {
+    return undefined
+  }
+
+  const fileNameStart = ATTACHED_FILE_TEXT_PREFIX.length
+  const fileNameEnd = text.indexOf(ATTACHED_FILE_TEXT_SEPARATOR, fileNameStart)
+  if (fileNameEnd === -1) {
+    return undefined
+  }
+
+  const fileName = text.slice(fileNameStart, fileNameEnd).trim()
+  return fileName.length > 0 ? fileName : undefined
+}
+
+function hasImageFileExtension(fileName: string): boolean {
+  const normalized = fileName.toLowerCase()
+  return (
+    normalized.endsWith(".png") ||
+    normalized.endsWith(".jpg") ||
+    normalized.endsWith(".jpeg") ||
+    normalized.endsWith(".gif") ||
+    normalized.endsWith(".webp") ||
+    normalized.endsWith(".svg") ||
+    normalized.endsWith(".avif") ||
+    normalized.endsWith(".bmp") ||
+    normalized.endsWith(".ico")
+  )
+}
+
+function redactAttachedImageText(text: string): string {
+  const fileName = readAttachedFileNameFromText(text)
+  if (!fileName) {
+    return text
+  }
+
+  const payloadStart = text.indexOf(ATTACHED_FILE_TEXT_SEPARATOR) + ATTACHED_FILE_TEXT_SEPARATOR.length
+  const payload = text.slice(payloadStart).trimStart()
+  if (!hasImageFileExtension(fileName) && !payload.startsWith("<svg")) {
+    return text
+  }
+
+  return `Attached image (${fileName}) omitted from trace.`
+}
+
 function slimPart(part: MessagePart): SlimRecord | null {
   if (SKIP_PART_TYPES.has(part.type)) return null
   if (part.type === "reasoning") {
-    const { text: _, time: _t, ...rest } = part
+    const { time: _t, ...rest } = part
+    return omitKeys(rest, PART_OMIT_KEYS)
+  }
+  if (part.type === FILE_PART_TYPE && isImageMime(part.mime)) {
+    const { url: _u, ...rest } = part
     return omitKeys(rest, PART_OMIT_KEYS)
   }
   if (part.type === "tool") {
@@ -50,9 +109,13 @@ function slimPart(part: MessagePart): SlimRecord | null {
     const { state: _s, ...rest } = part
     return omitKeys({ ...rest, state: slimState }, PART_OMIT_KEYS)
   }
-  if (part.type === "text") {
+  if (part.type === TEXT_PART_TYPE) {
     const { time: _, ...rest } = part
-    return omitKeys(rest, PART_OMIT_KEYS)
+    const result = omitKeys(rest, PART_OMIT_KEYS)
+    if (typeof result.text === "string") {
+      result.text = redactAttachedImageText(result.text)
+    }
+    return result
   }
   return omitKeys(part, PART_OMIT_KEYS)
 }

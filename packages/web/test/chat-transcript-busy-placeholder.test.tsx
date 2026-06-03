@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
-import { seedDirectoryChatState } from "./test-utils"
+import { useChatStore } from "../src/state/chat-store"
+import {
+  createMessageWithParts,
+  createUserMessageInfo,
+  seedDirectoryChatState,
+} from "./test-utils"
 
 async function flushEffects() {
   await Promise.resolve()
@@ -36,6 +41,7 @@ describe("chat transcript busy placeholder", () => {
       root.unmount()
       await flushEffects()
     })
+    useChatStore.setState({ directories: {} })
     container.remove()
     if (originalResizeObserver) {
       globalThis.ResizeObserver = originalResizeObserver
@@ -60,5 +66,45 @@ describe("chat transcript busy placeholder", () => {
     })
 
     expect(container.querySelector("[data-abstracted-thinking-placeholder]")).not.toBeNull()
+  })
+
+  test("keeps immediate thinking on a normal optimistic send", async () => {
+    await act(async () => {
+      seedDirectoryChatState("/repo", {
+        sessionID: "ses_busy",
+        isBusy: true,
+        sessionStatusByID: {
+          ses_busy: { type: "busy" },
+        },
+        messages: [
+          createMessageWithParts(
+            createUserMessageInfo({
+              id: "msg_user_optimistic",
+              sessionID: "ses_busy",
+            }),
+            [
+              {
+                id: "prt_user_optimistic",
+                sessionID: "ses_busy",
+                messageID: "msg_user_optimistic",
+                type: "text",
+                text: "Normal prompt",
+                optimistic: true,
+              },
+            ],
+          ),
+        ],
+      })
+      root.render(<ChatTranscript directory="/repo" />)
+      await flushEffects()
+    })
+
+    const placeholders = container.querySelectorAll("[data-abstracted-thinking-placeholder]")
+    const articles = Array.from(container.querySelectorAll("article"))
+
+    expect(placeholders).toHaveLength(1)
+    expect(articles).toHaveLength(1)
+    expect(articles[0]?.textContent).toContain("Normal prompt")
+    expect(articles[0]?.textContent).toContain("Thinking")
   })
 })

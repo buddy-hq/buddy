@@ -12,6 +12,12 @@ import {
 } from "@buddy/ui"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
+import {
+  FOLLOWUP_BEHAVIOR_QUEUE,
+  FOLLOWUP_BEHAVIOR_STEER,
+  useChatSettings,
+  type FollowupBehavior,
+} from "@/state/chat-settings"
 import { useNotificationPreferences } from "@/state/notification-preferences"
 import { showDesktopUpdateToast } from "@/lib/desktop-updates"
 import { useTheme, type ColorScheme } from "@/theme"
@@ -29,6 +35,10 @@ import { SettingsContent, SettingsSection, SettingsRow } from "./settings-primit
 
 function isColorScheme(value: string): value is ColorScheme {
   return value === "system" || value === "light" || value === "dark"
+}
+
+function isFollowupBehavior(value: string): value is FollowupBehavior {
+  return value === FOLLOWUP_BEHAVIOR_STEER || value === FOLLOWUP_BEHAVIOR_QUEUE
 }
 
 function FontTextInput(props: {
@@ -97,6 +107,8 @@ export function GeneralSettings() {
   const setCodeFont = useAppearancePreferences((state) => state.setCodeFont)
   const setUiFontSize = useAppearancePreferences((state) => state.setUiFontSize)
   const setCodeFontSize = useAppearancePreferences((state) => state.setCodeFontSize)
+  const followupBehavior = useChatSettings((state) => state.followupBehavior)
+  const setFollowupBehavior = useChatSettings((state) => state.setFollowupBehavior)
   const notificationPreferences = useNotificationPreferences((state) => state.preferences)
   const setAgentNotifications = useNotificationPreferences((state) => state.setAgent)
   const setPermissionNotifications = useNotificationPreferences((state) => state.setPermissions)
@@ -106,6 +118,17 @@ export function GeneralSettings() {
     { value: "system", label: language.t("settings.appearance.colorSchemes.system") },
     { value: "light", label: language.t("settings.appearance.colorSchemes.light") },
     { value: "dark", label: language.t("settings.appearance.colorSchemes.dark") },
+  ]
+
+  const followupBehaviorOptions: ReadonlyArray<{ value: FollowupBehavior; label: string }> = [
+    {
+      value: FOLLOWUP_BEHAVIOR_STEER,
+      label: language.t("settings.general.followupSteerOption"),
+    },
+    {
+      value: FOLLOWUP_BEHAVIOR_QUEUE,
+      label: language.t("settings.general.followupQueueOption"),
+    },
   ]
 
   const themeOptions = useMemo(
@@ -256,6 +279,34 @@ export function GeneralSettings() {
               ariaLabel={language.t("settings.general.codeFontSizeAria")}
               onChange={setCodeFontSize}
             />
+          }
+        />
+      </SettingsSection>
+
+      <SettingsSection title="Chat">
+        <SettingsRow
+          title={language.t("settings.general.followupTitle")}
+          description={language.t("settings.general.followupDescription")}
+          control={
+            <Select
+              value={followupBehavior}
+              onValueChange={(value) => {
+                if (isFollowupBehavior(value)) {
+                  setFollowupBehavior(value)
+                }
+              }}
+            >
+              <SelectTrigger data-action="settings-followup-behavior" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {followupBehaviorOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           }
         />
       </SettingsSection>
