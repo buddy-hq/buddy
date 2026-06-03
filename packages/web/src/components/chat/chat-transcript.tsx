@@ -3,6 +3,12 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { TooltipProvider } from "@buddy/ui"
 
 import { buildTurns, estimateTurnHeight, chatTranscriptEqual } from "./utils/message-utils"
+import "@/components/chat/tools/text-shimmer.css"
+import {
+  MARKDOWN_MATH_PLACEHOLDER_BLOCK_DISPLAY,
+  MARKDOWN_MATH_PLACEHOLDER_COMPONENT,
+  MARKDOWN_MATH_PLACEHOLDER_LINE_SLOT,
+} from "@/components/markdown/markdown-math-placeholder"
 import {
   getInitialStagedTurnCount,
   sliceStagedTurns,
@@ -29,6 +35,19 @@ const EMPTY_MESSAGES: never[] = []
 const EMPTY_PROVIDERS: never[] = []
 const HISTORY_PREPEND_TOP_THRESHOLD_PX = 160
 const HISTORY_PREPEND_COOLDOWN_MS = 180
+
+function ChatHistorySkeleton() {
+  return (
+    <span
+      data-component={MARKDOWN_MATH_PLACEHOLDER_COMPONENT}
+      data-display={MARKDOWN_MATH_PLACEHOLDER_BLOCK_DISPLAY}
+      aria-hidden="true"
+    >
+      <span data-slot={MARKDOWN_MATH_PLACEHOLDER_LINE_SLOT} />
+      <span data-slot={MARKDOWN_MATH_PLACEHOLDER_LINE_SLOT} />
+    </span>
+  )
+}
 
 const TurnRow = memo(function TurnRow({
   turn,
@@ -310,12 +329,13 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   }, [hasHiddenHistory, loadOlderHistory, scrollViewportRef])
 
   const preferEagerMarkdown = renderedStartIndex > 0
-  const shouldBottomPackStagedTail = renderedStartIndex > 0 && !shouldVirtualizeTurns
+  const shouldBottomPackStagedTail = renderedStartIndex > 0 && !shouldVirtualizeTurns && !isLastTurnBusy
 
   return (
     <ChatScrollProvider viewportRef={scrollViewportRef}>
       <TooltipProvider>
         <div
+          data-chat-transcript-tail-pack={shouldBottomPackStagedTail ? "bottom" : "natural"}
           className={`flex min-w-0 w-full max-w-full flex-col items-start gap-8 ${
             shouldBottomPackStagedTail ? "min-h-full justify-end" : ""
           }`}
@@ -332,10 +352,9 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
               type="button"
               aria-label="Load older messages"
               onClick={loadOlderHistory}
-              className="group flex w-full flex-col gap-2 rounded-md px-4 py-2 text-left transition-opacity duration-150 hover:opacity-90"
+              className="group flex w-full rounded-md px-4 py-1 text-left transition-opacity duration-150 hover:opacity-90"
             >
-              <span className="h-1.5 w-28 rounded-full bg-surface-raised-base" />
-              <span className="h-1.5 w-44 rounded-full bg-surface-raised-base/70" />
+              <ChatHistorySkeleton />
             </button>
           ) : null}
           {shouldVirtualizeTurns ? (

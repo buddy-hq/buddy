@@ -1,10 +1,17 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { useChatStore } from "../../../src/state/chat-store"
+import {
+  STREAMING_PART_RAW_FIELD,
+  TOOL_PART_TYPE,
+  TOOL_STATE_PENDING_STATUS,
+  TOOL_STATE_RUNNING_STATUS,
+} from "../../../src/state/chat-stream-event-buffer"
 import type { MessageInfo, PermissionRequest, SessionInfo } from "../../../src/state/chat-types"
 import { BUSY_SESSION_STATUS, IDLE_SESSION_STATUS } from "../../../src/state/session-status"
 import { createAssistantMessageInfo, createUserMessageInfo } from "../../test-utils"
 
 const directory = "/tmp/parity"
+const WHITEBOARD_CREATE_VIEW_TOOL_ID = "whiteboard_create_view"
 
 const session = (id: string, updated: number): SessionInfo => ({
   id,
@@ -485,6 +492,56 @@ describe("chat-store parity events", () => {
 
     const next = useChatStore.getState().directories[directory]
     expect(next?.messages[0]?.parts[0]?.text).toBe("hello")
+  })
+
+  test("preserves buffered raw tool deltas through later active orphan updates", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 1)])
+    store.setActiveSession(directory, "session_1")
+    store.applyPartUpdated(directory, {
+      id: "part_1",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: TOOL_PART_TYPE,
+      tool: WHITEBOARD_CREATE_VIEW_TOOL_ID,
+      state: {
+        status: TOOL_STATE_PENDING_STATUS,
+        input: {},
+        raw: '{"elements":"[',
+      },
+    })
+    store.applyPartDelta(directory, {
+      sessionID: "session_1",
+      messageID: "message_1",
+      partID: "part_1",
+      field: STREAMING_PART_RAW_FIELD,
+      delta: '{\\"type\\":\\"rectangle\\"}',
+    })
+    store.applyPartUpdated(directory, {
+      id: "part_1",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: TOOL_PART_TYPE,
+      tool: WHITEBOARD_CREATE_VIEW_TOOL_ID,
+      state: {
+        status: TOOL_STATE_RUNNING_STATUS,
+        input: {},
+        raw: "",
+        time: { start: 1 },
+      },
+    })
+
+    store.applyMessageUpdated(directory, assistantMessage("message_1", "session_1"))
+
+    const next = useChatStore.getState().directories[directory]
+    expect(next?.messages[0]?.parts[0]?.state).toEqual({
+      status: TOOL_STATE_RUNNING_STATUS,
+      input: {},
+      raw: '{"elements":"[{\\"type\\":\\"rectangle\\"}',
+      time: { start: 1 },
+    })
   })
 
   test("preserves vendor retry metadata and keeps the session active", () => {

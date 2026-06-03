@@ -140,6 +140,95 @@
   transition: opacity 220ms ease-out;
 }
 
+/* Streaming math placeholder: reserves stable space for an unfinished live math
+ * expression without flashing between raw text and partial KaTeX renders. */
+[data-component="markdown-math-placeholder"] {
+  --math-placeholder-duration: var(--text-shimmer-duration, 1200ms);
+  --math-placeholder-entrance-duration: 260ms;
+  --math-placeholder-entrance-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --math-placeholder-line-width: min(17rem, 68%);
+  --math-placeholder-bottom-line-width: min(11.5rem, 46%);
+  --math-placeholder-top-duration: 1050ms;
+  --math-placeholder-bottom-duration: 1450ms;
+  --math-placeholder-bottom-delay: 140ms;
+  --math-placeholder-base-color: color-mix(in srgb, var(--text-weaker) 36%, transparent);
+  --math-placeholder-peak-color: color-mix(in srgb, var(--text-weak) 82%, transparent);
+  --math-placeholder-sweep: linear-gradient(
+    var(--text-shimmer-angle, 90deg),
+    var(--math-placeholder-base-color) 0%,
+    var(--math-placeholder-base-color) 36%,
+    var(--math-placeholder-peak-color) 50%,
+    var(--math-placeholder-base-color) 64%,
+    var(--math-placeholder-base-color) 100%
+  );
+  opacity: 0;
+  animation: math-placeholder-appear var(--math-placeholder-entrance-duration)
+    var(--math-placeholder-entrance-ease) forwards;
+}
+
+[data-component="markdown-math-placeholder"] [data-slot="math-placeholder-line"] {
+  display: block;
+  height: 0.45rem;
+  border-radius: 0.25rem;
+  transform: scaleX(0.88);
+  transform-origin: center;
+  background-image: var(--math-placeholder-sweep);
+  background-size: 360% 100%;
+  background-position: 100% 0;
+  background-repeat: no-repeat;
+  animation:
+    math-placeholder-line-appear var(--math-placeholder-entrance-duration)
+      var(--math-placeholder-entrance-ease) forwards,
+    text-shimmer-sweep
+      var(--math-placeholder-line-duration, var(--math-placeholder-duration)) linear infinite;
+  animation-delay: 0ms, var(--math-placeholder-line-delay, 0ms);
+}
+
+[data-component="markdown-math-placeholder"][data-display="block"] {
+  display: flex;
+  min-height: 2.6rem;
+  width: 100%;
+  max-width: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-block: 0.875rem;
+  overflow: hidden;
+}
+
+[data-component="markdown-math-placeholder"][data-display="block"]
+  [data-slot="math-placeholder-line"] {
+  width: var(--math-placeholder-line-width);
+}
+
+[data-component="markdown-math-placeholder"][data-display="block"]
+  [data-slot="math-placeholder-line"]:first-child {
+  --math-placeholder-line-duration: var(--math-placeholder-top-duration);
+  --math-placeholder-line-delay: 0ms;
+}
+
+[data-component="markdown-math-placeholder"][data-display="block"]
+  [data-slot="math-placeholder-line"]:last-child {
+  --math-placeholder-line-duration: var(--math-placeholder-bottom-duration);
+  --math-placeholder-line-delay: var(--math-placeholder-bottom-delay);
+  width: var(--math-placeholder-bottom-line-width);
+  opacity: 0.72;
+}
+
+[data-component="markdown-math-placeholder"][data-display="inline"] {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 1em;
+  vertical-align: -0.08em;
+  align-items: center;
+}
+
+[data-component="markdown-math-placeholder"][data-display="inline"]
+  [data-slot="math-placeholder-line"] {
+  width: 100%;
+}
+
 @keyframes shimmer-icon-pulse {
   0%,
   100% {
@@ -147,6 +236,26 @@
   }
   50% {
     opacity: 1;
+  }
+}
+
+@keyframes math-placeholder-appear {
+  from {
+    opacity: 0;
+    transform: translateY(1px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes math-placeholder-line-appear {
+  from {
+    transform: scaleX(0.88);
+  }
+  to {
+    transform: scaleX(1);
   }
 }
 
@@ -170,5 +279,20 @@
   [data-shimmer-group] [data-slot="shimmer-icon"] {
     animation: none !important;
     opacity: 1 !important;
+  }
+
+  [data-component="markdown-math-placeholder"] [data-slot="math-placeholder-line"] {
+    animation: none !important;
+    transform: none !important;
+    background-image: linear-gradient(
+      var(--math-placeholder-base-color),
+      var(--math-placeholder-base-color)
+    );
+  }
+
+  [data-component="markdown-math-placeholder"] {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 }

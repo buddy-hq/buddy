@@ -6,6 +6,12 @@ import { groupAssistantParts } from "../utils/message-utils"
 import { isChatReasoningPart, isChatTextPart } from "../utils/part-guards"
 import type { AssistantDerivedState } from "../types"
 
+const ASSISTANT_ABORT_FINISH_REASONS = new Set(["aborted", "cancelled", "interrupted"])
+
+function isAssistantAbortFinish(finish: string | null | undefined): boolean {
+  return typeof finish === "string" && ASSISTANT_ABORT_FINISH_REASONS.has(finish)
+}
+
 export function useAssistantDerivedState(
   assistantParts: MessagePart[],
   showReasoningSummaries: boolean,
@@ -53,9 +59,7 @@ export function useAssistantDerivedState(
       assistantMessages.some(
         (message) =>
           message.info.role === "assistant" &&
-          (message.info.finish === "aborted" ||
-            message.info.finish === "cancelled" ||
-            isMessageAbortError(message.info.error)),
+          (isAssistantAbortFinish(message.info.finish) || isMessageAbortError(message.info.error)),
       ),
     [assistantMessages],
   )

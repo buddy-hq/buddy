@@ -2,10 +2,20 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { ServerProvider } from "../src/context/server"
 import { setRuntimePlatform, type Platform } from "../src/context/platform"
 import { startChatSync } from "../src/state/chat-sync"
+import {
+  MESSAGE_PART_UPDATED_EVENT_TYPE,
+  STREAMING_PART_RAW_FIELD,
+  TOOL_PART_TYPE,
+  TOOL_STATE_PENDING_STATUS,
+  TOOL_STATE_RUNNING_STATUS,
+} from "../src/state/chat-stream-event-buffer"
 import type { GlobalEvent } from "../src/state/chat-types"
 import { createFetchStub } from "./test-utils"
 
 const originalFetch = globalThis.fetch
+const originalSetTimeout = globalThis.setTimeout
+const originalDateNow = Date.now
+const WHITEBOARD_CREATE_VIEW_TOOL_ID = "whiteboard_create_view"
 
 function requestHeaders(input: RequestInfo | URL, init?: RequestInit) {
   if (init?.headers) return new Headers(init.headers)
@@ -15,6 +25,21 @@ function requestHeaders(input: RequestInfo | URL, init?: RequestInit) {
 
 function sseData(value: unknown) {
   return `data: ${JSON.stringify(value)}`
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function eventPartState(event: GlobalEvent | undefined) {
+  const payload = event?.payload
+  if (!payload || !("properties" in payload)) return undefined
+
+  const part = payload.properties.part
+  if (!isRecord(part)) return undefined
+
+  const state = part.state
+  return isRecord(state) ? state : undefined
 }
 
 function setServerConnection(input: {
@@ -49,6 +74,8 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.fetch = originalFetch
+  globalThis.setTimeout = originalSetTimeout
+  Date.now = originalDateNow
 })
 
 describe("startChatSync fetch stream", () => {
@@ -193,7 +220,7 @@ describe("startChatSync fetch stream", () => {
     expect(partText).toBe("final")
   })
 
-  test("keeps whiteboard raw tool deltas when a part update is coalesced", async () => {
+  test("merges whiteboard raw tool deltas when a part update is coalesced", async () => {
     globalThis.fetch = createFetchStub(async () => {
       const body = new ReadableStream({
         start(controller) {
@@ -209,9 +236,9 @@ describe("startChatSync fetch stream", () => {
                         id: "p1",
                         messageID: "m1",
                         sessionID: "s1",
-                        type: "tool",
-                        tool: "whiteboard_create_view",
-                        state: { status: "pending", raw: "" },
+                        type: TOOL_PART_TYPE,
+                        tool: WHITEBOARD_CREATE_VIEW_TOOL_ID,
+                        state: { status: TOOL_STATE_PENDING_STATUS, raw: "" },
                       },
                     },
                   },
@@ -225,7 +252,7 @@ describe("startChatSync fetch stream", () => {
                       sessionID: "s1",
                       messageID: "m1",
                       partID: "p1",
-                      field: "state.raw",
+                      field: STREAMING_PART_RAW_FIELD,
                       delta: '{"elements":"[{',
                     },
                   },
@@ -240,9 +267,9 @@ describe("startChatSync fetch stream", () => {
                         id: "p1",
                         messageID: "m1",
                         sessionID: "s1",
-                        type: "tool",
-                        tool: "whiteboard_create_view",
-                        state: { status: "running", raw: "" },
+                        type: TOOL_PART_TYPE,
+                        tool: WHITEBOARD_CREATE_VIEW_TOOL_ID,
+                        state: { status: TOOL_STATE_RUNNING_STATUS, raw: "" },
                       },
                     },
                   },
@@ -290,19 +317,11 @@ describe("startChatSync fetch stream", () => {
       }, 40)
     })
 
-    expect(events.map((event) => event.payload.type)).toEqual([
-      "message.part.updated",
-      "message.part.delta",
-    ])
-    const deltaPayload = events[1]?.payload
-    let field: string | undefined
-    if (deltaPayload && "properties" in deltaPayload) {
-      field = (deltaPayload.properties as { field?: string }).field
-    }
-    expect(field).toBe("state.raw")
+    expect(events.map((event) => event.payload.type)).toEqual([MESSAGE_PART_UPDATED_EVENT_TYPE])
+    expect(eventPartState(events[0])?.raw).toBe('{"elements":"[{')
   })
 
-  test("keeps streaming after vendor sync payloads", async () => {
+  test("skips vendor sync payloads and keeps streaming", async () => {
     globalThis.fetch = createFetchStub(async () => {
       const body = new ReadableStream({
         start(controller) {
@@ -358,7 +377,7 @@ describe("startChatSync fetch stream", () => {
       }, 40)
     })
 
-    expect(events.map((event) => event.payload.type)).toEqual(["sync", "message.updated"])
+    expect(events.map((event) => event.payload.type)).toEqual(["message.updated"])
   })
 
   test("normalizes bare event payloads from vendor-compatible streams", async () => {
@@ -515,5 +534,236 @@ describe("startChatSync fetch stream", () => {
 
     expect(statuses).toContain("connected")
     expect(errors).toEqual([])
+  })
+
+  test("backs off reconnect attempts during persistent stream failures", async () => {
+    const reconnectDelays: number[] = []
+    const expectedReconnectDelays = [250, 500]
+
+    globalThis.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+      if (timeout === 250 || timeout === 500 || timeout === 1_000) {
+        reconnectDelays.push(timeout)
+        return originalSetTimeout(handler, 0, ...args)
+      }
+      return originalSetTimeout(handler, timeout, ...args)
+    }) as typeof globalThis.setTimeout
+
+    globalThis.fetch = createFetchStub(async () => {
+      throw new Error("stream down")
+    })
+
+    setRuntimePlatform({
+      platform: "desktop",
+      fetch: globalThis.fetch,
+      openLink() {},
+      async restart() {},
+      back() {},
+      forward() {},
+      async notify() {},
+    } satisfies Platform)
+
+    await new Promise<void>((resolve, reject) => {
+      let errorCount = 0
+      const sync = startChatSync({
+        directory: "/repo",
+        onEvent() {},
+        onError() {
+          errorCount += 1
+          if (errorCount === 3) {
+            sync.stop()
+            resolve()
+          }
+        },
+      })
+
+      originalSetTimeout(() => {
+        sync.stop()
+        reject(new Error("reconnect backoff timed out"))
+      }, 1_000)
+    })
+
+    expect(reconnectDelays.slice(0, expectedReconnectDelays.length)).toEqual(
+      expectedReconnectDelays,
+    )
+  })
+
+  test("reconnects after the heartbeat timeout when a stream stalls", async () => {
+    let fetchCount = 0
+
+    globalThis.setTimeout = ((handler: TimerHandler, timeout?: number, ...args: unknown[]) => {
+      const nextTimeout = timeout === 15_000 ? 0 : timeout
+      return originalSetTimeout(handler, nextTimeout, ...args)
+    }) as typeof globalThis.setTimeout
+
+    globalThis.fetch = createFetchStub(async () => {
+      fetchCount += 1
+
+      if (fetchCount === 1) {
+        const body = new ReadableStream<Uint8Array>({
+          start() {},
+        })
+
+        return new Response(body, {
+          status: 200,
+          headers: {
+            "content-type": "text/event-stream",
+          },
+        })
+      }
+
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            new TextEncoder().encode(
+              `${sseData({
+                directory: "/repo",
+                payload: {
+                  type: "message.updated",
+                  properties: {
+                    info: {
+                      id: "m1",
+                      sessionID: "s1",
+                      role: "assistant",
+                      time: { created: 1 },
+                    },
+                  },
+                },
+              })}\r\n\r\n`,
+            ),
+          )
+          controller.close()
+        },
+      })
+
+      return new Response(body, {
+        status: 200,
+        headers: {
+          "content-type": "text/event-stream",
+        },
+      })
+    })
+
+    setRuntimePlatform({
+      platform: "desktop",
+      fetch: globalThis.fetch,
+      openLink() {},
+      async restart() {},
+      back() {},
+      forward() {},
+      async notify() {},
+    } satisfies Platform)
+
+    const event = await new Promise<GlobalEvent>((resolve, reject) => {
+      const sync = startChatSync({
+        directory: "/repo",
+        onEvent(nextEvent) {
+          sync.stop()
+          resolve(nextEvent)
+        },
+        onError(error) {
+          sync.stop()
+          reject(error)
+        },
+      })
+
+      originalSetTimeout(() => {
+        sync.stop()
+        reject(new Error("heartbeat reconnect timed out"))
+      }, 1_000)
+    })
+
+    expect(fetchCount).toBeGreaterThanOrEqual(2)
+    expect(event.payload.type).toBe("message.updated")
+  })
+
+  test("reconnects when the document becomes visible after a stale stream", async () => {
+    let fetchCount = 0
+    let now = 1_000
+    Date.now = () => now
+
+    globalThis.fetch = createFetchStub(async () => {
+      fetchCount += 1
+
+      if (fetchCount === 1) {
+        const body = new ReadableStream<Uint8Array>({
+          start() {},
+        })
+
+        return new Response(body, {
+          status: 200,
+          headers: {
+            "content-type": "text/event-stream",
+          },
+        })
+      }
+
+      const body = new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            new TextEncoder().encode(
+              `${sseData({
+                directory: "/repo",
+                payload: {
+                  type: "message.updated",
+                  properties: {
+                    info: {
+                      id: "m2",
+                      sessionID: "s2",
+                      role: "assistant",
+                      time: { created: 2 },
+                    },
+                  },
+                },
+              })}\r\n\r\n`,
+            ),
+          )
+          controller.close()
+        },
+      })
+
+      return new Response(body, {
+        status: 200,
+        headers: {
+          "content-type": "text/event-stream",
+        },
+      })
+    })
+
+    setRuntimePlatform({
+      platform: "desktop",
+      fetch: globalThis.fetch,
+      openLink() {},
+      async restart() {},
+      back() {},
+      forward() {},
+      async notify() {},
+    } satisfies Platform)
+
+    const event = await new Promise<GlobalEvent>((resolve, reject) => {
+      const sync = startChatSync({
+        directory: "/repo",
+        onEvent(nextEvent) {
+          sync.stop()
+          resolve(nextEvent)
+        },
+        onError(error) {
+          sync.stop()
+          reject(error)
+        },
+      })
+
+      originalSetTimeout(() => {
+        now += 15_001
+        document.dispatchEvent(new Event("visibilitychange"))
+      }, 20)
+
+      originalSetTimeout(() => {
+        sync.stop()
+        reject(new Error("visibility reconnect timed out"))
+      }, 1_000)
+    })
+
+    expect(fetchCount).toBeGreaterThanOrEqual(2)
+    expect(event.payload.type).toBe("message.updated")
   })
 })

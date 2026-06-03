@@ -5,8 +5,16 @@ import {
   upsertMessage,
   upsertPart,
 } from "../src/state/chat-reducer"
+import {
+  STREAMING_PART_RAW_FIELD,
+  TOOL_PART_TYPE,
+  TOOL_STATE_PENDING_STATUS,
+  TOOL_STATE_RUNNING_STATUS,
+} from "../src/state/chat-stream-event-buffer"
 import type { MessageWithParts } from "../src/state/chat-types"
 import { createAssistantMessageInfo, createMessageWithParts } from "./test-utils"
+
+const WHITEBOARD_CREATE_VIEW_TOOL_ID = "whiteboard_create_view"
 
 function makeMessages(): MessageWithParts[] {
   return [
@@ -130,22 +138,103 @@ describe("chat reducer", () => {
       id: "part_1",
       sessionID: "session_1",
       messageID: "message_1",
-      type: "tool",
-      tool: "whiteboard_create_view",
+      type: TOOL_PART_TYPE,
+      tool: WHITEBOARD_CREATE_VIEW_TOOL_ID,
       state: {
-        status: "pending",
+        status: TOOL_STATE_PENDING_STATUS,
         raw: '{"elements":"[',
       },
     })
     const next = appendPartDelta(withPart, {
       messageID: "message_1",
       partID: "part_1",
-      field: "state.raw",
+      field: STREAMING_PART_RAW_FIELD,
       delta: '{\\"type\\":\\"rectangle\\"}',
     })
     expect(next[0]?.parts[0]?.state).toEqual({
       status: "pending",
       raw: '{"elements":"[{\\"type\\":\\"rectangle\\"}',
+    })
+  })
+
+  test("upsertPart preserves active tool raw input when the next snapshot omits it", () => {
+    const withPart = upsertPart(makeMessages(), {
+      id: "part_1",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: TOOL_PART_TYPE,
+      tool: WHITEBOARD_CREATE_VIEW_TOOL_ID,
+      state: {
+        status: TOOL_STATE_PENDING_STATUS,
+        input: {},
+        raw: '{"elements":"[',
+      },
+    })
+    const withDelta = appendPartDelta(withPart, {
+      messageID: "message_1",
+      partID: "part_1",
+      field: STREAMING_PART_RAW_FIELD,
+      delta: '{\\"type\\":\\"rectangle\\"}',
+    })
+    const next = upsertPart(withDelta, {
+      id: "part_1",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: TOOL_PART_TYPE,
+      tool: WHITEBOARD_CREATE_VIEW_TOOL_ID,
+      state: {
+        status: TOOL_STATE_RUNNING_STATUS,
+        input: {},
+        time: { start: 1 },
+      },
+    })
+
+    expect(next[0]?.parts[0]?.state).toEqual({
+      status: TOOL_STATE_RUNNING_STATUS,
+      input: {},
+      raw: '{"elements":"[{\\"type\\":\\"rectangle\\"}',
+      time: { start: 1 },
+    })
+  })
+
+  test("upsertPart preserves active tool raw input when the next snapshot contains stale raw", () => {
+    const withPart = upsertPart(makeMessages(), {
+      id: "part_1",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: TOOL_PART_TYPE,
+      tool: WHITEBOARD_CREATE_VIEW_TOOL_ID,
+      state: {
+        status: TOOL_STATE_PENDING_STATUS,
+        input: {},
+        raw: '{"elements":"[',
+      },
+    })
+    const withDelta = appendPartDelta(withPart, {
+      messageID: "message_1",
+      partID: "part_1",
+      field: STREAMING_PART_RAW_FIELD,
+      delta: '{\\"type\\":\\"rectangle\\"}',
+    })
+    const next = upsertPart(withDelta, {
+      id: "part_1",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: TOOL_PART_TYPE,
+      tool: WHITEBOARD_CREATE_VIEW_TOOL_ID,
+      state: {
+        status: TOOL_STATE_RUNNING_STATUS,
+        input: {},
+        raw: "",
+        time: { start: 1 },
+      },
+    })
+
+    expect(next[0]?.parts[0]?.state).toEqual({
+      status: TOOL_STATE_RUNNING_STATUS,
+      input: {},
+      raw: '{"elements":"[{\\"type\\":\\"rectangle\\"}',
+      time: { start: 1 },
     })
   })
 

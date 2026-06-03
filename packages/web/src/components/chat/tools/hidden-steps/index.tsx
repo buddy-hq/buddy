@@ -152,6 +152,7 @@ type HiddenStepsItemEntryProps = {
   copyPartID?: string
   metaText?: string
   interrupted?: boolean
+  streaming?: boolean
 }
 
 function HiddenStepsItemContent({
@@ -161,6 +162,7 @@ function HiddenStepsItemContent({
   copyPartID,
   metaText,
   interrupted,
+  streaming,
 }: HiddenStepsItemEntryProps) {
   if (hiddenStepsEntryUsesSummaryRow(entry)) {
     return <HiddenStepsSummaryRow entry={entry} directory={directory} />
@@ -178,6 +180,7 @@ function HiddenStepsItemContent({
       copyPartID={copyPartID}
       metaText={metaText}
       interrupted={interrupted}
+      streaming={streaming}
     />
   )
 }
@@ -282,6 +285,7 @@ export function HiddenSteps({
     copyPartID,
     metaText,
     interrupted,
+    streaming: Boolean(isBusy),
   }
 
   return (

@@ -1,12 +1,13 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef } from "react"
 import { Markdown } from "@/components/markdown/Markdown"
-import { useThrottledText } from "../../hooks/use-throttled-text"
+import { useAdaptiveStreamingText } from "../../hooks/use-streaming-text"
 import type { ChatReasoningPart } from "../../utils/part-guards"
 
 const REASONING_SCROLL_BOTTOM_THRESHOLD_PX = 24
 
 type ReasoningPartProps = {
   part: ChatReasoningPart
+  streaming?: boolean
 }
 
 function isScrolledNearBottom(element: HTMLDivElement): boolean {
@@ -60,12 +61,15 @@ function useReasoningAutoScroll(contentKey: string) {
   return { scrollRef, contentRef, handleScroll }
 }
 
-export const ReasoningPart = memo(function ReasoningPart({ part }: ReasoningPartProps) {
+export const ReasoningPart = memo(function ReasoningPart({
+  part,
+  streaming = false,
+}: ReasoningPartProps) {
   const text = part.text
-  const throttledText = useThrottledText(text)
-  const { scrollRef, contentRef, handleScroll } = useReasoningAutoScroll(throttledText)
+  const displayedText = useAdaptiveStreamingText(text, { live: streaming })
+  const { scrollRef, contentRef, handleScroll } = useReasoningAutoScroll(displayedText)
 
-  if (!throttledText.trim()) return null
+  if (!displayedText.trim()) return null
 
   return (
     <div
@@ -74,7 +78,11 @@ export const ReasoningPart = memo(function ReasoningPart({ part }: ReasoningPart
       className="min-w-0 w-full max-w-full max-h-[min(42vh,28rem)] overflow-y-auto overscroll-contain opacity-60"
     >
       <div ref={contentRef} className="min-w-0 w-full max-w-full px-4">
-        <Markdown text={throttledText} cacheKey={part.id} />
+        <Markdown
+          text={displayedText}
+          cacheKey={part.id}
+          isStreaming={streaming || displayedText !== text}
+        />
       </div>
     </div>
   )

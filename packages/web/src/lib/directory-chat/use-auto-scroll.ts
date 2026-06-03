@@ -34,6 +34,7 @@ const MIN_SCROLL_ANIMATION_DURATION_S = 0.08
 const MAX_SCROLL_ANIMATION_DURATION_S = 0.24
 
 const SCROLL_TOP_CHANGE_THRESHOLD_PX = 1
+const FINAL_RENDER_SETTLE_FRAMES = 6
 
 const SCROLL_DETACH_KEYS = new Set(["ArrowUp", "PageUp", "Home", " "])
 
@@ -147,6 +148,8 @@ type AutoScrollResult = {
   scrollToBottom: () => void
   /** Snap to bottom instantly and re-engage. For thread switches. */
   snapToBottomForThreadSwitch: () => void
+  /** Keep bottom pinned across a short final-render settle window. */
+  settleToBottom: () => void
 }
 
 export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
@@ -163,6 +166,10 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
   const touchGestureYRef = useRef<number | undefined>(undefined)
   const userDetachUntilRef = useRef(0)
   const lastScrollTopRef = useRef<number | undefined>(undefined)
+  const resizeScrollFrameRef = useRef<number | undefined>(undefined)
+  const settleScrollFrameRef = useRef<number | undefined>(undefined)
+  const settleScrollRemainingFramesRef = useRef(0)
+  const previousWorkingRef = useRef(options.working)
 
   // ─── State (triggers re-render for UI, e.g. "scroll to bottom" button) ──
   const [userScrolled, setUserScrolled] = useState(false)
@@ -271,6 +278,64 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
     [markAuto, stopAnimation],
   )
 
+  const cancelResizeScrollFrame = useCallback(() => {
+    if (resizeScrollFrameRef.current === undefined) return
+    window.cancelAnimationFrame(resizeScrollFrameRef.current)
+    resizeScrollFrameRef.current = undefined
+  }, [])
+
+  const scheduleResizeScrollToBottom = useCallback(
+    (el: HTMLElement) => {
+      if (resizeScrollFrameRef.current !== undefined) return
+
+      resizeScrollFrameRef.current = window.requestAnimationFrame(() => {
+        resizeScrollFrameRef.current = undefined
+        if (userScrolledRef.current) return
+        scrollToBottomInstant(el)
+      })
+    },
+    [scrollToBottomInstant],
+  )
+
+  const cancelSettleScrollFrames = useCallback(() => {
+    settleScrollRemainingFramesRef.current = 0
+    if (settleScrollFrameRef.current === undefined) return
+    window.cancelAnimationFrame(settleScrollFrameRef.current)
+    settleScrollFrameRef.current = undefined
+  }, [])
+
+  const scheduleSettleScrollToBottom = useCallback(
+    (frameCount = FINAL_RENDER_SETTLE_FRAMES) => {
+      const el = scrollRef.current
+      if (!el || userScrolledRef.current) return
+      settleScrollRemainingFramesRef.current = Math.max(
+        settleScrollRemainingFramesRef.current,
+        frameCount,
+      )
+      if (settleScrollFrameRef.current !== undefined) return
+
+      const tick = () => {
+        settleScrollFrameRef.current = undefined
+        if (userScrolledRef.current) {
+          settleScrollRemainingFramesRef.current = 0
+          return
+        }
+        const container = scrollRef.current
+        if (!container) {
+          settleScrollRemainingFramesRef.current = 0
+          return
+        }
+        scrollToBottomInstant(container)
+        settleScrollRemainingFramesRef.current -= 1
+        if (settleScrollRemainingFramesRef.current <= 0) return
+        settleScrollFrameRef.current = window.requestAnimationFrame(tick)
+      }
+
+      settleScrollFrameRef.current = window.requestAnimationFrame(tick)
+    },
+    [scrollToBottomInstant],
+  )
+
   // ─── Scroll to bottom (animated, for button click) ──────────────
 
   const scrollToBottomAnimated = useCallback(() => {
@@ -326,10 +391,22 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
 
   const snapToBottomForThreadSwitch = useCallback(() => {
     stopAnimation()
+    cancelResizeScrollFrame()
+    cancelSettleScrollFrames()
     setScrolledAway(false)
     const el = scrollRef.current
     if (el) scrollToBottomInstant(el)
-  }, [scrollToBottomInstant, setScrolledAway, stopAnimation])
+  }, [
+    cancelResizeScrollFrame,
+    cancelSettleScrollFrames,
+    scrollToBottomInstant,
+    setScrolledAway,
+    stopAnimation,
+  ])
+
+  const settleToBottom = useCallback(() => {
+    scheduleSettleScrollToBottom()
+  }, [scheduleSettleScrollToBottom])
 
   // ─── Streaming follow via content changes ───────────────────────
   // While the user remains attached, every transcript mutation should
@@ -343,6 +420,14 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
     scrollToBottomInstant(el)
   }, [options.contentDep, options.working, scrollToBottomInstant])
 
+  useLayoutEffect(() => {
+    const wasWorking = previousWorkingRef.current
+    previousWorkingRef.current = options.working
+    if (wasWorking && !options.working) {
+      scheduleSettleScrollToBottom()
+    }
+  }, [options.working, scheduleSettleScrollToBottom])
+
   // ─── ResizeObserver: catch height changes from rendering ────────
 
   useLayoutEffect(() => {
@@ -352,12 +437,15 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
 
     const observer = new ResizeObserver(() => {
       if (userScrolledRef.current) return
-      scrollToBottomInstant(container)
+      scheduleResizeScrollToBottom(container)
     })
     observer.observe(content)
 
-    return () => observer.disconnect()
-  }, [scrollToBottomInstant])
+    return () => {
+      observer.disconnect()
+      cancelResizeScrollFrame()
+    }
+  }, [cancelResizeScrollFrame, scheduleResizeScrollToBottom])
 
   // ─── Overflow anchor sync ───────────────────────────────────────
 
@@ -380,9 +468,11 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
   useEffect(
     () => () => {
       stopAnimation()
+      cancelResizeScrollFrame()
+      cancelSettleScrollFrames()
       if (autoTimerRef.current) clearTimeout(autoTimerRef.current)
     },
-    [stopAnimation],
+    [cancelResizeScrollFrame, cancelSettleScrollFrames, stopAnimation],
   )
 
   // ─── Scroll handler ────────────────────────────────────────────
@@ -423,7 +513,6 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
 
       // Scroll event from our own programmatic scroll: re-trigger.
       if (!userScrolledRef.current && isAuto(el)) {
-        scrollToBottomInstant(el)
         return
       }
 
@@ -436,7 +525,7 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
 
       pause()
     },
-    [isAuto, pause, scrollToBottomInstant, setScrolledAway],
+    [isAuto, pause, setScrolledAway],
   )
 
   const handleInteraction = useCallback(() => {
@@ -536,5 +625,6 @@ export function useAutoScroll(options: AutoScrollOptions): AutoScrollResult {
     forceScrollToBottom,
     scrollToBottom,
     snapToBottomForThreadSwitch,
+    settleToBottom,
   }
 }

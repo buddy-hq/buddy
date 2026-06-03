@@ -1,5 +1,11 @@
 import type { MessageInfo, MessagePart, MessageWithParts } from "./chat-types"
 import { WORKSPACE_FILE_REFERENCE_PART_TYPE } from "../components/prompt/prompt-types"
+import {
+  STREAMING_PART_RAW_FIELD,
+  TOOL_PART_TYPE,
+  TOOL_STATE_PENDING_STATUS,
+  TOOL_STATE_RUNNING_STATUS,
+} from "./chat-stream-event-buffer"
 
 function isAssistantMessage(
   message: MessageWithParts,
@@ -134,6 +140,53 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function readString(record: Record<string, unknown>, key: string) {
+  const value = record[key]
+  return typeof value === "string" ? value : undefined
+}
+
+function shouldPreserveStreamingRawState(state: Record<string, unknown>) {
+  const status = readString(state, "status")
+  return status === TOOL_STATE_PENDING_STATUS || status === TOOL_STATE_RUNNING_STATUS
+}
+
+function reconcileStreamingRawState(existingRaw: string, incomingRaw: string | undefined) {
+  if (incomingRaw === undefined) return existingRaw
+  if (existingRaw.startsWith(incomingRaw)) return existingRaw
+  if (incomingRaw.startsWith(existingRaw)) return incomingRaw
+  return incomingRaw
+}
+
+export function preserveStreamingRawState(existing: MessagePart, incoming: MessagePart) {
+  if (incoming.type !== TOOL_PART_TYPE) return incoming
+
+  const incomingState = incoming.state
+  if (!isRecord(incomingState)) return incoming
+  if (!shouldPreserveStreamingRawState(incomingState)) return incoming
+
+  const existingState = existing.state
+  if (!isRecord(existingState)) return incoming
+
+  const existingRaw = readString(existingState, "raw")
+  if (existingRaw === undefined) return incoming
+
+  const incomingRaw = readString(incomingState, "raw")
+  const raw = reconcileStreamingRawState(existingRaw, incomingRaw)
+  if (raw === incomingRaw) return incoming
+
+  return {
+    ...incoming,
+    state: {
+      ...incomingState,
+      raw,
+    },
+  }
+}
+
 export function upsertPart(current: MessageWithParts[], incoming: MessagePart) {
   const index = current.findIndex((entry) => entry.info.id === incoming.messageID)
   if (index === -1) {
@@ -164,7 +217,7 @@ export function upsertPart(current: MessageWithParts[], incoming: MessagePart) {
   }
 
   const parts = [...message.parts]
-  parts[partIndex] = incoming
+  parts[partIndex] = preserveStreamingRawState(parts[partIndex], incoming)
   next[index] = {
     ...message,
     parts,
@@ -190,7 +243,7 @@ export function appendPartDelta(
 
   const part = message.parts[partIndex]
   const parts = [...message.parts]
-  if (input.field === "state.raw") {
+  if (input.field === STREAMING_PART_RAW_FIELD) {
     const state = part.state
     if (!state || typeof state !== "object" || Array.isArray(state) || !("raw" in state)) {
       return current

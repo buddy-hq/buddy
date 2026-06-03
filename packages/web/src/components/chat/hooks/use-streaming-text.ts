@@ -1,47 +1,46 @@
-import { useCallback, useEffect, useRef, useState } from "react"
-import { animate, type AnimationPlaybackControls } from "motion"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 
 import {
-  buildStreamingRevealSteps,
-  inferStreamingTextMode,
-  MIN_STREAM_CHARS,
-  streamingDurationSeconds,
-  type StreamingTextStrategy,
+  nextStreamingTextIndex,
+  TEXT_RENDER_PACE_MS,
 } from "../utils/streaming-text-utils"
 
-const MAX_STREAMING_TEXT_LENGTH = 12_000
-const MAX_STREAMING_MATH_MARKERS = 32
+const FINAL_RENDER_NOTIFY_DELAY_MS = 50
+const MAX_PACED_STREAMING_TEXT_LENGTH = 4_000
+const MAX_PACED_STREAMING_MATH_MARKERS = 8
+const MAX_PACED_STREAMING_MEDIA_REFERENCES = 2
 
-function shouldBypassStreamingAnimation(value: string): boolean {
-  if (value.length >= MAX_STREAMING_TEXT_LENGTH) return true
-  const mathMarkers = value.match(/\$\$|\\\[|\\\(|\\begin\{/gu)?.length ?? 0
-  return mathMarkers >= MAX_STREAMING_MATH_MARKERS
+type StreamingTextOptions = {
+  live: boolean
+  onFinalRender?: () => void
 }
 
-function useStreamingText(
-  value: string,
-  input?: {
-    mode?: StreamingTextStrategy
-    onFinalRender?: () => void
-  },
-) {
+function shouldBypassStreamingPace(value: string): boolean {
+  if (value.length >= MAX_PACED_STREAMING_TEXT_LENGTH) return true
+  const mathMarkers = value.match(/\$\$|\\\[|\\\(|\\begin\{/gu)?.length ?? 0
+  if (mathMarkers >= MAX_PACED_STREAMING_MATH_MARKERS) return true
+  const mediaReferences = value.match(/!\[[^\]]*\]\([^)]+?\)|<img\b/giu)?.length ?? 0
+  return mediaReferences >= MAX_PACED_STREAMING_MEDIA_REFERENCES
+}
+
+function useStreamingText(value: string, input: StreamingTextOptions): string {
   const [visibleText, setVisibleText] = useState(value)
-  const visibleTextRef = useRef(value)
-  const targetTextRef = useRef(value)
-  const incomingTextRef = useRef(value)
-  const animationRef = useRef<AnimationPlaybackControls | null>(null)
+  const shownRef = useRef(value)
+  const targetRef = useRef(value)
+  const liveRef = useRef(input.live)
+  const wasLiveRef = useRef(input.live)
+  const paceTimeoutRef = useRef<number | undefined>(undefined)
   const finalRenderTimeoutRef = useRef<number | undefined>(undefined)
-  const lastIncomingAtRef = useRef(Date.now())
-  const animationTokenRef = useRef(0)
-  const onFinalRenderRef = useRef(input?.onFinalRender)
+  const onFinalRenderRef = useRef(input.onFinalRender)
 
   useEffect(() => {
-    onFinalRenderRef.current = input?.onFinalRender
-  }, [input?.onFinalRender])
+    onFinalRenderRef.current = input.onFinalRender
+  }, [input.onFinalRender])
 
-  const clearAnimation = useCallback(() => {
-    animationRef.current?.stop()
-    animationRef.current = null
+  const clearPaceTimeout = useCallback(() => {
+    if (paceTimeoutRef.current === undefined) return
+    window.clearTimeout(paceTimeoutRef.current)
+    paceTimeoutRef.current = undefined
   }, [])
 
   const clearFinalRenderTimeout = useCallback(() => {
@@ -50,136 +49,90 @@ function useStreamingText(
     finalRenderTimeoutRef.current = undefined
   }, [])
 
-  const commitVisibleText = useCallback((nextText: string) => {
-    visibleTextRef.current = nextText
-    setVisibleText(nextText)
-  }, [])
-
   const scheduleFinalRender = useCallback(() => {
     clearFinalRenderTimeout()
     finalRenderTimeoutRef.current = window.setTimeout(() => {
       finalRenderTimeoutRef.current = undefined
       onFinalRenderRef.current?.()
-    }, 50)
+    }, FINAL_RENDER_NOTIFY_DELAY_MS)
   }, [clearFinalRenderTimeout])
 
-  const finishStreaming = useCallback(
-    (nextText: string, forceFinalRender = false) => {
-      clearAnimation()
-      const didChange = visibleTextRef.current !== nextText
-      commitVisibleText(nextText)
-      if (didChange || forceFinalRender) {
+  const sync = useCallback(
+    (nextText: string, notifyFinalRender = false) => {
+      shownRef.current = nextText
+      setVisibleText(nextText)
+      if (notifyFinalRender) {
         scheduleFinalRender()
       }
     },
-    [clearAnimation, commitVisibleText, scheduleFinalRender],
+    [scheduleFinalRender],
   )
 
-  useEffect(() => {
-    targetTextRef.current = value
-    const now = Date.now()
-    const previousIncomingText = incomingTextRef.current
-    const incomingDeltaChars = Math.max(0, value.length - previousIncomingText.length)
-    const incomingDeltaMs = Math.max(1, now - lastIncomingAtRef.current)
-    incomingTextRef.current = value
-    lastIncomingAtRef.current = now
+  const run = useCallback(() => {
+    paceTimeoutRef.current = undefined
+    const text = targetRef.current
 
-    const currentText = visibleTextRef.current
-    if (shouldBypassStreamingAnimation(value)) {
-      finishStreaming(value)
-      return
-    }
-    const shouldStream =
-      value.length > currentText.length &&
-      value.startsWith(currentText) &&
-      value.length - currentText.length > MIN_STREAM_CHARS
-
-    const mode =
-      input?.mode && input.mode !== "auto"
-        ? input.mode
-        : inferStreamingTextMode({
-            deltaChars: incomingDeltaChars || value.length - currentText.length,
-            deltaMs: incomingDeltaMs,
-            currentText,
-            nextText: value,
-          })
-
-    if (!shouldStream || mode === "realtime") {
-      finishStreaming(value)
+    if (!liveRef.current || shouldBypassStreamingPace(text)) {
+      sync(text, !liveRef.current)
       return
     }
 
-    const steps = buildStreamingRevealSteps(value, currentText.length, mode)
-    if (steps.length === 0) {
-      finishStreaming(value)
+    const shown = shownRef.current
+    if (!text.startsWith(shown) || text.length <= shown.length) {
+      sync(text)
       return
     }
 
-    clearAnimation()
-    clearFinalRenderTimeout()
-    const animationToken = animationTokenRef.current + 1
-    animationTokenRef.current = animationToken
-    const firstStep = steps[0]
-    const remainingSteps = steps.slice(1)
-    if (typeof firstStep === "number") {
-      commitVisibleText(value.slice(0, firstStep))
+    const end = nextStreamingTextIndex(text, shown.length)
+    sync(text.slice(0, end))
+    if (end < text.length) {
+      paceTimeoutRef.current = window.setTimeout(run, TEXT_RENDER_PACE_MS)
     }
+  }, [sync])
 
-    if (remainingSteps.length === 0) {
-      scheduleFinalRender()
+  useLayoutEffect(() => {
+    targetRef.current = value
+    liveRef.current = input.live
+
+    const wasLive = wasLiveRef.current
+    wasLiveRef.current = input.live
+
+    if (!input.live) {
+      clearPaceTimeout()
+      sync(value, wasLive)
       return
     }
 
-    const finalStepIndex = remainingSteps.length - 1
-    animationRef.current = animate(0, finalStepIndex, {
-      duration: streamingDurationSeconds(mode, steps.length),
-      ease: "linear",
-      onUpdate: (latest) => {
-        if (animationTokenRef.current !== animationToken) return
-        const stepIndex = Math.min(finalStepIndex, Math.floor(latest))
-        const nextIndex = remainingSteps[stepIndex]
-        if (typeof nextIndex !== "number") return
-        if (nextIndex <= visibleTextRef.current.length) return
-        commitVisibleText(targetTextRef.current.slice(0, nextIndex))
-      },
-      onComplete: () => {
-        if (animationTokenRef.current !== animationToken) return
-        animationRef.current = null
-        finishStreaming(targetTextRef.current, true)
-      },
-    })
-
-    return () => {
-      clearAnimation()
+    if (shouldBypassStreamingPace(value)) {
+      clearPaceTimeout()
+      sync(value)
+      return
     }
-  }, [
-    clearAnimation,
-    clearFinalRenderTimeout,
-    commitVisibleText,
-    finishStreaming,
-    scheduleFinalRender,
-    input?.mode,
-    value,
-  ])
+
+    const shown = shownRef.current
+    if (!value.startsWith(shown) || value.length < shown.length) {
+      clearPaceTimeout()
+      sync(value)
+      return
+    }
+
+    if (value.length === shown.length || paceTimeoutRef.current !== undefined) return
+    paceTimeoutRef.current = window.setTimeout(run, TEXT_RENDER_PACE_MS)
+  }, [clearPaceTimeout, input.live, run, sync, value])
 
   useEffect(() => {
     return () => {
-      clearAnimation()
+      clearPaceTimeout()
       clearFinalRenderTimeout()
     }
-  }, [clearAnimation, clearFinalRenderTimeout])
+  }, [clearFinalRenderTimeout, clearPaceTimeout])
 
   return visibleText
 }
 
-export function useAdaptiveStreamingText(value: string, onFinalRender?: () => void) {
-  return useStreamingText(value, { mode: "auto", onFinalRender })
-}
-
-export function useSmoothStreamingText(value: string, onFinalRender?: () => void) {
-  return useStreamingText(value, { mode: "smooth", onFinalRender })
-}
-
-export function useLineByLineText(value: string, onFinalRender?: () => void) {
-  return useStreamingText(value, { mode: "line", onFinalRender })
+export function useAdaptiveStreamingText(
+  value: string,
+  options: StreamingTextOptions,
+): string {
+  return useStreamingText(value, options)
 }

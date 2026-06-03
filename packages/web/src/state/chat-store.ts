@@ -16,11 +16,13 @@ import type {
 } from "./chat-types"
 import {
   appendPartDelta,
+  preserveStreamingRawState,
   removeMessage,
   removePart,
   upsertMessage,
   upsertPart,
 } from "./chat-reducer"
+import { STREAMING_PART_RAW_FIELD } from "./chat-stream-event-buffer"
 import { IDLE_SESSION_STATUS, isSessionWorking, sessionStatusEquals } from "./session-status"
 
 type StreamStatus = "idle" | "connecting" | "connected" | "error"
@@ -461,7 +463,7 @@ function upsertOrphanPart(parts: MessagePart[], incoming: MessagePart) {
   }
 
   const next = [...parts]
-  next[index] = incoming
+  next[index] = preserveStreamingRawState(next[index], incoming)
   return next
 }
 
@@ -477,7 +479,7 @@ function appendOrphanPartDelta(
   const next = [...parts]
   const part = parts[index]
   if (!part) return parts
-  if (input.field === "state.raw") {
+  if (input.field === STREAMING_PART_RAW_FIELD) {
     const state = part.state
     if (!state || typeof state !== "object" || Array.isArray(state) || !("raw" in state)) {
       return parts

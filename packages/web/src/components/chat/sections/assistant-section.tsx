@@ -95,6 +95,7 @@ export const AssistantSection = memo(function AssistantSection({
             copyPartID={assistantCopyPartID}
             metaText={assistantMetaText}
             interrupted={assistantAborted}
+            streaming={isBusy}
             preferEagerMarkdown={preferEagerMarkdown}
             onOpenSession={onOpenSession}
             onOpenResource={onOpenResource}

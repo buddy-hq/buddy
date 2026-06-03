@@ -8,6 +8,7 @@ Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
 
 type HarnessHandle = {
   pause: () => void
+  settleToBottom: () => void
 }
 
 type HarnessProps = {
@@ -32,8 +33,9 @@ function Harness(props: HarnessProps) {
   useLayoutEffect(() => {
     onReady({
       pause: auto.pause,
+      settleToBottom: auto.settleToBottom,
     })
-  }, [auto.pause, onReady])
+  }, [auto.pause, auto.settleToBottom, onReady])
 
   return (
     <div
@@ -78,6 +80,12 @@ function installScrollMetrics(element: HTMLDivElement, metrics: ScrollMetrics) {
         metrics.scrollTop = value
       },
     },
+  })
+}
+
+async function waitForAnimationFrame(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => resolve())
   })
 }
 
@@ -186,5 +194,54 @@ describe("useAutoScroll", () => {
     })
 
     expect(metrics.scrollTop).toBe(200)
+  })
+
+  test("keeps bottom pinned across late final-render height changes", async () => {
+    let handle: HarnessHandle | undefined
+
+    await act(async () => {
+      root.render(
+        <Harness
+          working={true}
+          contentDep={0}
+          onReady={(nextHandle) => {
+            handle = nextHandle
+          }}
+        />,
+      )
+    })
+
+    const scrollElement = requireDiv(container, '[data-testid="scroll"]')
+    const metrics: ScrollMetrics = {
+      clientHeight: 400,
+      scrollHeight: 800,
+      scrollTop: 400,
+    }
+    installScrollMetrics(scrollElement, metrics)
+
+    await act(async () => {
+      root.render(
+        <Harness
+          working={false}
+          contentDep={1}
+          onReady={(nextHandle) => {
+            handle = nextHandle
+          }}
+        />,
+      )
+    })
+
+    metrics.scrollHeight = 1_000
+    await act(async () => {
+      await waitForAnimationFrame()
+    })
+    expect(metrics.scrollTop).toBe(600)
+
+    metrics.scrollHeight = 1_200
+    await act(async () => {
+      handle?.settleToBottom()
+      await waitForAnimationFrame()
+    })
+    expect(metrics.scrollTop).toBe(800)
   })
 })

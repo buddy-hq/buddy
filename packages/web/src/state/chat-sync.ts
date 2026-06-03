@@ -1,5 +1,7 @@
 import type { GlobalEvent } from "./chat-types"
+import { unstable_batchedUpdates } from "react-dom"
 import { getBuddyClient } from "../lib/buddy-client"
+import { CHAT_STREAM_GLOBAL_DIRECTORY, createChatStreamEventBuffer } from "./chat-stream-event-buffer"
 
 type SyncHandlers = {
   directory?: string
@@ -11,12 +13,18 @@ type SyncHandlers = {
 
 const FRAME_MS = 16
 const STREAM_YIELD_MS = 8
+const RECONNECT_DELAY_MS = 250
+const MAX_RECONNECT_DELAY_MS = 10_000
+const RECONNECT_BACKOFF_FACTOR = 2
+const HEARTBEAT_TIMEOUT_MS = 15_000
 const EVENT_STREAM_ACCEPT = "text/event-stream"
 const EVENT_STREAM_CACHE_CONTROL = "no-cache"
-const GLOBAL_DIRECTORY = "global"
 const SDK_STREAM_DATA_KEY = "data"
+const DOCUMENT_VISIBILITY_VISIBLE = "visible"
 
 type UnknownRecord = Record<string, unknown>
+
+const wait = (ms: number) => new Promise<void>((resolve) => globalThis.setTimeout(resolve, ms))
 
 function findSseEventBoundary(buffer: string) {
   const match = /\r?\n\r?\n/.exec(buffer)
@@ -123,18 +131,6 @@ function normalizeGlobalEvent(
   return undefined
 }
 
-function eventPayloadProperties(event: GlobalEvent) {
-  const payload = event.payload
-  return "properties" in payload ? payload.properties : undefined
-}
-
-function isMessagePartReference(value: unknown): value is { messageID: string; id: string } {
-  if (!isRecord(value)) {
-    return false
-  }
-  return typeof value.messageID === "string" && typeof value.id === "string"
-}
-
 function eventErrorInfo(error: unknown) {
   if (error instanceof Error) {
     return {
@@ -147,29 +143,6 @@ function eventErrorInfo(error: unknown) {
   }
 }
 
-function eventKey(event: GlobalEvent) {
-  const directory = event.directory ?? GLOBAL_DIRECTORY
-  const payload = event.payload
-  const properties = eventPayloadProperties(event)
-  if (!properties) return undefined
-
-  if (payload.type === "session.status") {
-    return `${directory}:session.status:${String(properties.sessionID ?? "")}`
-  }
-
-  if (payload.type === "message.part.updated") {
-    const part = properties.part
-    if (!isMessagePartReference(part)) return undefined
-    return `${directory}:message.part.updated:${part.messageID}:${part.id}`
-  }
-
-  return undefined
-}
-
-function deltaKey(directory: string, messageID: string, partID: string) {
-  return `${directory}:${messageID}:${partID}`
-}
-
 function isAbortError(error: unknown) {
   if (!error || typeof error !== "object") return false
   if (!("name" in error)) return false
@@ -177,25 +150,20 @@ function isAbortError(error: unknown) {
 }
 
 export function startChatSync(handlers: SyncHandlers) {
-  let streamAbort: AbortController | undefined
-  let reconnectTimer: ReturnType<typeof setTimeout> | undefined
-  let attempt = 0
   let disposed = false
   let opened = false
-  let connectionID = 0
-  let queue: Array<GlobalEvent | undefined> = []
-  const coalesced = new Map<string, number>()
-  const staleDeltas = new Set<string>()
+  let streamAbort: AbortController | undefined
   let flushTimer: ReturnType<typeof setTimeout> | undefined
+  let heartbeatTimer: ReturnType<typeof setTimeout> | undefined
+  let lastEventAt = Date.now()
+  let lastFlushAt = 0
+  let reconnectAttempt = 0
+  let run: Promise<void> | undefined
+  let streamErrorLogged = false
+  const eventBuffer = createChatStreamEventBuffer()
 
   const reportStatus = (status: "connecting" | "connected" | "error") => {
     handlers.onStatus?.(status)
-  }
-
-  const clearReconnect = () => {
-    if (reconnectTimer === undefined) return
-    globalThis.clearTimeout(reconnectTimer)
-    reconnectTimer = undefined
   }
 
   const closeStream = () => {
@@ -204,8 +172,19 @@ export function startChatSync(handlers: SyncHandlers) {
     streamAbort = undefined
   }
 
-  const isCurrentConnection = (id: number, abort: AbortController) =>
-    !disposed && streamAbort === abort && connectionID === id
+  const clearHeartbeat = () => {
+    if (heartbeatTimer === undefined) return
+    globalThis.clearTimeout(heartbeatTimer)
+    heartbeatTimer = undefined
+  }
+
+  const resetHeartbeat = () => {
+    lastEventAt = Date.now()
+    clearHeartbeat()
+    heartbeatTimer = globalThis.setTimeout(() => {
+      streamAbort?.abort()
+    }, HEARTBEAT_TIMEOUT_MS)
+  }
 
   const flush = () => {
     if (flushTimer !== undefined) {
@@ -213,178 +192,173 @@ export function startChatSync(handlers: SyncHandlers) {
       flushTimer = undefined
     }
 
-    if (queue.length === 0) return
-    const events = queue
-    const skip = staleDeltas.size > 0 ? new Set(staleDeltas) : undefined
-    queue = []
-    coalesced.clear()
-    staleDeltas.clear()
+    const events = eventBuffer.drain()
+    if (events.length === 0) return
 
-    for (const event of events) {
-      if (!event) continue
-      const properties = eventPayloadProperties(event)
-      if (skip && event.payload.type === "message.part.delta" && properties) {
-        const field = String(properties.field ?? "")
-        const skipsDelta = skip.has(
-          deltaKey(
-            event.directory ?? GLOBAL_DIRECTORY,
-            String(properties.messageID ?? ""),
-            String(properties.partID ?? ""),
-          ),
-        )
-        if (skipsDelta && field !== "state.raw") {
-          continue
-        }
+    lastFlushAt = Date.now()
+    unstable_batchedUpdates(() => {
+      for (const event of events) {
+        handlers.onEvent(event)
       }
-      handlers.onEvent(event)
-    }
+    })
   }
 
   const scheduleFlush = () => {
     if (flushTimer !== undefined) return
-    flushTimer = globalThis.setTimeout(flush, FRAME_MS)
+    const elapsed = Date.now() - lastFlushAt
+    flushTimer = globalThis.setTimeout(flush, Math.max(0, FRAME_MS - elapsed))
   }
 
-  const connect = () => {
-    if (disposed) return
-    console.info("[chat-sync] connect")
-    reportStatus("connecting")
-    closeStream()
-    clearReconnect()
+  const nextReconnectDelay = () => {
+    const delay = Math.min(
+      MAX_RECONNECT_DELAY_MS,
+      RECONNECT_DELAY_MS * RECONNECT_BACKOFF_FACTOR ** reconnectAttempt,
+    )
+    reconnectAttempt += 1
+    return delay
+  }
 
-    const markOpen = () => {
-      attempt = 0
-      console.info("[chat-sync] open")
-      if (!opened) {
-        opened = true
-        handlers.onOpen?.()
-      }
-      reportStatus("connected")
+  const markOpen = () => {
+    if (!opened) {
+      opened = true
+      handlers.onOpen?.()
     }
+    reportStatus("connected")
+  }
 
-    const handleStreamEvent = (event: GlobalEvent) => {
-      const payloadType = event.payload?.type ?? "unknown"
-      const properties = eventPayloadProperties(event)
-      if (payloadType === "session.status" || payloadType === "message.updated") {
-        console.info("[chat-sync] event", {
-          directory: event.directory ?? GLOBAL_DIRECTORY,
-          type: payloadType,
-          sessionID: String(properties?.sessionID ?? ""),
-        })
-      }
-      const key = eventKey(event)
-      if (key) {
-        const existing = coalesced.get(key)
-        if (existing !== undefined) {
-          queue[existing] = event
-          if (payloadType === "message.part.updated" && properties) {
-            const part = properties.part
-            if (isMessagePartReference(part)) {
-              staleDeltas.add(
-                deltaKey(event.directory ?? GLOBAL_DIRECTORY, part.messageID, part.id),
-              )
-            }
-          }
-          return
+  const handleStreamEvent = (event: GlobalEvent) => {
+    eventBuffer.enqueue(event)
+    scheduleFlush()
+  }
+
+  const logStreamError = (error: unknown) => {
+    if (streamErrorLogged) return
+    streamErrorLogged = true
+    console.warn("[chat-sync] error", {
+      directory: handlers.directory ?? CHAT_STREAM_GLOBAL_DIRECTORY,
+      error: eventErrorInfo(error),
+    })
+  }
+
+  const start = () => {
+    if (run) return run
+
+    run = (async () => {
+      // oxlint-disable-next-line no-unmodified-loop-condition -- disposed is set by stop() which also aborts the current attempt
+      while (!disposed) {
+        reportStatus("connecting")
+
+        const currentAbort = new AbortController()
+        streamAbort = currentAbort
+        let streamError: unknown
+        let reportedFailure = false
+
+        const reportFailure = (error: unknown) => {
+          if (reportedFailure) return
+          reportedFailure = true
+          handlers.onError?.(error)
+          reportStatus("error")
         }
-        coalesced.set(key, queue.length)
-      }
-      queue.push(event)
-      scheduleFlush()
-    }
 
-    const scheduleReconnect = (
-      notifyError = true,
-      status: "connecting" | "connected" | "error" = "error",
-    ) => {
-      if (disposed) return
-      attempt += 1
-      const delay = Math.min(10_000, 500 * attempt)
-      reconnectTimer = globalThis.setTimeout(() => {
-        connect()
-      }, delay)
-      reportStatus(status)
-      if (notifyError) {
-        handlers.onError?.(new Error(`Event stream disconnected (attempt ${attempt})`))
-      }
-    }
-
-    const currentConnectionID = connectionID + 1
-    connectionID = currentConnectionID
-    const currentAbort = new AbortController()
-    streamAbort = currentAbort
-
-    void (async () => {
-      let streamError: unknown
-
-      try {
-        const events = await getBuddyClient(handlers.directory).event.stream(
-          handlers.directory ? { directory: handlers.directory } : undefined,
-          {
-            headers: {
-              accept: EVENT_STREAM_ACCEPT,
-              "cache-control": EVENT_STREAM_CACHE_CONTROL,
-            },
-            signal: currentAbort.signal,
-            sseMaxRetryAttempts: 0,
-            onSseError(error: unknown) {
-              if (!currentAbort.signal.aborted && !isAbortError(error)) {
+        try {
+          const events = await getBuddyClient(handlers.directory).event.stream(
+            handlers.directory ? { directory: handlers.directory } : undefined,
+            {
+              headers: {
+                accept: EVENT_STREAM_ACCEPT,
+                "cache-control": EVENT_STREAM_CACHE_CONTROL,
+              },
+              signal: currentAbort.signal,
+              sseMaxRetryAttempts: 0,
+              onSseError(error: unknown) {
+                if (currentAbort.signal.aborted || isAbortError(error)) return
                 streamError = error
-              }
+                logStreamError(error)
+              },
             },
-          },
-        )
+          )
 
-        if (!isCurrentConnection(currentConnectionID, currentAbort)) return
-        markOpen()
+          if (disposed || currentAbort.signal.aborted) break
+          markOpen()
+          streamErrorLogged = false
+          resetHeartbeat()
 
-        let yieldedAt = Date.now()
+          let yieldedAt = Date.now()
 
-        const yieldToMainThread = async () => {
-          if (Date.now() - yieldedAt < STREAM_YIELD_MS) return
-          yieldedAt = Date.now()
-          await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 0))
-        }
-
-        for await (const event of events.stream) {
-          if (!isCurrentConnection(currentConnectionID, currentAbort)) break
-          const normalizedEvent = normalizeGlobalEvent(event, handlers.directory)
-          if (!normalizedEvent) {
-            console.warn("[chat-sync] invalid-event", { event })
-            await yieldToMainThread()
-            continue
+          const yieldToMainThread = async () => {
+            if (Date.now() - yieldedAt < STREAM_YIELD_MS) return
+            yieldedAt = Date.now()
+            await wait(0)
           }
-          handleStreamEvent(normalizedEvent)
-          await yieldToMainThread()
-        }
-      } catch (error) {
-        if (!isCurrentConnection(currentConnectionID, currentAbort) || isAbortError(error)) return
-        console.warn("[chat-sync] error", { attempt: attempt + 1, error: eventErrorInfo(error) })
-        handlers.onError?.(error)
-        scheduleReconnect(true)
-        return
-      }
 
-      if (!isCurrentConnection(currentConnectionID, currentAbort)) return
-      if (streamError) {
-        console.warn("[chat-sync] error", {
-          attempt: attempt + 1,
-          error: eventErrorInfo(streamError),
-        })
-        scheduleReconnect(true)
-        return
+          for await (const event of events.stream) {
+            if (disposed || currentAbort.signal.aborted) break
+            reconnectAttempt = 0
+            resetHeartbeat()
+            const normalizedEvent = normalizeGlobalEvent(event, handlers.directory)
+            if (!normalizedEvent) {
+              console.warn("[chat-sync] invalid-event", { event })
+              await yieldToMainThread()
+              continue
+            }
+            if (normalizedEvent.payload.type === "sync") {
+              await yieldToMainThread()
+              continue
+            }
+            streamErrorLogged = false
+            handleStreamEvent(normalizedEvent)
+            await yieldToMainThread()
+          }
+        } catch (error) {
+          if (!currentAbort.signal.aborted && !isAbortError(error)) {
+            logStreamError(error)
+            reportFailure(error)
+          }
+        } finally {
+          if (streamAbort === currentAbort) {
+            streamAbort = undefined
+          }
+          clearHeartbeat()
+        }
+
+        if (disposed) return
+
+        if (streamError && !currentAbort.signal.aborted && !isAbortError(streamError)) {
+          reportFailure(streamError)
+        } else {
+          reportStatus("connecting")
+        }
+
+        await wait(nextReconnectDelay())
       }
-      console.info("[chat-sync] disconnected", { attempt: attempt + 1 })
-      scheduleReconnect(false, "connecting")
-    })()
+    })().finally(() => {
+      run = undefined
+      flush()
+    })
+
+    return run
   }
 
-  connect()
+  const onVisibilityChange = () => {
+    if (typeof document === "undefined") return
+    if (document.visibilityState !== DOCUMENT_VISIBILITY_VISIBLE) return
+    if (Date.now() - lastEventAt < HEARTBEAT_TIMEOUT_MS) return
+    streamAbort?.abort()
+  }
+
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", onVisibilityChange)
+  }
+
+  void start()
 
   return {
     stop() {
       disposed = true
-      clearReconnect()
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibilityChange)
+      }
+      clearHeartbeat()
       closeStream()
       flush()
     },

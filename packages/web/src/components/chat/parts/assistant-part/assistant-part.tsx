@@ -21,6 +21,7 @@ export interface AssistantPartRendererProps {
   copyPartID?: string
   metaText?: string
   interrupted?: boolean
+  streaming?: boolean
   preferEagerMarkdown?: boolean
   onOpenSession?: (sessionID: string) => void
   onOpenResource?: (
@@ -44,6 +45,7 @@ function assistantPartRendererEqual(
   if (prevProps.copyPartID !== nextProps.copyPartID) return false
   if (prevProps.metaText !== nextProps.metaText) return false
   if (prevProps.interrupted !== nextProps.interrupted) return false
+  if (prevProps.streaming !== nextProps.streaming) return false
   if (prevProps.preferEagerMarkdown !== nextProps.preferEagerMarkdown) return false
   if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
   if (prevProps.stripLeadingMermaidSources !== nextProps.stripLeadingMermaidSources) return false
@@ -72,6 +74,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
   copyPartID,
   metaText,
   interrupted,
+  streaming = false,
   preferEagerMarkdown,
   onOpenSession,
   onOpenResource,
@@ -92,6 +95,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
         copyEnabled={copyPartID === part.id}
         metaText={metaText}
         interrupted={interrupted}
+        streaming={streaming}
         preferEagerMarkdown={preferEagerMarkdown}
         stripLeadingFigureImage={stripLeadingFigureImage}
         stripLeadingMermaidSources={stripLeadingMermaidSources}
@@ -102,7 +106,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
   }
 
   if (isChatReasoningPart(part)) {
-    return <ReasoningPart part={part} />
+    return <ReasoningPart part={part} streaming={streaming} />
   }
 
   if (part.type === "patch") {
