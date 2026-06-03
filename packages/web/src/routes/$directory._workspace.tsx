@@ -46,10 +46,11 @@ function DirectoryWorkspaceRouteLayout() {
     <DirectoryChatWorkspacePageLayout
       workspaceKey={`${location.href}:${sessionID ?? ""}`}
       workspace={<Outlet />}
-      conversation={
+      conversation={(controls) => (
         <DirectoryChatWorkspaceConversationPane
           {...controller.mainPaneProps}
           linkedSessionID={linkedReadingSessionID}
+          onFloatChat={controls.onFloatChat}
           onNewSession={() => {
             void controller.leftSidebarProps.onNewSession(currentDirectory)
           }}
@@ -57,7 +58,7 @@ function DirectoryWorkspaceRouteLayout() {
             void controller.leftSidebarProps.onSelectSession(currentDirectory, nextSessionID)
           }}
         />
-      }
+      )}
     />
   )
 }

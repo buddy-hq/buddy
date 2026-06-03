@@ -13,10 +13,13 @@ import type { PromptComposerAttachment, PromptComposerPart } from "@/components/
 import {
   COMPACT_SLASH_COMMAND_ALIASES,
   COMPACT_SLASH_COMMAND_NAME,
+  FORK_SLASH_COMMAND_ALIASES,
+  FORK_SLASH_COMMAND_NAME,
   buildQuizSlashPromptParts,
   buildQuizSlashPrompt,
   parseSlashCommandInput,
   QUIZ_SLASH_COMMAND_NAME,
+  REDO_SLASH_COMMAND_NAME,
   SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES,
   UNDO_SLASH_COMMAND_NAME,
 } from "@/components/prompt/slash-autocomplete"
@@ -48,6 +51,7 @@ import {
   prefetchSessionMessages,
   createManagedNotebook,
   compactSession,
+  forkSessionFromMessage,
   openInboxNotebook,
   openProject,
   rejectQuestion,
@@ -116,6 +120,10 @@ import {
 import { bootstrapLearnerMemoryForNotebookBestEffort } from "@/lib/learner-memory"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 import { useWorkspaceFilePanelStore } from "@/state/workspace-file-panel-store"
+import {
+  FOLLOWUP_BEHAVIOR_QUEUE,
+  useChatSettings,
+} from "@/state/chat-settings"
 import { language } from "@/context/language"
 
 const SIDEBAR_MIN_WIDTH = 220
@@ -129,6 +137,61 @@ const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = []
 const E2E_BACKEND_COMMAND_NAME = "e2e-backend-command"
 const COMPACT_SESSION_MISSING_MODEL_ERROR = "Select a model before compacting this session."
 const COMPACT_SESSION_MISSING_SESSION_ERROR = "Start a session before compacting it."
+const QUEUED_FOLLOWUP_PREVIEW_MAX_LENGTH = 80
+const QUEUED_FOLLOWUP_ID_PREFIX = "queued-followup"
+let queuedFollowupSequence = 0
+
+type SubmittedPromptDraft = Omit<PromptDraftState, "updatedAt">
+type QueuedFollowupKind = "queue" | "steer"
+
+type QueuedFollowupDraft = {
+  id: string
+  sessionID: string
+  kind: QueuedFollowupKind
+  label: string
+  draft: SubmittedPromptDraft
+  focusGoalIds?: string[]
+}
+
+function createQueuedFollowupID() {
+  const randomID = globalThis.crypto?.randomUUID?.()
+  if (randomID) return `${QUEUED_FOLLOWUP_ID_PREFIX}-${randomID}`
+
+  queuedFollowupSequence += 1
+  return `${QUEUED_FOLLOWUP_ID_PREFIX}-${Date.now()}-${queuedFollowupSequence}`
+}
+
+function cloneSubmittedPromptDraft(draft: SubmittedPromptDraft): SubmittedPromptDraft {
+  const cloned = clonePromptDraft(normalizePromptDraft(draft))
+  return {
+    value: cloned.value,
+    parts: cloned.parts,
+    attachments: cloned.attachments,
+    cursor: cloned.cursor,
+  }
+}
+
+function truncateQueuedFollowupPreview(text: string) {
+  if (text.length <= QUEUED_FOLLOWUP_PREVIEW_MAX_LENGTH) return text
+  return `${text.slice(0, QUEUED_FOLLOWUP_PREVIEW_MAX_LENGTH - 3)}...`
+}
+
+function queuedFollowupLabel(draft: SubmittedPromptDraft) {
+  const directText = draft.value.trim().replace(/\s+/g, " ")
+  if (directText) return truncateQueuedFollowupPreview(directText)
+
+  const textPart = draft.parts.find(
+    (part) => part.type === PROMPT_PART_TYPE_TEXT && part.text.trim().length > 0,
+  )
+  if (textPart?.type === PROMPT_PART_TYPE_TEXT) {
+    return truncateQueuedFollowupPreview(textPart.text.trim().replace(/\s+/g, " "))
+  }
+
+  const firstAttachment = draft.attachments[0]
+  if (firstAttachment) return firstAttachment.filename
+
+  return language.t("chat.followupDock.untitled")
+}
 
 type DirectoryChatPageControllerProps = {
   directoryToken: string
@@ -176,6 +239,13 @@ export function useDirectoryChatPageController(
   const [shellView, setShellView] = useState<DirectoryChatShellView>(
     DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE,
   )
+  const [queuedFollowupsBySession, setQueuedFollowupsBySession] = useState<
+    Record<string, QueuedFollowupDraft[]>
+  >({})
+  const [sendingQueuedFollowupID, setSendingQueuedFollowupID] = useState<string | undefined>(
+    undefined,
+  )
+  const followupBehavior = useChatSettings((state) => state.followupBehavior)
 
   const decodedDirectory = useMemo(() => {
     try {
@@ -254,6 +324,10 @@ export function useDirectoryChatPageController(
     candidates.set(COMPACT_SLASH_COMMAND_NAME, {
       name: COMPACT_SLASH_COMMAND_NAME,
       aliases: [...COMPACT_SLASH_COMMAND_ALIASES],
+    })
+    candidates.set(FORK_SLASH_COMMAND_NAME, {
+      name: FORK_SLASH_COMMAND_NAME,
+      aliases: [...FORK_SLASH_COMMAND_ALIASES],
     })
     if (import.meta.env.VITE_BUDDY_E2E === "1") {
       candidates.set(E2E_BACKEND_COMMAND_NAME, { name: E2E_BACKEND_COMMAND_NAME })
@@ -341,13 +415,13 @@ export function useDirectoryChatPageController(
     }
   }
 
-  function clearSubmittedPromptDrafts(submittedSessionID: string) {
+  const clearSubmittedPromptDrafts = useCallback((submittedSessionID: string) => {
     if (!decodedDirectory) return
 
     cs.clearPromptDraft(cs.promptKey)
     cs.clearPromptDraft(getPromptScopeKey(decodedDirectory))
     cs.clearPromptDraft(getPromptScopeKey(decodedDirectory, submittedSessionID))
-  }
+  }, [cs, decodedDirectory])
 
   function stagePromptText(value: string) {
     const nextDraft = createTextPromptDraft(value)
@@ -642,10 +716,10 @@ export function useDirectoryChatPageController(
     }
   }
 
-  function reportCurrentDirectoryError(error: unknown) {
+  const reportCurrentDirectoryError = useCallback((error: unknown) => {
     if (!decodedDirectory) return
     cs.setDirectoryError(decodedDirectory, stringifyError(error))
-  }
+  }, [cs, decodedDirectory])
 
   async function onOpenExistingFolder() {
     try {
@@ -1023,12 +1097,15 @@ export function useDirectoryChatPageController(
     return buildPromptDraftFromUserMessage(targetUserMessage, decodedDirectory)
   }
 
-  async function sendRuntimePrompt(input: {
+  const sendRuntimePrompt = useCallback(async (input: {
     content: string
     attachments?: PromptComposerAttachment[]
     parts?: PromptComposerPart[]
     focusGoalIds?: string[]
-  }) {
+    clearDrafts?: boolean
+    targetSessionID?: string
+    optimistic?: boolean
+  }) => {
     if (!decodedDirectory) return false
 
     const rawAttachments = input.attachments ?? []
@@ -1058,6 +1135,7 @@ export function useDirectoryChatPageController(
     })
 
     const submittedSessionID = await sendPrompt(decodedDirectory, contentForSubmission, {
+      sessionID: input.targetSessionID,
       parts: submissionParts,
       persona: cs.selectedPersona,
       focusGoalIds: input.focusGoalIds,
@@ -1079,6 +1157,7 @@ export function useDirectoryChatPageController(
         : {}),
       variant,
       teaching: teachingContext,
+      optimistic: input.optimistic,
       ...(activeReadingResource
         ? {
             reading: {
@@ -1133,7 +1212,9 @@ export function useDirectoryChatPageController(
       )
     }
 
-    clearSubmittedPromptDrafts(submittedSessionID)
+    if (input.clearDrafts ?? true) {
+      clearSubmittedPromptDrafts(submittedSessionID)
+    }
     setSystemPromptRefreshToken((token) => token + 1)
     void syncTeachingRuntimeSelection({
       directory: decodedDirectory,
@@ -1141,7 +1222,128 @@ export function useDirectoryChatPageController(
       sessionKey: teachingSelectionKey(decodedDirectory, submittedSessionID),
     })
     return true
+  }, [
+    activeReadingResource,
+    clearSubmittedPromptDrafts,
+    currentAgentName,
+    decodedDirectory,
+    linkReadingResourceSession,
+    selectedThinking,
+    syncTeachingRuntimeSelection,
+    teachingWs,
+    cs,
+  ])
+
+  function enqueueFollowup(
+    draft: SubmittedPromptDraft,
+    kind: QueuedFollowupKind,
+    focusGoalIds?: string[],
+  ) {
+    if (!sessionID) return undefined
+
+    const queuedDraft = cloneSubmittedPromptDraft(draft)
+    const item: QueuedFollowupDraft = {
+      id: createQueuedFollowupID(),
+      sessionID,
+      kind,
+      label: queuedFollowupLabel(queuedDraft),
+      draft: queuedDraft,
+      ...(focusGoalIds && focusGoalIds.length > 0 ? { focusGoalIds: [...focusGoalIds] } : {}),
+    }
+
+    setQueuedFollowupsBySession((current) => ({
+      ...current,
+      [sessionID]: [...(current[sessionID] ?? []), item],
+    }))
+    return item
   }
+
+  const removeQueuedFollowup = useCallback((targetSessionID: string, queuedFollowupID: string) => {
+    setQueuedFollowupsBySession((current) => {
+      const remaining = (current[targetSessionID] ?? []).filter(
+        (item) => item.id !== queuedFollowupID,
+      )
+      if (remaining.length === 0) {
+        const { [targetSessionID]: _removed, ...rest } = current
+        return rest
+      }
+      return {
+        ...current,
+        [targetSessionID]: remaining,
+      }
+    })
+  }, [])
+
+  const sendFollowupItem = useCallback(
+    async (targetSessionID: string, queuedFollowup: QueuedFollowupDraft) => {
+      if (sendingQueuedFollowupID) return
+
+      setSendingQueuedFollowupID(queuedFollowup.id)
+      try {
+        const sent = await sendRuntimePrompt({
+          content: queuedFollowup.draft.value,
+          parts: queuedFollowup.draft.parts,
+          attachments: queuedFollowup.draft.attachments,
+          focusGoalIds: queuedFollowup.focusGoalIds,
+          clearDrafts: false,
+          targetSessionID,
+          optimistic: !cs.isBusy,
+        })
+        if (sent) {
+          removeQueuedFollowup(targetSessionID, queuedFollowup.id)
+        }
+      } catch (error) {
+        reportCurrentDirectoryError(error)
+      } finally {
+        setSendingQueuedFollowupID(undefined)
+      }
+    },
+    [
+      removeQueuedFollowup,
+      reportCurrentDirectoryError,
+      cs.isBusy,
+      sendRuntimePrompt,
+      sendingQueuedFollowupID,
+    ],
+  )
+
+  const sendQueuedFollowup = useCallback(
+    async (targetSessionID: string, queuedFollowupID: string) => {
+      const queuedFollowup = queuedFollowupsBySession[targetSessionID]?.find(
+        (item) => item.id === queuedFollowupID,
+      )
+      if (!queuedFollowup) return
+
+      await sendFollowupItem(targetSessionID, queuedFollowup)
+    },
+    [queuedFollowupsBySession, sendFollowupItem],
+  )
+
+  function editQueuedFollowup(targetSessionID: string, queuedFollowupID: string) {
+    const queuedFollowup = queuedFollowupsBySession[targetSessionID]?.find(
+      (item) => item.id === queuedFollowupID,
+    )
+    if (!queuedFollowup) return
+
+    removeQueuedFollowup(targetSessionID, queuedFollowupID)
+    cs.setPromptDraft(cs.promptKey, queuedFollowup.draft)
+    requestPromptComposerFocus(decodedDirectory)
+  }
+
+  useEffect(() => {
+    if (!decodedDirectory || !sessionID || cs.isBusy || sendingQueuedFollowupID) return
+    const nextQueuedFollowup = queuedFollowupsBySession[sessionID]?.[0]
+    if (!nextQueuedFollowup) return
+
+    void sendQueuedFollowup(sessionID, nextQueuedFollowup.id)
+  }, [
+    cs.isBusy,
+    decodedDirectory,
+    queuedFollowupsBySession,
+    sendQueuedFollowup,
+    sendingQueuedFollowupID,
+    sessionID,
+  ])
 
   async function onSend(draft: Omit<PromptDraftState, "updatedAt">) {
     if (!decodedDirectory) return
@@ -1186,6 +1388,38 @@ export function useDirectoryChatPageController(
           }
           setSystemPromptRefreshToken((token) => token + 1)
           void syncTeachingRuntimeSelection()
+        } catch {
+          restorePromptSnapshot(draftSnapshot)
+        }
+        return
+      }
+
+      if (slashCommand.command.name === REDO_SLASH_COMMAND_NAME) {
+        cs.clearPromptDraft(cs.promptKey)
+        try {
+          await restoreRevertedSessionMessage(decodedDirectory, {
+            sessionID,
+          })
+          setSystemPromptRefreshToken((token) => token + 1)
+          void syncTeachingRuntimeSelection()
+        } catch {
+          restorePromptSnapshot(draftSnapshot)
+        }
+        return
+      }
+
+      if (slashCommand.command.name === FORK_SLASH_COMMAND_NAME) {
+        cs.clearPromptDraft(cs.promptKey)
+        try {
+          const forkedSession = await forkSessionFromMessage(decodedDirectory, {
+            sessionID,
+          })
+          setSystemPromptRefreshToken((token) => token + 1)
+          void syncTeachingRuntimeSelection({
+            directory: decodedDirectory,
+            sessionID: forkedSession.id,
+            sessionKey: teachingSelectionKey(decodedDirectory, forkedSession.id),
+          })
         } catch {
           restorePromptSnapshot(draftSnapshot)
         }
@@ -1282,6 +1516,24 @@ export function useDirectoryChatPageController(
         })
       } catch {
         restorePromptSnapshot(draftSnapshot)
+      }
+      return
+    }
+
+    if (cs.isBusy) {
+      const queuedFollowup = enqueueFollowup(
+        draft,
+        followupBehavior === FOLLOWUP_BEHAVIOR_QUEUE ? "queue" : "steer",
+        pendingSuggestionOverride?.focusGoalIds,
+      )
+      if (!queuedFollowup) {
+        restorePromptSnapshot(draftSnapshot)
+        return
+      }
+      cs.clearPromptDraft(cs.promptKey)
+      setPendingSuggestionOverride(undefined)
+      if (queuedFollowup.kind === "steer") {
+        void sendFollowupItem(queuedFollowup.sessionID, queuedFollowup)
       }
       return
     }
@@ -1446,6 +1698,25 @@ export function useDirectoryChatPageController(
     },
   } satisfies DirectoryChatMainPaneProps["promptComposerProps"]
 
+  const queuedFollowups = sessionID
+    ? (queuedFollowupsBySession[sessionID] ?? []).map((item) => {
+        if (item.kind !== "steer") {
+          return {
+            id: item.id,
+            label: item.label,
+          }
+        }
+
+        return {
+          id: item.id,
+          label: item.label,
+          description: language.t("chat.followupDock.steeringDescription"),
+          sendDisabled: cs.isBusy,
+          sendLabel: language.t("chat.followupDock.steeringAction"),
+        }
+      })
+    : []
+
   const leftSidebarProps: ComponentProps<typeof ChatLeftSidebar> = {
     directories: cs.sidebarDirectories,
     currentDirectory: decodedDirectory,
@@ -1517,6 +1788,7 @@ export function useDirectoryChatPageController(
     onTranscriptTouchEnd: autoScroll.handleTouchEnd,
     onTranscriptTouchCancel: autoScroll.handleTouchCancel,
     onTranscriptInteraction: autoScroll.handleInteraction,
+    onAssistantTextFinalRender: autoScroll.settleToBottom,
     onOpenSession: handleOpenCurrentDirectorySession,
     onRevertMessage: async ({ sessionID, messageID }) => {
       const restoreDraft = resolveUndoRestoreDraft(messageID)
@@ -1526,6 +1798,15 @@ export function useDirectoryChatPageController(
       }
       setSystemPromptRefreshToken((token) => token + 1)
       void syncTeachingRuntimeSelection()
+    },
+    onForkMessage: async ({ sessionID, messageID }) => {
+      const forkedSession = await forkSessionFromMessage(decodedDirectory, { sessionID, messageID })
+      setSystemPromptRefreshToken((token) => token + 1)
+      void syncTeachingRuntimeSelection({
+        directory: decodedDirectory,
+        sessionID: forkedSession.id,
+        sessionKey: teachingSelectionKey(decodedDirectory, forkedSession.id),
+      })
     },
     onRestoreRevertedMessages: async () => {
       if (!sessionID) return
@@ -1552,6 +1833,16 @@ export function useDirectoryChatPageController(
       await onQuestionReject(requestID)
     },
     promptComposerProps,
+    queuedFollowups,
+    sendingQueuedFollowupID,
+    onSendQueuedFollowup: (queuedFollowupID) => {
+      if (!sessionID) return
+      void sendQueuedFollowup(sessionID, queuedFollowupID)
+    },
+    onEditQueuedFollowup: (queuedFollowupID) => {
+      if (!sessionID) return
+      editQueuedFollowup(sessionID, queuedFollowupID)
+    },
     mainPaneTab: cs.mainPaneTab,
     onOpenResource: openResourceInReadingMode,
     onOpenQuestionSet: openQuestionSetFromLibrary,

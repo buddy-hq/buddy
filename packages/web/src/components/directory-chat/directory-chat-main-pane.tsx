@@ -15,6 +15,10 @@ import { SessionContextUsage } from "@/components/directory-chat/session-context
 import { ChatTranscript } from "@/components/chat/chat-transcript"
 import { PermissionDock } from "@/components/directory-chat/permission-dock"
 import { QuestionDock } from "@/components/directory-chat/question-dock"
+import {
+  SessionFollowupDock,
+  type QueuedFollowupItem,
+} from "@/components/directory-chat/session-followup-dock"
 import { language } from "@/context/language"
 import { PromptComposer } from "@/components/prompt/prompt-composer"
 import { useAdaptiveSelectMode } from "@/components/prompt/use-adaptive-select-mode"
@@ -56,12 +60,17 @@ type DirectoryChatMainPaneProps = {
     resource: ResourceReadingTarget,
     options?: ResourceOpenOptions,
   ) => void
+  onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRestoreRevertedMessages?: () => Promise<void> | void
   onPermissionReply: (reply: "once" | "always" | "reject") => Promise<void>
   onQuestionReply: (requestID: string, answers: string[][]) => Promise<void>
   onQuestionReject: (requestID: string) => Promise<void>
   promptComposerProps: PromptComposerProps
+  queuedFollowups?: QueuedFollowupItem[]
+  sendingQueuedFollowupID?: string
+  onSendQueuedFollowup?: (id: string) => void
+  onEditQueuedFollowup?: (id: string) => void
   topContent?: ReactNode
   directories: string[]
   onSelectNotebook: (directory: string) => void
@@ -266,6 +275,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     onAssistantTextFinalRender,
     onOpenSession,
     onOpenResource,
+    onForkMessage,
     onRevertMessage,
     onRestoreRevertedMessages,
     onPermissionReply,
@@ -274,6 +284,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     promptComposerProps,
   } = props
   const autoCompactionWarning = useMemo(() => resolveAutoCompactionWarning(chatState), [chatState])
+  const queuedFollowups = props.queuedFollowups ?? []
   const currentSessionQuestions = useMemo(
     () =>
       resolveCurrentSessionQuestions({
@@ -370,6 +381,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     onAssistantTextFinalRender={onAssistantTextFinalRender}
                     onOpenSession={onOpenSession}
                     onOpenResource={onOpenResource}
+                    onForkMessage={onForkMessage}
                     onRevertMessage={onRevertMessage}
                   />
                 </>
@@ -454,6 +466,19 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                   {language.t("chat.revertNotice.restore")}
                 </Button>
               </div>
+            </div>
+          ) : null}
+
+          {queuedFollowups.length > 0 &&
+          props.onSendQueuedFollowup &&
+          props.onEditQueuedFollowup ? (
+            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
+              <SessionFollowupDock
+                items={queuedFollowups}
+                sendingID={props.sendingQueuedFollowupID}
+                onSend={props.onSendQueuedFollowup}
+                onEdit={props.onEditQueuedFollowup}
+              />
             </div>
           ) : null}
 

@@ -7,6 +7,7 @@ type DirectoryChatWorkspaceConversationPaneProps = Omit<
   "className" | "mainPaneTab" | "topContent"
 > & {
   linkedSessionID?: string
+  onFloatChat?: () => void
   onNewSession: () => void | Promise<void>
   onSelectSession: (sessionID: string) => void | Promise<void>
 }
@@ -14,7 +15,8 @@ type DirectoryChatWorkspaceConversationPaneProps = Omit<
 export function DirectoryChatWorkspaceConversationPane(
   props: DirectoryChatWorkspaceConversationPaneProps,
 ) {
-  const { linkedSessionID, onNewSession, onSelectSession, ...conversationPaneProps } = props
+  const { linkedSessionID, onFloatChat, onNewSession, onSelectSession, ...conversationPaneProps } =
+    props
   const threadBrowserState = props.chatState
 
   return (
@@ -27,6 +29,7 @@ export function DirectoryChatWorkspaceConversationPane(
           activeSessionID={threadBrowserState.sessionID}
           linkedSessionID={linkedSessionID}
           parentSession={threadBrowserState.parentSession}
+          onFloatChat={onFloatChat}
           onNewSession={onNewSession}
           onSelectSession={onSelectSession}
         />

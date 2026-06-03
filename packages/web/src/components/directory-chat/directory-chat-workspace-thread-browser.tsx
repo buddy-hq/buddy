@@ -10,7 +10,7 @@ import {
   SquarePenIcon,
   cn,
 } from "@buddy/ui"
-import { CornerUpLeftIcon, HistoryIcon, SearchIcon } from "lucide-react"
+import { CornerUpLeftIcon, HistoryIcon, PictureInPicture2Icon, SearchIcon } from "lucide-react"
 import { language } from "@/context/language"
 import type { SessionInfo } from "@/state/chat-types"
 import { formatThreadAge } from "@/components/layout/chat-left-sidebar/thread-helpers"
@@ -23,6 +23,7 @@ type DirectoryChatWorkspaceThreadBrowserProps = {
   activeSessionID?: string
   linkedSessionID?: string
   parentSession?: SessionInfo
+  onFloatChat?: () => void
   onNewSession: () => void | Promise<void>
   onSelectSession: (sessionID: string) => void | Promise<void>
   className?: string
@@ -30,6 +31,7 @@ type DirectoryChatWorkspaceThreadBrowserProps = {
 
 const THREAD_SEARCH_PLACEHOLDER = "Search notebook threads" as const
 const THREAD_NO_MATCHES_MESSAGE = "No matches found" as const
+const WORKSPACE_CHAT_FLOAT_LABEL = "Pop out chat" as const
 
 function getThreadTitle(session: SessionInfo) {
   const title = session.title.trim()
@@ -189,18 +191,35 @@ export function DirectoryChatWorkspaceThreadBrowser(
         </span>
       </div>
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        className="size-8 rounded-full text-text-weaker transition-all hover:bg-surface-raised-base-hover hover:text-text-strong active:scale-[0.95]"
-        aria-label={language.t("sidebar.newChat")}
-        onClick={() => {
-          void props.onNewSession()
-        }}
-      >
-        <SquarePenIcon className="size-4" />
-      </Button>
+      <div className="flex shrink-0 items-center gap-1">
+        {props.onFloatChat ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            data-action="directory-chat-float"
+            className="size-8 rounded-full text-text-weaker transition-all hover:bg-surface-raised-base-hover hover:text-text-strong active:scale-[0.95]"
+            aria-label={WORKSPACE_CHAT_FLOAT_LABEL}
+            title={WORKSPACE_CHAT_FLOAT_LABEL}
+            onClick={props.onFloatChat}
+          >
+            <PictureInPicture2Icon className="size-4" />
+          </Button>
+        ) : null}
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className="size-8 rounded-full text-text-weaker transition-all hover:bg-surface-raised-base-hover hover:text-text-strong active:scale-[0.95]"
+          aria-label={language.t("sidebar.newChat")}
+          onClick={() => {
+            void props.onNewSession()
+          }}
+        >
+          <SquarePenIcon className="size-4" />
+        </Button>
+      </div>
     </div>
   )
 }
