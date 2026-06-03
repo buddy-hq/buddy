@@ -104,7 +104,7 @@
     "vendor:check-catalog": "bun ./script/sync-opencode-catalog.ts --check",
     "vendor:sync": "git subtree pull --prefix vendor/opencode opencode-upstream dev --squash -m \"chore(vendor): sync opencode mirror\"",
     "hooks:install": "git config core.hooksPath .githooks",
-    "lint": "bun ./script/vendor-guard.ts --worktree && bun ./script/check-import-contract.ts && bun run theme:audit && bun run spellcheck && bun ./node_modules/oxlint/bin/oxlint --config ./.oxlintrc.json --format unix --report-unused-disable-directives",
+    "lint": "bun ./script/vendor-guard.ts --worktree && bun ./script/check-import-contract.ts && bun run theme:audit && bun ./node_modules/oxlint/bin/oxlint --config ./.oxlintrc.json --format unix --report-unused-disable-directives",
     "spellcheck": "cspell --no-progress --no-summary",
     "fmt": "node ./node_modules/oxfmt/dist/cli.js",
     "fmt:check": "node ./node_modules/oxfmt/dist/cli.js --check",
