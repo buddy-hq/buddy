@@ -2,8 +2,8 @@ import { memo, useState } from "react"
 import { language } from "@/context/language"
 import { HighlightedText } from "../highlighted-text"
 import { CopyAction } from "../copy-action"
-import { Button, Tooltip, TooltipContent, TooltipTrigger, cn } from "@buddy/ui"
-import { Undo2Icon } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@buddy/ui"
+import { GitBranch, Undo2Icon } from "lucide-react"
 import { formatTime, titleCase } from "../utils/format"
 import type { MessageInfo, ProviderInfo } from "@/state/chat-types"
 import type { ChatAgentPart, ChatFilePart, ChatTextPart } from "../utils/part-guards"
@@ -79,6 +79,7 @@ export const UserMessagePart = memo(function UserMessagePart({
   onRevertMessage,
 }: UserMessagePartProps) {
   const [reverting, setReverting] = useState(false)
+  const [branching, setBranching] = useState(false)
 
   if (part.synthetic === true) return null
 
@@ -99,6 +100,19 @@ export const UserMessagePart = memo(function UserMessagePart({
       await onRevertMessage()
     } finally {
       setReverting(false)
+    }
+  }
+
+  async function handleForkClick() {
+    if (!onForkMessage || branching) return
+
+    setBranching(true)
+    try {
+      await onForkMessage()
+    } catch {
+      // The action layer reports fork failures on the directory.
+    } finally {
+      setBranching(false)
     }
   }
 
@@ -137,14 +151,24 @@ export const UserMessagePart = memo(function UserMessagePart({
           </span>
         )}
         {onForkMessage ? (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 px-2 text-xs"
-            onClick={() => void onForkMessage()}
-          >
-            {language.t("chat.userMessage.fork")}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger
+              type="button"
+              disabled={branching}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={(event) => {
+                event.stopPropagation()
+                void handleForkClick()
+              }}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-text-weak transition-colors hover:bg-surface-weak hover:text-text-base disabled:cursor-not-allowed disabled:opacity-60"
+              aria-label={language.t("chat.userMessage.branch")}
+            >
+              <GitBranch className="h-4 w-4" />
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={4}>
+              <p>{language.t("chat.userMessage.branch")}</p>
+            </TooltipContent>
+          </Tooltip>
         ) : null}
         {onRevertMessage ? (
           <Tooltip>
