@@ -278,6 +278,8 @@ export function createBuddyOpenCodeClient(raw: OpencodeClient) {
         raw.session.update(sessionPathParams(params) as never),
       summarize: (params: { sessionID: string; directory?: string; [key: string]: unknown }) =>
         raw.session.summarize(sessionPathParams(params) as never),
+      fork: (params: { sessionID: string; directory?: string; [key: string]: unknown }) =>
+        raw.session.fork(sessionPathParams(params) as never),
       revert: (params: { sessionID: string; directory?: string; [key: string]: unknown }) =>
         raw.session.revert(sessionPathParams(params) as never),
       unrevert: (params: { sessionID: string; directory?: string }) =>

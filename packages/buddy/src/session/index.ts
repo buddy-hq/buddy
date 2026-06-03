@@ -2,6 +2,7 @@ export { abortSessionRun } from "./orchestration/abort-actions"
 export {
   getSessionStatus,
   getSessionById,
+  forkSessionById,
   listSessionMessages,
   patchSessionById,
   proxySessionCollection,

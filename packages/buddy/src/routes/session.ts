@@ -23,6 +23,7 @@ import {
   getSessionMermaidRepairStatus,
   getSessionStatus,
   getSessionById,
+  forkSessionById,
   listSessionMessages,
   patchSessionById,
   postSessionCommand,
@@ -56,6 +57,7 @@ const [getSessionMermaidRepairStatusHandler] = sessionRouteFactory.createHandler
 )
 const [getTeachingStateHandler] = sessionRouteFactory.createHandlers(getTeachingState)
 const [abortSessionHandler] = sessionRouteFactory.createHandlers(abortSessionRun)
+const [forkSessionHandler] = sessionRouteFactory.createHandlers(forkSessionById)
 const [revertSessionHandler] = sessionRouteFactory.createHandlers(revertSessionById)
 const [unrevertSessionHandler] = sessionRouteFactory.createHandlers(unrevertSessionById)
 
@@ -201,6 +203,19 @@ const sessionRevertBodyOpenApiSchema = {
   properties: {
     messageID: { type: "string" as const },
     partID: { type: "string" as const },
+  },
+}
+
+const sessionForkBodySchema = z.object({
+  messageID: z.string().min(1),
+})
+
+const sessionForkBodyOpenApiSchema = {
+  type: "object" as const,
+  required: ["messageID"],
+  additionalProperties: false,
+  properties: {
+    messageID: { type: "string" as const },
   },
 }
 
@@ -533,6 +548,32 @@ export const SessionRoutes = new Hono()
     validator("query", directoryQuerySchema),
     validator("param", SessionIDParamSchema),
     getTeachingStateHandler,
+  )
+  .post(
+    "/:sessionID/fork",
+    describeRoute({
+      operationId: "session.fork",
+      summary: "Fork a session from a message",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": { schema: sessionForkBodyOpenApiSchema },
+        },
+      },
+      responses: {
+        200: {
+          description: "Forked session",
+          content: {
+            "application/json": { schema: resolver(toOpenApiSchema(OpenCodeSession.Info)) },
+          },
+        },
+        ...routeErrors(400, 403, 404, 409),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SessionIDParamSchema),
+    validator("json", sessionForkBodySchema),
+    forkSessionHandler,
   )
   .post(
     "/:sessionID/revert",

@@ -369,6 +369,32 @@ export async function revertSessionById(c: Context): Promise<Response> {
   return Response.json(result.data ?? true)
 }
 
+export async function forkSessionById(c: Context): Promise<Response> {
+  const syncResult = await withConfigSync(c, {
+    operation: "session fork",
+  })
+  if (!syncResult.ok) return syncResult.response
+
+  const sessionID = c.req.param("sessionID")
+  const lookupResponse = await ensureRuntimeSessionExists(syncResult.value.directory, sessionID)
+  if (lookupResponse) return lookupResponse
+
+  const client = await getOpenCodeClient(syncResult.value.directory)
+  const rawBody = readValidatedJsonBody(c)
+  const body = isRecord(rawBody) ? rawBody : {}
+  const result = await client.session.fork({
+    sessionID,
+    directory: syncResult.value.directory,
+    ...(typeof body.messageID === "string" ? { messageID: body.messageID } : {}),
+  })
+
+  if (result.error) {
+    return sdkErrorResponse(result, { forceBusyAs409: true })
+  }
+
+  return Response.json(result.data ?? true)
+}
+
 export async function unrevertSessionById(c: Context): Promise<Response> {
   const syncResult = await withConfigSync(c, {
     operation: "session unrevert",
