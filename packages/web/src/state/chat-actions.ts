@@ -1612,7 +1612,8 @@ export async function sendPrompt(
       await postPrompt(resolvedSessionID)
     } catch (error) {
       const shouldRecover =
-        !requestedSessionID && (await shouldRecoverMissingSession(directory, resolvedSessionID, error))
+        !requestedSessionID &&
+        (await shouldRecoverMissingSession(directory, resolvedSessionID, error))
       if (!shouldRecover) {
         throw error
       }

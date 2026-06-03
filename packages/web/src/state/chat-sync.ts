@@ -1,7 +1,10 @@
 import type { GlobalEvent } from "./chat-types"
 import { unstable_batchedUpdates } from "react-dom"
 import { getBuddyClient } from "../lib/buddy-client"
-import { CHAT_STREAM_GLOBAL_DIRECTORY, createChatStreamEventBuffer } from "./chat-stream-event-buffer"
+import {
+  CHAT_STREAM_GLOBAL_DIRECTORY,
+  createChatStreamEventBuffer,
+} from "./chat-stream-event-buffer"
 
 type SyncHandlers = {
   directory?: string

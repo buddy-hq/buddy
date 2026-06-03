@@ -82,7 +82,9 @@ function renderBoundsByElementID(board: WhiteboardBoard): Map<string, Whiteboard
   )
 }
 
-function anchorsByID(anchors: WhiteboardModelContextAnchor[]): Map<string, WhiteboardModelContextAnchor> {
+function anchorsByID(
+  anchors: WhiteboardModelContextAnchor[],
+): Map<string, WhiteboardModelContextAnchor> {
   return new Map(anchors.map((anchor) => [anchor.id, anchor] as const))
 }
 
@@ -101,7 +103,8 @@ function buildWhiteboardModelContext(board: WhiteboardBoard): WhiteboardModelCon
 }
 
 function formatGeometry(anchor: WhiteboardModelContextAnchor): string {
-  const position = anchor.x !== undefined && anchor.y !== undefined ? `(${anchor.x},${anchor.y})` : "unknown"
+  const position =
+    anchor.x !== undefined && anchor.y !== undefined ? `(${anchor.x},${anchor.y})` : "unknown"
   const size =
     anchor.width !== undefined && anchor.height !== undefined
       ? `${anchor.width}x${anchor.height}`
@@ -142,7 +145,9 @@ function anchorChanges(input: {
     input.seen.width !== input.current.width ||
     input.seen.height !== input.current.height
   ) {
-    changes.push(`geometry changed from ${formatGeometry(input.seen)} to ${formatGeometry(input.current)}`)
+    changes.push(
+      `geometry changed from ${formatGeometry(input.seen)} to ${formatGeometry(input.current)}`,
+    )
   }
   if (input.seen.text !== input.current.text) {
     changes.push(`text changed from "${input.seen.text ?? ""}" to "${input.current.text ?? ""}"`)
@@ -218,7 +223,4 @@ function assertWhiteboardTouchedAnchorsFresh(input: {
   )
 }
 
-export {
-  assertWhiteboardTouchedAnchorsFresh,
-  buildWhiteboardModelContext,
-}
+export { assertWhiteboardTouchedAnchorsFresh, buildWhiteboardModelContext }

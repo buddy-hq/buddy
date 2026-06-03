@@ -335,7 +335,9 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
         phase,
         ...(viewportRef.current ? { viewport: viewportRef.current } : {}),
       })
-      const appState = viewport ? viewportToRestoredAppState(viewport, api.getAppState()) : undefined
+      const appState = viewport
+        ? viewportToRestoredAppState(viewport, api.getAppState())
+        : undefined
       remoteSceneUpdateDepthRef.current += 1
       try {
         api.updateScene({
@@ -456,13 +458,7 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
     }
     void saveSchedulerRef.current.flush()
     settleScene(api)
-  }, [
-    applySceneToApi,
-    elements,
-    props.readOnly,
-    props.reportReadOnlyBoard,
-    settleScene,
-  ])
+  }, [applySceneToApi, elements, props.readOnly, props.reportReadOnlyBoard, settleScene])
 
   const setApi = useCallback(
     (api: ExcalidrawImperativeAPI) => {

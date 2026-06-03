@@ -194,7 +194,9 @@ function saveLearnerBoard(
 
 function toSessionRead(state: WhiteboardSessionState): WhiteboardSessionRead {
   return WhiteboardSessionReadSchema.parse({
-    currentBoard: state.currentBoard ? withoutRenderReport(sanitizeBoard(state.currentBoard)) : null,
+    currentBoard: state.currentBoard
+      ? withoutRenderReport(sanitizeBoard(state.currentBoard))
+      : null,
   })
 }
 

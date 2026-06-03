@@ -38,8 +38,7 @@ describe("useAdaptiveStreamingText", () => {
 
   test("extends the current visible prefix instead of restarting when a larger chunk arrives", async () => {
     const firstValue = "Hello"
-    const secondValue =
-      `${"Hello world this is a longer response that arrives as a fast chunk and keeps rendering. ".repeat(6)}`
+    const secondValue = `${"Hello world this is a longer response that arrives as a fast chunk and keeps rendering. ".repeat(6)}`
     const thirdValue = `${secondValue} Another sentence arrives immediately after that.`
 
     await act(async () => {

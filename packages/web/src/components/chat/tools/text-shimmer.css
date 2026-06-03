@@ -179,8 +179,8 @@
   animation:
     math-placeholder-line-appear var(--math-placeholder-entrance-duration)
       var(--math-placeholder-entrance-ease) forwards,
-    text-shimmer-sweep
-      var(--math-placeholder-line-duration, var(--math-placeholder-duration)) linear infinite;
+    text-shimmer-sweep var(--math-placeholder-line-duration, var(--math-placeholder-duration))
+      linear infinite;
   animation-delay: 0ms, var(--math-placeholder-line-delay, 0ms);
 }
 

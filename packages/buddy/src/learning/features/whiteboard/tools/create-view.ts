@@ -6,10 +6,7 @@ import {
   type WhiteboardProgramRequestedWriteMode,
 } from "../service/program"
 import { waitForCurrentWhiteboardRenderReport } from "../service/store"
-import {
-  buildWhiteboardLayoutDigest,
-  type WhiteboardLayoutDigest,
-} from "../service/layout-digest"
+import { buildWhiteboardLayoutDigest, type WhiteboardLayoutDigest } from "../service/layout-digest"
 
 const CREATE_WHITEBOARD_VIEW_BOARD_ACTIONS = [
   "continue_current_board",
@@ -30,7 +27,7 @@ const CreateWhiteboardViewInputSchema = z
       .trim()
       .min(2)
       .describe(
-        'JSON array string containing only Excalidraw drawing elements plus local drawing controls such as delete, translate, and cameraUpdate. Must be valid JSON: no comments, no trailing commas. The argument is already a string field, so write plain JSON inside it, not a second escaped JSON string. Do not put restoreCheckpoint or replaceCurrentBoard in this array; boardAction controls whether Buddy preserves or destructively replaces the current board.',
+        "JSON array string containing only Excalidraw drawing elements plus local drawing controls such as delete, translate, and cameraUpdate. Must be valid JSON: no comments, no trailing commas. The argument is already a string field, so write plain JSON inside it, not a second escaped JSON string. Do not put restoreCheckpoint or replaceCurrentBoard in this array; boardAction controls whether Buddy preserves or destructively replaces the current board.",
       ),
   })
   .strict()

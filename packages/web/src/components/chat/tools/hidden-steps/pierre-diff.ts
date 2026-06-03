@@ -49,7 +49,9 @@ function fileDiff(
   preferRawPatch: boolean,
 ): FileDiffMetadata {
   const parsed = preferRawPatch ? parsePatchFiles(rawPatch)[0]?.files[0] : undefined
-  return parsed ?? parseDiffFromFile({ name: file, contents: before }, { name: file, contents: after })
+  return (
+    parsed ?? parseDiffFromFile({ name: file, contents: before }, { name: file, contents: after })
+  )
 }
 
 export function normalizePierreDiff(diff: PierreDiffInput): PierreViewDiff {
@@ -60,6 +62,12 @@ export function normalizePierreDiff(diff: PierreDiffInput): PierreViewDiff {
     additions: diff.additions,
     deletions: diff.deletions,
     status: diff.status,
-    fileDiff: fileDiff(diff.file, normalized.patch, normalized.before, normalized.after, normalized.preferRawPatch),
+    fileDiff: fileDiff(
+      diff.file,
+      normalized.patch,
+      normalized.before,
+      normalized.after,
+      normalized.preferRawPatch,
+    ),
   }
 }

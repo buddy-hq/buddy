@@ -6,9 +6,7 @@ type WhiteboardLearnerSaveInput = {
   viewport: WhiteboardViewport
 }
 
-type WhiteboardLearnerSaveResult =
-  | { status: "saved" }
-  | { status: "skipped" | "failed" }
+type WhiteboardLearnerSaveResult = { status: "saved" } | { status: "skipped" | "failed" }
 
 type WhiteboardLearnerSaveHandler = (
   input: WhiteboardLearnerSaveInput,

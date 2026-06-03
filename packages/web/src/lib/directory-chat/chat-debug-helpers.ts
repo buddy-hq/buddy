@@ -83,7 +83,8 @@ function redactAttachedImageText(text: string): string {
     return text
   }
 
-  const payloadStart = text.indexOf(ATTACHED_FILE_TEXT_SEPARATOR) + ATTACHED_FILE_TEXT_SEPARATOR.length
+  const payloadStart =
+    text.indexOf(ATTACHED_FILE_TEXT_SEPARATOR) + ATTACHED_FILE_TEXT_SEPARATOR.length
   const payload = text.slice(payloadStart).trimStart()
   if (!hasImageFileExtension(fileName) && !payload.startsWith("<svg")) {
     return text

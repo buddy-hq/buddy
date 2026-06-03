@@ -146,7 +146,9 @@ describe("DirectoryChatWorkspacePageLayout floating chat", () => {
       await flushEffects()
     })
 
-    expect(container.querySelector('[data-component="directory-chat-floating-window"]')).not.toBeNull()
+    expect(
+      container.querySelector('[data-component="directory-chat-floating-window"]'),
+    ).not.toBeNull()
     expect(container.querySelector('[data-component="conversation-probe"]')).not.toBeNull()
 
     const dockButton = requireElement(

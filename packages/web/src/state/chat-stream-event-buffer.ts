@@ -139,7 +139,12 @@ function reconcileRawSnapshot(snapshotRaw: string, expectedRaw: string) {
   return undefined
 }
 
-function withPartStateRaw(event: GlobalEvent, part: UnknownRecord, state: UnknownRecord, raw: string) {
+function withPartStateRaw(
+  event: GlobalEvent,
+  part: UnknownRecord,
+  state: UnknownRecord,
+  raw: string,
+) {
   return {
     ...event,
     payload: {

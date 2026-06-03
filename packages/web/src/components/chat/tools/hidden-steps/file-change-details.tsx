@@ -213,13 +213,25 @@ function HiddenDiffChanges({ additions, deletions }: { additions: number; deleti
 
 function HiddenPatchFileAction({ file }: { file: FilePatch }) {
   if (file.type === "add") {
-    return <span className="hidden-patch-file-change text-icon-diff-add-base">{language.t("chatTools.patch.created")}</span>
+    return (
+      <span className="hidden-patch-file-change text-icon-diff-add-base">
+        {language.t("chatTools.patch.created")}
+      </span>
+    )
   }
   if (file.type === "delete") {
-    return <span className="hidden-patch-file-change text-icon-diff-delete-base">{language.t("chatTools.patch.deleted")}</span>
+    return (
+      <span className="hidden-patch-file-change text-icon-diff-delete-base">
+        {language.t("chatTools.patch.deleted")}
+      </span>
+    )
   }
   if (file.type === "move") {
-    return <span className="hidden-patch-file-change text-icon-diff-modified-base">{language.t("chatTools.patch.moved")}</span>
+    return (
+      <span className="hidden-patch-file-change text-icon-diff-modified-base">
+        {language.t("chatTools.patch.moved")}
+      </span>
+    )
   }
   return <HiddenDiffChanges additions={file.diff.additions} deletions={file.diff.deletions} />
 }
@@ -250,9 +262,7 @@ function HiddenPatchFile({ file }: { file: FilePatch }) {
           </span>
         </button>
       </CollapsibleTrigger>
-      <CollapsibleContent>
-        {open ? <HiddenPatchFileDiff file={file} /> : null}
-      </CollapsibleContent>
+      <CollapsibleContent>{open ? <HiddenPatchFileDiff file={file} /> : null}</CollapsibleContent>
     </Collapsible>
   )
 }

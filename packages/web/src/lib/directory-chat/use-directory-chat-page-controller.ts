@@ -120,10 +120,7 @@ import {
 import { bootstrapLearnerMemoryForNotebookBestEffort } from "@/lib/learner-memory"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 import { useWorkspaceFilePanelStore } from "@/state/workspace-file-panel-store"
-import {
-  FOLLOWUP_BEHAVIOR_QUEUE,
-  useChatSettings,
-} from "@/state/chat-settings"
+import { FOLLOWUP_BEHAVIOR_QUEUE, useChatSettings } from "@/state/chat-settings"
 import { language } from "@/context/language"
 
 const SIDEBAR_MIN_WIDTH = 220
@@ -415,13 +412,16 @@ export function useDirectoryChatPageController(
     }
   }
 
-  const clearSubmittedPromptDrafts = useCallback((submittedSessionID: string) => {
-    if (!decodedDirectory) return
+  const clearSubmittedPromptDrafts = useCallback(
+    (submittedSessionID: string) => {
+      if (!decodedDirectory) return
 
-    cs.clearPromptDraft(cs.promptKey)
-    cs.clearPromptDraft(getPromptScopeKey(decodedDirectory))
-    cs.clearPromptDraft(getPromptScopeKey(decodedDirectory, submittedSessionID))
-  }, [cs, decodedDirectory])
+      cs.clearPromptDraft(cs.promptKey)
+      cs.clearPromptDraft(getPromptScopeKey(decodedDirectory))
+      cs.clearPromptDraft(getPromptScopeKey(decodedDirectory, submittedSessionID))
+    },
+    [cs, decodedDirectory],
+  )
 
   function stagePromptText(value: string) {
     const nextDraft = createTextPromptDraft(value)
@@ -716,10 +716,13 @@ export function useDirectoryChatPageController(
     }
   }
 
-  const reportCurrentDirectoryError = useCallback((error: unknown) => {
-    if (!decodedDirectory) return
-    cs.setDirectoryError(decodedDirectory, stringifyError(error))
-  }, [cs, decodedDirectory])
+  const reportCurrentDirectoryError = useCallback(
+    (error: unknown) => {
+      if (!decodedDirectory) return
+      cs.setDirectoryError(decodedDirectory, stringifyError(error))
+    },
+    [cs, decodedDirectory],
+  )
 
   async function onOpenExistingFolder() {
     try {
@@ -1097,142 +1100,147 @@ export function useDirectoryChatPageController(
     return buildPromptDraftFromUserMessage(targetUserMessage, decodedDirectory)
   }
 
-  const sendRuntimePrompt = useCallback(async (input: {
-    content: string
-    attachments?: PromptComposerAttachment[]
-    parts?: PromptComposerPart[]
-    focusGoalIds?: string[]
-    clearDrafts?: boolean
-    targetSessionID?: string
-    optimistic?: boolean
-  }) => {
-    if (!decodedDirectory) return false
+  const sendRuntimePrompt = useCallback(
+    async (input: {
+      content: string
+      attachments?: PromptComposerAttachment[]
+      parts?: PromptComposerPart[]
+      focusGoalIds?: string[]
+      clearDrafts?: boolean
+      targetSessionID?: string
+      optimistic?: boolean
+    }) => {
+      if (!decodedDirectory) return false
 
-    const rawAttachments = input.attachments ?? []
-    const promptParts = [...(input.parts ?? [])]
-    const content = input.content.trim()
-    const hasStructuredPromptParts = promptParts.some((part) => part.type !== PROMPT_PART_TYPE_TEXT)
-    const promptPartsForSubmission = hasStructuredPromptParts ? promptParts : []
-    const submissionParts = buildPromptSubmissionParts(promptPartsForSubmission, rawAttachments)
-    const contentForSubmission = hasStructuredPromptParts ? "" : content
-
-    if (!contentForSubmission && submissionParts.length === 0) return false
-
-    if (cs.selectedPersonaSupportsEditor && cs.isInteractiveMode) {
-      const ready = await teachingWs.flushTeachingWorkspace()
-      if (!ready) return false
-    }
-
-    const variant = selectedThinking !== "default" ? selectedThinking : undefined
-    const activeWorkspace = cs.sessionKey
-      ? useTeachingRuntime.getState().workspaceBySession[cs.sessionKey]
-      : undefined
-    const teachingContext = await resolveTeachingPromptContext({
-      workspace: activeWorkspace,
-      pendingWorkspace: cs.sessionKey
-        ? teachingWs.workspaceProbeBySessionRef.current.get(cs.sessionKey)
-        : undefined,
-    })
-
-    const submittedSessionID = await sendPrompt(decodedDirectory, contentForSubmission, {
-      sessionID: input.targetSessionID,
-      parts: submissionParts,
-      persona: cs.selectedPersona,
-      focusGoalIds: input.focusGoalIds,
-      agent: currentAgentName,
-      model: cs.effectiveModelSelection,
-      ...(cs.effectiveModelInfo
-        ? {
-            modelRuntime: {
-              providerID: cs.effectiveModelSelection?.providerID ?? "",
-              modelID: cs.effectiveModelSelection?.modelID ?? "",
-              contextWindow: cs.effectiveModelInfo.limit.context,
-              ...(cs.effectiveModelInfo.limit.input !== undefined
-                ? { inputWindow: cs.effectiveModelInfo.limit.input }
-                : {}),
-              outputWindow: cs.effectiveModelInfo.limit.output,
-              ...(cs.effectiveModelInfo.capabilities.input.image ? { image: true } : {}),
-            },
-          }
-        : {}),
-      variant,
-      teaching: teachingContext,
-      optimistic: input.optimistic,
-      ...(activeReadingResource
-        ? {
-            reading: {
-              ...(activeReadingResource.resourceID
-                ? { resourceKey: activeReadingResource.resourceID }
-                : {}),
-              title: activeReadingResource.name,
-              path: activeReadingResource.path,
-              ...(activeReadingResource.locationLabel
-                ? { locationLabel: activeReadingResource.locationLabel }
-                : {}),
-              ...(activeReadingResource.cfi ? { cfi: activeReadingResource.cfi } : {}),
-              ...(activeReadingResource.index !== undefined
-                ? { index: activeReadingResource.index }
-                : {}),
-              ...(activeReadingResource.fraction !== undefined
-                ? { fraction: activeReadingResource.fraction }
-                : {}),
-              ...(activeReadingResource.tocLabel
-                ? { tocLabel: activeReadingResource.tocLabel }
-                : {}),
-              ...(activeReadingResource.pageLabel
-                ? { pageLabel: activeReadingResource.pageLabel }
-                : {}),
-              ...(activeReadingResource.currentPassageText
-                ? { currentPassageText: activeReadingResource.currentPassageText }
-                : {}),
-              ...(activeReadingResource.visibleStartText
-                ? { visibleStartText: activeReadingResource.visibleStartText }
-                : {}),
-              ...(activeReadingResource.visibleEndText
-                ? { visibleEndText: activeReadingResource.visibleEndText }
-                : {}),
-              ...(activeReadingResource.readingTrail &&
-              activeReadingResource.readingTrail.length > 0
-                ? { readingTrail: activeReadingResource.readingTrail }
-                : {}),
-              ...(activeReadingResource.annotationSummary &&
-              activeReadingResource.annotationSummary.length > 0
-                ? { annotationSummary: activeReadingResource.annotationSummary }
-                : {}),
-            },
-          }
-        : {}),
-    })
-
-    if (activeReadingResource?.resourceID) {
-      linkReadingResourceSession(
-        decodedDirectory,
-        activeReadingResource.resourceID,
-        submittedSessionID,
+      const rawAttachments = input.attachments ?? []
+      const promptParts = [...(input.parts ?? [])]
+      const content = input.content.trim()
+      const hasStructuredPromptParts = promptParts.some(
+        (part) => part.type !== PROMPT_PART_TYPE_TEXT,
       )
-    }
+      const promptPartsForSubmission = hasStructuredPromptParts ? promptParts : []
+      const submissionParts = buildPromptSubmissionParts(promptPartsForSubmission, rawAttachments)
+      const contentForSubmission = hasStructuredPromptParts ? "" : content
 
-    if (input.clearDrafts ?? true) {
-      clearSubmittedPromptDrafts(submittedSessionID)
-    }
-    setSystemPromptRefreshToken((token) => token + 1)
-    void syncTeachingRuntimeSelection({
-      directory: decodedDirectory,
-      sessionID: submittedSessionID,
-      sessionKey: teachingSelectionKey(decodedDirectory, submittedSessionID),
-    })
-    return true
-  }, [
-    activeReadingResource,
-    clearSubmittedPromptDrafts,
-    currentAgentName,
-    decodedDirectory,
-    linkReadingResourceSession,
-    selectedThinking,
-    syncTeachingRuntimeSelection,
-    teachingWs,
-    cs,
-  ])
+      if (!contentForSubmission && submissionParts.length === 0) return false
+
+      if (cs.selectedPersonaSupportsEditor && cs.isInteractiveMode) {
+        const ready = await teachingWs.flushTeachingWorkspace()
+        if (!ready) return false
+      }
+
+      const variant = selectedThinking !== "default" ? selectedThinking : undefined
+      const activeWorkspace = cs.sessionKey
+        ? useTeachingRuntime.getState().workspaceBySession[cs.sessionKey]
+        : undefined
+      const teachingContext = await resolveTeachingPromptContext({
+        workspace: activeWorkspace,
+        pendingWorkspace: cs.sessionKey
+          ? teachingWs.workspaceProbeBySessionRef.current.get(cs.sessionKey)
+          : undefined,
+      })
+
+      const submittedSessionID = await sendPrompt(decodedDirectory, contentForSubmission, {
+        sessionID: input.targetSessionID,
+        parts: submissionParts,
+        persona: cs.selectedPersona,
+        focusGoalIds: input.focusGoalIds,
+        agent: currentAgentName,
+        model: cs.effectiveModelSelection,
+        ...(cs.effectiveModelInfo
+          ? {
+              modelRuntime: {
+                providerID: cs.effectiveModelSelection?.providerID ?? "",
+                modelID: cs.effectiveModelSelection?.modelID ?? "",
+                contextWindow: cs.effectiveModelInfo.limit.context,
+                ...(cs.effectiveModelInfo.limit.input !== undefined
+                  ? { inputWindow: cs.effectiveModelInfo.limit.input }
+                  : {}),
+                outputWindow: cs.effectiveModelInfo.limit.output,
+                ...(cs.effectiveModelInfo.capabilities.input.image ? { image: true } : {}),
+              },
+            }
+          : {}),
+        variant,
+        teaching: teachingContext,
+        optimistic: input.optimistic,
+        ...(activeReadingResource
+          ? {
+              reading: {
+                ...(activeReadingResource.resourceID
+                  ? { resourceKey: activeReadingResource.resourceID }
+                  : {}),
+                title: activeReadingResource.name,
+                path: activeReadingResource.path,
+                ...(activeReadingResource.locationLabel
+                  ? { locationLabel: activeReadingResource.locationLabel }
+                  : {}),
+                ...(activeReadingResource.cfi ? { cfi: activeReadingResource.cfi } : {}),
+                ...(activeReadingResource.index !== undefined
+                  ? { index: activeReadingResource.index }
+                  : {}),
+                ...(activeReadingResource.fraction !== undefined
+                  ? { fraction: activeReadingResource.fraction }
+                  : {}),
+                ...(activeReadingResource.tocLabel
+                  ? { tocLabel: activeReadingResource.tocLabel }
+                  : {}),
+                ...(activeReadingResource.pageLabel
+                  ? { pageLabel: activeReadingResource.pageLabel }
+                  : {}),
+                ...(activeReadingResource.currentPassageText
+                  ? { currentPassageText: activeReadingResource.currentPassageText }
+                  : {}),
+                ...(activeReadingResource.visibleStartText
+                  ? { visibleStartText: activeReadingResource.visibleStartText }
+                  : {}),
+                ...(activeReadingResource.visibleEndText
+                  ? { visibleEndText: activeReadingResource.visibleEndText }
+                  : {}),
+                ...(activeReadingResource.readingTrail &&
+                activeReadingResource.readingTrail.length > 0
+                  ? { readingTrail: activeReadingResource.readingTrail }
+                  : {}),
+                ...(activeReadingResource.annotationSummary &&
+                activeReadingResource.annotationSummary.length > 0
+                  ? { annotationSummary: activeReadingResource.annotationSummary }
+                  : {}),
+              },
+            }
+          : {}),
+      })
+
+      if (activeReadingResource?.resourceID) {
+        linkReadingResourceSession(
+          decodedDirectory,
+          activeReadingResource.resourceID,
+          submittedSessionID,
+        )
+      }
+
+      if (input.clearDrafts ?? true) {
+        clearSubmittedPromptDrafts(submittedSessionID)
+      }
+      setSystemPromptRefreshToken((token) => token + 1)
+      void syncTeachingRuntimeSelection({
+        directory: decodedDirectory,
+        sessionID: submittedSessionID,
+        sessionKey: teachingSelectionKey(decodedDirectory, submittedSessionID),
+      })
+      return true
+    },
+    [
+      activeReadingResource,
+      clearSubmittedPromptDrafts,
+      currentAgentName,
+      decodedDirectory,
+      linkReadingResourceSession,
+      selectedThinking,
+      syncTeachingRuntimeSelection,
+      teachingWs,
+      cs,
+    ],
+  )
 
   function enqueueFollowup(
     draft: SubmittedPromptDraft,

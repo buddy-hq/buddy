@@ -238,10 +238,7 @@ function clampFloatingChatSize(
   const minimumSize = resolveFloatingChatMinimumSize(containerSize)
 
   return {
-    width: Math.min(
-      availableWidth,
-      Math.max(minimumSize.minWidth, size.width),
-    ),
+    width: Math.min(availableWidth, Math.max(minimumSize.minWidth, size.width)),
     height: Math.min(availableHeight, Math.max(minimumSize.minHeight, size.height)),
   }
 }
@@ -311,10 +308,7 @@ export function clampFloatingChatRect(
   containerSize: FloatingChatContainerSize,
 ): FloatingChatRect {
   const size = clampFloatingChatSize(rect, containerSize)
-  const position = clampFloatingChatPosition(
-    rect,
-    resolveFloatingChatBounds(containerSize, size),
-  )
+  const position = clampFloatingChatPosition(rect, resolveFloatingChatBounds(containerSize, size))
 
   return {
     x: position.x,
@@ -395,11 +389,7 @@ function resizeFloatingChatRect(input: {
   )
 }
 
-function WorkspaceContent(props: {
-  entered: boolean
-  bordered: boolean
-  children: ReactNode
-}) {
+function WorkspaceContent(props: { entered: boolean; bordered: boolean; children: ReactNode }) {
   return (
     <div
       className={cn(
@@ -415,10 +405,7 @@ function WorkspaceContent(props: {
   )
 }
 
-function DockedConversationContent(props: {
-  entered: boolean
-  children: ReactNode
-}) {
+function DockedConversationContent(props: { entered: boolean; children: ReactNode }) {
   return (
     <div
       className={cn(

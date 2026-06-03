@@ -37,7 +37,13 @@ function DeferredContent({ children }: { children: ReactNode }) {
   return visible ? children : null
 }
 
-function PierreViewerShell({ children, embedded = false }: { children: ReactNode; embedded?: boolean }) {
+function PierreViewerShell({
+  children,
+  embedded = false,
+}: {
+  children: ReactNode
+  embedded?: boolean
+}) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -64,7 +70,10 @@ function PierreViewerShell({ children, embedded = false }: { children: ReactNode
   }, [])
 
   return (
-    <div ref={ref} className={cn("pierre-content-viewer", embedded && "pierre-content-viewer--embedded")}>
+    <div
+      ref={ref}
+      className={cn("pierre-content-viewer", embedded && "pierre-content-viewer--embedded")}
+    >
       {children}
     </div>
   )
@@ -83,7 +92,13 @@ export function PierreContentCode({ code, filePath }: { code: string; filePath: 
   )
 }
 
-export function PierreContentDiff({ view, embedded = false }: { view: PierreViewDiff; embedded?: boolean }) {
+export function PierreContentDiff({
+  view,
+  embedded = false,
+}: {
+  view: PierreViewDiff
+  embedded?: boolean
+}) {
   return (
     <PierreViewerShell embedded={embedded}>
       <DeferredContent>

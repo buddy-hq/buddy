@@ -14,7 +14,10 @@ function buildLabel(title: string, detail: string | undefined): string {
   return detail ? `${title}: ${detail}` : title
 }
 
-function joinSummaryDetails(primary: string | undefined, secondary: string | undefined): string | undefined {
+function joinSummaryDetails(
+  primary: string | undefined,
+  secondary: string | undefined,
+): string | undefined {
   if (!primary) return secondary
   if (!secondary || secondary === primary) return primary
   return `${primary} · ${secondary}`

@@ -132,9 +132,7 @@ describe("chat stream event buffer", () => {
     ])
 
     expect(events.map((event) => event.payload.type)).toEqual([MESSAGE_PART_UPDATED_EVENT_TYPE])
-    expect(eventPartState(events[0])?.raw).toBe(
-      '{"elements":"[{\\"type\\":\\"rectangle\\"}',
-    )
+    expect(eventPartState(events[0])?.raw).toBe('{"elements":"[{\\"type\\":\\"rectangle\\"}')
   })
 
   test("does not duplicate raw deltas already present in a later snapshot", () => {

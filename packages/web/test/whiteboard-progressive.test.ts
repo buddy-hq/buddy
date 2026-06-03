@@ -90,9 +90,7 @@ describe("whiteboard progressive drawing", () => {
     expect(
       buildProgressiveWhiteboardElements({
         raw,
-        baseElements: [
-          { type: "rectangle", id: "existing", x: 0, y: 0, width: 120, height: 60 },
-        ],
+        baseElements: [{ type: "rectangle", id: "existing", x: 0, y: 0, width: 120, height: 60 }],
       }),
     ).toEqual([{ type: "rectangle", id: "existing", x: 0, y: 0, width: 120, height: 60 }])
   })
@@ -147,9 +145,7 @@ describe("whiteboard progressive drawing", () => {
         raw,
         baseElements: [{ type: "rectangle", id: "old", x: 0, y: 0, width: 120, height: 60 }],
       }),
-    ).toEqual([
-      { type: "rectangle", id: "historical-node", x: 0, y: 0, width: 120, height: 60 },
-    ])
+    ).toEqual([{ type: "rectangle", id: "historical-node", x: 0, y: 0, width: 120, height: 60 }])
   })
 
   test("keeps the current board for conflicting boardAction and legacy controls", () => {
@@ -212,9 +208,7 @@ describe("whiteboard progressive drawing", () => {
   test("applies complete streaming translate controls immediately", () => {
     const raw = JSON.stringify({
       boardAction: "continue_current_board",
-      elements: JSON.stringify([
-        { type: "translate", ids: "node", dx: 100, dy: 50 },
-      ]),
+      elements: JSON.stringify([{ type: "translate", ids: "node", dx: 100, dy: 50 }]),
     })
 
     expect(

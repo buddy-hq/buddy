@@ -329,7 +329,8 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   }, [hasHiddenHistory, loadOlderHistory, scrollViewportRef])
 
   const preferEagerMarkdown = renderedStartIndex > 0
-  const shouldBottomPackStagedTail = renderedStartIndex > 0 && !shouldVirtualizeTurns && !isLastTurnBusy
+  const shouldBottomPackStagedTail =
+    renderedStartIndex > 0 && !shouldVirtualizeTurns && !isLastTurnBusy
 
   return (
     <ChatScrollProvider viewportRef={scrollViewportRef}>

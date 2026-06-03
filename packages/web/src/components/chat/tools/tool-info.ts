@@ -51,8 +51,7 @@ function readArrayLength(value: unknown): number | undefined {
 function patchFileSummary(state: ToolState): string | undefined {
   const files = Array.isArray(state.metadata.files) ? state.metadata.files.filter(isRecord) : []
   if (files.length === 1) {
-    const path =
-      readNonEmptyString(files[0].relativePath) ?? readNonEmptyString(files[0].filePath)
+    const path = readNonEmptyString(files[0].relativePath) ?? readNonEmptyString(files[0].filePath)
     return path ? basename(path) : undefined
   }
 

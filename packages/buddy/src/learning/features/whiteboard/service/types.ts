@@ -151,9 +151,7 @@ type WhiteboardModelContext = z.infer<typeof WhiteboardModelContextSchema>
 type WhiteboardModelContextAnchor = z.infer<typeof WhiteboardModelContextAnchorSchema>
 type WhiteboardRenderReport = z.infer<typeof WhiteboardRenderReportSchema>
 type WhiteboardRenderReportElement = z.infer<typeof WhiteboardRenderReportElementSchema>
-type WhiteboardRenderReportSaveResponse = z.infer<
-  typeof WhiteboardRenderReportSaveResponseSchema
->
+type WhiteboardRenderReportSaveResponse = z.infer<typeof WhiteboardRenderReportSaveResponseSchema>
 type WhiteboardSessionBoard = z.infer<typeof WhiteboardSessionBoardSchema>
 type WhiteboardViewport = z.infer<typeof WhiteboardViewportSchema>
 type WhiteboardSessionState = z.infer<typeof WhiteboardSessionStateSchema>

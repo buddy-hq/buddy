@@ -52,9 +52,7 @@ type ActiveWhiteboardBase = {
 const WHITEBOARD_CANVAS_EMPTY_KEY = "empty"
 const ACTIVE_WHITEBOARD_REFETCH_INTERVAL_MS = 250
 
-function resolveWhiteboardCanvasKey(input: {
-  sessionID?: string
-}): string {
+function resolveWhiteboardCanvasKey(input: { sessionID?: string }): string {
   return input.sessionID ?? WHITEBOARD_CANVAS_EMPTY_KEY
 }
 
@@ -116,9 +114,9 @@ function shouldPreferFetchedBoardDuringActiveCreate(input: {
 }): boolean {
   return Boolean(
     input.hasActiveWhiteboardCreateTool &&
-      input.activeBase &&
-      input.currentBoardID &&
-      input.currentBoardID !== input.activeBase.boardID,
+    input.activeBase &&
+    input.currentBoardID &&
+    input.currentBoardID !== input.activeBase.boardID,
   )
 }
 
@@ -327,15 +325,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     } finally {
       setSharingBoard(false)
     }
-  }, [
-    directory,
-    displayedBoard,
-    liveDraftBoard,
-    platform,
-    refetchSession,
-    sessionID,
-    sharingBoard,
-  ])
+  }, [directory, displayedBoard, liveDraftBoard, platform, refetchSession, sessionID, sharingBoard])
 
   const registerLearnerSaveSettler = useCallback((settle: (() => Promise<boolean>) | undefined) => {
     settleLearnerSaveRef.current = settle
@@ -377,9 +367,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
         const data = requireBuddyData(result)
         updateSessionData(data)
         setLiveDraftBoard(undefined)
-        return data.currentBoard
-          ? { status: "saved" }
-          : { status: "failed" }
+        return data.currentBoard ? { status: "saved" } : { status: "failed" }
       } catch (error) {
         await refetchSession()
         setSaveError(error instanceof Error ? error.message : String(error))

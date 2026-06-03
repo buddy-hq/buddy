@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 
-import {
-  nextStreamingTextIndex,
-  TEXT_RENDER_PACE_MS,
-} from "../utils/streaming-text-utils"
+import { nextStreamingTextIndex, TEXT_RENDER_PACE_MS } from "../utils/streaming-text-utils"
 
 const FINAL_RENDER_NOTIFY_DELAY_MS = 50
 const MAX_PACED_STREAMING_TEXT_LENGTH = 4_000
@@ -130,9 +127,6 @@ function useStreamingText(value: string, input: StreamingTextOptions): string {
   return visibleText
 }
 
-export function useAdaptiveStreamingText(
-  value: string,
-  options: StreamingTextOptions,
-): string {
+export function useAdaptiveStreamingText(value: string, options: StreamingTextOptions): string {
   return useStreamingText(value, options)
 }

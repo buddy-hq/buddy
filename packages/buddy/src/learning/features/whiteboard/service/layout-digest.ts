@@ -109,9 +109,7 @@ function createLayoutContext(report: WhiteboardRenderReport): LayoutContext {
   return {
     report,
     elementsByID: new Map(report.elements.map((element) => [element.id, element] as const)),
-    renderOrderByID: new Map(
-      report.elements.map((element, index) => [element.id, index] as const),
-    ),
+    renderOrderByID: new Map(report.elements.map((element, index) => [element.id, index] as const)),
     textElements: report.elements.filter(isTextLike),
   }
 }
@@ -206,10 +204,7 @@ function prioritizeLayoutIssues(input: {
   )
 }
 
-function layoutIssueTouchesAnyID(
-  issue: WhiteboardLayoutIssue,
-  ids: ReadonlySet<string>,
-): boolean {
+function layoutIssueTouchesAnyID(issue: WhiteboardLayoutIssue, ids: ReadonlySet<string>): boolean {
   switch (issue.code) {
     case "text_too_small":
       return ids.has(issue.id)
@@ -300,10 +295,7 @@ function buildSiblingCollisionIssue(input: {
   textElement: WhiteboardRenderReportElement
   otherElement: WhiteboardRenderReportElement
 }): WhiteboardLayoutIssue {
-  const overlapSize = readIntersectionSize(
-    input.textElement.bounds,
-    input.otherElement.bounds,
-  )
+  const overlapSize = readIntersectionSize(input.textElement.bounds, input.otherElement.bounds)
   const separationAxis = overlapSize.width <= overlapSize.height ? "horizontal" : "vertical"
   return {
     code: "sibling_collision",
@@ -314,9 +306,7 @@ function buildSiblingCollisionIssue(input: {
       x: Math.round(overlapSize.width),
       y: Math.round(overlapSize.height),
     },
-    ...(input.textElement.containerId
-      ? { moveTogetherId: input.textElement.containerId }
-      : {}),
+    ...(input.textElement.containerId ? { moveTogetherId: input.textElement.containerId } : {}),
     repairHint:
       separationAxis === "horizontal"
         ? "Rendered overlap is horizontally separable. Increase horizontal gap/width or shorten local text; increasing height alone will not separate these elements."
@@ -404,14 +394,10 @@ function readRenderedTextOverflow(input: {
 }): RenderedTextOverflow | undefined {
   const textArea = boundsArea(input.textBounds)
   if (textArea <= 0) return undefined
-  const outsideRatio =
-    1 - readIntersectionArea(input.textBounds, input.containerBounds) / textArea
+  const outsideRatio = 1 - readIntersectionArea(input.textBounds, input.containerBounds) / textArea
   const overflowPixels = readOverflowPixels(input)
   const maxOverflowPixels = Math.max(overflowPixels.x, overflowPixels.y)
-  if (
-    outsideRatio < MIN_TEXT_OVERFLOW_AREA_RATIO ||
-    maxOverflowPixels < MIN_TEXT_OVERFLOW_PIXELS
-  ) {
+  if (outsideRatio < MIN_TEXT_OVERFLOW_AREA_RATIO || maxOverflowPixels < MIN_TEXT_OVERFLOW_PIXELS) {
     return undefined
   }
   const overflowDirection = readOverflowDirection(overflowPixels)
@@ -450,9 +436,10 @@ function readOverflowDirection(overflowPx: { x: number; y: number }): OverflowDi
   return "vertical"
 }
 
-function compactOverflowPixels(
-  overflowPx: { x: number; y: number },
-): WhiteboardLayoutOverflowPixels {
+function compactOverflowPixels(overflowPx: {
+  x: number
+  y: number
+}): WhiteboardLayoutOverflowPixels {
   return {
     ...(overflowPx.x >= MIN_TEXT_OVERFLOW_PIXELS ? { x: Math.round(overflowPx.x) } : {}),
     ...(overflowPx.y >= MIN_TEXT_OVERFLOW_PIXELS ? { y: Math.round(overflowPx.y) } : {}),

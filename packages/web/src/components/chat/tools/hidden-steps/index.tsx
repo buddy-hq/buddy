@@ -119,8 +119,8 @@ function hiddenStepsEntryHasDetails(entry: HiddenStepsEntry): boolean {
   if (hiddenStepsEntryUsesSummaryRow(entry)) return hiddenStepsEntrySummaryRowHasDetails(entry)
   return Boolean(
     hasHiddenFileChangeDetails(entry) ||
-      hiddenStepsEntryHasToolText(entry) ||
-      entry.state?.attachments.length,
+    hiddenStepsEntryHasToolText(entry) ||
+    entry.state?.attachments.length,
   )
 }
 
