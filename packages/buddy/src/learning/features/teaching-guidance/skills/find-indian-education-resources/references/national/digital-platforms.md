@@ -7,7 +7,7 @@ This file helps the agent locate:
 - **DIKSHA objects**: digital textbooks, ECAR collections, learning resources, courses, QR/DIAL lookups, state hubs, and Sunbird API metadata.
 - **ePathshala objects**: NCERT eTextbook/app resources, topic IDs, EPUB/PDF paths, QR/topic lookup, and app/portal boundaries.
 
-Use this when platform identity, content metadata, app routes, QR codes, or gated platform behavior matter. Use `textbooks-and-board.md` when the user only wants the ordinary NCERT static PDF/ZIP.
+Use this when platform identity, content metadata, app routes, QR codes, or gated platform behavior matter. Also use it when the user wants a **current official NCERT textbook** but the static `ncert.nic.in` host is unavailable or the live title rollout is clearer on DIKSHA. Use `textbooks-and-board.md` when the user only wants the ordinary NCERT static PDF/ZIP and that host is working.
 
 ## Contents
 
@@ -18,13 +18,13 @@ Use this when platform identity, content metadata, app routes, QR codes, or gate
 
 # DIKSHA (Digital Infrastructure for Knowledge Sharing)
 
-DIKSHA (`diksha.gov.in`) is India's national digital education platform (Sunbird/NDEAR). It hosts digital textbooks (ECAR collections), learning resources, courses, and state portals. Success on this leaf is **correct metadata classification and official URLs** — not forcing a PDF when the platform serves ECAR collections or auth-gated SPA routes.
+DIKSHA (`diksha.gov.in`) is India's national digital education platform (Sunbird/NDEAR). It hosts digital textbooks (ECAR collections), learning resources, courses, and state portals. Success on this leaf is **correct metadata classification and official URLs** — not forcing a PDF when the platform serves ECAR collections or auth-gated SPA routes. For current NCERT textbook fallback, success often means **searching the live digital textbook, downloading the parent ECAR, and then extracting the real chapter PDFs from `hierarchy.json`**.
 
 ## What this source offers
 
 | Resource type | How it appears | Typical format |
 |---------------|----------------|----------------|
-| NCERT digital textbooks | API search `Digital Textbook` | ECAR zip (`application/vnd.ekstep.content-collection`) |
+| NCERT digital textbooks | API search `Digital Textbook` | Parent ECAR collection plus child chapter PDFs in `hierarchy.json` |
 | Learning resources (FLN, worksheets) | API search `Learning Resource` | PDF or ECAR |
 | Courses | API search `Course` | ECAR collection |
 | QR-linked library objects | `/search/Library/1?key={dialCode}` | Browser — **often auth-gated** |
@@ -56,6 +56,16 @@ Content identifiers look like `do_31307360979353600012111`.
 
 Extract: board (default NCERT), class/grade, subject, medium, resource type (textbook vs worksheet vs course), and whether the user gave a QR key or content ID.
 
+### 1A. Current vs legacy textbook routing
+
+- Plain requests like **“download class 6 science book”**, **“latest NCERT book”**, or **“grade 5 EVS book”** should search **`status: ["Live"]` first**.
+- Use **`status: ["Retired"]` only** when the user explicitly asks for an old/previous/retired edition or names a legacy title/chapter.
+- Current default cues:
+  - **Class 5 EVS / The World Around Us** → `Our Wondrous World`
+  - **Classes 6-8 Science** → `Curiosity`
+  - **Grade 9 live titles** can still appear under labels like `(NEW) ...` or renamed titles such as `Exploration`; verify the live listing instead of assuming a retired pre-rollout title.
+- Do **not** ask “old or new?” unless the official live results are genuinely ambiguous after checking class, subject, medium, and status.
+
 ### 2. Prefer anonymous API when possible
 
 **Search:**
@@ -82,6 +92,7 @@ curl -s -X POST 'https://diksha.gov.in/api/content/v1/search' \
 Filter tips:
 
 - Use **`Digital Textbook`** (not `Textbook`) for NCERT e-textbooks.
+- For plain/current textbook requests, default to **`status: ["Live"]`**. Use `Retired` only for explicit legacy requests.
 - For worksheets/FLN materials use `primaryCategory: ["Learning Resource"]` with grade/medium filters.
 - For courses use `primaryCategory: ["Course"]` — optional text filter via `"query": "Constitution Day"` inside `request`:
 
@@ -109,6 +120,34 @@ Anonymous search can return live NCERT Constitution Day courses (English + Hindi
 ```bash
 curl -s 'https://diksha.gov.in/api/content/v1/read/{identifier}?fields=identifier,name,mimeType,downloadUrl,primaryCategory,gradeLevel,medium,board,contentType,status'
 ```
+
+### 2A. For digital textbooks, extract the real chapter PDFs from the parent ECAR
+
+For many current NCERT textbooks, the search result is a **parent ECAR collection**, not the final PDF the user actually wants.
+
+Workflow:
+
+1. Search the live textbook (`Digital Textbook`, `status: ["Live"]`).
+2. Keep the parent `identifier` and `downloadUrl`.
+3. Download the parent ECAR only to inspect the hierarchy.
+4. Read `hierarchy.json` and extract **child `artifactUrl` PDFs** whose `primaryCategory` is `eTextbook`.
+5. Download the child chapter PDF(s) the user actually needs.
+6. After the chapter PDF is on disk, prefer Buddy's `prepare_resource` -> `ingest_full_text` pipeline.
+
+```bash
+curl -sL '{downloadUrl}' -o textbook.ecar
+unzip -p textbook.ecar hierarchy.json | jq '
+  [.. | objects
+   | select(.mimeType? == "application/pdf" and .primaryCategory? == "eTextbook")
+   | {identifier, name, artifactUrl}]'
+curl -sS -fL -o chapter.pdf '{artifactUrl}'
+```
+
+Notes:
+
+- Do **not** stop at the parent ECAR and report “book PDF fetched” when the actual readable files are nested child PDFs.
+- Current NCERT textbook bundles often expose official child PDFs like `hecu101.pdf`, `gecu101.pdf`, `fecu101.pdf`, or `eeev101.pdf` through these child `artifactUrl` fields.
+- If the user wants the **whole book for grounding**, reading the extracted chapter PDFs sequentially is acceptable when DIKSHA does not expose a single consolidated PDF.
 
 ### 3. Browser routes (QR keys, library search, `/resources`)
 
@@ -143,9 +182,11 @@ curl -sI -L '{downloadUrl}'    # check Content-Type and size
 curl -sL -f -o '{local_name}' '{downloadUrl}'
 ```
 
+- **Digital Textbook parent collections:** `downloadUrl` often serves an ECAR/zip parent bundle. This is valid, but it is usually **not yet the readable textbook PDF**. Inspect `hierarchy.json`, then fetch the child chapter `artifactUrl` PDF(s).
 - ECAR collections: `Content-Type: application/zip` — valid success; note format `ecar` or `zip`, not PDF.
 - **Learning resources:** API `mimeType` may be `application/pdf`, but `downloadUrl` often still serves a **zip/ECAR** (`Content-Type: application/zip`). Unzip the bundle and extract embedded PDFs (e.g. `01.pdf`); verify `%PDF` on the extracted file. Report `format: pdf` only after extraction if the user asked for PDF bytes.
 - Official CDN hosts on `downloadUrl`: `obj.diksha.gov.in`, `files.odev.oci.diksha.gov.in` — verify HTTP 200 before reporting `fetched`.
+- After a child PDF or other supported extracted file is saved locally, prefer `prepare_resource` -> `ingest_full_text`. If there are multiple chapter PDFs and no single whole-book file, ingest/read them sequentially.
 
 Large ECAR textbook bundles (~3 MB+) are acceptable downloads.
 
@@ -159,6 +200,7 @@ Large ECAR textbook bundles (~3 MB+) are acceptable downloads.
 - API: `responseCode: OK`, `result.content[]` non-empty (or honest `source_gap` if count 0).
 - Auth wall: HTTP 302 Location contains `openid-connect/auth` → `auth_required`.
 - ECAR: HTTP 200 and zip magic or `Content-Type: application/zip`.
+- eTextbook child PDF: `artifactUrl` from `hierarchy.json` returns HTTP 200 and `%PDF`.
 - PDF: `%PDF` header.
 
 ## Access barriers
@@ -167,6 +209,7 @@ Large ECAR textbook bundles (~3 MB+) are acceptable downloads.
 |---------|--------|--------|
 | OIDC login on library/search | 302 to `/auth/realms/sunbird/...` | `auth_required` |
 | Composite search API | `Unauthorized` | use `/api/content/v1/search` instead |
+| Digital textbook parent ECAR | Search result is a collection; readable chapter PDFs are nested child assets | inspect `hierarchy.json`, then fetch child `artifactUrl` PDFs |
 | Learning Resource “PDF” | API `mimeType: application/pdf` but CDN zip/ECAR | unzip → `%PDF` or report `ecar` |
 | Video/audio in player | metadata only via API | `listing_only` or `metadata_only` |
 | QR key only, no metadata | library 302 OIDC; no dial API | `auth_required` (valid pass) |
@@ -191,13 +234,15 @@ Government of India platform content; use official URLs. ECAR bundles are platfo
 
 - **DIKSHA digital textbook ≠ NCERT.nic.in PDF** — same title may exist on both; this leaf is DIKSHA only.
 - **Digital Textbook vs Textbook** filter — former works for NCERT Class 10 Science; latter may return zero.
-- **ECAR vs PDF** — NCERT textbooks on DIKSHA are usually ECAR collections, not chapter PDFs. Some **Learning Resource** worksheets ship as ECAR zip even when metadata says PDF.
+- **Live vs Retired** — use `status: ["Live"]` for current/default textbook requests; use `Retired` only for explicit legacy requests because retired search results can be noisy.
+- **ECAR parent vs chapter PDF** — NCERT textbooks on DIKSHA are usually parent ECAR collections whose real readable chapter PDFs are exposed as child `artifactUrl` entries in `hierarchy.json`. Some **Learning Resource** worksheets also ship as ECAR zip even when metadata says PDF.
+- **Current default title shifts** — plain Class 5 EVS defaults to `Our Wondrous World`; plain Classes 6-8 Science defaults to `Curiosity`; Grade 9 current titles may have multiple official live labels, so verify the live listing.
 - **Player vs API** — anonymous read/search can return `downloadUrl` while `/resources/play/...` and browser player sessions require login; do not downgrade API success because the SPA player redirected.
 - NISHTHA/FLN training links from other portals may point to `diksha.gov.in/fln.html`, `/explore/1?key=NISHTHAFLN...`, or auth-gated search — classify honestly.
 
 ## Report metadata
 
-Always include: `source_url` (API or landing), `landing_url`, `identifier` when known, `format` (`ecar`, `pdf`, `html`, `metadata`), `resource_type` (`digital_textbook`, `learning_resource`, `course`), `fetch_status`, `verification_status`.
+Always include: `source_url` (API or landing), `landing_url`, `identifier` when known, `format` (`ecar`, `pdf`, `html`, `metadata`), `resource_type` (`digital_textbook`, `learning_resource`, `course`), `fetch_status`, `verification_status`. For digital textbooks with child PDFs, also include the parent collection identifier plus the final child `artifactUrl` that was actually downloaded.
 
 ---
 

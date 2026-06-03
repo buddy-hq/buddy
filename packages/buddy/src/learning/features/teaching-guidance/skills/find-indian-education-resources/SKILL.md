@@ -1,6 +1,6 @@
 ---
 name: find-indian-education-resources
-description: Find Indian education work in official sources. Contains NCERT and CBSE textbooks/board practice, 20 state/SCERT textbook routes, NEP/NCF and national guidelines, learning outcomes/NAS/PARAKH/PGI reports, DIKSHA/ePathshala, NROER/NDLI, NIOS/SWAYAM/SWAYAM Prabha/eGyanKosh, and missing-state discovery rules. Use when Indian board, class, curriculum, textbook, government education source, or official learning-resource grounding matters. Do not use for generic pedagogy, generic content creation, or non-Indian education unless the user asks to align with Indian sources.
+description: Find Indian education work in official sources. Contains NCERT and CBSE textbooks/board practice, 20 state/SCERT textbook routes, NEP/NCF and national guidelines, learning outcomes/NAS/PARAKH/PGI reports, DIKSHA/ePathshala, NROER/NDLI, NIOS/SWAYAM/SWAYAM Prabha/eGyanKosh, and missing-state discovery rules. Current NCERT/CBSE textbook rollouts changed some book and chapter names, so do not resolve current textbooks from model memory; verify the current official book first. Use when Indian board, class, curriculum, textbook, government education source, or official learning-resource grounding matters. Do not use for generic pedagogy, generic content creation, or non-Indian education unless the user asks to align with Indian sources.
 ---
 
 # Official Indian Education Grounding
@@ -10,26 +10,27 @@ Use this skill to ground teaching, worksheets, quizzes, explanations, lesson pla
 Most users will not ask for a source. They will say things like "teach me linear equations", "make a worksheet for grade 8 CBSE", "I study in Tamil Nadu board", "prepare practice questions", "explain this as per NCERT", or "make a lesson plan". In those cases, decide which official source family can ground the answer, read the matching reference, and then produce the educational output the user asked for.
 
 ## Workflow
-1. find the relevant reference
-  2. Infer the learner context: class/standard, board/state, subject, chapter/topic, medium/language, and purpose.Decide whether the user needs concept grounding, textbook sequencing, practice style, assessment alignment, teacher support, policy/curriculum framing, platform content, or an actual resource file. 
-  3. Use the mini-router below to choose the most useful reference file.
-2. read the reference
-3. find the relevant resource to fetch
-4a. if downloadable: 
-  1. download the relevant resource to users current workspace.
-  2. convert the resource into form you can digest.
-  3. read the relevant parts
-  4. answer the user's question
-4b. if webpage/text/ other readable formats
-  1. read the resource.
-  2. if the resource is too big - put it in a text or markdown file so you can read/grep it
-  3. answer the user's question based on the resource
-5. Create the requested output normally. Do not turn the answer into a source report unless the user asked for one. 
+1. Infer the learner context: class/standard, board/state, subject, chapter/topic, medium/language, and purpose. Decide whether the user needs concept grounding, textbook sequencing, practice style, assessment alignment, teacher support, policy/curriculum framing, platform content, or an actual resource file.
+2. Use the mini-router below to choose the most useful reference file, then read that reference before fetching anything.
+3. Find the relevant official resource to fetch or inspect.
+4. If the resource is a downloadable file, save it in the current workspace and prefer Buddy's built-in resource pipeline:
+   1. If the source is a ZIP bundle rather than a single readable file, extract it first and choose the relevant PDF/EPUB/text file(s). Reading chapter files sequentially is acceptable when there is no single full-book PDF/EPUB.
+   2. Call `prepare_resource` on the downloaded or extracted file path.
+   3. If preparation succeeds and `ingest_full_text` is available, call `ingest_full_text` with the returned resource alias or ID.
+   4. Use the ingested full text as the primary grounding when the user wants explanation, teaching, worksheet generation, quiz creation, or book/chapter reading.
+   5. For books, chapters, and other readable study resources, do **not** substitute `present_media` for `prepare_resource` / `ingest_full_text`. The resource pipeline is the preferred path because it grounds the answer and exposes the resource in Buddy's reading flow.
+   6. Use `present_media` only when you intentionally want to show a learner-facing local file as a file artifact, or as an optional extra after the resource pipeline. It is not the default reading workflow for textbooks.
+   7. Only fall back to manual parsing (`pdftotext`, page reads, chapter-by-chapter grep/read) when preparation is unsupported, preparation fails, or full-text ingestion cannot fit in the current live context.
+5. If the resource is a webpage, metadata record, or other directly readable format, read it normally. If it is too large, convert or save it into a text/markdown file you can inspect reliably.
+6. Create the requested output normally. Do not turn the answer into a source report unless the user asked for one.
 
 
 Caution:
 
 - Do not invent alignment. If the source is unavailable, sale-only, wrapper-only, auth-gated, or inconclusive, say that in the working assumptions or final answer when it matters.
+- **Use Buddy's resource pipeline first:** When you have a supported file on disk, prefer `prepare_resource` and then `ingest_full_text` before manual PDF parsing. If the source arrived as a ZIP, extract the relevant child file first; manual text/page parsing is the fallback path after that.
+- **Do not default to `present_media` for books:** For textbooks, chapters, and other readable study files, prefer `prepare_resource` -> `ingest_full_text`. Use `present_media` only when raw file display is the actual goal or as an extra after the reading workflow.
+- **NCERT / government hosts down:** Before `textbook.php` or chapter downloads, probe `ncert.nic.in` with `curl -sS -m 25 --connect-timeout 12 -I` (see `textbooks-and-board.md` — Host reachability). If curl exit **28**, `http=000`, or the user sees `ERR_CONNECTION_TIMED_OUT`, set `fetch_status: network_unreachable`, tell the user the official site did not respond, and use the official DIKSHA live-textbook fallback for current NCERT books instead of web-searching coaching PDFs or scraping the catalog.
 - Always store the downloaded artifacts in current working directory; don't use temp or other system paths by default.
 
 ## How Grounding Changes the Answer
@@ -53,6 +54,7 @@ Use the references to improve the educational output, not to show off source dis
 
 - **Grade/class + CBSE + teach/practice**: start with `references/national/textbooks-and-board.md`; add `references/national/assessment-outcomes.md` for outcome-aligned worksheets or diagnostics.
 - **Grade/class + CBSE + exam/sample paper**: use `references/national/textbooks-and-board.md`, especially CBSE Academic material.
+- **"Download the latest/current NCERT book" or plain "download class/grade X book"**: use `references/national/textbooks-and-board.md` to resolve the current official textbook title first; if `ncert.nic.in` is unreachable, switch to the DIKSHA live-textbook workflow in `references/national/digital-platforms.md`.
 - **Grade/class + state/medium + teach/practice**: use the relevant state leaf from the State Mini Router; add learning outcomes only if the task needs outcome language.
 - **Worksheet/quiz for a chapter**: textbook/state source sets concept scope; learning outcomes can set skill targets; board/sample-paper material can set exam style.
 - **Lesson plan for young children**: use `policy-frameworks-guidelines.md` for NCF-FS and `missions-data-schemes.md` for NIPUN Bharat when FLN is relevant.
@@ -68,6 +70,8 @@ Use the references to improve the educational output, not to show off source dis
 |-------------------|--------------|
 | "I am in grade 8 CBSE, teach rational numbers" | `references/national/textbooks-and-board.md`; optionally learning outcomes for practice design. |
 | "Make a worksheet for class 5 EVS, not too hard" | NCERT textbook grounding unless state context is present; learning outcomes if making objectives. |
+| "Download the latest class 6 science book" | `references/national/textbooks-and-board.md`; current-title default first, then DIKSHA fallback if `ncert.nic.in` is down. |
+| "Download grade 5 EVS book" | `references/national/textbooks-and-board.md`; default to the current `Our Wondrous World` textbook, not the legacy EVS title. |
 | "Tamil Nadu class 9 English medium science worksheet" | `references/state/tamil-nadu.md`. |
 | "Standard 10 Gujarati medium maths" | Usually `references/state/gujarat.md` unless user says NCERT/CBSE. |
 | "I need board style questions for class 10 science" | `references/national/textbooks-and-board.md`, CBSE Academic section if CBSE context. |
@@ -101,7 +105,7 @@ Use this by educational intent, not by exact source names.
 
 Read `references/national/textbooks-and-board.md`.
 
-- **NCERT Textbooks**: Official national school textbooks from `ncert.nic.in`. Use for CBSE/NCERT-aligned teaching, chapter scope, textbook sequence, examples, exercises, chapter PDFs, prelims, and full-book ZIPs. This is the usual grounding source when the user says only "grade 8 CBSE", "NCERT class 10 science", "teach this chapter", or "make practice questions" without a state-board context.
+- **NCERT Textbooks**: Official national school textbooks from `ncert.nic.in`, with DIKSHA as the official fallback for current-live textbooks when `ncert.nic.in` is unreachable. Use for CBSE/NCERT-aligned teaching, chapter scope, textbook sequence, examples, exercises, chapter PDFs, prelims, full-book ZIPs, and current-vs-legacy title resolution. The default is the current official textbook for the class/subject/medium unless the user explicitly asks for an older/retired edition.
 - **CBSE Academic**: Board academic material, not the main textbook source. Use for sample papers, marking schemes, question banks, competency practice, board-style practice, and exam-facing alignment. Use this when the user wants exam style, sample-paper style, marking scheme style, or board practice.
 
 ### Policies, Frameworks, and Guidelines
@@ -210,10 +214,16 @@ Do not use random PDF mirrors, coaching sites, Scribd-style uploads, school reup
 ## Ambiguity Handling
 
 - When the user says only "grade 8 CBSE" or similar, start from NCERT/CBSE grounding and optionally learning outcomes if making assessments or worksheets.
+- When the user names only a class/subject/book family for NCERT/CBSE, default to the **current official textbook** for that class/subject/medium if NCERT has already rolled out a replacement. Do **not** ask "old or new?" unless the user explicitly asks for an old/previous/retired edition or names a legacy title/chapter.
+- When the user says "latest", "current", or just "download the grade 6/8/9 book", treat that as a **current-edition** request and use the live official title even if older file codes still resolve.
+- Do **not** let model memory of older NCERT books override the user's wording. A **topic word** like `force`, `light`, `sound`, or `plants` is **not** by itself a legacy chapter request, even if you recall an older NCERT chapter title for it.
+- Treat a request as **legacy** only when the user explicitly names an old/retired chapter or book title, asks for the older/previous edition, or otherwise clearly signals the legacy book.
+- If the user gives a topic but asks for **"the book"**, resolve the **current full book first**. Then, if useful, locate the matching topic/chapter **inside the current book** instead of jumping straight to an older chapter you remember.
 - When the user gives a state or state board context, use the state map before national NCERT.
 - When the user asks to teach or make a worksheet, read the relevant textbook/source reference to ground scope and examples; do not return a source catalog unless useful.
 - When the user asks to make an assessment, combine the textbook/source reference with learning outcomes or board assessment material when relevant.
 - When a request sounds like a textbook but mentions QR, app, content ID, online platform, or interactive object, treat it as digital platform grounding before static textbook URLs.
+- When `ncert.nic.in` is down, continue with the official DIKSHA fallback for **current** textbooks before declaring the fetch blocked. Use DIKSHA `status: ["Retired"]` only for explicit legacy requests because retired search results can be noisy.
 - When a request sounds like a report, decide whether it is about learning/assessment performance (`assessment-outcomes.md`) or a mission/scheme/data system (`missions-data-schemes.md`).
 - When a source gives only a catalog, Drive wrapper, sale counter, login wall, stream URL, or metadata record, report that honestly instead of forcing a PDF.
 
@@ -231,6 +241,10 @@ References are meant to be loaded only when relevant. Most source sections inclu
 ## If the User Explicitly Wants a Resource
 
 When the user asks for a file, link, source list, or verification, fetch or classify the resource directly. Include enough traceability to be useful: title, official source URL or landing page, whether a local file was downloaded, format, and any access boundary (`wrapper_only`, `auth_required`, `sale_only`, `source_gap`, `inconclusive`, etc.).
+
+When the fetched artifact is a supported local file, run `prepare_resource` on it and then prefer `ingest_full_text` when context headroom allows. If the artifact is a ZIP bundle, extract the relevant child file(s) first. Whole-book and chapter-by-chapter ingestion are both acceptable when they match the user request and the live context budget.
+
+For readable books and chapters, do **not** stop at `present_media` alone unless the user explicitly wants raw file display. Prefer the resource pipeline so the learner gets the prepared resource and Buddy can use the text directly.
 
 ## Guardrails
 
