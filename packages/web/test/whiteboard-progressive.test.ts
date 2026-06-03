@@ -56,10 +56,10 @@ describe("whiteboard progressive drawing", () => {
     ).toEqual([{ type: "cameraUpdate" }, { type: "rectangle", id: "node" }])
   })
 
-  test("continues the current board when restoreCheckpoint is present", () => {
+  test("continues the current board when boardAction requests continuation", () => {
     const raw = JSON.stringify({
+      boardAction: "continue_current_board",
       elements: JSON.stringify([
-        { type: "restoreCheckpoint", id: "current" },
         { type: "delete", ids: "old-arrow" },
         { type: "rectangle", id: "new-node", x: 0, y: 0, width: 120, height: 60 },
         { type: "text", id: "still-buffered", x: 0, y: 80, text: "wait" },
@@ -79,7 +79,7 @@ describe("whiteboard progressive drawing", () => {
     ])
   })
 
-  test("does not preview invalid continuation handles as current-board edits", () => {
+  test("does not preview invalid legacy continuation handles as current-board edits", () => {
     const raw = JSON.stringify({
       elements: JSON.stringify([
         { type: "restoreCheckpoint", id: "stale-scene" },
@@ -97,8 +97,28 @@ describe("whiteboard progressive drawing", () => {
     ).toEqual([{ type: "rectangle", id: "existing", x: 0, y: 0, width: 120, height: 60 }])
   })
 
-  test("replaces the current board when restoreCheckpoint is omitted", () => {
+  test("continues the current board for historical calls without boardAction", () => {
     const raw = JSON.stringify({
+      elements: JSON.stringify([
+        { type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 },
+        { type: "text", id: "still-buffered", x: 0, y: 80, text: "wait" },
+      ]),
+    })
+
+    expect(
+      buildProgressiveWhiteboardElements({
+        raw,
+        baseElements: [{ type: "rectangle", id: "old", x: 0, y: 0, width: 120, height: 60 }],
+      }),
+    ).toEqual([
+      { type: "rectangle", id: "old", x: 0, y: 0, width: 120, height: 60 },
+      { type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 },
+    ])
+  })
+
+  test("replaces the current board only when boardAction requests replacement", () => {
+    const raw = JSON.stringify({
+      boardAction: "destructively_replace_current_board",
       elements: JSON.stringify([
         { type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 },
         { type: "text", id: "still-buffered", x: 0, y: 80, text: "wait" },
@@ -113,8 +133,45 @@ describe("whiteboard progressive drawing", () => {
     ).toEqual([{ type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 }])
   })
 
-  test("does not replace a visible board with an empty partial replacement preview", () => {
+  test("replaces the current board for historical replace_current_board transcripts", () => {
     const raw = JSON.stringify({
+      boardAction: "replace_current_board",
+      elements: JSON.stringify([
+        { type: "rectangle", id: "historical-node", x: 0, y: 0, width: 120, height: 60 },
+        { type: "text", id: "still-buffered", x: 0, y: 80, text: "wait" },
+      ]),
+    })
+
+    expect(
+      buildProgressiveWhiteboardElements({
+        raw,
+        baseElements: [{ type: "rectangle", id: "old", x: 0, y: 0, width: 120, height: 60 }],
+      }),
+    ).toEqual([
+      { type: "rectangle", id: "historical-node", x: 0, y: 0, width: 120, height: 60 },
+    ])
+  })
+
+  test("keeps the current board for conflicting boardAction and legacy controls", () => {
+    const raw = JSON.stringify({
+      boardAction: "destructively_replace_current_board",
+      elements: JSON.stringify([
+        { type: "restoreCheckpoint", id: "current" },
+        { type: "rectangle", id: "replacement", x: 0, y: 0, width: 120, height: 60 },
+      ]),
+    })
+
+    expect(
+      buildProgressiveWhiteboardElements({
+        raw,
+        baseElements: [{ type: "rectangle", id: "old", x: 0, y: 0, width: 120, height: 60 }],
+      }),
+    ).toEqual([{ type: "rectangle", id: "old", x: 0, y: 0, width: 120, height: 60 }])
+  })
+
+  test("does not replace a visible board with an empty partial explicit replacement preview", () => {
+    const raw = JSON.stringify({
+      boardAction: "destructively_replace_current_board",
       elements: JSON.stringify([
         { type: "cameraUpdate", x: 0, y: 0, width: 800, height: 600 },
         { type: "rectangle", id: "still-buffered", x: 0, y: 0, width: 120, height: 60 },
@@ -131,6 +188,7 @@ describe("whiteboard progressive drawing", () => {
 
   test("keeps camera updates in the progressive preview signature", () => {
     const raw = JSON.stringify({
+      boardAction: "continue_current_board",
       elements: JSON.stringify([
         { type: "cameraUpdate", x: 10, y: 20, width: 800, height: 600 },
         { type: "rectangle", id: "first-node", x: 0, y: 0, width: 120, height: 60 },
@@ -153,8 +211,8 @@ describe("whiteboard progressive drawing", () => {
 
   test("applies complete streaming translate controls immediately", () => {
     const raw = JSON.stringify({
+      boardAction: "continue_current_board",
       elements: JSON.stringify([
-        { type: "restoreCheckpoint", id: "current" },
         { type: "translate", ids: "node", dx: 100, dy: 50 },
       ]),
     })
@@ -208,8 +266,8 @@ describe("whiteboard progressive drawing", () => {
       { type: "rectangle", id: "first", x: 0, y: 0, width: 120, height: 60 },
     ])
     const secondRaw = JSON.stringify({
+      boardAction: "continue_current_board",
       elements: JSON.stringify([
-        { type: "restoreCheckpoint", id: "current" },
         { type: "rectangle", id: "second", x: 160, y: 0, width: 120, height: 60 },
         { type: "text", id: "still-buffered", x: 0, y: 90, text: "wait" },
       ]),
@@ -225,7 +283,7 @@ describe("whiteboard progressive drawing", () => {
           tool: "whiteboard_create_view",
           state: {
             status: "completed",
-            input: { elements: firstElements },
+            input: { boardAction: "continue_current_board", elements: firstElements },
             output: "",
             title: "",
             time: { start: 1, end: 2 },
@@ -251,7 +309,7 @@ describe("whiteboard progressive drawing", () => {
         baseBoardID: "01H00000000000000000000000",
         baseElements: [{ type: "rectangle", id: "previous", x: 0, y: 0, width: 120, height: 60 }],
       })?.elements.map((element) => element.id),
-    ).toEqual(["first", "second"])
+    ).toEqual(["previous", "first", "second"])
   })
 
   test("does not replay stale completed tools over the fetched current board", () => {
@@ -259,8 +317,8 @@ describe("whiteboard progressive drawing", () => {
       { type: "rectangle", id: "old", x: 0, y: 0, width: 120, height: 60 },
     ])
     const streamingRaw = JSON.stringify({
+      boardAction: "continue_current_board",
       elements: JSON.stringify([
-        { type: "restoreCheckpoint", id: "current" },
         { type: "rectangle", id: "new", x: 160, y: 0, width: 120, height: 60 },
         { type: "text", id: "still-buffered", x: 0, y: 90, text: "wait" },
       ]),
@@ -276,7 +334,7 @@ describe("whiteboard progressive drawing", () => {
           tool: "whiteboard_create_view",
           state: {
             status: "completed",
-            input: { elements: oldElements },
+            input: { boardAction: "continue_current_board", elements: oldElements },
             output: "",
             title: "",
             time: { start: 1, end: 2 },

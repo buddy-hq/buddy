@@ -44,6 +44,10 @@ type WhiteboardRenderReportElement = {
   versionNonce?: number
   containerId?: string
   text?: string
+  fontSize?: number
+  backgroundColor?: string
+  fillStyle?: string
+  opacity?: number
   bounds: WhiteboardRenderBounds
 }
 type WhiteboardRenderReport = {
@@ -63,6 +67,10 @@ type WhiteboardRenderedElementInput = {
   isDeleted?: boolean
   version?: number
   versionNonce?: number
+  backgroundColor?: string
+  fillStyle?: string
+  opacity?: number
+  fontSize?: number
 }
 type WhiteboardElementBoundsReader<Element extends WhiteboardRenderedElementInput> = (
   elements: readonly Element[],
@@ -286,6 +294,10 @@ function createWhiteboardRenderReport<Element extends WhiteboardRenderedElementI
       }
       if (containerId) reportElement.containerId = containerId
       if (text) reportElement.text = text
+      if (isFiniteNumber(element.fontSize)) reportElement.fontSize = element.fontSize
+      if (element.backgroundColor) reportElement.backgroundColor = element.backgroundColor
+      if (element.fillStyle) reportElement.fillStyle = element.fillStyle
+      if (isFiniteNumber(element.opacity)) reportElement.opacity = element.opacity
       return reportElement
     }),
   }
@@ -314,6 +326,10 @@ function whiteboardRenderReportSignature(report: WhiteboardRenderReport): string
       element.version ?? "",
       element.versionNonce ?? "",
       element.containerId ?? "",
+      element.backgroundColor ?? "",
+      element.fillStyle ?? "",
+      element.opacity ?? "",
+      element.fontSize ?? "",
     ]),
   })
 }

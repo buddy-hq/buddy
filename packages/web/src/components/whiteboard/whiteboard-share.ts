@@ -9,13 +9,12 @@ type ShareableWhiteboardBoard = {
 async function createWhiteboardShareJson(board: ShareableWhiteboardBoard): Promise<string> {
   const prepared = toEditorElementConversion(board.elements)
   const { convertToExcalidrawElements, serializeAsJSON } = await import("@excalidraw/excalidraw")
-  const elements = prepared.groups.flatMap((group) =>
-    group.kind === "native"
-      ? group.elements
-      : convertToExcalidrawElements(group.elements, {
-          regenerateIds: false,
-        }),
-  )
+  const elements = prepared.groups.flatMap((group) => {
+    if (group.kind === "native") return group.elements
+    return convertToExcalidrawElements(group.elements, {
+      regenerateIds: false,
+    })
+  })
   if (elements.length === 0) {
     throw new Error("The board has no shareable elements.")
   }

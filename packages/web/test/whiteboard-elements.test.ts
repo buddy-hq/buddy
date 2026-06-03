@@ -162,6 +162,9 @@ describe("whiteboard element conversion", () => {
           type: "rectangle",
           version: 1,
           versionNonce: 11,
+          backgroundColor: "#663333",
+          fillStyle: "solid",
+          opacity: 100,
         },
         {
           id: "label",
@@ -170,6 +173,7 @@ describe("whiteboard element conversion", () => {
           versionNonce: 12,
           containerId: "box",
           text: "Rendered label",
+          fontSize: 13,
         },
         {
           id: "deleted",
@@ -193,11 +197,18 @@ describe("whiteboard element conversion", () => {
       canvas: { width: 800, height: 600, zoom: 2 },
       contentBounds: { x: 0, y: 0, width: 160, height: 90 },
       elements: [
-        { id: "box", bounds: { x: 0, y: 0, width: 160, height: 90 } },
+        {
+          id: "box",
+          backgroundColor: "#663333",
+          fillStyle: "solid",
+          opacity: 100,
+          bounds: { x: 0, y: 0, width: 160, height: 90 },
+        },
         {
           id: "label",
           containerId: "box",
           text: "Rendered label",
+          fontSize: 13,
           bounds: { x: 10, y: 20, width: 130, height: 24 },
         },
       ],
@@ -229,10 +240,50 @@ describe("whiteboard element conversion", () => {
       elements: [{ id: "box", type: "rectangle", version: 1, versionNonce: 11 }],
       readBounds: () => [0, 0, 100, 80],
     })
+    const changedStyle = createWhiteboardRenderReport({
+      boardID: "board_1",
+      appState: {
+        scrollX: 0,
+        scrollY: 0,
+        width: 800,
+        height: 600,
+        zoom: { value: 1 },
+      },
+      elements: [
+        {
+          id: "box",
+          type: "rectangle",
+          version: 1,
+          versionNonce: 11,
+          backgroundColor: "#663333",
+          fillStyle: "solid",
+          opacity: 100,
+        },
+      ],
+      readBounds: () => [0, 0, 100, 80],
+    })
+    const changedFontSize = createWhiteboardRenderReport({
+      boardID: "board_1",
+      appState: {
+        scrollX: 0,
+        scrollY: 0,
+        width: 800,
+        height: 600,
+        zoom: { value: 1 },
+      },
+      elements: [{ id: "box", type: "text", version: 1, versionNonce: 11, fontSize: 13 }],
+      readBounds: () => [0, 0, 100, 80],
+    })
 
     expect(whiteboardRenderReportSignature(base)).toBe(whiteboardRenderReportSignature(base))
     expect(whiteboardRenderReportSignature(base)).not.toBe(
       whiteboardRenderReportSignature(changedViewport),
+    )
+    expect(whiteboardRenderReportSignature(base)).not.toBe(
+      whiteboardRenderReportSignature(changedStyle),
+    )
+    expect(whiteboardRenderReportSignature(base)).not.toBe(
+      whiteboardRenderReportSignature(changedFontSize),
     )
   })
 })

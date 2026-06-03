@@ -4,6 +4,8 @@ import {
   resolveWhiteboardCanvasViewport,
   resolveWhiteboardRenderReportKey,
   resolveWhiteboardShareBoard,
+  shouldPollWhiteboardDuringActiveCreate,
+  shouldPreferFetchedBoardDuringActiveCreate,
   shouldRetainProgressiveWhiteboardPreview,
   shouldRefetchWhiteboardAfterBusyChange,
 } from "../src/components/whiteboard/whiteboard-pane"
@@ -130,6 +132,50 @@ describe("whiteboard pane state helpers", () => {
         hasUnfetchedCompletedWhiteboardCreateTool: false,
         hasLatestFailedWhiteboardCreateTool: true,
         isBusy: false,
+      }),
+    ).toBe(false)
+  })
+
+  test("polls current board state only while an active whiteboard create is visible", () => {
+    expect(
+      shouldPollWhiteboardDuringActiveCreate({
+        sessionID: "session",
+        hasActiveWhiteboardCreateTool: true,
+      }),
+    ).toBe(true)
+    expect(
+      shouldPollWhiteboardDuringActiveCreate({
+        sessionID: "session",
+        hasActiveWhiteboardCreateTool: false,
+      }),
+    ).toBe(false)
+    expect(
+      shouldPollWhiteboardDuringActiveCreate({
+        hasActiveWhiteboardCreateTool: true,
+      }),
+    ).toBe(false)
+  })
+
+  test("prefers the fetched board during active create only after the durable board advances", () => {
+    expect(
+      shouldPreferFetchedBoardDuringActiveCreate({
+        activeBase: { boardID: "old-board" },
+        currentBoardID: "new-board",
+        hasActiveWhiteboardCreateTool: true,
+      }),
+    ).toBe(true)
+    expect(
+      shouldPreferFetchedBoardDuringActiveCreate({
+        activeBase: { boardID: "old-board" },
+        currentBoardID: "old-board",
+        hasActiveWhiteboardCreateTool: true,
+      }),
+    ).toBe(false)
+    expect(
+      shouldPreferFetchedBoardDuringActiveCreate({
+        activeBase: { boardID: "old-board" },
+        currentBoardID: "new-board",
+        hasActiveWhiteboardCreateTool: false,
       }),
     ).toBe(false)
   })

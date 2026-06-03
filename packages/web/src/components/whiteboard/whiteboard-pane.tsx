@@ -45,7 +45,12 @@ type ShareableWhiteboardBoard = {
   elements: PersistedWhiteboardElement[]
 }
 
+type ActiveWhiteboardBase = {
+  boardID?: string
+}
+
 const WHITEBOARD_CANVAS_EMPTY_KEY = "empty"
+const ACTIVE_WHITEBOARD_REFETCH_INTERVAL_MS = 250
 
 function resolveWhiteboardCanvasKey(input: {
   sessionID?: string
@@ -97,6 +102,26 @@ function shouldRetainProgressiveWhiteboardPreview(input: {
   )
 }
 
+function shouldPollWhiteboardDuringActiveCreate(input: {
+  sessionID?: string
+  hasActiveWhiteboardCreateTool: boolean
+}): boolean {
+  return Boolean(input.sessionID && input.hasActiveWhiteboardCreateTool)
+}
+
+function shouldPreferFetchedBoardDuringActiveCreate(input: {
+  activeBase: ActiveWhiteboardBase | undefined
+  currentBoardID?: string
+  hasActiveWhiteboardCreateTool: boolean
+}): boolean {
+  return Boolean(
+    input.hasActiveWhiteboardCreateTool &&
+      input.activeBase &&
+      input.currentBoardID &&
+      input.currentBoardID !== input.activeBase.boardID,
+  )
+}
+
 function resolveWhiteboardRenderReportKey(input: {
   boardID?: string
   updatedAt?: string
@@ -113,6 +138,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
   const [saveError, setSaveError] = useState<string>()
   const [shareStatus, setShareStatus] = useState<string>()
   const [liveDraftBoard, setLiveDraftBoard] = useState<LiveWhiteboardBoard>()
+  const [activeWhiteboardBase, setActiveWhiteboardBase] = useState<ActiveWhiteboardBase>()
   const liveViewportRef = useRef<{
     sessionID?: string
     viewport: WhiteboardViewport
@@ -158,8 +184,13 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     [messages],
   )
   const [progressivePreview, setProgressivePreview] = useState<ProgressiveWhiteboardPreview>()
+  const shouldUseFetchedBoardDuringActiveCreate = shouldPreferFetchedBoardDuringActiveCreate({
+    activeBase: activeWhiteboardBase,
+    currentBoardID: currentBoard?.boardID,
+    hasActiveWhiteboardCreateTool,
+  })
   const displayedBoard = useMemo(() => {
-    if (currentBoard && progressivePreview) {
+    if (currentBoard && progressivePreview && !shouldUseFetchedBoardDuringActiveCreate) {
       return {
         ...currentBoard,
         elements: progressivePreview.elements,
@@ -172,7 +203,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
       elements: progressivePreview.elements,
       ...(progressivePreview.viewport ? { viewport: progressivePreview.viewport } : {}),
     }
-  }, [currentBoard, progressivePreview])
+  }, [currentBoard, progressivePreview, shouldUseFetchedBoardDuringActiveCreate])
   const canvasKey = resolveWhiteboardCanvasKey({
     sessionID,
   })
@@ -211,6 +242,29 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     if (!sessionID || completedWhiteboardCreateCount === 0) return
     void refetchSession()
   }, [completedWhiteboardCreateCount, refetchSession, sessionID])
+
+  useEffect(() => {
+    setActiveWhiteboardBase((current) => {
+      if (!hasActiveWhiteboardCreateTool) return undefined
+      return current ?? { boardID }
+    })
+  }, [boardID, hasActiveWhiteboardCreateTool])
+
+  useEffect(() => {
+    if (
+      !shouldPollWhiteboardDuringActiveCreate({
+        sessionID,
+        hasActiveWhiteboardCreateTool,
+      })
+    ) {
+      return
+    }
+    void refetchSession()
+    const interval = window.setInterval(() => {
+      void refetchSession()
+    }, ACTIVE_WHITEBOARD_REFETCH_INTERVAL_MS)
+    return () => window.clearInterval(interval)
+  }, [hasActiveWhiteboardCreateTool, refetchSession, sessionID])
 
   useEffect(() => {
     const wasBusy = previousBusyRef.current
@@ -393,7 +447,8 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
               board={displayedBoard}
               viewportOverride={canvasViewport}
               renderReportKey={renderReportKey}
-              readOnly={Boolean(progressivePreview)}
+              readOnly={Boolean(progressivePreview) || hasActiveWhiteboardCreateTool}
+              reportReadOnlyBoard={shouldUseFetchedBoardDuringActiveCreate}
               onViewportChange={captureLiveViewport}
               onSave={saveLearnerEdit}
               onLiveBoardChange={setLiveDraftBoard}
@@ -416,6 +471,8 @@ export {
   resolveWhiteboardCanvasViewport,
   resolveWhiteboardRenderReportKey,
   resolveWhiteboardShareBoard,
+  shouldPollWhiteboardDuringActiveCreate,
+  shouldPreferFetchedBoardDuringActiveCreate,
   shouldRetainProgressiveWhiteboardPreview,
   shouldRefetchWhiteboardAfterBusyChange,
 }

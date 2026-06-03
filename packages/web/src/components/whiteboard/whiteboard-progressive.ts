@@ -13,7 +13,7 @@ type ProgressiveWhiteboardState = {
 }
 
 type ProgramReadMode = "complete" | "streaming"
-type RestoreCheckpointMode = "none" | "current" | "invalid"
+type ProgramWriteMode = "auto" | "continue" | "replace" | "invalid"
 const WHITEBOARD_CONTINUATION_HANDLE = "current"
 const SUPPORTED_WHITEBOARD_DRAWN_TYPES = new Set([
   "arrow",
@@ -26,6 +26,7 @@ const SUPPORTED_WHITEBOARD_DRAWN_TYPES = new Set([
 ])
 const STREAMING_CONTROL_TYPES = new Set([
   "restoreCheckpoint",
+  "replaceCurrentBoard",
   "delete",
   "translate",
 ])
@@ -55,10 +56,10 @@ function decodeJsonEscape(value: string): string | undefined {
   }
 }
 
-function decodePartialElementsArgument(raw: string): string | undefined {
-  const keyIndex = raw.indexOf('"elements"')
+function decodePartialStringArgument(raw: string, key: string): string | undefined {
+  const keyIndex = raw.indexOf(JSON.stringify(key))
   if (keyIndex === -1) return undefined
-  const colonIndex = raw.indexOf(":", keyIndex + '"elements"'.length)
+  const colonIndex = raw.indexOf(":", keyIndex + JSON.stringify(key).length)
   if (colonIndex === -1) return undefined
   const quoteIndex = raw.indexOf('"', colonIndex + 1)
   if (quoteIndex === -1) return undefined
@@ -87,6 +88,10 @@ function decodePartialElementsArgument(raw: string): string | undefined {
     index += 1
   }
   return decoded
+}
+
+function decodePartialElementsArgument(raw: string): string | undefined {
+  return decodePartialStringArgument(raw, "elements")
 }
 
 function readJsonArray(value: string): unknown[] | undefined {
@@ -243,10 +248,10 @@ function readElementSignature(element: PersistedWhiteboardElement): string {
   return JSON.stringify(element)
 }
 
-function buildPreviewSignature(input: {
+function buildProgressiveWhiteboardSignature(input: {
   elements: PersistedWhiteboardElement[]
   viewport?: WhiteboardViewport
-}) {
+}): string {
   const viewport = input.viewport
     ? `${input.viewport.x}:${input.viewport.y}:${input.viewport.width}:${input.viewport.height}`
     : ""
@@ -257,7 +262,7 @@ function toPreview(state: ProgressiveWhiteboardState): ProgressiveWhiteboardPrev
   return {
     elements: state.elements,
     ...(state.viewport ? { viewport: state.viewport } : {}),
-    signature: buildPreviewSignature({
+    signature: buildProgressiveWhiteboardSignature({
       elements: state.elements,
       ...(state.viewport ? { viewport: state.viewport } : {}),
     }),
@@ -270,23 +275,77 @@ function toVisiblePreview(
   return state.elements.length > 0 ? toPreview(state) : undefined
 }
 
-function readRestoreCheckpointMode(program: unknown[]): RestoreCheckpointMode {
-  for (const value of program) {
-    if (!isRecord(value) || value.type !== "restoreCheckpoint" || typeof value.id !== "string") {
+function readProgramWriteMode(program: unknown[]): ProgramWriteMode {
+  let hasRestore = false
+  let hasReplacement = false
+  for (let index = 0; index < program.length; index += 1) {
+    const value = program[index]
+    if (!isRecord(value) || typeof value.type !== "string") continue
+    if (value.type === "replaceCurrentBoard") {
+      if (index !== 0) return "invalid"
+      hasReplacement = true
       continue
     }
-    return value.id === WHITEBOARD_CONTINUATION_HANDLE ? "current" : "invalid"
+    if (value.type === "restoreCheckpoint") {
+      if (typeof value.id !== "string" || value.id !== WHITEBOARD_CONTINUATION_HANDLE) {
+        return "invalid"
+      }
+      hasRestore = true
+    }
   }
-  return "none"
+  if (hasRestore && hasReplacement) return "invalid"
+  if (hasReplacement) return "replace"
+  if (hasRestore) return "continue"
+  return "auto"
+}
+
+function boardActionToProgramWriteMode(boardAction: string | undefined): ProgramWriteMode {
+  switch (boardAction) {
+    case "continue_current_board":
+      return "continue"
+    case "destructively_replace_current_board":
+      return "replace"
+    case "replace_current_board":
+      return "replace"
+    case undefined:
+      return "auto"
+    default:
+      return "invalid"
+  }
+}
+
+function readBoardActionFromRaw(raw: string | undefined): ProgramWriteMode {
+  return boardActionToProgramWriteMode(
+    raw ? decodePartialStringArgument(raw, "boardAction") : undefined,
+  )
+}
+
+function resolveProgramWriteMode(input: {
+  program: unknown[]
+  requestedWriteMode: ProgramWriteMode
+}): ProgramWriteMode {
+  const embeddedWriteMode = readProgramWriteMode(input.program)
+  if (embeddedWriteMode === "invalid" || input.requestedWriteMode === "invalid") return "invalid"
+  if (input.requestedWriteMode === "auto") {
+    return embeddedWriteMode === "auto" ? "continue" : embeddedWriteMode
+  }
+  if (embeddedWriteMode !== "auto" && embeddedWriteMode !== input.requestedWriteMode) {
+    return "invalid"
+  }
+  return input.requestedWriteMode
 }
 
 function applyProgressiveProgram(input: {
   current: ProgressiveWhiteboardState
   program: unknown[]
+  requestedWriteMode: ProgramWriteMode
 }): ProgressiveWhiteboardState {
-  const restoreCheckpointMode = readRestoreCheckpointMode(input.program)
-  if (restoreCheckpointMode === "invalid") return input.current
-  const continuesCurrentBoard = restoreCheckpointMode === "current"
+  const writeMode = resolveProgramWriteMode({
+    program: input.program,
+    requestedWriteMode: input.requestedWriteMode,
+  })
+  if (writeMode === "invalid") return input.current
+  const continuesCurrentBoard = writeMode === "continue"
   let elements = continuesCurrentBoard ? [...input.current.elements] : []
   let viewport = continuesCurrentBoard ? input.current.viewport : undefined
 
@@ -294,6 +353,7 @@ function applyProgressiveProgram(input: {
     const value = input.program[index]
     if (!isRecord(value) || typeof value.type !== "string") continue
     if (value.type === "restoreCheckpoint") continue
+    if (value.type === "replaceCurrentBoard") continue
     if (value.type === "cameraUpdate") {
       viewport = parseCameraViewport(value) ?? viewport
       continue
@@ -322,12 +382,14 @@ function buildProgressiveWhiteboardPreview(input: {
 }): ProgressiveWhiteboardPreview | undefined {
   const program = readProgramFromRaw(input.raw, "streaming")
   if (program.length === 0) return undefined
+  const requestedWriteMode = readBoardActionFromRaw(input.raw)
   return toVisiblePreview(
     applyProgressiveProgram({
       current: {
         elements: [...input.baseElements],
       },
       program,
+      requestedWriteMode,
     }),
   )
 }
@@ -342,6 +404,13 @@ function buildProgressiveWhiteboardElements(input: {
 function readToolInputElements(state: Record<string, unknown>): string | undefined {
   if (!isRecord(state.input)) return undefined
   return typeof state.input.elements === "string" ? state.input.elements : undefined
+}
+
+function readToolInputBoardAction(state: Record<string, unknown>): ProgramWriteMode {
+  if (!isRecord(state.input)) return "auto"
+  return boardActionToProgramWriteMode(
+    typeof state.input.boardAction === "string" ? state.input.boardAction : undefined,
+  )
 }
 
 function readToolMetadataString(state: Record<string, unknown>, key: string): string | undefined {
@@ -400,6 +469,7 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
         state = applyProgressiveProgram({
           current: state,
           program,
+          requestedWriteMode: readToolInputBoardAction(part.state),
         })
         appliedProgram = true
         continue
@@ -412,7 +482,13 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
         "streaming",
       )
       if (program.length === 0) continue
-      state = applyProgressiveProgram({ current: state, program })
+      state = applyProgressiveProgram({
+        current: state,
+        program,
+        requestedWriteMode: readBoardActionFromRaw(
+          typeof part.state.raw === "string" ? part.state.raw : undefined,
+        ),
+      })
       appliedProgram = true
     }
   }
@@ -512,6 +588,7 @@ export {
   buildProgressiveWhiteboardElements,
   buildProgressiveWhiteboardPreview,
   buildProgressiveWhiteboardPreviewFromMessages,
+  buildProgressiveWhiteboardSignature,
   countCompletedWhiteboardCreate,
   decodePartialElementsArgument,
   hasActiveWhiteboardCreate,

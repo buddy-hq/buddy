@@ -34,6 +34,8 @@ import {
 } from "./whiteboard-learner-save"
 
 const LEARNER_EDIT_DEBOUNCE_MS = 2_000
+const WHITEBOARD_CANVAS_REFRESH_FRAME_COUNT = 2
+const WHITEBOARD_CANVAS_POST_SETTLE_REFRESH_DELAY_MS = 260
 const WHITEBOARD_FONT_LOADS = [
   "20px Excalifont",
   "400 16px Assistant",
@@ -64,6 +66,7 @@ type WhiteboardCanvasProps = {
   viewportOverride?: WhiteboardViewport
   renderReportKey?: string
   readOnly: boolean
+  reportReadOnlyBoard?: boolean
   onSave: WhiteboardLearnerSaveHandler
   onViewportChange?: (viewport: WhiteboardViewport) => void
   onLiveBoardChange?: (
@@ -114,13 +117,12 @@ function prepareConvertedElements(
 function convertPreparedElements(
   prepared: WhiteboardElementPreparation,
 ): OrderedExcalidrawElement[] {
-  return prepared.groups.flatMap((group) =>
-    group.kind === "native"
-      ? group.elements
-      : convertToExcalidrawElements(group.elements, {
-          regenerateIds: false,
-        }),
-  )
+  return prepared.groups.flatMap((group) => {
+    if (group.kind === "native") return group.elements
+    return convertToExcalidrawElements(group.elements, {
+      regenerateIds: false,
+    })
+  })
 }
 
 function viewportToInitialAppState(
@@ -166,11 +168,16 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
   const renderReportRef = useRef(props.onRenderReport)
   const viewportChangeRef = useRef(props.onViewportChange)
   const readOnlyRef = useRef(props.readOnly)
+  const reportReadOnlyBoardRef = useRef(props.reportReadOnlyBoard ?? false)
   const fontsReadyRef = useRef(false)
   const boardIDRef = useRef(props.board.boardID)
   const pendingBoardIDRef = useRef(props.board.boardID)
   const lastRenderReportSignatureRef = useRef<string>()
+  const pendingInitialViewportFrameRef = useRef<number>()
+  const initialViewportScenePendingRef = useRef(false)
   const pendingInitialSceneFrameRef = useRef<number>()
+  const pendingCanvasRefreshFrameRef = useRef<number>()
+  const pendingPostSettleRefreshTimeoutRef = useRef<number>()
   const pendingRenderReportFrameRef = useRef<number>()
   const remoteSceneUpdateDepthRef = useRef(0)
   const saveSchedulerRef = useRef(
@@ -211,6 +218,25 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
     pendingInitialSceneFrameRef.current = undefined
   }, [])
 
+  const cancelPendingInitialViewportFrame = useCallback(() => {
+    if (pendingInitialViewportFrameRef.current === undefined) return
+    window.cancelAnimationFrame(pendingInitialViewportFrameRef.current)
+    pendingInitialViewportFrameRef.current = undefined
+    initialViewportScenePendingRef.current = false
+  }, [])
+
+  const cancelPendingCanvasRefreshFrame = useCallback(() => {
+    if (pendingCanvasRefreshFrameRef.current === undefined) return
+    window.cancelAnimationFrame(pendingCanvasRefreshFrameRef.current)
+    pendingCanvasRefreshFrameRef.current = undefined
+  }, [])
+
+  const cancelPendingPostSettleRefresh = useCallback(() => {
+    if (pendingPostSettleRefreshTimeoutRef.current === undefined) return
+    window.clearTimeout(pendingPostSettleRefreshTimeoutRef.current)
+    pendingPostSettleRefreshTimeoutRef.current = undefined
+  }, [])
+
   const cancelPendingRenderReportFrame = useCallback(() => {
     if (pendingRenderReportFrameRef.current === undefined) return
     window.cancelAnimationFrame(pendingRenderReportFrameRef.current)
@@ -218,14 +244,16 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
   }, [])
 
   const scheduleRenderReport = useCallback(() => {
-    if (!renderReportRef.current || !fontsReadyRef.current || readOnlyRef.current) return
+    const canReportReadOnlyBoard = !readOnlyRef.current || reportReadOnlyBoardRef.current
+    if (!renderReportRef.current || !fontsReadyRef.current || !canReportReadOnlyBoard) return
     cancelPendingRenderReportFrame()
     pendingRenderReportFrameRef.current = window.requestAnimationFrame(() => {
       pendingRenderReportFrameRef.current = undefined
       const api = apiRef.current
       const boardID = boardIDRef.current
       const onRenderReport = renderReportRef.current
-      if (!api || !boardID || !onRenderReport || !fontsReadyRef.current || readOnlyRef.current) {
+      const canReportCurrentBoard = !readOnlyRef.current || reportReadOnlyBoardRef.current
+      if (!api || !boardID || !onRenderReport || !fontsReadyRef.current || !canReportCurrentBoard) {
         return
       }
       const report = createWhiteboardRenderReport({
@@ -244,9 +272,15 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
   const settleScene = useCallback(
     (api: ExcalidrawImperativeAPI) => {
       cancelPendingInitialSceneFrame()
+      cancelPendingCanvasRefreshFrame()
+      cancelPendingPostSettleRefresh()
       const nextBoardID = pendingBoardIDRef.current
-      pendingInitialSceneFrameRef.current = window.requestAnimationFrame(() => {
-        pendingInitialSceneFrameRef.current = undefined
+      const refreshVisibleCanvas = () => {
+        if (apiRef.current !== api || pendingBoardIDRef.current !== nextBoardID) return
+        api.refresh()
+        scheduleRenderReport()
+      }
+      const completeSettle = () => {
         if (apiRef.current !== api || pendingBoardIDRef.current !== nextBoardID) return
         baselineRef.current = elementVersionSignature(api.getSceneElements())
         boardIDRef.current = nextBoardID
@@ -254,9 +288,41 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
         viewportChangeRef.current?.(viewportFromAppState(api.getAppState()))
         setCanvasSettled(true)
         scheduleRenderReport()
+        pendingPostSettleRefreshTimeoutRef.current = window.setTimeout(() => {
+          pendingPostSettleRefreshTimeoutRef.current = undefined
+          pendingCanvasRefreshFrameRef.current = window.requestAnimationFrame(() => {
+            pendingCanvasRefreshFrameRef.current = undefined
+            refreshVisibleCanvas()
+          })
+        }, WHITEBOARD_CANVAS_POST_SETTLE_REFRESH_DELAY_MS)
+      }
+      const scheduleRefreshFrame = (framesRemaining: number) => {
+        pendingCanvasRefreshFrameRef.current = window.requestAnimationFrame(() => {
+          pendingCanvasRefreshFrameRef.current = undefined
+          if (apiRef.current !== api || pendingBoardIDRef.current !== nextBoardID) return
+          if (framesRemaining > 1) {
+            scheduleRefreshFrame(framesRemaining - 1)
+            return
+          }
+          api.refresh()
+          pendingCanvasRefreshFrameRef.current = window.requestAnimationFrame(() => {
+            pendingCanvasRefreshFrameRef.current = undefined
+            completeSettle()
+          })
+        })
+      }
+      pendingInitialSceneFrameRef.current = window.requestAnimationFrame(() => {
+        pendingInitialSceneFrameRef.current = undefined
+        if (apiRef.current !== api || pendingBoardIDRef.current !== nextBoardID) return
+        scheduleRefreshFrame(WHITEBOARD_CANVAS_REFRESH_FRAME_COUNT)
       })
     },
-    [cancelPendingInitialSceneFrame, scheduleRenderReport],
+    [
+      cancelPendingCanvasRefreshFrame,
+      cancelPendingInitialSceneFrame,
+      cancelPendingPostSettleRefresh,
+      scheduleRenderReport,
+    ],
   )
 
   const applySceneToApi = useCallback(
@@ -321,6 +387,11 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
   }, [props.readOnly])
 
   useEffect(() => {
+    reportReadOnlyBoardRef.current = props.reportReadOnlyBoard ?? false
+    scheduleRenderReport()
+  }, [props.reportReadOnlyBoard, scheduleRenderReport])
+
+  useEffect(() => {
     fontsReadyRef.current = fontsReady
   }, [fontsReady])
 
@@ -351,38 +422,68 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
 
   useEffect(
     () => () => {
+      cancelPendingInitialViewportFrame()
       cancelPendingInitialSceneFrame()
+      cancelPendingCanvasRefreshFrame()
+      cancelPendingPostSettleRefresh()
       cancelPendingRenderReportFrame()
       autosaveReadyRef.current = false
       apiRef.current = undefined
       void saveSchedulerRef.current.flush()
     },
-    [cancelPendingInitialSceneFrame, cancelPendingRenderReportFrame],
+    [
+      cancelPendingInitialSceneFrame,
+      cancelPendingInitialViewportFrame,
+      cancelPendingCanvasRefreshFrame,
+      cancelPendingPostSettleRefresh,
+      cancelPendingRenderReportFrame,
+    ],
   )
 
   useEffect(() => {
     baselineRef.current = elementVersionSignature(elements)
     const api = apiRef.current
     if (!api) return
+    if (initialViewportScenePendingRef.current) return
     if (elementVersionSignature(api.getSceneElements()) !== baselineRef.current) {
       applySceneToApi(api, elements, "mounted-update")
     }
-    if (props.readOnly) return
+    if (props.readOnly) {
+      if (props.reportReadOnlyBoard) {
+        settleScene(api)
+      }
+      return
+    }
     void saveSchedulerRef.current.flush()
     settleScene(api)
-    scheduleRenderReport()
-  }, [applySceneToApi, elements, props.readOnly, scheduleRenderReport, settleScene])
+  }, [
+    applySceneToApi,
+    elements,
+    props.readOnly,
+    props.reportReadOnlyBoard,
+    settleScene,
+  ])
 
   const setApi = useCallback(
     (api: ExcalidrawImperativeAPI) => {
       apiRef.current = api
       setCanvasSettled(false)
+      cancelPendingInitialViewportFrame()
       if (viewportRef.current) {
-        applySceneToApi(api, [...api.getSceneElements()], "initial-mount")
+        initialViewportScenePendingRef.current = true
+        const nextBoardID = pendingBoardIDRef.current
+        pendingInitialViewportFrameRef.current = window.requestAnimationFrame(() => {
+          pendingInitialViewportFrameRef.current = undefined
+          initialViewportScenePendingRef.current = false
+          if (apiRef.current !== api || pendingBoardIDRef.current !== nextBoardID) return
+          applySceneToApi(api, [...api.getSceneElements()], "initial-mount")
+          settleScene(api)
+        })
+        return
       }
       settleScene(api)
     },
-    [applySceneToApi, settleScene],
+    [applySceneToApi, cancelPendingInitialViewportFrame, settleScene],
   )
 
   const handleChange = useCallback(
@@ -414,7 +515,7 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
   return (
     <div className="relative h-full overflow-hidden">
       {!fontsReady || !canvasSettled ? (
-        <div className="absolute inset-0 z-10 flex items-center justify-center text-xs text-text-weaker">
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-base text-xs text-text-weaker">
           Preparing whiteboard…
         </div>
       ) : null}
@@ -424,7 +525,7 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
         </div>
       ) : null}
       {fontsReady ? (
-        <div className={`h-full ${canvasSettled ? "" : "invisible"}`}>
+        <div className="h-full">
           <Excalidraw
             excalidrawAPI={setApi}
             initialData={initialData}
