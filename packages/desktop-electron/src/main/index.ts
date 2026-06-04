@@ -4,7 +4,7 @@ import { existsSync } from "node:fs"
 import { createServer } from "node:net"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { app, BrowserWindow, dialog } from "electron"
+import { app, BrowserWindow, dialog, shell } from "electron"
 import type { Event } from "electron"
 import electronUpdaterPackage from "electron-updater"
 import type { InitStep, ServerReadyData, SqliteMigrationProgress } from "../preload/types"
@@ -55,6 +55,12 @@ const STARTUP_FAILURE_MESSAGE = "Buddy failed to start."
 const UNKNOWN_STARTUP_FAILURE_DETAIL = "The local Buddy server did not become ready."
 const LOADING_WINDOW_COMPLETE_TIMEOUT_MS = 5_000
 const MAC_UPDATE_CACHE_DIRECTORY_NAME = "mac-updater"
+const BUDDY_DOWNLOAD_URL = "https://github.com/prashantbhudwal/buddy/releases/latest"
+const PRIMARY_DIALOG_RESPONSE = 0
+const SECONDARY_DIALOG_RESPONSE = 1
+const STARTUP_FAILURE_UPDATE_CHECK_BUTTONS = ["Check for Update", "Quit"] as const
+const STARTUP_FAILURE_UPDATE_INSTALL_BUTTONS = ["Install and Restart", "Quit"] as const
+const STARTUP_FAILURE_UPDATE_MISSING_BUTTONS = ["Open Download Page", "Quit"] as const
 
 app.setName(resolveAppName(app.isPackaged))
 if (process.platform === "win32") {
@@ -281,6 +287,68 @@ async function handleInitializationFailure(error: unknown, overlay: BrowserWindo
     overlay.close()
   }
 
+  killSidecar()
+
+  if (await offerStartupFailureUpdateRecovery(error)) {
+    return
+  }
+
+  app.quit()
+}
+
+async function offerStartupFailureUpdateRecovery(error: unknown): Promise<boolean> {
+  if (!updaterEnabled) {
+    await showStartupFailureDialog(error)
+    return false
+  }
+
+  try {
+    const response = await dialog.showMessageBox({
+      type: "error",
+      title: app.getName(),
+      message: STARTUP_FAILURE_MESSAGE,
+      detail: [
+        startupFailureDetail(error),
+        "",
+        "Buddy can still check for an update without the local server running.",
+      ].join("\n"),
+      buttons: [...STARTUP_FAILURE_UPDATE_CHECK_BUTTONS],
+      defaultId: PRIMARY_DIALOG_RESPONSE,
+      cancelId: SECONDARY_DIALOG_RESPONSE,
+    })
+
+    if (response.response !== PRIMARY_DIALOG_RESPONSE) {
+      return false
+    }
+  } catch {
+    return false
+  }
+
+  const result = await checkUpdate()
+  if (!result.updateAvailable) {
+    await showStartupFailureUpdateMissingDialog(result.failed)
+    return false
+  }
+
+  const response = await dialog.showMessageBox({
+    type: "info",
+    title: "Update Ready",
+    message: `Buddy ${result.version ?? ""} is ready to install.`,
+    detail: "Install the update now to recover from this startup failure.",
+    buttons: [...STARTUP_FAILURE_UPDATE_INSTALL_BUTTONS],
+    defaultId: PRIMARY_DIALOG_RESPONSE,
+    cancelId: SECONDARY_DIALOG_RESPONSE,
+  })
+
+  if (response.response !== PRIMARY_DIALOG_RESPONSE) {
+    return false
+  }
+
+  await installUpdate()
+  return true
+}
+
+async function showStartupFailureDialog(error: unknown): Promise<void> {
   try {
     await dialog.showMessageBox({
       type: "error",
@@ -291,9 +359,22 @@ async function handleInitializationFailure(error: unknown, overlay: BrowserWindo
   } catch {
     // noop
   }
+}
 
-  killSidecar()
-  app.quit()
+async function showStartupFailureUpdateMissingDialog(failed: boolean | undefined): Promise<void> {
+  const response = await dialog.showMessageBox({
+    type: failed ? "error" : "info",
+    title: app.getName(),
+    message: failed ? "Update check failed." : "No updates available.",
+    detail: "You can still download the latest Buddy release manually.",
+    buttons: [...STARTUP_FAILURE_UPDATE_MISSING_BUTTONS],
+    defaultId: PRIMARY_DIALOG_RESPONSE,
+    cancelId: SECONDARY_DIALOG_RESPONSE,
+  })
+
+  if (response.response === PRIMARY_DIALOG_RESPONSE) {
+    await shell.openExternal(BUDDY_DOWNLOAD_URL)
+  }
 }
 
 function startupFailureDetail(error: unknown) {

@@ -18,6 +18,8 @@ const loader = {
   ".md": "text",
 } as const
 
+const UNRESOLVED_RUNTIME_IMPORT_SPECIFIERS = ["opencode/effect/app-runtime"] as const
+
 type MigrationEntry = {
   sql: string
   timestamp: number
@@ -87,6 +89,22 @@ function patchBundledUndiciNamespace(bundleOutputFile: string) {
   writeFileSync(bundleOutputFile, source.replace(broken, fixed))
 }
 
+function assertNoUnresolvedRuntimeImports(bundleOutputFile: string) {
+  const source = readFileSync(bundleOutputFile, "utf8")
+  const unresolved = UNRESOLVED_RUNTIME_IMPORT_SPECIFIERS.filter((specifier) =>
+    source.includes(specifier),
+  )
+
+  if (unresolved.length === 0) return
+
+  throw new Error(
+    [
+      `Sidecar bundle contains unresolved runtime import specifier(s): ${unresolved.join(", ")}`,
+      "Use literal local adapter imports so Bun can bundle vendored runtime modules into compiled sidecars.",
+    ].join("\n"),
+  )
+}
+
 export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryInput) {
   const backendDir = path.resolve(import.meta.dir, "..")
   const sourceEntrypoint = path.resolve(backendDir, "src/index.ts")
@@ -149,6 +167,7 @@ export async function buildCompiledBuddyBinary(input: BuildCompiledBuddyBinaryIn
       }
 
       patchBundledUndiciNamespace(bundleOutputFile)
+      assertNoUnresolvedRuntimeImports(bundleOutputFile)
 
       if (existsSync(buddySkillsDir)) {
         const bundledSkillsTarget = path.resolve(

@@ -14,6 +14,7 @@
     "build:desktop-sidecar": "bun run build:single",
     "build:release-sidecar": "bun ./script/build-sidecar.ts",
     "build:release-sidecars": "bun ./script/build-sidecar.ts --all",
+    "smoke:compiled-sidecar": "bun ./script/smoke-compiled-sidecar.ts",
     "build:knowledge-graph": "bun ./script/update-knowledge-graph.ts",
     "update:knowledge-graph": "bun ./script/update-knowledge-graph.ts",
     "verify:knowledge-graph": "bun ./script/verify-knowledge-graph.ts",

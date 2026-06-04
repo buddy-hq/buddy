@@ -4,6 +4,7 @@ import {
   currentTargetTriple,
   readDesktopPackageVersion,
   updateDesktopPackageVersion,
+  windowsify,
 } from "./utils"
 
 const packageDir = path.resolve(import.meta.dir, "..")
@@ -22,6 +23,15 @@ try {
     BUDDY_SIDECAR_ARTIFACT_DIR: artifactDir,
     BUDDY_VERSION: version,
   })
+
+  await $`bun run --cwd ${backendDir} smoke:compiled-sidecar --binary ${path.resolve(
+    packageDir,
+    "resources",
+    windowsify("buddy-backend", target),
+  )} --entrypoint ${path.resolve(
+    packageDir,
+    "resources/backend/buddy-backend.js",
+  )} --migration-dir ${path.resolve(packageDir, "resources/migrations/buddy")}`
 
   await $`bun run build`.cwd(packageDir)
 

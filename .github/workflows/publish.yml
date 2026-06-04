@@ -182,6 +182,33 @@ jobs:
           name: buddy-sidecar-x86_64-pc-windows-msvc
           path: packages/buddy/dist/release-sidecars
 
+  smoke-compiled-sidecar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - run: bun install
+
+      - run: bun run --cwd packages/buddy build:release-sidecar --target x86_64-unknown-linux-gnu
+
+      - run: >
+          bun run --cwd packages/buddy smoke:compiled-sidecar
+          --target x86_64-unknown-linux-gnu
+          --entrypoint dist/release-sidecars/buddy-backend-linux-x64/app/index.js
+
   build-electron-macos-arm64:
     needs:
       - version
@@ -476,6 +503,7 @@ jobs:
   upload-electron-release:
     needs:
       - version
+      - smoke-compiled-sidecar
       - build-electron-macos-arm64
       - build-electron-macos-x64
       - build-electron-windows-x64

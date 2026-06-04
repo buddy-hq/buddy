@@ -69,6 +69,8 @@ describe("whiteboard tool-input delta bridge", () => {
     expect(serverStartupIndex).toBeGreaterThan(bridgeInstallIndex)
     expect(bridgeSource).toContain("patchSessionService(session)")
     expect(bridgeSource).toContain("patchLlmService(llm, session)")
+    expect(bridgeSource).toContain('await import("./app-runtime")')
+    expect(bridgeSource).not.toContain("OPENCODE_APP_RUNTIME_MODULE_ID")
   })
 
   test("translates the upstream normalized whiteboard delta into the pending nested raw field", () => {

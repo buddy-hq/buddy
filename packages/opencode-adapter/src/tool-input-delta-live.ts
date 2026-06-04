@@ -9,7 +9,6 @@ const WHITEBOARD_CREATE_VIEW_TOOL_ID = "whiteboard_create_view" as const
 const TOOL_INPUT_DELTA_EVENT_TYPE = "tool-input-delta" as const
 const TOOL_RAW_DELTA_FIELD = "state.raw" as const
 const OPENCODE_LLM_SERVICE_TAG = "@opencode/LLM" as const
-const OPENCODE_APP_RUNTIME_MODULE_ID: string = "opencode/effect/app-runtime"
 const MAX_PENDING_WHITEBOARD_TOOL_PARTS = 256
 
 type PartDelta = Parameters<OpenCodeSession.Interface["updatePartDelta"]>[0]
@@ -50,9 +49,9 @@ function isToolInputDeltaEvent(event: unknown): event is ToolInputDeltaEvent {
 }
 
 async function runOpenCodeAppEffect<E, R>(effect: Effect.Effect<void, E, R>): Promise<void> {
-  // Loading by a non-literal keeps this adapter boundary from typechecking the
-  // vendored LLM implementation while still validating the runtime contract.
-  const appRuntimeModule: unknown = await import(OPENCODE_APP_RUNTIME_MODULE_ID)
+  // Keep this as a literal local import so Bun bundles the vendored runtime into
+  // compiled sidecars. Non-literal package imports are left unresolved at runtime.
+  const appRuntimeModule: unknown = await import("./app-runtime")
   if (!isRecord(appRuntimeModule) || !isRecord(appRuntimeModule.AppRuntime)) {
     throw new Error("OpenCode AppRuntime module is missing")
   }
