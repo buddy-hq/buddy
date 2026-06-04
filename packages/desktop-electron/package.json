@@ -25,6 +25,8 @@
     "prepare:release": "bun ./scripts/prepare.ts",
     "copy:bundles": "bun ./scripts/copy-bundles.ts",
     "build:installable": "bun ./scripts/local-release.ts",
+    "finalize:recovery-policy": "bun ./scripts/finalize-recovery-policy.ts",
+    "smoke:recovery-policy": "bun ./scripts/smoke-recovery-policy.ts",
     "serve:update:mac-local": "bun ./scripts/serve-local-mac-update.ts",
     "verify:update-signing": "bun ./scripts/verify-update-signing.ts"
   },

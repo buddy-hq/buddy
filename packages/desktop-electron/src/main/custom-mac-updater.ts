@@ -2,13 +2,17 @@ import { createHash } from "node:crypto"
 import { access, mkdir, readFile, writeFile } from "node:fs/promises"
 import { join, resolve } from "node:path"
 import { spawn } from "node:child_process"
-import { verifySignedMessage } from "./minisign"
+import {
+  BUDDY_MINISIGN_PUBLIC_KEY,
+  BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY,
+  fetchSignedText,
+  isAbsoluteUrl,
+  resolveLatestReleaseAssetUrl,
+  resolveReleaseAssetUrl as resolveSharedReleaseAssetUrl,
+} from "./update-common"
 
-const RELEASE_REPOSITORY = "prashantbhudwal/buddy"
-const RELEASE_METADATA_URL = `https://github.com/${RELEASE_REPOSITORY}/releases/latest/download/latest-mac.json`
+const RELEASE_METADATA_URL = resolveLatestReleaseAssetUrl("latest-mac.json")
 const BUDDY_UPDATE_METADATA_URL_ENV_KEY = "BUDDY_UPDATE_METADATA_URL"
-const BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY = "BUDDY_UPDATE_PUBLIC_KEY"
-const BUDDY_MINISIGN_PUBLIC_KEY = "RWTcBSYzKsK7Gf1M2w9kTDB2fvSRlsZejPWt+AaMGvGiNk3mxAW+Wh3f"
 const MAC_ARCHIVE_NAMES: Record<string, string> = {
   arm64: "buddy-electron-mac-arm64.zip",
   x64: "buddy-electron-mac-x64.zip",
@@ -41,6 +45,7 @@ type PendingMacUpdate = {
 }
 
 type MacUpdaterResult = {
+  blocked?: boolean
   updateAvailable: boolean
   version?: string
   failed?: boolean
@@ -59,6 +64,7 @@ type CreateCustomMacUpdaterOptions = {
   logger: LoggerLike
   killSidecar: () => void
   quit: () => void
+  isVersionBlocked?: (version: string) => boolean
   metadataUrl?: string
   publicKey?: string
 }
@@ -73,6 +79,10 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
       }
 
       if (pendingUpdate) {
+        if (options.isVersionBlocked?.(pendingUpdate.version)) {
+          return { blocked: true, updateAvailable: false }
+        }
+
         return {
           updateAvailable: true,
           version: pendingUpdate.version,
@@ -80,31 +90,48 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
       }
 
       try {
-        const metadata = await fetchLatestManifest(options)
-        if (!isUpdateAvailable(metadata.version, options.currentVersion)) {
-          return { updateAvailable: false }
-        }
+        return await checkManifestForUpdate({
+          metadataUrl: options.metadataUrl ?? RELEASE_METADATA_URL,
+          options,
+          pendingUpdate,
+          setPendingUpdate: (update) => {
+            pendingUpdate = update
+          },
+        })
+      } catch (error) {
+        options.logger.error("custom mac update check failed", error)
+        return { updateAvailable: false, failed: true }
+      }
+    },
+    async checkForVersion(version: string): Promise<MacUpdaterResult> {
+      if (!options.packaged) {
+        return { updateAvailable: false }
+      }
 
-        const entry = resolveArchiveEntry(metadata.files)
-        if (!entry) {
-          options.logger.warn(
-            "custom mac updater could not find a matching archive in latest-mac.json",
-          )
-          return { updateAvailable: false, failed: true }
-        }
-
-        const archivePath = await ensureArchiveDownloaded(entry, metadata.version, options)
-        pendingUpdate = {
-          version: metadata.version,
-          archivePath,
+      if (pendingUpdate?.version === version) {
+        if (options.isVersionBlocked?.(pendingUpdate.version)) {
+          return { blocked: true, updateAvailable: false }
         }
 
         return {
           updateAvailable: true,
-          version: metadata.version,
+          version: pendingUpdate.version,
         }
+      }
+
+      try {
+        return await checkManifestForUpdate({
+          expectedVersion: version,
+          metadataUrl:
+            options.metadataUrl ?? resolveSharedReleaseAssetUrl(version, "latest-mac.json"),
+          options,
+          pendingUpdate,
+          setPendingUpdate: (update) => {
+            pendingUpdate = update
+          },
+        })
       } catch (error) {
-        options.logger.error("custom mac update check failed", error)
+        options.logger.error("custom mac recovery update check failed", error)
         return { updateAvailable: false, failed: true }
       }
     },
@@ -144,50 +171,63 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
   }
 }
 
-async function fetchLatestManifest(options: CreateCustomMacUpdaterOptions) {
-  const metadataUrl = options.metadataUrl ?? RELEASE_METADATA_URL
-  const [manifestResponse, signatureResponse] = await Promise.all([
-    fetch(metadataUrl, {
-      headers: {
-        Accept: "application/json, text/plain;q=0.9, */*;q=0.1",
-        "Cache-Control": "no-cache",
-      },
-    }),
-    fetch(`${metadataUrl}.sig`, {
-      headers: {
-        Accept: "text/plain, application/octet-stream;q=0.9, */*;q=0.1",
-        "Cache-Control": "no-cache",
-      },
-    }),
-  ])
-
-  if (!manifestResponse.ok) {
+async function checkManifestForUpdate(input: {
+  expectedVersion?: string
+  metadataUrl: string
+  options: CreateCustomMacUpdaterOptions
+  pendingUpdate: PendingMacUpdate | null
+  setPendingUpdate: (update: PendingMacUpdate) => void
+}): Promise<MacUpdaterResult> {
+  const metadata = await fetchLatestManifest(input.metadataUrl, input.options)
+  if (input.expectedVersion && metadata.version !== input.expectedVersion) {
     throw new Error(
-      `Failed to fetch latest-mac.json: ${manifestResponse.status} ${manifestResponse.statusText}`,
+      `Recovery manifest version mismatch: expected ${input.expectedVersion}, got ${metadata.version}`,
     )
   }
 
-  if (!signatureResponse.ok) {
-    throw new Error(
-      `Failed to fetch latest-mac.json.sig: ${signatureResponse.status} ${signatureResponse.statusText}`,
-    )
+  if (!isUpdateAvailable(metadata.version, input.options.currentVersion)) {
+    return { updateAvailable: false }
   }
 
-  const [manifestText, signatureOuterText] = await Promise.all([
-    manifestResponse.text(),
-    signatureResponse.text(),
-  ])
+  if (input.options.isVersionBlocked?.(metadata.version)) {
+    input.options.logger.warn("custom mac updater suppressed blocked update", {
+      version: metadata.version,
+    })
+    return { updateAvailable: false, blocked: true }
+  }
 
-  const verified = await verifySignedMessage({
-    message: Buffer.from(manifestText, "utf8"),
-    publicKey: options.publicKey ?? BUDDY_MINISIGN_PUBLIC_KEY,
-    signatureFileText: decodeTauriSignatureOuterText(signatureOuterText),
+  if (input.pendingUpdate?.version === metadata.version) {
+    return {
+      updateAvailable: true,
+      version: input.pendingUpdate.version,
+    }
+  }
+
+  const entry = resolveArchiveEntry(metadata.files)
+  if (!entry) {
+    input.options.logger.warn("custom mac updater could not find a matching archive", {
+      metadataUrl: input.metadataUrl,
+    })
+    return { updateAvailable: false, failed: true }
+  }
+
+  const archivePath = await ensureArchiveDownloaded(entry, metadata.version, input.options)
+  input.setPendingUpdate({
+    version: metadata.version,
+    archivePath,
   })
 
-  if (!verified) {
-    throw new Error("Signed update manifest verification failed")
+  return {
+    updateAvailable: true,
+    version: metadata.version,
   }
+}
 
+async function fetchLatestManifest(metadataUrl: string, options: CreateCustomMacUpdaterOptions) {
+  const manifestText = await fetchSignedText({
+    publicKey: options.publicKey ?? BUDDY_MINISIGN_PUBLIC_KEY,
+    url: metadataUrl,
+  })
   return parseLatestManifest(manifestText)
 }
 
@@ -220,10 +260,6 @@ function isFileEntry(value: unknown): value is FileEntry {
   return typeof url === "string" && typeof sha512 === "string" && typeof size === "number"
 }
 
-function decodeTauriSignatureOuterText(signatureOuterText: string) {
-  return Buffer.from(signatureOuterText.trim(), "base64").toString("utf8")
-}
-
 function resolveArchiveEntry(files: FileEntry[]) {
   const expectedName = MAC_ARCHIVE_NAMES[process.arch]
   if (!expectedName) {
@@ -247,7 +283,7 @@ async function ensureArchiveDownloaded(
     return archivePath
   }
 
-  const response = await fetch(resolveReleaseAssetUrl(entry.url, version))
+  const response = await fetch(resolveMacReleaseAssetUrl(entry.url, version))
   if (!response.ok) {
     throw new Error(`Failed to download update archive: ${response.status} ${response.statusText}`)
   }
@@ -275,16 +311,12 @@ async function isExistingArchiveValid(archivePath: string, expectedSha512: strin
   return digest === expectedSha512
 }
 
-function resolveReleaseAssetUrl(filename: string, version: string) {
+function resolveMacReleaseAssetUrl(filename: string, version: string) {
   if (isAbsoluteUrl(filename)) {
     return filename
   }
 
-  return `https://github.com/${RELEASE_REPOSITORY}/releases/download/v${version}/${filename}`
-}
-
-function isAbsoluteUrl(value: string) {
-  return value.startsWith("https://") || value.startsWith("http://")
+  return resolveSharedReleaseAssetUrl(version, filename)
 }
 
 function resolveArchiveName(value: string) {

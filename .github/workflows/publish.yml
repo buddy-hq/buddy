@@ -202,6 +202,8 @@ jobs:
 
       - run: bun install
 
+      - run: bun run --cwd packages/desktop-electron smoke:recovery-policy
+
       - run: bun run --cwd packages/buddy build:release-sidecar --target x86_64-unknown-linux-gnu
 
       - run: >
@@ -578,6 +580,19 @@ jobs:
         run: |
           set -euo pipefail
           bun ./packages/desktop-electron/scripts/finalize-latest-mac-json.ts
+
+      - name: Finalize and upload recovery policy
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ needs.version.outputs.repo }}
+          BUDDY_VERSION: ${{ needs.version.outputs.version }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          bun ./packages/desktop-electron/scripts/finalize-recovery-policy.ts
 
   build-advanced-math:
     needs:

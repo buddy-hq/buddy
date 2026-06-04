@@ -35,6 +35,14 @@ import {
 import { initLogging, safelyWriteToStandardStream } from "./logging"
 import { parseMarkdown } from "./markdown"
 import { createMenu } from "./menu"
+import {
+  blockUpdateVersion,
+  fetchRecoveryPolicy,
+  findRecoveryTarget,
+  isUpdateVersionBlocked,
+  validateRecoveryTarget,
+  type RecoveryTarget,
+} from "./recovery-policy"
 import { configureSidecarRequestAuth, registerSidecarRequestAuth } from "./sidecar-auth"
 import {
   getDefaultServerUrl,
@@ -43,6 +51,11 @@ import {
   setWslConfig,
   spawnLocalServer,
 } from "./server"
+import {
+  RELEASE_REPOSITORY_NAME,
+  RELEASE_REPOSITORY_OWNER,
+  resolveReleaseDownloadBaseUrl,
+} from "./update-common"
 import { createLoadingWindow, createMainWindow, setBackgroundColor, setDockIcon } from "./windows"
 
 const { autoUpdater } = electronUpdaterPackage
@@ -61,6 +74,7 @@ const SECONDARY_DIALOG_RESPONSE = 1
 const STARTUP_FAILURE_UPDATE_CHECK_BUTTONS = ["Check for Update", "Quit"] as const
 const STARTUP_FAILURE_UPDATE_INSTALL_BUTTONS = ["Install and Restart", "Quit"] as const
 const STARTUP_FAILURE_UPDATE_MISSING_BUTTONS = ["Open Download Page", "Quit"] as const
+const UPDATE_READY_RESTART_BUTTONS = ["Restart", "Later"] as const
 
 app.setName(resolveAppName(app.isPackaged))
 if (process.platform === "win32") {
@@ -78,9 +92,15 @@ let updateReady = false
 let readyUpdateVersion: string | undefined
 let updaterEnabled = UPDATER_ENABLED
 let customMacUpdater: ReturnType<typeof createCustomMacUpdater> | null = null
-let checkUpdateTask:
-  | Promise<{ updateAvailable: boolean; version?: string; failed?: boolean }>
-  | undefined
+let checkUpdateTask: Promise<UpdateCheckResult> | undefined
+
+type UpdateCheckResult = {
+  blocked?: boolean
+  failed?: boolean
+  recoveryTarget?: RecoveryTarget
+  updateAvailable: boolean
+  version?: string
+}
 
 const loadingComplete = defer<void>()
 const serverReady = defer<ServerReadyData>()
@@ -146,6 +166,7 @@ function setupApplication() {
         logger,
         killSidecar: () => killSidecar(),
         quit: () => app.quit(),
+        isVersionBlocked: (version) => isUpdateVersionBlocked(version),
         ...resolveCustomMacUpdaterOptions(),
       })
     }
@@ -324,9 +345,9 @@ async function offerStartupFailureUpdateRecovery(error: unknown): Promise<boolea
     return false
   }
 
-  const result = await checkUpdate()
+  const result = await checkStartupRecoveryUpdate()
   if (!result.updateAvailable) {
-    await showStartupFailureUpdateMissingDialog(result.failed)
+    await showStartupFailureUpdateMissingDialog(result.failed, result.blocked)
     return false
   }
 
@@ -334,7 +355,7 @@ async function offerStartupFailureUpdateRecovery(error: unknown): Promise<boolea
     type: "info",
     title: "Update Ready",
     message: `Buddy ${result.version ?? ""} is ready to install.`,
-    detail: "Install the update now to recover from this startup failure.",
+    detail: startupRecoveryInstallDetail(result.recoveryTarget),
     buttons: [...STARTUP_FAILURE_UPDATE_INSTALL_BUTTONS],
     defaultId: PRIMARY_DIALOG_RESPONSE,
     cancelId: SECONDARY_DIALOG_RESPONSE,
@@ -346,6 +367,52 @@ async function offerStartupFailureUpdateRecovery(error: unknown): Promise<boolea
 
   await installUpdate()
   return true
+}
+
+async function checkStartupRecoveryUpdate(): Promise<UpdateCheckResult> {
+  const policy = await fetchRecoveryPolicy({ logger })
+  const target = policy
+    ? findRecoveryTarget({
+        channel: CHANNEL,
+        currentVersion: app.getVersion(),
+        platform: process.platform,
+        policy,
+      })
+    : undefined
+
+  if (!target) {
+    return await checkUpdate()
+  }
+
+  const invalidReason = validateRecoveryTarget(target, app.getVersion())
+  if (invalidReason) {
+    logger.error("recovery policy target rejected", {
+      currentVersion: app.getVersion(),
+      invalidReason,
+      targetVersion: target.targetVersion,
+    })
+    return { failed: true, updateAvailable: false }
+  }
+
+  if (target.blockVersion) {
+    blockUpdateVersion(target.version)
+  }
+
+  const result = await checkUpdateForVersion(target.targetVersion)
+  return {
+    ...result,
+    recoveryTarget: result.updateAvailable ? target : undefined,
+  }
+}
+
+function startupRecoveryInstallDetail(target: RecoveryTarget | undefined): string {
+  if (!target) {
+    return "Install the update now to recover from this startup failure."
+  }
+
+  const action = target.mode === "downgrade" ? "rollback" : "recovery update"
+  const reason = target.reason ? `\n\nReason: ${target.reason}` : ""
+  return `Buddy will install the ${action} selected by the signed recovery policy.${reason}`
 }
 
 async function showStartupFailureDialog(error: unknown): Promise<void> {
@@ -361,11 +428,14 @@ async function showStartupFailureDialog(error: unknown): Promise<void> {
   }
 }
 
-async function showStartupFailureUpdateMissingDialog(failed: boolean | undefined): Promise<void> {
+async function showStartupFailureUpdateMissingDialog(
+  failed: boolean | undefined,
+  blocked: boolean | undefined,
+): Promise<void> {
   const response = await dialog.showMessageBox({
     type: failed ? "error" : "info",
     title: app.getName(),
-    message: failed ? "Update check failed." : "No updates available.",
+    message: startupFailureUpdateMissingMessage(failed, blocked),
     detail: "You can still download the latest Buddy release manually.",
     buttons: [...STARTUP_FAILURE_UPDATE_MISSING_BUTTONS],
     defaultId: PRIMARY_DIALOG_RESPONSE,
@@ -375,6 +445,15 @@ async function showStartupFailureUpdateMissingDialog(failed: boolean | undefined
   if (response.response === PRIMARY_DIALOG_RESPONSE) {
     await shell.openExternal(BUDDY_DOWNLOAD_URL)
   }
+}
+
+function startupFailureUpdateMissingMessage(
+  failed: boolean | undefined,
+  blocked: boolean | undefined,
+): string {
+  if (failed) return "Update check failed."
+  if (blocked) return "The available update is blocked by local recovery policy."
+  return "No updates available."
 }
 
 function startupFailureDetail(error: unknown) {
@@ -574,6 +653,7 @@ function setupAutoUpdater() {
   autoUpdater.allowDowngrade = true
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
+  configureDefaultElectronUpdaterProvider()
   return Promise.resolve(true)
 }
 
@@ -584,6 +664,10 @@ async function checkUpdate() {
   }
 
   if (updateReady && readyUpdateVersion) {
+    if (isUpdateVersionBlocked(readyUpdateVersion)) {
+      return { blocked: true, updateAvailable: false }
+    }
+
     return {
       updateAvailable: true,
       version: readyUpdateVersion,
@@ -596,10 +680,16 @@ async function checkUpdate() {
 
   checkUpdateTask = (async () => {
     try {
+      configureDefaultElectronUpdaterProvider()
       const result = await autoUpdater.checkForUpdates()
       const version = result?.updateInfo?.version
       if (result?.isUpdateAvailable === false || !version) {
         return { updateAvailable: false }
+      }
+
+      if (isUpdateVersionBlocked(version)) {
+        logger.warn("update check suppressed blocked version", { version })
+        return { blocked: true, updateAvailable: false }
       }
 
       await autoUpdater.downloadUpdate()
@@ -618,6 +708,62 @@ async function checkUpdate() {
   })()
 
   return await checkUpdateTask
+}
+
+async function checkUpdateForVersion(version: string): Promise<UpdateCheckResult> {
+  if (!updaterEnabled) return { updateAvailable: false }
+
+  if (isUpdateVersionBlocked(version)) {
+    logger.warn("recovery update target is blocked", { version })
+    return { blocked: true, updateAvailable: false }
+  }
+
+  if (process.platform === "darwin" && customMacUpdater) {
+    return await customMacUpdater.checkForVersion(version)
+  }
+
+  try {
+    autoUpdater.setFeedURL({
+      channel: "latest",
+      provider: "generic",
+      url: resolveReleaseDownloadBaseUrl(version),
+    })
+    const result = await autoUpdater.checkForUpdates()
+    const resolvedVersion = result?.updateInfo?.version
+    if (result?.isUpdateAvailable === false || !resolvedVersion) {
+      return { updateAvailable: false }
+    }
+
+    if (resolvedVersion !== version) {
+      logger.error("recovery update version mismatch", {
+        resolvedVersion,
+        targetVersion: version,
+      })
+      return { failed: true, updateAvailable: false }
+    }
+
+    await autoUpdater.downloadUpdate()
+    updateReady = true
+    readyUpdateVersion = resolvedVersion
+    return {
+      updateAvailable: true,
+      version: resolvedVersion,
+    }
+  } catch (error) {
+    logger.error("recovery update check failed", error)
+    return { failed: true, updateAvailable: false }
+  } finally {
+    configureDefaultElectronUpdaterProvider()
+  }
+}
+
+function configureDefaultElectronUpdaterProvider() {
+  autoUpdater.setFeedURL({
+    channel: "latest",
+    owner: RELEASE_REPOSITORY_OWNER,
+    provider: "github",
+    repo: RELEASE_REPOSITORY_NAME,
+  })
 }
 
 async function installUpdate() {
@@ -646,6 +792,16 @@ async function checkForUpdates(alertOnFail: boolean) {
       return
     }
 
+    if (result.blocked) {
+      if (!alertOnFail) return
+      await dialog.showMessageBox({
+        type: "info",
+        title: "Buddy",
+        message: "The available update is blocked by local recovery policy.",
+      })
+      return
+    }
+
     if (!alertOnFail) return
     await dialog.showMessageBox({
       type: "info",
@@ -659,12 +815,12 @@ async function checkForUpdates(alertOnFail: boolean) {
     type: "info",
     title: "Update Ready",
     message: `Buddy ${result.version ?? ""} downloaded. Restart now?`,
-    buttons: ["Restart", "Later"],
-    defaultId: 0,
-    cancelId: 1,
+    buttons: [...UPDATE_READY_RESTART_BUTTONS],
+    defaultId: PRIMARY_DIALOG_RESPONSE,
+    cancelId: SECONDARY_DIALOG_RESPONSE,
   })
 
-  if (response.response === 0) {
+  if (response.response === PRIMARY_DIALOG_RESPONSE) {
     await installUpdate()
   }
 }
