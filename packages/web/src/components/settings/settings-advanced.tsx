@@ -58,6 +58,9 @@ export function AdvancedSettings() {
   const generalSettings = useGeneralSettings({
     cleanupDirectories: openProjects,
   })
+  const showGeneralSettingsRetry = Boolean(
+    generalSettings.status.error && generalSettings.status.hasPendingChanges,
+  )
   const notebookHomeQuery = useQuery(notebookHomeQueryOptions())
   const notebookHome = notebookHomeQuery.data
   const globalConfigQuery = useQuery(globalConfigQueryOptions())
@@ -341,7 +344,27 @@ export function AdvancedSettings() {
           </SettingsListCard>
         </div>
 
-        <SettingsSection title="Behavior">
+        <SettingsSection
+          title="Behavior"
+          headerAction={
+            showGeneralSettingsRetry ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={generalSettings.status.loading || generalSettings.status.saving}
+                onClick={() => void generalSettings.actions.save()}
+              >
+                {language.t("settings.autosave.retry")}
+              </Button>
+            ) : undefined
+          }
+        >
+          {generalSettings.status.error ? (
+            <div className="px-4 py-3 text-xs text-icon-critical-base sm:px-5">
+              {generalSettings.status.error}
+            </div>
+          ) : null}
           <SettingsRow
             title={language.t("settings.general.fullTextTitle")}
             description="Allow Buddy to read an entire prepared resource into context when there is enough live context budget. Turn this off to avoid expensive full-book reads."

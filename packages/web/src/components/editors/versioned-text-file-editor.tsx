@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@buddy/ui"
-import { AlertTriangleIcon, PlusIcon } from "lucide-react"
+import { AlertTriangleIcon, PlusIcon, RefreshCwIcon } from "lucide-react"
 import type { editor as MonacoEditor } from "monaco-editor"
 import { language } from "@/context/language"
 
@@ -34,6 +34,34 @@ type VersionedTextFileEmptyState = {
   description: string
   createLabel: string
   defaultContent: string
+}
+
+type VersionedTextFileFlushOptions = {
+  retryFailedContent?: boolean
+}
+
+type VersionedTextFileFlushState = {
+  exists: boolean
+  saving: boolean
+  hasConflict: boolean
+  content: string
+  savedContent: string
+  failedSaveContent: string | undefined
+  retryFailedContent: boolean
+}
+
+type VersionedTextFileSaveRetryState = {
+  error: string | undefined
+  exists: boolean
+  content: string
+  savedContent: string
+  failedSaveContent: string | undefined
+}
+
+type VersionedTextFileContentAfterSaveState = {
+  existedBeforeSave: boolean
+  currentContent: string
+  requestedContent: string
 }
 
 type VersionedTextFileEditorProps = {
@@ -68,6 +96,37 @@ function stringifyError(error: unknown) {
   } catch {
     return String(error)
   }
+}
+
+export function shouldSkipVersionedTextFileFlush(input: VersionedTextFileFlushState): boolean {
+  if (!input.exists) return true
+  if (input.saving) return true
+  if (input.hasConflict) return true
+  if (input.content === input.savedContent) return true
+  return !input.retryFailedContent && input.content === input.failedSaveContent
+}
+
+export function shouldShowVersionedTextFileSaveRetry(
+  input: VersionedTextFileSaveRetryState,
+): boolean {
+  if (!input.error) return false
+  return (
+    input.failedSaveContent !== undefined ||
+    (input.exists && input.content !== input.savedContent)
+  )
+}
+
+export function resolveVersionedTextFileSaveRetryContent(input: {
+  content: string
+  failedSaveContent: string | undefined
+}): string {
+  return input.failedSaveContent ?? input.content
+}
+
+export function shouldUseSavedVersionedTextFileContent(
+  input: VersionedTextFileContentAfterSaveState,
+): boolean {
+  return !input.existedBeforeSave || input.currentContent === input.requestedContent
 }
 
 export const VersionedTextFileEditor = forwardRef<
@@ -105,6 +164,7 @@ export const VersionedTextFileEditor = forwardRef<
   const [error, setError] = useState<string | undefined>(undefined)
   const [conflictMessage, setConflictMessage] = useState<string | undefined>(undefined)
   const [showSaved, setShowSaved] = useState(false)
+  const [failedSaveContent, setFailedSaveContent] = useState<string | undefined>(undefined)
 
   const requestCounterRef = useRef(0)
   const didLoadOnceRef = useRef(false)
@@ -115,9 +175,15 @@ export const VersionedTextFileEditor = forwardRef<
   const conflictMessageRef = useRef(conflictMessage)
   const savingRef = useRef(saving)
   const versionRef = useRef(version)
+  const failedSaveContentRef = useRef<string | undefined>(undefined)
   const saveRef = useRef<
     (contentToSave: string, options?: { overwrite?: boolean }) => Promise<void>
   >(async () => undefined)
+
+  const rememberFailedSaveContent = useCallback((nextContent: string | undefined) => {
+    failedSaveContentRef.current = nextContent
+    setFailedSaveContent(nextContent)
+  }, [])
 
   useEffect(() => {
     contentRef.current = content
@@ -142,6 +208,15 @@ export const VersionedTextFileEditor = forwardRef<
   useEffect(() => {
     versionRef.current = version
   }, [version])
+
+  useEffect(() => {
+    if (
+      failedSaveContentRef.current !== undefined &&
+      content !== failedSaveContentRef.current
+    ) {
+      rememberFailedSaveContent(undefined)
+    }
+  }, [content, rememberFailedSaveContent])
 
   const refresh = useCallback(
     async (input?: { silent?: boolean }) => {
@@ -168,6 +243,7 @@ export const VersionedTextFileEditor = forwardRef<
         setShowSaved(false)
         setError(undefined)
         setConflictMessage(undefined)
+        rememberFailedSaveContent(undefined)
       } catch (readError) {
         if (requestID !== requestCounterRef.current) return
         setError(stringifyError(readError))
@@ -177,11 +253,12 @@ export const VersionedTextFileEditor = forwardRef<
         }
       }
     },
-    [load, reloadKey],
+    [load, reloadKey, rememberFailedSaveContent],
   )
 
   const saveDocument = useCallback(
     async (contentToSave: string, options?: { overwrite?: boolean }) => {
+      const existedBeforeSave = existsRef.current
       setSaving(true)
       setError(undefined)
 
@@ -190,38 +267,73 @@ export const VersionedTextFileEditor = forwardRef<
           content: contentToSave,
           expectedVersion: options?.overwrite ? undefined : versionRef.current,
         })
-        const hasNewerLocalContent = contentRef.current !== contentToSave
         setPath(saved.path)
         setExists(true)
         setVersion(saved.version)
-        if (!hasNewerLocalContent) {
+        if (
+          shouldUseSavedVersionedTextFileContent({
+            existedBeforeSave,
+            currentContent: contentRef.current,
+            requestedContent: contentToSave,
+          })
+        ) {
           setContent(saved.content)
         }
         setSavedContent(saved.content)
         setConflictMessage(undefined)
+        rememberFailedSaveContent(undefined)
         setShowSaved(true)
       } catch (saveError) {
         if (isVersionConflictError(saveError)) {
+          rememberFailedSaveContent(undefined)
           setConflictMessage(stringifyError(saveError))
           return
         }
+        rememberFailedSaveContent(contentToSave)
         setError(stringifyError(saveError))
       } finally {
         setSaving(false)
       }
     },
-    [isVersionConflictError, save],
+    [isVersionConflictError, rememberFailedSaveContent, save],
   )
 
   useEffect(() => {
     saveRef.current = saveDocument
   }, [saveDocument])
 
-  const flushPendingSave = useCallback(async () => {
-    if (!existsRef.current) return
+  const retrySave = useCallback(() => {
     if (savingRef.current) return
     if (conflictMessageRef.current) return
-    if (contentRef.current === savedContentRef.current) return
+    if (!existsRef.current && failedSaveContentRef.current === undefined) return
+    if (
+      existsRef.current &&
+      failedSaveContentRef.current === undefined &&
+      contentRef.current === savedContentRef.current
+    ) {
+      return
+    }
+    const contentToSave = resolveVersionedTextFileSaveRetryContent({
+      content: contentRef.current,
+      failedSaveContent: failedSaveContentRef.current,
+    })
+    void saveRef.current(contentToSave)
+  }, [])
+
+  const flushPendingSave = useCallback(async (options?: VersionedTextFileFlushOptions) => {
+    if (
+      shouldSkipVersionedTextFileFlush({
+        exists: existsRef.current,
+        saving: savingRef.current,
+        hasConflict: conflictMessageRef.current !== undefined,
+        content: contentRef.current,
+        savedContent: savedContentRef.current,
+        failedSaveContent: failedSaveContentRef.current,
+        retryFailedContent: options?.retryFailedContent ?? false,
+      })
+    ) {
+      return
+    }
 
     const contentToSave = contentRef.current
     const savedBeforeFlush = savedContentRef.current
@@ -235,7 +347,7 @@ export const VersionedTextFileEditor = forwardRef<
     () => ({
       flushPendingSave: async () => {
         const before = savedContentRef.current
-        await flushPendingSave()
+        await flushPendingSave({ retryFailedContent: true })
         return (
           !conflictMessageRef.current &&
           (!existsRef.current ||
@@ -280,6 +392,7 @@ export const VersionedTextFileEditor = forwardRef<
     if (!exists) return
     if (conflictMessage) return
     if (content === savedContent) return
+    if (content === failedSaveContentRef.current) return
     if (saving) return
 
     const timer = window.setTimeout(() => {
@@ -317,6 +430,14 @@ export const VersionedTextFileEditor = forwardRef<
             ? language.t("teaching.editor.unsaved")
             : language.t("teaching.editor.saved")
   const hasUnsaved = exists && !conflictMessage && content !== savedContent && !saving
+  const showSaveRetry = shouldShowVersionedTextFileSaveRetry({
+    error,
+    exists,
+    content,
+    savedContent,
+    failedSaveContent,
+  })
+  const saveRetryDisabled = loading || saving || Boolean(conflictMessage)
 
   function layoutEditor() {
     const editor = editorRef.current
@@ -399,17 +520,36 @@ export const VersionedTextFileEditor = forwardRef<
               <DialogDescription>{error}</DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setError(undefined)}>
+              <Button type="button" variant="outline" onClick={() => setError(undefined)}>
                 {language.t("markdownEditor.dismiss")}
               </Button>
+              {showSaveRetry ? (
+                <Button type="button" onClick={retrySave} disabled={saveRetryDisabled}>
+                  <RefreshCwIcon className="size-4" />
+                  {language.t("markdownEditor.retrySave")}
+                </Button>
+              ) : null}
             </DialogFooter>
           </DialogContent>
         </Dialog>
       ) : null}
 
       {error && errorPresentation === "inline" ? (
-        <div className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-3 py-2 text-sm text-icon-critical-base">
-          {error}
+        <div className="flex flex-col gap-2 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-3 py-2 text-sm text-icon-critical-base sm:flex-row sm:items-center sm:justify-between">
+          <p className="min-w-0 flex-1">{error}</p>
+          {showSaveRetry ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={saveRetryDisabled}
+              onClick={retrySave}
+              className="shrink-0 text-text-base"
+            >
+              <RefreshCwIcon className="size-3.5" />
+              {language.t("markdownEditor.retrySave")}
+            </Button>
+          ) : null}
         </div>
       ) : null}
 

@@ -74,17 +74,24 @@ export function SettingsSection(props: {
   )
 }
 
-export function GlobalDefaultsSection(props: { children: ReactNode; description?: string }) {
+export function GlobalDefaultsSection(props: {
+  children: ReactNode
+  description?: string
+  headerAction?: ReactNode
+}) {
   return (
     <div className="space-y-2.5">
-      <SettingsSectionHeader
-        title="Global defaults"
-        description={
-          props.description ??
-          "These defaults apply across Buddy unless a notebook customizes them."
-        }
-        badge="Global"
-      />
+      <div className="flex items-start justify-between gap-3">
+        <SettingsSectionHeader
+          title="Global defaults"
+          description={
+            props.description ??
+            "These defaults apply across Buddy unless a notebook customizes them."
+          }
+          badge="Global"
+        />
+        {props.headerAction ? <div className="shrink-0">{props.headerAction}</div> : null}
+      </div>
       {props.children}
     </div>
   )

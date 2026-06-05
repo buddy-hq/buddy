@@ -34,6 +34,9 @@ export function usePersonalizationSettingsAutosave(form: AnyFormApi) {
   const values = useStore(form.store, (state) => state.values)
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
   const lastSavedValuesRef = useRef<PersonalizationSettings | undefined>(undefined)
+  const inFlightSaveRef = useRef<Promise<boolean> | undefined>(undefined)
+  const queuedSaveRef = useRef(false)
+  const saveRef = useRef<() => Promise<boolean>>(async () => false)
 
   useEffect(() => {
     const bundle = settingsQuery.data
@@ -57,7 +60,7 @@ export function usePersonalizationSettingsAutosave(form: AnyFormApi) {
     form.reset(bundle.personalization)
   }, [form, settingsQuery.data, values])
 
-  const save = useCallback(async () => {
+  const performSave = useCallback(async () => {
     const bundle = queryClient.getQueryData<PersonalizationSettingsBundle>(
       personalizationSettingsQueryKeys.bundle(),
     )
@@ -95,6 +98,32 @@ export function usePersonalizationSettingsAutosave(form: AnyFormApi) {
       return false
     }
   }, [form, queryClient])
+
+  const save = useCallback(async () => {
+    if (inFlightSaveRef.current) {
+      queuedSaveRef.current = true
+      return false
+    }
+
+    const inFlightSave = (async () => {
+      try {
+        return await performSave()
+      } finally {
+        inFlightSaveRef.current = undefined
+        if (queuedSaveRef.current) {
+          queuedSaveRef.current = false
+          void saveRef.current()
+        }
+      }
+    })()
+
+    inFlightSaveRef.current = inFlightSave
+    return inFlightSave
+  }, [performSave])
+
+  useEffect(() => {
+    saveRef.current = save
+  }, [save])
 
   useEffect(() => {
     const bundle = settingsQuery.data

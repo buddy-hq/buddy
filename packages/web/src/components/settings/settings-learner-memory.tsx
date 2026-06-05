@@ -1,4 +1,4 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@buddy/ui"
+import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@buddy/ui"
 import { language } from "@/context/language"
 import { useGlobalLearnerMemorySettings } from "@/state/learner-memory-settings"
 import {
@@ -93,6 +93,7 @@ function modelOptionsWithCurrent(
 export function LearnerMemorySettings() {
   const settings = useGlobalLearnerMemorySettings()
   const globalControlsDisabled = settings.status.loading
+  const showRetry = Boolean(settings.status.error && settings.status.hasPendingChanges)
   const modelOptions: LearnerMemoryModelOption[] = settings.options.providers.flatMap((provider) =>
     provider.models.map((model) => ({
       value: `${provider.id}/${model.id}`,
@@ -103,7 +104,22 @@ export function LearnerMemorySettings() {
 
   return (
     <SettingsContent>
-      <GlobalDefaultsSection description="These controls apply to Buddy's learner memory system across every notebook. Notebook-specific overrides now live in notebook settings.">
+      <GlobalDefaultsSection
+        description="These controls apply to Buddy's learner memory system across every notebook. Notebook-specific overrides now live in notebook settings."
+        headerAction={
+          showRetry ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={settings.status.loading || settings.status.saving}
+              onClick={() => void settings.actions.save()}
+            >
+              {language.t("settings.autosave.retry")}
+            </Button>
+          ) : undefined
+        }
+      >
         <SettingsListCard>
           <SettingsRow
             title="Global learner memory"
@@ -156,6 +172,9 @@ export function LearnerMemorySettings() {
             }
           />
         </SettingsListCard>
+        {settings.status.error ? (
+          <p className="px-1 text-xs text-icon-critical-base">{settings.status.error}</p>
+        ) : null}
       </GlobalDefaultsSection>
 
       <GlobalDefaultsSection description="Model defaults are global because extraction and consolidation write to one machine-local memory store.">

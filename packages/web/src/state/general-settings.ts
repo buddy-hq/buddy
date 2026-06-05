@@ -12,6 +12,12 @@ import {
 import { generalSettingsQueryOptions, type GeneralSettingsBundle } from "./general-settings-query"
 import { readCompactionAuto, readToolToggle } from "./project-config-readers"
 import { directoryChatQueryKeys } from "@/lib/directory-chat/chat-config-query"
+import {
+  createAutosavePayloadKey,
+  retainFailedAutosaveKey,
+  shouldSkipFailedAutosave,
+  type AutosaveAttemptOptions,
+} from "./settings-autosave"
 
 type GeneralSettingsPatch = Record<string, unknown>
 type GeneralSettingsPatches = {
@@ -99,11 +105,14 @@ export function useGeneralSettings(input: { cleanupDirectories: string[] }) {
     saving: boolean
     cleanupDirectories: string[]
     patches?: GeneralSettingsPatches
+    patchKey?: string
+    failedPatchKey?: string
   }>({
     loading: true,
     saving: false,
     cleanupDirectories,
   })
+  const failedPatchKeyRef = useRef<string | undefined>(undefined)
   const bundle = settingsQuery.data
   const activeBundle = initialized === GLOBAL_KEY ? bundle : undefined
   const loading =
@@ -119,7 +128,7 @@ export function useGeneralSettings(input: { cleanupDirectories: string[] }) {
     store.getState().initializeFromBundle(GLOBAL_KEY, bundle)
   }, [bundle, store])
 
-  const save = useCallback(async () => {
+  const save = useCallback(async (options?: AutosaveAttemptOptions) => {
     if (!activeBundle) {
       return false
     }
@@ -131,7 +140,18 @@ export function useGeneralSettings(input: { cleanupDirectories: string[] }) {
     })
 
     if (!patches?.globalPatch) {
+      failedPatchKeyRef.current = undefined
       return true
+    }
+    const patchKey = createAutosavePayloadKey(patches.globalPatch)
+    if (
+      shouldSkipFailedAutosave({
+        key: patchKey,
+        failedKey: failedPatchKeyRef.current,
+        force: options?.force,
+      })
+    ) {
+      return false
     }
 
     store.getState().startSaving()
@@ -164,8 +184,10 @@ export function useGeneralSettings(input: { cleanupDirectories: string[] }) {
       store
         .getState()
         .finishSaving(cleanupFailures.length > 0 ? CLEANUP_FAILURE_MESSAGE : undefined)
+      failedPatchKeyRef.current = undefined
       return cleanupFailures.length === 0
     } catch (error) {
+      failedPatchKeyRef.current = patchKey
       store.getState().failSaving(stringifyError(error))
       return false
     }
@@ -180,7 +202,20 @@ export function useGeneralSettings(input: { cleanupDirectories: string[] }) {
       globalConfig: activeBundle.globalConfig,
       draft,
     })
+    const patchKey = createAutosavePayloadKey(patches?.globalPatch)
+    failedPatchKeyRef.current = retainFailedAutosaveKey({
+      key: patchKey,
+      failedKey: failedPatchKeyRef.current,
+    })
     if (!patches?.globalPatch) {
+      return
+    }
+    if (
+      shouldSkipFailedAutosave({
+        key: patchKey,
+        failedKey: failedPatchKeyRef.current,
+      })
+    ) {
       return
     }
 
@@ -204,13 +239,30 @@ export function useGeneralSettings(input: { cleanupDirectories: string[] }) {
             draft,
           })
         : undefined,
+      patchKey: activeBundle
+        ? createAutosavePayloadKey(
+            buildGeneralSettingsPatch({
+              globalConfig: activeBundle.globalConfig,
+              draft,
+            })?.globalPatch,
+          )
+        : undefined,
+      failedPatchKey: failedPatchKeyRef.current,
     }
   }, [activeBundle, cleanupDirectories, draft, loading, saving])
 
   useEffect(() => {
     return () => {
       const latest = latestPersistRef.current
-      if (latest.loading || latest.saving || !latest.patches?.globalPatch) {
+      if (
+        latest.loading ||
+        latest.saving ||
+        !latest.patches?.globalPatch ||
+        shouldSkipFailedAutosave({
+          key: latest.patchKey,
+          failedKey: latest.failedPatchKey,
+        })
+      ) {
         return
       }
 
@@ -228,6 +280,13 @@ export function useGeneralSettings(input: { cleanupDirectories: string[] }) {
       loading,
       saving,
       error,
+      hasPendingChanges: Boolean(
+        activeBundle &&
+          buildGeneralSettingsPatch({
+            globalConfig: activeBundle.globalConfig,
+            draft,
+          })?.globalPatch,
+      ),
     },
     selection: {
       fullTextReadingEnabled: draft.fullTextReadingEnabled,
@@ -240,7 +299,9 @@ export function useGeneralSettings(input: { cleanupDirectories: string[] }) {
       setAutoCompactionEnabled(autoCompactionEnabled: boolean) {
         store.getState().setAutoCompactionEnabled(autoCompactionEnabled)
       },
-      save,
+      save() {
+        return save({ force: true })
+      },
     },
   }
 }

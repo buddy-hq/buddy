@@ -5,6 +5,12 @@ import { patchGlobalConfig } from "./chat-actions"
 import { providerCatalogSnapshotQueryOptions } from "./bootstrap-query"
 import { globalConfigQueryOptions, setGlobalConfigQueryData } from "./global-config-query"
 import {
+  createAutosavePayloadKey,
+  retainFailedAutosaveKey,
+  shouldSkipFailedAutosave,
+  type AutosaveAttemptOptions,
+} from "./settings-autosave"
+import {
   readLearnerMemoryAutoExtract,
   readLearnerMemoryEnabled,
   readLearnerMemoryMasterEnabled,
@@ -20,6 +26,8 @@ type PersistSnapshot = {
   loading: boolean
   saving: boolean
   patch?: Record<string, unknown>
+  patchKey?: string
+  failedPatchKey?: string
 }
 
 export type LearnerMemoryGlobalNumberField = keyof Pick<
@@ -334,6 +342,8 @@ export function useGlobalLearnerMemorySettings() {
     () => buildGlobalLearnerMemoryPatch(globalConfig, draft),
     [draft, globalConfig],
   )
+  const patchKey = useMemo(() => createAutosavePayloadKey(patch), [patch])
+  const failedPatchKeyRef = useRef<string | undefined>(undefined)
   const latestPersistRef = useRef<PersistSnapshot>({
     loading: true,
     saving: false,
@@ -357,9 +367,19 @@ export function useGlobalLearnerMemorySettings() {
     setDraft(buildGlobalLearnerMemoryDraft(globalConfigQuery.data))
   }, [globalConfigQuery.data, initialized, patch, saving])
 
-  const save = useCallback(async () => {
+  const save = useCallback(async (options?: AutosaveAttemptOptions) => {
     if (!patch) {
+      failedPatchKeyRef.current = undefined
       return true
+    }
+    if (
+      shouldSkipFailedAutosave({
+        key: patchKey,
+        failedKey: failedPatchKeyRef.current,
+        force: options?.force,
+      })
+    ) {
+      return false
     }
 
     setSaving(true)
@@ -368,17 +388,34 @@ export function useGlobalLearnerMemorySettings() {
     try {
       const updatedGlobal = await patchGlobalConfig(patch)
       setGlobalConfigQueryData(queryClient, updatedGlobal)
+      failedPatchKeyRef.current = undefined
       setSaving(false)
       return true
     } catch (nextError) {
+      failedPatchKeyRef.current = patchKey
       setError(stringifyError(nextError))
       setSaving(false)
       return false
     }
-  }, [patch, queryClient])
+  }, [patch, patchKey, queryClient])
 
   useEffect(() => {
-    if (!initialized || !globalConfigQuery.data || saving || !patch) {
+    if (!initialized || !globalConfigQuery.data || saving) {
+      return
+    }
+    failedPatchKeyRef.current = retainFailedAutosaveKey({
+      key: patchKey,
+      failedKey: failedPatchKeyRef.current,
+    })
+    if (!patch) {
+      return
+    }
+    if (
+      shouldSkipFailedAutosave({
+        key: patchKey,
+        failedKey: failedPatchKeyRef.current,
+      })
+    ) {
       return
     }
 
@@ -389,20 +426,30 @@ export function useGlobalLearnerMemorySettings() {
     return () => {
       window.clearTimeout(timeout)
     }
-  }, [globalConfigQuery.data, initialized, patch, save, saving])
+  }, [globalConfigQuery.data, initialized, patch, patchKey, save, saving])
 
   useEffect(() => {
     latestPersistRef.current = {
       loading: globalConfigQuery.isPending,
       saving,
       patch,
+      patchKey,
+      failedPatchKey: failedPatchKeyRef.current,
     }
-  }, [globalConfigQuery.isPending, patch, saving])
+  }, [globalConfigQuery.isPending, patch, patchKey, saving])
 
   useEffect(() => {
     return () => {
       const latest = latestPersistRef.current
-      if (latest.loading || latest.saving || !latest.patch) {
+      if (
+        latest.loading ||
+        latest.saving ||
+        !latest.patch ||
+        shouldSkipFailedAutosave({
+          key: latest.patchKey,
+          failedKey: latest.failedPatchKey,
+        })
+      ) {
         return
       }
 
@@ -474,7 +521,9 @@ export function useGlobalLearnerMemorySettings() {
       refresh() {
         return globalConfigQuery.refetch()
       },
-      save,
+      save() {
+        return save({ force: true })
+      },
     },
   }
 }
