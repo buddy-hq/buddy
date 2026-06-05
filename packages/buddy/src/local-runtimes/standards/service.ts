@@ -2,7 +2,9 @@ import { createHash } from "node:crypto"
 import fs from "node:fs"
 import fsp from "node:fs/promises"
 import path from "node:path"
-import { zstdDecompressSync } from "node:zlib"
+import { Transform, type TransformCallback } from "node:stream"
+import { pipeline } from "node:stream/promises"
+import { createZstdDecompress } from "node:zlib"
 import z from "zod"
 import {
   parseKnowledgeGraphArtifactManifest,
@@ -15,11 +17,13 @@ import {
   KNOWLEDGE_GRAPH_DB_FILENAME,
   KNOWLEDGE_GRAPH_MANIFEST_FILENAME,
 } from "../../learning/features/standards/constants"
+import { fileLockIsActiveSync, withFileLock } from "../../storage/file-lock"
 import { Global } from "../../storage/global"
 
 const STANDARDS_DIR = path.join(Global.Path.data, "standards")
 const STANDARDS_CACHE_DIR = path.join(Global.Path.cache, "standards")
 const STANDARDS_STATE_FILE = path.join(Global.Path.state, "standards.json")
+const STANDARDS_OPERATION_LOCK_FILE = path.join(Global.Path.state, "standards.lock")
 const BACKEND_ROOT = path.resolve(import.meta.dir, "../../..")
 const DEFAULT_RELEASE_REPOSITORY = "prashantbhudwal/buddy"
 const IN_PROGRESS_STATES = new Set(["downloading", "installing", "repairing", "removing"])
@@ -34,6 +38,22 @@ const LEGACY_INSTALLED_VERSION_KEY = "installedVersion"
 const MANIFEST_CACHE_FILENAME = KNOWLEDGE_GRAPH_MANIFEST_FILENAME
 const CHECKSUM_CACHE_FILENAME = KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME
 const DATABASE_CACHE_FILENAME = KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME
+const INTERRUPTED_OPERATION_ERROR = "The previous standards runtime operation was interrupted."
+const MILLISECONDS_PER_SECOND = 1000
+const SECONDS_PER_MINUTE = 60
+const STANDARDS_OPERATION_LOCK_STALE_SECONDS = 30
+const STANDARDS_OPERATION_LOCK_TIMEOUT_MINUTES = 60
+const STANDARDS_OPERATION_LOCK_STALE_MS =
+  STANDARDS_OPERATION_LOCK_STALE_SECONDS * MILLISECONDS_PER_SECOND
+const STANDARDS_OPERATION_LOCK_TIMEOUT_MS =
+  STANDARDS_OPERATION_LOCK_TIMEOUT_MINUTES * SECONDS_PER_MINUTE * MILLISECONDS_PER_SECOND
+const STANDARDS_OPERATION_LOCK_OPTIONS = {
+  staleMs: STANDARDS_OPERATION_LOCK_STALE_MS,
+  timeoutMs: STANDARDS_OPERATION_LOCK_TIMEOUT_MS,
+}
+const BYTES_PER_KIB = 1024
+const KIB_PER_MIB = 1024
+const FILE_HASH_CHUNK_BYTES = BYTES_PER_KIB * KIB_PER_MIB
 
 const standardsRuntimeStateSchema = z.object({
   enabled: z.boolean().default(false),
@@ -113,6 +133,11 @@ function readRuntimeStateSync() {
 async function writeRuntimeState(state: z.infer<typeof standardsRuntimeStateSchema>) {
   await fsp.mkdir(path.dirname(STANDARDS_STATE_FILE), { recursive: true })
   await fsp.writeFile(STANDARDS_STATE_FILE, `${JSON.stringify(state, null, 2)}\n`, "utf8")
+}
+
+function writeRuntimeStateSync(state: z.infer<typeof standardsRuntimeStateSchema>) {
+  fs.mkdirSync(path.dirname(STANDARDS_STATE_FILE), { recursive: true })
+  fs.writeFileSync(STANDARDS_STATE_FILE, `${JSON.stringify(state, null, 2)}\n`, "utf8")
 }
 
 function releaseRepository() {
@@ -247,8 +272,54 @@ function logStandardsEvent(event: string, details?: Record<string, unknown>) {
   console.error(`[standards-runtime] ${event}${suffix}`)
 }
 
-function sha256(value: Uint8Array) {
-  return createHash("sha256").update(value).digest("hex")
+async function sha256File(filepath: string) {
+  const hash = createHash("sha256")
+  const file = await fsp.open(filepath, "r")
+  const buffer = Buffer.alloc(FILE_HASH_CHUNK_BYTES)
+
+  try {
+    while (true) {
+      const { bytesRead } = await file.read(buffer, 0, buffer.length, null)
+      if (bytesRead === 0) {
+        break
+      }
+      hash.update(buffer.subarray(0, bytesRead))
+    }
+  } finally {
+    await file.close()
+  }
+
+  return hash.digest("hex")
+}
+
+class ChecksumPassThrough extends Transform {
+  private readonly hash = createHash("sha256")
+
+  constructor(
+    private readonly expectedChecksum: string,
+    private readonly mismatchMessage: (actualChecksum: string) => string,
+  ) {
+    super()
+  }
+
+  override _transform(
+    chunk: Buffer,
+    _encoding: BufferEncoding,
+    callback: TransformCallback,
+  ): void {
+    this.hash.update(chunk)
+    callback(null, chunk)
+  }
+
+  override _flush(callback: TransformCallback): void {
+    const actualChecksum = this.hash.digest("hex")
+    if (actualChecksum !== this.expectedChecksum) {
+      callback(new Error(this.mismatchMessage(actualChecksum)))
+      return
+    }
+
+    callback()
+  }
 }
 
 function parseChecksum(input: string) {
@@ -385,6 +456,7 @@ async function installBundleFromRelease(
   reportProgress: (input: StandardsProgressUpdate) => Promise<unknown>,
 ) {
   await fsp.mkdir(STANDARDS_CACHE_DIR, { recursive: true })
+  const archiveCachePath = cacheDownloadPath(DATABASE_CACHE_FILENAME)
 
   const localSource = localDevelopmentAssetsExist()
   logStandardsEvent("install-start", {
@@ -403,13 +475,20 @@ async function installBundleFromRelease(
       : "Downloading standards bundle...",
   })
 
-  const bundleBytes = localSource
-    ? await fsp.readFile(localDevelopmentAssetPath(KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME))
-    : await downloadBytes(runtimeAssetUrl(KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME)).catch((error) => {
-        throw new Error(
-          `${errorMessage(error)}. If you are running Buddy from source, provide local standards assets first.`,
-        )
-      })
+  if (localSource) {
+    await fsp.copyFile(
+      localDevelopmentAssetPath(KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME),
+      archiveCachePath,
+    )
+  } else {
+    const archiveUrl = runtimeAssetUrl(KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME)
+    const bundleBytes = await downloadBytes(archiveUrl).catch((error) => {
+      throw new Error(
+        `${errorMessage(error)}. If you are running Buddy from source, provide local standards assets first.`,
+      )
+    })
+    await fsp.writeFile(archiveCachePath, bundleBytes)
+  }
 
   await reportProgress({
     state: localSource ? "installing" : "downloading",
@@ -459,25 +538,24 @@ async function installBundleFromRelease(
     )
   }
 
-  const actualChecksum = sha256(bundleBytes)
+  const archiveStats = await fsp.stat(archiveCachePath)
+  if (!archiveStats.isFile() || archiveStats.size !== manifest.archiveSizeBytes) {
+    throw new Error(
+      `Standards runtime archive size mismatch: expected ${manifest.archiveSizeBytes}, got ${archiveStats.size}`,
+    )
+  }
+
+  const actualChecksum = await sha256File(archiveCachePath)
   if (actualChecksum !== expectedChecksum) {
     throw new Error(
       `Standards runtime checksum mismatch for ${KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME}`,
     )
   }
 
-  const databaseBytes = zstdDecompressSync(bundleBytes)
-  const databaseChecksum = sha256(databaseBytes)
-  if (databaseChecksum !== manifest.databaseChecksum) {
-    throw new Error(
-      `Standards runtime database checksum mismatch: expected ${manifest.databaseChecksum}, got ${databaseChecksum}`,
-    )
-  }
-
   await reportProgress({
     state: "installing",
-    progressPercent: 80,
-    progressMessage: "Writing standards database...",
+    progressPercent: 70,
+    progressMessage: "Extracting standards database...",
   })
 
   const datasetInstallRoot = installRoot(manifest.version)
@@ -485,7 +563,6 @@ async function installBundleFromRelease(
   const datasetDatabasePath = path.join(tempInstallRoot, KNOWLEDGE_GRAPH_DB_FILENAME)
   const datasetManifestPath = path.join(tempInstallRoot, KNOWLEDGE_GRAPH_MANIFEST_FILENAME)
 
-  await fsp.writeFile(cacheDownloadPath(DATABASE_CACHE_FILENAME), bundleBytes)
   await fsp.writeFile(cacheDownloadPath(CHECKSUM_CACHE_FILENAME), checksumText, "utf8")
   await fsp.writeFile(
     cacheDownloadPath(MANIFEST_CACHE_FILENAME),
@@ -496,7 +573,23 @@ async function installBundleFromRelease(
   try {
     await fsp.rm(tempInstallRoot, { recursive: true, force: true })
     await fsp.mkdir(tempInstallRoot, { recursive: true })
-    await fsp.writeFile(datasetDatabasePath, databaseBytes)
+    await pipeline(
+      fs.createReadStream(archiveCachePath),
+      createZstdDecompress(),
+      new ChecksumPassThrough(
+        manifest.databaseChecksum,
+        (databaseChecksum) =>
+          `Standards runtime database checksum mismatch: expected ${manifest.databaseChecksum}, got ${databaseChecksum}`,
+      ),
+      fs.createWriteStream(datasetDatabasePath),
+    )
+
+    await reportProgress({
+      state: "installing",
+      progressPercent: 80,
+      progressMessage: "Writing standards database...",
+    })
+
     await fsp.writeFile(datasetManifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8")
     await fsp.rm(datasetInstallRoot, { recursive: true, force: true })
     await fsp.mkdir(path.dirname(datasetInstallRoot), { recursive: true })
@@ -512,16 +605,22 @@ async function installBundleFromRelease(
   }
 }
 
-let runtimeState = (() => {
+function readRuntimeStateFromDiskOrDefault() {
   try {
     return readRuntimeStateSync()
   } catch {
     return standardsRuntimeStateSchema.parse(runtimeStateDefaults())
   }
-})()
+}
+
+let runtimeState = readRuntimeStateFromDiskOrDefault()
 
 let runtimeOperation: Promise<StandardsRuntimeStatus> | undefined
 let lastFailedAutoUpdateSignature: string | undefined
+
+function reloadRuntimeStateFromDisk() {
+  runtimeState = readRuntimeStateFromDiskOrDefault()
+}
 
 async function setRuntimeState(next: z.infer<typeof standardsRuntimeStateSchema>) {
   runtimeState = standardsRuntimeStateSchema.parse(next)
@@ -532,22 +631,35 @@ async function setRuntimeState(next: z.infer<typeof standardsRuntimeStateSchema>
 }
 
 function currentStatus() {
-  const status = nextStatus(runtimeState)
-  if (runtimeOperation === undefined && IN_PROGRESS_STATES.has(status.state)) {
-    const interruptedStatus = {
-      ...status,
-      state: "error" as const,
-      lastError: status.lastError ?? "The previous standards runtime operation was interrupted.",
-      progressPercent: undefined,
-      progressMessage: undefined,
-      ready: false,
-    }
-    setKnowledgeGraphDatabaseEnv(undefined)
-    return interruptedStatus
-  }
+  normalizeInterruptedRuntimeStateSync()
 
+  const status = nextStatus(runtimeState)
   setKnowledgeGraphDatabaseEnv(status.ready ? status.databasePath : undefined)
   return status
+}
+
+function normalizeInterruptedRuntimeStateSync() {
+  if (
+    runtimeOperation !== undefined ||
+    !IN_PROGRESS_STATES.has(runtimeState.state) ||
+    fileLockIsActiveSync(STANDARDS_OPERATION_LOCK_FILE, STANDARDS_OPERATION_LOCK_OPTIONS)
+  ) {
+    return
+  }
+
+  runtimeState = standardsRuntimeStateSchema.parse({
+    ...runtimeState,
+    state: "error",
+    lastError: runtimeState.lastError ?? INTERRUPTED_OPERATION_ERROR,
+    progressPercent: undefined,
+    progressMessage: undefined,
+  })
+  writeRuntimeStateSync(runtimeState)
+  setKnowledgeGraphDatabaseEnv(undefined)
+}
+
+function interruptedRuntimeStateCanAutoRepair() {
+  return runtimeState.state === "error" && runtimeState.lastError === INTERRUPTED_OPERATION_ERROR
 }
 
 function shouldAutoRepair() {
@@ -555,7 +667,7 @@ function shouldAutoRepair() {
   if (!runtimeState.enabled) return false
   if (runtimeOperation !== undefined) return false
   if (IN_PROGRESS_STATES.has(runtimeState.state)) return false
-  if (runtimeState.state === "error") return false
+  if (runtimeState.state === "error" && !interruptedRuntimeStateCanAutoRepair()) return false
 
   const status = nextStatus(runtimeState)
   return !status.ready
@@ -607,8 +719,16 @@ async function withRuntimeOperation(task: () => Promise<StandardsRuntimeStatus>)
     return runtimeOperation
   }
 
-  runtimeOperation = task().finally(() => {
+  runtimeOperation = withFileLock(
+    STANDARDS_OPERATION_LOCK_FILE,
+    async () => {
+      reloadRuntimeStateFromDisk()
+      return task()
+    },
+    STANDARDS_OPERATION_LOCK_OPTIONS,
+  ).finally(() => {
     runtimeOperation = undefined
+    reloadRuntimeStateFromDisk()
   })
   return runtimeOperation
 }
@@ -697,6 +817,9 @@ async function installRuntime(input?: { preserveReadyOnFailure?: boolean }) {
 }
 
 function maybeStartAutomaticMaintenance() {
+  reloadRuntimeStateFromDisk()
+  normalizeInterruptedRuntimeStateSync()
+
   if (shouldAutoUpdate()) {
     void installRuntime({ preserveReadyOnFailure: true }).catch((error) => {
       logStandardsEvent("auto-update-failed", {
@@ -752,18 +875,23 @@ async function removeRuntime() {
 export const StandardsRuntimeService = {
   getStatus() {
     maybeStartAutomaticMaintenance()
+    reloadRuntimeStateFromDisk()
     return Promise.resolve(currentStatus())
   },
   getStatusSync() {
     maybeStartAutomaticMaintenance()
+    reloadRuntimeStateFromDisk()
     return currentStatus()
   },
   isReady() {
     maybeStartAutomaticMaintenance()
+    reloadRuntimeStateFromDisk()
     return currentStatus().ready
   },
   isOperationInProgress() {
-    return IN_PROGRESS_STATES.has(runtimeState.state)
+    reloadRuntimeStateFromDisk()
+    normalizeInterruptedRuntimeStateSync()
+    return runtimeOperation !== undefined || IN_PROGRESS_STATES.has(runtimeState.state)
   },
   async install() {
     return installRuntime()

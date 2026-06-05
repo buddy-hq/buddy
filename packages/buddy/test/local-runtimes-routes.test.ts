@@ -21,6 +21,7 @@ import { app } from "../src/index.ts"
 import { AdvancedMathRuntimeService } from "../src/local-runtimes/advanced-math/service"
 import { StandardsRuntimeService } from "../src/local-runtimes/standards/service"
 import { loadOpenCodeApp } from "../src/opencode-runtime"
+import { Global } from "../src/storage/global"
 import { syncOpenCodeProjectConfig } from "../src/config/runtime/opencode-sync"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
@@ -38,6 +39,9 @@ import { tmpdir } from "./helpers/tmpdir"
 const AUTO_UPDATE_POLL_ATTEMPTS = 50
 const AUTO_UPDATE_POLL_INTERVAL_MS = 20
 const INVALID_CHECKSUM = "0000000000000000000000000000000000000000000000000000000000000000"
+const STANDARDS_STATE_FILE = path.join(Global.Path.state, "standards.json")
+const STANDARDS_LOCK_FILE = path.join(Global.Path.state, "standards.lock")
+const MISSING_PROCESS_ID = 999_999_999
 
 afterEach(async () => {
   clearAllTeachingSessionState()
@@ -342,6 +346,83 @@ describe("local runtime routes", () => {
         installedArchiveChecksum: initialManifest.archiveChecksum,
       })
       expect(currentStatus.installedDatasetVersion).not.toBe(brokenManifest.version)
+    })
+  })
+
+  test("auto-repairs an interrupted standards install state", async () => {
+    await withLocalMockStandardsRuntimeAssets(async () => {
+      await fs.mkdir(path.dirname(STANDARDS_STATE_FILE), { recursive: true })
+      await fs.writeFile(
+        STANDARDS_STATE_FILE,
+        `${JSON.stringify(
+          {
+            enabled: true,
+            state: "installing",
+            progressPercent: 50,
+            progressMessage: "Interrupted install",
+          },
+          null,
+          2,
+        )}\n`,
+        "utf8",
+      )
+
+      let currentStatus = await StandardsRuntimeService.getStatus()
+      for (let attempt = 0; attempt < AUTO_UPDATE_POLL_ATTEMPTS; attempt += 1) {
+        await Bun.sleep(AUTO_UPDATE_POLL_INTERVAL_MS)
+        currentStatus = await StandardsRuntimeService.getStatus()
+        if (currentStatus.ready) {
+          break
+        }
+      }
+
+      expect(currentStatus).toMatchObject({
+        state: "ready",
+        ready: true,
+      })
+    })
+  })
+
+  test("auto-repairs an interrupted standards install state with a dead operation lock", async () => {
+    await withLocalMockStandardsRuntimeAssets(async () => {
+      await fs.mkdir(path.dirname(STANDARDS_STATE_FILE), { recursive: true })
+      await fs.writeFile(
+        STANDARDS_STATE_FILE,
+        `${JSON.stringify(
+          {
+            enabled: true,
+            state: "installing",
+            progressPercent: 50,
+            progressMessage: "Interrupted install",
+          },
+          null,
+          2,
+        )}\n`,
+        "utf8",
+      )
+      await fs.writeFile(
+        STANDARDS_LOCK_FILE,
+        `${JSON.stringify({
+          token: "dead-standards-operation",
+          pid: MISSING_PROCESS_ID,
+          createdAt: new Date().toISOString(),
+        })}\n`,
+        "utf8",
+      )
+
+      let currentStatus = await StandardsRuntimeService.getStatus()
+      for (let attempt = 0; attempt < AUTO_UPDATE_POLL_ATTEMPTS; attempt += 1) {
+        await Bun.sleep(AUTO_UPDATE_POLL_INTERVAL_MS)
+        currentStatus = await StandardsRuntimeService.getStatus()
+        if (currentStatus.ready) {
+          break
+        }
+      }
+
+      expect(currentStatus).toMatchObject({
+        state: "ready",
+        ready: true,
+      })
     })
   })
 

@@ -3,6 +3,7 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { zstdDecompressSync } from "node:zlib"
+import type { KnowledgeGraphArtifactManifest } from "./artifact"
 import {
   KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME,
   KNOWLEDGE_GRAPH_DB_ENV,
@@ -12,8 +13,27 @@ import {
   KNOWLEDGE_GRAPH_SOURCE_DB_FILENAME,
 } from "./constants"
 import { parseKnowledgeGraphArtifactManifest } from "./artifact"
+import { withFileLockSync } from "../../../storage/file-lock"
 
 const KNOWLEDGE_GRAPH_CACHE_DIRECTORY_NAME = "buddy-knowledge-graph"
+const BYTES_PER_KIB = 1024
+const KIB_PER_MIB = 1024
+const FILE_HASH_CHUNK_BYTES = BYTES_PER_KIB * KIB_PER_MIB
+const MATERIALIZED_VALIDATION_CACHE_KEY_SEPARATOR = "\0"
+
+type MaterializedDatabaseStats = {
+  dev: number
+  ino: number
+  size: number
+  mtimeMs: number
+  ctimeMs: number
+}
+
+type MaterializedDatabaseValidation = {
+  stats: MaterializedDatabaseStats
+}
+
+const materializedValidationCache = new Map<string, MaterializedDatabaseValidation>()
 
 function resolveConfiguredKnowledgeGraphPath() {
   const configured = process.env[KNOWLEDGE_GRAPH_DB_ENV]?.trim()
@@ -86,6 +106,80 @@ function sha256(value: Uint8Array) {
   return createHash("sha256").update(value).digest("hex")
 }
 
+function sha256FileSync(filepath: string) {
+  const hash = createHash("sha256")
+  const file = fs.openSync(filepath, "r")
+  const buffer = Buffer.alloc(FILE_HASH_CHUNK_BYTES)
+
+  try {
+    while (true) {
+      const bytesRead = fs.readSync(file, buffer, 0, buffer.length, null)
+      if (bytesRead === 0) {
+        break
+      }
+      hash.update(buffer.subarray(0, bytesRead))
+    }
+  } finally {
+    fs.closeSync(file)
+  }
+
+  return hash.digest("hex")
+}
+
+function materializedDatabaseStats(stats: fs.Stats): MaterializedDatabaseStats {
+  return {
+    dev: stats.dev,
+    ino: stats.ino,
+    size: stats.size,
+    mtimeMs: stats.mtimeMs,
+    ctimeMs: stats.ctimeMs,
+  }
+}
+
+function materializedDatabaseStatsMatch(
+  left: MaterializedDatabaseStats,
+  right: MaterializedDatabaseStats,
+) {
+  return (
+    left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.size === right.size &&
+    left.mtimeMs === right.mtimeMs &&
+    left.ctimeMs === right.ctimeMs
+  )
+}
+
+function materializedValidationCacheKey(
+  cachePath: string,
+  manifest: KnowledgeGraphArtifactManifest,
+) {
+  return [
+    cachePath,
+    manifest.version,
+    manifest.archiveChecksum,
+    manifest.databaseChecksum,
+    String(manifest.databaseSizeBytes),
+  ].join(MATERIALIZED_VALIDATION_CACHE_KEY_SEPARATOR)
+}
+
+function rememberMaterializedDatabaseValidation(
+  cachePath: string,
+  manifest: KnowledgeGraphArtifactManifest,
+) {
+  try {
+    const stats = fs.statSync(cachePath)
+    if (!stats.isFile() || stats.size !== manifest.databaseSizeBytes) {
+      return
+    }
+
+    materializedValidationCache.set(materializedValidationCacheKey(cachePath, manifest), {
+      stats: materializedDatabaseStats(stats),
+    })
+  } catch {
+    return
+  }
+}
+
 function readBundledArtifactManifest(resourceDir: string) {
   const manifestPath = path.join(resourceDir, KNOWLEDGE_GRAPH_MANIFEST_FILENAME)
   if (!fs.existsSync(manifestPath)) {
@@ -114,6 +208,41 @@ function cachePathForBundledArtifact(resourceDir: string) {
   )
 }
 
+function materializationLockPath(cachePath: string) {
+  return path.join(path.dirname(cachePath), `${path.basename(cachePath)}.lock`)
+}
+
+function materializedDatabaseIsValid(
+  cachePath: string,
+  manifest: KnowledgeGraphArtifactManifest,
+) {
+  const cacheKey = materializedValidationCacheKey(cachePath, manifest)
+  try {
+    const stats = fs.statSync(cachePath)
+    if (!stats.isFile() || stats.size !== manifest.databaseSizeBytes) {
+      materializedValidationCache.delete(cacheKey)
+      return false
+    }
+
+    const databaseStats = materializedDatabaseStats(stats)
+    const remembered = materializedValidationCache.get(cacheKey)
+    if (remembered && materializedDatabaseStatsMatch(remembered.stats, databaseStats)) {
+      return true
+    }
+
+    const valid = sha256FileSync(cachePath) === manifest.databaseChecksum
+    if (valid) {
+      materializedValidationCache.set(cacheKey, { stats: databaseStats })
+    } else {
+      materializedValidationCache.delete(cacheKey)
+    }
+    return valid
+  } catch {
+    materializedValidationCache.delete(cacheKey)
+    return false
+  }
+}
+
 export function materializeBundledKnowledgeGraphDatabase(resourceDir: string) {
   const manifest = readBundledArtifactManifest(resourceDir)
   if (!manifest) {
@@ -130,38 +259,52 @@ export function materializeBundledKnowledgeGraphDatabase(resourceDir: string) {
     return undefined
   }
 
-  if (fs.existsSync(cachePath)) {
+  if (materializedDatabaseIsValid(cachePath, manifest)) {
     return cachePath
   }
 
-  const archiveBytes = fs.readFileSync(archivePath)
-  const archiveChecksum = sha256(archiveBytes)
-  if (archiveChecksum !== manifest.archiveChecksum) {
-    throw new Error(
-      `Knowledge Graph archive checksum mismatch: expected ${manifest.archiveChecksum}, got ${archiveChecksum}`,
-    )
-  }
+  return withFileLockSync(materializationLockPath(cachePath), () => {
+    if (materializedDatabaseIsValid(cachePath, manifest)) {
+      return cachePath
+    }
 
-  const databaseBytes = zstdDecompressSync(archiveBytes)
-  const databaseChecksum = sha256(databaseBytes)
-  if (databaseChecksum !== manifest.databaseChecksum) {
-    throw new Error(
-      `Knowledge Graph database checksum mismatch: expected ${manifest.databaseChecksum}, got ${databaseChecksum}`,
-    )
-  }
+    const archiveStats = fs.statSync(archivePath)
+    if (!archiveStats.isFile() || archiveStats.size !== manifest.archiveSizeBytes) {
+      throw new Error(
+        `Knowledge Graph archive size mismatch: expected ${manifest.archiveSizeBytes}, got ${archiveStats.size}`,
+      )
+    }
 
-  fs.mkdirSync(path.dirname(cachePath), { recursive: true })
-  const tempPath = `${cachePath}.tmp-${process.pid}-${Date.now()}`
+    const archiveChecksum = sha256FileSync(archivePath)
+    if (archiveChecksum !== manifest.archiveChecksum) {
+      throw new Error(
+        `Knowledge Graph archive checksum mismatch: expected ${manifest.archiveChecksum}, got ${archiveChecksum}`,
+      )
+    }
 
-  try {
-    fs.writeFileSync(tempPath, databaseBytes)
-    fs.rmSync(cachePath, { force: true })
-    fs.renameSync(tempPath, cachePath)
-  } finally {
-    fs.rmSync(tempPath, { force: true })
-  }
+    const archiveBytes = fs.readFileSync(archivePath)
+    const databaseBytes = zstdDecompressSync(archiveBytes)
+    const databaseChecksum = sha256(databaseBytes)
+    if (databaseChecksum !== manifest.databaseChecksum) {
+      throw new Error(
+        `Knowledge Graph database checksum mismatch: expected ${manifest.databaseChecksum}, got ${databaseChecksum}`,
+      )
+    }
 
-  return cachePath
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true })
+    const tempPath = `${cachePath}.tmp-${process.pid}-${Date.now()}`
+
+    try {
+      fs.writeFileSync(tempPath, databaseBytes)
+      fs.rmSync(cachePath, { force: true })
+      fs.renameSync(tempPath, cachePath)
+      rememberMaterializedDatabaseValidation(cachePath, manifest)
+    } finally {
+      fs.rmSync(tempPath, { force: true })
+    }
+
+    return cachePath
+  })
 }
 
 export function resolveKnowledgeGraphDatabasePath() {
