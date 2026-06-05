@@ -367,6 +367,7 @@ export class KnowledgeGraphService {
   private readonly configuredDatabasePath: string | undefined
 
   private database: Database | undefined
+  private activeDatabasePath: string | undefined
 
   constructor(config: KnowledgeGraphServiceConfig = {}) {
     this.configuredDatabasePath = config.databasePath
@@ -377,11 +378,16 @@ export class KnowledgeGraphService {
   }
 
   private connection() {
-    if (!this.database) {
-      this.database = new Database(this.databasePath(), {
+    const databasePath = this.databasePath()
+    if (!this.database || this.activeDatabasePath !== databasePath) {
+      const nextDatabase = new Database(databasePath, {
         readonly: true,
         create: false,
       })
+      const previousDatabase = this.database
+      this.database = nextDatabase
+      this.activeDatabasePath = databasePath
+      previousDatabase?.close()
     }
 
     return this.database

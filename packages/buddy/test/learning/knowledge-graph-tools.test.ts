@@ -1,4 +1,5 @@
 import path from "node:path"
+import fs from "node:fs/promises"
 import { Database } from "bun:sqlite"
 import { describe, expect, test } from "bun:test"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
@@ -172,6 +173,13 @@ function createFixtureDatabase(databasePath: string) {
   database.close()
 }
 
+function createMarkerDatabase(databasePath: string, marker: string) {
+  const database = new Database(databasePath)
+  database.exec("create table marker (value text not null);")
+  database.query<never, [string]>("insert into marker (value) values (?)").run(marker)
+  database.close()
+}
+
 describe("knowledge graph tools", () => {
   test("queries the local standards database and preserves graph directionality", async () => {
     await using project = await tmpdir({ git: true })
@@ -237,6 +245,67 @@ describe("knowledge graph tools", () => {
         sql: "insert into standards (id) values ('blocked')",
       }),
     ).toThrow("must be read-only")
+  })
+
+  test("reopens the default database connection when the resolved database path changes", async () => {
+    await using project = await tmpdir({ git: true })
+    const firstDatabasePath = path.join(project.path, "kg-first.db")
+    const secondDatabasePath = path.join(project.path, "kg-second.db")
+    createMarkerDatabase(firstDatabasePath, "first")
+    createMarkerDatabase(secondDatabasePath, "second")
+
+    const previous = process.env[KNOWLEDGE_GRAPH_DB_ENV]
+    const service = new KnowledgeGraphService()
+
+    try {
+      process.env[KNOWLEDGE_GRAPH_DB_ENV] = firstDatabasePath
+      expect(service.runSqlQuery({ sql: "select value from marker" }).rows).toEqual([
+        { value: "first" },
+      ])
+
+      process.env[KNOWLEDGE_GRAPH_DB_ENV] = secondDatabasePath
+      expect(service.runSqlQuery({ sql: "select value from marker" }).rows).toEqual([
+        { value: "second" },
+      ])
+    } finally {
+      if (previous === undefined) {
+        delete process.env[KNOWLEDGE_GRAPH_DB_ENV]
+      } else {
+        process.env[KNOWLEDGE_GRAPH_DB_ENV] = previous
+      }
+    }
+  })
+
+  test("keeps the active database connection when a replacement path cannot open", async () => {
+    await using project = await tmpdir({ git: true })
+    const databasePath = path.join(project.path, "kg-first.db")
+    const invalidDatabasePath = path.join(project.path, "kg-invalid")
+    createMarkerDatabase(databasePath, "first")
+    await fs.mkdir(invalidDatabasePath)
+
+    const previous = process.env[KNOWLEDGE_GRAPH_DB_ENV]
+    const service = new KnowledgeGraphService()
+
+    try {
+      process.env[KNOWLEDGE_GRAPH_DB_ENV] = databasePath
+      expect(service.runSqlQuery({ sql: "select value from marker" }).rows).toEqual([
+        { value: "first" },
+      ])
+
+      process.env[KNOWLEDGE_GRAPH_DB_ENV] = invalidDatabasePath
+      expect(() => service.runSqlQuery({ sql: "select value from marker" })).toThrow()
+
+      process.env[KNOWLEDGE_GRAPH_DB_ENV] = databasePath
+      expect(service.runSqlQuery({ sql: "select value from marker" }).rows).toEqual([
+        { value: "first" },
+      ])
+    } finally {
+      if (previous === undefined) {
+        delete process.env[KNOWLEDGE_GRAPH_DB_ENV]
+      } else {
+        process.env[KNOWLEDGE_GRAPH_DB_ENV] = previous
+      }
+    }
   })
 
   test("registers first-class knowledge graph tools in the runtime", async () => {
