@@ -43,6 +43,27 @@ describe("mermaid svg sanitize", () => {
     expect(result).toContain('<g class="node">')
   })
 
+  test("strips encoded unsafe svg links before mounting", () => {
+    const inputSvg = `
+<svg xmlns="http://www.w3.org/2000/svg">
+  <a href="javascript&#58;alert('xss')"><text>Unsafe</text></a>
+  <a xlink:href="java&#x09;script:alert('xss')"><text>Split unsafe</text></a>
+  <a href="data&#58;text/html,alert('xss')"><text>HTML data</text></a>
+</svg>`
+
+    const result = sanitizeMermaidSvg(inputSvg)
+
+    expect(result).toContain("Unsafe")
+    expect(result).toContain("Split unsafe")
+    expect(result).toContain("HTML data")
+    expect(result).not.toContain("javascript")
+    expect(result).not.toContain("java&#x09;script")
+    expect(result).not.toContain("data:text/html")
+    expect(result).not.toContain("data&#58;text/html")
+    expect(result).not.toContain("href=")
+    expect(result).not.toContain("xlink:href=")
+  })
+
   test("preserves Mermaid foreignObject labels while stripping unsafe nested content", () => {
     const inputSvg = `
 <svg xmlns="http://www.w3.org/2000/svg">
