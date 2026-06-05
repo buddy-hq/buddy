@@ -9,7 +9,11 @@ const WHITEBOARD_CREATE_VIEW_TOOL_ID = "whiteboard_create_view" as const
 const TOOL_INPUT_DELTA_EVENT_TYPE = "tool-input-delta" as const
 const TOOL_RAW_DELTA_FIELD = "state.raw" as const
 const OPENCODE_LLM_SERVICE_TAG = "@opencode/LLM" as const
-const MAX_PENDING_WHITEBOARD_TOOL_PARTS = 256
+const MAX_PENDING_WHITEBOARD_TOOL_PARTS_PER_SESSION = 256
+const MAX_PENDING_WHITEBOARD_TOOL_PART_SESSIONS = 64
+const MAX_PENDING_WHITEBOARD_TOOL_PARTS =
+  MAX_PENDING_WHITEBOARD_TOOL_PARTS_PER_SESSION * MAX_PENDING_WHITEBOARD_TOOL_PART_SESSIONS
+const PENDING_WHITEBOARD_TOOL_PART_KEY_SEPARATOR = "\u0000"
 
 type PartDelta = Parameters<OpenCodeSession.Interface["updatePartDelta"]>[0]
 type LlmService = {
@@ -21,12 +25,20 @@ type ToolInputDeltaEvent = {
   name: string
   text: string
 }
+type PendingWhiteboardToolPartKey = {
+  callID: string
+  sessionID: string
+}
 
 const sessionRuntime = makeRuntime(OpenCodeSession.Service, OpenCodeSession.defaultLayer)
 const llmService = Context.Service<LlmService>(OPENCODE_LLM_SERVICE_TAG)
 const patchedSessionServices = new WeakSet<OpenCodeSession.Interface>()
 const patchedLlmServices = new WeakSet<LlmService>()
-const pendingWhiteboardToolParts = new Map<string, Omit<PartDelta, "field" | "delta">>()
+const pendingWhiteboardToolParts = new Map<
+  string,
+  Map<string, Omit<PartDelta, "field" | "delta">>
+>()
+const pendingWhiteboardToolPartOrder = new Map<string, PendingWhiteboardToolPartKey>()
 
 let patchPromise: Promise<void> | undefined
 
@@ -68,34 +80,87 @@ async function runOpenCodeAppEffect<E, R>(effect: Effect.Effect<void, E, R>): Pr
   await result
 }
 
-function pendingToolKey(sessionID: string, callID: string): string {
-  return `${sessionID}:${callID}`
+function sessionPendingToolParts(sessionID: string): Map<
+  string,
+  Omit<PartDelta, "field" | "delta">
+> {
+  const existing = pendingWhiteboardToolParts.get(sessionID)
+  if (existing) return existing
+
+  const next = new Map<string, Omit<PartDelta, "field" | "delta">>()
+  pendingWhiteboardToolParts.set(sessionID, next)
+  return next
+}
+
+function pendingWhiteboardToolPartKey(input: PendingWhiteboardToolPartKey): string {
+  return `${input.sessionID}${PENDING_WHITEBOARD_TOOL_PART_KEY_SEPARATOR}${input.callID}`
+}
+
+function deletePendingWhiteboardToolPart(input: PendingWhiteboardToolPartKey): void {
+  const sessionParts = pendingWhiteboardToolParts.get(input.sessionID)
+  sessionParts?.delete(input.callID)
+  if (sessionParts?.size === 0) {
+    pendingWhiteboardToolParts.delete(input.sessionID)
+  }
+
+  pendingWhiteboardToolPartOrder.delete(pendingWhiteboardToolPartKey(input))
+}
+
+function trackPendingWhiteboardToolPartOrder(input: PendingWhiteboardToolPartKey): void {
+  const key = pendingWhiteboardToolPartKey(input)
+  pendingWhiteboardToolPartOrder.delete(key)
+  pendingWhiteboardToolPartOrder.set(key, input)
+}
+
+function evictOldestPendingWhiteboardToolPart(): void {
+  const oldest = pendingWhiteboardToolPartOrder.values().next().value
+  if (!oldest) return
+
+  deletePendingWhiteboardToolPart(oldest)
+}
+
+function prunePendingWhiteboardToolParts(): void {
+  while (pendingWhiteboardToolPartOrder.size > MAX_PENDING_WHITEBOARD_TOOL_PARTS) {
+    evictOldestPendingWhiteboardToolPart()
+  }
 }
 
 function trackPendingWhiteboardToolPart(part: OpenCodeMessageV2.MessageV2.Part): void {
   if (part.type !== "tool" || part.tool !== WHITEBOARD_CREATE_VIEW_TOOL_ID) return
 
-  const key = pendingToolKey(part.sessionID, part.callID)
+  const sessionParts = pendingWhiteboardToolParts.get(part.sessionID)
   if (part.state.status !== "pending") {
-    pendingWhiteboardToolParts.delete(key)
+    deletePendingWhiteboardToolPart({
+      callID: part.callID,
+      sessionID: part.sessionID,
+    })
     return
   }
 
+  const nextSessionParts = sessionParts ?? sessionPendingToolParts(part.sessionID)
   if (
-    !pendingWhiteboardToolParts.has(key) &&
-    pendingWhiteboardToolParts.size >= MAX_PENDING_WHITEBOARD_TOOL_PARTS
+    !nextSessionParts.has(part.callID) &&
+    nextSessionParts.size >= MAX_PENDING_WHITEBOARD_TOOL_PARTS_PER_SESSION
   ) {
-    const oldestKey = pendingWhiteboardToolParts.keys().next().value
-    if (oldestKey) {
-      pendingWhiteboardToolParts.delete(oldestKey)
+    const oldestCallID = nextSessionParts.keys().next().value
+    if (oldestCallID !== undefined) {
+      deletePendingWhiteboardToolPart({
+        callID: oldestCallID,
+        sessionID: part.sessionID,
+      })
     }
   }
 
-  pendingWhiteboardToolParts.set(key, {
+  nextSessionParts.set(part.callID, {
     sessionID: part.sessionID,
     messageID: part.messageID,
     partID: part.id,
   })
+  trackPendingWhiteboardToolPartOrder({
+    callID: part.callID,
+    sessionID: part.sessionID,
+  })
+  prunePendingWhiteboardToolParts()
 }
 
 function toPendingWhiteboardToolPartDelta(input: {
@@ -106,7 +171,7 @@ function toPendingWhiteboardToolPartDelta(input: {
     return undefined
   }
 
-  const part = pendingWhiteboardToolParts.get(pendingToolKey(input.sessionID, input.event.id))
+  const part = pendingWhiteboardToolParts.get(input.sessionID)?.get(input.event.id)
   if (!part) return undefined
 
   return {
@@ -187,10 +252,21 @@ async function ensureToolInputDeltaBridgePatched(): Promise<void> {
 
 function resetPendingWhiteboardToolPartsForTest(): void {
   pendingWhiteboardToolParts.clear()
+  pendingWhiteboardToolPartOrder.clear()
+}
+
+function pendingWhiteboardToolPartCountForTest(): number {
+  return pendingWhiteboardToolPartOrder.size
+}
+
+function maxPendingWhiteboardToolPartsForTest(): number {
+  return MAX_PENDING_WHITEBOARD_TOOL_PARTS
 }
 
 export {
   ensureToolInputDeltaBridgePatched,
+  maxPendingWhiteboardToolPartsForTest,
+  pendingWhiteboardToolPartCountForTest,
   resetPendingWhiteboardToolPartsForTest,
   toPendingWhiteboardToolPartDelta,
   trackPendingWhiteboardToolPart,
