@@ -31,33 +31,34 @@ describe("learner-store goal archiving", () => {
             scope: "topic",
             contextLabel: "Electron desktop bridge",
             learnerRequest: "First pass goals for the Electron desktop bridge.",
+            explicitlyRequestedSingleGoal: false,
             goals: [
               {
                 statement:
-                  "At the end of this topic, you will be able to implement a desktop bridge command that returns a typed result to the renderer.",
+                  "At the end of this topic, you will be able to implement a typed desktop bridge command.",
                 actionVerb: "implement",
-                task: "Implement a desktop bridge command that returns a typed result to the renderer.",
+                task: "Implement a typed desktop bridge command.",
                 cognitiveLevel: "Application",
                 howToTest:
-                  "Implement a bridge command, call it from the renderer, and verify both success and error cases work.",
+                  "Given one renderer call, return a typed result and verify it in a test.",
               },
               {
                 statement:
-                  "At the end of this topic, you will be able to debug a desktop bridge failure by inspecting logs and payloads.",
+                  "At the end of this topic, you will be able to debug a desktop bridge failure.",
                 actionVerb: "debug",
-                task: "Debug a desktop bridge failure by inspecting logs and payloads.",
+                task: "Debug a desktop bridge failure.",
                 cognitiveLevel: "Application",
                 howToTest:
-                  "Reproduce a failure and capture logs that prove where the message is failing.",
+                  "Given one failing bridge call, inspect logs to identify the failing handler.",
               },
               {
                 statement:
-                  "At the end of this topic, you will be able to write a small integration test that exercises a desktop bridge command end-to-end.",
+                  "At the end of this topic, you will be able to write a bridge regression test.",
                 actionVerb: "write",
-                task: "Write a small integration test that exercises a desktop bridge command end-to-end.",
+                task: "Write a bridge regression test.",
                 cognitiveLevel: "Application",
                 howToTest:
-                  "Write and run a test that executes a command and asserts on a structured response.",
+                  "Given one known bridge bug, write a failing test and verify the fix.",
               },
             ],
           },
@@ -69,33 +70,34 @@ describe("learner-store goal archiving", () => {
             scope: "topic",
             contextLabel: "Electron desktop bridge",
             learnerRequest: "Second pass goals for the Electron desktop bridge (revised).",
+            explicitlyRequestedSingleGoal: false,
             goals: [
               {
                 statement:
-                  "At the end of this topic, you will be able to implement a desktop bridge command that validates inputs and returns structured errors to the renderer.",
+                  "At the end of this topic, you will be able to implement bridge input validation.",
                 actionVerb: "implement",
-                task: "Implement a desktop bridge command that validates inputs and returns structured errors to the renderer.",
+                task: "Implement bridge input validation.",
                 cognitiveLevel: "Application",
                 howToTest:
-                  "Run a quick validation check that exercises both valid and invalid inputs and inspects the error structure.",
+                  "Given invalid input, return a structured error and verify the renderer response.",
               },
               {
                 statement:
-                  "At the end of this topic, you will be able to evaluate whether a bridge action belongs in the main process or the renderer based on the UI experience.",
+                  "At the end of this topic, you will be able to evaluate a bridge process boundary.",
                 actionVerb: "evaluate",
-                task: "Evaluate whether a bridge action belongs in the main process or the renderer based on the UI experience.",
+                task: "Evaluate a bridge process boundary.",
                 cognitiveLevel: "Evaluation",
                 howToTest:
-                  "Compare two implementations and justify the choice with a short write-up and observed behavior.",
+                  "Given two boundary options, choose one and justify the user-visible behavior.",
               },
               {
                 statement:
-                  "At the end of this topic, you will be able to justify a bridge boundary by describing which logic belongs in the main process vs the renderer.",
+                  "At the end of this topic, you will be able to justify a bridge boundary.",
                 actionVerb: "justify",
-                task: "Justify a bridge boundary by describing which logic belongs in the main process vs the renderer.",
+                task: "Justify a bridge boundary.",
                 cognitiveLevel: "Evaluation",
                 howToTest:
-                  "Explain one real feature split and defend the boundary choices against alternatives.",
+                  "Given one feature split, defend the boundary against one alternative.",
               },
             ],
           },

@@ -3,6 +3,7 @@ import z from "zod"
 import { createBuddyTool, type BuddyToolContext } from "../../../runtime/create-buddy-tool"
 import { replaceActiveGoalSet } from "../../memory/goals/storage"
 import { GoalCommitResultSchema, GoalSchema, GoalScopeSchema, createGoalToolResult } from "../types"
+import { createGoalLintReport } from "./lint-goal"
 
 const goalCommitTool = createBuddyTool({
   id: "goal_commit",
@@ -11,6 +12,7 @@ const goalCommitTool = createBuddyTool({
     scope: GoalScopeSchema,
     contextLabel: z.string().min(1),
     learnerRequest: z.string().min(1),
+    explicitlyRequestedSingleGoal: z.boolean(),
     goals: z.array(GoalSchema).min(1),
     rationaleSummary: z.string().optional(),
     assumptions: z.array(z.string()).optional(),
@@ -25,8 +27,18 @@ const goalCommitTool = createBuddyTool({
         scope: params.scope,
         contextLabel: params.contextLabel,
         goals: params.goals.length,
+        explicitlyRequestedSingleGoal: params.explicitlyRequestedSingleGoal,
       },
     })
+
+    const lintReport = createGoalLintReport({
+      scope: params.scope,
+      goals: params.goals,
+      explicitlyRequestedSingleGoal: params.explicitlyRequestedSingleGoal,
+    })
+    if (!lintReport.ok) {
+      throw new Error(`goal_commit requires a passing goal_lint report. ${lintReport.summary}`)
+    }
 
     const commit = await replaceActiveGoalSet({
       directory: ctx.directory,

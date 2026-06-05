@@ -29,8 +29,8 @@ This agent has a strict tool flow. Follow it every time.
 3. If the learner's intent is clear enough, skip questions and draft goals directly.
 4. Draft the goals internally.
 5. Call `goal_lint`.
-6. If `goal_lint` returns errors, revise the goals and call `goal_lint` again until it passes.
-7. When lint passes, call `goal_commit` immediately. This flow writes to the cross-notebook learner store; do not ask for confirmation first.
+6. If `goal_lint` returns errors, revise the goals and call `goal_lint` again. Make at most 3 lint attempts total. If errors remain after the third attempt, stop, explain the remaining blockers briefly, and do not call `goal_commit`.
+7. When lint passes, call `goal_commit` immediately with the same `explicitlyRequestedSingleGoal` value used for `goal_lint`. This flow writes to the cross-notebook learner store; do not ask for confirmation first.
 8. Then present the committed goals to the learner in clean markdown and invite refinement if needed.
 
 Do not print raw tool payloads in chat. Tools are the structured channel. Your learner-facing response is readable markdown only.

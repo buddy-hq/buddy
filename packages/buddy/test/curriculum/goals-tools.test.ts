@@ -32,33 +32,34 @@ describe("goal tools", () => {
             contextLabel: "Electron desktop bridge",
             learnerRequest:
               "I want to learn the Electron desktop bridge by shipping a small feature.",
+            explicitlyRequestedSingleGoal: false,
             goals: [
               {
                 statement:
-                  "At the end of this topic, you will be able to implement a desktop bridge command that validates inputs and returns structured errors.",
+                  "At the end of this topic, you will be able to implement a typed desktop bridge command.",
                 actionVerb: "implement",
-                task: "Implement a desktop bridge command that validates inputs and returns structured errors.",
+                task: "Implement a typed desktop bridge command.",
                 cognitiveLevel: "Application",
                 howToTest:
-                  "Ship a minimal desktop bridge command and run a quick validation check that exercises valid and invalid inputs.",
+                  "Given one renderer call, return a typed success result and verify it in a test.",
               },
               {
                 statement:
-                  "At the end of this topic, you will be able to trace a desktop bridge request from the React UI to the Electron handler using logs and breakpoints.",
-                actionVerb: "trace",
-                task: "Trace a desktop bridge request end-to-end from the UI call site to the Electron handler.",
+                  "At the end of this topic, you will be able to identify the handler for a desktop bridge request.",
+                actionVerb: "identify",
+                task: "Identify the handler for one desktop bridge request.",
                 cognitiveLevel: "Analysis",
                 howToTest:
-                  "Add logs and use a debugger to show the request path for one example bridge call.",
+                  "Given one renderer call, use logs to name the handler and payload.",
               },
               {
                 statement:
-                  "At the end of this topic, you will be able to write a focused regression test that proves a desktop bridge bug is fixed.",
+                  "At the end of this topic, you will be able to write a focused bridge regression test.",
                 actionVerb: "write",
-                task: "Write a focused regression test for a desktop bridge bugfix.",
+                task: "Write a focused bridge regression test.",
                 cognitiveLevel: "Application",
                 howToTest:
-                  "Create a failing test for a known issue, apply the fix, and verify the test passes.",
+                  "Given one known bridge bug, write a failing test and verify the fix.",
               },
             ],
             rationaleSummary:
@@ -78,5 +79,46 @@ describe("goal tools", () => {
       expect(goal.id).toMatch(/^goal_[0-9A-HJKMNP-TV-Z]{26}$/)
       expect(goal.status).toBe("active")
     }
+  })
+
+  test("goal_commit rejects goals with blocking lint errors", async () => {
+    await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
+
+    await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
+        const goalCommit = requireTool(tools, "goal_commit")
+
+        const ctx = createToolContext({
+          sessionID: "ses_goals_invalid",
+          messageID: "msg_goals_invalid",
+          agent: "goal-writer",
+        })
+
+        await expect(
+          goalCommit.execute(
+            {
+              scope: "topic",
+              contextLabel: "Electron desktop bridge",
+              learnerRequest: "I want one vague goal for the Electron desktop bridge.",
+              explicitlyRequestedSingleGoal: true,
+              goals: [
+                {
+                  statement:
+                    "At the end of this topic, you will be able to understand desktop bridges.",
+                  actionVerb: "understand",
+                  task: "Desktop bridges.",
+                  cognitiveLevel: "Comprehension",
+                  howToTest: "Know the topic.",
+                },
+              ],
+            },
+            ctx,
+          ),
+        ).rejects.toThrow("goal_commit requires a passing goal_lint report")
+      },
+    })
   })
 })
