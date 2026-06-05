@@ -377,6 +377,7 @@ export function WorkspaceFlashcardPanel(props: { directory: string }) {
   const queryClient = useQueryClient()
   const decksQuery = useQuery(workspaceFlashcardDecksQueryOptions(props.directory))
   const decks = decksQuery.data?.decks ?? []
+  const loadErrors = decksQuery.data?.loadErrors ?? []
   const loading = decksQuery.isPending
   const error = decksQuery.error ? stringifyError(decksQuery.error) : undefined
 
@@ -422,7 +423,7 @@ export function WorkspaceFlashcardPanel(props: { directory: string }) {
         </div>
       ) : null}
 
-      {!loading && decks.length === 0 ? (
+      {!loading && decks.length === 0 && loadErrors.length === 0 ? (
         <div className="flex w-full min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border-base/40 bg-surface-weak/5 px-4 py-10 text-center">
           <h3 className="text-[13px] font-medium text-text-base">
             {language.t("workspaceFlashcard.title")}
@@ -472,6 +473,15 @@ export function WorkspaceFlashcardPanel(props: { directory: string }) {
           {error}
         </p>
       ) : null}
+
+      {loadErrors.map((loadError) => (
+        <p
+          key={`${loadError.deckID}:${loadError.message}`}
+          className="mt-2 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base"
+        >
+          {loadError.message}
+        </p>
+      ))}
     </div>
   )
 }

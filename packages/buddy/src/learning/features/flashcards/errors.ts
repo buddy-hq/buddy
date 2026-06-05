@@ -14,6 +14,14 @@ class FlashcardValidationError extends Error {
   }
 }
 
+class FlashcardDeckLoadError extends Error {
+  constructor(deckID: string, cause: unknown) {
+    const causeMessage = cause instanceof Error ? cause.message : String(cause)
+    super(`Flashcard deck '${deckID}' could not be loaded: ${causeMessage}`)
+    this.name = "FlashcardDeckLoadError"
+  }
+}
+
 class FlashcardCardNotFoundError extends Error {
   constructor(cardID: string) {
     super(`Flashcard card '${cardID}' was not found.`)
@@ -31,6 +39,9 @@ function mapFlashcardRouteError(error: unknown): Response | undefined {
   if (error instanceof FlashcardValidationError) {
     return Response.json({ error: error.message }, { status: 400 })
   }
+  if (error instanceof FlashcardDeckLoadError) {
+    return Response.json({ error: error.message }, { status: 500 })
+  }
   if (error instanceof FlashcardCardNotFoundError) {
     return Response.json({ error: error.message }, { status: 404 })
   }
@@ -39,6 +50,7 @@ function mapFlashcardRouteError(error: unknown): Response | undefined {
 
 export {
   FlashcardCardNotFoundError,
+  FlashcardDeckLoadError,
   FlashcardDeckNotFoundError,
   FlashcardValidationError,
   mapFlashcardRouteError,

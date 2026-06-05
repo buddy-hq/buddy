@@ -11,7 +11,7 @@ import {
   type FlashcardDeck,
   type ReviewRecord,
 } from "../types"
-import { FlashcardDeckNotFoundError } from "../errors"
+import { FlashcardDeckLoadError, FlashcardDeckNotFoundError } from "../errors"
 
 type FlashcardDeckListItem = {
   deckID: string
@@ -24,6 +24,26 @@ type FlashcardDeckListItem = {
   createdAt: string
   createdBy: FlashcardDeck["createdBy"]
 }
+
+type FlashcardDeckListLoadError = {
+  deckID: string
+  message: string
+}
+
+type FlashcardDeckListResult = {
+  decks: FlashcardDeckListItem[]
+  loadErrors: FlashcardDeckListLoadError[]
+}
+
+type FlashcardDeckListEntryResult =
+  | {
+      deck: FlashcardDeckListItem
+      loadError?: never
+    }
+  | {
+      deck?: never
+      loadError: FlashcardDeckListLoadError
+    }
 
 type ReviewedTodayCounts = {
   newCount: number
@@ -63,8 +83,16 @@ async function readTodayReviewRecords(directory: string, deckID: string): Promis
 
   return content
     .split("\n")
-    .filter((line) => line.trim().length > 0)
-    .map((line) => ReviewRecordSchema.parse(JSON.parse(line)))
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .flatMap((line): ReviewRecord[] => {
+      try {
+        const parsedLine: unknown = JSON.parse(line)
+        return [ReviewRecordSchema.parse(parsedLine)]
+      } catch {
+        return []
+      }
+    })
 }
 
 async function readFlashcardReviewedTodayCounts(
@@ -91,23 +119,26 @@ async function readFlashcardDeck(directory: string, deckID: string): Promise<Fla
   return FlashcardDeckSchema.parse(JSON.parse(deckText))
 }
 
-async function listFlashcardDecks(directory: string): Promise<FlashcardDeckListItem[]> {
+async function listFlashcardDecks(directory: string): Promise<FlashcardDeckListResult> {
   let entries: Dirent[]
   try {
     entries = await fs.readdir(FlashcardPath.root(directory), { withFileTypes: true })
   } catch (error) {
     const maybe = error as { code?: string }
     if (maybe.code === "ENOENT") {
-      return []
+      return {
+        decks: [],
+        loadErrors: [],
+      }
     }
     throw error
   }
 
   const now = Date.now()
-  const decks = await Promise.all(
+  const results = await Promise.all(
     entries
       .filter((entry) => entry.isDirectory())
-      .map(async (entry) => {
+      .map(async (entry): Promise<FlashcardDeckListEntryResult> => {
         try {
           const deck = await readFlashcardDeck(directory, entry.name)
           const config = DeckConfigSchema.parse(deck.config)
@@ -115,35 +146,53 @@ async function listFlashcardDecks(directory: string): Promise<FlashcardDeckListI
             await readTodayReviewRecords(directory, deck.deckID),
           )
           return {
-            deckID: deck.deckID,
-            kind: deck.kind,
-            title: deck.title,
-            noteCount: deck.notes.length,
-            cardCount: deck.cards.length,
-            dueCounts: computeDueCounts(deck.cards, now),
-            reviewAvailable:
-              selectNextDueCard({
-                cards: deck.cards,
-                config,
-                now,
-                reviewedToday,
-              }) !== undefined,
-            createdAt: deck.createdAt,
-            createdBy: {
-              ...deck.createdBy,
+            deck: {
+              deckID: deck.deckID,
+              kind: deck.kind,
+              title: deck.title,
+              noteCount: deck.notes.length,
+              cardCount: deck.cards.length,
+              dueCounts: computeDueCounts(deck.cards, now),
+              reviewAvailable:
+                selectNextDueCard({
+                  cards: deck.cards,
+                  config,
+                  now,
+                  reviewedToday,
+                }) !== undefined,
+              createdAt: deck.createdAt,
+              createdBy: {
+                ...deck.createdBy,
+              },
             },
           }
-        } catch {
-          return undefined
+        } catch (error) {
+          return {
+            loadError: {
+              deckID: entry.name,
+              message: new FlashcardDeckLoadError(entry.name, error).message,
+            },
+          }
         }
       }),
   )
 
-  return decks
-    .filter((deck): deck is FlashcardDeckListItem => deck !== undefined)
-    .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt))
+  const decks: FlashcardDeckListItem[] = []
+  const loadErrors: FlashcardDeckListLoadError[] = []
+  for (const result of results) {
+    if (result.loadError) {
+      loadErrors.push(result.loadError)
+    } else {
+      decks.push(result.deck)
+    }
+  }
+
+  return {
+    decks: decks.toSorted((left, right) => right.createdAt.localeCompare(left.createdAt)),
+    loadErrors: loadErrors.toSorted((left, right) => left.deckID.localeCompare(right.deckID)),
+  }
 }
 
 export { listFlashcardDecks, readFlashcardDeck, readFlashcardReviewedTodayCounts, todayISO }
 
-export type { FlashcardDeckListItem }
+export type { FlashcardDeckListItem, FlashcardDeckListLoadError, FlashcardDeckListResult }

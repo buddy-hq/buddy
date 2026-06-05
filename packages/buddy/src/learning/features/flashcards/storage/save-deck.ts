@@ -1,5 +1,5 @@
-import fs from "node:fs/promises"
 import { ulid } from "ulid"
+import { writeTextFileAtomic } from "../../../../storage/atomic-file"
 import { FlashcardPath } from "./path"
 import { listClozeOrdinals } from "./scheduler"
 import {
@@ -95,10 +95,7 @@ async function writeFlashcardDeck(input: {
   deck: FlashcardDeck
 }): Promise<void> {
   const deckPath = FlashcardPath.deckFile(input.directory, input.deck.deckID)
-  await fs.mkdir(FlashcardPath.deckDirectory(input.directory, input.deck.deckID), {
-    recursive: true,
-  })
-  await fs.writeFile(deckPath, JSON.stringify(input.deck, null, 2), "utf8")
+  await writeTextFileAtomic(deckPath, JSON.stringify(input.deck, null, 2))
 }
 
 async function saveFlashcardDeck(input: {

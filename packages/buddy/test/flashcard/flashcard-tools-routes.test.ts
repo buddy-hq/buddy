@@ -1,10 +1,24 @@
 import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
+import path from "node:path"
+import { ulid } from "ulid"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src/index.ts"
 import { FlashcardPath } from "../../src/learning/features/flashcards/storage/path"
-import { SaveFlashcardDeckOutputSchema } from "../../src/learning/features/flashcards/types"
+import { todayISO } from "../../src/learning/features/flashcards/storage/read-deck"
+import { Global } from "../../src/storage/global"
+import {
+  buildFlashcardNotesAndCards,
+  saveFlashcardDeck,
+} from "../../src/learning/features/flashcards/storage/save-deck"
+import {
+  DECK_CONFIG_DEFAULTS,
+  DeckConfigSchema,
+  FLASHCARD_DECK_KIND,
+  SaveFlashcardDeckOutputSchema,
+} from "../../src/learning/features/flashcards/types"
+import type { FlashcardDeck } from "../../src/learning/features/flashcards/types"
 import type { SaveFlashcardDeckInput } from "../../src/learning/features/flashcards/tools/save-flashcard-deck"
 import { tmpdir } from "../helpers/tmpdir"
 import {
@@ -13,6 +27,8 @@ import {
   requireTool,
   TEST_TOOL_MODEL,
 } from "../helpers/tools"
+
+const OPEN_PROJECT_REGISTRY_FILE = path.join(Global.Path.state, "desktop-notebooks.json")
 
 function sampleFlashcardDeckInput(): SaveFlashcardDeckInput {
   return {
@@ -38,7 +54,60 @@ function sampleFlashcardDeckInput(): SaveFlashcardDeckInput {
   }
 }
 
+async function createStoredFlashcardDeck(directory: string): Promise<FlashcardDeck> {
+  const deckID = ulid()
+  const config = DeckConfigSchema.parse({
+    ...DECK_CONFIG_DEFAULTS,
+    learnSteps: [...DECK_CONFIG_DEFAULTS.learnSteps],
+    relearnSteps: [...DECK_CONFIG_DEFAULTS.relearnSteps],
+  })
+  const { notes, cards } = buildFlashcardNotesAndCards(
+    deckID,
+    sampleFlashcardDeckInput().notes,
+    DECK_CONFIG_DEFAULTS,
+  )
+
+  return saveFlashcardDeck({
+    directory,
+    deck: {
+      deckID,
+      kind: FLASHCARD_DECK_KIND,
+      title: "Cell Biology Basics",
+      config,
+      notes,
+      cards,
+      source: "Biology lecture notes",
+      createdAt: new Date().toISOString(),
+      createdBy: {
+        sessionID: "ses_storage_fixture",
+        messageID: "msg_storage_fixture",
+        callID: "call_storage_fixture",
+        subagent: "flashcard-author",
+      },
+    },
+  })
+}
+
 describe("flashcard tools and routes", () => {
+  test("continues to serve allowed directory routes when the open-project registry is corrupt", async () => {
+    await using project = await tmpdir({ git: true })
+    await fs.mkdir(path.dirname(OPEN_PROJECT_REGISTRY_FILE), { recursive: true })
+    await fs.writeFile(OPEN_PROJECT_REGISTRY_FILE, "{", "utf8")
+
+    try {
+      const response = await app.request(
+        `/api/flashcard-decks?directory=${encodeURIComponent(project.path)}`,
+      )
+
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toMatchObject({
+        decks: [],
+      })
+    } finally {
+      await fs.rm(OPEN_PROJECT_REGISTRY_FILE, { force: true })
+    }
+  })
+
   test("lists deck provenance for decks created by the flashcard author session", async () => {
     await using project = await tmpdir({ git: true })
     await ensureBuddyPluginTools(project.path)
@@ -146,6 +215,53 @@ describe("flashcard tools and routes", () => {
     expect(body.decks[0]?.deckID).toBe(saveOutput.deckID)
     expect(body.decks[0]?.dueCounts.new).toBeGreaterThan(0)
     expect(body.decks[0]?.reviewAvailable).toBe(false)
+  })
+
+  test("keeps valid decks visible while surfacing corrupt deck load errors", async () => {
+    await using project = await tmpdir({ git: true })
+    const deck = await createStoredFlashcardDeck(project.path)
+    const corruptDeckID = ulid()
+
+    await fs.mkdir(FlashcardPath.deckDirectory(project.path, corruptDeckID), {
+      recursive: true,
+    })
+    await fs.writeFile(FlashcardPath.deckFile(project.path, corruptDeckID), "{", "utf8")
+
+    const response = await app.request(
+      `/api/flashcard-decks?directory=${encodeURIComponent(project.path)}`,
+    )
+
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as {
+      decks: Array<{ deckID: string }>
+      loadErrors: Array<{ deckID: string; message: string }>
+    }
+    expect(body.decks.map((item) => item.deckID)).toEqual([deck.deckID])
+    expect(body.loadErrors).toHaveLength(1)
+    expect(body.loadErrors[0]?.deckID).toBe(corruptDeckID)
+    expect(body.loadErrors[0]?.message).toContain("could not be loaded")
+  })
+
+  test("ignores corrupt review log lines when selecting the next due card", async () => {
+    await using project = await tmpdir({ git: true })
+    const deck = await createStoredFlashcardDeck(project.path)
+
+    await fs.mkdir(FlashcardPath.reviewsDirectory(project.path, deck.deckID), {
+      recursive: true,
+    })
+    await fs.writeFile(
+      FlashcardPath.reviewFile(project.path, deck.deckID, todayISO()),
+      "{not-json}\n",
+      "utf8",
+    )
+
+    const response = await app.request(
+      `/api/flashcard-decks/${deck.deckID}/next-card?directory=${encodeURIComponent(project.path)}`,
+    )
+
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as { card: { cardID: string } | null }
+    expect(body.card?.cardID).toBeString()
   })
 
   test("rejects malformed cloze notes that contain no cloze markers", async () => {

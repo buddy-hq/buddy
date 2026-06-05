@@ -44,8 +44,14 @@ const flashcardDeckListItemSchema = z.object({
   }),
 })
 
+const flashcardDeckListLoadErrorSchema = z.object({
+  deckID: z.string(),
+  message: z.string(),
+})
+
 const flashcardDeckListResponseSchema = z.object({
   decks: z.array(flashcardDeckListItemSchema),
+  loadErrors: z.array(flashcardDeckListLoadErrorSchema),
 })
 
 const nextCardResponseSchema = z.object({
@@ -67,7 +73,7 @@ export const FlashcardDeckRoutes = new Hono()
             },
           },
         },
-        ...routeErrors(403),
+        ...routeErrors(403, 500),
       },
     }),
     validator("query", directoryQuerySchema),
@@ -75,8 +81,8 @@ export const FlashcardDeckRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const decks = await listFlashcardDecks(context.directory)
-            return Response.json({ decks })
+            const result = await listFlashcardDecks(context.directory)
+            return Response.json(result)
           },
           mapError: mapFlashcardRouteError,
         }),
