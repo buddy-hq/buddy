@@ -1,10 +1,12 @@
 import fs from "node:fs/promises"
-import path from "node:path"
 import { ulid } from "ulid"
+import { writeJsonFileAtomic, writeTextFileAtomic } from "../../../storage/atomic-file"
 import { rebuildLearnerMemoryIndex } from "./index-store"
 import {
+  parseLearnerMemoryRegistry,
   parseLearnerMemoryRegistryMarkdown,
   renderRegistryMarkdown,
+  type LearnerMemoryRegistryParseResult,
 } from "./memory-registry-markdown"
 import {
   CandidateMemoryPatchSchema,
@@ -50,14 +52,7 @@ async function ensureLearnerMemoryLayout(directory: string): Promise<void> {
 }
 
 async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
-  await fs.mkdir(path.dirname(filePath), { recursive: true })
-  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`
-  await fs.writeFile(
-    tempPath,
-    `${JSON.stringify(value, null, LEARNER_MEMORY_STORAGE_TUNING.jsonIndentSpaces)}\n`,
-    "utf8",
-  )
-  await fs.rename(tempPath, filePath)
+  await writeJsonFileAtomic(filePath, value, LEARNER_MEMORY_STORAGE_TUNING.jsonIndentSpaces)
 }
 
 async function readJsonFile(filePath: string): Promise<unknown> {
@@ -99,18 +94,35 @@ async function appendLearnerEvent(directory: string, event: LearnerEvent): Promi
     `${JSON.stringify(LearnerEventSchema.parse(event))}\n`,
     "utf8",
   )
-  await rebuildLearnerMemoryIndex(directory)
+  try {
+    await rebuildLearnerMemoryIndex(directory)
+  } catch (error) {
+    await fs.rm(LearnerMemoryPath.indexFile(directory), { force: true }).catch(() => undefined)
+    throw error
+  }
+}
+
+async function readWorkingMemoryRegistry(
+  directory: string,
+): Promise<LearnerMemoryRegistryParseResult> {
+  const markdown = await fs
+    .readFile(LearnerMemoryPath.workingMemoryFile(directory), "utf8")
+    .catch(() => "")
+  return parseLearnerMemoryRegistry(markdown)
 }
 
 async function writeLearnerMemory(directory: string, memory: LearnerMemory): Promise<void> {
   await ensureLearnerMemoryLayout(directory)
   const parsedMemory = LearnerMemorySchema.parse(memory)
-  const memories = await listLearnerMemories(directory)
-  const withoutExisting = memories.filter((candidate) => candidate.id !== parsedMemory.id)
-  await fs.writeFile(
+  const registry = await readWorkingMemoryRegistry(directory)
+  const withoutExisting = registry.memories.filter(
+    (candidate) => candidate.id !== parsedMemory.id,
+  )
+  await writeTextFileAtomic(
     LearnerMemoryPath.workingMemoryFile(directory),
-    renderRegistryMarkdown([...withoutExisting, parsedMemory]),
-    "utf8",
+    renderRegistryMarkdown([...withoutExisting, parsedMemory], {
+      invalidBlocks: registry.invalidBlocks,
+    }),
   )
   await rebuildLearnerMemoryIndex(directory)
 }
@@ -169,10 +181,7 @@ async function createLearnerMemory(input: {
 
 async function listLearnerMemories(directory: string): Promise<LearnerMemory[]> {
   await ensureLearnerMemoryLayout(directory)
-  const markdown = await fs
-    .readFile(LearnerMemoryPath.workingMemoryFile(directory), "utf8")
-    .catch(() => "")
-  return parseLearnerMemoryRegistryMarkdown(markdown)
+  return (await readWorkingMemoryRegistry(directory)).memories
 }
 
 async function listConsolidatedLearnerMemories(directory: string): Promise<LearnerMemory[]> {
@@ -502,10 +511,10 @@ async function deleteLearnerMemory(input: {
   const memories = (await listLearnerMemories(input.directory)).filter(
     (candidate) => candidate.id !== input.memoryId,
   )
-  await fs.writeFile(
+  const registry = await readWorkingMemoryRegistry(input.directory)
+  await writeTextFileAtomic(
     LearnerMemoryPath.workingMemoryFile(input.directory),
-    renderRegistryMarkdown(memories),
-    "utf8",
+    renderRegistryMarkdown(memories, { invalidBlocks: registry.invalidBlocks }),
   )
   await rebuildLearnerMemoryIndex(input.directory)
   await appendLearnerEvent(

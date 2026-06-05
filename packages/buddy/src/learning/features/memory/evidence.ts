@@ -1,5 +1,6 @@
 import fs from "node:fs/promises"
 import path from "node:path"
+import { writeJsonFileAtomic } from "../../../storage/atomic-file"
 import { LearnerMemoryPath } from "./paths"
 import {
   LearnerEventSchema,
@@ -18,14 +19,7 @@ type LearnerEventRecord = {
 }
 
 async function writeJsonFile(filePath: string, value: unknown): Promise<void> {
-  await fs.mkdir(path.dirname(filePath), { recursive: true })
-  const tempPath = `${filePath}.${process.pid}.${Date.now()}.tmp`
-  await fs.writeFile(
-    tempPath,
-    `${JSON.stringify(value, null, LEARNER_MEMORY_STORAGE_TUNING.jsonIndentSpaces)}\n`,
-    "utf8",
-  )
-  await fs.rename(tempPath, filePath)
+  await writeJsonFileAtomic(filePath, value, LEARNER_MEMORY_STORAGE_TUNING.jsonIndentSpaces)
 }
 
 async function writeLearnerEvidence(directory: string, evidence: LearnerEvidence): Promise<void> {
@@ -101,10 +95,19 @@ async function listLearnerEventRecords(directory: string): Promise<LearnerEventR
         .split("\n")
         .map((line) => line.trim())
         .filter(Boolean)
-        .map((line) => ({
-          event: LearnerEventSchema.parse(JSON.parse(line) as unknown),
-          path: filePath,
-        }))
+        .flatMap((line): LearnerEventRecord[] => {
+          try {
+            const parsedLine: unknown = JSON.parse(line)
+            return [
+              {
+                event: LearnerEventSchema.parse(parsedLine),
+                path: filePath,
+              },
+            ]
+          } catch {
+            return []
+          }
+        })
     }),
   )
 

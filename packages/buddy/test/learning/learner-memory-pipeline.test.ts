@@ -15,11 +15,38 @@ import {
   tryClaimLearnerMemoryPhaseTwoJob,
   tryClaimLearnerMemoryStageOneJob,
 } from "../../src/learning/features/memory"
+import {
+  parseLearnerMemoryRegistry,
+  renderRegistryMarkdown,
+} from "../../src/learning/features/memory/memory-registry-markdown"
 import { redactSecrets } from "../../src/learning/features/memory/redaction"
 import { truncateHeadTail } from "../../src/learning/features/memory/text-budget"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("learner memory Codex-aligned pipeline mechanics", () => {
+  test("preserves malformed memory blocks during registry rewrites", () => {
+    const registry = parseLearnerMemoryRegistry(`# Learner Memory Registry
+
+## Broken memory
+
+- id:
+- type: preference
+
+This block is malformed but should not be dropped.
+`)
+
+    expect(registry.memories).toHaveLength(0)
+    expect(registry.invalidBlocks).toHaveLength(1)
+
+    const rendered = renderRegistryMarkdown([], {
+      invalidBlocks: registry.invalidBlocks,
+    })
+
+    expect(rendered).toContain("## Broken memory")
+    expect(rendered).toContain("This block is malformed but should not be dropped.")
+    expect(parseLearnerMemoryRegistry(rendered).invalidBlocks).toHaveLength(1)
+  })
+
   test("redacts common secret shapes before storage", () => {
     const text = redactSecrets(
       "token=supersecretvalue123 Bearer abcdefghijklmnop sk-abcdefghijklmnopqrstuvwxyz",

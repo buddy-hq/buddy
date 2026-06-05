@@ -21,6 +21,17 @@ const PEDAGOGY_TYPE_ALIASES = new Map([
 const SOURCE_ALIASES = new Map([["candidate", "model_candidate"]])
 const CANDIDATE_SOURCE_PREFIX = "cand_"
 
+type InvalidLearnerMemoryBlock = {
+  title: string
+  markdown: string
+  error: string
+}
+
+type LearnerMemoryRegistryParseResult = {
+  memories: LearnerMemory[]
+  invalidBlocks: InvalidLearnerMemoryBlock[]
+}
+
 function normalizeLine(value: string): string {
   return value.trim().replace(/\s+/g, " ")
 }
@@ -99,7 +110,10 @@ function parseMetadata(lines: readonly string[]): Map<string, string> {
   return metadata
 }
 
-function parseMemoryBlock(title: string, lines: readonly string[]): LearnerMemory | undefined {
+function parseMemoryBlock(
+  title: string,
+  lines: readonly string[],
+): { memory: LearnerMemory } | { error: string } {
   const metadata = parseMetadata(lines)
   const bodyStart = lines.findIndex((line) => {
     const trimmed = line.trim()
@@ -134,19 +148,33 @@ function parseMemoryBlock(title: string, lines: readonly string[]): LearnerMemor
     createdAt: metadata.get("createdAt") ?? now,
     updatedAt: metadata.get("updatedAt") ?? now,
   })
-  return parsed.success ? parsed.data : undefined
+  return parsed.success ? { memory: parsed.data } : { error: parsed.error.message }
 }
 
-function parseLearnerMemoryRegistryMarkdown(markdown: string): LearnerMemory[] {
+function renderRawMemoryBlock(title: string, lines: readonly string[]): string {
+  const body = lines.join("\n").trimEnd()
+  return body.length > 0 ? `## ${title}\n${body}\n` : `## ${title}\n`
+}
+
+function parseLearnerMemoryRegistry(markdown: string): LearnerMemoryRegistryParseResult {
   const lines = markdown.split(/\r?\n/u)
   const memories: LearnerMemory[] = []
+  const invalidBlocks: InvalidLearnerMemoryBlock[] = []
   let currentTitle: string | undefined
   let currentLines: string[] = []
 
   function flush(): void {
     if (!currentTitle) return
-    const memory = parseMemoryBlock(currentTitle, currentLines)
-    if (memory) memories.push(memory)
+    const result = parseMemoryBlock(currentTitle, currentLines)
+    if ("memory" in result) {
+      memories.push(result.memory)
+      return
+    }
+    invalidBlocks.push({
+      title: currentTitle,
+      markdown: renderRawMemoryBlock(currentTitle, currentLines),
+      error: result.error,
+    })
   }
 
   for (const line of lines) {
@@ -160,7 +188,14 @@ function parseLearnerMemoryRegistryMarkdown(markdown: string): LearnerMemory[] {
   }
   flush()
 
-  return memories.toSorted((left, right) => left.id.localeCompare(right.id))
+  return {
+    memories: memories.toSorted((left, right) => left.id.localeCompare(right.id)),
+    invalidBlocks,
+  }
+}
+
+function parseLearnerMemoryRegistryMarkdown(markdown: string): LearnerMemory[] {
+  return parseLearnerMemoryRegistry(markdown).memories
 }
 
 function renderSummaryMarkdown(memories: readonly LearnerMemory[]): string {
@@ -218,19 +253,34 @@ ${normalizeLine(memory.body)}
 `
 }
 
-function renderRegistryMarkdown(memories: readonly LearnerMemory[]): string {
+function renderRegistryMarkdown(
+  memories: readonly LearnerMemory[],
+  options?: { invalidBlocks?: readonly InvalidLearnerMemoryBlock[] },
+): string {
   const sorted = memories.toSorted((left, right) => {
     const statusOrder = left.status.localeCompare(right.status)
     if (statusOrder !== 0) return statusOrder
     return left.title.localeCompare(right.title)
   })
+  const renderedMemories = sorted.map((memory) => renderMemoryBlock(memory))
+  const preservedInvalidBlocks = (options?.invalidBlocks ?? []).map((block) =>
+    block.markdown.trimEnd(),
+  )
+  const body = [...renderedMemories, ...preservedInvalidBlocks].join("\n")
 
   return `# Learner Memory Registry
 
 This file is the canonical learner-memory store. Keep each memory as a parseable "##" block.
 
-${sorted.map((memory) => renderMemoryBlock(memory)).join("\n")}
+${body}
 `
 }
 
-export { parseLearnerMemoryRegistryMarkdown, renderRegistryMarkdown, renderSummaryMarkdown }
+export {
+  parseLearnerMemoryRegistry,
+  parseLearnerMemoryRegistryMarkdown,
+  renderRegistryMarkdown,
+  renderSummaryMarkdown,
+}
+
+export type { InvalidLearnerMemoryBlock, LearnerMemoryRegistryParseResult }

@@ -1,5 +1,10 @@
 import fs from "node:fs/promises"
-import { renderRegistryMarkdown, renderSummaryMarkdown } from "./memory-registry-markdown"
+import { writeTextFileAtomic } from "../../../storage/atomic-file"
+import {
+  parseLearnerMemoryRegistry,
+  renderRegistryMarkdown,
+  renderSummaryMarkdown,
+} from "./memory-registry-markdown"
 import { LearnerMemoryPath } from "./paths"
 import { ensureLearnerMemoryLayout, listLearnerMemories } from "./storage"
 
@@ -11,10 +16,12 @@ async function regenerateLearnerMemoryMarkdown(directory: string): Promise<{
   const memories = await listLearnerMemories(directory)
   const summaryPath = LearnerMemoryPath.workingSummaryFile(directory)
   const registryPath = LearnerMemoryPath.workingMemoryFile(directory)
+  const registryMarkdown = await fs.readFile(registryPath, "utf8").catch(() => "")
+  const { invalidBlocks } = parseLearnerMemoryRegistry(registryMarkdown)
 
   await Promise.all([
-    fs.writeFile(summaryPath, renderSummaryMarkdown(memories), "utf8"),
-    fs.writeFile(registryPath, renderRegistryMarkdown(memories), "utf8"),
+    writeTextFileAtomic(summaryPath, renderSummaryMarkdown(memories)),
+    writeTextFileAtomic(registryPath, renderRegistryMarkdown(memories, { invalidBlocks })),
   ])
 
   return {

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
-import fs from "node:fs/promises"
+import fs from "node:fs"
+import fsp from "node:fs/promises"
 import path from "node:path"
 
 const TEMPORARY_FILE_EXTENSION = "tmp"
@@ -13,14 +14,27 @@ function temporaryFilePath(targetPath: string): string {
 }
 
 async function writeTextFileAtomic(targetPath: string, content: string): Promise<void> {
-  await fs.mkdir(path.dirname(targetPath), { recursive: true })
+  await fsp.mkdir(path.dirname(targetPath), { recursive: true })
   const tempPath = temporaryFilePath(targetPath)
 
   try {
-    await fs.writeFile(tempPath, content, "utf8")
-    await fs.rename(tempPath, targetPath)
+    await fsp.writeFile(tempPath, content, "utf8")
+    await fsp.rename(tempPath, targetPath)
   } catch (error) {
-    await fs.rm(tempPath, { force: true }).catch(() => undefined)
+    await fsp.rm(tempPath, { force: true }).catch(() => undefined)
+    throw error
+  }
+}
+
+function writeTextFileAtomicSync(targetPath: string, content: string): void {
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true })
+  const tempPath = temporaryFilePath(targetPath)
+
+  try {
+    fs.writeFileSync(tempPath, content, "utf8")
+    fs.renameSync(tempPath, targetPath)
+  } catch (error) {
+    fs.rmSync(tempPath, { force: true })
     throw error
   }
 }
@@ -33,4 +47,17 @@ async function writeJsonFileAtomic(
   await writeTextFileAtomic(targetPath, `${JSON.stringify(value, null, indentSpaces)}\n`)
 }
 
-export { writeJsonFileAtomic, writeTextFileAtomic }
+function writeJsonFileAtomicSync(
+  targetPath: string,
+  value: unknown,
+  indentSpaces = DEFAULT_JSON_INDENT_SPACES,
+): void {
+  writeTextFileAtomicSync(targetPath, `${JSON.stringify(value, null, indentSpaces)}\n`)
+}
+
+export {
+  writeJsonFileAtomic,
+  writeJsonFileAtomicSync,
+  writeTextFileAtomic,
+  writeTextFileAtomicSync,
+}
