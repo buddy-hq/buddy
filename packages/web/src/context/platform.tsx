@@ -14,6 +14,7 @@ export type OpenFilePickerOptions = {
 export type UpdateCheckResult =
   | { status: "disabled" }
   | { status: "up-to-date" }
+  | { status: "blocked" }
   | { status: "ready"; version?: string }
   | { status: "error"; stage: "check" | "download" }
 

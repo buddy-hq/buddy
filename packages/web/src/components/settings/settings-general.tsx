@@ -172,6 +172,9 @@ export function GeneralSettings() {
       case "disabled":
         toast(language.t("settings.appearance.updatesUnavailable"))
         return
+      case "blocked":
+        toast(language.t("settings.appearance.updateBlocked"))
+        return
       case "error":
         toast.error(
           result.stage === "download"

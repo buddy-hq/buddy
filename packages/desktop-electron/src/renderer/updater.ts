@@ -24,6 +24,10 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
       }
     }
 
+    if (result.blocked) {
+      return { status: "blocked" }
+    }
+
     if (!result.updateAvailable) {
       return { status: "up-to-date" }
     }

@@ -668,6 +668,8 @@ export const dict = {
   "settings.appearance.themeSection": "Theme",
   "settings.appearance.themeTitle": "Theme",
   "settings.appearance.title": "Appearance",
+  "settings.appearance.updateBlocked":
+    "Updates aren't available right now. The latest release is temporarily blocked by Buddy's recovery policy.",
   "settings.appearance.updateCheckFailed": "Failed to check for updates",
   "settings.appearance.updateDownloadFailed": "Found an update, but download failed",
   "settings.appearance.updatesDescription":

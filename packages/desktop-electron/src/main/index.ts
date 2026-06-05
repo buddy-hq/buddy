@@ -89,6 +89,7 @@ const STARTUP_FAILURE_UPDATE_INSTALL_BUTTONS = ["Install and Restart", "Quit"] a
 const STARTUP_FAILURE_UPDATE_MISSING_BUTTONS = ["Open Download Page", "Quit"] as const
 const MAC_INSTALLER_FAILURE_BUTTONS = ["OK", "Open Log"] as const
 const UPDATE_READY_RESTART_BUTTONS = ["Restart", "Later"] as const
+const BLOCKED_UPDATE_DIALOG_MESSAGE = "No updates available at this time."
 
 app.setName(resolveAppName(app.isPackaged))
 if (process.platform === "win32") {
@@ -549,7 +550,7 @@ function startupFailureUpdateMissingMessage(
   blocked: boolean | undefined,
 ): string {
   if (failed) return "Update check failed."
-  if (blocked) return "The available update is blocked by local recovery policy."
+  if (blocked) return BLOCKED_UPDATE_DIALOG_MESSAGE
   return "No updates available."
 }
 
@@ -983,7 +984,7 @@ async function checkForUpdates(alertOnFail: boolean) {
       await dialog.showMessageBox({
         type: "info",
         title: "Buddy",
-        message: "The available update is blocked by local recovery policy.",
+        message: BLOCKED_UPDATE_DIALOG_MESSAGE,
       })
       return
     }
