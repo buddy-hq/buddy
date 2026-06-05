@@ -134,6 +134,24 @@ function buildRawProjectFileHeaders(input: {
   }
 }
 
+function readPresentedMediaRawResponse(input: {
+  absolutePath: string
+  downloadName: string
+  includeBody: boolean
+}) {
+  // Presented-media artifacts may intentionally point to local files outside the workspace.
+  const fileRecord = readProjectFileRecord(input.absolutePath)
+  if (!fileRecord.ok) return fileRecord.response
+
+  return new Response(input.includeBody ? Bun.file(fileRecord.filepath) : null, {
+    headers: buildRawProjectFileHeaders({
+      downloadName: input.downloadName,
+      filepath: fileRecord.filepath,
+      size: fileRecord.size,
+    }),
+  })
+}
+
 export const CompatibilityRoutes = new Hono()
   .get(
     "/health",
@@ -431,16 +449,11 @@ export const CompatibilityRoutes = new Hono()
         return Response.json({ error: FILE_NOT_FOUND_ERROR }, { status: 404 })
       }
 
-      const fileRecord = readProjectFileRecord(item.absolutePath)
-      if (!fileRecord.ok) return fileRecord.response
-
       const downloadName = query.fileName ?? item.fileName
-      return new Response(Bun.file(fileRecord.filepath), {
-        headers: buildRawProjectFileHeaders({
-          downloadName,
-          filepath: fileRecord.filepath,
-          size: fileRecord.size,
-        }),
+      return readPresentedMediaRawResponse({
+        absolutePath: item.absolutePath,
+        downloadName,
+        includeBody: true,
       })
     },
   )
@@ -464,16 +477,11 @@ export const CompatibilityRoutes = new Hono()
         return Response.json({ error: FILE_NOT_FOUND_ERROR }, { status: 404 })
       }
 
-      const fileRecord = readProjectFileRecord(item.absolutePath)
-      if (!fileRecord.ok) return fileRecord.response
-
       const downloadName = query.fileName ?? item.fileName
-      return new Response(null, {
-        headers: buildRawProjectFileHeaders({
-          downloadName,
-          filepath: fileRecord.filepath,
-          size: fileRecord.size,
-        }),
+      return readPresentedMediaRawResponse({
+        absolutePath: item.absolutePath,
+        downloadName,
+        includeBody: false,
       })
     },
   )
