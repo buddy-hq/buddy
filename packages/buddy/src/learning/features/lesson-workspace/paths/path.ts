@@ -47,6 +47,7 @@ const LANGUAGE_EXTENSIONS: Record<TeachingLanguage, string> = {
 const EXTENSION_TO_LANGUAGE = Object.fromEntries(
   Object.entries(LANGUAGE_EXTENSIONS).map(([language, extension]) => [extension, language]),
 ) as Record<string, TeachingLanguage>
+const DOT_PATH_SEGMENTS = new Set([".", ".."])
 
 EXTENSION_TO_LANGUAGE[".yaml"] = "yaml"
 EXTENSION_TO_LANGUAGE[".htm"] = "html"
@@ -61,7 +62,12 @@ function safeSessionID(sessionID: string) {
     return "default"
   }
 
-  return normalized.replace(/[^a-zA-Z0-9._-]/g, "_")
+  const safeID = normalized.replace(/[^a-zA-Z0-9._-]/g, "_")
+  if (DOT_PATH_SEGMENTS.has(safeID)) {
+    throw new Error("Session ID must stay inside the teaching workspace")
+  }
+
+  return safeID
 }
 
 function extension(language: TeachingLanguage) {
@@ -77,7 +83,7 @@ function sanitizeRelativePath(input: string) {
   const collapsed = path.posix.normalize(normalized).replace(/^\/+/, "")
   if (
     !collapsed ||
-    collapsed === "." ||
+    DOT_PATH_SEGMENTS.has(collapsed) ||
     collapsed.startsWith("../") ||
     collapsed.includes("/../")
   ) {
