@@ -66,8 +66,13 @@ type LastOpenedReadingResource = {
   path: string
 }
 
+export type OpenProjectsRecoveryState = {
+  needed: boolean
+}
+
 export type ChatStore = {
   openProjects: string[]
+  openProjectsRecovery?: OpenProjectsRecoveryState
   activeDirectory?: string
   pendingActiveDirectory?: string
   entryError?: string
@@ -80,6 +85,7 @@ export type ChatStore = {
   streamStatus: StreamStatus
   ensureOpenProject: (directory: string) => void
   setOpenProjects: (directories: string[]) => void
+  setOpenProjectsRecovery: (recovery?: OpenProjectsRecoveryState) => void
   closeProject: (directory: string) => void
   setActiveDirectory: (directory: string) => void
   setDirectoryReady: (directory: string, ready: boolean) => void
@@ -148,6 +154,7 @@ export type ChatStore = {
 type ChatStoreStateFields = Pick<
   ChatStore,
   | "openProjects"
+  | "openProjectsRecovery"
   | "activeDirectory"
   | "pendingActiveDirectory"
   | "entryError"
@@ -329,6 +336,7 @@ function emptyDirectoryState(): DirectoryChatState {
 function createChatStoreStateFields(): ChatStoreStateFields {
   return {
     openProjects: [],
+    openProjectsRecovery: undefined,
     activeDirectory: undefined,
     pendingActiveDirectory: undefined,
     entryError: undefined,
@@ -613,6 +621,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           if (!state.openProjects.includes(normalized)) {
             state.openProjects.unshift(normalized)
           }
+          state.openProjectsRecovery = undefined
           if (!state.directories[normalized]) {
             state.directories[normalized] = emptyDirectoryState()
           }
@@ -633,6 +642,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
               : unique[0]
 
           state.openProjects = unique
+          state.openProjectsRecovery = undefined
           state.activeDirectory = nextActiveDirectory ?? undefined
           state.pendingActiveDirectory = undefined
           state.lastSessionByDirectory = Object.fromEntries(
@@ -660,6 +670,11 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
               delete state.directories[directory]
             }
           }
+        })
+      },
+      setOpenProjectsRecovery(recovery) {
+        set((state) => {
+          state.openProjectsRecovery = recovery
         })
       },
       closeProject(directory) {
@@ -1380,6 +1395,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
         set((state) => {
           const defaults = createChatStoreStateFields()
           state.openProjects = defaults.openProjects
+          state.openProjectsRecovery = defaults.openProjectsRecovery
           state.activeDirectory = defaults.activeDirectory
           state.pendingActiveDirectory = defaults.pendingActiveDirectory
           state.entryError = defaults.entryError

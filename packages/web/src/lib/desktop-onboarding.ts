@@ -90,6 +90,9 @@ export async function resolveDesktopEntryPathWithSnapshots(input: {
     if ((await input.loadOpenProjectsSnapshot()).length > 0) {
       return "/chat"
     }
+    if (useChatStore.getState().openProjectsRecovery?.needed) {
+      return "/chat"
+    }
   } catch {
     return "/onboarding"
   }

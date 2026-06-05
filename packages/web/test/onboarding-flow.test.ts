@@ -17,6 +17,7 @@ import type {
   ProviderMethodInfo,
   ProviderModelInfo,
 } from "../src/state/chat-types"
+import { useChatStore } from "../src/state/chat-store"
 import { useOnboardingStore } from "../src/state/onboarding-store"
 
 function createModel(id: string, name: string): ProviderModelInfo {
@@ -86,6 +87,7 @@ beforeEach(() => {
     localStorage.clear()
   }
   useOnboardingStore.getState().reset()
+  useChatStore.getState().resetRuntimeState()
 })
 
 describe("desktop onboarding entry routing", () => {
@@ -170,6 +172,28 @@ describe("desktop onboarding entry routing", () => {
         },
       }),
     ).resolves.toBe("/onboarding")
+  })
+
+  test("skips onboarding when the backend reports notebook recovery is available", async () => {
+    useChatStore.getState().setOpenProjectsRecovery({ needed: true })
+
+    await expect(
+      resolveDesktopEntryPathWithSnapshots({
+        state: {
+          platform: "desktop",
+          setupCompleted: false,
+          personalizationStepPending: false,
+          openProjects: [],
+          activeDirectory: undefined,
+          pendingActiveDirectory: undefined,
+          lastSessionByDirectory: {},
+          directories: {},
+        },
+        async loadOpenProjectsSnapshot() {
+          return []
+        },
+      }),
+    ).resolves.toBe("/chat")
   })
 
   test("keeps onboarding when the backend snapshot cannot be read", async () => {

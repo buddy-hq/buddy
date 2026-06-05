@@ -4,14 +4,26 @@ import z from "zod"
 import { routeErrors, runRouteTask } from "../http"
 import {
   closeOpenProjectRegistryEntry,
+  inspectOpenProjectRegistryRecovery,
   listOpenProjects,
   mapOpenProjectRegistryError,
   openProjectRegistryEntry,
   reorderOpenProjectRegistryEntries,
+  restoreOpenProjectRegistryRecovery,
+  startFreshOpenProjectRegistryRecovery,
 } from "../project/open-project-registry"
 import { createManagedNotebook, mapManagedNotebookError } from "../project"
 
+const openProjectsRecoverySummarySchema = z.object({
+  needed: z.boolean(),
+})
+
 const openProjectsResponseSchema = z.object({
+  directories: z.array(z.string()),
+  recovery: openProjectsRecoverySummarySchema.optional(),
+})
+
+const openProjectsReorderBodySchema = z.object({
   directories: z.array(z.string()),
 })
 
@@ -30,6 +42,20 @@ const openProjectResponseSchema = z.object({
   directory: z.string(),
 })
 
+const openProjectsRecoveryCandidateSchema = z.object({
+  directory: z.string(),
+  name: z.string(),
+})
+
+const openProjectsRecoveryResponseSchema = z.object({
+  needed: z.boolean(),
+  candidates: z.array(openProjectsRecoveryCandidateSchema),
+})
+
+const openProjectsRecoveryRestoreBodySchema = z.object({
+  directories: z.array(z.string()),
+})
+
 export const OpenProjectsRoutes = new Hono()
   .get(
     "/",
@@ -45,9 +71,92 @@ export const OpenProjectsRoutes = new Hono()
             },
           },
         },
+        ...routeErrors(500),
       },
     }),
-    async (c) => c.json({ directories: await listOpenProjects() }),
+    async (c) =>
+      runRouteTask({
+        task: async () => c.json(await listOpenProjects()),
+        mapError: mapOpenProjectRegistryError,
+      }),
+  )
+  .get(
+    "/recovery",
+    describeRoute({
+      operationId: "openProjects.recovery",
+      summary: "Inspect open-project registry recovery candidates",
+      responses: {
+        200: {
+          description: "Open-project registry recovery state",
+          content: {
+            "application/json": {
+              schema: resolver(openProjectsRecoveryResponseSchema),
+            },
+          },
+        },
+        ...routeErrors(500),
+      },
+    }),
+    async (c) =>
+      runRouteTask({
+        task: async () => c.json(await inspectOpenProjectRegistryRecovery()),
+        mapError: mapOpenProjectRegistryError,
+      }),
+  )
+  .post(
+    "/recovery/restore",
+    describeRoute({
+      operationId: "openProjects.restoreRecovery",
+      summary: "Restore selected open-project registry recovery candidates",
+      responses: {
+        200: {
+          description: "Restored curated open-project list",
+          content: {
+            "application/json": {
+              schema: resolver(openProjectsResponseSchema),
+            },
+          },
+        },
+        ...routeErrors(400, 500),
+      },
+    }),
+    validator("json", openProjectsRecoveryRestoreBodySchema),
+    async (c) =>
+      runRouteTask({
+        task: async () =>
+          c.json({
+            directories: await restoreOpenProjectRegistryRecovery(
+              c.req.valid("json").directories,
+            ),
+          }),
+        mapError: mapOpenProjectRegistryError,
+      }),
+  )
+  .post(
+    "/recovery/start-fresh",
+    describeRoute({
+      operationId: "openProjects.startFresh",
+      summary: "Start a fresh open-project registry",
+      responses: {
+        200: {
+          description: "Fresh curated open-project list",
+          content: {
+            "application/json": {
+              schema: resolver(openProjectsResponseSchema),
+            },
+          },
+        },
+        ...routeErrors(500),
+      },
+    }),
+    async (c) =>
+      runRouteTask({
+        task: async () =>
+          c.json({
+            directories: await startFreshOpenProjectRegistryRecovery(),
+          }),
+        mapError: mapOpenProjectRegistryError,
+      }),
   )
   .post(
     "/",
@@ -63,7 +172,7 @@ export const OpenProjectsRoutes = new Hono()
             },
           },
         },
-        ...routeErrors(400, 403),
+        ...routeErrors(400, 403, 500),
       },
     }),
     validator("json", openProjectBodySchema),
@@ -88,7 +197,7 @@ export const OpenProjectsRoutes = new Hono()
             },
           },
         },
-        ...routeErrors(400, 403, 409),
+        ...routeErrors(400, 403, 409, 500),
       },
     }),
     validator("json", createManagedNotebookBodySchema),
@@ -113,7 +222,7 @@ export const OpenProjectsRoutes = new Hono()
             },
           },
         },
-        ...routeErrors(400),
+        ...routeErrors(400, 500),
       },
     }),
     validator("query", openProjectQuerySchema),
@@ -140,10 +249,10 @@ export const OpenProjectsRoutes = new Hono()
             },
           },
         },
-        ...routeErrors(400),
+        ...routeErrors(400, 500),
       },
     }),
-    validator("json", openProjectsResponseSchema),
+    validator("json", openProjectsReorderBodySchema),
     async (c) =>
       runRouteTask({
         task: async () =>

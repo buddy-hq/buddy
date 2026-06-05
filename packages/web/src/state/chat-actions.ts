@@ -18,6 +18,10 @@ import type {
   MermaidArtifactsListResponses,
   McpStatusResponses,
   OpenProjectsCreateResponses,
+  OpenProjectsListResponses,
+  OpenProjectsRecoveryResponses,
+  OpenProjectsRestoreRecoveryResponses,
+  OpenProjectsStartFreshResponses,
   PermissionListResponses,
   ProjectListResponses,
   QuestionSetArtifactsListResponse,
@@ -867,9 +871,40 @@ export async function loadProviderCatalogSnapshot(directory?: string) {
 }
 
 export async function loadOpenProjects() {
-  const response = requireBuddyData(await getBuddyClient().openProjects.list())
+  const response = requireBuddyData<OpenProjectsListResponses[200]>(
+    await getBuddyClient().openProjects.list(),
+  )
   const knownOpenProjects = normalizeDirectoryList(response.directories)
   useChatStore.getState().setOpenProjects(knownOpenProjects)
+  useChatStore.getState().setOpenProjectsRecovery(response.recovery)
+  return useChatStore.getState().openProjects
+}
+
+export async function loadOpenProjectRecovery() {
+  return requireBuddyData<OpenProjectsRecoveryResponses[200]>(
+    await getBuddyClient().openProjects.recovery(),
+  )
+}
+
+export async function restoreOpenProjectRecovery(directories: string[]) {
+  const response = requireBuddyData<OpenProjectsRestoreRecoveryResponses[200]>(
+    await getBuddyClient().openProjects.restoreRecovery({
+      directories: normalizeDirectoryList(directories),
+    }),
+  )
+  const knownOpenProjects = normalizeDirectoryList(response.directories)
+  useChatStore.getState().setOpenProjects(knownOpenProjects)
+  useChatStore.getState().setOpenProjectsRecovery(response.recovery)
+  return useChatStore.getState().openProjects
+}
+
+export async function startFreshOpenProjectRecovery() {
+  const response = requireBuddyData<OpenProjectsStartFreshResponses[200]>(
+    await getBuddyClient().openProjects.startFresh(),
+  )
+  const knownOpenProjects = normalizeDirectoryList(response.directories)
+  useChatStore.getState().setOpenProjects(knownOpenProjects)
+  useChatStore.getState().setOpenProjectsRecovery(response.recovery)
   return useChatStore.getState().openProjects
 }
 

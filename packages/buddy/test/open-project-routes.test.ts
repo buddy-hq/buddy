@@ -1,5 +1,14 @@
 import { beforeEach, describe, expect, test } from "bun:test"
-import { mkdirSync, readFileSync, realpathSync, rmSync } from "node:fs"
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
+import os from "node:os"
 import path from "node:path"
 import { Project as OpenCodeProject } from "@buddy/opencode-adapter/project"
 import { app } from "../src/index.ts"
@@ -7,9 +16,46 @@ import { Global } from "../src/storage/global"
 import { createGitRepo } from "./helpers/repo"
 
 const registryPath = path.join(Global.Path.state, "desktop-notebooks.json")
+const registryBackupPath = `${registryPath}.bak`
+const registryLockPath = `${registryPath}.lock`
+const registryCleanupLockPath = `${registryLockPath}.cleanup`
+const registryCorruptPrefix = "desktop-notebooks.corrupt."
+const registryCorruptSuffix = ".json"
+const globalConfigPath = path.join(Global.Path.config, "buddy.jsonc")
+const JSON_INDENT_SPACES = 2
 
 function readRegistryFile() {
   return JSON.parse(readFileSync(registryPath, "utf8")) as string[]
+}
+
+function readRegistryBackupFile() {
+  return JSON.parse(readFileSync(registryBackupPath, "utf8")) as string[]
+}
+
+function writeRegistryFile(filePath: string, directories: string[]) {
+  mkdirSync(path.dirname(filePath), { recursive: true })
+  writeFileSync(filePath, `${JSON.stringify(directories, null, JSON_INDENT_SPACES)}\n`, "utf8")
+}
+
+function corruptRegistryFiles() {
+  return readdirSync(Global.Path.state, { withFileTypes: true })
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        entry.name.startsWith(registryCorruptPrefix) &&
+        entry.name.endsWith(registryCorruptSuffix),
+    )
+    .map((entry) => path.join(Global.Path.state, entry.name))
+}
+
+function removeRegistryFiles() {
+  rmSync(registryPath, { force: true })
+  rmSync(registryBackupPath, { force: true })
+  rmSync(registryLockPath, { force: true })
+  rmSync(registryCleanupLockPath, { force: true })
+  for (const filePath of corruptRegistryFiles()) {
+    rmSync(filePath, { force: true })
+  }
 }
 
 function normalizePathForAssertion(value: string): string {
@@ -20,8 +66,10 @@ function normalizePathForAssertion(value: string): string {
 }
 
 describe("open project routes", () => {
-  beforeEach(() => {
-    rmSync(registryPath, { force: true })
+  beforeEach(async () => {
+    removeRegistryFiles()
+    await app.request("/api/open-projects")
+    removeRegistryFiles()
   })
 
   test("returns an empty list when desktop-notebooks.json is missing", async () => {
@@ -29,6 +77,143 @@ describe("open project routes", () => {
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ directories: [] })
+  })
+
+  test("recovers corrupt desktop-notebooks.json from the backup registry", async () => {
+    const repo = realpathSync(createGitRepo("buddy-route-open-project-backup-recovery"))
+
+    mkdirSync(path.dirname(registryPath), { recursive: true })
+    writeFileSync(registryPath, "{", "utf8")
+    writeRegistryFile(registryBackupPath, [repo])
+
+    const response = await app.request("/api/open-projects")
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ directories: [repo] })
+    expect(readRegistryFile()).toEqual([repo])
+    expect(readRegistryBackupFile()).toEqual([repo])
+    expect(corruptRegistryFiles()).toHaveLength(1)
+  })
+
+  test("restores a missing desktop-notebooks.json from the backup registry", async () => {
+    const repo = realpathSync(createGitRepo("buddy-route-open-project-missing-recovery"))
+    writeRegistryFile(registryBackupPath, [repo])
+
+    const response = await app.request("/api/open-projects")
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({ directories: [repo] })
+    expect(readRegistryFile()).toEqual([repo])
+    expect(readRegistryBackupFile()).toEqual([repo])
+    expect(corruptRegistryFiles()).toEqual([])
+  })
+
+  test("requires explicit selection before restoring managed notebook folders", async () => {
+    const previousGlobal = await Bun.file(globalConfigPath)
+      .text()
+      .catch(() => undefined)
+    const previousTestHome = process.env.BUDDY_TEST_HOME
+    const testHome = path.join(os.tmpdir(), "buddy-route-open-project-managed-recovery-home")
+    const notebookHome = path.join(os.tmpdir(), "buddy-route-open-project-managed-recovery")
+    const inbox = path.join(notebookHome, "Inbox")
+    const algebra = path.join(notebookHome, "Algebra")
+    const biology = path.join(notebookHome, "Biology")
+
+    process.env.BUDDY_TEST_HOME = testHome
+
+    try {
+      rmSync(testHome, { force: true, recursive: true })
+      rmSync(notebookHome, { force: true, recursive: true })
+      mkdirSync(inbox, { recursive: true })
+      mkdirSync(algebra, { recursive: true })
+      mkdirSync(biology, { recursive: true })
+      mkdirSync(path.join(notebookHome, ".hidden"), { recursive: true })
+      mkdirSync(path.dirname(globalConfigPath), { recursive: true })
+      await Bun.write(
+        globalConfigPath,
+        `${JSON.stringify({ notebook_home: notebookHome }, null, JSON_INDENT_SPACES)}\n`,
+      )
+      mkdirSync(path.dirname(registryPath), { recursive: true })
+      writeFileSync(registryPath, "{", "utf8")
+
+      const response = await app.request("/api/open-projects")
+
+      const expected = [inbox, algebra, biology].map((directory) => realpathSync(directory))
+      expect(response.status).toBe(200)
+      await expect(response.json()).resolves.toEqual({
+        directories: [],
+        recovery: { needed: true },
+      })
+      expect(existsSync(registryPath)).toBe(false)
+      expect(existsSync(registryBackupPath)).toBe(false)
+      expect(corruptRegistryFiles()).toHaveLength(1)
+
+      const recoveryResponse = await app.request("/api/open-projects/recovery")
+      expect(recoveryResponse.status).toBe(200)
+      await expect(recoveryResponse.json()).resolves.toEqual({
+        needed: true,
+        candidates: expected.map((directory) => ({
+          directory,
+          name: path.basename(directory),
+        })),
+      })
+
+      const selected = [expected[0], expected[2]].filter((directory): directory is string =>
+        Boolean(directory),
+      )
+      const restoreResponse = await app.request("/api/open-projects/recovery/restore", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ directories: selected }),
+      })
+      expect(restoreResponse.status).toBe(200)
+      await expect(restoreResponse.json()).resolves.toEqual({
+        directories: selected,
+      })
+      expect(readRegistryFile()).toEqual(selected)
+      expect(readRegistryBackupFile()).toEqual(selected)
+
+      const listResponse = await app.request("/api/open-projects")
+      expect(listResponse.status).toBe(200)
+      await expect(listResponse.json()).resolves.toEqual({ directories: selected })
+    } finally {
+      if (previousTestHome === undefined) delete process.env.BUDDY_TEST_HOME
+      else process.env.BUDDY_TEST_HOME = previousTestHome
+
+      rmSync(testHome, { force: true, recursive: true })
+      rmSync(notebookHome, { force: true, recursive: true })
+      if (previousGlobal === undefined) {
+        rmSync(globalConfigPath, { force: true })
+      } else {
+        mkdirSync(path.dirname(globalConfigPath), { recursive: true })
+        await Bun.write(globalConfigPath, previousGlobal)
+      }
+    }
+  })
+
+  test("can start fresh after desktop-notebooks.json cannot be restored", async () => {
+    mkdirSync(path.dirname(registryPath), { recursive: true })
+    writeFileSync(registryPath, "{", "utf8")
+
+    const response = await app.request("/api/open-projects")
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      directories: [],
+      recovery: { needed: true },
+    })
+
+    const freshResponse = await app.request("/api/open-projects/recovery/start-fresh", {
+      method: "POST",
+    })
+
+    expect(freshResponse.status).toBe(200)
+    await expect(freshResponse.json()).resolves.toEqual({ directories: [] })
+    expect(readRegistryFile()).toEqual([])
+    expect(readRegistryBackupFile()).toEqual([])
+
+    const listResponse = await app.request("/api/open-projects")
+    expect(listResponse.status).toBe(200)
+    await expect(listResponse.json()).resolves.toEqual({ directories: [] })
   })
 
   test("resolves relative directories against BUDDY_DIRECTORY_BASE when configured", async () => {
@@ -58,6 +243,7 @@ describe("open project routes", () => {
         directory: canonicalRepo,
       })
       expect(readRegistryFile()).toEqual([canonicalRepo])
+      expect(readRegistryBackupFile()).toEqual([canonicalRepo])
     } finally {
       if (originalDirectoryBase === undefined) delete process.env.BUDDY_DIRECTORY_BASE
       else process.env.BUDDY_DIRECTORY_BASE = originalDirectoryBase

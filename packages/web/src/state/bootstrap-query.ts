@@ -1,6 +1,7 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import {
   loadNotebookHomeAccess,
+  loadOpenProjectRecovery,
   bootstrapOpenProjects,
   loadNotebookHome,
   loadOpenProjects,
@@ -12,6 +13,7 @@ import {
 const BOOTSTRAP_QUERY_SCOPE = "bootstrap" as const
 const OPEN_PROJECTS_QUERY_KEY = "open-projects" as const
 const OPEN_PROJECTS_WITH_SESSIONS_QUERY_KEY = "open-projects-with-sessions" as const
+const OPEN_PROJECTS_RECOVERY_QUERY_KEY = "open-projects-recovery" as const
 const NOTEBOOK_HOME_QUERY_KEY = "notebook-home" as const
 const NOTEBOOK_HOME_ACCESS_QUERY_KEY = "notebook-home-access" as const
 const PROVIDER_SNAPSHOT_QUERY_KEY = "provider-snapshot" as const
@@ -28,6 +30,7 @@ export const bootstrapQueryKeys = {
   openProjects: () => [BOOTSTRAP_QUERY_SCOPE, OPEN_PROJECTS_QUERY_KEY] as const,
   openProjectsWithSessions: () =>
     [BOOTSTRAP_QUERY_SCOPE, OPEN_PROJECTS_WITH_SESSIONS_QUERY_KEY] as const,
+  openProjectsRecovery: () => [BOOTSTRAP_QUERY_SCOPE, OPEN_PROJECTS_RECOVERY_QUERY_KEY] as const,
   notebookHome: () => [BOOTSTRAP_QUERY_SCOPE, NOTEBOOK_HOME_QUERY_KEY] as const,
   notebookHomeAccess: () => [BOOTSTRAP_QUERY_SCOPE, NOTEBOOK_HOME_ACCESS_QUERY_KEY] as const,
   providerSnapshot: (directory?: string) =>
@@ -55,6 +58,13 @@ export function openProjectsWithSessionsQueryOptions() {
   return queryOptions({
     queryKey: bootstrapQueryKeys.openProjectsWithSessions(),
     queryFn: () => bootstrapOpenProjects(),
+  })
+}
+
+export function openProjectsRecoveryQueryOptions() {
+  return queryOptions({
+    queryKey: bootstrapQueryKeys.openProjectsRecovery(),
+    queryFn: () => loadOpenProjectRecovery(),
   })
 }
 
