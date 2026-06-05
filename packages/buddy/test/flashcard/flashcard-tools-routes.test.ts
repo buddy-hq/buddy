@@ -29,6 +29,11 @@ import {
 } from "../helpers/tools"
 
 const OPEN_PROJECT_REGISTRY_FILE = path.join(Global.Path.state, "desktop-notebooks.json")
+const OPEN_PROJECT_REGISTRY_BACKUP_FILE = `${OPEN_PROJECT_REGISTRY_FILE}.bak`
+const OPEN_PROJECT_REGISTRY_LOCK_FILE = `${OPEN_PROJECT_REGISTRY_FILE}.lock`
+const OPEN_PROJECT_REGISTRY_CLEANUP_LOCK_FILE = `${OPEN_PROJECT_REGISTRY_LOCK_FILE}.cleanup`
+const OPEN_PROJECT_REGISTRY_CORRUPT_PREFIX = "desktop-notebooks.corrupt."
+const OPEN_PROJECT_REGISTRY_CORRUPT_SUFFIX = ".json"
 
 function sampleFlashcardDeckInput(): SaveFlashcardDeckInput {
   return {
@@ -88,6 +93,29 @@ async function createStoredFlashcardDeck(directory: string): Promise<FlashcardDe
   })
 }
 
+async function removeOpenProjectRegistryFiles(): Promise<void> {
+  await Promise.all([
+    fs.rm(OPEN_PROJECT_REGISTRY_FILE, { force: true }),
+    fs.rm(OPEN_PROJECT_REGISTRY_BACKUP_FILE, { force: true }),
+    fs.rm(OPEN_PROJECT_REGISTRY_LOCK_FILE, { force: true }),
+    fs.rm(OPEN_PROJECT_REGISTRY_CLEANUP_LOCK_FILE, { force: true }),
+  ])
+
+  const entries = await fs
+    .readdir(path.dirname(OPEN_PROJECT_REGISTRY_FILE), { withFileTypes: true })
+    .catch(() => [])
+  await Promise.all(
+    entries
+      .filter(
+        (entry) =>
+          entry.isFile() &&
+          entry.name.startsWith(OPEN_PROJECT_REGISTRY_CORRUPT_PREFIX) &&
+          entry.name.endsWith(OPEN_PROJECT_REGISTRY_CORRUPT_SUFFIX),
+      )
+      .map((entry) => fs.rm(path.join(path.dirname(OPEN_PROJECT_REGISTRY_FILE), entry.name))),
+  )
+}
+
 describe("flashcard tools and routes", () => {
   test("continues to serve allowed directory routes when the open-project registry is corrupt", async () => {
     await using project = await tmpdir({ git: true })
@@ -104,7 +132,7 @@ describe("flashcard tools and routes", () => {
         decks: [],
       })
     } finally {
-      await fs.rm(OPEN_PROJECT_REGISTRY_FILE, { force: true })
+      await removeOpenProjectRegistryFiles()
     }
   })
 
