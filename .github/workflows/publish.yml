@@ -562,6 +562,9 @@ jobs:
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
           LATEST_YML_DIR: ${{ github.workspace }}/latest-yml
           ELECTRON_DIST_DIR: ${{ github.workspace }}/electron-dist
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           bun ./packages/desktop-electron/scripts/finalize-latest-yml.ts

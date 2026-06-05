@@ -1,17 +1,23 @@
 import { randomUUID } from "node:crypto"
 import { EventEmitter } from "node:events"
 import { existsSync } from "node:fs"
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises"
 import { createServer } from "node:net"
 import { homedir } from "node:os"
 import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 import { app, BrowserWindow, dialog, shell } from "electron"
 import type { Event } from "electron"
 import electronUpdaterPackage from "electron-updater"
 import type { InitStep, ServerReadyData, SqliteMigrationProgress } from "../preload/types"
 import {
   createCustomMacUpdater,
+  parseMacInstallerResult,
   resolveCustomMacUpdaterOptions,
+  resolveMacInstallerLogPath,
+  resolveMacInstallerResultPath,
   resolveMacAppPath,
+  type MacInstallerResult,
 } from "./custom-mac-updater"
 import {
   APP_PROTOCOL,
@@ -52,9 +58,14 @@ import {
   spawnLocalServer,
 } from "./server"
 import {
+  BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY,
+  fetchSignedElectronUpdateManifest,
+  isAbsoluteUrl,
   RELEASE_REPOSITORY_NAME,
   RELEASE_REPOSITORY_OWNER,
-  resolveReleaseDownloadBaseUrl,
+  resolveLatestReleaseAssetUrl,
+  resolveLatestPrereleaseAssetUrl,
+  resolveReleaseAssetUrl,
 } from "./update-common"
 import { createLoadingWindow, createMainWindow, setBackgroundColor, setDockIcon } from "./windows"
 
@@ -68,12 +79,15 @@ const STARTUP_FAILURE_MESSAGE = "Buddy failed to start."
 const UNKNOWN_STARTUP_FAILURE_DETAIL = "The local Buddy server did not become ready."
 const LOADING_WINDOW_COMPLETE_TIMEOUT_MS = 5_000
 const MAC_UPDATE_CACHE_DIRECTORY_NAME = "mac-updater"
+const WINDOWS_UPDATE_MANIFEST_CACHE_DIRECTORY_NAME = "windows-updater"
+const WINDOWS_UPDATE_MANIFEST_FILENAME = "latest.yml"
 const BUDDY_DOWNLOAD_URL = "https://github.com/prashantbhudwal/buddy/releases/latest"
 const PRIMARY_DIALOG_RESPONSE = 0
 const SECONDARY_DIALOG_RESPONSE = 1
 const STARTUP_FAILURE_UPDATE_CHECK_BUTTONS = ["Check for Update", "Quit"] as const
 const STARTUP_FAILURE_UPDATE_INSTALL_BUTTONS = ["Install and Restart", "Quit"] as const
 const STARTUP_FAILURE_UPDATE_MISSING_BUTTONS = ["Open Download Page", "Quit"] as const
+const MAC_INSTALLER_FAILURE_BUTTONS = ["OK", "Open Log"] as const
 const UPDATE_READY_RESTART_BUTTONS = ["Restart", "Later"] as const
 
 app.setName(resolveAppName(app.isPackaged))
@@ -169,6 +183,7 @@ function setupApplication() {
         isVersionBlocked: (version) => isUpdateVersionBlocked(version),
         ...resolveCustomMacUpdaterOptions(),
       })
+      await reportPreviousMacInstallerResult()
     }
     updaterEnabled = await setupAutoUpdater()
     setDockIcon()
@@ -415,6 +430,88 @@ function startupRecoveryInstallDetail(target: RecoveryTarget | undefined): strin
   return `Buddy will install the ${action} selected by the signed recovery policy.${reason}`
 }
 
+async function reportPreviousMacInstallerResult(): Promise<void> {
+  const result = await consumePreviousMacInstallerResult()
+  if (result?.status !== "failed") {
+    return
+  }
+
+  const logPath = resolveMacInstallerLogPath(app.getPath("logs"))
+  logger.error("previous mac installer failed", {
+    exitCode: result.exitCode,
+    logPath,
+  })
+
+  try {
+    const response = await dialog.showMessageBox({
+      type: "error",
+      title: "Update Install Failed",
+      message: "Buddy could not finish installing the previous update.",
+      detail: macInstallerFailureDetail(result, logPath),
+      buttons: [...MAC_INSTALLER_FAILURE_BUTTONS],
+      defaultId: PRIMARY_DIALOG_RESPONSE,
+      cancelId: PRIMARY_DIALOG_RESPONSE,
+    })
+
+    if (response.response === SECONDARY_DIALOG_RESPONSE) {
+      await openInstallerLog(logPath)
+    }
+  } catch (error) {
+    logger.warn("failed to show mac installer failure dialog", error)
+  }
+}
+
+async function consumePreviousMacInstallerResult(): Promise<MacInstallerResult | undefined> {
+  const resultPath = resolveMacInstallerResultPath(app.getPath("logs"))
+  let content: string
+
+  try {
+    content = await readFile(resultPath, "utf8")
+  } catch (error) {
+    if (!isNodeErrorCode(error, "ENOENT")) {
+      logger.warn("failed to read mac installer result", error)
+    }
+    return undefined
+  }
+
+  let result: MacInstallerResult
+  try {
+    result = parseMacInstallerResult(content)
+  } catch (error) {
+    logger.warn("failed to parse mac installer result", error)
+    await unlink(resultPath).catch((unlinkError) => {
+      logger.warn("failed to clear invalid mac installer result", unlinkError)
+    })
+    return undefined
+  }
+
+  if (result.status === "running") {
+    return undefined
+  }
+
+  await unlink(resultPath).catch((error) => {
+    logger.warn("failed to clear mac installer result", error)
+  })
+  return result
+}
+
+function macInstallerFailureDetail(result: MacInstallerResult, logPath: string): string {
+  const exitCode =
+    result.exitCode === undefined ? "" : `\n\nInstaller exit code: ${result.exitCode}`
+  return `The updater helper reported a failure after Buddy quit.${exitCode}\n\nLog file: ${logPath}`
+}
+
+async function openInstallerLog(logPath: string): Promise<void> {
+  const error = await shell.openPath(logPath)
+  if (error.length > 0) {
+    logger.warn("failed to open mac installer log", { error, logPath })
+  }
+}
+
+function isNodeErrorCode(error: unknown, code: string): boolean {
+  return error instanceof Error && Reflect.get(error, "code") === code
+}
+
 async function showStartupFailureDialog(error: unknown): Promise<void> {
   try {
     await dialog.showMessageBox({
@@ -646,13 +743,13 @@ function setupAutoUpdater() {
   if (!UPDATER_ENABLED) return Promise.resolve(false)
   if (process.platform === "darwin") return Promise.resolve(true)
 
-  // Keep the native electron-updater path for Windows today and for signed macOS builds later.
+  // Windows keeps electron-updater for install mechanics after Buddy verifies the signed manifest.
   autoUpdater.logger = logger
   autoUpdater.channel = "latest"
   autoUpdater.allowPrerelease = CHANNEL !== "prod"
   autoUpdater.allowDowngrade = true
   autoUpdater.autoDownload = false
-  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.autoInstallOnAppQuit = false
   configureDefaultElectronUpdaterProvider()
   return Promise.resolve(true)
 }
@@ -680,11 +777,19 @@ async function checkUpdate() {
 
   checkUpdateTask = (async () => {
     try {
-      configureDefaultElectronUpdaterProvider()
+      const signedManifestVersion = await configureSignedWindowsUpdateFeed()
       const result = await autoUpdater.checkForUpdates()
       const version = result?.updateInfo?.version
       if (result?.isUpdateAvailable === false || !version) {
         return { updateAvailable: false }
+      }
+
+      if (version !== signedManifestVersion) {
+        logger.error("signed update manifest version mismatch", {
+          resolvedVersion: version,
+          signedManifestVersion,
+        })
+        return { updateAvailable: false, failed: true }
       }
 
       if (isUpdateVersionBlocked(version)) {
@@ -723,15 +828,20 @@ async function checkUpdateForVersion(version: string): Promise<UpdateCheckResult
   }
 
   try {
-    autoUpdater.setFeedURL({
-      channel: "latest",
-      provider: "generic",
-      url: resolveReleaseDownloadBaseUrl(version),
-    })
+    const signedManifestVersion = await configureSignedWindowsUpdateFeed(version)
     const result = await autoUpdater.checkForUpdates()
     const resolvedVersion = result?.updateInfo?.version
     if (result?.isUpdateAvailable === false || !resolvedVersion) {
       return { updateAvailable: false }
+    }
+
+    if (resolvedVersion !== signedManifestVersion) {
+      logger.error("signed recovery update manifest version mismatch", {
+        resolvedVersion,
+        signedManifestVersion,
+        targetVersion: version,
+      })
+      return { failed: true, updateAvailable: false }
     }
 
     if (resolvedVersion !== version) {
@@ -755,6 +865,82 @@ async function checkUpdateForVersion(version: string): Promise<UpdateCheckResult
   } finally {
     configureDefaultElectronUpdaterProvider()
   }
+}
+
+async function configureSignedWindowsUpdateFeed(expectedVersion?: string): Promise<string> {
+  const manifestUrl = await resolveSignedWindowsUpdateManifestUrl(expectedVersion)
+  const manifest = await fetchSignedElectronUpdateManifest({
+    publicKey: process.env[BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY]?.trim() || undefined,
+    url: manifestUrl,
+  })
+
+  if (expectedVersion && manifest.version !== expectedVersion) {
+    throw new Error(
+      `Signed update manifest version mismatch: expected ${expectedVersion}, got ${manifest.version}`,
+    )
+  }
+
+  const cacheDirectory = join(
+    app.getPath("temp"),
+    resolveAppId(app.isPackaged),
+    WINDOWS_UPDATE_MANIFEST_CACHE_DIRECTORY_NAME,
+    expectedVersion ?? "latest",
+  )
+  await mkdir(cacheDirectory, { recursive: true })
+  await writeFile(
+    join(cacheDirectory, WINDOWS_UPDATE_MANIFEST_FILENAME),
+    absolutizeElectronUpdateManifestUrls(manifest.content, manifest.version),
+    "utf8",
+  )
+
+  autoUpdater.setFeedURL({
+    channel: "latest",
+    provider: "generic",
+    url: toFileDirectoryUrl(cacheDirectory),
+  })
+
+  return manifest.version
+}
+
+async function resolveSignedWindowsUpdateManifestUrl(expectedVersion?: string): Promise<string> {
+  if (expectedVersion) {
+    return resolveReleaseAssetUrl(expectedVersion, WINDOWS_UPDATE_MANIFEST_FILENAME)
+  }
+
+  if (CHANNEL !== "prod") {
+    return await resolveLatestPrereleaseAssetUrl(WINDOWS_UPDATE_MANIFEST_FILENAME)
+  }
+
+  return resolveLatestReleaseAssetUrl(WINDOWS_UPDATE_MANIFEST_FILENAME)
+}
+
+function toFileDirectoryUrl(directory: string): string {
+  const url = pathToFileURL(directory).toString()
+  return url.endsWith("/") ? url : `${url}/`
+}
+
+function absolutizeElectronUpdateManifestUrls(content: string, version: string): string {
+  return content
+    .split(/\r?\n/u)
+    .map((line) => absolutizeElectronUpdateManifestUrlLine(line, version))
+    .join("\n")
+}
+
+function absolutizeElectronUpdateManifestUrlLine(line: string, version: string): string {
+  const match = line.match(/^(\s*(?:-\s*)?(?:url|path):\s*)(.+?)(\s*)$/u)
+  if (!match) return line
+
+  const [, prefix, rawValue, suffix] = match
+  const quote =
+    (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
+    (rawValue.startsWith("'") && rawValue.endsWith("'"))
+      ? rawValue[0]
+      : undefined
+  const value = quote ? rawValue.slice(1, -1) : rawValue
+  if (isAbsoluteUrl(value)) return line
+
+  const absoluteUrl = resolveReleaseAssetUrl(version, value)
+  return `${prefix}${quote ?? ""}${absoluteUrl}${quote ?? ""}${suffix}`
 }
 
 function configureDefaultElectronUpdaterProvider() {

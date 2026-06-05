@@ -4,6 +4,7 @@ import { $ } from "bun"
 import { createHash } from "node:crypto"
 import { access, readFile, stat } from "node:fs/promises"
 import path from "node:path"
+import { resolveTauriSignerBinaryPath } from "./utils"
 
 const rawLatestYmlDir = process.env.LATEST_YML_DIR
 if (!rawLatestYmlDir) {
@@ -23,6 +24,7 @@ if (!version) {
 const releaseVersion = version
 
 const electronDistDir = process.env.ELECTRON_DIST_DIR?.trim() || ""
+const SIGNED_MANIFEST_LABEL = "signed latest yml manifests"
 
 type FileEntry = {
   url: string
@@ -110,6 +112,48 @@ async function fileExists(filepath: string) {
   }
 }
 
+async function requireTauriSignerBinaryPath() {
+  const binaryPath = resolveTauriSignerBinaryPath(process.env)
+  try {
+    await access(binaryPath)
+  } catch {
+    throw new Error(`Missing Tauri signer binary at ${binaryPath}`)
+  }
+
+  return binaryPath
+}
+
+function ensureTauriSigningKeyPresent() {
+  const rawPrivateKey = process.env.TAURI_SIGNING_PRIVATE_KEY?.trim()
+  const privateKeyPath = process.env.TAURI_SIGNING_PRIVATE_KEY_PATH?.trim()
+
+  if (rawPrivateKey || privateKeyPath) {
+    return
+  }
+
+  throw new Error(
+    "TAURI_SIGNING_PRIVATE_KEY or TAURI_SIGNING_PRIVATE_KEY_PATH is required for signed latest yml manifests",
+  )
+}
+
+function resolveSignerEnvironment() {
+  const environment = { ...process.env }
+
+  if (!environment.TAURI_SIGNING_PRIVATE_KEY_PATH?.trim()) {
+    delete environment.TAURI_SIGNING_PRIVATE_KEY_PATH
+  }
+
+  if (!environment.TAURI_SIGNING_PRIVATE_KEY?.trim()) {
+    delete environment.TAURI_SIGNING_PRIVATE_KEY
+  }
+
+  if (!environment.TAURI_SIGNING_PRIVATE_KEY_PASSWORD?.trim()) {
+    delete environment.TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+  }
+
+  return environment
+}
+
 async function toFileEntry(filepath: string): Promise<FileEntry> {
   const [fileBuffer, fileStats] = await Promise.all([readFile(filepath), stat(filepath)])
   const blockmapPath = `${filepath}.blockmap`
@@ -193,11 +237,15 @@ if (!outputs["latest-mac.yml"]) {
 
 const tag = `v${releaseVersion}`
 const tmp = process.env.RUNNER_TEMP ?? "/tmp"
+ensureTauriSigningKeyPresent()
+const tauriSigner = await requireTauriSignerBinaryPath()
+const signerEnvironment = resolveSignerEnvironment()
 
 for (const [filename, content] of Object.entries(outputs)) {
   const filepath = path.join(tmp, filename)
   await Bun.write(filepath, content)
-  await $`gh release upload ${tag} ${filepath} --clobber --repo ${repo}`
+  await $`${tauriSigner} signer sign ${filepath}`.env(signerEnvironment)
+  await $`gh release upload ${tag} ${filepath} ${`${filepath}.sig`} --clobber --repo ${repo}`
 }
 
-console.log("finalized latest yml files")
+console.log(`finalized ${SIGNED_MANIFEST_LABEL}`)

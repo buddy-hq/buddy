@@ -173,6 +173,7 @@ function versionParts(version: string): number[] {
 }
 
 export {
+  compareVersions,
   findRecoveryTarget,
   parseRecoveryPolicy,
   validateRecoveryTarget,

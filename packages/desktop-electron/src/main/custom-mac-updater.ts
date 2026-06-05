@@ -10,6 +10,7 @@ import {
   resolveLatestReleaseAssetUrl,
   resolveReleaseAssetUrl as resolveSharedReleaseAssetUrl,
 } from "./update-common"
+import { compareVersions } from "./recovery-policy-core"
 
 const RELEASE_METADATA_URL = resolveLatestReleaseAssetUrl("latest-mac.json")
 const BUDDY_UPDATE_METADATA_URL_ENV_KEY = "BUDDY_UPDATE_METADATA_URL"
@@ -20,6 +21,7 @@ const MAC_ARCHIVE_NAMES: Record<string, string> = {
 const UPDATE_CACHE_DIRECTORY_NAME = "custom-mac-updater"
 const INSTALLER_SCRIPT_NAME = "mac-install-update.sh"
 const INSTALLER_LOG_FILENAME = "update-installer.log"
+const INSTALLER_RESULT_FILENAME = "update-installer-result.json"
 const SHA512_HASH_ALGORITHM = "sha512"
 
 type LoggerLike = {
@@ -51,6 +53,11 @@ type MacUpdaterResult = {
   failed?: boolean
 }
 
+export type MacInstallerResult = {
+  exitCode?: number
+  status: "failed" | "running" | "succeeded"
+}
+
 type CreateCustomMacUpdaterOptions = {
   currentVersion: string
   packaged: boolean
@@ -69,8 +76,16 @@ type CreateCustomMacUpdaterOptions = {
   publicKey?: string
 }
 
+type MacUpdateAvailabilityInput = {
+  currentVersion: string
+  expectedVersion?: string
+  nextVersion: string
+}
+
 export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
   let pendingUpdate: PendingMacUpdate | null = null
+  let checkForUpdateTask: Promise<MacUpdaterResult> | undefined
+  const checkForVersionTasks = new Map<string, Promise<MacUpdaterResult>>()
 
   return {
     async checkForUpdate(): Promise<MacUpdaterResult> {
@@ -89,19 +104,23 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
         }
       }
 
-      try {
-        return await checkManifestForUpdate({
-          metadataUrl: options.metadataUrl ?? RELEASE_METADATA_URL,
-          options,
-          pendingUpdate,
-          setPendingUpdate: (update) => {
-            pendingUpdate = update
-          },
+      checkForUpdateTask ??= checkManifestForUpdate({
+        metadataUrl: options.metadataUrl ?? RELEASE_METADATA_URL,
+        options,
+        pendingUpdate,
+        setPendingUpdate: (update) => {
+          pendingUpdate = update
+        },
+      })
+        .catch((error) => {
+          options.logger.error("custom mac update check failed", error)
+          return { updateAvailable: false, failed: true }
         })
-      } catch (error) {
-        options.logger.error("custom mac update check failed", error)
-        return { updateAvailable: false, failed: true }
-      }
+        .finally(() => {
+          checkForUpdateTask = undefined
+        })
+
+      return await checkForUpdateTask
     },
     async checkForVersion(version: string): Promise<MacUpdaterResult> {
       if (!options.packaged) {
@@ -119,21 +138,30 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
         }
       }
 
-      try {
-        return await checkManifestForUpdate({
-          expectedVersion: version,
-          metadataUrl:
-            options.metadataUrl ?? resolveSharedReleaseAssetUrl(version, "latest-mac.json"),
-          options,
-          pendingUpdate,
-          setPendingUpdate: (update) => {
-            pendingUpdate = update
-          },
-        })
-      } catch (error) {
-        options.logger.error("custom mac recovery update check failed", error)
-        return { updateAvailable: false, failed: true }
+      const existingTask = checkForVersionTasks.get(version)
+      if (existingTask) {
+        return await existingTask
       }
+
+      const task = checkManifestForUpdate({
+        expectedVersion: version,
+        metadataUrl:
+          options.metadataUrl ?? resolveSharedReleaseAssetUrl(version, "latest-mac.json"),
+        options,
+        pendingUpdate,
+        setPendingUpdate: (update) => {
+          pendingUpdate = update
+        },
+      })
+        .catch((error) => {
+          options.logger.error("custom mac recovery update check failed", error)
+          return { updateAvailable: false, failed: true }
+        })
+        .finally(() => {
+          checkForVersionTasks.delete(version)
+        })
+      checkForVersionTasks.set(version, task)
+      return await task
     },
     async installUpdate() {
       if (!pendingUpdate) {
@@ -141,7 +169,8 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
       }
 
       const installerScriptPath = resolveInstallerScriptPath(options)
-      const installerLogPath = join(options.logsPath, INSTALLER_LOG_FILENAME)
+      const installerLogPath = resolveMacInstallerLogPath(options.logsPath)
+      const installerResultPath = resolveMacInstallerResultPath(options.logsPath)
 
       options.logger.info("launching custom mac installer", {
         version: pendingUpdate.version,
@@ -157,6 +186,7 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
           options.appPath,
           options.appName,
           installerLogPath,
+          installerResultPath,
         ],
         {
           detached: true,
@@ -164,11 +194,19 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
         },
       )
 
+      await waitForInstallerLaunch(child)
       child.unref()
       options.killSidecar()
       options.quit()
     },
   }
+}
+
+function waitForInstallerLaunch(child: ReturnType<typeof spawn>): Promise<void> {
+  return new Promise((resolveLaunch, rejectLaunch) => {
+    child.once("spawn", resolveLaunch)
+    child.once("error", rejectLaunch)
+  })
 }
 
 async function checkManifestForUpdate(input: {
@@ -179,13 +217,19 @@ async function checkManifestForUpdate(input: {
   setPendingUpdate: (update: PendingMacUpdate) => void
 }): Promise<MacUpdaterResult> {
   const metadata = await fetchLatestManifest(input.metadataUrl, input.options)
-  if (input.expectedVersion && metadata.version !== input.expectedVersion) {
+  if (input.expectedVersion !== undefined && metadata.version !== input.expectedVersion) {
     throw new Error(
       `Recovery manifest version mismatch: expected ${input.expectedVersion}, got ${metadata.version}`,
     )
   }
 
-  if (!isUpdateAvailable(metadata.version, input.options.currentVersion)) {
+  if (
+    !isMacUpdateAvailable({
+      currentVersion: input.options.currentVersion,
+      expectedVersion: input.expectedVersion,
+      nextVersion: metadata.version,
+    })
+  ) {
     return { updateAvailable: false }
   }
 
@@ -341,8 +385,47 @@ function resolveInstallerScriptPath(options: CreateCustomMacUpdaterOptions) {
   return join(options.appRootPath, "resources", INSTALLER_SCRIPT_NAME)
 }
 
-function isUpdateAvailable(nextVersion: string, currentVersion: string) {
-  return nextVersion.length > 0 && nextVersion !== currentVersion
+export function resolveMacInstallerLogPath(logsPath: string) {
+  return join(logsPath, INSTALLER_LOG_FILENAME)
+}
+
+export function resolveMacInstallerResultPath(logsPath: string) {
+  return join(logsPath, INSTALLER_RESULT_FILENAME)
+}
+
+export function parseMacInstallerResult(content: string): MacInstallerResult {
+  const parsed: unknown = JSON.parse(content)
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("Invalid mac installer result payload")
+  }
+
+  const status = Reflect.get(parsed, "status")
+  if (status !== "failed" && status !== "running" && status !== "succeeded") {
+    throw new Error("Invalid mac installer result status")
+  }
+
+  const exitCode = Reflect.get(parsed, "exitCode")
+  if (exitCode === undefined) {
+    return { status }
+  }
+
+  if (typeof exitCode !== "number" || !Number.isInteger(exitCode)) {
+    throw new Error("Invalid mac installer result exitCode")
+  }
+
+  return { exitCode, status }
+}
+
+export function isMacUpdateAvailable(input: MacUpdateAvailabilityInput) {
+  if (input.nextVersion.length === 0) {
+    return false
+  }
+
+  if (input.expectedVersion !== undefined) {
+    return input.nextVersion === input.expectedVersion
+  }
+
+  return compareVersions(input.nextVersion, input.currentVersion) > 0
 }
 
 export function resolveMacAppPath(execPath: string) {
