@@ -1,10 +1,17 @@
 import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
 import path from "node:path"
+import { ulid } from "ulid"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src/index.ts"
-import { SaveQuestionSetOutputSchema } from "../../src/learning/features/question-sets/types"
+import { QuestionSetPath } from "../../src/learning/features/question-sets/storage/path"
+import { saveQuestionSetArtifact } from "../../src/learning/features/question-sets/storage/save-artifact"
+import {
+  QUESTION_SET_ARTIFACT_KIND,
+  SaveQuestionSetOutputSchema,
+} from "../../src/learning/features/question-sets/types"
+import type { SavedQuestionSetArtifact } from "../../src/learning/features/question-sets/types"
 import type { SaveQuestionSetInput } from "../../src/learning/features/question-sets/tools/save-question-set"
 import { tmpdir } from "../helpers/tmpdir"
 import {
@@ -61,6 +68,31 @@ function sampleQuestionSetInput(): SaveQuestionSetInput {
       },
     ],
   }
+}
+
+async function createStoredQuestionSetArtifact(
+  directory: string,
+): Promise<SavedQuestionSetArtifact> {
+  const input = sampleQuestionSetInput()
+
+  return saveQuestionSetArtifact({
+    directory,
+    artifact: {
+      artifactID: ulid(),
+      kind: QUESTION_SET_ARTIFACT_KIND,
+      groupType: input.groupType ?? "quiz",
+      title: input.title,
+      instructions: input.instructions,
+      questions: input.questions,
+      createdAt: new Date().toISOString(),
+      createdBy: {
+        sessionID: "ses_storage_fixture",
+        messageID: "msg_storage_fixture",
+        callID: "call_storage_fixture",
+        subagent: "question-set-author",
+      },
+    },
+  })
 }
 
 describe("question-set tools and routes", () => {
@@ -196,6 +228,31 @@ describe("question-set tools and routes", () => {
 
     expect(savedArtifact.questions[0]!.payload.choices[0]!.correct).toBeDefined()
     expect(savedArtifact.questions[0]!.payload.choices[0]!.rationale).toBeDefined()
+  })
+
+  test("keeps valid question-set artifacts visible while surfacing corrupt load errors", async () => {
+    await using project = await tmpdir({ git: true })
+    const artifact = await createStoredQuestionSetArtifact(project.path)
+    const corruptArtifactID = ulid()
+
+    await fs.mkdir(QuestionSetPath.artifactDirectory(project.path, corruptArtifactID), {
+      recursive: true,
+    })
+    await fs.writeFile(QuestionSetPath.artifactFile(project.path, corruptArtifactID), "{", "utf8")
+
+    const response = await app.request(
+      `/api/question-set-artifacts?directory=${encodeURIComponent(project.path)}`,
+    )
+
+    expect(response.status).toBe(200)
+    const body = (await response.json()) as {
+      artifacts: Array<{ artifactID: string }>
+      loadErrors: Array<{ artifactID: string; message: string }>
+    }
+    expect(body.artifacts.map((item) => item.artifactID)).toEqual([artifact.artifactID])
+    expect(body.loadErrors).toHaveLength(1)
+    expect(body.loadErrors[0]?.artifactID).toBe(corruptArtifactID)
+    expect(body.loadErrors[0]?.message).toContain("could not be loaded")
   })
 
   test("grades submitted attempts and persists attempt records", async () => {

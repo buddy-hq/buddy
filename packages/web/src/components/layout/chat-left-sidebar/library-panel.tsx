@@ -16,6 +16,7 @@ import {
   UploadIcon,
 } from "lucide-react"
 import { Button, FolderIcon, Skeleton } from "@buddy/ui"
+import type { QuestionSetArtifactsListResponse } from "@buddy/sdk/types"
 import buddyStateEmptyBooksUrl from "../../../../../../assets/mascot/buddy-state-empty-books.png"
 import buddyStateEmptyDiagramsUrl from "../../../../../../assets/mascot/buddy-state-empty-diagrams.png"
 import buddyStateEmptyExercisesUrl from "../../../../../../assets/mascot/buddy-state-empty-exercises.png"
@@ -74,6 +75,8 @@ import { getFilename } from "../sidebar-helpers"
 type LibraryTab = "resources" | "flashcards" | "question-sets" | "diagrams"
 
 export type LibraryPanelResourceTarget = ResourceCardTarget
+
+type QuestionSetArtifactListItem = QuestionSetArtifactsListResponse["artifacts"][number]
 
 type LibraryPanelProps = {
   directories: string[]
@@ -1025,6 +1028,7 @@ function FlashcardNotebookShelf(props: {
     refetchOnMount: false,
   })
   const decks = decksQuery.data?.decks ?? []
+  const loadErrors = decksQuery.data?.loadErrors ?? []
   const loading = decksQuery.isPending
   const error = decksQuery.error ? stringifyError(decksQuery.error) : undefined
   const label = getFilename(directory)
@@ -1039,7 +1043,7 @@ function FlashcardNotebookShelf(props: {
   )
   const visibleDecks = decks.slice(0, visibleCount)
 
-  if (!loading && decks.length === 0 && !error) {
+  if (!loading && decks.length === 0 && loadErrors.length === 0 && !error) {
     if (!emptyMessage) {
       return null
     }
@@ -1119,6 +1123,12 @@ function FlashcardNotebookShelf(props: {
             <ShelfShowMoreButton count={nextBatchCount} onClick={showMore} />
           ) : null}
           {error ? <NotebookShelfError message={error} /> : null}
+          {loadErrors.map((loadError) => (
+            <NotebookShelfError
+              key={`${loadError.deckID}:${loadError.message}`}
+              message={loadError.message}
+            />
+          ))}
         </div>
       </div>
 
@@ -1251,7 +1261,7 @@ function FlashcardsTab({ directories }: { directories: string[] }) {
 
 function LibraryQuestionSetCard(props: {
   directory: string
-  artifactStub: any
+  artifactStub: QuestionSetArtifactListItem
   rightSidebarOpen: boolean
   rightSidebarTab: string
   selectedArtifactID?: string
@@ -1366,6 +1376,7 @@ function QuestionSetNotebookShelf(props: {
     refetchOnMount: false,
   })
   const sets = setsQuery.data?.artifacts ?? []
+  const loadErrors = setsQuery.data?.loadErrors ?? []
   const loading = setsQuery.isPending
   const error = setsQuery.error ? stringifyError(setsQuery.error) : undefined
   const label = getFilename(directory)
@@ -1384,7 +1395,7 @@ function QuestionSetNotebookShelf(props: {
   )
   const visibleSets = sets.slice(0, visibleCount)
 
-  if (!loading && sets.length === 0 && !error) {
+  if (!loading && sets.length === 0 && loadErrors.length === 0 && !error) {
     if (!emptyMessage) {
       return null
     }
@@ -1420,6 +1431,12 @@ function QuestionSetNotebookShelf(props: {
           <ShelfShowMoreButton count={nextBatchCount} onClick={showMore} />
         ) : null}
         {error ? <NotebookShelfError message={error} /> : null}
+        {loadErrors.map((loadError) => (
+          <NotebookShelfError
+            key={`${loadError.artifactID}:${loadError.message}`}
+            message={loadError.message}
+          />
+        ))}
       </div>
     </div>
   )

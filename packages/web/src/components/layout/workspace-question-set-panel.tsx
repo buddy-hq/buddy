@@ -11,6 +11,9 @@ import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate
 import { QuestionSetInlineView } from "@/components/chat/tools/render/question-set/question-set-inline-view"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import type { PublicQuestionSetArtifact } from "@/components/chat/tools/render/question-set/question-set-inline-view"
+import type { QuestionSetArtifactsListResponse } from "@buddy/sdk/types"
+
+type QuestionSetArtifactListItem = QuestionSetArtifactsListResponse["artifacts"][number]
 
 function questionCountLabel(count: number): string {
   return language.t(count === 1 ? "chatTools.questionCount.one" : "chatTools.questionCount.other", {
@@ -25,7 +28,10 @@ function formatTimestamp(value: string): string {
   }
   return parsed.toLocaleString()
 }
-function WorkspaceQuestionSetPanelItem(props: { directory: string; artifactStub: any }) {
+function WorkspaceQuestionSetPanelItem(props: {
+  directory: string
+  artifactStub: QuestionSetArtifactListItem
+}) {
   const [artifact, setArtifact] = useState<PublicQuestionSetArtifact | null>(null)
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -118,6 +124,7 @@ export function WorkspaceQuestionSetPanel(props: {
 }) {
   const artifactsQuery = useQuery(workspaceQuestionSetArtifactsQueryOptions(props.directory))
   const artifacts = artifactsQuery.data?.artifacts ?? []
+  const loadErrors = artifactsQuery.data?.loadErrors ?? []
   const loading = artifactsQuery.isPending
   const error = artifactsQuery.error ? stringifyError(artifactsQuery.error) : undefined
 
@@ -132,7 +139,7 @@ export function WorkspaceQuestionSetPanel(props: {
         <div className="text-sm text-text-weak">{language.t("workspaceQuestionSet.loading")}</div>
       ) : null}
 
-      {!loading && artifacts.length === 0 ? (
+      {!loading && artifacts.length === 0 && loadErrors.length === 0 ? (
         <div className="flex w-full min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border-base/40 bg-surface-weak/5 px-4 py-10 text-center">
           <h3 className="text-[13px] font-medium text-text-base">
             {language.t("workspaceQuestionSet.title")}
@@ -160,6 +167,15 @@ export function WorkspaceQuestionSetPanel(props: {
           {error}
         </p>
       ) : null}
+
+      {loadErrors.map((loadError) => (
+        <p
+          key={`${loadError.artifactID}:${loadError.message}`}
+          className="mt-2 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base"
+        >
+          {loadError.message}
+        </p>
+      ))}
     </div>
   )
 }

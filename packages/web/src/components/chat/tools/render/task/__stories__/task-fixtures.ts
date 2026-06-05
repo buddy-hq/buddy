@@ -58,6 +58,7 @@ export const FLASHCARD_DECK_SINGLE_CARD: FlashcardDecksListResponse["decks"][num
 
 export const FLASHCARD_DECKS_ALL: FlashcardDecksListResponse = {
   decks: [FLASHCARD_DECK_WITH_DUE, FLASHCARD_DECK_NO_DUE, FLASHCARD_DECK_SINGLE_CARD],
+  loadErrors: [],
 }
 
 export const QUESTION_SET_QUIZ: QuestionSetArtifactsListResponse["artifacts"][number] = {
@@ -166,4 +167,5 @@ export const QUESTION_SET_ASSESSMENT: QuestionSetArtifactsListResponse["artifact
 
 export const QUESTION_SETS_ALL: QuestionSetArtifactsListResponse = {
   artifacts: [QUESTION_SET_QUIZ, QUESTION_SET_PRACTICE, QUESTION_SET_ASSESSMENT],
+  loadErrors: [],
 }

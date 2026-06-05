@@ -1,4 +1,4 @@
-import fs from "node:fs/promises"
+import { writeTextFileAtomic } from "../../../../storage/atomic-file"
 import { QuestionSetPath } from "./path"
 import {
   SavedQuestionSetArtifactSchema,
@@ -141,10 +141,7 @@ async function writeQuestionSetArtifact(input: {
   artifact: SavedQuestionSetArtifact
 }): Promise<void> {
   const artifactPath = QuestionSetPath.artifactFile(input.directory, input.artifact.artifactID)
-  await fs.mkdir(QuestionSetPath.artifactDirectory(input.directory, input.artifact.artifactID), {
-    recursive: true,
-  })
-  await fs.writeFile(artifactPath, JSON.stringify(input.artifact, null, 2), "utf8")
+  await writeTextFileAtomic(artifactPath, JSON.stringify(input.artifact, null, 2))
 }
 
 async function saveQuestionSetArtifact(input: {

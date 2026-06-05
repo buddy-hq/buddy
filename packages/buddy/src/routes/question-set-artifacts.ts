@@ -18,8 +18,14 @@ const artifactIDParamSchema = z.object({
   artifactID: z.string(),
 })
 
+const questionSetArtifactListLoadErrorSchema = z.object({
+  artifactID: z.string(),
+  message: z.string(),
+})
+
 const questionSetArtifactListResponseSchema = z.object({
   artifacts: z.array(PublicQuestionSetArtifactSchema),
+  loadErrors: z.array(questionSetArtifactListLoadErrorSchema),
 })
 
 export const QuestionSetArtifactRoutes = new Hono()
@@ -37,7 +43,7 @@ export const QuestionSetArtifactRoutes = new Hono()
             },
           },
         },
-        ...routeErrors(403),
+        ...routeErrors(403, 500),
       },
     }),
     validator("query", directoryQuerySchema),
@@ -45,8 +51,8 @@ export const QuestionSetArtifactRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const artifacts = await listQuestionSetArtifacts(context.directory)
-            return Response.json({ artifacts })
+            const result = await listQuestionSetArtifacts(context.directory)
+            return Response.json(result)
           },
           mapError: mapQuestionSetRouteError,
         }),
