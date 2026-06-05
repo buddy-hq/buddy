@@ -1,3 +1,5 @@
+import type { TeachingWorkspaceResponse } from "../model/types"
+
 export class TeachingWorkspaceNotFoundError extends Error {
   constructor(sessionID: string) {
     super(`Teaching workspace not found for session ${sessionID}`)
@@ -5,14 +7,23 @@ export class TeachingWorkspaceNotFoundError extends Error {
   }
 }
 
-export class TeachingRevisionConflictError extends Error {
-  response: {
-    revision: number
-    code: string
-    lessonFilePath: string
-  }
+type TeachingRevisionConflictResponse = Pick<
+  TeachingWorkspaceResponse,
+  | "revision"
+  | "code"
+  | "files"
+  | "activeRelativePath"
+  | "lessonFilePath"
+  | "checkpointFilePath"
+  | "language"
+  | "lspAvailable"
+  | "diagnostics"
+>
 
-  constructor(input: { revision: number; code: string; lessonFilePath: string }) {
+export class TeachingRevisionConflictError extends Error {
+  response: TeachingRevisionConflictResponse
+
+  constructor(input: TeachingRevisionConflictResponse) {
     super("Teaching workspace has changed on disk")
     this.name = "TeachingRevisionConflictError"
     this.response = input

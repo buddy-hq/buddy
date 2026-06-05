@@ -112,10 +112,17 @@ async function save(directory: string, sessionID: string, input: TeachingWorkspa
   const synced = await syncRecord(directory, existing)
 
   if (input.expectedRevision !== synced.record.revision) {
+    const conflictWorkspace = await buildResponse(directory, synced.record)
     throw new TeachingRevisionConflictError({
-      revision: synced.record.revision,
-      code: synced.code,
-      lessonFilePath: synced.record.lessonFilePath,
+      revision: conflictWorkspace.revision,
+      code: conflictWorkspace.code,
+      files: conflictWorkspace.files,
+      activeRelativePath: conflictWorkspace.activeRelativePath,
+      lessonFilePath: conflictWorkspace.lessonFilePath,
+      checkpointFilePath: conflictWorkspace.checkpointFilePath,
+      language: conflictWorkspace.language,
+      lspAvailable: conflictWorkspace.lspAvailable,
+      diagnostics: conflictWorkspace.diagnostics,
     })
   }
 

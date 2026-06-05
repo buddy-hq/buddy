@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef } from "react"
-import { useTeachingRuntime } from "@/state/teaching-runtime"
+import {
+  teachingLanguageLabel,
+  type TeachingConflict,
+  type TeachingLanguage,
+  useTeachingRuntime,
+} from "@/state/teaching-runtime"
 import {
   activateTeachingWorkspaceFile,
   checkpointTeachingWorkspace,
@@ -12,7 +17,6 @@ import {
   stringifyError,
   TeachingConflictError,
 } from "@/state/teaching-actions"
-import { teachingLanguageLabel, type TeachingLanguage } from "@/state/teaching-runtime"
 import { sendPrompt } from "@/state/chat-actions"
 import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
 import { getRightSidebarDefaultWidth, RIGHT_SIDEBAR_EDITOR_MIN_WIDTH } from "./right-sidebar-layout"
@@ -242,11 +246,18 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
           return true
         } catch (saveError) {
           if (saveError instanceof TeachingConflictError) {
-            useTeachingRuntime.getState().setConflict(sessionKey, {
+            const conflict = {
               code: saveError.payload.code,
               revision: saveError.payload.revision,
+              files: saveError.payload.files,
+              activeRelativePath: saveError.payload.activeRelativePath,
               lessonFilePath: saveError.payload.lessonFilePath,
-            })
+              checkpointFilePath: saveError.payload.checkpointFilePath,
+              language: saveError.payload.language,
+              lspAvailable: saveError.payload.lspAvailable,
+              diagnostics: saveError.payload.diagnostics,
+            } satisfies TeachingConflict
+            useTeachingRuntime.getState().setConflict(sessionKey, conflict)
             return false
           }
           useTeachingRuntime.getState().setPendingSave(sessionKey, false)

@@ -124,7 +124,13 @@ export type TeachingPromptContext = {
 export type TeachingConflict = {
   code: string
   revision: number
+  files: TeachingWorkspaceFile[]
+  activeRelativePath: string
   lessonFilePath: string
+  checkpointFilePath: string
+  language: TeachingLanguage
+  lspAvailable: boolean
+  diagnostics: TeachingDiagnostic[]
 }
 
 export type TeachingWorkspaceState = TeachingWorkspace & {
@@ -309,7 +315,13 @@ export const useTeachingRuntime = create<TeachingRuntimeState>()(
               workspace.code = workspace.conflict.code
               workspace.savedCode = workspace.conflict.code
               workspace.revision = workspace.conflict.revision
+              workspace.files = workspace.conflict.files
+              workspace.activeRelativePath = workspace.conflict.activeRelativePath
               workspace.lessonFilePath = workspace.conflict.lessonFilePath
+              workspace.checkpointFilePath = workspace.conflict.checkpointFilePath
+              workspace.language = workspace.conflict.language
+              workspace.lspAvailable = workspace.conflict.lspAvailable
+              workspace.diagnostics = workspace.conflict.diagnostics
               workspace.conflict = undefined
               workspace.saveError = undefined
               workspace.pendingSave = false
@@ -362,7 +374,13 @@ export const useTeachingRuntime = create<TeachingRuntimeState>()(
               conflict: {
                 code: workspace.code,
                 revision: workspace.revision,
+                files: workspace.files,
+                activeRelativePath: workspace.activeRelativePath,
                 lessonFilePath: workspace.lessonFilePath,
+                checkpointFilePath: workspace.checkpointFilePath,
+                language: workspace.language,
+                lspAvailable: workspace.lspAvailable,
+                diagnostics: workspace.diagnostics,
               },
               saveError: undefined,
               pendingSave: false,

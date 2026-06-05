@@ -38,4 +38,48 @@ describe("teaching routes", () => {
       error: expect.stringContaining("Invalid config:"),
     })
   })
+
+  test("includes remote file list in workspace save conflicts", async () => {
+    const repo = createGitRepo("buddy-route-teaching-conflict-files")
+    const sessionID = "session_conflict_files"
+    const headers = {
+      "x-buddy-directory": repo,
+      "content-type": "application/json",
+    }
+
+    const provisionResponse = await app.request(`/api/teaching/session/${sessionID}/workspace`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ persona: "code-buddy" }),
+    })
+    expect(provisionResponse.status).toBe(200)
+
+    const addFileResponse = await app.request(`/api/teaching/session/${sessionID}/file`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        relativePath: "remote.ts",
+        content: "remote code",
+        activate: true,
+      }),
+    })
+    expect(addFileResponse.status).toBe(200)
+
+    const conflictResponse = await app.request(`/api/teaching/session/${sessionID}/workspace`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({
+        code: "local edit",
+        expectedRevision: 0,
+      }),
+    })
+
+    expect(conflictResponse.status).toBe(409)
+    const body = (await conflictResponse.json()) as {
+      activeRelativePath?: unknown
+      files?: { relativePath?: unknown }[]
+    }
+    expect(body.activeRelativePath).toBe("remote.ts")
+    expect(body.files?.map((file) => file.relativePath)).toContain("remote.ts")
+  })
 })

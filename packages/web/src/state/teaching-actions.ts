@@ -15,10 +15,18 @@ import { stringifyError } from "../lib/api-client"
 
 export type TeachingConflictPayload = {
   error: string
-  revision: number
-  code: string
-  lessonFilePath: string
-}
+} & Pick<
+  TeachingWorkspace,
+  | "revision"
+  | "code"
+  | "files"
+  | "activeRelativePath"
+  | "lessonFilePath"
+  | "checkpointFilePath"
+  | "language"
+  | "lspAvailable"
+  | "diagnostics"
+>
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -45,51 +53,13 @@ function readOptionalCode(value: unknown) {
   return typeof value === "string" || typeof value === "number" ? value : undefined
 }
 
-function parseTeachingWorkspace(value: unknown): TeachingWorkspace | undefined {
-  if (!isRecord(value)) {
+function parseTeachingDiagnostics(value: unknown): TeachingWorkspace["diagnostics"] | undefined {
+  if (!Array.isArray(value)) {
     return undefined
-  }
-
-  if (
-    typeof value.sessionID !== "string" ||
-    typeof value.workspaceRoot !== "string" ||
-    !isTeachingLanguage(value.language) ||
-    typeof value.lessonFilePath !== "string" ||
-    typeof value.checkpointFilePath !== "string" ||
-    !Array.isArray(value.files) ||
-    typeof value.activeRelativePath !== "string" ||
-    typeof value.revision !== "number" ||
-    !Number.isFinite(value.revision) ||
-    typeof value.code !== "string" ||
-    typeof value.lspAvailable !== "boolean" ||
-    !Array.isArray(value.diagnostics)
-  ) {
-    return undefined
-  }
-
-  const files: TeachingWorkspace["files"] = []
-  for (const entry of value.files) {
-    if (!isRecord(entry)) {
-      return undefined
-    }
-    if (
-      typeof entry.relativePath !== "string" ||
-      typeof entry.filePath !== "string" ||
-      typeof entry.checkpointFilePath !== "string" ||
-      !isTeachingLanguage(entry.language)
-    ) {
-      return undefined
-    }
-    files.push({
-      relativePath: entry.relativePath,
-      filePath: entry.filePath,
-      checkpointFilePath: entry.checkpointFilePath,
-      language: entry.language,
-    })
   }
 
   const diagnostics: TeachingWorkspace["diagnostics"] = []
-  for (const entry of value.diagnostics) {
+  for (const entry of value) {
     if (!isRecord(entry)) {
       return undefined
     }
@@ -117,6 +87,63 @@ function parseTeachingWorkspace(value: unknown): TeachingWorkspace | undefined {
       endLine: entry.endLine,
       endColumn: entry.endColumn,
     })
+  }
+
+  return diagnostics
+}
+
+function parseTeachingWorkspaceFiles(value: unknown): TeachingWorkspace["files"] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  const files: TeachingWorkspace["files"] = []
+  for (const entry of value) {
+    if (!isRecord(entry)) {
+      return undefined
+    }
+    if (
+      typeof entry.relativePath !== "string" ||
+      typeof entry.filePath !== "string" ||
+      typeof entry.checkpointFilePath !== "string" ||
+      !isTeachingLanguage(entry.language)
+    ) {
+      return undefined
+    }
+    files.push({
+      relativePath: entry.relativePath,
+      filePath: entry.filePath,
+      checkpointFilePath: entry.checkpointFilePath,
+      language: entry.language,
+    })
+  }
+
+  return files
+}
+
+function parseTeachingWorkspace(value: unknown): TeachingWorkspace | undefined {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  const diagnostics = parseTeachingDiagnostics(value.diagnostics)
+  const files = parseTeachingWorkspaceFiles(value.files)
+
+  if (
+    typeof value.sessionID !== "string" ||
+    typeof value.workspaceRoot !== "string" ||
+    !isTeachingLanguage(value.language) ||
+    typeof value.lessonFilePath !== "string" ||
+    typeof value.checkpointFilePath !== "string" ||
+    files === undefined ||
+    typeof value.activeRelativePath !== "string" ||
+    typeof value.revision !== "number" ||
+    !Number.isFinite(value.revision) ||
+    typeof value.code !== "string" ||
+    typeof value.lspAvailable !== "boolean" ||
+    diagnostics === undefined
+  ) {
+    return undefined
   }
 
   return {
@@ -147,8 +174,15 @@ function isTeachingConflictPayload(value: unknown): value is TeachingConflictPay
   return (
     typeof value.error === "string" &&
     typeof value.revision === "number" &&
+    Number.isFinite(value.revision) &&
     typeof value.code === "string" &&
-    typeof value.lessonFilePath === "string"
+    parseTeachingWorkspaceFiles(value.files) !== undefined &&
+    typeof value.activeRelativePath === "string" &&
+    typeof value.lessonFilePath === "string" &&
+    typeof value.checkpointFilePath === "string" &&
+    isTeachingLanguage(value.language) &&
+    typeof value.lspAvailable === "boolean" &&
+    parseTeachingDiagnostics(value.diagnostics) !== undefined
   )
 }
 
