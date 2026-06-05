@@ -19,6 +19,10 @@ function clonePermission(permission: SessionPermissionInput): OpenCodeSession.In
   return permission?.map((rule) => ({ ...rule }))
 }
 
+function cloneSession(session: OpenCodeSession.Info): OpenCodeSession.Info {
+  return structuredClone(session)
+}
+
 function touchLiveSessionCache(key: string, session: OpenCodeSession.Info) {
   liveSessions.delete(key)
   liveSessions.set(key, session)
@@ -34,8 +38,9 @@ export function canonicalizeSession(session: OpenCodeSession.Info): OpenCodeSess
   const key = cacheKey(session.id)
   const existing = liveSessions.get(key)
   if (!existing) {
-    touchLiveSessionCache(key, session)
-    return session
+    const cached = cloneSession(session)
+    touchLiveSessionCache(key, cached)
+    return cloneSession(cached)
   }
 
   existing.slug = session.slug
@@ -52,7 +57,7 @@ export function canonicalizeSession(session: OpenCodeSession.Info): OpenCodeSess
   existing.time = { ...session.time }
 
   touchLiveSessionCache(key, existing)
-  return existing
+  return cloneSession(existing)
 }
 
 export function updateCachedSession(input: {
