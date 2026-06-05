@@ -42,14 +42,24 @@ const preferred = buildPaths({
   ),
 })
 
-const fallback = buildPaths({
-  data: path.join(os.tmpdir(), BUDDY_APP_NAME, "data"),
-  cache: path.join(os.tmpdir(), BUDDY_APP_NAME, "cache"),
-  config: path.join(os.tmpdir(), BUDDY_APP_NAME, "config"),
-  state: path.join(os.tmpdir(), BUDDY_APP_NAME, "state"),
-})
-
 let current = preferred
+
+class GlobalStoragePathError extends Error {
+  constructor(paths: typeof preferred, cause: unknown) {
+    const causeMessage = cause instanceof Error ? cause.message : String(cause)
+    super(
+      [
+        "Buddy global storage paths are not writable.",
+        `data=${paths.data}`,
+        `cache=${paths.cache}`,
+        `config=${paths.config}`,
+        `state=${paths.state}`,
+        causeMessage,
+      ].join(" "),
+    )
+    this.name = "GlobalStoragePathError"
+  }
+}
 
 function ensurePaths(paths: typeof preferred) {
   for (const target of [paths.data, paths.cache, paths.config, paths.state, paths.log, paths.bin]) {
@@ -96,10 +106,8 @@ export namespace Global {
     try {
       ensurePaths(current)
       assertPathsWritable(current)
-    } catch {
-      current = fallback
-      ensurePaths(current)
-      assertPathsWritable(current)
+    } catch (error) {
+      throw new GlobalStoragePathError(current, error)
     }
   }
 }
