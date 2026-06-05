@@ -11,6 +11,9 @@ const runtime = makeRuntime(OpenCodePlugin.Service, OpenCodePlugin.defaultLayer)
 const patchedServices = new WeakSet<OpenCodePlugin.Interface>()
 const runtimePluginFactories = new Set<RuntimePluginFactory>()
 const hookPromisesByInstance = new Map<string, Promise<Hooks[]>>()
+const RUNTIME_HOOK_LOAD_FAILURE_MESSAGE = "Buddy runtime plugin hook load failed"
+const RUNTIME_HOOK_TRIGGER_FAILURE_MESSAGE = "Buddy runtime plugin hook trigger failed"
+const EMPTY_RUNTIME_HOOKS: Hooks[] = []
 
 let patchPromise: Promise<void> | undefined
 
@@ -71,11 +74,21 @@ function loadRuntimeHooks(context: RuntimePluginContext): Promise<Hooks[]> {
 
 const getRuntimeHooks = Effect.fn("BuddyPlugin.getRuntimeHooks")(function* () {
   if (runtimePluginFactories.size === 0) {
-    return [] as Hooks[]
+    return EMPTY_RUNTIME_HOOKS
   }
 
   const context = yield* getRuntimePluginContext
-  return yield* Effect.promise(() => loadRuntimeHooks(context)).pipe(Effect.orDie)
+  return yield* Effect.tryPromise({
+    try: () => loadRuntimeHooks(context),
+    catch: (error) => error,
+  }).pipe(
+    Effect.catch((error) =>
+      Effect.logWarning(RUNTIME_HOOK_LOAD_FAILURE_MESSAGE).pipe(
+        Effect.annotateLogs({ error }),
+        Effect.as(EMPTY_RUNTIME_HOOKS),
+      ),
+    ),
+  )
 })
 
 async function invokeRuntimeTrigger(
@@ -117,7 +130,16 @@ function ensurePatched(service: OpenCodePlugin.Interface) {
     const runtimeHooks = yield* getRuntimeHooks()
 
     for (const hook of runtimeHooks) {
-      yield* Effect.promise(() => invokeRuntimeTrigger(hook, name, input, next)).pipe(Effect.orDie)
+      yield* Effect.tryPromise({
+        try: () => invokeRuntimeTrigger(hook, name, input, next),
+        catch: (error) => error,
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.logWarning(RUNTIME_HOOK_TRIGGER_FAILURE_MESSAGE).pipe(
+            Effect.annotateLogs({ error, hook: name }),
+          ),
+        ),
+      )
     }
 
     return next
