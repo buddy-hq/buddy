@@ -251,30 +251,104 @@ function extractJsonFromText(text: string): unknown | undefined {
   if (!text || text.trim().length === 0) return undefined
 
   // Try to find JSON in markdown code blocks
-  const codeBlockMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
-  if (codeBlockMatch) {
-    try {
-      return JSON.parse(codeBlockMatch[1])
-    } catch {
-      // ignore parse error, try other methods
-    }
+  const codeBlockJson = extractSingleJsonObject(markdownCodeBlockContents(text))
+  if (codeBlockJson !== undefined) {
+    return codeBlockJson
   }
 
-  // Try to find JSON object directly in the text
-  const objectMatch = text.match(/\{[\s\S]*\}/)
-  if (objectMatch) {
-    try {
-      return JSON.parse(objectMatch[0])
-    } catch {
-      // ignore parse error
-    }
+  const trimmed = text.trim()
+  const wholeTextJson = parseJsonObject(trimmed)
+  if (wholeTextJson !== undefined) {
+    return wholeTextJson
   }
 
-  // Try the whole text as JSON
+  return extractSingleJsonObject(jsonObjectCandidates(trimmed))
+}
+
+function markdownCodeBlockContents(text: string): string[] {
+  const contents: string[] = []
+  const codeBlockPattern = /```(?:json)?\s*([\s\S]*?)\s*```/giu
+  let match = codeBlockPattern.exec(text)
+  while (match) {
+    contents.push(match[1])
+    match = codeBlockPattern.exec(text)
+  }
+  return contents
+}
+
+function extractSingleJsonObject(candidates: Iterable<string>): unknown | undefined {
+  let parsed: unknown | undefined
+  for (const candidate of candidates) {
+    const next = parseJsonObject(candidate.trim())
+    if (next === undefined) continue
+    if (parsed !== undefined) return undefined
+    parsed = next
+  }
+  return parsed
+}
+
+function parseJsonObject(value: string): unknown | undefined {
   try {
-    return JSON.parse(text.trim())
+    const parsed: unknown = JSON.parse(value)
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : undefined
   } catch {
     return undefined
+  }
+}
+
+function* jsonObjectCandidates(text: string): Generator<string> {
+  let start = -1
+  let depth = 0
+  let inString = false
+  let escaped = false
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+
+    if (start === -1) {
+      if (char === "{") {
+        start = index
+        depth = 1
+        inString = false
+        escaped = false
+      }
+      continue
+    }
+
+    if (inString) {
+      if (escaped) {
+        escaped = false
+        continue
+      }
+      if (char === "\\") {
+        escaped = true
+        continue
+      }
+      if (char === '"') {
+        inString = false
+      }
+      continue
+    }
+
+    if (char === '"') {
+      inString = true
+      continue
+    }
+
+    if (char === "{") {
+      depth += 1
+      continue
+    }
+
+    if (char !== "}") {
+      continue
+    }
+
+    depth -= 1
+    if (depth === 0) {
+      yield text.slice(start, index + 1)
+      start = -1
+    }
   }
 }
 
@@ -290,3 +364,5 @@ export type {
   StructuredTextInput,
   StructuredTextResult,
 }
+
+export { extractJsonFromText }
