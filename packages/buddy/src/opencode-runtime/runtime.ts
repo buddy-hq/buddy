@@ -11,6 +11,7 @@ import {
   ensurePluginServicePatched,
   registerRuntimePluginFactory,
 } from "@buddy/opencode-adapter/plugin-live"
+import { ensureConfigServicePatched } from "@buddy/opencode-adapter/config"
 import { ensureToolInputDeltaBridgePatched } from "@buddy/opencode-adapter/tool-input-delta-live"
 import { Server } from "@buddy/opencode-adapter/server"
 import { repairLegacyOpenCodeMigrations } from "./legacy-migration-repair"
@@ -54,6 +55,7 @@ export async function loadOpenCodeApp() {
         )
         buddyRuntimePluginRegistered = true
       }
+      await ensureConfigServicePatched()
       await ensurePluginServicePatched()
       await ensureToolInputDeltaBridgePatched()
       await ensureSubagentForwardingPatched()

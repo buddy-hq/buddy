@@ -25,6 +25,7 @@
     "./agent": "./src/agent.ts",
     "./registry": "./src/registry.ts",
     "./config": "./src/config.ts",
+    "./config-overlay": "./src/config-overlay.ts",
     "./session": "./src/session.ts",
     "./session-live": "./src/session-live.ts",
     "./session-tool-ui": "./src/session-tool-ui.ts",

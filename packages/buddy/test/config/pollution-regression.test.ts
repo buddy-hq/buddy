@@ -38,8 +38,10 @@ describe("config pollution regression", () => {
     const repo = createGitRepo("buddy-prompt-config-pollution-test")
 
     const configJsonPath = path.join(repo, "config.json")
+    const opencodeConfigPath = path.join(repo, "opencode.jsonc")
 
     expect(fs.existsSync(configJsonPath)).toBe(false)
+    expect(fs.existsSync(opencodeConfigPath)).toBe(false)
 
     await app.request("/api/config", {
       method: "PATCH",
@@ -55,6 +57,34 @@ describe("config pollution regression", () => {
     })
 
     expect(fs.existsSync(configJsonPath)).toBe(false)
+    expect(fs.existsSync(opencodeConfigPath)).toBe(false)
+
+    const headers = {
+      "x-buddy-directory": repo,
+    }
+
+    const configProvidersResponse = await app.request(`/api/config/providers?directory=${encodeURIComponent(repo)}`, {
+      headers,
+    })
+    expect(configProvidersResponse.status).toBe(200)
+
+    const providerListResponse = await app.request(`/api/provider?directory=${encodeURIComponent(repo)}`, {
+      headers,
+    })
+    expect(providerListResponse.status).toBe(200)
+
+    const commandListResponse = await app.request(`/api/command?directory=${encodeURIComponent(repo)}`, {
+      headers,
+    })
+    expect(commandListResponse.status).toBe(200)
+
+    const mcpStatusResponse = await app.request(`/api/mcp?directory=${encodeURIComponent(repo)}`, {
+      headers,
+    })
+    expect(mcpStatusResponse.status).toBe(200)
+
+    expect(fs.existsSync(configJsonPath)).toBe(false)
+    expect(fs.existsSync(opencodeConfigPath)).toBe(false)
 
     fs.rmSync(repo, { recursive: true, force: true })
   })

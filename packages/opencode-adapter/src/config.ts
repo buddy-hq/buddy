@@ -1,106 +1,164 @@
-import { realpathSync } from "node:fs"
-import path from "node:path"
 import * as OpenCodeConfigAgent from "opencode/config/agent"
 import * as OpenCodeConfig from "opencode/config/config"
 import * as OpenCodeConfigMCP from "opencode/config/mcp"
 import * as OpenCodeConfigModelID from "opencode/config/model-id"
 import * as OpenCodeConfigPermission from "opencode/config/permission"
+import * as OpenCodeConfigPlugin from "opencode/config/plugin"
 import * as OpenCodeConfigProvider from "opencode/config/provider"
 import * as OpenCodeConfigSkills from "opencode/config/skills"
-import { Schema } from "effect"
+import { ConfigParse as OpenCodeConfigParse } from "opencode/config/parse"
+import { ConfigVariable as OpenCodeConfigVariable } from "opencode/config/variable"
+import { Effect, Schema } from "effect"
 import { makeRuntime } from "opencode/effect/run-service"
+import { InstanceRef } from "opencode/effect/instance-ref"
+import {
+  clearRuntimeConfigOverlay,
+  getRuntimeConfigOverlay,
+  setRuntimeConfigOverlay,
+} from "./config-overlay"
 import { withCurrentInstance } from "./effect-runtime"
-import { Instance } from "./instance"
 
 type RuntimeConfig = OpenCodeConfig.Info
 
+const BUDDY_RUNTIME_CONFIG_OVERLAY_SOURCE = "BUDDY_RUNTIME_CONFIG_OVERLAY"
 const runtime = makeRuntime(OpenCodeConfig.Service, OpenCodeConfig.defaultLayer)
-const overlays = new Map<string, Partial<RuntimeConfig>>()
-
-const originalProvide = Instance.provide.bind(Instance)
-const originalReload = Instance.reload.bind(Instance)
-
-let patched = false
+const patchedServices = new WeakSet<OpenCodeConfig.Interface>()
+const appliedRuntimeConfigOverlays = new WeakSet<RuntimeConfig>()
+let patchPromise: Promise<void> | undefined
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
 
-function mergePluginValues(base: unknown, overlay: unknown) {
-  if (!Array.isArray(base) || !Array.isArray(overlay)) {
+function mergeRuntimeConfigValueInto(base: unknown, overlay: unknown): unknown {
+  if (overlay === undefined) return base
+  if (!isPlainObject(overlay)) {
     return overlay
   }
 
-  return Array.from(new Set([...base, ...overlay]))
-}
-
-function mergeConfigValue<T>(base: T, overlay: unknown, field?: string): T {
-  if (overlay === undefined) return base
-  if (field === "plugin") {
-    return mergePluginValues(base, overlay) as T
-  }
-  if (!isPlainObject(base) || !isPlainObject(overlay)) {
-    return overlay as T
-  }
-
-  const result: Record<string, unknown> = { ...base }
+  const target: Record<string, unknown> = isPlainObject(base) ? base : {}
   for (const [key, value] of Object.entries(overlay)) {
-    result[key] = key in result ? mergeConfigValue(result[key], value, key) : value
+    target[key] = mergeRuntimeConfigValueInto(target[key], value)
   }
-  return result as T
+  return target
 }
 
-function key(directory: string) {
-  const resolved = path.resolve(directory)
-  try {
-    return realpathSync.native(resolved)
-  } catch {
-    return resolved
+function applyRuntimeConfigOverlay(base: RuntimeConfig, overlay: Partial<RuntimeConfig>): void {
+  const baseInstructions = base.instructions ? [...base.instructions] : undefined
+  const basePluginOrigins = base.plugin_origins ? [...base.plugin_origins] : []
+
+  mergeRuntimeConfigValueInto(base, overlay)
+
+  if (baseInstructions && overlay.instructions) {
+    base.instructions = Array.from(new Set([...baseInstructions, ...overlay.instructions]))
+  }
+  if (overlay.plugin?.length) {
+    const origins = OpenCodeConfigPlugin.deduplicatePluginOrigins([
+      ...basePluginOrigins,
+      ...overlay.plugin.map(runtimeConfigOverlayPluginOrigin),
+    ])
+    base.plugin = origins.map((origin) => origin.spec)
+    base.plugin_origins = origins
   }
 }
 
-export async function withConfigOverlay<T>(directory: string, fn: () => Promise<T>): Promise<T> {
-  const overlay = overlays.get(key(directory))
-  if (!overlay) {
-    return fn()
+function runtimeConfigOverlayPluginOrigin(
+  spec: OpenCodeConfigPlugin.Spec,
+): OpenCodeConfigPlugin.Origin {
+  return {
+    spec,
+    source: BUDDY_RUNTIME_CONFIG_OVERLAY_SOURCE,
+    scope: "local",
   }
+}
 
-  const previous = process.env.OPENCODE_CONFIG_CONTENT
-  process.env.OPENCODE_CONFIG_CONTENT = JSON.stringify(overlay)
-  try {
-    return await fn()
-  } finally {
-    if (previous === undefined) {
-      delete process.env.OPENCODE_CONFIG_CONTENT
-    } else {
-      process.env.OPENCODE_CONFIG_CONTENT = previous
+function normalizeLoadedConfig(data: unknown) {
+  if (!isPlainObject(data)) return data
+  const copy = { ...data }
+  const hasDeprecatedTuiKeys = "theme" in copy || "keybinds" in copy || "tui" in copy
+  if (!hasDeprecatedTuiKeys) return copy
+  delete copy.theme
+  delete copy.keybinds
+  delete copy.tui
+  return copy
+}
+
+const parseRuntimeConfigOverlay = Effect.fn("BuddyConfig.parseRuntimeConfigOverlay")(
+  function* (input: { directory: string; overlay: unknown }) {
+    const text = JSON.stringify(input.overlay)
+    const expanded = yield* Effect.promise(() =>
+      OpenCodeConfigVariable.substitute({
+        text,
+        type: "virtual",
+        dir: input.directory,
+        source: BUDDY_RUNTIME_CONFIG_OVERLAY_SOURCE,
+      }),
+    )
+    const parsed = OpenCodeConfigParse.jsonc(expanded, BUDDY_RUNTIME_CONFIG_OVERLAY_SOURCE)
+    return OpenCodeConfigParse.schema(
+      OpenCodeConfig.Info,
+      normalizeLoadedConfig(parsed),
+      BUDDY_RUNTIME_CONFIG_OVERLAY_SOURCE,
+    )
+  },
+)
+
+function ensurePatched(service: OpenCodeConfig.Interface) {
+  if (patchedServices.has(service)) {
+    return
+  }
+  patchedServices.add(service)
+
+  const originalGet = service.get.bind(service)
+
+  const get: OpenCodeConfig.Interface["get"] = Effect.fn("BuddyConfig.get")(function* () {
+    const config = yield* originalGet()
+    const instance = yield* InstanceRef
+    if (!instance) {
+      return config
     }
-  }
+
+    const overlay = getRuntimeConfigOverlay(instance.directory)
+    if (!overlay || appliedRuntimeConfigOverlays.has(config)) {
+      return config
+    }
+
+    const parsedOverlay = yield* parseRuntimeConfigOverlay({
+      directory: instance.directory,
+      overlay,
+    })
+
+    applyRuntimeConfigOverlay(config, parsedOverlay)
+    appliedRuntimeConfigOverlays.add(config)
+    return config
+  })
+
+  Object.defineProperties(service, {
+    get: { value: get },
+  })
 }
 
-function ensurePatched() {
-  if (patched) return
-  patched = true
+export async function ensureConfigServicePatched() {
+  patchPromise ??= runtime
+    .runPromise((svc) => Effect.sync(() => ensurePatched(svc)))
+    .catch((error) => {
+      patchPromise = undefined
+      throw error
+    })
+  await patchPromise
+}
 
-  const provideWithOverlay: typeof Instance.provide = async (input) => {
-    return withConfigOverlay(input.directory, () => originalProvide(input))
-  }
-
-  const reloadWithOverlay: typeof Instance.reload = async (input) => {
-    return withConfigOverlay(input.directory, () => originalReload(input))
-  }
-
-  Instance.provide = provideWithOverlay
-  Instance.reload = reloadWithOverlay
+export async function withConfigOverlay<T>(_directory: string, fn: () => Promise<T>): Promise<T> {
+  await ensureConfigServicePatched()
+  return fn()
 }
 
 export function setConfigOverlay(directory: string, overlay: Partial<RuntimeConfig>) {
-  ensurePatched()
-  overlays.set(key(directory), overlay)
+  setRuntimeConfigOverlay(directory, overlay)
 }
 
 export function clearConfigOverlay(directory: string) {
-  overlays.delete(key(directory))
+  clearRuntimeConfigOverlay(directory)
 }
 
 export namespace Config {
@@ -132,11 +190,8 @@ export namespace Config {
   export type Mcp = Schema.Schema.Type<typeof OpenCodeConfigMCP.Info>
 
   export async function get() {
-    ensurePatched()
-    const config = await runtime.runPromise((svc) => withCurrentInstance(svc.get()))
-    const overlay = overlays.get(key(Instance.directory))
-    if (!overlay) return config
-    return mergeConfigValue(config, overlay)
+    await ensureConfigServicePatched()
+    return runtime.runPromise((svc) => withCurrentInstance(svc.get()))
   }
 
   export async function getGlobal() {
@@ -144,11 +199,12 @@ export namespace Config {
   }
 
   export async function directories() {
-    ensurePatched()
+    await ensureConfigServicePatched()
     return runtime.runPromise((svc) => withCurrentInstance(svc.directories()))
   }
 
   export async function waitForDependencies() {
+    await ensureConfigServicePatched()
     return runtime.runPromise((svc) => withCurrentInstance(svc.waitForDependencies()))
   }
 }

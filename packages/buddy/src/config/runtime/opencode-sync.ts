@@ -1,4 +1,5 @@
 import { setConfigOverlay } from "@buddy/opencode-adapter/config"
+import { canonicalizeRuntimeConfigDirectory } from "@buddy/opencode-adapter/config-overlay"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { Config } from "../config.js"
 import { reconcileWithdrawnLibrarySkills } from "../../learning/skill-management/service/library.js"
@@ -76,13 +77,14 @@ export async function ensureOpenCodeProjectOverlay(directory: string): Promise<v
 
 export async function syncOpenCodeProjectConfig(directory: string, force = false): Promise<void> {
   const { configFingerprintByDirectory, configSyncTaskByDirectory } = getOpenCodeSyncState()
-  const existingTask = configSyncTaskByDirectory.get(directory)
+  const directoryKey = canonicalizeRuntimeConfigDirectory(directory)
+  const existingTask = configSyncTaskByDirectory.get(directoryKey)
   if (existingTask) return existingTask
 
   const task = (async () => {
     const { config, overlay } = await buildAndApplyProjectOverlay(directory)
     const nextFingerprint = await resolveProjectConfigFingerprint(config, overlay)
-    const previousFingerprint = configFingerprintByDirectory.get(directory)
+    const previousFingerprint = configFingerprintByDirectory.get(directoryKey)
     if (!force && previousFingerprint === nextFingerprint) {
       return
     }
@@ -97,11 +99,11 @@ export async function syncOpenCodeProjectConfig(directory: string, force = false
       },
     })
 
-    configFingerprintByDirectory.set(directory, nextFingerprint)
+    configFingerprintByDirectory.set(directoryKey, nextFingerprint)
   })().finally(() => {
-    configSyncTaskByDirectory.delete(directory)
+    configSyncTaskByDirectory.delete(directoryKey)
   })
 
-  configSyncTaskByDirectory.set(directory, task)
+  configSyncTaskByDirectory.set(directoryKey, task)
   return task
 }

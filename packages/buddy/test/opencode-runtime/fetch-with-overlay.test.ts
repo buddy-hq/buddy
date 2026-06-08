@@ -1,22 +1,68 @@
 import { describe, expect, test } from "bun:test"
+import path from "node:path"
+import { writeFileSync } from "node:fs"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
 import { getOpenCodeClient } from "../../src/opencode-runtime/client"
 import { loadOpenCodeApp } from "../../src/opencode-runtime/runtime"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("in-process OpenCode fetch overlay", () => {
-  test("loads Buddy agents when SDK requests run through fetchOpenCodeApp", async () => {
+  test("loads Buddy runtime config surfaces when SDK requests run through fetchOpenCodeApp", async () => {
     await using project = await tmpdir({ git: true })
+
+    writeFileSync(
+      path.join(project.path, "buddy.jsonc"),
+      JSON.stringify(
+        {
+          disabled_providers: ["openai"],
+          mcp: {
+            local_test: {
+              type: "local",
+              command: ["bun", "--version"],
+              enabled: false,
+            },
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
 
     await loadOpenCodeApp()
     await syncOpenCodeProjectConfig(project.path, true)
 
     const client = await getOpenCodeClient(project.path)
-    const response = await client.app.agents({
-      directory: project.path,
-    })
+    const [agents, commands, configProviders, providerList, mcpStatus] = await Promise.all([
+      client.app.agents({
+        directory: project.path,
+      }),
+      client.command.list({
+        directory: project.path,
+      }),
+      client.config.providers({
+        directory: project.path,
+      }),
+      client.provider.list({
+        directory: project.path,
+      }),
+      client.mcp.status({
+        directory: project.path,
+      }),
+    ])
 
-    expect(response.error).toBeUndefined()
-    expect(response.data?.some((agent) => agent.name === "buddy")).toBe(true)
+    expect(agents.error).toBeUndefined()
+    expect(agents.data?.some((agent) => agent.name === "buddy")).toBe(true)
+
+    expect(commands.error).toBeUndefined()
+    expect(commands.data?.some((command) => command.name === "flashcard")).toBe(true)
+
+    expect(configProviders.error).toBeUndefined()
+    expect(configProviders.data?.providers.some((provider) => provider.id === "openai")).toBe(false)
+
+    expect(providerList.error).toBeUndefined()
+    expect(providerList.data?.all.some((provider) => provider.id === "openai")).toBe(false)
+
+    expect(mcpStatus.error).toBeUndefined()
+    expect(mcpStatus.data).toHaveProperty("local_test")
   }, 30_000)
 })

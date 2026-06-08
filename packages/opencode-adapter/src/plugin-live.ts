@@ -3,17 +3,21 @@ import path from "node:path"
 import { Effect } from "effect"
 import { InstanceRef } from "opencode/effect/instance-ref"
 import { makeRuntime } from "opencode/effect/run-service"
+import * as OpenCodeConfig from "opencode/config/config"
 import * as OpenCodePlugin from "opencode/plugin/index"
 import type { Hooks } from "@opencode-ai/plugin"
 import { withCurrentInstance } from "./effect-runtime"
 
 const runtime = makeRuntime(OpenCodePlugin.Service, OpenCodePlugin.defaultLayer)
+const configRuntime = makeRuntime(OpenCodeConfig.Service, OpenCodeConfig.defaultLayer)
 const patchedServices = new WeakSet<OpenCodePlugin.Interface>()
 const runtimePluginFactories = new Set<RuntimePluginFactory>()
-const hookPromisesByInstance = new Map<string, Promise<Hooks[]>>()
+const hookPromisesByInstance = new Map<string, Promise<RuntimeHooks[]>>()
+const configuredRuntimeHookConfigs = new WeakMap<RuntimeHooks, WeakSet<object>>()
 const RUNTIME_HOOK_LOAD_FAILURE_MESSAGE = "Buddy runtime plugin hook load failed"
 const RUNTIME_HOOK_TRIGGER_FAILURE_MESSAGE = "Buddy runtime plugin hook trigger failed"
-const EMPTY_RUNTIME_HOOKS: Hooks[] = []
+const RUNTIME_HOOK_CONFIG_FAILURE_MESSAGE = "Buddy runtime plugin config hook failed"
+const EMPTY_RUNTIME_HOOKS: RuntimeHooks[] = []
 
 let patchPromise: Promise<void> | undefined
 
@@ -22,7 +26,11 @@ type RuntimePluginContext = {
   worktree: string
 }
 
-type RuntimePluginFactory = (context: RuntimePluginContext) => Promise<Hooks>
+export type RuntimeHooks = Omit<Hooks, "config"> & {
+  config?: (input: OpenCodeConfig.Info) => Promise<void>
+}
+
+type RuntimePluginFactory = (context: RuntimePluginContext) => Promise<RuntimeHooks>
 type TriggerName = {
   [K in keyof Hooks]-?: NonNullable<Hooks[K]> extends (input: any, output: any) => Promise<void>
     ? K
@@ -55,7 +63,7 @@ const getRuntimePluginContext = Effect.gen(function* () {
   return context
 })
 
-function loadRuntimeHooks(context: RuntimePluginContext): Promise<Hooks[]> {
+function loadRuntimeHooks(context: RuntimePluginContext): Promise<RuntimeHooks[]> {
   const key = cacheKey(context)
   const existing = hookPromisesByInstance.get(key)
   if (existing) {
@@ -91,8 +99,51 @@ const getRuntimeHooks = Effect.fn("BuddyPlugin.getRuntimeHooks")(function* () {
   )
 })
 
+function markRuntimeHookConfigApplied(hook: RuntimeHooks, config: object) {
+  const configured = configuredRuntimeHookConfigs.get(hook)
+  if (configured) {
+    if (configured.has(config)) return false
+    configured.add(config)
+    return true
+  }
+
+  configuredRuntimeHookConfigs.set(hook, new WeakSet([config]))
+  return true
+}
+
+const applyRuntimeConfigHooks = Effect.fn("BuddyPlugin.applyRuntimeConfigHooks")(
+  function* (hooks: RuntimeHooks[]) {
+    if (hooks.length === 0) {
+      return
+    }
+
+    const config = yield* Effect.tryPromise({
+      try: () => configRuntime.runPromise((svc) => withCurrentInstance(svc.get())),
+      catch: (error) => error,
+    })
+
+    for (const hook of hooks) {
+      const configure = hook.config
+      if (!configure || !markRuntimeHookConfigApplied(hook, config)) {
+        continue
+      }
+
+      yield* Effect.tryPromise({
+        try: () => configure(config),
+        catch: (error) => error,
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.logWarning(RUNTIME_HOOK_CONFIG_FAILURE_MESSAGE).pipe(
+            Effect.annotateLogs({ error }),
+          ),
+        ),
+      )
+    }
+  },
+)
+
 async function invokeRuntimeTrigger(
-  hook: Hooks,
+  hook: RuntimeHooks,
   name: TriggerName,
   input: unknown,
   output: unknown,
@@ -100,6 +151,11 @@ async function invokeRuntimeTrigger(
   const fn = hook[name] as ((input: unknown, output: unknown) => Promise<void>) | undefined
   if (typeof fn !== "function") return
   await fn(input, output)
+}
+
+function exposeRuntimeHook(hook: RuntimeHooks): Hooks {
+  const { config: _config, ...exposed } = hook
+  return exposed
 }
 
 function ensurePatched(service: OpenCodePlugin.Interface) {
@@ -112,13 +168,15 @@ function ensurePatched(service: OpenCodePlugin.Interface) {
 
   const init = Effect.fn("BuddyPlugin.init")(function* () {
     yield* originalInit()
-    yield* getRuntimeHooks()
+    const runtimeHooks = yield* getRuntimeHooks()
+    yield* applyRuntimeConfigHooks(runtimeHooks)
   })
 
   const list = Effect.fn("BuddyPlugin.list")(function* () {
     const hooks = yield* originalList()
     const runtimeHooks = yield* getRuntimeHooks()
-    return [...hooks, ...runtimeHooks]
+    yield* applyRuntimeConfigHooks(runtimeHooks)
+    return [...hooks, ...runtimeHooks.map(exposeRuntimeHook)]
   })
 
   const trigger = Effect.fn("BuddyPlugin.trigger")(function* <
