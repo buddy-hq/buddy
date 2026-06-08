@@ -1,4 +1,7 @@
+import { useEffect, useMemo, useRef } from "react"
 import { WhiteboardPane } from "@/components/whiteboard/whiteboard-pane"
+import { suppressWhiteboardAutoOpen } from "@/components/whiteboard/whiteboard-auto-open-state"
+import { readLatestActiveWhiteboardCreateKey } from "@/components/whiteboard/whiteboard-progressive"
 import { language } from "@/context/language"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
 import { DirectoryInvalidNotebook } from "./directory-invalid-notebook"
@@ -23,6 +26,21 @@ export function DirectoryChatWhiteboardPage(props: DirectoryChatWhiteboardPagePr
   }
 
   const chatState = controller.mainPaneProps.chatState
+  const activeWhiteboardCreateKey = useMemo(
+    () => readLatestActiveWhiteboardCreateKey(chatState.messages),
+    [chatState.messages],
+  )
+  const activeWhiteboardCreateKeyRef = useRef(activeWhiteboardCreateKey)
+
+  useEffect(() => {
+    activeWhiteboardCreateKeyRef.current = activeWhiteboardCreateKey
+  }, [activeWhiteboardCreateKey])
+
+  useEffect(() => {
+    return () => {
+      suppressWhiteboardAutoOpen(props.directory, activeWhiteboardCreateKeyRef.current)
+    }
+  }, [props.directory])
 
   return (
     <div data-component="directory-chat-whiteboard-page" className="h-full min-h-0 w-full">

@@ -114,4 +114,60 @@ describe("chat-store interrupted runs", () => {
 
     expect(useChatStore.getState().directories[directory]?.isBusy).toBe(false)
   })
+
+  test("reconciles stale running tool parts after an abort finishes the assistant turn", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 2)])
+    store.setActiveSession(directory, "session_1")
+    store.setMessages(directory, "session_1", [
+      {
+        info: createAssistantMessageInfo({
+          id: "message_1",
+          sessionID: "session_1",
+          time: { created: 1 },
+        }),
+        parts: [
+          {
+            id: "part_1",
+            sessionID: "session_1",
+            messageID: "message_1",
+            type: "tool",
+            tool: "whiteboard_create_view",
+            state: {
+              status: "running",
+              raw: '{"elements":"["}',
+              time: { start: 1 },
+            },
+          },
+        ],
+      },
+    ])
+
+    store.applyMessageUpdated(
+      directory,
+      createAssistantMessageInfo({
+        id: "message_1",
+        sessionID: "session_1",
+        time: { created: 1, completed: 2 },
+        finish: "aborted",
+      }),
+    )
+    store.applySessionStatus(directory, "session_1", IDLE_SESSION_STATUS)
+
+    const part = useChatStore.getState().directories[directory]?.messages[0]?.parts[0]
+    expect(part?.type).toBe("tool")
+    expect(part?.state).toMatchObject({
+      status: "error",
+      error: "Tool execution aborted",
+      metadata: {
+        interrupted: true,
+      },
+      time: {
+        start: 1,
+        end: 2,
+      },
+    })
+  })
 })

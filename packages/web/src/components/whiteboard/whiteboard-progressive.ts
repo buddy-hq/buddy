@@ -1,4 +1,5 @@
 import type { MessageWithParts } from "@/state/chat-types"
+import { isTerminalAssistantMessageInfo } from "@/state/chat-tool-parts"
 import type { PersistedWhiteboardElement, WhiteboardViewport } from "./whiteboard-elements"
 
 type ProgressiveWhiteboardPreview = {
@@ -449,6 +450,8 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
   let hasStreamingTool = false
 
   for (const message of input.messages) {
+    const messageAllowsStreaming =
+      message.info.role === "assistant" && !isTerminalAssistantMessageInfo(message.info)
     for (const part of message.parts) {
       if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
       if (!isRecord(part.state)) continue
@@ -475,6 +478,7 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
         continue
       }
 
+      if (!messageAllowsStreaming) continue
       if (part.state.status !== "pending" && part.state.status !== "running") continue
       hasStreamingTool = true
       const program = readProgramFromRaw(
@@ -500,12 +504,31 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
 
 function hasActiveWhiteboardCreate(messages: MessageWithParts[]): boolean {
   return messages.some((message) =>
+    message.info.role === "assistant" &&
+    !isTerminalAssistantMessageInfo(message.info) &&
     message.parts.some((part) => {
       if (part.type !== "tool" || part.tool !== "whiteboard_create_view") return false
       if (!isRecord(part.state)) return false
       return part.state.status === "pending" || part.state.status === "running"
     }),
   )
+}
+
+function readLatestActiveWhiteboardCreateKey(messages: MessageWithParts[]): string | undefined {
+  for (const message of messages.toReversed()) {
+    if (message.info.role !== "assistant" || isTerminalAssistantMessageInfo(message.info)) {
+      continue
+    }
+
+    for (const part of message.parts.toReversed()) {
+      if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
+      if (!isRecord(part.state)) continue
+      if (part.state.status !== "pending" && part.state.status !== "running") continue
+      return `${message.info.id}:${part.id}`
+    }
+  }
+
+  return undefined
 }
 
 function hasUnfetchedCompletedWhiteboardCreate(input: {
@@ -574,6 +597,10 @@ function hasWhiteboardCreate(messages: MessageWithParts[]): boolean {
 
 function readLatestStreamingWhiteboardRaw(messages: MessageWithParts[]): string | undefined {
   for (const message of messages.toReversed()) {
+    if (message.info.role !== "assistant" || isTerminalAssistantMessageInfo(message.info)) {
+      continue
+    }
+
     for (const part of message.parts.toReversed()) {
       if (part.type !== "tool" || part.tool !== "whiteboard_create_view") continue
       if (!isRecord(part.state)) continue
@@ -596,6 +623,7 @@ export {
   hasUnfetchedCompletedWhiteboardCreate,
   hasWhiteboardCreate,
   parsePartialElements,
+  readLatestActiveWhiteboardCreateKey,
   readLatestStreamingWhiteboardRaw,
   resolveStickyProgressiveWhiteboardPreview,
 }

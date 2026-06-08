@@ -23,6 +23,7 @@ import {
   upsertPart,
 } from "./chat-reducer"
 import { STREAMING_PART_RAW_FIELD } from "./chat-stream-event-buffer"
+import { reconcileTerminalAssistantToolParts } from "./chat-tool-parts"
 import { IDLE_SESSION_STATUS, isSessionWorking, sessionStatusEquals } from "./session-status"
 
 type StreamStatus = "idle" | "connecting" | "connected" | "error"
@@ -907,13 +908,14 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
                   incomingWithOrphans.orphanPartsByMessageID,
                 )
               : undefined
-          const nextMessages =
+          const nextMessages = reconcileTerminalAssistantToolParts(
             isActiveSession && current.isBusy
               ? mergeLiveSessionMessages(
                   currentWithOrphans?.messages ?? sessionMessages(current, sessionID),
                   incomingWithOrphans.messages,
                 )
-              : incomingWithOrphans.messages
+              : incomingWithOrphans.messages,
+          )
           const activeInfo = current.sessions.find(
             (session: SessionInfo) => session.id === nextSessionID,
           )
@@ -1030,7 +1032,9 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const currentSessionMessages = sessionMessages(current, sessionID)
           const nextTargetMessages =
             status.type === "idle"
-              ? sealCompletedAssistantMessages(currentSessionMessages, Date.now())
+              ? reconcileTerminalAssistantToolParts(
+                  sealCompletedAssistantMessages(currentSessionMessages, Date.now()),
+                )
               : currentSessionMessages
           const targetMessagesChanged = nextTargetMessages !== currentSessionMessages
           if (sessionStatusEquals(existingStatus, status) && !targetMessagesChanged) {
@@ -1066,7 +1070,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             upsertMessage(sessionMessages(current, info.sessionID), info),
             current.orphanPartsByMessageID ?? {},
           )
-          const messages = merged.messages
+          const messages = reconcileTerminalAssistantToolParts(merged.messages)
           const isActiveSession = current.sessionID === info.sessionID
           const nextBusy = resolveActiveSessionBusy({
             sessionID: info.sessionID,
@@ -1087,7 +1091,9 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
       applyMessageRemoved(directory, input) {
         set((state) => {
           const current = state.directories[directory] ?? emptyDirectoryState()
-          const messages = removeMessage(sessionMessages(current, input.sessionID), input.messageID)
+          const messages = reconcileTerminalAssistantToolParts(
+            removeMessage(sessionMessages(current, input.sessionID), input.messageID),
+          )
           const isActiveSession = current.sessionID === input.sessionID
           const nextBusy = resolveActiveSessionBusy({
             sessionID: input.sessionID,
@@ -1110,7 +1116,9 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const current = state.directories[directory] ?? emptyDirectoryState()
           const currentMessages = sessionMessages(current, part.sessionID)
           const targetExists = currentMessages.some((message) => message.info.id === part.messageID)
-          const messages = targetExists ? upsertPart(currentMessages, part) : currentMessages
+          const messages = reconcileTerminalAssistantToolParts(
+            targetExists ? upsertPart(currentMessages, part) : currentMessages,
+          )
           const isActiveSession = current.sessionID === part.sessionID
           const nextBusy = resolveActiveSessionBusy({
             sessionID: part.sessionID,
@@ -1141,12 +1149,14 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const targetExists = currentMessages.some(
             (message) => message.info.id === input.messageID,
           )
-          const messages = targetExists
-            ? removePart(currentMessages, {
-                messageID: input.messageID,
-                partID: input.partID,
-              })
-            : currentMessages
+          const messages = reconcileTerminalAssistantToolParts(
+            targetExists
+              ? removePart(currentMessages, {
+                  messageID: input.messageID,
+                  partID: input.partID,
+                })
+              : currentMessages,
+          )
           const isActiveSession = current.sessionID === input.sessionID
           const nextBusy = resolveActiveSessionBusy({
             sessionID: input.sessionID,
@@ -1180,7 +1190,9 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const targetExists = currentMessages.some(
             (message) => message.info.id === input.messageID,
           )
-          const messages = targetExists ? appendPartDelta(currentMessages, input) : currentMessages
+          const messages = reconcileTerminalAssistantToolParts(
+            targetExists ? appendPartDelta(currentMessages, input) : currentMessages,
+          )
           const isActiveSession = current.sessionID === input.sessionID
           const nextBusy = resolveActiveSessionBusy({
             sessionID: input.sessionID,

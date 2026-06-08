@@ -10,13 +10,17 @@ import {
   hasUnfetchedCompletedWhiteboardCreate,
   hasWhiteboardCreate,
   parsePartialElements,
+  readLatestActiveWhiteboardCreateKey,
   readLatestStreamingWhiteboardRaw,
   resolveStickyProgressiveWhiteboardPreview,
   type ProgressiveWhiteboardPreview,
 } from "../src/components/whiteboard/whiteboard-progressive"
-import type { MessageWithParts } from "../src/state/chat-types"
+import type { AssistantMessageInfo, MessageWithParts } from "../src/state/chat-types"
 
-function createAssistantMessage(parts: MessageWithParts["parts"]): MessageWithParts {
+function createAssistantMessage(
+  parts: MessageWithParts["parts"],
+  info: Partial<AssistantMessageInfo> = {},
+): MessageWithParts {
   return {
     info: {
       id: "message-1",
@@ -36,6 +40,7 @@ function createAssistantMessage(parts: MessageWithParts["parts"]): MessageWithPa
         reasoning: 0,
         cache: { read: 0, write: 0 },
       },
+      ...info,
     },
     parts,
   }
@@ -253,6 +258,34 @@ describe("whiteboard progressive drawing", () => {
         text: "Node",
       },
     ])
+  })
+
+  test("ignores stale active whiteboard tools after the assistant turn has already ended", () => {
+    const messages = [
+      createAssistantMessage(
+        [
+          {
+            id: "part-1",
+            sessionID: "session-1",
+            messageID: "message-1",
+            type: "tool",
+            tool: "whiteboard_create_view",
+            state: {
+              status: "running",
+              raw: '{"elements":"["}',
+            },
+          },
+        ],
+        {
+          finish: "aborted",
+          time: { created: 1, completed: 2 },
+        },
+      ),
+    ]
+
+    expect(hasActiveWhiteboardCreate(messages)).toBe(false)
+    expect(readLatestActiveWhiteboardCreateKey(messages)).toBeUndefined()
+    expect(readLatestStreamingWhiteboardRaw(messages)).toBeUndefined()
   })
 
   test("folds completed same-turn edits into the next streaming update", () => {
