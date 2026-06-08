@@ -1,4 +1,5 @@
 import type { OpencodeClient } from "@opencode-ai/sdk/client"
+import type { OpencodeClient as OpencodeV2Client } from "@opencode-ai/sdk/v2/client"
 import { fetchInProcessOpenCode } from "./in-process-fetch"
 
 type DirectoryParams = {
@@ -93,8 +94,23 @@ async function fetchSdkRoute<T>(input: {
   return { error, response }
 }
 
-export function createBuddyOpenCodeClient(raw: OpencodeClient) {
+export function createBuddyOpenCodeClient(raw: OpencodeClient, rawV2: OpencodeV2Client) {
   return {
+    v2: {
+      session: {
+        list: rawV2.v2.session.list.bind(rawV2.v2.session),
+        prompt: rawV2.v2.session.prompt.bind(rawV2.v2.session),
+        messages: rawV2.v2.session.messages.bind(rawV2.v2.session),
+        context: rawV2.v2.session.context.bind(rawV2.v2.session),
+        wait: rawV2.v2.session.wait.bind(rawV2.v2.session),
+      },
+      model: {
+        list: rawV2.v2.model.list.bind(rawV2.v2.model),
+      },
+      provider: {
+        list: rawV2.v2.provider.list.bind(rawV2.v2.provider),
+      },
+    },
     global: {
       health: () => fetchSdkRoute({ path: "/global/health" }),
       dispose: () => fetchSdkRoute({ method: "POST", path: "/global/dispose" }),
@@ -104,7 +120,18 @@ export function createBuddyOpenCodeClient(raw: OpencodeClient) {
       agents: (params: DirectoryParams = {}) => raw.app.agents(directoryQuery(params)),
     },
     project: {
-      current: (params: DirectoryParams = {}) => raw.project.current(directoryQuery(params)),
+      list: (params: DirectoryParams = {}) =>
+        fetchSdkRoute({
+          directory: params.directory,
+          path: "/project",
+          query: params.directory ? { directory: params.directory } : undefined,
+        }),
+      current: (params: DirectoryParams = {}) =>
+        fetchSdkRoute({
+          directory: params.directory,
+          path: "/project/current",
+          query: params.directory ? { directory: params.directory } : undefined,
+        }),
     },
     config: {
       providers: (params: DirectoryParams = {}) => raw.config.providers(directoryQuery(params)),

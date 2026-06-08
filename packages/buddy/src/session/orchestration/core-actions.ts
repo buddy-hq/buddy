@@ -1,5 +1,4 @@
 import type { Context } from "hono"
-import { Effect } from "effect"
 import { SessionID } from "@buddy/opencode-adapter/id"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { MessageV2 as OpenCodeMessage } from "@buddy/opencode-adapter/message"
@@ -443,13 +442,11 @@ export async function listSessionMessages(c: Context): Promise<Response> {
           }
         }
 
-        return Effect.runPromise(
-          OpenCodeMessage.page({
-            sessionID: runtimeSessionID,
-            limit: query.limit,
-            before: query.before,
-          }),
-        )
+        return OpenCodeMessage.page({
+          sessionID: runtimeSessionID,
+          limit: query.limit,
+          before: query.before,
+        })
       },
     })
 

@@ -1,1 +1,1 @@
-export { getPath as DatabasePath } from "opencode/storage/db"
+export { path as DatabasePath } from "@opencode-ai/core/database/database"

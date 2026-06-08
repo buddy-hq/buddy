@@ -619,7 +619,7 @@ describe("open project routes", () => {
     const repo = createGitRepo("buddy-route-open-project-readonly")
     const canonicalRepo = realpathSync(repo)
     const originalCwd = process.cwd()
-    const before = OpenCodeProject.list().map((project) => project.worktree)
+    const before = (await OpenCodeProject.list()).map((project) => project.worktree)
 
     process.chdir(repo)
 
@@ -627,7 +627,7 @@ describe("open project routes", () => {
       const response = await app.request("/api/open-projects")
 
       expect(response.status).toBe(200)
-      expect(OpenCodeProject.list().map((project) => project.worktree)).toEqual(before)
+      expect((await OpenCodeProject.list()).map((project) => project.worktree)).toEqual(before)
 
       const listed = (await response.json()) as { directories: string[] }
       expect(listed.directories.includes(canonicalRepo)).toBe(false)

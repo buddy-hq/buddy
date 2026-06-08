@@ -1,5 +1,8 @@
 import fs from "node:fs/promises"
 import { describe, expect, test } from "bun:test"
+import type { SessionV2 } from "@buddy/opencode-adapter/session-v2"
+import { SessionV2 as SessionV2Schema } from "@buddy/opencode-adapter/session-v2"
+import { Schema } from "effect"
 import {
   createLearnerEvent,
   decideLearnerMemoryAttention,
@@ -20,10 +23,109 @@ import {
   renderRegistryMarkdown,
 } from "../../src/learning/features/memory/memory-registry-markdown"
 import { redactSecrets } from "../../src/learning/features/memory/redaction"
+import { buildFilteredSessionSource } from "../../src/learning/features/memory/session-source"
 import { truncateHeadTail } from "../../src/learning/features/memory/text-budget"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("learner memory Codex-aligned pipeline mechanics", () => {
+  test("preserves attachment source text in extraction source text", () => {
+    const userMessage = Schema.decodeUnknownSync(SessionV2Schema.Message)({
+      id: "msg_user",
+      type: "user",
+      text: "Use the attached learning materials.",
+      files: [
+        {
+          name: "worked-example.md",
+          mime: "text/markdown",
+          uri: "file:///worked-example.md",
+          source: {
+            start: 0,
+            end: 42,
+            text: "The learner benefits from fully worked examples.",
+          },
+        },
+      ],
+      agents: [
+        {
+          name: "teaching-assistant",
+          source: {
+            start: 43,
+            end: 84,
+            text: "Focus on concrete explanations before abstraction.",
+          },
+        },
+      ],
+      references: [
+        {
+          name: "course-notes",
+          kind: "local",
+          uri: "file:///course-notes",
+          source: {
+            start: 85,
+            end: 126,
+            text: "The learner is currently studying linear algebra.",
+          },
+        },
+      ],
+      time: {
+        created: 1_777_777_777_000,
+      },
+    }) satisfies SessionV2.Message
+
+    const source = buildFilteredSessionSource({
+      messages: [userMessage],
+      learningEvents: [],
+    })
+
+    expect(source.transcript).toContain("The learner benefits from fully worked examples.")
+    expect(source.transcript).toContain("Focus on concrete explanations before abstraction.")
+    expect(source.transcript).toContain("The learner is currently studying linear algebra.")
+  })
+
+  test("excludes assistant reasoning from extraction source text", () => {
+    const assistantMessage = Schema.decodeUnknownSync(SessionV2Schema.Message)({
+      id: "msg_assistant",
+      type: "assistant",
+      agent: "buddy",
+      model: {
+        id: "test-model",
+        providerID: "test-provider",
+      },
+      content: [
+        {
+          id: "reasoning_1",
+          type: "reasoning",
+          text: "private reasoning should not become learner memory evidence",
+        },
+        {
+          id: "text_1",
+          type: "text",
+          text: "The learner prefers concrete worked examples.",
+        },
+      ],
+      tokens: {
+        input: 10,
+        output: 8,
+        reasoning: 6,
+        cache: {
+          read: 0,
+          write: 0,
+        },
+      },
+      time: {
+        created: 1_777_777_777_000,
+      },
+    }) satisfies SessionV2.Message
+
+    const source = buildFilteredSessionSource({
+      messages: [assistantMessage],
+      learningEvents: [],
+    })
+
+    expect(source.transcript).toContain("The learner prefers concrete worked examples.")
+    expect(source.transcript).not.toContain("private reasoning")
+  })
+
   test("preserves malformed memory blocks during registry rewrites", () => {
     const registry = parseLearnerMemoryRegistry(`# Learner Memory Registry
 

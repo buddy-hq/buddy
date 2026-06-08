@@ -110,14 +110,14 @@ function mergeDynamicToolDeny(
 
   if (typeof permission === "string") {
     return {
-      ...dynamicDeny,
       "*": permission,
+      ...dynamicDeny,
     }
   }
 
   return {
-    ...permission,
     ...dynamicDeny,
+    ...permission,
   }
 }
 

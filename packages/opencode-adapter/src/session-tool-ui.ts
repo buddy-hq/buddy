@@ -1,8 +1,8 @@
-import type * as OpenCodeMessageV2 from "opencode/session/message-v2"
+import type { MessageV2 } from "./message"
 import { ToolRegistry } from "./registry"
 import { cloneToolUiMetadata, type ToolUiMetadata } from "./tool-ui-metadata"
 
-type ToolPart = OpenCodeMessageV2.MessageV2.ToolPart
+type ToolPart = MessageV2.ToolPart
 type ToolState = ToolPart["state"]
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -106,7 +106,7 @@ function withToolUiOnState(state: ToolState, toolUi: ToolUiMetadata | undefined)
   }
 }
 
-export function withToolUiOnPart<T extends OpenCodeMessageV2.MessageV2.Part>(
+export function withToolUiOnPart<T extends MessageV2.Part>(
   part: T,
   directory?: string,
 ): T {
@@ -130,7 +130,7 @@ export function withToolUiOnUnknownPart(part: unknown, directory?: string): unkn
   return withToolUiOnPart(part, directory)
 }
 
-export function withToolUiOnMessage<T extends OpenCodeMessageV2.MessageV2.WithParts>(
+export function withToolUiOnMessage<T extends MessageV2.WithParts>(
   message: T,
   directory?: string,
 ): T {
@@ -141,9 +141,9 @@ export function withToolUiOnMessage<T extends OpenCodeMessageV2.MessageV2.WithPa
 }
 
 export function withToolUiOnMessages(
-  messages: ReadonlyArray<OpenCodeMessageV2.MessageV2.WithParts>,
+  messages: ReadonlyArray<MessageV2.WithParts>,
   directory?: string,
-): OpenCodeMessageV2.MessageV2.WithParts[] {
+): MessageV2.WithParts[] {
   return messages.map((message) => withToolUiOnMessage(message, directory))
 }
 

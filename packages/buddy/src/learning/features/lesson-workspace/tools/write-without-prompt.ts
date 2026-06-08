@@ -1,5 +1,6 @@
 import { Effect } from "effect"
 import { AppRuntime } from "@buddy/opencode-adapter/app-runtime"
+import { withCurrentInstance } from "@buddy/opencode-adapter/effect-runtime"
 import { Tool, WriteTool } from "@buddy/opencode-adapter/tool"
 import type { BuddyToolContext } from "../../../runtime/create-buddy-tool"
 
@@ -38,5 +39,5 @@ export async function executeWriteWithoutPrompt(
   },
 ) {
   const tool = await createWriteToolDefinition()
-  return AppRuntime.runPromise(tool.execute(input, createWriteToolContext(ctx)))
+  return AppRuntime.runPromise(withCurrentInstance(tool.execute(input, createWriteToolContext(ctx))))
 }

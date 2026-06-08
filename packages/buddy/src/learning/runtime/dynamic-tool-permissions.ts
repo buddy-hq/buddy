@@ -24,9 +24,13 @@ function dynamicLearningToolDefaultDenyRules(): PermissionRuleset {
 }
 
 function dynamicLearningToolAgentPermission(): DynamicLearningToolAgentPermission {
-  return Object.fromEntries(
-    dynamicLearningToolIDs().map((toolID) => [toolID, DENY_ACTION]),
-  ) as DynamicLearningToolAgentPermission
+  const permission: DynamicLearningToolAgentPermission = {}
+
+  for (const toolID of dynamicLearningToolIDs()) {
+    permission[toolID] = DENY_ACTION
+  }
+
+  return permission
 }
 
 function isExactDynamicLearningToolRule(rule: PermissionRule): boolean {

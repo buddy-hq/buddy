@@ -1,7 +1,8 @@
 import type { Context } from "hono"
+import { SessionID } from "@buddy/opencode-adapter/id"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
-import { SessionID } from "@buddy/opencode-adapter/id"
+import { SessionV2 as OpenCodeSessionV2 } from "@buddy/opencode-adapter/session-v2"
 import { withConfigSync } from "../../http"
 import {
   extractSdkErrorMessage,
@@ -221,20 +222,37 @@ async function resolveMermaidRepairPromptRuntime(input: {
   return OpenCodeInstance.provide({
     directory: input.directory,
     fn: async () => {
-      const messages = await OpenCodeSession.messages({
+      const v2Messages = await OpenCodeSessionV2.messages({
+        sessionID: OpenCodeSessionV2.ID.make(input.artifact.origin.sessionID),
+        order: "asc",
+      })
+      const v2Message = v2Messages.find((entry) => entry.id === input.artifact.origin.messageID)
+      if (v2Message?.type === "assistant") {
+        return {
+          agent: v2Message.agent,
+          model: {
+            providerID: v2Message.model.providerID,
+            modelID: v2Message.model.id,
+          },
+          ...(v2Message.model.variant ? { variant: v2Message.model.variant } : {}),
+        }
+      }
+
+      const legacyMessages = await OpenCodeSession.messages({
         sessionID: SessionID.make(input.artifact.origin.sessionID),
       })
-      const message = messages.find((entry) => entry.info.id === input.artifact.origin.messageID)
-      if (!message || message.info.role !== "assistant") {
-        return undefined
-      }
+      const legacyMessage = legacyMessages.find(
+        (entry) => entry.info.id === input.artifact.origin.messageID,
+      )
+      if (!legacyMessage || legacyMessage.info.role !== "assistant") return undefined
+
       return {
-        agent: message.info.agent,
+        agent: legacyMessage.info.agent,
         model: {
-          providerID: message.info.providerID,
-          modelID: message.info.modelID,
+          providerID: legacyMessage.info.providerID,
+          modelID: legacyMessage.info.modelID,
         },
-        ...(message.info.variant ? { variant: message.info.variant } : {}),
+        ...(legacyMessage.info.variant ? { variant: legacyMessage.info.variant } : {}),
       }
     },
   })

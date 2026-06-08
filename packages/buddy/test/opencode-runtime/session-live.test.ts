@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { ProjectID, SessionID } from "@buddy/opencode-adapter/id"
 import {
+  canonicalizeLiveSession,
   canonicalizeSession,
+  updateCachedSession,
   removeCachedSession,
 } from "@buddy/opencode-adapter/session-live"
 import type { Session } from "@buddy/opencode-adapter/session"
@@ -56,5 +58,28 @@ describe("session live cache", () => {
         action: "ask",
       },
     ])
+  })
+
+  test("live cached sessions observe in-place permission updates", () => {
+    const liveSession = canonicalizeLiveSession(sessionInfo({ title: "Original", updated: 1 }))
+
+    updateCachedSession({
+      sessionID: TEST_SESSION_ID,
+      permission: [
+        {
+          permission: "reflection_dynamic",
+          pattern: "*",
+          action: "allow",
+        },
+      ],
+      updated: 2,
+    })
+
+    expect(liveSession.permission).toContainEqual({
+      permission: "reflection_dynamic",
+      pattern: "*",
+      action: "allow",
+    })
+    expect(liveSession.time.updated).toBe(2)
   })
 })

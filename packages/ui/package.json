@@ -21,7 +21,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "bun ../../node_modules/oxlint/bin/oxlint",
-    "typecheck": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit"
+    "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
+    "typecheck:raw": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",

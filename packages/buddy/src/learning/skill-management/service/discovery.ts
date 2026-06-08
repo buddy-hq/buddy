@@ -5,6 +5,7 @@ import { Config } from "@buddy/backend/config"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ensureOpenCodeProjectOverlay } from "@buddy/backend/config/runtime"
+import { resolveOpenCodeSkillPaths } from "../../../config/opencode/skills"
 import { isSuppressedOpenCodeSkill } from "../../../opencode-runtime/hidden-opencode-skills"
 import { fetchInProcessOpenCode } from "../../../opencode-runtime/in-process-fetch"
 import { extractSdkErrorMessage, openCodeDirectoryParams } from "../../../http/sdk-response"
@@ -93,6 +94,7 @@ async function loadCachedOpenCodeSkills(directory: string): Promise<OpenCodeSkil
 }
 
 async function loadFreshLocalOpenCodeSkills(directory: string): Promise<OpenCodeSkill[]> {
+  const globalConfig = await Config.getGlobal()
   const runtimeContext = await OpenCodeInstance.provide({
     directory,
     fn: async () => {
@@ -113,7 +115,13 @@ async function loadFreshLocalOpenCodeSkills(directory: string): Promise<OpenCode
     await appendSkillsFromRoot(path.join(configDirectory, "skills"), skills)
   }
 
-  for (const skillPath of runtimeContext.config.skills?.paths ?? []) {
+  const resolvedSkillPaths = await resolveOpenCodeSkillPaths(globalConfig, directory)
+  const skillPaths = [
+    ...(runtimeContext.config.skills?.paths ?? []),
+    ...(resolvedSkillPaths ?? []),
+  ]
+
+  for (const skillPath of new Set(skillPaths)) {
     const resolved = expandSkillPath(skillPath, directory)
     await appendSkillsFromRoot(resolved, skills)
   }

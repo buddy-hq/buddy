@@ -2,6 +2,8 @@
 
 How Buddy moves agent behavior onto **official OpenCode plugin + SDK** surfaces and shrinks `@buddy/opencode-adapter` to patches that have no upstream equivalent.
 
+**Agents:** start with **[about.md](./about.md)** — philosophy, handoff, and conclusion. The other files are phase logs and research; use the map at the end of `about.md` when you need one.
+
 ## Start here
 
 | Document | When to read |

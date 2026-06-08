@@ -20,6 +20,7 @@ const API_PREFIX = "/api"
 const REQUEST_TIMEOUT_MS = 30_000
 const PROMPT_WAIT_MS = 180_000
 const PROMPT_POLL_MS = 2_000
+const MISSING_STATUS_IDLE_POLL_COUNT = 2
 const MAX_SESSIONS_TO_SCAN = 5
 const MIN_COMPLETED_TOOL_PARTS = 2
 
@@ -198,6 +199,8 @@ function assistantIncludesSmokeOk(messages: unknown[]) {
 
 async function waitForSessionIdle(input: { sessionId: string; directory: string }) {
   const deadline = Date.now() + PROMPT_WAIT_MS
+  let activeStatusSeen = false
+  let missingStatusPolls = 0
 
   while (Date.now() < deadline) {
     const { response, body } = await smokeFetch(`${API_PREFIX}/session/status`, {
@@ -206,9 +209,20 @@ async function waitForSessionIdle(input: { sessionId: string; directory: string 
     assertStatus(response.status, 200, "session.status (poll)")
     const statusMap = assertRecord(body, "session.status (poll)")
     const status = readSessionStatus(statusMap, input.sessionId)
+    if (!status) {
+      missingStatusPolls += 1
+      if (activeStatusSeen || missingStatusPolls >= MISSING_STATUS_IDLE_POLL_COUNT) {
+        return
+      }
+      await sleep(PROMPT_POLL_MS)
+      continue
+    }
+
+    missingStatusPolls = 0
     if (status?.type === "idle") {
       return
     }
+    activeStatusSeen = true
     await sleep(PROMPT_POLL_MS)
   }
 

@@ -1,11 +1,11 @@
 import * as OpenCodeSessionPrompt from "opencode/session/prompt"
-import type * as OpenCodeMessageV2 from "opencode/session/message-v2"
+import type { MessageV2 } from "./message"
 import { makeRuntime } from "opencode/effect/run-service"
 import { withCurrentInstance } from "./effect-runtime"
 
 const runtime = makeRuntime(OpenCodeSessionPrompt.Service, OpenCodeSessionPrompt.defaultLayer)
 type SessionPromptInput = Parameters<OpenCodeSessionPrompt.Interface["prompt"]>[0]
-type SessionPromptOutput = OpenCodeMessageV2.MessageV2.WithParts
+type SessionPromptOutput = MessageV2.WithParts
 type PromptInputInterceptor = (input: {
   promptInput: SessionPromptInput
   run: (input: SessionPromptInput) => Promise<SessionPromptOutput>

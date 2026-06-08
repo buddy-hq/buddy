@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
-import type { MessageV2 } from "@buddy/opencode-adapter/message"
+import { DateTime } from "effect"
+import type { SessionV2 } from "@buddy/opencode-adapter/session-v2"
 import type { LearnerEvent } from "./types"
 import { redactSecrets } from "./redaction"
 import { truncateHeadTail, type TruncatedText } from "./text-budget"
@@ -41,65 +42,126 @@ function isScaffoldText(value: string): boolean {
   )
 }
 
-function partText(part: MessageV2.Part): string | undefined {
-  switch (part.type) {
-    case "text":
-      if (part.ignored || part.synthetic || isScaffoldText(part.text)) return undefined
-      return part.text
-    case "tool":
-      if (part.state.status === "completed") return part.state.output
-      if (part.state.status === "error") return part.state.error
-      return undefined
-    case "subtask":
-      return [part.description, part.prompt].filter(Boolean).join("\n")
-    case "agent":
-      return [part.name, part.source?.value].filter(Boolean).join("\n")
-    case "file":
-      return [part.filename, part.source?.text.value].filter(Boolean).join("\n")
-    case "patch":
-      return part.files.join("\n")
-    case "step-finish":
-      return `finish=${part.reason} tokens=${part.tokens.total ?? part.tokens.input + part.tokens.output + part.tokens.reasoning}`
-    case "reasoning":
-    case "snapshot":
-    case "step-start":
-    case "retry":
-    case "compaction":
-      return undefined
+type AssistantToolContent = Extract<SessionV2.Assistant["content"][number], { type: "tool" }>
+type ToolOutputContent = Extract<
+  AssistantToolContent["state"],
+  { status: "completed" }
+>["content"][number]
+
+function jsonText(value: unknown): string | undefined {
+  if (typeof value === "string") return value
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return undefined
   }
 }
 
-function messageToolNames(message: MessageV2.WithParts): string[] {
-  return message.parts.flatMap((part) => (part.type === "tool" ? [part.tool] : []))
+function toolOutputContentText(content: ToolOutputContent): string {
+  if (content.type === "text") return content.text
+
+  const source =
+    content.source.type === "file"
+      ? content.source.uri
+      : content.source.type === "url"
+        ? content.source.url
+        : undefined
+  return [content.name, content.mime, source].filter(Boolean).join(" ")
 }
 
-function assistantOutputTokens(info: MessageV2.Assistant): number {
-  return info.tokens.total ?? info.tokens.output + info.tokens.reasoning
+function toolStateText(state: AssistantToolContent["state"]): string | undefined {
+  switch (state.status) {
+    case "pending":
+      return state.input
+    case "running":
+    case "completed":
+      return [
+        ...state.content.map(toolOutputContentText),
+        jsonText(state.structured),
+      ]
+        .filter(Boolean)
+        .join("\n")
+    case "error":
+      return [
+        state.error.message,
+        ...state.content.map(toolOutputContentText),
+        jsonText(state.structured),
+      ]
+        .filter(Boolean)
+        .join("\n")
+  }
 }
 
-function messageCreatedAt(info: MessageV2.Info): string {
-  return new Date(info.time.created).toISOString()
+function assistantContentText(content: SessionV2.Assistant["content"][number]): string | undefined {
+  switch (content.type) {
+    case "text":
+      return content.text
+    case "reasoning":
+      return undefined
+    case "tool":
+      return toolStateText(content.state)
+  }
 }
 
-function filteredMessage(message: MessageV2.WithParts): FilteredSessionMessage | undefined {
-  if (message.info.role !== "user" && message.info.role !== "assistant") return undefined
-  const text = redactSecrets(
-    message.parts
-      .flatMap((part) => partText(part) ?? [])
-      .join("\n")
-      .trim(),
-  )
+function userMessageText(message: SessionV2.User): string {
+  return [
+    isScaffoldText(message.text) ? undefined : message.text,
+    ...(message.files ?? []).map((file) =>
+      [file.name, file.mime, file.uri, file.source?.text].filter(Boolean).join("\n"),
+    ),
+    ...(message.agents ?? []).map((agent) =>
+      [agent.name, agent.source?.text].filter(Boolean).join("\n"),
+    ),
+    ...(message.references ?? []).map((reference) =>
+      [
+        reference.name,
+        reference.kind,
+        reference.uri,
+        reference.target,
+        reference.source?.text,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    ),
+  ]
+    .filter(Boolean)
+    .join("\n")
+}
+
+function assistantMessageText(message: SessionV2.Assistant): string {
+  return message.content
+    .flatMap((content) => assistantContentText(content) ?? [])
+    .join("\n")
+}
+
+function messageToolNames(message: SessionV2.Message): string[] {
+  if (message.type !== "assistant") return []
+  return message.content.flatMap((content) => (content.type === "tool" ? [content.name] : []))
+}
+
+function assistantOutputTokens(message: SessionV2.Assistant): number | undefined {
+  if (!message.tokens) return undefined
+  return message.tokens.output + message.tokens.reasoning
+}
+
+function messageCreatedAt(message: SessionV2.Message): string {
+  return new Date(DateTime.toEpochMillis(message.time.created)).toISOString()
+}
+
+function filteredMessage(message: SessionV2.Message): FilteredSessionMessage | undefined {
+  if (message.type !== "user" && message.type !== "assistant") return undefined
+  const rawText = message.type === "user" ? userMessageText(message) : assistantMessageText(message)
+  const text = redactSecrets(rawText.trim())
   if (!text) return undefined
 
+  const outputTokens = message.type === "assistant" ? assistantOutputTokens(message) : undefined
   return {
-    id: message.info.id,
-    role: message.info.role,
-    createdAt: messageCreatedAt(message.info),
+    id: message.id,
+    role: message.type,
+    createdAt: messageCreatedAt(message),
     text,
     toolNames: messageToolNames(message),
-    ...(message.info.role === "assistant"
-      ? { outputTokens: assistantOutputTokens(message.info) }
-      : {}),
+    ...(outputTokens !== undefined ? { outputTokens } : {}),
   }
 }
 
@@ -158,7 +220,7 @@ function renderStructuredSource(input: {
 }
 
 function buildFilteredSessionSource(input: {
-  messages: readonly MessageV2.WithParts[]
+  messages: readonly SessionV2.Message[]
   learningEvents: readonly LearnerEvent[]
 }): FilteredSessionSource {
   const messages = input.messages.flatMap((message) => {

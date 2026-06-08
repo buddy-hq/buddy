@@ -146,7 +146,12 @@ function collectPermissionKeys(
       continue
     }
 
-    if (Object.values(rule).some((value) => value === action)) {
+    if (
+      rule &&
+      typeof rule === "object" &&
+      !Array.isArray(rule) &&
+      Object.values(rule).some((value) => value === action)
+    ) {
       keys.add(permissionKey)
     }
   }

@@ -22,7 +22,8 @@ import {
 } from "./paths"
 
 const CATALOG_SCHEMA_VERSION = 1
-const CATALOG_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "catalog.json")
+const CATALOG_FILE_NAME = "catalog.json"
+const RUNTIME_ENTRYPOINT_FILE_NAMES = new Set(["index.js", "buddy-backend.js"])
 const WITHDRAWN_PATH_MAX_ATTEMPTS = 100
 
 type WithdrawnSkillMove = {
@@ -110,7 +111,7 @@ function toSkillLibraryItemView(input: {
 }
 
 async function readCatalogJson(): Promise<unknown> {
-  const source = await fsp.readFile(CATALOG_PATH, "utf8")
+  const source = await fsp.readFile(await resolveCatalogPath(), "utf8")
   try {
     return JSON.parse(source)
   } catch (error) {
@@ -121,6 +122,49 @@ async function readCatalogJson(): Promise<unknown> {
 
 export async function readSkillCatalogDocument(): Promise<SkillCatalogDocument> {
   return parseSkillCatalogDocument(await readCatalogJson())
+}
+
+async function fileExists(filepath: string): Promise<boolean> {
+  return await fsp.stat(filepath).then(
+    (stat) => stat.isFile(),
+    () => false,
+  )
+}
+
+export function catalogPathCandidates(input: {
+  argv: readonly string[]
+  moduleUrl: string
+}): string[] {
+  const paths = [
+    path.join(path.dirname(fileURLToPath(input.moduleUrl)), CATALOG_FILE_NAME),
+    ...input.argv.flatMap((arg) => {
+      if (!RUNTIME_ENTRYPOINT_FILE_NAMES.has(path.basename(arg))) return []
+      return [path.join(path.dirname(path.resolve(arg)), CATALOG_FILE_NAME)]
+    }),
+  ]
+
+  return [...new Set(paths)]
+}
+
+export async function resolveCatalogPathFromCandidates(
+  candidates: readonly string[],
+): Promise<string> {
+  for (const candidate of candidates) {
+    if (await fileExists(candidate)) {
+      return candidate
+    }
+  }
+
+  throw new Error(`Skill catalog not found at: ${candidates.join(", ")}`)
+}
+
+export async function resolveCatalogPath(): Promise<string> {
+  return await resolveCatalogPathFromCandidates(
+    catalogPathCandidates({
+      argv: process.argv,
+      moduleUrl: import.meta.url,
+    }),
+  )
 }
 
 async function readReconciledInstalledSkillLock() {

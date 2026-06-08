@@ -17,6 +17,8 @@
       "@buddy/backend/*": ["./packages/buddy/src/*"],
       "@buddy/opencode-adapter": ["./packages/opencode-adapter/src/index.ts"],
       "@buddy/opencode-adapter/*": ["./packages/opencode-adapter/src/*"],
+      "drizzle-orm": ["./node_modules/.bun/node_modules/drizzle-orm"],
+      "drizzle-orm/*": ["./node_modules/.bun/node_modules/drizzle-orm/*"],
       "@/*": ["./vendor/opencode/packages/opencode/src/*"],
       "@tui/*": ["./vendor/opencode/packages/opencode/src/cli/cmd/tui/*"]
     }

@@ -1,6 +1,7 @@
 import { realpathSync } from "node:fs"
 import path from "node:path"
 import { Effect } from "effect"
+import type { ConfigV1 } from "@opencode-ai/core/v1/config/config"
 import { InstanceRef } from "opencode/effect/instance-ref"
 import { makeRuntime } from "opencode/effect/run-service"
 import * as OpenCodeConfig from "opencode/config/config"
@@ -27,7 +28,7 @@ type RuntimePluginContext = {
 }
 
 export type RuntimeHooks = Omit<Hooks, "config"> & {
-  config?: (input: OpenCodeConfig.Info) => Promise<void>
+  config?: (input: ConfigV1.Info) => Promise<void>
 }
 
 type RuntimePluginFactory = (context: RuntimePluginContext) => Promise<RuntimeHooks>

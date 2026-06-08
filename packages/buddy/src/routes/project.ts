@@ -10,8 +10,6 @@ import {
   runSdkRoute,
   withDirectoryRoute,
 } from "../http"
-import { respondWithSdkResult } from "../http/sdk-response"
-import { getOpenCodeClient } from "../opencode-runtime/client"
 import { updateProjectFromPayload } from "../project"
 
 const projectUpdateBodySchema = toOpenApiSchema(OpenCodeProject.UpdatePayload)
@@ -33,7 +31,7 @@ export const ProjectRoutes = new Hono()
         },
       },
     }),
-    (c) => c.json(OpenCodeProject.list()),
+    async (c) => c.json(await OpenCodeProject.list()),
   )
   .get(
     "/current",
@@ -54,9 +52,8 @@ export const ProjectRoutes = new Hono()
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runSdkRoute(c, async () => {
-          const client = await getOpenCodeClient(context.directory)
-          const result = await client.project.current({ directory: context.directory })
-          return respondWithSdkResult(c, result)
+          const { project } = await OpenCodeProject.fromDirectory(context.directory)
+          return c.json(project)
         }),
       ),
   )

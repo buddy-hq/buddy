@@ -6,6 +6,7 @@
 
 ## Task Completion Requirements
 - Both of `bun lint`, &  `bun typecheck` must pass before considering tasks completed. no typecheck: md-only edits
+- Run `bun typecheck` only from the repository root for completion verification. Do not run package typechecks in parallel with root typecheck or with each other; the root command already covers all Buddy packages and uses a repository-wide lock to reject overlapping runs.
 - Run `bun fmt` only when the task is complete and user is satisfied.
 
 ## Breaking Changes ALLOWED & Backward Compatibility NOT REQUIRED

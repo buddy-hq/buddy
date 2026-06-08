@@ -1,8 +1,42 @@
+import { spawnSync } from "node:child_process"
+import { mkdtempSync, mkdirSync, realpathSync, writeFileSync } from "node:fs"
+import os from "node:os"
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
-import { mkdirSync, realpathSync } from "node:fs"
 import { app } from "../src/index.ts"
 import { createGitRepo } from "./helpers/repo"
+
+function createFixedDateGitRepo(prefix: string) {
+  const root = mkdtempSync(path.join(os.tmpdir(), `${prefix}-`))
+  const runGit = (args: string[]) => {
+    const result = spawnSync("git", args, {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GIT_AUTHOR_DATE: "2026-01-01T00:00:00Z",
+        GIT_COMMITTER_DATE: "2026-01-01T00:00:00Z",
+      },
+    })
+    if (result.status !== 0) {
+      throw new Error(result.stderr || result.stdout || "git command failed")
+    }
+  }
+
+  runGit(["init", "-q"])
+  writeFileSync(path.join(root, "README.md"), "# test\n")
+  runGit(["add", "README.md"])
+  runGit([
+    "-c",
+    "user.email=buddy@test.local",
+    "-c",
+    "user.name=Buddy Test",
+    "commit",
+    "-qm",
+    "init",
+  ])
+  return root
+}
 
 describe("project routes", () => {
   test("returns the canonical project for nested directories", async () => {
@@ -84,5 +118,53 @@ describe("project routes", () => {
     })
 
     expect(response.status).toBe(404)
+  })
+
+  test("keeps unrelated local repos distinct when git root commits collide", async () => {
+    const firstRepo = realpathSync(createFixedDateGitRepo("buddy-route-project-collision-first"))
+    const secondRepo = realpathSync(createFixedDateGitRepo("buddy-route-project-collision-second"))
+    const targetRepo = realpathSync(createFixedDateGitRepo("buddy-route-project-collision-target"))
+    const nested = path.join(targetRepo, "nested")
+    mkdirSync(nested, { recursive: true })
+
+    const openProject = async (directory: string) => {
+      const response = await app.request("/api/open-projects", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ directory }),
+      })
+
+      expect(response.status).toBe(200)
+    }
+
+    await openProject(firstRepo)
+    await openProject(secondRepo)
+
+    const currentResponse = await app.request("/api/project/current", {
+      headers: {
+        "x-buddy-directory": nested,
+      },
+    })
+
+    expect(currentResponse.status).toBe(200)
+    const current = (await currentResponse.json()) as {
+      id: string
+      worktree: string
+    }
+
+    expect(current.worktree).toBe(targetRepo)
+
+    const listResponse = await app.request("/api/project")
+    expect(listResponse.status).toBe(200)
+    const list = (await listResponse.json()) as Array<{
+      id: string
+      worktree: string
+    }>
+
+    expect(
+      list.some((project) => project.id === current.id && project.worktree === targetRepo),
+    ).toBe(true)
   })
 })

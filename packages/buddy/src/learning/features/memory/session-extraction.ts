@@ -1,7 +1,5 @@
-import { SessionID } from "@buddy/opencode-adapter/id"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import type { MessageV2 } from "@buddy/opencode-adapter/message"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import { SessionV2 as OpenCodeSessionV2 } from "@buddy/opencode-adapter/session-v2"
 import { readProjectConfig } from "../../../config/runtime"
 import { decideLearnerMemoryAttention } from "./attention-gate"
 import { runLearnerMemoryConsolidation } from "./consolidation"
@@ -62,12 +60,13 @@ function safeExtractionSessionId(sessionID: string): string {
 async function loadSessionMessages(input: {
   directory: string
   sessionID: string
-}): Promise<MessageV2.WithParts[]> {
+}): Promise<OpenCodeSessionV2.Message[]> {
   return OpenCodeInstance.provide({
     directory: input.directory,
     fn: async () =>
-      OpenCodeSession.messages({
-        sessionID: SessionID.make(input.sessionID),
+      OpenCodeSessionV2.messages({
+        sessionID: OpenCodeSessionV2.ID.make(input.sessionID),
+        order: "asc",
       }),
   })
 }
@@ -140,7 +139,7 @@ async function extractLearnerMemoryFromSession(input: {
   }
   const sessionInfo = await OpenCodeInstance.provide({
     directory: input.directory,
-    fn: async () => OpenCodeSession.get(SessionID.make(input.sessionID)),
+    fn: async () => OpenCodeSessionV2.get(OpenCodeSessionV2.ID.make(input.sessionID)),
   }).catch(() => undefined)
   if (
     !input.force &&

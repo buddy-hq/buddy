@@ -1,5 +1,6 @@
 import { createBuildAgent, createSubagent } from "./agent-factories"
 import { defineBuddyAgent } from "./register-buddy-agent"
+import { dynamicLearningToolAgentPermission } from "./runtime/dynamic-tool-permissions"
 import { BUDDY_SUBAGENTS } from "./subagent-manifest"
 import type { BuddySubagentDefinition } from "./subagent-manifest"
 import type { RegisteredBuddyAgent } from "./register-buddy-agent"
@@ -50,10 +51,14 @@ function createRegisteredBuddySubagent(definition: BuddySubagentDefinition): Reg
     description,
     permission: mergeOwnedToolPermissions(permission, subagentToolPermissions(definition)),
   }
+  const dynamicToolPermission = dynamicLearningToolAgentPermission()
 
   return defineBuddyAgent({
     key,
-    agent: kind === "build" ? createBuildAgent(agentInput) : createSubagent(agentInput),
+    agent:
+      kind === "build"
+        ? createBuildAgent(agentInput, dynamicToolPermission)
+        : createSubagent(agentInput, dynamicToolPermission),
   })
 }
 

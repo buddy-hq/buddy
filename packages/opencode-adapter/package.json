@@ -27,6 +27,7 @@
     "./config": "./src/config.ts",
     "./config-overlay": "./src/config-overlay.ts",
     "./session": "./src/session.ts",
+    "./session-v2": "./src/session-v2.ts",
     "./session-live": "./src/session-live.ts",
     "./session-tool-ui": "./src/session-tool-ui.ts",
     "./session-status": "./src/session-status.ts",
@@ -42,9 +43,11 @@
   },
   "scripts": {
     "lint": "bun ../../node_modules/oxlint/bin/oxlint",
-    "typecheck": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit"
+    "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
+    "typecheck:raw": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit"
   },
   "dependencies": {
+    "@opencode-ai/core": "workspace:*",
     "@opencode-ai/plugin": "workspace:*",
     "ai": "catalog:",
     "effect": "catalog:",

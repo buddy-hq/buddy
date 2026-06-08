@@ -1,9 +1,9 @@
 import { Context, Effect } from "effect"
 import * as Stream from "effect/Stream"
 import { makeRuntime } from "opencode/effect/run-service"
-import type * as OpenCodeMessageV2 from "opencode/session/message-v2"
 import * as OpenCodeSession from "opencode/session/session"
 import { withCurrentInstance } from "./effect-runtime"
+import type { MessageV2 } from "./message"
 
 const WHITEBOARD_CREATE_VIEW_TOOL_ID = "whiteboard_create_view" as const
 const TOOL_INPUT_DELTA_EVENT_TYPE = "tool-input-delta" as const
@@ -125,7 +125,7 @@ function prunePendingWhiteboardToolParts(): void {
   }
 }
 
-function trackPendingWhiteboardToolPart(part: OpenCodeMessageV2.MessageV2.Part): void {
+function trackPendingWhiteboardToolPart(part: MessageV2.Part): void {
   if (part.type !== "tool" || part.tool !== WHITEBOARD_CREATE_VIEW_TOOL_ID) return
 
   const sessionParts = pendingWhiteboardToolParts.get(part.sessionID)

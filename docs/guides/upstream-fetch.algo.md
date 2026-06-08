@@ -131,6 +131,7 @@ This is the repeatable process to sync `vendor/opencode` while preserving local 
 
 9. Run a real server and curl-smoke every changed Buddy-owned HTTP path.
    - Start the Buddy server from the current repo, not the temp worktree.
+   - For concrete command shapes and route gotchas, see `docs/guides/buddy-http-curl-smoke.md`.
    - Enumerate changed Buddy-owned server paths from the sync diff before smoking. At minimum inspect:
      - `packages/buddy/src/routes/**`
      - `packages/buddy/src/http/**`

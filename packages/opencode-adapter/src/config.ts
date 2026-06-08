@@ -1,11 +1,12 @@
-import * as OpenCodeConfigAgent from "opencode/config/agent"
+import { ConfigAgentV1 } from "@opencode-ai/core/v1/config/agent"
+import { ConfigV1 } from "@opencode-ai/core/v1/config/config"
+import { ConfigMCPV1 } from "@opencode-ai/core/v1/config/mcp"
+import { ConfigPermissionV1 } from "@opencode-ai/core/v1/config/permission"
+import { ConfigPluginV1 } from "@opencode-ai/core/v1/config/plugin"
+import { ConfigProviderV1 } from "@opencode-ai/core/v1/config/provider"
+import { ConfigSkillsV1 } from "@opencode-ai/core/v1/config/skills"
 import * as OpenCodeConfig from "opencode/config/config"
-import * as OpenCodeConfigMCP from "opencode/config/mcp"
-import * as OpenCodeConfigModelID from "opencode/config/model-id"
-import * as OpenCodeConfigPermission from "opencode/config/permission"
 import * as OpenCodeConfigPlugin from "opencode/config/plugin"
-import * as OpenCodeConfigProvider from "opencode/config/provider"
-import * as OpenCodeConfigSkills from "opencode/config/skills"
 import { ConfigParse as OpenCodeConfigParse } from "opencode/config/parse"
 import { ConfigVariable as OpenCodeConfigVariable } from "opencode/config/variable"
 import { Effect, Schema } from "effect"
@@ -18,7 +19,9 @@ import {
 } from "./config-overlay"
 import { withCurrentInstance } from "./effect-runtime"
 
-type RuntimeConfig = OpenCodeConfig.Info
+type RuntimeConfig = ConfigV1.Info & {
+  plugin_origins?: OpenCodeConfigPlugin.Origin[]
+}
 
 const BUDDY_RUNTIME_CONFIG_OVERLAY_SOURCE = "BUDDY_RUNTIME_CONFIG_OVERLAY"
 const runtime = makeRuntime(OpenCodeConfig.Service, OpenCodeConfig.defaultLayer)
@@ -63,7 +66,7 @@ function applyRuntimeConfigOverlay(base: RuntimeConfig, overlay: Partial<Runtime
 }
 
 function runtimeConfigOverlayPluginOrigin(
-  spec: OpenCodeConfigPlugin.Spec,
+  spec: ConfigPluginV1.Spec,
 ): OpenCodeConfigPlugin.Origin {
   return {
     spec,
@@ -96,7 +99,7 @@ const parseRuntimeConfigOverlay = Effect.fn("BuddyConfig.parseRuntimeConfigOverl
     )
     const parsed = OpenCodeConfigParse.jsonc(expanded, BUDDY_RUNTIME_CONFIG_OVERLAY_SOURCE)
     return OpenCodeConfigParse.schema(
-      OpenCodeConfig.Info,
+      ConfigV1.Info,
       normalizeLoadedConfig(parsed),
       BUDDY_RUNTIME_CONFIG_OVERLAY_SOURCE,
     )
@@ -162,32 +165,32 @@ export function clearConfigOverlay(directory: string) {
 }
 
 export namespace Config {
-  export const Info = OpenCodeConfig.Info
-  export type Info = Schema.Schema.Type<typeof OpenCodeConfig.Info>
+  export const Info = ConfigV1.Info
+  export type Info = ConfigV1.Info
 
-  export const Agent = OpenCodeConfigAgent.Info
-  export type Agent = Schema.Schema.Type<typeof OpenCodeConfigAgent.Info>
+  export const Agent = ConfigAgentV1.Info
+  export type Agent = ConfigAgentV1.Info
 
-  export const Skills = OpenCodeConfigSkills.Info
-  export type Skills = Schema.Schema.Type<typeof OpenCodeConfigSkills.Info>
+  export const Skills = ConfigSkillsV1.Info
+  export type Skills = ConfigSkillsV1.Info
 
-  export const ModelID = OpenCodeConfigModelID.ConfigModelID
-  export type ModelID = Schema.Schema.Type<typeof OpenCodeConfigModelID.ConfigModelID>
+  export const ModelID = Schema.String
+  export type ModelID = Schema.Schema.Type<typeof ModelID>
 
-  export const Provider = OpenCodeConfigProvider.Info
-  export type Provider = Schema.Schema.Type<typeof OpenCodeConfigProvider.Info>
+  export const Provider = ConfigProviderV1.Info
+  export type Provider = ConfigProviderV1.Info
 
-  export const Permission = OpenCodeConfigPermission.Info
-  export type Permission = Schema.Schema.Type<typeof OpenCodeConfigPermission.Info>
+  export const Permission = ConfigPermissionV1.Info
+  export type Permission = ConfigPermissionV1.Info
 
-  export const PermissionAction = OpenCodeConfigPermission.Action
-  export type PermissionAction = Schema.Schema.Type<typeof OpenCodeConfigPermission.Action>
+  export const PermissionAction = ConfigPermissionV1.Action
+  export type PermissionAction = ConfigPermissionV1.Action
 
-  export const PermissionRule = OpenCodeConfigPermission.Rule
-  export type PermissionRule = Schema.Schema.Type<typeof OpenCodeConfigPermission.Rule>
+  export const PermissionRule = ConfigPermissionV1.Rule
+  export type PermissionRule = ConfigPermissionV1.Rule
 
-  export const Mcp = OpenCodeConfigMCP.Info
-  export type Mcp = Schema.Schema.Type<typeof OpenCodeConfigMCP.Info>
+  export const Mcp = ConfigMCPV1.Info
+  export type Mcp = ConfigMCPV1.Info
 
   export async function get() {
     await ensureConfigServicePatched()

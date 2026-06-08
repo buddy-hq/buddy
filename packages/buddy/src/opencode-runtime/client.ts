@@ -1,4 +1,5 @@
 import { createOpencodeClient } from "@opencode-ai/sdk/client"
+import { createOpencodeClient as createOpencodeV2Client } from "@opencode-ai/sdk/v2/client"
 import { createBuddyOpenCodeClient, type BuddyOpenCodeClient } from "./client-adapter"
 import { fetchOpenCodeApp, readOpenCodeRequestDirectory } from "./fetch-with-overlay"
 
@@ -17,18 +18,25 @@ function openCodeAuthHeaders(): Record<string, string> | undefined {
 }
 
 async function createInProcessClient(directory?: string) {
+  const runtimeFetch = (async (request: Request) =>
+    fetchOpenCodeApp(
+      request,
+      readOpenCodeRequestDirectory(request) ?? directory,
+    )) as typeof fetch
   const rawClient = createOpencodeClient({
     baseUrl: "http://localhost:4096",
     ...(directory ? { directory } : {}),
     headers: openCodeAuthHeaders(),
-    fetch: (async (request: Request) =>
-      fetchOpenCodeApp(
-        request,
-        readOpenCodeRequestDirectory(request) ?? directory,
-      )) as typeof fetch,
+    fetch: runtimeFetch,
+  })
+  const rawV2Client = createOpencodeV2Client({
+    baseUrl: "http://localhost:4096",
+    ...(directory ? { directory } : {}),
+    headers: openCodeAuthHeaders(),
+    fetch: runtimeFetch,
   })
 
-  return createBuddyOpenCodeClient(rawClient)
+  return createBuddyOpenCodeClient(rawClient, rawV2Client)
 }
 
 export async function getOpenCodeClient(directory?: string) {
