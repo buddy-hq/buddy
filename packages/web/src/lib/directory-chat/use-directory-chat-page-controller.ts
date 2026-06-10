@@ -1895,7 +1895,7 @@ export function useDirectoryChatPageController(
           ? language.t("sidebar.mainPane.instructions")
           : cs.sessionTitle,
     projectName: getFilename(decodedDirectory),
-    isTurnActive: cs.isBusy,
+    isTurnActive: cs.isTurnActive,
     titlebarVariant:
       shellView === DIRECTORY_CHAT_SHELL_VIEW.SKILLS ||
       shellView === DIRECTORY_CHAT_SHELL_VIEW.LIBRARY

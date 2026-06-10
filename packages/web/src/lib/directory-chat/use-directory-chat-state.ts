@@ -23,6 +23,7 @@ import {
   directorySessionsQueryOptions,
 } from "@/state/directory-chat-query"
 import { getSessionFamily, type SessionFamily } from "../session-family"
+import { isSessionWorking } from "@/state/session-status"
 import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
 import { formatSessionTitle } from "@/lib/session-title"
 import type {
@@ -305,6 +306,7 @@ export type DirectoryChatState = DirectoryChatStoreSlice &
     isInteractiveMode: boolean
     autoCompactionEnabled: boolean
     isBusy: ChatStore["directories"][string]["isBusy"]
+    isTurnActive: boolean
     isReady: ChatStore["directories"][string]["isReady"]
     loadingSessionID: ChatStore["directories"][string]["loadingSessionID"]
     error: ChatStore["directories"][string]["error"] | undefined
@@ -469,6 +471,10 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     [sessionFamily.current?.parentID, sessionFamily.family],
   )
   const messages = directoryState?.messages ?? EMPTY_LIST
+  const isTurnActive = isSessionWorking({
+    info: sessionFamily.current,
+    status: sessionID ? directoryState?.sessionStatusByID[sessionID] : undefined,
+  })
   const providers = directoryState?.providers ?? EMPTY_LIST
   const providerDefault = directoryState?.providerDefault ?? EMPTY_RECORD
   const connectedProviders = useMemo(() => getConnectedProviders(providers), [providers])
@@ -746,6 +752,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     autoCompactionEnabled: props.autoCompactionEnabled,
     // Directory state
     isBusy,
+    isTurnActive,
     isReady,
     loadingSessionID,
     error,
