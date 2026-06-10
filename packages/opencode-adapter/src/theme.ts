@@ -23,9 +23,9 @@ export {
   hexToRgb,
   rgbToHex,
   hexToOklch,
-  oklchToHex,
   rgbToOklch,
   oklchToRgb,
+  oklchToHex,
   generateScale,
   generateNeutralScale,
   generateAlphaScale,
@@ -38,7 +38,7 @@ export {
   withAlpha,
 } from "../../../vendor/opencode/packages/ui/src/theme/color"
 
-import { hexToRgb, mixColors } from "../../../vendor/opencode/packages/ui/src/theme/color"
+import { blend, mixColors } from "../../../vendor/opencode/packages/ui/src/theme/color"
 import {
   resolveThemeVariant as resolveVendorThemeVariant,
   themeToCss,
@@ -47,47 +47,27 @@ export { themeToCss } from "../../../vendor/opencode/packages/ui/src/theme/resol
 
 export * from "../../../vendor/opencode/packages/ui/src/theme/default-themes"
 export { DEFAULT_THEMES as defaultThemes } from "../../../vendor/opencode/packages/ui/src/theme/default-themes"
+export {
+  compositeLayerStack,
+  contrastRatio,
+  layeredContrastRatio,
+  ensureLayerContrast,
+  ensureTextContrast,
+  shiftLightness,
+  CONTRAST_TARGET,
+} from "./theme-contrast"
+import {
+  CONTRAST_TARGET,
+  ensureLayerContrast,
+  ensureTextContrast,
+  shiftLightness,
+} from "./theme-contrast"
 
-const BLACK = "#000000" satisfies HexColor
-const WHITE = "#ffffff" satisfies HexColor
-const NORMAL_TEXT_CONTRAST = 4.5
-const SUBTLE_TEXT_CONTRAST = 3
-
-function toLinearRgb(value: number): number {
-  return value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4)
-}
+const SECONDARY_BUTTON_HOVER_LIGHTNESS_SHIFT = 0.035
+const SUBTLE_STATUS_SURFACE_ALPHA = 0.15
 
 function isHexColor(value: ColorValue | undefined): value is HexColor {
   return value !== undefined && value.startsWith("#")
-}
-
-function luminance(color: HexColor): number {
-  const rgb = hexToRgb(color)
-
-  return 0.2126 * toLinearRgb(rgb.r) + 0.7152 * toLinearRgb(rgb.g) + 0.0722 * toLinearRgb(rgb.b)
-}
-
-function contrastRatio(left: HexColor, right: HexColor): number {
-  const leftLuminance = luminance(left)
-  const rightLuminance = luminance(right)
-  const lighter = Math.max(leftLuminance, rightLuminance)
-  const darker = Math.min(leftLuminance, rightLuminance)
-
-  return (lighter + 0.05) / (darker + 0.05)
-}
-
-function readableTone(background: HexColor, preferred: HexColor, minimum: number): HexColor {
-  if (contrastRatio(preferred, background) >= minimum) return preferred
-
-  const target =
-    contrastRatio(BLACK, background) >= contrastRatio(WHITE, background) ? BLACK : WHITE
-
-  for (const amount of [0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]) {
-    const candidate = mixColors(background, target, amount)
-    if (contrastRatio(candidate, background) >= minimum) return candidate
-  }
-
-  return target
 }
 
 function hexToken(tokens: ResolvedTheme, key: string): HexColor | undefined {
@@ -103,37 +83,84 @@ function setReadableToken(
   tokens: ResolvedTheme,
   key: string,
   preferredKey: string,
-  backgroundKey: string,
+  backgroundKeys: readonly string[],
+  parentKeys: readonly string[],
   minimum: number,
 ): void {
   const preferred = hexToken(tokens, preferredKey)
-  const background = hexToken(tokens, backgroundKey)
-  if (!preferred || !background) return
+  if (!preferred) return
 
-  tokens[key] = readableTone(background, preferred, minimum)
+  const backgrounds = backgroundKeys.flatMap((backgroundKey) => {
+    const background = hexToken(tokens, backgroundKey)
+    if (!background) return []
+
+    return parentKeys.flatMap((parentKey) => {
+      const parent = hexToken(tokens, parentKey)
+      return parent ? ([[background, parent]] as const) : []
+    })
+  })
+  if (backgrounds.length === 0) return
+
+  tokens[key] = ensureTextContrast(preferred, backgrounds, minimum)
 }
 
-function normalizeBuddyTokens(tokens: ResolvedTheme): ResolvedTheme {
+function normalizeBuddyTokens(tokens: ResolvedTheme, isDark: boolean): ResolvedTheme {
   const next = { ...tokens }
+  const applicationParents = [
+    "background-base",
+    "surface-raised-base",
+    "surface-raised-stronger-non-alpha",
+  ] as const
+  const backgroundOnly = ["background-base"] as const
 
-  setReadableToken(next, "text-base", "text-base", "background-base", NORMAL_TEXT_CONTRAST)
-  setReadableToken(next, "text-strong", "text-strong", "background-base", NORMAL_TEXT_CONTRAST)
-  setReadableToken(next, "text-weak", "text-weak", "background-base", NORMAL_TEXT_CONTRAST)
-  setReadableToken(next, "text-weaker", "text-weaker", "background-base", SUBTLE_TEXT_CONTRAST)
+  setReadableToken(
+    next,
+    "text-base",
+    "text-base",
+    backgroundOnly,
+    backgroundOnly,
+    CONTRAST_TARGET.normalText,
+  )
+  setReadableToken(
+    next,
+    "text-strong",
+    "text-strong",
+    backgroundOnly,
+    backgroundOnly,
+    CONTRAST_TARGET.normalText,
+  )
+  setReadableToken(
+    next,
+    "text-weak",
+    "text-weak",
+    backgroundOnly,
+    backgroundOnly,
+    CONTRAST_TARGET.normalText,
+  )
+  setReadableToken(
+    next,
+    "text-weaker",
+    "text-weaker",
+    backgroundOnly,
+    backgroundOnly,
+    CONTRAST_TARGET.largeText,
+  )
   setReadableToken(
     next,
     "text-interactive-base",
     "text-interactive-base",
-    "background-base",
-    NORMAL_TEXT_CONTRAST,
+    backgroundOnly,
+    backgroundOnly,
+    CONTRAST_TARGET.normalText,
   )
 
   setReadableToken(
     next,
     "text-on-button-primary-base",
-    "text-invert-strong",
-    "button-primary-base",
-    NORMAL_TEXT_CONTRAST,
+    "icon-invert-base",
+    ["button-primary-base"],
+    applicationParents,
+    CONTRAST_TARGET.normalText,
   )
 
   const buttonPrimaryBase = hexToken(next, "button-primary-base")
@@ -141,49 +168,138 @@ function normalizeBuddyTokens(tokens: ResolvedTheme): ResolvedTheme {
   if (buttonPrimaryBase && backgroundBase) {
     next["button-primary-hover"] = mixColors(buttonPrimaryBase, backgroundBase, 0.08)
   }
+  setReadableToken(
+    next,
+    "text-on-button-primary-hover",
+    "icon-invert-base",
+    ["button-primary-hover"],
+    applicationParents,
+    CONTRAST_TARGET.normalText,
+  )
+
+  const buttonSecondaryBase = hexToken(next, "button-secondary-base")
+  const buttonParents = applicationParents.flatMap((parentKey) => {
+    const parent = hexToken(next, parentKey)
+    return parent ? ([[parent]] as const) : []
+  })
+  if (buttonSecondaryBase && buttonParents.length > 0) {
+    const tunedBase = ensureLayerContrast(
+      buttonSecondaryBase,
+      buttonParents,
+      CONTRAST_TARGET.subtleSurface,
+    )
+    next["button-secondary-base"] = tunedBase
+    next["button-secondary-hover"] = shiftLightness(
+      tunedBase,
+      isDark
+        ? SECONDARY_BUTTON_HOVER_LIGHTNESS_SHIFT
+        : -SECONDARY_BUTTON_HOVER_LIGHTNESS_SHIFT,
+    )
+  }
+  setReadableToken(
+    next,
+    "text-on-button-secondary-base",
+    "text-strong",
+    ["button-secondary-base"],
+    applicationParents,
+    CONTRAST_TARGET.normalText,
+  )
+  setReadableToken(
+    next,
+    "text-on-button-secondary-hover",
+    "text-strong",
+    ["button-secondary-hover"],
+    applicationParents,
+    CONTRAST_TARGET.normalText,
+  )
+
+  for (const status of ["critical", "warning", "success", "info"] as const) {
+    for (const strength of ["weak", "base", "strong"] as const) {
+      setReadableToken(
+        next,
+        `text-on-${status}-${strength}`,
+        `icon-${status}-base`,
+        [`surface-${status}-${strength}`],
+        applicationParents,
+        CONTRAST_TARGET.normalText,
+      )
+    }
+  }
 
   setReadableToken(
     next,
     "text-success-base",
     "icon-success-base",
-    "background-base",
-    NORMAL_TEXT_CONTRAST,
+    applicationParents,
+    backgroundOnly,
+    CONTRAST_TARGET.normalText,
   )
   setReadableToken(
     next,
     "text-warning-base",
     "icon-warning-base",
-    "background-base",
-    NORMAL_TEXT_CONTRAST,
+    applicationParents,
+    backgroundOnly,
+    CONTRAST_TARGET.normalText,
   )
   setReadableToken(
     next,
     "text-critical-base",
     "icon-critical-base",
-    "background-base",
-    NORMAL_TEXT_CONTRAST,
+    applicationParents,
+    backgroundOnly,
+    CONTRAST_TARGET.normalText,
   )
   setReadableToken(
     next,
     "text-critical-strong",
     "icon-critical-base",
-    "background-base",
-    NORMAL_TEXT_CONTRAST,
+    applicationParents,
+    backgroundOnly,
+    CONTRAST_TARGET.normalText,
   )
   setReadableToken(
     next,
     "text-info-weak",
     "icon-info-base",
-    "background-base",
-    NORMAL_TEXT_CONTRAST,
+    applicationParents,
+    backgroundOnly,
+    CONTRAST_TARGET.normalText,
   )
   setReadableToken(
     next,
     "text-info-strong",
     "icon-info-base",
-    "background-base",
-    NORMAL_TEXT_CONTRAST,
+    applicationParents,
+    backgroundOnly,
+    CONTRAST_TARGET.normalText,
   )
+  setReadableToken(
+    next,
+    "text-critical-on-raised",
+    "icon-critical-base",
+    ["surface-raised-stronger-non-alpha"],
+    backgroundOnly,
+    CONTRAST_TARGET.normalText,
+  )
+
+  const warningBase = hexToken(next, "surface-warning-base")
+  const warningPreferred = hexToken(next, "icon-warning-base")
+  if (warningBase && warningPreferred) {
+    const subtleWarningBackgrounds = applicationParents.flatMap((parentKey) => {
+      const parent = hexToken(next, parentKey)
+      return parent
+        ? ([[blend(warningBase, parent, SUBTLE_STATUS_SURFACE_ALPHA)]] as const)
+        : []
+    })
+    if (subtleWarningBackgrounds.length > 0) {
+      next["text-on-warning-subtle"] = ensureTextContrast(
+        warningPreferred,
+        subtleWarningBackgrounds,
+        CONTRAST_TARGET.normalText,
+      )
+    }
+  }
 
   setAlias(next, "text-subtle", next["text-weaker"])
   setAlias(next, "text-weakest", next["text-weaker"])
@@ -209,7 +325,7 @@ function normalizeBuddyTokens(tokens: ResolvedTheme): ResolvedTheme {
 }
 
 export function resolveThemeVariant(variant: ThemeVariant, isDark: boolean): ResolvedTheme {
-  return normalizeBuddyTokens(resolveVendorThemeVariant(variant, isDark))
+  return normalizeBuddyTokens(resolveVendorThemeVariant(variant, isDark), isDark)
 }
 
 export function resolveTheme(theme: DesktopTheme): { light: ResolvedTheme; dark: ResolvedTheme } {
