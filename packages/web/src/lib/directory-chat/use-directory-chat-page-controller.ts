@@ -97,6 +97,7 @@ import {
 import { getModelSelectionScopeKey } from "../../state/model-selection-store"
 import { useChatStore } from "../../state/chat-store"
 import { useNotifications } from "../../state/notifications"
+import type { PermissionReply } from "../../state/permission-types"
 import { useUiPreferences } from "../../state/ui-preferences"
 import { useShallow } from "zustand/react/shallow"
 import { stringifyError } from "../../state/teaching-actions"
@@ -686,7 +687,7 @@ export function useDirectoryChatPageController(
     }
   }
 
-  async function onPermissionReply(requestID: string, reply: "once" | "always" | "reject") {
+  async function onPermissionReply(requestID: string, reply: PermissionReply) {
     if (!decodedDirectory) return
     try {
       await replyPermission({ directory: decodedDirectory, requestID, reply })
