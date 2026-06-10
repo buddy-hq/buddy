@@ -27,6 +27,10 @@ export const AssistantSection = memo(function AssistantSection({
   showThinking,
   currentReasoningHeading,
 }: AssistantSectionProps) {
+  const lastAssistantItem = assistantItems.at(-1)
+  const liveAbstractedKey =
+    isBusy && lastAssistantItem?.type === "abstracted" ? lastAssistantItem.key : undefined
+
   return (
     <div className="mt-5 flex min-w-0 w-full max-w-full flex-col items-start gap-4">
       {assistantItems.map((item, itemIndex) => {
@@ -40,7 +44,7 @@ export const AssistantSection = memo(function AssistantSection({
               copyPartID={assistantCopyPartID}
               metaText={assistantMetaText}
               interrupted={assistantAborted}
-              isBusy={isBusy}
+              isBusy={item.key === liveAbstractedKey}
             />
           )
         }
