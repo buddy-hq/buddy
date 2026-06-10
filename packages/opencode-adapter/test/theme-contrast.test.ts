@@ -31,9 +31,7 @@ describe("theme contrast", () => {
     const resultHue = hexToOklch(result).h
 
     expect(Math.abs(preferredHue - resultHue)).toBeLessThan(1)
-    expect(contrastRatio(result, "#f8f8f8")).toBeGreaterThanOrEqual(
-      CONTRAST_TARGET.normalText,
-    )
+    expect(contrastRatio(result, "#f8f8f8")).toBeGreaterThanOrEqual(CONTRAST_TARGET.normalText)
   })
 
   test("normalizes semantic component states across every bundled theme", () => {

@@ -8,7 +8,7 @@ export const Route = createFileRoute("/contrast-test")({
 })
 
 // Color luminance and contrast utilities
-const toLinearRgb = (v: number) => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)
+const toLinearRgb = (v: number) => (v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))
 
 const relativeLuminance = (rgb: { r: number; g: number; b: number }) => {
   return 0.2126 * toLinearRgb(rgb.r) + 0.7152 * toLinearRgb(rgb.g) + 0.0722 * toLinearRgb(rgb.b)
@@ -17,7 +17,10 @@ const relativeLuminance = (rgb: { r: number; g: number; b: number }) => {
 const hexToRgb = (hex: string) => {
   let cleanHex = hex.replace("#", "").trim()
   if (cleanHex.length === 3) {
-    cleanHex = cleanHex.split("").map((c) => c + c).join("")
+    cleanHex = cleanHex
+      .split("")
+      .map((c) => c + c)
+      .join("")
   }
   const match = cleanHex.match(/.{2}/g)
   if (!match) return { r: 255, g: 255, b: 255 }
@@ -54,7 +57,7 @@ const mixColors = (color1: string, color2: string, weight: number) => {
   const r = Math.round(c1.r * (1 - weight) + c2.r * weight)
   const g = Math.round(c1.g * (1 - weight) + c2.g * weight)
   const b = Math.round(c1.b * (1 - weight) + c2.b * weight)
-  
+
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`
 }
 
@@ -65,10 +68,10 @@ const tuneColorForContrast = (preferredHex: string, backgroundHex: string, minim
 
   const bgRgb = hexToRgb(backgroundHex)
   const bgL = relativeLuminance({ r: bgRgb.r / 255, g: bgRgb.g / 255, b: bgRgb.b / 255 })
-  
+
   // Mix with black if light background; mix with white if dark background
   const target = bgL > 0.5 ? "#000000" : "#ffffff"
-  
+
   for (let weight = 0.05; weight <= 1.0; weight += 0.05) {
     const candidate = mixColors(preferredHex, target, weight)
     const ratio = parseFloat(getContrastRatio(candidate, backgroundHex))
@@ -91,7 +94,7 @@ type VariantConfig = {
   classesAfter: string
   skipBoundaryAudit?: boolean
   boundaryTargetRatio?: number // Custom boundary ratio target (default 3.0)
-  isTransparent?: boolean     // True if the component is transparent (no solid background fill)
+  isTransparent?: boolean // True if the component is transparent (no solid background fill)
 }
 
 const buttonVariants: VariantConfig[] = [
@@ -102,7 +105,8 @@ const buttonVariants: VariantConfig[] = [
     fgVarBefore: "--text-on-button-primary-base",
     fgVarAfter: "--text-on-button-primary-base",
     fgVarAfterHover: "--text-on-button-primary-hover",
-    classesBefore: "bg-button-primary-base text-text-on-button-primary-base hover:bg-button-primary-hover",
+    classesBefore:
+      "bg-button-primary-base text-text-on-button-primary-base hover:bg-button-primary-hover",
     classesAfter: "bg-button-primary-base hover:bg-button-primary-hover",
   },
   {
@@ -112,7 +116,8 @@ const buttonVariants: VariantConfig[] = [
     fgVarBefore: "--icon-critical-base",
     fgVarAfter: "--text-on-critical-weak",
     fgVarAfterHover: "--text-on-critical-base",
-    classesBefore: "bg-surface-critical-weak text-icon-critical-base hover:bg-surface-critical-weak/80",
+    classesBefore:
+      "bg-surface-critical-weak text-icon-critical-base hover:bg-surface-critical-weak/80",
     classesAfter: "bg-surface-critical-weak hover:bg-surface-critical-base",
     skipBoundaryAudit: true,
   },
@@ -121,8 +126,10 @@ const buttonVariants: VariantConfig[] = [
     label: "Outline",
     bgVar: "--background-base",
     fgVarBefore: "--text-base",
-    classesBefore: "border border-border-base bg-background-base text-text-base hover:bg-surface-base-hover hover:text-text-strong",
-    classesAfter: "border border-border-base bg-background-base hover:bg-surface-base-hover hover:text-text-strong",
+    classesBefore:
+      "border border-border-base bg-background-base text-text-base hover:bg-surface-base-hover hover:text-text-strong",
+    classesAfter:
+      "border border-border-base bg-background-base hover:bg-surface-base-hover hover:text-text-strong",
   },
   {
     name: "secondary",
@@ -132,7 +139,8 @@ const buttonVariants: VariantConfig[] = [
     fgVarBefore: "--text-strong",
     fgVarAfter: "--text-on-button-secondary-base",
     fgVarAfterHover: "--text-on-button-secondary-hover",
-    classesBefore: "border border-border-base bg-button-secondary-base text-text-strong hover:bg-button-secondary-hover shadow-xs",
+    classesBefore:
+      "border border-border-base bg-button-secondary-base text-text-strong hover:bg-button-secondary-hover shadow-xs",
     classesAfter: "bg-button-secondary-base hover:bg-button-secondary-hover shadow-xs",
     boundaryTargetRatio: 1.3,
   },
@@ -225,8 +233,10 @@ const otherComponents: VariantConfig[] = [
     bgVar: "--surface-success-weak",
     fgVarBefore: "--icon-success-base",
     fgVarAfter: "--text-on-success-weak",
-    classesBefore: "border border-border-success-base/30 bg-surface-success-weak px-2.5 py-1 text-xs font-semibold text-icon-success-base rounded-full inline-flex items-center",
-    classesAfter: "border border-border-success-base/30 bg-surface-success-weak px-2.5 py-1 text-xs font-semibold rounded-full inline-flex items-center",
+    classesBefore:
+      "border border-border-success-base/30 bg-surface-success-weak px-2.5 py-1 text-xs font-semibold text-icon-success-base rounded-full inline-flex items-center",
+    classesAfter:
+      "border border-border-success-base/30 bg-surface-success-weak px-2.5 py-1 text-xs font-semibold rounded-full inline-flex items-center",
     skipBoundaryAudit: true,
   },
   {
@@ -235,8 +245,10 @@ const otherComponents: VariantConfig[] = [
     bgVar: "--surface-warning-weak",
     fgVarBefore: "--text-warning-base",
     fgVarAfter: "--text-on-warning-weak",
-    classesBefore: "rounded-md border border-border-warning-base/50 bg-surface-warning-weak px-3 py-2 text-xs text-text-warning-base",
-    classesAfter: "rounded-md border border-border-warning-base/50 bg-surface-warning-weak px-3 py-2 text-xs",
+    classesBefore:
+      "rounded-md border border-border-warning-base/50 bg-surface-warning-weak px-3 py-2 text-xs text-text-warning-base",
+    classesAfter:
+      "rounded-md border border-border-warning-base/50 bg-surface-warning-weak px-3 py-2 text-xs",
     skipBoundaryAudit: true,
   },
   {
@@ -245,8 +257,10 @@ const otherComponents: VariantConfig[] = [
     bgVar: "--surface-warning-weak",
     fgVarBefore: "--icon-warning-base",
     fgVarAfter: "--text-on-warning-weak",
-    classesBefore: "rounded-sm bg-surface-warning-weak px-1.5 py-0.5 text-[11px] font-medium text-icon-warning-base inline-flex items-center w-fit",
-    classesAfter: "rounded-sm bg-surface-warning-weak px-1.5 py-0.5 text-[11px] font-medium inline-flex items-center w-fit",
+    classesBefore:
+      "rounded-sm bg-surface-warning-weak px-1.5 py-0.5 text-[11px] font-medium text-icon-warning-base inline-flex items-center w-fit",
+    classesAfter:
+      "rounded-sm bg-surface-warning-weak px-1.5 py-0.5 text-[11px] font-medium inline-flex items-center w-fit",
     skipBoundaryAudit: true,
   },
   {
@@ -267,20 +281,20 @@ type ColorDetails = {
   bgBeforeHover: string
   bgAfterNormal: string
   bgAfterHover: string
-  
+
   fgBeforeNormal: string
   fgBeforeHover: string
   fgAfterNormal: string
   fgAfterHover: string
-  
+
   ratioBeforeNormal: string
   ratioBeforeHover: string
   ratioAfterNormal: string
   ratioAfterHover: string
-  
+
   hasBorderBefore: boolean
   hasBorderAfter: boolean
-  
+
   boundaryRatioBeforeNormal: string
   boundaryRatioBeforeHover: string
   boundaryRatioAfterNormal: string
@@ -296,7 +310,7 @@ const renderContrastAudit = (
   skipBoundary: boolean,
   isHovered: boolean,
   isInteractive: boolean,
-  boundaryTargetRatio = 3.0
+  boundaryTargetRatio = 3.0,
 ) => {
   const normalTextRatio = parseFloat(normalTextRatioStr || "0.00")
   const normalTextPassing = normalTextRatio >= 4.5
@@ -309,19 +323,28 @@ const renderContrastAudit = (
       <div className="flex flex-col gap-1.5 text-[11px] p-2 rounded-md border bg-surface-weak/5 border-border-weak-base/50 w-52 shrink-0">
         <div className="flex items-center justify-between gap-3 p-0.5 rounded">
           <span className="text-text-weak">Text vs Fill:</span>
-          <span className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10px] ${
-            normalTextPassing ? "text-green-600 bg-green-500/10 dark:text-green-400" : "text-red-500 bg-red-500/10"
-          }`}>
+          <span
+            className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10px] ${
+              normalTextPassing
+                ? "text-green-600 bg-green-500/10 dark:text-green-400"
+                : "text-red-500 bg-red-500/10"
+            }`}
+          >
             {normalTextRatioStr}:1 {normalTextPassing ? "✅" : "❌"}
           </span>
         </div>
         {!skipBoundary && (
           <div className="flex items-center justify-between gap-3 p-0.5 rounded border-t border-border-weak-base/30 pt-1.5 mt-0.5">
             <span className="text-text-weak">{isBorder ? "Border vs Page:" : "Fill vs Page:"}</span>
-            <span className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10px] ${
-              normalBoundaryPassing ? "text-green-600 bg-green-500/10 dark:text-green-400" : "text-red-500 bg-red-500/10"
-            }`}>
-              {normalBoundaryRatioStr}:1 ({boundaryTargetRatio.toFixed(1)}) {normalBoundaryPassing ? "✅" : "❌"}
+            <span
+              className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10px] ${
+                normalBoundaryPassing
+                  ? "text-green-600 bg-green-500/10 dark:text-green-400"
+                  : "text-red-500 bg-red-500/10"
+              }`}
+            >
+              {normalBoundaryRatioStr}:1 ({boundaryTargetRatio.toFixed(1)}){" "}
+              {normalBoundaryPassing ? "✅" : "❌"}
             </span>
           </div>
         )}
@@ -335,50 +358,84 @@ const renderContrastAudit = (
   const hoverBoundaryPassing = hoverBoundaryRatio >= boundaryTargetRatio
 
   return (
-    <div className={`flex flex-col gap-1.5 text-[11px] p-2 rounded-md border w-52 shrink-0 transition-all duration-200 ${
-      isHovered ? "bg-surface-interactive-weak/10 border-border-interactive-base/40 shadow-xs" : "bg-surface-weak/5 border-border-weak-base/50"
-    }`}>
-      <div className={`flex items-center justify-between gap-3 p-0.5 rounded transition-colors ${
-        !isHovered ? "bg-surface-interactive-weak/5 font-semibold text-text-strong" : "opacity-60"
-      }`}>
+    <div
+      className={`flex flex-col gap-1.5 text-[11px] p-2 rounded-md border w-52 shrink-0 transition-all duration-200 ${
+        isHovered
+          ? "bg-surface-interactive-weak/10 border-border-interactive-base/40 shadow-xs"
+          : "bg-surface-weak/5 border-border-weak-base/50"
+      }`}
+    >
+      <div
+        className={`flex items-center justify-between gap-3 p-0.5 rounded transition-colors ${
+          !isHovered ? "bg-surface-interactive-weak/5 font-semibold text-text-strong" : "opacity-60"
+        }`}
+      >
         <span className="text-text-weak">Text (Normal):</span>
-        <span className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10px] ${
-          normalTextPassing ? "text-green-600 bg-green-500/10 dark:text-green-400" : "text-red-500 bg-red-500/10"
-        }`}>
+        <span
+          className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10px] ${
+            normalTextPassing
+              ? "text-green-600 bg-green-500/10 dark:text-green-400"
+              : "text-red-500 bg-red-500/10"
+          }`}
+        >
           {normalTextRatioStr}:1 {normalTextPassing ? "✅" : "❌"}
         </span>
       </div>
-      <div className={`flex items-center justify-between gap-3 p-0.5 rounded transition-colors ${
-        isHovered ? "bg-surface-interactive-weak/20 font-semibold text-text-strong" : "opacity-60"
-      }`}>
+      <div
+        className={`flex items-center justify-between gap-3 p-0.5 rounded transition-colors ${
+          isHovered ? "bg-surface-interactive-weak/20 font-semibold text-text-strong" : "opacity-60"
+        }`}
+      >
         <span className="text-text-weak">Text (Hover):</span>
-        <span className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10px] ${
-          hoverTextPassing ? "text-green-600 bg-green-500/10 dark:text-green-400" : "text-red-500 bg-red-500/10"
-        }`}>
+        <span
+          className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10px] ${
+            hoverTextPassing
+              ? "text-green-600 bg-green-500/10 dark:text-green-400"
+              : "text-red-500 bg-red-500/10"
+          }`}
+        >
           {hoverTextRatioStr}:1 {hoverTextPassing ? "✅" : "❌"}
         </span>
       </div>
       {!skipBoundary && (
         <>
           <div className="border-t border-border-weak-base/30 my-0.5" />
-          <div className={`flex items-center justify-between gap-3 p-0.5 rounded transition-colors ${
-            !isHovered ? "opacity-100" : "opacity-60"
-          }`}>
-            <span className="text-text-weak">{isBorder ? "Border vs Page:" : "Fill vs Page (Norm):"}</span>
-            <span className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10px] ${
-              normalBoundaryPassing ? "text-green-600 bg-green-500/10 dark:text-green-400" : "text-red-500 bg-red-500/10"
-            }`}>
-              {normalBoundaryRatioStr}:1 ({boundaryTargetRatio.toFixed(1)}) {normalBoundaryPassing ? "✅" : "❌"}
+          <div
+            className={`flex items-center justify-between gap-3 p-0.5 rounded transition-colors ${
+              !isHovered ? "opacity-100" : "opacity-60"
+            }`}
+          >
+            <span className="text-text-weak">
+              {isBorder ? "Border vs Page:" : "Fill vs Page (Norm):"}
+            </span>
+            <span
+              className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10px] ${
+                normalBoundaryPassing
+                  ? "text-green-600 bg-green-500/10 dark:text-green-400"
+                  : "text-red-500 bg-red-500/10"
+              }`}
+            >
+              {normalBoundaryRatioStr}:1 ({boundaryTargetRatio.toFixed(1)}){" "}
+              {normalBoundaryPassing ? "✅" : "❌"}
             </span>
           </div>
-          <div className={`flex items-center justify-between gap-3 p-0.5 rounded transition-colors ${
-            isHovered ? "opacity-100" : "opacity-60"
-          }`}>
-            <span className="text-text-weak">{isBorder ? "Border vs Page:" : "Fill vs Page (Hover):"}</span>
-            <span className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10px] ${
-              hoverBoundaryPassing ? "text-green-600 bg-green-500/10 dark:text-green-400" : "text-red-500 bg-red-500/10"
-            }`}>
-              {hoverBoundaryRatioStr}:1 ({boundaryTargetRatio.toFixed(1)}) {hoverBoundaryPassing ? "✅" : "❌"}
+          <div
+            className={`flex items-center justify-between gap-3 p-0.5 rounded transition-colors ${
+              isHovered ? "opacity-100" : "opacity-60"
+            }`}
+          >
+            <span className="text-text-weak">
+              {isBorder ? "Border vs Page:" : "Fill vs Page (Hover):"}
+            </span>
+            <span
+              className={`font-mono font-bold px-1.5 py-0.5 rounded text-[10px] ${
+                hoverBoundaryPassing
+                  ? "text-green-600 bg-green-500/10 dark:text-green-400"
+                  : "text-red-500 bg-red-500/10"
+              }`}
+            >
+              {hoverBoundaryRatioStr}:1 ({boundaryTargetRatio.toFixed(1)}){" "}
+              {hoverBoundaryPassing ? "✅" : "❌"}
             </span>
           </div>
         </>
@@ -407,19 +464,21 @@ function ContrastTestPage() {
       const borderWeakColor = getCssVar("--border-weak")
 
       const allConfigs = [
-        ...buttonVariants.map(v => ({...v, prefix: "btn-"})), 
-        ...badgeVariants.map(v => ({...v, prefix: "badge-"})),
-        ...otherComponents.map(v => ({...v, prefix: "other-"})),
+        ...buttonVariants.map((v) => ({ ...v, prefix: "btn-" })),
+        ...badgeVariants.map((v) => ({ ...v, prefix: "badge-" })),
+        ...otherComponents.map((v) => ({ ...v, prefix: "other-" })),
       ]
 
       for (const config of allConfigs) {
         const bgBeforeNormal = config.isTransparent ? containerBg : getCssVar(config.bgVar)
-        const bgAfterNormal = config.isTransparent 
-          ? containerBg 
-          : (config.bgVarAfter ? getCssVar(config.bgVarAfter) : bgBeforeNormal)
+        const bgAfterNormal = config.isTransparent
+          ? containerBg
+          : config.bgVarAfter
+            ? getCssVar(config.bgVarAfter)
+            : bgBeforeNormal
 
         const fgBeforeNormal = getCssVar(config.fgVarBefore)
-        
+
         let fgAfterNormal: string
         if (config.fgVarAfter) {
           fgAfterNormal = getCssVar(config.fgVarAfter)
@@ -467,11 +526,17 @@ function ContrastTestPage() {
         const classesBefore = config.classesBefore || ""
         const classesAfter = config.classesAfter || ""
 
-        const hasBorderBefore = classesBefore.split(" ").some(c => c.startsWith("border") && c !== "border-transparent" && c !== "border-none")
-        const hasBorderAfter = classesAfter.split(" ").some(c => c.startsWith("border") && c !== "border-transparent" && c !== "border-none")
+        const hasBorderBefore = classesBefore
+          .split(" ")
+          .some((c) => c.startsWith("border") && c !== "border-transparent" && c !== "border-none")
+        const hasBorderAfter = classesAfter
+          .split(" ")
+          .some((c) => c.startsWith("border") && c !== "border-transparent" && c !== "border-none")
 
         const borderBeforeColor = borderBaseColor
-        const borderAfterColor = classesAfter.includes("border-border-weak") ? borderWeakColor : borderBaseColor
+        const borderAfterColor = classesAfter.includes("border-border-weak")
+          ? borderWeakColor
+          : borderBaseColor
 
         const boundaryColorBeforeNormal = hasBorderBefore ? borderBeforeColor : bgBeforeNormal
         const boundaryColorBeforeHover = hasBorderBefore ? borderBeforeColor : bgBeforeHover
@@ -483,7 +548,7 @@ function ContrastTestPage() {
           bgBeforeHover,
           bgAfterNormal,
           bgAfterHover,
-          
+
           fgBeforeNormal,
           fgBeforeHover,
           fgAfterNormal,
@@ -515,7 +580,6 @@ function ContrastTestPage() {
   return (
     <div className="min-h-screen bg-background-base p-8 text-text-base transition-colors duration-200">
       <div className="mx-auto max-w-6xl space-y-8">
-        
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border-base pb-6">
           <div>
@@ -523,7 +587,8 @@ function ContrastTestPage() {
               Accessible Hue-Preservation Contrast Playground
             </h1>
             <p className="mt-1 text-sm text-text-weak">
-              Tune your foreground colors to pass WCAG 4.5:1 while keeping their exact red, orange, and green hue!
+              Tune your foreground colors to pass WCAG 4.5:1 while keeping their exact red, orange,
+              and green hue!
             </p>
           </div>
 
@@ -532,7 +597,9 @@ function ContrastTestPage() {
             <button
               onClick={() => setColorScheme("light")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                colorScheme === "light" ? "bg-background-base text-text-strong shadow-xs" : "hover:text-text-strong"
+                colorScheme === "light"
+                  ? "bg-background-base text-text-strong shadow-xs"
+                  : "hover:text-text-strong"
               }`}
             >
               <SunIcon className="size-3.5" /> Light
@@ -540,7 +607,9 @@ function ContrastTestPage() {
             <button
               onClick={() => setColorScheme("dark")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                colorScheme === "dark" ? "bg-background-base text-text-strong shadow-xs" : "hover:text-text-strong"
+                colorScheme === "dark"
+                  ? "bg-background-base text-text-strong shadow-xs"
+                  : "hover:text-text-strong"
               }`}
             >
               <MoonIcon className="size-3.5" /> Dark
@@ -548,7 +617,9 @@ function ContrastTestPage() {
             <button
               onClick={() => setColorScheme("system")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                colorScheme === "system" ? "bg-background-base text-text-strong shadow-xs" : "hover:text-text-strong"
+                colorScheme === "system"
+                  ? "bg-background-base text-text-strong shadow-xs"
+                  : "hover:text-text-strong"
               }`}
             >
               <LaptopIcon className="size-3.5" /> System
@@ -558,7 +629,9 @@ function ContrastTestPage() {
 
         {/* Theme Quick Selector */}
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-text-weak">Select Active Theme</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-text-weak">
+            Select Active Theme
+          </h2>
           <div className="flex flex-wrap gap-2">
             {quickThemes.map((id) => {
               const theme = themes[id]
@@ -609,16 +682,25 @@ function ContrastTestPage() {
                     <tr key={v.name} className="hover:bg-surface-weak/10">
                       <td className="p-4 font-medium text-text-strong capitalize">{v.label}</td>
                       <td className="p-4">
-                        <button 
+                        <button
                           onMouseEnter={() => setHoveredKey(keyBefore)}
                           onMouseLeave={() => setHoveredKey(null)}
                           style={{
                             transition: "all 150ms cubic-bezier(0.4, 0, 0.2, 1)",
-                            ...(!v.isTransparent ? { backgroundColor: isHoveredBefore ? details.bgBeforeHover : details.bgBeforeNormal } : {})
+                            ...(!v.isTransparent
+                              ? {
+                                  backgroundColor: isHoveredBefore
+                                    ? details.bgBeforeHover
+                                    : details.bgBeforeNormal,
+                                }
+                              : {}),
                           }}
                           className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 cursor-pointer ${v.classesBefore}`}
                         >
-                          Button <span className="text-[10px] opacity-75 font-mono">{details.fgBeforeNormal}</span>
+                          Button{" "}
+                          <span className="text-[10px] opacity-75 font-mono">
+                            {details.fgBeforeNormal}
+                          </span>
                         </button>
                       </td>
                       <td className="p-4">
@@ -631,21 +713,30 @@ function ContrastTestPage() {
                           !!v.skipBoundaryAudit,
                           isHoveredBefore,
                           true,
-                          targetRatio
+                          targetRatio,
                         )}
                       </td>
                       <td className="p-4">
-                        <button 
+                        <button
                           onMouseEnter={() => setHoveredKey(keyAfter)}
                           onMouseLeave={() => setHoveredKey(null)}
                           style={{
                             transition: "all 150ms cubic-bezier(0.4, 0, 0.2, 1)",
                             color: isHoveredAfter ? details.fgAfterHover : details.fgAfterNormal,
-                            ...(!v.isTransparent ? { backgroundColor: isHoveredAfter ? details.bgAfterHover : details.bgAfterNormal } : {})
+                            ...(!v.isTransparent
+                              ? {
+                                  backgroundColor: isHoveredAfter
+                                    ? details.bgAfterHover
+                                    : details.bgAfterNormal,
+                                }
+                              : {}),
                           }}
                           className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium h-9 px-4 py-2 cursor-pointer ${v.classesAfter}`}
                         >
-                          Button <span className="text-[10px] opacity-75 font-mono">{details.fgAfterNormal}</span>
+                          Button{" "}
+                          <span className="text-[10px] opacity-75 font-mono">
+                            {details.fgAfterNormal}
+                          </span>
                         </button>
                       </td>
                       <td className="p-4">
@@ -658,7 +749,7 @@ function ContrastTestPage() {
                           !!v.skipBoundaryAudit,
                           isHoveredAfter,
                           true,
-                          targetRatio
+                          targetRatio,
                         )}
                       </td>
                     </tr>
@@ -694,11 +785,14 @@ function ContrastTestPage() {
                     <tr key={v.name} className="hover:bg-surface-weak/10">
                       <td className="p-4 font-medium text-text-strong capitalize">{v.label}</td>
                       <td className="p-4">
-                        <span 
+                        <span
                           style={v.isTransparent ? {} : { backgroundColor: details.bgBeforeNormal }}
                           className={`h-5 gap-1 rounded-4xl px-2 py-0.5 text-xs font-medium inline-flex items-center justify-center w-fit ${v.classesBefore}`}
                         >
-                          Badge <span className="ml-1 text-[9px] opacity-75 font-mono">{details.fgBeforeNormal}</span>
+                          Badge{" "}
+                          <span className="ml-1 text-[9px] opacity-75 font-mono">
+                            {details.fgBeforeNormal}
+                          </span>
                         </span>
                       </td>
                       <td className="p-4">
@@ -711,18 +805,21 @@ function ContrastTestPage() {
                           !!v.skipBoundaryAudit,
                           false,
                           false,
-                          targetRatio
+                          targetRatio,
                         )}
                       </td>
                       <td className="p-4">
-                        <span 
-                          style={{ 
-                            color: details.fgAfterNormal, 
-                            ...(!v.isTransparent ? { backgroundColor: details.bgAfterNormal } : {})
+                        <span
+                          style={{
+                            color: details.fgAfterNormal,
+                            ...(!v.isTransparent ? { backgroundColor: details.bgAfterNormal } : {}),
                           }}
                           className={`h-5 gap-1 rounded-4xl px-2 py-0.5 text-xs font-medium inline-flex items-center justify-center w-fit ${v.classesAfter}`}
                         >
-                          Badge <span className="ml-1 text-[9px] opacity-75 font-mono">{details.fgAfterNormal}</span>
+                          Badge{" "}
+                          <span className="ml-1 text-[9px] opacity-75 font-mono">
+                            {details.fgAfterNormal}
+                          </span>
                         </span>
                       </td>
                       <td className="p-4">
@@ -735,7 +832,7 @@ function ContrastTestPage() {
                           !!v.skipBoundaryAudit,
                           false,
                           false,
-                          targetRatio
+                          targetRatio,
                         )}
                       </td>
                     </tr>
@@ -748,7 +845,9 @@ function ContrastTestPage() {
 
         {/* ADDITIONAL LOW CONTRAST COMPONENTS */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold tracking-tight text-text-strong">Additional Tuned Components</h2>
+          <h2 className="text-xl font-bold tracking-tight text-text-strong">
+            Additional Tuned Components
+          </h2>
           <div className="rounded-xl border border-border-base bg-surface-raised-base overflow-hidden">
             <table className="w-full text-left text-sm border-collapse">
               <thead>
@@ -778,8 +877,12 @@ function ContrastTestPage() {
                           </div>
                         ) : (
                           <div className={v.classesBefore}>
-                            {v.name.includes("banner") ? "Warning: Unsaved files will be lost if you discard these changes." : "Warning Label"}
-                            <span className="ml-2 text-[9px] opacity-75 font-mono">({details.fgBeforeNormal})</span>
+                            {v.name.includes("banner")
+                              ? "Warning: Unsaved files will be lost if you discard these changes."
+                              : "Warning Label"}
+                            <span className="ml-2 text-[9px] opacity-75 font-mono">
+                              ({details.fgBeforeNormal})
+                            </span>
                           </div>
                         )}
                       </td>
@@ -793,19 +896,26 @@ function ContrastTestPage() {
                           !!v.skipBoundaryAudit,
                           false,
                           false,
-                          targetRatio
+                          targetRatio,
                         )}
                       </td>
                       <td className="p-4">
                         {v.name === "info-icon" ? (
                           <div className="bg-surface-raised-stronger-non-alpha border border-border-base p-2 rounded-md flex items-center justify-between text-xs text-text-base w-48 font-medium">
                             <span>GPT-4o (Vision)</span>
-                            <ImageIcon style={{ color: details.fgAfterNormal }} className="size-3.5" />
+                            <ImageIcon
+                              style={{ color: details.fgAfterNormal }}
+                              className="size-3.5"
+                            />
                           </div>
                         ) : (
                           <div style={{ color: details.fgAfterNormal }} className={v.classesAfter}>
-                            {v.name.includes("banner") ? "Warning: Unsaved files will be lost if you discard these changes." : "Warning Label"}
-                            <span className="ml-2 text-[9px] opacity-75 font-mono">({details.fgAfterNormal})</span>
+                            {v.name.includes("banner")
+                              ? "Warning: Unsaved files will be lost if you discard these changes."
+                              : "Warning Label"}
+                            <span className="ml-2 text-[9px] opacity-75 font-mono">
+                              ({details.fgAfterNormal})
+                            </span>
                           </div>
                         )}
                       </td>
@@ -819,7 +929,7 @@ function ContrastTestPage() {
                           !!v.skipBoundaryAudit,
                           false,
                           false,
-                          targetRatio
+                          targetRatio,
                         )}
                       </td>
                     </tr>
@@ -829,7 +939,6 @@ function ContrastTestPage() {
             </table>
           </div>
         </div>
-
       </div>
     </div>
   )

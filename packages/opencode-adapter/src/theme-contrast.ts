@@ -67,11 +67,7 @@ export function compositeLayerStack(layers: readonly [HexColor, ...HexColor[]]):
 function luminance(color: HexColor): number {
   const rgb = hexToRgb(color)
 
-  return (
-    0.2126 * toLinearRgb(rgb.r) +
-    0.7152 * toLinearRgb(rgb.g) +
-    0.0722 * toLinearRgb(rgb.b)
-  )
+  return 0.2126 * toLinearRgb(rgb.r) + 0.7152 * toLinearRgb(rgb.g) + 0.0722 * toLinearRgb(rgb.b)
 }
 
 export function contrastRatio(left: HexColor, right: HexColor): number {

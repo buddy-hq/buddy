@@ -174,14 +174,22 @@ const TEXT_SWATCHES = [
 ] as const
 
 const PLAYGROUND_SURFACES = [
-  { id: "background", label: "background-base", className: "bg-background-base border-border-base" },
+  {
+    id: "background",
+    label: "background-base",
+    className: "bg-background-base border-border-base",
+  },
   { id: "surface-base", label: "surface-base", className: "bg-surface-base border-border-base" },
   {
     id: "surface-raised",
     label: "surface-raised-base",
     className: "bg-surface-raised-base border-border-base",
   },
-  { id: "surface-weak", label: "surface-weak", className: "bg-surface-weak border-border-weak-base" },
+  {
+    id: "surface-weak",
+    label: "surface-weak",
+    className: "bg-surface-weak border-border-weak-base",
+  },
   {
     id: "interactive",
     label: "surface-interactive-base",
@@ -215,7 +223,10 @@ function isPlaygroundSurfaceId(value: string): value is TPlaygroundSurfaceId {
 function getPlaygroundSurface(id: TPlaygroundSurfaceId) {
   const surface = PLAYGROUND_SURFACES.find((entry) => entry.id === id)
   if (!surface) {
-    return PLAYGROUND_SURFACES.find((entry) => entry.id === DEFAULT_PLAYGROUND_SURFACE_ID) ?? PLAYGROUND_SURFACES[0]
+    return (
+      PLAYGROUND_SURFACES.find((entry) => entry.id === DEFAULT_PLAYGROUND_SURFACE_ID) ??
+      PLAYGROUND_SURFACES[0]
+    )
   }
   return surface
 }
@@ -284,7 +295,10 @@ function PlaygroundSection({
           {description ? <p className="mt-1 text-sm text-text-weak">{description}</p> : null}
         </div>
         <div className="flex shrink-0 flex-col gap-1.5">
-          <label htmlFor={`${id}-surface`} className="text-[11px] font-semibold uppercase tracking-wider text-text-weak">
+          <label
+            htmlFor={`${id}-surface`}
+            className="text-[11px] font-semibold uppercase tracking-wider text-text-weak"
+          >
             Surface
           </label>
           <Select
@@ -306,7 +320,9 @@ function PlaygroundSection({
           </Select>
         </div>
       </div>
-      <div className={cn("rounded-xl border p-5 transition-colors duration-200", surface.className)}>
+      <div
+        className={cn("rounded-xl border p-5 transition-colors duration-200", surface.className)}
+      >
         {children}
       </div>
     </section>
@@ -355,7 +371,9 @@ function ThemeSidebar() {
             onClick={() => setColorScheme("light")}
             className={cn(
               "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs font-medium transition-colors",
-              colorScheme === "light" ? "bg-surface-interactive-weak text-text-strong" : "hover:bg-surface-base-hover",
+              colorScheme === "light"
+                ? "bg-surface-interactive-weak text-text-strong"
+                : "hover:bg-surface-base-hover",
             )}
           >
             <SunIcon className="size-3.5 shrink-0" />
@@ -366,7 +384,9 @@ function ThemeSidebar() {
             onClick={() => setColorScheme("dark")}
             className={cn(
               "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs font-medium transition-colors",
-              colorScheme === "dark" ? "bg-surface-interactive-weak text-text-strong" : "hover:bg-surface-base-hover",
+              colorScheme === "dark"
+                ? "bg-surface-interactive-weak text-text-strong"
+                : "hover:bg-surface-base-hover",
             )}
           >
             <MoonIcon className="size-3.5 shrink-0" />
@@ -377,7 +397,9 @@ function ThemeSidebar() {
             onClick={() => setColorScheme("system")}
             className={cn(
               "flex items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs font-medium transition-colors",
-              colorScheme === "system" ? "bg-surface-interactive-weak text-text-strong" : "hover:bg-surface-base-hover",
+              colorScheme === "system"
+                ? "bg-surface-interactive-weak text-text-strong"
+                : "hover:bg-surface-base-hover",
             )}
           >
             <LaptopIcon className="size-3.5 shrink-0" />
@@ -504,12 +526,18 @@ function ComponentPlaygroundPage() {
       >
         <ThemeSidebar />
 
-        <main ref={mainScrollRef} className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain p-8">
+        <main
+          ref={mainScrollRef}
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain p-8"
+        >
           <div className="mx-auto flex min-w-0 max-w-3xl flex-col gap-10">
             <header className="border-b border-border-base pb-6">
-              <h1 className="text-3xl font-bold tracking-tight text-text-strong">Component Playground</h1>
+              <h1 className="text-3xl font-bold tracking-tight text-text-strong">
+                Component Playground
+              </h1>
               <p className="mt-1 max-w-2xl text-sm text-text-weak">
-                Fixed theme picker (left) and component list (right). Only the center column scrolls.
+                Fixed theme picker (left) and component list (right). Only the center column
+                scrolls.
               </p>
             </header>
 
@@ -518,530 +546,601 @@ function ComponentPlaygroundPage() {
               title="Design tokens"
               description="Theme token swatches only — not component variants."
             >
-            <div className="space-y-6">
-              <VariantGrid label="Text">
-                {TEXT_SWATCHES.map((swatch) => (
-                  <span key={swatch.label} className={cn("text-sm font-medium", swatch.className)}>
-                    {swatch.label}
-                  </span>
-                ))}
-              </VariantGrid>
-              <VariantGrid label="Surfaces">
-                {PLAYGROUND_SURFACES.map((swatch) => (
-                  <div
-                    key={swatch.id}
-                    className={cn(
-                      "flex h-14 w-28 items-end rounded-md border p-2 text-[10px] font-medium text-text-weak",
-                      swatch.className,
-                    )}
-                  >
-                    {swatch.label}
-                  </div>
-                ))}
-              </VariantGrid>
-            </div>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="button" title="Button" description="All button color variants.">
-            <VariantGrid label="Variants">
-              {BUTTON_COLOR_VARIANTS.map((variant) => (
-                <Button key={variant} variant={variant}>
-                  {variant}
-                </Button>
-              ))}
-            </VariantGrid>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="badge" title="Badge" description="All badge color variants.">
-            <VariantGrid label="Variants">
-              {BADGE_COLOR_VARIANTS.map((variant) => (
-                <Badge key={variant} variant={variant}>
-                  {variant}
-                </Badge>
-              ))}
-            </VariantGrid>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="tabs" title="Tabs" description="TabsList color variants.">
-            <div className="space-y-6">
-              {TABS_LIST_COLOR_VARIANTS.map((listVariant) => (
-                <VariantGrid key={listVariant} label={`TabsList · ${listVariant}`}>
-                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-md">
-                    <TabsList variant={listVariant}>
-                      <TabsTrigger value="one">Overview</TabsTrigger>
-                      <TabsTrigger value="two">Details</TabsTrigger>
-                      <TabsTrigger value="three">Settings</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value={activeTab} className="pt-3 text-sm text-text-weak">
-                      Panel content for the active tab.
-                    </TabsContent>
-                  </Tabs>
+              <div className="space-y-6">
+                <VariantGrid label="Text">
+                  {TEXT_SWATCHES.map((swatch) => (
+                    <span
+                      key={swatch.label}
+                      className={cn("text-sm font-medium", swatch.className)}
+                    >
+                      {swatch.label}
+                    </span>
+                  ))}
                 </VariantGrid>
-              ))}
-            </div>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="toggle-group" title="ToggleGroup" description="ToggleGroup color variants.">
-            <div className="space-y-6">
-              {TOGGLE_COLOR_VARIANTS.map((variant) => (
-                <VariantGrid key={variant} label={variant}>
-                  <ToggleGroup
-                    type="multiple"
-                    variant={variant}
-                    value={variant === "default" ? toggleGroupDefaultValue : toggleGroupOutlineValue}
-                    onValueChange={
-                      variant === "default" ? setToggleGroupDefaultValue : setToggleGroupOutlineValue
-                    }
-                  >
-                    <ToggleGroupItem value="bold" aria-label="Bold">
-                      <BoldIcon />
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="italic" aria-label="Italic">
-                      <ItalicIcon />
-                    </ToggleGroupItem>
-                  </ToggleGroup>
+                <VariantGrid label="Surfaces">
+                  {PLAYGROUND_SURFACES.map((swatch) => (
+                    <div
+                      key={swatch.id}
+                      className={cn(
+                        "flex h-14 w-28 items-end rounded-md border p-2 text-[10px] font-medium text-text-weak",
+                        swatch.className,
+                      )}
+                    >
+                      {swatch.label}
+                    </div>
+                  ))}
                 </VariantGrid>
-              ))}
-            </div>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="item" title="Item" description="Item color variants.">
-            <div className="flex max-w-lg flex-col gap-3">
-              {ITEM_COLOR_VARIANTS.map((variant) => (
-                <Item key={variant} variant={variant}>
-                  <ItemMedia variant="icon">
-                    <BotIcon className="text-icon-info-base" />
-                  </ItemMedia>
-                  <ItemContent>
-                    <ItemTitle>Item · {variant}</ItemTitle>
-                    <ItemDescription>Secondary line using theme text tokens.</ItemDescription>
-                  </ItemContent>
-                </Item>
-              ))}
-            </div>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="item-media" title="ItemMedia" description="ItemMedia color variants.">
-            <div className="flex max-w-lg flex-col gap-3">
-              {ITEM_MEDIA_COLOR_VARIANTS.map((variant) => (
-                <Item key={variant} variant="outline">
-                  <ItemMedia variant={variant}>
-                    {variant === "icon" ? <FolderIcon className="text-icon-base" /> : null}
-                    {variant === "image" ? (
-                      <img src={ITEM_MEDIA_PLACEHOLDER_SRC} alt="Item media preview" />
-                    ) : null}
-                  </ItemMedia>
-                  <ItemContent>
-                    <ItemTitle>ItemMedia · {variant}</ItemTitle>
-                  </ItemContent>
-                </Item>
-              ))}
-            </div>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="dropdown-menu" title="DropdownMenu" description="Menu item color variants.">
-            <VariantGrid label="DropdownMenuItem">
-              <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline">{dropdownOpen ? "Close menu" : "Open menu"}</Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-52">
-                  <DropdownMenuItem>
-                    <SettingsIcon className="size-4" />
-                    Default
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive">
-                    <Trash2Icon className="size-4" />
-                    Destructive
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </VariantGrid>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="context-menu" title="ContextMenu" description="Menu item color variants.">
-            <ContextMenu>
-              <ContextMenuTrigger asChild>
-                <Button variant="outline">Right-click target</Button>
-              </ContextMenuTrigger>
-              <ContextMenuContent className="w-52">
-                <ContextMenuItem>Default</ContextMenuItem>
-                <ContextMenuItem variant="destructive">Destructive</ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="dialog" title="Dialog" description="No color variants.">
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline">Open dialog</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Dialog title</DialogTitle>
-                  <DialogDescription>Dialog body on the selected parent surface.</DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={() => setDialogOpen(false)}>Confirm</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </PlaygroundSection>
-
-          <PlaygroundSection
-            id="alert-dialog"
-            title="AlertDialog"
-            description="AlertDialogAction uses Button color variants."
-          >
-            <VariantGrid label="AlertDialogAction">
-              {ALERT_DIALOG_BUTTON_VARIANTS.map((entry) => (
-                <Button key={entry.label} variant={entry.variant}>
-                  {entry.variant}
-                </Button>
-              ))}
-            </VariantGrid>
-            <div className="mt-4">
-              <AlertDialog open={alertDialogOpen} onOpenChange={setAlertDialogOpen}>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive">Open alert dialog</Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete this item?</AlertDialogTitle>
-                    <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction variant="destructive">Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="popover" title="Popover" description="No color variants.">
-            <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline">{popoverOpen ? "Close popover" : "Open popover"}</Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-72">
-                <PopoverHeader>
-                  <PopoverTitle>Popover title</PopoverTitle>
-                  <PopoverDescription>Popover body content.</PopoverDescription>
-                </PopoverHeader>
-              </PopoverContent>
-            </Popover>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="hover-card" title="HoverCard" description="No color variants.">
-            <HoverCard>
-              <HoverCardTrigger asChild>
-                <Button variant="ghost">Hover target</Button>
-              </HoverCardTrigger>
-              <HoverCardContent className="w-64">
-                <p className="text-sm text-text-base">Hover card content.</p>
-              </HoverCardContent>
-            </HoverCard>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="tooltip" title="Tooltip" description="No color variants.">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost">Hover for tooltip</Button>
-              </TooltipTrigger>
-              <TooltipContent>Tooltip content</TooltipContent>
-            </Tooltip>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="input" title="Input" description="No color variants.">
-            <div className="flex max-w-md flex-col gap-3">
-              <Input placeholder="Default input" />
-              <Input placeholder="Disabled input" disabled />
-              <Input placeholder="Invalid input" aria-invalid />
-            </div>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="textarea" title="Textarea" description="No color variants.">
-            <Textarea className="max-w-md" placeholder="Textarea" />
-          </PlaygroundSection>
-
-          <PlaygroundSection id="checkbox" title="Checkbox" description="No color variants.">
-            <div className="flex flex-col gap-3">
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={checkboxChecked} onCheckedChange={(value) => setCheckboxChecked(value === true)} />
-                Checked
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={checkboxUnchecked}
-                  onCheckedChange={(value) => setCheckboxUnchecked(value === true)}
-                />
-                Unchecked
-              </label>
-            </div>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="switch" title="Switch" description="No color variants.">
-            <div className="flex flex-col gap-3">
-              <label className="flex items-center gap-2 text-sm">
-                <Switch checked={switchOn} onCheckedChange={setSwitchOn} />
-                On
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <Switch checked={switchOff} onCheckedChange={setSwitchOff} />
-                Off
-              </label>
-            </div>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="select" title="Select" description="No color variants.">
-            <Select value={selectValue} onValueChange={setSelectValue}>
-              <SelectTrigger className="w-full max-w-md">
-                <SelectValue placeholder="Select scheme" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="light">Light</SelectItem>
-                <SelectItem value="dark">Dark</SelectItem>
-                <SelectItem value="system">System</SelectItem>
-              </SelectContent>
-            </Select>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="native-select" title="NativeSelect" description="No color variants.">
-            <NativeSelect
-              className="max-w-md"
-              value={nativeSelectValue}
-              onChange={(event) => setNativeSelectValue(event.target.value)}
-            >
-              <NativeSelectOption value="one">Option one</NativeSelectOption>
-              <NativeSelectOption value="two">Option two</NativeSelectOption>
-            </NativeSelect>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="slider" title="Slider" description="No color variants.">
-            <Slider
-              className="max-w-md"
-              value={sliderValue}
-              onValueChange={(value) => {
-                setSliderValue(value)
-                setProgressValue(value[0] ?? 0)
-              }}
-              max={100}
-              step={1}
-            />
-          </PlaygroundSection>
-
-          <PlaygroundSection id="combobox" title="Combobox" description="No color variants.">
-            <Combobox value={comboboxValue} onValueChange={setComboboxValue}>
-              <ComboboxTrigger className="flex w-full max-w-md items-center justify-between rounded-lg border border-border-base bg-background-base px-3 py-2 text-sm">
-                <ComboboxValue placeholder="Pick a model" />
-              </ComboboxTrigger>
-              <ComboboxContent>
-                <ComboboxList>
-                  <ComboboxItem value="gpt-4o">GPT-4o</ComboboxItem>
-                  <ComboboxItem value="claude">Claude</ComboboxItem>
-                  <ComboboxItem value="gemini">Gemini</ComboboxItem>
-                </ComboboxList>
-              </ComboboxContent>
-            </Combobox>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="command" title="Command" description="No color variants.">
-            <Command className="max-w-md rounded-lg border border-border-base">
-              <CommandInput placeholder="Search commands…" />
-              <CommandList>
-                <CommandEmpty>No results.</CommandEmpty>
-                <CommandGroup heading="Actions">
-                  <CommandItem>
-                    <BotIcon className="size-4" />
-                    New chat
-                  </CommandItem>
-                  <CommandItem>
-                    <FolderIcon className="size-4" />
-                    Open folder
-                  </CommandItem>
-                </CommandGroup>
-                <CommandSeparator />
-                <CommandGroup heading="Settings">
-                  <CommandItem>
-                    <SettingsIcon className="size-4" />
-                    Preferences
-                  </CommandItem>
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="card" title="Card" description="No color variants.">
-            <Card className="max-w-md">
-              <CardHeader>
-                <CardTitle>Card title</CardTitle>
-                <CardDescription>Card description.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-text-weak">Card body content.</p>
-              </CardContent>
-              <CardFooter className="gap-2">
-                <Button variant="outline">Cancel</Button>
-                <Button>Save</Button>
-              </CardFooter>
-            </Card>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="composer-dock" title="ComposerDock" description="No color variants.">
-            <ComposerDock size="sm" autoFocus={false} className="max-w-md">
-              <ComposerDockHeader>
-                <ComposerDockTitle icon={BotIcon} title="Composer dock" />
-                <ComposerDockActions>
-                  <Button variant="ghost" size="icon-sm">
-                    <ChevronDownIcon />
-                  </Button>
-                </ComposerDockActions>
-              </ComposerDockHeader>
-              <ComposerDockBody padded>
-                <p className="text-sm text-text-weak">Composer dock body.</p>
-              </ComposerDockBody>
-              <ComposerDockFooter>
-                <Button variant="outline" size="sm">
-                  Dismiss
-                </Button>
-                <Button size="sm">Continue</Button>
-              </ComposerDockFooter>
-            </ComposerDock>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="table" title="Table" description="No color variants.">
-            <Table className="max-w-lg">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Role</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell>Buddy</TableCell>
-                  <TableCell className="text-text-weak">Active</TableCell>
-                  <TableCell className="text-text-weak">Agent</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>Reader</TableCell>
-                  <TableCell className="text-text-weak">Idle</TableCell>
-                  <TableCell className="text-text-weak">Reader</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="accordion" title="Accordion" description="No color variants.">
-            <Accordion
-              type="single"
-              collapsible
-              value={accordionValue}
-              onValueChange={setAccordionValue}
-              className="max-w-lg"
-            >
-              <AccordionItem value="item-1">
-                <AccordionTrigger>Accordion section</AccordionTrigger>
-                <AccordionContent className="text-text-weak">Accordion content.</AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="collapsible" title="Collapsible" description="No color variants.">
-            <Collapsible open={collapsibleOpen} onOpenChange={setCollapsibleOpen} className="max-w-lg">
-              <CollapsibleTrigger asChild>
-                <Button variant="outline" size="sm">
-                  {collapsibleOpen ? "Hide" : "Show"} content
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-3 rounded-lg border border-border-base bg-surface-base p-3 text-sm text-text-weak">
-                Collapsible content.
-              </CollapsibleContent>
-            </Collapsible>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="progress" title="Progress" description="No color variants.">
-            <Progress className="max-w-md" value={progressValue} />
-          </PlaygroundSection>
-
-          <PlaygroundSection id="skeleton" title="Skeleton" description="No color variants.">
-            <div className="flex max-w-md items-center gap-3">
-              <Skeleton className="size-10 rounded-full" />
-              <div className="space-y-2">
-                <Skeleton className="h-3 w-32" />
-                <Skeleton className="h-3 w-24" />
               </div>
-            </div>
-          </PlaygroundSection>
+            </PlaygroundSection>
 
-          <PlaygroundSection id="separator" title="Separator" description="No color variants.">
-            <div className="flex max-w-md items-center gap-3 text-sm text-text-weak">
-              <span>Left</span>
-              <Separator orientation="vertical" className="h-4" />
-              <span>Right</span>
-            </div>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="scroll-area" title="ScrollArea" description="No color variants.">
-            <ScrollArea className="h-24 max-w-md rounded-lg border border-border-base p-3">
-              <p className="text-sm text-text-weak">ScrollArea content line one.</p>
-              <p className="mt-3 text-sm text-text-weak">ScrollArea content line two forces overflow.</p>
-            </ScrollArea>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="aspect-ratio" title="AspectRatio" description="No color variants.">
-            <div className="max-w-xs">
-              <AspectRatio ratio={16 / 9} className="overflow-hidden rounded-lg border border-border-base bg-surface-weak">
-                <div className="flex size-full items-center justify-center text-sm text-text-weak">16:9</div>
-              </AspectRatio>
-            </div>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="resizable-handle" title="ResizableHandle" description="Handle color variants.">
-            <div className="flex flex-col gap-6">
-              {RESIZABLE_HANDLE_COLOR_VARIANTS.map((handleVariant) => (
-                <VariantGrid key={handleVariant} label={handleVariant}>
-                  <ResizablePanelGroup
-                    orientation="horizontal"
-                    className="min-h-28 w-full max-w-lg rounded-lg border border-border-base"
-                  >
-                    <ResizablePanel defaultSize={50} minSize={25}>
-                      <div className="flex h-full items-center justify-center p-4 text-sm text-text-weak">A</div>
-                    </ResizablePanel>
-                    <ResizableHandle variant={handleVariant} withHandle={handleVariant === "divider"} />
-                    <ResizablePanel defaultSize={50} minSize={25}>
-                      <div className="flex h-full items-center justify-center p-4 text-sm text-text-weak">B</div>
-                    </ResizablePanel>
-                  </ResizablePanelGroup>
-                </VariantGrid>
-              ))}
-            </div>
-          </PlaygroundSection>
-
-          <PlaygroundSection id="carousel" title="Carousel" description="No color variants.">
-            <Carousel className="mx-auto w-full max-w-sm">
-              <CarouselContent>
-                {["Slide 1", "Slide 2", "Slide 3"].map((label) => (
-                  <CarouselItem key={label}>
-                    <Card>
-                      <CardContent className="flex aspect-video items-center justify-center p-6">
-                        <span className="text-lg font-semibold text-text-strong">{label}</span>
-                      </CardContent>
-                    </Card>
-                  </CarouselItem>
+            <PlaygroundSection id="button" title="Button" description="All button color variants.">
+              <VariantGrid label="Variants">
+                {BUTTON_COLOR_VARIANTS.map((variant) => (
+                  <Button key={variant} variant={variant}>
+                    {variant}
+                  </Button>
                 ))}
-              </CarouselContent>
-              <CarouselPrevious />
-              <CarouselNext />
-            </Carousel>
-          </PlaygroundSection>
+              </VariantGrid>
+            </PlaygroundSection>
 
+            <PlaygroundSection id="badge" title="Badge" description="All badge color variants.">
+              <VariantGrid label="Variants">
+                {BADGE_COLOR_VARIANTS.map((variant) => (
+                  <Badge key={variant} variant={variant}>
+                    {variant}
+                  </Badge>
+                ))}
+              </VariantGrid>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="tabs" title="Tabs" description="TabsList color variants.">
+              <div className="space-y-6">
+                {TABS_LIST_COLOR_VARIANTS.map((listVariant) => (
+                  <VariantGrid key={listVariant} label={`TabsList · ${listVariant}`}>
+                    <Tabs
+                      value={activeTab}
+                      onValueChange={setActiveTab}
+                      className="w-full max-w-md"
+                    >
+                      <TabsList variant={listVariant}>
+                        <TabsTrigger value="one">Overview</TabsTrigger>
+                        <TabsTrigger value="two">Details</TabsTrigger>
+                        <TabsTrigger value="three">Settings</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value={activeTab} className="pt-3 text-sm text-text-weak">
+                        Panel content for the active tab.
+                      </TabsContent>
+                    </Tabs>
+                  </VariantGrid>
+                ))}
+              </div>
+            </PlaygroundSection>
+
+            <PlaygroundSection
+              id="toggle-group"
+              title="ToggleGroup"
+              description="ToggleGroup color variants."
+            >
+              <div className="space-y-6">
+                {TOGGLE_COLOR_VARIANTS.map((variant) => (
+                  <VariantGrid key={variant} label={variant}>
+                    <ToggleGroup
+                      type="multiple"
+                      variant={variant}
+                      value={
+                        variant === "default" ? toggleGroupDefaultValue : toggleGroupOutlineValue
+                      }
+                      onValueChange={
+                        variant === "default"
+                          ? setToggleGroupDefaultValue
+                          : setToggleGroupOutlineValue
+                      }
+                    >
+                      <ToggleGroupItem value="bold" aria-label="Bold">
+                        <BoldIcon />
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="italic" aria-label="Italic">
+                        <ItalicIcon />
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </VariantGrid>
+                ))}
+              </div>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="item" title="Item" description="Item color variants.">
+              <div className="flex max-w-lg flex-col gap-3">
+                {ITEM_COLOR_VARIANTS.map((variant) => (
+                  <Item key={variant} variant={variant}>
+                    <ItemMedia variant="icon">
+                      <BotIcon className="text-icon-info-base" />
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>Item · {variant}</ItemTitle>
+                      <ItemDescription>Secondary line using theme text tokens.</ItemDescription>
+                    </ItemContent>
+                  </Item>
+                ))}
+              </div>
+            </PlaygroundSection>
+
+            <PlaygroundSection
+              id="item-media"
+              title="ItemMedia"
+              description="ItemMedia color variants."
+            >
+              <div className="flex max-w-lg flex-col gap-3">
+                {ITEM_MEDIA_COLOR_VARIANTS.map((variant) => (
+                  <Item key={variant} variant="outline">
+                    <ItemMedia variant={variant}>
+                      {variant === "icon" ? <FolderIcon className="text-icon-base" /> : null}
+                      {variant === "image" ? (
+                        <img src={ITEM_MEDIA_PLACEHOLDER_SRC} alt="Item media preview" />
+                      ) : null}
+                    </ItemMedia>
+                    <ItemContent>
+                      <ItemTitle>ItemMedia · {variant}</ItemTitle>
+                    </ItemContent>
+                  </Item>
+                ))}
+              </div>
+            </PlaygroundSection>
+
+            <PlaygroundSection
+              id="dropdown-menu"
+              title="DropdownMenu"
+              description="Menu item color variants."
+            >
+              <VariantGrid label="DropdownMenuItem">
+                <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline">{dropdownOpen ? "Close menu" : "Open menu"}</Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-52">
+                    <DropdownMenuItem>
+                      <SettingsIcon className="size-4" />
+                      Default
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive">
+                      <Trash2Icon className="size-4" />
+                      Destructive
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </VariantGrid>
+            </PlaygroundSection>
+
+            <PlaygroundSection
+              id="context-menu"
+              title="ContextMenu"
+              description="Menu item color variants."
+            >
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
+                  <Button variant="outline">Right-click target</Button>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-52">
+                  <ContextMenuItem>Default</ContextMenuItem>
+                  <ContextMenuItem variant="destructive">Destructive</ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="dialog" title="Dialog" description="No color variants.">
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">Open dialog</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Dialog title</DialogTitle>
+                    <DialogDescription>
+                      Dialog body on the selected parent surface.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={() => setDialogOpen(false)}>Confirm</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </PlaygroundSection>
+
+            <PlaygroundSection
+              id="alert-dialog"
+              title="AlertDialog"
+              description="AlertDialogAction uses Button color variants."
+            >
+              <VariantGrid label="AlertDialogAction">
+                {ALERT_DIALOG_BUTTON_VARIANTS.map((entry) => (
+                  <Button key={entry.label} variant={entry.variant}>
+                    {entry.variant}
+                  </Button>
+                ))}
+              </VariantGrid>
+              <div className="mt-4">
+                <AlertDialog open={alertDialogOpen} onOpenChange={setAlertDialogOpen}>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive">Open alert dialog</Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete this item?</AlertDialogTitle>
+                      <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction variant="destructive">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="popover" title="Popover" description="No color variants.">
+              <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline">
+                    {popoverOpen ? "Close popover" : "Open popover"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72">
+                  <PopoverHeader>
+                    <PopoverTitle>Popover title</PopoverTitle>
+                    <PopoverDescription>Popover body content.</PopoverDescription>
+                  </PopoverHeader>
+                </PopoverContent>
+              </Popover>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="hover-card" title="HoverCard" description="No color variants.">
+              <HoverCard>
+                <HoverCardTrigger asChild>
+                  <Button variant="ghost">Hover target</Button>
+                </HoverCardTrigger>
+                <HoverCardContent className="w-64">
+                  <p className="text-sm text-text-base">Hover card content.</p>
+                </HoverCardContent>
+              </HoverCard>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="tooltip" title="Tooltip" description="No color variants.">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost">Hover for tooltip</Button>
+                </TooltipTrigger>
+                <TooltipContent>Tooltip content</TooltipContent>
+              </Tooltip>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="input" title="Input" description="No color variants.">
+              <div className="flex max-w-md flex-col gap-3">
+                <Input placeholder="Default input" />
+                <Input placeholder="Disabled input" disabled />
+                <Input placeholder="Invalid input" aria-invalid />
+              </div>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="textarea" title="Textarea" description="No color variants.">
+              <Textarea className="max-w-md" placeholder="Textarea" />
+            </PlaygroundSection>
+
+            <PlaygroundSection id="checkbox" title="Checkbox" description="No color variants.">
+              <div className="flex flex-col gap-3">
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={checkboxChecked}
+                    onCheckedChange={(value) => setCheckboxChecked(value === true)}
+                  />
+                  Checked
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={checkboxUnchecked}
+                    onCheckedChange={(value) => setCheckboxUnchecked(value === true)}
+                  />
+                  Unchecked
+                </label>
+              </div>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="switch" title="Switch" description="No color variants.">
+              <div className="flex flex-col gap-3">
+                <label className="flex items-center gap-2 text-sm">
+                  <Switch checked={switchOn} onCheckedChange={setSwitchOn} />
+                  On
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Switch checked={switchOff} onCheckedChange={setSwitchOff} />
+                  Off
+                </label>
+              </div>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="select" title="Select" description="No color variants.">
+              <Select value={selectValue} onValueChange={setSelectValue}>
+                <SelectTrigger className="w-full max-w-md">
+                  <SelectValue placeholder="Select scheme" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">Light</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                  <SelectItem value="system">System</SelectItem>
+                </SelectContent>
+              </Select>
+            </PlaygroundSection>
+
+            <PlaygroundSection
+              id="native-select"
+              title="NativeSelect"
+              description="No color variants."
+            >
+              <NativeSelect
+                className="max-w-md"
+                value={nativeSelectValue}
+                onChange={(event) => setNativeSelectValue(event.target.value)}
+              >
+                <NativeSelectOption value="one">Option one</NativeSelectOption>
+                <NativeSelectOption value="two">Option two</NativeSelectOption>
+              </NativeSelect>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="slider" title="Slider" description="No color variants.">
+              <Slider
+                className="max-w-md"
+                value={sliderValue}
+                onValueChange={(value) => {
+                  setSliderValue(value)
+                  setProgressValue(value[0] ?? 0)
+                }}
+                max={100}
+                step={1}
+              />
+            </PlaygroundSection>
+
+            <PlaygroundSection id="combobox" title="Combobox" description="No color variants.">
+              <Combobox value={comboboxValue} onValueChange={setComboboxValue}>
+                <ComboboxTrigger className="flex w-full max-w-md items-center justify-between rounded-lg border border-border-base bg-background-base px-3 py-2 text-sm">
+                  <ComboboxValue placeholder="Pick a model" />
+                </ComboboxTrigger>
+                <ComboboxContent>
+                  <ComboboxList>
+                    <ComboboxItem value="gpt-4o">GPT-4o</ComboboxItem>
+                    <ComboboxItem value="claude">Claude</ComboboxItem>
+                    <ComboboxItem value="gemini">Gemini</ComboboxItem>
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="command" title="Command" description="No color variants.">
+              <Command className="max-w-md rounded-lg border border-border-base">
+                <CommandInput placeholder="Search commands…" />
+                <CommandList>
+                  <CommandEmpty>No results.</CommandEmpty>
+                  <CommandGroup heading="Actions">
+                    <CommandItem>
+                      <BotIcon className="size-4" />
+                      New chat
+                    </CommandItem>
+                    <CommandItem>
+                      <FolderIcon className="size-4" />
+                      Open folder
+                    </CommandItem>
+                  </CommandGroup>
+                  <CommandSeparator />
+                  <CommandGroup heading="Settings">
+                    <CommandItem>
+                      <SettingsIcon className="size-4" />
+                      Preferences
+                    </CommandItem>
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="card" title="Card" description="No color variants.">
+              <Card className="max-w-md">
+                <CardHeader>
+                  <CardTitle>Card title</CardTitle>
+                  <CardDescription>Card description.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-text-weak">Card body content.</p>
+                </CardContent>
+                <CardFooter className="gap-2">
+                  <Button variant="outline">Cancel</Button>
+                  <Button>Save</Button>
+                </CardFooter>
+              </Card>
+            </PlaygroundSection>
+
+            <PlaygroundSection
+              id="composer-dock"
+              title="ComposerDock"
+              description="No color variants."
+            >
+              <ComposerDock size="sm" autoFocus={false} className="max-w-md">
+                <ComposerDockHeader>
+                  <ComposerDockTitle icon={BotIcon} title="Composer dock" />
+                  <ComposerDockActions>
+                    <Button variant="ghost" size="icon-sm">
+                      <ChevronDownIcon />
+                    </Button>
+                  </ComposerDockActions>
+                </ComposerDockHeader>
+                <ComposerDockBody padded>
+                  <p className="text-sm text-text-weak">Composer dock body.</p>
+                </ComposerDockBody>
+                <ComposerDockFooter>
+                  <Button variant="outline" size="sm">
+                    Dismiss
+                  </Button>
+                  <Button size="sm">Continue</Button>
+                </ComposerDockFooter>
+              </ComposerDock>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="table" title="Table" description="No color variants.">
+              <Table className="max-w-lg">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Role</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell>Buddy</TableCell>
+                    <TableCell className="text-text-weak">Active</TableCell>
+                    <TableCell className="text-text-weak">Agent</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell>Reader</TableCell>
+                    <TableCell className="text-text-weak">Idle</TableCell>
+                    <TableCell className="text-text-weak">Reader</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="accordion" title="Accordion" description="No color variants.">
+              <Accordion
+                type="single"
+                collapsible
+                value={accordionValue}
+                onValueChange={setAccordionValue}
+                className="max-w-lg"
+              >
+                <AccordionItem value="item-1">
+                  <AccordionTrigger>Accordion section</AccordionTrigger>
+                  <AccordionContent className="text-text-weak">Accordion content.</AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </PlaygroundSection>
+
+            <PlaygroundSection
+              id="collapsible"
+              title="Collapsible"
+              description="No color variants."
+            >
+              <Collapsible
+                open={collapsibleOpen}
+                onOpenChange={setCollapsibleOpen}
+                className="max-w-lg"
+              >
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    {collapsibleOpen ? "Hide" : "Show"} content
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-3 rounded-lg border border-border-base bg-surface-base p-3 text-sm text-text-weak">
+                  Collapsible content.
+                </CollapsibleContent>
+              </Collapsible>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="progress" title="Progress" description="No color variants.">
+              <Progress className="max-w-md" value={progressValue} />
+            </PlaygroundSection>
+
+            <PlaygroundSection id="skeleton" title="Skeleton" description="No color variants.">
+              <div className="flex max-w-md items-center gap-3">
+                <Skeleton className="size-10 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="separator" title="Separator" description="No color variants.">
+              <div className="flex max-w-md items-center gap-3 text-sm text-text-weak">
+                <span>Left</span>
+                <Separator orientation="vertical" className="h-4" />
+                <span>Right</span>
+              </div>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="scroll-area" title="ScrollArea" description="No color variants.">
+              <ScrollArea className="h-24 max-w-md rounded-lg border border-border-base p-3">
+                <p className="text-sm text-text-weak">ScrollArea content line one.</p>
+                <p className="mt-3 text-sm text-text-weak">
+                  ScrollArea content line two forces overflow.
+                </p>
+              </ScrollArea>
+            </PlaygroundSection>
+
+            <PlaygroundSection
+              id="aspect-ratio"
+              title="AspectRatio"
+              description="No color variants."
+            >
+              <div className="max-w-xs">
+                <AspectRatio
+                  ratio={16 / 9}
+                  className="overflow-hidden rounded-lg border border-border-base bg-surface-weak"
+                >
+                  <div className="flex size-full items-center justify-center text-sm text-text-weak">
+                    16:9
+                  </div>
+                </AspectRatio>
+              </div>
+            </PlaygroundSection>
+
+            <PlaygroundSection
+              id="resizable-handle"
+              title="ResizableHandle"
+              description="Handle color variants."
+            >
+              <div className="flex flex-col gap-6">
+                {RESIZABLE_HANDLE_COLOR_VARIANTS.map((handleVariant) => (
+                  <VariantGrid key={handleVariant} label={handleVariant}>
+                    <ResizablePanelGroup
+                      orientation="horizontal"
+                      className="min-h-28 w-full max-w-lg rounded-lg border border-border-base"
+                    >
+                      <ResizablePanel defaultSize={50} minSize={25}>
+                        <div className="flex h-full items-center justify-center p-4 text-sm text-text-weak">
+                          A
+                        </div>
+                      </ResizablePanel>
+                      <ResizableHandle
+                        variant={handleVariant}
+                        withHandle={handleVariant === "divider"}
+                      />
+                      <ResizablePanel defaultSize={50} minSize={25}>
+                        <div className="flex h-full items-center justify-center p-4 text-sm text-text-weak">
+                          B
+                        </div>
+                      </ResizablePanel>
+                    </ResizablePanelGroup>
+                  </VariantGrid>
+                ))}
+              </div>
+            </PlaygroundSection>
+
+            <PlaygroundSection id="carousel" title="Carousel" description="No color variants.">
+              <Carousel className="mx-auto w-full max-w-sm">
+                <CarouselContent>
+                  {["Slide 1", "Slide 2", "Slide 3"].map((label) => (
+                    <CarouselItem key={label}>
+                      <Card>
+                        <CardContent className="flex aspect-video items-center justify-center p-6">
+                          <span className="text-lg font-semibold text-text-strong">{label}</span>
+                        </CardContent>
+                      </Card>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious />
+                <CarouselNext />
+              </Carousel>
+            </PlaygroundSection>
           </div>
         </main>
 

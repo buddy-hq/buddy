@@ -191,9 +191,7 @@ function normalizeBuddyTokens(tokens: ResolvedTheme, isDark: boolean): ResolvedT
     next["button-secondary-base"] = tunedBase
     next["button-secondary-hover"] = shiftLightness(
       tunedBase,
-      isDark
-        ? SECONDARY_BUTTON_HOVER_LIGHTNESS_SHIFT
-        : -SECONDARY_BUTTON_HOVER_LIGHTNESS_SHIFT,
+      isDark ? SECONDARY_BUTTON_HOVER_LIGHTNESS_SHIFT : -SECONDARY_BUTTON_HOVER_LIGHTNESS_SHIFT,
     )
   }
   setReadableToken(
@@ -288,9 +286,7 @@ function normalizeBuddyTokens(tokens: ResolvedTheme, isDark: boolean): ResolvedT
   if (warningBase && warningPreferred) {
     const subtleWarningBackgrounds = applicationParents.flatMap((parentKey) => {
       const parent = hexToken(next, parentKey)
-      return parent
-        ? ([[blend(warningBase, parent, SUBTLE_STATUS_SURFACE_ALPHA)]] as const)
-        : []
+      return parent ? ([[blend(warningBase, parent, SUBTLE_STATUS_SURFACE_ALPHA)]] as const) : []
     })
     if (subtleWarningBackgrounds.length > 0) {
       next["text-on-warning-subtle"] = ensureTextContrast(

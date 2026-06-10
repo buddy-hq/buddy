@@ -125,11 +125,7 @@ const TEXT_CONTRAST_CHECKS = [
   {
     name: "destructive menu highlighted text",
     foreground: "text-on-critical-weak",
-    background: [
-      "surface-critical-weak",
-      "surface-raised-stronger-non-alpha",
-      "background-base",
-    ],
+    background: ["surface-critical-weak", "surface-raised-stronger-non-alpha", "background-base"],
     minimum: CONTRAST_TARGET.normalText,
   },
   {
