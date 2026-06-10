@@ -1,6 +1,12 @@
 import { basename, dirname } from "../utils/path"
 import { language } from "@/context/language"
 import { readIngestFullTextMetadata } from "./full-text-metadata"
+import {
+  getSkillToolTitle,
+  getSkillReferenceToolTitle,
+  humanizeSkillDisplayName,
+  resolveSkillReference,
+} from "./skill-reference"
 import { isRecord, readNonEmptyString, readNonNegativeInt } from "./types"
 import { parseToolUiMetadata } from "./parse-tool-ui-metadata"
 import type { ToolInfo, ToolState } from "./types"
@@ -198,6 +204,19 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
       if (typeof input.offset === "number") args.push(`offset=${input.offset}`)
       if (typeof input.limit === "number") args.push(`limit=${input.limit}`)
       const isImage = isImageFilePath(filePath) || hasImageAttachments(state)
+      const skillReference = resolveSkillReference(filePath)
+      if (skillReference) {
+        return withMetadataTitle(
+          {
+            title: getSkillReferenceToolTitle(active),
+            subtitle: skillReference.displayName,
+            detail: skillReference.skillName,
+            summary,
+            args,
+          },
+          metadataTitle,
+        )
+      }
       const title = active
         ? language.t(isImage ? "chatTools.info.read.image.running" : "chatTools.info.read.running")
         : language.t(isImage ? "chatTools.info.read.image" : "chatTools.info.read")
@@ -433,16 +452,13 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
         metadataTitle,
       )
     case "skill": {
-      const skillName = readNonEmptyString(input.name) ?? readNonEmptyString(state.metadata.name)
+      const skillNameSource =
+        readNonEmptyString(input.name) ?? readNonEmptyString(state.metadata.name)
+      const skillName = skillNameSource ? humanizeSkillDisplayName(skillNameSource) : undefined
       return withMetadataTitle(
         {
-          title: skillName
-            ? active
-              ? `Using ${skillName}`
-              : `Used ${skillName}`
-            : active
-              ? "Using Skill"
-              : "Used Skill",
+          title: getSkillToolTitle(active),
+          subtitle: skillName,
         },
         metadataTitle,
       )
