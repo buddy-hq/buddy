@@ -138,14 +138,15 @@ function createCopyIcon(path: string, slot: string) {
 function createPresentedMediaIcon(path: string) {
   const icon = document.createElement("span")
   icon.setAttribute("data-slot", "presented-media-icon")
-  icon.className = "pointer-events-none inline-flex h-4 w-3 shrink-0 items-center justify-center"
+  icon.className =
+    "pointer-events-none inline-flex size-3.5 shrink-0 items-center justify-center relative top-px"
 
   const fileName = presentedMediaLinkLabel(path)
   const image = document.createElement("img")
   image.setAttribute("alt", "")
   image.setAttribute("aria-hidden", "true")
   image.setAttribute("src", resolveFileTypeIconUrl({ fileName }))
-  image.className = "h-4 w-3 object-contain"
+  image.className = "size-3.5 object-contain"
   icon.appendChild(image)
   return icon
 }
@@ -154,7 +155,7 @@ function decoratePresentedMediaLink(link: HTMLAnchorElement, filePath: string) {
   link.href = filePath
   link.setAttribute("data-presented-media-path", filePath)
   link.className =
-    "presented-media-link inline-flex max-w-full items-start gap-1.5 align-baseline text-text-interactive-base no-underline hover:underline hover:underline-offset-2"
+    "presented-media-link mx-1 inline-flex max-w-full items-baseline gap-1.5 align-baseline text-text-interactive-base no-underline hover:underline hover:decoration-dotted hover:underline-offset-2"
   link.removeAttribute("target")
   link.removeAttribute("rel")
   link.setAttribute("title", filePath)
