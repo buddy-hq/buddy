@@ -76,8 +76,15 @@ export function FlashcardAuthorTaskCard({
   directory,
 }: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">) {
   const queryClient = useQueryClient()
-  const { agentName, openChildSession, activityLine, activityIcon, activityActive, status } =
-    useSubagentCardData({ state, onOpenSession, directory })
+  const {
+    agentName,
+    openChildSession,
+    activityLine,
+    activityContent,
+    activityIcon,
+    activityActive,
+    status,
+  } = useSubagentCardData({ state, onOpenSession, directory })
   const output = state.output || (state.error ?? "")
   const taskResultOutput = parseTaskResultOutput(output)
   const [reviewDeck, setReviewDeck] = useState<{ deckID: string; title: string } | null>(null)
@@ -106,6 +113,7 @@ export function FlashcardAuthorTaskCard({
         status={status}
         onOpenSession={openChildSession}
         activityLine={!showCompletedBody ? activityLine : undefined}
+        activityContent={!showCompletedBody ? activityContent : undefined}
         activityIcon={activityIcon}
         activityActive={activityActive}
         error={error}

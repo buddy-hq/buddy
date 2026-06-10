@@ -61,8 +61,15 @@ export function QuestionSetAuthorTaskCard({
   onOpenSession,
   directory,
 }: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">) {
-  const { agentName, openChildSession, activityLine, activityIcon, activityActive, status } =
-    useSubagentCardData({ state, onOpenSession, directory })
+  const {
+    agentName,
+    openChildSession,
+    activityLine,
+    activityContent,
+    activityIcon,
+    activityActive,
+    status,
+  } = useSubagentCardData({ state, onOpenSession, directory })
   const output = state.output || (state.error ?? "")
   const taskResultOutput = parseTaskResultOutput(output)
   const [openArtifact, setOpenArtifact] = useState<QuestionSetArtifact | undefined>(undefined)
@@ -90,6 +97,7 @@ export function QuestionSetAuthorTaskCard({
       status={status}
       onOpenSession={openChildSession}
       activityLine={!showCompletedBody ? activityLine : undefined}
+      activityContent={!showCompletedBody ? activityContent : undefined}
       activityIcon={activityIcon}
       activityActive={activityActive}
       error={error}

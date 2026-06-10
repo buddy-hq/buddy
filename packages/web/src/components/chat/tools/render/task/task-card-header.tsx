@@ -8,6 +8,7 @@ import {
   hiddenStepsEntryIsActive,
   resolveHiddenStepsHeader,
 } from "../../hidden-steps/entries"
+import { useFileToolHeaderDisplay } from "../../hidden-steps/use-file-tool-header-display"
 import type { SubagentCardStatus } from "./subagent-card"
 
 /** Convert snake_case / kebab-case agent identifiers to Title Case display names. */
@@ -46,7 +47,15 @@ export function useSubagentCardData(
   // may lag behind the parent tool's completion.
   const toolIsActive = input.state.status === "pending" || input.state.status === "running"
 
-  const { agentName, activityLine, activityIcon } = useChatStore(
+  const {
+    agentName,
+    headerLabel,
+    headerIcon,
+    throttleFileTools,
+    fileName,
+    headerVerb,
+    childHasActiveTool,
+  } = useChatStore(
     useShallow((store) => {
       const dirState = input.directory ? store.directories[input.directory] : undefined
 
@@ -65,23 +74,40 @@ export function useSubagentCardData(
         .filter((m) => m.info.role === "assistant")
         .flatMap((m) => m.parts.map(createHiddenStepsEntry))
       const header = resolveHiddenStepsHeader(allEntries, toolIsActive)
-      // When busy but no child tool is active (child finished last tool, parent still running),
-      // rawSummary falls through to the stale count summary. Suppress it so the card
-      // shows "Working..." instead of a completed-state label.
-      const activityLine =
-        toolIsActive && !allEntries.some(hiddenStepsEntryIsActive) ? undefined : header.label
-      const activityIcon = header.icon
+      const childHasActiveTool = allEntries.some(hiddenStepsEntryIsActive)
 
-      return { agentName, activityLine, activityIcon }
+      return {
+        agentName,
+        headerLabel: header.label,
+        headerIcon: header.icon,
+        throttleFileTools: header.throttleFileTools,
+        fileName: header.fileName,
+        headerVerb: header.verb,
+        childHasActiveTool,
+      }
     }),
   )
 
+  const displayHeader = useFileToolHeaderDisplay({
+    label: headerLabel,
+    icon: headerIcon,
+    throttleFileTools,
+    fileName,
+    verb: headerVerb,
+    isBusy: toolIsActive,
+  })
+
   const status = toolStateToSubagentStatus(input.state.status)
+
+  const activityLine =
+    toolIsActive && !childHasActiveTool ? undefined : displayHeader.label
+  const activityIcon = displayHeader.icon
 
   return {
     agentName,
     openChildSession,
     activityLine,
+    activityContent: undefined,
     activityIcon,
     activityActive: toolIsActive,
     status,

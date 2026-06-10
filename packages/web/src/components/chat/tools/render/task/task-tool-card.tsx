@@ -15,8 +15,15 @@ export function TaskToolCard({
   onOpenSession,
   directory,
 }: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">) {
-  const { agentName, openChildSession, activityLine, activityIcon, activityActive, status } =
-    useSubagentCardData({ state, onOpenSession, directory })
+  const {
+    agentName,
+    openChildSession,
+    activityLine,
+    activityContent,
+    activityIcon,
+    activityActive,
+    status,
+  } = useSubagentCardData({ state, onOpenSession, directory })
   const error = state.status === "error" ? state.output || state.error || "" : undefined
   const taskResult =
     state.status === "completed" && state.output ? extractTaskResult(state.output) : undefined
@@ -27,6 +34,7 @@ export function TaskToolCard({
       status={status}
       onOpenSession={openChildSession}
       activityLine={activityLine}
+      activityContent={activityContent}
       activityIcon={activityIcon}
       activityActive={activityActive}
       error={error}

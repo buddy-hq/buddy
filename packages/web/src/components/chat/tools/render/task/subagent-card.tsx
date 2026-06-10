@@ -19,6 +19,8 @@ type SubagentCardProps = {
   onOpenSession?: () => void
   /** Activity text: shimmers when `activityActive`, static when done. */
   activityLine?: string
+  /** Structured file-tool activity (verb + file target). Takes precedence over `activityLine`. */
+  activityContent?: ReactNode
   activityActive?: boolean
   /** Dominant tool icon from the child session's tool activity. */
   activityIcon?: ToolIconRenderer
@@ -105,6 +107,7 @@ type CardHeaderProps = {
   status: SubagentCardStatus
   displayName: string
   activityLine?: string
+  activityContent?: ReactNode
   activityActive?: boolean
   activityIcon?: ToolIconRenderer
 }
@@ -113,6 +116,7 @@ function CardHeader({
   status,
   displayName,
   activityLine,
+  activityContent,
   activityActive,
   activityIcon,
 }: CardHeaderProps) {
@@ -133,11 +137,13 @@ function CardHeader({
         ) : (
           <Bot className={cn(ICON_CLS, "text-text-weaker")} />
         )}
-        <TextShimmer
-          text={activityLine ?? "Working..."}
-          active={activityActive ?? true}
-          className="min-w-0 flex-1 truncate text-[11px] text-text-weaker"
-        />
+        {activityContent ?? (
+          <TextShimmer
+            text={activityLine ?? "Working..."}
+            active={activityActive ?? true}
+            className="min-w-0 flex-1 truncate text-[11px] text-text-weaker"
+          />
+        )}
         <Bot className={cn(ICON_CLS, "text-text-weaker")} />
         <span className="shrink-0 rounded bg-surface-weak px-1.5 py-0.5 text-[11px] font-medium text-text-weak">
           {displayName}
@@ -168,6 +174,7 @@ export function SubagentCard({
   status,
   onOpenSession,
   activityLine,
+  activityContent,
   activityActive,
   activityIcon,
   children,
@@ -196,6 +203,7 @@ export function SubagentCard({
           status={status}
           displayName={displayName}
           activityLine={activityLine}
+          activityContent={activityContent}
           activityActive={activityActive}
           activityIcon={activityIcon}
         />
