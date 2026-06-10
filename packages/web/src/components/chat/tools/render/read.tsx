@@ -1,19 +1,31 @@
-import { Eye } from "lucide-react"
+import { resolveFileToolIcon, resolveFileToolPath } from "../file-tool-icon"
 import { ToolRow, ToolRowIcon, ToolRowAction, ToolRowSubject, ToolRowArg } from "../tool-row"
 import { resolveAssetUrl } from "../../../../lib/resource-url"
 import { getReadPreviewImageAttachments, isReadImagePreview } from "../read-image-preview"
+import { getSkillReferenceRowAction, resolveSkillReferenceInfo } from "../skill-reference"
 import type { ToolPartProps } from "../registry"
 
 export function renderReadTool({ state, info, icon }: ToolPartProps) {
-  const imageAttachments = getReadPreviewImageAttachments({ state, filePath: info.subtitle })
-  const isImageRead = isReadImagePreview({ state, filePath: info.subtitle })
+  const filePath = resolveFileToolPath("read", state, info)
+  const skillReference = resolveSkillReferenceInfo({
+    filePath,
+    title: info.title,
+    subtitle: info.subtitle,
+    detail: info.detail,
+  })
+  const active = state.status === "pending" || state.status === "running"
+  const fileIcon = resolveFileToolIcon("read", state, info, icon)
+  const imageAttachments = getReadPreviewImageAttachments({ state, filePath })
+  const isImageRead = isReadImagePreview({ state, filePath })
+  const action = skillReference ? `${getSkillReferenceRowAction(active)}:` : "read"
+  const subject = skillReference?.displayName ?? info.subtitle
 
   return (
     <div className="flex flex-col gap-1.5">
       <ToolRow>
-        <ToolRowIcon>{isImageRead ? <Eye className="size-3.5" /> : icon?.("size-3.5")}</ToolRowIcon>
-        <ToolRowAction>{isImageRead && info.subtitle ? info.subtitle : "read"}</ToolRowAction>
-        {!isImageRead && info.subtitle ? <ToolRowSubject>{info.subtitle}</ToolRowSubject> : null}
+        <ToolRowIcon>{fileIcon?.("size-3.5")}</ToolRowIcon>
+        <ToolRowAction>{isImageRead && info.subtitle ? info.subtitle : action}</ToolRowAction>
+        {!isImageRead && subject ? <ToolRowSubject>{subject}</ToolRowSubject> : null}
         {info.args?.map((arg) => (
           <ToolRowArg key={arg}>{arg}</ToolRowArg>
         ))}

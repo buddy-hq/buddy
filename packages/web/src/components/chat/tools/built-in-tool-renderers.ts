@@ -2,21 +2,19 @@ import { createElement } from "react"
 import {
   BookOpen,
   Bot,
-  Brain,
   FileText,
-  FilePlus,
   FolderOpen,
   GitBranch,
   Globe,
   HelpCircle,
   Image,
-  Layers,
   ListTodo,
   Network,
-  PenLine,
   Presentation,
+  ScanText,
   Search,
   Sigma,
+  SquarePen,
   Terminal,
   Wrench,
 } from "lucide-react"
@@ -41,6 +39,7 @@ import { renderSkillTool } from "./render/skill"
 import { renderTaskTool } from "./render/task"
 import { renderTodoTool } from "./render/todo"
 import { renderWebfetchTool } from "./render/webfetch"
+import { SKILL_TOOL_ICON } from "./tool-icons"
 import type { ToolRenderer } from "./tool-registry-types"
 
 function createToolRenderer(definition: ToolRenderer): ToolRenderer {
@@ -53,7 +52,7 @@ const hiddenToolRenderer = createToolRenderer({
 
 export const builtInTools: Record<string, ToolRenderer> = {
   read: createToolRenderer({
-    icon: (cn) => createElement(FileText, { className: cn }),
+    icon: (cn) => createElement(ScanText, { className: cn }),
     card: renderReadTool,
     summary: {
       display: "card",
@@ -90,7 +89,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   edit: createToolRenderer({
-    icon: (cn) => createElement(PenLine, { className: cn }),
+    icon: (cn) => createElement(SquarePen, { className: cn }),
     card: renderEditTool,
     summary: {
       display: "card",
@@ -99,7 +98,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   write: createToolRenderer({
-    icon: (cn) => createElement(FilePlus, { className: cn }),
+    icon: (cn) => createElement(SquarePen, { className: cn }),
     card: renderEditTool,
     summary: {
       display: "card",
@@ -108,7 +107,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     },
   }),
   apply_patch: createToolRenderer({
-    icon: (cn) => createElement(Layers, { className: cn }),
+    icon: (cn) => createElement(SquarePen, { className: cn }),
     card: renderApplyPatchTool,
     summary: {
       display: "card",
@@ -165,7 +164,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     card: renderTaskTool,
   }),
   skill: createToolRenderer({
-    icon: (cn) => createElement(Brain, { className: cn }),
+    icon: SKILL_TOOL_ICON,
     card: renderSkillTool,
     summary: {
       display: "card",

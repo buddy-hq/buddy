@@ -1,3 +1,4 @@
+import { resolveFileToolIcon } from "../file-tool-icon"
 import { readString } from "../../tools/types"
 import { ToolRow, ToolRowIcon, ToolRowAction, ToolRowSubject } from "../tool-row"
 import type { ToolPartProps } from "../registry"
@@ -7,15 +8,18 @@ function basename(filePath: string): string {
   return lastSlash >= 0 ? filePath.slice(lastSlash + 1) : filePath
 }
 
-export function renderEditTool({ state, tool, icon }: ToolPartProps) {
+export function renderEditTool({ state, tool, icon, info }: ToolPartProps) {
   const filePath = readString(state.input.filePath)
+  const fileName = filePath ? basename(filePath) : info?.subtitle
   const isWrite = tool === "write"
+  const fileTool = isWrite ? "write" : "edit"
+  const fileIcon = resolveFileToolIcon(fileTool, state, info, icon)
 
   return (
     <ToolRow>
-      <ToolRowIcon>{icon?.("size-3.5")}</ToolRowIcon>
+      <ToolRowIcon>{fileIcon?.("size-3.5")}</ToolRowIcon>
       <ToolRowAction>{isWrite ? "wrote" : "edited"}</ToolRowAction>
-      {filePath ? <ToolRowSubject>{basename(filePath)}</ToolRowSubject> : null}
+      {fileName ? <ToolRowSubject>{fileName}</ToolRowSubject> : null}
     </ToolRow>
   )
 }
