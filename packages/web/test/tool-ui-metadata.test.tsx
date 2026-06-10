@@ -193,6 +193,21 @@ describe("tool UI metadata", () => {
     expect(completedInfo.title).toBe("Search learning tools")
   })
 
+  test("skill tool titles use humanized skill names", () => {
+    const completedInfo = getToolInfo("skill", {
+      status: "completed",
+      input: {
+        name: "react-best-practices",
+      },
+      metadata: {},
+      attachments: [],
+      output: "",
+    })
+
+    expect(completedInfo.title).toBe("Skill Used")
+    expect(completedInfo.subtitle).toBe("React Best Practices")
+  })
+
   test("estimateApproxWordCountFromTokens uses four chars per token", () => {
     expect(estimateApproxWordCountFromTokens(308_341)).toBe(246_673)
   })

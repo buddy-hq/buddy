@@ -1,0 +1,692 @@
+import { describe, expect, test } from "bun:test"
+import { isValidElement } from "react"
+
+import { builtInTools } from "../src/components/chat/tools/built-in-tool-renderers"
+import {
+  createFileToolIcon,
+  resolveFileToolFileName,
+  resolveFileToolIcon,
+  resolveSettledFileToolIcon,
+} from "../src/components/chat/tools/file-tool-icon"
+import {
+  createHiddenStepsEntry,
+  HIDDEN_STEPS_REASONING_ICON,
+  resolveHiddenStepsHeader,
+} from "../src/components/chat/tools/hidden-steps/entries"
+import {
+  humanizeSkillDisplayName,
+  isSkillReferencePath,
+  resolveSkillReferenceInfo,
+  resolveSkillReference,
+} from "../src/components/chat/tools/skill-reference"
+import { SKILL_TOOL_ICON } from "../src/components/chat/tools/tool-icons"
+import type { MessagePart } from "../src/state/chat-types"
+import type { ToolState } from "../src/components/chat/tools/types"
+
+function readPart(input: {
+  id: string
+  filePath?: string
+  status: ToolState["status"]
+  time?: { start: number; end?: number }
+}): MessagePart {
+  return {
+    id: input.id,
+    sessionID: "ses_test",
+    messageID: "msg_test",
+    type: "tool",
+    tool: "read",
+    callID: `call_${input.id}`,
+    state: {
+      status: input.status,
+      input: input.filePath ? { filePath: input.filePath } : {},
+      metadata: {},
+      attachments: [],
+      time: input.time ?? { start: 1 },
+    },
+  }
+}
+
+function bashPart(status: ToolState["status"]): MessagePart {
+  return {
+    id: "prt_bash",
+    sessionID: "ses_test",
+    messageID: "msg_test",
+    type: "tool",
+    tool: "bash",
+    callID: "call_bash",
+    state: {
+      status,
+      input: { description: "npm test" },
+      metadata: {},
+      attachments: [],
+      time: { start: 1 },
+    },
+  }
+}
+
+function editPart(input: {
+  id: string
+  filePath?: string
+  status: ToolState["status"]
+}): MessagePart {
+  return {
+    id: input.id,
+    sessionID: "ses_test",
+    messageID: "msg_test",
+    type: "tool",
+    tool: "edit",
+    callID: `call_${input.id}`,
+    state: {
+      status: input.status,
+      input: input.filePath ? { filePath: input.filePath } : {},
+      metadata: {},
+      attachments: [],
+    },
+  }
+}
+
+function reasoningPart(input: {
+  id: string
+  durationMs: number
+}): MessagePart {
+  return {
+    id: input.id,
+    sessionID: "ses_test",
+    messageID: "msg_test",
+    type: "reasoning",
+    text: "",
+    time: {
+      start: 1,
+      end: 1 + input.durationMs,
+    },
+  }
+}
+
+function grepPart(status: ToolState["status"]): MessagePart {
+  return {
+    id: "prt_grep",
+    sessionID: "ses_test",
+    messageID: "msg_test",
+    type: "tool",
+    tool: "grep",
+    callID: "call_grep",
+    state: {
+      status,
+      input: { pattern: "foo" },
+      metadata: {},
+      attachments: [],
+      time: { start: 1 },
+    },
+  }
+}
+
+function applyPatchPart(input: {
+  status: ToolState["status"]
+  files?: ToolState["metadata"]["files"]
+}): MessagePart {
+  return {
+    id: "prt_patch",
+    sessionID: "ses_test",
+    messageID: "msg_test",
+    type: "tool",
+    tool: "apply_patch",
+    callID: "call_patch",
+    state: {
+      status: input.status,
+      input: {},
+      metadata: { files: input.files ?? [] },
+      attachments: [],
+      time: { start: 1 },
+    },
+  }
+}
+
+function skillPart(input: {
+  id: string
+  name: string
+  status: ToolState["status"]
+}): MessagePart {
+  return {
+    id: input.id,
+    sessionID: "ses_test",
+    messageID: "msg_test",
+    type: "tool",
+    tool: "skill",
+    callID: `call_${input.id}`,
+    state: {
+      status: input.status,
+      input: { name: input.name },
+      metadata: { name: input.name },
+      attachments: [],
+      output: "",
+      time: { start: 1, end: 2 },
+    },
+  }
+}
+
+function entriesFromParts(parts: MessagePart[]) {
+  return parts.map((part) => createHiddenStepsEntry(part))
+}
+
+describe("resolveFileToolFileName", () => {
+  test("returns basename from full workspace path", () => {
+    const state: ToolState = {
+      status: "running",
+      input: { filePath: "/workspace/packages/web/src/App.tsx" },
+      metadata: {},
+      attachments: [],
+    }
+    expect(resolveFileToolFileName("read", state, { title: "Read" })).toBe("App.tsx")
+  })
+})
+
+describe("isSkillReferencePath", () => {
+  test("detects skill files and references by path segments", () => {
+    expect(isSkillReferencePath("/workspace/.agents/skills/react-best-practices/SKILL.md")).toBe(
+      true,
+    )
+    expect(
+      isSkillReferencePath(
+        "/workspace/packages/buddy/src/learning/features/foo/skills/bar/references/guide.md",
+      ),
+    ).toBe(true)
+    expect(isSkillReferencePath("/workspace/packages/web/src/App.tsx")).toBe(false)
+  })
+})
+
+describe("resolveSkillReference", () => {
+  test("humanizes names and strips extensions", () => {
+    expect(humanizeSkillDisplayName("textbooks-and-board.md")).toBe("Textbooks And Board")
+    expect(
+      resolveSkillReference(
+        "/workspace/.agents/skills/react-best-practices/references/textbooks-and-board.md",
+      ),
+    ).toMatchObject({
+      displayName: "Textbooks And Board",
+    })
+    expect(
+      resolveSkillReference("/workspace/.agents/skills/react-best-practices/SKILL.md"),
+    ).toMatchObject({
+      displayName: "React Best Practices",
+      skillName: "React Best Practices",
+    })
+  })
+})
+
+describe("resolveSkillReferenceInfo", () => {
+  test("recovers skill context from classified tool info", () => {
+    expect(
+      resolveSkillReferenceInfo({
+        title: "Referred",
+        subtitle: "Guided Practice Gradual Release",
+        detail: "Teaching Models",
+      }),
+    ).toMatchObject({
+      displayName: "Guided Practice Gradual Release",
+      skillName: "Teaching Models",
+    })
+  })
+})
+
+describe("resolveFileToolIcon", () => {
+  test("returns distinct renderers for different extensions", () => {
+    const tsState: ToolState = {
+      status: "completed",
+      input: { filePath: "src/App.tsx" },
+      metadata: {},
+      attachments: [],
+    }
+    const mdState: ToolState = {
+      status: "completed",
+      input: { filePath: "README.md" },
+      metadata: {},
+      attachments: [],
+    }
+
+    const tsIcon = resolveFileToolIcon("read", tsState, { title: "Read", subtitle: "App.tsx" })
+    const mdIcon = resolveFileToolIcon("read", mdState, { title: "Read", subtitle: "README.md" })
+
+    expect(tsIcon).toBeDefined()
+    expect(mdIcon).toBeDefined()
+    expect(tsIcon).not.toBe(mdIcon)
+
+    const tsNode = tsIcon?.("size-3.5")
+    const mdNode = mdIcon?.("size-3.5")
+    expect(tsNode).toBeDefined()
+    expect(mdNode).toBeDefined()
+    expect(tsNode).not.toEqual(mdNode)
+  })
+
+  test("createFileToolIcon returns a renderer function", () => {
+    const icon = createFileToolIcon("App.tsx")
+    const node = icon("size-3.5")
+    expect(isValidElement(node)).toBe(true)
+  })
+
+  test("returns the skill icon for reads inside skill paths", () => {
+    const state: ToolState = {
+      status: "completed",
+      input: {
+        filePath: "/workspace/.agents/skills/react-best-practices/references/rendering.md",
+      },
+      metadata: {},
+      attachments: [],
+    }
+
+    expect(resolveFileToolIcon("read", state, { title: "Read" })).toBe(SKILL_TOOL_ICON)
+    expect(resolveSettledFileToolIcon("read", state, { title: "Read" }, builtInTools.read.icon)).toBe(
+      SKILL_TOOL_ICON,
+    )
+  })
+
+  test("returns the skill icon for classified references even without path metadata", () => {
+    const state: ToolState = {
+      status: "completed",
+      input: {},
+      metadata: {},
+      attachments: [],
+    }
+
+    expect(resolveFileToolIcon("read", state, { title: "Referred", subtitle: "Repositories" })).toBe(
+      SKILL_TOOL_ICON,
+    )
+  })
+})
+
+describe("resolveHiddenStepsHeader", () => {
+  test("active read shows Reading basename with throttle flag", () => {
+    const entries = entriesFromParts([
+      readPart({
+        id: "read_1",
+        filePath: "/workspace/App.tsx",
+        status: "running",
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, true)
+    expect(header.label).toBe("Reading App.tsx")
+    expect(header.throttleFileTools).toBe(true)
+    expect(header.fileName).toBe("App.tsx")
+    expect(header.icon).toBeUndefined()
+  })
+
+  test("busy gap between reads holds basename not count summary", () => {
+    const entries = entriesFromParts([
+      readPart({
+        id: "read_1",
+        filePath: "/workspace/App.tsx",
+        status: "completed",
+        time: { start: 1, end: 2 },
+      }),
+      readPart({
+        id: "read_2",
+        filePath: "/workspace/Card.tsx",
+        status: "completed",
+        time: { start: 2, end: 3 },
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, true)
+    expect(header.label).toBe("Reading Card.tsx")
+    expect(header.verb).toBe("Reading")
+    expect(header.throttleFileTools).toBe(true)
+    expect(header.fileName).toBe("Card.tsx")
+    expect(header.label).not.toContain("Read 2")
+  })
+
+  test("busy gap after edit holds Editing verb with basename", () => {
+    const entries = entriesFromParts([
+      editPart({
+        id: "edit_1",
+        filePath: "/workspace/App.tsx",
+        status: "completed",
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, true)
+    expect(header.label).toBe("Editing App.tsx")
+    expect(header.verb).toBe("Editing")
+  })
+
+  test("active read without path holds previous basename in burst", () => {
+    const entries = entriesFromParts([
+      readPart({
+        id: "read_1",
+        filePath: "/workspace/App.tsx",
+        status: "completed",
+        time: { start: 1, end: 2 },
+      }),
+      readPart({
+        id: "read_2",
+        status: "running",
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, true)
+    expect(header.label).toBe("Reading App.tsx")
+    expect(header.fileName).toBe("App.tsx")
+  })
+
+  test("active read without path after skill reference shows generic reference label", () => {
+    const entries = entriesFromParts([
+      readPart({
+        id: "read_skill_1",
+        filePath: "/workspace/.agents/skills/react-best-practices/references/textbooks-and-board.md",
+        status: "completed",
+        time: { start: 1, end: 2 },
+      }),
+      readPart({
+        id: "read_2",
+        status: "running",
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, true)
+    expect(header.label).toBe("Using Reference")
+    expect(header.icon).toBe(SKILL_TOOL_ICON)
+    expect(header.fileName).toBeUndefined()
+    expect(header.verb).toBe("Using Reference")
+  })
+
+  test("active skill reference uses reference wording and humanized name", () => {
+    const entries = entriesFromParts([
+      readPart({
+        id: "read_skill_active",
+        filePath: "/workspace/.agents/skills/react-best-practices/references/textbooks-and-board.md",
+        status: "running",
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, true)
+    expect(header.label).toBe("Using Reference Textbooks And Board")
+    expect(header.icon).toBe(SKILL_TOOL_ICON)
+    expect(header.fileName).toBe("Textbooks And Board")
+    expect(header.verb).toBe("Using Reference")
+    expect(header.throttleFileTools).toBe(true)
+  })
+
+  test("active grep after read uses grep header not stale read basename", () => {
+    const entries = entriesFromParts([
+      readPart({
+        id: "read_1",
+        filePath: "/workspace/App.tsx",
+        status: "completed",
+        time: { start: 1, end: 2 },
+      }),
+      grepPart("running"),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, true)
+    expect(header.throttleFileTools).toBeFalsy()
+    expect(header.label).not.toBe("Reading App.tsx")
+    expect(header.label).not.toBe("App.tsx")
+  })
+
+  test("gap after bash does not hold read basename", () => {
+    const entries = entriesFromParts([
+      readPart({
+        id: "read_1",
+        filePath: "/workspace/App.tsx",
+        status: "completed",
+        time: { start: 1, end: 2 },
+      }),
+      bashPart("completed"),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, true)
+    expect(header.throttleFileTools).toBeFalsy()
+    expect(header.label).not.toBe("App.tsx")
+  })
+
+  test("burst boundary read bash read does not hold App.tsx from before bash", () => {
+    const entries = entriesFromParts([
+      readPart({
+        id: "read_1",
+        filePath: "/workspace/App.tsx",
+        status: "completed",
+        time: { start: 1, end: 2 },
+      }),
+      bashPart("completed"),
+      readPart({
+        id: "read_2",
+        status: "running",
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, true)
+    expect(header.label).toBe("Reading")
+    expect(header.fileName).toBeUndefined()
+  })
+
+  test("completed multi-file patch uses generic patching label", () => {
+    const entries = entriesFromParts([
+      readPart({
+        id: "read_1",
+        filePath: "/workspace/App.tsx",
+        status: "completed",
+        time: { start: 1, end: 2 },
+      }),
+      applyPatchPart({
+        status: "completed",
+        files: [
+          { filePath: "/workspace/a.ts", relativePath: "a.ts" },
+          { filePath: "/workspace/b.ts", relativePath: "b.ts" },
+        ],
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, true)
+    expect(header.label).toBe("Patching 2 files")
+    expect(header.fileName).toBeUndefined()
+  })
+
+  test("settled write burst uses past tense count summary not continuous header", () => {
+    const entries = entriesFromParts([
+      editPart({
+        id: "write_1",
+        filePath: "/workspace/helper.rb",
+        status: "completed",
+      }),
+      editPart({
+        id: "write_2",
+        filePath: "/workspace/other.rb",
+        status: "completed",
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, false)
+    expect(header.label).toBe("Edited 2 files")
+    expect(header.throttleFileTools).toBe(false)
+    expect(header.label).not.toBe("Editing helper.rb")
+  })
+
+  test("settled reasoning-only group uses panda icon", () => {
+    const entries = entriesFromParts([
+      reasoningPart({ id: "reason_1", durationMs: 2_000 }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, false)
+    expect(header.label).toBe("Thought for 2s")
+    expect(header.icon).toBe(HIDDEN_STEPS_REASONING_ICON)
+  })
+
+  test("settled read group uses generic read icon not file-type icon", () => {
+    const entries = entriesFromParts([
+      readPart({
+        id: "read_1",
+        filePath: "/workspace/App.tsx",
+        status: "completed",
+        time: { start: 1, end: 2 },
+      }),
+      readPart({
+        id: "read_2",
+        filePath: "/workspace/Card.tsx",
+        status: "completed",
+        time: { start: 2, end: 3 },
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, false)
+    const fileTypeIcon = resolveFileToolIcon(
+      "read",
+      {
+        status: "completed",
+        input: { filePath: "/workspace/App.tsx" },
+        metadata: {},
+        attachments: [],
+      },
+      { title: "Read", subtitle: "App.tsx" },
+    )
+
+    expect(header.label).toBe("Read 2 files")
+    expect(header.icon).toBe(builtInTools.read.icon)
+    expect(header.icon).not.toBe(fileTypeIcon)
+    expect(header.throttleFileTools).toBe(false)
+  })
+
+  test("settled skill-reference read group uses skill icon", () => {
+    const entries = entriesFromParts([
+      readPart({
+        id: "read_skill_1",
+        filePath: "/workspace/.agents/skills/react-best-practices/SKILL.md",
+        status: "completed",
+        time: { start: 1, end: 2 },
+      }),
+      readPart({
+        id: "read_skill_2",
+        filePath: "/workspace/.agents/skills/react-best-practices/references/rendering.md",
+        status: "completed",
+        time: { start: 2, end: 3 },
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, false)
+    expect(header.label).toBe("Skill Used: React Best Practices")
+    expect(header.icon).toBe(SKILL_TOOL_ICON)
+  })
+
+  test("settled multiple skills show plural skill count", () => {
+    const entries = entriesFromParts([
+      skillPart({ id: "skill_1", name: "worked-example", status: "completed" }),
+      skillPart({ id: "skill_2", name: "resolve-confusions", status: "completed" }),
+      skillPart({ id: "skill_3", name: "teaching-models", status: "completed" }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, false)
+    expect(header.label).toBe("3 Skills Used")
+    expect(header.icon).toBe(SKILL_TOOL_ICON)
+  })
+
+  test("settled skill and its references collapse to one skill label", () => {
+    const entries = entriesFromParts([
+      skillPart({
+        id: "skill_1",
+        name: "find-indian-education-resources",
+        status: "completed",
+      }),
+      readPart({
+        id: "read_skill_1",
+        filePath:
+          "/workspace/packages/buddy/src/learning/features/teaching-guidance/skills/find-indian-education-resources/references/policy-frameworks-guidelines.md",
+        status: "completed",
+        time: { start: 1, end: 2 },
+      }),
+      readPart({
+        id: "read_skill_2",
+        filePath:
+          "/workspace/packages/buddy/src/learning/features/teaching-guidance/skills/find-indian-education-resources/references/repositories.md",
+        status: "completed",
+        time: { start: 2, end: 3 },
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, false)
+    expect(header.label).toBe("Skill Used: Find Indian Education Resources")
+  })
+
+  test("settled multiple skills with references show only skill count", () => {
+    const entries = entriesFromParts([
+      skillPart({
+        id: "skill_1",
+        name: "find-indian-education-resources",
+        status: "completed",
+      }),
+      readPart({
+        id: "read_skill_1",
+        filePath:
+          "/workspace/packages/buddy/src/learning/features/teaching-guidance/skills/find-indian-education-resources/references/repositories.md",
+        status: "completed",
+        time: { start: 1, end: 2 },
+      }),
+      skillPart({
+        id: "skill_2",
+        name: "align-teaching-topics-to-grade-level-and-age",
+        status: "completed",
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, false)
+    expect(header.label).toBe("2 Skills Used")
+    expect(header.label).not.toContain("Find Indian Education Resources")
+  })
+
+  test("settled edit group uses generic edit icon not file-type icon", () => {
+    const entries = entriesFromParts([
+      editPart({
+        id: "edit_1",
+        filePath: "/workspace/App.tsx",
+        status: "completed",
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, false)
+    expect(header.icon).toBe(builtInTools.edit.icon)
+  })
+
+  test("settled mixed group uses icon from most-used tool type", () => {
+    const entries = entriesFromParts([
+      readPart({
+        id: "read_1",
+        filePath: "/workspace/App.tsx",
+        status: "completed",
+        time: { start: 1, end: 2 },
+      }),
+      readPart({
+        id: "read_2",
+        filePath: "/workspace/Card.tsx",
+        status: "completed",
+        time: { start: 2, end: 3 },
+      }),
+      readPart({
+        id: "read_3",
+        filePath: "/workspace/Form.tsx",
+        status: "completed",
+        time: { start: 3, end: 4 },
+      }),
+      grepPart("completed"),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, false)
+    const grepHeavyHeader = resolveHiddenStepsHeader(
+      entriesFromParts([grepPart("completed"), grepPart("completed"), grepPart("completed")]),
+      false,
+    )
+
+    expect(header.icon).toBeDefined()
+    expect(grepHeavyHeader.icon).toBeDefined()
+    expect(header.icon?.("size-3.5")).toEqual(
+      resolveHiddenStepsHeader(
+        entriesFromParts([
+          readPart({
+            id: "read_only",
+            filePath: "/workspace/App.tsx",
+            status: "completed",
+            time: { start: 1, end: 2 },
+          }),
+        ]),
+        false,
+      ).icon?.("size-3.5"),
+    )
+    expect(header.icon?.("size-3.5")).not.toEqual(grepHeavyHeader.icon?.("size-3.5"))
+  })
+})
