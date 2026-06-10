@@ -10,13 +10,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-button-primary-base text-text-on-button-primary-base hover:bg-button-primary-hover",
+          "bg-button-primary-base text-text-on-button-primary-base hover:bg-button-primary-hover hover:text-text-on-button-primary-hover",
         destructive:
-          "bg-surface-critical-weak text-icon-critical-base hover:bg-surface-critical-weak/80 focus-visible:ring-border-critical-base/35",
+          "bg-surface-critical-weak text-text-on-critical-weak hover:bg-surface-critical-base hover:text-text-on-critical-base focus-visible:ring-border-critical-base/35",
         outline:
           "border border-border-base bg-background-base shadow-xs hover:bg-surface-base-hover hover:text-text-strong",
         secondary:
-          "border border-border-base bg-button-secondary-base text-text-strong shadow-xs hover:bg-button-secondary-hover",
+          "bg-button-secondary-base text-text-on-button-secondary-base shadow-xs hover:bg-button-secondary-hover hover:text-text-on-button-secondary-hover",
         ghost: "hover:bg-surface-base-hover hover:text-text-strong",
         link: "text-text-interactive-base underline-offset-4 hover:underline",
       },

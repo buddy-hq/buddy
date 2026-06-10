@@ -12,9 +12,9 @@ const badgeVariants = cva(
         default:
           "bg-surface-interactive-base text-text-on-interactive-base [a]:hover:bg-surface-interactive-hover",
         secondary:
-          "border border-border-base bg-button-secondary-base text-text-strong [a]:hover:bg-button-secondary-hover",
+          "bg-button-secondary-base text-text-on-button-secondary-base [a]:hover:bg-button-secondary-hover [a]:hover:text-text-on-button-secondary-hover",
         destructive:
-          "bg-surface-critical-weak text-text-on-critical-weak [a]:hover:bg-surface-critical-base-hover [a]:hover:text-text-on-critical-base focus-visible:ring-border-critical-base/35",
+          "bg-surface-critical-weak text-text-on-critical-weak [a]:hover:bg-surface-critical-base [a]:hover:text-text-on-critical-base focus-visible:ring-border-critical-base/35",
         outline:
           "border-border-base text-text-base [a]:hover:bg-surface-weak [a]:hover:text-text-weak",
         ghost: "hover:bg-surface-weak hover:text-text-weak",
