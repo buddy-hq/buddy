@@ -6,6 +6,7 @@ import type {
   PermissionRequest as SdkPermissionRequest,
   Provider as SdkProvider,
   ProviderAuthMethod as SdkProviderAuthMethod,
+  ProviderOpenaiModelAvailabilityGetResponses,
   Session as SdkSession,
   SessionStatus as SdkSessionStatus,
 } from "@buddy/sdk"
@@ -132,6 +133,7 @@ export type ProviderInfo = Pick<SdkProvider, "id" | "name" | "source" | "env"> &
 export type ProviderCatalogState = {
   providers: ProviderInfo[]
   default: Record<string, string>
+  openAIModelAvailability: ProviderOpenaiModelAvailabilityGetResponses[200]
 }
 
 export type McpStatusInfo = {

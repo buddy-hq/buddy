@@ -1,6 +1,9 @@
 import type { ProviderAuthAuthorization } from "@buddy/sdk/types"
 import type { ProviderInfo } from "@/state/chat-types"
+import { clearOpenAIUsageQuery } from "@/state/openai-usage-query"
+import { appQueryClient } from "@/state/query-client"
 import { getBuddyClient } from "./buddy-client"
+import { OPENAI_PROVIDER_ID } from "./provider-ids"
 
 const CANCELLED_AUTHORIZATION_ERROR = "Authorization cancelled"
 const SUPERSEDED_AUTHORIZATION_ERROR = "Superseded by a newer authorization request"
@@ -86,6 +89,9 @@ export async function completeProviderOAuth(input: {
     },
     { throwOnError: true },
   )
+  if (input.providerID === OPENAI_PROVIDER_ID) {
+    clearOpenAIUsageQuery(appQueryClient)
+  }
 }
 
 export async function cancelProviderOAuth(input: { directory?: string; providerID: string }) {
@@ -111,6 +117,9 @@ export async function removeProviderAuth(input: { providerID: string }) {
     },
     { throwOnError: true },
   )
+  if (input.providerID === OPENAI_PROVIDER_ID) {
+    clearOpenAIUsageQuery(appQueryClient)
+  }
 }
 
 export async function reloadProviderRuntime() {

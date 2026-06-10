@@ -79,6 +79,7 @@ function createCatalog(input: {
   return {
     providers: input.providers,
     default: input.default ?? {},
+    openAIModelAvailability: { status: "not_connected" },
   }
 }
 
@@ -455,6 +456,9 @@ describe("ChatGPT Plus onboarding auth", () => {
           })
           calls.push("complete")
         },
+        onAuthenticated() {
+          calls.push("authenticated")
+        },
         async reloadProviderRuntime() {
           calls.push("reload")
         },
@@ -467,6 +471,7 @@ describe("ChatGPT Plus onboarding auth", () => {
       "authorize",
       "openLink",
       "complete",
+      "authenticated",
       "reload",
       "loadCatalog",
     ])

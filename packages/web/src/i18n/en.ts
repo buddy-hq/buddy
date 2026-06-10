@@ -398,22 +398,23 @@ export const dict = {
   "mcp.validation.removeAuthHeaderWithOAuth":
     "Remove the Authorization header when browser sign-in is enabled. Use either browser sign-in or header-based auth, not both.",
   "mcp.validation.timeoutPositiveWhole": "Timeout must be a positive whole number.",
-  "onboardingFlow.chatGptUnavailable": "ChatGPT Plus sign-in is unavailable right now.",
+  "onboardingFlow.chatGptUnavailable": "ChatGPT sign-in is unavailable right now.",
   "onboardingFlow.completeBrowserSignInFailed":
     "Buddy could not complete browser sign-in automatically.",
-  "onboardingFlow.confirmConnectionFailed": "Buddy could not confirm your ChatGPT Plus connection.",
+  "onboardingFlow.confirmConnectionFailed": "Buddy could not confirm your ChatGPT connection.",
   "onboardingFlow.freeModelUnavailable":
     "Buddy could not find an Opencode free model for this notebook.",
   "onboardingFlow.openAiNotReady":
     "OpenAI sign-in is not ready yet. Try signing in again or switch to free models.",
   "onboardingFlow.openAiUnavailable": "OpenAI sign-in is unavailable in this build.",
-  "onboardingFlow.startFlowFailed": "Buddy could not start the ChatGPT Plus sign-in flow.",
+  "onboardingFlow.startFlowFailed": "Buddy could not start the ChatGPT sign-in flow.",
   "onboardingSetup.chatGptModal.cancelButton": "Cancel Sign-in",
   "onboardingSetup.chatGptModal.description":
     "We've opened a browser window for you to sign in. Please complete authorization to continue.",
   "onboardingSetup.chatGptModal.title": "Connecting ChatGPT",
   "onboardingSetup.chatGptModal.waitingLabel": "Waiting for browser...",
-  "onboardingSetup.engineSelection.chatGpt.description": "Use your active subscription.",
+  "onboardingSetup.engineSelection.chatGpt.description":
+    "Connect your account. Available models depend on your ChatGPT plan.",
   "onboardingSetup.engineSelection.chatGpt.title": "ChatGPT",
   "onboardingSetup.engineSelection.connected": "Connected",
   "onboardingSetup.engineSelection.freeModels.description": "Start instantly with free models.",
@@ -820,7 +821,20 @@ export const dict = {
   "settings.providers.allConnected": "All available providers are already connected.",
   "settings.providers.allProvidersSection": "All providers",
   "settings.providers.availableProviders": "Available providers",
-  "settings.providers.chatGptDescription": "Use your active ChatGPT subscription.",
+  "settings.providers.chatGptDescription":
+    "Connect your account. Available models and usage limits depend on your ChatGPT plan.",
+  "settings.providers.chatGptModelsAvailable": "{{count}} models available for this account",
+  "settings.providers.chatGptModelsChecking": "Checking models available to this account…",
+  "settings.providers.chatGptModelsFallback":
+    "Using the OpenAI catalog while account availability cannot be verified.",
+  "settings.providers.chatGptPlan": "ChatGPT {{plan}}",
+  "settings.providers.chatGptUsageError":
+    "Usage information is unavailable right now. Your connection can still be used.",
+  "settings.providers.chatGptUsageLoading": "Loading usage limits…",
+  "settings.providers.chatGptUsageRemaining": "{{percent}}% remaining",
+  "settings.providers.chatGptUsageResets": "Resets {{time}}",
+  "settings.providers.chatGptUsageUpdated": "Updated {{time}}",
+  "settings.providers.refreshChatGpt": "Refresh ChatGPT status",
   "settings.providers.chatGptTitle": "ChatGPT",
   "settings.providers.connectedForNotebook": "Connected and available for this notebook.",
   "settings.providers.connectedFromEnv": "Configured outside Buddy via environment variables.",

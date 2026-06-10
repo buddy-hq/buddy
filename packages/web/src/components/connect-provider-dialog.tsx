@@ -241,10 +241,9 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
     }
   }
 
-  async function disposeAndReload() {
-    await reloadProviderRuntime()
-    await props.onUpdated()
+  function closeAndRefreshProviderState() {
     props.onOpenChange(false)
+    void Promise.allSettled([reloadProviderRuntime(), props.onUpdated()])
   }
 
   async function handleApiSubmit(event: FormEvent<HTMLFormElement>) {
@@ -261,7 +260,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
         { providerID: props.provider.id, auth: { type: "api", key: apiKey.trim() } },
         { throwOnError: true },
       )
-      await disposeAndReload()
+      closeAndRefreshProviderState()
     } catch (err) {
       setBusy(false)
       setError(
@@ -284,7 +283,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
           })
         }
       }
-      await disposeAndReload()
+      closeAndRefreshProviderState()
     } catch (err) {
       setBusy(false)
       setError(
@@ -321,7 +320,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
           methodIndex: targetMethodIndex,
         })
         if (!isActiveOAuthRequest(requestID)) return
-        await disposeAndReload()
+        closeAndRefreshProviderState()
         return
       }
       setBusy(false)
@@ -363,7 +362,7 @@ export function ConnectProviderDialog(props: ConnectProviderDialogProps) {
         code: code.trim(),
       })
       if (!isActiveOAuthRequest(requestID)) return
-      await disposeAndReload()
+      closeAndRefreshProviderState()
     } catch (err) {
       if (!isActiveOAuthRequest(requestID)) return
       if (isProviderAuthFlowInterrupted(err)) {

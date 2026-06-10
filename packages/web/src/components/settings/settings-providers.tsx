@@ -10,9 +10,11 @@ import {
   DialogContent,
   DialogTitle,
   Input,
+  Progress,
   Separator,
   cn,
 } from "@buddy/ui"
+import { Loader2Icon, RefreshCwIcon } from "lucide-react"
 import { ConnectProviderDialog } from "@/components/connect-provider-dialog"
 import { ProviderIcon } from "@/components/provider-icon"
 import { language } from "@/context/language"
@@ -29,15 +31,29 @@ import {
 } from "@/lib/provider-auth"
 import { loadProviderCatalog, loadProviderCatalogSnapshot } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
-import type { ProviderInfo } from "@/state/chat-types"
+import type { ProviderCatalogState, ProviderInfo } from "@/state/chat-types"
 import {
   invalidateAllProviderCatalogSnapshotQueries,
   providerCatalogSnapshotQueryOptions,
 } from "@/state/bootstrap-query"
+import {
+  openAIUsageQueryOptions,
+  resetOpenAIUsageQuery,
+  refreshOpenAIModelAvailability,
+  refreshOpenAIUsage,
+  type OpenAIUsageSnapshot,
+} from "@/state/openai-usage-query"
 import { ProviderSourceBadge, SettingsListCard, SettingsContent } from "./settings-primitives"
 
 const OPENCODE_GO_PROVIDER_ID = "opencode-go"
 const PROVIDER_SEARCH_VISIBLE_THRESHOLD = 3
+const SECONDS_PER_MINUTE = 60
+const MINUTES_PER_HOUR = 60
+const HOURS_PER_DAY = 24
+
+type ReadyOpenAIUsage = Extract<OpenAIUsageSnapshot, { status: "ready" }>
+type OpenAIUsageWindow = NonNullable<ReadyOpenAIUsage["rateLimit"]["primary"]>
+
 type RecommendedProviderDefinition = {
   providerID: string
   title: string
@@ -57,6 +73,15 @@ type RecommendedProviderCardProps = {
   error?: string
   onConnect: () => void
   onManage: () => void
+}
+
+type ChatGptAccountCardProps = {
+  modelAvailability: ProviderCatalogState["openAIModelAvailability"]
+  usage: OpenAIUsageSnapshot | undefined
+  usageLoading: boolean
+  refreshing: boolean
+  onManage: () => void
+  onRefresh: () => void
 }
 
 const RECOMMENDED_PROVIDER_DEFINITIONS: RecommendedProviderDefinition[] = [
@@ -122,6 +147,179 @@ export function resolveProviderListRowControls(provider: ProviderInfo, connected
     showEdit: true,
     showEnvNote: envManaged,
   }
+}
+
+export function formatChatGptPlan(plan: string | null | undefined) {
+  if (!plan) return ""
+
+  return plan
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map((word) => {
+      const lower = word.toLowerCase()
+      if (lower === "k12") return "K12"
+      return `${lower.slice(0, 1).toUpperCase()}${lower.slice(1)}`
+    })
+    .join(" ")
+}
+
+export function formatUsageWindowLabel(windowSeconds: number) {
+  const totalMinutes = Math.max(1, Math.round(windowSeconds / SECONDS_PER_MINUTE))
+  const totalHours = totalMinutes / MINUTES_PER_HOUR
+  const totalDays = totalHours / HOURS_PER_DAY
+
+  if (Number.isInteger(totalDays)) {
+    return `${totalDays}-day limit`
+  }
+  if (Number.isInteger(totalHours)) {
+    return `${totalHours}-hour limit`
+  }
+  return `${totalMinutes}-minute limit`
+}
+
+export function formatRelativeTime(timestamp: string, now = Date.now()) {
+  const target = Date.parse(timestamp)
+  if (!Number.isFinite(target)) return timestamp
+
+  const differenceMinutes = Math.round((target - now) / (SECONDS_PER_MINUTE * 1_000))
+  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
+  const absoluteMinutes = Math.abs(differenceMinutes)
+  if (absoluteMinutes < MINUTES_PER_HOUR) {
+    return formatter.format(differenceMinutes, "minute")
+  }
+
+  const differenceHours = Math.round(differenceMinutes / MINUTES_PER_HOUR)
+  if (Math.abs(differenceHours) < HOURS_PER_DAY) {
+    return formatter.format(differenceHours, "hour")
+  }
+
+  return formatter.format(Math.round(differenceHours / HOURS_PER_DAY), "day")
+}
+
+export function resolveUsageRemainingPercent(usedPercent: number) {
+  return 100 - Math.max(0, Math.min(usedPercent, 100))
+}
+
+function UsageWindow(props: { window: OpenAIUsageWindow }) {
+  const remainingPercent = resolveUsageRemainingPercent(props.window.usedPercent)
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-border-base/60 bg-background-base px-3 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-medium text-text-base">
+          {formatUsageWindowLabel(props.window.windowSeconds)}
+        </span>
+        <span className="text-xs text-text-weak">
+          {language.t("settings.providers.chatGptUsageRemaining", {
+            percent: Math.round(remainingPercent),
+          })}
+        </span>
+      </div>
+      <Progress
+        value={remainingPercent}
+        aria-label={formatUsageWindowLabel(props.window.windowSeconds)}
+      />
+      <span className="text-[11px] text-text-weaker">
+        {language.t("settings.providers.chatGptUsageResets", {
+          time: formatRelativeTime(props.window.resetsAt),
+        })}
+      </span>
+    </div>
+  )
+}
+
+function ChatGptAccountCard(props: ChatGptAccountCardProps) {
+  const readyUsage = props.usage?.status === "ready" ? props.usage : undefined
+  const modelDescription =
+    props.modelAvailability.status === "ready"
+      ? language.t("settings.providers.chatGptModelsAvailable", {
+          count: props.modelAvailability.modelIDs.length,
+        })
+      : props.modelAvailability.status === "loading"
+        ? language.t("settings.providers.chatGptModelsChecking")
+        : language.t("settings.providers.chatGptModelsFallback")
+  const windows = readyUsage
+    ? [readyUsage.rateLimit.primary, readyUsage.rateLimit.secondary].filter(
+        (window): window is OpenAIUsageWindow => Boolean(window),
+      )
+    : []
+
+  return (
+    <SettingsListCard>
+      <div className="flex flex-col gap-4 px-4 py-4 sm:px-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border-success-base bg-surface-success-base/10">
+              <ProviderIcon id={OPENAI_PROVIDER_ID} className="size-5 text-text-success-base" />
+            </div>
+            <div className="flex min-w-0 flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium text-text-base">
+                  {language.t("settings.providers.chatGptTitle")}
+                </p>
+                <Badge variant="outline">
+                  {readyUsage?.plan
+                    ? language.t("settings.providers.chatGptPlan", {
+                        plan: formatChatGptPlan(readyUsage.plan),
+                      })
+                    : language.t("onboardingSetup.engineSelection.connected")}
+                </Badge>
+              </div>
+              <p className="text-xs text-text-weak">{modelDescription}</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              aria-label={language.t("settings.providers.refreshChatGpt")}
+              onClick={props.onRefresh}
+              disabled={props.refreshing}
+            >
+              {props.refreshing ? (
+                <Loader2Icon data-icon="inline-start" className="animate-spin" />
+              ) : (
+                <RefreshCwIcon data-icon="inline-start" />
+              )}
+              {language.t("common.refresh")}
+            </Button>
+            <Button type="button" size="sm" variant="secondary" onClick={props.onManage}>
+              {language.t("settings.providers.editConnection")}
+            </Button>
+          </div>
+        </div>
+
+        {props.usageLoading && !props.usage ? (
+          <div className="flex items-center gap-2 text-xs text-text-weak">
+            <Loader2Icon className="size-4 animate-spin" />
+            {language.t("settings.providers.chatGptUsageLoading")}
+          </div>
+        ) : props.usage?.status === "error" ? (
+          <p className="text-xs text-text-weak">
+            {language.t("settings.providers.chatGptUsageError")}
+          </p>
+        ) : windows.length > 0 ? (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {windows.map((window) => (
+              <UsageWindow
+                key={`${window.windowSeconds}:${window.resetsAt}`}
+                window={window}
+              />
+            ))}
+          </div>
+        ) : null}
+
+        {readyUsage ? (
+          <p className="text-[11px] text-text-weaker">
+            {language.t("settings.providers.chatGptUsageUpdated", {
+              time: formatRelativeTime(readyUsage.fetchedAt),
+            })}
+          </p>
+        ) : null}
+      </div>
+    </SettingsListCard>
+  )
 }
 
 function ProviderSection(props: { title: string; action?: ReactNode; children: ReactNode }) {
@@ -340,6 +538,7 @@ export function ProvidersSettings() {
   const [providerDialogOpen, setProviderDialogOpen] = useState(false)
   const [providerDialogTarget, setProviderDialogTarget] = useState<string | undefined>(undefined)
   const [chatGptConnecting, setChatGptConnecting] = useState(false)
+  const [chatGptRefreshing, setChatGptRefreshing] = useState(false)
   const [chatGptWaitingOpen, setChatGptWaitingOpen] = useState(false)
   const [chatGptErrorState, setChatGptError] = useState<string | undefined>(undefined)
   const latestChatGptRequestRef = useRef(0)
@@ -350,6 +549,16 @@ export function ProvidersSettings() {
     [allProviders],
   )
   const chatGptProvider = providersByID.get(OPENAI_PROVIDER_ID)
+  const chatGptOAuthConnected =
+    Boolean(chatGptProvider?.connected) &&
+    providerCatalog?.openAIModelAvailability.status !== "not_connected"
+  const openAIUsageQuery = useQuery(openAIUsageQueryOptions(chatGptOAuthConnected))
+  const showChatGptAccountCard =
+    chatGptOAuthConnected &&
+    filteredConnectedProviders.some((provider) => provider.id === OPENAI_PROVIDER_ID)
+  const genericConnectedProviders = showChatGptAccountCard
+    ? filteredConnectedProviders.filter((provider) => provider.id !== OPENAI_PROVIDER_ID)
+    : filteredConnectedProviders
   const dialogProvider = providerDialogTarget
     ? providersByID.get(providerDialogTarget)
     : allProviders[0]
@@ -362,7 +571,21 @@ export function ProvidersSettings() {
 
   async function handleProvidersUpdated() {
     await invalidateAllProviderCatalogSnapshotQueries(queryClient)
+    await resetOpenAIUsageQuery(queryClient)
     await Promise.allSettled(openProjects.map((directory) => loadProviderCatalog(directory)))
+  }
+
+  async function handleRefreshChatGpt() {
+    setChatGptRefreshing(true)
+    try {
+      await Promise.allSettled([
+        refreshOpenAIUsage(queryClient),
+        refreshOpenAIModelAvailability(),
+      ])
+      await invalidateAllProviderCatalogSnapshotQueries(queryClient)
+    } finally {
+      setChatGptRefreshing(false)
+    }
   }
 
   async function handleConnectChatGpt() {
@@ -384,6 +607,11 @@ export function ProvidersSettings() {
         completeProviderOAuth: ({ providerID, methodIndex }) =>
           completeProviderOAuth({ providerID, methodIndex }),
         reloadProviderRuntime,
+        onAuthenticated: () => {
+          if (latestChatGptRequestRef.current === requestID) {
+            setChatGptWaitingOpen(false)
+          }
+        },
       })
       await handleProvidersUpdated()
       setChatGptError(undefined)
@@ -421,19 +649,33 @@ export function ProvidersSettings() {
           />
         ) : null}
 
-        {filteredConnectedProviders.length > 0 ? (
+        {showChatGptAccountCard || genericConnectedProviders.length > 0 ? (
           <ProviderSection title={language.t("settings.providers.connectedSection")}>
-            <SettingsListCard>
-              {filteredConnectedProviders.map((provider, index) => (
-                <ProviderListRow
-                  key={provider.id}
-                  provider={provider}
-                  connected
-                  last={index === filteredConnectedProviders.length - 1}
-                  onOpenDialog={openProviderDialog}
+            <div className="flex flex-col gap-3">
+              {showChatGptAccountCard && chatGptProvider && providerCatalog ? (
+                <ChatGptAccountCard
+                  modelAvailability={providerCatalog.openAIModelAvailability}
+                  usage={openAIUsageQuery.data}
+                  usageLoading={openAIUsageQuery.isPending}
+                  refreshing={chatGptRefreshing}
+                  onManage={() => openProviderDialog(OPENAI_PROVIDER_ID)}
+                  onRefresh={() => void handleRefreshChatGpt()}
                 />
-              ))}
-            </SettingsListCard>
+              ) : null}
+              {genericConnectedProviders.length > 0 ? (
+                <SettingsListCard>
+                  {genericConnectedProviders.map((provider, index) => (
+                    <ProviderListRow
+                      key={provider.id}
+                      provider={provider}
+                      connected
+                      last={index === genericConnectedProviders.length - 1}
+                      onOpenDialog={openProviderDialog}
+                    />
+                  ))}
+                </SettingsListCard>
+              ) : null}
+            </div>
           </ProviderSection>
         ) : null}
 

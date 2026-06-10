@@ -30,6 +30,7 @@ import type {
   ProviderAuthMethod,
   ProviderAuthResponse,
   ProviderListResponse,
+  ProviderOpenaiModelAvailabilityGetResponses,
 } from "@buddy/sdk"
 import { useChatStore } from "./chat-store"
 import { getModelSelectionScopeKey, useModelSelectionStore } from "./model-selection-store"
@@ -52,7 +53,7 @@ import { appQueryClient } from "./query-client"
 import { fetchSessionMessagesWithRetry } from "./session-messages"
 import type { TeachingPromptContext } from "./teaching-runtime"
 import { stringifyError } from "../lib/api-client"
-import { OPENCODE_PROVIDER_ID } from "../lib/provider-ids"
+import { OPENCODE_PROVIDER_ID, OPENAI_PROVIDER_ID } from "../lib/provider-ids"
 
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
 import type { McpLocalConfig, McpRemoteConfig } from "../components/mcp-dialog/mcp-config-schema"
@@ -798,22 +799,39 @@ function isPublicOpencodeModel(model: RawProviderModel) {
 export function normalizeProviderCatalog(
   providers: ProviderListResponse,
   authMethods: ProviderAuthResponse,
+  openAIModelAvailability: ProviderOpenaiModelAvailabilityGetResponses[200] = {
+    status: "error",
+  },
 ): ProviderCatalogState {
   const connected = new Set(providers.connected)
   const normalizedDefault = { ...providers.default }
+  const availableOpenAIModels =
+    openAIModelAvailability.status === "ready"
+      ? new Set(openAIModelAvailability.modelIDs)
+      : undefined
 
   return {
     default: normalizedDefault,
+    openAIModelAvailability,
     providers: providers.all
       .map((provider) => {
         const isConnected = connected.has(provider.id)
         const rawModels = Object.values(provider.models).filter(
           (model) => model.status !== "deprecated",
         )
-        const visibleModels =
-          provider.id === OPENCODE_PROVIDER_ID && !isConnected
-            ? rawModels.filter(isPublicOpencodeModel)
-            : rawModels
+        const visibleModels = rawModels.filter((model) => {
+          if (provider.id === OPENCODE_PROVIDER_ID && !isConnected) {
+            return isPublicOpencodeModel(model)
+          }
+          if (
+            provider.id === OPENAI_PROVIDER_ID &&
+            isConnected &&
+            availableOpenAIModels
+          ) {
+            return availableOpenAIModels.has(model.id)
+          }
+          return true
+        })
         const treatAsConnected =
           isConnected || (provider.id === OPENCODE_PROVIDER_ID && visibleModels.length > 0)
         const source = normalizeProviderSource(
@@ -823,6 +841,19 @@ export function normalizeProviderCatalog(
 
         if (
           provider.id === OPENCODE_PROVIDER_ID &&
+          visibleModels.length > 0 &&
+          !visibleModels.some((model) => model.id === normalizedDefault[provider.id])
+        ) {
+          const defaultModel = visibleModels
+            .slice()
+            .toSorted((left, right) => left.name.localeCompare(right.name))[0]
+          if (defaultModel) {
+            normalizedDefault[provider.id] = defaultModel.id
+          }
+        }
+        if (
+          provider.id === OPENAI_PROVIDER_ID &&
+          availableOpenAIModels &&
           visibleModels.length > 0 &&
           !visibleModels.some((model) => model.id === normalizedDefault[provider.id])
         ) {
@@ -855,14 +886,20 @@ export function normalizeProviderCatalog(
 
 async function fetchProviderCatalog(directory?: string) {
   const client = getBuddyClient(directory)
-  const [providerResult, authResult] = await Promise.all([
+  const [providerResult, authResult, modelAvailabilityResult] = await Promise.all([
     client.provider.list(),
     client.provider.auth(),
+    client.provider.openai.modelAvailability.get(),
   ])
+  const openAIModelAvailability =
+    modelAvailabilityResult.response?.ok && modelAvailabilityResult.data
+      ? modelAvailabilityResult.data
+      : ({ status: "error" } as const)
 
   return normalizeProviderCatalog(
     requireBuddyData<ProviderListResponse>(providerResult),
     requireBuddyData<ProviderAuthResponse>(authResult),
+    openAIModelAvailability,
   )
 }
 

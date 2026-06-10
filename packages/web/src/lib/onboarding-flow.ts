@@ -58,7 +58,15 @@ export async function connectChatGptPlusForOnboarding(input: {
   }) => Promise<ProviderAuthAuthorization | undefined>
   completeProviderOAuth: (request: { providerID: string; methodIndex: number }) => Promise<void>
   reloadProviderRuntime: () => Promise<void>
+  onAuthenticated?: () => void
 }) {
+  let authenticationNotified = false
+  function notifyAuthenticated() {
+    if (authenticationNotified) return
+    authenticationNotified = true
+    input.onAuthenticated?.()
+  }
+
   const catalog = await input.loadProviderCatalogSnapshot()
   const provider = catalog.providers.find((entry) => entry.id === OPENAI_PROVIDER_ID)
   if (!provider) {
@@ -66,6 +74,7 @@ export async function connectChatGptPlusForOnboarding(input: {
   }
 
   if (provider.connected) {
+    notifyAuthenticated()
     return
   }
 
@@ -90,6 +99,7 @@ export async function connectChatGptPlusForOnboarding(input: {
       providerID: OPENAI_PROVIDER_ID,
       methodIndex,
     })
+    notifyAuthenticated()
   }
 
   await input.reloadProviderRuntime()
@@ -101,6 +111,8 @@ export async function connectChatGptPlusForOnboarding(input: {
   if (!didConnect) {
     throw new Error(language.t("onboardingFlow.confirmConnectionFailed"))
   }
+
+  notifyAuthenticated()
 }
 
 async function waitForConnectedProvider(input: {

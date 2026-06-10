@@ -72,6 +72,9 @@ const EMPTY_OPEN_PROJECTS: string[] = []
 const EMPTY_PROVIDER_CATALOG_SNAPSHOT: ProviderCatalogState = {
   providers: [],
   default: {},
+  openAIModelAvailability: {
+    status: "not_connected",
+  },
 }
 const EASE_OUT = [0.23, 1, 0.32, 1] as const
 const TOTAL_ONBOARDING_STEPS = 2

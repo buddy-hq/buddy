@@ -19,6 +19,7 @@ const NOTEBOOK_HOME_ACCESS_QUERY_KEY = "notebook-home-access" as const
 const PROVIDER_SNAPSHOT_QUERY_KEY = "provider-snapshot" as const
 const PRELOADED_SESSIONS_QUERY_KEY = "preloaded-sessions" as const
 const GLOBAL_DIRECTORY_QUERY_KEY = "__global__" as const
+const PROVIDER_MODEL_AVAILABILITY_POLL_MS = 1_000
 
 function normalizeDirectories(directories: readonly string[]) {
   return Array.from(
@@ -86,6 +87,16 @@ export function providerCatalogSnapshotQueryOptions(directory?: string) {
   return queryOptions({
     queryKey: bootstrapQueryKeys.providerSnapshot(directory),
     queryFn: () => loadProviderCatalogSnapshot(directory),
+    refetchInterval: (query) => {
+      const availability = query.state.data?.openAIModelAvailability
+      if (
+        availability?.status === "loading" ||
+        (availability?.status === "ready" && availability.refreshing)
+      ) {
+        return PROVIDER_MODEL_AVAILABILITY_POLL_MS
+      }
+      return false
+    },
   })
 }
 

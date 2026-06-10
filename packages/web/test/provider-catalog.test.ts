@@ -257,6 +257,47 @@ describe("normalizeProviderCatalog", () => {
       "free-zed",
     ])
   })
+
+  test("keeps vendor OpenAI models until account availability is ready", () => {
+    const providers: ProviderListResponse = {
+      all: [
+        {
+          id: "openai",
+          name: "OpenAI",
+          source: "custom",
+          env: [],
+          options: {},
+          models: {
+            "gpt-5.5": createRawProviderModel({
+              providerID: "openai",
+              id: "gpt-5.5",
+            }),
+            "gpt-5.4": createRawProviderModel({
+              providerID: "openai",
+              id: "gpt-5.4",
+            }),
+          },
+        },
+      ],
+      default: { openai: "gpt-5.4" },
+      connected: ["openai"],
+    }
+
+    const optimistic = normalizeProviderCatalog(providers, {}, { status: "loading" })
+    expect(optimistic.providers[0]?.models.map((model) => model.id)).toEqual([
+      "gpt-5.4",
+      "gpt-5.5",
+    ])
+
+    const resolved = normalizeProviderCatalog(providers, {}, {
+      status: "ready",
+      modelIDs: ["gpt-5.5"],
+      fetchedAt: "2026-06-10T12:00:00.000Z",
+      refreshing: false,
+    })
+    expect(resolved.providers[0]?.models.map((model) => model.id)).toEqual(["gpt-5.5"])
+    expect(resolved.default.openai).toBe("gpt-5.5")
+  })
 })
 
 describe("resolveConnectedModelSelection", () => {

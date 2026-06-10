@@ -1,10 +1,19 @@
 import { describe, expect, test } from "bun:test"
+import { QueryClient } from "@tanstack/react-query"
 import {
+  formatChatGptPlan,
+  formatRelativeTime,
+  formatUsageWindowLabel,
+  resolveUsageRemainingPercent,
   resolveAvailableProviders,
   resolveProviderListRowAction,
   resolveProviderListRowControls,
   resolveRecommendedProviderCards,
 } from "../src/components/settings/settings-providers"
+import {
+  clearOpenAIUsageQuery,
+  openAIUsageQueryKeys,
+} from "../src/state/openai-usage-query"
 import { createProviderInfo } from "./test-utils"
 
 describe("resolveRecommendedProviderCards", () => {
@@ -99,5 +108,36 @@ describe("resolveProviderListRowControls", () => {
       showEdit: false,
       showEnvNote: false,
     })
+  })
+})
+
+describe("ChatGPT account formatting", () => {
+  test("formats plan and usage window labels", () => {
+    expect(formatChatGptPlan("team_k12")).toBe("Team K12")
+    expect(formatChatGptPlan(null)).toBe("")
+    expect(formatUsageWindowLabel(18_000)).toBe("5-hour limit")
+    expect(formatUsageWindowLabel(604_800)).toBe("7-day limit")
+    expect(resolveUsageRemainingPercent(1)).toBe(99)
+    expect(resolveUsageRemainingPercent(100)).toBe(0)
+  })
+
+  test("formats reset timestamps relative to the current time", () => {
+    expect(
+      formatRelativeTime("2026-06-10T14:00:00.000Z", Date.parse("2026-06-10T12:00:00.000Z")),
+    ).toBe("in 2 hours")
+  })
+})
+
+describe("ChatGPT usage query cache", () => {
+  test("clears account-scoped usage after authentication changes", () => {
+    const queryClient = new QueryClient()
+    queryClient.setQueryData(openAIUsageQueryKeys.current(), {
+      status: "ready",
+      plan: "plus",
+    })
+
+    clearOpenAIUsageQuery(queryClient)
+
+    expect(queryClient.getQueryData(openAIUsageQueryKeys.current())).toBeUndefined()
   })
 })
