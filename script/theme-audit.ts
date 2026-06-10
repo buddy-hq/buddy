@@ -3,8 +3,12 @@
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import {
+  CONTRAST_TARGET,
+  blend,
+  compositeLayerStack,
+  contrastRatio,
   defaultThemes,
-  hexToRgb,
+  layeredContrastRatio,
   resolveThemeVariant,
   type HexColor,
   type ResolvedTheme,
@@ -45,103 +49,123 @@ const FORBIDDEN_UTILITY_CLASSES = [
   "text-white",
 ] as const
 
-const CONTRAST_CHECKS = [
-  { name: "body text", foreground: "text-base", background: "background-base", minimum: 4.5 },
-  { name: "strong text", foreground: "text-strong", background: "background-base", minimum: 4.5 },
-  { name: "weak text", foreground: "text-weak", background: "background-base", minimum: 4.5 },
-  { name: "subtle text", foreground: "text-weaker", background: "background-base", minimum: 3 },
+const TEXT_CONTRAST_CHECKS = [
+  {
+    name: "body text",
+    foreground: "text-base",
+    background: ["background-base"],
+    minimum: CONTRAST_TARGET.normalText,
+  },
+  {
+    name: "strong text",
+    foreground: "text-strong",
+    background: ["background-base"],
+    minimum: CONTRAST_TARGET.normalText,
+  },
+  {
+    name: "weak text",
+    foreground: "text-weak",
+    background: ["background-base"],
+    minimum: CONTRAST_TARGET.normalText,
+  },
+  {
+    name: "subtle text",
+    foreground: "text-weaker",
+    background: ["background-base"],
+    minimum: CONTRAST_TARGET.largeText,
+  },
   {
     name: "interactive text",
     foreground: "text-interactive-base",
-    background: "background-base",
-    minimum: 4.5,
+    background: ["background-base"],
+    minimum: CONTRAST_TARGET.normalText,
   },
   {
-    name: "primary button text",
+    name: "primary button normal text",
     foreground: "text-on-button-primary-base",
-    background: "button-primary-base",
-    minimum: 4.5,
+    background: ["button-primary-base", "background-base"],
+    minimum: CONTRAST_TARGET.normalText,
+  },
+  {
+    name: "primary button hover text",
+    foreground: "text-on-button-primary-hover",
+    background: ["button-primary-hover", "background-base"],
+    minimum: CONTRAST_TARGET.normalText,
+  },
+  {
+    name: "secondary button normal text",
+    foreground: "text-on-button-secondary-base",
+    background: ["button-secondary-base", "background-base"],
+    minimum: CONTRAST_TARGET.normalText,
+  },
+  {
+    name: "secondary button hover text",
+    foreground: "text-on-button-secondary-hover",
+    background: ["button-secondary-hover", "background-base"],
+    minimum: CONTRAST_TARGET.normalText,
+  },
+  {
+    name: "destructive button normal text",
+    foreground: "text-on-critical-weak",
+    background: ["surface-critical-weak", "background-base"],
+    minimum: CONTRAST_TARGET.normalText,
+  },
+  {
+    name: "destructive button hover text",
+    foreground: "text-on-critical-base",
+    background: ["surface-critical-base", "background-base"],
+    minimum: CONTRAST_TARGET.normalText,
+  },
+  {
+    name: "destructive menu text",
+    foreground: "text-critical-on-raised",
+    background: ["surface-raised-stronger-non-alpha", "background-base"],
+    minimum: CONTRAST_TARGET.normalText,
+  },
+  {
+    name: "destructive menu highlighted text",
+    foreground: "text-on-critical-weak",
+    background: [
+      "surface-critical-weak",
+      "surface-raised-stronger-non-alpha",
+      "background-base",
+    ],
+    minimum: CONTRAST_TARGET.normalText,
   },
   {
     name: "interactive fill text",
     foreground: "text-on-interactive-base",
-    background: "surface-interactive-base",
-    minimum: 4.5,
-  },
-  {
-    name: "critical fill text",
-    foreground: "text-on-critical-base",
-    background: "surface-critical-base",
-    minimum: 4.5,
-  },
-  {
-    name: "critical weak fill text",
-    foreground: "text-on-critical-weak",
-    background: "surface-critical-weak",
-    minimum: 4.5,
-  },
-  {
-    name: "warning fill text",
-    foreground: "text-on-warning-base",
-    background: "surface-warning-base",
-    minimum: 4.5,
-  },
-  {
-    name: "warning weak fill text",
-    foreground: "text-on-warning-weak",
-    background: "surface-warning-weak",
-    minimum: 4.5,
-  },
-  {
-    name: "success fill text",
-    foreground: "text-on-success-base",
-    background: "surface-success-base",
-    minimum: 4.5,
-  },
-  {
-    name: "success weak fill text",
-    foreground: "text-on-success-weak",
-    background: "surface-success-weak",
-    minimum: 4.5,
-  },
-  {
-    name: "info weak fill text",
-    foreground: "text-on-info-weak",
-    background: "surface-info-weak",
-    minimum: 4.5,
+    background: ["surface-interactive-base", "background-base"],
+    minimum: CONTRAST_TARGET.normalText,
   },
   {
     name: "tooltip text",
     foreground: "text-strong",
-    background: "surface-raised-stronger-non-alpha",
-    minimum: 4.5,
+    background: ["surface-raised-stronger-non-alpha", "background-base"],
+    minimum: CONTRAST_TARGET.normalText,
   },
   {
     name: "status success text",
     foreground: "text-success-base",
-    background: "background-base",
-    minimum: 4.5,
+    background: ["background-base"],
+    minimum: CONTRAST_TARGET.normalText,
   },
   {
     name: "status warning text",
     foreground: "text-warning-base",
-    background: "background-base",
-    minimum: 4.5,
+    background: ["background-base"],
+    minimum: CONTRAST_TARGET.normalText,
   },
   {
     name: "status critical text",
     foreground: "text-critical-base",
-    background: "background-base",
-    minimum: 4.5,
+    background: ["background-base"],
+    minimum: CONTRAST_TARGET.normalText,
   },
 ] as const
 
 type AuditFailure = {
   message: string
-}
-
-function toLinearRgb(value: number): number {
-  return value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4)
 }
 
 function isSourceFile(path: string): boolean {
@@ -167,21 +191,6 @@ function listSourceFiles(root: string): string[] {
   return files
 }
 
-function luminance(color: HexColor): number {
-  const rgb = hexToRgb(color)
-
-  return 0.2126 * toLinearRgb(rgb.r) + 0.7152 * toLinearRgb(rgb.g) + 0.0722 * toLinearRgb(rgb.b)
-}
-
-function contrastRatio(foreground: HexColor, background: HexColor): number {
-  const foregroundLuminance = luminance(foreground)
-  const backgroundLuminance = luminance(background)
-  const lighter = Math.max(foregroundLuminance, backgroundLuminance)
-  const darker = Math.min(foregroundLuminance, backgroundLuminance)
-
-  return (lighter + 0.05) / (darker + 0.05)
-}
-
 function readHex(tokens: ResolvedTheme, token: string): HexColor | undefined {
   const value = tokens[token]
   if (!value?.startsWith("#")) return undefined
@@ -190,25 +199,100 @@ function readHex(tokens: ResolvedTheme, token: string): HexColor | undefined {
 
 function auditContrast(): AuditFailure[] {
   const failures: AuditFailure[] = []
+  const statusNames = ["critical", "warning", "success", "info"] as const
+  const statusStrengths = ["weak", "base", "strong"] as const
+  const parentKeys = [
+    "background-base",
+    "surface-raised-base",
+    "surface-raised-stronger-non-alpha",
+  ] as const
 
   for (const [themeID, theme] of Object.entries(defaultThemes)) {
     for (const mode of ["light", "dark"] as const) {
       const tokens = resolveThemeVariant(theme[mode], mode === "dark")
-      for (const check of CONTRAST_CHECKS) {
+      for (const check of TEXT_CONTRAST_CHECKS) {
         const foreground = readHex(tokens, check.foreground)
-        const background = readHex(tokens, check.background)
-        if (!foreground || !background) {
+        const background = check.background.map((token) => readHex(tokens, token))
+        if (!foreground || background.some((color) => !color)) {
           failures.push({
-            message: `${themeID}/${mode} is missing ${check.foreground} or ${check.background}`,
+            message: `${themeID}/${mode} is missing ${check.foreground} or ${check.background.join(", ")}`,
           })
           continue
         }
 
-        const ratio = contrastRatio(foreground, background)
+        const [first, ...rest] = background
+        if (!first) continue
+        const ratio = layeredContrastRatio(foreground, [first, ...rest])
         if (ratio < check.minimum) {
           failures.push({
             message: `${themeID}/${mode} ${check.name} contrast ${ratio.toFixed(2)} < ${check.minimum}`,
           })
+        }
+      }
+
+      for (const parentKey of parentKeys) {
+        const parent = readHex(tokens, parentKey)
+        if (!parent) {
+          failures.push({ message: `${themeID}/${mode} is missing ${parentKey}` })
+          continue
+        }
+
+        for (const state of ["base", "hover"] as const) {
+          const fill = readHex(tokens, `button-secondary-${state}`)
+          const foreground = readHex(tokens, `text-on-button-secondary-${state}`)
+          if (!fill || !foreground) {
+            failures.push({
+              message: `${themeID}/${mode} is missing secondary button ${state} tokens`,
+            })
+            continue
+          }
+
+          const renderedFill = compositeLayerStack([fill, parent])
+          const boundaryRatio = contrastRatio(renderedFill, parent)
+          if (boundaryRatio < CONTRAST_TARGET.subtleSurface) {
+            failures.push({
+              message: `${themeID}/${mode} secondary button ${state} fill contrast on ${parentKey} ${boundaryRatio.toFixed(2)} < ${CONTRAST_TARGET.subtleSurface}`,
+            })
+          }
+
+          const textRatio = layeredContrastRatio(foreground, [fill, parent])
+          if (textRatio < CONTRAST_TARGET.normalText) {
+            failures.push({
+              message: `${themeID}/${mode} secondary button ${state} text contrast on ${parentKey} ${textRatio.toFixed(2)} < ${CONTRAST_TARGET.normalText}`,
+            })
+          }
+        }
+
+        for (const status of statusNames) {
+          for (const strength of statusStrengths) {
+            const fill = readHex(tokens, `surface-${status}-${strength}`)
+            const foreground = readHex(tokens, `text-on-${status}-${strength}`)
+            if (!fill || !foreground) {
+              failures.push({
+                message: `${themeID}/${mode} is missing ${status}-${strength} surface tokens`,
+              })
+              continue
+            }
+
+            const ratio = layeredContrastRatio(foreground, [fill, parent])
+            if (ratio < CONTRAST_TARGET.normalText) {
+              failures.push({
+                message: `${themeID}/${mode} ${status}-${strength} text contrast on ${parentKey} ${ratio.toFixed(2)} < ${CONTRAST_TARGET.normalText}`,
+              })
+            }
+          }
+        }
+
+        const warningFill = readHex(tokens, "surface-warning-base")
+        const warningForeground = readHex(tokens, "text-on-warning-subtle")
+        if (warningFill && warningForeground) {
+          const translucentWarning = blend(warningFill, parent, 0.15)
+          const ratio = contrastRatio(warningForeground, translucentWarning)
+          if (ratio < CONTRAST_TARGET.normalText) {
+            failures.push({
+              message: `${themeID}/${mode} translucent warning label text contrast on ${parentKey} ${ratio.toFixed(2)} < ${CONTRAST_TARGET.normalText}`,
+            })
+          }
         }
       }
     }
