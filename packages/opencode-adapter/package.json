@@ -20,6 +20,7 @@
     "./tool-ui-strip": "./src/tool-ui-strip.ts",
     "./server": "./src/server.ts",
     "./instance": "./src/instance.ts",
+    "./installation": "./src/installation.ts",
     "./project": "./src/project.ts",
     "./lsp": "./src/lsp.ts",
     "./agent": "./src/agent.ts",

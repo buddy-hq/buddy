@@ -1,0 +1,276 @@
+import { describe, expect, mock, test } from "bun:test"
+import { createOpenAICodexAccountService } from "../../src/opencode-runtime/plugins/openai-codex-account"
+import type { OpenAICodexStoredAuth } from "../../src/opencode-runtime/plugins/openai-codex-credentials"
+
+const DIRECTORY = "/tmp/buddy-openai-account-test"
+const NOW = Date.parse("2026-06-10T12:00:00.000Z")
+
+function createAuth(): OpenAICodexStoredAuth {
+  return {
+    type: "oauth",
+    access: "access-token",
+    refresh: "refresh-token",
+    expires: Date.now() + 60_000,
+    accountId: "account-123",
+  }
+}
+
+function createDeferredResponse() {
+  let resolveResponse: ((response: Response) => void) | undefined
+  const promise = new Promise<Response>((resolve) => {
+    resolveResponse = resolve
+  })
+
+  return {
+    promise,
+    resolve(response: Response) {
+      if (!resolveResponse) throw new Error("Deferred response is not initialized")
+      resolveResponse(response)
+    },
+  }
+}
+
+describe("OpenAI Codex account service", () => {
+  test("returns vendor fallback while loading, then exposes only listed account models", async () => {
+    const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input instanceof URL ? input : new URL(input.toString())
+      expect(url.pathname).toBe("/backend-api/codex/models")
+      expect(url.searchParams.has("client_version")).toBe(true)
+      const headers = new Headers(init?.headers)
+      expect(headers.get("authorization")).toBe("Bearer access-token")
+      expect(headers.get("ChatGPT-Account-Id")).toBe("account-123")
+      return Response.json(
+        {
+          models: [
+            { slug: "gpt-5.5", visibility: "list" },
+            { slug: "codex-auto-review", visibility: "hide" },
+          ],
+        },
+        { headers: { etag: '"models-v1"' } },
+      )
+    })
+    const service = createOpenAICodexAccountService({
+      fetch: fetchMock,
+      now: () => NOW,
+      getAuth: async () => createAuth(),
+      setAuth: async () => undefined,
+    })
+
+    expect(await service.readModelAvailability(DIRECTORY)).toEqual({
+      status: "loading",
+    })
+    await Bun.sleep(0)
+    expect(await service.readModelAvailability(DIRECTORY)).toEqual({
+      status: "ready",
+      modelIDs: ["gpt-5.5"],
+      fetchedAt: "2026-06-10T12:00:00.000Z",
+      refreshing: false,
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  test("uses the cached ETag on an explicit model refresh", async () => {
+    const fetchMock = mock(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const headers = new Headers(init?.headers)
+      if (fetchMock.mock.calls.length === 1) {
+        expect(headers.get("if-none-match")).toBeNull()
+        return Response.json(
+          { models: [{ slug: "gpt-5.5", visibility: "list" }] },
+          { headers: { etag: '"models-v1"' } },
+        )
+      }
+      expect(headers.get("if-none-match")).toBe('"models-v1"')
+      return new Response(null, { status: 304 })
+    })
+    const service = createOpenAICodexAccountService({
+      fetch: fetchMock,
+      now: () => NOW,
+      getAuth: async () => createAuth(),
+      setAuth: async () => undefined,
+    })
+
+    await service.refreshModelAvailability(DIRECTORY)
+    expect(await service.refreshModelAvailability(DIRECTORY)).toMatchObject({
+      status: "ready",
+      modelIDs: ["gpt-5.5"],
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  test("treats an empty account model response as unavailable", async () => {
+    const service = createOpenAICodexAccountService({
+      fetch: async () => Response.json({ models: [] }),
+      now: () => NOW,
+      getAuth: async () => createAuth(),
+      setAuth: async () => undefined,
+    })
+
+    expect(await service.refreshModelAvailability(DIRECTORY)).toEqual({
+      status: "error",
+    })
+  })
+
+  test("normalizes plan usage and reuses it for sixty seconds", async () => {
+    let now = NOW
+    const fetchMock = mock(async () =>
+      Response.json({
+        plan_type: "plus",
+        rate_limit: {
+          primary_window: {
+            used_percent: 12.4,
+            reset_at: 1_749_600_000,
+            limit_window_seconds: 18_000,
+          },
+          secondary_window: {
+            used_percent: 31,
+            reset_at: 1_750_118_400,
+            limit_window_seconds: 604_800,
+          },
+        },
+        credits: {
+          has_credits: true,
+          unlimited: false,
+          balance: "4.5",
+        },
+      }),
+    )
+    const service = createOpenAICodexAccountService({
+      fetch: fetchMock,
+      now: () => now,
+      getAuth: async () => createAuth(),
+      setAuth: async () => undefined,
+    })
+
+    const first = await service.readUsage(DIRECTORY)
+    expect(first).toMatchObject({
+      status: "ready",
+      plan: "plus",
+      rateLimit: {
+        primary: { usedPercent: 12.4, windowSeconds: 18_000 },
+        secondary: { usedPercent: 31, windowSeconds: 604_800 },
+      },
+      credits: { hasCredits: true, unlimited: false, balance: 4.5 },
+    })
+
+    now += 59_000
+    expect(await service.readUsage(DIRECTORY)).toEqual(first)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    now += 2_000
+    await service.readUsage(DIRECTORY)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  test("does not share in-flight model results across account changes", async () => {
+    const accountAResponse = createDeferredResponse()
+    const accountBResponse = createDeferredResponse()
+    let auth = createAuth()
+    const service = createOpenAICodexAccountService({
+      fetch: async (_input, init) => {
+        const accountId = new Headers(init?.headers).get("ChatGPT-Account-Id")
+        if (accountId === "account-a") return accountAResponse.promise
+        if (accountId === "account-b") return accountBResponse.promise
+        throw new Error(`Unexpected account: ${accountId ?? "missing"}`)
+      },
+      now: () => NOW,
+      getAuth: async () => auth,
+      setAuth: async () => undefined,
+    })
+
+    auth = {
+      ...createAuth(),
+      access: "access-a",
+      refresh: "refresh-a",
+      accountId: "account-a",
+    }
+    const accountARefresh = service.refreshModelAvailability(DIRECTORY)
+
+    auth = {
+      ...createAuth(),
+      access: "access-b",
+      refresh: "refresh-b",
+      accountId: "account-b",
+    }
+    const accountBRefresh = service.refreshModelAvailability(DIRECTORY)
+
+    accountAResponse.resolve(
+      Response.json({ models: [{ slug: "model-a", visibility: "list" }] }),
+    )
+    expect(await accountARefresh).toMatchObject({
+      status: "ready",
+      modelIDs: ["model-a"],
+    })
+    expect(await service.readModelAvailability(DIRECTORY)).toEqual({ status: "loading" })
+
+    accountBResponse.resolve(
+      Response.json({ models: [{ slug: "model-b", visibility: "list" }] }),
+    )
+    expect(await accountBRefresh).toMatchObject({
+      status: "ready",
+      modelIDs: ["model-b"],
+    })
+    expect(await service.readModelAvailability(DIRECTORY)).toMatchObject({
+      status: "ready",
+      modelIDs: ["model-b"],
+    })
+  })
+
+  test("does not share in-flight usage results across account changes", async () => {
+    const accountAResponse = createDeferredResponse()
+    const accountBResponse = createDeferredResponse()
+    let auth = createAuth()
+    const service = createOpenAICodexAccountService({
+      fetch: async (_input, init) => {
+        const accountId = new Headers(init?.headers).get("ChatGPT-Account-Id")
+        if (accountId === "account-a") return accountAResponse.promise
+        if (accountId === "account-b") return accountBResponse.promise
+        throw new Error(`Unexpected account: ${accountId ?? "missing"}`)
+      },
+      now: () => NOW,
+      getAuth: async () => auth,
+      setAuth: async () => undefined,
+    })
+
+    auth = {
+      ...createAuth(),
+      access: "access-a",
+      refresh: "refresh-a",
+      accountId: "account-a",
+    }
+    const accountAUsage = service.readUsage(DIRECTORY)
+
+    auth = {
+      ...createAuth(),
+      access: "access-b",
+      refresh: "refresh-b",
+      accountId: "account-b",
+    }
+    const accountBUsage = service.readUsage(DIRECTORY)
+
+    accountAResponse.resolve(Response.json({ plan_type: "plus" }))
+    expect(await accountAUsage).toMatchObject({ status: "ready", plan: "plus" })
+
+    accountBResponse.resolve(Response.json({ plan_type: "pro" }))
+    expect(await accountBUsage).toMatchObject({ status: "ready", plan: "pro" })
+    expect(await service.readUsage(DIRECTORY)).toMatchObject({
+      status: "ready",
+      plan: "pro",
+    })
+  })
+
+  test("does not call account endpoints for a non-OAuth OpenAI connection", async () => {
+    const fetchMock = mock(async () => Response.json({}))
+    const service = createOpenAICodexAccountService({
+      fetch: fetchMock,
+      now: () => NOW,
+      getAuth: async () => ({ type: "api", key: "api-key" }),
+      setAuth: async () => undefined,
+    })
+
+    expect(await service.readModelAvailability(DIRECTORY)).toEqual({
+      status: "not_connected",
+    })
+    expect(await service.readUsage(DIRECTORY)).toEqual({ status: "not_connected" })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+})

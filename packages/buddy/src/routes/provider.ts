@@ -19,6 +19,11 @@ import {
   cancelOpenAICodexAuthorization,
   OPENAI_PROVIDER_ID,
 } from "../opencode-runtime/plugins/openai-codex-auth"
+import {
+  openAICodexAccountService,
+  openAIModelAvailabilityResponseSchema,
+  openAIUsageResponseSchema,
+} from "../opencode-runtime/plugins/openai-codex-account"
 import { ensureGlobalBootstrapWorkspaceDirectory } from "../project"
 
 const oauthMethodRequestSchema = z.object({
@@ -109,6 +114,108 @@ export const ProviderRoutes = new Hono()
           openCodeDirectoryParams(directoryResult.directory),
         )
         return respondWithSdkResult(c, result)
+      }),
+  )
+  .get(
+    "/openai/models",
+    describeRoute({
+      operationId: "provider.openai.modelAvailability.get",
+      summary: "Read ChatGPT OAuth model availability",
+      responses: {
+        200: {
+          description: "Current account-scoped ChatGPT model availability",
+          content: {
+            "application/json": { schema: resolver(openAIModelAvailabilityResponseSchema) },
+          },
+        },
+        ...routeErrors(403),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = resolveBootstrapDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        return c.json(
+          await openAICodexAccountService.readModelAvailability(directoryResult.directory),
+        )
+      }),
+  )
+  .post(
+    "/openai/models/refresh",
+    describeRoute({
+      operationId: "provider.openai.modelAvailability.refresh",
+      summary: "Refresh ChatGPT OAuth model availability",
+      responses: {
+        200: {
+          description: "Refreshed account-scoped ChatGPT model availability",
+          content: {
+            "application/json": { schema: resolver(openAIModelAvailabilityResponseSchema) },
+          },
+        },
+        ...routeErrors(403),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = resolveBootstrapDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        return c.json(
+          await openAICodexAccountService.refreshModelAvailability(directoryResult.directory),
+        )
+      }),
+  )
+  .get(
+    "/openai/usage",
+    describeRoute({
+      operationId: "provider.openai.usage.get",
+      summary: "Read ChatGPT OAuth usage limits",
+      responses: {
+        200: {
+          description: "Current ChatGPT plan and usage limits",
+          content: {
+            "application/json": { schema: resolver(openAIUsageResponseSchema) },
+          },
+        },
+        ...routeErrors(403),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = resolveBootstrapDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        return c.json(await openAICodexAccountService.readUsage(directoryResult.directory))
+      }),
+  )
+  .post(
+    "/openai/usage/refresh",
+    describeRoute({
+      operationId: "provider.openai.usage.refresh",
+      summary: "Refresh ChatGPT OAuth usage limits",
+      responses: {
+        200: {
+          description: "Refreshed ChatGPT plan and usage limits",
+          content: {
+            "application/json": { schema: resolver(openAIUsageResponseSchema) },
+          },
+        },
+        ...routeErrors(403),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryResult = resolveBootstrapDirectory(c)
+        if (!directoryResult.ok) return directoryResult.response
+
+        return c.json(
+          await openAICodexAccountService.readUsage(directoryResult.directory, true),
+        )
       }),
   )
   .post(

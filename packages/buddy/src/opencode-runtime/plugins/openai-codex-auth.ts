@@ -2,13 +2,22 @@ import { createServer } from "node:http"
 import { setTimeout as sleep } from "node:timers/promises"
 import type { AuthHook } from "@opencode-ai/plugin"
 import { Auth } from "@buddy/opencode-adapter/auth"
+import {
+  extractOpenAICodexAccountId,
+  isOpenAICodexStoredAuth,
+  OPENAI_CODEX_AUTH_ISSUER,
+  OPENAI_CODEX_CLIENT_ID,
+  OPENAI_PROVIDER_ID,
+  parseOpenAICodexTokenResponse,
+  resolveOpenAICodexAuth,
+  type OpenAICodexStoredAuth,
+  type OpenAICodexTokenResponse,
+} from "./openai-codex-credentials"
 
-const CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann"
-const ISSUER = "https://auth.openai.com"
 const CODEX_API_ENDPOINT = "https://chatgpt.com/backend-api/codex/responses"
 const OAUTH_PORT = 1455
 const OAUTH_POLLING_SAFETY_MARGIN_MS = 3_000
-export const OPENAI_PROVIDER_ID = "openai"
+export { OPENAI_PROVIDER_ID }
 const WINDOW_CLOSE_DELAY_MS = 1_500
 const OPENCODE_OAUTH_USER_AGENT = "opencode/local"
 const CANCELLED_AUTHORIZATION_ERROR = "Authorization cancelled"
@@ -18,35 +27,11 @@ type PkceCodes = {
   challenge: string
 }
 
-type TokenResponse = {
-  id_token: string
-  access_token: string
-  refresh_token: string
-  expires_in?: number
-}
-
-type IdTokenClaims = {
-  chatgpt_account_id?: string
-  organizations?: Array<{ id: string }>
-  email?: string
-  "https://api.openai.com/auth"?: {
-    chatgpt_account_id?: string
-  }
-}
-
 type PendingOAuth = {
   pkce: PkceCodes
   state: string
-  resolve: (tokens: TokenResponse) => void
+  resolve: (tokens: OpenAICodexTokenResponse) => void
   reject: (error: Error) => void
-}
-
-type StoredOauthAuth = {
-  type: "oauth"
-  access: string
-  refresh: string
-  expires: number
-  accountId?: string
 }
 
 const SUPERSEDED_AUTHORIZATION_ERROR = "Superseded by a newer authorization request"
@@ -61,10 +46,6 @@ class OpenAICodexAuthAbortError extends Error {
     this.kind = kind
     this.name = "OpenAICodexAuthAbortError"
   }
-}
-
-function isStoredOauthAuth(value: StoredOauthAuth | { type: string }): value is StoredOauthAuth {
-  return value.type === "oauth" && "access" in value && "refresh" in value && "expires" in value
 }
 
 function escapeHtml(value: string) {
@@ -121,39 +102,10 @@ function generateState() {
   return base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)).buffer)
 }
 
-function parseJwtClaims(token: string): IdTokenClaims | undefined {
-  const parts = token.split(".")
-  if (parts.length !== 3) return undefined
-
-  try {
-    return JSON.parse(Buffer.from(parts[1], "base64url").toString())
-  } catch {
-    return undefined
-  }
-}
-
-function extractAccountIdFromClaims(claims: IdTokenClaims) {
-  return (
-    claims.chatgpt_account_id ||
-    claims["https://api.openai.com/auth"]?.chatgpt_account_id ||
-    claims.organizations?.[0]?.id
-  )
-}
-
-function extractAccountId(tokens: TokenResponse) {
-  const idTokenClaims = parseJwtClaims(tokens.id_token)
-  const idTokenAccountID = idTokenClaims && extractAccountIdFromClaims(idTokenClaims)
-  if (idTokenAccountID) return idTokenAccountID
-
-  const accessTokenClaims = parseJwtClaims(tokens.access_token)
-  if (!accessTokenClaims) return undefined
-  return extractAccountIdFromClaims(accessTokenClaims)
-}
-
 function buildAuthorizeUrl(redirectUri: string, pkce: PkceCodes, state: string) {
   const params = new URLSearchParams({
     response_type: "code",
-    client_id: CLIENT_ID,
+    client_id: OPENAI_CODEX_CLIENT_ID,
     redirect_uri: redirectUri,
     scope: "openid profile email offline_access",
     code_challenge: pkce.challenge,
@@ -163,18 +115,18 @@ function buildAuthorizeUrl(redirectUri: string, pkce: PkceCodes, state: string) 
     state,
     originator: "opencode",
   })
-  return `${ISSUER}/oauth/authorize?${params.toString()}`
+  return `${OPENAI_CODEX_AUTH_ISSUER}/oauth/authorize?${params.toString()}`
 }
 
 async function exchangeCodeForTokens(code: string, redirectUri: string, pkce: PkceCodes) {
-  const response = await fetch(`${ISSUER}/oauth/token`, {
+  const response = await fetch(`${OPENAI_CODEX_AUTH_ISSUER}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       grant_type: "authorization_code",
       code,
       redirect_uri: redirectUri,
-      client_id: CLIENT_ID,
+      client_id: OPENAI_CODEX_CLIENT_ID,
       code_verifier: pkce.verifier,
     }).toString(),
   })
@@ -183,25 +135,7 @@ async function exchangeCodeForTokens(code: string, redirectUri: string, pkce: Pk
     throw new Error(`Token exchange failed: ${response.status}`)
   }
 
-  return (await response.json()) as TokenResponse
-}
-
-async function refreshAccessToken(refreshToken: string, issuer = ISSUER) {
-  const response = await fetch(`${issuer}/oauth/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-      client_id: CLIENT_ID,
-    }).toString(),
-  })
-
-  if (!response.ok) {
-    throw new Error(`Token refresh failed: ${response.status}`)
-  }
-
-  return (await response.json()) as TokenResponse
+  return parseOpenAICodexTokenResponse(await response.json())
 }
 
 export function buildBuddyCodexSuccessHtml() {
@@ -241,7 +175,7 @@ export function buildBuddyCodexSuccessHtml() {
   <body>
     <div class="container">
       <h1>Authorization Successful</h1>
-      <p>Buddy is reconnecting. You can close this window and return to Buddy.</p>
+      <p>Buddy is connected. You can go back to the Buddy app.</p>
     </div>
     <script>
       setTimeout(() => {
@@ -309,25 +243,23 @@ export function buildBuddyCodexErrorHtml(error: string) {
 }
 
 export function createBuddyCodexLoader(input: {
-  getAuth: () => Promise<StoredOauthAuth | { type: string }>
-  setAuth: (auth: StoredOauthAuth) => Promise<void>
+  getAuth: () => Promise<OpenAICodexStoredAuth | { type: string }>
+  setAuth: (auth: OpenAICodexStoredAuth) => Promise<void>
   issuer?: string
   codexApiEndpoint?: string
 }) {
-  const issuer = input.issuer ?? ISSUER
+  const issuer = input.issuer ?? OPENAI_CODEX_AUTH_ISSUER
   const codexApiEndpoint = input.codexApiEndpoint ?? CODEX_API_ENDPOINT
-  let refreshPromise:
-    | Promise<{
-        access: string
-        accountId: string | undefined
-      }>
-    | undefined
 
   return {
     apiKey: Auth.OAUTH_DUMMY_KEY,
     async fetch(requestInput: RequestInfo | URL, init?: RequestInit) {
-      const auth = await input.getAuth()
-      if (!isStoredOauthAuth(auth)) {
+      const auth = await resolveOpenAICodexAuth({
+        getAuth: input.getAuth,
+        setAuth: input.setAuth,
+        issuer,
+      })
+      if (!isOpenAICodexStoredAuth(auth)) {
         return fetch(requestInput, init)
       }
 
@@ -335,40 +267,9 @@ export function createBuddyCodexLoader(input: {
       sanitizedHeaders.delete("authorization")
       sanitizedHeaders.delete("Authorization")
 
-      let access = auth.access
-      let accountId = auth.accountId
-
-      if (!access || auth.expires < Date.now()) {
-        if (!refreshPromise) {
-          refreshPromise = refreshAccessToken(auth.refresh, issuer)
-            .then(async (tokens) => {
-              const nextAccountId = extractAccountId(tokens) || auth.accountId
-              await input.setAuth({
-                type: "oauth",
-                refresh: tokens.refresh_token,
-                access: tokens.access_token,
-                expires: Date.now() + (tokens.expires_in ?? 3_600) * 1_000,
-                ...(nextAccountId ? { accountId: nextAccountId } : {}),
-              })
-
-              return {
-                access: tokens.access_token,
-                accountId: nextAccountId,
-              }
-            })
-            .finally(() => {
-              refreshPromise = undefined
-            })
-        }
-
-        const refreshed = await refreshPromise
-        access = refreshed.access
-        accountId = refreshed.accountId
-      }
-
-      sanitizedHeaders.set("authorization", `Bearer ${access}`)
-      if (accountId) {
-        sanitizedHeaders.set("ChatGPT-Account-Id", accountId)
+      sanitizedHeaders.set("authorization", `Bearer ${auth.access}`)
+      if (auth.accountId) {
+        sanitizedHeaders.set("ChatGPT-Account-Id", auth.accountId)
       }
 
       const originalUrl =
@@ -471,7 +372,10 @@ function stopOAuthServer() {
   oauthServer = undefined
 }
 
-function waitForOAuthCallback(pkce: PkceCodes, state: string): Promise<TokenResponse> {
+function waitForOAuthCallback(
+  pkce: PkceCodes,
+  state: string,
+): Promise<OpenAICodexTokenResponse> {
   return new Promise((resolve, reject) => {
     rejectPendingOAuth("superseded", SUPERSEDED_AUTHORIZATION_ERROR)
 
@@ -527,7 +431,7 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
     },
     methods: [
       {
-        label: "ChatGPT Pro/Plus (browser)",
+        label: "ChatGPT (browser)",
         type: "oauth",
         authorize: async () => {
           const { redirectUri } = await startOAuthServer()
@@ -544,7 +448,7 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
             callback: async () => {
               try {
                 const tokens = await callbackPromise
-                const accountId = extractAccountId(tokens)
+                const accountId = extractOpenAICodexAccountId(tokens)
                 return {
                   type: "success" as const,
                   refresh: tokens.refresh_token,
@@ -560,17 +464,20 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
         },
       },
       {
-        label: "ChatGPT Pro/Plus (headless)",
+        label: "ChatGPT (headless)",
         type: "oauth",
         authorize: async () => {
-          const deviceResponse = await fetch(`${ISSUER}/api/accounts/deviceauth/usercode`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "User-Agent": OPENCODE_OAUTH_USER_AGENT,
+          const deviceResponse = await fetch(
+            `${OPENAI_CODEX_AUTH_ISSUER}/api/accounts/deviceauth/usercode`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "User-Agent": OPENCODE_OAUTH_USER_AGENT,
+              },
+              body: JSON.stringify({ client_id: OPENAI_CODEX_CLIENT_ID }),
             },
-            body: JSON.stringify({ client_id: CLIENT_ID }),
-          })
+          )
 
           if (!deviceResponse.ok) {
             throw new Error("Failed to initiate device authorization")
@@ -584,46 +491,52 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
           const interval = Math.max(Number.parseInt(deviceData.interval, 10) || 5, 1) * 1_000
 
           return {
-            url: `${ISSUER}/codex/device`,
+            url: `${OPENAI_CODEX_AUTH_ISSUER}/codex/device`,
             instructions: `Enter code: ${deviceData.user_code}`,
             method: "auto" as const,
             async callback() {
               while (true) {
-                const response = await fetch(`${ISSUER}/api/accounts/deviceauth/token`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "User-Agent": OPENCODE_OAUTH_USER_AGENT,
+                const response = await fetch(
+                  `${OPENAI_CODEX_AUTH_ISSUER}/api/accounts/deviceauth/token`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      "User-Agent": OPENCODE_OAUTH_USER_AGENT,
+                    },
+                    body: JSON.stringify({
+                      device_auth_id: deviceData.device_auth_id,
+                      user_code: deviceData.user_code,
+                    }),
                   },
-                  body: JSON.stringify({
-                    device_auth_id: deviceData.device_auth_id,
-                    user_code: deviceData.user_code,
-                  }),
-                })
+                )
 
                 if (response.ok) {
                   const data = (await response.json()) as {
                     authorization_code: string
                     code_verifier: string
                   }
-                  const tokenResponse = await fetch(`${ISSUER}/oauth/token`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                    body: new URLSearchParams({
-                      grant_type: "authorization_code",
-                      code: data.authorization_code,
-                      redirect_uri: `${ISSUER}/deviceauth/callback`,
-                      client_id: CLIENT_ID,
-                      code_verifier: data.code_verifier,
-                    }).toString(),
-                  })
+                  const tokenResponse = await fetch(
+                    `${OPENAI_CODEX_AUTH_ISSUER}/oauth/token`,
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                      body: new URLSearchParams({
+                        grant_type: "authorization_code",
+                        code: data.authorization_code,
+                        redirect_uri: `${OPENAI_CODEX_AUTH_ISSUER}/deviceauth/callback`,
+                        client_id: OPENAI_CODEX_CLIENT_ID,
+                        code_verifier: data.code_verifier,
+                      }).toString(),
+                    },
+                  )
 
                   if (!tokenResponse.ok) {
                     throw new Error(`Token exchange failed: ${tokenResponse.status}`)
                   }
 
-                  const tokens = (await tokenResponse.json()) as TokenResponse
-                  const accountId = extractAccountId(tokens)
+                  const tokens = parseOpenAICodexTokenResponse(await tokenResponse.json())
+                  const accountId = extractOpenAICodexAccountId(tokens)
                   return {
                     type: "success" as const,
                     refresh: tokens.refresh_token,

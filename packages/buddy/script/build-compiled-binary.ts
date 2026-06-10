@@ -19,6 +19,12 @@ const loader = {
 } as const
 
 const UNRESOLVED_RUNTIME_IMPORT_SPECIFIERS = ["opencode/effect/app-runtime"] as const
+const UNRESOLVED_RUNTIME_REQUIRE_PATTERNS = [
+  {
+    label: "opencode/package.json",
+    pattern: /(?:__)?require\(["']opencode\/package\.json["']\)/,
+  },
+] as const
 
 type MigrationEntry = {
   sql: string
@@ -94,12 +100,16 @@ function assertNoUnresolvedRuntimeImports(bundleOutputFile: string) {
   const unresolved = UNRESOLVED_RUNTIME_IMPORT_SPECIFIERS.filter((specifier) =>
     source.includes(specifier),
   )
+  const unresolvedRequires = UNRESOLVED_RUNTIME_REQUIRE_PATTERNS.filter(({ pattern }) =>
+    pattern.test(source),
+  ).map(({ label }) => label)
+  const unresolvedRuntimeDependencies = [...unresolved, ...unresolvedRequires]
 
-  if (unresolved.length === 0) return
+  if (unresolvedRuntimeDependencies.length === 0) return
 
   throw new Error(
     [
-      `Sidecar bundle contains unresolved runtime import specifier(s): ${unresolved.join(", ")}`,
+      `Sidecar bundle contains unresolved runtime import specifier(s): ${unresolvedRuntimeDependencies.join(", ")}`,
       "Use literal local adapter imports so Bun can bundle vendored runtime modules into compiled sidecars.",
     ].join("\n"),
   )
