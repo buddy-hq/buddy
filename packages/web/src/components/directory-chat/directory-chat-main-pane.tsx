@@ -26,6 +26,7 @@ import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat
 import { getSessionContextMetrics } from "@/state/context-metrics"
 import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
 import type { MessageWithParts, ProviderInfo, QuestionRequest } from "@/state/chat-types"
+import type { PermissionReply } from "@/state/permission-types"
 import { BookOpenIcon, PresentationIcon, Redo2Icon } from "lucide-react"
 import { WhiteboardAutoOpen } from "@/components/whiteboard/whiteboard-auto-open"
 import { hasWhiteboardCreate } from "@/components/whiteboard/whiteboard-progressive"
@@ -63,7 +64,7 @@ type DirectoryChatMainPaneProps = {
   onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRestoreRevertedMessages?: () => Promise<void> | void
-  onPermissionReply: (reply: "once" | "always" | "reject") => Promise<void>
+  onPermissionReply: (reply: PermissionReply) => Promise<void>
   onQuestionReply: (requestID: string, answers: string[][]) => Promise<void>
   onQuestionReject: (requestID: string) => Promise<void>
   promptComposerProps: PromptComposerProps

@@ -1,34 +1,126 @@
 import { useState } from "react"
-import { Button } from "@buddy/ui"
+import {
+  Button,
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@buddy/ui"
 import { language } from "@/context/language"
+import { PermissionDockPathValue } from "@/components/directory-chat/permission-dock-path-value"
+import { PermissionDockTitle } from "@/components/directory-chat/permission-dock-title"
+import { getPermissionDockBody } from "@/lib/permission-dock-locations"
+import { getPermissionDockHeadline } from "@/lib/permission-dock-headline"
 import type { PermissionRequest } from "@/state/chat-types"
+import type { PermissionReply } from "@/state/permission-types"
 
 type PermissionDockProps = {
   request: PermissionRequest
   pendingCount?: number
-  onReply: (reply: "once" | "always" | "reject") => Promise<void>
+  onReply: (reply: PermissionReply) => Promise<void>
 }
 
-const TOOL_HINT: Record<string, string> = {
-  read: language.t("chat.permissionDock.toolHint.read"),
-  list: language.t("chat.permissionDock.toolHint.list"),
-  glob: language.t("chat.permissionDock.toolHint.glob"),
-  grep: language.t("chat.permissionDock.toolHint.grep"),
-  write: language.t("chat.permissionDock.toolHint.write"),
-  edit: language.t("chat.permissionDock.toolHint.edit"),
-  apply_patch: language.t("chat.permissionDock.toolHint.applyPatch"),
-  bash: language.t("chat.permissionDock.toolHint.bash"),
-  task: language.t("chat.permissionDock.toolHint.task"),
-  todowrite: language.t("chat.permissionDock.toolHint.todowrite"),
-  webfetch: language.t("chat.permissionDock.toolHint.webfetch"),
-  curriculum_update: language.t("chat.permissionDock.toolHint.curriculumUpdate"),
+const PERMISSION_ACTION_TOOLTIP_DELAY_MS = 700
+const PERMISSION_DOCK_PATH_WIDTH_CLASS = "min-w-0 max-w-[80%] flex-1 basis-0"
+const PERMISSION_DOCK_COMMAND_CLASS =
+  "min-w-0 w-full cursor-default select-none whitespace-pre-wrap break-all text-xs text-text-weak"
+
+function permissionValueClassName(highlightPath: boolean | undefined, scope: string): string {
+  if (highlightPath) {
+    return `${PERMISSION_DOCK_PATH_WIDTH_CLASS} block cursor-default select-none text-xs`
+  }
+  if (scope === "command") {
+    return PERMISSION_DOCK_COMMAND_CLASS
+  }
+  return `${PERMISSION_DOCK_PATH_WIDTH_CLASS} whitespace-pre-wrap break-words text-xs text-text-weak`
+}
+
+type PermissionActionProps = {
+  description: string
+  disabled: boolean
+  label: string
+  onClick: () => void
+  variant?: "default" | "outline" | "secondary"
+}
+
+type PermissionLabeledValueProps = {
+  highlightPath?: boolean
+  label: string
+  requestID: string
+  scope: string
+  value: string
+}
+
+type PermissionPathListProps = {
+  paths: readonly string[]
+  requestID: string
+  scope: string
+}
+
+function PermissionLabeledValue(props: PermissionLabeledValueProps) {
+  return (
+    <div className="flex min-w-0 gap-2">
+      <span className="w-16 shrink-0 text-xs text-text-weaker">{props.label}</span>
+      <code
+        className={permissionValueClassName(props.highlightPath, props.scope)}
+        data-scope={props.scope}
+        data-request-id={props.requestID}
+      >
+        {props.highlightPath ? (
+          <PermissionDockPathValue path={props.value} />
+        ) : (
+          props.value
+        )}
+      </code>
+    </div>
+  )
+}
+
+function PermissionPathList(props: PermissionPathListProps) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      {props.paths.map((path) => (
+        <code
+          key={`${props.requestID}:${props.scope}:${path}`}
+          className="block w-[80%] min-w-0 cursor-default select-none text-xs"
+        >
+          <PermissionDockPathValue path={path} />
+        </code>
+      ))}
+    </div>
+  )
+}
+
+function PermissionAction(props: PermissionActionProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant={props.variant ?? "default"}
+          size="sm"
+          disabled={props.disabled}
+          onClick={props.onClick}
+          className="shrink-0"
+        >
+          {props.label}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-64 text-pretty">{props.description}</TooltipContent>
+    </Tooltip>
+  )
 }
 
 export function PermissionDock(props: PermissionDockProps) {
   const [responding, setResponding] = useState(false)
-  const hint = TOOL_HINT[props.request.permission]
+  const headline = getPermissionDockHeadline(props.request)
+  const body = getPermissionDockBody(props.request)
+  const hasBodyContent = body.kind !== "none" || (props.pendingCount ?? 0) > 0
 
-  async function onDecide(reply: "once" | "always" | "reject") {
+  async function onDecide(reply: PermissionReply) {
     if (responding) return
     setResponding(true)
     try {
@@ -39,87 +131,90 @@ export function PermissionDock(props: PermissionDockProps) {
   }
 
   return (
-    <div
-      className="flex flex-col overflow-hidden rounded-lg border border-[color-mix(in_oklab,var(--surface-warning-base)_40%,var(--border-base))] bg-[color-mix(in_oklab,var(--surface-raised-base)_94%,var(--surface-warning-base)_6%)] shadow-[0_0_0_1px_color-mix(in_oklab,var(--surface-warning-base)_14%,transparent)]"
-      role="alert"
-      aria-live="assertive"
-    >
-      <div className="flex flex-col gap-[0.55rem] px-[0.8rem] py-[0.7rem] pb-[0.4rem]">
-        <div className="grid grid-cols-[1.1rem_1fr] items-center gap-x-[0.55rem]">
-          <span
-            className="inline-flex size-[1.1rem] items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--surface-warning-base)_28%,transparent)] bg-[color-mix(in_oklab,var(--surface-warning-base)_16%,transparent)] text-[0.72rem] font-bold text-icon-warning-base"
-            aria-hidden="true"
-          >
-            !
-          </span>
-          <div className="text-[0.87rem] font-semibold text-text-base">
-            {language.t("chat.permissionDock.permissionRequired")}
-          </div>
-        </div>
+    <TooltipProvider delayDuration={PERMISSION_ACTION_TOOLTIP_DELAY_MS}>
+      <Card role="alert" aria-live="assertive" className="gap-0 py-0">
+        <CardHeader className={hasBodyContent ? "pb-4 pt-4" : "py-4"}>
+          <PermissionDockTitle icon={headline.icon} title={headline.title} />
+        </CardHeader>
 
-        {hint ? (
-          <div className="grid grid-cols-[1.1rem_1fr] items-start gap-x-[0.55rem]">
-            <span aria-hidden="true" />
-            <div className="text-[0.8rem] text-text-weak">{hint}</div>
-          </div>
-        ) : null}
-
-        <div className="grid grid-cols-[1.1rem_1fr] items-start gap-x-[0.55rem]">
-          <span aria-hidden="true" />
-          <div className="flex min-w-0 flex-col gap-[0.4rem]">
-            <div className="text-[0.82rem] text-text-base">
-              {language.t("chat.permissionDock.toolLabel")}: {props.request.permission}
-            </div>
-            {props.request.patterns.length > 0 ? (
-              <div className="flex max-h-32 flex-col gap-[0.3rem] overflow-auto">
-                {props.request.patterns.map((pattern) => (
-                  <code
-                    key={`${props.request.id}:${pattern}`}
-                    className="whitespace-pre-wrap break-words text-[0.74rem] text-text-weak"
-                  >
-                    {pattern}
-                  </code>
+        {hasBodyContent ? (
+          <CardContent className="flex flex-col gap-2 px-4 pb-4 pt-0">
+            {body.kind === "external_directory" ? (
+              <div className="flex flex-col gap-2">
+                {body.file ? (
+                  <PermissionLabeledValue
+                    highlightPath
+                    label={language.t("chat.permissionDock.label.file")}
+                    value={body.file}
+                    requestID={props.request.id}
+                    scope="file"
+                  />
+                ) : null}
+                {body.command ? (
+                  <PermissionLabeledValue
+                    label={language.t("chat.permissionDock.label.command")}
+                    value={body.command}
+                    requestID={props.request.id}
+                    scope="command"
+                  />
+                ) : null}
+                {body.folders.map((folder) => (
+                  <PermissionLabeledValue
+                    key={`${props.request.id}:folder:${folder}`}
+                    highlightPath
+                    label={language.t("chat.permissionDock.label.folder")}
+                    value={folder}
+                    requestID={props.request.id}
+                    scope="folder"
+                  />
                 ))}
               </div>
             ) : null}
+
+            {body.kind === "command" ? (
+              <code className={PERMISSION_DOCK_COMMAND_CLASS}>{body.command}</code>
+            ) : null}
+
+            {body.kind === "detail" ? (
+              <PermissionPathList paths={body.lines} requestID={props.request.id} scope="detail" />
+            ) : null}
+
             {(props.pendingCount ?? 0) > 0 ? (
-              <div className="text-[0.72rem] text-text-weak">
+              <p className="text-xs text-text-weak">
                 {language.t(
                   (props.pendingCount ?? 0) === 1
                     ? "chat.permissionDock.pendingRequests.one"
                     : "chat.permissionDock.pendingRequests.other",
                   { count: props.pendingCount ?? 0 },
                 )}
-              </div>
+              </p>
             ) : null}
-          </div>
-        </div>
-      </div>
+          </CardContent>
+        ) : null}
 
-      <div className="flex items-center justify-between border-t border-[color-mix(in_oklab,var(--border-base)_75%,transparent)] px-[0.65rem] py-[0.45rem]">
-        <div />
-        <div className="flex items-center gap-[0.45rem]">
-          <Button
-            variant="ghost"
-            size="sm"
+        <CardFooter className="justify-end gap-2">
+          <PermissionAction
+            variant="outline"
             disabled={responding}
             onClick={() => void onDecide("reject")}
-          >
-            {language.t("chat.permissionDock.reject")}
-          </Button>
-          <Button
+            label={language.t("chat.permissionDock.reject")}
+            description={language.t("chat.permissionDock.rejectDescription")}
+          />
+          <PermissionAction
             variant="secondary"
-            size="sm"
             disabled={responding}
             onClick={() => void onDecide("always")}
-          >
-            {language.t("chat.permissionDock.allowAlways")}
-          </Button>
-          <Button size="sm" disabled={responding} onClick={() => void onDecide("once")}>
-            {language.t("chat.permissionDock.allowOnce")}
-          </Button>
-        </div>
-      </div>
-    </div>
+            label={language.t("chat.permissionDock.allowAlways")}
+            description={language.t("chat.permissionDock.allowAlwaysDescription")}
+          />
+          <PermissionAction
+            disabled={responding}
+            onClick={() => void onDecide("once")}
+            label={language.t("chat.permissionDock.allowOnce")}
+            description={language.t("chat.permissionDock.allowOnceDescription")}
+          />
+        </CardFooter>
+      </Card>
+    </TooltipProvider>
   )
 }

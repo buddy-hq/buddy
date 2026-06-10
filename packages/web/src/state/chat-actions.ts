@@ -68,6 +68,7 @@ import {
   isSessionStatusActive,
   normalizeSessionStatusValue,
 } from "./session-status"
+import type { PermissionReply } from "./permission-types"
 
 export type PersonaConfigOption = {
   id: string
@@ -2262,7 +2263,7 @@ export async function resyncDirectoryAfterReconnect(directory: string) {
 export async function replyPermission(input: {
   directory: string
   requestID: string
-  reply: "once" | "always" | "reject"
+  reply: PermissionReply
   message?: string
 }) {
   const result = requireBuddyData(
