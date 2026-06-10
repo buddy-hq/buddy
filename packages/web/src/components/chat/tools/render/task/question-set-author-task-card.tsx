@@ -63,6 +63,7 @@ export function QuestionSetAuthorTaskCard({
 }: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">) {
   const {
     agentName,
+    taskTitle,
     openChildSession,
     activityLine,
     activityContent,
@@ -94,6 +95,7 @@ export function QuestionSetAuthorTaskCard({
   return (
     <SubagentCard
       agentName={agentName}
+      taskTitle={taskTitle}
       status={status}
       onOpenSession={openChildSession}
       activityLine={!showCompletedBody ? activityLine : undefined}

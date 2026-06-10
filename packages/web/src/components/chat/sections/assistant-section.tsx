@@ -7,7 +7,14 @@ import { GroupedIngestFullTextToolCard } from "../tools/render/ingest-full-text"
 import { parseRenderFigureOutput, GroupedFigureToolCard } from "../tools/render/render-figure"
 import { parseRenderMermaidSources, GroupedMermaidToolCard } from "../tools/render/mermaid"
 import { toolDefaultOpen } from "../utils/constants"
+import { isChatReasoningPart, isChatTextPart } from "../utils/part-guards"
 import type { AssistantSectionProps } from "../types"
+import type { MessagePart } from "@/state/chat-types"
+
+function assistantPartIsStreaming(part: MessagePart) {
+  if (!isChatTextPart(part) && !isChatReasoningPart(part)) return true
+  return typeof part.time?.end !== "number"
+}
 
 export const AssistantSection = memo(function AssistantSection({
   assistantItems,
@@ -99,7 +106,7 @@ export const AssistantSection = memo(function AssistantSection({
             copyPartID={assistantCopyPartID}
             metaText={assistantMetaText}
             interrupted={assistantAborted}
-            streaming={isBusy}
+            streaming={isBusy && assistantPartIsStreaming(item.part)}
             preferEagerMarkdown={preferEagerMarkdown}
             onOpenSession={onOpenSession}
             onOpenResource={onOpenResource}

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, type ReactNode } from "react"
 import { motion, AnimatePresence } from "motion/react"
-import { Bot, BotMessageSquare, PhoneCall, XCircle, ChevronDown, ChevronUp } from "lucide-react"
+import { Bot, BotMessageSquare, XCircle, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@buddy/ui"
 import { TextShimmer } from "../../text-shimmer"
 import { ToolErrorPanel } from "../../tool-error-panel"
@@ -10,11 +10,14 @@ import { TASK_CARD_TRANSITION } from "../task-motion"
 
 export type SubagentCardStatus = "pending" | "running" | "completed" | "error"
 
-const HANDOFF_COPY = "Handing off to a specialist..."
+const STARTING_COPY = "Starting specialist..."
+const WORKING_COPY = "Working..."
+const DEFAULT_TASK_TITLE = "Delegated task"
 const ICON_CLS = "h-3.5 w-3.5 shrink-0"
 
 type SubagentCardProps = {
   agentName?: string
+  taskTitle?: string
   status: SubagentCardStatus
   onOpenSession?: () => void
   /** Activity text: shimmers when `activityActive`, static when done. */
@@ -60,7 +63,7 @@ function ExpandableMarkdown({ text }: { text: string }) {
     <div className="relative flex flex-col">
       <motion.div
         initial={false}
-        animate={{ height: !isOverflowing ? "auto" : expanded ? "auto" : 300 }}
+        animate={{ height: !isOverflowing ? "auto" : expanded ? "auto" : "10vh" }}
         transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
         className="overflow-hidden"
       >
@@ -106,6 +109,7 @@ function HeaderArea({ onClick, className, children }: HeaderAreaProps) {
 type CardHeaderProps = {
   status: SubagentCardStatus
   displayName: string
+  taskTitle: string
   activityLine?: string
   activityContent?: ReactNode
   activityActive?: boolean
@@ -115,36 +119,33 @@ type CardHeaderProps = {
 function CardHeader({
   status,
   displayName,
+  taskTitle,
   activityLine,
   activityContent,
   activityActive,
   activityIcon,
 }: CardHeaderProps) {
-  if (status === "pending") {
+  if (status === "pending" || status === "running") {
+    const startupPending = status === "pending"
     return (
-      <div className="flex items-center gap-2">
-        <PhoneCall className={cn(ICON_CLS, "text-text-weaker")} />
-        <TextShimmer text={HANDOFF_COPY} active className="text-sm text-text-base" />
-      </div>
-    )
-  }
-
-  if (status === "running") {
-    return (
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 items-start gap-2">
         {activityIcon ? (
-          <span className="shrink-0 text-text-weaker">{activityIcon(ICON_CLS)}</span>
+          <span className="mt-0.5 shrink-0 text-text-weaker">{activityIcon(ICON_CLS)}</span>
         ) : (
-          <Bot className={cn(ICON_CLS, "text-text-weaker")} />
+          <Bot className={cn(ICON_CLS, "mt-0.5 text-text-weaker")} />
         )}
-        {activityContent ?? (
-          <TextShimmer
-            text={activityLine ?? "Working..."}
-            active={activityActive ?? true}
-            className="min-w-0 flex-1 truncate text-[11px] text-text-weaker"
-          />
-        )}
-        <Bot className={cn(ICON_CLS, "text-text-weaker")} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-text-base">{taskTitle}</p>
+          <div className="mt-0.5 min-w-0">
+            {activityContent ?? (
+              <TextShimmer
+                text={startupPending ? STARTING_COPY : (activityLine ?? WORKING_COPY)}
+                active={startupPending || (activityActive ?? true)}
+                className="block min-w-0 truncate text-[11px] text-text-weaker"
+              />
+            )}
+          </div>
+        </div>
         <span className="shrink-0 rounded bg-surface-weak px-1.5 py-0.5 text-[11px] font-medium text-text-weak">
           {displayName}
         </span>
@@ -154,23 +155,30 @@ function CardHeader({
 
   if (status === "completed") {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         <BotMessageSquare className={cn(ICON_CLS, "text-icon-success-base")} />
-        <span className="text-sm font-medium text-text-base">{displayName}</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-base">
+          {taskTitle}
+        </span>
+        <span className="shrink-0 text-xs text-text-weak">{displayName}</span>
       </div>
     )
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 items-center gap-2">
       <XCircle className={cn(ICON_CLS, "text-icon-critical-base")} />
-      <span className="text-sm font-medium text-text-base">{displayName}</span>
+      <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-base">
+        {taskTitle}
+      </span>
+      <span className="shrink-0 text-xs text-text-weak">{displayName}</span>
     </div>
   )
 }
 
 export function SubagentCard({
   agentName,
+  taskTitle,
   status,
   onOpenSession,
   activityLine,
@@ -184,6 +192,7 @@ export function SubagentCard({
   const hasErrorBody = status === "error" && !!error
   const hasBody = hasChildBody || hasErrorBody
   const displayName = agentName ?? "Specialist"
+  const displayTaskTitle = taskTitle ?? DEFAULT_TASK_TITLE
 
   return (
     <motion.div
@@ -202,6 +211,7 @@ export function SubagentCard({
         <CardHeader
           status={status}
           displayName={displayName}
+          taskTitle={displayTaskTitle}
           activityLine={activityLine}
           activityContent={activityContent}
           activityActive={activityActive}

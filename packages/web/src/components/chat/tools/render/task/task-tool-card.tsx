@@ -17,6 +17,7 @@ export function TaskToolCard({
 }: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">) {
   const {
     agentName,
+    taskTitle,
     openChildSession,
     activityLine,
     activityContent,
@@ -31,6 +32,7 @@ export function TaskToolCard({
   return (
     <SubagentCard
       agentName={agentName}
+      taskTitle={taskTitle}
       status={status}
       onOpenSession={openChildSession}
       activityLine={activityLine}

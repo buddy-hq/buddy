@@ -78,6 +78,7 @@ export function FlashcardAuthorTaskCard({
   const queryClient = useQueryClient()
   const {
     agentName,
+    taskTitle,
     openChildSession,
     activityLine,
     activityContent,
@@ -110,6 +111,7 @@ export function FlashcardAuthorTaskCard({
     <>
       <SubagentCard
         agentName={agentName}
+        taskTitle={taskTitle}
         status={status}
         onOpenSession={openChildSession}
         activityLine={!showCompletedBody ? activityLine : undefined}

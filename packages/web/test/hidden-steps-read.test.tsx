@@ -199,6 +199,7 @@ function SubagentCardDataHarness({ state, directory }: { state: ToolState; direc
   const displayState = useSubagentCardData({ state, directory })
   return (
     <div
+      data-status={displayState.status}
       data-icon={
         displayState.activityIcon === SKILL_TOOL_ICON
           ? "skill"
@@ -487,5 +488,53 @@ describe("hidden steps read rendering", () => {
 
     expect(container.textContent).toContain("Using Reference Textbooks And Board")
     expect(container.firstElementChild?.getAttribute("data-icon")).toBe("skill")
+  })
+
+  test("settles a stale parent task when the child session is terminal", async () => {
+    const directory = "/repo-settled-subagent"
+    const childSessionID = "ses_settled_child"
+
+    await act(async () => {
+      seedDirectoryChatState(directory, {
+        sessions: [
+          {
+            id: childSessionID,
+            title: "Report tools (@general subagent)",
+            time: { created: 1, updated: 2 },
+          },
+        ],
+        sessionStatusByID: {
+          [childSessionID]: { type: "idle" },
+        },
+        messagesBySessionID: {
+          [childSessionID]: [
+            createMessageWithParts(
+              createAssistantMessageInfo({
+                id: "msg_settled_child",
+                sessionID: childSessionID,
+                time: { created: 1, completed: 2 },
+                finish: "stop",
+              }),
+              [],
+            ),
+          ],
+        },
+      })
+
+      root.render(
+        <SubagentCardDataHarness
+          directory={directory}
+          state={{
+            status: "running",
+            input: { subagent_type: "general" },
+            metadata: { sessionId: childSessionID },
+            attachments: [],
+          }}
+        />,
+      )
+      await flushEffects()
+    })
+
+    expect(container.firstElementChild?.getAttribute("data-status")).toBe("completed")
   })
 })

@@ -1,7 +1,9 @@
 import { useShallow } from "zustand/react/shallow"
 import { parseSubagentSession } from "@/lib/session-family"
+import { isTerminalAssistantMessageInfo } from "@/state/chat-tool-parts"
 import { useChatStore } from "@/state/chat-store"
-import { readString } from "../../types"
+import { isSessionStatusActive } from "@/state/session-status"
+import { readNonEmptyString, readString } from "../../types"
 import type { ToolPartProps } from "../../registry"
 import {
   createHiddenStepsEntry,
@@ -39,22 +41,23 @@ export function useSubagentCardData(
 ) {
   const childSessionID = readString(input.state.metadata.sessionId)
   const configuredSubagent = readString(input.state.input.subagent_type)
+  const configuredTaskTitle = readNonEmptyString(input.state.input.description)
   const onOpenSession = input.onOpenSession
   const openChildSession =
     childSessionID && onOpenSession ? () => onOpenSession(childSessionID) : undefined
 
-  // Use tool state as authoritative source for busy status — child session status
-  // may lag behind the parent tool's completion.
-  const toolIsActive = input.state.status === "pending" || input.state.status === "running"
+  const parentToolIsActive = input.state.status === "pending" || input.state.status === "running"
 
   const {
     agentName,
+    taskTitle,
     headerLabel,
     headerIcon,
     throttleFileTools,
     fileName,
     headerVerb,
     childHasActiveTool,
+    childSettled,
   } = useChatStore(
     useShallow((store) => {
       const dirState = input.directory ? store.directories[input.directory] : undefined
@@ -64,29 +67,49 @@ export function useSubagentCardData(
       const parsedSession = childSession ? parseSubagentSession(childSession) : undefined
       const rawName = parsedSession?.agent ?? configuredSubagent ?? undefined
       const agentName = rawName ? formatAgentName(rawName) : undefined
+      const taskTitle = parsedSession?.title ?? configuredTaskTitle
 
       // Build activity summary from ALL assistant messages in the child session so
       // earlier-turn tool usage isn't hidden when the last message is text-only.
       const childMessages = childSessionID
         ? (dirState?.messagesBySessionID?.[childSessionID] ?? [])
         : []
+      const latestChildAssistant = childMessages.findLast(
+        (message) => message.info.role === "assistant",
+      )
+      const childSettled =
+        !!latestChildAssistant &&
+        isTerminalAssistantMessageInfo(latestChildAssistant.info) &&
+        !isSessionStatusActive(
+          childSessionID ? dirState?.sessionStatusByID[childSessionID] : undefined,
+        )
+      const cardIsActive = parentToolIsActive && !childSettled
       const allEntries = childMessages
         .filter((m) => m.info.role === "assistant")
         .flatMap((m) => m.parts.map(createHiddenStepsEntry))
-      const header = resolveHiddenStepsHeader(allEntries, toolIsActive)
+      const header = resolveHiddenStepsHeader(allEntries, cardIsActive)
       const childHasActiveTool = allEntries.some(hiddenStepsEntryIsActive)
 
       return {
         agentName,
+        taskTitle,
         headerLabel: header.label,
         headerIcon: header.icon,
         throttleFileTools: header.throttleFileTools,
         fileName: header.fileName,
         headerVerb: header.verb,
         childHasActiveTool,
+        childSettled,
       }
     }),
   )
+
+  const toolStatus = toolStateToSubagentStatus(input.state.status)
+  const status =
+    childSettled && (toolStatus === "pending" || toolStatus === "running")
+      ? "completed"
+      : toolStatus
+  const cardIsActive = status === "pending" || status === "running"
 
   const displayHeader = useFileToolHeaderDisplay({
     label: headerLabel,
@@ -94,21 +117,20 @@ export function useSubagentCardData(
     throttleFileTools,
     fileName,
     verb: headerVerb,
-    isBusy: toolIsActive,
+    isBusy: cardIsActive,
   })
 
-  const status = toolStateToSubagentStatus(input.state.status)
-
-  const activityLine = toolIsActive && !childHasActiveTool ? undefined : displayHeader.label
+  const activityLine = cardIsActive && !childHasActiveTool ? undefined : displayHeader.label
   const activityIcon = displayHeader.icon
 
   return {
     agentName,
+    taskTitle,
     openChildSession,
     activityLine,
     activityContent: undefined,
     activityIcon,
-    activityActive: toolIsActive,
+    activityActive: cardIsActive,
     status,
   }
 }

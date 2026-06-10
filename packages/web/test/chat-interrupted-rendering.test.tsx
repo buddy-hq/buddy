@@ -165,4 +165,53 @@ describe("interrupted chat rendering", () => {
 
     await waitFor(() => container.textContent?.includes("Final tail.") === true)
   })
+
+  test("settles an ended text part while the surrounding turn is still busy", async () => {
+    const firstText = "Short prefix."
+    const finalText = `${firstText} ${"This response arrived before the task cards settled. ".repeat(30)}Final tail.`
+
+    await act(async () => {
+      seedDirectoryChatState(directory, {
+        sessionID,
+        isReady: true,
+        isBusy: true,
+        sessionStatusByID: {
+          [sessionID]: { type: "busy" },
+        },
+        messages: [
+          createMessageWithParts(
+            createAssistantMessageInfo({
+              id: assistantMessageID,
+              sessionID,
+              time: { created: 1 },
+            }),
+            [
+              {
+                ...interruptedTextPart(firstText),
+                time: {
+                  start: 1,
+                },
+              },
+            ],
+          ),
+        ],
+      })
+      root.render(<ChatTranscript directory={directory} />)
+      await flushEffects()
+    })
+
+    await act(async () => {
+      useChatStore.getState().applyPartUpdated(directory, {
+        ...interruptedTextPart(finalText),
+        time: {
+          start: 1,
+          end: 2,
+        },
+      })
+      await flushEffects()
+    })
+
+    expect(container.textContent).toContain("Final tail.")
+    expect(useChatStore.getState().directories[directory]?.isBusy).toBe(true)
+  })
 })
