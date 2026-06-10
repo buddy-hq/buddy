@@ -12,7 +12,7 @@ const buttonVariants = cva(
         default:
           "bg-button-primary-base text-text-on-button-primary-base hover:bg-button-primary-hover hover:text-text-on-button-primary-hover",
         destructive:
-          "bg-surface-critical-weak text-text-on-critical-weak hover:bg-surface-critical-base hover:text-text-on-critical-base focus-visible:ring-border-critical-base/35",
+          "bg-surface-critical-weak text-text-on-critical-weak shadow-xs hover:bg-surface-critical-base hover:text-text-on-critical-base focus-visible:ring-border-critical-base/35",
         outline:
           "border border-border-base bg-background-base shadow-xs hover:bg-surface-base-hover hover:text-text-strong",
         secondary:
