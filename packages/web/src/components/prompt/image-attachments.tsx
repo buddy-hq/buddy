@@ -83,7 +83,7 @@ function AttachmentItem(props: {
         </span>
       </div>
       {props.unsupported ? (
-        <div className="absolute top-1 left-1 rounded bg-surface-warning-strong px-1 py-0.5 text-[9px] font-medium text-text-on-warning-base">
+        <div className="absolute top-1 left-1 rounded bg-surface-warning-strong px-1 py-0.5 text-[9px] font-medium text-text-on-warning-strong">
           unsupported
         </div>
       ) : null}

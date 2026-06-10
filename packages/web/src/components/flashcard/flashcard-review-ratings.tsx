@@ -13,19 +13,19 @@ const RATINGS: { rating: CardRating; labelKey: string; className: string }[] = [
     rating: "again",
     labelKey: "workspaceFlashcard.ratingAgain",
     className:
-      "border-transparent bg-surface-critical-base text-text-on-critical-base hover:bg-surface-critical-base-hover shadow-sm",
+      "border-transparent bg-surface-critical-base text-text-on-critical-base hover:bg-surface-critical-base-hover hover:text-text-on-critical-strong shadow-sm",
   },
   {
     rating: "hard",
     labelKey: "workspaceFlashcard.ratingHard",
     className:
-      "border-transparent bg-surface-warning-base text-text-on-warning-base hover:bg-surface-warning-base-hover shadow-sm",
+      "border-transparent bg-surface-warning-base text-text-on-warning-base hover:bg-surface-warning-base-hover hover:text-text-on-warning-strong shadow-sm",
   },
   {
     rating: "good",
     labelKey: "workspaceFlashcard.ratingGood",
     className:
-      "border-transparent bg-surface-success-base text-text-on-success-base hover:bg-surface-success-base-hover shadow-sm",
+      "border-transparent bg-surface-success-base text-text-on-success-base hover:bg-surface-success-base-hover hover:text-text-on-success-strong shadow-sm",
   },
   {
     rating: "easy",

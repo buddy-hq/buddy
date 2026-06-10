@@ -550,7 +550,7 @@ export const VersionedTextFileEditor = forwardRef<
       ) : null}
 
       {conflictMessage ? (
-        <div className="rounded-md border border-border-warning-base/50 bg-surface-warning-weak px-3 py-2 text-xs text-text-warning-base">
+        <div className="rounded-md border border-border-warning-base/50 bg-surface-warning-weak px-3 py-2 text-xs text-text-on-warning-weak">
           <div className="flex items-center gap-2">
             <AlertTriangleIcon className="size-4 shrink-0" />
             <p>{conflictMessage}</p>

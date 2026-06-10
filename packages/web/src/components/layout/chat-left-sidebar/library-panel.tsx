@@ -1002,7 +1002,7 @@ function FlashcardDueBadges(props: { dueCounts: FlashcardDueCounts }) {
         </span>
       ) : null}
       {dueCounts.learning > 0 ? (
-        <span className="rounded-sm bg-surface-warning-base/15 px-1.5 py-0.5 text-[11px] font-medium text-icon-warning-base">
+        <span className="rounded-sm bg-surface-warning-base/15 px-1.5 py-0.5 text-[11px] font-medium text-text-on-warning-subtle">
           {language.t("workspaceFlashcard.dueLearning", { count: dueCounts.learning })}
         </span>
       ) : null}

@@ -208,7 +208,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
               <p className="mt-2 text-sm font-medium leading-relaxed text-text-weak">
                 {content.chatGptModal.description}
               </p>
-              <div className="mt-8 flex items-center justify-center gap-3 rounded-full border border-border-success-base/30 bg-surface-success-weak px-4 py-2 text-xs font-semibold text-icon-success-base">
+              <div className="mt-8 flex items-center justify-center gap-3 rounded-full border border-border-success-base/30 bg-surface-success-weak px-4 py-2 text-xs font-semibold text-text-on-success-weak">
                 <PulsingRing />
                 {content.chatGptModal.waitingLabel}
               </div>
@@ -297,7 +297,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.25, ease: EASE_OUT }}
-                        className="inline-flex items-center gap-1 rounded-full border border-border-success-base bg-surface-success-weak px-2.5 py-1 text-[11px] font-medium text-icon-success-base"
+                        className="inline-flex items-center gap-1 rounded-full border border-border-success-base bg-surface-success-weak px-2.5 py-1 text-[11px] font-medium text-text-on-success-weak"
                       >
                         <CheckIcon className="size-3.5" />
                         {content.engineSelection.connected}
