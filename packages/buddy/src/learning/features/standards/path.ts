@@ -212,10 +212,7 @@ function materializationLockPath(cachePath: string) {
   return path.join(path.dirname(cachePath), `${path.basename(cachePath)}.lock`)
 }
 
-function materializedDatabaseIsValid(
-  cachePath: string,
-  manifest: KnowledgeGraphArtifactManifest,
-) {
+function materializedDatabaseIsValid(cachePath: string, manifest: KnowledgeGraphArtifactManifest) {
   const cacheKey = materializedValidationCacheKey(cachePath, manifest)
   try {
     const stats = fs.statSync(cachePath)

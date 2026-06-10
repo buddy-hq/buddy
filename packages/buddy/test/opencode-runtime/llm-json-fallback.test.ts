@@ -10,9 +10,7 @@ describe("structured LLM JSON fallback", () => {
   })
 
   test("preserves braces inside JSON strings while scanning", () => {
-    expect(
-      extractJsonFromText('Result: {"schemaVersion":1,"body":"Use {x} literally."}'),
-    ).toEqual({
+    expect(extractJsonFromText('Result: {"schemaVersion":1,"body":"Use {x} literally."}')).toEqual({
       schemaVersion: 1,
       body: "Use {x} literally.",
     })
@@ -28,12 +26,11 @@ describe("structured LLM JSON fallback", () => {
 
   test("prefers a single JSON markdown code block", () => {
     expect(
-      extractJsonFromText([
-        "Final:",
-        "```json",
-        '{"schemaVersion":1,"patches":[{"title":"right"}]}',
-        "```",
-      ].join("\n")),
+      extractJsonFromText(
+        ["Final:", "```json", '{"schemaVersion":1,"patches":[{"title":"right"}]}', "```"].join(
+          "\n",
+        ),
+      ),
     ).toEqual({
       schemaVersion: 1,
       patches: [{ title: "right" }],

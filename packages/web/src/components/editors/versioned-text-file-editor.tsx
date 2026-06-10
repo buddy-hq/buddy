@@ -111,8 +111,7 @@ export function shouldShowVersionedTextFileSaveRetry(
 ): boolean {
   if (!input.error) return false
   return (
-    input.failedSaveContent !== undefined ||
-    (input.exists && input.content !== input.savedContent)
+    input.failedSaveContent !== undefined || (input.exists && input.content !== input.savedContent)
   )
 }
 
@@ -210,10 +209,7 @@ export const VersionedTextFileEditor = forwardRef<
   }, [version])
 
   useEffect(() => {
-    if (
-      failedSaveContentRef.current !== undefined &&
-      content !== failedSaveContentRef.current
-    ) {
+    if (failedSaveContentRef.current !== undefined && content !== failedSaveContentRef.current) {
       rememberFailedSaveContent(undefined)
     }
   }, [content, rememberFailedSaveContent])

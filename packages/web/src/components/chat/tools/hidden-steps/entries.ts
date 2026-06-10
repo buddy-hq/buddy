@@ -279,7 +279,9 @@ export function getGroupDominantIcon(entries: HiddenStepsEntry[]): ToolIconRende
   return dominant
 }
 
-export function getActiveHiddenStepsEntry(entries: HiddenStepsEntry[]): HiddenStepsEntry | undefined {
+export function getActiveHiddenStepsEntry(
+  entries: HiddenStepsEntry[],
+): HiddenStepsEntry | undefined {
   return entries.toReversed().find(hiddenStepsEntryIsActive)
 }
 
@@ -379,11 +381,7 @@ export function resolveFileToolHeaderTarget(
           })
         : undefined
 
-    if (
-      activeTool === "apply_patch" &&
-      activeEntry.state &&
-      isMultiFilePatch(activeEntry.state)
-    ) {
+    if (activeTool === "apply_patch" && activeEntry.state && isMultiFilePatch(activeEntry.state)) {
       return {
         label: multiFilePatchLabel(activeEntry.state),
         fileName: undefined,
@@ -557,7 +555,11 @@ export function buildHiddenStepsSummary(
       if (existing) {
         existing.count++
       } else {
-        groups.set(key, { count: 1, entry, ...(resolvedSkillName ? { skillName: resolvedSkillName } : {}) })
+        groups.set(key, {
+          count: 1,
+          entry,
+          ...(resolvedSkillName ? { skillName: resolvedSkillName } : {}),
+        })
       }
     }
   }
@@ -576,13 +578,15 @@ export function buildHiddenStepsSummary(
     }
 
     summaryParts.push(
-      ...nonSkillGroups.slice(0, Math.max(0, SUMMARY_CUTOFF - summaryParts.length)).map(({ count, entry }) =>
-        entry.countSummary
-          ? formatCountSummary(entry.countSummary, count)
-          : count === 1
-            ? (entry.info?.title ?? "Tool")
-            : `${entry.info?.title ?? "Tool"} ×${count}`,
-      ),
+      ...nonSkillGroups
+        .slice(0, Math.max(0, SUMMARY_CUTOFF - summaryParts.length))
+        .map(({ count, entry }) =>
+          entry.countSummary
+            ? formatCountSummary(entry.countSummary, count)
+            : count === 1
+              ? (entry.info?.title ?? "Tool")
+              : `${entry.info?.title ?? "Tool"} ×${count}`,
+        ),
     )
 
     const toolSummary = summaryParts.join(" · ")

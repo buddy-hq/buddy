@@ -85,10 +85,7 @@ function editPart(input: {
   }
 }
 
-function reasoningPart(input: {
-  id: string
-  durationMs: number
-}): MessagePart {
+function reasoningPart(input: { id: string; durationMs: number }): MessagePart {
   return {
     id: input.id,
     sessionID: "ses_test",
@@ -141,11 +138,7 @@ function applyPatchPart(input: {
   }
 }
 
-function skillPart(input: {
-  id: string
-  name: string
-  status: ToolState["status"]
-}): MessagePart {
+function skillPart(input: { id: string; name: string; status: ToolState["status"] }): MessagePart {
   return {
     id: input.id,
     sessionID: "ses_test",
@@ -274,9 +267,9 @@ describe("resolveFileToolIcon", () => {
     }
 
     expect(resolveFileToolIcon("read", state, { title: "Read" })).toBe(SKILL_TOOL_ICON)
-    expect(resolveSettledFileToolIcon("read", state, { title: "Read" }, builtInTools.read.icon)).toBe(
-      SKILL_TOOL_ICON,
-    )
+    expect(
+      resolveSettledFileToolIcon("read", state, { title: "Read" }, builtInTools.read.icon),
+    ).toBe(SKILL_TOOL_ICON)
   })
 
   test("returns the skill icon for classified references even without path metadata", () => {
@@ -287,9 +280,9 @@ describe("resolveFileToolIcon", () => {
       attachments: [],
     }
 
-    expect(resolveFileToolIcon("read", state, { title: "Referred", subtitle: "Repositories" })).toBe(
-      SKILL_TOOL_ICON,
-    )
+    expect(
+      resolveFileToolIcon("read", state, { title: "Referred", subtitle: "Repositories" }),
+    ).toBe(SKILL_TOOL_ICON)
   })
 })
 
@@ -371,7 +364,8 @@ describe("resolveHiddenStepsHeader", () => {
     const entries = entriesFromParts([
       readPart({
         id: "read_skill_1",
-        filePath: "/workspace/.agents/skills/react-best-practices/references/textbooks-and-board.md",
+        filePath:
+          "/workspace/.agents/skills/react-best-practices/references/textbooks-and-board.md",
         status: "completed",
         time: { start: 1, end: 2 },
       }),
@@ -392,7 +386,8 @@ describe("resolveHiddenStepsHeader", () => {
     const entries = entriesFromParts([
       readPart({
         id: "read_skill_active",
-        filePath: "/workspace/.agents/skills/react-best-practices/references/textbooks-and-board.md",
+        filePath:
+          "/workspace/.agents/skills/react-best-practices/references/textbooks-and-board.md",
         status: "running",
       }),
     ])
@@ -501,9 +496,7 @@ describe("resolveHiddenStepsHeader", () => {
   })
 
   test("settled reasoning-only group uses panda icon", () => {
-    const entries = entriesFromParts([
-      reasoningPart({ id: "reason_1", durationMs: 2_000 }),
-    ])
+    const entries = entriesFromParts([reasoningPart({ id: "reason_1", durationMs: 2_000 })])
 
     const header = resolveHiddenStepsHeader(entries, false)
     expect(header.label).toBe("Thought for 2s")

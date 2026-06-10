@@ -60,84 +60,80 @@ afterEach(async () => {
 })
 
 describe("opencode config overlay isolation", () => {
-  test(
-    "keeps primary-agent and subagent overlays scoped to the active directory across resets",
-    async () => {
-      await using firstProject = await tmpdir({ git: true })
-      await using secondProject = await tmpdir({ git: true })
+  test("keeps primary-agent and subagent overlays scoped to the active directory across resets", async () => {
+    await using firstProject = await tmpdir({ git: true })
+    await using secondProject = await tmpdir({ git: true })
 
-      writeFileSync(
-        path.join(firstProject.path, "buddy.jsonc"),
-        JSON.stringify(
-          {
-            default_persona: "code-buddy",
-            permission: {
-              [OVERLAY_PERMISSION]: "allow",
-            },
-            agent: {
-              "curriculum-orchestrator": {
-                description: "first project curriculum",
-              },
+    writeFileSync(
+      path.join(firstProject.path, "buddy.jsonc"),
+      JSON.stringify(
+        {
+          default_persona: "code-buddy",
+          permission: {
+            [OVERLAY_PERMISSION]: "allow",
+          },
+          agent: {
+            "curriculum-orchestrator": {
+              description: "first project curriculum",
             },
           },
-          null,
-          2,
-        ) + "\n",
-      )
-      writeFileSync(
-        path.join(secondProject.path, "buddy.jsonc"),
-        JSON.stringify(
-          {
-            default_persona: "buddy",
-            permission: {
-              [OVERLAY_PERMISSION]: "deny",
-            },
-            agent: {
-              "curriculum-orchestrator": {
-                description: "second project curriculum",
-              },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+    writeFileSync(
+      path.join(secondProject.path, "buddy.jsonc"),
+      JSON.stringify(
+        {
+          default_persona: "buddy",
+          permission: {
+            [OVERLAY_PERMISSION]: "deny",
+          },
+          agent: {
+            "curriculum-orchestrator": {
+              description: "second project curriculum",
             },
           },
-          null,
-          2,
-        ) + "\n",
-      )
+        },
+        null,
+        2,
+      ) + "\n",
+    )
 
-      try {
-        await applyProjectOverlay(firstProject.path)
-        await applyProjectOverlay(secondProject.path)
+    try {
+      await applyProjectOverlay(firstProject.path)
+      await applyProjectOverlay(secondProject.path)
 
-        const firstInitial = await readRuntimeAgentState(firstProject.path)
-        const secondInitial = await readRuntimeAgentState(secondProject.path)
+      const firstInitial = await readRuntimeAgentState(firstProject.path)
+      const secondInitial = await readRuntimeAgentState(secondProject.path)
 
-        expect(firstInitial.defaultAgent).toBe("code-buddy")
-        expect(firstInitial.curriculumOrchestrator?.description).toBe("first project curriculum")
-        expect(firstInitial.overlayPermissionAction).toBe("allow")
+      expect(firstInitial.defaultAgent).toBe("code-buddy")
+      expect(firstInitial.curriculumOrchestrator?.description).toBe("first project curriculum")
+      expect(firstInitial.overlayPermissionAction).toBe("allow")
 
-        expect(secondInitial.defaultAgent).toBe("buddy")
-        expect(secondInitial.curriculumOrchestrator?.description).toBe("second project curriculum")
-        expect(secondInitial.overlayPermissionAction).toBe("deny")
+      expect(secondInitial.defaultAgent).toBe("buddy")
+      expect(secondInitial.curriculumOrchestrator?.description).toBe("second project curriculum")
+      expect(secondInitial.overlayPermissionAction).toBe("deny")
 
-        await disposeDirectory(firstProject.path)
-        await disposeDirectory(secondProject.path)
+      await disposeDirectory(firstProject.path)
+      await disposeDirectory(secondProject.path)
 
-        const firstAfterReset = await readRuntimeAgentState(firstProject.path)
-        const secondAfterReset = await readRuntimeAgentState(secondProject.path)
+      const firstAfterReset = await readRuntimeAgentState(firstProject.path)
+      const secondAfterReset = await readRuntimeAgentState(secondProject.path)
 
-        expect(firstAfterReset.defaultAgent).toBe("code-buddy")
-        expect(firstAfterReset.curriculumOrchestrator?.description).toBe("first project curriculum")
-        expect(firstAfterReset.overlayPermissionAction).toBe("allow")
+      expect(firstAfterReset.defaultAgent).toBe("code-buddy")
+      expect(firstAfterReset.curriculumOrchestrator?.description).toBe("first project curriculum")
+      expect(firstAfterReset.overlayPermissionAction).toBe("allow")
 
-        expect(secondAfterReset.defaultAgent).toBe("buddy")
-        expect(secondAfterReset.curriculumOrchestrator?.description).toBe("second project curriculum")
-        expect(secondAfterReset.overlayPermissionAction).toBe("deny")
-      } finally {
-        clearConfigOverlay(firstProject.path)
-        clearConfigOverlay(secondProject.path)
-      }
-    },
-    15_000,
-  )
+      expect(secondAfterReset.defaultAgent).toBe("buddy")
+      expect(secondAfterReset.curriculumOrchestrator?.description).toBe("second project curriculum")
+      expect(secondAfterReset.overlayPermissionAction).toBe("deny")
+    } finally {
+      clearConfigOverlay(firstProject.path)
+      clearConfigOverlay(secondProject.path)
+    }
+  }, 15_000)
 
   test("canonicalizes directory aliases when resolving runtime overlays", async () => {
     await using project = await tmpdir({ git: true })
@@ -252,24 +248,26 @@ describe("opencode config overlay isolation", () => {
     const envName = "BUDDY_OVERLAY_PLUGIN_PROVIDER_KEY"
     const overlayCommandName = "buddy_plugin_config_hook_runtime_overlay_command"
     const previous = process.env[envName]
-    const unregister = registerRuntimePluginFactory(async (): Promise<RuntimeHooks> => ({
-      async config(cfg) {
-        cfg.provider ??= {}
-        cfg.provider[providerID] = {
-          name: "Buddy Overlay Plugin Provider",
-          env: [envName],
-          npm: "@ai-sdk/openai-compatible",
-          api: "https://example.com/v1",
-          models: {
-            [modelID]: {
-              name: "Buddy Overlay Plugin Chat",
-              tool_call: true,
-              limit: { context: 128000, output: 4096 },
+    const unregister = registerRuntimePluginFactory(
+      async (): Promise<RuntimeHooks> => ({
+        async config(cfg) {
+          cfg.provider ??= {}
+          cfg.provider[providerID] = {
+            name: "Buddy Overlay Plugin Provider",
+            env: [envName],
+            npm: "@ai-sdk/openai-compatible",
+            api: "https://example.com/v1",
+            models: {
+              [modelID]: {
+                name: "Buddy Overlay Plugin Chat",
+                tool_call: true,
+                limit: { context: 128000, output: 4096 },
+              },
             },
-          },
-        }
-      },
-    }))
+          }
+        },
+      }),
+    )
 
     try {
       process.env[envName] = "test-key"

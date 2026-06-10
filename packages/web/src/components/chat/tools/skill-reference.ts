@@ -34,13 +34,14 @@ export function resolveSkillReference(filePath: string | undefined): TSkillRefer
 
   const normalizedPath = filePath.replaceAll("\\", "/")
   const segments = normalizedPath.split("/").filter((segment) => segment.length > 0)
-  const skillDirectoryIndex = segments.findLastIndex((segment) => segment.toLowerCase() === "skills")
+  const skillDirectoryIndex = segments.findLastIndex(
+    (segment) => segment.toLowerCase() === "skills",
+  )
   const fileName = basename(normalizedPath)
   const lowerFileName = fileName.toLowerCase()
-  const displaySource =
-    lowerFileName === "skill.md" ? segments.at(-2) ?? fileName : fileName
+  const displaySource = lowerFileName === "skill.md" ? (segments.at(-2) ?? fileName) : fileName
   const rawSkillName =
-    skillDirectoryIndex >= 0 ? segments[skillDirectoryIndex + 1] ?? displaySource : displaySource
+    skillDirectoryIndex >= 0 ? (segments[skillDirectoryIndex + 1] ?? displaySource) : displaySource
 
   return {
     filePath,

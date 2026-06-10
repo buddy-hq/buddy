@@ -116,10 +116,7 @@ async function loadFreshLocalOpenCodeSkills(directory: string): Promise<OpenCode
   }
 
   const resolvedSkillPaths = await resolveOpenCodeSkillPaths(globalConfig, directory)
-  const skillPaths = [
-    ...(runtimeContext.config.skills?.paths ?? []),
-    ...(resolvedSkillPaths ?? []),
-  ]
+  const skillPaths = [...(runtimeContext.config.skills?.paths ?? []), ...(resolvedSkillPaths ?? [])]
 
   for (const skillPath of new Set(skillPaths)) {
     const resolved = expandSkillPath(skillPath, directory)

@@ -106,10 +106,7 @@ function withToolUiOnState(state: ToolState, toolUi: ToolUiMetadata | undefined)
   }
 }
 
-export function withToolUiOnPart<T extends MessageV2.Part>(
-  part: T,
-  directory?: string,
-): T {
+export function withToolUiOnPart<T extends MessageV2.Part>(part: T, directory?: string): T {
   if (part.type !== "tool") return part
 
   const toolUi = toolUiForPart(part, directory)

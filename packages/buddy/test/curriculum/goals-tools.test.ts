@@ -49,8 +49,7 @@ describe("goal tools", () => {
                 actionVerb: "identify",
                 task: "Identify the handler for one desktop bridge request.",
                 cognitiveLevel: "Analysis",
-                howToTest:
-                  "Given one renderer call, use logs to name the handler and payload.",
+                howToTest: "Given one renderer call, use logs to name the handler and payload.",
               },
               {
                 statement:
@@ -58,8 +57,7 @@ describe("goal tools", () => {
                 actionVerb: "write",
                 task: "Write a focused bridge regression test.",
                 cognitiveLevel: "Application",
-                howToTest:
-                  "Given one known bridge bug, write a failing test and verify the fix.",
+                howToTest: "Given one known bridge bug, write a failing test and verify the fix.",
               },
             ],
             rationaleSummary:

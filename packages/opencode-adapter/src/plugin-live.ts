@@ -112,36 +112,34 @@ function markRuntimeHookConfigApplied(hook: RuntimeHooks, config: object) {
   return true
 }
 
-const applyRuntimeConfigHooks = Effect.fn("BuddyPlugin.applyRuntimeConfigHooks")(
-  function* (hooks: RuntimeHooks[]) {
-    if (hooks.length === 0) {
-      return
+const applyRuntimeConfigHooks = Effect.fn("BuddyPlugin.applyRuntimeConfigHooks")(function* (
+  hooks: RuntimeHooks[],
+) {
+  if (hooks.length === 0) {
+    return
+  }
+
+  const config = yield* Effect.tryPromise({
+    try: () => configRuntime.runPromise((svc) => withCurrentInstance(svc.get())),
+    catch: (error) => error,
+  })
+
+  for (const hook of hooks) {
+    const configure = hook.config
+    if (!configure || !markRuntimeHookConfigApplied(hook, config)) {
+      continue
     }
 
-    const config = yield* Effect.tryPromise({
-      try: () => configRuntime.runPromise((svc) => withCurrentInstance(svc.get())),
+    yield* Effect.tryPromise({
+      try: () => configure(config),
       catch: (error) => error,
-    })
-
-    for (const hook of hooks) {
-      const configure = hook.config
-      if (!configure || !markRuntimeHookConfigApplied(hook, config)) {
-        continue
-      }
-
-      yield* Effect.tryPromise({
-        try: () => configure(config),
-        catch: (error) => error,
-      }).pipe(
-        Effect.catch((error) =>
-          Effect.logWarning(RUNTIME_HOOK_CONFIG_FAILURE_MESSAGE).pipe(
-            Effect.annotateLogs({ error }),
-          ),
-        ),
-      )
-    }
-  },
-)
+    }).pipe(
+      Effect.catch((error) =>
+        Effect.logWarning(RUNTIME_HOOK_CONFIG_FAILURE_MESSAGE).pipe(Effect.annotateLogs({ error })),
+      ),
+    )
+  }
+})
 
 async function invokeRuntimeTrigger(
   hook: RuntimeHooks,

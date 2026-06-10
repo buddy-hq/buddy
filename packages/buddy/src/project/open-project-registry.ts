@@ -101,12 +101,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function hasErrorCode(error: unknown, code: string): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === code
-  )
+  return typeof error === "object" && error !== null && "code" in error && error.code === code
 }
 
 function registryStorageError(action: string, error: unknown): OpenProjectRegistryError {
@@ -353,9 +348,7 @@ async function corruptRegistryFilesUnlocked() {
   return (await fs.readdir(Global.Path.state, { withFileTypes: true }).catch(() => []))
     .filter(
       (entry) =>
-        entry.isFile() &&
-        entry.name.startsWith(corruptPrefix) &&
-        entry.name.endsWith(".json"),
+        entry.isFile() && entry.name.startsWith(corruptPrefix) && entry.name.endsWith(".json"),
     )
     .map((entry) => path.join(Global.Path.state, entry.name))
 }

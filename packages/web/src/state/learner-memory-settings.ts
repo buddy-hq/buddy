@@ -367,37 +367,40 @@ export function useGlobalLearnerMemorySettings() {
     setDraft(buildGlobalLearnerMemoryDraft(globalConfigQuery.data))
   }, [globalConfigQuery.data, initialized, patch, saving])
 
-  const save = useCallback(async (options?: AutosaveAttemptOptions) => {
-    if (!patch) {
-      failedPatchKeyRef.current = undefined
-      return true
-    }
-    if (
-      shouldSkipFailedAutosave({
-        key: patchKey,
-        failedKey: failedPatchKeyRef.current,
-        force: options?.force,
-      })
-    ) {
-      return false
-    }
+  const save = useCallback(
+    async (options?: AutosaveAttemptOptions) => {
+      if (!patch) {
+        failedPatchKeyRef.current = undefined
+        return true
+      }
+      if (
+        shouldSkipFailedAutosave({
+          key: patchKey,
+          failedKey: failedPatchKeyRef.current,
+          force: options?.force,
+        })
+      ) {
+        return false
+      }
 
-    setSaving(true)
-    setError(undefined)
+      setSaving(true)
+      setError(undefined)
 
-    try {
-      const updatedGlobal = await patchGlobalConfig(patch)
-      setGlobalConfigQueryData(queryClient, updatedGlobal)
-      failedPatchKeyRef.current = undefined
-      setSaving(false)
-      return true
-    } catch (nextError) {
-      failedPatchKeyRef.current = patchKey
-      setError(stringifyError(nextError))
-      setSaving(false)
-      return false
-    }
-  }, [patch, patchKey, queryClient])
+      try {
+        const updatedGlobal = await patchGlobalConfig(patch)
+        setGlobalConfigQueryData(queryClient, updatedGlobal)
+        failedPatchKeyRef.current = undefined
+        setSaving(false)
+        return true
+      } catch (nextError) {
+        failedPatchKeyRef.current = patchKey
+        setError(stringifyError(nextError))
+        setSaving(false)
+        return false
+      }
+    },
+    [patch, patchKey, queryClient],
+  )
 
   useEffect(() => {
     if (!initialized || !globalConfigQuery.data || saving) {

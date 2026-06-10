@@ -128,70 +128,73 @@ export function useGeneralSettings(input: { cleanupDirectories: string[] }) {
     store.getState().initializeFromBundle(GLOBAL_KEY, bundle)
   }, [bundle, store])
 
-  const save = useCallback(async (options?: AutosaveAttemptOptions) => {
-    if (!activeBundle) {
-      return false
-    }
+  const save = useCallback(
+    async (options?: AutosaveAttemptOptions) => {
+      if (!activeBundle) {
+        return false
+      }
 
-    const current = store.getState()
-    const patches = buildGeneralSettingsPatch({
-      globalConfig: activeBundle.globalConfig,
-      draft: current.draft,
-    })
-
-    if (!patches?.globalPatch) {
-      failedPatchKeyRef.current = undefined
-      return true
-    }
-    const patchKey = createAutosavePayloadKey(patches.globalPatch)
-    if (
-      shouldSkipFailedAutosave({
-        key: patchKey,
-        failedKey: failedPatchKeyRef.current,
-        force: options?.force,
-      })
-    ) {
-      return false
-    }
-
-    store.getState().startSaving()
-
-    try {
-      const updatedGlobal = await patchGlobalConfig(patches.globalPatch)
-      const cleanupResults = await Promise.all(
-        cleanupDirectories.map((directory) =>
-          patchProjectConfig(directory, GENERAL_OVERRIDE_CLEANUP_PATCH)
-            .then(() => undefined)
-            .catch(() => directory),
-        ),
-      )
-      const cleanupFailures = cleanupResults.filter(
-        (directory): directory is string => directory !== undefined,
-      )
-
-      queryClient.setQueryData<GeneralSettingsBundle>(generalSettingsQueryOptions().queryKey, {
-        globalConfig: updatedGlobal,
+      const current = store.getState()
+      const patches = buildGeneralSettingsPatch({
+        globalConfig: activeBundle.globalConfig,
+        draft: current.draft,
       })
 
-      await Promise.all(
-        useChatStore.getState().openProjects.map((openDirectory) =>
-          queryClient.invalidateQueries({
-            queryKey: directoryChatQueryKeys.composerConfig(openDirectory),
-          }),
-        ),
-      )
+      if (!patches?.globalPatch) {
+        failedPatchKeyRef.current = undefined
+        return true
+      }
+      const patchKey = createAutosavePayloadKey(patches.globalPatch)
+      if (
+        shouldSkipFailedAutosave({
+          key: patchKey,
+          failedKey: failedPatchKeyRef.current,
+          force: options?.force,
+        })
+      ) {
+        return false
+      }
 
-      store
-        .getState()
-        .finishSaving(cleanupFailures.length > 0 ? CLEANUP_FAILURE_MESSAGE : undefined)
-      failedPatchKeyRef.current = undefined
-      return cleanupFailures.length === 0
-    } catch (error) {
-      failedPatchKeyRef.current = patchKey
-      store.getState().failSaving(stringifyError(error))
-      return false
-    }
-  }, [activeBundle, cleanupDirectories, queryClient, store])
+      store.getState().startSaving()
+
+      try {
+        const updatedGlobal = await patchGlobalConfig(patches.globalPatch)
+        const cleanupResults = await Promise.all(
+          cleanupDirectories.map((directory) =>
+            patchProjectConfig(directory, GENERAL_OVERRIDE_CLEANUP_PATCH)
+              .then(() => undefined)
+              .catch(() => directory),
+          ),
+        )
+        const cleanupFailures = cleanupResults.filter(
+          (directory): directory is string => directory !== undefined,
+        )
+
+        queryClient.setQueryData<GeneralSettingsBundle>(generalSettingsQueryOptions().queryKey, {
+          globalConfig: updatedGlobal,
+        })
+
+        await Promise.all(
+          useChatStore.getState().openProjects.map((openDirectory) =>
+            queryClient.invalidateQueries({
+              queryKey: directoryChatQueryKeys.composerConfig(openDirectory),
+            }),
+          ),
+        )
+
+        store
+          .getState()
+          .finishSaving(cleanupFailures.length > 0 ? CLEANUP_FAILURE_MESSAGE : undefined)
+        failedPatchKeyRef.current = undefined
+        return cleanupFailures.length === 0
+      } catch (error) {
+        failedPatchKeyRef.current = patchKey
+        store.getState().failSaving(stringifyError(error))
+        return false
+      }
+    },
+    [activeBundle, cleanupDirectories, queryClient, store],
+  )
 
   useEffect(() => {
     if (loading || saving || !activeBundle) {
@@ -282,10 +285,10 @@ export function useGeneralSettings(input: { cleanupDirectories: string[] }) {
       error,
       hasPendingChanges: Boolean(
         activeBundle &&
-          buildGeneralSettingsPatch({
-            globalConfig: activeBundle.globalConfig,
-            draft,
-          })?.globalPatch,
+        buildGeneralSettingsPatch({
+          globalConfig: activeBundle.globalConfig,
+          draft,
+        })?.globalPatch,
       ),
     },
     selection: {

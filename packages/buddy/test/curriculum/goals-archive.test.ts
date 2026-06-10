@@ -57,8 +57,7 @@ describe("learner-store goal archiving", () => {
                 actionVerb: "write",
                 task: "Write a bridge regression test.",
                 cognitiveLevel: "Application",
-                howToTest:
-                  "Given one known bridge bug, write a failing test and verify the fix.",
+                howToTest: "Given one known bridge bug, write a failing test and verify the fix.",
               },
             ],
           },
@@ -96,8 +95,7 @@ describe("learner-store goal archiving", () => {
                 actionVerb: "justify",
                 task: "Justify a bridge boundary.",
                 cognitiveLevel: "Evaluation",
-                howToTest:
-                  "Given one feature split, defend the boundary against one alternative.",
+                howToTest: "Given one feature split, defend the boundary against one alternative.",
               },
             ],
           },

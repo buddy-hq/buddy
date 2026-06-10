@@ -75,10 +75,7 @@ function toolStateText(state: AssistantToolContent["state"]): string | undefined
       return state.input
     case "running":
     case "completed":
-      return [
-        ...state.content.map(toolOutputContentText),
-        jsonText(state.structured),
-      ]
+      return [...state.content.map(toolOutputContentText), jsonText(state.structured)]
         .filter(Boolean)
         .join("\n")
     case "error":
@@ -113,13 +110,7 @@ function userMessageText(message: SessionV2.User): string {
       [agent.name, agent.source?.text].filter(Boolean).join("\n"),
     ),
     ...(message.references ?? []).map((reference) =>
-      [
-        reference.name,
-        reference.kind,
-        reference.uri,
-        reference.target,
-        reference.source?.text,
-      ]
+      [reference.name, reference.kind, reference.uri, reference.target, reference.source?.text]
         .filter(Boolean)
         .join("\n"),
     ),
@@ -129,9 +120,7 @@ function userMessageText(message: SessionV2.User): string {
 }
 
 function assistantMessageText(message: SessionV2.Assistant): string {
-  return message.content
-    .flatMap((content) => assistantContentText(content) ?? [])
-    .join("\n")
+  return message.content.flatMap((content) => assistantContentText(content) ?? []).join("\n")
 }
 
 function messageToolNames(message: SessionV2.Message): string[] {

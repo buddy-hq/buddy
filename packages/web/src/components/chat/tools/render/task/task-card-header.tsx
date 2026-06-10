@@ -99,8 +99,7 @@ export function useSubagentCardData(
 
   const status = toolStateToSubagentStatus(input.state.status)
 
-  const activityLine =
-    toolIsActive && !childHasActiveTool ? undefined : displayHeader.label
+  const activityLine = toolIsActive && !childHasActiveTool ? undefined : displayHeader.label
   const activityIcon = displayHeader.icon
 
   return {

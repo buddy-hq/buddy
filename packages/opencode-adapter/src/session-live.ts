@@ -80,10 +80,7 @@ export function canonicalizeSession(session: OpenCodeSession.Info): OpenCodeSess
   return cloneSession(canonicalizeLiveSession(session))
 }
 
-function mutateCachedSession(
-  sessionID: string,
-  update: (session: OpenCodeSession.Info) => void,
-) {
+function mutateCachedSession(sessionID: string, update: (session: OpenCodeSession.Info) => void) {
   const key = cacheKey(sessionID)
   const session = liveSessions.get(key)
   if (!session) return
@@ -137,11 +134,11 @@ function ensurePatched(service: OpenCodeSession.Interface) {
   const originalChildren = service.children.bind(service)
   const originalRemove = service.remove.bind(service)
 
-  const create: OpenCodeSession.Interface["create"] = Effect.fn("BuddySession.create")(function* (
-    input,
-  ) {
-    return canonicalizeLiveSession(yield* originalCreate(input))
-  })
+  const create: OpenCodeSession.Interface["create"] = Effect.fn("BuddySession.create")(
+    function* (input) {
+      return canonicalizeLiveSession(yield* originalCreate(input))
+    },
+  )
 
   const list: OpenCodeSession.Interface["list"] = Effect.fn("BuddySession.list")(function* (input) {
     return (yield* originalList(input)).map(canonicalizeLiveSession)
@@ -194,12 +191,12 @@ function ensurePatched(service: OpenCodeSession.Interface) {
     },
   )
 
-  const remove: OpenCodeSession.Interface["remove"] = Effect.fn("BuddySession.remove")(function* (
-    sessionID,
-  ) {
-    yield* originalRemove(sessionID)
-    removeCachedSession(sessionID)
-  })
+  const remove: OpenCodeSession.Interface["remove"] = Effect.fn("BuddySession.remove")(
+    function* (sessionID) {
+      yield* originalRemove(sessionID)
+      removeCachedSession(sessionID)
+    },
+  )
 
   Object.defineProperties(service, {
     create: { value: create },

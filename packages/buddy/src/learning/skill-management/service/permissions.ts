@@ -114,7 +114,8 @@ export async function setSkillPermission(pattern: string, action: SkillRuleActio
   const normalizedExistingSkillPermission =
     typeof existingSkillPermission === "string"
       ? {
-          [SKILL_RULE_DEFAULTS.wildcardPattern]: normalizeExistingSkillAction(existingSkillPermission),
+          [SKILL_RULE_DEFAULTS.wildcardPattern]:
+            normalizeExistingSkillAction(existingSkillPermission),
         }
       : Object.fromEntries(
           Object.entries(existingSkillPermission ?? {}).map(([rulePattern, ruleAction]) => [

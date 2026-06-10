@@ -302,11 +302,7 @@ class ChecksumPassThrough extends Transform {
     super()
   }
 
-  override _transform(
-    chunk: Buffer,
-    _encoding: BufferEncoding,
-    callback: TransformCallback,
-  ): void {
+  override _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
     this.hash.update(chunk)
     callback(null, chunk)
   }

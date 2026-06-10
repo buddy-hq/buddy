@@ -19,7 +19,10 @@ export type THeaderDisplayState = {
   icon?: ToolIconRenderer
 }
 
-function buildFileToolLabel(verb: string | undefined, fileName: string | undefined): string | undefined {
+function buildFileToolLabel(
+  verb: string | undefined,
+  fileName: string | undefined,
+): string | undefined {
   if (!verb) return undefined
   return fileName ? `${verb} ${fileName}` : verb
 }

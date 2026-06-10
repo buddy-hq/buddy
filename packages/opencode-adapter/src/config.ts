@@ -65,9 +65,7 @@ function applyRuntimeConfigOverlay(base: RuntimeConfig, overlay: Partial<Runtime
   }
 }
 
-function runtimeConfigOverlayPluginOrigin(
-  spec: ConfigPluginV1.Spec,
-): OpenCodeConfigPlugin.Origin {
+function runtimeConfigOverlayPluginOrigin(spec: ConfigPluginV1.Spec): OpenCodeConfigPlugin.Origin {
   return {
     spec,
     source: BUDDY_RUNTIME_CONFIG_OVERLAY_SOURCE,

@@ -42,9 +42,7 @@ export function resolveFileToolPath(
   if (tool === "apply_patch") {
     const files = Array.isArray(state.metadata.files) ? state.metadata.files.filter(isRecord) : []
     if (files.length !== 1) return undefined
-    return (
-      readNonEmptyString(files[0].relativePath) ?? readNonEmptyString(files[0].filePath)
-    )
+    return readNonEmptyString(files[0].relativePath) ?? readNonEmptyString(files[0].filePath)
   }
 
   return undefined

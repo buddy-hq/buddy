@@ -125,9 +125,7 @@ export const OpenProjectsRoutes = new Hono()
       runRouteTask({
         task: async () =>
           c.json({
-            directories: await restoreOpenProjectRegistryRecovery(
-              c.req.valid("json").directories,
-            ),
+            directories: await restoreOpenProjectRegistryRecovery(c.req.valid("json").directories),
           }),
         mapError: mapOpenProjectRegistryError,
       }),

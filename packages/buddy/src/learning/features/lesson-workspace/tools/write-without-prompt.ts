@@ -39,5 +39,7 @@ export async function executeWriteWithoutPrompt(
   },
 ) {
   const tool = await createWriteToolDefinition()
-  return AppRuntime.runPromise(withCurrentInstance(tool.execute(input, createWriteToolContext(ctx))))
+  return AppRuntime.runPromise(
+    withCurrentInstance(tool.execute(input, createWriteToolContext(ctx))),
+  )
 }

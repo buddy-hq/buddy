@@ -80,10 +80,9 @@ async function runOpenCodeAppEffect<E, R>(effect: Effect.Effect<void, E, R>): Pr
   await result
 }
 
-function sessionPendingToolParts(sessionID: string): Map<
-  string,
-  Omit<PartDelta, "field" | "delta">
-> {
+function sessionPendingToolParts(
+  sessionID: string,
+): Map<string, Omit<PartDelta, "field" | "delta">> {
   const existing = pendingWhiteboardToolParts.get(sessionID)
   if (existing) return existing
 

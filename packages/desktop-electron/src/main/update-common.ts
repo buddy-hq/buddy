@@ -186,7 +186,10 @@ export function parseElectronUpdateManifestVersion(content: string): string {
     const trimmed = line.trim()
     if (!trimmed.startsWith("version:")) continue
 
-    const version = trimmed.slice("version:".length).trim().replace(/^['"]|['"]$/gu, "")
+    const version = trimmed
+      .slice("version:".length)
+      .trim()
+      .replace(/^['"]|['"]$/gu, "")
     if (version.length > 0) {
       return version
     }

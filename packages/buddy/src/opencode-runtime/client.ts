@@ -19,10 +19,7 @@ function openCodeAuthHeaders(): Record<string, string> | undefined {
 
 async function createInProcessClient(directory?: string) {
   const runtimeFetch = (async (request: Request) =>
-    fetchOpenCodeApp(
-      request,
-      readOpenCodeRequestDirectory(request) ?? directory,
-    )) as typeof fetch
+    fetchOpenCodeApp(request, readOpenCodeRequestDirectory(request) ?? directory)) as typeof fetch
   const rawClient = createOpencodeClient({
     baseUrl: "http://localhost:4096",
     ...(directory ? { directory } : {}),

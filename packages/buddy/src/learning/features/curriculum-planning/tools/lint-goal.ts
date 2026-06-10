@@ -69,8 +69,7 @@ function createGoalLintReport(params: GoalLintInput): GoalLintReport {
         field: "actionVerb",
         code: "VAGUE_VERB",
         severity: "error",
-        message:
-          "Replace vague verbs like 'understand' or 'know' with a demonstrable action verb.",
+        message: "Replace vague verbs like 'understand' or 'know' with a demonstrable action verb.",
       })
     }
 

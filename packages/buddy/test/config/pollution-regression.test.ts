@@ -63,19 +63,28 @@ describe("config pollution regression", () => {
       "x-buddy-directory": repo,
     }
 
-    const configProvidersResponse = await app.request(`/api/config/providers?directory=${encodeURIComponent(repo)}`, {
-      headers,
-    })
+    const configProvidersResponse = await app.request(
+      `/api/config/providers?directory=${encodeURIComponent(repo)}`,
+      {
+        headers,
+      },
+    )
     expect(configProvidersResponse.status).toBe(200)
 
-    const providerListResponse = await app.request(`/api/provider?directory=${encodeURIComponent(repo)}`, {
-      headers,
-    })
+    const providerListResponse = await app.request(
+      `/api/provider?directory=${encodeURIComponent(repo)}`,
+      {
+        headers,
+      },
+    )
     expect(providerListResponse.status).toBe(200)
 
-    const commandListResponse = await app.request(`/api/command?directory=${encodeURIComponent(repo)}`, {
-      headers,
-    })
+    const commandListResponse = await app.request(
+      `/api/command?directory=${encodeURIComponent(repo)}`,
+      {
+        headers,
+      },
+    )
     expect(commandListResponse.status).toBe(200)
 
     const mcpStatusResponse = await app.request(`/api/mcp?directory=${encodeURIComponent(repo)}`, {

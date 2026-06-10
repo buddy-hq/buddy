@@ -503,14 +503,15 @@ function buildProgressiveWhiteboardPreviewFromMessages(input: {
 }
 
 function hasActiveWhiteboardCreate(messages: MessageWithParts[]): boolean {
-  return messages.some((message) =>
-    message.info.role === "assistant" &&
-    !isTerminalAssistantMessageInfo(message.info) &&
-    message.parts.some((part) => {
-      if (part.type !== "tool" || part.tool !== "whiteboard_create_view") return false
-      if (!isRecord(part.state)) return false
-      return part.state.status === "pending" || part.state.status === "running"
-    }),
+  return messages.some(
+    (message) =>
+      message.info.role === "assistant" &&
+      !isTerminalAssistantMessageInfo(message.info) &&
+      message.parts.some((part) => {
+        if (part.type !== "tool" || part.tool !== "whiteboard_create_view") return false
+        if (!isRecord(part.state)) return false
+        return part.state.status === "pending" || part.state.status === "running"
+      }),
   )
 }
 

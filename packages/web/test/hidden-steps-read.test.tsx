@@ -185,22 +185,28 @@ function createSkillReferenceReadPart(): MessagePart {
 function FileToolHeaderHarness({ input }: { input: TUseFileToolHeaderDisplayInput }) {
   const displayState = useFileToolHeaderDisplay(input)
   return (
-    <div data-icon={displayState.icon === SKILL_TOOL_ICON ? "skill" : displayState.icon ? "other" : "none"}>
+    <div
+      data-icon={
+        displayState.icon === SKILL_TOOL_ICON ? "skill" : displayState.icon ? "other" : "none"
+      }
+    >
       {displayState.label}
     </div>
   )
 }
 
-function SubagentCardDataHarness({
-  state,
-  directory,
-}: {
-  state: ToolState
-  directory: string
-}) {
+function SubagentCardDataHarness({ state, directory }: { state: ToolState; directory: string }) {
   const displayState = useSubagentCardData({ state, directory })
   return (
-    <div data-icon={displayState.activityIcon === SKILL_TOOL_ICON ? "skill" : displayState.activityIcon ? "other" : "none"}>
+    <div
+      data-icon={
+        displayState.activityIcon === SKILL_TOOL_ICON
+          ? "skill"
+          : displayState.activityIcon
+            ? "other"
+            : "none"
+      }
+    >
       {displayState.activityLine}
     </div>
   )

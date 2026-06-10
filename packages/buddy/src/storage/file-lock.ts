@@ -275,7 +275,10 @@ function acquireFileLockSync(lockPath: string, options?: FileLockOptions): FileL
   }
 }
 
-async function acquireFileLock(lockPath: string, options?: FileLockOptions): Promise<FileLockHandle> {
+async function acquireFileLock(
+  lockPath: string,
+  options?: FileLockOptions,
+): Promise<FileLockHandle> {
   const settings = lockSettings(options)
   const startedAt = Date.now()
   await fsp.mkdir(path.dirname(lockPath), { recursive: true })
@@ -334,10 +337,7 @@ async function refreshFileLock(handle: FileLockHandle): Promise<void> {
   }
 }
 
-function startFileLockHeartbeat(
-  handle: FileLockHandle,
-  settings: FileLockSettings,
-): () => void {
+function startFileLockHeartbeat(handle: FileLockHandle, settings: FileLockSettings): () => void {
   let refreshInProgress = false
   const timer = setInterval(() => {
     if (refreshInProgress) {

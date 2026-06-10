@@ -115,9 +115,7 @@ async function writeLearnerMemory(directory: string, memory: LearnerMemory): Pro
   await ensureLearnerMemoryLayout(directory)
   const parsedMemory = LearnerMemorySchema.parse(memory)
   const registry = await readWorkingMemoryRegistry(directory)
-  const withoutExisting = registry.memories.filter(
-    (candidate) => candidate.id !== parsedMemory.id,
-  )
+  const withoutExisting = registry.memories.filter((candidate) => candidate.id !== parsedMemory.id)
   await writeTextFileAtomic(
     LearnerMemoryPath.workingMemoryFile(directory),
     renderRegistryMarkdown([...withoutExisting, parsedMemory], {

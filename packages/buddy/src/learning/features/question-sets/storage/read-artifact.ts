@@ -106,7 +106,9 @@ async function listQuestionSetArtifacts(directory: string): Promise<QuestionSetA
 
   return {
     artifacts: artifacts.toSorted((left, right) => right.createdAt.localeCompare(left.createdAt)),
-    loadErrors: loadErrors.toSorted((left, right) => left.artifactID.localeCompare(right.artifactID)),
+    loadErrors: loadErrors.toSorted((left, right) =>
+      left.artifactID.localeCompare(right.artifactID),
+    ),
   }
 }
 

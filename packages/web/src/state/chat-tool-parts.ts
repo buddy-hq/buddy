@@ -72,9 +72,7 @@ export function reconcileTerminalAssistantToolParts(messages: MessageWithParts[]
 
     const assistantInfo = message.info
     const terminalAt =
-      typeof assistantInfo.time.completed === "number"
-        ? assistantInfo.time.completed
-        : Date.now()
+      typeof assistantInfo.time.completed === "number" ? assistantInfo.time.completed : Date.now()
     let partsChanged = false
     const nextParts = message.parts.map((part) => {
       const nextPart = reconcileInterruptedToolPart(part, assistantInfo, terminalAt)
