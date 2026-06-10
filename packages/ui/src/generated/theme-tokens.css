@@ -236,6 +236,7 @@
   --color-syntax-warning: var(--syntax-warning);
   --color-text-base: var(--text-base);
   --color-text-critical-base: var(--text-critical-base);
+  --color-text-critical-on-raised: var(--text-critical-on-raised);
   --color-text-critical-strong: var(--text-critical-strong);
   --color-text-diff-add-base: var(--text-diff-add-base);
   --color-text-diff-add-strong: var(--text-diff-add-strong);
@@ -253,6 +254,9 @@
   --color-text-on-brand-weak: var(--text-on-brand-weak);
   --color-text-on-brand-weaker: var(--text-on-brand-weaker);
   --color-text-on-button-primary-base: var(--text-on-button-primary-base);
+  --color-text-on-button-primary-hover: var(--text-on-button-primary-hover);
+  --color-text-on-button-secondary-base: var(--text-on-button-secondary-base);
+  --color-text-on-button-secondary-hover: var(--text-on-button-secondary-hover);
   --color-text-on-critical-base: var(--text-on-critical-base);
   --color-text-on-critical-strong: var(--text-on-critical-strong);
   --color-text-on-critical-weak: var(--text-on-critical-weak);
@@ -266,6 +270,7 @@
   --color-text-on-success-weak: var(--text-on-success-weak);
   --color-text-on-warning-base: var(--text-on-warning-base);
   --color-text-on-warning-strong: var(--text-on-warning-strong);
+  --color-text-on-warning-subtle: var(--text-on-warning-subtle);
   --color-text-on-warning-weak: var(--text-on-warning-weak);
   --color-text-strong: var(--text-strong);
   --color-text-stronger: var(--text-stronger);
