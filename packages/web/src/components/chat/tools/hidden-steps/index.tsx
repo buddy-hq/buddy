@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 
 import { ChevronRightIcon, cn } from "@buddy/ui"
 import { AnimatePresence, motion } from "motion/react"
-import { AlertCircle, Panda, Wrench } from "lucide-react"
+import { AlertCircle, Wrench } from "lucide-react"
 
 import type { MessagePart } from "@/state/chat-types"
 
@@ -11,12 +11,14 @@ import { AssistantPartRenderer } from "../../parts/assistant-part/assistant-part
 import {
   createHiddenStepsEntry,
   getHiddenStepsEntryLabel,
+  HIDDEN_STEPS_REASONING_ICON,
   hiddenStepsEntryHasVisibleError,
   hiddenStepsEntryIsActive,
   hiddenStepsEntryUsesSummaryRow,
   resolveHiddenStepsHeader,
   type HiddenStepsEntry,
 } from "./entries"
+import { useFileToolHeaderDisplay } from "./use-file-tool-header-display"
 import { HiddenStepsSummaryRow } from "./summary-row"
 import { MOTION_SNAPPY } from "../tool-motion"
 import { TextShimmer } from "../text-shimmer"
@@ -30,13 +32,12 @@ import { hasHiddenFileChangeDetails, HiddenFileChangeDetails } from "./file-chan
 
 const DEFAULT_STEPS_TITLE = "Steps"
 
-const REASONING_ICON: ToolIconRenderer = (cls) => <Panda className={cls} />
 const FALLBACK_ICON: ToolIconRenderer = (cls) => <Wrench className={cls} />
 
 const EXPAND_TRANSITION = { duration: 0.35, ease: [0.4, 0, 0.2, 1] } as const
 
 function entryIcon(entry: HiddenStepsEntry): ToolIconRenderer {
-  if (entry.part.type === "reasoning") return REASONING_ICON
+  if (entry.part.type === "reasoning") return HIDDEN_STEPS_REASONING_ICON
   return entry.icon ?? FALLBACK_ICON
 }
 
@@ -83,6 +84,7 @@ function hiddenStepsEntryShellText(entry: HiddenStepsEntry): string | undefined 
 function hiddenStepsEntryHasToolText(entry: HiddenStepsEntry): boolean {
   if (entry.part.type !== "tool") return false
   if (entry.part.tool === "read") return false
+  if (entry.part.tool === "skill") return false
   if (entry.part.tool === "bash") return hiddenStepsEntryHasShellText(entry)
 
   const state = entry.state
@@ -99,6 +101,7 @@ function hiddenStepsEntryHasToolText(entry: HiddenStepsEntry): boolean {
 function hiddenStepsEntryToolText(entry: HiddenStepsEntry): string | undefined {
   if (entry.part.type !== "tool") return undefined
   if (entry.part.tool === "read") return undefined
+  if (entry.part.tool === "skill") return undefined
   if (entry.part.tool === "bash") return hiddenStepsEntryShellText(entry)
   const state = entry.state
   if (!state || isPermissionDenied(state)) return undefined
@@ -116,6 +119,7 @@ function hiddenStepsEntryHasDetails(entry: HiddenStepsEntry): boolean {
   if (entry.part.type === "reasoning") return true
   if (entry.part.type !== "tool") return false
   if (entry.part.tool === "read") return false
+  if (entry.part.tool === "skill") return false
   if (hiddenStepsEntryUsesSummaryRow(entry)) return hiddenStepsEntrySummaryRowHasDetails(entry)
   return Boolean(
     hasHiddenFileChangeDetails(entry) ||
@@ -261,7 +265,7 @@ export function HiddenSteps({
 }: HiddenStepsProps) {
   const [isOpen, setIsOpen] = useState(false)
 
-  const { entries, isActive, hasError, header } = useMemo(() => {
+  const { entries, isActive, hasError, resolvedHeader } = useMemo(() => {
     const entries = parts.map((part) => createHiddenStepsEntry(part))
     const isActive = entries.some(hiddenStepsEntryIsActive)
     const hasError = entries.some(hiddenStepsEntryHasVisibleError)
@@ -269,15 +273,29 @@ export function HiddenSteps({
       entries,
       isActive,
       hasError,
-      header: resolveHiddenStepsHeader(entries, Boolean(isBusy)),
+      resolvedHeader: resolveHiddenStepsHeader(entries, Boolean(isBusy)),
     }
   }, [parts, isBusy])
 
-  const title = header.label ?? DEFAULT_STEPS_TITLE
+  const displayHeader = useFileToolHeaderDisplay({
+    label: resolvedHeader.label,
+    icon: resolvedHeader.icon,
+    throttleFileTools: resolvedHeader.throttleFileTools,
+    fileName: resolvedHeader.fileName,
+    verb: resolvedHeader.verb,
+    isBusy: Boolean(isBusy),
+  })
+
+  const title = displayHeader.label ?? DEFAULT_STEPS_TITLE
   const animateTitle = isActive && Boolean(isBusy)
   const isStreamingOpen = isOpen && animateTitle
   const canOpen = entries.length > 1 || entries.some(hiddenStepsEntryHasDetails)
-  const topIcon: ToolIconRenderer = header.icon ?? REASONING_ICON
+  const hasActiveReasoning = entries.some(
+    (entry) => entry.part.type === "reasoning" && hiddenStepsEntryIsActive(entry),
+  )
+  const topIcon: ToolIconRenderer | undefined = isBusy
+    ? (displayHeader.icon ?? (hasActiveReasoning ? HIDDEN_STEPS_REASONING_ICON : undefined))
+    : displayHeader.icon
 
   const itemProps = {
     directory,
@@ -297,7 +315,7 @@ export function HiddenSteps({
         }}
         className="group flex min-w-0 w-full cursor-default items-center gap-2 text-xs text-text-weaker transition-colors duration-200 hover:text-text-weak active:scale-[0.98]"
       >
-        <span className="shrink-0">{topIcon("h-3.5 w-3.5 shrink-0")}</span>
+        {topIcon ? <span className="shrink-0">{topIcon("h-3.5 w-3.5 shrink-0")}</span> : null}
         <TextShimmer text={title} active={animateTitle} truncate className="min-w-0 shrink" />
         {hasError && !isBusy && !isOpen ? (
           <AlertCircle className="h-3 w-3 shrink-0 text-text-weaker" />
