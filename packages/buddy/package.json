@@ -42,6 +42,7 @@
     "@ai-sdk/anthropic": "2.0.62",
     "@bokuweb/zstd-wasm": "^0.0.27",
     "@buddy/opencode-adapter": "workspace:*",
+    "@buddy/workspace-file-policy": "workspace:*",
     "@chonkiejs/core": "^0.0.8",
     "@hono/standard-validator": "^0.2.2",
     "@opencode-ai/plugin": "workspace:*",

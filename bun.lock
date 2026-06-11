@@ -24,6 +24,7 @@
         "@ai-sdk/anthropic": "2.0.62",
         "@bokuweb/zstd-wasm": "^0.0.27",
         "@buddy/opencode-adapter": "workspace:*",
+        "@buddy/workspace-file-policy": "workspace:*",
         "@chonkiejs/core": "^0.0.8",
         "@hono/standard-validator": "^0.2.2",
         "@opencode-ai/plugin": "workspace:*",
@@ -180,6 +181,7 @@
         "@buddy/opencode-adapter": "workspace:*",
         "@buddy/sdk": "workspace:*",
         "@buddy/ui": "workspace:*",
+        "@buddy/workspace-file-policy": "workspace:*",
         "@excalidraw/excalidraw": "0.18.1",
         "@monaco-editor/react": "^4.7.0",
         "@opencode-ai/sdk": "workspace:*",
@@ -229,6 +231,9 @@
         "typescript": "^5.0.0",
         "vite": "7.1.4",
       },
+    },
+    "packages/workspace-file-policy": {
+      "name": "@buddy/workspace-file-policy",
     },
     "vendor/opencode/packages/app": {
       "name": "@opencode-ai/app",
@@ -1377,6 +1382,8 @@
     "@buddy/ui": ["@buddy/ui@workspace:packages/ui"],
 
     "@buddy/web": ["@buddy/web@workspace:packages/web"],
+
+    "@buddy/workspace-file-policy": ["@buddy/workspace-file-policy@workspace:packages/workspace-file-policy"],
 
     "@bufbuild/protobuf": ["@bufbuild/protobuf@2.12.0", "", {}, "sha512-B/XlCaFIP8LOwzo+bz5uFzATYokcwCKQcghqnlfwSmM5eX/qTkvDBnDPs+gXtX/RyjxJ4DRikECcPJbyALA8FA=="],
 

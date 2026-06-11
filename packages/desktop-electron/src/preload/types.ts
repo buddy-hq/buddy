@@ -60,6 +60,7 @@ export type ElectronAPI = {
     extensions?: string[]
   }) => Promise<string | string[] | null>
   saveFilePicker: (opts?: { title?: string; defaultPath?: string }) => Promise<string | null>
+  exportMarkdownPdf: (input: MarkdownPdfExportInput) => Promise<string | null>
   openLink: (url: string) => void
   openPath: (path: string, app?: string) => Promise<void>
   revealPath: (path: string) => Promise<void>
@@ -86,4 +87,8 @@ export type ElectronAPI = {
   setBackgroundColor: (color: string) => Promise<void>
   getPathForFile: (file: File) => string
   consumeDroppedFilePaths: () => string[]
+}
+export type MarkdownPdfExportInput = {
+  html: string
+  defaultPath: string
 }

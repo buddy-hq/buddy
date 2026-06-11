@@ -128,6 +128,7 @@ const api: ElectronAPI = {
   openDirectoryPicker: (opts) => ipcRenderer.invoke("open-directory-picker", opts),
   openFilePicker: (opts) => ipcRenderer.invoke("open-file-picker", opts),
   saveFilePicker: (opts) => ipcRenderer.invoke("save-file-picker", opts),
+  exportMarkdownPdf: (input) => ipcRenderer.invoke("export-markdown-pdf", input),
   openLink: (url) => ipcRenderer.send("open-link", url),
   openPath: (path, app) => ipcRenderer.invoke("open-path", path, app),
   revealPath: (path) => ipcRenderer.invoke("reveal-path", path),

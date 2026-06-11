@@ -235,6 +235,9 @@ export function createDesktopPlatform(): Platform {
     getFileIcon(path) {
       return window.api.getFileIcon(path)
     },
+    exportMarkdownPdf(input) {
+      return window.api.exportMarkdownPdf(input)
+    },
     getIsFullscreen() {
       return window.api.getIsFullscreen()
     },

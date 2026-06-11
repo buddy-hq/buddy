@@ -28,6 +28,7 @@
     "@buddy/opencode-adapter": "workspace:*",
     "@buddy/sdk": "workspace:*",
     "@buddy/ui": "workspace:*",
+    "@buddy/workspace-file-policy": "workspace:*",
     "@excalidraw/excalidraw": "0.18.1",
     "@monaco-editor/react": "^4.7.0",
     "@opencode-ai/sdk": "workspace:*",
