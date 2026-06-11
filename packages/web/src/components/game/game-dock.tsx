@@ -13,7 +13,7 @@ import { XIcon, Gamepad2Icon, TrophyIcon, MinusIcon } from "lucide-react"
 import { Snake } from "./games/snake"
 import { ReactionTime } from "./games/reaction"
 import { MemoryGame } from "./games/memory"
-import { useGameStore, type GameType } from "@/state/game-store"
+import { useGameStore, type TGameType } from "@/state/game-store"
 
 type GameDockProps = {
   onClose: () => void
@@ -29,14 +29,14 @@ export type GameStatus = {
   extraControls?: React.ReactNode
 }
 
-const GAME_TABS: Array<{ id: GameType; label: string }> = [
+const GAME_TABS: Array<{ id: TGameType; label: string }> = [
   { id: "snake", label: "Snake" },
   { id: "reaction", label: "Reflex" },
   { id: "memory", label: "Pairs" },
 ]
 
 export function GameDock({ onClose, onMinimize, className }: GameDockProps) {
-  const [activeTab, setActiveTab] = useState<GameType>("snake")
+  const [activeTab, setActiveTab] = useState<TGameType>("snake")
   const highScores = useGameStore((state) => state.highScores)
   const [gameStatus, setGameStatus] = useState<GameStatus | null>(null)
 
