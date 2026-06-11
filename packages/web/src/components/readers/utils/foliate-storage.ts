@@ -10,9 +10,6 @@ import {
   FONT_PUBLISHER,
   FONT_SANS,
   FONT_SERIF,
-  APPEARANCE_DARK,
-  APPEARANCE_LIGHT,
-  APPEARANCE_SYSTEM,
   FLOW_PAGINATED,
   FLOW_SCROLLED,
 } from "../foliate-reader-constants"
@@ -72,12 +69,6 @@ function isFoliateReaderFlow(value: unknown): value is FoliateReaderFlow {
   return value === FLOW_PAGINATED || value === FLOW_SCROLLED
 }
 
-function isFoliateReaderAppearanceMode(
-  value: unknown,
-): value is FoliateReaderPreferences["appearanceMode"] {
-  return value === APPEARANCE_SYSTEM || value === APPEARANCE_LIGHT || value === APPEARANCE_DARK
-}
-
 function isFoliateReaderFontPreset(
   value: unknown,
 ): value is FoliateReaderPreferences["fontPreset"] {
@@ -106,7 +97,6 @@ export function loadGlobalPreferences(
 ): FoliateReaderPreferences {
   const parsed = parseJsonObject(safeReadStorage(GLOBAL_PREFERENCES_STORAGE_KEY))
   const flow = parsed?.flow
-  const appearanceMode = parsed?.appearanceMode
   const fontPreset = parsed?.fontPreset
   return {
     themeId:
@@ -114,9 +104,6 @@ export function loadGlobalPreferences(
         ? parsed.themeId
         : defaultTheme,
     flow: isFoliateReaderFlow(flow) ? flow : defaultFlow,
-    appearanceMode: isFoliateReaderAppearanceMode(appearanceMode)
-      ? appearanceMode
-      : APPEARANCE_SYSTEM,
     fontPreset: isFoliateReaderFontPreset(fontPreset) ? fontPreset : FONT_SERIF,
     fontScaleRem:
       typeof parsed?.fontScaleRem === "number"

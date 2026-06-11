@@ -85,7 +85,6 @@ function fontStack(preset: FoliateReaderPreferences["fontPreset"]): string {
 export function buildReaderStyles(
   theme: FoliateReaderThemeDefinition,
   preferences: FoliateReaderPreferences,
-  appearance: "light" | "dark",
 ): [string, string] {
   const family = fontStack(preferences.fontPreset)
   const overrideFont = preferences.fontPreset !== FONT_PUBLISHER
@@ -95,12 +94,12 @@ export function buildReaderStyles(
     @namespace epub "http://www.idpf.org/2007/ops";
 
     :root {
-      color-scheme: ${appearance};
+      color-scheme: ${theme.appearance};
       --buddy-reader-accent: ${theme.contentAccent};
     }
 
     html {
-      color-scheme: ${appearance};
+      color-scheme: ${theme.appearance};
       background: ${theme.contentBackground};
       color: ${theme.contentForeground};
       font-size: ${preferences.fontScaleRem}rem;
@@ -189,7 +188,6 @@ export function applyReaderPreferences(
   view: FoliateView,
   theme: FoliateReaderThemeDefinition,
   preferences: FoliateReaderPreferences,
-  appearance: "light" | "dark",
 ) {
   view.className = VIEW_ELEMENT_CLASS_NAME
 
@@ -200,7 +198,7 @@ export function applyReaderPreferences(
   if (!renderer) return
 
   const resolved = resolveTheme(theme)
-  renderer.setStyles?.(buildReaderStyles(resolved, preferences, appearance))
+  renderer.setStyles?.(buildReaderStyles(resolved, preferences))
   if (preferences.reduceMotion) renderer.removeAttribute("animated")
   else renderer.setAttribute("animated", "")
 

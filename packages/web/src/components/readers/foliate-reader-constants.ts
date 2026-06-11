@@ -11,9 +11,6 @@ export {
   ANNOTATION_STYLE_SQUIGGLY,
   ANNOTATION_STYLE_STRIKETHROUGH,
   ANNOTATION_STYLE_UNDERLINE,
-  APPEARANCE_DARK,
-  APPEARANCE_LIGHT,
-  APPEARANCE_SYSTEM,
   FLOW_PAGINATED,
   FLOW_SCROLLED,
   FONT_PUBLISHER,
@@ -104,6 +101,7 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
   {
     id: "paper",
     label: "Paper",
+    appearance: "light",
     shellClassName:
       "bg-[radial-gradient(circle_at_top,#ffffff_0%,transparent_48%),linear-gradient(180deg,#f6f2ea_0%,#ede5d8_100%)]",
     viewportClassName: "bg-[#efe7db]",
@@ -113,12 +111,12 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentLink: "#2f69b7",
     contentHeading: "#15110c",
     contentAccent: "rgba(84, 146, 232, 0.18)",
-    pdfFilterLight: "none",
-    pdfFilterDark: "invert(1) hue-rotate(180deg) brightness(0.88) contrast(1.04)",
+    pdfFilter: "none",
   },
   {
     id: "sepia",
     label: "Sepia",
+    appearance: "light",
     shellClassName:
       "bg-[radial-gradient(circle_at_top,#f7eedc_0%,transparent_52%),linear-gradient(180deg,#e8dcc3_0%,#d8c7aa_100%)]",
     viewportClassName: "bg-[#e1d3b9]",
@@ -128,12 +126,12 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentLink: "#8a4f24",
     contentHeading: "#2c1c12",
     contentAccent: "rgba(168, 120, 52, 0.18)",
-    pdfFilterLight: "sepia(0.22) saturate(0.92) brightness(0.98)",
-    pdfFilterDark: "invert(0.94) sepia(0.16) brightness(0.88)",
+    pdfFilter: "sepia(0.22) saturate(0.92) brightness(0.98)",
   },
   {
     id: "night",
     label: "Night",
+    appearance: "dark",
     shellClassName:
       "bg-[radial-gradient(circle_at_top,#243347_0%,transparent_44%),linear-gradient(180deg,#111722_0%,#090d14_100%)]",
     viewportClassName: "bg-[#111722]",
@@ -143,12 +141,12 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentLink: "#8fbbff",
     contentHeading: "#f5f8fc",
     contentAccent: "rgba(95, 154, 255, 0.16)",
-    pdfFilterLight: "invert(1) hue-rotate(180deg) brightness(0.88) contrast(1.04)",
-    pdfFilterDark: "none",
+    pdfFilter: "invert(1) hue-rotate(180deg) brightness(0.88) contrast(1.04)",
   },
   {
     id: "mist",
     label: "Mist",
+    appearance: "light",
     shellClassName:
       "bg-[radial-gradient(circle_at_top,#dfeaf2_0%,transparent_50%),linear-gradient(180deg,#d3dfe6_0%,#c0ced7_100%)]",
     viewportClassName: "bg-[#cad8e0]",
@@ -158,12 +156,12 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentLink: "#1d5d84",
     contentHeading: "#102432",
     contentAccent: "rgba(63, 131, 182, 0.18)",
-    pdfFilterLight: "brightness(0.99) saturate(0.96)",
-    pdfFilterDark: "invert(0.98) hue-rotate(180deg) brightness(0.92)",
+    pdfFilter: "brightness(0.99) saturate(0.96)",
   },
   {
     id: "graphite",
     label: "Graphite",
+    appearance: "dark",
     shellClassName:
       "bg-[radial-gradient(circle_at_top,#3b434b_0%,transparent_44%),linear-gradient(180deg,#1d2329_0%,#111417_100%)]",
     viewportClassName: "bg-[#1b2025]",
@@ -173,8 +171,7 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
     contentLink: "#89c0f2",
     contentHeading: "#ffffff",
     contentAccent: "rgba(255,255,255,0.06)",
-    pdfFilterLight: "invert(1) hue-rotate(180deg) brightness(0.9)",
-    pdfFilterDark: "none",
+    pdfFilter: "invert(1) hue-rotate(180deg) brightness(0.9)",
   },
 ]
 
@@ -231,6 +228,8 @@ export const SHORTCUTS: ReaderShortcut[] = [
   { keys: "Ctrl/Cmd + F", label: "Open search" },
   { keys: "Ctrl/Cmd + L", label: "Open location and landmarks" },
   { keys: "Ctrl/Cmd + D", label: "Toggle bookmark at current location" },
+  { keys: "Left / Right", label: "Turn pages in paginated and fixed-layout views" },
+  { keys: "Up / Down", label: "Move through the current section in section scroll" },
   { keys: "Alt + Left", label: "History back" },
   { keys: "Alt + Right", label: "History forward" },
   { keys: "Ctrl/Cmd + ,", label: "Open reader preferences" },

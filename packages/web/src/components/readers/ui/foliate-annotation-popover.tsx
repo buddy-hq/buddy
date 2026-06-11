@@ -1,4 +1,3 @@
-import { createPortal } from "react-dom"
 import { PencilLineIcon, XIcon } from "lucide-react"
 import type { ReaderAnnotationPopoverState, ReaderAnnotation } from "../foliate-reader-types"
 import { getAnnotationAtValue } from "../utils/foliate-helpers"
@@ -17,14 +16,13 @@ export function FoliateAnnotationPopover({
   onDeleteAnnotation,
 }: FoliateAnnotationPopoverProps) {
   if (!popover) return null
-  if (typeof document === "undefined") return null
 
   const { value, x, y } = popover
   const annotation = getAnnotationAtValue(annotations, value)
 
-  return createPortal(
+  return (
     <div
-      className="fixed z-20 -translate-x-1/2 -translate-y-full pb-1.5"
+      className="absolute z-30 -translate-x-1/2 -translate-y-full pb-1.5"
       style={{ left: `${x}px`, top: `${y}px` }}
     >
       <div className="flex items-center gap-0 overflow-hidden border border-border-base/60 bg-surface-raised-base/98 shadow-lg backdrop-blur-sm">
@@ -49,7 +47,6 @@ export function FoliateAnnotationPopover({
       <div className="flex justify-center">
         <div className="size-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-border-base/60" />
       </div>
-    </div>,
-    document.body,
+    </div>
   )
 }

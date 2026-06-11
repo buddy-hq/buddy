@@ -14,12 +14,12 @@ import {
 import { addNoteMarker, drawHighlight, drawLinearMark } from "./foliate-drawing"
 
 export const PDF_VIEW_MODE_FIT = "fit" as const
-export const PDF_VIEW_MODE_SCROLL = "scroll" as const
+export const PDF_VIEW_MODE_FIT_WIDTH = "fit-width" as const
 export const PDF_VIEW_MODE_SPREAD = "spread" as const
 
 export type FoliatePdfViewMode =
   | typeof PDF_VIEW_MODE_FIT
-  | typeof PDF_VIEW_MODE_SCROLL
+  | typeof PDF_VIEW_MODE_FIT_WIDTH
   | typeof PDF_VIEW_MODE_SPREAD
 
 const PDF_SINGLE_PAGE_SPREAD = "none"
@@ -235,7 +235,7 @@ async function resolvePdfTarget(view: FoliateView, target: FoliateNavigationTarg
 }
 
 function getPdfViewModeConfig(mode: FoliatePdfViewMode): { spread: string; zoom: string } {
-  if (mode === PDF_VIEW_MODE_SCROLL) {
+  if (mode === PDF_VIEW_MODE_FIT_WIDTH) {
     return {
       spread: PDF_SINGLE_PAGE_SPREAD,
       zoom: PDF_ZOOM_FIT_WIDTH,

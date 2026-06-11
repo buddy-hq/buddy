@@ -37,19 +37,6 @@ export type FoliateReaderSidebarTab =
   | typeof SIDEBAR_PREFERENCES
 
 // ============================================================
-// Appearance Types
-// ============================================================
-
-export const APPEARANCE_SYSTEM = "system" as const
-export const APPEARANCE_LIGHT = "light" as const
-export const APPEARANCE_DARK = "dark" as const
-
-export type FoliateReaderAppearanceMode =
-  | typeof APPEARANCE_SYSTEM
-  | typeof APPEARANCE_LIGHT
-  | typeof APPEARANCE_DARK
-
-// ============================================================
 // Search Scope Types
 // ============================================================
 
@@ -92,6 +79,7 @@ export type FoliateReaderThemeId = "paper" | "sepia" | "night" | "mist" | "graph
 export interface FoliateReaderThemeDefinition {
   id: FoliateReaderThemeId
   label: string
+  appearance: "light" | "dark"
   shellClassName: string
   viewportClassName: string
   contentBackground: string
@@ -100,8 +88,7 @@ export interface FoliateReaderThemeDefinition {
   contentLink: string
   contentHeading: string
   contentAccent: string
-  pdfFilterLight: string
-  pdfFilterDark: string
+  pdfFilter: string
 }
 
 // ============================================================
@@ -226,7 +213,6 @@ export interface FoliateReaderProps {
 export interface FoliateReaderPreferences {
   themeId: FoliateReaderThemeId
   flow: FoliateReaderFlow
-  appearanceMode: FoliateReaderAppearanceMode
   fontPreset: FoliateReaderFontPreset
   fontScaleRem: number
   lineHeight: number

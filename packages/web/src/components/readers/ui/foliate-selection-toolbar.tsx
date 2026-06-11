@@ -1,5 +1,4 @@
 import type { ReactNode } from "react"
-import { createPortal } from "react-dom"
 import { CopyIcon, HighlighterIcon, PencilLineIcon, SearchIcon, XIcon } from "lucide-react"
 import type { ReaderSelectionToolbarState } from "../foliate-reader-types"
 
@@ -21,13 +20,12 @@ export function FoliateSelectionToolbar({
   onClose,
 }: FoliateSelectionToolbarProps) {
   if (!selectionAction) return null
-  if (typeof document === "undefined") return null
 
   const { text, x, y } = selectionAction
 
-  return createPortal(
+  return (
     <div
-      className="fixed z-50 -translate-x-1/2 -translate-y-full pb-2"
+      className="absolute z-40 -translate-x-1/2 -translate-y-full pb-2"
       style={{ left: `${x}px`, top: `${y}px` }}
     >
       <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-150 origin-bottom">
@@ -73,8 +71,7 @@ export function FoliateSelectionToolbar({
         {/* Caret */}
         <div className="h-0 w-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-border-base/60" />
       </div>
-    </div>,
-    document.body,
+    </div>
   )
 }
 

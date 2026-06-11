@@ -62,7 +62,6 @@ function onShowAnnotation() {}
 export function useFoliateBook(
   options: UseFoliateBookOptions,
   preferencesRef: React.MutableRefObject<any>,
-  effectiveAppearanceRef: React.MutableRefObject<"light" | "dark">,
   callbacksRef: React.MutableRefObject<{
     onReady?: (snapshot: FoliateReaderSnapshot) => void
     onLocationChange?: (location: FoliateReaderLocation) => void
@@ -73,7 +72,6 @@ export function useFoliateBook(
     view: FoliateView,
     theme: any,
     preferences: any,
-    appearance: "light" | "dark",
   ) => void,
   getThemeDefinition: (themeId: string) => any,
   drawAnnotation: (event: CustomEvent<FoliateDrawAnnotationEventDetail>) => void,
@@ -266,12 +264,7 @@ export function useFoliateBook(
         const persisted = loadBookState(nextBookKey)
 
         const themeDefinition = getThemeDefinition(preferencesRef.current.themeId)
-        applyReaderPreferences(
-          view,
-          themeDefinition,
-          preferencesRef.current,
-          effectiveAppearanceRef.current,
-        )
+        applyReaderPreferences(view, themeDefinition, preferencesRef.current)
         const coverUrlPromise = resolveCoverUrl(view.book)
 
         await view.init({
@@ -348,7 +341,6 @@ export function useFoliateBook(
     applyReaderPreferences,
     callbacksRef,
     drawAnnotation,
-    effectiveAppearanceRef,
     getOverlayPosition,
     getThemeDefinition,
     handleShortcut,

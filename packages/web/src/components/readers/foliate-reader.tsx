@@ -9,7 +9,6 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react"
-import { useHotkey } from "@tanstack/react-hotkeys"
 import {
   Button,
   DropdownMenu,
@@ -59,7 +58,6 @@ import type {
   View as FoliateView,
 } from "foliate-js/view.js"
 import type {
-  FoliateReaderAppearanceMode,
   FoliateReaderAnnotationStyle,
   FoliateReaderFlow,
   FoliateReaderFontPreset,
@@ -83,8 +81,6 @@ import type {
 } from "./foliate-reader-types"
 import {
   ANNOTATION_STYLE_HIGHLIGHT,
-  APPEARANCE_DARK,
-  APPEARANCE_LIGHT,
   DEFAULT_ANNOTATION_COLOR_ID,
   DEFAULT_AUTHOR,
   DEFAULT_PROGRESS_STEPS,
@@ -130,7 +126,7 @@ import {
   configurePdfFixedLayoutView,
   deletePdfAnnotation,
   PDF_VIEW_MODE_FIT,
-  PDF_VIEW_MODE_SCROLL,
+  PDF_VIEW_MODE_FIT_WIDTH,
   PDF_VIEW_MODE_SPREAD,
   preparePdfDocument,
   registerPdfPageOverlay,
@@ -147,6 +143,12 @@ import {
   saveGlobalPreferences,
 } from "./utils/foliate-storage"
 import { applyReaderPreferences, getThemeDefinition } from "./utils/foliate-themes"
+import {
+  READER_NAVIGATION_GO_LEFT,
+  READER_NAVIGATION_GO_RIGHT,
+  READER_NAVIGATION_NEXT,
+  resolveReaderArrowNavigation,
+} from "./utils/foliate-navigation"
 import { drawAnnotation, toAnnotationDialogState } from "./utils/foliate-drawing"
 import { formatContributor, formatMetadataValue } from "./utils/foliate-formatters"
 // Components already imported above
@@ -159,7 +161,6 @@ function createSelectionKey() {
 }
 
 export type {
-  FoliateReaderAppearanceMode,
   FoliateReaderAnnotationStyle,
   FoliateReaderFlow,
   FoliateReaderFontPreset,
@@ -202,6 +203,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     ref,
   ) {
     const rootRef = useRef<HTMLElement | null>(null)
+    const readerSurfaceRef = useRef<HTMLDivElement | null>(null)
     const viewportRef = useRef<HTMLDivElement | null>(null)
     const viewRef = useRef<FoliateView | null>(null)
     const coverUrlRef = useRef<string | undefined>(undefined)
@@ -210,6 +212,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const searchGeneratorRef = useRef<AsyncGenerator<FoliateSearchResult> | null>(null)
     const searchRunIdRef = useRef(0)
     const selectionActionRef = useRef<ReaderSelectionAction | null>(null)
+    const stagedSelectionKeyRef = useRef<string | null>(null)
     const callbacksRef = useRef({
       onReady,
       onLocationChange,
@@ -222,7 +225,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const [preferences, setPreferences] = useState(() =>
       loadGlobalPreferences(defaultTheme, defaultFlow),
     )
-    const [effectiveAppearance, setEffectiveAppearance] = useState<"light" | "dark">("light")
     const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle")
     const [snapshot, setSnapshot] = useState<FoliateReaderSnapshot | null>(null)
     const [location, setLocation] = useState<FoliateReaderLocation>({})
@@ -257,7 +259,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const [pdfViewMode, setPdfViewMode] = useState<FoliatePdfViewMode>(PDF_VIEW_MODE_FIT)
 
     const preferencesRef = useRef(preferences)
-    const effectiveAppearanceRef = useRef(effectiveAppearance)
     const annotationsRef = useRef(annotations)
     const bookmarksRef = useRef(bookmarks)
     const searchStateRef = useRef(searchState)
@@ -294,6 +295,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const theme = getThemeDefinition(preferences.themeId)
     const canChangeFlow = snapshot ? !snapshot.isFixedLayout : false
     const canChangePdfView = sourceIsPdf && (snapshot?.isFixedLayout ?? false)
+    const showPageTurnControls =
+      status === "ready" &&
+      snapshot !== null &&
+      (snapshot.isFixedLayout || preferences.flow === FLOW_PAGINATED)
     const currentBookmark = useMemo(
       () => getBookmarkAtLocation(bookmarks, location.cfi),
       [bookmarks, location.cfi],
@@ -311,7 +316,6 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       onAnnotationsChange,
     }
     preferencesRef.current = preferences
-    effectiveAppearanceRef.current = effectiveAppearance
     annotationsRef.current = annotations
     bookmarksRef.current = bookmarks
     searchStateRef.current = searchState
@@ -355,14 +359,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         const view = viewRef.current
         if (!view) return
         const nextTheme = getThemeDefinition(preferencesRef.current.themeId)
-        applyReaderPreferences(
-          view,
-          nextTheme,
-          preferencesRef.current,
-          effectiveAppearanceRef.current,
-        )
+        applyReaderPreferences(view, nextTheme, preferencesRef.current)
         if (sourceIsPdf && view.isFixedLayout) syncPdfFixedLayoutView(view, pdfViewMode)
         syncMarginals(view, snapshotRef.current, locationRef.current)
+        clearPositionedOverlays()
       }
 
       syncRendererPreferences()
@@ -377,31 +377,13 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     }, [pdfViewMode, sourceIsPdf])
 
     useEffect(() => {
-      if (preferences.appearanceMode === APPEARANCE_LIGHT) {
-        setEffectiveAppearance("light")
-        return
-      }
-      if (preferences.appearanceMode === APPEARANCE_DARK) {
-        setEffectiveAppearance("dark")
-        return
-      }
-      const media = window.matchMedia("(prefers-color-scheme: dark)")
-      const apply = () => {
-        setEffectiveAppearance(media.matches ? "dark" : "light")
-      }
-      apply()
-      media.addEventListener("change", apply)
-      return () => media.removeEventListener("change", apply)
-    }, [preferences.appearanceMode])
-
-    useEffect(() => {
       saveGlobalPreferences(preferences)
       const view = viewRef.current
       if (!view) return
-      applyReaderPreferences(view, theme, preferences, effectiveAppearance)
+      applyReaderPreferences(view, theme, preferences)
       if (sourceIsPdf && view.isFixedLayout) syncPdfFixedLayoutView(view, pdfViewMode)
       syncMarginals(view, snapshotRef.current, locationRef.current)
-    }, [effectiveAppearance, pdfViewMode, preferences, sourceIsPdf, theme])
+    }, [pdfViewMode, preferences, sourceIsPdf, theme])
 
     useEffect(() => {
       if (!bookKey) return
@@ -422,47 +404,21 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         if (generator) {
           void generator.return?.(undefined)
         }
+        removeCurrentChatSelection()
       }
     }, [])
 
-    useHotkey(
-      "ArrowLeft",
-      () => {
-        void viewRef.current?.prev()
-      },
-      { enabled: preferences.flow === FLOW_PAGINATED },
-    )
-
-    useHotkey(
-      "ArrowRight",
-      () => {
-        void viewRef.current?.next()
-      },
-      { enabled: preferences.flow === FLOW_PAGINATED },
-    )
-
-    useHotkey(
-      "ArrowUp",
-      () => {
-        void viewRef.current?.prev()
-      },
-      { enabled: preferences.flow === FLOW_SCROLLED },
-    )
-
-    useHotkey(
-      "ArrowDown",
-      () => {
-        void viewRef.current?.next()
-      },
-      { enabled: preferences.flow === FLOW_SCROLLED },
-    )
-
     function resetTransientUi() {
+      clearPositionedOverlays()
+      setAnnotationDialog(null)
+      setProgressDraft(null)
+    }
+
+    function clearPositionedOverlays() {
+      removeCurrentChatSelection()
       selectionActionRef.current = null
       setSelectionToolbar(null)
       setAnnotationPopover(null)
-      setAnnotationDialog(null)
-      setProgressDraft(null)
     }
 
     async function changePdfViewMode(nextMode: FoliatePdfViewMode) {
@@ -619,7 +575,9 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       if (!action.text.trim()) {
         return
       }
+      removeCurrentChatSelection()
       selectionActionRef.current = action
+      stagedSelectionKeyRef.current = action.selectionKey
       setAnnotationPopover(null)
       setSelectionToolbar({
         text: action.text,
@@ -642,8 +600,9 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     }
 
     function removeCurrentChatSelection() {
-      const selectionKey = selectionActionRef.current?.selectionKey
+      const selectionKey = stagedSelectionKeyRef.current
       if (!selectionKey) return
+      stagedSelectionKeyRef.current = null
       callbacksRef.current.onChatSelectionRemoved?.(selectionKey)
     }
 
@@ -657,9 +616,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     }
 
     function openAnnotationPopover(value: string, range: Range) {
-      const container = rootRef.current
+      const container = readerSurfaceRef.current
       if (!container) return
       const position = getOverlayPosition(range, container)
+      removeCurrentChatSelection()
       selectionActionRef.current = null
       setSelectionToolbar(null)
       setAnnotationPopover({
@@ -688,6 +648,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     }
 
     function dismissSelectionToolbar(clearSelection: boolean) {
+      removeCurrentChatSelection()
       if (clearSelection) {
         selectionActionRef.current = null
         viewRef.current?.deselect()
@@ -856,6 +817,24 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       setLocationDialogOpen(false)
     }
 
+    function runNavigationCommand(command: ReturnType<typeof resolveReaderArrowNavigation>) {
+      const view = viewRef.current
+      if (!view || !command) return
+      if (command === READER_NAVIGATION_GO_LEFT) {
+        void view.goLeft()
+        return
+      }
+      if (command === READER_NAVIGATION_GO_RIGHT) {
+        void view.goRight()
+        return
+      }
+      if (command === READER_NAVIGATION_NEXT) {
+        void view.next()
+        return
+      }
+      void view.prev()
+    }
+
     function handleShortcut(event: KeyboardEvent | ReactKeyboardEvent<HTMLElement>) {
       if (isEditingTarget(event.target)) return
       const key = event.key
@@ -889,27 +868,27 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         viewRef.current?.history.forward()
         return
       }
+      const navigationCommand = resolveReaderArrowNavigation({
+        flow: preferencesRef.current.flow,
+        isFixedLayout: snapshotRef.current?.isFixedLayout ?? false,
+        key,
+      })
+      if (navigationCommand) {
+        event.preventDefault()
+        runNavigationCommand(navigationCommand)
+        return
+      }
       if (key === "?" || (event.shiftKey && key === "/")) {
         event.preventDefault()
         setHelpOpen(true)
         return
       }
       if (key === "Escape") {
-        setSelectionToolbar(null)
-        setAnnotationPopover(null)
+        clearPositionedOverlays()
         setLocationDialogOpen(false)
         if (annotationDialogRef.current) setAnnotationDialog(null)
       }
     }
-
-    useEffect(() => {
-      const root = rootRef.current
-      if (!root) return
-
-      const listener = (event: KeyboardEvent) => handleShortcut(event)
-      root.addEventListener("keydown", listener)
-      return () => root.removeEventListener("keydown", listener)
-    }, [])
 
     useEffect(() => {
       const host = viewportRef.current
@@ -959,6 +938,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           host.append(view)
 
           const relocateListener = (event: CustomEvent<FoliateRelocationDetail>) => {
+            clearPositionedOverlays()
             const nextLocation = buildLocationState(event.detail)
             locationRef.current = nextLocation
             startTransition(() => setLocation(nextLocation))
@@ -991,6 +971,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           const loadListener = (event: CustomEvent<{ doc: Document; index: number }>) => {
             const isPdfDocument = sourceIsPdf && view.isFixedLayout
             event.detail.doc.addEventListener("pointerdown", () => {
+              clearPositionedOverlays()
               // Dispatch a pointerdown event on the main document to trigger dismissal
               // of popovers and other floating UI that listen for outside interactions.
               document.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))
@@ -1002,7 +983,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
               const readSelection = () => {
                 const selection = event.detail.doc.getSelection()
                 const range = readSelectedRange(selection)
-                const container = rootRef.current
+                const container = readerSurfaceRef.current
                 if (!range || !container) {
                   resetTransientUi()
                   return
@@ -1066,12 +1047,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           const persisted = loadBookState(nextBookKey)
 
           const themeDefinition = getThemeDefinition(preferencesRef.current.themeId)
-          applyReaderPreferences(
-            view,
-            themeDefinition,
-            preferencesRef.current,
-            effectiveAppearanceRef.current,
-          )
+          applyReaderPreferences(view, themeDefinition, preferencesRef.current)
           const coverUrlPromise = resolveCoverUrl(view.book)
 
           const requestedLastLocation = stableInitialLocation ?? persisted.lastLocation
@@ -1172,7 +1148,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
     const progressValue =
       progressDraft ?? Math.round((location.fraction ?? 0) * DEFAULT_PROGRESS_STEPS)
     const chromeClassName =
-      effectiveAppearance === "dark"
+      theme.appearance === "dark"
         ? "bg-surface-strong text-text-strong"
         : "bg-surface-raised-base text-text-base"
 
@@ -1304,16 +1280,16 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                         Fit page
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        onClick={() => void changePdfViewMode(PDF_VIEW_MODE_SCROLL)}
+                        onClick={() => void changePdfViewMode(PDF_VIEW_MODE_FIT_WIDTH)}
                       >
                         <CheckIcon
                           className={cn(
                             "mr-2 size-4",
-                            pdfViewMode === PDF_VIEW_MODE_SCROLL ? "opacity-100" : "opacity-0",
+                            pdfViewMode === PDF_VIEW_MODE_FIT_WIDTH ? "opacity-100" : "opacity-0",
                           )}
                         />
                         <ScrollTextIcon className="mr-2 size-4" />
-                        Scroll page
+                        Fit width
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => void changePdfViewMode(PDF_VIEW_MODE_SPREAD)}
@@ -1341,7 +1317,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                         onClick={() => setPreferences((c) => ({ ...c, flow: FLOW_SCROLLED }))}
                       >
                         <ScrollTextIcon className="mr-2 size-4" />
-                        Vertical scroll
+                        Section scroll
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                     </>
@@ -1356,7 +1332,10 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           </header>
         ) : null}
 
-        <div className={cn("relative min-h-0 min-w-0 w-full flex-1", theme.viewportClassName)}>
+        <div
+          ref={readerSurfaceRef}
+          className={cn("relative min-h-0 min-w-0 w-full flex-1", theme.viewportClassName)}
+        >
           {status === "loading" ? (
             <div className="absolute inset-x-3 top-3 z-10 sm:inset-x-4 sm:top-4">
               <div className="inline-flex items-center gap-1.5 border border-border-base/50 bg-surface-raised-base/90 px-2.5 py-1 text-[11px] text-text-weaker shadow-sm backdrop-blur">
@@ -1380,6 +1359,35 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
               status === "idle" || status === "error" ? "hidden" : "block",
             )}
           />
+
+          {showPageTurnControls ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Previous page"
+                onClick={() => {
+                  void viewRef.current?.goLeft()
+                }}
+                className="absolute left-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-surface-raised-base/80 text-text-weak opacity-70 shadow-sm backdrop-blur-sm transition-[opacity,transform] duration-150 hover:opacity-100 active:scale-95"
+              >
+                <ChevronLeftIcon />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Next page"
+                onClick={() => {
+                  void viewRef.current?.goRight()
+                }}
+                className="absolute right-2 top-1/2 z-20 -translate-y-1/2 rounded-full bg-surface-raised-base/80 text-text-weak opacity-70 shadow-sm backdrop-blur-sm transition-[opacity,transform] duration-150 hover:opacity-100 active:scale-95"
+              >
+                <ChevronRightIcon />
+              </Button>
+            </>
+          ) : null}
 
           <FoliateSelectionToolbar
             selectionAction={selectionToolbar}
@@ -1428,7 +1436,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
               removeCurrentChatSelection()
               openSearchWithQuery(query)
             }}
-            onClose={() => setSelectionToolbar(null)}
+            onClose={() => dismissSelectionToolbar(true)}
           />
 
           <FoliateAnnotationPopover
@@ -1448,18 +1456,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  aria-label="Previous page"
-                  onClick={() => {
-                    void viewRef.current?.goLeft()
-                  }}
-                  className="size-7 text-text-weaker hover:text-text-base border-none"
-                >
-                  <ChevronLeftIcon className="size-3.5" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
+                  aria-label="Go back in reading history"
                   onClick={() => viewRef.current?.history.back()}
                   disabled={!historyState.canGoBack}
                   className="size-7 text-text-weaker hover:text-text-base border-none"
@@ -1490,23 +1487,12 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
                   type="button"
                   variant="ghost"
                   size="icon-xs"
+                  aria-label="Go forward in reading history"
                   onClick={() => viewRef.current?.history.forward()}
                   disabled={!historyState.canGoForward}
                   className="size-7 text-text-weaker hover:text-text-base border-none"
                 >
                   <Redo2Icon className="size-3" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label="Next page"
-                  onClick={() => {
-                    void viewRef.current?.goRight()
-                  }}
-                  className="size-7 text-text-weaker hover:text-text-base border-none"
-                >
-                  <ChevronRightIcon className="size-3.5" />
                 </Button>
               </div>
             </div>
@@ -1542,7 +1528,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
         tabIndex={0}
         data-component="foliate-reader"
         data-theme={theme.id}
-        data-appearance={effectiveAppearance}
+        data-appearance={theme.appearance}
         onKeyDown={handleShortcut}
         className={cn(
           "h-full w-full min-h-0 overflow-hidden shadow-[0_8px_32px_color-mix(in_oklab,var(--surface-strong)_12%,transparent)]",
@@ -1564,7 +1550,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
           }
 
           .${VIEWPORT_CLASS_NAME} > .${VIEW_ELEMENT_CLASS_NAME}::part(filter) {
-            filter: ${effectiveAppearance === "dark" ? theme.pdfFilterDark : theme.pdfFilterLight};
+            filter: ${theme.pdfFilter};
           }
 
           /* Custom scrollbar to match theme */

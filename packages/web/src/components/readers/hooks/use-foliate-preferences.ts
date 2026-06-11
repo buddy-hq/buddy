@@ -5,7 +5,7 @@ import type {
   FoliateReaderFlow,
   FoliateReaderSidebarTab,
 } from "../foliate-reader-types"
-import { APPEARANCE_DARK, APPEARANCE_LIGHT, FLOW_PAGINATED } from "../foliate-reader-constants"
+import { FLOW_PAGINATED } from "../foliate-reader-constants"
 import { loadGlobalPreferences, saveGlobalPreferences } from "../utils/foliate-storage"
 import { syncMarginals } from "../utils/foliate-helpers"
 import { applyReaderPreferences, getThemeDefinition } from "../utils/foliate-themes"
@@ -44,45 +44,20 @@ export function useFoliatePreferences(
   const [preferences, setPreferences] = useState(() =>
     loadGlobalPreferences(defaultTheme, defaultFlow),
   )
-  const [effectiveAppearance, setEffectiveAppearance] = useState<"light" | "dark">("light")
   const [sidebarTab, setSidebarTab] = useState<FoliateReaderSidebarTab>(defaultSidebarTab)
   const [sidebarOpen, setSidebarOpen] = useState(showSidebar)
 
   const preferencesRef = useRef(preferences)
-  const effectiveAppearanceRef = useRef(effectiveAppearance)
 
   // Update refs when state changes
   useEffect(() => {
     preferencesRef.current = preferences
   }, [preferences])
 
-  useEffect(() => {
-    effectiveAppearanceRef.current = effectiveAppearance
-  }, [effectiveAppearance])
-
   // Sync sidebar with prop
   useEffect(() => {
     setSidebarOpen(showSidebar)
   }, [showSidebar])
-
-  // Handle appearance mode changes
-  useEffect(() => {
-    if (preferences.appearanceMode === APPEARANCE_LIGHT) {
-      setEffectiveAppearance("light")
-      return
-    }
-    if (preferences.appearanceMode === APPEARANCE_DARK) {
-      setEffectiveAppearance("dark")
-      return
-    }
-    const media = window.matchMedia("(prefers-color-scheme: dark)")
-    const apply = () => {
-      setEffectiveAppearance(media.matches ? "dark" : "light")
-    }
-    apply()
-    media.addEventListener("change", apply)
-    return () => media.removeEventListener("change", apply)
-  }, [preferences.appearanceMode])
 
   // Apply preferences to view and save to storage
   useEffect(() => {
@@ -90,14 +65,14 @@ export function useFoliatePreferences(
     const view = viewRef.current
     if (!view) return
     const theme = getThemeDefinition(preferences.themeId)
-    applyReaderPreferences(view, theme, preferences, effectiveAppearance)
+    applyReaderPreferences(view, theme, preferences)
     syncMarginals(view, snapshotRef.current, locationRef.current)
-  }, [effectiveAppearance, preferences, viewRef, snapshotRef, locationRef])
+  }, [preferences, viewRef, snapshotRef, locationRef])
 
   return {
     preferences,
     setPreferences,
-    effectiveAppearance,
+    effectiveAppearance: getThemeDefinition(preferences.themeId).appearance,
     theme: preferences.themeId,
     sidebarTab,
     setSidebarTab,

@@ -1,8 +1,5 @@
 import { ToggleGroup, ToggleGroupItem, Switch, ScrollArea, Separator } from "@buddy/ui"
 import {
-  SunIcon,
-  MoonIcon,
-  MonitorIcon,
   BookAIcon,
   LayoutPanelLeftIcon,
   ScrollTextIcon,
@@ -11,9 +8,6 @@ import {
 } from "lucide-react"
 
 import {
-  APPEARANCE_DARK,
-  APPEARANCE_LIGHT,
-  APPEARANCE_SYSTEM,
   FONT_PUBLISHER,
   FONT_SANS,
   FONT_SERIF,
@@ -21,7 +15,7 @@ import {
   FLOW_SCROLLED,
   READER_THEMES,
 } from "../foliate-reader-constants"
-import type { FoliateReaderPreferences, FoliateReaderThemeId } from "../foliate-reader-types"
+import type { FoliateReaderPreferences } from "../foliate-reader-types"
 import { isFoliateReaderThemeId } from "../utils/foliate-themes"
 import { cn } from "@buddy/ui/lib/utils"
 
@@ -93,14 +87,6 @@ function ToggleRow({
   )
 }
 
-const THEME_COLORS: Record<FoliateReaderThemeId, { bg: string; text: string }> = {
-  paper: { bg: "#fcfaf6", text: "#111" },
-  sepia: { bg: "#f1ece4", text: "#433422" },
-  night: { bg: "#0a0a0a", text: "#ddd" },
-  mist: { bg: "#1f2122", text: "#ddd" },
-  graphite: { bg: "#121212", text: "#ccc" },
-}
-
 export function FoliatePreferencesPanel({
   preferences,
   setPreferences,
@@ -123,7 +109,6 @@ export function FoliatePreferencesPanel({
             className="flex w-full justify-between"
           >
             {READER_THEMES.map((theme) => {
-              const colors = THEME_COLORS[theme.id as FoliateReaderThemeId] || THEME_COLORS.paper
               const isActive = preferences.themeId === theme.id
               return (
                 <ToggleGroupItem
@@ -135,7 +120,10 @@ export function FoliatePreferencesPanel({
                       ? "ring-2 ring-text-interactive-base outline outline-2 outline-offset-2 outline-transparent"
                       : "hover:scale-105",
                   )}
-                  style={{ backgroundColor: colors.bg, color: colors.text }}
+                  style={{
+                    backgroundColor: theme.contentBackground,
+                    color: theme.contentForeground,
+                  }}
                   aria-label={theme.label}
                 >
                   <span className="font-serif text-[22px] leading-none tracking-tight">A</span>
@@ -146,38 +134,16 @@ export function FoliatePreferencesPanel({
         </div>
 
         {/* Display Toggles */}
-        <div className="px-5 space-y-4 py-2">
-          {/* Chrome Mode */}
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            value={preferences.appearanceMode}
-            onValueChange={(val) => {
-              if (val) setPreferences((c) => ({ ...c, appearanceMode: val as any }))
-            }}
-            className="flex w-full"
-          >
-            <ToggleGroupItem value={APPEARANCE_SYSTEM} className="flex-1 h-9 text-xs">
-              <MonitorIcon data-icon="inline-start" />
-              System
-            </ToggleGroupItem>
-            <ToggleGroupItem value={APPEARANCE_LIGHT} className="flex-1 h-9 text-xs">
-              <SunIcon data-icon="inline-start" />
-              Light
-            </ToggleGroupItem>
-            <ToggleGroupItem value={APPEARANCE_DARK} className="flex-1 h-9 text-xs">
-              <MoonIcon data-icon="inline-start" />
-              Dark
-            </ToggleGroupItem>
-          </ToggleGroup>
-
+        <div className="flex flex-col gap-4 px-5 py-2">
           {/* Typography */}
           <ToggleGroup
             type="single"
             variant="outline"
             value={preferences.fontPreset}
             onValueChange={(val) => {
-              if (val) setPreferences((c) => ({ ...c, fontPreset: val as any }))
+              if (val === FONT_SERIF || val === FONT_SANS || val === FONT_PUBLISHER) {
+                setPreferences((c) => ({ ...c, fontPreset: val }))
+              }
             }}
             className="flex w-full"
           >
@@ -201,7 +167,9 @@ export function FoliatePreferencesPanel({
                 variant="outline"
                 value={preferences.flow}
                 onValueChange={(val) => {
-                  if (val) setPreferences((c) => ({ ...c, flow: val as any }))
+                  if (val === FLOW_PAGINATED || val === FLOW_SCROLLED) {
+                    setPreferences((c) => ({ ...c, flow: val }))
+                  }
                 }}
                 className="flex-1"
               >
@@ -211,7 +179,7 @@ export function FoliatePreferencesPanel({
                 </ToggleGroupItem>
                 <ToggleGroupItem value={FLOW_SCROLLED} className="flex-1 h-9 text-xs">
                   <ScrollTextIcon data-icon="inline-start" />
-                  Scroll
+                  Section scroll
                 </ToggleGroupItem>
               </ToggleGroup>
             )}
@@ -233,6 +201,11 @@ export function FoliatePreferencesPanel({
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
+          {canChangeFlow && preferences.flow === FLOW_SCROLLED ? (
+            <p className="px-1 text-[11px] leading-relaxed text-text-weaker">
+              Scrolls within the current EPUB section, then advances to the next section.
+            </p>
+          ) : null}
         </div>
 
         <Separator className="mx-5 my-3 opacity-30" />

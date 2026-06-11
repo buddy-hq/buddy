@@ -447,16 +447,17 @@ export function getOverlayPosition(range: Range, container: HTMLElement): { x: n
   const ownerView = range.startContainer.ownerDocument?.defaultView ?? null
   const rangeRect = toTopViewportRect(toOverlayRect(range.getBoundingClientRect()), ownerView)
   const containerRect = container.getBoundingClientRect()
+  const maxX = Math.max(OVERLAY_EDGE_PADDING_PX, containerRect.width - OVERLAY_EDGE_PADDING_PX)
 
   return {
     x: clamp(
-      rangeRect.left + rangeRect.width / 2,
-      containerRect.left + OVERLAY_EDGE_PADDING_PX,
-      containerRect.right - OVERLAY_EDGE_PADDING_PX,
+      rangeRect.left - containerRect.left + rangeRect.width / 2,
+      OVERLAY_EDGE_PADDING_PX,
+      maxX,
     ),
     y: Math.max(
-      rangeRect.top - OVERLAY_VERTICAL_OFFSET_PX,
-      containerRect.top + OVERLAY_EDGE_PADDING_PX,
+      rangeRect.top - containerRect.top - OVERLAY_VERTICAL_OFFSET_PX,
+      OVERLAY_EDGE_PADDING_PX,
     ),
   }
 }

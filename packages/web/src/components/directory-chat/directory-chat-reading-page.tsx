@@ -3,8 +3,10 @@ import { useQuery } from "@tanstack/react-query"
 import { DirectoryInvalidNotebook } from "./directory-invalid-notebook"
 import { DirectoryChatReadingReaderPane } from "@/components/directory-chat/directory-chat-reading-reader-pane"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
-import { READING_SELECTION_PART_TYPE } from "@/components/prompt/prompt-types"
-import { serializePromptEditorParts } from "@/components/prompt/prompt-parts"
+import {
+  appendReadingSelectionToDraft,
+  removeReadingSelectionFromDraft,
+} from "@/components/readers/utils/reading-selection-draft"
 import { language } from "@/context/language"
 import { fileNameFromPath, normalizeRelativePath } from "@/lib/workspace-file-paths"
 import { useChatStore } from "@/state/chat-store"
@@ -172,10 +174,9 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     const setPromptDraft = readyController.mainPaneProps.chatState.setPromptDraft
     const currentDraft = getPromptDraft(usePromptStore.getState(), promptKey)
     const resourceKey = resourceRecord?.id ?? resourceRecord?.alias ?? props.resourceKey
-    const nextParts = [
-      ...currentDraft.parts,
-      {
-        type: READING_SELECTION_PART_TYPE,
+    setPromptDraft(
+      promptKey,
+      appendReadingSelectionToDraft(currentDraft, {
         text: input.text,
         selectionKey: input.selectionKey ?? createReadingSelectionKey(),
         ...(resourceKey ? { resourceKey } : {}),
@@ -184,39 +185,16 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
         ...(input.tocLabel ? { tocLabel: input.tocLabel } : {}),
         ...(input.pageLabel ? { pageLabel: input.pageLabel } : {}),
         ...(input.locationLabel ? { locationLabel: input.locationLabel } : {}),
-      },
-    ]
-    const nextValue = serializePromptEditorParts(nextParts)
-
-    setPromptDraft(promptKey, {
-      value: nextValue,
-      parts: nextParts,
-      attachments: currentDraft.attachments,
-      cursor: nextValue.length,
-    })
+      }),
+    )
   }
 
   function removeStagedReadingSelection(selectionKey: string) {
     const promptKey = readyController.mainPaneProps.chatState.promptKey
     const setPromptDraft = readyController.mainPaneProps.chatState.setPromptDraft
     const currentDraft = getPromptDraft(usePromptStore.getState(), promptKey)
-    const nextParts = currentDraft.parts.filter((part) => {
-      if (part.type !== READING_SELECTION_PART_TYPE) return true
-      return part.selectionKey !== selectionKey
-    })
-
-    if (nextParts.length === currentDraft.parts.length) {
-      return
-    }
-
-    const nextValue = serializePromptEditorParts(nextParts)
-    const nextCursor = Math.max(0, Math.min(currentDraft.cursor, nextValue.length))
-    setPromptDraft(promptKey, {
-      value: nextValue,
-      parts: nextParts,
-      attachments: currentDraft.attachments,
-      cursor: nextCursor,
-    })
+    const nextDraft = removeReadingSelectionFromDraft(currentDraft, selectionKey)
+    if (nextDraft) setPromptDraft(promptKey, nextDraft)
   }
 
   return readyDirectory && normalizedPath ? (
