@@ -18,6 +18,13 @@ import {
   useChatSettings,
   type FollowupBehavior,
 } from "@/state/chat-settings"
+import {
+  GAME_PROMPT_PREFERENCE_DISABLED,
+  GAME_PROMPT_PREFERENCE_REDUCED,
+  GAME_PROMPT_PREFERENCE_STANDARD,
+  useGameStore,
+  type TGamePromptPreference,
+} from "@/state/game-store"
 import { useNotificationPreferences } from "@/state/notification-preferences"
 import { showDesktopUpdateToast } from "@/lib/desktop-updates"
 import { useTheme, type ColorScheme } from "@/theme"
@@ -39,6 +46,14 @@ function isColorScheme(value: string): value is ColorScheme {
 
 function isFollowupBehavior(value: string): value is FollowupBehavior {
   return value === FOLLOWUP_BEHAVIOR_STEER || value === FOLLOWUP_BEHAVIOR_QUEUE
+}
+
+function isGamePromptPreference(value: string): value is TGamePromptPreference {
+  return (
+    value === GAME_PROMPT_PREFERENCE_STANDARD ||
+    value === GAME_PROMPT_PREFERENCE_REDUCED ||
+    value === GAME_PROMPT_PREFERENCE_DISABLED
+  )
 }
 
 function FontTextInput(props: {
@@ -113,6 +128,8 @@ export function GeneralSettings() {
   const setAgentNotifications = useNotificationPreferences((state) => state.setAgent)
   const setPermissionNotifications = useNotificationPreferences((state) => state.setPermissions)
   const setErrorNotifications = useNotificationPreferences((state) => state.setErrors)
+  const gamePromptPreference = useGameStore((state) => state.gamePromptPreference)
+  const setGamePromptPreference = useGameStore((state) => state.setGamePromptPreference)
 
   const colorSchemeOptions: ReadonlyArray<{ value: ColorScheme; label: string }> = [
     { value: "system", label: language.t("settings.appearance.colorSchemes.system") },
@@ -128,6 +145,24 @@ export function GeneralSettings() {
     {
       value: FOLLOWUP_BEHAVIOR_QUEUE,
       label: language.t("settings.general.followupQueueOption"),
+    },
+  ]
+
+  const gamePromptPreferenceOptions: ReadonlyArray<{
+    value: TGamePromptPreference
+    label: string
+  }> = [
+    {
+      value: GAME_PROMPT_PREFERENCE_STANDARD,
+      label: language.t("settings.general.gamePromptStandardOption"),
+    },
+    {
+      value: GAME_PROMPT_PREFERENCE_REDUCED,
+      label: language.t("settings.general.gamePromptReducedOption"),
+    },
+    {
+      value: GAME_PROMPT_PREFERENCE_DISABLED,
+      label: language.t("settings.general.gamePromptDisabledOption"),
     },
   ]
 
@@ -304,6 +339,31 @@ export function GeneralSettings() {
               </SelectTrigger>
               <SelectContent>
                 {followupBehaviorOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        />
+        <SettingsRow
+          title={language.t("settings.general.gamePromptTitle")}
+          description={language.t("settings.general.gamePromptDescription")}
+          control={
+            <Select
+              value={gamePromptPreference}
+              onValueChange={(value) => {
+                if (isGamePromptPreference(value)) {
+                  setGamePromptPreference(value)
+                }
+              }}
+            >
+              <SelectTrigger data-action="settings-game-prompt-preference" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {gamePromptPreferenceOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>

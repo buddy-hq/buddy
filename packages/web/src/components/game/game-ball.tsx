@@ -11,9 +11,18 @@ const HIDE_DRAG_CLICK_GUARD_PX = 6
 type GameBallProps = {
   onOpen: () => void
   onHide: () => void
+  onSuggestLessOften: () => void
+  onDisableSuggestions: () => void
+  onOpenSettings: () => void
 }
 
-export function GameBall({ onOpen, onHide }: GameBallProps) {
+export function GameBall({
+  onOpen,
+  onHide,
+  onSuggestLessOften,
+  onDisableSuggestions,
+  onOpenSettings,
+}: GameBallProps) {
   const didDragRef = useRef(false)
 
   return (
@@ -62,6 +71,15 @@ export function GameBall({ onOpen, onHide }: GameBallProps) {
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onSelect={onHide}>{language.t("game.ball.hide")}</ContextMenuItem>
+        <ContextMenuItem onSelect={onSuggestLessOften}>
+          {language.t("game.ball.suggestLessOften")}
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={onDisableSuggestions}>
+          {language.t("game.ball.disableSuggestions")}
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={onOpenSettings}>
+          {language.t("game.ball.openSettings")}
+        </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
   )

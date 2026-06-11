@@ -1,6 +1,10 @@
 import {
   Dialog,
   DialogContent,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
   NativeSelect,
   NativeSelectOption,
   Select,
@@ -11,13 +15,20 @@ import {
   toast,
   cn,
 } from "@buddy/ui"
-import { XIcon } from "lucide-react"
+import { useNavigate } from "@tanstack/react-router"
+import { Gamepad2Icon, XIcon } from "lucide-react"
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
 import { GameDock } from "../game/game-dock"
 import { GameBall } from "../game/game-ball"
-import { useGameStore } from "@/state/game-store"
+import {
+  GAME_PROMPT_PREFERENCE_DISABLED,
+  GAME_PROMPT_PREFERENCE_REDUCED,
+  getGamePromptCooldownMs,
+  getGamePromptDelayMs,
+  useGameStore,
+} from "@/state/game-store"
 
 import { shouldSubmitComposer } from "../../lib/chat-input"
 import {
@@ -81,7 +92,6 @@ import {
 } from "../../state/prompt-store"
 
 const IMMEDIATE_BUILTIN_SLASH_COMMANDS = new Set(["new", "persona", "model", "mcp", "play"])
-const GAME_BALL_DELAY_MS = 45_000
 const DRAFT_STORE_SYNC_DELAY_MS = 250
 const CURSOR_NAVIGATION_KEYS = new Set([
   "ArrowLeft",
@@ -179,6 +189,7 @@ function createEmptyPromptDraftState() {
 }
 
 export function PromptComposer(props: PromptComposerProps) {
+  const navigate = useNavigate()
   const isQuestionActive = props.activeQuestionID !== undefined
   const editorRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -258,10 +269,15 @@ export function PromptComposer(props: PromptComposerProps) {
   const setPaused = useGameStore((state) => state.setPaused)
   const isMinimized = useGameStore((state) => state.isMinimized)
   const setMinimized = useGameStore((state) => state.setMinimized)
+  const gamePromptPreference = useGameStore((state) => state.gamePromptPreference)
+  const gamePromptDismissedUntil = useGameStore((state) => state.gamePromptDismissedUntil)
+  const gamePromptLastShownAt = useGameStore((state) => state.gamePromptLastShownAt)
+  const setGamePromptPreference = useGameStore((state) => state.setGamePromptPreference)
+  const dismissGamePrompt = useGameStore((state) => state.dismissGamePrompt)
+  const markGamePromptShown = useGameStore((state) => state.markGamePromptShown)
 
   const [busyStartTime, setBusyStartTime] = useState<number | null>(null)
   const [showGameBall, setShowGameBall] = useState(false)
-  const [isGameBallSuppressed, setIsGameBallSuppressed] = useState(false)
 
   useEffect(() => {
     if (arePromptDraftContentsEqual(draftRef.current, storeDraft)) return
@@ -516,7 +532,6 @@ export function PromptComposer(props: PromptComposerProps) {
     } else {
       setBusyStartTime(null)
       setShowGameBall(false)
-      setIsGameBallSuppressed(false)
       // Auto-pause game when turn completes (transitions from busy to idle)
       if (wasBusy && isGameVisible) {
         setPaused(true)
@@ -527,20 +542,44 @@ export function PromptComposer(props: PromptComposerProps) {
   }, [props.isBusy, busyStartTime, isGameVisible, setPaused, setMinimized, setGameVisible])
 
   useEffect(() => {
-    if (!busyStartTime || isQuestionActive || isGameBallSuppressed) return
-    const elapsedMs = Date.now() - busyStartTime
-    const remainingMs = Math.max(0, GAME_BALL_DELAY_MS - elapsedMs)
+    if (!busyStartTime || isQuestionActive) return
+    if (gamePromptPreference === GAME_PROMPT_PREFERENCE_DISABLED) return
+
+    const now = Date.now()
+    const elapsedMs = now - busyStartTime
+    const promptDelayMs = getGamePromptDelayMs(gamePromptPreference)
+    const promptDelayRemainingMs = Math.max(0, promptDelayMs - elapsedMs)
+    const dismissRemainingMs =
+      gamePromptDismissedUntil === null ? 0 : Math.max(0, gamePromptDismissedUntil - now)
+    const lastShownCooldownMs = getGamePromptCooldownMs(gamePromptPreference)
+    const lastShownRemainingMs =
+      gamePromptLastShownAt === null
+        ? 0
+        : Math.max(0, lastShownCooldownMs - (now - gamePromptLastShownAt))
+    const remainingMs = Math.max(
+      promptDelayRemainingMs,
+      dismissRemainingMs,
+      lastShownRemainingMs,
+    )
     const timeout = window.setTimeout(() => {
       setShowGameBall(true)
+      markGamePromptShown()
     }, remainingMs)
     return () => window.clearTimeout(timeout)
-  }, [busyStartTime, isQuestionActive, isGameBallSuppressed])
+  }, [
+    busyStartTime,
+    gamePromptDismissedUntil,
+    gamePromptLastShownAt,
+    gamePromptPreference,
+    isQuestionActive,
+    markGamePromptShown,
+  ])
 
   const dismissGameBall = useCallback(() => {
-    setIsGameBallSuppressed(true)
+    dismissGamePrompt()
     setShowGameBall(false)
     setMinimized(false)
-  }, [setMinimized])
+  }, [dismissGamePrompt, setMinimized])
 
   useEffect(() => {
     if (!isQuestionActive) return
@@ -873,16 +912,40 @@ export function PromptComposer(props: PromptComposerProps) {
     }
   }
 
-  function openArcade() {
+  function openArcade(input?: { clearDraft?: boolean }) {
     if (isQuestionActive) {
       toast.error("Finish answering the question first!")
       return
     }
-    clearComposer()
+    if (input?.clearDraft) {
+      clearComposer()
+    }
     editorRef.current?.blur()
     setGameVisible(true)
     setPaused(false)
     setMinimized(false)
+  }
+
+  function closeArcade() {
+    setGameVisible(false)
+    setMinimized(false)
+    setPaused(true)
+    setShowGameBall(false)
+  }
+
+  function minimizeArcade() {
+    setGameVisible(false)
+    setMinimized(true)
+    setPaused(true)
+  }
+
+  function toggleArcade() {
+    if (isGameVisible || isMinimized) {
+      closeArcade()
+      return
+    }
+    setShowGameBall(false)
+    openArcade()
   }
 
   function runBuiltinSlashCommand(name: string) {
@@ -913,7 +976,7 @@ export function PromptComposer(props: PromptComposerProps) {
         props.onOpenMcpDialog?.()
         return true
       case "play":
-        openArcade()
+        openArcade({ clearDraft: true })
         return true
       default:
         return false
@@ -949,7 +1012,7 @@ export function PromptComposer(props: PromptComposerProps) {
     if (text.startsWith("/")) {
       const command = text.slice(1).split(/\s+/)[0]
       if (command === "play") {
-        openArcade()
+        openArcade({ clearDraft: true })
         return
       }
     }
@@ -974,9 +1037,14 @@ export function PromptComposer(props: PromptComposerProps) {
   const mentionMenuVisible =
     viewState.mentionMatch !== undefined && viewState.mentionKey !== viewState.dismissedMentionKey
 
-  // The ball shows after the idle timer or when minimized — never during an active question dock.
-  const shouldShowBall =
-    !isGameBallSuppressed && (showGameBall || isMinimized) && !isGameVisible && !isQuestionActive
+  const isGamePromptSuggestionAvailable =
+    gamePromptPreference !== GAME_PROMPT_PREFERENCE_DISABLED &&
+    (gamePromptDismissedUntil === null || gamePromptDismissedUntil <= Date.now())
+
+  const isGamePromptSuggestionActive = showGameBall && isGamePromptSuggestionAvailable
+
+  // The floating ball is now only a minimized-game restore affordance.
+  const shouldShowBall = isMinimized && !isGameVisible && !isQuestionActive
 
   return (
     <div className={cn("relative", props.className ?? "mx-4 mb-4")}>
@@ -987,17 +1055,8 @@ export function PromptComposer(props: PromptComposerProps) {
             {isGameVisible && (
               <GameDock
                 className="w-full"
-                onClose={() => {
-                  setGameVisible(false)
-                  setMinimized(false)
-                  setPaused(true)
-                  setShowGameBall(false)
-                }}
-                onMinimize={() => {
-                  setGameVisible(false)
-                  setMinimized(true)
-                  setPaused(true)
-                }}
+                onClose={closeArcade}
+                onMinimize={minimizeArcade}
               />
             )}
           </AnimatePresence>
@@ -1008,16 +1067,20 @@ export function PromptComposer(props: PromptComposerProps) {
             {shouldShowBall && (
               <GameBall
                 onOpen={() => {
-                  if (isQuestionActive) {
-                    toast.error("Finish answering the question first!")
-                    return
-                  }
-                  editorRef.current?.blur()
-                  setGameVisible(true)
-                  setMinimized(false)
-                  setPaused(false)
+                  openArcade()
                 }}
                 onHide={dismissGameBall}
+                onSuggestLessOften={() => {
+                  setGamePromptPreference(GAME_PROMPT_PREFERENCE_REDUCED)
+                  setShowGameBall(false)
+                }}
+                onDisableSuggestions={() => {
+                  setGamePromptPreference(GAME_PROMPT_PREFERENCE_DISABLED)
+                  setShowGameBall(false)
+                }}
+                onOpenSettings={() => {
+                  navigate({ to: "/settings", search: { tab: "general" } })
+                }}
               />
             )}
           </AnimatePresence>
@@ -1423,7 +1486,68 @@ export function PromptComposer(props: PromptComposerProps) {
             )}
             {props.contextActions}
           </div>
-          {props.sessionContextUsage}
+          <div className="flex shrink-0 items-center gap-1.5">
+            <ContextMenu>
+              <ContextMenuTrigger asChild>
+                <button
+                  type="button"
+                  data-action="prompt-open-arcade"
+                  aria-label={
+                    isGameVisible || isMinimized
+                      ? language.t("game.footer.closeAria")
+                      : language.t("game.footer.openAria")
+                  }
+                  aria-pressed={isGameVisible || isMinimized}
+                  title={
+                    isGameVisible || isMinimized
+                      ? language.t("game.footer.closeTitle")
+                      : language.t("game.footer.openTitle")
+                  }
+                  onClick={toggleArcade}
+                  className={cn(
+                    "inline-flex size-6 items-center justify-center rounded-md text-text-weaker transition-all hover:bg-surface-base-hover hover:text-text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base/50 active:scale-95",
+                    isMinimized &&
+                      "bg-surface-base-hover text-text-base ring-1 ring-border-weak-base/80",
+                    isGameVisible &&
+                      "bg-surface-interactive-base text-text-on-interactive-base shadow-sm shadow-surface-interactive-base/30 ring-1 ring-border-interactive-base/60",
+                    isGamePromptSuggestionActive &&
+                      "animate-pulse bg-surface-base-hover text-text-base ring-1 ring-border-interactive-base/60",
+                  )}
+                >
+                  <Gamepad2Icon className="size-3.5" />
+                </button>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem onSelect={dismissGameBall}>
+                  {language.t("game.ball.hide")}
+                </ContextMenuItem>
+                <ContextMenuItem
+                  onSelect={() => {
+                    setGamePromptPreference(GAME_PROMPT_PREFERENCE_REDUCED)
+                    setShowGameBall(false)
+                  }}
+                >
+                  {language.t("game.ball.suggestLessOften")}
+                </ContextMenuItem>
+                <ContextMenuItem
+                  onSelect={() => {
+                    setGamePromptPreference(GAME_PROMPT_PREFERENCE_DISABLED)
+                    setShowGameBall(false)
+                  }}
+                >
+                  {language.t("game.ball.disableSuggestions")}
+                </ContextMenuItem>
+                <ContextMenuItem
+                  onSelect={() => {
+                    navigate({ to: "/settings", search: { tab: "general" } })
+                  }}
+                >
+                  {language.t("game.ball.openSettings")}
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
+            {props.sessionContextUsage}
+          </div>
         </div>
       ) : null}
 
