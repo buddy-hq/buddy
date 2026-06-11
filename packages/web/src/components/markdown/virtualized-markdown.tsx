@@ -8,6 +8,7 @@ import {
   VIRTUAL_MARKDOWN_MIN_CHARS,
   VIRTUAL_MARKDOWN_TARGET_CHARS,
 } from "@/components/virtualization/virtualization-defaults"
+import type { WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
 import { MarkdownHtmlSegment, markdownClassName } from "./markdown-html-segment"
 
 const LAZY_MARKDOWN_BLOCK_PREFETCH_PX = 1200
@@ -88,6 +89,7 @@ function LazyMarkdownBlock(props: {
   index: number
   cacheKey?: string
   directory?: string
+  onOpenResource?: WorkspaceResourceOpener
   streaming?: boolean
   interrupted?: boolean
 }) {
@@ -137,6 +139,7 @@ function LazyMarkdownBlock(props: {
           cacheKey={`${props.cacheKey ?? "markdown"}:lazy:${props.block.key}`}
           className={markdownClassName}
           directory={props.directory}
+          onOpenResource={props.onOpenResource}
           streaming={props.streaming}
           interrupted={props.interrupted}
         />
@@ -150,6 +153,7 @@ export function VirtualizedMarkdown(props: {
   cacheKey?: string
   className?: string
   directory?: string
+  onOpenResource?: WorkspaceResourceOpener
   streaming?: boolean
   interrupted?: boolean
 }) {
@@ -166,6 +170,7 @@ export function VirtualizedMarkdown(props: {
         cacheKey={props.cacheKey}
         className={cn(markdownClassName, props.className)}
         directory={props.directory}
+        onOpenResource={props.onOpenResource}
         streaming={props.streaming}
         interrupted={props.interrupted}
       />
@@ -181,6 +186,7 @@ export function VirtualizedMarkdown(props: {
           index={index}
           cacheKey={props.cacheKey}
           directory={props.directory}
+          onOpenResource={props.onOpenResource}
           streaming={props.streaming}
           interrupted={props.interrupted}
         />

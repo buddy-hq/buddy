@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
 import {
+  buildPresentedMediaFileActionInput,
   collectPresentedMediaCandidatePaths,
   isLikelyPresentedMediaPathCandidate,
   normalizePresentedMediaCandidatePath,
   readPresentedMediaAvailability,
+  resolvePresentedMediaPathInfo,
   resolvePresentedMediaAvailability,
   type PresentedMediaItem,
 } from "../src/lib/presented-media"
@@ -96,6 +98,74 @@ describe("presented media path helpers", () => {
     expect(calls.some((call) => call.includes("/api/presented-media/artifact_1/raw/item_1"))).toBe(
       true,
     )
+  })
+
+  test("resolves file open metadata through the presented media resolve route", async () => {
+    const calls: string[] = []
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+        calls.push(`${method} ${url}`)
+
+        if (
+          method === "GET" &&
+          url.includes("/api/presented-media/resolve") &&
+          url.includes("path=notes%2Fworksheet.md")
+        ) {
+          return Response.json({
+            inputPath: "notes/worksheet.md",
+            absolutePath: "/repo/notes/worksheet.md",
+            displayPath: "notes/worksheet.md",
+            workspacePath: "notes/worksheet.md",
+            fileName: "worksheet.md",
+            mediaKind: "other",
+            renderMode: "file",
+            mimeType: "text/markdown",
+            sizeBytes: 128,
+            modifiedAt: null,
+            actionCapabilities: {
+              canOpenDefaultApp: true,
+              canRevealInFileManager: true,
+              canOpenInWorkspacePanel: true,
+            },
+            availability: {
+              status: "available",
+              message: null,
+            },
+          })
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      }),
+      originalFetch,
+    )
+
+    const resolved = await resolvePresentedMediaPathInfo({
+      directory: "/repo",
+      path: "notes/worksheet.md",
+    })
+
+    expect(resolved.workspacePath).toBe("notes/worksheet.md")
+    expect(
+      buildPresentedMediaFileActionInput({
+        item: resolved,
+        canOpenDefaultApp: true,
+        canReveal: true,
+      }),
+    ).toMatchObject({
+      path: "notes/worksheet.md",
+      absolutePath: "/repo/notes/worksheet.md",
+      name: "worksheet.md",
+      available: true,
+      canOpenInBuddy: true,
+      canOpenDefaultApp: true,
+      canReveal: true,
+      mimeType: "text/markdown",
+      sizeBytes: 128,
+    })
+    expect(calls.some((call) => call.includes("/api/presented-media/resolve"))).toBe(true)
   })
 
   test("treats oversized media as available when the backend can serve it", async () => {

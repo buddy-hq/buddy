@@ -7,6 +7,7 @@ import { ServerProvider, type ServerConnection } from "../src/context/server"
 import type { ToolPartProps } from "../src/components/chat/tools/registry"
 import { renderPresentMediaTool } from "../src/components/chat/tools/render/present-media"
 import { withFetchPreconnect } from "../src/lib/fetch-transport"
+import { usePresentedMediaPlaybackStore } from "../src/state/presented-media-playback-store"
 import { useWorkspaceFilePanelStore } from "../src/state/workspace-file-panel-store"
 
 function PresentMediaToolHarness(props: ToolPartProps) {
@@ -57,6 +58,15 @@ function createServerConnection(): ServerConnection {
   }
 }
 
+function createPendingJsonResponse(input: {
+  pendingResponses: Array<() => void>
+  body: unknown
+}): Promise<Response> {
+  return new Promise<Response>((resolve) => {
+    input.pendingResponses.push(() => resolve(Response.json(input.body)))
+  })
+}
+
 function createToolProps(input: {
   layout: string
   items: Array<{
@@ -64,6 +74,7 @@ function createToolProps(input: {
     absolutePath?: string
     fileName: string
     mediaKind: string
+    mimeType?: string
     renderMode: string
     rawUrl: string
     canOpenInWorkspacePanel?: boolean
@@ -102,7 +113,7 @@ function createToolProps(input: {
             displayHint: "auto",
             mediaKind: item.mediaKind,
             renderMode: item.renderMode,
-            mimeType: null,
+            mimeType: item.mimeType ?? null,
             sizeBytes: item.sizeBytes ?? 42,
             modifiedAt: null,
             rawUrl: item.rawUrl,
@@ -140,6 +151,12 @@ describe("present media renderer", () => {
       selectedItemByDirectory: {},
       pendingOpenByDirectory: {},
       pendingAutoOpenByDirectory: {},
+    })
+    usePresentedMediaPlaybackStore.setState({
+      loadedKeys: [],
+      playingKey: undefined,
+      volume: 1,
+      muted: false,
     })
     container = document.createElement("div")
     document.body.appendChild(container)
@@ -222,6 +239,125 @@ describe("present media renderer", () => {
     ).toBe(0)
   })
 
+  test("renders the first video player immediately without autoplay", async () => {
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+
+        if (
+          method === "HEAD" &&
+          url.includes("/api/presented-media/artifact_video/raw/media_item_1")
+        ) {
+          return new Response(null, { status: 200 })
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      }),
+      originalFetch,
+    )
+
+    await act(async () => {
+      renderHarness(
+        root,
+        <PlatformProvider value={createPlatform()}>
+          <ServerProvider value={createServerConnection()}>
+            <PresentMediaToolHarness
+              {...createToolProps({
+                layout: "single",
+                items: [
+                  {
+                    path: "generated/demo.mp4",
+                    fileName: "demo.mp4",
+                    mediaKind: "video",
+                    mimeType: "video/mp4",
+                    renderMode: "video",
+                    rawUrl:
+                      "/api/presented-media/artifact_video/raw/media_item_1?directory=%2Frepo&fileName=demo.mp4",
+                  },
+                ],
+              })}
+            />
+          </ServerProvider>
+        </PlatformProvider>,
+      )
+      await flushEffects()
+    })
+
+    const video = container.querySelector("video")
+    expect(video).not.toBeNull()
+    expect(video?.getAttribute("src")).toContain(
+      "/api/presented-media/artifact_video/raw/media_item_1",
+    )
+    expect(video?.getAttribute("preload")).toBe("metadata")
+    expect(video?.hasAttribute("autoplay")).toBe(false)
+    expect(video?.paused).toBe(true)
+  })
+
+  test("renders audio and video as separate player groups without headers", async () => {
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+
+        if (
+          method === "HEAD" &&
+          (url.includes("/api/presented-media/artifact_mixed/raw/media_item_1") ||
+            url.includes("/api/presented-media/artifact_mixed/raw/media_item_2"))
+        ) {
+          return new Response(null, { status: 200 })
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      }),
+      originalFetch,
+    )
+
+    await act(async () => {
+      renderHarness(
+        root,
+        <PlatformProvider value={createPlatform()}>
+          <ServerProvider value={createServerConnection()}>
+            <PresentMediaToolHarness
+              {...createToolProps({
+                layout: "gallery",
+                items: [
+                  {
+                    path: "generated/demo.mp4",
+                    fileName: "demo.mp4",
+                    mediaKind: "video",
+                    mimeType: "video/mp4",
+                    renderMode: "video",
+                    rawUrl:
+                      "/api/presented-media/artifact_mixed/raw/media_item_1?directory=%2Frepo&fileName=demo.mp4",
+                  },
+                  {
+                    path: "generated/demo.mp3",
+                    fileName: "demo.mp3",
+                    mediaKind: "audio",
+                    mimeType: "audio/mpeg",
+                    renderMode: "audio",
+                    rawUrl:
+                      "/api/presented-media/artifact_mixed/raw/media_item_2?directory=%2Frepo&fileName=demo.mp3",
+                  },
+                ],
+              })}
+            />
+          </ServerProvider>
+        </PlatformProvider>,
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelector("video")).not.toBeNull()
+    expect(container.querySelector("audio")).not.toBeNull()
+    expect(container.textContent).not.toContain("Audio and video")
+    expect(container.textContent).not.toContain("Images")
+    expect(container.textContent).not.toContain("Files")
+  })
+
   test("renders file actions for non-image items", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -270,6 +406,82 @@ describe("present media renderer", () => {
 
     expect(container.textContent).toContain("notes.pdf")
     expect(container.querySelectorAll("tr").length).toBe(1)
+  })
+
+  test("hides PDF processing actions until resources load", async () => {
+    const pendingResponses: Array<() => void> = []
+    const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+      const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+
+      if (
+        method === "HEAD" &&
+        url.includes("/api/presented-media/artifact_notes/raw/media_item_1") &&
+        url.includes("directory=%2Frepo")
+      ) {
+        return new Response(null, { status: 200 })
+      }
+
+      if (method === "GET" && url.includes("/api/find/file")) {
+        return createPendingJsonResponse({ pendingResponses, body: [] })
+      }
+
+      if (method === "GET" && url.includes("/api/resource")) {
+        return createPendingJsonResponse({ pendingResponses, body: { resources: [] } })
+      }
+
+      throw new Error(`Unexpected fetch: ${method} ${url}`)
+    })
+
+    globalThis.fetch = withFetchPreconnect(fetchMock, originalFetch)
+
+    await act(async () => {
+      renderHarness(
+        root,
+        <PlatformProvider value={createPlatform()}>
+          <ServerProvider value={createServerConnection()}>
+            <PresentMediaToolHarness
+              {...createToolProps({
+                layout: "list",
+                items: [
+                  {
+                    path: "generated/notes.pdf",
+                    fileName: "notes.pdf",
+                    mediaKind: "pdf",
+                    renderMode: "pdf",
+                    rawUrl:
+                      "/api/presented-media/artifact_notes/raw/media_item_1?directory=%2Frepo&fileName=notes.pdf",
+                  },
+                ],
+              })}
+            />
+          </ServerProvider>
+        </PlatformProvider>,
+      )
+      await flushEffects()
+    })
+
+    expect(container.textContent).toContain("notes.pdf")
+    expect(container.textContent).not.toContain("Process for Buddy")
+    expect(
+      fetchMock.mock.calls.some(([input, init]) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+        return method === "POST" && url.includes("/api/resource")
+      }),
+    ).toBe(false)
+
+    for (const resolvePending of pendingResponses) {
+      resolvePending()
+    }
+
+    await act(async () => {
+      await flushEffects()
+    })
+
+    expect(container.textContent).toContain("Process for Buddy")
   })
 
   test("renders local file actions and original path controls", async () => {
@@ -330,6 +542,7 @@ describe("present media renderer", () => {
     })
 
     expect(container.textContent).toContain("notes.pdf")
+    expect(container.textContent).toContain("Outside notebook")
     expect(container.querySelectorAll("tr").length).toBe(1)
     expect(openPath).toHaveBeenCalledWith("/tmp/notes.pdf")
   })

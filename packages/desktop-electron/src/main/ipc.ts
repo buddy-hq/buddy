@@ -5,6 +5,7 @@ import type { IpcMainEvent, IpcMainInvokeEvent } from "electron"
 import type {
   InitStep,
   LinuxDisplayBackend,
+  MarkdownPdfExportInput,
   ServerReadyData,
   SqliteMigrationProgress,
   TitlebarTheme,
@@ -46,6 +47,7 @@ type Deps = {
   }>
   installUpdate: () => Promise<void> | void
   setBackgroundColor: (color: string) => void
+  exportMarkdownPdf: (input: MarkdownPdfExportInput) => Promise<string | null>
 }
 
 export function registerIpcHandlers(deps: Deps) {
@@ -91,6 +93,10 @@ export function registerIpcHandlers(deps: Deps) {
   ipcMain.handle("install-update", () => deps.installUpdate())
   ipcMain.handle("set-background-color", (_event: IpcMainInvokeEvent, color: string) =>
     deps.setBackgroundColor(color),
+  )
+  ipcMain.handle(
+    "export-markdown-pdf",
+    (_event: IpcMainInvokeEvent, input: MarkdownPdfExportInput) => deps.exportMarkdownPdf(input),
   )
 
   ipcMain.handle("store-get", (_event: IpcMainInvokeEvent, name: string, key: string) => {

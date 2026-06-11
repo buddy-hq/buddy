@@ -40,6 +40,7 @@ import {
 } from "./ipc"
 import { initLogging, safelyWriteToStandardStream } from "./logging"
 import { parseMarkdown } from "./markdown"
+import { exportMarkdownPdf } from "./markdown-pdf"
 import { createMenu } from "./menu"
 import {
   blockUpdateVersion,
@@ -618,6 +619,7 @@ registerIpcHandlers({
   checkUpdate: async () => checkUpdate(),
   installUpdate: async () => installUpdate(),
   setBackgroundColor: (color) => setBackgroundColor(color),
+  exportMarkdownPdf: (input) => exportMarkdownPdf(input),
 })
 
 function killSidecar() {

@@ -27,6 +27,7 @@ type MultiViewShellProps = {
   defaultIndex?: number
   showZoomControls?: boolean
   onIndexChange?: (index: number) => void
+  onItemSelect?: (index: number) => void
 }
 
 export function MultiViewShell({
@@ -38,6 +39,7 @@ export function MultiViewShell({
   defaultIndex,
   showZoomControls,
   onIndexChange,
+  onItemSelect,
 }: MultiViewShellProps) {
   const [idx, setIdx] = useState(defaultIndex ?? 0)
   const [scale, setScale] = useState(1.0)
@@ -84,15 +86,21 @@ export function MultiViewShell({
   }
   const currentSizeClass = sizeClasses[thumbnailSize || "md"]
 
+  const selectIndex = (nextIndex: number) => {
+    const clampedIndex = Math.max(0, Math.min(nextIndex, items.length - 1))
+    setIdx(clampedIndex)
+    onItemSelect?.(clampedIndex)
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowLeft") {
       e.preventDefault()
       e.stopPropagation()
-      setIdx((c) => Math.max(c - 1, 0))
+      selectIndex(clampedIdx - 1)
     } else if (e.key === "ArrowRight") {
       e.preventDefault()
       e.stopPropagation()
-      setIdx((c) => Math.min(c + 1, items.length - 1))
+      selectIndex(clampedIdx + 1)
     }
   }
 
@@ -225,7 +233,7 @@ export function MultiViewShell({
               <CarouselItem key={item.key} className="basis-auto pl-2">
                 <button
                   type="button"
-                  onClick={() => setIdx(i)}
+                  onClick={() => selectIndex(i)}
                   className={cn(
                     "shrink-0 overflow-hidden bg-background-base border border-border-base/40 transition-opacity",
                     currentSizeClass,

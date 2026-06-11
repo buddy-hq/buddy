@@ -31,7 +31,12 @@ import {
   readProjectTextFile,
   saveProjectTextFile,
 } from "../project/project-file-editor-service"
-import { resolvePresentedMediaItem } from "../learning/features/media-presentations/service/file-media"
+import {
+  PresentedMediaValidationError,
+  PROJECT_FILE_NOT_FOUND_ERROR,
+  resolvePresentedMediaItem,
+  resolvePresentedMediaPathInfo,
+} from "../learning/features/media-presentations/service/file-media"
 
 const findFileQuerySchema = z.object({
   query: z.string(),
@@ -64,6 +69,42 @@ const presentedMediaRawQuerySchema = directoryQuerySchema.extend({
   fileName: z.string().min(1).optional(),
 })
 
+const presentedMediaResolveQuerySchema = directoryQuerySchema.extend({
+  path: z.string().min(1),
+})
+
+const presentedMediaResolveResponseSchema = z.object({
+  inputPath: z.string().min(1),
+  absolutePath: z.string().min(1),
+  displayPath: z.string().min(1),
+  workspacePath: z.string().nullable(),
+  fileName: z.string().min(1),
+  mediaKind: z.enum([
+    "image",
+    "pdf",
+    "presentation",
+    "document",
+    "spreadsheet",
+    "video",
+    "audio",
+    "archive",
+    "other",
+  ]),
+  renderMode: z.enum(["image", "audio", "video", "pdf", "file"]),
+  mimeType: z.string().nullable(),
+  sizeBytes: z.number().int().nonnegative().nullable(),
+  modifiedAt: z.string().nullable(),
+  actionCapabilities: z.object({
+    canOpenDefaultApp: z.boolean(),
+    canRevealInFileManager: z.boolean(),
+    canOpenInWorkspacePanel: z.boolean(),
+  }),
+  availability: z.object({
+    status: z.enum(["available", "missing", "error"]),
+    message: z.string().nullable(),
+  }),
+})
+
 const fileEditBodySchema = z.object({
   content: z.string(),
   expectedVersion: z.string().nullable().optional(),
@@ -83,9 +124,14 @@ const healthResponseSchema = z.object({
 const FILE_NOT_FOUND_ERROR = "File not found"
 const FILE_ESCAPE_ERROR = "Access denied: path escapes project directory"
 const DEFAULT_BINARY_MIME_TYPE = "application/octet-stream"
+const BYTE_RANGE_UNIT = "bytes"
+const HTTP_PARTIAL_CONTENT_STATUS = 206
+const HTTP_RANGE_NOT_SATISFIABLE_STATUS = 416
+const FILE_RANGE_STREAM_CHUNK_BYTES = 64 * 1024
 const CONTENT_LENGTH_HEADER = "content-length"
 const CONTENT_TYPE_HEADER = "content-type"
 const INLINE_CONTENT_DISPOSITION_PREFIX = "inline; filename*=UTF-8''"
+const BYTE_RANGE_DECIMAL_TOKEN_PATTERN = /^\d+$/u
 
 function resolveProjectFilePath(directory: string, relativePath: string) {
   return path.resolve(directory, relativePath)
@@ -134,22 +180,190 @@ function buildRawProjectFileHeaders(input: {
   }
 }
 
+type PresentedMediaByteRange = {
+  start: number
+  end: number
+}
+
+type PresentedMediaByteRangeResolution =
+  | { kind: "full" }
+  | { kind: "partial"; range: PresentedMediaByteRange }
+  | { kind: "unsatisfiable" }
+
+function resolvePresentedMediaByteRange(
+  rangeHeader: string | undefined,
+  size: number,
+): PresentedMediaByteRangeResolution {
+  if (!rangeHeader) return { kind: "full" }
+
+  const [unit, value, extra] = rangeHeader.trim().split("=")
+  if (unit?.toLowerCase() !== BYTE_RANGE_UNIT || !value || extra !== undefined) {
+    return { kind: "unsatisfiable" }
+  }
+  if (value.includes(",")) {
+    return { kind: "unsatisfiable" }
+  }
+
+  const separatorIndex = value.indexOf("-")
+  if (separatorIndex < 0 || value.indexOf("-", separatorIndex + 1) >= 0) {
+    return { kind: "unsatisfiable" }
+  }
+
+  const startValue = value.slice(0, separatorIndex).trim()
+  const endValue = value.slice(separatorIndex + 1).trim()
+  if (!startValue && !endValue) {
+    return { kind: "unsatisfiable" }
+  }
+
+  if (!startValue) {
+    if (!BYTE_RANGE_DECIMAL_TOKEN_PATTERN.test(endValue)) {
+      return { kind: "unsatisfiable" }
+    }
+    const suffixLength = Number.parseInt(endValue, 10)
+    if (!Number.isSafeInteger(suffixLength) || suffixLength <= 0 || size <= 0) {
+      return { kind: "unsatisfiable" }
+    }
+    return {
+      kind: "partial",
+      range: {
+        start: Math.max(size - suffixLength, 0),
+        end: size - 1,
+      },
+    }
+  }
+
+  if (!BYTE_RANGE_DECIMAL_TOKEN_PATTERN.test(startValue)) {
+    return { kind: "unsatisfiable" }
+  }
+  const start = Number.parseInt(startValue, 10)
+  if (!Number.isSafeInteger(start) || start < 0 || start >= size) {
+    return { kind: "unsatisfiable" }
+  }
+
+  if (!endValue) {
+    return {
+      kind: "partial",
+      range: {
+        start,
+        end: size - 1,
+      },
+    }
+  }
+
+  if (!BYTE_RANGE_DECIMAL_TOKEN_PATTERN.test(endValue)) {
+    return { kind: "unsatisfiable" }
+  }
+  const requestedEnd = Number.parseInt(endValue, 10)
+  if (!Number.isSafeInteger(requestedEnd) || requestedEnd < start) {
+    return { kind: "unsatisfiable" }
+  }
+
+  return {
+    kind: "partial",
+    range: {
+      start,
+      end: Math.min(requestedEnd, size - 1),
+    },
+  }
+}
+
+function createPresentedMediaRangeStream(
+  filepath: string,
+  range: PresentedMediaByteRange,
+): ReadableStream<Uint8Array> {
+  let fileHandle: fs.promises.FileHandle | undefined
+  let offset = range.start
+
+  const closeFile = async () => {
+    const handle = fileHandle
+    fileHandle = undefined
+    await handle?.close()
+  }
+
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      if (offset > range.end) {
+        await closeFile()
+        controller.close()
+        return
+      }
+
+      try {
+        fileHandle ??= await fs.promises.open(filepath, "r")
+        const byteLength = Math.min(FILE_RANGE_STREAM_CHUNK_BYTES, range.end - offset + 1)
+        const buffer = new Uint8Array(byteLength)
+        const { bytesRead } = await fileHandle.read(buffer, 0, byteLength, offset)
+        if (bytesRead === 0) {
+          await closeFile()
+          controller.close()
+          return
+        }
+
+        offset += bytesRead
+        controller.enqueue(bytesRead === byteLength ? buffer : buffer.subarray(0, bytesRead))
+      } catch (error) {
+        await closeFile().catch(() => undefined)
+        controller.error(error)
+      }
+    },
+    async cancel() {
+      await closeFile().catch(() => undefined)
+    },
+  })
+}
+
 function readPresentedMediaRawResponse(input: {
   absolutePath: string
   downloadName: string
   includeBody: boolean
+  rangeHeader: string | undefined
 }) {
   // Presented-media artifacts may intentionally point to local files outside the workspace.
   const fileRecord = readProjectFileRecord(input.absolutePath)
   if (!fileRecord.ok) return fileRecord.response
 
-  return new Response(input.includeBody ? Bun.file(fileRecord.filepath) : null, {
-    headers: buildRawProjectFileHeaders({
+  const rangeResolution = resolvePresentedMediaByteRange(input.rangeHeader, fileRecord.size)
+  const baseHeaders = {
+    ...buildRawProjectFileHeaders({
       downloadName: input.downloadName,
       filepath: fileRecord.filepath,
       size: fileRecord.size,
     }),
-  })
+    "accept-ranges": BYTE_RANGE_UNIT,
+  }
+
+  if (rangeResolution.kind === "unsatisfiable") {
+    return new Response(null, {
+      status: HTTP_RANGE_NOT_SATISFIABLE_STATUS,
+      headers: {
+        ...baseHeaders,
+        "content-length": "0",
+        "content-range": `${BYTE_RANGE_UNIT} */${fileRecord.size}`,
+      },
+    })
+  }
+
+  if (rangeResolution.kind === "full") {
+    return new Response(input.includeBody ? Bun.file(fileRecord.filepath) : null, {
+      headers: baseHeaders,
+    })
+  }
+
+  const { start, end } = rangeResolution.range
+  const contentLength = end - start + 1
+  return new Response(
+    input.includeBody
+      ? createPresentedMediaRangeStream(fileRecord.filepath, rangeResolution.range)
+      : null,
+    {
+      status: HTTP_PARTIAL_CONTENT_STATUS,
+      headers: {
+        ...baseHeaders,
+        "content-length": String(contentLength),
+        "content-range": `${BYTE_RANGE_UNIT} ${start}-${end}/${fileRecord.size}`,
+      },
+    },
+  )
 }
 
 export const CompatibilityRoutes = new Hono()
@@ -416,6 +630,44 @@ export const CompatibilityRoutes = new Hono()
     },
   )
   .get(
+    "/presented-media/resolve",
+    describeRoute({
+      operationId: "presentedMedia.resolve",
+      summary: "Resolve local file presentation and open capabilities",
+      responses: {
+        200: {
+          description: "Resolved file open metadata",
+          content: {
+            "application/json": {
+              schema: resolver(presentedMediaResolveResponseSchema),
+            },
+          },
+        },
+        ...routeErrors(400, 404),
+      },
+    }),
+    validator("query", presentedMediaResolveQuerySchema),
+    async (c) => {
+      const directoryContext = resolveDirectoryRequestContext(c)
+      if (!directoryContext.ok) return directoryContext.response
+
+      try {
+        return c.json(
+          await resolvePresentedMediaPathInfo({
+            directory: directoryContext.context.directory,
+            path: c.req.valid("query").path,
+          }),
+        )
+      } catch (error) {
+        if (error instanceof PresentedMediaValidationError) {
+          const status = error.message === PROJECT_FILE_NOT_FOUND_ERROR ? 404 : 400
+          return Response.json({ error: error.message }, { status })
+        }
+        throw error
+      }
+    },
+  )
+  .get(
     "/presented-media/:artifactID/raw/:itemID",
     describeRoute({
       operationId: "presentedMedia.raw",
@@ -454,6 +706,7 @@ export const CompatibilityRoutes = new Hono()
         absolutePath: item.absolutePath,
         downloadName,
         includeBody: true,
+        rangeHeader: c.req.header("range"),
       })
     },
   )
@@ -482,6 +735,7 @@ export const CompatibilityRoutes = new Hono()
         absolutePath: item.absolutePath,
         downloadName,
         includeBody: false,
+        rangeHeader: c.req.header("range"),
       })
     },
   )

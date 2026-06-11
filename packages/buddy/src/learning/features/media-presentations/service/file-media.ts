@@ -3,47 +3,21 @@ import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import z from "zod"
+import {
+  classifyWorkspaceMedia,
+  type WorkspaceMediaKind as PresentedMediaKind,
+  type WorkspaceMediaRenderMode as PresentedMediaRenderMode,
+} from "@buddy/workspace-file-policy"
 import { buildPresentedMediaArtifactID, PresentedMediaArtifactPath } from "./artifact-path"
 
 const DEFAULT_BINARY_MIME_TYPE = "application/octet-stream"
 const MAX_PRESENTED_MEDIA_ITEMS = 12
 const MAX_PRESENTED_MEDIA_ARTIFACTS = 500
 
-const IMAGE_MIME_PREFIX = "image/"
-const IMAGE_FILE_EXTENSIONS = new Set([
-  "avif",
-  "bmp",
-  "gif",
-  "ico",
-  "jpeg",
-  "jpg",
-  "png",
-  "svg",
-  "webp",
-])
-const READER_FILE_EXTENSIONS = new Set(["azw", "azw3", "cbz", "epub", "fb2", "fbz", "mobi", "pdf"])
-const PRESENTATION_FILE_EXTENSIONS = new Set(["key", "odp", "ppt", "pptx"])
-const DOCUMENT_FILE_EXTENSIONS = new Set(["doc", "docx", "odt", "rtf"])
-const SPREADSHEET_FILE_EXTENSIONS = new Set(["csv", "ods", "tsv", "xls", "xlsx"])
-const AUDIO_FILE_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "ogg", "wav"])
-const VIDEO_FILE_EXTENSIONS = new Set(["avi", "m4v", "mov", "mp4", "mkv", "webm"])
-const ARCHIVE_FILE_EXTENSIONS = new Set(["7z", "bz2", "gz", "rar", "tar", "zip"])
-
 export const MEDIA_PRESENTATION_KIND = "media.presentation.v1" as const
 export const PROJECT_FILE_ESCAPE_ERROR = "Access denied: path escapes project directory" as const
 export const PROJECT_FILE_NOT_FOUND_ERROR = "File not found" as const
 
-export type PresentedMediaKind =
-  | "image"
-  | "pdf"
-  | "presentation"
-  | "document"
-  | "spreadsheet"
-  | "video"
-  | "audio"
-  | "archive"
-  | "other"
-export type PresentedMediaRenderMode = "image" | "audio" | "video" | "pdf" | "file"
 export type PresentedMediaLayout = "single" | "gallery" | "deck" | "list"
 
 export type PresentedMediaActionCapabilities = {
@@ -90,6 +64,8 @@ export type PresentedMediaOutput = {
   layout: PresentedMediaLayout
   items: PresentedMediaItem[]
 }
+
+export type PresentedMediaPathInfo = Omit<PresentedMediaItem, "id" | "rawUrl">
 
 export class PresentedMediaValidationError extends Error {}
 export class PresentedMediaArtifactNotFoundError extends Error {
@@ -163,21 +139,6 @@ const PresentedMediaArtifactManifestSchema = z.object({
 
 function normalizeRelativePath(filepath: string) {
   return filepath.trim().replaceAll("\\", "/").replace(/^\/+/, "").replace(/\/+$/, "")
-}
-
-function fileNameFromPath(filepath: string) {
-  const normalized = normalizeRelativePath(filepath)
-  if (!normalized) return normalized
-  const lastSlash = normalized.lastIndexOf("/")
-  if (lastSlash < 0) return normalized
-  return normalized.slice(lastSlash + 1)
-}
-
-function fileExtensionFromPath(filepath: string) {
-  const name = fileNameFromPath(filepath).toLowerCase()
-  const lastDot = name.lastIndexOf(".")
-  if (lastDot <= 0 || lastDot === name.length - 1) return ""
-  return name.slice(lastDot + 1)
 }
 
 function normalizeInputSourcePath(directory: string, inputPath: string) {
@@ -335,48 +296,19 @@ function fileMimeType(filepath: string) {
   return Bun.file(filepath).type || DEFAULT_BINARY_MIME_TYPE
 }
 
-function isImageMimeType(mimeType: string | undefined) {
-  return mimeType?.startsWith(IMAGE_MIME_PREFIX) ?? false
-}
-
 function classifyPresentedMedia(input: { path: string; mimeType: string | undefined }): {
   mediaKind: PresentedMediaKind
   renderMode: PresentedMediaRenderMode
 } {
-  const extension = fileExtensionFromPath(input.path)
-  const mimeType = input.mimeType?.toLowerCase()
-
-  const mediaKind: PresentedMediaKind =
-    isImageMimeType(mimeType) || IMAGE_FILE_EXTENSIONS.has(extension)
-      ? "image"
-      : extension === "pdf"
-        ? "pdf"
-        : PRESENTATION_FILE_EXTENSIONS.has(extension)
-          ? "presentation"
-          : DOCUMENT_FILE_EXTENSIONS.has(extension)
-            ? "document"
-            : SPREADSHEET_FILE_EXTENSIONS.has(extension)
-              ? "spreadsheet"
-              : AUDIO_FILE_EXTENSIONS.has(extension)
-                ? "audio"
-                : VIDEO_FILE_EXTENSIONS.has(extension)
-                  ? "video"
-                  : ARCHIVE_FILE_EXTENSIONS.has(extension)
-                    ? "archive"
-                    : "other"
-
-  const renderMode: PresentedMediaRenderMode =
-    mediaKind === "image"
-      ? "image"
-      : mediaKind === "audio"
-        ? "audio"
-        : mediaKind === "video"
-          ? "video"
-          : mediaKind === "pdf" || READER_FILE_EXTENSIONS.has(extension)
-            ? "pdf"
-            : "file"
-
-  return { mediaKind, renderMode }
+  const classification = classifyWorkspaceMedia({
+    path: input.path,
+    mimeType: input.mimeType,
+    sizeBytes: undefined,
+  })
+  return {
+    mediaKind: classification.mediaKind,
+    renderMode: classification.renderMode,
+  }
 }
 
 function deriveLayout(items: PresentedMediaItem[]): PresentedMediaLayout {
@@ -433,6 +365,38 @@ function buildActionCapabilities(input: {
     canOpenDefaultApp: true,
     canRevealInFileManager: true,
     canOpenInWorkspacePanel: input.workspacePath !== null,
+  }
+}
+
+export async function resolvePresentedMediaPathInfo(input: {
+  directory: string
+  path: string
+}): Promise<PresentedMediaPathInfo> {
+  const workspaceBoundary = await resolvePresentedMediaWorkspaceBoundary(input.directory)
+  const file = await resolvePresentedMediaFile(input.directory, input.path, workspaceBoundary)
+  const sizeBytes = readStatNumber(file.stats.size)
+  const modifiedAt = new Date(readStatNumber(file.stats.mtimeMs)).toISOString()
+  const mimeType = fileMimeType(file.absolutePath)
+  const classification = classifyPresentedMedia({ path: file.displayPath, mimeType })
+
+  return {
+    inputPath: file.inputPath,
+    absolutePath: file.absolutePath,
+    displayPath: file.displayPath,
+    workspacePath: file.workspacePath,
+    fileName: path.basename(file.absolutePath),
+    mediaKind: classification.mediaKind,
+    renderMode: classification.renderMode,
+    mimeType,
+    sizeBytes,
+    modifiedAt,
+    actionCapabilities: buildActionCapabilities({
+      workspacePath: file.workspacePath,
+    }),
+    availability: {
+      status: "available",
+      message: null,
+    },
   }
 }
 

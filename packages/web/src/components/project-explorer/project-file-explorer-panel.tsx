@@ -1,12 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { Badge, Button, PanelRightCloseIcon, PanelRightOpenIcon, cn } from "@buddy/ui"
+import {
+  Badge,
+  Button,
+  PanelRightCloseIcon,
+  PanelRightOpenIcon,
+  ToggleGroup,
+  ToggleGroupItem,
+  cn,
+  toast,
+} from "@buddy/ui"
 import {
   AlertCircleIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  DownloadIcon,
+  EyeIcon,
   ExternalLinkIcon,
   FolderIcon,
   Loader2Icon,
+  PencilIcon,
   RefreshCwIcon,
   XIcon,
 } from "lucide-react"
@@ -14,10 +26,19 @@ import {
   VersionedTextFileEditor,
   type VersionedTextFileEditorHandle,
 } from "@/components/editors/versioned-text-file-editor"
+import { Markdown } from "@/components/markdown/Markdown"
 import { FoliateReader, type FoliateReaderSource } from "@/components/readers/foliate-reader"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { buddyResultMessage, getBuddyClient } from "@/lib/buddy-client"
+import {
+  serializeMarkdownPdfDocument,
+  waitForMarkdownPdfRenderReady,
+} from "@/lib/markdown-pdf-export"
+import {
+  useWorkspaceFileOpen,
+  type WorkspaceResourceOpener,
+} from "@/lib/use-workspace-file-open"
 import { FileTypeIcon } from "@/components/files/file-type-icon"
 import { buildProjectFileRawParameters } from "@/lib/project-file-raw-url"
 import {
@@ -93,6 +114,7 @@ const EXTENSION_TO_MONACO_LANGUAGE: Record<string, string> = {
 type ProjectFileExplorerPanelProps = {
   directory: string
   className?: string
+  onOpenResource?: WorkspaceResourceOpener
 }
 
 type ProjectExplorerDirectoryState = {
@@ -120,9 +142,28 @@ type ExplorerDirectoryStateMap = Record<string, ProjectExplorerDirectoryState>
 type ExplorerNodeMap = Record<string, ProjectExplorerFileNode>
 type ExplorerFileViewStateMap = Record<string, ProjectExplorerFileViewState>
 type ExplorerReaderViewStateMap = Record<string, ProjectExplorerReaderViewState>
+type MarkdownViewMode = "view" | "edit"
+
+const MARKDOWN_VIEW_MODE_VIEW = "view"
+const MARKDOWN_VIEW_MODE_EDIT = "edit"
 
 function monacoLanguageForPath(filepath: string) {
   return EXTENSION_TO_MONACO_LANGUAGE[fileExtension(filepath)] ?? "plaintext"
+}
+
+function isMarkdownFilePath(filepath: string): boolean {
+  return fileExtension(filepath) === "md"
+}
+
+function isMarkdownViewMode(value: string): value is MarkdownViewMode {
+  return value === MARKDOWN_VIEW_MODE_VIEW || value === MARKDOWN_VIEW_MODE_EDIT
+}
+
+function markdownPdfFileName(filepath: string): string {
+  const name = fileName(filepath)
+  const extension = fileExtension(filepath)
+  if (!extension) return `${name}.pdf`
+  return `${name.slice(0, -(extension.length + 1))}.pdf`
 }
 
 function formatLabelForPath(filepath: string) {
@@ -173,6 +214,7 @@ function sortedNodes(paths: string[], nodesByPath: ExplorerNodeMap) {
 
 export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   const platform = usePlatform()
+  const { executePrimary } = useWorkspaceFileOpen(props.directory, props.onOpenResource)
   const pendingOpenPath = useWorkspaceFilePanelStore(
     (state) => state.pendingOpenByDirectory[props.directory]?.path,
   )
@@ -184,6 +226,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   const consumePendingOpen = useWorkspaceFilePanelStore((state) => state.consumePendingOpen)
   const openQueuedFile = useWorkspaceFilePanelStore((state) => state.openFile)
   const editorRefs = useRef<Record<string, VersionedTextFileEditorHandle | null>>({})
+  const markdownPreviewRef = useRef<HTMLDivElement>(null)
   const fileViewByPathRef = useRef<ExplorerFileViewStateMap>({})
   const readerViewByPathRef = useRef<ExplorerReaderViewStateMap>({})
   const readerLoadAbortControllersRef = useRef<Record<string, AbortController>>({})
@@ -195,6 +238,8 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   const [activePath, setActivePath] = useState<string | undefined>(undefined)
   const [fileViewByPath, setFileViewByPath] = useState<ExplorerFileViewStateMap>({})
   const [readerViewByPath, setReaderViewByPath] = useState<ExplorerReaderViewStateMap>({})
+  const [markdownModeByPath, setMarkdownModeByPath] = useState<Record<string, MarkdownViewMode>>({})
+  const [exportingMarkdownPdf, setExportingMarkdownPdf] = useState(false)
   const [openPathError, setOpenPathError] = useState<string | undefined>(undefined)
 
   useEffect(() => {
@@ -209,6 +254,8 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
     setActivePath(undefined)
     setFileViewByPath({})
     setReaderViewByPath({})
+    setMarkdownModeByPath({})
+    setExportingMarkdownPdf(false)
     setOpenPathError(undefined)
   }, [props.directory])
 
@@ -523,6 +570,37 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
     [openFile, openQueuedFile, props.directory],
   )
 
+  const routeWorkspaceFile = useCallback(
+    async (node: ProjectExplorerFileNode) => {
+      try {
+        const metadata = await readWorkspaceFileRawMetadata({
+          directory: props.directory,
+          path: node.path,
+        })
+        await executePrimary({
+          path: node.path,
+          absolutePath: node.absolute,
+          name: node.name,
+          available: true,
+          canOpenInBuddy: true,
+          canOpenDefaultApp: !!platform.openPath,
+          canReveal: !!platform.revealPath,
+          mimeType: metadata.mimeType,
+          sizeBytes: metadata.sizeBytes,
+        })
+      } catch {
+        openWorkspaceFile(node.path)
+      }
+    },
+    [
+      executePrimary,
+      openWorkspaceFile,
+      platform.openPath,
+      platform.revealPath,
+      props.directory,
+    ],
+  )
+
   useEffect(() => {
     if (!selectedFileItem) return
     const normalizedPath = normalizeRelativePath(selectedFileItem.path)
@@ -567,6 +645,12 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
       delete next[normalizedPath]
       return next
     })
+    setMarkdownModeByPath((current) => {
+      if (!(normalizedPath in current)) return current
+      const next = { ...current }
+      delete next[normalizedPath]
+      return next
+    })
     setOpenTabs((current) => {
       const remaining = current.filter((entry) => entry !== normalizedPath)
       setActivePath((currentActive) => {
@@ -585,6 +669,10 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   const activeContent = activeViewState?.content
   const activeFileName = activePath ? fileName(activePath) : ""
   const activeDisplayPath = activePath
+  const activeMarkdownMode =
+    activePath && isMarkdownFilePath(activePath)
+      ? (markdownModeByPath[activePath] ?? MARKDOWN_VIEW_MODE_VIEW)
+      : undefined
   const openTabCount = openTabs.length
   const activeReaderSource = useMemo<FoliateReaderSource | null>(() => {
     if (!activePath) return null
@@ -631,7 +719,9 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   const activeFormatLabel = activePath ? formatLabelForPath(activePath) : undefined
   const activeModeLabel =
     viewerMode === "text"
-      ? language.t("projectExplorer.editableInApp")
+      ? activeMarkdownMode === MARKDOWN_VIEW_MODE_VIEW
+        ? language.t("projectExplorer.markdownPreview")
+        : language.t("projectExplorer.editableInApp")
       : viewerMode === "reader"
         ? language.t("projectExplorer.readerPreview")
         : viewerMode === "image"
@@ -639,6 +729,59 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
           : viewerMode === "large" || viewerMode === "unsupported"
             ? language.t("projectExplorer.defaultApp")
             : undefined
+
+  const changeMarkdownMode = useCallback(
+    async (nextMode: MarkdownViewMode) => {
+      if (!activePath || !isMarkdownFilePath(activePath)) return
+      if (activeMarkdownMode === nextMode) return
+
+      if (nextMode === MARKDOWN_VIEW_MODE_VIEW) {
+        const handle = editorRefs.current[activePath]
+        if (handle) {
+          const flushed = await handle.flushPendingSave()
+          if (!flushed) return
+        }
+      }
+
+      setMarkdownModeByPath((current) => ({
+        ...current,
+        [activePath]: nextMode,
+      }))
+    },
+    [activeMarkdownMode, activePath],
+  )
+
+  const exportMarkdownPdf = useCallback(async () => {
+    if (!activePath || activeMarkdownMode !== MARKDOWN_VIEW_MODE_VIEW) return
+    const preview = markdownPreviewRef.current
+    if (!preview || !platform.exportMarkdownPdf) {
+      toast.error(language.t("projectExplorer.markdownExportUnavailable"))
+      return
+    }
+
+    try {
+      setExportingMarkdownPdf(true)
+      await waitForMarkdownPdfRenderReady(preview)
+      const exportedPath = await platform.exportMarkdownPdf({
+        html: serializeMarkdownPdfDocument({
+          title: activeFileName,
+          element: preview,
+        }),
+        defaultPath: markdownPdfFileName(activePath),
+      })
+      if (exportedPath) {
+        toast.success(language.t("projectExplorer.markdownExported"))
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : language.t("projectExplorer.markdownExportFailed"),
+      )
+    } finally {
+      setExportingMarkdownPdf(false)
+    }
+  }, [activeFileName, activeMarkdownMode, activePath, platform])
 
   const openInDefaultApp = useCallback(async () => {
     const pathToOpen = activeSelectedFileItem?.absolutePath ?? activeNode?.absolute
@@ -731,7 +874,9 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
                   : "text-text-weak hover:bg-surface-raised-base/80 hover:text-text-base",
               )}
               style={{ paddingLeft: `${depth * 12 + 24}px` }}
-              onClick={() => openWorkspaceFile(node.path)}
+              onClick={() => {
+                void routeWorkspaceFile(node)
+              }}
             >
               {fileIconForNode(node)}
               <span className="min-w-0 flex-1 truncate">{node.name}</span>
@@ -855,6 +1000,64 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
                   </div>
                   <p className="mt-1 truncate text-[11px] text-text-weak">{activeDisplayPath}</p>
                 </div>
+                {viewerMode === "text" && activeMarkdownMode ? (
+                  <div
+                    data-markdown-export-ignore
+                    className="flex shrink-0 items-center gap-2"
+                  >
+                    <ToggleGroup
+                      type="single"
+                      value={activeMarkdownMode}
+                      variant="outline"
+                      size="sm"
+                      onValueChange={(value) => {
+                        if (!isMarkdownViewMode(value)) return
+                        void changeMarkdownMode(value)
+                      }}
+                    >
+                      <ToggleGroupItem
+                        value={MARKDOWN_VIEW_MODE_VIEW}
+                        aria-label={language.t("projectExplorer.markdownView")}
+                        className="gap-1.5"
+                      >
+                        <EyeIcon className="size-3.5" />
+                        {language.t("projectExplorer.markdownView")}
+                      </ToggleGroupItem>
+                      <ToggleGroupItem
+                        value={MARKDOWN_VIEW_MODE_EDIT}
+                        aria-label={language.t("projectExplorer.markdownEdit")}
+                        className="gap-1.5"
+                      >
+                        <PencilIcon className="size-3.5" />
+                        {language.t("projectExplorer.markdownEdit")}
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={
+                        exportingMarkdownPdf ||
+                        activeMarkdownMode !== MARKDOWN_VIEW_MODE_VIEW ||
+                        !platform.exportMarkdownPdf
+                      }
+                      title={
+                        platform.exportMarkdownPdf
+                          ? language.t("projectExplorer.markdownExportPdf")
+                          : language.t("projectExplorer.markdownExportUnavailable")
+                      }
+                      onClick={() => {
+                        void exportMarkdownPdf()
+                      }}
+                    >
+                      {exportingMarkdownPdf ? (
+                        <Loader2Icon className="size-3.5 animate-spin" />
+                      ) : (
+                        <DownloadIcon className="size-3.5" />
+                      )}
+                      {language.t("projectExplorer.markdownExportPdf")}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
               {openPathError ? (
                 <p className="mt-2 text-xs text-icon-critical-base">{openPathError}</p>
@@ -866,6 +1069,10 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
             {openTabs.map((tabPath) => {
               const tabContent = fileViewByPath[tabPath]?.content
               if (!isEditableTextFileContent(tabContent)) return null
+              const markdownMode = isMarkdownFilePath(tabPath)
+                ? (markdownModeByPath[tabPath] ?? MARKDOWN_VIEW_MODE_VIEW)
+                : undefined
+              if (markdownMode === MARKDOWN_VIEW_MODE_VIEW) return null
               const hidden = tabPath !== activePath
               return (
                 <div key={tabPath} className={hidden ? "hidden h-full" : "h-full"}>
@@ -929,6 +1136,27 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
                 </div>
               )
             })}
+
+            {viewerMode === "text" &&
+            activeContent?.type === "text" &&
+            activeMarkdownMode === MARKDOWN_VIEW_MODE_VIEW ? (
+              <div className="h-full overflow-y-auto bg-background-base">
+                <div
+                  ref={markdownPreviewRef}
+                  className="mx-auto min-h-full max-w-4xl px-8 py-10 text-text-base"
+                >
+                  <Markdown
+                    text={activeContent.content}
+                    cacheKey={`${activePath}:preview:${activeContent.content}`}
+                    directory={props.directory}
+                    onOpenResource={props.onOpenResource}
+                    preferEagerRender
+                    renderMermaid
+                    className="max-w-none text-[15px] leading-7 [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl [&_h4]:text-lg [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold"
+                  />
+                </div>
+              </div>
+            ) : null}
 
             {viewerMode === "empty" ? (
               <div className="flex h-full items-center justify-center px-6">

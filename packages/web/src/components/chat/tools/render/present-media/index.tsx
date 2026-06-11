@@ -1,41 +1,70 @@
-import { useCallback } from "react"
-import { useQueries } from "@tanstack/react-query"
+import { useCallback, useMemo, useState } from "react"
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   Table,
   TableBody,
   TableCell,
   TableRow,
+  cn,
   toast,
 } from "@buddy/ui"
+import {
+  BookOpenIcon,
+  CopyIcon,
+  EllipsisIcon,
+  ExternalLinkIcon,
+  FolderOpenIcon,
+  Loader2Icon,
+  Music2Icon,
+  RefreshCwIcon,
+  VideoIcon,
+} from "lucide-react"
 import { ToolRow, ToolRowIcon, ToolRowAction } from "../../tool-row"
 import { TextShimmer } from "../../text-shimmer"
 import { ToolErrorPanel } from "../../tool-error-panel"
 import { FileTypeIcon } from "@/components/files/file-type-icon"
-import { canOpenWorkspaceFileInPanel } from "@/lib/workspace-file-media"
 import {
   MAX_INLINE_PRESENTED_MEDIA_BYTES,
+  buildPresentedMediaFileActionInput,
+  isPresentedMediaOutsideNotebook,
   readPresentedMediaOutputArtifact,
   resolvePresentedMediaAvailability,
-  toWorkspaceFilePanelItem,
   type PresentedMediaAvailabilityResolution,
   type PresentedMediaItem as PresentMediaItem,
   type PresentedMediaOutput as PresentMediaOutput,
 } from "@/lib/presented-media"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { usePlatform } from "@/context/platform"
-import { useWorkspaceFilePanelStore } from "@/state/workspace-file-panel-store"
+import {
+  useWorkspaceFileOpen,
+  type WorkspaceFileActionInput,
+} from "@/lib/use-workspace-file-open"
+import {
+  WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP,
+  WORKSPACE_FILE_OPEN_TARGET_PANEL,
+  WORKSPACE_FILE_OPEN_TARGET_READING,
+  WORKSPACE_FILE_OPEN_TARGET_REVEAL,
+  type WorkspaceFileOpenTarget,
+} from "@/lib/workspace-file-open"
+import { normalizeRelativePath } from "@/lib/workspace-file-paths"
+import { addResource, rebuildResource } from "@/state/resource-actions"
+import { usePresentedMediaPlaybackStore } from "@/state/presented-media-playback-store"
+import {
+  invalidateResourcesQueries,
+  resourcesQueryOptions,
+  type ResourceListItem,
+} from "@/state/resources-query"
 import { ToolImageGallery } from "../image-gallery"
+import { MultiViewShell } from "../../multi-view-shell"
+import { PresentedMediaPlayer } from "./media-player"
+import type { PresentMediaResolvedItem } from "./types"
 import type { ToolPartProps } from "../../registry"
-
-type PresentMediaResolvedItem = PresentMediaItem & {
-  resolvedAvailability: PresentMediaItem["availability"]
-  availabilityChecked: boolean
-}
 
 // ---------------------------------------------------------------------------
 // Data hooks
@@ -48,18 +77,6 @@ function parsePresentMediaOutput(state: ToolPartProps["state"]): PresentMediaOut
 function resolvePresentedMediaStreamUrl(item: PresentMediaResolvedItem): string | null {
   if (!item.rawUrl) return null
   return resolveAssetUrl(item.rawUrl)
-}
-
-function canOpenPresentedMediaInWorkspacePanel(item: PresentMediaResolvedItem) {
-  if (!item.workspacePath) {
-    return false
-  }
-
-  return canOpenWorkspaceFileInPanel({
-    path: item.workspacePath,
-    mimeType: item.mimeType ?? undefined,
-    sizeBytes: item.sizeBytes ?? undefined,
-  })
 }
 
 function presentedMediaAvailabilityKey(directory: string, item: PresentMediaItem) {
@@ -121,25 +138,6 @@ function usePresentedMediaAvailability(
   )
 }
 
-// ---------------------------------------------------------------------------
-// Tiny UI pieces
-// ---------------------------------------------------------------------------
-
-function isSafeInlineAudio(mt: string | null) {
-  return (
-    mt === "audio/mpeg" ||
-    mt === "audio/mp4" ||
-    mt === "audio/ogg" ||
-    mt === "audio/wav" ||
-    mt === "audio/x-wav" ||
-    mt === "audio/flac"
-  )
-}
-
-function isSafeInlineVideo(mt: string | null) {
-  return mt === "video/mp4" || mt === "video/webm" || mt === "video/ogg" || mt === "video/quicktime"
-}
-
 function MediaFileIcon(props: { item: PresentMediaResolvedItem; className?: string }) {
   return (
     <div className={props.className ?? "h-8 w-[26.6px] shrink-0"}>
@@ -156,102 +154,199 @@ function MediaFileIcon(props: { item: PresentMediaResolvedItem; className?: stri
 // Clickable file row with right-click context menu
 // ---------------------------------------------------------------------------
 
-function useMediaPrimaryAction(directory: string, item: PresentMediaResolvedItem) {
-  const platform = usePlatform()
-  const queueFileOpen = useWorkspaceFilePanelStore((s) => s.queueFileOpen)
-  const panelItem = toWorkspaceFilePanelItem(item)
-  const canOpenInWorkspacePanel =
-    item.resolvedAvailability.status === "available" &&
-    panelItem !== undefined &&
-    canOpenPresentedMediaInWorkspacePanel(item)
-  const canOpenDefaultApp =
-    item.resolvedAvailability.status === "available" &&
-    item.actionCapabilities.canOpenDefaultApp &&
-    !!platform.openPath
-
-  return useCallback(() => {
-    if (canOpenInWorkspacePanel && panelItem) {
-      queueFileOpen(directory, panelItem, { autoOpen: true })
-      return
-    }
-    if (canOpenDefaultApp) {
-      void platform.openPath!(item.absolutePath).catch((error: unknown) =>
-        toast.error(error instanceof Error ? error.message : String(error)),
-      )
-    }
-  }, [
-    canOpenDefaultApp,
-    canOpenInWorkspacePanel,
-    directory,
-    item.absolutePath,
-    panelItem,
-    platform,
-    queueFileOpen,
-  ])
+function fileOpenTargetLabel(target: WorkspaceFileOpenTarget, revealLabel: string) {
+  if (target === WORKSPACE_FILE_OPEN_TARGET_READING) return "Read in Buddy"
+  if (target === WORKSPACE_FILE_OPEN_TARGET_PANEL) return "Open in Buddy"
+  if (target === WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP) return "Open in default app"
+  if (target === WORKSPACE_FILE_OPEN_TARGET_REVEAL) return revealLabel
+  return "Copy path"
 }
 
-function MediaFileRow(props: { directory: string; item: PresentMediaResolvedItem }) {
+function FileOpenTargetIcon(props: { target: WorkspaceFileOpenTarget }) {
+  if (props.target === WORKSPACE_FILE_OPEN_TARGET_READING) return <BookOpenIcon aria-hidden />
+  if (props.target === WORKSPACE_FILE_OPEN_TARGET_PANEL) return <FolderOpenIcon aria-hidden />
+  if (props.target === WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP) {
+    return <ExternalLinkIcon aria-hidden />
+  }
+  if (props.target === WORKSPACE_FILE_OPEN_TARGET_REVEAL) return <FolderOpenIcon aria-hidden />
+  return <CopyIcon aria-hidden />
+}
+
+function resourceProcessLabel(resource: ResourceListItem | undefined) {
+  if (!resource) return "Process for Buddy"
+  if (resource.status === "preparing") return "Processing..."
+  if (resource.status === "stale") return "Reprocess for Buddy"
+  if (resource.status === "error" || resource.status === "unprocessed") {
+    return "Process for Buddy"
+  }
+  return undefined
+}
+
+function fileRowStatusLabel(input: {
+  item: PresentMediaResolvedItem
+  isMissing: boolean
+  primaryTarget: WorkspaceFileOpenTarget | undefined
+  revealLabel: string
+}) {
+  if (input.isMissing) return "File unavailable"
+  if (!input.primaryTarget) return "No open action available"
+  const targetLabel = fileOpenTargetLabel(input.primaryTarget, input.revealLabel)
+  if (
+    input.primaryTarget === WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP &&
+    isPresentedMediaOutsideNotebook(input.item)
+  ) {
+    return `Outside notebook · ${targetLabel}`
+  }
+  return targetLabel
+}
+
+function MediaFileRow(props: {
+  directory: string
+  item: PresentMediaResolvedItem
+  onOpenResource: ToolPartProps["onOpenResource"]
+  resource?: ResourceListItem
+  resourceProcessingReady: boolean
+  onProcessResource?: (resource: ResourceListItem | undefined, path: string) => Promise<void>
+}) {
   const platform = usePlatform()
-  const primaryAction = useMediaPrimaryAction(props.directory, props.item)
-  const canOpenInWorkspacePanel =
-    props.item.resolvedAvailability.status === "available" &&
-    props.item.actionCapabilities.canOpenInWorkspacePanel &&
-    props.item.workspacePath !== null
-  const canReveal = props.item.actionCapabilities.canRevealInFileManager && !!platform.revealPath
-  const canOpenApp = props.item.actionCapabilities.canOpenDefaultApp && !!platform.openPath
-  const hasPrimaryAction = canOpenInWorkspacePanel || canOpenApp
+  const [processing, setProcessing] = useState(false)
+  const onProcessResource = props.onProcessResource
+  const { resolvePlan, executeTarget, executePrimary } = useWorkspaceFileOpen(
+    props.directory,
+    props.onOpenResource,
+  )
+  const actionInput = useMemo<WorkspaceFileActionInput>(
+    () => ({
+      ...buildPresentedMediaFileActionInput({
+        item: {
+          ...props.item,
+          availability: props.item.resolvedAvailability,
+        },
+        canOpenDefaultApp: !!platform.openPath,
+        canReveal: !!platform.revealPath,
+      }),
+      ...(props.resource?.resourceID ? { resourceID: props.resource.resourceID } : {}),
+      ...(props.resource?.status ? { resourceStatus: props.resource.status } : {}),
+    }),
+    [platform.openPath, platform.revealPath, props.item, props.resource],
+  )
+  const plan = resolvePlan(actionInput)
+  const primaryTarget = plan.primaryTarget
   const isMissing = props.item.resolvedAvailability.status === "missing"
-  const rowClassName = [
-    "border-none transition-colors hover:bg-surface-base",
-    hasPrimaryAction ? "cursor-pointer" : "cursor-default",
-    isMissing ? "opacity-50" : null,
-  ]
-    .filter(Boolean)
-    .join(" ")
+  const revealLabel = platform.os === "macos" ? "Reveal in Finder" : "Reveal in File Explorer"
+  const processLabel =
+    props.resourceProcessingReady && props.item.mediaKind === "pdf" && props.item.workspacePath
+      ? resourceProcessLabel(props.resource)
+      : undefined
+
+  const runTarget = useCallback(
+    (target: WorkspaceFileOpenTarget) => {
+      void executeTarget(actionInput, target).catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : String(error))
+      })
+    },
+    [actionInput, executeTarget],
+  )
+
+  const processResource = useCallback(() => {
+    if (!props.item.workspacePath || !onProcessResource || processing) return
+    setProcessing(true)
+    void onProcessResource(props.resource, props.item.workspacePath)
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : String(error))
+      })
+      .finally(() => setProcessing(false))
+  }, [onProcessResource, processing, props.item.workspacePath, props.resource])
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <TableRow onClick={primaryAction} className={rowClassName}>
-          <TableCell className="w-10 px-2 py-1">
-            <MediaFileIcon item={props.item} />
-          </TableCell>
-          <TableCell className="min-w-0 max-w-xs truncate px-2 py-1 text-sm text-text-base">
-            {props.item.fileName}
-          </TableCell>
-        </TableRow>
-      </ContextMenuTrigger>
-      <ContextMenuContent>
-        {canReveal ? (
-          <ContextMenuItem
-            onSelect={() => {
-              void platform.revealPath!(props.item.absolutePath).catch((e: unknown) =>
-                toast.error(e instanceof Error ? e.message : String(e)),
-              )
+    <TableRow
+      onClick={() => {
+        if (!primaryTarget) return
+        void executePrimary(actionInput).catch((error: unknown) => {
+          toast.error(error instanceof Error ? error.message : String(error))
+        })
+      }}
+      className={cn(
+        "border-none transition-colors hover:bg-surface-base",
+        primaryTarget ? "cursor-pointer" : "cursor-default",
+        isMissing && "opacity-50",
+      )}
+    >
+      <TableCell className="w-10 px-2 py-1.5">
+        <MediaFileIcon item={props.item} />
+      </TableCell>
+      <TableCell className="min-w-0 max-w-xs px-2 py-1.5">
+        <p className="truncate text-sm font-medium text-text-base">{props.item.fileName}</p>
+        <p className="mt-0.5 truncate text-[11px] text-text-weak">
+          {fileRowStatusLabel({
+            item: props.item,
+            isMissing,
+            primaryTarget,
+            revealLabel,
+          })}
+        </p>
+      </TableCell>
+      {processLabel ? (
+        <TableCell className="w-36 px-2 py-1.5 text-right">
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            disabled={processing || props.resource?.status === "preparing"}
+            onClick={(event) => {
+              event.stopPropagation()
+              processResource()
             }}
           >
-            Reveal in Finder
-          </ContextMenuItem>
-        ) : null}
-        {canOpenApp ? (
-          <ContextMenuItem
-            onSelect={() => {
-              void platform.openPath!(props.item.absolutePath).catch((e: unknown) =>
-                toast.error(e instanceof Error ? e.message : String(e)),
-              )
-            }}
-          >
-            Open in default app
-          </ContextMenuItem>
-        ) : null}
-        {canReveal || canOpenApp ? <ContextMenuSeparator /> : null}
-        <ContextMenuItem
-          onSelect={() => void navigator.clipboard.writeText(props.item.absolutePath)}
-        >
-          Copy path
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+            {processing || props.resource?.status === "preparing" ? (
+              <Loader2Icon className="animate-spin" aria-hidden />
+            ) : (
+              <RefreshCwIcon aria-hidden />
+            )}
+            {processLabel}
+          </Button>
+        </TableCell>
+      ) : null}
+      <TableCell className="w-10 px-2 py-1.5 text-right">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`File actions for ${props.item.fileName}`}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <EllipsisIcon aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            {plan.targets.map((target) => (
+              <DropdownMenuItem key={target} onSelect={() => runTarget(target)}>
+                <FileOpenTargetIcon target={target} />
+                {fileOpenTargetLabel(target, revealLabel)}
+              </DropdownMenuItem>
+            ))}
+            {processLabel ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={processing || props.resource?.status === "preparing"}
+                  onSelect={processResource}
+                >
+                  {processing || props.resource?.status === "preparing" ? (
+                    <Loader2Icon className="animate-spin" aria-hidden />
+                  ) : (
+                    <RefreshCwIcon aria-hidden />
+                  )}
+                  {processLabel}
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -259,7 +354,17 @@ function MediaFileRow(props: { directory: string; item: PresentMediaResolvedItem
 // Image gallery — main+strip layout with zoom dialog
 // ---------------------------------------------------------------------------
 
-function MediaImageGallery(props: { directory: string; items: PresentMediaResolvedItem[] }) {
+type MediaInteractionProps = {
+  directory: string
+  onOpenResource: ToolPartProps["onOpenResource"]
+  onProcessResource: (resource: ResourceListItem | undefined, path: string) => Promise<void>
+  resourceProcessingReady: boolean
+  resourceByPath: Map<string, ResourceListItem>
+}
+
+function MediaImageGallery(
+  props: MediaInteractionProps & { items: PresentMediaResolvedItem[] },
+) {
   const previewable = props.items.filter(
     (i) =>
       i.mediaKind === "image" &&
@@ -275,7 +380,19 @@ function MediaImageGallery(props: { directory: string; items: PresentMediaResolv
       <Table>
         <TableBody>
           {fallbackFiles.map((item) => (
-            <MediaFileRow key={`image-file-${item.id}`} directory={props.directory} item={item} />
+            <MediaFileRow
+              key={`image-file-${item.id}`}
+              directory={props.directory}
+              item={item}
+              onOpenResource={props.onOpenResource}
+              onProcessResource={props.onProcessResource}
+              resourceProcessingReady={props.resourceProcessingReady}
+              resource={
+                item.workspacePath
+                  ? props.resourceByPath.get(normalizeRelativePath(item.workspacePath))
+                  : undefined
+              }
+            />
           ))}
         </TableBody>
       </Table>
@@ -295,49 +412,180 @@ function MediaImageGallery(props: { directory: string; items: PresentMediaResolv
   )
 }
 
-// ---------------------------------------------------------------------------
-// Audio / Video — native player, no wrapper
-// ---------------------------------------------------------------------------
-
-function MediaPlayer(props: { directory: string; item: PresentMediaResolvedItem }) {
-  const rawUrl = resolvePresentedMediaStreamUrl(props.item)
-  const isVideo = props.item.mediaKind === "video"
-  const canPreview =
-    props.item.resolvedAvailability.status === "available" &&
-    (isVideo ? isSafeInlineVideo(props.item.mimeType) : isSafeInlineAudio(props.item.mimeType))
-
-  if (!canPreview || !rawUrl) return <MediaFileRow directory={props.directory} item={props.item} />
-
-  return isVideo ? (
-    <video controls preload="metadata" className="max-h-[20rem] w-full rounded-lg" src={rawUrl} />
-  ) : (
-    <audio controls preload="metadata" className="w-full" src={rawUrl} />
+function MediaPlayerFallback(props: MediaInteractionProps & { item: PresentMediaResolvedItem }) {
+  return (
+    <Table>
+      <TableBody>
+        <MediaFileRow
+          directory={props.directory}
+          item={props.item}
+          onOpenResource={props.onOpenResource}
+          onProcessResource={props.onProcessResource}
+          resourceProcessingReady={props.resourceProcessingReady}
+          resource={
+            props.item.workspacePath
+              ? props.resourceByPath.get(normalizeRelativePath(props.item.workspacePath))
+              : undefined
+          }
+        />
+      </TableBody>
+    </Table>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Content layout — routes by mediaKind, no header
-// ---------------------------------------------------------------------------
+function MediaPlayerCollection(
+  props: MediaInteractionProps & {
+    presentationID: string
+    items: PresentMediaResolvedItem[]
+  },
+) {
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const pausePlayback = usePresentedMediaPlaybackStore((state) => state.pausePlayback)
+  const playingKey = usePresentedMediaPlaybackStore((state) => state.playingKey)
 
-function PresentedMediaContent(props: { directory: string; items: PresentMediaResolvedItem[] }) {
+  const selectItem = useCallback(
+    (index: number) => {
+      setSelectedIndex(index)
+      const item = props.items[index]
+      if (!item) return
+      const selectedPlaybackKey = `${props.presentationID}:${item.id}`
+      if (
+        playingKey &&
+        playingKey.startsWith(`${props.presentationID}:`) &&
+        playingKey !== selectedPlaybackKey
+      ) {
+        pausePlayback(playingKey)
+      }
+    },
+    [pausePlayback, playingKey, props.items, props.presentationID],
+  )
+
+  const playerForItem = (
+    item: PresentMediaResolvedItem,
+    index: number,
+    compact?: boolean,
+  ) => (
+    <PresentedMediaPlayer
+      item={item}
+      playbackKey={`${props.presentationID}:${item.id}`}
+      compact={compact}
+      shouldLoad={props.items.length === 1 || index === selectedIndex}
+      fallback={<MediaPlayerFallback {...props} item={item} />}
+    />
+  )
+
+  if (props.items.length === 1) {
+    const item = props.items[0]
+    return item ? playerForItem(item, 0) : null
+  }
+
+  return (
+    <MultiViewShell
+      contentClassName="min-h-64"
+      onItemSelect={selectItem}
+      items={props.items.map((item, index) => ({
+        key: item.id,
+        thumbnail: (
+          <div className="flex size-full items-center justify-center bg-surface-raised-base">
+            {item.mediaKind === "video" ? (
+              <VideoIcon className="size-5 text-text-weak" aria-hidden />
+            ) : (
+              <Music2Icon className="size-5 text-text-weak" aria-hidden />
+            )}
+          </div>
+        ),
+        children: <div className="w-full">{playerForItem(item, index, true)}</div>,
+      }))}
+    />
+  )
+}
+
+function PresentedMediaContent(props: {
+  directory: string
+  presentationID: string
+  items: PresentMediaResolvedItem[]
+  onOpenResource: ToolPartProps["onOpenResource"]
+}) {
+  const queryClient = useQueryClient()
   const images = props.items.filter((i) => i.mediaKind === "image")
-  const av = props.items.filter((i) => i.mediaKind === "audio" || i.mediaKind === "video")
+  const videos = props.items.filter((i) => i.mediaKind === "video")
+  const audios = props.items.filter((i) => i.mediaKind === "audio")
   const files = props.items.filter(
     (i) => i.mediaKind !== "image" && i.mediaKind !== "audio" && i.mediaKind !== "video",
   )
+  const hasWorkspacePdf = files.some((item) => item.mediaKind === "pdf" && item.workspacePath)
+  const resourcesQuery = useQuery({
+    ...resourcesQueryOptions(props.directory),
+    enabled: hasWorkspacePdf,
+  })
+  const resourceByPath = useMemo(
+    () =>
+      new Map(
+        (resourcesQuery.data?.items ?? []).map((resource) => [
+          normalizeRelativePath(resource.path),
+          resource,
+        ]),
+      ),
+    [resourcesQuery.data?.items],
+  )
+  const resourceProcessingReady = !hasWorkspacePdf || resourcesQuery.isSuccess
+  const onProcessResource = useCallback(
+    async (resource: ResourceListItem | undefined, path: string) => {
+      if (!resourceProcessingReady) return
+      if (resource?.resourceID) {
+        await rebuildResource(props.directory, { resourceKey: resource.resourceID })
+      } else {
+        await addResource(props.directory, { sourcePath: path })
+      }
+      await invalidateResourcesQueries(queryClient, props.directory)
+    },
+    [props.directory, queryClient, resourceProcessingReady],
+  )
+  const interactionProps: MediaInteractionProps = {
+    directory: props.directory,
+    onOpenResource: props.onOpenResource,
+    onProcessResource,
+    resourceProcessingReady,
+    resourceByPath,
+  }
 
   return (
-    <div className="flex flex-col gap-2">
-      {images.length > 0 ? <MediaImageGallery directory={props.directory} items={images} /> : null}
-      {av.map((i) => (
-        <MediaPlayer key={`av-${i.id}`} directory={props.directory} item={i} />
-      ))}
+    <div className="flex flex-col gap-4">
+      {images.length > 0 ? (
+        <MediaImageGallery {...interactionProps} items={images} />
+      ) : null}
+      {videos.length > 0 ? (
+        <MediaPlayerCollection
+          {...interactionProps}
+          presentationID={props.presentationID}
+          items={videos}
+        />
+      ) : null}
+      {audios.length > 0 ? (
+        <MediaPlayerCollection
+          {...interactionProps}
+          presentationID={props.presentationID}
+          items={audios}
+        />
+      ) : null}
       {files.length > 0 ? (
         <div className="w-full max-w-full overflow-hidden">
           <Table>
             <TableBody>
-              {files.map((i) => (
-                <MediaFileRow key={`file-${i.id}`} directory={props.directory} item={i} />
+              {files.map((item) => (
+                <MediaFileRow
+                  key={`file-${item.id}`}
+                  directory={props.directory}
+                  item={item}
+                  onOpenResource={props.onOpenResource}
+                  onProcessResource={onProcessResource}
+                  resourceProcessingReady={resourceProcessingReady}
+                  resource={
+                    item.workspacePath
+                      ? resourceByPath.get(normalizeRelativePath(item.workspacePath))
+                      : undefined
+                  }
+                />
               ))}
             </TableBody>
           </Table>
@@ -375,5 +623,12 @@ export function renderPresentMediaTool(props: ToolPartProps) {
   }
 
   // Completed with media: render content directly, no header
-  return <PresentedMediaContent directory={props.directory} items={resolvedItems} />
+  return (
+    <PresentedMediaContent
+      directory={props.directory}
+      presentationID={media.presentationID}
+      items={resolvedItems}
+      onOpenResource={props.onOpenResource}
+    />
+  )
 }

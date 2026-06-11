@@ -3,14 +3,20 @@ import DOMPurify from "dompurify"
 import morphdom from "morphdom"
 import "katex/dist/katex.min.css"
 import "@/components/chat/tools/text-shimmer.css"
+import { toast } from "@buddy/ui"
 import { resolveFileTypeIconUrl } from "@/components/files/file-type-icon"
 import {
+  buildPresentedMediaFileActionInput,
   findPresentedMediaCandidateMatches,
   isLikelyPresentedMediaPathCandidate,
   normalizePresentedMediaCandidatePath,
-  toWorkspaceFilePanelItem,
+  resolvePresentedMediaPathInfo,
 } from "@/lib/presented-media"
-import { useWorkspaceFilePanelStore } from "@/state/workspace-file-panel-store"
+import {
+  useWorkspaceFileOpen,
+  type WorkspaceResourceOpener,
+} from "@/lib/use-workspace-file-open"
+import { usePlatform } from "@/context/platform"
 import { getServerConnection } from "@/context/server"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { parseMarkdownToHtml } from "./markdown-parser"
@@ -423,6 +429,7 @@ export function MarkdownHtmlSegment(props: {
   cacheKey?: string
   className?: string
   directory?: string
+  onOpenResource?: WorkspaceResourceOpener
   streaming?: boolean
   interrupted?: boolean
 }) {
@@ -431,7 +438,8 @@ export function MarkdownHtmlSegment(props: {
   const copyCleanupRef = useRef<(() => void) | undefined>(undefined)
   const copySetupTimerRef = useRef<number | undefined>(undefined)
   const copyLabels = useMemo<CopyLabels>(() => ({ copy: "Copy code", copied: "Copied" }), [])
-  const queueFileOpen = useWorkspaceFilePanelStore((state) => state.queueFileOpen)
+  const platform = usePlatform()
+  const { executePrimary } = useWorkspaceFileOpen(props.directory, props.onOpenResource)
   const sanitizeContextKey = markdownSanitizeContextKey()
   const fullCacheKey = useMemo(
     () =>
@@ -498,33 +506,25 @@ export function MarkdownHtmlSegment(props: {
       if (!rawPath) return
       if (!isLikelyPresentedMediaPathCandidate(rawPath)) return
       event.preventDefault()
+      const directory = props.directory
 
-      const panelItem = toWorkspaceFilePanelItem({
-        id: "",
-        inputPath: rawPath,
-        absolutePath: "",
-        displayPath: rawPath,
-        workspacePath: rawPath,
-        fileName: presentedMediaLinkLabel(rawPath),
-        mediaKind: "other",
-        renderMode: "file",
-        mimeType: null,
-        sizeBytes: null,
-        modifiedAt: null,
-        rawUrl: "",
-        actionCapabilities: {
-          canOpenDefaultApp: false,
-          canRevealInFileManager: false,
-          canOpenInWorkspacePanel: true,
-        },
-        availability: {
-          status: "available",
-          message: null,
-        },
-      })
-      if (panelItem) {
-        queueFileOpen(props.directory ?? "", panelItem, { autoOpen: true })
-      }
+      void (async () => {
+        try {
+          const resolved = await resolvePresentedMediaPathInfo({
+            directory,
+            path: normalizePresentedMediaCandidatePath(rawPath),
+          })
+          await executePrimary(
+            buildPresentedMediaFileActionInput({
+              item: resolved,
+              canOpenDefaultApp: !!platform.openPath,
+              canReveal: !!platform.revealPath,
+            }),
+          )
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : String(error))
+        }
+      })()
     }
 
     root.addEventListener("click", handleClick)
@@ -578,13 +578,15 @@ export function MarkdownHtmlSegment(props: {
     }
   }, [
     copyLabels,
+    executePrimary,
     fullCacheKey,
+    platform.openPath,
+    platform.revealPath,
     props.cacheKey,
     props.directory,
     props.interrupted,
     props.text,
     props.streaming,
-    queueFileOpen,
     resetCodeCopy,
   ])
 

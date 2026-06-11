@@ -11,6 +11,11 @@ export type OpenFilePickerOptions = {
   multiple?: boolean
 }
 
+export type MarkdownPdfExportInput = {
+  html: string
+  defaultPath: string
+}
+
 export type UpdateCheckResult =
   | { status: "disabled" }
   | { status: "up-to-date" }
@@ -33,6 +38,7 @@ export type Platform = {
   openPath?(path: string, app?: string): Promise<void>
   revealPath?(path: string): Promise<void>
   getFileIcon?(path: string): Promise<string | null>
+  exportMarkdownPdf?(input: MarkdownPdfExportInput): Promise<string | null>
   fetch?: typeof fetch
   openLink(url: string): void
   restart(): Promise<void>

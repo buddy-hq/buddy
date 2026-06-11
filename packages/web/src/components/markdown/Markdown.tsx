@@ -4,6 +4,8 @@ import { MarkdownHtmlSegment, markdownClassName } from "./markdown-html-segment"
 import { MarkdownMermaidSegment, type MarkdownMermaidContext } from "./markdown-mermaid-segment"
 import { parseMarkdownSegments } from "./markdown-segments"
 import { shouldVirtualizeMarkdown, VirtualizedMarkdown } from "./virtualized-markdown"
+import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
+import type { WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
 
 const POSSIBLE_MERMAID_BLOCK_RE = /(^|\n)[ \t]{0,3}(`{3,}|~{3,})[ \t]*mermaid(?:[ \t][^\n]*)?\r?\n/u
 
@@ -19,10 +21,13 @@ export function Markdown(props: {
   isStreaming?: boolean
   isInterrupted?: boolean
   preferEagerRender?: boolean
+  renderMermaid?: boolean
   directory?: string
+  onOpenResource?: WorkspaceResourceOpener
 }) {
   const baseCacheKey = props.cacheKey ?? props.text
-  const canContainMermaid = !!props.mermaidContext && canContainMermaidBlock(props.text)
+  const canContainMermaid =
+    (!!props.mermaidContext || props.renderMermaid === true) && canContainMermaidBlock(props.text)
   const segments = useMemo(
     () => (canContainMermaid ? parseMarkdownSegments(props.text) : []),
     [canContainMermaid, props.text],
@@ -37,6 +42,7 @@ export function Markdown(props: {
           cacheKey={baseCacheKey}
           className={props.className}
           directory={props.directory}
+          onOpenResource={props.onOpenResource}
           streaming={props.isStreaming}
           interrupted={props.isInterrupted}
         />
@@ -49,6 +55,7 @@ export function Markdown(props: {
         cacheKey={baseCacheKey}
         className={cn(markdownClassName, props.className)}
         directory={props.directory}
+        onOpenResource={props.onOpenResource}
         streaming={props.isStreaming}
         interrupted={props.isInterrupted}
       />
@@ -64,6 +71,7 @@ export function Markdown(props: {
             text={segment.markdown}
             cacheKey={`${baseCacheKey}:html:${segment.segmentIndex}`}
             directory={props.directory}
+            onOpenResource={props.onOpenResource}
             streaming={props.isStreaming}
             interrupted={props.isInterrupted}
           />
@@ -77,6 +85,20 @@ export function Markdown(props: {
             segmentIndex={segment.segmentIndex}
             source={segment.source}
           />
+        ) : props.renderMermaid ? (
+          <div
+            key={`${baseCacheKey}:mermaid:${segment.segmentIndex}`}
+            className="my-4 overflow-hidden rounded-xl border border-border-weaker-base bg-background-base"
+          >
+            <MermaidDiagram
+              source={segment.source}
+              alt="Mermaid diagram"
+              directory={props.directory}
+              minimalActions
+              disableRevealAnimation
+              className="min-h-56"
+            />
+          </div>
         ) : null,
       )}
     </div>
