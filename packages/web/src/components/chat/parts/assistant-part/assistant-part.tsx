@@ -100,6 +100,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
         stripLeadingFigureImage={stripLeadingFigureImage}
         stripLeadingMermaidSources={stripLeadingMermaidSources}
         directory={directory}
+        onOpenResource={onOpenResource}
         onFinalRender={onTextFinalRender}
       />
     )

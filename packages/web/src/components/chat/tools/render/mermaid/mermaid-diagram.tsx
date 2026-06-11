@@ -239,7 +239,11 @@ export function MermaidDiagram(props: {
     ) : null
 
   const content = (
-    <div ref={activation.ref} className={cn("h-full min-h-0", props.className)}>
+    <div
+      ref={activation.ref}
+      data-markdown-export-status={state.status}
+      className={cn("h-full min-h-0", props.className)}
+    >
       {state.status === "loading" ? (
         props.hideLoadingPlaceholder ? (
           <div aria-hidden className="min-h-6" />

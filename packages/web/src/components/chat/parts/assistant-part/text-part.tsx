@@ -4,6 +4,7 @@ import type { MarkdownMermaidContext } from "@/components/markdown/Markdown"
 import { CopyAction } from "../../copy-action"
 import { useAdaptiveStreamingText } from "../../hooks/use-streaming-text"
 import { cn } from "@buddy/ui"
+import type { WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
 import type { ChatTextPart } from "../../utils/part-guards"
 
 type AssistantTextPartProps = {
@@ -16,6 +17,7 @@ type AssistantTextPartProps = {
   stripLeadingFigureImage?: boolean
   stripLeadingMermaidSources?: string[]
   directory?: string
+  onOpenResource?: WorkspaceResourceOpener
   onFinalRender?: () => void
 }
 
@@ -66,6 +68,7 @@ function assistantTextPartEqual(
   if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
   if (prevProps.stripLeadingMermaidSources !== nextProps.stripLeadingMermaidSources) return false
   if (prevProps.directory !== nextProps.directory) return false
+  if (prevProps.onOpenResource !== nextProps.onOpenResource) return false
   if (prevProps.onFinalRender !== nextProps.onFinalRender) return false
   return prevProps.part.text === nextProps.part.text
 }
@@ -80,6 +83,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   stripLeadingFigureImage,
   stripLeadingMermaidSources,
   directory,
+  onOpenResource,
   onFinalRender,
 }: AssistantTextPartProps) {
   const text = part.text
@@ -116,6 +120,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
           isInterrupted={interrupted}
           preferEagerRender={preferEagerMarkdown}
           directory={directory}
+          onOpenResource={onOpenResource}
         />
       </div>
       {copyEnabled ? (

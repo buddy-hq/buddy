@@ -3,6 +3,8 @@ import type {
   WorkspaceFilePanelMediaKind,
   WorkspaceFilePanelRenderMode,
 } from "@/state/workspace-file-panel-store"
+import type { WorkspaceFileActionInput } from "./use-workspace-file-open"
+import { getBuddyClient, requireBuddyData } from "./buddy-client"
 import {
   authorizationHeader,
   createServerFetchTransport,
@@ -85,6 +87,20 @@ export type PresentedMediaItem = {
   actionCapabilities: PresentedMediaActionCapabilities
   availability: PresentedMediaAvailability
 }
+
+export type PresentedMediaPathInfo = Omit<PresentedMediaItem, "id" | "rawUrl">
+
+type PresentedMediaActionInputSource = Pick<
+  PresentedMediaPathInfo,
+  | "absolutePath"
+  | "displayPath"
+  | "workspacePath"
+  | "fileName"
+  | "mimeType"
+  | "sizeBytes"
+  | "actionCapabilities"
+  | "availability"
+>
 
 export type PresentedMediaOutput = {
   presentationID: string
@@ -314,6 +330,40 @@ export function toWorkspaceFilePanelItem(
     path: item.workspacePath,
     ...(absolutePath ? { absolutePath } : {}),
   }
+}
+
+export function buildPresentedMediaFileActionInput(input: {
+  item: PresentedMediaActionInputSource
+  canOpenDefaultApp: boolean
+  canReveal: boolean
+}): WorkspaceFileActionInput {
+  return {
+    path: input.item.workspacePath ?? input.item.displayPath,
+    absolutePath: input.item.absolutePath,
+    name: input.item.fileName,
+    available: input.item.availability.status === "available",
+    canOpenInBuddy:
+      input.item.actionCapabilities.canOpenInWorkspacePanel && input.item.workspacePath !== null,
+    canOpenDefaultApp: input.item.actionCapabilities.canOpenDefaultApp && input.canOpenDefaultApp,
+    canReveal: input.item.actionCapabilities.canRevealInFileManager && input.canReveal,
+    mimeType: input.item.mimeType ?? undefined,
+    sizeBytes: input.item.sizeBytes ?? undefined,
+  }
+}
+
+export function isPresentedMediaOutsideNotebook(item: { workspacePath: string | null }) {
+  return item.workspacePath === null
+}
+
+export async function resolvePresentedMediaPathInfo(input: {
+  directory: string
+  path: string
+}): Promise<PresentedMediaPathInfo> {
+  return requireBuddyData(
+    await getBuddyClient(input.directory).presentedMedia.resolve({
+      path: input.path,
+    }),
+  )
 }
 
 export async function resolvePresentedMediaAvailability(

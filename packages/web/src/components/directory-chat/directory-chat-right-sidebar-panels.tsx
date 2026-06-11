@@ -9,6 +9,7 @@ import { MathFigurePanel } from "@/components/teaching/math-figure-panel"
 import { ProjectFileExplorerPanel } from "@/components/project-explorer/project-file-explorer-panel"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
 import type { TeachingWorkspaceController } from "@/lib/directory-chat/use-teaching-workspace"
+import type { WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
 
 type DirectoryChatRightSidebarPanelsProps = {
   directory: string
@@ -18,6 +19,7 @@ type DirectoryChatRightSidebarPanelsProps = {
   showPaletteTab: boolean
   systemPromptRefreshToken: number
   isStartingInteractiveLesson: boolean
+  onOpenResource: WorkspaceResourceOpener
   onOpenCreateTeachingFileDialog: () => void
   onStartInteractiveLesson: () => void
 }
@@ -43,12 +45,17 @@ export function buildDirectoryChatRightSidebarPanels(
     showPaletteTab,
     systemPromptRefreshToken,
     isStartingInteractiveLesson,
+    onOpenResource,
     onOpenCreateTeachingFileDialog,
     onStartInteractiveLesson,
   } = props
 
   const filesPanel = (
-    <ProjectFileExplorerPanel className="h-full min-h-0 flex-1" directory={directory} />
+    <ProjectFileExplorerPanel
+      className="h-full min-h-0 flex-1"
+      directory={directory}
+      onOpenResource={onOpenResource}
+    />
   )
 
   const editorPanel = chatState.selectedPersonaSupportsEditor ? (

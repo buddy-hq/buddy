@@ -1873,6 +1873,7 @@ export function useDirectoryChatPageController(
     showPaletteTab: showPaletteSidebarTab,
     systemPromptRefreshToken,
     isStartingInteractiveLesson,
+    onOpenResource: openResourceInReadingMode,
     onRunCurriculumAction: (action) => {
       void onRunCurriculumAction(action)
     },

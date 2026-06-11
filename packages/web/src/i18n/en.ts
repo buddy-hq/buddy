@@ -313,6 +313,14 @@ export const dict = {
   "projectExplorer.largeFileMessage": "This text file is too large to render safely in-app.",
   "projectExplorer.loading": "Loading files...",
   "projectExplorer.loadingFile": "Loading file...",
+  "projectExplorer.markdownEdit": "Edit",
+  "projectExplorer.markdownExported": "PDF exported",
+  "projectExplorer.markdownExportFailed": "Failed to export Markdown as PDF.",
+  "projectExplorer.markdownExportPdf": "Export PDF",
+  "projectExplorer.markdownExportUnavailable":
+    "PDF export is only available in desktop Buddy.",
+  "projectExplorer.markdownPreview": "Markdown preview",
+  "projectExplorer.markdownView": "View",
   "projectExplorer.noOpenFiles": "Open a file from the tree to preview it.",
   "projectExplorer.openInDefaultApp": "Open in default app",
   "projectExplorer.openInDefaultAppUnavailable":

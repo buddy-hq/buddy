@@ -4,6 +4,7 @@ import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-se
 import type { LearnerCurriculumView } from "@/state/chat-actions"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
 import type { TeachingWorkspaceController } from "@/lib/directory-chat/use-teaching-workspace"
+import type { WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
 import { buildDirectoryChatRightSidebarPanels } from "./directory-chat-right-sidebar-panels"
 
 type DirectoryChatRightSidebarProps = {
@@ -17,6 +18,7 @@ type DirectoryChatRightSidebarProps = {
   systemPromptRefreshToken: number
   isStartingInteractiveLesson: boolean
   onRunCurriculumAction: (action: LearnerCurriculumView["actions"][number]) => void
+  onOpenResource: WorkspaceResourceOpener
   onOpenCreateTeachingFileDialog: () => void
   onStartInteractiveLesson: () => void
 }
@@ -33,6 +35,7 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
     systemPromptRefreshToken,
     isStartingInteractiveLesson,
     onRunCurriculumAction,
+    onOpenResource,
     onOpenCreateTeachingFileDialog,
     onStartInteractiveLesson,
   } = props
@@ -45,6 +48,7 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
     showPaletteTab,
     systemPromptRefreshToken,
     isStartingInteractiveLesson,
+    onOpenResource,
     onOpenCreateTeachingFileDialog,
     onStartInteractiveLesson,
   })
