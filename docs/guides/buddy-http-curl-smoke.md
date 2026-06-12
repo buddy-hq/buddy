@@ -40,6 +40,29 @@ Then add:
 
 to every `curl` command.
 
+### Smoking an already-running desktop sidecar
+
+When the Electron dev app starts Buddy, the backend may already be listening on
+a random localhost port with generated basic auth. In that case, do not start a
+second backend. Find the listening process and read the auth values from its
+environment without printing the password:
+
+```bash
+PORT=58960
+SIDECAR_PID=$(lsof -nP -iTCP:$PORT -sTCP:LISTEN -t | head -1)
+
+ENVBLOB=$(ps eww -p "$SIDECAR_PID" -o command= 2>/dev/null || true)
+BUDDY_SERVER_USERNAME=$(printf '%s\n' "$ENVBLOB" | tr ' ' '\n' | sed -n 's/^BUDDY_SERVER_USERNAME=//p' | head -1)
+BUDDY_SERVER_PASSWORD=$(printf '%s\n' "$ENVBLOB" | tr ' ' '\n' | sed -n 's/^BUDDY_SERVER_PASSWORD=//p' | head -1)
+
+AUTH_ARGS=(-u "$BUDDY_SERVER_USERNAME:$BUDDY_SERVER_PASSWORD")
+curl -sS "${AUTH_ARGS[@]}" "http://127.0.0.1:$PORT/api/health"
+```
+
+Use `bash` for snippets that define `AUTH_ARGS` arrays. `/api/healthz` is
+usually unauthenticated, but `/api/health` and session routes normally require
+auth in desktop dev.
+
 ## Basic health checks
 
 Buddy wrapper health:
@@ -95,6 +118,25 @@ If you send `modelID` to session create, you can get:
 ```json
 {"error":"model.id: Missing key"}
 ```
+
+## Choose a smoke model
+
+Prefer a free `opencode` model for smokes so the smoke does not depend on a
+paid or temporarily unavailable default:
+
+```text
+opencode/deepseek-v4-flash-free
+```
+
+If that model is unavailable on the machine, fetch providers and choose another
+free model from the `opencode` provider:
+
+```bash
+curl -sS "${AUTH_ARGS[@]}" "http://127.0.0.1:$PORT/api/provider?directory=$DIRECTORY_Q"
+```
+
+Avoid depending on `opencode-go/kimi-k2.6` for repeatable smoke tests. It may be
+present in one environment and fail in another.
 
 ## Create a fresh session
 
@@ -206,6 +248,43 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
   console.log(JSON.stringify({ toolNames, finalText }, null, 2))
 })'
 ```
+
+## Timing a prompt
+
+To diagnose pre-LLM delay, capture only the log slice produced by the smoke:
+
+```bash
+LOG="$HOME/Library/Logs/Buddy Dev/main.log"
+START_SIZE=$(wc -c < "$LOG")
+
+# Run session create, prompt_async, and polling here.
+
+tail -c +$((START_SIZE + 1)) "$LOG" > /tmp/buddy-smoke-log-slice.log
+```
+
+Read the timing lines in order:
+
+- `service=session.tools status=started resolveTools` marks the start of
+  tool-definition resolution for the prompt.
+- `service=tool.registry` lines are OpenCode tool-definition resolution, not
+  new Buddy tool registration.
+- `service=session.tools status=completed duration=... resolveTools` is the
+  total time spent resolving all available tools for the prompt.
+
+If `session.tools` is slow but individual `tool.registry` lines are fast, check
+the same slice for `service=mcp` lines between `session.tools started` and
+`session.tools completed`. OpenCode starts configured MCP servers while
+resolving tools:
+
+```bash
+rg 'service=(session\.tools|tool\.registry|mcp)|resolveTools' /tmp/buddy-smoke-log-slice.log
+```
+
+A repo or user OpenCode config can provide those MCP servers. In this repo,
+`opencode.jsonc` configures `shadcn` and `tanstack` MCPs, and Buddy passes
+configured MCP entries through its OpenCode config overlay. A slow or broken
+MCP startup can therefore look like a tool-registration delay even when Buddy's
+own plugin tools are already loaded.
 
 ## Dynamic tool smoke
 
