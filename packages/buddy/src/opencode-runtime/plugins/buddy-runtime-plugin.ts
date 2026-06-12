@@ -1,9 +1,14 @@
 import path from "node:path"
 import type { Hooks, Plugin } from "@opencode-ai/plugin"
+import { MessageID, PartID } from "@buddy/opencode-adapter/id"
 import { createOpenAICodexAuthHook } from "./openai-codex-auth"
 import { stripToolUiFromMessages } from "../tool-ui-strip"
 import { captureSessionSystemPrompt } from "../system-prompt-capture"
 import { preloadBuddyBootstrapGraph } from "../../learning/runtime/bootstrap-preload"
+import {
+  formatCommandInvocationDisplay,
+  withCommandInvocationDisplayParts,
+} from "../../session/orchestration/command-transcript"
 
 type SystemTransformInput = {
   sessionID?: string
@@ -89,8 +94,56 @@ const stripToolUiFromChatMessages: NonNullable<
   stripToolUiFromMessages(output.messages)
 }
 
+type CommandExecuteBeforeHook = NonNullable<Hooks["command.execute.before"]>
+type CommandExecuteBeforeInput = Parameters<CommandExecuteBeforeHook>[0]
+type CommandExecuteBeforeOutput = Parameters<CommandExecuteBeforeHook>[1]
+type CommandExecuteBeforePart = CommandExecuteBeforeOutput["parts"][number]
+
+function createCommandDisplayHookPart(input: {
+  hookInput: CommandExecuteBeforeInput
+  displayText: string
+}): CommandExecuteBeforePart {
+  return {
+    id: PartID.ascending(),
+    sessionID: input.hookInput.sessionID,
+    messageID: MessageID.ascending(),
+    type: "text",
+    text: input.displayText,
+    ignored: true,
+  }
+}
+
+export const compactCommandInvocationBeforeExecute: CommandExecuteBeforeHook = async (
+  hookInput,
+  output,
+) => {
+  const displayText = formatCommandInvocationDisplay({
+    command: hookInput.command,
+    argumentsText: hookInput.arguments,
+  })
+  const parts = withCommandInvocationDisplayParts({
+    parts: output.parts,
+    displayText,
+    createDisplayPart: () => createCommandDisplayHookPart({ hookInput, displayText }),
+    cloneAsDisplayPart: (part) => ({
+      ...part,
+      ignored: true,
+      text: displayText,
+    }),
+    cloneAsContextPart: (part) => ({
+      ...part,
+      id: PartID.ascending(),
+      synthetic: true,
+    }),
+  })
+
+  output.parts.length = 0
+  output.parts.push(...parts)
+}
+
 function createSystemPromptGuard(input: { directory: string }) {
   return {
+    "command.execute.before": compactCommandInvocationBeforeExecute,
     "experimental.chat.messages.transform": stripToolUiFromChatMessages,
     "experimental.chat.system.transform": async (
       hookInput: SystemTransformInput,

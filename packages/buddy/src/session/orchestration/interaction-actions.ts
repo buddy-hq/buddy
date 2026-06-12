@@ -1,6 +1,7 @@
 import type { Context } from "hono"
-import { SessionID } from "@buddy/opencode-adapter/id"
+import { MessageID, PartID, SessionID } from "@buddy/opencode-adapter/id"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import type { MessageV2 } from "@buddy/opencode-adapter/message"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { SessionV2 as OpenCodeSessionV2 } from "@buddy/opencode-adapter/session-v2"
 import { withConfigSync } from "../../http"
@@ -39,12 +40,23 @@ import type {
   MermaidAutoRepairState,
 } from "../../learning/features/diagrams/service/v2-types"
 import { getOpenCodeClient } from "../../opencode-runtime/client"
+import {
+  persistCommandInvocationDisplay,
+  withCommandInvocationDisplay,
+} from "./command-transcript"
 
 const MERMAID_AUTO_REPAIR_TIMEOUT_MESSAGE =
   "Automatic Mermaid repair timed out before a replacement diagram was created."
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
+}
+
+function isUserMessageWithParts(value: unknown): value is MessageV2.WithParts {
+  if (!isRecord(value)) return false
+  if (!Array.isArray(value.parts)) return false
+  const info = value.info
+  return isRecord(info) && info.role === "user"
 }
 
 type JsonValidatorRequest = {
@@ -363,10 +375,18 @@ export async function postSessionCommand(c: Context): Promise<Response> {
       request: c.req.raw,
     })
 
+    const rawCommandMessageID = body.messageID
+    const commandMessageID =
+      typeof rawCommandMessageID === "string" ? MessageID.make(rawCommandMessageID) : MessageID.ascending()
+    const commandBody = {
+      ...body,
+      messageID: commandMessageID,
+    }
+
     commandTransform = createSessionCommandTransform({
       context: { directory, sessionID, request: c.req.raw },
     })
-    const transformed = await commandTransform.onTransform(body)
+    const transformed = await commandTransform.onTransform(commandBody)
     const runtimeSafeBody = prepareRuntimeCommandBody(transformed)
 
     const client = await getOpenCodeClient(directory)
@@ -383,7 +403,28 @@ export async function postSessionCommand(c: Context): Promise<Response> {
       return sdkErrorResponse(result, { forceBusyAs409: true })
     }
 
-    return Response.json(result.data)
+    const commandDisplay = {
+      command: typeof runtimeSafeBody.command === "string" ? runtimeSafeBody.command : "",
+      argumentsText: typeof runtimeSafeBody.arguments === "string" ? runtimeSafeBody.arguments : "",
+      contextPartID: PartID.ascending(),
+    }
+    const rawResponseData: unknown = result.data
+    const responseData = isUserMessageWithParts(rawResponseData)
+      ? withCommandInvocationDisplay(rawResponseData, commandDisplay)
+      : result.data
+
+    try {
+      await persistCommandInvocationDisplay({
+        directory,
+        sessionID,
+        messageID: commandMessageID,
+        ...commandDisplay,
+      })
+    } catch {
+      // The command has already executed; display compaction must not convert it into a failed send.
+    }
+
+    return Response.json(responseData)
   } catch (error) {
     commandTransform?.rollbackState?.()
     const response = mapSessionTransformError(c, error)
