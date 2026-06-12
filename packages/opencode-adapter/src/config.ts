@@ -15,7 +15,10 @@ import { InstanceRef } from "opencode/effect/instance-ref"
 import {
   clearRuntimeConfigOverlay,
   getRuntimeConfigOverlay,
+  RUNTIME_CONFIG_OVERLAY_AUTHORITATIVE_KEYS,
   setRuntimeConfigOverlay,
+  type RuntimeConfigOverlayAuthoritativeKey,
+  type RuntimeConfigOverlayOptions,
 } from "./config-overlay"
 import { withCurrentInstance } from "./effect-runtime"
 
@@ -62,6 +65,17 @@ function applyRuntimeConfigOverlay(base: RuntimeConfig, overlay: Partial<Runtime
     ])
     base.plugin = origins.map((origin) => origin.spec)
     base.plugin_origins = origins
+  }
+}
+
+function applyAuthoritativeRuntimeConfigKeys(
+  base: RuntimeConfig,
+  keys: readonly RuntimeConfigOverlayAuthoritativeKey[],
+): void {
+  for (const key of keys) {
+    if (key === RUNTIME_CONFIG_OVERLAY_AUTHORITATIVE_KEYS.mcp) {
+      delete base.mcp
+    }
   }
 }
 
@@ -119,16 +133,17 @@ function ensurePatched(service: OpenCodeConfig.Interface) {
       return config
     }
 
-    const overlay = getRuntimeConfigOverlay(instance.directory)
-    if (!overlay || appliedRuntimeConfigOverlays.has(config)) {
+    const entry = getRuntimeConfigOverlay(instance.directory)
+    if (!entry || appliedRuntimeConfigOverlays.has(config)) {
       return config
     }
 
     const parsedOverlay = yield* parseRuntimeConfigOverlay({
       directory: instance.directory,
-      overlay,
+      overlay: entry.overlay,
     })
 
+    applyAuthoritativeRuntimeConfigKeys(config, entry.authoritativeKeys)
     applyRuntimeConfigOverlay(config, parsedOverlay)
     appliedRuntimeConfigOverlays.add(config)
     return config
@@ -154,8 +169,12 @@ export async function withConfigOverlay<T>(_directory: string, fn: () => Promise
   return fn()
 }
 
-export function setConfigOverlay(directory: string, overlay: Partial<RuntimeConfig>) {
-  setRuntimeConfigOverlay(directory, overlay)
+export function setConfigOverlay(
+  directory: string,
+  overlay: Partial<RuntimeConfig>,
+  options?: RuntimeConfigOverlayOptions,
+) {
+  setRuntimeConfigOverlay(directory, overlay, options)
 }
 
 export function clearConfigOverlay(directory: string) {

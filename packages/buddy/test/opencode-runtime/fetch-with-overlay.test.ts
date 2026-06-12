@@ -11,6 +11,23 @@ describe("in-process OpenCode fetch overlay", () => {
     await using project = await tmpdir({ git: true })
 
     writeFileSync(
+      path.join(project.path, "opencode.jsonc"),
+      JSON.stringify(
+        {
+          mcp: {
+            raw_opencode_test: {
+              type: "local",
+              command: ["bun", "--version"],
+              enabled: false,
+            },
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+
+    writeFileSync(
       path.join(project.path, "buddy.jsonc"),
       JSON.stringify(
         {
@@ -64,5 +81,6 @@ describe("in-process OpenCode fetch overlay", () => {
 
     expect(mcpStatus.error).toBeUndefined()
     expect(mcpStatus.data).toHaveProperty("local_test")
+    expect(mcpStatus.data).not.toHaveProperty("raw_opencode_test")
   }, 30_000)
 })

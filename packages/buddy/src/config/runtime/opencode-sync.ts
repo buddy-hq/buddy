@@ -1,5 +1,8 @@
 import { setConfigOverlay } from "@buddy/opencode-adapter/config"
-import { canonicalizeRuntimeConfigDirectory } from "@buddy/opencode-adapter/config-overlay"
+import {
+  canonicalizeRuntimeConfigDirectory,
+  RUNTIME_CONFIG_OVERLAY_AUTHORITATIVE_KEYS,
+} from "@buddy/opencode-adapter/config-overlay"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { Config } from "../config.js"
 import { reconcileWithdrawnLibrarySkills } from "../../learning/skill-management/service/library.js"
@@ -15,6 +18,7 @@ import {
 import { readProjectConfig, readProjectConfigFile } from "./project-config.js"
 
 const OPENCODE_SYNC_STATE_KEY = Symbol.for("buddy.opencodeSyncState")
+const OPENCODE_CONFIG_POLICY_FINGERPRINT = "runtime-policy:mcp-authoritative-v1"
 
 type OpenCodeSyncState = {
   configFingerprintByDirectory: Map<string, string>
@@ -54,7 +58,9 @@ async function buildAndApplyProjectOverlay(directory: string) {
     config,
     directory,
   })
-  setConfigOverlay(directory, overlay)
+  setConfigOverlay(directory, overlay, {
+    authoritativeKeys: [RUNTIME_CONFIG_OVERLAY_AUTHORITATIVE_KEYS.mcp],
+  })
   return {
     config,
     overlay,
@@ -68,7 +74,8 @@ async function resolveProjectConfigFingerprint(config: Config.Info, overlay: unk
   return [
     fingerprintOpenCodeConfig(config, overlay),
     installedSystemSkillsFingerprint ?? "none",
-  ].join("|system-skills:")
+    OPENCODE_CONFIG_POLICY_FINGERPRINT,
+  ].join("|")
 }
 
 export async function ensureOpenCodeProjectOverlay(directory: string): Promise<void> {

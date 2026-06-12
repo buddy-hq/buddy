@@ -4,6 +4,7 @@ import { writeFileSync } from "node:fs"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
 import { clearConfigOverlay, setConfigOverlay } from "@buddy/opencode-adapter/config"
+import { RUNTIME_CONFIG_OVERLAY_AUTHORITATIVE_KEYS } from "@buddy/opencode-adapter/config-overlay"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import type { RuntimeHooks } from "@buddy/opencode-adapter/plugin-live"
@@ -32,7 +33,9 @@ async function applyProjectOverlay(directory: string): Promise<void> {
     directory,
   })
 
-  setConfigOverlay(directory, overlay)
+  setConfigOverlay(directory, overlay, {
+    authoritativeKeys: [RUNTIME_CONFIG_OVERLAY_AUTHORITATIVE_KEYS.mcp],
+  })
   await disposeDirectory(directory)
 }
 
@@ -161,6 +164,68 @@ describe("opencode config overlay isolation", () => {
       expect(runtimeConfig.command?.[commandName]?.template).toBe("echo alias")
     } finally {
       clearConfigOverlay(aliasDirectory)
+    }
+  })
+
+  test("keeps Buddy MCP config authoritative without dropping other raw OpenCode config", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const rawMcpName = "raw_opencode_mcp"
+    const buddyMcpName = "buddy_managed_mcp"
+    const rawCommandName = "raw_opencode_command"
+
+    writeFileSync(
+      path.join(project.path, "opencode.jsonc"),
+      JSON.stringify(
+        {
+          command: {
+            [rawCommandName]: {
+              template: "echo raw",
+              description: "Raw OpenCode command",
+            },
+          },
+          mcp: {
+            [rawMcpName]: {
+              type: "local",
+              command: ["bun", "--version"],
+              enabled: false,
+            },
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+    writeFileSync(
+      path.join(project.path, "buddy.jsonc"),
+      JSON.stringify(
+        {
+          mcp: {
+            [buddyMcpName]: {
+              type: "local",
+              command: ["bun", "--version"],
+              enabled: false,
+            },
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+
+    try {
+      await applyProjectOverlay(project.path)
+
+      const runtimeConfig = await OpenCodeInstance.provide({
+        directory: project.path,
+        fn: () => OpenCodeConfig.get(),
+      })
+
+      expect(runtimeConfig.command?.[rawCommandName]?.template).toBe("echo raw")
+      expect(runtimeConfig.mcp?.[rawMcpName]).toBeUndefined()
+      expect(runtimeConfig.mcp?.[buddyMcpName]?.enabled).toBe(false)
+    } finally {
+      clearConfigOverlay(project.path)
     }
   })
 

@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test"
+import { writeFileSync } from "node:fs"
+import path from "node:path"
 import { app } from "../../src/index.ts"
 import { tmpdir } from "../helpers/tmpdir"
 
@@ -34,5 +36,35 @@ describe("mcp routes", () => {
 
     expect(statusResponse.status).toBe(200)
     await expect(statusResponse.json()).resolves.toEqual({})
+  })
+
+  test("hides MCP servers that only exist in raw OpenCode config", async () => {
+    await using project = await tmpdir({ git: true })
+
+    writeFileSync(
+      path.join(project.path, "opencode.jsonc"),
+      JSON.stringify(
+        {
+          mcp: {
+            raw_opencode_test: {
+              type: "local",
+              command: ["bun", "--version"],
+              enabled: false,
+            },
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+
+    const response = await app.request("/api/mcp", {
+      headers: {
+        "x-buddy-directory": project.path,
+      },
+    })
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({})
   })
 })
