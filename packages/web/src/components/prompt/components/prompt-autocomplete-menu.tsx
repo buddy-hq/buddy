@@ -89,7 +89,7 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
                   data-value={command.name.toLowerCase()}
                   data-component="prompt-slash-option"
                   className={cn(
-                    "cursor-pointer select-none justify-between gap-4 px-2 py-1.5 text-left data-selected:bg-transparent data-selected:text-text-base data-selected:*:[svg]:text-text-weak",
+                    "cursor-pointer select-none items-start justify-between gap-3 px-2.5 py-2 text-left data-selected:bg-transparent data-selected:text-text-base data-selected:*:[svg]:text-text-weak",
                     active && "!bg-surface-raised-base-hover !text-text-strong",
                   )}
                   onMouseMove={() => {
@@ -98,10 +98,12 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
                   onMouseDown={(e) => e.preventDefault()}
                   onSelect={() => props.onApplySlash(command)}
                 >
-                  <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                    <span className="truncate font-medium">{`/${command.name}`}</span>
+                  <div className="grid min-w-0 flex-1 gap-0.5">
+                    <span className="truncate text-sm font-semibold text-text-stronger">{`/${command.name}`}</span>
                     {description ? (
-                      <span className="truncate text-xs text-text-weak">{description}</span>
+                      <span className="min-w-0 truncate text-xs leading-4 text-text-weak">
+                        {description}
+                      </span>
                     ) : null}
                   </div>
                   {command.type === "custom" && command.source && command.source !== "command" ? (
