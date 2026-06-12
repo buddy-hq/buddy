@@ -193,6 +193,33 @@ describe("tool UI metadata", () => {
     expect(completedInfo.title).toBe("Search learning tools")
   })
 
+  test("tool fallback labels do not expose raw tool ids", () => {
+    const runningWhiteboard = getToolInfo("whiteboard_create_view", {
+      status: "running",
+      input: {},
+      metadata: {},
+      attachments: [],
+    })
+    const completedWhiteboard = getToolInfo("whiteboard_create_view", {
+      status: "completed",
+      input: {},
+      metadata: {},
+      attachments: [],
+      output: "done",
+    })
+    const unknownTool = getToolInfo("raw_custom_tool", {
+      status: "completed",
+      input: {},
+      metadata: {},
+      attachments: [],
+      output: "done",
+    })
+
+    expect(runningWhiteboard.title).toBe("Updating Whiteboard")
+    expect(completedWhiteboard.title).toBe("Updated Whiteboard")
+    expect(unknownTool.title).toBe("Raw Custom Tool")
+  })
+
   test("skill tool titles use humanized skill names", () => {
     const completedInfo = getToolInfo("skill", {
       status: "completed",

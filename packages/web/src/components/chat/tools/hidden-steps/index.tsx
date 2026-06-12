@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 
 import { ChevronRightIcon, cn } from "@buddy/ui"
 import { AnimatePresence, motion } from "motion/react"
@@ -128,6 +128,33 @@ function hiddenStepsEntryHasDetails(entry: HiddenStepsEntry): boolean {
   )
 }
 
+function hiddenStepsEntryHasStreamingReasoning(entry: HiddenStepsEntry, streaming?: boolean) {
+  return Boolean(
+    streaming && entry.part.type === "reasoning" && hiddenStepsEntryIsActive(entry),
+  )
+}
+
+function HiddenStepsContentFrame({
+  stable,
+  children,
+}: {
+  stable: boolean
+  children: ReactNode
+}) {
+  return (
+    <motion.div
+      data-hidden-steps-stable-streaming={stable ? "true" : undefined}
+      initial={stable ? false : { height: 0, opacity: 0 }}
+      animate={stable ? { opacity: 1 } : { height: "auto", opacity: 1 }}
+      exit={stable ? { opacity: 0 } : { height: 0, opacity: 0 }}
+      transition={EXPAND_TRANSITION}
+      style={stable ? undefined : { overflow: "hidden" }}
+    >
+      {children}
+    </motion.div>
+  )
+}
+
 function HiddenStepsToolDetails({ entry }: { entry: HiddenStepsEntry }) {
   if (entry.part.type !== "tool" || !entry.state) return null
   const hasFileChangeDetails = hasHiddenFileChangeDetails(entry)
@@ -195,6 +222,7 @@ function HiddenStepsItemRow(props: HiddenStepsItemEntryProps) {
   const icon = entryIcon(entry)
   const label = getHiddenStepsEntryLabel(entry)
   const hasDetails = hiddenStepsEntryHasDetails(entry)
+  const stableStreamingDetails = hiddenStepsEntryHasStreamingReasoning(entry, props.streaming)
 
   return (
     <div>
@@ -226,18 +254,11 @@ function HiddenStepsItemRow(props: HiddenStepsItemEntryProps) {
 
       <AnimatePresence initial={false}>
         {hasDetails && isOpen && (
-          <motion.div
-            key="item-content"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={EXPAND_TRANSITION}
-            style={{ overflow: "hidden" }}
-          >
+          <HiddenStepsContentFrame stable={stableStreamingDetails}>
             <div className="pl-5 pt-1 pb-1">
               <HiddenStepsItemContent {...props} />
             </div>
-          </motion.div>
+          </HiddenStepsContentFrame>
         )}
       </AnimatePresence>
     </div>
@@ -288,8 +309,9 @@ export function HiddenSteps({
 
   const title = displayHeader.label ?? DEFAULT_STEPS_TITLE
   const animateTitle = isActive && Boolean(isBusy)
-  const isStreamingOpen = isOpen && animateTitle
   const canOpen = entries.length > 1 || entries.some(hiddenStepsEntryHasDetails)
+  const stableStreamingDetails =
+    isOpen && entries.some((entry) => hiddenStepsEntryHasStreamingReasoning(entry, isBusy))
   const hasActiveReasoning = entries.some(
     (entry) => entry.part.type === "reasoning" && hiddenStepsEntryIsActive(entry),
   )
@@ -337,14 +359,7 @@ export function HiddenSteps({
 
       <AnimatePresence initial={false}>
         {canOpen && isOpen && (
-          <motion.div
-            key="steps-content"
-            initial={isStreamingOpen ? { opacity: 0 } : { height: 0, opacity: 0 }}
-            animate={isStreamingOpen ? { opacity: 1 } : { height: "auto", opacity: 1 }}
-            exit={isStreamingOpen ? { opacity: 0 } : { height: 0, opacity: 0 }}
-            transition={EXPAND_TRANSITION}
-            style={{ overflow: "hidden" }}
-          >
+          <HiddenStepsContentFrame stable={stableStreamingDetails}>
             <div className="mt-1 flex flex-col">
               {entries.length === 1 ? (
                 <div className="pl-5 pt-1 pb-1">
@@ -356,7 +371,7 @@ export function HiddenSteps({
                 ))
               )}
             </div>
-          </motion.div>
+          </HiddenStepsContentFrame>
         )}
       </AnimatePresence>
     </div>

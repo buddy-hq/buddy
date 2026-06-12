@@ -1,5 +1,5 @@
 import { createElement } from "react"
-import { Eye } from "lucide-react"
+import { Eye, FolderOpen } from "lucide-react"
 import { cn } from "@buddy/ui"
 
 import { FileTypeIcon } from "@/components/files/file-type-icon"
@@ -16,6 +16,9 @@ export const FILE_TOOL_NAMES = ["read", "edit", "write", "apply_patch"] as const
 export type TFileToolName = (typeof FILE_TOOL_NAMES)[number]
 
 const FILE_TOOL_NAME_SET = new Set<string>(FILE_TOOL_NAMES)
+
+export const FOLDER_TOOL_ICON: ToolIconRenderer = (className) =>
+  createElement(FolderOpen, { className })
 
 export function isFileToolName(tool: string): tool is TFileToolName {
   return FILE_TOOL_NAME_SET.has(tool)
@@ -57,6 +60,18 @@ export function resolveFileToolFileName(
   return filePath ? basename(filePath) : undefined
 }
 
+export function resolveReadDirectoryPath(state: ToolState): string | undefined {
+  const display = state.metadata.display
+  if (!isRecord(display) || display.type !== "directory") return undefined
+
+  return readNonEmptyString(display.path) ?? readNonEmptyString(state.input.filePath)
+}
+
+export function resolveReadDirectoryName(state: ToolState): string | undefined {
+  const directoryPath = resolveReadDirectoryPath(state)
+  return directoryPath ? basename(directoryPath) : undefined
+}
+
 export function resolveSettledFileToolIcon(
   tool: string,
   state: ToolState,
@@ -64,6 +79,9 @@ export function resolveSettledFileToolIcon(
   fallback?: ToolIconRenderer,
 ): ToolIconRenderer | undefined {
   const filePath = resolveFileToolPath(tool, state, info)
+  if (tool === "read" && resolveReadDirectoryPath(state)) {
+    return FOLDER_TOOL_ICON
+  }
   if (
     tool === "read" &&
     resolveSkillReferenceInfo({
@@ -94,6 +112,10 @@ export function resolveFileToolIcon(
   const filePath = resolveFileToolPath(tool, state, info)
   const fileName = resolveFileToolFileName(tool, state, info)
   const imagePath = filePath ?? fileName
+
+  if (tool === "read" && resolveReadDirectoryPath(state)) {
+    return FOLDER_TOOL_ICON
+  }
 
   if (
     tool === "read" &&

@@ -136,6 +136,32 @@ function createAnsiBashPart(): MessagePart {
   }
 }
 
+function createActiveReasoningPart(): MessagePart {
+  return {
+    id: "prt_active_reasoning",
+    sessionID: "ses_active_reasoning",
+    messageID: "msg_active_reasoning",
+    type: "reasoning",
+    text: "Thinking through a code path\n\n```ts\nconst value = 1\n```",
+    time: { start: 1 },
+  }
+}
+
+function createLongActiveReasoningPart(): MessagePart {
+  return {
+    id: "prt_long_active_reasoning",
+    sessionID: "ses_long_active_reasoning",
+    messageID: "msg_long_active_reasoning",
+    type: "reasoning",
+    text: Array.from(
+      { length: 420 },
+      (_, index) =>
+        `Reasoning paragraph ${index + 1}: this is plain streamed thinking content without code fences.`,
+    ).join("\n\n"),
+    time: { start: 1 },
+  }
+}
+
 function createSkillToolPart(): MessagePart {
   return {
     id: "prt_skill",
@@ -333,6 +359,93 @@ describe("hidden steps read rendering", () => {
     expect(container.textContent).toContain("$ printf red")
     expect(container.textContent).toContain("red")
     expect(container.textContent).not.toContain(ANSI_ESCAPE)
+  })
+
+  test("uses a stable frame for expanded active reasoning", async () => {
+    await act(async () => {
+      root.render(
+        <TooltipProvider>
+          <HiddenSteps parts={[createActiveReasoningPart()]} isBusy />
+        </TooltipProvider>,
+      )
+      await flushEffects()
+    })
+
+    const trigger = container.querySelector("button")
+    expect(trigger).not.toBeNull()
+
+    await act(async () => {
+      trigger?.click()
+      await flushEffects(20)
+    })
+
+    expect(container.querySelector("[data-hidden-steps-stable-streaming='true']")).not.toBeNull()
+    expect(container.querySelector("[data-reasoning-streaming-plain='true']")).not.toBeNull()
+  })
+
+  test("keeps expanded reasoning rows open when streaming stability changes", async () => {
+    const reasoningPart = createActiveReasoningPart()
+    const parts = [reasoningPart, createSkillToolPart()]
+
+    await act(async () => {
+      root.render(
+        <TooltipProvider>
+          <HiddenSteps parts={parts} isBusy />
+        </TooltipProvider>,
+      )
+      await flushEffects()
+    })
+
+    const hiddenStepsTrigger = container.querySelector("button")
+    expect(hiddenStepsTrigger).not.toBeNull()
+
+    await act(async () => {
+      hiddenStepsTrigger?.click()
+      await flushEffects(20)
+    })
+
+    const itemTrigger = container.querySelectorAll("button")[1]
+    expect(itemTrigger).not.toBeUndefined()
+
+    await act(async () => {
+      itemTrigger?.click()
+      await flushEffects(20)
+    })
+
+    expect(container.textContent).toContain("const value = 1")
+
+    await act(async () => {
+      root.render(
+        <TooltipProvider>
+          <HiddenSteps parts={parts} />
+        </TooltipProvider>,
+      )
+      await flushEffects(20)
+    })
+
+    expect(container.textContent).toContain("const value = 1")
+  })
+
+  test("renders long active reasoning as plain streaming text", async () => {
+    await act(async () => {
+      root.render(
+        <TooltipProvider>
+          <HiddenSteps parts={[createLongActiveReasoningPart()]} isBusy />
+        </TooltipProvider>,
+      )
+      await flushEffects()
+    })
+
+    const trigger = container.querySelector("button")
+    expect(trigger).not.toBeNull()
+
+    await act(async () => {
+      trigger?.click()
+      await flushEffects(20)
+    })
+
+    expect(container.querySelector("[data-reasoning-streaming-plain='true']")).not.toBeNull()
+    expect(container.textContent).toContain("Reasoning paragraph 420")
   })
 
   test("does not make skill tools expandable in hidden steps", async () => {

@@ -21,17 +21,5 @@ export function reasoningHeading(text: string): string | undefined {
     if (value) return value
   }
 
-  const setext = markdown.match(/^([^\n]+)\n(?:=+|-+)\s*$/m)
-  if (setext?.[1]) {
-    const value = cleanReasoningHeading(setext[1])
-    if (value) return value
-  }
-
-  const strong = markdown.match(/^\s*(?:\*\*|__)(.+?)(?:\*\*|__)\s*$/m)
-  if (strong?.[1]) {
-    const value = cleanReasoningHeading(strong[1])
-    if (value) return value
-  }
-
   return undefined
 }

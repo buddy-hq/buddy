@@ -4,12 +4,14 @@ import { isValidElement } from "react"
 import { builtInTools } from "../src/components/chat/tools/built-in-tool-renderers"
 import {
   createFileToolIcon,
+  FOLDER_TOOL_ICON,
   resolveFileToolFileName,
   resolveFileToolIcon,
   resolveSettledFileToolIcon,
 } from "../src/components/chat/tools/file-tool-icon"
 import {
   createHiddenStepsEntry,
+  getHiddenStepsEntryLabel,
   HIDDEN_STEPS_REASONING_ICON,
   resolveHiddenStepsHeader,
 } from "../src/components/chat/tools/hidden-steps/entries"
@@ -40,6 +42,38 @@ function readPart(input: {
       status: input.status,
       input: input.filePath ? { filePath: input.filePath } : {},
       metadata: {},
+      attachments: [],
+      time: input.time ?? { start: 1 },
+    },
+  }
+}
+
+function readDirectoryPart(input: {
+  id: string
+  filePath: string
+  status: ToolState["status"]
+  time?: { start: number; end?: number }
+}): MessagePart {
+  return {
+    id: input.id,
+    sessionID: "ses_test",
+    messageID: "msg_test",
+    type: "tool",
+    tool: "read",
+    callID: `call_${input.id}`,
+    state: {
+      status: input.status,
+      input: { filePath: input.filePath },
+      metadata: {
+        display: {
+          type: "directory",
+          path: input.filePath,
+          entries: [],
+          offset: 1,
+          totalEntries: 0,
+          truncated: false,
+        },
+      },
       attachments: [],
       time: input.time ?? { start: 1 },
     },
@@ -85,17 +119,20 @@ function editPart(input: {
   }
 }
 
-function reasoningPart(input: { id: string; durationMs: number }): MessagePart {
+function reasoningPart(input: { id: string; durationMs?: number; text?: string }): MessagePart {
   return {
     id: input.id,
     sessionID: "ses_test",
     messageID: "msg_test",
     type: "reasoning",
-    text: "",
-    time: {
-      start: 1,
-      end: 1 + input.durationMs,
-    },
+    text: input.text ?? "",
+    time:
+      input.durationMs === undefined
+        ? { start: 1 }
+        : {
+            start: 1,
+            end: 1 + input.durationMs,
+          },
   }
 }
 
@@ -134,6 +171,25 @@ function applyPatchPart(input: {
       metadata: { files: input.files ?? [] },
       attachments: [],
       time: { start: 1 },
+    },
+  }
+}
+
+function whiteboardPart(input: { status: ToolState["status"] }): MessagePart {
+  return {
+    id: "prt_whiteboard",
+    sessionID: "ses_test",
+    messageID: "msg_test",
+    type: "tool",
+    tool: "whiteboard_create_view",
+    callID: "call_whiteboard",
+    state: {
+      status: input.status,
+      input: {},
+      metadata: {},
+      attachments: [],
+      time: { start: 1, end: input.status === "running" ? undefined : 2 },
+      output: input.status === "completed" ? "updated" : undefined,
     },
   }
 }
@@ -284,6 +340,27 @@ describe("resolveFileToolIcon", () => {
       resolveFileToolIcon("read", state, { title: "Referred", subtitle: "Repositories" }),
     ).toBe(SKILL_TOOL_ICON)
   })
+
+  test("returns the folder icon for read directory metadata", () => {
+    const state: ToolState = {
+      status: "completed",
+      input: { filePath: "/workspace/packages/web" },
+      metadata: {
+        display: {
+          type: "directory",
+          path: "/workspace/packages/web",
+        },
+      },
+      attachments: [],
+    }
+
+    expect(resolveFileToolIcon("read", state, { title: "Read", subtitle: "web" })).toBe(
+      FOLDER_TOOL_ICON,
+    )
+    expect(resolveSettledFileToolIcon("read", state, { title: "Read" }, builtInTools.read.icon)).toBe(
+      FOLDER_TOOL_ICON,
+    )
+  })
 })
 
 describe("resolveHiddenStepsHeader", () => {
@@ -301,6 +378,27 @@ describe("resolveHiddenStepsHeader", () => {
     expect(header.throttleFileTools).toBe(true)
     expect(header.fileName).toBe("App.tsx")
     expect(header.icon).toBeUndefined()
+  })
+
+  test("active read directory uses Exploring label and folder icon", () => {
+    const entries = entriesFromParts([
+      readDirectoryPart({
+        id: "read_dir_1",
+        filePath: "/workspace/packages/web",
+        status: "running",
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, true)
+    expect(header.label).toBe("Exploring: web")
+    expect(header.throttleFileTools).toBe(true)
+    expect(header.fileName).toBe("web")
+    expect(header.verb).toBe("Exploring:")
+    expect(header.icon).toBe(FOLDER_TOOL_ICON)
+    const entry = entries[0]
+    expect(entry).toBeDefined()
+    if (!entry) throw new Error("Expected read directory entry")
+    expect(getHiddenStepsEntryLabel(entry)).toBe("Exploring: web")
   })
 
   test("busy gap between reads holds basename not count summary", () => {
@@ -475,6 +573,14 @@ describe("resolveHiddenStepsHeader", () => {
     expect(header.fileName).toBeUndefined()
   })
 
+  test("active legacy whiteboard tool uses fallback running label", () => {
+    const entries = entriesFromParts([whiteboardPart({ status: "running" })])
+
+    const header = resolveHiddenStepsHeader(entries, true)
+    expect(header.label).toBe("Updating Whiteboard")
+    expect(getHiddenStepsEntryLabel(entries[0])).toBe("Updating Whiteboard")
+  })
+
   test("settled write burst uses past tense count summary not continuous header", () => {
     const entries = entriesFromParts([
       editPart({
@@ -495,12 +601,63 @@ describe("resolveHiddenStepsHeader", () => {
     expect(header.label).not.toBe("Editing helper.rb")
   })
 
+  test("settled legacy whiteboard tool uses fallback settled label", () => {
+    const entries = entriesFromParts([whiteboardPart({ status: "completed" })])
+
+    const header = resolveHiddenStepsHeader(entries, false)
+    expect(header.label).toBe("Updated Whiteboard")
+    expect(getHiddenStepsEntryLabel(entries[0])).toBe("Updated Whiteboard")
+    expect(header.label).not.toBe("whiteboard_create_view")
+  })
+
   test("settled reasoning-only group uses panda icon", () => {
     const entries = entriesFromParts([reasoningPart({ id: "reason_1", durationMs: 2_000 })])
 
     const header = resolveHiddenStepsHeader(entries, false)
     expect(header.label).toBe("Thought for 2s")
     expect(header.icon).toBe(HIDDEN_STEPS_REASONING_ICON)
+  })
+
+  test("settled reasoning row prefers duration over extracted heading", () => {
+    const settledEntries = entriesFromParts([
+      reasoningPart({
+        id: "reason_heading_settled",
+        durationMs: 34_000,
+        text: '# Frame 1: Orientation / "What is Bugeera?"',
+      }),
+    ])
+    const activeEntries = entriesFromParts([
+      reasoningPart({
+        id: "reason_heading_active",
+        text: '# Frame 1: Orientation / "What is Bugeera?"',
+      }),
+    ])
+
+    expect(getHiddenStepsEntryLabel(settledEntries[0])).toBe("Thought for 34s")
+    expect(resolveHiddenStepsHeader(settledEntries, false).label).toBe("Thought for 34s")
+    expect(getHiddenStepsEntryLabel(activeEntries[0])).toBe(
+      'Frame 1: Orientation / "What is Bugeera?"',
+    )
+  })
+
+  test("active reasoning titles ignore non-heading markdown", () => {
+    const boldEntries = entriesFromParts([
+      reasoningPart({
+        id: "reason_bold_label",
+        text: "**Working through options**\n\n- Check the current state\n- Compare alternatives",
+      }),
+    ])
+    const ruleEntries = entriesFromParts([
+      reasoningPart({
+        id: "reason_rule_label",
+        text: "Working through options\n---\n- Check the current state",
+      }),
+    ])
+
+    expect(getHiddenStepsEntryLabel(boldEntries[0])).toBe("Thinking")
+    expect(resolveHiddenStepsHeader(boldEntries, true).label).toBe("Thinking")
+    expect(getHiddenStepsEntryLabel(ruleEntries[0])).toBe("Thinking")
+    expect(resolveHiddenStepsHeader(ruleEntries, true).label).toBe("Thinking")
   })
 
   test("settled read group uses generic read icon not file-type icon", () => {
@@ -535,6 +692,47 @@ describe("resolveHiddenStepsHeader", () => {
     expect(header.icon).toBe(builtInTools.read.icon)
     expect(header.icon).not.toBe(fileTypeIcon)
     expect(header.throttleFileTools).toBe(false)
+  })
+
+  test("settled read directory group uses Explored label and folder icon", () => {
+    const entries = entriesFromParts([
+      readDirectoryPart({
+        id: "read_dir_1",
+        filePath: "/workspace/packages/web",
+        status: "completed",
+        time: { start: 1, end: 2 },
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, false)
+    expect(header.label).toBe("Explored: web")
+    const entry = entries[0]
+    expect(entry).toBeDefined()
+    if (!entry) throw new Error("Expected read directory entry")
+    expect(getHiddenStepsEntryLabel(entry)).toBe("Explored: web")
+    expect(header.icon).toBe(FOLDER_TOOL_ICON)
+    expect(header.throttleFileTools).toBe(false)
+  })
+
+  test("settled multiple read directories use Explored count summary", () => {
+    const entries = entriesFromParts([
+      readDirectoryPart({
+        id: "read_dir_1",
+        filePath: "/workspace/packages/web",
+        status: "completed",
+        time: { start: 1, end: 2 },
+      }),
+      readDirectoryPart({
+        id: "read_dir_2",
+        filePath: "/workspace/packages/buddy",
+        status: "completed",
+        time: { start: 2, end: 3 },
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, false)
+    expect(header.label).toBe("Explored 2 folders")
+    expect(header.icon).toBe(FOLDER_TOOL_ICON)
   })
 
   test("settled skill-reference read group uses skill icon", () => {

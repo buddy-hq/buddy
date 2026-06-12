@@ -6,12 +6,14 @@ import type { MessagePart } from "@/state/chat-types"
 import { formatThoughtForLabel } from "../../utils/format"
 import { reasoningHeading } from "../../utils/markdown"
 import {
+  FOLDER_TOOL_ICON,
   getPatchFileCount,
   isFileToolName,
   isMultiFilePatch,
   resolveFileToolFileName,
   resolveFileToolIcon,
   resolveFileToolPath,
+  resolveReadDirectoryName,
   resolveSettledFileToolIcon,
   type TFileToolName,
 } from "../file-tool-icon"
@@ -53,6 +55,14 @@ const FILE_TOOL_VERBS: Record<TFileToolName, string> = {
   apply_patch: "Patching",
 }
 
+const DIRECTORY_READ_RUNNING_ACTION = "Exploring"
+const DIRECTORY_READ_SETTLED_ACTION = "Explored"
+const DIRECTORY_READ_RUNNING_VERB = `${DIRECTORY_READ_RUNNING_ACTION}:`
+const DIRECTORY_READ_SETTLED_VERB = `${DIRECTORY_READ_SETTLED_ACTION}:`
+const DIRECTORY_READ_SUMMARY_SINGULAR = "folder"
+const DIRECTORY_READ_SUMMARY_PLURAL = "folders"
+const DIRECTORY_READ_GROUP_KEY = "read-directory"
+
 export type THiddenStepsHeaderResult = {
   label?: string
   icon?: ToolIconRenderer
@@ -68,13 +78,94 @@ type TFileToolHeaderTarget = {
   verb: string
 }
 
-type TResolvedFileTarget = {
-  fileName?: string
-  isSkillReference: boolean
+type TResolvedFileTarget =
+  | {
+      fileName?: string
+      kind: "file" | "skill-reference"
+    }
+  | {
+      fileName: string
+      kind: "directory"
+      directoryDisplay: TDirectoryReadDisplay
+    }
+
+type TDirectoryReadDisplay = {
+  fileName: string
+  runningLabel: string
+  settledLabel: string
+  runningVerb: string
+  settledVerb: string
+  icon: ToolIconRenderer
+}
+
+type THiddenStepsEntryDisplay = {
+  groupKey?: string
+  runningLabel?: string
+  settledLabel?: string
+  countLabel?: (count: number) => string
+  icon?: ToolIconRenderer
+  fileTarget?: TResolvedFileTarget
 }
 
 function formatFileToolBurstLabel(verb: string, fileName?: string): string {
   return fileName ? `${verb} ${fileName}` : verb
+}
+
+function formatDirectoryReadLabel(verb: string, directoryName?: string): string {
+  if (directoryName) return `${verb} ${directoryName}`
+  return verb === DIRECTORY_READ_RUNNING_VERB
+    ? DIRECTORY_READ_RUNNING_ACTION
+    : DIRECTORY_READ_SETTLED_ACTION
+}
+
+function formatSettledDirectoryReadCount(count: number): string {
+  return `${DIRECTORY_READ_SETTLED_ACTION} ${count} ${
+    count === 1 ? DIRECTORY_READ_SUMMARY_SINGULAR : DIRECTORY_READ_SUMMARY_PLURAL
+  }`
+}
+
+function createDirectoryReadDisplay(fileName: string): TDirectoryReadDisplay {
+  return {
+    fileName,
+    runningLabel: formatDirectoryReadLabel(DIRECTORY_READ_RUNNING_VERB, fileName),
+    settledLabel: formatDirectoryReadLabel(DIRECTORY_READ_SETTLED_VERB, fileName),
+    runningVerb: DIRECTORY_READ_RUNNING_VERB,
+    settledVerb: DIRECTORY_READ_SETTLED_VERB,
+    icon: FOLDER_TOOL_ICON,
+  }
+}
+
+function createDirectoryReadEntryDisplay(fileName: string): THiddenStepsEntryDisplay {
+  const directoryDisplay = createDirectoryReadDisplay(fileName)
+  return {
+    groupKey: DIRECTORY_READ_GROUP_KEY,
+    runningLabel: directoryDisplay.runningLabel,
+    settledLabel: directoryDisplay.settledLabel,
+    countLabel: formatSettledDirectoryReadCount,
+    icon: directoryDisplay.icon,
+    fileTarget: {
+      fileName: directoryDisplay.fileName,
+      kind: "directory",
+      directoryDisplay,
+    },
+  }
+}
+
+function resolveHiddenStepsEntryDisplay(
+  tool: string,
+  state: ToolState,
+): THiddenStepsEntryDisplay | undefined {
+  if (tool !== "read") return undefined
+
+  const directoryName = resolveReadDirectoryName(state)
+  if (!directoryName) return undefined
+
+  return createDirectoryReadEntryDisplay(directoryName)
+}
+
+function resolveReadDirectoryTarget(entry: HiddenStepsEntry): TResolvedFileTarget | undefined {
+  const target = entry.display?.fileTarget
+  return target?.kind === "directory" ? target : undefined
 }
 
 export type HiddenStepsEntry = {
@@ -84,6 +175,7 @@ export type HiddenStepsEntry = {
   summary?: ResolvedToolSummary
   countSummary?: ToolCountSummary
   icon?: ToolIconRenderer
+  display?: THiddenStepsEntryDisplay
 }
 
 export function getHiddenStepsReasoningLabel(text: string): string {
@@ -110,6 +202,7 @@ export function createHiddenStepsEntry(part: MessagePart): HiddenStepsEntry {
   const tool = String(part.tool ?? "")
   const info = getToolInfo(tool, state)
   const renderer = resolveToolRenderer(tool, parseToolUiMetadata(state.metadata))
+  const display = resolveHiddenStepsEntryDisplay(tool, state)
   const props: ToolPartProps = {
     part,
     state,
@@ -118,7 +211,7 @@ export function createHiddenStepsEntry(part: MessagePart): HiddenStepsEntry {
   }
 
   const entryIcon = isFileToolName(tool)
-    ? resolveFileToolIcon(tool, state, info, renderer.icon)
+    ? (display?.icon ?? resolveFileToolIcon(tool, state, info, renderer.icon))
     : renderer.icon
 
   return {
@@ -128,6 +221,7 @@ export function createHiddenStepsEntry(part: MessagePart): HiddenStepsEntry {
     summary: renderer.summary ? resolveToolSummary(renderer.summary, props) : undefined,
     countSummary: renderer.summary?.countSummary,
     icon: entryIcon,
+    display,
   }
 }
 
@@ -143,8 +237,6 @@ export function hiddenStepsEntryIsActive(entry: HiddenStepsEntry): boolean {
 
 export function getHiddenStepsEntryLabel(entry: HiddenStepsEntry): string {
   if (entry.part.type === "reasoning") {
-    const heading = reasoningHeading(String(entry.part.text ?? "").trim())
-    if (heading) return heading
     if (!hiddenStepsEntryIsActive(entry)) {
       const time = isRecord(entry.part.time) ? entry.part.time : undefined
       const start = typeof time?.start === "number" ? time.start : undefined
@@ -154,13 +246,24 @@ export function getHiddenStepsEntryLabel(entry: HiddenStepsEntry): string {
       }
       return ABSTRACTED_THOUGHT_LABEL
     }
+    const heading = reasoningHeading(String(entry.part.text ?? "").trim())
+    if (heading) return heading
     return ABSTRACTED_THINKING_LABEL
   }
+
+  const displayLabel = hiddenStepsEntryIsActive(entry)
+    ? entry.display?.runningLabel
+    : entry.display?.settledLabel
+  if (displayLabel) {
+    return displayLabel
+  }
+
   return entry.summary?.label ?? entry.info?.title ?? "Tool"
 }
 
 function hiddenStepsToolGroupKey(entry: HiddenStepsEntry): string | undefined {
   if (entry.part.type !== "tool") return undefined
+  if (entry.display?.groupKey) return entry.display.groupKey
   const skillName = String(entry.part.tool ?? "") === "skill" ? entry.info?.subtitle : undefined
   if (skillName) {
     return getSkillReferenceGroupKey(skillName)
@@ -185,6 +288,7 @@ function hiddenStepsToolGroupKey(entry: HiddenStepsEntry): string | undefined {
 
 function hiddenStepsSettledEntryIcon(entry: HiddenStepsEntry): ToolIconRenderer | undefined {
   if (entry.part.type !== "tool" || !entry.state || !entry.info) return undefined
+  if (entry.display?.icon) return entry.display.icon
 
   const tool = String(entry.part.tool ?? "")
   if (isFileToolName(tool)) {
@@ -201,6 +305,7 @@ function hiddenStepsSettledEntryIcon(entry: HiddenStepsEntry): ToolIconRenderer 
 
 function hiddenStepsSettledIconKey(entry: HiddenStepsEntry): string {
   if (entry.part.type !== "tool") return "unknown"
+  if (entry.display?.groupKey) return entry.display.groupKey
 
   const tool = String(entry.part.tool ?? "")
   if (
@@ -312,6 +417,7 @@ function resolveFileTargetForEntry(entry: HiddenStepsEntry): TResolvedFileTarget
   if (entry.part.type !== "tool" || !entry.state || !entry.info) return undefined
   const tool = String(entry.part.tool ?? "")
   if (!isFileToolName(tool)) return undefined
+  if (entry.display?.fileTarget) return entry.display.fileTarget
   if (tool === "read") {
     const skillReference = resolveSkillReferenceInfo({
       filePath: resolveFileToolPath(tool, entry.state, entry.info),
@@ -322,14 +428,20 @@ function resolveFileTargetForEntry(entry: HiddenStepsEntry): TResolvedFileTarget
     if (skillReference) {
       return {
         fileName: skillReference.displayName,
-        isSkillReference: true,
+        kind: "skill-reference",
       }
     }
+    const directoryTarget = resolveReadDirectoryTarget(entry)
+    if (directoryTarget) return directoryTarget
   }
   return {
     fileName: resolveFileToolFileName(tool, entry.state, entry.info),
-    isSkillReference: false,
+    kind: "file",
   }
+}
+
+function canUseLastKnownFileTarget(tool: string, target: TResolvedFileTarget): boolean {
+  return target.kind !== "directory" || tool === "read"
 }
 
 function multiFilePatchLabel(state: ToolState): string {
@@ -395,10 +507,15 @@ export function resolveFileToolHeaderTarget(
         : undefined
     const lastKnownFileTarget =
       activeIndex >= 0 ? findLastKnownFileTarget(entries, activeIndex - 1) : undefined
-    let fileName = resolveFileTargetForEntry(activeEntry)?.fileName
-    if (!fileName && lastKnownFileTarget?.fileName) {
-      fileName = lastKnownFileTarget.fileName
+    let fileTarget = resolveFileTargetForEntry(activeEntry)
+    if (
+      !fileTarget?.fileName &&
+      lastKnownFileTarget?.fileName &&
+      canUseLastKnownFileTarget(activeTool, lastKnownFileTarget)
+    ) {
+      fileTarget = lastKnownFileTarget
     }
+    const fileName = fileTarget?.fileName
     const verb = FILE_TOOL_VERBS[activeTool]
     if (activeSkillReference) {
       return {
@@ -408,7 +525,16 @@ export function resolveFileToolHeaderTarget(
         verb: getSkillReferenceBurstVerb(),
       }
     }
-    if (activeTool === "read" && !activePath && lastKnownFileTarget?.isSkillReference) {
+    if (activeTool === "read" && fileTarget?.kind === "directory") {
+      const directoryDisplay = fileTarget.directoryDisplay
+      return {
+        label: directoryDisplay.runningLabel,
+        icon: directoryDisplay.icon,
+        fileName: directoryDisplay.fileName,
+        verb: directoryDisplay.runningVerb,
+      }
+    }
+    if (activeTool === "read" && !activePath && lastKnownFileTarget?.kind === "skill-reference") {
       return {
         label: getSkillReferenceBurstVerb(),
         icon: SKILL_TOOL_ICON,
@@ -446,10 +572,15 @@ export function resolveFileToolHeaderTarget(
       ? resolveFileToolPath(lastToolName, lastTool.entry.state, lastTool.entry.info)
       : undefined
   const lastKnownFileTarget = findLastKnownFileTarget(entries, lastTool.index - 1)
-  let fileName = resolveFileTargetForEntry(lastTool.entry)?.fileName
-  if (!fileName && lastKnownFileTarget?.fileName) {
-    fileName = lastKnownFileTarget.fileName
+  let fileTarget = resolveFileTargetForEntry(lastTool.entry)
+  if (
+    !fileTarget?.fileName &&
+    lastKnownFileTarget?.fileName &&
+    canUseLastKnownFileTarget(lastToolName, lastKnownFileTarget)
+  ) {
+    fileTarget = lastKnownFileTarget
   }
+  const fileName = fileTarget?.fileName
   const verb = FILE_TOOL_VERBS[lastToolName]
   const lastSkillReference =
     lastToolName === "read" && lastTool.entry.state && lastTool.entry.info
@@ -468,7 +599,16 @@ export function resolveFileToolHeaderTarget(
       verb: getSkillReferenceBurstVerb(),
     }
   }
-  if (lastToolName === "read" && !lastToolPath && lastKnownFileTarget?.isSkillReference) {
+  if (lastToolName === "read" && fileTarget?.kind === "directory") {
+    const directoryDisplay = fileTarget.directoryDisplay
+    return {
+      label: directoryDisplay.runningLabel,
+      icon: directoryDisplay.icon,
+      fileName: directoryDisplay.fileName,
+      verb: directoryDisplay.runningVerb,
+    }
+  }
+  if (lastToolName === "read" && !lastToolPath && lastKnownFileTarget?.kind === "skill-reference") {
     return {
       label: getSkillReferenceBurstVerb(),
       icon: SKILL_TOOL_ICON,
@@ -528,7 +668,12 @@ export function buildHiddenStepsSummary(
 
   // Completed (or no active step): build count summary.
   let hasReasoning = false
-  type Group = { count: number; entry: HiddenStepsEntry; skillName?: string }
+  type Group = {
+    count: number
+    entry: HiddenStepsEntry
+    skillName?: string
+    display?: THiddenStepsEntryDisplay
+  }
   const groups = new Map<string, Group>()
 
   for (const entry of entries) {
@@ -546,8 +691,11 @@ export function buildHiddenStepsSummary(
             })
           : undefined
       const resolvedSkillName = skillName ?? skillReference?.skillName
+      const display = entry.display
       const key = resolvedSkillName
         ? getSkillReferenceGroupKey(resolvedSkillName)
+        : display?.groupKey
+          ? display.groupKey
         : entry.countSummary
           ? `${entry.countSummary.verb}:${entry.countSummary.plural}`
           : entry.info.title
@@ -559,6 +707,7 @@ export function buildHiddenStepsSummary(
           count: 1,
           entry,
           ...(resolvedSkillName ? { skillName: resolvedSkillName } : {}),
+          ...(display ? { display } : {}),
         })
       }
     }
@@ -567,7 +716,8 @@ export function buildHiddenStepsSummary(
   if (groups.size > 0) {
     const sortedGroups = [...groups.values()].toSorted((a, b) => b.count - a.count)
     const skillGroups = sortedGroups.filter((group) => group.skillName)
-    const nonSkillGroups = sortedGroups.filter((group) => !group.skillName)
+    const displayGroups = sortedGroups.filter((group) => group.display && !group.skillName)
+    const nonSkillGroups = sortedGroups.filter((group) => !group.skillName && !group.display)
     const summaryParts: string[] = []
 
     if (skillGroups.length === 1) {
@@ -575,6 +725,13 @@ export function buildHiddenStepsSummary(
       if (skillName) summaryParts.push(formatSettledSkillToolLabel(skillName))
     } else if (skillGroups.length > 1) {
       summaryParts.push(formatSettledSkillToolCountLabel(skillGroups.length))
+    }
+
+    for (const group of displayGroups) {
+      if (summaryParts.length >= SUMMARY_CUTOFF) break
+      const label =
+        group.count === 1 ? group.display?.settledLabel : group.display?.countLabel?.(group.count)
+      if (label) summaryParts.push(label)
     }
 
     summaryParts.push(

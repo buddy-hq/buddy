@@ -68,6 +68,8 @@ export const ReasoningPart = memo(function ReasoningPart({
   const text = part.text
   const displayedText = useAdaptiveStreamingText(text, { live: streaming })
   const { scrollRef, contentRef, handleScroll } = useReasoningAutoScroll(displayedText)
+  const renderAsStreamingText =
+    streaming || displayedText !== text || typeof part.time.end !== "number"
 
   if (!displayedText.trim()) return null
 
@@ -78,11 +80,16 @@ export const ReasoningPart = memo(function ReasoningPart({
       className="min-w-0 w-full max-w-full max-h-[min(42vh,28rem)] overflow-y-auto overscroll-contain opacity-60"
     >
       <div ref={contentRef} className="min-w-0 w-full max-w-full px-4">
-        <Markdown
-          text={displayedText}
-          cacheKey={part.id}
-          isStreaming={streaming || displayedText !== text}
-        />
+        {renderAsStreamingText ? (
+          <div
+            data-reasoning-streaming-plain="true"
+            className="min-w-0 w-full max-w-full whitespace-pre-wrap text-xs leading-[1.6] text-text-base [overflow-wrap:anywhere]"
+          >
+            {displayedText}
+          </div>
+        ) : (
+          <Markdown text={displayedText} cacheKey={part.id} preferEagerRender />
+        )}
       </div>
     </div>
   )

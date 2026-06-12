@@ -35,6 +35,45 @@ const KNOWLEDGE_GRAPH_TOOL_TITLES = {
 
 const KNOWLEDGE_GRAPH_TOOL_NAMES = new Set(Object.keys(KNOWLEDGE_GRAPH_TOOL_TITLES))
 
+type ToolLifecycleLabels = {
+  idle: string
+  running?: string
+}
+
+const TOOL_FALLBACK_LABELS: Record<string, ToolLifecycleLabels> = {
+  whiteboard_create_view: {
+    idle: "Updated Whiteboard",
+    running: "Updating Whiteboard",
+  },
+  whiteboard_read_context: {
+    idle: "Read Whiteboard",
+    running: "Reading Whiteboard",
+  },
+}
+
+function humanizeToolID(tool: string): string {
+  const words = tool
+    .split(/[_-]+/u)
+    .map((word) => word.trim())
+    .filter((word) => word.length > 0)
+
+  if (words.length === 0) return "Tool"
+
+  return words
+    .map((word) => {
+      const [first = "", ...rest] = word
+      return `${first.toUpperCase()}${rest.join("").toLowerCase()}`
+    })
+    .join(" ")
+}
+
+function fallbackToolTitle(tool: string, active: boolean): string {
+  const labels = TOOL_FALLBACK_LABELS[tool]
+  if (labels) return active && labels.running ? labels.running : labels.idle
+
+  return humanizeToolID(tool)
+}
+
 function countNonEmptyLines(value: string): number {
   const trimmed = value.trim()
   if (!trimmed) return 0
@@ -571,7 +610,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
       )
     default:
       return {
-        title: metadataTitle ?? tool,
+        title: metadataTitle ?? fallbackToolTitle(tool, active),
         subtitle: description,
         summary,
       }
