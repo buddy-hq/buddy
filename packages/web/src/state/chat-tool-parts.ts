@@ -5,6 +5,9 @@ import {
   TOOL_STATE_RUNNING_STATUS,
 } from "./chat-stream-event-buffer"
 
+const ASSISTANT_ROLE = "assistant"
+const TEXT_PART_TYPE = "text"
+const REASONING_PART_TYPE = "reasoning"
 const TOOL_ABORTED_ERROR = "Tool execution aborted"
 const TOOL_INTERRUPTED_ERROR = "Tool execution interrupted"
 
@@ -12,17 +15,44 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
-function isTerminalAssistantMessageInfo(
+function readFiniteNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined
+}
+
+function readPartTime(part: MessagePart): Record<string, unknown> | undefined {
+  return isRecord(part.time) ? part.time : undefined
+}
+
+export function isTerminalAssistantMessageInfo(
   info: MessageWithParts["info"],
 ): info is AssistantMessageInfo {
-  if (info.role !== "assistant") return false
+  if (info.role !== ASSISTANT_ROLE) return false
   if (info.error) return true
-  if (typeof info.time.completed === "number") return true
+  if (readFiniteNumber(info.time.completed) !== undefined) return true
   return typeof info.finish === "string" && info.finish.length > 0
 }
 
 function toolPartInterruptionError(info: AssistantMessageInfo) {
   return info.finish === "aborted" ? TOOL_ABORTED_ERROR : TOOL_INTERRUPTED_ERROR
+}
+
+function reconcileTerminalTimedPart(part: MessagePart, terminalAt: number): MessagePart {
+  if (part.type !== TEXT_PART_TYPE && part.type !== REASONING_PART_TYPE) return part
+
+  const time = readPartTime(part)
+  if (readFiniteNumber(time?.end) !== undefined) return part
+
+  const start = readFiniteNumber(time?.start) ?? terminalAt
+  const end = Math.max(start, terminalAt)
+
+  return {
+    ...part,
+    time: {
+      ...time,
+      start,
+      end,
+    },
+  }
 }
 
 function reconcileInterruptedToolPart(
@@ -62,7 +92,16 @@ function reconcileInterruptedToolPart(
   }
 }
 
-export function reconcileTerminalAssistantToolParts(messages: MessageWithParts[]) {
+function reconcileTerminalAssistantPart(
+  part: MessagePart,
+  info: AssistantMessageInfo,
+  terminalAt: number,
+): MessagePart {
+  const timedPart = reconcileTerminalTimedPart(part, terminalAt)
+  return reconcileInterruptedToolPart(timedPart, info, terminalAt)
+}
+
+export function reconcileTerminalAssistantParts(messages: MessageWithParts[]) {
   let changed = false
 
   const nextMessages = messages.map((message) => {
@@ -72,10 +111,10 @@ export function reconcileTerminalAssistantToolParts(messages: MessageWithParts[]
 
     const assistantInfo = message.info
     const terminalAt =
-      typeof assistantInfo.time.completed === "number" ? assistantInfo.time.completed : Date.now()
+      readFiniteNumber(assistantInfo.time.completed) ?? Date.now()
     let partsChanged = false
     const nextParts = message.parts.map((part) => {
-      const nextPart = reconcileInterruptedToolPart(part, assistantInfo, terminalAt)
+      const nextPart = reconcileTerminalAssistantPart(part, assistantInfo, terminalAt)
       if (nextPart !== part) {
         partsChanged = true
       }
@@ -95,5 +134,3 @@ export function reconcileTerminalAssistantToolParts(messages: MessageWithParts[]
 
   return changed ? nextMessages : messages
 }
-
-export { isTerminalAssistantMessageInfo }

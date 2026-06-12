@@ -23,7 +23,7 @@ import {
   upsertPart,
 } from "./chat-reducer"
 import { STREAMING_PART_RAW_FIELD } from "./chat-stream-event-buffer"
-import { reconcileTerminalAssistantToolParts } from "./chat-tool-parts"
+import { reconcileTerminalAssistantParts } from "./chat-tool-parts"
 import { IDLE_SESSION_STATUS, isSessionWorking, sessionStatusEquals } from "./session-status"
 
 type StreamStatus = "idle" | "connecting" | "connected" | "error"
@@ -908,7 +908,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
                   incomingWithOrphans.orphanPartsByMessageID,
                 )
               : undefined
-          const nextMessages = reconcileTerminalAssistantToolParts(
+          const nextMessages = reconcileTerminalAssistantParts(
             isActiveSession && current.isBusy
               ? mergeLiveSessionMessages(
                   currentWithOrphans?.messages ?? sessionMessages(current, sessionID),
@@ -1032,7 +1032,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const currentSessionMessages = sessionMessages(current, sessionID)
           const nextTargetMessages =
             status.type === "idle"
-              ? reconcileTerminalAssistantToolParts(
+              ? reconcileTerminalAssistantParts(
                   sealCompletedAssistantMessages(currentSessionMessages, Date.now()),
                 )
               : currentSessionMessages
@@ -1070,7 +1070,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             upsertMessage(sessionMessages(current, info.sessionID), info),
             current.orphanPartsByMessageID ?? {},
           )
-          const messages = reconcileTerminalAssistantToolParts(merged.messages)
+          const messages = reconcileTerminalAssistantParts(merged.messages)
           const isActiveSession = current.sessionID === info.sessionID
           const nextBusy = resolveActiveSessionBusy({
             sessionID: info.sessionID,
@@ -1091,7 +1091,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
       applyMessageRemoved(directory, input) {
         set((state) => {
           const current = state.directories[directory] ?? emptyDirectoryState()
-          const messages = reconcileTerminalAssistantToolParts(
+          const messages = reconcileTerminalAssistantParts(
             removeMessage(sessionMessages(current, input.sessionID), input.messageID),
           )
           const isActiveSession = current.sessionID === input.sessionID
@@ -1116,7 +1116,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const current = state.directories[directory] ?? emptyDirectoryState()
           const currentMessages = sessionMessages(current, part.sessionID)
           const targetExists = currentMessages.some((message) => message.info.id === part.messageID)
-          const messages = reconcileTerminalAssistantToolParts(
+          const messages = reconcileTerminalAssistantParts(
             targetExists ? upsertPart(currentMessages, part) : currentMessages,
           )
           const isActiveSession = current.sessionID === part.sessionID
@@ -1149,7 +1149,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const targetExists = currentMessages.some(
             (message) => message.info.id === input.messageID,
           )
-          const messages = reconcileTerminalAssistantToolParts(
+          const messages = reconcileTerminalAssistantParts(
             targetExists
               ? removePart(currentMessages, {
                   messageID: input.messageID,
@@ -1190,7 +1190,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const targetExists = currentMessages.some(
             (message) => message.info.id === input.messageID,
           )
-          const messages = reconcileTerminalAssistantToolParts(
+          const messages = reconcileTerminalAssistantParts(
             targetExists ? appendPartDelta(currentMessages, input) : currentMessages,
           )
           const isActiveSession = current.sessionID === input.sessionID

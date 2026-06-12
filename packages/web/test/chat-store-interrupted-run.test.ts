@@ -1,3 +1,4 @@
+import "../happydom"
 import { beforeEach, describe, expect, test } from "bun:test"
 import { useChatStore } from "../src/state/chat-store"
 import type { QuestionRequest, SessionInfo } from "../src/state/chat-types"
@@ -169,5 +170,57 @@ describe("chat-store interrupted runs", () => {
         end: 2,
       },
     })
+  })
+
+  test("reconciles stale active reasoning after the assistant turn finishes", () => {
+    const store = useChatStore.getState()
+
+    store.ensureOpenProject(directory)
+    store.setSessions(directory, [session("session_1", 2)])
+    store.setActiveSession(directory, "session_1")
+    store.setMessages(directory, "session_1", [
+      {
+        info: createAssistantMessageInfo({
+          id: "message_1",
+          sessionID: "session_1",
+          time: { created: 1 },
+        }),
+        parts: [
+          {
+            id: "part_reasoning",
+            sessionID: "session_1",
+            messageID: "message_1",
+            type: "reasoning",
+            text: "Still thinking",
+            time: { start: 1 },
+          },
+          {
+            id: "part_text",
+            sessionID: "session_1",
+            messageID: "message_1",
+            type: "text",
+            text: "Final answer",
+            time: { start: 1 },
+          },
+        ],
+      },
+    ])
+
+    store.applyMessageUpdated(
+      directory,
+      createAssistantMessageInfo({
+        id: "message_1",
+        sessionID: "session_1",
+        time: { created: 1, completed: 2 },
+        finish: "stop",
+      }),
+    )
+
+    const parts = useChatStore.getState().directories[directory]?.messages[0]?.parts
+    const reasoning = parts?.find((part) => part.type === "reasoning")
+    const text = parts?.find((part) => part.type === "text")
+
+    expect(reasoning?.time).toEqual({ start: 1, end: 2 })
+    expect(text?.time).toEqual({ start: 1, end: 2 })
   })
 })
