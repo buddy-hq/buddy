@@ -51,6 +51,8 @@ import fileWebpackIconUrl from "@uiw/file-icons/icon/webpack.svg"
 import fileXmlIconUrl from "@uiw/file-icons/icon/xml.svg"
 import fileYamlIconUrl from "@uiw/file-icons/icon/yaml.svg"
 import fileZipIconUrl from "@uiw/file-icons/icon/zip.svg"
+import { cn } from "@buddy/ui"
+
 import { fileExtensionFromPath, fileNameFromPath } from "@/lib/workspace-file-paths"
 import type { WorkspaceFilePanelMediaKind } from "@/state/workspace-file-panel-store"
 
@@ -115,6 +117,11 @@ type FileIconKey = keyof typeof FILE_ICON_BY_KEY
 type FileIconResolverInput = {
   fileName: string
   mediaKind?: WorkspaceFilePanelMediaKind | null
+}
+
+type ResolvedFileTypeIcon = {
+  key: FileIconKey
+  url: string
 }
 
 type FileTypeIconProps = {
@@ -293,14 +300,14 @@ const EXTENSION_ICON_KEYS = new Map<string, FileIconKey>([
 ])
 
 function fileIconByMediaKind(mediaKind: WorkspaceFilePanelMediaKind | undefined) {
-  if (mediaKind === "image") return FILE_ICON_BY_KEY.image
-  if (mediaKind === "pdf") return FILE_ICON_BY_KEY.pdf
-  if (mediaKind === "presentation") return FILE_ICON_BY_KEY["microsoft-powerpoint"]
-  if (mediaKind === "document") return FILE_ICON_BY_KEY["microsoft-word"]
-  if (mediaKind === "spreadsheet") return FILE_ICON_BY_KEY["microsoft-excel"]
-  if (mediaKind === "video") return FILE_ICON_BY_KEY.video
-  if (mediaKind === "audio") return FILE_ICON_BY_KEY.audio
-  if (mediaKind === "archive") return FILE_ICON_BY_KEY.zip
+  if (mediaKind === "image") return "image" as const
+  if (mediaKind === "pdf") return "pdf" as const
+  if (mediaKind === "presentation") return "microsoft-powerpoint" as const
+  if (mediaKind === "document") return "microsoft-word" as const
+  if (mediaKind === "spreadsheet") return "microsoft-excel" as const
+  if (mediaKind === "video") return "video" as const
+  if (mediaKind === "audio") return "audio" as const
+  if (mediaKind === "archive") return "zip" as const
   return undefined
 }
 
@@ -343,17 +350,47 @@ function detectIconKey(fileName: string) {
 }
 
 export function resolveFileTypeIconUrl(input: FileIconResolverInput) {
-  const byKind = fileIconByMediaKind(input.mediaKind ?? undefined)
-  if (byKind) return byKind
+  return resolveFileTypeIcon(input).url
+}
 
+function resolveFileTypeIcon(input: FileIconResolverInput): ResolvedFileTypeIcon {
+  const byKind = fileIconByMediaKind(input.mediaKind ?? undefined)
   const iconKey = detectIconKey(input.fileName)
-  return FILE_ICON_BY_KEY[iconKey]
+  const key = byKind ?? iconKey
+  return {
+    key,
+    url: FILE_ICON_BY_KEY[key],
+  }
+}
+
+function shouldUseThemeColoredIcon(key: FileIconKey): boolean {
+  return key === "markdown"
+}
+
+function MarkdownFileIcon(props: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 48 48"
+      aria-hidden
+      focusable="false"
+      className={cn("inline-block shrink-0 text-icon-info-base", props.className)}
+      fill="currentColor"
+    >
+      <path d="M42.8236518,9 L5.17634821,9 C3.4245,9 2,10.4031375 2,12.1298375 L2,36.8667719 C2,38.5946344 3.4245,40 5.17634821,40 L42.8236518,40 C44.5755,40 46,38.5946344 46,36.866675 L46,12.1298375 C46,10.4031375 44.5755,9 42.8236518,9 Z M26.7522589,33.8 L21.2475446,33.8 L21.2475446,24.5 L17.1186161,29.7194312 L12.9914554,24.5 L12.9914554,33.8 L7.48713393,33.8 L7.48713393,15.2 L12.9914554,15.2 L17.1186161,21.7855625 L21.2475446,15.2 L26.7522589,15.2 L26.7522589,33.8 Z M34.9685714,33.8 L28.1294196,24.5 L32.2544196,24.5 L32.2544196,15.2 L37.7586429,15.2 L37.7586429,24.5 L41.8862946,24.5 L34.9668036,33.8 L34.9685714,33.8 Z" />
+    </svg>
+  )
 }
 
 export function FileTypeIcon(props: FileTypeIconProps) {
-  const src = resolveFileTypeIconUrl({
+  const icon = resolveFileTypeIcon({
     fileName: props.fileName,
     mediaKind: props.mediaKind,
   })
-  return <img src={src} alt="" aria-hidden className={props.className} />
+
+  if (shouldUseThemeColoredIcon(icon.key)) {
+    return <MarkdownFileIcon className={props.className} />
+  }
+
+  return <img src={icon.url} alt="" aria-hidden className={props.className} />
 }
