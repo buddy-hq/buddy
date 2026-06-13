@@ -6,24 +6,19 @@ import { assertSessionExistsInDirectory } from "../session"
 import { mapMermaidArtifactRouteError } from "../learning/features/diagrams/errors"
 import {
   createMarkdownMermaidArtifact,
-  listMermaidV2Artifacts,
-  readMermaidV2Artifact,
-  resolveMermaidV2RenderRecord,
-  storeMermaidV2RenderRecord,
-} from "../learning/features/diagrams/service/v2-store"
+  readMermaidArtifact,
+  resolveMermaidRenderRecord,
+  storeMermaidRenderRecord,
+} from "../learning/features/diagrams/service/store"
 import {
   MermaidArtifactReadSchema,
   MermaidRenderContrastAdjustmentSchema,
   MermaidRenderRecordSchema,
   MermaidResolvedRenderRecordSchema,
-} from "../learning/features/diagrams/service/v2-types"
+} from "../learning/features/diagrams/service/types"
 
 const artifactIDParamSchema = z.object({
   artifactID: z.string(),
-})
-
-const mermaidListQuerySchema = directoryQuerySchema.extend({
-  includeSuperseded: z.coerce.boolean().optional(),
 })
 
 const mermaidResolveRenderQuerySchema = directoryQuerySchema.extend({
@@ -50,10 +45,6 @@ const mermaidStoreRenderBodySchema = z.intersection(
     }),
   ]),
 )
-
-const mermaidArtifactListResponseSchema = z.object({
-  artifacts: z.array(MermaidArtifactReadSchema),
-})
 
 const createInlineMermaidArtifactBodySchema = z.object({
   sessionID: z.string().min(1),
@@ -109,43 +100,11 @@ const mermaidStoreRenderBodyOpenApiSchema = {
   },
 }
 
-export const MermaidArtifactRoutes = new Hono()
-  .get(
-    "/",
-    describeRoute({
-      operationId: "mermaidArtifacts.list",
-      summary: "List persisted Mermaid artifacts",
-      responses: {
-        200: {
-          description: "Workspace Mermaid artifacts",
-          content: {
-            "application/json": {
-              schema: resolver(mermaidArtifactListResponseSchema),
-            },
-          },
-        },
-        ...routeErrors(400, 403),
-      },
-    }),
-    validator("query", mermaidListQuerySchema),
-    async (c) =>
-      withDirectoryRoute(c, async (context) =>
-        runRouteTask({
-          task: async () => {
-            const includeSuperseded = c.req.valid("query").includeSuperseded
-            const artifacts = await listMermaidV2Artifacts(context.directory, {
-              includeSuperseded,
-            })
-            return Response.json({ artifacts })
-          },
-          mapError: mapMermaidArtifactRouteError,
-        }),
-      ),
-  )
+export const MermaidRoutes = new Hono()
   .post(
     "/inline",
     describeRoute({
-      operationId: "mermaidArtifacts.createInline",
+      operationId: "mermaid.createInline",
       summary: "Create or read an inline Mermaid artifact for assistant markdown",
       requestBody: {
         required: true,
@@ -198,7 +157,7 @@ export const MermaidArtifactRoutes = new Hono()
   .get(
     "/:artifactID",
     describeRoute({
-      operationId: "mermaidArtifacts.read",
+      operationId: "mermaid.read",
       summary: "Read persisted Mermaid artifact source",
       responses: {
         200: {
@@ -218,7 +177,7 @@ export const MermaidArtifactRoutes = new Hono()
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const artifact = await readMermaidV2Artifact(
+            const artifact = await readMermaidArtifact(
               context.directory,
               c.req.valid("param").artifactID,
             )
@@ -231,7 +190,7 @@ export const MermaidArtifactRoutes = new Hono()
   .get(
     "/:artifactID/render-record",
     describeRoute({
-      operationId: "mermaidArtifacts.resolveRender",
+      operationId: "mermaid.resolveRender",
       summary: "Resolve the persisted Mermaid render record for the current theme",
       responses: {
         200: {
@@ -252,7 +211,7 @@ export const MermaidArtifactRoutes = new Hono()
         runRouteTask({
           task: async () => {
             const query = c.req.valid("query")
-            const resolved = await resolveMermaidV2RenderRecord(
+            const resolved = await resolveMermaidRenderRecord(
               context.directory,
               c.req.valid("param").artifactID,
               {
@@ -270,7 +229,7 @@ export const MermaidArtifactRoutes = new Hono()
   .put(
     "/:artifactID/render-record",
     describeRoute({
-      operationId: "mermaidArtifacts.storeRender",
+      operationId: "mermaid.storeRender",
       summary: "Persist a browser Mermaid render result",
       requestBody: {
         required: true,
@@ -300,7 +259,7 @@ export const MermaidArtifactRoutes = new Hono()
         runRouteTask({
           task: async () => {
             const body = c.req.valid("json")
-            const record = await storeMermaidV2RenderRecord(
+            const record = await storeMermaidRenderRecord(
               context.directory,
               c.req.valid("param").artifactID,
               body,

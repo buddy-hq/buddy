@@ -1,15 +1,35 @@
-import fs from "node:fs/promises"
 import { createHash } from "node:crypto"
-import { FigurePath } from "./path"
+import {
+  ARTIFACT_KINDS,
+  ARTIFACT_MANIFEST_VERSION,
+  ARTIFACT_CONTENT_FILES,
+  ArtifactPath,
+  generateArtifactID,
+  writeArtifactRecord,
+} from "../../../../artifacts"
 import { repairGeometryFigureSpec } from "./repair"
 import { renderGeometryFigure as renderGeometryFigureSvg } from "./render"
 import { resolveGeometryFigureSpec } from "./resolve"
-import { RenderFigureOutputSchema, type GeometryFigureSpec, type RenderFigureOutput } from "./types"
+import {
+  FigureArtifactManifestSchema,
+  RenderFigureOutputSchema,
+  type GeometryFigureSpec,
+  type RenderFigureOutput,
+} from "./types"
 import { validateGeometryFigureSpec, type FigureValidationIssue } from "./validate"
-import { FigureRenderError } from "../errors"
 import { escapeFigureMarkdownAlt, resolveFigureAlt } from "../shared/presentation"
 const MAX_TOTAL_ATTEMPTS = 3
 const MAX_REPAIR_PASSES = 2
+
+class FigureRenderError extends Error {
+  readonly issues: readonly FigureValidationIssue[]
+
+  constructor(issues: readonly FigureValidationIssue[]) {
+    super(issues.map((issue) => issue.message).join(" "))
+    this.name = "FigureRenderError"
+    this.issues = issues
+  }
+}
 
 function normalizeGeometryFigureSpec(spec: GeometryFigureSpec): GeometryFigureSpec {
   return {
@@ -172,9 +192,45 @@ function hashGeometryFigure(spec: GeometryFigureSpec): string {
     .digest("hex")
 }
 
-async function writeGeometryFigure(directory: string, figureID: string, svg: string) {
-  await fs.mkdir(FigurePath.root(directory), { recursive: true })
-  await fs.writeFile(FigurePath.file(directory, figureID), svg, "utf8")
+async function writeGeometryFigure(input: {
+  directory: string
+  artifactID: string
+  svg: string
+  sourceHash: string
+  alt: string
+  caption?: string
+  repairAttempts: number
+  createdAt: string
+}): Promise<void> {
+  const manifest = FigureArtifactManifestSchema.parse({
+    version: ARTIFACT_MANIFEST_VERSION,
+    artifactID: input.artifactID,
+    kind: ARTIFACT_KINDS.figure,
+    title: input.alt,
+    ...(input.caption ? { description: input.caption } : {}),
+    createdAt: input.createdAt,
+    updatedAt: input.createdAt,
+    sourceHash: input.sourceHash,
+    summary: {
+      mime: "image/svg+xml",
+      alt: input.alt,
+      ...(input.caption ? { caption: input.caption } : {}),
+      repairAttempts: input.repairAttempts,
+    },
+  })
+  await writeArtifactRecord({
+    directory: input.directory,
+    kind: ARTIFACT_KINDS.figure,
+    artifactID: input.artifactID,
+    manifest,
+    files: [
+      {
+        relativePath: ARTIFACT_CONTENT_FILES.figureSvg,
+        format: "text",
+        content: input.svg,
+      },
+    ],
+  })
 }
 
 async function renderGeometryFigure(
@@ -199,21 +255,36 @@ async function renderGeometryFigure(
           const svg = renderGeometryFigureSvg(resolved.spec)
           const svgIssues = validateGeometrySvgSanity(svg)
           if (svgIssues.length === 0) {
-            const figureID = hashGeometryFigure(resolved.spec)
+            const artifactID = generateArtifactID()
+            const sourceHash = hashGeometryFigure(resolved.spec)
             const alt = resolveFigureAlt({
               caption: input.caption,
               fallback: "Geometry figure",
             })
-            await writeGeometryFigure(directory, figureID, svg)
-
-            return RenderFigureOutputSchema.parse({
-              figureID,
-              mime: "image/svg+xml",
-              url: `/api/figures/${figureID}?directory=${encodeURIComponent(directory)}`,
-              relativePath: `.buddy/figures/${figureID}.svg`,
+            const createdAt = new Date().toISOString()
+            await writeGeometryFigure({
+              directory,
+              artifactID,
+              svg,
+              sourceHash,
               alt,
               ...(input.caption ? { caption: input.caption } : {}),
-              markdown: `![${escapeFigureMarkdownAlt(alt)}](/api/figures/${figureID}?directory=${encodeURIComponent(directory)})`,
+              repairAttempts,
+              createdAt,
+            })
+            const url = `/api/artifacts/figure/${artifactID}/raw?directory=${encodeURIComponent(directory)}`
+
+            return RenderFigureOutputSchema.parse({
+              artifactID,
+              mime: "image/svg+xml",
+              url,
+              relativePath: `${ArtifactPath.relativeArtifactDirectory(
+                ARTIFACT_KINDS.figure,
+                artifactID,
+              )}/${ARTIFACT_CONTENT_FILES.figureSvg}`,
+              alt,
+              ...(input.caption ? { caption: input.caption } : {}),
+              markdown: `![${escapeFigureMarkdownAlt(alt)}](${url})`,
               repairAttempts,
             })
           }
@@ -252,4 +323,4 @@ async function renderGeometryFigure(
   throw new FigureRenderError(lastIssues)
 }
 
-export { renderGeometryFigure }
+export { FigureRenderError, renderGeometryFigure }

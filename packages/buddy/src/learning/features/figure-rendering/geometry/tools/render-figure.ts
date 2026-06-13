@@ -1,15 +1,18 @@
 import z from "zod"
+import path from "node:path"
 import RENDER_FIGURE_DESCRIPTION from "./render-figure.md"
 import {
   createBuddyTool,
   type BuddyToolContext,
 } from "@buddy/backend/learning/runtime/create-buddy-tool"
-import { FigurePath } from "../path"
-import { buildPresentedMediaOutputForPath } from "../../../media-presentations/service/file-media"
+import {
+  ARTIFACT_CONTENT_FILES,
+  ARTIFACT_KINDS,
+  ArtifactPath,
+  nonEmptyString,
+} from "../../../../../artifacts"
 import { GeometryFigureSpecSchema } from "../types"
 import { renderGeometryFigure } from "../render-figure"
-
-const nonEmptyString = z.string().trim().min(1)
 
 const RenderFigureInputSchema = z.object({
   caption: nonEmptyString.optional(),
@@ -25,7 +28,13 @@ const renderFigureTool = createBuddyTool({
   async execute(params: RenderFigureInput, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "render_figure",
-      patterns: [FigurePath.glob(ctx.directory)],
+      patterns: [
+        path.join(
+          ArtifactPath.kindRoot(ctx.directory, ARTIFACT_KINDS.figure),
+          "*",
+          ARTIFACT_CONTENT_FILES.figureSvg,
+        ),
+      ],
       always: ["*"],
       metadata: {
         kind: "geometry.v1",
@@ -33,21 +42,13 @@ const renderFigureTool = createBuddyTool({
     })
 
     const result = await renderGeometryFigure(ctx.directory, params)
-    const presentedMedia = await buildPresentedMediaOutputForPath({
-      directory: ctx.directory,
-      path: result.relativePath,
-    })
 
     return {
       title: "Rendered figure",
       output: JSON.stringify(result, null, 2),
       metadata: {
-        artifact: "PresentedMediaOutput",
-        value: presentedMedia,
-        producerArtifact: {
-          artifact: "RenderFigureOutput",
-          value: result,
-        },
+        artifact: "RenderFigureOutput",
+        value: result,
       },
     }
   },

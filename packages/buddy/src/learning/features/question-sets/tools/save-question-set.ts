@@ -1,9 +1,9 @@
-import { ulid } from "ulid"
 import z from "zod"
 import {
   createBuddyTool,
   type BuddyToolContext,
 } from "@buddy/backend/learning/runtime/create-buddy-tool"
+import { generateArtifactID, nonEmptyString } from "../../../../artifacts"
 import SAVE_QUESTION_SET_DESCRIPTION from "./save-question-set.md"
 import {
   QUESTION_SET_ARTIFACT_KIND,
@@ -13,7 +13,6 @@ import {
 } from "../types"
 import { saveQuestionSetArtifact, buildQuestionSetArtifactUrl } from "../storage/save-artifact"
 
-const nonEmptyString = z.string().trim().min(1)
 const GroupTypeSchema = z.enum(["quiz", "practice", "assessment"])
 
 const SavedMcqChoiceSchema = z.object({
@@ -71,7 +70,7 @@ const saveQuestionSetTool = createBuddyTool({
     })
 
     const parsed = SaveQuestionSetInputSchema.parse(params)
-    const artifactID = ulid()
+    const artifactID = generateArtifactID()
     const createdAt = new Date().toISOString()
 
     const saved = await saveQuestionSetArtifact({
@@ -85,6 +84,7 @@ const saveQuestionSetTool = createBuddyTool({
         ...(parsed.contextSummary ? { contextSummary: parsed.contextSummary } : {}),
         createdAt,
         createdBy: {
+          kind: "tool",
           sessionID: String(ctx.sessionID),
           messageID: String(ctx.messageID),
           callID: createdByCallID(ctx),

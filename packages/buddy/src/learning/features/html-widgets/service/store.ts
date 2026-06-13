@@ -1,22 +1,26 @@
-import crypto from "node:crypto"
-import type { Dirent } from "node:fs"
 import fs from "node:fs/promises"
 import path from "node:path"
+import {
+  ARTIFACT_CONTENT_FILES,
+  ARTIFACT_KINDS,
+  ARTIFACT_MANIFEST_VERSION,
+  generateArtifactID,
+  readArtifactManifest,
+  readArtifactTextFile,
+  sha256Text,
+  writeArtifactRecord,
+} from "../../../../artifacts"
 import {
   PresentedMediaValidationError,
   resolvePresentedMediaPathInfo,
 } from "../../media-presentations/service/file-media"
-import { HtmlWidgetNotFoundError, HtmlWidgetValidationError } from "../errors"
-import { buildHtmlWidgetID, HtmlWidgetPath } from "./path"
 import {
   HTML_WIDGET_KIND,
-  HTML_WIDGET_MANIFEST_VERSION,
   HTML_WIDGET_VIEWPORT_PRESETS,
   DEFAULT_HTML_WIDGET_VIEWPORT_PRESET,
   MAX_HTML_WIDGET_SOURCE_BYTES,
-  HtmlWidgetManifestSchema,
+  HtmlWidgetArtifactManifestSchema,
   type HtmlWidgetManifest,
-  type HtmlWidgetRead,
   type HtmlWidgetViewport,
   type HtmlWidgetViewportPreset,
   type HtmlWidgetWarning,
@@ -39,6 +43,7 @@ type CreateHtmlWidgetInput = {
   description?: string
   viewportPreset?: HtmlWidgetViewportPreset
   origin: {
+    kind: "tool"
     sessionID: string
     messageID: string
     callID: string
@@ -53,24 +58,19 @@ type ResolvedHtmlWidgetSource = {
   warnings: HtmlWidgetWarning[]
 }
 
-function sha256(value: string): string {
-  return crypto.createHash("sha256").update(value).digest("hex")
-}
-
-function buildHtmlWidgetRuntimeUrl(input: { directory: string; widgetID: string }): string {
-  return `/api/html-widget-artifacts/${encodeURIComponent(input.widgetID)}/runtime?directory=${encodeURIComponent(input.directory)}`
-}
-
-function buildHtmlWidgetSourceUrl(input: { directory: string; widgetID: string }): string {
-  return `/api/html-widget-artifacts/${encodeURIComponent(input.widgetID)}/source?directory=${encodeURIComponent(input.directory)}`
-}
-
-function toHtmlWidgetRead(directory: string, manifest: HtmlWidgetManifest): HtmlWidgetRead {
-  return {
-    ...manifest,
-    runtimeUrl: buildHtmlWidgetRuntimeUrl({ directory, widgetID: manifest.widgetID }),
-    sourceUrl: buildHtmlWidgetSourceUrl({ directory, widgetID: manifest.widgetID }),
+export class HtmlWidgetValidationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "HtmlWidgetValidationError"
   }
+}
+
+export function buildHtmlWidgetRuntimeUrl(input: { directory: string; artifactID: string }): string {
+  return `/api/artifacts/html-widget/${encodeURIComponent(input.artifactID)}/runtime?directory=${encodeURIComponent(input.directory)}`
+}
+
+export function buildHtmlWidgetSourceUrl(input: { directory: string; artifactID: string }): string {
+  return `/api/artifacts/html-widget/${encodeURIComponent(input.artifactID)}/source?directory=${encodeURIComponent(input.directory)}`
 }
 
 function buildHtmlWidgetViewport(
@@ -223,19 +223,9 @@ async function resolveHtmlWidgetSource(input: {
     displayPath: pathInfo.displayPath,
     workspacePath: pathInfo.workspacePath,
     source,
-    sourceHash: sha256(source),
+    sourceHash: sha256Text(source),
     warnings: collectHtmlWidgetWarnings(source),
   }
-}
-
-async function writeTextFileAtomic(filePath: string, content: string): Promise<void> {
-  await fs.mkdir(path.dirname(filePath), { recursive: true })
-  const tempPath = path.join(
-    path.dirname(filePath),
-    `.${path.basename(filePath)}.${crypto.randomUUID()}.tmp`,
-  )
-  await fs.writeFile(tempPath, content, "utf8")
-  await fs.rename(tempPath, filePath)
 }
 
 async function writeHtmlWidgetArtifact(input: {
@@ -243,37 +233,42 @@ async function writeHtmlWidgetArtifact(input: {
   manifest: HtmlWidgetManifest
   source: string
 }): Promise<void> {
-  const artifactDirectory = HtmlWidgetPath.artifactDirectory(input.directory, input.manifest.widgetID)
-  await fs.mkdir(artifactDirectory, { recursive: true })
-  await writeTextFileAtomic(
-    HtmlWidgetPath.sourceFile(input.directory, input.manifest.widgetID),
-    input.source,
-  )
-  await writeTextFileAtomic(
-    HtmlWidgetPath.manifestFile(input.directory, input.manifest.widgetID),
-    `${JSON.stringify(input.manifest, null, 2)}\n`,
-  )
+  await writeArtifactRecord({
+    directory: input.directory,
+    kind: ARTIFACT_KINDS.htmlWidget,
+    artifactID: input.manifest.artifactID,
+    manifest: input.manifest,
+    files: [
+      {
+        relativePath: ARTIFACT_CONTENT_FILES.htmlWidget,
+        format: "text",
+        content: input.source,
+      },
+    ],
+  })
 }
 
 export async function createHtmlWidgetArtifact(
   input: CreateHtmlWidgetInput,
-): Promise<HtmlWidgetRead> {
+): Promise<HtmlWidgetManifest> {
   const resolved = await resolveHtmlWidgetSource({ directory: input.directory, path: input.path })
-  const widgetID = buildHtmlWidgetID()
+  const artifactID = generateArtifactID()
   const now = new Date().toISOString()
-  const manifest = HtmlWidgetManifestSchema.parse({
-    version: HTML_WIDGET_MANIFEST_VERSION,
-    widgetID,
+  const manifest = HtmlWidgetArtifactManifestSchema.parse({
+    version: ARTIFACT_MANIFEST_VERSION,
+    artifactID,
     kind: HTML_WIDGET_KIND,
     title: input.title,
     ...(input.description ? { description: input.description } : {}),
-    viewport: buildHtmlWidgetViewport(input.viewportPreset),
     sourceHash: resolved.sourceHash,
-    sourcePath: resolved.workspacePath ?? resolved.displayPath,
     origin: input.origin,
-    warnings: resolved.warnings,
     createdAt: now,
     updatedAt: now,
+    summary: {
+      viewport: buildHtmlWidgetViewport(input.viewportPreset),
+      sourcePath: resolved.workspacePath ?? resolved.displayPath,
+      warnings: resolved.warnings,
+    },
   })
 
   await writeHtmlWidgetArtifact({
@@ -282,67 +277,29 @@ export async function createHtmlWidgetArtifact(
     source: resolved.source,
   })
 
-  return toHtmlWidgetRead(input.directory, manifest)
+  return manifest
 }
 
 export async function readHtmlWidgetManifest(
   directory: string,
-  widgetID: string,
+  artifactID: string,
 ): Promise<HtmlWidgetManifest> {
-  try {
-    const text = await fs.readFile(HtmlWidgetPath.manifestFile(directory, widgetID), "utf8")
-    return HtmlWidgetManifestSchema.parse(JSON.parse(text))
-  } catch {
-    throw new HtmlWidgetNotFoundError(widgetID)
-  }
-}
-
-export async function readHtmlWidgetArtifact(
-  directory: string,
-  widgetID: string,
-): Promise<HtmlWidgetRead> {
-  return toHtmlWidgetRead(directory, await readHtmlWidgetManifest(directory, widgetID))
+  return readArtifactManifest({
+    directory,
+    kind: ARTIFACT_KINDS.htmlWidget,
+    artifactID,
+    schema: HtmlWidgetArtifactManifestSchema,
+  })
 }
 
 export async function readHtmlWidgetSource(
   directory: string,
-  widgetID: string,
+  artifactID: string,
 ): Promise<string> {
-  try {
-    return await fs.readFile(HtmlWidgetPath.sourceFile(directory, widgetID), "utf8")
-  } catch {
-    throw new HtmlWidgetNotFoundError(widgetID)
-  }
-}
-
-async function readManifestEntry(
-  directory: string,
-  entry: Dirent,
-): Promise<HtmlWidgetManifest | undefined> {
-  if (!entry.isDirectory()) return undefined
-  try {
-    return await readHtmlWidgetManifest(directory, entry.name)
-  } catch {
-    return undefined
-  }
-}
-
-export async function listHtmlWidgetArtifacts(directory: string): Promise<HtmlWidgetRead[]> {
-  const entries = await fs
-    .readdir(HtmlWidgetPath.artifactRoot(directory), { withFileTypes: true })
-    .catch((error: unknown) => {
-      if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
-        return []
-      }
-      throw error
-    })
-
-  const manifests = await Promise.all(
-    entries.map((entry) => readManifestEntry(directory, entry)),
-  )
-
-  return manifests
-    .filter((manifest): manifest is HtmlWidgetManifest => manifest !== undefined)
-    .map((manifest) => toHtmlWidgetRead(directory, manifest))
-    .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt))
+  return readArtifactTextFile({
+    directory,
+    kind: ARTIFACT_KINDS.htmlWidget,
+    artifactID,
+    relativePath: ARTIFACT_CONTENT_FILES.htmlWidget,
+  })
 }

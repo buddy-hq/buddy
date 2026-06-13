@@ -1,4 +1,11 @@
 import z from "zod"
+import {
+  ARTIFACT_KINDS,
+  ArtifactIDSchema,
+  ArtifactManifestBaseSchema,
+  SourceHashSchema,
+  nonEmptyString,
+} from "../../../../artifacts"
 
 const finiteNumber = z.number().refine(Number.isFinite, "Must be a finite number")
 const positiveFiniteNumber = finiteNumber.refine((value) => value > 0, "Must be a positive number")
@@ -6,8 +13,6 @@ const nonNegativeFiniteNumber = finiteNumber.refine(
   (value) => value >= 0,
   "Must be a non-negative number",
 )
-const nonEmptyString = z.string().trim().min(1)
-
 const GeometryPointSchema = z.object({
   id: nonEmptyString,
   x: finiteNumber,
@@ -103,7 +108,7 @@ const GeometryFigureSpecSchema = z.object({
 })
 
 const RenderFigureOutputSchema = z.object({
-  figureID: z.string().length(64),
+  artifactID: ArtifactIDSchema,
   mime: z.literal("image/svg+xml"),
   url: nonEmptyString,
   relativePath: nonEmptyString,
@@ -113,6 +118,19 @@ const RenderFigureOutputSchema = z.object({
   repairAttempts: z.number().int().nonnegative().max(2),
 })
 
+const FigureSummarySchema = z.object({
+  mime: z.literal("image/svg+xml"),
+  alt: nonEmptyString,
+  caption: nonEmptyString.optional(),
+  repairAttempts: z.number().int().nonnegative().max(2),
+})
+
+const FigureArtifactManifestSchema = ArtifactManifestBaseSchema.extend({
+  kind: z.literal(ARTIFACT_KINDS.figure),
+  sourceHash: SourceHashSchema,
+  summary: FigureSummarySchema,
+})
+
 type GeometryPoint = z.infer<typeof GeometryPointSchema>
 type GeometrySegment = z.infer<typeof GeometrySegmentSchema>
 type GeometryPolygon = z.infer<typeof GeometryPolygonSchema>
@@ -120,9 +138,13 @@ type GeometryLabel = z.infer<typeof GeometryLabelSchema>
 type GeometryConstraint = z.infer<typeof GeometryConstraintSchema>
 type GeometryMarker = z.infer<typeof GeometryMarkerSchema>
 type GeometryFigureSpec = z.infer<typeof GeometryFigureSpecSchema>
+type FigureArtifactManifest = z.infer<typeof FigureArtifactManifestSchema>
+type FigureSummary = z.infer<typeof FigureSummarySchema>
 type RenderFigureOutput = z.infer<typeof RenderFigureOutputSchema>
 
 export {
+  FigureArtifactManifestSchema,
+  FigureSummarySchema,
   GeometryConstraintSchema,
   GeometryFigureSpecSchema,
   GeometryLabelSchema,
@@ -136,6 +158,8 @@ export {
 export type {
   GeometryConstraint,
   GeometryFigureSpec,
+  FigureArtifactManifest,
+  FigureSummary,
   GeometryLabel,
   GeometryMarker,
   GeometryPoint,

@@ -4,7 +4,10 @@ import {
   createBuddyTool,
   type BuddyToolContext,
 } from "@buddy/backend/learning/runtime/create-buddy-tool"
+import { nonEmptyString } from "../../../../artifacts"
 import {
+  buildHtmlWidgetRuntimeUrl,
+  buildHtmlWidgetSourceUrl,
   createHtmlWidgetArtifact,
 } from "../service/store"
 import {
@@ -16,8 +19,6 @@ import {
 import {
   normalizePresentedMediaPermissionPath,
 } from "../../media-presentations/service/file-media"
-
-const nonEmptyString = z.string().trim().min(1)
 
 const PresentHtmlWidgetInputSchema = z
   .object({
@@ -66,23 +67,32 @@ const presentHtmlWidgetTool = createBuddyTool({
       ...(params.description ? { description: params.description } : {}),
       viewportPreset: params.viewportPreset,
       origin: {
+        kind: "tool",
         sessionID: String(ctx.sessionID),
         messageID: String(ctx.messageID),
         callID: createdByCallID(ctx),
       },
     })
+    const runtimeUrl = buildHtmlWidgetRuntimeUrl({
+      directory: ctx.directory,
+      artifactID: widget.artifactID,
+    })
+    const sourceUrl = buildHtmlWidgetSourceUrl({
+      directory: ctx.directory,
+      artifactID: widget.artifactID,
+    })
 
     const output: PresentHtmlWidgetOutput = PresentHtmlWidgetOutputSchema.parse({
-      widgetID: widget.widgetID,
+      artifactID: widget.artifactID,
       kind: widget.kind,
       title: widget.title,
       ...(widget.description ? { description: widget.description } : {}),
-      viewport: widget.viewport,
-      runtimeUrl: widget.runtimeUrl,
-      sourceUrl: widget.sourceUrl,
+      viewport: widget.summary.viewport,
+      runtimeUrl,
+      sourceUrl,
       sourceHash: widget.sourceHash,
-      ...(widget.sourcePath ? { sourcePath: widget.sourcePath } : {}),
-      warnings: widget.warnings,
+      ...(widget.summary.sourcePath ? { sourcePath: widget.summary.sourcePath } : {}),
+      warnings: widget.summary.warnings,
     })
 
     return {

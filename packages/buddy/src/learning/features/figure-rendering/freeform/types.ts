@@ -1,9 +1,14 @@
 import z from "zod"
-
-const nonEmptyString = z.string().trim().min(1)
+import {
+  ARTIFACT_KINDS,
+  ArtifactIDSchema,
+  ArtifactManifestBaseSchema,
+  SourceHashSchema,
+  nonEmptyString,
+} from "../../../../artifacts"
 
 const RenderFreeformFigureOutputSchema = z.object({
-  figureID: z.string().length(64),
+  artifactID: ArtifactIDSchema,
   mime: z.literal("image/svg+xml"),
   url: nonEmptyString,
   relativePath: nonEmptyString,
@@ -13,8 +18,27 @@ const RenderFreeformFigureOutputSchema = z.object({
   repairAttempts: z.literal(0),
 })
 
+const FreeformFigureSummarySchema = z.object({
+  mime: z.literal("image/svg+xml"),
+  alt: nonEmptyString,
+  caption: nonEmptyString.optional(),
+  repairAttempts: z.literal(0),
+})
+
+const FreeformFigureArtifactManifestSchema = ArtifactManifestBaseSchema.extend({
+  kind: z.literal(ARTIFACT_KINDS.freeformFigure),
+  sourceHash: SourceHashSchema,
+  summary: FreeformFigureSummarySchema,
+})
+
 type RenderFreeformFigureOutput = z.infer<typeof RenderFreeformFigureOutputSchema>
+type FreeformFigureArtifactManifest = z.infer<typeof FreeformFigureArtifactManifestSchema>
+type FreeformFigureSummary = z.infer<typeof FreeformFigureSummarySchema>
 
-export { RenderFreeformFigureOutputSchema }
+export {
+  FreeformFigureArtifactManifestSchema,
+  FreeformFigureSummarySchema,
+  RenderFreeformFigureOutputSchema,
+}
 
-export type { RenderFreeformFigureOutput }
+export type { FreeformFigureArtifactManifest, FreeformFigureSummary, RenderFreeformFigureOutput }

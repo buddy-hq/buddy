@@ -1,12 +1,9 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
+import { mapArtifactRouteError } from "../artifacts"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import { mapQuestionSetRouteError } from "../learning/features/question-sets/errors"
-import {
-  listQuestionSetArtifacts,
-  readPublicQuestionSetArtifact,
-} from "../learning/features/question-sets/storage/read-artifact"
+import { readPublicQuestionSetArtifact } from "../learning/features/question-sets/storage/read-artifact"
 import { submitQuestionSetAttempt } from "../learning/features/question-sets/storage/submit-attempt"
 import {
   PublicQuestionSetArtifactSchema,
@@ -18,50 +15,11 @@ const artifactIDParamSchema = z.object({
   artifactID: z.string(),
 })
 
-const questionSetArtifactListLoadErrorSchema = z.object({
-  artifactID: z.string(),
-  message: z.string(),
-})
-
-const questionSetArtifactListResponseSchema = z.object({
-  artifacts: z.array(PublicQuestionSetArtifactSchema),
-  loadErrors: z.array(questionSetArtifactListLoadErrorSchema),
-})
-
-export const QuestionSetArtifactRoutes = new Hono()
-  .get(
-    "/",
-    describeRoute({
-      operationId: "questionSetArtifacts.list",
-      summary: "List persisted question-set artifacts",
-      responses: {
-        200: {
-          description: "Workspace question-set artifacts",
-          content: {
-            "application/json": {
-              schema: resolver(questionSetArtifactListResponseSchema),
-            },
-          },
-        },
-        ...routeErrors(403, 500),
-      },
-    }),
-    validator("query", directoryQuerySchema),
-    async (c) =>
-      withDirectoryRoute(c, async (context) =>
-        runRouteTask({
-          task: async () => {
-            const result = await listQuestionSetArtifacts(context.directory)
-            return Response.json(result)
-          },
-          mapError: mapQuestionSetRouteError,
-        }),
-      ),
-  )
+export const QuestionSetRoutes = new Hono()
   .get(
     "/:artifactID",
     describeRoute({
-      operationId: "questionSetArtifacts.read",
+      operationId: "questionSet.read",
       summary: "Read persisted question-set artifact",
       responses: {
         200: {
@@ -87,14 +45,14 @@ export const QuestionSetArtifactRoutes = new Hono()
             )
             return Response.json(artifact)
           },
-          mapError: mapQuestionSetRouteError,
+          mapError: mapArtifactRouteError,
         }),
       ),
   )
   .post(
     "/:artifactID/attempts",
     describeRoute({
-      operationId: "questionSetArtifacts.submitAttempt",
+      operationId: "questionSet.submitAttempt",
       summary: "Submit and grade a question-set attempt",
       responses: {
         200: {
@@ -124,7 +82,7 @@ export const QuestionSetArtifactRoutes = new Hono()
             })
             return Response.json(result)
           },
-          mapError: mapQuestionSetRouteError,
+          mapError: mapArtifactRouteError,
         }),
       ),
   )

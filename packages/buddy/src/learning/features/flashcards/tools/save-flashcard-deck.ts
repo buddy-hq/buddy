@@ -1,11 +1,16 @@
-import { ulid } from "ulid"
 import z from "zod"
 import {
   createBuddyTool,
   type BuddyToolContext,
 } from "@buddy/backend/learning/runtime/create-buddy-tool"
+import {
+  ARTIFACT_CONTENT_FILES,
+  ARTIFACT_KINDS,
+  ArtifactPath,
+  generateArtifactID,
+  nonEmptyString,
+} from "../../../../artifacts"
 import SAVE_FLASHCARD_DECK_DESCRIPTION from "./save-flashcard-deck.md"
-import { FlashcardPath } from "../storage/path"
 import { buildFlashcardNotesAndCards, saveFlashcardDeck } from "../storage/save-deck"
 import {
   DECK_CONFIG_DEFAULTS,
@@ -14,8 +19,6 @@ import {
   SaveFlashcardDeckOutputSchema,
   type SaveFlashcardDeckOutput,
 } from "../types"
-
-const nonEmptyString = z.string().trim().min(1)
 
 const SaveFlashcardNoteInputSchema = z.object({
   type: z
@@ -77,15 +80,19 @@ const saveFlashcardDeckTool = createBuddyTool({
     })
 
     const parsed = SaveFlashcardDeckInputSchema.parse(params)
-    const deckID = ulid()
+    const artifactID = generateArtifactID()
     const createdAt = new Date().toISOString()
 
-    const { notes, cards } = buildFlashcardNotesAndCards(deckID, parsed.notes, DECK_CONFIG_DEFAULTS)
+    const { notes, cards } = buildFlashcardNotesAndCards(
+      artifactID,
+      parsed.notes,
+      DECK_CONFIG_DEFAULTS,
+    )
 
     const saved = await saveFlashcardDeck({
       directory: ctx.directory,
       deck: {
-        deckID,
+        artifactID,
         kind: FLASHCARD_DECK_KIND,
         title: parsed.title,
         config: {
@@ -98,6 +105,7 @@ const saveFlashcardDeckTool = createBuddyTool({
         ...(parsed.source ? { source: parsed.source } : {}),
         createdAt,
         createdBy: {
+          kind: "tool",
           sessionID: String(ctx.sessionID),
           messageID: String(ctx.messageID),
           callID: createdByCallID(ctx),
@@ -107,12 +115,17 @@ const saveFlashcardDeckTool = createBuddyTool({
     })
 
     const output: SaveFlashcardDeckOutput = SaveFlashcardDeckOutputSchema.parse({
-      deckID: saved.deckID,
+      artifactID: saved.artifactID,
       kind: saved.kind,
       title: saved.title,
       noteCount: saved.notes.length,
       cardCount: saved.cards.length,
-      deckPath: FlashcardPath.deckFile(ctx.directory, saved.deckID),
+      artifactPath: ArtifactPath.artifactFile(
+        ctx.directory,
+        ARTIFACT_KINDS.flashcardDeck,
+        saved.artifactID,
+        ARTIFACT_CONTENT_FILES.flashcardDeck,
+      ),
     })
 
     return {

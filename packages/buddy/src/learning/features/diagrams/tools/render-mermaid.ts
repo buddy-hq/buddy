@@ -5,25 +5,27 @@ import {
 } from "@buddy/backend/learning/runtime/create-buddy-tool"
 import z from "zod"
 import {
+  ArtifactIDSchema,
+  ArtifactNotFoundError,
+  ArtifactPath,
+  nonEmptyString,
+} from "../../../../artifacts"
+import {
   MERMAID_ARTIFACT_KIND,
   MERMAID_AUTO_REPAIR_MESSAGE_ID_PREFIX,
   RenderMermaidOutputSchema,
   type MermaidArtifactReadResult,
   type MermaidAutoRepairState,
   type RenderMermaidOutput,
-} from "../service/v2-types"
-import { MermaidArtifactNotFoundError } from "../errors"
+} from "../service/types"
 import {
   buildMermaidArtifactUrl,
   createToolMermaidArtifact,
   readMermaidRepairRequest,
-  readMermaidV2Artifact,
+  readMermaidArtifact,
   updateMermaidRepairRequest,
-  updateMermaidV2AutoRepairState,
-} from "../service/v2-store"
-import { MermaidArtifactPathV2 } from "../service/v2-path"
-
-const nonEmptyString = z.string().trim().min(1)
+  updateMermaidAutoRepairState,
+} from "../service/store"
 
 const RenderMermaidInputSchema = z.object({
   alt: nonEmptyString.describe("Short, learner-facing alt text for the diagram."),
@@ -33,9 +35,8 @@ const RenderMermaidInputSchema = z.object({
   source: nonEmptyString.describe(
     "Mermaid source to render as a fresh diagram or repaired diagram.",
   ),
-  repairOfArtifactID: z
-    .string()
-    .regex(/^[a-f0-9]{64}$/u)
+  repairOfArtifactID: ArtifactIDSchema
+    .optional()
     .optional()
     .describe(
       "Optional repair target. Only pass this when repairing or superseding an existing Mermaid artifact ID copied verbatim from a prior failed diagram or repair prompt. Omit for every new diagram. Never invent IDs, use placeholders, or use repeated-character sample IDs.",
@@ -81,10 +82,10 @@ async function resolveRepairTarget(input: {
 
   try {
     return {
-      previousArtifact: await readMermaidV2Artifact(input.directory, input.repairOfArtifactID),
+      previousArtifact: await readMermaidArtifact(input.directory, input.repairOfArtifactID),
     }
   } catch (error) {
-    if (!(error instanceof MermaidArtifactNotFoundError)) {
+    if (!(error instanceof ArtifactNotFoundError)) {
       throw error
     }
     if (input.isAutoRepair) {
@@ -150,7 +151,7 @@ const renderMermaidTool = createBuddyTool({
           replacementArtifactID: artifact.artifactID,
         })
       }
-      await updateMermaidV2AutoRepairState(
+      await updateMermaidAutoRepairState(
         ctx.directory,
         previousArtifact.artifactID,
         nextSucceededAutoRepairState(previousArtifact.autoRepair.attempts, artifact.artifactID),
@@ -168,7 +169,7 @@ const renderMermaidTool = createBuddyTool({
       sourceHash: artifact.sourceHash,
       preflightRepairs: artifact.preflightRepairs,
       artifactUrl: buildMermaidArtifactUrl(ctx.directory, artifact.artifactID),
-      filesystemPath: MermaidArtifactPathV2.artifactDirectory(ctx.directory, artifact.artifactID),
+      filesystemPath: ArtifactPath.artifactDirectory(ctx.directory, kind, artifact.artifactID),
       ...(artifact.supersedesArtifactID
         ? { supersedesArtifactID: artifact.supersedesArtifactID }
         : {}),

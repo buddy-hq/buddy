@@ -4,17 +4,28 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import z from "zod"
 import {
+  ARTIFACT_KINDS,
+  ARTIFACT_MANIFEST_VERSION,
+  ArtifactPath,
+  ArtifactManifestBaseSchema,
+  type ArtifactLoadErrorRecord,
+  generateArtifactID,
+  listArtifactManifests,
+  readArtifactManifest,
+  writeArtifactRecord,
+} from "../../../../artifacts"
+import { readRawFileResponse } from "../../../../project/raw-file-response-service"
+import {
   classifyWorkspaceMedia,
   type WorkspaceMediaKind as PresentedMediaKind,
   type WorkspaceMediaRenderMode as PresentedMediaRenderMode,
 } from "@buddy/workspace-file-policy"
-import { buildPresentedMediaArtifactID, PresentedMediaArtifactPath } from "./artifact-path"
 
 const DEFAULT_BINARY_MIME_TYPE = "application/octet-stream"
 const MAX_PRESENTED_MEDIA_ITEMS = 12
 const MAX_PRESENTED_MEDIA_ARTIFACTS = 500
 
-export const MEDIA_PRESENTATION_KIND = "media.presentation.v1" as const
+export const MEDIA_PRESENTATION_KIND = ARTIFACT_KINDS.mediaPresentation
 export const PROJECT_FILE_ESCAPE_ERROR = "Access denied: path escapes project directory" as const
 export const PROJECT_FILE_NOT_FOUND_ERROR = "File not found" as const
 
@@ -49,31 +60,37 @@ export type PresentedMediaItem = {
 }
 
 export type PresentedMediaArtifactManifest = {
-  version: number
+  version: typeof ARTIFACT_MANIFEST_VERSION
   artifactID: string
-  kind: typeof MEDIA_PRESENTATION_KIND
-  layout: PresentedMediaLayout
-  items: PresentedMediaItem[]
+  kind: typeof ARTIFACT_KINDS.mediaPresentation
+  title: string
+  description?: string
+  origin?: unknown
   createdAt: string
   updatedAt: string
+  summary: PresentedMediaSummary
+}
+
+export type PresentedMediaSummary = {
+  layout: PresentedMediaLayout
+  items: PresentedMediaItem[]
 }
 
 export type PresentedMediaOutput = {
-  presentationID: string
-  kind: typeof MEDIA_PRESENTATION_KIND
+  artifactID: string
+  kind: typeof ARTIFACT_KINDS.mediaPresentation
   layout: PresentedMediaLayout
   items: PresentedMediaItem[]
+}
+
+export type PresentedMediaArtifactSummaryListResult = {
+  artifacts: PresentedMediaArtifactManifest[]
+  loadErrors: ArtifactLoadErrorRecord[]
 }
 
 export type PresentedMediaPathInfo = Omit<PresentedMediaItem, "id" | "rawUrl">
 
 export class PresentedMediaValidationError extends Error {}
-export class PresentedMediaArtifactNotFoundError extends Error {
-  constructor(artifactID: string) {
-    super(`Presented-media artifact '${artifactID}' not found.`)
-    this.name = "PresentedMediaArtifactNotFoundError"
-  }
-}
 
 type ResolvedPresentedMediaFile = {
   inputPath: string
@@ -86,7 +103,6 @@ type PresentedMediaWorkspaceBoundary = {
   directoryPath: string
 }
 
-const ARTIFACT_MANIFEST_VERSION = 1
 const PRESENTED_MEDIA_ITEM_ID_PREFIX = "media_item_"
 
 const PresentedMediaActionCapabilitiesSchema = z.object({
@@ -127,14 +143,14 @@ const PresentedMediaItemSchema = z.object({
   availability: PresentedMediaAvailabilitySchema,
 })
 
-const PresentedMediaArtifactManifestSchema = z.object({
-  version: z.literal(ARTIFACT_MANIFEST_VERSION),
-  artifactID: z.string().uuid(),
-  kind: z.literal(MEDIA_PRESENTATION_KIND),
+const PresentedMediaSummarySchema = z.object({
   layout: z.enum(["single", "gallery", "deck", "list"]),
   items: z.array(PresentedMediaItemSchema),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+})
+
+const PresentedMediaArtifactManifestSchema = ArtifactManifestBaseSchema.extend({
+  kind: z.literal(ARTIFACT_KINDS.mediaPresentation),
+  summary: PresentedMediaSummarySchema,
 })
 
 function normalizeRelativePath(filepath: string) {
@@ -213,33 +229,108 @@ async function writeArtifactManifest(
   directory: string,
   manifest: PresentedMediaArtifactManifest,
 ): Promise<void> {
-  await fs.mkdir(
-    path.dirname(PresentedMediaArtifactPath.manifestFile(directory, manifest.artifactID)),
-    {
-      recursive: true,
+  await writeArtifactRecord({
+    directory,
+    kind: ARTIFACT_KINDS.mediaPresentation,
+    artifactID: manifest.artifactID,
+    manifest,
+  })
+}
+
+function isMissingPresentedMediaError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error.code === "ENOENT" || error.code === "ENOTDIR")
+  )
+}
+
+async function refreshPresentedMediaItem(
+  item: PresentedMediaItem,
+): Promise<PresentedMediaItem> {
+  try {
+    const stats = await fs.stat(item.absolutePath)
+    if (!stats.isFile()) {
+      return {
+        ...item,
+        availability: {
+          status: "missing",
+          message: PROJECT_FILE_NOT_FOUND_ERROR,
+        },
+      }
+    }
+
+    const mimeType = fileMimeType(item.absolutePath)
+    const classification = classifyPresentedMedia({ path: item.displayPath, mimeType })
+    return {
+      ...item,
+      mediaKind: classification.mediaKind,
+      renderMode: classification.renderMode,
+      mimeType,
+      sizeBytes: readStatNumber(stats.size),
+      modifiedAt: new Date(readStatNumber(stats.mtimeMs)).toISOString(),
+      availability: {
+        status: "available",
+        message: null,
+      },
+    }
+  } catch (error) {
+    return {
+      ...item,
+      availability: {
+        status: isMissingPresentedMediaError(error) ? "missing" : "error",
+        message: isMissingPresentedMediaError(error)
+          ? PROJECT_FILE_NOT_FOUND_ERROR
+          : "Unable to access file",
+      },
+    }
+  }
+}
+
+async function refreshPresentedMediaArtifactManifest(
+  manifest: PresentedMediaArtifactManifest,
+): Promise<PresentedMediaArtifactManifest> {
+  return {
+    ...manifest,
+    summary: {
+      ...manifest.summary,
+      items: await Promise.all(manifest.summary.items.map(refreshPresentedMediaItem)),
     },
-  )
-  const tempPath = path.join(
-    PresentedMediaArtifactPath.root(directory),
-    `.${manifest.artifactID}.${crypto.randomUUID()}.tmp`,
-  )
-  await fs.writeFile(tempPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8")
-  await fs.rename(tempPath, PresentedMediaArtifactPath.manifestFile(directory, manifest.artifactID))
+  }
 }
 
 export async function readPresentedMediaArtifactManifest(
   directory: string,
   artifactID: string,
 ): Promise<PresentedMediaArtifactManifest> {
-  try {
-    const text = await fs.readFile(
-      PresentedMediaArtifactPath.manifestFile(directory, artifactID),
-      "utf8",
-    )
-    return PresentedMediaArtifactManifestSchema.parse(JSON.parse(text))
-  } catch {
-    throw new PresentedMediaArtifactNotFoundError(artifactID)
+  return readArtifactManifest({
+    directory,
+    kind: ARTIFACT_KINDS.mediaPresentation,
+    artifactID,
+    schema: PresentedMediaArtifactManifestSchema,
+  })
+}
+
+export async function readPresentedMediaArtifact(
+  directory: string,
+  artifactID: string,
+): Promise<PresentedMediaArtifactManifest> {
+  const manifest = await readPresentedMediaArtifactManifest(directory, artifactID)
+  return refreshPresentedMediaArtifactManifest(manifest)
+}
+
+export async function readPresentedMediaItemAvailability(input: {
+  directory: string
+  artifactID: string
+  itemID: string
+}): Promise<PresentedMediaAvailability> {
+  const manifest = await readPresentedMediaArtifactManifest(input.directory, input.artifactID)
+  const item = manifest.summary.items.find((candidate) => candidate.id === input.itemID)
+  if (!item) {
+    throw new PresentedMediaValidationError(PROJECT_FILE_NOT_FOUND_ERROR)
   }
+  return (await refreshPresentedMediaItem(item)).availability
 }
 
 export async function resolvePresentedMediaItem(
@@ -249,7 +340,7 @@ export async function resolvePresentedMediaItem(
 ): Promise<{ absolutePath: string; fileName: string } | undefined> {
   try {
     const manifest = await readPresentedMediaArtifactManifest(directory, artifactID)
-    const item = manifest.items.find((candidate) => candidate.id === itemID)
+    const item = manifest.summary.items.find((candidate) => candidate.id === itemID)
     if (!item) return undefined
     return { absolutePath: item.absolutePath, fileName: item.fileName }
   } catch {
@@ -258,16 +349,41 @@ export async function resolvePresentedMediaItem(
   return undefined
 }
 
+export async function readPresentedMediaRawArtifactResponse(input: {
+  directory: string
+  artifactID: string
+  itemID: string
+  downloadName: string | undefined
+  includeBody: boolean
+  rangeHeader: string | undefined
+}): Promise<Response> {
+  const item = await resolvePresentedMediaItem(input.directory, input.artifactID, input.itemID)
+  if (!item) {
+    return Response.json({ error: PROJECT_FILE_NOT_FOUND_ERROR }, { status: 404 })
+  }
+  return readRawFileResponse({
+    absolutePath: item.absolutePath,
+    downloadName: input.downloadName ?? item.fileName,
+    includeBody: input.includeBody,
+    rangeHeader: input.rangeHeader,
+  })
+}
+
 async function pruneOldArtifacts(directory: string): Promise<void> {
   try {
-    const entries = await fs.readdir(PresentedMediaArtifactPath.root(directory), {
+    const root = ArtifactPath.kindRoot(directory, ARTIFACT_KINDS.mediaPresentation)
+    const entries = await fs.readdir(root, {
       withFileTypes: true,
     })
     const artifacts = await Promise.all(
       entries
         .filter((entry) => entry.isDirectory())
         .map(async (entry) => {
-          const manifestPath = PresentedMediaArtifactPath.manifestFile(directory, entry.name)
+          const manifestPath = ArtifactPath.manifestFile(
+            directory,
+            ARTIFACT_KINDS.mediaPresentation,
+            entry.name,
+          )
           const stats = await fs.stat(manifestPath)
           return { artifactID: entry.name, mtimeMs: stats.mtimeMs }
         }),
@@ -281,7 +397,7 @@ async function pruneOldArtifacts(directory: string): Promise<void> {
       .map((artifact) => artifact.artifactID)
     await Promise.all(
       toRemove.map((name) =>
-        fs.rm(path.join(PresentedMediaArtifactPath.root(directory), name), {
+        fs.rm(ArtifactPath.artifactDirectory(directory, ARTIFACT_KINDS.mediaPresentation, name), {
           recursive: true,
           force: true,
         }),
@@ -351,7 +467,7 @@ function buildPresentedMediaRawUrl(input: {
   fileName: string
   directory: string
 }) {
-  return `/api/presented-media/${encodeURIComponent(input.artifactID)}/raw/${encodeURIComponent(input.itemID)}?directory=${encodeURIComponent(input.directory)}&fileName=${encodeURIComponent(input.fileName)}`
+  return `/api/artifacts/media-presentation/${encodeURIComponent(input.artifactID)}/raw/${encodeURIComponent(input.itemID)}?directory=${encodeURIComponent(input.directory)}&fileName=${encodeURIComponent(input.fileName)}`
 }
 
 function readStatNumber(value: number | bigint) {
@@ -415,7 +531,7 @@ export async function buildPresentedMediaOutput(input: {
     )
   }
 
-  const artifactID = buildPresentedMediaArtifactID()
+  const artifactID = generateArtifactID()
   const items: PresentedMediaItem[] = []
   const workspaceBoundary = await resolvePresentedMediaWorkspaceBoundary(input.directory)
 
@@ -462,31 +578,42 @@ export async function buildPresentedMediaOutput(input: {
   const manifest: PresentedMediaArtifactManifest = {
     version: ARTIFACT_MANIFEST_VERSION,
     artifactID,
-    kind: MEDIA_PRESENTATION_KIND,
-    layout,
-    items,
+    kind: ARTIFACT_KINDS.mediaPresentation,
+    title: items.length === 1 ? items[0]?.fileName ?? "Media presentation" : "Media presentation",
     createdAt: now,
     updatedAt: now,
+    summary: {
+      layout,
+      items,
+    },
   }
 
   await writeArtifactManifest(input.directory, manifest)
   await pruneOldArtifacts(input.directory)
 
   return {
-    presentationID: artifactID,
-    kind: MEDIA_PRESENTATION_KIND,
+    artifactID,
+    kind: ARTIFACT_KINDS.mediaPresentation,
     layout,
     items,
   }
 }
 
-export async function buildPresentedMediaOutputForPath(input: { directory: string; path: string }) {
-  return buildPresentedMediaOutput({
-    directory: input.directory,
-    items: [
-      {
-        path: input.path,
-      },
-    ],
+export async function listPresentedMediaArtifactSummaries(
+  directory: string,
+): Promise<PresentedMediaArtifactSummaryListResult> {
+  const result = await listArtifactManifests({
+    directory,
+    kind: ARTIFACT_KINDS.mediaPresentation,
+    schema: PresentedMediaArtifactManifestSchema,
   })
+  return {
+    artifacts: await Promise.all(result.items.map(refreshPresentedMediaArtifactManifest)),
+    loadErrors: result.loadErrors,
+  }
+}
+
+export {
+  PresentedMediaArtifactManifestSchema,
+  PresentedMediaSummarySchema,
 }

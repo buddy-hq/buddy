@@ -1,28 +1,59 @@
-import fs from "node:fs/promises"
-import { FreeformFigurePath } from "../path"
-import { FreeformFigureNotFoundError } from "./errors"
+import {
+  ARTIFACT_KINDS,
+  ARTIFACT_CONTENT_FILES,
+  ARTIFACT_MANIFEST_VERSION,
+  readArtifactTextFile,
+  writeArtifactRecord,
+} from "../../../../../artifacts"
+import { FreeformFigureArtifactManifestSchema } from "../types"
 
-async function writeFreeformFigure(
+async function writeFreeformFigure(input: {
   directory: string,
-  figureID: string,
+  artifactID: string,
   svg: string,
-): Promise<void> {
-  await fs.mkdir(FreeformFigurePath.root(directory), { recursive: true })
-  await fs.writeFile(FreeformFigurePath.file(directory, figureID), svg, "utf8")
+  sourceHash: string,
+  alt: string,
+  caption?: string,
+}): Promise<void> {
+  const now = new Date().toISOString()
+  const manifest = FreeformFigureArtifactManifestSchema.parse({
+    version: ARTIFACT_MANIFEST_VERSION,
+    artifactID: input.artifactID,
+    kind: ARTIFACT_KINDS.freeformFigure,
+    title: input.alt,
+    ...(input.caption ? { description: input.caption } : {}),
+    createdAt: now,
+    updatedAt: now,
+    sourceHash: input.sourceHash,
+    summary: {
+      mime: "image/svg+xml",
+      alt: input.alt,
+      ...(input.caption ? { caption: input.caption } : {}),
+      repairAttempts: 0,
+    },
+  })
+  await writeArtifactRecord({
+    directory: input.directory,
+    kind: ARTIFACT_KINDS.freeformFigure,
+    artifactID: input.artifactID,
+    manifest,
+    files: [
+      {
+        relativePath: ARTIFACT_CONTENT_FILES.figureSvg,
+        format: "text",
+        content: input.svg,
+      },
+    ],
+  })
 }
 
-async function readFreeformFigure(directory: string, figureID: string): Promise<string> {
-  const filepath = FreeformFigurePath.file(directory, figureID)
-
-  try {
-    return await fs.readFile(filepath, "utf8")
-  } catch (error) {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") {
-      throw new FreeformFigureNotFoundError(figureID)
-    }
-    throw error
-  }
+async function readFreeformFigure(directory: string, artifactID: string): Promise<string> {
+  return readArtifactTextFile({
+    directory,
+    kind: ARTIFACT_KINDS.freeformFigure,
+    artifactID,
+    relativePath: ARTIFACT_CONTENT_FILES.figureSvg,
+  })
 }
 
 export { readFreeformFigure, writeFreeformFigure }

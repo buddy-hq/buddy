@@ -1,15 +1,19 @@
-import { writeTextFileAtomic } from "../../../../storage/atomic-file"
-import { QuestionSetPath } from "./path"
 import {
+  ARTIFACT_CONTENT_FILES,
+  ARTIFACT_KINDS,
+  ARTIFACT_MANIFEST_VERSION,
+  ArtifactValidationError,
+  writeArtifactRecord,
+} from "../../../../artifacts"
+import {
+  QuestionSetArtifactManifestSchema,
   SavedQuestionSetArtifactSchema,
   PublicQuestionSetArtifactSchema,
   type PublicQuestionSetArtifact,
   type SavedQuestion,
   type SavedQuestionSetArtifact,
 } from "../types"
-import { QuestionSetValidationError } from "../errors"
-
-const QUESTION_SET_API_PATH = "/api/question-set-artifacts"
+const QUESTION_SET_API_PATH = "/api/artifacts/question-set"
 
 function ensureUniqueIDs(input: { values: string[]; label: string; context: string }): void {
   const unique = new Set(input.values)
@@ -17,7 +21,7 @@ function ensureUniqueIDs(input: { values: string[]; label: string; context: stri
     return
   }
 
-  throw new QuestionSetValidationError(
+  throw new ArtifactValidationError(
     `${input.context} has duplicate ${input.label} values. ${input.label} must be unique.`,
   )
 }
@@ -35,13 +39,13 @@ function validateSavedQuestion(input: SavedQuestion): void {
 
   const correctChoiceIds = correctChoiceIDs(input)
   if (correctChoiceIds.length === 0) {
-    throw new QuestionSetValidationError(
+    throw new ArtifactValidationError(
       `Question '${input.id}' must include at least one correct choice.`,
     )
   }
 
   if (!input.payload.multipleSelect && correctChoiceIds.length !== 1) {
-    throw new QuestionSetValidationError(
+    throw new ArtifactValidationError(
       `Question '${input.id}' is single-select and must have exactly one correct choice.`,
     )
   }
@@ -49,19 +53,19 @@ function validateSavedQuestion(input: SavedQuestion): void {
   const noneOfTheAboveChoices = input.payload.choices.filter((choice) => choice.isNoneOfTheAbove)
 
   if (input.payload.hasNoneOfTheAbove && noneOfTheAboveChoices.length !== 1) {
-    throw new QuestionSetValidationError(
+    throw new ArtifactValidationError(
       `Question '${input.id}' requires exactly one 'none of the above' choice.`,
     )
   }
 
   if (!input.payload.hasNoneOfTheAbove && noneOfTheAboveChoices.length > 0) {
-    throw new QuestionSetValidationError(
+    throw new ArtifactValidationError(
       `Question '${input.id}' includes 'none of the above' choices without hasNoneOfTheAbove enabled.`,
     )
   }
 
   if (noneOfTheAboveChoices.some((choice) => choice.correct) && correctChoiceIds.length > 1) {
-    throw new QuestionSetValidationError(
+    throw new ArtifactValidationError(
       `Question '${input.id}' cannot mark 'none of the above' as correct alongside other correct choices.`,
     )
   }
@@ -70,7 +74,7 @@ function validateSavedQuestion(input: SavedQuestion): void {
     input.payload.numCorrect !== undefined &&
     input.payload.numCorrect !== correctChoiceIds.length
   ) {
-    throw new QuestionSetValidationError(
+    throw new ArtifactValidationError(
       `Question '${input.id}' has numCorrect=${input.payload.numCorrect}, but ${correctChoiceIds.length} correct choices were authored.`,
     )
   }
@@ -78,7 +82,7 @@ function validateSavedQuestion(input: SavedQuestion): void {
   if (input.payload.countChoices) {
     const expectedCount = input.payload.numCorrect ?? correctChoiceIds.length
     if (expectedCount <= 0 || expectedCount > input.payload.choices.length) {
-      throw new QuestionSetValidationError(
+      throw new ArtifactValidationError(
         `Question '${input.id}' has an invalid expected choice count (${expectedCount}).`,
       )
     }
@@ -140,8 +144,36 @@ async function writeQuestionSetArtifact(input: {
   directory: string
   artifact: SavedQuestionSetArtifact
 }): Promise<void> {
-  const artifactPath = QuestionSetPath.artifactFile(input.directory, input.artifact.artifactID)
-  await writeTextFileAtomic(artifactPath, JSON.stringify(input.artifact, null, 2))
+  const manifest = QuestionSetArtifactManifestSchema.parse({
+    version: ARTIFACT_MANIFEST_VERSION,
+    artifactID: input.artifact.artifactID,
+    kind: ARTIFACT_KINDS.questionSet,
+    title: input.artifact.title,
+    origin: input.artifact.createdBy,
+    createdAt: input.artifact.createdAt,
+    updatedAt: input.artifact.createdAt,
+    summary: {
+      groupType: input.artifact.groupType,
+      questionCount: input.artifact.questions.length,
+      ...(input.artifact.instructions ? { instructions: input.artifact.instructions } : {}),
+      ...(input.artifact.contextSummary
+        ? { contextSummary: input.artifact.contextSummary }
+        : {}),
+    },
+  })
+  await writeArtifactRecord({
+    directory: input.directory,
+    kind: ARTIFACT_KINDS.questionSet,
+    artifactID: input.artifact.artifactID,
+    manifest,
+    files: [
+      {
+        relativePath: ARTIFACT_CONTENT_FILES.questionSet,
+        format: "json",
+        content: input.artifact,
+      },
+    ],
+  })
 }
 
 async function saveQuestionSetArtifact(input: {

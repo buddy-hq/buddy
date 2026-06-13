@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto"
-import type { MermaidPreflightRepair, MermaidPreflightRepairCode } from "./v2-types"
+import type { MermaidPreflightRepair, MermaidPreflightRepairCode } from "./types"
 
 const BYTE_ORDER_MARK = "\uFEFF"
 const TAB_REPLACEMENT = "  "

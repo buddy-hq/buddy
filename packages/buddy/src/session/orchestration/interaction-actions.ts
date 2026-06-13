@@ -21,11 +21,11 @@ import {
   isMermaidRepairExpired,
   nextExhaustedAutoRepairState,
   readMermaidRepairRequest,
-  readMermaidV2Artifact,
-  readMermaidV2RenderRecord,
+  readMermaidArtifact,
+  readMermaidRenderRecord,
   updateMermaidRepairRequest,
-  updateMermaidV2AutoRepairState,
-} from "../../learning/features/diagrams/service/v2-store"
+  updateMermaidAutoRepairState,
+} from "../../learning/features/diagrams/service/store"
 import { mapMermaidArtifactRouteError } from "../../learning/features/diagrams/errors"
 import { assertSessionExistsInDirectory } from "./lookup"
 import { mapSessionTransformError } from "./errors"
@@ -38,7 +38,7 @@ import {
 import type {
   MermaidArtifactReadResult,
   MermaidAutoRepairState,
-} from "../../learning/features/diagrams/service/v2-types"
+} from "../../learning/features/diagrams/service/types"
 import { getOpenCodeClient } from "../../opencode-runtime/client"
 import {
   persistCommandInvocationDisplay,
@@ -175,7 +175,7 @@ async function exhaustMermaidRepairAttempt(input: {
     status: "exhausted",
     lastErrorMessage: input.errorMessage,
   })
-  await updateMermaidV2AutoRepairState(
+  await updateMermaidAutoRepairState(
     input.directory,
     input.artifactID,
     nextExhaustedAutoRepairState(input.errorMessage),
@@ -459,14 +459,14 @@ export async function postSessionMermaidRepairAsync(c: Context): Promise<Respons
       request: c.req.raw,
     })
 
-    const artifact = await readMermaidV2Artifact(syncResult.value.directory, artifactID)
+    const artifact = await readMermaidArtifact(syncResult.value.directory, artifactID)
     if (artifact.origin.sessionID !== sessionID) {
       return Response.json(
         { error: "Mermaid artifact was not found for this session." },
         { status: 404 },
       )
     }
-    const failedRender = await readMermaidV2RenderRecord(
+    const failedRender = await readMermaidRenderRecord(
       syncResult.value.directory,
       artifact.artifactID,
       failedRenderKey,
@@ -500,7 +500,7 @@ export async function postSessionMermaidRepairAsync(c: Context): Promise<Respons
       failedRenderKey,
     })
 
-    await updateMermaidV2AutoRepairState(
+    await updateMermaidAutoRepairState(
       syncResult.value.directory,
       artifact.artifactID,
       runningMermaidAutoRepairState({
@@ -598,7 +598,7 @@ export async function getSessionMermaidRepairStatus(c: Context): Promise<Respons
           status: "exhausted",
           lastErrorMessage: MERMAID_AUTO_REPAIR_TIMEOUT_MESSAGE,
         }).then(async (updated) => {
-          await updateMermaidV2AutoRepairState(
+          await updateMermaidAutoRepairState(
             syncResult.value.directory,
             updated.artifactID,
             nextExhaustedAutoRepairState(MERMAID_AUTO_REPAIR_TIMEOUT_MESSAGE),

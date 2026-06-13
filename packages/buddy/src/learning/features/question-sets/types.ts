@@ -1,10 +1,14 @@
 import z from "zod"
+import {
+  ARTIFACT_KINDS,
+  ArtifactIDSchema,
+  ArtifactManifestBaseSchema,
+  ArtifactToolOriginSchema,
+  nonEmptyString,
+  timestampString,
+} from "../../../artifacts"
 
-const nonEmptyString = z.string().trim().min(1)
-const timestampString = z.string().datetime()
-const ulidString = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/u)
-
-const QUESTION_SET_ARTIFACT_KIND = "question-set.v1" as const
+const QUESTION_SET_ARTIFACT_KIND = ARTIFACT_KINDS.questionSet
 const QUESTION_SET_ATTEMPT_KIND = "question-set-attempt.v1" as const
 const QUESTION_SET_SUBAGENT_ID = "question-set-author" as const
 const QUESTION_SET_SURFACE = "question-set" as const
@@ -61,20 +65,19 @@ const PublicQuestionSchema = z.object({
   payload: PublicMcqPayloadSchema,
 })
 
+const QuestionSetCreatedBySchema = ArtifactToolOriginSchema.extend({
+  subagent: z.literal(QUESTION_SET_SUBAGENT_ID),
+})
+
 const QuestionSetArtifactBaseSchema = z.object({
-  artifactID: ulidString,
+  artifactID: ArtifactIDSchema,
   kind: z.literal(QUESTION_SET_ARTIFACT_KIND),
   groupType: GroupTypeSchema,
   title: nonEmptyString,
   instructions: nonEmptyString.optional(),
   contextSummary: nonEmptyString.optional(),
   createdAt: timestampString,
-  createdBy: z.object({
-    sessionID: nonEmptyString,
-    messageID: nonEmptyString,
-    callID: nonEmptyString,
-    subagent: z.literal(QUESTION_SET_SUBAGENT_ID),
-  }),
+  createdBy: QuestionSetCreatedBySchema,
 })
 
 const SavedQuestionSetArtifactSchema = QuestionSetArtifactBaseSchema.extend({
@@ -86,12 +89,25 @@ const PublicQuestionSetArtifactSchema = QuestionSetArtifactBaseSchema.extend({
 })
 
 const SaveQuestionSetOutputSchema = z.object({
-  artifactID: ulidString,
+  artifactID: ArtifactIDSchema,
   kind: z.literal(QUESTION_SET_ARTIFACT_KIND),
   groupType: GroupTypeSchema,
   title: nonEmptyString,
   questionCount: z.number().int().positive(),
   artifactUrl: nonEmptyString,
+})
+
+const QuestionSetSummarySchema = z.object({
+  groupType: GroupTypeSchema,
+  questionCount: z.number().int().positive(),
+  instructions: nonEmptyString.optional(),
+  contextSummary: nonEmptyString.optional(),
+})
+
+const QuestionSetArtifactManifestSchema = ArtifactManifestBaseSchema.extend({
+  kind: z.literal(QUESTION_SET_ARTIFACT_KIND),
+  origin: QuestionSetCreatedBySchema,
+  summary: QuestionSetSummarySchema,
 })
 
 const QuestionSetAttemptAnswerSchema = z.object({
@@ -127,17 +143,17 @@ const QuestionSetEvaluationResultSchema = z.object({
 })
 
 const QuestionSetAttemptRecordSchema = z.object({
-  attemptID: ulidString,
+  attemptID: ArtifactIDSchema,
   kind: z.literal(QUESTION_SET_ATTEMPT_KIND),
-  artifactID: ulidString,
+  artifactID: ArtifactIDSchema,
   submittedAt: timestampString,
   answers: z.array(QuestionSetAttemptAnswerSchema),
   result: QuestionSetEvaluationResultSchema,
 })
 
 const SubmitQuestionSetAttemptOutputSchema = z.object({
-  attemptID: ulidString,
-  artifactID: ulidString,
+  attemptID: ArtifactIDSchema,
+  artifactID: ArtifactIDSchema,
   result: QuestionSetEvaluationResultSchema,
 })
 
@@ -149,6 +165,8 @@ type PublicQuestionSetArtifact = z.infer<typeof PublicQuestionSetArtifactSchema>
 type QuestionSetAttemptAnswer = z.infer<typeof QuestionSetAttemptAnswerSchema>
 type QuestionSetAttemptRecord = z.infer<typeof QuestionSetAttemptRecordSchema>
 type QuestionSetEvaluationResult = z.infer<typeof QuestionSetEvaluationResultSchema>
+type QuestionSetArtifactManifest = z.infer<typeof QuestionSetArtifactManifestSchema>
+type QuestionSetSummary = z.infer<typeof QuestionSetSummarySchema>
 type SubmitQuestionSetAttemptInput = z.infer<typeof SubmitQuestionSetAttemptInputSchema>
 type SubmitQuestionSetAttemptOutput = z.infer<typeof SubmitQuestionSetAttemptOutputSchema>
 
@@ -159,8 +177,10 @@ export {
   QUESTION_SET_ATTEMPT_KIND,
   QUESTION_SET_SUBAGENT_ID,
   QUESTION_SET_SURFACE,
+  QuestionSetArtifactManifestSchema,
   QuestionSetAttemptRecordSchema,
   QuestionSetEvaluationResultSchema,
+  QuestionSetSummarySchema,
   SavedQuestionSetArtifactSchema,
   SaveQuestionSetOutputSchema,
   SubmitQuestionSetAttemptInputSchema,
@@ -170,9 +190,11 @@ export {
 export type {
   GroupType,
   PublicQuestionSetArtifact,
+  QuestionSetArtifactManifest,
   QuestionSetAttemptAnswer,
   QuestionSetAttemptRecord,
   QuestionSetEvaluationResult,
+  QuestionSetSummary,
   SavedQuestion,
   SavedQuestionSetArtifact,
   SaveQuestionSetOutput,

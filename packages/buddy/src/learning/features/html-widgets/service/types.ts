@@ -1,7 +1,14 @@
 import z from "zod"
+import {
+  ARTIFACT_KINDS,
+  ArtifactIDSchema,
+  ArtifactManifestBaseSchema,
+  ArtifactToolOriginSchema,
+  SourceHashSchema,
+  nonEmptyString,
+} from "../../../../artifacts"
 
-export const HTML_WIDGET_KIND = "html.widget.v1" as const
-export const HTML_WIDGET_MANIFEST_VERSION = 1 as const
+export const HTML_WIDGET_KIND = ARTIFACT_KINDS.htmlWidget
 export const MAX_HTML_WIDGET_SOURCE_BYTES = 1_000_000 as const
 export const DEFAULT_HTML_WIDGET_VIEWPORT_PRESET = "standard_16_10" as const
 export const HTML_WIDGET_RUNTIME_CSP = [
@@ -18,8 +25,6 @@ export const HTML_WIDGET_RUNTIME_CSP = [
   "form-action 'none'",
   "navigate-to 'none'",
 ].join("; ")
-
-const nonEmptyString = z.string().trim().min(1)
 
 export const HTML_WIDGET_VIEWPORT_PRESET_VALUES = [
   "compact_4_3",
@@ -80,54 +85,40 @@ export const HtmlWidgetWarningSchema = z.object({
   message: z.string().min(1),
 })
 
-export const HtmlWidgetManifestSchema = z.object({
-  version: z.literal(HTML_WIDGET_MANIFEST_VERSION),
-  widgetID: z.string().uuid(),
-  kind: z.literal(HTML_WIDGET_KIND),
-  title: nonEmptyString,
-  description: nonEmptyString.optional(),
+export const HtmlWidgetSummarySchema = z.object({
   viewport: HtmlWidgetViewportSchema,
-  sourceHash: z.string().regex(/^[a-f0-9]{64}$/u),
   sourcePath: z.string().min(1).optional(),
-  origin: z.object({
-    sessionID: z.string().min(1),
-    messageID: z.string().min(1),
-    callID: z.string().min(1),
-  }),
   warnings: z.array(HtmlWidgetWarningSchema),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
 })
 
-export const HtmlWidgetReadSchema = HtmlWidgetManifestSchema.extend({
-  runtimeUrl: z.string().min(1),
-  sourceUrl: z.string().min(1),
-})
-
-export const HtmlWidgetListResponseSchema = z.object({
-  widgets: z.array(HtmlWidgetReadSchema),
+export const HtmlWidgetArtifactManifestSchema = ArtifactManifestBaseSchema.extend({
+  kind: z.literal(HTML_WIDGET_KIND),
+  sourceHash: SourceHashSchema,
+  origin: ArtifactToolOriginSchema,
+  summary: HtmlWidgetSummarySchema,
 })
 
 export const HtmlWidgetSourceResponseSchema = z.object({
-  widgetID: z.string().uuid(),
+  artifactID: ArtifactIDSchema,
   source: z.string(),
 })
 
 export const PresentHtmlWidgetOutputSchema = z.object({
-  widgetID: z.string().uuid(),
+  artifactID: ArtifactIDSchema,
   kind: z.literal(HTML_WIDGET_KIND),
   title: nonEmptyString,
   description: nonEmptyString.optional(),
   viewport: HtmlWidgetViewportSchema,
   runtimeUrl: z.string().min(1),
   sourceUrl: z.string().min(1),
-  sourceHash: z.string().regex(/^[a-f0-9]{64}$/u),
+  sourceHash: SourceHashSchema,
   sourcePath: z.string().min(1).optional(),
   warnings: z.array(HtmlWidgetWarningSchema),
 })
 
-export type HtmlWidgetManifest = z.infer<typeof HtmlWidgetManifestSchema>
-export type HtmlWidgetRead = z.infer<typeof HtmlWidgetReadSchema>
+export type HtmlWidgetArtifactManifest = z.infer<typeof HtmlWidgetArtifactManifestSchema>
+export type HtmlWidgetManifest = HtmlWidgetArtifactManifest
+export type HtmlWidgetSummary = z.infer<typeof HtmlWidgetSummarySchema>
 export type HtmlWidgetViewport = z.infer<typeof HtmlWidgetViewportSchema>
 export type HtmlWidgetWarning = z.infer<typeof HtmlWidgetWarningSchema>
 export type PresentHtmlWidgetOutput = z.infer<typeof PresentHtmlWidgetOutputSchema>

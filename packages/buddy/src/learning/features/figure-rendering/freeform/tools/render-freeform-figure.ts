@@ -1,14 +1,17 @@
 import RENDER_FREEFORM_FIGURE_DESCRIPTION from "./render-freeform-figure.md"
+import path from "node:path"
 import {
   createBuddyTool,
   type BuddyToolContext,
 } from "@buddy/backend/learning/runtime/create-buddy-tool"
 import z from "zod"
-import { buildPresentedMediaOutputForPath } from "../../../media-presentations/service/file-media"
-import { FreeformFigurePath } from "../path"
+import {
+  ARTIFACT_CONTENT_FILES,
+  ARTIFACT_KINDS,
+  ArtifactPath,
+  nonEmptyString,
+} from "../../../../../artifacts"
 import { renderFreeformFigure } from "../service/render"
-
-const nonEmptyString = z.string().trim().min(1)
 
 const RenderFreeformFigureInputSchema = z.object({
   caption: nonEmptyString.optional(),
@@ -24,7 +27,13 @@ const renderFreeformFigureTool = createBuddyTool({
   async execute(params: RenderFreeformFigureInput, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "render_freeform_figure",
-      patterns: [FreeformFigurePath.glob(ctx.directory)],
+      patterns: [
+        path.join(
+          ArtifactPath.kindRoot(ctx.directory, ARTIFACT_KINDS.freeformFigure),
+          "*",
+          ARTIFACT_CONTENT_FILES.figureSvg,
+        ),
+      ],
       always: ["*"],
       metadata: {
         kind: "svg.v1",
@@ -32,21 +41,13 @@ const renderFreeformFigureTool = createBuddyTool({
     })
 
     const result = await renderFreeformFigure(ctx.directory, params)
-    const presentedMedia = await buildPresentedMediaOutputForPath({
-      directory: ctx.directory,
-      path: result.relativePath,
-    })
 
     return {
       title: "Rendered freeform figure",
       output: JSON.stringify(result, null, 2),
       metadata: {
-        artifact: "PresentedMediaOutput",
-        value: presentedMedia,
-        producerArtifact: {
-          artifact: "RenderFreeformFigureOutput",
-          value: result,
-        },
+        artifact: "RenderFreeformFigureOutput",
+        value: result,
       },
     }
   },

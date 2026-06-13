@@ -1,15 +1,31 @@
-import { createHash, randomUUID } from "node:crypto"
-import type { Dirent } from "node:fs"
-import fs from "node:fs/promises"
+import { randomUUID } from "node:crypto"
 import path from "node:path"
-import z from "zod"
 import {
-  MermaidArtifactNotFoundError,
+  ARTIFACT_CONTENT_DIRECTORIES,
+  ARTIFACT_CONTENT_FILES,
+  ARTIFACT_MANIFEST_VERSION,
+  ARTIFACT_RUNTIME_DIRECTORIES,
+  ArtifactPath,
+  ArtifactNotFoundError,
+  SHA256_HEX_PATTERN,
+  generateArtifactID,
+  isNodeErrorCode,
+  listArtifactManifests,
+  readArtifactManifest as readSharedArtifactManifest,
+  readJsonFile,
+  readArtifactTextFile,
+  sha256Text,
+  writeArtifactManifest as writeSharedArtifactManifest,
+  writeArtifactRecord,
+} from "../../../../artifacts"
+import { writeJsonFileAtomic } from "../../../../storage/atomic-file"
+import {
+  InvalidMermaidRenderKeyError,
+  InvalidMermaidRepairRequestIDError,
   MermaidRepairRequestNotFoundError,
   MermaidRenderRecordNotFoundError,
 } from "../errors"
-import { MermaidArtifactPathV2 } from "./v2-path"
-import { preflightMermaidSource } from "./v2-preflight"
+import { preflightMermaidSource } from "./preflight"
 import {
   MAX_MERMAID_AUTO_REPAIR_ATTEMPTS,
   MERMAID_ARTIFACT_KIND,
@@ -29,7 +45,7 @@ import {
   type MermaidRepairRequestRecord,
   type MermaidRenderRecord,
   type MermaidResolvedRenderRecord,
-} from "./v2-types"
+} from "./types"
 
 type CreateMermaidArtifactBaseInput = {
   directory: string
@@ -98,9 +114,59 @@ const MERMAID_MAX_URL_SCHEME_SPACE_CODE_POINT = 0x20
 const MERMAID_MIN_URL_SCHEME_CONTROL_CODE_POINT = 0x7f
 const MERMAID_MAX_URL_SCHEME_CONTROL_CODE_POINT = 0x9f
 const MAX_MERMAID_REFERENCE_DECODE_PASSES = 3
+const REPAIR_REQUEST_ID_PATTERN = new RegExp(
+  `^${MERMAID_AUTO_REPAIR_MESSAGE_ID_PREFIX}[A-Za-z0-9_-]+$`,
+  "u",
+)
+const MARKDOWN_MERMAID_CREATION_QUEUE_SEPARATOR = "\u0000"
 
-function sha256(value: string): string {
-  return createHash("sha256").update(value).digest("hex")
+const markdownMermaidCreationQueues = new Map<string, Promise<void>>()
+
+function markdownMermaidCreationQueueKey(input: {
+  directory: string
+  sessionID: string
+  messageID: string
+  partID: string
+  segmentIndex: number
+  sourceHash: string
+}): string {
+  return [
+    input.directory,
+    input.sessionID,
+    input.messageID,
+    input.partID,
+    input.segmentIndex,
+    input.sourceHash,
+  ].join(MARKDOWN_MERMAID_CREATION_QUEUE_SEPARATOR)
+}
+
+async function runMarkdownMermaidCreation(
+  input: {
+    directory: string
+    sessionID: string
+    messageID: string
+    partID: string
+    segmentIndex: number
+    sourceHash: string
+  },
+  operation: () => Promise<MermaidArtifactReadResult>,
+): Promise<MermaidArtifactReadResult> {
+  const key = markdownMermaidCreationQueueKey(input)
+  const previous = markdownMermaidCreationQueues.get(key) ?? Promise.resolve()
+  const current = previous.catch(() => undefined).then(operation)
+  const tail = current.then(
+    () => undefined,
+    () => undefined,
+  )
+  markdownMermaidCreationQueues.set(key, tail)
+
+  try {
+    return await current
+  } finally {
+    if (markdownMermaidCreationQueues.get(key) === tail) {
+      markdownMermaidCreationQueues.delete(key)
+    }
+  }
 }
 
 function decodeHtmlCharacterReference(
@@ -238,51 +304,13 @@ function sanitizeMermaidRenderRecord(record: MermaidRenderRecord): MermaidRender
   })
 }
 
-function buildToolArtifactID(input: {
-  sessionID: string
-  messageID: string
-  callID: string
-  createdAt: string
-  sourceHash: string
-}): string {
-  return sha256(
-    [
-      "mermaid.v2:tool",
-      input.sessionID,
-      input.messageID,
-      input.callID,
-      input.createdAt,
-      input.sourceHash,
-    ].join(":"),
-  )
-}
-
-function buildMarkdownArtifactID(input: {
-  sessionID: string
-  messageID: string
-  partID: string
-  segmentIndex: number
-  sourceHash: string
-}): string {
-  return sha256(
-    [
-      "mermaid.v2:markdown",
-      input.sessionID,
-      input.messageID,
-      input.partID,
-      String(input.segmentIndex),
-      input.sourceHash,
-    ].join(":"),
-  )
-}
-
 function buildRenderKey(input: {
   sourceHash: string
   rendererVersion: string
   renderConfigVersion: number
   themeSignature: string
 }): string {
-  return sha256(
+  return sha256Text(
     [
       "mermaid-render",
       input.sourceHash,
@@ -295,7 +323,44 @@ function buildRenderKey(input: {
 }
 
 function buildMermaidArtifactUrl(directory: string, artifactID: string): string {
-  return `/api/mermaid-artifacts/${artifactID}?directory=${encodeURIComponent(directory)}`
+  return `/api/artifacts/mermaid/${artifactID}?directory=${encodeURIComponent(directory)}`
+}
+
+function sanitizeRenderKey(renderKey: string): string {
+  if (!SHA256_HEX_PATTERN.test(renderKey)) {
+    throw new InvalidMermaidRenderKeyError(renderKey)
+  }
+  return renderKey
+}
+
+function sanitizeRepairRequestID(repairRequestID: string): string {
+  if (!REPAIR_REQUEST_ID_PATTERN.test(repairRequestID)) {
+    throw new InvalidMermaidRepairRequestIDError(repairRequestID)
+  }
+  return repairRequestID
+}
+
+function mermaidRenderRecordFile(directory: string, artifactID: string, renderKey: string): string {
+  return ArtifactPath.artifactFile(
+    directory,
+    MERMAID_ARTIFACT_KIND,
+    artifactID,
+    path.join(
+      ARTIFACT_CONTENT_DIRECTORIES.mermaidRenders,
+      `${sanitizeRenderKey(renderKey)}.json`,
+    ),
+  )
+}
+
+function mermaidRepairRequestsDirectory(directory: string): string {
+  return ArtifactPath.systemDirectory(directory, ARTIFACT_RUNTIME_DIRECTORIES.mermaidRepairRequests)
+}
+
+function mermaidRepairRequestFile(directory: string, repairRequestID: string): string {
+  return path.join(
+    mermaidRepairRequestsDirectory(directory),
+    `${sanitizeRepairRequestID(repairRequestID)}.json`,
+  )
 }
 
 function defaultAutoRepairState(supersedesArtifactID?: string): MermaidAutoRepairState {
@@ -312,58 +377,48 @@ function defaultAutoRepairState(supersedesArtifactID?: string): MermaidAutoRepai
   )
 }
 
-async function writeAtomicJson(targetPath: string, value: unknown): Promise<void> {
-  await fs.mkdir(path.dirname(targetPath), { recursive: true })
-  const tempPath = path.join(
-    path.dirname(targetPath),
-    `.${path.basename(targetPath)}.${randomUUID()}.tmp`,
-  )
-  await fs.writeFile(tempPath, `${JSON.stringify(value, null, 2)}\n`, "utf8")
-  await fs.rename(tempPath, targetPath)
+function toMermaidArtifactRead(input: {
+  manifest: MermaidArtifactManifest
+  source: string
+  render?: MermaidRenderRecord
+}): MermaidArtifactReadResult {
+  return MermaidArtifactReadSchema.parse({
+    ...input.manifest,
+    diagramType: input.manifest.summary.diagramType,
+    alt: input.manifest.summary.alt,
+    ...(input.manifest.summary.caption ? { caption: input.manifest.summary.caption } : {}),
+    preflightRepairs: input.manifest.summary.preflightRepairs,
+    autoRepair: input.manifest.summary.autoRepair,
+    ...(input.manifest.summary.supersedesArtifactID
+      ? { supersedesArtifactID: input.manifest.summary.supersedesArtifactID }
+      : {}),
+    source: input.source,
+    ...(input.render ? { render: input.render } : {}),
+  })
 }
 
 async function writeArtifactManifest(
   directory: string,
   manifest: MermaidArtifactManifest,
 ): Promise<void> {
-  await writeAtomicJson(
-    MermaidArtifactPathV2.manifestFile(directory, manifest.artifactID),
+  await writeSharedArtifactManifest({
+    directory,
+    kind: MERMAID_ARTIFACT_KIND,
+    artifactID: manifest.artifactID,
     manifest,
-  )
-}
-
-async function writeArtifactSource(
-  directory: string,
-  artifactID: string,
-  source: string,
-): Promise<void> {
-  await fs.mkdir(MermaidArtifactPathV2.artifactDirectory(directory, artifactID), {
-    recursive: true,
   })
-  await fs.writeFile(MermaidArtifactPathV2.sourceFile(directory, artifactID), source, "utf8")
-}
-
-async function readJsonFile<T>(filePath: string, schema: z.ZodSchema<T>): Promise<T> {
-  const text = await fs.readFile(filePath, "utf8")
-  return schema.parse(JSON.parse(text) as unknown)
 }
 
 async function readArtifactManifest(
   directory: string,
   artifactID: string,
 ): Promise<MermaidArtifactManifest> {
-  try {
-    return await readJsonFile(
-      MermaidArtifactPathV2.manifestFile(directory, artifactID),
-      MermaidArtifactManifestSchema,
-    )
-  } catch (error) {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") {
-      throw new MermaidArtifactNotFoundError(artifactID)
-    }
-    throw error
-  }
+  return readSharedArtifactManifest({
+    directory,
+    kind: MERMAID_ARTIFACT_KIND,
+    artifactID,
+    schema: MermaidArtifactManifestSchema,
+  })
 }
 
 async function createToolMermaidArtifact(
@@ -371,41 +426,45 @@ async function createToolMermaidArtifact(
 ): Promise<MermaidArtifactReadResult> {
   const createdAt = input.createdAt ?? new Date().toISOString()
   const preflight = preflightMermaidSource(input.source)
-  const artifactID = buildToolArtifactID({
-    sessionID: input.sessionID,
-    messageID: input.messageID,
-    callID: input.callID,
-    createdAt,
-    sourceHash: preflight.sourceHash,
-  })
+  const artifactID = generateArtifactID()
   const manifest = MermaidArtifactManifestSchema.parse({
-    version: 2,
+    version: ARTIFACT_MANIFEST_VERSION,
     artifactID,
     kind: MERMAID_ARTIFACT_KIND,
+    title: input.alt,
+    ...(input.caption ? { description: input.caption } : {}),
     origin: {
       kind: "tool",
       sessionID: input.sessionID,
       messageID: input.messageID,
       callID: input.callID,
     },
-    diagramType: preflight.diagramType,
-    alt: input.alt,
-    ...(input.caption ? { caption: input.caption } : {}),
     sourceHash: preflight.sourceHash,
-    preflightRepairs: preflight.repairs,
-    autoRepair: defaultAutoRepairState(input.supersedesArtifactID),
+    summary: {
+      diagramType: preflight.diagramType,
+      alt: input.alt,
+      ...(input.caption ? { caption: input.caption } : {}),
+      preflightRepairs: preflight.repairs,
+      autoRepair: defaultAutoRepairState(input.supersedesArtifactID),
+      ...(input.supersedesArtifactID ? { supersedesArtifactID: input.supersedesArtifactID } : {}),
+    },
     createdAt,
     updatedAt: createdAt,
-    ...(input.supersedesArtifactID ? { supersedesArtifactID: input.supersedesArtifactID } : {}),
   })
-  await Promise.all([
-    writeArtifactManifest(input.directory, manifest),
-    writeArtifactSource(input.directory, artifactID, preflight.source),
-  ])
-  return MermaidArtifactReadSchema.parse({
-    ...manifest,
-    source: preflight.source,
+  await writeArtifactRecord({
+    directory: input.directory,
+    kind: MERMAID_ARTIFACT_KIND,
+    artifactID,
+    manifest,
+    files: [
+      {
+        relativePath: ARTIFACT_CONTENT_FILES.mermaidSource,
+        format: "text",
+        content: preflight.source,
+      },
+    ],
   })
+  return toMermaidArtifactRead({ manifest, source: preflight.source })
 }
 
 async function createMarkdownMermaidArtifact(
@@ -413,163 +472,219 @@ async function createMarkdownMermaidArtifact(
 ): Promise<MermaidArtifactReadResult> {
   const createdAt = input.createdAt ?? new Date().toISOString()
   const preflight = preflightMermaidSource(input.source)
-  const artifactID = buildMarkdownArtifactID({
-    sessionID: input.sessionID,
-    messageID: input.messageID,
-    partID: input.partID,
-    segmentIndex: input.segmentIndex,
-    sourceHash: preflight.sourceHash,
-  })
 
-  try {
-    return await readMermaidV2Artifact(input.directory, artifactID)
-  } catch (error) {
-    if (!(error instanceof MermaidArtifactNotFoundError)) {
-      throw error
-    }
-  }
-
-  const manifest = MermaidArtifactManifestSchema.parse({
-    version: 2,
-    artifactID,
-    kind: MERMAID_ARTIFACT_KIND,
-    origin: {
-      kind: "markdown",
+  return runMarkdownMermaidCreation(
+    {
+      directory: input.directory,
       sessionID: input.sessionID,
       messageID: input.messageID,
       partID: input.partID,
       segmentIndex: input.segmentIndex,
+      sourceHash: preflight.sourceHash,
     },
-    diagramType: preflight.diagramType,
-    alt: input.alt,
-    ...(input.caption ? { caption: input.caption } : {}),
-    sourceHash: preflight.sourceHash,
-    preflightRepairs: preflight.repairs,
-    autoRepair: defaultAutoRepairState(input.supersedesArtifactID),
-    createdAt,
-    updatedAt: createdAt,
-    ...(input.supersedesArtifactID ? { supersedesArtifactID: input.supersedesArtifactID } : {}),
-  })
-  await Promise.all([
-    writeArtifactManifest(input.directory, manifest),
-    writeArtifactSource(input.directory, artifactID, preflight.source),
-  ])
-  return MermaidArtifactReadSchema.parse({
-    ...manifest,
-    source: preflight.source,
-  })
+    async () => {
+      const existing = await findMarkdownMermaidArtifact({
+        directory: input.directory,
+        sessionID: input.sessionID,
+        messageID: input.messageID,
+        partID: input.partID,
+        segmentIndex: input.segmentIndex,
+        sourceHash: preflight.sourceHash,
+      })
+      if (existing) {
+        return existing
+      }
+
+      const artifactID = generateArtifactID()
+
+      const manifest = MermaidArtifactManifestSchema.parse({
+        version: ARTIFACT_MANIFEST_VERSION,
+        artifactID,
+        kind: MERMAID_ARTIFACT_KIND,
+        title: input.alt,
+        ...(input.caption ? { description: input.caption } : {}),
+        origin: {
+          kind: "markdown",
+          sessionID: input.sessionID,
+          messageID: input.messageID,
+          partID: input.partID,
+          segmentIndex: input.segmentIndex,
+        },
+        sourceHash: preflight.sourceHash,
+        summary: {
+          diagramType: preflight.diagramType,
+          alt: input.alt,
+          ...(input.caption ? { caption: input.caption } : {}),
+          preflightRepairs: preflight.repairs,
+          autoRepair: defaultAutoRepairState(input.supersedesArtifactID),
+          ...(input.supersedesArtifactID
+            ? { supersedesArtifactID: input.supersedesArtifactID }
+            : {}),
+        },
+        createdAt,
+        updatedAt: createdAt,
+      })
+      await writeArtifactRecord({
+        directory: input.directory,
+        kind: MERMAID_ARTIFACT_KIND,
+        artifactID,
+        manifest,
+        files: [
+          {
+            relativePath: ARTIFACT_CONTENT_FILES.mermaidSource,
+            format: "text",
+            content: preflight.source,
+          },
+        ],
+      })
+      return toMermaidArtifactRead({ manifest, source: preflight.source })
+    },
+  )
 }
 
-async function readMermaidV2RenderRecord(
+async function findMarkdownMermaidArtifact(input: {
+  directory: string
+  sessionID: string
+  messageID: string
+  partID: string
+  segmentIndex: number
+  sourceHash: string
+}): Promise<MermaidArtifactReadResult | undefined> {
+  const listed = await listArtifactManifests({
+    directory: input.directory,
+    kind: MERMAID_ARTIFACT_KIND,
+    schema: MermaidArtifactManifestSchema,
+  })
+  for (const manifest of listed.items) {
+    if (manifest.sourceHash !== input.sourceHash) {
+      continue
+    }
+    const origin = manifest.origin
+    if (
+      origin.kind !== "markdown" ||
+      origin.sessionID !== input.sessionID ||
+      origin.messageID !== input.messageID ||
+      origin.partID !== input.partID ||
+      origin.segmentIndex !== input.segmentIndex
+    ) {
+      continue
+    }
+    return readMermaidArtifact(input.directory, manifest.artifactID).catch((error) => {
+      if (error instanceof ArtifactNotFoundError || isNodeErrorCode(error, "ENOENT")) {
+        return undefined
+      }
+      throw error
+    })
+  }
+  return undefined
+}
+
+async function readMermaidRenderRecord(
   directory: string,
   artifactID: string,
   renderKey: string,
 ): Promise<MermaidRenderRecord> {
   try {
     const record = await readJsonFile(
-      MermaidArtifactPathV2.renderRecordFile(directory, artifactID, renderKey),
+      mermaidRenderRecordFile(directory, artifactID, renderKey),
       MermaidRenderRecordSchema,
     )
     return sanitizeMermaidRenderRecord(record)
   } catch (error) {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") {
+    if (isNodeErrorCode(error, "ENOENT")) {
       throw new MermaidRenderRecordNotFoundError(renderKey)
     }
     throw error
   }
 }
 
-async function readMermaidV2Artifact(
+async function readMermaidArtifact(
   directory: string,
   artifactID: string,
   input?: { renderKey?: string },
 ): Promise<MermaidArtifactReadResult> {
-  const safeArtifactID = MermaidArtifactPathV2.sanitizeArtifactID(artifactID)
-  try {
-    const [manifest, source, render] = await Promise.all([
-      readArtifactManifest(directory, safeArtifactID),
-      fs.readFile(MermaidArtifactPathV2.sourceFile(directory, safeArtifactID), "utf8"),
-      input?.renderKey
-        ? readMermaidV2RenderRecord(directory, safeArtifactID, input.renderKey).catch((error) => {
-            if (error instanceof MermaidRenderRecordNotFoundError) {
-              return undefined
-            }
-            throw error
-          })
-        : Promise.resolve(undefined),
-    ])
-    return MermaidArtifactReadSchema.parse({
-      ...manifest,
-      source,
-      ...(render ? { render } : {}),
-    })
-  } catch (error) {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") {
-      throw new MermaidArtifactNotFoundError(safeArtifactID)
+  const safeArtifactID = ArtifactPath.sanitizeArtifactID(artifactID)
+  const [manifest, source, render] = await Promise.all([
+    readArtifactManifest(directory, safeArtifactID),
+    readArtifactTextFile({
+      directory,
+      kind: MERMAID_ARTIFACT_KIND,
+      artifactID: safeArtifactID,
+      relativePath: ARTIFACT_CONTENT_FILES.mermaidSource,
+    }),
+    input?.renderKey
+      ? readMermaidRenderRecord(directory, safeArtifactID, input.renderKey).catch((error) => {
+          if (error instanceof MermaidRenderRecordNotFoundError) {
+            return undefined
+          }
+          throw error
+        })
+      : Promise.resolve(undefined),
+  ])
+  return toMermaidArtifactRead({ manifest, source, ...(render ? { render } : {}) })
+}
+
+async function readReusableMermaidRenderRecord(input: {
+  directory: string
+  artifact: MermaidArtifactReadResult
+  renderKey: string
+}): Promise<MermaidRenderRecord | undefined> {
+  const listed = await listArtifactManifests({
+    directory: input.directory,
+    kind: MERMAID_ARTIFACT_KIND,
+    schema: MermaidArtifactManifestSchema,
+  })
+  for (const manifest of listed.items) {
+    if (manifest.artifactID === input.artifact.artifactID) continue
+    if (manifest.sourceHash !== input.artifact.sourceHash) {
+      continue
     }
-    throw error
-  }
-}
 
-async function listArtifactEntries(directory: string): Promise<Dirent[]> {
-  try {
-    return await fs.readdir(MermaidArtifactPathV2.root(directory), {
-      withFileTypes: true,
+    const reusable = await readMermaidRenderRecord(
+      input.directory,
+      manifest.artifactID,
+      input.renderKey,
+    ).catch((error) => {
+      if (error instanceof MermaidRenderRecordNotFoundError) {
+        return undefined
+      }
+      throw error
     })
-  } catch (error) {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") {
-      return []
+    if (!reusable) {
+      continue
     }
-    throw error
+
+    const currentArtifactRecord = MermaidRenderRecordSchema.parse({
+      ...reusable,
+      artifactID: input.artifact.artifactID,
+    })
+    await writeJsonFileAtomic(
+      mermaidRenderRecordFile(
+        input.directory,
+        input.artifact.artifactID,
+        input.renderKey,
+      ),
+      currentArtifactRecord,
+    )
+    return currentArtifactRecord
   }
+
+  return undefined
 }
 
-async function listMermaidV2Artifacts(
-  directory: string,
-  input?: { includeSuperseded?: boolean },
-): Promise<MermaidArtifactReadResult[]> {
-  const entries = await listArtifactEntries(directory)
-  const artifacts = await Promise.all(
-    entries
-      .filter((entry) => entry.isDirectory() && entry.name !== "_repair-requests")
-      .map(async (entry) => {
-        try {
-          return await readMermaidV2Artifact(directory, entry.name)
-        } catch {
-          return undefined
-        }
-      }),
-  )
-  const parsed = artifacts.filter((artifact): artifact is MermaidArtifactReadResult => !!artifact)
-  if (input?.includeSuperseded) {
-    return parsed.toSorted((left, right) => right.createdAt.localeCompare(left.createdAt))
-  }
-  const supersededArtifactIDs = new Set(
-    parsed.flatMap((artifact) =>
-      artifact.supersedesArtifactID ? [artifact.supersedesArtifactID] : [],
-    ),
-  )
-  return parsed
-    .filter((artifact) => !supersededArtifactIDs.has(artifact.artifactID))
-    .toSorted((left, right) => right.createdAt.localeCompare(left.createdAt))
-}
-
-async function resolveMermaidV2RenderRecord(
+async function resolveMermaidRenderRecord(
   directory: string,
   artifactID: string,
   input: ResolveMermaidRenderInput,
 ): Promise<MermaidResolvedRenderRecord> {
-  const artifact = await readMermaidV2Artifact(directory, artifactID)
+  const artifact = await readMermaidArtifact(directory, artifactID)
   const renderKey = buildRenderKey({
     sourceHash: artifact.sourceHash,
     rendererVersion: input.rendererVersion,
     renderConfigVersion: input.renderConfigVersion,
     themeSignature: input.themeSignature,
   })
-  const render = await readMermaidV2RenderRecord(directory, artifact.artifactID, renderKey).catch(
+  let render = await readMermaidRenderRecord(directory, artifact.artifactID, renderKey).catch(
     (error) => {
       if (error instanceof MermaidRenderRecordNotFoundError) {
         return undefined
@@ -577,18 +692,19 @@ async function resolveMermaidV2RenderRecord(
       throw error
     },
   )
+  render ??= await readReusableMermaidRenderRecord({ directory, artifact, renderKey })
   return MermaidResolvedRenderRecordSchema.parse({
     renderKey,
     ...(render ? { render } : {}),
   })
 }
 
-async function storeMermaidV2RenderRecord(
+async function storeMermaidRenderRecord(
   directory: string,
   artifactID: string,
   input: StoreMermaidRenderRecordInput,
 ): Promise<MermaidRenderRecord> {
-  const artifact = await readMermaidV2Artifact(directory, artifactID)
+  const artifact = await readMermaidArtifact(directory, artifactID)
   const renderKey = buildRenderKey({
     sourceHash: artifact.sourceHash,
     rendererVersion: input.rendererVersion,
@@ -624,46 +740,29 @@ async function storeMermaidV2RenderRecord(
           renderedAt,
         },
   )
-  await writeAtomicJson(
-    MermaidArtifactPathV2.renderRecordFile(directory, artifact.artifactID, renderKey),
+  await writeJsonFileAtomic(
+    mermaidRenderRecordFile(directory, artifact.artifactID, renderKey),
     record,
   )
   return record
 }
 
-async function markMermaidV2ArtifactSuperseded(
-  directory: string,
-  oldArtifactID: string,
-  _replacementArtifactID: string,
-): Promise<MermaidArtifactReadResult> {
-  const artifact = await readMermaidV2Artifact(directory, oldArtifactID)
-  const manifest = MermaidArtifactManifestSchema.parse({
-    ...artifact,
-    updatedAt: new Date().toISOString(),
-  })
-  await writeArtifactManifest(directory, manifest)
-  return MermaidArtifactReadSchema.parse({
-    ...manifest,
-    source: artifact.source,
-  })
-}
-
-async function updateMermaidV2AutoRepairState(
+async function updateMermaidAutoRepairState(
   directory: string,
   artifactID: string,
   state: MermaidAutoRepairState,
 ): Promise<MermaidArtifactReadResult> {
-  const artifact = await readMermaidV2Artifact(directory, artifactID)
+  const artifact = await readMermaidArtifact(directory, artifactID)
   const manifest = MermaidArtifactManifestSchema.parse({
     ...artifact,
-    autoRepair: state,
+    summary: {
+      ...artifact.summary,
+      autoRepair: state,
+    },
     updatedAt: new Date().toISOString(),
   })
   await writeArtifactManifest(directory, manifest)
-  return MermaidArtifactReadSchema.parse({
-    ...manifest,
-    source: artifact.source,
-  })
+  return toMermaidArtifactRead({ manifest, source: artifact.source })
 }
 
 async function createMermaidRepairRequest(input: {
@@ -686,8 +785,8 @@ async function createMermaidRepairRequest(input: {
     updatedAt: createdAt,
     expiresAt,
   })
-  await writeAtomicJson(
-    MermaidArtifactPathV2.repairRequestFile(input.directory, request.repairRequestID),
+  await writeJsonFileAtomic(
+    mermaidRepairRequestFile(input.directory, request.repairRequestID),
     request,
   )
   return request
@@ -699,12 +798,11 @@ async function readMermaidRepairRequest(
 ): Promise<MermaidRepairRequestRecord> {
   try {
     return await readJsonFile(
-      MermaidArtifactPathV2.repairRequestFile(directory, repairRequestID),
+      mermaidRepairRequestFile(directory, repairRequestID),
       MermaidRepairRequestRecordSchema,
     )
   } catch (error) {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") {
+    if (isNodeErrorCode(error, "ENOENT")) {
       throw new MermaidRepairRequestNotFoundError(repairRequestID)
     }
     throw error
@@ -730,8 +828,8 @@ async function updateMermaidRepairRequest(
     lastErrorMessage:
       input.status === "exhausted" ? input.lastErrorMessage : current.lastErrorMessage,
   })
-  await writeAtomicJson(
-    MermaidArtifactPathV2.repairRequestFile(directory, repairRequestID),
+  await writeJsonFileAtomic(
+    mermaidRepairRequestFile(directory, repairRequestID),
     updated,
   )
   return updated
@@ -750,24 +848,20 @@ function nextExhaustedAutoRepairState(message: string): MermaidAutoRepairState {
 }
 
 export {
-  buildMarkdownArtifactID,
   buildMermaidArtifactUrl,
   buildRenderKey,
-  buildToolArtifactID,
   createMarkdownMermaidArtifact,
   createMermaidRepairRequest,
   createToolMermaidArtifact,
   isMermaidRepairExpired,
-  listMermaidV2Artifacts,
-  markMermaidV2ArtifactSuperseded,
   nextExhaustedAutoRepairState,
   readMermaidRepairRequest,
-  readMermaidV2Artifact,
-  readMermaidV2RenderRecord,
-  resolveMermaidV2RenderRecord,
-  storeMermaidV2RenderRecord,
+  readMermaidArtifact,
+  readMermaidRenderRecord,
+  resolveMermaidRenderRecord,
+  storeMermaidRenderRecord,
   updateMermaidRepairRequest,
-  updateMermaidV2AutoRepairState,
+  updateMermaidAutoRepairState,
 }
 
 export type {

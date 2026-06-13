@@ -1,13 +1,29 @@
 import { createHash } from "node:crypto"
+import {
+  ARTIFACT_CONTENT_FILES,
+  ARTIFACT_KINDS,
+  ArtifactPath,
+  generateArtifactID,
+} from "../../../../../artifacts"
 import { RenderFreeformFigureOutputSchema, type RenderFreeformFigureOutput } from "../types"
-import { FreeformFigureRenderError } from "./errors"
 import { writeFreeformFigure } from "./io"
 import { lintSvg } from "./lint"
 import { applyTextHalo, sanitizeSvg } from "./sanitize"
 import { escapeFigureMarkdownAlt, resolveFigureAlt } from "../../shared/presentation"
+import type { FreeformFigureLintIssue } from "./types"
 
-function buildFreeformFigureURL(directory: string, figureID: string): string {
-  return `/api/freeform-figures/${figureID}?directory=${encodeURIComponent(directory)}`
+class FreeformFigureRenderError extends Error {
+  readonly issues: readonly FreeformFigureLintIssue[]
+
+  constructor(issues: readonly FreeformFigureLintIssue[]) {
+    super(issues.map((issue) => issue.message).join(" "))
+    this.name = "FreeformFigureRenderError"
+    this.issues = issues
+  }
+}
+
+function buildFreeformFigureURL(directory: string, artifactID: string): string {
+  return `/api/artifacts/freeform-figure/${artifactID}/raw?directory=${encodeURIComponent(directory)}`
 }
 
 function hashFreeformFigure(source: string): string {
@@ -41,20 +57,31 @@ async function renderFreeformFigure(
     throw new FreeformFigureRenderError(sanitizedIssues)
   }
 
-  const figureID = hashFreeformFigure(sanitizedSource)
+  const artifactID = generateArtifactID()
+  const sourceHash = hashFreeformFigure(sanitizedSource)
   const alt = resolveFigureAlt({
     caption: input.caption,
     fallback: "Custom SVG figure",
   })
-  const url = buildFreeformFigureURL(directory, figureID)
+  const url = buildFreeformFigureURL(directory, artifactID)
 
-  await writeFreeformFigure(directory, figureID, applyTextHalo(sanitizedSource))
+  await writeFreeformFigure({
+    directory,
+    artifactID,
+    svg: applyTextHalo(sanitizedSource),
+    sourceHash,
+    alt,
+    ...(input.caption ? { caption: input.caption } : {}),
+  })
 
   return RenderFreeformFigureOutputSchema.parse({
-    figureID,
+    artifactID,
     mime: "image/svg+xml",
     url,
-    relativePath: `.buddy/freeform-figures/${figureID}.svg`,
+    relativePath: `${ArtifactPath.relativeArtifactDirectory(
+      ARTIFACT_KINDS.freeformFigure,
+      artifactID,
+    )}/${ARTIFACT_CONTENT_FILES.figureSvg}`,
     alt,
     ...(input.caption ? { caption: input.caption } : {}),
     markdown: `![${escapeFigureMarkdownAlt(alt)}](${url})`,
@@ -62,4 +89,4 @@ async function renderFreeformFigure(
   })
 }
 
-export { renderFreeformFigure }
+export { FreeformFigureRenderError, renderFreeformFigure }

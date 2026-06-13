@@ -1,20 +1,32 @@
-import type { Dirent } from "node:fs"
 import fs from "node:fs/promises"
-import { FlashcardPath } from "./path"
+import path from "node:path"
+import {
+  ARTIFACT_CONTENT_DIRECTORIES,
+  ARTIFACT_CONTENT_FILES,
+  ARTIFACT_KINDS,
+  ArtifactLoadError,
+  ArtifactPath,
+  type ArtifactLoadErrorRecord,
+  isNodeErrorCode,
+  listArtifactManifests,
+  readArtifactJsonFile,
+  readJsonFile,
+} from "../../../../artifacts"
 import { computeDueCounts, selectNextDueCard } from "./scheduler"
 import {
   DeckConfigSchema,
   FLASHCARD_DECK_KIND,
+  FlashcardDeckManifestSchema,
   FlashcardDeckSchema,
   ReviewRecordSchema,
   type DueCounts,
   type FlashcardDeck,
+  type FlashcardDeckManifest,
   type ReviewRecord,
 } from "../types"
-import { FlashcardDeckLoadError, FlashcardDeckNotFoundError } from "../errors"
 
-type FlashcardDeckListItem = {
-  deckID: string
+type FlashcardDeckIndexItem = {
+  artifactID: string
   kind: typeof FLASHCARD_DECK_KIND
   title: string
   noteCount: number
@@ -25,24 +37,29 @@ type FlashcardDeckListItem = {
   createdBy: FlashcardDeck["createdBy"]
 }
 
-type FlashcardDeckListLoadError = {
-  deckID: string
+type FlashcardDeckIndexLoadError = {
+  artifactID: string
   message: string
 }
 
-type FlashcardDeckListResult = {
-  decks: FlashcardDeckListItem[]
-  loadErrors: FlashcardDeckListLoadError[]
+type FlashcardDeckIndexListResult = {
+  items: FlashcardDeckIndexItem[]
+  loadErrors: FlashcardDeckIndexLoadError[]
 }
 
-type FlashcardDeckListEntryResult =
+type FlashcardDeckSummaryListResult = {
+  artifacts: FlashcardDeckManifest[]
+  loadErrors: ArtifactLoadErrorRecord[]
+}
+
+type FlashcardDeckIndexEntryResult =
   | {
-      deck: FlashcardDeckListItem
+      item: FlashcardDeckIndexItem
       loadError?: never
     }
   | {
-      deck?: never
-      loadError: FlashcardDeckListLoadError
+      item?: never
+      loadError: FlashcardDeckIndexLoadError
     }
 
 type ReviewedTodayCounts = {
@@ -50,8 +67,8 @@ type ReviewedTodayCounts = {
   reviewCount: number
 }
 
-function todayISO(): string {
-  const now = new Date()
+function todayISO(timestamp = Date.now()): string {
+  const now = new Date(timestamp)
   const year = now.getFullYear()
   const month = `${now.getMonth() + 1}`.padStart(2, "0")
   const day = `${now.getDate()}`.padStart(2, "0")
@@ -70,129 +87,150 @@ function countReviewedToday(records: ReviewRecord[]): ReviewedTodayCounts {
   return { newCount, reviewCount }
 }
 
-async function readTodayReviewRecords(directory: string, deckID: string): Promise<ReviewRecord[]> {
-  const filePath = FlashcardPath.reviewFile(directory, deckID, todayISO())
-  let content: string
+async function readTodayReviewRecords(
+  directory: string,
+  artifactID: string,
+): Promise<ReviewRecord[]> {
+  const safeArtifactID = ArtifactPath.sanitizeArtifactID(artifactID)
+  const reviewDirectory = ArtifactPath.artifactFile(
+    directory,
+    ARTIFACT_KINDS.flashcardDeck,
+    safeArtifactID,
+    ARTIFACT_CONTENT_DIRECTORIES.flashcardReviews,
+  )
+  let entries
   try {
-    content = await fs.readFile(filePath, "utf8")
+    entries = await fs.readdir(reviewDirectory, { withFileTypes: true })
   } catch (error) {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") return []
+    if (isNodeErrorCode(error, "ENOENT")) return []
     throw error
   }
 
-  return content
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .flatMap((line): ReviewRecord[] => {
-      try {
-        const parsedLine: unknown = JSON.parse(line)
-        return [ReviewRecordSchema.parse(parsedLine)]
-      } catch {
-        return []
-      }
-    })
+  const records = await Promise.all(
+    entries
+      .filter(
+        (entry) =>
+          entry.isFile() &&
+          entry.name.endsWith(".json") &&
+          entry.name !== ARTIFACT_CONTENT_FILES.flashcardPendingReview,
+      )
+      .map((entry) => readJsonFile(path.join(reviewDirectory, entry.name), ReviewRecordSchema)),
+  )
+  const today = todayISO()
+  return records.filter((record) => todayISO(record.answeredAt) === today)
 }
 
 async function readFlashcardReviewedTodayCounts(
   directory: string,
-  deckID: string,
+  artifactID: string,
 ): Promise<ReviewedTodayCounts> {
-  return countReviewedToday(await readTodayReviewRecords(directory, deckID))
+  return countReviewedToday(await readTodayReviewRecords(directory, artifactID))
 }
 
-async function readFlashcardDeck(directory: string, deckID: string): Promise<FlashcardDeck> {
-  const safeDeckID = FlashcardPath.sanitizeDeckID(deckID)
-
-  let deckText: string
-  try {
-    deckText = await fs.readFile(FlashcardPath.deckFile(directory, safeDeckID), "utf8")
-  } catch (error) {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") {
-      throw new FlashcardDeckNotFoundError(safeDeckID)
-    }
-    throw error
-  }
-
-  return FlashcardDeckSchema.parse(JSON.parse(deckText))
+async function readFlashcardDeck(directory: string, artifactID: string): Promise<FlashcardDeck> {
+  const safeArtifactID = ArtifactPath.sanitizeArtifactID(artifactID)
+  return readArtifactJsonFile({
+    directory,
+    kind: ARTIFACT_KINDS.flashcardDeck,
+    artifactID: safeArtifactID,
+    relativePath: ARTIFACT_CONTENT_FILES.flashcardDeck,
+    schema: FlashcardDeckSchema,
+  })
 }
 
-async function listFlashcardDecks(directory: string): Promise<FlashcardDeckListResult> {
-  let entries: Dirent[]
-  try {
-    entries = await fs.readdir(FlashcardPath.root(directory), { withFileTypes: true })
-  } catch (error) {
-    const maybe = error as { code?: string }
-    if (maybe.code === "ENOENT") {
-      return {
-        decks: [],
-        loadErrors: [],
-      }
-    }
-    throw error
-  }
+async function listFlashcardDeckIndexItems(
+  directory: string,
+): Promise<FlashcardDeckIndexListResult> {
+  const summaryResult = await listFlashcardDeckSummaries(directory)
+  const artifactIDs = summaryResult.artifacts.map((artifact) => artifact.artifactID)
 
   const now = Date.now()
   const results = await Promise.all(
-    entries
-      .filter((entry) => entry.isDirectory())
-      .map(async (entry): Promise<FlashcardDeckListEntryResult> => {
-        try {
-          const deck = await readFlashcardDeck(directory, entry.name)
-          const config = DeckConfigSchema.parse(deck.config)
-          const reviewedToday = countReviewedToday(
-            await readTodayReviewRecords(directory, deck.deckID),
-          )
-          return {
-            deck: {
-              deckID: deck.deckID,
-              kind: deck.kind,
-              title: deck.title,
-              noteCount: deck.notes.length,
-              cardCount: deck.cards.length,
-              dueCounts: computeDueCounts(deck.cards, now),
-              reviewAvailable:
-                selectNextDueCard({
-                  cards: deck.cards,
-                  config,
-                  now,
-                  reviewedToday,
-                }) !== undefined,
-              createdAt: deck.createdAt,
-              createdBy: {
-                ...deck.createdBy,
-              },
+    artifactIDs.map(async (artifactID): Promise<FlashcardDeckIndexEntryResult> => {
+      try {
+        const deck = await readFlashcardDeck(directory, artifactID)
+        const config = DeckConfigSchema.parse(deck.config)
+        const reviewedToday = countReviewedToday(
+          await readTodayReviewRecords(directory, deck.artifactID),
+        )
+        return {
+          item: {
+            artifactID: deck.artifactID,
+            kind: deck.kind,
+            title: deck.title,
+            noteCount: deck.notes.length,
+            cardCount: deck.cards.length,
+            dueCounts: computeDueCounts(deck.cards, now),
+            reviewAvailable:
+              selectNextDueCard({
+                cards: deck.cards,
+                config,
+                now,
+                reviewedToday,
+              }) !== undefined,
+            createdAt: deck.createdAt,
+            createdBy: {
+              ...deck.createdBy,
             },
-          }
-        } catch (error) {
-          return {
-            loadError: {
-              deckID: entry.name,
-              message: new FlashcardDeckLoadError(entry.name, error).message,
-            },
-          }
+          },
         }
-      }),
+      } catch (error) {
+        return {
+          loadError: {
+            artifactID,
+            message: new ArtifactLoadError(ARTIFACT_KINDS.flashcardDeck, artifactID, error).message,
+          },
+        }
+      }
+    }),
   )
 
-  const decks: FlashcardDeckListItem[] = []
-  const loadErrors: FlashcardDeckListLoadError[] = []
+  const items: FlashcardDeckIndexItem[] = []
+  const loadErrors: FlashcardDeckIndexLoadError[] = summaryResult.loadErrors.map((loadError) => ({
+    artifactID: loadError.artifactID,
+    message: loadError.message,
+  }))
   for (const result of results) {
     if (result.loadError) {
       loadErrors.push(result.loadError)
     } else {
-      decks.push(result.deck)
+      items.push(result.item)
     }
   }
 
   return {
-    decks: decks.toSorted((left, right) => right.createdAt.localeCompare(left.createdAt)),
-    loadErrors: loadErrors.toSorted((left, right) => left.deckID.localeCompare(right.deckID)),
+    items: items.toSorted((left, right) => right.createdAt.localeCompare(left.createdAt)),
+    loadErrors: loadErrors.toSorted((left, right) =>
+      left.artifactID.localeCompare(right.artifactID),
+    ),
   }
 }
 
-export { listFlashcardDecks, readFlashcardDeck, readFlashcardReviewedTodayCounts, todayISO }
+async function listFlashcardDeckSummaries(
+  directory: string,
+): Promise<FlashcardDeckSummaryListResult> {
+  const result = await listArtifactManifests({
+    directory,
+    kind: ARTIFACT_KINDS.flashcardDeck,
+    schema: FlashcardDeckManifestSchema,
+  })
+  return {
+    artifacts: result.items,
+    loadErrors: result.loadErrors,
+  }
+}
 
-export type { FlashcardDeckListItem, FlashcardDeckListLoadError, FlashcardDeckListResult }
+export {
+  listFlashcardDeckIndexItems,
+  listFlashcardDeckSummaries,
+  readFlashcardDeck,
+  readFlashcardReviewedTodayCounts,
+  todayISO,
+}
+
+export type {
+  FlashcardDeckIndexItem,
+  FlashcardDeckIndexListResult,
+  FlashcardDeckIndexLoadError,
+  FlashcardDeckSummaryListResult,
+}

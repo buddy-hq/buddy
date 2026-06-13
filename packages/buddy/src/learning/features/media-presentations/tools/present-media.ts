@@ -1,12 +1,12 @@
 import z from "zod"
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
+import { nonEmptyString } from "../../../../artifacts"
 import {
   buildPresentedMediaOutput,
+  MEDIA_PRESENTATION_KIND,
   normalizePresentedMediaPermissionPath,
   PresentedMediaValidationError,
 } from "../service/file-media"
-
-const nonEmptyString = z.string().trim().min(1)
 
 const PresentMediaInputSchema = z.object({
   items: z
@@ -36,7 +36,7 @@ const presentMediaTool = createBuddyTool({
       patterns: permissionPaths,
       always: permissionPaths,
       metadata: {
-        kind: "media.presentation.v1",
+        kind: MEDIA_PRESENTATION_KIND,
       },
     })
 

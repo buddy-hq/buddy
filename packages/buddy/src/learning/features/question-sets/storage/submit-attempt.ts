@@ -1,6 +1,12 @@
-import fs from "node:fs/promises"
-import { ulid } from "ulid"
-import { QuestionSetPath } from "./path"
+import path from "node:path"
+import { writeJsonFileAtomic } from "../../../../storage/atomic-file"
+import {
+  ARTIFACT_CONTENT_DIRECTORIES,
+  ARTIFACT_KINDS,
+  ArtifactPath,
+  ArtifactValidationError,
+  generateArtifactID,
+} from "../../../../artifacts"
 import {
   QUESTION_SET_ATTEMPT_KIND,
   QuestionSetAttemptRecordSchema,
@@ -11,7 +17,6 @@ import {
   type QuestionSetEvaluationResult,
   type SubmitQuestionSetAttemptOutput,
 } from "../types"
-import { QuestionSetValidationError } from "../errors"
 import { readQuestionSetArtifact } from "./read-artifact"
 import { correctChoiceIDs, ensureUniqueIDs } from "./save-artifact"
 import {
@@ -67,7 +72,7 @@ function evaluateQuestionSet(input: {
   const artifactQuestionIDs = new Set(input.artifact.questions.map((question) => question.id))
   for (const answer of input.answers) {
     if (!artifactQuestionIDs.has(answer.questionID)) {
-      throw new QuestionSetValidationError(
+      throw new ArtifactValidationError(
         `Attempt payload includes unknown question id '${answer.questionID}'.`,
       )
     }
@@ -79,7 +84,7 @@ function evaluateQuestionSet(input: {
 
     for (const selectedChoiceID of selectedChoiceIds) {
       if (!allowedChoiceIDs.has(selectedChoiceID)) {
-        throw new QuestionSetValidationError(
+        throw new ArtifactValidationError(
           `Question '${question.id}' includes unknown selected choice id '${selectedChoiceID}'.`,
         )
       }
@@ -94,7 +99,7 @@ function evaluateQuestionSet(input: {
       noneOfTheAboveChoiceIDs.has(choiceID),
     )
     if (selectedNoneOfTheAbove.length > 0 && selectedChoiceIds.length > 1) {
-      throw new QuestionSetValidationError(
+      throw new ArtifactValidationError(
         `Question '${question.id}' cannot combine 'none of the above' with other selected choices.`,
       )
     }
@@ -153,13 +158,15 @@ async function writeAttempt(input: {
     result: QuestionSetEvaluationResult
   }
 }): Promise<void> {
-  await fs.mkdir(QuestionSetPath.attemptsDirectory(input.directory, input.artifactID), {
-    recursive: true,
-  })
-  await fs.writeFile(
-    QuestionSetPath.attemptFile(input.directory, input.artifactID, input.attemptRecord.attemptID),
-    JSON.stringify(input.attemptRecord, null, 2),
-    "utf8",
+  const attemptID = ArtifactPath.sanitizeArtifactID(input.attemptRecord.attemptID)
+  await writeJsonFileAtomic(
+    ArtifactPath.artifactFile(
+      input.directory,
+      ARTIFACT_KINDS.questionSet,
+      input.artifactID,
+      path.join(ARTIFACT_CONTENT_DIRECTORIES.questionSetAttempts, `${attemptID}.json`),
+    ),
+    input.attemptRecord,
   )
 }
 
@@ -174,7 +181,7 @@ async function submitQuestionSetAttempt(input: {
     answers: input.answers,
   })
 
-  const attemptID = ulid()
+  const attemptID = generateArtifactID()
   const submittedAt = new Date().toISOString()
   const attemptRecord = QuestionSetAttemptRecordSchema.parse({
     attemptID,

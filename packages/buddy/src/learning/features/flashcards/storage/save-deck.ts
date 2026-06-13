@@ -1,15 +1,20 @@
 import { ulid } from "ulid"
-import { writeTextFileAtomic } from "../../../../storage/atomic-file"
-import { FlashcardPath } from "./path"
+import {
+  ARTIFACT_CONTENT_FILES,
+  ARTIFACT_KINDS,
+  ARTIFACT_MANIFEST_VERSION,
+  ArtifactValidationError,
+  writeArtifactRecord,
+} from "../../../../artifacts"
 import { listClozeOrdinals } from "./scheduler"
 import {
   DECK_CONFIG_DEFAULTS,
+  FlashcardDeckManifestSchema,
   FlashcardDeckSchema,
   type FlashcardCard,
   type FlashcardDeck,
   type FlashcardNote,
 } from "../types"
-import { FlashcardValidationError } from "../errors"
 
 function generateFlashcardCardsForNote(
   note: FlashcardNote,
@@ -35,7 +40,7 @@ function generateFlashcardCardsForNote(
     const text = "text" in fields ? fields.text : ""
     const ordinals = listClozeOrdinals(text)
     if (ordinals.length === 0) {
-      throw new FlashcardValidationError(
+      throw new ArtifactValidationError(
         `Cloze note '${note.noteID}' must contain at least one {{cN::...}} deletion.`,
       )
     }
@@ -66,7 +71,7 @@ type SaveFlashcardNoteInput = {
 }
 
 function buildFlashcardNotesAndCards(
-  deckID: string,
+  artifactID: string,
   inputs: SaveFlashcardNoteInput[],
   config: typeof DECK_CONFIG_DEFAULTS,
 ): { notes: FlashcardNote[]; cards: FlashcardCard[] } {
@@ -77,7 +82,7 @@ function buildFlashcardNotesAndCards(
     const noteID = ulid()
     const note: FlashcardNote = {
       noteID,
-      deckID,
+      artifactID,
       type: input.type,
       fields: input.fields,
       tags: input.tags ?? [],
@@ -94,8 +99,33 @@ async function writeFlashcardDeck(input: {
   directory: string
   deck: FlashcardDeck
 }): Promise<void> {
-  const deckPath = FlashcardPath.deckFile(input.directory, input.deck.deckID)
-  await writeTextFileAtomic(deckPath, JSON.stringify(input.deck, null, 2))
+  const manifest = FlashcardDeckManifestSchema.parse({
+    version: ARTIFACT_MANIFEST_VERSION,
+    artifactID: input.deck.artifactID,
+    kind: ARTIFACT_KINDS.flashcardDeck,
+    title: input.deck.title,
+    origin: input.deck.createdBy,
+    createdAt: input.deck.createdAt,
+    updatedAt: new Date().toISOString(),
+    summary: {
+      noteCount: input.deck.notes.length,
+      cardCount: input.deck.cards.length,
+      ...(input.deck.source ? { source: input.deck.source } : {}),
+    },
+  })
+  await writeArtifactRecord({
+    directory: input.directory,
+    kind: ARTIFACT_KINDS.flashcardDeck,
+    artifactID: input.deck.artifactID,
+    manifest,
+    files: [
+      {
+        relativePath: ARTIFACT_CONTENT_FILES.flashcardDeck,
+        format: "json",
+        content: input.deck,
+      },
+    ],
+  })
 }
 
 async function saveFlashcardDeck(input: {

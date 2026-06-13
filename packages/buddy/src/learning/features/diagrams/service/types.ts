@@ -1,7 +1,16 @@
 import z from "zod"
+import {
+  ARTIFACT_KINDS,
+  ArtifactIDSchema,
+  ArtifactManifestBaseSchema,
+  ArtifactMarkdownOriginSchema,
+  ArtifactOriginSchema,
+  ArtifactToolOriginSchema,
+  SourceHashSchema,
+  nonEmptyString,
+} from "../../../../artifacts"
 
-const nonEmptyString = z.string().trim().min(1)
-const sha256Hex = z.string().regex(/^[a-f0-9]{64}$/u)
+const sha256Hex = SourceHashSchema
 
 const MERMAID_PRELIGHT_REPAIR_CODES = [
   "stripped_fence",
@@ -17,7 +26,7 @@ const MERMAID_PRELIGHT_REPAIR_CODES = [
   "removed_trailing_xychart_connector",
 ] as const
 
-const MERMAID_ARTIFACT_KIND = "mermaid.v2" as const
+const MERMAID_ARTIFACT_KIND = ARTIFACT_KINDS.mermaid
 const MERMAID_RENDERER_NAME = "mermaid" as const
 const MERMAID_RENDER_CONFIG_VERSION = 3
 const MAX_MERMAID_AUTO_REPAIR_ATTEMPTS = 1
@@ -30,25 +39,9 @@ const MERMAID_AUTO_REPAIR_MESSAGE_ID_PREFIX = "msg_buddy_mermaid_auto_repair_" a
 const MermaidArtifactKindSchema = z.literal(MERMAID_ARTIFACT_KIND)
 const MermaidPreflightRepairCodeSchema = z.enum(MERMAID_PRELIGHT_REPAIR_CODES)
 
-const MermaidToolArtifactOriginSchema = z.object({
-  kind: z.literal("tool"),
-  sessionID: nonEmptyString,
-  messageID: nonEmptyString,
-  callID: nonEmptyString,
-})
-
-const MermaidMarkdownArtifactOriginSchema = z.object({
-  kind: z.literal("markdown"),
-  sessionID: nonEmptyString,
-  messageID: nonEmptyString,
-  partID: nonEmptyString,
-  segmentIndex: z.number().int().nonnegative(),
-})
-
-const MermaidArtifactOriginSchema = z.discriminatedUnion("kind", [
-  MermaidToolArtifactOriginSchema,
-  MermaidMarkdownArtifactOriginSchema,
-])
+const MermaidToolArtifactOriginSchema = ArtifactToolOriginSchema
+const MermaidMarkdownArtifactOriginSchema = ArtifactMarkdownOriginSchema
+const MermaidArtifactOriginSchema = ArtifactOriginSchema
 
 const MermaidPreflightRepairSchema = z.object({
   code: MermaidPreflightRepairCodeSchema,
@@ -73,7 +66,7 @@ const MermaidAutoRepairStateSchema = z.discriminatedUnion("status", [
   }),
   MermaidAutoRepairBaseSchema.extend({
     status: z.literal("succeeded"),
-    replacementArtifactID: sha256Hex,
+    replacementArtifactID: ArtifactIDSchema,
   }),
   MermaidAutoRepairBaseSchema.extend({
     status: z.literal("exhausted"),
@@ -81,20 +74,20 @@ const MermaidAutoRepairStateSchema = z.discriminatedUnion("status", [
   }),
 ])
 
-const MermaidArtifactManifestSchema = z.object({
-  version: z.literal(2),
-  artifactID: sha256Hex,
-  kind: MermaidArtifactKindSchema,
-  origin: MermaidArtifactOriginSchema,
+const MermaidSummarySchema = z.object({
   diagramType: nonEmptyString,
   alt: nonEmptyString,
   caption: nonEmptyString.optional(),
-  sourceHash: sha256Hex,
   preflightRepairs: z.array(MermaidPreflightRepairSchema),
   autoRepair: MermaidAutoRepairStateSchema,
-  createdAt: nonEmptyString,
-  updatedAt: nonEmptyString,
-  supersedesArtifactID: sha256Hex.optional(),
+  supersedesArtifactID: ArtifactIDSchema.optional(),
+})
+
+const MermaidArtifactManifestSchema = ArtifactManifestBaseSchema.extend({
+  kind: MermaidArtifactKindSchema,
+  origin: MermaidArtifactOriginSchema,
+  sourceHash: sha256Hex,
+  summary: MermaidSummarySchema,
 })
 
 const MermaidRenderContrastAdjustmentSchema = z.object({
@@ -107,7 +100,7 @@ const MermaidRenderContrastAdjustmentSchema = z.object({
 
 const MermaidRenderRecordBaseSchema = z.object({
   renderKey: sha256Hex,
-  artifactID: sha256Hex,
+  artifactID: ArtifactIDSchema,
   sourceHash: sha256Hex,
   rendererName: z.literal(MERMAID_RENDERER_NAME),
   rendererVersion: nonEmptyString,
@@ -138,12 +131,18 @@ const MermaidResolvedRenderRecordSchema = z.object({
 })
 
 const MermaidArtifactReadSchema = MermaidArtifactManifestSchema.extend({
+  diagramType: nonEmptyString,
+  alt: nonEmptyString,
+  caption: nonEmptyString.optional(),
+  preflightRepairs: z.array(MermaidPreflightRepairSchema),
+  autoRepair: MermaidAutoRepairStateSchema,
+  supersedesArtifactID: ArtifactIDSchema.optional(),
   source: nonEmptyString,
   render: MermaidRenderRecordSchema.optional(),
 })
 
 const RenderMermaidOutputSchema = z.object({
-  artifactID: sha256Hex,
+  artifactID: ArtifactIDSchema,
   kind: MermaidArtifactKindSchema,
   mime: z.literal("application/vnd.buddy.mermaid"),
   alt: nonEmptyString,
@@ -154,23 +153,24 @@ const RenderMermaidOutputSchema = z.object({
   preflightRepairs: z.array(MermaidPreflightRepairSchema),
   artifactUrl: nonEmptyString,
   filesystemPath: nonEmptyString,
-  supersedesArtifactID: sha256Hex.optional(),
+  supersedesArtifactID: ArtifactIDSchema.optional(),
 })
 
 const MermaidRepairRequestRecordSchema = z.object({
   repairRequestID: nonEmptyString,
-  artifactID: sha256Hex,
+  artifactID: ArtifactIDSchema,
   failedRenderKey: sha256Hex,
   sessionID: nonEmptyString,
   status: z.enum(["running", "succeeded", "exhausted"]),
   createdAt: nonEmptyString,
   updatedAt: nonEmptyString,
   expiresAt: nonEmptyString,
-  replacementArtifactID: sha256Hex.optional(),
+  replacementArtifactID: ArtifactIDSchema.optional(),
   lastErrorMessage: nonEmptyString.optional(),
 })
 
 type MermaidArtifactOrigin = z.infer<typeof MermaidArtifactOriginSchema>
+type MermaidSummary = z.infer<typeof MermaidSummarySchema>
 type MermaidPreflightRepairCode = z.infer<typeof MermaidPreflightRepairCodeSchema>
 type MermaidPreflightRepair = z.infer<typeof MermaidPreflightRepairSchema>
 type MermaidAutoRepairState = z.infer<typeof MermaidAutoRepairStateSchema>
@@ -204,6 +204,7 @@ export {
   MermaidRenderRecordSchema,
   MermaidRepairRequestRecordSchema,
   MermaidResolvedRenderRecordSchema,
+  MermaidSummarySchema,
   MermaidToolArtifactOriginSchema,
   RenderMermaidOutputSchema,
 }
@@ -211,6 +212,7 @@ export {
 export type {
   MermaidArtifactManifest,
   MermaidArtifactOrigin,
+  MermaidSummary,
   MermaidArtifactReadResult,
   MermaidAutoRepairState,
   MermaidPreflightRepair,

@@ -1,13 +1,16 @@
-import {
-  InvalidMermaidArtifactIDError,
-  InvalidMermaidRenderKeyError,
-  InvalidMermaidRepairRequestIDError,
-} from "./service/v2-path"
+import { ArtifactValidationError, mapArtifactRouteError } from "../../../artifacts"
 
-class MermaidArtifactNotFoundError extends Error {
-  constructor(artifactID: string) {
-    super(`Mermaid artifact '${artifactID}' was not found.`)
-    this.name = "MermaidArtifactNotFoundError"
+class InvalidMermaidRenderKeyError extends Error {
+  constructor(renderKey: string) {
+    super(`Invalid Mermaid render key '${renderKey}'.`)
+    this.name = "InvalidMermaidRenderKeyError"
+  }
+}
+
+class InvalidMermaidRepairRequestIDError extends Error {
+  constructor(repairRequestID: string) {
+    super(`Invalid Mermaid repair request id '${repairRequestID}'.`)
+    this.name = "InvalidMermaidRepairRequestIDError"
   }
 }
 
@@ -27,14 +30,11 @@ class MermaidRepairRequestNotFoundError extends Error {
 
 function mapMermaidArtifactRouteError(error: unknown): Response | undefined {
   if (
-    error instanceof InvalidMermaidArtifactIDError ||
+    error instanceof ArtifactValidationError ||
     error instanceof InvalidMermaidRenderKeyError ||
     error instanceof InvalidMermaidRepairRequestIDError
   ) {
     return Response.json({ error: error.message }, { status: 400 })
-  }
-  if (error instanceof MermaidArtifactNotFoundError) {
-    return Response.json({ error: error.message }, { status: 404 })
   }
   if (error instanceof MermaidRenderRecordNotFoundError) {
     return Response.json({ error: error.message }, { status: 404 })
@@ -42,11 +42,12 @@ function mapMermaidArtifactRouteError(error: unknown): Response | undefined {
   if (error instanceof MermaidRepairRequestNotFoundError) {
     return Response.json({ error: error.message }, { status: 404 })
   }
-  return undefined
+  return mapArtifactRouteError(error)
 }
 
 export {
-  MermaidArtifactNotFoundError,
+  InvalidMermaidRenderKeyError,
+  InvalidMermaidRepairRequestIDError,
   MermaidRepairRequestNotFoundError,
   MermaidRenderRecordNotFoundError,
   mapMermaidArtifactRouteError,

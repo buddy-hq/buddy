@@ -6,16 +6,12 @@ import { cors } from "hono/cors"
 import { HTTPException } from "hono/http-exception"
 import { logger } from "hono/logger"
 import { AgentsMdRoutes } from "./routes"
+import { ArtifactsRoutes } from "./routes"
 import { AuthRoutes } from "./routes"
 import { CompatibilityRoutes } from "./routes"
 import { ConfigRoutes } from "./routes"
-import { FigureRoutes } from "./routes"
-import { FlashcardDeckRoutes } from "./routes"
-import { FreeformFigureRoutes } from "./routes"
 import { LearnerRoutes } from "./routes"
-import { MermaidArtifactRoutes } from "./routes"
 import { GlobalRoutes } from "./routes"
-import { HtmlWidgetArtifactRoutes } from "./routes"
 import { McpRoutes } from "./routes"
 import { LocalRuntimeRoutes } from "./routes"
 import { OpenProjectsRoutes } from "./routes"
@@ -23,7 +19,6 @@ import { PermissionRoutes } from "./routes"
 import { ProjectRoutes } from "./routes"
 import { ProviderRoutes } from "./routes"
 import { QuestionRoutes } from "./routes"
-import { QuestionSetArtifactRoutes } from "./routes"
 import { ResourceRoutes } from "./routes"
 import { SessionRoutes } from "./routes"
 import { SkillsRoutes } from "./routes"
@@ -114,12 +109,7 @@ api.use("*", async (c, next) => {
   return c.json({ error: "Unauthorized" }, 401)
 })
 
-api.route("/figures", FigureRoutes)
-api.route("/freeform-figures", FreeformFigureRoutes)
-api.route("/mermaid-artifacts", MermaidArtifactRoutes)
-api.route("/html-widget-artifacts", HtmlWidgetArtifactRoutes)
-api.route("/question-set-artifacts", QuestionSetArtifactRoutes)
-api.route("/flashcard-decks", FlashcardDeckRoutes)
+api.route("/artifacts", ArtifactsRoutes)
 api.route("/learner", LearnerRoutes)
 api.route("/teaching", TeachingRoutes)
 api.route("/whiteboards", WhiteboardRoutes)
