@@ -1,5 +1,6 @@
 import { basename, dirname } from "../utils/path"
 import { language } from "@/context/language"
+import { formatHtmlWidgetViewport, readHtmlWidgetOutputArtifact } from "@/lib/html-widgets"
 import { readIngestFullTextMetadata } from "./full-text-metadata"
 import {
   getSkillToolTitle,
@@ -207,6 +208,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
   const targetJurisdiction =
     typeof input.targetJurisdiction === "string" ? input.targetJurisdiction : undefined
   const sql = typeof input.sql === "string" ? input.sql : undefined
+  const title = typeof input.title === "string" ? input.title : undefined
 
   const active = state.status === "pending" || state.status === "running"
   const toolUi = parseToolUiMetadata(state.metadata)
@@ -534,6 +536,17 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
         },
         metadataTitle,
       )
+    case "present_html_widget": {
+      const widget = readHtmlWidgetOutputArtifact(state.metadata)
+      return withMetadataTitle(
+        {
+          title: active ? "Presenting HTML Widget" : "HTML Widget",
+          subtitle: widget?.title ?? title ?? path,
+          summary: widget ? formatHtmlWidgetViewport(widget.viewport) : undefined,
+        },
+        metadataTitle,
+      )
+    }
     case "save_question_set":
       return withMetadataTitle(
         {

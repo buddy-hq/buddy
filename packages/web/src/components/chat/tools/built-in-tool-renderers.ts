@@ -1,5 +1,6 @@
 import { createElement } from "react"
 import {
+  AppWindow,
   BookOpen,
   Bot,
   FileText,
@@ -26,6 +27,7 @@ import { renderIngestFullTextTool } from "./render/ingest-full-text"
 import { renderEditTool } from "./render/edit"
 import { renderExaSearchTool } from "./render/exa-search"
 import { renderGenericTool } from "./render/generic"
+import { renderPresentHtmlWidgetTool } from "./render/html-widget"
 import { renderKnowledgeGraphTool } from "./render/knowledge-graph"
 import { renderRenderMermaidTool } from "./render/mermaid"
 import { renderPythonCalculatorTool } from "./render/python-calculator"
@@ -200,6 +202,12 @@ export const builtInTools: Record<string, ToolRenderer> = {
     inline: true,
     icon: (cn) => createElement(Image, { className: cn }),
     card: renderPresentMediaTool,
+    deferUntilVisible: true,
+  }),
+  present_html_widget: createToolRenderer({
+    inline: true,
+    icon: (cn) => createElement(AppWindow, { className: cn }),
+    card: renderPresentHtmlWidgetTool,
     deferUntilVisible: true,
   }),
   question: createToolRenderer({

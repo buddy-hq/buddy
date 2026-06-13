@@ -7,6 +7,7 @@ import {
 } from "@tanstack/react-virtual"
 import { useDropzone, type DropEvent } from "react-dropzone"
 import {
+  AppWindowIcon,
   FileTextIcon,
   HelpCircleIcon,
   LayoutTemplateIcon,
@@ -16,7 +17,10 @@ import {
   UploadIcon,
 } from "lucide-react"
 import { Button, FolderIcon, Skeleton } from "@buddy/ui"
-import type { QuestionSetArtifactsListResponse } from "@buddy/sdk/types"
+import type {
+  HtmlWidgetArtifactsListResponse,
+  QuestionSetArtifactsListResponse,
+} from "@buddy/sdk/types"
 import buddyStateEmptyBooksUrl from "../../../../../../assets/mascot/buddy-state-empty-books.png"
 import buddyStateEmptyDiagramsUrl from "../../../../../../assets/mascot/buddy-state-empty-diagrams.png"
 import buddyStateEmptyExercisesUrl from "../../../../../../assets/mascot/buddy-state-empty-exercises.png"
@@ -43,6 +47,7 @@ import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-se
 import {
   workspaceArtifactsQueryKeys,
   workspaceFlashcardDecksQueryOptions,
+  workspaceHtmlWidgetsQueryOptions,
   workspaceMermaidArtifactsQueryOptions,
   workspaceQuestionSetArtifactsQueryOptions,
 } from "@/state/workspace-artifacts-query"
@@ -65,6 +70,10 @@ import {
   ResourceCardGrid,
   type ResourceCardTarget,
 } from "@/components/layout/chat-left-sidebar/resource-card-grid"
+import {
+  HtmlWidgetFullscreenDialog,
+} from "@/components/chat/tools/render/html-widget"
+import { formatHtmlWidgetViewport } from "@/lib/html-widgets"
 import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
 import { getFilename } from "../sidebar-helpers"
 
@@ -72,11 +81,12 @@ import { getFilename } from "../sidebar-helpers"
 // Types
 // ---------------------------------------------------------------------------
 
-type LibraryTab = "resources" | "flashcards" | "question-sets" | "diagrams"
+type LibraryTab = "resources" | "flashcards" | "question-sets" | "widgets" | "diagrams"
 
 export type LibraryPanelResourceTarget = ResourceCardTarget
 
 type QuestionSetArtifactListItem = QuestionSetArtifactsListResponse["artifacts"][number]
+type HtmlWidgetArtifactListItem = HtmlWidgetArtifactsListResponse["widgets"][number]
 
 type LibraryPanelProps = {
   directories: string[]
@@ -101,6 +111,7 @@ const EMPTY_STATE_IMAGE_STALE_TIME_MS = 60 * 60 * 1000
 const EMPTY_STATE_IMAGE_GC_TIME_MS = 24 * 60 * 60 * 1000
 const MULTI_NOTEBOOK_BATCH_SIZE = 5
 const MULTI_NOTEBOOK_ROW_PREVIEW_COUNT = 2
+const HTML_WIDGET_ROW_PREVIEW_COUNT = 4
 const RESOURCE_PREVIEW_ROW_COUNT = 2
 const MERMAID_EAGER_HYDRATION_COUNT = 2
 const MERMAID_HYDRATION_ROOT_MARGIN = "320px 0px"
@@ -135,6 +146,7 @@ const LIBRARY_TABS: { tab: LibraryTab; labelKey: string }[] = [
   { tab: "resources", labelKey: "sidebar.libraryTabResources" },
   { tab: "flashcards", labelKey: "sidebar.libraryTabFlashcards" },
   { tab: "question-sets", labelKey: "sidebar.libraryTabQuestionSets" },
+  { tab: "widgets", labelKey: "sidebar.libraryTabWidgets" },
   { tab: "diagrams", labelKey: "sidebar.libraryTabDiagrams" },
 ]
 
@@ -1553,6 +1565,207 @@ function QuestionSetsTab(props: {
 }
 
 // ---------------------------------------------------------------------------
+// HTML widgets shelf
+// ---------------------------------------------------------------------------
+
+function HtmlWidgetArtifactRow(props: { widget: HtmlWidgetArtifactListItem }) {
+  const [fullscreenOpen, setFullscreenOpen] = useState(false)
+  const subtitle = props.widget.description ?? props.widget.sourcePath
+  const viewportLabel = formatHtmlWidgetViewport(props.widget.viewport)
+
+  return (
+    <>
+      <button
+        type="button"
+        className="flex w-full items-center gap-3 rounded-lg border border-border-base bg-background-base px-3 py-3 text-left shadow-sm transition-colors hover:bg-surface-weak/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base"
+        onClick={() => setFullscreenOpen(true)}
+      >
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-weak text-icon-interactive-base">
+          <AppWindowIcon className="size-4" aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-text-strong">
+            {props.widget.title}
+          </span>
+          <span className="mt-0.5 block truncate text-xs text-text-weak">
+            {subtitle ?? viewportLabel}
+          </span>
+        </span>
+        <span className="hidden shrink-0 rounded-md border border-border-base bg-surface-base px-2 py-1 text-[11px] font-medium text-text-weak sm:inline-flex">
+          {viewportLabel}
+        </span>
+      </button>
+      <HtmlWidgetFullscreenDialog
+        widget={props.widget}
+        open={fullscreenOpen}
+        onOpenChange={setFullscreenOpen}
+      />
+    </>
+  )
+}
+
+function HtmlWidgetsNotebookShelf(props: {
+  directory: string
+  showHeader: boolean
+  pageSize?: number
+  emptyMessage?: string
+}) {
+  const { directory, showHeader, pageSize, emptyMessage } = props
+  const widgetsQuery = useQuery(workspaceHtmlWidgetsQueryOptions(directory))
+  const widgets = widgetsQuery.data?.widgets ?? []
+  const loading = widgetsQuery.isPending
+  const error = widgetsQuery.error ? stringifyError(widgetsQuery.error) : undefined
+  const label = getFilename(directory)
+  useInvalidateQueryOnChatIdle({
+    directory,
+    queryKey: workspaceArtifactsQueryKeys.htmlWidget(directory),
+  })
+  const { visibleCount, nextBatchCount, canShowMore, showMore } = useShelfPagination(
+    widgets.length,
+    pageSize,
+  )
+  const visibleWidgets = widgets.slice(0, visibleCount)
+
+  if (!loading && widgets.length === 0 && !error) {
+    if (!emptyMessage) {
+      return null
+    }
+
+    return (
+      <div data-component="library-html-widget-shelf" className="space-y-3">
+        {showHeader ? <NotebookShelfHeader label={label} count={0} loading={false} /> : null}
+        <NotebookShelfInlineEmptyState message={emptyMessage} />
+      </div>
+    )
+  }
+
+  return (
+    <div data-component="library-html-widget-shelf" className="space-y-3">
+      {showHeader ? (
+        <NotebookShelfHeader label={label} count={widgets.length} loading={loading} />
+      ) : null}
+
+      <div className="space-y-2">
+        {loading
+          ? Array.from({ length: 3 }, (_, index) => <ShelfRowSkeleton key={index} />)
+          : visibleWidgets.map((widget) => (
+              <HtmlWidgetArtifactRow key={widget.widgetID} widget={widget} />
+            ))}
+        {!loading && canShowMore ? (
+          <ShelfShowMoreButton count={nextBatchCount} onClick={showMore} />
+        ) : null}
+        {error ? <NotebookShelfError message={error} /> : null}
+      </div>
+    </div>
+  )
+}
+
+function WidgetsTab(props: { directories: string[] }) {
+  const { directories } = props
+  const isMultiNotebookView = directories.length > 1
+  const shelfQueries = useQueries({
+    queries: directories.map((directory) => workspaceHtmlWidgetsQueryOptions(directory)),
+  })
+  const allLoading = shelfQueries.every((query) => query.isPending)
+  const showLoadingState = useDelayedPending(allLoading)
+  const totalWidgets = shelfQueries.reduce(
+    (sum, query) => sum + (query.data?.widgets.length ?? 0),
+    0,
+  )
+  const allLoaded = shelfQueries.every((query) => !query.isPending)
+  const loadError = shelfQueries.find((query) => query.error)?.error
+  const showNotebookHeaders = directories.length > 1
+  const { directoriesWithItems, emptyDirectories } = partitionNotebookDirectories({
+    directories,
+    isEmpty: (index) => {
+      const query = shelfQueries[index]
+      if (!query || query.isPending || query.error) {
+        return false
+      }
+
+      return (query.data?.widgets.length ?? 0) === 0
+    },
+  })
+
+  if (!isMultiNotebookView && allLoading && !showLoadingState) {
+    return <LoadingStateBuffer />
+  }
+
+  if (!isMultiNotebookView && allLoading) {
+    return (
+      <div className={`space-y-6 ${LIBRARY_TAB_MIN_HEIGHT_CLASS}`}>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="size-4 rounded" />
+            <Skeleton className="h-4 w-24 rounded" />
+          </div>
+          <div className="space-y-2">
+            {Array.from({ length: 3 }, (_, index) => (
+              <ShelfRowSkeleton key={index} />
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isMultiNotebookView && allLoaded && totalWidgets === 0) {
+    return (
+      <LibraryTabErrorState
+        icon={AppWindowIcon}
+        title={language.t("sidebar.libraryWidgetsEmpty")}
+        description={language.t("sidebar.libraryWidgetsEmptyDescription")}
+        error={loadError ? stringifyError(loadError) : undefined}
+        mascotUrl={buddyStateEmptyDiagramsUrl}
+        mascotAlt={`${language.t("routes.chat.productName")} beside an app widget`}
+      />
+    )
+  }
+
+  if (isMultiNotebookView) {
+    return (
+      <div className="space-y-6">
+        {directoriesWithItems.map((directory) => (
+          <HtmlWidgetsNotebookShelf
+            key={directory}
+            directory={directory}
+            showHeader
+            pageSize={MULTI_NOTEBOOK_ROW_PREVIEW_COUNT}
+            emptyMessage={language.t("sidebar.libraryNotebookWidgetsEmpty")}
+          />
+        ))}
+        {emptyDirectories.length > 0 ? (
+          <EmptyNotebookSection>
+            {emptyDirectories.map((directory) => (
+              <HtmlWidgetsNotebookShelf
+                key={directory}
+                directory={directory}
+                showHeader
+                pageSize={MULTI_NOTEBOOK_ROW_PREVIEW_COUNT}
+                emptyMessage={language.t("sidebar.libraryNotebookWidgetsEmpty")}
+              />
+            ))}
+          </EmptyNotebookSection>
+        ) : null}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {directories.map((directory) => (
+        <HtmlWidgetsNotebookShelf
+          key={directory}
+          directory={directory}
+          showHeader={showNotebookHeaders}
+          pageSize={HTML_WIDGET_ROW_PREVIEW_COUNT}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Diagrams shelf
 // ---------------------------------------------------------------------------
 
@@ -2191,6 +2404,8 @@ export function LibraryPanel({
       {activeTab === "question-sets" ? (
         <QuestionSetsTab directories={directories} onOpenQuestionSet={onOpenQuestionSet} />
       ) : null}
+
+      {activeTab === "widgets" ? <WidgetsTab directories={directories} /> : null}
 
       {activeTab === "diagrams" ? (
         <DiagramsTab directories={directories} active={activeTab === "diagrams"} />

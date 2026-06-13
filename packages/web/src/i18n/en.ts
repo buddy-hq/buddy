@@ -1003,18 +1003,23 @@ export const dict = {
   "sidebar.libraryQuestionSetsEmpty": "No practice sets yet",
   "sidebar.libraryQuestionSetsEmptyDescription":
     "Ask Buddy to create exercises from a notebook and they will appear here.",
+  "sidebar.libraryWidgetsEmpty": "No widgets yet",
+  "sidebar.libraryWidgetsEmptyDescription":
+    "Create an interactive HTML teaching widget and Buddy will keep it here.",
   "sidebar.libraryDiagramsEmpty": "No diagrams yet",
   "sidebar.libraryDiagramsEmptyDescription":
     "Generate a concept map, chart, or flow and Buddy will keep it here.",
   "sidebar.libraryNotebookDiagramsEmpty": "No diagrams in this notebook yet.",
   "sidebar.libraryNotebookFlashcardsEmpty": "No flashcards in this notebook yet.",
   "sidebar.libraryNotebookQuestionSetsEmpty": "No practice sets in this notebook yet.",
+  "sidebar.libraryNotebookWidgetsEmpty": "No widgets in this notebook yet.",
   "sidebar.libraryNotebookResourcesEmpty": "No resources in this notebook yet.",
   "sidebar.libraryShowMoreCount": "Show {{count}} more",
   "sidebar.libraryShelfEmpty": "No resources in this notebook.",
   "sidebar.libraryTabResources": "Resources",
   "sidebar.libraryTabFlashcards": "Flashcards",
   "sidebar.libraryTabQuestionSets": "Question Sets",
+  "sidebar.libraryTabWidgets": "Widgets",
   "sidebar.libraryTabDiagrams": "Diagrams",
   "sidebar.notebookLibrary": "Notebook Library",
   "sidebar.quickChat": "Quick chats",
