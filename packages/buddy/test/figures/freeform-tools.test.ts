@@ -1,9 +1,14 @@
 import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
-import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
-import { FreeformFigureRenderError } from "../../src/learning/features/figure-rendering/freeform/service/errors"
+import { app } from "../../src"
+import {
+  ARTIFACT_CONTENT_FILES,
+  ARTIFACT_KINDS,
+  ArtifactPath,
+} from "../../src/artifacts"
+import { FreeformFigureRenderError } from "../../src/learning/features/figure-rendering/freeform/service/render"
 import { renderFreeformFigure } from "../../src/learning/features/figure-rendering/freeform/service/render"
 import { RenderFreeformFigureOutputSchema } from "../../src/learning/features/figure-rendering/freeform/types"
 import type { RenderFreeformFigureInput } from "../../src/learning/features/figure-rendering/freeform/tools/render-freeform-figure"
@@ -14,6 +19,22 @@ import {
   requireTool,
   TEST_TOOL_MODEL,
 } from "../helpers/tools"
+
+function freeformFigureFile(directory: string, artifactID: string): string {
+  return ArtifactPath.artifactFile(
+    directory,
+    ARTIFACT_KINDS.freeformFigure,
+    artifactID,
+    ARTIFACT_CONTENT_FILES.figureSvg,
+  )
+}
+
+function freeformFigureRelativePath(artifactID: string): string {
+  return `${ArtifactPath.relativeArtifactDirectory(
+    ARTIFACT_KINDS.freeformFigure,
+    artifactID,
+  )}/${ARTIFACT_CONTENT_FILES.figureSvg}`
+}
 
 function baseFreeformFigureInput(): RenderFreeformFigureInput {
   return {
@@ -52,19 +73,16 @@ describe("freeform figure tools", () => {
     })
 
     const payload = RenderFreeformFigureOutputSchema.parse(JSON.parse(result.output))
-    const filepath = path.join(
-      project.path,
-      ".buddy",
-      "freeform-figures",
-      `${payload.figureID}.svg`,
-    )
+    const filepath = freeformFigureFile(project.path, payload.artifactID)
     const svg = await fs.readFile(filepath, "utf8")
 
     expect(payload.repairAttempts).toBe(0)
-    expect(payload.figureID).toMatch(/^[a-f0-9]{64}$/)
-    expect(payload.relativePath).toBe(`.buddy/freeform-figures/${payload.figureID}.svg`)
+    expect(payload.artifactID).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+    expect(payload.relativePath).toBe(freeformFigureRelativePath(payload.artifactID))
     expect(payload.alt).toBe("Custom SVG figure")
-    expect(payload.markdown).toContain(`/api/freeform-figures/${payload.figureID}?directory=`)
+    expect(payload.markdown).toContain(
+      `/api/artifacts/freeform-figure/${payload.artifactID}/raw?directory=`,
+    )
     expect(svg).toContain("<svg")
     expect(svg).toContain("</svg>")
     expect(svg).toContain("<path")
@@ -97,12 +115,7 @@ describe("freeform figure tools", () => {
       ].join("\n"),
     })
 
-    const filepath = path.join(
-      project.path,
-      ".buddy",
-      "freeform-figures",
-      `${rendered.figureID}.svg`,
-    )
+    const filepath = freeformFigureFile(project.path, rendered.artifactID)
     const svg = await fs.readFile(filepath, "utf8")
 
     expect(svg).not.toContain("<script")
@@ -111,7 +124,7 @@ describe("freeform figure tools", () => {
     expect(svg).toContain('<use href="#safe-shape"')
   })
 
-  test("tool metadata also includes presented media output for the rendered freeform figure", async () => {
+  test("tool metadata references only the rendered freeform figure artifact", async () => {
     await using project = await tmpdir({ git: true })
     await ensureBuddyPluginTools(project.path)
 
@@ -132,19 +145,19 @@ describe("freeform figure tools", () => {
       },
     })
 
-    const metadataValue = result.metadata?.value as
-      | { items?: Array<{ displayPath?: string; rawUrl?: string }> }
-      | undefined
-    const producerArtifact = result.metadata?.producerArtifact as
-      | { artifact?: string; value?: { relativePath?: string } }
-      | undefined
+    const metadataValue = RenderFreeformFigureOutputSchema.parse(result.metadata?.value)
 
-    expect(result.metadata?.artifact).toBe("PresentedMediaOutput")
-    expect(metadataValue?.items?.[0]?.displayPath).toBeDefined()
-    expect(metadataValue?.items?.[0]?.rawUrl).toContain("/api/presented-media/")
-    expect(producerArtifact?.artifact).toBe("RenderFreeformFigureOutput")
-    expect(producerArtifact?.value?.relativePath).toMatch(
-      /^\.buddy\/freeform-figures\/[a-f0-9]{64}\.svg$/,
+    expect(result.metadata?.artifact).toBe("RenderFreeformFigureOutput")
+    expect(metadataValue.relativePath).toMatch(
+      /^\.buddy\/artifacts\/freeform-figure\/[0-9A-HJKMNP-TV-Z]{26}\/figure\.svg$/,
     )
+    const indexResponse = await app.request(
+      `/api/artifacts?directory=${encodeURIComponent(project.path)}`,
+    )
+    const indexBody: unknown = await indexResponse.json()
+    expect(indexBody).toMatchObject({
+      artifacts: [{ artifactID: metadataValue.artifactID, kind: "freeform-figure" }],
+    })
+    expect(JSON.stringify(indexBody)).not.toContain('"kind":"media-presentation"')
   })
 })

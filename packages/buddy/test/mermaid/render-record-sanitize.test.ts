@@ -1,11 +1,16 @@
 import fs from "node:fs/promises"
+import path from "node:path"
 import { describe, expect, test } from "bun:test"
-import { MermaidArtifactPathV2 } from "../../src/learning/features/diagrams/service/v2-path"
+import {
+  ARTIFACT_CONTENT_DIRECTORIES,
+  ARTIFACT_KINDS,
+  ArtifactPath,
+} from "../../src/artifacts"
 import {
   createToolMermaidArtifact,
-  readMermaidV2RenderRecord,
-  storeMermaidV2RenderRecord,
-} from "../../src/learning/features/diagrams/service/v2-store"
+  readMermaidRenderRecord,
+  storeMermaidRenderRecord,
+} from "../../src/learning/features/diagrams/service/store"
 import { tmpdir } from "../helpers/tmpdir"
 
 const RENDER_INPUT = {
@@ -37,7 +42,7 @@ describe("Mermaid render record sanitization", () => {
       source: "flowchart LR\nA-->B",
     })
 
-    const stored = await storeMermaidV2RenderRecord(project.path, artifact.artifactID, {
+    const stored = await storeMermaidRenderRecord(project.path, artifact.artifactID, {
       ...RENDER_INPUT,
       status: "rendered",
       svg: UNSAFE_SVG,
@@ -54,11 +59,19 @@ describe("Mermaid render record sanitization", () => {
     expect(stored.svg).toContain("<foreignObject")
 
     await fs.writeFile(
-      MermaidArtifactPathV2.renderRecordFile(project.path, artifact.artifactID, stored.renderKey),
+      ArtifactPath.artifactFile(
+        project.path,
+        ARTIFACT_KINDS.mermaid,
+        artifact.artifactID,
+        path.join(
+          ARTIFACT_CONTENT_DIRECTORIES.mermaidRenders,
+          `${stored.renderKey}.json`,
+        ),
+      ),
       `${JSON.stringify({ ...stored, svg: UNSAFE_SVG }, null, 2)}\n`,
       "utf8",
     )
-    const reloaded = await readMermaidV2RenderRecord(
+    const reloaded = await readMermaidRenderRecord(
       project.path,
       artifact.artifactID,
       stored.renderKey,

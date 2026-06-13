@@ -49,7 +49,7 @@ describe("mermaid render pipeline", () => {
           metadata: {
             artifact: "RenderMermaidOutput",
             value: {
-              kind: "mermaid.v2",
+              kind: "mermaid",
               artifactID: "a".repeat(64),
               source: "flowchart LR\nA-->B",
             },
@@ -128,7 +128,7 @@ describe("mermaid render pipeline", () => {
         typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
       const method = init?.method ?? (input instanceof Request ? input.method : undefined) ?? "GET"
       if (
-        url.includes("/api/mermaid-artifacts/artifact_1/render-record") &&
+        url.includes("/api/artifacts/mermaid/artifact_1/render-record") &&
         method.toUpperCase() === "GET"
       ) {
         return new Response(JSON.stringify({ renderKey: "resolved_key" }), {
@@ -137,7 +137,7 @@ describe("mermaid render pipeline", () => {
         })
       }
       if (
-        url.includes("/api/mermaid-artifacts/artifact_1/render-record") &&
+        url.includes("/api/artifacts/mermaid/artifact_1/render-record") &&
         method.toUpperCase() === "PUT"
       ) {
         expect(url).toContain(`rendererVersion=${encodeURIComponent(MERMAID_RENDERER_VERSION)}`)
@@ -213,7 +213,7 @@ describe("mermaid render pipeline", () => {
         typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
       const method = init?.method ?? (input instanceof Request ? input.method : undefined) ?? "GET"
       if (
-        url.includes("/api/mermaid-artifacts/artifact_2/render-record") &&
+        url.includes("/api/artifacts/mermaid/artifact_2/render-record") &&
         method.toUpperCase() === "GET"
       ) {
         return new Response(JSON.stringify({ renderKey: "resolved_key" }), {
@@ -222,7 +222,7 @@ describe("mermaid render pipeline", () => {
         })
       }
       if (
-        url.includes("/api/mermaid-artifacts/artifact_2/render-record") &&
+        url.includes("/api/artifacts/mermaid/artifact_2/render-record") &&
         method.toUpperCase() === "PUT"
       ) {
         return new Response(JSON.stringify({ error: "cache write failed" }), {

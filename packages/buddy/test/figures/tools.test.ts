@@ -1,8 +1,13 @@
 import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
-import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
+import { app } from "../../src"
+import {
+  ARTIFACT_CONTENT_FILES,
+  ARTIFACT_KINDS,
+  ArtifactPath,
+} from "../../src/artifacts"
 import { renderGeometryFigure } from "../../src/learning/features/figure-rendering/geometry/render-figure"
 import { RenderFigureOutputSchema } from "../../src/learning/features/figure-rendering/geometry/types"
 import type { RenderFigureInput } from "../../src/learning/features/figure-rendering/geometry/tools/render-figure"
@@ -13,6 +18,22 @@ import {
   requireTool,
   TEST_TOOL_MODEL,
 } from "../helpers/tools"
+
+function figureFile(directory: string, artifactID: string): string {
+  return ArtifactPath.artifactFile(
+    directory,
+    ARTIFACT_KINDS.figure,
+    artifactID,
+    ARTIFACT_CONTENT_FILES.figureSvg,
+  )
+}
+
+function figureRelativePath(artifactID: string): string {
+  return `${ArtifactPath.relativeArtifactDirectory(
+    ARTIFACT_KINDS.figure,
+    artifactID,
+  )}/${ARTIFACT_CONTENT_FILES.figureSvg}`
+}
 
 function baseFigureInput(): RenderFigureInput {
   return {
@@ -60,14 +81,14 @@ describe("figure tools", () => {
     })
 
     const payload = RenderFigureOutputSchema.parse(JSON.parse(result.output))
-    const filepath = path.join(project.path, ".buddy", "figures", `${payload.figureID}.svg`)
+    const filepath = figureFile(project.path, payload.artifactID)
     const svg = await fs.readFile(filepath, "utf8")
 
     expect(payload.repairAttempts).toBe(0)
-    expect(payload.figureID).toMatch(/^[a-f0-9]{64}$/)
-    expect(payload.relativePath).toBe(`.buddy/figures/${payload.figureID}.svg`)
+    expect(payload.artifactID).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+    expect(payload.relativePath).toBe(figureRelativePath(payload.artifactID))
     expect(payload.alt).toBe("Geometry figure")
-    expect(payload.markdown).toContain(`/api/figures/${payload.figureID}?directory=`)
+    expect(payload.markdown).toContain(`/api/artifacts/figure/${payload.artifactID}/raw?directory=`)
     expect(svg.startsWith("<svg")).toBe(true)
     expect(svg).toContain("</svg>")
     expect(svg).toContain('paint-order="stroke fill"')
@@ -106,13 +127,13 @@ describe("figure tools", () => {
     expect(payload.repairAttempts).toBeGreaterThan(0)
 
     const svg = await fs.readFile(
-      path.join(project.path, ".buddy", "figures", `${payload.figureID}.svg`),
+      figureFile(project.path, payload.artifactID),
       "utf8",
     )
     expect(svg).toContain("<svg")
   })
 
-  test("tool metadata also includes presented media output for the rendered figure", async () => {
+  test("tool metadata references only the rendered figure artifact", async () => {
     await using project = await tmpdir({ git: true })
     await ensureBuddyPluginTools(project.path)
 
@@ -133,18 +154,20 @@ describe("figure tools", () => {
       },
     })
 
-    const metadataValue = result.metadata?.value as
-      | { items?: Array<{ displayPath?: string; rawUrl?: string }> }
-      | undefined
-    const producerArtifact = result.metadata?.producerArtifact as
-      | { artifact?: string; value?: { relativePath?: string } }
-      | undefined
+    const metadataValue = RenderFigureOutputSchema.parse(result.metadata?.value)
 
-    expect(result.metadata?.artifact).toBe("PresentedMediaOutput")
-    expect(metadataValue?.items?.[0]?.displayPath).toBeDefined()
-    expect(metadataValue?.items?.[0]?.rawUrl).toContain("/api/presented-media/")
-    expect(producerArtifact?.artifact).toBe("RenderFigureOutput")
-    expect(producerArtifact?.value?.relativePath).toMatch(/^\.buddy\/figures\/[a-f0-9]{64}\.svg$/)
+    expect(result.metadata?.artifact).toBe("RenderFigureOutput")
+    expect(metadataValue.relativePath).toMatch(
+      /^\.buddy\/artifacts\/figure\/[0-9A-HJKMNP-TV-Z]{26}\/figure\.svg$/,
+    )
+    const indexResponse = await app.request(
+      `/api/artifacts?directory=${encodeURIComponent(project.path)}`,
+    )
+    const indexBody: unknown = await indexResponse.json()
+    expect(indexBody).toMatchObject({
+      artifacts: [{ artifactID: metadataValue.artifactID, kind: "figure" }],
+    })
+    expect(JSON.stringify(indexBody)).not.toContain('"kind":"media-presentation"')
   })
 
   test("resolves perpendicular-foot constraints so derived helper lines land exactly on the base", async () => {
@@ -182,7 +205,7 @@ describe("figure tools", () => {
     })
 
     const svg = await fs.readFile(
-      path.join(project.path, ".buddy", "figures", `${rendered.figureID}.svg`),
+      figureFile(project.path, rendered.artifactID),
       "utf8",
     )
     expect(svg).toContain('x1="90" y1="40" x2="90" y2="150"')

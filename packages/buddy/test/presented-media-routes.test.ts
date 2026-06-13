@@ -68,6 +68,40 @@ describe("presented media raw routes", () => {
     expect(response.headers.get("content-length")).toBe(String("local-image".length))
   })
 
+  test("reports current availability without fetching media bytes", async () => {
+    const repo = createGitRepo("buddy-presented-media-route-availability")
+    const localDir = await fs.mkdtemp(
+      path.join(os.tmpdir(), "buddy-presented-media-route-availability-"),
+    )
+    const localPath = path.join(localDir, "outside.png")
+    await fs.writeFile(localPath, "local-image")
+
+    const output = await OpenCodeInstance.provide({
+      directory: repo,
+      fn: async () =>
+        buildPresentedMediaOutput({
+          directory: repo,
+          items: [{ path: localPath }],
+        }),
+    })
+    await fs.rm(localPath)
+
+    const availabilityUrl = `/api/artifacts/media-presentation/${output.artifactID}/items/media_item_1/availability?directory=${encodeURIComponent(repo)}`
+    const response = await app.request(availabilityUrl)
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      status: "missing",
+      message: "File not found",
+    })
+
+    const missingItemResponse = await app.request(
+      `/api/artifacts/media-presentation/${output.artifactID}/items/unknown/availability?directory=${encodeURIComponent(repo)}`,
+    )
+    expect(missingItemResponse.status).toBe(404)
+    expect(await missingItemResponse.json()).toEqual({ error: "File not found" })
+  })
+
   test("serves bounded, open-ended, and suffix byte ranges", async () => {
     const repo = createGitRepo("buddy-presented-media-route-ranges")
     const localDir = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-presented-media-route-ranges-"))

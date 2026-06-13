@@ -98,9 +98,10 @@ describe("markdown mermaid segments", () => {
     expect(
       shouldStartMarkdownMermaidAutoRepair({
         artifact: {
-          version: 2,
+          version: 1,
           artifactID: "artifact",
-          kind: "mermaid.v2",
+          kind: "mermaid",
+          title: "Mermaid diagram",
           origin: {
             kind: "markdown",
             sessionID: "ses_test",
@@ -116,6 +117,15 @@ describe("markdown mermaid segments", () => {
           autoRepair: {
             status: "eligible",
             attempts: 0,
+          },
+          summary: {
+            diagramType: "flowchart",
+            alt: "Mermaid diagram",
+            preflightRepairs: [],
+            autoRepair: {
+              status: "eligible",
+              attempts: 0,
+            },
           },
           createdAt: "2026-05-05T00:00:00.000Z",
           updatedAt: "2026-05-05T00:00:00.000Z",

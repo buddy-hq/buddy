@@ -76,7 +76,7 @@ describe("render figure renderer", () => {
         metadata: {
           artifact: "RenderFigureOutput",
           value: {
-            figureID: "fig_1",
+            artifactID: "fig_1",
             mime: "image/svg+xml",
             url: "https://placehold.co/320x180/svg",
             alt: "Valid figure",

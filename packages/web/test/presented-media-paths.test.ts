@@ -69,7 +69,7 @@ describe("presented media path helpers", () => {
     expect(isLikelyPresentedMediaPathCandidate("../worksheet.pdf")).toBe(false)
   })
 
-  test("checks raw media availability through the backend-provided raw URL", async () => {
+  test("checks media availability through the typed artifact route", async () => {
     const calls: string[] = []
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -79,11 +79,16 @@ describe("presented media path helpers", () => {
         calls.push(`${method} ${url}`)
 
         if (
-          method === "HEAD" &&
-          url.includes("/api/presented-media/artifact_1/raw/item_1") &&
+          method === "GET" &&
+          url.includes(
+            "/api/artifacts/media-presentation/artifact_1/items/item_1/availability",
+          ) &&
           url.includes("directory=%2Frepo")
         ) {
-          return new Response(null, { status: 200 })
+          return Response.json({
+            status: "available",
+            message: null,
+          })
         }
 
         throw new Error(`Unexpected fetch: ${method} ${url}`)
@@ -91,11 +96,19 @@ describe("presented media path helpers", () => {
       originalFetch,
     )
 
-    const availability = await readPresentedMediaAvailability("/repo", localMediaItem)
+    const availability = await readPresentedMediaAvailability(
+      "/repo",
+      "artifact_1",
+      localMediaItem,
+    )
 
     expect(availability.status).toBe("available")
-    expect(calls.some((call) => call.includes("/api/presented-media/resolve"))).toBe(false)
-    expect(calls.some((call) => call.includes("/api/presented-media/artifact_1/raw/item_1"))).toBe(
+    expect(calls.some((call) => call.includes("/api/artifacts/media-presentation/resolve"))).toBe(false)
+    expect(
+      calls.some((call) =>
+        call.includes("/api/artifacts/media-presentation/artifact_1/items/item_1/availability"),
+      ),
+    ).toBe(
       true,
     )
   })
@@ -111,7 +124,7 @@ describe("presented media path helpers", () => {
 
         if (
           method === "GET" &&
-          url.includes("/api/presented-media/resolve") &&
+          url.includes("/api/artifacts/media-presentation/resolve") &&
           url.includes("path=notes%2Fworksheet.md")
         ) {
           return Response.json({
@@ -165,7 +178,7 @@ describe("presented media path helpers", () => {
       mimeType: "text/markdown",
       sizeBytes: 128,
     })
-    expect(calls.some((call) => call.includes("/api/presented-media/resolve"))).toBe(true)
+    expect(calls.some((call) => call.includes("/api/artifacts/media-presentation/resolve"))).toBe(true)
   })
 
   test("treats oversized media as available when the backend can serve it", async () => {
@@ -176,11 +189,16 @@ describe("presented media path helpers", () => {
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (
-          method === "HEAD" &&
-          url.includes("/api/presented-media/artifact_1/raw/item_1") &&
+          method === "GET" &&
+          url.includes(
+            "/api/artifacts/media-presentation/artifact_1/items/item_1/availability",
+          ) &&
           url.includes("directory=%2Frepo")
         ) {
-          return new Response(null, { status: 200 })
+          return Response.json({
+            status: "available",
+            message: null,
+          })
         }
 
         throw new Error(`Unexpected fetch: ${method} ${url}`)
@@ -188,17 +206,21 @@ describe("presented media path helpers", () => {
       originalFetch,
     )
 
-    const availability = await readPresentedMediaAvailability("/repo", {
-      ...localMediaItem,
-      mediaKind: "image",
-      renderMode: "image",
-      sizeBytes: 1024 * 1024 * 1024,
-    })
+    const availability = await readPresentedMediaAvailability(
+      "/repo",
+      "artifact_1",
+      {
+        ...localMediaItem,
+        mediaKind: "image",
+        renderMode: "image",
+        sizeBytes: 1024 * 1024 * 1024,
+      },
+    )
 
     expect(availability.status).toBe("available")
   })
 
-  test("returns missing when the artifact-backed raw media URL no longer exists", async () => {
+  test("returns missing when the presented media source no longer exists", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
@@ -206,11 +228,16 @@ describe("presented media path helpers", () => {
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
 
         if (
-          method === "HEAD" &&
-          url.includes("/api/presented-media/artifact_1/raw/item_1") &&
+          method === "GET" &&
+          url.includes(
+            "/api/artifacts/media-presentation/artifact_1/items/item_1/availability",
+          ) &&
           url.includes("directory=%2Frepo")
         ) {
-          return new Response(null, { status: 404 })
+          return Response.json({
+            status: "missing",
+            message: "File not found",
+          })
         }
 
         throw new Error(`Unexpected fetch: ${method} ${url}`)
@@ -218,10 +245,14 @@ describe("presented media path helpers", () => {
       originalFetch,
     )
 
-    const result = await resolvePresentedMediaAvailability("/repo", localMediaItem)
+    const result = await resolvePresentedMediaAvailability(
+      "/repo",
+      "artifact_1",
+      localMediaItem,
+    )
 
     expect(result.availability.status).toBe("missing")
-    expect(result.item.rawUrl).toContain("/api/presented-media/artifact_1/raw/item_1")
+    expect(result.item.rawUrl).toContain("/api/artifacts/media-presentation/artifact_1/raw/item_1")
   })
 })
 
@@ -237,7 +268,7 @@ const localMediaItem: PresentedMediaItem = {
   mimeType: "application/pdf",
   sizeBytes: 42,
   modifiedAt: null,
-  rawUrl: "/api/presented-media/artifact_1/raw/item_1?directory=%2Frepo&fileName=notes.pdf",
+  rawUrl: "/api/artifacts/media-presentation/artifact_1/raw/item_1?directory=%2Frepo&fileName=notes.pdf",
   actionCapabilities: {
     canOpenDefaultApp: true,
     canRevealInFileManager: true,

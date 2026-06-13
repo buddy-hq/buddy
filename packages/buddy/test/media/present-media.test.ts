@@ -6,7 +6,9 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import {
   buildPresentedMediaOutput,
+  listPresentedMediaArtifactSummaries,
   PresentedMediaValidationError,
+  readPresentedMediaArtifact,
 } from "../../src/learning/features/media-presentations/service/file-media"
 import {
   createToolContext,
@@ -65,7 +67,7 @@ describe("present media", () => {
 
     expect(output.items[0]?.displayPath).toBe(await fs.realpath(localPath))
     expect(output.items[0]?.actionCapabilities.canOpenInWorkspacePanel).toBe(false)
-    expect(output.items[0]?.rawUrl?.startsWith("/api/presented-media/")).toBe(true)
+    expect(output.items[0]?.rawUrl?.startsWith("/api/artifacts/media-presentation/")).toBe(true)
     expect(output.items[0]?.rawUrl).toContain("/raw/media_item_1")
     expect(output.items[0]?.rawUrl).toContain(`directory=${encodeURIComponent(project.path)}`)
     expect(output.items[0]?.rawUrl).toContain("fileName=outside.png")
@@ -130,7 +132,7 @@ describe("present media", () => {
 
     expect(output.items[0]?.absolutePath).toBe(await fs.realpath(localPath))
     expect(output.items[0]?.actionCapabilities.canOpenInWorkspacePanel).toBe(false)
-    expect(output.items[0]?.rawUrl?.startsWith("/api/presented-media/")).toBe(true)
+    expect(output.items[0]?.rawUrl?.startsWith("/api/artifacts/media-presentation/")).toBe(true)
     expect(output.items[0]?.rawUrl).toContain("/raw/media_item_1")
     expect(output.items[0]?.rawUrl?.includes(encodeURIComponent(localPath))).toBe(false)
   })
@@ -201,5 +203,31 @@ describe("present media", () => {
           }),
       }),
     ).rejects.toBeInstanceOf(PresentedMediaValidationError)
+  })
+
+  test("refreshes item availability after a presented file is deleted", async () => {
+    await using project = await tmpdir({ git: true })
+    const firstPath = path.join(project.path, "first.txt")
+    const secondPath = path.join(project.path, "second.txt")
+    await fs.writeFile(firstPath, "first")
+    await fs.writeFile(secondPath, "second")
+
+    const output = await buildPresentedMediaOutput({
+      directory: project.path,
+      items: [{ path: firstPath }, { path: secondPath }],
+    })
+    await fs.rm(secondPath)
+
+    const read = await readPresentedMediaArtifact(project.path, output.artifactID)
+    expect(read.summary.items.map((item) => item.availability.status)).toEqual([
+      "available",
+      "missing",
+    ])
+
+    const listed = await listPresentedMediaArtifactSummaries(project.path)
+    expect(listed.artifacts[0]?.summary.items.map((item) => item.availability.status)).toEqual([
+      "available",
+      "missing",
+    ])
   })
 })

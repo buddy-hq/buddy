@@ -4,12 +4,15 @@ import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src/index"
-import { HtmlWidgetValidationError } from "../../src/learning/features/html-widgets/errors"
-import { createHtmlWidgetArtifact } from "../../src/learning/features/html-widgets/service/store"
+import {
+  buildHtmlWidgetRuntimeUrl,
+  buildHtmlWidgetSourceUrl,
+  createHtmlWidgetArtifact,
+  HtmlWidgetValidationError,
+} from "../../src/learning/features/html-widgets/service/store"
 import {
   HTML_WIDGET_KIND,
   HTML_WIDGET_RUNTIME_CSP,
-  HtmlWidgetListResponseSchema,
   HtmlWidgetSourceResponseSchema,
   PresentHtmlWidgetOutputSchema,
 } from "../../src/learning/features/html-widgets/service/types"
@@ -46,6 +49,7 @@ describe("HTML widgets", () => {
           path: "widgets/fractions.html",
           title: "Fraction Builder",
           origin: {
+            kind: "tool",
             sessionID: "ses_html_widget",
             messageID: "msg_html_widget",
             callID: "call_html_widget",
@@ -55,16 +59,23 @@ describe("HTML widgets", () => {
 
     expect(widget.kind).toBe(HTML_WIDGET_KIND)
     expect(widget.title).toBe("Fraction Builder")
-    expect(widget.viewport.preset).toBe("standard_16_10")
-    expect(widget.viewport.width).toBe(960)
-    expect(widget.viewport.height).toBe(600)
-    expect(widget.sourcePath).toBe("widgets/fractions.html")
-    expect(widget.runtimeUrl).toContain(`/api/html-widget-artifacts/${widget.widgetID}/runtime`)
-    expect(widget.sourceUrl).toContain(`/api/html-widget-artifacts/${widget.widgetID}/source`)
-    expect(widget.warnings.map((warning) => warning.code)).toContain("relative_asset_reference")
-    expect(widget.warnings.map((warning) => warning.code)).toContain("blocked_remote_reference")
+    expect(widget.summary.viewport.preset).toBe("standard_16_10")
+    expect(widget.summary.viewport.width).toBe(960)
+    expect(widget.summary.viewport.height).toBe(600)
+    expect(widget.summary.sourcePath).toBe("widgets/fractions.html")
+    expect(widget.summary.warnings.map((warning) => warning.code)).toContain(
+      "relative_asset_reference",
+    )
+    expect(widget.summary.warnings.map((warning) => warning.code)).toContain(
+      "blocked_remote_reference",
+    )
 
-    const runtimeResponse = await app.request(widget.runtimeUrl)
+    const runtimeResponse = await app.request(
+      buildHtmlWidgetRuntimeUrl({
+        directory: project.path,
+        artifactID: widget.artifactID,
+      }),
+    )
     expect(runtimeResponse.status).toBe(200)
     expect(runtimeResponse.headers.get("content-security-policy")).toBe(HTML_WIDGET_RUNTIME_CSP)
     expect(runtimeResponse.headers.get("content-security-policy")).toContain(
@@ -75,12 +86,22 @@ describe("HTML widgets", () => {
     expect(runtimeResponse.headers.get("x-content-type-options")).toBe("nosniff")
     expect(await runtimeResponse.text()).toBe(source)
 
+    const sourceResponse = await app.request(
+      buildHtmlWidgetSourceUrl({
+        directory: project.path,
+        artifactID: widget.artifactID,
+      }),
+    )
+    expect(sourceResponse.status).toBe(200)
+
     const listResponse = await app.request(
-      `/api/html-widget-artifacts?directory=${encodeURIComponent(project.path)}`,
+      `/api/artifacts?directory=${encodeURIComponent(project.path)}&kind=html-widget`,
     )
     expect(listResponse.status).toBe(200)
-    const list = HtmlWidgetListResponseSchema.parse(await listResponse.json())
-    expect(list.widgets.map((entry) => entry.widgetID)).toContain(widget.widgetID)
+    const list = (await listResponse.json()) as {
+      artifacts: Array<{ artifactID: string }>
+    }
+    expect(list.artifacts.map((entry) => entry.artifactID)).toContain(widget.artifactID)
   })
 
   test("registers present_html_widget and returns structured metadata", async () => {
@@ -128,7 +149,7 @@ describe("HTML widgets", () => {
     const sourceResponse = await app.request(output.sourceUrl)
     expect(sourceResponse.status).toBe(200)
     const source = HtmlWidgetSourceResponseSchema.parse(await sourceResponse.json())
-    expect(source.widgetID).toBe(output.widgetID)
+    expect(source.artifactID).toBe(output.artifactID)
     expect(source.source).toContain("<button>Start quiz</button>")
   })
 
@@ -146,6 +167,7 @@ describe("HTML widgets", () => {
             path: "widgets/notes.txt",
             title: "Notes",
             origin: {
+              kind: "tool",
               sessionID: "ses_invalid_html_widget",
               messageID: "msg_invalid_html_widget",
               callID: "call_invalid_html_widget",

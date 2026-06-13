@@ -39,6 +39,7 @@ describe("WorkspaceMermaidPanel", () => {
     const directory = "/repo"
     queryClient.setQueryData(workspaceArtifactsQueryKeys.mermaid(directory), {
       artifacts: [],
+      loadErrors: [],
     })
 
     await act(async () => {
@@ -51,5 +52,31 @@ describe("WorkspaceMermaidPanel", () => {
     })
 
     expect(container.textContent).toContain("No Diagrams Yet")
+  })
+
+  test("renders Mermaid load errors instead of the empty state", async () => {
+    const directory = "/repo"
+    queryClient.setQueryData(workspaceArtifactsQueryKeys.mermaid(directory), {
+      artifacts: [],
+      loadErrors: [
+        {
+          artifactID: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+          kind: "mermaid",
+          message: "Artifact could not be loaded.",
+        },
+      ],
+    })
+
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <WorkspaceMermaidPanel directory={directory} />
+        </QueryClientProvider>,
+      )
+      await flushEffects()
+    })
+
+    expect(container.textContent).not.toContain("No Diagrams Yet")
+    expect(container.textContent).toContain("Artifact could not be loaded.")
   })
 })

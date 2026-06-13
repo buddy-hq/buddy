@@ -5,7 +5,12 @@ import { ulid } from "ulid"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src/index.ts"
-import { QuestionSetPath } from "../../src/learning/features/question-sets/storage/path"
+import {
+  ARTIFACT_CONTENT_DIRECTORIES,
+  ARTIFACT_CONTENT_FILES,
+  ARTIFACT_KINDS,
+  ArtifactPath,
+} from "../../src/artifacts"
 import { saveQuestionSetArtifact } from "../../src/learning/features/question-sets/storage/save-artifact"
 import {
   QUESTION_SET_ARTIFACT_KIND,
@@ -20,6 +25,28 @@ import {
   requireTool,
   TEST_TOOL_MODEL,
 } from "../helpers/tools"
+
+function questionSetFile(directory: string, artifactID: string): string {
+  return ArtifactPath.artifactFile(
+    directory,
+    ARTIFACT_KINDS.questionSet,
+    artifactID,
+    ARTIFACT_CONTENT_FILES.questionSet,
+  )
+}
+
+function questionSetAttemptFile(
+  directory: string,
+  artifactID: string,
+  attemptID: string,
+): string {
+  return ArtifactPath.artifactFile(
+    directory,
+    ARTIFACT_KINDS.questionSet,
+    artifactID,
+    path.join(ARTIFACT_CONTENT_DIRECTORIES.questionSetAttempts, `${attemptID}.json`),
+  )
+}
 
 function sampleQuestionSetInput(): SaveQuestionSetInput {
   return {
@@ -86,6 +113,7 @@ async function createStoredQuestionSetArtifact(
       questions: input.questions,
       createdAt: new Date().toISOString(),
       createdBy: {
+        kind: "tool",
         sessionID: "ses_storage_fixture",
         messageID: "msg_storage_fixture",
         callID: "call_storage_fixture",
@@ -164,13 +192,7 @@ describe("question-set tools and routes", () => {
       },
     })
 
-    const artifactFile = path.join(
-      project.path,
-      ".buddy",
-      "question-set-artifacts",
-      saveOutput.artifactID,
-      "artifact.json",
-    )
+    const artifactFile = questionSetFile(project.path, saveOutput.artifactID)
     const savedArtifactText = await fs.readFile(artifactFile, "utf8")
     const savedArtifact = JSON.parse(savedArtifactText) as {
       questions: Array<{
@@ -181,7 +203,7 @@ describe("question-set tools and routes", () => {
     }
 
     const readResponse = await app.request(
-      `/api/question-set-artifacts/${saveOutput.artifactID}?directory=${encodeURIComponent(project.path)}`,
+      `/api/artifacts/question-set/${saveOutput.artifactID}?directory=${encodeURIComponent(project.path)}`,
     )
     expect(readResponse.status).toBe(200)
     const publicArtifact = (await readResponse.json()) as {
@@ -208,13 +230,13 @@ describe("question-set tools and routes", () => {
     expect(publicArtifact.createdBy.subagent).toBe("question-set-author")
 
     const listResponse = await app.request(
-      `/api/question-set-artifacts?directory=${encodeURIComponent(project.path)}`,
+      `/api/artifacts?directory=${encodeURIComponent(project.path)}&kind=question-set`,
     )
     expect(listResponse.status).toBe(200)
     const listBody = (await listResponse.json()) as {
       artifacts: Array<{
         artifactID: string
-        createdBy: {
+        origin: {
           sessionID: string
           messageID: string
           callID: string
@@ -224,7 +246,7 @@ describe("question-set tools and routes", () => {
     }
     expect(listBody.artifacts).toHaveLength(1)
     expect(listBody.artifacts[0]?.artifactID).toBe(saveOutput.artifactID)
-    expect(listBody.artifacts[0]?.createdBy.sessionID).toBe("ses_question_set")
+    expect(listBody.artifacts[0]?.origin.sessionID).toBe("ses_question_set")
 
     expect(savedArtifact.questions[0]!.payload.choices[0]!.correct).toBeDefined()
     expect(savedArtifact.questions[0]!.payload.choices[0]!.rationale).toBeDefined()
@@ -233,15 +255,20 @@ describe("question-set tools and routes", () => {
   test("keeps valid question-set artifacts visible while surfacing corrupt load errors", async () => {
     await using project = await tmpdir({ git: true })
     const artifact = await createStoredQuestionSetArtifact(project.path)
-    const corruptArtifactID = ulid()
+    const corruptArtifact = await createStoredQuestionSetArtifact(project.path)
 
-    await fs.mkdir(QuestionSetPath.artifactDirectory(project.path, corruptArtifactID), {
-      recursive: true,
-    })
-    await fs.writeFile(QuestionSetPath.artifactFile(project.path, corruptArtifactID), "{", "utf8")
+    await fs.writeFile(
+      ArtifactPath.manifestFile(
+        project.path,
+        ARTIFACT_KINDS.questionSet,
+        corruptArtifact.artifactID,
+      ),
+      "{",
+      "utf8",
+    )
 
     const response = await app.request(
-      `/api/question-set-artifacts?directory=${encodeURIComponent(project.path)}`,
+      `/api/artifacts?directory=${encodeURIComponent(project.path)}&kind=question-set`,
     )
 
     expect(response.status).toBe(200)
@@ -251,7 +278,7 @@ describe("question-set tools and routes", () => {
     }
     expect(body.artifacts.map((item) => item.artifactID)).toEqual([artifact.artifactID])
     expect(body.loadErrors).toHaveLength(1)
-    expect(body.loadErrors[0]?.artifactID).toBe(corruptArtifactID)
+    expect(body.loadErrors[0]?.artifactID).toBe(corruptArtifact.artifactID)
     expect(body.loadErrors[0]?.message).toContain("could not be loaded")
   })
 
@@ -277,7 +304,7 @@ describe("question-set tools and routes", () => {
     })
 
     const response = await app.request(
-      `/api/question-set-artifacts/${saveOutput.artifactID}/attempts?directory=${encodeURIComponent(project.path)}`,
+      `/api/artifacts/question-set/${saveOutput.artifactID}/attempts?directory=${encodeURIComponent(project.path)}`,
       {
         method: "POST",
         headers: {
@@ -314,13 +341,10 @@ describe("question-set tools and routes", () => {
     expect(body.result.questions[0]?.questionID).toBe("q1")
     expect(body.result.questions[0]?.choices.some((choice) => !!choice.rationale)).toBe(true)
 
-    const attemptFile = path.join(
+    const attemptFile = questionSetAttemptFile(
       project.path,
-      ".buddy",
-      "question-set-artifacts",
       saveOutput.artifactID,
-      "attempts",
-      `${body.attemptID}.json`,
+      body.attemptID,
     )
     const attemptText = await fs.readFile(attemptFile, "utf8")
     expect(attemptText).toContain(`"artifactID": "${saveOutput.artifactID}"`)
@@ -348,7 +372,7 @@ describe("question-set tools and routes", () => {
     })
 
     const invalidChoiceResponse = await app.request(
-      `/api/question-set-artifacts/${saveOutput.artifactID}/attempts?directory=${encodeURIComponent(project.path)}`,
+      `/api/artifacts/question-set/${saveOutput.artifactID}/attempts?directory=${encodeURIComponent(project.path)}`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -360,7 +384,7 @@ describe("question-set tools and routes", () => {
     expect(invalidChoiceResponse.status).toBe(400)
 
     const unknownQuestionIDResponse = await app.request(
-      `/api/question-set-artifacts/${saveOutput.artifactID}/attempts?directory=${encodeURIComponent(project.path)}`,
+      `/api/artifacts/question-set/${saveOutput.artifactID}/attempts?directory=${encodeURIComponent(project.path)}`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -372,7 +396,7 @@ describe("question-set tools and routes", () => {
     expect(unknownQuestionIDResponse.status).toBe(400)
 
     const invalidNoneOfTheAboveResponse = await app.request(
-      `/api/question-set-artifacts/${saveOutput.artifactID}/attempts?directory=${encodeURIComponent(project.path)}`,
+      `/api/artifacts/question-set/${saveOutput.artifactID}/attempts?directory=${encodeURIComponent(project.path)}`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { preflightMermaidSource } from "../../src/learning/features/diagrams/service/v2-preflight"
+import { preflightMermaidSource } from "../../src/learning/features/diagrams/service/preflight"
 
 describe("Mermaid preflight", () => {
   test("extracts fenced mermaid from surrounding prose and canonicalizes flowchart labels", () => {

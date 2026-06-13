@@ -50,7 +50,7 @@ describe("resolveAssetUrl", () => {
           })}
         >
           <CaptureResolvedUrl
-            endpoint="/api/presented-media/example/raw/media_item_1?directory=%2Frepo&fileName=image.png"
+            endpoint="/api/artifacts/media-presentation/example/raw/media_item_1?directory=%2Frepo&fileName=image.png"
             onValue={(value) => {
               captured = value
             }}
@@ -60,7 +60,7 @@ describe("resolveAssetUrl", () => {
     })
 
     expect(captured).toBe(
-      "http://127.0.0.1:53295/api/presented-media/example/raw/media_item_1?directory=%2Frepo&fileName=image.png",
+      "http://127.0.0.1:53295/api/artifacts/media-presentation/example/raw/media_item_1?directory=%2Frepo&fileName=image.png",
     )
     expect(captured.includes("@127.0.0.1")).toBe(false)
   })

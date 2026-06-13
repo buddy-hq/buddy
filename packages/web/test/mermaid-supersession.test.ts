@@ -31,7 +31,7 @@ describe("mermaid supersession", () => {
               metadata: {
                 artifact: "RenderMermaidOutput",
                 value: {
-                  kind: "mermaid.v2",
+                  kind: "mermaid",
                   artifactID: "a".repeat(64),
                 },
               },
@@ -66,7 +66,7 @@ describe("mermaid supersession", () => {
               metadata: {
                 artifact: "RenderMermaidOutput",
                 value: {
-                  kind: "mermaid.v2",
+                  kind: "mermaid",
                   artifactID: "b".repeat(64),
                   supersedesArtifactID: "a".repeat(64),
                 },

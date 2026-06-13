@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { ulid } from "ulid"
 import { renderGeometryFigure } from "../../src/learning/features/figure-rendering/geometry/render-figure"
 import { app } from "../../src/index.ts"
 import { tmpdir } from "../helpers/tmpdir"
@@ -40,7 +41,7 @@ describe("figure routes", () => {
     await using project = await tmpdir({ git: true })
 
     const response = await app.request(
-      `/api/figures/${"a".repeat(64)}?directory=${encodeURIComponent(project.path)}`,
+      `/api/artifacts/figure/${ulid()}/raw?directory=${encodeURIComponent(project.path)}`,
     )
 
     expect(response.status).toBe(404)
@@ -50,7 +51,7 @@ describe("figure routes", () => {
     await using project = await tmpdir({ git: true })
 
     const response = await app.request(
-      `/api/figures/not-a-valid-id?directory=${encodeURIComponent(project.path)}`,
+      `/api/artifacts/figure/not-a-valid-id/raw?directory=${encodeURIComponent(project.path)}`,
     )
 
     expect(response.status).toBe(400)

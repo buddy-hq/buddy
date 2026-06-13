@@ -10,8 +10,8 @@ import {
 import {
   createToolMermaidArtifact,
   readMermaidRepairRequest,
-  storeMermaidV2RenderRecord,
-} from "../../src/learning/features/diagrams/service/v2-store"
+  storeMermaidRenderRecord,
+} from "../../src/learning/features/diagrams/service/store"
 import { tmpdir } from "../helpers/tmpdir"
 
 type RouteMessage = Awaited<ReturnType<typeof OpenCodeSession.messages>>[number]
@@ -88,7 +88,7 @@ describe("mermaid repair routes", () => {
       caption: "Original caption",
       source: "graph TD\nA-->B",
     })
-    const failedRender = await storeMermaidV2RenderRecord(project.path, artifact.artifactID, {
+    const failedRender = await storeMermaidRenderRecord(project.path, artifact.artifactID, {
       status: "failed",
       errorMessage: "Parse error on line 2",
       renderConfigVersion: 1,
@@ -211,7 +211,7 @@ describe("mermaid repair routes", () => {
       alt: "Other session diagram",
       source: "graph TD\nA-->B",
     })
-    const failedRender = await storeMermaidV2RenderRecord(project.path, artifact.artifactID, {
+    const failedRender = await storeMermaidRenderRecord(project.path, artifact.artifactID, {
       status: "failed",
       errorMessage: "Parse error on line 2",
       renderConfigVersion: 1,
@@ -261,7 +261,7 @@ describe("mermaid repair routes", () => {
 
     expect(startResponse.status).toBe(400)
     await expect(startResponse.json()).resolves.toEqual({
-      error: "Invalid mermaid.v2 artifact id 'not-a-valid-artifact-id'.",
+      error: "Invalid artifact id 'not-a-valid-artifact-id'.",
     })
 
     const statusResponse = await app.request(

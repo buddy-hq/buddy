@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test"
+import { ulid } from "ulid"
 import { renderFreeformFigure } from "../../src/learning/features/figure-rendering/freeform/service/render"
 import { app } from "../../src/index.ts"
 import { tmpdir } from "../helpers/tmpdir"
@@ -29,7 +30,7 @@ describe("freeform figure routes", () => {
     await using project = await tmpdir({ git: true })
 
     const response = await app.request(
-      `/api/freeform-figures/${"a".repeat(64)}?directory=${encodeURIComponent(project.path)}`,
+      `/api/artifacts/freeform-figure/${ulid()}/raw?directory=${encodeURIComponent(project.path)}`,
     )
 
     expect(response.status).toBe(404)
@@ -39,7 +40,7 @@ describe("freeform figure routes", () => {
     await using project = await tmpdir({ git: true })
 
     const response = await app.request(
-      `/api/freeform-figures/not-a-valid-id?directory=${encodeURIComponent(project.path)}`,
+      `/api/artifacts/freeform-figure/not-a-valid-id/raw?directory=${encodeURIComponent(project.path)}`,
     )
 
     expect(response.status).toBe(400)
