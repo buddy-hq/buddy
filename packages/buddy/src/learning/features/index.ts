@@ -16,6 +16,7 @@ import { assessmentFeature } from "./assessment/feature"
 import { questionSetsFeature } from "./question-sets/feature"
 import { flashcardsFeature } from "./flashcards/feature"
 import { mediaPresentationsFeature } from "./media-presentations/feature"
+import { htmlWidgetsFeature } from "./html-widgets/feature"
 import { mathFeature } from "./math/feature"
 import { whiteboardFeature } from "./whiteboard/feature"
 
@@ -38,6 +39,7 @@ const ALL_BUDDY_FEATURES = [
   questionSetsFeature,
   flashcardsFeature,
   mediaPresentationsFeature,
+  htmlWidgetsFeature,
   mathFeature,
   whiteboardFeature,
 ] as const
@@ -61,6 +63,7 @@ export {
   questionSetsFeature,
   flashcardsFeature,
   mediaPresentationsFeature,
+  htmlWidgetsFeature,
   mathFeature,
   whiteboardFeature,
   ALL_BUDDY_FEATURES,

@@ -4,6 +4,7 @@ import { assessmentFeature } from "../features/assessment/feature"
 import { curriculumFeature } from "../features/curriculum/feature"
 import { debugGuidanceFeature } from "../features/debug-guidance/feature"
 import { diagramsFeature } from "../features/diagrams/feature"
+import { htmlWidgetsFeature } from "../features/html-widgets/feature"
 import { lessonWorkspaceFeature } from "../features/lesson-workspace/feature"
 import { mediaPresentationsFeature } from "../features/media-presentations/feature"
 import { memoryFeature } from "../features/memory/feature"
@@ -31,6 +32,7 @@ export const CODE_BUDDY = defineBuddyPersona({
     assessmentFeature,
     questionSetsFeature,
     mediaPresentationsFeature,
+    htmlWidgetsFeature,
     whiteboardFeature,
   ],
   defaultSurface: "editor",

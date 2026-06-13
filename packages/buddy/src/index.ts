@@ -15,6 +15,7 @@ import { FreeformFigureRoutes } from "./routes"
 import { LearnerRoutes } from "./routes"
 import { MermaidArtifactRoutes } from "./routes"
 import { GlobalRoutes } from "./routes"
+import { HtmlWidgetArtifactRoutes } from "./routes"
 import { McpRoutes } from "./routes"
 import { LocalRuntimeRoutes } from "./routes"
 import { OpenProjectsRoutes } from "./routes"
@@ -116,6 +117,7 @@ api.use("*", async (c, next) => {
 api.route("/figures", FigureRoutes)
 api.route("/freeform-figures", FreeformFigureRoutes)
 api.route("/mermaid-artifacts", MermaidArtifactRoutes)
+api.route("/html-widget-artifacts", HtmlWidgetArtifactRoutes)
 api.route("/question-set-artifacts", QuestionSetArtifactRoutes)
 api.route("/flashcard-decks", FlashcardDeckRoutes)
 api.route("/learner", LearnerRoutes)
