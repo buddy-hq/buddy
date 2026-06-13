@@ -5,20 +5,24 @@ import { language } from "@/context/language"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { stringifyError } from "@/lib/api-client"
 import { workspaceQuestionSetArtifactsQueryOptions } from "@/state/workspace-artifacts-query"
+import {
+  artifactKindFilter,
+  type QuestionSetLibraryArtifact,
+} from "@/components/layout/chat-left-sidebar/library-artifact-selectors"
 import { ToolOutputPanel } from "../../tool-output-panel"
 import type { ToolPartProps } from "../../registry"
 import { readString } from "../../types"
 import {
   QuestionSetInlineView,
+  type PublicQuestionSetArtifact,
   type SubmitQuestionSetAttemptOutput,
 } from "../question-set/question-set-inline-view"
 import { TASK_CARD_TRANSITION } from "../task-motion"
 import { useSubagentCardData } from "./task-card-header"
 import { SubagentCard } from "./subagent-card"
 import { parseTaskResultOutput } from "./task-utils"
-import type { QuestionSetArtifactsListResponse } from "@buddy/sdk"
 
-type QuestionSetArtifact = QuestionSetArtifactsListResponse["artifacts"][number]
+type QuestionSetArtifact = QuestionSetLibraryArtifact
 
 function questionCountLabel(count: number): string {
   return language.t(count === 1 ? "chatTools.questionCount.one" : "chatTools.questionCount.other", {
@@ -45,7 +49,8 @@ function QuestionSetArtifactTaskPreview(props: {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-text-strong">{props.artifact.title}</p>
           <p className="mt-0.5 text-xs text-text-weak">
-            {props.artifact.groupType} · {questionCountLabel(props.artifact.questions.length)}
+            {props.artifact.summary.groupType} ·{" "}
+            {questionCountLabel(props.artifact.summary.questionCount)}
           </p>
         </div>
         <div className="shrink-0 rounded bg-surface-base px-3 py-1.5 text-xs font-medium text-text-strong">
@@ -73,7 +78,8 @@ export function QuestionSetAuthorTaskCard({
   } = useSubagentCardData({ state, onOpenSession, directory })
   const output = state.output || (state.error ?? "")
   const taskResultOutput = parseTaskResultOutput(output)
-  const [openArtifact, setOpenArtifact] = useState<QuestionSetArtifact | undefined>(undefined)
+  const [openArtifact, setOpenArtifact] = useState<PublicQuestionSetArtifact | undefined>(undefined)
+  const [openArtifactError, setOpenArtifactError] = useState<string | undefined>(undefined)
 
   const childSessionID = readString(state.metadata.sessionId)
   const artifactsQuery = useQuery({
@@ -82,12 +88,27 @@ export function QuestionSetAuthorTaskCard({
   })
 
   const items = useMemo(() => {
-    const artifacts = artifactsQuery.data?.artifacts ?? []
+    const artifacts = (artifactsQuery.data?.artifacts ?? []).filter(
+      artifactKindFilter("question-set"),
+    )
     if (!childSessionID) return []
     return artifacts
-      .filter((artifact) => artifact.createdBy.sessionID === childSessionID)
+      .filter((artifact) => artifact.origin?.sessionID === childSessionID)
       .toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))
   }, [artifactsQuery.data, childSessionID])
+
+  async function handleOpenArtifact(artifact: QuestionSetArtifact) {
+    if (!directory) return
+    setOpenArtifactError(undefined)
+    try {
+      const response = await getBuddyClient(directory).questionSet.read({
+        artifactID: artifact.artifactID,
+      })
+      setOpenArtifact(requireBuddyData(response))
+    } catch (error) {
+      setOpenArtifactError(stringifyError(error))
+    }
+  }
 
   const error = state.status === "error" ? taskResultOutput || undefined : undefined
   const showCompletedBody = state.status === "completed"
@@ -121,12 +142,14 @@ export function QuestionSetAuthorTaskCard({
           <AnimatePresence mode="popLayout">
             {items.map((artifact) => (
               <div key={artifact.artifactID}>
-                <QuestionSetArtifactTaskPreview
-                  artifact={artifact}
-                  onOpenArtifact={setOpenArtifact}
-                />
-              </div>
-            ))}
+                  <QuestionSetArtifactTaskPreview
+                    artifact={artifact}
+                    onOpenArtifact={(targetArtifact) => {
+                      void handleOpenArtifact(targetArtifact)
+                    }}
+                  />
+                </div>
+              ))}
           </AnimatePresence>
           {!artifactsQuery.isPending && items.length === 0 && taskResultOutput.length > 0 ? (
             <div className="px-3 py-2.5">
@@ -143,6 +166,16 @@ export function QuestionSetAuthorTaskCard({
               {stringifyError(artifactsQuery.error)}
             </motion.p>
           ) : null}
+          {openArtifactError ? (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={TASK_CARD_TRANSITION}
+              className="text-xs text-icon-critical-base px-3 py-2.5"
+            >
+              {openArtifactError}
+            </motion.p>
+          ) : null}
           {openArtifact && directory ? (
             <QuestionSetInlineView
               artifact={openArtifact}
@@ -154,7 +187,7 @@ export function QuestionSetAuthorTaskCard({
               }}
               onSubmit={async (answers) => {
                 const response: SubmitQuestionSetAttemptOutput = requireBuddyData(
-                  await getBuddyClient(directory).questionSetArtifacts.submitAttempt({
+                  await getBuddyClient(directory).questionSet.submitAttempt({
                     artifactID: openArtifact.artifactID,
                     answers: openArtifact.questions.map((question) => ({
                       questionID: question.id,

@@ -118,14 +118,14 @@ function parseRenderMermaidReference(
   }
 
   const value = isRecord(state.metadata.value) ? state.metadata.value : undefined
-  if (!value || readNonEmptyString(value.kind) !== "mermaid.v2") {
+  if (!value || readNonEmptyString(value.kind) !== "mermaid") {
     return undefined
   }
 
   const artifactID = readNonEmptyString(value.artifactID)
   const artifactUrl =
     readNonEmptyString(value.artifactUrl) ??
-    `/api/mermaid-artifacts/${artifactID ?? language.t("rightSidebar.snapshot.unknown")}`
+    `/api/artifacts/mermaid/${artifactID ?? language.t("rightSidebar.snapshot.unknown")}`
   const diagramType =
     readNonEmptyString(value.diagramType) ?? language.t("chatTools.defaultMermaidType")
   const alt = readNonEmptyString(value.alt) ?? language.t("chatTools.defaultMermaidAlt")

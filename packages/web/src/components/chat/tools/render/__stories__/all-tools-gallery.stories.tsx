@@ -608,7 +608,7 @@ function buildSections(): GallerySection[] {
             metadata: {
               artifact: "RenderFigureOutput",
               value: {
-                figureID: "fig-001",
+                artifactID: "fig-001",
                 mime: "image/svg+xml",
                 url: "https://placehold.co/400x200/svg",
                 alt: "Bar chart showing student scores",
@@ -630,7 +630,7 @@ function buildSections(): GallerySection[] {
             metadata: {
               artifact: "RenderFigureOutput",
               value: {
-                figureID: "fig-002",
+                artifactID: "fig-002",
                 mime: "image/svg+xml",
                 url: "https://placehold.co/400x200/svg",
                 alt: "Pie chart of grade distribution",

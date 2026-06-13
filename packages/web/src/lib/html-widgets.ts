@@ -1,26 +1,22 @@
-import type {
-  HtmlWidgetArtifactsListResponse,
-  HtmlWidgetArtifactsReadResponse,
-} from "@buddy/sdk/types"
+import type { HtmlWidgetReadResponse } from "@buddy/sdk/types"
 import { getBuddyClient, requireBuddyData } from "./buddy-client"
 
-export type HtmlWidgetArtifact = HtmlWidgetArtifactsReadResponse
-export type HtmlWidgetToolOutput = Pick<
-  HtmlWidgetArtifact,
-  | "widgetID"
-  | "kind"
-  | "title"
-  | "description"
-  | "viewport"
-  | "runtimeUrl"
-  | "sourceUrl"
-  | "sourceHash"
-  | "sourcePath"
-  | "warnings"
->
-export type HtmlWidgetViewport = HtmlWidgetArtifact["viewport"]
+export type HtmlWidgetArtifact = HtmlWidgetReadResponse
+export type HtmlWidgetViewport = HtmlWidgetArtifact["summary"]["viewport"]
 export type HtmlWidgetViewportPreset = HtmlWidgetViewport["preset"]
-export type HtmlWidgetWarning = HtmlWidgetArtifact["warnings"][number]
+export type HtmlWidgetWarning = HtmlWidgetArtifact["summary"]["warnings"][number]
+export type HtmlWidgetToolOutput = {
+  artifactID: string
+  kind: "html-widget"
+  title: string
+  description?: string
+  viewport: HtmlWidgetViewport
+  runtimeUrl: string
+  sourceUrl: string
+  sourceHash: string
+  sourcePath?: string
+  warnings: HtmlWidgetWarning[]
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -102,8 +98,8 @@ function readHtmlWidgetWarnings(value: unknown): HtmlWidgetWarning[] | undefined
 export function readHtmlWidgetOutputValue(value: unknown): HtmlWidgetToolOutput | undefined {
   if (!isRecord(value)) return undefined
 
-  const widgetID = readNonEmptyString(value.widgetID)
-  const kind = value.kind === "html.widget.v1" ? "html.widget.v1" : undefined
+  const artifactID = readNonEmptyString(value.artifactID)
+  const kind = value.kind === "html-widget" ? "html-widget" : undefined
   const title = readNonEmptyString(value.title)
   const description = readNonEmptyString(value.description)
   const viewport = readHtmlWidgetViewport(value.viewport)
@@ -113,7 +109,7 @@ export function readHtmlWidgetOutputValue(value: unknown): HtmlWidgetToolOutput 
   const sourcePath = readNonEmptyString(value.sourcePath)
   const warnings = readHtmlWidgetWarnings(value.warnings)
 
-  if (!widgetID || !kind || !title || !viewport || !runtimeUrl || !sourceUrl || !sourceHash) {
+  if (!artifactID || !kind || !title || !viewport || !runtimeUrl || !sourceUrl || !sourceHash) {
     return undefined
   }
   if (!warnings) {
@@ -121,7 +117,7 @@ export function readHtmlWidgetOutputValue(value: unknown): HtmlWidgetToolOutput 
   }
 
   return {
-    widgetID,
+    artifactID,
     kind,
     title,
     ...(description ? { description } : {}),
@@ -146,24 +142,14 @@ export function formatHtmlWidgetViewport(viewport: HtmlWidgetViewport): string {
   return `${viewport.label} · ${viewport.width}x${viewport.height}`
 }
 
-export async function loadWorkspaceHtmlWidgets(
-  directory: string,
-): Promise<HtmlWidgetArtifactsListResponse> {
-  return requireBuddyData(
-    await getBuddyClient(directory).htmlWidgetArtifacts.list({
-      directory,
-    }),
-  )
-}
-
 export async function readHtmlWidgetSource(input: {
   directory: string
-  widgetID: string
+  artifactID: string
 }): Promise<string> {
   const response = requireBuddyData(
-    await getBuddyClient(input.directory).htmlWidgetArtifacts.source({
+    await getBuddyClient(input.directory).htmlWidget.source({
       directory: input.directory,
-      widgetID: input.widgetID,
+      artifactID: input.artifactID,
     }),
   )
   return response.source

@@ -12,14 +12,15 @@ import {
   type FlashcardDueCounts,
 } from "@/lib/flashcard"
 import type {
-  FlashcardDecksReadResponse,
-  FlashcardDecksNextCardResponse,
-  FlashcardDecksSubmitReviewResponse,
+  FlashcardDeckReadResponse,
+  FlashcardDeckNextCardResponse,
+  FlashcardDeckSubmitReviewResponse,
 } from "@buddy/sdk/types"
 import {
   workspaceArtifactsQueryKeys,
   workspaceFlashcardDecksQueryOptions,
 } from "@/state/workspace-artifacts-query"
+import { artifactKindFilter } from "@/components/layout/chat-left-sidebar/library-artifact-selectors"
 import { FlashcardCardDisplay } from "@/components/flashcard/flashcard-card-display"
 import { FlashcardReviewRatings } from "@/components/flashcard/flashcard-review-ratings"
 import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
@@ -37,7 +38,7 @@ type CardRating = "again" | "hard" | "good" | "easy"
 type ReviewPhase =
   | { kind: "loading" }
   | { kind: "no-due" }
-  | { kind: "card"; card: FlashcardDecksNextCardResponse["card"] & {} }
+  | { kind: "card"; card: FlashcardDeckNextCardResponse["card"] & {} }
   | { kind: "complete" }
   | { kind: "error"; message: string }
 
@@ -67,8 +68,8 @@ function formatTimestamp(value: string): string {
   return parsed.toLocaleString()
 }
 
-function findNote(deck: FlashcardDecksReadResponse, noteID: string) {
-  return deck.notes.find((n: FlashcardDecksReadResponse["notes"][number]) => n.noteID === noteID)
+function findNote(deck: FlashcardDeckReadResponse, noteID: string) {
+  return deck.notes.find((n: FlashcardDeckReadResponse["notes"][number]) => n.noteID === noteID)
 }
 
 // ---------------------------------------------------------------------------
@@ -112,15 +113,17 @@ export function DueCountsBadges(props: { dueCounts: FlashcardDueCounts }) {
 
 function ReviewSession(props: {
   directory: string
-  deckID: string
+  artifactID: string
   deckTitle: string
   onBack: () => void
 }) {
-  const { directory, deckID, deckTitle, onBack } = props
+  const { directory, artifactID, deckTitle, onBack } = props
   const queryClient = useQueryClient()
   const decksQuery = useQuery(workspaceFlashcardDecksQueryOptions(directory))
-  const liveDeck = decksQuery.data?.decks.find((d) => d.deckID === deckID)
-  const [deck, setDeck] = useState<FlashcardDecksReadResponse | null>(null)
+  const liveDeck = decksQuery.data?.artifacts
+    .filter(artifactKindFilter("flashcard-deck"))
+    .find((d) => d.artifactID === artifactID)
+  const [deck, setDeck] = useState<FlashcardDeckReadResponse | null>(null)
   const [phase, setPhase] = useState<ReviewPhase>({ kind: "loading" })
   const [revealed, setRevealed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -133,11 +136,11 @@ function ReviewSession(props: {
   const cardStartTimeRef = useRef(Date.now())
 
   const fetchNextCard = useCallback(
-    async (deckData: FlashcardDecksReadResponse): Promise<void> => {
+    async (): Promise<void> => {
       try {
         const client = getBuddyClient(directory)
         const response = requireBuddyData(
-          await client.flashcardDecks.nextCard({ deckID: deckData.deckID }),
+          await client.flashcardDeck.nextCard({ artifactID }),
         )
         if (response.card === null) {
           setPhase(cardsReviewedRef.current > 0 ? { kind: "complete" } : { kind: "no-due" })
@@ -153,7 +156,7 @@ function ReviewSession(props: {
         setPhase({ kind: "error", message: err instanceof Error ? err.message : String(err) })
       }
     },
-    [directory],
+    [artifactID, directory],
   )
 
   // Initial load: fetch full deck, then first card
@@ -163,10 +166,10 @@ function ReviewSession(props: {
     async function init() {
       try {
         const client = getBuddyClient(directory)
-        const deckData = requireBuddyData(await client.flashcardDecks.read({ deckID }))
+        const deckData = requireBuddyData(await client.flashcardDeck.read({ artifactID }))
         if (cancelled) return
         setDeck(deckData)
-        await fetchNextCard(deckData)
+        await fetchNextCard()
       } catch (err) {
         if (cancelled) return
         setPhase({ kind: "error", message: err instanceof Error ? err.message : String(err) })
@@ -177,7 +180,7 @@ function ReviewSession(props: {
     return () => {
       cancelled = true
     }
-  }, [directory, deckID, fetchNextCard])
+  }, [directory, artifactID, fetchNextCard])
 
   const handleRate = useCallback(
     async (rating: CardRating) => {
@@ -192,9 +195,9 @@ function ReviewSession(props: {
 
       try {
         const client = getBuddyClient(directory)
-        const result: FlashcardDecksSubmitReviewResponse = requireBuddyData(
-          await client.flashcardDecks.submitReview({
-            deckID,
+        const result: FlashcardDeckSubmitReviewResponse = requireBuddyData(
+          await client.flashcardDeck.submitReview({
+            artifactID,
             cardID: phase.card.cardID,
             rating,
             timeTakenMs,
@@ -213,7 +216,7 @@ function ReviewSession(props: {
           await new Promise((resolve) => setTimeout(resolve, 1500))
         }
 
-        await fetchNextCard(deck)
+        await fetchNextCard()
         void queryClient.invalidateQueries({
           queryKey: workspaceArtifactsQueryKeys.flashcard(directory),
         })
@@ -223,7 +226,7 @@ function ReviewSession(props: {
         setPhase({ kind: "error", message: err instanceof Error ? err.message : String(err) })
       }
     },
-    [phase, deck, submitting, directory, deckID, fetchNextCard, queryClient],
+    [phase, deck, submitting, directory, artifactID, fetchNextCard, queryClient],
   )
 
   const handleToggleReveal = useCallback(() => {
@@ -319,7 +322,7 @@ function ReviewSession(props: {
         <div className="text-[11px] font-medium text-text-weak">
           Reviewed: <span className="text-text-base">{cardsReviewed}</span>
         </div>
-        {liveDeck ? <DueCountsBadges dueCounts={liveDeck.dueCounts} /> : null}
+        {liveDeck ? <DueCountsBadges dueCounts={liveDeck.summary.dueCounts} /> : null}
       </div>
       <div className="flex flex-1 flex-col justify-between overflow-hidden">
         <div className="flex flex-1 items-center justify-center p-6 perspective-[1000px]">
@@ -376,13 +379,13 @@ function ReviewSession(props: {
 export function WorkspaceFlashcardPanel(props: { directory: string }) {
   const queryClient = useQueryClient()
   const decksQuery = useQuery(workspaceFlashcardDecksQueryOptions(props.directory))
-  const decks = decksQuery.data?.decks ?? []
+  const decks = (decksQuery.data?.artifacts ?? []).filter(artifactKindFilter("flashcard-deck"))
   const loadErrors = decksQuery.data?.loadErrors ?? []
   const loading = decksQuery.isPending
   const error = decksQuery.error ? stringifyError(decksQuery.error) : undefined
 
   const [reviewDeck, setReviewDeck] = useState<{
-    deckID: string
+    artifactID: string
     title: string
   } | null>(null)
 
@@ -405,7 +408,7 @@ export function WorkspaceFlashcardPanel(props: { directory: string }) {
       <div data-component="workspace-flashcard-panel" className="flex min-h-0 flex-1 flex-col">
         <ReviewSession
           directory={props.directory}
-          deckID={reviewDeck.deckID}
+          artifactID={reviewDeck.artifactID}
           deckTitle={reviewDeck.title}
           onBack={handleBack}
         />
@@ -437,15 +440,15 @@ export function WorkspaceFlashcardPanel(props: { directory: string }) {
       {decks.length > 0 ? (
         <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto space-y-3">
           {decks.map((deck) => {
-            const reviewAvailable = isFlashcardReviewAvailable(deck)
+            const reviewAvailable = isFlashcardReviewAvailable(deck.summary)
             return (
               <Card
-                key={deck.deckID}
+                key={deck.artifactID}
                 size="sm"
                 className={`gap-0 overflow-hidden border-border-base/60 bg-surface-raised-base/70 transition-colors ${reviewAvailable ? "cursor-pointer hover:border-border-interactive-base/60 hover:bg-surface-raised-base" : ""}`}
                 onClick={
                   reviewAvailable
-                    ? () => setReviewDeck({ deckID: deck.deckID, title: deck.title })
+                    ? () => setReviewDeck({ artifactID: deck.artifactID, title: deck.title })
                     : undefined
                 }
               >
@@ -454,13 +457,13 @@ export function WorkspaceFlashcardPanel(props: { directory: string }) {
                     <p className="text-sm font-medium text-text-base">{deck.title}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-text-weak">
-                    <span>{noteCountLabel(deck.noteCount)}</span>
+                    <span>{noteCountLabel(deck.summary.noteCount)}</span>
                     <span className="text-text-weaker">·</span>
-                    <span>{cardCountLabel(deck.cardCount)}</span>
+                    <span>{cardCountLabel(deck.summary.cardCount)}</span>
                     <span className="text-text-weaker">·</span>
                     <span>{formatTimestamp(deck.createdAt)}</span>
                   </div>
-                  <DueCountsBadges dueCounts={deck.dueCounts} />
+                  <DueCountsBadges dueCounts={deck.summary.dueCounts} />
                 </CardContent>
               </Card>
             )
@@ -476,7 +479,7 @@ export function WorkspaceFlashcardPanel(props: { directory: string }) {
 
       {loadErrors.map((loadError) => (
         <p
-          key={`${loadError.deckID}:${loadError.message}`}
+          key={`${loadError.artifactID}:${loadError.message}`}
           className="mt-2 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base"
         >
           {loadError.message}

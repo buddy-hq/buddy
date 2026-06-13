@@ -17,15 +17,105 @@ import {
   VIRTUAL_MERMAID_MIN_ITEMS,
   VIRTUAL_MERMAID_OVERSCAN,
 } from "@/components/virtualization/virtualization-defaults"
-import type { WorkspaceMermaidArtifactView } from "@/state/chat-actions"
 import {
   workspaceArtifactsQueryKeys,
   workspaceMermaidArtifactsQueryOptions,
 } from "@/state/workspace-artifacts-query"
+import {
+  artifactKindFilter,
+  type MermaidLibraryArtifact,
+} from "@/components/layout/chat-left-sidebar/library-artifact-selectors"
 import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
+import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 
 const MERMAID_CARD_CONTENT_HEIGHT_CLASS = "aspect-video min-h-[18rem] w-full"
 const MERMAID_CARD_GAP_PX = 16
+
+function MermaidArtifactPlaceholderCard(props: { artifact: MermaidLibraryArtifact }) {
+  return (
+    <MermaidToolCard
+      title={props.artifact.summary.alt}
+      diagramType={props.artifact.summary.diagramType}
+      hideStatus
+      contentClassName={MERMAID_CARD_CONTENT_HEIGHT_CLASS}
+    >
+      <div className="flex h-full w-full items-center justify-center bg-surface-weak/10 p-3">
+        <div className="space-y-3 text-center">
+          <div className="mx-auto h-12 w-24 animate-pulse rounded-lg border border-border-base/50 bg-surface-raised-base/80 shadow-inner" />
+          <p className="text-sm text-text-weak">
+            {language.t("chatTools.mermaidDiagram.rendering")}
+          </p>
+        </div>
+      </div>
+    </MermaidToolCard>
+  )
+}
+
+function HydratedMermaidArtifactCard(props: {
+  directory: string
+  artifact: MermaidLibraryArtifact
+  enabled: boolean
+}) {
+  const detailQuery = useQuery({
+    queryKey: [
+      "workspace-artifact-detail",
+      "mermaid",
+      props.directory,
+      props.artifact.artifactID,
+    ] as const,
+    queryFn: async () =>
+      requireBuddyData(
+        await getBuddyClient(props.directory).mermaid.read({
+          directory: props.directory,
+          artifactID: props.artifact.artifactID,
+        }),
+      ),
+  })
+
+  if (detailQuery.isPending) {
+    return <MermaidArtifactPlaceholderCard artifact={props.artifact} />
+  }
+
+  if (detailQuery.error || !detailQuery.data) {
+    return (
+      <MermaidToolCard
+        title={props.artifact.summary.alt}
+        diagramType={props.artifact.summary.diagramType}
+        hideStatus
+        contentClassName={MERMAID_CARD_CONTENT_HEIGHT_CLASS}
+      >
+        <div className="flex h-full w-full items-center justify-center bg-surface-critical-base/10 p-4 text-center text-xs text-icon-critical-base">
+          {detailQuery.error ? stringifyError(detailQuery.error) : "Unable to load diagram."}
+        </div>
+      </MermaidToolCard>
+    )
+  }
+
+  return (
+    <MermaidDiagram
+      directory={props.directory}
+      source={detailQuery.data.source}
+      artifactID={props.artifact.artifactID}
+      alt={detailQuery.data.alt}
+      enabled={props.enabled}
+      renderPriority={1}
+      showRawSourceOnError
+      minimalActions
+      disableRevealAnimation
+      renderWrapper={(diagramElement, actions) => (
+        <MermaidToolCard
+          title={detailQuery.data.alt}
+          diagramType={detailQuery.data.diagramType}
+          hideStatus
+          contentClassName={MERMAID_CARD_CONTENT_HEIGHT_CLASS}
+          actions={actions}
+        >
+          <div className="h-full w-full p-3">{diagramElement}</div>
+        </MermaidToolCard>
+      )}
+    />
+  )
+}
 
 function mergeRetainedIndexes(current: number[], next: number[], max: number) {
   const retained = [...current]
@@ -65,7 +155,8 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
   const [visibleIndexes, setVisibleIndexes] = useState<number[]>([])
   const artifactsListRef = useRef<HTMLDivElement>(null)
   const artifactsQuery = useQuery(workspaceMermaidArtifactsQueryOptions(props.directory))
-  const artifacts = artifactsQuery.data?.artifacts ?? []
+  const artifacts = (artifactsQuery.data?.artifacts ?? []).filter(artifactKindFilter("mermaid"))
+  const loadErrors = artifactsQuery.data?.loadErrors ?? []
   const loading = artifactsQuery.isPending
   const error = artifactsQuery.error ? stringifyError(artifactsQuery.error) : undefined
 
@@ -120,51 +211,18 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
   })
 
   function renderArtifactCard(
-    artifact: WorkspaceMermaidArtifactView,
+    artifact: MermaidLibraryArtifact,
     input: { hydrated: boolean; visible: boolean },
   ) {
     if (!input.hydrated) {
-      return (
-        <MermaidToolCard
-          title={artifact.alt}
-          diagramType={artifact.diagramType}
-          hideStatus
-          contentClassName={MERMAID_CARD_CONTENT_HEIGHT_CLASS}
-        >
-          <div className="flex h-full w-full items-center justify-center bg-surface-weak/10 p-3">
-            <div className="space-y-3 text-center">
-              <div className="mx-auto h-12 w-24 animate-pulse rounded-lg border border-border-base/50 bg-surface-raised-base/80 shadow-inner" />
-              <p className="text-sm text-text-weak">
-                {language.t("chatTools.mermaidDiagram.rendering")}
-              </p>
-            </div>
-          </div>
-        </MermaidToolCard>
-      )
+      return <MermaidArtifactPlaceholderCard artifact={artifact} />
     }
 
     return (
-      <MermaidDiagram
+      <HydratedMermaidArtifactCard
         directory={props.directory}
-        source={artifact.source}
-        artifactID={artifact.artifactID}
-        alt={artifact.alt}
+        artifact={artifact}
         enabled={input.visible}
-        renderPriority={1}
-        showRawSourceOnError
-        minimalActions
-        disableRevealAnimation
-        renderWrapper={(diagramElement, actions) => (
-          <MermaidToolCard
-            title={artifact.alt}
-            diagramType={artifact.diagramType}
-            hideStatus
-            contentClassName={MERMAID_CARD_CONTENT_HEIGHT_CLASS}
-            actions={actions}
-          >
-            <div className="h-full w-full p-3">{diagramElement}</div>
-          </MermaidToolCard>
-        )}
       />
     )
   }
@@ -197,7 +255,7 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
         <div className="text-sm text-text-weak">{language.t("workspaceMermaid.loading")}</div>
       ) : null}
 
-      {!loading && artifacts.length === 0 ? (
+      {!loading && artifacts.length === 0 && loadErrors.length === 0 ? (
         <div className="flex w-full min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border-base/40 bg-surface-weak/5 px-4 py-10 text-center">
           <div className="mb-4 flex size-10 items-center justify-center rounded-full bg-surface-weak shadow-sm">
             <LayoutTemplateIcon className="size-4 text-text-weak" />
@@ -256,6 +314,14 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
           {error}
         </p>
       ) : null}
+      {loadErrors.map((loadError) => (
+        <p
+          key={`${loadError.kind}:${loadError.artifactID}:${loadError.message}`}
+          className="mt-2 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base"
+        >
+          {loadError.message}
+        </p>
+      ))}
     </div>
   )
 }

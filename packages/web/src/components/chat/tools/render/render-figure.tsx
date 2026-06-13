@@ -8,7 +8,7 @@ import { getToolInfo } from "../tool-info"
 import { ToolImageGallery, type ToolImageGalleryItem } from "./image-gallery"
 
 type RenderFigureToolOutput = {
-  figureID: string
+  artifactID: string
   mime: "image/svg+xml"
   url: string
   alt: string
@@ -16,46 +16,26 @@ type RenderFigureToolOutput = {
   repairAttempts: number
 }
 
-function readProducerArtifact(
-  state: ToolPartProps["state"],
-): { artifact: string; value: unknown } | undefined {
-  const producerArtifact = isRecord(state.metadata.producerArtifact)
-    ? state.metadata.producerArtifact
-    : undefined
-  const artifact = producerArtifact && readString(producerArtifact.artifact)
-  if (!producerArtifact || !artifact) return undefined
-
-  return {
-    artifact,
-    value: producerArtifact.value,
-  }
-}
-
 export function parseRenderFigureOutput(
   state: ToolPartProps["state"],
 ): RenderFigureToolOutput | undefined {
-  const producerArtifact = readProducerArtifact(state)
-  const artifact = producerArtifact?.artifact ?? readString(state.metadata.artifact)
+  const artifact = readString(state.metadata.artifact)
   if (artifact !== "RenderFigureOutput" && artifact !== "RenderFreeformFigureOutput")
     return undefined
 
-  const value = isRecord(producerArtifact?.value)
-    ? producerArtifact.value
-    : isRecord(state.metadata.value)
-      ? state.metadata.value
-      : undefined
+  const value = isRecord(state.metadata.value) ? state.metadata.value : undefined
   if (!value) return undefined
 
-  const figureID = readNonEmptyString(value.figureID)
+  const artifactID = readNonEmptyString(value.artifactID)
   const mime = value.mime === "image/svg+xml" ? "image/svg+xml" : undefined
   const url = readNonEmptyString(value.url)
   const alt = readNonEmptyString(value.alt)
   const caption = readNonEmptyString(value.caption)
   const repairAttempts = readNonNegativeInt(value.repairAttempts)
 
-  if (!figureID || !mime || !url || !alt || repairAttempts === undefined) return undefined
+  if (!artifactID || !mime || !url || !alt || repairAttempts === undefined) return undefined
 
-  return { figureID, mime, url, alt, caption, repairAttempts }
+  return { artifactID, mime, url, alt, caption, repairAttempts }
 }
 
 function figureGalleryItem(input: {

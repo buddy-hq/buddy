@@ -10,6 +10,7 @@ import {
   AppWindowIcon,
   FileTextIcon,
   HelpCircleIcon,
+  ImageIcon,
   LayoutTemplateIcon,
   Layers2Icon,
   Loader2Icon,
@@ -17,10 +18,6 @@ import {
   UploadIcon,
 } from "lucide-react"
 import { Button, FolderIcon, Skeleton } from "@buddy/ui"
-import type {
-  HtmlWidgetArtifactsListResponse,
-  QuestionSetArtifactsListResponse,
-} from "@buddy/sdk/types"
 import buddyStateEmptyBooksUrl from "../../../../../../assets/mascot/buddy-state-empty-books.png"
 import buddyStateEmptyDiagramsUrl from "../../../../../../assets/mascot/buddy-state-empty-diagrams.png"
 import buddyStateEmptyExercisesUrl from "../../../../../../assets/mascot/buddy-state-empty-exercises.png"
@@ -46,6 +43,7 @@ import {
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 import {
   workspaceArtifactsQueryKeys,
+  workspaceArtifactsQueryOptions,
   workspaceFlashcardDecksQueryOptions,
   workspaceHtmlWidgetsQueryOptions,
   workspaceMermaidArtifactsQueryOptions,
@@ -66,6 +64,7 @@ import {
   buildQuestionMarkdownCacheKey,
 } from "@/components/chat/tools/render/question-set/question-markdown"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
+import { resolveAssetUrl } from "@/lib/resource-url"
 import {
   ResourceCardGrid,
   type ResourceCardTarget,
@@ -76,17 +75,32 @@ import {
 import { formatHtmlWidgetViewport } from "@/lib/html-widgets"
 import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
 import { getFilename } from "../sidebar-helpers"
+import {
+  MEDIA_LIBRARY_KINDS,
+  availableMediaPresentationItems,
+  countMediaArtifactsByDirectory,
+  mediaArtifactSubtitle,
+  selectFlashcardDeckArtifacts,
+  selectHtmlWidgetArtifacts,
+  selectMediaLibraryArtifacts,
+  selectMermaidArtifacts,
+  selectQuestionSetArtifacts,
+  type HtmlWidgetLibraryArtifact,
+  type MediaLibraryArtifact,
+  type MermaidLibraryArtifact,
+  type QuestionSetLibraryArtifact,
+} from "./library-artifact-selectors"
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type LibraryTab = "resources" | "flashcards" | "question-sets" | "widgets" | "diagrams"
+type LibraryTab = "resources" | "flashcards" | "question-sets" | "widgets" | "diagrams" | "media"
 
 export type LibraryPanelResourceTarget = ResourceCardTarget
 
-type QuestionSetArtifactListItem = QuestionSetArtifactsListResponse["artifacts"][number]
-type HtmlWidgetArtifactListItem = HtmlWidgetArtifactsListResponse["widgets"][number]
+type QuestionSetArtifactListItem = QuestionSetLibraryArtifact
+type HtmlWidgetArtifactListItem = HtmlWidgetLibraryArtifact
 
 type LibraryPanelProps = {
   directories: string[]
@@ -112,6 +126,7 @@ const EMPTY_STATE_IMAGE_GC_TIME_MS = 24 * 60 * 60 * 1000
 const MULTI_NOTEBOOK_BATCH_SIZE = 5
 const MULTI_NOTEBOOK_ROW_PREVIEW_COUNT = 2
 const HTML_WIDGET_ROW_PREVIEW_COUNT = 4
+const MEDIA_ROW_PREVIEW_COUNT = 4
 const RESOURCE_PREVIEW_ROW_COUNT = 2
 const MERMAID_EAGER_HYDRATION_COUNT = 2
 const MERMAID_HYDRATION_ROOT_MARGIN = "320px 0px"
@@ -134,7 +149,6 @@ const URI_LIST_MIME_TYPE = "text/uri-list"
 const PLAIN_TEXT_MIME_TYPE = "text/plain"
 const RESOURCE_DROP_PATH_UNAVAILABLE_ERROR_MESSAGE =
   "Couldn't read dropped file path. Use Add resource to select the file."
-
 const EMPTY_STATE_MASCOT_URLS = [
   buddyStateEmptyBooksUrl,
   buddyStateEmptyFlashcardsUrl,
@@ -148,6 +162,7 @@ const LIBRARY_TABS: { tab: LibraryTab; labelKey: string }[] = [
   { tab: "question-sets", labelKey: "sidebar.libraryTabQuestionSets" },
   { tab: "widgets", labelKey: "sidebar.libraryTabWidgets" },
   { tab: "diagrams", labelKey: "sidebar.libraryTabDiagrams" },
+  { tab: "media", labelKey: "sidebar.libraryTabMedia" },
 ]
 
 // ---------------------------------------------------------------------------
@@ -1039,12 +1054,12 @@ function FlashcardNotebookShelf(props: {
     ...workspaceFlashcardDecksQueryOptions(directory),
     refetchOnMount: false,
   })
-  const decks = decksQuery.data?.decks ?? []
+  const decks = selectFlashcardDeckArtifacts(decksQuery)
   const loadErrors = decksQuery.data?.loadErrors ?? []
   const loading = decksQuery.isPending
   const error = decksQuery.error ? stringifyError(decksQuery.error) : undefined
   const label = getFilename(directory)
-  const [reviewDeck, setReviewDeck] = useState<{ deckID: string; title: string } | null>(null)
+  const [reviewDeck, setReviewDeck] = useState<{ artifactID: string; title: string } | null>(null)
   useInvalidateQueryOnChatIdle({
     directory,
     queryKey: workspaceArtifactsQueryKeys.flashcard(directory),
@@ -1079,7 +1094,7 @@ function FlashcardNotebookShelf(props: {
           {loading
             ? Array.from({ length: 2 }, (_, index) => <ShelfRowSkeleton key={index} />)
             : visibleDecks.map((deck) => {
-                const reviewAvailable = isFlashcardReviewAvailable(deck)
+                const reviewAvailable = isFlashcardReviewAvailable(deck.summary)
                 const content = (
                   <>
                     <div className="flex items-start justify-between gap-2">
@@ -1088,19 +1103,19 @@ function FlashcardNotebookShelf(props: {
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-weak">
                           <span>
                             {language.t(
-                              deck.noteCount === 1
+                              deck.summary.noteCount === 1
                                 ? "workspaceFlashcard.noteCount.one"
                                 : "workspaceFlashcard.noteCount.other",
-                              { count: deck.noteCount },
+                              { count: deck.summary.noteCount },
                             )}
                           </span>
                           <span className="text-text-weaker">&middot;</span>
                           <span>
                             {language.t(
-                              deck.cardCount === 1
+                              deck.summary.cardCount === 1
                                 ? "workspaceFlashcard.cardCount.one"
                                 : "workspaceFlashcard.cardCount.other",
-                              { count: deck.cardCount },
+                              { count: deck.summary.cardCount },
                             )}
                           </span>
                         </div>
@@ -1108,23 +1123,25 @@ function FlashcardNotebookShelf(props: {
                       <Layers2Icon className="mt-0.5 size-4 shrink-0 text-text-weaker" />
                     </div>
                     <div className="mt-2">
-                      <FlashcardDueBadges dueCounts={deck.dueCounts} />
+                      <FlashcardDueBadges dueCounts={deck.summary.dueCounts} />
                     </div>
                   </>
                 )
 
                 return reviewAvailable ? (
                   <button
-                    key={deck.deckID}
+                    key={deck.artifactID}
                     type="button"
-                    onClick={() => setReviewDeck({ deckID: deck.deckID, title: deck.title })}
+                    onClick={() =>
+                      setReviewDeck({ artifactID: deck.artifactID, title: deck.title })
+                    }
                     className="w-full rounded-lg border border-border-weaker-base bg-surface-base p-3 text-left shadow-sm transition-colors hover:border-border-hover hover:bg-surface-raised-base"
                   >
                     {content}
                   </button>
                 ) : (
                   <div
-                    key={deck.deckID}
+                    key={deck.artifactID}
                     className="rounded-lg border border-border-weaker-base bg-surface-base p-3 shadow-sm"
                   >
                     {content}
@@ -1137,7 +1154,7 @@ function FlashcardNotebookShelf(props: {
           {error ? <NotebookShelfError message={error} /> : null}
           {loadErrors.map((loadError) => (
             <NotebookShelfError
-              key={`${loadError.deckID}:${loadError.message}`}
+              key={`${loadError.artifactID}:${loadError.message}`}
               message={loadError.message}
             />
           ))}
@@ -1156,7 +1173,7 @@ function FlashcardNotebookShelf(props: {
             }
           }}
           directory={directory}
-          deckID={reviewDeck.deckID}
+          artifactID={reviewDeck.artifactID}
           deckTitle={reviewDeck.title}
         />
       ) : null}
@@ -1172,7 +1189,10 @@ function FlashcardsTab({ directories }: { directories: string[] }) {
 
   const allLoading = shelfQueries.every((query) => query.isPending)
   const showLoadingState = useDelayedPending(allLoading)
-  const totalDecks = shelfQueries.reduce((sum, query) => sum + (query.data?.decks.length ?? 0), 0)
+  const totalDecks = shelfQueries.reduce(
+    (sum, query) => sum + selectFlashcardDeckArtifacts(query).length,
+    0,
+  )
   const allLoaded = shelfQueries.every((query) => !query.isPending)
   const loadError = shelfQueries.find((query) => query.error)?.error
   const showNotebookHeaders = directories.length > 1
@@ -1184,7 +1204,7 @@ function FlashcardsTab({ directories }: { directories: string[] }) {
         return false
       }
 
-      return (query.data?.decks.length ?? 0) === 0
+      return selectFlashcardDeckArtifacts(query).length === 0
     },
   })
 
@@ -1293,7 +1313,7 @@ function LibraryQuestionSetCard(props: {
     setLoading(true)
     setLoadError(undefined)
     try {
-      const fetched = await getBuddyClient(props.directory).questionSetArtifacts.read({
+      const fetched = await getBuddyClient(props.directory).questionSet.read({
         artifactID: props.artifactStub.artifactID,
       })
 
@@ -1336,10 +1356,10 @@ function LibraryQuestionSetCard(props: {
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-weak">
               <span>
                 {language.t(
-                  props.artifactStub.questions.length === 1
+                  props.artifactStub.summary.questionCount === 1
                     ? "chatTools.questionCount.one"
                     : "chatTools.questionCount.other",
-                  { count: props.artifactStub.questions.length },
+                  { count: props.artifactStub.summary.questionCount },
                 )}
               </span>
               <span className="text-text-weaker">&middot;</span>
@@ -1361,7 +1381,7 @@ function LibraryQuestionSetCard(props: {
           onSubmit={async (answers) => {
             const response = await getBuddyClient(
               props.directory,
-            ).questionSetArtifacts.submitAttempt({
+            ).questionSet.submitAttempt({
               artifactID: artifact.artifactID,
               answers: artifact.questions.map((question) => ({
                 questionID: question.id,
@@ -1387,7 +1407,7 @@ function QuestionSetNotebookShelf(props: {
     ...workspaceQuestionSetArtifactsQueryOptions(directory),
     refetchOnMount: false,
   })
-  const sets = setsQuery.data?.artifacts ?? []
+  const sets = selectQuestionSetArtifacts(setsQuery)
   const loadErrors = setsQuery.data?.loadErrors ?? []
   const loading = setsQuery.isPending
   const error = setsQuery.error ? stringifyError(setsQuery.error) : undefined
@@ -1467,7 +1487,7 @@ function QuestionSetsTab(props: {
   const allLoading = shelfQueries.every((query) => query.isPending)
   const showLoadingState = useDelayedPending(allLoading)
   const totalSets = shelfQueries.reduce(
-    (sum, query) => sum + (query.data?.artifacts.length ?? 0),
+    (sum, query) => sum + selectQuestionSetArtifacts(query).length,
     0,
   )
   const allLoaded = shelfQueries.every((query) => !query.isPending)
@@ -1481,7 +1501,7 @@ function QuestionSetsTab(props: {
         return false
       }
 
-      return (query.data?.artifacts.length ?? 0) === 0
+      return selectQuestionSetArtifacts(query).length === 0
     },
   })
 
@@ -1570,8 +1590,20 @@ function QuestionSetsTab(props: {
 
 function HtmlWidgetArtifactRow(props: { widget: HtmlWidgetArtifactListItem }) {
   const [fullscreenOpen, setFullscreenOpen] = useState(false)
-  const subtitle = props.widget.description ?? props.widget.sourcePath
-  const viewportLabel = formatHtmlWidgetViewport(props.widget.viewport)
+  const displayWidget = {
+    artifactID: props.widget.artifactID,
+    kind: props.widget.kind,
+    title: props.widget.title,
+    ...(props.widget.description ? { description: props.widget.description } : {}),
+    viewport: props.widget.summary.viewport,
+    runtimeUrl: props.widget.summary.runtimeUrl,
+    sourceUrl: props.widget.summary.sourceUrl,
+    sourceHash: props.widget.sourceHash ?? "",
+    ...(props.widget.summary.sourcePath ? { sourcePath: props.widget.summary.sourcePath } : {}),
+    warnings: [],
+  }
+  const subtitle = props.widget.description ?? props.widget.summary.sourcePath
+  const viewportLabel = formatHtmlWidgetViewport(props.widget.summary.viewport)
 
   return (
     <>
@@ -1596,7 +1628,7 @@ function HtmlWidgetArtifactRow(props: { widget: HtmlWidgetArtifactListItem }) {
         </span>
       </button>
       <HtmlWidgetFullscreenDialog
-        widget={props.widget}
+        widget={displayWidget}
         open={fullscreenOpen}
         onOpenChange={setFullscreenOpen}
       />
@@ -1612,7 +1644,8 @@ function HtmlWidgetsNotebookShelf(props: {
 }) {
   const { directory, showHeader, pageSize, emptyMessage } = props
   const widgetsQuery = useQuery(workspaceHtmlWidgetsQueryOptions(directory))
-  const widgets = widgetsQuery.data?.widgets ?? []
+  const widgets = selectHtmlWidgetArtifacts(widgetsQuery)
+  const loadErrors = widgetsQuery.data?.loadErrors ?? []
   const loading = widgetsQuery.isPending
   const error = widgetsQuery.error ? stringifyError(widgetsQuery.error) : undefined
   const label = getFilename(directory)
@@ -1626,7 +1659,7 @@ function HtmlWidgetsNotebookShelf(props: {
   )
   const visibleWidgets = widgets.slice(0, visibleCount)
 
-  if (!loading && widgets.length === 0 && !error) {
+  if (!loading && widgets.length === 0 && loadErrors.length === 0 && !error) {
     if (!emptyMessage) {
       return null
     }
@@ -1649,12 +1682,18 @@ function HtmlWidgetsNotebookShelf(props: {
         {loading
           ? Array.from({ length: 3 }, (_, index) => <ShelfRowSkeleton key={index} />)
           : visibleWidgets.map((widget) => (
-              <HtmlWidgetArtifactRow key={widget.widgetID} widget={widget} />
+              <HtmlWidgetArtifactRow key={widget.artifactID} widget={widget} />
             ))}
         {!loading && canShowMore ? (
           <ShelfShowMoreButton count={nextBatchCount} onClick={showMore} />
         ) : null}
         {error ? <NotebookShelfError message={error} /> : null}
+        {loadErrors.map((loadError) => (
+          <NotebookShelfError
+            key={`${loadError.artifactID}:${loadError.message}`}
+            message={loadError.message}
+          />
+        ))}
       </div>
     </div>
   )
@@ -1669,7 +1708,7 @@ function WidgetsTab(props: { directories: string[] }) {
   const allLoading = shelfQueries.every((query) => query.isPending)
   const showLoadingState = useDelayedPending(allLoading)
   const totalWidgets = shelfQueries.reduce(
-    (sum, query) => sum + (query.data?.widgets.length ?? 0),
+    (sum, query) => sum + selectHtmlWidgetArtifacts(query).length,
     0,
   )
   const allLoaded = shelfQueries.every((query) => !query.isPending)
@@ -1683,7 +1722,7 @@ function WidgetsTab(props: { directories: string[] }) {
         return false
       }
 
-      return (query.data?.widgets.length ?? 0) === 0
+      return selectHtmlWidgetArtifacts(query).length === 0
     },
   })
 
@@ -1766,6 +1805,248 @@ function WidgetsTab(props: { directories: string[] }) {
 }
 
 // ---------------------------------------------------------------------------
+// Media shelf
+// ---------------------------------------------------------------------------
+
+function MediaArtifactRow(props: { artifact: MediaLibraryArtifact; directory: string }) {
+  if (props.artifact.kind === "figure" || props.artifact.kind === "freeform-figure") {
+    const rawUrl = `/api/artifacts/${props.artifact.kind}/${encodeURIComponent(props.artifact.artifactID)}/raw?directory=${encodeURIComponent(props.directory)}`
+
+    return (
+      <a
+        href={resolveAssetUrl(rawUrl)}
+        target="_blank"
+        rel="noreferrer"
+        className="flex w-full items-center gap-3 rounded-lg border border-border-base bg-background-base px-3 py-3 text-left shadow-sm transition-colors hover:bg-surface-weak/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base"
+      >
+        <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border-base bg-surface-base">
+          <img
+            src={resolveAssetUrl(rawUrl)}
+            alt=""
+            className="h-full w-full object-contain p-1"
+            loading="lazy"
+          />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-text-strong">
+            {props.artifact.title}
+          </span>
+          <span className="mt-0.5 block truncate text-xs text-text-weak">
+            {mediaArtifactSubtitle(props.artifact)}
+          </span>
+        </span>
+        <span className="hidden shrink-0 rounded-md border border-border-base bg-surface-base px-2 py-1 text-[11px] font-medium text-text-weak sm:inline-flex">
+          SVG
+        </span>
+      </a>
+    )
+  }
+
+  const firstItem = availableMediaPresentationItems(props.artifact)[0]
+
+  return (
+    <div className="flex w-full items-center gap-3 rounded-lg border border-border-base bg-background-base px-3 py-3 text-left shadow-sm">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-weak text-icon-interactive-base">
+        <FileTextIcon className="size-4" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-text-strong">
+          {props.artifact.title}
+        </span>
+        <span className="mt-0.5 block truncate text-xs text-text-weak">
+          {firstItem?.fileName ?? mediaArtifactSubtitle(props.artifact)}
+        </span>
+      </span>
+      <span className="hidden shrink-0 rounded-md border border-border-base bg-surface-base px-2 py-1 text-[11px] font-medium text-text-weak sm:inline-flex">
+        {mediaArtifactSubtitle(props.artifact)}
+      </span>
+    </div>
+  )
+}
+
+function MediaNotebookShelf(props: {
+  directory: string
+  showHeader: boolean
+  pageSize?: number
+  emptyMessage?: string
+}) {
+  const { directory, showHeader, pageSize, emptyMessage } = props
+  const mediaQueries = useQueries({
+    queries: MEDIA_LIBRARY_KINDS.map((kind) => ({
+      ...workspaceArtifactsQueryOptions(directory, kind),
+      refetchOnMount: false,
+    })),
+  })
+  const artifacts = selectMediaLibraryArtifacts(mediaQueries)
+  const loadErrors = mediaQueries.flatMap((query) => query.data?.loadErrors ?? [])
+  const loading = mediaQueries.some((query) => query.isPending)
+  const error = mediaQueries.find((query) => query.error)?.error
+  const label = getFilename(directory)
+  useInvalidateQueryOnChatIdle({
+    directory,
+    queryKey: workspaceArtifactsQueryKeys.mediaPresentation(directory),
+  })
+  useInvalidateQueryOnChatIdle({
+    directory,
+    queryKey: workspaceArtifactsQueryKeys.figure(directory),
+  })
+  useInvalidateQueryOnChatIdle({
+    directory,
+    queryKey: workspaceArtifactsQueryKeys.freeformFigure(directory),
+  })
+  const { visibleCount, nextBatchCount, canShowMore, showMore } = useShelfPagination(
+    artifacts.length,
+    pageSize,
+  )
+  const visibleArtifacts = artifacts.slice(0, visibleCount)
+
+  if (!loading && artifacts.length === 0 && loadErrors.length === 0 && !error) {
+    if (!emptyMessage) {
+      return null
+    }
+
+    return (
+      <div data-component="library-media-shelf" className="space-y-3">
+        {showHeader ? <NotebookShelfHeader label={label} count={0} loading={false} /> : null}
+        <NotebookShelfInlineEmptyState message={emptyMessage} />
+      </div>
+    )
+  }
+
+  return (
+    <div data-component="library-media-shelf" className="space-y-3">
+      {showHeader ? (
+        <NotebookShelfHeader label={label} count={artifacts.length} loading={loading} />
+      ) : null}
+
+      <div className="space-y-2">
+        {loading
+          ? Array.from({ length: 3 }, (_, index) => <ShelfRowSkeleton key={index} />)
+          : visibleArtifacts.map((artifact) => (
+              <MediaArtifactRow
+                key={`${artifact.kind}:${artifact.artifactID}`}
+                artifact={artifact}
+                directory={directory}
+              />
+            ))}
+        {!loading && canShowMore ? (
+          <ShelfShowMoreButton count={nextBatchCount} onClick={showMore} />
+        ) : null}
+        {error ? <NotebookShelfError message={stringifyError(error)} /> : null}
+        {loadErrors.map((loadError) => (
+          <NotebookShelfError
+            key={`${loadError.kind}:${loadError.artifactID}:${loadError.message}`}
+            message={loadError.message}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function MediaTab(props: { directories: string[] }) {
+  const { directories } = props
+  const isMultiNotebookView = directories.length > 1
+  const shelfQueries = useQueries({
+    queries: directories.flatMap((directory) =>
+      MEDIA_LIBRARY_KINDS.map((kind) => workspaceArtifactsQueryOptions(directory, kind)),
+    ),
+  })
+
+  const allLoading = shelfQueries.every((query) => query.isPending)
+  const showLoadingState = useDelayedPending(allLoading)
+  const mediaCountByDirectory = countMediaArtifactsByDirectory({
+    directories,
+    snapshots: shelfQueries,
+  })
+  const totalMedia = Array.from(mediaCountByDirectory.values()).reduce((sum, count) => sum + count, 0)
+  const allLoaded = shelfQueries.every((query) => !query.isPending)
+  const loadError = shelfQueries.find((query) => query.error)?.error
+  const showNotebookHeaders = directories.length > 1
+  const { directoriesWithItems, emptyDirectories } = partitionNotebookDirectories({
+    directories,
+    isEmpty: (index) => (mediaCountByDirectory.get(directories[index] ?? "") ?? 0) === 0,
+  })
+
+  if (!isMultiNotebookView && allLoading && !showLoadingState) {
+    return <LoadingStateBuffer />
+  }
+
+  if (!isMultiNotebookView && allLoading) {
+    return (
+      <div className={`space-y-6 ${LIBRARY_TAB_MIN_HEIGHT_CLASS}`}>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Skeleton className="size-4 rounded" />
+            <Skeleton className="h-4 w-24 rounded" />
+          </div>
+          <div className="space-y-2">
+            {Array.from({ length: 3 }, (_, index) => (
+              <ShelfRowSkeleton key={index} />
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isMultiNotebookView && allLoaded && totalMedia === 0) {
+    return (
+      <LibraryTabErrorState
+        icon={ImageIcon}
+        title={language.t("sidebar.libraryMediaEmpty")}
+        description={language.t("sidebar.libraryMediaEmptyDescription")}
+        error={loadError ? stringifyError(loadError) : undefined}
+        mascotUrl={buddyStateEmptyDiagramsUrl}
+        mascotAlt={`${language.t("routes.chat.productName")} beside a media board`}
+      />
+    )
+  }
+
+  if (isMultiNotebookView) {
+    return (
+      <div className="space-y-6">
+        {directoriesWithItems.map((directory) => (
+          <MediaNotebookShelf
+            key={directory}
+            directory={directory}
+            showHeader
+            pageSize={MULTI_NOTEBOOK_ROW_PREVIEW_COUNT}
+            emptyMessage={language.t("sidebar.libraryNotebookMediaEmpty")}
+          />
+        ))}
+        {emptyDirectories.length > 0 ? (
+          <EmptyNotebookSection>
+            {emptyDirectories.map((directory) => (
+              <MediaNotebookShelf
+                key={directory}
+                directory={directory}
+                showHeader
+                pageSize={MULTI_NOTEBOOK_ROW_PREVIEW_COUNT}
+                emptyMessage={language.t("sidebar.libraryNotebookMediaEmpty")}
+              />
+            ))}
+          </EmptyNotebookSection>
+        ) : null}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {directories.map((directory) => (
+        <MediaNotebookShelf
+          key={directory}
+          directory={directory}
+          showHeader={showNotebookHeaders}
+          pageSize={MEDIA_ROW_PREVIEW_COUNT}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Diagrams shelf
 // ---------------------------------------------------------------------------
 
@@ -1774,12 +2055,8 @@ const MERMAID_SHELF_CARD_HEIGHT_CLASS = "aspect-video min-h-[10rem] w-full"
 type DiagramNotebookGroup = {
   directory: string
   label: string
-  artifacts: {
-    artifactID: string
-    alt: string
-    diagramType: string
-    source: string
-  }[]
+  artifacts: MermaidLibraryArtifact[]
+  loadErrors: Array<{ artifactID: string; kind: string; message: string }>
   error?: string
 }
 
@@ -1795,12 +2072,7 @@ type DiagramVirtualRow =
       kind: "artifact"
       key: string
       directory: string
-      artifact: {
-        artifactID: string
-        alt: string
-        diagramType: string
-        source: string
-      }
+      artifact: MermaidLibraryArtifact
       hydrated: boolean
     }
   | {
@@ -1844,11 +2116,11 @@ function useLibraryScrollElement() {
   }
 }
 
-function MermaidArtifactPlaceholderCard(props: { artifact: { alt: string; diagramType: string } }) {
+function MermaidArtifactPlaceholderCard(props: { artifact: MermaidLibraryArtifact }) {
   return (
     <MermaidToolCard
-      title={props.artifact.alt}
-      diagramType={props.artifact.diagramType}
+      title={props.artifact.summary.alt}
+      diagramType={props.artifact.summary.diagramType}
       hideStatus
       contentClassName={MERMAID_SHELF_CARD_HEIGHT_CLASS}
     >
@@ -1866,17 +2138,28 @@ function MermaidArtifactPlaceholderCard(props: { artifact: { alt: string; diagra
 
 function LazyMermaidArtifactCard(props: {
   directory: string
-  artifact: {
-    artifactID: string
-    alt: string
-    diagramType: string
-    source: string
-  }
+  artifact: MermaidLibraryArtifact
   initiallyHydrated: boolean
 }) {
   const [hydrated, setHydrated] = useState(props.initiallyHydrated)
   const [inView, setInView] = useState(props.initiallyHydrated)
   const containerRef = useRef<HTMLDivElement>(null)
+  const detailQuery = useQuery({
+    queryKey: [
+      "library-artifact-detail",
+      "mermaid",
+      props.directory,
+      props.artifact.artifactID,
+    ] as const,
+    queryFn: async () =>
+      requireBuddyData(
+        await getBuddyClient(props.directory).mermaid.read({
+          directory: props.directory,
+          artifactID: props.artifact.artifactID,
+        }),
+      ),
+    enabled: hydrated,
+  })
 
   useEffect(() => {
     if (props.initiallyHydrated) {
@@ -1915,12 +2198,12 @@ function LazyMermaidArtifactCard(props: {
 
   return (
     <div ref={containerRef}>
-      {hydrated ? (
+      {hydrated && detailQuery.data ? (
         <MermaidDiagram
           directory={props.directory}
-          source={props.artifact.source}
+          source={detailQuery.data.source}
           artifactID={props.artifact.artifactID}
-          alt={props.artifact.alt}
+          alt={detailQuery.data.alt}
           enabled={inView}
           renderPriority={1}
           showRawSourceOnError
@@ -1928,8 +2211,8 @@ function LazyMermaidArtifactCard(props: {
           disableRevealAnimation
           renderWrapper={(diagramElement, actions) => (
             <MermaidToolCard
-              title={props.artifact.alt}
-              diagramType={props.artifact.diagramType}
+              title={detailQuery.data.alt}
+              diagramType={detailQuery.data.diagramType}
               hideStatus
               contentClassName={MERMAID_SHELF_CARD_HEIGHT_CLASS}
               actions={actions}
@@ -1938,6 +2221,17 @@ function LazyMermaidArtifactCard(props: {
             </MermaidToolCard>
           )}
         />
+      ) : hydrated && detailQuery.error ? (
+        <MermaidToolCard
+          title={props.artifact.summary.alt}
+          diagramType={props.artifact.summary.diagramType}
+          hideStatus
+          contentClassName={MERMAID_SHELF_CARD_HEIGHT_CLASS}
+        >
+          <div className="flex h-full w-full items-center justify-center bg-surface-critical-base/10 p-4 text-center text-xs text-icon-critical-base">
+            {stringifyError(detailQuery.error)}
+          </div>
+        </MermaidToolCard>
       ) : (
         <MermaidArtifactPlaceholderCard artifact={props.artifact} />
       )}
@@ -1954,7 +2248,8 @@ function DiagramsNotebookShelf(props: {
 }) {
   const { directory, showHeader, pageSize, emptyMessage, eagerHydrationCount = 0 } = props
   const artifactsQuery = useQuery(workspaceMermaidArtifactsQueryOptions(directory))
-  const artifacts = artifactsQuery.data?.artifacts ?? []
+  const artifacts = selectMermaidArtifacts(artifactsQuery)
+  const loadErrors = artifactsQuery.data?.loadErrors ?? []
   const loading = artifactsQuery.isPending
   const error = artifactsQuery.error ? stringifyError(artifactsQuery.error) : undefined
   const label = getFilename(directory)
@@ -1968,7 +2263,7 @@ function DiagramsNotebookShelf(props: {
   )
   const visibleArtifacts = artifacts.slice(0, visibleCount)
 
-  if (!loading && artifacts.length === 0 && !error) {
+  if (!loading && artifacts.length === 0 && loadErrors.length === 0 && !error) {
     if (!emptyMessage) {
       return null
     }
@@ -2002,6 +2297,12 @@ function DiagramsNotebookShelf(props: {
           <ShelfShowMoreButton count={nextBatchCount} onClick={showMore} />
         ) : null}
         {error ? <NotebookShelfError message={error} /> : null}
+        {loadErrors.map((loadError) => (
+          <NotebookShelfError
+            key={`${loadError.kind}:${loadError.artifactID}:${loadError.message}`}
+            message={loadError.message}
+          />
+        ))}
       </div>
     </div>
   )
@@ -2094,6 +2395,14 @@ function buildDiagramVirtualRows(input: {
         message: group.error,
       })
     }
+
+    group.loadErrors.forEach((loadError) => {
+      rows.push({
+        kind: "error",
+        key: `load-error:${group.directory}:${loadError.kind}:${loadError.artifactID}:${loadError.message}`,
+        message: loadError.message,
+      })
+    })
   }
 
   if (input.emptyGroups.length > 0) {
@@ -2247,7 +2556,11 @@ function DiagramsTab(props: { directories: string[]; active: boolean }) {
   const allLoading = shelfQueries.every((query) => query.isPending)
   const showLoadingState = useDelayedPending(allLoading)
   const totalArtifacts = shelfQueries.reduce(
-    (sum, query) => sum + (query.data?.artifacts.length ?? 0),
+    (sum, query) => sum + selectMermaidArtifacts(query).length,
+    0,
+  )
+  const totalLoadErrors = shelfQueries.reduce(
+    (sum, query) => sum + (query.data?.loadErrors.length ?? 0),
     0,
   )
   const allLoaded = shelfQueries.every((query) => !query.isPending)
@@ -2261,7 +2574,10 @@ function DiagramsTab(props: { directories: string[]; active: boolean }) {
         return false
       }
 
-      return (query.data?.artifacts.length ?? 0) === 0
+      return (
+        selectMermaidArtifacts(query).length === 0 &&
+        (query.data?.loadErrors.length ?? 0) === 0
+      )
     },
   })
   const diagramGroups = directoriesWithItems.map((directory) => {
@@ -2270,7 +2586,8 @@ function DiagramsTab(props: { directories: string[]; active: boolean }) {
     return {
       directory,
       label: getFilename(directory),
-      artifacts: query?.data?.artifacts ?? [],
+      artifacts: selectMermaidArtifacts(query),
+      loadErrors: query?.data?.loadErrors ?? [],
       error: query?.error ? stringifyError(query.error) : undefined,
     } satisfies DiagramNotebookGroup
   })
@@ -2303,7 +2620,7 @@ function DiagramsTab(props: { directories: string[]; active: boolean }) {
     )
   }
 
-  if (!isMultiNotebookView && allLoaded && totalArtifacts === 0) {
+  if (!isMultiNotebookView && allLoaded && totalArtifacts === 0 && totalLoadErrors === 0) {
     return (
       <LibraryTabErrorState
         icon={LayoutTemplateIcon}
@@ -2410,6 +2727,8 @@ export function LibraryPanel({
       {activeTab === "diagrams" ? (
         <DiagramsTab directories={directories} active={activeTab === "diagrams"} />
       ) : null}
+
+      {activeTab === "media" ? <MediaTab directories={directories} /> : null}
     </div>
   )
 }

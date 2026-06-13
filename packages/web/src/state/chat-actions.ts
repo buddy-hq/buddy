@@ -8,14 +8,12 @@ import type {
   FileContent,
   FileNode,
   FindFilesResponses,
-  FlashcardDecksListResponse,
   GlobalConfigGetResponses,
   GlobalNotebookHomeGetResponses,
   GlobalNotebookHomeAccessResponses,
   GlobalNotebookHomePutResponses,
   GlobalNotebooksListResponses,
   LearnerMemoryListResponses,
-  MermaidArtifactsListResponses,
   McpStatusResponses,
   OpenProjectsCreateResponses,
   OpenProjectsListResponses,
@@ -24,7 +22,6 @@ import type {
   OpenProjectsStartFreshResponses,
   PermissionListResponses,
   ProjectListResponses,
-  QuestionSetArtifactsListResponse,
   SessionCommandResponses,
   SessionTeachingStateResponses,
   ProviderAuthMethod,
@@ -158,8 +155,6 @@ export type SessionRuntimeView = {
     deny: string[]
   }
 }
-
-export type WorkspaceMermaidArtifactView = MermaidArtifactsListResponses[200]["artifacts"][number]
 
 export type PromptCommandOption = {
   name: string
@@ -2499,32 +2494,6 @@ export async function loadLearnerSnapshotViews(
 export async function loadSessionRuntimeView(directory: string, input: { sessionID: string }) {
   const teachingState = await loadTeachingSessionState(directory, input.sessionID)
   return teachingState?.sessionRuntime
-}
-
-export async function loadWorkspaceMermaidArtifacts(
-  directory: string,
-): Promise<{ artifacts: WorkspaceMermaidArtifactView[] }> {
-  const result = requireBuddyData(
-    await getBuddyClient(directory).mermaidArtifacts.list({
-      directory,
-    }),
-  )
-
-  return {
-    artifacts: Array.isArray(result.artifacts) ? result.artifacts : [],
-  }
-}
-
-export async function loadWorkspaceQuestionSetArtifacts(
-  directory: string,
-): Promise<QuestionSetArtifactsListResponse> {
-  return requireBuddyData(await getBuddyClient(directory).questionSetArtifacts.list())
-}
-
-export async function loadWorkspaceFlashcardDecks(
-  directory: string,
-): Promise<FlashcardDecksListResponse> {
-  return requireBuddyData(await getBuddyClient(directory).flashcardDecks.list())
 }
 
 export type GoalArtifact = {

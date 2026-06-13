@@ -3,14 +3,12 @@ import type {
   WorkspaceFilePanelMediaKind,
   WorkspaceFilePanelRenderMode,
 } from "@/state/workspace-file-panel-store"
+import type {
+  MediaPresentationReadResponse,
+  MediaPresentationResolveResponse,
+} from "@buddy/sdk/types"
 import type { WorkspaceFileActionInput } from "./use-workspace-file-open"
 import { getBuddyClient, requireBuddyData } from "./buddy-client"
-import {
-  authorizationHeader,
-  createServerFetchTransport,
-  resolveServerApiBaseUrl,
-  resolveServerEndpoint,
-} from "./server-client"
 
 export const MAX_INLINE_PRESENTED_MEDIA_BYTES = 512 * 1024 * 1024
 
@@ -40,7 +38,7 @@ const NOISY_PRESENTED_MEDIA_SEGMENTS = [
   ".map",
 ] as const
 
-const WORKSPACE_FILE_PANEL_MEDIA_KINDS = new Set<WorkspaceFilePanelMediaKind>([
+const WORKSPACE_FILE_PANEL_MEDIA_KINDS = [
   "image",
   "pdf",
   "presentation",
@@ -50,45 +48,27 @@ const WORKSPACE_FILE_PANEL_MEDIA_KINDS = new Set<WorkspaceFilePanelMediaKind>([
   "audio",
   "archive",
   "other",
-])
+] satisfies readonly WorkspaceFilePanelMediaKind[]
 
-const WORKSPACE_FILE_PANEL_RENDER_MODES = new Set<WorkspaceFilePanelRenderMode>([
+const WORKSPACE_FILE_PANEL_RENDER_MODES = [
   "image",
   "audio",
   "video",
   "pdf",
   "file",
-])
+] satisfies readonly WorkspaceFilePanelRenderMode[]
 
-export type PresentedMediaActionCapabilities = {
-  canOpenDefaultApp: boolean
-  canRevealInFileManager: boolean
-  canOpenInWorkspacePanel: boolean
-}
+const PRESENTED_MEDIA_LAYOUTS = [
+  "single",
+  "gallery",
+  "deck",
+  "list",
+] satisfies readonly PresentedMediaOutput["layout"][]
 
-export type PresentedMediaAvailability = {
-  status: "available" | "missing" | "error"
-  message: string | null
-}
-
-export type PresentedMediaItem = {
-  id: string
-  inputPath: string
-  absolutePath: string
-  displayPath: string
-  workspacePath: string | null
-  fileName: string
-  mediaKind: WorkspaceFilePanelMediaKind
-  renderMode: WorkspaceFilePanelRenderMode
-  mimeType: string | null
-  sizeBytes: number | null
-  modifiedAt: string | null
-  rawUrl: string
-  actionCapabilities: PresentedMediaActionCapabilities
-  availability: PresentedMediaAvailability
-}
-
-export type PresentedMediaPathInfo = Omit<PresentedMediaItem, "id" | "rawUrl">
+export type PresentedMediaItem = MediaPresentationReadResponse["summary"]["items"][number]
+export type PresentedMediaActionCapabilities = PresentedMediaItem["actionCapabilities"]
+export type PresentedMediaAvailability = PresentedMediaItem["availability"]
+export type PresentedMediaPathInfo = MediaPresentationResolveResponse
 
 type PresentedMediaActionInputSource = Pick<
   PresentedMediaPathInfo,
@@ -103,9 +83,9 @@ type PresentedMediaActionInputSource = Pick<
 >
 
 export type PresentedMediaOutput = {
-  presentationID: string
-  kind: "media.presentation.v1"
-  layout: string
+  artifactID: string
+  kind: "media-presentation"
+  layout: MediaPresentationReadResponse["summary"]["layout"]
   items: PresentedMediaItem[]
 }
 
@@ -133,11 +113,15 @@ function readNonNegativeInt(value: unknown): number | undefined {
 }
 
 function isWorkspaceFilePanelMediaKind(value: string): value is WorkspaceFilePanelMediaKind {
-  return WORKSPACE_FILE_PANEL_MEDIA_KINDS.has(value as WorkspaceFilePanelMediaKind)
+  return WORKSPACE_FILE_PANEL_MEDIA_KINDS.some((kind) => kind === value)
 }
 
 function isWorkspaceFilePanelRenderMode(value: string): value is WorkspaceFilePanelRenderMode {
-  return WORKSPACE_FILE_PANEL_RENDER_MODES.has(value as WorkspaceFilePanelRenderMode)
+  return WORKSPACE_FILE_PANEL_RENDER_MODES.some((mode) => mode === value)
+}
+
+function isPresentedMediaLayout(value: string): value is PresentedMediaOutput["layout"] {
+  return PRESENTED_MEDIA_LAYOUTS.some((layout) => layout === value)
 }
 
 export function readPresentedMediaItem(value: unknown): PresentedMediaItem | undefined {
@@ -212,12 +196,14 @@ export function readPresentedMediaItem(value: unknown): PresentedMediaItem | und
 export function readPresentedMediaOutputValue(value: unknown): PresentedMediaOutput | undefined {
   if (!isRecord(value)) return undefined
 
-  const presentationID = readNonEmptyString(value.presentationID)
-  const kind = value.kind === "media.presentation.v1" ? "media.presentation.v1" : undefined
-  const layout = readNonEmptyString(value.layout)
+  const artifactID = readNonEmptyString(value.artifactID)
+  const kind = value.kind === "media-presentation" ? "media-presentation" : undefined
+  const layoutValue = readNonEmptyString(value.layout)
+  const layout =
+    layoutValue && isPresentedMediaLayout(layoutValue) ? layoutValue : undefined
   const rawItems = Array.isArray(value.items) ? value.items : undefined
 
-  if (!presentationID || !kind || !layout || !rawItems) return undefined
+  if (!artifactID || !kind || !layout || !rawItems) return undefined
 
   const items: PresentedMediaItem[] = []
   for (const item of rawItems) {
@@ -227,7 +213,7 @@ export function readPresentedMediaOutputValue(value: unknown): PresentedMediaOut
   }
 
   return {
-    presentationID,
+    artifactID,
     kind,
     layout,
     items,
@@ -360,7 +346,8 @@ export async function resolvePresentedMediaPathInfo(input: {
   path: string
 }): Promise<PresentedMediaPathInfo> {
   return requireBuddyData(
-    await getBuddyClient(input.directory).presentedMedia.resolve({
+    await getBuddyClient(input.directory).mediaPresentation.resolve({
+      directory: input.directory,
       path: input.path,
     }),
   )
@@ -368,42 +355,18 @@ export async function resolvePresentedMediaPathInfo(input: {
 
 export async function resolvePresentedMediaAvailability(
   directory: string,
+  artifactID: string,
   item: PresentedMediaItem,
 ): Promise<PresentedMediaAvailabilityResolution> {
   try {
-    const auth = authorizationHeader()
-    const response = await createServerFetchTransport(resolveServerApiBaseUrl())(
-      resolveServerEndpoint(item.rawUrl),
-      {
-        method: "HEAD",
-        headers: auth
-          ? {
-              authorization: auth,
-            }
-          : undefined,
-      },
+    const availability = requireBuddyData(
+      await getBuddyClient(directory).mediaPresentation.availability({
+        directory,
+        artifactID,
+        itemID: item.id,
+      }),
     )
-    if (response.ok) {
-      return {
-        item,
-        availability: { status: "available", message: null },
-      }
-    }
-
-    if (response.status === 404) {
-      return {
-        item,
-        availability: { status: "missing", message: "File not found" },
-      }
-    }
-
-    return {
-      item,
-      availability: {
-        status: "error",
-        message: `Request failed (${response.status})`,
-      },
-    }
+    return { item, availability }
   } catch (error) {
     return {
       item,
@@ -417,8 +380,9 @@ export async function resolvePresentedMediaAvailability(
 
 export async function readPresentedMediaAvailability(
   directory: string,
+  artifactID: string,
   item: PresentedMediaItem,
 ): Promise<PresentedMediaAvailability> {
-  const result = await resolvePresentedMediaAvailability(directory, item)
+  const result = await resolvePresentedMediaAvailability(directory, artifactID, item)
   return result.availability
 }

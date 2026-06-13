@@ -27,7 +27,7 @@ function parseMermaidToolArtifactReference(
   }
 
   const value = isRecord(state.metadata.value) ? state.metadata.value : undefined
-  if (!value || readNonEmptyString(value.kind) !== "mermaid.v2") {
+  if (!value || readNonEmptyString(value.kind) !== "mermaid") {
     return undefined
   }
 

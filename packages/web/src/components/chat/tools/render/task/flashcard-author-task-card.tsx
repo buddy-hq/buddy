@@ -9,6 +9,10 @@ import {
   workspaceArtifactsQueryKeys,
   workspaceFlashcardDecksQueryOptions,
 } from "@/state/workspace-artifacts-query"
+import {
+  artifactKindFilter,
+  type FlashcardDeckLibraryArtifact,
+} from "@/components/layout/chat-left-sidebar/library-artifact-selectors"
 import { ToolOutputPanel } from "../../tool-output-panel"
 import type { ToolPartProps } from "../../registry"
 import { readString } from "../../types"
@@ -16,15 +20,14 @@ import { TASK_CARD_TRANSITION } from "../task-motion"
 import { useSubagentCardData } from "./task-card-header"
 import { SubagentCard } from "./subagent-card"
 import { parseTaskResultOutput } from "./task-utils"
-import type { FlashcardDecksListResponse } from "@buddy/sdk"
 
 function FlashcardDeckTaskPreview(props: {
-  deck: FlashcardDecksListResponse["decks"][number]
+  deck: FlashcardDeckLibraryArtifact
   directory: string
-  onStartReview: (deck: { deckID: string; title: string }) => void
+  onStartReview: (deck: { artifactID: string; title: string }) => void
 }) {
-  const reviewAvailable = isFlashcardReviewAvailable(props.deck)
-  const totalDue = getFlashcardDueCount(props.deck.dueCounts)
+  const reviewAvailable = isFlashcardReviewAvailable(props.deck.summary)
+  const totalDue = getFlashcardDueCount(props.deck.summary.dueCounts)
 
   if (!reviewAvailable) {
     return (
@@ -37,7 +40,7 @@ function FlashcardDeckTaskPreview(props: {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-text-strong">{props.deck.title}</p>
           <p className="mt-0.5 text-xs text-text-weak">
-            {props.deck.cardCount} {props.deck.cardCount === 1 ? "card" : "cards"}
+            {props.deck.summary.cardCount} {props.deck.summary.cardCount === 1 ? "card" : "cards"}
           </p>
         </div>
       </motion.div>
@@ -47,7 +50,9 @@ function FlashcardDeckTaskPreview(props: {
   return (
     <motion.button
       type="button"
-      onClick={() => props.onStartReview({ deckID: props.deck.deckID, title: props.deck.title })}
+      onClick={() =>
+        props.onStartReview({ artifactID: props.deck.artifactID, title: props.deck.title })
+      }
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={TASK_CARD_TRANSITION}
@@ -59,7 +64,8 @@ function FlashcardDeckTaskPreview(props: {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-text-strong">{props.deck.title}</p>
           <p className="mt-0.5 text-xs text-text-weak">
-            {props.deck.cardCount} {props.deck.cardCount === 1 ? "card" : "cards"} · {totalDue} due
+            {props.deck.summary.cardCount}{" "}
+            {props.deck.summary.cardCount === 1 ? "card" : "cards"} · {totalDue} due
           </p>
         </div>
         <div className="shrink-0 rounded bg-surface-base px-3 py-1.5 text-xs font-medium text-text-strong">
@@ -88,7 +94,7 @@ export function FlashcardAuthorTaskCard({
   } = useSubagentCardData({ state, onOpenSession, directory })
   const output = state.output || (state.error ?? "")
   const taskResultOutput = parseTaskResultOutput(output)
-  const [reviewDeck, setReviewDeck] = useState<{ deckID: string; title: string } | null>(null)
+  const [reviewDeck, setReviewDeck] = useState<{ artifactID: string; title: string } | null>(null)
 
   const childSessionID = readString(state.metadata.sessionId)
   const decksQuery = useQuery({
@@ -97,10 +103,10 @@ export function FlashcardAuthorTaskCard({
   })
 
   const items = useMemo(() => {
-    const decks = decksQuery.data?.decks ?? []
+    const decks = (decksQuery.data?.artifacts ?? []).filter(artifactKindFilter("flashcard-deck"))
     if (!childSessionID) return []
     return decks
-      .filter((deck) => deck.createdBy.sessionID === childSessionID)
+      .filter((deck) => deck.origin?.sessionID === childSessionID)
       .toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))
   }, [decksQuery.data, childSessionID])
 
@@ -136,7 +142,7 @@ export function FlashcardAuthorTaskCard({
             ) : null}
             <AnimatePresence mode="popLayout">
               {items.map((deck) => (
-                <div key={deck.deckID}>
+                <div key={deck.artifactID}>
                   <FlashcardDeckTaskPreview
                     deck={deck}
                     directory={directory ?? ""}
@@ -176,7 +182,7 @@ export function FlashcardAuthorTaskCard({
             }
           }}
           directory={directory}
-          deckID={reviewDeck.deckID}
+          artifactID={reviewDeck.artifactID}
           deckTitle={reviewDeck.title}
         />
       ) : null}

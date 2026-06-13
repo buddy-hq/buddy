@@ -7,13 +7,14 @@ import {
   workspaceArtifactsQueryKeys,
   workspaceQuestionSetArtifactsQueryOptions,
 } from "@/state/workspace-artifacts-query"
+import {
+  artifactKindFilter,
+  type QuestionSetLibraryArtifact,
+} from "@/components/layout/chat-left-sidebar/library-artifact-selectors"
 import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
 import { QuestionSetInlineView } from "@/components/chat/tools/render/question-set/question-set-inline-view"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import type { PublicQuestionSetArtifact } from "@/components/chat/tools/render/question-set/question-set-inline-view"
-import type { QuestionSetArtifactsListResponse } from "@buddy/sdk/types"
-
-type QuestionSetArtifactListItem = QuestionSetArtifactsListResponse["artifacts"][number]
 
 function questionCountLabel(count: number): string {
   return language.t(count === 1 ? "chatTools.questionCount.one" : "chatTools.questionCount.other", {
@@ -30,7 +31,7 @@ function formatTimestamp(value: string): string {
 }
 function WorkspaceQuestionSetPanelItem(props: {
   directory: string
-  artifactStub: QuestionSetArtifactListItem
+  artifactStub: QuestionSetLibraryArtifact
 }) {
   const [artifact, setArtifact] = useState<PublicQuestionSetArtifact | null>(null)
   const [isOpen, setIsOpen] = useState(false)
@@ -47,7 +48,7 @@ function WorkspaceQuestionSetPanelItem(props: {
     setLoading(true)
     setLoadError(undefined)
     try {
-      const fetched = await getBuddyClient(props.directory).questionSetArtifacts.read({
+      const fetched = await getBuddyClient(props.directory).questionSet.read({
         artifactID: props.artifactStub.artifactID,
       })
 
@@ -76,11 +77,11 @@ function WorkspaceQuestionSetPanelItem(props: {
             <div className="flex items-start justify-between gap-2">
               <p className="text-sm font-medium text-text-base">{props.artifactStub.title}</p>
               <Badge variant="outline" className="shrink-0">
-                {props.artifactStub.groupType}
+                {props.artifactStub.summary.groupType}
               </Badge>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-text-weak">
-              <span>{questionCountLabel(props.artifactStub.questions.length)}</span>
+              <span>{questionCountLabel(props.artifactStub.summary.questionCount)}</span>
               <span>•</span>
               <span>{formatTimestamp(props.artifactStub.createdAt)}</span>
             </div>
@@ -103,7 +104,7 @@ function WorkspaceQuestionSetPanelItem(props: {
           onSubmit={async (answers) => {
             const response = await getBuddyClient(
               props.directory,
-            ).questionSetArtifacts.submitAttempt({
+            ).questionSet.submitAttempt({
               artifactID: artifact.artifactID,
               answers: artifact.questions.map((question) => ({
                 questionID: question.id,
@@ -123,7 +124,7 @@ export function WorkspaceQuestionSetPanel(props: {
   selectedPersonaDefaultSurface: "curriculum" | "editor" | "figure" | "question-set"
 }) {
   const artifactsQuery = useQuery(workspaceQuestionSetArtifactsQueryOptions(props.directory))
-  const artifacts = artifactsQuery.data?.artifacts ?? []
+  const artifacts = (artifactsQuery.data?.artifacts ?? []).filter(artifactKindFilter("question-set"))
   const loadErrors = artifactsQuery.data?.loadErrors ?? []
   const loading = artifactsQuery.isPending
   const error = artifactsQuery.error ? stringifyError(artifactsQuery.error) : undefined

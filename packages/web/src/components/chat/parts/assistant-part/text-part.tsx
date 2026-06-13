@@ -23,7 +23,7 @@ type AssistantTextPartProps = {
 
 function stripLeadingRenderFigureMarkdown(text: string): string {
   return text.replace(
-    /^\s*!\[[^\]]*\]\((\/api\/(?:figures|freeform-figures)\/[^)\s]+)\)(?:\r?\n\s*)*/u,
+    /^\s*!\[[^\]]*\]\((\/api\/artifacts\/(?:figure|freeform-figure)\/[^)\s]+\/raw(?:\?[^)\s]+)?)\)(?:\r?\n\s*)*/u,
     "",
   )
 }

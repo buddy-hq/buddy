@@ -1009,8 +1009,12 @@ export const dict = {
   "sidebar.libraryDiagramsEmpty": "No diagrams yet",
   "sidebar.libraryDiagramsEmptyDescription":
     "Generate a concept map, chart, or flow and Buddy will keep it here.",
+  "sidebar.libraryMediaEmpty": "No media yet",
+  "sidebar.libraryMediaEmptyDescription":
+    "Present media or create figures and Buddy will keep them here.",
   "sidebar.libraryNotebookDiagramsEmpty": "No diagrams in this notebook yet.",
   "sidebar.libraryNotebookFlashcardsEmpty": "No flashcards in this notebook yet.",
+  "sidebar.libraryNotebookMediaEmpty": "No media in this notebook yet.",
   "sidebar.libraryNotebookQuestionSetsEmpty": "No practice sets in this notebook yet.",
   "sidebar.libraryNotebookWidgetsEmpty": "No widgets in this notebook yet.",
   "sidebar.libraryNotebookResourcesEmpty": "No resources in this notebook yet.",
@@ -1021,6 +1025,7 @@ export const dict = {
   "sidebar.libraryTabQuestionSets": "Question Sets",
   "sidebar.libraryTabWidgets": "Widgets",
   "sidebar.libraryTabDiagrams": "Diagrams",
+  "sidebar.libraryTabMedia": "Media",
   "sidebar.notebookLibrary": "Notebook Library",
   "sidebar.quickChat": "Quick chats",
   "sidebar.renameThread": "Rename thread",

@@ -293,7 +293,7 @@ function HtmlWidgetCard(props: {
     try {
       const source = await readHtmlWidgetSource({
         directory: props.directory,
-        widgetID: props.widget.widgetID,
+        artifactID: props.widget.artifactID,
       })
       await navigator.clipboard.writeText(source)
       toast("Widget source copied")
@@ -302,7 +302,7 @@ function HtmlWidgetCard(props: {
     } finally {
       setCopying(false)
     }
-  }, [props.directory, props.widget.widgetID])
+  }, [props.directory, props.widget.artifactID])
 
   const actions = (
     <div className="flex items-center gap-1">

@@ -79,9 +79,14 @@ function resolvePresentedMediaStreamUrl(item: PresentMediaResolvedItem): string 
   return resolveAssetUrl(item.rawUrl)
 }
 
-function presentedMediaAvailabilityKey(directory: string, item: PresentMediaItem) {
+function presentedMediaAvailabilityKey(
+  directory: string,
+  artifactID: string,
+  item: PresentMediaItem,
+) {
   return [
     directory,
+    artifactID,
     item.displayPath,
     item.rawUrl ?? "",
     item.modifiedAt ?? "",
@@ -89,10 +94,18 @@ function presentedMediaAvailabilityKey(directory: string, item: PresentMediaItem
   ].join(":")
 }
 
-function presentedMediaAvailabilityQueryOptions(directory: string, item: PresentMediaItem) {
+function presentedMediaAvailabilityQueryOptions(
+  directory: string,
+  artifactID: string,
+  item: PresentMediaItem,
+) {
   return {
-    queryKey: ["presented-media", "availability", presentedMediaAvailabilityKey(directory, item)],
-    queryFn: () => resolvePresentedMediaAvailability(directory, item),
+    queryKey: [
+      "presented-media",
+      "availability",
+      presentedMediaAvailabilityKey(directory, artifactID, item),
+    ],
+    queryFn: () => resolvePresentedMediaAvailability(directory, artifactID, item),
     retry: false,
     refetchOnWindowFocus: false,
   } as const
@@ -125,11 +138,14 @@ function mergeResolvedPresentedMediaItem(
 
 function usePresentedMediaAvailability(
   directory: string | undefined,
+  artifactID: string | undefined,
   items: PresentMediaItem[] | undefined,
 ) {
   const availabilityQueries = useQueries({
-    queries: directory
-      ? (items ?? []).map((item) => presentedMediaAvailabilityQueryOptions(directory, item))
+    queries: directory && artifactID
+      ? (items ?? []).map((item) =>
+          presentedMediaAvailabilityQueryOptions(directory, artifactID, item),
+        )
       : [],
   })
 
@@ -435,7 +451,7 @@ function MediaPlayerFallback(props: MediaInteractionProps & { item: PresentMedia
 
 function MediaPlayerCollection(
   props: MediaInteractionProps & {
-    presentationID: string
+    artifactID: string
     items: PresentMediaResolvedItem[]
   },
 ) {
@@ -448,16 +464,16 @@ function MediaPlayerCollection(
       setSelectedIndex(index)
       const item = props.items[index]
       if (!item) return
-      const selectedPlaybackKey = `${props.presentationID}:${item.id}`
+      const selectedPlaybackKey = `${props.artifactID}:${item.id}`
       if (
         playingKey &&
-        playingKey.startsWith(`${props.presentationID}:`) &&
+        playingKey.startsWith(`${props.artifactID}:`) &&
         playingKey !== selectedPlaybackKey
       ) {
         pausePlayback(playingKey)
       }
     },
-    [pausePlayback, playingKey, props.items, props.presentationID],
+    [pausePlayback, playingKey, props.items, props.artifactID],
   )
 
   const playerForItem = (
@@ -467,7 +483,7 @@ function MediaPlayerCollection(
   ) => (
     <PresentedMediaPlayer
       item={item}
-      playbackKey={`${props.presentationID}:${item.id}`}
+      playbackKey={`${props.artifactID}:${item.id}`}
       compact={compact}
       shouldLoad={props.items.length === 1 || index === selectedIndex}
       fallback={<MediaPlayerFallback {...props} item={item} />}
@@ -502,7 +518,7 @@ function MediaPlayerCollection(
 
 function PresentedMediaContent(props: {
   directory: string
-  presentationID: string
+  artifactID: string
   items: PresentMediaResolvedItem[]
   onOpenResource: ToolPartProps["onOpenResource"]
 }) {
@@ -557,14 +573,14 @@ function PresentedMediaContent(props: {
       {videos.length > 0 ? (
         <MediaPlayerCollection
           {...interactionProps}
-          presentationID={props.presentationID}
+          artifactID={props.artifactID}
           items={videos}
         />
       ) : null}
       {audios.length > 0 ? (
         <MediaPlayerCollection
           {...interactionProps}
-          presentationID={props.presentationID}
+          artifactID={props.artifactID}
           items={audios}
         />
       ) : null}
@@ -604,7 +620,11 @@ export function renderPresentMediaTool(props: ToolPartProps) {
   const showOutput = output.trim().length > 0
   const media =
     props.state.status === "completed" ? parsePresentMediaOutput(props.state) : undefined
-  const resolvedItems = usePresentedMediaAvailability(props.directory, media?.items)
+  const resolvedItems = usePresentedMediaAvailability(
+    props.directory,
+    media?.artifactID,
+    media?.items,
+  )
   const running = props.state.status === "pending" || props.state.status === "running"
 
   // Running / error / no-media: show tool row
@@ -626,7 +646,7 @@ export function renderPresentMediaTool(props: ToolPartProps) {
   return (
     <PresentedMediaContent
       directory={props.directory}
-      presentationID={media.presentationID}
+      artifactID={media.artifactID}
       items={resolvedItems}
       onOpenResource={props.onOpenResource}
     />

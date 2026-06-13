@@ -194,7 +194,7 @@ function fetchQuestionSetArtifact(
   }
 
   const request = getBuddyClient(directory)
-    .questionSetArtifacts.read({
+    .questionSet.read({
       artifactID,
     })
     .then((result) => {
@@ -297,7 +297,7 @@ export function renderSavedQuestionSetTool(props: ToolPartProps) {
           artifact={visibleArtifact}
           onSubmit={async (answers) => {
             const response: SubmitQuestionSetAttemptOutput = requireBuddyData(
-              await getBuddyClient(directory).questionSetArtifacts.submitAttempt({
+              await getBuddyClient(directory).questionSet.submitAttempt({
                 artifactID: visibleArtifact.artifactID,
                 answers: visibleArtifact.questions.map((question) => ({
                   questionID: question.id,

@@ -27,7 +27,7 @@ export function QuestionSetSidePanel(props: QuestionSetSidePanelProps) {
     ],
     queryFn: () =>
       getBuddyClient(props.directory)
-        .questionSetArtifacts.read({
+        .questionSet.read({
           artifactID: props.artifactID,
         })
         .then((result) => {
@@ -77,7 +77,7 @@ export function QuestionSetSidePanel(props: QuestionSetSidePanelProps) {
             persistKey={`selected-question-set:${artifact.artifactID}`}
             onSubmit={async (answers) => {
               const response: SubmitQuestionSetAttemptOutput = requireBuddyData(
-                await getBuddyClient(props.directory).questionSetArtifacts.submitAttempt({
+                await getBuddyClient(props.directory).questionSet.submitAttempt({
                   artifactID: artifact.artifactID,
                   answers: artifact.questions.map((question) => ({
                     questionID: question.id,
