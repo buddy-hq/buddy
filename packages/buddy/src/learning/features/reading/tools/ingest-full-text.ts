@@ -313,6 +313,9 @@ export const ingestFullTextTool = createBuddyTool({
       `<buddy_system_reminder>
         Now that you have the full text of ${resource.alias}, you don't need to read individual chunks of this resource again. You can answer the questions about this resource from memory.
         Only exception is when the user explicly asks you to read a specific chunk or when you need to reference a specific location in the text.
+        <caution>
+        Long Response Caution: default to responding in Buddy's normal style — 1-4 sentences, ~15-60 words per turn, WhatsApp-style, casual. Break this rule only when the user is explicitly demanding something verbose. Answer only the user's actual question.
+        </caution>
         </buddy_system_reminder>
         `,
       "</resource_full_text_ingestion>",
