@@ -13,6 +13,7 @@ import { useChatStore } from "@/state/chat-store"
 import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
 import { MermaidToolCard } from "@/components/chat/tools/render/mermaid/mermaid-tool-card"
 import { useInlineAssetActivation } from "@/components/chat/inline-asset-boundary"
+import { useOpenBench } from "@/lib/bench-navigation"
 import {
   createInlineMermaidArtifact,
   readMermaidAutoRepairStatus,
@@ -209,6 +210,7 @@ export function MarkdownMermaidSegment(props: {
   const [repairState, setRepairState] = useState<MermaidRepairState>({ status: "idle" })
   const [fixRequested, setFixRequested] = useState(false)
   const activation = useInlineAssetActivation()
+  const openBenchRoute = useOpenBench()
   const startedRepairRef = useRef<string | undefined>(undefined)
   const requestedSourceByArtifactIDRef = useRef(new Map<string, string>())
   const artifactID = artifact?.artifactID
@@ -502,6 +504,13 @@ export function MarkdownMermaidSegment(props: {
       showRawSourceOnError
       errorMeta={errorMeta}
       onRenderFailure={handleRenderFailure}
+      onFullscreenOpen={() => {
+        void openBenchRoute(props.context.directory, {
+          type: "artifact",
+          kind: "mermaid",
+          artifactID: artifact.artifactID,
+        })
+      }}
       onRequestFix={canRequestFix ? () => handleRequestFix() : undefined}
       fixDisabled={fixRequested || repairState.status === "running"}
       renderWrapper={(diagramElement, actions) =>

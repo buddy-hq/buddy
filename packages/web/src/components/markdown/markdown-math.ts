@@ -15,7 +15,7 @@ type MathDelimiter = {
   includeDelimiters: boolean
 }
 
-type MathMatch = {
+export type BuddyMathMatch = {
   raw: string
   text: string
   displayMode: boolean
@@ -265,7 +265,7 @@ function escapeUnescapedPercent(value: string): string {
   return result
 }
 
-function matchInlineMath(src: string): MathMatch | undefined {
+export function matchBuddyInlineMath(src: string): BuddyMathMatch | undefined {
   for (const delimiter of inlineDelimiters) {
     if (!src.startsWith(delimiter.left)) continue
     const startsWithPadding = delimiter.left === "$" && /\s/u.test(src[delimiter.left.length] ?? "")
@@ -289,7 +289,7 @@ function matchInlineMath(src: string): MathMatch | undefined {
   return undefined
 }
 
-function matchIncompleteInlineMath(src: string): MathMatch | undefined {
+function matchIncompleteInlineMath(src: string): BuddyMathMatch | undefined {
   for (const delimiter of inlineDelimiters) {
     if (delimiter.left === "$") continue
     if (!src.startsWith(delimiter.left)) continue
@@ -330,7 +330,7 @@ function findInlineMathStart(src: string, includeIncomplete: boolean): number | 
     }
     if (nextIndex < 0) return undefined
 
-    const match = matchInlineMath(src.slice(nextIndex))
+    const match = matchBuddyInlineMath(src.slice(nextIndex))
     if (match) return nextIndex
     if (includeIncomplete && matchIncompleteInlineMath(src.slice(nextIndex))) return nextIndex
     searchIndex = nextIndex + 1
@@ -338,7 +338,7 @@ function findInlineMathStart(src: string, includeIncomplete: boolean): number | 
   return undefined
 }
 
-function matchBlockMath(src: string): MathMatch | undefined {
+export function matchBuddyBlockMath(src: string): BuddyMathMatch | undefined {
   const indentMatch = src.match(/^ {0,3}/u)
   const indent = indentMatch?.[0] ?? ""
   const body = src.slice(indent.length)
@@ -365,7 +365,7 @@ function matchBlockMath(src: string): MathMatch | undefined {
   return undefined
 }
 
-function matchIncompleteBlockMath(src: string): MathMatch | undefined {
+function matchIncompleteBlockMath(src: string): BuddyMathMatch | undefined {
   const indentMatch = src.match(/^ {0,3}/u)
   const indent = indentMatch?.[0] ?? ""
   const body = src.slice(indent.length)
@@ -385,18 +385,25 @@ function matchIncompleteBlockMath(src: string): MathMatch | undefined {
   return undefined
 }
 
+export function renderBuddyMathToHtml(
+  text: string,
+  displayMode: boolean,
+  suppressErrors = false,
+): string {
+  return katex.renderToString(escapeUnescapedPercent(text), {
+    ...katexOptions,
+    displayMode,
+    throwOnError: suppressErrors ? true : katexOptions.throwOnError,
+  })
+}
+
 function renderMathToken(token: Tokens.Generic, options: BuddyMathExtensionOptions): string {
   const text = typeof token["text"] === "string" ? token["text"] : ""
   const raw = typeof token["raw"] === "string" ? token["raw"] : text
   const displayMode = token["displayMode"] === true
-  const normalizedText = escapeUnescapedPercent(text)
 
   try {
-    return katex.renderToString(normalizedText, {
-      ...katexOptions,
-      displayMode,
-      throwOnError: options.suppressErrors ? true : katexOptions.throwOnError,
-    })
+    return renderBuddyMathToHtml(text, displayMode, options.suppressErrors)
   } catch {
     if (options.suppressErrors) {
       return renderMathPlaceholder(displayMode)
@@ -412,7 +419,7 @@ export function buddyMathExtension(options: BuddyMathExtensionOptions = {}): Mar
         name: "buddyBlockMath",
         level: "block",
         tokenizer(src) {
-          const match = matchBlockMath(src)
+          const match = matchBuddyBlockMath(src)
           if (!match) {
             if (!options.suppressErrors) return undefined
             const incompleteMatch = matchIncompleteBlockMath(src)
@@ -451,7 +458,7 @@ export function buddyMathExtension(options: BuddyMathExtensionOptions = {}): Mar
           return findInlineMathStart(src, options.suppressErrors === true)
         },
         tokenizer(src) {
-          const match = matchInlineMath(src)
+          const match = matchBuddyInlineMath(src)
           if (!match) {
             if (!options.suppressErrors) return undefined
             const incompleteMatch = matchIncompleteInlineMath(src)
