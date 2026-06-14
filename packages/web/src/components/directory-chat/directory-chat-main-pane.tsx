@@ -28,9 +28,10 @@ import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resourc
 import type { MessageWithParts, ProviderInfo, QuestionRequest } from "@/state/chat-types"
 import type { PermissionReply } from "@/state/permission-types"
 import { BookOpenIcon, PresentationIcon, Redo2Icon } from "lucide-react"
-import { WhiteboardAutoOpen } from "@/components/whiteboard/whiteboard-auto-open"
+import { BenchAutoOpen } from "@/components/bench/bench-auto-open"
 import { hasWhiteboardCreate } from "@/components/whiteboard/whiteboard-progressive"
 import { useChatStore } from "@/state/chat-store"
+import { BENCH_CHAT_LAYOUT_FLOATING, openBench } from "@/lib/bench-navigation"
 import { encodeDirectory } from "@/lib/directory-token"
 import { useLocation, useNavigate } from "@tanstack/react-router"
 
@@ -81,7 +82,7 @@ const COMPACTION_BUFFER_TOKENS = 20_000
 const OUTPUT_TOKEN_MAX = 32_000
 const WHITEBOARD_ROUTE_SUFFIX = "/whiteboard"
 const READING_ROUTE_SUFFIX = "/read"
-const WORKSPACE_SHORTCUT_BUTTON_CLASS =
+const BENCH_SHORTCUT_BUTTON_CLASS =
   "text-text-weaker/70 hover:bg-surface-base-hover hover:text-text-base aria-pressed:text-text-interactive-base"
 const WHITEBOARD_SHORTCUT_LABEL = "Toggle whiteboard view"
 const READING_SHORTCUT_LABEL = "Toggle reading view"
@@ -176,7 +177,7 @@ export function resolveRevertedUserMessageCount(input: {
   ).length
 }
 
-function WorkspaceViewShortcuts(props: { directory: string; messages: MessageWithParts[] }) {
+function BenchViewShortcuts(props: { directory: string; messages: MessageWithParts[] }) {
   const location = useLocation()
   const navigate = useNavigate()
   const lastOpenedReadingResource = useChatStore(
@@ -191,13 +192,13 @@ function WorkspaceViewShortcuts(props: { directory: string; messages: MessageWit
   if (!showWhiteboardShortcut && !showReadingShortcut) return null
 
   return (
-    <div data-component="prompt-workspace-shortcuts" className="flex items-center gap-0.5">
+    <div data-component="prompt-bench-shortcuts" className="flex items-center gap-0.5">
       {showWhiteboardShortcut ? (
         <Button
           type="button"
           size="icon-xs"
           variant="ghost"
-          className={WORKSPACE_SHORTCUT_BUTTON_CLASS}
+          className={BENCH_SHORTCUT_BUTTON_CLASS}
           aria-label={WHITEBOARD_SHORTCUT_LABEL}
           title={WHITEBOARD_SHORTCUT_LABEL}
           aria-pressed={isWhiteboardRoute}
@@ -209,10 +210,13 @@ function WorkspaceViewShortcuts(props: { directory: string; messages: MessageWit
               })
               return
             }
-            void navigate({
-              to: "/$directory/whiteboard",
-              params: { directory: encodedDirectory },
-            })
+            void navigate(
+              openBench(
+                props.directory,
+                { type: "whiteboard" },
+                { chatLayout: BENCH_CHAT_LAYOUT_FLOATING },
+              ),
+            )
           }}
         >
           <PresentationIcon />
@@ -223,7 +227,7 @@ function WorkspaceViewShortcuts(props: { directory: string; messages: MessageWit
           type="button"
           size="icon-xs"
           variant="ghost"
-          className={WORKSPACE_SHORTCUT_BUTTON_CLASS}
+          className={BENCH_SHORTCUT_BUTTON_CLASS}
           aria-label={READING_SHORTCUT_LABEL}
           title={READING_SHORTCUT_LABEL}
           aria-pressed={isReadingRoute}
@@ -236,18 +240,13 @@ function WorkspaceViewShortcuts(props: { directory: string; messages: MessageWit
               return
             }
 
-            void navigate({
-              to: "/$directory/read",
-              params: { directory: encodedDirectory },
-              search: lastOpenedReadingResource.resourceID
-                ? {
-                    path: lastOpenedReadingResource.path,
-                    resource: lastOpenedReadingResource.resourceID,
-                  }
-                : {
-                    path: lastOpenedReadingResource.path,
-                  },
-            })
+            void navigate(
+              openBench(props.directory, {
+                type: "reading",
+                path: lastOpenedReadingResource.path,
+                resourceID: lastOpenedReadingResource.resourceID,
+              }),
+            )
           }}
         >
           <BookOpenIcon />
@@ -319,7 +318,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       data-component="directory-chat-main-pane"
       className="relative flex-1 min-w-0 min-h-0 flex flex-col bg-background-stronger"
     >
-      <WhiteboardAutoOpen directory={directory} messages={chatState.messages} />
+      <BenchAutoOpen directory={directory} messages={chatState.messages} />
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex min-h-0 flex-1 flex-col">
           {props.topContent ? (
@@ -491,7 +490,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                 selectorMode={promptSelectorMode}
                 className="mb-1"
                 contextActions={
-                  <WorkspaceViewShortcuts directory={directory} messages={chatState.messages} />
+                  <BenchViewShortcuts directory={directory} messages={chatState.messages} />
                 }
                 sessionContextUsage={
                   <SessionContextUsage

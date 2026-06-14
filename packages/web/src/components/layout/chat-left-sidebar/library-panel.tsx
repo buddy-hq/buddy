@@ -22,7 +22,6 @@ import buddyStateEmptyBooksUrl from "../../../../../../assets/mascot/buddy-state
 import buddyStateEmptyDiagramsUrl from "../../../../../../assets/mascot/buddy-state-empty-diagrams.png"
 import buddyStateEmptyExercisesUrl from "../../../../../../assets/mascot/buddy-state-empty-exercises.png"
 import buddyStateEmptyFlashcardsUrl from "../../../../../../assets/mascot/buddy-state-empty-flashcards.png"
-import { FlashcardReviewDialog } from "@/components/flashcard/flashcard-review-dialog"
 import { language } from "@/context/language"
 import { getPlatform } from "@/context/platform"
 import { stringifyError } from "@/lib/api-client"
@@ -56,22 +55,16 @@ import {
 import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
 import { MermaidToolCard } from "@/components/chat/tools/render/mermaid/mermaid-tool-card"
 import {
-  QuestionSetInlineView,
-  type PublicQuestionSetArtifact,
-} from "@/components/chat/tools/render/question-set/question-set-inline-view"
-import {
   QuestionMarkdown,
   buildQuestionMarkdownCacheKey,
 } from "@/components/chat/tools/render/question-set/question-markdown"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { resolveAssetUrl } from "@/lib/resource-url"
+import { useOpenBench } from "@/lib/bench-navigation"
 import {
   ResourceCardGrid,
   type ResourceCardTarget,
 } from "@/components/layout/chat-left-sidebar/resource-card-grid"
-import {
-  HtmlWidgetFullscreenDialog,
-} from "@/components/chat/tools/render/html-widget"
 import { formatHtmlWidgetViewport } from "@/lib/html-widgets"
 import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
 import { getFilename } from "../sidebar-helpers"
@@ -1049,7 +1042,7 @@ function FlashcardNotebookShelf(props: {
   emptyMessage?: string
 }) {
   const { directory, showHeader, pageSize, emptyMessage } = props
-  const queryClient = useQueryClient()
+  const openBenchRoute = useOpenBench()
   const decksQuery = useQuery({
     ...workspaceFlashcardDecksQueryOptions(directory),
     refetchOnMount: false,
@@ -1059,7 +1052,6 @@ function FlashcardNotebookShelf(props: {
   const loading = decksQuery.isPending
   const error = decksQuery.error ? stringifyError(decksQuery.error) : undefined
   const label = getFilename(directory)
-  const [reviewDeck, setReviewDeck] = useState<{ artifactID: string; title: string } | null>(null)
   useInvalidateQueryOnChatIdle({
     directory,
     queryKey: workspaceArtifactsQueryKeys.flashcard(directory),
@@ -1132,9 +1124,13 @@ function FlashcardNotebookShelf(props: {
                   <button
                     key={deck.artifactID}
                     type="button"
-                    onClick={() =>
-                      setReviewDeck({ artifactID: deck.artifactID, title: deck.title })
-                    }
+                    onClick={() => {
+                      void openBenchRoute(directory, {
+                        type: "artifact",
+                        kind: "flashcard-deck",
+                        artifactID: deck.artifactID,
+                      })
+                    }}
                     className="w-full rounded-lg border border-border-weaker-base bg-surface-base p-3 text-left shadow-sm transition-colors hover:border-border-hover hover:bg-surface-raised-base"
                   >
                     {content}
@@ -1161,22 +1157,6 @@ function FlashcardNotebookShelf(props: {
         </div>
       </div>
 
-      {reviewDeck ? (
-        <FlashcardReviewDialog
-          open
-          onOpenChange={(open) => {
-            if (!open) {
-              setReviewDeck(null)
-              void queryClient.invalidateQueries({
-                queryKey: workspaceArtifactsQueryKeys.flashcard(directory),
-              })
-            }
-          }}
-          directory={directory}
-          artifactID={reviewDeck.artifactID}
-          deckTitle={reviewDeck.title}
-        />
-      ) : null}
     </>
   )
 }
@@ -1298,40 +1278,19 @@ function LibraryQuestionSetCard(props: {
   rightSidebarTab: string
   selectedArtifactID?: string
 }) {
-  const [artifact, setArtifact] = useState<PublicQuestionSetArtifact | null>(null)
-  const [isOpen, setIsOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [loadError, setLoadError] = useState<string | undefined>(undefined)
-
-  async function handleOpen() {
-    if (artifact) {
-      setLoadError(undefined)
-      setIsOpen(true)
-      return
-    }
-
-    setLoading(true)
-    setLoadError(undefined)
-    try {
-      const fetched = await getBuddyClient(props.directory).questionSet.read({
-        artifactID: props.artifactStub.artifactID,
-      })
-
-      setArtifact(requireBuddyData(fetched))
-      setIsOpen(true)
-    } catch (e) {
-      setLoadError(stringifyError(e))
-    } finally {
-      setLoading(false)
-    }
-  }
+  const openBenchRoute = useOpenBench()
 
   return (
     <>
       <button
         type="button"
-        disabled={loading}
-        onClick={handleOpen}
+        onClick={() => {
+          void openBenchRoute(props.directory, {
+            type: "artifact",
+            kind: "question-set",
+            artifactID: props.artifactStub.artifactID,
+          })
+        }}
         className={`w-full rounded-lg border bg-surface-base p-3 text-left shadow-sm transition-colors disabled:opacity-50 ${
           props.rightSidebarOpen &&
           props.rightSidebarTab === "question-set" &&
@@ -1369,29 +1328,6 @@ function LibraryQuestionSetCard(props: {
           <HelpCircleIcon className="mt-0.5 size-4 shrink-0 text-text-weaker" />
         </div>
       </button>
-
-      {loadError ? <NotebookShelfError message={loadError} /> : null}
-
-      {artifact && isOpen && (
-        <QuestionSetInlineView
-          artifact={artifact}
-          defaultOpen={true}
-          hideCard={true}
-          onOpenChange={(open) => setIsOpen(open)}
-          onSubmit={async (answers) => {
-            const response = await getBuddyClient(
-              props.directory,
-            ).questionSet.submitAttempt({
-              artifactID: artifact.artifactID,
-              answers: artifact.questions.map((question) => ({
-                questionID: question.id,
-                selectedChoiceIds: answers[question.id] ?? [],
-              })),
-            })
-            return requireBuddyData(response).result
-          }}
-        />
-      )}
     </>
   )
 }
@@ -1588,51 +1524,38 @@ function QuestionSetsTab(props: {
 // HTML widgets shelf
 // ---------------------------------------------------------------------------
 
-function HtmlWidgetArtifactRow(props: { widget: HtmlWidgetArtifactListItem }) {
-  const [fullscreenOpen, setFullscreenOpen] = useState(false)
-  const displayWidget = {
-    artifactID: props.widget.artifactID,
-    kind: props.widget.kind,
-    title: props.widget.title,
-    ...(props.widget.description ? { description: props.widget.description } : {}),
-    viewport: props.widget.summary.viewport,
-    runtimeUrl: props.widget.summary.runtimeUrl,
-    sourceUrl: props.widget.summary.sourceUrl,
-    sourceHash: props.widget.sourceHash ?? "",
-    ...(props.widget.summary.sourcePath ? { sourcePath: props.widget.summary.sourcePath } : {}),
-    warnings: [],
-  }
+function HtmlWidgetArtifactRow(props: { directory: string; widget: HtmlWidgetArtifactListItem }) {
+  const openBenchRoute = useOpenBench()
   const subtitle = props.widget.description ?? props.widget.summary.sourcePath
   const viewportLabel = formatHtmlWidgetViewport(props.widget.summary.viewport)
 
   return (
-    <>
-      <button
-        type="button"
-        className="flex w-full items-center gap-3 rounded-lg border border-border-base bg-background-base px-3 py-3 text-left shadow-sm transition-colors hover:bg-surface-weak/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base"
-        onClick={() => setFullscreenOpen(true)}
-      >
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-weak text-icon-interactive-base">
-          <AppWindowIcon className="size-4" aria-hidden />
+    <button
+      type="button"
+      className="flex w-full items-center gap-3 rounded-lg border border-border-base bg-background-base px-3 py-3 text-left shadow-sm transition-colors hover:bg-surface-weak/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base"
+      onClick={() => {
+        void openBenchRoute(props.directory, {
+          type: "artifact",
+          kind: "html-widget",
+          artifactID: props.widget.artifactID,
+        })
+      }}
+    >
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-weak text-icon-interactive-base">
+        <AppWindowIcon className="size-4" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-text-strong">
+          {props.widget.title}
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold text-text-strong">
-            {props.widget.title}
-          </span>
-          <span className="mt-0.5 block truncate text-xs text-text-weak">
-            {subtitle ?? viewportLabel}
-          </span>
+        <span className="mt-0.5 block truncate text-xs text-text-weak">
+          {subtitle ?? viewportLabel}
         </span>
-        <span className="hidden shrink-0 rounded-md border border-border-base bg-surface-base px-2 py-1 text-[11px] font-medium text-text-weak sm:inline-flex">
-          {viewportLabel}
-        </span>
-      </button>
-      <HtmlWidgetFullscreenDialog
-        widget={displayWidget}
-        open={fullscreenOpen}
-        onOpenChange={setFullscreenOpen}
-      />
-    </>
+      </span>
+      <span className="hidden shrink-0 rounded-md border border-border-base bg-surface-base px-2 py-1 text-[11px] font-medium text-text-weak sm:inline-flex">
+        {viewportLabel}
+      </span>
+    </button>
   )
 }
 
@@ -1682,7 +1605,11 @@ function HtmlWidgetsNotebookShelf(props: {
         {loading
           ? Array.from({ length: 3 }, (_, index) => <ShelfRowSkeleton key={index} />)
           : visibleWidgets.map((widget) => (
-              <HtmlWidgetArtifactRow key={widget.artifactID} widget={widget} />
+              <HtmlWidgetArtifactRow
+                key={widget.artifactID}
+                directory={directory}
+                widget={widget}
+              />
             ))}
         {!loading && canShowMore ? (
           <ShelfShowMoreButton count={nextBatchCount} onClick={showMore} />
@@ -1809,14 +1736,20 @@ function WidgetsTab(props: { directories: string[] }) {
 // ---------------------------------------------------------------------------
 
 function MediaArtifactRow(props: { artifact: MediaLibraryArtifact; directory: string }) {
+  const openBenchRoute = useOpenBench()
   if (props.artifact.kind === "figure" || props.artifact.kind === "freeform-figure") {
     const rawUrl = `/api/artifacts/${props.artifact.kind}/${encodeURIComponent(props.artifact.artifactID)}/raw?directory=${encodeURIComponent(props.directory)}`
 
     return (
-      <a
-        href={resolveAssetUrl(rawUrl)}
-        target="_blank"
-        rel="noreferrer"
+      <button
+        type="button"
+        onClick={() => {
+          void openBenchRoute(props.directory, {
+            type: "artifact",
+            kind: props.artifact.kind,
+            artifactID: props.artifact.artifactID,
+          })
+        }}
         className="flex w-full items-center gap-3 rounded-lg border border-border-base bg-background-base px-3 py-3 text-left shadow-sm transition-colors hover:bg-surface-weak/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base"
       >
         <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border-base bg-surface-base">
@@ -1838,14 +1771,25 @@ function MediaArtifactRow(props: { artifact: MediaLibraryArtifact; directory: st
         <span className="hidden shrink-0 rounded-md border border-border-base bg-surface-base px-2 py-1 text-[11px] font-medium text-text-weak sm:inline-flex">
           SVG
         </span>
-      </a>
+      </button>
     )
   }
 
   const firstItem = availableMediaPresentationItems(props.artifact)[0]
 
   return (
-    <div className="flex w-full items-center gap-3 rounded-lg border border-border-base bg-background-base px-3 py-3 text-left shadow-sm">
+    <button
+      type="button"
+      onClick={() => {
+        void openBenchRoute(props.directory, {
+          type: "artifact",
+          kind: "media-presentation",
+          artifactID: props.artifact.artifactID,
+          ...(firstItem ? { itemID: firstItem.id } : {}),
+        })
+      }}
+      className="flex w-full items-center gap-3 rounded-lg border border-border-base bg-background-base px-3 py-3 text-left shadow-sm transition-colors hover:bg-surface-weak/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base"
+    >
       <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-surface-weak text-icon-interactive-base">
         <FileTextIcon className="size-4" aria-hidden />
       </span>
@@ -1860,7 +1804,7 @@ function MediaArtifactRow(props: { artifact: MediaLibraryArtifact; directory: st
       <span className="hidden shrink-0 rounded-md border border-border-base bg-surface-base px-2 py-1 text-[11px] font-medium text-text-weak sm:inline-flex">
         {mediaArtifactSubtitle(props.artifact)}
       </span>
-    </div>
+    </button>
   )
 }
 
@@ -2141,6 +2085,7 @@ function LazyMermaidArtifactCard(props: {
   artifact: MermaidLibraryArtifact
   initiallyHydrated: boolean
 }) {
+  const openBenchRoute = useOpenBench()
   const [hydrated, setHydrated] = useState(props.initiallyHydrated)
   const [inView, setInView] = useState(props.initiallyHydrated)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -2209,6 +2154,13 @@ function LazyMermaidArtifactCard(props: {
           showRawSourceOnError
           minimalActions
           disableRevealAnimation
+          onFullscreenOpen={() => {
+            void openBenchRoute(props.directory, {
+              type: "artifact",
+              kind: "mermaid",
+              artifactID: props.artifact.artifactID,
+            })
+          }}
           renderWrapper={(diagramElement, actions) => (
             <MermaidToolCard
               title={detailQuery.data.alt}

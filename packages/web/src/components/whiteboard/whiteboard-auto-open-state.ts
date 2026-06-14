@@ -1,17 +1,20 @@
-const suppressedWhiteboardAutoOpenKeyByDirectory = new Map<string, string>()
+import { BENCH_AUTO_OPEN_POLICY_WHITEBOARD } from "@/components/bench/bench-open-policy"
+import {
+  clearSuppressedBenchAutoOpen,
+  readSuppressedBenchAutoOpenKey,
+  suppressBenchAutoOpen,
+} from "@/components/bench/bench-auto-open-state"
 
 function suppressWhiteboardAutoOpen(directory: string, toolKey: string | undefined) {
-  if (!directory || !toolKey) return
-  suppressedWhiteboardAutoOpenKeyByDirectory.set(directory, toolKey)
+  suppressBenchAutoOpen(directory, BENCH_AUTO_OPEN_POLICY_WHITEBOARD, toolKey)
 }
 
 function readSuppressedWhiteboardAutoOpenKey(directory: string) {
-  return suppressedWhiteboardAutoOpenKeyByDirectory.get(directory)
+  return readSuppressedBenchAutoOpenKey(directory, BENCH_AUTO_OPEN_POLICY_WHITEBOARD)
 }
 
 function clearSuppressedWhiteboardAutoOpen(directory: string) {
-  if (!directory) return
-  suppressedWhiteboardAutoOpenKeyByDirectory.delete(directory)
+  clearSuppressedBenchAutoOpen(directory, BENCH_AUTO_OPEN_POLICY_WHITEBOARD)
 }
 
 export {

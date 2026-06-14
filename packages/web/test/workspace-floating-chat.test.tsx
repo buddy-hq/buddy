@@ -3,11 +3,12 @@ import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import {
   clampFloatingChatPosition,
-  DirectoryChatWorkspacePageLayout,
+  DirectoryChatBenchPageLayout,
   resolveDefaultFloatingChatPosition,
   resolveFloatingChatSize,
   type FloatingChatBounds,
-} from "../src/components/directory-chat/directory-chat-workspace-page-layout"
+} from "../src/components/directory-chat/directory-chat-bench-page-layout"
+import { BENCH_CHAT_LAYOUT_FLOATING } from "../src/lib/bench-navigation"
 
 async function flushEffects(delay = 0) {
   await Promise.resolve()
@@ -75,7 +76,7 @@ describe("workspace floating chat helpers", () => {
   })
 })
 
-describe("DirectoryChatWorkspacePageLayout floating chat", () => {
+describe("DirectoryChatBenchPageLayout floating chat", () => {
   let container: HTMLDivElement
   let root: Root
   let originalResizeObserver: typeof globalThis.ResizeObserver | undefined
@@ -112,9 +113,9 @@ describe("DirectoryChatWorkspacePageLayout floating chat", () => {
   test("moves the existing conversation between docked and floating shells", async () => {
     await act(async () => {
       root.render(
-        <DirectoryChatWorkspacePageLayout
-          workspaceKey="workspace"
-          workspace={<div data-component="workspace-probe">Workspace</div>}
+        <DirectoryChatBenchPageLayout
+          benchKey="bench"
+          bench={<div data-component="bench-probe">Bench</div>}
           conversation={(controls) => (
             <div data-component="conversation-probe">
               <span>Conversation</span>
@@ -162,5 +163,37 @@ describe("DirectoryChatWorkspacePageLayout floating chat", () => {
 
     expect(container.querySelector('[data-action="directory-chat-float"]')).not.toBeNull()
     expect(container.querySelector('[data-component="conversation-probe"]')).not.toBeNull()
+  })
+
+  test("can start with chat in a floating window", async () => {
+    await act(async () => {
+      root.render(
+        <DirectoryChatBenchPageLayout
+          benchKey="bench"
+          initialChatLayoutMode={BENCH_CHAT_LAYOUT_FLOATING}
+          bench={<div data-component="bench-probe">Bench</div>}
+          conversation={(controls) => (
+            <div data-component="conversation-probe">
+              <span>Conversation</span>
+              {controls.onFloatChat ? (
+                <button
+                  type="button"
+                  data-action="directory-chat-float"
+                  onClick={controls.onFloatChat}
+                >
+                  Float
+                </button>
+              ) : null}
+            </div>
+          )}
+        />,
+      )
+      await flushEffects()
+    })
+
+    expect(
+      container.querySelector('[data-component="directory-chat-floating-window"]'),
+    ).not.toBeNull()
+    expect(container.querySelector('[data-action="directory-chat-float"]')).toBeNull()
   })
 })

@@ -12,10 +12,12 @@ import { useChatStore } from "@/state/chat-store"
 import { appQueryClient } from "@/state/query-client"
 import { selectSession } from "@/state/chat-actions"
 import { decodeDirectory } from "@/lib/directory-token"
+import { resolveBenchRouteViewTransitionTypes } from "@/lib/bench-navigation"
 import { ThemeProvider } from "@/theme"
 import type { ThemeAppliedDetails } from "@/theme"
 import { routeTree } from "./routeTree.gen"
 import "@/state/appearance-preferences"
+import "./bench-view-transitions.css"
 
 const FILE_PROTOCOL = "file:"
 
@@ -35,6 +37,9 @@ const router = createRouter({
   },
   defaultPreload: "intent",
   defaultPreloadStaleTime: 0,
+  defaultViewTransition: {
+    types: resolveBenchRouteViewTransitionTypes,
+  },
 })
 
 declare module "@tanstack/react-router" {

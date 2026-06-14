@@ -17,7 +17,7 @@ import { formatThreadAge } from "@/components/layout/chat-left-sidebar/thread-he
 import { Popover, PopoverContent, PopoverTrigger } from "@buddy/ui/components/ui/popover"
 import { parseSubagentSession } from "@/lib/session-family"
 
-type DirectoryChatWorkspaceThreadBrowserProps = {
+type DirectoryChatBenchThreadBrowserProps = {
   sessionTitle: string
   sessions: SessionInfo[]
   activeSessionID?: string
@@ -31,15 +31,15 @@ type DirectoryChatWorkspaceThreadBrowserProps = {
 
 const THREAD_SEARCH_PLACEHOLDER = "Search notebook threads" as const
 const THREAD_NO_MATCHES_MESSAGE = "No matches found" as const
-const WORKSPACE_CHAT_FLOAT_LABEL = "Pop out chat" as const
+const BENCH_CHAT_FLOAT_LABEL = "Pop out chat" as const
 
 function getThreadTitle(session: SessionInfo) {
   const title = session.title.trim()
   return title || language.t("sidebar.untitledThread")
 }
 
-export function DirectoryChatWorkspaceThreadBrowser(
-  props: DirectoryChatWorkspaceThreadBrowserProps,
+export function DirectoryChatBenchThreadBrowser(
+  props: DirectoryChatBenchThreadBrowserProps,
 ) {
   const [query, setQuery] = useState("")
   const [isOpen, setIsOpen] = useState(false)
@@ -62,7 +62,7 @@ export function DirectoryChatWorkspaceThreadBrowser(
 
   return (
     <div
-      data-component="directory-chat-workspace-thread-browser"
+      data-component="directory-chat-bench-thread-browser"
       className={cn("flex w-full items-center justify-between gap-4 py-1", props.className)}
     >
       <div className="flex min-w-0 items-center gap-1.5">
@@ -146,7 +146,7 @@ export function DirectoryChatWorkspaceThreadBrowser(
                       key={session.id}
                       value={session.id}
                       keywords={[title]}
-                      data-action="directory-chat-workspace-thread-select"
+                      data-action="directory-chat-bench-thread-select"
                       data-session-id={session.id}
                       data-active={session.id === props.activeSessionID ? "true" : undefined}
                       aria-current={session.id === props.activeSessionID ? "true" : undefined}
@@ -199,8 +199,8 @@ export function DirectoryChatWorkspaceThreadBrowser(
             size="icon-xs"
             data-action="directory-chat-float"
             className="size-8 rounded-full text-text-weaker transition-all hover:bg-surface-raised-base-hover hover:text-text-strong active:scale-[0.95]"
-            aria-label={WORKSPACE_CHAT_FLOAT_LABEL}
-            title={WORKSPACE_CHAT_FLOAT_LABEL}
+            aria-label={BENCH_CHAT_FLOAT_LABEL}
+            title={BENCH_CHAT_FLOAT_LABEL}
             onClick={props.onFloatChat}
           >
             <PictureInPicture2Icon className="size-4" />

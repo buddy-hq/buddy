@@ -1,8 +1,8 @@
 import type { ComponentProps } from "react"
 import { DirectoryChatConversationPane } from "@/components/directory-chat/directory-chat-conversation-pane"
-import { DirectoryChatWorkspaceThreadBrowser } from "@/components/directory-chat/directory-chat-workspace-thread-browser"
+import { DirectoryChatBenchThreadBrowser } from "@/components/directory-chat/directory-chat-bench-thread-browser"
 
-type DirectoryChatWorkspaceConversationPaneProps = Omit<
+type DirectoryChatBenchConversationPaneProps = Omit<
   ComponentProps<typeof DirectoryChatConversationPane>,
   "className" | "mainPaneTab" | "topContent"
 > & {
@@ -12,8 +12,8 @@ type DirectoryChatWorkspaceConversationPaneProps = Omit<
   onSelectSession: (sessionID: string) => void | Promise<void>
 }
 
-export function DirectoryChatWorkspaceConversationPane(
-  props: DirectoryChatWorkspaceConversationPaneProps,
+export function DirectoryChatBenchConversationPane(
+  props: DirectoryChatBenchConversationPaneProps,
 ) {
   const { linkedSessionID, onFloatChat, onNewSession, onSelectSession, ...conversationPaneProps } =
     props
@@ -23,7 +23,7 @@ export function DirectoryChatWorkspaceConversationPane(
     <DirectoryChatConversationPane
       {...conversationPaneProps}
       topContent={
-        <DirectoryChatWorkspaceThreadBrowser
+        <DirectoryChatBenchThreadBrowser
           sessionTitle={threadBrowserState.sessionTitle}
           sessions={threadBrowserState.sessions}
           activeSessionID={threadBrowserState.sessionID}

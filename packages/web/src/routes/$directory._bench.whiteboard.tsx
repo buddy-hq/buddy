@@ -3,7 +3,7 @@ import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-
 import { DirectoryChatWhiteboardPage } from "@/components/directory-chat/directory-chat-whiteboard-page"
 import { decodeDirectory } from "@/lib/directory-token"
 
-export const Route = createFileRoute("/$directory/_workspace/whiteboard")({
+export const Route = createFileRoute("/$directory/_bench/whiteboard")({
   component: DirectoryWhiteboardRoute,
 })
 

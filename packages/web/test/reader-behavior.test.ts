@@ -171,7 +171,8 @@ describe("reading selection drafts", () => {
     expect(nextDraft.parts).toEqual([
       { type: "text", text: "Ask " },
       {
-        type: "reading-selection",
+        type: "selection-context",
+        source: "reading",
         text: "selected text",
         selectionKey: "selection-1",
         resourceKey: "book",
@@ -189,8 +190,18 @@ describe("reading selection drafts", () => {
         value: "Ask first second",
         parts: [
           { type: "text", text: "Ask " },
-          { type: "reading-selection", text: "first", selectionKey: "selection-1" },
-          { type: "reading-selection", text: "second", selectionKey: "selection-2" },
+          {
+            type: "selection-context",
+            source: "reading",
+            text: "first",
+            selectionKey: "selection-1",
+          },
+          {
+            type: "selection-context",
+            source: "reading",
+            text: "second",
+            selectionKey: "selection-2",
+          },
         ],
         attachments: [attachment],
         cursor: 100,
@@ -200,7 +211,12 @@ describe("reading selection drafts", () => {
 
     expect(nextDraft?.parts).toEqual([
       { type: "text", text: "Ask " },
-      { type: "reading-selection", text: "second", selectionKey: "selection-2" },
+      {
+        type: "selection-context",
+        source: "reading",
+        text: "second",
+        selectionKey: "selection-2",
+      },
     ])
     expect(nextDraft?.attachments).toEqual([attachment])
     expect(nextDraft?.cursor).toBe(nextDraft?.value.length)

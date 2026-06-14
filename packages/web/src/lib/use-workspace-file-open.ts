@@ -1,4 +1,5 @@
 import { useCallback } from "react"
+import { useNavigate } from "@tanstack/react-router"
 import { usePlatform } from "@/context/platform"
 import {
   RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT,
@@ -12,6 +13,7 @@ import {
   resolveWorkspaceFileOpenPlan,
   WORKSPACE_FILE_OPEN_TARGET_COPY_PATH,
   WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP,
+  WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH,
   WORKSPACE_FILE_OPEN_TARGET_PANEL,
   WORKSPACE_FILE_OPEN_TARGET_READING,
   WORKSPACE_FILE_OPEN_TARGET_REVEAL,
@@ -19,6 +21,7 @@ import {
   type WorkspaceFileOpenPlan,
   type WorkspaceFileOpenTarget,
 } from "./workspace-file-open"
+import { openBench } from "@/lib/bench-navigation"
 
 export type WorkspaceResourceOpener = (
   directory: string,
@@ -36,6 +39,7 @@ export function useWorkspaceFileOpen(
   directory: string | undefined,
   onOpenResource?: WorkspaceResourceOpener,
 ) {
+  const navigate = useNavigate()
   const platform = usePlatform()
   const queueFileOpen = useWorkspaceFilePanelStore((state) => state.queueFileOpen)
 
@@ -84,6 +88,11 @@ export function useWorkspaceFileOpen(
         return
       }
 
+      if (target === WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH) {
+        await navigate(openBench(directory, { type: "markdown", path: input.path }))
+        return
+      }
+
       if (target === WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP) {
         if (!input.absolutePath || !platform.openPath) return
         await platform.openPath(input.absolutePath)
@@ -95,7 +104,7 @@ export function useWorkspaceFileOpen(
         await platform.revealPath(input.absolutePath)
       }
     },
-    [directory, onOpenResource, platform, queueFileOpen],
+    [directory, navigate, onOpenResource, platform, queueFileOpen],
   )
 
   const executePrimary = useCallback(

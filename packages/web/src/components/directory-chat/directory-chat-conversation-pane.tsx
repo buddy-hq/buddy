@@ -119,7 +119,7 @@ export function DirectoryChatConversationPane(props: DirectoryChatConversationPa
       data-component="directory-chat-conversation-pane"
       data-main-pane-tab={mainPaneTab}
       className={cn(
-        "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background-stronger",
+        "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background-stronger [view-transition-name:buddy-chat-conversation]",
         className,
       )}
     >

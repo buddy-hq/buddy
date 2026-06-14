@@ -11,3 +11,8 @@ export function buildProjectFileRawParameters(filepath: string) {
     path: normalizedPath,
   }
 }
+
+export function buildProjectFileRawUrl(input: { directory: string; path: string }) {
+  const parameters = buildProjectFileRawParameters(input.path)
+  return `/api/file/raw/${encodeURIComponent(parameters.fileName)}?path=${encodeURIComponent(parameters.path)}&directory=${encodeURIComponent(input.directory)}`
+}

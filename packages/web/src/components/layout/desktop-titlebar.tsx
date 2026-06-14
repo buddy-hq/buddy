@@ -59,6 +59,12 @@ function TitlebarIcon(props: { icon: LucideIcon }) {
   )
 }
 
+function readDirectoryParam(params: unknown) {
+  if (!params || typeof params !== "object") return undefined
+  if (!("directory" in params)) return undefined
+  return typeof params.directory === "string" ? params.directory : undefined
+}
+
 export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const placement = props.placement ?? "root"
   const titlebarHeightClass =
@@ -79,18 +85,14 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const setRightSidebarTab = useUiPreferences((state) => state.setRightSidebarTab)
   const setRightSidebarWidth = useUiPreferences((state) => state.setRightSidebarWidth)
   const routerState = useRouterState()
-  const focusedWorkspaceMatch = routerState.matches.find(
+  const focusedBenchMatch = routerState.matches.find(
     (match) =>
-      match.routeId === "/$directory/_workspace/read" ||
-      match.routeId === "/$directory/_workspace/whiteboard",
+      match.routeId === "/$directory/_bench" || match.routeId.startsWith("/$directory/_bench/"),
   )
-  const isFocusedWorkspacePage = focusedWorkspaceMatch !== undefined
-  const directoryToken =
-    typeof focusedWorkspaceMatch?.params.directory === "string"
-      ? focusedWorkspaceMatch.params.directory
-      : undefined
+  const isFocusedBenchPage = focusedBenchMatch !== undefined
+  const directoryToken = readDirectoryParam(focusedBenchMatch?.params)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const lastWorkspaceSidebarTabRef = useRef<Exclude<ChatRightSidebarTab, "files">>("resources")
+  const lastBenchSidebarTabRef = useRef<Exclude<ChatRightSidebarTab, "files">>("resources")
 
   useEffect(() => {
     if (!isMac) return
@@ -108,7 +110,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
 
   useEffect(() => {
     if (rightSidebarTab === "files") return
-    lastWorkspaceSidebarTabRef.current = rightSidebarTab
+    lastBenchSidebarTabRef.current = rightSidebarTab
   }, [rightSidebarTab])
 
   if (!isMac && !isWindows) {
@@ -141,7 +143,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
     }
 
     const nextTab =
-      rightSidebarTab === "files" ? lastWorkspaceSidebarTabRef.current : rightSidebarTab
+      rightSidebarTab === "files" ? lastBenchSidebarTabRef.current : rightSidebarTab
     if (nextTab !== rightSidebarTab) {
       setRightSidebarTab(nextTab)
     }
@@ -159,12 +161,12 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   function onToggleFilesPanel() {
     if (rightSidebarOpen && rightSidebarTab === "files") {
       setRightSidebarOpen(false)
-      setRightSidebarTab(lastWorkspaceSidebarTabRef.current)
+      setRightSidebarTab(lastBenchSidebarTabRef.current)
       return
     }
 
     if (rightSidebarTab !== "files") {
-      lastWorkspaceSidebarTabRef.current = rightSidebarTab
+      lastBenchSidebarTabRef.current = rightSidebarTab
     }
 
     if (rightSidebarWidth < getRightSidebarMinWidth("files")) {
@@ -355,7 +357,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
             </div>
           ) : (
             <div className="min-w-0 flex-1">
-              {isFocusedWorkspacePage && directoryToken ? (
+              {isFocusedBenchPage && directoryToken ? (
                 <div className="flex items-center gap-2 px-3 animate-in fade-in slide-in-from-left-2 duration-300 cubic-bezier(0.23, 1, 0.32, 1)">
                   <Button
                     type="button"

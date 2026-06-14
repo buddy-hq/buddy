@@ -3,6 +3,7 @@ import {
   resolveWorkspaceFileOpenPlan,
   WORKSPACE_FILE_OPEN_TARGET_COPY_PATH,
   WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP,
+  WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH,
   WORKSPACE_FILE_OPEN_TARGET_PANEL,
   WORKSPACE_FILE_OPEN_TARGET_READING,
   WORKSPACE_FILE_OPEN_TARGET_REVEAL,
@@ -32,7 +33,7 @@ describe("workspace file open policy", () => {
     })
   })
 
-  test("routes Markdown and supported text files to the workspace panel", () => {
+  test("routes Markdown files to the Bench document surface", () => {
     expect(
       resolveWorkspaceFileOpenPlan({
         path: "notes/worksheet.md",
@@ -44,8 +45,9 @@ describe("workspace file open policy", () => {
         canReveal: false,
       }),
     ).toEqual({
-      primaryTarget: WORKSPACE_FILE_OPEN_TARGET_PANEL,
+      primaryTarget: WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH,
       targets: [
+        WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH,
         WORKSPACE_FILE_OPEN_TARGET_PANEL,
         WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP,
         WORKSPACE_FILE_OPEN_TARGET_COPY_PATH,
