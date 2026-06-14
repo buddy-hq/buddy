@@ -13,6 +13,7 @@ import {
 import { isHiddenFromUserMessage } from "../utils/message-visibility"
 import {
   readPromptReadingSelectionMetadata,
+  readPromptSelectionContextMetadata,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "@/components/prompt/prompt-types"
 import type { MessagePart } from "@/state/chat-types"
@@ -27,6 +28,7 @@ function isVisibleUserTextPart(part: MessagePart): part is ChatTextPart {
   return (
     isChatTextPart(part) &&
     part.synthetic !== true &&
+    readPromptSelectionContextMetadata(part.metadata) === undefined &&
     readPromptReadingSelectionMetadata(part.metadata) === undefined
   )
 }
@@ -101,7 +103,7 @@ export const UserSection = memo(function UserSection({
     () => userParts.filter(isChatWorkspaceFileReferencePart),
     [userParts],
   )
-  const userReadingSelectionParts = useMemo(
+  const userSelectionContextParts = useMemo(
     () => userParts.map(readChatReadingSelectionPart).filter((part) => part !== undefined),
     [userParts],
   )
@@ -157,7 +159,7 @@ export const UserSection = memo(function UserSection({
   const hasVisibleContent =
     userAttachmentParts.length > 0 ||
     standaloneReferenceParts.size > 0 ||
-    userReadingSelectionParts.length > 0 ||
+    userSelectionContextParts.length > 0 ||
     combinedTextPart !== undefined
 
   if (!userMessage || !hasVisibleContent) return null
@@ -175,8 +177,14 @@ export const UserSection = memo(function UserSection({
             ))}
           </div>
         ) : null}
-        {userReadingSelectionParts.map((part) => {
-          const metadata = [part.tocLabel, part.pageLabel, part.locationLabel]
+        {userSelectionContextParts.map((part) => {
+          const metadata = [
+            part.path,
+            part.headingPath?.join(" / "),
+            part.tocLabel,
+            part.pageLabel,
+            part.locationLabel,
+          ]
             .filter((value) => typeof value === "string" && value.length > 0)
             .join(" • ")
 
@@ -186,7 +194,7 @@ export const UserSection = memo(function UserSection({
               className="ml-auto flex w-fit max-w-[min(82%,64ch)] flex-col gap-1 rounded-lg border border-border-weak-base bg-surface-base px-3 py-2"
             >
               <div className="text-[11px] font-medium uppercase tracking-wide text-text-weaker">
-                Selected passage
+                {part.source === "markdown" ? "Selected document text" : "Selected passage"}
               </div>
               <div className="whitespace-pre-wrap break-words text-sm text-text-base">
                 {part.text}

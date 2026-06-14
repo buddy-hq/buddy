@@ -1,4 +1,3 @@
-import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Badge, Card, CardContent } from "@buddy/ui"
 import { language } from "@/context/language"
@@ -12,9 +11,7 @@ import {
   type QuestionSetLibraryArtifact,
 } from "@/components/layout/chat-left-sidebar/library-artifact-selectors"
 import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
-import { QuestionSetInlineView } from "@/components/chat/tools/render/question-set/question-set-inline-view"
-import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
-import type { PublicQuestionSetArtifact } from "@/components/chat/tools/render/question-set/question-set-inline-view"
+import { useOpenBench } from "@/lib/bench-navigation"
 
 function questionCountLabel(count: number): string {
   return language.t(count === 1 ? "chatTools.questionCount.one" : "chatTools.questionCount.other", {
@@ -33,33 +30,7 @@ function WorkspaceQuestionSetPanelItem(props: {
   directory: string
   artifactStub: QuestionSetLibraryArtifact
 }) {
-  const [artifact, setArtifact] = useState<PublicQuestionSetArtifact | null>(null)
-  const [isOpen, setIsOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [loadError, setLoadError] = useState<string | undefined>(undefined)
-
-  async function handleOpen() {
-    if (artifact) {
-      setLoadError(undefined)
-      setIsOpen(true)
-      return
-    }
-
-    setLoading(true)
-    setLoadError(undefined)
-    try {
-      const fetched = await getBuddyClient(props.directory).questionSet.read({
-        artifactID: props.artifactStub.artifactID,
-      })
-
-      setArtifact(requireBuddyData(fetched))
-      setIsOpen(true)
-    } catch (e) {
-      setLoadError(stringifyError(e))
-    } finally {
-      setLoading(false)
-    }
-  }
+  const openBenchRoute = useOpenBench()
 
   return (
     <>
@@ -69,9 +40,14 @@ function WorkspaceQuestionSetPanelItem(props: {
       >
         <button
           type="button"
-          disabled={loading}
           className="w-full cursor-pointer text-left transition-colors hover:bg-surface-raised-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
-          onClick={handleOpen}
+          onClick={() => {
+            void openBenchRoute(props.directory, {
+              type: "artifact",
+              kind: "question-set",
+              artifactID: props.artifactStub.artifactID,
+            })
+          }}
         >
           <CardContent className="space-y-2 px-3 py-3">
             <div className="flex items-start justify-between gap-2">
@@ -88,33 +64,6 @@ function WorkspaceQuestionSetPanelItem(props: {
           </CardContent>
         </button>
       </Card>
-
-      {loadError ? (
-        <p className="mt-2 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base">
-          {loadError}
-        </p>
-      ) : null}
-
-      {artifact && isOpen && (
-        <QuestionSetInlineView
-          artifact={artifact}
-          defaultOpen={true}
-          hideCard={true}
-          onOpenChange={(open) => setIsOpen(open)}
-          onSubmit={async (answers) => {
-            const response = await getBuddyClient(
-              props.directory,
-            ).questionSet.submitAttempt({
-              artifactID: artifact.artifactID,
-              answers: artifact.questions.map((question) => ({
-                questionID: question.id,
-                selectedChoiceIds: answers[question.id] ?? [],
-              })),
-            })
-            return requireBuddyData(response).result
-          }}
-        />
-      )}
     </>
   )
 }

@@ -9,6 +9,7 @@ import {
   Skeleton,
 } from "@buddy/ui"
 import { MultiViewShell } from "../multi-view-shell"
+import type { BenchTarget } from "@/lib/bench-navigation"
 import type { ReactNode } from "react"
 
 export type ToolImageGalleryItem = {
@@ -17,6 +18,7 @@ export type ToolImageGalleryItem = {
   alt: string
   title: string
   caption?: string
+  benchTarget?: BenchTarget
 }
 
 type ToolImageGalleryProps = {
@@ -25,6 +27,7 @@ type ToolImageGalleryProps = {
   className?: string
   contentClassName?: string
   dialogDescription: string
+  onOpenItem?: (item: ToolImageGalleryItem, index: number) => void
 }
 
 function GalleryImage(props: {
@@ -52,6 +55,7 @@ export function ToolImageGallery({
   className,
   contentClassName,
   dialogDescription,
+  onOpenItem,
 }: ToolImageGalleryProps) {
   const [open, setOpen] = useState(false)
   const [idx, setIdx] = useState(0)
@@ -95,6 +99,10 @@ export function ToolImageGallery({
               )}
               onClick={() => {
                 if (!item.src) return
+                if (onOpenItem) {
+                  onOpenItem(item, index)
+                  return
+                }
                 setIdx(index)
                 setOpen(true)
               }}

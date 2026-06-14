@@ -9,6 +9,8 @@ import type { MessagePart } from "@/state/chat-types"
 import {
   READING_SELECTION_PART_TYPE,
   readPromptReadingSelectionMetadata,
+  readPromptSelectionContextMetadata,
+  SELECTION_CONTEXT_PART_TYPE,
 } from "@/components/prompt/prompt-types"
 
 export type ChatFilePart = MessagePart & SdkFilePart
@@ -17,8 +19,13 @@ export type ChatTextPart = MessagePart & SdkTextPart
 export type ChatReasoningPart = MessagePart & SdkReasoningPart
 export type ChatToolPart = MessagePart & SdkToolPart
 export type ChatReadingSelectionPart = MessagePart & {
-  type: typeof READING_SELECTION_PART_TYPE
+  type: typeof READING_SELECTION_PART_TYPE | typeof SELECTION_CONTEXT_PART_TYPE
   text: string
+  source?: "reading" | "markdown"
+  selectionKey?: string
+  path?: string
+  version?: string
+  headingPath?: string[]
   resourceKey?: string
   cfi?: string
   index?: number
@@ -48,7 +55,10 @@ export function isChatToolPart(part: MessagePart): part is ChatToolPart {
 }
 
 export function isChatReadingSelectionPart(part: MessagePart): part is ChatReadingSelectionPart {
-  return part.type === READING_SELECTION_PART_TYPE && typeof part.text === "string"
+  return (
+    (part.type === READING_SELECTION_PART_TYPE || part.type === SELECTION_CONTEXT_PART_TYPE) &&
+    typeof part.text === "string"
+  )
 }
 
 export function readChatReadingSelectionPart(
@@ -58,13 +68,21 @@ export function readChatReadingSelectionPart(
     return part
   }
 
-  const metadataPart = readPromptReadingSelectionMetadata(part.metadata)
-  if (!metadataPart) {
+  const metadataPart = readPromptSelectionContextMetadata(part.metadata)
+  if (metadataPart) {
+    return {
+      ...part,
+      ...metadataPart,
+    }
+  }
+
+  const readingMetadataPart = readPromptReadingSelectionMetadata(part.metadata)
+  if (!readingMetadataPart) {
     return undefined
   }
 
   return {
     ...part,
-    ...metadataPart,
+    ...readingMetadataPart,
   }
 }

@@ -1,8 +1,7 @@
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
-import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { stringifyError } from "@/lib/api-client"
 import { workspaceQuestionSetArtifactsQueryOptions } from "@/state/workspace-artifacts-query"
 import {
@@ -12,11 +11,7 @@ import {
 import { ToolOutputPanel } from "../../tool-output-panel"
 import type { ToolPartProps } from "../../registry"
 import { readString } from "../../types"
-import {
-  QuestionSetInlineView,
-  type PublicQuestionSetArtifact,
-  type SubmitQuestionSetAttemptOutput,
-} from "../question-set/question-set-inline-view"
+import { useOpenBench } from "@/lib/bench-navigation"
 import { TASK_CARD_TRANSITION } from "../task-motion"
 import { useSubagentCardData } from "./task-card-header"
 import { SubagentCard } from "./subagent-card"
@@ -76,10 +71,9 @@ export function QuestionSetAuthorTaskCard({
     activityActive,
     status,
   } = useSubagentCardData({ state, onOpenSession, directory })
+  const openBenchRoute = useOpenBench()
   const output = state.output || (state.error ?? "")
   const taskResultOutput = parseTaskResultOutput(output)
-  const [openArtifact, setOpenArtifact] = useState<PublicQuestionSetArtifact | undefined>(undefined)
-  const [openArtifactError, setOpenArtifactError] = useState<string | undefined>(undefined)
 
   const childSessionID = readString(state.metadata.sessionId)
   const artifactsQuery = useQuery({
@@ -97,17 +91,13 @@ export function QuestionSetAuthorTaskCard({
       .toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))
   }, [artifactsQuery.data, childSessionID])
 
-  async function handleOpenArtifact(artifact: QuestionSetArtifact) {
+  function handleOpenArtifact(artifact: QuestionSetArtifact) {
     if (!directory) return
-    setOpenArtifactError(undefined)
-    try {
-      const response = await getBuddyClient(directory).questionSet.read({
-        artifactID: artifact.artifactID,
-      })
-      setOpenArtifact(requireBuddyData(response))
-    } catch (error) {
-      setOpenArtifactError(stringifyError(error))
-    }
+    void openBenchRoute(directory, {
+      type: "artifact",
+      kind: "question-set",
+      artifactID: artifact.artifactID,
+    })
   }
 
   const error = state.status === "error" ? taskResultOutput || undefined : undefined
@@ -165,39 +155,6 @@ export function QuestionSetAuthorTaskCard({
             >
               {stringifyError(artifactsQuery.error)}
             </motion.p>
-          ) : null}
-          {openArtifactError ? (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={TASK_CARD_TRANSITION}
-              className="text-xs text-icon-critical-base px-3 py-2.5"
-            >
-              {openArtifactError}
-            </motion.p>
-          ) : null}
-          {openArtifact && directory ? (
-            <QuestionSetInlineView
-              artifact={openArtifact}
-              defaultOpen={true}
-              hideCard={true}
-              persistKey={`task-question-set:${openArtifact.artifactID}`}
-              onOpenChange={(open) => {
-                if (!open) setOpenArtifact(undefined)
-              }}
-              onSubmit={async (answers) => {
-                const response: SubmitQuestionSetAttemptOutput = requireBuddyData(
-                  await getBuddyClient(directory).questionSet.submitAttempt({
-                    artifactID: openArtifact.artifactID,
-                    answers: openArtifact.questions.map((question) => ({
-                      questionID: question.id,
-                      selectedChoiceIds: answers[question.id] ?? [],
-                    })),
-                  }),
-                )
-                return response.result
-              }}
-            />
           ) : null}
         </>
       ) : null}

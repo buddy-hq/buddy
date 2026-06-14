@@ -19,6 +19,7 @@ import {
   CopyIcon,
   EllipsisIcon,
   ExternalLinkIcon,
+  FileTextIcon,
   FolderOpenIcon,
   Loader2Icon,
   Music2Icon,
@@ -45,8 +46,10 @@ import {
   useWorkspaceFileOpen,
   type WorkspaceFileActionInput,
 } from "@/lib/use-workspace-file-open"
+import { useOpenBench } from "@/lib/bench-navigation"
 import {
   WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP,
+  WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH,
   WORKSPACE_FILE_OPEN_TARGET_PANEL,
   WORKSPACE_FILE_OPEN_TARGET_READING,
   WORKSPACE_FILE_OPEN_TARGET_REVEAL,
@@ -172,6 +175,7 @@ function MediaFileIcon(props: { item: PresentMediaResolvedItem; className?: stri
 
 function fileOpenTargetLabel(target: WorkspaceFileOpenTarget, revealLabel: string) {
   if (target === WORKSPACE_FILE_OPEN_TARGET_READING) return "Read in Buddy"
+  if (target === WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH) return "Open on Bench"
   if (target === WORKSPACE_FILE_OPEN_TARGET_PANEL) return "Open in Buddy"
   if (target === WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP) return "Open in default app"
   if (target === WORKSPACE_FILE_OPEN_TARGET_REVEAL) return revealLabel
@@ -180,6 +184,9 @@ function fileOpenTargetLabel(target: WorkspaceFileOpenTarget, revealLabel: strin
 
 function FileOpenTargetIcon(props: { target: WorkspaceFileOpenTarget }) {
   if (props.target === WORKSPACE_FILE_OPEN_TARGET_READING) return <BookOpenIcon aria-hidden />
+  if (props.target === WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH) {
+    return <FileTextIcon aria-hidden />
+  }
   if (props.target === WORKSPACE_FILE_OPEN_TARGET_PANEL) return <FolderOpenIcon aria-hidden />
   if (props.target === WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP) {
     return <ExternalLinkIcon aria-hidden />
@@ -379,8 +386,9 @@ type MediaInteractionProps = {
 }
 
 function MediaImageGallery(
-  props: MediaInteractionProps & { items: PresentMediaResolvedItem[] },
+  props: MediaInteractionProps & { artifactID: string; items: PresentMediaResolvedItem[] },
 ) {
+  const openBenchRoute = useOpenBench()
   const previewable = props.items.filter(
     (i) =>
       i.mediaKind === "image" &&
@@ -423,7 +431,17 @@ function MediaImageGallery(
         src: resolvePresentedMediaStreamUrl(item),
         alt: item.fileName,
         title: item.fileName,
+        benchTarget: {
+          type: "artifact",
+          kind: "media-presentation",
+          artifactID: props.artifactID,
+          itemID: item.id,
+        },
       }))}
+      onOpenItem={(item) => {
+        if (!item.benchTarget) return
+        void openBenchRoute(props.directory, item.benchTarget)
+      }}
     />
   )
 }
@@ -568,7 +586,11 @@ function PresentedMediaContent(props: {
   return (
     <div className="flex flex-col gap-4">
       {images.length > 0 ? (
-        <MediaImageGallery {...interactionProps} items={images} />
+        <MediaImageGallery
+          {...interactionProps}
+          artifactID={props.artifactID}
+          items={images}
+        />
       ) : null}
       {videos.length > 0 ? (
         <MediaPlayerCollection

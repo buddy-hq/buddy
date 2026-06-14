@@ -3,11 +3,11 @@ import { useQuery } from "@tanstack/react-query"
 import {
   QuestionSetInlineView,
   type PublicQuestionSetArtifact,
-  type SubmitQuestionSetAttemptOutput,
 } from "@/components/chat/tools/render/question-set/question-set-inline-view"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
+import { useOpenBench } from "@/lib/bench-navigation"
 import { workspaceArtifactsQueryKeys } from "@/state/workspace-artifacts-query"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 
@@ -18,6 +18,7 @@ type QuestionSetSidePanelProps = {
 }
 
 export function QuestionSetSidePanel(props: QuestionSetSidePanelProps) {
+  const openBenchRoute = useOpenBench()
   const closeQuestionSet = useWorkspaceQuestionSetPanelStore((state) => state.closeQuestionSet)
   const artifactQuery = useQuery({
     queryKey: [
@@ -75,8 +76,15 @@ export function QuestionSetSidePanel(props: QuestionSetSidePanelProps) {
           <QuestionSetInlineView
             artifact={artifact}
             persistKey={`selected-question-set:${artifact.artifactID}`}
+            onOpenBench={() => {
+              void openBenchRoute(props.directory, {
+                type: "artifact",
+                kind: "question-set",
+                artifactID: artifact.artifactID,
+              })
+            }}
             onSubmit={async (answers) => {
-              const response: SubmitQuestionSetAttemptOutput = requireBuddyData(
+              const response = requireBuddyData(
                 await getBuddyClient(props.directory).questionSet.submitAttempt({
                   artifactID: artifact.artifactID,
                   answers: artifact.questions.map((question) => ({

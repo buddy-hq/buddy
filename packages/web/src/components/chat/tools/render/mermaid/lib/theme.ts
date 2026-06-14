@@ -111,8 +111,7 @@ function buildMermaidThemeSignature(tokens: MermaidThemeTokens): string {
   })
 }
 
-function readMermaidThemeConfig(): MermaidThemeConfig {
-  const tokens = readMermaidThemeTokens()
+function createMermaidThemeConfig(tokens: MermaidThemeTokens): MermaidThemeConfig {
   return {
     backgroundColor: tokens.backgroundBase,
     candidateTextColors: uniqueValues([
@@ -128,6 +127,15 @@ function readMermaidThemeConfig(): MermaidThemeConfig {
   }
 }
 
-export { MERMAID_RENDER_CONFIG_VERSION, MERMAID_RENDERER_VERSION, readMermaidThemeConfig }
+function readMermaidThemeConfig(): MermaidThemeConfig {
+  return createMermaidThemeConfig(readMermaidThemeTokens())
+}
+
+export {
+  MERMAID_RENDER_CONFIG_VERSION,
+  MERMAID_RENDERER_VERSION,
+  createMermaidThemeConfig,
+  readMermaidThemeConfig,
+}
 
 export type { MermaidThemeConfig, MermaidThemeTokens }

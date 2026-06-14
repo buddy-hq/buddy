@@ -52,6 +52,7 @@ export type MermaidViewportController = {
   canvasHeight: number
   contentOffsetX: number
   contentOffsetY: number
+  canvasPadding: number
   zoom: number
   zoomLabel: string
   isAutoZoom: boolean
@@ -209,6 +210,54 @@ export function resolveMermaidAutoZoom(input: {
       Math.min(readableHeightZoom, overflowLimitedZoom, mermaidConstants.zoom.MAX_AUTO_FIT),
     ),
   )
+}
+
+export function resolveMermaidCanvasMetrics(input: {
+  renderedWidth: number
+  renderedHeight: number
+  viewportSize: MermaidViewportSize
+  canvasPadding: number
+  panOverscan: number
+}) {
+  const contentWidth = input.renderedWidth + input.canvasPadding * 2
+  const contentHeight = input.renderedHeight + input.canvasPadding * 2
+  const canvasWidth = Math.max(
+    contentWidth + input.panOverscan * 2,
+    input.viewportSize.width + input.panOverscan * 2,
+  )
+  const canvasHeight = Math.max(
+    contentHeight + input.panOverscan * 2,
+    input.viewportSize.height + input.panOverscan * 2,
+  )
+
+  return {
+    canvasWidth,
+    canvasHeight,
+    contentOffsetX: Math.max(input.canvasPadding, (canvasWidth - contentWidth) / 2),
+    contentOffsetY: Math.max(input.canvasPadding, (canvasHeight - contentHeight) / 2),
+    contentWidth,
+    contentHeight,
+  }
+}
+
+export function resolveMermaidCenteredScroll(input: {
+  metrics: ReturnType<typeof resolveMermaidCanvasMetrics>
+  viewportSize: MermaidViewportSize
+}) {
+  return {
+    left: Math.max(
+      0,
+      input.metrics.contentOffsetX +
+        input.metrics.contentWidth / 2 -
+        input.viewportSize.width / 2,
+    ),
+    top: Math.max(
+      0,
+      input.metrics.contentOffsetY +
+        input.metrics.contentHeight / 2 -
+        input.viewportSize.height / 2,
+    ),
+  }
 }
 
 function mountSvgMarkup(host: HTMLDivElement | null, result: MermaidRenderResult) {
@@ -473,10 +522,20 @@ export function useMermaidViewport({
       return
     }
 
-    viewportRef.current.scrollLeft = panOverscan
-    viewportRef.current.scrollTop = panOverscan
+    const renderedWidth = svgBounds.width * zoom
+    const renderedHeight = svgBounds.height * zoom
+    const metrics = resolveMermaidCanvasMetrics({
+      renderedWidth,
+      renderedHeight,
+      viewportSize,
+      canvasPadding,
+      panOverscan,
+    })
+    const scroll = resolveMermaidCenteredScroll({ metrics, viewportSize })
+    viewportRef.current.scrollLeft = scroll.left
+    viewportRef.current.scrollTop = scroll.top
     resetScrollPositionRef.current = false
-  }, [enabled, panOverscan, value, viewportSize.height, viewportSize.width, zoom])
+  }, [canvasPadding, enabled, panOverscan, svgBounds, value, viewportSize, zoom])
 
   useEffect(() => {
     return () => {
@@ -609,13 +668,13 @@ export function useMermaidViewport({
 
   const renderedWidth = svgBounds.width * zoom
   const renderedHeight = svgBounds.height * zoom
-  const contentWidth = renderedWidth + canvasPadding * 2
-  const contentHeight = renderedHeight + canvasPadding * 2
-  const canvasWidth = Math.max(contentWidth + panOverscan * 2, viewportSize.width + panOverscan * 2)
-  const canvasHeight = Math.max(
-    contentHeight + panOverscan * 2,
-    viewportSize.height + panOverscan * 2,
-  )
+  const canvasMetrics = resolveMermaidCanvasMetrics({
+    renderedWidth,
+    renderedHeight,
+    viewportSize,
+    canvasPadding,
+    panOverscan,
+  })
 
   return {
     viewportRef,
@@ -623,10 +682,11 @@ export function useMermaidViewport({
     svgBounds,
     renderedWidth,
     renderedHeight,
-    canvasWidth,
-    canvasHeight,
-    contentOffsetX: panOverscan,
-    contentOffsetY: panOverscan,
+    canvasWidth: canvasMetrics.canvasWidth,
+    canvasHeight: canvasMetrics.canvasHeight,
+    contentOffsetX: canvasMetrics.contentOffsetX,
+    contentOffsetY: canvasMetrics.contentOffsetY,
+    canvasPadding,
     zoom,
     zoomLabel: `${Math.round(zoom * 100)}%`,
     isAutoZoom,

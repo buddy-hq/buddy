@@ -142,6 +142,30 @@ export function formatHtmlWidgetViewport(viewport: HtmlWidgetViewport): string {
   return `${viewport.label} · ${viewport.width}x${viewport.height}`
 }
 
+export function htmlWidgetOutputFromArtifact(input: {
+  directory: string
+  artifact: HtmlWidgetArtifact
+}): HtmlWidgetToolOutput {
+  const artifactID = input.artifact.artifactID
+  const directoryParam = encodeURIComponent(input.directory)
+  const encodedArtifactID = encodeURIComponent(artifactID)
+
+  return {
+    artifactID,
+    kind: "html-widget",
+    title: input.artifact.title,
+    ...(input.artifact.description ? { description: input.artifact.description } : {}),
+    viewport: input.artifact.summary.viewport,
+    runtimeUrl: `/api/artifacts/html-widget/${encodedArtifactID}/runtime?directory=${directoryParam}`,
+    sourceUrl: `/api/artifacts/html-widget/${encodedArtifactID}/source?directory=${directoryParam}`,
+    sourceHash: input.artifact.sourceHash,
+    ...(input.artifact.summary.sourcePath
+      ? { sourcePath: input.artifact.summary.sourcePath }
+      : {}),
+    warnings: input.artifact.summary.warnings,
+  }
+}
+
 export async function readHtmlWidgetSource(input: {
   directory: string
   artifactID: string

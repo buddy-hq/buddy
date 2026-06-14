@@ -1,14 +1,11 @@
-import { useState, useMemo } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
 import { getFlashcardDueCount, isFlashcardReviewAvailable } from "@/lib/flashcard"
-import { FlashcardReviewDialog } from "@/components/flashcard/flashcard-review-dialog"
-import {
-  workspaceArtifactsQueryKeys,
-  workspaceFlashcardDecksQueryOptions,
-} from "@/state/workspace-artifacts-query"
+import { workspaceFlashcardDecksQueryOptions } from "@/state/workspace-artifacts-query"
+import { useOpenBench } from "@/lib/bench-navigation"
 import {
   artifactKindFilter,
   type FlashcardDeckLibraryArtifact,
@@ -81,7 +78,7 @@ export function FlashcardAuthorTaskCard({
   onOpenSession,
   directory,
 }: Pick<ToolPartProps, "state" | "onOpenSession" | "directory">) {
-  const queryClient = useQueryClient()
+  const openBenchRoute = useOpenBench()
   const {
     agentName,
     taskTitle,
@@ -94,7 +91,6 @@ export function FlashcardAuthorTaskCard({
   } = useSubagentCardData({ state, onOpenSession, directory })
   const output = state.output || (state.error ?? "")
   const taskResultOutput = parseTaskResultOutput(output)
-  const [reviewDeck, setReviewDeck] = useState<{ artifactID: string; title: string } | null>(null)
 
   const childSessionID = readString(state.metadata.sessionId)
   const decksQuery = useQuery({
@@ -146,7 +142,14 @@ export function FlashcardAuthorTaskCard({
                   <FlashcardDeckTaskPreview
                     deck={deck}
                     directory={directory ?? ""}
-                    onStartReview={setReviewDeck}
+                    onStartReview={(selectedDeck) => {
+                      if (!directory) return
+                      void openBenchRoute(directory, {
+                        type: "artifact",
+                        kind: "flashcard-deck",
+                        artifactID: selectedDeck.artifactID,
+                      })
+                    }}
                   />
                 </div>
               ))}
@@ -170,22 +173,6 @@ export function FlashcardAuthorTaskCard({
         ) : null}
       </SubagentCard>
 
-      {directory && reviewDeck ? (
-        <FlashcardReviewDialog
-          open={reviewDeck !== null}
-          onOpenChange={(open) => {
-            if (!open) {
-              setReviewDeck(null)
-              void queryClient.invalidateQueries({
-                queryKey: workspaceArtifactsQueryKeys.flashcard(directory),
-              })
-            }
-          }}
-          directory={directory}
-          artifactID={reviewDeck.artifactID}
-          deckTitle={reviewDeck.title}
-        />
-      ) : null}
     </>
   )
 }

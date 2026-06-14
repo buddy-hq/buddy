@@ -16,11 +16,12 @@ import { mermaidConstants } from "./constants"
 
 type MermaidActionBarProps = {
   source: string
-  onFullscreenOpen: () => void
+  onFullscreenOpen?: () => void
   svgRef: React.RefObject<HTMLDivElement | null>
   originalSvg: string
   artifactID?: string
   minimal?: boolean
+  hideFullscreen?: boolean
   zoomControls?: {
     zoomIn: () => void
     zoomOut: () => void
@@ -83,6 +84,7 @@ export const MermaidActionBar = memo(function MermaidActionBar({
   originalSvg,
   artifactID,
   minimal,
+  hideFullscreen,
   zoomControls,
 }: MermaidActionBarProps) {
   const [copyFeedback, setCopyFeedback] = useState<"idle" | "copied">("idle")
@@ -235,13 +237,15 @@ export const MermaidActionBar = memo(function MermaidActionBar({
           }
           minimal={minimal}
         />
-        <DiagramActionButton
-          label={language.t("chatTools.mermaidDiagram.openFullscreen")}
-          onClick={onFullscreenOpen}
-          dataAction="mermaid-open-fullscreen"
-          icon={<ExpandIcon className={iconSize} />}
-          minimal={minimal}
-        />
+        {!hideFullscreen && onFullscreenOpen ? (
+          <DiagramActionButton
+            label={language.t("chatTools.mermaidDiagram.openFullscreen")}
+            onClick={onFullscreenOpen}
+            dataAction="mermaid-open-fullscreen"
+            icon={<ExpandIcon className={iconSize} />}
+            minimal={minimal}
+          />
+        ) : null}
       </div>
     </TooltipProvider>
   )

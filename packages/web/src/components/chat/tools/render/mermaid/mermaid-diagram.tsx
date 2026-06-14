@@ -5,10 +5,10 @@ import { language } from "@/context/language"
 import { useMermaidRender } from "./use-mermaid-render"
 import { MermaidInlineView } from "./mermaid-inline-view"
 import { MermaidActionBar } from "./mermaid-action-bar"
-import { MermaidFullscreenDialog } from "./mermaid-fullscreen-dialog"
 import { MODAL_EXPAND_SPRING } from "./motion"
 import { mermaidConstants } from "./constants"
 import { useMermaidViewport, type MermaidViewportZoomState } from "./use-mermaid-viewport"
+import type { MermaidThemeConfig } from "./lib/theme"
 import { useInlineAssetActivation } from "@/components/chat/inline-asset-boundary"
 
 export const DIAGRAM_REVEAL_SPRING = {
@@ -113,19 +113,26 @@ export function MermaidDiagram(props: {
   disableRevealAnimation?: boolean
   enabled?: boolean
   renderPriority?: number
+  presentation?: "interactive" | "static"
+  viewportMode?: "inline" | "bench"
+  themeConfig?: MermaidThemeConfig
+  onFullscreenOpen?: () => void
+  hideFullscreenAction?: boolean
   onRequestFix?: (errorMessage: string) => void
   onRenderFailure?: (input: { message: string; persisted: boolean; renderKey?: string }) => void
   errorMeta?: React.ReactNode
   fixDisabled?: boolean
 }) {
   const { artifactID, source, onRenderFailure } = props
-  const [fullscreenOpen, setFullscreenOpen] = useState(false)
+  const isInteractive = (props.presentation ?? "interactive") === "interactive"
   const [sharedZoomState, setSharedZoomState] = useState<MermaidViewportZoomState>({
     zoom: mermaidConstants.zoom.DEFAULT,
     isAutoZoom: true,
   })
   const [copiedErrorDetails, setCopiedErrorDetails] = useState(false)
+  const [staticSvgMounted, setStaticSvgMounted] = useState(false)
   const copyResetTimeoutRef = useRef<number | undefined>(undefined)
+  const staticSvgHostRef = useRef<HTMLDivElement>(null)
   const activation = useInlineAssetActivation()
   const enabled = (props.enabled ?? true) && activation.active
 
@@ -135,6 +142,7 @@ export function MermaidDiagram(props: {
     directory: props.directory,
     enabled,
     priority: props.renderPriority,
+    themeConfig: props.themeConfig,
   })
 
   useEffect(() => {
@@ -185,6 +193,13 @@ export function MermaidDiagram(props: {
   }, [props.showRawSourceOnError, props.source, state])
 
   const readyValue = state.status === "ready" ? state.value : undefined
+  const benchViewportMode = props.viewportMode === "bench"
+  const viewportCanvasPadding = benchViewportMode
+    ? mermaidConstants.viewport.FULLSCREEN_CANVAS_PADDING
+    : mermaidConstants.viewport.INLINE_CANVAS_PADDING
+  const viewportPanOverscan = benchViewportMode
+    ? mermaidConstants.viewport.FULLSCREEN_PAN_OVERSCAN
+    : mermaidConstants.viewport.INLINE_PAN_OVERSCAN
 
   useEffect(() => {
     setSharedZoomState({
@@ -200,31 +215,49 @@ export function MermaidDiagram(props: {
       : props.errorMeta
   const inlineViewport = useMermaidViewport({
     value: readyValue,
-    enabled: state.status === "ready" && !fullscreenOpen,
+    enabled: isInteractive && state.status === "ready",
     zoomState: sharedZoomState,
     onZoomStateChange: setSharedZoomState,
-    canvasPadding: mermaidConstants.viewport.INLINE_CANVAS_PADDING,
-    panOverscan: mermaidConstants.viewport.INLINE_PAN_OVERSCAN,
-    defaultZoomMode: "responsive",
-    responsiveAutoZoomStrategy: {
-      minimumRenderedHeight: mermaidConstants.viewport.INLINE_AUTO_MIN_RENDERED_HEIGHT,
-      maxViewportWidths: mermaidConstants.viewport.INLINE_AUTO_MAX_VIEWPORT_WIDTHS,
-    },
+    canvasPadding: viewportCanvasPadding,
+    panOverscan: viewportPanOverscan,
+    defaultZoomMode: benchViewportMode ? "fit" : "responsive",
+    responsiveAutoZoomStrategy: benchViewportMode
+      ? undefined
+      : {
+          minimumRenderedHeight: mermaidConstants.viewport.INLINE_AUTO_MIN_RENDERED_HEIGHT,
+          maxViewportWidths: mermaidConstants.viewport.INLINE_AUTO_MAX_VIEWPORT_WIDTHS,
+        },
   })
 
-  const handleFullscreenOpen = useCallback(() => {
-    setFullscreenOpen(true)
-  }, [])
+  useEffect(() => {
+    if (isInteractive || state.status !== "ready") {
+      setStaticSvgMounted(false)
+      return
+    }
+
+    const host = staticSvgHostRef.current
+    if (!host) {
+      setStaticSvgMounted(false)
+      return
+    }
+
+    if (host.innerHTML !== state.value.svg) {
+      host.innerHTML = state.value.svg
+    }
+    state.value.bindFunctions?.(host)
+    setStaticSvgMounted(true)
+  }, [isInteractive, state])
 
   const actions =
-    state.status === "ready" ? (
+    isInteractive && state.status === "ready" ? (
       <MermaidActionBar
         source={source}
-        onFullscreenOpen={handleFullscreenOpen}
+        onFullscreenOpen={props.onFullscreenOpen}
         svgRef={inlineViewport.svgHostRef}
         originalSvg={state.value.svg}
         artifactID={artifactID}
         minimal={props.minimalActions}
+        hideFullscreen={props.hideFullscreenAction}
         zoomControls={{
           zoomIn: inlineViewport.zoomIn,
           zoomOut: inlineViewport.zoomOut,
@@ -241,8 +274,12 @@ export function MermaidDiagram(props: {
   const content = (
     <div
       ref={activation.ref}
-      data-markdown-export-status={state.status}
-      className={cn("h-full min-h-0", props.className)}
+      data-markdown-export-status={
+        !isInteractive && state.status === "ready" && !staticSvgMounted
+          ? "loading"
+          : state.status
+      }
+      className={cn(isInteractive ? "h-full min-h-0" : "min-w-0", props.className)}
     >
       {state.status === "loading" ? (
         props.hideLoadingPlaceholder ? (
@@ -254,7 +291,7 @@ export function MermaidDiagram(props: {
         )
       ) : null}
 
-      {state.status === "ready" ? (
+      {state.status === "ready" && isInteractive ? (
         <motion.div
           className="h-full overflow-hidden rounded-[14px]"
           transition={MODAL_EXPAND_SPRING}
@@ -269,6 +306,21 @@ export function MermaidDiagram(props: {
         >
           <MermaidInlineView ariaLabel={props.alt} viewport={inlineViewport} />
         </motion.div>
+      ) : null}
+
+      {state.status === "ready" && !isInteractive ? (
+        <div
+          data-component="mermaid-diagram-static-viewport"
+          className="min-w-0 overflow-visible"
+        >
+          <div
+            ref={staticSvgHostRef}
+            data-component="mermaid-diagram"
+            role="img"
+            aria-label={props.alt}
+            className="[&_svg]:!block [&_svg]:!h-auto [&_svg]:!max-h-none [&_svg]:!max-w-full [&_svg]:!w-full"
+          />
+        </div>
       ) : null}
 
       {state.status === "error" ? (
@@ -347,14 +399,6 @@ export function MermaidDiagram(props: {
         </div>
       ) : null}
 
-      <MermaidFullscreenDialog
-        value={readyValue}
-        open={fullscreenOpen}
-        onOpenChange={setFullscreenOpen}
-        alt={props.alt}
-        zoomState={sharedZoomState}
-        onZoomStateChange={setSharedZoomState}
-      />
     </div>
   )
 

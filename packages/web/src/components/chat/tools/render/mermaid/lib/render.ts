@@ -3,6 +3,7 @@ import {
   readMermaidThemeConfig,
   MERMAID_RENDER_CONFIG_VERSION,
   MERMAID_RENDERER_VERSION,
+  type MermaidThemeConfig,
 } from "./theme"
 import {
   resolvePersistedMermaidRender,
@@ -27,6 +28,7 @@ type MermaidRenderInput = {
   artifactID?: string
   directory?: string
   priority?: number
+  themeConfig?: MermaidThemeConfig
 }
 
 class MermaidRenderFailureError extends Error {
@@ -126,12 +128,13 @@ function sourceUsesMermaidBindings(source: string): boolean {
 function readCachedSvg(input: {
   artifactID?: string
   source: string
+  themeConfig?: MermaidThemeConfig
 }): MermaidRenderResult | undefined {
   const normalizedSource = normalizeMermaidSource(input.source)
   if (!normalizedSource) {
     return undefined
   }
-  const theme = readMermaidThemeConfig()
+  const theme = input.themeConfig ?? readMermaidThemeConfig()
   const cacheKey = toCacheKey({
     artifactID: input.artifactID,
     sourceHash: hashSource(normalizedSource),
@@ -147,12 +150,16 @@ function readCachedSvg(input: {
   return cached
 }
 
-async function browserRenderMermaidSvg(input: { source: string; sourceHash: string }): Promise<{
+async function browserRenderMermaidSvg(input: {
+  source: string
+  sourceHash: string
+  themeConfig: MermaidThemeConfig
+}): Promise<{
   svg: string
   contrastAdjustments: MermaidContrastAdjustment[]
   bindFunctions?: (element: Element) => void
 }> {
-  const theme = readMermaidThemeConfig()
+  const theme = input.themeConfig
   const runtime = await loadMermaidRuntime()
   initializeMermaidRuntime(runtime, {
     themeVariables: theme.themeVariables,
@@ -221,12 +228,13 @@ function normalizePersistedRenderRecord(input: {
 async function restorePersistedMermaidBindFunctions(input: {
   source: string
   sourceHash: string
+  themeConfig: MermaidThemeConfig
 }): Promise<((element: Element) => void) | undefined> {
   if (!sourceUsesMermaidBindings(input.source)) {
     return undefined
   }
 
-  const theme = readMermaidThemeConfig()
+  const theme = input.themeConfig
   const runtime = await loadMermaidRuntime()
   initializeMermaidRuntime(runtime, {
     themeVariables: theme.themeVariables,
@@ -246,13 +254,14 @@ async function renderPersistedMermaidSvg(input: {
   directory: string
   source: string
   priority: number
+  themeConfig?: MermaidThemeConfig
 }): Promise<MermaidRenderResult> {
   const normalizedSource = normalizeMermaidSource(input.source)
   if (!normalizedSource) {
     throw new Error("Diagram source is empty.")
   }
   const sourceHash = hashSource(normalizedSource)
-  const theme = readMermaidThemeConfig()
+  const theme = input.themeConfig ?? readMermaidThemeConfig()
   const cacheKey = toCacheKey({
     artifactID: input.artifactID,
     sourceHash,
@@ -280,6 +289,7 @@ async function renderPersistedMermaidSvg(input: {
         ? await restorePersistedMermaidBindFunctions({
             source: normalizedSource,
             sourceHash,
+            themeConfig: theme,
           }).catch(() => undefined)
         : undefined
     return normalizePersistedRenderRecord({
@@ -299,6 +309,7 @@ async function renderPersistedMermaidSvg(input: {
         const browserRendered = await browserRenderMermaidSvg({
           source: normalizedSource,
           sourceHash,
+          themeConfig: theme,
         })
         const result: MermaidRenderResult = {
           svg: browserRendered.svg,
@@ -348,12 +359,13 @@ async function renderEphemeralMermaidSvg(input: {
   artifactID?: string
   source: string
   priority: number
+  themeConfig?: MermaidThemeConfig
 }): Promise<MermaidRenderResult> {
   const normalizedSource = normalizeMermaidSource(input.source)
   if (!normalizedSource) {
     throw new Error("Diagram source is empty.")
   }
-  const theme = readMermaidThemeConfig()
+  const theme = input.themeConfig ?? readMermaidThemeConfig()
   const sourceHash = hashSource(normalizedSource)
   const cacheKey = toCacheKey({
     artifactID: input.artifactID,
@@ -375,6 +387,7 @@ async function renderEphemeralMermaidSvg(input: {
       const browserRendered = await browserRenderMermaidSvg({
         source: normalizedSource,
         sourceHash,
+        themeConfig: theme,
       })
       const result: MermaidRenderResult = {
         svg: browserRendered.svg,
@@ -397,12 +410,14 @@ async function renderMermaidSvg(input: MermaidRenderInput): Promise<MermaidRende
       directory: input.directory,
       source: input.source,
       priority,
+      themeConfig: input.themeConfig,
     })
   }
   return renderEphemeralMermaidSvg({
     artifactID: input.artifactID,
     source: input.source,
     priority,
+    themeConfig: input.themeConfig,
   })
 }
 

@@ -55,6 +55,7 @@ import { OPENCODE_PROVIDER_ID, OPENAI_PROVIDER_ID } from "../lib/provider-ids"
 import { getBuddyClient, requireBuddyData, buddyResultMessage } from "../lib/buddy-client"
 import type { McpLocalConfig, McpRemoteConfig } from "../components/mcp-dialog/mcp-config-schema"
 import {
+  SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
   type PromptFilePart,
   type PromptSubmissionPart,
@@ -583,6 +584,7 @@ function createOptimisticPromptParts(input: {
         part.type === "text" ||
         part.type === "file" ||
         part.type === "agent" ||
+        part.type === SELECTION_CONTEXT_PART_TYPE ||
         part.type === WORKSPACE_FILE_REFERENCE_PART_TYPE,
     )
     .map((part) =>

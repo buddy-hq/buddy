@@ -7,6 +7,7 @@ import {
   renderMermaidSvg,
   type MermaidRenderResult,
 } from "./lib/render"
+import type { MermaidThemeConfig } from "./lib/theme"
 
 export type MermaidRenderState =
   | {
@@ -29,6 +30,7 @@ type UseMermaidRenderOptions = {
   directory?: string
   enabled?: boolean
   priority?: number
+  themeConfig?: MermaidThemeConfig
 }
 
 type UseMermaidRenderResult = {
@@ -68,6 +70,7 @@ function errorMessage(error: unknown): MermaidRenderState {
 function getCachedState(input: {
   artifactID?: string
   source: string
+  themeConfig?: MermaidThemeConfig
 }): MermaidRenderState | undefined {
   const cached = readCachedMermaidSvg(input)
   if (!cached) {
@@ -85,11 +88,16 @@ export function useMermaidRender({
   directory,
   enabled = true,
   priority,
+  themeConfig,
 }: UseMermaidRenderOptions): UseMermaidRenderResult {
   const { mode, themeId } = useTheme()
+  const themeDependencyKey = themeConfig?.themeSignature ?? `${themeId}:${mode}`
   const requestTokenRef = useRef(0)
   const [state, setState] = useState<MermaidRenderState>(
-    () => (enabled ? getCachedState({ source, artifactID }) : undefined) ?? { status: "loading" },
+    () =>
+      (enabled ? getCachedState({ source, artifactID, themeConfig }) : undefined) ?? {
+        status: "loading",
+      },
   )
 
   useEffect(() => {
@@ -98,7 +106,7 @@ export function useMermaidRender({
       return
     }
 
-    const cachedState = getCachedState({ source, artifactID })
+    const cachedState = getCachedState({ source, artifactID, themeConfig })
     if (cachedState) {
       setState(cachedState)
       return
@@ -113,6 +121,7 @@ export function useMermaidRender({
       artifactID,
       directory,
       priority,
+      themeConfig,
     })
       .then((value) => {
         if (requestTokenRef.current !== requestToken) {
@@ -129,7 +138,7 @@ export function useMermaidRender({
         }
         setState(errorMessage(error))
       })
-  }, [artifactID, directory, enabled, mode, priority, source, themeId])
+  }, [artifactID, directory, enabled, priority, source, themeConfig, themeDependencyKey])
 
   return { state }
 }

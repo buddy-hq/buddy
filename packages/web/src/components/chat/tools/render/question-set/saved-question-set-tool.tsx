@@ -6,6 +6,7 @@ import { isRecord, readNonEmptyString, readNonNegativeInt } from "../../../tools
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
+import { useOpenBench } from "@/lib/bench-navigation"
 import {
   QuestionSetInlineView,
   type PublicQuestionSetArtifact,
@@ -210,6 +211,7 @@ function fetchQuestionSetArtifact(
 }
 
 export function renderSavedQuestionSetTool(props: ToolPartProps) {
+  const openBenchRoute = useOpenBench()
   const directory = props.directory
   const running = props.state.status === "pending" || props.state.status === "running"
   const output = props.state.output || (props.state.error ?? "")
@@ -295,6 +297,13 @@ export function renderSavedQuestionSetTool(props: ToolPartProps) {
       {visibleArtifact && directory ? (
         <QuestionSetInlineView
           artifact={visibleArtifact}
+          onOpenBench={() => {
+            void openBenchRoute(directory, {
+              type: "artifact",
+              kind: "question-set",
+              artifactID: visibleArtifact.artifactID,
+            })
+          }}
           onSubmit={async (answers) => {
             const response: SubmitQuestionSetAttemptOutput = requireBuddyData(
               await getBuddyClient(directory).questionSet.submitAttempt({

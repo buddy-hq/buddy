@@ -6,9 +6,11 @@ import type { MessagePart } from "@/state/chat-types"
 import { parseToolState } from "../parse-tool-state"
 import { getToolInfo } from "../tool-info"
 import { ToolImageGallery, type ToolImageGalleryItem } from "./image-gallery"
+import { useOpenBench } from "@/lib/bench-navigation"
 
 type RenderFigureToolOutput = {
   artifactID: string
+  kind: "figure" | "freeform-figure"
   mime: "image/svg+xml"
   url: string
   alt: string
@@ -22,6 +24,7 @@ export function parseRenderFigureOutput(
   const artifact = readString(state.metadata.artifact)
   if (artifact !== "RenderFigureOutput" && artifact !== "RenderFreeformFigureOutput")
     return undefined
+  const kind = artifact === "RenderFigureOutput" ? "figure" : "freeform-figure"
 
   const value = isRecord(state.metadata.value) ? state.metadata.value : undefined
   if (!value) return undefined
@@ -35,7 +38,7 @@ export function parseRenderFigureOutput(
 
   if (!artifactID || !mime || !url || !alt || repairAttempts === undefined) return undefined
 
-  return { artifactID, mime, url, alt, caption, repairAttempts }
+  return { artifactID, kind, mime, url, alt, caption, repairAttempts }
 }
 
 function figureGalleryItem(input: {
@@ -74,10 +77,16 @@ function figureGalleryItem(input: {
     alt: renderFigure.alt,
     title: renderFigure.alt,
     caption: renderFigure.caption || renderFigure.alt,
+    benchTarget: {
+      type: "artifact",
+      kind: renderFigure.kind,
+      artifactID: renderFigure.artifactID,
+    },
   }
 }
 
-function FigureGallery(props: { items: ToolImageGalleryItem[] }) {
+function FigureGallery(props: { directory?: string; items: ToolImageGalleryItem[] }) {
+  const openBenchRoute = useOpenBench()
   if (props.items.length === 0) {
     return (
       <div className="w-full rounded-xl border border-border-base/40 bg-surface-weak/30 p-4 text-center text-xs text-text-weak">
@@ -92,22 +101,36 @@ function FigureGallery(props: { items: ToolImageGalleryItem[] }) {
         dialogDescription="Figure preview"
         contentClassName="h-[24rem]"
         items={props.items}
+        onOpenItem={
+          props.directory
+            ? (item) => {
+                if (!item.benchTarget || !props.directory) return
+                void openBenchRoute(props.directory, item.benchTarget)
+              }
+            : undefined
+        }
       />
     </div>
   )
 }
 
-export function renderRenderFigureTool({ part, state, info }: ToolPartProps) {
+export function renderRenderFigureTool({ part, state, info, directory }: ToolPartProps) {
   const item = figureGalleryItem({
     id: part.id,
     state,
     fallbackTitle: info.title,
   })
 
-  return <FigureGallery items={item ? [item] : []} />
+  return <FigureGallery directory={directory} items={item ? [item] : []} />
 }
 
-export function GroupedFigureToolCard({ parts }: { parts: MessagePart[]; directory?: string }) {
+export function GroupedFigureToolCard({
+  parts,
+  directory,
+}: {
+  parts: MessagePart[]
+  directory?: string
+}) {
   const items = parts
     .map((part) => {
       const state = parseToolState(part)
@@ -122,5 +145,5 @@ export function GroupedFigureToolCard({ parts }: { parts: MessagePart[]; directo
     })
     .filter((item): item is ToolImageGalleryItem => item !== undefined)
 
-  return <FigureGallery items={items} />
+  return <FigureGallery directory={directory} items={items} />
 }

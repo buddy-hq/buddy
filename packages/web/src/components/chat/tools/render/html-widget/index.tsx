@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -32,16 +27,20 @@ import {
 } from "@/lib/html-widgets"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { stringifyError } from "@/lib/api-client"
+import { useOpenBench } from "@/lib/bench-navigation"
+import { resolveHtmlWidgetBenchChatLayout } from "@/components/bench/bench-open-policy"
 import type { ToolPartProps } from "../../registry"
 
 const INLINE_MAX_HEIGHT_RATIO = 0.7
 const INLINE_MAX_HEIGHT_PX = 720
-const FULLSCREEN_CHROME_HEIGHT_PX = 160
-const MIN_FULLSCREEN_HEIGHT_PX = 320
 const MIN_VIEWPORT_CONTAINER_WIDTH_PX = 1
-const FULLSCREEN_RECOMMENDED_SCALE = 0.78
+const BENCH_RECOMMENDED_SCALE = 0.78
+const HTML_WIDGET_FRAME_MODE_INLINE = "inline"
+const HTML_WIDGET_FRAME_MODE_BENCH = "bench"
 
-type ViewportMode = "inline" | "fullscreen"
+type HtmlWidgetFrameMode =
+  | typeof HTML_WIDGET_FRAME_MODE_INLINE
+  | typeof HTML_WIDGET_FRAME_MODE_BENCH
 
 type ViewportSize = {
   width: number
@@ -50,10 +49,12 @@ type ViewportSize = {
 
 type HtmlWidgetFrameProps = {
   widget: HtmlWidgetToolOutput
-  mode: ViewportMode
+  mode: HtmlWidgetFrameMode
   reloadKey?: number
   className?: string
 }
+
+type HtmlWidgetFrameLoadState = "loading" | "loaded" | "error"
 
 type HtmlWidgetActionProps = {
   label: string
@@ -122,17 +123,12 @@ function useContainerWidth() {
   }
 }
 
-function resolveAvailableHeight(mode: ViewportMode, windowSize: ViewportSize): number {
-  if (mode === "fullscreen") {
-    return Math.max(windowSize.height - FULLSCREEN_CHROME_HEIGHT_PX, MIN_FULLSCREEN_HEIGHT_PX)
-  }
-
+function resolveInlineAvailableHeight(windowSize: ViewportSize): number {
   return Math.min(windowSize.height * INLINE_MAX_HEIGHT_RATIO, INLINE_MAX_HEIGHT_PX)
 }
 
-function resolveViewportScale(input: {
+function resolveInlineViewportScale(input: {
   viewport: HtmlWidgetViewport
-  mode: ViewportMode
   containerWidth: number
   windowSize: ViewportSize
 }): number {
@@ -140,17 +136,55 @@ function resolveViewportScale(input: {
     input.containerWidth || input.viewport.width,
     MIN_VIEWPORT_CONTAINER_WIDTH_PX,
   )
-  const availableHeight = resolveAvailableHeight(input.mode, input.windowSize)
+  const availableHeight = resolveInlineAvailableHeight(input.windowSize)
   const fitScale = Math.min(
     availableWidth / input.viewport.width,
     availableHeight / input.viewport.height,
   )
 
-  if (input.mode === "fullscreen") {
-    return fitScale
+  return Math.min(1, fitScale)
+}
+
+function useHtmlWidgetRuntimeFrame(input: {
+  widget: HtmlWidgetToolOutput
+  reloadKey: number
+}) {
+  const [loadState, setLoadState] = useState<HtmlWidgetFrameLoadState>("loading")
+  const runtimeUrl = useMemo(
+    () => resolveAssetUrl(appendRenderKey(input.widget.runtimeUrl, input.reloadKey)),
+    [input.reloadKey, input.widget.runtimeUrl],
+  )
+
+  useEffect(() => {
+    setLoadState("loading")
+  }, [runtimeUrl])
+
+  return {
+    runtimeUrl,
+    loadState,
+    handleLoaded: () => setLoadState("loaded"),
+    handleError: () => setLoadState("error"),
+  }
+}
+
+function HtmlWidgetFrameOverlay(props: { loadState: HtmlWidgetFrameLoadState }) {
+  if (props.loadState === "loading") {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-surface-base">
+        <Loader2Icon className="size-5 animate-spin text-text-weak" aria-hidden />
+      </div>
+    )
   }
 
-  return Math.min(1, fitScale)
+  if (props.loadState === "error") {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-surface-base p-4 text-center text-sm text-text-weak">
+        Widget failed to load.
+      </div>
+    )
+  }
+
+  return null
 }
 
 function HtmlWidgetAction({ label, disabled, onClick, children }: HtmlWidgetActionProps) {
@@ -176,32 +210,28 @@ function HtmlWidgetAction({ label, disabled, onClick, children }: HtmlWidgetActi
   )
 }
 
-function HtmlWidgetFrame({ widget, mode, reloadKey = 0, className }: HtmlWidgetFrameProps) {
+function HtmlWidgetInlineFrame(props: {
+  widget: HtmlWidgetToolOutput
+  reloadKey: number
+  className?: string
+}) {
   const container = useContainerWidth()
   const windowSize = useWindowViewportSize()
-  const [loaded, setLoaded] = useState(false)
-  const [loadError, setLoadError] = useState(false)
-  const scale = resolveViewportScale({
-    viewport: widget.viewport,
-    mode,
+  const frame = useHtmlWidgetRuntimeFrame({
+    widget: props.widget,
+    reloadKey: props.reloadKey,
+  })
+  const scale = resolveInlineViewportScale({
+    viewport: props.widget.viewport,
     containerWidth: container.width,
     windowSize,
   })
-  const scaledWidth = widget.viewport.width * scale
-  const scaledHeight = widget.viewport.height * scale
-  const runtimeUrl = useMemo(
-    () => resolveAssetUrl(appendRenderKey(widget.runtimeUrl, reloadKey)),
-    [reloadKey, widget.runtimeUrl],
-  )
-  const fullscreenRecommended = mode === "inline" && scale < FULLSCREEN_RECOMMENDED_SCALE
-
-  useEffect(() => {
-    setLoaded(false)
-    setLoadError(false)
-  }, [runtimeUrl])
+  const scaledWidth = props.widget.viewport.width * scale
+  const scaledHeight = props.widget.viewport.height * scale
+  const benchRecommended = scale < BENCH_RECOMMENDED_SCALE
 
   return (
-    <div ref={container.ref} className={cn("w-full min-w-0", className)}>
+    <div ref={container.ref} className={cn("w-full min-w-0", props.className)}>
       <div
         className="relative mx-auto overflow-hidden rounded-lg border border-border-base bg-background-base shadow-inner"
         style={{
@@ -211,69 +241,76 @@ function HtmlWidgetFrame({ widget, mode, reloadKey = 0, className }: HtmlWidgetF
         }}
       >
         <iframe
-          key={runtimeUrl}
-          title={widget.title}
-          src={runtimeUrl}
+          key={frame.runtimeUrl}
+          title={props.widget.title}
+          src={frame.runtimeUrl}
           sandbox="allow-scripts"
           referrerPolicy="no-referrer"
           className="block border-0 bg-background-base"
           style={{
-            width: `${widget.viewport.width}px`,
-            height: `${widget.viewport.height}px`,
+            width: `${props.widget.viewport.width}px`,
+            height: `${props.widget.viewport.height}px`,
             transform: `scale(${scale})`,
             transformOrigin: "top left",
           }}
-          onLoad={() => setLoaded(true)}
-          onError={() => setLoadError(true)}
+          onLoad={frame.handleLoaded}
+          onError={frame.handleError}
         />
-        {!loaded && !loadError ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-surface-base">
-            <Loader2Icon className="size-5 animate-spin text-text-weak" aria-hidden />
-          </div>
-        ) : null}
-        {loadError ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-surface-base p-4 text-center text-sm text-text-weak">
-            Widget failed to load.
-          </div>
-        ) : null}
-        {fullscreenRecommended ? (
+        <HtmlWidgetFrameOverlay loadState={frame.loadState} />
+        {benchRecommended ? (
           <div className="absolute right-2 bottom-2 rounded-md border border-border-base bg-surface-base px-2 py-1 text-[11px] font-medium text-text-weak shadow-sm">
-            Fullscreen recommended
+            Bench recommended
           </div>
         ) : null}
       </div>
       <div className="mt-2 flex items-center justify-center text-[11px] text-text-weak">
-        {formatHtmlWidgetViewport(widget.viewport)}
+        {formatHtmlWidgetViewport(props.widget.viewport)}
       </div>
-      {mode === "inline" ? (
-        <div className="sr-only" aria-live="polite">
-          {fullscreenRecommended ? "Open fullscreen for the intended widget size." : ""}
-        </div>
-      ) : null}
+      <div className="sr-only" aria-live="polite">
+        {benchRecommended ? "Open on Bench for the intended widget size." : ""}
+      </div>
     </div>
   )
 }
 
-function HtmlWidgetFullscreenDialog(props: {
+function HtmlWidgetBenchFrame(props: {
   widget: HtmlWidgetToolOutput
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  reloadKey: number
+  className?: string
 }) {
+  const frame = useHtmlWidgetRuntimeFrame({
+    widget: props.widget,
+    reloadKey: props.reloadKey,
+  })
+
   return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="flex h-[calc(100vh-3rem)] max-w-[calc(100vw-3rem)] flex-col overflow-hidden p-0">
-        <DialogHeader className="border-b border-border-base px-4 py-3">
-          <DialogTitle className="truncate text-sm">{props.widget.title}</DialogTitle>
-          <DialogDescription className="sr-only">
-            HTML widget fullscreen preview
-          </DialogDescription>
-        </DialogHeader>
-        <div className="min-h-0 flex-1 overflow-hidden bg-surface-base p-4">
-          <HtmlWidgetFrame widget={props.widget} mode="fullscreen" className="h-full" />
-        </div>
-      </DialogContent>
-    </Dialog>
+    <div
+      className={cn(
+        "relative h-full min-h-0 w-full overflow-hidden bg-background-base",
+        props.className,
+      )}
+    >
+      <iframe
+        key={frame.runtimeUrl}
+        title={props.widget.title}
+        src={frame.runtimeUrl}
+        sandbox="allow-scripts"
+        referrerPolicy="no-referrer"
+        className="block h-full w-full border-0 bg-background-base"
+        onLoad={frame.handleLoaded}
+        onError={frame.handleError}
+      />
+      <HtmlWidgetFrameOverlay loadState={frame.loadState} />
+    </div>
   )
+}
+
+function HtmlWidgetFrame({ widget, mode, reloadKey = 0, className }: HtmlWidgetFrameProps) {
+  if (mode === HTML_WIDGET_FRAME_MODE_BENCH) {
+    return <HtmlWidgetBenchFrame widget={widget} reloadKey={reloadKey} className={className} />
+  }
+
+  return <HtmlWidgetInlineFrame widget={widget} reloadKey={reloadKey} className={className} />
 }
 
 function HtmlWidgetCard(props: {
@@ -282,7 +319,7 @@ function HtmlWidgetCard(props: {
   status?: ToolPartProps["state"]["status"]
   hideStatus?: boolean
 }) {
-  const [fullscreenOpen, setFullscreenOpen] = useState(false)
+  const openBenchRoute = useOpenBench()
   const [copying, setCopying] = useState(false)
   const [frameKey, setFrameKey] = useState(0)
 
@@ -318,34 +355,45 @@ function HtmlWidgetCard(props: {
           )}
         </HtmlWidgetAction>
       ) : null}
-      <HtmlWidgetAction label="Open fullscreen" onClick={() => setFullscreenOpen(true)}>
-        <ExternalLinkIcon className="size-3.5" aria-hidden />
-      </HtmlWidgetAction>
+      {props.directory ? (
+        <HtmlWidgetAction
+          label="Open on Bench"
+          onClick={() => {
+            if (!props.directory) return
+            void openBenchRoute(
+              props.directory,
+              {
+                type: "artifact",
+                kind: "html-widget",
+                artifactID: props.widget.artifactID,
+              },
+              {
+                chatLayout: resolveHtmlWidgetBenchChatLayout(props.widget),
+              },
+            )
+          }}
+        >
+          <ExternalLinkIcon className="size-3.5" aria-hidden />
+        </HtmlWidgetAction>
+      ) : null}
     </div>
   )
 
   return (
-    <>
-      <ArtifactCard
-        title={props.widget.title}
-        subtitle={props.widget.description ?? props.widget.sourcePath}
-        badge="HTML"
-        status={props.status}
-        hideStatus={props.hideStatus}
-        actions={actions}
-        contentClassName="bg-surface-base"
-        headerPosition="bottom"
-      >
-        <div className="p-3">
-          <HtmlWidgetFrame widget={props.widget} mode="inline" reloadKey={frameKey} />
-        </div>
-      </ArtifactCard>
-      <HtmlWidgetFullscreenDialog
-        widget={props.widget}
-        open={fullscreenOpen}
-        onOpenChange={setFullscreenOpen}
-      />
-    </>
+    <ArtifactCard
+      title={props.widget.title}
+      subtitle={props.widget.description ?? props.widget.sourcePath}
+      badge="HTML"
+      status={props.status}
+      hideStatus={props.hideStatus}
+      actions={actions}
+      contentClassName="bg-surface-base"
+      headerPosition="bottom"
+    >
+      <div className="p-3">
+        <HtmlWidgetFrame widget={props.widget} mode="inline" reloadKey={frameKey} />
+      </div>
+    </ArtifactCard>
   )
 }
 
@@ -380,4 +428,4 @@ export function renderPresentHtmlWidgetTool(props: ToolPartProps) {
   )
 }
 
-export { HtmlWidgetCard, HtmlWidgetFrame, HtmlWidgetFullscreenDialog }
+export { HtmlWidgetCard, HtmlWidgetFrame }

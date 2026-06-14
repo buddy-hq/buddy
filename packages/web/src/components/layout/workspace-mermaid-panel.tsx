@@ -27,6 +27,7 @@ import {
 } from "@/components/layout/chat-left-sidebar/library-artifact-selectors"
 import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
+import { useOpenBench } from "@/lib/bench-navigation"
 
 const MERMAID_CARD_CONTENT_HEIGHT_CLASS = "aspect-video min-h-[18rem] w-full"
 const MERMAID_CARD_GAP_PX = 16
@@ -56,6 +57,7 @@ function HydratedMermaidArtifactCard(props: {
   artifact: MermaidLibraryArtifact
   enabled: boolean
 }) {
+  const openBenchRoute = useOpenBench()
   const detailQuery = useQuery({
     queryKey: [
       "workspace-artifact-detail",
@@ -102,6 +104,13 @@ function HydratedMermaidArtifactCard(props: {
       showRawSourceOnError
       minimalActions
       disableRevealAnimation
+      onFullscreenOpen={() => {
+        void openBenchRoute(props.directory, {
+          type: "artifact",
+          kind: "mermaid",
+          artifactID: props.artifact.artifactID,
+        })
+      }}
       renderWrapper={(diagramElement, actions) => (
         <MermaidToolCard
           title={detailQuery.data.alt}

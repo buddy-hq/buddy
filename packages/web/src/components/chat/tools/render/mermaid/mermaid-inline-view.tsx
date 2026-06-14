@@ -1,5 +1,4 @@
 import { cn } from "@buddy/ui"
-import { mermaidConstants } from "./constants"
 import type { MermaidViewportController } from "./use-mermaid-viewport"
 
 type MermaidInlineViewProps = {
@@ -39,7 +38,7 @@ export function MermaidInlineView({ ariaLabel, viewport }: MermaidInlineViewProp
             top: viewport.contentOffsetY,
             width: viewport.renderedWidth,
             height: viewport.renderedHeight,
-            padding: mermaidConstants.viewport.INLINE_CANVAS_PADDING,
+            padding: viewport.canvasPadding,
           }}
         />
       </div>

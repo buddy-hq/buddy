@@ -1,5 +1,8 @@
 import type { MessageInfo, MessagePart, MessageWithParts } from "./chat-types"
-import { WORKSPACE_FILE_REFERENCE_PART_TYPE } from "../components/prompt/prompt-types"
+import {
+  SELECTION_CONTEXT_PART_TYPE,
+  WORKSPACE_FILE_REFERENCE_PART_TYPE,
+} from "../components/prompt/prompt-types"
 import {
   STREAMING_PART_RAW_FIELD,
   TOOL_PART_TYPE,
@@ -47,6 +50,113 @@ export function upsertMessage(current: MessageWithParts[], incoming: MessageInfo
   return next
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function readString(record: Record<string, unknown>, key: string) {
+  const value = record[key]
+  return typeof value === "string" ? value : undefined
+}
+
+function readNumber(record: Record<string, unknown>, key: string) {
+  const value = record[key]
+  return typeof value === "number" ? value : undefined
+}
+
+function readStringArray(record: Record<string, unknown>, key: string) {
+  const value = record[key]
+  if (!Array.isArray(value)) return undefined
+  return value.every((entry) => typeof entry === "string") ? value : undefined
+}
+
+function readBuddyPromptPartMetadata(part: MessagePart): Record<string, unknown> | undefined {
+  if (part.type !== "text" || !isRecord(part.metadata)) return undefined
+  const metadata = part.metadata.buddyPromptPart
+  return isRecord(metadata) ? metadata : undefined
+}
+
+function optionalStringFieldMatches(
+  existing: MessagePart,
+  metadata: Record<string, unknown>,
+  key: string,
+) {
+  const metadataValue = readString(metadata, key)
+  return metadataValue === undefined || existing[key] === metadataValue
+}
+
+function optionalNumberFieldMatches(
+  existing: MessagePart,
+  metadata: Record<string, unknown>,
+  key: string,
+) {
+  const metadataValue = readNumber(metadata, key)
+  return metadataValue === undefined || existing[key] === metadataValue
+}
+
+function optionalStringArrayFieldMatches(
+  existing: MessagePart,
+  metadata: Record<string, unknown>,
+  key: string,
+) {
+  const metadataValue = readStringArray(metadata, key)
+  if (metadataValue === undefined) return true
+  const existingValue = existing[key]
+  return (
+    Array.isArray(existingValue) &&
+    existingValue.length === metadataValue.length &&
+    existingValue.every(
+      (entry, index) => typeof entry === "string" && entry === metadataValue[index],
+    )
+  )
+}
+
+function promptSelectionMetadataMatches(existing: MessagePart, metadata: Record<string, unknown>) {
+  if (metadata.type !== existing.type) return false
+  if (metadata.type !== "reading-selection" && metadata.type !== SELECTION_CONTEXT_PART_TYPE) {
+    return false
+  }
+  if (metadata.text !== existing.text) return false
+
+  if (metadata.type === SELECTION_CONTEXT_PART_TYPE) {
+    if (!optionalStringFieldMatches(existing, metadata, "source")) return false
+    if (!optionalStringFieldMatches(existing, metadata, "path")) return false
+    if (!optionalStringFieldMatches(existing, metadata, "version")) return false
+    if (!optionalStringArrayFieldMatches(existing, metadata, "headingPath")) return false
+  }
+
+  return (
+    optionalStringFieldMatches(existing, metadata, "selectionKey") &&
+    optionalStringFieldMatches(existing, metadata, "resourceKey") &&
+    optionalStringFieldMatches(existing, metadata, "cfi") &&
+    optionalNumberFieldMatches(existing, metadata, "index") &&
+    optionalStringFieldMatches(existing, metadata, "tocLabel") &&
+    optionalStringFieldMatches(existing, metadata, "pageLabel") &&
+    optionalStringFieldMatches(existing, metadata, "locationLabel")
+  )
+}
+
+function promptSelectionPartsMatch(existing: MessagePart, incoming: MessagePart) {
+  if (existing.type !== incoming.type) return false
+  if (existing.text !== incoming.text) return false
+  if (existing.type === SELECTION_CONTEXT_PART_TYPE && existing.source !== incoming.source) {
+    return false
+  }
+
+  return (
+    existing.selectionKey === incoming.selectionKey &&
+    existing.path === incoming.path &&
+    existing.version === incoming.version &&
+    existing.resourceKey === incoming.resourceKey &&
+    existing.cfi === incoming.cfi &&
+    existing.index === incoming.index &&
+    existing.tocLabel === incoming.tocLabel &&
+    existing.pageLabel === incoming.pageLabel &&
+    existing.locationLabel === incoming.locationLabel &&
+    optionalStringArrayFieldMatches(existing, incoming, "headingPath")
+  )
+}
+
 function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePart) {
   if (existing.optimistic !== true || incoming.optimistic === true) {
     return false
@@ -55,37 +165,11 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
   switch (incoming.type) {
     case "text":
       if (
-        existing.type === "reading-selection" &&
-        typeof existing.text === "string" &&
-        typeof incoming.metadata === "object" &&
-        incoming.metadata !== null &&
-        "buddyPromptPart" in incoming.metadata
+        (existing.type === "reading-selection" || existing.type === SELECTION_CONTEXT_PART_TYPE) &&
+        typeof existing.text === "string"
       ) {
-        const metadata = incoming.metadata.buddyPromptPart
-        if (
-          typeof metadata !== "object" ||
-          metadata === null ||
-          !("type" in metadata) ||
-          metadata.type !== "reading-selection" ||
-          !("text" in metadata) ||
-          metadata.text !== existing.text
-        ) {
-          return false
-        }
-
-        const metadataCfi =
-          "cfi" in metadata && typeof metadata.cfi === "string" ? metadata.cfi : undefined
-        const metadataIndex =
-          "index" in metadata && typeof metadata.index === "number" ? metadata.index : undefined
-
-        if (metadataCfi !== undefined && existing.cfi !== metadataCfi) {
-          return false
-        }
-        if (metadataIndex !== undefined && existing.index !== metadataIndex) {
-          return false
-        }
-
-        return true
+        const metadata = readBuddyPromptPartMetadata(incoming)
+        return metadata ? promptSelectionMetadataMatches(existing, metadata) : false
       }
       if (existing.type !== incoming.type) {
         return false
@@ -126,27 +210,11 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
       }
       return typeof existing.key === "string" && existing.key === incoming.key
     case "reading-selection":
-      if (existing.type !== incoming.type) {
-        return false
-      }
-      return (
-        typeof existing.text === "string" &&
-        existing.text === incoming.text &&
-        existing.cfi === incoming.cfi &&
-        existing.index === incoming.index
-      )
+    case SELECTION_CONTEXT_PART_TYPE:
+      return promptSelectionPartsMatch(existing, incoming)
     default:
       return false
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
-}
-
-function readString(record: Record<string, unknown>, key: string) {
-  const value = record[key]
-  return typeof value === "string" ? value : undefined
 }
 
 function shouldPreserveStreamingRawState(state: Record<string, unknown>) {

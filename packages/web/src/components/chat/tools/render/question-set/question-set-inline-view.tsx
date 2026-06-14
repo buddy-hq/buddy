@@ -96,7 +96,7 @@ function hashString(value: string): number {
   return hash >>> 0
 }
 
-function orderedChoicesForQuestion(input: {
+export function orderedChoicesForQuestion(input: {
   artifactID: string
   question: PublicQuestionSetArtifact["questions"][number]
   randomizeSeed: number
@@ -126,6 +126,7 @@ export function QuestionSetInlineView(props: {
   defaultOpen?: boolean
   hideCard?: boolean
   onOpenChange?: (open: boolean) => void
+  onOpenBench?: () => void
 }) {
   const persistKey = props.persistKey ?? props.artifact.artifactID
   const cachedState = questionSetInlineSessionState.get(persistKey)
@@ -246,11 +247,14 @@ export function QuestionSetInlineView(props: {
                 <span>{questionCountLabel(props.artifact.questions.length)}</span>
               </div>
             </div>
-            <Button onClick={() => handleOpenChange(true)}>Open Question Set</Button>
+            <Button onClick={props.onOpenBench ?? (() => handleOpenChange(true))}>
+              Open Question Set
+            </Button>
           </div>
         </div>
       )}
 
+      {props.onOpenBench ? null : (
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogContent
           className="flex max-h-[min(90vh,60rem)] w-[95vw] !max-w-[95vw] sm:!max-w-[95vw] h-[85vh] flex-col overflow-hidden"
@@ -607,6 +611,7 @@ export function QuestionSetInlineView(props: {
           </div>
         </DialogContent>
       </Dialog>
+      )}
     </>
   )
 }

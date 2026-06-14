@@ -85,6 +85,56 @@ describe("chat reducer", () => {
     expect(next[0]?.parts.map((part) => part.id)).toEqual(["prt_0196_test_server"])
   })
 
+  test("upsertPart preserves distinct optimistic selection context parts", () => {
+    const withFirstSelection = upsertPart(makeMessages(), {
+      id: "prt_0196_test_selection_a",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: "selection-context",
+      source: "markdown",
+      optimistic: true,
+      text: "same excerpt",
+      selectionKey: "selection-a",
+      path: "notes/a.md",
+      version: "version-a",
+    })
+    const withSelections = upsertPart(withFirstSelection, {
+      id: "prt_0196_test_selection_b",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: "selection-context",
+      source: "markdown",
+      optimistic: true,
+      text: "same excerpt",
+      selectionKey: "selection-b",
+      path: "notes/b.md",
+      version: "version-b",
+    })
+
+    const next = upsertPart(withSelections, {
+      id: "prt_0196_test_selection_server",
+      sessionID: "session_1",
+      messageID: "message_1",
+      type: "text",
+      text: "same excerpt",
+      metadata: {
+        buddyPromptPart: {
+          type: "selection-context",
+          source: "markdown",
+          text: "same excerpt",
+          selectionKey: "selection-a",
+          path: "notes/a.md",
+          version: "version-a",
+        },
+      },
+    })
+
+    expect(next[0]?.parts.map((part) => part.id)).toEqual([
+      "prt_0196_test_selection_b",
+      "prt_0196_test_selection_server",
+    ])
+  })
+
   test("upsertPart keeps optimistic non-text parts when a different server part arrives", () => {
     const current = upsertPart(makeMessages(), {
       id: "prt_0196_test_file_optimistic",
