@@ -2,6 +2,7 @@ import {
   PROMPT_PART_TYPE_AGENT,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
+  SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "./prompt-types"
 
@@ -11,7 +12,10 @@ function getStructuredPromptLength(node: Node): number | undefined {
   if (node.nodeType !== Node.ELEMENT_NODE) return undefined
 
   const element = node as HTMLElement
-  if (element.dataset.type === READING_SELECTION_PART_TYPE) {
+  if (
+    element.dataset.type === READING_SELECTION_PART_TYPE ||
+    element.dataset.type === SELECTION_CONTEXT_PART_TYPE
+  ) {
     return `"${element.dataset.text ?? ""}"`.length
   }
   if (
@@ -139,6 +143,7 @@ export function setCursorPosition(parent: HTMLElement, position: number) {
       ((node as HTMLElement).dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
         (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_AGENT ||
         (node as HTMLElement).dataset.type === RESOURCE_REFERENCE_PART_TYPE ||
+        (node as HTMLElement).dataset.type === SELECTION_CONTEXT_PART_TYPE ||
         (node as HTMLElement).dataset.type === READING_SELECTION_PART_TYPE)
     const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR"
 
@@ -210,6 +215,7 @@ export function setRangeEdge(
       ((node as HTMLElement).dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
         (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_AGENT ||
         (node as HTMLElement).dataset.type === RESOURCE_REFERENCE_PART_TYPE ||
+        (node as HTMLElement).dataset.type === SELECTION_CONTEXT_PART_TYPE ||
         (node as HTMLElement).dataset.type === READING_SELECTION_PART_TYPE)
     const isBreak = node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === "BR"
 

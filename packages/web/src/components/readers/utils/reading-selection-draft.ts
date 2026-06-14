@@ -1,8 +1,10 @@
 import { serializePromptEditorParts } from "@/components/prompt/prompt-parts"
 import {
   READING_SELECTION_PART_TYPE,
+  SELECTION_CONTEXT_PART_TYPE,
   type PromptComposerPart,
   type PromptReadingSelectionPart,
+  type PromptSelectionContextPart,
 } from "@/components/prompt/prompt-types"
 import type { PromptDraftState } from "@/state/prompt-store"
 
@@ -11,6 +13,8 @@ type PromptDraftInput = Pick<PromptDraftState, "attachments" | "cursor" | "parts
 type ReadingSelectionDraftInput = Omit<PromptReadingSelectionPart, "type" | "selectionKey"> & {
   selectionKey: string
 }
+
+type SelectionContextDraftInput = Omit<PromptSelectionContextPart, "type">
 
 type PromptDraftUpdate = Omit<PromptDraftState, "updatedAt">
 
@@ -32,10 +36,20 @@ export function appendReadingSelectionToDraft(
   currentDraft: PromptDraftInput,
   input: ReadingSelectionDraftInput,
 ): PromptDraftUpdate {
+  return appendSelectionContextToDraft(currentDraft, {
+    source: "reading",
+    ...input,
+  })
+}
+
+export function appendSelectionContextToDraft(
+  currentDraft: PromptDraftInput,
+  input: SelectionContextDraftInput,
+): PromptDraftUpdate {
   const parts: PromptComposerPart[] = [
     ...currentDraft.parts,
     {
-      type: READING_SELECTION_PART_TYPE,
+      type: SELECTION_CONTEXT_PART_TYPE,
       ...input,
     },
   ]
@@ -47,8 +61,17 @@ export function removeReadingSelectionFromDraft(
   currentDraft: PromptDraftInput,
   selectionKey: string,
 ): PromptDraftUpdate | undefined {
+  return removeSelectionContextFromDraft(currentDraft, selectionKey)
+}
+
+export function removeSelectionContextFromDraft(
+  currentDraft: PromptDraftInput,
+  selectionKey: string,
+): PromptDraftUpdate | undefined {
   const parts = currentDraft.parts.filter((part) => {
-    if (part.type !== READING_SELECTION_PART_TYPE) return true
+    if (part.type !== READING_SELECTION_PART_TYPE && part.type !== SELECTION_CONTEXT_PART_TYPE) {
+      return true
+    }
     return part.selectionKey !== selectionKey
   })
 

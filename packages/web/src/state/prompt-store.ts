@@ -22,6 +22,7 @@ import {
   PROMPT_PART_TYPE_TEXT,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
+  SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
   type PromptComposerAttachment,
   type PromptComposerPart,
@@ -117,6 +118,24 @@ function isPromptComposerPart(value: unknown): value is PromptComposerPart {
     return (
       typeof value.text === "string" &&
       (value.selectionKey === undefined || typeof value.selectionKey === "string") &&
+      (value.resourceKey === undefined || typeof value.resourceKey === "string") &&
+      (value.cfi === undefined || typeof value.cfi === "string") &&
+      (value.index === undefined || typeof value.index === "number") &&
+      (value.tocLabel === undefined || typeof value.tocLabel === "string") &&
+      (value.pageLabel === undefined || typeof value.pageLabel === "string") &&
+      (value.locationLabel === undefined || typeof value.locationLabel === "string")
+    )
+  }
+  if (value.type === SELECTION_CONTEXT_PART_TYPE) {
+    return (
+      (value.source === "reading" || value.source === "markdown") &&
+      typeof value.text === "string" &&
+      typeof value.selectionKey === "string" &&
+      (value.path === undefined || typeof value.path === "string") &&
+      (value.version === undefined || typeof value.version === "string") &&
+      (value.headingPath === undefined ||
+        (Array.isArray(value.headingPath) &&
+          value.headingPath.every((entry) => typeof entry === "string"))) &&
       (value.resourceKey === undefined || typeof value.resourceKey === "string") &&
       (value.cfi === undefined || typeof value.cfi === "string") &&
       (value.index === undefined || typeof value.index === "number") &&

@@ -4,10 +4,12 @@ import {
   PROMPT_PART_TYPE_TEXT,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
+  SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
   type PromptAgentPart,
   type PromptComposerPart,
   type PromptReadingSelectionPart,
+  type PromptSelectionContextPart,
   type PromptTextPart,
   type PromptResourceReferencePart,
   type PromptWorkspaceFileReferencePart,
@@ -65,6 +67,26 @@ function createReadingSelectionPart(
   }
 }
 
+function createSelectionContextPart(
+  part: Omit<PromptSelectionContextPart, "type">,
+): PromptSelectionContextPart {
+  return {
+    type: SELECTION_CONTEXT_PART_TYPE,
+    source: part.source,
+    text: part.text,
+    selectionKey: part.selectionKey,
+    ...(part.path ? { path: part.path } : {}),
+    ...(part.version ? { version: part.version } : {}),
+    ...(part.headingPath ? { headingPath: [...part.headingPath] } : {}),
+    ...(part.resourceKey ? { resourceKey: part.resourceKey } : {}),
+    ...(part.cfi ? { cfi: part.cfi } : {}),
+    ...(part.index !== undefined ? { index: part.index } : {}),
+    ...(part.tocLabel ? { tocLabel: part.tocLabel } : {}),
+    ...(part.pageLabel ? { pageLabel: part.pageLabel } : {}),
+    ...(part.locationLabel ? { locationLabel: part.locationLabel } : {}),
+  }
+}
+
 function appendTextPart(parts: PromptComposerPart[], text: string) {
   if (!text) return
   const last = parts[parts.length - 1]
@@ -91,6 +113,10 @@ export function clonePromptParts(parts: PromptComposerPart[]): PromptComposerPar
 
     if (part.type === READING_SELECTION_PART_TYPE) {
       return createReadingSelectionPart(part)
+    }
+
+    if (part.type === SELECTION_CONTEXT_PART_TYPE) {
+      return createSelectionContextPart(part)
     }
 
     return createWorkspaceFileReferencePart(part.path)
@@ -122,6 +148,24 @@ export function arePromptPartsEqual(left: PromptComposerPart[], right: PromptCom
     if (leftPart.type === RESOURCE_REFERENCE_PART_TYPE) {
       if (rightPart.type !== RESOURCE_REFERENCE_PART_TYPE || leftPart.key !== rightPart.key)
         return false
+      continue
+    }
+
+    if (leftPart.type === SELECTION_CONTEXT_PART_TYPE) {
+      if (rightPart.type !== SELECTION_CONTEXT_PART_TYPE) return false
+      if (leftPart.source !== rightPart.source) return false
+      if (leftPart.text !== rightPart.text) return false
+      if (leftPart.selectionKey !== rightPart.selectionKey) return false
+      if (leftPart.path !== rightPart.path) return false
+      if (leftPart.version !== rightPart.version) return false
+      if ((leftPart.headingPath?.join("\n") ?? "") !== (rightPart.headingPath?.join("\n") ?? ""))
+        return false
+      if (leftPart.resourceKey !== rightPart.resourceKey) return false
+      if (leftPart.cfi !== rightPart.cfi) return false
+      if (leftPart.index !== rightPart.index) return false
+      if (leftPart.tocLabel !== rightPart.tocLabel) return false
+      if (leftPart.pageLabel !== rightPart.pageLabel) return false
+      if (leftPart.locationLabel !== rightPart.locationLabel) return false
       continue
     }
 
@@ -203,13 +247,47 @@ export function serializePromptParts(parts: PromptComposerPart[]): string {
       if (part.type === PROMPT_PART_TYPE_AGENT) return `@${part.name}`
       if (part.type === RESOURCE_REFERENCE_PART_TYPE) return `resource:${part.key}`
       if (part.type === READING_SELECTION_PART_TYPE) return `"${part.text}"`
+      if (part.type === SELECTION_CONTEXT_PART_TYPE) return `"${part.text}"`
       return `@${part.path}`
     })
     .join("")
 }
 
 export function serializePromptEditorParts(parts: PromptComposerPart[]) {
-  return serializePromptParts(parts.filter((part) => part.type !== READING_SELECTION_PART_TYPE))
+  return serializePromptParts(
+    parts.filter(
+      (part) =>
+        part.type !== READING_SELECTION_PART_TYPE && part.type !== SELECTION_CONTEXT_PART_TYPE,
+    ),
+  )
+}
+
+function readDatasetNumber(value: string | undefined) {
+  if (value === undefined || value.length === 0) return undefined
+  const parsed = Number.parseInt(value, 10)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+function readDatasetStringArray(value: string | undefined) {
+  if (!value) return undefined
+  try {
+    const parsed: unknown = JSON.parse(value)
+    if (!Array.isArray(parsed)) return undefined
+    if (!parsed.every((entry) => typeof entry === "string")) return undefined
+    return parsed
+  } catch {
+    return undefined
+  }
+}
+
+function isStructuredPromptElement(element: HTMLElement) {
+  return (
+    element.dataset.type === PROMPT_PART_TYPE_AGENT ||
+    element.dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
+    element.dataset.type === RESOURCE_REFERENCE_PART_TYPE ||
+    element.dataset.type === READING_SELECTION_PART_TYPE ||
+    element.dataset.type === SELECTION_CONTEXT_PART_TYPE
+  )
 }
 
 export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
@@ -263,17 +341,44 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
       flush()
       const text = element.dataset.text
       if (text) {
-        const index =
-          typeof element.dataset.index === "string" && element.dataset.index.length > 0
-            ? Number.parseInt(element.dataset.index, 10)
-            : Number.NaN
+        const index = readDatasetNumber(element.dataset.index)
         parts.push(
           createReadingSelectionPart({
             text,
             ...(element.dataset.selectionKey ? { selectionKey: element.dataset.selectionKey } : {}),
             ...(element.dataset.resourceKey ? { resourceKey: element.dataset.resourceKey } : {}),
             ...(element.dataset.cfi ? { cfi: element.dataset.cfi } : {}),
-            ...(Number.isFinite(index) ? { index } : {}),
+            ...(index !== undefined ? { index } : {}),
+            ...(element.dataset.tocLabel ? { tocLabel: element.dataset.tocLabel } : {}),
+            ...(element.dataset.pageLabel ? { pageLabel: element.dataset.pageLabel } : {}),
+            ...(element.dataset.locationLabel
+              ? { locationLabel: element.dataset.locationLabel }
+              : {}),
+          }),
+        )
+      }
+      return
+    }
+
+    if (element.dataset.type === SELECTION_CONTEXT_PART_TYPE) {
+      flush()
+      const text = element.dataset.text
+      const source = element.dataset.source
+      const selectionKey = element.dataset.selectionKey
+      if (text && (source === "reading" || source === "markdown") && selectionKey) {
+        const headingPath = readDatasetStringArray(element.dataset.headingPath)
+        const index = readDatasetNumber(element.dataset.index)
+        parts.push(
+          createSelectionContextPart({
+            source,
+            text,
+            selectionKey,
+            ...(element.dataset.path ? { path: element.dataset.path } : {}),
+            ...(element.dataset.version ? { version: element.dataset.version } : {}),
+            ...(headingPath ? { headingPath } : {}),
+            ...(element.dataset.resourceKey ? { resourceKey: element.dataset.resourceKey } : {}),
+            ...(element.dataset.cfi ? { cfi: element.dataset.cfi } : {}),
+            ...(index !== undefined ? { index } : {}),
             ...(element.dataset.tocLabel ? { tocLabel: element.dataset.tocLabel } : {}),
             ...(element.dataset.pageLabel ? { pageLabel: element.dataset.pageLabel } : {}),
             ...(element.dataset.locationLabel
@@ -294,7 +399,9 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
     children.forEach((child, index) => {
       visit(child)
       const isBlock =
-        child.nodeType === Node.ELEMENT_NODE && BLOCK_TAG_NAMES.has((child as HTMLElement).tagName)
+        child.nodeType === Node.ELEMENT_NODE &&
+        BLOCK_TAG_NAMES.has((child as HTMLElement).tagName) &&
+        !isStructuredPromptElement(child as HTMLElement)
       if (isBlock && index < children.length - 1) {
         buffer += "\n"
       }
@@ -304,7 +411,9 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
   Array.from(root.childNodes).forEach((child, index, siblings) => {
     visit(child)
     const isBlock =
-      child.nodeType === Node.ELEMENT_NODE && BLOCK_TAG_NAMES.has((child as HTMLElement).tagName)
+      child.nodeType === Node.ELEMENT_NODE &&
+      BLOCK_TAG_NAMES.has((child as HTMLElement).tagName) &&
+      !isStructuredPromptElement(child as HTMLElement)
     if (isBlock && index < siblings.length - 1) {
       buffer += "\n"
     }
@@ -312,6 +421,58 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
 
   flush()
   return parts
+}
+
+function appendSelectionCard(root: HTMLElement, part: PromptReadingSelectionPart | PromptSelectionContextPart) {
+  const card = document.createElement("div")
+  card.className =
+    "my-1.5 inline-flex max-w-full flex-col gap-1 rounded-lg border border-border-base bg-surface-weak px-3 py-2 text-left align-top"
+  card.setAttribute("contenteditable", "false")
+  card.dataset.type = part.type
+  card.dataset.text = part.text
+  if (part.selectionKey) card.dataset.selectionKey = part.selectionKey
+  if ("source" in part) card.dataset.source = part.source
+  if ("path" in part && part.path) card.dataset.path = part.path
+  if ("version" in part && part.version) card.dataset.version = part.version
+  if ("headingPath" in part && part.headingPath) {
+    card.dataset.headingPath = JSON.stringify(part.headingPath)
+  }
+  if (part.resourceKey) card.dataset.resourceKey = part.resourceKey
+  if (part.cfi) card.dataset.cfi = part.cfi
+  if (part.index !== undefined) card.dataset.index = String(part.index)
+  if (part.tocLabel) card.dataset.tocLabel = part.tocLabel
+  if (part.pageLabel) card.dataset.pageLabel = part.pageLabel
+  if (part.locationLabel) card.dataset.locationLabel = part.locationLabel
+
+  const heading = document.createElement("div")
+  heading.className = "text-[11px] font-medium uppercase tracking-wide text-text-weaker"
+  heading.textContent =
+    "source" in part && part.source === "markdown" ? "Selected document text" : "Selected passage"
+
+  const excerpt = document.createElement("div")
+  excerpt.className = "line-clamp-4 whitespace-pre-wrap text-sm text-text-base"
+  excerpt.textContent = part.text
+
+  const metadata = [
+    "path" in part ? part.path : undefined,
+    "headingPath" in part ? part.headingPath?.join(" / ") : undefined,
+    part.tocLabel,
+    part.pageLabel,
+    part.locationLabel,
+  ]
+    .filter((value) => typeof value === "string" && value.length > 0)
+    .join(" • ")
+
+  card.append(heading, excerpt)
+
+  if (metadata) {
+    const meta = document.createElement("div")
+    meta.className = "text-xs text-text-weaker"
+    meta.textContent = metadata
+    card.append(meta)
+  }
+
+  root.appendChild(card)
 }
 
 export function renderPromptParts(root: HTMLElement, parts: PromptComposerPart[]) {
@@ -326,42 +487,12 @@ export function renderPromptParts(root: HTMLElement, parts: PromptComposerPart[]
     }
 
     if (part.type === READING_SELECTION_PART_TYPE) {
-      const card = document.createElement("div")
-      card.className =
-        "my-1.5 inline-flex max-w-full flex-col gap-1 rounded-lg border border-border-base bg-surface-weak px-3 py-2 text-left align-top"
-      card.setAttribute("contenteditable", "false")
-      card.dataset.type = part.type
-      card.dataset.text = part.text
-      if (part.selectionKey) card.dataset.selectionKey = part.selectionKey
-      if (part.resourceKey) card.dataset.resourceKey = part.resourceKey
-      if (part.cfi) card.dataset.cfi = part.cfi
-      if (part.index !== undefined) card.dataset.index = String(part.index)
-      if (part.tocLabel) card.dataset.tocLabel = part.tocLabel
-      if (part.pageLabel) card.dataset.pageLabel = part.pageLabel
-      if (part.locationLabel) card.dataset.locationLabel = part.locationLabel
+      appendSelectionCard(root, part)
+      continue
+    }
 
-      const heading = document.createElement("div")
-      heading.className = "text-[11px] font-medium uppercase tracking-wide text-text-weaker"
-      heading.textContent = "Selected passage"
-
-      const excerpt = document.createElement("div")
-      excerpt.className = "line-clamp-4 whitespace-pre-wrap text-sm text-text-base"
-      excerpt.textContent = part.text
-
-      const metadata = [part.tocLabel, part.pageLabel, part.locationLabel]
-        .filter((value) => typeof value === "string" && value.length > 0)
-        .join(" • ")
-
-      card.append(heading, excerpt)
-
-      if (metadata) {
-        const meta = document.createElement("div")
-        meta.className = "text-xs text-text-weaker"
-        meta.textContent = metadata
-        card.append(meta)
-      }
-
-      root.appendChild(card)
+    if (part.type === SELECTION_CONTEXT_PART_TYPE) {
+      appendSelectionCard(root, part)
       continue
     }
 

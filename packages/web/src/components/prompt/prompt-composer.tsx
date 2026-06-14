@@ -61,6 +61,7 @@ import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_TEXT,
   READING_SELECTION_PART_TYPE,
+  SELECTION_CONTEXT_PART_TYPE,
   type PromptComposerAttachment,
   type PromptComposerPart,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
@@ -165,12 +166,23 @@ function isPromptPlaceholderVisible(draft: Pick<PromptDraftState, "parts" | "att
   )
 }
 
-function buildReadingSelectionEntryKey(
-  part: Extract<PromptComposerPart, { type: typeof READING_SELECTION_PART_TYPE }>,
-) {
+type SelectionContextChipPart = Extract<
+  PromptComposerPart,
+  { type: typeof READING_SELECTION_PART_TYPE | typeof SELECTION_CONTEXT_PART_TYPE }
+>
+
+function isSelectionContextChipPart(part: PromptComposerPart): part is SelectionContextChipPart {
+  return part.type === READING_SELECTION_PART_TYPE || part.type === SELECTION_CONTEXT_PART_TYPE
+}
+
+function buildSelectionContextEntryKey(part: SelectionContextChipPart) {
   return (
     part.selectionKey ??
-    `${part.cfi ?? ""}:${part.index ?? ""}:${part.tocLabel ?? ""}:${part.pageLabel ?? ""}:${part.text}`
+    `${"path" in part ? (part.path ?? "") : ""}:${"version" in part ? (part.version ?? "") : ""}:${
+      "cfi" in part ? (part.cfi ?? "") : ""
+    }:${"index" in part ? (part.index ?? "") : ""}:${
+      "tocLabel" in part ? (part.tocLabel ?? "") : ""
+    }:${"pageLabel" in part ? (part.pageLabel ?? "") : ""}:${part.text}`
   )
 }
 
@@ -215,17 +227,17 @@ export function PromptComposer(props: PromptComposerProps) {
   const pushHistoryEntry = usePromptStore((state) => state.pushHistoryEntry)
   const setHistoryNavigation = usePromptStore((state) => state.setHistoryNavigation)
   const clearHistoryNavigation = usePromptStore((state) => state.resetHistoryNavigation)
-  const readingSelectionEntries = useMemo(
+  const selectionContextEntries = useMemo(
     () =>
       draft.parts.flatMap((part) =>
-        part.type === READING_SELECTION_PART_TYPE
-          ? [{ part, key: buildReadingSelectionEntryKey(part) }]
+        isSelectionContextChipPart(part)
+          ? [{ part, key: buildSelectionContextEntryKey(part) }]
           : [],
       ),
     [draft.parts],
   )
   const draftEditorParts = useMemo(
-    () => draft.parts.filter((part) => part.type !== READING_SELECTION_PART_TYPE),
+    () => draft.parts.filter((part) => !isSelectionContextChipPart(part)),
     [draft.parts],
   )
   const draftEditorValue = useMemo(() => serializePromptEditorParts(draft.parts), [draft.parts])
@@ -330,7 +342,7 @@ export function PromptComposer(props: PromptComposerProps) {
     setCursorOffset,
   })
 
-  const previousReadingSelectionCountRef = useRef(readingSelectionEntries.length)
+  const previousSelectionContextCountRef = useRef(selectionContextEntries.length)
   const consumedFocusRequestIDRef = useRef(0)
 
   const flushPendingStoreDraft = useCallback(() => {
@@ -499,12 +511,12 @@ export function PromptComposer(props: PromptComposerProps) {
   }, [focusEditorAtDraftCursor, focusRequestID])
 
   useEffect(() => {
-    const previous = previousReadingSelectionCountRef.current
-    previousReadingSelectionCountRef.current = readingSelectionEntries.length
-    if (readingSelectionEntries.length <= previous) return
+    const previous = previousSelectionContextCountRef.current
+    previousSelectionContextCountRef.current = selectionContextEntries.length
+    if (selectionContextEntries.length <= previous) return
 
     focusEditorAtDraftCursor()
-  }, [focusEditorAtDraftCursor, readingSelectionEntries.length])
+  }, [focusEditorAtDraftCursor, selectionContextEntries.length])
 
   const lastBusyRef = useRef(props.isBusy)
   const previousActiveQuestionIDRef = useRef(props.activeQuestionID)
@@ -649,17 +661,14 @@ export function PromptComposer(props: PromptComposerProps) {
       next.parts.length > 0
         ? clonePromptParts(next.parts)
         : createPromptPartsFromValue(next.value, viewState.knownAgents)
-    const readingSelectionParts = nextParts.filter(
-      (part): part is Extract<PromptComposerPart, { type: typeof READING_SELECTION_PART_TYPE }> =>
-        part.type === READING_SELECTION_PART_TYPE,
-    )
-    const editorParts = nextParts.filter((part) => part.type !== READING_SELECTION_PART_TYPE)
+    const selectionContextParts = nextParts.filter(isSelectionContextChipPart)
+    const editorParts = nextParts.filter((part) => !isSelectionContextChipPart(part))
     const nextValue = next.parts.length > 0 ? serializePromptEditorParts(nextParts) : next.value
     const nextCursor = cursor === "start" ? 0 : nextValue.length
     renderEditorAtCursor(editorParts, nextCursor, true)
     replaceDraftFromComposer({
       value: nextValue,
-      parts: [...readingSelectionParts, ...editorParts],
+      parts: [...selectionContextParts, ...editorParts],
       attachments: cloneAttachments(next.attachments),
       cursor: nextCursor,
     })
@@ -672,10 +681,7 @@ export function PromptComposer(props: PromptComposerProps) {
     const editor = editorRef.current
     const currentDraft = draftRef.current
     const currentEditorValue = serializePromptEditorParts(currentDraft.parts)
-    const readingSelectionParts = currentDraft.parts.filter(
-      (part): part is Extract<PromptComposerPart, { type: typeof READING_SELECTION_PART_TYPE }> =>
-        part.type === READING_SELECTION_PART_TYPE,
-    )
+    const selectionContextParts = currentDraft.parts.filter(isSelectionContextChipPart)
     if (!editor) {
       return {
         value: currentEditorValue,
@@ -686,7 +692,7 @@ export function PromptComposer(props: PromptComposerProps) {
     }
 
     const editorParts = collectPromptParts(editor)
-    const parts = [...readingSelectionParts, ...editorParts]
+    const parts = [...selectionContextParts, ...editorParts]
     const value = serializePromptEditorParts(editorParts)
     const cursor = getCursorPosition(editor)
     return {
@@ -697,8 +703,8 @@ export function PromptComposer(props: PromptComposerProps) {
     }
   }
 
-  function removeReadingSelectionByKey(key: string) {
-    const dismissedSelection = readingSelectionEntries.find((entry) => entry.key === key)
+  function removeSelectionContextByKey(key: string) {
+    const dismissedSelection = selectionContextEntries.find((entry) => entry.key === key)
     if (dismissedSelection) {
       setDismissedSelectionPreviews((current) => [
         ...current,
@@ -713,11 +719,11 @@ export function PromptComposer(props: PromptComposerProps) {
 
     const currentDraft = draftRef.current
     const nextParts = currentDraft.parts.filter((part) => {
-      if (part.type !== READING_SELECTION_PART_TYPE) return true
+      if (!isSelectionContextChipPart(part)) return true
       if (part.selectionKey) {
         return part.selectionKey !== key
       }
-      return buildReadingSelectionEntryKey(part) !== key
+      return buildSelectionContextEntryKey(part) !== key
     })
     const nextValue = serializePromptEditorParts(nextParts)
     const nextCursor = Math.max(0, Math.min(currentDraft.cursor, nextValue.length))
@@ -743,12 +749,9 @@ export function PromptComposer(props: PromptComposerProps) {
     if (!editor) return
 
     const currentDraft = draftRef.current
-    const readingSelectionParts = currentDraft.parts.filter(
-      (part): part is Extract<PromptComposerPart, { type: typeof READING_SELECTION_PART_TYPE }> =>
-        part.type === READING_SELECTION_PART_TYPE,
-    )
+    const selectionContextParts = currentDraft.parts.filter(isSelectionContextChipPart)
     const nextEditorParts = collectPromptParts(editor)
-    const nextParts = [...readingSelectionParts, ...nextEditorParts]
+    const nextParts = [...selectionContextParts, ...nextEditorParts]
     const nextValue = serializePromptEditorParts(nextEditorParts)
     const nextCursor = getCursorPosition(editor)
     const hasInlineStructuredPart = nextEditorParts.some(
@@ -759,14 +762,14 @@ export function PromptComposer(props: PromptComposerProps) {
       currentDraft.attachments.length === 0 &&
       !hasInlineStructuredPart
 
-    setPlaceholderVisible(shouldReset && readingSelectionParts.length === 0)
+    setPlaceholderVisible(shouldReset && selectionContextParts.length === 0)
     startTransition(() => {
       setCursorOffset(nextCursor)
     })
     viewState.setDismissedMentionKey(undefined)
     viewState.setDismissedSlashKey(undefined)
 
-    if (shouldReset && readingSelectionParts.length === 0) {
+    if (shouldReset && selectionContextParts.length === 0) {
       resetHistoryNavigation()
       replaceDraftFromComposer(
         {
@@ -786,7 +789,7 @@ export function PromptComposer(props: PromptComposerProps) {
       replaceDraftFromComposer(
         {
           value: "",
-          parts: readingSelectionParts,
+          parts: selectionContextParts,
           attachments: currentDraft.attachments,
           cursor: 0,
         },
@@ -1087,9 +1090,9 @@ export function PromptComposer(props: PromptComposerProps) {
         </div>
       </div>
 
-      {readingSelectionEntries.length > 0 || dismissedSelectionPreviews.length > 0 ? (
+      {selectionContextEntries.length > 0 || dismissedSelectionPreviews.length > 0 ? (
         <div className="mb-2 flex flex-wrap gap-1.5">
-          {readingSelectionEntries.map(({ part, key }) => (
+          {selectionContextEntries.map(({ part, key }) => (
             <div
               key={key}
               className="animate-in fade-in slide-in-from-top-1 zoom-in-95 duration-300 transition-all ease-out flex max-w-[min(72%,56ch)] items-center gap-1.5 rounded-lg border border-border-base bg-surface-weak px-2 py-1"
@@ -1099,8 +1102,8 @@ export function PromptComposer(props: PromptComposerProps) {
               </div>
               <button
                 type="button"
-                onClick={() => removeReadingSelectionByKey(key)}
-                aria-label="Remove selected passage"
+                onClick={() => removeSelectionContextByKey(key)}
+                aria-label="Remove selected context"
                 className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-text-weak transition-colors hover:bg-surface-strong hover:text-text-base"
               >
                 <XIcon className="size-3" />

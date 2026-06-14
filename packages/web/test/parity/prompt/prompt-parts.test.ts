@@ -89,6 +89,35 @@ describe("prompt parts", () => {
     ])
   })
 
+  test("round-trips selection context cards", () => {
+    const root = document.createElement("div")
+    renderPromptParts(root, [
+      { type: "text", text: "Revise " },
+      {
+        type: "selection-context",
+        source: "markdown",
+        text: "Selected worksheet prompt",
+        selectionKey: "selection-1",
+        path: "docs/worksheet.md",
+        version: "v1",
+        headingPath: ["Worksheet", "Prompt"],
+      },
+    ])
+
+    expect(collectPromptParts(root)).toEqual([
+      { type: "text", text: "Revise " },
+      {
+        type: "selection-context",
+        source: "markdown",
+        text: "Selected worksheet prompt",
+        selectionKey: "selection-1",
+        path: "docs/worksheet.md",
+        version: "v1",
+        headingPath: ["Worksheet", "Prompt"],
+      },
+    ])
+  })
+
   test("adds a cursor anchor after a trailing structured part", () => {
     const root = document.createElement("div")
     renderPromptParts(root, [{ type: "workspace-file-reference", path: "docs/book.pdf" }])

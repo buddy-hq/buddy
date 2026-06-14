@@ -4,14 +4,16 @@ import {
   PROMPT_PART_TYPE_FILE,
   PROMPT_PART_TYPE_TEXT,
   READING_SELECTION_PART_TYPE,
-  readPromptReadingSelectionMetadata,
+  readPromptSelectionContextMetadata,
   RESOURCE_REFERENCE_PART_TYPE,
+  SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "@/components/prompt/prompt-types"
 import type {
   PromptAttachmentPart,
   PromptComposerAttachment,
   PromptComposerPart,
+  PromptSelectionContextPart,
   PromptSubmissionPart,
 } from "@/components/prompt/prompt-types"
 import {
@@ -190,6 +192,17 @@ function isReadingSelectionPart(part: MessagePart): part is MessagePart & {
   return part.type === READING_SELECTION_PART_TYPE && typeof part.text === "string"
 }
 
+function isSelectionContextPart(
+  part: MessagePart,
+): part is MessagePart & PromptSelectionContextPart {
+  return (
+    part.type === SELECTION_CONTEXT_PART_TYPE &&
+    (part.source === "reading" || part.source === "markdown") &&
+    typeof part.text === "string" &&
+    typeof part.selectionKey === "string"
+  )
+}
+
 function toPromptComposerAttachment(part: MessagePart): PromptComposerAttachment | undefined {
   if (!isChatFilePart(part)) return undefined
   if (!part.url.startsWith(DATA_URL_PREFIX)) return undefined
@@ -268,9 +281,9 @@ export function buildPromptDraftFromUserMessage(
   for (const part of message.parts) {
     if (isChatTextPart(part)) {
       if (part.synthetic === true) continue
-      const readingSelectionPart = readPromptReadingSelectionMetadata(part.metadata)
-      if (readingSelectionPart) {
-        promptParts.push(readingSelectionPart)
+      const selectionContextPart = readPromptSelectionContextMetadata(part.metadata)
+      if (selectionContextPart) {
+        promptParts.push(selectionContextPart)
         continue
       }
       promptParts.push({
@@ -300,6 +313,28 @@ export function buildPromptDraftFromUserMessage(
       promptParts.push({
         type: RESOURCE_REFERENCE_PART_TYPE,
         key: part.key,
+      })
+      continue
+    }
+
+    if (isSelectionContextPart(part)) {
+      promptParts.push({
+        type: SELECTION_CONTEXT_PART_TYPE,
+        source: part.source,
+        text: part.text,
+        selectionKey: part.selectionKey,
+        ...(typeof part.path === "string" ? { path: part.path } : {}),
+        ...(typeof part.version === "string" ? { version: part.version } : {}),
+        ...(Array.isArray(part.headingPath) &&
+        part.headingPath.every((entry) => typeof entry === "string")
+          ? { headingPath: part.headingPath }
+          : {}),
+        ...(typeof part.resourceKey === "string" ? { resourceKey: part.resourceKey } : {}),
+        ...(typeof part.cfi === "string" ? { cfi: part.cfi } : {}),
+        ...(typeof part.index === "number" ? { index: part.index } : {}),
+        ...(typeof part.tocLabel === "string" ? { tocLabel: part.tocLabel } : {}),
+        ...(typeof part.pageLabel === "string" ? { pageLabel: part.pageLabel } : {}),
+        ...(typeof part.locationLabel === "string" ? { locationLabel: part.locationLabel } : {}),
       })
       continue
     }
