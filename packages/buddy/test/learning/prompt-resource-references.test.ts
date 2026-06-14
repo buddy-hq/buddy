@@ -6,7 +6,9 @@ import { readProjectConfig } from "@buddy/backend/config/runtime"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
 import { ensureResourcePack } from "../../src/resources/resource-pack-service"
 import {
+  flattenPromptPartsForRuntime,
   RESOURCE_REFERENCE_PART_TYPE,
+  SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "../../src/learning/prompt/workspace-file-references"
 import { tmpdir } from "../helpers/tmpdir"
@@ -141,6 +143,65 @@ describe("message prompt resource references", () => {
         projectConfig: config,
       }),
     ).rejects.toThrow("Resource reference was not found")
+  })
+
+  test("flattens Markdown selection context into model-readable prompt text", async () => {
+    await using project = await tmpdir({ git: true })
+    const config = await readProjectConfig(project.path)
+
+    const result = await runMessagePromptPipeline({
+      context: {
+        directory: project.path,
+        sessionID: "ses_markdown_selection",
+      },
+      body: {
+        content: "",
+        parts: [
+          {
+            type: SELECTION_CONTEXT_PART_TYPE,
+            source: "markdown",
+            text: "Selected worksheet prompt",
+            selectionKey: "selection-1",
+            path: "docs/worksheet.md",
+            version: "v1",
+            headingPath: ["Worksheet", "Prompt"],
+          },
+        ],
+        agent: "custom-agent",
+      },
+      projectConfig: config,
+    })
+
+    const parts = result.transformed.parts as Array<Record<string, unknown>>
+    expect(parts).toEqual([
+      {
+        type: "selection-context",
+        source: "markdown",
+        text: "Selected worksheet prompt",
+        selectionKey: "selection-1",
+        path: "docs/worksheet.md",
+        version: "v1",
+        headingPath: ["Worksheet", "Prompt"],
+      },
+    ])
+
+    expect(flattenPromptPartsForRuntime(parts)).toEqual([
+      {
+        type: "text",
+        text: "Selected worksheet prompt",
+        metadata: {
+          buddyPromptPart: {
+            type: "selection-context",
+            source: "markdown",
+            text: "Selected worksheet prompt",
+            selectionKey: "selection-1",
+            path: "docs/worksheet.md",
+            version: "v1",
+            headingPath: ["Worksheet", "Prompt"],
+          },
+        },
+      },
+    ])
   })
 
   test("keeps unresolved raw @tokens as text", async () => {

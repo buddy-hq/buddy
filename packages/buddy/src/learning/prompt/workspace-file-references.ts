@@ -13,6 +13,8 @@ export const RESOURCE_REFERENCE_PART_TYPE = "resource-reference" as const
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
 export const READING_SELECTION_PART_TYPE = "reading-selection" as const
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
+export const SELECTION_CONTEXT_PART_TYPE = "selection-context" as const
+// Sync with packages/web/src/components/prompt/prompt-types.ts.
 export const BUDDY_PROMPT_PART_METADATA_KEY = "buddyPromptPart" as const
 export const PROMPT_WORKSPACE_FILE_REFERENCE_REGEX =
   /(?<![\w`])@(?:"([^"\n]+)"|`([^`\n]+)`|(\.?[^\s`,.]+(?:\.[^\s`,.]+)*))/g
@@ -40,6 +42,23 @@ export type ResourceReferencePart = {
 export type ReadingSelectionPart = {
   type: typeof READING_SELECTION_PART_TYPE
   text: string
+  selectionKey?: string
+  resourceKey?: string
+  cfi?: string
+  index?: number
+  tocLabel?: string
+  pageLabel?: string
+  locationLabel?: string
+}
+
+export type SelectionContextPart = {
+  type: typeof SELECTION_CONTEXT_PART_TYPE
+  source: "reading" | "markdown"
+  text: string
+  selectionKey: string
+  path?: string
+  version?: string
+  headingPath?: string[]
   resourceKey?: string
   cfi?: string
   index?: number
@@ -100,6 +119,11 @@ export async function normalizePromptParts(input: {
 
     if (isReadingSelectionPart(part)) {
       normalizedParts.push(normalizeReadingSelectionPart(part))
+      continue
+    }
+
+    if (isSelectionContextPart(part)) {
+      normalizedParts.push(normalizeSelectionContextPart(part))
       continue
     }
 
@@ -353,6 +377,19 @@ function isReadingSelectionPart(part: unknown): part is ReadingSelectionPart {
   return part.type === READING_SELECTION_PART_TYPE && typeof part.text === "string"
 }
 
+function isSelectionContextPart(part: unknown): part is SelectionContextPart {
+  if (!isPlainObject(part)) return false
+  return (
+    part.type === SELECTION_CONTEXT_PART_TYPE &&
+    (part.source === "reading" || part.source === "markdown") &&
+    typeof part.text === "string" &&
+    typeof part.selectionKey === "string" &&
+    (part.headingPath === undefined ||
+      (Array.isArray(part.headingPath) &&
+        part.headingPath.every((entry) => typeof entry === "string")))
+  )
+}
+
 function normalizeReadingSelectionPart(part: ReadingSelectionPart) {
   const text = part.text.trim()
   if (!text) {
@@ -362,6 +399,51 @@ function normalizeReadingSelectionPart(part: ReadingSelectionPart) {
   return {
     type: READING_SELECTION_PART_TYPE,
     text,
+    ...(typeof part.selectionKey === "string" && part.selectionKey.trim().length > 0
+      ? { selectionKey: part.selectionKey.trim() }
+      : {}),
+    ...(typeof part.resourceKey === "string" && part.resourceKey.trim().length > 0
+      ? { resourceKey: part.resourceKey.trim() }
+      : {}),
+    ...(typeof part.cfi === "string" && part.cfi.trim().length > 0 ? { cfi: part.cfi.trim() } : {}),
+    ...(typeof part.index === "number" && Number.isFinite(part.index) ? { index: part.index } : {}),
+    ...(typeof part.tocLabel === "string" && part.tocLabel.trim().length > 0
+      ? { tocLabel: part.tocLabel.trim() }
+      : {}),
+    ...(typeof part.pageLabel === "string" && part.pageLabel.trim().length > 0
+      ? { pageLabel: part.pageLabel.trim() }
+      : {}),
+    ...(typeof part.locationLabel === "string" && part.locationLabel.trim().length > 0
+      ? { locationLabel: part.locationLabel.trim() }
+      : {}),
+  }
+}
+
+function normalizeSelectionContextPart(part: SelectionContextPart) {
+  const text = part.text.trim()
+  if (!text) {
+    throw new SessionTransformValidationError("selection-context text is required")
+  }
+
+  const selectionKey = part.selectionKey.trim()
+  if (!selectionKey) {
+    throw new SessionTransformValidationError("selection-context selectionKey is required")
+  }
+
+  return {
+    type: SELECTION_CONTEXT_PART_TYPE,
+    source: part.source,
+    text,
+    selectionKey,
+    ...(typeof part.path === "string" && part.path.trim().length > 0
+      ? { path: part.path.trim() }
+      : {}),
+    ...(typeof part.version === "string" && part.version.trim().length > 0
+      ? { version: part.version.trim() }
+      : {}),
+    ...(Array.isArray(part.headingPath)
+      ? { headingPath: part.headingPath.map((entry) => entry.trim()).filter(Boolean) }
+      : {}),
     ...(typeof part.resourceKey === "string" && part.resourceKey.trim().length > 0
       ? { resourceKey: part.resourceKey.trim() }
       : {}),
@@ -381,6 +463,19 @@ function normalizeReadingSelectionPart(part: ReadingSelectionPart) {
 
 export function flattenPromptPartsForRuntime(parts: unknown[]): Record<string, unknown>[] {
   return parts.flatMap((part) => {
+    if (isSelectionContextPart(part)) {
+      const normalized = normalizeSelectionContextPart(part)
+      return [
+        {
+          type: PROMPT_PART_TYPE_TEXT,
+          text: normalized.text,
+          metadata: {
+            [BUDDY_PROMPT_PART_METADATA_KEY]: normalized,
+          },
+        },
+      ]
+    }
+
     if (!isReadingSelectionPart(part)) {
       return isPlainObject(part) ? [{ ...part }] : []
     }
