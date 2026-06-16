@@ -29,6 +29,8 @@ export type MessagePromptPipelineResult = {
   turnContextDelivery?: {
     currentReadingFingerprint?: string
     deliveredReadingFingerprint?: string
+    currentBenchFingerprint?: string
+    deliveredBenchFingerprint?: string
     currentTeachingFingerprint?: string
     deliveredTeachingFingerprint?: string
   }

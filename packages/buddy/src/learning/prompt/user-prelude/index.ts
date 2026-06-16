@@ -24,6 +24,8 @@ export type BuddyUserPreludeBuild = {
   turnContextDelivery: {
     currentReadingFingerprint?: string
     deliveredReadingFingerprint?: string
+    currentBenchFingerprint?: string
+    deliveredBenchFingerprint?: string
     currentTeachingFingerprint?: string
     deliveredTeachingFingerprint?: string
   }
@@ -160,6 +162,63 @@ function buildTeachingTurnContextPart(input: {
   }
 }
 
+const BENCH_TURN_CONTEXT_METADATA_LIMIT = 5
+
+function benchSurfaceLabel(context: PromptContext): string {
+  const benchContext = context.benchContext
+  if (!benchContext || benchContext.status === "closed") return "Bench"
+
+  const target = benchContext.target
+  if (target.type === "artifact") {
+    return `${target.artifactKind} artifact`
+  }
+  return target.type
+}
+
+function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild {
+  const benchContext = context.benchContext
+  if (!benchContext || benchContext.status === "closed") return {}
+  if (benchContext.target.type === "reading" && context.activeResource) return {}
+
+  const target = benchContext.target
+  const locationLines = [
+    target.title ? `Title: ${target.title}` : undefined,
+    target.path ? `Path: ${target.path}` : undefined,
+    target.resourceID ? `Resource: ${target.resourceID}` : undefined,
+    target.artifactID ? `Artifact: ${target.artifactID}` : undefined,
+    target.itemID ? `Item: ${target.itemID}` : undefined,
+    `State: ${target.status}`,
+  ].filter((line): line is string => line !== undefined)
+  const metadataLines = benchContext.metadata
+    .slice(0, BENCH_TURN_CONTEXT_METADATA_LIMIT)
+    .map((line) => `- ${line}`)
+  const metadataBlock =
+    metadataLines.length > 0 ? `Details:\n${metadataLines.join("\n")}\n` : ""
+
+  const text = [
+    "<bench_turn_context>",
+    `The learner has Bench open on ${benchSurfaceLabel(context)}.`,
+    locationLines.join("\n"),
+    metadataBlock.trimEnd(),
+    "Use bench_read_context if the learner refers to Bench contents or if exact current Bench context matters.",
+    "</bench_turn_context>",
+  ]
+    .filter((line) => line.length > 0)
+    .join("\n")
+  const fingerprint = fingerprintText(text)
+  if (context.priorDeliveredBenchTurnContextDigest === fingerprint) {
+    return {
+      fingerprint,
+      text: `<bench_ctx_ref same="${shortFingerprint(fingerprint)}"/>`,
+    }
+  }
+
+  return {
+    fingerprint,
+    text,
+  }
+}
+
 export function buildBuddyUserPrelude(input: {
   context: PromptContext
   changedSinceCheckpoint?: boolean
@@ -200,12 +259,17 @@ export function buildBuddyUserPrelude(input: {
   })
 
   const readingTurnContext = buildReadingTurnContextPart(input.context)
+  const benchTurnContext = buildBenchTurnContextPart(input.context)
   const teachingTurnContext = buildTeachingTurnContextPart({
     context: input.context,
     changedSinceCheckpoint: input.changedSinceCheckpoint,
   })
 
-  const contextLines = [readingTurnContext.text, teachingTurnContext.text].filter(
+  const contextLines = [
+    readingTurnContext.text,
+    benchTurnContext.text,
+    teachingTurnContext.text,
+  ].filter(
     (line): line is string => line !== undefined,
   )
 
@@ -232,6 +296,12 @@ export function buildBuddyUserPrelude(input: {
         : {}),
       ...(readingTurnContext.text && readingTurnContext.fingerprint
         ? { deliveredReadingFingerprint: readingTurnContext.fingerprint }
+        : {}),
+      ...(benchTurnContext.fingerprint
+        ? { currentBenchFingerprint: benchTurnContext.fingerprint }
+        : {}),
+      ...(benchTurnContext.text && benchTurnContext.fingerprint
+        ? { deliveredBenchFingerprint: benchTurnContext.fingerprint }
         : {}),
       ...(teachingTurnContext.fingerprint
         ? { currentTeachingFingerprint: teachingTurnContext.fingerprint }

@@ -71,6 +71,21 @@ export async function orchestrateSessionMessageTransform(input: {
               : {}),
         }
       : {}
+    const benchDeliveryPatch = turnContextDelivery
+      ? {
+          benchTurnContextDigest: turnContextDelivery.currentBenchFingerprint,
+          ...(turnContextDelivery.deliveredBenchFingerprint
+            ? {
+                lastDeliveredBenchTurnContextDigest:
+                  turnContextDelivery.deliveredBenchFingerprint,
+              }
+            : turnContextDelivery.currentBenchFingerprint === undefined
+              ? {
+                  lastDeliveredBenchTurnContextDigest: undefined,
+                }
+              : {}),
+        }
+      : {}
 
     rollbackTeachingState = () =>
       restoreTeachingSessionState({
@@ -101,6 +116,12 @@ export async function orchestrateSessionMessageTransform(input: {
               previousState.lastDeliveredReadingTurnContextDigest,
           }
         : {}),
+      ...(previousState?.lastDeliveredBenchTurnContextDigest
+        ? {
+            lastDeliveredBenchTurnContextDigest:
+              previousState.lastDeliveredBenchTurnContextDigest,
+          }
+        : {}),
       ...(previousState?.lastDeliveredTeachingTurnContextDigest
         ? {
             lastDeliveredTeachingTurnContextDigest:
@@ -109,6 +130,7 @@ export async function orchestrateSessionMessageTransform(input: {
         : {}),
       ...pipelineResult.nextTeachingState,
       ...readingDeliveryPatch,
+      ...benchDeliveryPatch,
       ...teachingDeliveryPatch,
       ...(pipelineResult.learnerContextDelivery
         ? {

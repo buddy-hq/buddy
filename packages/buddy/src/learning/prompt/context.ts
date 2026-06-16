@@ -16,6 +16,12 @@ import {
   buildLearnerContextView,
   type LearnerContextItem,
 } from "../shared/learner-context-delivery"
+import {
+  BenchContextSnapshotMissingError,
+  readBenchContext,
+  type BenchReadContextOutput,
+} from "../features/bench/context"
+import { resolveBenchReadingResourceRelpath } from "../features/bench/reading-resource"
 import type { TeachingSessionState } from "../shared/teaching-session-state"
 import { hasExplicitModel, resolveCurrentSurface, resolveFocusGoalIds } from "../shared/targeting"
 import type {
@@ -71,6 +77,7 @@ export type PromptResource = {
   format: string
   status: PromptResourceStatus
   warnings: string[]
+  benchReaderRelpath?: string
   fullTextPath?: string
   fullTextEstTokens?: number
   fullTextChars?: number
@@ -124,10 +131,12 @@ export type PromptContext = {
   priorLearnerContextDigest?: string
   priorLearnerContextItems?: LearnerContextItem[]
   priorDeliveredReadingTurnContextDigest?: string
+  priorDeliveredBenchTurnContextDigest?: string
   priorDeliveredTeachingTurnContextDigest?: string
   focusGoalIds: string[]
   resources: PromptResource[]
   activeResource?: ActivePromptResource
+  benchContext?: BenchReadContextOutput
   model?: PromptModel
   personalization?: PromptPersonalization
   teachingContext?: TeachingPromptContext
@@ -301,10 +310,19 @@ async function resolvePromptResource(input: {
     packKey?: string
   }
 }): Promise<PromptResource> {
-  const metadata = await resolveResourcePackFullTextMetadata({
-    directory: input.directory,
-    packKey: input.resource.packKey,
-  })
+  const [metadata, benchReaderRelpath] = await Promise.all([
+    resolveResourcePackFullTextMetadata({
+      directory: input.directory,
+      packKey: input.resource.packKey,
+    }),
+    resolveBenchReadingResourceRelpath({
+      directory: input.directory,
+      sourceRelpath: input.resource.sourceRelpath,
+      ...(input.resource.sourceOriginRelpath
+        ? { sourceOriginRelpath: input.resource.sourceOriginRelpath }
+        : {}),
+    }),
+  ])
 
   return {
     id: input.resource.id,
@@ -314,6 +332,7 @@ async function resolvePromptResource(input: {
     format: input.resource.format,
     status: input.resource.status,
     warnings: input.resource.warnings,
+    ...(benchReaderRelpath ? { benchReaderRelpath } : {}),
     ...(metadata?.fullTextPath ? { fullTextPath: metadata.fullTextPath } : {}),
     ...(metadata?.fullTextEstTokens !== undefined
       ? { fullTextEstTokens: metadata.fullTextEstTokens }
@@ -461,6 +480,20 @@ function buildActiveResource(
   }
 }
 
+function readSynchronizedBenchContext(input: {
+  directory: string
+  sessionID: string
+}): BenchReadContextOutput | undefined {
+  try {
+    return readBenchContext(input).value
+  } catch (error) {
+    if (error instanceof BenchContextSnapshotMissingError) {
+      return undefined
+    }
+    throw error
+  }
+}
+
 async function buildPromptContext(
   input: CreatePromptContextInput,
 ): Promise<CreatePromptContextResult> {
@@ -507,6 +540,10 @@ async function buildPromptContext(
     ),
   ])
   const activeResource = buildActiveResource(activeReadingContext, promptResources)
+  const benchContext = readSynchronizedBenchContext({
+    directory: input.directory,
+    sessionID: input.sessionID,
+  })
 
   return {
     context: {
@@ -532,6 +569,12 @@ async function buildPromptContext(
               input.previousState.lastDeliveredReadingTurnContextDigest,
           }
         : {}),
+      ...(input.previousState?.lastDeliveredBenchTurnContextDigest
+        ? {
+            priorDeliveredBenchTurnContextDigest:
+              input.previousState.lastDeliveredBenchTurnContextDigest,
+          }
+        : {}),
       ...(input.previousState?.lastDeliveredTeachingTurnContextDigest
         ? {
             priorDeliveredTeachingTurnContextDigest:
@@ -544,6 +587,7 @@ async function buildPromptContext(
       ...(personalization ? { personalization } : {}),
       ...(teachingContext ? { teachingContext } : {}),
       ...(activeResource ? { activeResource } : {}),
+      ...(benchContext ? { benchContext } : {}),
       ...(input.previousState
         ? {
             priorTurn: {
