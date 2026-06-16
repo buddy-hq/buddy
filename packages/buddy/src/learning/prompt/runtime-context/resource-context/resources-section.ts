@@ -80,7 +80,7 @@ export function renderNotebookResourcesSection(input: { resources: PromptResourc
         ? truncateWithEllipsis(normalizeWhitespace(warningRaw), RESOURCE_WARNING_PREVIEW_MAX_CHARS)
         : undefined
 
-      return `- id=${resource.id} | name=${namePreview} | alias=${resource.alias} | format=${resource.format} | status=${resource.status} | source=${sourcePreview} | pack=${packPath}${resource.fullTextPath ? ` | full_text=${resource.fullTextPath}` : ""}${resource.fullTextEstTokens !== undefined ? ` | full_text_est_tokens=${resource.fullTextEstTokens}` : ""}${resource.fullTextChars !== undefined ? ` | full_text_chars=${resource.fullTextChars}` : ""}${warning ? ` | note=${warning}` : ""}`
+      return `- id=${resource.id} | name=${namePreview} | alias=${resource.alias} | format=${resource.format} | status=${resource.status} | source=${sourcePreview} | bench_reader=${resource.benchReaderRelpath ?? "none"} | pack=${packPath}${resource.fullTextPath ? ` | full_text=${resource.fullTextPath}` : ""}${resource.fullTextEstTokens !== undefined ? ` | full_text_est_tokens=${resource.fullTextEstTokens}` : ""}${resource.fullTextChars !== undefined ? ` | full_text_chars=${resource.fullTextChars}` : ""}${warning ? ` | note=${warning}` : ""}`
     })
     .join("\n")
 

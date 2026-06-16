@@ -1,6 +1,7 @@
 <about_resources>
 - Resources are parsed documents that are stored in the notebook at `resources/<alias>/`.
 - They are staged under `resources/<alias>/` and prepared text is under `resources/<alias>/processed/`.
+- Resource text and full-text files are for internal grounding. Only resources with `bench_reader=<pdf-or-epub-path>` can be opened on Bench with `bench_present`; do not call `bench_present` for `bench_reader=none`.
 - When resource evidence is relevant, start from `{{ entrypoint_file_name }}`, then `{{ toc_file_name }}` if present, then `{{ chunks_dir_name }}/`, `{{ pages_dir_name }}/` (PDF), and `{{ full_text_file_prefix }}-*.md`.
 
 ### When to Read Resources
