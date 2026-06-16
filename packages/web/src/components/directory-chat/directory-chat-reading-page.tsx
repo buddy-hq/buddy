@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useRef } from "react"
+import { useLocation } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { DirectoryInvalidNotebook } from "./directory-invalid-notebook"
 import { DirectoryChatReadingReaderPane } from "@/components/directory-chat/directory-chat-reading-reader-pane"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
+import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
+import {
+  routeString,
+  workspaceBackedTarget,
+  workspaceFileRef,
+} from "@/components/bench/bench-context-utils"
 import {
   appendReadingSelectionToDraft,
   removeReadingSelectionFromDraft,
@@ -33,6 +40,7 @@ function createReadingSelectionKey() {
 }
 
 export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
+  const location = useLocation()
   const { controller } = useDirectoryNotebookRouteContext()
   const normalizedPath = normalizeRelativePath(props.resourcePath)
   const resourceName = fileNameFromPath(normalizedPath) || language.t("sidebar.resources")
@@ -41,6 +49,9 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const readingSessionID =
     controller.status === "ready" ? controller.mainPaneProps.chatState.sessionID : undefined
   const setActiveReadingResource = useChatStore((state) => state.setActiveReadingResource)
+  const activeReadingResource = useChatStore(
+    (state) => state.activeReadingResourceByDirectory[props.directory],
+  )
   const updateActiveReadingResourceLocation = useChatStore(
     (state) => state.updateActiveReadingResourceLocation,
   )
@@ -76,6 +87,127 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       (resource) => normalizeResourceRecordPath(resource) === normalizedPath,
     )
   }, [normalizedPath, props.resourceKey, resourcesQuery.data?.processed])
+  const readerStatus =
+    resourceRecord?.status === "error"
+      ? "error"
+      : resourceRecord?.status === "preparing"
+        ? "preparing"
+        : resourceRecord?.status === "unsupported"
+          ? "unsupported"
+          : resourcesQuery.isLoading
+            ? "loading"
+            : "ready"
+  const targetStatus =
+    readerStatus === "error"
+      ? "error"
+      : readerStatus === "loading" || readerStatus === "preparing"
+        ? "loading"
+        : readerStatus === "unsupported"
+          ? "unavailable"
+          : "ready"
+  const contextProvider = useMemo(
+    () => ({
+      read: () => {
+        const resourceID = resourceRecord?.id ?? activeReadingResource?.resourceID ?? null
+        const alias = resourceRecord?.alias ?? activeReadingResource?.alias
+        const metadata = [
+          `resource_status: ${resourceRecord?.status ?? activeReadingResource?.status ?? "unknown"}`,
+          ...(alias ? [`resource_alias: ${alias}`] : []),
+          `reader_status: ${readerStatus}`,
+          ...(activeReadingResource?.locationLabel
+            ? [`location_label: ${activeReadingResource.locationLabel}`]
+            : []),
+          ...(activeReadingResource?.pageLabel
+            ? [`page_label: ${activeReadingResource.pageLabel}`]
+            : []),
+          ...(activeReadingResource?.tocLabel
+            ? [`toc_label: ${activeReadingResource.tocLabel}`]
+            : []),
+          ...(activeReadingResource?.cfi ? [`cfi: ${activeReadingResource.cfi}`] : []),
+          ...(activeReadingResource?.index !== undefined
+            ? [`index: ${activeReadingResource.index}`]
+            : []),
+          ...(activeReadingResource?.fraction !== undefined
+            ? [`fraction: ${activeReadingResource.fraction}`]
+            : []),
+        ]
+        const contentParts = [
+          `Current reading surface: ${resourceName}`,
+          activeReadingResource?.currentPassageText
+            ? `current_passage:\n${activeReadingResource.currentPassageText}`
+            : undefined,
+          activeReadingResource?.visibleStartText
+            ? `visible_start:\n${activeReadingResource.visibleStartText}`
+            : undefined,
+          activeReadingResource?.visibleEndText
+            ? `visible_end:\n${activeReadingResource.visibleEndText}`
+            : undefined,
+          activeReadingResource?.readingTrail?.length
+            ? `reading_trail:\n${activeReadingResource.readingTrail
+                .map((entry) => {
+                  const details = [
+                    entry.cfi ? `cfi=${entry.cfi}` : undefined,
+                    entry.fraction !== undefined ? `fraction=${entry.fraction}` : undefined,
+                  ].filter((detail): detail is string => detail !== undefined)
+                  return `- ${entry.tocLabel}${details.length > 0 ? ` (${details.join(", ")})` : ""}`
+                })
+                .join("\n")}`
+            : undefined,
+          activeReadingResource?.annotationSummary?.length
+            ? `recent_annotations:\n${activeReadingResource.annotationSummary
+                .map((entry) => `- ${entry.text}${entry.note ? ` (note: ${entry.note})` : ""}`)
+                .join("\n")}`
+            : undefined,
+        ].filter((part): part is string => part !== undefined)
+
+        return {
+          status: "open" as const,
+          target: workspaceBackedTarget({
+            type: "reading",
+            directory: props.directory,
+            title: resourceName,
+            path: normalizedPath,
+            route: routeString({
+              pathname: location.pathname,
+              searchStr: location.searchStr,
+            }),
+            status: targetStatus,
+            ...(resourceID ? { resourceID } : {}),
+          }),
+          metadata,
+          content: contentParts.join("\n\n"),
+          refs: [
+            workspaceFileRef({
+              path: normalizedPath,
+              note: "Reading file on Bench.",
+            }),
+            ...(resourceID
+              ? [
+                  {
+                    kind: "resource" as const,
+                    value: resourceID,
+                    note: "Prepared reading resource id.",
+                  },
+                ]
+              : []),
+          ],
+          hints: ["Use resource or file tools for broader book context."],
+        }
+      },
+    }),
+    [
+      activeReadingResource,
+      location.pathname,
+      location.searchStr,
+      normalizedPath,
+      props.directory,
+      readerStatus,
+      resourceName,
+      resourceRecord,
+      targetStatus,
+    ],
+  )
+  useRegisterBenchContextProvider(contextProvider)
   useEffect(() => {
     if (!readyDirectory) {
       return

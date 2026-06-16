@@ -11,6 +11,7 @@ const BASE_SNAPSHOT: MarkdownBenchPendingSaveSnapshot = {
   content: "edited",
   directory: "/repo",
   path: "notes/worksheet.md",
+  saveError: false,
   savedContent: "original",
   saving: false,
   version: "version-1",
@@ -50,7 +51,7 @@ describe("MarkdownBenchPage pending save flush", () => {
     ])
   })
 
-  test("skips clean, saving, and conflicted snapshots", () => {
+  test("skips clean, saving, conflicted, and save-error snapshots", () => {
     expect(
       shouldFlushMarkdownBenchPendingSave({
         ...BASE_SNAPSHOT,
@@ -59,5 +60,6 @@ describe("MarkdownBenchPage pending save flush", () => {
     ).toBe(false)
     expect(shouldFlushMarkdownBenchPendingSave({ ...BASE_SNAPSHOT, saving: true })).toBe(false)
     expect(shouldFlushMarkdownBenchPendingSave({ ...BASE_SNAPSHOT, conflict: true })).toBe(false)
+    expect(shouldFlushMarkdownBenchPendingSave({ ...BASE_SNAPSHOT, saveError: true })).toBe(false)
   })
 })

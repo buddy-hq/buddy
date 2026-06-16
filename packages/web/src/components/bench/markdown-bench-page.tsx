@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react"
+import { useLocation } from "@tanstack/react-router"
 import {
   DownloadIcon,
   Loader2Icon,
@@ -19,6 +27,12 @@ import {
   BenchViewerShell,
   type BenchViewerAction,
 } from "@/components/bench/bench-viewer-shell"
+import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
+import {
+  routeString,
+  workspaceBackedTarget,
+  workspaceFileRef,
+} from "@/components/bench/bench-context-utils"
 import { parseToolState } from "@/components/chat/tools/parse-tool-state"
 import { isRecord, readNonEmptyString, readString } from "@/components/chat/tools/types"
 import {
@@ -59,6 +73,8 @@ import {
 import { getPromptDraft, usePromptStore } from "@/state/prompt-store"
 
 const MARKDOWN_SAVE_DEBOUNCE_MS = 900
+const MARKDOWN_LEAVE_GUARD_WAIT_MS = 5000
+const MARKDOWN_LEAVE_GUARD_POLL_MS = 50
 const FILE_EDIT_TOOL_NAMES = new Set(["edit", "write", "apply_patch"])
 
 type MarkdownBenchPageProps = {
@@ -72,6 +88,7 @@ export type MarkdownBenchPendingSaveSnapshot = {
   content: string
   directory: string
   path: string
+  saveError: boolean
   savedContent: string
   saving: boolean
   version: string
@@ -139,7 +156,12 @@ function toolPartCompletionKey(part: MessagePart) {
 export function shouldFlushMarkdownBenchPendingSave(
   snapshot: MarkdownBenchPendingSaveSnapshot,
 ): boolean {
-  return snapshot.content !== snapshot.savedContent && !snapshot.saving && !snapshot.conflict
+  return (
+    snapshot.content !== snapshot.savedContent &&
+    !snapshot.saving &&
+    !snapshot.conflict &&
+    !snapshot.saveError
+  )
 }
 
 export async function flushMarkdownBenchPendingSave(
@@ -161,7 +183,21 @@ export async function flushMarkdownBenchPendingSave(
   }
 }
 
+async function waitForMarkdownBenchSaveToSettle(input: {
+  snapshotRef: MutableRefObject<MarkdownBenchPendingSaveSnapshot>
+}): Promise<MarkdownBenchPendingSaveSnapshot> {
+  const startedAt = Date.now()
+  while (input.snapshotRef.current.saving) {
+    if (Date.now() - startedAt >= MARKDOWN_LEAVE_GUARD_WAIT_MS) {
+      return input.snapshotRef.current
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, MARKDOWN_LEAVE_GUARD_POLL_MS))
+  }
+  return input.snapshotRef.current
+}
+
 export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
+  const location = useLocation()
   const { controller } = useDirectoryNotebookRouteContext()
   const platform = usePlatform()
   const { themeId, themes } = useTheme()
@@ -205,21 +241,130 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
   })
   const dirty = markdown !== savedMarkdown
   const title = fileNameFromPath(props.path) || props.path
+  const saveState = conflict ? "conflict" : saveError ? "error" : saving ? "saving" : "ready"
+  const targetStatus = conflict || saveError ? "error" : dirty ? "dirty" : loading ? "loading" : "ready"
+  const contextProvider = useMemo(
+    () => ({
+      read: () => ({
+        status: "open" as const,
+        target: workspaceBackedTarget({
+          type: "markdown",
+          directory: props.directory,
+          title,
+          path: props.path,
+          route: routeString({
+            pathname: location.pathname,
+            searchStr: location.searchStr,
+          }),
+          status: targetStatus,
+        }),
+        metadata: [
+          `dirty: ${dirty}`,
+          `version: ${version}`,
+          `save_state: ${saveState}`,
+          `theme_mode: ${contentThemeMode}`,
+          `font_scale: ${contentFontScale}`,
+        ],
+        content: markdown,
+        refs: [
+          workspaceFileRef({
+            path: props.path,
+            note: "Markdown file on Bench.",
+          }),
+        ],
+        hints: dirty ? ["Content may differ from the saved file because Bench has unsaved edits."] : [],
+      }),
+    }),
+    [
+      contentFontScale,
+      contentThemeMode,
+      dirty,
+      location.pathname,
+      location.searchStr,
+      markdown,
+      props.directory,
+      props.path,
+      saveState,
+      targetStatus,
+      title,
+      version,
+    ],
+  )
   const currentSaveSnapshot = useMemo<MarkdownBenchPendingSaveSnapshot>(
     () => ({
       conflict,
       content: markdown,
       directory: props.directory,
       path: props.path,
+      saveError: saveError !== undefined,
       savedContent: savedMarkdown,
       saving,
       version,
     }),
-    [conflict, markdown, props.directory, props.path, savedMarkdown, saving, version],
+    [
+      conflict,
+      markdown,
+      props.directory,
+      props.path,
+      saveError,
+      savedMarkdown,
+      saving,
+      version,
+    ],
   )
   const latestSaveSnapshotRef = useRef(currentSaveSnapshot)
   const previousCommittedSaveSnapshotRef = useRef(currentSaveSnapshot)
   latestSaveSnapshotRef.current = currentSaveSnapshot
+  const leaveGuard = useCallback(async () => {
+    let snapshot = latestSaveSnapshotRef.current
+    if (snapshot.saving) {
+      snapshot = await waitForMarkdownBenchSaveToSettle({
+        snapshotRef: latestSaveSnapshotRef,
+      })
+    }
+
+    if (snapshot.saving) {
+      return {
+        status: "block" as const,
+        reason: "saving" as const,
+        message: "Markdown is still saving. Wait for the save to finish before leaving Bench.",
+      }
+    }
+
+    if (snapshot.conflict) {
+      return {
+        status: "block" as const,
+        reason: "conflict" as const,
+        message: "Markdown has a file conflict. Resolve it before leaving Bench.",
+      }
+    }
+
+    if (snapshot.saveError) {
+      return {
+        status: "block" as const,
+        reason: "save_error" as const,
+        message: "Markdown has a save error. Resolve it before leaving Bench.",
+      }
+    }
+
+    if (snapshot.content === snapshot.savedContent) {
+      return { status: "allow" as const }
+    }
+
+    const saved = await flushMarkdownBenchPendingSave(snapshot)
+    if (saved) {
+      return { status: "allow" as const }
+    }
+
+    setSaveError("Markdown could not be saved before leaving Bench.")
+    toast("Markdown could not be saved before leaving Bench.")
+    return {
+      status: "block" as const,
+      reason: "save_error" as const,
+      message: "Markdown could not be saved before leaving Bench.",
+    }
+  }, [])
+  useRegisterBenchContextProvider(contextProvider, leaveGuard)
   const contentTheme = useMemo(() => {
     const theme = themes[themeId]
     if (!theme) return undefined

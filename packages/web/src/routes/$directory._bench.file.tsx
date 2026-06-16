@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useLocation } from "@tanstack/react-router"
 import {
   AlertCircleIcon,
   ClipboardCopyIcon,
@@ -10,6 +10,14 @@ import {
   BenchSurfaceViewer,
   type BenchViewerAction,
 } from "@/components/bench/bench-viewer-shell"
+import { BenchStaticContextProvider } from "@/components/bench/bench-static-context-provider"
+import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
+import {
+  routeString,
+  urlRef,
+  workspaceBackedTarget,
+  workspaceFileRef,
+} from "@/components/bench/bench-context-utils"
 import { BenchMediaPreview } from "@/components/bench/bench-media-preview"
 import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
 import { stringifyError } from "@/lib/api-client"
@@ -44,23 +52,37 @@ export const Route = createFileRoute("/$directory/_bench/file")({
 
 function ProjectFileBenchPending() {
   return (
-    <BenchSurfaceViewer title="Loading file">
-      <div className="flex h-full items-center justify-center text-sm text-text-weak">
-        <Loader2Icon className="mr-2 size-4 animate-spin" aria-hidden />
-        Loading file
-      </div>
-    </BenchSurfaceViewer>
+    <BenchStaticContextProvider
+      status="loading"
+      metadata={["surface_status: loading"]}
+      content="File Bench is visible and loading the requested file preview."
+      hints={["Try bench_read_context again after the file preview finishes loading."]}
+    >
+      <BenchSurfaceViewer title="Loading file">
+        <div className="flex h-full items-center justify-center text-sm text-text-weak">
+          <Loader2Icon className="mr-2 size-4 animate-spin" aria-hidden />
+          Loading file
+        </div>
+      </BenchSurfaceViewer>
+    </BenchStaticContextProvider>
   )
 }
 
 function ProjectFileBenchError() {
   return (
-    <BenchSurfaceViewer title="File unavailable">
-      <div className="flex h-full items-center justify-center p-6 text-sm text-icon-critical-base">
-        <AlertCircleIcon className="mr-2 size-4" aria-hidden />
-        File could not be loaded.
-      </div>
-    </BenchSurfaceViewer>
+    <BenchStaticContextProvider
+      status="error"
+      metadata={["surface_status: error"]}
+      content="File Bench is visible, but the requested file could not be loaded."
+      hints={["Check that the workspace file path exists and is readable."]}
+    >
+      <BenchSurfaceViewer title="File unavailable">
+        <div className="flex h-full items-center justify-center p-6 text-sm text-icon-critical-base">
+          <AlertCircleIcon className="mr-2 size-4" aria-hidden />
+          File could not be loaded.
+        </div>
+      </BenchSurfaceViewer>
+    </BenchStaticContextProvider>
   )
 }
 
@@ -88,6 +110,7 @@ function ProjectFileBenchView(props: {
     sizeBytes: number | undefined
   }
 }) {
+  const location = useLocation()
   const rawUrl = resolveAssetUrl(
     buildProjectFileRawUrl({ directory: props.directory, path: props.path }),
   )
@@ -97,6 +120,53 @@ function ProjectFileBenchView(props: {
     sizeBytes: props.metadata.sizeBytes,
   })
   const title = fileNameFromPath(props.path) || props.path
+  const contextProvider = useMemo(
+    () => ({
+      read: () => ({
+        status: "open" as const,
+        target: workspaceBackedTarget({
+          type: "file",
+          directory: props.directory,
+          title,
+          path: props.path,
+          route: routeString({
+            pathname: location.pathname,
+            searchStr: location.searchStr,
+          }),
+          status: "ready",
+        }),
+        metadata: [
+          `mime_type: ${props.metadata.mimeType ?? "unknown"}`,
+          `size_bytes: ${props.metadata.sizeBytes ?? "unknown"}`,
+          `render_mode: ${classification.renderMode}`,
+        ],
+        content: `File preview is open on Bench: ${props.path}. The visible preview uses render mode ${classification.renderMode}. Binary and media bytes are not inlined in Bench context.`,
+        refs: [
+          workspaceFileRef({
+            path: props.path,
+            note: "File currently visible on Bench.",
+          }),
+          ...urlRef({
+            url: rawUrl,
+            note: "Raw file URL.",
+          }),
+        ],
+        hints: ["Use file/read/PDF/image-capable tools to inspect actual file content."],
+      }),
+    }),
+    [
+      classification.renderMode,
+      location.pathname,
+      location.searchStr,
+      props.directory,
+      props.metadata.mimeType,
+      props.metadata.sizeBytes,
+      props.path,
+      rawUrl,
+      title,
+    ],
+  )
+  useRegisterBenchContextProvider(contextProvider)
   const actions = useMemo<BenchViewerAction[]>(
     () => [
       {

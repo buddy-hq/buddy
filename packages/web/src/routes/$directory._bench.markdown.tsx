@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { AlertCircleIcon, Loader2Icon } from "lucide-react"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
+import { BenchStaticContextProvider } from "@/components/bench/bench-static-context-provider"
 import { MarkdownBenchPage } from "@/components/bench/markdown-bench-page"
 import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
 import { decodeDirectory } from "@/lib/directory-token"
@@ -38,23 +39,37 @@ export const Route = createFileRoute("/$directory/_bench/markdown")({
 
 function MarkdownBenchPending() {
   return (
-    <BenchViewerShell title="Loading Markdown">
-      <div className="flex h-full items-center justify-center text-sm text-text-weak">
-        <Loader2Icon className="mr-2 size-4 animate-spin" aria-hidden />
-        Loading Markdown
-      </div>
-    </BenchViewerShell>
+    <BenchStaticContextProvider
+      status="loading"
+      metadata={["surface_status: loading"]}
+      content="Markdown Bench is visible and loading the requested file."
+      hints={["Try bench_read_context again after Markdown finishes loading."]}
+    >
+      <BenchViewerShell title="Loading Markdown">
+        <div className="flex h-full items-center justify-center text-sm text-text-weak">
+          <Loader2Icon className="mr-2 size-4 animate-spin" aria-hidden />
+          Loading Markdown
+        </div>
+      </BenchViewerShell>
+    </BenchStaticContextProvider>
   )
 }
 
 function MarkdownBenchError() {
   return (
-    <BenchViewerShell title="Markdown unavailable">
-      <div className="flex h-full items-center justify-center p-6 text-sm text-icon-critical-base">
-        <AlertCircleIcon className="mr-2 size-4" aria-hidden />
-        Markdown could not be loaded.
-      </div>
-    </BenchViewerShell>
+    <BenchStaticContextProvider
+      status="error"
+      metadata={["surface_status: error"]}
+      content="Markdown Bench is visible, but the requested Markdown file could not be loaded."
+      hints={["Check that the Markdown path exists and is a .md file."]}
+    >
+      <BenchViewerShell title="Markdown unavailable">
+        <div className="flex h-full items-center justify-center p-6 text-sm text-icon-critical-base">
+          <AlertCircleIcon className="mr-2 size-4" aria-hidden />
+          Markdown could not be loaded.
+        </div>
+      </BenchViewerShell>
+    </BenchStaticContextProvider>
   )
 }
 
