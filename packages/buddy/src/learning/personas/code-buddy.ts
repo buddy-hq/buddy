@@ -1,6 +1,7 @@
 import CODE_BUDDY_OVERLAY from "./prompts/code-buddy.p.md"
 import { defineBuddyPersona } from "./wiring/define-buddy-persona"
 import { assessmentFeature } from "../features/assessment/feature"
+import { benchFeature } from "../features/bench/feature"
 import { curriculumFeature } from "../features/curriculum/feature"
 import { debugGuidanceFeature } from "../features/debug-guidance/feature"
 import { diagramsFeature } from "../features/diagrams/feature"
@@ -23,6 +24,7 @@ export const CODE_BUDDY = defineBuddyPersona({
     curriculumFeature,
     memoryFeature,
     standardsFeature,
+    benchFeature,
     readingFeature,
     teachingGuidanceFeature,
     debugGuidanceFeature,

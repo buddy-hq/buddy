@@ -1,6 +1,7 @@
 import { defineBuddyPersona } from "./wiring/define-buddy-persona"
 import { analogiesFeature } from "../features/analogies/feature"
 import { assessmentFeature } from "../features/assessment/feature"
+import { benchFeature } from "../features/bench/feature"
 import { calculatorFeature } from "../features/calculator/feature"
 import { curriculumFeature } from "../features/curriculum/feature"
 import { diagramsFeature } from "../features/diagrams/feature"
@@ -26,6 +27,7 @@ export const BUDDY = defineBuddyPersona({
     curriculumFeature,
     memoryFeature,
     standardsFeature,
+    benchFeature,
     readingFeature,
     teachingGuidanceFeature,
     analogiesFeature,

@@ -1,6 +1,7 @@
 export { AgentsMdRoutes } from "./agents-md"
 export { ArtifactsRoutes } from "./artifacts"
 export { AuthRoutes } from "./auth"
+export { BenchRoutes } from "./bench"
 export { CompatibilityRoutes } from "./compatibility"
 export { ConfigRoutes } from "./config"
 export { GlobalRoutes } from "./global"

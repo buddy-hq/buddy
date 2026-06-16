@@ -5,6 +5,7 @@ import { standardsFeature } from "./standards/feature"
 import { readingFeature } from "./reading/feature"
 import { teachingGuidanceFeature } from "./teaching-guidance/feature"
 import { analogiesFeature } from "./analogies/feature"
+import { benchFeature } from "./bench/feature"
 import { stepwiseSolvingFeature } from "./stepwise-solving/feature"
 import { debugGuidanceFeature } from "./debug-guidance/feature"
 import { diagramsFeature } from "./diagrams/feature"
@@ -28,6 +29,7 @@ const ALL_BUDDY_FEATURES = [
   readingFeature,
   teachingGuidanceFeature,
   analogiesFeature,
+  benchFeature,
   stepwiseSolvingFeature,
   debugGuidanceFeature,
   diagramsFeature,
@@ -52,6 +54,7 @@ export {
   readingFeature,
   teachingGuidanceFeature,
   analogiesFeature,
+  benchFeature,
   stepwiseSolvingFeature,
   debugGuidanceFeature,
   diagramsFeature,

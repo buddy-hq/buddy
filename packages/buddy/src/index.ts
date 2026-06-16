@@ -8,6 +8,7 @@ import { logger } from "hono/logger"
 import { AgentsMdRoutes } from "./routes"
 import { ArtifactsRoutes } from "./routes"
 import { AuthRoutes } from "./routes"
+import { BenchRoutes } from "./routes"
 import { CompatibilityRoutes } from "./routes"
 import { ConfigRoutes } from "./routes"
 import { LearnerRoutes } from "./routes"
@@ -123,6 +124,7 @@ api.route("/local-runtimes", LocalRuntimeRoutes)
 api.route("/provider", ProviderRoutes)
 api.route("/question", QuestionRoutes)
 api.route("/auth", AuthRoutes)
+api.route("/bench", BenchRoutes)
 api.route("/mcp", McpRoutes)
 api.route("/config", ConfigRoutes)
 api.route("/permission", PermissionRoutes)
