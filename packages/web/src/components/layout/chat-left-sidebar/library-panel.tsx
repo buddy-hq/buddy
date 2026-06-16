@@ -60,7 +60,7 @@ import {
 } from "@/components/chat/tools/render/question-set/question-markdown"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { resolveAssetUrl } from "@/lib/resource-url"
-import { useOpenBench } from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import {
   ResourceCardGrid,
   type ResourceCardTarget,
@@ -1125,10 +1125,15 @@ function FlashcardNotebookShelf(props: {
                     key={deck.artifactID}
                     type="button"
                     onClick={() => {
-                      void openBenchRoute(directory, {
-                        type: "artifact",
-                        kind: "flashcard-deck",
-                        artifactID: deck.artifactID,
+                      void openBenchRoute({
+                        directory,
+                        target: {
+                          type: "artifact",
+                          kind: "flashcard-deck",
+                          artifactID: deck.artifactID,
+                        },
+                        mode: BENCH_MODE_REQUEST_POLICY,
+                        autoOpen: null,
                       })
                     }}
                     className="w-full rounded-lg border border-border-weaker-base bg-surface-base p-3 text-left shadow-sm transition-colors hover:border-border-hover hover:bg-surface-raised-base"
@@ -1285,10 +1290,15 @@ function LibraryQuestionSetCard(props: {
       <button
         type="button"
         onClick={() => {
-          void openBenchRoute(props.directory, {
-            type: "artifact",
-            kind: "question-set",
-            artifactID: props.artifactStub.artifactID,
+          void openBenchRoute({
+            directory: props.directory,
+            target: {
+              type: "artifact",
+              kind: "question-set",
+              artifactID: props.artifactStub.artifactID,
+            },
+            mode: BENCH_MODE_REQUEST_POLICY,
+            autoOpen: null,
           })
         }}
         className={`w-full rounded-lg border bg-surface-base p-3 text-left shadow-sm transition-colors disabled:opacity-50 ${
@@ -1534,10 +1544,15 @@ function HtmlWidgetArtifactRow(props: { directory: string; widget: HtmlWidgetArt
       type="button"
       className="flex w-full items-center gap-3 rounded-lg border border-border-base bg-background-base px-3 py-3 text-left shadow-sm transition-colors hover:bg-surface-weak/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base"
       onClick={() => {
-        void openBenchRoute(props.directory, {
-          type: "artifact",
-          kind: "html-widget",
-          artifactID: props.widget.artifactID,
+        void openBenchRoute({
+          directory: props.directory,
+          target: {
+            type: "artifact",
+            kind: "html-widget",
+            artifactID: props.widget.artifactID,
+          },
+          mode: BENCH_MODE_REQUEST_POLICY,
+          autoOpen: null,
         })
       }}
     >
@@ -1744,10 +1759,15 @@ function MediaArtifactRow(props: { artifact: MediaLibraryArtifact; directory: st
       <button
         type="button"
         onClick={() => {
-          void openBenchRoute(props.directory, {
-            type: "artifact",
-            kind: props.artifact.kind,
-            artifactID: props.artifact.artifactID,
+          void openBenchRoute({
+            directory: props.directory,
+            target: {
+              type: "artifact",
+              kind: props.artifact.kind,
+              artifactID: props.artifact.artifactID,
+            },
+            mode: BENCH_MODE_REQUEST_POLICY,
+            autoOpen: null,
           })
         }}
         className="flex w-full items-center gap-3 rounded-lg border border-border-base bg-background-base px-3 py-3 text-left shadow-sm transition-colors hover:bg-surface-weak/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base"
@@ -1781,11 +1801,16 @@ function MediaArtifactRow(props: { artifact: MediaLibraryArtifact; directory: st
     <button
       type="button"
       onClick={() => {
-        void openBenchRoute(props.directory, {
-          type: "artifact",
-          kind: "media-presentation",
-          artifactID: props.artifact.artifactID,
-          ...(firstItem ? { itemID: firstItem.id } : {}),
+        void openBenchRoute({
+          directory: props.directory,
+          target: {
+            type: "artifact",
+            kind: "media-presentation",
+            artifactID: props.artifact.artifactID,
+            ...(firstItem ? { itemID: firstItem.id } : {}),
+          },
+          mode: BENCH_MODE_REQUEST_POLICY,
+          autoOpen: null,
         })
       }}
       className="flex w-full items-center gap-3 rounded-lg border border-border-base bg-background-base px-3 py-3 text-left shadow-sm transition-colors hover:bg-surface-weak/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base"
@@ -2155,10 +2180,15 @@ function LazyMermaidArtifactCard(props: {
           minimalActions
           disableRevealAnimation
           onFullscreenOpen={() => {
-            void openBenchRoute(props.directory, {
-              type: "artifact",
-              kind: "mermaid",
-              artifactID: props.artifact.artifactID,
+            void openBenchRoute({
+              directory: props.directory,
+              target: {
+                type: "artifact",
+                kind: "mermaid",
+                artifactID: props.artifact.artifactID,
+              },
+              mode: BENCH_MODE_REQUEST_POLICY,
+              autoOpen: null,
             })
           }}
           renderWrapper={(diagramElement, actions) => (

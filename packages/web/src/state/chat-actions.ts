@@ -1616,6 +1616,7 @@ export async function sendPrompt(
       readingTrail?: { tocLabel: string; cfi?: string; fraction?: number }[]
       annotationSummary?: { text: string; tocLabel?: string; note?: string }[]
     }
+    beforePostPrompt?: (input: { sessionID: string }) => Promise<void>
   },
 ): Promise<string> {
   const store = useChatStore.getState()
@@ -1630,6 +1631,7 @@ export async function sendPrompt(
     const shouldAddOptimistic = input?.optimistic !== false
     sessionID = resolvedSessionID
     store.applySessionStatus(directory, resolvedSessionID, BUSY_SESSION_STATUS)
+    await input?.beforePostPrompt?.({ sessionID: resolvedSessionID })
 
     optimisticMessageID = createOptimisticID(OPTIMISTIC_MESSAGE_ID_PREFIX)
     const promptParts = input?.parts ?? []
@@ -1699,6 +1701,7 @@ export async function sendPrompt(
       const recoveredSessionID = await resolveSessionForSend(directory)
       sessionID = recoveredSessionID
       store.applySessionStatus(directory, recoveredSessionID, BUSY_SESSION_STATUS)
+      await input?.beforePostPrompt?.({ sessionID: recoveredSessionID })
       optimisticAdded = shouldAddOptimistic
         ? addOptimisticPromptMessage({
             directory,

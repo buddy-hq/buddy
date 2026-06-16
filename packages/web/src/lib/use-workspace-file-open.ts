@@ -1,5 +1,5 @@
 import { useCallback } from "react"
-import { useNavigate } from "@tanstack/react-router"
+import { useLocation } from "@tanstack/react-router"
 import { usePlatform } from "@/context/platform"
 import {
   RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT,
@@ -21,7 +21,11 @@ import {
   type WorkspaceFileOpenPlan,
   type WorkspaceFileOpenTarget,
 } from "./workspace-file-open"
-import { openBench } from "@/lib/bench-navigation"
+import {
+  BENCH_MODE_REQUEST_POLICY,
+  isBenchRoutePathname,
+  useOpenBench,
+} from "@/lib/bench-navigation"
 
 export type WorkspaceResourceOpener = (
   directory: string,
@@ -39,7 +43,8 @@ export function useWorkspaceFileOpen(
   directory: string | undefined,
   onOpenResource?: WorkspaceResourceOpener,
 ) {
-  const navigate = useNavigate()
+  const location = useLocation()
+  const openBenchRoute = useOpenBench()
   const platform = usePlatform()
   const queueFileOpen = useWorkspaceFilePanelStore((state) => state.queueFileOpen)
 
@@ -77,6 +82,16 @@ export function useWorkspaceFileOpen(
       }
 
       if (target === WORKSPACE_FILE_OPEN_TARGET_PANEL) {
+        if (isBenchRoutePathname(location.pathname)) {
+          await openBenchRoute({
+            directory,
+            target: { type: "file", path: input.path },
+            mode: BENCH_MODE_REQUEST_POLICY,
+            autoOpen: null,
+          })
+          return
+        }
+
         queueFileOpen(
           directory,
           {
@@ -89,7 +104,12 @@ export function useWorkspaceFileOpen(
       }
 
       if (target === WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH) {
-        await navigate(openBench(directory, { type: "markdown", path: input.path }))
+        await openBenchRoute({
+          directory,
+          target: { type: "markdown", path: input.path },
+          mode: BENCH_MODE_REQUEST_POLICY,
+          autoOpen: null,
+        })
         return
       }
 
@@ -104,7 +124,7 @@ export function useWorkspaceFileOpen(
         await platform.revealPath(input.absolutePath)
       }
     },
-    [directory, navigate, onOpenResource, platform, queueFileOpen],
+    [directory, location.pathname, onOpenResource, openBenchRoute, platform, queueFileOpen],
   )
 
   const executePrimary = useCallback(

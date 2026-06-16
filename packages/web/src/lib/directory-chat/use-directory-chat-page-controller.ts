@@ -2,6 +2,7 @@ import { useNavigate } from "@tanstack/react-router"
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
+import { flushBenchContextBeforePrompt } from "@/components/bench/bench-route-context"
 import { getFilename } from "@/components/layout/sidebar-helpers"
 import { CreateTeachingFileDialog } from "@/components/teaching/create-teaching-file-dialog"
 import {
@@ -1165,6 +1166,11 @@ export function useDirectoryChatPageController(
         variant,
         teaching: teachingContext,
         optimistic: input.optimistic,
+        beforePostPrompt: ({ sessionID }) =>
+          flushBenchContextBeforePrompt({
+            directory: decodedDirectory,
+            sessionID,
+          }),
         ...(activeReadingResource
           ? {
               reading: {

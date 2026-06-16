@@ -29,9 +29,14 @@ import type { MessageWithParts, ProviderInfo, QuestionRequest } from "@/state/ch
 import type { PermissionReply } from "@/state/permission-types"
 import { BookOpenIcon, PresentationIcon, Redo2Icon } from "lucide-react"
 import { BenchAutoOpen } from "@/components/bench/bench-auto-open"
+import { BenchClosedContextPublisher } from "@/components/bench/bench-route-context"
 import { hasWhiteboardCreate } from "@/components/whiteboard/whiteboard-progressive"
 import { useChatStore } from "@/state/chat-store"
-import { BENCH_CHAT_LAYOUT_FLOATING, openBench } from "@/lib/bench-navigation"
+import {
+  BENCH_MODE_REQUEST_POLICY,
+  isBenchRoutePathname,
+  useOpenBench,
+} from "@/lib/bench-navigation"
 import { encodeDirectory } from "@/lib/directory-token"
 import { useLocation, useNavigate } from "@tanstack/react-router"
 
@@ -180,6 +185,7 @@ export function resolveRevertedUserMessageCount(input: {
 function BenchViewShortcuts(props: { directory: string; messages: MessageWithParts[] }) {
   const location = useLocation()
   const navigate = useNavigate()
+  const openBenchRoute = useOpenBench()
   const lastOpenedReadingResource = useChatStore(
     (state) => state.lastOpenedReadingResourceByDirectory[props.directory],
   )
@@ -210,13 +216,12 @@ function BenchViewShortcuts(props: { directory: string; messages: MessageWithPar
               })
               return
             }
-            void navigate(
-              openBench(
-                props.directory,
-                { type: "whiteboard" },
-                { chatLayout: BENCH_CHAT_LAYOUT_FLOATING },
-              ),
-            )
+            void openBenchRoute({
+              directory: props.directory,
+              target: { type: "whiteboard" },
+              mode: BENCH_MODE_REQUEST_POLICY,
+              autoOpen: null,
+            })
           }}
         >
           <PresentationIcon />
@@ -240,13 +245,16 @@ function BenchViewShortcuts(props: { directory: string; messages: MessageWithPar
               return
             }
 
-            void navigate(
-              openBench(props.directory, {
+            void openBenchRoute({
+              directory: props.directory,
+              target: {
                 type: "reading",
                 path: lastOpenedReadingResource.path,
                 resourceID: lastOpenedReadingResource.resourceID,
-              }),
-            )
+              },
+              mode: BENCH_MODE_REQUEST_POLICY,
+              autoOpen: null,
+            })
           }}
         >
           <BookOpenIcon />
@@ -257,6 +265,7 @@ function BenchViewShortcuts(props: { directory: string; messages: MessageWithPar
 }
 
 export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
+  const location = useLocation()
   const {
     directory,
     chatState,
@@ -318,6 +327,12 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       data-component="directory-chat-main-pane"
       className="relative flex-1 min-w-0 min-h-0 flex flex-col bg-background-stronger"
     >
+      {!isBenchRoutePathname(location.pathname) ? (
+        <BenchClosedContextPublisher
+          directory={directory}
+          activeSessionID={chatState.sessionID}
+        />
+      ) : null}
       <BenchAutoOpen directory={directory} messages={chatState.messages} />
       <div className="flex-1 min-h-0 flex flex-col">
         <div className="flex min-h-0 flex-1 flex-col">
