@@ -1,18 +1,23 @@
 import { useEffect, useMemo, useRef } from "react"
 import { useLocation, useNavigate } from "@tanstack/react-router"
-import { openBench } from "@/lib/bench-navigation"
+import {
+  BENCH_MODE_REQUEST_POLICY,
+  readBenchOpenPolicyStateFromLocation,
+  useOpenBench,
+} from "@/lib/bench-navigation"
+import { guardBenchLeaveBeforeNavigation } from "@/lib/bench-leave-guard"
+import { encodeDirectory } from "@/lib/directory-token"
 import type { MessageWithParts } from "@/state/chat-types"
 import {
   BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
   BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+  readLatestBenchPresentationAction,
   readLatestBenchAutoOpenCandidate,
-  shouldAutoOpenBenchCandidate,
 } from "./bench-open-policy"
 import {
   clearSuppressedBenchAutoOpen,
-  readSuppressedBenchAutoOpenKey,
   suppressBenchAutoOpen,
-} from "./bench-auto-open-state"
+} from "@/lib/bench-auto-open-state"
 
 type BenchAutoOpenProps = {
   directory: string
@@ -20,17 +25,90 @@ type BenchAutoOpenProps = {
 }
 
 export function BenchAutoOpen(props: BenchAutoOpenProps) {
-  const location = useLocation()
   const navigate = useNavigate()
+  const location = useLocation()
+  const openBenchRoute = useOpenBench()
   const didHandleInitialCandidateRef = useRef(false)
+  const didHandleInitialPresentationActionRef = useRef(false)
+  const handledPresentationActionKeysRef = useRef(new Set<string>())
   const candidate = useMemo(
     () => readLatestBenchAutoOpenCandidate(props.messages),
     [props.messages],
   )
+  const presentationAction = useMemo(
+    () => readLatestBenchPresentationAction(props.messages),
+    [props.messages],
+  )
+
+  useEffect(() => {
+    if (!presentationAction) {
+      didHandleInitialPresentationActionRef.current = true
+      return
+    }
+
+    if (!didHandleInitialPresentationActionRef.current) {
+      didHandleInitialPresentationActionRef.current = true
+      handledPresentationActionKeysRef.current.add(presentationAction.eventKey)
+      return
+    }
+
+    if (handledPresentationActionKeysRef.current.has(presentationAction.eventKey)) {
+      return
+    }
+    handledPresentationActionKeysRef.current.add(presentationAction.eventKey)
+
+    if (presentationAction.action === "close") {
+      const current = readBenchOpenPolicyStateFromLocation({
+        directory: props.directory,
+        pathname: location.pathname,
+        search: location.search,
+      })
+      if (current.status === "open") {
+        void guardBenchLeaveBeforeNavigation({
+          directory: props.directory,
+          intent: "close",
+          origin: "agent",
+          current: current.target,
+          next: null,
+        }).then((guardResult) => {
+          if (guardResult.status === "block") return
+          void navigate({
+            to: "/$directory/chat",
+            params: {
+              directory: encodeDirectory(props.directory),
+            },
+          })
+        })
+        return
+      }
+
+      void navigate({
+        to: "/$directory/chat",
+        params: {
+          directory: encodeDirectory(props.directory),
+        },
+      })
+      return
+    }
+
+    void openBenchRoute(
+      {
+        directory: props.directory,
+        target: presentationAction.target,
+        mode: BENCH_MODE_REQUEST_POLICY,
+        autoOpen: null,
+      },
+      { origin: "agent" },
+    )
+  }, [location.pathname, location.search, navigate, openBenchRoute, presentationAction, props.directory])
 
   useEffect(() => {
     if (!candidate) {
       clearSuppressedBenchAutoOpen(props.directory, BENCH_AUTO_OPEN_POLICY_WHITEBOARD)
+      clearSuppressedBenchAutoOpen(
+        props.directory,
+        BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
+      )
       didHandleInitialCandidateRef.current = true
       return
     }
@@ -40,29 +118,22 @@ export function BenchAutoOpen(props: BenchAutoOpenProps) {
       candidate.policyID === BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET
     ) {
       didHandleInitialCandidateRef.current = true
-      suppressBenchAutoOpen(props.directory, candidate.policyID, candidate.key)
+      suppressBenchAutoOpen(props.directory, candidate.policyID, candidate.eventKey)
       return
     }
 
     didHandleInitialCandidateRef.current = true
 
-    const suppressedKey = readSuppressedBenchAutoOpenKey(props.directory, candidate.policyID)
-    if (
-      !shouldAutoOpenBenchCandidate({
-        candidate,
-        pathname: location.pathname,
-        suppressedKey,
-      })
-    ) {
-      return
-    }
-
-    if (suppressedKey !== undefined) {
-      clearSuppressedBenchAutoOpen(props.directory, candidate.policyID)
-    }
-
-    void navigate(openBench(props.directory, candidate.target, { chatLayout: candidate.chatLayout }))
-  }, [candidate, location.pathname, navigate, props.directory])
+    void openBenchRoute({
+      directory: props.directory,
+      target: candidate.target,
+      mode: BENCH_MODE_REQUEST_POLICY,
+      autoOpen: {
+        policyID: candidate.policyID,
+        eventKey: candidate.eventKey,
+      },
+    })
+  }, [candidate, openBenchRoute, props.directory])
 
   return null
 }
