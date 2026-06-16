@@ -2,20 +2,18 @@ import { motion, AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
 import { cn } from "@buddy/ui"
 import { Markdown } from "@/components/markdown/Markdown"
-
-type BasicFields = {
-  front: string
-  back: string
-}
-
-type ClozeFields = {
-  text: string
-}
+import {
+  isBasicFlashcardFields,
+  isClozeFlashcardFields,
+  renderClozeText,
+  type FlashcardBasicFields,
+  type FlashcardClozeFields,
+} from "./flashcard-card-content"
 
 type FlashcardNote = {
   noteID: string
   type: "basic" | "cloze"
-  fields: BasicFields | ClozeFields
+  fields: FlashcardBasicFields | FlashcardClozeFields
 }
 
 type CardRating = "again" | "hard" | "good" | "easy"
@@ -28,26 +26,6 @@ type FlashcardCardDisplayProps = {
   swipeRating?: CardRating | null
 }
 
-function isBasicFields(fields: BasicFields | ClozeFields): fields is BasicFields {
-  return "front" in fields && "back" in fields
-}
-
-function isClozeFields(fields: BasicFields | ClozeFields): fields is ClozeFields {
-  return "text" in fields && !("front" in fields)
-}
-
-/** Replace the nth cloze `{{cN::answer}}` with a blank or reveal. */
-function renderClozeText(text: string, ordinal: number, revealed: boolean): string {
-  return text.replace(/\{\{c(\d+)::([^}]+)\}\}/gu, (_match, indexStr: string, answer: string) => {
-    const clozeOrdinal = Number.parseInt(indexStr, 10)
-    if (clozeOrdinal === ordinal) {
-      return revealed ? answer : "[...]"
-    }
-    // Other cloze deletions are always shown
-    return answer
-  })
-}
-
 export function FlashcardCardDisplay({
   note,
   templateIdx,
@@ -55,7 +33,7 @@ export function FlashcardCardDisplay({
   onToggleReveal,
   swipeRating,
 }: FlashcardCardDisplayProps) {
-  if (isBasicFields(note.fields)) {
+  if (isBasicFlashcardFields(note.fields)) {
     return (
       <BasicCardDisplay
         front={note.fields.front}
@@ -67,7 +45,7 @@ export function FlashcardCardDisplay({
     )
   }
 
-  if (isClozeFields(note.fields)) {
+  if (isClozeFlashcardFields(note.fields)) {
     // templateIdx is 0-based, cloze ordinals in text are 1-based
     const ordinal = templateIdx + 1
     return (

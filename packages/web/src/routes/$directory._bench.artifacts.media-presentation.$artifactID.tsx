@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useLocation } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import {
   AlertCircleIcon,
@@ -10,9 +10,18 @@ import {
 import { useMemo } from "react"
 import { toast } from "@buddy/ui"
 import {
+  artifactRef,
+  artifactTarget,
+  routeString,
+  urlRef,
+  workspaceFileRef,
+} from "@/components/bench/bench-context-utils"
+import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
+import {
   BenchSurfaceViewer,
   type BenchViewerAction,
 } from "@/components/bench/bench-viewer-shell"
+import { BenchStaticContextProvider } from "@/components/bench/bench-static-context-provider"
 import { BenchMediaMessage, BenchMediaPreview } from "@/components/bench/bench-media-preview"
 import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
 import { usePlatform } from "@/context/platform"
@@ -50,23 +59,37 @@ export const Route = createFileRoute(
 
 function MediaPresentationBenchPending() {
   return (
-    <BenchSurfaceViewer title="Loading media">
-      <div className="flex h-full items-center justify-center text-sm text-text-weak">
-        <Loader2Icon className="mr-2 size-4 animate-spin" aria-hidden />
-        Loading media
-      </div>
-    </BenchSurfaceViewer>
+    <BenchStaticContextProvider
+      status="loading"
+      metadata={["surface_status: loading"]}
+      content="Media presentation is visible on Bench and loading."
+      hints={["Try bench_read_context again after the media presentation finishes loading."]}
+    >
+      <BenchSurfaceViewer title="Loading media">
+        <div className="flex h-full items-center justify-center text-sm text-text-weak">
+          <Loader2Icon className="mr-2 size-4 animate-spin" aria-hidden />
+          Loading media
+        </div>
+      </BenchSurfaceViewer>
+    </BenchStaticContextProvider>
   )
 }
 
 function MediaPresentationBenchError() {
   return (
-    <BenchSurfaceViewer title="Media unavailable">
-      <div className="flex h-full items-center justify-center p-6 text-sm text-icon-critical-base">
-        <AlertCircleIcon className="mr-2 size-4" aria-hidden />
-        Media could not be loaded.
-      </div>
-    </BenchSurfaceViewer>
+    <BenchStaticContextProvider
+      status="error"
+      metadata={["surface_status: error"]}
+      content="Media presentation is visible on Bench, but it could not be loaded."
+      hints={["Check that the media presentation artifact exists."]}
+    >
+      <BenchSurfaceViewer title="Media unavailable">
+        <div className="flex h-full items-center justify-center p-6 text-sm text-icon-critical-base">
+          <AlertCircleIcon className="mr-2 size-4" aria-hidden />
+          Media could not be loaded.
+        </div>
+      </BenchSurfaceViewer>
+    </BenchStaticContextProvider>
   )
 }
 
@@ -81,9 +104,20 @@ function MediaPresentationBenchRoute() {
       artifact.summary.items.find((item) => item.id === search.item) ?? artifact.summary.items[0]
     if (!selectedItem) {
       return (
-        <BenchSurfaceViewer title={artifact.title}>
-          <BenchMediaMessage>No media item is available.</BenchMediaMessage>
-        </BenchSurfaceViewer>
+        <BenchStaticContextProvider
+          title={artifact.title}
+          status="unavailable"
+          metadata={[
+            "surface_status: unavailable",
+            "media_item_count: 0",
+          ]}
+          content="Media presentation is visible on Bench, but no media item is available."
+          hints={["The media presentation artifact has no selectable media items."]}
+        >
+          <BenchSurfaceViewer title={artifact.title}>
+            <BenchMediaMessage>No media item is available.</BenchMediaMessage>
+          </BenchSurfaceViewer>
+        </BenchStaticContextProvider>
       )
     }
 
@@ -91,6 +125,7 @@ function MediaPresentationBenchRoute() {
       <MediaPresentationBenchView
         directory={directory}
         artifactID={params.artifactID}
+        layout={artifact.summary.layout}
         title={artifact.title}
         item={selectedItem}
       />
@@ -103,9 +138,11 @@ function MediaPresentationBenchRoute() {
 function MediaPresentationBenchView(props: {
   directory: string
   artifactID: string
+  layout: MediaPresentationReadResponse["summary"]["layout"]
   title: string
   item: MediaPresentationItem
 }) {
+  const location = useLocation()
   const platform = usePlatform()
   const availabilityQuery = useQuery({
     queryKey: [
@@ -128,6 +165,77 @@ function MediaPresentationBenchView(props: {
   const availability = availabilityQuery.data ?? props.item.availability
   const src = props.item.rawUrl ? resolveAssetUrl(props.item.rawUrl) : undefined
   const subtitle = `${props.item.fileName} · ${props.item.mediaKind}`
+  const contextProvider = useMemo(
+    () => ({
+      read: () => ({
+        status: "open" as const,
+        target: artifactTarget({
+          artifactKind: "media-presentation",
+          directory: props.directory,
+          title: props.title,
+          artifactID: props.artifactID,
+          itemID: props.item.id,
+          route: routeString({
+            pathname: location.pathname,
+            searchStr: location.searchStr,
+          }),
+          status: availability.status === "available" ? "ready" : "unavailable",
+        }),
+        metadata: [
+          `layout: ${props.layout}`,
+          `item_filename: ${props.item.fileName}`,
+          `media_kind: ${props.item.mediaKind}`,
+          `render_mode: ${props.item.renderMode}`,
+          `mime_type: ${props.item.mimeType ?? "unknown"}`,
+          `availability: ${availability.status}`,
+          `size_bytes: ${props.item.sizeBytes ?? "unknown"}`,
+          `modified_at: ${props.item.modifiedAt ?? "unknown"}`,
+        ],
+        content: [
+          `Media presentation: ${props.title}`,
+          `Visible item: ${props.item.fileName}`,
+          `Display path: ${props.item.displayPath}`,
+          `Render mode: ${props.item.renderMode}`,
+          `Availability: ${availability.status}`,
+          availability.message ? `Availability message: ${availability.message}` : undefined,
+        ]
+          .filter((line): line is string => line !== undefined)
+          .join("\n"),
+        refs: [
+          artifactRef({
+            artifactID: props.artifactID,
+            note: "Media presentation artifact on Bench.",
+          }),
+          ...(props.item.workspacePath
+            ? [
+                workspaceFileRef({
+                  path: props.item.workspacePath,
+                  note: "Visible media item path.",
+                }),
+              ]
+            : []),
+          ...urlRef({
+            url: src,
+            note: "Raw visible media item URL.",
+          }),
+        ],
+        hints: ["Use file/read/PDF/image-capable tools to inspect the visible media item."],
+      }),
+    }),
+    [
+      availability.message,
+      availability.status,
+      location.pathname,
+      location.searchStr,
+      props.artifactID,
+      props.directory,
+      props.item,
+      props.layout,
+      props.title,
+      src,
+    ],
+  )
+  useRegisterBenchContextProvider(contextProvider)
   const actions = useMemo<BenchViewerAction[]>(
     () => [
       {

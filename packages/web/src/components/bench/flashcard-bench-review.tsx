@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { artifactRef, artifactTarget } from "@/components/bench/bench-context-utils"
+import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
 import {
   ReviewContent,
@@ -16,15 +18,60 @@ import type {
   FlashcardDeckReadResponse,
   FlashcardDeckSubmitReviewResponse,
 } from "@buddy/sdk/types"
+import { buildFlashcardVisibleContent } from "@/components/flashcard/flashcard-card-content"
 
 type FlashcardBenchReviewProps = {
   directory: string
   artifactID: string
+  route: string
   deck: FlashcardDeckReadResponse
 }
 
 type FetchNextCardOptions = {
   shouldApplyResult?: () => boolean
+}
+
+function buildFlashcardContextContent(input: {
+  phase: ReviewPhase
+  deck: FlashcardDeckReadResponse
+  revealed: boolean
+  cardsReviewed: number
+}): string {
+  if (input.phase.kind === "loading") {
+    return "Flashcard review is loading the next card."
+  }
+
+  if (input.phase.kind === "error") {
+    return `Flashcard review error: ${input.phase.message}`
+  }
+
+  if (input.phase.kind === "no-due") {
+    return "Flashcard review is open. There are no due cards."
+  }
+
+  if (input.phase.kind === "complete") {
+    return `Flashcard review is complete. Cards reviewed this session: ${input.cardsReviewed}.`
+  }
+
+  const cardPhase = input.phase
+  const note = input.deck.notes.find((entry) => entry.noteID === cardPhase.card.noteID)
+  if (!note) {
+    return "Flashcard review is open, but the current card note is unavailable."
+  }
+
+  const visibleContent = buildFlashcardVisibleContent({
+    note,
+    templateIdx: cardPhase.card.templateIdx,
+    revealed: input.revealed,
+  })
+
+  return [
+    `Flashcard review: ${input.deck.title}`,
+    `Current card: ${cardPhase.card.cardID}`,
+    `Revealed: ${input.revealed}`,
+    `Front:\n${visibleContent.frontText}`,
+    visibleContent.backText ? `Back:\n${visibleContent.backText}` : "Back: hidden until revealed",
+  ].join("\n\n")
 }
 
 export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
@@ -43,6 +90,52 @@ export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
   const [swipeRating, setSwipeRating] = useState<CardRating | null>(null)
   const cardsReviewedRef = useRef(0)
   const cardStartTimeRef = useRef(Date.now())
+  const contextProvider = useMemo(
+    () => ({
+      read: () => ({
+        status: "open" as const,
+        target: artifactTarget({
+          artifactKind: "flashcard-deck",
+          directory: props.directory,
+          title: deck.title,
+          artifactID: props.artifactID,
+          route: props.route,
+          status: phase.kind === "error" ? "error" : phase.kind === "loading" ? "loading" : "ready",
+        }),
+        metadata: [
+          `review_phase: ${phase.kind}`,
+          `revealed: ${revealed}`,
+          `cards_reviewed: ${cardsReviewed}`,
+          `card_id: ${phase.kind === "card" ? phase.card.cardID : "none"}`,
+          `note_id: ${phase.kind === "card" ? phase.card.noteID : "none"}`,
+          `template_idx: ${phase.kind === "card" ? phase.card.templateIdx : "none"}`,
+        ],
+        content: buildFlashcardContextContent({
+          phase,
+          deck,
+          revealed,
+          cardsReviewed,
+        }),
+        refs: [
+          artifactRef({
+            artifactID: props.artifactID,
+            note: "Flashcard deck artifact on Bench.",
+          }),
+        ],
+        hints: ["Do not include hidden answer text until it is revealed."],
+      }),
+    }),
+    [
+      cardsReviewed,
+      deck,
+      phase,
+      props.artifactID,
+      props.directory,
+      props.route,
+      revealed,
+    ],
+  )
+  useRegisterBenchContextProvider(contextProvider)
 
   const fetchNextCard = useCallback(async (options?: FetchNextCardOptions): Promise<void> => {
     try {

@@ -2,6 +2,8 @@ import { useMemo, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Button, cn } from "@buddy/ui"
 import { CheckIcon, ListIcon, PresentationIcon, XIcon } from "lucide-react"
+import { artifactRef, artifactTarget } from "@/components/bench/bench-context-utils"
+import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
 import {
   QuestionMarkdown,
@@ -16,6 +18,8 @@ import { orderedChoicesForQuestion } from "@/components/chat/tools/render/questi
 type AnswerState = Record<string, string[]>
 
 type QuestionSetBenchReviewProps = {
+  directory: string
+  route: string
   artifact: PublicQuestionSetArtifact
   onSubmit: (answers: AnswerState) => Promise<QuestionSetEvaluationResult>
 }
@@ -27,6 +31,73 @@ function questionCountLabel(count: number) {
 function questionStatusLabel(correct: boolean | undefined) {
   if (correct === undefined) return undefined
   return correct ? "Correct" : "Incorrect"
+}
+
+function buildQuestionSetVisibleContext(input: {
+  artifact: PublicQuestionSetArtifact
+  answers: AnswerState
+  currentStep: number
+  evaluationByQuestionID: Map<string, QuestionSetEvaluationResult["questions"][number]>
+  orderedChoicesByQuestionID: Map<
+    string,
+    PublicQuestionSetArtifact["questions"][number]["payload"]["choices"]
+  >
+  result?: QuestionSetEvaluationResult
+  viewMode: "wizard" | "list"
+}): string {
+  const visibleQuestions =
+    input.result || input.viewMode === "list"
+      ? input.artifact.questions
+      : input.artifact.questions[input.currentStep]
+        ? [input.artifact.questions[input.currentStep]]
+        : []
+
+  const questionSections = visibleQuestions.map((question, visibleIndex) => {
+    const questionIndex = input.artifact.questions.findIndex((entry) => entry.id === question.id)
+    const selectedChoiceIds = input.answers[question.id] ?? []
+    const evaluation = input.evaluationByQuestionID.get(question.id)
+    const evaluationChoiceByID = new Map(
+      evaluation?.choices.map((choice) => [choice.choiceID, choice]) ?? [],
+    )
+    const choices = input.orderedChoicesByQuestionID.get(question.id) ?? question.payload.choices
+    const choiceLines = choices.map((choice) => {
+      const selected = selectedChoiceIds.includes(choice.id)
+      const choiceEvaluation = evaluationChoiceByID.get(choice.id)
+      const rationale =
+        choiceEvaluation?.rationale && (choiceEvaluation.selected || choiceEvaluation.correct)
+          ? ` rationale="${choiceEvaluation.rationale}"`
+          : ""
+      const correctness = choiceEvaluation
+        ? ` correct=${choiceEvaluation.correct}`
+        : ""
+      return `- ${selected ? "[selected]" : "[ ]"} ${choice.content}${correctness}${rationale}`
+    })
+    const explanation =
+      evaluation && (evaluation.explanation || question.explanation)
+        ? `Explanation: ${evaluation.explanation ?? question.explanation ?? ""}`
+        : undefined
+
+    return [
+      `Question ${questionIndex >= 0 ? questionIndex + 1 : visibleIndex + 1}: ${question.prompt}`,
+      question.payload.multipleSelect
+        ? `Multiple select: true${question.payload.numCorrect ? `, expected answers: ${question.payload.numCorrect}` : ""}`
+        : "Multiple select: false",
+      `Choices:\n${choiceLines.join("\n")}`,
+      evaluation ? `Result: ${questionStatusLabel(evaluation.correct) ?? "submitted"}` : undefined,
+      explanation,
+    ]
+      .filter((line): line is string => line !== undefined)
+      .join("\n")
+  })
+
+  return [
+    `Question set: ${input.artifact.title}`,
+    `View mode: ${input.viewMode}`,
+    input.result
+      ? `Score: ${input.result.correctQuestions} / ${input.result.totalQuestions}; status: ${input.result.status}`
+      : "Result: not submitted",
+    ...questionSections,
+  ].join("\n\n")
 }
 
 export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
@@ -56,6 +127,59 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
       ),
     [props.artifact, randomizeSeed],
   )
+  const resultState = error ? "error" : result ? "submitted" : "not-submitted"
+  const contextProvider = useMemo(
+    () => ({
+      read: () => ({
+        status: "open" as const,
+        target: artifactTarget({
+          artifactKind: "question-set",
+          directory: props.directory,
+          title: props.artifact.title,
+          artifactID: props.artifact.artifactID,
+          route: props.route,
+          status: error ? "error" : "ready",
+        }),
+        metadata: [
+          `group_type: ${props.artifact.groupType}`,
+          `question_count: ${props.artifact.questions.length}`,
+          `view_mode: ${viewMode}`,
+          `current_step: ${currentStep + 1}`,
+          `result_state: ${resultState}`,
+        ],
+        content: buildQuestionSetVisibleContext({
+          artifact: props.artifact,
+          answers,
+          currentStep,
+          evaluationByQuestionID,
+          orderedChoicesByQuestionID,
+          ...(result ? { result } : {}),
+          viewMode,
+        }),
+        refs: [
+          artifactRef({
+            artifactID: props.artifact.artifactID,
+            note: "Question set artifact on Bench.",
+          }),
+        ],
+        hints: ["Do not expose correctness, rationales, or explanations before submission visibility."],
+      }),
+    }),
+    [
+      answers,
+      currentStep,
+      error,
+      evaluationByQuestionID,
+      orderedChoicesByQuestionID,
+      props.artifact,
+      props.directory,
+      props.route,
+      result,
+      resultState,
+      viewMode,
+    ],
+  )
+  useRegisterBenchContextProvider(contextProvider)
 
   function updateAnswer(questionID: string, nextSelectedChoiceIds: string[]) {
     if (result) {

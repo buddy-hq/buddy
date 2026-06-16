@@ -7,7 +7,7 @@ import {
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
-import { useOpenBench } from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import { workspaceArtifactsQueryKeys } from "@/state/workspace-artifacts-query"
 import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
 
@@ -77,10 +77,15 @@ export function QuestionSetSidePanel(props: QuestionSetSidePanelProps) {
             artifact={artifact}
             persistKey={`selected-question-set:${artifact.artifactID}`}
             onOpenBench={() => {
-              void openBenchRoute(props.directory, {
-                type: "artifact",
-                kind: "question-set",
-                artifactID: artifact.artifactID,
+              void openBenchRoute({
+                directory: props.directory,
+                target: {
+                  type: "artifact",
+                  kind: "question-set",
+                  artifactID: artifact.artifactID,
+                },
+                mode: BENCH_MODE_REQUEST_POLICY,
+                autoOpen: null,
               })
             }}
             onSubmit={async (answers) => {

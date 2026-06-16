@@ -1,8 +1,15 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { act } from "react"
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router"
+import { act, type ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { FlashcardBenchReview } from "../src/components/bench/flashcard-bench-review"
+import { BenchRouteContextProvider } from "../src/components/bench/bench-route-context"
 import { BenchMediaPreview } from "../src/components/bench/bench-media-preview"
 import { QuestionSetBenchReview } from "../src/components/bench/question-set-bench-review"
 import { SvgArtifactBenchView } from "../src/components/bench/svg-artifact-bench-view"
@@ -14,6 +21,10 @@ import {
 import { HtmlWidgetFrame } from "../src/components/chat/tools/render/html-widget"
 import { ServerProvider, type ServerConnection } from "../src/context/server"
 import { withFetchPreconnect } from "../src/lib/fetch-transport"
+import {
+  BENCH_CHAT_LAYOUT_DOCKED,
+  BENCH_LAYOUT_PROFILE_BALANCED,
+} from "../src/lib/bench-navigation"
 import type { HtmlWidgetToolOutput } from "../src/lib/html-widgets"
 import type {
   ArtifactsListResponse,
@@ -26,10 +37,18 @@ const TEST_DIRECTORY = "/repo"
 const TEST_DECK_ID = "deck-1"
 const TEST_NOTE_ID = "note-1"
 const TEST_CARD_ID = "card-1"
+const TEST_FLASHCARD_ROUTE = "/repo/_bench/artifacts/flashcard-deck/deck-1"
+const TEST_QUESTION_SET_ROUTE = "/repo/_bench/artifacts/question-set/artifact-questions"
 const FLUSH_DELAY_MS = 0
 const WAIT_FOR_EFFECT_ATTEMPTS = 20
 const FLASHCARD_DECK_READ_PATH = `/api/artifacts/flashcard-deck/${TEST_DECK_ID}?`
 const FLASHCARD_DECK_NEXT_CARD_PATH = `/api/artifacts/flashcard-deck/${TEST_DECK_ID}/next-card`
+const TEST_FLOATING_RECT = {
+  x: 24,
+  y: 24,
+  width: 480,
+  height: 360,
+}
 
 const originalFetch = globalThis.fetch
 
@@ -40,6 +59,65 @@ function createServerConnection(): ServerConnection {
     password: null,
     isSidecar: false,
   }
+}
+
+function TestRouterProvider(props: { children: ReactNode }) {
+  const rootRoute = createRootRoute({
+    component: () => <>{props.children}</>,
+  })
+  const router = createRouter({
+    routeTree: rootRoute,
+    history: createMemoryHistory({
+      initialEntries: ["/"],
+    }),
+  })
+
+  return <RouterProvider router={router} />
+}
+
+function TestBenchContextProvider(props: { children: ReactNode }) {
+  return (
+    <TestRouterProvider>
+      <BenchRouteContextProvider
+        state={{
+          directory: TEST_DIRECTORY,
+          target: { type: "whiteboard" },
+          mode: BENCH_CHAT_LAYOUT_DOCKED,
+          layoutProfile: BENCH_LAYOUT_PROFILE_BALANCED,
+          dockedChatWidthPx: 480,
+          floatingRect: TEST_FLOATING_RECT,
+          floatingChatState: "open",
+        }}
+        activeSessionID={undefined}
+        setMode={() => undefined}
+        setFloatingChatState={() => undefined}
+        fallbackProvider={{
+          read: () => ({
+            status: "open",
+            target: {
+              type: "whiteboard",
+              artifactKind: "none",
+              title: "Test Bench",
+              workspaceRoot: TEST_DIRECTORY,
+              path: null,
+              absolutePath: null,
+              resourceID: null,
+              artifactID: null,
+              itemID: null,
+              route: "/test",
+              status: "ready",
+            },
+            metadata: [],
+            content: "Test Bench context.",
+            refs: [],
+            hints: [],
+          }),
+        }}
+      >
+        {props.children}
+      </BenchRouteContextProvider>
+    </TestRouterProvider>
+  )
 }
 
 function createWidget(): HtmlWidgetToolOutput {
@@ -365,13 +443,16 @@ describe("bench surface rendering", () => {
     await act(async () => {
       root.render(
         <ServerProvider value={createServerConnection()}>
-          <QueryClientProvider client={queryClient}>
-            <FlashcardBenchReview
-              directory={TEST_DIRECTORY}
-              artifactID={TEST_DECK_ID}
-              deck={createFlashcardDeck()}
-            />
-          </QueryClientProvider>
+          <TestBenchContextProvider>
+            <QueryClientProvider client={queryClient}>
+              <FlashcardBenchReview
+                directory={TEST_DIRECTORY}
+                artifactID={TEST_DECK_ID}
+                route={TEST_FLASHCARD_ROUTE}
+                deck={createFlashcardDeck()}
+              />
+            </QueryClientProvider>
+          </TestBenchContextProvider>
         </ServerProvider>,
       )
       await flushEffects()
@@ -395,15 +476,19 @@ describe("bench surface rendering", () => {
   test("renders question sets in Bench with wizard and list modes", async () => {
     await act(async () => {
       root.render(
-        <QuestionSetBenchReview
-          artifact={createRandomizedQuestionSet()}
-          onSubmit={async () => ({
-            totalQuestions: 1,
-            correctQuestions: 0,
-            status: "partial",
-            questions: [],
-          })}
-        />,
+        <TestBenchContextProvider>
+          <QuestionSetBenchReview
+            directory={TEST_DIRECTORY}
+            route={TEST_QUESTION_SET_ROUTE}
+            artifact={createRandomizedQuestionSet()}
+            onSubmit={async () => ({
+              totalQuestions: 1,
+              correctQuestions: 0,
+              status: "partial",
+              questions: [],
+            })}
+          />
+        </TestBenchContextProvider>,
       )
       await flushEffects()
     })

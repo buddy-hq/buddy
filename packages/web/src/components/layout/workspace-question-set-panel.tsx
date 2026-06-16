@@ -11,7 +11,7 @@ import {
   type QuestionSetLibraryArtifact,
 } from "@/components/layout/chat-left-sidebar/library-artifact-selectors"
 import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
-import { useOpenBench } from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 
 function questionCountLabel(count: number): string {
   return language.t(count === 1 ? "chatTools.questionCount.one" : "chatTools.questionCount.other", {
@@ -42,10 +42,15 @@ function WorkspaceQuestionSetPanelItem(props: {
           type="button"
           className="w-full cursor-pointer text-left transition-colors hover:bg-surface-raised-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:opacity-50"
           onClick={() => {
-            void openBenchRoute(props.directory, {
-              type: "artifact",
-              kind: "question-set",
-              artifactID: props.artifactStub.artifactID,
+            void openBenchRoute({
+              directory: props.directory,
+              target: {
+                type: "artifact",
+                kind: "question-set",
+                artifactID: props.artifactStub.artifactID,
+              },
+              mode: BENCH_MODE_REQUEST_POLICY,
+              autoOpen: null,
             })
           }}
         >

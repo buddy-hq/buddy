@@ -6,7 +6,7 @@ import type { MessagePart } from "@/state/chat-types"
 import { parseToolState } from "../parse-tool-state"
 import { getToolInfo } from "../tool-info"
 import { ToolImageGallery, type ToolImageGalleryItem } from "./image-gallery"
-import { useOpenBench } from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 
 type RenderFigureToolOutput = {
   artifactID: string
@@ -105,7 +105,12 @@ function FigureGallery(props: { directory?: string; items: ToolImageGalleryItem[
           props.directory
             ? (item) => {
                 if (!item.benchTarget || !props.directory) return
-                void openBenchRoute(props.directory, item.benchTarget)
+                void openBenchRoute({
+                  directory: props.directory,
+                  target: item.benchTarget,
+                  mode: BENCH_MODE_REQUEST_POLICY,
+                  autoOpen: null,
+                })
               }
             : undefined
         }

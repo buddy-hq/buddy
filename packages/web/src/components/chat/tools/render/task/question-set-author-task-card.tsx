@@ -11,7 +11,7 @@ import {
 import { ToolOutputPanel } from "../../tool-output-panel"
 import type { ToolPartProps } from "../../registry"
 import { readString } from "../../types"
-import { useOpenBench } from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import { TASK_CARD_TRANSITION } from "../task-motion"
 import { useSubagentCardData } from "./task-card-header"
 import { SubagentCard } from "./subagent-card"
@@ -93,10 +93,15 @@ export function QuestionSetAuthorTaskCard({
 
   function handleOpenArtifact(artifact: QuestionSetArtifact) {
     if (!directory) return
-    void openBenchRoute(directory, {
-      type: "artifact",
-      kind: "question-set",
-      artifactID: artifact.artifactID,
+    void openBenchRoute({
+      directory,
+      target: {
+        type: "artifact",
+        kind: "question-set",
+        artifactID: artifact.artifactID,
+      },
+      mode: BENCH_MODE_REQUEST_POLICY,
+      autoOpen: null,
     })
   }
 

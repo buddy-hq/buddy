@@ -27,8 +27,7 @@ import {
 } from "@/lib/html-widgets"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { stringifyError } from "@/lib/api-client"
-import { useOpenBench } from "@/lib/bench-navigation"
-import { resolveHtmlWidgetBenchChatLayout } from "@/components/bench/bench-open-policy"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import type { ToolPartProps } from "../../registry"
 
 const INLINE_MAX_HEIGHT_RATIO = 0.7
@@ -360,17 +359,16 @@ function HtmlWidgetCard(props: {
           label="Open on Bench"
           onClick={() => {
             if (!props.directory) return
-            void openBenchRoute(
-              props.directory,
-              {
+            void openBenchRoute({
+              directory: props.directory,
+              target: {
                 type: "artifact",
                 kind: "html-widget",
                 artifactID: props.widget.artifactID,
               },
-              {
-                chatLayout: resolveHtmlWidgetBenchChatLayout(props.widget),
-              },
-            )
+              mode: BENCH_MODE_REQUEST_POLICY,
+              autoOpen: null,
+            })
           }}
         >
           <ExternalLinkIcon className="size-3.5" aria-hidden />

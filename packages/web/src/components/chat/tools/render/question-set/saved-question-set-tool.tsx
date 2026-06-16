@@ -6,7 +6,7 @@ import { isRecord, readNonEmptyString, readNonNegativeInt } from "../../../tools
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
-import { useOpenBench } from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import {
   QuestionSetInlineView,
   type PublicQuestionSetArtifact,
@@ -298,10 +298,15 @@ export function renderSavedQuestionSetTool(props: ToolPartProps) {
         <QuestionSetInlineView
           artifact={visibleArtifact}
           onOpenBench={() => {
-            void openBenchRoute(directory, {
-              type: "artifact",
-              kind: "question-set",
-              artifactID: visibleArtifact.artifactID,
+            void openBenchRoute({
+              directory,
+              target: {
+                type: "artifact",
+                kind: "question-set",
+                artifactID: visibleArtifact.artifactID,
+              },
+              mode: BENCH_MODE_REQUEST_POLICY,
+              autoOpen: null,
             })
           }}
           onSubmit={async (answers) => {

@@ -46,7 +46,7 @@ import {
   useWorkspaceFileOpen,
   type WorkspaceFileActionInput,
 } from "@/lib/use-workspace-file-open"
-import { useOpenBench } from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import {
   WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP,
   WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH,
@@ -440,7 +440,12 @@ function MediaImageGallery(
       }))}
       onOpenItem={(item) => {
         if (!item.benchTarget) return
-        void openBenchRoute(props.directory, item.benchTarget)
+        void openBenchRoute({
+          directory: props.directory,
+          target: item.benchTarget,
+          mode: BENCH_MODE_REQUEST_POLICY,
+          autoOpen: null,
+        })
       }}
     />
   )

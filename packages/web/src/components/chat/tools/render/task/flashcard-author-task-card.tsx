@@ -5,7 +5,7 @@ import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
 import { getFlashcardDueCount, isFlashcardReviewAvailable } from "@/lib/flashcard"
 import { workspaceFlashcardDecksQueryOptions } from "@/state/workspace-artifacts-query"
-import { useOpenBench } from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import {
   artifactKindFilter,
   type FlashcardDeckLibraryArtifact,
@@ -144,10 +144,15 @@ export function FlashcardAuthorTaskCard({
                     directory={directory ?? ""}
                     onStartReview={(selectedDeck) => {
                       if (!directory) return
-                      void openBenchRoute(directory, {
-                        type: "artifact",
-                        kind: "flashcard-deck",
-                        artifactID: selectedDeck.artifactID,
+                      void openBenchRoute({
+                        directory,
+                        target: {
+                          type: "artifact",
+                          kind: "flashcard-deck",
+                          artifactID: selectedDeck.artifactID,
+                        },
+                        mode: BENCH_MODE_REQUEST_POLICY,
+                        autoOpen: null,
                       })
                     }}
                   />

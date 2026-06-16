@@ -11,7 +11,7 @@ import { isRecord, readNonEmptyString } from "../../../tools/types"
 import { unwrapError } from "../../../utils/error"
 import { sendPrompt } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
-import { useOpenBench } from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import type { ToolPartProps } from "../../registry"
 import type { AssistantMessageInfo, MessagePart, MessageWithParts } from "@/state/chat-types"
 import {
@@ -624,10 +624,15 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
       onFullscreenOpen={
         directory
           ? () => {
-              void openBenchRoute(directory, {
-                type: "artifact",
-                kind: "mermaid",
-                artifactID: parsed.artifactID,
+              void openBenchRoute({
+                directory,
+                target: {
+                  type: "artifact",
+                  kind: "mermaid",
+                  artifactID: parsed.artifactID,
+                },
+                mode: BENCH_MODE_REQUEST_POLICY,
+                autoOpen: null,
               })
             }
           : undefined

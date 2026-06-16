@@ -13,7 +13,7 @@ import { useChatStore } from "@/state/chat-store"
 import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
 import { MermaidToolCard } from "@/components/chat/tools/render/mermaid/mermaid-tool-card"
 import { useInlineAssetActivation } from "@/components/chat/inline-asset-boundary"
-import { useOpenBench } from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import {
   createInlineMermaidArtifact,
   readMermaidAutoRepairStatus,
@@ -505,10 +505,15 @@ export function MarkdownMermaidSegment(props: {
       errorMeta={errorMeta}
       onRenderFailure={handleRenderFailure}
       onFullscreenOpen={() => {
-        void openBenchRoute(props.context.directory, {
-          type: "artifact",
-          kind: "mermaid",
-          artifactID: artifact.artifactID,
+        void openBenchRoute({
+          directory: props.context.directory,
+          target: {
+            type: "artifact",
+            kind: "mermaid",
+            artifactID: artifact.artifactID,
+          },
+          mode: BENCH_MODE_REQUEST_POLICY,
+          autoOpen: null,
         })
       }}
       onRequestFix={canRequestFix ? () => handleRequestFix() : undefined}
