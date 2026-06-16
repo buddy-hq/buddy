@@ -1,14 +1,22 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { act } from "react"
+import { act, useState } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import {
   clampFloatingChatPosition,
   DirectoryChatBenchPageLayout,
+  readInitialChatPanelWidth,
   resolveDefaultFloatingChatPosition,
+  resolveDefaultFloatingChatRect,
   resolveFloatingChatSize,
+  resolveInitialFloatingChatContainerSize,
   type FloatingChatBounds,
 } from "../src/components/directory-chat/directory-chat-bench-page-layout"
-import { BENCH_CHAT_LAYOUT_FLOATING } from "../src/lib/bench-navigation"
+import {
+  BENCH_CHAT_LAYOUT_DOCKED,
+  BENCH_CHAT_LAYOUT_FLOATING,
+  BENCH_LAYOUT_PROFILE_BALANCED,
+  type BenchChatLayoutMode,
+} from "../src/lib/bench-navigation"
 
 async function flushEffects(delay = 0) {
   await Promise.resolve()
@@ -23,6 +31,54 @@ function requireElement<TElement extends Element>(element: TElement | null): TEl
   }
 
   return element
+}
+
+function TestBenchPageLayout(props: {
+  initialMode?: BenchChatLayoutMode
+}) {
+  const [mode, setMode] = useState<BenchChatLayoutMode>(
+    props.initialMode ?? BENCH_CHAT_LAYOUT_DOCKED,
+  )
+  const [dockedChatWidthPx, setDockedChatWidthPx] = useState(() =>
+    readInitialChatPanelWidth(BENCH_LAYOUT_PROFILE_BALANCED),
+  )
+  const [floatingRect, setFloatingRect] = useState(() =>
+    resolveDefaultFloatingChatRect(
+      resolveInitialFloatingChatContainerSize(),
+      BENCH_LAYOUT_PROFILE_BALANCED,
+    ),
+  )
+  const [floatingChatState, setFloatingChatState] =
+    useState<"open" | "minimized">("open")
+
+  return (
+    <DirectoryChatBenchPageLayout
+      chatLayoutMode={mode}
+      layoutProfile={BENCH_LAYOUT_PROFILE_BALANCED}
+      dockedChatWidthPx={dockedChatWidthPx}
+      floatingRect={floatingRect}
+      floatingChatState={floatingChatState}
+      onChatLayoutModeChange={setMode}
+      onDockedChatWidthChange={setDockedChatWidthPx}
+      onFloatingRectChange={setFloatingRect}
+      onFloatingChatStateChange={setFloatingChatState}
+      bench={<div data-component="bench-probe">Bench</div>}
+      conversation={(controls) => (
+        <div data-component="conversation-probe">
+          <span>Conversation</span>
+          {controls.onFloatChat ? (
+            <button
+              type="button"
+              data-action="directory-chat-float"
+              onClick={controls.onFloatChat}
+            >
+              Float
+            </button>
+          ) : null}
+        </div>
+      )}
+    />
+  )
 }
 
 describe("workspace floating chat helpers", () => {
@@ -57,7 +113,7 @@ describe("workspace floating chat helpers", () => {
     }
 
     expect(resolveDefaultFloatingChatPosition(bounds)).toEqual({
-      x: 520,
+      x: 560,
       y: 460,
     })
   })
@@ -112,26 +168,7 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
 
   test("moves the existing conversation between docked and floating shells", async () => {
     await act(async () => {
-      root.render(
-        <DirectoryChatBenchPageLayout
-          benchKey="bench"
-          bench={<div data-component="bench-probe">Bench</div>}
-          conversation={(controls) => (
-            <div data-component="conversation-probe">
-              <span>Conversation</span>
-              {controls.onFloatChat ? (
-                <button
-                  type="button"
-                  data-action="directory-chat-float"
-                  onClick={controls.onFloatChat}
-                >
-                  Float
-                </button>
-              ) : null}
-            </div>
-          )}
-        />,
-      )
+      root.render(<TestBenchPageLayout />)
       await flushEffects()
     })
 
@@ -167,27 +204,7 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
 
   test("can start with chat in a floating window", async () => {
     await act(async () => {
-      root.render(
-        <DirectoryChatBenchPageLayout
-          benchKey="bench"
-          initialChatLayoutMode={BENCH_CHAT_LAYOUT_FLOATING}
-          bench={<div data-component="bench-probe">Bench</div>}
-          conversation={(controls) => (
-            <div data-component="conversation-probe">
-              <span>Conversation</span>
-              {controls.onFloatChat ? (
-                <button
-                  type="button"
-                  data-action="directory-chat-float"
-                  onClick={controls.onFloatChat}
-                >
-                  Float
-                </button>
-              ) : null}
-            </div>
-          )}
-        />,
-      )
+      root.render(<TestBenchPageLayout initialMode={BENCH_CHAT_LAYOUT_FLOATING} />)
       await flushEffects()
     })
 
@@ -195,5 +212,48 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
       container.querySelector('[data-component="directory-chat-floating-window"]'),
     ).not.toBeNull()
     expect(container.querySelector('[data-action="directory-chat-float"]')).toBeNull()
+  })
+
+  test("can minimize and restore the floating chat window", async () => {
+    await act(async () => {
+      root.render(<TestBenchPageLayout initialMode={BENCH_CHAT_LAYOUT_FLOATING} />)
+      await flushEffects()
+    })
+
+    const minimizeButton = requireElement(
+      container.querySelector<HTMLButtonElement>('[data-action="directory-chat-minimize"]'),
+    )
+
+    await act(async () => {
+      minimizeButton.click()
+      await flushEffects()
+    })
+
+    await act(async () => {
+      await flushEffects(350)
+    })
+
+    expect(container.querySelector('[data-component="directory-chat-floating-window"]')).toBeNull()
+    expect(
+      container.querySelector('[data-component="directory-chat-floating-restore"]'),
+    ).not.toBeNull()
+
+    const restoreButton = requireElement(
+      container.querySelector<HTMLButtonElement>('[data-action="directory-chat-restore"]'),
+    )
+
+    await act(async () => {
+      restoreButton.click()
+      await flushEffects()
+    })
+
+    await act(async () => {
+      await flushEffects(350)
+    })
+
+    expect(
+      container.querySelector('[data-component="directory-chat-floating-window"]'),
+    ).not.toBeNull()
+    expect(container.querySelector('[data-component="directory-chat-floating-restore"]')).toBeNull()
   })
 })

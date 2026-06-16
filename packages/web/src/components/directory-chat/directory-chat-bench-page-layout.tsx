@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, type Transition } from "motion/react"
+import { motion, type Transition } from "motion/react"
 import {
   useEffect,
   useRef,
@@ -15,59 +15,56 @@ import {
   cn,
   useResizablePanelRef,
 } from "@buddy/ui"
-import { PanelRightOpenIcon } from "lucide-react"
+import { MessageSquareIcon, Minimize2Icon, PanelRightOpenIcon } from "lucide-react"
 import { readDesktopTitlebarBottomOffset } from "@/components/layout/desktop-titlebar-inset"
-import { usePersistentResizablePanelLayout } from "@/components/layout/use-persistent-resizable-panel-layout"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
+  BENCH_LAYOUT_PROFILE_BALANCED,
+  resolveBenchLayoutDefaults,
   type BenchChatLayoutMode,
+  type BenchLayoutProfileID,
 } from "@/lib/bench-navigation"
+import type { BenchFloatingChatState } from "@/components/bench/bench-route-context"
 
 type DirectoryChatBenchPageLayoutProps = {
-  benchKey: string
-  initialChatLayoutMode?: BenchChatLayoutMode
+  chatLayoutMode: BenchChatLayoutMode
+  layoutProfile: BenchLayoutProfileID
+  dockedChatWidthPx: number
+  floatingRect: FloatingChatRect
+  floatingChatState: BenchFloatingChatState
   bench: ReactNode
   conversation: (controls: DirectoryChatBenchConversationControls) => ReactNode
+  onChatLayoutModeChange: (mode: BenchChatLayoutMode) => void
+  onDockedChatWidthChange: (widthPx: number) => void
+  onFloatingRectChange: (rect: FloatingChatRect) => void
+  onFloatingChatStateChange: (state: BenchFloatingChatState) => void
 }
 
 export type DirectoryChatBenchConversationControls = {
   onFloatChat?: () => void
 }
 
-// Preserve the existing reading layout keys so reader widths survive the shared extraction.
-const BENCH_CHAT_PANEL_WIDTH_STORAGE_KEY = "directory-chat-reading-chat-panel-width"
-const BENCH_CHAT_PANEL_DEFAULT_WIDTH_PX = 480
-const BENCH_CHAT_PANEL_MIN_WIDTH_PX = 320
-const BENCH_CHAT_PANEL_MAX_VIEWPORT_RATIO = 0.55
-const BENCH_PANEL_MIN_WIDTH_PX = 320
 const BENCH_LAYOUT_ID = "directory-chat-reading-layout"
 const BENCH_PANEL_ID = "directory-chat-reading-reader"
 const BENCH_CONVERSATION_PANEL_ID = "directory-chat-reading-conversation"
-const BENCH_LAYOUT_PANEL_IDS = [BENCH_PANEL_ID, BENCH_CONVERSATION_PANEL_ID]
 const BENCH_CHAT_DOCK_LABEL = "Dock chat"
 const BENCH_CHAT_DRAG_LABEL = "Drag floating chat"
-const FLOATING_CHAT_MARGIN_PX = 24
-const FLOATING_CHAT_MIN_WIDTH_PX = 440
-const FLOATING_CHAT_MIN_HEIGHT_PX = 460
-const FLOATING_CHAT_MIN_WIDTH_FALLBACK_PX = 320
-const FLOATING_CHAT_MIN_HEIGHT_FALLBACK_PX = 360
-const FLOATING_CHAT_WIDTH_RATIO = 0.42
-const FLOATING_CHAT_HEIGHT_RATIO = 0.62
-const FLOATING_CHAT_PREFERRED_MIN_WIDTH_PX = 560
-const FLOATING_CHAT_PREFERRED_MAX_WIDTH_PX = 700
-const FLOATING_CHAT_PREFERRED_MIN_HEIGHT_PX = 560
-const FLOATING_CHAT_PREFERRED_MAX_HEIGHT_PX = 720
-const FLOATING_CHAT_DEFAULT_X_RATIO = 0.52
+const BENCH_CHAT_MINIMIZE_LABEL = "Minimize chat"
+const BENCH_CHAT_RESTORE_LABEL = "Restore chat"
 const FLOATING_CHAT_DEFAULT_CONTAINER_WIDTH_PX = 1280
 const FLOATING_CHAT_DEFAULT_CONTAINER_HEIGHT_PX = 800
+const FLOATING_CHAT_DEFAULT_SAFE_TOP_PX = 24
 const BENCH_LAYOUT_TRANSITION = {
   duration: 0.24,
   ease: [0.22, 1, 0.36, 1],
 } satisfies Transition
+const FLOATING_CHAT_WINDOW_TRANSITION_DURATION_SECONDS = 0.26
+const FLOATING_CHAT_EXIT_DURATION_MS =
+  FLOATING_CHAT_WINDOW_TRANSITION_DURATION_SECONDS * 1000
 const FLOATING_CHAT_WINDOW_TRANSITION = {
   type: "spring",
-  duration: 0.26,
+  duration: FLOATING_CHAT_WINDOW_TRANSITION_DURATION_SECONDS,
   bounce: 0.08,
 } satisfies Transition
 
@@ -105,21 +102,81 @@ type FloatingChatMinimumSize = {
   minHeight: number
 }
 
+type DelayedPresenceState = {
+  isPresent: boolean
+  isExiting: boolean
+}
+
+function useDelayedPresence(visible: boolean): DelayedPresenceState {
+  const [presence, setPresence] = useState<DelayedPresenceState>({
+    isPresent: visible,
+    isExiting: false,
+  })
+
+  useEffect(() => {
+    if (visible) {
+      setPresence((current) =>
+        current.isPresent && !current.isExiting
+          ? current
+          : { isPresent: true, isExiting: false },
+      )
+      return
+    }
+
+    if (!presence.isPresent) return
+
+    setPresence((current) =>
+      current.isPresent && !current.isExiting
+        ? { isPresent: true, isExiting: true }
+        : current,
+    )
+    const timeoutID = window.setTimeout(() => {
+      setPresence({ isPresent: false, isExiting: false })
+    }, FLOATING_CHAT_EXIT_DURATION_MS)
+
+    return () => {
+      window.clearTimeout(timeoutID)
+    }
+  }, [presence.isPresent, visible])
+
+  return presence
+}
+
+function areFloatingChatRectsEqual(left: FloatingChatRect, right: FloatingChatRect): boolean {
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height
+  )
+}
+
 function hasUsableDimension(value: number) {
   return Number.isFinite(value) && value > 0
 }
 
+function benchViewportFromContainerSize(containerSize: FloatingChatContainerSize) {
+  return {
+    widthPx: containerSize.containerWidth,
+    heightPx: containerSize.containerHeight,
+    safeTopPx: containerSize.safeTop,
+  }
+}
+
 function readFloatingChatSafeTop(layoutNode: HTMLElement | null) {
   if (typeof document === "undefined") {
-    return FLOATING_CHAT_MARGIN_PX
+    return FLOATING_CHAT_DEFAULT_SAFE_TOP_PX
   }
 
   const layoutTop = layoutNode?.getBoundingClientRect().top ?? 0
   const titlebarBottom = readDesktopTitlebarBottomOffset()
-  return Math.max(FLOATING_CHAT_MARGIN_PX, titlebarBottom - layoutTop + FLOATING_CHAT_MARGIN_PX)
+  return Math.max(
+    FLOATING_CHAT_DEFAULT_SAFE_TOP_PX,
+    titlebarBottom - layoutTop + FLOATING_CHAT_DEFAULT_SAFE_TOP_PX,
+  )
 }
 
-function resolveInitialFloatingChatContainerSize(): FloatingChatContainerSize {
+export function resolveInitialFloatingChatContainerSize(): FloatingChatContainerSize {
   if (
     typeof window !== "undefined" &&
     hasUsableDimension(window.innerWidth) &&
@@ -128,14 +185,14 @@ function resolveInitialFloatingChatContainerSize(): FloatingChatContainerSize {
     return {
       containerWidth: window.innerWidth,
       containerHeight: window.innerHeight,
-      safeTop: FLOATING_CHAT_MARGIN_PX,
+      safeTop: FLOATING_CHAT_DEFAULT_SAFE_TOP_PX,
     }
   }
 
   return {
     containerWidth: FLOATING_CHAT_DEFAULT_CONTAINER_WIDTH_PX,
     containerHeight: FLOATING_CHAT_DEFAULT_CONTAINER_HEIGHT_PX,
-    safeTop: FLOATING_CHAT_MARGIN_PX,
+    safeTop: FLOATING_CHAT_DEFAULT_SAFE_TOP_PX,
   }
 }
 
@@ -157,126 +214,94 @@ function readFloatingChatContainerSize(
   }
 }
 
-function getBenchChatPanelMaxWidth() {
-  return typeof window === "undefined"
-    ? BENCH_CHAT_PANEL_DEFAULT_WIDTH_PX
-    : window.innerWidth * BENCH_CHAT_PANEL_MAX_VIEWPORT_RATIO
+function readWindowBenchViewport() {
+  return {
+    widthPx:
+      typeof window === "undefined" || !hasUsableDimension(window.innerWidth)
+        ? FLOATING_CHAT_DEFAULT_CONTAINER_WIDTH_PX
+        : window.innerWidth,
+    heightPx:
+      typeof window === "undefined" || !hasUsableDimension(window.innerHeight)
+        ? FLOATING_CHAT_DEFAULT_CONTAINER_HEIGHT_PX
+        : window.innerHeight,
+    safeTopPx: FLOATING_CHAT_DEFAULT_SAFE_TOP_PX,
+  }
 }
 
-function readInitialChatPanelWidth() {
-  if (typeof window === "undefined") {
-    return BENCH_CHAT_PANEL_DEFAULT_WIDTH_PX
-  }
-
-  const saved = window.localStorage.getItem(BENCH_CHAT_PANEL_WIDTH_STORAGE_KEY)
-  const parsed = saved ? Number.parseInt(saved, 10) : Number.NaN
-  if (!Number.isFinite(parsed)) {
-    return BENCH_CHAT_PANEL_DEFAULT_WIDTH_PX
-  }
-
-  return Math.min(
-    Math.max(parsed, BENCH_CHAT_PANEL_MIN_WIDTH_PX),
-    getBenchChatPanelMaxWidth(),
-  )
-}
-
-function resolveFloatingChatPreferredDimension(input: {
-  available: number
-  ratio: number
-  preferredMin: number
-  preferredMax: number
-}) {
-  if (input.available <= 0) {
-    return 0
-  }
-
-  const preferred = Math.min(
-    input.preferredMax,
-    Math.max(input.preferredMin, input.available * input.ratio),
-  )
-  return Math.min(preferred, input.available)
+export function readInitialChatPanelWidth(profile: BenchLayoutProfileID): number {
+  return resolveBenchLayoutDefaults({
+    profile,
+    viewport: readWindowBenchViewport(),
+  }).dockedChatWidthPx
 }
 
 function resolveFloatingChatMinimumSize(
   containerSize: FloatingChatContainerSize,
+  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_BALANCED,
 ): FloatingChatMinimumSize {
-  const availableWidth = Math.max(0, containerSize.containerWidth - FLOATING_CHAT_MARGIN_PX * 2)
-  const availableHeight = Math.max(
-    0,
-    containerSize.containerHeight - containerSize.safeTop - FLOATING_CHAT_MARGIN_PX,
-  )
+  const defaults = resolveBenchLayoutDefaults({
+    profile,
+    viewport: benchViewportFromContainerSize(containerSize),
+  })
 
   return {
-    minWidth:
-      availableWidth >= FLOATING_CHAT_MIN_WIDTH_PX
-        ? FLOATING_CHAT_MIN_WIDTH_PX
-        : Math.min(FLOATING_CHAT_MIN_WIDTH_FALLBACK_PX, availableWidth),
-    minHeight:
-      availableHeight >= FLOATING_CHAT_MIN_HEIGHT_PX
-        ? FLOATING_CHAT_MIN_HEIGHT_PX
-        : Math.min(FLOATING_CHAT_MIN_HEIGHT_FALLBACK_PX, availableHeight),
+    minWidth: defaults.floatingMinWidthPx,
+    minHeight: defaults.floatingMinHeightPx,
   }
 }
 
 export function resolveFloatingChatSize(
   containerSize: FloatingChatContainerSize,
+  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_BALANCED,
 ): FloatingChatSize {
-  const availableWidth = Math.max(0, containerSize.containerWidth - FLOATING_CHAT_MARGIN_PX * 2)
-  const availableHeight = Math.max(
-    0,
-    containerSize.containerHeight - containerSize.safeTop - FLOATING_CHAT_MARGIN_PX,
-  )
-  const minimumSize = resolveFloatingChatMinimumSize(containerSize)
+  const defaults = resolveBenchLayoutDefaults({
+    profile,
+    viewport: benchViewportFromContainerSize(containerSize),
+  })
 
   return {
-    width: Math.max(
-      minimumSize.minWidth,
-      resolveFloatingChatPreferredDimension({
-        ratio: FLOATING_CHAT_WIDTH_RATIO,
-        preferredMin: FLOATING_CHAT_PREFERRED_MIN_WIDTH_PX,
-        preferredMax: FLOATING_CHAT_PREFERRED_MAX_WIDTH_PX,
-        available: availableWidth,
-      }),
-    ),
-    height: Math.max(
-      minimumSize.minHeight,
-      resolveFloatingChatPreferredDimension({
-        ratio: FLOATING_CHAT_HEIGHT_RATIO,
-        preferredMin: FLOATING_CHAT_PREFERRED_MIN_HEIGHT_PX,
-        preferredMax: FLOATING_CHAT_PREFERRED_MAX_HEIGHT_PX,
-        available: availableHeight,
-      }),
-    ),
+    width: defaults.floatingRect.width,
+    height: defaults.floatingRect.height,
   }
 }
 
 function clampFloatingChatSize(
   size: FloatingChatSize,
   containerSize: FloatingChatContainerSize,
+  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_BALANCED,
 ): FloatingChatSize {
-  const availableWidth = Math.max(0, containerSize.containerWidth - FLOATING_CHAT_MARGIN_PX * 2)
+  const defaults = resolveBenchLayoutDefaults({
+    profile,
+    viewport: benchViewportFromContainerSize(containerSize),
+  })
+  const availableWidth = Math.max(0, containerSize.containerWidth - defaults.floatingMarginPx * 2)
   const availableHeight = Math.max(
     0,
-    containerSize.containerHeight - containerSize.safeTop - FLOATING_CHAT_MARGIN_PX,
+    containerSize.containerHeight - containerSize.safeTop - defaults.floatingMarginPx,
   )
-  const minimumSize = resolveFloatingChatMinimumSize(containerSize)
 
   return {
-    width: Math.min(availableWidth, Math.max(minimumSize.minWidth, size.width)),
-    height: Math.min(availableHeight, Math.max(minimumSize.minHeight, size.height)),
+    width: Math.min(availableWidth, Math.max(defaults.floatingMinWidthPx, size.width)),
+    height: Math.min(availableHeight, Math.max(defaults.floatingMinHeightPx, size.height)),
   }
 }
 
 function resolveFloatingChatBounds(
   containerSize: FloatingChatContainerSize,
   size: FloatingChatSize,
+  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_BALANCED,
 ): FloatingChatBounds {
+  const defaults = resolveBenchLayoutDefaults({
+    profile,
+    viewport: benchViewportFromContainerSize(containerSize),
+  })
+
   return {
     containerWidth: containerSize.containerWidth,
     containerHeight: containerSize.containerHeight,
     width: size.width,
     height: size.height,
-    margin: FLOATING_CHAT_MARGIN_PX,
+    margin: defaults.floatingMarginPx,
     safeTop: containerSize.safeTop,
   }
 }
@@ -320,7 +345,7 @@ export function resolveDefaultFloatingChatPosition(
 ): FloatingChatPosition {
   return clampFloatingChatPosition(
     {
-      x: bounds.containerWidth * FLOATING_CHAT_DEFAULT_X_RATIO,
+      x: bounds.containerWidth - bounds.width - bounds.margin,
       y: bounds.containerHeight - bounds.height - bounds.margin,
     },
     bounds,
@@ -330,9 +355,13 @@ export function resolveDefaultFloatingChatPosition(
 export function clampFloatingChatRect(
   rect: FloatingChatRect,
   containerSize: FloatingChatContainerSize,
+  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_BALANCED,
 ): FloatingChatRect {
-  const size = clampFloatingChatSize(rect, containerSize)
-  const position = clampFloatingChatPosition(rect, resolveFloatingChatBounds(containerSize, size))
+  const size = clampFloatingChatSize(rect, containerSize, profile)
+  const position = clampFloatingChatPosition(
+    rect,
+    resolveFloatingChatBounds(containerSize, size, profile),
+  )
 
   return {
     x: position.x,
@@ -344,18 +373,12 @@ export function clampFloatingChatRect(
 
 export function resolveDefaultFloatingChatRect(
   containerSize: FloatingChatContainerSize,
+  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_BALANCED,
 ): FloatingChatRect {
-  const size = resolveFloatingChatSize(containerSize)
-  const position = resolveDefaultFloatingChatPosition(
-    resolveFloatingChatBounds(containerSize, size),
-  )
-
-  return {
-    x: position.x,
-    y: position.y,
-    width: size.width,
-    height: size.height,
-  }
+  return resolveBenchLayoutDefaults({
+    profile,
+    viewport: benchViewportFromContainerSize(containerSize),
+  }).floatingRect
 }
 
 function resizeFloatingChatRect(input: {
@@ -364,10 +387,15 @@ function resizeFloatingChatRect(input: {
   deltaX: number
   deltaY: number
   containerSize: FloatingChatContainerSize
+  profile: BenchLayoutProfileID
 }): FloatingChatRect {
-  const minimumSize = resolveFloatingChatMinimumSize(input.containerSize)
-  const maxRight = input.containerSize.containerWidth - FLOATING_CHAT_MARGIN_PX
-  const maxBottom = input.containerSize.containerHeight - FLOATING_CHAT_MARGIN_PX
+  const defaults = resolveBenchLayoutDefaults({
+    profile: input.profile,
+    viewport: benchViewportFromContainerSize(input.containerSize),
+  })
+  const minimumSize = resolveFloatingChatMinimumSize(input.containerSize, input.profile)
+  const maxRight = input.containerSize.containerWidth - defaults.floatingMarginPx
+  const maxBottom = input.containerSize.containerHeight - defaults.floatingMarginPx
   let left = input.rect.x
   let top = input.rect.y
   let right = input.rect.x + input.rect.width
@@ -377,7 +405,7 @@ function resizeFloatingChatRect(input: {
     right = Math.min(maxRight, right + input.deltaX)
   }
   if (input.direction.includes("w")) {
-    left = Math.max(FLOATING_CHAT_MARGIN_PX, left + input.deltaX)
+    left = Math.max(defaults.floatingMarginPx, left + input.deltaX)
   }
   if (input.direction.includes("s")) {
     bottom = Math.min(maxBottom, bottom + input.deltaY)
@@ -410,6 +438,7 @@ function resizeFloatingChatRect(input: {
       height: bottom - top,
     },
     input.containerSize,
+    input.profile,
   )
 }
 
@@ -468,7 +497,9 @@ function FloatingChatWindow(props: {
   rect: FloatingChatRect
   conversation: ReactNode
   animateInitial: boolean
+  exiting: boolean
   onDock: () => void
+  onMinimize: () => void
   onDragStart: (event: ReactPointerEvent<HTMLDivElement>) => void
   onResizeStart: (
     direction: FloatingChatResizeDirection,
@@ -488,10 +519,16 @@ function FloatingChatWindow(props: {
       data-component="directory-chat-floating-window"
       style={floatingWindowStyle}
       initial={props.animateInitial ? { opacity: 0, scale: 0.95, y: 22 } : false}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.97, y: 16 }}
+      animate={
+        props.exiting
+          ? { opacity: 0, scale: 0.97, y: 16 }
+          : { opacity: 1, scale: 1, y: 0 }
+      }
       transition={FLOATING_CHAT_WINDOW_TRANSITION}
-      className="absolute z-40 flex min-h-0 min-w-0 overflow-hidden rounded-2xl border border-border-base/70 bg-background-stronger shadow-[0_24px_80px_rgba(0,0,0,0.28)]"
+      className={cn(
+        "absolute z-40 flex min-h-0 min-w-0 overflow-hidden rounded-2xl border border-border-base/70 bg-background-stronger shadow-[0_24px_80px_rgba(0,0,0,0.28)]",
+        props.exiting && "pointer-events-none",
+      )}
     >
       <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
         <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border-weaker-base bg-surface-raised-base/95 px-3 backdrop-blur">
@@ -503,6 +540,18 @@ function FloatingChatWindow(props: {
             <span className="h-1 w-10 rounded-full bg-border-stronger-base" aria-hidden="true" />
             <span className="sr-only">{BENCH_CHAT_DRAG_LABEL}</span>
           </div>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            data-action="directory-chat-minimize"
+            aria-label={BENCH_CHAT_MINIMIZE_LABEL}
+            title={BENCH_CHAT_MINIMIZE_LABEL}
+            className="text-text-weaker hover:bg-surface-base-hover hover:text-text-base"
+            onClick={props.onMinimize}
+          >
+            <Minimize2Icon />
+          </Button>
           <Button
             type="button"
             size="icon-xs"
@@ -562,35 +611,67 @@ function FloatingChatWindow(props: {
   )
 }
 
+function FloatingChatRestoreButton(props: { exiting: boolean; onRestore: () => void }) {
+  return (
+    <motion.div
+      data-component="directory-chat-floating-restore"
+      initial={{ opacity: 0, scale: 0.92, y: 8 }}
+      animate={
+        props.exiting
+          ? { opacity: 0, scale: 0.92, y: 8 }
+          : { opacity: 1, scale: 1, y: 0 }
+      }
+      transition={FLOATING_CHAT_WINDOW_TRANSITION}
+      className={cn("absolute bottom-6 right-6 z-40", props.exiting && "pointer-events-none")}
+    >
+      <Button
+        type="button"
+        size="icon"
+        variant="secondary"
+        data-action="directory-chat-restore"
+        aria-label={BENCH_CHAT_RESTORE_LABEL}
+        title={BENCH_CHAT_RESTORE_LABEL}
+        className="size-10 rounded-full border border-border-base/70 bg-background-stronger shadow-[0_16px_48px_rgba(0,0,0,0.24)]"
+        onClick={props.onRestore}
+      >
+        <MessageSquareIcon className="size-4" />
+      </Button>
+    </motion.div>
+  )
+}
+
 export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayoutProps) {
-  const initialChatLayoutMode = props.initialChatLayoutMode ?? BENCH_CHAT_LAYOUT_DOCKED
-  const [chatPanelWidth, setChatPanelWidth] = useState(readInitialChatPanelWidth)
-  const [chatLayoutMode, setChatLayoutMode] =
-    useState<BenchChatLayoutMode>(initialChatLayoutMode)
+  const chatLayoutMode = props.chatLayoutMode
+  const onDockedChatWidthChange = props.onDockedChatWidthChange
+  const onFloatingChatStateChange = props.onFloatingChatStateChange
+  const onFloatingRectChange = props.onFloatingRectChange
   const [containerSize, setContainerSize] = useState<FloatingChatContainerSize>(
     resolveInitialFloatingChatContainerSize,
   )
-  const [floatingRect, setFloatingRect] = useState<FloatingChatRect>(() =>
-    resolveDefaultFloatingChatRect(resolveInitialFloatingChatContainerSize()),
-  )
   const [floatingEntryAnimation, setFloatingEntryAnimation] = useState(
-    initialChatLayoutMode !== BENCH_CHAT_LAYOUT_FLOATING,
+    chatLayoutMode !== BENCH_CHAT_LAYOUT_FLOATING,
   )
   const layoutRef = useRef<HTMLElement | null>(null)
   const containerSizeRef = useRef(containerSize)
+  const previousChatLayoutModeRef = useRef(chatLayoutMode)
   const conversationPanelRef = useResizablePanelRef()
-  const { defaultLayout, onLayoutChanged } = usePersistentResizablePanelLayout({
-    id: BENCH_LAYOUT_ID,
-    panelIds: BENCH_LAYOUT_PANEL_IDS,
+  const chatPanelWidth = props.dockedChatWidthPx
+  const floatingRect = props.floatingRect
+  const floatingChatState = props.floatingChatState
+  const floatingWindowPresence = useDelayedPresence(
+    chatLayoutMode === BENCH_CHAT_LAYOUT_FLOATING && floatingChatState === "open",
+  )
+  const floatingRestorePresence = useDelayedPresence(
+    chatLayoutMode === BENCH_CHAT_LAYOUT_FLOATING && floatingChatState === "minimized",
+  )
+  const layoutDefaults = resolveBenchLayoutDefaults({
+    profile: props.layoutProfile,
+    viewport: benchViewportFromContainerSize(containerSize),
   })
 
   useEffect(() => {
     containerSizeRef.current = containerSize
   }, [containerSize])
-
-  useEffect(() => {
-    window.localStorage.setItem(BENCH_CHAT_PANEL_WIDTH_STORAGE_KEY, chatPanelWidth.toString())
-  }, [chatPanelWidth])
 
   useEffect(() => {
     const observedNode = layoutRef.current
@@ -639,25 +720,59 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
   useEffect(() => {
     if (chatLayoutMode !== BENCH_CHAT_LAYOUT_FLOATING) return
 
-    setFloatingRect((current) => clampFloatingChatRect(current, containerSize))
-  }, [chatLayoutMode, containerSize])
+    const nextRect = clampFloatingChatRect(floatingRect, containerSize, props.layoutProfile)
+    if (!areFloatingChatRectsEqual(nextRect, floatingRect)) {
+      onFloatingRectChange(nextRect)
+    }
+  }, [
+    chatLayoutMode,
+    containerSize,
+    floatingRect,
+    onFloatingRectChange,
+    props.layoutProfile,
+  ])
 
   useEffect(() => {
-    setChatLayoutMode(initialChatLayoutMode)
+    if (chatLayoutMode === BENCH_CHAT_LAYOUT_DOCKED) {
+      onFloatingChatStateChange("open")
+    }
+  }, [chatLayoutMode, onFloatingChatStateChange])
 
-    if (initialChatLayoutMode === BENCH_CHAT_LAYOUT_FLOATING) {
+  useEffect(() => {
+    const nextWidth = Math.min(
+      layoutDefaults.dockedChatMaxWidthPx,
+      Math.max(layoutDefaults.dockedChatMinWidthPx, chatPanelWidth),
+    )
+    if (nextWidth !== chatPanelWidth) {
+      onDockedChatWidthChange(nextWidth)
+    }
+  }, [
+    chatPanelWidth,
+    layoutDefaults.dockedChatMaxWidthPx,
+    layoutDefaults.dockedChatMinWidthPx,
+    onDockedChatWidthChange,
+  ])
+
+  useEffect(() => {
+    const previousChatLayoutMode = previousChatLayoutModeRef.current
+    previousChatLayoutModeRef.current = chatLayoutMode
+    if (previousChatLayoutMode === chatLayoutMode) return
+
+    if (chatLayoutMode === BENCH_CHAT_LAYOUT_FLOATING) {
       const nextContainerSize = readFloatingChatContainerSize(
         layoutRef.current,
         containerSizeRef.current,
       )
       setContainerSize(nextContainerSize)
-      setFloatingRect(resolveDefaultFloatingChatRect(nextContainerSize))
-      setFloatingEntryAnimation(false)
+      onFloatingRectChange(
+        clampFloatingChatRect(floatingRect, nextContainerSize, props.layoutProfile),
+      )
+      setFloatingEntryAnimation(true)
       return
     }
 
     setFloatingEntryAnimation(true)
-  }, [initialChatLayoutMode, props.benchKey])
+  }, [chatLayoutMode, floatingRect, onFloatingRectChange, props.layoutProfile])
 
   function readCurrentContainerSize() {
     return readFloatingChatContainerSize(layoutRef.current, containerSizeRef.current)
@@ -666,14 +781,17 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
   function floatChat() {
     const nextContainerSize = readCurrentContainerSize()
     setContainerSize(nextContainerSize)
-    setFloatingRect(resolveDefaultFloatingChatRect(nextContainerSize))
+    onFloatingRectChange(
+      clampFloatingChatRect(floatingRect, nextContainerSize, props.layoutProfile),
+    )
     setFloatingEntryAnimation(true)
-    setChatLayoutMode(BENCH_CHAT_LAYOUT_FLOATING)
+    props.onChatLayoutModeChange(BENCH_CHAT_LAYOUT_FLOATING)
   }
 
   function dockChat() {
+    onFloatingChatStateChange("open")
     setFloatingEntryAnimation(true)
-    setChatLayoutMode(BENCH_CHAT_LAYOUT_DOCKED)
+    props.onChatLayoutModeChange(BENCH_CHAT_LAYOUT_DOCKED)
   }
 
   function startFloatingChatDrag(event: ReactPointerEvent<HTMLDivElement>) {
@@ -717,7 +835,7 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
       const nextContainerSize = readCurrentContainerSize()
       const deltaX = moveEvent.clientX - startClientX
       const deltaY = moveEvent.clientY - startClientY
-      setFloatingRect(
+      onFloatingRectChange(
         clampFloatingChatRect(
           {
             ...startRect,
@@ -725,6 +843,7 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
             y: startRect.y + deltaY,
           },
           nextContainerSize,
+          props.layoutProfile,
         ),
       )
     }
@@ -786,13 +905,14 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
     function onPointerMove(moveEvent: PointerEvent) {
       if (moveEvent.pointerId !== pointerID) return
 
-      setFloatingRect(
+      onFloatingRectChange(
         resizeFloatingChatRect({
           rect: startRect,
           direction,
           deltaX: moveEvent.clientX - startClientX,
           deltaY: moveEvent.clientY - startClientY,
           containerSize: readCurrentContainerSize(),
+          profile: props.layoutProfile,
         }),
       )
     }
@@ -826,13 +946,11 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
         <ResizablePanelGroup
           id={BENCH_LAYOUT_ID}
           orientation="horizontal"
-          defaultLayout={defaultLayout}
-          onLayoutChanged={onLayoutChanged}
           className="min-h-0 flex-1 w-full"
         >
           <ResizablePanel
             id={BENCH_PANEL_ID}
-            minSize={BENCH_PANEL_MIN_WIDTH_PX}
+            minSize={layoutDefaults.benchMinWidthPx}
             className="min-h-0 min-w-0 overflow-hidden"
           >
             <BenchContent bordered>{props.bench}</BenchContent>
@@ -842,8 +960,8 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
             id={BENCH_CONVERSATION_PANEL_ID}
             panelRef={conversationPanelRef}
             defaultSize={chatPanelWidth}
-            minSize={BENCH_CHAT_PANEL_MIN_WIDTH_PX}
-            maxSize={getBenchChatPanelMaxWidth()}
+            minSize={layoutDefaults.dockedChatMinWidthPx}
+            maxSize={layoutDefaults.dockedChatMaxWidthPx}
             className="relative flex min-h-0 min-w-0 overflow-hidden"
           >
             <DockedConversationContent>
@@ -853,29 +971,36 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
               direction="horizontal"
               edge="start"
               size={chatPanelWidth}
-              min={BENCH_CHAT_PANEL_MIN_WIDTH_PX}
-              max={getBenchChatPanelMaxWidth()}
+              min={layoutDefaults.dockedChatMinWidthPx}
+              max={layoutDefaults.dockedChatMaxWidthPx}
               onResize={(width) => {
                 conversationPanelRef.current?.resize(width)
-                setChatPanelWidth(width)
+                onDockedChatWidthChange(width)
               }}
             />
           </ResizablePanel>
         </ResizablePanelGroup>
       )}
-      <AnimatePresence initial={false}>
-        {chatLayoutMode === BENCH_CHAT_LAYOUT_FLOATING ? (
-          <FloatingChatWindow
-            key="directory-chat-floating-window"
-            rect={floatingRect}
-            conversation={props.conversation({})}
-            animateInitial={floatingEntryAnimation}
-            onDock={dockChat}
-            onDragStart={startFloatingChatDrag}
-            onResizeStart={startFloatingChatResize}
-          />
-        ) : null}
-      </AnimatePresence>
+      {floatingWindowPresence.isPresent ? (
+        <FloatingChatWindow
+          key="directory-chat-floating-window"
+          rect={floatingRect}
+          conversation={props.conversation({})}
+          animateInitial={floatingEntryAnimation}
+          exiting={floatingWindowPresence.isExiting}
+          onDock={dockChat}
+          onMinimize={() => onFloatingChatStateChange("minimized")}
+          onDragStart={startFloatingChatDrag}
+          onResizeStart={startFloatingChatResize}
+        />
+      ) : null}
+      {floatingRestorePresence.isPresent ? (
+        <FloatingChatRestoreButton
+          key="directory-chat-floating-restore"
+          exiting={floatingRestorePresence.isExiting}
+          onRestore={() => onFloatingChatStateChange("open")}
+        />
+      ) : null}
     </section>
   )
 }
