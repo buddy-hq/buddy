@@ -266,11 +266,9 @@ export const dict = {
   "desktopTitlebar.collapseLeftPanel": "Collapse left panel",
   "desktopTitlebar.collapseRightPanel": "Collapse right panel",
   "desktopTitlebar.copySessionTrace": "Copy Session Trace (Dev Only)",
-  "desktopTitlebar.closeFiles": "Close project files",
   "desktopTitlebar.disconnectOpenAi": "Disconnect OpenAI",
   "desktopTitlebar.disconnectOpenAiFailed": "Failed to disconnect OpenAI",
   "desktopTitlebar.expandLeftPanel": "Expand left panel",
-  "desktopTitlebar.openFiles": "Open project files",
   "desktopTitlebar.expandRightPanel": "Expand right panel",
   "desktopTitlebar.exitOnboarding": "Exit onboarding",
   "desktopTitlebar.openAiDisconnected": "OpenAI disconnected",
@@ -588,8 +586,6 @@ export const dict = {
   "rightSidebar.tabs.runtime": "Runtime",
   "rightSidebar.tabs.diagrams": "Diagrams",
   "rightSidebar.tabs.editor": "Editor",
-  "rightSidebar.tabs.files": "Files",
-  "rightSidebar.tabs.figure": "Figure",
   "rightSidebar.tabs.questionSet": "Question Sets",
   "rightSidebar.tabs.resources": "Resources",
   "rightSidebar.tabs.snapshot": "Snapshot",
@@ -598,7 +594,6 @@ export const dict = {
   "rightSidebar.unavailable.runtime": "Session runtime is not available for this session yet.",
   "rightSidebar.unavailable.editor": "Interactive editor is not available for this session.",
   "rightSidebar.unavailable.files": "Files panel is not available for this session.",
-  "rightSidebar.unavailable.figure": "Figure tools are not available for this session.",
   "rightSidebar.unavailable.resources": "Resource management is not available for this session.",
   "rightSidebar.unavailable.snapshot": "No learner snapshot is available for this workspace yet.",
   "rightSidebar.unavailable.systemPrompt":
@@ -1159,14 +1154,6 @@ export const dict = {
   "teaching.editor.saved": "Saved",
   "teaching.editor.saveFailed": "Save failed",
   "teaching.editor.unsaved": "Unsaved",
-  "teaching.mathFigure.description":
-    "Math Buddy can render figures inline in the transcript when it needs diagrams, graphs, or geometric sketches.",
-  "teaching.mathFigure.phaseOneNote":
-    "This surface is a lightweight placeholder for phase 1. There is no dedicated figure canvas or history panel yet.",
-  "teaching.mathFigure.title": "Figure Surface",
-  "teaching.mathFigure.toolsHint":
-    "Ask Math Buddy to draw the next figure and it will appear inline in the chat.",
-  "teaching.mathFigure.toolsPrefix": "Available tools:",
   "workspaceMermaid.emptyState": "No diagrams yet. Ask buddy to create one.",
   "workspaceMermaid.loading": "Loading Mermaid diagrams...",
   "workspaceMermaid.repairedPrefix": "repaired",
