@@ -5,7 +5,6 @@ import { PalettePanel } from "@/components/debug/palette-panel"
 import { SystemPromptPanel } from "@/components/debug/system-prompt-panel"
 import { InteractiveLessonEmptyState } from "@/components/directory-chat/interactive-lesson-empty-state"
 import { TeachingEditorPanel } from "@/components/teaching/teaching-editor-panel"
-import { MathFigurePanel } from "@/components/teaching/math-figure-panel"
 import { ProjectFileExplorerPanel } from "@/components/project-explorer/project-file-explorer-panel"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
 import type { TeachingWorkspaceController } from "@/lib/directory-chat/use-teaching-workspace"
@@ -31,7 +30,6 @@ type DirectoryChatRightSidebarPanels = Pick<
   | "palettePanel"
   | "filesPanel"
   | "editorPanel"
-  | "figurePanel"
 >
 
 export function buildDirectoryChatRightSidebarPanels(
@@ -100,10 +98,6 @@ export function buildDirectoryChatRightSidebarPanels(
     )
   ) : undefined
 
-  const figurePanel = chatState.selectedPersonaSupportsFigure ? (
-    <MathFigurePanel className="h-full min-h-0 flex-1" />
-  ) : undefined
-
   return {
     agentsPanel: <AgentsMdPanel directory={directory} />,
     systemPromptPanel: showSystemPromptTab ? (
@@ -116,6 +110,5 @@ export function buildDirectoryChatRightSidebarPanels(
     palettePanel: showPaletteTab ? <PalettePanel /> : undefined,
     filesPanel,
     editorPanel,
-    figurePanel,
   }
 }

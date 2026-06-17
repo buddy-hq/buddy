@@ -88,7 +88,6 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
       directory={directory}
       activeTab={chatState.rightSidebarActiveTab}
       onTabChange={chatState.setRightSidebarTab}
-      surfaces={chatState.selectedPersonaSurfaces}
       showCapabilitiesTab={showCapabilitiesTab}
       showSystemPromptTab={showSystemPromptTab}
       showSnapshotTab={showSnapshotTab}
@@ -101,7 +100,6 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
       persona={chatState.selectedPersona}
       onRunAction={onRunCurriculumAction}
       editorPanel={panels.editorPanel}
-      figurePanel={panels.figurePanel}
       onClose={() => {
         useWorkspaceQuestionSetPanelStore.getState().closeQuestionSet(directory)
         chatState.setRightSidebarTab(chatState.selectedPersonaDefaultSurface)

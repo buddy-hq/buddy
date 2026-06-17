@@ -25,7 +25,6 @@ export type ChatRightSidebarTab =
   | "diagrams"
   | "files"
   | "editor"
-  | "figure"
   | "question-set"
   | "resources"
   | "agents-md"
@@ -33,21 +32,17 @@ export type ChatRightSidebarTab =
   | "system-prompt"
   | "palette"
   | "settings"
-export type ChatRightSidebarSurface = "curriculum" | "editor" | "figure" | "question-set"
-
 const SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR = false
 
 type ChatRightSidebarProps = {
   directory: string
   activeTab: ChatRightSidebarTab
   onTabChange: (tab: ChatRightSidebarTab) => void
-  surfaces: ChatRightSidebarSurface[]
   resourcesPanel?: ReactNode
   agentsPanel?: ReactNode
   systemPromptPanel?: ReactNode
   filesPanel?: ReactNode
   editorPanel?: ReactNode
-  figurePanel?: ReactNode
   onClose: () => void
   sessionID?: string
   persona?: string
@@ -129,27 +124,19 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
   )
   const questionSetPanelOpen =
     typeof selectedQuestionSetArtifactID === "string" && selectedQuestionSetArtifactID.length > 0
-  const visibleSurfaceTabSet = new Set(
-    props.surfaces.filter(
-      (surface): surface is ChatRightSidebarSurface =>
-        surface === "curriculum" || surface === "editor" || surface === "figure",
-    ),
-  )
   const fallbackTab: ChatRightSidebarTab = editorTabEnabled
     ? "editor"
-    : visibleSurfaceTabSet.has("figure")
-      ? "figure"
-      : snapshotTabEnabled
-        ? "curriculum"
-        : capabilitiesTabEnabled
-          ? "capabilities"
-          : systemPromptTabEnabled
-            ? "system-prompt"
-            : paletteTabEnabled
-              ? "palette"
-              : filesTabEnabled
-                ? "files"
-                : "curriculum"
+    : snapshotTabEnabled
+      ? "curriculum"
+      : capabilitiesTabEnabled
+        ? "capabilities"
+        : systemPromptTabEnabled
+          ? "system-prompt"
+          : paletteTabEnabled
+            ? "palette"
+            : filesTabEnabled
+              ? "files"
+              : "curriculum"
   const activeTab =
     props.activeTab === "system-prompt" && systemPromptTabEnabled
       ? "system-prompt"
@@ -169,14 +156,11 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                     ? "files"
                     : props.activeTab === "editor" && editorTabEnabled
                       ? "editor"
-                      : props.activeTab === "question-set" && questionSetPanelOpen
-                        ? "question-set"
-                        : visibleSurfaceTabSet.has(props.activeTab as ChatRightSidebarSurface) &&
-                            props.activeTab !== "curriculum"
-                          ? (props.activeTab as ChatRightSidebarSurface)
-                          : fallbackTab
+      : props.activeTab === "question-set" && questionSetPanelOpen
+        ? "question-set"
+        : fallbackTab
 
-  const showTabHeader = activeTab !== "question-set"
+  const showTabHeader = activeTab !== "question-set" && activeTab !== "files"
   const isSnapshotTabActive = activeTab === "curriculum" || activeTab === "capabilities"
   const learnerSnapshotQuery = useQuery({
     ...learnerSnapshotViewsQueryOptions(directory, {
@@ -255,16 +239,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                   onClick={() => props.onTabChange("editor")}
                 >
                   {language.t("rightSidebar.tabs.editor")}
-                </Button>
-              ) : null}
-              {props.surfaces.includes("figure") ? (
-                <Button
-                  data-action="right-sidebar-tab-figure"
-                  variant={activeTab === "figure" ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => props.onTabChange("figure")}
-                >
-                  {language.t("rightSidebar.tabs.figure")}
                 </Button>
               ) : null}
               {resourcesTabEnabled ? (
@@ -375,14 +349,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
           {props.editorPanel ?? (
             <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
               {language.t("rightSidebar.unavailable.editor")}
-            </div>
-          )}
-        </div>
-      ) : activeTab === "figure" ? (
-        <div className="flex-1 min-h-0 flex flex-col">
-          {props.figurePanel ?? (
-            <div className="flex flex-1 items-center justify-center p-4 text-sm text-text-weak">
-              {language.t("rightSidebar.unavailable.figure")}
             </div>
           )}
         </div>

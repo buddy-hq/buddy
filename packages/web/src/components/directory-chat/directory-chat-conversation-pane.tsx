@@ -25,7 +25,7 @@ type DirectoryChatConversationPaneProps = ComponentProps<typeof DirectoryChatMai
     options?: ResourceOpenOptions,
   ) => void
   onOpenQuestionSet: (directory: string, artifactID: string, selectedArtifactID?: string) => void
-  selectedPersonaDefaultSurface: "curriculum" | "editor" | "figure" | "question-set"
+  selectedPersonaDefaultSurface: "curriculum" | "editor" | "question-set"
   shellView?: DirectoryChatShellView
   directories?: string[]
   className?: string

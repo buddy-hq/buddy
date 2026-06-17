@@ -75,7 +75,7 @@ function WorkspaceQuestionSetPanelItem(props: {
 
 export function WorkspaceQuestionSetPanel(props: {
   directory: string
-  selectedPersonaDefaultSurface: "curriculum" | "editor" | "figure" | "question-set"
+  selectedPersonaDefaultSurface: "curriculum" | "editor" | "question-set"
 }) {
   const artifactsQuery = useQuery(workspaceQuestionSetArtifactsQueryOptions(props.directory))
   const artifacts = (artifactsQuery.data?.artifacts ?? []).filter(artifactKindFilter("question-set"))
