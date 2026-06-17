@@ -673,7 +673,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
     activePath && isMarkdownFilePath(activePath)
       ? (markdownModeByPath[activePath] ?? MARKDOWN_VIEW_MODE_VIEW)
       : undefined
-  const openTabCount = openTabs.length
+
   const activeReaderSource = useMemo<FoliateReaderSource | null>(() => {
     if (!activePath) return null
     const blob = activeReaderViewState?.blob
@@ -895,51 +895,10 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
         props.className,
       )}
     >
-      <div className="flex items-start justify-between gap-3 border-b border-border-weaker-base bg-background-base/95 px-4 py-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-text-base">
-              {language.t("projectExplorer.title")}
-            </p>
-            {openTabCount > 0 ? <Badge variant="secondary">{openTabCount}</Badge> : null}
-          </div>
-          <p className="mt-1 truncate text-[11px] text-text-weak">{props.directory}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            title={
-              treeOpen
-                ? language.t("projectExplorer.hideTree")
-                : language.t("projectExplorer.showTree")
-            }
-            onClick={() => setTreeOpen(!treeOpen)}
-          >
-            {treeOpen ? (
-              <PanelRightCloseIcon className="size-4" />
-            ) : (
-              <PanelRightOpenIcon className="size-4" />
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => {
-              void refreshExpandedDirectories()
-            }}
-            disabled={directoriesByPath[ROOT_DIRECTORY_PATH]?.loading === true}
-            title={language.t("projectExplorer.refresh")}
-          >
-            <RefreshCwIcon className="size-4" />
-          </Button>
-        </div>
-      </div>
-
       <div className="flex min-h-0 flex-1">
         <div className="min-w-0 flex min-h-0 flex-1 flex-col">
-          <div className="border-b border-border-weaker-base bg-background-base/75 px-3 py-2">
-            <div className="flex min-h-9 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex items-center gap-2 border-b border-border-weaker-base bg-background-base/75 px-3 py-2">
+            <div className="flex min-h-9 flex-1 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {openTabs.length === 0 ? (
                 <span className="px-1 text-xs text-text-weak">
                   {language.t("projectExplorer.noOpenFiles")}
@@ -1237,13 +1196,36 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
             )}
           >
             <div className="flex h-full min-h-0 flex-col">
-              <div className="border-b border-border-weaker-base px-3 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-text-weak">
-                  {language.t("projectExplorer.explorer")}
-                </p>
-                <p className="mt-1 text-[11px] text-text-weak">
-                  {language.t("projectExplorer.files")}
-                </p>
+              <div className="flex items-start justify-between gap-2 border-b border-border-weaker-base px-3 py-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-text-weak">
+                    {language.t("projectExplorer.explorer")}
+                  </p>
+                  <p className="mt-1 text-[11px] text-text-weak">
+                    {language.t("projectExplorer.files")}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    title={language.t("projectExplorer.hideTree")}
+                    onClick={() => setTreeOpen(false)}
+                  >
+                    <PanelRightCloseIcon className="size-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    onClick={() => {
+                      void refreshExpandedDirectories()
+                    }}
+                    disabled={directoriesByPath[ROOT_DIRECTORY_PATH]?.loading === true}
+                    title={language.t("projectExplorer.refresh")}
+                  >
+                    <RefreshCwIcon className="size-4" />
+                  </Button>
+                </div>
               </div>
               <div className="min-h-0 overflow-y-auto px-2 py-2">
                 {directoriesByPath[ROOT_DIRECTORY_PATH]?.loading &&

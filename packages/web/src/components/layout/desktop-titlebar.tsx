@@ -1,7 +1,7 @@
 import type { MouseEvent } from "react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useLocation, useNavigate, useRouterState } from "@tanstack/react-router"
-import { FolderOpenIcon, Button, MoveLeftIcon } from "@buddy/ui"
+import { Button, MoveLeftIcon } from "@buddy/ui"
 import { ScrollTextIcon, SquareLibraryIcon, type LucideIcon } from "lucide-react"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
@@ -14,7 +14,6 @@ import {
   LayoutRightIcon,
   LayoutRightPartialIcon,
 } from "./sidebar-icons"
-import type { ChatRightSidebarTab } from "./chat-right-sidebar"
 import {
   getRightSidebarDefaultWidth,
   getRightSidebarMinWidth,
@@ -92,7 +91,6 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const isFocusedBenchPage = focusedBenchMatch !== undefined
   const directoryToken = readDirectoryParam(focusedBenchMatch?.params)
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const lastBenchSidebarTabRef = useRef<Exclude<ChatRightSidebarTab, "files">>("resources")
 
   useEffect(() => {
     if (!isMac) return
@@ -107,11 +105,6 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
     window.addEventListener("buddy:fullscreen-changed", handler)
     return () => window.removeEventListener("buddy:fullscreen-changed", handler)
   }, [isMac, platform])
-
-  useEffect(() => {
-    if (rightSidebarTab === "files") return
-    lastBenchSidebarTabRef.current = rightSidebarTab
-  }, [rightSidebarTab])
 
   if (!isMac && !isWindows) {
     return null
@@ -142,38 +135,14 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       return
     }
 
-    const nextTab =
-      rightSidebarTab === "files" ? lastBenchSidebarTabRef.current : rightSidebarTab
-    if (nextTab !== rightSidebarTab) {
-      setRightSidebarTab(nextTab)
-    }
-
-    const nextMinWidth = getRightSidebarMinWidth(nextTab)
-    if (rightSidebarWidth < nextMinWidth) {
-      setRightSidebarWidth(
-        nextTab === "editor" ? getRightSidebarDefaultWidth("editor") : nextMinWidth,
-      )
-    }
-
-    setRightSidebarOpen(true)
-  }
-
-  function onToggleFilesPanel() {
-    if (rightSidebarOpen && rightSidebarTab === "files") {
-      setRightSidebarOpen(false)
-      setRightSidebarTab(lastBenchSidebarTabRef.current)
-      return
-    }
-
     if (rightSidebarTab !== "files") {
-      lastBenchSidebarTabRef.current = rightSidebarTab
+      setRightSidebarTab("files")
     }
 
     if (rightSidebarWidth < getRightSidebarMinWidth("files")) {
       setRightSidebarWidth(getRightSidebarDefaultWidth("files"))
     }
 
-    setRightSidebarTab("files")
     setRightSidebarOpen(true)
   }
 
@@ -196,30 +165,6 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
 
   const rightSidebarToggle = showSidebarToggles ? (
     <div className="mr-2 flex shrink-0 items-center gap-1">
-      <Button
-        type="button"
-        data-action="titlebar-toggle-files-panel"
-        variant="ghost"
-        className={`h-6 w-8 p-0 box-border [-webkit-app-region:no-drag] ${
-          rightSidebarOpen && rightSidebarTab === "files"
-            ? "bg-surface-base-hover text-icon-base"
-            : "text-icon-base hover:bg-surface-base-hover"
-        }`}
-        aria-label={
-          rightSidebarOpen && rightSidebarTab === "files"
-            ? language.t("desktopTitlebar.closeFiles")
-            : language.t("desktopTitlebar.openFiles")
-        }
-        aria-expanded={rightSidebarOpen && rightSidebarTab === "files"}
-        title={
-          rightSidebarOpen && rightSidebarTab === "files"
-            ? language.t("desktopTitlebar.closeFiles")
-            : language.t("desktopTitlebar.openFiles")
-        }
-        onClick={onToggleFilesPanel}
-      >
-        <TitlebarIcon icon={FolderOpenIcon} />
-      </Button>
       <Button
         type="button"
         data-action="titlebar-toggle-right-sidebar"
