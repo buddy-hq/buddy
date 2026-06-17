@@ -18,7 +18,7 @@ const BUILTIN_BUDDY_PERSONA_METADATA = {
     id: "buddy",
     label: "Buddy",
     description: "The default Buddy persona for learning conversations and project help.",
-    surfaces: ["curriculum", "figure", "flashcard", "question-set"],
+    surfaces: ["curriculum", "flashcard", "question-set"],
     defaultSurface: "curriculum",
     hidden: false,
   },

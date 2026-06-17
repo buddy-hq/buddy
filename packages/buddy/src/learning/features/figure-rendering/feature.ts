@@ -7,5 +7,5 @@ export const figureRenderingFeature = defineBuddyFeature({
   tools: [renderFigureTool, renderFreeformFigureTool],
   skills: [],
   subagents: [],
-  surfaces: ["figure"],
+  surfaces: [],
 })

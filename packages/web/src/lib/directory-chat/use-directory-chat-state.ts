@@ -173,9 +173,7 @@ function resolveSelectedVariant(input: {
 }
 
 function isSidebarSurface(value: string): value is PersonaConfigOption["surfaces"][number] {
-  return (
-    value === "curriculum" || value === "editor" || value === "figure" || value === "question-set"
-  )
+  return value === "curriculum" || value === "editor" || value === "question-set"
 }
 
 type UseDirectoryChatStateProps = {
@@ -301,7 +299,6 @@ export type DirectoryChatState = DirectoryChatStoreSlice &
     selectedPersonaSurfaces: PersonaConfigOption["surfaces"]
     selectedPersonaDefaultSurface: PersonaConfigOption["defaultSurface"]
     selectedPersonaSupportsEditor: boolean
-    selectedPersonaSupportsFigure: boolean
     selectedSurfaceTab: PersonaConfigOption["surfaces"][number]
     isInteractiveMode: boolean
     autoCompactionEnabled: boolean
@@ -626,7 +623,6 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     selectedPersonaConfig?.surfaces ?? (["curriculum"] satisfies PersonaConfigOption["surfaces"])
   const selectedPersonaDefaultSurface = selectedPersonaConfig?.defaultSurface ?? "curriculum"
   const selectedPersonaSupportsEditor = selectedPersonaSurfaces.includes("editor")
-  const selectedPersonaSupportsFigure = selectedPersonaSurfaces.includes("figure")
   const isInteractiveMode = !!sessionID && !!teachingWorkspace
   const selectedSurfaceTab =
     rightSidebarTab === "editor"
@@ -746,7 +742,6 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     selectedPersonaSurfaces,
     selectedPersonaDefaultSurface,
     selectedPersonaSupportsEditor,
-    selectedPersonaSupportsFigure,
     selectedSurfaceTab,
     isInteractiveMode,
     autoCompactionEnabled: props.autoCompactionEnabled,

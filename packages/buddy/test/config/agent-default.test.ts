@@ -131,7 +131,7 @@ describe("config default_persona", () => {
         {
           personas: {
             "code-buddy": {
-              defaultSurface: "figure",
+              defaultSurface: "flashcard",
             },
           },
         },
@@ -145,7 +145,7 @@ describe("config default_persona", () => {
       data: {
         issues: expect.arrayContaining([
           expect.objectContaining({
-            message: 'defaultSurface "figure" must remain available for code-buddy',
+            message: 'defaultSurface "flashcard" must remain available for code-buddy',
           }),
         ]),
       },

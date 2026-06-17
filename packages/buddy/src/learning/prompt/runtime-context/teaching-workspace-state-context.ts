@@ -12,15 +12,12 @@ export const teachingWorkspaceStateSection = defineRuntimeSection({
   render: (context) => {
     const teachingWorkspaceState = context.teachingWorkspaceState
     const hasEditor = context.visibleSurfaces.includes("editor")
-    const hasFigure = context.visibleSurfaces.includes("figure")
 
     const guidance = hasEditor
       ? teachingWorkspaceState === "active"
         ? "An interactive lesson workspace is active. Ground coding help in the live lesson files."
         : "No interactive lesson workspace is active. Teach in chat unless the learner explicitly wants an editor-backed lesson."
-      : hasFigure
-        ? "Teach primarily through chat. Render a figure only when it materially improves the current explanation."
-        : "Teach through normal chat. Use learner state and project context to stay grounded."
+      : "Teach through normal chat. Use learner state and project context to stay grounded."
 
     TEACHING_WORKSPACE_STATE_CONTEXT_TEMPLATE.render({
       workspace_state: teachingWorkspaceState,

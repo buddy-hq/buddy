@@ -1,16 +1,10 @@
 export const PERSONAS = ["buddy", "code-buddy"] as const
 export type Persona = (typeof PERSONAS)[number]
 
-export const SURFACES = ["curriculum", "editor", "figure", "flashcard", "question-set"] as const
+export const SURFACES = ["curriculum", "editor", "flashcard", "question-set"] as const
 export type Surface = (typeof SURFACES)[number]
 
-export const PERSONA_SURFACES = [
-  "curriculum",
-  "editor",
-  "figure",
-  "flashcard",
-  "question-set",
-] as const
+export const PERSONA_SURFACES = ["curriculum", "editor", "flashcard", "question-set"] as const
 export type PersonaSurface = (typeof PERSONA_SURFACES)[number]
 
 export const TEACHING_WORKSPACE_STATES = ["inactive", "active"] as const

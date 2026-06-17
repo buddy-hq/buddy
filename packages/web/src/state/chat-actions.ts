@@ -72,8 +72,8 @@ export type PersonaConfigOption = {
   id: string
   label: string
   description?: string
-  surfaces: Array<"curriculum" | "editor" | "figure" | "question-set">
-  defaultSurface: "curriculum" | "editor" | "figure" | "question-set"
+  surfaces: Array<"curriculum" | "editor" | "question-set">
+  defaultSurface: "curriculum" | "editor" | "question-set"
   hidden?: boolean
 }
 
@@ -85,7 +85,7 @@ export type LearnerCurriculumView = {
     pinnedGoalIds: string[]
     projectConstraints: string[]
     localToolAvailability: string[]
-    preferredSurfaces: Array<"chat" | "curriculum" | "editor" | "figure" | "question-set">
+    preferredSurfaces: Array<"chat" | "curriculum" | "editor" | "question-set">
     motivationContext?: string
     opportunities: string[]
     userOverride: boolean
@@ -682,7 +682,6 @@ function parseWorkspaceView(workspace: unknown): LearnerCurriculumView["workspac
       surface === "chat" ||
       surface === "curriculum" ||
       surface === "editor" ||
-      surface === "figure" ||
       surface === "question-set",
   )
 
@@ -707,10 +706,7 @@ function parsePersonaSurfaces(surfaces: string[] | undefined): PersonaConfigOpti
 
   const normalized = surfaces.filter(
     (surface): surface is PersonaConfigOption["surfaces"][number] =>
-      surface === "curriculum" ||
-      surface === "editor" ||
-      surface === "figure" ||
-      surface === "question-set",
+      surface === "curriculum" || surface === "editor" || surface === "question-set",
   )
 
   return normalized.length > 0 ? normalized : [DEFAULT_PERSONA_SURFACE]
@@ -720,12 +716,7 @@ function parseDefaultSurface(
   value: string | undefined,
   surfaces: PersonaConfigOption["surfaces"],
 ): PersonaConfigOption["defaultSurface"] {
-  if (
-    value === "curriculum" ||
-    value === "editor" ||
-    value === "figure" ||
-    value === "question-set"
-  ) {
+  if (value === "curriculum" || value === "editor" || value === "question-set") {
     return value
   }
   return surfaces[0] ?? DEFAULT_PERSONA_SURFACE
@@ -2403,7 +2394,7 @@ function buildCurriculumViewFromSnapshot(snapshot: LearnerMemorySnapshot): Learn
   return {
     workspace: parseWorkspaceView({
       label: "Learner memory",
-      preferredSurfaces: ["chat", "curriculum", "editor", "figure", "question-set"],
+      preferredSurfaces: ["chat", "curriculum", "editor", "question-set"],
     }),
     coldStart: activeMemories.length === 0,
     alignmentSummary: EMPTY_ALIGNMENT_SUMMARY,
