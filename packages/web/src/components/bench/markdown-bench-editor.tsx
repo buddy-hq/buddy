@@ -168,7 +168,7 @@ const MDX_EDITOR_THEME_CLASS_NAME = [
 
 const MARKDOWN_CONTENT_CLASS_NAME = [
   markdownClassName,
-  "min-h-[calc(100vh-12rem)] px-8 py-6 focus:outline-none",
+  "min-h-[calc(100vh-12rem)] px-8 py-12 focus:outline-none",
   // MDXEditor uses --text-base for font sizing, which shadows Buddy's color token alias.
   "![color:var(--markdown-text)]",
   "![font-size:calc(var(--buddy-font-size-sm)*var(--markdown-bench-document-font-scale))]",
@@ -450,24 +450,29 @@ export const MarkdownBenchEditor = forwardRef<
   }, [editorMarkdown, props.markdown])
 
   const mdxEditorElement = (
-    <MDXEditor
-      ref={editorRef}
-      className={cn(
-        "min-h-full bg-background-base text-text-base",
-        MDX_EDITOR_THEME_CLASS_NAME,
-      )}
-      markdown={editorMarkdown}
-      plugins={plugins}
-      readOnly={isPrintView}
-      toMarkdownOptions={MARKDOWN_SERIALIZATION_OPTIONS}
-      onChange={(nextMarkdown, initialMarkdownNormalize) => {
-        if (initialMarkdownNormalize || applyingExternalMarkdownRef.current) {
-          return
-        }
-        props.onChange(nextMarkdown)
-      }}
-      contentEditableClassName={MARKDOWN_CONTENT_CLASS_NAME}
-    />
+    <div
+      data-component="markdown-bench-paper"
+      className="mx-auto w-full max-w-3xl min-h-full overflow-hidden rounded-lg border border-border-weak-base bg-background-base shadow-sm"
+    >
+      <MDXEditor
+        ref={editorRef}
+        className={cn(
+          "min-h-full bg-background-base text-text-base",
+          MDX_EDITOR_THEME_CLASS_NAME,
+        )}
+        markdown={editorMarkdown}
+        plugins={plugins}
+        readOnly={isPrintView}
+        toMarkdownOptions={MARKDOWN_SERIALIZATION_OPTIONS}
+        onChange={(nextMarkdown, initialMarkdownNormalize) => {
+          if (initialMarkdownNormalize || applyingExternalMarkdownRef.current) {
+            return
+          }
+          props.onChange(nextMarkdown)
+        }}
+        contentEditableClassName={MARKDOWN_CONTENT_CLASS_NAME}
+      />
+    </div>
   )
 
   return (
@@ -481,7 +486,7 @@ export const MarkdownBenchEditor = forwardRef<
       data-content-theme={props.contentTheme?.mode}
       data-markdown-bench-theme-scope={themeScopeID}
       className={cn(
-        "markdown-bench-editor relative h-full min-h-0 overflow-y-auto bg-background-base text-text-base",
+        "markdown-bench-editor relative h-full min-h-0 overflow-y-auto bg-background-weak px-6 pt-6 pb-48 text-text-base",
         props.className,
       )}
       onPointerUp={notifySelectionChange}
@@ -491,7 +496,7 @@ export const MarkdownBenchEditor = forwardRef<
         <div
           aria-hidden
           data-component="markdown-bench-selection-section-overlay"
-          className="pointer-events-none absolute inset-x-0 top-0 z-20"
+          className="pointer-events-none absolute left-1/2 top-0 z-20 w-full max-w-3xl -translate-x-1/2"
         >
           <div
             data-component="markdown-bench-selection-section"

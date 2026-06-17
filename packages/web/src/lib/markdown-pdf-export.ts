@@ -260,6 +260,19 @@ const MARKDOWN_PDF_PRINT_STYLES = `
     background: transparent !important;
   }
 
+  [data-markdown-export-root] [data-component="markdown-bench-editor"] {
+    padding: 0 !important;
+    background: transparent !important;
+  }
+
+  [data-markdown-export-root] [data-component="markdown-bench-paper"] {
+    max-width: none !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
   [data-markdown-export-root] p,
   [data-markdown-export-root] li,
   [data-markdown-export-root] dd,
