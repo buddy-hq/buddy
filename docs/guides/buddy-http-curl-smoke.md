@@ -249,6 +249,201 @@ process.stdin.on("data", (d) => (s += d)).on("end", () => {
 })'
 ```
 
+## Managed object smoke
+
+For managed object storage changes, smoke both sides of the boundary:
+
+1. prompt-driven tool execution creates or presents a managed object
+2. `/api/objects` indexes it from disk
+3. typed object routes can read the object payloads
+4. at least one negative case returns a non-500 status with:
+
+```json
+{"error":"..."}
+```
+
+Start with an empty managed object index:
+
+```bash
+curl -sS "http://127.0.0.1:3011/api/objects?directory=$DIRECTORY_Q" | node -e '
+let s = ""
+process.stdin.on("data", (d) => (s += d)).on("end", () => {
+  const data = JSON.parse(s)
+  if (!Array.isArray(data.objects) || !Array.isArray(data.loadErrors)) {
+    throw new Error("Unexpected object index shape")
+  }
+  console.log(JSON.stringify({ objects: data.objects.length, loadErrors: data.loadErrors.length }))
+})'
+```
+
+### Prompt-generated object checks
+
+Do not only seed fixture files. For flows that are meant to be agent-facing,
+also send prompts that exercise the same multi-step behavior the product uses:
+the agent may write a file and then present it, delegate to a subagent that
+saves the object, or call a rendering tool directly. Verify the completed flow
+through assistant tool metadata when it is surfaced directly, and always verify
+the stored object through `/api/objects`.
+
+Mermaid known-good prompt:
+
+```text
+Smoke test only. Call render_mermaid exactly once with source `flowchart LR\nA[Smoke]-->B[OK]` and alt `HTTP smoke Mermaid diagram`. Then reply with exactly: MERMAID_OBJECT_SMOKE_OK
+```
+
+Expected:
+
+- completed assistant tool parts include `render_mermaid`
+- final assistant text contains `MERMAID_OBJECT_SMOKE_OK`
+- tool metadata contains `buddyObjectResult.primaryRef.objectID`
+- `GET /api/objects?directory=$DIRECTORY_Q&kind=mermaid` includes that ID
+
+Repeat the same product-level flow for other object-producing features when
+their feature is in scope:
+
+- `present_html_widget`: first create a real `.html` file in the temp
+  workspace, then prompt Buddy to present that exact file path. In broader
+  behavior smokes, let the agent write the HTML first and then present the file,
+  because that is the normal file-first authoring path.
+- `present_media`: first create a real local file, then prompt Buddy to
+  present it with `present_media`; auto-ingestion should happen as part of the
+  presentation flow. Media manifests retain file references, but typed reads
+  and the unified index refresh availability from disk. For a multi-item
+  presentation, delete one original file after presentation and verify the
+  next index read reports that item as `missing` while leaving the other item
+  `available`. Delete all originals and verify every item is unavailable; the
+  Library Media tab should exclude that presentation.
+- Question sets: `save_question_set` is owned by the `question-set-author`
+  subagent, not by the primary Buddy agent. Prompt the primary agent to use the
+  `task` tool with `subagent_type: "question-set-author"` and ask that subagent
+  to save a one-question MCQ. The main chat renders the saved object from task
+  metadata, so verify the `task` flow completes, the new `question-set` object
+  appears in the managed object index, and public reads omit correct-answer
+  fields.
+- Flashcards: `save_flashcard_deck` is owned by the `flashcard-author`
+  subagent, not by the primary Buddy agent. Prompt the primary agent to use the
+  `task` tool with `subagent_type: "flashcard-author"` and ask that subagent to
+  save a one-card deck. The main chat renders the saved object from task
+  metadata, so verify the `task` flow completes, the new `flashcard-deck`
+  object appears in the managed object index, then verify `next-card` and
+  `reviews`.
+- `render_figure`: prompt for a small geometry spec and verify the SVG raw
+  route.
+- `render_freeform_figure`: prompt for a simple SVG and verify the SVG raw
+  route.
+
+For subagent-owned objects, the primary session transcript may only show the
+completed `task` tool part. Treat the managed object index as the source of
+truth for the produced `objectID`: capture the current IDs before prompting,
+poll until idle, then select the new or newest object of the expected kind from
+`/api/objects?directory=$DIRECTORY_Q&kind=...`.
+
+When a prompt smoke asks the agent to create or edit a local file first, the
+generic OpenCode `write` tool may ask for `edit` permission. Raw HTTP smokes do
+not have the desktop approval UI, so either pre-grant edit permission when
+creating the smoke session:
+
+```json
+{
+  "title": "HTTP file-first smoke",
+  "model": { "providerID": "opencode", "id": "deepseek-v4-flash-free" },
+  "permission": [
+    { "permission": "edit", "pattern": "*", "action": "allow" }
+  ]
+}
+```
+
+or poll and answer pending permission requests:
+
+```bash
+curl -sS "http://127.0.0.1:3011/api/permission?directory=$DIRECTORY_Q"
+curl -sS -X POST \
+  -H 'content-type: application/json' \
+  --data '{"reply":"once"}' \
+  "http://127.0.0.1:3011/api/permission/$REQUEST_ID/reply?directory=$DIRECTORY_Q"
+```
+
+If a session remains busy with a running `write` tool and no object-producing
+tool call, abort it with `POST /api/session/:sessionID/abort`. Treat that as a
+file-edit permission smoke issue, not an object storage failure; rerun with
+explicit edit permission before judging the product-level file-first flow.
+
+If prompt generation is temporarily blocked by model availability, do not call
+the managed object smoke complete. You can still run fixture-backed route
+checks to localize whether the failure is in generation, storage, or HTTP
+serving.
+
+### Typed object route checks
+
+After prompt generation or fixture seeding, exercise the typed routes. Keep a
+few direct `curl` checks for independent HTTP-contract coverage, especially the
+managed object index shape and one negative error body. For the longer
+typed-route matrix, prefer the generated `@buddy/sdk` client when it is
+available; that also verifies SDK generation and keeps path/query construction
+out of ad hoc smoke scripts.
+
+For normalized learner objects, the current route families are:
+
+```text
+GET /api/objects?directory=$DIRECTORY_Q
+GET /api/objects?directory=$DIRECTORY_Q&kind=figure
+
+GET /api/objects/mermaid/:objectID/source
+PUT /api/objects/mermaid/:objectID/render-record
+GET /api/objects/mermaid/:objectID/render-record
+
+GET /api/objects/question-set/:objectID/questions
+POST /api/objects/question-set/:objectID/attempts
+
+GET /api/objects/flashcard-deck/:objectID/deck
+GET /api/objects/flashcard-deck/:objectID/next-card
+POST /api/objects/flashcard-deck/:objectID/reviews
+
+GET /api/objects/html-widget/:objectID/source
+GET /api/objects/html-widget/:objectID/runtime
+
+GET /api/objects/media-presentation/:objectID/raw/:itemID
+GET /api/objects/media-presentation/:objectID/items/:itemID/availability
+
+GET /api/objects/figure/:objectID/raw
+GET /api/objects/freeform-figure/:objectID/raw
+```
+
+Mermaid render-record GET returns an envelope, not the record at the response
+root:
+
+```json
+{
+  "renderKey": "...",
+  "render": {
+    "status": "rendered"
+  }
+}
+```
+
+So assert `data.render.status`, not `data.status`.
+
+For negative object route checks, use a syntactically valid missing ULID so
+you test not-found mapping, not only ID validation:
+
+```bash
+curl -sS -o /tmp/buddy-object-negative.json -w '%{http_code}' \
+  "http://127.0.0.1:3011/api/objects/figure/01ARZ3NDEKTSV4RRFFQ69G5FAV?directory=$DIRECTORY_Q"
+
+cat /tmp/buddy-object-negative.json
+```
+
+Expected:
+
+- status `404`
+- body has `{"error":"..."}`
+- no `Unhandled Buddy route error` appears in the backend log
+
+If a typed object route returns `500` for a missing object while the raw route
+returns `404`, check whether that route's feature-specific mapper delegates to
+the shared object route error mapper. Metadata reads should map store
+not-found errors through the Buddy-standard HTTP error body.
+
 ## Timing a prompt
 
 To diagnose pre-LLM delay, capture only the log slice produced by the smoke:
@@ -425,5 +620,11 @@ For these route-level smokes, check both:
 - Use absolute directory paths.
 - Do not assume the async status map keeps idle entries forever.
 - For dynamic tools, verify actual assistant tool parts, not only route `204`.
+- For object-producing tools, verify prompt-created objects through both the
+  managed object index and typed read/raw/action routes.
+- For managed object negative cases, include one valid-but-missing ULID route check
+  and require a non-500 `{"error":"..."}` response.
+- If you change route error mapping, restart the backend before re-running curl
+  checks. A still-running dev server will keep the old mapper.
 - For project identity issues, use fresh fixed-date repos so collisions are
   deterministic.

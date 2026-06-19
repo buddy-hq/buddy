@@ -1,0 +1,289 @@
+---
+name: create-buddy-tool-guide
+description: Use when creating a new Buddy tool from scratch or refactoring old Buddy tool's schemas, prompts and descriptions.
+---
+# Create Buddy Tool Guide
+
+Models like you are very bad at tool authoring, so you must not create schemas and prompts without referring and reading the relevant documents inside this guide. Also, parameters usually have describe blocks. Make sure that you always add those describe blocks wherever they are relevant. The tools inside the current repository may or may not be the optimum tools for references in terms of schema design, prompts, and descriptions, so you must always refer and read the relevant links from this guide before writing a tool's schema, writing a tool's description, writing a tool's prompt. Everything else can be buddy managed, but these three things are very important to make ANY tool system work. 
+
+You must think about who Buddy is for, what the tool name should be when facing the model, what tool parameters name should be when they are facing the model. If the tool parameters are complicated, how to enhance them with describe blocks. And if user is asking for something that you think you don't agree with in terms of these heuristics, then you must tell the user about what you learned from the documentation. 
+
+Before writing any new tool, you must always read the internal wiring of CreateBuddyTool API and then start writing the tool. Even though the API is pretty obvious, you must take no risks while creating a new tool. 
+
+This skill only has information about OpenAI and Anthropic tool use and function calling use, but the core principles remain same across all tools, and we are anyway not handling how tool calling happens internally, that is managed by the vendor. So all we need to care about is how we structure these tools, and that is why you should read the links. Also consider these links as starting points, not the end constraints. If you want more links or you need more information, you are free to research, but only through two official sources and nothing else. 
+
+## Invariant
+
+An invariant of after triggering this skill is if you are refactoring a tool or writing a schema or writing a tool prompt, you must do research from the links given below before moving on. The whole point of this skill is that. 
+
+
+## Side-Effects
+Say you are refactoring a tool. You change the schema or you change the metadata or you change what it returns. Even say you change the name. You have to keep looking for side effects before closing that issue. By side effects, the side effects can be of the following types. Side effect number one could be that you have changed the name of the tool, but that name is referred at different places in different markdown files as a prompt. So if you change the name here, those prompts also need to change. Another side effect is you changed the metadata or you changed any trigger inside the tool that affects the front end. So the renderers might also need to change if you change any of the programmatic bits of the tool. For describe blocks and prompting, say you changed the describe blocks or prompting, but then you duplicate stuff in describe block in prompting. So make sure that is not the case. Similarly, look for side effects into different skills. So if you change the prompt here about how the tool works, but there's a different related skill that you find with a grep search, that skill is mentioning this tool working in a completely different way. For this, you may refer to how ingest full text and the reading skills work together. They depend on each other. So always check for side effects in front end, in the prompt layer, in the back end, in the skill layer before closing out on something. 
+
+## Provider terms
+
+
+
+| Concept                         | OpenAI term                      | Anthropic term      |
+
+| ------------------------------- | -------------------------------- | ------------------- |
+
+| Model calls external capability | Function calling / tool calling  | Tool use            |
+
+| User-defined callable unit      | Function tool / tool             | Client tool         |
+
+| Provider-hosted capability      | Built-in tool                    | Server tool         |
+
+| Tool definition list            | `tools`                          | `tools`             |
+
+| Tool selection control          | `tool_choice`                    | `tool_choice`       |
+
+| Tool argument schema            | JSON Schema parameters           | `input_schema`      |
+
+| Tool call emitted by model      | Tool call                        | `tool_use` block    |
+
+| Tool result returned to model   | Tool output / tool result        | `tool_result` block |
+
+| Strict schema behavior          | Structured Outputs / strict mode | Strict tool use     |
+
+
+
+## OpenAI source map
+
+
+
+### Function calling guide — https://developers.openai.com/api/docs/guides/function-calling
+
+
+
+Topics located here: function calling overview, tool calling overview, function tools, custom tools, tool calling flow, defining functions, JSON schema parameters, tool call outputs, `tools`, `tool_choice`, strict mode, parallel function calling, streaming function calls.
+
+
+
+Search terms: `How it works`, `Tools`, `Function tool example`, `Defining functions`, `tool_choice`, `Strict mode`, `Parallel function calling`, `Streaming`.
+
+
+
+### Using tools guide — https://developers.openai.com/api/docs/guides/tools
+
+
+
+Topics located here: OpenAI tool ecosystem, built-in tools, function calling and platform tools, web search, file search, code interpreter, computer use, MCP, connectors.
+
+
+
+Search terms: `built-in tools`, `function calling`, `web search`, `file search`, `code interpreter`, `computer use`, `MCP`.
+
+
+
+### Structured Outputs guide — https://developers.openai.com/api/docs/guides/structured-outputs
+
+
+
+Topics located here: JSON/schema-constrained output, Structured Outputs, schema adherence, strict schema behavior, supported JSON Schema subset, reliable structured responses, relationship between structured output and function calling.
+
+
+
+Search terms: `Structured Outputs`, `JSON Schema`, `strict`, `supported schemas`, `additionalProperties`, `limitations`.
+
+
+
+### Responses API reference — https://developers.openai.com/api/reference/resources/responses/methods/create
+
+
+
+Topics located here: Responses API request fields, Responses API response fields, `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, response object shape, output item shape.
+
+
+
+Search terms: `tools`, `tool_choice`, `parallel_tool_calls`, `stream`, `response`, `output`.
+
+
+
+### Chat Completions API reference — https://developers.openai.com/api/reference/resources/chat
+
+
+
+Topics located here: Chat Completions request fields, Chat Completions response fields, Chat Completions tool calling, `tools`, `tool_choice`, `tool_calls`, function/tool compatibility in Chat Completions.
+
+
+
+Search terms: `tools`, `tool_choice`, `function`, `tool_calls`.
+
+
+
+## Anthropic source map
+
+
+
+### Tool use overview — https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview
+
+
+
+Topics located here: Claude tool-use overview, client tools, server tools, where tools execute, agentic loop, when Claude uses tools, tool-use examples, high-level token and pricing notes.
+
+
+
+Search terms: `Tool use with Claude`, `How tool use works`, `client tools`, `server tools`, `When Claude uses tools`, `tool_choice`, `tool_use`, `tool_result`.
+
+
+
+### How tool use works — https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works
+
+
+
+Topics located here: tool-use lifecycle, agent loop, client tool execution, server tool execution, stop reasons, tool-use control flow, tool selection behavior.
+
+
+
+Search terms: `tool_use`, `tool_result`, `stop_reason`, `client tools`, `server tools`, `agent loop`.
+
+
+
+### Define tools — https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools
+
+
+
+Topics located here: tool definition shape, `name`, `description`, `input_schema`, `input_examples`, `tool_choice`, forced tool use, disabled tool use, tool definition best practices.
+
+
+
+Search terms: `Specifying client tools`, `input_schema`, `input_examples`, `tool_choice`, `Forcing tool use`, `Best practices for tool definitions`.
+
+
+
+### Handle tool calls — https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls
+
+
+
+Topics located here: receiving tool calls from Claude, parsing `tool_use`, executing client tools in the application, returning `tool_result`, multi-turn tool-use loops, tool-result errors.
+
+
+
+Search terms: `tool_use`, `tool_result`, `stop_reason`, `messages`, `handle tool calls`.
+
+
+
+### Parallel tool use — https://platform.claude.com/docs/en/agents-and-tools/tool-use/parallel-tool-use
+
+
+
+Topics located here: multiple tool calls, parallel tool execution, parallel tool-use behavior, handling several `tool_use` blocks.
+
+
+
+Search terms: `parallel`, `multiple tools`, `tool_use`.
+
+
+
+### Strict tool use — https://platform.claude.com/docs/en/agents-and-tools/tool-use/strict-tool-use
+
+
+
+Topics located here: strict tool schemas, schema-constrained tool calls, `strict`, requirements for strict tool use, limitations of strict tool use.
+
+
+
+Search terms: `strict`, `schema`, `input_schema`, `limitations`.
+
+
+
+### Fine-grained tool streaming — https://platform.claude.com/docs/en/agents-and-tools/tool-use/fine-grained-tool-streaming
+
+
+
+Topics located here: streaming tool inputs, partial tool-use streaming, streamed tool-call parsing, fine-grained tool input deltas.
+
+
+
+Search terms: `streaming`, `fine-grained`, `tool_use`, `partial`.
+
+
+
+### Tool reference — https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-reference
+
+
+
+Topics located here: tool-definition fields, optional tool properties, Anthropic-provided tools, tool metadata, server tool reference details.
+
+
+
+Search terms: `cache_control`, `strict`, `defer_loading`, `allowed_callers`, `tool reference`.
+
+
+
+### Server tools — https://platform.claude.com/docs/en/agents-and-tools/tool-use/server-tools
+
+
+
+Topics located here: Anthropic-executed tools, server-side tools, web search, web fetch, code execution, tool search, server tool differences from client tools.
+
+
+
+Search terms: `server tools`, `web_search`, `code_execution`, `web_fetch`, `tool_search`.
+
+
+
+### Messages API reference — https://platform.claude.com/docs/en/api/messages
+
+
+
+Topics located here: Messages API request fields, Messages API response fields, `tools`, `tool_choice`, message structure, stop reasons, tool-use response structure.
+
+
+
+Search terms: `tools`, `tool_choice`, `messages`, `stop_reason`.
+
+
+
+### OpenAI SDK compatibility — https://platform.claude.com/docs/en/cli-sdks-libraries/libraries/openai-sdk
+
+
+
+Topics located here: OpenAI SDK usage with Claude, OpenAI-compatible endpoint behavior, compatibility limits, function-calling differences through compatibility layer, unsupported OpenAI fields, ignored OpenAI fields, migration caveats.
+
+
+
+Search terms: `OpenAI SDK compatibility`, `Important OpenAI compatibility limitations`, `function calling`, `strict`, `tools`, `unsupported fields`, `ignored`.
+
+
+
+## Topic-to-source map
+
+
+
+| Topic                         | OpenAI source                                                   | Anthropic source                                                                  |
+
+| ----------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+
+| Conceptual overview           | Function calling guide                                          | Tool use overview                                                                 |
+
+| Provider tool system          | Using tools guide                                               | Tool use overview; Server tools                                                   |
+
+| User-defined tool schema      | Function calling guide                                          | Define tools                                                                      |
+
+| Exact request fields          | Responses API reference; Chat Completions API reference         | Messages API reference                                                            |
+
+| Exact response shape          | Responses API reference; Chat Completions API reference         | Messages API reference                                                            |
+
+| Tool execution loop           | Function calling guide; Responses API reference                 | How tool use works; Handle tool calls                                             |
+
+| Returning tool results        | Function calling guide; API reference                           | Handle tool calls                                                                 |
+
+| Forced tool use               | Function calling guide; Responses API reference                 | Define tools; Messages API reference                                              |
+
+| Disabled tool use             | Function calling guide; Responses API reference                 | Define tools; Messages API reference                                              |
+
+| Strict schema behavior        | Structured Outputs guide; Function calling guide                | Strict tool use                                                                   |
+
+| Parallel tool calls           | Function calling guide; Responses API reference                 | Parallel tool use                                                                 |
+
+| Streaming tool calls          | Function calling guide; Responses API reference                 | Fine-grained tool streaming                                                       |
+
+| Built-in / server-side tools  | Using tools guide                                               | Server tools; Tool reference                                                      |
+
+| SDK compatibility             | OpenAI SDK docs if OpenAI-specific                              | OpenAI SDK compatibility                                                          |
+
+| OpenAI-to-Anthropic migration | Function calling guide; API reference                           | Define tools; Handle tool calls; Messages API reference; OpenAI SDK compatibility |
+
+| Anthropic-to-OpenAI migration | Function calling guide; API reference; Structured Outputs guide | Tool use overview; Define tools; Handle tool calls                                |

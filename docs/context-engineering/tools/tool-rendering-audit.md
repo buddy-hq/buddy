@@ -231,7 +231,7 @@ Four statuses exist: `pending`, `running`, `completed`, `error`.
 | `error` | `ToolOutputPanel` (red). |
 
 **Notes**:
-- Fetches flashcard decks from `/api/flashcard-decks` on completion — async side effect in a render function.
+- Fetches generated flashcard artifacts from `/api/artifacts?kind=flashcard-deck` on completion.
 - Body uses `AnimatePresence mode="wait"` for transitions.
 - "Loading generated flashcard deck..." text is not i18n'd (hardcoded string).
 - `FlashcardReviewDialog` is launched inline from this renderer — a modal triggered by tool card.
@@ -1051,4 +1051,3 @@ Most tools already get "open on error" via `BasicTool`'s `useEffect` (L52-54: `i
 - Every tool-specific enhancement (mermaid's dot-grid and skeleton, task's shimmer gradient, knowledge-graph's structured sections, edit's `DiagnosticList`, mermaid's "request fix" button).
 - The hidden steps grouping mechanism and its current tier assignments.
 - Each ability category keeps its distinct visual and behavioral identity.
-

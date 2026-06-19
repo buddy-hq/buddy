@@ -139,7 +139,7 @@ Runs the flashcard-author agent in the child session.
 
 ### Tool Registration
 
-**File:** `packages/buddy/src/learning/capabilities/flashcard/tools/save-flashcard-deck.ts`
+**File:** `packages/buddy/src/learning/features/flashcards/tools/save-flashcard-deck.ts`
 
 ```typescript
 const saveFlashcardDeckTool = createBuddyTool("save_flashcard_deck", {
@@ -153,30 +153,42 @@ const saveFlashcardDeckTool = createBuddyTool("save_flashcard_deck", {
       patterns: ["*"],
     })
 
-    // 2. Generate IDs
-    const deckID = ulid()
+    // 2. Generate managed object identity
+    const objectID = generateObjectID()
     const createdAt = new Date().toISOString()
 
     // 3. Build notes and cards
-    const { notes, cards } = FlashcardService.buildNotesAndCards(
-      deckID,
+    const { notes, cards } = buildFlashcardNotesAndCards(
+      objectID,
       parsed.notes,
       DECK_CONFIG_DEFAULTS,
     )
 
-    // 4. Save to filesystem
-    const saved = await FlashcardService.save({
+    // 4. Save revision payload plus mutable review state
+    const saved = await saveFlashcardDeckObject({
       directory: ctx.directory,
-      deck: { deckID, title, notes, cards, ... }
+      deck: { objectID, title, notes, cards, ... }
     })
 
     // 5. Return result
+    const buddyObjectResult = buildSaveFlashcardDeckObjectResult({
+      objectID: saved.objectID,
+      revisionID: saved.revisionID,
+      title: saved.deck.title,
+      noteCount: saved.deck.notes.length,
+      cardCount: saved.deck.cards.length,
+    })
+
     return {
       title: "Saved flashcard deck",
-      output: JSON.stringify(output, null, 2),
+      output: [
+        buddyObjectResult.message,
+        `object_kind=flashcard-deck`,
+        `object_id=${saved.objectID}`,
+        `revision_id=${saved.revisionID}`,
+      ].join("\n"),
       metadata: {
-        artifact: "SaveFlashcardDeckOutput",
-        value: output, // ← Structured metadata
+        buddyObjectResult,
       },
     }
   },
@@ -185,15 +197,15 @@ const saveFlashcardDeckTool = createBuddyTool("save_flashcard_deck", {
 
 ### Service Layer
 
-**File:** `packages/buddy/src/learning/capabilities/flashcard/service.ts`
+**File:** `packages/buddy/src/learning/features/flashcards/storage/save-deck.ts`
 
 #### Card Generation Logic
 
 ```typescript
-function buildNotesAndCards(deckID, inputs, config) {
+function buildFlashcardNotesAndCards(objectID, inputs, config) {
   for (const input of inputs) {
     const noteID = ulid()
-    const note = { noteID, deckID, type, fields, tags }
+    const note = { noteID, objectID, type, fields, tags }
     notes.push(note)
     
     // Generate cards based on note type
@@ -222,10 +234,26 @@ function buildNotesAndCards(deckID, inputs, config) {
 
 ```typescript
 async function save({ directory, deck }) {
-  const deckPath = FlashcardPath.deckFile(directory, deck.deckID)
-  // Saves to: {directory}/.buddy/flashcard-decks/{deckID}/deck.json
-  await fs.writeFile(deckPath, JSON.stringify(deck, null, 2))
-  return parsed
+  const revisionID = generateObjectID()
+  await writeObjectRecord({
+    directory,
+    kind: "flashcard-deck",
+    objectID: deck.objectID,
+    manifest,
+    files: [
+      {
+        relativePath: `revisions/${revisionID}/deck.json`,
+        format: "json",
+        content: deck,
+      },
+      {
+        relativePath: "state/deck.json",
+        format: "json",
+        content: deck,
+      },
+    ],
+  })
+  return { objectID: deck.objectID, revisionID, deck, manifest }
 }
 ```
 
@@ -240,8 +268,8 @@ async function save({ directory, deck }) {
 ```typescript
 interface ExecuteResult<M extends Metadata = Metadata> {
   title: string          // "Saved flashcard deck"
-  metadata: M            // { artifact: "SaveFlashcardDeckOutput", value: {...} }
-  output: string         // JSON stringified output
+  metadata: M            // { buddyObjectResult: {...} }
+  output: string         // concise model-visible result text
   attachments?: [...]    // Optional file attachments
 }
 ```
@@ -251,21 +279,38 @@ interface ExecuteResult<M extends Metadata = Metadata> {
 From `save-flashcard-deck.ts`:
 
 ```typescript
-const output: SaveFlashcardDeckOutput = {
-  deckID: "01HXYZ...",           // ULID
-  kind: "flashcard-deck.v1",     // Deck type constant
-  title: "Quantum Mechanics",    // User-provided title
-  noteCount: 15,                 // Number of notes
-  cardCount: 23,                 // Number of review cards (≥ noteCount for cloze)
-  deckUrl: "/api/flashcard-decks/01HXYZ...?directory=..."
+const buddyObjectResult = {
+  version: 1,
+  status: "ok",
+  message: "Saved flashcard deck Quantum Mechanics.",
+  primaryRef: {
+    kind: "flashcard-deck",
+    objectID: "01HXYZ...",
+    revisionID: "01JABC...",
+    itemID: null,
+  },
+  presentations: [
+    {
+      viewID: "review",
+      surface: "inline",
+      data: { renderer: "flashcard-deck", title: "Quantum Mechanics", noteCount: 15, cardCount: 23 },
+      autoOpen: null,
+    },
+  ],
 }
 
 return {
   title: "Saved flashcard deck",
-  output: JSON.stringify(output, null, 2), // ← Formatted JSON string
+  output: [
+    "Saved flashcard deck Quantum Mechanics.",
+    "object_kind=flashcard-deck",
+    "object_id=01HXYZ...",
+    "revision_id=01JABC...",
+    "note_count=15",
+    "card_count=23",
+  ].join("\n"),
   metadata: {
-    artifact: "SaveFlashcardDeckOutput",
-    value: output,  // ← Structured object in metadata
+    buddyObjectResult,
   },
 }
 ```
@@ -335,14 +380,15 @@ Flashcard-Author Subagent
 save_flashcard_deck Tool
   → Permission check (save_flashcard_deck → allow)
   → Generates ULIDs for deck/notes/cards
-  → FlashcardService.buildNotesAndCards()
+  → buildFlashcardNotesAndCards()
     - Creates FlashcardNote objects
     - Generates FlashcardCard objects (1 per basic, N per cloze)
-  → FlashcardService.save()
-    - Writes to .buddy/flashcard-decks/{deckID}/deck.json
-  → Returns SaveFlashcardDeckOutput:
+  → saveFlashcardDeckObject()
+    - Writes revisions/{revisionID}/deck.json and state/deck.json under the object directory
+  → Returns buddyObjectResult metadata:
     {
-      deckID, kind, title, noteCount, cardCount, deckUrl
+      primaryRef: { kind: "flashcard-deck", objectID, revisionID },
+      presentations: [{ viewID: "review", data: ... }]
     }
     ↓
 Back to Flashcard-Author
@@ -364,10 +410,10 @@ User sees: "I've created 15 flashcards covering quantum mechanics..."
 ## Key Architectural Patterns
 
 1. **Permission Cascade**: Each level checks permissions (persona → session → tool)
-2. **Metadata Duality**: Results have both `output` (string for LLM) and `metadata.value` (structured data)
+2. **Metadata Duality**: Results have both `output` (string for LLM) and `metadata.buddyObjectResult` (structured object data)
 3. **Session Hierarchy**: Parent session (Buddy) → Child session (flashcard-author)
 4. **Tool Isolation**: Subagents have restricted tool access (can't delegate further)
-5. **Filesystem Artifacts**: Decks persist to `.buddy/flashcard-decks/{deckID}/` for UI consumption
+5. **Managed Object Storage**: Deck payloads persist under `.buddy/objects/v1/flashcard-deck/<objectID>/`
 6. **Context Wrapping**: Task results are wrapped in XML tags for clear demarcation
 
 ---
@@ -377,11 +423,11 @@ User sees: "I've created 15 flashcards covering quantum mechanics..."
 | Component | File |
 |-----------|------|
 | Command definition | `packages/buddy/src/config/opencode/overlay-builder.ts` |
-| Subagent definition | `packages/buddy/src/learning/flashcard-author/agent.ts` |
-| Subagent prompt | `packages/buddy/src/learning/flashcard-author/prompt.p.md` |
-| Tool definition | `packages/buddy/src/learning/capabilities/flashcard/tools/save-flashcard-deck.ts` |
-| Service logic | `packages/buddy/src/learning/capabilities/flashcard/service.ts` |
-| Type definitions | `packages/buddy/src/learning/capabilities/flashcard/types.ts` |
+| Subagent definition | `packages/buddy/src/learning/features/flashcards/subagents/flashcard-author.ts` |
+| Subagent prompt | `packages/buddy/src/learning/features/flashcards/subagents/flashcard-author.md` |
+| Tool definition | `packages/buddy/src/learning/features/flashcards/tools/save-flashcard-deck.ts` |
+| Storage logic | `packages/buddy/src/learning/features/flashcards/storage/save-deck.ts` |
+| Type definitions | `packages/buddy/src/learning/features/flashcards/types.ts` |
 | Tool registration | `packages/buddy/src/learning/tools/tool-registry.ts` |
 | Permission resolution | `packages/buddy/src/learning/resolve-capability-profile.ts` |
 | Session permissions | `packages/buddy/src/learning/agent-execution/permissions/session-permissions.ts` |
@@ -393,6 +439,6 @@ User sees: "I've created 15 flashcards covering quantum mechanics..."
 ## Notes
 
 - **Card Count vs Note Count**: Cloze notes can generate multiple cards (one per cloze deletion), so `cardCount ≥ noteCount`
-- **ULID Generation**: All IDs (deckID, noteID, cardID) use ULIDs for sortable, unique identifiers
-- **Filesystem Structure**: Decks are stored in `.buddy/flashcard-decks/{deckID}/deck.json`
+- **ULID Generation**: Object IDs, revision IDs, note IDs, and card IDs use ULIDs for sortable, unique identifiers
+- **Filesystem Structure**: Decks are stored under `.buddy/objects/v1/flashcard-deck/<objectID>/`, with immutable payloads in `revisions/` and learner state in `state/`
 - **Tool Result Visibility**: The LLM sees the stringified JSON output; structured metadata is available for UI/API consumption
