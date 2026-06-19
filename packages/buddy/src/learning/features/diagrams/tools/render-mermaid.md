@@ -2,7 +2,7 @@ Renders Mermaid diagrams for inline chat display, including flowcharts, sequence
 
 Render a Mermaid diagram when visual structure would teach better than prose.
 
-Omit `repairOfArtifactID` when creating a new diagram. Only include `repairOfArtifactID` when the prompt or UI explicitly asks you to repair an existing Mermaid artifact and gives you the exact artifact ID to copy. Never invent a repair ID, use zeros, use repeated sample characters, or guess from the current call; if you are not repairing a prior Mermaid artifact, leave the field out.
+Omit `repairOfObjectID` when creating a new diagram. Only include `repairOfObjectID` when the prompt or UI explicitly asks you to repair an existing Mermaid object and gives you the exact object ID to copy. Never invent a repair ID, use zeros, use repeated sample characters, or guess from the current call; if you are not repairing a prior Mermaid object, leave the field out.
 
 Use for learner problems involving:
 - abstraction: invisible or untouchable ideas need a concrete visual model/metaphor

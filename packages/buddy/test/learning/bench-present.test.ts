@@ -1,11 +1,20 @@
 import fs from "node:fs/promises"
 import path from "node:path"
+import { setTimeout as sleep } from "node:timers/promises"
 import { afterEach, describe, expect, test } from "bun:test"
 import {
   clearBenchContextRegistry,
   publishBenchContext,
 } from "../../src/learning/features/bench/context"
-import { presentOnBench } from "../../src/learning/features/bench/tools/present"
+import {
+  benchPresentTool,
+  presentOnBench,
+} from "../../src/learning/features/bench/tools/present"
+import {
+  addResource,
+  resolveResourceObjectByKey,
+} from "../../src/resources/resource-registry-service"
+import { createBuddyToolContext } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
 
 const SESSION_ID = "session-bench-present"
@@ -25,15 +34,11 @@ function publishMarkdownBenchContext(input: {
     value: {
       status: "open",
       target: {
-        type: "markdown",
-        artifactKind: "none",
+        type: "workspace-file",
         title: path.basename(input.relativePath),
         workspaceRoot: input.directory,
         path: input.relativePath,
         absolutePath: path.join(input.directory, input.relativePath),
-        resourceID: null,
-        artifactID: null,
-        itemID: null,
         route: `/_bench/markdown?path=${encodeURIComponent(input.relativePath)}`,
         status: input.dirty ? "dirty" : "ready",
       },
@@ -64,34 +69,47 @@ function publishClosedBenchContext(directory: string) {
   })
 }
 
-async function createRegisteredResource(input: {
+async function waitForResourceReader(input: {
   directory: string
-  alias: string
-  sourceFile: {
-    path: string
-    content: string
+  resourceKey: string
+}): Promise<void> {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const resource = await resolveResourceObjectByKey({
+      directory: input.directory,
+      resourceKey: input.resourceKey,
+    }).catch(() => undefined)
+    if (resource?.readerPath) return
+    await sleep(100)
   }
-  sourceOriginRelpath?: string
-}) {
-  const resourceDirectory = path.join(input.directory, "resources", input.alias)
-  await fs.mkdir(resourceDirectory, { recursive: true })
-  await fs.writeFile(
-    path.join(resourceDirectory, input.sourceFile.path),
-    input.sourceFile.content,
-  )
-  await fs.writeFile(
-    path.join(resourceDirectory, ".buddy-source.json"),
-    JSON.stringify(
-      input.sourceOriginRelpath
-        ? { sourceOriginRelpath: input.sourceOriginRelpath }
-        : {},
-      null,
-      2,
-    ),
-  )
+  throw new Error(`Expected resource ${input.resourceKey} to expose a reader path.`)
 }
 
 describe("bench_present", () => {
+  test("accepts omitted inactive nullable fields for close", async () => {
+    await using project = await tmpdir({ git: true })
+    publishClosedBenchContext(project.path)
+
+    const result = await benchPresentTool.run(
+      {
+        action: "close",
+      },
+      createBuddyToolContext({
+        directory: project.path,
+        sessionID: SESSION_ID,
+        messageID: "msg_bench_present_omitted_nulls",
+        agent: "buddy",
+      }),
+    )
+
+    expect(result.output).toBe("Requested closing Bench.")
+    expect(result.metadata).toMatchObject({
+      benchAction: "close",
+      benchStatus: "closed",
+      reason: "closed_by_request",
+      benchTarget: null,
+    })
+  })
+
   test("presents an existing workspace file when Bench is synchronized closed", async () => {
     await using project = await tmpdir({
       init: async (directory) => {
@@ -106,14 +124,20 @@ describe("bench_present", () => {
       action: "present_file",
       path: "notes.md",
       resourceKey: null,
+      objectID: null,
     })
 
     expect(result).toMatchObject({
       status: "presented",
       reason: "presented_file",
       target: {
-        type: "markdown",
+        type: "workspace-file",
         path: "notes.md",
+      },
+      benchTarget: {
+        type: "workspace-file",
+        path: "notes.md",
+        viewer: "markdown",
       },
     })
   })
@@ -132,6 +156,7 @@ describe("bench_present", () => {
       action: "present_file",
       path: "widget.html",
       resourceKey: null,
+      objectID: null,
     })
 
     expect(result).toMatchObject({
@@ -155,6 +180,7 @@ describe("bench_present", () => {
       action: "present_file",
       path: "notes.md",
       resourceKey: null,
+      objectID: null,
     })
 
     expect(result).toMatchObject({
@@ -182,14 +208,20 @@ describe("bench_present", () => {
       action: "present_file",
       path: "notes.md",
       resourceKey: null,
+      objectID: null,
     })
 
     expect(result).toMatchObject({
       status: "already_presenting",
       reason: "already_showing_target",
       target: {
-        type: "markdown",
+        type: "workspace-file",
         path: "notes.md",
+      },
+      benchTarget: {
+        type: "workspace-file",
+        path: "notes.md",
+        viewer: "markdown",
       },
     })
   })
@@ -213,14 +245,20 @@ describe("bench_present", () => {
       action: "present_file",
       path: "other.txt",
       resourceKey: null,
+      objectID: null,
     })
 
     expect(result).toMatchObject({
       status: "blocked",
       reason: "blocked_by_unsaved_work",
       target: {
-        type: "markdown",
+        type: "workspace-file",
         path: "notes.md",
+      },
+      benchTarget: {
+        type: "workspace-file",
+        path: "notes.md",
+        viewer: "markdown",
       },
     })
   })
@@ -229,18 +267,18 @@ describe("bench_present", () => {
     await using project = await tmpdir({
       init: async (directory) => {
         await fs.writeFile(path.join(directory, "original.pdf"), "%PDF-1.4\n")
-        await createRegisteredResource({
+        await addResource({
           directory,
+          sourcePath: "original.pdf",
           alias: "book",
-          sourceFile: {
-            path: "copy.pdf",
-            content: "%PDF-1.4\n",
-          },
-          sourceOriginRelpath: "original.pdf",
         })
       },
     })
     publishClosedBenchContext(project.path)
+    await waitForResourceReader({
+      directory: project.path,
+      resourceKey: "book",
+    })
 
     const result = await presentOnBench({
       directory: project.path,
@@ -248,14 +286,19 @@ describe("bench_present", () => {
       action: "present_resource",
       path: null,
       resourceKey: "book",
+      objectID: null,
     })
 
     expect(result).toMatchObject({
       status: "presented",
       reason: "presented_resource",
       target: {
-        type: "reading",
-        path: "original.pdf",
+        type: "object",
+        viewID: "reader",
+      },
+      benchTarget: {
+        type: "object",
+        viewID: "reader",
       },
     })
   })
@@ -263,13 +306,11 @@ describe("bench_present", () => {
   test("blocks text-only resources instead of presenting internal full text to reading mode", async () => {
     await using project = await tmpdir({
       init: async (directory) => {
-        await createRegisteredResource({
+        await fs.writeFile(path.join(directory, "essay.txt"), "Self-Reliance\n")
+        await addResource({
           directory,
+          sourcePath: "essay.txt",
           alias: "essay",
-          sourceFile: {
-            path: "essay.txt",
-            content: "Self-Reliance\n",
-          },
         })
       },
     })
@@ -281,6 +322,7 @@ describe("bench_present", () => {
       action: "present_resource",
       path: null,
       resourceKey: "essay",
+      objectID: null,
     })
 
     expect(result).toMatchObject({

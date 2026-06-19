@@ -35,7 +35,7 @@ async function writeLearnerEvidenceForEvent(input: {
   title: string
   note: string
   tags?: string[]
-  artifactId?: string
+  objectId?: string
   payload?: Record<string, unknown>
   memoryEffects?: LearnerEvidence["memoryEffects"]
 }): Promise<LearnerEvidence> {
@@ -46,7 +46,7 @@ async function writeLearnerEvidenceForEvent(input: {
     createdAt: input.event.createdAt,
     ...(input.event.sessionId ? { sessionId: input.event.sessionId } : {}),
     ...(input.event.projectPath ? { projectPath: input.event.projectPath } : {}),
-    ...(input.artifactId ? { artifactId: input.artifactId } : {}),
+    ...(input.objectId ? { objectId: input.objectId } : {}),
     title: input.title,
     tags: input.tags ?? [],
     note: input.note,

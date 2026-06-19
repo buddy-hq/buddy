@@ -3,6 +3,7 @@ import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
 import { assertSessionExistsInDirectory } from "../session"
+import { BUDDY_OBJECT_KIND_VALUES } from "../objects"
 import {
   BenchContextSnapshotMissingError,
   BenchReadContextOutputSchema,
@@ -15,53 +16,76 @@ const sessionIDParamSchema = z.object({
   sessionID: z.string().min(1),
 })
 
-const benchContextTargetOpenApiSchema = {
+const nullableStringOpenApiSchema = {
+  type: "string" as const,
+  nullable: true,
+}
+
+const stringArrayOpenApiSchema = {
+  type: "array" as const,
+  items: { type: "string" as const },
+}
+
+const benchContextStatusOpenApiSchema = {
+  type: "string" as const,
+  enum: ["ready", "loading", "dirty", "error", "unavailable"],
+}
+
+const buddyObjectRefOpenApiSchema = {
+  type: "object" as const,
+  required: ["kind", "objectID", "revisionID", "itemID"],
+  additionalProperties: false,
+  properties: {
+    kind: {
+      type: "string" as const,
+      enum: BUDDY_OBJECT_KIND_VALUES,
+    },
+    objectID: { type: "string" as const },
+    revisionID: nullableStringOpenApiSchema,
+    itemID: nullableStringOpenApiSchema,
+  },
+}
+
+const workspaceFileBenchContextTargetOpenApiSchema = {
   type: "object" as const,
   required: [
     "type",
-    "artifactKind",
     "title",
     "workspaceRoot",
     "path",
     "absolutePath",
-    "resourceID",
-    "artifactID",
-    "itemID",
     "route",
     "status",
   ],
   additionalProperties: false,
   properties: {
-    type: {
-      type: "string" as const,
-      enum: ["reading", "markdown", "file", "whiteboard", "artifact"],
-    },
-    artifactKind: {
-      type: "string" as const,
-      enum: [
-        "none",
-        "mermaid",
-        "html-widget",
-        "figure",
-        "freeform-figure",
-        "media-presentation",
-        "question-set",
-        "flashcard-deck",
-      ],
-    },
-    title: { type: ["string", "null"] as const },
+    type: { type: "string" as const, enum: ["workspace-file"] },
+    title: { type: "string" as const },
     workspaceRoot: { type: "string" as const },
-    path: { type: ["string", "null"] as const },
-    absolutePath: { type: ["string", "null"] as const },
-    resourceID: { type: ["string", "null"] as const },
-    artifactID: { type: ["string", "null"] as const },
-    itemID: { type: ["string", "null"] as const },
+    path: { type: "string" as const },
+    absolutePath: { type: "string" as const },
     route: { type: "string" as const },
-    status: {
-      type: "string" as const,
-      enum: ["ready", "loading", "dirty", "error", "unavailable"],
-    },
+    status: benchContextStatusOpenApiSchema,
   },
+}
+
+const objectBenchContextTargetOpenApiSchema = {
+  type: "object" as const,
+  required: ["type", "title", "workspaceRoot", "ref", "viewID", "route", "status"],
+  additionalProperties: false,
+  properties: {
+    type: { type: "string" as const, enum: ["object"] },
+    title: { type: "string" as const },
+    workspaceRoot: { type: "string" as const },
+    ref: buddyObjectRefOpenApiSchema,
+    viewID: { type: "string" as const },
+    route: { type: "string" as const },
+    status: benchContextStatusOpenApiSchema,
+  },
+}
+
+const benchContextTargetOpenApiSchema = {
+  oneOf: [workspaceFileBenchContextTargetOpenApiSchema, objectBenchContextTargetOpenApiSchema],
 }
 
 const benchContextRefOpenApiSchema = {
@@ -69,16 +93,13 @@ const benchContextRefOpenApiSchema = {
   required: ["kind", "value", "note"],
   additionalProperties: false,
   properties: {
-    kind: {
-      type: "string" as const,
-      enum: ["file", "artifact", "resource", "tool", "url"],
-    },
+    kind: { type: "string" as const, enum: ["file", "object", "resource", "tool", "url"] },
     value: { type: "string" as const },
     note: { type: "string" as const },
   },
 }
 
-const benchReadContextClosedOutputOpenApiSchema = {
+const closedBenchContextOpenApiSchema = {
   type: "object" as const,
   required: ["status"],
   additionalProperties: false,
@@ -87,25 +108,35 @@ const benchReadContextClosedOutputOpenApiSchema = {
   },
 }
 
-const benchReadContextOpenOutputOpenApiSchema = {
+const openBenchContextOpenApiSchema = {
   type: "object" as const,
   required: ["status", "target", "metadata", "content", "refs", "hints"],
   additionalProperties: false,
   properties: {
     status: { type: "string" as const, enum: ["open"] },
     target: benchContextTargetOpenApiSchema,
-    metadata: { type: "array" as const, items: { type: "string" as const } },
+    metadata: stringArrayOpenApiSchema,
     content: { type: "string" as const },
-    refs: { type: "array" as const, items: benchContextRefOpenApiSchema },
-    hints: { type: "array" as const, items: { type: "string" as const } },
+    refs: {
+      type: "array" as const,
+      items: benchContextRefOpenApiSchema,
+    },
+    hints: stringArrayOpenApiSchema,
   },
 }
 
 const benchReadContextOutputOpenApiSchema = {
-  anyOf: [
-    benchReadContextClosedOutputOpenApiSchema,
-    benchReadContextOpenOutputOpenApiSchema,
-  ],
+  oneOf: [closedBenchContextOpenApiSchema, openBenchContextOpenApiSchema],
+}
+
+const storedBenchContextSnapshotOpenApiSchema = {
+  type: "object" as const,
+  required: ["revision", "value"],
+  additionalProperties: false,
+  properties: {
+    revision: { type: "integer" as const, minimum: 0 },
+    value: benchReadContextOutputOpenApiSchema,
+  },
 }
 
 function mapBenchRouteError(error: unknown): Response | undefined {
@@ -170,16 +201,7 @@ export const BenchRoutes = new Hono()
         200: {
           description: "Stored Bench context snapshot",
           content: {
-            "application/json": {
-              schema: resolver(
-                z
-                  .object({
-                    revision: z.number().int().nonnegative(),
-                    value: BenchReadContextOutputSchema,
-                  })
-                  .strict(),
-              ),
-            },
+            "application/json": { schema: storedBenchContextSnapshotOpenApiSchema },
           },
         },
         ...routeErrors(400, 403, 404),

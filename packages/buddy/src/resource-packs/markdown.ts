@@ -66,7 +66,9 @@ export function buildResourcePackEntryMarkdown(metadata: ResourcePackMetadata) {
     ].join("\n"),
     {
       file_kind: RESOURCE_PACK_FILE_KIND_RESOURCE_INDEX,
+      ...(metadata.object_id ? { object_id: metadata.object_id } : {}),
       resource_alias: metadata.resource_alias,
+      ...(metadata.alias_at_build ? { alias_at_build: metadata.alias_at_build } : {}),
       source_path: metadata.source_path,
       source_relpath: metadata.source_relpath,
       format: metadata.format,

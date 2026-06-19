@@ -10,7 +10,7 @@ Generate a complete, structured MCQ question set from the context bundle provide
 2. Generate the full answerful question-set payload (title, groupType if provided, instructions/context summary when useful, and all questions).
 3. Ensure each question includes stable choice IDs and goal IDs.
 4. Call `save_question_set` exactly once with the full authored payload.
-5. If a question set was saved, return a short confirmation for the user without any artifact IDs or rendering instructions. Buddy surfaces saved question sets automatically from persisted state.
+5. If a question set was saved, return a short confirmation for the user without object IDs or rendering instructions. Buddy surfaces saved question sets automatically from persisted state.
 
 # Tool rules
 
@@ -30,5 +30,5 @@ Generate a complete, structured MCQ question set from the context bundle provide
 # Output expectations
 
 - After saving, return concise markdown confirming what was created.
-- Do not include `artifactID`.
+- Do not include `objectID`.
 - Do not include follow-up rendering instructions.

@@ -1,4 +1,4 @@
-import { ArtifactPath, generateArtifactID } from "../../../../artifacts"
+import { generateObjectID } from "../../../../objects"
 import { scheduleReview, selectNextDueCard } from "./scheduler"
 import {
   DeckConfigSchema,
@@ -8,11 +8,14 @@ import {
   type ReviewRecord,
   type SubmitReviewOutput,
 } from "../types"
-import { readFlashcardDeck, readFlashcardReviewedTodayCounts } from "./read-deck"
 import {
-  commitFlashcardReviewTransaction,
-  recoverPendingFlashcardReview,
-  writePendingFlashcardReviewTransaction,
+  readFlashcardDeckObject,
+  readFlashcardObjectReviewedTodayCounts,
+} from "./read-deck"
+import {
+  commitFlashcardObjectReviewTransaction,
+  recoverPendingFlashcardObjectReview,
+  writePendingFlashcardObjectReviewTransaction,
 } from "./review-transaction"
 import { appendLearnerEvent, createLearnerEvent, recordFlashcardReviewMemory } from "../../memory"
 import type { LearnerEvent } from "../../memory"
@@ -41,15 +44,15 @@ type FlashcardReviewMutation = {
   nextDue: number
 }
 
-function flashcardReviewQueueKey(directory: string, artifactID: string): string {
-  return `${directory}${FLASHCARD_REVIEW_QUEUE_SEPARATOR}${ArtifactPath.sanitizeArtifactID(artifactID)}`
+function flashcardObjectReviewQueueKey(directory: string, objectID: string): string {
+  return `${directory}${FLASHCARD_REVIEW_QUEUE_SEPARATOR}${objectID}`
 }
 
-async function runFlashcardReviewMutation(
-  input: { directory: string; artifactID: string },
+async function runFlashcardObjectReviewMutation(
+  input: { directory: string; objectID: string },
   operation: () => Promise<FlashcardReviewMutation>,
 ): Promise<FlashcardReviewMutation> {
-  const key = flashcardReviewQueueKey(input.directory, input.artifactID)
+  const key = flashcardObjectReviewQueueKey(input.directory, input.objectID)
   const previous = flashcardReviewQueues.get(key) ?? Promise.resolve()
   const current = previous.catch(() => undefined).then(operation)
   const tail = current.then(
@@ -67,16 +70,16 @@ async function runFlashcardReviewMutation(
   }
 }
 
-async function submitFlashcardReview(input: {
+async function submitFlashcardObjectReview(input: {
   directory: string
-  artifactID: string
+  objectID: string
   cardID: string
   rating: CardRating
   timeTakenMs: number
 }): Promise<SubmitReviewOutput> {
-  const mutation = await runFlashcardReviewMutation(input, async () => {
-    await recoverPendingFlashcardReview(input.directory, input.artifactID)
-    const deck = await readFlashcardDeck(input.directory, input.artifactID)
+  const mutation = await runFlashcardObjectReviewMutation(input, async () => {
+    await recoverPendingFlashcardObjectReview(input.directory, input.objectID)
+    const deck = await readFlashcardDeckObject(input.directory, input.objectID)
     const cardIndex = deck.cards.findIndex((card) => card.cardID === input.cardID)
     if (cardIndex < 0) {
       throw new FlashcardCardNotFoundError(input.cardID)
@@ -102,7 +105,7 @@ async function submitFlashcardReview(input: {
     deck.cards[cardIndex] = updatedCard
 
     const record: ReviewRecord = ReviewRecordSchema.parse({
-      reviewID: generateArtifactID(),
+      reviewID: generateObjectID(),
       cardID: input.cardID,
       rating: input.rating,
       answeredAt: now,
@@ -114,20 +117,20 @@ async function submitFlashcardReview(input: {
       previousEaseFactor: card.easeFactor,
       newEaseFactor: result.newEaseFactor,
     })
-    const transaction = await writePendingFlashcardReviewTransaction({
+    const transaction = await writePendingFlashcardObjectReviewTransaction({
       directory: input.directory,
       deck,
       record,
     })
-    await commitFlashcardReviewTransaction(input.directory, transaction)
+    await commitFlashcardObjectReviewTransaction(input.directory, transaction)
 
     const learnerEvent = createLearnerEvent({
       type: "flashcard_review_ingested",
       sourceKind: "flashcard_review",
       sourceId: input.cardID,
-      searchableText: `Flashcard review ${input.artifactID}/${input.cardID}: rating ${input.rating}, ${card.state} -> ${result.newState}.`,
+      searchableText: `Flashcard review ${input.objectID}/${input.cardID}: rating ${input.rating}, ${card.state} -> ${result.newState}.`,
       payload: {
-        artifactID: input.artifactID,
+        objectID: input.objectID,
         cardID: input.cardID,
         rating: input.rating,
         previousState: card.state,
@@ -173,12 +176,12 @@ async function submitFlashcardReview(input: {
   await writeLearnerEvidenceForEvent({
     directory: input.directory,
     event: learnerEvent,
-    artifactId: input.artifactID,
+    objectId: input.objectID,
     title: mutation.deckTitle,
     note: `Flashcard review recorded for card ${input.cardID} with rating ${input.rating}; ${mutation.previousState} -> ${mutation.newState}.`,
     tags: mutation.noteTags,
     payload: {
-      artifactID: input.artifactID,
+      objectID: input.objectID,
       cardID: input.cardID,
       rating: input.rating,
       previousState: mutation.previousState,
@@ -201,15 +204,18 @@ async function submitFlashcardReview(input: {
   return mutation.output
 }
 
-async function getNextFlashcardForReview(input: {
+async function getNextFlashcardObjectForReview(input: {
   directory: string
-  artifactID: string
+  objectID: string
 }): Promise<FlashcardCard | undefined> {
-  await recoverPendingFlashcardReview(input.directory, input.artifactID)
-  const deck = await readFlashcardDeck(input.directory, input.artifactID)
+  await recoverPendingFlashcardObjectReview(input.directory, input.objectID)
+  const deck = await readFlashcardDeckObject(input.directory, input.objectID)
   const config = DeckConfigSchema.parse(deck.config)
   const now = Date.now()
-  const reviewedToday = await readFlashcardReviewedTodayCounts(input.directory, input.artifactID)
+  const reviewedToday = await readFlashcardObjectReviewedTodayCounts(
+    input.directory,
+    input.objectID,
+  )
 
   return selectNextDueCard({
     cards: deck.cards,
@@ -219,4 +225,8 @@ async function getNextFlashcardForReview(input: {
   })
 }
 
-export { FlashcardCardNotFoundError, getNextFlashcardForReview, submitFlashcardReview }
+export {
+  FlashcardCardNotFoundError,
+  getNextFlashcardObjectForReview,
+  submitFlashcardObjectReview,
+}

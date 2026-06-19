@@ -18,8 +18,8 @@ async function createSession(directory: string) {
   })
 }
 
-describe("inline mermaid artifacts", () => {
-  async function postInlineMermaidArtifact(input: {
+describe("inline mermaid objects", () => {
+  async function postInlineMermaidObject(input: {
     directory: string
     sessionID: string
     messageID: string
@@ -28,7 +28,7 @@ describe("inline mermaid artifacts", () => {
     source: string
   }): Promise<Response> {
     return app.request(
-      `/api/artifacts/mermaid/inline?directory=${encodeURIComponent(input.directory)}`,
+      `/api/objects/mermaid/inline?directory=${encodeURIComponent(input.directory)}`,
       {
         method: "POST",
         headers: {
@@ -46,7 +46,7 @@ describe("inline mermaid artifacts", () => {
     )
   }
 
-  test("creates inline artifacts for assistant markdown mermaid blocks", async () => {
+  test("creates inline objects for assistant markdown mermaid blocks", async () => {
     await using project = await tmpdir({ git: true })
     const sessionID = await createSession(project.path)
 
@@ -58,14 +58,15 @@ describe("inline mermaid artifacts", () => {
       source: "graph TD\nA-->B",
     }
 
-    const firstResponse = await postInlineMermaidArtifact({
+    const firstResponse = await postInlineMermaidObject({
       directory: project.path,
       ...requestBody,
     })
 
     expect(firstResponse.status).toBe(200)
     const firstBody = (await firstResponse.json()) as {
-      artifactID: string
+      objectID: string
+      revisionID: string
       kind: string
       origin: {
         kind: string
@@ -88,52 +89,39 @@ describe("inline mermaid artifacts", () => {
     expect(firstBody.alt).toBe("Mermaid diagram")
     expect(firstBody.source).toBe("graph TD\nA-->B")
 
-    const secondResponse = await postInlineMermaidArtifact({
+    const secondResponse = await postInlineMermaidObject({
       directory: project.path,
       ...requestBody,
     })
 
     expect(secondResponse.status).toBe(200)
-    const secondBody = (await secondResponse.json()) as { artifactID: string }
-    expect(secondBody.artifactID).toBe(firstBody.artifactID)
+    const secondBody = (await secondResponse.json()) as { objectID: string }
+    expect(secondBody.objectID).toBe(firstBody.objectID)
 
     const indexResponse = await app.request(
-      `/api/artifacts?directory=${encodeURIComponent(project.path)}&kind=mermaid`,
+      `/api/objects?directory=${encodeURIComponent(project.path)}&kind=mermaid`,
     )
     expect(indexResponse.status).toBe(200)
     const index = (await indexResponse.json()) as {
-      artifacts: Array<{
-        artifactID: string
+      objects: Array<{
+        objectID: string
         kind: string
-        origin: {
-          kind: string
-          sessionID: string
-          messageID: string
-          partID: string
-          segmentIndex: number
-        }
       }>
       loadErrors: unknown[]
     }
-    expect(index.artifacts).toHaveLength(1)
+    expect(index.objects).toHaveLength(1)
     expect(index.loadErrors).toEqual([])
-    expect(index.artifacts).toEqual(
+    expect(index.objects).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          objectID: firstBody.objectID,
           kind: "mermaid",
-          origin: {
-            kind: "markdown",
-            sessionID,
-            messageID: "msg_markdown",
-            partID: "part_text",
-            segmentIndex: 2,
-          },
         }),
       ]),
     )
   })
 
-  test("deduplicates concurrent inline artifact creation for the same markdown segment", async () => {
+  test("deduplicates concurrent inline object creation for the same markdown segment", async () => {
     await using project = await tmpdir({ git: true })
     const sessionID = await createSession(project.path)
     const requestBody = {
@@ -146,7 +134,7 @@ describe("inline mermaid artifacts", () => {
 
     const responses = await Promise.all(
       Array.from({ length: 8 }, () =>
-        postInlineMermaidArtifact({
+        postInlineMermaidObject({
           directory: project.path,
           ...requestBody,
         }),
@@ -156,20 +144,20 @@ describe("inline mermaid artifacts", () => {
       expect(response.status).toBe(200)
     }
     const bodies = (await Promise.all(responses.map((response) => response.json()))) as Array<{
-      artifactID: string
+      objectID: string
     }>
-    expect(new Set(bodies.map((body) => body.artifactID)).size).toBe(1)
+    expect(new Set(bodies.map((body) => body.objectID)).size).toBe(1)
 
     const indexResponse = await app.request(
-      `/api/artifacts?directory=${encodeURIComponent(project.path)}&kind=mermaid`,
+      `/api/objects?directory=${encodeURIComponent(project.path)}&kind=mermaid`,
     )
     expect(indexResponse.status).toBe(200)
     const index = (await indexResponse.json()) as {
-      artifacts: Array<{ artifactID: string }>
+      objects: Array<{ objectID: string }>
       loadErrors: unknown[]
     }
-    expect(index.artifacts).toHaveLength(1)
-    expect(index.artifacts[0]?.artifactID).toBe(bodies[0]?.artifactID)
+    expect(index.objects).toHaveLength(1)
+    expect(index.objects[0]?.objectID).toBe(bodies[0]?.objectID)
     expect(index.loadErrors).toEqual([])
   })
 })

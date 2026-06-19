@@ -166,16 +166,16 @@ const sessionSummarizeBodyOpenApiSchema = {
 }
 
 const sessionMermaidRepairBodySchema = z.object({
-  artifactID: z.string().min(1),
+  objectID: z.string().min(1),
   failedRenderKey: z.string().min(1),
 })
 
 const sessionMermaidRepairBodyOpenApiSchema = {
   type: "object" as const,
-  required: ["artifactID", "failedRenderKey"],
+  required: ["objectID", "failedRenderKey"],
   additionalProperties: false,
   properties: {
-    artifactID: { type: "string" as const },
+    objectID: { type: "string" as const },
     failedRenderKey: { type: "string" as const },
   },
 }
@@ -183,7 +183,7 @@ const sessionMermaidRepairBodyOpenApiSchema = {
 const mermaidRepairStatusResponseSchema = z.object({
   repairRequestID: z.string().min(1),
   status: z.enum(["running", "succeeded", "exhausted"]),
-  replacementArtifactID: z.string().min(1).optional(),
+  replacementRevisionID: z.string().min(1).optional(),
   lastErrorMessage: z.string().min(1).optional(),
 })
 

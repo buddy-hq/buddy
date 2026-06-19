@@ -1,11 +1,8 @@
 import z from "zod"
 import {
-  ARTIFACT_KINDS,
-  ArtifactIDSchema,
-  ArtifactManifestBaseSchema,
-  SourceHashSchema,
+  BuddyObjectIDSchema,
   nonEmptyString,
-} from "../../../../artifacts"
+} from "../../../../objects"
 
 const finiteNumber = z.number().refine(Number.isFinite, "Must be a finite number")
 const positiveFiniteNumber = finiteNumber.refine((value) => value > 0, "Must be a positive number")
@@ -108,27 +105,15 @@ const GeometryFigureSpecSchema = z.object({
 })
 
 const RenderFigureOutputSchema = z.object({
-  artifactID: ArtifactIDSchema,
+  objectID: BuddyObjectIDSchema,
+  revisionID: BuddyObjectIDSchema,
   mime: z.literal("image/svg+xml"),
-  url: nonEmptyString,
+  rawUrl: nonEmptyString,
   relativePath: nonEmptyString,
   alt: nonEmptyString,
-  caption: nonEmptyString.optional(),
+  caption: nonEmptyString.nullable(),
   markdown: nonEmptyString,
   repairAttempts: z.number().int().nonnegative().max(2),
-})
-
-const FigureSummarySchema = z.object({
-  mime: z.literal("image/svg+xml"),
-  alt: nonEmptyString,
-  caption: nonEmptyString.optional(),
-  repairAttempts: z.number().int().nonnegative().max(2),
-})
-
-const FigureArtifactManifestSchema = ArtifactManifestBaseSchema.extend({
-  kind: z.literal(ARTIFACT_KINDS.figure),
-  sourceHash: SourceHashSchema,
-  summary: FigureSummarySchema,
 })
 
 type GeometryPoint = z.infer<typeof GeometryPointSchema>
@@ -138,13 +123,9 @@ type GeometryLabel = z.infer<typeof GeometryLabelSchema>
 type GeometryConstraint = z.infer<typeof GeometryConstraintSchema>
 type GeometryMarker = z.infer<typeof GeometryMarkerSchema>
 type GeometryFigureSpec = z.infer<typeof GeometryFigureSpecSchema>
-type FigureArtifactManifest = z.infer<typeof FigureArtifactManifestSchema>
-type FigureSummary = z.infer<typeof FigureSummarySchema>
 type RenderFigureOutput = z.infer<typeof RenderFigureOutputSchema>
 
 export {
-  FigureArtifactManifestSchema,
-  FigureSummarySchema,
   GeometryConstraintSchema,
   GeometryFigureSpecSchema,
   GeometryLabelSchema,
@@ -158,8 +139,6 @@ export {
 export type {
   GeometryConstraint,
   GeometryFigureSpec,
-  FigureArtifactManifest,
-  FigureSummary,
   GeometryLabel,
   GeometryMarker,
   GeometryPoint,

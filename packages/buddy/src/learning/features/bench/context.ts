@@ -1,26 +1,11 @@
 import path from "node:path"
 import z from "zod"
+import {
+  BuddyObjectRefSchema,
+  nonEmptyString,
+} from "../../../objects"
 
 const BENCH_CONTEXT_REGISTRY_LIMIT = 512
-
-const BenchContextSurfaceTypeSchema = z.enum([
-  "reading",
-  "markdown",
-  "file",
-  "whiteboard",
-  "artifact",
-])
-
-const BenchContextArtifactKindSchema = z.enum([
-  "none",
-  "mermaid",
-  "html-widget",
-  "figure",
-  "freeform-figure",
-  "media-presentation",
-  "question-set",
-  "flashcard-deck",
-])
 
 const BenchContextStatusSchema = z.enum([
   "ready",
@@ -30,25 +15,59 @@ const BenchContextStatusSchema = z.enum([
   "unavailable",
 ])
 
-const BenchContextTargetSchema = z
+const WorkspaceFileBenchTargetSchema = z
   .object({
-    type: BenchContextSurfaceTypeSchema,
-    artifactKind: BenchContextArtifactKindSchema,
-    title: z.string().nullable(),
-    workspaceRoot: z.string(),
-    path: z.string().nullable(),
-    absolutePath: z.string().nullable(),
-    resourceID: z.string().nullable(),
-    artifactID: z.string().nullable(),
-    itemID: z.string().nullable(),
-    route: z.string(),
+    type: z.literal("workspace-file"),
+    path: nonEmptyString,
+    viewer: z.enum(["markdown", "file"]),
+  })
+  .strict()
+
+const ObjectBenchTargetSchema = z
+  .object({
+    type: z.literal("object"),
+    ref: BuddyObjectRefSchema,
+    viewID: nonEmptyString,
+  })
+  .strict()
+
+const BenchTargetSchema = z.discriminatedUnion("type", [
+  WorkspaceFileBenchTargetSchema,
+  ObjectBenchTargetSchema,
+])
+
+const PublishedWorkspaceFileBenchContextTargetSchema = z
+  .object({
+    type: z.literal("workspace-file"),
+    title: nonEmptyString,
+    workspaceRoot: nonEmptyString,
+    path: nonEmptyString,
+    absolutePath: nonEmptyString,
+    route: nonEmptyString,
     status: BenchContextStatusSchema,
   })
   .strict()
 
+const PublishedObjectBenchContextTargetSchema = z
+  .object({
+    type: z.literal("object"),
+    title: nonEmptyString,
+    workspaceRoot: nonEmptyString,
+    ref: BuddyObjectRefSchema,
+    viewID: nonEmptyString,
+    route: nonEmptyString,
+    status: BenchContextStatusSchema,
+  })
+  .strict()
+
+const BenchContextTargetSchema = z.discriminatedUnion("type", [
+  PublishedWorkspaceFileBenchContextTargetSchema,
+  PublishedObjectBenchContextTargetSchema,
+])
+
 const BenchContextRefSchema = z
   .object({
-    kind: z.enum(["file", "artifact", "resource", "tool", "url"]),
+    kind: z.enum(["file", "object", "resource", "tool", "url"]),
     value: z.string(),
     note: z.string(),
   })
@@ -86,6 +105,9 @@ const closedBenchContext = {
   status: "closed",
 } as const
 
+type BenchTarget = z.infer<typeof BenchTargetSchema>
+type WorkspaceFileBenchTarget = z.infer<typeof WorkspaceFileBenchTargetSchema>
+type ObjectBenchTarget = z.infer<typeof ObjectBenchTargetSchema>
 type BenchContextTarget = z.infer<typeof BenchContextTargetSchema>
 type BenchReadContextOpenOutput = z.infer<typeof BenchReadContextOpenOutputSchema>
 type BenchReadContextOutput = z.infer<typeof BenchReadContextOutputSchema>
@@ -175,18 +197,39 @@ function clearBenchContextRegistry(): void {
   benchContextRegistry.clear()
 }
 
+function benchTargetFromContextTarget(target: BenchContextTarget): BenchTarget {
+  if (target.type === "object") {
+    return BenchTargetSchema.parse({
+      type: "object",
+      ref: target.ref,
+      viewID: target.viewID,
+    })
+  }
+  return BenchTargetSchema.parse({
+    type: "workspace-file",
+    path: target.path,
+    viewer: target.path.toLowerCase().endsWith(".md") ? "markdown" : "file",
+  })
+}
+
+const BenchReadContextInputSchema = z.object({}).strict()
+
 export {
-  BenchContextArtifactKindSchema,
   BenchContextRefSchema,
   BenchContextSnapshotMissingError,
   BenchContextStatusSchema,
-  BenchContextSurfaceTypeSchema,
   BenchContextTargetSchema,
   BenchReadContextClosedOutputSchema,
   BenchReadContextInputSchema,
   BenchReadContextOpenOutputSchema,
   BenchReadContextOutputSchema,
+  BenchTargetSchema,
+  ObjectBenchTargetSchema,
+  PublishedObjectBenchContextTargetSchema,
+  PublishedWorkspaceFileBenchContextTargetSchema,
   PublishBenchContextResponseSchema,
+  WorkspaceFileBenchTargetSchema,
+  benchTargetFromContextTarget,
   clearBenchContextRegistry,
   closedBenchContext,
   publishBenchContext,
@@ -194,12 +237,13 @@ export {
   readCurrentBenchContext,
 }
 
-const BenchReadContextInputSchema = z.object({}).strict()
-
 export type {
   BenchContextTarget,
   BenchReadContextOpenOutput,
   BenchReadContextOutput,
+  BenchTarget,
+  ObjectBenchTarget,
   PublishBenchContextResponse,
   StoredBenchContextSnapshot,
+  WorkspaceFileBenchTarget,
 }

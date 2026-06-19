@@ -1,3 +1,4 @@
+import path from "node:path"
 import PREPARE_RESOURCE_DESCRIPTION from "./prepare-resource.md"
 import z from "zod"
 import { RESOURCE_PACK_STATUS_PREPARING } from "../../../../resource-packs"
@@ -7,6 +8,13 @@ import {
   type ResourceRecord,
   type ResourceStatus,
 } from "../../../../resources/resource-registry-service"
+import {
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectResultSchema,
+  formatBuddyObjectRefLines,
+  objectSummaryBaseFromManifest,
+  type BuddyObjectResult,
+} from "../../../../objects"
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
 
 const PREPARE_RESOURCE_TOOL_ID = "prepare_resource" as const
@@ -58,7 +66,7 @@ function formatWarnings(warnings: string[]) {
 }
 
 function resolveNextStep(input: { status: ResourceStatus; timedOut: boolean }) {
-  if (input.status === "ready") return "resource_ready_use_alias_or_id_in_followup_tools"
+  if (input.status === "ready") return "resource_ready_use_alias_or_object_id_in_followup_tools"
   if (input.status === "preparing" && input.timedOut) {
     return "resource_still_preparing_wait_then_check_again"
   }
@@ -69,30 +77,92 @@ function resolveNextStep(input: { status: ResourceStatus; timedOut: boolean }) {
   return "resource_status_recorded"
 }
 
+function promptAbsolutePath(input: {
+  directory: string
+  pathText: string | null | undefined
+}): string {
+  const trimmed = input.pathText?.trim()
+  if (!trimmed) return "none"
+  return path.isAbsolute(trimmed) ? trimmed : path.resolve(input.directory, trimmed)
+}
+
 function formatResourcePreparationOutput(input: {
+  directory: string
   resource: ResourceRecord
   waitUntilReady: boolean
   timedOut: boolean
   maxWaitMs: number
+  buddyObjectResult: BuddyObjectResult
 }) {
+  const primaryRef = input.buddyObjectResult.primaryRef
   return [
-    `<resource_preparation tool="${PREPARE_RESOURCE_TOOL_ID}" completed="${
-      input.resource.status !== RESOURCE_PACK_STATUS_PREPARING
-    }">`,
-    `resource_id=${input.resource.id}`,
+    input.buddyObjectResult.message,
+    ...formatBuddyObjectRefLines(primaryRef),
     `alias=${input.resource.alias}`,
     `status=${input.resource.status}`,
     `format=${input.resource.format}`,
-    `source_relpath=${input.resource.sourceRelpath}`,
-    `source_origin_relpath=${input.resource.sourceOriginRelpath ?? "none"}`,
+    `managed_source=${promptAbsolutePath({
+      directory: input.directory,
+      pathText: input.resource.sourceRelpath,
+    })}`,
+    `bench_reader=${promptAbsolutePath({
+      directory: input.directory,
+      pathText: input.resource.readerPath,
+    })}`,
+    `pack=${promptAbsolutePath({
+      directory: input.directory,
+      pathText: input.resource.packPath,
+    })}`,
+    `full_text=${promptAbsolutePath({
+      directory: input.directory,
+      pathText: input.resource.fullTextPath,
+    })}`,
+    ...(input.resource.fullTextEstimatedTokens !== undefined
+      ? [`full_text_est_tokens=${input.resource.fullTextEstimatedTokens}`]
+      : []),
+    ...(input.resource.fullTextCharacters !== undefined
+      ? [`full_text_chars=${input.resource.fullTextCharacters}`]
+      : []),
     `warnings=${formatWarnings(input.resource.warnings)}`,
     `prepared_at=${input.resource.preparedAt ?? "none"}`,
     `wait_until_ready=${input.waitUntilReady}`,
     `timed_out=${input.timedOut}`,
     `max_wait_ms=${input.maxWaitMs}`,
     `next_step=${resolveNextStep({ status: input.resource.status, timedOut: input.timedOut })}`,
-    "</resource_preparation>",
   ].join("\n")
+}
+
+function buildPrepareResourceObjectResult(input: {
+  resource: ResourceRecord
+  timedOut: boolean
+}): BuddyObjectResult {
+  const ref = {
+    kind: BUDDY_OBJECT_KINDS.resource,
+    objectID: input.resource.objectID,
+    revisionID: null,
+    itemID: null,
+  }
+  const status = input.resource.status === RESOURCE_PACK_STATUS_PREPARING && input.timedOut
+    ? "blocked"
+    : "ok"
+  return BuddyObjectResultSchema.parse({
+    version: 1,
+    status,
+    reason: input.timedOut ? "resource_still_preparing" : null,
+    message: `Prepared resource ${input.resource.alias}.`,
+    primaryRef: ref,
+    objects: [
+      objectSummaryBaseFromManifest({
+        kind: BUDDY_OBJECT_KINDS.resource,
+        objectID: input.resource.objectID,
+        title: input.resource.title ?? input.resource.alias,
+        status: input.resource.status,
+        lifecycle: "imported",
+        sourceRoot: input.resource.sourceRelpath,
+      }),
+    ],
+    presentations: [],
+  })
 }
 
 function sleep(ms: number) {
@@ -103,22 +173,22 @@ function sleep(ms: number) {
 
 async function readPreparedResourceByID(
   directory: string,
-  resourceID: string,
+  objectID: string,
 ): Promise<ResourceRecord> {
-  const resource = await getResourceByKey(directory, resourceID)
+  const resource = await getResourceByKey(directory, objectID)
   if (!resource) {
-    throw new Error(`Resource not found after registration: ${resourceID}`)
+    throw new Error(`Resource not found after registration: ${objectID}`)
   }
   return resource
 }
 
 async function waitForPreparedResource(input: {
   directory: string
-  resourceID: string
+  objectID: string
   maxWaitMs: number
   abort: AbortSignal
 }): Promise<ResourcePreparationResult> {
-  let current = await readPreparedResourceByID(input.directory, input.resourceID)
+  let current = await readPreparedResourceByID(input.directory, input.objectID)
   if (current.status !== RESOURCE_PACK_STATUS_PREPARING) {
     return {
       resource: current,
@@ -132,7 +202,7 @@ async function waitForPreparedResource(input: {
     await sleep(RESOURCE_PREPARATION_POLL_INTERVAL_MS)
     input.abort.throwIfAborted()
 
-    current = await readPreparedResourceByID(input.directory, input.resourceID)
+    current = await readPreparedResourceByID(input.directory, input.objectID)
     if (current.status !== RESOURCE_PACK_STATUS_PREPARING) {
       return {
         resource: current,
@@ -149,6 +219,9 @@ async function waitForPreparedResource(input: {
 
 export const prepareResourceTool = createBuddyTool({
   id: PREPARE_RESOURCE_TOOL_ID,
+  produces: {
+    buddyObjectResult: true,
+  },
   description: PREPARE_RESOURCE_DESCRIPTION,
   parameters: ResourcePrepareParameters,
   async execute(params, ctx) {
@@ -174,7 +247,7 @@ export const prepareResourceTool = createBuddyTool({
     const finalResult = shouldWait
       ? await waitForPreparedResource({
           directory: ctx.directory,
-          resourceID: created.id,
+          objectID: created.objectID,
           maxWaitMs,
           abort: ctx.abort,
         })
@@ -183,18 +256,36 @@ export const prepareResourceTool = createBuddyTool({
           timedOut: false,
         }
 
+    const buddyObjectResult = buildPrepareResourceObjectResult({
+      resource: finalResult.resource,
+      timedOut: finalResult.timedOut,
+    })
+
     return {
       title: PREPARE_RESOURCE_TOOL_ID,
       output: formatResourcePreparationOutput({
+        directory: ctx.directory,
         resource: finalResult.resource,
         waitUntilReady: shouldWait,
         timedOut: finalResult.timedOut,
         maxWaitMs,
+        buddyObjectResult,
       }),
       metadata: {
+        buddyObjectResult,
         resource: finalResult.resource.alias,
-        resourceID: finalResult.resource.id,
+        objectID: finalResult.resource.objectID,
         status: finalResult.resource.status,
+        format: finalResult.resource.format,
+        managedSourcePath: finalResult.resource.sourceRelpath,
+        benchReaderPath: finalResult.resource.readerPath ?? null,
+        packPath: finalResult.resource.packPath ?? null,
+        fullTextPath: finalResult.resource.fullTextPath ?? null,
+        warnings: finalResult.resource.warnings,
+        nextStep: resolveNextStep({
+          status: finalResult.resource.status,
+          timedOut: finalResult.timedOut,
+        }),
         timedOut: finalResult.timedOut,
         waitUntilReady: shouldWait,
         maxWaitMs,

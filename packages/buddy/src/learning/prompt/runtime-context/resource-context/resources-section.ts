@@ -1,4 +1,4 @@
-import { join } from "node:path/posix"
+import path from "node:path"
 import dedent from "dedent"
 import ABOUT_SECTION_TEMPLATE_SOURCE from "./about-section.t.md"
 import NOTEBOOK_RESOURCES_CONTEXT_TEMPLATE_SOURCE from "./notebook-resources-context.t.md"
@@ -10,8 +10,6 @@ import {
   RESOURCE_PACK_ENTRYPOINT_FILE_NAME,
   RESOURCE_PACK_FULL_TEXT_FILE_PREFIX,
   RESOURCE_PACK_PAGES_DIR_NAME,
-  RESOURCE_PACK_PROCESSED_DIR_NAME,
-  RESOURCE_PACK_ROOT_DIR,
   RESOURCE_PACK_TOC_FILE_NAME,
 } from "../../../../resource-packs/contracts"
 import { definePromptTemplate } from "../../template/engine"
@@ -25,6 +23,15 @@ const truncateWithEllipsis = (str: string, maxLen: number): string =>
   str.length <= maxLen ? str : `${str.slice(0, maxLen - 3)}...`
 
 const normalizeWhitespace = (str: string): string => str.trim().replace(/\s+/g, " ")
+
+function promptAbsolutePath(input: {
+  directory: string
+  pathText: string | undefined
+}): string | undefined {
+  const trimmed = input.pathText?.trim()
+  if (!trimmed) return undefined
+  return path.isAbsolute(trimmed) ? trimmed : path.resolve(input.directory, trimmed)
+}
 
 const NOTEBOOK_RESOURCES_CONTEXT_TEMPLATE = definePromptTemplate({
   source: NOTEBOOK_RESOURCES_CONTEXT_TEMPLATE_SOURCE,
@@ -41,7 +48,10 @@ const ABOUT_SECTION_TEMPLATE = definePromptTemplate({
   debugName: "learning/prompt/runtime-context/resource-context/about-section.t.md",
 })
 
-export function renderNotebookResourcesSection(input: { resources: PromptResource[] }) {
+export function renderNotebookResourcesSection(input: {
+  directory: string
+  resources: PromptResource[]
+}) {
   const resources = input.resources
 
   // Empty state: use dedicated template
@@ -66,21 +76,26 @@ export function renderNotebookResourcesSection(input: { resources: PromptResourc
         RESOURCE_PATH_PREVIEW_MAX_CHARS,
       )
       const sourcePreview = truncateWithEllipsis(
-        resource.sourceRelpath,
+        promptAbsolutePath({ directory: input.directory, pathText: resource.managedSource }) ??
+          resource.managedSource,
         RESOURCE_PATH_PREVIEW_MAX_CHARS,
       )
-      const packPath = join(
-        RESOURCE_PACK_ROOT_DIR,
-        resource.alias,
-        RESOURCE_PACK_PROCESSED_DIR_NAME,
-      )
+      const benchReaderPath =
+        promptAbsolutePath({ directory: input.directory, pathText: resource.benchReaderRelpath }) ??
+        "none"
+      const packPath =
+        promptAbsolutePath({ directory: input.directory, pathText: resource.packPath }) ?? "none"
+      const fullTextPath = promptAbsolutePath({
+        directory: input.directory,
+        pathText: resource.fullTextPath,
+      })
 
       const warningRaw = resource.warnings.find((entry) => entry.trim().length > 0)
       const warning = warningRaw
         ? truncateWithEllipsis(normalizeWhitespace(warningRaw), RESOURCE_WARNING_PREVIEW_MAX_CHARS)
         : undefined
 
-      return `- id=${resource.id} | name=${namePreview} | alias=${resource.alias} | format=${resource.format} | status=${resource.status} | source=${sourcePreview} | bench_reader=${resource.benchReaderRelpath ?? "none"} | pack=${packPath}${resource.fullTextPath ? ` | full_text=${resource.fullTextPath}` : ""}${resource.fullTextEstTokens !== undefined ? ` | full_text_est_tokens=${resource.fullTextEstTokens}` : ""}${resource.fullTextChars !== undefined ? ` | full_text_chars=${resource.fullTextChars}` : ""}${warning ? ` | note=${warning}` : ""}`
+      return `- object_id=${resource.objectID} | alias=${resource.alias} | name=${namePreview} | format=${resource.format} | status=${resource.status} | managed_source=${sourcePreview} | bench_reader=${benchReaderPath} | pack=${packPath}${fullTextPath ? ` | full_text=${fullTextPath}` : ""}${resource.fullTextEstimatedTokens !== undefined ? ` | full_text_est_tokens=${resource.fullTextEstimatedTokens}` : ""}${resource.fullTextChars !== undefined ? ` | full_text_chars=${resource.fullTextChars}` : ""}${warning ? ` | note=${warning}` : ""}`
     })
     .join("\n")
 
@@ -101,7 +116,7 @@ export function renderNotebookResourcesSection(input: { resources: PromptResourc
 
   const truncationNotice =
     remainingResources.length > 0
-      ? "\n\nInventory is truncated for prompt budget. Inspect `resources/` directly when you need the full list."
+      ? "\n\nInventory is truncated for prompt budget. Use listed aliases or object IDs in resource tools; do not infer old resource paths."
       : ""
 
   return NOTEBOOK_RESOURCES_CONTEXT_TEMPLATE.render({
@@ -117,6 +132,7 @@ export const resourcesSection = defineRuntimeSection({
   key: "resources",
   render: (context) =>
     renderNotebookResourcesSection({
+      directory: context.directory,
       resources: context.resources,
     }),
 })

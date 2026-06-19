@@ -21,7 +21,6 @@ import {
   readBenchContext,
   type BenchReadContextOutput,
 } from "../features/bench/context"
-import { resolveBenchReadingResourceRelpath } from "../features/bench/reading-resource"
 import type { TeachingSessionState } from "../shared/teaching-session-state"
 import { hasExplicitModel, resolveCurrentSurface, resolveFocusGoalIds } from "../shared/targeting"
 import type {
@@ -29,7 +28,6 @@ import type {
   TeachingWorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { listRegisteredResources } from "../../resources/resource-registry-service"
-import { resolveResourcePackFullTextMetadata } from "../../resource-packs"
 
 type MessagePromptProjectConfig = Awaited<ReturnType<typeof readProjectConfig>>
 
@@ -70,21 +68,22 @@ export type PromptTurnSnapshot = {
 }
 
 export type PromptResource = {
-  id: string
+  objectID: string
   name: string
   alias: string
-  sourceRelpath: string
+  managedSource: string
   format: string
   status: PromptResourceStatus
   warnings: string[]
   benchReaderRelpath?: string
+  packPath?: string
   fullTextPath?: string
-  fullTextEstTokens?: number
+  fullTextEstimatedTokens?: number
   fullTextChars?: number
 }
 
 export type ActivePromptResource = {
-  id?: string
+  objectID?: string
   alias?: string
   title: string
   path: string
@@ -299,7 +298,7 @@ function readPromptModelRuntimeSnapshot(value: unknown): PromptModelRuntimeSnaps
 async function resolvePromptResource(input: {
   directory: string
   resource: {
-    id: string
+    objectID: string
     alias: string
     sourceRelpath: string
     sourceOriginRelpath?: string
@@ -307,37 +306,30 @@ async function resolvePromptResource(input: {
     status: PromptResourceStatus
     warnings: string[]
     title?: string
-    packKey?: string
+    packPath?: string
+    fullTextPath?: string
+    fullTextEstimatedTokens?: number
+    fullTextCharacters?: number
+    readerPath?: string
   }
 }): Promise<PromptResource> {
-  const [metadata, benchReaderRelpath] = await Promise.all([
-    resolveResourcePackFullTextMetadata({
-      directory: input.directory,
-      packKey: input.resource.packKey,
-    }),
-    resolveBenchReadingResourceRelpath({
-      directory: input.directory,
-      sourceRelpath: input.resource.sourceRelpath,
-      ...(input.resource.sourceOriginRelpath
-        ? { sourceOriginRelpath: input.resource.sourceOriginRelpath }
-        : {}),
-    }),
-  ])
-
   return {
-    id: input.resource.id,
+    objectID: input.resource.objectID,
     name: resolvePromptResourceName(input.resource),
     alias: input.resource.alias,
-    sourceRelpath: input.resource.sourceRelpath,
+    managedSource: input.resource.sourceRelpath,
     format: input.resource.format,
     status: input.resource.status,
     warnings: input.resource.warnings,
-    ...(benchReaderRelpath ? { benchReaderRelpath } : {}),
-    ...(metadata?.fullTextPath ? { fullTextPath: metadata.fullTextPath } : {}),
-    ...(metadata?.fullTextEstTokens !== undefined
-      ? { fullTextEstTokens: metadata.fullTextEstTokens }
+    ...(input.resource.readerPath ? { benchReaderRelpath: input.resource.readerPath } : {}),
+    ...(input.resource.packPath ? { packPath: input.resource.packPath } : {}),
+    ...(input.resource.fullTextPath ? { fullTextPath: input.resource.fullTextPath } : {}),
+    ...(input.resource.fullTextEstimatedTokens !== undefined
+      ? { fullTextEstimatedTokens: input.resource.fullTextEstimatedTokens }
       : {}),
-    ...(metadata?.fullTextChars !== undefined ? { fullTextChars: metadata.fullTextChars } : {}),
+    ...(input.resource.fullTextCharacters !== undefined
+      ? { fullTextChars: input.resource.fullTextCharacters }
+      : {}),
   }
 }
 
@@ -437,7 +429,7 @@ function buildActiveResource(
   const matchedResource = activeReadingContext.resourceKey
     ? resources.find(
         (resource) =>
-          resource.id === activeReadingContext.resourceKey ||
+          resource.objectID === activeReadingContext.resourceKey ||
           resource.alias === activeReadingContext.resourceKey,
       )
     : undefined
@@ -445,7 +437,7 @@ function buildActiveResource(
   return {
     ...(matchedResource
       ? {
-          id: matchedResource.id,
+          objectID: matchedResource.objectID,
           alias: matchedResource.alias,
           status: matchedResource.status,
         }

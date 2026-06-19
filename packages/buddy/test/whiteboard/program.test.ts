@@ -6,11 +6,14 @@ import {
   parseDrawingProgram,
 } from "../../src/learning/features/whiteboard/service/program"
 import {
+  ensureWhiteboardObjectForSession,
+  readAndRecordWhiteboardBoardContext,
   readWhiteboardSession,
   readWhiteboardBoardContext,
   saveWhiteboardLearnerEdit,
   saveWhiteboardRenderReport,
 } from "../../src/learning/features/whiteboard/service/store"
+import { BUDDY_OBJECT_KINDS, listObjects } from "../../src/objects"
 import {
   WhiteboardPayloadTooLargeError,
   WhiteboardStaleLearnerEditError,
@@ -240,7 +243,7 @@ describe("whiteboard drawing program", () => {
     expect(state.currentBoard?.elements.map((element) => element.id)).toEqual(["base"])
   })
 
-  test("rejects conflicting requested write modes and legacy board-action controls", async () => {
+  test("rejects conflicting requested write modes and previous board-action controls", async () => {
     await using project = await tmpdir()
     await applyWhiteboardDrawingProgram({
       directory: project.path,
@@ -744,6 +747,27 @@ describe("whiteboard drawing program", () => {
       containerId: "box",
       overflowDirection: "horizontal",
     })
+  })
+
+  test("read context does not create an empty whiteboard object", async () => {
+    await using project = await tmpdir()
+
+    const context = await readAndRecordWhiteboardBoardContext(
+      project.path,
+      "ses_read_context_without_board",
+    )
+    const session = await readWhiteboardSession(
+      project.path,
+      "ses_read_context_without_board",
+    )
+    const listed = await listObjects({
+      directory: project.path,
+      kind: BUDDY_OBJECT_KINDS.whiteboard,
+    })
+
+    expect(context.currentBoard).toBeNull()
+    expect(session.objectID).toBeNull()
+    expect(listed.objects).toEqual([])
   })
 
   test("render layout digest reports text that is too small at the current zoom", async () => {
@@ -1324,6 +1348,25 @@ describe("whiteboard drawing program", () => {
     const state = await readWhiteboardSession(project.path, "ses_concurrent_agent_writes")
     const latestIDs = state.currentBoard?.elements.map((element) => element.id)
     expect(new Set(latestIDs)).toEqual(new Set(["base", "first", "second"]))
+  })
+
+  test("serializes concurrent first whiteboard object creation per session", async () => {
+    await using project = await tmpdir()
+    const manifests = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        ensureWhiteboardObjectForSession({
+          directory: project.path,
+          sessionID: "ses_concurrent_first_object",
+        }),
+      ),
+    )
+    const listed = await listObjects({
+      directory: project.path,
+      kind: BUDDY_OBJECT_KINDS.whiteboard,
+    })
+
+    expect(new Set(manifests.map((manifest) => manifest.objectID)).size).toBe(1)
+    expect(listed.objects).toHaveLength(1)
   })
 
   test("allows continuation appends after learner edits without rereading context", async () => {

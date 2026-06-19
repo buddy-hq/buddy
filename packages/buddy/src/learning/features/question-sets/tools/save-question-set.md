@@ -1,1 +1,1 @@
-Persist a fully-authored answerful question set artifact and return an artifact id for later rendering.
+Persist a fully-authored answerful question set object and return object metadata for rendering.

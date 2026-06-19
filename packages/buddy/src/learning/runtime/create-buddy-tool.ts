@@ -11,6 +11,7 @@ import {
   type BuddyToolRuntimeDependency,
 } from "../runtime/tool-constraint-types"
 import type { DynamicBuddyToolMetadata } from "./dynamic-tool-metadata"
+import { BuddyObjectResultSchema } from "../../objects/result"
 
 type BuddyToolMetadata = Record<string, unknown>
 type BuddyToolContext<Metadata extends BuddyToolMetadata = BuddyToolMetadata> = {
@@ -38,16 +39,22 @@ type BuddyToolDefinition<
     args: z.infer<Parameters>,
     ctx: BuddyToolContext<Metadata>,
   ): Promise<Tool.ExecuteResult<Metadata>> | Tool.ExecuteResult<Metadata>
+  normalizeInput?(rawArgs: unknown): unknown
   formatValidationError?(error: z.ZodError): string
   constraints?: BuddyToolConstraints
   dynamic?: DynamicBuddyToolMetadata
   ui?: ToolUiMetadata
   output?: BuddyToolOutputPolicy
+  produces?: BuddyToolProducesPolicy
 }
 
 type BuddyToolOutputPolicy = {
   maxLines?: number
   maxBytes?: number
+}
+
+type BuddyToolProducesPolicy = {
+  buddyObjectResult?: true
 }
 
 type BuddyTool<
@@ -58,6 +65,7 @@ type BuddyTool<
   id: Id
   description: string
   parameters: Parameters
+  jsonSchema?: NonNullable<Tool.Def["jsonSchema"]>
   constraints?: BuddyToolConstraints
   dynamic?: DynamicBuddyToolMetadata
   ui?: ToolUiMetadata
@@ -80,6 +88,38 @@ function isJsonSchemaObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
+function isNullJsonSchema(value: unknown): boolean {
+  return isJsonSchemaObject(value) && value.type === "null"
+}
+
+function normalizeNullableAnyOf(schema: Record<string, unknown>): Record<string, unknown> {
+  const anyOf = schema.anyOf
+  if (!Array.isArray(anyOf) || anyOf.length !== 2) {
+    return schema
+  }
+
+  const nullSchema = anyOf.find(isNullJsonSchema)
+  const valueSchema = anyOf.find((item) => !isNullJsonSchema(item))
+  if (!nullSchema || !isJsonSchemaObject(valueSchema) || typeof valueSchema.type !== "string") {
+    return schema
+  }
+
+  const normalized: Record<string, unknown> = {
+    ...schema,
+    ...Object.fromEntries(
+      Object.entries(valueSchema).filter(([key]) => key !== "type" && key !== "description"),
+    ),
+    type: [valueSchema.type, "null"],
+  }
+  delete normalized.anyOf
+
+  if (Array.isArray(normalized.enum) && !normalized.enum.includes(null)) {
+    normalized.enum = [...normalized.enum, null]
+  }
+
+  return normalized
+}
+
 function normalizeZodJsonSchema(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => normalizeZodJsonSchema(item))
@@ -87,7 +127,7 @@ function normalizeZodJsonSchema(value: unknown): unknown {
   if (!isJsonSchemaObject(value)) {
     return value
   }
-  return Object.fromEntries(
+  const normalized = Object.fromEntries(
     Object.entries(value)
       .filter(([key, item]) => {
         return !(
@@ -97,6 +137,7 @@ function normalizeZodJsonSchema(value: unknown): unknown {
       })
       .map(([key, item]) => [key, normalizeZodJsonSchema(item)]),
   )
+  return normalizeNullableAnyOf(normalized)
 }
 
 function toToolJsonSchema(id: string, parameters: z.ZodType) {
@@ -169,7 +210,8 @@ async function runBuddyTool<
   rawArgs: unknown,
   ctx: BuddyToolContext<Metadata>,
 ): Promise<Tool.ExecuteResult<Metadata>> {
-  const parsed = definition.parameters.safeParse(rawArgs)
+  const normalizedArgs = definition.normalizeInput ? definition.normalizeInput(rawArgs) : rawArgs
+  const parsed = definition.parameters.safeParse(normalizedArgs)
   if (!parsed.success) {
     const message = definition.formatValidationError
       ? definition.formatValidationError(parsed.error)
@@ -178,7 +220,23 @@ async function runBuddyTool<
   }
 
   ctx.abort.throwIfAborted()
-  return executeUntilAbort(ctx.abort, async () => definition.execute(parsed.data, ctx))
+  const result = await executeUntilAbort(ctx.abort, async () => definition.execute(parsed.data, ctx))
+  validateProducedToolMetadata(definition, result)
+  return result
+}
+
+function validateProducedToolMetadata<
+  const Id extends string,
+  Parameters extends z.ZodType,
+  Metadata extends BuddyToolMetadata,
+>(
+  definition: BuddyToolDefinition<Id, Parameters, Metadata>,
+  result: Tool.ExecuteResult<Metadata>,
+): void {
+  if (definition.produces?.buddyObjectResult !== true) {
+    return
+  }
+  BuddyObjectResultSchema.parse(result.metadata.buddyObjectResult)
 }
 
 function createBuddyTool<
@@ -196,6 +254,7 @@ function createBuddyTool<
     id: definition.id,
     description: definition.description,
     parameters: definition.parameters,
+    jsonSchema,
     constraints: clonedConstraints,
     ...(clonedDynamic ? { dynamic: clonedDynamic } : {}),
     ...(clonedUi ? { ui: clonedUi } : {}),

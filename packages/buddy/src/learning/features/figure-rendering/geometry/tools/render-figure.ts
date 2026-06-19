@@ -1,18 +1,23 @@
 import z from "zod"
-import path from "node:path"
 import RENDER_FIGURE_DESCRIPTION from "./render-figure.md"
 import {
   createBuddyTool,
   type BuddyToolContext,
 } from "@buddy/backend/learning/runtime/create-buddy-tool"
 import {
-  ARTIFACT_CONTENT_FILES,
-  ARTIFACT_KINDS,
-  ArtifactPath,
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectResultSchema,
+  formatBuddyObjectRefLines,
   nonEmptyString,
-} from "../../../../../artifacts"
+  objectSummaryBaseFromManifest,
+  type BuddyObjectResult,
+} from "../../../../../objects"
 import { GeometryFigureSpecSchema } from "../types"
-import { renderGeometryFigure } from "../render-figure"
+import {
+  FIGURE_RENDERED_VIEW_ID,
+  renderGeometryFigure,
+  type RenderGeometryFigureObjectOutput,
+} from "../render-figure"
 
 const RenderFigureInputSchema = z.object({
   caption: nonEmptyString.optional(),
@@ -21,34 +26,79 @@ const RenderFigureInputSchema = z.object({
 
 type RenderFigureInput = z.infer<typeof RenderFigureInputSchema>
 
+function buildRenderFigureObjectResult(input: {
+  figure: RenderGeometryFigureObjectOutput
+}): BuddyObjectResult {
+  const ref = {
+    kind: BUDDY_OBJECT_KINDS.figure,
+    objectID: input.figure.objectID,
+    revisionID: input.figure.revisionID,
+    itemID: null,
+  }
+  return BuddyObjectResultSchema.parse({
+    version: 1,
+    status: "ok",
+    reason: null,
+    message: "Rendered figure object.",
+    primaryRef: ref,
+    objects: [
+      objectSummaryBaseFromManifest({
+        kind: BUDDY_OBJECT_KINDS.figure,
+        objectID: input.figure.objectID,
+        title: input.figure.alt,
+        status: "ready",
+        lifecycle: "revisioned",
+        sourceRoot: null,
+      }),
+    ],
+    presentations: [
+      {
+        ref,
+        viewID: FIGURE_RENDERED_VIEW_ID,
+        surface: "inline",
+        data: {
+          renderer: "figure",
+          svgUrl: input.figure.rawUrl,
+          source: null,
+          alt: input.figure.alt,
+          caption: input.figure.caption,
+          renderStatus: "ready",
+        },
+        autoOpen: null,
+      },
+    ],
+  })
+}
+
 const renderFigureTool = createBuddyTool({
   id: "render_figure",
+  produces: {
+    buddyObjectResult: true,
+  },
   description: RENDER_FIGURE_DESCRIPTION,
   parameters: RenderFigureInputSchema,
   async execute(params: RenderFigureInput, ctx: BuddyToolContext) {
     await ctx.ask({
       permission: "render_figure",
-      patterns: [
-        path.join(
-          ArtifactPath.kindRoot(ctx.directory, ARTIFACT_KINDS.figure),
-          "*",
-          ARTIFACT_CONTENT_FILES.figureSvg,
-        ),
-      ],
+      patterns: ["*"],
       always: ["*"],
       metadata: {
-        kind: "geometry.v1",
+        kind: BUDDY_OBJECT_KINDS.figure,
       },
     })
 
-    const result = await renderGeometryFigure(ctx.directory, params)
+    const figure = await renderGeometryFigure(ctx.directory, params)
+    const buddyObjectResult = buildRenderFigureObjectResult({ figure })
 
     return {
       title: "Rendered figure",
-      output: JSON.stringify(result, null, 2),
+      output: [
+        buddyObjectResult.message,
+        ...formatBuddyObjectRefLines(buddyObjectResult.primaryRef),
+        `revision_id=${figure.revisionID}`,
+      ].join("\n"),
       metadata: {
-        artifact: "RenderFigureOutput",
-        value: result,
+        buddyObjectResult,
       },
     }
   },

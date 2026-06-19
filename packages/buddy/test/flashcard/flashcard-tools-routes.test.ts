@@ -1,29 +1,32 @@
 import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
 import path from "node:path"
-import { ulid } from "ulid"
+import z from "zod"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src/index.ts"
 import {
-  ARTIFACT_CONTENT_DIRECTORIES,
-  ARTIFACT_CONTENT_FILES,
-  ARTIFACT_KINDS,
-  ArtifactPath,
-} from "../../src/artifacts"
-import { readFlashcardDeck } from "../../src/learning/features/flashcards/storage/read-deck"
-import { writePendingFlashcardReviewTransaction } from "../../src/learning/features/flashcards/storage/review-transaction"
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectPath,
+  BuddyObjectResultSchema,
+  generateObjectID,
+  type BuddyObjectRef,
+  type BuddyObjectResult,
+} from "../../src/objects"
+import { readFlashcardDeckObject } from "../../src/learning/features/flashcards/storage/read-deck"
+import { writePendingFlashcardObjectReviewTransaction } from "../../src/learning/features/flashcards/storage/review-transaction"
 import { Global } from "../../src/storage/global"
 import {
   buildFlashcardNotesAndCards,
-  saveFlashcardDeck,
+  flashcardDeckObjectStatePath,
+  saveFlashcardDeckObject,
 } from "../../src/learning/features/flashcards/storage/save-deck"
 import {
   DECK_CONFIG_DEFAULTS,
   DeckConfigSchema,
   FLASHCARD_DECK_KIND,
+  FlashcardDeckSchema,
   ReviewRecordSchema,
-  SaveFlashcardDeckOutputSchema,
 } from "../../src/learning/features/flashcards/types"
 import type { FlashcardDeck } from "../../src/learning/features/flashcards/types"
 import type { SaveFlashcardDeckInput } from "../../src/learning/features/flashcards/tools/save-flashcard-deck"
@@ -41,27 +44,92 @@ const OPEN_PROJECT_REGISTRY_LOCK_FILE = `${OPEN_PROJECT_REGISTRY_FILE}.lock`
 const OPEN_PROJECT_REGISTRY_CLEANUP_LOCK_FILE = `${OPEN_PROJECT_REGISTRY_LOCK_FILE}.cleanup`
 const OPEN_PROJECT_REGISTRY_CORRUPT_PREFIX = "desktop-notebooks.corrupt."
 const OPEN_PROJECT_REGISTRY_CORRUPT_SUFFIX = ".json"
+const REVIEW_DIRECTORY_NAME = "reviews"
+const PENDING_REVIEW_FILE_NAME = "pending-review.json"
 
-function flashcardDeckFile(directory: string, artifactID: string): string {
-  return ArtifactPath.artifactFile(
+const ObjectListBodySchema = z
+  .object({
+    objects: z.array(
+      z
+        .object({
+          objectID: z.string(),
+          kind: z.literal(BUDDY_OBJECT_KINDS.flashcardDeck),
+          title: z.string(),
+        })
+        .passthrough(),
+    ),
+    loadErrors: z.array(
+      z
+        .object({
+          objectID: z.string().nullable(),
+          kind: z.string().nullable(),
+          message: z.string(),
+        })
+        .passthrough(),
+    ),
+  })
+  .strict()
+
+const ObjectReadBodySchema = z
+  .object({
+    status: z.literal("ready"),
+    manifest: z
+      .object({
+        objectID: z.string(),
+        kind: z.literal(BUDDY_OBJECT_KINDS.flashcardDeck),
+        origin: z
+          .object({
+            kind: z.literal("tool"),
+            sessionID: z.string(),
+            messageID: z.string(),
+            callID: z.string(),
+            subagent: z.string().optional(),
+          })
+          .strict(),
+      })
+      .passthrough(),
+  })
+  .strict()
+
+const NextCardBodySchema = z
+  .object({
+    card: z
+      .object({
+        cardID: z.string(),
+      })
+      .passthrough()
+      .nullable(),
+  })
+  .strict()
+
+function flashcardDeckStateFile(directory: string, objectID: string): string {
+  return BuddyObjectPath.objectFile(
     directory,
-    ARTIFACT_KINDS.flashcardDeck,
-    artifactID,
-    ARTIFACT_CONTENT_FILES.flashcardDeck,
+    BUDDY_OBJECT_KINDS.flashcardDeck,
+    objectID,
+    flashcardDeckObjectStatePath(),
   )
 }
 
-function flashcardDeckDirectory(directory: string, artifactID: string): string {
-  return ArtifactPath.artifactDirectory(directory, ARTIFACT_KINDS.flashcardDeck, artifactID)
+function flashcardReviewFile(directory: string, objectID: string, reviewID: string): string {
+  return BuddyObjectPath.objectFile(
+    directory,
+    BUDDY_OBJECT_KINDS.flashcardDeck,
+    objectID,
+    "state",
+    REVIEW_DIRECTORY_NAME,
+    `${reviewID}.json`,
+  )
 }
 
-function flashcardReviewFile(directory: string, artifactID: string, reviewID: string): string {
-  return ArtifactPath.artifactFile(
+function pendingFlashcardReviewFile(directory: string, objectID: string): string {
+  return BuddyObjectPath.objectFile(
     directory,
-    ARTIFACT_KINDS.flashcardDeck,
-    artifactID,
-    ARTIFACT_CONTENT_DIRECTORIES.flashcardReviews,
-    `${reviewID}.json`,
+    BUDDY_OBJECT_KINDS.flashcardDeck,
+    objectID,
+    "state",
+    REVIEW_DIRECTORY_NAME,
+    PENDING_REVIEW_FILE_NAME,
   )
 }
 
@@ -89,23 +157,41 @@ function sampleFlashcardDeckInput(): SaveFlashcardDeckInput {
   }
 }
 
+function requireFlashcardRef(result: BuddyObjectResult): BuddyObjectRef {
+  const ref = result.primaryRef
+  expect(ref).not.toBeNull()
+  if (!ref) {
+    throw new Error("Expected flashcard object ref.")
+  }
+  expect(ref.kind).toBe(BUDDY_OBJECT_KINDS.flashcardDeck)
+  return ref
+}
+
+function requireRevisionID(ref: BuddyObjectRef): string {
+  expect(ref.revisionID).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+  if (!ref.revisionID) {
+    throw new Error("Expected flashcard revision id.")
+  }
+  return ref.revisionID
+}
+
 async function createStoredFlashcardDeck(directory: string): Promise<FlashcardDeck> {
-  const artifactID = ulid()
+  const objectID = generateObjectID()
   const config = DeckConfigSchema.parse({
     ...DECK_CONFIG_DEFAULTS,
     learnSteps: [...DECK_CONFIG_DEFAULTS.learnSteps],
     relearnSteps: [...DECK_CONFIG_DEFAULTS.relearnSteps],
   })
   const { notes, cards } = buildFlashcardNotesAndCards(
-    artifactID,
+    objectID,
     sampleFlashcardDeckInput().notes,
     DECK_CONFIG_DEFAULTS,
   )
 
-  return saveFlashcardDeck({
+  const saved = await saveFlashcardDeckObject({
     directory,
     deck: {
-      artifactID,
+      objectID,
       kind: FLASHCARD_DECK_KIND,
       title: "Cell Biology Basics",
       config,
@@ -122,6 +208,35 @@ async function createStoredFlashcardDeck(directory: string): Promise<FlashcardDe
       },
     },
   })
+  return saved.deck
+}
+
+async function saveFlashcardDeckWithTool(directory: string, sessionID: string): Promise<{
+  result: BuddyObjectResult
+  ref: BuddyObjectRef
+  revisionID: string
+}> {
+  await ensureBuddyPluginTools(directory)
+  const result = await OpenCodeInstance.provide({
+    directory,
+    async fn() {
+      const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
+      const saveFlashcardDeck = requireTool(tools, "save_flashcard_deck")
+
+      return saveFlashcardDeck.execute(
+        sampleFlashcardDeckInput(),
+        createToolContext({
+          sessionID,
+          messageID: `msg_${sessionID}`,
+          agent: "flashcard-author",
+        }),
+      )
+    },
+  })
+  const objectResult = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
+  const ref = requireFlashcardRef(objectResult)
+  const revisionID = requireRevisionID(ref)
+  return { result: objectResult, ref, revisionID }
 }
 
 async function removeOpenProjectRegistryFiles(): Promise<void> {
@@ -155,13 +270,11 @@ describe("flashcard tools and routes", () => {
 
     try {
       const response = await app.request(
-        `/api/artifacts?directory=${encodeURIComponent(project.path)}&kind=flashcard-deck`,
+        `/api/objects?directory=${encodeURIComponent(project.path)}&kind=flashcard-deck`,
       )
 
       expect(response.status).toBe(200)
-      await expect(response.json()).resolves.toMatchObject({
-        artifacts: [],
-      })
+      expect(ObjectListBodySchema.parse(await response.json()).objects).toEqual([])
     } finally {
       await removeOpenProjectRegistryFiles()
     }
@@ -169,169 +282,80 @@ describe("flashcard tools and routes", () => {
 
   test("lists deck provenance for decks created by the flashcard author session", async () => {
     await using project = await tmpdir({ git: true })
-    await ensureBuddyPluginTools(project.path)
-
-    const saveOutput = await OpenCodeInstance.provide({
-      directory: project.path,
-      async fn() {
-        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-        const saveFlashcardDeck = requireTool(tools, "save_flashcard_deck")
-
-        const result = await saveFlashcardDeck.execute(
-          sampleFlashcardDeckInput(),
-          createToolContext({
-            sessionID: "ses_flashcard_author",
-            messageID: "msg_flashcard_author",
-            agent: "flashcard-author",
-          }),
-        )
-
-        return SaveFlashcardDeckOutputSchema.parse(JSON.parse(result.output))
-      },
-    })
+    const saved = await saveFlashcardDeckWithTool(project.path, "ses_flashcard_author")
 
     const response = await app.request(
-      `/api/artifacts?directory=${encodeURIComponent(project.path)}&kind=flashcard-deck`,
+      `/api/objects?directory=${encodeURIComponent(project.path)}&kind=flashcard-deck`,
     )
 
     expect(response.status).toBe(200)
-    const body = (await response.json()) as {
-      artifacts: Array<{
-        artifactID: string
-        origin: {
-          sessionID: string
-          messageID: string
-          callID: string
-          subagent: string
-        }
-      }>
-    }
+    const body = ObjectListBodySchema.parse(await response.json())
+    expect(body.objects).toHaveLength(1)
+    expect(body.objects[0]?.objectID).toBe(saved.ref.objectID)
 
-    expect(body.artifacts).toHaveLength(1)
-    expect(body.artifacts[0]?.artifactID).toBe(saveOutput.artifactID)
-    expect(body.artifacts[0]?.origin.sessionID).toBe("ses_flashcard_author")
-    expect(body.artifacts[0]?.origin.messageID).toBe("msg_flashcard_author")
-    expect(body.artifacts[0]?.origin.callID).toBeDefined()
-    expect(body.artifacts[0]?.origin.subagent).toBe("flashcard-author")
+    const readResponse = await app.request(
+      `/api/objects/${saved.ref.kind}/${saved.ref.objectID}?directory=${encodeURIComponent(
+        project.path,
+      )}`,
+    )
+    expect(readResponse.status).toBe(200)
+    const readBody = ObjectReadBodySchema.parse(await readResponse.json())
+    expect(readBody.manifest.origin.sessionID).toBe("ses_flashcard_author")
+    expect(readBody.manifest.origin.messageID).toBe("msg_ses_flashcard_author")
+    expect(readBody.manifest.origin.callID).toBeDefined()
+    expect(readBody.manifest.origin.subagent).toBe("flashcard-author")
   })
 
-  test("reports review availability instead of assuming due counts are immediately reviewable", async () => {
+  test("returns no next card when the configured new-card quota is zero", async () => {
     await using project = await tmpdir({ git: true })
-    await ensureBuddyPluginTools(project.path)
+    const saved = await saveFlashcardDeckWithTool(project.path, "ses_flashcard_quota")
 
-    const saveOutput = await OpenCodeInstance.provide({
-      directory: project.path,
-      async fn() {
-        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-        const saveFlashcardDeck = requireTool(tools, "save_flashcard_deck")
-
-        const result = await saveFlashcardDeck.execute(
-          sampleFlashcardDeckInput(),
-          createToolContext({
-            sessionID: "ses_flashcard_author",
-            messageID: "msg_flashcard_author",
-            agent: "flashcard-author",
-          }),
-        )
-
-        return SaveFlashcardDeckOutputSchema.parse(JSON.parse(result.output))
+    const statePath = flashcardDeckStateFile(project.path, saved.ref.objectID)
+    const deck = FlashcardDeckSchema.parse(JSON.parse(await fs.readFile(statePath, "utf8")))
+    const updatedDeck = FlashcardDeckSchema.parse({
+      ...deck,
+      config: {
+        ...deck.config,
+        newPerDay: 0,
       },
     })
-
-    const artifactPath = flashcardDeckFile(project.path, saveOutput.artifactID)
-    const deck = JSON.parse(await fs.readFile(artifactPath, "utf8")) as {
-      config: Record<string, unknown>
-    }
-    await fs.writeFile(
-      artifactPath,
-      JSON.stringify({
-        ...deck,
-        config: {
-          ...deck.config,
-          newPerDay: 0,
-        },
-      }),
-      "utf8",
-    )
+    await fs.writeFile(statePath, JSON.stringify(updatedDeck), "utf8")
 
     const response = await app.request(
-      `/api/artifacts?directory=${encodeURIComponent(project.path)}&kind=flashcard-deck`,
+      `/api/objects/flashcard-deck/${saved.ref.objectID}/next-card?directory=${encodeURIComponent(
+        project.path,
+      )}`,
     )
 
     expect(response.status).toBe(200)
-    const body = (await response.json()) as {
-      artifacts: Array<{
-        artifactID: string
-        summary: {
-          dueCounts: {
-            new: number
-            learning: number
-            review: number
-          }
-          reviewAvailable: boolean
-        }
-      }>
-    }
-
-    expect(body.artifacts[0]?.artifactID).toBe(saveOutput.artifactID)
-    expect(body.artifacts[0]?.summary.dueCounts.new).toBeGreaterThan(0)
-    expect(body.artifacts[0]?.summary.reviewAvailable).toBe(false)
+    expect(NextCardBodySchema.parse(await response.json()).card).toBeNull()
   })
 
-  test("keeps valid decks visible while surfacing corrupt deck load errors", async () => {
+  test("keeps valid decks visible while surfacing corrupt manifest load errors", async () => {
     await using project = await tmpdir({ git: true })
     const deck = await createStoredFlashcardDeck(project.path)
     const corruptDeck = await createStoredFlashcardDeck(project.path)
 
-    await fs.writeFile(flashcardDeckFile(project.path, corruptDeck.artifactID), "{", "utf8")
-
-    const response = await app.request(
-      `/api/artifacts?directory=${encodeURIComponent(project.path)}&kind=flashcard-deck`,
-    )
-
-    expect(response.status).toBe(200)
-    const body = (await response.json()) as {
-      artifacts: Array<{ artifactID: string }>
-      loadErrors: Array<{ artifactID: string; message: string }>
-    }
-    expect(body.artifacts.map((item) => item.artifactID)).toEqual([deck.artifactID])
-    expect(body.loadErrors).toHaveLength(1)
-    expect(body.loadErrors[0]?.artifactID).toBe(corruptDeck.artifactID)
-    expect(body.loadErrors[0]?.message).toContain("could not be loaded")
-  })
-
-  test("surfaces corrupt review records as artifact load errors", async () => {
-    await using project = await tmpdir({ git: true })
-    const deck = await createStoredFlashcardDeck(project.path)
-    const corruptReviewID = ulid()
-
-    await fs.mkdir(
-      path.join(
-        flashcardDeckDirectory(project.path, deck.artifactID),
-        ARTIFACT_CONTENT_DIRECTORIES.flashcardReviews,
-      ),
-      {
-        recursive: true,
-      },
-    )
     await fs.writeFile(
-      flashcardReviewFile(project.path, deck.artifactID, corruptReviewID),
-      "{not-json}",
+      BuddyObjectPath.manifestFile(
+        project.path,
+        BUDDY_OBJECT_KINDS.flashcardDeck,
+        corruptDeck.objectID,
+      ),
+      "{",
       "utf8",
     )
 
     const response = await app.request(
-      `/api/artifacts?directory=${encodeURIComponent(project.path)}&kind=flashcard-deck`,
+      `/api/objects?directory=${encodeURIComponent(project.path)}&kind=flashcard-deck`,
     )
 
     expect(response.status).toBe(200)
-    const body = (await response.json()) as {
-      artifacts: Array<{ artifactID: string }>
-      loadErrors: Array<{ artifactID: string; message: string }>
-    }
-    expect(body.artifacts).toEqual([])
+    const body = ObjectListBodySchema.parse(await response.json())
+    expect(body.objects.map((item) => item.objectID)).toEqual([deck.objectID])
     expect(body.loadErrors).toHaveLength(1)
-    expect(body.loadErrors[0]?.artifactID).toBe(deck.artifactID)
+    expect(body.loadErrors[0]?.objectID).toBe(corruptDeck.objectID)
+    expect(body.loadErrors[0]?.message).toContain("could not be loaded")
   })
 
   test("recovers a pending review before serving the next card", async () => {
@@ -342,7 +366,7 @@ describe("flashcard tools and routes", () => {
     if (!card) return
 
     const answeredAt = Date.now()
-    const reviewID = ulid()
+    const reviewID = generateObjectID()
     const updatedDeck: FlashcardDeck = {
       ...deck,
       cards: deck.cards.map((candidate) =>
@@ -371,33 +395,27 @@ describe("flashcard tools and routes", () => {
       newEaseFactor: card.easeFactor,
     })
 
-    await writePendingFlashcardReviewTransaction({
+    await writePendingFlashcardObjectReviewTransaction({
       directory: project.path,
       deck: updatedDeck,
       record,
     })
 
     const nextCardResponse = await app.request(
-      `/api/artifacts/flashcard-deck/${deck.artifactID}/next-card?directory=${encodeURIComponent(project.path)}`,
+      `/api/objects/flashcard-deck/${deck.objectID}/next-card?directory=${encodeURIComponent(
+        project.path,
+      )}`,
     )
     expect(nextCardResponse.status).toBe(200)
 
-    const recovered = await readFlashcardDeck(project.path, deck.artifactID)
+    const recovered = await readFlashcardDeckObject(project.path, deck.objectID)
     expect(recovered.cards[0]?.state).toBe("review")
     await expect(
-      fs.readFile(flashcardReviewFile(project.path, deck.artifactID, reviewID), "utf8"),
+      fs.readFile(flashcardReviewFile(project.path, deck.objectID, reviewID), "utf8"),
     ).resolves.toContain(reviewID)
-    await expect(
-      fs.access(
-        ArtifactPath.artifactFile(
-          project.path,
-          ARTIFACT_KINDS.flashcardDeck,
-          deck.artifactID,
-          ARTIFACT_CONTENT_DIRECTORIES.flashcardReviews,
-          ARTIFACT_CONTENT_FILES.flashcardPendingReview,
-        ),
-      ),
-    ).rejects.toMatchObject({ code: "ENOENT" })
+    await expect(fs.access(pendingFlashcardReviewFile(project.path, deck.objectID))).rejects.toMatchObject(
+      { code: "ENOENT" },
+    )
   })
 
   test("rejects malformed cloze notes that contain no cloze markers", async () => {
@@ -439,13 +457,13 @@ describe("flashcard tools and routes", () => {
     await using project = await tmpdir({ git: true })
     await ensureBuddyPluginTools(project.path)
 
-    const saveOutput = await OpenCodeInstance.provide({
+    const result = await OpenCodeInstance.provide({
       directory: project.path,
       async fn() {
         const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
         const saveFlashcardDeck = requireTool(tools, "save_flashcard_deck")
 
-        const result = await saveFlashcardDeck.execute(
+        return saveFlashcardDeck.execute(
           {
             title: "Non-contiguous cloze deck",
             notes: [
@@ -464,22 +482,19 @@ describe("flashcard tools and routes", () => {
             agent: "flashcard-author",
           }),
         )
-
-        return SaveFlashcardDeckOutputSchema.parse(JSON.parse(result.output))
       },
     })
+    const objectResult = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
+    const ref = requireFlashcardRef(objectResult)
 
     const response = await app.request(
-      `/api/artifacts/flashcard-deck/${saveOutput.artifactID}?directory=${encodeURIComponent(project.path)}`,
+      `/api/objects/flashcard-deck/${ref.objectID}/deck?directory=${encodeURIComponent(
+        project.path,
+      )}`,
     )
 
     expect(response.status).toBe(200)
-    const body = (await response.json()) as {
-      cards: Array<{
-        templateIdx: number
-      }>
-    }
-
+    const body = FlashcardDeckSchema.parse(await response.json())
     expect(body.cards.map((card) => card.templateIdx)).toEqual([1, 3])
   })
 })

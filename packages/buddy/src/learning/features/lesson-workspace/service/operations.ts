@@ -230,7 +230,7 @@ async function checkpoint(directory: string, sessionID: string) {
   await writeLearnerEvidenceForEvent({
     directory,
     event: learnerEvent,
-    artifactId: sessionID,
+    objectId: sessionID,
     title: `Teaching checkpoint ${sessionID}`,
     note: changedSinceLastCheckpoint
       ? "Checkpoint captured learner progress changes that differ from the prior checkpoint."

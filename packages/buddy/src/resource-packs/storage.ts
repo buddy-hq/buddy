@@ -87,7 +87,6 @@ export async function loadFreshResourcePackSnapshot(
   return {
     sourcePath: input.sourcePath,
     sourceRelpath: input.sourceRelpath,
-    packKey: resourcePackKeyFromRootPath(input.packPaths.rootPath),
     packRootPath: input.packPaths.rootPath,
     metadataPath: input.packPaths.metadataPath,
     entrypointPath: input.packPaths.entrypointPath,
@@ -105,7 +104,6 @@ export function createPendingResourcePackSnapshot(
   return {
     sourcePath: input.sourcePath,
     sourceRelpath: input.sourceRelpath,
-    packKey: resourcePackKeyFromRootPath(input.packPaths.rootPath),
     packRootPath: input.packPaths.rootPath,
     metadataPath: input.packPaths.metadataPath,
     entrypointPath: input.packPaths.entrypointPath,
@@ -121,9 +119,11 @@ export async function writePreparingResourcePackMetadata(input: {
   build: ResourcePackBuildInput
   warnings: string[]
 }) {
-  const resourceAlias = path.basename(path.dirname(input.build.packPaths.rootPath))
+  const resourceAlias = resourceAliasForBuild(input.build)
   await writeResourcePackMetadata(input.build.packPaths.metadataPath, {
+    ...(input.build.objectID ? { object_id: input.build.objectID } : {}),
     resource_alias: resourceAlias,
+    alias_at_build: resourceAlias,
     source_path: input.build.sourcePath,
     source_relpath: input.build.sourceRelpath,
     format: input.build.classification.format,
@@ -155,7 +155,7 @@ export async function writeResourcePackFiles(input: {
   author?: string
 }) {
   await fs.mkdir(input.build.packPaths.chunksDirPath, { recursive: true })
-  const resourceAlias = path.basename(path.dirname(input.build.packPaths.rootPath))
+  const resourceAlias = resourceAliasForBuild(input.build)
   const fullTextBody = normalizeText(input.fullText)
   const fullTextChars = fullTextBody.length
   const fullTextTokens = estimateTokenCountFromText(fullTextBody)
@@ -172,7 +172,9 @@ export async function writeResourcePackFiles(input: {
     fullTextPath,
     matter.stringify(fullTextBody, {
       file_kind: RESOURCE_PACK_FILE_KIND_FULL_TEXT,
+      ...(input.build.objectID ? { object_id: input.build.objectID } : {}),
       resource_alias: resourceAlias,
+      alias_at_build: resourceAlias,
       source_relpath: input.build.sourceRelpath,
       format: input.build.classification.format,
       chars: fullTextChars,
@@ -188,7 +190,9 @@ export async function writeResourcePackFiles(input: {
       input.build.packPaths.tocPath,
       matter.stringify(normalizeText(input.tocMarkdown), {
         file_kind: RESOURCE_PACK_FILE_KIND_TOC,
+        ...(input.build.objectID ? { object_id: input.build.objectID } : {}),
         resource_alias: resourceAlias,
+        alias_at_build: resourceAlias,
         source_relpath: input.build.sourceRelpath,
         format: input.build.classification.format,
       }),
@@ -214,7 +218,9 @@ export async function writeResourcePackFiles(input: {
   const coverRelpath = coverPath ? path.relative(input.build.directory, coverPath) : undefined
 
   await writeResourcePackMetadata(input.build.packPaths.metadataPath, {
+    ...(input.build.objectID ? { object_id: input.build.objectID } : {}),
     resource_alias: resourceAlias,
+    alias_at_build: resourceAlias,
     source_path: input.build.sourcePath,
     source_relpath: input.build.sourceRelpath,
     format: input.build.classification.format,
@@ -237,9 +243,11 @@ export async function writeErroredResourcePackMetadata(input: {
   build: ResourcePackBuildInput
   message: string
 }) {
-  const resourceAlias = path.basename(path.dirname(input.build.packPaths.rootPath))
+  const resourceAlias = resourceAliasForBuild(input.build)
   await writeResourcePackMetadata(input.build.packPaths.metadataPath, {
+    ...(input.build.objectID ? { object_id: input.build.objectID } : {}),
     resource_alias: resourceAlias,
+    alias_at_build: resourceAlias,
     source_path: input.build.sourcePath,
     source_relpath: input.build.sourceRelpath,
     format: input.build.classification.format,
@@ -270,6 +278,8 @@ async function loadResourcePackMetadata(
   const sourcePath = stringValue(data, "source_path")
   const sourceRelpath = stringValue(data, "source_relpath")
   const resourceAlias = stringValue(data, "resource_alias") || undefined
+  const objectID = stringValue(data, "object_id") || undefined
+  const aliasAtBuild = stringValue(data, "alias_at_build") || undefined
   const format = normalizeResourceFormat(stringValue(data, "format"))
   const status = normalizeResourcePackStatus(stringValue(data, "status"))
   const extractor = stringValue(data, "extractor")
@@ -299,7 +309,9 @@ async function loadResourcePackMetadata(
   }
 
   return {
+    ...(objectID ? { object_id: objectID } : {}),
     resource_alias: resourceAlias,
+    ...(aliasAtBuild ? { alias_at_build: aliasAtBuild } : {}),
     source_path: sourcePath,
     source_relpath: sourceRelpath,
     format,
@@ -364,6 +376,10 @@ async function writePageMarkdowns(input: {
       await writeTextFile(path.join(pagesDirPath, filename), content)
     }),
   )
+}
+
+function resourceAliasForBuild(build: ResourcePackBuildInput): string {
+  return build.resourceAlias ?? path.basename(path.dirname(build.packPaths.rootPath))
 }
 
 async function writeChunkMarkdowns(chunksDirPath: string, chunkFiles: ResourceChunkFileRecord[]) {
@@ -502,10 +518,6 @@ function padNumber(value: number, width: number) {
 
 function normalizeText(value: string) {
   return value.replace(/\r\n/g, "\n").trim()
-}
-
-function resourcePackKeyFromRootPath(rootPath: string) {
-  return path.basename(path.dirname(rootPath))
 }
 
 function buildFullTextFilename(input: { estTokens: number; chars: number }) {

@@ -1,31 +1,21 @@
 import { describe, expect, test } from "bun:test"
 import fs from "node:fs/promises"
 import path from "node:path"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { ToolRegistry } from "@buddy/opencode-adapter/registry"
+import { pathToFileURL } from "node:url"
 import { app } from "../../src/index"
+import { BUDDY_OBJECT_KINDS, BuddyObjectResultSchema } from "../../src/objects"
 import {
-  buildHtmlWidgetRuntimeUrl,
-  buildHtmlWidgetSourceUrl,
-  createHtmlWidgetArtifact,
+  buildHtmlWidgetObjectRuntimeUrl,
   HtmlWidgetValidationError,
+  presentHtmlWidgetObject,
 } from "../../src/learning/features/html-widgets/service/store"
-import {
-  HTML_WIDGET_KIND,
-  HTML_WIDGET_RUNTIME_CSP,
-  HtmlWidgetSourceResponseSchema,
-  PresentHtmlWidgetOutputSchema,
-} from "../../src/learning/features/html-widgets/service/types"
-import {
-  createToolContext,
-  ensureBuddyPluginTools,
-  requireTool,
-  TEST_TOOL_MODEL,
-} from "../helpers/tools"
+import { HTML_WIDGET_RUNTIME_CSP } from "../../src/learning/features/html-widgets/service/types"
+import { presentHtmlWidgetTool } from "../../src/learning/features/html-widgets/tools/present-html-widget"
+import { createBuddyToolContext } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
 
-describe("HTML widgets", () => {
-  test("snapshots a self-contained HTML file and serves it through hardened runtime routes", async () => {
+describe("HTML widget objects", () => {
+  test("adopts a self-contained HTML file and serves it through hardened runtime routes", async () => {
     await using project = await tmpdir({ git: true })
     await fs.mkdir(path.join(project.path, "widgets"), { recursive: true })
     const source = [
@@ -41,39 +31,42 @@ describe("HTML widgets", () => {
     ].join("\n")
     await fs.writeFile(path.join(project.path, "widgets", "fractions.html"), source, "utf8")
 
-    const widget = await OpenCodeInstance.provide({
+    const widget = await presentHtmlWidgetObject({
+      action: "present_path",
       directory: project.path,
-      fn: () =>
-        createHtmlWidgetArtifact({
-          directory: project.path,
-          path: "widgets/fractions.html",
-          title: "Fraction Builder",
-          origin: {
-            kind: "tool",
-            sessionID: "ses_html_widget",
-            messageID: "msg_html_widget",
-            callID: "call_html_widget",
-          },
-        }),
+      path: "widgets/fractions.html",
+      entryPath: null,
+      title: "Fraction Builder",
+      viewportPreset: "standard_16_10",
+      origin: {
+        kind: "tool",
+        sessionID: "ses_html_widget",
+        messageID: "msg_html_widget",
+        callID: "call_html_widget",
+      },
     })
 
-    expect(widget.kind).toBe(HTML_WIDGET_KIND)
-    expect(widget.title).toBe("Fraction Builder")
-    expect(widget.summary.viewport.preset).toBe("standard_16_10")
-    expect(widget.summary.viewport.width).toBe(960)
-    expect(widget.summary.viewport.height).toBe(600)
-    expect(widget.summary.sourcePath).toBe("widgets/fractions.html")
-    expect(widget.summary.warnings.map((warning) => warning.code)).toContain(
-      "relative_asset_reference",
+    expect(widget.manifest.kind).toBe(BUDDY_OBJECT_KINDS.htmlWidget)
+    expect(widget.manifest.title).toBe("Fraction Builder")
+    expect(widget.manifest.summary.viewportPreset).toBe("standard_16_10")
+    expect(widget.sourceRoot).toContain(".buddy/objects/v1/html-widget")
+    expect(widget.editPath).toContain("fractions.html")
+    expect(widget.originalPath).toBe("widgets/fractions.html")
+    expect(widget.originalPathStatus).toBe("moved")
+    await expect(fs.stat(path.join(project.path, "widgets", "fractions.html"))).rejects.toThrow()
+    expect(widget.manifest.summary.warnings.join("\n")).toContain(
+      "Relative asset reference './fraction.png'",
     )
-    expect(widget.summary.warnings.map((warning) => warning.code)).toContain(
-      "blocked_remote_reference",
+    expect(widget.manifest.summary.warnings.join("\n")).toContain(
+      "Network request 'https://example.com/fractions.json'",
     )
 
     const runtimeResponse = await app.request(
-      buildHtmlWidgetRuntimeUrl({
+      buildHtmlWidgetObjectRuntimeUrl({
         directory: project.path,
-        artifactID: widget.artifactID,
+        objectID: widget.manifest.objectID,
+        entryPath: widget.entryPath,
+        version: widget.inlineData.sourceVersion,
       }),
     )
     expect(runtimeResponse.status).toBe(200)
@@ -87,24 +80,66 @@ describe("HTML widgets", () => {
     expect(await runtimeResponse.text()).toBe(source)
 
     const sourceResponse = await app.request(
-      buildHtmlWidgetSourceUrl({
-        directory: project.path,
-        artifactID: widget.artifactID,
-      }),
+      `/api/objects/html-widget/${widget.manifest.objectID}/source?directory=${encodeURIComponent(project.path)}`,
     )
     expect(sourceResponse.status).toBe(200)
+    expect(await sourceResponse.json()).toMatchObject({
+      objectID: widget.manifest.objectID,
+      path: "fractions.html",
+      source,
+    })
 
     const listResponse = await app.request(
-      `/api/artifacts?directory=${encodeURIComponent(project.path)}&kind=html-widget`,
+      `/api/objects?directory=${encodeURIComponent(project.path)}&kind=html-widget`,
     )
     expect(listResponse.status).toBe(200)
     const list = (await listResponse.json()) as {
-      artifacts: Array<{ artifactID: string }>
+      objects: Array<{ objectID: string }>
     }
-    expect(list.artifacts.map((entry) => entry.artifactID)).toContain(widget.artifactID)
+    expect(list.objects.map((entry) => entry.objectID)).toContain(widget.manifest.objectID)
   })
 
-  test("registers present_html_widget and returns structured metadata", async () => {
+  test("blocks source reads that escape the managed source root", async () => {
+    await using project = await tmpdir({ git: true })
+    await fs.mkdir(path.join(project.path, "widgets"), { recursive: true })
+    await fs.writeFile(
+      path.join(project.path, "widgets", "safe.html"),
+      "<!doctype html><p>Safe widget</p>",
+      "utf8",
+    )
+    const widget = await presentHtmlWidgetObject({
+      action: "present_path",
+      directory: project.path,
+      path: "widgets/safe.html",
+      entryPath: null,
+      title: "Safe widget",
+      viewportPreset: "standard_16_10",
+      origin: {
+        kind: "tool",
+        sessionID: "ses_html_source_containment",
+        messageID: "msg_html_source_containment",
+        callID: "call_html_source_containment",
+      },
+    })
+
+    const traversalResponse = await app.request(
+      `/api/objects/html-widget/${widget.manifest.objectID}/source?directory=${encodeURIComponent(project.path)}&path=${encodeURIComponent("../object.json")}`,
+    )
+    expect(traversalResponse.status).toBe(400)
+
+    const outsidePath = path.join(project.path, "outside.html")
+    await fs.writeFile(outsidePath, "<!doctype html><p>Outside</p>", "utf8")
+    await fs.symlink(
+      outsidePath,
+      path.join(project.path, widget.sourceRoot, "outside-link.html"),
+    )
+    const symlinkResponse = await app.request(
+      `/api/objects/html-widget/${widget.manifest.objectID}/source?directory=${encodeURIComponent(project.path)}&path=outside-link.html`,
+    )
+    expect(symlinkResponse.status).toBe(400)
+  })
+
+  test("registers present_html_widget and returns object metadata", async () => {
     await using project = await tmpdir({ git: true })
     await fs.mkdir(path.join(project.path, "widgets"), { recursive: true })
     await fs.writeFile(
@@ -112,45 +147,210 @@ describe("HTML widgets", () => {
       "<!doctype html><button>Start quiz</button>",
       "utf8",
     )
-    await ensureBuddyPluginTools(project.path)
+    const result = await presentHtmlWidgetTool.run(
+      {
+        action: "present_path",
+        path: "widgets/quiz.html",
+        objectID: null,
+        entryPath: null,
+        title: "Quick Quiz",
+        description: "Try one practice question.",
+        viewportPreset: "standard_16_10",
+      },
+      createBuddyToolContext({
+        directory: project.path,
+        sessionID: "ses_tool_html_widget",
+        messageID: "msg_tool_html_widget",
+        agent: "buddy",
+      }),
+    )
 
-    const result = await OpenCodeInstance.provide({
-      directory: project.path,
-      async fn() {
-        const tools = await ToolRegistry.tools(TEST_TOOL_MODEL)
-        const presentHtmlWidget = requireTool(tools, "present_html_widget")
-
-        return presentHtmlWidget.execute(
-          {
-            path: "widgets/quiz.html",
-            title: "Quick Quiz",
-            description: "Try one practice question.",
-            viewportPreset: "compact_4_3",
-          },
-          createToolContext({
-            sessionID: "ses_tool_html_widget",
-            messageID: "msg_tool_html_widget",
-            agent: "buddy",
-          }),
-        )
+    expect(result.output).toContain("Presented HTML widget Quick Quiz.")
+    expect(result.output).toContain("object_kind=html-widget")
+    expect(result.output).toContain("object_id=")
+    const objectResult = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
+    expect(objectResult.primaryRef?.kind).toBe(BUDDY_OBJECT_KINDS.htmlWidget)
+    expect(objectResult.objects[0]?.sourceRoot).toContain(".buddy/objects/v1/html-widget")
+    expect(objectResult.presentations[0]?.data?.renderer).toBe("html-widget")
+    expect(objectResult.presentations[1]).toMatchObject({
+      surface: "bench",
+      autoOpen: {
+        policyID: "fullscreen-html-widget",
+        eventKey: `fullscreen-html-widget:${objectResult.primaryRef?.objectID}`,
       },
     })
 
-    expect(result.output).toContain('Presented HTML widget "Quick Quiz".')
-    expect(result.metadata?.artifact).toBe("PresentHtmlWidgetOutput")
-    const output = PresentHtmlWidgetOutputSchema.parse(result.metadata?.value)
-    expect(output.kind).toBe(HTML_WIDGET_KIND)
-    expect(output.title).toBe("Quick Quiz")
-    expect(output.viewport.preset).toBe("compact_4_3")
-    expect(output.viewport.width).toBe(640)
-    expect(output.viewport.height).toBe(480)
-    expect(output.sourcePath).toBe("widgets/quiz.html")
-
-    const sourceResponse = await app.request(output.sourceUrl)
+    const objectID = objectResult.primaryRef?.objectID ?? ""
+    const sourceResponse = await app.request(
+      `/api/objects/html-widget/${objectID}/source?directory=${encodeURIComponent(project.path)}`,
+    )
     expect(sourceResponse.status).toBe(200)
-    const source = HtmlWidgetSourceResponseSchema.parse(await sourceResponse.json())
-    expect(source.artifactID).toBe(output.artifactID)
-    expect(source.source).toContain("<button>Start quiz</button>")
+    expect(await sourceResponse.json()).toMatchObject({
+      objectID,
+      source: "<!doctype html><button>Start quiz</button>",
+    })
+  })
+
+  test("accepts omitted inactive nullable fields for first presentation", async () => {
+    await using project = await tmpdir({ git: true })
+    await fs.mkdir(path.join(project.path, "widgets"), { recursive: true })
+    await fs.writeFile(
+      path.join(project.path, "widgets", "omitted-nulls.html"),
+      "<!doctype html><p>Omitted null fields</p>",
+      "utf8",
+    )
+
+    const result = await presentHtmlWidgetTool.run(
+      {
+        action: "present_path",
+        path: "widgets/omitted-nulls.html",
+        title: "Omitted Null Fields",
+        viewportPreset: "standard_16_10",
+      },
+      createBuddyToolContext({
+        directory: project.path,
+        sessionID: "ses_tool_html_widget_omitted_nulls",
+        messageID: "msg_tool_html_widget_omitted_nulls",
+        agent: "buddy",
+      }),
+    )
+
+    expect(result.output).toContain("Presented HTML widget Omitted Null Fields.")
+    const objectResult = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
+    expect(objectResult.primaryRef?.kind).toBe(BUDDY_OBJECT_KINDS.htmlWidget)
+  })
+
+  test("re-presents an already adopted single-file source path", async () => {
+    await using project = await tmpdir({ git: true })
+    await fs.writeFile(
+      path.join(project.path, "consumed-widget.html"),
+      "<!doctype html><p>Consumed widget</p>",
+      "utf8",
+    )
+
+    const first = await presentHtmlWidgetObject({
+      action: "present_path",
+      directory: project.path,
+      path: "consumed-widget.html",
+      entryPath: null,
+      title: "Consumed Widget",
+      viewportPreset: "standard_16_10",
+      origin: {
+        kind: "tool",
+        sessionID: "ses_html_consumed_path",
+        messageID: "msg_html_consumed_path",
+        callID: "call_html_consumed_path",
+      },
+    })
+
+    const second = await presentHtmlWidgetObject({
+      action: "present_path",
+      directory: project.path,
+      path: "consumed-widget.html",
+      entryPath: null,
+      title: "Consumed Widget",
+      viewportPreset: "standard_16_10",
+      origin: {
+        kind: "tool",
+        sessionID: "ses_html_consumed_path",
+        messageID: "msg_html_consumed_path_retry",
+        callID: "call_html_consumed_path_retry",
+      },
+    })
+
+    expect(second.manifest.objectID).toBe(first.manifest.objectID)
+    expect(second.originalPathStatus).toBe("missing")
+  })
+
+  test("accepts absolute workspace paths by canonicalizing object source refs", async () => {
+    await using project = await tmpdir({ git: true })
+    const sourcePath = path.join(project.path, "absolute-widget.html")
+    await fs.writeFile(sourcePath, "<!doctype html><p>Absolute widget</p>", "utf8")
+
+    const widget = await presentHtmlWidgetObject({
+      action: "present_path",
+      directory: project.path,
+      path: sourcePath,
+      entryPath: null,
+      title: "Absolute Widget",
+      viewportPreset: "standard_16_10",
+      origin: {
+        kind: "tool",
+        sessionID: "ses_html_absolute_path",
+        messageID: "msg_html_absolute_path",
+        callID: "call_html_absolute_path",
+      },
+    })
+
+    expect(widget.originalPath).toBe("absolute-widget.html")
+    expect(widget.originalPathStatus).toBe("moved")
+    expect(widget.editPath).toContain("absolute-widget.html")
+    await expect(fs.stat(sourcePath)).rejects.toThrow()
+
+    const repeated = await presentHtmlWidgetObject({
+      action: "present_path",
+      directory: project.path,
+      path: sourcePath,
+      entryPath: null,
+      title: "Absolute Widget",
+      viewportPreset: "standard_16_10",
+      origin: {
+        kind: "tool",
+        sessionID: "ses_html_absolute_path",
+        messageID: "msg_html_absolute_path_retry",
+        callID: "call_html_absolute_path_retry",
+      },
+    })
+    expect(repeated.manifest.objectID).toBe(widget.manifest.objectID)
+    expect(repeated.originalPathStatus).toBe("missing")
+  })
+
+  test("accepts file URLs that resolve inside the workspace", async () => {
+    await using project = await tmpdir({ git: true })
+    const sourcePath = path.join(project.path, "url-widget.html")
+    await fs.writeFile(sourcePath, "<!doctype html><p>File URL widget</p>", "utf8")
+
+    const widget = await presentHtmlWidgetObject({
+      action: "present_path",
+      directory: project.path,
+      path: pathToFileURL(sourcePath).href,
+      entryPath: null,
+      title: "File URL Widget",
+      viewportPreset: "standard_16_10",
+      origin: {
+        kind: "tool",
+        sessionID: "ses_html_file_url_path",
+        messageID: "msg_html_file_url_path",
+        callID: "call_html_file_url_path",
+      },
+    })
+
+    expect(widget.originalPath).toBe("url-widget.html")
+    expect(widget.originalPathStatus).toBe("moved")
+  })
+
+  test("rejects absolute widget adoption paths outside the workspace", async () => {
+    await using project = await tmpdir({ git: true })
+    await using outside = await tmpdir({ git: true })
+    const sourcePath = path.join(outside.path, "outside-widget.html")
+    await fs.writeFile(sourcePath, "<!doctype html><p>Outside widget</p>", "utf8")
+
+    await expect(
+      presentHtmlWidgetObject({
+        action: "present_path",
+        directory: project.path,
+        path: sourcePath,
+        entryPath: null,
+        title: "Outside Widget",
+        viewportPreset: "standard_16_10",
+        origin: {
+          kind: "tool",
+          sessionID: "ses_html_outside_path",
+          messageID: "msg_html_outside_path",
+          callID: "call_html_outside_path",
+        },
+      }),
+    ).rejects.toThrow("HTML widget source must be inside the workspace.")
   })
 
   test("rejects non-HTML widget source files", async () => {
@@ -159,20 +359,121 @@ describe("HTML widgets", () => {
     await fs.writeFile(path.join(project.path, "widgets", "notes.txt"), "not html", "utf8")
 
     await expect(
-      OpenCodeInstance.provide({
+      presentHtmlWidgetObject({
+        action: "present_path",
         directory: project.path,
-        fn: () =>
-          createHtmlWidgetArtifact({
-            directory: project.path,
-            path: "widgets/notes.txt",
-            title: "Notes",
-            origin: {
-              kind: "tool",
-              sessionID: "ses_invalid_html_widget",
-              messageID: "msg_invalid_html_widget",
-              callID: "call_invalid_html_widget",
-            },
-          }),
+        path: "widgets/notes.txt",
+        entryPath: null,
+        title: "Notes",
+        viewportPreset: "standard_16_10",
+        origin: {
+          kind: "tool",
+          sessionID: "ses_invalid_html_widget",
+          messageID: "msg_invalid_html_widget",
+          callID: "call_invalid_html_widget",
+        },
+      }),
+    ).rejects.toBeInstanceOf(HtmlWidgetValidationError)
+  })
+
+  test("adopts widget folders and serves contained relative assets", async () => {
+    await using project = await tmpdir({ git: true })
+    const widgetRoot = path.join(project.path, "widgets", "calculator")
+    await fs.mkdir(path.join(widgetRoot, "styles"), { recursive: true })
+    await fs.writeFile(
+      path.join(widgetRoot, "index.html"),
+      [
+        "<!doctype html>",
+        '<link rel="stylesheet" href="./styles/main.css">',
+        '<script src="./app.js" defer></script>',
+        "<main>Calculator</main>",
+      ].join("\n"),
+      "utf8",
+    )
+    await fs.writeFile(path.join(widgetRoot, "app.js"), "document.body.dataset.ready = 'true'", "utf8")
+    await fs.writeFile(path.join(widgetRoot, "styles", "main.css"), "main { color: green; }", "utf8")
+
+    const widget = await presentHtmlWidgetObject({
+      action: "present_path",
+      directory: project.path,
+      path: "widgets/calculator",
+      entryPath: "index.html",
+      title: "Calculator",
+      viewportPreset: "standard_16_10",
+      origin: {
+        kind: "tool",
+        sessionID: "ses_html_folder",
+        messageID: "msg_html_folder",
+        callID: "call_html_folder",
+      },
+    })
+
+    const runtimeResponse = await app.request(widget.inlineData.runtimeUrl)
+    expect(runtimeResponse.status).toBe(200)
+    expect(await runtimeResponse.text()).toContain("Calculator")
+
+    const scriptUrl = new URL("./app.js", `http://localhost${widget.inlineData.runtimeUrl}`)
+    const scriptResponse = await app.request(`${scriptUrl.pathname}${scriptUrl.search}`)
+    expect(scriptResponse.status).toBe(200)
+    expect(scriptResponse.headers.get("content-type")).toContain("javascript")
+    expect(await scriptResponse.text()).toContain("dataset.ready")
+
+    const stylesheetUrl = new URL(
+      "./styles/main.css",
+      `http://localhost${widget.inlineData.runtimeUrl}`,
+    )
+    const stylesheetResponse = await app.request(
+      `${stylesheetUrl.pathname}${stylesheetUrl.search}`,
+    )
+    expect(stylesheetResponse.status).toBe(200)
+    expect(stylesheetResponse.headers.get("content-type")).toContain("text/css")
+  })
+
+  test("restores a single-file source when adoption fails before commit", async () => {
+    await using project = await tmpdir({ git: true })
+    const sourcePath = path.join(project.path, "widgets", "rollback.html")
+    await fs.mkdir(path.dirname(sourcePath), { recursive: true })
+    await fs.writeFile(sourcePath, "<!doctype html><p>Restore me</p>", "utf8")
+
+    await expect(
+      presentHtmlWidgetObject({
+        action: "present_path",
+        directory: project.path,
+        path: "widgets/rollback.html",
+        entryPath: null,
+        title: "",
+        viewportPreset: "standard_16_10",
+        origin: {
+          kind: "tool",
+          sessionID: "ses_html_rollback",
+          messageID: "msg_html_rollback",
+          callID: "call_html_rollback",
+        },
+      }),
+    ).rejects.toThrow()
+
+    const restored = await fs.stat(sourcePath)
+    expect(restored.isFile()).toBe(true)
+    expect(await fs.readFile(sourcePath, "utf8")).toContain("Restore me")
+  })
+
+  test("rejects home-relative widget adoption paths outside the workspace", async () => {
+    await using project = await tmpdir({ git: true })
+
+    await expect(
+      presentHtmlWidgetObject({
+        action: "present_path",
+        directory: project.path,
+        path: "~/widget.html",
+        entryPath: null,
+        title: "Invalid widget",
+        viewportPreset: "standard_16_10",
+        origin: {
+          kind: "tool",
+          sessionID: "ses_html_home_path",
+          messageID: "msg_html_home_path",
+          callID: "call_html_home_path",
+        },
       }),
     ).rejects.toBeInstanceOf(HtmlWidgetValidationError)
   })

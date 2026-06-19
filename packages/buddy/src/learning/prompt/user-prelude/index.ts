@@ -169,26 +169,49 @@ function benchSurfaceLabel(context: PromptContext): string {
   if (!benchContext || benchContext.status === "closed") return "Bench"
 
   const target = benchContext.target
-  if (target.type === "artifact") {
-    return `${target.artifactKind} artifact`
+  if (target.type === "object") {
+    return `${target.ref.kind} object`
   }
-  return target.type
+  return target.path.toLowerCase().endsWith(".md") ? "markdown file" : "workspace file"
+}
+
+function isBenchShowingActiveResource(context: PromptContext): boolean {
+  const benchContext = context.benchContext
+  const activeResource = context.activeResource
+  if (!benchContext || benchContext.status === "closed" || !activeResource?.objectID) {
+    return false
+  }
+  return (
+    benchContext.target.type === "object" &&
+    benchContext.target.ref.kind === "resource" &&
+    benchContext.target.ref.objectID === activeResource.objectID
+  )
 }
 
 function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild {
   const benchContext = context.benchContext
   if (!benchContext || benchContext.status === "closed") return {}
-  if (benchContext.target.type === "reading" && context.activeResource) return {}
+  if (isBenchShowingActiveResource(context)) return {}
 
   const target = benchContext.target
-  const locationLines = [
-    target.title ? `Title: ${target.title}` : undefined,
-    target.path ? `Path: ${target.path}` : undefined,
-    target.resourceID ? `Resource: ${target.resourceID}` : undefined,
-    target.artifactID ? `Artifact: ${target.artifactID}` : undefined,
-    target.itemID ? `Item: ${target.itemID}` : undefined,
-    `State: ${target.status}`,
-  ].filter((line): line is string => line !== undefined)
+  const targetLines =
+    target.type === "object"
+      ? [
+          `Title: ${target.title}`,
+          `Object kind: ${target.ref.kind}`,
+          `Object ID: ${target.ref.objectID}`,
+          target.ref.revisionID ? `Revision ID: ${target.ref.revisionID}` : undefined,
+          target.ref.itemID ? `Item ID: ${target.ref.itemID}` : undefined,
+          `View ID: ${target.viewID}`,
+          `State: ${target.status}`,
+        ]
+      : [
+          `Title: ${target.title}`,
+          `Path: ${target.path}`,
+          `Absolute path: ${target.absolutePath}`,
+          `State: ${target.status}`,
+        ]
+  const locationLines = targetLines.filter((line): line is string => line !== undefined)
   const metadataLines = benchContext.metadata
     .slice(0, BENCH_TURN_CONTEXT_METADATA_LIMIT)
     .map((line) => `- ${line}`)

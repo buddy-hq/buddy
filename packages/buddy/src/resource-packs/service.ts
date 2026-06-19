@@ -10,11 +10,8 @@ import {
   RESOURCE_PACK_SYNC_BUDGET_MS,
   type ResourcePackBuildInput,
   type ResourcePackResolution,
-  type ResourcePackService,
 } from "./contracts"
-import { classifyResourcePath } from "./classification"
 import { extractResourcePack } from "./extractors"
-import { createResourcePackPaths } from "./paths"
 import {
   createPendingResourcePackSnapshot,
   loadFreshResourcePackSnapshot,
@@ -25,36 +22,14 @@ import {
 
 const inFlightBuilds = new Map<string, Promise<void>>()
 
-export class ResourcePackSourceNotFoundError extends Error {
-  constructor(public readonly sourcePath: string) {
-    super(`Resource source not found: ${sourcePath}`)
-    this.name = "ResourcePackSourceNotFoundError"
-  }
+type EnsureResourcePackOptions = {
+  waitForCompletion?: boolean
 }
 
-export const resourcePackService: ResourcePackService = {
-  ensureResourcePack: async (input) => ensureResourcePack(input),
-}
-
-export async function ensureResourcePack(input: {
-  directory: string
-  sourcePath: string
-}): Promise<ResourcePackResolution> {
-  const sourceStat = await fs.stat(input.sourcePath).catch(() => undefined)
-  if (!sourceStat?.isFile()) {
-    throw new ResourcePackSourceNotFoundError(input.sourcePath)
-  }
-
-  const buildInput: ResourcePackBuildInput = {
-    directory: input.directory,
-    sourcePath: input.sourcePath,
-    sourceRelpath:
-      path.relative(input.directory, input.sourcePath) || path.basename(input.sourcePath),
-    sourceStat,
-    packPaths: createResourcePackPaths(input.directory, input.sourcePath),
-    classification: classifyResourcePath(input.sourcePath, Number(sourceStat.size)),
-  }
-
+export async function ensureResourcePackWithBuildInput(
+  buildInput: ResourcePackBuildInput,
+  options: EnsureResourcePackOptions = {},
+): Promise<ResourcePackResolution> {
   const current = await loadFreshResourcePackSnapshot(buildInput)
   if (
     current &&
@@ -64,6 +39,17 @@ export async function ensureResourcePack(input: {
     return current
 
   const build = getOrStartBuild(buildInput)
+  if (options.waitForCompletion) {
+    await build
+    const completedSnapshot = await loadFreshResourcePackSnapshot(buildInput)
+    if (!completedSnapshot) {
+      throw new Error(
+        `Resource pack build completed without readable metadata: ${buildInput.packPaths.metadataPath}`,
+      )
+    }
+    return completedSnapshot
+  }
+
   const readySnapshot = await Promise.race([
     build.then(async () => loadFreshResourcePackSnapshot(buildInput)),
     sleep(RESOURCE_PACK_SYNC_BUDGET_MS).then(() => undefined),
@@ -95,7 +81,8 @@ async function buildResourcePack(input: ResourcePackBuildInput): Promise<void> {
 
   try {
     const extraction = await extractResourcePack(input.sourcePath, input.classification)
-    const resourceAlias = path.basename(path.dirname(input.packPaths.rootPath))
+    const resourceAlias =
+      input.resourceAlias ?? input.objectID ?? path.basename(input.sourceRelpath)
     const chunkUnits =
       extraction.chunkUnits ??
       extraction.chunkMarkdowns?.map((chunk, index) => ({

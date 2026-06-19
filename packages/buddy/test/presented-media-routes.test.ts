@@ -4,7 +4,7 @@ import os from "node:os"
 import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { app } from "../src/index"
-import { buildPresentedMediaOutput } from "../src/learning/features/media-presentations/service/file-media"
+import { buildPresentedMediaObjectOutput } from "../src/learning/features/media-presentations/service/file-media"
 import { createGitRepo } from "./helpers/repo"
 
 describe("presented media raw routes", () => {
@@ -17,7 +17,7 @@ describe("presented media raw routes", () => {
     const output = await OpenCodeInstance.provide({
       directory: repo,
       fn: async () =>
-        buildPresentedMediaOutput({
+        buildPresentedMediaObjectOutput({
           directory: repo,
           items: [
             {
@@ -27,7 +27,7 @@ describe("presented media raw routes", () => {
         }),
     })
 
-    const rawUrl = output.items[0]?.rawUrl
+    const rawUrl = output.output.items[0]?.rawUrl
     expect(rawUrl).toBeTruthy()
 
     const response = await app.request(rawUrl ?? "")
@@ -38,7 +38,7 @@ describe("presented media raw routes", () => {
     expect(response.headers.get("accept-ranges")).toBe("bytes")
   })
 
-  test("serves HEAD requests for artifact-backed raw URLs using the encoded directory", async () => {
+  test("serves HEAD requests for object raw URLs using the encoded directory", async () => {
     const repo = createGitRepo("buddy-presented-media-route-head")
     const localDir = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-presented-media-route-head-"))
     const localPath = path.join(localDir, "outside.png")
@@ -47,7 +47,7 @@ describe("presented media raw routes", () => {
     const output = await OpenCodeInstance.provide({
       directory: repo,
       fn: async () =>
-        buildPresentedMediaOutput({
+        buildPresentedMediaObjectOutput({
           directory: repo,
           items: [
             {
@@ -57,7 +57,7 @@ describe("presented media raw routes", () => {
         }),
     })
 
-    const rawUrl = output.items[0]?.rawUrl
+    const rawUrl = output.output.items[0]?.rawUrl
     expect(rawUrl).toBeTruthy()
 
     const response = await app.request(rawUrl ?? "", { method: "HEAD" })
@@ -79,14 +79,14 @@ describe("presented media raw routes", () => {
     const output = await OpenCodeInstance.provide({
       directory: repo,
       fn: async () =>
-        buildPresentedMediaOutput({
+        buildPresentedMediaObjectOutput({
           directory: repo,
           items: [{ path: localPath }],
         }),
     })
     await fs.rm(localPath)
 
-    const availabilityUrl = `/api/artifacts/media-presentation/${output.artifactID}/items/media_item_1/availability?directory=${encodeURIComponent(repo)}`
+    const availabilityUrl = `/api/objects/media-presentation/${output.output.objectID}/items/media_item_1/availability?directory=${encodeURIComponent(repo)}`
     const response = await app.request(availabilityUrl)
 
     expect(response.status).toBe(200)
@@ -96,7 +96,7 @@ describe("presented media raw routes", () => {
     })
 
     const missingItemResponse = await app.request(
-      `/api/artifacts/media-presentation/${output.artifactID}/items/unknown/availability?directory=${encodeURIComponent(repo)}`,
+      `/api/objects/media-presentation/${output.output.objectID}/items/unknown/availability?directory=${encodeURIComponent(repo)}`,
     )
     expect(missingItemResponse.status).toBe(404)
     expect(await missingItemResponse.json()).toEqual({ error: "File not found" })
@@ -111,12 +111,12 @@ describe("presented media raw routes", () => {
     const output = await OpenCodeInstance.provide({
       directory: repo,
       fn: async () =>
-        buildPresentedMediaOutput({
+        buildPresentedMediaObjectOutput({
           directory: repo,
           items: [{ path: localPath }],
         }),
     })
-    const rawUrl = output.items[0]?.rawUrl ?? ""
+    const rawUrl = output.output.items[0]?.rawUrl ?? ""
 
     const bounded = await app.request(rawUrl, {
       headers: { range: "bytes=2-5" },
@@ -152,12 +152,12 @@ describe("presented media raw routes", () => {
     const output = await OpenCodeInstance.provide({
       directory: repo,
       fn: async () =>
-        buildPresentedMediaOutput({
+        buildPresentedMediaObjectOutput({
           directory: repo,
           items: [{ path: localPath }],
         }),
     })
-    const rawUrl = output.items[0]?.rawUrl ?? ""
+    const rawUrl = output.output.items[0]?.rawUrl ?? ""
 
     for (const range of [
       "bytes=10-",

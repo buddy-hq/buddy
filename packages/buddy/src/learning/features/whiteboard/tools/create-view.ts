@@ -2,10 +2,21 @@ import z from "zod"
 import CREATE_VIEW_DESCRIPTION from "./create-view.md"
 import { createBuddyTool, type BuddyToolContext } from "../../../runtime/create-buddy-tool"
 import {
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectResultSchema,
+  formatBuddyObjectRefLines,
+  objectSummaryBaseFromManifest,
+  type BuddyObjectResult,
+} from "../../../../objects"
+import {
   applyWhiteboardDrawingProgram,
   type WhiteboardProgramRequestedWriteMode,
 } from "../service/program"
-import { waitForCurrentWhiteboardRenderReport } from "../service/store"
+import {
+  ensureWhiteboardObjectForSession,
+  waitForCurrentWhiteboardRenderReport,
+  WHITEBOARD_CURRENT_VIEW_ID,
+} from "../service/store"
 import { buildWhiteboardLayoutDigest, type WhiteboardLayoutDigest } from "../service/layout-digest"
 
 const CREATE_WHITEBOARD_VIEW_BOARD_ACTIONS = [
@@ -33,6 +44,75 @@ const CreateWhiteboardViewInputSchema = z
   .strict()
 
 type CreateWhiteboardViewInput = z.infer<typeof CreateWhiteboardViewInputSchema>
+
+function createdByCallID(ctx: BuddyToolContext): string {
+  return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : "unknown"
+}
+
+function buildWhiteboardObjectResult(input: {
+  objectID: string
+  sessionID: string
+  messageID: string
+  callID: string
+}): BuddyObjectResult {
+  const ref = {
+    kind: BUDDY_OBJECT_KINDS.whiteboard,
+    objectID: input.objectID,
+    revisionID: null,
+    itemID: null,
+  }
+  return BuddyObjectResultSchema.parse({
+    version: 1,
+    status: "ok",
+    reason: null,
+    message: "Whiteboard object updated.",
+    primaryRef: ref,
+    objects: [
+      objectSummaryBaseFromManifest({
+        kind: BUDDY_OBJECT_KINDS.whiteboard,
+        objectID: input.objectID,
+        title: "Whiteboard",
+        status: "ready",
+        lifecycle: "live",
+        sourceRoot: null,
+      }),
+    ],
+    presentations: [
+      {
+        ref,
+        viewID: WHITEBOARD_CURRENT_VIEW_ID,
+        surface: "bench",
+        data: null,
+        autoOpen: {
+          policyID: "whiteboard",
+          eventKey: `whiteboard:${input.sessionID}:${input.messageID}:${input.callID}`,
+        },
+      },
+    ],
+  })
+}
+
+function buildWhiteboardAutoOpenCandidate(input: {
+  objectID: string
+  sessionID: string
+  messageID: string
+  callID: string
+}) {
+  return {
+    policyID: "whiteboard",
+    eventKey: `whiteboard:${input.sessionID}:${input.messageID}:${input.callID}`,
+    target: {
+      type: "object",
+      ref: {
+        kind: BUDDY_OBJECT_KINDS.whiteboard,
+        objectID: input.objectID,
+        revisionID: null,
+        itemID: null,
+      },
+      viewID: WHITEBOARD_CURRENT_VIEW_ID,
+    },
+  }
+}
 
 function toWhiteboardProgramWriteMode(
   boardAction: CreateWhiteboardViewInput["boardAction"],
@@ -66,6 +146,9 @@ function formatMeasuredLayoutForModel(layout: WhiteboardLayoutDigest | undefined
 
 const createWhiteboardViewTool = createBuddyTool({
   id: "whiteboard_create_view",
+  produces: {
+    buddyObjectResult: true,
+  },
   description: CREATE_VIEW_DESCRIPTION,
   parameters: CreateWhiteboardViewInputSchema,
   ui: {
@@ -76,6 +159,24 @@ const createWhiteboardViewTool = createBuddyTool({
     },
   },
   async execute(params: CreateWhiteboardViewInput, ctx: BuddyToolContext) {
+    const sessionID = String(ctx.sessionID)
+    const messageID = String(ctx.messageID)
+    const callID = createdByCallID(ctx)
+    const whiteboardObject = await ensureWhiteboardObjectForSession({
+      directory: ctx.directory,
+      sessionID,
+    })
+    await ctx.metadata({
+      title: "Opening Whiteboard",
+      metadata: {
+        benchAutoOpenCandidate: buildWhiteboardAutoOpenCandidate({
+          objectID: whiteboardObject.objectID,
+          sessionID,
+          messageID,
+          callID,
+        }),
+      },
+    })
     await ctx.ask({
       permission: "whiteboard_create_view",
       patterns: ["*"],
@@ -84,19 +185,25 @@ const createWhiteboardViewTool = createBuddyTool({
     })
     const result = await applyWhiteboardDrawingProgram({
       directory: ctx.directory,
-      sessionID: String(ctx.sessionID),
+      sessionID,
       elements: params.elements,
       writeMode: toWhiteboardProgramWriteMode(params.boardAction),
     })
     const measuredBoard = result.saved
       ? await waitForCurrentWhiteboardRenderReport({
           directory: ctx.directory,
-          sessionID: String(ctx.sessionID),
+          sessionID,
           boardID: result.boardID,
         })
       : undefined
     const layout = buildWhiteboardLayoutDigest(measuredBoard?.renderReport, {
       priorityElementIDs: new Set(result.layoutPriorityElementIDs),
+    })
+    const buddyObjectResult = buildWhiteboardObjectResult({
+      objectID: whiteboardObject.objectID,
+      sessionID,
+      messageID,
+      callID,
     })
     return {
       title: "Updated Whiteboard",
@@ -104,6 +211,7 @@ const createWhiteboardViewTool = createBuddyTool({
         result.saved
           ? `Whiteboard updated. Continuation handle: '${result.continuationHandle}'.`
           : `Whiteboard unchanged. Continuation handle: '${result.continuationHandle}'.`,
+        ...formatBuddyObjectRefLines(buddyObjectResult.primaryRef),
         "If you need to edit this board again, first call whiteboard_read_context for precise edits, then call whiteboard_create_view with boardAction='continue_current_board'.",
         "Use boardAction='destructively_replace_current_board' only when the user explicitly asked to discard, clear, overwrite, or replace the entire current board; the viewer has no in-app way back to the overwritten board.",
         'To remove elements, use {"type":"delete","ids":"<id1>,<id2>"} or {"type":"delete","id":"<id>"} before adding replacements.',
@@ -117,7 +225,8 @@ const createWhiteboardViewTool = createBuddyTool({
         ...(result.saved ? formatMeasuredLayoutForModel(layout) : []),
       ].join("\n"),
       metadata: {
-        checkpointId: result.continuationHandle,
+        buddyObjectResult,
+        continuationHandle: result.continuationHandle,
         boardID: result.boardID,
         saved: result.saved,
         boardAction: params.boardAction,

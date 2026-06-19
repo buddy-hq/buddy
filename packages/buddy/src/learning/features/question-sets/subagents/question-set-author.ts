@@ -4,7 +4,7 @@ import { saveQuestionSetTool } from "../tools/save-question-set"
 
 export const QUESTION_SET_AUTHOR_AGENT = defineBuddySubagent({
   key: "question-set-author",
-  description: "Generates structured MCQ question sets and persists them as artifacts.",
+  description: "Generates structured MCQ question sets and persists them as objects.",
   prompt: QUESTION_SET_AUTHOR_PROMPT,
   tools: [saveQuestionSetTool],
   skills: [],

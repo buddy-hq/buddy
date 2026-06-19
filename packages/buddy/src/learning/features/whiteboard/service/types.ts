@@ -1,4 +1,5 @@
 import z from "zod"
+import { BuddyObjectIDSchema } from "../../../../objects"
 import { WhiteboardElementValidationError } from "../errors"
 
 const SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPES = [
@@ -131,6 +132,7 @@ const WhiteboardSessionStateSchema = z
 
 const WhiteboardSessionReadSchema = z
   .object({
+    objectID: BuddyObjectIDSchema.nullable(),
     currentBoard: WhiteboardSessionBoardSchema.nullable(),
   })
   .strict()
@@ -248,7 +250,7 @@ function parsePersistableWhiteboardElement(value: unknown, index?: number): Whit
   const type = requireElementString({ value, key: "type", index })
   if (!SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPE_SET.has(type)) {
     throw new WhiteboardElementValidationError(
-      `${formatElementLocation(index)} has unsupported type '${type}'. Supported drawn types: ${SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPE_LIST}. Keep cameraUpdate, delete, and translate as program instructions only; they are not stored canvas elements. Deprecated restoreCheckpoint and replaceCurrentBoard markers are accepted only as legacy board-action controls.`,
+      `${formatElementLocation(index)} has unsupported type '${type}'. Supported drawn types: ${SUPPORTED_WHITEBOARD_DRAWN_ELEMENT_TYPE_LIST}. Keep cameraUpdate, delete, and translate as program instructions only; they are not stored canvas elements. Deprecated restoreCheckpoint and replaceCurrentBoard markers are accepted only as previous board-action controls.`,
     )
   }
 

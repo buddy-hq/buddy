@@ -1,76 +1,114 @@
-import { afterEach, describe, expect, test } from "bun:test"
-import { MessageID, ModelID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
-import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { app } from "../../src/index.ts"
 import {
   readTeachingSessionState,
   writeTeachingSessionState,
 } from "../../src/learning/agent-execution/state/session-state"
+import { writeLastLlmOutbound } from "../../src/learning/agent-execution/state/transform-state"
+import { MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS } from "../../src/learning/features/diagrams/service/types"
 import {
-  createToolMermaidArtifact,
+  createMermaidRepairRequest,
+  createToolMermaidObject,
+  readMermaidObject,
   readMermaidRepairRequest,
-  storeMermaidRenderRecord,
+  storeMermaidObjectRenderRecord,
 } from "../../src/learning/features/diagrams/service/store"
+import { setSessionInteractionRuntimeOverrides } from "../../src/session/orchestration/interaction-actions"
 import { tmpdir } from "../helpers/tmpdir"
 
-type RouteMessage = Awaited<ReturnType<typeof OpenCodeSession.messages>>[number]
+const MERMAID_REPAIR_IDLE_TEST_POLL_INTERVAL_MULTIPLIER = 3
+const MERMAID_REPAIR_TEST_PROVIDER_ID = "opencode"
+const MERMAID_REPAIR_TEST_MODEL_ID = "claude-sonnet"
 
-afterEach(async () => {
-  await OpenCodeInstance.disposeAll()
-})
+const completedRepairRequests = new Set<string>()
+let nextSessionIndex = 0
+let restoreSessionInteractionRuntime = () => {}
 
-async function createSession(directory: string) {
-  return OpenCodeInstance.provide({
-    directory,
-    fn: async () => {
-      const session = await OpenCodeSession.create({})
-      return session.id
-    },
-  })
+function repairRequestKey(input: {
+  sessionID: string
+  repairRequestID: string
+}): string {
+  return `${input.sessionID}:${input.repairRequestID}`
 }
 
-async function seedAssistantMessage(input: {
-  directory: string
-  sessionID: string
-  messageID: string
-}): Promise<void> {
-  await OpenCodeInstance.provide({
-    directory: input.directory,
-    fn: async () => {
-      await OpenCodeSession.updateMessage({
-        id: MessageID.make(input.messageID),
-        sessionID: SessionID.make(input.sessionID),
-        role: "assistant",
-        parentID: MessageID.make("msg_parent"),
-        time: { created: Date.now(), completed: Date.now() },
-        mode: "buddy",
-        agent: "buddy",
-        providerID: ProviderID.opencode,
-        modelID: ModelID.make("claude-sonnet"),
-        path: { cwd: input.directory, root: input.directory },
-        cost: 0,
-        tokens: {
-          input: 0,
-          output: 0,
-          reasoning: 0,
-          cache: { read: 0, write: 0 },
-          total: 0,
-        },
-      } satisfies RouteMessage["info"])
-    },
+beforeEach(() => {
+  completedRepairRequests.clear()
+  restoreSessionInteractionRuntime = setSessionInteractionRuntimeOverrides({
+    assertSessionExists: async () => undefined,
+    createPromptTransform: ({ context }) => ({
+      onTransform: async (body) => {
+        const content = typeof body.content === "string" ? body.content : ""
+        const transformed: Record<string, unknown> = {
+          parts: [
+            {
+              type: "text",
+              text: content,
+            },
+          ],
+        }
+        if (typeof body.messageID === "string") {
+          transformed.messageID = body.messageID
+        }
+        if (typeof body.agent === "string") {
+          transformed.agent = body.agent
+        }
+        if (body.model !== undefined) {
+          transformed.model = body.model
+        }
+        if (typeof body.variant === "string") {
+          transformed.variant = body.variant
+        }
+        writeLastLlmOutbound({
+          directory: context.directory,
+          sessionID: context.sessionID,
+          kind: "message",
+          payload: transformed,
+        })
+        return transformed
+      },
+    }),
+    sendPromptAsync: async () => ({}),
+    resolveMermaidRepairPromptRuntime: async () => ({
+      agent: "buddy",
+      model: {
+        providerID: MERMAID_REPAIR_TEST_PROVIDER_ID,
+        modelID: MERMAID_REPAIR_TEST_MODEL_ID,
+      },
+    }),
+    hasCompletedMermaidRepairAssistantMessage: async (input) =>
+      completedRepairRequests.has(repairRequestKey(input)),
+    isMermaidRepairSessionIdle: async () => true,
   })
+})
+
+afterEach(() => {
+  restoreSessionInteractionRuntime()
+  restoreSessionInteractionRuntime = () => {}
+})
+
+async function createSession() {
+  nextSessionIndex += 1
+  return `ses_mermaid_repair_${nextSessionIndex}`
+}
+
+async function seedCompletedRepairTurn(input: {
+  assistantMessageID: string
+  directory: string
+  repairRequestID: string
+  sessionID: string
+}): Promise<void> {
+  completedRepairRequests.add(
+    repairRequestKey({
+      sessionID: input.sessionID,
+      repairRequestID: input.repairRequestID,
+    }),
+  )
 }
 
 describe("mermaid repair routes", () => {
   test("starts one repair attempt and rejects the second attempt", async () => {
     await using project = await tmpdir({ git: true })
-    const sessionID = await createSession(project.path)
-    await seedAssistantMessage({
-      directory: project.path,
-      sessionID,
-      messageID: "msg_tool",
-    })
+    const sessionID = await createSession()
     writeTeachingSessionState(project.path, {
       sessionId: sessionID,
       persona: "buddy",
@@ -79,7 +117,7 @@ describe("mermaid repair routes", () => {
       focusGoalIds: [],
     })
 
-    const artifact = await createToolMermaidArtifact({
+    const object = await createToolMermaidObject({
       directory: project.path,
       sessionID,
       messageID: "msg_tool",
@@ -88,7 +126,7 @@ describe("mermaid repair routes", () => {
       caption: "Original caption",
       source: "graph TD\nA-->B",
     })
-    const failedRender = await storeMermaidRenderRecord(project.path, artifact.artifactID, {
+    const failedRender = await storeMermaidObjectRenderRecord(project.path, object.objectID, {
       status: "failed",
       errorMessage: "Parse error on line 2",
       renderConfigVersion: 1,
@@ -105,7 +143,7 @@ describe("mermaid repair routes", () => {
           "x-buddy-directory": project.path,
         },
         body: JSON.stringify({
-          artifactID: artifact.artifactID,
+          objectID: object.objectID,
           failedRenderKey: failedRender.renderKey,
         }),
       },
@@ -122,7 +160,8 @@ describe("mermaid repair routes", () => {
     expect(firstBody.lastErrorMessage).toBeUndefined()
 
     const storedRequest = await readMermaidRepairRequest(project.path, firstBody.repairRequestID)
-    expect(storedRequest.artifactID).toBe(artifact.artifactID)
+    expect(storedRequest.objectID).toBe(object.objectID)
+    expect(storedRequest.revisionID).toBe(object.revisionID)
     expect(storedRequest.failedRenderKey).toBe(failedRender.renderKey)
 
     const outboundPayload = readTeachingSessionState(project.path, sessionID)?.lastLlmOutbound
@@ -133,13 +172,17 @@ describe("mermaid repair routes", () => {
     expect(outboundPayload).toMatchObject({
       messageID: firstBody.repairRequestID,
       agent: "buddy",
-      model: {
-        providerID: ProviderID.opencode,
-        modelID: ModelID.make("claude-sonnet"),
-      },
     })
     expect(outboundPayload).not.toHaveProperty("metadata")
     expect(outboundPayload).not.toHaveProperty("content")
+    expect(outboundPayload.parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "text",
+          text: expect.stringContaining("repairOfObjectID"),
+        }),
+      ]),
+    )
     expect(outboundPayload.parts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -160,22 +203,6 @@ describe("mermaid repair routes", () => {
         }),
       ]),
     )
-    expect(outboundPayload.parts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: "text",
-          text: expect.stringContaining("Alt: Test diagram"),
-        }),
-      ]),
-    )
-    expect(outboundPayload.parts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: "text",
-          text: expect.stringContaining("Caption: Original caption"),
-        }),
-      ]),
-    )
 
     const secondResponse = await app.request(
       `/api/session/${sessionID}/mermaid-repair-async?directory=${encodeURIComponent(project.path)}`,
@@ -186,7 +213,7 @@ describe("mermaid repair routes", () => {
           "x-buddy-directory": project.path,
         },
         body: JSON.stringify({
-          artifactID: artifact.artifactID,
+          objectID: object.objectID,
           failedRenderKey: failedRender.renderKey,
         }),
       },
@@ -198,12 +225,12 @@ describe("mermaid repair routes", () => {
     })
   })
 
-  test("rejects repairing an artifact from a different session", async () => {
+  test("rejects repairing an object from a different session", async () => {
     await using project = await tmpdir({ git: true })
-    const ownerSessionID = await createSession(project.path)
-    const otherSessionID = await createSession(project.path)
+    const ownerSessionID = await createSession()
+    const otherSessionID = await createSession()
 
-    const artifact = await createToolMermaidArtifact({
+    const object = await createToolMermaidObject({
       directory: project.path,
       sessionID: ownerSessionID,
       messageID: "msg_owner",
@@ -211,7 +238,7 @@ describe("mermaid repair routes", () => {
       alt: "Other session diagram",
       source: "graph TD\nA-->B",
     })
-    const failedRender = await storeMermaidRenderRecord(project.path, artifact.artifactID, {
+    const failedRender = await storeMermaidObjectRenderRecord(project.path, object.objectID, {
       status: "failed",
       errorMessage: "Parse error on line 2",
       renderConfigVersion: 1,
@@ -228,7 +255,7 @@ describe("mermaid repair routes", () => {
           "x-buddy-directory": project.path,
         },
         body: JSON.stringify({
-          artifactID: artifact.artifactID,
+          objectID: object.objectID,
           failedRenderKey: failedRender.renderKey,
         }),
       },
@@ -236,13 +263,139 @@ describe("mermaid repair routes", () => {
 
     expect(response.status).toBe(404)
     await expect(response.json()).resolves.toEqual({
-      error: "Mermaid artifact was not found for this session.",
+      error: "Mermaid object was not found for this session.",
     })
   })
 
-  test("rejects malformed artifact and repair request ids with 400 responses", async () => {
+  test("exhausts running repair after the repair turn completes without replacement", async () => {
     await using project = await tmpdir({ git: true })
-    const sessionID = await createSession(project.path)
+    const sessionID = await createSession()
+
+    const object = await createToolMermaidObject({
+      directory: project.path,
+      sessionID,
+      messageID: "msg_tool",
+      callID: "call_tool",
+      alt: "Unrepaired diagram",
+      source: "graph TD\nA-->B",
+    })
+    const failedRender = await storeMermaidObjectRenderRecord(project.path, object.objectID, {
+      status: "failed",
+      errorMessage: "Parse error on line 2",
+      renderConfigVersion: 1,
+      rendererVersion: "11.12.0",
+      themeSignature: '{"backgroundBase":"#fff"}',
+    })
+    const request = await createMermaidRepairRequest({
+      directory: project.path,
+      sessionID,
+      objectID: object.objectID,
+      revisionID: object.revisionID,
+      failedRenderKey: failedRender.renderKey,
+      createdAt: new Date(
+        Date.now() -
+          MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS *
+            MERMAID_REPAIR_IDLE_TEST_POLL_INTERVAL_MULTIPLIER,
+      ).toISOString(),
+    })
+    await seedCompletedRepairTurn({
+      assistantMessageID: "msg_repair_assistant_done",
+      directory: project.path,
+      repairRequestID: request.repairRequestID,
+      sessionID,
+    })
+
+    const response = await app.request(
+      `/api/session/${sessionID}/mermaid-repair/${request.repairRequestID}?directory=${encodeURIComponent(project.path)}`,
+      {
+        method: "GET",
+        headers: {
+          "x-buddy-directory": project.path,
+        },
+      },
+    )
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toEqual({
+      repairRequestID: request.repairRequestID,
+      status: "exhausted",
+      lastErrorMessage:
+        "Automatic Mermaid repair completed without creating a replacement diagram.",
+    })
+    const storedRequest = await readMermaidRepairRequest(project.path, request.repairRequestID)
+    expect(storedRequest.status).toBe("exhausted")
+    const updatedObject = await readMermaidObject({
+      directory: project.path,
+      objectID: object.objectID,
+    })
+    expect(updatedObject.autoRepair.status).toBe("exhausted")
+  })
+
+  test("does not exhaust a newer Mermaid revision from an older repair request", async () => {
+    await using project = await tmpdir({ git: true })
+    const sessionID = await createSession()
+    const original = await createToolMermaidObject({
+      directory: project.path,
+      sessionID,
+      messageID: "msg_original",
+      callID: "call_original",
+      alt: "Original diagram",
+      source: "graph TD\nA-->B",
+    })
+    const failedRender = await storeMermaidObjectRenderRecord(project.path, original.objectID, {
+      status: "failed",
+      errorMessage: "Parse error",
+      renderConfigVersion: 1,
+      rendererVersion: "11.12.0",
+      themeSignature: '{"backgroundBase":"#fff"}',
+    })
+    const request = await createMermaidRepairRequest({
+      directory: project.path,
+      sessionID,
+      objectID: original.objectID,
+      revisionID: original.revisionID,
+      failedRenderKey: failedRender.renderKey,
+      createdAt: new Date(
+        Date.now() -
+          MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS *
+            MERMAID_REPAIR_IDLE_TEST_POLL_INTERVAL_MULTIPLIER,
+      ).toISOString(),
+    })
+    const newer = await createToolMermaidObject({
+      directory: project.path,
+      sessionID,
+      messageID: "msg_newer",
+      callID: "call_newer",
+      alt: "Newer diagram",
+      source: "graph TD\nA-->C",
+      repairOfObjectID: original.objectID,
+    })
+    await seedCompletedRepairTurn({
+      assistantMessageID: "msg_old_repair_complete",
+      directory: project.path,
+      repairRequestID: request.repairRequestID,
+      sessionID,
+    })
+
+    const response = await app.request(
+      `/api/session/${sessionID}/mermaid-repair/${request.repairRequestID}?directory=${encodeURIComponent(project.path)}`,
+      { headers: { "x-buddy-directory": project.path } },
+    )
+    expect(response.status).toBe(200)
+    expect((await readMermaidRepairRequest(project.path, request.repairRequestID)).status).toBe(
+      "exhausted",
+    )
+    const current = await readMermaidObject({
+      directory: project.path,
+      objectID: original.objectID,
+    })
+    expect(current.revisionID).toBe(newer.revisionID)
+    expect(current.autoRepair.status).not.toBe("exhausted")
+  })
+
+  test("rejects malformed object and repair request ids with 400 responses", async () => {
+    await using project = await tmpdir({ git: true })
+    const sessionID = await createSession()
 
     const startResponse = await app.request(
       `/api/session/${sessionID}/mermaid-repair-async?directory=${encodeURIComponent(project.path)}`,
@@ -253,7 +406,7 @@ describe("mermaid repair routes", () => {
           "x-buddy-directory": project.path,
         },
         body: JSON.stringify({
-          artifactID: "not-a-valid-artifact-id",
+          objectID: "not-a-valid-object-id",
           failedRenderKey: "not-a-valid-render-key",
         }),
       },
@@ -261,7 +414,7 @@ describe("mermaid repair routes", () => {
 
     expect(startResponse.status).toBe(400)
     await expect(startResponse.json()).resolves.toEqual({
-      error: "Invalid artifact id 'not-a-valid-artifact-id'.",
+      error: "Invalid Buddy object id 'not-a-valid-object-id'.",
     })
 
     const statusResponse = await app.request(

@@ -1,15 +1,18 @@
 import { ulid } from "ulid"
 import {
-  ARTIFACT_CONTENT_FILES,
-  ARTIFACT_KINDS,
-  ARTIFACT_MANIFEST_VERSION,
-  ArtifactValidationError,
-  writeArtifactRecord,
-} from "../../../../artifacts"
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectManifestSchema,
+  BuddyObjectPath,
+  BuddyObjectValidationError,
+  FlashcardDeckObjectSummarySchema,
+  generateObjectID,
+  writeObjectRecord,
+  type BuddyObjectManifest,
+} from "../../../../objects"
+import { writeJsonFileAtomic } from "../../../../storage/atomic-file"
 import { listClozeOrdinals } from "./scheduler"
 import {
   DECK_CONFIG_DEFAULTS,
-  FlashcardDeckManifestSchema,
   FlashcardDeckSchema,
   type FlashcardCard,
   type FlashcardDeck,
@@ -40,7 +43,7 @@ function generateFlashcardCardsForNote(
     const text = "text" in fields ? fields.text : ""
     const ordinals = listClozeOrdinals(text)
     if (ordinals.length === 0) {
-      throw new ArtifactValidationError(
+      throw new BuddyObjectValidationError(
         `Cloze note '${note.noteID}' must contain at least one {{cN::...}} deletion.`,
       )
     }
@@ -71,7 +74,7 @@ type SaveFlashcardNoteInput = {
 }
 
 function buildFlashcardNotesAndCards(
-  artifactID: string,
+  objectID: string,
   inputs: SaveFlashcardNoteInput[],
   config: typeof DECK_CONFIG_DEFAULTS,
 ): { notes: FlashcardNote[]; cards: FlashcardCard[] } {
@@ -82,7 +85,7 @@ function buildFlashcardNotesAndCards(
     const noteID = ulid()
     const note: FlashcardNote = {
       noteID,
-      artifactID,
+      objectID,
       type: input.type,
       fields: input.fields,
       tags: input.tags ?? [],
@@ -95,51 +98,123 @@ function buildFlashcardNotesAndCards(
   return { notes, cards }
 }
 
-async function writeFlashcardDeck(input: {
+const FLASHCARD_DECK_OBJECT_VIEW_ID = "review" as const
+const FLASHCARD_DECK_OBJECT_PAYLOAD_FILE_NAME = "deck.json" as const
+
+type SaveFlashcardDeckObjectResult = {
+  objectID: string
+  revisionID: string
+  deck: FlashcardDeck
+  manifest: BuddyObjectManifest & {
+    summary: ReturnType<typeof FlashcardDeckObjectSummarySchema.parse>
+  }
+}
+
+function flashcardDeckObjectRevisionPath(revisionID: string): string {
+  return `revisions/${revisionID}/${FLASHCARD_DECK_OBJECT_PAYLOAD_FILE_NAME}`
+}
+
+function flashcardDeckObjectStatePath(): string {
+  return `state/${FLASHCARD_DECK_OBJECT_PAYLOAD_FILE_NAME}`
+}
+
+function buildFlashcardDeckObjectViews(): BuddyObjectManifest["views"] {
+  return [
+    {
+      viewID: FLASHCARD_DECK_OBJECT_VIEW_ID,
+      label: "Flashcards",
+      surfaces: ["inline", "bench", "library"],
+      availability: { status: "available" },
+      inline: {
+        renderer: "flashcard-deck",
+        params: {
+          renderer: "flashcard-deck",
+          noteCount: 0,
+        },
+      },
+      bench: { resolver: "object-view" },
+      library: { section: "flashcards" },
+    },
+  ]
+}
+
+async function saveFlashcardDeckObject(input: {
   directory: string
   deck: FlashcardDeck
-}): Promise<void> {
-  const manifest = FlashcardDeckManifestSchema.parse({
-    version: ARTIFACT_MANIFEST_VERSION,
-    artifactID: input.deck.artifactID,
-    kind: ARTIFACT_KINDS.flashcardDeck,
-    title: input.deck.title,
-    origin: input.deck.createdBy,
-    createdAt: input.deck.createdAt,
-    updatedAt: new Date().toISOString(),
+}): Promise<SaveFlashcardDeckObjectResult> {
+  const parsed = FlashcardDeckSchema.parse(input.deck)
+  const objectID = parsed.objectID
+  const revisionID = generateObjectID()
+  const now = new Date().toISOString()
+  const manifest = BuddyObjectManifestSchema.safeExtend({
+    summary: FlashcardDeckObjectSummarySchema,
+  }).parse({
+    version: 1,
+    kind: BUDDY_OBJECT_KINDS.flashcardDeck,
+    objectID,
+    title: parsed.title,
+    status: "ready",
+    lifecycle: "revisioned",
+    currentRevisionID: revisionID,
+    origin: parsed.createdBy,
+    createdAt: parsed.createdAt,
+    updatedAt: now,
+    sourceRefs: [],
+    views: buildFlashcardDeckObjectViews(),
     summary: {
-      noteCount: input.deck.notes.length,
-      cardCount: input.deck.cards.length,
-      ...(input.deck.source ? { source: input.deck.source } : {}),
+      kind: BUDDY_OBJECT_KINDS.flashcardDeck,
+      noteCount: parsed.notes.length,
+      cardCount: parsed.cards.length,
     },
   })
-  await writeArtifactRecord({
+  await writeObjectRecord({
     directory: input.directory,
-    kind: ARTIFACT_KINDS.flashcardDeck,
-    artifactID: input.deck.artifactID,
+    kind: BUDDY_OBJECT_KINDS.flashcardDeck,
+    objectID,
     manifest,
     files: [
       {
-        relativePath: ARTIFACT_CONTENT_FILES.flashcardDeck,
+        relativePath: flashcardDeckObjectRevisionPath(revisionID),
         format: "json",
-        content: input.deck,
+        content: parsed,
+      },
+      {
+        relativePath: flashcardDeckObjectStatePath(),
+        format: "json",
+        content: parsed,
       },
     ],
   })
+  return {
+    objectID,
+    revisionID,
+    deck: parsed,
+    manifest,
+  }
 }
 
-async function saveFlashcardDeck(input: {
+async function writeFlashcardDeckObjectState(input: {
   directory: string
   deck: FlashcardDeck
-}): Promise<FlashcardDeck> {
+}): Promise<void> {
   const parsed = FlashcardDeckSchema.parse(input.deck)
-  await writeFlashcardDeck({ directory: input.directory, deck: parsed })
-  return parsed
+  await writeJsonFileAtomic(
+    BuddyObjectPath.objectFile(
+      input.directory,
+      BUDDY_OBJECT_KINDS.flashcardDeck,
+      parsed.objectID,
+      flashcardDeckObjectStatePath(),
+    ),
+    parsed,
+  )
 }
 
 export {
   buildFlashcardNotesAndCards,
+  FLASHCARD_DECK_OBJECT_VIEW_ID,
+  flashcardDeckObjectRevisionPath,
+  flashcardDeckObjectStatePath,
   generateFlashcardCardsForNote,
-  saveFlashcardDeck,
-  writeFlashcardDeck,
+  saveFlashcardDeckObject,
+  writeFlashcardDeckObjectState,
 }

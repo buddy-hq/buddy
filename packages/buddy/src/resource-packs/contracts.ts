@@ -145,7 +145,6 @@ export type ResourceChunkFileRecord = {
 export type ResourcePackResolution = {
   sourcePath: string
   sourceRelpath: string
-  packKey: string
   packRootPath: string
   metadataPath: string
   entrypointPath: string
@@ -156,15 +155,10 @@ export type ResourcePackResolution = {
   warnings: string[]
 }
 
-export type ResourcePackService = {
-  ensureResourcePack(input: {
-    directory: string
-    sourcePath: string
-  }): Promise<ResourcePackResolution>
-}
-
 export type ResourcePackMetadata = {
+  object_id?: string
   resource_alias?: string
+  alias_at_build?: string
   source_path: string
   source_relpath: string
   format: ResourceFormat
@@ -223,4 +217,6 @@ export type ResourcePackBuildInput = {
   sourceStat: Stats
   packPaths: PackPaths
   classification: ResourceClassification
+  objectID?: string
+  resourceAlias?: string
 }

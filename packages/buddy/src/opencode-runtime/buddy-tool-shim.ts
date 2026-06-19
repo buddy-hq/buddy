@@ -146,9 +146,16 @@ export async function registerBuddyToolUiCatalog(directory: string) {
     }
     return { id: tool.id, outputPolicy: tool.output }
   })
+  const schemaRegistrations = sourceTools.map((tool) => {
+    if (!tool.jsonSchema) {
+      return { id: tool.id }
+    }
+    return { id: tool.id, jsonSchema: tool.jsonSchema }
+  })
 
   ToolRegistry.registerToolUiCatalog(directory, uiRegistrations)
   ToolRegistry.registerToolOutputPolicyCatalog(directory, outputPolicyRegistrations)
+  ToolRegistry.registerToolJsonSchemaCatalog(directory, schemaRegistrations)
 }
 
 function toPluginToolResult(

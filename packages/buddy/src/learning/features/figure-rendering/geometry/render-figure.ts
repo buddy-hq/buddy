@@ -1,25 +1,23 @@
 import { createHash } from "node:crypto"
 import {
-  ARTIFACT_KINDS,
-  ARTIFACT_MANIFEST_VERSION,
-  ARTIFACT_CONTENT_FILES,
-  ArtifactPath,
-  generateArtifactID,
-  writeArtifactRecord,
-} from "../../../../artifacts"
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectManifestSchema,
+  BuddyObjectPath,
+  FigureObjectSummarySchema,
+  generateObjectID,
+  writeObjectRecord,
+  type BuddyObjectManifest,
+} from "../../../../objects"
 import { repairGeometryFigureSpec } from "./repair"
 import { renderGeometryFigure as renderGeometryFigureSvg } from "./render"
 import { resolveGeometryFigureSpec } from "./resolve"
-import {
-  FigureArtifactManifestSchema,
-  RenderFigureOutputSchema,
-  type GeometryFigureSpec,
-  type RenderFigureOutput,
-} from "./types"
+import { type GeometryFigureSpec } from "./types"
 import { validateGeometryFigureSpec, type FigureValidationIssue } from "./validate"
 import { escapeFigureMarkdownAlt, resolveFigureAlt } from "../shared/presentation"
 const MAX_TOTAL_ATTEMPTS = 3
 const MAX_REPAIR_PASSES = 2
+const FIGURE_SVG_FILE_NAME = "figure.svg"
+const FIGURE_RENDERED_VIEW_ID = "rendered"
 
 class FigureRenderError extends Error {
   readonly issues: readonly FigureValidationIssue[]
@@ -29,6 +27,18 @@ class FigureRenderError extends Error {
     this.name = "FigureRenderError"
     this.issues = issues
   }
+}
+
+type RenderGeometryFigureObjectOutput = {
+  objectID: string
+  revisionID: string
+  mime: "image/svg+xml"
+  rawUrl: string
+  relativePath: string
+  alt: string
+  caption: string | null
+  markdown: string
+  repairAttempts: number
 }
 
 function normalizeGeometryFigureSpec(spec: GeometryFigureSpec): GeometryFigureSpec {
@@ -192,45 +202,104 @@ function hashGeometryFigure(spec: GeometryFigureSpec): string {
     .digest("hex")
 }
 
-async function writeGeometryFigure(input: {
+function figureRevisionSvgPath(revisionID: string): string {
+  return `revisions/${revisionID}/${FIGURE_SVG_FILE_NAME}`
+}
+
+function buildFigureObjectRawUrl(input: {
   directory: string
-  artifactID: string
+  objectID: string
+  revisionID: string
+}): string {
+  return `/api/objects/figure/${input.objectID}/raw?directory=${encodeURIComponent(input.directory)}&revisionID=${encodeURIComponent(input.revisionID)}`
+}
+
+async function writeGeometryFigureObject(input: {
+  directory: string
+  objectID: string
+  revisionID: string
   svg: string
   sourceHash: string
   alt: string
   caption?: string
   repairAttempts: number
   createdAt: string
-}): Promise<void> {
-  const manifest = FigureArtifactManifestSchema.parse({
-    version: ARTIFACT_MANIFEST_VERSION,
-    artifactID: input.artifactID,
-    kind: ARTIFACT_KINDS.figure,
+}): Promise<BuddyObjectManifest & { summary: ReturnType<typeof FigureObjectSummarySchema.parse> }> {
+  const sourceRoot = BuddyObjectPath.relativeObjectDirectory(
+    BUDDY_OBJECT_KINDS.figure,
+    input.objectID,
+  )
+  const manifest = BuddyObjectManifestSchema.safeExtend({
+    summary: FigureObjectSummarySchema,
+  }).parse({
+    version: 1,
+    kind: BUDDY_OBJECT_KINDS.figure,
+    objectID: input.objectID,
     title: input.alt,
     ...(input.caption ? { description: input.caption } : {}),
+    status: "ready",
+    lifecycle: "revisioned",
+    currentRevisionID: input.revisionID,
     createdAt: input.createdAt,
     updatedAt: input.createdAt,
-    sourceHash: input.sourceHash,
+    sourceRefs: [
+      {
+        role: "payload",
+        path: `${sourceRoot}/${figureRevisionSvgPath(input.revisionID)}`,
+        displayPath: `${sourceRoot}/${figureRevisionSvgPath(input.revisionID)}`,
+        workspacePath: null,
+        mutable: false,
+        copied: false,
+        availability: "available",
+        exists: true,
+        contentHash: input.sourceHash,
+      },
+    ],
+    views: [
+      {
+        viewID: FIGURE_RENDERED_VIEW_ID,
+        label: "Figure",
+        surfaces: ["inline", "bench", "library"],
+        availability: { status: "available" },
+        inline: {
+          renderer: "figure",
+          params: {
+            renderer: "figure",
+            figureKind: "geometry",
+          },
+        },
+        bench: { resolver: "object-view" },
+        library: { section: "diagrams" },
+      },
+    ],
     summary: {
-      mime: "image/svg+xml",
-      alt: input.alt,
-      ...(input.caption ? { caption: input.caption } : {}),
-      repairAttempts: input.repairAttempts,
+      kind: BUDDY_OBJECT_KINDS.figure,
+      caption: input.caption ?? null,
+      renderStatus: "ready",
     },
   })
-  await writeArtifactRecord({
+  await writeObjectRecord({
     directory: input.directory,
-    kind: ARTIFACT_KINDS.figure,
-    artifactID: input.artifactID,
+    kind: BUDDY_OBJECT_KINDS.figure,
+    objectID: input.objectID,
     manifest,
     files: [
       {
-        relativePath: ARTIFACT_CONTENT_FILES.figureSvg,
+        relativePath: figureRevisionSvgPath(input.revisionID),
         format: "text",
         content: input.svg,
       },
+      {
+        relativePath: `revisions/${input.revisionID}/figure-source.json`,
+        format: "json",
+        content: {
+          sourceHash: input.sourceHash,
+          repairAttempts: input.repairAttempts,
+        },
+      },
     ],
   })
+  return manifest
 }
 
 async function renderGeometryFigure(
@@ -239,7 +308,7 @@ async function renderGeometryFigure(
     caption?: string
     spec: GeometryFigureSpec
   },
-): Promise<RenderFigureOutput> {
+): Promise<RenderGeometryFigureObjectOutput> {
   let currentSpec = normalizeGeometryFigureSpec(input.spec)
   let repairAttempts = 0
   let lastIssues: FigureValidationIssue[] = []
@@ -255,16 +324,18 @@ async function renderGeometryFigure(
           const svg = renderGeometryFigureSvg(resolved.spec)
           const svgIssues = validateGeometrySvgSanity(svg)
           if (svgIssues.length === 0) {
-            const artifactID = generateArtifactID()
+            const objectID = generateObjectID()
+            const revisionID = generateObjectID()
             const sourceHash = hashGeometryFigure(resolved.spec)
             const alt = resolveFigureAlt({
               caption: input.caption,
               fallback: "Geometry figure",
             })
             const createdAt = new Date().toISOString()
-            await writeGeometryFigure({
+            await writeGeometryFigureObject({
               directory,
-              artifactID,
+              objectID,
+              revisionID,
               svg,
               sourceHash,
               alt,
@@ -272,21 +343,23 @@ async function renderGeometryFigure(
               repairAttempts,
               createdAt,
             })
-            const url = `/api/artifacts/figure/${artifactID}/raw?directory=${encodeURIComponent(directory)}`
+            const rawUrl = buildFigureObjectRawUrl({ directory, objectID, revisionID })
+            const relativePath = `${BuddyObjectPath.relativeObjectDirectory(
+              BUDDY_OBJECT_KINDS.figure,
+              objectID,
+            )}/${figureRevisionSvgPath(revisionID)}`
 
-            return RenderFigureOutputSchema.parse({
-              artifactID,
+            return {
+              objectID,
+              revisionID,
               mime: "image/svg+xml",
-              url,
-              relativePath: `${ArtifactPath.relativeArtifactDirectory(
-                ARTIFACT_KINDS.figure,
-                artifactID,
-              )}/${ARTIFACT_CONTENT_FILES.figureSvg}`,
+              rawUrl,
+              relativePath,
               alt,
-              ...(input.caption ? { caption: input.caption } : {}),
-              markdown: `![${escapeFigureMarkdownAlt(alt)}](${url})`,
+              caption: input.caption ?? null,
+              markdown: `![${escapeFigureMarkdownAlt(alt)}](${rawUrl})`,
               repairAttempts,
-            })
+            }
           }
 
           lastIssues = svgIssues
@@ -323,4 +396,11 @@ async function renderGeometryFigure(
   throw new FigureRenderError(lastIssues)
 }
 
-export { FigureRenderError, renderGeometryFigure }
+export {
+  buildFigureObjectRawUrl,
+  FIGURE_RENDERED_VIEW_ID,
+  figureRevisionSvgPath,
+  FigureRenderError,
+  renderGeometryFigure,
+}
+export type { RenderGeometryFigureObjectOutput }

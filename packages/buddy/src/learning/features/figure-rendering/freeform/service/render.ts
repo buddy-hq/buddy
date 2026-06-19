@@ -1,12 +1,15 @@
 import { createHash } from "node:crypto"
 import {
-  ARTIFACT_CONTENT_FILES,
-  ARTIFACT_KINDS,
-  ArtifactPath,
-  generateArtifactID,
-} from "../../../../../artifacts"
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectPath,
+  generateObjectID,
+} from "../../../../../objects"
 import { RenderFreeformFigureOutputSchema, type RenderFreeformFigureOutput } from "../types"
-import { writeFreeformFigure } from "./io"
+import {
+  buildFreeformFigureObjectRawUrl,
+  freeformFigureRevisionSvgPath,
+  writeFreeformFigureObject,
+} from "./io"
 import { lintSvg } from "./lint"
 import { applyTextHalo, sanitizeSvg } from "./sanitize"
 import { escapeFigureMarkdownAlt, resolveFigureAlt } from "../../shared/presentation"
@@ -20,10 +23,6 @@ class FreeformFigureRenderError extends Error {
     this.name = "FreeformFigureRenderError"
     this.issues = issues
   }
-}
-
-function buildFreeformFigureURL(directory: string, artifactID: string): string {
-  return `/api/artifacts/freeform-figure/${artifactID}/raw?directory=${encodeURIComponent(directory)}`
 }
 
 function hashFreeformFigure(source: string): string {
@@ -57,36 +56,41 @@ async function renderFreeformFigure(
     throw new FreeformFigureRenderError(sanitizedIssues)
   }
 
-  const artifactID = generateArtifactID()
+  const objectID = generateObjectID()
+  const revisionID = generateObjectID()
   const sourceHash = hashFreeformFigure(sanitizedSource)
   const alt = resolveFigureAlt({
     caption: input.caption,
     fallback: "Custom SVG figure",
   })
-  const url = buildFreeformFigureURL(directory, artifactID)
+  const rawUrl = buildFreeformFigureObjectRawUrl({ directory, objectID, revisionID })
 
-  await writeFreeformFigure({
+  await writeFreeformFigureObject({
     directory,
-    artifactID,
+    objectID,
+    revisionID,
     svg: applyTextHalo(sanitizedSource),
     sourceHash,
     alt,
     ...(input.caption ? { caption: input.caption } : {}),
+    createdAt: new Date().toISOString(),
   })
 
   return RenderFreeformFigureOutputSchema.parse({
-    artifactID,
+    objectID,
+    revisionID,
     mime: "image/svg+xml",
-    url,
-    relativePath: `${ArtifactPath.relativeArtifactDirectory(
-      ARTIFACT_KINDS.freeformFigure,
-      artifactID,
-    )}/${ARTIFACT_CONTENT_FILES.figureSvg}`,
+    rawUrl,
+    relativePath: `${BuddyObjectPath.relativeObjectDirectory(
+      BUDDY_OBJECT_KINDS.freeformFigure,
+      objectID,
+    )}/${freeformFigureRevisionSvgPath(revisionID)}`,
     alt,
-    ...(input.caption ? { caption: input.caption } : {}),
-    markdown: `![${escapeFigureMarkdownAlt(alt)}](${url})`,
+    caption: input.caption ?? null,
+    markdown: `![${escapeFigureMarkdownAlt(alt)}](${rawUrl})`,
     repairAttempts: 0,
   })
 }
 
 export { FreeformFigureRenderError, renderFreeformFigure }
+export type { RenderFreeformFigureOutput }

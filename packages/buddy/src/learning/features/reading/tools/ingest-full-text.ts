@@ -1,5 +1,6 @@
 import RESOURCE_INGEST_FULL_TEXT_DESCRIPTION from "./ingest-full-text.md"
 import { promises as fs } from "node:fs"
+import path from "node:path"
 import matter from "gray-matter"
 import z from "zod"
 import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
@@ -8,21 +9,39 @@ import { Provider } from "@buddy/opencode-adapter/provider"
 import {
   RESOURCE_PACK_STATUS_READY,
   estimateTokenCountFromText,
-  resolveResourcePackFullTextMetadata,
 } from "../../../../resource-packs"
-import { listRegisteredResources } from "../../../../resources/resource-registry-service"
+import { resolveResourceObjectByKey } from "../../../../resources/resource-registry-service"
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
-const MINIMUM_SPARE_AFTER_INGESTION_TOKENS = 100_000
-const MINIMUM_OUTPUT_RESERVE_TOKENS = 8_000
-const SAFETY_RESERVE_TOKENS = 12_000
+
+// Full-text ingestion fills the next model request with prepared source text, so the
+// relevant capacity is the model's usable input window: `limit.input` when the
+// provider publishes one, otherwise `limit.context`. Some providers publish a
+// smaller input window than context, and some publish very large output limits;
+// output limit is a generation ceiling, not the amount of post-ingest prompt
+// space Buddy needs to reserve for continued reading work.
+const POST_FULL_TEXT_INGEST_RESERVE_RATIO = 0.25
+
+// Below 48k leftover input tokens, a full-text-loaded session tends to become
+// cramped for Buddy's instructions, recent chat, tool metadata, citations, and
+// follow-up reading. This is intentionally a teaching-workflow floor, not a
+// prediction of a fixed number of future turns.
+const MINIMUM_POST_FULL_TEXT_INGEST_CONTEXT_TOKENS = 48_000
+
+// Above 96k leftover input tokens, demanding more reserve mostly blocks useful
+// whole-resource workflows on large-context models. The cap prevents million-token
+// models from reserving hundreds of thousands of tokens just because they can.
+const MAXIMUM_POST_FULL_TEXT_INGEST_CONTEXT_TOKENS = 96_000
+
 const FULL_TEXT_TOOL_MAX_OUTPUT_LINES = 500_000
 const FULL_TEXT_TOOL_MAX_OUTPUT_BYTES = 5_000_000
+const INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL = "context_too_full"
+const INGEST_FULL_TEXT_FALLBACK_SCOPED_READING = "scoped_reading"
 
 const ResourceIngestFullTextParameters = z.object({
-  resource: z
+  resourceKey: z
     .string()
     .min(1)
-    .describe("Resource alias or ID to ingest into context from its prepared full-text file."),
+    .describe("Resource objectID or alias to ingest into context from its prepared full-text file."),
 })
 
 const ActiveModelSchema = z.object({
@@ -153,6 +172,13 @@ function estimateMessageHistoryTokens(messages: MessageV2.WithParts[]) {
   return estimateTokenCountFromText(serialized)
 }
 
+function clampPostFullTextIngestReserve(value: number) {
+  return Math.min(
+    Math.max(value, MINIMUM_POST_FULL_TEXT_INGEST_CONTEXT_TOKENS),
+    MAXIMUM_POST_FULL_TEXT_INGEST_CONTEXT_TOKENS,
+  )
+}
+
 async function resolveActiveModel(messages: MessageV2.WithParts[], extra: unknown) {
   const fromExtra = normalizeActiveModel(extra)
   if (fromExtra) {
@@ -181,13 +207,8 @@ function resolveContextBudget(input: {
 }) {
   const inputWindow = input.model.limit.input ?? input.model.limit.context
   const contextWindow = input.model.limit.context
-  const outputReserve = Math.max(
-    readOptionalNumber(input.model.limit.output) ?? 0,
-    MINIMUM_OUTPUT_RESERVE_TOKENS,
-  )
-  const reserve = Math.max(
-    MINIMUM_SPARE_AFTER_INGESTION_TOKENS,
-    outputReserve + SAFETY_RESERVE_TOKENS,
+  const reserve = clampPostFullTextIngestReserve(
+    inputWindow * POST_FULL_TEXT_INGEST_RESERVE_RATIO,
   )
   const latestAssistantTotal = lastAssistantTokenTotal(input.messages)
   const messageHistoryEstimate = estimateMessageHistoryTokens(input.messages)
@@ -196,7 +217,6 @@ function resolveContextBudget(input: {
   return {
     inputWindow,
     contextWindow,
-    outputReserve,
     reserve,
     latestAssistantTotal,
     messageHistoryEstimate,
@@ -205,15 +225,23 @@ function resolveContextBudget(input: {
   }
 }
 
-function formatBudgetFailure(input: {
+function formatBudgetFallbackOutput(input: {
+  objectID: string
   resource: string
+  packPath: string | null
+  fullTextPath: string
   fullTextTokens: number
   budget: ReturnType<typeof resolveContextBudget>
   model: z.infer<typeof ActiveModelSchema>
 }) {
   const remainingAfterIngestion = input.budget.remainingBeforeIngestion - input.fullTextTokens
   return [
-    `Cannot ingest full text for resource "${input.resource}" because the live session context is too full.`,
+    `<resource_full_text_ingestion resource="${input.resource}" completed="false" reason="${INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL}">`,
+    `object_kind=resource`,
+    `object_id=${input.objectID}`,
+    `alias=${input.resource}`,
+    `pack=${input.packPath ?? "none"}`,
+    `full_text=${input.fullTextPath}`,
     `Model: ${input.model.providerID}/${input.model.id}`,
     `Input window: ${input.budget.inputWindow.toLocaleString()} tokens`,
     `Current live usage estimate: ${input.budget.liveUsageEstimate.toLocaleString()} tokens`,
@@ -221,7 +249,10 @@ function formatBudgetFailure(input: {
     `Full text estimate: ${input.fullTextTokens.toLocaleString()} tokens`,
     `Required reserve after ingestion: ${input.budget.reserve.toLocaleString()} tokens`,
     `Remaining after ingestion would be: ${remainingAfterIngestion.toLocaleString()} tokens`,
-    "Use scoped reading instead of full-text ingestion in this session.",
+    `<buddy_system_reminder>
+Full text is too large for live ingestion in this session. Continue with scoped reading from pack, using TOC, chunks, pages, or focused full-text sections as needed. Do not retry ingest_full_text unless the model or context window changes.
+</buddy_system_reminder>`,
+    "</resource_full_text_ingestion>",
   ].join("\n")
 }
 
@@ -236,29 +267,22 @@ export const ingestFullTextTool = createBuddyTool({
   async execute(params, ctx) {
     await ctx.ask({
       permission: "ingest_full_text",
-      patterns: [params.resource],
-      always: [params.resource],
+      patterns: [params.resourceKey],
+      always: [params.resourceKey],
       metadata: {},
     })
 
-    const resources = await listRegisteredResources(ctx.directory)
-    const resource = resources.find(
-      (entry) => entry.alias === params.resource || entry.id === params.resource,
-    )
-    if (!resource) {
-      throw new Error(`Resource not found: ${params.resource}`)
-    }
-    if (resource.status !== RESOURCE_PACK_STATUS_READY || !resource.packKey) {
+    const resource = await resolveResourceObjectByKey({
+      directory: ctx.directory,
+      resourceKey: params.resourceKey,
+    })
+    if (resource.status !== RESOURCE_PACK_STATUS_READY) {
       throw new Error(
         `Resource "${resource.alias}" is not ready for full-text ingestion. Current status: ${resource.status}.`,
       )
     }
 
-    const fullTextMetadata = await resolveResourcePackFullTextMetadata({
-      directory: ctx.directory,
-      packKey: resource.packKey,
-    })
-    if (!fullTextMetadata) {
+    if (!resource.fullTextPath) {
       throw new Error(`Resource "${resource.alias}" does not expose a prepared full-text file.`)
     }
 
@@ -267,7 +291,7 @@ export const ingestFullTextTool = createBuddyTool({
       throw new Error("Could not resolve the active model for full-text ingestion.")
     }
 
-    const fullTextSource = await fs.readFile(fullTextMetadata.fullTextAbsolutePath, "utf8")
+    const fullTextSource = await fs.readFile(path.resolve(ctx.directory, resource.fullTextPath), "utf8")
     const parsed = matter(fullTextSource)
     const fullText = parsed.content.trim()
     if (!fullText) {
@@ -276,7 +300,7 @@ export const ingestFullTextTool = createBuddyTool({
 
     const fullTextTokens =
       readOptionalNumber(parsed.data.est_tokens) ??
-      fullTextMetadata.fullTextEstTokens ??
+      resource.fullTextEstimatedTokens ??
       estimateTokenCountFromText(fullText)
 
     const budget = resolveContextBudget({
@@ -285,18 +309,45 @@ export const ingestFullTextTool = createBuddyTool({
     })
     const remainingAfterIngestion = budget.remainingBeforeIngestion - fullTextTokens
     if (remainingAfterIngestion < budget.reserve) {
-      throw new Error(
-        formatBudgetFailure({
+      return {
+        title: "ingest_full_text",
+        output: formatBudgetFallbackOutput({
+          objectID: resource.objectID,
           resource: resource.alias,
+          packPath: resource.packPath,
+          fullTextPath: resource.fullTextPath,
           fullTextTokens,
           budget,
           model,
         }),
-      )
+        metadata: {
+          objectID: resource.objectID,
+          resource: resource.alias,
+          alias: resource.alias,
+          completed: false,
+          reason: INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL,
+          fallback: INGEST_FULL_TEXT_FALLBACK_SCOPED_READING,
+          packPath: resource.packPath,
+          fullTextPath: resource.fullTextPath,
+          fullTextEstimatedTokens: fullTextTokens,
+          model: `${model.providerID}/${model.id}`,
+          inputWindow: budget.inputWindow,
+          contextWindow: budget.contextWindow,
+          liveUsageEstimate: budget.liveUsageEstimate,
+          remainingBeforeIngestion: budget.remainingBeforeIngestion,
+          remainingAfterIngestion,
+          requiredReserveAfterIngestion: budget.reserve,
+          truncated: false,
+        },
+      }
     }
 
     const output = [
       `<resource_full_text_ingestion resource="${resource.alias}" completed="true">`,
+      `object_kind=resource`,
+      `object_id=${resource.objectID}`,
+      `alias=${resource.alias}`,
+      `full_text=${resource.fullTextPath}`,
       `model=${model.providerID}/${model.id}`,
       `input_window=${budget.inputWindow}`,
       `context_window=${budget.contextWindow}`,
@@ -325,15 +376,18 @@ export const ingestFullTextTool = createBuddyTool({
       title: "ingest_full_text",
       output,
       metadata: {
+        objectID: resource.objectID,
         resource: resource.alias,
+        alias: resource.alias,
         completed: true,
+        fullTextPath: resource.fullTextPath,
+        fullTextEstimatedTokens: fullTextTokens,
         model: `${model.providerID}/${model.id}`,
         inputWindow: budget.inputWindow,
         contextWindow: budget.contextWindow,
         liveUsageEstimate: budget.liveUsageEstimate,
         remainingBeforeIngestion: budget.remainingBeforeIngestion,
         remainingAfterIngestion,
-        fullTextEstTokens: fullTextTokens,
         truncated: false,
       },
     }

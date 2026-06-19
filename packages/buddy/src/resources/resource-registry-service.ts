@@ -1,44 +1,74 @@
-import { randomUUID } from "node:crypto"
 import { promises as fs } from "node:fs"
 import path from "node:path"
 import matter from "gray-matter"
+import z from "zod"
 import {
+  RESOURCE_PACK_CHUNKS_DIR_NAME,
   RESOURCE_PACK_ENTRYPOINT_FILE_NAME,
+  RESOURCE_PACK_COVER_FILE_PREFIX,
+  RESOURCE_PACK_FULL_TEXT_FILE_NAME,
+  RESOURCE_PACK_PAGES_DIR_NAME,
   RESOURCE_PACK_PREPARING_WARNING,
-  RESOURCE_PACK_PROCESSED_DIR_NAME,
-  RESOURCE_PACK_ROOT_DIR,
   RESOURCE_PACK_STATUS_ERROR,
   RESOURCE_PACK_STATUS_PREPARING,
   RESOURCE_PACK_STATUS_READY,
   RESOURCE_PACK_STATUS_UNSUPPORTED,
   RESOURCE_PACK_TOC_FILE_NAME,
   classifyResourcePath,
-  ensureResourcePack,
+  ensureResourcePackWithBuildInput,
+  resolveResourcePackFullTextMetadataFromRoot,
 } from "../resource-packs"
+import { writeJsonFileAtomic } from "../storage/atomic-file"
 import {
-  resourceSourceSnapshotMatches,
-  resourceSourceVersionMatches,
-} from "../resource-packs/source-match"
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectIDSchema,
+  BuddyObjectManifestSchema,
+  BuddyObjectNotFoundError,
+  BuddyObjectPath,
+  BuddyObjectUnavailableError,
+  BuddyObjectViewResponseSchema,
+  BuddyObjectValidationError,
+  mapBuddyObjectRouteError,
+  OBJECT_DERIVED_DIRECTORY_NAME,
+  OBJECT_SOURCE_DIRECTORY_NAME,
+  ResourceObjectSummarySchema,
+  registerBuddyObjectKind,
+  deleteObject,
+  generateObjectID,
+  isNodeErrorCode,
+  listObjects,
+  readObjectManifest,
+  readJsonFile,
+  writeObjectManifest,
+  writeObjectRecord,
+  type BuddyObjectManifest,
+  type BuddyObjectSourceRef,
+  type BuddyObjectViewResponse,
+} from "../objects"
+import { resolveBenchReadingResourceRelpath } from "../learning/features/bench/reading-resource"
 
-const RESOURCE_PREPARATION_POLL_ATTEMPTS = 20
-const RESOURCE_PREPARATION_POLL_DELAY_MS = 500
 const RESOURCE_ALIAS_DEFAULT = "resource" as const
-const LEGACY_RESOURCE_REGISTRY_FILENAME = "registry.json" as const
 const RESOURCE_ALIAS_REPLACE_REGEX = /[^a-z0-9._-]+/g
 const RESOURCE_ALIAS_TRIM_REGEX = /^-+|-+$/g
 const RESOURCE_SOURCE_MISSING_WARNING_PREFIX = "Resource source file not found: " as const
 const RESOURCE_SOURCE_NOT_FILE_ERROR = "Resource path must point to a file." as const
 const RESOURCE_SOURCE_PATH_REQUIRED_ERROR = "Resource path is required." as const
-const RESOURCE_PROCESSED_METADATA_MISSING_WARNING =
-  "Resource metadata is missing. Run /resource rebuild." as const
+const RESOURCE_SOURCE_MANIFEST_STALE_WARNING =
+  "Resource source metadata is missing or stale. Rebuild this resource." as const
 const RESOURCE_STALE_WARNING = "Source file changed since last successful preparation." as const
-const RESOURCE_SOURCE_MANIFEST_FILENAME = ".buddy-source.json" as const
-const RESOURCE_IDENTITY_MANIFEST_FILENAME = ".buddy-resource.json" as const
+const RESOURCE_ALIAS_INDEX_FILE_NAME = "aliases.json" as const
+const RESOURCE_PACK_DIRECTORY_NAME = "pack" as const
+const RESOURCE_PACK_STAGING_DIRECTORY_NAME = "pack-staging" as const
+const RESOURCE_OBJECT_SOURCE_ROLE_MANAGED = "payload" as const
+const RESOURCE_OBJECT_SOURCE_ROLE_ORIGINAL = "original" as const
+const RESOURCE_READER_VIEW_ID = "reader" as const
+const RESOURCE_SOURCE_VIEW_ID = "source" as const
+const RESOURCE_LIBRARY_VIEW_ID = "library" as const
 
 export type ResourceStatus = "preparing" | "ready" | "unsupported" | "error" | "stale"
 
 export type ResourceRecord = {
-  id: string
+  objectID: string
   alias: string
   sourceRelpath: string
   sourceOriginRelpath?: string
@@ -51,10 +81,11 @@ export type ResourceRecord = {
   coverRelpath?: string
   title?: string
   author?: string
-}
-
-type RegisteredResourceRecord = ResourceRecord & {
-  packKey: string
+  packPath?: string
+  fullTextPath?: string
+  fullTextEstimatedTokens?: number
+  fullTextCharacters?: number
+  readerPath?: string
 }
 
 type ResourceUseResolution =
@@ -70,8 +101,53 @@ type ResourceUseResolution =
       record?: ResourceRecord
     }
 
+export type ResourceObjectKey = {
+  directory: string
+  resourceKey: string
+}
+
+export type ResourceObjectResolved = {
+  objectID: string
+  alias: string
+  title: string | null
+  status: ResourceStatus
+  managedSourceRef: BuddyObjectSourceRef
+  originalSourceRef: BuddyObjectSourceRef | null
+  objectPath: string
+  entrypointPath: string | null
+  tocPath: string | null
+  packPath: string | null
+  fullTextPath: string | null
+  fullTextEstimatedTokens: number | null
+  fullTextCharacters: number | null
+  readerPath: string | null
+  warnings: string[]
+  format: string
+  sourceMtimeMs: number | null
+  sourceSizeBytes: number | null
+  preparedAt: string | null
+  coverRelpath: string | null
+  author: string | null
+}
+
+type ResourceObjectPackBuildInput = {
+  directory: string
+  objectID: string
+  generationID: string
+  alias: string
+  sourcePath: string
+  derivedPackRoot: string
+  metadataPath: string
+  entrypointPath: string
+  tocPath: string
+  fullTextPath: string
+  chunksDirPath: string
+  pagesDirPath: string
+}
+
+type ResourceAliasIndex = Record<string, string>
+
 type ResourcePackMetadataSnapshot = {
-  sourceRelpath?: string
   format?: string
   status?: ResourceStatus
   warnings: string[]
@@ -83,26 +159,36 @@ type ResourcePackMetadataSnapshot = {
   author?: string
 }
 
-type ResourceSourceManifest = {
-  sourceOriginRelpath?: string
-}
-
-type ResourceIdentityManifest = {
-  resourceID: string
-}
-
-type ResourceSourceSnapshot = {
-  path: string
-  mtimeMs: number
-  sizeBytes: number
-  atime: Date
-  mtime: Date
-}
-
 const inFlightResourcePreparation = new Map<string, Promise<void>>()
+const resourceAliasIndexMutationTails = new Map<string, Promise<void>>()
+
+function withResourceAliasIndexMutationLock<T>(
+  directory: string,
+  task: () => Promise<T>,
+): Promise<T> {
+  const key = path.resolve(directory)
+  const previous = resourceAliasIndexMutationTails.get(key) ?? Promise.resolve()
+  const run = previous.then(task, task)
+  const next = run.then(
+    () => undefined,
+    () => undefined,
+  )
+  resourceAliasIndexMutationTails.set(key, next)
+  return run.finally(() => {
+    if (resourceAliasIndexMutationTails.get(key) === next) {
+      resourceAliasIndexMutationTails.delete(key)
+    }
+  })
+}
 
 export class ResourceValidationError extends Error {}
 export class ResourceNotFoundError extends Error {}
+export class ResourceAmbiguousAliasError extends ResourceValidationError {
+  constructor(alias: string, objectIDs: string[]) {
+    super(`Resource alias is ambiguous: ${alias} (${objectIDs.join(", ")})`)
+    this.name = "ResourceAmbiguousAliasError"
+  }
+}
 
 export async function listResources(directory: string): Promise<ResourceRecord[]> {
   const records = await listRegisteredResources(directory)
@@ -111,18 +197,11 @@ export async function listResources(directory: string): Promise<ResourceRecord[]
 
 export async function listRegisteredResources(
   directory: string,
-): Promise<RegisteredResourceRecord[]> {
-  await removeLegacyResourceRegistryFile(directory)
-  const aliases = await listResourceAliases(directory)
-  const records = await Promise.all(
-    aliases.map(async (alias) =>
-      buildRegisteredResourceRecord({
-        directory,
-        alias,
-      }),
-    ),
-  )
-  return records.toSorted((left, right) => left.alias.localeCompare(right.alias))
+): Promise<ResourceRecord[]> {
+  const resources = await listResolvedResourceObjects({ directory })
+  return resources
+    .map(resourceResolvedToRegisteredRecord)
+    .toSorted((left, right) => left.alias.localeCompare(right.alias))
 }
 
 export async function addResource(input: {
@@ -130,7 +209,6 @@ export async function addResource(input: {
   sourcePath: string
   alias?: string
 }): Promise<ResourceRecord> {
-  await removeLegacyResourceRegistryFile(input.directory)
   const absoluteSourcePath = resolveInputSourcePath(input.directory, input.sourcePath)
   const sourceStat = await fs.stat(absoluteSourcePath).catch(() => undefined)
   if (!sourceStat) {
@@ -142,19 +220,25 @@ export async function addResource(input: {
     throw new ResourceValidationError(RESOURCE_SOURCE_NOT_FILE_ERROR)
   }
 
-  const staged = await stageResourceSourcePath({
+  const manifest = await createResourceObject({
     directory: input.directory,
     sourcePath: absoluteSourcePath,
+    sourceStat,
     requestedAlias: input.alias,
   })
 
-  void prepareResource(input.directory, staged.alias)
+  void prepareResourceObject({
+    directory: input.directory,
+    objectID: manifest.objectID,
+  })
+
   return stripRegisteredResourceRecord(
-    await buildRegisteredResourceRecord({
-      directory: input.directory,
-      alias: staged.alias,
-      forcePreparing: true,
-    }),
+    resourceResolvedToRegisteredRecord(
+      await resolveResourceObjectByID({
+        directory: input.directory,
+        objectID: manifest.objectID,
+      }),
+    ),
   )
 }
 
@@ -162,137 +246,486 @@ export async function getResourceByKey(
   directory: string,
   key: string,
 ): Promise<ResourceRecord | undefined> {
-  const record = await findRegisteredResourceByKey(directory, key)
-  return record ? stripRegisteredResourceRecord(record) : undefined
+  const resource = await resolveResourceObjectByKey({ directory, resourceKey: key }).catch(
+    (error: unknown) => {
+      if (error instanceof ResourceNotFoundError) return undefined
+      throw error
+    },
+  )
+  return resource ? stripRegisteredResourceRecord(resourceResolvedToRegisteredRecord(resource)) : undefined
 }
 
 export async function getRegisteredResourceByKey(
   directory: string,
   key: string,
-): Promise<RegisteredResourceRecord | undefined> {
-  return findRegisteredResourceByKey(directory, key)
+): Promise<ResourceRecord | undefined> {
+  const resource = await resolveResourceObjectByKey({ directory, resourceKey: key }).catch(
+    (error: unknown) => {
+      if (error instanceof ResourceNotFoundError) return undefined
+      throw error
+    },
+  )
+  return resource ? resourceResolvedToRegisteredRecord(resource) : undefined
 }
 
 export async function renameResource(input: {
   directory: string
-  resourceID: string
+  objectID: string
   alias: string
 }): Promise<ResourceRecord> {
-  const currentAlias = await resolveResourceAliasByKey(input.directory, input.resourceID)
-  const activePreparation = inFlightResourcePreparation.get(
-    preparationKey(input.directory, currentAlias),
-  )
-  if (activePreparation) {
-    await activePreparation
-  }
+  return withResourceAliasIndexMutationLock(input.directory, () => renameResourceUnlocked(input))
+}
 
-  const aliases = await listResourceAliases(input.directory)
-  const alias = pickResourceAlias({
-    requestedAlias: input.alias,
-    fallbackAlias: currentAlias,
-    existingAliases: new Set(aliases.filter((entry) => entry !== currentAlias)),
+async function renameResourceUnlocked(input: {
+  directory: string
+  objectID: string
+  alias: string
+}): Promise<ResourceRecord> {
+  const resource = await resolveResourceObjectByID({
+    directory: input.directory,
+    objectID: input.objectID,
+  })
+  const normalizedAlias = normalizeAliasToken(input.alias)
+  if (!normalizedAlias) {
+    throw new ResourceValidationError("Resource alias is required.")
+  }
+  await assertAliasAvailable({
+    directory: input.directory,
+    alias: normalizedAlias,
+    exceptObjectID: resource.objectID,
   })
 
-  if (alias !== currentAlias) {
-    const currentFolderPath = resourceFolderPath(input.directory, currentAlias)
-    const nextFolderPath = resourceFolderPath(input.directory, alias)
-    await fs.rename(currentFolderPath, nextFolderPath).catch((error: unknown) => {
-      if (error instanceof Error) {
-        throw new ResourceValidationError(error.message)
-      }
-      throw new ResourceValidationError(String(error))
-    })
-  }
-
+  const manifest = await readResourceObjectManifest(input.directory, resource.objectID)
+  const updated = BuddyObjectManifestSchema.parse({
+    ...manifest,
+    title: manifest.title === manifest.summary.alias ? normalizedAlias : manifest.title,
+    updatedAt: new Date().toISOString(),
+    summary: {
+      ...manifest.summary,
+      alias: normalizedAlias,
+    },
+  })
+  await writeObjectManifest({ directory: input.directory, manifest: updated })
+  await rebuildResourceAliasIndexUnlocked(input.directory)
   return stripRegisteredResourceRecord(
-    await buildRegisteredResourceRecord({
-      directory: input.directory,
-      alias,
-    }),
+    resourceResolvedToRegisteredRecord(
+      await resolveResourceObjectByID({
+        directory: input.directory,
+        objectID: resource.objectID,
+      }),
+    ),
   )
 }
 
 export async function rebuildResource(input: {
   directory: string
-  resourceID: string
+  objectID: string
 }): Promise<ResourceRecord> {
-  const alias = await resolveResourceAliasByKey(input.directory, input.resourceID)
-  const activePreparation = inFlightResourcePreparation.get(preparationKey(input.directory, alias))
+  const resource = await resolveResourceObjectByID({
+    directory: input.directory,
+    objectID: input.objectID,
+  })
+  const activePreparation = inFlightResourcePreparation.get(
+    preparationKey(input.directory, resource.objectID),
+  )
   if (activePreparation) {
     await activePreparation.catch(() => undefined)
   }
-  const sourcePath = await resolvePrimarySourcePathForAlias(input.directory, alias)
-  if (!sourcePath) {
-    throw new ResourceValidationError(
-      `${RESOURCE_SOURCE_MISSING_WARNING_PREFIX}${path.join(RESOURCE_PACK_ROOT_DIR, alias)}`,
-    )
-  }
 
-  await fs.rm(resourceProcessedPath(input.directory, alias), { recursive: true, force: true })
+  const generationID = generateObjectID()
+  const manifest = await refreshManagedResourceSourceFromOriginal({
+    directory: input.directory,
+    manifest: await readResourceObjectManifest(input.directory, resource.objectID),
+  })
+  const preparing = BuddyObjectManifestSchema.parse({
+    ...manifest,
+    status: RESOURCE_PACK_STATUS_PREPARING,
+    updatedAt: new Date().toISOString(),
+    summary: {
+      ...manifest.summary,
+      generationID,
+      preparedAt: null,
+      fullTextPath: null,
+      fullTextEstimatedTokens: null,
+      fullTextCharacters: null,
+      warnings: [RESOURCE_PACK_PREPARING_WARNING],
+    },
+  })
+  await writeObjectManifest({ directory: input.directory, manifest: preparing })
 
-  void prepareResource(input.directory, alias)
+  void prepareResourceObject({
+    directory: input.directory,
+    objectID: resource.objectID,
+    generationID,
+  })
+
   return stripRegisteredResourceRecord(
-    await buildRegisteredResourceRecord({
-      directory: input.directory,
-      alias,
-      forcePreparing: true,
-    }),
+    resourceResolvedToRegisteredRecord(
+      await resolveResourceObjectByID({
+        directory: input.directory,
+        objectID: resource.objectID,
+      }),
+    ),
   )
 }
 
 export async function removeResource(input: {
   directory: string
-  resourceID: string
+  objectID: string
 }): Promise<void> {
-  const alias = await resolveResourceAliasByKey(input.directory, input.resourceID)
-  const activePreparation = inFlightResourcePreparation.get(preparationKey(input.directory, alias))
+  const resource = await resolveResourceObjectByID({
+    directory: input.directory,
+    objectID: input.objectID,
+  })
+  const activePreparation = inFlightResourcePreparation.get(
+    preparationKey(input.directory, resource.objectID),
+  )
   if (activePreparation) {
     await activePreparation.catch(() => undefined)
   }
-  await fs.rm(resourceFolderPath(input.directory, alias), { recursive: true, force: true })
+  await withResourceAliasIndexMutationLock(input.directory, () =>
+    removeResourceUnlocked({
+      directory: input.directory,
+      objectID: resource.objectID,
+    }),
+  )
+}
+
+async function removeResourceUnlocked(input: {
+  directory: string
+  objectID: string
+}): Promise<void> {
+  const resource = await resolveResourceObjectByID({
+    directory: input.directory,
+    objectID: input.objectID,
+  })
+  await deleteObject({
+    directory: input.directory,
+    kind: BUDDY_OBJECT_KINDS.resource,
+    objectID: resource.objectID,
+  })
+  await rebuildResourceAliasIndexUnlocked(input.directory)
 }
 
 export async function resolveResourceReference(input: {
   directory: string
   key: string
 }): Promise<ResourceUseResolution> {
-  const record = await findRegisteredResourceByKey(input.directory, input.key)
-  if (!record) {
+  const resource = await resolveResourceObjectByKey({
+    directory: input.directory,
+    resourceKey: input.key,
+  }).catch((error: unknown) => {
+    if (error instanceof ResourceNotFoundError) return undefined
+    throw error
+  })
+  if (!resource) {
     return { ok: false, reason: "not_found" }
   }
+
+  const record = stripRegisteredResourceRecord(resourceResolvedToRegisteredRecord(resource))
   if (record.status !== RESOURCE_PACK_STATUS_READY) {
     return { ok: false, reason: "not_ready", record }
   }
-
-  const processedPath = resourceProcessedPath(input.directory, record.packKey)
-  const entrypointPath = path.join(processedPath, RESOURCE_PACK_ENTRYPOINT_FILE_NAME)
-  const tocPath = path.join(processedPath, RESOURCE_PACK_TOC_FILE_NAME)
-  const entryExists = await fileExists(entrypointPath)
-  if (!entryExists) {
+  if (!resource.entrypointPath) {
     return { ok: false, reason: "invalid_pack", record }
   }
-
-  const tocExists = await fileExists(tocPath)
   return {
     ok: true,
     record,
-    entrypointPath,
-    ...(tocExists ? { tocPath } : {}),
+    entrypointPath: path.resolve(input.directory, resource.entrypointPath),
+    ...(resource.tocPath ? { tocPath: path.resolve(input.directory, resource.tocPath) } : {}),
   }
 }
 
-export async function resolveResourceIDByKey(directory: string, key: string): Promise<string> {
-  const resources = await listRegisteredResources(directory)
-  const entry = resources.find((record) => record.id === key || record.alias === key)
-  if (!entry) {
-    throw new ResourceNotFoundError(`Resource not found: ${key}`)
-  }
-  return entry.id
+export async function resolveResourceObjectIDByKey(directory: string, key: string): Promise<string> {
+  return (await resolveResourceObjectByKey({ directory, resourceKey: key })).objectID
 }
 
-function stripRegisteredResourceRecord(record: RegisteredResourceRecord): ResourceRecord {
+export async function resolveResourceObjectByKey(
+  input: ResourceObjectKey,
+): Promise<ResourceObjectResolved> {
+  const trimmed = input.resourceKey.trim()
+  if (!trimmed) throw new ResourceNotFoundError(`Resource not found: ${input.resourceKey}`)
+
+  if (BuddyObjectIDSchema.safeParse(trimmed).success) {
+    const byID = await resolveResourceObjectByID({
+      directory: input.directory,
+      objectID: trimmed,
+    }).catch((error: unknown) => {
+      if (error instanceof ResourceNotFoundError || error instanceof BuddyObjectNotFoundError) {
+        return undefined
+      }
+      throw error
+    })
+    if (byID) return byID
+  }
+
+  const aliasIndex = await readResourceAliasIndex(input.directory).catch(() =>
+    rebuildResourceAliasIndex(input.directory),
+  )
+  const normalizedAlias = normalizeAliasToken(trimmed)
+  const objectID = aliasIndex[normalizedAlias]
+  if (objectID) {
+    const resource = await resolveResourceObjectByID({
+      directory: input.directory,
+      objectID,
+    }).catch((error: unknown) => {
+      if (error instanceof BuddyObjectNotFoundError || error instanceof BuddyObjectUnavailableError) {
+        return undefined
+      }
+      throw error
+    })
+    if (resource) return resource
+  }
+
+  const rebuilt = await rebuildResourceAliasIndex(input.directory)
+  const rebuiltObjectID = rebuilt[normalizedAlias]
+  if (!rebuiltObjectID) {
+    const liveClaims = await findLiveResourceObjectIDsByAlias({
+      directory: input.directory,
+      alias: normalizedAlias,
+    })
+    if (liveClaims.length > 1) {
+      throw new ResourceAmbiguousAliasError(normalizedAlias, liveClaims)
+    }
+    throw new ResourceNotFoundError(`Resource not found: ${input.resourceKey}`)
+  }
+  return resolveResourceObjectByID({
+    directory: input.directory,
+    objectID: rebuiltObjectID,
+  })
+}
+
+export async function resolveResourceObjectByID(input: {
+  directory: string
+  objectID: string
+}): Promise<ResourceObjectResolved> {
+  const manifest = await readResourceObjectManifest(input.directory, input.objectID)
+  return resourceManifestToResolved(input.directory, manifest)
+}
+
+export async function listResolvedResourceObjects(input: {
+  directory: string
+}): Promise<ResourceObjectResolved[]> {
+  const listed = await listObjects({
+    directory: input.directory,
+    kind: BUDDY_OBJECT_KINDS.resource,
+  })
+  const resources = await Promise.all(
+    listed.objects.map((object) =>
+      resolveResourceObjectByID({
+        directory: input.directory,
+        objectID: object.objectID,
+      }).catch((error: unknown) => {
+        if (error instanceof ResourceNotFoundError) return undefined
+        throw error
+      }),
+    ),
+  )
+  return resources
+    .filter((resource): resource is ResourceObjectResolved => resource !== undefined)
+    .toSorted((left, right) => left.alias.localeCompare(right.alias))
+}
+
+export async function resolveResourcePackPaths(input: {
+  directory: string
+  objectID: string
+}): Promise<{
+  packRoot: string
+  resourceMarkdownPath: string | null
+  tocPath: string | null
+  fullTextPath: string | null
+}> {
+  const resource = await resolveResourceObjectByID(input)
   return {
-    id: record.id,
+    packRoot: resourcePackDisplayRootPath(input.objectID),
+    resourceMarkdownPath: resource.entrypointPath,
+    tocPath: resource.tocPath,
+    fullTextPath: resource.fullTextPath,
+  }
+}
+
+async function runResourceObjectPackBuild(input: ResourceObjectPackBuildInput): Promise<void> {
+  const sourceStat = await fs.stat(input.sourcePath)
+  const sourceRelpath = path.relative(input.directory, input.sourcePath) || path.basename(input.sourcePath)
+  await ensureResourcePackWithBuildInput(
+    {
+      directory: input.directory,
+      sourcePath: input.sourcePath,
+      sourceRelpath,
+      sourceStat,
+      classification: classifyResourcePath(input.sourcePath, Number(sourceStat.size)),
+      packPaths: {
+        rootPath: input.derivedPackRoot,
+        metadataPath: input.metadataPath,
+        entrypointPath: input.entrypointPath,
+        fullPath: input.fullTextPath,
+        tocPath: input.tocPath,
+        chunksDirPath: input.chunksDirPath,
+        pagesDirPath: input.pagesDirPath,
+      },
+      objectID: input.objectID,
+      resourceAlias: input.alias,
+    },
+    { waitForCompletion: true },
+  )
+}
+
+export async function buildResourceObjectPack(
+  input: ResourceObjectPackBuildInput,
+): Promise<ResourceObjectResolved> {
+  await runResourceObjectPackBuild(input)
+  return resolveResourceObjectByID({
+    directory: input.directory,
+    objectID: input.objectID,
+  })
+}
+
+export function mapResourceRouteError(error: unknown): Response | undefined {
+  if (error instanceof ResourceValidationError || error instanceof BuddyObjectValidationError) {
+    return Response.json({ error: error.message }, { status: 400 })
+  }
+  if (error instanceof ResourceNotFoundError) {
+    return Response.json({ error: error.message }, { status: 404 })
+  }
+  return mapBuddyObjectRouteError(error)
+}
+
+registerBuddyObjectKind({
+  kind: BUDDY_OBJECT_KINDS.resource,
+  manifestSchema: BuddyObjectManifestSchema.safeExtend({
+    summary: ResourceObjectSummarySchema,
+  }),
+  async readManifest(input) {
+    return readResourceObjectManifest(input.directory, input.ref.objectID)
+  },
+  async readView(input) {
+    return readResourceObjectView({
+      directory: input.directory,
+      objectID: input.ref.objectID,
+      viewID: input.viewID,
+    })
+  },
+  async resolveBenchView(input) {
+    if (input.viewID !== RESOURCE_READER_VIEW_ID) {
+      return {
+        status: "blocked",
+        reason: "unsupported_resource_view",
+        message: `Unsupported resource Bench view: ${input.viewID}`,
+      }
+    }
+    const resource = await resolveResourceObjectByID({
+      directory: input.directory,
+      objectID: input.ref.objectID,
+    })
+    if (!resource.readerPath) {
+      return {
+        status: "blocked",
+        reason: "bench_reader_none",
+        message: `Resource ${resource.alias} cannot be presented on Bench reading mode because it is not backed by a PDF or EPUB source.`,
+      }
+    }
+    return {
+      status: "ready",
+      target: {
+        type: "object",
+        ref: {
+          kind: BUDDY_OBJECT_KINDS.resource,
+          objectID: resource.objectID,
+          revisionID: null,
+          itemID: null,
+        },
+        viewID: RESOURCE_READER_VIEW_ID,
+      },
+    }
+  },
+  async delete(input) {
+    await removeResource({
+      directory: input.directory,
+      objectID: input.ref.objectID,
+    })
+  },
+})
+
+async function readResourceObjectView(input: {
+  directory: string
+  objectID: string
+  viewID: string
+}): Promise<BuddyObjectViewResponse> {
+  const resource = await resolveResourceObjectByID({
+    directory: input.directory,
+    objectID: input.objectID,
+  })
+  const ref = {
+    kind: BUDDY_OBJECT_KINDS.resource,
+    objectID: resource.objectID,
+    revisionID: null,
+    itemID: null,
+  }
+  if (input.viewID === RESOURCE_READER_VIEW_ID) {
+    return BuddyObjectViewResponseSchema.parse({
+      ref,
+      viewID: RESOURCE_READER_VIEW_ID,
+      title: resource.title ?? resource.alias,
+      data: {
+        renderer: "resource-reader",
+        objectID: resource.objectID,
+        alias: resource.alias,
+        title: resource.title ?? resource.alias,
+        status: resource.status,
+        readerPath: resource.readerPath,
+        packPath: resource.packPath,
+        fullTextPath: resource.fullTextPath,
+        warnings: resource.warnings,
+      },
+    })
+  }
+  if (input.viewID === RESOURCE_LIBRARY_VIEW_ID) {
+    return BuddyObjectViewResponseSchema.parse({
+      ref,
+      viewID: RESOURCE_LIBRARY_VIEW_ID,
+      title: resource.title ?? resource.alias,
+      data: {
+        renderer: "library",
+        title: resource.title ?? resource.alias,
+        subtitle: resource.format,
+        badge: resource.status,
+        thumbnailUrl: null,
+        metrics: [
+          { label: "alias", value: resource.alias },
+          { label: "full_text_tokens", value: resource.fullTextEstimatedTokens },
+        ],
+      },
+    })
+  }
+  if (input.viewID === RESOURCE_SOURCE_VIEW_ID) {
+    const sourceRoot = path.posix.join(resource.objectPath, OBJECT_SOURCE_DIRECTORY_NAME)
+    const sourcePath = resource.managedSourceRef.workspacePath ?? resource.managedSourceRef.path
+    return BuddyObjectViewResponseSchema.parse({
+      ref,
+      viewID: RESOURCE_SOURCE_VIEW_ID,
+      title: resource.title ?? resource.alias,
+      data: {
+        renderer: "source",
+        sourceRoot,
+        entryPath: path.posix.basename(sourcePath),
+        files: [
+          {
+            path: path.posix.basename(sourcePath),
+            kind: "file",
+            ...(resource.sourceSizeBytes !== null ? { sizeBytes: resource.sourceSizeBytes } : {}),
+          },
+        ],
+        content: null,
+      },
+    })
+  }
+  throw new BuddyObjectValidationError(`Unsupported resource view: ${input.viewID}`)
+}
+
+function stripRegisteredResourceRecord(record: ResourceRecord): ResourceRecord {
+  return {
+    objectID: record.objectID,
     alias: record.alias,
     sourceRelpath: record.sourceRelpath,
     ...(record.sourceOriginRelpath ? { sourceOriginRelpath: record.sourceOriginRelpath } : {}),
@@ -305,122 +738,216 @@ function stripRegisteredResourceRecord(record: RegisteredResourceRecord): Resour
     ...(record.coverRelpath ? { coverRelpath: record.coverRelpath } : {}),
     ...(record.title ? { title: record.title } : {}),
     ...(record.author ? { author: record.author } : {}),
+    ...(record.packPath ? { packPath: record.packPath } : {}),
+    ...(record.fullTextPath ? { fullTextPath: record.fullTextPath } : {}),
+    ...(record.fullTextEstimatedTokens !== undefined
+      ? { fullTextEstimatedTokens: record.fullTextEstimatedTokens }
+      : {}),
+    ...(record.fullTextCharacters !== undefined
+      ? { fullTextCharacters: record.fullTextCharacters }
+      : {}),
+    ...(record.readerPath ? { readerPath: record.readerPath } : {}),
   }
 }
 
-async function buildRegisteredResourceRecord(input: {
-  directory: string
-  alias: string
-  forcePreparing?: boolean
-}): Promise<RegisteredResourceRecord> {
-  const identity = await ensureResourceIdentityManifestForAlias(input.directory, input.alias)
-  const metadata = await readResourcePackMetadataForAlias(input.directory, input.alias)
-  const sourceManifest = await readResourceSourceManifestForAlias(input.directory, input.alias)
-  const sourcePath = await resolvePrimarySourcePathForAlias(
-    input.directory,
-    input.alias,
-    metadata?.sourceRelpath,
-  )
-  if (!sourcePath) {
-    return {
-      id: identity.resourceID,
-      alias: input.alias,
-      sourceRelpath: path.join(RESOURCE_PACK_ROOT_DIR, input.alias),
-      ...(sourceManifest?.sourceOriginRelpath
-        ? { sourceOriginRelpath: sourceManifest.sourceOriginRelpath }
-        : {}),
-      format: metadata?.format ?? "unknown",
-      status: "error",
-      warnings: [
-        `${RESOURCE_SOURCE_MISSING_WARNING_PREFIX}${path.join(RESOURCE_PACK_ROOT_DIR, input.alias)}`,
-      ],
-      packKey: input.alias,
-      ...(metadata?.preparedAt ? { preparedAt: metadata.preparedAt } : {}),
-      ...(metadata?.coverRelpath ? { coverRelpath: metadata.coverRelpath } : {}),
-      ...(metadata?.title ? { title: metadata.title } : {}),
-      ...(metadata?.author ? { author: metadata.author } : {}),
-    }
+function resourceResolvedToRegisteredRecord(resource: ResourceObjectResolved): ResourceRecord {
+  const sourceRelpath = resource.managedSourceRef.workspacePath ?? resource.managedSourceRef.path
+  const sourceOriginRelpath = resource.originalSourceRef?.workspacePath ?? undefined
+  return {
+    objectID: resource.objectID,
+    alias: resource.alias,
+    sourceRelpath,
+    ...(sourceOriginRelpath ? { sourceOriginRelpath } : {}),
+    format: resource.format,
+    status: resource.status,
+    warnings: resource.warnings,
+    ...(resource.preparedAt ? { preparedAt: resource.preparedAt } : {}),
+    ...(resource.sourceMtimeMs !== null ? { sourceMtimeMs: resource.sourceMtimeMs } : {}),
+    ...(resource.sourceSizeBytes !== null ? { sourceSizeBytes: resource.sourceSizeBytes } : {}),
+    ...(resource.coverRelpath ? { coverRelpath: resource.coverRelpath } : {}),
+    ...(resource.title ? { title: resource.title } : {}),
+    ...(resource.author ? { author: resource.author } : {}),
+    ...(resource.packPath ? { packPath: resource.packPath } : {}),
+    ...(resource.fullTextPath ? { fullTextPath: resource.fullTextPath } : {}),
+    ...(resource.fullTextEstimatedTokens !== null
+      ? { fullTextEstimatedTokens: resource.fullTextEstimatedTokens }
+      : {}),
+    ...(resource.fullTextCharacters !== null
+      ? { fullTextCharacters: resource.fullTextCharacters }
+      : {}),
+    ...(resource.readerPath ? { readerPath: resource.readerPath } : {}),
   }
+}
 
-  const sourceStat = await fs.stat(sourcePath)
-  const sourceRelpath = relativeDisplayPath(input.directory, sourcePath)
-  const sourceMtimeMs = Number(sourceStat.mtimeMs)
-  const sourceSizeBytes = Number(sourceStat.size)
-  const classification = classifyResourcePath(sourcePath, Number(sourceStat.size))
-  const originSnapshot = await resolveResourceOriginSnapshot({
+async function createResourceObject(input: {
+  directory: string
+  sourcePath: string
+  sourceStat: Awaited<ReturnType<typeof fs.stat>>
+  requestedAlias?: string
+}): Promise<BuddyObjectManifest> {
+  return withResourceAliasIndexMutationLock(input.directory, () =>
+    createResourceObjectUnlocked(input),
+  )
+}
+
+async function createResourceObjectUnlocked(input: {
+  directory: string
+  sourcePath: string
+  sourceStat: Awaited<ReturnType<typeof fs.stat>>
+  requestedAlias?: string
+}): Promise<BuddyObjectManifest> {
+  const objectID = generateObjectID()
+  const fallbackAlias = path.basename(input.sourcePath, path.extname(input.sourcePath))
+  const alias = await pickUniqueResourceAlias({
     directory: input.directory,
-    sourceManifest,
+    requestedAlias: input.requestedAlias,
+    fallbackAlias,
+  })
+  const sourceFilename = path.basename(input.sourcePath)
+  const managedSourceDisplayPath = path.posix.join(
+    BuddyObjectPath.relativeObjectDirectory(BUDDY_OBJECT_KINDS.resource, objectID),
+    OBJECT_SOURCE_DIRECTORY_NAME,
+    sourceFilename,
+  )
+  const sourceOriginRelpath = isPathInsideWorkspace(input.directory, input.sourcePath)
+    ? relativeDisplayPath(input.directory, input.sourcePath)
+    : undefined
+  const originalSourceRef = buildOriginalSourceRef({
+    sourcePath: input.sourcePath,
+    sourceOriginRelpath,
+    sourceStat: input.sourceStat,
+  })
+  const managedSourceRef = buildManagedSourceRef({
+    managedSourceDisplayPath,
+    sourceStat: input.sourceStat,
+  })
+  const generationID = generateObjectID()
+  const now = new Date().toISOString()
+  const classification = classifyResourcePath(input.sourcePath, Number(input.sourceStat.size))
+  const manifest = BuddyObjectManifestSchema.parse({
+    version: 1,
+    kind: BUDDY_OBJECT_KINDS.resource,
+    objectID,
+    title: alias,
+    status: RESOURCE_PACK_STATUS_PREPARING,
+    lifecycle: "imported",
+    createdAt: now,
+    updatedAt: now,
+    sourceRefs: originalSourceRef ? [originalSourceRef, managedSourceRef] : [managedSourceRef],
+    views: buildResourceObjectViews(objectID),
+    summary: ResourceObjectSummarySchema.parse({
+      kind: BUDDY_OBJECT_KINDS.resource,
+      alias,
+      format: classification.format,
+      generationID,
+      preparedAt: null,
+      fullTextPath: null,
+      fullTextEstimatedTokens: null,
+      fullTextCharacters: null,
+      readerPath: null,
+      warnings: [RESOURCE_PACK_PREPARING_WARNING],
+    }),
   })
 
-  let status: ResourceStatus
-  let warnings: string[]
-  let preparedAt: string | undefined
+  await writeObjectRecord({
+    directory: input.directory,
+    kind: BUDDY_OBJECT_KINDS.resource,
+    objectID,
+    manifest,
+    files: [
+      {
+        relativePath: path.join(OBJECT_SOURCE_DIRECTORY_NAME, sourceFilename),
+        sourcePath: input.sourcePath,
+        format: "copy",
+      },
+    ],
+  })
+  await rebuildResourceAliasIndexUnlocked(input.directory)
+  return manifest
+}
 
-  if (input.forcePreparing || hasInFlightPreparation(input.directory, input.alias)) {
-    status = RESOURCE_PACK_STATUS_PREPARING
-    warnings = [RESOURCE_PACK_PREPARING_WARNING]
-    preparedAt = metadata?.preparedAt
-  } else if (!metadata) {
-    status = RESOURCE_PACK_STATUS_ERROR
-    warnings = [RESOURCE_PROCESSED_METADATA_MISSING_WARNING]
-  } else {
-    status = metadata.status ?? RESOURCE_PACK_STATUS_ERROR
-    warnings = [...metadata.warnings]
-    preparedAt = metadata.preparedAt
+function buildResourceObjectViews(objectID: string): BuddyObjectManifest["views"] {
+  const sourceRoot = path.posix.join(
+    BuddyObjectPath.relativeObjectDirectory(BUDDY_OBJECT_KINDS.resource, objectID),
+    OBJECT_SOURCE_DIRECTORY_NAME,
+  )
+  return [
+    {
+      viewID: RESOURCE_READER_VIEW_ID,
+      label: "Reader",
+      surfaces: ["bench", "context"],
+      availability: { status: "available" },
+      bench: { resolver: "object-view" },
+      context: {
+        toolID: "bench_read_context",
+        refs: [{ label: "resource", value: objectID }],
+      },
+    },
+    {
+      viewID: RESOURCE_SOURCE_VIEW_ID,
+      label: "Source",
+      surfaces: ["source"],
+      availability: { status: "available" },
+      source: { sourceRoot },
+    },
+    {
+      viewID: RESOURCE_LIBRARY_VIEW_ID,
+      label: "Library",
+      surfaces: ["library"],
+      availability: { status: "available" },
+      library: { section: "resources" },
+    },
+  ]
+}
 
-    const sourceChanged = !resourceSourceSnapshotMatches({
-      metadataSourcePath: metadata.sourceRelpath
-        ? path.resolve(input.directory, metadata.sourceRelpath)
-        : undefined,
-      metadataSourceRelpath: metadata.sourceRelpath,
-      metadataSourceMtimeMs: metadata.sourceMtimeMs,
-      metadataSourceSizeBytes: metadata.sourceSizeBytes,
-      sourcePath,
-      sourceRelpath,
-      sourceMtimeMs,
-      sourceSizeBytes,
-    })
-    const originChanged =
-      !!originSnapshot &&
-      originSnapshot.path !== sourcePath &&
-      !resourceSourceVersionMatches({
-        metadataSourceMtimeMs: sourceMtimeMs,
-        metadataSourceSizeBytes: sourceSizeBytes,
-        sourceMtimeMs: originSnapshot.mtimeMs,
-        sourceSizeBytes: originSnapshot.sizeBytes,
-      })
-    if (status === RESOURCE_PACK_STATUS_READY && (sourceChanged || originChanged)) {
-      status = "stale"
-      warnings = [RESOURCE_STALE_WARNING]
-    }
-  }
-
+function buildOriginalSourceRef(input: {
+  sourcePath: string
+  sourceOriginRelpath?: string
+  sourceStat: Awaited<ReturnType<typeof fs.stat>>
+}): BuddyObjectSourceRef | null {
+  if (!input.sourceOriginRelpath) return null
   return {
-    id: identity.resourceID,
-    alias: input.alias,
-    sourceRelpath,
-    ...(sourceManifest?.sourceOriginRelpath
-      ? { sourceOriginRelpath: sourceManifest.sourceOriginRelpath }
-      : {}),
-    format: metadata?.format ?? classification.format,
-    status,
-    warnings,
-    packKey: input.alias,
-    ...(preparedAt ? { preparedAt } : {}),
-    sourceMtimeMs,
-    sourceSizeBytes,
-    ...(metadata?.coverRelpath ? { coverRelpath: metadata.coverRelpath } : {}),
-    ...(metadata?.title ? { title: metadata.title } : {}),
-    ...(metadata?.author ? { author: metadata.author } : {}),
+    role: RESOURCE_OBJECT_SOURCE_ROLE_ORIGINAL,
+    path: input.sourceOriginRelpath,
+    displayPath: input.sourceOriginRelpath,
+    workspacePath: input.sourceOriginRelpath,
+    mutable: false,
+    copied: false,
+    availability: "available",
+    exists: true,
+    sizeBytes: Number(input.sourceStat.size),
+    modifiedAt: input.sourceStat.mtime.toISOString(),
   }
 }
 
-async function prepareResource(directory: string, alias: string): Promise<void> {
-  const key = preparationKey(directory, alias)
+function buildManagedSourceRef(input: {
+  managedSourceDisplayPath: string
+  sourceStat: Awaited<ReturnType<typeof fs.stat>>
+}): BuddyObjectSourceRef {
+  return {
+    role: RESOURCE_OBJECT_SOURCE_ROLE_MANAGED,
+    path: input.managedSourceDisplayPath,
+    displayPath: input.managedSourceDisplayPath,
+    workspacePath: input.managedSourceDisplayPath,
+    mutable: false,
+    copied: true,
+    availability: "available",
+    exists: true,
+    sizeBytes: Number(input.sourceStat.size),
+    modifiedAt: input.sourceStat.mtime.toISOString(),
+  }
+}
+
+async function prepareResourceObject(input: {
+  directory: string
+  objectID: string
+  generationID?: string
+}): Promise<void> {
+  const key = preparationKey(input.directory, input.objectID)
   const existing = inFlightResourcePreparation.get(key)
   if (existing) return existing
 
-  const task = prepareResourceInternal(directory, alias)
+  const task = prepareResourceObjectInternal(input)
     .catch(() => undefined)
     .finally(() => {
       inFlightResourcePreparation.delete(key)
@@ -430,68 +957,271 @@ async function prepareResource(directory: string, alias: string): Promise<void> 
   return task
 }
 
-async function prepareResourceInternal(directory: string, alias: string): Promise<void> {
-  const sourcePath = await resolvePrimarySourcePathForAlias(directory, alias)
-  if (!sourcePath) {
-    throw new ResourceValidationError(
-      `${RESOURCE_SOURCE_MISSING_WARNING_PREFIX}${path.join(RESOURCE_PACK_ROOT_DIR, alias)}`,
-    )
-  }
-  await syncStagedSourceWithOrigin({
-    directory,
-    alias,
-    stagedSourcePath: sourcePath,
+async function prepareResourceObjectInternal(input: {
+  directory: string
+  objectID: string
+  generationID?: string
+}): Promise<void> {
+  const manifest = await readResourceObjectManifest(input.directory, input.objectID)
+  const generationID = input.generationID ?? manifest.summary.generationID ?? generateObjectID()
+  const sourcePath = managedSourceAbsolutePath(input.directory, manifest)
+  const alias = manifest.summary.alias
+  const packRoot = resourcePackRootPath(input.directory, input.objectID)
+  const stagingPackRoot = resourcePackStagingRootPath({
+    directory: input.directory,
+    objectID: input.objectID,
+    generationID,
   })
 
-  let resolution = await ensureResourcePack({ directory, sourcePath })
-  if (resolution.status === RESOURCE_PACK_STATUS_PREPARING) {
-    for (let attempt = 0; attempt < RESOURCE_PREPARATION_POLL_ATTEMPTS; attempt += 1) {
-      await sleep(RESOURCE_PREPARATION_POLL_DELAY_MS)
-      resolution = await ensureResourcePack({ directory, sourcePath })
-      if (resolution.status !== RESOURCE_PACK_STATUS_PREPARING) {
-        break
+  await fs.rm(stagingPackRoot, { recursive: true, force: true })
+  let promoted = false
+  try {
+    await runResourceObjectPackBuild({
+      directory: input.directory,
+      objectID: input.objectID,
+      generationID,
+      alias,
+      sourcePath,
+      derivedPackRoot: stagingPackRoot,
+      metadataPath: path.join(stagingPackRoot, RESOURCE_PACK_ENTRYPOINT_FILE_NAME),
+      entrypointPath: path.join(stagingPackRoot, RESOURCE_PACK_ENTRYPOINT_FILE_NAME),
+      tocPath: path.join(stagingPackRoot, RESOURCE_PACK_TOC_FILE_NAME),
+      fullTextPath: path.join(stagingPackRoot, RESOURCE_PACK_FULL_TEXT_FILE_NAME),
+      chunksDirPath: path.join(stagingPackRoot, RESOURCE_PACK_CHUNKS_DIR_NAME),
+      pagesDirPath: path.join(stagingPackRoot, RESOURCE_PACK_PAGES_DIR_NAME),
+    })
+
+    const metadata = await readResourcePackMetadataFromPackRoot(stagingPackRoot)
+    const fullText = await resolveResourcePackFullTextMetadataFromRoot({
+      directory: input.directory,
+      packRootPath: stagingPackRoot,
+      displayRootPath: resourcePackDisplayRootPath(input.objectID),
+    })
+    const sourceStat = await fs.stat(sourcePath)
+    await withResourceAliasIndexMutationLock(input.directory, async () => {
+      const current = await readResourceObjectManifest(input.directory, input.objectID).catch(
+        () => undefined,
+      )
+      if (!current || current.summary.generationID !== generationID) {
+        return
       }
+
+      await fs.rm(packRoot, { recursive: true, force: true })
+      await fs.mkdir(path.dirname(packRoot), { recursive: true })
+      await fs.rename(stagingPackRoot, packRoot)
+      promoted = true
+
+      const readerPath = await resolveResourceReaderPath({
+        directory: input.directory,
+        managedSourceRef: current.sourceRefs.find(
+          (ref) => ref.role === RESOURCE_OBJECT_SOURCE_ROLE_MANAGED,
+        ),
+        originalSourceRef:
+          current.sourceRefs.find((ref) => ref.role === RESOURCE_OBJECT_SOURCE_ROLE_ORIGINAL) ??
+          null,
+      })
+      const status = metadata?.status ?? RESOURCE_PACK_STATUS_ERROR
+      const updated = BuddyObjectManifestSchema.parse({
+        ...current,
+        status,
+        title: metadata?.title ?? current.title,
+        updatedAt: new Date().toISOString(),
+        sourceRefs: current.sourceRefs.map((ref) =>
+          ref.role === RESOURCE_OBJECT_SOURCE_ROLE_MANAGED
+            ? {
+                ...ref,
+                sizeBytes: Number(sourceStat.size),
+                modifiedAt: sourceStat.mtime.toISOString(),
+              }
+            : ref,
+        ),
+        summary: ResourceObjectSummarySchema.parse({
+          ...current.summary,
+          format: metadata?.format ?? current.summary.format,
+          generationID,
+          preparedAt: metadata?.preparedAt ?? null,
+          fullTextPath: fullText?.fullTextPath ?? null,
+          fullTextEstimatedTokens: fullText?.fullTextEstimatedTokens ?? null,
+          fullTextCharacters: fullText?.fullTextChars ?? null,
+          readerPath,
+          warnings: metadata?.warnings ?? [RESOURCE_SOURCE_MANIFEST_STALE_WARNING],
+        }),
+      })
+      await writeObjectManifest({ directory: input.directory, manifest: updated })
+      await rebuildResourceAliasIndexUnlocked(input.directory)
+    })
+  } finally {
+    if (!promoted) {
+      await fs.rm(stagingPackRoot, { recursive: true, force: true }).catch(() => undefined)
     }
   }
 }
 
-export function mapResourceRouteError(error: unknown): Response | undefined {
-  if (error instanceof ResourceValidationError) {
-    return Response.json({ error: error.message }, { status: 400 })
-  }
-  if (error instanceof ResourceNotFoundError) {
-    return Response.json({ error: error.message }, { status: 404 })
-  }
-  return undefined
+async function readResourceObjectManifest(
+  directory: string,
+  objectID: string,
+): Promise<BuddyObjectManifest & { summary: ReturnType<typeof ResourceObjectSummarySchema.parse> }> {
+  const manifest = await readObjectManifest({
+    directory,
+    kind: BUDDY_OBJECT_KINDS.resource,
+    objectID,
+  })
+  return BuddyObjectManifestSchema.safeExtend({
+    summary: ResourceObjectSummarySchema,
+  }).parse(manifest)
 }
 
-async function readResourcePackMetadataForAlias(
+async function resourceManifestToResolved(
   directory: string,
-  alias: string,
-): Promise<ResourcePackMetadataSnapshot | undefined> {
-  const metadataPath = path.join(
-    resourceProcessedPath(directory, alias),
-    RESOURCE_PACK_ENTRYPOINT_FILE_NAME,
+  manifest: BuddyObjectManifest & { summary: ReturnType<typeof ResourceObjectSummarySchema.parse> },
+): Promise<ResourceObjectResolved> {
+  const managedSourceRef = manifest.sourceRefs.find(
+    (ref) => ref.role === RESOURCE_OBJECT_SOURCE_ROLE_MANAGED,
   )
-  const content = await fs.readFile(metadataPath, "utf8").catch(() => undefined)
-  if (!content) return undefined
+  if (!managedSourceRef) {
+    throw new ResourceValidationError(`Resource object ${manifest.objectID} has no managed source.`)
+  }
+  const originalSourceRef =
+    manifest.sourceRefs.find((ref) => ref.role === RESOURCE_OBJECT_SOURCE_ROLE_ORIGINAL) ?? null
+  const packRoot = resourcePackRootPath(directory, manifest.objectID)
+  const entrypointPath = (await fileExists(path.join(packRoot, RESOURCE_PACK_ENTRYPOINT_FILE_NAME)))
+    ? path.posix.join(resourcePackDisplayRootPath(manifest.objectID), RESOURCE_PACK_ENTRYPOINT_FILE_NAME)
+    : null
+  const tocPath = (await fileExists(path.join(packRoot, RESOURCE_PACK_TOC_FILE_NAME)))
+    ? path.posix.join(resourcePackDisplayRootPath(manifest.objectID), RESOURCE_PACK_TOC_FILE_NAME)
+    : null
+  const metadata = await readResourcePackMetadataFromPackRoot(packRoot)
+  const displayPackRoot = resourcePackDisplayRootPath(manifest.objectID)
+  const coverRelpath = await resolveResourcePackCoverRelpath({
+    directory,
+    packRoot,
+    displayPackRoot,
+    metadataCoverRelpath: metadata?.coverRelpath,
+  })
+  const fullText = await resolveResourcePackFullTextMetadataFromRoot({
+    directory,
+    packRootPath: packRoot,
+    displayRootPath: displayPackRoot,
+  })
+  const originalSourceChanged = await resourceOriginalSourceChanged({
+    directory,
+    originalSourceRef: originalSourceRef ?? null,
+  })
+  const status =
+    manifest.status === RESOURCE_PACK_STATUS_READY && originalSourceChanged
+      ? "stale"
+      : (manifest.status as ResourceStatus)
+  const warnings =
+    manifest.status === RESOURCE_PACK_STATUS_READY && originalSourceChanged
+      ? [...new Set([...manifest.summary.warnings, RESOURCE_STALE_WARNING])]
+      : manifest.summary.warnings
+  const readerPath = await resolveResourceReaderPath({
+    directory,
+    managedSourceRef,
+    originalSourceRef: originalSourceRef ?? null,
+  })
+  return {
+    objectID: manifest.objectID,
+    alias: manifest.summary.alias,
+    title: metadata?.title ?? (manifest.title === manifest.summary.alias ? null : manifest.title),
+    status,
+    managedSourceRef,
+    originalSourceRef,
+    objectPath: BuddyObjectPath.relativeObjectDirectory(BUDDY_OBJECT_KINDS.resource, manifest.objectID),
+    entrypointPath,
+    tocPath,
+    packPath: (await directoryExists(packRoot)) ? displayPackRoot : null,
+    fullTextPath: fullText?.fullTextPath ?? null,
+    fullTextEstimatedTokens:
+      fullText?.fullTextEstimatedTokens ?? manifest.summary.fullTextEstimatedTokens,
+    fullTextCharacters: fullText?.fullTextChars ?? manifest.summary.fullTextCharacters,
+    readerPath,
+    warnings,
+    format: manifest.summary.format,
+    sourceMtimeMs: metadata?.sourceMtimeMs ?? null,
+    sourceSizeBytes: metadata?.sourceSizeBytes ?? null,
+    preparedAt: manifest.summary.preparedAt,
+    coverRelpath: coverRelpath ?? null,
+    author: metadata?.author ?? null,
+  }
+}
 
+async function resourceOriginalSourceChanged(input: {
+  directory: string
+  originalSourceRef: BuddyObjectSourceRef | null
+}): Promise<boolean> {
+  if (!input.originalSourceRef?.workspacePath) return false
+  const originalPath = path.resolve(input.directory, input.originalSourceRef.workspacePath)
+  const sourceStat = await fs.stat(originalPath).catch(() => undefined)
+  if (!sourceStat?.isFile()) return true
+
+  const recordedSize = input.originalSourceRef.sizeBytes
+  const recordedMtime = input.originalSourceRef.modifiedAt
+  if (recordedSize !== undefined && Number(sourceStat.size) !== recordedSize) return true
+  if (recordedMtime && sourceStat.mtime.toISOString() !== recordedMtime) return true
+  return false
+}
+
+async function refreshManagedResourceSourceFromOriginal(input: {
+  directory: string
+  manifest: BuddyObjectManifest & { summary: ReturnType<typeof ResourceObjectSummarySchema.parse> }
+}): Promise<BuddyObjectManifest & { summary: ReturnType<typeof ResourceObjectSummarySchema.parse> }> {
+  const originalSourceRef =
+    input.manifest.sourceRefs.find((ref) => ref.role === RESOURCE_OBJECT_SOURCE_ROLE_ORIGINAL) ??
+    null
+  if (!originalSourceRef?.workspacePath) return input.manifest
+
+  const originalPath = path.resolve(input.directory, originalSourceRef.workspacePath)
+  const sourceStat = await fs.stat(originalPath).catch(() => undefined)
+  if (!sourceStat?.isFile()) return input.manifest
+
+  const managedPath = managedSourceAbsolutePath(input.directory, input.manifest)
+  await fs.copyFile(originalPath, managedPath)
+  const managedStat = await fs.stat(managedPath)
+
+  const sourceRefPatch = {
+    availability: "available" as const,
+    exists: true,
+    sizeBytes: Number(sourceStat.size),
+    modifiedAt: sourceStat.mtime.toISOString(),
+  }
+  const managedRefPatch = {
+    availability: "available" as const,
+    exists: true,
+    sizeBytes: Number(managedStat.size),
+    modifiedAt: managedStat.mtime.toISOString(),
+  }
+
+  return BuddyObjectManifestSchema.safeExtend({
+    summary: ResourceObjectSummarySchema,
+  }).parse({
+    ...input.manifest,
+    sourceRefs: input.manifest.sourceRefs.map((ref) => {
+      if (ref.role === RESOURCE_OBJECT_SOURCE_ROLE_ORIGINAL) {
+        return { ...ref, ...sourceRefPatch }
+      }
+      if (ref.role === RESOURCE_OBJECT_SOURCE_ROLE_MANAGED) {
+        return { ...ref, ...managedRefPatch }
+      }
+      return ref
+    }),
+  })
+}
+
+async function readResourcePackMetadataFromPackRoot(
+  packRoot: string,
+): Promise<ResourcePackMetadataSnapshot | undefined> {
+  const content = await fs
+    .readFile(path.join(packRoot, RESOURCE_PACK_ENTRYPOINT_FILE_NAME), "utf8")
+    .catch(() => undefined)
+  if (!content) return undefined
   const parsed = matter(content)
   const data = parsed.data
   if (!isPlainObject(data)) return undefined
-
-  const rawWarnings = data.warnings
-  const warnings = Array.isArray(rawWarnings)
-    ? rawWarnings.filter((entry): entry is string => typeof entry === "string")
-    : typeof rawWarnings === "string" && rawWarnings.trim().length > 0
-      ? [rawWarnings]
-      : []
-
   return {
-    sourceRelpath: stringValue(data, "source_relpath"),
     format: stringValue(data, "format") || undefined,
     status: normalizeResourceStatus(stringValue(data, "status")),
-    warnings,
+    warnings: stringArrayValue(data, "warnings"),
     preparedAt: stringValue(data, "prepared_at") || undefined,
     sourceMtimeMs: numberValue(data, "source_mtime_ms"),
     sourceSizeBytes: numberValue(data, "source_size_bytes"),
@@ -501,238 +1231,138 @@ async function readResourcePackMetadataForAlias(
   }
 }
 
-async function readResourceSourceManifestForAlias(
-  directory: string,
-  alias: string,
-): Promise<ResourceSourceManifest | undefined> {
-  const manifestPath = path.join(
-    resourceFolderPath(directory, alias),
-    RESOURCE_SOURCE_MANIFEST_FILENAME,
-  )
-  const content = await fs.readFile(manifestPath, "utf8").catch(() => undefined)
-  if (!content) return undefined
-
-  const parsed = safeParseJson(content)
-  if (!isPlainObject(parsed)) return undefined
-
-  const sourceOriginRelpath = stringValue(parsed, "sourceOriginRelpath")
-  if (!sourceOriginRelpath) return undefined
-
-  return {
-    sourceOriginRelpath,
-  }
-}
-
-async function resolveResourceOriginSnapshot(input: {
+async function resolveResourcePackCoverRelpath(input: {
   directory: string
-  sourceManifest?: ResourceSourceManifest
-}): Promise<ResourceSourceSnapshot | undefined> {
-  const sourceOriginRelpath = input.sourceManifest?.sourceOriginRelpath?.trim()
-  if (!sourceOriginRelpath) return undefined
-
-  const originPath = path.resolve(input.directory, sourceOriginRelpath)
-  if (!isPathInsideWorkspace(input.directory, originPath)) {
-    return undefined
-  }
-
-  const originStat = await fs.stat(originPath).catch(() => undefined)
-  if (!originStat?.isFile()) return undefined
-
-  return {
-    path: originPath,
-    mtimeMs: Number(originStat.mtimeMs),
-    sizeBytes: Number(originStat.size),
-    atime: originStat.atime,
-    mtime: originStat.mtime,
-  }
-}
-
-async function ensureResourceIdentityManifestForAlias(
-  directory: string,
-  alias: string,
-): Promise<ResourceIdentityManifest> {
-  const existing = await readResourceIdentityManifestForAlias(directory, alias)
-  if (existing) return existing
-
-  const created = {
-    resourceID: randomUUID(),
-  } satisfies ResourceIdentityManifest
-  await writeResourceIdentityManifest({
-    directory,
-    alias,
-    manifest: created,
-  })
-  return created
-}
-
-async function readResourceIdentityManifestForAlias(
-  directory: string,
-  alias: string,
-): Promise<ResourceIdentityManifest | undefined> {
-  const manifestPath = path.join(
-    resourceFolderPath(directory, alias),
-    RESOURCE_IDENTITY_MANIFEST_FILENAME,
-  )
-  const content = await fs.readFile(manifestPath, "utf8").catch(() => undefined)
-  if (!content) return undefined
-
-  const parsed = safeParseJson(content)
-  if (!isPlainObject(parsed)) return undefined
-
-  const resourceID = stringValue(parsed, "resourceID")
-  if (!resourceID) return undefined
-
-  return {
-    resourceID,
-  }
-}
-
-async function resolvePrimarySourcePathForAlias(
-  directory: string,
-  alias: string,
-  preferredSourceRelpath?: string,
-) {
-  if (preferredSourceRelpath) {
-    const preferredPath = path.resolve(directory, preferredSourceRelpath)
-    const parentPath = path.resolve(resourceFolderPath(directory, alias))
-    if (isPathInsideDirectory(parentPath, preferredPath) && (await fileExists(preferredPath))) {
-      return preferredPath
+  packRoot: string
+  displayPackRoot: string
+  metadataCoverRelpath: string | undefined
+}): Promise<string | undefined> {
+  if (input.metadataCoverRelpath) {
+    const metadataCoverPath = path.resolve(input.directory, input.metadataCoverRelpath)
+    if (await fileExists(metadataCoverPath)) {
+      return input.metadataCoverRelpath
     }
   }
 
-  const folderPath = resourceFolderPath(directory, alias)
-  const entries = await fs.readdir(folderPath, { withFileTypes: true }).catch(() => [])
-  const files = entries
-    .filter((entry) => entry.isFile())
-    .filter((entry) => !entry.name.startsWith("."))
+  const entries = await fs.readdir(input.packRoot, { withFileTypes: true }).catch(() => [])
+  const cover = entries
+    .filter((entry) => entry.isFile() && entry.name.startsWith(`${RESOURCE_PACK_COVER_FILE_PREFIX}.`))
     .map((entry) => entry.name)
-    .toSorted((left, right) => left.localeCompare(right))
-
-  const firstFile = files[0]
-  if (!firstFile) return undefined
-  return path.join(folderPath, firstFile)
+    .toSorted()[0]
+  return cover ? path.posix.join(input.displayPackRoot, cover) : undefined
 }
 
-async function stageResourceSourcePath(input: {
+async function resolveResourceReaderPath(input: {
   directory: string
-  sourcePath: string
-  requestedAlias?: string
-}): Promise<{ stagedPath: string; alias: string }> {
-  const existingAlias = resourceAliasFromStagedSourcePath(input.directory, input.sourcePath)
-  if (existingAlias) {
-    return { stagedPath: input.sourcePath, alias: existingAlias }
-  }
-
-  const resourcesRootPath = resourceRootPath(input.directory)
-  await fs.mkdir(resourcesRootPath, { recursive: true })
-
-  const fallbackAlias = path.basename(input.sourcePath, path.extname(input.sourcePath))
-  const alias = await pickUniqueResourceAlias({
-    resourcesRootPath,
-    requestedAlias: input.requestedAlias,
-    fallbackAlias,
-  })
-
-  const destinationFolderPath = resourceFolderPath(input.directory, alias)
-  await fs.mkdir(destinationFolderPath, { recursive: true })
-
-  const destinationPath = await pickUniqueDestinationPath({
-    destinationFolderPath,
-    sourceFilename: path.basename(input.sourcePath),
-  })
-
-  await fs.copyFile(input.sourcePath, destinationPath)
-
-  const sourceOriginRelpath = isPathInsideWorkspace(input.directory, input.sourcePath)
-    ? relativeDisplayPath(input.directory, input.sourcePath)
+  managedSourceRef: BuddyObjectSourceRef | undefined
+  originalSourceRef: BuddyObjectSourceRef | null
+}): Promise<string | null> {
+  const originalReader = input.originalSourceRef?.workspacePath
+    ? await resolveBenchReadingResourceRelpath({
+        directory: input.directory,
+        sourceRelpath: input.originalSourceRef.workspacePath,
+      })
     : undefined
+  if (originalReader) return originalReader
 
-  await writeResourceSourceManifest({
-    directory: input.directory,
-    alias,
-    sourceOriginRelpath,
-  })
-  await writeResourceIdentityManifest({
-    directory: input.directory,
-    alias,
-    manifest: {
-      resourceID: randomUUID(),
-    },
-  })
-
-  return {
-    stagedPath: destinationPath,
-    alias,
-  }
+  const managedReader = input.managedSourceRef?.workspacePath
+    ? await resolveBenchReadingResourceRelpath({
+        directory: input.directory,
+        sourceRelpath: input.managedSourceRef.workspacePath,
+      })
+    : undefined
+  return managedReader ?? null
 }
 
-async function syncStagedSourceWithOrigin(input: {
-  directory: string
-  alias: string
-  stagedSourcePath: string
-}) {
-  const sourceManifest = await readResourceSourceManifestForAlias(input.directory, input.alias)
-  const originSnapshot = await resolveResourceOriginSnapshot({
-    directory: input.directory,
-    sourceManifest,
-  })
-  if (!originSnapshot) return
-  if (originSnapshot.path === input.stagedSourcePath) return
-
-  const stagedSourceStat = await fs.stat(input.stagedSourcePath).catch(() => undefined)
-  if (
-    stagedSourceStat?.isFile() &&
-    resourceSourceVersionMatches({
-      metadataSourceMtimeMs: Number(stagedSourceStat.mtimeMs),
-      metadataSourceSizeBytes: Number(stagedSourceStat.size),
-      sourceMtimeMs: originSnapshot.mtimeMs,
-      sourceSizeBytes: originSnapshot.sizeBytes,
-    })
-  ) {
-    return
-  }
-
-  await fs.copyFile(originSnapshot.path, input.stagedSourcePath)
-  await fs.utimes(input.stagedSourcePath, originSnapshot.atime, originSnapshot.mtime)
+async function readResourceAliasIndex(directory: string): Promise<ResourceAliasIndex> {
+  return readJsonFile(resourceAliasIndexPath(directory), zodResourceAliasIndexSchema())
 }
 
-async function writeResourceSourceManifest(input: {
-  directory: string
-  alias: string
-  sourceOriginRelpath?: string
-}) {
-  const manifestPath = path.join(
-    resourceFolderPath(input.directory, input.alias),
-    RESOURCE_SOURCE_MANIFEST_FILENAME,
+async function rebuildResourceAliasIndex(directory: string): Promise<ResourceAliasIndex> {
+  return withResourceAliasIndexMutationLock(directory, () =>
+    rebuildResourceAliasIndexUnlocked(directory),
   )
-  const payload: ResourceSourceManifest = input.sourceOriginRelpath
-    ? { sourceOriginRelpath: input.sourceOriginRelpath }
-    : {}
-  await fs.writeFile(manifestPath, JSON.stringify(payload, null, 2))
 }
 
-async function writeResourceIdentityManifest(input: {
+async function rebuildResourceAliasIndexUnlocked(directory: string): Promise<ResourceAliasIndex> {
+  const listed = await listObjects({
+    directory,
+    kind: BUDDY_OBJECT_KINDS.resource,
+  })
+  const manifests = await Promise.all(
+    listed.objects.map((object) =>
+      readResourceObjectManifest(directory, object.objectID).catch(() => undefined),
+    ),
+  )
+  const index: ResourceAliasIndex = {}
+  const duplicateAliases = new Set<string>()
+  for (const manifest of manifests) {
+    if (!manifest) continue
+    const alias = normalizeAliasToken(manifest.summary.alias)
+    if (!alias) continue
+    if (index[alias]) {
+      duplicateAliases.add(alias)
+      delete index[alias]
+      continue
+    }
+    if (!duplicateAliases.has(alias)) {
+      index[alias] = manifest.objectID
+    }
+  }
+  await writeJsonFileAtomic(resourceAliasIndexPath(directory), index)
+  return index
+}
+
+async function findLiveResourceObjectIDsByAlias(input: {
   directory: string
   alias: string
-  manifest: ResourceIdentityManifest
-}) {
-  const manifestPath = path.join(
-    resourceFolderPath(input.directory, input.alias),
-    RESOURCE_IDENTITY_MANIFEST_FILENAME,
+}): Promise<string[]> {
+  const normalizedAlias = normalizeAliasToken(input.alias)
+  if (!normalizedAlias) return []
+  const listed = await listObjects({
+    directory: input.directory,
+    kind: BUDDY_OBJECT_KINDS.resource,
+  })
+  const manifests = await Promise.all(
+    listed.objects.map((object) =>
+      readResourceObjectManifest(input.directory, object.objectID).catch(() => undefined),
+    ),
   )
-  await fs.writeFile(manifestPath, JSON.stringify(input.manifest, null, 2))
+  return manifests
+    .filter(
+      (manifest): manifest is BuddyObjectManifest & {
+        summary: ReturnType<typeof ResourceObjectSummarySchema.parse>
+      } =>
+        manifest !== undefined &&
+        normalizeAliasToken(manifest.summary.alias) === normalizedAlias,
+    )
+    .map((manifest) => manifest.objectID)
+    .toSorted()
+}
+
+async function assertAliasAvailable(input: {
+  directory: string
+  alias: string
+  exceptObjectID?: string
+}): Promise<void> {
+  const claimedObjectIDs = await findLiveResourceObjectIDsByAlias({
+    directory: input.directory,
+    alias: input.alias,
+  })
+  const conflictingObjectID = claimedObjectIDs.find((objectID) => objectID !== input.exceptObjectID)
+  if (conflictingObjectID) {
+    throw new ResourceValidationError(`Resource alias already exists: ${input.alias}`)
+  }
+  await rebuildResourceAliasIndexUnlocked(input.directory)
 }
 
 async function pickUniqueResourceAlias(input: {
-  resourcesRootPath: string
+  directory: string
   requestedAlias?: string
   fallbackAlias: string
-}) {
-  const entries = await fs.readdir(input.resourcesRootPath, { withFileTypes: true }).catch(() => [])
-  const existingAliases = new Set(
-    entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name),
-  )
-
+}): Promise<string> {
+  const index = await rebuildResourceAliasIndexUnlocked(input.directory)
+  const existingAliases = new Set(Object.keys(index))
   return pickResourceAlias({
     requestedAlias: input.requestedAlias,
     fallbackAlias: input.fallbackAlias,
@@ -740,85 +1370,55 @@ async function pickUniqueResourceAlias(input: {
   })
 }
 
-async function pickUniqueDestinationPath(input: {
-  destinationFolderPath: string
-  sourceFilename: string
-}) {
-  const extension = path.extname(input.sourceFilename)
-  const baseName = path.basename(input.sourceFilename, extension)
-  let index = 1
-
-  while (true) {
-    const candidateName =
-      index === 1 ? `${baseName}${extension}` : `${baseName}-${index}${extension}`
-    const candidatePath = path.join(input.destinationFolderPath, candidateName)
-    const exists = await fileExists(candidatePath)
-    if (!exists) return candidatePath
-    index += 1
-  }
+function zodResourceAliasIndexSchema() {
+  return z.record(z.string().trim().min(1), BuddyObjectIDSchema)
 }
 
-async function resolveResourceAliasByKey(directory: string, key: string): Promise<string> {
-  const trimmed = key.trim()
-  if (!trimmed) throw new ResourceNotFoundError(`Resource not found: ${key}`)
-
-  const directAliasPath = resourceFolderPath(directory, trimmed)
-  if (await directoryExists(directAliasPath)) {
-    return trimmed
-  }
-
-  const record = await findRegisteredResourceByKey(directory, trimmed)
-  if (!record) {
-    throw new ResourceNotFoundError(`Resource not found: ${key}`)
-  }
-  return record.alias
-}
-
-async function findRegisteredResourceByKey(
-  directory: string,
-  key: string,
-): Promise<RegisteredResourceRecord | undefined> {
-  const records = await listRegisteredResources(directory)
-  return records.find((record) => record.id === key || record.alias === key)
-}
-
-async function listResourceAliases(directory: string): Promise<string[]> {
-  const entries = await fs
-    .readdir(resourceRootPath(directory), { withFileTypes: true })
-    .catch(() => [])
-  return entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)
-}
-
-async function removeLegacyResourceRegistryFile(directory: string) {
-  const legacyRegistryPath = path.join(
-    resourceRootPath(directory),
-    LEGACY_RESOURCE_REGISTRY_FILENAME,
+function resourceAliasIndexPath(directory: string): string {
+  return path.join(
+    BuddyObjectPath.kindIndexRoot(directory, BUDDY_OBJECT_KINDS.resource),
+    RESOURCE_ALIAS_INDEX_FILE_NAME,
   )
-  await fs.rm(legacyRegistryPath, { force: true }).catch(() => undefined)
 }
 
-function resourceAliasFromStagedSourcePath(directory: string, sourcePath: string) {
-  const relpath = relativeDisplayPath(directory, sourcePath).split(path.sep).join("/")
-  const segments = relpath.split("/")
-  if (segments.length < 3) return undefined
-  if (segments[0] !== RESOURCE_PACK_ROOT_DIR) return undefined
-  if (segments[2] === RESOURCE_PACK_PROCESSED_DIR_NAME) return undefined
-  return segments[1]?.trim() || undefined
+function managedSourceAbsolutePath(directory: string, manifest: BuddyObjectManifest): string {
+  const sourceRef = manifest.sourceRefs.find((ref) => ref.role === RESOURCE_OBJECT_SOURCE_ROLE_MANAGED)
+  if (!sourceRef?.workspacePath) {
+    throw new ResourceValidationError(`Resource object ${manifest.objectID} has no managed source.`)
+  }
+  return path.resolve(directory, sourceRef.workspacePath)
 }
 
-function resourceRootPath(directory: string) {
-  return path.join(directory, RESOURCE_PACK_ROOT_DIR)
+function resourcePackRootPath(directory: string, objectID: string): string {
+  return path.join(
+    BuddyObjectPath.objectDirectory(directory, BUDDY_OBJECT_KINDS.resource, objectID),
+    OBJECT_DERIVED_DIRECTORY_NAME,
+    RESOURCE_PACK_DIRECTORY_NAME,
+  )
 }
 
-function resourceFolderPath(directory: string, alias: string) {
-  return path.join(resourceRootPath(directory), alias)
+function resourcePackStagingRootPath(input: {
+  directory: string
+  objectID: string
+  generationID: string
+}): string {
+  return path.join(
+    BuddyObjectPath.objectDirectory(input.directory, BUDDY_OBJECT_KINDS.resource, input.objectID),
+    OBJECT_DERIVED_DIRECTORY_NAME,
+    RESOURCE_PACK_STAGING_DIRECTORY_NAME,
+    input.generationID,
+  )
 }
 
-function resourceProcessedPath(directory: string, alias: string) {
-  return path.join(resourceFolderPath(directory, alias), RESOURCE_PACK_PROCESSED_DIR_NAME)
+function resourcePackDisplayRootPath(objectID: string): string {
+  return path.posix.join(
+    BuddyObjectPath.relativeObjectDirectory(BUDDY_OBJECT_KINDS.resource, objectID),
+    OBJECT_DERIVED_DIRECTORY_NAME,
+    RESOURCE_PACK_DIRECTORY_NAME,
+  )
 }
 
-function resolveInputSourcePath(directory: string, rawPath: string) {
+function resolveInputSourcePath(directory: string, rawPath: string): string {
   const trimmed = rawPath.trim()
   if (!trimmed) throw new ResourceValidationError(RESOURCE_SOURCE_PATH_REQUIRED_ERROR)
   return path.isAbsolute(trimmed) ? path.resolve(trimmed) : path.resolve(directory, trimmed)
@@ -828,7 +1428,7 @@ function pickResourceAlias(input: {
   requestedAlias?: string
   fallbackAlias: string
   existingAliases: Set<string>
-}) {
+}): string {
   const requestedAlias = normalizeAliasToken(input.requestedAlias)
   const fallbackAlias = normalizeAliasToken(input.fallbackAlias) || RESOURCE_ALIAS_DEFAULT
   const baseAlias = requestedAlias || fallbackAlias
@@ -842,7 +1442,7 @@ function pickResourceAlias(input: {
   }
 }
 
-function normalizeAliasToken(value: string | undefined) {
+function normalizeAliasToken(value: string | undefined): string {
   if (!value) return ""
   return value
     .trim()
@@ -856,75 +1456,74 @@ function normalizeResourceStatus(value: string): ResourceStatus | undefined {
   if (value === RESOURCE_PACK_STATUS_READY) return RESOURCE_PACK_STATUS_READY
   if (value === RESOURCE_PACK_STATUS_UNSUPPORTED) return RESOURCE_PACK_STATUS_UNSUPPORTED
   if (value === RESOURCE_PACK_STATUS_ERROR) return RESOURCE_PACK_STATUS_ERROR
+  if (value === "stale") return "stale"
   return undefined
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value))
+  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function stringValue(value: Record<string, unknown>, key: string) {
-  const entry = value[key]
-  return typeof entry === "string" ? entry : ""
+function stringValue(record: Record<string, unknown>, key: string): string {
+  const value = record[key]
+  return typeof value === "string" ? value.trim() : ""
 }
 
-function numberValue(value: Record<string, unknown>, key: string) {
-  const entry = value[key]
-  if (typeof entry === "number") return entry
-  if (typeof entry === "string" && entry.trim().length > 0) {
-    const parsed = Number(entry)
-    if (!Number.isNaN(parsed)) return parsed
+function stringArrayValue(record: Record<string, unknown>, key: string): string[] {
+  const value = record[key]
+  if (!Array.isArray(value)) {
+    const single = typeof value === "string" ? value.trim() : ""
+    return single ? [single] : []
+  }
+  return value.filter((entry): entry is string => typeof entry === "string")
+}
+
+function numberValue(
+  record: Record<string, unknown>,
+  key: string,
+): number | undefined {
+  const value = record[key]
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
   }
   return undefined
 }
 
-function safeParseJson(value: string): unknown {
-  try {
-    return JSON.parse(value)
-  } catch {
-    return undefined
-  }
-}
-
-function relativeDisplayPath(directory: string, filePath: string) {
-  const relpath = path.relative(directory, filePath)
-  return relpath.length > 0 ? relpath : path.basename(filePath)
-}
-
-function preparationKey(directory: string, alias: string) {
-  return `${path.resolve(directory)}::${alias}`
-}
-
-function hasInFlightPreparation(directory: string, alias: string) {
-  return inFlightResourcePreparation.has(preparationKey(directory, alias))
-}
-
-function isPathInsideWorkspace(directory: string, candidatePath: string) {
-  return isPathInsideDirectory(path.resolve(directory), path.resolve(candidatePath))
-}
-
-function isPathInsideDirectory(parentPath: string, candidatePath: string) {
-  const relativePath = path.relative(parentPath, candidatePath)
-  if (relativePath === "") return true
-  return !relativePath.startsWith("..") && !path.isAbsolute(relativePath)
-}
-
-async function fileExists(filepath: string) {
+async function fileExists(filePath: string): Promise<boolean> {
   return fs
-    .stat(filepath)
-    .then((entry) => entry.isFile())
-    .catch(() => false)
+    .stat(filePath)
+    .then((stats) => stats.isFile())
+    .catch((error: unknown) => {
+      if (isNodeErrorCode(error, "ENOENT")) return false
+      throw error
+    })
 }
 
-async function directoryExists(filepath: string) {
+async function directoryExists(directoryPath: string): Promise<boolean> {
   return fs
-    .stat(filepath)
-    .then((entry) => entry.isDirectory())
-    .catch(() => false)
+    .stat(directoryPath)
+    .then((stats) => stats.isDirectory())
+    .catch((error: unknown) => {
+      if (isNodeErrorCode(error, "ENOENT")) return false
+      throw error
+    })
 }
 
-function sleep(ms: number) {
-  return new Promise<void>((resolve) => {
-    setTimeout(resolve, ms)
-  })
+function isPathInsideWorkspace(directory: string, targetPath: string): boolean {
+  return isPathInsideDirectory(path.resolve(directory), path.resolve(targetPath))
+}
+
+function isPathInsideDirectory(parentPath: string, targetPath: string): boolean {
+  const relative = path.relative(parentPath, targetPath)
+  return relative.length === 0 || (!relative.startsWith("..") && !path.isAbsolute(relative))
+}
+
+function relativeDisplayPath(directory: string, targetPath: string): string {
+  return path.relative(directory, targetPath).split(path.sep).join("/")
+}
+
+function preparationKey(directory: string, objectID: string): string {
+  return `${path.resolve(directory)}::${objectID}`
 }

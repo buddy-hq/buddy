@@ -109,7 +109,7 @@ const LearnerEvidenceSchema = z.object({
   createdAt: z.string().datetime(),
   sessionId: z.string().optional(),
   projectPath: z.string().optional(),
-  artifactId: z.string().min(1).optional(),
+  objectId: z.string().min(1).optional(),
   title: z.string().min(1),
   tags: z.array(z.string().min(1)).default([]),
   note: z.string().min(1),

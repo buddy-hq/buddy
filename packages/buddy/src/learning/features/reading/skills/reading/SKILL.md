@@ -20,7 +20,7 @@ Run the reading workflow over the attached resource. Read first, then respond fr
 4. If `(input_window ?? context_window) - full_text_est_tokens >= 100000`, enter `whole-full-text` mode.
 5. In `whole-full-text` mode, read the entire full-text file before giving any substantive user-facing guidance.
    - if `ingest_full_text` is available, call it
-   - pass the resource alias or ID
+   - pass `resourceKey` as the resource `object_id` or alias
    - let the tool do the live context-budget check before ingestion
    - do this even if the learner asked about a chapter, unless they explicitly want a narrow passage-only reading
    - if the tool succeeds, the full text is now in context and you can respond from it
@@ -86,8 +86,9 @@ For substantive reading answers, use this shape when relevant:
 
 # Tool Hints
 - When the whole-full-text rule passes and `ingest_full_text` is available, call it before doing anything else substantive.
+- Pass `resourceKey` copied from `object_id` or `alias` in the resource inventory. Object IDs resolve before aliases.
 - The ingestion tool already checks live session headroom against the active model limits and throws if the remaining budget is not large enough.
-- If the whole-full-text rule does not pass, use the processed TOC, chunks, or pages structure to stay scoped.
+- If the whole-full-text rule does not pass, use the `pack` path from the resource inventory or tool result, then read/search `10-toc.md`, `chunks/`, `pages/`, or `20-full-text-*.md` under that pack root to stay scoped.
 - Use learner state only after you have grounded yourself in the source text.
 - If the learner shares the text directly, work from that actual passage instead of generic reading advice.
 - For a lightweight refresher on study strategy for nonfiction, see [references/nonfiction.md](references/nonfiction.md).

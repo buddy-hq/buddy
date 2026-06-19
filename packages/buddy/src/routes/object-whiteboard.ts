@@ -5,6 +5,7 @@ import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } f
 import { assertSessionExistsInDirectory } from "../session"
 import { mapWhiteboardRouteError } from "../learning/features/whiteboard/errors"
 import {
+  ensureWhiteboardObjectForSession,
   readWhiteboardSession,
   saveWhiteboardLearnerEdit,
   saveWhiteboardRenderReport,
@@ -25,15 +26,15 @@ const sessionIDParamSchema = z.object({
   sessionID: z.string().min(1),
 })
 
-export const WhiteboardRoutes = new Hono()
+export const ObjectWhiteboardRoutes = new Hono()
   .get(
     "/session/:sessionID",
     describeRoute({
-      operationId: "whiteboards.read",
-      summary: "Read the session whiteboard",
+      operationId: "objectWhiteboard.session.read",
+      summary: "Read the session whiteboard object state",
       responses: {
         200: {
-          description: "Current whiteboard state",
+          description: "Current whiteboard object state",
           content: {
             "application/json": { schema: resolver(WhiteboardSessionReadSchema) },
           },
@@ -53,6 +54,10 @@ export const WhiteboardRoutes = new Hono()
               sessionID,
               request: c.req.raw,
             })
+            await ensureWhiteboardObjectForSession({
+              directory: context.directory,
+              sessionID,
+            })
             return c.json(await readWhiteboardSession(context.directory, sessionID))
           },
           mapError: mapWhiteboardRouteError,
@@ -62,11 +67,11 @@ export const WhiteboardRoutes = new Hono()
   .put(
     "/session/:sessionID",
     describeRoute({
-      operationId: "whiteboards.saveLearnerEdit",
-      summary: "Persist the learner-edited current whiteboard",
+      operationId: "objectWhiteboard.session.saveLearnerEdit",
+      summary: "Persist the learner-edited current whiteboard object state",
       responses: {
         200: {
-          description: "Whiteboard state after updating the current board",
+          description: "Whiteboard object state after updating the current board",
           content: {
             "application/json": { schema: resolver(WhiteboardSessionReadSchema) },
           },
@@ -102,8 +107,8 @@ export const WhiteboardRoutes = new Hono()
   .put(
     "/session/:sessionID/render-report",
     describeRoute({
-      operationId: "whiteboards.renderReport.save",
-      summary: "Persist rendered whiteboard layout facts for the current board",
+      operationId: "objectWhiteboard.session.renderReport.save",
+      summary: "Persist rendered whiteboard object layout facts for the current board",
       responses: {
         200: {
           description: "Render report save status",
@@ -142,8 +147,8 @@ export const WhiteboardRoutes = new Hono()
   .post(
     "/session/:sessionID/share",
     describeRoute({
-      operationId: "whiteboards.share.create",
-      summary: "Create an encrypted Excalidraw share link for a whiteboard",
+      operationId: "objectWhiteboard.session.share.create",
+      summary: "Create an encrypted Excalidraw share link for a whiteboard object",
       responses: {
         200: {
           description: "Excalidraw share link",

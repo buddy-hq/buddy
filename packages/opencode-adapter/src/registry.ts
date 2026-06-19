@@ -26,6 +26,7 @@ type RuntimeTool = Omit<OpenCodeTool.Def, "execute"> & {
     ctx: Parameters<OpenCodeTool.Def["execute"]>[1],
   ) => Promise<OpenCodeTool.ExecuteResult>
 }
+type ToolJsonSchema = NonNullable<OpenCodeTool.Def["jsonSchema"]>
 type ToolDefTransformer = <TTool extends OpenCodeTool.Def>(input: {
   directory: string
   tool: TTool
@@ -38,6 +39,7 @@ export type ToolOutputPolicy = {
 const toolDefTransformers = new Set<ToolDefTransformer>()
 const customToolUiMetadata = new Map<string, Map<string, ToolUiMetadata>>()
 const customToolOutputPolicies = new Map<string, Map<string, ToolOutputPolicy>>()
+const customToolJsonSchemas = new Map<string, Map<string, ToolJsonSchema>>()
 
 function directoryKey(directory: string) {
   const resolved = path.resolve(directory)
@@ -65,6 +67,14 @@ function getCustomToolOutputPolicy(
   toolID: string,
 ): ToolOutputPolicy | undefined {
   return cloneToolOutputPolicy(customToolOutputPolicies.get(directoryKey(directory))?.get(toolID))
+}
+
+function cloneToolJsonSchema(schema: ToolJsonSchema | undefined): ToolJsonSchema | undefined {
+  return schema ? structuredClone(schema) : undefined
+}
+
+function getCustomToolJsonSchema(directory: string, toolID: string): ToolJsonSchema | undefined {
+  return cloneToolJsonSchema(customToolJsonSchemas.get(directoryKey(directory))?.get(toolID))
 }
 
 function readNonEmptyString(value: unknown): string | undefined {
@@ -130,6 +140,18 @@ function applyToolOutputPolicy<TTool extends OpenCodeTool.Def>(
   }
 }
 
+function applyToolJsonSchema<TTool extends OpenCodeTool.Def>(
+  directory: string,
+  tool: TTool,
+): TTool {
+  const schema = getCustomToolJsonSchema(directory, tool.id)
+  if (!schema) return tool
+  return {
+    ...tool,
+    jsonSchema: schema,
+  }
+}
+
 const getInstanceDirectory = Effect.gen(function* () {
   const instance = yield* InstanceRef
   if (!instance) {
@@ -142,7 +164,7 @@ function applyToolDefTransformer<TTool extends OpenCodeTool.Def>(
   directory: string,
   tool: TTool,
 ): TTool {
-  let next = applyToolOutputPolicy(directory, tool)
+  let next = applyToolJsonSchema(directory, applyToolOutputPolicy(directory, tool))
   for (const transform of toolDefTransformers) {
     next = transform({
       directory,
@@ -259,6 +281,11 @@ export namespace ToolRegistry {
     outputPolicy?: ToolOutputPolicy
   }
 
+  export type ToolJsonSchemaRegistration = {
+    id: string
+    jsonSchema?: ToolJsonSchema
+  }
+
   export function registerToolUiCatalog(directory: string, tools: readonly ToolUiRegistration[]) {
     const key = directoryKey(directory)
     const metadataByTool = customToolUiMetadata.get(key) ?? new Map<string, ToolUiMetadata>()
@@ -289,6 +316,29 @@ export namespace ToolRegistry {
 
     if (metadataByTool.size === 0) {
       customToolUiMetadata.delete(key)
+    }
+  }
+
+  export function registerToolJsonSchemaCatalog(
+    directory: string,
+    tools: readonly ToolJsonSchemaRegistration[],
+  ) {
+    const key = directoryKey(directory)
+    const schemasByTool = customToolJsonSchemas.get(key) ?? new Map<string, ToolJsonSchema>()
+
+    for (const tool of tools) {
+      const schema = cloneToolJsonSchema(tool.jsonSchema)
+      if (schema) {
+        schemasByTool.set(tool.id, schema)
+      } else {
+        schemasByTool.delete(tool.id)
+      }
+    }
+
+    if (schemasByTool.size === 0) {
+      customToolJsonSchemas.delete(key)
+    } else {
+      customToolJsonSchemas.set(key, schemasByTool)
     }
   }
 

@@ -20,7 +20,7 @@ describe("freeform figure routes", () => {
     await using project = await tmpdir({ git: true })
     const rendered = await renderFreeformFigure(project.path, routeFigureInput())
 
-    const response = await app.request(rendered.url)
+    const response = await app.request(rendered.rawUrl)
     expect(response.status).toBe(200)
     expect(response.headers.get("content-type")).toContain("image/svg+xml")
     await expect(response.text()).resolves.toContain("<svg")
@@ -30,7 +30,7 @@ describe("freeform figure routes", () => {
     await using project = await tmpdir({ git: true })
 
     const response = await app.request(
-      `/api/artifacts/freeform-figure/${ulid()}/raw?directory=${encodeURIComponent(project.path)}`,
+      `/api/objects/freeform-figure/${ulid()}/raw?directory=${encodeURIComponent(project.path)}`,
     )
 
     expect(response.status).toBe(404)
@@ -40,7 +40,7 @@ describe("freeform figure routes", () => {
     await using project = await tmpdir({ git: true })
 
     const response = await app.request(
-      `/api/artifacts/freeform-figure/not-a-valid-id/raw?directory=${encodeURIComponent(project.path)}`,
+      `/api/objects/freeform-figure/not-a-valid-id/raw?directory=${encodeURIComponent(project.path)}`,
     )
 
     expect(response.status).toBe(400)

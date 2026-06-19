@@ -35,6 +35,15 @@ class WhiteboardStaleLearnerEditError extends Error {
   }
 }
 
+class WhiteboardSessionConflictError extends Error {
+  constructor(sessionID: string, objectIDs: readonly string[]) {
+    super(
+      `Whiteboard session '${sessionID}' is claimed by multiple live objects: ${objectIDs.toSorted().join(", ")}.`,
+    )
+    this.name = "WhiteboardSessionConflictError"
+  }
+}
+
 function mapWhiteboardRouteError(error: unknown): Response | undefined {
   if (error instanceof InvalidWhiteboardSessionIDError) {
     return Response.json({ error: error.message }, { status: 400 })
@@ -54,6 +63,9 @@ function mapWhiteboardRouteError(error: unknown): Response | undefined {
   if (error instanceof WhiteboardStaleLearnerEditError) {
     return Response.json({ error: error.message }, { status: 409 })
   }
+  if (error instanceof WhiteboardSessionConflictError) {
+    return Response.json({ error: error.message }, { status: 409 })
+  }
   return undefined
 }
 
@@ -61,6 +73,7 @@ export {
   WhiteboardElementValidationError,
   WhiteboardPayloadTooLargeError,
   WhiteboardShareUploadError,
+  WhiteboardSessionConflictError,
   WhiteboardStaleLearnerEditError,
   WhiteboardStaleWriteError,
   mapWhiteboardRouteError,

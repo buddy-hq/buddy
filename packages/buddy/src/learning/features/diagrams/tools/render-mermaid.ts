@@ -5,26 +5,19 @@ import {
 } from "@buddy/backend/learning/runtime/create-buddy-tool"
 import z from "zod"
 import {
-  ArtifactIDSchema,
-  ArtifactNotFoundError,
-  ArtifactPath,
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectIDSchema,
+  BuddyObjectResultSchema,
+  formatBuddyObjectRefLines,
   nonEmptyString,
-} from "../../../../artifacts"
+  objectSummaryBaseFromManifest,
+  type BuddyObjectResult,
+} from "../../../../objects"
+import { MERMAID_AUTO_REPAIR_MESSAGE_ID_PREFIX } from "../service/types"
 import {
-  MERMAID_ARTIFACT_KIND,
-  MERMAID_AUTO_REPAIR_MESSAGE_ID_PREFIX,
-  RenderMermaidOutputSchema,
-  type MermaidArtifactReadResult,
-  type MermaidAutoRepairState,
-  type RenderMermaidOutput,
-} from "../service/types"
-import {
-  buildMermaidArtifactUrl,
-  createToolMermaidArtifact,
+  createToolMermaidObject,
   readMermaidRepairRequest,
-  readMermaidArtifact,
-  updateMermaidRepairRequest,
-  updateMermaidAutoRepairState,
+  readMermaidObjectManifest,
 } from "../service/store"
 
 const RenderMermaidInputSchema = z.object({
@@ -35,11 +28,10 @@ const RenderMermaidInputSchema = z.object({
   source: nonEmptyString.describe(
     "Mermaid source to render as a fresh diagram or repaired diagram.",
   ),
-  repairOfArtifactID: ArtifactIDSchema
-    .optional()
+  repairOfObjectID: BuddyObjectIDSchema
     .optional()
     .describe(
-      "Optional repair target. Only pass this when repairing or superseding an existing Mermaid artifact ID copied verbatim from a prior failed diagram or repair prompt. Omit for every new diagram. Never invent IDs, use placeholders, or use repeated-character sample IDs.",
+      "Optional repair target. Only pass this when repairing or superseding an existing Mermaid object ID copied verbatim from a prior failed diagram or repair prompt. Omit for every new diagram. Never invent IDs, use placeholders, or use repeated-character sample IDs.",
     ),
 })
 
@@ -49,84 +41,169 @@ function createdByCallID(ctx: BuddyToolContext): string {
   return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : "unknown"
 }
 
-function nextSucceededAutoRepairState(
-  attempts: number,
-  replacementArtifactID: string,
-): MermaidAutoRepairState {
-  return {
-    status: "succeeded",
-    attempts,
-    replacementArtifactID,
-  }
-}
-
 function isAutoRepairMessage(messageID: unknown): boolean {
   return String(messageID).startsWith(MERMAID_AUTO_REPAIR_MESSAGE_ID_PREFIX)
 }
 
-function isAutoRepairTurn(messages: BuddyToolContext["messages"]): boolean {
-  return isAutoRepairMessage(messages.findLast((message) => message.info.role === "user")?.info.id)
+function readCurrentMessage(input: {
+  messages: BuddyToolContext["messages"]
+  currentMessageID: BuddyToolContext["messageID"]
+}): BuddyToolContext["messages"][number] | undefined {
+  const currentMessageID = String(input.currentMessageID)
+  return input.messages.find((message) => String(message.info.id) === currentMessageID)
+}
+
+function readAutoRepairRequestID(input: {
+  messages: BuddyToolContext["messages"]
+  currentMessageID: BuddyToolContext["messageID"]
+}): string | undefined {
+  const currentMessageID = String(input.currentMessageID)
+  if (isAutoRepairMessage(currentMessageID)) {
+    return currentMessageID
+  }
+
+  const currentMessage = readCurrentMessage(input)
+  if (
+    currentMessage?.info.role === "assistant" &&
+    isAutoRepairMessage(currentMessage.info.parentID)
+  ) {
+    return String(currentMessage.info.parentID)
+  }
+
+  return undefined
+}
+
+function isAutoRepairTurn(input: {
+  messages: BuddyToolContext["messages"]
+  currentMessageID: BuddyToolContext["messageID"]
+}): boolean {
+  return readAutoRepairRequestID(input) !== undefined
 }
 
 async function resolveRepairTarget(input: {
   directory: string
   isAutoRepair: boolean
-  repairOfArtifactID?: string
+  repairOfObjectID?: string
 }): Promise<{
-  previousArtifact?: MermaidArtifactReadResult
-  ignoredRepairOfArtifactID?: string
+  previousObjectID?: string
+  ignoredRepairOfObjectID?: string
 }> {
-  if (!input.repairOfArtifactID) {
+  if (!input.repairOfObjectID) {
     return {}
   }
 
   try {
-    return {
-      previousArtifact: await readMermaidArtifact(input.directory, input.repairOfArtifactID),
-    }
+    const manifest = await readMermaidObjectManifest(input.directory, input.repairOfObjectID)
+    return { previousObjectID: manifest.objectID }
   } catch (error) {
-    if (!(error instanceof ArtifactNotFoundError)) {
-      throw error
-    }
     if (input.isAutoRepair) {
       throw new Error(
-        `Mermaid repair target '${input.repairOfArtifactID}' was not found. Use the exact artifact ID from the repair prompt; omit repairOfArtifactID for a fresh diagram.`,
+        `Mermaid repair target '${input.repairOfObjectID}' was not found. Use the exact object ID from the repair prompt; omit repairOfObjectID for a fresh diagram.`,
         { cause: error },
       )
     }
     return {
-      ignoredRepairOfArtifactID: input.repairOfArtifactID,
+      ignoredRepairOfObjectID: input.repairOfObjectID,
     }
   }
 }
 
+function buildRenderMermaidObjectResult(input: {
+  objectID: string
+  revisionID: string
+  title: string
+  alt: string
+  caption: string | null
+  source: string
+  renderStatus: "ready" | "stale" | "error"
+}): BuddyObjectResult {
+  const ref = {
+    kind: BUDDY_OBJECT_KINDS.mermaid,
+    objectID: input.objectID,
+    revisionID: input.revisionID,
+    itemID: null,
+  }
+  return BuddyObjectResultSchema.parse({
+    version: 1,
+    status: "ok",
+    reason: null,
+    message: "Mermaid diagram object created and queued for browser rendering.",
+    primaryRef: ref,
+    objects: [
+      objectSummaryBaseFromManifest({
+        kind: BUDDY_OBJECT_KINDS.mermaid,
+        objectID: input.objectID,
+        title: input.title,
+        status: "ready",
+        lifecycle: "revisioned",
+        sourceRoot: null,
+      }),
+    ],
+    presentations: [
+      {
+        ref,
+        viewID: "rendered",
+        surface: "inline",
+        data: {
+          renderer: "mermaid",
+          source: input.source,
+          svgUrl: null,
+          alt: input.alt,
+          caption: input.caption,
+          renderStatus: input.renderStatus,
+          failedRenderKey: null,
+        },
+        autoOpen: null,
+      },
+    ],
+  })
+}
+
 const renderMermaidTool = createBuddyTool({
   id: "render_mermaid",
+  produces: {
+    buddyObjectResult: true,
+  },
   description: RENDER_MERMAID_DESCRIPTION,
   parameters: RenderMermaidInputSchema,
   async execute(params: RenderMermaidInput, ctx: BuddyToolContext) {
-    const kind = MERMAID_ARTIFACT_KIND
     await ctx.ask({
       permission: "render_mermaid",
       patterns: ["*"],
       always: ["*"],
       metadata: {
-        kind,
+        kind: BUDDY_OBJECT_KINDS.mermaid,
       },
     })
 
     const parsed = RenderMermaidInputSchema.parse(params)
-    const repairOfArtifactID = parsed.repairOfArtifactID
-    const { previousArtifact, ignoredRepairOfArtifactID } = await resolveRepairTarget({
-      directory: ctx.directory,
-      isAutoRepair: isAutoRepairTurn(ctx.messages),
-      ...(repairOfArtifactID ? { repairOfArtifactID } : {}),
+    const repairOfObjectID = parsed.repairOfObjectID
+    const autoRepairRequestID = readAutoRepairRequestID({
+      messages: ctx.messages,
+      currentMessageID: ctx.messageID,
     })
-    if (previousArtifact && previousArtifact.origin.sessionID !== String(ctx.sessionID)) {
-      throw new Error("Mermaid repair target must belong to the current session.")
+    const { previousObjectID, ignoredRepairOfObjectID } = await resolveRepairTarget({
+      directory: ctx.directory,
+      isAutoRepair: isAutoRepairTurn({
+        messages: ctx.messages,
+        currentMessageID: ctx.messageID,
+      }),
+      ...(repairOfObjectID ? { repairOfObjectID } : {}),
+    })
+    if (previousObjectID) {
+      const manifest = await readMermaidObjectManifest(ctx.directory, previousObjectID)
+      if (manifest.origin?.kind === "tool" && manifest.origin.sessionID !== String(ctx.sessionID)) {
+        throw new Error("Mermaid repair target must belong to the current session.")
+      }
+    }
+    const autoRepairRequest = autoRepairRequestID
+      ? await readMermaidRepairRequest(ctx.directory, autoRepairRequestID)
+      : undefined
+    if (autoRepairRequest && autoRepairRequest.objectID !== previousObjectID) {
+      throw new Error("Mermaid repair request does not match the requested object.")
     }
 
-    const artifact = await createToolMermaidArtifact({
+    const object = await createToolMermaidObject({
       directory: ctx.directory,
       sessionID: String(ctx.sessionID),
       messageID: String(ctx.messageID),
@@ -134,61 +211,38 @@ const renderMermaidTool = createBuddyTool({
       alt: parsed.alt,
       ...(parsed.caption ? { caption: parsed.caption } : {}),
       source: parsed.source,
-      ...(previousArtifact ? { supersedesArtifactID: previousArtifact.artifactID } : {}),
+      ...(previousObjectID ? { repairOfObjectID: previousObjectID } : {}),
+      ...(previousObjectID && autoRepairRequestID ? { autoRepairRequestID } : {}),
+      ...(autoRepairRequest
+        ? { expectedSupersededRevisionID: autoRepairRequest.revisionID }
+        : {}),
     })
 
-    if (previousArtifact) {
-      if (
-        previousArtifact.autoRepair.status === "running" &&
-        previousArtifact.autoRepair.repairRequestID.trim().length > 0
-      ) {
-        const request = await readMermaidRepairRequest(
-          ctx.directory,
-          previousArtifact.autoRepair.repairRequestID,
-        )
-        await updateMermaidRepairRequest(ctx.directory, request.repairRequestID, {
-          status: "succeeded",
-          replacementArtifactID: artifact.artifactID,
-        })
-      }
-      await updateMermaidAutoRepairState(
-        ctx.directory,
-        previousArtifact.artifactID,
-        nextSucceededAutoRepairState(previousArtifact.autoRepair.attempts, artifact.artifactID),
-      )
-    }
-
-    const output: RenderMermaidOutput = RenderMermaidOutputSchema.parse({
-      artifactID: artifact.artifactID,
-      kind,
-      mime: "application/vnd.buddy.mermaid",
-      alt: artifact.alt,
-      ...(artifact.caption ? { caption: artifact.caption } : {}),
-      diagramType: artifact.diagramType,
-      source: artifact.source,
-      sourceHash: artifact.sourceHash,
-      preflightRepairs: artifact.preflightRepairs,
-      artifactUrl: buildMermaidArtifactUrl(ctx.directory, artifact.artifactID),
-      filesystemPath: ArtifactPath.artifactDirectory(ctx.directory, kind, artifact.artifactID),
-      ...(artifact.supersedesArtifactID
-        ? { supersedesArtifactID: artifact.supersedesArtifactID }
-        : {}),
+    const buddyObjectResult = buildRenderMermaidObjectResult({
+      objectID: object.objectID,
+      revisionID: object.revisionID,
+      title: object.title,
+      alt: object.alt,
+      caption: object.caption ?? null,
+      source: object.source,
+      renderStatus: object.renderStatus,
     })
 
     return {
       title: "Mermaid diagram queued",
       output: [
-        "Mermaid diagram artifact created and queued for browser rendering.",
-        ...(ignoredRepairOfArtifactID
+        buddyObjectResult.message,
+        ...formatBuddyObjectRefLines(buddyObjectResult.primaryRef),
+        `revision_id=${object.revisionID}`,
+        ...(ignoredRepairOfObjectID
           ? [
               "",
-              `Ignored repairOfArtifactID "${ignoredRepairOfArtifactID}" because no existing Mermaid artifact with that ID was found. Omit repairOfArtifactID for new diagrams; only pass an ID copied from a prior failed Mermaid artifact when repairing it.`,
+              `Ignored repairOfObjectID "${ignoredRepairOfObjectID}" because no existing Mermaid object with that ID was found. Omit repairOfObjectID for new diagrams; only pass an ID copied from a prior failed Mermaid object when repairing it.`,
             ]
           : []),
       ].join("\n"),
       metadata: {
-        artifact: "RenderMermaidOutput",
-        value: output,
+        buddyObjectResult,
       },
     }
   },

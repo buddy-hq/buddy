@@ -1,24 +1,23 @@
 import path from "node:path"
 import { writeJsonFileAtomic } from "../../../../storage/atomic-file"
 import {
-  ARTIFACT_CONTENT_DIRECTORIES,
-  ARTIFACT_KINDS,
-  ArtifactPath,
-  ArtifactValidationError,
-  generateArtifactID,
-} from "../../../../artifacts"
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectPath,
+  BuddyObjectValidationError,
+  generateObjectID,
+} from "../../../../objects"
 import {
   QUESTION_SET_ATTEMPT_KIND,
-  QuestionSetAttemptRecordSchema,
   QuestionSetEvaluationResultSchema,
   type SavedQuestion,
-  type SavedQuestionSetArtifact,
   type QuestionSetAttemptAnswer,
   type QuestionSetEvaluationResult,
-  type SubmitQuestionSetAttemptOutput,
 } from "../types"
-import { readQuestionSetArtifact } from "./read-artifact"
-import { correctChoiceIDs, ensureUniqueIDs } from "./save-artifact"
+import {
+  correctChoiceIDs,
+  ensureUniqueIDs,
+  readQuestionSetObjectPayload,
+} from "./save-object"
 import {
   appendLearnerEvent,
   createLearnerEvent,
@@ -54,7 +53,9 @@ function expectedChoiceCount(question: SavedQuestion): number {
 }
 
 function evaluateQuestionSet(input: {
-  artifact: SavedQuestionSetArtifact
+  questionSet: {
+    questions: SavedQuestion[]
+  }
   answers: QuestionSetAttemptAnswer[]
 }): QuestionSetEvaluationResult {
   ensureUniqueIDs({
@@ -69,22 +70,22 @@ function evaluateQuestionSet(input: {
       normalizeSelectedChoiceIDs(answer.selectedChoiceIds),
     ]),
   )
-  const artifactQuestionIDs = new Set(input.artifact.questions.map((question) => question.id))
+  const questionIDs = new Set(input.questionSet.questions.map((question) => question.id))
   for (const answer of input.answers) {
-    if (!artifactQuestionIDs.has(answer.questionID)) {
-      throw new ArtifactValidationError(
+    if (!questionIDs.has(answer.questionID)) {
+      throw new BuddyObjectValidationError(
         `Attempt payload includes unknown question id '${answer.questionID}'.`,
       )
     }
   }
 
-  const evaluatedQuestions = input.artifact.questions.map((question) => {
+  const evaluatedQuestions = input.questionSet.questions.map((question) => {
     const selectedChoiceIds = answerByQuestionID.get(question.id) ?? []
     const allowedChoiceIDs = new Set(question.payload.choices.map((choice) => choice.id))
 
     for (const selectedChoiceID of selectedChoiceIds) {
       if (!allowedChoiceIDs.has(selectedChoiceID)) {
-        throw new ArtifactValidationError(
+        throw new BuddyObjectValidationError(
           `Question '${question.id}' includes unknown selected choice id '${selectedChoiceID}'.`,
         )
       }
@@ -99,7 +100,7 @@ function evaluateQuestionSet(input: {
       noneOfTheAboveChoiceIDs.has(choiceID),
     )
     if (selectedNoneOfTheAbove.length > 0 && selectedChoiceIds.length > 1) {
-      throw new ArtifactValidationError(
+      throw new BuddyObjectValidationError(
         `Question '${question.id}' cannot combine 'none of the above' with other selected choices.`,
       )
     }
@@ -134,87 +135,94 @@ function evaluateQuestionSet(input: {
   const status =
     attemptedQuestions === 0
       ? "stuck"
-      : attemptedQuestions === input.artifact.questions.length
+      : attemptedQuestions === input.questionSet.questions.length
         ? "completed"
         : "partial"
 
   return QuestionSetEvaluationResultSchema.parse({
-    totalQuestions: input.artifact.questions.length,
+    totalQuestions: input.questionSet.questions.length,
     correctQuestions,
     status,
     questions: evaluatedQuestions,
   })
 }
 
-async function writeAttempt(input: {
+async function writeObjectAttempt(input: {
   directory: string
-  artifactID: string
+  objectID: string
   attemptRecord: {
     attemptID: string
     kind: typeof QUESTION_SET_ATTEMPT_KIND
-    artifactID: string
+    objectID: string
     submittedAt: string
     answers: QuestionSetAttemptAnswer[]
     result: QuestionSetEvaluationResult
   }
 }): Promise<void> {
-  const attemptID = ArtifactPath.sanitizeArtifactID(input.attemptRecord.attemptID)
+  const attemptID = BuddyObjectPath.sanitizeObjectID(input.attemptRecord.attemptID)
   await writeJsonFileAtomic(
-    ArtifactPath.artifactFile(
+    BuddyObjectPath.objectFile(
       input.directory,
-      ARTIFACT_KINDS.questionSet,
-      input.artifactID,
-      path.join(ARTIFACT_CONTENT_DIRECTORIES.questionSetAttempts, `${attemptID}.json`),
+      BUDDY_OBJECT_KINDS.questionSet,
+      input.objectID,
+      path.join("state", "attempts", `${attemptID}.json`),
     ),
     input.attemptRecord,
   )
 }
 
-async function submitQuestionSetAttempt(input: {
+async function submitQuestionSetObjectAttempt(input: {
   directory: string
-  artifactID: string
+  objectID: string
   answers: QuestionSetAttemptAnswer[]
-}): Promise<SubmitQuestionSetAttemptOutput> {
-  const savedArtifact = await readQuestionSetArtifact(input.directory, input.artifactID)
+}): Promise<{
+  attemptID: string
+  objectID: string
+  result: QuestionSetEvaluationResult
+}> {
+  const questionSet = await readQuestionSetObjectPayload({
+    directory: input.directory,
+    objectID: input.objectID,
+  })
   const evaluation = evaluateQuestionSet({
-    artifact: savedArtifact,
+    questionSet,
     answers: input.answers,
   })
 
-  const attemptID = generateArtifactID()
+  const attemptID = generateObjectID()
   const submittedAt = new Date().toISOString()
-  const attemptRecord = QuestionSetAttemptRecordSchema.parse({
+  const attemptRecord = {
     attemptID,
     kind: QUESTION_SET_ATTEMPT_KIND,
-    artifactID: savedArtifact.artifactID,
+    objectID: input.objectID,
     submittedAt,
     answers: input.answers,
     result: evaluation,
-  })
+  }
 
-  await writeAttempt({
+  await writeObjectAttempt({
     directory: input.directory,
-    artifactID: savedArtifact.artifactID,
+    objectID: input.objectID,
     attemptRecord,
   })
   const learnerEvent = createLearnerEvent({
     type: "question_set_attempt_ingested",
     sourceKind: "question_set_attempt",
     sourceId: attemptID,
-    searchableText: `Question set attempt ${savedArtifact.artifactID}: ${evaluation.correctQuestions}/${evaluation.totalQuestions} correct, status ${evaluation.status}.`,
+    searchableText: `Question set attempt ${input.objectID}: ${evaluation.correctQuestions}/${evaluation.totalQuestions} correct, status ${evaluation.status}.`,
     payload: {
-      artifactID: savedArtifact.artifactID,
+      objectID: input.objectID,
       attemptID,
       result: evaluation,
     },
   })
   await appendLearnerEvent(input.directory, learnerEvent)
-  const tags = dedupeStrings(savedArtifact.questions.flatMap((question) => question.goalIds))
+  const tags = dedupeStrings(questionSet.questions.flatMap((question) => question.goalIds))
   const memory = await recordQuestionSetAttemptMemory({
     directory: input.directory,
     eventId: learnerEvent.id,
-    title: savedArtifact.title,
-    groupType: savedArtifact.groupType,
+    title: questionSet.title,
+    groupType: questionSet.groupType,
     totalQuestions: evaluation.totalQuestions,
     correctQuestions: evaluation.correctQuestions,
     tags,
@@ -223,12 +231,12 @@ async function submitQuestionSetAttempt(input: {
   await writeLearnerEvidenceForEvent({
     directory: input.directory,
     event: learnerEvent,
-    artifactId: savedArtifact.artifactID,
-    title: savedArtifact.title,
+    objectId: input.objectID,
+    title: questionSet.title,
     note: `Question-set attempt recorded with ${evaluation.correctQuestions} of ${evaluation.totalQuestions} correct (${evaluation.status}).`,
     tags,
     payload: {
-      groupType: savedArtifact.groupType,
+      groupType: questionSet.groupType,
       totalQuestions: evaluation.totalQuestions,
       correctQuestions: evaluation.correctQuestions,
       status: evaluation.status,
@@ -254,9 +262,9 @@ async function submitQuestionSetAttempt(input: {
 
   return {
     attemptID,
-    artifactID: savedArtifact.artifactID,
+    objectID: input.objectID,
     result: evaluation,
   }
 }
 
-export { submitQuestionSetAttempt, evaluateQuestionSet }
+export { submitQuestionSetObjectAttempt, evaluateQuestionSet }

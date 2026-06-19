@@ -2,6 +2,7 @@ import { Effect } from "effect"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { MessageID, ModelID, ProviderID, SessionID } from "@buddy/opencode-adapter/id"
 import type { Tool } from "@buddy/opencode-adapter/tool"
+import type { BuddyToolContext } from "../../src/learning/runtime/create-buddy-tool"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
 import { loadOpenCodeApp } from "../../src/opencode-runtime"
 
@@ -24,6 +25,10 @@ type ToolContextInput = {
   agent: string
 }
 
+type BuddyToolContextInput = ToolContextInput & {
+  directory: string
+}
+
 export function createToolContext(input: ToolContextInput): Tool.Context {
   return {
     sessionID: input.sessionID ? SessionID.make(input.sessionID) : SessionID.descending(),
@@ -36,6 +41,23 @@ export function createToolContext(input: ToolContextInput): Tool.Context {
     },
     ask() {
       return Effect.void
+    },
+  }
+}
+
+export function createBuddyToolContext(input: BuddyToolContextInput): BuddyToolContext {
+  return {
+    directory: input.directory,
+    sessionID: input.sessionID ? SessionID.make(input.sessionID) : SessionID.descending(),
+    messageID: input.messageID ? MessageID.make(input.messageID) : MessageID.ascending(),
+    agent: input.agent,
+    abort: new AbortController().signal,
+    messages: [],
+    metadata() {
+      return Promise.resolve()
+    },
+    ask() {
+      return Promise.resolve()
     },
   }
 }

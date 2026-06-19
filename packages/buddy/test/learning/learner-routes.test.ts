@@ -37,7 +37,7 @@ describe("learner memory routes", () => {
       searchableText: "Question set attempt for bridge validation.",
       projectPath: project.path,
       payload: {
-        artifactID: "artifact_test",
+        objectID: "object_test",
       },
     })
     const memory = await createLearnerMemory({
@@ -54,7 +54,7 @@ describe("learner memory routes", () => {
     await writeLearnerEvidenceForEvent({
       directory: project.path,
       event,
-      artifactId: "artifact_test",
+      objectId: "object_test",
       title: "Bridge validation attempt",
       note: "Partial assessment evidence recorded for bridge validation.",
       tags: ["electron", "validation"],

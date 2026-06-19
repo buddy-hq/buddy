@@ -6,7 +6,6 @@ import { cors } from "hono/cors"
 import { HTTPException } from "hono/http-exception"
 import { logger } from "hono/logger"
 import { AgentsMdRoutes } from "./routes"
-import { ArtifactsRoutes } from "./routes"
 import { AuthRoutes } from "./routes"
 import { BenchRoutes } from "./routes"
 import { CompatibilityRoutes } from "./routes"
@@ -15,16 +14,15 @@ import { LearnerRoutes } from "./routes"
 import { GlobalRoutes } from "./routes"
 import { McpRoutes } from "./routes"
 import { LocalRuntimeRoutes } from "./routes"
+import { ObjectsRoutes } from "./routes"
 import { OpenProjectsRoutes } from "./routes"
 import { PermissionRoutes } from "./routes"
 import { ProjectRoutes } from "./routes"
 import { ProviderRoutes } from "./routes"
 import { QuestionRoutes } from "./routes"
-import { ResourceRoutes } from "./routes"
 import { SessionRoutes } from "./routes"
 import { SkillsRoutes } from "./routes"
 import { TeachingRoutes } from "./routes"
-import { WhiteboardRoutes } from "./routes"
 import { isJsonContentType, normalizeValidationFailureResponse } from "./http"
 
 const OPTION_PRINT_LOGS = "--print-logs"
@@ -110,15 +108,12 @@ api.use("*", async (c, next) => {
   return c.json({ error: "Unauthorized" }, 401)
 })
 
-api.route("/artifacts", ArtifactsRoutes)
 api.route("/learner", LearnerRoutes)
 api.route("/teaching", TeachingRoutes)
-api.route("/whiteboards", WhiteboardRoutes)
 api.route("/agents-md", AgentsMdRoutes)
 api.route("/", CompatibilityRoutes)
 api.route("/open-projects", OpenProjectsRoutes)
 api.route("/project", ProjectRoutes)
-api.route("/resource", ResourceRoutes)
 api.route("/global", GlobalRoutes)
 api.route("/local-runtimes", LocalRuntimeRoutes)
 api.route("/provider", ProviderRoutes)
@@ -126,6 +121,7 @@ api.route("/question", QuestionRoutes)
 api.route("/auth", AuthRoutes)
 api.route("/bench", BenchRoutes)
 api.route("/mcp", McpRoutes)
+api.route("/objects", ObjectsRoutes)
 api.route("/config", ConfigRoutes)
 api.route("/permission", PermissionRoutes)
 api.route("/session", SessionRoutes)

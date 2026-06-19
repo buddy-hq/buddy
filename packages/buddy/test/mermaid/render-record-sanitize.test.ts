@@ -1,15 +1,11 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import { describe, expect, test } from "bun:test"
+import { BUDDY_OBJECT_KINDS, BuddyObjectPath } from "../../src/objects"
 import {
-  ARTIFACT_CONTENT_DIRECTORIES,
-  ARTIFACT_KINDS,
-  ArtifactPath,
-} from "../../src/artifacts"
-import {
-  createToolMermaidArtifact,
-  readMermaidRenderRecord,
-  storeMermaidRenderRecord,
+  createToolMermaidObject,
+  readMermaidObjectRenderRecord,
+  storeMermaidObjectRenderRecord,
 } from "../../src/learning/features/diagrams/service/store"
 import { tmpdir } from "../helpers/tmpdir"
 
@@ -31,9 +27,9 @@ const UNSAFE_SVG = `
 </svg>`
 
 describe("Mermaid render record sanitization", () => {
-  test("sanitizes rendered SVGs on write and legacy reload", async () => {
+  test("sanitizes rendered SVGs on write and reload", async () => {
     await using project = await tmpdir({ git: true })
-    const artifact = await createToolMermaidArtifact({
+    const object = await createToolMermaidObject({
       directory: project.path,
       sessionID: "ses_mermaid_sanitize",
       messageID: "msg_mermaid_sanitize",
@@ -42,7 +38,7 @@ describe("Mermaid render record sanitization", () => {
       source: "flowchart LR\nA-->B",
     })
 
-    const stored = await storeMermaidRenderRecord(project.path, artifact.artifactID, {
+    const stored = await storeMermaidObjectRenderRecord(project.path, object.objectID, {
       ...RENDER_INPUT,
       status: "rendered",
       svg: UNSAFE_SVG,
@@ -59,23 +55,21 @@ describe("Mermaid render record sanitization", () => {
     expect(stored.svg).toContain("<foreignObject")
 
     await fs.writeFile(
-      ArtifactPath.artifactFile(
+      BuddyObjectPath.objectFile(
         project.path,
-        ARTIFACT_KINDS.mermaid,
-        artifact.artifactID,
-        path.join(
-          ARTIFACT_CONTENT_DIRECTORIES.mermaidRenders,
-          `${stored.renderKey}.json`,
-        ),
+        BUDDY_OBJECT_KINDS.mermaid,
+        object.objectID,
+        path.join("derived", "renders", object.revisionID, `${stored.renderKey}.json`),
       ),
       `${JSON.stringify({ ...stored, svg: UNSAFE_SVG }, null, 2)}\n`,
       "utf8",
     )
-    const reloaded = await readMermaidRenderRecord(
-      project.path,
-      artifact.artifactID,
-      stored.renderKey,
-    )
+    const reloaded = await readMermaidObjectRenderRecord({
+      directory: project.path,
+      objectID: object.objectID,
+      revisionID: object.revisionID,
+      renderKey: stored.renderKey,
+    })
 
     expect(reloaded.status).toBe("rendered")
     if (reloaded.status !== "rendered") return

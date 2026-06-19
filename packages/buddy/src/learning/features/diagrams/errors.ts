@@ -1,5 +1,3 @@
-import { ArtifactValidationError, mapArtifactRouteError } from "../../../artifacts"
-
 class InvalidMermaidRenderKeyError extends Error {
   constructor(renderKey: string) {
     super(`Invalid Mermaid render key '${renderKey}'.`)
@@ -28,9 +26,8 @@ class MermaidRepairRequestNotFoundError extends Error {
   }
 }
 
-function mapMermaidArtifactRouteError(error: unknown): Response | undefined {
+function mapMermaidObjectRouteError(error: unknown): Response | undefined {
   if (
-    error instanceof ArtifactValidationError ||
     error instanceof InvalidMermaidRenderKeyError ||
     error instanceof InvalidMermaidRepairRequestIDError
   ) {
@@ -42,7 +39,7 @@ function mapMermaidArtifactRouteError(error: unknown): Response | undefined {
   if (error instanceof MermaidRepairRequestNotFoundError) {
     return Response.json({ error: error.message }, { status: 404 })
   }
-  return mapArtifactRouteError(error)
+  return undefined
 }
 
 export {
@@ -50,5 +47,5 @@ export {
   InvalidMermaidRepairRequestIDError,
   MermaidRepairRequestNotFoundError,
   MermaidRenderRecordNotFoundError,
-  mapMermaidArtifactRouteError,
+  mapMermaidObjectRouteError,
 }

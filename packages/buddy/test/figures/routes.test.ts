@@ -31,7 +31,7 @@ describe("figure routes", () => {
     await using project = await tmpdir({ git: true })
     const rendered = await renderGeometryFigure(project.path, routeFigureInput())
 
-    const response = await app.request(rendered.url)
+    const response = await app.request(rendered.rawUrl)
     expect(response.status).toBe(200)
     expect(response.headers.get("content-type")).toContain("image/svg+xml")
     await expect(response.text()).resolves.toContain("<svg")
@@ -41,7 +41,7 @@ describe("figure routes", () => {
     await using project = await tmpdir({ git: true })
 
     const response = await app.request(
-      `/api/artifacts/figure/${ulid()}/raw?directory=${encodeURIComponent(project.path)}`,
+      `/api/objects/figure/${ulid()}/raw?directory=${encodeURIComponent(project.path)}`,
     )
 
     expect(response.status).toBe(404)
@@ -51,7 +51,7 @@ describe("figure routes", () => {
     await using project = await tmpdir({ git: true })
 
     const response = await app.request(
-      `/api/artifacts/figure/not-a-valid-id/raw?directory=${encodeURIComponent(project.path)}`,
+      `/api/objects/figure/not-a-valid-id/raw?directory=${encodeURIComponent(project.path)}`,
     )
 
     expect(response.status).toBe(400)

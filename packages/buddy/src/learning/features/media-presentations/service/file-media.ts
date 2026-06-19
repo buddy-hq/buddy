@@ -4,16 +4,21 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import z from "zod"
 import {
-  ARTIFACT_KINDS,
-  ARTIFACT_MANIFEST_VERSION,
-  ArtifactPath,
-  ArtifactManifestBaseSchema,
-  type ArtifactLoadErrorRecord,
-  generateArtifactID,
-  listArtifactManifests,
-  readArtifactManifest,
-  writeArtifactRecord,
-} from "../../../../artifacts"
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectManifestSchema,
+  BuddyObjectPath,
+  BuddyObjectValidationError,
+  BuddyObjectViewResponseSchema,
+  MediaPresentationObjectSummarySchema,
+  generateObjectID,
+  readObjectManifest,
+  registerBuddyObjectKind,
+  writeObjectRecord,
+  type BuddyObjectManifest,
+  type BuddyObjectSourceRef,
+  type BuddyObjectViewResponse,
+  type MediaGalleryInlineData,
+} from "../../../../objects"
 import { readRawFileResponse } from "../../../../project/raw-file-response-service"
 import {
   classifyWorkspaceMedia,
@@ -22,10 +27,10 @@ import {
 } from "@buddy/workspace-file-policy"
 
 const DEFAULT_BINARY_MIME_TYPE = "application/octet-stream"
+const MEDIA_GALLERY_VIEW_ID = "gallery" as const
 const MAX_PRESENTED_MEDIA_ITEMS = 12
-const MAX_PRESENTED_MEDIA_ARTIFACTS = 500
 
-export const MEDIA_PRESENTATION_KIND = ARTIFACT_KINDS.mediaPresentation
+export const MEDIA_PRESENTATION_KIND = BUDDY_OBJECT_KINDS.mediaPresentation
 export const PROJECT_FILE_ESCAPE_ERROR = "Access denied: path escapes project directory" as const
 export const PROJECT_FILE_NOT_FOUND_ERROR = "File not found" as const
 
@@ -59,33 +64,22 @@ export type PresentedMediaItem = {
   availability: PresentedMediaAvailability
 }
 
-export type PresentedMediaArtifactManifest = {
-  version: typeof ARTIFACT_MANIFEST_VERSION
-  artifactID: string
-  kind: typeof ARTIFACT_KINDS.mediaPresentation
-  title: string
-  description?: string
-  origin?: unknown
-  createdAt: string
-  updatedAt: string
-  summary: PresentedMediaSummary
-}
-
 export type PresentedMediaSummary = {
   layout: PresentedMediaLayout
   items: PresentedMediaItem[]
 }
 
-export type PresentedMediaOutput = {
-  artifactID: string
-  kind: typeof ARTIFACT_KINDS.mediaPresentation
-  layout: PresentedMediaLayout
+export type PresentedMediaObjectOutput = {
+  objectID: string
+  kind: typeof BUDDY_OBJECT_KINDS.mediaPresentation
+  layout: MediaGalleryInlineData["layout"]
   items: PresentedMediaItem[]
 }
 
-export type PresentedMediaArtifactSummaryListResult = {
-  artifacts: PresentedMediaArtifactManifest[]
-  loadErrors: ArtifactLoadErrorRecord[]
+type PresentedMediaObjectSummary = ReturnType<typeof MediaPresentationObjectSummarySchema.parse>
+
+type PresentedMediaObjectManifest = BuddyObjectManifest & {
+  summary: PresentedMediaObjectSummary
 }
 
 export type PresentedMediaPathInfo = Omit<PresentedMediaItem, "id" | "rawUrl">
@@ -146,11 +140,6 @@ const PresentedMediaItemSchema = z.object({
 const PresentedMediaSummarySchema = z.object({
   layout: z.enum(["single", "gallery", "deck", "list"]),
   items: z.array(PresentedMediaItemSchema),
-})
-
-const PresentedMediaArtifactManifestSchema = ArtifactManifestBaseSchema.extend({
-  kind: z.literal(ARTIFACT_KINDS.mediaPresentation),
-  summary: PresentedMediaSummarySchema,
 })
 
 function normalizeRelativePath(filepath: string) {
@@ -225,18 +214,6 @@ function isPathWithinBoundary(boundaryPath: string, targetPath: string) {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
 }
 
-async function writeArtifactManifest(
-  directory: string,
-  manifest: PresentedMediaArtifactManifest,
-): Promise<void> {
-  await writeArtifactRecord({
-    directory,
-    kind: ARTIFACT_KINDS.mediaPresentation,
-    artifactID: manifest.artifactID,
-    manifest,
-  })
-}
-
 function isMissingPresentedMediaError(error: unknown): boolean {
   return (
     typeof error === "object" &&
@@ -288,126 +265,6 @@ async function refreshPresentedMediaItem(
   }
 }
 
-async function refreshPresentedMediaArtifactManifest(
-  manifest: PresentedMediaArtifactManifest,
-): Promise<PresentedMediaArtifactManifest> {
-  return {
-    ...manifest,
-    summary: {
-      ...manifest.summary,
-      items: await Promise.all(manifest.summary.items.map(refreshPresentedMediaItem)),
-    },
-  }
-}
-
-export async function readPresentedMediaArtifactManifest(
-  directory: string,
-  artifactID: string,
-): Promise<PresentedMediaArtifactManifest> {
-  return readArtifactManifest({
-    directory,
-    kind: ARTIFACT_KINDS.mediaPresentation,
-    artifactID,
-    schema: PresentedMediaArtifactManifestSchema,
-  })
-}
-
-export async function readPresentedMediaArtifact(
-  directory: string,
-  artifactID: string,
-): Promise<PresentedMediaArtifactManifest> {
-  const manifest = await readPresentedMediaArtifactManifest(directory, artifactID)
-  return refreshPresentedMediaArtifactManifest(manifest)
-}
-
-export async function readPresentedMediaItemAvailability(input: {
-  directory: string
-  artifactID: string
-  itemID: string
-}): Promise<PresentedMediaAvailability> {
-  const manifest = await readPresentedMediaArtifactManifest(input.directory, input.artifactID)
-  const item = manifest.summary.items.find((candidate) => candidate.id === input.itemID)
-  if (!item) {
-    throw new PresentedMediaValidationError(PROJECT_FILE_NOT_FOUND_ERROR)
-  }
-  return (await refreshPresentedMediaItem(item)).availability
-}
-
-export async function resolvePresentedMediaItem(
-  directory: string,
-  artifactID: string,
-  itemID: string,
-): Promise<{ absolutePath: string; fileName: string } | undefined> {
-  try {
-    const manifest = await readPresentedMediaArtifactManifest(directory, artifactID)
-    const item = manifest.summary.items.find((candidate) => candidate.id === itemID)
-    if (!item) return undefined
-    return { absolutePath: item.absolutePath, fileName: item.fileName }
-  } catch {
-    // artifact doesn't exist
-  }
-  return undefined
-}
-
-export async function readPresentedMediaRawArtifactResponse(input: {
-  directory: string
-  artifactID: string
-  itemID: string
-  downloadName: string | undefined
-  includeBody: boolean
-  rangeHeader: string | undefined
-}): Promise<Response> {
-  const item = await resolvePresentedMediaItem(input.directory, input.artifactID, input.itemID)
-  if (!item) {
-    return Response.json({ error: PROJECT_FILE_NOT_FOUND_ERROR }, { status: 404 })
-  }
-  return readRawFileResponse({
-    absolutePath: item.absolutePath,
-    downloadName: input.downloadName ?? item.fileName,
-    includeBody: input.includeBody,
-    rangeHeader: input.rangeHeader,
-  })
-}
-
-async function pruneOldArtifacts(directory: string): Promise<void> {
-  try {
-    const root = ArtifactPath.kindRoot(directory, ARTIFACT_KINDS.mediaPresentation)
-    const entries = await fs.readdir(root, {
-      withFileTypes: true,
-    })
-    const artifacts = await Promise.all(
-      entries
-        .filter((entry) => entry.isDirectory())
-        .map(async (entry) => {
-          const manifestPath = ArtifactPath.manifestFile(
-            directory,
-            ARTIFACT_KINDS.mediaPresentation,
-            entry.name,
-          )
-          const stats = await fs.stat(manifestPath)
-          return { artifactID: entry.name, mtimeMs: stats.mtimeMs }
-        }),
-    )
-
-    if (artifacts.length <= MAX_PRESENTED_MEDIA_ARTIFACTS) return
-
-    const toRemove = artifacts
-      .toSorted((left, right) => left.mtimeMs - right.mtimeMs)
-      .slice(0, artifacts.length - MAX_PRESENTED_MEDIA_ARTIFACTS)
-      .map((artifact) => artifact.artifactID)
-    await Promise.all(
-      toRemove.map((name) =>
-        fs.rm(ArtifactPath.artifactDirectory(directory, ARTIFACT_KINDS.mediaPresentation, name), {
-          recursive: true,
-          force: true,
-        }),
-      ),
-    )
-  } catch {
-    // root directory doesn't exist yet, nothing to prune
-  }
-}
-
 function fileMimeType(filepath: string) {
   return Bun.file(filepath).type || DEFAULT_BINARY_MIME_TYPE
 }
@@ -427,10 +284,10 @@ function classifyPresentedMedia(input: { path: string; mimeType: string | undefi
   }
 }
 
-function deriveLayout(items: PresentedMediaItem[]): PresentedMediaLayout {
+function deriveObjectLayout(items: PresentedMediaItem[]): MediaGalleryInlineData["layout"] {
   if (items.length === 1) return "single"
-  if (items.every((item) => item.mediaKind === "image")) return "gallery"
-  return "list"
+  if (items.every((item) => item.mediaKind === "image")) return "grid"
+  return "strip"
 }
 
 export function normalizePresentedMediaPermissionPath(directory: string, inputPath: string) {
@@ -461,13 +318,13 @@ async function resolvePresentedMediaFile(
   }
 }
 
-function buildPresentedMediaRawUrl(input: {
-  artifactID: string
+function buildPresentedMediaObjectRawUrl(input: {
+  objectID: string
   itemID: string
   fileName: string
   directory: string
 }) {
-  return `/api/artifacts/media-presentation/${encodeURIComponent(input.artifactID)}/raw/${encodeURIComponent(input.itemID)}?directory=${encodeURIComponent(input.directory)}&fileName=${encodeURIComponent(input.fileName)}`
+  return `/api/objects/media-presentation/${encodeURIComponent(input.objectID)}/raw/${encodeURIComponent(input.itemID)}?directory=${encodeURIComponent(input.directory)}&fileName=${encodeURIComponent(input.fileName)}`
 }
 
 function readStatNumber(value: number | bigint) {
@@ -516,12 +373,89 @@ export async function resolvePresentedMediaPathInfo(input: {
   }
 }
 
-export async function buildPresentedMediaOutput(input: {
+function mediaItemSourceRef(item: PresentedMediaItem): BuddyObjectSourceRef {
+  return {
+    role: "external",
+    path: item.absolutePath,
+    displayPath: item.displayPath,
+    workspacePath: item.workspacePath,
+    mutable: false,
+    copied: false,
+    availability: item.availability.status,
+    exists: item.availability.status === "available",
+    ...(item.sizeBytes !== null ? { sizeBytes: item.sizeBytes } : {}),
+    ...(item.modifiedAt !== null ? { modifiedAt: item.modifiedAt } : {}),
+  }
+}
+
+function buildMediaGalleryData(input: {
+  directory: string
+  objectID: string
+  layout: MediaGalleryInlineData["layout"]
+  items: PresentedMediaItem[]
+}): MediaGalleryInlineData {
+  return {
+    renderer: "media-gallery",
+    layout: input.layout,
+    items: input.items.map((item) => ({
+      itemID: item.id,
+      title: item.fileName,
+      mediaType: item.mediaKind,
+      mimeType: item.mimeType,
+      source: {
+        role: "external",
+        path: item.absolutePath,
+        displayPath: item.displayPath,
+        workspacePath: item.workspacePath,
+        availability: item.availability.status,
+      },
+      availability: item.availability.status,
+      rawUrl:
+        item.availability.status === "available"
+          ? buildPresentedMediaObjectRawUrl({
+              directory: input.directory,
+              objectID: input.objectID,
+              itemID: item.id,
+              fileName: item.fileName,
+            })
+          : null,
+      fileName: item.fileName,
+    })),
+  }
+}
+
+function buildPresentedMediaObjectViews(input: {
+  layout: MediaGalleryInlineData["layout"]
+}): BuddyObjectManifest["views"] {
+  return [
+    {
+      viewID: MEDIA_GALLERY_VIEW_ID,
+      label: "Media",
+      surfaces: ["inline", "bench", "library"],
+      availability: { status: "available" },
+      inline: {
+        renderer: "media-gallery",
+        params: {
+          renderer: "media-gallery",
+          layout: input.layout,
+        },
+      },
+      bench: { resolver: "object-view" },
+      library: { section: "media" },
+    },
+  ]
+}
+
+export async function buildPresentedMediaObjectOutput(input: {
   directory: string
   items: Array<{
     path: string
   }>
-}): Promise<PresentedMediaOutput> {
+}): Promise<{
+  output: PresentedMediaObjectOutput
+  manifest: PresentedMediaObjectManifest
+  inlineData: MediaGalleryInlineData
+}> {
   if (input.items.length === 0) {
     throw new PresentedMediaValidationError("At least one media item is required.")
   }
@@ -531,7 +465,7 @@ export async function buildPresentedMediaOutput(input: {
     )
   }
 
-  const artifactID = generateArtifactID()
+  const objectID = generateObjectID()
   const items: PresentedMediaItem[] = []
   const workspaceBoundary = await resolvePresentedMediaWorkspaceBoundary(input.directory)
 
@@ -542,12 +476,6 @@ export async function buildPresentedMediaOutput(input: {
     const mimeType = fileMimeType(file.absolutePath)
     const classification = classifyPresentedMedia({ path: file.displayPath, mimeType })
     const itemId = `${PRESENTED_MEDIA_ITEM_ID_PREFIX}${index + 1}`
-    const rawUrl = buildPresentedMediaRawUrl({
-      artifactID,
-      itemID: itemId,
-      fileName: path.basename(file.absolutePath),
-      directory: input.directory,
-    })
     const actionCapabilities = buildActionCapabilities({
       workspacePath: file.workspacePath,
     })
@@ -564,7 +492,12 @@ export async function buildPresentedMediaOutput(input: {
       mimeType,
       sizeBytes,
       modifiedAt,
-      rawUrl,
+      rawUrl: buildPresentedMediaObjectRawUrl({
+        objectID,
+        itemID: itemId,
+        fileName: path.basename(file.absolutePath),
+        directory: input.directory,
+      }),
       actionCapabilities,
       availability: {
         status: "available",
@@ -573,47 +506,213 @@ export async function buildPresentedMediaOutput(input: {
     })
   }
 
-  const layout = deriveLayout(items)
+  const layout = deriveObjectLayout(items)
   const now = new Date().toISOString()
-  const manifest: PresentedMediaArtifactManifest = {
-    version: ARTIFACT_MANIFEST_VERSION,
-    artifactID,
-    kind: ARTIFACT_KINDS.mediaPresentation,
+  const manifest = BuddyObjectManifestSchema.safeExtend({
+    summary: MediaPresentationObjectSummarySchema,
+  }).parse({
+    version: 1,
+    kind: BUDDY_OBJECT_KINDS.mediaPresentation,
+    objectID,
     title: items.length === 1 ? items[0]?.fileName ?? "Media presentation" : "Media presentation",
+    status: "ready",
+    lifecycle: "external-reference",
     createdAt: now,
     updatedAt: now,
+    sourceRefs: items.map(mediaItemSourceRef),
+    views: buildPresentedMediaObjectViews({ layout }),
     summary: {
+      kind: BUDDY_OBJECT_KINDS.mediaPresentation,
+      layout,
+      itemCount: items.length,
+    },
+  })
+
+  await writeObjectRecord({
+    directory: input.directory,
+    kind: BUDDY_OBJECT_KINDS.mediaPresentation,
+    objectID,
+    manifest,
+    files: [
+      {
+        relativePath: "state/media-items.json",
+        format: "json",
+        content: { items },
+      },
+    ],
+  })
+
+  const inlineData = buildMediaGalleryData({
+    directory: input.directory,
+    objectID,
+    layout,
+    items,
+  })
+
+  return {
+    output: {
+      objectID,
+      kind: BUDDY_OBJECT_KINDS.mediaPresentation,
       layout,
       items,
     },
-  }
-
-  await writeArtifactManifest(input.directory, manifest)
-  await pruneOldArtifacts(input.directory)
-
-  return {
-    artifactID,
-    kind: ARTIFACT_KINDS.mediaPresentation,
-    layout,
-    items,
+    manifest,
+    inlineData,
   }
 }
 
-export async function listPresentedMediaArtifactSummaries(
+export async function readPresentedMediaObjectManifest(
   directory: string,
-): Promise<PresentedMediaArtifactSummaryListResult> {
-  const result = await listArtifactManifests({
+  objectID: string,
+): Promise<PresentedMediaObjectManifest> {
+  const manifest = await readObjectManifest({
     directory,
-    kind: ARTIFACT_KINDS.mediaPresentation,
-    schema: PresentedMediaArtifactManifestSchema,
+    kind: BUDDY_OBJECT_KINDS.mediaPresentation,
+    objectID,
   })
+  return BuddyObjectManifestSchema.safeExtend({
+    summary: MediaPresentationObjectSummarySchema,
+  }).parse(manifest)
+}
+
+async function readPresentedMediaObjectItems(input: {
+  directory: string
+  objectID: string
+}): Promise<PresentedMediaItem[]> {
+  const parsed = await readObjectManifest({
+    directory: input.directory,
+    kind: BUDDY_OBJECT_KINDS.mediaPresentation,
+    objectID: input.objectID,
+  })
+  const itemsPath = BuddyObjectPath.objectFile(
+    input.directory,
+    parsed.kind,
+    input.objectID,
+    "state/media-items.json",
+  )
+  const text = await fs.readFile(itemsPath, "utf8")
+  const json: unknown = JSON.parse(text)
+  return z.object({ items: z.array(PresentedMediaItemSchema) }).parse(json).items
+}
+
+export async function readPresentedMediaObject(input: {
+  directory: string
+  objectID: string
+}): Promise<{
+  manifest: PresentedMediaObjectManifest
+  inlineData: MediaGalleryInlineData
+}> {
+  const manifest = await readPresentedMediaObjectManifest(input.directory, input.objectID)
+  const items = await Promise.all(
+    (await readPresentedMediaObjectItems(input)).map(refreshPresentedMediaItem),
+  )
   return {
-    artifacts: await Promise.all(result.items.map(refreshPresentedMediaArtifactManifest)),
-    loadErrors: result.loadErrors,
+    manifest,
+    inlineData: buildMediaGalleryData({
+      directory: input.directory,
+      objectID: input.objectID,
+      layout: manifest.summary.layout,
+      items,
+    }),
   }
+}
+
+export async function readPresentedMediaObjectItemAvailability(input: {
+  directory: string
+  objectID: string
+  itemID: string
+}): Promise<PresentedMediaAvailability> {
+  const item = (await readPresentedMediaObjectItems(input)).find(
+    (candidate) => candidate.id === input.itemID,
+  )
+  if (!item) {
+    throw new PresentedMediaValidationError(PROJECT_FILE_NOT_FOUND_ERROR)
+  }
+  return (await refreshPresentedMediaItem(item)).availability
+}
+
+export async function resolvePresentedMediaObjectItem(
+  directory: string,
+  objectID: string,
+  itemID: string,
+): Promise<{ absolutePath: string; fileName: string } | undefined> {
+  try {
+    const item = (await readPresentedMediaObjectItems({ directory, objectID })).find(
+      (candidate) => candidate.id === itemID,
+    )
+    if (!item) return undefined
+    return { absolutePath: item.absolutePath, fileName: item.fileName }
+  } catch {
+    return undefined
+  }
+}
+
+export async function readPresentedMediaObjectRawResponse(input: {
+  directory: string
+  objectID: string
+  itemID: string
+  downloadName: string | undefined
+  includeBody: boolean
+  rangeHeader: string | undefined
+}): Promise<Response> {
+  const item = await resolvePresentedMediaObjectItem(
+    input.directory,
+    input.objectID,
+    input.itemID,
+  )
+  if (!item) {
+    return Response.json({ error: PROJECT_FILE_NOT_FOUND_ERROR }, { status: 404 })
+  }
+  return readRawFileResponse({
+    absolutePath: item.absolutePath,
+    downloadName: input.downloadName ?? item.fileName,
+    includeBody: input.includeBody,
+    rangeHeader: input.rangeHeader,
+  })
 }
 
 export {
-  PresentedMediaArtifactManifestSchema,
   PresentedMediaSummarySchema,
 }
+
+registerBuddyObjectKind({
+  kind: BUDDY_OBJECT_KINDS.mediaPresentation,
+  manifestSchema: BuddyObjectManifestSchema.safeExtend({
+    summary: MediaPresentationObjectSummarySchema,
+  }),
+  async readManifest(input) {
+    return readPresentedMediaObjectManifest(input.directory, input.ref.objectID)
+  },
+  async readView(input): Promise<BuddyObjectViewResponse> {
+    if (input.viewID !== MEDIA_GALLERY_VIEW_ID) {
+      throw new BuddyObjectValidationError(`Unsupported media presentation view: ${input.viewID}`)
+    }
+    const presentation = await readPresentedMediaObject({
+      directory: input.directory,
+      objectID: input.ref.objectID,
+    })
+    return BuddyObjectViewResponseSchema.parse({
+      ref: input.ref,
+      viewID: MEDIA_GALLERY_VIEW_ID,
+      title: presentation.manifest.title,
+      data: presentation.inlineData,
+    })
+  },
+  async resolveBenchView(input) {
+    if (input.viewID !== MEDIA_GALLERY_VIEW_ID) {
+      return {
+        status: "blocked",
+        reason: "unsupported_media_presentation_view",
+        message: `Unsupported media presentation Bench view: ${input.viewID}`,
+      }
+    }
+    return {
+      status: "ready",
+      target: {
+        type: "object",
+        ref: input.ref,
+        viewID: MEDIA_GALLERY_VIEW_ID,
+      },
+    }
+  },
+})

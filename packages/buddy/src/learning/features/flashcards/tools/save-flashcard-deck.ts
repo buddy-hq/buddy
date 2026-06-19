@@ -4,20 +4,20 @@ import {
   type BuddyToolContext,
 } from "@buddy/backend/learning/runtime/create-buddy-tool"
 import {
-  ARTIFACT_CONTENT_FILES,
-  ARTIFACT_KINDS,
-  ArtifactPath,
-  generateArtifactID,
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectResultSchema,
+  formatBuddyObjectRefLines,
+  generateObjectID,
   nonEmptyString,
-} from "../../../../artifacts"
+  objectSummaryBaseFromManifest,
+  type BuddyObjectResult,
+} from "../../../../objects"
 import SAVE_FLASHCARD_DECK_DESCRIPTION from "./save-flashcard-deck.md"
-import { buildFlashcardNotesAndCards, saveFlashcardDeck } from "../storage/save-deck"
+import { buildFlashcardNotesAndCards, saveFlashcardDeckObject } from "../storage/save-deck"
 import {
   DECK_CONFIG_DEFAULTS,
   FLASHCARD_DECK_KIND,
   FLASHCARD_SUBAGENT_ID,
-  SaveFlashcardDeckOutputSchema,
-  type SaveFlashcardDeckOutput,
 } from "../types"
 
 const SaveFlashcardNoteInputSchema = z.object({
@@ -65,8 +65,57 @@ function createdByCallID(ctx: BuddyToolContext): string {
   return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : "unknown"
 }
 
+function buildSaveFlashcardDeckObjectResult(input: {
+  objectID: string
+  revisionID: string
+  title: string
+  noteCount: number
+  cardCount: number
+}): BuddyObjectResult {
+  const ref = {
+    kind: BUDDY_OBJECT_KINDS.flashcardDeck,
+    objectID: input.objectID,
+    revisionID: input.revisionID,
+    itemID: null,
+  }
+  return BuddyObjectResultSchema.parse({
+    version: 1,
+    status: "ok",
+    reason: null,
+    message: `Saved flashcard deck ${input.title}.`,
+    primaryRef: ref,
+    objects: [
+      objectSummaryBaseFromManifest({
+        kind: BUDDY_OBJECT_KINDS.flashcardDeck,
+        objectID: input.objectID,
+        title: input.title,
+        status: "ready",
+        lifecycle: "revisioned",
+        sourceRoot: null,
+      }),
+    ],
+    presentations: [
+      {
+        ref,
+        viewID: "review",
+        surface: "inline",
+        data: {
+          renderer: "flashcard-deck",
+          title: input.title,
+          noteCount: input.noteCount,
+          cardCount: input.cardCount,
+        },
+        autoOpen: null,
+      },
+    ],
+  })
+}
+
 const saveFlashcardDeckTool = createBuddyTool({
   id: "save_flashcard_deck",
+  produces: {
+    buddyObjectResult: true,
+  },
   description: SAVE_FLASHCARD_DECK_DESCRIPTION,
   parameters: SaveFlashcardDeckInputSchema,
   async execute(params: SaveFlashcardDeckInput, ctx: BuddyToolContext) {
@@ -80,19 +129,19 @@ const saveFlashcardDeckTool = createBuddyTool({
     })
 
     const parsed = SaveFlashcardDeckInputSchema.parse(params)
-    const artifactID = generateArtifactID()
+    const objectID = generateObjectID()
     const createdAt = new Date().toISOString()
 
     const { notes, cards } = buildFlashcardNotesAndCards(
-      artifactID,
+      objectID,
       parsed.notes,
       DECK_CONFIG_DEFAULTS,
     )
 
-    const saved = await saveFlashcardDeck({
+    const saved = await saveFlashcardDeckObject({
       directory: ctx.directory,
       deck: {
-        artifactID,
+        objectID,
         kind: FLASHCARD_DECK_KIND,
         title: parsed.title,
         config: {
@@ -114,26 +163,25 @@ const saveFlashcardDeckTool = createBuddyTool({
       },
     })
 
-    const output: SaveFlashcardDeckOutput = SaveFlashcardDeckOutputSchema.parse({
-      artifactID: saved.artifactID,
-      kind: saved.kind,
-      title: saved.title,
-      noteCount: saved.notes.length,
-      cardCount: saved.cards.length,
-      artifactPath: ArtifactPath.artifactFile(
-        ctx.directory,
-        ARTIFACT_KINDS.flashcardDeck,
-        saved.artifactID,
-        ARTIFACT_CONTENT_FILES.flashcardDeck,
-      ),
+    const buddyObjectResult = buildSaveFlashcardDeckObjectResult({
+      objectID: saved.objectID,
+      revisionID: saved.revisionID,
+      title: saved.deck.title,
+      noteCount: saved.deck.notes.length,
+      cardCount: saved.deck.cards.length,
     })
 
     return {
       title: "Saved flashcard deck",
-      output: JSON.stringify(output, null, 2),
+      output: [
+        buddyObjectResult.message,
+        ...formatBuddyObjectRefLines(buddyObjectResult.primaryRef),
+        `revision_id=${saved.revisionID}`,
+        `note_count=${saved.deck.notes.length}`,
+        `card_count=${saved.deck.cards.length}`,
+      ].join("\n"),
       metadata: {
-        artifact: "SaveFlashcardDeckOutput",
-        value: output,
+        buddyObjectResult,
       },
     }
   },

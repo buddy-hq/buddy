@@ -13,7 +13,7 @@ export const activeResourceSection = defineRuntimeSection({
   render: (context) => {
     const resource = context.activeResource!
     const fields = [
-      ...(resource.id ? [`id=${resource.id}`] : []),
+      ...(resource.objectID ? [`object_id=${resource.objectID}`] : []),
       ...(resource.alias ? [`alias=${resource.alias}`] : []),
       ...(resource.status ? [`status=${resource.status}`] : []),
     ]

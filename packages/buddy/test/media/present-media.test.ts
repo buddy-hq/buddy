@@ -5,10 +5,9 @@ import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import {
-  buildPresentedMediaOutput,
-  listPresentedMediaArtifactSummaries,
+  buildPresentedMediaObjectOutput,
   PresentedMediaValidationError,
-  readPresentedMediaArtifact,
+  readPresentedMediaObject,
 } from "../../src/learning/features/media-presentations/service/file-media"
 import {
   createToolContext,
@@ -28,7 +27,7 @@ describe("present media", () => {
     const output = await OpenCodeInstance.provide({
       directory: project.path,
       fn: async () =>
-        buildPresentedMediaOutput({
+        buildPresentedMediaObjectOutput({
           directory: project.path,
           items: [
             {
@@ -41,9 +40,9 @@ describe("present media", () => {
         }),
     })
 
-    expect(output.layout).toBe("gallery")
-    expect(output.items).toHaveLength(2)
-    expect(output.items.every((item) => item.renderMode === "image")).toBe(true)
+    expect(output.output.layout).toBe("grid")
+    expect(output.output.items).toHaveLength(2)
+    expect(output.output.items.every((item) => item.renderMode === "image")).toBe(true)
   })
 
   test("returns raw URLs for absolute local paths outside the workspace", async () => {
@@ -55,7 +54,7 @@ describe("present media", () => {
     const output = await OpenCodeInstance.provide({
       directory: project.path,
       fn: async () =>
-        buildPresentedMediaOutput({
+        buildPresentedMediaObjectOutput({
           directory: project.path,
           items: [
             {
@@ -65,13 +64,17 @@ describe("present media", () => {
         }),
     })
 
-    expect(output.items[0]?.displayPath).toBe(await fs.realpath(localPath))
-    expect(output.items[0]?.actionCapabilities.canOpenInWorkspacePanel).toBe(false)
-    expect(output.items[0]?.rawUrl?.startsWith("/api/artifacts/media-presentation/")).toBe(true)
-    expect(output.items[0]?.rawUrl).toContain("/raw/media_item_1")
-    expect(output.items[0]?.rawUrl).toContain(`directory=${encodeURIComponent(project.path)}`)
-    expect(output.items[0]?.rawUrl).toContain("fileName=outside.png")
-    expect(output.items[0]?.rawUrl?.includes(encodeURIComponent(localPath))).toBe(false)
+    expect(output.output.items[0]?.displayPath).toBe(await fs.realpath(localPath))
+    expect(output.output.items[0]?.actionCapabilities.canOpenInWorkspacePanel).toBe(false)
+    expect(output.output.items[0]?.rawUrl?.startsWith("/api/objects/media-presentation/")).toBe(
+      true,
+    )
+    expect(output.output.items[0]?.rawUrl).toContain(`/${output.output.objectID}/raw/media_item_1`)
+    expect(output.output.items[0]?.rawUrl).toContain(
+      `directory=${encodeURIComponent(project.path)}`,
+    )
+    expect(output.output.items[0]?.rawUrl).toContain("fileName=outside.png")
+    expect(output.output.items[0]?.rawUrl?.includes(encodeURIComponent(localPath))).toBe(false)
   })
 
   test("registers present_media and returns structured metadata", async () => {
@@ -104,11 +107,14 @@ describe("present media", () => {
     })
 
     expect(result.output).toContain("Presented 1 media item")
-    const metadataValue = result.metadata?.value as
-      | { items: Array<{ renderMode: string }> }
-      | undefined
-    expect(result.metadata?.artifact).toBe("PresentedMediaOutput")
-    expect(metadataValue?.items[0]?.renderMode).toBe("pdf")
+    expect(result.metadata?.buddyObjectResult?.primaryRef.kind).toBe("media-presentation")
+    expect(result.metadata?.buddyObjectResult?.primaryRef.objectID).toBeTruthy()
+    expect(
+      result.metadata?.buddyObjectResult?.presentations[0]?.data.items[0]?.mediaType,
+    ).toBe("pdf")
+    expect(
+      result.metadata?.buddyObjectResult?.presentations[0]?.data.items[0]?.mimeType,
+    ).toBe("application/pdf")
   })
 
   test("accepts an absolute local image path outside the workspace", async () => {
@@ -120,7 +126,7 @@ describe("present media", () => {
     const output = await OpenCodeInstance.provide({
       directory: project.path,
       fn: async () =>
-        buildPresentedMediaOutput({
+        buildPresentedMediaObjectOutput({
           directory: project.path,
           items: [
             {
@@ -130,11 +136,15 @@ describe("present media", () => {
         }),
     })
 
-    expect(output.items[0]?.absolutePath).toBe(await fs.realpath(localPath))
-    expect(output.items[0]?.actionCapabilities.canOpenInWorkspacePanel).toBe(false)
-    expect(output.items[0]?.rawUrl?.startsWith("/api/artifacts/media-presentation/")).toBe(true)
-    expect(output.items[0]?.rawUrl).toContain("/raw/media_item_1")
-    expect(output.items[0]?.rawUrl?.includes(encodeURIComponent(localPath))).toBe(false)
+    expect(output.output.items[0]?.absolutePath).toBe(await fs.realpath(localPath))
+    expect(output.output.items[0]?.actionCapabilities.canOpenInWorkspacePanel).toBe(false)
+    expect(output.output.items[0]?.rawUrl?.startsWith("/api/objects/media-presentation/")).toBe(
+      true,
+    )
+    expect(output.output.items[0]?.rawUrl).toContain(
+      `/${output.output.objectID}/raw/media_item_1`,
+    )
+    expect(output.output.items[0]?.rawUrl?.includes(encodeURIComponent(localPath))).toBe(false)
   })
 
   test("accepts a file url path", async () => {
@@ -146,7 +156,7 @@ describe("present media", () => {
     const output = await OpenCodeInstance.provide({
       directory: project.path,
       fn: async () =>
-        buildPresentedMediaOutput({
+        buildPresentedMediaObjectOutput({
           directory: project.path,
           items: [
             {
@@ -156,7 +166,7 @@ describe("present media", () => {
         }),
     })
 
-    expect(output.items[0]?.actionCapabilities.canOpenInWorkspacePanel).toBe(false)
+    expect(output.output.items[0]?.actionCapabilities.canOpenInWorkspacePanel).toBe(false)
   })
 
   test("accepts a home-relative path", async () => {
@@ -170,7 +180,7 @@ describe("present media", () => {
       const output = await OpenCodeInstance.provide({
         directory: project.path,
         fn: async () =>
-          buildPresentedMediaOutput({
+          buildPresentedMediaObjectOutput({
             directory: project.path,
             items: [
               {
@@ -180,7 +190,7 @@ describe("present media", () => {
           }),
       })
 
-      expect(output.items[0]?.absolutePath).toBe(await fs.realpath(localPath))
+      expect(output.output.items[0]?.absolutePath).toBe(await fs.realpath(localPath))
     } finally {
       await fs.rm(localPath, { force: true })
     }
@@ -193,7 +203,7 @@ describe("present media", () => {
       OpenCodeInstance.provide({
         directory: project.path,
         fn: async () =>
-          buildPresentedMediaOutput({
+          buildPresentedMediaObjectOutput({
             directory: project.path,
             items: [
               {
@@ -212,22 +222,16 @@ describe("present media", () => {
     await fs.writeFile(firstPath, "first")
     await fs.writeFile(secondPath, "second")
 
-    const output = await buildPresentedMediaOutput({
+    const result = await buildPresentedMediaObjectOutput({
       directory: project.path,
       items: [{ path: firstPath }, { path: secondPath }],
     })
     await fs.rm(secondPath)
 
-    const read = await readPresentedMediaArtifact(project.path, output.artifactID)
-    expect(read.summary.items.map((item) => item.availability.status)).toEqual([
-      "available",
-      "missing",
-    ])
-
-    const listed = await listPresentedMediaArtifactSummaries(project.path)
-    expect(listed.artifacts[0]?.summary.items.map((item) => item.availability.status)).toEqual([
-      "available",
-      "missing",
-    ])
+    const read = await readPresentedMediaObject({
+      directory: project.path,
+      objectID: result.output.objectID,
+    })
+    expect(read.inlineData.items.map((item) => item.availability)).toEqual(["available", "missing"])
   })
 })

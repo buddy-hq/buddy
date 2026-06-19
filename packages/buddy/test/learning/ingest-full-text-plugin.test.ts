@@ -43,6 +43,16 @@ const LARGE_TEST_ACTIVE_MODEL: ActiveProviderModel = {
   },
 }
 
+const SMALL_TEST_ACTIVE_MODEL: ActiveProviderModel = {
+  providerID: ProviderID.opencode,
+  id: "test-small-model",
+  limit: {
+    context: 50_000,
+    input: 50_000,
+    output: 8_192,
+  },
+}
+
 function createUserMessageHistory(sessionID: string): MessageV2.WithParts[] {
   return [
     {
@@ -155,7 +165,7 @@ describe("ingest_full_text via plugin shim", () => {
 
         const ingestPlugin = buddyToolToPluginTool(ingestFullTextTool, project.path)
         const ingestResult = await ingestPlugin.execute(
-          { resource: "frames-md" },
+          { resourceKey: "frames-md" },
           createPluginExecuteContext(pluginContext),
         )
 
@@ -209,9 +219,8 @@ describe("ingest_full_text via plugin shim", () => {
         )
         expect(prepareResult.output).toContain("status=ready")
 
-        const ingestResult = await ingestTool.execute({ resource: "large-frames-md" }, ctx)
+        const ingestResult = await ingestTool.execute({ resourceKey: "large-frames-md" }, ctx)
         expect(ingestResult.metadata.truncated).toBe(false)
-        expect("outputPath" in ingestResult.metadata).toBe(false)
         expect(ingestResult.output).toContain("<resource_full_text_ingestion")
         expect(ingestResult.output).toContain("<full_text>")
         expect(ingestResult.output).toContain(repeatedLine.trim())
@@ -221,4 +230,80 @@ describe("ingest_full_text via plugin shim", () => {
       },
     })
   }, 30_000)
+
+  test("returns scoped-reading fallback instead of throwing when full text lacks headroom", async () => {
+    await using project = await tmpdir({ git: true })
+    await ensureBuddyPluginTools(project.path)
+
+    const sourcePath = path.join(project.path, "small-window.md")
+    const reservePressureLine =
+      "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi omicron\n"
+    writeFileSync(
+      sourcePath,
+      "# Small Window\n\n" +
+        "A prepared text large enough to leave less than the post-ingest reserve on a small model.\n\n" +
+        reservePressureLine.repeat(300),
+      "utf8",
+    )
+
+    const sessionID = "ses_ingest_full_text_small_window"
+    const messages = createUserMessageHistory(sessionID)
+
+    await OpenCodeInstance.provide({
+      directory: project.path,
+      async fn() {
+        const preparePlugin = buddyToolToPluginTool(
+          (await import("../../src/learning/features/reading/tools/prepare-resource"))
+            .prepareResourceTool,
+          project.path,
+        )
+        const prepareResult = await preparePlugin.execute(
+          {
+            sourcePath,
+            alias: "small-window-md",
+            waitUntilReady: true,
+            maxWaitMs: 20_000,
+          },
+          createPluginExecuteContext({
+            directory: project.path,
+            sessionID,
+            messages,
+            model: SMALL_TEST_ACTIVE_MODEL,
+          }),
+        )
+
+        expect(typeof prepareResult).toBe("object")
+        if (typeof prepareResult === "string") {
+          throw new Error("Expected prepare_resource object result")
+        }
+        expect(prepareResult.output).toContain("status=ready")
+
+        const ingestPlugin = buddyToolToPluginTool(ingestFullTextTool, project.path)
+        const ingestResult = await ingestPlugin.execute(
+          { resourceKey: "small-window-md" },
+          createPluginExecuteContext({
+            directory: project.path,
+            sessionID,
+            messages,
+            model: SMALL_TEST_ACTIVE_MODEL,
+          }),
+        )
+
+        expect(typeof ingestResult).toBe("object")
+        if (typeof ingestResult === "string") {
+          throw new Error("Expected ingest_full_text object result")
+        }
+        const ingestMetadata = ingestResult.metadata
+        if (!ingestMetadata) {
+          throw new Error("Expected ingest_full_text metadata")
+        }
+        expect(ingestMetadata.completed).toBe(false)
+        expect(ingestMetadata.reason).toBe("context_too_full")
+        expect(ingestMetadata.fallback).toBe("scoped_reading")
+        expect(ingestResult.output).toContain('completed="false"')
+        expect(ingestResult.output).toContain("Continue with scoped reading")
+        expect(ingestResult.output).not.toContain("<full_text>")
+      },
+    })
+  })
 })

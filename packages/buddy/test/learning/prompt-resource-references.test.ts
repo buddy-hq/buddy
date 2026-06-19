@@ -4,7 +4,7 @@ import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
-import { ensureResourcePack } from "../../src/resources/resource-pack-service"
+import { addResource, resolveResourceReference } from "../../src/resources/resource-registry-service"
 import {
   flattenPromptPartsForRuntime,
   RESOURCE_REFERENCE_PART_TYPE,
@@ -12,6 +12,29 @@ import {
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "../../src/learning/prompt/workspace-file-references"
 import { tmpdir } from "../helpers/tmpdir"
+
+const RESOURCE_REFERENCE_WAIT_ATTEMPTS = 40
+const RESOURCE_REFERENCE_WAIT_MS = 25
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function waitForReadyResourceReference(input: {
+  directory: string
+  key: string
+}): Promise<Extract<Awaited<ReturnType<typeof resolveResourceReference>>, { ok: true }>> {
+  for (let attempt = 0; attempt < RESOURCE_REFERENCE_WAIT_ATTEMPTS; attempt += 1) {
+    const resolved = await resolveResourceReference(input)
+    if (resolved.ok) return resolved
+    if (resolved.reason !== "not_ready") {
+      throw new Error(`Resource reference did not become ready: ${resolved.reason}`)
+    }
+    await sleep(RESOURCE_REFERENCE_WAIT_MS)
+  }
+
+  throw new Error("Timed out waiting for resource reference preparation.")
+}
 
 describe("message prompt resource references", () => {
   test("rewrites raw file references and workspace-file-reference parts", async () => {
@@ -65,17 +88,22 @@ describe("message prompt resource references", () => {
   test("resolves explicit resource-reference parts to pack entry files", async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)
-    const packKey = "shape-up"
-    const sourcePath = path.join(project.path, "resources", packKey, "guide.html")
+    const alias = "shape-up"
+    const sourcePath = path.join(project.path, "source-materials", "guide.html")
     mkdirSync(path.dirname(sourcePath), { recursive: true })
     writeFileSync(
       sourcePath,
       "<!doctype html><html><body><h1>Shape Up</h1><h2>Chapter 1</h2><p>Start</p></body></html>",
       "utf8",
     )
-    const prepared = await ensureResourcePack({
+    await addResource({
       directory: project.path,
       sourcePath,
+      alias,
+    })
+    const prepared = await waitForReadyResourceReference({
+      directory: project.path,
+      key: alias,
     })
     const entrypointPath = prepared.entrypointPath
     const tocPath = prepared.tocPath
@@ -91,7 +119,7 @@ describe("message prompt resource references", () => {
         parts: [
           {
             type: RESOURCE_REFERENCE_PART_TYPE,
-            key: packKey,
+            key: alias,
           },
         ],
         agent: "custom-agent",

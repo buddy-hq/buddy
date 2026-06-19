@@ -3,13 +3,15 @@ import fs from "node:fs/promises"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src"
-import {
-  ARTIFACT_CONTENT_FILES,
-  ARTIFACT_KINDS,
-  ArtifactPath,
-} from "../../src/artifacts"
 import { renderGeometryFigure } from "../../src/learning/features/figure-rendering/geometry/render-figure"
 import { RenderFigureOutputSchema } from "../../src/learning/features/figure-rendering/geometry/types"
+import {
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectPath,
+  BuddyObjectResultSchema,
+  type BuddyObjectResult,
+  type BuddyObjectRef,
+} from "../../src/objects"
 import type { RenderFigureInput } from "../../src/learning/features/figure-rendering/geometry/tools/render-figure"
 import { tmpdir } from "../helpers/tmpdir"
 import {
@@ -19,20 +21,63 @@ import {
   TEST_TOOL_MODEL,
 } from "../helpers/tools"
 
-function figureFile(directory: string, artifactID: string): string {
-  return ArtifactPath.artifactFile(
+const FIGURE_SVG_FILE_NAME = "figure.svg"
+
+function figureFile(directory: string, objectID: string, revisionID: string): string {
+  return BuddyObjectPath.objectFile(
     directory,
-    ARTIFACT_KINDS.figure,
-    artifactID,
-    ARTIFACT_CONTENT_FILES.figureSvg,
+    BUDDY_OBJECT_KINDS.figure,
+    objectID,
+    "revisions",
+    revisionID,
+    FIGURE_SVG_FILE_NAME,
   )
 }
 
-function figureRelativePath(artifactID: string): string {
-  return `${ArtifactPath.relativeArtifactDirectory(
-    ARTIFACT_KINDS.figure,
-    artifactID,
-  )}/${ARTIFACT_CONTENT_FILES.figureSvg}`
+function figureRelativePath(objectID: string, revisionID: string): string {
+  return `${BuddyObjectPath.relativeObjectDirectory(
+    BUDDY_OBJECT_KINDS.figure,
+    objectID,
+  )}/revisions/${revisionID}/${FIGURE_SVG_FILE_NAME}`
+}
+
+function requireFigureRef(result: BuddyObjectResult): BuddyObjectRef {
+  const ref = result.primaryRef
+  expect(ref).not.toBeNull()
+  if (!ref) {
+    throw new Error("Expected a primary figure object reference.")
+  }
+  expect(ref.kind).toBe(BUDDY_OBJECT_KINDS.figure)
+  return ref
+}
+
+function requireRevisionID(ref: BuddyObjectRef): string {
+  expect(ref.revisionID).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+  if (!ref.revisionID) {
+    throw new Error("Expected a figure revision id.")
+  }
+  return ref.revisionID
+}
+
+function requireFigureData(result: BuddyObjectResult) {
+  const data = result.presentations[0]?.data
+  expect(data).toMatchObject({
+    renderer: "figure",
+    renderStatus: "ready",
+  })
+  if (data?.renderer !== "figure") {
+    throw new Error("Expected figure presentation data.")
+  }
+  return data
+}
+
+function requireObjectTitle(result: BuddyObjectResult): string {
+  const title = result.objects[0]?.title
+  expect(title).toBeTruthy()
+  if (!title) {
+    throw new Error("Expected a figure object title.")
+  }
+  return title
 }
 
 function baseFigureInput(): RenderFigureInput {
@@ -59,7 +104,7 @@ function baseFigureInput(): RenderFigureInput {
 }
 
 describe("figure tools", () => {
-  test("renders a valid geometry figure into a stable SVG artifact", async () => {
+  test("renders a valid geometry figure into a stable SVG object", async () => {
     await using project = await tmpdir({ git: true })
     await ensureBuddyPluginTools(project.path)
 
@@ -80,15 +125,46 @@ describe("figure tools", () => {
       },
     })
 
-    const payload = RenderFigureOutputSchema.parse(JSON.parse(result.output))
-    const filepath = figureFile(project.path, payload.artifactID)
+    const objectResult = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
+    const objectRef = requireFigureRef(objectResult)
+    const revisionID = requireRevisionID(objectRef)
+    const figureData = requireFigureData(objectResult)
+    const title = requireObjectTitle(objectResult)
+
+    const response = await app.request(
+      `/api/objects/${objectRef.kind}/${objectRef.objectID}?directory=${encodeURIComponent(
+        project.path,
+      )}`,
+    )
+    const body: unknown = await response.json()
+    const manifest = RenderFigureOutputSchema.parse({
+      objectID: objectRef.objectID,
+      revisionID,
+      mime: "image/svg+xml",
+      rawUrl: figureData.svgUrl,
+      relativePath: figureRelativePath(objectRef.objectID, revisionID),
+      alt: title,
+      caption: figureData.caption,
+      markdown: `![${title}](${figureData.svgUrl})`,
+      repairAttempts: 0,
+    })
+    expect(response.status).toBe(200)
+    expect(body).toMatchObject({
+      status: "ready",
+      manifest: {
+        kind: BUDDY_OBJECT_KINDS.figure,
+        objectID: objectRef.objectID,
+      },
+    })
+    const filepath = figureFile(project.path, manifest.objectID, manifest.revisionID)
     const svg = await fs.readFile(filepath, "utf8")
 
-    expect(payload.repairAttempts).toBe(0)
-    expect(payload.artifactID).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
-    expect(payload.relativePath).toBe(figureRelativePath(payload.artifactID))
-    expect(payload.alt).toBe("Geometry figure")
-    expect(payload.markdown).toContain(`/api/artifacts/figure/${payload.artifactID}/raw?directory=`)
+    expect(manifest.repairAttempts).toBe(0)
+    expect(manifest.objectID).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+    expect(manifest.revisionID).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+    expect(manifest.relativePath).toBe(figureRelativePath(manifest.objectID, manifest.revisionID))
+    expect(manifest.alt).toBe("Geometry figure")
+    expect(manifest.markdown).toContain(`/api/objects/figure/${manifest.objectID}/raw?directory=`)
     expect(svg.startsWith("<svg")).toBe(true)
     expect(svg).toContain("</svg>")
     expect(svg).toContain('paint-order="stroke fill"')
@@ -123,17 +199,18 @@ describe("figure tools", () => {
       },
     })
 
-    const payload = RenderFigureOutputSchema.parse(JSON.parse(result.output))
-    expect(payload.repairAttempts).toBeGreaterThan(0)
+    const objectResult = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
+    const objectRef = requireFigureRef(objectResult)
+    const revisionID = requireRevisionID(objectRef)
 
     const svg = await fs.readFile(
-      figureFile(project.path, payload.artifactID),
+      figureFile(project.path, objectRef.objectID, revisionID),
       "utf8",
     )
     expect(svg).toContain("<svg")
   })
 
-  test("tool metadata references only the rendered figure artifact", async () => {
+  test("tool metadata references only the rendered figure object", async () => {
     await using project = await tmpdir({ git: true })
     await ensureBuddyPluginTools(project.path)
 
@@ -154,18 +231,19 @@ describe("figure tools", () => {
       },
     })
 
-    const metadataValue = RenderFigureOutputSchema.parse(result.metadata?.value)
+    const metadataValue = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
+    const ref = requireFigureRef(metadataValue)
+    const revisionID = requireRevisionID(ref)
 
-    expect(result.metadata?.artifact).toBe("RenderFigureOutput")
-    expect(metadataValue.relativePath).toMatch(
-      /^\.buddy\/artifacts\/figure\/[0-9A-HJKMNP-TV-Z]{26}\/figure\.svg$/,
-    )
+    expect(ref.objectID).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+    expect(revisionID).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
+    requireFigureData(metadataValue)
     const indexResponse = await app.request(
-      `/api/artifacts?directory=${encodeURIComponent(project.path)}`,
+      `/api/objects?directory=${encodeURIComponent(project.path)}`,
     )
     const indexBody: unknown = await indexResponse.json()
     expect(indexBody).toMatchObject({
-      artifacts: [{ artifactID: metadataValue.artifactID, kind: "figure" }],
+      objects: [{ objectID: ref.objectID, kind: BUDDY_OBJECT_KINDS.figure }],
     })
     expect(JSON.stringify(indexBody)).not.toContain('"kind":"media-presentation"')
   })
@@ -205,7 +283,7 @@ describe("figure tools", () => {
     })
 
     const svg = await fs.readFile(
-      figureFile(project.path, rendered.artifactID),
+      figureFile(project.path, rendered.objectID, rendered.revisionID),
       "utf8",
     )
     expect(svg).toContain('x1="90" y1="40" x2="90" y2="150"')

@@ -712,9 +712,9 @@ This demonstrates a UML-style sequence diagram with 4 actors (User, Agent, App i
 ]
 \`\`\`
 
-## Checkpoints (restoring previous state)
+## Continuing the current board
 
-Every whiteboard_create_view call returns a `checkpointId` in its response, but you do not put that id inside `elements`. Buddy already knows the current session and resolves the current board internally.
+Every `whiteboard_create_view` call returns `metadata.continuationHandle` and the model-visible line `continuation_handle=current`. This is a continuation handle for Buddy's single current board, not a checkpoint or restore point, and you do not put it inside `elements`. Buddy already knows the current session and resolves the current board internally.
 
 To preserve the current board and apply local drawing changes, set `boardAction` to `continue_current_board`:
 

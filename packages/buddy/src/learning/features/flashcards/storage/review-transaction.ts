@@ -1,14 +1,7 @@
 import fs from "node:fs/promises"
 import path from "node:path"
 import z from "zod"
-import {
-  ARTIFACT_CONTENT_DIRECTORIES,
-  ARTIFACT_CONTENT_FILES,
-  ARTIFACT_KINDS,
-  ArtifactPath,
-  isNodeErrorCode,
-  readJsonFile,
-} from "../../../../artifacts"
+import { BUDDY_OBJECT_KINDS, BuddyObjectPath } from "../../../../objects"
 import { writeJsonFileAtomic } from "../../../../storage/atomic-file"
 import {
   FlashcardDeckSchema,
@@ -16,7 +9,9 @@ import {
   type FlashcardDeck,
   type ReviewRecord,
 } from "../types"
-import { writeFlashcardDeck } from "./save-deck"
+import { writeFlashcardDeckObjectState } from "./save-deck"
+
+const FLASHCARD_PENDING_REVIEW_FILE_NAME = "pending-review.json"
 
 const FlashcardReviewTransactionSchema = z.object({
   deck: FlashcardDeckSchema,
@@ -25,31 +20,47 @@ const FlashcardReviewTransactionSchema = z.object({
 
 type FlashcardReviewTransaction = z.infer<typeof FlashcardReviewTransactionSchema>
 
-function flashcardReviewDirectory(directory: string, artifactID: string): string {
-  return ArtifactPath.artifactFile(
+function isNodeErrorCode(error: unknown, code: string): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    error.code === code
+  )
+}
+
+async function readJsonFile<T>(filePath: string, schema: z.ZodSchema<T>): Promise<T> {
+  const parsed: unknown = JSON.parse(await fs.readFile(filePath, "utf8"))
+  return schema.parse(parsed)
+}
+
+function flashcardObjectReviewDirectory(directory: string, objectID: string): string {
+  return BuddyObjectPath.objectFile(
     directory,
-    ARTIFACT_KINDS.flashcardDeck,
-    artifactID,
-    ARTIFACT_CONTENT_DIRECTORIES.flashcardReviews,
+    BUDDY_OBJECT_KINDS.flashcardDeck,
+    objectID,
+    "state",
+    "reviews",
   )
 }
 
-function pendingFlashcardReviewFile(directory: string, artifactID: string): string {
+function pendingFlashcardObjectReviewFile(directory: string, objectID: string): string {
   return path.join(
-    flashcardReviewDirectory(directory, artifactID),
-    ARTIFACT_CONTENT_FILES.flashcardPendingReview,
+    flashcardObjectReviewDirectory(directory, objectID),
+    FLASHCARD_PENDING_REVIEW_FILE_NAME,
   )
 }
 
-function committedFlashcardReviewFile(
+function committedFlashcardObjectReviewFile(
   directory: string,
-  artifactID: string,
+  objectID: string,
   reviewID: string,
 ): string {
-  return path.join(flashcardReviewDirectory(directory, artifactID), `${reviewID}.json`)
+  return path.join(flashcardObjectReviewDirectory(directory, objectID), `${reviewID}.json`)
 }
 
-async function writePendingFlashcardReviewTransaction(input: {
+async function writePendingFlashcardObjectReviewTransaction(input: {
   directory: string
   deck: FlashcardDeck
   record: ReviewRecord
@@ -59,37 +70,37 @@ async function writePendingFlashcardReviewTransaction(input: {
     record: input.record,
   })
   await writeJsonFileAtomic(
-    pendingFlashcardReviewFile(input.directory, input.deck.artifactID),
+    pendingFlashcardObjectReviewFile(input.directory, input.deck.objectID),
     transaction,
   )
   return transaction
 }
 
-async function commitFlashcardReviewTransaction(
+async function commitFlashcardObjectReviewTransaction(
   directory: string,
   transaction: FlashcardReviewTransaction,
 ): Promise<void> {
-  const pendingFile = pendingFlashcardReviewFile(directory, transaction.deck.artifactID)
-  const committedFile = committedFlashcardReviewFile(
+  const pendingFile = pendingFlashcardObjectReviewFile(directory, transaction.deck.objectID)
+  const committedFile = committedFlashcardObjectReviewFile(
     directory,
-    transaction.deck.artifactID,
+    transaction.deck.objectID,
     transaction.record.reviewID,
   )
 
-  await writeFlashcardDeck({ directory, deck: transaction.deck })
+  await writeFlashcardDeckObjectState({ directory, deck: transaction.deck })
   await fs.mkdir(path.dirname(committedFile), { recursive: true })
   await writeJsonFileAtomic(committedFile, transaction.record)
   await fs.rm(pendingFile, { force: true })
 }
 
-async function recoverPendingFlashcardReview(
+async function recoverPendingFlashcardObjectReview(
   directory: string,
-  artifactID: string,
+  objectID: string,
 ): Promise<void> {
   let transaction: FlashcardReviewTransaction
   try {
     transaction = await readJsonFile(
-      pendingFlashcardReviewFile(directory, artifactID),
+      pendingFlashcardObjectReviewFile(directory, objectID),
       FlashcardReviewTransactionSchema,
     )
   } catch (error) {
@@ -98,11 +109,11 @@ async function recoverPendingFlashcardReview(
     }
     throw error
   }
-  await commitFlashcardReviewTransaction(directory, transaction)
+  await commitFlashcardObjectReviewTransaction(directory, transaction)
 }
 
 export {
-  commitFlashcardReviewTransaction,
-  recoverPendingFlashcardReview,
-  writePendingFlashcardReviewTransaction,
+  commitFlashcardObjectReviewTransaction,
+  recoverPendingFlashcardObjectReview,
+  writePendingFlashcardObjectReviewTransaction,
 }

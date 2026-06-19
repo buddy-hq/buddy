@@ -3,12 +3,14 @@ import { MessageID, PartID, SessionID } from "@buddy/opencode-adapter/id"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import type { MessageV2 } from "@buddy/opencode-adapter/message"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
+import { SessionStatus as OpenCodeSessionStatus } from "@buddy/opencode-adapter/session-status"
 import { SessionV2 as OpenCodeSessionV2 } from "@buddy/opencode-adapter/session-v2"
 import { withConfigSync } from "../../http"
 import {
   extractSdkErrorMessage,
   respondWithStreamSdkResult,
   sdkErrorResponse,
+  type SdkResult,
 } from "../../http/sdk-response"
 import { createSessionCommandTransform } from "../../learning/agent-execution/transforms/command-transform"
 import { createSessionMessageTransform } from "../../learning/agent-execution/transforms/message-transform"
@@ -16,17 +18,19 @@ import type {
   SessionTransform,
   SessionTransformContext,
 } from "../../learning/agent-execution/transforms/types"
+import { mapBuddyObjectRouteError } from "../../objects"
 import {
   createMermaidRepairRequest,
   isMermaidRepairExpired,
   nextExhaustedAutoRepairState,
   readMermaidRepairRequest,
-  readMermaidArtifact,
-  readMermaidRenderRecord,
+  readMermaidObject,
+  readMermaidObjectRenderRecord,
   updateMermaidRepairRequest,
-  updateMermaidAutoRepairState,
+  updateMermaidObjectAutoRepairState,
+  type MermaidObjectReadResult,
 } from "../../learning/features/diagrams/service/store"
-import { mapMermaidArtifactRouteError } from "../../learning/features/diagrams/errors"
+import { mapMermaidObjectRouteError } from "../../learning/features/diagrams/errors"
 import { assertSessionExistsInDirectory } from "./lookup"
 import { mapSessionTransformError } from "./errors"
 import {
@@ -35,9 +39,9 @@ import {
   prepareRuntimePromptBody,
   readValidatedJsonObject,
 } from "./sdk-session"
-import type {
-  MermaidArtifactReadResult,
-  MermaidAutoRepairState,
+import {
+  MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS,
+  type MermaidAutoRepairState,
 } from "../../learning/features/diagrams/service/types"
 import { getOpenCodeClient } from "../../opencode-runtime/client"
 import {
@@ -47,6 +51,85 @@ import {
 
 const MERMAID_AUTO_REPAIR_TIMEOUT_MESSAGE =
   "Automatic Mermaid repair timed out before a replacement diagram was created."
+const MERMAID_AUTO_REPAIR_COMPLETED_WITHOUT_REPLACEMENT_MESSAGE =
+  "Automatic Mermaid repair completed without creating a replacement diagram."
+const MERMAID_AUTO_REPAIR_IDLE_EXHAUST_GRACE_MS =
+  MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS * 2
+
+type RuntimeSessionMessage = Awaited<ReturnType<typeof OpenCodeSession.messages>>[number]
+
+type SessionPromptAsyncTransport = (input: {
+  directory: string
+  sessionID: string
+  body: Record<string, unknown>
+}) => Promise<SdkResult<unknown>>
+
+type MermaidRepairPromptRuntime = {
+  agent: string
+  model: {
+    providerID: string
+    modelID: string
+  }
+  variant?: string
+}
+
+type MermaidRepairPromptRuntimeResolver = (input: {
+  object: MermaidObjectReadResult
+  directory: string
+}) => Promise<MermaidRepairPromptRuntime | undefined>
+
+type SessionInteractionRuntime = {
+  assertSessionExists: typeof assertSessionExistsInDirectory
+  createPromptTransform: typeof createSessionMessageTransform
+  sendPromptAsync: SessionPromptAsyncTransport
+  resolveMermaidRepairPromptRuntime: MermaidRepairPromptRuntimeResolver
+  hasCompletedMermaidRepairAssistantMessage: (input: {
+    directory: string
+    sessionID: string
+    repairRequestID: string
+  }) => Promise<boolean>
+  isMermaidRepairSessionIdle: (input: {
+    directory: string
+    sessionID: string
+  }) => Promise<boolean>
+}
+
+async function sendSessionPromptAsyncToOpenCode(input: {
+  directory: string
+  sessionID: string
+  body: Record<string, unknown>
+}): Promise<SdkResult<unknown>> {
+  const client = await getOpenCodeClient(input.directory)
+  return client.session.promptAsync(
+    buildSessionSdkParameters({
+      sessionID: input.sessionID,
+      directory: input.directory,
+      body: input.body,
+    }),
+  )
+}
+
+let sessionInteractionRuntime: SessionInteractionRuntime = {
+  assertSessionExists: assertSessionExistsInDirectory,
+  createPromptTransform: createSessionMessageTransform,
+  sendPromptAsync: sendSessionPromptAsyncToOpenCode,
+  resolveMermaidRepairPromptRuntime: resolveMermaidRepairPromptRuntimeFromOpenCode,
+  hasCompletedMermaidRepairAssistantMessage: hasCompletedMermaidRepairAssistantMessageFromOpenCode,
+  isMermaidRepairSessionIdle: isMermaidRepairSessionIdleFromOpenCode,
+}
+
+export function setSessionInteractionRuntimeOverrides(
+  overrides: Partial<SessionInteractionRuntime>,
+): () => void {
+  const previousRuntime = sessionInteractionRuntime
+  sessionInteractionRuntime = {
+    ...sessionInteractionRuntime,
+    ...overrides,
+  }
+  return () => {
+    sessionInteractionRuntime = previousRuntime
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
@@ -79,21 +162,18 @@ async function queueSessionPromptAsync(input: {
     sessionID: input.sessionID,
     request: input.request,
   }
-  const promptTransform = createSessionMessageTransform({
+  const promptTransform = sessionInteractionRuntime.createPromptTransform({
     context: transformContext,
   })
 
   try {
     const transformed = await promptTransform.onTransform(input.body)
     const runtimeSafeBody = prepareRuntimePromptBody(transformed)
-    const client = await getOpenCodeClient(input.directory)
-    const result = await client.session.promptAsync(
-      buildSessionSdkParameters({
-        sessionID: input.sessionID,
-        directory: input.directory,
-        body: runtimeSafeBody,
-      }),
-    )
+    const result = await sessionInteractionRuntime.sendPromptAsync({
+      directory: input.directory,
+      sessionID: input.sessionID,
+      body: runtimeSafeBody,
+    })
 
     if (result.error) {
       promptTransform.rollbackState?.()
@@ -156,30 +236,103 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-type MermaidRepairPromptRuntime = {
-  agent: string
-  model: {
-    providerID: string
-    modelID: string
+function isCompletedMermaidRepairAssistantMessage(input: {
+  message: RuntimeSessionMessage
+  repairRequestID: string
+}): boolean {
+  const info = input.message.info
+  return (
+    info.role === "assistant" &&
+    info.parentID === input.repairRequestID &&
+    typeof info.time.completed === "number"
+  )
+}
+
+async function hasCompletedMermaidRepairAssistantMessageFromOpenCode(input: {
+  directory: string
+  sessionID: string
+  repairRequestID: string
+}): Promise<boolean> {
+  return OpenCodeInstance.provide({
+    directory: input.directory,
+    fn: async () => {
+      const messages = await OpenCodeSession.messages({
+        sessionID: SessionID.make(input.sessionID),
+      })
+      return messages.some((message) =>
+        isCompletedMermaidRepairAssistantMessage({
+          message,
+          repairRequestID: input.repairRequestID,
+        }),
+      )
+    },
+  })
+}
+
+async function isMermaidRepairSessionIdleFromOpenCode(input: {
+  directory: string
+  sessionID: string
+}): Promise<boolean> {
+  return OpenCodeInstance.provide({
+    directory: input.directory,
+    fn: async () => {
+      const status = await OpenCodeSessionStatus.get(SessionID.make(input.sessionID))
+      return status.type === "idle"
+    },
+  })
+}
+
+function isMermaidRepairPastIdleGrace(input: { createdAt: string }): boolean {
+  const createdAtMs = Date.parse(input.createdAt)
+  return (
+    Number.isFinite(createdAtMs) &&
+    Date.now() - createdAtMs >= MERMAID_AUTO_REPAIR_IDLE_EXHAUST_GRACE_MS
+  )
+}
+
+function mermaidSessionOrigin(object: MermaidObjectReadResult): {
+  sessionID: string
+  messageID: string
+} | undefined {
+  const origin = object.origin
+  if (origin.kind === "tool" || origin.kind === "markdown") {
+    return {
+      sessionID: origin.sessionID,
+      messageID: origin.messageID,
+    }
   }
-  variant?: string
+  return undefined
+}
+
+async function exhaustMermaidRepairRequest(input: {
+  directory: string
+  errorMessage: string
+  repairRequestID: string
+}) {
+  const request = await updateMermaidRepairRequest(input.directory, input.repairRequestID, {
+    status: "exhausted",
+    lastErrorMessage: input.errorMessage,
+  })
+  const currentObject = await readMermaidObject({
+    directory: input.directory,
+    objectID: request.objectID,
+  })
+  if (currentObject.revisionID === request.revisionID) {
+    await updateMermaidObjectAutoRepairState({
+      directory: input.directory,
+      objectID: request.objectID,
+      state: nextExhaustedAutoRepairState(input.errorMessage),
+    })
+  }
+  return request
 }
 
 async function exhaustMermaidRepairAttempt(input: {
-  artifactID: string
   directory: string
   errorMessage: string
   repairRequestID: string
 }): Promise<Response> {
-  await updateMermaidRepairRequest(input.directory, input.repairRequestID, {
-    status: "exhausted",
-    lastErrorMessage: input.errorMessage,
-  })
-  await updateMermaidAutoRepairState(
-    input.directory,
-    input.artifactID,
-    nextExhaustedAutoRepairState(input.errorMessage),
-  )
+  await exhaustMermaidRepairRequest(input)
   return Response.json({
     repairRequestID: input.repairRequestID,
     status: "exhausted",
@@ -189,7 +342,7 @@ async function exhaustMermaidRepairAttempt(input: {
 
 function mermaidAutoRepairPrompt(input: {
   repairRequestID: string
-  artifactID: string
+  objectID: string
   failedRenderKey: string
   errorMessage: string
   alt: string
@@ -197,20 +350,20 @@ function mermaidAutoRepairPrompt(input: {
   source: string
 }): string {
   return [
-    `<buddy_internal_mermaid_auto_repair repairRequestID="${input.repairRequestID}" artifactID="${input.artifactID}" failedRenderKey="${input.failedRenderKey}">`,
+    `<buddy_internal_mermaid_auto_repair repairRequestID="${input.repairRequestID}" objectID="${input.objectID}" failedRenderKey="${input.failedRenderKey}">`,
     "The previous Mermaid diagram failed in the browser renderer.",
     "",
     "Your task:",
     "1. Fix the Mermaid source below.",
     "2. Preserve the original intent, alt text, and caption.",
     "3. Call render_mermaid exactly once.",
-    `4. Include repairOfArtifactID: "${input.artifactID}" in the render_mermaid call.`,
+    `4. Include repairOfObjectID: "${input.objectID}" in the render_mermaid call.`,
     `5. Use exactly this alt text in the render_mermaid call: "${input.alt}".`,
     ...(input.caption
       ? [`6. Use exactly this caption in the render_mermaid call: "${input.caption}".`]
       : ["6. Do not invent a caption; omit caption unless the source itself requires one."]),
     "7. Do not answer with a visible explanation before calling render_mermaid.",
-    "8. Copy the artifact ID verbatim. Do not replace it with a placeholder, zeros, repeated characters, or a guessed ID.",
+    "8. Copy the object ID verbatim. Do not replace it with a placeholder, zeros, repeated characters, or a guessed ID.",
     "",
     "Original user-facing labels:",
     `Alt: ${input.alt}`,
@@ -227,18 +380,20 @@ function mermaidAutoRepairPrompt(input: {
   ].join("\n")
 }
 
-async function resolveMermaidRepairPromptRuntime(input: {
-  artifact: MermaidArtifactReadResult
+async function resolveMermaidRepairPromptRuntimeFromOpenCode(input: {
+  object: MermaidObjectReadResult
   directory: string
 }): Promise<MermaidRepairPromptRuntime | undefined> {
+  const origin = mermaidSessionOrigin(input.object)
+  if (!origin) return undefined
   return OpenCodeInstance.provide({
     directory: input.directory,
     fn: async () => {
       const v2Messages = await OpenCodeSessionV2.messages({
-        sessionID: OpenCodeSessionV2.ID.make(input.artifact.origin.sessionID),
+        sessionID: OpenCodeSessionV2.ID.make(origin.sessionID),
         order: "asc",
       })
-      const v2Message = v2Messages.find((entry) => entry.id === input.artifact.origin.messageID)
+      const v2Message = v2Messages.find((entry) => entry.id === origin.messageID)
       if (v2Message?.type === "assistant") {
         return {
           agent: v2Message.agent,
@@ -250,21 +405,21 @@ async function resolveMermaidRepairPromptRuntime(input: {
         }
       }
 
-      const legacyMessages = await OpenCodeSession.messages({
-        sessionID: SessionID.make(input.artifact.origin.sessionID),
+      const priorMessages = await OpenCodeSession.messages({
+        sessionID: SessionID.make(origin.sessionID),
       })
-      const legacyMessage = legacyMessages.find(
-        (entry) => entry.info.id === input.artifact.origin.messageID,
+      const priorMessage = priorMessages.find(
+        (entry) => entry.info.id === origin.messageID,
       )
-      if (!legacyMessage || legacyMessage.info.role !== "assistant") return undefined
+      if (!priorMessage || priorMessage.info.role !== "assistant") return undefined
 
       return {
-        agent: legacyMessage.info.agent,
+        agent: priorMessage.info.agent,
         model: {
-          providerID: legacyMessage.info.providerID,
-          modelID: legacyMessage.info.modelID,
+          providerID: priorMessage.info.providerID,
+          modelID: priorMessage.info.modelID,
         },
-        ...(legacyMessage.info.variant ? { variant: legacyMessage.info.variant } : {}),
+        ...(priorMessage.info.variant ? { variant: priorMessage.info.variant } : {}),
       }
     },
   })
@@ -335,7 +490,7 @@ export async function postSessionPromptAsync(c: Context): Promise<Response> {
 
   const sessionID = c.req.param("sessionID")
   try {
-    await assertSessionExistsInDirectory({
+    await sessionInteractionRuntime.assertSessionExists({
       directory: syncResult.value.directory,
       sessionID,
       request: c.req.raw,
@@ -347,7 +502,7 @@ export async function postSessionPromptAsync(c: Context): Promise<Response> {
       body,
     })
   } catch (error) {
-    const mermaidResponse = mapMermaidArtifactRouteError(error)
+    const mermaidResponse = mapBuddyObjectRouteError(error) ?? mapMermaidObjectRouteError(error)
     if (mermaidResponse) return mermaidResponse
     const response = mapSessionTransformError(c, error)
     if (response) return response
@@ -445,32 +600,37 @@ export async function postSessionMermaidRepairAsync(c: Context): Promise<Respons
     return Response.json({ error: "Invalid JSON body" }, { status: 400 })
   }
 
-  const artifactID = typeof body.artifactID === "string" ? body.artifactID : undefined
+  const objectID = typeof body.objectID === "string" ? body.objectID : undefined
   const failedRenderKey =
     typeof body.failedRenderKey === "string" ? body.failedRenderKey : undefined
-  if (!artifactID || !failedRenderKey) {
-    return Response.json({ error: "artifactID and failedRenderKey are required." }, { status: 400 })
+  if (!objectID || !failedRenderKey) {
+    return Response.json({ error: "objectID and failedRenderKey are required." }, { status: 400 })
   }
 
   try {
-    await assertSessionExistsInDirectory({
+    await sessionInteractionRuntime.assertSessionExists({
       directory: syncResult.value.directory,
       sessionID,
       request: c.req.raw,
     })
 
-    const artifact = await readMermaidArtifact(syncResult.value.directory, artifactID)
-    if (artifact.origin.sessionID !== sessionID) {
+    const object = await readMermaidObject({
+      directory: syncResult.value.directory,
+      objectID,
+    })
+    const objectOrigin = mermaidSessionOrigin(object)
+    if (objectOrigin?.sessionID !== sessionID) {
       return Response.json(
-        { error: "Mermaid artifact was not found for this session." },
+        { error: "Mermaid object was not found for this session." },
         { status: 404 },
       )
     }
-    const failedRender = await readMermaidRenderRecord(
-      syncResult.value.directory,
-      artifact.artifactID,
-      failedRenderKey,
-    )
+    const failedRender = await readMermaidObjectRenderRecord({
+      directory: syncResult.value.directory,
+      objectID: object.objectID,
+      revisionID: object.revisionID,
+      renderKey: failedRenderKey,
+    })
 
     if (failedRender.status !== "failed") {
       return Response.json(
@@ -478,15 +638,15 @@ export async function postSessionMermaidRepairAsync(c: Context): Promise<Respons
         { status: 400 },
       )
     }
-    if (artifact.sourceHash !== failedRender.sourceHash) {
+    if (object.sourceHash !== failedRender.sourceHash) {
       return Response.json(
         {
-          error: "Mermaid repair requires the failed render to match the current artifact source.",
+          error: "Mermaid repair requires the failed render to match the current object source.",
         },
         { status: 400 },
       )
     }
-    if (artifact.autoRepair.attempts >= 1) {
+    if (object.autoRepair.attempts >= 1) {
       return Response.json(
         { error: "Automatic Mermaid repair already used its single attempt." },
         { status: 409 },
@@ -496,22 +656,23 @@ export async function postSessionMermaidRepairAsync(c: Context): Promise<Respons
     const request = await createMermaidRepairRequest({
       directory: syncResult.value.directory,
       sessionID,
-      artifactID: artifact.artifactID,
+      objectID: object.objectID,
+      revisionID: object.revisionID,
       failedRenderKey,
     })
 
-    await updateMermaidAutoRepairState(
-      syncResult.value.directory,
-      artifact.artifactID,
-      runningMermaidAutoRepairState({
+    await updateMermaidObjectAutoRepairState({
+      directory: syncResult.value.directory,
+      objectID: object.objectID,
+      state: runningMermaidAutoRepairState({
         repairRequestID: request.repairRequestID,
         failedRenderKey,
       }),
-    )
+    })
 
-    const repairRuntime = await resolveMermaidRepairPromptRuntime({
+    const repairRuntime = await sessionInteractionRuntime.resolveMermaidRepairPromptRuntime({
       directory: syncResult.value.directory,
-      artifact,
+      object,
     })
 
     let response: Response
@@ -531,19 +692,18 @@ export async function postSessionMermaidRepairAsync(c: Context): Promise<Respons
             : {}),
           content: mermaidAutoRepairPrompt({
             repairRequestID: request.repairRequestID,
-            artifactID: artifact.artifactID,
+            objectID: object.objectID,
             failedRenderKey,
             errorMessage: failedRender.errorMessage,
-            alt: artifact.alt,
-            ...(artifact.caption ? { caption: artifact.caption } : {}),
-            source: artifact.source,
+            alt: object.alt,
+            ...(object.caption ? { caption: object.caption } : {}),
+            source: object.source,
           }),
         },
       })
     } catch (error) {
       return exhaustMermaidRepairAttempt({
         directory: syncResult.value.directory,
-        artifactID: artifact.artifactID,
         repairRequestID: request.repairRequestID,
         errorMessage: errorMessage(error),
       })
@@ -553,7 +713,6 @@ export async function postSessionMermaidRepairAsync(c: Context): Promise<Respons
       const errorMessage = await responseErrorMessage({ response })
       return exhaustMermaidRepairAttempt({
         directory: syncResult.value.directory,
-        artifactID: artifact.artifactID,
         repairRequestID: request.repairRequestID,
         errorMessage,
       })
@@ -564,7 +723,7 @@ export async function postSessionMermaidRepairAsync(c: Context): Promise<Respons
       status: "running",
     })
   } catch (error) {
-    const mermaidResponse = mapMermaidArtifactRouteError(error)
+    const mermaidResponse = mapBuddyObjectRouteError(error) ?? mapMermaidObjectRouteError(error)
     if (mermaidResponse) return mermaidResponse
     const response = mapSessionTransformError(c, error)
     if (response) return response
@@ -582,7 +741,7 @@ export async function getSessionMermaidRepairStatus(c: Context): Promise<Respons
   const repairRequestID = c.req.param("repairRequestID")
 
   try {
-    await assertSessionExistsInDirectory({
+    await sessionInteractionRuntime.assertSessionExists({
       directory: syncResult.value.directory,
       sessionID,
       request: c.req.raw,
@@ -593,32 +752,50 @@ export async function getSessionMermaidRepairStatus(c: Context): Promise<Respons
       return Response.json({ error: "Mermaid repair request was not found." }, { status: 404 })
     }
 
+    const hasCompletedRepairAssistantMessage =
+      request.status === "running" &&
+      (await sessionInteractionRuntime.hasCompletedMermaidRepairAssistantMessage({
+        directory: syncResult.value.directory,
+        sessionID,
+        repairRequestID: request.repairRequestID,
+      }))
+    const shouldExhaustIdleRepair =
+      request.status === "running" &&
+      !hasCompletedRepairAssistantMessage &&
+      isMermaidRepairPastIdleGrace(request) &&
+      (await sessionInteractionRuntime.isMermaidRepairSessionIdle({
+        directory: syncResult.value.directory,
+        sessionID,
+      }))
+    const shouldExhaustCompletedRepair =
+      hasCompletedRepairAssistantMessage || shouldExhaustIdleRepair
+
     const currentRequest = isMermaidRepairExpired(request)
-      ? await updateMermaidRepairRequest(syncResult.value.directory, request.repairRequestID, {
-          status: "exhausted",
-          lastErrorMessage: MERMAID_AUTO_REPAIR_TIMEOUT_MESSAGE,
-        }).then(async (updated) => {
-          await updateMermaidAutoRepairState(
-            syncResult.value.directory,
-            updated.artifactID,
-            nextExhaustedAutoRepairState(MERMAID_AUTO_REPAIR_TIMEOUT_MESSAGE),
-          )
-          return updated
+      ? await exhaustMermaidRepairRequest({
+          directory: syncResult.value.directory,
+          repairRequestID: request.repairRequestID,
+          errorMessage: MERMAID_AUTO_REPAIR_TIMEOUT_MESSAGE,
         })
-      : request
+      : shouldExhaustCompletedRepair
+        ? await exhaustMermaidRepairRequest({
+            directory: syncResult.value.directory,
+            repairRequestID: request.repairRequestID,
+            errorMessage: MERMAID_AUTO_REPAIR_COMPLETED_WITHOUT_REPLACEMENT_MESSAGE,
+          })
+        : request
 
     return Response.json({
       repairRequestID: currentRequest.repairRequestID,
       status: currentRequest.status,
-      ...(currentRequest.replacementArtifactID
-        ? { replacementArtifactID: currentRequest.replacementArtifactID }
+      ...(currentRequest.replacementRevisionID
+        ? { replacementRevisionID: currentRequest.replacementRevisionID }
         : {}),
       ...(currentRequest.lastErrorMessage
         ? { lastErrorMessage: currentRequest.lastErrorMessage }
         : {}),
     })
   } catch (error) {
-    const mermaidResponse = mapMermaidArtifactRouteError(error)
+    const mermaidResponse = mapBuddyObjectRouteError(error) ?? mapMermaidObjectRouteError(error)
     if (mermaidResponse) return mermaidResponse
     const response = mapSessionTransformError(c, error)
     if (response) return response

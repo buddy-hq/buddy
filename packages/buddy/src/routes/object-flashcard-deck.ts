@@ -1,13 +1,13 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
-import { mapArtifactRouteError } from "../artifacts"
 import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
-import { readFlashcardDeck } from "../learning/features/flashcards/storage/read-deck"
+import { BuddyObjectIDSchema, mapBuddyObjectRouteError } from "../objects"
+import { readFlashcardDeckObject } from "../learning/features/flashcards/storage/read-deck"
 import {
   FlashcardCardNotFoundError,
-  getNextFlashcardForReview,
-  submitFlashcardReview,
+  getNextFlashcardObjectForReview,
+  submitFlashcardObjectReview,
 } from "../learning/features/flashcards/storage/review"
 import {
   FlashcardCardSchema,
@@ -16,60 +16,64 @@ import {
   SubmitReviewOutputSchema,
 } from "../learning/features/flashcards/types"
 
-const artifactIDParamSchema = z.object({
-  artifactID: z.string(),
-})
+const objectIDParamSchema = z
+  .object({
+    objectID: BuddyObjectIDSchema,
+  })
+  .strict()
 
-const nextCardResponseSchema = z.object({
-  card: FlashcardCardSchema.nullable(),
-})
+const nextCardResponseSchema = z
+  .object({
+    card: FlashcardCardSchema.nullable(),
+  })
+  .strict()
 
-function mapFlashcardRouteError(error: unknown): Response | undefined {
+function mapFlashcardObjectRouteError(error: unknown): Response | undefined {
   if (error instanceof FlashcardCardNotFoundError) {
     return Response.json({ error: error.message }, { status: 404 })
   }
-  return mapArtifactRouteError(error)
+  return mapBuddyObjectRouteError(error)
 }
 
-export const FlashcardDeckRoutes = new Hono()
+export const ObjectFlashcardDeckRoutes = new Hono()
   .get(
-    "/:artifactID",
+    "/:objectID/deck",
     describeRoute({
-      operationId: "flashcardDeck.read",
-      summary: "Read a single flashcard deck with all notes and cards",
+      operationId: "objectFlashcardDeck.readDeck",
+      summary: "Read a flashcard-deck review payload with all notes and cards",
       responses: {
         200: {
-          description: "Full flashcard deck",
+          description: "Full flashcard-deck review payload",
           content: {
             "application/json": {
               schema: resolver(FlashcardDeckSchema),
             },
           },
         },
-        ...routeErrors(400, 403, 404),
+        ...routeErrors(400, 403, 404, 410, 500),
       },
     }),
     validator("query", directoryQuerySchema),
-    validator("param", artifactIDParamSchema),
+    validator("param", objectIDParamSchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const deck = await readFlashcardDeck(
+            const deck = await readFlashcardDeckObject(
               context.directory,
-              c.req.valid("param").artifactID,
+              c.req.valid("param").objectID,
             )
-            return Response.json(deck)
+            return c.json(deck)
           },
-          mapError: mapFlashcardRouteError,
+          mapError: mapFlashcardObjectRouteError,
         }),
       ),
   )
   .get(
-    "/:artifactID/next-card",
+    "/:objectID/next-card",
     describeRoute({
-      operationId: "flashcardDeck.nextCard",
-      summary: "Get the next due card for review",
+      operationId: "objectFlashcardDeck.nextCard",
+      summary: "Get the next due card for a flashcard-deck object review",
       responses: {
         200: {
           description: "Next card to review, or null if none due",
@@ -79,30 +83,30 @@ export const FlashcardDeckRoutes = new Hono()
             },
           },
         },
-        ...routeErrors(400, 403, 404),
+        ...routeErrors(400, 403, 404, 410, 500),
       },
     }),
     validator("query", directoryQuerySchema),
-    validator("param", artifactIDParamSchema),
+    validator("param", objectIDParamSchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const card = await getNextFlashcardForReview({
+            const card = await getNextFlashcardObjectForReview({
               directory: context.directory,
-              artifactID: c.req.valid("param").artifactID,
+              objectID: c.req.valid("param").objectID,
             })
-            return Response.json({ card: card ?? null })
+            return c.json({ card: card ?? null })
           },
-          mapError: mapFlashcardRouteError,
+          mapError: mapFlashcardObjectRouteError,
         }),
       ),
   )
   .post(
-    "/:artifactID/reviews",
+    "/:objectID/reviews",
     describeRoute({
-      operationId: "flashcardDeck.submitReview",
-      summary: "Submit a review answer for a card",
+      operationId: "objectFlashcardDeck.submitReview",
+      summary: "Submit a review answer for a flashcard-deck object card",
       responses: {
         200: {
           description: "Review result with updated card state",
@@ -112,28 +116,28 @@ export const FlashcardDeckRoutes = new Hono()
             },
           },
         },
-        ...routeErrors(400, 403, 404),
+        ...routeErrors(400, 403, 404, 410, 500),
       },
     }),
     validator("query", directoryQuerySchema),
-    validator("param", artifactIDParamSchema),
-    validator("json", SubmitReviewInputSchema.omit({ artifactID: true })),
+    validator("param", objectIDParamSchema),
+    validator("json", SubmitReviewInputSchema.omit({ objectID: true })),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
-            const { artifactID } = c.req.valid("param")
+            const { objectID } = c.req.valid("param")
             const payload = c.req.valid("json")
-            const result = await submitFlashcardReview({
+            const result = await submitFlashcardObjectReview({
               directory: context.directory,
-              artifactID,
+              objectID,
               cardID: payload.cardID,
               rating: payload.rating,
               timeTakenMs: payload.timeTakenMs,
             })
-            return Response.json(result)
+            return c.json(result)
           },
-          mapError: mapFlashcardRouteError,
+          mapError: mapFlashcardObjectRouteError,
         }),
       ),
   )

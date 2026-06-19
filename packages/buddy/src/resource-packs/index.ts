@@ -1,6 +1,5 @@
 export * from "./classification"
 export * from "./chunking-config"
 export * from "./contracts"
-export * from "./full-text"
-export * from "./paths"
-export * from "./service"
+export { resolveResourcePackFullTextMetadataFromRoot } from "./full-text"
+export { ensureResourcePackWithBuildInput } from "./service"

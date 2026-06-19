@@ -15,6 +15,16 @@ const CREATED_BUDDY_TOOL_IDS = new Set([
   ...allBuddyTools().map((tool) => tool.id),
   ...getDynamicToolSearchTools().map((tool) => tool.id),
 ])
+const PRESENT_HTML_WIDGET_REQUIRED_FIELDS = [
+  "action",
+  "path",
+  "objectID",
+  "entryPath",
+  "title",
+  "description",
+  "viewportPreset",
+] as const
+const BENCH_PRESENT_REQUIRED_FIELDS = ["action", "path", "resourceKey", "objectID"] as const
 
 const originalAdvancedMathReady = AdvancedMathRuntimeService.isReady.bind(
   AdvancedMathRuntimeService,
@@ -26,6 +36,35 @@ afterEach(async () => {
   StandardsRuntimeService.isReady = originalStandardsReady
   await OpenCodeInstance.disposeAll()
 })
+
+type JsonSchemaObject = Record<string, unknown>
+
+function isJsonSchemaObject(value: unknown): value is JsonSchemaObject {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function expectJsonSchemaObject(value: unknown, label: string): JsonSchemaObject {
+  expect(typeof value).toBe("object")
+  expect(value).not.toBeNull()
+  expect(Array.isArray(value)).toBe(false)
+  if (!isJsonSchemaObject(value)) {
+    throw new Error(`${label} must be a JSON Schema object.`)
+  }
+  return value
+}
+
+function expectStringNullableProperty(
+  properties: JsonSchemaObject,
+  propertyName: string,
+): JsonSchemaObject {
+  const property = expectJsonSchemaObject(
+    properties[propertyName],
+    `schema property ${propertyName}`,
+  )
+  expect(property.anyOf).toBeUndefined()
+  expect(property.type).toEqual(["string", "null"])
+  return property
+}
 
 describe("tool schema compatibility", () => {
   test("all Buddy createBuddyTool schemas serialize to object-root JSON Schema", async () => {
@@ -65,5 +104,63 @@ describe("tool schema compatibility", () => {
       }))
 
     expect(invalidSchemas).toEqual([])
-  }, 30_000)
+
+    const presentHtmlWidgetSchema = expectJsonSchemaObject(
+      toolSchemas.find((entry) => entry.id === "present_html_widget")?.schema,
+      "present_html_widget schema",
+    )
+    expect(presentHtmlWidgetSchema.additionalProperties).toBe(false)
+    expect(presentHtmlWidgetSchema.required).toEqual([...PRESENT_HTML_WIDGET_REQUIRED_FIELDS])
+    const properties = expectJsonSchemaObject(
+      presentHtmlWidgetSchema.properties,
+      "present_html_widget properties",
+    )
+    const actionProperty = expectJsonSchemaObject(
+      properties.action,
+      "present_html_widget.action",
+    )
+    expect(actionProperty.type).toBe("string")
+    expect(actionProperty.enum).toEqual(["present_path", "present_object"])
+    const pathProperty = expectStringNullableProperty(properties, "path")
+    expect(pathProperty.description).toContain("workspace-relative")
+    expect(pathProperty.description).toContain("absolute paths")
+    expect(pathProperty.description).toContain("resolve inside the current workspace")
+    expectStringNullableProperty(properties, "objectID")
+    expectStringNullableProperty(properties, "entryPath")
+    expectStringNullableProperty(properties, "title")
+    expectStringNullableProperty(properties, "description")
+    const viewportPresetProperty = expectStringNullableProperty(properties, "viewportPreset")
+    expect(viewportPresetProperty.enum).toContain("standard_16_10")
+    expect(viewportPresetProperty.enum).toContain(null)
+
+    const benchPresentSchema = expectJsonSchemaObject(
+      toolSchemas.find((entry) => entry.id === "bench_present")?.schema,
+      "bench_present schema",
+    )
+    expect(benchPresentSchema.additionalProperties).toBe(false)
+    expect(benchPresentSchema.required).toEqual([...BENCH_PRESENT_REQUIRED_FIELDS])
+    const benchProperties = expectJsonSchemaObject(
+      benchPresentSchema.properties,
+      "bench_present properties",
+    )
+    const benchActionProperty = expectJsonSchemaObject(
+      benchProperties.action,
+      "bench_present.action",
+    )
+    expect(benchActionProperty.type).toBe("string")
+    expect(benchActionProperty.enum).toEqual([
+      "present_object",
+      "present_file",
+      "present_resource",
+      "present_whiteboard",
+      "close",
+    ])
+    const benchPathProperty = expectStringNullableProperty(benchProperties, "path")
+    expect(benchPathProperty.description).toContain("Workspace-relative")
+    expect(benchPathProperty.description).toContain("present_html_widget")
+    const resourceKeyProperty = expectStringNullableProperty(benchProperties, "resourceKey")
+    expect(resourceKeyProperty.description).toContain("object id or alias")
+    const benchObjectIDProperty = expectStringNullableProperty(benchProperties, "objectID")
+    expect(benchObjectIDProperty.description).toContain("Buddy object id")
+  }, 180_000)
 })

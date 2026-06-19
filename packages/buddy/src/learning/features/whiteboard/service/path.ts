@@ -1,6 +1,14 @@
 import path from "node:path"
+import {
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectPath,
+  OBJECT_INDEX_DIRECTORY_NAME,
+  OBJECT_STATE_DIRECTORY_NAME,
+} from "../../../../objects"
 
 const SESSION_ID_PATTERN = /^[A-Za-z0-9_-]+$/u
+const WHITEBOARD_SESSION_INDEX_FILE_NAME = "sessions.json"
+const WHITEBOARD_SESSION_STATE_FILE_NAME = "session.json"
 
 class InvalidWhiteboardSessionIDError extends Error {
   constructor(sessionID: string) {
@@ -16,18 +24,28 @@ function sanitizeSessionID(sessionID: string): string {
   return sessionID
 }
 
-function root(directory: string): string {
-  return path.join(directory, ".buddy", "whiteboards-v1")
+function sessionIndexFile(directory: string): string {
+  return path.join(
+    BuddyObjectPath.kindRoot(directory, BUDDY_OBJECT_KINDS.whiteboard),
+    OBJECT_INDEX_DIRECTORY_NAME,
+    WHITEBOARD_SESSION_INDEX_FILE_NAME,
+  )
 }
 
-function sessionFile(directory: string, sessionID: string): string {
-  return path.join(root(directory), `${sanitizeSessionID(sessionID)}.json`)
+function sessionStateFile(directory: string, objectID: string): string {
+  return BuddyObjectPath.objectFile(
+    directory,
+    BUDDY_OBJECT_KINDS.whiteboard,
+    objectID,
+    OBJECT_STATE_DIRECTORY_NAME,
+    WHITEBOARD_SESSION_STATE_FILE_NAME,
+  )
 }
 
 const WhiteboardPath = {
-  root,
   sanitizeSessionID,
-  sessionFile,
+  sessionIndexFile,
+  sessionStateFile,
 }
 
 export { InvalidWhiteboardSessionIDError, WhiteboardPath }

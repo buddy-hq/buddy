@@ -2,6 +2,7 @@ import { createBuddyTool } from "../../../runtime/create-buddy-tool"
 import {
   BenchReadContextInputSchema,
   BenchReadContextOutputSchema,
+  benchTargetFromContextTarget,
   readCurrentBenchContext,
 } from "../context"
 
@@ -40,11 +41,8 @@ const benchReadContextTool = createBuddyTool({
       output: JSON.stringify(result, null, 2),
       metadata: {
         benchStatus: "open",
-        surface: result.target.type,
-        artifactKind: result.target.artifactKind,
-        path: result.target.path,
-        artifactID: result.target.artifactID,
-        resourceID: result.target.resourceID,
+        benchTarget: benchTargetFromContextTarget(result.target),
+        targetType: result.target.type,
         surfaceStatus: result.target.status,
       },
     }

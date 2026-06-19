@@ -1,11 +1,10 @@
 import z from "zod"
 import {
-  ARTIFACT_KINDS,
-  ArtifactIDSchema,
-  ArtifactManifestBaseSchema,
-  ArtifactToolOriginSchema,
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectIDSchema,
+  BuddyObjectOriginSchema,
   nonEmptyString,
-} from "../../../artifacts"
+} from "../../../objects"
 
 const timestampMs = z.number().int().nonnegative()
 
@@ -13,7 +12,7 @@ const timestampMs = z.number().int().nonnegative()
 // Constants
 // ---------------------------------------------------------------------------
 
-const FLASHCARD_DECK_KIND = ARTIFACT_KINDS.flashcardDeck
+const FLASHCARD_DECK_KIND = BUDDY_OBJECT_KINDS.flashcardDeck
 const FLASHCARD_SUBAGENT_ID = "flashcard-author" as const
 const FLASHCARD_SURFACE = "flashcard" as const
 
@@ -90,8 +89,8 @@ const ClozeFieldsSchema = z.object({
 })
 
 const FlashcardNoteSchema = z.object({
-  noteID: ArtifactIDSchema,
-  artifactID: ArtifactIDSchema,
+  noteID: BuddyObjectIDSchema,
+  objectID: BuddyObjectIDSchema,
   type: NoteTypeSchema,
   fields: z.union([BasicFieldsSchema, ClozeFieldsSchema]),
   tags: z.array(nonEmptyString).default([]),
@@ -103,8 +102,8 @@ const FlashcardNoteSchema = z.object({
 // ---------------------------------------------------------------------------
 
 const FlashcardCardSchema = z.object({
-  cardID: ArtifactIDSchema,
-  noteID: ArtifactIDSchema,
+  cardID: BuddyObjectIDSchema,
+  noteID: BuddyObjectIDSchema,
   templateIdx: z.number().int().nonnegative(),
   state: CardStateSchema,
   /** Timestamp ms – when this card is next due. */
@@ -120,11 +119,11 @@ const FlashcardCardSchema = z.object({
 })
 
 // ---------------------------------------------------------------------------
-// Deck (top-level artifact)
+// Deck (top-level object)
 // ---------------------------------------------------------------------------
 
 const FlashcardDeckSchema = z.object({
-  artifactID: ArtifactIDSchema,
+  objectID: BuddyObjectIDSchema,
   kind: z.literal(FLASHCARD_DECK_KIND),
   title: nonEmptyString,
   config: DeckConfigSchema,
@@ -132,9 +131,7 @@ const FlashcardDeckSchema = z.object({
   cards: z.array(FlashcardCardSchema),
   source: nonEmptyString.optional(),
   createdAt: z.string().datetime(),
-  createdBy: ArtifactToolOriginSchema.extend({
-    subagent: z.literal(FLASHCARD_SUBAGENT_ID),
-  }),
+  createdBy: BuddyObjectOriginSchema,
 })
 
 // ---------------------------------------------------------------------------
@@ -142,8 +139,8 @@ const FlashcardDeckSchema = z.object({
 // ---------------------------------------------------------------------------
 
 const ReviewRecordSchema = z.object({
-  reviewID: ArtifactIDSchema,
-  cardID: ArtifactIDSchema,
+  reviewID: BuddyObjectIDSchema,
+  cardID: BuddyObjectIDSchema,
   rating: CardRatingSchema,
   answeredAt: timestampMs,
   timeTakenMs: z.number().int().nonnegative(),
@@ -159,38 +156,15 @@ const ReviewRecordSchema = z.object({
 // Tool I/O schemas
 // ---------------------------------------------------------------------------
 
-const SaveFlashcardDeckOutputSchema = z.object({
-  artifactID: ArtifactIDSchema,
-  kind: z.literal(FLASHCARD_DECK_KIND),
-  title: nonEmptyString,
-  noteCount: z.number().int().positive(),
-  cardCount: z.number().int().positive(),
-  artifactPath: nonEmptyString,
-})
-
-const FlashcardDeckSummarySchema = z.object({
-  noteCount: z.number().int().nonnegative(),
-  cardCount: z.number().int().nonnegative(),
-  source: nonEmptyString.optional(),
-})
-
-const FlashcardDeckManifestSchema = ArtifactManifestBaseSchema.extend({
-  kind: z.literal(FLASHCARD_DECK_KIND),
-  origin: ArtifactToolOriginSchema.extend({
-    subagent: z.literal(FLASHCARD_SUBAGENT_ID),
-  }),
-  summary: FlashcardDeckSummarySchema,
-})
-
 const SubmitReviewInputSchema = z.object({
-  artifactID: ArtifactIDSchema,
-  cardID: ArtifactIDSchema,
+  objectID: BuddyObjectIDSchema,
+  cardID: BuddyObjectIDSchema,
   rating: CardRatingSchema,
   timeTakenMs: z.number().int().nonnegative(),
 })
 
 const SubmitReviewOutputSchema = z.object({
-  cardID: ArtifactIDSchema,
+  cardID: BuddyObjectIDSchema,
   newState: CardStateSchema,
   newInterval: z.number().nonnegative(),
   newEaseFactor: z.number().int().min(1300),
@@ -219,9 +193,6 @@ type FlashcardCard = z.infer<typeof FlashcardCardSchema>
 type FlashcardDeck = z.infer<typeof FlashcardDeckSchema>
 type ReviewRecord = z.infer<typeof ReviewRecordSchema>
 type DueCounts = z.infer<typeof DueCountsSchema>
-type FlashcardDeckManifest = z.infer<typeof FlashcardDeckManifestSchema>
-type FlashcardDeckSummary = z.infer<typeof FlashcardDeckSummarySchema>
-type SaveFlashcardDeckOutput = z.infer<typeof SaveFlashcardDeckOutputSchema>
 type SubmitReviewInput = z.infer<typeof SubmitReviewInputSchema>
 type SubmitReviewOutput = z.infer<typeof SubmitReviewOutputSchema>
 
@@ -242,12 +213,9 @@ export {
   FLASHCARD_SURFACE,
   FlashcardCardSchema,
   FlashcardDeckSchema,
-  FlashcardDeckManifestSchema,
-  FlashcardDeckSummarySchema,
   FlashcardNoteSchema,
   NoteTypeSchema,
   ReviewRecordSchema,
-  SaveFlashcardDeckOutputSchema,
   SubmitReviewInputSchema,
   SubmitReviewOutputSchema,
 }
@@ -261,12 +229,9 @@ export type {
   DueCounts,
   FlashcardCard,
   FlashcardDeck,
-  FlashcardDeckManifest,
-  FlashcardDeckSummary,
   FlashcardNote,
   NoteType,
   ReviewRecord,
-  SaveFlashcardDeckOutput,
   SubmitReviewInput,
   SubmitReviewOutput,
 }

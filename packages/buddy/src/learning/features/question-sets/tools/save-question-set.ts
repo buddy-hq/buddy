@@ -3,15 +3,24 @@ import {
   createBuddyTool,
   type BuddyToolContext,
 } from "@buddy/backend/learning/runtime/create-buddy-tool"
-import { generateArtifactID, nonEmptyString } from "../../../../artifacts"
+import {
+  BUDDY_OBJECT_KINDS,
+  BuddyObjectResultSchema,
+  formatBuddyObjectRefLines,
+  generateObjectID,
+  nonEmptyString,
+  objectSummaryBaseFromManifest,
+  type BuddyObjectResult,
+} from "../../../../objects"
 import SAVE_QUESTION_SET_DESCRIPTION from "./save-question-set.md"
 import {
-  QUESTION_SET_ARTIFACT_KIND,
   QUESTION_SET_SUBAGENT_ID,
-  SaveQuestionSetOutputSchema,
-  type SaveQuestionSetOutput,
+  type PublicQuestionSetObject,
 } from "../types"
-import { saveQuestionSetArtifact, buildQuestionSetArtifactUrl } from "../storage/save-artifact"
+import {
+  saveQuestionSetObject,
+  toPublicQuestionSetObject,
+} from "../storage/save-object"
 
 const GroupTypeSchema = z.enum(["quiz", "practice", "assessment"])
 
@@ -55,8 +64,52 @@ function createdByCallID(ctx: BuddyToolContext): string {
   return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : "unknown"
 }
 
+function buildSaveQuestionSetObjectResult(input: {
+  questionSet: PublicQuestionSetObject
+}): BuddyObjectResult {
+  const { questionSet } = input
+  const ref = {
+    kind: BUDDY_OBJECT_KINDS.questionSet,
+    objectID: questionSet.objectID,
+    revisionID: questionSet.revisionID,
+    itemID: null,
+  }
+  return BuddyObjectResultSchema.parse({
+    version: 1,
+    status: "ok",
+    reason: null,
+    message: `Saved question set ${questionSet.title}.`,
+    primaryRef: ref,
+    objects: [
+      objectSummaryBaseFromManifest({
+        kind: BUDDY_OBJECT_KINDS.questionSet,
+        objectID: questionSet.objectID,
+        title: questionSet.title,
+        status: "ready",
+        lifecycle: "revisioned",
+        sourceRoot: null,
+      }),
+    ],
+    presentations: [
+      {
+        ref,
+        viewID: "practice",
+        surface: "inline",
+        data: {
+          renderer: "question-set",
+          questionSet,
+        },
+        autoOpen: null,
+      },
+    ],
+  })
+}
+
 const saveQuestionSetTool = createBuddyTool({
   id: "save_question_set",
+  produces: {
+    buddyObjectResult: true,
+  },
   description: SAVE_QUESTION_SET_DESCRIPTION,
   parameters: SaveQuestionSetInputSchema,
   async execute(params: SaveQuestionSetInput, ctx: BuddyToolContext) {
@@ -65,19 +118,19 @@ const saveQuestionSetTool = createBuddyTool({
       patterns: ["*"],
       always: ["*"],
       metadata: {
-        kind: QUESTION_SET_ARTIFACT_KIND,
+        kind: BUDDY_OBJECT_KINDS.questionSet,
       },
     })
 
     const parsed = SaveQuestionSetInputSchema.parse(params)
-    const artifactID = generateArtifactID()
+    const objectID = generateObjectID()
     const createdAt = new Date().toISOString()
 
-    const saved = await saveQuestionSetArtifact({
+    const saved = await saveQuestionSetObject({
       directory: ctx.directory,
-      artifact: {
-        artifactID,
-        kind: QUESTION_SET_ARTIFACT_KIND,
+      payload: {
+        objectID,
+        kind: BUDDY_OBJECT_KINDS.questionSet,
         groupType: parsed.groupType ?? "quiz",
         title: parsed.title,
         ...(parsed.instructions ? { instructions: parsed.instructions } : {}),
@@ -94,21 +147,20 @@ const saveQuestionSetTool = createBuddyTool({
       },
     })
 
-    const output: SaveQuestionSetOutput = SaveQuestionSetOutputSchema.parse({
-      artifactID: saved.artifactID,
-      kind: saved.kind,
-      groupType: saved.groupType,
-      title: saved.title,
-      questionCount: saved.questions.length,
-      artifactUrl: buildQuestionSetArtifactUrl(ctx.directory, saved.artifactID),
+    const buddyObjectResult = buildSaveQuestionSetObjectResult({
+      questionSet: toPublicQuestionSetObject(saved.payload),
     })
 
     return {
       title: "Saved question set",
-      output: JSON.stringify(output, null, 2),
+      output: [
+        buddyObjectResult.message,
+        ...formatBuddyObjectRefLines(buddyObjectResult.primaryRef),
+        `revision_id=${saved.revisionID}`,
+        `question_count=${saved.payload.questions.length}`,
+      ].join("\n"),
       metadata: {
-        artifact: "SaveQuestionSetOutput",
-        value: output,
+        buddyObjectResult,
       },
     }
   },
