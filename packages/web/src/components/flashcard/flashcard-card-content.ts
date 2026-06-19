@@ -1,6 +1,6 @@
-import type { FlashcardDeckReadResponse } from "@buddy/sdk/types"
+import type { ObjectFlashcardDeckReadDeckResponse } from "@buddy/sdk/types"
 
-type FlashcardNote = FlashcardDeckReadResponse["notes"][number]
+type FlashcardNote = ObjectFlashcardDeckReadDeckResponse["notes"][number]
 
 type FlashcardBasicFields = {
   front: string

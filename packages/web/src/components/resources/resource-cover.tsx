@@ -7,7 +7,7 @@ import { resourceCoverQueryOptions, type ResourceFileExtension } from "@/state/r
 const RESOURCE_COVER_FRAME_CLASS =
   "relative aspect-[3/4] overflow-hidden rounded-xl border border-border-weaker-base bg-surface-base"
 const RESOURCE_COVER_BUTTON_CLASS =
-  "block text-left transition-colors hover:bg-surface-base-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
+  "block w-full text-left transition-colors hover:bg-surface-base-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-focus disabled:cursor-not-allowed disabled:opacity-60"
 const RESOURCE_COVER_PLACEHOLDER_CLASS =
   "flex size-full flex-col items-center justify-center bg-surface-raised-stronger px-4 text-center"
 const RESOURCE_COVER_ICON_FRAME_CLASS =

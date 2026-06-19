@@ -34,11 +34,9 @@ import {
   MAX_INLINE_PRESENTED_MEDIA_BYTES,
   buildPresentedMediaFileActionInput,
   isPresentedMediaOutsideNotebook,
-  readPresentedMediaOutputArtifact,
-  resolvePresentedMediaAvailability,
-  type PresentedMediaAvailabilityResolution,
+  presentedMediaItemFromInlineItem,
+  type MediaPresentationOutput,
   type PresentedMediaItem as PresentMediaItem,
-  type PresentedMediaOutput as PresentMediaOutput,
 } from "@/lib/presented-media"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { usePlatform } from "@/context/platform"
@@ -68,13 +66,37 @@ import { MultiViewShell } from "../../multi-view-shell"
 import { PresentedMediaPlayer } from "./media-player"
 import type { PresentMediaResolvedItem } from "./types"
 import type { ToolPartProps } from "../../registry"
+import {
+  objectBenchTarget,
+  readInlinePresentation,
+  type BuddyPresentationDescriptor,
+} from "../buddy-object-result"
+import { useHydratedInlinePresentation } from "../use-hydrated-inline-presentation"
+import { objectMediaAvailabilityQueryOptions } from "@/state/workspace-objects-query"
+import type { ObjectMediaPresentationAvailabilityResponse } from "@buddy/sdk/types"
 
 // ---------------------------------------------------------------------------
 // Data hooks
 // ---------------------------------------------------------------------------
 
-function parsePresentMediaOutput(state: ToolPartProps["state"]): PresentMediaOutput | undefined {
-  return readPresentedMediaOutputArtifact(state.metadata)
+function parseMediaPresentationOutput(
+  presentation: BuddyPresentationDescriptor,
+): MediaPresentationOutput | undefined {
+  if (!presentation || presentation.data?.renderer !== "media-gallery") return undefined
+
+  const items: PresentMediaItem[] = []
+  for (const item of presentation.data.items) {
+    const parsed = presentedMediaItemFromInlineItem(item)
+    if (!parsed) return undefined
+    items.push(parsed)
+  }
+
+  return {
+    objectID: presentation.ref.objectID,
+    kind: "media-presentation",
+    layout: presentation.data.layout,
+    items,
+  }
 }
 
 function resolvePresentedMediaStreamUrl(item: PresentMediaResolvedItem): string | null {
@@ -82,72 +104,35 @@ function resolvePresentedMediaStreamUrl(item: PresentMediaResolvedItem): string 
   return resolveAssetUrl(item.rawUrl)
 }
 
-function presentedMediaAvailabilityKey(
-  directory: string,
-  artifactID: string,
-  item: PresentMediaItem,
-) {
-  return [
-    directory,
-    artifactID,
-    item.displayPath,
-    item.rawUrl ?? "",
-    item.modifiedAt ?? "",
-    String(item.sizeBytes ?? ""),
-  ].join(":")
-}
-
-function presentedMediaAvailabilityQueryOptions(
-  directory: string,
-  artifactID: string,
-  item: PresentMediaItem,
-) {
-  return {
-    queryKey: [
-      "presented-media",
-      "availability",
-      presentedMediaAvailabilityKey(directory, artifactID, item),
-    ],
-    queryFn: () => resolvePresentedMediaAvailability(directory, artifactID, item),
-    retry: false,
-    refetchOnWindowFocus: false,
-  } as const
-}
-
 function mergeResolvedPresentedMediaItem(
   item: PresentMediaItem,
-  resolution: PresentedMediaAvailabilityResolution | undefined,
+  availability: ObjectMediaPresentationAvailabilityResponse | undefined,
 ): PresentMediaResolvedItem {
-  const refreshed = resolution?.item
-
   return {
     ...item,
-    absolutePath: refreshed?.absolutePath ?? item.absolutePath,
-    displayPath: refreshed?.displayPath ?? item.displayPath,
-    workspacePath: refreshed?.workspacePath ?? item.workspacePath,
-    fileName: refreshed?.fileName ?? item.fileName,
-    mediaKind: refreshed?.mediaKind ?? item.mediaKind,
-    renderMode: refreshed?.renderMode ?? item.renderMode,
-    mimeType: refreshed?.mimeType ?? item.mimeType,
-    sizeBytes: refreshed?.sizeBytes ?? item.sizeBytes,
-    modifiedAt: refreshed?.modifiedAt ?? item.modifiedAt,
-    rawUrl: refreshed?.rawUrl ?? item.rawUrl,
-    actionCapabilities: refreshed?.actionCapabilities ?? item.actionCapabilities,
-    availability: refreshed?.availability ?? item.availability,
-    resolvedAvailability: resolution?.availability ?? item.availability,
-    availabilityChecked: resolution !== undefined,
+    availability: availability ?? item.availability,
+    resolvedAvailability: availability ?? item.availability,
+    availabilityChecked: availability !== undefined,
   }
 }
 
 function usePresentedMediaAvailability(
   directory: string | undefined,
-  artifactID: string | undefined,
+  objectID: string | undefined,
   items: PresentMediaItem[] | undefined,
 ) {
   const availabilityQueries = useQueries({
-    queries: directory && artifactID
+    queries: directory && objectID
       ? (items ?? []).map((item) =>
-          presentedMediaAvailabilityQueryOptions(directory, artifactID, item),
+          ({
+            ...objectMediaAvailabilityQueryOptions({
+              directory,
+              objectID,
+              itemID: item.id,
+            }),
+            retry: false,
+            refetchOnWindowFocus: false,
+          }),
         )
       : [],
   })
@@ -248,7 +233,7 @@ function MediaFileRow(props: {
         canOpenDefaultApp: !!platform.openPath,
         canReveal: !!platform.revealPath,
       }),
-      ...(props.resource?.resourceID ? { resourceID: props.resource.resourceID } : {}),
+      ...(props.resource?.objectID ? { objectID: props.resource.objectID } : {}),
       ...(props.resource?.status ? { resourceStatus: props.resource.status } : {}),
     }),
     [platform.openPath, platform.revealPath, props.item, props.resource],
@@ -386,7 +371,7 @@ type MediaInteractionProps = {
 }
 
 function MediaImageGallery(
-  props: MediaInteractionProps & { artifactID: string; items: PresentMediaResolvedItem[] },
+  props: MediaInteractionProps & { objectID: string; items: PresentMediaResolvedItem[] },
 ) {
   const openBenchRoute = useOpenBench()
   const previewable = props.items.filter(
@@ -431,12 +416,12 @@ function MediaImageGallery(
         src: resolvePresentedMediaStreamUrl(item),
         alt: item.fileName,
         title: item.fileName,
-        benchTarget: {
-          type: "artifact",
+        benchTarget: objectBenchTarget({
           kind: "media-presentation",
-          artifactID: props.artifactID,
+          objectID: props.objectID,
+          viewID: "gallery",
           itemID: item.id,
-        },
+        }),
       }))}
       onOpenItem={(item) => {
         if (!item.benchTarget) return
@@ -474,7 +459,7 @@ function MediaPlayerFallback(props: MediaInteractionProps & { item: PresentMedia
 
 function MediaPlayerCollection(
   props: MediaInteractionProps & {
-    artifactID: string
+    objectID: string
     items: PresentMediaResolvedItem[]
   },
 ) {
@@ -487,16 +472,16 @@ function MediaPlayerCollection(
       setSelectedIndex(index)
       const item = props.items[index]
       if (!item) return
-      const selectedPlaybackKey = `${props.artifactID}:${item.id}`
+      const selectedPlaybackKey = `${props.objectID}:${item.id}`
       if (
         playingKey &&
-        playingKey.startsWith(`${props.artifactID}:`) &&
+        playingKey.startsWith(`${props.objectID}:`) &&
         playingKey !== selectedPlaybackKey
       ) {
         pausePlayback(playingKey)
       }
     },
-    [pausePlayback, playingKey, props.items, props.artifactID],
+    [pausePlayback, playingKey, props.items, props.objectID],
   )
 
   const playerForItem = (
@@ -506,7 +491,7 @@ function MediaPlayerCollection(
   ) => (
     <PresentedMediaPlayer
       item={item}
-      playbackKey={`${props.artifactID}:${item.id}`}
+      playbackKey={`${props.objectID}:${item.id}`}
       compact={compact}
       shouldLoad={props.items.length === 1 || index === selectedIndex}
       fallback={<MediaPlayerFallback {...props} item={item} />}
@@ -541,7 +526,7 @@ function MediaPlayerCollection(
 
 function PresentedMediaContent(props: {
   directory: string
-  artifactID: string
+  objectID: string
   items: PresentMediaResolvedItem[]
   onOpenResource: ToolPartProps["onOpenResource"]
 }) {
@@ -571,8 +556,8 @@ function PresentedMediaContent(props: {
   const onProcessResource = useCallback(
     async (resource: ResourceListItem | undefined, path: string) => {
       if (!resourceProcessingReady) return
-      if (resource?.resourceID) {
-        await rebuildResource(props.directory, { resourceKey: resource.resourceID })
+      if (resource?.objectID) {
+        await rebuildResource(props.directory, { resourceKey: resource.objectID })
       } else {
         await addResource(props.directory, { sourcePath: path })
       }
@@ -593,21 +578,21 @@ function PresentedMediaContent(props: {
       {images.length > 0 ? (
         <MediaImageGallery
           {...interactionProps}
-          artifactID={props.artifactID}
+          objectID={props.objectID}
           items={images}
         />
       ) : null}
       {videos.length > 0 ? (
         <MediaPlayerCollection
           {...interactionProps}
-          artifactID={props.artifactID}
+          objectID={props.objectID}
           items={videos}
         />
       ) : null}
       {audios.length > 0 ? (
         <MediaPlayerCollection
           {...interactionProps}
-          artifactID={props.artifactID}
+          objectID={props.objectID}
           items={audios}
         />
       ) : null}
@@ -642,20 +627,57 @@ function PresentedMediaContent(props: {
 // Entry point
 // ---------------------------------------------------------------------------
 
+function CompletedPresentMediaTool(props: {
+  toolProps: ToolPartProps
+  presentation: BuddyPresentationDescriptor
+  directory: string
+}) {
+  const hydrated = useHydratedInlinePresentation({
+    directory: props.directory,
+    presentation: props.presentation,
+  })
+  const media = parseMediaPresentationOutput(hydrated.presentation)
+  const resolvedItems = usePresentedMediaAvailability(
+    props.directory,
+    media?.objectID,
+    media?.items,
+  )
+
+  if (!media) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <ToolRow>
+          <ToolRowIcon>{props.toolProps.icon?.("size-3.5")}</ToolRowIcon>
+          <ToolRowAction>
+            <TextShimmer text={props.toolProps.info.title} active={hydrated.isPending} />
+          </ToolRowAction>
+        </ToolRow>
+        {hydrated.error ? <ToolErrorPanel error="Media presentation is unavailable." /> : null}
+      </div>
+    )
+  }
+
+  return (
+    <PresentedMediaContent
+      directory={props.directory}
+      objectID={media.objectID}
+      items={resolvedItems}
+      onOpenResource={props.toolProps.onOpenResource}
+    />
+  )
+}
+
 export function renderPresentMediaTool(props: ToolPartProps) {
   const output = props.state.output || (props.state.error ?? "")
   const showOutput = output.trim().length > 0
-  const media =
-    props.state.status === "completed" ? parsePresentMediaOutput(props.state) : undefined
-  const resolvedItems = usePresentedMediaAvailability(
-    props.directory,
-    media?.artifactID,
-    media?.items,
-  )
+  const presentation =
+    props.state.status === "completed"
+      ? readInlinePresentation(props.state.metadata, "media-gallery")
+      : undefined
   const running = props.state.status === "pending" || props.state.status === "running"
 
   // Running / error / no-media: show tool row
-  if (running || !media || !props.directory) {
+  if (running || !presentation || !props.directory) {
     return (
       <div className="flex flex-col gap-1.5">
         <ToolRow>
@@ -669,13 +691,11 @@ export function renderPresentMediaTool(props: ToolPartProps) {
     )
   }
 
-  // Completed with media: render content directly, no header
   return (
-    <PresentedMediaContent
+    <CompletedPresentMediaTool
+      toolProps={props}
+      presentation={presentation}
       directory={props.directory}
-      artifactID={media.artifactID}
-      items={resolvedItems}
-      onOpenResource={props.onOpenResource}
     />
   )
 }

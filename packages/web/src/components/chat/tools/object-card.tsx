@@ -4,7 +4,7 @@ import { MOTION_SOFT } from "./tool-motion"
 import { cn } from "@buddy/ui"
 import type { ToolState } from "./types"
 
-export type ArtifactCardProps = {
+export type ObjectCardProps = {
   title: string
   subtitle?: string
   badge?: string
@@ -18,7 +18,7 @@ export type ArtifactCardProps = {
   headerPosition?: "top" | "bottom"
 }
 
-export function ArtifactCard({
+export function ObjectCard({
   title,
   subtitle,
   badge,
@@ -30,7 +30,7 @@ export function ArtifactCard({
   innerClassName,
   showGrid = false,
   headerPosition = "top",
-}: ArtifactCardProps) {
+}: ObjectCardProps) {
   const header = (
     <div
       className={cn(

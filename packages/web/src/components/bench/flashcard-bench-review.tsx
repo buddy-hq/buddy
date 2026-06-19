@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { artifactRef, artifactTarget } from "@/components/bench/bench-context-utils"
+import { objectRef, objectTarget } from "@/components/bench/bench-context-utils"
 import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
 import {
@@ -9,22 +8,17 @@ import {
   type ReviewPhase,
 } from "@/components/flashcard/flashcard-review-content"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
-import {
-  workspaceArtifactsQueryKeys,
-  workspaceFlashcardDecksQueryOptions,
-} from "@/state/workspace-artifacts-query"
-import { artifactKindFilter } from "@/components/layout/chat-left-sidebar/library-artifact-selectors"
 import type {
-  FlashcardDeckReadResponse,
-  FlashcardDeckSubmitReviewResponse,
+  ObjectFlashcardDeckReadDeckResponse,
+  ObjectFlashcardDeckSubmitReviewResponse,
 } from "@buddy/sdk/types"
 import { buildFlashcardVisibleContent } from "@/components/flashcard/flashcard-card-content"
 
 type FlashcardBenchReviewProps = {
   directory: string
-  artifactID: string
+  objectID: string
   route: string
-  deck: FlashcardDeckReadResponse
+  deck: ObjectFlashcardDeckReadDeckResponse
 }
 
 type FetchNextCardOptions = {
@@ -33,7 +27,7 @@ type FetchNextCardOptions = {
 
 function buildFlashcardContextContent(input: {
   phase: ReviewPhase
-  deck: FlashcardDeckReadResponse
+  deck: ObjectFlashcardDeckReadDeckResponse
   revealed: boolean
   cardsReviewed: number
 }): string {
@@ -75,12 +69,7 @@ function buildFlashcardContextContent(input: {
 }
 
 export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
-  const queryClient = useQueryClient()
-  const decksQuery = useQuery(workspaceFlashcardDecksQueryOptions(props.directory))
-  const liveDeck = decksQuery.data?.artifacts
-    .filter(artifactKindFilter("flashcard-deck"))
-    .find((deck) => deck.artifactID === props.artifactID)
-  const [deck, setDeck] = useState<FlashcardDeckReadResponse>(props.deck)
+  const [deck, setDeck] = useState<ObjectFlashcardDeckReadDeckResponse>(props.deck)
   const [phase, setPhase] = useState<ReviewPhase>({ kind: "loading" })
   const [revealed, setRevealed] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -94,11 +83,19 @@ export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
     () => ({
       read: () => ({
         status: "open" as const,
-        target: artifactTarget({
-          artifactKind: "flashcard-deck",
+        target: objectTarget({
           directory: props.directory,
           title: deck.title,
-          artifactID: props.artifactID,
+          target: {
+            type: "object",
+            ref: {
+              kind: "flashcard-deck",
+              objectID: props.objectID,
+              revisionID: null,
+              itemID: null,
+            },
+            viewID: "review",
+          },
           route: props.route,
           status: phase.kind === "error" ? "error" : phase.kind === "loading" ? "loading" : "ready",
         }),
@@ -117,32 +114,24 @@ export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
           cardsReviewed,
         }),
         refs: [
-          artifactRef({
-            artifactID: props.artifactID,
-            note: "Flashcard deck artifact on Bench.",
+          objectRef({
+            objectID: props.objectID,
+            note: "Flashcard deck object on Bench.",
           }),
         ],
         hints: ["Do not include hidden answer text until it is revealed."],
       }),
     }),
-    [
-      cardsReviewed,
-      deck,
-      phase,
-      props.artifactID,
-      props.directory,
-      props.route,
-      revealed,
-    ],
+    [cardsReviewed, deck, phase, props.directory, props.objectID, props.route, revealed],
   )
   useRegisterBenchContextProvider(contextProvider)
 
   const fetchNextCard = useCallback(async (options?: FetchNextCardOptions): Promise<void> => {
     try {
       const response = requireBuddyData(
-        await getBuddyClient(props.directory).flashcardDeck.nextCard({
+        await getBuddyClient(props.directory).objectFlashcardDeck.nextCard({
           directory: props.directory,
-          artifactID: props.artifactID,
+          objectID: props.objectID,
         }),
       )
       if (options?.shouldApplyResult?.() === false) return
@@ -162,7 +151,7 @@ export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
       if (options?.shouldApplyResult?.() === false) return
       setPhase({ kind: "error", message: error instanceof Error ? error.message : String(error) })
     }
-  }, [props.artifactID, props.directory])
+  }, [props.directory, props.objectID])
 
   useEffect(() => {
     let active = true
@@ -190,10 +179,10 @@ export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
       setSwipeRating(rating)
 
       try {
-        const result: FlashcardDeckSubmitReviewResponse = requireBuddyData(
-          await getBuddyClient(props.directory).flashcardDeck.submitReview({
+        const result: ObjectFlashcardDeckSubmitReviewResponse = requireBuddyData(
+          await getBuddyClient(props.directory).objectFlashcardDeck.submitReview({
             directory: props.directory,
-            artifactID: props.artifactID,
+            objectID: props.objectID,
             cardID: phase.card.cardID,
             rating,
             timeTakenMs,
@@ -208,9 +197,6 @@ export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
         cardsReviewedRef.current += 1
         setCardsReviewed(cardsReviewedRef.current)
         await fetchNextCard()
-        void queryClient.invalidateQueries({
-          queryKey: workspaceArtifactsQueryKeys.flashcard(props.directory),
-        })
         setSubmitting(false)
       } catch (error) {
         setSubmitting(false)
@@ -220,7 +206,7 @@ export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
         })
       }
     },
-    [fetchNextCard, phase, props.artifactID, props.directory, queryClient, submitting],
+    [fetchNextCard, phase, props.directory, props.objectID, submitting],
   )
 
   return (
@@ -228,7 +214,6 @@ export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
       <ReviewContent
         phase={phase}
         deck={deck}
-        liveDeck={liveDeck}
         revealed={revealed}
         submitting={submitting}
         leechWarning={leechWarning}

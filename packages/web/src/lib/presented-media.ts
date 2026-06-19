@@ -3,12 +3,10 @@ import type {
   WorkspaceFilePanelMediaKind,
   WorkspaceFilePanelRenderMode,
 } from "@/state/workspace-file-panel-store"
-import type {
-  MediaPresentationReadResponse,
-  MediaPresentationResolveResponse,
-} from "@buddy/sdk/types"
 import type { WorkspaceFileActionInput } from "./use-workspace-file-open"
 import { getBuddyClient, requireBuddyData } from "./buddy-client"
+import { classifyWorkspaceMedia } from "./workspace-file-media"
+import { fileNameFromPath, normalizeRelativePath } from "./workspace-file-paths"
 
 export const MAX_INLINE_PRESENTED_MEDIA_BYTES = 512 * 1024 * 1024
 
@@ -50,25 +48,35 @@ const WORKSPACE_FILE_PANEL_MEDIA_KINDS = [
   "other",
 ] satisfies readonly WorkspaceFilePanelMediaKind[]
 
-const WORKSPACE_FILE_PANEL_RENDER_MODES = [
-  "image",
-  "audio",
-  "video",
-  "pdf",
-  "file",
-] satisfies readonly WorkspaceFilePanelRenderMode[]
+type PresentedMediaActionCapabilities = {
+  canOpenDefaultApp: boolean
+  canRevealInFileManager: boolean
+  canOpenInWorkspacePanel: boolean
+}
 
-const PRESENTED_MEDIA_LAYOUTS = [
-  "single",
-  "gallery",
-  "deck",
-  "list",
-] satisfies readonly PresentedMediaOutput["layout"][]
+export type PresentedMediaAvailability = {
+  status: "available" | "missing" | "error"
+  message: string | null
+}
 
-export type PresentedMediaItem = MediaPresentationReadResponse["summary"]["items"][number]
-export type PresentedMediaActionCapabilities = PresentedMediaItem["actionCapabilities"]
-export type PresentedMediaAvailability = PresentedMediaItem["availability"]
-export type PresentedMediaPathInfo = MediaPresentationResolveResponse
+export type PresentedMediaItem = {
+  id: string
+  inputPath: string
+  absolutePath: string
+  displayPath: string
+  workspacePath: string | null
+  fileName: string
+  mediaKind: WorkspaceFilePanelMediaKind
+  renderMode: WorkspaceFilePanelRenderMode
+  mimeType: string | null
+  sizeBytes: number | null
+  modifiedAt: string | null
+  rawUrl: string | null
+  actionCapabilities: PresentedMediaActionCapabilities
+  availability: PresentedMediaAvailability
+}
+
+export type PresentedMediaPathInfo = Omit<PresentedMediaItem, "id" | "rawUrl">
 
 type PresentedMediaActionInputSource = Pick<
   PresentedMediaPathInfo,
@@ -82,10 +90,10 @@ type PresentedMediaActionInputSource = Pick<
   | "availability"
 >
 
-export type PresentedMediaOutput = {
-  artifactID: string
+export type MediaPresentationOutput = {
+  objectID: string
   kind: "media-presentation"
-  layout: MediaPresentationReadResponse["summary"]["layout"]
+  layout: "single" | "grid" | "strip"
   items: PresentedMediaItem[]
 }
 
@@ -94,8 +102,22 @@ export type PresentedMediaAvailabilityResolution = {
   availability: PresentedMediaAvailability
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
+type PresentedMediaInlineSource = {
+  path: string
+  displayPath?: string
+  workspacePath?: string | null
+  availability: "available" | "missing" | "error"
+}
+
+export type PresentedMediaInlineItem = {
+  itemID: string
+  title: string | null
+  mediaType: string
+  mimeType: string | null
+  source: PresentedMediaInlineSource
+  availability: "available" | "missing" | "error" | "unavailable"
+  rawUrl: string | null
+  fileName: string | null
 }
 
 function readNonEmptyString(value: unknown): string | undefined {
@@ -104,128 +126,61 @@ function readNonEmptyString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
-function readNullableString(value: unknown) {
-  return typeof value === "string" && value.trim().length > 0 ? value : null
-}
-
-function readNonNegativeInt(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined
-}
-
 function isWorkspaceFilePanelMediaKind(value: string): value is WorkspaceFilePanelMediaKind {
   return WORKSPACE_FILE_PANEL_MEDIA_KINDS.some((kind) => kind === value)
 }
 
-function isWorkspaceFilePanelRenderMode(value: string): value is WorkspaceFilePanelRenderMode {
-  return WORKSPACE_FILE_PANEL_RENDER_MODES.some((mode) => mode === value)
+function mediaRenderModeFromKind(kind: WorkspaceFilePanelMediaKind): WorkspaceFilePanelRenderMode {
+  if (kind === "image" || kind === "audio" || kind === "video" || kind === "pdf") return kind
+  return "file"
 }
 
-function isPresentedMediaLayout(value: string): value is PresentedMediaOutput["layout"] {
-  return PRESENTED_MEDIA_LAYOUTS.some((layout) => layout === value)
-}
-
-export function readPresentedMediaItem(value: unknown): PresentedMediaItem | undefined {
-  if (!isRecord(value)) return undefined
-
-  const id = readNonEmptyString(value.id)
-  const inputPath = readNonEmptyString(value.inputPath)
-  const absolutePath = readNonEmptyString(value.absolutePath)
-  const displayPath = readNonEmptyString(value.displayPath)
-  const workspacePath = readNullableString(value.workspacePath)
-  const fileName = readNonEmptyString(value.fileName)
-  const mediaKind = readNonEmptyString(value.mediaKind)
-  const renderMode = readNonEmptyString(value.renderMode)
-  const rawUrl = readNonEmptyString(value.rawUrl)
-  const validMediaKind =
-    mediaKind && isWorkspaceFilePanelMediaKind(mediaKind) ? mediaKind : undefined
-  const validRenderMode =
-    renderMode && isWorkspaceFilePanelRenderMode(renderMode) ? renderMode : undefined
-
-  if (
-    !id ||
-    !inputPath ||
-    !absolutePath ||
-    !displayPath ||
-    !fileName ||
-    !validMediaKind ||
-    !validRenderMode ||
-    !rawUrl
-  ) {
-    return undefined
+function mediaAvailability(status: PresentedMediaInlineItem["availability"]): PresentedMediaAvailability {
+  if (status === "available" || status === "missing" || status === "error") {
+    return { status, message: null }
   }
+  return {
+    status: "missing",
+    message: "Media item is unavailable.",
+  }
+}
+
+function actionCapabilitiesForWorkspacePath(workspacePath: string | null): PresentedMediaActionCapabilities {
+  return {
+    canOpenDefaultApp: true,
+    canRevealInFileManager: true,
+    canOpenInWorkspacePanel: workspacePath !== null,
+  }
+}
+
+export function presentedMediaItemFromInlineItem(
+  item: PresentedMediaInlineItem,
+): PresentedMediaItem | undefined {
+  const mediaKind = isWorkspaceFilePanelMediaKind(item.mediaType) ? item.mediaType : undefined
+  const fileName = readNonEmptyString(item.fileName) ?? readNonEmptyString(item.title)
+  const displayPath = readNonEmptyString(item.source.displayPath) ?? item.source.path
+  if (!mediaKind || !fileName) return undefined
+
+  const workspacePath =
+    item.source.workspacePath === undefined ? null : item.source.workspacePath
+  const availability = mediaAvailability(item.availability)
 
   return {
-    id,
-    inputPath,
-    absolutePath,
+    id: item.itemID,
+    inputPath: displayPath,
+    absolutePath: item.source.path,
     displayPath,
     workspacePath,
     fileName,
-    mediaKind: validMediaKind,
-    renderMode: validRenderMode,
-    mimeType: readNullableString(value.mimeType),
-    sizeBytes: readNonNegativeInt(value.sizeBytes) ?? null,
-    modifiedAt: readNullableString(value.modifiedAt),
-    rawUrl,
-    actionCapabilities: isRecord(value.actionCapabilities)
-      ? {
-          canOpenDefaultApp: value.actionCapabilities.canOpenDefaultApp === true,
-          canRevealInFileManager: value.actionCapabilities.canRevealInFileManager === true,
-          canOpenInWorkspacePanel: value.actionCapabilities.canOpenInWorkspacePanel === true,
-        }
-      : {
-          canOpenDefaultApp: false,
-          canRevealInFileManager: false,
-          canOpenInWorkspacePanel: false,
-        },
-    availability: isRecord(value.availability)
-      ? {
-          status:
-            value.availability.status === "missing" || value.availability.status === "error"
-              ? value.availability.status
-              : "available",
-          message: readNullableString(value.availability.message),
-        }
-      : {
-          status: "available",
-          message: null,
-        },
+    mediaKind,
+    renderMode: mediaRenderModeFromKind(mediaKind),
+    mimeType: item.mimeType,
+    sizeBytes: null,
+    modifiedAt: null,
+    rawUrl: item.rawUrl,
+    actionCapabilities: actionCapabilitiesForWorkspacePath(workspacePath),
+    availability,
   }
-}
-
-export function readPresentedMediaOutputValue(value: unknown): PresentedMediaOutput | undefined {
-  if (!isRecord(value)) return undefined
-
-  const artifactID = readNonEmptyString(value.artifactID)
-  const kind = value.kind === "media-presentation" ? "media-presentation" : undefined
-  const layoutValue = readNonEmptyString(value.layout)
-  const layout =
-    layoutValue && isPresentedMediaLayout(layoutValue) ? layoutValue : undefined
-  const rawItems = Array.isArray(value.items) ? value.items : undefined
-
-  if (!artifactID || !kind || !layout || !rawItems) return undefined
-
-  const items: PresentedMediaItem[] = []
-  for (const item of rawItems) {
-    const parsedItem = readPresentedMediaItem(item)
-    if (!parsedItem) return undefined
-    items.push(parsedItem)
-  }
-
-  return {
-    artifactID,
-    kind,
-    layout,
-    items,
-  }
-}
-
-export function readPresentedMediaOutputArtifact(
-  metadata: Record<string, unknown>,
-): PresentedMediaOutput | undefined {
-  return readNonEmptyString(metadata.artifact) === "PresentedMediaOutput"
-    ? readPresentedMediaOutputValue(metadata.value)
-    : undefined
 }
 
 function isExternalPath(path: string): boolean {
@@ -345,28 +300,55 @@ export async function resolvePresentedMediaPathInfo(input: {
   directory: string
   path: string
 }): Promise<PresentedMediaPathInfo> {
-  return requireBuddyData(
-    await getBuddyClient(input.directory).mediaPresentation.resolve({
-      directory: input.directory,
-      path: input.path,
-    }),
-  )
+  const normalized = normalizePresentedMediaCandidatePath(input.path)
+  const workspacePath = isExternalPath(normalized) ? null : normalizeRelativePath(normalized)
+  const displayPath = workspacePath ?? normalized
+  const fileName = fileNameFromPath(displayPath)
+  const classification = classifyWorkspaceMedia({
+    path: displayPath,
+    mimeType: undefined,
+    sizeBytes: undefined,
+  })
+
+  return {
+    inputPath: normalized,
+    absolutePath: workspacePath ? "" : normalized,
+    displayPath,
+    workspacePath,
+    fileName,
+    mediaKind: classification.mediaKind,
+    renderMode: classification.renderMode,
+    mimeType: null,
+    sizeBytes: null,
+    modifiedAt: null,
+    actionCapabilities: actionCapabilitiesForWorkspacePath(workspacePath),
+    availability: {
+      status: "available",
+      message: null,
+    },
+  }
 }
 
 export async function resolvePresentedMediaAvailability(
   directory: string,
-  artifactID: string,
+  objectID: string,
   item: PresentedMediaItem,
 ): Promise<PresentedMediaAvailabilityResolution> {
   try {
     const availability = requireBuddyData(
-      await getBuddyClient(directory).mediaPresentation.availability({
+      await getBuddyClient(directory).objectMediaPresentation.availability({
         directory,
-        artifactID,
+        objectID,
         itemID: item.id,
       }),
     )
-    return { item, availability }
+    return {
+      item: {
+        ...item,
+        availability,
+      },
+      availability,
+    }
   } catch (error) {
     return {
       item,
@@ -380,9 +362,9 @@ export async function resolvePresentedMediaAvailability(
 
 export async function readPresentedMediaAvailability(
   directory: string,
-  artifactID: string,
+  objectID: string,
   item: PresentedMediaItem,
 ): Promise<PresentedMediaAvailability> {
-  const result = await resolvePresentedMediaAvailability(directory, artifactID, item)
+  const result = await resolvePresentedMediaAvailability(directory, objectID, item)
   return result.availability
 }

@@ -69,7 +69,7 @@ describe("presented media path helpers", () => {
     expect(isLikelyPresentedMediaPathCandidate("../worksheet.pdf")).toBe(false)
   })
 
-  test("checks media availability through the typed artifact route", async () => {
+  test("checks media availability through the typed object route", async () => {
     const calls: string[] = []
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -81,7 +81,7 @@ describe("presented media path helpers", () => {
         if (
           method === "GET" &&
           url.includes(
-            "/api/artifacts/media-presentation/artifact_1/items/item_1/availability",
+            "/api/objects/media-presentation/object_1/items/item_1/availability",
           ) &&
           url.includes("directory=%2Frepo")
         ) {
@@ -98,22 +98,22 @@ describe("presented media path helpers", () => {
 
     const availability = await readPresentedMediaAvailability(
       "/repo",
-      "artifact_1",
+      "object_1",
       localMediaItem,
     )
 
     expect(availability.status).toBe("available")
-    expect(calls.some((call) => call.includes("/api/artifacts/media-presentation/resolve"))).toBe(false)
+    expect(calls.some((call) => call.includes("/api/objects/media-presentation/resolve"))).toBe(false)
     expect(
       calls.some((call) =>
-        call.includes("/api/artifacts/media-presentation/artifact_1/items/item_1/availability"),
+        call.includes("/api/objects/media-presentation/object_1/items/item_1/availability"),
       ),
     ).toBe(
       true,
     )
   })
 
-  test("resolves file open metadata through the presented media resolve route", async () => {
+  test("resolves file open metadata from a local workspace path", async () => {
     const calls: string[] = []
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -121,34 +121,6 @@ describe("presented media path helpers", () => {
           typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         calls.push(`${method} ${url}`)
-
-        if (
-          method === "GET" &&
-          url.includes("/api/artifacts/media-presentation/resolve") &&
-          url.includes("path=notes%2Fworksheet.md")
-        ) {
-          return Response.json({
-            inputPath: "notes/worksheet.md",
-            absolutePath: "/repo/notes/worksheet.md",
-            displayPath: "notes/worksheet.md",
-            workspacePath: "notes/worksheet.md",
-            fileName: "worksheet.md",
-            mediaKind: "other",
-            renderMode: "file",
-            mimeType: "text/markdown",
-            sizeBytes: 128,
-            modifiedAt: null,
-            actionCapabilities: {
-              canOpenDefaultApp: true,
-              canRevealInFileManager: true,
-              canOpenInWorkspacePanel: true,
-            },
-            availability: {
-              status: "available",
-              message: null,
-            },
-          })
-        }
 
         throw new Error(`Unexpected fetch: ${method} ${url}`)
       }),
@@ -169,16 +141,16 @@ describe("presented media path helpers", () => {
       }),
     ).toMatchObject({
       path: "notes/worksheet.md",
-      absolutePath: "/repo/notes/worksheet.md",
+      absolutePath: "",
       name: "worksheet.md",
       available: true,
       canOpenInBuddy: true,
       canOpenDefaultApp: true,
       canReveal: true,
-      mimeType: "text/markdown",
-      sizeBytes: 128,
+      mimeType: undefined,
+      sizeBytes: undefined,
     })
-    expect(calls.some((call) => call.includes("/api/artifacts/media-presentation/resolve"))).toBe(true)
+    expect(calls).toEqual([])
   })
 
   test("treats oversized media as available when the backend can serve it", async () => {
@@ -191,7 +163,7 @@ describe("presented media path helpers", () => {
         if (
           method === "GET" &&
           url.includes(
-            "/api/artifacts/media-presentation/artifact_1/items/item_1/availability",
+            "/api/objects/media-presentation/object_1/items/item_1/availability",
           ) &&
           url.includes("directory=%2Frepo")
         ) {
@@ -208,7 +180,7 @@ describe("presented media path helpers", () => {
 
     const availability = await readPresentedMediaAvailability(
       "/repo",
-      "artifact_1",
+      "object_1",
       {
         ...localMediaItem,
         mediaKind: "image",
@@ -230,7 +202,7 @@ describe("presented media path helpers", () => {
         if (
           method === "GET" &&
           url.includes(
-            "/api/artifacts/media-presentation/artifact_1/items/item_1/availability",
+            "/api/objects/media-presentation/object_1/items/item_1/availability",
           ) &&
           url.includes("directory=%2Frepo")
         ) {
@@ -247,12 +219,12 @@ describe("presented media path helpers", () => {
 
     const result = await resolvePresentedMediaAvailability(
       "/repo",
-      "artifact_1",
+      "object_1",
       localMediaItem,
     )
 
     expect(result.availability.status).toBe("missing")
-    expect(result.item.rawUrl).toContain("/api/artifacts/media-presentation/artifact_1/raw/item_1")
+    expect(result.item.rawUrl).toContain("/api/objects/media-presentation/object_1/raw/item_1")
   })
 })
 
@@ -268,7 +240,7 @@ const localMediaItem: PresentedMediaItem = {
   mimeType: "application/pdf",
   sizeBytes: 42,
   modifiedAt: null,
-  rawUrl: "/api/artifacts/media-presentation/artifact_1/raw/item_1?directory=%2Frepo&fileName=notes.pdf",
+  rawUrl: "/api/objects/media-presentation/object_1/raw/item_1?directory=%2Frepo&fileName=notes.pdf",
   actionCapabilities: {
     canOpenDefaultApp: true,
     canRevealInFileManager: true,

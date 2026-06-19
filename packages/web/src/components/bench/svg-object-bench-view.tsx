@@ -1,16 +1,15 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import DOMPurify from "dompurify"
 import { BenchZoomableViewer } from "@/components/bench/bench-viewer-shell"
-import { resolveAssetUrl } from "@/lib/resource-url"
 
 const SVG_DEFAULT_WIDTH = 640
 const SVG_DEFAULT_HEIGHT = 400
 const SVG_MIN_RENDER_WIDTH = 960
 
-type SvgArtifactBenchViewProps = {
+type SvgObjectBenchViewProps = {
   title: string
   subtitle?: string
-  rawUrl: string
+  loadSvg: () => Promise<Blob | File>
 }
 
 type SvgBounds = {
@@ -18,7 +17,7 @@ type SvgBounds = {
   height: number
 }
 
-type SvgArtifactState =
+type SvgObjectState =
   | { kind: "loading" }
   | { kind: "ready"; markup: string; bounds: SvgBounds }
   | { kind: "error"; message: string }
@@ -102,31 +101,25 @@ function sanitizeSvgMarkup(markup: string): string {
   })
 }
 
-export function SvgArtifactBenchView(props: SvgArtifactBenchViewProps) {
-  const assetUrl = useMemo(() => resolveAssetUrl(props.rawUrl), [props.rawUrl])
-  const [state, setState] = useState<SvgArtifactState>({ kind: "loading" })
+export function SvgObjectBenchView(props: SvgObjectBenchViewProps) {
+  const { loadSvg, subtitle, title } = props
+  const [state, setState] = useState<SvgObjectState>({ kind: "loading" })
 
   useEffect(() => {
-    const controller = new AbortController()
+    let active = true
     setState({ kind: "loading" })
 
-    async function loadSvg() {
+    async function loadSvgMarkup() {
       try {
-        const response = await fetch(assetUrl, { signal: controller.signal })
-        if (!response.ok) {
-          throw new Error(`Figure SVG request failed with ${response.status}`)
-        }
-
-        const markup = sanitizeSvgMarkup(await response.text())
+        const markup = sanitizeSvgMarkup(await (await loadSvg()).text())
+        if (!active) return
         setState({
           kind: "ready",
           markup,
           bounds: normalizeSvgRenderBounds(measureSvgBounds(markup)),
         })
       } catch (error) {
-        if (controller.signal.aborted) {
-          return
-        }
+        if (!active) return
         setState({
           kind: "error",
           message: error instanceof Error ? error.message : String(error),
@@ -134,17 +127,19 @@ export function SvgArtifactBenchView(props: SvgArtifactBenchViewProps) {
       }
     }
 
-    void loadSvg()
-    return () => controller.abort()
-  }, [assetUrl])
+    void loadSvgMarkup()
+    return () => {
+      active = false
+    }
+  }, [loadSvg])
 
   return (
-    <BenchZoomableViewer title={props.title} subtitle={props.subtitle} fitContent>
+    <BenchZoomableViewer title={title} subtitle={subtitle} fitContent>
       {state.kind === "ready" ? (
         <div
           role="img"
-          aria-label={props.title}
-          data-component="svg-artifact-bench-surface"
+          aria-label={title}
+          data-component="svg-object-bench-surface"
           className="block overflow-visible [&_svg]:block [&_svg]:h-full [&_svg]:w-full [&_svg]:max-w-none"
           style={{ width: state.bounds.width, height: state.bounds.height }}
           dangerouslySetInnerHTML={{ __html: state.markup }}

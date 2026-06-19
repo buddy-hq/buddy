@@ -30,6 +30,7 @@ import {
   isFlashcardReviewAvailable,
   type FlashcardDueCounts,
 } from "@/lib/flashcard"
+import type { ObjectsViewResponse } from "@buddy/sdk/types"
 import { pickResourceFilePath } from "@/lib/resource-file-picker"
 import { fileExtensionFromPath } from "@/lib/workspace-file-paths"
 import { addResource } from "@/state/resource-actions"
@@ -39,15 +40,15 @@ import {
   type ResourceOpenOptions,
   resourcesQueryOptions,
 } from "@/state/resources-query"
-import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
+import { useWorkspaceQuestionSetObjectPanelStore } from "@/state/workspace-question-set-object-panel-store"
 import {
-  workspaceArtifactsQueryKeys,
-  workspaceArtifactsQueryOptions,
-  workspaceFlashcardDecksQueryOptions,
-  workspaceHtmlWidgetsQueryOptions,
-  workspaceMermaidArtifactsQueryOptions,
-  workspaceQuestionSetArtifactsQueryOptions,
-} from "@/state/workspace-artifacts-query"
+  objectFlashcardDeckPayloadQueryOptions,
+  objectMermaidPayloadQueryOptions,
+  objectQuestionSetPayloadQueryOptions,
+  objectViewQueryOptions,
+  workspaceObjectsQueryKeys,
+  workspaceObjectsQueryOptions,
+} from "@/state/workspace-objects-query"
 import {
   VIRTUAL_MERMAID_CARD_ESTIMATE_PX,
   VIRTUAL_MERMAID_OVERSCAN,
@@ -58,31 +59,34 @@ import {
   QuestionMarkdown,
   buildQuestionMarkdownCacheKey,
 } from "@/components/chat/tools/render/question-set/question-markdown"
-import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import {
   ResourceCardGrid,
   type ResourceCardTarget,
 } from "@/components/layout/chat-left-sidebar/resource-card-grid"
-import { formatHtmlWidgetViewport } from "@/lib/html-widgets"
 import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
 import { getFilename } from "../sidebar-helpers"
 import {
   MEDIA_LIBRARY_KINDS,
-  availableMediaPresentationItems,
-  countMediaArtifactsByDirectory,
-  mediaArtifactSubtitle,
-  selectFlashcardDeckArtifacts,
-  selectHtmlWidgetArtifacts,
-  selectMediaLibraryArtifacts,
-  selectMermaidArtifacts,
-  selectQuestionSetArtifacts,
-  type HtmlWidgetLibraryArtifact,
-  type MediaLibraryArtifact,
-  type MermaidLibraryArtifact,
-  type QuestionSetLibraryArtifact,
-} from "./library-artifact-selectors"
+  createBenchObjectTarget,
+  countMediaObjectsByDirectory,
+  getFlashcardDeckObjectSummary,
+  selectFlashcardDeckObjects,
+  selectHtmlWidgetObjects,
+  selectMediaLibraryObjects,
+  selectMermaidObjects,
+  selectQuestionSetObjects,
+  selectWorkspaceObjectLoadErrors,
+  workspaceObjectLoadErrorKey,
+  type FlashcardDeckObjectSummary,
+  type FlashcardDeckLibraryObject,
+  type HtmlWidgetLibraryObject,
+  type MediaLibraryObject,
+  type MermaidLibraryObject,
+  type QuestionSetLibraryObject,
+  type WorkspaceObjectLoadError,
+} from "./library-object-selectors"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -92,8 +96,11 @@ type LibraryTab = "resources" | "flashcards" | "question-sets" | "widgets" | "di
 
 export type LibraryPanelResourceTarget = ResourceCardTarget
 
-type QuestionSetArtifactListItem = QuestionSetLibraryArtifact
-type HtmlWidgetArtifactListItem = HtmlWidgetLibraryArtifact
+type QuestionSetObjectListItem = QuestionSetLibraryObject
+type HtmlWidgetObjectListItem = HtmlWidgetLibraryObject
+type MediaGalleryObjectViewData = Extract<ObjectsViewResponse["data"], { renderer: "media-gallery" }>
+type FigureObjectViewData = Extract<ObjectsViewResponse["data"], { renderer: "figure" }>
+type HtmlWidgetObjectViewData = Extract<ObjectsViewResponse["data"], { renderer: "html-widget" }>
 
 type LibraryPanelProps = {
   directories: string[]
@@ -102,7 +109,7 @@ type LibraryPanelProps = {
     resource: LibraryPanelResourceTarget,
     options?: ResourceOpenOptions,
   ) => void
-  onOpenQuestionSet: (directory: string, artifactID: string, selectedArtifactID?: string) => void
+  onOpenQuestionSet: (directory: string, objectID: string, selectedObjectID?: string) => void
   initialTab?: LibraryTab
 }
 
@@ -120,6 +127,9 @@ const MULTI_NOTEBOOK_BATCH_SIZE = 5
 const MULTI_NOTEBOOK_ROW_PREVIEW_COUNT = 2
 const HTML_WIDGET_ROW_PREVIEW_COUNT = 4
 const MEDIA_ROW_PREVIEW_COUNT = 4
+const HTML_WIDGET_RUNTIME_VIEW_ID = "runtime"
+const MEDIA_GALLERY_VIEW_ID = "gallery"
+const RENDERED_OBJECT_VIEW_ID = "rendered"
 const RESOURCE_PREVIEW_ROW_COUNT = 2
 const MERMAID_EAGER_HYDRATION_COUNT = 2
 const MERMAID_HYDRATION_ROOT_MARGIN = "320px 0px"
@@ -157,6 +167,31 @@ const LIBRARY_TABS: { tab: LibraryTab; labelKey: string }[] = [
   { tab: "diagrams", labelKey: "sidebar.libraryTabDiagrams" },
   { tab: "media", labelKey: "sidebar.libraryTabMedia" },
 ]
+
+function formatTimestamp(value: string): string {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return value
+  }
+  return parsed.toLocaleString()
+}
+
+function formatHtmlWidgetViewportPreset(viewportPreset: string): string {
+  return viewportPreset
+    .split("_")
+    .filter((part) => part.length > 0)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+}
+
+function mediaGallerySubtitle(data: MediaGalleryObjectViewData): string {
+  const itemCount = data.items.length
+  return `${itemCount} ${itemCount === 1 ? "file" : "files"} · ${data.layout}`
+}
+
+function readFigureObjectSubtitle(data: FigureObjectViewData): string | undefined {
+  return data.caption ?? data.alt ?? undefined
+}
 
 // ---------------------------------------------------------------------------
 // Shared shelf skeleton
@@ -1035,6 +1070,95 @@ function FlashcardDueBadges(props: { dueCounts: FlashcardDueCounts }) {
   )
 }
 
+function FlashcardDeckObjectRow(props: {
+  directory: string
+  deck: FlashcardDeckLibraryObject
+}) {
+  const openBenchRoute = useOpenBench()
+  const deckQuery = useQuery({
+    ...objectFlashcardDeckPayloadQueryOptions({
+      directory: props.directory,
+      objectID: props.deck.objectID,
+    }),
+    refetchOnMount: false,
+  })
+  const detail = deckQuery.data
+  const summary: FlashcardDeckObjectSummary | undefined = detail
+    ? getFlashcardDeckObjectSummary(detail)
+    : undefined
+  const reviewAvailable = summary ? isFlashcardReviewAvailable(summary) : false
+  const title = detail?.title ?? props.deck.title
+
+  const content = (
+    <>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-text-base">{title}</p>
+          {summary ? (
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-weak">
+              <span>
+                {language.t(
+                  summary.noteCount === 1
+                    ? "workspaceFlashcard.noteCount.one"
+                    : "workspaceFlashcard.noteCount.other",
+                  { count: summary.noteCount },
+                )}
+              </span>
+              <span className="text-text-weaker">&middot;</span>
+              <span>
+                {language.t(
+                  summary.cardCount === 1
+                    ? "workspaceFlashcard.cardCount.one"
+                    : "workspaceFlashcard.cardCount.other",
+                  { count: summary.cardCount },
+                )}
+              </span>
+            </div>
+          ) : (
+            <div className="mt-1 text-xs text-text-weak">
+              {language.t("workspaceFlashcard.loadingDeck")}
+            </div>
+          )}
+        </div>
+        <Layers2Icon className="mt-0.5 size-4 shrink-0 text-text-weaker" />
+      </div>
+      {summary ? (
+        <div className="mt-2">
+          <FlashcardDueBadges dueCounts={summary.dueCounts} />
+        </div>
+      ) : null}
+      {deckQuery.error ? (
+        <p className="mt-2 text-xs text-icon-critical-base">{stringifyError(deckQuery.error)}</p>
+      ) : null}
+    </>
+  )
+
+  if (!reviewAvailable) {
+    return (
+      <div className="rounded-lg border border-border-weaker-base bg-surface-base p-3 shadow-sm">
+        {content}
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void openBenchRoute({
+          directory: props.directory,
+          target: createBenchObjectTarget("flashcard-deck", props.deck.objectID),
+          mode: BENCH_MODE_REQUEST_POLICY,
+          autoOpen: null,
+        })
+      }}
+      className="w-full rounded-lg border border-border-weaker-base bg-surface-base p-3 text-left shadow-sm transition-colors hover:border-border-hover hover:bg-surface-raised-base"
+    >
+      {content}
+    </button>
+  )
+}
+
 function FlashcardNotebookShelf(props: {
   directory: string
   showHeader: boolean
@@ -1042,19 +1166,18 @@ function FlashcardNotebookShelf(props: {
   emptyMessage?: string
 }) {
   const { directory, showHeader, pageSize, emptyMessage } = props
-  const openBenchRoute = useOpenBench()
   const decksQuery = useQuery({
-    ...workspaceFlashcardDecksQueryOptions(directory),
+    ...workspaceObjectsQueryOptions(directory),
     refetchOnMount: false,
   })
-  const decks = selectFlashcardDeckArtifacts(decksQuery)
-  const loadErrors = decksQuery.data?.loadErrors ?? []
+  const decks = selectFlashcardDeckObjects(decksQuery)
+  const loadErrors = selectWorkspaceObjectLoadErrors(decksQuery, ["flashcard-deck"])
   const loading = decksQuery.isPending
   const error = decksQuery.error ? stringifyError(decksQuery.error) : undefined
   const label = getFilename(directory)
   useInvalidateQueryOnChatIdle({
     directory,
-    queryKey: workspaceArtifactsQueryKeys.flashcard(directory),
+    queryKey: workspaceObjectsQueryKeys.all(directory),
   })
   const { visibleCount, nextBatchCount, canShowMore, showMore } = useShelfPagination(
     decks.length,
@@ -1085,77 +1208,16 @@ function FlashcardNotebookShelf(props: {
         <div className="space-y-2">
           {loading
             ? Array.from({ length: 2 }, (_, index) => <ShelfRowSkeleton key={index} />)
-            : visibleDecks.map((deck) => {
-                const reviewAvailable = isFlashcardReviewAvailable(deck.summary)
-                const content = (
-                  <>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-text-base">{deck.title}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-weak">
-                          <span>
-                            {language.t(
-                              deck.summary.noteCount === 1
-                                ? "workspaceFlashcard.noteCount.one"
-                                : "workspaceFlashcard.noteCount.other",
-                              { count: deck.summary.noteCount },
-                            )}
-                          </span>
-                          <span className="text-text-weaker">&middot;</span>
-                          <span>
-                            {language.t(
-                              deck.summary.cardCount === 1
-                                ? "workspaceFlashcard.cardCount.one"
-                                : "workspaceFlashcard.cardCount.other",
-                              { count: deck.summary.cardCount },
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                      <Layers2Icon className="mt-0.5 size-4 shrink-0 text-text-weaker" />
-                    </div>
-                    <div className="mt-2">
-                      <FlashcardDueBadges dueCounts={deck.summary.dueCounts} />
-                    </div>
-                  </>
-                )
-
-                return reviewAvailable ? (
-                  <button
-                    key={deck.artifactID}
-                    type="button"
-                    onClick={() => {
-                      void openBenchRoute({
-                        directory,
-                        target: {
-                          type: "artifact",
-                          kind: "flashcard-deck",
-                          artifactID: deck.artifactID,
-                        },
-                        mode: BENCH_MODE_REQUEST_POLICY,
-                        autoOpen: null,
-                      })
-                    }}
-                    className="w-full rounded-lg border border-border-weaker-base bg-surface-base p-3 text-left shadow-sm transition-colors hover:border-border-hover hover:bg-surface-raised-base"
-                  >
-                    {content}
-                  </button>
-                ) : (
-                  <div
-                    key={deck.artifactID}
-                    className="rounded-lg border border-border-weaker-base bg-surface-base p-3 shadow-sm"
-                  >
-                    {content}
-                  </div>
-                )
-              })}
+            : visibleDecks.map((deck) => (
+                <FlashcardDeckObjectRow key={deck.objectID} directory={directory} deck={deck} />
+              ))}
           {!loading && canShowMore ? (
             <ShelfShowMoreButton count={nextBatchCount} onClick={showMore} />
           ) : null}
           {error ? <NotebookShelfError message={error} /> : null}
           {loadErrors.map((loadError) => (
             <NotebookShelfError
-              key={`${loadError.artifactID}:${loadError.message}`}
+              key={workspaceObjectLoadErrorKey(loadError)}
               message={loadError.message}
             />
           ))}
@@ -1169,13 +1231,13 @@ function FlashcardNotebookShelf(props: {
 function FlashcardsTab({ directories }: { directories: string[] }) {
   const isMultiNotebookView = directories.length > 1
   const shelfQueries = useQueries({
-    queries: directories.map((directory) => workspaceFlashcardDecksQueryOptions(directory)),
+    queries: directories.map((directory) => workspaceObjectsQueryOptions(directory)),
   })
 
   const allLoading = shelfQueries.every((query) => query.isPending)
   const showLoadingState = useDelayedPending(allLoading)
   const totalDecks = shelfQueries.reduce(
-    (sum, query) => sum + selectFlashcardDeckArtifacts(query).length,
+    (sum, query) => sum + selectFlashcardDeckObjects(query).length,
     0,
   )
   const allLoaded = shelfQueries.every((query) => !query.isPending)
@@ -1189,7 +1251,7 @@ function FlashcardsTab({ directories }: { directories: string[] }) {
         return false
       }
 
-      return selectFlashcardDeckArtifacts(query).length === 0
+      return selectFlashcardDeckObjects(query).length === 0
     },
   })
 
@@ -1278,12 +1340,22 @@ function FlashcardsTab({ directories }: { directories: string[] }) {
 
 function LibraryQuestionSetCard(props: {
   directory: string
-  artifactStub: QuestionSetArtifactListItem
+  objectStub: QuestionSetObjectListItem
   rightSidebarOpen: boolean
   rightSidebarTab: string
-  selectedArtifactID?: string
+  selectedObjectID?: string
 }) {
   const openBenchRoute = useOpenBench()
+  const detailQuery = useQuery({
+    ...objectQuestionSetPayloadQueryOptions({
+      directory: props.directory,
+      objectID: props.objectStub.objectID,
+    }),
+    refetchOnMount: false,
+  })
+  const questionSet = detailQuery.data
+  const questionCount = questionSet?.questions.length
+  const timestamp = questionSet?.createdAt ?? props.objectStub.updatedAt
 
   return (
     <>
@@ -1292,11 +1364,7 @@ function LibraryQuestionSetCard(props: {
         onClick={() => {
           void openBenchRoute({
             directory: props.directory,
-            target: {
-              type: "artifact",
-              kind: "question-set",
-              artifactID: props.artifactStub.artifactID,
-            },
+            target: createBenchObjectTarget("question-set", props.objectStub.objectID),
             mode: BENCH_MODE_REQUEST_POLICY,
             autoOpen: null,
           })
@@ -1304,7 +1372,7 @@ function LibraryQuestionSetCard(props: {
         className={`w-full rounded-lg border bg-surface-base p-3 text-left shadow-sm transition-colors disabled:opacity-50 ${
           props.rightSidebarOpen &&
           props.rightSidebarTab === "question-set" &&
-          props.selectedArtifactID === props.artifactStub.artifactID
+          props.selectedObjectID === props.objectStub.objectID
             ? "border-border-interactive-base bg-surface-raised-base"
             : "border-border-weaker-base hover:border-border-hover hover:bg-surface-raised-base"
         }`}
@@ -1312,28 +1380,37 @@ function LibraryQuestionSetCard(props: {
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <QuestionMarkdown
-              text={props.artifactStub.title}
+              text={props.objectStub.title}
               cacheKey={buildQuestionMarkdownCacheKey(
                 "library-question-set-shelf",
                 props.directory,
-                props.artifactStub.artifactID,
+                props.objectStub.objectID,
                 "title",
               )}
               variant="compact"
               className="text-sm font-medium text-text-base [&_p]:truncate [&_p]:overflow-hidden [&_p]:whitespace-nowrap"
             />
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-weak">
-              <span>
-                {language.t(
-                  props.artifactStub.summary.questionCount === 1
-                    ? "chatTools.questionCount.one"
-                    : "chatTools.questionCount.other",
-                  { count: props.artifactStub.summary.questionCount },
-                )}
-              </span>
-              <span className="text-text-weaker">&middot;</span>
-              <span>{new Date(props.artifactStub.createdAt).toLocaleString()}</span>
+              {questionCount !== undefined ? (
+                <>
+                  <span>
+                    {language.t(
+                      questionCount === 1
+                        ? "chatTools.questionCount.one"
+                        : "chatTools.questionCount.other",
+                      { count: questionCount },
+                    )}
+                  </span>
+                  <span className="text-text-weaker">&middot;</span>
+                </>
+              ) : null}
+              <span>{formatTimestamp(timestamp)}</span>
             </div>
+            {detailQuery.error ? (
+              <p className="mt-2 text-xs text-icon-critical-base">
+                {stringifyError(detailQuery.error)}
+              </p>
+            ) : null}
           </div>
           <HelpCircleIcon className="mt-0.5 size-4 shrink-0 text-text-weaker" />
         </div>
@@ -1350,20 +1427,20 @@ function QuestionSetNotebookShelf(props: {
 }) {
   const { directory, showHeader, pageSize, emptyMessage } = props
   const setsQuery = useQuery({
-    ...workspaceQuestionSetArtifactsQueryOptions(directory),
+    ...workspaceObjectsQueryOptions(directory),
     refetchOnMount: false,
   })
-  const sets = selectQuestionSetArtifacts(setsQuery)
-  const loadErrors = setsQuery.data?.loadErrors ?? []
+  const sets = selectQuestionSetObjects(setsQuery)
+  const loadErrors = selectWorkspaceObjectLoadErrors(setsQuery, ["question-set"])
   const loading = setsQuery.isPending
   const error = setsQuery.error ? stringifyError(setsQuery.error) : undefined
   const label = getFilename(directory)
   useInvalidateQueryOnChatIdle({
     directory,
-    queryKey: workspaceArtifactsQueryKeys.questionSet(directory),
+    queryKey: workspaceObjectsQueryKeys.all(directory),
   })
-  const selectedArtifactID = useWorkspaceQuestionSetPanelStore(
-    (store) => store.selectedArtifactIDByDirectory[directory],
+  const selectedObjectID = useWorkspaceQuestionSetObjectPanelStore(
+    (store) => store.selectedObjectIDByDirectory[directory],
   )
   const rightSidebarOpen = useUiPreferences((store) => store.rightSidebarOpen)
   const rightSidebarTab = useUiPreferences((store) => store.rightSidebarTab)
@@ -1395,14 +1472,14 @@ function QuestionSetNotebookShelf(props: {
       <div className="space-y-2">
         {loading
           ? Array.from({ length: 2 }, (_, index) => <ShelfRowSkeleton key={index} />)
-          : visibleSets.map((artifact) => (
+          : visibleSets.map((object) => (
               <LibraryQuestionSetCard
-                key={artifact.artifactID}
+                key={object.objectID}
                 directory={directory}
-                artifactStub={artifact}
+                objectStub={object}
                 rightSidebarOpen={rightSidebarOpen}
                 rightSidebarTab={rightSidebarTab}
-                selectedArtifactID={selectedArtifactID}
+                selectedObjectID={selectedObjectID}
               />
             ))}
         {!loading && canShowMore ? (
@@ -1411,7 +1488,7 @@ function QuestionSetNotebookShelf(props: {
         {error ? <NotebookShelfError message={error} /> : null}
         {loadErrors.map((loadError) => (
           <NotebookShelfError
-            key={`${loadError.artifactID}:${loadError.message}`}
+            key={workspaceObjectLoadErrorKey(loadError)}
             message={loadError.message}
           />
         ))}
@@ -1422,18 +1499,18 @@ function QuestionSetNotebookShelf(props: {
 
 function QuestionSetsTab(props: {
   directories: string[]
-  onOpenQuestionSet: (directory: string, artifactID: string, selectedArtifactID?: string) => void
+  onOpenQuestionSet: (directory: string, objectID: string, selectedObjectID?: string) => void
 }) {
   const { directories } = props
   const isMultiNotebookView = directories.length > 1
   const shelfQueries = useQueries({
-    queries: directories.map((directory) => workspaceQuestionSetArtifactsQueryOptions(directory)),
+    queries: directories.map((directory) => workspaceObjectsQueryOptions(directory)),
   })
 
   const allLoading = shelfQueries.every((query) => query.isPending)
   const showLoadingState = useDelayedPending(allLoading)
   const totalSets = shelfQueries.reduce(
-    (sum, query) => sum + selectQuestionSetArtifacts(query).length,
+    (sum, query) => sum + selectQuestionSetObjects(query).length,
     0,
   )
   const allLoaded = shelfQueries.every((query) => !query.isPending)
@@ -1447,7 +1524,7 @@ function QuestionSetsTab(props: {
         return false
       }
 
-      return selectQuestionSetArtifacts(query).length === 0
+      return selectQuestionSetObjects(query).length === 0
     },
   })
 
@@ -1534,10 +1611,24 @@ function QuestionSetsTab(props: {
 // HTML widgets shelf
 // ---------------------------------------------------------------------------
 
-function HtmlWidgetArtifactRow(props: { directory: string; widget: HtmlWidgetArtifactListItem }) {
+function HtmlWidgetObjectRow(props: { directory: string; widget: HtmlWidgetObjectListItem }) {
   const openBenchRoute = useOpenBench()
-  const subtitle = props.widget.description ?? props.widget.summary.sourcePath
-  const viewportLabel = formatHtmlWidgetViewport(props.widget.summary.viewport)
+  const viewQuery = useQuery({
+    ...objectViewQueryOptions({
+      directory: props.directory,
+      kind: "html-widget",
+      objectID: props.widget.objectID,
+      viewID: HTML_WIDGET_RUNTIME_VIEW_ID,
+    }),
+    refetchOnMount: false,
+  })
+  const viewResponse = viewQuery.data
+  const viewData: HtmlWidgetObjectViewData | undefined =
+    viewResponse?.data.renderer === "html-widget" ? viewResponse.data : undefined
+  const viewportLabel = viewData
+    ? formatHtmlWidgetViewportPreset(viewData.viewportPreset)
+    : HTML_WIDGET_RUNTIME_VIEW_ID
+  const subtitle = viewData?.entryPath ?? viewData?.sourceVersion ?? viewportLabel
 
   return (
     <button
@@ -1546,11 +1637,7 @@ function HtmlWidgetArtifactRow(props: { directory: string; widget: HtmlWidgetArt
       onClick={() => {
         void openBenchRoute({
           directory: props.directory,
-          target: {
-            type: "artifact",
-            kind: "html-widget",
-            artifactID: props.widget.artifactID,
-          },
+          target: createBenchObjectTarget("html-widget", props.widget.objectID),
           mode: BENCH_MODE_REQUEST_POLICY,
           autoOpen: null,
         })
@@ -1564,7 +1651,7 @@ function HtmlWidgetArtifactRow(props: { directory: string; widget: HtmlWidgetArt
           {props.widget.title}
         </span>
         <span className="mt-0.5 block truncate text-xs text-text-weak">
-          {subtitle ?? viewportLabel}
+          {subtitle}
         </span>
       </span>
       <span className="hidden shrink-0 rounded-md border border-border-base bg-surface-base px-2 py-1 text-[11px] font-medium text-text-weak sm:inline-flex">
@@ -1581,15 +1668,15 @@ function HtmlWidgetsNotebookShelf(props: {
   emptyMessage?: string
 }) {
   const { directory, showHeader, pageSize, emptyMessage } = props
-  const widgetsQuery = useQuery(workspaceHtmlWidgetsQueryOptions(directory))
-  const widgets = selectHtmlWidgetArtifacts(widgetsQuery)
-  const loadErrors = widgetsQuery.data?.loadErrors ?? []
+  const widgetsQuery = useQuery(workspaceObjectsQueryOptions(directory))
+  const widgets = selectHtmlWidgetObjects(widgetsQuery)
+  const loadErrors = selectWorkspaceObjectLoadErrors(widgetsQuery, ["html-widget"])
   const loading = widgetsQuery.isPending
   const error = widgetsQuery.error ? stringifyError(widgetsQuery.error) : undefined
   const label = getFilename(directory)
   useInvalidateQueryOnChatIdle({
     directory,
-    queryKey: workspaceArtifactsQueryKeys.htmlWidget(directory),
+    queryKey: workspaceObjectsQueryKeys.all(directory),
   })
   const { visibleCount, nextBatchCount, canShowMore, showMore } = useShelfPagination(
     widgets.length,
@@ -1620,8 +1707,8 @@ function HtmlWidgetsNotebookShelf(props: {
         {loading
           ? Array.from({ length: 3 }, (_, index) => <ShelfRowSkeleton key={index} />)
           : visibleWidgets.map((widget) => (
-              <HtmlWidgetArtifactRow
-                key={widget.artifactID}
+              <HtmlWidgetObjectRow
+                key={widget.objectID}
                 directory={directory}
                 widget={widget}
               />
@@ -1632,7 +1719,7 @@ function HtmlWidgetsNotebookShelf(props: {
         {error ? <NotebookShelfError message={error} /> : null}
         {loadErrors.map((loadError) => (
           <NotebookShelfError
-            key={`${loadError.artifactID}:${loadError.message}`}
+            key={workspaceObjectLoadErrorKey(loadError)}
             message={loadError.message}
           />
         ))}
@@ -1645,12 +1732,12 @@ function WidgetsTab(props: { directories: string[] }) {
   const { directories } = props
   const isMultiNotebookView = directories.length > 1
   const shelfQueries = useQueries({
-    queries: directories.map((directory) => workspaceHtmlWidgetsQueryOptions(directory)),
+    queries: directories.map((directory) => workspaceObjectsQueryOptions(directory)),
   })
   const allLoading = shelfQueries.every((query) => query.isPending)
   const showLoadingState = useDelayedPending(allLoading)
   const totalWidgets = shelfQueries.reduce(
-    (sum, query) => sum + selectHtmlWidgetArtifacts(query).length,
+    (sum, query) => sum + selectHtmlWidgetObjects(query).length,
     0,
   )
   const allLoaded = shelfQueries.every((query) => !query.isPending)
@@ -1664,7 +1751,7 @@ function WidgetsTab(props: { directories: string[] }) {
         return false
       }
 
-      return selectHtmlWidgetArtifacts(query).length === 0
+      return selectHtmlWidgetObjects(query).length === 0
     },
   })
 
@@ -1750,10 +1837,28 @@ function WidgetsTab(props: { directories: string[] }) {
 // Media shelf
 // ---------------------------------------------------------------------------
 
-function MediaArtifactRow(props: { artifact: MediaLibraryArtifact; directory: string }) {
+function MediaObjectRow(props: { object: MediaLibraryObject; directory: string }) {
   const openBenchRoute = useOpenBench()
-  if (props.artifact.kind === "figure" || props.artifact.kind === "freeform-figure") {
-    const rawUrl = `/api/artifacts/${props.artifact.kind}/${encodeURIComponent(props.artifact.artifactID)}/raw?directory=${encodeURIComponent(props.directory)}`
+  const viewID =
+    props.object.kind === "media-presentation" ? MEDIA_GALLERY_VIEW_ID : RENDERED_OBJECT_VIEW_ID
+  const viewQuery = useQuery({
+    ...objectViewQueryOptions({
+      directory: props.directory,
+      kind: props.object.kind,
+      objectID: props.object.objectID,
+      viewID,
+    }),
+    refetchOnMount: false,
+  })
+
+  if (props.object.kind === "figure" || props.object.kind === "freeform-figure") {
+    const viewResponse = viewQuery.data
+    const figureData: FigureObjectViewData | undefined =
+      viewResponse?.data.renderer === "figure" ? viewResponse.data : undefined
+    const previewUrl = figureData?.svgUrl ? resolveAssetUrl(figureData.svgUrl) : undefined
+    const subtitle = figureData
+      ? (readFigureObjectSubtitle(figureData) ?? formatTimestamp(props.object.updatedAt))
+      : formatTimestamp(props.object.updatedAt)
 
     return (
       <button
@@ -1761,11 +1866,7 @@ function MediaArtifactRow(props: { artifact: MediaLibraryArtifact; directory: st
         onClick={() => {
           void openBenchRoute({
             directory: props.directory,
-            target: {
-              type: "artifact",
-              kind: props.artifact.kind,
-              artifactID: props.artifact.artifactID,
-            },
+            target: createBenchObjectTarget(props.object.kind, props.object.objectID),
             mode: BENCH_MODE_REQUEST_POLICY,
             autoOpen: null,
           })
@@ -1773,20 +1874,22 @@ function MediaArtifactRow(props: { artifact: MediaLibraryArtifact; directory: st
         className="flex w-full items-center gap-3 rounded-lg border border-border-base bg-background-base px-3 py-3 text-left shadow-sm transition-colors hover:bg-surface-weak/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base"
       >
         <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border-base bg-surface-base">
-          <img
-            src={resolveAssetUrl(rawUrl)}
-            alt=""
-            className="h-full w-full object-contain p-1"
-            loading="lazy"
-          />
+          {previewUrl ? (
+            <img
+              src={previewUrl}
+              alt=""
+              className="h-full w-full object-contain p-1"
+              loading="lazy"
+            />
+          ) : (
+            <ImageIcon className="size-4 text-text-weaker" aria-hidden />
+          )}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-semibold text-text-strong">
-            {props.artifact.title}
+            {props.object.title}
           </span>
-          <span className="mt-0.5 block truncate text-xs text-text-weak">
-            {mediaArtifactSubtitle(props.artifact)}
-          </span>
+          <span className="mt-0.5 block truncate text-xs text-text-weak">{subtitle}</span>
         </span>
         <span className="hidden shrink-0 rounded-md border border-border-base bg-surface-base px-2 py-1 text-[11px] font-medium text-text-weak sm:inline-flex">
           SVG
@@ -1795,7 +1898,13 @@ function MediaArtifactRow(props: { artifact: MediaLibraryArtifact; directory: st
     )
   }
 
-  const firstItem = availableMediaPresentationItems(props.artifact)[0]
+  const viewResponse = viewQuery.data
+  const galleryData: MediaGalleryObjectViewData | undefined =
+    viewResponse?.data.renderer === "media-gallery" ? viewResponse.data : undefined
+  const firstItem =
+    galleryData?.items.find((item) => item.availability === "available") ?? galleryData?.items[0]
+  const subtitle = firstItem?.fileName ?? (galleryData ? mediaGallerySubtitle(galleryData) : null)
+  const badge = galleryData ? mediaGallerySubtitle(galleryData) : null
 
   return (
     <button
@@ -1803,12 +1912,7 @@ function MediaArtifactRow(props: { artifact: MediaLibraryArtifact; directory: st
       onClick={() => {
         void openBenchRoute({
           directory: props.directory,
-          target: {
-            type: "artifact",
-            kind: "media-presentation",
-            artifactID: props.artifact.artifactID,
-            ...(firstItem ? { itemID: firstItem.id } : {}),
-          },
+          target: createBenchObjectTarget("media-presentation", props.object.objectID),
           mode: BENCH_MODE_REQUEST_POLICY,
           autoOpen: null,
         })
@@ -1820,14 +1924,14 @@ function MediaArtifactRow(props: { artifact: MediaLibraryArtifact; directory: st
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-semibold text-text-strong">
-          {props.artifact.title}
+          {props.object.title}
         </span>
         <span className="mt-0.5 block truncate text-xs text-text-weak">
-          {firstItem?.fileName ?? mediaArtifactSubtitle(props.artifact)}
+          {subtitle ?? formatTimestamp(props.object.updatedAt)}
         </span>
       </span>
       <span className="hidden shrink-0 rounded-md border border-border-base bg-surface-base px-2 py-1 text-[11px] font-medium text-text-weak sm:inline-flex">
-        {mediaArtifactSubtitle(props.artifact)}
+        {badge ?? MEDIA_GALLERY_VIEW_ID}
       </span>
     </button>
   )
@@ -1840,36 +1944,26 @@ function MediaNotebookShelf(props: {
   emptyMessage?: string
 }) {
   const { directory, showHeader, pageSize, emptyMessage } = props
-  const mediaQueries = useQueries({
-    queries: MEDIA_LIBRARY_KINDS.map((kind) => ({
-      ...workspaceArtifactsQueryOptions(directory, kind),
-      refetchOnMount: false,
-    })),
+  const mediaQuery = useQuery({
+    ...workspaceObjectsQueryOptions(directory),
+    refetchOnMount: false,
   })
-  const artifacts = selectMediaLibraryArtifacts(mediaQueries)
-  const loadErrors = mediaQueries.flatMap((query) => query.data?.loadErrors ?? [])
-  const loading = mediaQueries.some((query) => query.isPending)
-  const error = mediaQueries.find((query) => query.error)?.error
+  const objects = selectMediaLibraryObjects(mediaQuery)
+  const loadErrors = selectWorkspaceObjectLoadErrors(mediaQuery, MEDIA_LIBRARY_KINDS)
+  const loading = mediaQuery.isPending
+  const error = mediaQuery.error
   const label = getFilename(directory)
   useInvalidateQueryOnChatIdle({
     directory,
-    queryKey: workspaceArtifactsQueryKeys.mediaPresentation(directory),
-  })
-  useInvalidateQueryOnChatIdle({
-    directory,
-    queryKey: workspaceArtifactsQueryKeys.figure(directory),
-  })
-  useInvalidateQueryOnChatIdle({
-    directory,
-    queryKey: workspaceArtifactsQueryKeys.freeformFigure(directory),
+    queryKey: workspaceObjectsQueryKeys.all(directory),
   })
   const { visibleCount, nextBatchCount, canShowMore, showMore } = useShelfPagination(
-    artifacts.length,
+    objects.length,
     pageSize,
   )
-  const visibleArtifacts = artifacts.slice(0, visibleCount)
+  const visibleObjects = objects.slice(0, visibleCount)
 
-  if (!loading && artifacts.length === 0 && loadErrors.length === 0 && !error) {
+  if (!loading && objects.length === 0 && loadErrors.length === 0 && !error) {
     if (!emptyMessage) {
       return null
     }
@@ -1885,16 +1979,16 @@ function MediaNotebookShelf(props: {
   return (
     <div data-component="library-media-shelf" className="space-y-3">
       {showHeader ? (
-        <NotebookShelfHeader label={label} count={artifacts.length} loading={loading} />
+        <NotebookShelfHeader label={label} count={objects.length} loading={loading} />
       ) : null}
 
       <div className="space-y-2">
         {loading
           ? Array.from({ length: 3 }, (_, index) => <ShelfRowSkeleton key={index} />)
-          : visibleArtifacts.map((artifact) => (
-              <MediaArtifactRow
-                key={`${artifact.kind}:${artifact.artifactID}`}
-                artifact={artifact}
+          : visibleObjects.map((object) => (
+              <MediaObjectRow
+                key={`${object.kind}:${object.objectID}`}
+                object={object}
                 directory={directory}
               />
             ))}
@@ -1904,7 +1998,7 @@ function MediaNotebookShelf(props: {
         {error ? <NotebookShelfError message={stringifyError(error)} /> : null}
         {loadErrors.map((loadError) => (
           <NotebookShelfError
-            key={`${loadError.kind}:${loadError.artifactID}:${loadError.message}`}
+            key={workspaceObjectLoadErrorKey(loadError)}
             message={loadError.message}
           />
         ))}
@@ -1917,14 +2011,12 @@ function MediaTab(props: { directories: string[] }) {
   const { directories } = props
   const isMultiNotebookView = directories.length > 1
   const shelfQueries = useQueries({
-    queries: directories.flatMap((directory) =>
-      MEDIA_LIBRARY_KINDS.map((kind) => workspaceArtifactsQueryOptions(directory, kind)),
-    ),
+    queries: directories.map((directory) => workspaceObjectsQueryOptions(directory)),
   })
 
   const allLoading = shelfQueries.every((query) => query.isPending)
   const showLoadingState = useDelayedPending(allLoading)
-  const mediaCountByDirectory = countMediaArtifactsByDirectory({
+  const mediaCountByDirectory = countMediaObjectsByDirectory({
     directories,
     snapshots: shelfQueries,
   })
@@ -2024,8 +2116,8 @@ const MERMAID_SHELF_CARD_HEIGHT_CLASS = "aspect-video min-h-[10rem] w-full"
 type DiagramNotebookGroup = {
   directory: string
   label: string
-  artifacts: MermaidLibraryArtifact[]
-  loadErrors: Array<{ artifactID: string; kind: string; message: string }>
+  objects: MermaidLibraryObject[]
+  loadErrors: WorkspaceObjectLoadError[]
   error?: string
 }
 
@@ -2038,10 +2130,10 @@ type DiagramVirtualRow =
       count: number
     }
   | {
-      kind: "artifact"
+      kind: "object"
       key: string
       directory: string
-      artifact: MermaidLibraryArtifact
+      object: MermaidLibraryObject
       hydrated: boolean
     }
   | {
@@ -2085,11 +2177,10 @@ function useLibraryScrollElement() {
   }
 }
 
-function MermaidArtifactPlaceholderCard(props: { artifact: MermaidLibraryArtifact }) {
+function MermaidObjectPlaceholderCard(props: { object: MermaidLibraryObject }) {
   return (
     <MermaidToolCard
-      title={props.artifact.summary.alt}
-      diagramType={props.artifact.summary.diagramType}
+      title={props.object.title}
       hideStatus
       contentClassName={MERMAID_SHELF_CARD_HEIGHT_CLASS}
     >
@@ -2105,9 +2196,9 @@ function MermaidArtifactPlaceholderCard(props: { artifact: MermaidLibraryArtifac
   )
 }
 
-function LazyMermaidArtifactCard(props: {
+function LazyMermaidObjectCard(props: {
   directory: string
-  artifact: MermaidLibraryArtifact
+  object: MermaidLibraryObject
   initiallyHydrated: boolean
 }) {
   const openBenchRoute = useOpenBench()
@@ -2115,19 +2206,10 @@ function LazyMermaidArtifactCard(props: {
   const [inView, setInView] = useState(props.initiallyHydrated)
   const containerRef = useRef<HTMLDivElement>(null)
   const detailQuery = useQuery({
-    queryKey: [
-      "library-artifact-detail",
-      "mermaid",
-      props.directory,
-      props.artifact.artifactID,
-    ] as const,
-    queryFn: async () =>
-      requireBuddyData(
-        await getBuddyClient(props.directory).mermaid.read({
-          directory: props.directory,
-          artifactID: props.artifact.artifactID,
-        }),
-      ),
+    ...objectMermaidPayloadQueryOptions({
+      directory: props.directory,
+      objectID: props.object.objectID,
+    }),
     enabled: hydrated,
   })
 
@@ -2172,7 +2254,6 @@ function LazyMermaidArtifactCard(props: {
         <MermaidDiagram
           directory={props.directory}
           source={detailQuery.data.source}
-          artifactID={props.artifact.artifactID}
           alt={detailQuery.data.alt}
           enabled={inView}
           renderPriority={1}
@@ -2182,11 +2263,7 @@ function LazyMermaidArtifactCard(props: {
           onFullscreenOpen={() => {
             void openBenchRoute({
               directory: props.directory,
-              target: {
-                type: "artifact",
-                kind: "mermaid",
-                artifactID: props.artifact.artifactID,
-              },
+              target: createBenchObjectTarget("mermaid", props.object.objectID),
               mode: BENCH_MODE_REQUEST_POLICY,
               autoOpen: null,
             })
@@ -2205,8 +2282,7 @@ function LazyMermaidArtifactCard(props: {
         />
       ) : hydrated && detailQuery.error ? (
         <MermaidToolCard
-          title={props.artifact.summary.alt}
-          diagramType={props.artifact.summary.diagramType}
+          title={props.object.title}
           hideStatus
           contentClassName={MERMAID_SHELF_CARD_HEIGHT_CLASS}
         >
@@ -2215,7 +2291,7 @@ function LazyMermaidArtifactCard(props: {
           </div>
         </MermaidToolCard>
       ) : (
-        <MermaidArtifactPlaceholderCard artifact={props.artifact} />
+        <MermaidObjectPlaceholderCard object={props.object} />
       )}
     </div>
   )
@@ -2229,23 +2305,23 @@ function DiagramsNotebookShelf(props: {
   eagerHydrationCount?: number
 }) {
   const { directory, showHeader, pageSize, emptyMessage, eagerHydrationCount = 0 } = props
-  const artifactsQuery = useQuery(workspaceMermaidArtifactsQueryOptions(directory))
-  const artifacts = selectMermaidArtifacts(artifactsQuery)
-  const loadErrors = artifactsQuery.data?.loadErrors ?? []
-  const loading = artifactsQuery.isPending
-  const error = artifactsQuery.error ? stringifyError(artifactsQuery.error) : undefined
+  const objectsQuery = useQuery(workspaceObjectsQueryOptions(directory))
+  const objects = selectMermaidObjects(objectsQuery)
+  const loadErrors = selectWorkspaceObjectLoadErrors(objectsQuery, ["mermaid"])
+  const loading = objectsQuery.isPending
+  const error = objectsQuery.error ? stringifyError(objectsQuery.error) : undefined
   const label = getFilename(directory)
   useInvalidateQueryOnChatIdle({
     directory,
-    queryKey: workspaceArtifactsQueryKeys.mermaid(directory),
+    queryKey: workspaceObjectsQueryKeys.all(directory),
   })
   const { visibleCount, nextBatchCount, canShowMore, showMore } = useShelfPagination(
-    artifacts.length,
+    objects.length,
     pageSize,
   )
-  const visibleArtifacts = artifacts.slice(0, visibleCount)
+  const visibleObjects = objects.slice(0, visibleCount)
 
-  if (!loading && artifacts.length === 0 && loadErrors.length === 0 && !error) {
+  if (!loading && objects.length === 0 && loadErrors.length === 0 && !error) {
     if (!emptyMessage) {
       return null
     }
@@ -2261,17 +2337,17 @@ function DiagramsNotebookShelf(props: {
   return (
     <div data-component="library-diagram-shelf" className="space-y-3">
       {showHeader ? (
-        <NotebookShelfHeader label={label} count={artifacts.length} loading={loading} />
+        <NotebookShelfHeader label={label} count={objects.length} loading={loading} />
       ) : null}
 
       <div className="space-y-3">
         {loading
           ? Array.from({ length: 2 }, (_, index) => <ShelfRowSkeleton key={index} />)
-          : visibleArtifacts.map((artifact, index) => (
-              <LazyMermaidArtifactCard
-                key={artifact.artifactID}
+          : visibleObjects.map((object, index) => (
+              <LazyMermaidObjectCard
+                key={object.objectID}
                 directory={directory}
-                artifact={artifact}
+                object={object}
                 initiallyHydrated={index < eagerHydrationCount}
               />
             ))}
@@ -2281,7 +2357,7 @@ function DiagramsNotebookShelf(props: {
         {error ? <NotebookShelfError message={error} /> : null}
         {loadErrors.map((loadError) => (
           <NotebookShelfError
-            key={`${loadError.kind}:${loadError.artifactID}:${loadError.message}`}
+            key={workspaceObjectLoadErrorKey(loadError)}
             message={loadError.message}
           />
         ))}
@@ -2299,11 +2375,11 @@ function useVisibleDiagramCounts(groups: DiagramNotebookGroup[], pageSize: numbe
 
       for (const group of groups) {
         const currentCount = current[group.directory]
-        const initialCount = Math.min(pageSize, group.artifacts.length)
+        const initialCount = Math.min(pageSize, group.objects.length)
         next[group.directory] =
           currentCount === undefined
             ? initialCount
-            : Math.min(Math.max(currentCount, initialCount), group.artifacts.length)
+            : Math.min(Math.max(currentCount, initialCount), group.objects.length)
       }
 
       return next
@@ -2340,24 +2416,24 @@ function buildDiagramVirtualRows(input: {
       key: `header:${group.directory}`,
       directory: group.directory,
       label: group.label,
-      count: group.artifacts.length,
+      count: group.objects.length,
     })
 
     const visibleCount =
-      input.visibleCounts[group.directory] ?? Math.min(input.pageSize, group.artifacts.length)
-    const visibleArtifacts = group.artifacts.slice(0, visibleCount)
+      input.visibleCounts[group.directory] ?? Math.min(input.pageSize, group.objects.length)
+    const visibleObjects = group.objects.slice(0, visibleCount)
 
-    visibleArtifacts.forEach((artifact, index) => {
+    visibleObjects.forEach((object, index) => {
       rows.push({
-        kind: "artifact",
-        key: `diagram:${artifact.artifactID}`,
+        kind: "object",
+        key: `diagram:${object.objectID}`,
         directory: group.directory,
-        artifact,
+        object,
         hydrated: index < input.eagerHydrationCount,
       })
     })
 
-    const remainingCount = Math.max(group.artifacts.length - visibleArtifacts.length, 0)
+    const remainingCount = Math.max(group.objects.length - visibleObjects.length, 0)
     const nextBatchCount = Math.min(input.pageSize, remainingCount)
 
     if (nextBatchCount > 0) {
@@ -2366,7 +2442,7 @@ function buildDiagramVirtualRows(input: {
         key: `show-more:${group.directory}`,
         directory: group.directory,
         count: nextBatchCount,
-        onClick: () => input.onShowMore(group.directory, group.artifacts.length),
+        onClick: () => input.onShowMore(group.directory, group.objects.length),
       })
     }
 
@@ -2381,7 +2457,7 @@ function buildDiagramVirtualRows(input: {
     group.loadErrors.forEach((loadError) => {
       rows.push({
         kind: "error",
-        key: `load-error:${group.directory}:${loadError.kind}:${loadError.artifactID}:${loadError.message}`,
+        key: `load-error:${group.directory}:${workspaceObjectLoadErrorKey(loadError)}`,
         message: loadError.message,
       })
     })
@@ -2411,7 +2487,7 @@ function getDiagramRowEstimate(row: DiagramVirtualRow) {
     return DIAGRAMS_GROUP_HEADER_ESTIMATE_PX
   }
 
-  if (row.kind === "artifact") {
+  if (row.kind === "object") {
     return VIRTUAL_MERMAID_CARD_ESTIMATE_PX
   }
 
@@ -2437,11 +2513,11 @@ function DiagramVirtualRowView(props: { row: DiagramVirtualRow }) {
     )
   }
 
-  if (row.kind === "artifact") {
+  if (row.kind === "object") {
     return (
-      <LazyMermaidArtifactCard
+      <LazyMermaidObjectCard
         directory={row.directory}
-        artifact={row.artifact}
+        object={row.object}
         initiallyHydrated={row.hydrated}
       />
     )
@@ -2532,17 +2608,17 @@ function DiagramsTab(props: { directories: string[]; active: boolean }) {
   const { directories, active } = props
   const isMultiNotebookView = directories.length > 1
   const shelfQueries = useQueries({
-    queries: directories.map((directory) => workspaceMermaidArtifactsQueryOptions(directory)),
+    queries: directories.map((directory) => workspaceObjectsQueryOptions(directory)),
   })
 
   const allLoading = shelfQueries.every((query) => query.isPending)
   const showLoadingState = useDelayedPending(allLoading)
-  const totalArtifacts = shelfQueries.reduce(
-    (sum, query) => sum + selectMermaidArtifacts(query).length,
+  const totalObjects = shelfQueries.reduce(
+    (sum, query) => sum + selectMermaidObjects(query).length,
     0,
   )
   const totalLoadErrors = shelfQueries.reduce(
-    (sum, query) => sum + (query.data?.loadErrors.length ?? 0),
+    (sum, query) => sum + selectWorkspaceObjectLoadErrors(query, ["mermaid"]).length,
     0,
   )
   const allLoaded = shelfQueries.every((query) => !query.isPending)
@@ -2557,8 +2633,8 @@ function DiagramsTab(props: { directories: string[]; active: boolean }) {
       }
 
       return (
-        selectMermaidArtifacts(query).length === 0 &&
-        (query.data?.loadErrors.length ?? 0) === 0
+        selectMermaidObjects(query).length === 0 &&
+        selectWorkspaceObjectLoadErrors(query, ["mermaid"]).length === 0
       )
     },
   })
@@ -2568,8 +2644,8 @@ function DiagramsTab(props: { directories: string[]; active: boolean }) {
     return {
       directory,
       label: getFilename(directory),
-      artifacts: selectMermaidArtifacts(query),
-      loadErrors: query?.data?.loadErrors ?? [],
+      objects: selectMermaidObjects(query),
+      loadErrors: selectWorkspaceObjectLoadErrors(query, ["mermaid"]),
       error: query?.error ? stringifyError(query.error) : undefined,
     } satisfies DiagramNotebookGroup
   })
@@ -2602,7 +2678,7 @@ function DiagramsTab(props: { directories: string[]; active: boolean }) {
     )
   }
 
-  if (!isMultiNotebookView && allLoaded && totalArtifacts === 0 && totalLoadErrors === 0) {
+  if (!isMultiNotebookView && allLoaded && totalObjects === 0 && totalLoadErrors === 0) {
     return (
       <LibraryTabErrorState
         icon={LayoutTemplateIcon}

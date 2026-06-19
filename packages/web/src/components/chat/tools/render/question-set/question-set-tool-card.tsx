@@ -1,4 +1,4 @@
-import { ArtifactCard } from "../../artifact-card"
+import { ObjectCard } from "../../object-card"
 import type { ToolState } from "../../types"
 
 type QuestionSetToolCardProps = {
@@ -15,8 +15,8 @@ export function QuestionSetToolCard({
   children,
 }: QuestionSetToolCardProps) {
   return (
-    <ArtifactCard title={title} subtitle={subtitle} status={status} innerClassName="p-3">
+    <ObjectCard title={title} subtitle={subtitle} status={status} innerClassName="p-3">
       {children}
-    </ArtifactCard>
+    </ObjectCard>
   )
 }

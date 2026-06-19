@@ -11,7 +11,7 @@ import type { MessageWithParts } from "@/state/chat-types"
 import {
   BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
   BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
-  readLatestBenchPresentationAction,
+  readLatestBenchAction,
   readLatestBenchAutoOpenCandidate,
 } from "./bench-open-policy"
 import {
@@ -36,7 +36,7 @@ export function BenchAutoOpen(props: BenchAutoOpenProps) {
     [props.messages],
   )
   const presentationAction = useMemo(
-    () => readLatestBenchPresentationAction(props.messages),
+    () => readLatestBenchAction(props.messages),
     [props.messages],
   )
 
@@ -77,6 +77,7 @@ export function BenchAutoOpen(props: BenchAutoOpenProps) {
             params: {
               directory: encodeDirectory(props.directory),
             },
+            replace: true,
           })
         })
         return
@@ -87,6 +88,7 @@ export function BenchAutoOpen(props: BenchAutoOpenProps) {
         params: {
           directory: encodeDirectory(props.directory),
         },
+        replace: true,
       })
       return
     }

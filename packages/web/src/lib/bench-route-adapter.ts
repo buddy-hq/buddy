@@ -4,7 +4,8 @@ import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
   BENCH_CHAT_SEARCH_PARAM,
-  isBenchArtifactKind,
+  defaultBenchObjectViewID,
+  isBenchObjectKind,
   readBenchChatLayoutMode,
   type BenchMode,
   type BenchTarget,
@@ -16,8 +17,9 @@ import {
 } from "./bench-open-policy-core"
 
 const CHAT_ROUTE_CHILD = "chat"
-const BENCH_ARTIFACT_ROUTE_CHILD_PREFIX = "artifacts/"
-const BENCH_ROUTE_CHILDREN = new Set(["read", "whiteboard", "markdown", "file"])
+const BENCH_ROUTE_GROUP_CHILD = "_bench"
+const BENCH_OBJECT_ROUTE_CHILD_PREFIX = "objects/"
+const BENCH_ROUTE_CHILDREN = new Set(["markdown", "file"])
 const BENCH_VIEW_TRANSITION_TYPE_ROUTE = "bench-route"
 const BENCH_VIEW_TRANSITION_TYPE_OPEN = "bench-open"
 const BENCH_VIEW_TRANSITION_TYPE_CLOSE = "bench-close"
@@ -54,14 +56,17 @@ function withBenchModeSearch<TSearch extends Record<string, unknown> | undefined
   }
 }
 
-function optionalBenchModeSearch(mode: BenchMode) {
-  return withBenchModeSearch(undefined, mode)
-}
-
 function readDirectoryChildPath(pathname: string): string | undefined {
   const segments = pathname.split("/").filter(Boolean)
   if (segments.length < 2) return undefined
   return segments.slice(1).join("/")
+}
+
+function normalizeBenchChildPath(childPath: string): string {
+  if (childPath.startsWith(`${BENCH_ROUTE_GROUP_CHILD}/`)) {
+    return childPath.slice(BENCH_ROUTE_GROUP_CHILD.length + 1)
+  }
+  return childPath
 }
 
 function readEncodedDirectoryPathSegment(pathname: string): string | undefined {
@@ -84,10 +89,12 @@ function isDirectoryChatRoutePathname(pathname: string): boolean {
 }
 
 function isBenchRoutePathname(pathname: string): boolean {
-  const childPath = readDirectoryChildPath(pathname)
-  if (!childPath) return false
+  const rawChildPath = readDirectoryChildPath(pathname)
+  if (!rawChildPath) return false
+  if (rawChildPath === BENCH_ROUTE_GROUP_CHILD) return true
+  const childPath = normalizeBenchChildPath(rawChildPath)
   if (BENCH_ROUTE_CHILDREN.has(childPath)) return true
-  return childPath.startsWith(BENCH_ARTIFACT_ROUTE_CHILD_PREFIX)
+  return childPath.startsWith(BENCH_OBJECT_ROUTE_CHILD_PREFIX)
 }
 
 function resolveBenchRouteViewTransitionTypes(
@@ -140,58 +147,47 @@ function readBenchTargetFromLocation(input: {
   pathname: string
   search: unknown
 }): BenchTarget | undefined {
-  const childPath = readDirectoryChildPath(input.pathname)
-  if (!childPath) return undefined
+  const rawChildPath = readDirectoryChildPath(input.pathname)
+  if (!rawChildPath) return undefined
+  const childPath = normalizeBenchChildPath(rawChildPath)
+  if (!childPath || childPath === BENCH_ROUTE_GROUP_CHILD) return undefined
 
   const search = isUnknownRecord(input.search) ? input.search : {}
 
-  if (childPath === "whiteboard") {
-    return { type: "whiteboard" }
-  }
-
-  if (childPath === "read") {
-    const path = readStringSearchValue(search, "path")
-    if (!path) return undefined
-    const resourceID = readStringSearchValue(search, "resource")
-    return resourceID
-      ? { type: "reading", path, resourceID }
-      : { type: "reading", path }
-  }
-
   if (childPath === "markdown") {
     const path = readStringSearchValue(search, "path")
-    return path ? { type: "markdown", path } : undefined
+    return path ? { type: "workspace-file", path, viewer: "markdown" } : undefined
   }
 
   if (childPath === "file") {
     const path = readStringSearchValue(search, "path")
-    return path ? { type: "file", path } : undefined
+    return path ? { type: "workspace-file", path, viewer: "file" } : undefined
   }
 
-  if (!childPath.startsWith(BENCH_ARTIFACT_ROUTE_CHILD_PREFIX)) {
+  if (!childPath.startsWith(BENCH_OBJECT_ROUTE_CHILD_PREFIX)) {
     return undefined
   }
 
   const segments = childPath.split("/")
   const kind = segments[1]
-  const artifactID = segments[2]
-  if (!kind || !isBenchArtifactKind(kind) || !artifactID) {
+  const objectID = segments[2]
+  if (!kind || !isBenchObjectKind(kind) || !objectID) {
     return undefined
   }
 
+  const viewID = readStringSearchValue(search, "view") ?? defaultBenchObjectViewID(kind)
+  const revisionID = readStringSearchValue(search, "revision") ?? null
   const itemID = readStringSearchValue(search, "item")
-  return itemID
-    ? {
-        type: "artifact",
-        kind,
-        artifactID: decodeURIComponent(artifactID),
-        itemID,
-      }
-    : {
-        type: "artifact",
-        kind,
-        artifactID: decodeURIComponent(artifactID),
-      }
+  return {
+    type: "object",
+    ref: {
+      kind,
+      objectID: decodeURIComponent(objectID),
+      revisionID,
+      itemID: itemID ?? null,
+    },
+    viewID,
+  }
 }
 
 function readBenchOpenPolicyStateFromLocation(input: {
@@ -230,102 +226,30 @@ function buildBenchNavigation(input: {
   const encodedDirectory = encodeDirectory(input.directory)
   const { mode, target } = input
 
-  if (target.type === "reading") {
+  if (target.type === "workspace-file") {
+    const to = target.viewer === "markdown" ? "/$directory/markdown" : "/$directory/file"
     return {
-      to: "/$directory/read",
-      params: { directory: encodedDirectory },
-      search: withBenchModeSearch(
-        target.resourceID
-          ? { path: target.path, resource: target.resourceID }
-          : { path: target.path },
-        mode,
-      ),
-    }
-  }
-
-  if (target.type === "whiteboard") {
-    const search = optionalBenchModeSearch(mode)
-    return {
-      to: "/$directory/whiteboard",
-      params: { directory: encodedDirectory },
-      ...(search ? { search } : {}),
-    }
-  }
-
-  if (target.type === "markdown") {
-    return {
-      to: "/$directory/markdown",
+      to,
       params: { directory: encodedDirectory },
       search: withBenchModeSearch({ path: target.path }, mode),
     }
   }
 
-  if (target.type === "file") {
-    return {
-      to: "/$directory/file",
-      params: { directory: encodedDirectory },
-      search: withBenchModeSearch({ path: target.path }, mode),
-    }
-  }
-
-  if (target.kind === "media-presentation") {
-    return {
-      to: "/$directory/artifacts/media-presentation/$artifactID",
-      params: { directory: encodedDirectory, artifactID: target.artifactID },
-      search: withBenchModeSearch(target.itemID ? { item: target.itemID } : {}, mode),
-    }
-  }
-
-  if (target.kind === "mermaid") {
-    const search = optionalBenchModeSearch(mode)
-    return {
-      to: "/$directory/artifacts/mermaid/$artifactID",
-      params: { directory: encodedDirectory, artifactID: target.artifactID },
-      ...(search ? { search } : {}),
-    }
-  }
-
-  if (target.kind === "html-widget") {
-    const search = optionalBenchModeSearch(mode)
-    return {
-      to: "/$directory/artifacts/html-widget/$artifactID",
-      params: { directory: encodedDirectory, artifactID: target.artifactID },
-      ...(search ? { search } : {}),
-    }
-  }
-
-  if (target.kind === "figure") {
-    const search = optionalBenchModeSearch(mode)
-    return {
-      to: "/$directory/artifacts/figure/$artifactID",
-      params: { directory: encodedDirectory, artifactID: target.artifactID },
-      ...(search ? { search } : {}),
-    }
-  }
-
-  if (target.kind === "freeform-figure") {
-    const search = optionalBenchModeSearch(mode)
-    return {
-      to: "/$directory/artifacts/freeform-figure/$artifactID",
-      params: { directory: encodedDirectory, artifactID: target.artifactID },
-      ...(search ? { search } : {}),
-    }
-  }
-
-  if (target.kind === "question-set") {
-    const search = optionalBenchModeSearch(mode)
-    return {
-      to: "/$directory/artifacts/question-set/$artifactID",
-      params: { directory: encodedDirectory, artifactID: target.artifactID },
-      ...(search ? { search } : {}),
-    }
-  }
-
-  const search = optionalBenchModeSearch(mode)
   return {
-    to: "/$directory/artifacts/flashcard-deck/$artifactID",
-    params: { directory: encodedDirectory, artifactID: target.artifactID },
-    ...(search ? { search } : {}),
+    to: "/$directory/objects/$kind/$objectID",
+    params: {
+      directory: encodedDirectory,
+      kind: target.ref.kind,
+      objectID: target.ref.objectID,
+    },
+    search: withBenchModeSearch(
+      {
+        view: target.viewID,
+        ...(target.ref.revisionID ? { revision: target.ref.revisionID } : {}),
+        ...(target.ref.itemID ? { item: target.ref.itemID } : {}),
+      },
+      mode,
+    ),
   }
 }
 

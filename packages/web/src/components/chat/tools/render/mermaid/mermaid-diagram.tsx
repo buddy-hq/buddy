@@ -98,8 +98,9 @@ function summarizeMermaidErrorText(message: string): string {
 export function MermaidDiagram(props: {
   source: string
   alt: string
-  artifactID?: string
   directory?: string
+  objectID?: string
+  revisionID?: string | null
   className?: string
   failureClassName?: string
   showRawSourceOnError?: boolean
@@ -123,7 +124,7 @@ export function MermaidDiagram(props: {
   errorMeta?: React.ReactNode
   fixDisabled?: boolean
 }) {
-  const { artifactID, source, onRenderFailure } = props
+  const { objectID, revisionID, source, onRenderFailure } = props
   const isInteractive = (props.presentation ?? "interactive") === "interactive"
   const [sharedZoomState, setSharedZoomState] = useState<MermaidViewportZoomState>({
     zoom: mermaidConstants.zoom.DEFAULT,
@@ -138,10 +139,11 @@ export function MermaidDiagram(props: {
 
   const { state } = useMermaidRender({
     source,
-    artifactID,
     directory: props.directory,
     enabled,
+    objectID,
     priority: props.renderPriority,
+    revisionID,
     themeConfig: props.themeConfig,
   })
 
@@ -255,7 +257,7 @@ export function MermaidDiagram(props: {
         onFullscreenOpen={props.onFullscreenOpen}
         svgRef={inlineViewport.svgHostRef}
         originalSvg={state.value.svg}
-        artifactID={artifactID}
+        objectID={objectID}
         minimal={props.minimalActions}
         hideFullscreen={props.hideFullscreenAction}
         zoomControls={{

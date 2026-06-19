@@ -120,7 +120,7 @@ import {
   type DirectoryChatShellView,
 } from "@/lib/directory-chat/directory-chat-shell-view"
 import { bootstrapLearnerMemoryForNotebookBestEffort } from "@/lib/learner-memory"
-import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
+import { useWorkspaceQuestionSetObjectPanelStore } from "@/state/workspace-question-set-object-panel-store"
 import { useWorkspaceFilePanelStore } from "@/state/workspace-file-panel-store"
 import { FOLLOWUP_BEHAVIOR_QUEUE, useChatSettings } from "@/state/chat-settings"
 import { language } from "@/context/language"
@@ -465,16 +465,16 @@ export function useDirectoryChatPageController(
       return
     }
 
-    const pendingArtifactID = useWorkspaceQuestionSetPanelStore
+    const pendingObjectID = useWorkspaceQuestionSetObjectPanelStore
       .getState()
       .consumePendingOpen(decodedDirectory)
-    if (!pendingArtifactID) {
+    if (!pendingObjectID) {
       return
     }
 
     openWorkspaceQuestionSet({
       directory: decodedDirectory,
-      artifactID: pendingArtifactID,
+      objectID: pendingObjectID,
       fallbackTab: cs.selectedPersonaDefaultSurface,
     })
   }, [cs.selectedPersonaDefaultSurface, decodedDirectory, openWorkspaceQuestionSet])
@@ -926,12 +926,12 @@ export function useDirectoryChatPageController(
       const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
       const preferCurrentSession =
         options?.sessionPreference === RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT
-      const linkedSessionID = resource.resourceID
-        ? linkedSessionByResource[`${targetDirectory}::${resource.resourceID}`]
+      const linkedSessionID = resource.objectID
+        ? linkedSessionByResource[`${targetDirectory}::${resource.objectID}`]
         : undefined
 
-      if (preferCurrentSession && activeSessionID && resource.resourceID) {
-        linkReadingResourceSession(targetDirectory, resource.resourceID, activeSessionID)
+      if (preferCurrentSession && activeSessionID && resource.objectID) {
+        linkReadingResourceSession(targetDirectory, resource.objectID, activeSessionID)
       }
 
       if (openingFromLibrary) {
@@ -962,14 +962,26 @@ export function useDirectoryChatPageController(
           setSelectedVariant(scopeKey, carryVariantKey)
         }
 
+        if (resource.objectID) {
+          void navigate({
+            to: "/$directory/objects/$kind/$objectID",
+            params: {
+              directory: encodeDirectory(targetDirectory),
+              kind: "resource",
+              objectID: resource.objectID,
+            },
+            search: { view: "reader" },
+          })
+          return
+        }
+
         void navigate({
-          to: "/$directory/read",
+          to: "/$directory/file",
           params: {
             directory: encodeDirectory(targetDirectory),
           },
           search: {
             path: resource.path,
-            ...(resource.resourceID ? { resource: resource.resourceID } : {}),
           },
         })
       })()
@@ -991,8 +1003,8 @@ export function useDirectoryChatPageController(
 
   function openQuestionSetFromLibrary(
     targetDirectory: string,
-    artifactID: string,
-    selectedArtifactID?: string,
+    objectID: string,
+    selectedObjectID?: string,
   ) {
     if (!targetDirectory) {
       return
@@ -1004,7 +1016,7 @@ export function useDirectoryChatPageController(
         cs.setMainPaneTab("chat")
       }
 
-      useWorkspaceQuestionSetPanelStore.getState().queueQuestionSetOpen(targetDirectory, artifactID)
+      useWorkspaceQuestionSetObjectPanelStore.getState().queueQuestionSetOpen(targetDirectory, objectID)
 
       void navigate({
         to: "/$directory/chat",
@@ -1015,8 +1027,8 @@ export function useDirectoryChatPageController(
 
     openWorkspaceQuestionSet({
       directory: targetDirectory,
-      artifactID,
-      selectedArtifactID,
+      objectID,
+      selectedObjectID,
       fallbackTab: cs.selectedPersonaDefaultSurface,
     })
   }
@@ -1174,8 +1186,8 @@ export function useDirectoryChatPageController(
         ...(activeReadingResource
           ? {
               reading: {
-                ...(activeReadingResource.resourceID
-                  ? { resourceKey: activeReadingResource.resourceID }
+                ...(activeReadingResource.objectID
+                  ? { resourceKey: activeReadingResource.objectID }
                   : {}),
                 title: activeReadingResource.name,
                 path: activeReadingResource.path,
@@ -1217,10 +1229,10 @@ export function useDirectoryChatPageController(
           : {}),
       })
 
-      if (activeReadingResource?.resourceID) {
+      if (activeReadingResource?.objectID) {
         linkReadingResourceSession(
           decodedDirectory,
-          activeReadingResource.resourceID,
+          activeReadingResource.objectID,
           submittedSessionID,
         )
       }

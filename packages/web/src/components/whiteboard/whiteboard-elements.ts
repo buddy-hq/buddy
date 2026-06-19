@@ -2,11 +2,14 @@ import type { ExcalidrawElementSkeleton } from "@excalidraw/excalidraw/data/tran
 import type { Bounds } from "@excalidraw/excalidraw/element/bounds"
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types"
 import type { AppState } from "@excalidraw/excalidraw/types"
-import type { WhiteboardsReadResponse, WhiteboardsSaveLearnerEditData } from "@buddy/sdk"
+import type {
+  ObjectWhiteboardSessionReadResponse,
+  ObjectWhiteboardSessionSaveLearnerEditData,
+} from "@buddy/sdk"
 
-type CurrentWhiteboardBoard = NonNullable<WhiteboardsReadResponse["currentBoard"]>
+type CurrentWhiteboardBoard = NonNullable<ObjectWhiteboardSessionReadResponse["currentBoard"]>
 type PersistedWhiteboardElement = CurrentWhiteboardBoard["elements"][number]
-type LearnerEditBody = NonNullable<WhiteboardsSaveLearnerEditData["body"]>
+type LearnerEditBody = NonNullable<ObjectWhiteboardSessionSaveLearnerEditData["body"]>
 type WhiteboardViewport = NonNullable<LearnerEditBody["viewport"]>
 type WhiteboardEditorElementGroup =
   | {

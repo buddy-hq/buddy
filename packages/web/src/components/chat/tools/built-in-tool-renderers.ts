@@ -26,6 +26,7 @@ import { renderBuddyCustomTool } from "./render/buddy-custom"
 import { renderIngestFullTextTool } from "./render/ingest-full-text"
 import { renderEditTool } from "./render/edit"
 import { renderExaSearchTool } from "./render/exa-search"
+import { renderSavedFlashcardDeckTool } from "./render/flashcard-deck/saved-flashcard-deck-tool"
 import { renderGenericTool } from "./render/generic"
 import { renderPresentHtmlWidgetTool } from "./render/html-widget"
 import { renderKnowledgeGraphTool } from "./render/knowledge-graph"
@@ -193,10 +194,15 @@ export const builtInTools: Record<string, ToolRenderer> = {
     card: renderRenderMermaidTool,
     deferUntilVisible: true,
   }),
-  render_saved_question_set: createToolRenderer({
+  save_question_set: createToolRenderer({
     inline: true,
     icon: (cn) => createElement(BookOpen, { className: cn }),
     card: renderSavedQuestionSetTool,
+  }),
+  save_flashcard_deck: createToolRenderer({
+    inline: true,
+    icon: (cn) => createElement(BookOpen, { className: cn }),
+    card: renderSavedFlashcardDeckTool,
   }),
   present_media: createToolRenderer({
     inline: true,

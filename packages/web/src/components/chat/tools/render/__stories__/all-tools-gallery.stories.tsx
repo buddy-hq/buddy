@@ -19,7 +19,7 @@ import { renderQuestionTool } from "../question"
 import { renderTaskTool } from "../task"
 import { renderKnowledgeGraphTool } from "../knowledge-graph"
 import { card, type GalleryCard } from "./tool-state-helpers"
-import { workspaceArtifactsQueryKeys } from "@/state/workspace-artifacts-query"
+import { workspaceObjectsQueryKeys } from "@/state/workspace-objects-query"
 import {
   STORY_DIRECTORY,
   STORY_SESSION_ID,
@@ -44,6 +44,57 @@ function CardLabel({ label }: { label: string }) {
   return (
     <span className="text-xs font-medium tracking-wide text-text-weaker uppercase">{label}</span>
   )
+}
+
+function figureObjectMetadata(input: {
+  objectID: string
+  revisionID: string
+  svgUrl: string
+  alt: string
+  caption: string
+}) {
+  const ref = {
+    kind: "figure",
+    objectID: input.objectID,
+    revisionID: input.revisionID,
+    itemID: null,
+  } as const
+
+  return {
+    buddyObjectResult: {
+      version: 1,
+      status: "ok",
+      reason: null,
+      message: "Rendered figure.",
+      primaryRef: ref,
+      objects: [
+        {
+          kind: "figure",
+          objectID: input.objectID,
+          title: input.alt,
+          status: "ready",
+          lifecycle: "revisioned",
+          sourceRoot: null,
+        },
+      ],
+      presentations: [
+        {
+          ref,
+          viewID: "rendered",
+          surface: "inline",
+          data: {
+            renderer: "figure",
+            svgUrl: input.svgUrl,
+            source: null,
+            alt: input.alt,
+            caption: input.caption,
+            renderStatus: "ready",
+          },
+          autoOpen: null,
+        },
+      ],
+    },
+  }
 }
 
 function ToolCardRow({ card: cardItem }: { card: GalleryCard }) {
@@ -77,14 +128,14 @@ function GalleryLayout({ sections }: { sections: GallerySection[] }) {
   )
 }
 
-function makeQueryClientWithArtifactData() {
+function makeQueryClientWithObjectData() {
   const queryClient = new QueryClient()
   queryClient.setQueryData(
-    workspaceArtifactsQueryKeys.flashcard(STORY_DIRECTORY),
+    workspaceObjectsQueryKeys.flashcard(STORY_DIRECTORY),
     FLASHCARD_DECKS_ALL,
   )
   queryClient.setQueryData(
-    workspaceArtifactsQueryKeys.questionSet(STORY_DIRECTORY),
+    workspaceObjectsQueryKeys.questionSet(STORY_DIRECTORY),
     QUESTION_SETS_ALL,
   )
   return queryClient
@@ -483,9 +534,8 @@ function buildSections(): GallerySection[] {
             status: "completed",
             input: {},
             metadata: {
-              artifact: "RenderFigureOutput",
               resource: "Chapter 3: Fractions",
-              fullTextEstTokens: 4200,
+              fullTextEstimatedTokens: 4200,
             },
             output: "",
           },
@@ -605,17 +655,13 @@ function buildSections(): GallerySection[] {
           {
             status: "completed",
             input: {},
-            metadata: {
-              artifact: "RenderFigureOutput",
-              value: {
-                artifactID: "fig-001",
-                mime: "image/svg+xml",
-                url: "https://placehold.co/400x200/svg",
-                alt: "Bar chart showing student scores",
-                caption: "Figure 1: Student performance by topic",
-                repairAttempts: 0,
-              },
-            },
+            metadata: figureObjectMetadata({
+              objectID: "fig-001",
+              revisionID: "fig-001-revision",
+              svgUrl: "https://placehold.co/400x200/svg",
+              alt: "Bar chart showing student scores",
+              caption: "Figure 1: Student performance by topic",
+            }),
             output: "",
           },
           { title: t("chatTools.info.figure"), subtitle: "Bar chart" },
@@ -627,17 +673,13 @@ function buildSections(): GallerySection[] {
           {
             status: "completed",
             input: {},
-            metadata: {
-              artifact: "RenderFigureOutput",
-              value: {
-                artifactID: "fig-002",
-                mime: "image/svg+xml",
-                url: "https://placehold.co/400x200/svg",
-                alt: "Pie chart of grade distribution",
-                caption: "Figure 2: Grade distribution",
-                repairAttempts: 2,
-              },
-            },
+            metadata: figureObjectMetadata({
+              objectID: "fig-002",
+              revisionID: "fig-002-revision",
+              svgUrl: "https://placehold.co/400x200/svg",
+              alt: "Pie chart of grade distribution",
+              caption: "Figure 2: Grade distribution",
+            }),
             output: "",
           },
           { title: t("chatTools.info.figure"), subtitle: "Pie chart" },
@@ -928,7 +970,7 @@ const meta: Meta = {
   parameters: { layout: "fullscreen" },
   decorators: [
     (Story) => {
-      const queryClient = makeQueryClientWithArtifactData()
+      const queryClient = makeQueryClientWithObjectData()
       return (
         <QueryClientProvider client={queryClient}>
           <Story />

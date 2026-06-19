@@ -4,7 +4,7 @@
  * Three spring profiles covering every tool animation:
  * - SNAPPY: small UI elements (chevron rotate, status dot pop-in, toggle)
  * - GENTLE: content reveals (body expand, panel slide, error reveal)
- * - SOFT:   subtle entry (card fade-in, artifact appear)
+ * - SOFT:   subtle entry (card fade-in, object appear)
  *
  * Tool-specific motion (task shimmer gradient, mermaid viewport springs)
  * lives in its own file — these are the shared cross-cutting tokens.
@@ -26,7 +26,7 @@ export const MOTION_GENTLE = {
   mass: 1,
 } as const
 
-/** Subtle entry: card fade-in, artifact appear */
+/** Subtle entry: card fade-in, object appear */
 export const MOTION_SOFT = {
   type: "spring",
   stiffness: 260,

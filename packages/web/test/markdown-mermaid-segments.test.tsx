@@ -1,11 +1,44 @@
 import { describe, expect, test } from "bun:test"
 import {
-  shouldClearMarkdownMermaidArtifact,
+  shouldClearMarkdownMermaidObject,
   shouldDelayMarkdownMermaidSegment,
   shouldStartMarkdownMermaidAutoRepair,
 } from "../src/components/markdown/markdown-mermaid-segment"
 import { canContainMermaidBlock } from "../src/components/markdown/Markdown"
 import { parseMarkdownSegments } from "../src/components/markdown/markdown-segments"
+import type { ObjectMermaidReadSourceResponse } from "@buddy/sdk/types"
+
+function createMermaidObject(
+  overrides: Partial<ObjectMermaidReadSourceResponse> = {},
+): ObjectMermaidReadSourceResponse {
+  return {
+    objectID: "object",
+    revisionID: "revision",
+    kind: "mermaid",
+    title: "Mermaid diagram",
+    origin: {
+      kind: "markdown",
+      sessionID: "ses_test",
+      messageID: "msg_test",
+      partID: "prt_test",
+      segmentIndex: 1,
+    },
+    diagramType: "flowchart",
+    alt: "Mermaid diagram",
+    sourceHash: "hash",
+    source: "flowchart TD\nA-->B",
+    preflightRepairs: [],
+    autoRepair: {
+      status: "eligible",
+      attempts: 0,
+    },
+    renderStatus: "error",
+    repairOfObjectID: null,
+    supersedesRevisionID: null,
+    replacementRevisionID: null,
+    ...overrides,
+  }
+}
 
 describe("markdown mermaid segments", () => {
   test("extracts closed mermaid fences into stable segments", () => {
@@ -67,27 +100,27 @@ describe("markdown mermaid segments", () => {
     ).toBe(true)
   })
 
-  test("clears stale markdown mermaid artifacts when the source changes", () => {
+  test("clears stale markdown mermaid objects when the source changes", () => {
     expect(
-      shouldClearMarkdownMermaidArtifact({
+      shouldClearMarkdownMermaidObject({
         requestedSource: "graph TD\nA-->B",
         nextSource: "graph TD\nA-->C",
       }),
     ).toBe(true)
   })
 
-  test("keeps markdown mermaid artifact state for the same source", () => {
+  test("keeps markdown mermaid object state for the same source", () => {
     expect(
-      shouldClearMarkdownMermaidArtifact({
+      shouldClearMarkdownMermaidObject({
         requestedSource: "graph TD\nA-->B",
         nextSource: "graph TD\nA-->B",
       }),
     ).toBe(false)
   })
 
-  test("does not clear when preflight rewrites the artifact source for the same requested source", () => {
+  test("does not clear when preflight rewrites the object source for the same requested source", () => {
     expect(
-      shouldClearMarkdownMermaidArtifact({
+      shouldClearMarkdownMermaidObject({
         requestedSource: "erDiagram\nA ||--o| B : one to many",
         nextSource: "erDiagram\nA ||--o| B : one to many",
       }),
@@ -97,39 +130,7 @@ describe("markdown mermaid segments", () => {
   test("starts inline auto repair for persisted failed renders when eligible", () => {
     expect(
       shouldStartMarkdownMermaidAutoRepair({
-        artifact: {
-          version: 1,
-          artifactID: "artifact",
-          kind: "mermaid",
-          title: "Mermaid diagram",
-          origin: {
-            kind: "markdown",
-            sessionID: "ses_test",
-            messageID: "msg_test",
-            partID: "prt_test",
-            segmentIndex: 1,
-          },
-          diagramType: "flowchart",
-          alt: "Mermaid diagram",
-          sourceHash: "hash",
-          source: "flowchart TD\nA-->B",
-          preflightRepairs: [],
-          autoRepair: {
-            status: "eligible",
-            attempts: 0,
-          },
-          summary: {
-            diagramType: "flowchart",
-            alt: "Mermaid diagram",
-            preflightRepairs: [],
-            autoRepair: {
-              status: "eligible",
-              attempts: 0,
-            },
-          },
-          createdAt: "2026-05-05T00:00:00.000Z",
-          updatedAt: "2026-05-05T00:00:00.000Z",
-        },
+        object: createMermaidObject(),
         renderFailure: {
           message: "Failed before reload",
           persisted: true,

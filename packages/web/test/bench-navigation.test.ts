@@ -7,6 +7,9 @@ import {
   BENCH_LAYOUT_PROFILE_BENCH_FIRST,
   BENCH_MODE_REQUEST_POLICY,
   classifyBenchTransition,
+  isBenchRoutePathname,
+  readBenchOpenPolicyStateFromLocation,
+  readBenchTargetFromLocation,
   resolveBenchLayoutDefaults,
   resolveBenchOpenPolicy,
   resolveBenchRouteViewTransitionTypes,
@@ -20,6 +23,36 @@ import {
 import { encodeDirectory } from "../src/lib/directory-token"
 
 const DIRECTORY = "/workspace/buddy"
+const RESOURCE_OBJECT_TARGET = {
+  type: "object",
+  ref: {
+    kind: "resource",
+    objectID: "resource-1",
+    revisionID: null,
+    itemID: null,
+  },
+  viewID: "reader",
+} satisfies BenchTarget
+const WHITEBOARD_OBJECT_TARGET = {
+  type: "object",
+  ref: {
+    kind: "whiteboard",
+    objectID: "whiteboard-1",
+    revisionID: null,
+    itemID: null,
+  },
+  viewID: "current",
+} satisfies BenchTarget
+const HTML_WIDGET_OBJECT_TARGET = {
+  type: "object",
+  ref: {
+    kind: "html-widget",
+    objectID: "widget-1",
+    revisionID: null,
+    itemID: null,
+  },
+  viewID: "runtime",
+} satisfies BenchTarget
 
 const EMPTY_PREFERENCES = {
   modeBySurface: {},
@@ -83,28 +116,22 @@ describe("bench navigation policy", () => {
   })
 
   test("resolves locked surface defaults", () => {
-    expect(resolveBenchSurfaceDefaults({ type: "reading", path: "book.epub" })).toEqual({
+    expect(resolveBenchSurfaceDefaults(RESOURCE_OBJECT_TARGET)).toEqual({
       mode: BENCH_CHAT_LAYOUT_DOCKED,
       layoutProfile: BENCH_LAYOUT_PROFILE_BALANCED,
     })
-    expect(resolveBenchSurfaceDefaults({ type: "whiteboard" })).toEqual({
+    expect(resolveBenchSurfaceDefaults(WHITEBOARD_OBJECT_TARGET)).toEqual({
       mode: BENCH_CHAT_LAYOUT_FLOATING,
       layoutProfile: BENCH_LAYOUT_PROFILE_BENCH_FIRST,
     })
-    expect(
-      resolveBenchSurfaceDefaults({
-        type: "artifact",
-        kind: "html-widget",
-        artifactID: "widget-1",
-      }),
-    ).toEqual({
+    expect(resolveBenchSurfaceDefaults(HTML_WIDGET_OBJECT_TARGET)).toEqual({
       mode: BENCH_CHAT_LAYOUT_FLOATING,
       layoutProfile: BENCH_LAYOUT_PROFILE_BENCH_FIRST,
     })
   })
 
   test("uses target default mode when entering bench from closed state", () => {
-    expect(resolveOpenPolicy({ request: openRequest({ type: "whiteboard" }) })).toMatchObject({
+    expect(resolveOpenPolicy({ request: openRequest(WHITEBOARD_OBJECT_TARGET) })).toMatchObject({
       action: "open",
       mode: BENCH_CHAT_LAYOUT_FLOATING,
       layoutProfile: BENCH_LAYOUT_PROFILE_BENCH_FIRST,
@@ -118,7 +145,7 @@ describe("bench navigation policy", () => {
   test("saved surface mode preference wins over target default", () => {
     expect(
       resolveOpenPolicy({
-        request: openRequest({ type: "whiteboard" }),
+        request: openRequest(WHITEBOARD_OBJECT_TARGET),
         preferences: {
           modeBySurface: {
             whiteboard: BENCH_CHAT_LAYOUT_DOCKED,
@@ -133,10 +160,10 @@ describe("bench navigation policy", () => {
   })
 
   test("policy mode preserves current live mode while bench is already open", () => {
-    const currentTarget = { type: "markdown", path: "notes.md" } satisfies BenchTarget
+    const currentTarget = { type: "workspace-file", path: "notes.md", viewer: "markdown" } satisfies BenchTarget
     expect(
       resolveOpenPolicy({
-        request: openRequest({ type: "file", path: "diagram.png" }),
+        request: openRequest({ type: "workspace-file", path: "diagram.png", viewer: "file" }),
         current: {
           status: "open",
           directory: DIRECTORY,
@@ -156,12 +183,12 @@ describe("bench navigation policy", () => {
   })
 
   test("auto-open does not replace a different active bench target", () => {
-    const currentTarget = { type: "markdown", path: "notes.md" } satisfies BenchTarget
+    const currentTarget = { type: "workspace-file", path: "notes.md", viewer: "markdown" } satisfies BenchTarget
     expect(
       resolveOpenPolicy({
         request: {
           directory: DIRECTORY,
-          target: { type: "whiteboard" },
+          target: WHITEBOARD_OBJECT_TARGET,
           mode: BENCH_MODE_REQUEST_POLICY,
           autoOpen: {
             policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
@@ -187,7 +214,7 @@ describe("bench navigation policy", () => {
       resolveOpenPolicy({
         request: {
           directory: DIRECTORY,
-          target: { type: "whiteboard" },
+          target: WHITEBOARD_OBJECT_TARGET,
           mode: BENCH_MODE_REQUEST_POLICY,
           autoOpen: {
             policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
@@ -203,8 +230,8 @@ describe("bench navigation policy", () => {
   })
 
   test("classifies bench transitions from policy states", () => {
-    const markdownTarget = { type: "markdown", path: "notes.md" } satisfies BenchTarget
-    const fileTarget = { type: "file", path: "diagram.png" } satisfies BenchTarget
+    const markdownTarget = { type: "workspace-file", path: "notes.md", viewer: "markdown" } satisfies BenchTarget
+    const fileTarget = { type: "workspace-file", path: "diagram.png", viewer: "file" } satisfies BenchTarget
     const openMarkdownDocked = {
       status: "open",
       directory: DIRECTORY,
@@ -304,5 +331,33 @@ describe("bench navigation policy", () => {
         },
       }),
     ).toBe(false)
+  })
+
+  test("reads pathless and explicit bench object routes as the same target", () => {
+    const directoryParam = encodeDirectory(DIRECTORY)
+    const pathlessPathname = `/${directoryParam}/objects/whiteboard/whiteboard-1`
+    const explicitPathname = `/${directoryParam}/_bench/objects/whiteboard/whiteboard-1`
+    const search = { view: "current", benchChat: BENCH_CHAT_LAYOUT_FLOATING }
+
+    expect(isBenchRoutePathname(pathlessPathname)).toBe(true)
+    expect(isBenchRoutePathname(explicitPathname)).toBe(true)
+    expect(readBenchTargetFromLocation({ pathname: pathlessPathname, search })).toEqual(
+      WHITEBOARD_OBJECT_TARGET,
+    )
+    expect(readBenchTargetFromLocation({ pathname: explicitPathname, search })).toEqual(
+      WHITEBOARD_OBJECT_TARGET,
+    )
+    expect(
+      readBenchOpenPolicyStateFromLocation({
+        directory: DIRECTORY,
+        pathname: explicitPathname,
+        search,
+      }),
+    ).toMatchObject({
+      status: "open",
+      directory: DIRECTORY,
+      target: WHITEBOARD_OBJECT_TARGET,
+      mode: BENCH_CHAT_LAYOUT_FLOATING,
+    })
   })
 })

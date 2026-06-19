@@ -19,7 +19,7 @@ type MermaidActionBarProps = {
   onFullscreenOpen?: () => void
   svgRef: React.RefObject<HTMLDivElement | null>
   originalSvg: string
-  artifactID?: string
+  objectID?: string
   minimal?: boolean
   hideFullscreen?: boolean
   zoomControls?: {
@@ -82,7 +82,7 @@ export const MermaidActionBar = memo(function MermaidActionBar({
   onFullscreenOpen,
   svgRef,
   originalSvg,
-  artifactID,
+  objectID,
   minimal,
   hideFullscreen,
   zoomControls,
@@ -123,11 +123,11 @@ export const MermaidActionBar = memo(function MermaidActionBar({
   }, [source])
 
   const downloadFileName = useCallback(() => {
-    const suffix = artifactID
-      ? artifactID.slice(0, mermaidConstants.svg.ARTIFACT_ID_SLICE)
+    const suffix = objectID
+      ? objectID.slice(0, mermaidConstants.svg.OBJECT_ID_SLICE)
       : language.t("chatTools.mermaidDiagram.downloadFallbackSuffix")
     return `mermaid-${suffix}.svg`
-  }, [artifactID])
+  }, [objectID])
 
   const downloadRenderedSvg = useCallback(() => {
     const renderedSvg =

@@ -42,7 +42,7 @@ export type ResourceListItem = {
   name: string
   extension: ResourceFileExtension
   status: ResourceViewStatus
-  resourceID?: string
+  objectID?: string
   coverRelpath?: string
   title?: string
   author?: string
@@ -138,9 +138,10 @@ export function resourceFileExtensionFromFormat(format: string): ResourceFileExt
 function buildResourceListItemFromProcessedRecord(
   record: ResourceRecord,
 ): ResourceListItem | undefined {
+  const readerPath = normalizeRenderableResourcePath(record.readerPath)
   const sourceOriginPath = normalizeRenderableResourcePath(record.sourceOriginRelpath)
   const sourcePath = normalizeRenderableResourcePath(record.sourceRelpath)
-  const resolvedPath = sourceOriginPath ?? sourcePath
+  const resolvedPath = readerPath ?? sourceOriginPath ?? sourcePath
   if (!resolvedPath) return undefined
 
   const extension =
@@ -151,12 +152,12 @@ function buildResourceListItemFromProcessedRecord(
   }
 
   return {
-    key: `${RESOURCE_RECORD_KEY_PREFIX}${record.id}`,
+    key: `${RESOURCE_RECORD_KEY_PREFIX}${record.objectID}`,
     path: resolvedPath,
     name: fileNameFromPath(resolvedPath) || record.alias,
     extension,
     status: record.status,
-    resourceID: record.id,
+    objectID: record.objectID,
     ...(record.coverRelpath ? { coverRelpath: record.coverRelpath } : {}),
     ...(record.title ? { title: record.title } : {}),
     ...(record.author ? { author: record.author } : {}),
@@ -171,14 +172,14 @@ function buildResourceListItems(input: {
   const discoveredPaths = new Set(input.discovered.map((resource) => resource.path))
   const items: ResourceListItem[] = []
   const seenPaths = new Set<string>()
-  const seenResourceIDs = new Set<string>()
+  const seenObjectIDs = new Set<string>()
 
   for (const discoveredResource of input.discovered) {
     const mapped = processedByPath[discoveredResource.path]
     const preferredPath = normalizeRenderableResourcePath(mapped?.sourceOriginRelpath)
     const shouldSkipDiscoveredResource =
-      !!mapped?.id &&
-      (seenResourceIDs.has(mapped.id) ||
+      !!mapped?.objectID &&
+      (seenObjectIDs.has(mapped.objectID) ||
         (preferredPath !== undefined &&
           preferredPath !== discoveredResource.path &&
           discoveredPaths.has(preferredPath)))
@@ -193,14 +194,14 @@ function buildResourceListItems(input: {
       name: discoveredResource.name,
       extension: discoveredResource.extension,
       status: mapped?.status ?? "unprocessed",
-      ...(mapped ? { resourceID: mapped.id } : {}),
+      ...(mapped ? { objectID: mapped.objectID } : {}),
       ...(mapped?.coverRelpath ? { coverRelpath: mapped.coverRelpath } : {}),
       ...(mapped?.title ? { title: mapped.title } : {}),
       ...(mapped?.author ? { author: mapped.author } : {}),
     })
     seenPaths.add(discoveredResource.path)
-    if (mapped?.id) {
-      seenResourceIDs.add(mapped.id)
+    if (mapped?.objectID) {
+      seenObjectIDs.add(mapped.objectID)
     }
   }
 
@@ -211,7 +212,7 @@ function buildResourceListItems(input: {
 
     items.push(item)
     seenPaths.add(item.path)
-    seenResourceIDs.add(record.id)
+    seenObjectIDs.add(record.objectID)
   }
 
   return items.toSorted((left, right) => left.path.localeCompare(right.path))
@@ -220,7 +221,7 @@ function buildResourceListItems(input: {
 export type ResourceReadingTarget = {
   path: string
   name: string
-  resourceID?: string
+  objectID?: string
   status?: ResourceViewStatus
 }
 
@@ -239,7 +240,7 @@ function toResourceReadingTarget(item: ResourceListItem): ResourceReadingTarget 
   return {
     path: item.path,
     name: item.name,
-    ...(item.resourceID ? { resourceID: item.resourceID } : {}),
+    ...(item.objectID ? { objectID: item.objectID } : {}),
     status: item.status,
   }
 }
@@ -248,7 +249,7 @@ export function findProcessedResourceByKey(
   processed: ResourceRecord[],
   resourceKey: string,
 ): ResourceRecord | undefined {
-  return processed.find((entry) => entry.alias === resourceKey || entry.id === resourceKey)
+  return processed.find((entry) => entry.alias === resourceKey || entry.objectID === resourceKey)
 }
 
 /** Same path/name resolution as the library grid (`buildResourceListItems`). */
@@ -256,7 +257,7 @@ export function resolveResourceReadingTarget(
   record: ResourceRecord,
   items: ResourceListItem[],
 ): ResourceReadingTarget | undefined {
-  const fromList = items.find((item) => item.resourceID === record.id)
+  const fromList = items.find((item) => item.objectID === record.objectID)
   if (fromList) {
     return toResourceReadingTarget(fromList)
   }

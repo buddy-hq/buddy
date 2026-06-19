@@ -6,7 +6,7 @@ export const mermaidConstants = {
   svg: {
     DEFAULT_WIDTH: 1200,
     DEFAULT_HEIGHT: 800,
-    ARTIFACT_ID_SLICE: 8,
+    OBJECT_ID_SLICE: 8,
   },
   zoom: {
     MIN: 0.05,

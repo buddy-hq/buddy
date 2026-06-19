@@ -7,39 +7,47 @@ import { MermaidDiagram } from "./mermaid-diagram"
 import { useMermaidRender } from "./use-mermaid-render"
 import { MermaidToolCard } from "./mermaid-tool-card"
 import { language } from "@/context/language"
-import { isRecord, readNonEmptyString } from "../../../tools/types"
+import { readNonEmptyString } from "../../../tools/types"
 import { unwrapError } from "../../../utils/error"
 import { sendPrompt } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
+import {
+  metadataWithInlinePresentation,
+  objectBenchTarget,
+  readInlinePresentation,
+  type BuddyPresentationDescriptor,
+} from "../buddy-object-result"
+import { useHydratedInlinePresentation } from "../use-hydrated-inline-presentation"
 import type { ToolPartProps } from "../../registry"
 import type { AssistantMessageInfo, MessagePart, MessageWithParts } from "@/state/chat-types"
 import {
-  readMermaidArtifact,
+  readMermaidObject,
   readMermaidAutoRepairStatus,
   startMermaidAutoRepair,
-  type MermaidArtifactRecord,
+  type MermaidObjectRecord,
   type MermaidRepairStartResponse,
 } from "./lib/persisted-renders"
-import { findSupersedingMermaidArtifactID } from "./lib/supersession"
+import { hashMermaidSource } from "./lib/render"
+import { findSupersedingMermaidRevisionID } from "./lib/supersession"
 
 type RenderMermaidToolOutput = {
-  artifactID: string
-  artifactUrl: string
+  objectID: string
+  revisionID: string | null
   source: string
   sourceHash: string
   diagramType: string
   alt: string
   caption?: string
-  supersedesArtifactID?: string
 }
 
 type RenderMermaidToolReference = Omit<RenderMermaidToolOutput, "source"> & {
   source?: string
+  viewID: string
 }
 
 type RenderMermaidToolSources = {
-  artifactSource?: string
+  objectSource?: string
   inputSource?: string
 }
 
@@ -57,17 +65,24 @@ type MermaidRenderFailure = {
   renderKey?: string
 }
 
+function mermaidOriginSessionID(origin: MermaidObjectRecord["origin"]): string | undefined {
+  if (origin.kind === "tool" || origin.kind === "markdown") {
+    return origin.sessionID
+  }
+  return undefined
+}
+
 export function shouldStartMermaidAutoRepair(input: {
-  artifact: Pick<MermaidArtifactRecord, "autoRepair" | "origin"> | undefined
+  object: Pick<MermaidObjectRecord, "autoRepair" | "origin"> | undefined
   directory?: string
   renderFailure?: MermaidRenderFailure
 }): boolean {
   return (
     !!input.directory &&
-    !!input.artifact &&
+    !!input.object &&
     !!input.renderFailure?.renderKey &&
-    input.artifact.origin.kind === "tool" &&
-    input.artifact.autoRepair.status === "eligible"
+    input.object.origin.kind === "tool" &&
+    input.object.autoRepair.status === "eligible"
   )
 }
 
@@ -81,7 +96,7 @@ type MermaidRepairState =
     }
   | {
       status: "succeeded"
-      replacementArtifactID: string
+      replacementRevisionID: string
     }
   | {
       status: "exhausted"
@@ -92,66 +107,48 @@ type MermaidRepairState =
       lastErrorMessage: string
     }
 
-const MERMAID_ARTIFACT_CACHE_LIMIT = 200
+const MERMAID_OBJECT_CACHE_LIMIT = 200
 const MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS = 1_000
-const mermaidArtifactCache = new Map<string, MermaidArtifactRecord>()
-const mermaidArtifactRequests = new Map<string, Promise<MermaidArtifactRecord>>()
+const mermaidObjectCache = new Map<string, MermaidObjectRecord>()
+const mermaidObjectRequests = new Map<string, Promise<MermaidObjectRecord>>()
 
-function touchMermaidArtifactCache(key: string, value: MermaidArtifactRecord): void {
-  mermaidArtifactCache.delete(key)
-  mermaidArtifactCache.set(key, value)
+function touchMermaidObjectCache(key: string, value: MermaidObjectRecord): void {
+  mermaidObjectCache.delete(key)
+  mermaidObjectCache.set(key, value)
 
-  if (mermaidArtifactCache.size <= MERMAID_ARTIFACT_CACHE_LIMIT) {
+  if (mermaidObjectCache.size <= MERMAID_OBJECT_CACHE_LIMIT) {
     return
   }
 
-  const oldest = mermaidArtifactCache.keys().next().value
+  const oldest = mermaidObjectCache.keys().next().value
   if (typeof oldest === "string") {
-    mermaidArtifactCache.delete(oldest)
+    mermaidObjectCache.delete(oldest)
   }
 }
 
 function parseRenderMermaidReference(
   state: ToolPartProps["state"],
 ): RenderMermaidToolReference | undefined {
-  if (readNonEmptyString(state.metadata.artifact) !== "RenderMermaidOutput") {
-    return undefined
-  }
-
-  const value = isRecord(state.metadata.value) ? state.metadata.value : undefined
-  if (!value || readNonEmptyString(value.kind) !== "mermaid") {
-    return undefined
-  }
-
-  const artifactID = readNonEmptyString(value.artifactID)
-  const artifactUrl =
-    readNonEmptyString(value.artifactUrl) ??
-    `/api/artifacts/mermaid/${artifactID ?? language.t("rightSidebar.snapshot.unknown")}`
+  const presentation = readInlinePresentation(state.metadata, "mermaid")
+  if (presentation?.data?.renderer !== "mermaid") return undefined
+  const source = presentation.data.source
   const diagramType =
-    readNonEmptyString(value.diagramType) ?? language.t("chatTools.defaultMermaidType")
-  const alt = readNonEmptyString(value.alt) ?? language.t("chatTools.defaultMermaidAlt")
-  const caption = readNonEmptyString(value.caption)
-  const source = readNonEmptyString(value.source)
-  const sourceHash = readNonEmptyString(value.sourceHash) ?? ""
-  const supersedesArtifactID = readNonEmptyString(value.supersedesArtifactID)
-
-  if (!artifactID) {
-    return undefined
-  }
+    inferMermaidDiagramTypeFromSource(source) ?? language.t("chatTools.defaultMermaidType")
+  const caption = presentation.data.caption
 
   return {
-    artifactID,
-    artifactUrl,
+    objectID: presentation.ref.objectID,
+    revisionID: presentation.ref.revisionID,
     source,
-    sourceHash,
+    sourceHash: hashMermaidSource(source),
     diagramType,
-    alt,
+    alt: presentation.data.alt,
+    viewID: presentation.viewID,
     ...(caption ? { caption } : {}),
-    ...(supersedesArtifactID ? { supersedesArtifactID } : {}),
   }
 }
 
-export function parseRenderMermaidOutput(
+export function parseRenderMermaidObjectOutput(
   state: ToolPartProps["state"],
 ): RenderMermaidToolOutput | undefined {
   const parsed = parseRenderMermaidReference(state)
@@ -160,51 +157,51 @@ export function parseRenderMermaidOutput(
   }
 
   return {
-    artifactID: parsed.artifactID,
-    artifactUrl: parsed.artifactUrl,
+    objectID: parsed.objectID,
+    revisionID: parsed.revisionID,
     source: parsed.source,
     sourceHash: parsed.sourceHash,
     diagramType: parsed.diagramType,
     alt: parsed.alt,
     ...(parsed.caption ? { caption: parsed.caption } : {}),
-    ...(parsed.supersedesArtifactID ? { supersedesArtifactID: parsed.supersedesArtifactID } : {}),
   }
 }
 
 export function parseRenderMermaidSources(state: ToolPartProps["state"]): RenderMermaidToolSources {
   const parsed = parseRenderMermaidReference(state)
   return {
-    artifactSource: parsed?.source,
+    objectSource: parsed?.source,
     inputSource: readNonEmptyString(state.input.source),
   }
 }
 
-async function fetchMermaidArtifact(
+async function fetchMermaidObject(
   directory: string,
-  artifactID: string,
-): Promise<MermaidArtifactRecord> {
-  const key = `${directory}::${artifactID}`
-  const cached = mermaidArtifactCache.get(key)
+  objectID: string,
+  revisionID: string | null,
+): Promise<MermaidObjectRecord> {
+  const key = `${directory}::${objectID}::${revisionID ?? "current"}`
+  const cached = mermaidObjectCache.get(key)
   if (cached) {
-    touchMermaidArtifactCache(key, cached)
+    touchMermaidObjectCache(key, cached)
     return cached
   }
 
-  const existing = mermaidArtifactRequests.get(key)
+  const existing = mermaidObjectRequests.get(key)
   if (existing) {
     return existing
   }
 
-  const request = readMermaidArtifact(directory, artifactID)
-    .then((artifact) => {
-      touchMermaidArtifactCache(key, artifact)
-      return artifact
+  const request = readMermaidObject(directory, objectID, revisionID)
+    .then((object) => {
+      touchMermaidObjectCache(key, object)
+      return object
     })
     .finally(() => {
-      mermaidArtifactRequests.delete(key)
+      mermaidObjectRequests.delete(key)
     })
 
-  mermaidArtifactRequests.set(key, request)
+  mermaidObjectRequests.set(key, request)
   return request
 }
 
@@ -235,16 +232,16 @@ function inferMermaidDiagramTypeFromSource(source: string | undefined): string |
 }
 
 function formatMermaidFixFeedback(input: {
-  artifactID: string
   alt: string
   errorMessage: string
   failedRenderKey?: string
+  objectID: string
   source: string
 }): string {
   return [
     `The mermaid diagram (alt: "${input.alt}") failed to render in the browser.`,
     "",
-    `Artifact ID: ${input.artifactID}`,
+    `Object ID: ${input.objectID}`,
     ...(input.failedRenderKey ? [`Failed render key: ${input.failedRenderKey}`, ""] : []),
     `Browser render error: ${input.errorMessage}`,
     "",
@@ -253,8 +250,8 @@ function formatMermaidFixFeedback(input: {
     input.source,
     "```",
     "",
-    `Please fix the Mermaid source and call render_mermaid exactly once with repairOfArtifactID: "${input.artifactID}".`,
-    "Copy the artifact ID verbatim; do not replace it with a placeholder, zeros, repeated characters, or a guessed ID.",
+    `Please fix the Mermaid source and call render_mermaid exactly once with repairOfObjectID: "${input.objectID}".`,
+    "Copy the object ID verbatim; do not replace it with a placeholder, zeros, repeated characters, or a guessed ID.",
   ].join("\n")
 }
 
@@ -296,25 +293,25 @@ function selectSessionMessages(directory: string, sessionID: string): MessageWit
   )
 }
 
-function repairStateFromArtifact(artifact: MermaidArtifactRecord | undefined): MermaidRepairState {
-  if (!artifact) {
+function repairStateFromObject(object: MermaidObjectRecord | undefined): MermaidRepairState {
+  if (!object) {
     return { status: "idle" }
   }
-  switch (artifact.autoRepair.status) {
+  switch (object.autoRepair.status) {
     case "running":
       return {
         status: "running",
-        repairRequestID: artifact.autoRepair.repairRequestID,
+        repairRequestID: object.autoRepair.repairRequestID,
       }
     case "succeeded":
       return {
         status: "succeeded",
-        replacementArtifactID: artifact.autoRepair.replacementArtifactID,
+        replacementRevisionID: object.autoRepair.replacementRevisionID,
       }
     case "exhausted":
       return {
         status: "exhausted",
-        lastErrorMessage: artifact.autoRepair.lastErrorMessage,
+        lastErrorMessage: object.autoRepair.lastErrorMessage,
       }
     case "not_needed":
       return {
@@ -338,17 +335,20 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
     language.t("chatTools.defaultMermaidAlt")
   const pendingDiagramType = inferMermaidDiagramTypeFromSource(pendingSource)
   const parsed = state.status === "completed" ? parseRenderMermaidReference(state) : undefined
-  const parsedArtifactID = parsed?.artifactID
+  const parsedObjectID = parsed?.objectID
+  const parsedRevisionID = parsed?.revisionID ?? null
 
-  const [rehydrated, setRehydrated] = useState<MermaidArtifactRecord | undefined>(undefined)
+  const [rehydrated, setRehydrated] = useState<MermaidObjectRecord | undefined>(undefined)
   const [rehydrationError, setRehydrationError] = useState<string | undefined>(undefined)
   const [fixRequested, setFixRequested] = useState(false)
   const [repairState, setRepairState] = useState<MermaidRepairState>({ status: "idle" })
   const [renderFailure, setRenderFailure] = useState<MermaidRenderFailure | undefined>(undefined)
   const startedRepairRef = useRef<string | undefined>(undefined)
-  const artifactSessionID = rehydrated?.origin.sessionID ?? part.sessionID
+  const objectSessionID = rehydrated
+    ? (mermaidOriginSessionID(rehydrated.origin) ?? part.sessionID)
+    : part.sessionID
   const sessionMessages = useChatStore((store) => {
-    if (!directory || !artifactSessionID) {
+    if (!directory || !objectSessionID) {
       return []
     }
     const directoryState = store.directories[directory]
@@ -356,8 +356,8 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
       return []
     }
     return (
-      directoryState.messagesBySessionID?.[artifactSessionID] ??
-      (directoryState.sessionID === artifactSessionID ? directoryState.messages : [])
+      directoryState.messagesBySessionID?.[objectSessionID] ??
+      (directoryState.sessionID === objectSessionID ? directoryState.messages : [])
     )
   })
 
@@ -368,7 +368,7 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
     if (state.status !== "completed") {
       return
     }
-    if (!parsedArtifactID) {
+    if (!parsedObjectID) {
       return
     }
     if (!directory) {
@@ -377,10 +377,10 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
     }
 
     let cancelled = false
-    void fetchMermaidArtifact(directory, parsedArtifactID)
-      .then((artifact) => {
+    void fetchMermaidObject(directory, parsedObjectID, parsedRevisionID)
+      .then((object) => {
         if (cancelled) return
-        setRehydrated(artifact)
+        setRehydrated(object)
       })
       .catch((error) => {
         if (cancelled) return
@@ -390,37 +390,37 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
     return () => {
       cancelled = true
     }
-  }, [directory, parsedArtifactID, state.status])
+  }, [directory, parsedObjectID, parsedRevisionID, state.status])
 
-  const artifact = rehydrated
-
-  useEffect(() => {
-    setRepairState(repairStateFromArtifact(artifact))
-  }, [artifact])
+  const object = rehydrated
 
   useEffect(() => {
-    if (!shouldStartMermaidAutoRepair({ artifact, directory, renderFailure })) {
+    setRepairState(repairStateFromObject(object))
+  }, [object])
+
+  useEffect(() => {
+    if (!shouldStartMermaidAutoRepair({ object, directory, renderFailure })) {
       return
     }
     const renderKey = renderFailure?.renderKey
-    if (!directory || !artifact || !renderKey) {
+    if (!directory || !object || !renderKey) {
       return
     }
-    if (artifact.origin.kind !== "tool" || artifact.autoRepair.status !== "eligible") {
+    if (object.origin.kind !== "tool" || object.autoRepair.status !== "eligible") {
       return
     }
 
-    const repairKey = `${artifact.artifactID}:${renderKey}`
+    const repairKey = `${object.objectID}:${object.revisionID}:${renderKey}`
     if (startedRepairRef.current === repairKey) {
       return
     }
     startedRepairRef.current = repairKey
 
     void startMermaidAutoRepair({
-      artifactID: artifact.artifactID,
       directory,
       failedRenderKey: renderKey,
-      sessionID: artifact.origin.sessionID,
+      objectID: object.objectID,
+      sessionID: object.origin.sessionID,
     })
       .then((response: MermaidRepairStartResponse) => {
         if (response.status === "running") {
@@ -442,10 +442,14 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
           lastErrorMessage: error instanceof Error ? error.message : String(error),
         })
       })
-  }, [artifact, directory, renderFailure])
+  }, [object, directory, renderFailure])
 
   useEffect(() => {
-    if (repairState.status !== "running" || !directory || !artifact) {
+    if (repairState.status !== "running" || !directory || !object) {
+      return
+    }
+    const sessionID = mermaidOriginSessionID(object.origin)
+    if (!sessionID) {
       return
     }
 
@@ -454,7 +458,7 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
       void readMermaidAutoRepairStatus({
         directory,
         repairRequestID: repairState.repairRequestID,
-        sessionID: artifact.origin.sessionID,
+        sessionID,
       })
         .then((status) => {
           if (cancelled) {
@@ -464,10 +468,10 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
             return
           }
           setRepairState(
-            status.status === "succeeded" && status.replacementArtifactID
+            status.status === "succeeded" && status.replacementRevisionID
               ? {
                   status: "succeeded",
-                  replacementArtifactID: status.replacementArtifactID,
+                  replacementRevisionID: status.replacementRevisionID,
                 }
               : {
                   status: "exhausted",
@@ -492,18 +496,19 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [artifact, directory, repairState])
+  }, [object, directory, repairState])
 
-  const source = parsed?.source ?? artifact?.source
-  const diagramType = parsed?.diagramType ?? artifact?.diagramType ?? pendingDiagramType
-  const alt = parsed?.alt ?? artifact?.alt ?? pendingAlt
-  const currentArtifactID = parsed?.artifactID ?? artifact?.artifactID
-  const supersedingArtifactID = useMemo(() => {
-    if (!currentArtifactID) {
+  const source = parsed?.source ?? object?.source
+  const diagramType = parsed?.diagramType ?? object?.diagramType ?? pendingDiagramType
+  const alt = parsed?.alt ?? object?.alt ?? pendingAlt
+  const currentObjectID = parsed?.objectID ?? object?.objectID
+  const currentRevisionID = parsed?.revisionID ?? object?.revisionID ?? null
+  const supersedingRevisionID = useMemo(() => {
+    if (!currentObjectID) {
       return undefined
     }
-    return findSupersedingMermaidArtifactID(sessionMessages, currentArtifactID)
-  }, [currentArtifactID, sessionMessages])
+    return findSupersedingMermaidRevisionID(sessionMessages, currentObjectID, currentRevisionID)
+  }, [currentObjectID, currentRevisionID, sessionMessages])
 
   const handleRenderFailure = useCallback((failure: MermaidRenderFailure) => {
     setRenderFailure(failure)
@@ -511,15 +516,15 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
 
   const handleRequestFix = useCallback(() => {
     if (!directory || fixRequested || !source || !alt) return
-    const artifactID = parsed?.artifactID ?? artifact?.artifactID
-    if (!artifactID) return
+    const objectID = parsed?.objectID ?? object?.objectID
+    if (!objectID) return
     setFixRequested(true)
     const feedback = formatMermaidFixFeedback({
-      artifactID,
       alt,
       errorMessage:
         renderFailure?.message ?? language.t("chatTools.mermaidDiagram.renderErrorDefault"),
       failedRenderKey: renderFailure?.renderKey,
+      objectID,
       source,
     })
     void sendPrompt(directory, feedback, resolveMermaidFixPromptTarget(directory, part)).catch(
@@ -529,10 +534,10 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
     )
   }, [
     alt,
-    artifact?.artifactID,
     directory,
     fixRequested,
-    parsed?.artifactID,
+    object?.objectID,
+    parsed?.objectID,
     part,
     renderFailure,
     source,
@@ -544,7 +549,7 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
     !!renderFailure &&
     repairState.status !== "running" &&
     repairState.status !== "succeeded" &&
-    !supersedingArtifactID &&
+    !supersedingRevisionID &&
     (repairState.status === "exhausted" || repairState.status === "ineligible")
 
   const errorMeta =
@@ -590,7 +595,7 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
     )
   }
 
-  if (repairState.status === "succeeded" || supersedingArtifactID) {
+  if (repairState.status === "succeeded" || supersedingRevisionID) {
     return (
       <MermaidToolCard title={alt} diagramType={diagramType} hideStatus>
         <div className="p-4 text-sm text-text-weak">
@@ -614,8 +619,9 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
     <MermaidDiagram
       directory={directory}
       source={source}
-      artifactID={parsed.artifactID}
       alt={alt}
+      objectID={parsed.objectID}
+      revisionID={parsed.revisionID}
       hideLoadingPlaceholder
       renderPriority={0}
       className="h-full p-4"
@@ -626,11 +632,12 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
           ? () => {
               void openBenchRoute({
                 directory,
-                target: {
-                  type: "artifact",
+                target: objectBenchTarget({
                   kind: "mermaid",
-                  artifactID: parsed.artifactID,
-                },
+                  objectID: parsed.objectID,
+                  revisionID: parsed.revisionID,
+                  viewID: parsed.viewID,
+                }),
                 mode: BENCH_MODE_REQUEST_POLICY,
                 autoOpen: null,
               })
@@ -656,24 +663,52 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
 }
 
 export function renderRenderMermaidTool(props: ToolPartProps) {
+  const presentation =
+    props.state.status === "completed"
+      ? readInlinePresentation(props.state.metadata, "mermaid")
+      : undefined
+  if (presentation) {
+    return <HydratedMermaidToolCard toolProps={props} presentation={presentation} />
+  }
   return <RenderMermaidToolCard {...props} />
+}
+
+function HydratedMermaidToolCard(props: {
+  toolProps: ToolPartProps
+  presentation: BuddyPresentationDescriptor
+}) {
+  const hydrated = useHydratedInlinePresentation({
+    directory: props.toolProps.directory,
+    presentation: props.presentation,
+  })
+  const state = {
+    ...props.toolProps.state,
+    metadata: metadataWithInlinePresentation(
+      props.toolProps.state.metadata,
+      hydrated.presentation,
+    ),
+  }
+  return <RenderMermaidToolCard {...props.toolProps} state={state} />
 }
 
 function StaticMermaidSVG({
   source,
-  artifactID,
   directory,
+  objectID,
+  revisionID,
 }: {
   source: string
-  artifactID?: string
   directory?: string
+  objectID?: string
+  revisionID?: string | null
 }) {
   const { state } = useMermaidRender({
     source,
-    artifactID,
     directory,
+    objectID,
     enabled: true,
     priority: 1,
+    revisionID,
   })
 
   if (state.status !== "ready") {
@@ -734,7 +769,8 @@ export function GroupedMermaidToolCard({
             <StaticMermaidSVG
               directory={directory}
               source={source}
-              artifactID={parsed?.artifactID}
+              objectID={parsed?.objectID}
+              revisionID={parsed?.revisionID}
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-xs font-medium text-text-weak">

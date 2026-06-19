@@ -95,7 +95,7 @@ describe("chat-store parity events", () => {
     const store = useChatStore.getState()
 
     store.setActiveReadingResource(directory, {
-      resourceID: "resource_1",
+      objectID: "01K00000000000000000000000",
       name: "Book",
       path: "books/book.epub",
       currentPassageText: "This should stay in live state only.",

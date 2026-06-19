@@ -14,21 +14,28 @@ import {
   Loader2Icon,
   RefreshCwIcon,
 } from "lucide-react"
-import { ArtifactCard } from "../../artifact-card"
+import { ObjectCard } from "../../object-card"
 import { ToolErrorPanel } from "../../tool-error-panel"
 import { TextShimmer } from "../../text-shimmer"
 import { ToolRow, ToolRowAction, ToolRowIcon } from "../../tool-row"
 import {
   formatHtmlWidgetViewport,
-  readHtmlWidgetOutputArtifact,
   readHtmlWidgetSource,
-  type HtmlWidgetToolOutput,
+  resolveHtmlWidgetViewport,
+  type HtmlWidgetPresentation,
   type HtmlWidgetViewport,
 } from "@/lib/html-widgets"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { stringifyError } from "@/lib/api-client"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import type { ToolPartProps } from "../../registry"
+import {
+  presentationBenchTarget,
+  readBuddyObjectResult,
+  readInlinePresentation,
+  type BuddyPresentationDescriptor,
+} from "../buddy-object-result"
+import { useHydratedInlinePresentation } from "../use-hydrated-inline-presentation"
 
 const INLINE_MAX_HEIGHT_RATIO = 0.7
 const INLINE_MAX_HEIGHT_PX = 720
@@ -47,7 +54,7 @@ type ViewportSize = {
 }
 
 type HtmlWidgetFrameProps = {
-  widget: HtmlWidgetToolOutput
+  widget: HtmlWidgetPresentation
   mode: HtmlWidgetFrameMode
   reloadKey?: number
   className?: string
@@ -145,7 +152,7 @@ function resolveInlineViewportScale(input: {
 }
 
 function useHtmlWidgetRuntimeFrame(input: {
-  widget: HtmlWidgetToolOutput
+  widget: HtmlWidgetPresentation
   reloadKey: number
 }) {
   const [loadState, setLoadState] = useState<HtmlWidgetFrameLoadState>("loading")
@@ -210,7 +217,7 @@ function HtmlWidgetAction({ label, disabled, onClick, children }: HtmlWidgetActi
 }
 
 function HtmlWidgetInlineFrame(props: {
-  widget: HtmlWidgetToolOutput
+  widget: HtmlWidgetPresentation
   reloadKey: number
   className?: string
 }) {
@@ -273,7 +280,7 @@ function HtmlWidgetInlineFrame(props: {
 }
 
 function HtmlWidgetBenchFrame(props: {
-  widget: HtmlWidgetToolOutput
+  widget: HtmlWidgetPresentation
   reloadKey: number
   className?: string
 }) {
@@ -313,7 +320,8 @@ function HtmlWidgetFrame({ widget, mode, reloadKey = 0, className }: HtmlWidgetF
 }
 
 function HtmlWidgetCard(props: {
-  widget: HtmlWidgetToolOutput
+  widget: HtmlWidgetPresentation
+  presentation?: BuddyPresentationDescriptor
   directory?: string
   status?: ToolPartProps["state"]["status"]
   hideStatus?: boolean
@@ -329,7 +337,7 @@ function HtmlWidgetCard(props: {
     try {
       const source = await readHtmlWidgetSource({
         directory: props.directory,
-        artifactID: props.widget.artifactID,
+        objectID: props.widget.objectID,
       })
       await navigator.clipboard.writeText(source)
       toast("Widget source copied")
@@ -338,7 +346,7 @@ function HtmlWidgetCard(props: {
     } finally {
       setCopying(false)
     }
-  }, [props.directory, props.widget.artifactID])
+  }, [props.directory, props.widget.objectID])
 
   const actions = (
     <div className="flex items-center gap-1">
@@ -358,14 +366,10 @@ function HtmlWidgetCard(props: {
         <HtmlWidgetAction
           label="Open on Bench"
           onClick={() => {
-            if (!props.directory) return
+            if (!props.directory || !props.presentation) return
             void openBenchRoute({
               directory: props.directory,
-              target: {
-                type: "artifact",
-                kind: "html-widget",
-                artifactID: props.widget.artifactID,
-              },
+              target: presentationBenchTarget(props.presentation),
               mode: BENCH_MODE_REQUEST_POLICY,
               autoOpen: null,
             })
@@ -378,9 +382,9 @@ function HtmlWidgetCard(props: {
   )
 
   return (
-    <ArtifactCard
+    <ObjectCard
       title={props.widget.title}
-      subtitle={props.widget.description ?? props.widget.sourcePath}
+      subtitle={props.widget.sourceRoot}
       badge="HTML"
       status={props.status}
       hideStatus={props.hideStatus}
@@ -391,7 +395,85 @@ function HtmlWidgetCard(props: {
       <div className="p-3">
         <HtmlWidgetFrame widget={props.widget} mode="inline" reloadKey={frameKey} />
       </div>
-    </ArtifactCard>
+    </ObjectCard>
+  )
+}
+
+function readHtmlWidgetPresentation(
+  metadata: Record<string, unknown>,
+  presentation: BuddyPresentationDescriptor,
+):
+  | {
+      widget: HtmlWidgetPresentation
+      presentation: BuddyPresentationDescriptor
+    }
+  | undefined {
+  const result = readBuddyObjectResult(metadata)
+  if (!result || !presentation || presentation.data?.renderer !== "html-widget") {
+    return undefined
+  }
+
+  const viewport = resolveHtmlWidgetViewport(presentation.data.viewportPreset)
+  if (!viewport) return undefined
+
+  const summary = result.objects.find(
+    (object) =>
+      object.kind === presentation.ref.kind && object.objectID === presentation.ref.objectID,
+  )
+
+  return {
+    presentation,
+    widget: {
+      objectID: presentation.ref.objectID,
+      kind: "html-widget",
+      title: summary?.title ?? "HTML widget",
+      sourceRoot: presentation.data.sourceRoot,
+      entryPath: presentation.data.entryPath,
+      sourceVersion: presentation.data.sourceVersion,
+      viewport,
+      runtimeUrl: presentation.data.runtimeUrl,
+    },
+  }
+}
+
+function CompletedHtmlWidgetTool(props: {
+  toolProps: ToolPartProps
+  presentation: BuddyPresentationDescriptor
+}) {
+  const hydrated = useHydratedInlinePresentation({
+    directory: props.toolProps.directory,
+    presentation: props.presentation,
+    alwaysHydrate: true,
+  })
+  const renderedWidget = readHtmlWidgetPresentation(
+    props.toolProps.state.metadata,
+    hydrated.presentation,
+  )
+
+  if (!renderedWidget) {
+    return (
+      <div className="flex flex-col gap-1.5">
+        <ToolRow>
+          <ToolRowIcon>
+            {props.toolProps.icon?.("size-3.5") ?? <AppWindowIcon className="size-3.5" />}
+          </ToolRowIcon>
+          <ToolRowAction>
+            <TextShimmer text={props.toolProps.info.title} active={hydrated.isPending} />
+          </ToolRowAction>
+        </ToolRow>
+        {hydrated.error ? <ToolErrorPanel error="HTML widget is unavailable." /> : null}
+      </div>
+    )
+  }
+
+  return (
+    <HtmlWidgetCard
+      widget={renderedWidget.widget}
+      presentation={renderedWidget.presentation}
+      directory={props.toolProps.directory}
+      status={props.toolProps.state.status}
+      hideStatus
+    />
   )
 }
 
@@ -399,10 +481,12 @@ export function renderPresentHtmlWidgetTool(props: ToolPartProps) {
   const output = props.state.output || (props.state.error ?? "")
   const showOutput = output.trim().length > 0
   const running = props.state.status === "pending" || props.state.status === "running"
-  const widget =
-    props.state.status === "completed" ? readHtmlWidgetOutputArtifact(props.state.metadata) : undefined
+  const presentation =
+    props.state.status === "completed"
+      ? readInlinePresentation(props.state.metadata, "html-widget")
+      : undefined
 
-  if (running || !widget) {
+  if (running || !presentation) {
     return (
       <div className="flex flex-col gap-1.5">
         <ToolRow>
@@ -416,14 +500,7 @@ export function renderPresentHtmlWidgetTool(props: ToolPartProps) {
     )
   }
 
-  return (
-    <HtmlWidgetCard
-      widget={widget}
-      directory={props.directory}
-      status={props.state.status}
-      hideStatus
-    />
-  )
+  return <CompletedHtmlWidgetTool toolProps={props} presentation={presentation} />
 }
 
 export { HtmlWidgetCard, HtmlWidgetFrame }

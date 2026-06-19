@@ -1,10 +1,10 @@
 import type { MessagePart } from "@/state/chat-types"
 import { parseToolState } from "../../../parse-tool-state"
-import { isRecord, readNonEmptyString } from "../../../types"
+import { readBuddyObjectResult } from "../../buddy-object-result"
 
-type MermaidToolArtifactReference = {
-  artifactID: string
-  supersedesArtifactID?: string
+type MermaidToolObjectReference = {
+  objectID: string
+  revisionID: string | null
 }
 
 type MermaidSupersessionMessage = {
@@ -14,40 +14,34 @@ type MermaidSupersessionMessage = {
   parts: MessagePart[]
 }
 
-function parseMermaidToolArtifactReference(
+function parseMermaidToolObjectReference(
   part: MessagePart,
-): MermaidToolArtifactReference | undefined {
+): MermaidToolObjectReference | undefined {
   if (part.type !== "tool") {
     return undefined
   }
 
   const state = parseToolState(part)
-  if (readNonEmptyString(state.metadata.artifact) !== "RenderMermaidOutput") {
-    return undefined
-  }
-
-  const value = isRecord(state.metadata.value) ? state.metadata.value : undefined
-  if (!value || readNonEmptyString(value.kind) !== "mermaid") {
-    return undefined
-  }
-
-  const artifactID = readNonEmptyString(value.artifactID)
-  if (!artifactID) {
-    return undefined
-  }
-
-  const supersedesArtifactID = readNonEmptyString(value.supersedesArtifactID)
+  const result = readBuddyObjectResult(state.metadata)
+  const presentation = result?.presentations.find(
+    (item) => item.ref.kind === "mermaid" && item.data?.renderer === "mermaid",
+  )
+  if (!presentation) return undefined
   return {
-    artifactID,
-    ...(supersedesArtifactID ? { supersedesArtifactID } : {}),
+    objectID: presentation.ref.objectID,
+    revisionID: presentation.ref.revisionID,
   }
 }
 
-function findSupersedingMermaidArtifactID(
+function findSupersedingMermaidRevisionID(
   messages: MermaidSupersessionMessage[],
-  artifactID: string,
+  objectID: string,
+  revisionID: string | null,
 ): string | undefined {
-  let replacementArtifactID: string | undefined
+  if (revisionID === null) return undefined
+
+  let sawCurrentRevision = false
+  let replacementRevisionID: string | undefined
 
   for (const message of messages) {
     if (message.info.role !== "assistant") {
@@ -55,17 +49,30 @@ function findSupersedingMermaidArtifactID(
     }
 
     for (const part of message.parts) {
-      const reference = parseMermaidToolArtifactReference(part)
-      if (!reference || reference.artifactID === artifactID) {
+      const reference = parseMermaidToolObjectReference(part)
+      if (
+        !reference ||
+        reference.objectID !== objectID ||
+        reference.revisionID === null
+      ) {
         continue
       }
-      if (reference.supersedesArtifactID === artifactID) {
-        replacementArtifactID = reference.artifactID
+
+      if (reference.revisionID === revisionID) {
+        sawCurrentRevision = true
+        replacementRevisionID = undefined
+        continue
       }
+
+      if (!sawCurrentRevision) {
+        continue
+      }
+
+      replacementRevisionID = reference.revisionID
     }
   }
 
-  return replacementArtifactID
+  return replacementRevisionID
 }
 
-export { findSupersedingMermaidArtifactID }
+export { findSupersedingMermaidRevisionID }

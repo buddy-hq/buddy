@@ -25,8 +25,8 @@ type Story = StoryObj<typeof meta>
 
 export const Basic: Story = {
   args: {
-    artifact: {
-      artifactID: "test-artifact",
+    questionSet: {
+      objectID: "test-object",
       title: "Sample Quiz",
       groupType: "quiz",
       questions: [

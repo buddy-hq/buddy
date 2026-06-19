@@ -5,12 +5,12 @@ export const QUESTION_SET_SIDEBAR_TAB = "question-set" as const satisfies ChatRi
 export function shouldCloseSelectedQuestionSet(input: {
   rightSidebarOpen: boolean
   rightSidebarTab: ChatRightSidebarTab
-  selectedArtifactID?: string
-  artifactID: string
+  selectedObjectID?: string
+  objectID: string
 }) {
   return (
     input.rightSidebarOpen &&
     input.rightSidebarTab === QUESTION_SET_SIDEBAR_TAB &&
-    input.selectedArtifactID === input.artifactID
+    input.selectedObjectID === input.objectID
   )
 }

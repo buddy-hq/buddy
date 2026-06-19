@@ -216,7 +216,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   const platform = usePlatform()
   const { executePrimary } = useWorkspaceFileOpen(props.directory, props.onOpenResource)
   const pendingOpenPath = useWorkspaceFilePanelStore(
-    (state) => state.pendingOpenByDirectory[props.directory]?.path,
+    (state) => state.pendingObjectOpenByDirectory[props.directory]?.path,
   )
   const selectedFileItem = useWorkspaceFilePanelStore(
     (state) => state.selectedItemByDirectory[props.directory],

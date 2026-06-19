@@ -5,6 +5,12 @@ import { Button, MoveLeftIcon } from "@buddy/ui"
 import { ScrollTextIcon, SquareLibraryIcon, type LucideIcon } from "lucide-react"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
+import {
+  isBenchRoutePathname,
+  readBenchOpenPolicyStateFromLocation,
+} from "@/lib/bench-navigation"
+import { guardBenchLeaveBeforeNavigation } from "@/lib/bench-leave-guard"
+import { decodeDirectory } from "@/lib/directory-token"
 import { useUiPreferences } from "@/state/ui-preferences"
 import type { NotebookMainPaneTab } from "@/state/ui-preferences"
 import { isTitlebarInteractiveTarget } from "./desktop-titlebar-helpers"
@@ -64,6 +70,18 @@ function readDirectoryParam(params: unknown) {
   return typeof params.directory === "string" ? params.directory : undefined
 }
 
+function readDirectoryParamFromMatches(matches: readonly { params: unknown }[]) {
+  for (const match of matches) {
+    const directory = readDirectoryParam(match.params)
+    if (directory) return directory
+  }
+  return undefined
+}
+
+function readDirectoryTokenFromPathname(pathname: string) {
+  return pathname.split("/").find((segment) => segment.length > 0)
+}
+
 export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const placement = props.placement ?? "root"
   const titlebarHeightClass =
@@ -88,8 +106,12 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
     (match) =>
       match.routeId === "/$directory/_bench" || match.routeId.startsWith("/$directory/_bench/"),
   )
-  const isFocusedBenchPage = focusedBenchMatch !== undefined
-  const directoryToken = readDirectoryParam(focusedBenchMatch?.params)
+  const isFocusedBenchPage = focusedBenchMatch !== undefined || isBenchRoutePathname(pathname)
+  const directoryToken = isFocusedBenchPage
+    ? readDirectoryParam(focusedBenchMatch?.params) ??
+      readDirectoryParamFromMatches(routerState.matches) ??
+      readDirectoryTokenFromPathname(pathname)
+    : undefined
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   useEffect(() => {
@@ -163,6 +185,41 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
     void platform.toggleWindowMaximize().catch(() => undefined)
   }
 
+  async function onBackToChat() {
+    if (!directoryToken) return
+
+    let directory: string
+    try {
+      directory = decodeDirectory(directoryToken)
+    } catch {
+      return
+    }
+
+    const benchPolicyState = readBenchOpenPolicyStateFromLocation({
+      directory,
+      pathname,
+      search: location.search,
+    })
+    if (benchPolicyState.status === "open") {
+      const guardResult = await guardBenchLeaveBeforeNavigation({
+        directory,
+        intent: "close",
+        origin: "user",
+        current: benchPolicyState.target,
+        next: null,
+      })
+      if (guardResult.status === "block") return
+    }
+
+    await navigate({
+      to: "/$directory/chat",
+      params: {
+        directory: directoryToken,
+      },
+      replace: true,
+    })
+  }
+
   const rightSidebarToggle = showSidebarToggles ? (
     <div className="mr-2 flex shrink-0 items-center gap-1">
       <Button
@@ -220,6 +277,24 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       )}
     </Button>
   )
+  const benchBackButton =
+    isFocusedBenchPage && directoryToken ? (
+      <div className="flex items-center gap-2 px-3 animate-in fade-in slide-in-from-left-2 duration-300 cubic-bezier(0.23, 1, 0.32, 1)">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={language.t("sidebar.resourcesBackToChat")}
+          title={language.t("sidebar.resourcesBackToChat")}
+          className="transition-transform active:scale-90 [-webkit-app-region:no-drag]"
+          onClick={() => {
+            void onBackToChat()
+          }}
+        >
+          <TitlebarIcon icon={MoveLeftIcon} />
+        </Button>
+      </div>
+    ) : null
 
   return (
     <header
@@ -287,6 +362,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         {!isShellVariant &&
           (placement === "chat" ? (
             <div className="flex min-w-0 flex-1 items-stretch">
+              {benchBackButton}
               {props.projectName ? (
                 <div className="shrink-0 overflow-hidden max-w-[12rem] transition-[max-width] duration-150 ease-in hover:max-w-[20rem] hover:duration-300 hover:ease-out [-webkit-app-region:no-drag] flex items-center border-r border-border-weaker-base [box-shadow:-2px_0_4px_rgba(0,0,0,0.08)]">
                   <span className="block truncate pl-4 pr-3 text-xs font-medium text-text-weak select-none">
@@ -302,28 +378,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
             </div>
           ) : (
             <div className="min-w-0 flex-1">
-              {isFocusedBenchPage && directoryToken ? (
-                <div className="flex items-center gap-2 px-3 animate-in fade-in slide-in-from-left-2 duration-300 cubic-bezier(0.23, 1, 0.32, 1)">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label={language.t("sidebar.resourcesBackToChat")}
-                    title={language.t("sidebar.resourcesBackToChat")}
-                    className="transition-transform active:scale-90 [-webkit-app-region:no-drag]"
-                    onClick={() => {
-                      void navigate({
-                        to: "/$directory/chat",
-                        params: {
-                          directory: directoryToken,
-                        },
-                      })
-                    }}
-                  >
-                    <TitlebarIcon icon={MoveLeftIcon} />
-                  </Button>
-                </div>
-              ) : null}
+              {benchBackButton}
             </div>
           ))}
         <div className="flex shrink-0 items-center gap-1 mr-2 ml-auto">

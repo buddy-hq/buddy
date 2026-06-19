@@ -14,6 +14,54 @@ import { scheduleMermaidRender } from "../src/components/chat/tools/render/merma
 import type { MessagePart } from "../src/state/chat-types"
 
 const originalFetch = globalThis.fetch
+const MERMAID_OBJECT_ID = "object_1"
+const MERMAID_REVISION_ID = "revision_1"
+
+function createMermaidObjectResult(input: { objectID: string; revisionID: string; source: string }) {
+  const ref = {
+    kind: "mermaid",
+    objectID: input.objectID,
+    revisionID: input.revisionID,
+    itemID: null,
+  } as const
+
+  return {
+    buddyObjectResult: {
+      version: 1,
+      status: "ok",
+      reason: null,
+      message: "Rendered Mermaid diagram.",
+      primaryRef: ref,
+      objects: [
+        {
+          kind: "mermaid",
+          objectID: input.objectID,
+          title: "Mermaid diagram",
+          status: "ready",
+          lifecycle: "revisioned",
+          sourceRoot: null,
+        },
+      ],
+      presentations: [
+        {
+          ref,
+          viewID: "rendered",
+          surface: "inline",
+          data: {
+            renderer: "mermaid",
+            source: input.source,
+            svgUrl: null,
+            alt: "Mermaid diagram",
+            caption: null,
+            renderStatus: "ready",
+            failedRenderKey: null,
+          },
+          autoOpen: null,
+        },
+      ],
+    },
+  }
+}
 
 afterEach(() => {
   globalThis.fetch = originalFetch
@@ -34,7 +82,7 @@ describe("mermaid render pipeline", () => {
           input: {
             source: "flowchart LR\nA-->B",
           },
-          error: "Mermaid artifact was not found.",
+          error: "Mermaid object was not found.",
         },
       },
       {
@@ -47,12 +95,11 @@ describe("mermaid render pipeline", () => {
           status: "completed",
           input: {},
           metadata: {
-            artifact: "RenderMermaidOutput",
-            value: {
-              kind: "mermaid",
-              artifactID: "a".repeat(64),
+            ...createMermaidObjectResult({
+              objectID: MERMAID_OBJECT_ID,
+              revisionID: MERMAID_REVISION_ID,
               source: "flowchart LR\nA-->B",
-            },
+            }),
           },
         },
       },
@@ -74,7 +121,7 @@ describe("mermaid render pipeline", () => {
           input: {
             source: "flowchart LR\nA-->B",
           },
-          error: "Mermaid artifact was not found.",
+          error: "Mermaid object was not found.",
         },
       },
     ] satisfies MessagePart[]
@@ -90,11 +137,11 @@ describe("mermaid render pipeline", () => {
     expect(readCachedMermaidSvg({ source: "   " })).toBeUndefined()
   })
 
-  test("starts auto repair for persisted failed renders when the artifact is eligible", () => {
+  test("starts auto repair for persisted failed renders when the object is eligible", () => {
     expect(
       shouldStartMermaidAutoRepair({
         directory: "/repo",
-        artifact: {
+        object: {
           origin: {
             kind: "tool",
             sessionID: "ses_test",
@@ -128,7 +175,7 @@ describe("mermaid render pipeline", () => {
         typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
       const method = init?.method ?? (input instanceof Request ? input.method : undefined) ?? "GET"
       if (
-        url.includes("/api/artifacts/mermaid/artifact_1/render-record") &&
+        url.includes("/api/objects/mermaid/object_1/render-record") &&
         method.toUpperCase() === "GET"
       ) {
         return new Response(JSON.stringify({ renderKey: "resolved_key" }), {
@@ -137,7 +184,7 @@ describe("mermaid render pipeline", () => {
         })
       }
       if (
-        url.includes("/api/artifacts/mermaid/artifact_1/render-record") &&
+        url.includes("/api/objects/mermaid/object_1/render-record") &&
         method.toUpperCase() === "PUT"
       ) {
         expect(url).toContain(`rendererVersion=${encodeURIComponent(MERMAID_RENDERER_VERSION)}`)
@@ -151,7 +198,8 @@ describe("mermaid render pipeline", () => {
     }) as unknown as typeof fetch
 
     const result = await renderMermaidSvg({
-      artifactID: "artifact_1",
+      objectID: "object_1",
+      revisionID: "revision_1",
       directory: "/repo",
       priority: 0,
       source: "graph TD\nA-->B",
@@ -160,12 +208,16 @@ describe("mermaid render pipeline", () => {
     expect(result.svg).toContain("<svg")
     expect(result.contrastAdjustments).toEqual([])
     expect(result.renderKey).toBeUndefined()
-    expect(readCachedMermaidSvg({ artifactID: "artifact_1", source: "graph TD\nA-->B" })).toEqual(
-      result,
-    )
+    expect(
+      readCachedMermaidSvg({
+        objectID: "object_1",
+        revisionID: "revision_1",
+        source: "graph TD\nA-->B",
+      }),
+    ).toEqual(result)
   })
 
-  test("dedupes concurrent auto-repair requests for the same artifact", async () => {
+  test("dedupes concurrent auto-repair requests for the same object", async () => {
     globalThis.fetch = mock(async (input: RequestInfo | URL) => {
       const url =
         typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
@@ -183,13 +235,13 @@ describe("mermaid render pipeline", () => {
 
     const [first, second] = await Promise.all([
       startMermaidAutoRepair({
-        artifactID: "artifact_1",
+        objectID: "object_1",
         directory: "/repo",
         failedRenderKey: "render_key_1",
         sessionID: "ses_test",
       }),
       startMermaidAutoRepair({
-        artifactID: "artifact_1",
+        objectID: "object_1",
         directory: "/repo",
         failedRenderKey: "render_key_1",
         sessionID: "ses_test",
@@ -213,7 +265,7 @@ describe("mermaid render pipeline", () => {
         typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
       const method = init?.method ?? (input instanceof Request ? input.method : undefined) ?? "GET"
       if (
-        url.includes("/api/artifacts/mermaid/artifact_2/render-record") &&
+        url.includes("/api/objects/mermaid/object_2/render-record") &&
         method.toUpperCase() === "GET"
       ) {
         return new Response(JSON.stringify({ renderKey: "resolved_key" }), {
@@ -222,7 +274,7 @@ describe("mermaid render pipeline", () => {
         })
       }
       if (
-        url.includes("/api/artifacts/mermaid/artifact_2/render-record") &&
+        url.includes("/api/objects/mermaid/object_2/render-record") &&
         method.toUpperCase() === "PUT"
       ) {
         return new Response(JSON.stringify({ error: "cache write failed" }), {
@@ -235,7 +287,8 @@ describe("mermaid render pipeline", () => {
 
     await expect(
       renderMermaidSvg({
-        artifactID: "artifact_2",
+        objectID: "object_2",
+        revisionID: "revision_2",
         directory: "/repo",
         priority: 0,
         source: "graph TD\nA-->",

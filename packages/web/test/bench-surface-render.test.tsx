@@ -12,7 +12,7 @@ import { FlashcardBenchReview } from "../src/components/bench/flashcard-bench-re
 import { BenchRouteContextProvider } from "../src/components/bench/bench-route-context"
 import { BenchMediaPreview } from "../src/components/bench/bench-media-preview"
 import { QuestionSetBenchReview } from "../src/components/bench/question-set-bench-review"
-import { SvgArtifactBenchView } from "../src/components/bench/svg-artifact-bench-view"
+import { SvgObjectBenchView } from "../src/components/bench/svg-object-bench-view"
 import {
   resolveBenchCenteredScroll,
   resolveBenchFitZoom,
@@ -25,24 +25,24 @@ import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_LAYOUT_PROFILE_BALANCED,
 } from "../src/lib/bench-navigation"
-import type { HtmlWidgetToolOutput } from "../src/lib/html-widgets"
+import type { HtmlWidgetPresentation } from "../src/lib/html-widgets"
 import type {
-  ArtifactsListResponse,
-  FlashcardDeckNextCardResponse,
-  FlashcardDeckReadResponse,
+  ObjectFlashcardDeckNextCardResponse,
+  ObjectFlashcardDeckReadDeckResponse,
+  ObjectQuestionSetReadQuestionsResponse,
 } from "@buddy/sdk/types"
-import type { PublicQuestionSetArtifact } from "../src/components/chat/tools/render/question-set/question-set-inline-view"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_DECK_ID = "deck-1"
 const TEST_NOTE_ID = "note-1"
 const TEST_CARD_ID = "card-1"
-const TEST_FLASHCARD_ROUTE = "/repo/_bench/artifacts/flashcard-deck/deck-1"
-const TEST_QUESTION_SET_ROUTE = "/repo/_bench/artifacts/question-set/artifact-questions"
+const TEST_QUESTION_SET_ID = "object-questions"
+const TEST_FLASHCARD_ROUTE = "/repo/_bench/objects/flashcard-deck/deck-1?view=review"
+const TEST_QUESTION_SET_ROUTE = "/repo/_bench/objects/question-set/object-questions?view=practice"
 const FLUSH_DELAY_MS = 0
 const WAIT_FOR_EFFECT_ATTEMPTS = 20
-const FLASHCARD_DECK_READ_PATH = `/api/artifacts/flashcard-deck/${TEST_DECK_ID}?`
-const FLASHCARD_DECK_NEXT_CARD_PATH = `/api/artifacts/flashcard-deck/${TEST_DECK_ID}/next-card`
+const FLASHCARD_DECK_READ_PATH = `/api/objects/flashcard-deck/${TEST_DECK_ID}?`
+const FLASHCARD_DECK_NEXT_CARD_PATH = `/api/objects/flashcard-deck/${TEST_DECK_ID}/next-card`
 const TEST_FLOATING_RECT = {
   x: 24,
   y: 24,
@@ -81,7 +81,16 @@ function TestBenchContextProvider(props: { children: ReactNode }) {
       <BenchRouteContextProvider
         state={{
           directory: TEST_DIRECTORY,
-          target: { type: "whiteboard" },
+          target: {
+            type: "object",
+            ref: {
+              kind: "whiteboard",
+              objectID: "whiteboard-1",
+              revisionID: null,
+              itemID: null,
+            },
+            viewID: "current",
+          },
           mode: BENCH_CHAT_LAYOUT_DOCKED,
           layoutProfile: BENCH_LAYOUT_PROFILE_BALANCED,
           dockedChatWidthPx: 480,
@@ -95,15 +104,16 @@ function TestBenchContextProvider(props: { children: ReactNode }) {
           read: () => ({
             status: "open",
             target: {
-              type: "whiteboard",
-              artifactKind: "none",
+              type: "object",
               title: "Test Bench",
               workspaceRoot: TEST_DIRECTORY,
-              path: null,
-              absolutePath: null,
-              resourceID: null,
-              artifactID: null,
-              itemID: null,
+              ref: {
+                kind: "whiteboard",
+                objectID: "whiteboard-1",
+                revisionID: null,
+                itemID: null,
+              },
+              viewID: "current",
               route: "/test",
               status: "ready",
             },
@@ -120,34 +130,34 @@ function TestBenchContextProvider(props: { children: ReactNode }) {
   )
 }
 
-function createWidget(): HtmlWidgetToolOutput {
+function createWidget(): HtmlWidgetPresentation {
   return {
-    artifactID: "widget_1",
+    objectID: "widget_1",
     kind: "html-widget",
     title: "Stress Test Widget",
+    sourceRoot: ".buddy/objects/v1/html-widget/widget_1/source",
+    entryPath: "index.html",
+    sourceVersion: "source-version-1",
     viewport: {
       preset: "standard_16_10",
       width: 960,
       height: 600,
       label: "Standard 16:10",
     },
-    runtimeUrl: "/api/artifacts/html-widget/widget_1/runtime?directory=%2Frepo",
-    sourceUrl: "/api/artifacts/html-widget/widget_1/source?directory=%2Frepo",
-    sourceHash: "hash",
-    warnings: [],
+    runtimeUrl: "/api/objects/html-widget/widget_1/runtime?directory=%2Frepo",
   }
 }
 
-function createFlashcardDeck(): FlashcardDeckReadResponse {
+function createFlashcardDeck(): ObjectFlashcardDeckReadDeckResponse {
   return {
-    artifactID: TEST_DECK_ID,
+    objectID: TEST_DECK_ID,
     kind: "flashcard-deck",
     title: "Biology Review",
     config: {},
     notes: [
       {
         noteID: TEST_NOTE_ID,
-        artifactID: TEST_DECK_ID,
+        objectID: TEST_DECK_ID,
         type: "basic",
         fields: {
           front: "What powers the cell?",
@@ -180,39 +190,25 @@ function createFlashcardDeck(): FlashcardDeckReadResponse {
   }
 }
 
-function createFlashcardArtifacts(): ArtifactsListResponse {
+function createRandomizedQuestionSet(): ObjectQuestionSetReadQuestionsResponse {
   return {
-    artifacts: [
-      {
-        artifactID: TEST_DECK_ID,
-        kind: "flashcard-deck",
-        title: "Biology Review",
-        createdAt: "2026-01-01T00:00:00.000Z",
-        updatedAt: "2026-01-01T00:00:00.000Z",
-        summary: {
-          noteCount: 1,
-          cardCount: 1,
-          dueCounts: {
-            new: 1,
-            learning: 0,
-            review: 0,
-          },
-          reviewAvailable: true,
-        },
-      },
-    ],
-    loadErrors: [],
-  }
-}
-
-function createRandomizedQuestionSet(): PublicQuestionSetArtifact {
-  return {
-    artifactID: "artifact-questions",
+    objectID: TEST_QUESTION_SET_ID,
+    revisionID: "question-revision-1",
+    kind: "question-set",
     title: "Randomized Review",
     groupType: "quiz",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    createdBy: {
+      kind: "tool",
+      sessionID: "session-1",
+      messageID: "message-1",
+      callID: "call-1",
+      subagent: "question-set-author",
+    },
     questions: [
       {
         id: "question-1",
+        type: "mcq",
         prompt: "Pick one.",
         goalIds: [],
         payload: {
@@ -228,6 +224,7 @@ function createRandomizedQuestionSet(): PublicQuestionSetArtifact {
       },
       {
         id: "question-2",
+        type: "mcq",
         prompt: "Pick another.",
         goalIds: [],
         payload: {
@@ -242,7 +239,7 @@ function createRandomizedQuestionSet(): PublicQuestionSetArtifact {
   }
 }
 
-function createNextCardResponse(): FlashcardDeckNextCardResponse {
+function createNextCardResponse(): ObjectFlashcardDeckNextCardResponse {
   return {
     card: {
       cardID: TEST_CARD_ID,
@@ -326,37 +323,30 @@ describe("bench surface rendering", () => {
     expect(image?.className).not.toContain("72vw")
   })
 
-  test("renders SVG artifact previews inline in the zoomable bench", async () => {
-    globalThis.fetch = withFetchPreconnect(
-      mock(async () => {
-        return new Response(
-          '<svg viewBox="0 0 320 180"><polygon points="160 20 300 160 20 160" fill="green" /></svg>',
-          {
-            headers: { "content-type": "image/svg+xml" },
-          },
-        )
-      }),
-      originalFetch,
-    )
-
+  test("renders SVG object previews inline in the zoomable bench", async () => {
     await act(async () => {
       root.render(
-        <ServerProvider value={createServerConnection()}>
-          <SvgArtifactBenchView
-            title="Triangle proof"
-            subtitle="Generated figure"
-            rawUrl="/api/artifacts/figure/figure-1/raw?directory=%2Frepo"
-          />
-        </ServerProvider>,
+        <SvgObjectBenchView
+          title="Triangle proof"
+          subtitle="Generated figure"
+          loadSvg={async () =>
+            new Blob(
+              [
+                '<svg viewBox="0 0 320 180"><polygon points="160 20 300 160 20 160" fill="green" /></svg>',
+              ],
+              { type: "image/svg+xml" },
+            )
+          }
+        />,
       )
       await flushEffects()
     })
     await waitForEffect(
-      () => container.querySelector('[data-component="svg-artifact-bench-surface"] svg') !== null,
+      () => container.querySelector('[data-component="svg-object-bench-surface"] svg') !== null,
     )
 
     const surface = container.querySelector<HTMLElement>(
-      '[data-component="svg-artifact-bench-surface"]',
+      '[data-component="svg-object-bench-surface"]',
     )
     expect(surface).not.toBeNull()
     expect(surface?.className).not.toContain("border")
@@ -411,14 +401,6 @@ describe("bench surface rendering", () => {
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         calls.push(`${method} ${url}`)
 
-        if (
-          method === "GET" &&
-          url.includes("/api/artifacts?") &&
-          url.includes("kind=flashcard-deck")
-        ) {
-          return Response.json(createFlashcardArtifacts())
-        }
-
         if (method === "GET" && url.includes(FLASHCARD_DECK_READ_PATH)) {
           return Response.json(createFlashcardDeck())
         }
@@ -447,7 +429,7 @@ describe("bench surface rendering", () => {
             <QueryClientProvider client={queryClient}>
               <FlashcardBenchReview
                 directory={TEST_DIRECTORY}
-                artifactID={TEST_DECK_ID}
+                objectID={TEST_DECK_ID}
                 route={TEST_FLASHCARD_ROUTE}
                 deck={createFlashcardDeck()}
               />
@@ -480,7 +462,7 @@ describe("bench surface rendering", () => {
           <QuestionSetBenchReview
             directory={TEST_DIRECTORY}
             route={TEST_QUESTION_SET_ROUTE}
-            artifact={createRandomizedQuestionSet()}
+            questionSet={createRandomizedQuestionSet()}
             onSubmit={async () => ({
               totalQuestions: 1,
               correctQuestions: 0,
@@ -505,7 +487,7 @@ describe("bench surface rendering", () => {
       container.querySelectorAll<HTMLButtonElement>("button[aria-pressed]"),
     ).map((button) => button.textContent?.trim())
 
-    expect(choiceLabels).toEqual(["Choice D", "Choice C", "Choice B", "Choice A"])
+    expect(choiceLabels).toEqual(["Choice B", "Choice C", "Choice A", "Choice D"])
 
     const listButton = Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(
       (button) => button.textContent?.includes("List"),

@@ -26,10 +26,11 @@ export type MermaidRenderState =
 
 type UseMermaidRenderOptions = {
   source: string
-  artifactID?: string
   directory?: string
   enabled?: boolean
+  objectID?: string
   priority?: number
+  revisionID?: string | null
   themeConfig?: MermaidThemeConfig
 }
 
@@ -68,7 +69,8 @@ function errorMessage(error: unknown): MermaidRenderState {
 }
 
 function getCachedState(input: {
-  artifactID?: string
+  objectID?: string
+  revisionID?: string | null
   source: string
   themeConfig?: MermaidThemeConfig
 }): MermaidRenderState | undefined {
@@ -84,10 +86,11 @@ function getCachedState(input: {
 
 export function useMermaidRender({
   source,
-  artifactID,
   directory,
   enabled = true,
+  objectID,
   priority,
+  revisionID,
   themeConfig,
 }: UseMermaidRenderOptions): UseMermaidRenderResult {
   const { mode, themeId } = useTheme()
@@ -95,7 +98,7 @@ export function useMermaidRender({
   const requestTokenRef = useRef(0)
   const [state, setState] = useState<MermaidRenderState>(
     () =>
-      (enabled ? getCachedState({ source, artifactID, themeConfig }) : undefined) ?? {
+      (enabled ? getCachedState({ source, objectID, revisionID, themeConfig }) : undefined) ?? {
         status: "loading",
       },
   )
@@ -106,7 +109,7 @@ export function useMermaidRender({
       return
     }
 
-    const cachedState = getCachedState({ source, artifactID, themeConfig })
+    const cachedState = getCachedState({ source, objectID, revisionID, themeConfig })
     if (cachedState) {
       setState(cachedState)
       return
@@ -118,9 +121,10 @@ export function useMermaidRender({
 
     void renderMermaidSvg({
       source,
-      artifactID,
       directory,
+      objectID,
       priority,
+      revisionID,
       themeConfig,
     })
       .then((value) => {
@@ -138,7 +142,7 @@ export function useMermaidRender({
         }
         setState(errorMessage(error))
       })
-  }, [artifactID, directory, enabled, priority, source, themeConfig, themeDependencyKey])
+  }, [directory, enabled, objectID, priority, revisionID, source, themeConfig, themeDependencyKey])
 
   return { state }
 }

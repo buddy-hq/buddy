@@ -1,9 +1,9 @@
 import { ToolAttachmentGallery } from "../tool-attachments"
 import { HIDDEN_STEPS_ERROR_CLASS_NAME, HIDDEN_STEPS_TEXT_CLASS_NAME } from "../hidden-steps/styles"
-import { readNonEmptyString } from "../../tools/types"
 import { titleFromToolName } from "../../utils/tool"
 import { ToolRow, ToolRowIcon, ToolRowAction, ToolRowSubject, ToolRowDenied } from "../tool-row"
 import { isPermissionDenied } from "../tool-permission"
+import { readBuddyObjectResult } from "./buddy-object-result"
 import type { ToolPartProps } from "../registry"
 
 export function renderBuddyCustomTool({ state, tool, icon }: ToolPartProps) {
@@ -11,7 +11,8 @@ export function renderBuddyCustomTool({ state, tool, icon }: ToolPartProps) {
   const output = state.output || (state.error ?? "")
   const hasContent = output.trim().length > 0
   const hasError = !denied && state.status === "error" && hasContent
-  const artifact = readNonEmptyString(state.metadata.artifact)
+  const result = readBuddyObjectResult(state.metadata)
+  const objectSubject = result?.primaryRef?.kind
   const value = state.metadata.value
   const valueText = value === undefined ? "" : JSON.stringify(value, null, 2)
 
@@ -20,7 +21,7 @@ export function renderBuddyCustomTool({ state, tool, icon }: ToolPartProps) {
       <ToolRow>
         <ToolRowIcon>{icon?.("size-3.5")}</ToolRowIcon>
         <ToolRowAction>{titleFromToolName(tool)}</ToolRowAction>
-        {artifact ? <ToolRowSubject>{artifact}</ToolRowSubject> : null}
+        {objectSubject ? <ToolRowSubject>{objectSubject}</ToolRowSubject> : null}
         {denied ? <ToolRowDenied /> : null}
       </ToolRow>
       {hasError ? (

@@ -1,6 +1,6 @@
 import { basename, dirname } from "../utils/path"
 import { language } from "@/context/language"
-import { formatHtmlWidgetViewport, readHtmlWidgetOutputArtifact } from "@/lib/html-widgets"
+import { formatHtmlWidgetViewport, resolveHtmlWidgetViewport } from "@/lib/html-widgets"
 import { readIngestFullTextMetadata } from "./full-text-metadata"
 import {
   getSkillToolTitle,
@@ -10,6 +10,7 @@ import {
 } from "./skill-reference"
 import { isRecord, readNonEmptyString, readNonNegativeInt } from "./types"
 import { parseToolUiMetadata } from "./parse-tool-ui-metadata"
+import { readBuddyObjectResult } from "./render/buddy-object-result"
 import type { ToolInfo, ToolState } from "./types"
 
 const IMAGE_FILE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"]
@@ -454,19 +455,19 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
         metadataTitle,
       )
     case "ingest_full_text": {
-      const { resource, fullTextEstTokens, truncated } = readIngestFullTextMetadata(state)
+      const { resource, fullTextEstimatedTokens, truncated } = readIngestFullTextMetadata(state)
       return withMetadataTitle(
         {
           title: language.t(active ? "chatTools.info.fullText.running" : "chatTools.info.fullText"),
           subtitle: resource,
           summary:
-            fullTextEstTokens !== undefined
+            fullTextEstimatedTokens !== undefined
               ? language.t(
                   truncated
                     ? "chatTools.info.tokensLoadedTruncated"
                     : "chatTools.info.tokensLoaded",
                   {
-                    count: fullTextEstTokens.toLocaleString(),
+                    count: fullTextEstimatedTokens.toLocaleString(),
                   },
                 )
               : truncated
@@ -537,12 +538,27 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
         metadataTitle,
       )
     case "present_html_widget": {
-      const widget = readHtmlWidgetOutputArtifact(state.metadata)
+      const objectResult = readBuddyObjectResult(state.metadata)
+      const presentation = objectResult?.presentations.find(
+        (entry) =>
+          entry.surface === "inline" &&
+          entry.ref.kind === "html-widget" &&
+          entry.data?.renderer === "html-widget",
+      )
+      const viewport =
+        presentation?.data?.renderer === "html-widget"
+          ? resolveHtmlWidgetViewport(presentation.data.viewportPreset)
+          : undefined
+      const objectTitle = objectResult?.objects.find(
+        (object) =>
+          object.kind === "html-widget" &&
+          object.objectID === presentation?.ref.objectID,
+      )?.title
       return withMetadataTitle(
         {
           title: active ? "Presenting HTML Widget" : "HTML Widget",
-          subtitle: widget?.title ?? title ?? path,
-          summary: widget ? formatHtmlWidgetViewport(widget.viewport) : undefined,
+          subtitle: objectTitle ?? title ?? path,
+          summary: viewport ? formatHtmlWidgetViewport(viewport) : undefined,
         },
         metadataTitle,
       )

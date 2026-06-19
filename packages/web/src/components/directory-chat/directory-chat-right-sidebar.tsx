@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar"
-import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
+import { useWorkspaceQuestionSetObjectPanelStore } from "@/state/workspace-question-set-object-panel-store"
 import type { LearnerCurriculumView } from "@/state/chat-actions"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
 import type { TeachingWorkspaceController } from "@/lib/directory-chat/use-teaching-workspace"
@@ -52,8 +52,8 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
     onOpenCreateTeachingFileDialog,
     onStartInteractiveLesson,
   })
-  const selectedQuestionSetArtifactID = useWorkspaceQuestionSetPanelStore(
-    (state) => state.selectedArtifactIDByDirectory[directory],
+  const selectedQuestionSetObjectID = useWorkspaceQuestionSetObjectPanelStore(
+    (state) => state.selectedObjectIDByDirectory[directory],
   )
   const rightSidebarOpen = chatState.rightSidebarOpen
   const rightSidebarTab = chatState.rightSidebarTab
@@ -68,7 +68,7 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
     if (rightSidebarTab !== "question-set") {
       return
     }
-    if (selectedQuestionSetArtifactID) {
+    if (selectedQuestionSetObjectID) {
       return
     }
 
@@ -80,7 +80,7 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
     selectedPersonaDefaultSurface,
     setRightSidebarOpen,
     setRightSidebarTab,
-    selectedQuestionSetArtifactID,
+    selectedQuestionSetObjectID,
   ])
 
   return (
@@ -101,7 +101,7 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
       onRunAction={onRunCurriculumAction}
       editorPanel={panels.editorPanel}
       onClose={() => {
-        useWorkspaceQuestionSetPanelStore.getState().closeQuestionSet(directory)
+        useWorkspaceQuestionSetObjectPanelStore.getState().closeQuestionSet(directory)
         chatState.setRightSidebarTab(chatState.selectedPersonaDefaultSurface)
         chatState.setRightSidebarOpen(false)
       }}

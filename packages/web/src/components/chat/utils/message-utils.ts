@@ -5,6 +5,11 @@ import { VIRTUAL_CHAT_TURN_ESTIMATE_PX } from "@/components/virtualization/virtu
 import { parseToolState } from "../tools/parse-tool-state"
 import { parseToolUiMetadata } from "../tools/parse-tool-ui-metadata"
 import { resolveToolRenderer } from "../tools/registry"
+import {
+  isIngestFullTextScopedReadingFallback,
+  isLegacyIngestFullTextScopedReadingError,
+  readIngestFullTextMetadata,
+} from "../tools/full-text-metadata"
 import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "./part-guards"
 import type { AssistantRenderItem, ChatTranscriptProps, ChatTurn } from "../types"
 
@@ -34,6 +39,8 @@ export function assistantPartRenderable(
   const renderer = resolveToolRenderer(tool, parseToolUiMetadata(state.metadata))
   if (renderer.hidden) return false
 
+  if (isSilentIngestFullTextFallback(tool, state)) return false
+
   if (tool === "question") {
     return state.status !== "running"
   }
@@ -51,6 +58,7 @@ export function assistantPartStartsFollowup(part: MessagePart): boolean {
     const state = parseToolState(part)
     const renderer = resolveToolRenderer(tool, parseToolUiMetadata(state.metadata))
     if (renderer.hidden || !renderer.inline) return false
+    if (isSilentIngestFullTextFallback(tool, state)) return false
 
     if (tool === "question") {
       return state.status !== "running"
@@ -61,6 +69,17 @@ export function assistantPartStartsFollowup(part: MessagePart): boolean {
 
   if (isChatTextPart(part)) return part.text.trim().length > 0
   return true
+}
+
+function isSilentIngestFullTextFallback(tool: string, state: ReturnType<typeof parseToolState>) {
+  if (tool !== "ingest_full_text") return false
+  if (
+    state.status === "completed" &&
+    isIngestFullTextScopedReadingFallback(readIngestFullTextMetadata(state))
+  ) {
+    return true
+  }
+  return state.status === "error" && isLegacyIngestFullTextScopedReadingError(state.error)
 }
 
 function isToolPartNamed(part: MessagePart, tool: string): boolean {

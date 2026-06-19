@@ -1,5 +1,5 @@
 import type { ToolPartProps } from "../../registry"
-import { ArtifactCard } from "../../artifact-card"
+import { ObjectCard } from "../../object-card"
 
 type MermaidToolCardProps = {
   title: string
@@ -21,7 +21,7 @@ export function MermaidToolCard({
   contentClassName,
 }: MermaidToolCardProps) {
   return (
-    <ArtifactCard
+    <ObjectCard
       title={title}
       badge={diagramType}
       status={status}
@@ -32,6 +32,6 @@ export function MermaidToolCard({
       showGrid
     >
       {children}
-    </ArtifactCard>
+    </ObjectCard>
   )
 }

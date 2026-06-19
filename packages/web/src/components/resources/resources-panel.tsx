@@ -160,9 +160,9 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
     if (!pending) return
 
     setResourcePendingRemoval(undefined)
-    await runResourceAction(pending.id, async () => {
+    await runResourceAction(pending.objectID, async () => {
       await removeResource(directory, {
-        resourceKey: pending.id,
+        resourceKey: pending.objectID,
       })
     })
   }
@@ -170,12 +170,12 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
   const isLoading = resourcesQuery.isPending || isRefreshing
 
   function renderResourceCard(resource: ResourceRecord) {
-    const isBusy = busyKey === resource.id
+    const isBusy = busyKey === resource.objectID
     return (
       <Card
         size="sm"
         data-component="resources-item"
-        data-resource-id={resource.id}
+        data-resource-id={resource.objectID}
         data-resource-status={resource.status}
         className="relative group gap-0 py-0 transition-colors hover:border-border-base hover:bg-surface-base-hover/5"
       >
@@ -227,13 +227,13 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
               {resource.status === "error" && (
                 <Button
                   data-action="resources-retry"
-                  data-resource-id={resource.id}
+                  data-resource-id={resource.objectID}
                   variant="ghost"
                   size="sm"
                   className="size-7 p-0 text-text-weak hover:text-text-base"
                   onClick={() => {
-                    void runResourceAction(resource.id, async () => {
-                      await rebuildResource(directory, { resourceKey: resource.id })
+                    void runResourceAction(resource.objectID, async () => {
+                      await rebuildResource(directory, { resourceKey: resource.objectID })
                     })
                   }}
                   title={language.t("resourcesPanel.retry")}
@@ -249,7 +249,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                 <button
                   type="button"
                   data-action="resources-item-menu"
-                  data-resource-id={resource.id}
+                  data-resource-id={resource.objectID}
                   className="inline-flex size-7 items-center justify-center rounded-md text-text-weak transition-colors hover:bg-surface-base-hover hover:text-text-base disabled:pointer-events-none disabled:opacity-50"
                   aria-label={language.t("resourcesPanel.optionsForResource", {
                     alias: resource.alias,
@@ -267,9 +267,9 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                       .prompt(language.t("resourcesPanel.renamePromptTitle"), resource.alias)
                       ?.trim()
                     if (!nextAlias || nextAlias === resource.alias) return
-                    void runResourceAction(resource.id, async () => {
+                    void runResourceAction(resource.objectID, async () => {
                       await renameResource(directory, {
-                        resourceKey: resource.id,
+                        resourceKey: resource.objectID,
                         alias: nextAlias,
                       })
                     })
@@ -280,9 +280,9 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
                 <DropdownMenuItem
                   data-action="resources-rebuild"
                   onSelect={() => {
-                    void runResourceAction(resource.id, async () => {
+                    void runResourceAction(resource.objectID, async () => {
                       await rebuildResource(directory, {
-                        resourceKey: resource.id,
+                        resourceKey: resource.objectID,
                       })
                     })
                   }}
@@ -348,7 +348,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
           sortedResources.length >= VIRTUAL_RESOURCE_MIN_ITEMS ? (
             <VirtualizedRows
               items={sortedResources}
-              getItemKey={(resource) => resource.id}
+              getItemKey={(resource) => resource.objectID}
               estimateSize={() => VIRTUAL_RESOURCE_ROW_ESTIMATE_PX}
               getScrollElement={() => resourcesListRef.current}
               overscan={VIRTUAL_DEFAULT_OVERSCAN}
@@ -362,7 +362,7 @@ export function ResourcesPanel(props: ResourcesPanelProps) {
           ) : (
             <div className="space-y-2">
               {sortedResources.map((resource) => (
-                <div key={resource.id}>{renderResourceCard(resource)}</div>
+                <div key={resource.objectID}>{renderResourceCard(resource)}</div>
               ))}
             </div>
           )

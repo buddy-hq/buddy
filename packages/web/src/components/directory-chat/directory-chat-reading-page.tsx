@@ -6,9 +6,11 @@ import { DirectoryChatReadingReaderPane } from "@/components/directory-chat/dire
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
 import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
 import {
+  objectRef,
+  objectTarget,
   routeString,
-  workspaceBackedTarget,
   workspaceFileRef,
+  workspaceFileTarget,
 } from "@/components/bench/bench-context-utils"
 import {
   appendReadingSelectionToDraft,
@@ -77,7 +79,8 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const resourceRecord = useMemo(() => {
     if (props.resourceKey) {
       return resourcesQuery.data?.processed.find(
-        (resource) => resource.id === props.resourceKey || resource.alias === props.resourceKey,
+        (resource) =>
+          resource.objectID === props.resourceKey || resource.alias === props.resourceKey,
       )
     }
 
@@ -108,8 +111,12 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const contextProvider = useMemo(
     () => ({
       read: () => {
-        const resourceID = resourceRecord?.id ?? activeReadingResource?.resourceID ?? null
+        const objectID = resourceRecord?.objectID ?? activeReadingResource?.objectID ?? null
         const alias = resourceRecord?.alias ?? activeReadingResource?.alias
+        const route = routeString({
+          pathname: location.pathname,
+          searchStr: location.searchStr,
+        })
         const metadata = [
           `resource_status: ${resourceRecord?.status ?? activeReadingResource?.status ?? "unknown"}`,
           ...(alias ? [`resource_alias: ${alias}`] : []),
@@ -162,18 +169,30 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
 
         return {
           status: "open" as const,
-          target: workspaceBackedTarget({
-            type: "reading",
-            directory: props.directory,
-            title: resourceName,
-            path: normalizedPath,
-            route: routeString({
-              pathname: location.pathname,
-              searchStr: location.searchStr,
-            }),
-            status: targetStatus,
-            ...(resourceID ? { resourceID } : {}),
-          }),
+          target: objectID
+            ? objectTarget({
+                directory: props.directory,
+                title: resourceName,
+                target: {
+                  type: "object",
+                  ref: {
+                    kind: "resource",
+                    objectID,
+                    revisionID: null,
+                    itemID: null,
+                  },
+                  viewID: "reader",
+                },
+                route,
+                status: targetStatus,
+              })
+            : workspaceFileTarget({
+                directory: props.directory,
+                title: resourceName,
+                path: normalizedPath,
+                route,
+                status: targetStatus,
+              }),
           metadata,
           content: contentParts.join("\n\n"),
           refs: [
@@ -181,13 +200,12 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
               path: normalizedPath,
               note: "Reading file on Bench.",
             }),
-            ...(resourceID
+            ...(objectID
               ? [
-                  {
-                    kind: "resource" as const,
-                    value: resourceID,
-                    note: "Prepared reading resource id.",
-                  },
+                  objectRef({
+                    objectID,
+                    note: "Prepared reading resource object.",
+                  }),
                 ]
               : []),
           ],
@@ -256,14 +274,14 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   useEffect(() => {
     if (!readyDirectory || !normalizedPath) return
     setActiveReadingResource(readyDirectory, {
-      ...(resourceRecord?.id ? { resourceID: resourceRecord.id } : {}),
+      ...(resourceRecord?.objectID ? { objectID: resourceRecord.objectID } : {}),
       ...(resourceRecord?.alias ? { alias: resourceRecord.alias } : {}),
       name: resourceName,
       path: normalizedPath,
       ...(resourceRecord?.status ? { status: resourceRecord.status } : {}),
     })
     setLastOpenedReadingResource(readyDirectory, {
-      ...(resourceRecord?.id ? { resourceID: resourceRecord.id } : {}),
+      ...(resourceRecord?.objectID ? { objectID: resourceRecord.objectID } : {}),
       name: resourceName,
       path: normalizedPath,
     })
@@ -305,7 +323,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     const promptKey = readyController.mainPaneProps.chatState.promptKey
     const setPromptDraft = readyController.mainPaneProps.chatState.setPromptDraft
     const currentDraft = getPromptDraft(usePromptStore.getState(), promptKey)
-    const resourceKey = resourceRecord?.id ?? resourceRecord?.alias ?? props.resourceKey
+    const resourceKey = resourceRecord?.objectID ?? resourceRecord?.alias ?? props.resourceKey
     setPromptDraft(
       promptKey,
       appendReadingSelectionToDraft(currentDraft, {
@@ -335,7 +353,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
         directory={readyDirectory}
         resourceName={resourceName}
         resourcePath={normalizedPath}
-        resourceID={resourceRecord?.id}
+        objectID={resourceRecord?.objectID}
         coverRelpath={resourceRecord?.coverRelpath}
         coverExtension={resourceFileExtensionFromFormat(resourceRecord?.format ?? "")}
         resourceStatus={resourceRecord?.status}

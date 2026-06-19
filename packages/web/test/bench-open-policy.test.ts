@@ -3,8 +3,7 @@ import {
   BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
   BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
   htmlWidgetAutoOpenKey,
-  isFullscreenHtmlWidgetViewportPreset,
-  readLatestBenchPresentationAction,
+  readLatestBenchAction,
   readLatestBenchAutoOpenCandidate,
 } from "../src/components/bench/bench-open-policy"
 import type { AssistantMessageInfo, MessageWithParts } from "../src/state/chat-types"
@@ -39,11 +38,18 @@ function createAssistantMessage(
 }
 
 function createHtmlWidgetPart(input: {
-  artifactID: string
+  objectID: string
   preset: "compact_4_3" | "standard_16_10" | "wide_16_9" | "square" | "tall_mobile"
 }) {
+  const ref = {
+    kind: "html-widget",
+    objectID: input.objectID,
+    revisionID: null,
+    itemID: null,
+  } as const
+
   return {
-    id: `part-${input.artifactID}`,
+    id: `part-${input.objectID}`,
     sessionID: "session-1",
     messageID: "message-1",
     type: "tool",
@@ -55,25 +61,87 @@ function createHtmlWidgetPart(input: {
       title: "Present widget",
       time: { start: 1, end: 2 },
       metadata: {
-        artifact: "PresentHtmlWidgetOutput",
-        value: {
-          artifactID: input.artifactID,
-          kind: "html-widget",
-          title: "Stress Test Widget",
-          viewport: {
-            preset: input.preset,
-            width: 960,
-            height: 600,
-            label: "Standard 16:10",
-          },
-          runtimeUrl: "/runtime",
-          sourceUrl: "/source",
-          sourceHash: "hash",
-          warnings: [],
+        buddyObjectResult: {
+          version: 1,
+          status: "ok",
+          reason: null,
+          message: "Presented HTML widget.",
+          primaryRef: ref,
+          objects: [
+            {
+              kind: "html-widget",
+              objectID: input.objectID,
+              title: "Stress Test Widget",
+              status: "ready",
+              lifecycle: "live",
+              sourceRoot: ".buddy/objects/v1/html-widget/widget-1/source",
+            },
+          ],
+          presentations: [
+            {
+              ref,
+              viewID: "runtime",
+              surface: "bench",
+              data: null,
+              autoOpen:
+                input.preset === "standard_16_10" || input.preset === "wide_16_9"
+                  ? {
+                      policyID: BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
+                      eventKey: htmlWidgetAutoOpenKey(input.objectID),
+                    }
+                  : null,
+            },
+          ],
         },
       },
     },
   } satisfies MessageWithParts["parts"][number]
+}
+
+function createBenchObjectTarget(input: {
+  kind: "html-widget" | "whiteboard"
+  objectID: string
+  viewID: "runtime" | "current"
+}) {
+  return {
+    type: "object",
+    ref: {
+      kind: input.kind,
+      objectID: input.objectID,
+      revisionID: null,
+      itemID: null,
+    },
+    viewID: input.viewID,
+  } as const
+}
+
+function createWorkspaceFileTarget(input: { path: string; viewer: "markdown" | "file" }) {
+  return {
+    type: "workspace-file",
+    path: input.path,
+    viewer: input.viewer,
+  } as const
+}
+
+function createBenchPresentMetadata(input: {
+  status: "presented" | "already_presenting" | "closed" | "blocked"
+  target?: Record<string, unknown> | null
+}) {
+  if (input.status === "closed") {
+    return {
+      benchAction: "close",
+      benchStatus: "closed",
+      reason: "closed_by_request",
+      benchTarget: null,
+    }
+  }
+
+  return {
+    benchAction: "open",
+    benchStatus: input.status,
+    reason: input.status === "blocked" ? "blocked" : "presented_file",
+    benchTarget: input.target ?? null,
+  }
 }
 
 function createBenchPresentPart(input: {
@@ -89,16 +157,10 @@ function createBenchPresentPart(input: {
     state: {
       status: "completed",
       input: {},
-      output: JSON.stringify({
-        status: input.status,
-        reason: input.status === "closed" ? "closed_by_request" : "presented_file",
-        target: input.target ?? null,
-        mode: input.status === "closed" ? null : "docked",
-        message: "ok",
-      }),
+      output: "ok",
       title: "Bench Presentation",
       time: { start: 1, end: 2 },
-      metadata: {},
+      metadata: createBenchPresentMetadata(input),
     },
   } satisfies MessageWithParts["parts"][number]
 }
@@ -117,6 +179,17 @@ describe("bench open policy", () => {
             status: "running",
             input: {},
             time: { start: 1 },
+            metadata: {
+              benchAutoOpenCandidate: {
+                policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+                eventKey: "whiteboard:session-1:message-1:part-1",
+                target: createBenchObjectTarget({
+                  kind: "whiteboard",
+                  objectID: "whiteboard-1",
+                  viewID: "current",
+                }),
+              },
+            },
           },
         },
       ]),
@@ -124,15 +197,62 @@ describe("bench open policy", () => {
 
     expect(candidate).toMatchObject({
       policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
-      eventKey: "message-1:part-1",
-      target: { type: "whiteboard" },
+      eventKey: "whiteboard:session-1:message-1:part-1",
+      target: createBenchObjectTarget({
+        kind: "whiteboard",
+        objectID: "whiteboard-1",
+        viewID: "current",
+      }),
+    })
+  })
+
+  test("keeps whiteboard start candidates when message status has settled", () => {
+    const candidate = readLatestBenchAutoOpenCandidate([
+      createAssistantMessage(
+        [
+          {
+            id: "part-1",
+            sessionID: "session-1",
+            messageID: "message-1",
+            type: "tool",
+            tool: "whiteboard_create_view",
+            state: {
+              status: "running",
+              input: {},
+              time: { start: 1 },
+              metadata: {
+                benchAutoOpenCandidate: {
+                  policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+                  eventKey: "whiteboard:session-1:message-1:part-1",
+                  target: createBenchObjectTarget({
+                    kind: "whiteboard",
+                    objectID: "whiteboard-1",
+                    viewID: "current",
+                  }),
+                },
+              },
+            },
+          },
+        ],
+        { time: { created: 1, completed: 2 } },
+      ),
+    ])
+
+    expect(candidate).toMatchObject({
+      policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+      eventKey: "whiteboard:session-1:message-1:part-1",
+      target: createBenchObjectTarget({
+        kind: "whiteboard",
+        objectID: "whiteboard-1",
+        viewID: "current",
+      }),
     })
   })
 
   test("identifies full-size HTML widgets as auto-open candidates", () => {
     const candidate = readLatestBenchAutoOpenCandidate([
       createAssistantMessage(
-        [createHtmlWidgetPart({ artifactID: "widget-1", preset: "standard_16_10" })],
+        [createHtmlWidgetPart({ objectID: "widget-1", preset: "standard_16_10" })],
         { time: { created: 1, completed: 2 } },
       ),
     ])
@@ -140,11 +260,11 @@ describe("bench open policy", () => {
     expect(candidate).toMatchObject({
       policyID: BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
       eventKey: htmlWidgetAutoOpenKey("widget-1"),
-      target: {
-        type: "artifact",
+      target: createBenchObjectTarget({
         kind: "html-widget",
-        artifactID: "widget-1",
-      },
+        objectID: "widget-1",
+        viewID: "runtime",
+      }),
     })
   })
 
@@ -152,30 +272,20 @@ describe("bench open policy", () => {
     expect(
       readLatestBenchAutoOpenCandidate([
         createAssistantMessage(
-          [createHtmlWidgetPart({ artifactID: "widget-compact", preset: "compact_4_3" })],
+          [createHtmlWidgetPart({ objectID: "widget-compact", preset: "compact_4_3" })],
           { time: { created: 1, completed: 2 } },
         ),
       ]),
     ).toBeUndefined()
   })
 
-  test("only treats wide desktop presets as full-screen widgets", () => {
-    expect(isFullscreenHtmlWidgetViewportPreset("standard_16_10")).toBe(true)
-    expect(isFullscreenHtmlWidgetViewportPreset("wide_16_9")).toBe(true)
-    expect(isFullscreenHtmlWidgetViewportPreset("square")).toBe(false)
-    expect(isFullscreenHtmlWidgetViewportPreset("tall_mobile")).toBe(false)
-  })
-
   test("maps bench_present file results to explicit presentation actions", () => {
-    const action = readLatestBenchPresentationAction([
+    const action = readLatestBenchAction([
       createAssistantMessage(
         [
           createBenchPresentPart({
             status: "presented",
-            target: {
-              type: "markdown",
-              path: "notes/design.md",
-            },
+            target: createWorkspaceFileTarget({ path: "notes/design.md", viewer: "markdown" }),
           }),
         ],
         { time: { created: 1, completed: 2 } },
@@ -185,22 +295,20 @@ describe("bench open policy", () => {
     expect(action).toMatchObject({
       action: "open",
       target: {
-        type: "markdown",
+        type: "workspace-file",
         path: "notes/design.md",
+        viewer: "markdown",
       },
     })
   })
 
   test("finds bench_present actions before a final assistant text message in the same turn", () => {
-    const action = readLatestBenchPresentationAction([
+    const action = readLatestBenchAction([
       createAssistantMessage(
         [
           createBenchPresentPart({
             status: "presented",
-            target: {
-              type: "markdown",
-              path: "workspace.md",
-            },
+            target: createWorkspaceFileTarget({ path: "workspace.md", viewer: "markdown" }),
           }),
         ],
         { id: "message-tool", time: { created: 1, completed: 2 } },
@@ -222,8 +330,9 @@ describe("bench open policy", () => {
     expect(action).toMatchObject({
       action: "open",
       target: {
-        type: "markdown",
+        type: "workspace-file",
         path: "workspace.md",
+        viewer: "markdown",
       },
     })
   })
@@ -231,7 +340,7 @@ describe("bench open policy", () => {
   test("finds HTML widget auto-open candidates before a final assistant text message in the same turn", () => {
     const candidate = readLatestBenchAutoOpenCandidate([
       createAssistantMessage(
-        [createHtmlWidgetPart({ artifactID: "widget-after-tool", preset: "standard_16_10" })],
+        [createHtmlWidgetPart({ objectID: "widget-after-tool", preset: "standard_16_10" })],
         { id: "message-tool", time: { created: 1, completed: 2 } },
       ),
       createAssistantMessage(
@@ -249,24 +358,21 @@ describe("bench open policy", () => {
     ])
 
     expect(candidate).toMatchObject({
-      target: {
-        type: "artifact",
+      target: createBenchObjectTarget({
         kind: "html-widget",
-        artifactID: "widget-after-tool",
-      },
+        objectID: "widget-after-tool",
+        viewID: "runtime",
+      }),
     })
   })
 
   test("does not reopen a presentation from before the latest user message", () => {
-    const action = readLatestBenchPresentationAction([
+    const action = readLatestBenchAction([
       createAssistantMessage(
         [
           createBenchPresentPart({
             status: "presented",
-            target: {
-              type: "markdown",
-              path: "old.md",
-            },
+            target: createWorkspaceFileTarget({ path: "old.md", viewer: "markdown" }),
           }),
         ],
         { id: "message-old", time: { created: 1, completed: 2 } },
@@ -296,7 +402,7 @@ describe("bench open policy", () => {
   })
 
   test("maps bench_present close results to close actions", () => {
-    const action = readLatestBenchPresentationAction([
+    const action = readLatestBenchAction([
       createAssistantMessage(
         [createBenchPresentPart({ status: "closed", target: null })],
         { time: { created: 1, completed: 2 } },
@@ -309,15 +415,12 @@ describe("bench open policy", () => {
   })
 
   test("ignores blocked bench_present results", () => {
-    const action = readLatestBenchPresentationAction([
+    const action = readLatestBenchAction([
       createAssistantMessage(
         [
           createBenchPresentPart({
             status: "blocked",
-            target: {
-              type: "markdown",
-              path: "notes/design.md",
-            },
+            target: createWorkspaceFileTarget({ path: "notes/design.md", viewer: "markdown" }),
           }),
         ],
         { time: { created: 1, completed: 2 } },

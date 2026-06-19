@@ -29,18 +29,10 @@ function workspaceFileRef(input: { path: string; note: string }): BenchContextRe
   }
 }
 
-function artifactRef(input: { artifactID: string; note: string }): BenchContextRef {
+function objectRef(input: { objectID: string; note: string }): BenchContextRef {
   return {
-    kind: "artifact",
-    value: input.artifactID,
-    note: input.note,
-  }
-}
-
-function resourceRef(input: { resourceID: string; note: string }): BenchContextRef {
-  return {
-    kind: "resource",
-    value: input.resourceID,
+    kind: "object",
+    value: input.objectID,
     note: input.note,
   }
 }
@@ -65,18 +57,15 @@ function urlRef(input: { url: string | undefined; note: string }): BenchContextR
     : []
 }
 
-function workspaceBackedTarget(input: {
-  type: "reading" | "markdown" | "file"
+function workspaceFileTarget(input: {
   directory: string
   title?: string
   path: string
   route: string
   status: BenchContextTarget["status"]
-  resourceID?: string
 }): BenchContextTarget {
   return {
-    type: input.type,
-    artifactKind: "none",
+    type: "workspace-file",
     title: input.title ?? fileNameFromPath(input.path) ?? input.path,
     workspaceRoot: input.directory,
     path: input.path,
@@ -84,49 +73,24 @@ function workspaceBackedTarget(input: {
       directory: input.directory,
       path: input.path,
     }),
-    resourceID: input.resourceID ?? null,
-    artifactID: null,
-    itemID: null,
     route: input.route,
     status: input.status,
   }
 }
 
-function whiteboardTarget(input: { directory: string; route: string }): BenchContextTarget {
-  return {
-    type: "whiteboard",
-    artifactKind: "none",
-    title: "Whiteboard",
-    workspaceRoot: input.directory,
-    path: null,
-    absolutePath: null,
-    resourceID: null,
-    artifactID: null,
-    itemID: null,
-    route: input.route,
-    status: "ready",
-  }
-}
-
-function artifactTarget(input: {
-  artifactKind: Exclude<BenchContextTarget["artifactKind"], "none">
+function objectTarget(input: {
   directory: string
   title: string
-  artifactID: string
+  target: Extract<BenchTarget, { type: "object" }>
   route: string
   status: BenchContextTarget["status"]
-  itemID?: string
 }): BenchContextTarget {
   return {
-    type: "artifact",
-    artifactKind: input.artifactKind,
+    type: "object",
     title: input.title,
     workspaceRoot: input.directory,
-    path: null,
-    absolutePath: null,
-    resourceID: null,
-    artifactID: input.artifactID,
-    itemID: input.itemID ?? null,
+    ref: input.target.ref,
+    viewID: input.target.viewID,
     route: input.route,
     status: input.status,
   }
@@ -139,21 +103,8 @@ function benchContextTargetFromBenchTarget(input: {
   status: BenchContextTarget["status"]
   title?: string
 }): BenchContextTarget {
-  if (input.target.type === "reading") {
-    return workspaceBackedTarget({
-      type: "reading",
-      directory: input.directory,
-      path: input.target.path,
-      route: input.route,
-      status: input.status,
-      ...(input.title ? { title: input.title } : {}),
-      ...(input.target.resourceID ? { resourceID: input.target.resourceID } : {}),
-    })
-  }
-
-  if (input.target.type === "markdown") {
-    return workspaceBackedTarget({
-      type: "markdown",
+  if (input.target.type === "workspace-file") {
+    return workspaceFileTarget({
       directory: input.directory,
       path: input.target.path,
       route: input.route,
@@ -162,103 +113,54 @@ function benchContextTargetFromBenchTarget(input: {
     })
   }
 
-  if (input.target.type === "file") {
-    return workspaceBackedTarget({
-      type: "file",
-      directory: input.directory,
-      path: input.target.path,
-      route: input.route,
-      status: input.status,
-      ...(input.title ? { title: input.title } : {}),
-    })
-  }
-
-  if (input.target.type === "whiteboard") {
-    return {
-      ...whiteboardTarget({
-        directory: input.directory,
-        route: input.route,
-      }),
-      status: input.status,
-    }
-  }
-
-  return artifactTarget({
-    artifactKind: input.target.kind,
+  return objectTarget({
     directory: input.directory,
-    title: input.title ?? input.target.artifactID,
-    artifactID: input.target.artifactID,
+    title: input.title ?? input.target.ref.objectID,
+    target: input.target,
     route: input.route,
     status: input.status,
-    ...(input.target.itemID ? { itemID: input.target.itemID } : {}),
   })
 }
 
 function benchContextRefsFromBenchTarget(target: BenchTarget): BenchContextRef[] {
-  if (target.type === "reading") {
-    const refs: BenchContextRef[] = [
-      workspaceFileRef({
-        path: target.path,
-        note: "Reading file on Bench.",
-      }),
-    ]
-    if (target.resourceID) {
-      refs.push(
-        resourceRef({
-          resourceID: target.resourceID,
-          note: "Prepared reading resource id.",
-        }),
-      )
-    }
-    return refs
-  }
-
-  if (target.type === "markdown") {
+  if (target.type === "workspace-file") {
     return [
       workspaceFileRef({
         path: target.path,
-        note: "Markdown file on Bench.",
+        note:
+          target.viewer === "markdown"
+            ? "Markdown file on Bench."
+            : "File currently visible on Bench.",
       }),
     ]
   }
 
-  if (target.type === "file") {
-    return [
-      workspaceFileRef({
-        path: target.path,
-        note: "File currently visible on Bench.",
-      }),
-    ]
-  }
-
-  if (target.type === "whiteboard") {
-    return [
+  const refs: BenchContextRef[] = [
+    objectRef({
+      objectID: target.ref.objectID,
+      note: `${target.ref.kind} object on Bench.`,
+    }),
+  ]
+  if (target.ref.kind === "whiteboard") {
+    refs.push(
       toolRef({
         tool: "whiteboard_read_context",
         note: "Reads precise whiteboard state.",
       }),
-    ]
+    )
   }
-
-  return [
-    artifactRef({
-      artifactID: target.artifactID,
-      note: `${target.kind} artifact on Bench.`,
-    }),
-  ]
+  return refs
 }
 
 export {
-  artifactRef,
-  artifactTarget,
   benchContextTargetFromBenchTarget,
   benchContextRefsFromBenchTarget,
+  objectRef,
+  objectTarget,
   routeString,
-  resourceRef,
   toolRef,
   urlRef,
-  whiteboardTarget,
   workspaceAbsolutePath,
-  workspaceBackedTarget,
   workspaceFileRef,
+  workspaceFileTarget,
 }

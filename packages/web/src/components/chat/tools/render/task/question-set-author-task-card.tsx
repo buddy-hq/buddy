@@ -1,13 +1,16 @@
-import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQueries, useQuery } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
-import { workspaceQuestionSetArtifactsQueryOptions } from "@/state/workspace-artifacts-query"
 import {
-  artifactKindFilter,
-  type QuestionSetLibraryArtifact,
-} from "@/components/layout/chat-left-sidebar/library-artifact-selectors"
+  objectQuestionSetPayloadQueryOptions,
+  workspaceQuestionSetObjectsQueryOptions,
+} from "@/state/workspace-objects-query"
+import {
+  createBenchObjectTarget,
+  selectQuestionSetObjects,
+} from "@/components/layout/chat-left-sidebar/library-object-selectors"
+import type { ObjectQuestionSetReadQuestionsResponse } from "@buddy/sdk/types"
 import { ToolOutputPanel } from "../../tool-output-panel"
 import type { ToolPartProps } from "../../registry"
 import { readString } from "../../types"
@@ -17,22 +20,20 @@ import { useSubagentCardData } from "./task-card-header"
 import { SubagentCard } from "./subagent-card"
 import { parseTaskResultOutput } from "./task-utils"
 
-type QuestionSetArtifact = QuestionSetLibraryArtifact
-
 function questionCountLabel(count: number): string {
   return language.t(count === 1 ? "chatTools.questionCount.one" : "chatTools.questionCount.other", {
     count,
   })
 }
 
-function QuestionSetArtifactTaskPreview(props: {
-  artifact: QuestionSetArtifact
-  onOpenArtifact: (artifact: QuestionSetArtifact) => void
+function QuestionSetObjectTaskPreview(props: {
+  object: ObjectQuestionSetReadQuestionsResponse
+  onOpenObject: (object: ObjectQuestionSetReadQuestionsResponse) => void
 }) {
   return (
     <motion.button
       type="button"
-      onClick={() => props.onOpenArtifact(props.artifact)}
+      onClick={() => props.onOpenObject(props.object)}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={TASK_CARD_TRANSITION}
@@ -42,10 +43,9 @@ function QuestionSetArtifactTaskPreview(props: {
     >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-text-strong">{props.artifact.title}</p>
+          <p className="truncate text-sm font-medium text-text-strong">{props.object.title}</p>
           <p className="mt-0.5 text-xs text-text-weak">
-            {props.artifact.summary.groupType} ·{" "}
-            {questionCountLabel(props.artifact.summary.questionCount)}
+            {props.object.groupType} · {questionCountLabel(props.object.questions.length)}
           </p>
         </div>
         <div className="shrink-0 rounded bg-surface-base px-3 py-1.5 text-xs font-medium text-text-strong">
@@ -76,30 +76,44 @@ export function QuestionSetAuthorTaskCard({
   const taskResultOutput = parseTaskResultOutput(output)
 
   const childSessionID = readString(state.metadata.sessionId)
-  const artifactsQuery = useQuery({
-    ...workspaceQuestionSetArtifactsQueryOptions(directory ?? ""),
+  const objectsQuery = useQuery({
+    ...workspaceQuestionSetObjectsQueryOptions(directory ?? ""),
     enabled: state.status === "completed" && !!directory && !!childSessionID,
   })
 
-  const items = useMemo(() => {
-    const artifacts = (artifactsQuery.data?.artifacts ?? []).filter(
-      artifactKindFilter("question-set"),
-    )
-    if (!childSessionID) return []
-    return artifacts
-      .filter((artifact) => artifact.origin?.sessionID === childSessionID)
-      .toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))
-  }, [artifactsQuery.data, childSessionID])
+  const objectStubs = selectQuestionSetObjects(objectsQuery)
+  const objectDetailQueries = useQueries({
+    queries: objectStubs.map((object) => ({
+      ...objectQuestionSetPayloadQueryOptions({
+        directory: directory ?? "",
+        objectID: object.objectID,
+      }),
+      enabled: state.status === "completed" && !!directory && !!childSessionID,
+    })),
+  })
 
-  function handleOpenArtifact(artifact: QuestionSetArtifact) {
+  const items = childSessionID
+    ? objectDetailQueries
+        .flatMap((query) => {
+          const object = query.data
+          if (!object || object.createdBy.kind !== "tool") return []
+          return object.createdBy.sessionID === childSessionID ? [object] : []
+        })
+        .toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))
+    : []
+  const detailPending = objectDetailQueries.some((query) => query.isPending)
+  const detailError = objectDetailQueries.find((query) => query.error)?.error
+  const loadingObjects = objectsQuery.isPending || detailPending
+  const objectError = objectsQuery.error ?? detailError
+  const shouldShowOutputFallback =
+    !loadingObjects && items.length === 0 && taskResultOutput.length > 0
+  const shouldShowObjectError = objectError !== null && objectError !== undefined
+
+  function handleOpenObject(object: ObjectQuestionSetReadQuestionsResponse) {
     if (!directory) return
     void openBenchRoute({
       directory,
-      target: {
-        type: "artifact",
-        kind: "question-set",
-        artifactID: artifact.artifactID,
-      },
+      target: createBenchObjectTarget("question-set", object.objectID),
       mode: BENCH_MODE_REQUEST_POLICY,
       autoOpen: null,
     })
@@ -122,7 +136,7 @@ export function QuestionSetAuthorTaskCard({
     >
       {showCompletedBody ? (
         <>
-          {artifactsQuery.isPending ? (
+          {loadingObjects ? (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -135,30 +149,30 @@ export function QuestionSetAuthorTaskCard({
             </motion.div>
           ) : null}
           <AnimatePresence mode="popLayout">
-            {items.map((artifact) => (
-              <div key={artifact.artifactID}>
-                  <QuestionSetArtifactTaskPreview
-                    artifact={artifact}
-                    onOpenArtifact={(targetArtifact) => {
-                      void handleOpenArtifact(targetArtifact)
-                    }}
-                  />
-                </div>
-              ))}
+            {items.map((object) => (
+              <div key={object.objectID}>
+                <QuestionSetObjectTaskPreview
+                  object={object}
+                  onOpenObject={(targetObject) => {
+                    void handleOpenObject(targetObject)
+                  }}
+                />
+              </div>
+            ))}
           </AnimatePresence>
-          {!artifactsQuery.isPending && items.length === 0 && taskResultOutput.length > 0 ? (
+          {shouldShowOutputFallback ? (
             <div className="px-3 py-2.5">
               <ToolOutputPanel output={taskResultOutput} />
             </div>
           ) : null}
-          {artifactsQuery.error ? (
+          {shouldShowObjectError ? (
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={TASK_CARD_TRANSITION}
               className="text-xs text-icon-critical-base px-3 py-2.5"
             >
-              {stringifyError(artifactsQuery.error)}
+              {stringifyError(objectError)}
             </motion.p>
           ) : null}
         </>

@@ -1,5 +1,4 @@
 import { language } from "@/context/language"
-import { isRecord, readString, readNonEmptyString, readNonNegativeInt } from "../../tools/types"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import type { ToolPartProps } from "../registry"
 import type { MessagePart } from "@/state/chat-types"
@@ -7,38 +6,53 @@ import { parseToolState } from "../parse-tool-state"
 import { getToolInfo } from "../tool-info"
 import { ToolImageGallery, type ToolImageGalleryItem } from "./image-gallery"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
+import {
+  metadataWithInlinePresentation,
+  objectBenchTarget,
+  readBuddyObjectResult,
+  readInlinePresentation,
+  type BuddyPresentationDescriptor,
+} from "./buddy-object-result"
+import { useHydratedInlinePresentation } from "./use-hydrated-inline-presentation"
 
 type RenderFigureToolOutput = {
-  artifactID: string
   kind: "figure" | "freeform-figure"
-  mime: "image/svg+xml"
-  url: string
+  objectID: string
+  revisionID: string | null
+  viewID: string
+  url: string | null
   alt: string
-  caption?: string
-  repairAttempts: number
+  caption: string | null
 }
 
 export function parseRenderFigureOutput(
   state: ToolPartProps["state"],
 ): RenderFigureToolOutput | undefined {
-  const artifact = readString(state.metadata.artifact)
-  if (artifact !== "RenderFigureOutput" && artifact !== "RenderFreeformFigureOutput")
-    return undefined
-  const kind = artifact === "RenderFigureOutput" ? "figure" : "freeform-figure"
+  const result = readBuddyObjectResult(state.metadata)
+  const presentation = result?.presentations.find(
+    (entry) =>
+      entry.surface === "inline" &&
+      (entry.ref.kind === "figure" || entry.ref.kind === "freeform-figure") &&
+      entry.data?.renderer === "figure",
+  )
+  if (!presentation || presentation.data?.renderer !== "figure") return undefined
 
-  const value = isRecord(state.metadata.value) ? state.metadata.value : undefined
-  if (!value) return undefined
+  const summary = result?.objects.find(
+    (object) =>
+      object.kind === presentation.ref.kind && object.objectID === presentation.ref.objectID,
+  )
+  const kind = presentation.ref.kind
+  if (kind !== "figure" && kind !== "freeform-figure") return undefined
 
-  const artifactID = readNonEmptyString(value.artifactID)
-  const mime = value.mime === "image/svg+xml" ? "image/svg+xml" : undefined
-  const url = readNonEmptyString(value.url)
-  const alt = readNonEmptyString(value.alt)
-  const caption = readNonEmptyString(value.caption)
-  const repairAttempts = readNonNegativeInt(value.repairAttempts)
-
-  if (!artifactID || !mime || !url || !alt || repairAttempts === undefined) return undefined
-
-  return { artifactID, kind, mime, url, alt, caption, repairAttempts }
+  return {
+    kind,
+    objectID: presentation.ref.objectID,
+    revisionID: presentation.ref.revisionID,
+    viewID: presentation.viewID,
+    url: presentation.data.svgUrl,
+    alt: presentation.data.alt ?? summary?.title ?? "Figure",
+    caption: presentation.data.caption,
+  }
 }
 
 function figureGalleryItem(input: {
@@ -73,15 +87,16 @@ function figureGalleryItem(input: {
 
   return {
     id: input.id,
-    src: resolveAssetUrl(renderFigure.url),
+    src: renderFigure.url ? resolveAssetUrl(renderFigure.url) : null,
     alt: renderFigure.alt,
     title: renderFigure.alt,
-    caption: renderFigure.caption || renderFigure.alt,
-    benchTarget: {
-      type: "artifact",
+    caption: renderFigure.caption ?? renderFigure.alt,
+    benchTarget: objectBenchTarget({
       kind: renderFigure.kind,
-      artifactID: renderFigure.artifactID,
-    },
+      objectID: renderFigure.objectID,
+      viewID: renderFigure.viewID,
+      revisionID: renderFigure.revisionID,
+    }),
   }
 }
 
@@ -120,6 +135,19 @@ function FigureGallery(props: { directory?: string; items: ToolImageGalleryItem[
 }
 
 export function renderRenderFigureTool({ part, state, info, directory }: ToolPartProps) {
+  const presentation =
+    state.status === "completed" ? readInlinePresentation(state.metadata, "figure") : undefined
+  if (presentation) {
+    return (
+      <HydratedFigureTool
+        part={part}
+        state={state}
+        info={info}
+        directory={directory}
+        presentation={presentation}
+      />
+    )
+  }
   const item = figureGalleryItem({
     id: part.id,
     state,
@@ -127,6 +155,30 @@ export function renderRenderFigureTool({ part, state, info, directory }: ToolPar
   })
 
   return <FigureGallery directory={directory} items={item ? [item] : []} />
+}
+
+function HydratedFigureTool(props: {
+  part: ToolPartProps["part"]
+  state: ToolPartProps["state"]
+  info: ToolPartProps["info"]
+  directory: string | undefined
+  presentation: BuddyPresentationDescriptor
+}) {
+  const hydrated = useHydratedInlinePresentation({
+    directory: props.directory,
+    presentation: props.presentation,
+  })
+  const state = {
+    ...props.state,
+    metadata: metadataWithInlinePresentation(props.state.metadata, hydrated.presentation),
+  }
+  const item = figureGalleryItem({
+    id: props.part.id,
+    state,
+    fallbackTitle: props.info.title,
+    allowUnavailablePlaceholder: hydrated.isPending || hydrated.error !== null,
+  })
+  return <FigureGallery directory={props.directory} items={item ? [item] : []} />
 }
 
 export function GroupedFigureToolCard({

@@ -42,9 +42,6 @@ import {
 import type { BenchFloatingChatState } from "@/components/bench/bench-route-context"
 import { resourceSessionKey, useChatStore } from "@/state/chat-store"
 
-const READING_ROUTE_SUFFIX = "/read" as const
-const WHITEBOARD_ROUTE_SUFFIX = "/whiteboard" as const
-
 type ReadyDirectoryBenchController = Extract<
   DirectoryChatPageControllerState,
   { status: "ready" }
@@ -89,19 +86,6 @@ function ReadyDirectoryBenchRouteLayout(props: {
   const search = Route.useSearch()
   const navigate = useNavigate()
   const { controller } = props
-  const isWhiteboardRoute = location.pathname.endsWith(WHITEBOARD_ROUTE_SUFFIX)
-  const linkedReadingSessionID = useChatStore((state) => {
-    if (!location.pathname.endsWith(READING_ROUTE_SUFFIX)) {
-      return undefined
-    }
-
-    const directory = controller.mainPaneProps.directory
-    const resourceID = state.activeReadingResourceByDirectory[directory]?.resourceID
-    return resourceID
-      ? state.linkedSessionByResource[resourceSessionKey(directory, resourceID)]
-      : undefined
-  })
-
   const currentDirectory = controller.mainPaneProps.directory
   const activeSessionID = controller.mainPaneProps.chatState.sessionID
   const encodedDirectory = encodeDirectory(currentDirectory)
@@ -114,6 +98,24 @@ function ReadyDirectoryBenchRouteLayout(props: {
       }),
     [currentDirectory, location.pathname, search],
   )
+  const isWhiteboardTarget =
+    benchPolicyState.status === "open" &&
+    benchPolicyState.target.type === "object" &&
+    benchPolicyState.target.ref.kind === "whiteboard"
+  const linkedReadingSessionID = useChatStore((state) => {
+    if (
+      benchPolicyState.status !== "open" ||
+      benchPolicyState.target.type !== "object" ||
+      benchPolicyState.target.ref.kind !== "resource"
+    ) {
+      return undefined
+    }
+
+    const objectID = state.activeReadingResourceByDirectory[currentDirectory]?.objectID
+    return objectID
+      ? state.linkedSessionByResource[resourceSessionKey(currentDirectory, objectID)]
+      : undefined
+  })
   const routeChatLayoutMode =
     benchPolicyState.status === "open" ? benchPolicyState.mode : BENCH_CHAT_LAYOUT_DOCKED
   const layoutProfile =
@@ -200,7 +202,7 @@ function ReadyDirectoryBenchRouteLayout(props: {
     enableBeforeUnload: false,
   })
 
-  const openChatRoute = useCallback(async () => {
+  const openChatRoute = useCallback(async (): Promise<boolean> => {
     if (benchPolicyState.status === "open") {
       const guardResult = await guardBenchLeaveBeforeNavigation({
         directory: currentDirectory,
@@ -209,7 +211,7 @@ function ReadyDirectoryBenchRouteLayout(props: {
         current: benchPolicyState.target,
         next: null,
       })
-      if (guardResult.status === "block") return
+      if (guardResult.status === "block") return false
     }
 
     await navigate({
@@ -217,7 +219,9 @@ function ReadyDirectoryBenchRouteLayout(props: {
       params: {
         directory: encodedDirectory,
       },
+      replace: true,
     })
+    return true
   }, [benchPolicyState, currentDirectory, encodedDirectory, navigate])
 
   const setBenchMode = useCallback((input: { mode: BenchMode; origin: "user" | "agent" }) => {
@@ -320,18 +324,20 @@ function ReadyDirectoryBenchRouteLayout(props: {
             onFloatChat={controls.onFloatChat}
             onNewSession={() => {
               void (async () => {
-                await controller.leftSidebarProps.onNewSession(currentDirectory)
-                if (isWhiteboardRoute) {
-                  await openChatRoute()
+                if (isWhiteboardTarget) {
+                  const didCloseBench = await openChatRoute()
+                  if (!didCloseBench) return
                 }
+                await controller.leftSidebarProps.onNewSession(currentDirectory)
               })()
             }}
             onSelectSession={(nextSessionID) => {
               void (async () => {
-                await controller.leftSidebarProps.onSelectSession(currentDirectory, nextSessionID)
-                if (isWhiteboardRoute && nextSessionID) {
-                  await openChatRoute()
+                if (isWhiteboardTarget && nextSessionID) {
+                  const didCloseBench = await openChatRoute()
+                  if (!didCloseBench) return
                 }
+                await controller.leftSidebarProps.onSelectSession(currentDirectory, nextSessionID)
               })()
             }}
           />

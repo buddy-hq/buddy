@@ -25,13 +25,13 @@ function createIngestFullTextProps(): ToolPartProps {
     state: {
       status: "completed",
       input: {
-        resource: "guns-of-august",
+        resourceKey: "guns-of-august",
       },
       metadata: {
         resource: "guns-of-august",
-        fullTextEstTokens: 308341,
+        fullTextEstimatedTokens: 308341,
         truncated: true,
-        outputPath: "/tmp/tool-output",
+        fullTextPath: "/tmp/tool-output",
       },
       attachments: [],
       output: "<resource_full_text_ingestion>preview</resource_full_text_ingestion>",
@@ -90,7 +90,79 @@ describe("ingest_full_text tool rendering", () => {
     expect(container.textContent).toContain("/tmp/tool-output")
   })
 
-  test("keeps ingest_full_text backend error details visible through ToolPartCard", async () => {
+  test("hides context-too-full fallback results from the transcript", async () => {
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ToolPartCard
+            part={{
+              id: "prt_full_text_fallback",
+              sessionID: "ses_full_text",
+              messageID: "msg_full_text",
+              callID: "call_full_text_fallback",
+              type: "tool",
+              tool: "ingest_full_text",
+              state: {
+                status: "completed",
+                input: {
+                  resourceKey: "guns-of-august",
+                },
+                metadata: {
+                  resource: "guns-of-august",
+                  completed: false,
+                  reason: "context_too_full",
+                  fallback: "scoped_reading",
+                  fullTextEstimatedTokens: 399317,
+                  fullTextPath: ".buddy/objects/v1/resource/01KV/derived/pack/full-text.md",
+                  truncated: false,
+                },
+                output:
+                  '<resource_full_text_ingestion resource="guns-of-august" completed="false" reason="context_too_full">Use scoped reading instead.</resource_full_text_ingestion>',
+                title: "ingest_full_text",
+                time: { start: 1, end: 2 },
+              },
+            }}
+          />
+        </QueryClientProvider>,
+      )
+      await flushEffects()
+    })
+
+    expect(container.textContent).toBe("")
+  })
+
+  test("hides legacy context-too-full error results from the transcript", async () => {
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ToolPartCard
+            part={{
+              id: "prt_full_text_legacy_fallback",
+              sessionID: "ses_full_text",
+              messageID: "msg_full_text",
+              callID: "call_full_text_legacy_fallback",
+              type: "tool",
+              tool: "ingest_full_text",
+              state: {
+                status: "error",
+                input: {
+                  resourceKey: "guns-of-august",
+                },
+                error:
+                  'Cannot ingest full text for resource "guns-of-august" because the live session context is too full.\nUse scoped reading instead of full-text ingestion in this session.',
+                time: { start: 1, end: 2 },
+              },
+            }}
+          />
+        </QueryClientProvider>,
+      )
+      await flushEffects()
+    })
+
+    expect(container.textContent).toBe("")
+  })
+
+  test("keeps real ingest_full_text backend error details visible through ToolPartCard", async () => {
     await act(async () => {
       root.render(
         <QueryClientProvider client={queryClient}>
@@ -105,10 +177,10 @@ describe("ingest_full_text tool rendering", () => {
               state: {
                 status: "error",
                 input: {
-                  resource: "guns-of-august",
+                  resourceKey: "guns-of-august",
                 },
                 error:
-                  'Cannot ingest full text for resource "guns-of-august" because the live session context is too full.\nUse scoped reading instead of full-text ingestion in this session.',
+                  'Resource "guns-of-august" is not ready for full-text ingestion. Current status: preparing.',
                 time: { start: 1, end: 2 },
               },
             }}
@@ -120,10 +192,7 @@ describe("ingest_full_text tool rendering", () => {
 
     expect(container.textContent).toContain("Read Full Text")
     expect(container.textContent).toContain(
-      'Cannot ingest full text for resource "guns-of-august" because the live session context is too full.',
-    )
-    expect(container.textContent).toContain(
-      "Use scoped reading instead of full-text ingestion in this session.",
+      'Resource "guns-of-august" is not ready for full-text ingestion.',
     )
   })
 })

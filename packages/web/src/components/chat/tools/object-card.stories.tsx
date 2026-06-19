@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { ArtifactCard } from "./artifact-card"
+import { ObjectCard } from "./object-card"
 
 const meta = {
-  title: "Web/Tools/Shared/ArtifactCard",
-  component: ArtifactCard,
+  title: "Web/Tools/Shared/ObjectCard",
+  component: ObjectCard,
   parameters: { layout: "padded" },
-} satisfies Meta<typeof ArtifactCard>
+} satisfies Meta<typeof ObjectCard>
 
 export default meta
 type Story = StoryObj<typeof meta>

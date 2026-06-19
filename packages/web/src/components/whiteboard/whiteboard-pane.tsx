@@ -1,5 +1,5 @@
 import { Button } from "@buddy/ui"
-import type { WhiteboardsReadResponse } from "@buddy/sdk"
+import type { ObjectWhiteboardSessionReadResponse } from "@buddy/sdk/types"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ExternalLinkIcon, PresentationIcon } from "lucide-react"
@@ -286,7 +286,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
   }, [boardID, sessionID])
 
   const updateSessionData = useCallback(
-    (data: WhiteboardsReadResponse) => {
+    (data: ObjectWhiteboardSessionReadResponse) => {
       if (!sessionID) return
       queryClient.setQueryData(whiteboardQueryKeys.session(directory, sessionID), data)
     },
@@ -313,7 +313,8 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
       if (!boardToShare) return
       const json = await createWhiteboardShareJson(boardToShare)
       const result = requireBuddyData(
-        await getBuddyClient(directory).whiteboards.share.create({
+        await getBuddyClient(directory).objectWhiteboard.session.share.create({
+          directory,
           sessionID,
           json,
         }),
@@ -353,7 +354,8 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
       setSaveError(undefined)
       setShareStatus(undefined)
       try {
-        const result = await getBuddyClient(directory).whiteboards.saveLearnerEdit({
+        const result = await getBuddyClient(directory).objectWhiteboard.session.saveLearnerEdit({
+          directory,
           sessionID,
           baseBoardID: input.baseBoardID,
           elements: input.elements,
@@ -381,7 +383,8 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     async (report: WhiteboardRenderReport) => {
       if (!sessionID) return
       try {
-        await getBuddyClient(directory).whiteboards.renderReport.save({
+        await getBuddyClient(directory).objectWhiteboard.session.renderReport.save({
+          directory,
           sessionID,
           ...report,
         })

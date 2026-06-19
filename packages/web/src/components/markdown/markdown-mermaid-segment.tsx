@@ -15,13 +15,14 @@ import { MermaidToolCard } from "@/components/chat/tools/render/mermaid/mermaid-
 import { useInlineAssetActivation } from "@/components/chat/inline-asset-boundary"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import {
-  createInlineMermaidArtifact,
+  createInlineMermaidObject,
   readMermaidAutoRepairStatus,
   startMermaidAutoRepair,
-  type MermaidArtifactRecord,
+  type MermaidObjectRecord,
   type MermaidRepairStartResponse,
 } from "@/components/chat/tools/render/mermaid/lib/persisted-renders"
-import { findSupersedingMermaidArtifactID } from "@/components/chat/tools/render/mermaid/lib/supersession"
+import { findSupersedingMermaidRevisionID } from "@/components/chat/tools/render/mermaid/lib/supersession"
+import { objectBenchTarget } from "@/components/chat/tools/render/buddy-object-result"
 
 const MERMAID_STREAM_STABLE_DELAY_MS = 600
 const MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS = 1_000
@@ -45,7 +46,7 @@ type MermaidRenderFailure = {
 type MermaidRepairState =
   | { status: "idle" }
   | { status: "running"; repairRequestID: string }
-  | { status: "succeeded"; replacementArtifactID: string }
+  | { status: "succeeded"; replacementRevisionID: string }
   | { status: "exhausted"; lastErrorMessage: string }
   | { status: "ineligible"; lastErrorMessage: string }
 
@@ -57,6 +58,13 @@ type MermaidFixPromptTarget = {
   }
 }
 
+function mermaidOriginSessionID(origin: MermaidObjectRecord["origin"]): string | undefined {
+  if (origin.kind === "tool" || origin.kind === "markdown") {
+    return origin.sessionID
+  }
+  return undefined
+}
+
 export function shouldDelayMarkdownMermaidSegment(input: {
   isStreaming: boolean
   readySourceIdentity?: string
@@ -65,7 +73,7 @@ export function shouldDelayMarkdownMermaidSegment(input: {
   return input.isStreaming && input.readySourceIdentity !== input.sourceIdentity
 }
 
-export function shouldClearMarkdownMermaidArtifact(input: {
+export function shouldClearMarkdownMermaidObject(input: {
   requestedSource?: string
   nextSource: string
 }): boolean {
@@ -73,13 +81,13 @@ export function shouldClearMarkdownMermaidArtifact(input: {
 }
 
 export function shouldStartMarkdownMermaidAutoRepair(input: {
-  artifact: MermaidArtifactRecord | undefined
+  object: MermaidObjectRecord | undefined
   renderFailure?: MermaidRenderFailure
 }): boolean {
   return (
-    !!input.artifact &&
+    !!input.object &&
     !!input.renderFailure?.renderKey &&
-    input.artifact.autoRepair.status === "eligible"
+    input.object.autoRepair.status === "eligible"
   )
 }
 
@@ -115,25 +123,25 @@ function resolveAssistantMessage(
   }
 }
 
-function repairStateFromArtifact(artifact: MermaidArtifactRecord | undefined): MermaidRepairState {
-  if (!artifact) {
+function repairStateFromObject(object: MermaidObjectRecord | undefined): MermaidRepairState {
+  if (!object) {
     return { status: "idle" }
   }
-  switch (artifact.autoRepair.status) {
+  switch (object.autoRepair.status) {
     case "running":
       return {
         status: "running",
-        repairRequestID: artifact.autoRepair.repairRequestID,
+        repairRequestID: object.autoRepair.repairRequestID,
       }
     case "succeeded":
       return {
         status: "succeeded",
-        replacementArtifactID: artifact.autoRepair.replacementArtifactID,
+        replacementRevisionID: object.autoRepair.replacementRevisionID,
       }
     case "exhausted":
       return {
         status: "exhausted",
-        lastErrorMessage: artifact.autoRepair.lastErrorMessage,
+        lastErrorMessage: object.autoRepair.lastErrorMessage,
       }
     case "not_needed":
       return {
@@ -146,16 +154,16 @@ function repairStateFromArtifact(artifact: MermaidArtifactRecord | undefined): M
 }
 
 function formatFixPrompt(input: {
-  artifactID: string
   alt: string
   errorMessage: string
   failedRenderKey?: string
+  objectID: string
   source: string
 }): string {
   return [
     `The Mermaid diagram (alt: "${input.alt}") failed to render in the browser.`,
     "",
-    `Artifact ID: ${input.artifactID}`,
+    `Object ID: ${input.objectID}`,
     ...(input.failedRenderKey ? [`Failed render key: ${input.failedRenderKey}`, ""] : []),
     `Browser render error: ${input.errorMessage}`,
     "",
@@ -164,8 +172,8 @@ function formatFixPrompt(input: {
     input.source,
     "```",
     "",
-    `Please fix the Mermaid source and call render_mermaid exactly once with repairOfArtifactID: "${input.artifactID}".`,
-    "Copy the artifact ID verbatim; do not replace it with a placeholder, zeros, repeated characters, or a guessed ID.",
+    `Please fix the Mermaid source and call render_mermaid exactly once with repairOfObjectID: "${input.objectID}".`,
+    "Copy the object ID verbatim; do not replace it with a placeholder, zeros, repeated characters, or a guessed ID.",
   ].join("\n")
 }
 
@@ -204,7 +212,7 @@ export function MarkdownMermaidSegment(props: {
     props.isStreaming ? undefined : sourceIdentity,
   )
   const [ready, setReady] = useState(!props.isStreaming)
-  const [artifact, setArtifact] = useState<MermaidArtifactRecord | undefined>(undefined)
+  const [object, setObject] = useState<MermaidObjectRecord | undefined>(undefined)
   const [error, setError] = useState<string | undefined>(undefined)
   const [renderFailure, setRenderFailure] = useState<MermaidRenderFailure | undefined>(undefined)
   const [repairState, setRepairState] = useState<MermaidRepairState>({ status: "idle" })
@@ -212,8 +220,8 @@ export function MarkdownMermaidSegment(props: {
   const activation = useInlineAssetActivation()
   const openBenchRoute = useOpenBench()
   const startedRepairRef = useRef<string | undefined>(undefined)
-  const requestedSourceByArtifactIDRef = useRef(new Map<string, string>())
-  const artifactID = artifact?.artifactID
+  const requestedSourceByObjectIDRef = useRef(new Map<string, string>())
+  const objectID = object?.objectID
   const sessionMessages = useChatStore((store) => {
     const directoryState = store.directories[props.context.directory]
     if (!directoryState) {
@@ -254,20 +262,20 @@ export function MarkdownMermaidSegment(props: {
     let cancelled = false
     setError(undefined)
     if (
-      shouldClearMarkdownMermaidArtifact({
-        requestedSource: artifactID
-          ? requestedSourceByArtifactIDRef.current.get(artifactID)
+      shouldClearMarkdownMermaidObject({
+        requestedSource: objectID
+          ? requestedSourceByObjectIDRef.current.get(objectID)
           : undefined,
         nextSource: props.source,
       })
     ) {
-      setArtifact(undefined)
+      setObject(undefined)
       setRepairState({ status: "idle" })
       setRenderFailure(undefined)
       setFixRequested(false)
       startedRepairRef.current = undefined
     }
-    void createInlineMermaidArtifact({
+    void createInlineMermaidObject({
       directory: props.context.directory,
       sessionID: props.context.sessionID,
       messageID: props.context.messageID,
@@ -275,15 +283,15 @@ export function MarkdownMermaidSegment(props: {
       segmentIndex: props.segmentIndex,
       source: props.source,
     })
-      .then((nextArtifact) => {
+      .then((nextObject) => {
         if (cancelled) return
-        requestedSourceByArtifactIDRef.current.set(nextArtifact.artifactID, props.source)
-        setArtifact(nextArtifact)
-        setRepairState(repairStateFromArtifact(nextArtifact))
+        requestedSourceByObjectIDRef.current.set(nextObject.objectID, props.source)
+        setObject(nextObject)
+        setRepairState(repairStateFromObject(nextObject))
       })
-      .catch((artifactError) => {
+      .catch((objectError) => {
         if (cancelled) return
-        setError(artifactError instanceof Error ? artifactError.message : String(artifactError))
+        setError(objectError instanceof Error ? objectError.message : String(objectError))
       })
     return () => {
       cancelled = true
@@ -297,11 +305,15 @@ export function MarkdownMermaidSegment(props: {
     props.source,
     ready,
     activation.active,
-    artifactID,
+    objectID,
   ])
 
   useEffect(() => {
-    if (repairState.status !== "running" || !artifact) {
+    if (repairState.status !== "running" || !object) {
+      return
+    }
+    const sessionID = mermaidOriginSessionID(object.origin)
+    if (!sessionID) {
       return
     }
     let cancelled = false
@@ -309,13 +321,13 @@ export function MarkdownMermaidSegment(props: {
       void readMermaidAutoRepairStatus({
         directory: props.context.directory,
         repairRequestID: repairState.repairRequestID,
-        sessionID: artifact.origin.sessionID,
+        sessionID,
       })
         .then((status) => {
           if (cancelled || status.status === "running") return
           setRepairState(
-            status.status === "succeeded" && status.replacementArtifactID
-              ? { status: "succeeded", replacementArtifactID: status.replacementArtifactID }
+            status.status === "succeeded" && status.replacementRevisionID
+              ? { status: "succeeded", replacementRevisionID: status.replacementRevisionID }
               : {
                   status: "exhausted",
                   lastErrorMessage:
@@ -336,28 +348,32 @@ export function MarkdownMermaidSegment(props: {
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [artifact, props.context.directory, repairState])
+  }, [object, props.context.directory, repairState])
 
   const handleRenderFailure = useCallback(
     (failure: MermaidRenderFailure) => {
       setRenderFailure(failure)
-      if (!shouldStartMarkdownMermaidAutoRepair({ artifact, renderFailure: failure })) {
-        setRepairState((current) => (artifact ? repairStateFromArtifact(artifact) : current))
+      if (!shouldStartMarkdownMermaidAutoRepair({ object, renderFailure: failure })) {
+        setRepairState((current) => (object ? repairStateFromObject(object) : current))
         return
       }
-      if (!artifact || !failure.renderKey) {
+      if (!object || !failure.renderKey) {
         return
       }
-      const repairKey = `${artifact.artifactID}:${failure.renderKey}`
+      const sessionID = mermaidOriginSessionID(object.origin)
+      if (!sessionID) {
+        return
+      }
+      const repairKey = `${object.objectID}:${object.revisionID}:${failure.renderKey}`
       if (startedRepairRef.current === repairKey) {
         return
       }
       startedRepairRef.current = repairKey
       void startMermaidAutoRepair({
-        artifactID: artifact.artifactID,
         directory: props.context.directory,
         failedRenderKey: failure.renderKey,
-        sessionID: artifact.origin.sessionID,
+        objectID: object.objectID,
+        sessionID,
       })
         .then((response: MermaidRepairStartResponse) => {
           if (response.status === "running") {
@@ -382,33 +398,35 @@ export function MarkdownMermaidSegment(props: {
           })
         })
     },
-    [artifact, props.context.directory],
+    [object, props.context.directory],
   )
 
-  const supersedingArtifactID = useMemo(
+  const supersedingRevisionID = useMemo(
     () =>
-      artifact ? findSupersedingMermaidArtifactID(sessionMessages, artifact.artifactID) : undefined,
-    [artifact, sessionMessages],
+      object
+        ? findSupersedingMermaidRevisionID(sessionMessages, object.objectID, object.revisionID)
+        : undefined,
+    [object, sessionMessages],
   )
 
   const canRequestFix =
-    !!artifact &&
+    !!object &&
     !!renderFailure &&
     repairState.status !== "running" &&
     repairState.status !== "succeeded" &&
-    !supersedingArtifactID &&
+    !supersedingRevisionID &&
     (repairState.status === "exhausted" || repairState.status === "ineligible")
 
   const handleRequestFix = useCallback(() => {
-    if (!artifact || fixRequested) return
+    if (!object || fixRequested) return
     setFixRequested(true)
     const prompt = formatFixPrompt({
-      artifactID: artifact.artifactID,
-      alt: artifact.alt,
+      alt: object.alt,
       errorMessage:
         renderFailure?.message ?? language.t("chatTools.mermaidDiagram.renderErrorDefault"),
       failedRenderKey: renderFailure?.renderKey,
-      source: artifact.source,
+      objectID: object.objectID,
+      source: object.source,
     })
     void sendPrompt(
       props.context.directory,
@@ -421,8 +439,8 @@ export function MarkdownMermaidSegment(props: {
       setFixRequested(false)
     })
   }, [
-    artifact,
     fixRequested,
+    object,
     props.context.directory,
     props.context.messageID,
     props.context.sessionID,
@@ -473,7 +491,7 @@ export function MarkdownMermaidSegment(props: {
     )
   }
 
-  if (!artifact) {
+  if (!object) {
     return renderMarkdownMermaidCard({
       title: MARKDOWN_MERMAID_DEFAULT_TITLE,
       diagramType: MARKDOWN_MERMAID_DEFAULT_TYPE,
@@ -486,7 +504,7 @@ export function MarkdownMermaidSegment(props: {
     })
   }
 
-  if (repairState.status === "succeeded" || supersedingArtifactID) {
+  if (repairState.status === "succeeded" || supersedingRevisionID) {
     return (
       <div className="my-4 rounded-md border border-border-base/40 bg-surface-weak/10 p-3 text-sm text-text-weak">
         {language.t("chatTools.mermaidDiagram.replaced")}
@@ -497,9 +515,10 @@ export function MarkdownMermaidSegment(props: {
   return (
     <MermaidDiagram
       directory={props.context.directory}
-      source={artifact.source}
-      artifactID={artifact.artifactID}
-      alt={artifact.alt}
+      source={object.source}
+      objectID={object.objectID}
+      revisionID={object.revisionID}
+      alt={object.alt}
       renderPriority={0}
       showRawSourceOnError
       errorMeta={errorMeta}
@@ -507,11 +526,12 @@ export function MarkdownMermaidSegment(props: {
       onFullscreenOpen={() => {
         void openBenchRoute({
           directory: props.context.directory,
-          target: {
-            type: "artifact",
+          target: objectBenchTarget({
             kind: "mermaid",
-            artifactID: artifact.artifactID,
-          },
+            objectID: object.objectID,
+            revisionID: object.revisionID,
+            viewID: "rendered",
+          }),
           mode: BENCH_MODE_REQUEST_POLICY,
           autoOpen: null,
         })
@@ -520,8 +540,8 @@ export function MarkdownMermaidSegment(props: {
       fixDisabled={fixRequested || repairState.status === "running"}
       renderWrapper={(diagramElement, actions) =>
         renderMarkdownMermaidCard({
-          title: artifact.alt,
-          diagramType: artifact.diagramType,
+          title: object.alt,
+          diagramType: object.diagramType,
           containerRef: activation.ref,
           body: <div className="h-full w-full">{diagramElement}</div>,
           actions,

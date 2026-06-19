@@ -1,21 +1,21 @@
 import type {
-  ResourceAddResponses,
-  ResourceListResponses,
-  ResourceRebuildResponses,
-  ResourceRemoveResponses,
-  ResourceRenameResponses,
+  ObjectResourceCreateResponses,
+  ObjectResourceDeleteByKeyResponses,
+  ObjectResourceListResponses,
+  ObjectResourceRebuildByKeyResponses,
+  ObjectResourceRenameByKeyResponses,
 } from "@buddy/sdk"
 import { getBuddyClient, requireBuddyData } from "../lib/buddy-client"
 
-export const RESOURCE_API_BASE_PATH = "/api/resource" as const
+export const RESOURCE_API_BASE_PATH = "/api/objects/resource" as const
 
 export type ResourceStatus = "preparing" | "ready" | "unsupported" | "error" | "stale"
 
-type ResourceApiRecord = ResourceListResponses[200]["resources"][number]
+type ResourceApiRecord = ObjectResourceListResponses[200]["resources"][number]
 
 export type ResourceRecord = Pick<
   ResourceApiRecord,
-  | "id"
+  | "objectID"
   | "alias"
   | "sourceRelpath"
   | "format"
@@ -27,13 +27,14 @@ export type ResourceRecord = Pick<
   | "coverRelpath"
   | "title"
   | "author"
+  | "readerPath"
 > & {
   sourceOriginRelpath?: string
 }
 
 export async function loadResources(directory: string) {
-  const result = await getBuddyClient(directory).resource.list()
-  const response = requireBuddyData<ResourceListResponses[200]>(result)
+  const result = await getBuddyClient(directory).objectResource.list()
+  const response = requireBuddyData<ObjectResourceListResponses[200]>(result)
   return response.resources
 }
 
@@ -44,11 +45,11 @@ export async function addResource(
     alias?: string
   },
 ) {
-  const result = await getBuddyClient(directory).resource.add({
+  const result = await getBuddyClient(directory).objectResource.create({
     sourcePath: input.sourcePath,
     alias: input.alias,
   })
-  return requireBuddyData<ResourceAddResponses[200]>(result)
+  return requireBuddyData<ObjectResourceCreateResponses[200]>(result)
 }
 
 export async function renameResource(
@@ -58,11 +59,11 @@ export async function renameResource(
     alias: string
   },
 ) {
-  const result = await getBuddyClient(directory).resource.rename({
+  const result = await getBuddyClient(directory).objectResource.renameByKey({
     resourceKey: input.resourceKey,
     alias: input.alias,
   })
-  return requireBuddyData<ResourceRenameResponses[200]>(result)
+  return requireBuddyData<ObjectResourceRenameByKeyResponses[200]>(result)
 }
 
 export async function rebuildResource(
@@ -71,10 +72,10 @@ export async function rebuildResource(
     resourceKey: string
   },
 ) {
-  const result = await getBuddyClient(directory).resource.rebuild({
+  const result = await getBuddyClient(directory).objectResource.rebuildByKey({
     resourceKey: input.resourceKey,
   })
-  return requireBuddyData<ResourceRebuildResponses[200]>(result)
+  return requireBuddyData<ObjectResourceRebuildByKeyResponses[200]>(result)
 }
 
 export async function removeResource(
@@ -83,8 +84,8 @@ export async function removeResource(
     resourceKey: string
   },
 ) {
-  const result = await getBuddyClient(directory).resource.remove({
+  const result = await getBuddyClient(directory).objectResource.deleteByKey({
     resourceKey: input.resourceKey,
   })
-  return requireBuddyData<ResourceRemoveResponses[200]>(result)
+  return requireBuddyData<ObjectResourceDeleteByKeyResponses[200]>(result)
 }

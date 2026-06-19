@@ -1,6 +1,9 @@
 import { readNonEmptyString, readNonNegativeInt } from "./types"
 import type { ToolState } from "./types"
 
+export const INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL = "context_too_full"
+export const INGEST_FULL_TEXT_FALLBACK_SCOPED_READING = "scoped_reading"
+
 /** Matches resource-pack token estimation (`chars / 4`). */
 export const FULL_TEXT_TOKEN_ESTIMATE_CHARS_PER_TOKEN = 4
 
@@ -16,16 +19,49 @@ export function estimateApproxWordCountFromTokens(tokenCount: number): number {
 
 export type IngestFullTextMetadata = {
   resource?: string
-  fullTextEstTokens?: number
+  completed?: boolean
+  reason?: typeof INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL
+  fallback?: typeof INGEST_FULL_TEXT_FALLBACK_SCOPED_READING
+  fullTextEstimatedTokens?: number
   truncated: boolean
-  outputPath?: string
+  fullTextPath?: string
+}
+
+export function isIngestFullTextScopedReadingFallback(
+  metadata: IngestFullTextMetadata,
+): boolean {
+  return (
+    metadata.completed === false &&
+    metadata.reason === INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL &&
+    metadata.fallback === INGEST_FULL_TEXT_FALLBACK_SCOPED_READING
+  )
+}
+
+export function isLegacyIngestFullTextScopedReadingError(error: string | undefined): boolean {
+  if (!error) return false
+  return (
+    error.includes("because the live session context is too full.") &&
+    error.includes("Use scoped reading instead of full-text ingestion in this session.")
+  )
+}
+
+function readIngestFullTextReason(value: unknown): IngestFullTextMetadata["reason"] {
+  return value === INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL ? value : undefined
+}
+
+function readIngestFullTextFallback(value: unknown): IngestFullTextMetadata["fallback"] {
+  return value === INGEST_FULL_TEXT_FALLBACK_SCOPED_READING ? value : undefined
 }
 
 export function readIngestFullTextMetadata(state: ToolState): IngestFullTextMetadata {
   return {
     resource: readNonEmptyString(state.metadata.resource),
-    fullTextEstTokens: readNonNegativeInt(state.metadata.fullTextEstTokens),
+    completed:
+      typeof state.metadata.completed === "boolean" ? state.metadata.completed : undefined,
+    reason: readIngestFullTextReason(state.metadata.reason),
+    fallback: readIngestFullTextFallback(state.metadata.fallback),
+    fullTextEstimatedTokens: readNonNegativeInt(state.metadata.fullTextEstimatedTokens),
     truncated: state.metadata.truncated === true,
-    outputPath: readNonEmptyString(state.metadata.outputPath),
+    fullTextPath: readNonEmptyString(state.metadata.fullTextPath),
   }
 }

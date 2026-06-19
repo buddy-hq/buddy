@@ -7,7 +7,9 @@ export const BENCH_LAYOUT_PROFILE_BENCH_FIRST = "bench-first"
 export const BENCH_AUTO_OPEN_POLICY_WHITEBOARD = "whiteboard"
 export const BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET = "fullscreen-html-widget"
 
-export type BenchArtifactKind =
+export type BenchObjectKind =
+  | "resource"
+  | "whiteboard"
   | "mermaid"
   | "html-widget"
   | "figure"
@@ -16,12 +18,18 @@ export type BenchArtifactKind =
   | "question-set"
   | "flashcard-deck"
 
+type BenchNonFileObjectKind = Exclude<BenchObjectKind, "resource" | "whiteboard">
+
+export type BenchObjectRef = {
+  kind: BenchObjectKind
+  objectID: string
+  revisionID: string | null
+  itemID: string | null
+}
+
 export type BenchTarget =
-  | { type: "reading"; path: string; resourceID?: string }
-  | { type: "whiteboard" }
-  | { type: "markdown"; path: string }
-  | { type: "artifact"; kind: BenchArtifactKind; artifactID: string; itemID?: string }
-  | { type: "file"; path: string }
+  | { type: "workspace-file"; path: string; viewer: "markdown" | "file" }
+  | { type: "object"; ref: BenchObjectRef; viewID: string }
 
 export type BenchMode =
   | typeof BENCH_CHAT_LAYOUT_DOCKED
@@ -54,18 +62,20 @@ export type BenchLayoutProfileID =
   | typeof BENCH_LAYOUT_PROFILE_BALANCED
 
 export type BenchModePreferenceKey =
-  | "reading"
-  | "whiteboard"
   | "markdown"
   | "file"
-  | `artifact:${BenchArtifactKind}`
+  | "reading"
+  | "whiteboard"
+  | `artifact:${BenchNonFileObjectKind}`
 
 function isBenchMode(value: unknown): value is BenchMode {
   return value === BENCH_CHAT_LAYOUT_FLOATING || value === BENCH_CHAT_LAYOUT_DOCKED
 }
 
-function isBenchArtifactKind(value: string): value is BenchArtifactKind {
+function isBenchObjectKind(value: string): value is BenchObjectKind {
   return (
+    value === "resource" ||
+    value === "whiteboard" ||
     value === "mermaid" ||
     value === "html-widget" ||
     value === "figure" ||
@@ -80,38 +90,52 @@ function readBenchChatLayoutMode(value: unknown): BenchChatLayoutMode | undefine
   return isBenchMode(value) ? value : undefined
 }
 
+function defaultBenchObjectViewID(kind: BenchObjectKind): string {
+  switch (kind) {
+    case "resource":
+      return "reader"
+    case "whiteboard":
+      return "current"
+    case "html-widget":
+      return "runtime"
+    case "media-presentation":
+      return "gallery"
+    case "mermaid":
+      return "rendered"
+    case "figure":
+    case "freeform-figure":
+      return "rendered"
+    case "question-set":
+      return "practice"
+    case "flashcard-deck":
+      return "review"
+  }
+}
+
 function benchModePreferenceKey(target: BenchTarget): BenchModePreferenceKey {
-  if (target.type === "artifact") {
-    return `artifact:${target.kind}`
+  if (target.type === "object") {
+    if (target.ref.kind === "resource") return "reading"
+    if (target.ref.kind === "whiteboard") return "whiteboard"
+    return `artifact:${target.ref.kind}`
   }
 
-  return target.type
+  return target.viewer
 }
 
 function isSameBenchTarget(left: BenchTarget, right: BenchTarget): boolean {
   if (left.type !== right.type) return false
 
-  if (left.type === "whiteboard" && right.type === "whiteboard") {
-    return true
+  if (left.type === "workspace-file" && right.type === "workspace-file") {
+    return left.path === right.path && left.viewer === right.viewer
   }
 
-  if (left.type === "reading" && right.type === "reading") {
-    return left.path === right.path && left.resourceID === right.resourceID
-  }
-
-  if (left.type === "markdown" && right.type === "markdown") {
-    return left.path === right.path
-  }
-
-  if (left.type === "file" && right.type === "file") {
-    return left.path === right.path
-  }
-
-  if (left.type === "artifact" && right.type === "artifact") {
+  if (left.type === "object" && right.type === "object") {
     return (
-      left.kind === right.kind &&
-      left.artifactID === right.artifactID &&
-      left.itemID === right.itemID
+      left.ref.kind === right.ref.kind &&
+      left.ref.objectID === right.ref.objectID &&
+      left.ref.revisionID === right.ref.revisionID &&
+      left.ref.itemID === right.ref.itemID &&
+      left.viewID === right.viewID
     )
   }
 
@@ -120,7 +144,8 @@ function isSameBenchTarget(left: BenchTarget, right: BenchTarget): boolean {
 
 export {
   benchModePreferenceKey,
-  isBenchArtifactKind,
+  defaultBenchObjectViewID,
+  isBenchObjectKind,
   isSameBenchTarget,
   readBenchChatLayoutMode,
 }

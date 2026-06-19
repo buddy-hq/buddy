@@ -16,7 +16,7 @@ import { language } from "@/context/language"
 import { Markdown } from "@/components/markdown/Markdown"
 import { type LearnerCurriculumView } from "@/state/chat-actions"
 import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
-import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
+import { useWorkspaceQuestionSetObjectPanelStore } from "@/state/workspace-question-set-object-panel-store"
 import { WorkspaceMermaidPanel } from "./workspace-mermaid-panel"
 import { ChevronRightIcon, ChevronLeftIcon } from "./sidebar-icons"
 
@@ -119,11 +119,11 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR && props.resourcesPanel !== undefined
   const diagramsTabEnabled = SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR
   const agentsTabEnabled = SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR
-  const selectedQuestionSetArtifactID = useWorkspaceQuestionSetPanelStore(
-    (state) => state.selectedArtifactIDByDirectory[directory],
+  const selectedQuestionSetObjectID = useWorkspaceQuestionSetObjectPanelStore(
+    (state) => state.selectedObjectIDByDirectory[directory],
   )
   const questionSetPanelOpen =
-    typeof selectedQuestionSetArtifactID === "string" && selectedQuestionSetArtifactID.length > 0
+    typeof selectedQuestionSetObjectID === "string" && selectedQuestionSetObjectID.length > 0
   const fallbackTab: ChatRightSidebarTab = editorTabEnabled
     ? "editor"
     : snapshotTabEnabled
@@ -354,10 +354,10 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
         </div>
       ) : activeTab === "question-set" ? (
         <div className="flex-1 min-h-0 flex flex-col">
-          {selectedQuestionSetArtifactID ? (
+          {selectedQuestionSetObjectID ? (
             <QuestionSetSidePanel
               directory={directory}
-              artifactID={selectedQuestionSetArtifactID}
+              objectID={selectedQuestionSetObjectID}
               onClose={props.onClose}
             />
           ) : null}

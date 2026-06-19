@@ -1,15 +1,19 @@
-import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQueries, useQuery } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
 import { getFlashcardDueCount, isFlashcardReviewAvailable } from "@/lib/flashcard"
-import { workspaceFlashcardDecksQueryOptions } from "@/state/workspace-artifacts-query"
+import {
+  objectFlashcardDeckPayloadQueryOptions,
+  workspaceFlashcardDeckObjectsQueryOptions,
+} from "@/state/workspace-objects-query"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import {
-  artifactKindFilter,
-  type FlashcardDeckLibraryArtifact,
-} from "@/components/layout/chat-left-sidebar/library-artifact-selectors"
+  createBenchObjectTarget,
+  getFlashcardDeckObjectSummary,
+  selectFlashcardDeckObjects,
+} from "@/components/layout/chat-left-sidebar/library-object-selectors"
+import type { ObjectFlashcardDeckReadDeckResponse } from "@buddy/sdk/types"
 import { ToolOutputPanel } from "../../tool-output-panel"
 import type { ToolPartProps } from "../../registry"
 import { readString } from "../../types"
@@ -19,12 +23,12 @@ import { SubagentCard } from "./subagent-card"
 import { parseTaskResultOutput } from "./task-utils"
 
 function FlashcardDeckTaskPreview(props: {
-  deck: FlashcardDeckLibraryArtifact
-  directory: string
-  onStartReview: (deck: { artifactID: string; title: string }) => void
+  deck: ObjectFlashcardDeckReadDeckResponse
+  onStartReview: (deck: { objectID: string; title: string }) => void
 }) {
-  const reviewAvailable = isFlashcardReviewAvailable(props.deck.summary)
-  const totalDue = getFlashcardDueCount(props.deck.summary.dueCounts)
+  const summary = getFlashcardDeckObjectSummary(props.deck)
+  const reviewAvailable = isFlashcardReviewAvailable(summary)
+  const totalDue = getFlashcardDueCount(summary.dueCounts)
 
   if (!reviewAvailable) {
     return (
@@ -37,7 +41,7 @@ function FlashcardDeckTaskPreview(props: {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-text-strong">{props.deck.title}</p>
           <p className="mt-0.5 text-xs text-text-weak">
-            {props.deck.summary.cardCount} {props.deck.summary.cardCount === 1 ? "card" : "cards"}
+            {summary.cardCount} {summary.cardCount === 1 ? "card" : "cards"}
           </p>
         </div>
       </motion.div>
@@ -48,7 +52,7 @@ function FlashcardDeckTaskPreview(props: {
     <motion.button
       type="button"
       onClick={() =>
-        props.onStartReview({ artifactID: props.deck.artifactID, title: props.deck.title })
+        props.onStartReview({ objectID: props.deck.objectID, title: props.deck.title })
       }
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -61,8 +65,7 @@ function FlashcardDeckTaskPreview(props: {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-text-strong">{props.deck.title}</p>
           <p className="mt-0.5 text-xs text-text-weak">
-            {props.deck.summary.cardCount}{" "}
-            {props.deck.summary.cardCount === 1 ? "card" : "cards"} · {totalDue} due
+            {summary.cardCount} {summary.cardCount === 1 ? "card" : "cards"} · {totalDue} due
           </p>
         </div>
         <div className="shrink-0 rounded bg-surface-base px-3 py-1.5 text-xs font-medium text-text-strong">
@@ -94,17 +97,40 @@ export function FlashcardAuthorTaskCard({
 
   const childSessionID = readString(state.metadata.sessionId)
   const decksQuery = useQuery({
-    ...workspaceFlashcardDecksQueryOptions(directory ?? ""),
+    ...workspaceFlashcardDeckObjectsQueryOptions(directory ?? ""),
     enabled: state.status === "completed" && !!directory && !!childSessionID,
   })
 
-  const items = useMemo(() => {
-    const decks = (decksQuery.data?.artifacts ?? []).filter(artifactKindFilter("flashcard-deck"))
-    if (!childSessionID) return []
-    return decks
-      .filter((deck) => deck.origin?.sessionID === childSessionID)
-      .toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))
-  }, [decksQuery.data, childSessionID])
+  const deckObjects = selectFlashcardDeckObjects(decksQuery)
+  const deckDetailQueries = useQueries({
+    queries: deckObjects.map((deck) => ({
+      ...objectFlashcardDeckPayloadQueryOptions({
+        directory: directory ?? "",
+        objectID: deck.objectID,
+      }),
+      enabled: state.status === "completed" && !!directory && !!childSessionID,
+    })),
+  })
+  const items = childSessionID
+    ? deckDetailQueries
+        .flatMap((query) => {
+          const deck = query.data
+          if (!deck || deck.createdBy.kind !== "tool") return []
+          return deck.createdBy.sessionID === childSessionID ? [deck] : []
+        })
+        .toSorted((a, b) => b.createdAt.localeCompare(a.createdAt))
+    : []
+  const detailPending = deckDetailQueries.some((query) => query.isPending)
+  const detailError = deckDetailQueries.find((query) => query.error)?.error
+
+  const loadingObjects = decksQuery.isPending || detailPending
+
+  const objectError = decksQuery.error ?? detailError
+
+  const shouldShowOutputFallback =
+    !loadingObjects && items.length === 0 && taskResultOutput.length > 0
+
+  const shouldShowObjectError = objectError !== null && objectError !== undefined
 
   const error = state.status === "error" ? taskResultOutput || undefined : undefined
   const showCompletedBody = state.status === "completed"
@@ -124,7 +150,7 @@ export function FlashcardAuthorTaskCard({
       >
         {showCompletedBody ? (
           <>
-            {decksQuery.isPending ? (
+            {loadingObjects ? (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -138,19 +164,14 @@ export function FlashcardAuthorTaskCard({
             ) : null}
             <AnimatePresence mode="popLayout">
               {items.map((deck) => (
-                <div key={deck.artifactID}>
+                <div key={deck.objectID}>
                   <FlashcardDeckTaskPreview
                     deck={deck}
-                    directory={directory ?? ""}
                     onStartReview={(selectedDeck) => {
                       if (!directory) return
                       void openBenchRoute({
                         directory,
-                        target: {
-                          type: "artifact",
-                          kind: "flashcard-deck",
-                          artifactID: selectedDeck.artifactID,
-                        },
+                        target: createBenchObjectTarget("flashcard-deck", selectedDeck.objectID),
                         mode: BENCH_MODE_REQUEST_POLICY,
                         autoOpen: null,
                       })
@@ -159,19 +180,19 @@ export function FlashcardAuthorTaskCard({
                 </div>
               ))}
             </AnimatePresence>
-            {!decksQuery.isPending && items.length === 0 && taskResultOutput.length > 0 ? (
+            {shouldShowOutputFallback ? (
               <div className="px-3 py-2.5">
                 <ToolOutputPanel output={taskResultOutput} />
               </div>
             ) : null}
-            {decksQuery.error ? (
+            {shouldShowObjectError ? (
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={TASK_CARD_TRANSITION}
                 className="text-xs text-icon-critical-base px-3 py-2.5"
               >
-                {stringifyError(decksQuery.error)}
+                {stringifyError(objectError)}
               </motion.p>
             ) : null}
           </>

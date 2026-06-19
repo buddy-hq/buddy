@@ -1,8 +1,28 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { act } from "react"
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router"
+import { act, type ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { GroupedFigureToolCard } from "../src/components/chat/tools/render/render-figure"
 import type { MessagePart } from "../src/state/chat-types"
+
+function renderHarness(root: Root, element: ReactNode) {
+  const rootRoute = createRootRoute({
+    component: () => <>{element}</>,
+  })
+  const router = createRouter({
+    routeTree: rootRoute,
+    history: createMemoryHistory({
+      initialEntries: ["/"],
+    }),
+  })
+
+  root.render(<RouterProvider router={router} />)
+}
 
 async function flushEffects() {
   await Promise.resolve()
@@ -74,20 +94,55 @@ describe("render figure renderer", () => {
         status: "completed",
         input: {},
         metadata: {
-          artifact: "RenderFigureOutput",
-          value: {
-            artifactID: "fig_1",
-            mime: "image/svg+xml",
-            url: "https://placehold.co/320x180/svg",
-            alt: "Valid figure",
-            repairAttempts: 0,
+          buddyObjectResult: {
+            version: 1,
+            status: "ok",
+            reason: null,
+            message: "Rendered figure.",
+            primaryRef: {
+              kind: "figure",
+              objectID: "figure_1",
+              revisionID: "revision_1",
+              itemID: null,
+            },
+            objects: [
+              {
+                kind: "figure",
+                objectID: "figure_1",
+                title: "Valid figure",
+                status: "ready",
+                lifecycle: "revisioned",
+                sourceRoot: null,
+              },
+            ],
+            presentations: [
+              {
+                ref: {
+                  kind: "figure",
+                  objectID: "figure_1",
+                  revisionID: "revision_1",
+                  itemID: null,
+                },
+                viewID: "rendered",
+                surface: "inline",
+                data: {
+                  renderer: "figure",
+                  svgUrl: "https://placehold.co/320x180/svg",
+                  source: null,
+                  alt: "Valid figure",
+                  caption: null,
+                  renderStatus: "ready",
+                },
+                autoOpen: null,
+              },
+            ],
           },
         },
       },
     })
 
     await act(async () => {
-      root.render(<GroupedFigureToolCard parts={[invalidFigure, validFigure]} />)
+      renderHarness(root, <GroupedFigureToolCard parts={[invalidFigure, validFigure]} />)
       await flushEffects()
     })
 

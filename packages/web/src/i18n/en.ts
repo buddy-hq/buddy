@@ -151,7 +151,6 @@ export const dict = {
   "chatTools.info.write": "Wrote",
   "chatTools.info.write.running": "Writing",
   "chatTools.loadedPrefix": "Loaded",
-  "chatTools.mermaidArtifactMissingFields": "Diagram artifact payload is missing required fields.",
   "chatTools.mermaidDiagram.close": "Close",
   "chatTools.mermaidDiagram.closeFullscreenAria": "Close fullscreen",
   "chatTools.mermaidDiagram.copied": "Copied",

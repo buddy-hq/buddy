@@ -239,8 +239,8 @@ export function ResourceCardGrid(props: ResourceCardGridProps) {
       setBusyKeys((current) => new Set(current).add(resource.key))
       setActionError(undefined)
       try {
-        if (resource.resourceID) {
-          await rebuildResource(props.directory, { resourceKey: resource.resourceID })
+        if (resource.objectID) {
+          await rebuildResource(props.directory, { resourceKey: resource.objectID })
         } else {
           await addResource(props.directory, { sourcePath: resource.path })
         }
@@ -260,7 +260,7 @@ export function ResourceCardGrid(props: ResourceCardGridProps) {
 
   const onRemoveResource = useCallback(
     async (resource: ResourceListItem) => {
-      if (!resource.resourceID) {
+      if (!resource.objectID) {
         return
       }
 
@@ -274,7 +274,7 @@ export function ResourceCardGrid(props: ResourceCardGridProps) {
       setBusyKeys((current) => new Set(current).add(resource.key))
       setActionError(undefined)
       try {
-        await removeResource(props.directory, { resourceKey: resource.resourceID })
+        await removeResource(props.directory, { resourceKey: resource.objectID })
         await invalidateResourcesQueries(queryClient, props.directory)
       } catch (resourceError) {
         setActionError(stringifyError(resourceError))
@@ -306,8 +306,8 @@ export function ResourceCardGrid(props: ResourceCardGridProps) {
             props.onOpenResource(props.directory, {
               path: resumeReadingResource.path,
               name: resumeReadingResource.name,
-              ...(resumeReadingResource.resourceID
-                ? { resourceID: resumeReadingResource.resourceID }
+              ...(resumeReadingResource.objectID
+                ? { objectID: resumeReadingResource.objectID }
                 : {}),
             })
           }
@@ -326,7 +326,7 @@ export function ResourceCardGrid(props: ResourceCardGridProps) {
           const processLabel = actionLabelForStatus(resource.status)
           const isBusy = busyKeys.has(resource.key)
           const canProcess =
-            !!processLabel && (resource.status !== "ready" || !!resource.resourceID)
+            !!processLabel && (resource.status !== "ready" || !!resource.objectID)
           const isReading = stickyReadingPath === resource.path
           const displayName = resource.title || resource.name
 
@@ -344,7 +344,7 @@ export function ResourceCardGrid(props: ResourceCardGridProps) {
                       props.onOpenResource(props.directory, {
                         path: resource.path,
                         name: resource.name,
-                        ...(resource.resourceID ? { resourceID: resource.resourceID } : {}),
+                        ...(resource.objectID ? { objectID: resource.objectID } : {}),
                         status: resource.status,
                       })
                     }
@@ -375,7 +375,7 @@ export function ResourceCardGrid(props: ResourceCardGridProps) {
                     {processLabel}
                   </ContextMenuItem>
                 ) : null}
-                {resource.resourceID ? (
+                {resource.objectID ? (
                   <ContextMenuItem
                     variant="destructive"
                     disabled={isBusy}

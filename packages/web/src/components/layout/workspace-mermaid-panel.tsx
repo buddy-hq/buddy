@@ -18,25 +18,26 @@ import {
   VIRTUAL_MERMAID_OVERSCAN,
 } from "@/components/virtualization/virtualization-defaults"
 import {
-  workspaceArtifactsQueryKeys,
-  workspaceMermaidArtifactsQueryOptions,
-} from "@/state/workspace-artifacts-query"
+  objectMermaidPayloadQueryOptions,
+  workspaceObjectsQueryKeys,
+  workspaceMermaidObjectsQueryOptions,
+} from "@/state/workspace-objects-query"
 import {
-  artifactKindFilter,
-  type MermaidLibraryArtifact,
-} from "@/components/layout/chat-left-sidebar/library-artifact-selectors"
+  createBenchObjectTarget,
+  selectMermaidObjects,
+  workspaceObjectLoadErrorKey,
+  type MermaidLibraryObject,
+} from "@/components/layout/chat-left-sidebar/library-object-selectors"
 import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
-import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 
 const MERMAID_CARD_CONTENT_HEIGHT_CLASS = "aspect-video min-h-[18rem] w-full"
 const MERMAID_CARD_GAP_PX = 16
 
-function MermaidArtifactPlaceholderCard(props: { artifact: MermaidLibraryArtifact }) {
+function MermaidObjectPlaceholderCard(props: { object: MermaidLibraryObject }) {
   return (
     <MermaidToolCard
-      title={props.artifact.summary.alt}
-      diagramType={props.artifact.summary.diagramType}
+      title={props.object.title}
       hideStatus
       contentClassName={MERMAID_CARD_CONTENT_HEIGHT_CLASS}
     >
@@ -52,37 +53,27 @@ function MermaidArtifactPlaceholderCard(props: { artifact: MermaidLibraryArtifac
   )
 }
 
-function HydratedMermaidArtifactCard(props: {
+function HydratedMermaidObjectCard(props: {
   directory: string
-  artifact: MermaidLibraryArtifact
+  object: MermaidLibraryObject
   enabled: boolean
 }) {
   const openBenchRoute = useOpenBench()
   const detailQuery = useQuery({
-    queryKey: [
-      "workspace-artifact-detail",
-      "mermaid",
-      props.directory,
-      props.artifact.artifactID,
-    ] as const,
-    queryFn: async () =>
-      requireBuddyData(
-        await getBuddyClient(props.directory).mermaid.read({
-          directory: props.directory,
-          artifactID: props.artifact.artifactID,
-        }),
-      ),
+    ...objectMermaidPayloadQueryOptions({
+      directory: props.directory,
+      objectID: props.object.objectID,
+    }),
   })
 
   if (detailQuery.isPending) {
-    return <MermaidArtifactPlaceholderCard artifact={props.artifact} />
+    return <MermaidObjectPlaceholderCard object={props.object} />
   }
 
   if (detailQuery.error || !detailQuery.data) {
     return (
       <MermaidToolCard
-        title={props.artifact.summary.alt}
-        diagramType={props.artifact.summary.diagramType}
+        title={props.object.title}
         hideStatus
         contentClassName={MERMAID_CARD_CONTENT_HEIGHT_CLASS}
       >
@@ -97,7 +88,6 @@ function HydratedMermaidArtifactCard(props: {
     <MermaidDiagram
       directory={props.directory}
       source={detailQuery.data.source}
-      artifactID={props.artifact.artifactID}
       alt={detailQuery.data.alt}
       enabled={props.enabled}
       renderPriority={1}
@@ -107,11 +97,7 @@ function HydratedMermaidArtifactCard(props: {
       onFullscreenOpen={() => {
         void openBenchRoute({
           directory: props.directory,
-          target: {
-            type: "artifact",
-            kind: "mermaid",
-            artifactID: props.artifact.artifactID,
-          },
+          target: createBenchObjectTarget("mermaid", props.object.objectID),
           mode: BENCH_MODE_REQUEST_POLICY,
           autoOpen: null,
         })
@@ -167,21 +153,21 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
   const [hydratedIndexes, setHydratedIndexes] = useState<number[]>([])
   const [retainedIndexes, setRetainedIndexes] = useState<number[]>([])
   const [visibleIndexes, setVisibleIndexes] = useState<number[]>([])
-  const artifactsListRef = useRef<HTMLDivElement>(null)
-  const artifactsQuery = useQuery(workspaceMermaidArtifactsQueryOptions(props.directory))
-  const artifacts = (artifactsQuery.data?.artifacts ?? []).filter(artifactKindFilter("mermaid"))
-  const loadErrors = artifactsQuery.data?.loadErrors ?? []
-  const loading = artifactsQuery.isPending
-  const error = artifactsQuery.error ? stringifyError(artifactsQuery.error) : undefined
+  const objectsListRef = useRef<HTMLDivElement>(null)
+  const objectsQuery = useQuery(workspaceMermaidObjectsQueryOptions(props.directory))
+  const objects = selectMermaidObjects(objectsQuery)
+  const loadErrors = objectsQuery.data?.loadErrors ?? []
+  const loading = objectsQuery.isPending
+  const error = objectsQuery.error ? stringifyError(objectsQuery.error) : undefined
 
-  const shouldVirtualizeArtifacts = artifacts.length >= VIRTUAL_MERMAID_MIN_ITEMS
-  const artifactsVirtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
-    count: shouldVirtualizeArtifacts ? artifacts.length : 0,
-    getScrollElement: () => artifactsListRef.current,
-    getItemKey: (index) => artifacts[index]?.artifactID ?? index,
+  const shouldVirtualizeObjects = objects.length >= VIRTUAL_MERMAID_MIN_ITEMS
+  const objectsVirtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
+    count: shouldVirtualizeObjects ? objects.length : 0,
+    getScrollElement: () => objectsListRef.current,
+    getItemKey: (index) => objects[index]?.objectID ?? index,
     estimateSize: () => VIRTUAL_MERMAID_CARD_ESTIMATE_PX,
     measureElement: measureVirtualElement,
-    enabled: shouldVirtualizeArtifacts,
+    enabled: shouldVirtualizeObjects,
     overscan: VIRTUAL_MERMAID_OVERSCAN,
     gap: MERMAID_CARD_GAP_PX,
     rangeExtractor: (range) => {
@@ -213,7 +199,7 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
       )
 
       setHydratedIndexes((current) => {
-        const next = mergeRetainedIndexes(current, visibleIndexes, artifacts.length)
+        const next = mergeRetainedIndexes(current, visibleIndexes, objects.length)
         return sameIndexes(current, next) ? current : next
       })
 
@@ -224,18 +210,18 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
     },
   })
 
-  function renderArtifactCard(
-    artifact: MermaidLibraryArtifact,
+  function renderObjectCard(
+    object: MermaidLibraryObject,
     input: { hydrated: boolean; visible: boolean },
   ) {
     if (!input.hydrated) {
-      return <MermaidArtifactPlaceholderCard artifact={artifact} />
+      return <MermaidObjectPlaceholderCard object={object} />
     }
 
     return (
-      <HydratedMermaidArtifactCard
+      <HydratedMermaidObjectCard
         directory={props.directory}
-        artifact={artifact}
+        object={object}
         enabled={input.visible}
       />
     )
@@ -243,25 +229,25 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
 
   useInvalidateQueryOnChatIdle({
     directory: props.directory,
-    queryKey: workspaceArtifactsQueryKeys.mermaid(props.directory),
+    queryKey: workspaceObjectsQueryKeys.mermaid(props.directory),
   })
 
   useEffect(() => {
     setHydratedIndexes((current) => {
-      const next = current.filter((index) => index < artifacts.length)
+      const next = current.filter((index) => index < objects.length)
       return sameIndexes(current, next) ? current : next
     })
 
     setRetainedIndexes((current) => {
-      const next = current.filter((index) => index < artifacts.length)
+      const next = current.filter((index) => index < objects.length)
       return sameIndexes(current, next) ? current : next
     })
 
     setVisibleIndexes((current) => {
-      const next = current.filter((index) => index < artifacts.length)
+      const next = current.filter((index) => index < objects.length)
       return sameIndexes(current, next) ? current : next
     })
-  }, [artifacts.length])
+  }, [objects.length])
 
   return (
     <div data-component="workspace-mermaid-panel" className="flex min-h-0 flex-1 flex-col p-3">
@@ -269,7 +255,7 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
         <div className="text-sm text-text-weak">{language.t("workspaceMermaid.loading")}</div>
       ) : null}
 
-      {!loading && artifacts.length === 0 && loadErrors.length === 0 ? (
+      {!loading && objects.length === 0 && loadErrors.length === 0 ? (
         <div className="flex w-full min-h-0 flex-1 flex-col items-center justify-center rounded-xl border border-dashed border-border-base/40 bg-surface-weak/5 px-4 py-10 text-center">
           <div className="mb-4 flex size-10 items-center justify-center rounded-full bg-surface-weak shadow-sm">
             <LayoutTemplateIcon className="size-4 text-text-weak" />
@@ -281,20 +267,20 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
         </div>
       ) : null}
 
-      {artifacts.length > 0 ? (
+      {objects.length > 0 ? (
         <div
-          ref={artifactsListRef}
+          ref={objectsListRef}
           className="scrollbar-hover flex-1 min-h-0 overflow-y-auto"
           style={{ contain: "strict", overflowAnchor: "none" }}
         >
-          {shouldVirtualizeArtifacts ? (
+          {shouldVirtualizeObjects ? (
             <div
               className="relative w-full"
-              style={{ height: `${artifactsVirtualizer.getTotalSize()}px` }}
+              style={{ height: `${objectsVirtualizer.getTotalSize()}px` }}
             >
-              {artifactsVirtualizer.getVirtualItems().map((virtualRow) => {
-                const artifact = artifacts[virtualRow.index]
-                if (!artifact) return null
+              {objectsVirtualizer.getVirtualItems().map((virtualRow) => {
+                const object = objects[virtualRow.index]
+                if (!object) return null
                 const hydrated = hydratedIndexes.includes(virtualRow.index)
                 const visible = visibleIndexes.includes(virtualRow.index)
 
@@ -302,20 +288,20 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
                   <div
                     key={virtualRow.key}
                     data-index={virtualRow.index}
-                    ref={artifactsVirtualizer.measureElement}
+                    ref={objectsVirtualizer.measureElement}
                     className="absolute top-0 left-0 w-full"
                     style={{ transform: `translateY(${virtualRow.start}px)` }}
                   >
-                    {renderArtifactCard(artifact, { hydrated, visible })}
+                    {renderObjectCard(object, { hydrated, visible })}
                   </div>
                 )
               })}
             </div>
           ) : (
             <div className="space-y-4">
-              {artifacts.map((artifact) => (
-                <div key={artifact.artifactID}>
-                  {renderArtifactCard(artifact, { hydrated: true, visible: true })}
+              {objects.map((object) => (
+                <div key={object.objectID}>
+                  {renderObjectCard(object, { hydrated: true, visible: true })}
                 </div>
               ))}
             </div>
@@ -330,7 +316,7 @@ export function WorkspaceMermaidPanel(props: { directory: string }) {
       ) : null}
       {loadErrors.map((loadError) => (
         <p
-          key={`${loadError.kind}:${loadError.artifactID}:${loadError.message}`}
+          key={workspaceObjectLoadErrorKey(loadError)}
           className="mt-2 rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2 py-1.5 text-xs text-icon-critical-base"
         >
           {loadError.message}

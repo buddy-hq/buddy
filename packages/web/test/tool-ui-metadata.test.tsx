@@ -119,6 +119,53 @@ function visibleToolPart(input: { id: string; tool: string }): MessagePart {
   }
 }
 
+function reasoningPart(input: { id: string; text?: string }): MessagePart {
+  return {
+    id: input.id,
+    sessionID: "ses_reasoning",
+    messageID: "msg_reasoning",
+    type: "reasoning",
+    text: input.text ?? "Thinking",
+    time: { start: 1, end: 2 },
+  }
+}
+
+function contextTooFullIngestPart(input: { legacy?: boolean } = {}): MessagePart {
+  const state = input.legacy
+    ? {
+        status: "error" as const,
+        input: { resourceKey: "guns-of-august" },
+        error:
+          'Cannot ingest full text for resource "guns-of-august" because the live session context is too full.\nUse scoped reading instead of full-text ingestion in this session.',
+        time: { start: 1, end: 2 },
+      }
+    : {
+        status: "completed" as const,
+        input: { resourceKey: "guns-of-august" },
+        metadata: {
+          resource: "guns-of-august",
+          completed: false,
+          reason: "context_too_full",
+          fallback: "scoped_reading",
+          fullTextEstimatedTokens: 399317,
+          truncated: false,
+        },
+        attachments: [],
+        output:
+          '<resource_full_text_ingestion resource="guns-of-august" completed="false" reason="context_too_full">Use scoped reading instead.</resource_full_text_ingestion>',
+      }
+
+  return {
+    id: input.legacy ? "prt_full_text_legacy_context_too_full" : "prt_full_text_context_too_full",
+    sessionID: "ses_full_text",
+    messageID: "msg_full_text",
+    type: "tool",
+    tool: "ingest_full_text",
+    callID: input.legacy ? "call_full_text_legacy_context_too_full" : "call_full_text_context_too_full",
+    state,
+  }
+}
+
 describe("tool UI metadata", () => {
   test("parses valid and invalid tool UI metadata shapes", () => {
     expect(
@@ -248,8 +295,12 @@ describe("tool UI metadata", () => {
       tool: "ingest_full_text",
       state: {
         status: "completed" as const,
-        input: { resource: "guns-of-august" },
-        metadata: { resource: "guns-of-august", fullTextEstTokens: 4200, truncated: false },
+        input: { resourceKey: "guns-of-august" },
+        metadata: {
+          resource: "guns-of-august",
+          fullTextEstimatedTokens: 4200,
+          truncated: false,
+        },
         attachments: [],
         output: "",
       },
@@ -259,6 +310,38 @@ describe("tool UI metadata", () => {
     expect(grouped).toHaveLength(1)
     expect(grouped[0]?.type).toBe("part")
     expect(assistantPartStartsFollowup(part)).toBe(true)
+  })
+
+  test("context-too-full ingest fallback does not split hidden summaries", () => {
+    const firstReasoning = reasoningPart({ id: "reasoning_before" })
+    const hiddenRead = hiddenSummaryToolPart({ id: "read_pack", tool: "read" })
+    const fallback = contextTooFullIngestPart()
+    const secondReasoning = reasoningPart({ id: "reasoning_after" })
+    const grouped = groupAssistantParts(
+      [firstReasoning, hiddenRead, fallback, secondReasoning],
+      true,
+    )
+
+    expect(grouped).toHaveLength(1)
+    expect(grouped[0]).toMatchObject({
+      type: "abstracted",
+      parts: [firstReasoning, hiddenRead, secondReasoning],
+    })
+    expect(assistantPartStartsFollowup(fallback)).toBe(false)
+  })
+
+  test("legacy context-too-full ingest error does not split hidden summaries", () => {
+    const firstReasoning = reasoningPart({ id: "legacy_reasoning_before" })
+    const fallback = contextTooFullIngestPart({ legacy: true })
+    const secondReasoning = reasoningPart({ id: "legacy_reasoning_after" })
+    const grouped = groupAssistantParts([firstReasoning, fallback, secondReasoning], true)
+
+    expect(grouped).toHaveLength(1)
+    expect(grouped[0]).toMatchObject({
+      type: "abstracted",
+      parts: [firstReasoning, secondReasoning],
+    })
+    expect(assistantPartStartsFollowup(fallback)).toBe(false)
   })
 
   test("todowrite renders inline instead of being hidden", () => {
@@ -329,13 +412,13 @@ describe("tool UI metadata", () => {
     const completedInfo = getToolInfo("ingest_full_text", {
       status: "completed",
       input: {
-        resource: "guns-of-august",
+        resourceKey: "guns-of-august",
       },
       metadata: {
         resource: "guns-of-august",
-        fullTextEstTokens: 308341,
+        fullTextEstimatedTokens: 308341,
         truncated: true,
-        outputPath: "/tmp/tool-output",
+        fullTextPath: "/tmp/tool-output",
       },
       attachments: [],
       output: "truncated preview",

@@ -30,8 +30,8 @@ import {
 import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
 import {
   routeString,
-  workspaceBackedTarget,
   workspaceFileRef,
+  workspaceFileTarget,
 } from "@/components/bench/bench-context-utils"
 import { parseToolState } from "@/components/chat/tools/parse-tool-state"
 import { isRecord, readNonEmptyString, readString } from "@/components/chat/tools/types"
@@ -247,8 +247,7 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
     () => ({
       read: () => ({
         status: "open" as const,
-        target: workspaceBackedTarget({
-          type: "markdown",
+        target: workspaceFileTarget({
           directory: props.directory,
           title,
           path: props.path,

@@ -22,7 +22,7 @@ type DirectoryChatReadingReaderPaneProps = {
   directory: string
   resourceName: string
   resourcePath: string
-  resourceID?: string
+  objectID?: string
   coverRelpath?: string
   coverExtension?: ResourceFileExtension
   resourceStatus?: "preparing" | "ready" | "unsupported" | "error" | "stale" | "unprocessed"
@@ -173,8 +173,8 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
     return null
   }
 
-  const persistenceSuffix = props.resourceID
-    ? `${NOTEBOOK_PERSISTENCE_SUFFIX_PREFIX}:${props.resourceID}`
+  const persistenceSuffix = props.objectID
+    ? `${NOTEBOOK_PERSISTENCE_SUFFIX_PREFIX}:${props.objectID}`
     : undefined
   const readerSettled = readerReady || readerFailed
 

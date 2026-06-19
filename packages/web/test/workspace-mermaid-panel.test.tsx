@@ -3,7 +3,7 @@ import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { WorkspaceMermaidPanel } from "../src/components/layout/workspace-mermaid-panel"
-import { workspaceArtifactsQueryKeys } from "../src/state/workspace-artifacts-query"
+import { workspaceObjectsQueryKeys } from "../src/state/workspace-objects-query"
 
 async function flushEffects() {
   await Promise.resolve()
@@ -18,7 +18,7 @@ describe("WorkspaceMermaidPanel", () => {
   let queryClient: QueryClient
 
   beforeEach(() => {
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -32,13 +32,13 @@ describe("WorkspaceMermaidPanel", () => {
     })
     container.remove()
     queryClient.clear()
-    ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = undefined
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: undefined })
   })
 
   test("shows the empty state when no persisted diagrams exist", async () => {
     const directory = "/repo"
-    queryClient.setQueryData(workspaceArtifactsQueryKeys.mermaid(directory), {
-      artifacts: [],
+    queryClient.setQueryData(workspaceObjectsQueryKeys.mermaid(directory), {
+      objects: [],
       loadErrors: [],
     })
 
@@ -56,13 +56,14 @@ describe("WorkspaceMermaidPanel", () => {
 
   test("renders Mermaid load errors instead of the empty state", async () => {
     const directory = "/repo"
-    queryClient.setQueryData(workspaceArtifactsQueryKeys.mermaid(directory), {
-      artifacts: [],
+    queryClient.setQueryData(workspaceObjectsQueryKeys.mermaid(directory), {
+      objects: [],
       loadErrors: [
         {
-          artifactID: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
+          objectID: "01ARZ3NDEKTSV4RRFFQ69G5FAV",
           kind: "mermaid",
-          message: "Artifact could not be loaded.",
+          path: "/repo/.buddy/objects/mermaid/01ARZ3NDEKTSV4RRFFQ69G5FAV",
+          message: "Object could not be loaded.",
         },
       ],
     })
@@ -77,6 +78,6 @@ describe("WorkspaceMermaidPanel", () => {
     })
 
     expect(container.textContent).not.toContain("No Diagrams Yet")
-    expect(container.textContent).toContain("Artifact could not be loaded.")
+    expect(container.textContent).toContain("Object could not be loaded.")
   })
 })

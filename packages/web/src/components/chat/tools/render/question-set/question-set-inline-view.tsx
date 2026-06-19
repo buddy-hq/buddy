@@ -13,8 +13,8 @@ import { CheckIcon, XIcon, ListIcon, PresentationIcon } from "lucide-react"
 import { cn } from "@buddy/ui"
 import { QuestionMarkdown, buildQuestionMarkdownCacheKey } from "./question-markdown"
 
-export type PublicQuestionSetArtifact = {
-  artifactID: string
+export type QuestionSetObject = {
+  objectID: string
   title: string
   groupType: "quiz" | "practice" | "assessment"
   questions: Array<{
@@ -58,7 +58,7 @@ export type QuestionSetEvaluationResult = {
 
 export type SubmitQuestionSetAttemptOutput = {
   attemptID: string
-  artifactID: string
+  objectID: string
   result: QuestionSetEvaluationResult
 }
 
@@ -97,8 +97,8 @@ function hashString(value: string): number {
 }
 
 export function orderedChoicesForQuestion(input: {
-  artifactID: string
-  question: PublicQuestionSetArtifact["questions"][number]
+  objectID: string
+  question: QuestionSetObject["questions"][number]
   randomizeSeed: number
 }) {
   if (!input.question.payload.randomize) {
@@ -107,10 +107,10 @@ export function orderedChoicesForQuestion(input: {
 
   return [...input.question.payload.choices].toSorted((left, right) => {
     const leftWeight = hashString(
-      `${input.artifactID}:${input.question.id}:${input.randomizeSeed}:${left.id}`,
+      `${input.objectID}:${input.question.id}:${input.randomizeSeed}:${left.id}`,
     )
     const rightWeight = hashString(
-      `${input.artifactID}:${input.question.id}:${input.randomizeSeed}:${right.id}`,
+      `${input.objectID}:${input.question.id}:${input.randomizeSeed}:${right.id}`,
     )
     if (leftWeight !== rightWeight) {
       return leftWeight - rightWeight
@@ -120,7 +120,7 @@ export function orderedChoicesForQuestion(input: {
 }
 
 export function QuestionSetInlineView(props: {
-  artifact: PublicQuestionSetArtifact
+  questionSet: QuestionSetObject
   onSubmit: (answers: Record<string, string[]>) => Promise<QuestionSetEvaluationResult>
   persistKey?: string
   defaultOpen?: boolean
@@ -128,7 +128,7 @@ export function QuestionSetInlineView(props: {
   onOpenChange?: (open: boolean) => void
   onOpenBench?: () => void
 }) {
-  const persistKey = props.persistKey ?? props.artifact.artifactID
+  const persistKey = props.persistKey ?? props.questionSet.objectID
   const cachedState = questionSetInlineSessionState.get(persistKey)
   const [answers, setAnswers] = useState<AnswerState>(cachedState?.answers ?? {})
   const [submitting, setSubmitting] = useState(false)
@@ -143,16 +143,16 @@ export function QuestionSetInlineView(props: {
   const orderedChoicesByQuestionID = useMemo(
     () =>
       new Map(
-        props.artifact.questions.map((question) => [
+        props.questionSet.questions.map((question) => [
           question.id,
           orderedChoicesForQuestion({
-            artifactID: props.artifact.artifactID,
+            objectID: props.questionSet.objectID,
             question,
             randomizeSeed,
           }),
         ]),
       ),
-    [props.artifact, randomizeSeed],
+    [props.questionSet, randomizeSeed],
   )
 
   const evaluationByQuestionID = new Map(
@@ -240,11 +240,11 @@ export function QuestionSetInlineView(props: {
         <div className="space-y-3 rounded-xl border border-border-base bg-surface-base p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h3 className="font-medium text-text-stronger">{props.artifact.title}</h3>
+              <h3 className="font-medium text-text-stronger">{props.questionSet.title}</h3>
               <div className="flex items-center gap-2 text-xs text-text-weak mt-1">
-                <span className="capitalize">{props.artifact.groupType}</span>
+                <span className="capitalize">{props.questionSet.groupType}</span>
                 <span>•</span>
-                <span>{questionCountLabel(props.artifact.questions.length)}</span>
+                <span>{questionCountLabel(props.questionSet.questions.length)}</span>
               </div>
             </div>
             <Button onClick={props.onOpenBench ?? (() => handleOpenChange(true))}>
@@ -263,7 +263,7 @@ export function QuestionSetInlineView(props: {
           <DialogHeader className="border-b border-border-base/30 px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
-                <DialogTitle className="text-base font-medium">{props.artifact.title}</DialogTitle>
+                <DialogTitle className="text-base font-medium">{props.questionSet.title}</DialogTitle>
                 <DialogDescription className="sr-only">Question set review</DialogDescription>
               </div>
               <div className="flex items-center gap-2">
@@ -307,7 +307,7 @@ export function QuestionSetInlineView(props: {
                   mode={viewMode === "wizard" ? "wait" : "popLayout"}
                   custom={slideDirection}
                 >
-                  {props.artifact.questions.map((question, questionIndex) => {
+                  {props.questionSet.questions.map((question, questionIndex) => {
                     if (viewMode === "wizard" && questionIndex !== currentStep && !result) {
                       return null // hide other steps in wizard unless viewing results
                     }
@@ -325,7 +325,7 @@ export function QuestionSetInlineView(props: {
                     const expectedCount = question.payload.numCorrect
                     const questionCacheKey = buildQuestionMarkdownCacheKey(
                       "question-set-inline",
-                      props.artifact.artifactID,
+                      props.questionSet.objectID,
                       question.id,
                     )
 
@@ -558,14 +558,14 @@ export function QuestionSetInlineView(props: {
                         Previous
                       </Button>
                       <span className="text-xs font-medium text-text-weak">
-                        Question {currentStep + 1} of {props.artifact.questions.length}
+                        Question {currentStep + 1} of {props.questionSet.questions.length}
                       </span>
-                      {currentStep < props.artifact.questions.length - 1 ? (
+                      {currentStep < props.questionSet.questions.length - 1 ? (
                         <Button
                           onClick={() => {
                             setSlideDirection(1)
                             setCurrentStep((prev) =>
-                              Math.min(props.artifact.questions.length - 1, prev + 1),
+                              Math.min(props.questionSet.questions.length - 1, prev + 1),
                             )
                           }}
                         >

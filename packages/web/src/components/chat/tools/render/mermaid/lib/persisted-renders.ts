@@ -1,32 +1,39 @@
 import type {
-  MermaidStoreRenderData,
-  MermaidReadResponses,
-  MermaidResolveRenderResponses,
-  MermaidStoreRenderResponses,
+  ObjectMermaidCreateInlineResponses,
+  ObjectMermaidReadSourceResponses,
+  ObjectMermaidResolveRenderResponses,
+  ObjectMermaidStoreRenderData,
+  ObjectMermaidStoreRenderResponses,
   SessionMermaidRepairAsyncResponses,
   SessionMermaidRepairStatusResponses,
 } from "@buddy/sdk"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 
-type MermaidArtifactRecord = MermaidReadResponses[200]
-type MermaidResolvedRenderResponse = MermaidResolveRenderResponses[200]
-type MermaidStoredRenderRecord = MermaidStoreRenderResponses[200]
-type MermaidRenderedStoreInput = Extract<MermaidStoreRenderData["body"], { status: "rendered" }>
+type MermaidObjectRecord = ObjectMermaidReadSourceResponses[200]
+type MermaidResolvedRenderResponse = ObjectMermaidResolveRenderResponses[200]
+type MermaidStoredRenderRecord = ObjectMermaidStoreRenderResponses[200]
+type MermaidRenderedStoreInput = Extract<ObjectMermaidStoreRenderData["body"], { status: "rendered" }>
 type MermaidRepairStartResponse = SessionMermaidRepairAsyncResponses[200]
 type MermaidRepairStatusResponse = SessionMermaidRepairStatusResponses[200]
+type MermaidInlineCreateResponse = ObjectMermaidCreateInlineResponses[200]
 
 const mermaidAutoRepairRequests = new Map<string, Promise<MermaidRepairStartResponse>>()
 
-async function readMermaidArtifact(
+async function readMermaidObject(
   directory: string,
-  artifactID: string,
-): Promise<MermaidArtifactRecord> {
+  objectID: string,
+  revisionID?: string | null,
+): Promise<MermaidObjectRecord> {
   return requireBuddyData(
-    await getBuddyClient(directory).mermaid.read({ artifactID, directory }),
+    await getBuddyClient(directory).objectMermaid.readSource({
+      objectID,
+      directory,
+      ...(revisionID ? { revisionID } : {}),
+    }),
   )
 }
 
-async function createInlineMermaidArtifact(input: {
+async function createInlineMermaidObject(input: {
   alt?: string
   caption?: string
   directory: string
@@ -35,9 +42,9 @@ async function createInlineMermaidArtifact(input: {
   segmentIndex: number
   sessionID: string
   source: string
-}): Promise<MermaidArtifactRecord> {
+}): Promise<MermaidInlineCreateResponse> {
   return requireBuddyData(
-    await getBuddyClient(input.directory).mermaid.createInline({
+    await getBuddyClient(input.directory).objectMermaid.createInline({
       directory: input.directory,
       sessionID: input.sessionID,
       messageID: input.messageID,
@@ -51,16 +58,18 @@ async function createInlineMermaidArtifact(input: {
 }
 
 async function resolvePersistedMermaidRender(input: {
-  artifactID: string
   directory: string
+  objectID: string
   renderConfigVersion: number
   rendererVersion: string
+  revisionID?: string | null
   themeSignature: string
 }): Promise<MermaidResolvedRenderResponse> {
   return requireBuddyData(
-    await getBuddyClient(input.directory).mermaid.resolveRender({
-      artifactID: input.artifactID,
+    await getBuddyClient(input.directory).objectMermaid.resolveRender({
+      objectID: input.objectID,
       directory: input.directory,
+      ...(input.revisionID ? { revisionID: input.revisionID } : {}),
       renderConfigVersion: input.renderConfigVersion,
       rendererVersion: input.rendererVersion,
       themeSignature: input.themeSignature,
@@ -71,29 +80,32 @@ async function resolvePersistedMermaidRender(input: {
 async function storePersistedMermaidRender(
   input:
     | {
-        artifactID: string
         contrastAdjustments: MermaidRenderedStoreInput["contrastAdjustments"]
         directory: string
+        objectID: string
         renderConfigVersion: number
         rendererVersion: string
+        revisionID?: string | null
         status: "rendered"
         svg: string
         themeSignature: string
       }
     | {
-        artifactID: string
         directory: string
         errorMessage: string
+        objectID: string
         renderConfigVersion: number
         rendererVersion: string
+        revisionID?: string | null
         status: "failed"
         themeSignature: string
       },
 ): Promise<MermaidStoredRenderRecord> {
   return requireBuddyData(
-    await getBuddyClient(input.directory).mermaid.storeRender({
-      artifactID: input.artifactID,
+    await getBuddyClient(input.directory).objectMermaid.storeRender({
+      objectID: input.objectID,
       directory: input.directory,
+      ...(input.revisionID ? { revisionID: input.revisionID } : {}),
       body:
         input.status === "rendered"
           ? {
@@ -116,12 +128,12 @@ async function storePersistedMermaidRender(
 }
 
 async function startMermaidAutoRepair(input: {
-  artifactID: string
   directory: string
   failedRenderKey: string
+  objectID: string
   sessionID: string
 }): Promise<MermaidRepairStartResponse> {
-  const key = [input.directory, input.sessionID, input.artifactID, input.failedRenderKey].join("::")
+  const key = [input.directory, input.sessionID, input.objectID, input.failedRenderKey].join("::")
   const existing = mermaidAutoRepairRequests.get(key)
   if (existing) {
     return existing
@@ -130,7 +142,7 @@ async function startMermaidAutoRepair(input: {
   const request = getBuddyClient(input.directory)
     .session.mermaidRepairAsync({
       sessionID: input.sessionID,
-      artifactID: input.artifactID,
+      objectID: input.objectID,
       failedRenderKey: input.failedRenderKey,
     })
     .then((result) => requireBuddyData(result))
@@ -156,8 +168,8 @@ async function readMermaidAutoRepairStatus(input: {
 }
 
 export {
-  createInlineMermaidArtifact,
-  readMermaidArtifact,
+  createInlineMermaidObject,
+  readMermaidObject,
   readMermaidAutoRepairStatus,
   resolvePersistedMermaidRender,
   startMermaidAutoRepair,
@@ -165,7 +177,7 @@ export {
 }
 
 export type {
-  MermaidArtifactRecord,
+  MermaidObjectRecord,
   MermaidRepairStartResponse,
   MermaidRepairStatusResponse,
   MermaidResolvedRenderResponse,

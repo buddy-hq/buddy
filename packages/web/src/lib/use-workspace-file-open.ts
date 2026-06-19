@@ -35,7 +35,7 @@ export type WorkspaceResourceOpener = (
 
 export type WorkspaceFileActionInput = Omit<WorkspaceFileOpenInput, "canOpenReading"> & {
   name?: string
-  resourceID?: string
+  objectID?: string
   resourceStatus?: ResourceViewStatus
 }
 
@@ -71,7 +71,7 @@ export function useWorkspaceFileOpen(
           {
             path: input.path,
             name: input.name ?? fileNameFromPath(input.path),
-            ...(input.resourceID ? { resourceID: input.resourceID } : {}),
+            ...(input.objectID ? { objectID: input.objectID } : {}),
             ...(input.resourceStatus ? { status: input.resourceStatus } : {}),
           },
           {
@@ -85,7 +85,7 @@ export function useWorkspaceFileOpen(
         if (isBenchRoutePathname(location.pathname)) {
           await openBenchRoute({
             directory,
-            target: { type: "file", path: input.path },
+            target: { type: "workspace-file", path: input.path, viewer: "file" },
             mode: BENCH_MODE_REQUEST_POLICY,
             autoOpen: null,
           })
@@ -106,7 +106,7 @@ export function useWorkspaceFileOpen(
       if (target === WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH) {
         await openBenchRoute({
           directory,
-          target: { type: "markdown", path: input.path },
+          target: { type: "workspace-file", path: input.path, viewer: "markdown" },
           mode: BENCH_MODE_REQUEST_POLICY,
           autoOpen: null,
         })

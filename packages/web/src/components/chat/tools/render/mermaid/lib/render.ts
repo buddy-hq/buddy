@@ -25,9 +25,10 @@ type MermaidRenderResult = {
 
 type MermaidRenderInput = {
   source: string
-  artifactID?: string
   directory?: string
+  objectID?: string
   priority?: number
+  revisionID?: string | null
   themeConfig?: MermaidThemeConfig
 }
 
@@ -96,13 +97,16 @@ function touchSvgCache(key: string, value: MermaidRenderResult): void {
 }
 
 function toCacheKey(input: {
-  artifactID?: string
+  objectID?: string
+  revisionID?: string | null
   sourceHash: string
   themeSignature: string
   rendererVersion: string
   renderConfigVersion: number
 }): string {
-  const base = input.artifactID ? `artifact:${input.artifactID}` : `source:${input.sourceHash}`
+  const base = input.objectID
+    ? `object:${input.objectID}:${input.revisionID ?? "current"}`
+    : `source:${input.sourceHash}`
   return [
     base,
     `theme:${input.themeSignature}`,
@@ -126,7 +130,8 @@ function sourceUsesMermaidBindings(source: string): boolean {
 }
 
 function readCachedSvg(input: {
-  artifactID?: string
+  objectID?: string
+  revisionID?: string | null
   source: string
   themeConfig?: MermaidThemeConfig
 }): MermaidRenderResult | undefined {
@@ -136,7 +141,8 @@ function readCachedSvg(input: {
   }
   const theme = input.themeConfig ?? readMermaidThemeConfig()
   const cacheKey = toCacheKey({
-    artifactID: input.artifactID,
+    objectID: input.objectID,
+    revisionID: input.revisionID,
     sourceHash: hashSource(normalizedSource),
     themeSignature: theme.themeSignature,
     rendererVersion: MERMAID_RENDERER_VERSION,
@@ -201,7 +207,8 @@ async function browserRenderMermaidSvg(input: {
 }
 
 function normalizePersistedRenderRecord(input: {
-  artifactID?: string
+  objectID?: string
+  revisionID?: string | null
   sourceHash: string
   cacheKey: string
   record: MermaidStoredRenderRecord | (MermaidStoredRenderRecord & { status: "rendered" })
@@ -250,10 +257,11 @@ async function restorePersistedMermaidBindFunctions(input: {
 }
 
 async function renderPersistedMermaidSvg(input: {
-  artifactID: string
   directory: string
+  objectID: string
   source: string
   priority: number
+  revisionID?: string | null
   themeConfig?: MermaidThemeConfig
 }): Promise<MermaidRenderResult> {
   const normalizedSource = normalizeMermaidSource(input.source)
@@ -263,7 +271,8 @@ async function renderPersistedMermaidSvg(input: {
   const sourceHash = hashSource(normalizedSource)
   const theme = input.themeConfig ?? readMermaidThemeConfig()
   const cacheKey = toCacheKey({
-    artifactID: input.artifactID,
+    objectID: input.objectID,
+    revisionID: input.revisionID,
     sourceHash,
     themeSignature: theme.themeSignature,
     rendererVersion: MERMAID_RENDERER_VERSION,
@@ -276,10 +285,11 @@ async function renderPersistedMermaidSvg(input: {
   }
 
   const resolved = await resolvePersistedMermaidRender({
-    artifactID: input.artifactID,
     directory: input.directory,
+    objectID: input.objectID,
     renderConfigVersion: MERMAID_RENDER_CONFIG_VERSION,
     rendererVersion: MERMAID_RENDERER_VERSION,
+    revisionID: input.revisionID,
     themeSignature: theme.themeSignature,
   }).catch(() => undefined)
 
@@ -293,7 +303,8 @@ async function renderPersistedMermaidSvg(input: {
           }).catch(() => undefined)
         : undefined
     return normalizePersistedRenderRecord({
-      artifactID: input.artifactID,
+      objectID: input.objectID,
+      revisionID: input.revisionID,
       sourceHash,
       cacheKey,
       record: resolved.render,
@@ -321,11 +332,12 @@ async function renderPersistedMermaidSvg(input: {
             : {}),
         }
         const stored = await storePersistedMermaidRender({
-          artifactID: input.artifactID,
           contrastAdjustments: browserRendered.contrastAdjustments,
           directory: input.directory,
+          objectID: input.objectID,
           renderConfigVersion: MERMAID_RENDER_CONFIG_VERSION,
           rendererVersion: MERMAID_RENDERER_VERSION,
+          revisionID: input.revisionID,
           status: "rendered",
           svg: browserRendered.svg,
           themeSignature: theme.themeSignature,
@@ -338,11 +350,12 @@ async function renderPersistedMermaidSvg(input: {
       } catch (error) {
         const errorMessage = renderFailureMessage(error)
         const stored = await storePersistedMermaidRender({
-          artifactID: input.artifactID,
           directory: input.directory,
           errorMessage,
+          objectID: input.objectID,
           renderConfigVersion: MERMAID_RENDER_CONFIG_VERSION,
           rendererVersion: MERMAID_RENDERER_VERSION,
+          revisionID: input.revisionID,
           status: "failed",
           themeSignature: theme.themeSignature,
         }).catch(() => undefined)
@@ -356,7 +369,8 @@ async function renderPersistedMermaidSvg(input: {
 }
 
 async function renderEphemeralMermaidSvg(input: {
-  artifactID?: string
+  objectID?: string
+  revisionID?: string | null
   source: string
   priority: number
   themeConfig?: MermaidThemeConfig
@@ -368,7 +382,8 @@ async function renderEphemeralMermaidSvg(input: {
   const theme = input.themeConfig ?? readMermaidThemeConfig()
   const sourceHash = hashSource(normalizedSource)
   const cacheKey = toCacheKey({
-    artifactID: input.artifactID,
+    objectID: input.objectID,
+    revisionID: input.revisionID,
     sourceHash,
     themeSignature: theme.themeSignature,
     rendererVersion: MERMAID_RENDERER_VERSION,
@@ -404,19 +419,21 @@ async function renderEphemeralMermaidSvg(input: {
 
 async function renderMermaidSvg(input: MermaidRenderInput): Promise<MermaidRenderResult> {
   const priority = input.priority ?? MERMAID_SCHEDULER_PRIORITY_DEFAULT
-  if (input.artifactID && input.directory) {
+  if (input.objectID && input.directory) {
     return renderPersistedMermaidSvg({
-      artifactID: input.artifactID,
       directory: input.directory,
+      objectID: input.objectID,
       source: input.source,
       priority,
+      revisionID: input.revisionID,
       themeConfig: input.themeConfig,
     })
   }
   return renderEphemeralMermaidSvg({
-    artifactID: input.artifactID,
+    objectID: input.objectID,
     source: input.source,
     priority,
+    revisionID: input.revisionID,
     themeConfig: input.themeConfig,
   })
 }

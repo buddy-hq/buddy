@@ -1,5 +1,5 @@
 import { useUiPreferences } from "@/state/ui-preferences"
-import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
+import { useWorkspaceQuestionSetObjectPanelStore } from "@/state/workspace-question-set-object-panel-store"
 import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
 import {
   QUESTION_SET_SIDEBAR_TAB,
@@ -7,8 +7,8 @@ import {
 } from "./question-set-sidebar-state"
 
 export function useQuestionSetSidebarActions() {
-  const openQuestionSet = useWorkspaceQuestionSetPanelStore((state) => state.openQuestionSet)
-  const closeQuestionSet = useWorkspaceQuestionSetPanelStore((state) => state.closeQuestionSet)
+  const openQuestionSet = useWorkspaceQuestionSetObjectPanelStore((state) => state.openQuestionSet)
+  const closeQuestionSet = useWorkspaceQuestionSetObjectPanelStore((state) => state.closeQuestionSet)
   const rightSidebarOpen = useUiPreferences((state) => state.rightSidebarOpen)
   const rightSidebarTab = useUiPreferences((state) => state.rightSidebarTab)
   const setRightSidebarOpen = useUiPreferences((state) => state.setRightSidebarOpen)
@@ -16,15 +16,15 @@ export function useQuestionSetSidebarActions() {
 
   function openWorkspaceQuestionSet(input: {
     directory: string
-    artifactID: string
-    selectedArtifactID?: string
+    objectID: string
+    selectedObjectID?: string
     fallbackTab?: ChatRightSidebarTab
   }) {
     const shouldClose = shouldCloseSelectedQuestionSet({
       rightSidebarOpen,
       rightSidebarTab,
-      selectedArtifactID: input.selectedArtifactID,
-      artifactID: input.artifactID,
+      selectedObjectID: input.selectedObjectID,
+      objectID: input.objectID,
     })
 
     if (shouldClose) {
@@ -38,7 +38,7 @@ export function useQuestionSetSidebarActions() {
       return
     }
 
-    openQuestionSet(input.directory, input.artifactID)
+    openQuestionSet(input.directory, input.objectID)
     setRightSidebarTab(QUESTION_SET_SIDEBAR_TAB)
     setRightSidebarOpen(true)
   }

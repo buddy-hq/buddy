@@ -12,6 +12,8 @@ import {
 } from "@/state/resources-query"
 import {
   estimateApproxWordCountFromTokens,
+  isLegacyIngestFullTextScopedReadingError,
+  isIngestFullTextScopedReadingFallback,
   readIngestFullTextMetadata,
 } from "../full-text-metadata"
 import { HIDDEN_STEPS_ERROR_CLASS_NAME } from "../hidden-steps/styles"
@@ -33,17 +35,22 @@ function IngestFullTextTool({
   onOpenResource,
   grouped,
 }: IngestFullTextToolProps) {
-  const { resource, fullTextEstTokens, outputPath, truncated } = readIngestFullTextMetadata(state)
+  const metadata = readIngestFullTextMetadata(state)
+  const { resource, fullTextEstimatedTokens, fullTextPath, truncated } = metadata
   const denied = isPermissionDenied(state)
   const running = state.status === "pending" || state.status === "running"
   const completed = state.status === "completed"
   const output = state.output || (state.error ?? "")
   const hasError = !denied && state.status === "error" && output.trim().length > 0
   const showTruncationNote = !denied && completed && truncated
+  const silentScopedReadingFallback =
+    !denied &&
+    ((completed && isIngestFullTextScopedReadingFallback(metadata)) ||
+      (state.status === "error" && isLegacyIngestFullTextScopedReadingError(state.error)))
 
   const resourcesQuery = useQuery({
     ...resourcesQueryOptions(directory ?? ""),
-    enabled: !!directory && !!resource,
+    enabled: !!directory && !!resource && !silentScopedReadingFallback,
   })
 
   const matchedResource = useMemo(() => {
@@ -59,8 +66,8 @@ function IngestFullTextTool({
   const displayTitle = matchedResource?.title || matchedResource?.alias || resource
   const extension = resourceFileExtensionFromFormat(matchedResource?.format ?? "") ?? "epub"
   const approxWordCount =
-    fullTextEstTokens !== undefined
-      ? estimateApproxWordCountFromTokens(fullTextEstTokens)
+    fullTextEstimatedTokens !== undefined
+      ? estimateApproxWordCountFromTokens(fullTextEstimatedTokens)
       : undefined
   const canOpenReading = !!directory && !!onOpenResource && !!readingTarget && completed
 
@@ -70,6 +77,10 @@ function IngestFullTextTool({
       sessionPreference: RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT,
     })
   }, [directory, onOpenResource, readingTarget])
+
+  if (silentScopedReadingFallback) {
+    return null
+  }
 
   if (denied) {
     return <p className="text-sm text-text-weaker">{language.t("chatTools.readFullTextDenied")}</p>
@@ -129,9 +140,9 @@ function IngestFullTextTool({
       {showTruncationNote ? (
         <div className="rounded-md border border-border-warning-base/50 bg-surface-warning-weak px-2.5 py-2 text-xs text-text-base">
           <p>{language.t("chatTools.fullTextTruncatedDetail")}</p>
-          {outputPath ? (
+          {fullTextPath ? (
             <p className="mt-1 break-all font-mono text-[11px] leading-relaxed text-text-weak">
-              {outputPath}
+              {fullTextPath}
             </p>
           ) : null}
         </div>
@@ -181,9 +192,25 @@ export function GroupedIngestFullTextToolCard({
   directory?: string
   onOpenResource: ToolPartProps["onOpenResource"]
 }) {
+  const visibleParts = parts.filter((part) => {
+    const state = parseToolState(part)
+    if (
+      state.status === "completed" &&
+      isIngestFullTextScopedReadingFallback(readIngestFullTextMetadata(state))
+    ) {
+      return false
+    }
+    return !(
+      state.status === "error" && isLegacyIngestFullTextScopedReadingError(state.error)
+    )
+  })
+  if (visibleParts.length === 0) {
+    return null
+  }
+
   return (
     <div className="flex w-full flex-row flex-wrap items-start gap-3">
-      {parts.map((part) => (
+      {visibleParts.map((part) => (
         <SingleIngestFullTextToolCard
           key={part.id}
           part={part}

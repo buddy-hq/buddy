@@ -43,7 +43,7 @@ type AnnotationSummaryEntry = {
 const READING_TRAIL_MAX_ENTRIES = 20
 
 export type ActiveReadingResourceState = {
-  resourceID?: string
+  objectID?: string
   alias?: string
   name: string
   path: string
@@ -62,7 +62,7 @@ export type ActiveReadingResourceState = {
 }
 
 type LastOpenedReadingResource = {
-  resourceID?: string
+  objectID?: string
   name: string
   path: string
 }
@@ -137,7 +137,7 @@ export type ChatStore = {
       | "currentPassageText"
     >,
   ) => void
-  linkReadingResourceSession: (directory: string, resourceID: string, sessionID: string) => void
+  linkReadingResourceSession: (directory: string, objectID: string, sessionID: string) => void
   appendReadingTrailEntry: (
     directory: string,
     entry: { tocLabel: string; cfi?: string; fraction?: number },
@@ -168,8 +168,8 @@ type ChatStoreStateFields = Pick<
   | "streamStatus"
 >
 
-export function resourceSessionKey(directory: string, resourceID: string) {
-  return `${directory}::${resourceID}`
+export function resourceSessionKey(directory: string, objectID: string) {
+  return `${directory}::${objectID}`
 }
 
 const DEFAULT_TITLE = "New thread"
@@ -215,7 +215,7 @@ function isLastOpenedReadingResource(value: unknown): value is LastOpenedReading
   return (
     typeof value.name === "string" &&
     typeof value.path === "string" &&
-    (value.resourceID === undefined || typeof value.resourceID === "string")
+    (value.objectID === undefined || typeof value.objectID === "string")
   )
 }
 
@@ -239,7 +239,7 @@ function isActiveReadingResourceState(value: unknown): value is ActiveReadingRes
   return (
     typeof value.name === "string" &&
     typeof value.path === "string" &&
-    (value.resourceID === undefined || typeof value.resourceID === "string") &&
+    (value.objectID === undefined || typeof value.objectID === "string") &&
     (value.alias === undefined || typeof value.alias === "string") &&
     (value.status === undefined ||
       value.status === "preparing" ||
@@ -1336,14 +1336,14 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           }
         })
       },
-      linkReadingResourceSession(directory, resourceID, sessionID) {
+      linkReadingResourceSession(directory, objectID, sessionID) {
         const normalized = normalizeProjectDirectory(directory)
         if (!normalized) return
-        if (!resourceID.trim()) return
+        if (!objectID.trim()) return
         if (!sessionID.trim()) return
 
         set((state) => {
-          state.linkedSessionByResource[resourceSessionKey(normalized, resourceID)] = sessionID
+          state.linkedSessionByResource[resourceSessionKey(normalized, objectID)] = sessionID
         })
       },
       appendReadingTrailEntry(directory, entry) {

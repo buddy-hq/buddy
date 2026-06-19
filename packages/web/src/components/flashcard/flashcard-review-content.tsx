@@ -1,12 +1,10 @@
 import { motion, AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
-import type { FlashcardDeckLibraryArtifact } from "@/components/layout/chat-left-sidebar/library-artifact-selectors"
 import { FlashcardCardDisplay } from "./flashcard-card-display"
 import { FlashcardReviewRatings } from "./flashcard-review-ratings"
-import { DueCountsBadges } from "@/components/layout/workspace-flashcard-panel"
 import type {
-  FlashcardDeckReadResponse,
-  FlashcardDeckNextCardResponse,
+  ObjectFlashcardDeckReadDeckResponse,
+  ObjectFlashcardDeckNextCardResponse,
 } from "@buddy/sdk/types"
 
 // ---------------------------------------------------------------------------
@@ -18,14 +16,13 @@ export type CardRating = "again" | "hard" | "good" | "easy"
 export type ReviewPhase =
   | { kind: "loading" }
   | { kind: "no-due" }
-  | { kind: "card"; card: FlashcardDeckNextCardResponse["card"] & {} }
+  | { kind: "card"; card: ObjectFlashcardDeckNextCardResponse["card"] & {} }
   | { kind: "complete" }
   | { kind: "error"; message: string }
 
 export function ReviewContent(props: {
   phase: ReviewPhase
-  deck: FlashcardDeckReadResponse | null
-  liveDeck?: FlashcardDeckLibraryArtifact | null
+  deck: ObjectFlashcardDeckReadDeckResponse | null
   revealed: boolean
   submitting: boolean
   leechWarning: boolean
@@ -38,7 +35,6 @@ export function ReviewContent(props: {
   const {
     phase,
     deck,
-    liveDeck,
     revealed,
     submitting,
     leechWarning,
@@ -92,7 +88,7 @@ export function ReviewContent(props: {
 
   // phase.kind === "card"
   const note = deck?.notes.find(
-    (n: FlashcardDeckReadResponse["notes"][number]) => n.noteID === phase.card.noteID,
+    (n: ObjectFlashcardDeckReadDeckResponse["notes"][number]) => n.noteID === phase.card.noteID,
   )
 
   if (!note) {
@@ -109,7 +105,6 @@ export function ReviewContent(props: {
         <div className="text-xs font-medium text-text-weak">
           Reviewed: <span className="text-text-base">{cardsReviewed}</span>
         </div>
-        {liveDeck ? <DueCountsBadges dueCounts={liveDeck.summary.dueCounts} /> : null}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col justify-between overflow-hidden">

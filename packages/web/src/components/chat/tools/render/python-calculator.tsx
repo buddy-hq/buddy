@@ -1,4 +1,4 @@
-import { ArtifactCard } from "../../tools/artifact-card"
+import { ObjectCard } from "../../tools/object-card"
 import { ToolOutputPanel } from "../../tools/tool-output-panel"
 import { MultiViewShell } from "../../tools/multi-view-shell"
 import { language } from "@/context/language"
@@ -18,7 +18,7 @@ export function renderPythonCalculatorTool({ state }: ToolPartProps) {
 
   if (running) {
     return (
-      <ArtifactCard
+      <ObjectCard
         title={language.t("chatTools.info.pythonCalculator.running")}
         badge={language.t("chatTools.python")}
         status={state.status}
@@ -27,7 +27,7 @@ export function renderPythonCalculatorTool({ state }: ToolPartProps) {
           <div className="h-2.5 w-3/5 animate-pulse rounded-sm bg-surface-weak/70" />
           <div className="h-2.5 w-2/5 animate-pulse rounded-sm bg-surface-weak/50" />
         </div>
-      </ArtifactCard>
+      </ObjectCard>
     )
   }
 
@@ -39,7 +39,7 @@ export function renderPythonCalculatorTool({ state }: ToolPartProps) {
   const hasPlots = plots.length > 0
 
   return (
-    <ArtifactCard
+    <ObjectCard
       title={language.t("chatTools.python")}
       badge={language.t("chatTools.python")}
       subtitle={codeFirstLine}
@@ -80,6 +80,6 @@ export function renderPythonCalculatorTool({ state }: ToolPartProps) {
       ) : valueText ? (
         <pre className="p-3 font-mono text-xs text-text-weaker">{valueText}</pre>
       ) : null}
-    </ArtifactCard>
+    </ObjectCard>
   )
 }

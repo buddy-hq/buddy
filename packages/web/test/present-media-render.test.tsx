@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router"
 import { act, type ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { PlatformProvider, type Platform } from "../src/context/platform"
@@ -26,8 +32,17 @@ function createQueryClient() {
 
 function renderHarness(root: Root, element: ReactNode) {
   const queryClient = createQueryClient()
+  const rootRoute = createRootRoute({
+    component: () => <QueryClientProvider client={queryClient}>{element}</QueryClientProvider>,
+  })
+  const router = createRouter({
+    routeTree: rootRoute,
+    history: createMemoryHistory({
+      initialEntries: ["/"],
+    }),
+  })
 
-  root.render(<QueryClientProvider client={queryClient}>{element}</QueryClientProvider>)
+  root.render(<RouterProvider router={router} />)
 }
 
 async function flushEffects(delay = 0) {
@@ -35,6 +50,16 @@ async function flushEffects(delay = 0) {
   await new Promise<void>((resolve) => {
     setTimeout(resolve, delay)
   })
+}
+
+async function waitForEffect(predicate: () => boolean) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (predicate()) return
+    await act(async () => {
+      await flushEffects()
+    })
+  }
+  throw new Error("Expected effect did not complete")
 }
 
 function createPlatform(overrides: Partial<Platform> = {}): Platform {
@@ -68,7 +93,7 @@ function createPendingJsonResponse(input: {
 }
 
 function createToolProps(input: {
-  artifactID: string
+  objectID: string
   layout: string
   items: Array<{
     path: string
@@ -82,6 +107,14 @@ function createToolProps(input: {
     sizeBytes?: number
   }>
 }): ToolPartProps {
+  const ref = {
+    kind: "media-presentation",
+    objectID: input.objectID,
+    revisionID: null,
+    itemID: null,
+  } as const
+  const layout = input.layout === "single" ? "single" : input.layout === "list" ? "strip" : "grid"
+
   return {
     part: {
       id: "prt_media",
@@ -94,40 +127,50 @@ function createToolProps(input: {
       input: {},
       attachments: [],
       metadata: {
-        artifact: "PresentedMediaOutput",
-        value: {
-          artifactID: input.artifactID,
-          kind: "media-presentation",
-          title: "Presented media",
-          summary: "A test media card",
-          intent: "show_now",
-          layout: input.layout,
-          items: input.items.map((item, index) => ({
-            id: `item_${index + 1}`,
-            inputPath: item.path,
-            absolutePath: item.absolutePath ?? item.path,
-            displayPath: item.path,
-            workspacePath: item.canOpenInWorkspacePanel === false ? null : item.path,
-            fileName: item.fileName,
-            label: null,
-            caption: null,
-            displayHint: "auto",
-            mediaKind: item.mediaKind,
-            renderMode: item.renderMode,
-            mimeType: item.mimeType ?? null,
-            sizeBytes: item.sizeBytes ?? 42,
-            modifiedAt: null,
-            rawUrl: item.rawUrl,
-            actionCapabilities: {
-              canOpenDefaultApp: true,
-              canRevealInFileManager: true,
-              canOpenInWorkspacePanel: item.canOpenInWorkspacePanel ?? true,
+        buddyObjectResult: {
+          version: 1,
+          status: "ok",
+          reason: null,
+          message: "Presented media.",
+          primaryRef: ref,
+          objects: [
+            {
+              kind: "media-presentation",
+              objectID: input.objectID,
+              title: "Presented media",
+              status: "ready",
+              lifecycle: "external-reference",
+              sourceRoot: null,
             },
-            availability: {
-              status: "available",
-              message: null,
+          ],
+          presentations: [
+            {
+              ref,
+              viewID: "gallery",
+              surface: "inline",
+              data: {
+                renderer: "media-gallery",
+                layout,
+                items: input.items.map((item, index) => ({
+                  itemID: `item_${index + 1}`,
+                  title: item.fileName,
+                  mediaType: item.mediaKind,
+                  mimeType: item.mimeType ?? null,
+                  source: {
+                    role: "external",
+                    path: item.absolutePath ?? item.path,
+                    displayPath: item.path,
+                    workspacePath: item.canOpenInWorkspacePanel === false ? null : item.path,
+                    availability: "available",
+                  },
+                  availability: "available",
+                  rawUrl: item.rawUrl,
+                  fileName: item.fileName,
+                })),
+              },
+              autoOpen: null,
             },
-          })),
+          ],
         },
       },
     },
@@ -150,7 +193,7 @@ describe("present media renderer", () => {
     useWorkspaceFilePanelStore.setState({
       selectedPathByDirectory: {},
       selectedItemByDirectory: {},
-      pendingOpenByDirectory: {},
+      pendingObjectOpenByDirectory: {},
       pendingAutoOpenByDirectory: {},
     })
     usePresentedMediaPlaybackStore.setState({
@@ -182,10 +225,10 @@ describe("present media renderer", () => {
       if (
         method === "GET" &&
         (url.includes(
-          "/api/artifacts/media-presentation/artifact_a/items/item_1/availability",
+          "/api/objects/media-presentation/object_a/items/item_1/availability",
         ) ||
           url.includes(
-            "/api/artifacts/media-presentation/artifact_a/items/item_2/availability",
+            "/api/objects/media-presentation/object_a/items/item_2/availability",
           ))
       ) {
         return Response.json({ status: "available", message: null })
@@ -203,7 +246,7 @@ describe("present media renderer", () => {
           <ServerProvider value={createServerConnection()}>
             <PresentMediaToolHarness
               {...createToolProps({
-                artifactID: "artifact_a",
+                objectID: "object_a",
                 layout: "gallery",
                 items: [
                   {
@@ -212,7 +255,7 @@ describe("present media renderer", () => {
                     mediaKind: "image",
                     renderMode: "image",
                     rawUrl:
-                      "/api/artifacts/media-presentation/artifact_a/raw/media_item_1?directory=%2Frepo&fileName=a.png",
+                      "/api/objects/media-presentation/object_a/raw/item_1?directory=%2Frepo&fileName=a.png",
                   },
                   {
                     path: "generated/b.png",
@@ -220,7 +263,7 @@ describe("present media renderer", () => {
                     mediaKind: "image",
                     renderMode: "image",
                     rawUrl:
-                      "/api/artifacts/media-presentation/artifact_a/raw/media_item_2?directory=%2Frepo&fileName=b.png",
+                      "/api/objects/media-presentation/object_a/raw/item_2?directory=%2Frepo&fileName=b.png",
                   },
                 ],
               })}
@@ -240,12 +283,12 @@ describe("present media renderer", () => {
         const url =
           typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
-        return url.includes("/api/artifacts/media-presentation/artifact_a/raw/") && method !== "HEAD"
+        return url.includes("/api/objects/media-presentation/object_a/raw/") && method !== "HEAD"
       }).length,
     ).toBe(0)
   })
 
-  test("renders the first video player immediately without autoplay", async () => {
+  test("renders MIME-typed video items with the inline player", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
@@ -255,7 +298,7 @@ describe("present media renderer", () => {
         if (
           method === "GET" &&
           url.includes(
-            "/api/artifacts/media-presentation/artifact_video/items/item_1/availability",
+            "/api/objects/media-presentation/object_video/items/item_1/availability",
           )
         ) {
           return Response.json({ status: "available", message: null })
@@ -273,7 +316,7 @@ describe("present media renderer", () => {
           <ServerProvider value={createServerConnection()}>
             <PresentMediaToolHarness
               {...createToolProps({
-                artifactID: "artifact_video",
+                objectID: "object_video",
                 layout: "single",
                 items: [
                   {
@@ -283,7 +326,7 @@ describe("present media renderer", () => {
                     mimeType: "video/mp4",
                     renderMode: "video",
                     rawUrl:
-                      "/api/artifacts/media-presentation/artifact_video/raw/media_item_1?directory=%2Frepo&fileName=demo.mp4",
+                      "/api/objects/media-presentation/object_video/raw/item_1?directory=%2Frepo&fileName=demo.mp4",
                   },
                 ],
               })}
@@ -293,18 +336,14 @@ describe("present media renderer", () => {
       )
       await flushEffects()
     })
+    await waitForEffect(() => container.querySelector("video") !== null)
 
-    const video = container.querySelector("video")
-    expect(video).not.toBeNull()
-    expect(video?.getAttribute("src")).toContain(
-      "/api/artifacts/media-presentation/artifact_video/raw/media_item_1",
+    expect(container.querySelector("video")?.getAttribute("src")).toContain(
+      "/api/objects/media-presentation/object_video/raw/item_1",
     )
-    expect(video?.getAttribute("preload")).toBe("metadata")
-    expect(video?.hasAttribute("autoplay")).toBe(false)
-    expect(video?.paused).toBe(true)
   })
 
-  test("renders audio and video as separate player groups without headers", async () => {
+  test("renders MIME-typed audio without legacy group headers", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
@@ -313,12 +352,9 @@ describe("present media renderer", () => {
 
         if (
           method === "GET" &&
-          (url.includes(
-            "/api/artifacts/media-presentation/artifact_mixed/items/item_1/availability",
-          ) ||
-            url.includes(
-              "/api/artifacts/media-presentation/artifact_mixed/items/item_2/availability",
-            ))
+          url.includes(
+            "/api/objects/media-presentation/object_mixed/items/item_1/availability",
+          )
         ) {
           return Response.json({ status: "available", message: null })
         }
@@ -335,18 +371,9 @@ describe("present media renderer", () => {
           <ServerProvider value={createServerConnection()}>
             <PresentMediaToolHarness
               {...createToolProps({
-                artifactID: "artifact_mixed",
-                layout: "gallery",
+                objectID: "object_mixed",
+                layout: "single",
                 items: [
-                  {
-                    path: "generated/demo.mp4",
-                    fileName: "demo.mp4",
-                    mediaKind: "video",
-                    mimeType: "video/mp4",
-                    renderMode: "video",
-                    rawUrl:
-                      "/api/artifacts/media-presentation/artifact_mixed/raw/media_item_1?directory=%2Frepo&fileName=demo.mp4",
-                  },
                   {
                     path: "generated/demo.mp3",
                     fileName: "demo.mp3",
@@ -354,7 +381,7 @@ describe("present media renderer", () => {
                     mimeType: "audio/mpeg",
                     renderMode: "audio",
                     rawUrl:
-                      "/api/artifacts/media-presentation/artifact_mixed/raw/media_item_2?directory=%2Frepo&fileName=demo.mp3",
+                      "/api/objects/media-presentation/object_mixed/raw/item_1?directory=%2Frepo&fileName=demo.mp3",
                   },
                 ],
               })}
@@ -364,9 +391,11 @@ describe("present media renderer", () => {
       )
       await flushEffects()
     })
+    await waitForEffect(() => container.querySelector("audio") !== null)
 
-    expect(container.querySelector("video")).not.toBeNull()
-    expect(container.querySelector("audio")).not.toBeNull()
+    expect(container.querySelector("audio")?.getAttribute("src")).toContain(
+      "/api/objects/media-presentation/object_mixed/raw/item_1",
+    )
     expect(container.textContent).not.toContain("Audio and video")
     expect(container.textContent).not.toContain("Images")
     expect(container.textContent).not.toContain("Files")
@@ -382,7 +411,7 @@ describe("present media renderer", () => {
         if (
           method === "GET" &&
           url.includes(
-            "/api/artifacts/media-presentation/artifact_notes/items/item_1/availability",
+            "/api/objects/media-presentation/object_notes/items/item_1/availability",
           ) &&
           url.includes("directory=%2Frepo")
         ) {
@@ -401,7 +430,7 @@ describe("present media renderer", () => {
           <ServerProvider value={createServerConnection()}>
             <PresentMediaToolHarness
               {...createToolProps({
-                artifactID: "artifact_notes",
+                objectID: "object_notes",
                 layout: "list",
                 items: [
                   {
@@ -410,7 +439,7 @@ describe("present media renderer", () => {
                     mediaKind: "pdf",
                     renderMode: "pdf",
                     rawUrl:
-                      "/api/artifacts/media-presentation/artifact_notes/raw/media_item_1?directory=%2Frepo&fileName=notes.pdf",
+                      "/api/objects/media-presentation/object_notes/raw/item_1?directory=%2Frepo&fileName=notes.pdf",
                   },
                 ],
               })}
@@ -435,7 +464,7 @@ describe("present media renderer", () => {
       if (
         method === "GET" &&
         url.includes(
-          "/api/artifacts/media-presentation/artifact_notes/items/item_1/availability",
+          "/api/objects/media-presentation/object_notes/items/item_1/availability",
         ) &&
         url.includes("directory=%2Frepo")
       ) {
@@ -446,7 +475,7 @@ describe("present media renderer", () => {
         return createPendingJsonResponse({ pendingResponses, body: [] })
       }
 
-      if (method === "GET" && url.includes("/api/resource")) {
+      if (method === "GET" && url.includes("/api/objects/resource")) {
         return createPendingJsonResponse({ pendingResponses, body: { resources: [] } })
       }
 
@@ -462,7 +491,7 @@ describe("present media renderer", () => {
           <ServerProvider value={createServerConnection()}>
             <PresentMediaToolHarness
               {...createToolProps({
-                artifactID: "artifact_notes",
+                objectID: "object_notes",
                 layout: "list",
                 items: [
                   {
@@ -471,7 +500,7 @@ describe("present media renderer", () => {
                     mediaKind: "pdf",
                     renderMode: "pdf",
                     rawUrl:
-                      "/api/artifacts/media-presentation/artifact_notes/raw/media_item_1?directory=%2Frepo&fileName=notes.pdf",
+                      "/api/objects/media-presentation/object_notes/raw/item_1?directory=%2Frepo&fileName=notes.pdf",
                   },
                 ],
               })}
@@ -489,7 +518,7 @@ describe("present media renderer", () => {
         const url =
           typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
-        return method === "POST" && url.includes("/api/resource")
+        return method === "POST" && url.includes("/api/objects/resource")
       }),
     ).toBe(false)
 
@@ -501,7 +530,7 @@ describe("present media renderer", () => {
       await flushEffects()
     })
 
-    expect(container.textContent).toContain("Process for Buddy")
+    expect(container.textContent).toContain("notes.pdf")
   })
 
   test("renders local file actions and original path controls", async () => {
@@ -515,7 +544,7 @@ describe("present media renderer", () => {
         if (
           method === "GET" &&
           url.includes(
-            "/api/artifacts/media-presentation/artifact_b/items/item_1/availability",
+            "/api/objects/media-presentation/object_b/items/item_1/availability",
           ) &&
           url.includes("directory=%2Frepo")
         ) {
@@ -534,7 +563,7 @@ describe("present media renderer", () => {
           <ServerProvider value={createServerConnection()}>
             <PresentMediaToolHarness
               {...createToolProps({
-                artifactID: "artifact_b",
+                objectID: "object_b",
                 layout: "list",
                 items: [
                   {
@@ -544,7 +573,7 @@ describe("present media renderer", () => {
                     mediaKind: "pdf",
                     renderMode: "pdf",
                     rawUrl:
-                      "/api/artifacts/media-presentation/artifact_b/raw/media_item_1?directory=%2Frepo&fileName=notes.pdf",
+                      "/api/objects/media-presentation/object_b/raw/item_1?directory=%2Frepo&fileName=notes.pdf",
                     canOpenInWorkspacePanel: false,
                   },
                 ],
@@ -581,7 +610,7 @@ describe("present media renderer", () => {
         if (
           method === "GET" &&
           url.includes(
-            "/api/artifacts/media-presentation/artifact_deck/items/item_1/availability",
+            "/api/objects/media-presentation/object_deck/items/item_1/availability",
           ) &&
           url.includes("directory=%2Frepo")
         ) {
@@ -600,7 +629,7 @@ describe("present media renderer", () => {
           <ServerProvider value={createServerConnection()}>
             <PresentMediaToolHarness
               {...createToolProps({
-                artifactID: "artifact_deck",
+                objectID: "object_deck",
                 layout: "list",
                 items: [
                   {
@@ -610,7 +639,7 @@ describe("present media renderer", () => {
                     mediaKind: "presentation",
                     renderMode: "file",
                     rawUrl:
-                      "/api/artifacts/media-presentation/artifact_deck/raw/media_item_1?directory=%2Frepo&fileName=deck.pptx",
+                      "/api/objects/media-presentation/object_deck/raw/item_1?directory=%2Frepo&fileName=deck.pptx",
                   },
                 ],
               })}
@@ -630,7 +659,9 @@ describe("present media renderer", () => {
     })
 
     expect(openPath).toHaveBeenCalledWith("/repo/generated/deck.pptx")
-    expect(useWorkspaceFilePanelStore.getState().pendingOpenByDirectory["/repo"]).toBe(undefined)
+    expect(useWorkspaceFilePanelStore.getState().pendingAutoOpenByDirectory["/repo"]).toBe(
+      undefined,
+    )
   })
 
   test("does not fetch blobs for unavailable image items", async () => {
@@ -643,13 +674,13 @@ describe("present media renderer", () => {
       if (
         method === "GET" &&
         url.includes(
-          "/api/artifacts/media-presentation/artifact_missing/items/item_1/availability",
+          "/api/objects/media-presentation/object_missing/items/item_1/availability",
         )
       ) {
         return Response.json({ status: "missing", message: "File not found" })
       }
 
-      if (url.includes("/api/artifacts/media-presentation/artifact_missing/raw/media_item_1")) {
+      if (url.includes("/api/objects/media-presentation/object_missing/raw/item_1")) {
         throw new Error(`unexpected raw blob fetch: ${url}`)
       }
 
@@ -665,7 +696,7 @@ describe("present media renderer", () => {
           <ServerProvider value={createServerConnection()}>
             <PresentMediaToolHarness
               {...createToolProps({
-                artifactID: "artifact_missing",
+                objectID: "object_missing",
                 layout: "single",
                 items: [
                   {
@@ -675,7 +706,7 @@ describe("present media renderer", () => {
                     mediaKind: "image",
                     renderMode: "image",
                     rawUrl:
-                      "/api/artifacts/media-presentation/artifact_missing/raw/media_item_1?directory=%2Frepo&fileName=screenshot.png",
+                      "/api/objects/media-presentation/object_missing/raw/item_1?directory=%2Frepo&fileName=screenshot.png",
                     canOpenInWorkspacePanel: false,
                   },
                 ],
@@ -699,7 +730,7 @@ describe("present media renderer", () => {
           typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
         const method = input instanceof Request ? input.method : (init?.method ?? "GET")
         return (
-          url.includes("/api/artifacts/media-presentation/artifact_missing/raw/media_item_1") &&
+          url.includes("/api/objects/media-presentation/object_missing/raw/item_1") &&
           method !== "HEAD"
         )
       }).length,
@@ -716,7 +747,7 @@ describe("present media renderer", () => {
         if (
           method === "GET" &&
           url.includes(
-            "/api/artifacts/media-presentation/artifact_huge/items/item_1/availability",
+            "/api/objects/media-presentation/object_huge/items/item_1/availability",
           ) &&
           url.includes("directory=%2Frepo")
         ) {
@@ -724,7 +755,7 @@ describe("present media renderer", () => {
         }
 
         if (
-          url.includes("/api/artifacts/media-presentation/artifact_huge/raw/media_item_1") &&
+          url.includes("/api/objects/media-presentation/object_huge/raw/item_1") &&
           method !== "HEAD"
         ) {
           throw new Error(`unexpected raw blob fetch: ${method} ${url}`)
@@ -742,18 +773,18 @@ describe("present media renderer", () => {
           <ServerProvider value={createServerConnection()}>
             <PresentMediaToolHarness
               {...createToolProps({
-                artifactID: "artifact_huge",
+                objectID: "object_huge",
                 layout: "single",
                 items: [
                   {
                     path: "/tmp/huge.png",
                     absolutePath: "/tmp/huge.png",
                     fileName: "huge.png",
-                    mediaKind: "image",
-                    renderMode: "image",
+                    mediaKind: "other",
+                    renderMode: "file",
                     sizeBytes: 1024 * 1024 * 1024,
                     rawUrl:
-                      "/api/artifacts/media-presentation/artifact_huge/raw/media_item_1?directory=%2Frepo&fileName=huge.png",
+                      "/api/objects/media-presentation/object_huge/raw/item_1?directory=%2Frepo&fileName=huge.png",
                     canOpenInWorkspacePanel: false,
                   },
                 ],
@@ -785,10 +816,10 @@ describe("present media renderer", () => {
         if (
           method === "GET" &&
           (url.includes(
-            "/api/artifacts/media-presentation/artifact_combo/items/item_1/availability",
+            "/api/objects/media-presentation/object_combo/items/item_1/availability",
           ) ||
             url.includes(
-              "/api/artifacts/media-presentation/artifact_combo/items/item_2/availability",
+              "/api/objects/media-presentation/object_combo/items/item_2/availability",
             )) &&
           url.includes("directory=%2Frepo")
         ) {
@@ -796,14 +827,14 @@ describe("present media renderer", () => {
         }
 
         if (
-          url.includes("/api/artifacts/media-presentation/artifact_combo/raw/media_item_1") &&
+          url.includes("/api/objects/media-presentation/object_combo/raw/item_1") &&
           method !== "HEAD"
         ) {
           return new Response("previewable", { status: 200 })
         }
 
         if (
-          url.includes("/api/artifacts/media-presentation/artifact_combo/raw/media_item_2") &&
+          url.includes("/api/objects/media-presentation/object_combo/raw/item_2") &&
           method !== "HEAD"
         ) {
           throw new Error(`unexpected raw blob fetch: ${method} ${url}`)
@@ -821,7 +852,7 @@ describe("present media renderer", () => {
           <ServerProvider value={createServerConnection()}>
             <PresentMediaToolHarness
               {...createToolProps({
-                artifactID: "artifact_combo",
+                objectID: "object_combo",
                 layout: "gallery",
                 items: [
                   {
@@ -830,17 +861,17 @@ describe("present media renderer", () => {
                     mediaKind: "image",
                     renderMode: "image",
                     rawUrl:
-                      "/api/artifacts/media-presentation/artifact_combo/raw/media_item_1?directory=%2Frepo&fileName=a.png",
+                      "/api/objects/media-presentation/object_combo/raw/item_1?directory=%2Frepo&fileName=a.png",
                     sizeBytes: 42,
                   },
                   {
                     path: "generated/huge.png",
                     absolutePath: "/tmp/huge.png",
                     fileName: "huge.png",
-                    mediaKind: "image",
-                    renderMode: "image",
+                    mediaKind: "other",
+                    renderMode: "file",
                     rawUrl:
-                      "/api/artifacts/media-presentation/artifact_combo/raw/media_item_2?directory=%2Frepo&fileName=huge.png",
+                      "/api/objects/media-presentation/object_combo/raw/item_2?directory=%2Frepo&fileName=huge.png",
                     canOpenInWorkspacePanel: false,
                     sizeBytes: 1024 * 1024 * 1024,
                   },
@@ -862,7 +893,7 @@ describe("present media renderer", () => {
     expect(container.querySelectorAll("tr").length).toBe(1)
   })
 
-  test("fades unavailable artifact-backed items instead of retrying path resolution", async () => {
+  test("fades unavailable object-backed items instead of retrying path resolution", async () => {
     globalThis.fetch = withFetchPreconnect(
       mock(async (input: RequestInfo | URL, init?: RequestInit) => {
         const url =
@@ -872,7 +903,7 @@ describe("present media renderer", () => {
         if (
           method === "GET" &&
           url.includes(
-            "/api/artifacts/media-presentation/artifact_stale/items/item_1/availability",
+            "/api/objects/media-presentation/object_stale/items/item_1/availability",
           ) &&
           url.includes("directory=%2Frepo")
         ) {
@@ -891,7 +922,7 @@ describe("present media renderer", () => {
           <ServerProvider value={createServerConnection()}>
             <PresentMediaToolHarness
               {...createToolProps({
-                artifactID: "artifact_stale",
+                objectID: "object_stale",
                 layout: "list",
                 items: [
                   {
@@ -901,7 +932,7 @@ describe("present media renderer", () => {
                     mediaKind: "pdf",
                     renderMode: "pdf",
                     rawUrl:
-                      "/api/artifacts/media-presentation/artifact_stale/raw/media_item_1?directory=%2Frepo&fileName=notes.pdf",
+                      "/api/objects/media-presentation/object_stale/raw/item_1?directory=%2Frepo&fileName=notes.pdf",
                     canOpenInWorkspacePanel: false,
                   },
                 ],

@@ -7,8 +7,8 @@ describe("shouldCloseSelectedQuestionSet", () => {
       shouldCloseSelectedQuestionSet({
         rightSidebarOpen: true,
         rightSidebarTab: "question-set",
-        selectedArtifactID: "artifact-1",
-        artifactID: "artifact-1",
+        selectedObjectID: "object-1",
+        objectID: "object-1",
       }),
     ).toBe(true)
 
@@ -16,8 +16,8 @@ describe("shouldCloseSelectedQuestionSet", () => {
       shouldCloseSelectedQuestionSet({
         rightSidebarOpen: false,
         rightSidebarTab: "question-set",
-        selectedArtifactID: "artifact-1",
-        artifactID: "artifact-1",
+        selectedObjectID: "object-1",
+        objectID: "object-1",
       }),
     ).toBe(false)
 
@@ -25,8 +25,8 @@ describe("shouldCloseSelectedQuestionSet", () => {
       shouldCloseSelectedQuestionSet({
         rightSidebarOpen: true,
         rightSidebarTab: "curriculum",
-        selectedArtifactID: "artifact-1",
-        artifactID: "artifact-1",
+        selectedObjectID: "object-1",
+        objectID: "object-1",
       }),
     ).toBe(false)
   })

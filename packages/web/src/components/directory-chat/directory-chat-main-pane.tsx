@@ -31,14 +31,17 @@ import { BookOpenIcon, PresentationIcon, Redo2Icon } from "lucide-react"
 import { BenchAutoOpen } from "@/components/bench/bench-auto-open"
 import { BenchClosedContextPublisher } from "@/components/bench/bench-route-context"
 import { hasWhiteboardCreate } from "@/components/whiteboard/whiteboard-progressive"
+import { whiteboardSessionQueryOptions } from "@/components/whiteboard/whiteboard-query"
 import { useChatStore } from "@/state/chat-store"
 import {
   BENCH_MODE_REQUEST_POLICY,
   isBenchRoutePathname,
+  readBenchOpenPolicyStateFromLocation,
   useOpenBench,
 } from "@/lib/bench-navigation"
 import { encodeDirectory } from "@/lib/directory-token"
 import { useLocation, useNavigate } from "@tanstack/react-router"
+import { useQueryClient } from "@tanstack/react-query"
 
 type PromptComposerProps = Omit<
   ComponentProps<typeof PromptComposer>,
@@ -85,8 +88,6 @@ type DirectoryChatMainPaneProps = {
 
 const COMPACTION_BUFFER_TOKENS = 20_000
 const OUTPUT_TOKEN_MAX = 32_000
-const WHITEBOARD_ROUTE_SUFFIX = "/whiteboard"
-const READING_ROUTE_SUFFIX = "/read"
 const BENCH_SHORTCUT_BUTTON_CLASS =
   "text-text-weaker/70 hover:bg-surface-base-hover hover:text-text-base aria-pressed:text-text-interactive-base"
 const WHITEBOARD_SHORTCUT_LABEL = "Toggle whiteboard view"
@@ -182,20 +183,36 @@ export function resolveRevertedUserMessageCount(input: {
   ).length
 }
 
-function BenchViewShortcuts(props: { directory: string; messages: MessageWithParts[] }) {
+function BenchViewShortcuts(props: {
+  directory: string
+  messages: MessageWithParts[]
+  sessionID?: string
+}) {
   const location = useLocation()
   const navigate = useNavigate()
   const openBenchRoute = useOpenBench()
+  const queryClient = useQueryClient()
   const lastOpenedReadingResource = useChatStore(
     (state) => state.lastOpenedReadingResourceByDirectory[props.directory],
   )
   const encodedDirectory = encodeDirectory(props.directory)
-  const isWhiteboardRoute = location.pathname.endsWith(WHITEBOARD_ROUTE_SUFFIX)
-  const isReadingRoute = location.pathname.endsWith(READING_ROUTE_SUFFIX)
-  const showWhiteboardShortcut = isWhiteboardRoute || hasWhiteboardCreate(props.messages)
-  const showReadingShortcut = isReadingRoute || lastOpenedReadingResource !== undefined
+  const benchPolicyState = readBenchOpenPolicyStateFromLocation({
+    directory: props.directory,
+    pathname: location.pathname,
+    search: location.search,
+  })
+  const isResourceObjectRoute =
+    benchPolicyState.status === "open" &&
+    benchPolicyState.target.type === "object" &&
+    benchPolicyState.target.ref.kind === "resource"
+  const isWhiteboardObjectRoute =
+    benchPolicyState.status === "open" &&
+    benchPolicyState.target.type === "object" &&
+    benchPolicyState.target.ref.kind === "whiteboard"
+  const showWhiteboardShortcut = isWhiteboardObjectRoute || hasWhiteboardCreate(props.messages)
+  const showReadingShortcut = isResourceObjectRoute
 
-  if (!showWhiteboardShortcut && !showReadingShortcut) return null
+  if (!showWhiteboardShortcut && !showReadingShortcut && !lastOpenedReadingResource) return null
 
   return (
     <div data-component="prompt-bench-shortcuts" className="flex items-center gap-0.5">
@@ -207,21 +224,41 @@ function BenchViewShortcuts(props: { directory: string; messages: MessageWithPar
           className={BENCH_SHORTCUT_BUTTON_CLASS}
           aria-label={WHITEBOARD_SHORTCUT_LABEL}
           title={WHITEBOARD_SHORTCUT_LABEL}
-          aria-pressed={isWhiteboardRoute}
+          aria-pressed={isWhiteboardObjectRoute}
           onClick={() => {
-            if (isWhiteboardRoute) {
+            if (isWhiteboardObjectRoute) {
               void navigate({
                 to: "/$directory/chat",
                 params: { directory: encodedDirectory },
               })
               return
             }
-            void openBenchRoute({
-              directory: props.directory,
-              target: { type: "whiteboard" },
-              mode: BENCH_MODE_REQUEST_POLICY,
-              autoOpen: null,
-            })
+
+            const sessionID = props.sessionID
+            if (!sessionID) return
+
+            void (async () => {
+              const session = await queryClient.fetchQuery(
+                whiteboardSessionQueryOptions(props.directory, sessionID),
+              )
+              if (!session.objectID) return
+
+              await openBenchRoute({
+                directory: props.directory,
+                target: {
+                  type: "object",
+                  ref: {
+                    kind: "whiteboard",
+                    objectID: session.objectID,
+                    revisionID: null,
+                    itemID: null,
+                  },
+                  viewID: "current",
+                },
+                mode: BENCH_MODE_REQUEST_POLICY,
+                autoOpen: null,
+              })
+            })()
           }}
         >
           <PresentationIcon />
@@ -235,23 +272,46 @@ function BenchViewShortcuts(props: { directory: string; messages: MessageWithPar
           className={BENCH_SHORTCUT_BUTTON_CLASS}
           aria-label={READING_SHORTCUT_LABEL}
           title={READING_SHORTCUT_LABEL}
-          aria-pressed={isReadingRoute}
+          aria-pressed={isResourceObjectRoute}
           onClick={() => {
-            if (isReadingRoute || !lastOpenedReadingResource) {
+            if (isResourceObjectRoute) {
               void navigate({
                 to: "/$directory/chat",
                 params: { directory: encodedDirectory },
               })
-              return
             }
-
+          }}
+        >
+          <BookOpenIcon />
+        </Button>
+      ) : lastOpenedReadingResource ? (
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          className={BENCH_SHORTCUT_BUTTON_CLASS}
+          aria-label={READING_SHORTCUT_LABEL}
+          title={READING_SHORTCUT_LABEL}
+          aria-pressed={false}
+          onClick={() => {
             void openBenchRoute({
               directory: props.directory,
-              target: {
-                type: "reading",
-                path: lastOpenedReadingResource.path,
-                resourceID: lastOpenedReadingResource.resourceID,
-              },
+              target: lastOpenedReadingResource.objectID
+                ? {
+                    type: "object",
+                    ref: {
+                      kind: "resource",
+                      objectID: lastOpenedReadingResource.objectID,
+                      revisionID: null,
+                      itemID: null,
+                    },
+                    viewID: "reader",
+                  }
+                : {
+                    type: "workspace-file",
+                    path: lastOpenedReadingResource.path,
+                    viewer: "file",
+                  },
               mode: BENCH_MODE_REQUEST_POLICY,
               autoOpen: null,
             })
@@ -505,7 +565,11 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                 selectorMode={promptSelectorMode}
                 className="mb-1"
                 contextActions={
-                  <BenchViewShortcuts directory={directory} messages={chatState.messages} />
+                  <BenchViewShortcuts
+                    directory={directory}
+                    messages={chatState.messages}
+                    sessionID={chatState.sessionID}
+                  />
                 }
                 sessionContextUsage={
                   <SessionContextUsage

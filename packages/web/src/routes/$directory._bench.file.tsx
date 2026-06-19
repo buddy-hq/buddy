@@ -15,17 +15,19 @@ import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-
 import {
   routeString,
   urlRef,
-  workspaceBackedTarget,
   workspaceFileRef,
+  workspaceFileTarget,
 } from "@/components/bench/bench-context-utils"
 import { BenchMediaPreview } from "@/components/bench/bench-media-preview"
 import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
+import { DirectoryChatReadingPage } from "@/components/directory-chat/directory-chat-reading-page"
 import { stringifyError } from "@/lib/api-client"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { buildProjectFileRawUrl } from "@/lib/project-file-raw-url"
 import { decodeDirectory } from "@/lib/directory-token"
 import { classifyWorkspaceMedia, readWorkspaceFileRawMetadata } from "@/lib/workspace-file-media"
 import { fileNameFromPath } from "@/lib/workspace-file-paths"
+import { isSupportedReadingResourcePath } from "@/state/resources-query"
 
 type ProjectFileBenchSearch = {
   path?: string
@@ -96,6 +98,9 @@ function ProjectFileBenchRoute() {
     if (!search.path) {
       return <ProjectFileBenchError />
     }
+    if (isSupportedReadingResourcePath(search.path)) {
+      return <DirectoryChatReadingPage directory={directory} resourcePath={search.path} />
+    }
     return <ProjectFileBenchView directory={directory} path={search.path} metadata={metadata} />
   } catch {
     return <DirectoryInvalidNotebook />
@@ -124,8 +129,7 @@ function ProjectFileBenchView(props: {
     () => ({
       read: () => ({
         status: "open" as const,
-        target: workspaceBackedTarget({
-          type: "file",
+        target: workspaceFileTarget({
           directory: props.directory,
           title,
           path: props.path,

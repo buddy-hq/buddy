@@ -2,42 +2,31 @@ import { ArrowLeftIcon } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import {
   QuestionSetInlineView,
-  type PublicQuestionSetArtifact,
 } from "@/components/chat/tools/render/question-set/question-set-inline-view"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
-import { workspaceArtifactsQueryKeys } from "@/state/workspace-artifacts-query"
-import { useWorkspaceQuestionSetPanelStore } from "@/state/workspace-question-set-panel-store"
+import { objectQuestionSetPayloadQueryOptions } from "@/state/workspace-objects-query"
+import { useWorkspaceQuestionSetObjectPanelStore } from "@/state/workspace-question-set-object-panel-store"
 
 type QuestionSetSidePanelProps = {
-  artifactID: string
+  objectID: string
   directory: string
   onClose: () => void
 }
 
 export function QuestionSetSidePanel(props: QuestionSetSidePanelProps) {
   const openBenchRoute = useOpenBench()
-  const closeQuestionSet = useWorkspaceQuestionSetPanelStore((state) => state.closeQuestionSet)
-  const artifactQuery = useQuery({
-    queryKey: [
-      ...workspaceArtifactsQueryKeys.questionSet(props.directory),
-      "detail",
-      props.artifactID,
-    ],
-    queryFn: () =>
-      getBuddyClient(props.directory)
-        .questionSet.read({
-          artifactID: props.artifactID,
-        })
-        .then((result) => {
-          const artifact: PublicQuestionSetArtifact = requireBuddyData(result)
-          return artifact
-        }),
-  })
-  const artifact = artifactQuery.data
-  const error = artifactQuery.error ? stringifyError(artifactQuery.error) : undefined
+  const closeQuestionSet = useWorkspaceQuestionSetObjectPanelStore((state) => state.closeQuestionSet)
+  const questionSetQuery = useQuery(
+    objectQuestionSetPayloadQueryOptions({
+      directory: props.directory,
+      objectID: props.objectID,
+    }),
+  )
+  const questionSet = questionSetQuery.data
+  const error = questionSetQuery.error ? stringifyError(questionSetQuery.error) : undefined
 
   function handleBack() {
     closeQuestionSet(props.directory)
@@ -59,11 +48,11 @@ export function QuestionSetSidePanel(props: QuestionSetSidePanelProps) {
           Back
         </button>
         <span className="truncate text-xs font-medium text-text-base">
-          {artifact?.title ?? language.t("workspaceQuestionSet.title")}
+          {questionSet?.title ?? language.t("workspaceQuestionSet.title")}
         </span>
       </div>
 
-      {artifactQuery.isPending ? (
+      {questionSetQuery.isPending ? (
         <div className="flex flex-1 items-center justify-center px-4">
           <span className="text-sm text-text-weak">
             {language.t("workspaceQuestionSet.loading")}
@@ -71,18 +60,23 @@ export function QuestionSetSidePanel(props: QuestionSetSidePanelProps) {
         </div>
       ) : null}
 
-      {artifact ? (
+      {questionSet ? (
         <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto p-3">
           <QuestionSetInlineView
-            artifact={artifact}
-            persistKey={`selected-question-set:${artifact.artifactID}`}
+            questionSet={questionSet}
+            persistKey={`selected-question-set:${questionSet.objectID}`}
             onOpenBench={() => {
               void openBenchRoute({
                 directory: props.directory,
                 target: {
-                  type: "artifact",
-                  kind: "question-set",
-                  artifactID: artifact.artifactID,
+                  type: "object",
+                  ref: {
+                    kind: "question-set",
+                    objectID: questionSet.objectID,
+                    revisionID: null,
+                    itemID: null,
+                  },
+                  viewID: "practice",
                 },
                 mode: BENCH_MODE_REQUEST_POLICY,
                 autoOpen: null,
@@ -90,9 +84,10 @@ export function QuestionSetSidePanel(props: QuestionSetSidePanelProps) {
             }}
             onSubmit={async (answers) => {
               const response = requireBuddyData(
-                await getBuddyClient(props.directory).questionSet.submitAttempt({
-                  artifactID: artifact.artifactID,
-                  answers: artifact.questions.map((question) => ({
+                await getBuddyClient(props.directory).objectQuestionSet.submitAttempt({
+                  directory: props.directory,
+                  objectID: questionSet.objectID,
+                  answers: questionSet.questions.map((question) => ({
                     questionID: question.id,
                     selectedChoiceIds: answers[question.id] ?? [],
                   })),

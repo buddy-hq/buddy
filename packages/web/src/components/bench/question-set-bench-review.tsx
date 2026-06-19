@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Button, cn } from "@buddy/ui"
 import { CheckIcon, ListIcon, PresentationIcon, XIcon } from "lucide-react"
-import { artifactRef, artifactTarget } from "@/components/bench/bench-context-utils"
+import { objectRef, objectTarget } from "@/components/bench/bench-context-utils"
 import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
 import {
@@ -10,19 +10,24 @@ import {
   buildQuestionMarkdownCacheKey,
 } from "@/components/chat/tools/render/question-set/question-markdown"
 import type {
-  PublicQuestionSetArtifact,
-  QuestionSetEvaluationResult,
-} from "@/components/chat/tools/render/question-set/question-set-inline-view"
-import { orderedChoicesForQuestion } from "@/components/chat/tools/render/question-set/question-set-inline-view"
+  ObjectQuestionSetReadQuestionsResponse,
+  ObjectQuestionSetSubmitAttemptResponse,
+} from "@buddy/sdk/types"
 
 type AnswerState = Record<string, string[]>
+type QuestionSetObject = ObjectQuestionSetReadQuestionsResponse
+type QuestionSetEvaluationResult = ObjectQuestionSetSubmitAttemptResponse["result"]
+type QuestionSetQuestion = QuestionSetObject["questions"][number]
 
 type QuestionSetBenchReviewProps = {
   directory: string
   route: string
-  artifact: PublicQuestionSetArtifact
+  questionSet: QuestionSetObject
   onSubmit: (answers: AnswerState) => Promise<QuestionSetEvaluationResult>
 }
+
+const HASH_OFFSET_BASIS = 2166136261
+const HASH_MULTIPLIER = 16777619
 
 function questionCountLabel(count: number) {
   return count === 1 ? "1 question" : `${count} questions`
@@ -33,27 +38,56 @@ function questionStatusLabel(correct: boolean | undefined) {
   return correct ? "Correct" : "Incorrect"
 }
 
+function hashString(value: string): number {
+  let hash = HASH_OFFSET_BASIS
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, HASH_MULTIPLIER)
+  }
+  return hash >>> 0
+}
+
+function orderedChoicesForQuestion(input: {
+  objectID: string
+  question: QuestionSetQuestion
+  randomizeSeed: number
+}): QuestionSetQuestion["payload"]["choices"] {
+  if (!input.question.payload.randomize) {
+    return input.question.payload.choices
+  }
+
+  return [...input.question.payload.choices].toSorted((left, right) => {
+    const leftWeight = hashString(
+      `${input.objectID}:${input.question.id}:${input.randomizeSeed}:${left.id}`,
+    )
+    const rightWeight = hashString(
+      `${input.objectID}:${input.question.id}:${input.randomizeSeed}:${right.id}`,
+    )
+    if (leftWeight !== rightWeight) {
+      return leftWeight - rightWeight
+    }
+    return left.id.localeCompare(right.id)
+  })
+}
+
 function buildQuestionSetVisibleContext(input: {
-  artifact: PublicQuestionSetArtifact
+  questionSet: QuestionSetObject
   answers: AnswerState
   currentStep: number
   evaluationByQuestionID: Map<string, QuestionSetEvaluationResult["questions"][number]>
-  orderedChoicesByQuestionID: Map<
-    string,
-    PublicQuestionSetArtifact["questions"][number]["payload"]["choices"]
-  >
+  orderedChoicesByQuestionID: Map<string, QuestionSetQuestion["payload"]["choices"]>
   result?: QuestionSetEvaluationResult
   viewMode: "wizard" | "list"
 }): string {
   const visibleQuestions =
     input.result || input.viewMode === "list"
-      ? input.artifact.questions
-      : input.artifact.questions[input.currentStep]
-        ? [input.artifact.questions[input.currentStep]]
+      ? input.questionSet.questions
+      : input.questionSet.questions[input.currentStep]
+        ? [input.questionSet.questions[input.currentStep]]
         : []
 
   const questionSections = visibleQuestions.map((question, visibleIndex) => {
-    const questionIndex = input.artifact.questions.findIndex((entry) => entry.id === question.id)
+    const questionIndex = input.questionSet.questions.findIndex((entry) => entry.id === question.id)
     const selectedChoiceIds = input.answers[question.id] ?? []
     const evaluation = input.evaluationByQuestionID.get(question.id)
     const evaluationChoiceByID = new Map(
@@ -67,9 +101,7 @@ function buildQuestionSetVisibleContext(input: {
         choiceEvaluation?.rationale && (choiceEvaluation.selected || choiceEvaluation.correct)
           ? ` rationale="${choiceEvaluation.rationale}"`
           : ""
-      const correctness = choiceEvaluation
-        ? ` correct=${choiceEvaluation.correct}`
-        : ""
+      const correctness = choiceEvaluation ? ` correct=${choiceEvaluation.correct}` : ""
       return `- ${selected ? "[selected]" : "[ ]"} ${choice.content}${correctness}${rationale}`
     })
     const explanation =
@@ -91,7 +123,7 @@ function buildQuestionSetVisibleContext(input: {
   })
 
   return [
-    `Question set: ${input.artifact.title}`,
+    `Question set: ${input.questionSet.title}`,
     `View mode: ${input.viewMode}`,
     input.result
       ? `Score: ${input.result.correctQuestions} / ${input.result.totalQuestions}; status: ${input.result.status}`
@@ -116,39 +148,47 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
   const orderedChoicesByQuestionID = useMemo(
     () =>
       new Map(
-        props.artifact.questions.map((question) => [
+        props.questionSet.questions.map((question) => [
           question.id,
           orderedChoicesForQuestion({
-            artifactID: props.artifact.artifactID,
+            objectID: props.questionSet.objectID,
             question,
             randomizeSeed,
           }),
         ]),
       ),
-    [props.artifact, randomizeSeed],
+    [props.questionSet, randomizeSeed],
   )
   const resultState = error ? "error" : result ? "submitted" : "not-submitted"
   const contextProvider = useMemo(
     () => ({
       read: () => ({
         status: "open" as const,
-        target: artifactTarget({
-          artifactKind: "question-set",
+        target: objectTarget({
           directory: props.directory,
-          title: props.artifact.title,
-          artifactID: props.artifact.artifactID,
+          title: props.questionSet.title,
+          target: {
+            type: "object",
+            ref: {
+              kind: "question-set",
+              objectID: props.questionSet.objectID,
+              revisionID: props.questionSet.revisionID,
+              itemID: null,
+            },
+            viewID: "practice",
+          },
           route: props.route,
           status: error ? "error" : "ready",
         }),
         metadata: [
-          `group_type: ${props.artifact.groupType}`,
-          `question_count: ${props.artifact.questions.length}`,
+          `group_type: ${props.questionSet.groupType}`,
+          `question_count: ${props.questionSet.questions.length}`,
           `view_mode: ${viewMode}`,
           `current_step: ${currentStep + 1}`,
           `result_state: ${resultState}`,
         ],
         content: buildQuestionSetVisibleContext({
-          artifact: props.artifact,
+          questionSet: props.questionSet,
           answers,
           currentStep,
           evaluationByQuestionID,
@@ -157,9 +197,9 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
           viewMode,
         }),
         refs: [
-          artifactRef({
-            artifactID: props.artifact.artifactID,
-            note: "Question set artifact on Bench.",
+          objectRef({
+            objectID: props.questionSet.objectID,
+            note: "Question set object on Bench.",
           }),
         ],
         hints: ["Do not expose correctness, rationales, or explanations before submission visibility."],
@@ -171,8 +211,8 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
       error,
       evaluationByQuestionID,
       orderedChoicesByQuestionID,
-      props.artifact,
       props.directory,
+      props.questionSet,
       props.route,
       result,
       resultState,
@@ -239,8 +279,8 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
 
   return (
     <BenchViewerShell
-      title={props.artifact.title}
-      subtitle={`${props.artifact.groupType} · ${questionCountLabel(props.artifact.questions.length)}`}
+      title={props.questionSet.title}
+      subtitle={`${props.questionSet.groupType} · ${questionCountLabel(props.questionSet.questions.length)}`}
       contentClassName="overflow-hidden"
       toolbar={
         <>
@@ -290,7 +330,7 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
                 mode={viewMode === "wizard" ? "wait" : "popLayout"}
                 custom={slideDirection}
               >
-                {props.artifact.questions.map((question, questionIndex) => {
+                {props.questionSet.questions.map((question, questionIndex) => {
                   if (viewMode === "wizard" && questionIndex !== currentStep && !result) {
                     return null
                   }
@@ -308,7 +348,7 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
                   const expectedCount = question.payload.numCorrect
                   const questionCacheKey = buildQuestionMarkdownCacheKey(
                     "question-set-bench",
-                    props.artifact.artifactID,
+                    props.questionSet.objectID,
                     question.id,
                   )
 
@@ -523,14 +563,14 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
                   Previous
                 </Button>
                 <span className="text-xs font-medium text-text-weak">
-                  Question {currentStep + 1} of {props.artifact.questions.length}
+                  Question {currentStep + 1} of {props.questionSet.questions.length}
                 </span>
-                {currentStep < props.artifact.questions.length - 1 ? (
+                {currentStep < props.questionSet.questions.length - 1 ? (
                   <Button
                     onClick={() => {
                       setSlideDirection(1)
                       setCurrentStep((current) =>
-                        Math.min(props.artifact.questions.length - 1, current + 1),
+                        Math.min(props.questionSet.questions.length - 1, current + 1),
                       )
                     }}
                   >

@@ -22,7 +22,7 @@ export type WorkspaceFilePanelItem = {
 type WorkspaceFilePanelStore = {
   selectedPathByDirectory: Record<string, string | undefined>
   selectedItemByDirectory: Record<string, WorkspaceFilePanelItem | undefined>
-  pendingOpenByDirectory: Record<string, WorkspaceFilePanelItem | undefined>
+  pendingObjectOpenByDirectory: Record<string, WorkspaceFilePanelItem | undefined>
   pendingAutoOpenByDirectory: Record<string, WorkspaceFilePanelItem | undefined>
   openFile: (directory: string, item: WorkspaceFilePanelItem) => void
   queueFileOpen: (
@@ -55,7 +55,7 @@ function normalizeWorkspaceFilePanelItem(item: WorkspaceFilePanelItem): Workspac
 export const useWorkspaceFilePanelStore = create<WorkspaceFilePanelStore>()((set, get) => ({
   selectedPathByDirectory: {},
   selectedItemByDirectory: {},
-  pendingOpenByDirectory: {},
+  pendingObjectOpenByDirectory: {},
   pendingAutoOpenByDirectory: {},
   openFile(directory, item) {
     const nextItem = normalizeWorkspaceFilePanelItem(item)
@@ -68,15 +68,15 @@ export const useWorkspaceFilePanelStore = create<WorkspaceFilePanelStore>()((set
         ...state.selectedItemByDirectory,
         [directory]: nextItem,
       },
-      pendingOpenByDirectory: omitRecordKey(state.pendingOpenByDirectory, directory),
+      pendingObjectOpenByDirectory: omitRecordKey(state.pendingObjectOpenByDirectory, directory),
       pendingAutoOpenByDirectory: omitRecordKey(state.pendingAutoOpenByDirectory, directory),
     }))
   },
   queueFileOpen(directory, item, input) {
     const nextItem = normalizeWorkspaceFilePanelItem(item)
     set((state) => ({
-      pendingOpenByDirectory: {
-        ...state.pendingOpenByDirectory,
+      pendingObjectOpenByDirectory: {
+        ...state.pendingObjectOpenByDirectory,
         [directory]: nextItem,
       },
       pendingAutoOpenByDirectory:
@@ -89,11 +89,11 @@ export const useWorkspaceFilePanelStore = create<WorkspaceFilePanelStore>()((set
     }))
   },
   consumePendingOpen(directory) {
-    const item = get().pendingOpenByDirectory[directory]
+    const item = get().pendingObjectOpenByDirectory[directory]
     if (!item) return undefined
 
     set((state) => ({
-      pendingOpenByDirectory: omitRecordKey(state.pendingOpenByDirectory, directory),
+      pendingObjectOpenByDirectory: omitRecordKey(state.pendingObjectOpenByDirectory, directory),
     }))
 
     return item
@@ -112,7 +112,7 @@ export const useWorkspaceFilePanelStore = create<WorkspaceFilePanelStore>()((set
     set((state) => ({
       selectedPathByDirectory: omitRecordKey(state.selectedPathByDirectory, directory),
       selectedItemByDirectory: omitRecordKey(state.selectedItemByDirectory, directory),
-      pendingOpenByDirectory: omitRecordKey(state.pendingOpenByDirectory, directory),
+      pendingObjectOpenByDirectory: omitRecordKey(state.pendingObjectOpenByDirectory, directory),
       pendingAutoOpenByDirectory: omitRecordKey(state.pendingAutoOpenByDirectory, directory),
     }))
   },

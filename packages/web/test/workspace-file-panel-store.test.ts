@@ -19,7 +19,7 @@ describe("workspace file panel store", () => {
     useWorkspaceFilePanelStore.setState({
       selectedPathByDirectory: {},
       selectedItemByDirectory: {},
-      pendingOpenByDirectory: {},
+      pendingObjectOpenByDirectory: {},
       pendingAutoOpenByDirectory: {},
     })
   })
@@ -28,12 +28,14 @@ describe("workspace file panel store", () => {
     const store = useWorkspaceFilePanelStore.getState()
 
     store.queueFileOpen("/target", workspaceItem)
-    expect(useWorkspaceFilePanelStore.getState().pendingOpenByDirectory["/target"]).toEqual(
+    expect(useWorkspaceFilePanelStore.getState().pendingObjectOpenByDirectory["/target"]).toEqual(
       workspaceItem,
     )
 
     expect(store.consumePendingOpen("/target")).toEqual(workspaceItem)
-    expect(useWorkspaceFilePanelStore.getState().pendingOpenByDirectory["/target"]).toBe(undefined)
+    expect(useWorkspaceFilePanelStore.getState().pendingObjectOpenByDirectory["/target"]).toBe(
+      undefined,
+    )
   })
 
   test("opening a file clears pending open for that directory", () => {
@@ -42,7 +44,9 @@ describe("workspace file panel store", () => {
     store.queueFileOpen("/target", workspaceItem)
     store.openFile("/target", readerItem)
 
-    expect(useWorkspaceFilePanelStore.getState().pendingOpenByDirectory["/target"]).toBe(undefined)
+    expect(useWorkspaceFilePanelStore.getState().pendingObjectOpenByDirectory["/target"]).toBe(
+      undefined,
+    )
     expect(useWorkspaceFilePanelStore.getState().selectedPathByDirectory["/target"]).toBe(
       "generated/notes.pdf",
     )
@@ -63,7 +67,7 @@ describe("workspace file panel store", () => {
     const store = useWorkspaceFilePanelStore.getState()
 
     store.queueFileOpen("/target", queuedItemWithAbsolutePath, { autoOpen: true })
-    const queued = useWorkspaceFilePanelStore.getState().pendingOpenByDirectory["/target"]
+    const queued = useWorkspaceFilePanelStore.getState().pendingObjectOpenByDirectory["/target"]
 
     expect(queued).toEqual({
       path: "generated/slides.pdf",

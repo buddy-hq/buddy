@@ -1,17 +1,11 @@
 import { parseToolState } from "@/components/chat/tools/parse-tool-state"
-import { isTerminalAssistantMessageInfo } from "@/state/chat-tool-parts"
 import type { MessagePart, MessageWithParts } from "@/state/chat-types"
-import {
-  readHtmlWidgetOutputArtifact,
-  type HtmlWidgetToolOutput,
-  type HtmlWidgetViewportPreset,
-} from "@/lib/html-widgets"
 import {
   BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
   BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
-  BENCH_CHAT_LAYOUT_FLOATING,
+  isBenchObjectKind,
   type BenchAutoOpenPolicyID,
-  type BenchChatLayoutMode,
+  type BenchObjectRef,
   type BenchTarget,
 } from "@/lib/bench-navigation"
 
@@ -21,13 +15,12 @@ export {
 } from "@/lib/bench-navigation"
 export type { BenchAutoOpenPolicyID } from "@/lib/bench-navigation"
 
-const WHITEBOARD_CREATE_VIEW_TOOL = "whiteboard_create_view"
-const PRESENT_HTML_WIDGET_TOOL = "present_html_widget"
 const BENCH_PRESENT_TOOL = "bench_present"
-const HTML_WIDGET_FULLSCREEN_VIEWPORT_PRESETS = new Set<HtmlWidgetViewportPreset>([
-  "standard_16_10",
-  "wide_16_9",
-])
+const BENCH_PRESENT_STATUS_PRESENTED = "presented"
+const BENCH_PRESENT_STATUS_ALREADY_PRESENTING = "already_presenting"
+const BENCH_PRESENT_STATUS_CLOSED = "closed"
+const BENCH_PRESENT_ACTION_CLOSE = "close"
+const PRESENTATION_SURFACE_BENCH = "bench"
 
 export type BenchAutoOpenCandidate = {
   policyID: BenchAutoOpenPolicyID
@@ -46,22 +39,8 @@ export type BenchPresentationAction =
       eventKey: string
     }
 
-export function htmlWidgetAutoOpenKey(artifactID: string): string {
-  return `${BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET}:${artifactID}`
-}
-
-export function isFullscreenHtmlWidgetViewportPreset(
-  preset: HtmlWidgetViewportPreset,
-): boolean {
-  return HTML_WIDGET_FULLSCREEN_VIEWPORT_PRESETS.has(preset)
-}
-
-export function resolveHtmlWidgetBenchChatLayout(
-  widget: Pick<HtmlWidgetToolOutput, "viewport">,
-): BenchChatLayoutMode | undefined {
-  return isFullscreenHtmlWidgetViewportPreset(widget.viewport.preset)
-    ? BENCH_CHAT_LAYOUT_FLOATING
-    : undefined
+export function htmlWidgetAutoOpenKey(objectID: string): string {
+  return `${BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET}:${objectID}`
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -72,44 +51,138 @@ function readString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined
 }
 
-function readBenchPresentationResult(value: unknown): Record<string, unknown> | undefined {
-  if (isRecord(value)) return value
-  if (typeof value !== "string") return undefined
+function readNullableString(value: unknown): string | null | undefined {
+  if (value === null) return null
+  return readString(value)
+}
 
-  try {
-    const parsed: unknown = JSON.parse(value)
-    return isRecord(parsed) ? parsed : undefined
-  } catch {
-    return undefined
+function isBenchAutoOpenPolicyID(value: string): value is BenchAutoOpenPolicyID {
+  return (
+    value === BENCH_AUTO_OPEN_POLICY_WHITEBOARD ||
+    value === BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET
+  )
+}
+
+function readBenchObjectRef(value: unknown): BenchObjectRef | undefined {
+  if (!isRecord(value)) return undefined
+
+  const kind = readString(value.kind)
+  const objectID = readString(value.objectID)
+  const revisionID = readNullableString(value.revisionID)
+  const itemID = readNullableString(value.itemID)
+  if (!kind || !isBenchObjectKind(kind) || !objectID) return undefined
+  if (revisionID === undefined || itemID === undefined) return undefined
+
+  return {
+    kind,
+    objectID,
+    revisionID,
+    itemID,
   }
 }
 
-function readBenchTargetFromPresentationResult(value: unknown): BenchTarget | undefined {
+function readBenchTarget(value: unknown): BenchTarget | undefined {
   if (!isRecord(value)) return undefined
 
   const type = readString(value.type)
-  if (type === "whiteboard") {
-    return { type: "whiteboard" }
+  if (type === "workspace-file") {
+    const path = readString(value.path)
+    const viewer = readString(value.viewer)
+    if (!path || (viewer !== "markdown" && viewer !== "file")) return undefined
+    return {
+      type,
+      path,
+      viewer,
+    }
   }
 
-  if (type === "markdown") {
-    const path = readString(value.path)
-    return path ? { type: "markdown", path } : undefined
-  }
-
-  if (type === "file") {
-    const path = readString(value.path)
-    return path ? { type: "file", path } : undefined
-  }
-
-  if (type === "reading") {
-    const path = readString(value.path)
-    if (!path) return undefined
-    const resourceID = readString(value.resourceID)
-    return resourceID ? { type: "reading", path, resourceID } : { type: "reading", path }
+  if (type === "object") {
+    const ref = readBenchObjectRef(value.ref)
+    const viewID = readString(value.viewID)
+    if (!ref || !viewID) return undefined
+    return {
+      type,
+      ref,
+      viewID,
+    }
   }
 
   return undefined
+}
+
+function readBenchAutoOpen(value: unknown): Omit<BenchAutoOpenCandidate, "target"> | undefined {
+  if (!isRecord(value)) return undefined
+
+  const policyID = readString(value.policyID)
+  const eventKey = readString(value.eventKey)
+  if (!policyID || !isBenchAutoOpenPolicyID(policyID) || !eventKey) return undefined
+
+  return {
+    policyID,
+    eventKey,
+  }
+}
+
+function readBenchAutoOpenCandidateMetadata(value: unknown): BenchAutoOpenCandidate | undefined {
+  if (!isRecord(value)) return undefined
+
+  const autoOpen = readBenchAutoOpen(value)
+  const target = readBenchTarget(value.target)
+  if (!autoOpen || !target) return undefined
+
+  return {
+    ...autoOpen,
+    target,
+  }
+}
+
+function readObjectPresentationAutoOpenCandidate(
+  value: unknown,
+): BenchAutoOpenCandidate | undefined {
+  if (!isRecord(value)) return undefined
+
+  const autoOpen = readBenchAutoOpen(value.autoOpen)
+  const ref = readBenchObjectRef(value.ref)
+  const viewID = readString(value.viewID)
+  if (!autoOpen || !ref || !viewID) return undefined
+
+  return {
+    ...autoOpen,
+    target: {
+      type: "object",
+      ref,
+      viewID,
+    },
+  }
+}
+
+function readCompletedObjectAutoOpenCandidate(part: MessagePart): BenchAutoOpenCandidate | undefined {
+  if (part.type !== "tool") return undefined
+
+  const state = parseToolState(part)
+  if (state.status !== "completed") return undefined
+  if (!isRecord(state.metadata.buddyObjectResult)) return undefined
+
+  const presentations = state.metadata.buddyObjectResult.presentations
+  if (!Array.isArray(presentations)) return undefined
+
+  for (const presentation of presentations.toReversed()) {
+    if (!isRecord(presentation)) continue
+    if (presentation.surface !== PRESENTATION_SURFACE_BENCH) continue
+    const candidate = readObjectPresentationAutoOpenCandidate(presentation)
+    if (candidate) return candidate
+  }
+
+  return undefined
+}
+
+function readStartOfToolAutoOpenCandidate(part: MessagePart): BenchAutoOpenCandidate | undefined {
+  if (part.type !== "tool") return undefined
+
+  const state = parseToolState(part)
+  if (state.status !== "pending" && state.status !== "running") return undefined
+
+  return readBenchAutoOpenCandidateMetadata(state.metadata.benchAutoOpenCandidate)
 }
 
 function readBenchPresentationAction(input: {
@@ -121,23 +194,26 @@ function readBenchPresentationAction(input: {
   const state = parseToolState(input.part)
   if (state.status !== "completed") return undefined
 
-  const result = readBenchPresentationResult(state.output)
-  const status = readString(result?.status)
-  const reason = readString(result?.reason) ?? "unknown"
+  const action = readString(state.metadata.benchAction)
+  const status = readString(state.metadata.benchStatus)
+  const reason = readString(state.metadata.reason) ?? "none"
   const eventKey = `${input.messageID}:${input.part.id}:bench-present:${status ?? "unknown"}:${reason}`
 
-  if (status === "closed") {
+  if (action === BENCH_PRESENT_ACTION_CLOSE && status === BENCH_PRESENT_STATUS_CLOSED) {
     return {
       action: "close",
       eventKey,
     }
   }
 
-  if (status !== "presented" && status !== "already_presenting") {
+  if (
+    status !== BENCH_PRESENT_STATUS_PRESENTED &&
+    status !== BENCH_PRESENT_STATUS_ALREADY_PRESENTING
+  ) {
     return undefined
   }
 
-  const target = readBenchTargetFromPresentationResult(result?.target)
+  const target = readBenchTarget(state.metadata.benchTarget)
   if (!target) return undefined
 
   return {
@@ -147,49 +223,7 @@ function readBenchPresentationAction(input: {
   }
 }
 
-function isActiveWhiteboardCreatePart(part: MessagePart): boolean {
-  if (part.type !== "tool" || part.tool !== WHITEBOARD_CREATE_VIEW_TOOL) return false
-  const state = parseToolState(part)
-  return state.status === "pending" || state.status === "running"
-}
-
-function readWhiteboardAutoOpenCandidate(input: {
-  messageID: string
-  part: MessagePart
-}): BenchAutoOpenCandidate | undefined {
-  if (!isActiveWhiteboardCreatePart(input.part)) return undefined
-
-  return {
-    policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
-    eventKey: `${input.messageID}:${input.part.id}`,
-    target: { type: "whiteboard" },
-  }
-}
-
-function readHtmlWidgetAutoOpenCandidate(part: MessagePart): BenchAutoOpenCandidate | undefined {
-  if (part.type !== "tool" || part.tool !== PRESENT_HTML_WIDGET_TOOL) return undefined
-
-  const state = parseToolState(part)
-  if (state.status !== "completed") return undefined
-
-  const widget = readHtmlWidgetOutputArtifact(state.metadata)
-  if (!widget) return undefined
-
-  const chatLayout = resolveHtmlWidgetBenchChatLayout(widget)
-  if (!chatLayout) return undefined
-
-  return {
-    policyID: BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
-    eventKey: htmlWidgetAutoOpenKey(widget.artifactID),
-    target: {
-      type: "artifact",
-      kind: "html-widget",
-      artifactID: widget.artifactID,
-    },
-  }
-}
-
-export function readLatestBenchPresentationAction(
+export function readLatestBenchAction(
   messages: MessageWithParts[],
 ): BenchPresentationAction | undefined {
   for (const message of messages.toReversed()) {
@@ -225,20 +259,12 @@ export function readLatestBenchAutoOpenCandidate(
       continue
     }
 
-    const activeAssistant =
-      !isTerminalAssistantMessageInfo(message.info)
-
     for (const part of message.parts.toReversed()) {
-      if (activeAssistant) {
-        const whiteboardCandidate = readWhiteboardAutoOpenCandidate({
-          messageID: message.info.id,
-          part,
-        })
-        if (whiteboardCandidate) return whiteboardCandidate
-      }
+      const startCandidate = readStartOfToolAutoOpenCandidate(part)
+      if (startCandidate) return startCandidate
 
-      const htmlWidgetCandidate = readHtmlWidgetAutoOpenCandidate(part)
-      if (htmlWidgetCandidate) return htmlWidgetCandidate
+      const completedCandidate = readCompletedObjectAutoOpenCandidate(part)
+      if (completedCandidate) return completedCandidate
     }
   }
 
