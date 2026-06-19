@@ -12,8 +12,13 @@ import {
   type BenchOpenDecision,
 } from "./bench-open-policy-core"
 import { readBenchPresentationPreferences } from "./bench-preferences"
-import { isSameBenchTarget, type BenchOpenRequest } from "./bench-targets"
+import { BENCH_CHAT_LAYOUT_DOCKED, isSameBenchTarget, type BenchOpenRequest } from "./bench-targets"
 import type { BenchLeaveOrigin } from "./bench-leave-guard"
+import { useUiPreferences } from "@/state/ui-preferences"
+import {
+  getRightSidebarDefaultWidth,
+  getRightSidebarMinWidth,
+} from "@/lib/directory-chat/right-sidebar-layout"
 
 type OpenBenchOptions = {
   origin: Exclude<BenchLeaveOrigin, "route">
@@ -21,6 +26,14 @@ type OpenBenchOptions = {
 
 type OpenBench = {
   (request: BenchOpenRequest, options?: OpenBenchOptions): Promise<BenchOpenDecision>
+}
+
+function ensureRightWorkspaceOpenForDockedBench() {
+  const state = useUiPreferences.getState()
+  if (state.rightSidebarWidth < getRightSidebarMinWidth("files")) {
+    state.setRightSidebarWidth(getRightSidebarDefaultWidth("files"))
+  }
+  state.setRightSidebarOpen(true)
 }
 
 function useOpenBench(): OpenBench {
@@ -51,6 +64,15 @@ function useOpenBench(): OpenBench {
           request.autoOpen.eventKey === suppressedAutoOpenKey,
       })
 
+      if (
+        decision.action === "ignore" &&
+        decision.policyID === "already-open" &&
+        current.status === "open" &&
+        current.mode === BENCH_CHAT_LAYOUT_DOCKED
+      ) {
+        ensureRightWorkspaceOpenForDockedBench()
+      }
+
       if (decision.action === "open") {
         if (request.autoOpen && suppressedAutoOpenKey !== undefined) {
           clearSuppressedBenchAutoOpen(request.directory, request.autoOpen.policyID)
@@ -74,6 +96,10 @@ function useOpenBench(): OpenBench {
               policyID: "leave-guard-blocked",
             }
           }
+        }
+
+        if (decision.mode === BENCH_CHAT_LAYOUT_DOCKED) {
+          ensureRightWorkspaceOpenForDockedBench()
         }
 
         await navigate(

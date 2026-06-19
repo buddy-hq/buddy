@@ -42,7 +42,6 @@ import {
 import { collectSessionFamilyIDs } from "@/lib/session-family"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import { isSessionWorking } from "@/state/session-status"
-import type { NotebookMainPaneTab } from "@/state/ui-preferences"
 import { getFilename } from "../sidebar-helpers"
 import {
   buildSessionChildrenByParent,
@@ -81,8 +80,6 @@ type ChatLeftSidebarDirectoryListProps = {
   onNewSession: (directory?: string) => void
   onOpenNotebookSettings: (directory: string) => void
   onCloseDirectory: (directory: string) => void
-  mainPaneTab?: NotebookMainPaneTab
-  onMainPaneTabChange?: (directory: string, tab: NotebookMainPaneTab) => void
 }
 
 type DirectoryGroupSectionProps = {
@@ -114,15 +111,7 @@ type DirectoryGroupSectionProps = {
   onOpenNotebookSettings: () => void
   onCloseNotebook: () => void
   onNewSession: () => void
-  mainPaneTab?: NotebookMainPaneTab
-  onMainPaneTabChange?: (tab: NotebookMainPaneTab) => void
 }
-
-// type MainPaneShortcut = {
-//   tab: Exclude<NotebookMainPaneTab, "chat">
-//   label: string
-//   Icon: LucideIcon
-// }
 
 type DirectoryThreadRowProps = {
   directory: string
@@ -158,18 +147,6 @@ const THREAD_STATUS_OFFSET_PX = 6
 const MAX_VISIBLE_SUBAGENTS = 5
 const SESSION_PREFETCH_HOVER_DELAY_MS = 120
 
-// const MAIN_PANE_SHORTCUTS: MainPaneShortcut[] = [
-//   {
-//     tab: "instructions",
-//     label: language.t("sidebar.mainPane.instructions"),
-//     Icon: ScrollTextIcon,
-//   },
-//   {
-//     tab: "library",
-//     label: language.t("sidebar.notebookLibrary"),
-//     Icon: SquareLibraryIcon,
-//   },
-// ]
 const SUBAGENT_TONE_CLASSES = [
   "text-text-interactive-base",
   "text-text-success-base",
@@ -252,8 +229,6 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
               onOpenNotebookSettings={() => props.onOpenNotebookSettings(group.directory)}
               onCloseNotebook={() => props.onCloseDirectory(group.directory)}
               onNewSession={() => props.onNewSession(group.directory)}
-              mainPaneTab={props.mainPaneTab}
-              onMainPaneTabChange={(tab) => props.onMainPaneTabChange?.(group.directory, tab)}
             />
           </div>
         )
@@ -279,8 +254,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
     props.draggedDirectory !== props.group.directory
   const childrenByParent = buildSessionChildrenByParent(props.allSessions)
   const sessionsByID = new Map(props.allSessions.map((session) => [session.id, session]))
-  const activeMainPaneTab = isCurrentDirectory ? (props.mainPaneTab ?? "chat") : "chat"
-  const allowActiveThreadHighlight = isWorkspaceView && activeMainPaneTab === "chat"
+  const allowActiveThreadHighlight = isWorkspaceView
 
   const shouldShowContent = !props.collapsed
   const sessionsToRender = visibleSessions
@@ -353,43 +327,6 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
       </CollapsibleTrigger>
 
       <div className="relative z-10 flex items-center gap-0.5 pl-1 opacity-0 pointer-events-none transition-opacity group-hover/directory:opacity-100 group-hover/directory:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto">
-        {/* Instructions + library — use desktop titlebar instead
-        {!isQuickChatGroup &&
-          props.mainPaneTab &&
-          props.onMainPaneTabChange &&
-          MAIN_PANE_SHORTCUTS.map((shortcut) => {
-            const Icon = shortcut.Icon
-            const isActive = activeMainPaneTab === shortcut.tab && isCurrentDirectory
-            return (
-              <Tooltip key={shortcut.tab} delayDuration={1000}>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className={`inline-flex h-6 min-w-0 items-center justify-center rounded-md transition-all duration-500 ease-out overflow-hidden ${
-                      isActive
-                        ? "w-6 bg-surface-raised-strong text-text-weaker hover:text-text-strong opacity-100 pointer-events-auto"
-                        : !props.collapsed || isCurrentDirectory
-                          ? "w-6 text-text-weaker hover:bg-surface-raised-base-hover hover:text-text-strong opacity-100 pointer-events-auto"
-                          : "w-0 opacity-0 px-0 pointer-events-none"
-                    }`}
-                    onClick={(event) => {
-                      event.preventDefault()
-                      event.stopPropagation()
-                      if (props.mainPaneTab && props.onMainPaneTabChange) {
-                        props.onMainPaneTabChange(shortcut.tab)
-                      }
-                    }}
-                  >
-                    <Icon className="size-3.5" strokeWidth={2} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" sideOffset={8} className="px-2 py-1 text-[11px]">
-                  {shortcut.label}
-                </TooltipContent>
-              </Tooltip>
-            )
-          })}
-        */}
         <Tooltip delayDuration={1000}>
           <TooltipTrigger asChild>
             <button

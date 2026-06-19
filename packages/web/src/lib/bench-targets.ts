@@ -2,8 +2,11 @@ export const BENCH_CHAT_SEARCH_PARAM = "benchChat"
 export const BENCH_CHAT_LAYOUT_DOCKED = "docked"
 export const BENCH_CHAT_LAYOUT_FLOATING = "floating"
 export const BENCH_MODE_REQUEST_POLICY = "policy"
-export const BENCH_LAYOUT_PROFILE_BALANCED = "balanced"
-export const BENCH_LAYOUT_PROFILE_BENCH_FIRST = "bench-first"
+export const BENCH_LAYOUT_PROFILE_READING = "reading"
+export const BENCH_LAYOUT_PROFILE_DOCUMENT = "document"
+export const BENCH_LAYOUT_PROFILE_PRACTICE = "practice"
+export const BENCH_LAYOUT_PROFILE_CODE = "code"
+export const BENCH_LAYOUT_PROFILE_VISUAL = "visual"
 export const BENCH_AUTO_OPEN_POLICY_WHITEBOARD = "whiteboard"
 export const BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET = "fullscreen-html-widget"
 
@@ -58,8 +61,11 @@ export type BenchOpenRequest = {
 }
 
 export type BenchLayoutProfileID =
-  | typeof BENCH_LAYOUT_PROFILE_BENCH_FIRST
-  | typeof BENCH_LAYOUT_PROFILE_BALANCED
+  | typeof BENCH_LAYOUT_PROFILE_READING
+  | typeof BENCH_LAYOUT_PROFILE_DOCUMENT
+  | typeof BENCH_LAYOUT_PROFILE_PRACTICE
+  | typeof BENCH_LAYOUT_PROFILE_CODE
+  | typeof BENCH_LAYOUT_PROFILE_VISUAL
 
 export type BenchModePreferenceKey =
   | "markdown"

@@ -2,13 +2,29 @@ import { useEffect, useRef } from "react"
 import type { QueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, Outlet, useLocation } from "@tanstack/react-router"
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
+import { WorkspaceFileOpenDialog } from "@/components/files/workspace-file-open-dialog"
 import { BuddyDevTools } from "@/components/debug/buddy-devtools"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
+import {
+  BENCH_CHAT_LAYOUT_FLOATING,
+  BENCH_CHAT_SEARCH_PARAM,
+  isBenchRoutePathname,
+  readBenchChatLayoutMode,
+} from "@/lib/bench-navigation"
 import { showDesktopUpdateToast } from "../lib/desktop-updates"
 
 const RELEASE_UPDATE_POLL_INTERVAL_MS = 10 * 60 * 1000
 const DOCUMENT_VISIBILITY_VISIBLE = "visible"
+
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function readSearchParam(search: unknown, key: string): unknown {
+  if (!isUnknownRecord(search)) return undefined
+  return search[key]
+}
 
 function ReleaseUpdateWatcher() {
   const platform = usePlatform()
@@ -77,12 +93,17 @@ function RootLayout() {
   const location = useLocation()
   const isOnboarding = location.pathname.startsWith("/onboarding")
   const isDirectoryChat = location.pathname !== "/chat" && location.pathname.endsWith("/chat")
+  const isDockedBench =
+    isBenchRoutePathname(location.pathname) &&
+    readBenchChatLayoutMode(readSearchParam(location.search, BENCH_CHAT_SEARCH_PARAM)) !==
+      BENCH_CHAT_LAYOUT_FLOATING
   const isSettings = location.pathname === "/settings"
 
   return (
     <div className="h-full overflow-hidden bg-background-base text-text-base flex min-h-0 flex-col">
       <ReleaseUpdateWatcher />
-      {!isOnboarding && !isDirectoryChat && !isSettings && <DesktopTitlebar />}
+      <WorkspaceFileOpenDialog />
+      {!isOnboarding && !isDirectoryChat && !isDockedBench && !isSettings && <DesktopTitlebar />}
       <div className="min-h-0 flex-1">
         <Outlet />
       </div>

@@ -142,6 +142,7 @@ async function publishBenchContext(input: {
 
 export function BenchRouteContextProvider(props: {
   state: BenchRuntimeState
+  visible: boolean
   activeSessionID: string | undefined
   fallbackProvider: BenchContextProvider
   setMode(input: BenchSetModeRequest): void
@@ -155,10 +156,12 @@ export function BenchRouteContextProvider(props: {
   const registrationRef = useRef(registration)
   const fallbackProviderRef = useRef(props.fallbackProvider)
   const activeSessionIDRef = useRef(props.activeSessionID)
+  const visibleRef = useRef(props.visible)
 
   registrationRef.current = registration
   fallbackProviderRef.current = props.fallbackProvider
   activeSessionIDRef.current = props.activeSessionID
+  visibleRef.current = props.visible
 
   const publishValue = useCallback(
     async (input: { sessionID: string; value: BenchReadContextOutput }) =>
@@ -172,6 +175,14 @@ export function BenchRouteContextProvider(props: {
 
   const flushContext = useCallback(
     async (input: { sessionID: string }) => {
+      if (!visibleRef.current) {
+        await publishValue({
+          sessionID: input.sessionID,
+          value: { status: "closed" },
+        })
+        return
+      }
+
       const provider = registrationRef.current?.provider ?? fallbackProviderRef.current
       const value = await provider.read()
       await publishValue({
@@ -226,7 +237,7 @@ export function BenchRouteContextProvider(props: {
   useEffect(() => {
     if (!props.activeSessionID) return
     void flushContext({ sessionID: props.activeSessionID })
-  }, [flushContext, props.activeSessionID, props.fallbackProvider, registration])
+  }, [flushContext, props.activeSessionID, props.fallbackProvider, props.visible, registration])
 
   useEffect(() => {
     return () => {

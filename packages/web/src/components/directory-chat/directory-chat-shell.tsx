@@ -1,14 +1,20 @@
-import { useEffect, useMemo, type ReactNode } from "react"
-import { ResizeHandle, ResizablePanel, ResizablePanelGroup, useResizablePanelRef } from "@buddy/ui"
+import { useEffect, useMemo, useRef, type ReactNode } from "react"
+import {
+  ResizeHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  useResizablePanelRef,
+  type ResizeHandleIntent,
+} from "@buddy/ui"
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
 import { usePersistentResizablePanelLayout } from "@/components/layout/use-persistent-resizable-panel-layout"
 import { RIGHT_SIDEBAR_COLLAPSE_THRESHOLD_PX } from "@/lib/directory-chat/right-sidebar-layout"
-import type { NotebookMainPaneTab } from "@/state/ui-preferences"
 
 const DIRECTORY_CHAT_LAYOUT_ID = "directory-chat-layout"
 const DIRECTORY_CHAT_MAIN_PANEL_ID = "directory-chat-main-pane"
 const DIRECTORY_CHAT_RIGHT_SIDEBAR_PANEL_ID = "directory-chat-right-sidebar"
 const CHAT_TITLEBAR_HEIGHT_PX = 52
+const DIRECTORY_CHAT_MAIN_PANE_MIN_WIDTH_PX = 320
 
 type DirectoryChatShellProps = {
   leftSidebar: ReactNode
@@ -19,8 +25,7 @@ type DirectoryChatShellProps = {
   projectName?: string
   isTurnActive?: boolean
   titlebarVariant?: "chat" | "shell"
-  mainPaneTab?: NotebookMainPaneTab
-  onMainPaneTabChange?: (tab: NotebookMainPaneTab) => void
+  mainPaneMinWidth?: number
   leftSidebarOpen: boolean
   leftSidebarDisplayWidth: number
   leftSidebarWidth: number
@@ -28,11 +33,17 @@ type DirectoryChatShellProps = {
   leftSidebarMaxWidth: number
   onLeftSidebarResize: (width: number) => void
   onLeftSidebarCollapse: () => void
+  leftSidebarOverlayEnabled?: boolean
+  leftSidebarOverlayOpen?: boolean
+  onLeftSidebarOverlayOpenChange?: (open: boolean) => void
+  onLeftSidebarToggle?: () => void
   rightSidebarOpen: boolean
   rightSidebarDisplayWidth: number
   rightSidebarMinWidth: number
   rightSidebarMaxWidth: number
   onRightSidebarResize: (width: number) => void
+  onRightSidebarResizeIntent?: (intent: ResizeHandleIntent) => void
+  onRightSidebarExpand: () => void
   onRightSidebarCollapse: () => void
 }
 
@@ -46,8 +57,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     projectName,
     isTurnActive,
     titlebarVariant,
-    mainPaneTab,
-    onMainPaneTabChange,
+    mainPaneMinWidth = DIRECTORY_CHAT_MAIN_PANE_MIN_WIDTH_PX,
     leftSidebarOpen,
     leftSidebarDisplayWidth,
     leftSidebarWidth,
@@ -55,15 +65,22 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     leftSidebarMaxWidth,
     onLeftSidebarResize,
     onLeftSidebarCollapse,
+    leftSidebarOverlayEnabled = false,
+    leftSidebarOverlayOpen = false,
+    onLeftSidebarOverlayOpenChange,
+    onLeftSidebarToggle,
     rightSidebarOpen,
     rightSidebarDisplayWidth,
     rightSidebarMinWidth,
     rightSidebarMaxWidth,
     onRightSidebarResize,
+    onRightSidebarResizeIntent,
+    onRightSidebarExpand,
     onRightSidebarCollapse,
   } = props
 
   const rightSidebarPanelRef = useResizablePanelRef()
+  const leftSidebarOverlayRef = useRef<HTMLDivElement>(null)
 
   const leftSidebarResolvedWidth = leftSidebarOpen ? leftSidebarDisplayWidth : 0
 
@@ -78,6 +95,45 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
   useEffect(() => {
     rightSidebarPanelRef.current?.resize(rightSidebarOpen ? rightSidebarDisplayWidth : 0)
   }, [rightSidebarDisplayWidth, rightSidebarOpen, rightSidebarPanelRef])
+
+  useEffect(() => {
+    if (!leftSidebarOverlayOpen) return
+
+    function onPointerDown(event: PointerEvent) {
+      if (!(event.target instanceof Node)) return
+      if (leftSidebarOverlayRef.current?.contains(event.target)) return
+      onLeftSidebarOverlayOpenChange?.(false)
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return
+      onLeftSidebarOverlayOpenChange?.(false)
+    }
+
+    document.addEventListener("pointerdown", onPointerDown)
+    document.addEventListener("keydown", onKeyDown)
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown)
+      document.removeEventListener("keydown", onKeyDown)
+    }
+  }, [leftSidebarOverlayOpen, onLeftSidebarOverlayOpenChange])
+
+  function closeLeftSidebarOverlayAfterSelection(target: EventTarget | null) {
+    if (!(target instanceof Element)) return
+    if (
+      !target.closest(
+        [
+          '[data-action="left-sidebar-thread-select"]',
+          '[data-action="left-sidebar-directory-new-thread"]',
+          '[data-action="left-sidebar-directory-empty-new-thread"]',
+        ].join(","),
+      )
+    ) {
+      return
+    }
+
+    onLeftSidebarOverlayOpenChange?.(false)
+  }
 
   return (
     <div
@@ -116,8 +172,15 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           isTurnActive={isTurnActive}
           variant={titlebarVariant}
           leftSidebarOpen={leftSidebarOpen}
-          mainPaneTab={mainPaneTab}
-          onMainPaneTabChange={onMainPaneTabChange}
+          rightSidebarOpen={rightSidebarOpen}
+          onLeftSidebarToggle={onLeftSidebarToggle}
+          onRightSidebarToggle={() => {
+            if (rightSidebarOpen) {
+              onRightSidebarCollapse()
+              return
+            }
+            onRightSidebarExpand()
+          }}
         />
       </div>
 
@@ -130,7 +193,9 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
             leftSidebarOpen ? "" : "pointer-events-none"
           }`}
         >
-          <div className="h-full w-full min-w-0">{leftSidebar}</div>
+          <div className="h-full w-full min-w-0">
+            {leftSidebarOverlayOpen && !leftSidebarOpen ? null : leftSidebar}
+          </div>
           {leftSidebarOpen ? (
             <ResizeHandle
               direction="horizontal"
@@ -155,6 +220,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
         >
           <ResizablePanel
             id={DIRECTORY_CHAT_MAIN_PANEL_ID}
+            minSize={mainPaneMinWidth}
             className="flex min-h-0 min-w-0 overflow-hidden"
           >
             {mainPane}
@@ -190,12 +256,37 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
                   rightSidebarPanelRef.current?.resize(width)
                   onRightSidebarResize(width)
                 }}
+                onResizeIntent={onRightSidebarResizeIntent}
                 onCollapse={onRightSidebarCollapse}
               />
             ) : null}
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
+      {leftSidebarOverlayEnabled && !leftSidebarOpen ? (
+        <div
+          data-component="directory-chat-left-sidebar-edge-trigger"
+          className="absolute bottom-0 left-0 z-30 w-2 [-webkit-app-region:no-drag]"
+          style={{ top: CHAT_TITLEBAR_HEIGHT_PX }}
+          onMouseEnter={() => onLeftSidebarOverlayOpenChange?.(true)}
+          onPointerDown={() => onLeftSidebarOverlayOpenChange?.(true)}
+        />
+      ) : null}
+      {leftSidebarOverlayOpen && !leftSidebarOpen ? (
+        <div
+          ref={leftSidebarOverlayRef}
+          data-component="directory-chat-left-sidebar-overlay"
+          className="absolute bottom-0 left-0 z-40 overflow-hidden border-r border-border-weaker-base bg-background-base shadow-xl animate-in fade-in slide-in-from-left-2 duration-150"
+          style={{
+            top: CHAT_TITLEBAR_HEIGHT_PX,
+            width: leftSidebarDisplayWidth,
+          }}
+          onMouseLeave={() => onLeftSidebarOverlayOpenChange?.(false)}
+          onClick={(event) => closeLeftSidebarOverlayAfterSelection(event.target)}
+        >
+          <div className="h-full min-h-0 w-full min-w-0">{leftSidebar}</div>
+        </div>
+      ) : null}
       {createTeachingFileDialog}
     </div>
   )

@@ -3,8 +3,8 @@ import {
   resolveWorkspaceFileOpenPlan,
   WORKSPACE_FILE_OPEN_TARGET_COPY_PATH,
   WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP,
+  WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH,
   WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH,
-  WORKSPACE_FILE_OPEN_TARGET_PANEL,
   WORKSPACE_FILE_OPEN_TARGET_READING,
   WORKSPACE_FILE_OPEN_TARGET_REVEAL,
 } from "../src/lib/workspace-file-open"
@@ -25,11 +25,12 @@ describe("workspace file open policy", () => {
       primaryTarget: WORKSPACE_FILE_OPEN_TARGET_READING,
       targets: [
         WORKSPACE_FILE_OPEN_TARGET_READING,
-        WORKSPACE_FILE_OPEN_TARGET_PANEL,
+        WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH,
         WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP,
         WORKSPACE_FILE_OPEN_TARGET_REVEAL,
         WORKSPACE_FILE_OPEN_TARGET_COPY_PATH,
       ],
+      requiresLargeFileApproval: false,
     })
   })
 
@@ -48,10 +49,11 @@ describe("workspace file open policy", () => {
       primaryTarget: WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH,
       targets: [
         WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH,
-        WORKSPACE_FILE_OPEN_TARGET_PANEL,
+        WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH,
         WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP,
         WORKSPACE_FILE_OPEN_TARGET_COPY_PATH,
       ],
+      requiresLargeFileApproval: false,
     })
   })
 
@@ -69,6 +71,29 @@ describe("workspace file open policy", () => {
     ).toBe(WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP)
   })
 
+  test("marks large source files as requiring one-opening approval", () => {
+    expect(
+      resolveWorkspaceFileOpenPlan({
+        path: "src/large.ts",
+        absolutePath: "/repo/src/large.ts",
+        available: true,
+        canOpenInBuddy: true,
+        canOpenReading: true,
+        canOpenDefaultApp: true,
+        canReveal: false,
+        sizeBytes: 1_000_001,
+      }),
+    ).toEqual({
+      primaryTarget: WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH,
+      targets: [
+        WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH,
+        WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP,
+        WORKSPACE_FILE_OPEN_TARGET_COPY_PATH,
+      ],
+      requiresLargeFileApproval: true,
+    })
+  })
+
   test("keeps missing files non-openable while preserving copy path", () => {
     expect(
       resolveWorkspaceFileOpenPlan({
@@ -83,6 +108,7 @@ describe("workspace file open policy", () => {
     ).toEqual({
       primaryTarget: undefined,
       targets: [WORKSPACE_FILE_OPEN_TARGET_COPY_PATH],
+      requiresLargeFileApproval: false,
     })
   })
 })

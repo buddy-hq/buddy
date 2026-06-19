@@ -1,8 +1,4 @@
-import type {
-  WorkspaceFilePanelItem,
-  WorkspaceFilePanelMediaKind,
-  WorkspaceFilePanelRenderMode,
-} from "@/state/workspace-file-panel-store"
+import type { WorkspaceMediaKind, WorkspaceMediaRenderMode } from "./workspace-file-media"
 import type { WorkspaceFileActionInput } from "./use-workspace-file-open"
 import { getBuddyClient, requireBuddyData } from "./buddy-client"
 import { classifyWorkspaceMedia } from "./workspace-file-media"
@@ -36,7 +32,7 @@ const NOISY_PRESENTED_MEDIA_SEGMENTS = [
   ".map",
 ] as const
 
-const WORKSPACE_FILE_PANEL_MEDIA_KINDS = [
+const WORKSPACE_MEDIA_KINDS = [
   "image",
   "pdf",
   "presentation",
@@ -46,12 +42,12 @@ const WORKSPACE_FILE_PANEL_MEDIA_KINDS = [
   "audio",
   "archive",
   "other",
-] satisfies readonly WorkspaceFilePanelMediaKind[]
+] satisfies readonly WorkspaceMediaKind[]
 
 type PresentedMediaActionCapabilities = {
   canOpenDefaultApp: boolean
   canRevealInFileManager: boolean
-  canOpenInWorkspacePanel: boolean
+  canOpenInBuddy: boolean
 }
 
 export type PresentedMediaAvailability = {
@@ -66,8 +62,8 @@ export type PresentedMediaItem = {
   displayPath: string
   workspacePath: string | null
   fileName: string
-  mediaKind: WorkspaceFilePanelMediaKind
-  renderMode: WorkspaceFilePanelRenderMode
+  mediaKind: WorkspaceMediaKind
+  renderMode: WorkspaceMediaRenderMode
   mimeType: string | null
   sizeBytes: number | null
   modifiedAt: string | null
@@ -126,11 +122,11 @@ function readNonEmptyString(value: unknown): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
-function isWorkspaceFilePanelMediaKind(value: string): value is WorkspaceFilePanelMediaKind {
-  return WORKSPACE_FILE_PANEL_MEDIA_KINDS.some((kind) => kind === value)
+function isWorkspaceMediaKind(value: string): value is WorkspaceMediaKind {
+  return WORKSPACE_MEDIA_KINDS.some((kind) => kind === value)
 }
 
-function mediaRenderModeFromKind(kind: WorkspaceFilePanelMediaKind): WorkspaceFilePanelRenderMode {
+function mediaRenderModeFromKind(kind: WorkspaceMediaKind): WorkspaceMediaRenderMode {
   if (kind === "image" || kind === "audio" || kind === "video" || kind === "pdf") return kind
   return "file"
 }
@@ -149,14 +145,14 @@ function actionCapabilitiesForWorkspacePath(workspacePath: string | null): Prese
   return {
     canOpenDefaultApp: true,
     canRevealInFileManager: true,
-    canOpenInWorkspacePanel: workspacePath !== null,
+    canOpenInBuddy: workspacePath !== null,
   }
 }
 
 export function presentedMediaItemFromInlineItem(
   item: PresentedMediaInlineItem,
 ): PresentedMediaItem | undefined {
-  const mediaKind = isWorkspaceFilePanelMediaKind(item.mediaType) ? item.mediaType : undefined
+  const mediaKind = isWorkspaceMediaKind(item.mediaType) ? item.mediaType : undefined
   const fileName = readNonEmptyString(item.fileName) ?? readNonEmptyString(item.title)
   const displayPath = readNonEmptyString(item.source.displayPath) ?? item.source.path
   if (!mediaKind || !fileName) return undefined
@@ -262,17 +258,6 @@ export function findPresentedMediaCandidateMatches(text: string) {
   }).filter((match): match is { path: string; start: number; end: number } => Boolean(match))
 }
 
-export function toWorkspaceFilePanelItem(
-  item: PresentedMediaItem,
-): WorkspaceFilePanelItem | undefined {
-  if (!item.actionCapabilities.canOpenInWorkspacePanel || !item.workspacePath) return undefined
-  const absolutePath = item.absolutePath.trim()
-  return {
-    path: item.workspacePath,
-    ...(absolutePath ? { absolutePath } : {}),
-  }
-}
-
 export function buildPresentedMediaFileActionInput(input: {
   item: PresentedMediaActionInputSource
   canOpenDefaultApp: boolean
@@ -284,7 +269,7 @@ export function buildPresentedMediaFileActionInput(input: {
     name: input.item.fileName,
     available: input.item.availability.status === "available",
     canOpenInBuddy:
-      input.item.actionCapabilities.canOpenInWorkspacePanel && input.item.workspacePath !== null,
+      input.item.actionCapabilities.canOpenInBuddy && input.item.workspacePath !== null,
     canOpenDefaultApp: input.item.actionCapabilities.canOpenDefaultApp && input.canOpenDefaultApp,
     canReveal: input.item.actionCapabilities.canRevealInFileManager && input.canReveal,
     mimeType: input.item.mimeType ?? undefined,

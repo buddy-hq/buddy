@@ -1,8 +1,11 @@
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
-  BENCH_LAYOUT_PROFILE_BALANCED,
-  BENCH_LAYOUT_PROFILE_BENCH_FIRST,
+  BENCH_LAYOUT_PROFILE_CODE,
+  BENCH_LAYOUT_PROFILE_DOCUMENT,
+  BENCH_LAYOUT_PROFILE_PRACTICE,
+  BENCH_LAYOUT_PROFILE_READING,
+  BENCH_LAYOUT_PROFILE_VISUAL,
   BENCH_MODE_REQUEST_POLICY,
   benchModePreferenceKey,
   isSameBenchTarget,
@@ -13,6 +16,7 @@ import {
   type BenchTarget,
 } from "./bench-targets"
 import type { BenchPresentationPreferences } from "./bench-preferences"
+import { classifyWorkspaceMedia, isWorkspaceReaderPath } from "./workspace-file-media"
 
 type BenchSurfaceDefaults = {
   mode: BenchMode
@@ -84,52 +88,85 @@ type ResolveBenchOpenPolicyInput = {
 const BENCH_SURFACE_DEFAULTS = {
   reading: {
     mode: BENCH_CHAT_LAYOUT_DOCKED,
-    layoutProfile: BENCH_LAYOUT_PROFILE_BALANCED,
   },
   whiteboard: {
     mode: BENCH_CHAT_LAYOUT_FLOATING,
-    layoutProfile: BENCH_LAYOUT_PROFILE_BENCH_FIRST,
   },
   markdown: {
     mode: BENCH_CHAT_LAYOUT_DOCKED,
-    layoutProfile: BENCH_LAYOUT_PROFILE_BENCH_FIRST,
   },
   file: {
     mode: BENCH_CHAT_LAYOUT_DOCKED,
-    layoutProfile: BENCH_LAYOUT_PROFILE_BENCH_FIRST,
   },
   "artifact:mermaid": {
     mode: BENCH_CHAT_LAYOUT_DOCKED,
-    layoutProfile: BENCH_LAYOUT_PROFILE_BENCH_FIRST,
   },
   "artifact:html-widget": {
     mode: BENCH_CHAT_LAYOUT_FLOATING,
-    layoutProfile: BENCH_LAYOUT_PROFILE_BENCH_FIRST,
   },
   "artifact:figure": {
     mode: BENCH_CHAT_LAYOUT_DOCKED,
-    layoutProfile: BENCH_LAYOUT_PROFILE_BENCH_FIRST,
   },
   "artifact:freeform-figure": {
     mode: BENCH_CHAT_LAYOUT_DOCKED,
-    layoutProfile: BENCH_LAYOUT_PROFILE_BENCH_FIRST,
   },
   "artifact:media-presentation": {
     mode: BENCH_CHAT_LAYOUT_FLOATING,
-    layoutProfile: BENCH_LAYOUT_PROFILE_BENCH_FIRST,
   },
   "artifact:question-set": {
     mode: BENCH_CHAT_LAYOUT_DOCKED,
-    layoutProfile: BENCH_LAYOUT_PROFILE_BALANCED,
   },
   "artifact:flashcard-deck": {
     mode: BENCH_CHAT_LAYOUT_DOCKED,
-    layoutProfile: BENCH_LAYOUT_PROFILE_BALANCED,
   },
-} satisfies Record<BenchModePreferenceKey, BenchSurfaceDefaults>
+} satisfies Record<BenchModePreferenceKey, Pick<BenchSurfaceDefaults, "mode">>
+
+function resolveWorkspaceFileLayoutProfile(target: Extract<BenchTarget, { type: "workspace-file" }>) {
+  if (target.viewer === "markdown") return BENCH_LAYOUT_PROFILE_DOCUMENT
+  if (isWorkspaceReaderPath(target.path)) return BENCH_LAYOUT_PROFILE_READING
+
+  const media = classifyWorkspaceMedia({
+    path: target.path,
+    mimeType: undefined,
+    sizeBytes: undefined,
+  })
+  if (media.renderMode === "image" || media.renderMode === "audio" || media.renderMode === "video") {
+    return BENCH_LAYOUT_PROFILE_VISUAL
+  }
+
+  return BENCH_LAYOUT_PROFILE_CODE
+}
+
+function resolveObjectLayoutProfile(target: Extract<BenchTarget, { type: "object" }>) {
+  switch (target.ref.kind) {
+    case "resource":
+      return BENCH_LAYOUT_PROFILE_READING
+    case "question-set":
+    case "flashcard-deck":
+      return BENCH_LAYOUT_PROFILE_PRACTICE
+    case "whiteboard":
+    case "mermaid":
+    case "html-widget":
+    case "figure":
+    case "freeform-figure":
+    case "media-presentation":
+      return BENCH_LAYOUT_PROFILE_VISUAL
+  }
+}
+
+function resolveBenchLayoutProfile(target: BenchTarget): BenchLayoutProfileID {
+  if (target.type === "workspace-file") {
+    return resolveWorkspaceFileLayoutProfile(target)
+  }
+
+  return resolveObjectLayoutProfile(target)
+}
 
 function resolveBenchSurfaceDefaults(target: BenchTarget): BenchSurfaceDefaults {
-  return BENCH_SURFACE_DEFAULTS[benchModePreferenceKey(target)]
+  return {
+    ...BENCH_SURFACE_DEFAULTS[benchModePreferenceKey(target)],
+    layoutProfile: resolveBenchLayoutProfile(target),
+  }
 }
 
 function resolveBenchOpenMode(input: {
@@ -273,6 +310,7 @@ function classifyBenchTransition(input: {
 
 export {
   classifyBenchTransition,
+  resolveBenchLayoutProfile,
   resolveBenchOpenPolicy,
   resolveBenchSurfaceDefaults,
 }

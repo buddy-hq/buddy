@@ -11,15 +11,13 @@ import {
   notebookAgentsMdQueryOptions,
   setNotebookAgentsMdQueryData,
 } from "@/state/agents-md-query"
+import { DEFAULT_NOTEBOOK_AGENTS_MD_CONTENT } from "@/lib/ensure-notebook-agents-md"
 
 type AgentsMdPanelProps = {
   directory: string
   refreshToken?: number
   className?: string
 }
-
-const DEFAULT_AGENTS_MD_CONTENT =
-  "# AGENTS.md\n\nAdd notebook-specific instructions for Buddy here.\n"
 
 export function AgentsMdPanel(props: AgentsMdPanelProps) {
   const queryClient = useQueryClient()
@@ -67,7 +65,7 @@ export function AgentsMdPanel(props: AgentsMdPanelProps) {
       emptyTitle={language.t("agentsMd.notebookEmptyTitle")}
       emptyDescription={language.t("agentsMd.notebookEmptyDescription")}
       createLabel={language.t("agentsMd.createLabel")}
-      defaultContent={DEFAULT_AGENTS_MD_CONTENT}
+      defaultContent={DEFAULT_NOTEBOOK_AGENTS_MD_CONTENT}
       load={load}
       save={save}
       isVersionConflictError={(error) => error instanceof NotebookAgentsMdVersionConflictError}

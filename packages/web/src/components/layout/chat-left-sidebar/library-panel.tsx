@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react"
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   measureElement as measureVirtualElement,
@@ -27,20 +27,17 @@ import { getPlatform } from "@/context/platform"
 import { stringifyError } from "@/lib/api-client"
 import {
   getFlashcardDueCount,
-  isFlashcardReviewAvailable,
   type FlashcardDueCounts,
 } from "@/lib/flashcard"
 import type { ObjectsViewResponse } from "@buddy/sdk/types"
 import { pickResourceFilePath } from "@/lib/resource-file-picker"
 import { fileExtensionFromPath } from "@/lib/workspace-file-paths"
 import { addResource } from "@/state/resource-actions"
-import { useUiPreferences } from "@/state/ui-preferences"
 import {
   invalidateResourcesQueries,
   type ResourceOpenOptions,
   resourcesQueryOptions,
 } from "@/state/resources-query"
-import { useWorkspaceQuestionSetObjectPanelStore } from "@/state/workspace-question-set-object-panel-store"
 import {
   objectFlashcardDeckPayloadQueryOptions,
   objectMermaidPayloadQueryOptions,
@@ -60,7 +57,7 @@ import {
   buildQuestionMarkdownCacheKey,
 } from "@/components/chat/tools/render/question-set/question-markdown"
 import { resolveAssetUrl } from "@/lib/resource-url"
-import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
+import type { BenchTarget } from "@/lib/bench-navigation"
 import {
   ResourceCardGrid,
   type ResourceCardTarget,
@@ -104,13 +101,27 @@ type HtmlWidgetObjectViewData = Extract<ObjectsViewResponse["data"], { renderer:
 
 type LibraryPanelProps = {
   directories: string[]
-  onOpenResource: (
-    directory: string,
-    resource: LibraryPanelResourceTarget,
-    options?: ResourceOpenOptions,
-  ) => void
-  onOpenQuestionSet: (directory: string, objectID: string, selectedObjectID?: string) => void
+  onOpen: (request: LibraryOpenRequest) => Promise<LibraryOpenOutcome>
   initialTab?: LibraryTab
+}
+
+export type LibraryOpenOutcome = "opened" | "focused" | "blocked" | "failed"
+
+export type LibraryOpenRequest =
+  | { type: "object"; directory: string; target: BenchTarget }
+  | {
+      type: "resource"
+      directory: string
+      resource: LibraryPanelResourceTarget
+      options?: ResourceOpenOptions
+    }
+
+const LibraryOpenContext = createContext<LibraryPanelProps["onOpen"] | undefined>(undefined)
+
+function useLibraryOpen() {
+  const open = useContext(LibraryOpenContext)
+  if (!open) throw new Error("Library open callback is unavailable")
+  return open
 }
 
 // ---------------------------------------------------------------------------
@@ -1074,7 +1085,7 @@ function FlashcardDeckObjectRow(props: {
   directory: string
   deck: FlashcardDeckLibraryObject
 }) {
-  const openBenchRoute = useOpenBench()
+  const openLibrary = useLibraryOpen()
   const deckQuery = useQuery({
     ...objectFlashcardDeckPayloadQueryOptions({
       directory: props.directory,
@@ -1086,7 +1097,6 @@ function FlashcardDeckObjectRow(props: {
   const summary: FlashcardDeckObjectSummary | undefined = detail
     ? getFlashcardDeckObjectSummary(detail)
     : undefined
-  const reviewAvailable = summary ? isFlashcardReviewAvailable(summary) : false
   const title = detail?.title ?? props.deck.title
 
   const content = (
@@ -1133,23 +1143,14 @@ function FlashcardDeckObjectRow(props: {
     </>
   )
 
-  if (!reviewAvailable) {
-    return (
-      <div className="rounded-lg border border-border-weaker-base bg-surface-base p-3 shadow-sm">
-        {content}
-      </div>
-    )
-  }
-
   return (
     <button
       type="button"
       onClick={() => {
-        void openBenchRoute({
+        void openLibrary({
+          type: "object",
           directory: props.directory,
           target: createBenchObjectTarget("flashcard-deck", props.deck.objectID),
-          mode: BENCH_MODE_REQUEST_POLICY,
-          autoOpen: null,
         })
       }}
       className="w-full rounded-lg border border-border-weaker-base bg-surface-base p-3 text-left shadow-sm transition-colors hover:border-border-hover hover:bg-surface-raised-base"
@@ -1341,11 +1342,8 @@ function FlashcardsTab({ directories }: { directories: string[] }) {
 function LibraryQuestionSetCard(props: {
   directory: string
   objectStub: QuestionSetObjectListItem
-  rightSidebarOpen: boolean
-  rightSidebarTab: string
-  selectedObjectID?: string
 }) {
-  const openBenchRoute = useOpenBench()
+  const openLibrary = useLibraryOpen()
   const detailQuery = useQuery({
     ...objectQuestionSetPayloadQueryOptions({
       directory: props.directory,
@@ -1362,20 +1360,13 @@ function LibraryQuestionSetCard(props: {
       <button
         type="button"
         onClick={() => {
-          void openBenchRoute({
+          void openLibrary({
+            type: "object",
             directory: props.directory,
             target: createBenchObjectTarget("question-set", props.objectStub.objectID),
-            mode: BENCH_MODE_REQUEST_POLICY,
-            autoOpen: null,
           })
         }}
-        className={`w-full rounded-lg border bg-surface-base p-3 text-left shadow-sm transition-colors disabled:opacity-50 ${
-          props.rightSidebarOpen &&
-          props.rightSidebarTab === "question-set" &&
-          props.selectedObjectID === props.objectStub.objectID
-            ? "border-border-interactive-base bg-surface-raised-base"
-            : "border-border-weaker-base hover:border-border-hover hover:bg-surface-raised-base"
-        }`}
+        className="w-full rounded-lg border border-border-weaker-base bg-surface-base p-3 text-left shadow-sm transition-colors hover:border-border-hover hover:bg-surface-raised-base disabled:opacity-50"
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
@@ -1439,11 +1430,6 @@ function QuestionSetNotebookShelf(props: {
     directory,
     queryKey: workspaceObjectsQueryKeys.all(directory),
   })
-  const selectedObjectID = useWorkspaceQuestionSetObjectPanelStore(
-    (store) => store.selectedObjectIDByDirectory[directory],
-  )
-  const rightSidebarOpen = useUiPreferences((store) => store.rightSidebarOpen)
-  const rightSidebarTab = useUiPreferences((store) => store.rightSidebarTab)
   const { visibleCount, nextBatchCount, canShowMore, showMore } = useShelfPagination(
     sets.length,
     pageSize,
@@ -1477,9 +1463,6 @@ function QuestionSetNotebookShelf(props: {
                 key={object.objectID}
                 directory={directory}
                 objectStub={object}
-                rightSidebarOpen={rightSidebarOpen}
-                rightSidebarTab={rightSidebarTab}
-                selectedObjectID={selectedObjectID}
               />
             ))}
         {!loading && canShowMore ? (
@@ -1499,7 +1482,6 @@ function QuestionSetNotebookShelf(props: {
 
 function QuestionSetsTab(props: {
   directories: string[]
-  onOpenQuestionSet: (directory: string, objectID: string, selectedObjectID?: string) => void
 }) {
   const { directories } = props
   const isMultiNotebookView = directories.length > 1
@@ -1612,7 +1594,7 @@ function QuestionSetsTab(props: {
 // ---------------------------------------------------------------------------
 
 function HtmlWidgetObjectRow(props: { directory: string; widget: HtmlWidgetObjectListItem }) {
-  const openBenchRoute = useOpenBench()
+  const openLibrary = useLibraryOpen()
   const viewQuery = useQuery({
     ...objectViewQueryOptions({
       directory: props.directory,
@@ -1635,11 +1617,10 @@ function HtmlWidgetObjectRow(props: { directory: string; widget: HtmlWidgetObjec
       type="button"
       className="flex w-full items-center gap-3 rounded-lg border border-border-base bg-background-base px-3 py-3 text-left shadow-sm transition-colors hover:bg-surface-weak/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base"
       onClick={() => {
-        void openBenchRoute({
+        void openLibrary({
+          type: "object",
           directory: props.directory,
           target: createBenchObjectTarget("html-widget", props.widget.objectID),
-          mode: BENCH_MODE_REQUEST_POLICY,
-          autoOpen: null,
         })
       }}
     >
@@ -1838,7 +1819,7 @@ function WidgetsTab(props: { directories: string[] }) {
 // ---------------------------------------------------------------------------
 
 function MediaObjectRow(props: { object: MediaLibraryObject; directory: string }) {
-  const openBenchRoute = useOpenBench()
+  const openLibrary = useLibraryOpen()
   const viewID =
     props.object.kind === "media-presentation" ? MEDIA_GALLERY_VIEW_ID : RENDERED_OBJECT_VIEW_ID
   const viewQuery = useQuery({
@@ -1864,11 +1845,10 @@ function MediaObjectRow(props: { object: MediaLibraryObject; directory: string }
       <button
         type="button"
         onClick={() => {
-          void openBenchRoute({
+          void openLibrary({
+            type: "object",
             directory: props.directory,
             target: createBenchObjectTarget(props.object.kind, props.object.objectID),
-            mode: BENCH_MODE_REQUEST_POLICY,
-            autoOpen: null,
           })
         }}
         className="flex w-full items-center gap-3 rounded-lg border border-border-base bg-background-base px-3 py-3 text-left shadow-sm transition-colors hover:bg-surface-weak/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base"
@@ -1910,11 +1890,10 @@ function MediaObjectRow(props: { object: MediaLibraryObject; directory: string }
     <button
       type="button"
       onClick={() => {
-        void openBenchRoute({
+        void openLibrary({
+          type: "object",
           directory: props.directory,
           target: createBenchObjectTarget("media-presentation", props.object.objectID),
-          mode: BENCH_MODE_REQUEST_POLICY,
-          autoOpen: null,
         })
       }}
       className="flex w-full items-center gap-3 rounded-lg border border-border-base bg-background-base px-3 py-3 text-left shadow-sm transition-colors hover:bg-surface-weak/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base"
@@ -2201,7 +2180,7 @@ function LazyMermaidObjectCard(props: {
   object: MermaidLibraryObject
   initiallyHydrated: boolean
 }) {
-  const openBenchRoute = useOpenBench()
+  const openLibrary = useLibraryOpen()
   const [hydrated, setHydrated] = useState(props.initiallyHydrated)
   const [inView, setInView] = useState(props.initiallyHydrated)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -2261,11 +2240,10 @@ function LazyMermaidObjectCard(props: {
           minimalActions
           disableRevealAnimation
           onFullscreenOpen={() => {
-            void openBenchRoute({
+            void openLibrary({
+              type: "object",
               directory: props.directory,
               target: createBenchObjectTarget("mermaid", props.object.objectID),
-              mode: BENCH_MODE_REQUEST_POLICY,
-              autoOpen: null,
             })
           }}
           renderWrapper={(diagramElement, actions) => (
@@ -2722,8 +2700,7 @@ function DiagramsTab(props: { directories: string[]; active: boolean }) {
 
 export function LibraryPanel({
   directories,
-  onOpenResource,
-  onOpenQuestionSet,
+  onOpen,
   initialTab,
 }: LibraryPanelProps) {
   const [activeTab, setActiveTab] = useState<LibraryTab>(initialTab ?? "resources")
@@ -2751,7 +2728,21 @@ export function LibraryPanel({
     setActiveTab(tab)
   }
 
+  const openResource = (
+    directory: string,
+    resource: LibraryPanelResourceTarget,
+    options?: ResourceOpenOptions,
+  ) => {
+    void onOpen({
+      type: "resource",
+      directory,
+      resource,
+      ...(options ? { options } : {}),
+    })
+  }
+
   return (
+    <LibraryOpenContext.Provider value={onOpen}>
     <div data-component="library-panel" className="space-y-6">
       <div className="flex gap-1 border-b border-border-base">
         {LIBRARY_TABS.map(({ tab, labelKey }) => (
@@ -2771,13 +2762,13 @@ export function LibraryPanel({
       </div>
 
       {activeTab === "resources" ? (
-        <ResourcesTab directories={directories} onOpenResource={onOpenResource} />
+        <ResourcesTab directories={directories} onOpenResource={openResource} />
       ) : null}
 
       {activeTab === "flashcards" ? <FlashcardsTab directories={directories} /> : null}
 
       {activeTab === "question-sets" ? (
-        <QuestionSetsTab directories={directories} onOpenQuestionSet={onOpenQuestionSet} />
+        <QuestionSetsTab directories={directories} />
       ) : null}
 
       {activeTab === "widgets" ? <WidgetsTab directories={directories} /> : null}
@@ -2788,5 +2779,6 @@ export function LibraryPanel({
 
       {activeTab === "media" ? <MediaTab directories={directories} /> : null}
     </div>
+    </LibraryOpenContext.Provider>
   )
 }

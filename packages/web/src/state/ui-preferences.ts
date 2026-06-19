@@ -5,14 +5,7 @@ import { createPlatformJsonStorage } from "../context/platform"
 
 export const UI_PREFERENCES_STORAGE_KEY = "buddy.ui.v1"
 
-export type NotebookMainPaneTab =
-  | "chat"
-  | "resources"
-  | "diagrams"
-  | "flashcard"
-  | "instructions"
-  | "question-set"
-  | "library"
+export type RightWorkspaceSelector = "explorer" | "library"
 
 const DEFAULT_SIDEBAR_WIDTH_PX = 344
 const DEFAULT_PROJECT_FILE_TREE_OPEN = false
@@ -27,8 +20,9 @@ type PersistedUiPreferences = {
   rightSidebarOpen?: boolean
   rightSidebarWidth?: number
   projectFileTreeOpen?: boolean
-  mainPaneTab?: NotebookMainPaneTab
+  mainPaneTab?: unknown
   rightSidebarTab?: UiPreferencesStore["rightSidebarTab"]
+  rightWorkspaceLastSelectorByDirectory?: Record<string, unknown>
 }
 
 function isPersistedUiPreferences(value: unknown): value is PersistedUiPreferences {
@@ -51,13 +45,12 @@ export type UiPreferencesStore = {
   rightSidebarOpen: boolean
   rightSidebarWidth: number
   projectFileTreeOpen: boolean
-  mainPaneTab: NotebookMainPaneTab
+  rightWorkspaceLastSelectorByDirectory: Record<string, RightWorkspaceSelector>
   rightSidebarTab:
     | "curriculum"
     | "diagrams"
     | "files"
     | "editor"
-    | "question-set"
     | "resources"
     | "agents-md"
     | "capabilities"
@@ -76,14 +69,13 @@ export type UiPreferencesStore = {
   setRightSidebarOpen: (open: boolean) => void
   setRightSidebarWidth: (width: number) => void
   setProjectFileTreeOpen: (open: boolean) => void
-  setMainPaneTab: (tab: NotebookMainPaneTab) => void
+  setRightWorkspaceLastSelector: (directory: string, selector: RightWorkspaceSelector) => void
   setRightSidebarTab: (
     tab:
       | "curriculum"
       | "diagrams"
       | "files"
       | "editor"
-      | "question-set"
       | "resources"
       | "agents-md"
       | "capabilities"
@@ -163,7 +155,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         | "rightSidebarOpen"
         | "rightSidebarWidth"
         | "projectFileTreeOpen"
-        | "mainPaneTab"
+        | "rightWorkspaceLastSelectorByDirectory"
         | "rightSidebarTab"
         | "setLeftSidebarOpen"
         | "setChatLeftSidebarWidth"
@@ -171,7 +163,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         | "setRightSidebarOpen"
         | "setRightSidebarWidth"
         | "setProjectFileTreeOpen"
-        | "setMainPaneTab"
+        | "setRightWorkspaceLastSelector"
         | "setRightSidebarTab"
       > = {
         leftSidebarOpen: true,
@@ -180,7 +172,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         rightSidebarOpen: false,
         rightSidebarWidth: 380,
         projectFileTreeOpen: DEFAULT_PROJECT_FILE_TREE_OPEN,
-        mainPaneTab: "chat",
+        rightWorkspaceLastSelectorByDirectory: {},
         rightSidebarTab: "curriculum",
         setLeftSidebarOpen(open) {
           set((state) => {
@@ -212,9 +204,9 @@ export const useUiPreferences = create<UiPreferencesStore>()(
             state.projectFileTreeOpen = open
           })
         },
-        setMainPaneTab(tab) {
+        setRightWorkspaceLastSelector(directory, selector) {
           set((state) => {
-            state.mainPaneTab = tab
+            state.rightWorkspaceLastSelectorByDirectory[directory] = selector
           })
         },
         setRightSidebarTab(tab) {
@@ -231,7 +223,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     }),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 12,
+      version: 14,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = isPersistedUiPreferences(persistedState) ? persistedState : undefined
@@ -245,18 +237,14 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           rightSidebarOpen: state?.rightSidebarOpen ?? false,
           rightSidebarWidth: state?.rightSidebarWidth ?? DEFAULT_SIDEBAR_WIDTH_PX,
           projectFileTreeOpen: state?.projectFileTreeOpen ?? DEFAULT_PROJECT_FILE_TREE_OPEN,
-          mainPaneTab:
-            state?.mainPaneTab === "resources"
-              ? "resources"
-              : state?.mainPaneTab === "diagrams"
-                ? "diagrams"
-                : state?.mainPaneTab === "flashcard"
-                  ? "flashcard"
-                  : state?.mainPaneTab === "instructions"
-                    ? "instructions"
-                    : state?.mainPaneTab === "question-set"
-                      ? "question-set"
-                      : "chat",
+          rightWorkspaceLastSelectorByDirectory: Object.fromEntries(
+            Object.entries(state?.rightWorkspaceLastSelectorByDirectory ?? {}).map(
+              ([directory, selector]) => [
+                directory,
+                selector === "library" ? "library" : "explorer",
+              ],
+            ),
+          ),
           rightSidebarTab:
             state?.rightSidebarTab === "settings"
               ? "settings"
@@ -268,17 +256,15 @@ export const useUiPreferences = create<UiPreferencesStore>()(
                     ? "resources"
                     : state?.rightSidebarTab === "agents-md"
                       ? "agents-md"
-                        : state?.rightSidebarTab === "files"
-                          ? "files"
-                          : state?.rightSidebarTab === "question-set"
-                            ? "question-set"
-                            : state?.rightSidebarTab === "editor"
-                              ? "editor"
-                              : state?.rightSidebarTab === "diagrams"
-                                ? "diagrams"
-                                : state?.rightSidebarTab === "palette"
-                                  ? "palette"
-                                  : "curriculum",
+                      : state?.rightSidebarTab === "files"
+                        ? "files"
+                        : state?.rightSidebarTab === "editor"
+                          ? "editor"
+                          : state?.rightSidebarTab === "diagrams"
+                            ? "diagrams"
+                            : state?.rightSidebarTab === "palette"
+                              ? "palette"
+                              : "curriculum",
         }
       },
       partialize(state) {
@@ -291,7 +277,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           rightSidebarOpen: state.rightSidebarOpen,
           rightSidebarWidth: state.rightSidebarWidth,
           projectFileTreeOpen: state.projectFileTreeOpen,
-          mainPaneTab: state.mainPaneTab,
+          rightWorkspaceLastSelectorByDirectory: state.rightWorkspaceLastSelectorByDirectory,
           rightSidebarTab: state.rightSidebarTab,
         }
       },

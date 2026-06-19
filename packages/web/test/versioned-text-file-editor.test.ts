@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  shouldApplyVersionedTextFileExternalRefresh,
   resolveVersionedTextFileSaveRetryContent,
   shouldUseSavedVersionedTextFileContent,
   shouldShowVersionedTextFileSaveRetry,
@@ -101,6 +102,41 @@ describe("versioned text file editor flush rules", () => {
         existedBeforeSave: true,
         currentContent: "newer edit",
         requestedContent: EDITED_CONTENT,
+      }),
+    ).toBe(false)
+  })
+
+  test("applies external refreshes only while the request and clean state are current", () => {
+    expect(
+      shouldApplyVersionedTextFileExternalRefresh({
+        requestID: 2,
+        latestRequestID: 2,
+        saving: false,
+        hasConflict: false,
+        content: PERSISTED_CONTENT,
+        savedContent: PERSISTED_CONTENT,
+      }),
+    ).toBe(true)
+
+    expect(
+      shouldApplyVersionedTextFileExternalRefresh({
+        requestID: 1,
+        latestRequestID: 2,
+        saving: false,
+        hasConflict: false,
+        content: PERSISTED_CONTENT,
+        savedContent: PERSISTED_CONTENT,
+      }),
+    ).toBe(false)
+
+    expect(
+      shouldApplyVersionedTextFileExternalRefresh({
+        requestID: 2,
+        latestRequestID: 2,
+        saving: false,
+        hasConflict: false,
+        content: EDITED_CONTENT,
+        savedContent: PERSISTED_CONTENT,
       }),
     ).toBe(false)
   })

@@ -36,21 +36,13 @@ const NOTEBOOK_PERSISTENCE_SUFFIX_PREFIX = "notebook"
 const READER_REVEAL_EASING = "ease-[cubic-bezier(0.23,1,0.32,1)]"
 const READER_REVEAL_DURATION_CLASS = "duration-220"
 
-const RESOURCE_STATUS_PREPARING = "preparing"
-const RESOURCE_STATUS_UNSUPPORTED = "unsupported"
-const RESOURCE_STATUS_ERROR = "error"
-
 export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReaderPaneProps) {
   const [readerReady, setReaderReady] = useState(false)
   const [readerFailed, setReaderFailed] = useState(false)
   const resourceSupported = isSupportedReadingResourcePath(props.resourcePath)
-  const resourceBlocked =
-    props.resourceStatus === RESOURCE_STATUS_PREPARING ||
-    props.resourceStatus === RESOURCE_STATUS_UNSUPPORTED ||
-    props.resourceStatus === RESOURCE_STATUS_ERROR
   const readerBlobQuery = useQuery({
     ...readingResourceBlobQueryOptions(props.directory, props.resourcePath),
-    enabled: Boolean(props.resourcePath) && resourceSupported && !resourceBlocked,
+    enabled: Boolean(props.resourcePath) && resourceSupported,
   })
 
   useEffect(() => {
@@ -109,34 +101,6 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
     )
   }
 
-  if (props.resourceStatus === RESOURCE_STATUS_PREPARING) {
-    return (
-      <div className="h-full bg-background-base">
-        <div className="sr-only">{language.t("sidebar.resourcesPreparing")}</div>
-        {renderOpeningState(language.t("sidebar.resourcesPreparing"))}
-      </div>
-    )
-  }
-
-  if (props.resourceStatus === RESOURCE_STATUS_UNSUPPORTED) {
-    return (
-      <div className="flex h-full items-center justify-center px-6">
-        <div className="max-w-xl rounded-2xl border border-border-critical-base/40 bg-surface-critical-base/10 px-4 py-3 text-sm text-icon-critical-base">
-          {language.t("sidebar.resourcesUnsupportedInReader")}
-        </div>
-      </div>
-    )
-  }
-
-  if (props.resourceStatus === RESOURCE_STATUS_ERROR) {
-    return (
-      <div className="flex h-full items-center justify-center px-6">
-        <div className="max-w-xl rounded-2xl border border-border-critical-base/40 bg-surface-critical-base/10 px-4 py-3 text-sm text-icon-critical-base">
-          {language.t("sidebar.resourcesError")}
-        </div>
-      </div>
-    )
-  }
   const readerSource = useMemo<FoliateReaderSource | null>(() => {
     if (!readerBlobQuery.data) return null
     return {

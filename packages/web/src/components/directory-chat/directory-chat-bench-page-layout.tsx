@@ -20,7 +20,7 @@ import { readDesktopTitlebarBottomOffset } from "@/components/layout/desktop-tit
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
-  BENCH_LAYOUT_PROFILE_BALANCED,
+  BENCH_LAYOUT_PROFILE_DOCUMENT,
   resolveBenchLayoutDefaults,
   type BenchChatLayoutMode,
   type BenchLayoutProfileID,
@@ -237,7 +237,7 @@ export function readInitialChatPanelWidth(profile: BenchLayoutProfileID): number
 
 function resolveFloatingChatMinimumSize(
   containerSize: FloatingChatContainerSize,
-  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_BALANCED,
+  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_DOCUMENT,
 ): FloatingChatMinimumSize {
   const defaults = resolveBenchLayoutDefaults({
     profile,
@@ -252,7 +252,7 @@ function resolveFloatingChatMinimumSize(
 
 export function resolveFloatingChatSize(
   containerSize: FloatingChatContainerSize,
-  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_BALANCED,
+  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_DOCUMENT,
 ): FloatingChatSize {
   const defaults = resolveBenchLayoutDefaults({
     profile,
@@ -268,7 +268,7 @@ export function resolveFloatingChatSize(
 function clampFloatingChatSize(
   size: FloatingChatSize,
   containerSize: FloatingChatContainerSize,
-  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_BALANCED,
+  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_DOCUMENT,
 ): FloatingChatSize {
   const defaults = resolveBenchLayoutDefaults({
     profile,
@@ -289,7 +289,7 @@ function clampFloatingChatSize(
 function resolveFloatingChatBounds(
   containerSize: FloatingChatContainerSize,
   size: FloatingChatSize,
-  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_BALANCED,
+  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_DOCUMENT,
 ): FloatingChatBounds {
   const defaults = resolveBenchLayoutDefaults({
     profile,
@@ -355,7 +355,7 @@ export function resolveDefaultFloatingChatPosition(
 export function clampFloatingChatRect(
   rect: FloatingChatRect,
   containerSize: FloatingChatContainerSize,
-  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_BALANCED,
+  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_DOCUMENT,
 ): FloatingChatRect {
   const size = clampFloatingChatSize(rect, containerSize, profile)
   const position = clampFloatingChatPosition(
@@ -373,7 +373,7 @@ export function clampFloatingChatRect(
 
 export function resolveDefaultFloatingChatRect(
   containerSize: FloatingChatContainerSize,
-  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_BALANCED,
+  profile: BenchLayoutProfileID = BENCH_LAYOUT_PROFILE_DOCUMENT,
 ): FloatingChatRect {
   return resolveBenchLayoutDefaults({
     profile,
@@ -442,7 +442,7 @@ function resizeFloatingChatRect(input: {
   )
 }
 
-function BenchContent(props: { bordered: boolean; children: ReactNode }) {
+export function BenchContent(props: { bordered: boolean; children: ReactNode }) {
   return (
     <motion.div
       layout

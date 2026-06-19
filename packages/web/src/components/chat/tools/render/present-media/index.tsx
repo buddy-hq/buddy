@@ -47,8 +47,8 @@ import {
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import {
   WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP,
+  WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH,
   WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH,
-  WORKSPACE_FILE_OPEN_TARGET_PANEL,
   WORKSPACE_FILE_OPEN_TARGET_READING,
   WORKSPACE_FILE_OPEN_TARGET_REVEAL,
   type WorkspaceFileOpenTarget,
@@ -159,9 +159,9 @@ function MediaFileIcon(props: { item: PresentMediaResolvedItem; className?: stri
 // ---------------------------------------------------------------------------
 
 function fileOpenTargetLabel(target: WorkspaceFileOpenTarget, revealLabel: string) {
-  if (target === WORKSPACE_FILE_OPEN_TARGET_READING) return "Read in Buddy"
-  if (target === WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH) return "Open on Bench"
-  if (target === WORKSPACE_FILE_OPEN_TARGET_PANEL) return "Open in Buddy"
+  if (target === WORKSPACE_FILE_OPEN_TARGET_READING) return "Open file"
+  if (target === WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH) return "Open file"
+  if (target === WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH) return "Open file"
   if (target === WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP) return "Open in default app"
   if (target === WORKSPACE_FILE_OPEN_TARGET_REVEAL) return revealLabel
   return "Copy path"
@@ -172,7 +172,9 @@ function FileOpenTargetIcon(props: { target: WorkspaceFileOpenTarget }) {
   if (props.target === WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH) {
     return <FileTextIcon aria-hidden />
   }
-  if (props.target === WORKSPACE_FILE_OPEN_TARGET_PANEL) return <FolderOpenIcon aria-hidden />
+  if (props.target === WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH) {
+    return <FolderOpenIcon aria-hidden />
+  }
   if (props.target === WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP) {
     return <ExternalLinkIcon aria-hidden />
   }

@@ -2,17 +2,19 @@ import type { MouseEvent } from "react"
 import { useEffect, useState } from "react"
 import { useLocation, useNavigate, useRouterState } from "@tanstack/react-router"
 import { Button, MoveLeftIcon } from "@buddy/ui"
-import { ScrollTextIcon, SquareLibraryIcon, type LucideIcon } from "lucide-react"
+import { type LucideIcon } from "lucide-react"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import {
+  BENCH_CHAT_LAYOUT_FLOATING,
+  BENCH_CHAT_SEARCH_PARAM,
   isBenchRoutePathname,
+  readBenchChatLayoutMode,
   readBenchOpenPolicyStateFromLocation,
 } from "@/lib/bench-navigation"
 import { guardBenchLeaveBeforeNavigation } from "@/lib/bench-leave-guard"
 import { decodeDirectory } from "@/lib/directory-token"
 import { useUiPreferences } from "@/state/ui-preferences"
-import type { NotebookMainPaneTab } from "@/state/ui-preferences"
 import { isTitlebarInteractiveTarget } from "./desktop-titlebar-helpers"
 import {
   LayoutLeftIcon,
@@ -33,8 +35,9 @@ type DesktopTitlebarProps = {
   isTurnActive?: boolean
   variant?: "chat" | "shell"
   leftSidebarOpen?: boolean
-  mainPaneTab?: NotebookMainPaneTab
-  onMainPaneTabChange?: (tab: NotebookMainPaneTab) => void
+  rightSidebarOpen?: boolean
+  onLeftSidebarToggle?: () => void
+  onRightSidebarToggle?: () => void
 }
 
 const ROOT_TITLEBAR_HEIGHT_CLASS = "h-10"
@@ -82,6 +85,15 @@ function readDirectoryTokenFromPathname(pathname: string) {
   return pathname.split("/").find((segment) => segment.length > 0)
 }
 
+function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function readSearchParam(search: unknown, key: string): unknown {
+  if (!isUnknownRecord(search)) return undefined
+  return search[key]
+}
+
 export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const placement = props.placement ?? "root"
   const titlebarHeightClass =
@@ -95,11 +107,9 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const pathname = location.pathname
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
   const setLeftSidebarOpen = useUiPreferences((state) => state.setLeftSidebarOpen)
-  const rightSidebarOpen = useUiPreferences((state) => state.rightSidebarOpen)
+  const persistedRightSidebarOpen = useUiPreferences((state) => state.rightSidebarOpen)
   const rightSidebarWidth = useUiPreferences((state) => state.rightSidebarWidth)
-  const rightSidebarTab = useUiPreferences((state) => state.rightSidebarTab)
   const setRightSidebarOpen = useUiPreferences((state) => state.setRightSidebarOpen)
-  const setRightSidebarTab = useUiPreferences((state) => state.setRightSidebarTab)
   const setRightSidebarWidth = useUiPreferences((state) => state.setRightSidebarWidth)
   const routerState = useRouterState()
   const focusedBenchMatch = routerState.matches.find(
@@ -107,6 +117,12 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       match.routeId === "/$directory/_bench" || match.routeId.startsWith("/$directory/_bench/"),
   )
   const isFocusedBenchPage = focusedBenchMatch !== undefined || isBenchRoutePathname(pathname)
+  const isFloatingBenchPage =
+    isFocusedBenchPage &&
+    readBenchChatLayoutMode(readSearchParam(location.search, BENCH_CHAT_SEARCH_PARAM)) ===
+      BENCH_CHAT_LAYOUT_FLOATING
+  const rightSidebarOpen = props.rightSidebarOpen ?? persistedRightSidebarOpen
+  const isParkedBenchPage = isFocusedBenchPage && !isFloatingBenchPage && !rightSidebarOpen
   const directoryToken = isFocusedBenchPage
     ? readDirectoryParam(focusedBenchMatch?.params) ??
       readDirectoryParamFromMatches(routerState.matches) ??
@@ -152,13 +168,14 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       : 0
 
   function onToggleRightSidebar() {
-    if (rightSidebarOpen) {
-      setRightSidebarOpen(false)
+    if (props.onRightSidebarToggle) {
+      props.onRightSidebarToggle()
       return
     }
 
-    if (rightSidebarTab !== "files") {
-      setRightSidebarTab("files")
+    if (rightSidebarOpen) {
+      setRightSidebarOpen(false)
+      return
     }
 
     if (rightSidebarWidth < getRightSidebarMinWidth("files")) {
@@ -166,6 +183,15 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
     }
 
     setRightSidebarOpen(true)
+  }
+
+  function onToggleLeftSidebar() {
+    if (props.onLeftSidebarToggle) {
+      props.onLeftSidebarToggle()
+      return
+    }
+
+    setLeftSidebarOpen(!resolvedLeftSidebarOpen)
   }
 
   function onMouseDown(event: MouseEvent<HTMLElement>) {
@@ -218,6 +244,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       },
       replace: true,
     })
+    setRightSidebarOpen(false)
   }
 
   const rightSidebarToggle = showSidebarToggles ? (
@@ -226,7 +253,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         type="button"
         data-action="titlebar-toggle-right-sidebar"
         variant="ghost"
-        className="h-6 w-8 p-0 box-border text-icon-base hover:bg-surface-base-hover [-webkit-app-region:no-drag]"
+        className="relative h-6 w-8 p-0 box-border text-icon-base hover:bg-surface-base-hover [-webkit-app-region:no-drag]"
         aria-label={
           rightSidebarOpen
             ? language.t("desktopTitlebar.collapseRightPanel")
@@ -245,6 +272,9 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         ) : (
           <TitlebarIcon icon={LayoutRightIcon} />
         )}
+        {isParkedBenchPage ? (
+          <span className="absolute right-1 top-1 size-1.5 rounded-full bg-text-interactive-base" />
+        ) : null}
       </Button>
     </div>
   ) : null
@@ -268,7 +298,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
           ? language.t("desktopTitlebar.collapseLeftPanel")
           : language.t("desktopTitlebar.expandLeftPanel")
       }
-      onClick={() => setLeftSidebarOpen(!resolvedLeftSidebarOpen)}
+      onClick={onToggleLeftSidebar}
     >
       {resolvedLeftSidebarOpen ? (
         <TitlebarIcon icon={LayoutLeftPartialIcon} />
@@ -278,7 +308,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
     </Button>
   )
   const benchBackButton =
-    isFocusedBenchPage && directoryToken ? (
+    isFocusedBenchPage && directoryToken && !isParkedBenchPage ? (
       <div className="flex items-center gap-2 px-3 animate-in fade-in slide-in-from-left-2 duration-300 cubic-bezier(0.23, 1, 0.32, 1)">
         <Button
           type="button"
@@ -336,7 +366,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                 ? language.t("desktopTitlebar.collapseLeftPanel")
                 : language.t("desktopTitlebar.expandLeftPanel")
             }
-            onClick={() => setLeftSidebarOpen(!resolvedLeftSidebarOpen)}
+            onClick={onToggleLeftSidebar}
           >
             {resolvedLeftSidebarOpen ? (
               <TitlebarIcon icon={LayoutLeftPartialIcon} />
@@ -382,40 +412,6 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
             </div>
           ))}
         <div className="flex shrink-0 items-center gap-1 mr-2 ml-auto">
-          {placement === "chat" && !isShellVariant && props.onMainPaneTabChange ? (
-            <div className="flex items-center gap-0.5 [-webkit-app-region:no-drag]">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={language.t("sidebar.mainPane.instructions")}
-                title={language.t("sidebar.mainPane.instructions")}
-                className={`h-7 w-7 transition-colors ${
-                  props.mainPaneTab === "instructions"
-                    ? "bg-surface-raised-base-hover text-icon-base"
-                    : "text-icon-base"
-                }`}
-                onClick={() => props.onMainPaneTabChange?.("instructions")}
-              >
-                <TitlebarIcon icon={ScrollTextIcon} />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={language.t("sidebar.library")}
-                title={language.t("sidebar.library")}
-                className={`h-7 w-7 transition-colors ${
-                  props.mainPaneTab === "library"
-                    ? "bg-surface-raised-base-hover text-icon-base"
-                    : "text-icon-base"
-                }`}
-                onClick={() => props.onMainPaneTabChange?.("library")}
-              >
-                <TitlebarIcon icon={SquareLibraryIcon} />
-              </Button>
-            </div>
-          ) : null}
           {!isShellVariant && rightSidebarToggle}
 
           {isWindows ? (

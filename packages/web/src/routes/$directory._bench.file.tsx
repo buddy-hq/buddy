@@ -1,16 +1,10 @@
 import { createFileRoute, useLocation } from "@tanstack/react-router"
-import {
-  AlertCircleIcon,
-  ClipboardCopyIcon,
-  Loader2Icon,
-} from "lucide-react"
-import { useMemo } from "react"
-import { toast } from "@buddy/ui"
-import {
-  BenchSurfaceViewer,
-  type BenchViewerAction,
-} from "@/components/bench/bench-viewer-shell"
+import { AlertCircleIcon, Loader2Icon } from "lucide-react"
+import { useMemo, useState } from "react"
+import { BenchMediaPreview } from "@/components/bench/bench-media-preview"
 import { BenchStaticContextProvider } from "@/components/bench/bench-static-context-provider"
+import { BenchSurfaceViewer } from "@/components/bench/bench-viewer-shell"
+import { SourceFileBenchView } from "@/components/bench/source-file-bench-view"
 import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
 import {
   routeString,
@@ -18,16 +12,24 @@ import {
   workspaceFileRef,
   workspaceFileTarget,
 } from "@/components/bench/bench-context-utils"
-import { BenchMediaPreview } from "@/components/bench/bench-media-preview"
-import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
 import { DirectoryChatReadingPage } from "@/components/directory-chat/directory-chat-reading-page"
-import { stringifyError } from "@/lib/api-client"
-import { resolveAssetUrl } from "@/lib/resource-url"
-import { buildProjectFileRawUrl } from "@/lib/project-file-raw-url"
+import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
+import {
+  WorkspaceFileActionsMenu,
+  WorkspaceFileLargeWarning,
+} from "@/components/files/workspace-file-actions"
 import { decodeDirectory } from "@/lib/directory-token"
-import { classifyWorkspaceMedia, readWorkspaceFileRawMetadata } from "@/lib/workspace-file-media"
-import { fileNameFromPath } from "@/lib/workspace-file-paths"
+import { buildProjectFileRawUrl } from "@/lib/project-file-raw-url"
+import { resolveAssetUrl } from "@/lib/resource-url"
+import {
+  canOpenWorkspaceFileOnBench,
+  classifyWorkspaceMedia,
+  isWorkspaceFileOverSoftLimit,
+  readWorkspaceFileRawMetadata,
+} from "@/lib/workspace-file-media"
+import { fileNameFromPath, workspaceFileInstanceKey } from "@/lib/workspace-file-paths"
 import { isSupportedReadingResourcePath } from "@/state/resources-query"
+import { consumeWorkspaceFileLargeOpenApproval } from "@/state/workspace-file-open-dialog-store"
 
 type ProjectFileBenchSearch = {
   path?: string
@@ -37,15 +39,13 @@ export const Route = createFileRoute("/$directory/_bench/file")({
   validateSearch: (search: Record<string, unknown>): ProjectFileBenchSearch => ({
     path: typeof search.path === "string" ? search.path : undefined,
   }),
-  loaderDeps: ({ search }) => ({
-    path: search.path,
-  }),
+  loaderDeps: ({ search }) => ({ path: search.path }),
   loader: async ({ deps, params }) => {
-    if (!deps.path) {
-      throw new Error("Missing file path.")
-    }
-    const directory = decodeDirectory(params.directory)
-    return readWorkspaceFileRawMetadata({ directory, path: deps.path })
+    if (!deps.path) throw new Error("Missing file path.")
+    return readWorkspaceFileRawMetadata({
+      directory: decodeDirectory(params.directory),
+      path: deps.path,
+    })
   },
   pendingComponent: ProjectFileBenchPending,
   errorComponent: ProjectFileBenchError,
@@ -57,8 +57,8 @@ function ProjectFileBenchPending() {
     <BenchStaticContextProvider
       status="loading"
       metadata={["surface_status: loading"]}
-      content="File Bench is visible and loading the requested file preview."
-      hints={["Try bench_read_context again after the file preview finishes loading."]}
+      content="File Bench is visible and loading the requested file."
+      hints={["Try bench_read_context again after the file finishes loading."]}
     >
       <BenchSurfaceViewer title="Loading file">
         <div className="flex h-full items-center justify-center text-sm text-text-weak">
@@ -95,13 +95,18 @@ function ProjectFileBenchRoute() {
 
   try {
     const directory = decodeDirectory(params.directory)
-    if (!search.path) {
-      return <ProjectFileBenchError />
-    }
+    if (!search.path) return <ProjectFileBenchError />
     if (isSupportedReadingResourcePath(search.path)) {
       return <DirectoryChatReadingPage directory={directory} resourcePath={search.path} />
     }
-    return <ProjectFileBenchView directory={directory} path={search.path} metadata={metadata} />
+    return (
+      <ProjectFileBenchView
+        key={workspaceFileInstanceKey({ directory, path: search.path })}
+        directory={directory}
+        path={search.path}
+        metadata={metadata}
+      />
+    )
   } catch {
     return <DirectoryInvalidNotebook />
   }
@@ -110,20 +115,61 @@ function ProjectFileBenchRoute() {
 function ProjectFileBenchView(props: {
   directory: string
   path: string
-  metadata: {
-    mimeType: string | undefined
-    sizeBytes: number | undefined
+  metadata: { mimeType: string | undefined; sizeBytes: number | undefined }
+}) {
+  const [approved, setApproved] = useState(() =>
+    consumeWorkspaceFileLargeOpenApproval(props.directory, props.path),
+  )
+  const classification = classifyWorkspaceMedia({ path: props.path, ...props.metadata })
+  const overSoftLimit = isWorkspaceFileOverSoftLimit({ path: props.path, ...props.metadata })
+
+  if (overSoftLimit && !approved && typeof props.metadata.sizeBytes === "number") {
+    return (
+      <BenchStaticContextProvider
+        status="ready"
+        metadata={[
+          "surface_status: warning",
+          `size_bytes: ${props.metadata.sizeBytes}`,
+          "large_file_approved: false",
+        ]}
+        content={`A large-file warning is visible for ${props.path}. The file has not been opened yet.`}
+        hints={["The user can choose Open anyway or use an external file action."]}
+      >
+        <WorkspaceFileLargeWarning
+          directory={props.directory}
+          path={props.path}
+          sizeBytes={props.metadata.sizeBytes}
+          onOpenAnyway={() => setApproved(true)}
+        />
+      </BenchStaticContextProvider>
+    )
   }
+
+  if (
+    classification.renderMode === "image" ||
+    classification.renderMode === "audio" ||
+    classification.renderMode === "video"
+  ) {
+    return <ProjectFileMediaView {...props} renderMode={classification.renderMode} />
+  }
+
+  if (canOpenWorkspaceFileOnBench({ path: props.path, ...props.metadata })) {
+    return <SourceFileBenchView directory={props.directory} path={props.path} />
+  }
+
+  return <ProjectFileUnsupportedView {...props} mediaKind={classification.mediaKind} />
+}
+
+function ProjectFileMediaView(props: {
+  directory: string
+  path: string
+  metadata: { mimeType: string | undefined; sizeBytes: number | undefined }
+  renderMode: "image" | "audio" | "video"
 }) {
   const location = useLocation()
   const rawUrl = resolveAssetUrl(
     buildProjectFileRawUrl({ directory: props.directory, path: props.path }),
   )
-  const classification = classifyWorkspaceMedia({
-    path: props.path,
-    mimeType: props.metadata.mimeType,
-    sizeBytes: props.metadata.sizeBytes,
-  })
   const title = fileNameFromPath(props.path) || props.path
   const contextProvider = useMemo(
     () => ({
@@ -133,69 +179,69 @@ function ProjectFileBenchView(props: {
           directory: props.directory,
           title,
           path: props.path,
-          route: routeString({
-            pathname: location.pathname,
-            searchStr: location.searchStr,
-          }),
+          route: routeString({ pathname: location.pathname, searchStr: location.searchStr }),
           status: "ready",
         }),
         metadata: [
           `mime_type: ${props.metadata.mimeType ?? "unknown"}`,
           `size_bytes: ${props.metadata.sizeBytes ?? "unknown"}`,
-          `render_mode: ${classification.renderMode}`,
+          `render_mode: ${props.renderMode}`,
         ],
-        content: `File preview is open on Bench: ${props.path}. The visible preview uses render mode ${classification.renderMode}. Binary and media bytes are not inlined in Bench context.`,
+        content: `Media preview is open on Bench: ${props.path}. Binary bytes are not inlined in Bench context.`,
         refs: [
-          workspaceFileRef({
-            path: props.path,
-            note: "File currently visible on Bench.",
-          }),
-          ...urlRef({
-            url: rawUrl,
-            note: "Raw file URL.",
-          }),
+          workspaceFileRef({ path: props.path, note: "File currently visible on Bench." }),
+          ...urlRef({ url: rawUrl, note: "Raw file URL." }),
         ],
-        hints: ["Use file/read/PDF/image-capable tools to inspect actual file content."],
+        hints: ["Use file, image, or media-capable tools to inspect the file bytes."],
       }),
     }),
-    [
-      classification.renderMode,
-      location.pathname,
-      location.searchStr,
-      props.directory,
-      props.metadata.mimeType,
-      props.metadata.sizeBytes,
-      props.path,
-      rawUrl,
-      title,
-    ],
+    [location.pathname, location.searchStr, props, rawUrl, title],
   )
   useRegisterBenchContextProvider(contextProvider)
-  const actions = useMemo<BenchViewerAction[]>(
-    () => [
-      {
-        label: "Copy path",
-        dataAction: "project-file-copy-path",
-        icon: <ClipboardCopyIcon className="size-4" aria-hidden />,
-        onClick: () => {
-          void navigator.clipboard.writeText(props.path).then(
-            () => toast("Path copied"),
-            (error: unknown) => toast(stringifyError(error)),
-          )
-        },
-      },
-    ],
-    [props.path],
-  )
 
   return (
-    <BenchSurfaceViewer title={title} subtitle={props.path} actions={actions}>
+    <BenchSurfaceViewer
+      title={title}
+      subtitle={props.path}
+      toolbar={<WorkspaceFileActionsMenu directory={props.directory} path={props.path} />}
+    >
       <BenchMediaPreview
         title={props.path}
         src={rawUrl}
-        renderMode={classification.renderMode}
+        renderMode={props.renderMode}
         displayPath={props.path}
       />
     </BenchSurfaceViewer>
+  )
+}
+
+function ProjectFileUnsupportedView(props: {
+  directory: string
+  path: string
+  metadata: { mimeType: string | undefined; sizeBytes: number | undefined }
+  mediaKind: string
+}) {
+  const title = fileNameFromPath(props.path) || props.path
+  return (
+    <BenchStaticContextProvider
+      status="error"
+      metadata={[
+        "surface_status: unsupported",
+        `media_kind: ${props.mediaKind}`,
+        `mime_type: ${props.metadata.mimeType ?? "unknown"}`,
+      ]}
+      content={`Buddy cannot preview or edit ${props.path}. External file actions are available.`}
+      hints={["Use the file actions menu to open, reveal, or copy the path."]}
+    >
+      <BenchSurfaceViewer
+        title={title}
+        subtitle={props.path}
+        toolbar={<WorkspaceFileActionsMenu directory={props.directory} path={props.path} />}
+      >
+        <div className="flex h-full items-center justify-center p-6 text-center text-sm text-text-weak">
+          This file cannot be opened in Buddy.
+        </div>
+      </BenchSurfaceViewer>
+    </BenchStaticContextProvider>
   )
 }

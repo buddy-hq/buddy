@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useLocation } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { Button, toast } from "@buddy/ui"
 import { DirectoryInvalidNotebook } from "./directory-invalid-notebook"
 import { DirectoryChatReadingReaderPane } from "@/components/directory-chat/directory-chat-reading-reader-pane"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
@@ -22,7 +23,9 @@ import { useChatStore } from "@/state/chat-store"
 import { getPromptDraft, usePromptStore } from "@/state/prompt-store"
 import { resourceFileExtensionFromFormat, resourcesQueryOptions } from "@/state/resources-query"
 import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runtime"
-import { type ResourceRecord } from "@/state/resource-actions"
+import { addResource, rebuildResource, type ResourceRecord } from "@/state/resource-actions"
+import { BENCH_CHAT_LAYOUT_DOCKED, useOpenBench } from "@/lib/bench-navigation"
+import { stringifyError } from "@/lib/api-client"
 
 type DirectoryChatReadingPageProps = {
   directory: string
@@ -43,6 +46,11 @@ function createReadingSelectionKey() {
 
 export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const location = useLocation()
+  const queryClient = useQueryClient()
+  const openBenchRoute = useOpenBench()
+  const [processing, setProcessing] = useState(false)
+  const [processingError, setProcessingError] = useState<string | undefined>(undefined)
+  const [processBannerDismissed, setProcessBannerDismissed] = useState(false)
   const { controller } = useDirectoryNotebookRouteContext()
   const normalizedPath = normalizeRelativePath(props.resourcePath)
   const resourceName = fileNameFromPath(normalizedPath) || language.t("sidebar.resources")
@@ -90,6 +98,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       (resource) => normalizeResourceRecordPath(resource) === normalizedPath,
     )
   }, [normalizedPath, props.resourceKey, resourcesQuery.data?.processed])
+  const canProcessResource = !resourceRecord?.objectID && !processBannerDismissed
   const readerStatus =
     resourceRecord?.status === "error"
       ? "error"
@@ -227,6 +236,44 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   )
   useRegisterBenchContextProvider(contextProvider)
   useEffect(() => {
+    if (!readyDirectory || props.resourceKey || !resourceRecord?.objectID) return
+    void openBenchRoute({
+      directory: readyDirectory,
+      target: {
+        type: "object",
+        ref: {
+          kind: "resource",
+          objectID: resourceRecord.objectID,
+          revisionID: null,
+          itemID: null,
+        },
+        viewID: "reader",
+      },
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+      autoOpen: null,
+    })
+  }, [openBenchRoute, props.resourceKey, readyDirectory, resourceRecord?.objectID])
+
+  async function processResourceForBuddy() {
+    if (!readyDirectory || !normalizedPath || processing) return
+    setProcessing(true)
+    setProcessingError(undefined)
+    try {
+      if (resourceRecord?.objectID) {
+        await rebuildResource(readyDirectory, { resourceKey: resourceRecord.objectID })
+      } else {
+        await addResource(readyDirectory, { sourcePath: normalizedPath })
+      }
+      await queryClient.invalidateQueries({ queryKey: resourcesQueryOptions(readyDirectory).queryKey })
+    } catch (error) {
+      setProcessingError(stringifyError(error))
+      toast.error(stringifyError(error))
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  useEffect(() => {
     if (!readyDirectory) {
       return
     }
@@ -348,7 +395,40 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   }
 
   return readyDirectory && normalizedPath ? (
-    <div data-component="directory-chat-reading-page" className="h-full min-h-0 w-full">
+    <div data-component="directory-chat-reading-page" className="flex h-full min-h-0 w-full flex-col">
+      {canProcessResource || processing || processingError ? (
+        <div className="shrink-0 border-b border-border-base/70 bg-surface-base px-3 py-2 text-xs text-text-weak">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="min-w-0 flex-1">
+              {processingError
+                ? `Processing failed: ${processingError}`
+                : processing
+                  ? "Processing for Buddy..."
+                  : "Process this reader file for Buddy object context."}
+            </span>
+            {processingError ? (
+              <Button size="sm" variant="outline" onClick={() => void processResourceForBuddy()}>
+                Retry
+              </Button>
+            ) : canProcessResource ? (
+              <Button size="sm" variant="outline" onClick={() => void processResourceForBuddy()}>
+                Process for Buddy
+              </Button>
+            ) : null}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setProcessBannerDismissed(true)
+                setProcessingError(undefined)
+              }}
+            >
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      <div className="min-h-0 flex-1">
       <DirectoryChatReadingReaderPane
         directory={readyDirectory}
         resourceName={resourceName}
@@ -389,6 +469,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
           setActiveReadingAnnotationSummary(readyDirectory, summary)
         }}
       />
+      </div>
     </div>
   ) : null
 }

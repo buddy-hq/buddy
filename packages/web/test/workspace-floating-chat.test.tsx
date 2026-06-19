@@ -14,7 +14,7 @@ import {
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
-  BENCH_LAYOUT_PROFILE_BALANCED,
+  BENCH_LAYOUT_PROFILE_DOCUMENT,
   type BenchChatLayoutMode,
 } from "../src/lib/bench-navigation"
 
@@ -40,12 +40,12 @@ function TestBenchPageLayout(props: {
     props.initialMode ?? BENCH_CHAT_LAYOUT_DOCKED,
   )
   const [dockedChatWidthPx, setDockedChatWidthPx] = useState(() =>
-    readInitialChatPanelWidth(BENCH_LAYOUT_PROFILE_BALANCED),
+    readInitialChatPanelWidth(BENCH_LAYOUT_PROFILE_DOCUMENT),
   )
   const [floatingRect, setFloatingRect] = useState(() =>
     resolveDefaultFloatingChatRect(
       resolveInitialFloatingChatContainerSize(),
-      BENCH_LAYOUT_PROFILE_BALANCED,
+      BENCH_LAYOUT_PROFILE_DOCUMENT,
     ),
   )
   const [floatingChatState, setFloatingChatState] =
@@ -54,7 +54,7 @@ function TestBenchPageLayout(props: {
   return (
     <DirectoryChatBenchPageLayout
       chatLayoutMode={mode}
-      layoutProfile={BENCH_LAYOUT_PROFILE_BALANCED}
+      layoutProfile={BENCH_LAYOUT_PROFILE_DOCUMENT}
       dockedChatWidthPx={dockedChatWidthPx}
       floatingRect={floatingRect}
       floatingChatState={floatingChatState}

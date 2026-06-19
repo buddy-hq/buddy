@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router"
+import { useLocation, useNavigate } from "@tanstack/react-router"
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
@@ -99,7 +99,6 @@ import { getModelSelectionScopeKey } from "../../state/model-selection-store"
 import { useChatStore } from "../../state/chat-store"
 import { useNotifications } from "../../state/notifications"
 import type { PermissionReply } from "../../state/permission-types"
-import { useUiPreferences } from "../../state/ui-preferences"
 import { useShallow } from "zustand/react/shallow"
 import { stringifyError } from "../../state/teaching-actions"
 import { teachingSelectionKey, useTeachingRuntime } from "../../state/teaching-runtime"
@@ -113,15 +112,21 @@ import { useChatSync } from "./use-chat-sync"
 import { useChatConfig } from "./use-chat-config"
 import { useTeachingWorkspace } from "./use-teaching-workspace"
 import { useAutoScroll } from "./use-auto-scroll"
-import { getRightSidebarDefaultWidth, RIGHT_SIDEBAR_EDITOR_MIN_WIDTH } from "./right-sidebar-layout"
-import { useQuestionSetSidebarActions } from "@/components/question-set/use-question-set-sidebar-actions"
+import {
+  getRightSidebarDefaultWidth,
+  getRightSidebarMinWidth,
+  RIGHT_SIDEBAR_EDITOR_MIN_WIDTH,
+} from "./right-sidebar-layout"
 import {
   DIRECTORY_CHAT_SHELL_VIEW,
   type DirectoryChatShellView,
 } from "@/lib/directory-chat/directory-chat-shell-view"
+import {
+  BENCH_CHAT_LAYOUT_DOCKED,
+  readBenchOpenPolicyStateFromLocation,
+  useOpenBench,
+} from "@/lib/bench-navigation"
 import { bootstrapLearnerMemoryForNotebookBestEffort } from "@/lib/learner-memory"
-import { useWorkspaceQuestionSetObjectPanelStore } from "@/state/workspace-question-set-object-panel-store"
-import { useWorkspaceFilePanelStore } from "@/state/workspace-file-panel-store"
 import { FOLLOWUP_BEHAVIOR_QUEUE, useChatSettings } from "@/state/chat-settings"
 import { language } from "@/context/language"
 
@@ -131,6 +136,10 @@ const READING_PREFETCH_BLOCKED_STATUSES = new Set<NonNullable<ResourceReadingTar
   "unsupported",
   "error",
 ])
+
+function personaSurfaceToSidebarTab(value: "curriculum" | "editor" | "question-set") {
+  return value === "editor" ? "editor" : "curriculum"
+}
 
 const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = []
 const E2E_BACKEND_COMMAND_NAME = "e2e-backend-command"
@@ -222,6 +231,7 @@ export function useDirectoryChatPageController(
 ): DirectoryChatPageControllerState {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const location = useLocation()
   const closingDirectoryRef = useRef<string | undefined>(undefined)
   const previousDirectoryRef = useRef<string | undefined>(undefined)
   const [systemPromptRefreshToken, setSystemPromptRefreshToken] = useState(0)
@@ -266,11 +276,22 @@ export function useDirectoryChatPageController(
   )
   const linkedSessionByResource = useChatStore((state) => state.linkedSessionByResource)
   const linkReadingResourceSession = useChatStore((state) => state.linkReadingResourceSession)
-  const { openWorkspaceQuestionSet } = useQuestionSetSidebarActions()
+  const openBenchRoute = useOpenBench()
   const hasRegisteredProject = useMemo(
     () =>
       !!decodedDirectory && openProjects.filter((d) => d && d !== "/").includes(decodedDirectory),
     [decodedDirectory, openProjects],
+  )
+  const benchPolicyStateForPrompt = useMemo(
+    () =>
+      decodedDirectory
+        ? readBenchOpenPolicyStateFromLocation({
+            directory: decodedDirectory,
+            pathname: location.pathname,
+            search: location.search,
+          })
+        : { status: "closed" as const },
+    [decodedDirectory, location.pathname, location.search],
   )
 
   const chatConfig = useChatConfig({ decodedDirectory, hasRegisteredProject })
@@ -291,11 +312,9 @@ export function useDirectoryChatPageController(
     migrateWorkspaceDraft,
     currentAgentName,
     selectedThinking,
-    selectedModelKey,
     sessionID,
     sessionKey,
     rightSidebarWidth,
-    setMainPaneTab,
     setRightSidebarOpen,
     setRightSidebarTab,
     setRightSidebarWidth,
@@ -306,15 +325,14 @@ export function useDirectoryChatPageController(
     setSelectedVariant,
     validOpenProjects,
   } = cs
+  const visibleReadingResource =
+    benchPolicyStateForPrompt.status === "open" &&
+    benchPolicyStateForPrompt.mode === BENCH_CHAT_LAYOUT_DOCKED &&
+    !cs.rightSidebarOpen
+      ? undefined
+      : activeReadingResource
 
   const { slashCommands } = chatConfig
-  const pendingAutoFileOpen = useWorkspaceFilePanelStore((state) =>
-    decodedDirectory ? state.pendingAutoOpenByDirectory[decodedDirectory] : undefined,
-  )
-  const consumePendingAutoFileOpen = useWorkspaceFilePanelStore(
-    (state) => state.consumePendingAutoOpen,
-  )
-  const openQueuedWorkspaceFile = useWorkspaceFilePanelStore((state) => state.openFile)
   const slashCommandCandidates = useMemo(() => {
     const candidates = new Map<string, { name: string; aliases?: string[] }>()
     for (const name of SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES) {
@@ -461,45 +479,6 @@ export function useDirectoryChatPageController(
   }, [decodedDirectory, migrateWorkspaceDraft, sessionID])
 
   useEffect(() => {
-    if (!decodedDirectory) {
-      return
-    }
-
-    const pendingObjectID = useWorkspaceQuestionSetObjectPanelStore
-      .getState()
-      .consumePendingOpen(decodedDirectory)
-    if (!pendingObjectID) {
-      return
-    }
-
-    openWorkspaceQuestionSet({
-      directory: decodedDirectory,
-      objectID: pendingObjectID,
-      fallbackTab: cs.selectedPersonaDefaultSurface,
-    })
-  }, [cs.selectedPersonaDefaultSurface, decodedDirectory, openWorkspaceQuestionSet])
-
-  useEffect(() => {
-    if (!decodedDirectory || !pendingAutoFileOpen) {
-      return
-    }
-
-    const pendingItem = consumePendingAutoFileOpen(decodedDirectory)
-    if (pendingItem) {
-      openQueuedWorkspaceFile(decodedDirectory, pendingItem)
-    }
-    setRightSidebarTab("files")
-    setRightSidebarOpen(true)
-  }, [
-    consumePendingAutoFileOpen,
-    decodedDirectory,
-    openQueuedWorkspaceFile,
-    pendingAutoFileOpen,
-    setRightSidebarOpen,
-    setRightSidebarTab,
-  ])
-
-  useEffect(() => {
     if (decodedDirectory === "/") {
       const fallback = validOpenProjects[0]
       if (fallback) {
@@ -641,10 +620,6 @@ export function useDirectoryChatPageController(
     setShellView(DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE)
   }
 
-  function showLibrary() {
-    setShellView(DIRECTORY_CHAT_SHELL_VIEW.LIBRARY)
-  }
-
   function showSkills() {
     setShellView(DIRECTORY_CHAT_SHELL_VIEW.SKILLS)
   }
@@ -652,7 +627,6 @@ export function useDirectoryChatPageController(
   async function onNewSession(targetDirectory = decodedDirectory) {
     if (!targetDirectory) return
     try {
-      cs.setMainPaneTab("chat")
       showWorkspace()
       startNewSessionDraft(targetDirectory)
       seedDraftModelSelection(targetDirectory)
@@ -667,12 +641,6 @@ export function useDirectoryChatPageController(
     if (!targetDirectory) return
     if (shellView !== DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE) {
       showWorkspace()
-    }
-    // Always switch back to the chat pane when selecting a session.
-    // The library/instructions shortcuts stay within WORKSPACE but change the
-    // mainPaneTab, so we can't rely on the shellView guard alone.
-    if (nextSessionID) {
-      cs.setMainPaneTab("chat")
     }
     if (!nextSessionID) {
       if (targetDirectory !== decodedDirectory) onSwitchDirectory(targetDirectory)
@@ -743,7 +711,6 @@ export function useDirectoryChatPageController(
   async function onQuickChat() {
     try {
       const inboxDirectory = await openInboxNotebook()
-      cs.setMainPaneTab("chat")
       showWorkspace()
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       cs.setActiveDirectory(inboxDirectory)
@@ -768,7 +735,6 @@ export function useDirectoryChatPageController(
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       cs.setActiveDirectory(nextDirectory)
       startNewSessionDraft(nextDirectory)
-      useUiPreferences.getState().setMainPaneTab("chat")
       seedDraftModelSelection(nextDirectory)
       if (nextDirectory !== decodedDirectory) {
         onSwitchDirectory(nextDirectory)
@@ -906,13 +872,11 @@ export function useDirectoryChatPageController(
     cs.setRightSidebarOpen(true)
   }
 
-  function openResourcesPanel() {
-    cs.setMainPaneTab("resources")
-  }
-
-  function refreshResourcesPanel() {
+  function openResourceLibrary() {
     if (decodedDirectory) {
       void invalidateResourcesQueries(queryClient, decodedDirectory)
+      cs.setRightWorkspaceLastSelector(decodedDirectory, "library")
+      cs.setRightSidebarOpen(true)
     }
   }
 
@@ -921,8 +885,7 @@ export function useDirectoryChatPageController(
   }
 
   const openResourceInReadingMode = useCallback(
-    (targetDirectory: string, resource: ResourceReadingTarget, options?: ResourceOpenOptions) => {
-      const openingFromLibrary = shellView === DIRECTORY_CHAT_SHELL_VIEW.LIBRARY
+    async (targetDirectory: string, resource: ResourceReadingTarget, options?: ResourceOpenOptions) => {
       const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
       const preferCurrentSession =
         options?.sessionPreference === RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT
@@ -932,11 +895,6 @@ export function useDirectoryChatPageController(
 
       if (preferCurrentSession && activeSessionID && resource.objectID) {
         linkReadingResourceSession(targetDirectory, resource.objectID, activeSessionID)
-      }
-
-      if (openingFromLibrary) {
-        setMainPaneTab("chat")
-        setShellView(DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE)
       }
 
       void queryClient.prefetchQuery(resourcesQueryOptions(targetDirectory))
@@ -949,89 +907,35 @@ export function useDirectoryChatPageController(
         )
       }
 
-      void (async () => {
-        if (!preferCurrentSession && linkedSessionID && linkedSessionID !== activeSessionID) {
-          await selectSession(targetDirectory, linkedSessionID).catch(() => undefined)
-        } else if (openingFromLibrary) {
-          const scopeKey = getModelSelectionScopeKey(targetDirectory)
-          const carryModelKey = selectedModelKey || undefined
-          const carryVariantKey = selectedThinking === "default" ? null : selectedThinking
-          startNewSessionDraft(targetDirectory)
-          setSelectedAgent(scopeKey, undefined)
-          setSelectedModel(scopeKey, carryModelKey)
-          setSelectedVariant(scopeKey, carryVariantKey)
-        }
+      if (!preferCurrentSession && linkedSessionID && linkedSessionID !== activeSessionID) {
+        await selectSession(targetDirectory, linkedSessionID).catch(() => undefined)
+      }
 
-        if (resource.objectID) {
-          void navigate({
-            to: "/$directory/objects/$kind/$objectID",
-            params: {
-              directory: encodeDirectory(targetDirectory),
-              kind: "resource",
-              objectID: resource.objectID,
-            },
-            search: { view: "reader" },
-          })
-          return
-        }
-
-        void navigate({
-          to: "/$directory/file",
-          params: {
-            directory: encodeDirectory(targetDirectory),
-          },
-          search: {
-            path: resource.path,
-          },
-        })
-      })()
+      return openBenchRoute({
+        directory: targetDirectory,
+        target: resource.objectID
+          ? {
+              type: "object",
+              ref: {
+                kind: "resource",
+                objectID: resource.objectID,
+                revisionID: null,
+                itemID: null,
+              },
+              viewID: "reader",
+            }
+          : { type: "workspace-file", path: resource.path, viewer: "file" },
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+        autoOpen: null,
+      })
     },
     [
       linkReadingResourceSession,
       linkedSessionByResource,
-      navigate,
       queryClient,
-      selectedModelKey,
-      selectedThinking,
-      setMainPaneTab,
-      setSelectedAgent,
-      setSelectedModel,
-      setSelectedVariant,
-      shellView,
+      openBenchRoute,
     ],
   )
-
-  function openQuestionSetFromLibrary(
-    targetDirectory: string,
-    objectID: string,
-    selectedObjectID?: string,
-  ) {
-    if (!targetDirectory) {
-      return
-    }
-
-    if (targetDirectory !== decodedDirectory) {
-      if (shellView !== DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE) {
-        showWorkspace()
-        cs.setMainPaneTab("chat")
-      }
-
-      useWorkspaceQuestionSetObjectPanelStore.getState().queueQuestionSetOpen(targetDirectory, objectID)
-
-      void navigate({
-        to: "/$directory/chat",
-        params: { directory: encodeDirectory(targetDirectory) },
-      })
-      return
-    }
-
-    openWorkspaceQuestionSet({
-      directory: targetDirectory,
-      objectID,
-      selectedObjectID,
-      fallbackTab: cs.selectedPersonaDefaultSurface,
-    })
-  }
 
   const openTeachingEditorPanel = useCallback(() => {
     setRightSidebarTab("editor")
@@ -1046,8 +950,7 @@ export function useDirectoryChatPageController(
     input: { rawAttachments: PromptComposerAttachment[] },
   ) {
     if (command.type === RESOURCE_COMMAND_PANEL) {
-      openResourcesPanel()
-      refreshResourcesPanel()
+      openResourceLibrary()
       return true
     }
 
@@ -1056,8 +959,7 @@ export function useDirectoryChatPageController(
         sourcePath: command.path,
         ...(command.alias ? { alias: command.alias } : {}),
       })
-      openResourcesPanel()
-      refreshResourcesPanel()
+      openResourceLibrary()
       return true
     }
 
@@ -1067,8 +969,7 @@ export function useDirectoryChatPageController(
       } else {
         await removeResource(decodedDirectory, { resourceKey: command.key })
       }
-      openResourcesPanel()
-      refreshResourcesPanel()
+      openResourceLibrary()
       return true
     }
 
@@ -1183,56 +1084,56 @@ export function useDirectoryChatPageController(
             directory: decodedDirectory,
             sessionID,
           }),
-        ...(activeReadingResource
+        ...(visibleReadingResource
           ? {
               reading: {
-                ...(activeReadingResource.objectID
-                  ? { resourceKey: activeReadingResource.objectID }
+                ...(visibleReadingResource.objectID
+                  ? { resourceKey: visibleReadingResource.objectID }
                   : {}),
-                title: activeReadingResource.name,
-                path: activeReadingResource.path,
-                ...(activeReadingResource.locationLabel
-                  ? { locationLabel: activeReadingResource.locationLabel }
+                title: visibleReadingResource.name,
+                path: visibleReadingResource.path,
+                ...(visibleReadingResource.locationLabel
+                  ? { locationLabel: visibleReadingResource.locationLabel }
                   : {}),
-                ...(activeReadingResource.cfi ? { cfi: activeReadingResource.cfi } : {}),
-                ...(activeReadingResource.index !== undefined
-                  ? { index: activeReadingResource.index }
+                ...(visibleReadingResource.cfi ? { cfi: visibleReadingResource.cfi } : {}),
+                ...(visibleReadingResource.index !== undefined
+                  ? { index: visibleReadingResource.index }
                   : {}),
-                ...(activeReadingResource.fraction !== undefined
-                  ? { fraction: activeReadingResource.fraction }
+                ...(visibleReadingResource.fraction !== undefined
+                  ? { fraction: visibleReadingResource.fraction }
                   : {}),
-                ...(activeReadingResource.tocLabel
-                  ? { tocLabel: activeReadingResource.tocLabel }
+                ...(visibleReadingResource.tocLabel
+                  ? { tocLabel: visibleReadingResource.tocLabel }
                   : {}),
-                ...(activeReadingResource.pageLabel
-                  ? { pageLabel: activeReadingResource.pageLabel }
+                ...(visibleReadingResource.pageLabel
+                  ? { pageLabel: visibleReadingResource.pageLabel }
                   : {}),
-                ...(activeReadingResource.currentPassageText
-                  ? { currentPassageText: activeReadingResource.currentPassageText }
+                ...(visibleReadingResource.currentPassageText
+                  ? { currentPassageText: visibleReadingResource.currentPassageText }
                   : {}),
-                ...(activeReadingResource.visibleStartText
-                  ? { visibleStartText: activeReadingResource.visibleStartText }
+                ...(visibleReadingResource.visibleStartText
+                  ? { visibleStartText: visibleReadingResource.visibleStartText }
                   : {}),
-                ...(activeReadingResource.visibleEndText
-                  ? { visibleEndText: activeReadingResource.visibleEndText }
+                ...(visibleReadingResource.visibleEndText
+                  ? { visibleEndText: visibleReadingResource.visibleEndText }
                   : {}),
-                ...(activeReadingResource.readingTrail &&
-                activeReadingResource.readingTrail.length > 0
-                  ? { readingTrail: activeReadingResource.readingTrail }
+                ...(visibleReadingResource.readingTrail &&
+                visibleReadingResource.readingTrail.length > 0
+                  ? { readingTrail: visibleReadingResource.readingTrail }
                   : {}),
-                ...(activeReadingResource.annotationSummary &&
-                activeReadingResource.annotationSummary.length > 0
-                  ? { annotationSummary: activeReadingResource.annotationSummary }
+                ...(visibleReadingResource.annotationSummary &&
+                visibleReadingResource.annotationSummary.length > 0
+                  ? { annotationSummary: visibleReadingResource.annotationSummary }
                   : {}),
               },
             }
           : {}),
       })
 
-      if (activeReadingResource?.objectID) {
+      if (visibleReadingResource?.objectID) {
         linkReadingResourceSession(
           decodedDirectory,
-          activeReadingResource.objectID,
+          visibleReadingResource.objectID,
           submittedSessionID,
         )
       }
@@ -1249,7 +1150,7 @@ export function useDirectoryChatPageController(
       return true
     },
     [
-      activeReadingResource,
+      visibleReadingResource,
       clearSubmittedPromptDrafts,
       currentAgentName,
       decodedDirectory,
@@ -1643,8 +1544,9 @@ export function useDirectoryChatPageController(
       return
     }
 
-    if (!nextPersona.surfaces.includes(cs.selectedSurfaceTab)) {
-      cs.setRightSidebarTab(nextPersona.defaultSurface)
+    const selectedPersonaSurface = cs.selectedSurfaceTab === "editor" ? "editor" : "curriculum"
+    if (!nextPersona.surfaces.includes(selectedPersonaSurface)) {
+      cs.setRightSidebarTab(personaSurfaceToSidebarTab(nextPersona.defaultSurface))
     }
   }
 
@@ -1788,13 +1690,7 @@ export function useDirectoryChatPageController(
     },
     onOpenCurriculum: openCurriculumPanel,
     shellView,
-    onSelectLibrary: showLibrary,
     onSelectSkills: showSkills,
-    mainPaneTab: cs.mainPaneTab,
-    onMainPaneTabChange: (tab) => {
-      showWorkspace()
-      cs.setMainPaneTab(tab)
-    },
     onOpenSettings: openSettingsPanel,
     showHeader: false,
     className: "w-full h-full",
@@ -1870,10 +1766,7 @@ export function useDirectoryChatPageController(
       if (!sessionID) return
       editQueuedFollowup(sessionID, queuedFollowupID)
     },
-    mainPaneTab: cs.mainPaneTab,
     onOpenResource: openResourceInReadingMode,
-    onOpenQuestionSet: openQuestionSetFromLibrary,
-    selectedPersonaDefaultSurface: cs.selectedPersonaDefaultSurface,
     shellView,
     directories: cs.sidebarDirectories,
     onSelectNotebook: (targetDirectory) => {
@@ -1908,24 +1801,11 @@ export function useDirectoryChatPageController(
   }
 
   const shellProps: ReadyDirectoryChatPageControllerState["shellProps"] = {
-    chatTitle:
-      cs.mainPaneTab === "library"
-        ? language.t("sidebar.library")
-        : cs.mainPaneTab === "instructions"
-          ? language.t("sidebar.mainPane.instructions")
-          : cs.sessionTitle,
+    chatTitle: cs.sessionTitle,
     projectName: getFilename(decodedDirectory),
     isTurnActive: cs.isTurnActive,
     titlebarVariant:
-      shellView === DIRECTORY_CHAT_SHELL_VIEW.SKILLS ||
-      shellView === DIRECTORY_CHAT_SHELL_VIEW.LIBRARY
-        ? "shell"
-        : "chat",
-    mainPaneTab: cs.mainPaneTab,
-    onMainPaneTabChange: (tab) => {
-      showWorkspace()
-      cs.setMainPaneTab(tab)
-    },
+      shellView === DIRECTORY_CHAT_SHELL_VIEW.SKILLS ? "shell" : "chat",
     leftSidebarOpen: cs.leftSidebarOpen,
     leftSidebarDisplayWidth: cs.leftSidebarDisplayWidth,
     leftSidebarWidth: cs.leftSidebarWidth,
@@ -1938,6 +1818,12 @@ export function useDirectoryChatPageController(
     rightSidebarMinWidth: cs.rightSidebarMinWidth,
     rightSidebarMaxWidth: cs.rightSidebarMaxWidth,
     onRightSidebarResize: cs.setRightSidebarWidth,
+    onRightSidebarExpand: () => {
+      if (cs.rightSidebarWidth < getRightSidebarMinWidth("files")) {
+        cs.setRightSidebarWidth(getRightSidebarDefaultWidth("files"))
+      }
+      cs.setRightSidebarOpen(true)
+    },
     onRightSidebarCollapse: () => cs.setRightSidebarOpen(false),
   }
 

@@ -1,5 +1,4 @@
 import { useCallback } from "react"
-import { useLocation } from "@tanstack/react-router"
 import { usePlatform } from "@/context/platform"
 import {
   RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT,
@@ -7,14 +6,13 @@ import {
   type ResourceReadingTarget,
   type ResourceViewStatus,
 } from "@/state/resources-query"
-import { useWorkspaceFilePanelStore } from "@/state/workspace-file-panel-store"
 import { fileNameFromPath } from "./workspace-file-paths"
 import {
   resolveWorkspaceFileOpenPlan,
   WORKSPACE_FILE_OPEN_TARGET_COPY_PATH,
   WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP,
+  WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH,
   WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH,
-  WORKSPACE_FILE_OPEN_TARGET_PANEL,
   WORKSPACE_FILE_OPEN_TARGET_READING,
   WORKSPACE_FILE_OPEN_TARGET_REVEAL,
   type WorkspaceFileOpenInput,
@@ -23,15 +21,21 @@ import {
 } from "./workspace-file-open"
 import {
   BENCH_MODE_REQUEST_POLICY,
-  isBenchRoutePathname,
   useOpenBench,
+  type BenchModeRequest,
 } from "@/lib/bench-navigation"
+import type { BenchOpenDecision } from "@/lib/bench-open-policy-core"
+import {
+  grantWorkspaceFileLargeOpenApproval,
+  revokeWorkspaceFileLargeOpenApproval,
+  useWorkspaceFileOpenDialogStore,
+} from "@/state/workspace-file-open-dialog-store"
 
 export type WorkspaceResourceOpener = (
   directory: string,
   resource: ResourceReadingTarget,
   options?: ResourceOpenOptions,
-) => void
+) => Promise<BenchOpenDecision> | void
 
 export type WorkspaceFileActionInput = Omit<WorkspaceFileOpenInput, "canOpenReading"> & {
   name?: string
@@ -39,14 +43,18 @@ export type WorkspaceFileActionInput = Omit<WorkspaceFileOpenInput, "canOpenRead
   resourceStatus?: ResourceViewStatus
 }
 
+export type WorkspaceFileOpenOptions = {
+  benchMode?: BenchModeRequest
+}
+
 export function useWorkspaceFileOpen(
   directory: string | undefined,
   onOpenResource?: WorkspaceResourceOpener,
+  options?: WorkspaceFileOpenOptions,
 ) {
-  const location = useLocation()
   const openBenchRoute = useOpenBench()
   const platform = usePlatform()
-  const queueFileOpen = useWorkspaceFilePanelStore((state) => state.queueFileOpen)
+  const benchMode = options?.benchMode ?? BENCH_MODE_REQUEST_POLICY
 
   const resolvePlan = useCallback(
     (input: WorkspaceFileActionInput): WorkspaceFileOpenPlan =>
@@ -66,7 +74,7 @@ export function useWorkspaceFileOpen(
       if (!directory) return
 
       if (target === WORKSPACE_FILE_OPEN_TARGET_READING) {
-        onOpenResource?.(
+        return onOpenResource?.(
           directory,
           {
             path: input.path,
@@ -81,33 +89,21 @@ export function useWorkspaceFileOpen(
         return
       }
 
-      if (target === WORKSPACE_FILE_OPEN_TARGET_PANEL) {
-        if (isBenchRoutePathname(location.pathname)) {
-          await openBenchRoute({
-            directory,
-            target: { type: "workspace-file", path: input.path, viewer: "file" },
-            mode: BENCH_MODE_REQUEST_POLICY,
-            autoOpen: null,
-          })
-          return
-        }
-
-        queueFileOpen(
+      if (target === WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH) {
+        return openBenchRoute({
           directory,
-          {
-            path: input.path,
-            ...(input.absolutePath ? { absolutePath: input.absolutePath } : {}),
-          },
-          { autoOpen: true },
-        )
+          target: { type: "workspace-file", path: input.path, viewer: "file" },
+          mode: benchMode,
+          autoOpen: null,
+        })
         return
       }
 
       if (target === WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH) {
-        await openBenchRoute({
+        return openBenchRoute({
           directory,
           target: { type: "workspace-file", path: input.path, viewer: "markdown" },
-          mode: BENCH_MODE_REQUEST_POLICY,
+          mode: benchMode,
           autoOpen: null,
         })
         return
@@ -124,16 +120,39 @@ export function useWorkspaceFileOpen(
         await platform.revealPath(input.absolutePath)
       }
     },
-    [directory, location.pathname, onOpenResource, openBenchRoute, platform, queueFileOpen],
+    [benchMode, directory, onOpenResource, openBenchRoute, platform],
   )
 
   const executePrimary = useCallback(
-    async (input: WorkspaceFileActionInput) => {
-      const target = resolvePlan(input).primaryTarget
-      if (!target) return
-      await executeTarget(input, target)
+    async (input: WorkspaceFileActionInput): Promise<boolean> => {
+      const plan = resolvePlan(input)
+      const target = plan.primaryTarget
+      if (!target) return false
+      if (plan.requiresLargeFileApproval && typeof input.sizeBytes === "number") {
+        const choice = await useWorkspaceFileOpenDialogStore.getState().requestApproval({
+          path: input.path,
+          sizeBytes: input.sizeBytes,
+          canOpenDefaultApp: plan.targets.includes(WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP),
+        })
+        if (choice === "cancel") return false
+        if (choice === "default-app") {
+          await executeTarget(input, WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP)
+          return true
+        }
+
+        if (!directory) return false
+        grantWorkspaceFileLargeOpenApproval(directory, input.path)
+        const result = await executeTarget(input, target)
+        if (result?.action !== "open") {
+          revokeWorkspaceFileLargeOpenApproval(directory, input.path)
+        }
+        return result?.action === "open" || result?.policyID === "already-open"
+      }
+
+      const result = await executeTarget(input, target)
+      return result?.action === "open" || result?.policyID === "already-open" || result === undefined
     },
-    [executeTarget, resolvePlan],
+    [directory, executeTarget, resolvePlan],
   )
 
   return {

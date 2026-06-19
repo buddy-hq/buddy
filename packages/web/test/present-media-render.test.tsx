@@ -14,7 +14,6 @@ import type { ToolPartProps } from "../src/components/chat/tools/registry"
 import { renderPresentMediaTool } from "../src/components/chat/tools/render/present-media"
 import { withFetchPreconnect } from "../src/lib/fetch-transport"
 import { usePresentedMediaPlaybackStore } from "../src/state/presented-media-playback-store"
-import { useWorkspaceFilePanelStore } from "../src/state/workspace-file-panel-store"
 
 function PresentMediaToolHarness(props: ToolPartProps) {
   return renderPresentMediaTool(props)
@@ -103,7 +102,7 @@ function createToolProps(input: {
     mimeType?: string
     renderMode: string
     rawUrl: string
-    canOpenInWorkspacePanel?: boolean
+    canOpenInBuddy?: boolean
     sizeBytes?: number
   }>
 }): ToolPartProps {
@@ -160,7 +159,7 @@ function createToolProps(input: {
                     role: "external",
                     path: item.absolutePath ?? item.path,
                     displayPath: item.path,
-                    workspacePath: item.canOpenInWorkspacePanel === false ? null : item.path,
+                    workspacePath: item.canOpenInBuddy === false ? null : item.path,
                     availability: "available",
                   },
                   availability: "available",
@@ -190,12 +189,6 @@ describe("present media renderer", () => {
   beforeEach(() => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     originalFetch = globalThis.fetch
-    useWorkspaceFilePanelStore.setState({
-      selectedPathByDirectory: {},
-      selectedItemByDirectory: {},
-      pendingObjectOpenByDirectory: {},
-      pendingAutoOpenByDirectory: {},
-    })
     usePresentedMediaPlaybackStore.setState({
       loadedKeys: [],
       playingKey: undefined,
@@ -574,7 +567,7 @@ describe("present media renderer", () => {
                     renderMode: "pdf",
                     rawUrl:
                       "/api/objects/media-presentation/object_b/raw/item_1?directory=%2Frepo&fileName=notes.pdf",
-                    canOpenInWorkspacePanel: false,
+                    canOpenInBuddy: false,
                   },
                 ],
               })}
@@ -659,9 +652,6 @@ describe("present media renderer", () => {
     })
 
     expect(openPath).toHaveBeenCalledWith("/repo/generated/deck.pptx")
-    expect(useWorkspaceFilePanelStore.getState().pendingAutoOpenByDirectory["/repo"]).toBe(
-      undefined,
-    )
   })
 
   test("does not fetch blobs for unavailable image items", async () => {
@@ -707,7 +697,7 @@ describe("present media renderer", () => {
                     renderMode: "image",
                     rawUrl:
                       "/api/objects/media-presentation/object_missing/raw/item_1?directory=%2Frepo&fileName=screenshot.png",
-                    canOpenInWorkspacePanel: false,
+                    canOpenInBuddy: false,
                   },
                 ],
               })}
@@ -785,7 +775,7 @@ describe("present media renderer", () => {
                     sizeBytes: 1024 * 1024 * 1024,
                     rawUrl:
                       "/api/objects/media-presentation/object_huge/raw/item_1?directory=%2Frepo&fileName=huge.png",
-                    canOpenInWorkspacePanel: false,
+                    canOpenInBuddy: false,
                   },
                 ],
               })}
@@ -872,7 +862,7 @@ describe("present media renderer", () => {
                     renderMode: "file",
                     rawUrl:
                       "/api/objects/media-presentation/object_combo/raw/item_2?directory=%2Frepo&fileName=huge.png",
-                    canOpenInWorkspacePanel: false,
+                    canOpenInBuddy: false,
                     sizeBytes: 1024 * 1024 * 1024,
                   },
                 ],
@@ -933,7 +923,7 @@ describe("present media renderer", () => {
                     renderMode: "pdf",
                     rawUrl:
                       "/api/objects/media-presentation/object_stale/raw/item_1?directory=%2Frepo&fileName=notes.pdf",
-                    canOpenInWorkspacePanel: false,
+                    canOpenInBuddy: false,
                   },
                 ],
               })}

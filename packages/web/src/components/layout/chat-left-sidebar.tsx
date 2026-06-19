@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { SquareLibraryIcon, SparklesIcon } from "lucide-react"
+import { SparklesIcon } from "lucide-react"
 import { Button } from "@buddy/ui"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
@@ -15,7 +15,6 @@ import {
   resolveNotebookLearnerMemorySelection,
 } from "@/state/learner-memory-settings"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
-import type { NotebookMainPaneTab } from "@/state/ui-preferences"
 import {
   ChatLeftSidebarDialogs,
   NotebookCreationDialog,
@@ -62,10 +61,7 @@ type ChatLeftSidebarProps = {
   onCloseDirectory: (directory: string) => void
   onOpenCurriculum: () => void
   shellView?: DirectoryChatShellView
-  onSelectLibrary?: () => void
   onSelectSkills?: () => void
-  mainPaneTab?: NotebookMainPaneTab
-  onMainPaneTabChange?: (tab: NotebookMainPaneTab) => void
   onOpenSettings: () => void
   showHeader?: boolean
   footer?: ReactNode
@@ -124,7 +120,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const queryClient = useQueryClient()
   const isMacDesktop = platform.platform === "desktop" && platform.os === "macos"
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const libraryOpen = props.shellView === DIRECTORY_CHAT_SHELL_VIEW.LIBRARY
   const skillsOpen = props.shellView === DIRECTORY_CHAT_SHELL_VIEW.SKILLS
   const [archiveState, setArchiveState] = useState<ArchiveState | undefined>(undefined)
   const [archiveSaving, setArchiveSaving] = useState(false)
@@ -319,20 +314,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
               <SparklesIcon className="size-3.5" />
               {language.t("sidebar.skills")}
             </Button>
-            <Button
-              data-action="left-sidebar-toggle-library"
-              variant="ghost"
-              size="sm"
-              className={`h-7 w-full justify-start rounded-lg px-2 text-xs font-medium ${
-                libraryOpen
-                  ? "bg-surface-raised-strong text-text-strong"
-                  : "text-text-base hover:bg-surface-raised-base-hover hover:text-text-strong"
-              }`}
-              onClick={() => props.onSelectLibrary?.()}
-            >
-              <SquareLibraryIcon className="size-3.5" />
-              {language.t("sidebar.library")}
-            </Button>
           </div>
 
           <div className="mx-1.5 mb-2 border-t border-border-weaker-base [box-shadow:0_2px_4px_rgba(0,0,0,0.06)]" />
@@ -405,14 +386,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             }}
             onOpenNotebookSettings={setNotebookSettingsDirectory}
             onCloseDirectory={props.onCloseDirectory}
-            mainPaneTab={props.mainPaneTab}
-            onMainPaneTabChange={(directory, tab) => {
-              setCollapsedDirectories((current) =>
-                setDirectoryCollapsedState(current, directory, true),
-              )
-              props.onSelectSession(directory)
-              props.onMainPaneTabChange?.(tab)
-            }}
           />
         </div>
       )}

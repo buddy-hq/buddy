@@ -11,12 +11,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@buddy/ui"
-import { QuestionSetSidePanel } from "@/components/chat/tools/render/question-set/question-set-side-panel"
 import { language } from "@/context/language"
 import { Markdown } from "@/components/markdown/Markdown"
 import { type LearnerCurriculumView } from "@/state/chat-actions"
 import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
-import { useWorkspaceQuestionSetObjectPanelStore } from "@/state/workspace-question-set-object-panel-store"
 import { WorkspaceMermaidPanel } from "./workspace-mermaid-panel"
 import { ChevronRightIcon, ChevronLeftIcon } from "./sidebar-icons"
 
@@ -25,7 +23,6 @@ export type ChatRightSidebarTab =
   | "diagrams"
   | "files"
   | "editor"
-  | "question-set"
   | "resources"
   | "agents-md"
   | "capabilities"
@@ -119,11 +116,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
     SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR && props.resourcesPanel !== undefined
   const diagramsTabEnabled = SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR
   const agentsTabEnabled = SHOW_PROMOTED_MAIN_PANE_TABS_IN_RIGHT_SIDEBAR
-  const selectedQuestionSetObjectID = useWorkspaceQuestionSetObjectPanelStore(
-    (state) => state.selectedObjectIDByDirectory[directory],
-  )
-  const questionSetPanelOpen =
-    typeof selectedQuestionSetObjectID === "string" && selectedQuestionSetObjectID.length > 0
   const fallbackTab: ChatRightSidebarTab = editorTabEnabled
     ? "editor"
     : snapshotTabEnabled
@@ -156,11 +148,9 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
                     ? "files"
                     : props.activeTab === "editor" && editorTabEnabled
                       ? "editor"
-      : props.activeTab === "question-set" && questionSetPanelOpen
-        ? "question-set"
-        : fallbackTab
+                      : fallbackTab
 
-  const showTabHeader = activeTab !== "question-set" && activeTab !== "files"
+  const showTabHeader = activeTab !== "files"
   const isSnapshotTabActive = activeTab === "curriculum" || activeTab === "capabilities"
   const learnerSnapshotQuery = useQuery({
     ...learnerSnapshotViewsQueryOptions(directory, {
@@ -351,16 +341,6 @@ export function ChatRightSidebar(props: ChatRightSidebarProps) {
               {language.t("rightSidebar.unavailable.editor")}
             </div>
           )}
-        </div>
-      ) : activeTab === "question-set" ? (
-        <div className="flex-1 min-h-0 flex flex-col">
-          {selectedQuestionSetObjectID ? (
-            <QuestionSetSidePanel
-              directory={directory}
-              objectID={selectedQuestionSetObjectID}
-              onClose={props.onClose}
-            />
-          ) : null}
         </div>
       ) : activeTab === "diagrams" ? (
         <div className="flex-1 min-h-0 flex flex-col">

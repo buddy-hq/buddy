@@ -1,9 +1,12 @@
 import {
+  LARGE_TEXT_FILE_LIMIT_BYTES,
+  canOpenWorkspaceFileOnBench,
   canOpenWorkspaceFileInPanel,
   classifyWorkspaceMedia,
   isImageMimeType,
   isWorkspaceImagePath,
   isWorkspaceReaderPath,
+  isWorkspaceFileOverSoftLimit,
   shouldOpenFileInDefaultAppBySize,
   type WorkspaceMediaKind,
   type WorkspaceMediaRenderMode,
@@ -23,11 +26,14 @@ export type WorkspaceFileRawMetadata = {
 }
 
 export {
+  LARGE_TEXT_FILE_LIMIT_BYTES,
+  canOpenWorkspaceFileOnBench,
   canOpenWorkspaceFileInPanel,
   classifyWorkspaceMedia,
   isImageMimeType,
   isWorkspaceImagePath,
   isWorkspaceReaderPath,
+  isWorkspaceFileOverSoftLimit,
   shouldOpenFileInDefaultAppBySize,
 }
 

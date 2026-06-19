@@ -244,7 +244,7 @@ const localMediaItem: PresentedMediaItem = {
   actionCapabilities: {
     canOpenDefaultApp: true,
     canRevealInFileManager: true,
-    canOpenInWorkspacePanel: false,
+    canOpenInBuddy: false,
   },
   availability: {
     status: "available",

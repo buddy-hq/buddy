@@ -23,7 +23,7 @@ import { ServerProvider, type ServerConnection } from "../src/context/server"
 import { withFetchPreconnect } from "../src/lib/fetch-transport"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
-  BENCH_LAYOUT_PROFILE_BALANCED,
+  BENCH_LAYOUT_PROFILE_VISUAL,
 } from "../src/lib/bench-navigation"
 import type { HtmlWidgetPresentation } from "../src/lib/html-widgets"
 import type {
@@ -92,11 +92,12 @@ function TestBenchContextProvider(props: { children: ReactNode }) {
             viewID: "current",
           },
           mode: BENCH_CHAT_LAYOUT_DOCKED,
-          layoutProfile: BENCH_LAYOUT_PROFILE_BALANCED,
+          layoutProfile: BENCH_LAYOUT_PROFILE_VISUAL,
           dockedChatWidthPx: 480,
           floatingRect: TEST_FLOATING_RECT,
           floatingChatState: "open",
         }}
+        visible={true}
         activeSessionID={undefined}
         setMode={() => undefined}
         setFloatingChatState={() => undefined}

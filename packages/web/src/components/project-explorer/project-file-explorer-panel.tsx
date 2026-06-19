@@ -1,123 +1,43 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useState, type ReactNode } from "react"
+import { Button, FolderIcon, cn, toast } from "@buddy/ui"
 import {
-  Badge,
-  Button,
-  PanelRightCloseIcon,
-  PanelRightOpenIcon,
-  ToggleGroup,
-  ToggleGroupItem,
-  cn,
-  toast,
-} from "@buddy/ui"
-import {
-  AlertCircleIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  DownloadIcon,
-  EyeIcon,
-  ExternalLinkIcon,
-  FolderIcon,
   Loader2Icon,
-  PencilIcon,
   RefreshCwIcon,
-  XIcon,
 } from "lucide-react"
-import {
-  VersionedTextFileEditor,
-  type VersionedTextFileEditorHandle,
-} from "@/components/editors/versioned-text-file-editor"
-import { Markdown } from "@/components/markdown/Markdown"
-import { FoliateReader, type FoliateReaderSource } from "@/components/readers/foliate-reader"
+import { FileTypeIcon } from "@/components/files/file-type-icon"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
-import { buddyResultMessage, getBuddyClient } from "@/lib/buddy-client"
-import {
-  serializeMarkdownPdfDocument,
-  waitForMarkdownPdfRenderReady,
-} from "@/lib/markdown-pdf-export"
+import { stringifyError } from "@/lib/api-client"
 import {
   useWorkspaceFileOpen,
   type WorkspaceResourceOpener,
 } from "@/lib/use-workspace-file-open"
-import { FileTypeIcon } from "@/components/files/file-type-icon"
-import { buildProjectFileRawParameters } from "@/lib/project-file-raw-url"
-import {
-  classifyWorkspaceMedia,
-  isWorkspaceReaderPath,
-  readWorkspaceFileRawMetadata,
-  shouldOpenFileInDefaultAppBySize,
-} from "@/lib/workspace-file-media"
-import {
-  fileExtensionFromPath as fileExtension,
-  fileNameFromPath as fileName,
-  normalizeRelativePath,
-} from "@/lib/workspace-file-paths"
+import type { BenchModeRequest } from "@/lib/bench-navigation"
+import { readWorkspaceFileRawMetadata } from "@/lib/workspace-file-media"
 import {
   listProjectExplorerDirectory,
-  readProjectExplorerEditableFile,
-  readProjectExplorerFile,
-  saveProjectExplorerEditableFile,
-  ProjectExplorerFileVersionConflictError,
-  type ProjectExplorerFileContent,
   type ProjectExplorerFileNode,
 } from "@/state/chat-actions"
-import {
-  useWorkspaceFilePanelStore,
-  type WorkspaceFilePanelItem,
-} from "@/state/workspace-file-panel-store"
-import { useUiPreferences } from "@/state/ui-preferences"
 
 const ROOT_DIRECTORY_PATH = ""
 const EMPTY_CHILDREN: string[] = []
-const EMPTY_TABS: string[] = []
-const FILE_TREE_COLUMN_WIDTH_CLASS = "w-[19rem]"
-
-const EXTENSION_TO_MONACO_LANGUAGE: Record<string, string> = {
-  txt: "plaintext",
-  ts: "typescript",
-  tsx: "typescriptreact",
-  js: "javascript",
-  jsx: "javascriptreact",
-  py: "python",
-  go: "go",
-  rs: "rust",
-  java: "java",
-  kt: "kotlin",
-  php: "php",
-  rb: "ruby",
-  swift: "swift",
-  cs: "csharp",
-  fs: "fsharp",
-  c: "c",
-  cpp: "cpp",
-  cc: "cpp",
-  cxx: "cpp",
-  sh: "shell",
-  bash: "shell",
-  zsh: "shell",
-  yaml: "yaml",
-  yml: "yaml",
-  json: "json",
-  md: "markdown",
-  html: "html",
-  htm: "html",
-  css: "css",
-  sql: "sql",
-  lua: "lua",
-  dart: "dart",
-  tf: "hcl",
-  clj: "clojure",
-  hs: "haskell",
-  xml: "xml",
-}
+const TREE_DEPTH_INDENT_PX = 12
+const TREE_ROW_BASE_PADDING_PX = 8
+const TREE_FILE_ICON_OFFSET_PX = 16
 
 type ProjectFileExplorerPanelProps = {
   directory: string
   className?: string
+  mode?: "full" | "selector"
+  benchMode?: BenchModeRequest
+  onFileOpenBlocked?: () => void
+  onSelectFile?: () => void
   onOpenResource?: WorkspaceResourceOpener
 }
 
-type ProjectExplorerDirectoryState = {
+type ExplorerDirectoryState = {
   expanded: boolean
   loaded: boolean
   loading: boolean
@@ -125,1136 +45,226 @@ type ProjectExplorerDirectoryState = {
   children: string[]
 }
 
-type ProjectExplorerFileViewState = {
-  loading: boolean
-  error?: string
-  tooLarge?: boolean
-  content?: ProjectExplorerFileContent
+type DirectoryStateMap = Record<string, ExplorerDirectoryState>
+type NodeMap = Record<string, ProjectExplorerFileNode>
+
+const ROOT_DIRECTORY_STATE: ExplorerDirectoryState = {
+  expanded: true,
+  loaded: false,
+  loading: false,
+  children: EMPTY_CHILDREN,
 }
 
-type ProjectExplorerReaderViewState = {
-  loading: boolean
-  error?: string
-  blob?: Blob
-}
-
-type ExplorerDirectoryStateMap = Record<string, ProjectExplorerDirectoryState>
-type ExplorerNodeMap = Record<string, ProjectExplorerFileNode>
-type ExplorerFileViewStateMap = Record<string, ProjectExplorerFileViewState>
-type ExplorerReaderViewStateMap = Record<string, ProjectExplorerReaderViewState>
-type MarkdownViewMode = "view" | "edit"
-
-const MARKDOWN_VIEW_MODE_VIEW = "view"
-const MARKDOWN_VIEW_MODE_EDIT = "edit"
-
-function monacoLanguageForPath(filepath: string) {
-  return EXTENSION_TO_MONACO_LANGUAGE[fileExtension(filepath)] ?? "plaintext"
-}
-
-function isMarkdownFilePath(filepath: string): boolean {
-  return fileExtension(filepath) === "md"
-}
-
-function isMarkdownViewMode(value: string): value is MarkdownViewMode {
-  return value === MARKDOWN_VIEW_MODE_VIEW || value === MARKDOWN_VIEW_MODE_EDIT
-}
-
-function markdownPdfFileName(filepath: string): string {
-  const name = fileName(filepath)
-  const extension = fileExtension(filepath)
-  if (!extension) return `${name}.pdf`
-  return `${name.slice(0, -(extension.length + 1))}.pdf`
-}
-
-function formatLabelForPath(filepath: string) {
-  const extension = fileExtension(filepath)
-  if (!extension) return "FILE"
-  return extension.toUpperCase()
-}
-
-function isEditableTextFileContent(content: ProjectExplorerFileContent | undefined) {
-  if (!content) return false
-  if (content.type !== "text") return false
-  if (content.encoding === "base64") return false
-  const LARGE_TEXT_FILE_LIMIT_BYTES = 1_000_000
-  return content.content.length <= LARGE_TEXT_FILE_LIMIT_BYTES
-}
-
-function isAbortError(error: unknown) {
-  return error instanceof DOMException && error.name === "AbortError"
-}
-
-function fileIconForNode(node: ProjectExplorerFileNode) {
-  if (node.type === "directory") return <FolderIcon className="size-4 text-text-weak" />
-  return <FileTypeIcon fileName={node.path} className="size-4 object-contain" />
-}
-
-function buildDefaultDirectoryState(): ExplorerDirectoryStateMap {
-  return {
-    [ROOT_DIRECTORY_PATH]: {
-      expanded: true,
-      loaded: false,
-      loading: false,
-      children: EMPTY_CHILDREN,
-    },
-  }
-}
-
-function sortedNodes(paths: string[], nodesByPath: ExplorerNodeMap) {
+function sortedNodes(paths: string[], nodesByPath: NodeMap) {
   return paths
     .map((path) => nodesByPath[path])
-    .filter((node): node is ProjectExplorerFileNode => Boolean(node))
+    .filter((node): node is ProjectExplorerFileNode => node !== undefined)
     .toSorted((left, right) => {
-      if (left.type !== right.type) {
-        return left.type === "directory" ? -1 : 1
-      }
-      return left.name.localeCompare(right.name)
+      if (left.type !== right.type) return left.type === "directory" ? -1 : 1
+      return left.name.localeCompare(right.name, undefined, { sensitivity: "base" })
     })
+}
+
+function FileNodeIcon(props: { node: ProjectExplorerFileNode }) {
+  if (props.node.type === "directory") {
+    return <FolderIcon className="size-4 shrink-0 text-text-weak" />
+  }
+  return <FileTypeIcon fileName={props.node.path} className="size-4 shrink-0 object-contain" />
 }
 
 export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
   const platform = usePlatform()
-  const { executePrimary } = useWorkspaceFileOpen(props.directory, props.onOpenResource)
-  const pendingOpenPath = useWorkspaceFilePanelStore(
-    (state) => state.pendingObjectOpenByDirectory[props.directory]?.path,
+  const { executePrimary } = useWorkspaceFileOpen(props.directory, props.onOpenResource, {
+    benchMode: props.benchMode,
+  })
+  const [directoriesByPath, setDirectoriesByPath] = useState<DirectoryStateMap>({
+    [ROOT_DIRECTORY_PATH]: ROOT_DIRECTORY_STATE,
+  })
+  const [nodesByPath, setNodesByPath] = useState<NodeMap>({})
+
+  const loadDirectory = useCallback(
+    async (path: string, force = false) => {
+      const current = directoriesByPath[path]
+      if (!force && (current?.loading || current?.loaded)) return
+
+      setDirectoriesByPath((state) => ({
+        ...state,
+        [path]: {
+          ...(state[path] ?? ROOT_DIRECTORY_STATE),
+          loading: true,
+          error: undefined,
+        },
+      }))
+
+      try {
+        const listed = await listProjectExplorerDirectory({ directory: props.directory, path })
+        setNodesByPath((state) => ({
+          ...state,
+          ...Object.fromEntries(listed.map((node) => [node.path, node])),
+        }))
+        setDirectoriesByPath((state) => ({
+          ...state,
+          [path]: {
+            ...(state[path] ?? ROOT_DIRECTORY_STATE),
+            loaded: true,
+            loading: false,
+            error: undefined,
+            children: listed.map((node) => node.path),
+          },
+        }))
+      } catch (error) {
+        setDirectoriesByPath((state) => ({
+          ...state,
+          [path]: {
+            ...(state[path] ?? ROOT_DIRECTORY_STATE),
+            loading: false,
+            error: stringifyError(error),
+          },
+        }))
+      }
+    },
+    [directoriesByPath, props.directory],
   )
-  const selectedFileItem = useWorkspaceFilePanelStore(
-    (state) => state.selectedItemByDirectory[props.directory],
-  )
-  const treeOpen = useUiPreferences((state) => state.projectFileTreeOpen)
-  const setTreeOpen = useUiPreferences((state) => state.setProjectFileTreeOpen)
-  const consumePendingOpen = useWorkspaceFilePanelStore((state) => state.consumePendingOpen)
-  const openQueuedFile = useWorkspaceFilePanelStore((state) => state.openFile)
-  const editorRefs = useRef<Record<string, VersionedTextFileEditorHandle | null>>({})
-  const markdownPreviewRef = useRef<HTMLDivElement>(null)
-  const fileViewByPathRef = useRef<ExplorerFileViewStateMap>({})
-  const readerViewByPathRef = useRef<ExplorerReaderViewStateMap>({})
-  const readerLoadAbortControllersRef = useRef<Record<string, AbortController>>({})
-  const [directoriesByPath, setDirectoriesByPath] = useState<ExplorerDirectoryStateMap>(
-    buildDefaultDirectoryState,
-  )
-  const [nodesByPath, setNodesByPath] = useState<ExplorerNodeMap>({})
-  const [openTabs, setOpenTabs] = useState<string[]>(EMPTY_TABS)
-  const [activePath, setActivePath] = useState<string | undefined>(undefined)
-  const [fileViewByPath, setFileViewByPath] = useState<ExplorerFileViewStateMap>({})
-  const [readerViewByPath, setReaderViewByPath] = useState<ExplorerReaderViewStateMap>({})
-  const [markdownModeByPath, setMarkdownModeByPath] = useState<Record<string, MarkdownViewMode>>({})
-  const [exportingMarkdownPdf, setExportingMarkdownPdf] = useState(false)
-  const [openPathError, setOpenPathError] = useState<string | undefined>(undefined)
 
   useEffect(() => {
-    for (const controller of Object.values(readerLoadAbortControllersRef.current)) {
-      controller.abort()
-    }
-    readerLoadAbortControllersRef.current = {}
-    editorRefs.current = {}
-    setDirectoriesByPath(buildDefaultDirectoryState())
+    setDirectoriesByPath({ [ROOT_DIRECTORY_PATH]: ROOT_DIRECTORY_STATE })
     setNodesByPath({})
-    setOpenTabs(EMPTY_TABS)
-    setActivePath(undefined)
-    setFileViewByPath({})
-    setReaderViewByPath({})
-    setMarkdownModeByPath({})
-    setExportingMarkdownPdf(false)
-    setOpenPathError(undefined)
   }, [props.directory])
 
   useEffect(() => {
-    setOpenPathError(undefined)
-  }, [activePath])
+    void loadDirectory(ROOT_DIRECTORY_PATH)
+  }, [loadDirectory])
 
-  useEffect(() => {
-    fileViewByPathRef.current = fileViewByPath
-  }, [fileViewByPath])
+  const toggleDirectory = async (path: string) => {
+    const current = directoriesByPath[path]
+    const expanded = !(current?.expanded ?? false)
+    setDirectoriesByPath((state) => ({
+      ...state,
+      [path]: {
+        ...(state[path] ?? ROOT_DIRECTORY_STATE),
+        expanded,
+      },
+    }))
+    if (expanded && !current?.loaded) await loadDirectory(path)
+  }
 
-  useEffect(() => {
-    readerViewByPathRef.current = readerViewByPath
-  }, [readerViewByPath])
-
-  const loadDirectory = useCallback(
-    async (path: string, input?: { force?: boolean }) => {
-      const normalizedPath = normalizeRelativePath(path)
-
-      setDirectoriesByPath((current) => {
-        const existing = current[normalizedPath] ?? {
-          expanded: normalizedPath === ROOT_DIRECTORY_PATH,
-          loaded: false,
-          loading: false,
-          children: EMPTY_CHILDREN,
-        }
-        if (existing.loading) return current
-        if (!input?.force && existing.loaded) return current
-        return {
-          ...current,
-          [normalizedPath]: {
-            ...existing,
-            loading: true,
-            error: undefined,
-          },
-        }
-      })
-
-      try {
-        const listed = await listProjectExplorerDirectory({
-          directory: props.directory,
-          path: normalizedPath,
-        })
-
-        setNodesByPath((current) => {
-          const next = { ...current }
-          for (const node of listed) {
-            next[node.path] = node
-          }
-          return next
-        })
-
-        setDirectoriesByPath((current) => {
-          const next = { ...current }
-          const existing = next[normalizedPath] ?? {
-            expanded: normalizedPath === ROOT_DIRECTORY_PATH,
-            loaded: false,
-            loading: false,
-            children: EMPTY_CHILDREN,
-          }
-
-          const children = listed.map((node) => node.path)
-          next[normalizedPath] = {
-            ...existing,
-            loading: false,
-            loaded: true,
-            error: undefined,
-            children,
-          }
-
-          for (const child of listed) {
-            if (child.type !== "directory") continue
-            const previous = next[child.path]
-            next[child.path] = {
-              expanded: previous?.expanded ?? false,
-              loaded: previous?.loaded ?? false,
-              loading: false,
-              error: previous?.error,
-              children: previous?.children ?? EMPTY_CHILDREN,
-            }
-          }
-          return next
-        })
-      } catch (error) {
-        setDirectoriesByPath((current) => {
-          const existing = current[normalizedPath] ?? {
-            expanded: normalizedPath === ROOT_DIRECTORY_PATH,
-            loaded: false,
-            loading: false,
-            children: EMPTY_CHILDREN,
-          }
-          return {
-            ...current,
-            [normalizedPath]: {
-              ...existing,
-              loading: false,
-              loaded: false,
-              error: error instanceof Error ? error.message : String(error),
-            },
-          }
-        })
-      }
-    },
-    [props.directory],
-  )
-
-  useEffect(() => {
-    for (const [path, state] of Object.entries(directoriesByPath)) {
-      if (!state.expanded) continue
-      if (state.loaded) continue
-      if (state.loading) continue
-      void loadDirectory(path)
-    }
-  }, [directoriesByPath, loadDirectory])
-
-  const loadFile = useCallback(
-    async (path: string, input?: { force?: boolean }) => {
-      const normalizedPath = normalizeRelativePath(path)
-      const existing = fileViewByPathRef.current[normalizedPath]
-      if (existing?.loading) return
-      if (!input?.force && (existing?.content || existing?.tooLarge) && !existing.error) {
-        return
-      }
-
-      setFileViewByPath((current) => {
-        const nextExisting = current[normalizedPath]
-        return {
-          ...current,
-          [normalizedPath]: {
-            loading: true,
-            error: undefined,
-            tooLarge: false,
-            content: nextExisting?.content,
-          },
-        }
-      })
-
-      try {
-        const metadata = await readWorkspaceFileRawMetadata({
-          directory: props.directory,
-          path: normalizedPath,
-        })
-        if (shouldOpenFileInDefaultAppBySize({ ...metadata, path: normalizedPath })) {
-          setFileViewByPath((current) => {
-            const existing = current[normalizedPath]
-            if (!existing) return current
-            return {
-              ...current,
-              [normalizedPath]: {
-                loading: false,
-                error: undefined,
-                tooLarge: true,
-              },
-            }
-          })
-          return
-        }
-
-        const content = await readProjectExplorerFile({
-          directory: props.directory,
-          path: normalizedPath,
-        })
-        setFileViewByPath((current) => {
-          const existing = current[normalizedPath]
-          if (!existing) return current
-          return {
-            ...current,
-            [normalizedPath]: {
-              loading: false,
-              error: undefined,
-              tooLarge: false,
-              content,
-            },
-          }
-        })
-      } catch (error) {
-        setFileViewByPath((current) => {
-          const existing = current[normalizedPath]
-          if (!existing) return current
-          return {
-            ...current,
-            [normalizedPath]: {
-              loading: false,
-              error: error instanceof Error ? error.message : String(error),
-              tooLarge: false,
-              content: existing.content,
-            },
-          }
-        })
-      }
-    },
-    [props.directory],
-  )
-
-  const loadReaderFile = useCallback(
-    async (path: string, input?: { force?: boolean }) => {
-      const normalizedPath = normalizeRelativePath(path)
-      const existing = readerViewByPathRef.current[normalizedPath]
-      if (existing?.loading) return
-      if (!input?.force && existing?.blob && !existing.error) return
-
-      readerLoadAbortControllersRef.current[normalizedPath]?.abort()
-      const controller = new AbortController()
-      readerLoadAbortControllersRef.current[normalizedPath] = controller
-
-      setReaderViewByPath((current) => {
-        const nextExisting = current[normalizedPath]
-        return {
-          ...current,
-          [normalizedPath]: {
-            loading: true,
-            error: undefined,
-            blob: nextExisting?.blob,
-          },
-        }
-      })
-
-      try {
-        const response = await getBuddyClient(props.directory).explorer.file.raw(
-          buildProjectFileRawParameters(normalizedPath),
-          {
-            parseAs: "blob",
-            signal: controller.signal,
-          },
-        )
-        if (!response.response?.ok || !response.data) {
-          throw new Error(buddyResultMessage(response))
-        }
-
-        const blob = response.data
-        setReaderViewByPath((current) => {
-          const existing = current[normalizedPath]
-          if (!existing) return current
-          return {
-            ...current,
-            [normalizedPath]: {
-              loading: false,
-              error: undefined,
-              blob,
-            },
-          }
-        })
-      } catch (error) {
-        if (isAbortError(error)) {
-          return
-        }
-        setReaderViewByPath((current) => {
-          const existing = current[normalizedPath]
-          if (!existing) return current
-          return {
-            ...current,
-            [normalizedPath]: {
-              loading: false,
-              error: error instanceof Error ? error.message : String(error),
-              blob: existing.blob,
-            },
-          }
-        })
-      } finally {
-        if (readerLoadAbortControllersRef.current[normalizedPath] === controller) {
-          delete readerLoadAbortControllersRef.current[normalizedPath]
-        }
-      }
-    },
-    [props.directory],
-  )
-
-  const toggleDirectory = useCallback((path: string) => {
-    const normalizedPath = normalizeRelativePath(path)
-    setDirectoriesByPath((current) => {
-      const existing = current[normalizedPath] ?? {
-        expanded: false,
-        loaded: false,
-        loading: false,
-        children: EMPTY_CHILDREN,
-      }
-
-      return {
-        ...current,
-        [normalizedPath]: {
-          ...existing,
-          expanded: !existing.expanded,
-        },
-      }
-    })
-  }, [])
-
-  const openFile = useCallback(
-    (item: WorkspaceFilePanelItem) => {
-      const normalizedPath = normalizeRelativePath(item.path)
-
-      setOpenTabs((current) => {
-        if (current.includes(normalizedPath)) return current
-        return [...current, normalizedPath]
-      })
-      setActivePath(normalizedPath)
-      if (isWorkspaceReaderPath(normalizedPath)) {
-        void loadReaderFile(normalizedPath)
-        return
-      }
-      void loadFile(normalizedPath)
-    },
-    [loadFile, loadReaderFile],
-  )
-
-  const openWorkspaceFile = useCallback(
-    (path: string) => {
-      const item = { path }
-      openFile(item)
-      openQueuedFile(props.directory, item)
-    },
-    [openFile, openQueuedFile, props.directory],
-  )
-
-  const routeWorkspaceFile = useCallback(
-    async (node: ProjectExplorerFileNode) => {
-      try {
-        const metadata = await readWorkspaceFileRawMetadata({
-          directory: props.directory,
-          path: node.path,
-        })
-        await executePrimary({
-          path: node.path,
-          absolutePath: node.absolute,
-          name: node.name,
-          available: true,
-          canOpenInBuddy: true,
-          canOpenDefaultApp: !!platform.openPath,
-          canReveal: !!platform.revealPath,
-          mimeType: metadata.mimeType,
-          sizeBytes: metadata.sizeBytes,
-        })
-      } catch {
-        openWorkspaceFile(node.path)
-      }
-    },
-    [
-      executePrimary,
-      openWorkspaceFile,
-      platform.openPath,
-      platform.revealPath,
-      props.directory,
-    ],
-  )
-
-  useEffect(() => {
-    if (!selectedFileItem) return
-    const normalizedPath = normalizeRelativePath(selectedFileItem.path)
-    if (activePath === normalizedPath && openTabs.includes(normalizedPath)) return
-
-    openFile(selectedFileItem)
-  }, [activePath, openFile, openTabs, selectedFileItem])
-
-  useEffect(() => {
-    if (!pendingOpenPath) return
-
-    const pendingItem = consumePendingOpen(props.directory)
-    if (!pendingItem) return
-
-    openFile(pendingItem)
-    openQueuedFile(props.directory, pendingItem)
-  }, [consumePendingOpen, openFile, openQueuedFile, pendingOpenPath, props.directory])
-
-  const closeFileTab = useCallback(async (path: string) => {
-    const normalizedPath = normalizeRelativePath(path)
-    readerLoadAbortControllersRef.current[normalizedPath]?.abort()
-    delete readerLoadAbortControllersRef.current[normalizedPath]
-    const handle = editorRefs.current[normalizedPath]
-    if (handle) {
-      const flushed = await handle.flushPendingSave()
-      if (!flushed) {
-        setActivePath(normalizedPath)
-        return
-      }
-    }
-
-    delete editorRefs.current[normalizedPath]
-    setFileViewByPath((current) => {
-      if (!(normalizedPath in current)) return current
-      const next = { ...current }
-      delete next[normalizedPath]
-      return next
-    })
-    setReaderViewByPath((current) => {
-      if (!(normalizedPath in current)) return current
-      const next = { ...current }
-      delete next[normalizedPath]
-      return next
-    })
-    setMarkdownModeByPath((current) => {
-      if (!(normalizedPath in current)) return current
-      const next = { ...current }
-      delete next[normalizedPath]
-      return next
-    })
-    setOpenTabs((current) => {
-      const remaining = current.filter((entry) => entry !== normalizedPath)
-      setActivePath((currentActive) => {
-        if (currentActive !== normalizedPath) return currentActive
-        return remaining.length > 0 ? remaining[remaining.length - 1] : undefined
-      })
-      return remaining
-    })
-  }, [])
-
-  const activeNode = activePath ? nodesByPath[activePath] : undefined
-  const activeSelectedFileItem =
-    activePath && selectedFileItem?.path === activePath ? selectedFileItem : undefined
-  const activeViewState = activePath ? fileViewByPath[activePath] : undefined
-  const activeReaderViewState = activePath ? readerViewByPath[activePath] : undefined
-  const activeContent = activeViewState?.content
-  const activeFileName = activePath ? fileName(activePath) : ""
-  const activeDisplayPath = activePath
-  const activeMarkdownMode =
-    activePath && isMarkdownFilePath(activePath)
-      ? (markdownModeByPath[activePath] ?? MARKDOWN_VIEW_MODE_VIEW)
-      : undefined
-
-  const activeReaderSource = useMemo<FoliateReaderSource | null>(() => {
-    if (!activePath) return null
-    const blob = activeReaderViewState?.blob
-    if (!blob) return null
-    return {
-      kind: "blob",
-      blob,
-      name: activeFileName,
-    }
-  }, [activeFileName, activePath, activeReaderViewState?.blob])
-
-  const viewerMode = useMemo(() => {
-    if (!activePath) return "empty" as const
-    if (isWorkspaceReaderPath(activePath)) {
-      if (!activeReaderViewState || activeReaderViewState.loading) return "loading" as const
-      if (activeReaderViewState.error) return "error" as const
-      if (activeReaderViewState.blob) return "reader" as const
-      return "empty" as const
-    }
-    if (!activeViewState || activeViewState.loading) return "loading" as const
-    if (activeViewState.error) return "error" as const
-    if (activeViewState.tooLarge) return "large" as const
-    if (!activeContent) return "empty" as const
-
-    if (activeContent.type === "binary") return "unsupported" as const
-    if (activeContent.encoding === "base64") {
-      if (
-        classifyWorkspaceMedia({
-          path: activePath,
-          mimeType: activeContent.mimeType ?? undefined,
-          sizeBytes: undefined,
-        }).mediaKind === "image"
-      ) {
-        return "image" as const
-      }
-      return "unsupported" as const
-    }
-    const LARGE_TEXT_FILE_LIMIT_BYTES = 1_000_000
-    if (activeContent.content.length > LARGE_TEXT_FILE_LIMIT_BYTES) return "large" as const
-    return "text" as const
-  }, [activeContent, activePath, activeReaderViewState, activeViewState])
-
-  const activeFormatLabel = activePath ? formatLabelForPath(activePath) : undefined
-  const activeModeLabel =
-    viewerMode === "text"
-      ? activeMarkdownMode === MARKDOWN_VIEW_MODE_VIEW
-        ? language.t("projectExplorer.markdownPreview")
-        : language.t("projectExplorer.editableInApp")
-      : viewerMode === "reader"
-        ? language.t("projectExplorer.readerPreview")
-        : viewerMode === "image"
-          ? language.t("projectExplorer.imagePreview")
-          : viewerMode === "large" || viewerMode === "unsupported"
-            ? language.t("projectExplorer.defaultApp")
-            : undefined
-
-  const changeMarkdownMode = useCallback(
-    async (nextMode: MarkdownViewMode) => {
-      if (!activePath || !isMarkdownFilePath(activePath)) return
-      if (activeMarkdownMode === nextMode) return
-
-      if (nextMode === MARKDOWN_VIEW_MODE_VIEW) {
-        const handle = editorRefs.current[activePath]
-        if (handle) {
-          const flushed = await handle.flushPendingSave()
-          if (!flushed) return
-        }
-      }
-
-      setMarkdownModeByPath((current) => ({
-        ...current,
-        [activePath]: nextMode,
-      }))
-    },
-    [activeMarkdownMode, activePath],
-  )
-
-  const exportMarkdownPdf = useCallback(async () => {
-    if (!activePath || activeMarkdownMode !== MARKDOWN_VIEW_MODE_VIEW) return
-    const preview = markdownPreviewRef.current
-    if (!preview || !platform.exportMarkdownPdf) {
-      toast.error(language.t("projectExplorer.markdownExportUnavailable"))
-      return
-    }
-
+  const openFile = async (node: ProjectExplorerFileNode) => {
     try {
-      setExportingMarkdownPdf(true)
-      await waitForMarkdownPdfRenderReady(preview)
-      const exportedPath = await platform.exportMarkdownPdf({
-        html: serializeMarkdownPdfDocument({
-          title: activeFileName,
-          element: preview,
-        }),
-        defaultPath: markdownPdfFileName(activePath),
+      const metadata = await readWorkspaceFileRawMetadata({
+        directory: props.directory,
+        path: node.path,
       })
-      if (exportedPath) {
-        toast.success(language.t("projectExplorer.markdownExported"))
+      const opened = await executePrimary({
+        path: node.path,
+        absolutePath: node.absolute,
+        name: node.name,
+        available: true,
+        canOpenInBuddy: true,
+        canOpenDefaultApp: platform.openPath !== undefined,
+        canReveal: platform.revealPath !== undefined,
+        mimeType: metadata.mimeType,
+        sizeBytes: metadata.sizeBytes,
+      })
+      if (opened) {
+        props.onSelectFile?.()
+        return
       }
+      props.onFileOpenBlocked?.()
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : language.t("projectExplorer.markdownExportFailed"),
-      )
-    } finally {
-      setExportingMarkdownPdf(false)
+      props.onFileOpenBlocked?.()
+      toast.error(stringifyError(error))
     }
-  }, [activeFileName, activeMarkdownMode, activePath, platform])
-
-  const openInDefaultApp = useCallback(async () => {
-    const pathToOpen = activeSelectedFileItem?.absolutePath ?? activeNode?.absolute
-    if (!pathToOpen) return
-    if (!platform.openPath) {
-      setOpenPathError(language.t("projectExplorer.openInDefaultAppUnavailable"))
-      return
-    }
-
-    try {
-      setOpenPathError(undefined)
-      await platform.openPath(pathToOpen)
-    } catch (error) {
-      setOpenPathError(error instanceof Error ? error.message : String(error))
-    }
-  }, [activeNode?.absolute, activeSelectedFileItem?.absolutePath, platform])
-
-  const refreshExpandedDirectories = useCallback(async () => {
-    const expandedPaths = Object.entries(directoriesByPath)
-      .filter(([, state]) => state.expanded)
-      .map(([path]) => path)
-      .toSorted((left, right) => left.length - right.length)
-
-    await Promise.allSettled(expandedPaths.map((path) => loadDirectory(path, { force: true })))
-  }, [directoriesByPath, loadDirectory])
+  }
 
   function renderDirectory(path: string, depth: number): ReactNode {
     const directoryState = directoriesByPath[path]
     const children = sortedNodes(directoryState?.children ?? EMPTY_CHILDREN, nodesByPath)
 
-    return (
-      <div key={`directory:${path || ROOT_DIRECTORY_PATH}`}>
-        {children.map((node) => {
-          if (node.type === "directory") {
-            const nodeState = directoriesByPath[node.path] ?? {
-              expanded: false,
-              loaded: false,
-              loading: false,
-              children: EMPTY_CHILDREN,
-            }
-            return (
-              <div key={node.path}>
-                <button
-                  type="button"
-                  className="flex h-7 w-full items-center gap-1.5 rounded-lg px-2 text-left text-[12px] text-text-weak transition-[background-color,color,box-shadow] duration-150 hover:bg-surface-raised-base/80 hover:text-text-base"
-                  style={{ paddingLeft: `${depth * 12 + 8}px` }}
-                  onClick={() => toggleDirectory(node.path)}
-                >
-                  {nodeState.expanded ? (
-                    <ChevronDownIcon className="size-3 text-text-weak" />
-                  ) : (
-                    <ChevronRightIcon className="size-3 text-text-weak" />
-                  )}
-                  {fileIconForNode(node)}
-                  <span
-                    className={`min-w-0 flex-1 truncate ${node.ignored ? "text-text-weak/70" : "text-text-base"}`}
-                  >
-                    {node.name}
-                  </span>
-                  {nodeState.loading ? (
-                    <Loader2Icon className="size-3 animate-spin text-text-weak" />
-                  ) : null}
-                </button>
-                {nodeState.expanded ? (
-                  <div>
-                    {nodeState.error ? (
-                      <div
-                        className="px-2 py-1 text-[11px] text-icon-critical-base"
-                        style={{ paddingLeft: `${(depth + 1) * 12 + 8}px` }}
-                      >
-                        {nodeState.error}
-                      </div>
-                    ) : null}
-                    {nodeState.loaded ? renderDirectory(node.path, depth + 1) : null}
-                  </div>
-                ) : null}
-              </div>
-            )
-          }
-
-          const isActive = node.path === activePath
-          return (
+    return children.map((node) => {
+      if (node.type === "directory") {
+        const childState = directoriesByPath[node.path] ?? {
+          ...ROOT_DIRECTORY_STATE,
+          expanded: false,
+        }
+        return (
+          <div key={node.path}>
             <button
-              key={node.path}
               type="button"
-              className={cn(
-                "flex h-7 w-full items-center gap-1.5 rounded-lg px-2 text-left text-[12px] transition-[background-color,color,box-shadow] duration-150",
-                isActive
-                  ? "bg-surface-raised-base text-text-base shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--border-base)_70%,transparent)]"
-                  : "text-text-weak hover:bg-surface-raised-base/80 hover:text-text-base",
-              )}
-              style={{ paddingLeft: `${depth * 12 + 24}px` }}
-              onClick={() => {
-                void routeWorkspaceFile(node)
-              }}
+              className="flex h-7 w-full items-center gap-1.5 rounded-lg px-2 text-left text-xs text-text-weak transition-colors hover:bg-surface-raised-base/80 hover:text-text-base"
+              style={{ paddingLeft: depth * TREE_DEPTH_INDENT_PX + TREE_ROW_BASE_PADDING_PX }}
+              onClick={() => void toggleDirectory(node.path)}
             >
-              {fileIconForNode(node)}
-              <span className="min-w-0 flex-1 truncate">{node.name}</span>
+              {childState.expanded ? (
+                <ChevronDownIcon className="size-3 shrink-0" aria-hidden />
+              ) : (
+                <ChevronRightIcon className="size-3 shrink-0" aria-hidden />
+              )}
+              <FileNodeIcon node={node} />
+              <span className={cn("min-w-0 flex-1 truncate", node.ignored && "opacity-60")}>
+                {node.name}
+              </span>
+              {childState.loading ? <Loader2Icon className="size-3 animate-spin" /> : null}
             </button>
-          )
-        })}
-      </div>
-    )
+            {childState.error ? (
+              <p className="px-2 py-1 text-xs text-icon-critical-base">{childState.error}</p>
+            ) : null}
+            {childState.expanded && childState.loaded
+              ? renderDirectory(node.path, depth + 1)
+              : null}
+          </div>
+        )
+      }
+
+      return (
+        <button
+          key={node.path}
+          type="button"
+          className="flex h-7 w-full items-center gap-1.5 rounded-lg px-2 text-left text-xs text-text-weak transition-colors hover:bg-surface-raised-base/80 hover:text-text-base"
+          style={{
+            paddingLeft:
+              depth * TREE_DEPTH_INDENT_PX + TREE_ROW_BASE_PADDING_PX + TREE_FILE_ICON_OFFSET_PX,
+          }}
+          onClick={() => void openFile(node)}
+        >
+          <FileNodeIcon node={node} />
+          <span className={cn("min-w-0 flex-1 truncate", node.ignored && "opacity-60")}>
+            {node.name}
+          </span>
+        </button>
+      )
+    })
   }
 
+  const rootState = directoriesByPath[ROOT_DIRECTORY_PATH]
   return (
     <section
       data-component="project-file-explorer-panel"
-      className={cn(
-        "flex min-h-0 flex-1 flex-col overflow-hidden bg-background-base/95",
-        props.className,
-      )}
+      data-mode={props.mode ?? "full"}
+      className={cn("flex h-full min-h-0 flex-col bg-background-base", props.className)}
     >
-      <div className="flex min-h-0 flex-1">
-        <div className="min-w-0 flex min-h-0 flex-1 flex-col">
-          <div className="flex items-center gap-2 border-b border-border-weaker-base bg-background-base/75 px-3 py-2">
-            <div className="flex min-h-9 flex-1 items-center gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {openTabs.length === 0 ? (
-                <span className="px-1 text-xs text-text-weak">
-                  {language.t("projectExplorer.noOpenFiles")}
-                </span>
-              ) : (
-                openTabs.map((tabPath) => {
-                  const tabLabel = fileName(tabPath)
-                  const active = tabPath === activePath
-                  return (
-                    <div
-                      key={tabPath}
-                      className={cn(
-                        "group flex items-center rounded-full border transition-colors",
-                        active
-                          ? "border-border-base bg-surface-raised-base text-text-base shadow-sm"
-                          : "border-border-weaker-base bg-background-base/60 text-text-weak hover:border-border-base hover:text-text-base",
-                      )}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          openWorkspaceFile(tabPath)
-                        }}
-                        className="max-w-64 truncate px-3 py-1.5 text-xs"
-                        title={tabPath}
-                      >
-                        {tabLabel}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void closeFileTab(tabPath)
-                        }}
-                        className="mr-1 flex size-6 items-center justify-center rounded-full text-text-weak transition-colors hover:bg-surface-base-hover hover:text-text-base"
-                        aria-label={language.t("projectExplorer.closeTab")}
-                      >
-                        <XIcon className="size-3.5" />
-                      </button>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          </div>
-
-          {activePath ? (
-            <div className="border-b border-border-weaker-base bg-[linear-gradient(180deg,color-mix(in_oklab,var(--background-base)_92%,transparent)_0%,color-mix(in_oklab,var(--surface-raised-base)_78%,transparent)_100%)] px-4 py-3">
-              <div className="flex items-start gap-3">
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="truncate text-sm font-semibold text-text-base">
-                      {activeFileName}
-                    </p>
-                    {activeFormatLabel ? (
-                      <Badge variant="secondary">{activeFormatLabel}</Badge>
-                    ) : null}
-                    {activeModeLabel ? <Badge variant="outline">{activeModeLabel}</Badge> : null}
-                  </div>
-                  <p className="mt-1 truncate text-[11px] text-text-weak">{activeDisplayPath}</p>
-                </div>
-                {viewerMode === "text" && activeMarkdownMode ? (
-                  <div
-                    data-markdown-export-ignore
-                    className="flex shrink-0 items-center gap-2"
-                  >
-                    <ToggleGroup
-                      type="single"
-                      value={activeMarkdownMode}
-                      variant="outline"
-                      size="sm"
-                      onValueChange={(value) => {
-                        if (!isMarkdownViewMode(value)) return
-                        void changeMarkdownMode(value)
-                      }}
-                    >
-                      <ToggleGroupItem
-                        value={MARKDOWN_VIEW_MODE_VIEW}
-                        aria-label={language.t("projectExplorer.markdownView")}
-                        className="gap-1.5"
-                      >
-                        <EyeIcon className="size-3.5" />
-                        {language.t("projectExplorer.markdownView")}
-                      </ToggleGroupItem>
-                      <ToggleGroupItem
-                        value={MARKDOWN_VIEW_MODE_EDIT}
-                        aria-label={language.t("projectExplorer.markdownEdit")}
-                        className="gap-1.5"
-                      >
-                        <PencilIcon className="size-3.5" />
-                        {language.t("projectExplorer.markdownEdit")}
-                      </ToggleGroupItem>
-                    </ToggleGroup>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={
-                        exportingMarkdownPdf ||
-                        activeMarkdownMode !== MARKDOWN_VIEW_MODE_VIEW ||
-                        !platform.exportMarkdownPdf
-                      }
-                      title={
-                        platform.exportMarkdownPdf
-                          ? language.t("projectExplorer.markdownExportPdf")
-                          : language.t("projectExplorer.markdownExportUnavailable")
-                      }
-                      onClick={() => {
-                        void exportMarkdownPdf()
-                      }}
-                    >
-                      {exportingMarkdownPdf ? (
-                        <Loader2Icon className="size-3.5 animate-spin" />
-                      ) : (
-                        <DownloadIcon className="size-3.5" />
-                      )}
-                      {language.t("projectExplorer.markdownExportPdf")}
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-              {openPathError ? (
-                <p className="mt-2 text-xs text-icon-critical-base">{openPathError}</p>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div className="min-h-0 flex-1 bg-background-base/55">
-            {openTabs.map((tabPath) => {
-              const tabContent = fileViewByPath[tabPath]?.content
-              if (!isEditableTextFileContent(tabContent)) return null
-              const markdownMode = isMarkdownFilePath(tabPath)
-                ? (markdownModeByPath[tabPath] ?? MARKDOWN_VIEW_MODE_VIEW)
-                : undefined
-              if (markdownMode === MARKDOWN_VIEW_MODE_VIEW) return null
-              const hidden = tabPath !== activePath
-              return (
-                <div key={tabPath} className={hidden ? "hidden h-full" : "h-full"}>
-                  <VersionedTextFileEditor
-                    ref={(instance) => {
-                      if (instance) {
-                        editorRefs.current[tabPath] = instance
-                        return
-                      }
-                      delete editorRefs.current[tabPath]
-                    }}
-                    active={tabPath === activePath}
-                    fallbackPath={tabPath}
-                    languageId={monacoLanguageForPath(tabPath)}
-                    reloadBehavior="once"
-                    statusIndicator="pill"
-                    errorPresentation="inline"
-                    className="h-full min-h-0"
-                    load={async () => {
-                      const loaded = await readProjectExplorerEditableFile({
-                        directory: props.directory,
-                        path: tabPath,
-                      })
-                      return {
-                        path: loaded.path,
-                        exists: true,
-                        content: loaded.content,
-                        version: loaded.version,
-                      }
-                    }}
-                    save={async (input) => {
-                      const saved = await saveProjectExplorerEditableFile({
-                        directory: props.directory,
-                        path: tabPath,
-                        content: input.content,
-                        expectedVersion: input.expectedVersion,
-                      })
-                      setFileViewByPath((current) => {
-                        const existing = current[tabPath]
-                        if (!existing?.content || existing.content.type !== "text") return current
-                        return {
-                          ...current,
-                          [tabPath]: {
-                            ...existing,
-                            error: undefined,
-                            content: {
-                              ...existing.content,
-                              content: saved.content,
-                              diff: undefined,
-                              patch: undefined,
-                            },
-                          },
-                        }
-                      })
-                      return saved
-                    }}
-                    isVersionConflictError={(error) =>
-                      error instanceof ProjectExplorerFileVersionConflictError
-                    }
-                  />
-                </div>
-              )
-            })}
-
-            {viewerMode === "text" &&
-            activeContent?.type === "text" &&
-            activeMarkdownMode === MARKDOWN_VIEW_MODE_VIEW ? (
-              <div className="h-full overflow-y-auto bg-background-base">
-                <div
-                  ref={markdownPreviewRef}
-                  className="mx-auto min-h-full max-w-4xl px-8 py-10 text-text-base"
-                >
-                  <Markdown
-                    text={activeContent.content}
-                    cacheKey={`${activePath}:preview:${activeContent.content}`}
-                    directory={props.directory}
-                    onOpenResource={props.onOpenResource}
-                    preferEagerRender
-                    renderMermaid
-                    className="max-w-none text-[15px] leading-7 [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl [&_h4]:text-lg [&_h1]:font-semibold [&_h2]:font-semibold [&_h3]:font-semibold"
-                  />
-                </div>
-              </div>
-            ) : null}
-
-            {viewerMode === "empty" ? (
-              <div className="flex h-full items-center justify-center px-6">
-                <div className="max-w-md rounded-2xl border border-border-weaker-base bg-background-base/90 px-5 py-5 text-sm shadow-sm">
-                  <p className="font-medium text-text-base">
-                    {language.t("projectExplorer.title")}
-                  </p>
-                  <p className="mt-2 text-text-weak">{language.t("projectExplorer.selectFile")}</p>
-                </div>
-              </div>
-            ) : null}
-
-            {viewerMode === "loading" ? (
-              <div className="flex h-full items-center justify-center gap-2 px-6 text-sm text-text-weak">
-                <Loader2Icon className="size-4 animate-spin" />
-                {language.t("projectExplorer.loadingFile")}
-              </div>
-            ) : null}
-
-            {viewerMode === "error" ? (
-              <div className="flex h-full items-center justify-center px-6">
-                <div className="max-w-xl rounded-2xl border border-border-critical-base/40 bg-surface-critical-base/10 px-4 py-3 text-sm text-icon-critical-base">
-                  {activeReaderViewState?.error ??
-                    activeViewState?.error ??
-                    language.t("projectExplorer.readFailed")}
-                </div>
-              </div>
-            ) : null}
-
-            {viewerMode === "image" && activeContent ? (
-              <div className="flex h-full items-center justify-center overflow-auto bg-background-base p-5">
-                <img
-                  src={`data:${activeContent.mimeType ?? "application/octet-stream"};base64,${activeContent.content}`}
-                  alt={activePath ?? ""}
-                  className="max-h-full max-w-full rounded-xl border border-border-weaker-base bg-white shadow-sm"
-                />
-              </div>
-            ) : null}
-
-            {viewerMode === "reader" && activeReaderSource ? (
-              <FoliateReader
-                key={activePath}
-                source={activeReaderSource}
-                className="h-full min-h-0"
-              />
-            ) : null}
-
-            {viewerMode === "large" || viewerMode === "unsupported" ? (
-              <div className="flex h-full items-center justify-center px-6">
-                <div className="max-w-xl rounded-2xl border border-border-weaker-base bg-background-base px-5 py-5 text-sm text-text-weak shadow-sm">
-                  <div className="mb-2 flex items-center gap-2 text-text-base">
-                    <AlertCircleIcon className="size-4" />
-                    <span>{language.t("projectExplorer.unavailableInApp")}</span>
-                  </div>
-                  <p className="mb-4">
-                    {viewerMode === "large"
-                      ? language.t("projectExplorer.largeFileMessage")
-                      : language.t("projectExplorer.unsupportedFileMessage")}
-                  </p>
-                  <Button size="sm" onClick={() => void openInDefaultApp()}>
-                    <ExternalLinkIcon className="size-4" />
-                    {language.t("projectExplorer.openInDefaultApp")}
-                  </Button>
-                  {openPathError ? (
-                    <p className="mt-2 text-xs text-icon-critical-base">{openPathError}</p>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-          </div>
+      <header className="flex items-center justify-between border-b border-border-weaker-base px-3 py-2.5">
+        <div className="min-w-0">
+          <h2 className="text-xs font-semibold text-text-base">
+            {language.t("projectExplorer.explorer")}
+          </h2>
+          <p className="truncate text-xs text-text-weak">{language.t("projectExplorer.files")}</p>
         </div>
-
-        {treeOpen ? (
-          <aside
-            className={cn(
-              "shrink-0 border-l border-border-weaker-base bg-[linear-gradient(180deg,color-mix(in_oklab,var(--background-base)_96%,transparent)_0%,color-mix(in_oklab,var(--surface-raised-base)_82%,transparent)_100%)]",
-              FILE_TREE_COLUMN_WIDTH_CLASS,
-            )}
-          >
-            <div className="flex h-full min-h-0 flex-col">
-              <div className="flex items-start justify-between gap-2 border-b border-border-weaker-base px-3 py-3">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-text-weak">
-                    {language.t("projectExplorer.explorer")}
-                  </p>
-                  <p className="mt-1 text-[11px] text-text-weak">
-                    {language.t("projectExplorer.files")}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    title={language.t("projectExplorer.hideTree")}
-                    onClick={() => setTreeOpen(false)}
-                  >
-                    <PanelRightCloseIcon className="size-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={() => {
-                      void refreshExpandedDirectories()
-                    }}
-                    disabled={directoriesByPath[ROOT_DIRECTORY_PATH]?.loading === true}
-                    title={language.t("projectExplorer.refresh")}
-                  >
-                    <RefreshCwIcon className="size-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="min-h-0 overflow-y-auto px-2 py-2">
-                {directoriesByPath[ROOT_DIRECTORY_PATH]?.loading &&
-                !directoriesByPath[ROOT_DIRECTORY_PATH]?.loaded ? (
-                  <div className="px-2 py-2 text-xs text-text-weak">
-                    {language.t("projectExplorer.loading")}
-                  </div>
-                ) : null}
-                {directoriesByPath[ROOT_DIRECTORY_PATH]?.error ? (
-                  <div className="px-2 py-2 text-xs text-icon-critical-base">
-                    {directoriesByPath[ROOT_DIRECTORY_PATH]?.error}
-                  </div>
-                ) : null}
-                {renderDirectory(ROOT_DIRECTORY_PATH, 0)}
-              </div>
-            </div>
-          </aside>
-        ) : (
-          <div className="flex w-12 shrink-0 items-start justify-center border-l border-border-weaker-base bg-background-base/90 px-1 pt-3">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              title={language.t("projectExplorer.showTree")}
-              onClick={() => setTreeOpen(true)}
-            >
-              <PanelRightOpenIcon className="size-4" />
-            </Button>
-          </div>
-        )}
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="ghost"
+          aria-label="Refresh files"
+          title="Refresh files"
+          onClick={() => void loadDirectory(ROOT_DIRECTORY_PATH, true)}
+        >
+          <RefreshCwIcon className={cn("size-4", rootState?.loading && "animate-spin")} />
+        </Button>
+      </header>
+      <div className="scrollbar-hover min-h-0 flex-1 overflow-y-auto p-1.5">
+        {rootState?.error ? (
+          <p className="p-2 text-xs text-icon-critical-base">{rootState.error}</p>
+        ) : null}
+        {renderDirectory(ROOT_DIRECTORY_PATH, 0)}
       </div>
     </section>
   )

@@ -54,7 +54,7 @@ import fileZipIconUrl from "@uiw/file-icons/icon/zip.svg"
 import { cn } from "@buddy/ui"
 
 import { fileExtensionFromPath, fileNameFromPath } from "@/lib/workspace-file-paths"
-import type { WorkspaceFilePanelMediaKind } from "@/state/workspace-file-panel-store"
+import type { WorkspaceMediaKind } from "@/lib/workspace-file-media"
 
 const FILE_ICON_BY_KEY = {
   audio: fileAudioIconUrl,
@@ -116,7 +116,7 @@ type FileIconKey = keyof typeof FILE_ICON_BY_KEY
 
 type FileIconResolverInput = {
   fileName: string
-  mediaKind?: WorkspaceFilePanelMediaKind | null
+  mediaKind?: WorkspaceMediaKind | null
 }
 
 type ResolvedFileTypeIcon = {
@@ -126,7 +126,7 @@ type ResolvedFileTypeIcon = {
 
 type FileTypeIconProps = {
   fileName: string
-  mediaKind?: WorkspaceFilePanelMediaKind | null
+  mediaKind?: WorkspaceMediaKind | null
   className?: string
 }
 
@@ -299,7 +299,7 @@ const EXTENSION_ICON_KEYS = new Map<string, FileIconKey>([
   ["tsv", "table"],
 ])
 
-function fileIconByMediaKind(mediaKind: WorkspaceFilePanelMediaKind | undefined) {
+function fileIconByMediaKind(mediaKind: WorkspaceMediaKind | undefined) {
   if (mediaKind === "image") return "image" as const
   if (mediaKind === "pdf") return "pdf" as const
   if (mediaKind === "presentation") return "microsoft-powerpoint" as const

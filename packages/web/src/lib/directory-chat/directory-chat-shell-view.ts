@@ -1,6 +1,5 @@
 export const DIRECTORY_CHAT_SHELL_VIEW = {
   WORKSPACE: "workspace",
-  LIBRARY: "library",
   SKILLS: "skills",
 } as const
 

@@ -38,7 +38,6 @@ import {
   setOpenProjectsQueryData,
 } from "../state/bootstrap-query"
 import { useChatStore } from "../state/chat-store"
-import { useUiPreferences } from "../state/ui-preferences"
 
 const ENTRY_ACTION = {
   QUICK_CHAT: "quick-chat",
@@ -144,7 +143,6 @@ function ChatEntryPage() {
       const inboxDirectory = await openInboxNotebook()
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       startNewSessionDraft(inboxDirectory)
-      useUiPreferences.getState().setMainPaneTab("chat")
       navigateToDirectory(inboxDirectory)
     })
   }
@@ -161,7 +159,6 @@ function ChatEntryPage() {
       const nextDirectory = await createManagedNotebook(trimmed)
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       startNewSessionDraft(nextDirectory)
-      useUiPreferences.getState().setMainPaneTab("chat")
       navigateToDirectory(nextDirectory)
       void bootstrapLearnerMemoryForNotebookBestEffort({
         directory: nextDirectory,

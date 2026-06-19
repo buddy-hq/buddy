@@ -12,18 +12,19 @@ import {
 import { AlertTriangleIcon, PlusIcon, RefreshCwIcon } from "lucide-react"
 import type { editor as MonacoEditor } from "monaco-editor"
 import { language } from "@/context/language"
+import { useTheme } from "@/theme"
 
 const AUTO_SAVE_DELAY_MS = 1000
 const SAVE_FLASH_DURATION_MS = 1000
 
-type VersionedTextFileState = {
+export type VersionedTextFileState = {
   path: string
   exists: boolean
   content: string
   version: string | null
 }
 
-type VersionedTextFileSaveResult = {
+export type VersionedTextFileSaveResult = {
   path: string
   content: string
   version: string | null
@@ -38,6 +39,22 @@ type VersionedTextFileEmptyState = {
 
 type VersionedTextFileFlushOptions = {
   retryFailedContent?: boolean
+}
+
+export type VersionedTextFileFlushResult = "clean" | "saved" | "blocked"
+
+export type VersionedTextFileEditorSnapshot = {
+  path: string
+  exists: boolean
+  content: string
+  version: string | null
+  loading: boolean
+  saving: boolean
+  dirty: boolean
+  conflict: string | undefined
+  saveError: string | undefined
+  saveState: "loading" | "saving" | "dirty" | "saved" | "conflict" | "save-error"
+  lastFlushResult: VersionedTextFileFlushResult | undefined
 }
 
 type VersionedTextFileFlushState = {
@@ -64,6 +81,15 @@ type VersionedTextFileContentAfterSaveState = {
   requestedContent: string
 }
 
+type VersionedTextFileExternalRefreshState = {
+  requestID: number
+  latestRequestID: number
+  saving: boolean
+  hasConflict: boolean
+  content: string
+  savedContent: string
+}
+
 type VersionedTextFileEditorProps = {
   active?: boolean
   reloadKey?: string | number
@@ -74,7 +100,9 @@ type VersionedTextFileEditorProps = {
   statusIndicator?: "dot" | "pill" | "none"
   errorPresentation?: "dialog" | "inline"
   reloadBehavior?: "activate" | "once"
+  externalReloadIntervalMs?: number
   editorOptions?: MonacoEditor.IStandaloneEditorConstructionOptions
+  onSnapshotChange?: (snapshot: VersionedTextFileEditorSnapshot) => void
   load: () => Promise<VersionedTextFileState>
   save: (input: {
     content: string
@@ -128,6 +156,17 @@ export function shouldUseSavedVersionedTextFileContent(
   return !input.existedBeforeSave || input.currentContent === input.requestedContent
 }
 
+export function shouldApplyVersionedTextFileExternalRefresh(
+  input: VersionedTextFileExternalRefreshState,
+): boolean {
+  return (
+    input.requestID === input.latestRequestID &&
+    !input.saving &&
+    !input.hasConflict &&
+    input.content === input.savedContent
+  )
+}
+
 export const VersionedTextFileEditor = forwardRef<
   VersionedTextFileEditorHandle,
   VersionedTextFileEditorProps
@@ -139,14 +178,17 @@ export const VersionedTextFileEditor = forwardRef<
     emptyState,
     errorPresentation: errorPresentationProp,
     fallbackPath,
+    externalReloadIntervalMs,
     isVersionConflictError,
     languageId,
     load,
+    onSnapshotChange,
     reloadBehavior: reloadBehaviorProp,
     reloadKey,
     save,
     statusIndicator: statusIndicatorProp,
   } = props
+  const { mode: colorMode } = useTheme()
   const isActive = active ?? true
   const statusIndicator = statusIndicatorProp ?? "dot"
   const errorPresentation = errorPresentationProp ?? "dialog"
@@ -164,8 +206,12 @@ export const VersionedTextFileEditor = forwardRef<
   const [conflictMessage, setConflictMessage] = useState<string | undefined>(undefined)
   const [showSaved, setShowSaved] = useState(false)
   const [failedSaveContent, setFailedSaveContent] = useState<string | undefined>(undefined)
+  const [lastFlushResult, setLastFlushResult] = useState<
+    VersionedTextFileFlushResult | undefined
+  >(undefined)
 
   const requestCounterRef = useRef(0)
+  const externalRefreshCounterRef = useRef(0)
   const didLoadOnceRef = useRef(false)
   const loadedReloadKeyRef = useRef<string | number | undefined>(undefined)
   const contentRef = useRef(content)
@@ -328,28 +374,31 @@ export const VersionedTextFileEditor = forwardRef<
         retryFailedContent: options?.retryFailedContent ?? false,
       })
     ) {
-      return
+      const result: VersionedTextFileFlushResult =
+        conflictMessageRef.current || failedSaveContentRef.current !== undefined
+          ? "blocked"
+          : "clean"
+      setLastFlushResult(result)
+      return result
     }
 
     const contentToSave = contentRef.current
     const savedBeforeFlush = savedContentRef.current
     await saveRef.current(contentToSave)
-    if (conflictMessageRef.current) return
-    if (savedContentRef.current === savedBeforeFlush) return
+    const result: VersionedTextFileFlushResult =
+      conflictMessageRef.current || savedContentRef.current === savedBeforeFlush
+        ? "blocked"
+        : "saved"
+    setLastFlushResult(result)
+    return result
   }, [])
 
   useImperativeHandle(
     ref,
     () => ({
       flushPendingSave: async () => {
-        const before = savedContentRef.current
-        await flushPendingSave({ retryFailedContent: true })
-        return (
-          !conflictMessageRef.current &&
-          (!existsRef.current ||
-            contentRef.current === savedContentRef.current ||
-            savedContentRef.current !== before)
-        )
+        const result = await flushPendingSave({ retryFailedContent: true })
+        return result !== "blocked"
       },
       hasUnsavedChanges: () =>
         existsRef.current &&
@@ -371,6 +420,51 @@ export const VersionedTextFileEditor = forwardRef<
     if (didLoadOnceRef.current && !reloadKeyChanged) return
     void refresh()
   }, [isActive, refresh, reloadBehavior, reloadKey])
+
+  useEffect(() => {
+    if (!isActive || !externalReloadIntervalMs || externalReloadIntervalMs <= 0) return
+
+    const canApplyExternalRefresh = (requestID: number) =>
+      shouldApplyVersionedTextFileExternalRefresh({
+        requestID,
+        latestRequestID: externalRefreshCounterRef.current,
+        saving: savingRef.current,
+        hasConflict: conflictMessageRef.current !== undefined,
+        content: contentRef.current,
+        savedContent: savedContentRef.current,
+      })
+
+    const checkForExternalChanges = async () => {
+      const requestID = externalRefreshCounterRef.current + 1
+      externalRefreshCounterRef.current = requestID
+
+      if (!canApplyExternalRefresh(requestID)) return
+
+      try {
+        const next = await load()
+        if (!canApplyExternalRefresh(requestID)) return
+        if (next.version === versionRef.current) return
+        setPath(next.path)
+        setExists(next.exists)
+        setVersion(next.version)
+        setContent(next.content)
+        setSavedContent(next.content)
+        setError(undefined)
+        setConflictMessage(undefined)
+        rememberFailedSaveContent(undefined)
+      } catch {
+        // A background refresh must not replace the current editor with a transient read error.
+      }
+    }
+
+    const timer = window.setInterval(() => {
+      void checkForExternalChanges()
+    }, externalReloadIntervalMs)
+    return () => {
+      externalRefreshCounterRef.current += 1
+      window.clearInterval(timer)
+    }
+  }, [externalReloadIntervalMs, isActive, load, rememberFailedSaveContent])
 
   useEffect(() => {
     if (isActive) return
@@ -434,6 +528,45 @@ export const VersionedTextFileEditor = forwardRef<
     failedSaveContent,
   })
   const saveRetryDisabled = loading || saving || Boolean(conflictMessage)
+
+  useEffect(() => {
+    onSnapshotChange?.({
+      path: path || fallbackPath,
+      exists,
+      content,
+      version,
+      loading,
+      saving,
+      dirty: exists && content !== savedContent,
+      conflict: conflictMessage,
+      saveError: error,
+      saveState: loading
+        ? "loading"
+        : conflictMessage
+          ? "conflict"
+          : saving
+            ? "saving"
+            : error
+              ? "save-error"
+              : exists && content !== savedContent
+                ? "dirty"
+                : "saved",
+      lastFlushResult,
+    })
+  }, [
+    conflictMessage,
+    content,
+    error,
+    exists,
+    fallbackPath,
+    lastFlushResult,
+    loading,
+    onSnapshotChange,
+    path,
+    savedContent,
+    saving,
+    version,
+  ])
 
   function layoutEditor() {
     const editor = editorRef.current
@@ -610,7 +743,7 @@ export const VersionedTextFileEditor = forwardRef<
               height="100%"
               path={editorPath}
               language={languageId}
-              theme="vs-dark"
+              theme={colorMode === "dark" ? "vs-dark" : "light"}
               value={content}
               onMount={onMount}
               onChange={(nextValue) => {
@@ -621,7 +754,7 @@ export const VersionedTextFileEditor = forwardRef<
                 minimap: { enabled: false },
                 fontSize: 13,
                 scrollBeyondLastLine: false,
-                wordWrap: "on",
+                wordWrap: "off",
                 lineNumbers: "on",
                 ...editorOptions,
               }}

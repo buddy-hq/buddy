@@ -1,6 +1,9 @@
 import {
-  BENCH_LAYOUT_PROFILE_BALANCED,
-  BENCH_LAYOUT_PROFILE_BENCH_FIRST,
+  BENCH_LAYOUT_PROFILE_CODE,
+  BENCH_LAYOUT_PROFILE_DOCUMENT,
+  BENCH_LAYOUT_PROFILE_PRACTICE,
+  BENCH_LAYOUT_PROFILE_READING,
+  BENCH_LAYOUT_PROFILE_VISUAL,
   type BenchLayoutProfileID,
 } from "./bench-targets"
 
@@ -28,6 +31,27 @@ type ResolvedBenchLayoutDefaults = {
   floatingMarginPx: number
 }
 
+type ResolvedDockedBenchRightWorkspaceLayout = {
+  chatWidthPx: number
+  chatMinWidthPx: number
+  chatMaxWidthPx: number
+  workspaceWidthPx: number
+  workspaceMinWidthPx: number
+  workspaceMaxWidthPx: number
+}
+
+type ResolvedDockedBenchShellLayout = {
+  leftSidebarVisible: boolean
+  leftSidebarSuppressed: boolean
+  availableShellWidthPx: number
+  rightWorkspace: ResolvedDockedBenchRightWorkspaceLayout
+}
+
+type DockedBenchResizeIntentDecision =
+  | "clamp"
+  | "suppress-left-sidebar"
+  | "float"
+
 type BenchLayoutProfileSpec = {
   dockedChatWidthPx: number
   dockedChatMinWidthPx: number
@@ -46,13 +70,18 @@ type BenchLayoutProfileSpec = {
 }
 
 const BENCH_FLOATING_MARGIN_PX = 24
+const DOCKED_BENCH_AUTO_FLOAT_OVERDRAG_PX = 24
 
+// Docked Bench is now sized by the kind of work the surface supports, not by a generic
+// "balanced" switch. Reading and prose can live near a single comfortable column; code and visual
+// canvases need enough horizontal room to avoid turning the surface into a preview thumbnail.
 const BENCH_LAYOUT_PROFILE_SPECS = {
-  [BENCH_LAYOUT_PROFILE_BALANCED]: {
-    dockedChatWidthPx: 480,
-    dockedChatMinWidthPx: 320,
-    dockedChatMaxViewportRatio: 0.55,
-    benchMinWidthPx: 320,
+  // Readers need one comfortable book column, so chat can remain comparatively generous.
+  [BENCH_LAYOUT_PROFILE_READING]: {
+    dockedChatWidthPx: 520,
+    dockedChatMinWidthPx: 380,
+    dockedChatMaxViewportRatio: 0.5,
+    benchMinWidthPx: 560,
     floatingWidthRatio: 0.42,
     floatingHeightRatio: 0.62,
     floatingPreferredMinWidthPx: 560,
@@ -64,11 +93,63 @@ const BENCH_LAYOUT_PROFILE_SPECS = {
     floatingNarrowMinWidthPx: 320,
     floatingNarrowMinHeightPx: 360,
   },
-  [BENCH_LAYOUT_PROFILE_BENCH_FIRST]: {
-    dockedChatWidthPx: 380,
-    dockedChatMinWidthPx: 320,
+  // Markdown and general documents need slightly more surface room than a book without crowding chat.
+  [BENCH_LAYOUT_PROFILE_DOCUMENT]: {
+    dockedChatWidthPx: 500,
+    dockedChatMinWidthPx: 380,
+    dockedChatMaxViewportRatio: 0.48,
+    benchMinWidthPx: 600,
+    floatingWidthRatio: 0.42,
+    floatingHeightRatio: 0.62,
+    floatingPreferredMinWidthPx: 560,
+    floatingPreferredMaxWidthPx: 700,
+    floatingPreferredMinHeightPx: 560,
+    floatingPreferredMaxHeightPx: 720,
+    floatingMinWidthPx: 440,
+    floatingMinHeightPx: 460,
+    floatingNarrowMinWidthPx: 320,
+    floatingNarrowMinHeightPx: 360,
+  },
+  // Practice surfaces balance prompt/review controls with an active coaching conversation.
+  [BENCH_LAYOUT_PROFILE_PRACTICE]: {
+    dockedChatWidthPx: 500,
+    dockedChatMinWidthPx: 380,
+    dockedChatMaxViewportRatio: 0.48,
+    benchMinWidthPx: 600,
+    floatingWidthRatio: 0.42,
+    floatingHeightRatio: 0.62,
+    floatingPreferredMinWidthPx: 560,
+    floatingPreferredMaxWidthPx: 700,
+    floatingPreferredMinHeightPx: 560,
+    floatingPreferredMaxHeightPx: 720,
+    floatingMinWidthPx: 440,
+    floatingMinHeightPx: 460,
+    floatingNarrowMinWidthPx: 320,
+    floatingNarrowMinHeightPx: 360,
+  },
+  // Editors protect a wider working area for code structure, diagnostics, and horizontal scanning.
+  [BENCH_LAYOUT_PROFILE_CODE]: {
+    dockedChatWidthPx: 440,
+    dockedChatMinWidthPx: 360,
     dockedChatMaxViewportRatio: 0.42,
-    benchMinWidthPx: 480,
+    benchMinWidthPx: 720,
+    floatingWidthRatio: 0.34,
+    floatingHeightRatio: 0.54,
+    floatingPreferredMinWidthPx: 440,
+    floatingPreferredMaxWidthPx: 560,
+    floatingPreferredMinHeightPx: 460,
+    floatingPreferredMaxHeightPx: 620,
+    floatingMinWidthPx: 360,
+    floatingMinHeightPx: 380,
+    floatingNarrowMinWidthPx: 300,
+    floatingNarrowMinHeightPx: 320,
+  },
+  // Canvases and media protect the largest surface; chat stays useful but intentionally compact.
+  [BENCH_LAYOUT_PROFILE_VISUAL]: {
+    dockedChatWidthPx: 380,
+    dockedChatMinWidthPx: 360,
+    dockedChatMaxViewportRatio: 0.36,
+    benchMinWidthPx: 780,
     floatingWidthRatio: 0.34,
     floatingHeightRatio: 0.54,
     floatingPreferredMinWidthPx: 440,
@@ -195,5 +276,122 @@ function resolveBenchLayoutDefaults(input: {
   }
 }
 
-export { resolveBenchLayoutDefaults }
-export type { BenchRect, BenchViewport, ResolvedBenchLayoutDefaults }
+function resolveDockedBenchRightWorkspaceLayout(input: {
+  profile: BenchLayoutProfileID
+  viewport: BenchViewport
+  workspaceChromeWidthPx: number
+}): ResolvedDockedBenchRightWorkspaceLayout {
+  const defaults = resolveBenchLayoutDefaults({
+    profile: input.profile,
+    viewport: input.viewport,
+  })
+  const availableWidthPx = Math.max(0, input.viewport.widthPx)
+  const preferredWorkspaceMinWidthPx =
+    defaults.benchMinWidthPx + input.workspaceChromeWidthPx
+  const workspaceMinWidthPx = Math.min(
+    preferredWorkspaceMinWidthPx,
+    Math.max(input.workspaceChromeWidthPx, availableWidthPx - defaults.dockedChatMinWidthPx),
+  )
+  const chatMaxWidthPx = Math.min(
+    defaults.dockedChatMaxWidthPx,
+    Math.max(defaults.dockedChatMinWidthPx, availableWidthPx - workspaceMinWidthPx),
+  )
+  const chatWidthPx = clampNumber({
+    value: defaults.dockedChatWidthPx,
+    min: defaults.dockedChatMinWidthPx,
+    max: chatMaxWidthPx,
+  })
+  const workspaceMaxWidthPx = Math.max(
+    workspaceMinWidthPx,
+    availableWidthPx - defaults.dockedChatMinWidthPx,
+  )
+  const workspaceWidthPx = clampNumber({
+    value: availableWidthPx - chatWidthPx,
+    min: workspaceMinWidthPx,
+    max: workspaceMaxWidthPx,
+  })
+
+  return {
+    chatWidthPx,
+    chatMinWidthPx: defaults.dockedChatMinWidthPx,
+    chatMaxWidthPx,
+    workspaceWidthPx,
+    workspaceMinWidthPx,
+    workspaceMaxWidthPx,
+  }
+}
+
+function resolveDockedBenchShellLayout(input: {
+  profile: BenchLayoutProfileID
+  viewport: BenchViewport
+  workspaceChromeWidthPx: number
+  leftSidebarPreferredOpen: boolean
+  leftSidebarWidthPx: number
+}): ResolvedDockedBenchShellLayout {
+  const defaults = resolveBenchLayoutDefaults({
+    profile: input.profile,
+    viewport: input.viewport,
+  })
+  // The stored sidebar preference is not layout state. A docked Bench may suppress the pinned
+  // sidebar when the semantic defaults do not fit, then restore it automatically when they do.
+  const leftSidebarFits =
+    input.leftSidebarPreferredOpen &&
+    input.viewport.widthPx >=
+      input.leftSidebarWidthPx +
+        defaults.dockedChatWidthPx +
+        defaults.benchMinWidthPx +
+        input.workspaceChromeWidthPx
+  const leftSidebarVisible = input.leftSidebarPreferredOpen && leftSidebarFits
+  const availableShellWidthPx = Math.max(
+    0,
+    input.viewport.widthPx - (leftSidebarVisible ? input.leftSidebarWidthPx : 0),
+  )
+
+  return {
+    leftSidebarVisible,
+    leftSidebarSuppressed: input.leftSidebarPreferredOpen && !leftSidebarVisible,
+    availableShellWidthPx,
+    rightWorkspace: resolveDockedBenchRightWorkspaceLayout({
+      profile: input.profile,
+      viewport: {
+        ...input.viewport,
+        widthPx: availableShellWidthPx,
+      },
+      workspaceChromeWidthPx: input.workspaceChromeWidthPx,
+    }),
+  }
+}
+
+function resolveDockedBenchResizeIntent(input: {
+  rawWorkspaceWidthPx: number
+  maxWorkspaceWidthPx: number
+  hasVisibleBenchTarget: boolean
+  leftSidebarVisible: boolean
+}): DockedBenchResizeIntentDecision {
+  const overdragPx = input.rawWorkspaceWidthPx - input.maxWorkspaceWidthPx
+  if (overdragPx < DOCKED_BENCH_AUTO_FLOAT_OVERDRAG_PX) {
+    return "clamp"
+  }
+  // Over-drag first buys space by suppressing the pinned thread sidebar. Floating is reserved for
+  // a continued drag after chat has reached its protected minimum.
+  if (input.leftSidebarVisible) {
+    return "suppress-left-sidebar"
+  }
+  return input.hasVisibleBenchTarget ? "float" : "clamp"
+}
+
+export {
+  DOCKED_BENCH_AUTO_FLOAT_OVERDRAG_PX,
+  resolveBenchLayoutDefaults,
+  resolveDockedBenchResizeIntent,
+  resolveDockedBenchRightWorkspaceLayout,
+  resolveDockedBenchShellLayout,
+}
+export type {
+  BenchRect,
+  BenchViewport,
+  DockedBenchResizeIntentDecision,
+  ResolvedBenchLayoutDefaults,
+  ResolvedDockedBenchRightWorkspaceLayout,
+  ResolvedDockedBenchShellLayout,
+}

@@ -1,3 +1,5 @@
+const WORKSPACE_FILE_INSTANCE_KEY_SEPARATOR = "\u0000"
+
 export function normalizeRelativePath(filepath: string) {
   return filepath.trim().replaceAll("\\", "/").replace(/^\/+/, "").replace(/\/+$/, "")
 }
@@ -15,4 +17,8 @@ export function fileExtensionFromPath(filepath: string) {
   const lastDot = name.lastIndexOf(".")
   if (lastDot <= 0 || lastDot === name.length - 1) return ""
   return name.slice(lastDot + 1)
+}
+
+export function workspaceFileInstanceKey(input: { directory: string; path: string }) {
+  return `${input.directory}${WORKSPACE_FILE_INSTANCE_KEY_SEPARATOR}${input.path}`
 }

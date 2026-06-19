@@ -18,6 +18,7 @@ import {
   clearSuppressedBenchAutoOpen,
   suppressBenchAutoOpen,
 } from "@/lib/bench-auto-open-state"
+import { useUiPreferences } from "@/state/ui-preferences"
 
 type BenchAutoOpenProps = {
   directory: string
@@ -28,6 +29,7 @@ export function BenchAutoOpen(props: BenchAutoOpenProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const openBenchRoute = useOpenBench()
+  const setRightSidebarOpen = useUiPreferences((state) => state.setRightSidebarOpen)
   const didHandleInitialCandidateRef = useRef(false)
   const didHandleInitialPresentationActionRef = useRef(false)
   const handledPresentationActionKeysRef = useRef(new Set<string>())
@@ -79,6 +81,7 @@ export function BenchAutoOpen(props: BenchAutoOpenProps) {
             },
             replace: true,
           })
+          setRightSidebarOpen(false)
         })
         return
       }
@@ -90,6 +93,7 @@ export function BenchAutoOpen(props: BenchAutoOpenProps) {
         },
         replace: true,
       })
+      setRightSidebarOpen(false)
       return
     }
 
@@ -102,7 +106,15 @@ export function BenchAutoOpen(props: BenchAutoOpenProps) {
       },
       { origin: "agent" },
     )
-  }, [location.pathname, location.search, navigate, openBenchRoute, presentationAction, props.directory])
+  }, [
+    location.pathname,
+    location.search,
+    navigate,
+    openBenchRoute,
+    presentationAction,
+    props.directory,
+    setRightSidebarOpen,
+  ])
 
   useEffect(() => {
     if (!candidate) {

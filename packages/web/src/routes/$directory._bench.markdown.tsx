@@ -1,16 +1,37 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { AlertCircleIcon, Loader2Icon } from "lucide-react"
+import { useEffect, useState } from "react"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
 import { BenchStaticContextProvider } from "@/components/bench/bench-static-context-provider"
 import { MarkdownBenchPage } from "@/components/bench/markdown-bench-page"
 import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
 import { decodeDirectory } from "@/lib/directory-token"
-import { fileExtensionFromPath } from "@/lib/workspace-file-paths"
-import { readProjectExplorerEditableFile } from "@/state/chat-actions"
+import { fileExtensionFromPath, workspaceFileInstanceKey } from "@/lib/workspace-file-paths"
+import {
+  readProjectExplorerEditableFile,
+  type ProjectExplorerEditableFileState,
+} from "@/state/chat-actions"
+import {
+  LARGE_TEXT_FILE_LIMIT_BYTES,
+  readWorkspaceFileRawMetadata,
+} from "@/lib/workspace-file-media"
+import { WorkspaceFileLargeWarning } from "@/components/files/workspace-file-actions"
+import { consumeWorkspaceFileLargeOpenApproval } from "@/state/workspace-file-open-dialog-store"
 
 type MarkdownBenchSearch = {
   path?: string
 }
+
+type MarkdownBenchLoaderData =
+  | {
+      status: "ready"
+      initialFile: ProjectExplorerEditableFileState
+      sizeBytes: number | undefined
+    }
+  | {
+      status: "requires-approval"
+      sizeBytes: number
+    }
 
 export const Route = createFileRoute("/$directory/_bench/markdown")({
   validateSearch: (search: Record<string, unknown>): MarkdownBenchSearch => ({
@@ -27,10 +48,30 @@ export const Route = createFileRoute("/$directory/_bench/markdown")({
       throw new Error("Only Markdown files can open on the Markdown Bench.")
     }
     const directory = decodeDirectory(params.directory)
-    return readProjectExplorerEditableFile({
+    const metadata = await readWorkspaceFileRawMetadata({
       directory,
       path: deps.path,
     })
+    if (
+      typeof metadata.sizeBytes === "number" &&
+      metadata.sizeBytes > LARGE_TEXT_FILE_LIMIT_BYTES &&
+      !consumeWorkspaceFileLargeOpenApproval(directory, deps.path)
+    ) {
+      return {
+        status: "requires-approval",
+        sizeBytes: metadata.sizeBytes,
+      } satisfies MarkdownBenchLoaderData
+    }
+
+    const initialFile = await readProjectExplorerEditableFile({
+      directory,
+      path: deps.path,
+    })
+    return {
+      status: "ready",
+      initialFile,
+      sizeBytes: metadata.sizeBytes,
+    } satisfies MarkdownBenchLoaderData
   },
   pendingComponent: MarkdownBenchPending,
   errorComponent: MarkdownBenchError,
@@ -76,15 +117,104 @@ function MarkdownBenchError() {
 function MarkdownBenchRoute() {
   const params = Route.useParams()
   const search = Route.useSearch()
-  const initialFile = Route.useLoaderData()
+  const loaderData = Route.useLoaderData()
 
   try {
     const directory = decodeDirectory(params.directory)
     if (!search.path) {
       return <MarkdownBenchError />
     }
-    return <MarkdownBenchPage directory={directory} path={search.path} initialFile={initialFile} />
+    return (
+      <LargeMarkdownBenchGate
+        key={workspaceFileInstanceKey({ directory, path: search.path })}
+        directory={directory}
+        path={search.path}
+        loaderData={loaderData}
+      />
+    )
   } catch {
     return <DirectoryInvalidNotebook />
   }
+}
+
+function LargeMarkdownBenchGate(props: {
+  directory: string
+  path: string
+  loaderData: MarkdownBenchLoaderData
+}) {
+  const [approved, setApproved] = useState(false)
+
+  if (props.loaderData.status === "ready") {
+    return (
+      <MarkdownBenchPage
+        directory={props.directory}
+        path={props.path}
+        initialFile={props.loaderData.initialFile}
+      />
+    )
+  }
+
+  if (!approved) {
+    return (
+      <BenchStaticContextProvider
+        status="ready"
+        metadata={[
+          "surface_status: warning",
+          `size_bytes: ${props.loaderData.sizeBytes}`,
+          "large_file_approved: false",
+        ]}
+        content={`A large-file warning is visible for ${props.path}. The Markdown file has not been opened yet.`}
+        hints={["The user can choose Open anyway or use an external file action."]}
+      >
+        <WorkspaceFileLargeWarning
+          directory={props.directory}
+          path={props.path}
+          sizeBytes={props.loaderData.sizeBytes}
+          onOpenAnyway={() => setApproved(true)}
+        />
+      </BenchStaticContextProvider>
+    )
+  }
+
+  return <ApprovedMarkdownBenchLoader directory={props.directory} path={props.path} />
+}
+
+type ApprovedMarkdownBenchLoaderState =
+  | { status: "loading" }
+  | { status: "ready"; initialFile: ProjectExplorerEditableFileState }
+  | { status: "error" }
+
+function ApprovedMarkdownBenchLoader(props: { directory: string; path: string }) {
+  const [state, setState] = useState<ApprovedMarkdownBenchLoaderState>({ status: "loading" })
+
+  useEffect(() => {
+    let cancelled = false
+    setState({ status: "loading" })
+    void readProjectExplorerEditableFile({
+      directory: props.directory,
+      path: props.path,
+    }).then(
+      (initialFile) => {
+        if (!cancelled) setState({ status: "ready", initialFile })
+      },
+      () => {
+        if (!cancelled) setState({ status: "error" })
+      },
+    )
+
+    return () => {
+      cancelled = true
+    }
+  }, [props.directory, props.path])
+
+  if (state.status === "loading") return <MarkdownBenchPending />
+  if (state.status === "error") return <MarkdownBenchError />
+
+  return (
+    <MarkdownBenchPage
+      directory={props.directory}
+      path={props.path}
+      initialFile={state.initialFile}
+    />
+  )
 }

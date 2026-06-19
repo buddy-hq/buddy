@@ -1,6 +1,4 @@
-import { useEffect } from "react"
 import { ChatRightSidebar } from "@/components/layout/chat-right-sidebar"
-import { useWorkspaceQuestionSetObjectPanelStore } from "@/state/workspace-question-set-object-panel-store"
 import type { LearnerCurriculumView } from "@/state/chat-actions"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
 import type { TeachingWorkspaceController } from "@/lib/directory-chat/use-teaching-workspace"
@@ -52,37 +50,6 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
     onOpenCreateTeachingFileDialog,
     onStartInteractiveLesson,
   })
-  const selectedQuestionSetObjectID = useWorkspaceQuestionSetObjectPanelStore(
-    (state) => state.selectedObjectIDByDirectory[directory],
-  )
-  const rightSidebarOpen = chatState.rightSidebarOpen
-  const rightSidebarTab = chatState.rightSidebarTab
-  const selectedPersonaDefaultSurface = chatState.selectedPersonaDefaultSurface
-  const setRightSidebarOpen = chatState.setRightSidebarOpen
-  const setRightSidebarTab = chatState.setRightSidebarTab
-
-  useEffect(() => {
-    if (!rightSidebarOpen) {
-      return
-    }
-    if (rightSidebarTab !== "question-set") {
-      return
-    }
-    if (selectedQuestionSetObjectID) {
-      return
-    }
-
-    setRightSidebarTab(selectedPersonaDefaultSurface)
-    setRightSidebarOpen(false)
-  }, [
-    rightSidebarOpen,
-    rightSidebarTab,
-    selectedPersonaDefaultSurface,
-    setRightSidebarOpen,
-    setRightSidebarTab,
-    selectedQuestionSetObjectID,
-  ])
-
   return (
     <ChatRightSidebar
       directory={directory}
@@ -101,8 +68,9 @@ export function DirectoryChatRightSidebar(props: DirectoryChatRightSidebarProps)
       onRunAction={onRunCurriculumAction}
       editorPanel={panels.editorPanel}
       onClose={() => {
-        useWorkspaceQuestionSetObjectPanelStore.getState().closeQuestionSet(directory)
-        chatState.setRightSidebarTab(chatState.selectedPersonaDefaultSurface)
+        chatState.setRightSidebarTab(
+          chatState.selectedPersonaDefaultSurface === "editor" ? "editor" : "curriculum",
+        )
         chatState.setRightSidebarOpen(false)
       }}
       className="w-full h-full"
