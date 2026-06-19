@@ -2,6 +2,13 @@ import type { HTMLAttributes, PointerEvent as ReactPointerEvent } from "react"
 
 const NOOP = () => undefined
 
+export type ResizeHandleIntent = {
+  rawSize: number
+  clampedSize: number
+  min: number
+  max: number
+}
+
 type ResizeHandleProps = Omit<HTMLAttributes<HTMLDivElement>, "onResize"> & {
   direction: "horizontal" | "vertical"
   edge?: "start" | "end"
@@ -9,6 +16,7 @@ type ResizeHandleProps = Omit<HTMLAttributes<HTMLDivElement>, "onResize"> & {
   min: number
   max: number
   onResize: (size: number) => void
+  onResizeIntent?: (intent: ResizeHandleIntent) => void
   onCollapse?: () => void
   collapseThreshold?: number
 }
@@ -21,6 +29,7 @@ export function ResizeHandle(props: ResizeHandleProps) {
     min,
     max,
     onResize,
+    onResizeIntent,
     onCollapse,
     collapseThreshold,
     className,
@@ -71,6 +80,12 @@ export function ResizeHandle(props: ResizeHandleProps) {
       current = startSize + delta
       const clamped = Math.min(max, Math.max(min, current))
       onResize(clamped)
+      onResizeIntent?.({
+        rawSize: current,
+        clampedSize: clamped,
+        min,
+        max,
+      })
     }, finishResize)
   }
 

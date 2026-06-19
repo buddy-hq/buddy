@@ -104,6 +104,7 @@ export {
 } from "./components/ui/native-select"
 export { Progress } from "./components/ui/progress"
 export { ResizeHandle } from "./components/ui/resize-handle"
+export type { ResizeHandleIntent } from "./components/ui/resize-handle"
 export {
   ResizableHandle,
   ResizablePanel,
