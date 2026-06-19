@@ -696,9 +696,9 @@ export function buildHiddenStepsSummary(
         ? getSkillReferenceGroupKey(resolvedSkillName)
         : display?.groupKey
           ? display.groupKey
-        : entry.countSummary
-          ? `${entry.countSummary.verb}:${entry.countSummary.plural}`
-          : entry.info.title
+          : entry.countSummary
+            ? `${entry.countSummary.verb}:${entry.countSummary.plural}`
+            : entry.info.title
       const existing = groups.get(key)
       if (existing) {
         existing.count++

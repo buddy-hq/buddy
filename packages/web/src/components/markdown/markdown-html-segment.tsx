@@ -12,10 +12,7 @@ import {
   normalizePresentedMediaCandidatePath,
   resolvePresentedMediaPathInfo,
 } from "@/lib/presented-media"
-import {
-  useWorkspaceFileOpen,
-  type WorkspaceResourceOpener,
-} from "@/lib/use-workspace-file-open"
+import { useWorkspaceFileOpen, type WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
 import { usePlatform } from "@/context/platform"
 import { getServerConnection } from "@/context/server"
 import { resolveAssetUrl } from "@/lib/resource-url"

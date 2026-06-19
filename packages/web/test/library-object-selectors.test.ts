@@ -62,20 +62,12 @@ describe("library object selectors", () => {
   test("selects and sorts media-tab objects from the unified index", () => {
     const selected = selectMediaLibraryObjects({
       data: {
-        objects: [
-          mediaObject,
-          unavailableMediaObject,
-          questionSetObject,
-          figureObject,
-        ],
+        objects: [mediaObject, unavailableMediaObject, questionSetObject, figureObject],
         loadErrors: [],
       },
     })
 
-    expect(selected.map((object) => object.objectID)).toEqual([
-      FIGURE_OBJECT_ID,
-      MEDIA_OBJECT_ID,
-    ])
+    expect(selected.map((object) => object.objectID)).toEqual([FIGURE_OBJECT_ID, MEDIA_OBJECT_ID])
   })
 
   test("excludes unavailable media presentations", () => {

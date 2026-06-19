@@ -403,10 +403,9 @@ describe("bench open policy", () => {
 
   test("maps bench_present close results to close actions", () => {
     const action = readLatestBenchAction([
-      createAssistantMessage(
-        [createBenchPresentPart({ status: "closed", target: null })],
-        { time: { created: 1, completed: 2 } },
-      ),
+      createAssistantMessage([createBenchPresentPart({ status: "closed", target: null })], {
+        time: { created: 1, completed: 2 },
+      }),
     ])
 
     expect(action).toMatchObject({

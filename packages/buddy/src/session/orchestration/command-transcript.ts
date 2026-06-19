@@ -42,7 +42,12 @@ function isCommandDisplayPart<Part extends CommandTranscriptPartLike>(
   part: Part,
   displayText: string,
 ): boolean {
-  return isTextPartLike(part) && part.synthetic !== true && part.ignored === true && part.text === displayText
+  return (
+    isTextPartLike(part) &&
+    part.synthetic !== true &&
+    part.ignored === true &&
+    part.text === displayText
+  )
 }
 
 function isSubtaskPart(part: CommandTranscriptPartLike): boolean {

@@ -80,9 +80,7 @@ describe("presented media path helpers", () => {
 
         if (
           method === "GET" &&
-          url.includes(
-            "/api/objects/media-presentation/object_1/items/item_1/availability",
-          ) &&
+          url.includes("/api/objects/media-presentation/object_1/items/item_1/availability") &&
           url.includes("directory=%2Frepo")
         ) {
           return Response.json({
@@ -96,21 +94,17 @@ describe("presented media path helpers", () => {
       originalFetch,
     )
 
-    const availability = await readPresentedMediaAvailability(
-      "/repo",
-      "object_1",
-      localMediaItem,
-    )
+    const availability = await readPresentedMediaAvailability("/repo", "object_1", localMediaItem)
 
     expect(availability.status).toBe("available")
-    expect(calls.some((call) => call.includes("/api/objects/media-presentation/resolve"))).toBe(false)
+    expect(calls.some((call) => call.includes("/api/objects/media-presentation/resolve"))).toBe(
+      false,
+    )
     expect(
       calls.some((call) =>
         call.includes("/api/objects/media-presentation/object_1/items/item_1/availability"),
       ),
-    ).toBe(
-      true,
-    )
+    ).toBe(true)
   })
 
   test("resolves file open metadata from a local workspace path", async () => {
@@ -162,9 +156,7 @@ describe("presented media path helpers", () => {
 
         if (
           method === "GET" &&
-          url.includes(
-            "/api/objects/media-presentation/object_1/items/item_1/availability",
-          ) &&
+          url.includes("/api/objects/media-presentation/object_1/items/item_1/availability") &&
           url.includes("directory=%2Frepo")
         ) {
           return Response.json({
@@ -178,16 +170,12 @@ describe("presented media path helpers", () => {
       originalFetch,
     )
 
-    const availability = await readPresentedMediaAvailability(
-      "/repo",
-      "object_1",
-      {
-        ...localMediaItem,
-        mediaKind: "image",
-        renderMode: "image",
-        sizeBytes: 1024 * 1024 * 1024,
-      },
-    )
+    const availability = await readPresentedMediaAvailability("/repo", "object_1", {
+      ...localMediaItem,
+      mediaKind: "image",
+      renderMode: "image",
+      sizeBytes: 1024 * 1024 * 1024,
+    })
 
     expect(availability.status).toBe("available")
   })
@@ -201,9 +189,7 @@ describe("presented media path helpers", () => {
 
         if (
           method === "GET" &&
-          url.includes(
-            "/api/objects/media-presentation/object_1/items/item_1/availability",
-          ) &&
+          url.includes("/api/objects/media-presentation/object_1/items/item_1/availability") &&
           url.includes("directory=%2Frepo")
         ) {
           return Response.json({
@@ -217,11 +203,7 @@ describe("presented media path helpers", () => {
       originalFetch,
     )
 
-    const result = await resolvePresentedMediaAvailability(
-      "/repo",
-      "object_1",
-      localMediaItem,
-    )
+    const result = await resolvePresentedMediaAvailability("/repo", "object_1", localMediaItem)
 
     expect(result.availability.status).toBe("missing")
     expect(result.item.rawUrl).toContain("/api/objects/media-presentation/object_1/raw/item_1")
@@ -240,7 +222,8 @@ const localMediaItem: PresentedMediaItem = {
   mimeType: "application/pdf",
   sizeBytes: 42,
   modifiedAt: null,
-  rawUrl: "/api/objects/media-presentation/object_1/raw/item_1?directory=%2Frepo&fileName=notes.pdf",
+  rawUrl:
+    "/api/objects/media-presentation/object_1/raw/item_1?directory=%2Frepo&fileName=notes.pdf",
   actionCapabilities: {
     canOpenDefaultApp: true,
     canRevealInFileManager: true,

@@ -129,18 +129,10 @@ function hiddenStepsEntryHasDetails(entry: HiddenStepsEntry): boolean {
 }
 
 function hiddenStepsEntryHasStreamingReasoning(entry: HiddenStepsEntry, streaming?: boolean) {
-  return Boolean(
-    streaming && entry.part.type === "reasoning" && hiddenStepsEntryIsActive(entry),
-  )
+  return Boolean(streaming && entry.part.type === "reasoning" && hiddenStepsEntryIsActive(entry))
 }
 
-function HiddenStepsContentFrame({
-  stable,
-  children,
-}: {
-  stable: boolean
-  children: ReactNode
-}) {
+function HiddenStepsContentFrame({ stable, children }: { stable: boolean; children: ReactNode }) {
   return (
     <motion.div
       data-hidden-steps-stable-streaming={stable ? "true" : undefined}

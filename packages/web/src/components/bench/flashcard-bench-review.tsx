@@ -126,32 +126,35 @@ export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
   )
   useRegisterBenchContextProvider(contextProvider)
 
-  const fetchNextCard = useCallback(async (options?: FetchNextCardOptions): Promise<void> => {
-    try {
-      const response = requireBuddyData(
-        await getBuddyClient(props.directory).objectFlashcardDeck.nextCard({
-          directory: props.directory,
-          objectID: props.objectID,
-        }),
-      )
-      if (options?.shouldApplyResult?.() === false) return
+  const fetchNextCard = useCallback(
+    async (options?: FetchNextCardOptions): Promise<void> => {
+      try {
+        const response = requireBuddyData(
+          await getBuddyClient(props.directory).objectFlashcardDeck.nextCard({
+            directory: props.directory,
+            objectID: props.objectID,
+          }),
+        )
+        if (options?.shouldApplyResult?.() === false) return
 
-      if (response.card === null) {
-        setPhase(cardsReviewedRef.current > 0 ? { kind: "complete" } : { kind: "no-due" })
-        return
+        if (response.card === null) {
+          setPhase(cardsReviewedRef.current > 0 ? { kind: "complete" } : { kind: "no-due" })
+          return
+        }
+
+        setPhase({ kind: "card", card: response.card })
+        setRevealed(false)
+        setLeechWarning(false)
+        cardStartTimeRef.current = Date.now()
+        setSwipeRating(null)
+        setSwipeDirection(null)
+      } catch (error) {
+        if (options?.shouldApplyResult?.() === false) return
+        setPhase({ kind: "error", message: error instanceof Error ? error.message : String(error) })
       }
-
-      setPhase({ kind: "card", card: response.card })
-      setRevealed(false)
-      setLeechWarning(false)
-      cardStartTimeRef.current = Date.now()
-      setSwipeRating(null)
-      setSwipeDirection(null)
-    } catch (error) {
-      if (options?.shouldApplyResult?.() === false) return
-      setPhase({ kind: "error", message: error instanceof Error ? error.message : String(error) })
-    }
-  }, [props.directory, props.objectID])
+    },
+    [props.directory, props.objectID],
+  )
 
   useEffect(() => {
     let active = true

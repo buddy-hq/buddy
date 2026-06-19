@@ -131,7 +131,9 @@ function mediaRenderModeFromKind(kind: WorkspaceMediaKind): WorkspaceMediaRender
   return "file"
 }
 
-function mediaAvailability(status: PresentedMediaInlineItem["availability"]): PresentedMediaAvailability {
+function mediaAvailability(
+  status: PresentedMediaInlineItem["availability"],
+): PresentedMediaAvailability {
   if (status === "available" || status === "missing" || status === "error") {
     return { status, message: null }
   }
@@ -141,7 +143,9 @@ function mediaAvailability(status: PresentedMediaInlineItem["availability"]): Pr
   }
 }
 
-function actionCapabilitiesForWorkspacePath(workspacePath: string | null): PresentedMediaActionCapabilities {
+function actionCapabilitiesForWorkspacePath(
+  workspacePath: string | null,
+): PresentedMediaActionCapabilities {
   return {
     canOpenDefaultApp: true,
     canRevealInFileManager: true,
@@ -157,8 +161,7 @@ export function presentedMediaItemFromInlineItem(
   const displayPath = readNonEmptyString(item.source.displayPath) ?? item.source.path
   if (!mediaKind || !fileName) return undefined
 
-  const workspacePath =
-    item.source.workspacePath === undefined ? null : item.source.workspacePath
+  const workspacePath = item.source.workspacePath === undefined ? null : item.source.workspacePath
   const availability = mediaAvailability(item.availability)
 
   return {

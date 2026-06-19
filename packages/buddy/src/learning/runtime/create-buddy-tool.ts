@@ -220,7 +220,9 @@ async function runBuddyTool<
   }
 
   ctx.abort.throwIfAborted()
-  const result = await executeUntilAbort(ctx.abort, async () => definition.execute(parsed.data, ctx))
+  const result = await executeUntilAbort(ctx.abort, async () =>
+    definition.execute(parsed.data, ctx),
+  )
   validateProducedToolMetadata(definition, result)
   return result
 }

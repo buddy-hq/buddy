@@ -164,7 +164,9 @@ function questionSetObjectPayloadPath(revisionID: string): string {
   return `revisions/${revisionID}/${QUESTION_SET_OBJECT_PAYLOAD_FILE_NAME}`
 }
 
-function buildQuestionSetObjectViews(input: { groupType: string | null }): BuddyObjectManifest["views"] {
+function buildQuestionSetObjectViews(input: {
+  groupType: string | null
+}): BuddyObjectManifest["views"] {
   return [
     {
       viewID: QUESTION_SET_OBJECT_VIEW_ID,
@@ -247,11 +249,13 @@ async function readQuestionSetObjectPayload(input: {
 }): Promise<QuestionSetObjectPayload> {
   const manifest = BuddyObjectManifestSchema.safeExtend({
     summary: QuestionSetObjectSummarySchema,
-  }).parse(await readObjectManifest({
-    directory: input.directory,
-    kind: BUDDY_OBJECT_KINDS.questionSet,
-    objectID: input.objectID,
-  }))
+  }).parse(
+    await readObjectManifest({
+      directory: input.directory,
+      kind: BUDDY_OBJECT_KINDS.questionSet,
+      objectID: input.objectID,
+    }),
+  )
   const revisionID = input.revisionID ?? manifest.currentRevisionID
   if (!revisionID) {
     throw new BuddyObjectValidationError(
@@ -299,11 +303,13 @@ registerBuddyObjectKind({
   async readManifest(input) {
     return BuddyObjectManifestSchema.safeExtend({
       summary: QuestionSetObjectSummarySchema,
-    }).parse(await readObjectManifest({
-      directory: input.directory,
-      kind: BUDDY_OBJECT_KINDS.questionSet,
-      objectID: input.ref.objectID,
-    }))
+    }).parse(
+      await readObjectManifest({
+        directory: input.directory,
+        kind: BUDDY_OBJECT_KINDS.questionSet,
+        objectID: input.ref.objectID,
+      }),
+    )
   },
   async readView(input): Promise<BuddyObjectViewResponse> {
     if (input.viewID !== QUESTION_SET_OBJECT_VIEW_ID) {

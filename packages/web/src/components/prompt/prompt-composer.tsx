@@ -568,11 +568,7 @@ export function PromptComposer(props: PromptComposerProps) {
       gamePromptLastShownAt === null
         ? 0
         : Math.max(0, lastShownCooldownMs - (now - gamePromptLastShownAt))
-    const remainingMs = Math.max(
-      promptDelayRemainingMs,
-      dismissRemainingMs,
-      lastShownRemainingMs,
-    )
+    const remainingMs = Math.max(promptDelayRemainingMs, dismissRemainingMs, lastShownRemainingMs)
     const timeout = window.setTimeout(() => {
       setShowGameBall(true)
       markGamePromptShown()
@@ -1056,11 +1052,7 @@ export function PromptComposer(props: PromptComposerProps) {
         <div className="w-full pointer-events-auto">
           <AnimatePresence>
             {isGameVisible && (
-              <GameDock
-                className="w-full"
-                onClose={closeArcade}
-                onMinimize={minimizeArcade}
-              />
+              <GameDock className="w-full" onClose={closeArcade} onMinimize={minimizeArcade} />
             )}
           </AnimatePresence>
         </div>

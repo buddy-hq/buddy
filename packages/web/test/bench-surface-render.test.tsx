@@ -21,10 +21,7 @@ import {
 import { HtmlWidgetFrame } from "../src/components/chat/tools/render/html-widget"
 import { ServerProvider, type ServerConnection } from "../src/context/server"
 import { withFetchPreconnect } from "../src/lib/fetch-transport"
-import {
-  BENCH_CHAT_LAYOUT_DOCKED,
-  BENCH_LAYOUT_PROFILE_VISUAL,
-} from "../src/lib/bench-navigation"
+import { BENCH_CHAT_LAYOUT_DOCKED, BENCH_LAYOUT_PROFILE_VISUAL } from "../src/lib/bench-navigation"
 import type { HtmlWidgetPresentation } from "../src/lib/html-widgets"
 import type {
   ObjectFlashcardDeckNextCardResponse,
@@ -313,7 +310,9 @@ describe("bench surface rendering", () => {
 
   test("renders image previews against the full bench surface", async () => {
     await act(async () => {
-      root.render(<BenchMediaPreview title="generated/image.png" src="/image.png" renderMode="image" />)
+      root.render(
+        <BenchMediaPreview title="generated/image.png" src="/image.png" renderMode="image" />,
+      )
     })
 
     const image = container.querySelector("img")

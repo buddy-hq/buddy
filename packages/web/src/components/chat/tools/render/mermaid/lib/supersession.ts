@@ -50,11 +50,7 @@ function findSupersedingMermaidRevisionID(
 
     for (const part of message.parts) {
       const reference = parseMermaidToolObjectReference(part)
-      if (
-        !reference ||
-        reference.objectID !== objectID ||
-        reference.revisionID === null
-      ) {
+      if (!reference || reference.objectID !== objectID || reference.revisionID === null) {
         continue
       }
 

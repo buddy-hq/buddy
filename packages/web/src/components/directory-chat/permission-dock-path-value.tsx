@@ -79,7 +79,10 @@ export function PermissionDockPathValue(props: PermissionDockPathValueProps) {
       if (copiedResetTimeoutRef.current !== undefined) {
         window.clearTimeout(copiedResetTimeoutRef.current)
       }
-      copiedResetTimeoutRef.current = window.setTimeout(() => setCopied(false), PERMISSION_PATH_COPIED_RESET_MS)
+      copiedResetTimeoutRef.current = window.setTimeout(
+        () => setCopied(false),
+        PERMISSION_PATH_COPIED_RESET_MS,
+      )
     } catch {
       // ignore clipboard failures
     }

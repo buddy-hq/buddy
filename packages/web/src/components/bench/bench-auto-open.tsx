@@ -14,10 +14,7 @@ import {
   readLatestBenchAction,
   readLatestBenchAutoOpenCandidate,
 } from "./bench-open-policy"
-import {
-  clearSuppressedBenchAutoOpen,
-  suppressBenchAutoOpen,
-} from "@/lib/bench-auto-open-state"
+import { clearSuppressedBenchAutoOpen, suppressBenchAutoOpen } from "@/lib/bench-auto-open-state"
 import { useUiPreferences } from "@/state/ui-preferences"
 
 type BenchAutoOpenProps = {
@@ -37,10 +34,7 @@ export function BenchAutoOpen(props: BenchAutoOpenProps) {
     () => readLatestBenchAutoOpenCandidate(props.messages),
     [props.messages],
   )
-  const presentationAction = useMemo(
-    () => readLatestBenchAction(props.messages),
-    [props.messages],
-  )
+  const presentationAction = useMemo(() => readLatestBenchAction(props.messages), [props.messages])
 
   useEffect(() => {
     if (!presentationAction) {
@@ -119,10 +113,7 @@ export function BenchAutoOpen(props: BenchAutoOpenProps) {
   useEffect(() => {
     if (!candidate) {
       clearSuppressedBenchAutoOpen(props.directory, BENCH_AUTO_OPEN_POLICY_WHITEBOARD)
-      clearSuppressedBenchAutoOpen(
-        props.directory,
-        BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
-      )
+      clearSuppressedBenchAutoOpen(props.directory, BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET)
       didHandleInitialCandidateRef.current = true
       return
     }

@@ -30,9 +30,7 @@ import type { PermissionReply } from "@/state/permission-types"
 import { Redo2Icon } from "lucide-react"
 import { BenchAutoOpen } from "@/components/bench/bench-auto-open"
 import { BenchClosedContextPublisher } from "@/components/bench/bench-route-context"
-import {
-  isBenchRoutePathname,
-} from "@/lib/bench-navigation"
+import { isBenchRoutePathname } from "@/lib/bench-navigation"
 import { useLocation } from "@tanstack/react-router"
 
 type PromptComposerProps = Omit<
@@ -235,10 +233,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       className="relative flex-1 min-w-0 min-h-0 flex flex-col bg-background-stronger"
     >
       {!isBenchRoutePathname(location.pathname) ? (
-        <BenchClosedContextPublisher
-          directory={directory}
-          activeSessionID={chatState.sessionID}
-        />
+        <BenchClosedContextPublisher directory={directory} activeSessionID={chatState.sessionID} />
       ) : null}
       <BenchAutoOpen directory={directory} messages={chatState.messages} />
       <div className="flex-1 min-h-0 flex flex-col">

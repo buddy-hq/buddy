@@ -63,13 +63,13 @@ export function isOpenAICodexStoredAuth(
 ): value is OpenAICodexStoredAuth {
   return Boolean(
     value &&
-      value.type === "oauth" &&
-      "access" in value &&
-      typeof value.access === "string" &&
-      "refresh" in value &&
-      typeof value.refresh === "string" &&
-      "expires" in value &&
-      typeof value.expires === "number",
+    value.type === "oauth" &&
+    "access" in value &&
+    typeof value.access === "string" &&
+    "refresh" in value &&
+    typeof value.refresh === "string" &&
+    "expires" in value &&
+    typeof value.expires === "number",
   )
 }
 
@@ -142,9 +142,7 @@ export async function resolveOpenAICodexAuth(
         type: "oauth",
         refresh: tokens.refresh_token ?? auth.refresh,
         access: tokens.access_token,
-        expires:
-          Date.now() +
-          (tokens.expires_in ?? DEFAULT_ACCESS_TOKEN_TTL_SECONDS) * 1_000,
+        expires: Date.now() + (tokens.expires_in ?? DEFAULT_ACCESS_TOKEN_TTL_SECONDS) * 1_000,
         ...(accountId ? { accountId } : {}),
       }
       const currentAuth = await input.getAuth()

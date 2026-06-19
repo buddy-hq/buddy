@@ -24,7 +24,9 @@ describe("permission dock path display", () => {
 
   test("handles folder globs", () => {
     expect(
-      getPermissionDockPathDisplay("/Users/example/Desktop/long-path-test/level-1/level-2/level-3/*"),
+      getPermissionDockPathDisplay(
+        "/Users/example/Desktop/long-path-test/level-1/level-2/level-3/*",
+      ),
     ).toEqual({
       kind: "split",
       prefix: "/Users/example/Desktop/long-path-test/level-1/",

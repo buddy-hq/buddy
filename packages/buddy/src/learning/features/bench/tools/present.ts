@@ -422,10 +422,7 @@ function isSameBenchTarget(left: BenchTarget, right: BenchTarget): boolean {
   return false
 }
 
-function readCurrentBenchContextForPresentation(input: {
-  directory: string
-  sessionID: string
-}):
+function readCurrentBenchContextForPresentation(input: { directory: string; sessionID: string }):
   | {
       status: "ready"
       value: BenchReadContextOutput
@@ -459,11 +456,7 @@ function readCurrentBenchContextForPresentation(input: {
   }
 }
 
-function metadataIncludes(input: {
-  metadata: string[]
-  prefix: string
-  value: string
-}): boolean {
+function metadataIncludes(input: { metadata: string[]; prefix: string; value: string }): boolean {
   return input.metadata.some((entry) => entry.trim() === `${input.prefix}: ${input.value}`)
 }
 
@@ -484,11 +477,13 @@ function blockedByCurrentBenchState(input: {
     return undefined
   }
 
-  if (metadataIncludes({
-    metadata: input.current.metadata,
-    prefix: "save_state",
-    value: "saving",
-  })) {
+  if (
+    metadataIncludes({
+      metadata: input.current.metadata,
+      prefix: "save_state",
+      value: "saving",
+    })
+  ) {
     return {
       status: "blocked",
       reason: "blocked_by_unsaved_work",
@@ -500,11 +495,13 @@ function blockedByCurrentBenchState(input: {
     }
   }
 
-  if (metadataIncludes({
-    metadata: input.current.metadata,
-    prefix: "save_state",
-    value: "conflict",
-  })) {
+  if (
+    metadataIncludes({
+      metadata: input.current.metadata,
+      prefix: "save_state",
+      value: "conflict",
+    })
+  ) {
     return {
       status: "blocked",
       reason: "blocked_by_unsaved_work",
@@ -516,11 +513,13 @@ function blockedByCurrentBenchState(input: {
     }
   }
 
-  if (metadataIncludes({
-    metadata: input.current.metadata,
-    prefix: "save_state",
-    value: "error",
-  })) {
+  if (
+    metadataIncludes({
+      metadata: input.current.metadata,
+      prefix: "save_state",
+      value: "error",
+    })
+  ) {
     return {
       status: "blocked",
       reason: "blocked_by_unsaved_work",
@@ -565,7 +564,10 @@ function finalizeBenchPresentation(input: {
   if (
     input.current?.status === "open" &&
     input.requested.benchTarget &&
-    isSameBenchTarget(benchTargetFromContextTarget(input.current.target), input.requested.benchTarget)
+    isSameBenchTarget(
+      benchTargetFromContextTarget(input.current.target),
+      input.requested.benchTarget,
+    )
   ) {
     return {
       status: "already_presenting",
@@ -664,7 +666,10 @@ async function presentResolvedObject(input: {
   directory: string
   sessionID: string
   manifest: BuddyObjectManifest
-  reason: Extract<BenchPresentReason, "presented_object" | "presented_resource" | "presented_whiteboard">
+  reason: Extract<
+    BenchPresentReason,
+    "presented_object" | "presented_resource" | "presented_whiteboard"
+  >
   message: string
 }): Promise<BenchPresentOutput> {
   const viewID = DEFAULT_BENCH_VIEW_BY_KIND[input.manifest.kind]
@@ -1055,12 +1060,7 @@ const benchPresentTool = createBuddyTool({
   },
 })
 
-export {
-  BenchPresentInputSchema,
-  BenchPresentToolMetadataSchema,
-  benchPresentTool,
-  presentOnBench,
-}
+export { BenchPresentInputSchema, BenchPresentToolMetadataSchema, benchPresentTool, presentOnBench }
 export type {
   BenchPresentAction,
   BenchPresentInput,

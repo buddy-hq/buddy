@@ -38,9 +38,7 @@ function getThreadTitle(session: SessionInfo) {
   return title || language.t("sidebar.untitledThread")
 }
 
-export function DirectoryChatBenchThreadBrowser(
-  props: DirectoryChatBenchThreadBrowserProps,
-) {
+export function DirectoryChatBenchThreadBrowser(props: DirectoryChatBenchThreadBrowserProps) {
   const [query, setQuery] = useState("")
   const [isOpen, setIsOpen] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)

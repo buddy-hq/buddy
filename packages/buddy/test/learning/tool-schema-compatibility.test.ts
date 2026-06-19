@@ -115,10 +115,7 @@ describe("tool schema compatibility", () => {
       presentHtmlWidgetSchema.properties,
       "present_html_widget properties",
     )
-    const actionProperty = expectJsonSchemaObject(
-      properties.action,
-      "present_html_widget.action",
-    )
+    const actionProperty = expectJsonSchemaObject(properties.action, "present_html_widget.action")
     expect(actionProperty.type).toBe("string")
     expect(actionProperty.enum).toEqual(["present_path", "present_object"])
     const pathProperty = expectStringNullableProperty(properties, "path")

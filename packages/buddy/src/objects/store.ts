@@ -48,10 +48,7 @@ const BuddyObjectIndexCacheRecordSchema = z
   })
   .strict()
 
-const BuddyObjectIndexCacheSchema = z.record(
-  BuddyObjectIDSchema,
-  BuddyObjectIndexCacheRecordSchema,
-)
+const BuddyObjectIndexCacheSchema = z.record(BuddyObjectIDSchema, BuddyObjectIndexCacheRecordSchema)
 
 type BuddyObjectIndexCache = z.infer<typeof BuddyObjectIndexCacheSchema>
 type BuddyObjectIndexCacheRecord = z.infer<typeof BuddyObjectIndexCacheRecordSchema>
@@ -209,7 +206,10 @@ async function writeObjectRecord(input: {
         file,
       })
     }
-    await writeJsonFileAtomic(path.join(stagingDirectory, OBJECT_MANIFEST_FILE_NAME), input.manifest)
+    await writeJsonFileAtomic(
+      path.join(stagingDirectory, OBJECT_MANIFEST_FILE_NAME),
+      input.manifest,
+    )
 
     if (!replacingExistingObject) {
       await fs.rename(stagingDirectory, targetDirectory)
@@ -361,7 +361,11 @@ async function scanObjectDirectory(input: {
     return { status: "ignored" }
   }
 
-  const objectDirectory = BuddyObjectPath.objectDirectory(input.directory, input.kind, input.entryName)
+  const objectDirectory = BuddyObjectPath.objectDirectory(
+    input.directory,
+    input.kind,
+    input.entryName,
+  )
   const tombstonePath = BuddyObjectPath.tombstoneFile(input.directory, input.kind, input.entryName)
   const manifestPath = BuddyObjectPath.manifestFile(input.directory, input.kind, input.entryName)
   try {
@@ -409,9 +413,10 @@ function manifestToIndexItem(input: {
 }): BuddyObjectIndexItem {
   const surfaces = new Set(input.manifest.views.flatMap((view) => view.surfaces))
   const sourceRef = input.manifest.sourceRefs.find((ref) => ref.role === "authoring")
-  const primaryView = input.manifest.views.find((view) => view.surfaces.includes("inline"))
-    ?? input.manifest.views.find((view) => view.surfaces.includes("bench"))
-    ?? input.manifest.views[0]
+  const primaryView =
+    input.manifest.views.find((view) => view.surfaces.includes("inline")) ??
+    input.manifest.views.find((view) => view.surfaces.includes("bench")) ??
+    input.manifest.views[0]
 
   return BuddyObjectIndexItemSchema.parse({
     kind: input.manifest.kind,
@@ -536,16 +541,17 @@ function buildObjectListFromScan(input: {
   directory: string
   scanned: ObjectDirectoryScanResult
 }): { list: BuddyObjectListResult; cache: BuddyObjectIndexCache } {
-  const liveByID = new Map<string, Array<{ manifest: BuddyObjectManifest; objectDirectory: string }>>()
+  const liveByID = new Map<
+    string,
+    Array<{ manifest: BuddyObjectManifest; objectDirectory: string }>
+  >()
   for (const entry of input.scanned.ready) {
     const current = liveByID.get(entry.manifest.objectID) ?? []
     current.push(entry)
     liveByID.set(entry.manifest.objectID, current)
   }
 
-  const tombstonedIDs = new Set(
-    input.scanned.tombstones.map((entry) => entry.tombstone.objectID),
-  )
+  const tombstonedIDs = new Set(input.scanned.tombstones.map((entry) => entry.tombstone.objectID))
   const cache: BuddyObjectIndexCache = {}
   const objects: BuddyObjectIndexItem[] = []
   const loadErrors = [...input.scanned.loadErrors]
@@ -716,11 +722,11 @@ async function resolveObjectByID(input: {
       manifest: entry.manifest,
     })
     if (
-      !cached
-      || cached.kind !== expectedCacheRecord.kind
-      || cached.status !== expectedCacheRecord.status
-      || cached.title !== expectedCacheRecord.title
-      || cached.objectPath !== expectedCacheRecord.objectPath
+      !cached ||
+      cached.kind !== expectedCacheRecord.kind ||
+      cached.status !== expectedCacheRecord.status ||
+      cached.title !== expectedCacheRecord.title ||
+      cached.objectPath !== expectedCacheRecord.objectPath
     ) {
       await rebuildObjectIndex(input.directory)
     }

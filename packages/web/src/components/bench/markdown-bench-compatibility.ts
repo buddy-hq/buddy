@@ -1,8 +1,5 @@
 import { fromMarkdown } from "mdast-util-from-markdown"
-import {
-  matchBuddyBlockMath,
-  matchBuddyInlineMath,
-} from "@/components/markdown/markdown-math"
+import { matchBuddyBlockMath, matchBuddyInlineMath } from "@/components/markdown/markdown-math"
 
 type MarkdownReplacement = {
   start: number
@@ -96,10 +93,9 @@ function collectProtectedRanges(node: unknown, ranges: MarkdownRange[]): void {
 }
 
 function normalizeBuddyMathForMdxEditor(markdown: string): string {
-  const markdownWithoutLegacyMarkers = markdown.replaceAll(
-    LEGACY_BUDDY_DISPLAY_MATH_MARKER,
-    "",
-  ).replace(/^\$\$\$\r?$/gmu, () => "$$")
+  const markdownWithoutLegacyMarkers = markdown
+    .replaceAll(LEGACY_BUDDY_DISPLAY_MATH_MARKER, "")
+    .replace(/^\$\$\$\r?$/gmu, () => "$$")
   let tree: unknown
   try {
     tree = fromMarkdown(markdownWithoutLegacyMarkers)
@@ -174,8 +170,7 @@ export function prepareMarkdownForMdxEditor(markdown: string): string {
 
   let result = normalizedMarkdown
   for (const replacement of replacements.toSorted((left, right) => right.start - left.start)) {
-    result =
-      result.slice(0, replacement.start) + replacement.value + result.slice(replacement.end)
+    result = result.slice(0, replacement.start) + replacement.value + result.slice(replacement.end)
   }
   return result
 }

@@ -60,8 +60,7 @@ const BENCH_LAYOUT_TRANSITION = {
   ease: [0.22, 1, 0.36, 1],
 } satisfies Transition
 const FLOATING_CHAT_WINDOW_TRANSITION_DURATION_SECONDS = 0.26
-const FLOATING_CHAT_EXIT_DURATION_MS =
-  FLOATING_CHAT_WINDOW_TRANSITION_DURATION_SECONDS * 1000
+const FLOATING_CHAT_EXIT_DURATION_MS = FLOATING_CHAT_WINDOW_TRANSITION_DURATION_SECONDS * 1000
 const FLOATING_CHAT_WINDOW_TRANSITION = {
   type: "spring",
   duration: FLOATING_CHAT_WINDOW_TRANSITION_DURATION_SECONDS,
@@ -116,9 +115,7 @@ function useDelayedPresence(visible: boolean): DelayedPresenceState {
   useEffect(() => {
     if (visible) {
       setPresence((current) =>
-        current.isPresent && !current.isExiting
-          ? current
-          : { isPresent: true, isExiting: false },
+        current.isPresent && !current.isExiting ? current : { isPresent: true, isExiting: false },
       )
       return
     }
@@ -126,9 +123,7 @@ function useDelayedPresence(visible: boolean): DelayedPresenceState {
     if (!presence.isPresent) return
 
     setPresence((current) =>
-      current.isPresent && !current.isExiting
-        ? { isPresent: true, isExiting: true }
-        : current,
+      current.isPresent && !current.isExiting ? { isPresent: true, isExiting: true } : current,
     )
     const timeoutID = window.setTimeout(() => {
       setPresence({ isPresent: false, isExiting: false })
@@ -459,11 +454,7 @@ export function BenchContent(props: { bordered: boolean; children: ReactNode }) 
 
 function DockedConversationContent(props: { children: ReactNode }) {
   return (
-    <motion.div
-      layout
-      transition={BENCH_LAYOUT_TRANSITION}
-      className="relative h-full w-full"
-    >
+    <motion.div layout transition={BENCH_LAYOUT_TRANSITION} className="relative h-full w-full">
       {props.children}
     </motion.div>
   )
@@ -519,11 +510,7 @@ function FloatingChatWindow(props: {
       data-component="directory-chat-floating-window"
       style={floatingWindowStyle}
       initial={props.animateInitial ? { opacity: 0, scale: 0.95, y: 22 } : false}
-      animate={
-        props.exiting
-          ? { opacity: 0, scale: 0.97, y: 16 }
-          : { opacity: 1, scale: 1, y: 0 }
-      }
+      animate={props.exiting ? { opacity: 0, scale: 0.97, y: 16 } : { opacity: 1, scale: 1, y: 0 }}
       transition={FLOATING_CHAT_WINDOW_TRANSITION}
       className={cn(
         "absolute z-40 flex min-h-0 min-w-0 overflow-hidden rounded-2xl border border-border-base/70 bg-background-stronger shadow-[0_24px_80px_rgba(0,0,0,0.28)]",
@@ -616,11 +603,7 @@ function FloatingChatRestoreButton(props: { exiting: boolean; onRestore: () => v
     <motion.div
       data-component="directory-chat-floating-restore"
       initial={{ opacity: 0, scale: 0.92, y: 8 }}
-      animate={
-        props.exiting
-          ? { opacity: 0, scale: 0.92, y: 8 }
-          : { opacity: 1, scale: 1, y: 0 }
-      }
+      animate={props.exiting ? { opacity: 0, scale: 0.92, y: 8 } : { opacity: 1, scale: 1, y: 0 }}
       transition={FLOATING_CHAT_WINDOW_TRANSITION}
       className={cn("absolute bottom-6 right-6 z-40", props.exiting && "pointer-events-none")}
     >
@@ -724,13 +707,7 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
     if (!areFloatingChatRectsEqual(nextRect, floatingRect)) {
       onFloatingRectChange(nextRect)
     }
-  }, [
-    chatLayoutMode,
-    containerSize,
-    floatingRect,
-    onFloatingRectChange,
-    props.layoutProfile,
-  ])
+  }, [chatLayoutMode, containerSize, floatingRect, onFloatingRectChange, props.layoutProfile])
 
   useEffect(() => {
     if (chatLayoutMode === BENCH_CHAT_LAYOUT_DOCKED) {

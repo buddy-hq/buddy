@@ -118,9 +118,7 @@ describe("mermaid supersession", () => {
     expect(
       findSupersedingMermaidRevisionID(messages, MERMAID_OBJECT_ID, "revision_b"),
     ).toBeUndefined()
-    expect(
-      findSupersedingMermaidRevisionID(messages, "other_object", "revision_b"),
-    ).toBeUndefined()
+    expect(findSupersedingMermaidRevisionID(messages, "other_object", "revision_b")).toBeUndefined()
   })
 
   test("does not supersede cards without a concrete current revision", () => {
@@ -156,8 +154,6 @@ describe("mermaid supersession", () => {
       },
     ]
 
-    expect(
-      findSupersedingMermaidRevisionID(messages, MERMAID_OBJECT_ID, null),
-    ).toBeUndefined()
+    expect(findSupersedingMermaidRevisionID(messages, MERMAID_OBJECT_ID, null)).toBeUndefined()
   })
 })

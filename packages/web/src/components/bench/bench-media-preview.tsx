@@ -17,8 +17,7 @@ type BenchMediaMessageProps = {
   className?: string
 }
 
-const CENTERED_MEDIA_FRAME_CLASS =
-  "flex h-full min-h-0 w-full items-center justify-center p-6"
+const CENTERED_MEDIA_FRAME_CLASS = "flex h-full min-h-0 w-full items-center justify-center p-6"
 
 export function BenchMediaMessage(props: BenchMediaMessageProps) {
   return (

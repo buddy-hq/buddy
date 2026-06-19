@@ -13,11 +13,7 @@ import {
   type QuestionSetAttemptAnswer,
   type QuestionSetEvaluationResult,
 } from "../types"
-import {
-  correctChoiceIDs,
-  ensureUniqueIDs,
-  readQuestionSetObjectPayload,
-} from "./save-object"
+import { correctChoiceIDs, ensureUniqueIDs, readQuestionSetObjectPayload } from "./save-object"
 import {
   appendLearnerEvent,
   createLearnerEvent,

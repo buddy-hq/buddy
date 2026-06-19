@@ -217,38 +217,41 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     setActiveSelector((current) => (hasVisibleBench && current === selector ? undefined : selector))
   }
 
-  const openLibraryRequest = useCallback(async (request: LibraryOpenRequest): Promise<LibraryOpenOutcome> => {
-    try {
-      if (request.type === "resource") {
+  const openLibraryRequest = useCallback(
+    async (request: LibraryOpenRequest): Promise<LibraryOpenOutcome> => {
+      try {
+        if (request.type === "resource") {
+          const outcome = libraryOutcome(
+            await props.onOpenResource(request.directory, request.resource, request.options),
+          )
+          if (outcome === "opened" || outcome === "focused") closeSelector()
+          return outcome
+        }
+
+        const currentTarget =
+          benchPolicyState.status === "open" &&
+          benchPolicyState.target.type === "object" &&
+          request.target.type === "object" &&
+          benchPolicyState.target.ref.objectID === request.target.ref.objectID
+            ? benchPolicyState.target
+            : request.target
         const outcome = libraryOutcome(
-          await props.onOpenResource(request.directory, request.resource, request.options),
+          await openBenchRoute({
+            directory: request.directory,
+            target: currentTarget,
+            mode: BENCH_CHAT_LAYOUT_DOCKED,
+            autoOpen: null,
+          }),
         )
         if (outcome === "opened" || outcome === "focused") closeSelector()
         return outcome
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : String(error))
+        return "failed"
       }
-
-      const currentTarget =
-        benchPolicyState.status === "open" &&
-        benchPolicyState.target.type === "object" &&
-        request.target.type === "object" &&
-        benchPolicyState.target.ref.objectID === request.target.ref.objectID
-          ? benchPolicyState.target
-          : request.target
-      const outcome = libraryOutcome(
-        await openBenchRoute({
-          directory: request.directory,
-          target: currentTarget,
-          mode: BENCH_CHAT_LAYOUT_DOCKED,
-          autoOpen: null,
-        }),
-      )
-      if (outcome === "opened" || outcome === "focused") closeSelector()
-      return outcome
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : String(error))
-      return "failed"
-    }
-  }, [benchPolicyState, openBenchRoute, props])
+    },
+    [benchPolicyState, openBenchRoute, props],
+  )
 
   async function openInstructions() {
     if (openingInstructions) return
@@ -364,10 +367,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
           data-library-scroll-container
           className="scrollbar-hover h-full min-h-0 overflow-y-auto p-3"
         >
-          <LibraryPanel
-            directories={[props.directory]}
-            onOpen={openLibraryRequest}
-          />
+          <LibraryPanel directories={[props.directory]} onOpen={openLibraryRequest} />
         </div>
       )
     }

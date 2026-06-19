@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import {
-  Button,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  cn,
-  toast,
-} from "@buddy/ui"
+import { Button, Tooltip, TooltipContent, TooltipTrigger, cn, toast } from "@buddy/ui"
 import {
   AppWindowIcon,
   ClipboardCopyIcon,
@@ -151,10 +144,7 @@ function resolveInlineViewportScale(input: {
   return Math.min(1, fitScale)
 }
 
-function useHtmlWidgetRuntimeFrame(input: {
-  widget: HtmlWidgetPresentation
-  reloadKey: number
-}) {
+function useHtmlWidgetRuntimeFrame(input: { widget: HtmlWidgetPresentation; reloadKey: number }) {
   const [loadState, setLoadState] = useState<HtmlWidgetFrameLoadState>("loading")
   const runtimeUrl = useMemo(
     () => resolveAssetUrl(appendRenderKey(input.widget.runtimeUrl, input.reloadKey)),
@@ -490,7 +480,9 @@ export function renderPresentHtmlWidgetTool(props: ToolPartProps) {
     return (
       <div className="flex flex-col gap-1.5">
         <ToolRow>
-          <ToolRowIcon>{props.icon?.("size-3.5") ?? <AppWindowIcon className="size-3.5" />}</ToolRowIcon>
+          <ToolRowIcon>
+            {props.icon?.("size-3.5") ?? <AppWindowIcon className="size-3.5" />}
+          </ToolRowIcon>
           <ToolRowAction>
             <TextShimmer text={props.info.title} active={running} />
           </ToolRowAction>

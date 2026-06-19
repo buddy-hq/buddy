@@ -142,9 +142,8 @@ function buildPrepareResourceObjectResult(input: {
     revisionID: null,
     itemID: null,
   }
-  const status = input.resource.status === RESOURCE_PACK_STATUS_PREPARING && input.timedOut
-    ? "blocked"
-    : "ok"
+  const status =
+    input.resource.status === RESOURCE_PACK_STATUS_PREPARING && input.timedOut ? "blocked" : "ok"
   return BuddyObjectResultSchema.parse({
     version: 1,
     status,

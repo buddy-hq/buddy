@@ -44,24 +44,21 @@ export function SourceFileBenchView(props: { directory: string; path: string }) 
   const [unreadable, setUnreadable] = useState(false)
   const title = fileNameFromPath(props.path) || props.path
 
-  const load = useCallback(
-    async () => {
-      const file = await readProjectExplorerEditableFile({
-        directory: props.directory,
-        path: props.path,
-      })
-      if (!isReadableWorkspaceText(file.content)) {
-        setUnreadable(true)
-      }
-      return {
-        path: file.path,
-        exists: true,
-        content: file.content,
-        version: file.version,
-      }
-    },
-    [props.directory, props.path],
-  )
+  const load = useCallback(async () => {
+    const file = await readProjectExplorerEditableFile({
+      directory: props.directory,
+      path: props.path,
+    })
+    if (!isReadableWorkspaceText(file.content)) {
+      setUnreadable(true)
+    }
+    return {
+      path: file.path,
+      exists: true,
+      content: file.content,
+      version: file.version,
+    }
+  }, [props.directory, props.path])
   const save = useCallback(
     (input: { content: string; expectedVersion?: string | null }) =>
       saveProjectExplorerEditableFile({

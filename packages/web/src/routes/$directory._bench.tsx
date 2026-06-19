@@ -53,10 +53,7 @@ import { resourceSessionKey, useChatStore } from "@/state/chat-store"
 import { RIGHT_WORKSPACE_RAIL_WIDTH_PX } from "@/lib/directory-chat/right-sidebar-layout"
 import type { ResizeHandleIntent } from "@buddy/ui"
 
-type ReadyDirectoryBenchController = Extract<
-  DirectoryChatPageControllerState,
-  { status: "ready" }
->
+type ReadyDirectoryBenchController = Extract<DirectoryChatPageControllerState, { status: "ready" }>
 
 type BenchRouteSearch = {
   [BENCH_CHAT_SEARCH_PARAM]?: BenchChatLayoutMode
@@ -130,9 +127,7 @@ function DirectoryBenchRouteLayout() {
   return <ReadyDirectoryBenchRouteLayout controller={controller} />
 }
 
-function ReadyDirectoryBenchRouteLayout(props: {
-  controller: ReadyDirectoryBenchController
-}) {
+function ReadyDirectoryBenchRouteLayout(props: { controller: ReadyDirectoryBenchController }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { controller } = props
@@ -200,8 +195,7 @@ function ReadyDirectoryBenchRouteLayout(props: {
     }),
     [benchPolicyState, currentDirectory, location.pathname, location.searchStr],
   )
-  const [chatLayoutMode, setChatLayoutMode] =
-    useState<BenchChatLayoutMode>(routeChatLayoutMode)
+  const [chatLayoutMode, setChatLayoutMode] = useState<BenchChatLayoutMode>(routeChatLayoutMode)
   const [dockedChatWidthPx, setDockedChatWidthPx] = useState(() =>
     readInitialChatPanelWidth(layoutProfile),
   )
@@ -209,17 +203,12 @@ function ReadyDirectoryBenchRouteLayout(props: {
   const [dockedWorkspaceWidthPx, setDockedWorkspaceWidthPx] = useState(() =>
     resolveInitialDockedWorkspaceWidth(layoutProfile),
   )
-  const [leftSidebarForcedSuppressed, setLeftSidebarForcedSuppressed] =
-    useState(false)
+  const [leftSidebarForcedSuppressed, setLeftSidebarForcedSuppressed] = useState(false)
   const [leftSidebarOverlayOpen, setLeftSidebarOverlayOpen] = useState(false)
   const [floatingRect, setFloatingRect] = useState(() =>
-    resolveDefaultFloatingChatRect(
-      resolveInitialFloatingChatContainerSize(),
-      layoutProfile,
-    ),
+    resolveDefaultFloatingChatRect(resolveInitialFloatingChatContainerSize(), layoutProfile),
   )
-  const [floatingChatState, setFloatingChatState] =
-    useState<BenchFloatingChatState>("open")
+  const [floatingChatState, setFloatingChatState] = useState<BenchFloatingChatState>("open")
   const didInitializeDockedWorkspaceRef = useRef(false)
   const leftSidebarVisibleRef = useRef(false)
   const dockedWorkspaceMinWidthRef = useRef(0)
@@ -330,8 +319,7 @@ function ReadyDirectoryBenchRouteLayout(props: {
   }, [dockedLeftSidebarVisible, routeChatLayoutMode])
 
   useEffect(() => {
-    const viewportWidthChanged =
-      previousViewportWidthRef.current !== dockedBenchViewport.widthPx
+    const viewportWidthChanged = previousViewportWidthRef.current !== dockedBenchViewport.widthPx
     previousViewportWidthRef.current = dockedBenchViewport.widthPx
     if (!viewportWidthChanged) return
     if (!leftSidebarForcedSuppressed) return
@@ -398,31 +386,37 @@ function ReadyDirectoryBenchRouteLayout(props: {
     return true
   }, [benchPolicyState, currentDirectory, encodedDirectory, navigate])
 
-  const setBenchMode = useCallback((input: { mode: BenchMode; origin: "user" | "agent" }) => {
-    if (benchPolicyState.status !== "open") return
-    setChatLayoutMode(input.mode)
-    if (input.mode === BENCH_CHAT_LAYOUT_DOCKED) {
-      setFloatingChatState("open")
-    }
-    if (input.origin === "user") {
-      setBenchPresentationModePreference({
-        target: benchPolicyState.target,
-        mode: input.mode,
+  const setBenchMode = useCallback(
+    (input: { mode: BenchMode; origin: "user" | "agent" }) => {
+      if (benchPolicyState.status !== "open") return
+      setChatLayoutMode(input.mode)
+      if (input.mode === BENCH_CHAT_LAYOUT_DOCKED) {
+        setFloatingChatState("open")
+      }
+      if (input.origin === "user") {
+        setBenchPresentationModePreference({
+          target: benchPolicyState.target,
+          mode: input.mode,
+        })
+      }
+      void navigate({
+        ...buildBenchNavigation({
+          directory: currentDirectory,
+          target: benchPolicyState.target,
+          mode: input.mode,
+        }),
+        replace: true,
       })
-    }
-    void navigate({
-      ...buildBenchNavigation({
-        directory: currentDirectory,
-        target: benchPolicyState.target,
-        mode: input.mode,
-      }),
-      replace: true,
-    })
-  }, [benchPolicyState, currentDirectory, navigate])
+    },
+    [benchPolicyState, currentDirectory, navigate],
+  )
 
-  const setBenchChatLayoutMode = useCallback((mode: BenchChatLayoutMode) => {
-    setBenchMode({ mode, origin: "user" })
-  }, [setBenchMode])
+  const setBenchChatLayoutMode = useCallback(
+    (mode: BenchChatLayoutMode) => {
+      setBenchMode({ mode, origin: "user" })
+    },
+    [setBenchMode],
+  )
 
   const handleLeftSidebarToggle = useCallback(() => {
     if (dockedLeftSidebarVisible) {
@@ -503,13 +497,13 @@ function ReadyDirectoryBenchRouteLayout(props: {
     [benchPolicyState.status, setBenchMode],
   )
 
-  const setFloatingChatSubstate = useCallback((input: {
-    state: BenchFloatingChatState
-    origin: "user"
-  }) => {
-    if (input.origin !== "user") return
-    setFloatingChatState(input.state)
-  }, [])
+  const setFloatingChatSubstate = useCallback(
+    (input: { state: BenchFloatingChatState; origin: "user" }) => {
+      if (input.origin !== "user") return
+      setFloatingChatState(input.state)
+    },
+    [],
+  )
 
   const benchRuntimeState = useMemo(() => {
     if (benchPolicyState.status !== "open") return undefined
@@ -665,9 +659,7 @@ function ReadyDirectoryBenchRouteLayout(props: {
           rightSidebarMaxWidth={dockedWorkspaceLayout.workspaceMaxWidthPx}
           onRightSidebarResize={setDockedWorkspaceWidthPx}
           onRightSidebarResizeIntent={handleDockedWorkspaceResizeIntent}
-          onRightSidebarExpand={() =>
-            controller.mainPaneProps.chatState.setRightSidebarOpen(true)
-          }
+          onRightSidebarExpand={() => controller.mainPaneProps.chatState.setRightSidebarOpen(true)}
           chatTitle={controller.mainPaneProps.chatState.sessionTitle}
           titlebarVariant="chat"
           onRightSidebarCollapse={() =>

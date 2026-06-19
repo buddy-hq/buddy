@@ -148,7 +148,10 @@ async function writeWhiteboardSessionIndex(
   directory: string,
   index: WhiteboardSessionIndex,
 ): Promise<void> {
-  await writeAtomicJson(WhiteboardPath.sessionIndexFile(directory), WhiteboardSessionIndexSchema.parse(index))
+  await writeAtomicJson(
+    WhiteboardPath.sessionIndexFile(directory),
+    WhiteboardSessionIndexSchema.parse(index),
+  )
 }
 
 function buildWhiteboardObjectViews(): BuddyObjectManifest["views"] {
@@ -215,11 +218,13 @@ async function readWhiteboardObjectManifest(input: {
   directory: string
   objectID: string
 }): Promise<WhiteboardObjectManifest> {
-  return whiteboardManifestSchema.parse(await readObjectManifest({
-    directory: input.directory,
-    kind: BUDDY_OBJECT_KINDS.whiteboard,
-    objectID: input.objectID,
-  }))
+  return whiteboardManifestSchema.parse(
+    await readObjectManifest({
+      directory: input.directory,
+      kind: BUDDY_OBJECT_KINDS.whiteboard,
+      objectID: input.objectID,
+    }),
+  )
 }
 
 async function rebuildWhiteboardSessionIndex(directory: string): Promise<WhiteboardSessionIndex> {

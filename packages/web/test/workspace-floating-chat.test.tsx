@@ -33,9 +33,7 @@ function requireElement<TElement extends Element>(element: TElement | null): TEl
   return element
 }
 
-function TestBenchPageLayout(props: {
-  initialMode?: BenchChatLayoutMode
-}) {
+function TestBenchPageLayout(props: { initialMode?: BenchChatLayoutMode }) {
   const [mode, setMode] = useState<BenchChatLayoutMode>(
     props.initialMode ?? BENCH_CHAT_LAYOUT_DOCKED,
   )
@@ -48,8 +46,7 @@ function TestBenchPageLayout(props: {
       BENCH_LAYOUT_PROFILE_DOCUMENT,
     ),
   )
-  const [floatingChatState, setFloatingChatState] =
-    useState<"open" | "minimized">("open")
+  const [floatingChatState, setFloatingChatState] = useState<"open" | "minimized">("open")
 
   return (
     <DirectoryChatBenchPageLayout
@@ -67,11 +64,7 @@ function TestBenchPageLayout(props: {
         <div data-component="conversation-probe">
           <span>Conversation</span>
           {controls.onFloatChat ? (
-            <button
-              type="button"
-              data-action="directory-chat-float"
-              onClick={controls.onFloatChat}
-            >
+            <button type="button" data-action="directory-chat-float" onClick={controls.onFloatChat}>
               Float
             </button>
           ) : null}

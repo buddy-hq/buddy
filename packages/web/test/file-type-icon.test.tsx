@@ -12,7 +12,7 @@ describe("FileTypeIcon", () => {
     expect(html).toContain("<svg")
     expect(html).not.toContain("<img")
     expect(html).toContain("text-icon-info-base")
-    expect(html).toContain("fill=\"currentColor\"")
+    expect(html).toContain('fill="currentColor"')
     expect(html).not.toContain(resolveFileTypeIconUrl({ fileName: "notes.md" }))
   })
 

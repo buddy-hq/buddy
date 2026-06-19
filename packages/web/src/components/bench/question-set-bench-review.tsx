@@ -202,7 +202,9 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
             note: "Question set object on Bench.",
           }),
         ],
-        hints: ["Do not expose correctness, rationales, or explanations before submission visibility."],
+        hints: [
+          "Do not expose correctness, rationales, or explanations before submission visibility.",
+        ],
       }),
     }),
     [
@@ -361,9 +363,7 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
                           ? { opacity: 0, x: slideDirection === 1 ? 50 : -50 }
                           : { opacity: 0, y: 20 }
                       }
-                      animate={
-                        viewMode === "wizard" ? { opacity: 1, x: 0 } : { opacity: 1, y: 0 }
-                      }
+                      animate={viewMode === "wizard" ? { opacity: 1, x: 0 } : { opacity: 1, y: 0 }}
                       exit={
                         viewMode === "wizard"
                           ? {
@@ -416,7 +416,9 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
                           const choiceEvaluation = evaluationChoiceByID.get(choice.id)
                           const isCorrect = choiceEvaluation?.correct
                           const isWrongSelection =
-                            choiceEvaluation && choiceEvaluation.selected && !choiceEvaluation.correct
+                            choiceEvaluation &&
+                            choiceEvaluation.selected &&
+                            !choiceEvaluation.correct
                           const showRationale =
                             !!choiceEvaluation?.rationale &&
                             (choiceEvaluation.selected || choiceEvaluation.correct)

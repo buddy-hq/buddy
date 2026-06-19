@@ -142,29 +142,26 @@ function ReviewSession(props: {
   const cardStartTimeRef = useRef(Date.now())
   const deckSummary = deck ? getFlashcardDeckObjectSummary(deck) : undefined
 
-  const fetchNextCard = useCallback(
-    async (): Promise<void> => {
-      try {
-        const client = getBuddyClient(directory)
-        const response = requireBuddyData(
-          await client.objectFlashcardDeck.nextCard({ directory, objectID }),
-        )
-        if (response.card === null) {
-          setPhase(cardsReviewedRef.current > 0 ? { kind: "complete" } : { kind: "no-due" })
-        } else {
-          setPhase({ kind: "card", card: response.card })
-          setRevealed(false)
-          setLeechWarning(false)
-          cardStartTimeRef.current = Date.now()
-          setSwipeRating(null)
-          setSwipeDirection(null)
-        }
-      } catch (err) {
-        setPhase({ kind: "error", message: err instanceof Error ? err.message : String(err) })
+  const fetchNextCard = useCallback(async (): Promise<void> => {
+    try {
+      const client = getBuddyClient(directory)
+      const response = requireBuddyData(
+        await client.objectFlashcardDeck.nextCard({ directory, objectID }),
+      )
+      if (response.card === null) {
+        setPhase(cardsReviewedRef.current > 0 ? { kind: "complete" } : { kind: "no-due" })
+      } else {
+        setPhase({ kind: "card", card: response.card })
+        setRevealed(false)
+        setLeechWarning(false)
+        cardStartTimeRef.current = Date.now()
+        setSwipeRating(null)
+        setSwipeDirection(null)
       }
-    },
-    [objectID, directory],
-  )
+    } catch (err) {
+      setPhase({ kind: "error", message: err instanceof Error ? err.message : String(err) })
+    }
+  }, [objectID, directory])
 
   // Initial load: fetch full deck, then first card
   useEffect(() => {

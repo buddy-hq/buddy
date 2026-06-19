@@ -58,7 +58,11 @@ describe("permission dock", () => {
     expect(container.textContent).not.toContain("Also allows")
 
     const buttons = Array.from(container.querySelectorAll("button"))
-    expect(buttons.map((button) => button.textContent)).toEqual(["Reject", "Allow always", "Allow once"])
+    expect(buttons.map((button) => button.textContent)).toEqual([
+      "Reject",
+      "Allow always",
+      "Allow once",
+    ])
 
     await act(async () => {
       buttons[1]?.click()
@@ -182,7 +186,11 @@ describe("permission dock", () => {
     })
 
     const buttons = Array.from(container.querySelectorAll("button"))
-    expect(buttons.map((button) => button.textContent)).toEqual(["Reject", "Allow always", "Allow once"])
+    expect(buttons.map((button) => button.textContent)).toEqual([
+      "Reject",
+      "Allow always",
+      "Allow once",
+    ])
     expect(buttons.every((button) => !button.disabled)).toBe(true)
     expect(container.textContent).toContain("Permission needed: Read README.md")
   })

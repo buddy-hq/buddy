@@ -4,7 +4,10 @@ import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
-import { addResource, resolveResourceReference } from "../../src/resources/resource-registry-service"
+import {
+  addResource,
+  resolveResourceReference,
+} from "../../src/resources/resource-registry-service"
 import {
   flattenPromptPartsForRuntime,
   RESOURCE_REFERENCE_PART_TYPE,

@@ -6,10 +6,7 @@ import {
   clearBenchContextRegistry,
   publishBenchContext,
 } from "../../src/learning/features/bench/context"
-import {
-  benchPresentTool,
-  presentOnBench,
-} from "../../src/learning/features/bench/tools/present"
+import { benchPresentTool, presentOnBench } from "../../src/learning/features/bench/tools/present"
 import {
   addResource,
   resolveResourceObjectByKey,
@@ -42,10 +39,7 @@ function publishMarkdownBenchContext(input: {
         route: `/_bench/markdown?path=${encodeURIComponent(input.relativePath)}`,
         status: input.dirty ? "dirty" : "ready",
       },
-      metadata: [
-        `dirty: ${input.dirty}`,
-        "save_state: ready",
-      ],
+      metadata: [`dirty: ${input.dirty}`, "save_state: ready"],
       content: "Current markdown snapshot.",
       refs: [
         {

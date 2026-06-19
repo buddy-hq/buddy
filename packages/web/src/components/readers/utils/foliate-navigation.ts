@@ -1,8 +1,4 @@
-import {
-  FLOW_PAGINATED,
-  FLOW_SCROLLED,
-  type FoliateReaderFlow,
-} from "../foliate-reader-types"
+import { FLOW_PAGINATED, FLOW_SCROLLED, type FoliateReaderFlow } from "../foliate-reader-types"
 
 export const READER_NAVIGATION_GO_LEFT = "go-left" as const
 export const READER_NAVIGATION_GO_RIGHT = "go-right" as const

@@ -27,9 +27,7 @@ export type IngestFullTextMetadata = {
   fullTextPath?: string
 }
 
-export function isIngestFullTextScopedReadingFallback(
-  metadata: IngestFullTextMetadata,
-): boolean {
+export function isIngestFullTextScopedReadingFallback(metadata: IngestFullTextMetadata): boolean {
   return (
     metadata.completed === false &&
     metadata.reason === INGEST_FULL_TEXT_REASON_CONTEXT_TOO_FULL &&
@@ -56,8 +54,7 @@ function readIngestFullTextFallback(value: unknown): IngestFullTextMetadata["fal
 export function readIngestFullTextMetadata(state: ToolState): IngestFullTextMetadata {
   return {
     resource: readNonEmptyString(state.metadata.resource),
-    completed:
-      typeof state.metadata.completed === "boolean" ? state.metadata.completed : undefined,
+    completed: typeof state.metadata.completed === "boolean" ? state.metadata.completed : undefined,
     reason: readIngestFullTextReason(state.metadata.reason),
     fallback: readIngestFullTextFallback(state.metadata.fallback),
     fullTextEstimatedTokens: readNonNegativeInt(state.metadata.fullTextEstimatedTokens),

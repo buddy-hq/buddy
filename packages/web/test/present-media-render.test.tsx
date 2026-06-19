@@ -217,12 +217,8 @@ describe("present media renderer", () => {
 
       if (
         method === "GET" &&
-        (url.includes(
-          "/api/objects/media-presentation/object_a/items/item_1/availability",
-        ) ||
-          url.includes(
-            "/api/objects/media-presentation/object_a/items/item_2/availability",
-          ))
+        (url.includes("/api/objects/media-presentation/object_a/items/item_1/availability") ||
+          url.includes("/api/objects/media-presentation/object_a/items/item_2/availability"))
       ) {
         return Response.json({ status: "available", message: null })
       }
@@ -290,9 +286,7 @@ describe("present media renderer", () => {
 
         if (
           method === "GET" &&
-          url.includes(
-            "/api/objects/media-presentation/object_video/items/item_1/availability",
-          )
+          url.includes("/api/objects/media-presentation/object_video/items/item_1/availability")
         ) {
           return Response.json({ status: "available", message: null })
         }
@@ -345,9 +339,7 @@ describe("present media renderer", () => {
 
         if (
           method === "GET" &&
-          url.includes(
-            "/api/objects/media-presentation/object_mixed/items/item_1/availability",
-          )
+          url.includes("/api/objects/media-presentation/object_mixed/items/item_1/availability")
         ) {
           return Response.json({ status: "available", message: null })
         }
@@ -403,9 +395,7 @@ describe("present media renderer", () => {
 
         if (
           method === "GET" &&
-          url.includes(
-            "/api/objects/media-presentation/object_notes/items/item_1/availability",
-          ) &&
+          url.includes("/api/objects/media-presentation/object_notes/items/item_1/availability") &&
           url.includes("directory=%2Frepo")
         ) {
           return Response.json({ status: "available", message: null })
@@ -456,9 +446,7 @@ describe("present media renderer", () => {
 
       if (
         method === "GET" &&
-        url.includes(
-          "/api/objects/media-presentation/object_notes/items/item_1/availability",
-        ) &&
+        url.includes("/api/objects/media-presentation/object_notes/items/item_1/availability") &&
         url.includes("directory=%2Frepo")
       ) {
         return Response.json({ status: "available", message: null })
@@ -536,9 +524,7 @@ describe("present media renderer", () => {
 
         if (
           method === "GET" &&
-          url.includes(
-            "/api/objects/media-presentation/object_b/items/item_1/availability",
-          ) &&
+          url.includes("/api/objects/media-presentation/object_b/items/item_1/availability") &&
           url.includes("directory=%2Frepo")
         ) {
           return Response.json({ status: "available", message: null })
@@ -602,9 +588,7 @@ describe("present media renderer", () => {
 
         if (
           method === "GET" &&
-          url.includes(
-            "/api/objects/media-presentation/object_deck/items/item_1/availability",
-          ) &&
+          url.includes("/api/objects/media-presentation/object_deck/items/item_1/availability") &&
           url.includes("directory=%2Frepo")
         ) {
           return Response.json({ status: "available", message: null })
@@ -663,9 +647,7 @@ describe("present media renderer", () => {
 
       if (
         method === "GET" &&
-        url.includes(
-          "/api/objects/media-presentation/object_missing/items/item_1/availability",
-        )
+        url.includes("/api/objects/media-presentation/object_missing/items/item_1/availability")
       ) {
         return Response.json({ status: "missing", message: "File not found" })
       }
@@ -736,9 +718,7 @@ describe("present media renderer", () => {
 
         if (
           method === "GET" &&
-          url.includes(
-            "/api/objects/media-presentation/object_huge/items/item_1/availability",
-          ) &&
+          url.includes("/api/objects/media-presentation/object_huge/items/item_1/availability") &&
           url.includes("directory=%2Frepo")
         ) {
           return Response.json({ status: "available", message: null })
@@ -805,9 +785,7 @@ describe("present media renderer", () => {
 
         if (
           method === "GET" &&
-          (url.includes(
-            "/api/objects/media-presentation/object_combo/items/item_1/availability",
-          ) ||
+          (url.includes("/api/objects/media-presentation/object_combo/items/item_1/availability") ||
             url.includes(
               "/api/objects/media-presentation/object_combo/items/item_2/availability",
             )) &&
@@ -892,9 +870,7 @@ describe("present media renderer", () => {
 
         if (
           method === "GET" &&
-          url.includes(
-            "/api/objects/media-presentation/object_stale/items/item_1/availability",
-          ) &&
+          url.includes("/api/objects/media-presentation/object_stale/items/item_1/availability") &&
           url.includes("directory=%2Frepo")
         ) {
           return Response.json({ status: "missing", message: "File not found" })

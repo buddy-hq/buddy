@@ -110,8 +110,7 @@ export function reconcileTerminalAssistantParts(messages: MessageWithParts[]) {
     }
 
     const assistantInfo = message.info
-    const terminalAt =
-      readFiniteNumber(assistantInfo.time.completed) ?? Date.now()
+    const terminalAt = readFiniteNumber(assistantInfo.time.completed) ?? Date.now()
     let partsChanged = false
     const nextParts = message.parts.map((part) => {
       const nextPart = reconcileTerminalAssistantPart(part, assistantInfo, terminalAt)

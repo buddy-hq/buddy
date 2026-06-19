@@ -141,10 +141,7 @@ function writeRuntimeStateSync(state: z.infer<typeof standardsRuntimeStateSchema
 }
 
 function releaseRepository() {
-  return (
-    process.env.BUDDY_RELEASE_REPO?.trim() ||
-    DEFAULT_RELEASE_REPOSITORY
-  )
+  return process.env.BUDDY_RELEASE_REPO?.trim() || DEFAULT_RELEASE_REPOSITORY
 }
 
 function releaseTagVersion() {

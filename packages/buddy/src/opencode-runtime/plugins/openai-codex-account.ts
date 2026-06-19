@@ -120,9 +120,7 @@ export const openAIUsageResponseSchema = z.discriminatedUnion("status", [
   }),
 ])
 
-export type OpenAIModelAvailabilityResponse = z.infer<
-  typeof openAIModelAvailabilityResponseSchema
->
+export type OpenAIModelAvailabilityResponse = z.infer<typeof openAIModelAvailabilityResponseSchema>
 export type OpenAIUsageResponse = z.infer<typeof openAIUsageResponseSchema>
 
 type FetchInput = Parameters<typeof fetch>[0]
@@ -168,9 +166,7 @@ function accountHeaders(auth: OpenAICodexStoredAuth) {
   }
 }
 
-function normalizeUsageWindow(
-  window: z.infer<typeof usageWindowSchema> | null | undefined,
-) {
+function normalizeUsageWindow(window: z.infer<typeof usageWindowSchema> | null | undefined) {
   if (!window) return null
   return {
     usedPercent: window.used_percent,
@@ -179,9 +175,7 @@ function normalizeUsageWindow(
   }
 }
 
-function normalizeRateLimit(
-  rateLimit: z.infer<typeof usageRateLimitSchema> | null | undefined,
-) {
+function normalizeRateLimit(rateLimit: z.infer<typeof usageRateLimitSchema> | null | undefined) {
   return {
     primary: normalizeUsageWindow(rateLimit?.primary_window),
     secondary: normalizeUsageWindow(rateLimit?.secondary_window),
@@ -217,8 +211,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
 
   async function fetchModels(auth: OpenAICodexStoredAuth) {
     const accountKey = resolveAccountKey(auth)
-    const currentCache =
-      modelCache?.accountKey === accountKey ? modelCache : undefined
+    const currentCache = modelCache?.accountKey === accountKey ? modelCache : undefined
     const url = new URL(CHATGPT_CODEX_MODELS_ENDPOINT)
     url.searchParams.set("client_version", OpenCodeVersion)
     const headers = new Headers(accountHeaders(auth))
@@ -303,18 +296,11 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     const accountKey = resolveAccountKey(auth)
     const now = dependencies.now()
     const currentCache = modelCache?.accountKey === accountKey ? modelCache : undefined
-    const cacheFresh =
-      currentCache && now - currentCache.fetchedAtMs < MODEL_CACHE_TTL_MS
+    const cacheFresh = currentCache && now - currentCache.fetchedAtMs < MODEL_CACHE_TTL_MS
     const failureActive =
-      modelFailure &&
-      modelFailure.accountKey === accountKey &&
-      modelFailure.retryAtMs > now
+      modelFailure && modelFailure.accountKey === accountKey && modelFailure.retryAtMs > now
 
-    if (
-      !cacheFresh &&
-      !failureActive &&
-      modelRefresh?.accountKey !== accountKey
-    ) {
+    if (!cacheFresh && !failureActive && modelRefresh?.accountKey !== accountKey) {
       void startModelRefresh(auth).catch(() => undefined)
     }
 
@@ -419,10 +405,7 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     return promise
   }
 
-  async function readUsage(
-    directory: string,
-    forceRefresh = false,
-  ): Promise<OpenAIUsageResponse> {
+  async function readUsage(directory: string, forceRefresh = false): Promise<OpenAIUsageResponse> {
     const auth = await resolveAuth(directory)
     if (!auth) {
       usageCache = undefined
@@ -434,12 +417,9 @@ export function createOpenAICodexAccountService(dependencies: AccountServiceDepe
     const accountKey = resolveAccountKey(auth)
     const now = dependencies.now()
     const currentCache = usageCache?.accountKey === accountKey ? usageCache : undefined
-    const cacheFresh =
-      currentCache && now - currentCache.fetchedAtMs < USAGE_CACHE_TTL_MS
+    const cacheFresh = currentCache && now - currentCache.fetchedAtMs < USAGE_CACHE_TTL_MS
     const failureActive =
-      usageFailure &&
-      usageFailure.accountKey === accountKey &&
-      usageFailure.retryAtMs > now
+      usageFailure && usageFailure.accountKey === accountKey && usageFailure.retryAtMs > now
 
     if (!forceRefresh && cacheFresh) return currentCache.response
     if (!forceRefresh && failureActive) return { status: "error" }

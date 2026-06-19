@@ -1,9 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { objectViewQueryOptions } from "@/state/workspace-objects-query"
-import {
-  readInlineData,
-  type BuddyPresentationDescriptor,
-} from "./buddy-object-result"
+import { readInlineData, type BuddyPresentationDescriptor } from "./buddy-object-result"
 
 type HydratedInlinePresentation = {
   presentation: BuddyPresentationDescriptor
@@ -34,9 +31,7 @@ export function useHydratedInlinePresentation(input: {
   const hydratedData = query.data ? readInlineData(query.data.data) : undefined
 
   return {
-    presentation: hydratedData
-      ? { ...input.presentation, data: hydratedData }
-      : input.presentation,
+    presentation: hydratedData ? { ...input.presentation, data: hydratedData } : input.presentation,
     isPending: shouldHydrate && query.isPending && input.presentation.data === null,
     error: query.error,
   }

@@ -51,10 +51,7 @@ import {
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { decodeDirectory } from "@/lib/directory-token"
 import { resolveAssetUrl } from "@/lib/resource-url"
-import {
-  fileExtensionFromPath,
-  normalizeRelativePath,
-} from "@/lib/workspace-file-paths"
+import { fileExtensionFromPath, normalizeRelativePath } from "@/lib/workspace-file-paths"
 import type { ResourceRecord } from "@/state/resource-actions"
 import {
   isSupportedReadingResourcePath,
@@ -141,7 +138,10 @@ function resourceSourcePath(record: ResourceRecord | undefined): string | undefi
 }
 
 function renderStatusToContextStatus(
-  status: typeof OBJECT_RENDER_STATUS_READY | typeof OBJECT_RENDER_STATUS_STALE | typeof OBJECT_RENDER_STATUS_ERROR,
+  status:
+    | typeof OBJECT_RENDER_STATUS_READY
+    | typeof OBJECT_RENDER_STATUS_STALE
+    | typeof OBJECT_RENDER_STATUS_ERROR,
 ): ObjectBenchContextStatus {
   if (status === OBJECT_RENDER_STATUS_ERROR) return "error"
   if (status === OBJECT_RENDER_STATUS_STALE) return "loading"
@@ -269,7 +269,9 @@ export const Route = createFileRoute("/$directory/_bench/objects/$kind/$objectID
 
     if (view.data.renderer === "resource-reader") {
       const alias = view.data.alias
-      const resourceData = await context.queryClient.ensureQueryData(resourcesQueryOptions(directory))
+      const resourceData = await context.queryClient.ensureQueryData(
+        resourcesQueryOptions(directory),
+      )
       const record = resourceData.processed.find(
         (resource) => resource.objectID === objectID || resource.alias === alias,
       )
@@ -394,14 +396,12 @@ function ObjectBenchContextProvider(props: {
         }),
         metadata: props.metadata,
         content: props.content,
-        refs:
-          props.refs ??
-          [
-            objectRef({
-              objectID: props.view.ref.objectID,
-              note: `${props.view.ref.kind} object on Bench.`,
-            }),
-          ],
+        refs: props.refs ?? [
+          objectRef({
+            objectID: props.view.ref.objectID,
+            note: `${props.view.ref.kind} object on Bench.`,
+          }),
+        ],
         hints: props.hints ?? [],
       }),
     }),
@@ -449,7 +449,7 @@ function ObjectBenchRoute() {
     void refetchLiveView()
   }, [isHtmlWidgetView, isSessionBusy, refetchLiveView])
 
-  const view = isHtmlWidgetView ? liveViewData ?? loaderData.view : loaderData.view
+  const view = isHtmlWidgetView ? (liveViewData ?? loaderData.view) : loaderData.view
   if (!view) {
     return (
       <UnavailableObjectBenchView
@@ -472,35 +472,17 @@ function ObjectBenchRoute() {
       )
     case "whiteboard":
       return (
-        <WhiteboardObjectBenchView
-          directory={loaderData.directory}
-          view={view}
-          data={view.data}
-        />
+        <WhiteboardObjectBenchView directory={loaderData.directory} view={view} data={view.data} />
       )
     case "html-widget":
       return (
-        <HtmlWidgetObjectBenchView
-          directory={loaderData.directory}
-          view={view}
-          data={view.data}
-        />
+        <HtmlWidgetObjectBenchView directory={loaderData.directory} view={view} data={view.data} />
       )
     case "media-gallery":
-      return (
-        <MediaObjectBenchView
-          directory={loaderData.directory}
-          view={view}
-          data={view.data}
-        />
-      )
+      return <MediaObjectBenchView directory={loaderData.directory} view={view} data={view.data} />
     case "mermaid":
       return (
-        <MermaidObjectBenchView
-          directory={loaderData.directory}
-          view={view}
-          data={view.data}
-        />
+        <MermaidObjectBenchView directory={loaderData.directory} view={view} data={view.data} />
       )
     case "figure":
       return (
@@ -544,10 +526,7 @@ function UnavailableObjectBenchView(props: { title: string; reason: string | nul
   return (
     <BenchStaticContextProvider
       status="unavailable"
-      metadata={[
-        "surface_status: unavailable",
-        `reason: ${props.reason ?? "unavailable"}`,
-      ]}
+      metadata={["surface_status: unavailable", `reason: ${props.reason ?? "unavailable"}`]}
       content="This managed object is no longer available."
       hints={[]}
     >
@@ -590,7 +569,9 @@ function ResourceObjectBenchView(props: {
         `warnings: ${props.data.warnings.length}`,
       ]}
       content={`Resource reader object: ${props.data.title}\n\nThe source resource path could not be resolved from the local resource index.`}
-      hints={["Rebuild or re-add the resource object if the reader cannot resolve its source file."]}
+      hints={[
+        "Rebuild or re-add the resource object if the reader cannot resolve its source file.",
+      ]}
     >
       <BenchViewerShell title={props.data.title}>
         <BenchMediaMessage className="text-icon-critical-base">

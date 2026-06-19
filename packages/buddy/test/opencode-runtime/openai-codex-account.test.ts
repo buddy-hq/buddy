@@ -193,18 +193,14 @@ describe("OpenAI Codex account service", () => {
     }
     const accountBRefresh = service.refreshModelAvailability(DIRECTORY)
 
-    accountAResponse.resolve(
-      Response.json({ models: [{ slug: "model-a", visibility: "list" }] }),
-    )
+    accountAResponse.resolve(Response.json({ models: [{ slug: "model-a", visibility: "list" }] }))
     expect(await accountARefresh).toMatchObject({
       status: "ready",
       modelIDs: ["model-a"],
     })
     expect(await service.readModelAvailability(DIRECTORY)).toEqual({ status: "loading" })
 
-    accountBResponse.resolve(
-      Response.json({ models: [{ slug: "model-b", visibility: "list" }] }),
-    )
+    accountBResponse.resolve(Response.json({ models: [{ slug: "model-b", visibility: "list" }] }))
     expect(await accountBRefresh).toMatchObject({
       status: "ready",
       modelIDs: ["model-b"],

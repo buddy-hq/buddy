@@ -263,9 +263,7 @@ export function MarkdownMermaidSegment(props: {
     setError(undefined)
     if (
       shouldClearMarkdownMermaidObject({
-        requestedSource: objectID
-          ? requestedSourceByObjectIDRef.current.get(objectID)
-          : undefined,
+        requestedSource: objectID ? requestedSourceByObjectIDRef.current.get(objectID) : undefined,
         nextSource: props.source,
       })
     ) {

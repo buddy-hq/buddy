@@ -8,10 +8,7 @@ import {
   type ReviewRecord,
   type SubmitReviewOutput,
 } from "../types"
-import {
-  readFlashcardDeckObject,
-  readFlashcardObjectReviewedTodayCounts,
-} from "./read-deck"
+import { readFlashcardDeckObject, readFlashcardObjectReviewedTodayCounts } from "./read-deck"
 import {
   commitFlashcardObjectReviewTransaction,
   recoverPendingFlashcardObjectReview,
@@ -225,8 +222,4 @@ async function getNextFlashcardObjectForReview(input: {
   })
 }
 
-export {
-  FlashcardCardNotFoundError,
-  getNextFlashcardObjectForReview,
-  submitFlashcardObjectReview,
-}
+export { FlashcardCardNotFoundError, getNextFlashcardObjectForReview, submitFlashcardObjectReview }

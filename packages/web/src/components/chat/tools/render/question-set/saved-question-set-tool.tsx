@@ -80,16 +80,16 @@ function CompletedQuestionSetTool(props: {
         onOpenBench={
           directory
             ? () => {
-            void openBenchRoute({
-              directory,
-              target: objectBenchTarget({
-                kind: "question-set",
-                objectID: parsed.questionSet.objectID,
-                viewID: "practice",
-              }),
-              mode: BENCH_MODE_REQUEST_POLICY,
-              autoOpen: null,
-            })
+                void openBenchRoute({
+                  directory,
+                  target: objectBenchTarget({
+                    kind: "question-set",
+                    objectID: parsed.questionSet.objectID,
+                    viewID: "practice",
+                  }),
+                  mode: BENCH_MODE_REQUEST_POLICY,
+                  autoOpen: null,
+                })
               }
             : undefined
         }
@@ -124,7 +124,11 @@ export function renderSavedQuestionSetTool(props: ToolPartProps) {
 
   if (running) {
     return (
-      <QuestionSetToolCard title={props.info.title} subtitle={props.info.subtitle} status={props.state.status}>
+      <QuestionSetToolCard
+        title={props.info.title}
+        subtitle={props.info.subtitle}
+        status={props.state.status}
+      >
         <div className="text-sm text-text-weak">Preparing question set...</div>
       </QuestionSetToolCard>
     )
@@ -132,7 +136,11 @@ export function renderSavedQuestionSetTool(props: ToolPartProps) {
   if (!presentation) {
     const output = props.state.output || (props.state.error ?? "")
     return (
-      <QuestionSetToolCard title={props.info.title} subtitle={props.info.subtitle} status={props.state.status}>
+      <QuestionSetToolCard
+        title={props.info.title}
+        subtitle={props.info.subtitle}
+        status={props.state.status}
+      >
         {output.trim().length > 0 ? (
           <ToolOutputPanel output={output} copyLabel={language.t("chatTools.copyOutput")} />
         ) : null}

@@ -357,9 +357,9 @@ describe("resolveFileToolIcon", () => {
     expect(resolveFileToolIcon("read", state, { title: "Read", subtitle: "web" })).toBe(
       FOLDER_TOOL_ICON,
     )
-    expect(resolveSettledFileToolIcon("read", state, { title: "Read" }, builtInTools.read.icon)).toBe(
-      FOLDER_TOOL_ICON,
-    )
+    expect(
+      resolveSettledFileToolIcon("read", state, { title: "Read" }, builtInTools.read.icon),
+    ).toBe(FOLDER_TOOL_ICON)
   })
 })
 

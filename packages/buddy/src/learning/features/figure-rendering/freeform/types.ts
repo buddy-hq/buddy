@@ -1,8 +1,5 @@
 import z from "zod"
-import {
-  BuddyObjectIDSchema,
-  nonEmptyString,
-} from "../../../../objects"
+import { BuddyObjectIDSchema, nonEmptyString } from "../../../../objects"
 
 const RenderFreeformFigureOutputSchema = z.object({
   objectID: BuddyObjectIDSchema,

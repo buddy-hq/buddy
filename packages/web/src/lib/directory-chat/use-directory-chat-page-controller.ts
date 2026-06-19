@@ -885,7 +885,11 @@ export function useDirectoryChatPageController(
   }
 
   const openResourceInReadingMode = useCallback(
-    async (targetDirectory: string, resource: ResourceReadingTarget, options?: ResourceOpenOptions) => {
+    async (
+      targetDirectory: string,
+      resource: ResourceReadingTarget,
+      options?: ResourceOpenOptions,
+    ) => {
       const activeSessionID = useChatStore.getState().directories[targetDirectory]?.sessionID
       const preferCurrentSession =
         options?.sessionPreference === RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT
@@ -929,12 +933,7 @@ export function useDirectoryChatPageController(
         autoOpen: null,
       })
     },
-    [
-      linkReadingResourceSession,
-      linkedSessionByResource,
-      queryClient,
-      openBenchRoute,
-    ],
+    [linkReadingResourceSession, linkedSessionByResource, queryClient, openBenchRoute],
   )
 
   const openTeachingEditorPanel = useCallback(() => {
@@ -1804,8 +1803,7 @@ export function useDirectoryChatPageController(
     chatTitle: cs.sessionTitle,
     projectName: getFilename(decodedDirectory),
     isTurnActive: cs.isTurnActive,
-    titlebarVariant:
-      shellView === DIRECTORY_CHAT_SHELL_VIEW.SKILLS ? "shell" : "chat",
+    titlebarVariant: shellView === DIRECTORY_CHAT_SHELL_VIEW.SKILLS ? "shell" : "chat",
     leftSidebarOpen: cs.leftSidebarOpen,
     leftSidebarDisplayWidth: cs.leftSidebarDisplayWidth,
     leftSidebarWidth: cs.leftSidebarWidth,

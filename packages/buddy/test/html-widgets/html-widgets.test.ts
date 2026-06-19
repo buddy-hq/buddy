@@ -129,10 +129,7 @@ describe("HTML widget objects", () => {
 
     const outsidePath = path.join(project.path, "outside.html")
     await fs.writeFile(outsidePath, "<!doctype html><p>Outside</p>", "utf8")
-    await fs.symlink(
-      outsidePath,
-      path.join(project.path, widget.sourceRoot, "outside-link.html"),
-    )
+    await fs.symlink(outsidePath, path.join(project.path, widget.sourceRoot, "outside-link.html"))
     const symlinkResponse = await app.request(
       `/api/objects/html-widget/${widget.manifest.objectID}/source?directory=${encodeURIComponent(project.path)}&path=outside-link.html`,
     )
@@ -390,8 +387,16 @@ describe("HTML widget objects", () => {
       ].join("\n"),
       "utf8",
     )
-    await fs.writeFile(path.join(widgetRoot, "app.js"), "document.body.dataset.ready = 'true'", "utf8")
-    await fs.writeFile(path.join(widgetRoot, "styles", "main.css"), "main { color: green; }", "utf8")
+    await fs.writeFile(
+      path.join(widgetRoot, "app.js"),
+      "document.body.dataset.ready = 'true'",
+      "utf8",
+    )
+    await fs.writeFile(
+      path.join(widgetRoot, "styles", "main.css"),
+      "main { color: green; }",
+      "utf8",
+    )
 
     const widget = await presentHtmlWidgetObject({
       action: "present_path",
@@ -422,9 +427,7 @@ describe("HTML widget objects", () => {
       "./styles/main.css",
       `http://localhost${widget.inlineData.runtimeUrl}`,
     )
-    const stylesheetResponse = await app.request(
-      `${stylesheetUrl.pathname}${stylesheetUrl.search}`,
-    )
+    const stylesheetResponse = await app.request(`${stylesheetUrl.pathname}${stylesheetUrl.search}`)
     expect(stylesheetResponse.status).toBe(200)
     expect(stylesheetResponse.headers.get("content-type")).toContain("text/css")
   })

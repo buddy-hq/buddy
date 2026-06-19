@@ -38,9 +38,7 @@ export type WorkspaceFileOpenPlan = {
   requiresLargeFileApproval: boolean
 }
 
-export function resolveWorkspaceFileOpenPlan(
-  input: WorkspaceFileOpenInput,
-): WorkspaceFileOpenPlan {
+export function resolveWorkspaceFileOpenPlan(input: WorkspaceFileOpenInput): WorkspaceFileOpenPlan {
   if (!input.available) {
     return {
       primaryTarget: undefined,

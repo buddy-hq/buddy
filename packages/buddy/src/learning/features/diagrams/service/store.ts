@@ -498,7 +498,9 @@ function toMermaidObjectRead(input: {
   }
 }
 
-function buildMermaidObjectViews(input: { diagramType: string | null }): BuddyObjectManifest["views"] {
+function buildMermaidObjectViews(input: {
+  diagramType: string | null
+}): BuddyObjectManifest["views"] {
   return [
     {
       viewID: MERMAID_RENDERED_VIEW_ID,
@@ -663,7 +665,10 @@ async function createMarkdownMermaidObject(
 
       const objectID = generateObjectID()
       const revisionID = generateObjectID()
-      const sourceRoot = BuddyObjectPath.relativeObjectDirectory(BUDDY_OBJECT_KINDS.mermaid, objectID)
+      const sourceRoot = BuddyObjectPath.relativeObjectDirectory(
+        BUDDY_OBJECT_KINDS.mermaid,
+        objectID,
+      )
       const autoRepair = defaultAutoRepairState({ isRepairRevision: false })
       const manifest = BuddyObjectManifestSchema.safeExtend({
         summary: MermaidObjectSummarySchema,
@@ -798,11 +803,13 @@ async function readMermaidObjectManifest(
 ): Promise<BuddyObjectManifest & { summary: MermaidObjectSummary }> {
   return BuddyObjectManifestSchema.safeExtend({
     summary: MermaidObjectSummarySchema,
-  }).parse(await readObjectManifest({
-    directory,
-    kind: BUDDY_OBJECT_KINDS.mermaid,
-    objectID,
-  }))
+  }).parse(
+    await readObjectManifest({
+      directory,
+      kind: BUDDY_OBJECT_KINDS.mermaid,
+      objectID,
+    }),
+  )
 }
 
 async function readMermaidObjectPreflight(input: {
@@ -1119,10 +1126,7 @@ async function updateMermaidRepairRequest(
     lastErrorMessage:
       input.status === "exhausted" ? input.lastErrorMessage : current.lastErrorMessage,
   })
-  await writeJsonFileAtomic(
-    mermaidRepairRequestFile(directory, repairRequestID),
-    updated,
-  )
+  await writeJsonFileAtomic(mermaidRepairRequestFile(directory, repairRequestID), updated)
   return updated
 }
 

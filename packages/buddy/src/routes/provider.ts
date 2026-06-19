@@ -213,9 +213,7 @@ export const ProviderRoutes = new Hono()
         const directoryResult = resolveBootstrapDirectory(c)
         if (!directoryResult.ok) return directoryResult.response
 
-        return c.json(
-          await openAICodexAccountService.readUsage(directoryResult.directory, true),
-        )
+        return c.json(await openAICodexAccountService.readUsage(directoryResult.directory, true))
       }),
   )
   .post(

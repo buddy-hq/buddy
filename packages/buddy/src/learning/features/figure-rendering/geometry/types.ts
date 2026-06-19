@@ -1,8 +1,5 @@
 import z from "zod"
-import {
-  BuddyObjectIDSchema,
-  nonEmptyString,
-} from "../../../../objects"
+import { BuddyObjectIDSchema, nonEmptyString } from "../../../../objects"
 
 const finiteNumber = z.number().refine(Number.isFinite, "Must be a finite number")
 const positiveFiniteNumber = finiteNumber.refine((value) => value > 0, "Must be a positive number")

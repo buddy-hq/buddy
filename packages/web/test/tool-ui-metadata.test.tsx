@@ -161,7 +161,9 @@ function contextTooFullIngestPart(input: { legacy?: boolean } = {}): MessagePart
     messageID: "msg_full_text",
     type: "tool",
     tool: "ingest_full_text",
-    callID: input.legacy ? "call_full_text_legacy_context_too_full" : "call_full_text_context_too_full",
+    callID: input.legacy
+      ? "call_full_text_legacy_context_too_full"
+      : "call_full_text_context_too_full",
     state,
   }
 }

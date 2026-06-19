@@ -1,14 +1,8 @@
 import type { BenchTarget } from "./bench-targets"
 
-type BenchLeaveIntent =
-  | "close"
-  | "replace-target"
+type BenchLeaveIntent = "close" | "replace-target"
 
-type BenchLeaveOrigin =
-  | "user"
-  | "agent"
-  | "auto-open"
-  | "route"
+type BenchLeaveOrigin = "user" | "agent" | "auto-open" | "route"
 
 type BenchLeaveGuardInput = {
   intent: BenchLeaveIntent
@@ -62,9 +56,5 @@ async function guardBenchLeaveBeforeNavigation(input: {
   })
 }
 
-export {
-  allowBenchLeave,
-  guardBenchLeaveBeforeNavigation,
-  registerBenchLeaveGuard,
-}
+export { allowBenchLeave, guardBenchLeaveBeforeNavigation, registerBenchLeaveGuard }
 export type { BenchLeaveGuardInput, BenchLeaveGuardResult, BenchLeaveOrigin }

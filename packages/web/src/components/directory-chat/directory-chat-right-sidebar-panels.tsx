@@ -25,11 +25,7 @@ type DirectoryChatRightSidebarPanelsProps = {
 
 type DirectoryChatRightSidebarPanels = Pick<
   ComponentProps<typeof ChatRightSidebar>,
-  | "agentsPanel"
-  | "systemPromptPanel"
-  | "palettePanel"
-  | "filesPanel"
-  | "editorPanel"
+  "agentsPanel" | "systemPromptPanel" | "palettePanel" | "filesPanel" | "editorPanel"
 >
 
 export function buildDirectoryChatRightSidebarPanels(

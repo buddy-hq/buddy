@@ -688,7 +688,9 @@ async function computeHtmlWidgetSourceVersionForRoot(sourceRoot: string): Promis
       if (!entry.isFile()) continue
       fileCount += 1
       if (fileCount > HTML_WIDGET_SOURCE_VERSION_FILE_LIMIT) {
-        throw new HtmlWidgetValidationError("HTML widget source tree has too many files to version.")
+        throw new HtmlWidgetValidationError(
+          "HTML widget source tree has too many files to version.",
+        )
       }
       const bytes = await fs.readFile(entryPath)
       totalBytes += bytes.byteLength
@@ -726,10 +728,7 @@ function normalizeWorkspaceRelativePath(filepath: string): string | undefined {
   return normalized
 }
 
-function htmlWidgetSourcePathCandidate(input: {
-  directory: string
-  rawPath: string
-}): string {
+function htmlWidgetSourcePathCandidate(input: { directory: string; rawPath: string }): string {
   const rawPath = input.rawPath.trim()
   if (!rawPath) {
     throw new HtmlWidgetValidationError("HTML widget source path must not be empty.")
@@ -770,7 +769,9 @@ async function resolveHtmlWidgetWorkspaceSourcePath(input: {
   rawPath: string
 }): Promise<ResolvedHtmlWidgetWorkspacePath> {
   const workspaceInputRoot = path.resolve(input.directory)
-  const workspaceRoot = await fs.realpath(input.directory).catch(() => path.resolve(input.directory))
+  const workspaceRoot = await fs
+    .realpath(input.directory)
+    .catch(() => path.resolve(input.directory))
   const requestedAbsolutePath = path.resolve(
     htmlWidgetSourcePathCandidate({
       directory: workspaceInputRoot,
@@ -833,9 +834,7 @@ async function resolvePreviouslyAdoptedHtmlWidget(input: {
     ),
   )
   const matches = manifests.filter(
-    (
-      manifest,
-    ): manifest is BuddyObjectManifest & { summary: HtmlWidgetObjectSummary } => {
+    (manifest): manifest is BuddyObjectManifest & { summary: HtmlWidgetObjectSummary } => {
       if (!manifest) return false
       return manifest.sourceRefs.some((ref) => {
         if (ref.role !== "original") return false

@@ -277,9 +277,7 @@ export function MermaidDiagram(props: {
     <div
       ref={activation.ref}
       data-markdown-export-status={
-        !isInteractive && state.status === "ready" && !staticSvgMounted
-          ? "loading"
-          : state.status
+        !isInteractive && state.status === "ready" && !staticSvgMounted ? "loading" : state.status
       }
       className={cn(isInteractive ? "h-full min-h-0" : "min-w-0", props.className)}
     >
@@ -311,10 +309,7 @@ export function MermaidDiagram(props: {
       ) : null}
 
       {state.status === "ready" && !isInteractive ? (
-        <div
-          data-component="mermaid-diagram-static-viewport"
-          className="min-w-0 overflow-visible"
-        >
+        <div data-component="mermaid-diagram-static-viewport" className="min-w-0 overflow-visible">
           <div
             ref={staticSvgHostRef}
             data-component="mermaid-diagram"
@@ -400,7 +395,6 @@ export function MermaidDiagram(props: {
           ) : null}
         </div>
       ) : null}
-
     </div>
   )
 

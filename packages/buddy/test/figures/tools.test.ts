@@ -203,10 +203,7 @@ describe("figure tools", () => {
     const objectRef = requireFigureRef(objectResult)
     const revisionID = requireRevisionID(objectRef)
 
-    const svg = await fs.readFile(
-      figureFile(project.path, objectRef.objectID, revisionID),
-      "utf8",
-    )
+    const svg = await fs.readFile(figureFile(project.path, objectRef.objectID, revisionID), "utf8")
     expect(svg).toContain("<svg")
   })
 

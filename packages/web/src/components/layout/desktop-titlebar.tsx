@@ -124,9 +124,9 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const rightSidebarOpen = props.rightSidebarOpen ?? persistedRightSidebarOpen
   const isParkedBenchPage = isFocusedBenchPage && !isFloatingBenchPage && !rightSidebarOpen
   const directoryToken = isFocusedBenchPage
-    ? readDirectoryParam(focusedBenchMatch?.params) ??
+    ? (readDirectoryParam(focusedBenchMatch?.params) ??
       readDirectoryParamFromMatches(routerState.matches) ??
-      readDirectoryTokenFromPathname(pathname)
+      readDirectoryTokenFromPathname(pathname))
     : undefined
   const [isFullscreen, setIsFullscreen] = useState(false)
 
@@ -407,9 +407,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
               </h1>
             </div>
           ) : (
-            <div className="min-w-0 flex-1">
-              {benchBackButton}
-            </div>
+            <div className="min-w-0 flex-1">{benchBackButton}</div>
           ))}
         <div className="flex shrink-0 items-center gap-1 mr-2 ml-auto">
           {!isShellVariant && rightSidebarToggle}

@@ -683,10 +683,7 @@ function HydratedMermaidToolCard(props: {
   })
   const state = {
     ...props.toolProps.state,
-    metadata: metadataWithInlinePresentation(
-      props.toolProps.state.metadata,
-      hydrated.presentation,
-    ),
+    metadata: metadataWithInlinePresentation(props.toolProps.state.metadata, hydrated.presentation),
   }
   return <RenderMermaidToolCard {...props.toolProps} state={state} />
 }

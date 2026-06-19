@@ -13,13 +13,7 @@ import { DecoratorNode } from "lexical"
 import { mathFromMarkdown, mathToMarkdown, type InlineMath, type Math } from "mdast-util-math"
 import { math } from "micromark-extension-math"
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react"
-import type {
-  EditorConfig,
-  LexicalEditor,
-  NodeKey,
-  SerializedLexicalNode,
-  Spread,
-} from "lexical"
+import type { EditorConfig, LexicalEditor, NodeKey, SerializedLexicalNode, Spread } from "lexical"
 import { renderBuddyMathToHtml } from "@/components/markdown/markdown-math"
 
 type SerializedBuddyMathNode = Spread<

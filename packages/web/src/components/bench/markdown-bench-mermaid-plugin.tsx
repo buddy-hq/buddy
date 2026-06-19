@@ -120,7 +120,10 @@ function BuddyMermaidEditor(props: BuddyMermaidEditorProps): ReactElement {
       ) : (
         <div className="rounded-md border border-border-weaker-base bg-surface-weak/25 p-3">
           {isStatic ? null : (
-            <div className="mb-2 flex items-center justify-between gap-2" data-markdown-export-ignore>
+            <div
+              className="mb-2 flex items-center justify-between gap-2"
+              data-markdown-export-ignore
+            >
               <figcaption className="text-xs font-medium text-text-weak">
                 Mermaid diagram
               </figcaption>
@@ -208,13 +211,7 @@ export class BuddyMermaidNode extends DecoratorNode<ReactElement> {
   }
 
   decorate(editor: LexicalEditor): ReactElement {
-    return (
-      <BuddyMermaidEditor
-        editor={editor}
-        node={this}
-        source={this.getSource()}
-      />
-    )
+    return <BuddyMermaidEditor editor={editor} node={this} source={this.getSource()} />
   }
 
   isInline(): false {

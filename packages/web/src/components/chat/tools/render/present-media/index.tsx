@@ -40,10 +40,7 @@ import {
 } from "@/lib/presented-media"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { usePlatform } from "@/context/platform"
-import {
-  useWorkspaceFileOpen,
-  type WorkspaceFileActionInput,
-} from "@/lib/use-workspace-file-open"
+import { useWorkspaceFileOpen, type WorkspaceFileActionInput } from "@/lib/use-workspace-file-open"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import {
   WORKSPACE_FILE_OPEN_TARGET_DEFAULT_APP,
@@ -122,9 +119,9 @@ function usePresentedMediaAvailability(
   items: PresentMediaItem[] | undefined,
 ) {
   const availabilityQueries = useQueries({
-    queries: directory && objectID
-      ? (items ?? []).map((item) =>
-          ({
+    queries:
+      directory && objectID
+        ? (items ?? []).map((item) => ({
             ...objectMediaAvailabilityQueryOptions({
               directory,
               objectID,
@@ -132,9 +129,8 @@ function usePresentedMediaAvailability(
             }),
             retry: false,
             refetchOnWindowFocus: false,
-          }),
-        )
-      : [],
+          }))
+        : [],
   })
 
   return (items ?? []).map((item, index) =>
@@ -486,11 +482,7 @@ function MediaPlayerCollection(
     [pausePlayback, playingKey, props.items, props.objectID],
   )
 
-  const playerForItem = (
-    item: PresentMediaResolvedItem,
-    index: number,
-    compact?: boolean,
-  ) => (
+  const playerForItem = (item: PresentMediaResolvedItem, index: number, compact?: boolean) => (
     <PresentedMediaPlayer
       item={item}
       playbackKey={`${props.objectID}:${item.id}`}
@@ -578,25 +570,13 @@ function PresentedMediaContent(props: {
   return (
     <div className="flex flex-col gap-4">
       {images.length > 0 ? (
-        <MediaImageGallery
-          {...interactionProps}
-          objectID={props.objectID}
-          items={images}
-        />
+        <MediaImageGallery {...interactionProps} objectID={props.objectID} items={images} />
       ) : null}
       {videos.length > 0 ? (
-        <MediaPlayerCollection
-          {...interactionProps}
-          objectID={props.objectID}
-          items={videos}
-        />
+        <MediaPlayerCollection {...interactionProps} objectID={props.objectID} items={videos} />
       ) : null}
       {audios.length > 0 ? (
-        <MediaPlayerCollection
-          {...interactionProps}
-          objectID={props.objectID}
-          items={audios}
-        />
+        <MediaPlayerCollection {...interactionProps} objectID={props.objectID} items={audios} />
       ) : null}
       {files.length > 0 ? (
         <div className="w-full max-w-full overflow-hidden">

@@ -24,10 +24,7 @@ const completedRepairRequests = new Set<string>()
 let nextSessionIndex = 0
 let restoreSessionInteractionRuntime = () => {}
 
-function repairRequestKey(input: {
-  sessionID: string
-  repairRequestID: string
-}): string {
+function repairRequestKey(input: { sessionID: string; repairRequestID: string }): string {
   return `${input.sessionID}:${input.repairRequestID}`
 }
 
@@ -294,8 +291,7 @@ describe("mermaid repair routes", () => {
       failedRenderKey: failedRender.renderKey,
       createdAt: new Date(
         Date.now() -
-          MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS *
-            MERMAID_REPAIR_IDLE_TEST_POLL_INTERVAL_MULTIPLIER,
+          MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS * MERMAID_REPAIR_IDLE_TEST_POLL_INTERVAL_MULTIPLIER,
       ).toISOString(),
     })
     await seedCompletedRepairTurn({
@@ -357,8 +353,7 @@ describe("mermaid repair routes", () => {
       failedRenderKey: failedRender.renderKey,
       createdAt: new Date(
         Date.now() -
-          MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS *
-            MERMAID_REPAIR_IDLE_TEST_POLL_INTERVAL_MULTIPLIER,
+          MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS * MERMAID_REPAIR_IDLE_TEST_POLL_INTERVAL_MULTIPLIER,
       ).toISOString(),
     })
     const newer = await createToolMermaidObject({

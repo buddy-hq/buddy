@@ -107,12 +107,15 @@ describe("resource routes", () => {
     const renamed = (await renameResponse.json()) as { alias: string }
     expect(renamed.alias).toBe("guide-renamed")
 
-    const rebuildResponse = await app.request("/api/objects/resource/by-key/guide-renamed/rebuild", {
-      method: "POST",
-      headers: {
-        [DIRECTORY_HEADER]: project.path,
+    const rebuildResponse = await app.request(
+      "/api/objects/resource/by-key/guide-renamed/rebuild",
+      {
+        method: "POST",
+        headers: {
+          [DIRECTORY_HEADER]: project.path,
+        },
       },
-    })
+    )
     expect(rebuildResponse.status).toBe(200)
     const rebuilt = (await rebuildResponse.json()) as { status: string }
     expect(rebuilt.status).toBe("preparing")

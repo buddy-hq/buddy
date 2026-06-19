@@ -162,7 +162,10 @@ function requireRevisionID(ref: BuddyObjectRef): string {
   return ref.revisionID
 }
 
-async function saveQuestionSetWithTool(directory: string, sessionID: string): Promise<{
+async function saveQuestionSetWithTool(
+  directory: string,
+  sessionID: string,
+): Promise<{
   result: BuddyObjectResult
   ref: BuddyObjectRef
   revisionID: string
@@ -236,9 +239,7 @@ describe("question-set tools and routes", () => {
           agent: "question-set-author",
         }),
       ),
-    ).rejects.toThrow(
-      "cannot mark 'none of the above' as correct alongside other correct choices",
-    )
+    ).rejects.toThrow("cannot mark 'none of the above' as correct alongside other correct choices")
   })
 
   test("saves answerful question sets and exposes public answerless objects with provenance", async () => {
@@ -279,9 +280,7 @@ describe("question-set tools and routes", () => {
       throw new Error("Expected inline question-set presentation data.")
     }
     expect(presentation.data.questionSet.questions).toHaveLength(2)
-    expect("correct" in presentation.data.questionSet.questions[0]!.payload.choices[0]!).toBe(
-      false,
-    )
+    expect("correct" in presentation.data.questionSet.questions[0]!.payload.choices[0]!).toBe(false)
     expect("rationale" in presentation.data.questionSet.questions[0]!.payload.choices[0]!).toBe(
       false,
     )

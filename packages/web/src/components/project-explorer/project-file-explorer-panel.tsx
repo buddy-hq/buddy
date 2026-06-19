@@ -1,25 +1,14 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react"
 import { Button, FolderIcon, cn, toast } from "@buddy/ui"
-import {
-  ChevronDownIcon,
-  ChevronRightIcon,
-  Loader2Icon,
-  RefreshCwIcon,
-} from "lucide-react"
+import { ChevronDownIcon, ChevronRightIcon, Loader2Icon, RefreshCwIcon } from "lucide-react"
 import { FileTypeIcon } from "@/components/files/file-type-icon"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { stringifyError } from "@/lib/api-client"
-import {
-  useWorkspaceFileOpen,
-  type WorkspaceResourceOpener,
-} from "@/lib/use-workspace-file-open"
+import { useWorkspaceFileOpen, type WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
 import type { BenchModeRequest } from "@/lib/bench-navigation"
 import { readWorkspaceFileRawMetadata } from "@/lib/workspace-file-media"
-import {
-  listProjectExplorerDirectory,
-  type ProjectExplorerFileNode,
-} from "@/state/chat-actions"
+import { listProjectExplorerDirectory, type ProjectExplorerFileNode } from "@/state/chat-actions"
 
 const ROOT_DIRECTORY_PATH = ""
 const EMPTY_CHILDREN: string[] = []

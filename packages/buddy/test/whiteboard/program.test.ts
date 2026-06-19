@@ -756,10 +756,7 @@ describe("whiteboard drawing program", () => {
       project.path,
       "ses_read_context_without_board",
     )
-    const session = await readWhiteboardSession(
-      project.path,
-      "ses_read_context_without_board",
-    )
+    const session = await readWhiteboardSession(project.path, "ses_read_context_without_board")
     const listed = await listObjects({
       directory: project.path,
       kind: BUDDY_OBJECT_KINDS.whiteboard,

@@ -314,8 +314,7 @@ export const dict = {
   "projectExplorer.markdownExported": "PDF exported",
   "projectExplorer.markdownExportFailed": "Failed to export Markdown as PDF.",
   "projectExplorer.markdownExportPdf": "Export PDF",
-  "projectExplorer.markdownExportUnavailable":
-    "PDF export is only available in desktop Buddy.",
+  "projectExplorer.markdownExportUnavailable": "PDF export is only available in desktop Buddy.",
   "projectExplorer.markdownPreview": "Markdown preview",
   "projectExplorer.markdownView": "View",
   "projectExplorer.noOpenFiles": "Open a file from the tree to preview it.",

@@ -20,10 +20,7 @@ import { normalizePresentedMediaPermissionPath } from "../../media-presentations
 const HTML_WIDGET_RUNTIME_VIEW_ID = "runtime" as const
 const HTML_WIDGET_AUTO_OPEN_POLICY_ID = "fullscreen-html-widget" as const
 const HTML_WIDGET_AUTO_OPEN_EVENT_PREFIX = "fullscreen-html-widget:" as const
-const HTML_WIDGET_AUTO_OPEN_VIEWPORT_PRESETS = new Set([
-  "standard_16_10",
-  "wide_16_9",
-])
+const HTML_WIDGET_AUTO_OPEN_VIEWPORT_PRESETS = new Set(["standard_16_10", "wide_16_9"])
 
 const nullableStringField = nonEmptyString.nullable()
 const nullableObjectIDField = BuddyObjectIDSchema.nullable()
@@ -78,10 +75,7 @@ function normalizePresentHtmlWidgetInput(rawArgs: unknown): unknown {
   }
 }
 
-function validatePresentHtmlWidgetInput(
-  input: PresentHtmlWidgetInput,
-  ctx: z.RefinementCtx,
-): void {
+function validatePresentHtmlWidgetInput(input: PresentHtmlWidgetInput, ctx: z.RefinementCtx): void {
   if (input.action === "present_path") {
     if (input.path === null) {
       ctx.addIssue({ code: "custom", path: ["path"], message: "path is required." })
@@ -289,9 +283,7 @@ const presentHtmlWidgetTool = createBuddyTool({
         `entry_path=${result.entryPath}`,
         `edit_path=${result.editPath}`,
         ...(result.originalPath ? [`original_path=${result.originalPath}`] : []),
-        ...(result.originalPathStatus
-          ? [`original_path_status=${result.originalPathStatus}`]
-          : []),
+        ...(result.originalPathStatus ? [`original_path_status=${result.originalPathStatus}`] : []),
         result.originalPathStatus === "moved"
           ? [
               "<buddy_system_reminder>",

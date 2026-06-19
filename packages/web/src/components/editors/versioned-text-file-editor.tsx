@@ -206,9 +206,9 @@ export const VersionedTextFileEditor = forwardRef<
   const [conflictMessage, setConflictMessage] = useState<string | undefined>(undefined)
   const [showSaved, setShowSaved] = useState(false)
   const [failedSaveContent, setFailedSaveContent] = useState<string | undefined>(undefined)
-  const [lastFlushResult, setLastFlushResult] = useState<
-    VersionedTextFileFlushResult | undefined
-  >(undefined)
+  const [lastFlushResult, setLastFlushResult] = useState<VersionedTextFileFlushResult | undefined>(
+    undefined,
+  )
 
   const requestCounterRef = useRef(0)
   const externalRefreshCounterRef = useRef(0)

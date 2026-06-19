@@ -325,8 +325,7 @@ export function ResourceCardGrid(props: ResourceCardGridProps) {
         {visibleResources.map((resource) => {
           const processLabel = actionLabelForStatus(resource.status)
           const isBusy = busyKeys.has(resource.key)
-          const canProcess =
-            !!processLabel && (resource.status !== "ready" || !!resource.objectID)
+          const canProcess = !!processLabel && (resource.status !== "ready" || !!resource.objectID)
           const isReading = stickyReadingPath === resource.path
           const displayName = resource.title || resource.name
 

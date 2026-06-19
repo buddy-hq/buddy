@@ -29,10 +29,9 @@ export async function resolveBenchReadingResourceRelpath(input: {
   sourceRelpath: string
   sourceOriginRelpath?: string
 }): Promise<string | undefined> {
-  const candidates = [
-    input.sourceOriginRelpath,
-    input.sourceRelpath,
-  ].filter((candidate): candidate is string => Boolean(candidate))
+  const candidates = [input.sourceOriginRelpath, input.sourceRelpath].filter(
+    (candidate): candidate is string => Boolean(candidate),
+  )
   const workspaceRoot = path.resolve(input.directory)
 
   for (const candidate of candidates) {

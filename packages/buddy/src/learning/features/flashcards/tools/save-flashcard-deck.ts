@@ -14,11 +14,7 @@ import {
 } from "../../../../objects"
 import SAVE_FLASHCARD_DECK_DESCRIPTION from "./save-flashcard-deck.md"
 import { buildFlashcardNotesAndCards, saveFlashcardDeckObject } from "../storage/save-deck"
-import {
-  DECK_CONFIG_DEFAULTS,
-  FLASHCARD_DECK_KIND,
-  FLASHCARD_SUBAGENT_ID,
-} from "../types"
+import { DECK_CONFIG_DEFAULTS, FLASHCARD_DECK_KIND, FLASHCARD_SUBAGENT_ID } from "../types"
 
 const SaveFlashcardNoteInputSchema = z.object({
   type: z

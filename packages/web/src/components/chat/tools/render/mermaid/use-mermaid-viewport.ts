@@ -247,9 +247,7 @@ export function resolveMermaidCenteredScroll(input: {
   return {
     left: Math.max(
       0,
-      input.metrics.contentOffsetX +
-        input.metrics.contentWidth / 2 -
-        input.viewportSize.width / 2,
+      input.metrics.contentOffsetX + input.metrics.contentWidth / 2 - input.viewportSize.width / 2,
     ),
     top: Math.max(
       0,

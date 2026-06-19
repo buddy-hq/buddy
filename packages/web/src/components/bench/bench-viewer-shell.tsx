@@ -1,11 +1,4 @@
-import {
-  Button,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-  cn,
-} from "@buddy/ui"
+import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from "@buddy/ui"
 import { MinusIcon, PlusIcon, RotateCcwIcon } from "lucide-react"
 import {
   useCallback,
@@ -173,9 +166,7 @@ export function resolveBenchCenteredScroll(input: {
   return {
     left: Math.max(
       0,
-      input.metrics.contentOffsetX +
-        input.metrics.renderedWidth / 2 -
-        input.viewportSize.width / 2,
+      input.metrics.contentOffsetX + input.metrics.renderedWidth / 2 - input.viewportSize.width / 2,
     ),
     top: Math.max(
       0,
@@ -355,9 +346,7 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
       if (!hasMeasuredSize(nextSize)) return
 
       setViewportSize((current) =>
-        current.width === nextSize.width && current.height === nextSize.height
-          ? current
-          : nextSize,
+        current.width === nextSize.width && current.height === nextSize.height ? current : nextSize,
       )
     }
 
@@ -385,9 +374,7 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
       if (!hasMeasuredSize(nextSize)) return
 
       setContentSize((current) =>
-        current.width === nextSize.width && current.height === nextSize.height
-          ? current
-          : nextSize,
+        current.width === nextSize.width && current.height === nextSize.height ? current : nextSize,
       )
     }
 

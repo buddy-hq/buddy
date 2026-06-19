@@ -68,9 +68,7 @@ function objectSummaryBaseFromManifest(input: {
   return BuddyObjectSummaryBaseSchema.parse(input)
 }
 
-function formatBuddyObjectRefLines(
-  ref: BuddyObjectResult["primaryRef"],
-): string[] {
+function formatBuddyObjectRefLines(ref: BuddyObjectResult["primaryRef"]): string[] {
   if (!ref) return []
   return [`object_kind=${ref.kind}`, `object_id=${ref.objectID}`]
 }

@@ -29,11 +29,13 @@ async function readGeometryFigureObject(input: {
 }> {
   const manifest = BuddyObjectManifestSchema.safeExtend({
     summary: FigureObjectSummarySchema,
-  }).parse(await readObjectManifest({
-    directory: input.directory,
-    kind: BUDDY_OBJECT_KINDS.figure,
-    objectID: input.objectID,
-  }))
+  }).parse(
+    await readObjectManifest({
+      directory: input.directory,
+      kind: BUDDY_OBJECT_KINDS.figure,
+      objectID: input.objectID,
+    }),
+  )
   const revisionID = input.revisionID ?? manifest.currentRevisionID
   if (!revisionID) {
     throw new Error(`Figure object '${input.objectID}' has no current revision.`)
@@ -65,11 +67,13 @@ registerBuddyObjectKind({
   async readManifest(input) {
     return BuddyObjectManifestSchema.safeExtend({
       summary: FigureObjectSummarySchema,
-    }).parse(await readObjectManifest({
-      directory: input.directory,
-      kind: BUDDY_OBJECT_KINDS.figure,
-      objectID: input.ref.objectID,
-    }))
+    }).parse(
+      await readObjectManifest({
+        directory: input.directory,
+        kind: BUDDY_OBJECT_KINDS.figure,
+        objectID: input.ref.objectID,
+      }),
+    )
   },
   async readView(input): Promise<BuddyObjectViewResponse> {
     if (input.viewID !== FIGURE_RENDERED_VIEW_ID) {

@@ -135,10 +135,7 @@ function readBenchOpenPolicyStateFromRouteLocation(
   })
 }
 
-function readStringSearchValue(
-  search: Record<string, unknown>,
-  key: string,
-): string | undefined {
+function readStringSearchValue(search: Record<string, unknown>, key: string): string | undefined {
   const value = search[key]
   return typeof value === "string" && value.length > 0 ? value : undefined
 }

@@ -200,9 +200,7 @@ export function GroupedIngestFullTextToolCard({
     ) {
       return false
     }
-    return !(
-      state.status === "error" && isLegacyIngestFullTextScopedReadingError(state.error)
-    )
+    return !(state.status === "error" && isLegacyIngestFullTextScopedReadingError(state.error))
   })
   if (visibleParts.length === 0) {
     return null

@@ -8,13 +8,7 @@ import {
 
 type BuddyObjectResultStatus = "ok" | "blocked" | "error"
 type BuddyObjectLifecycle = "revisioned" | "live" | "imported" | "external-reference"
-type BuddyObjectStatus =
-  | "ready"
-  | "preparing"
-  | "stale"
-  | "unsupported"
-  | "error"
-  | "unavailable"
+type BuddyObjectStatus = "ready" | "preparing" | "stale" | "unsupported" | "error" | "unavailable"
 type BuddyPresentationSurface = "inline" | "bench" | "library"
 type BuddyInlineViewData =
   | HtmlWidgetInlineData
@@ -247,7 +241,9 @@ function readObjectSummary(value: unknown): BuddyObjectSummary | undefined {
   }
 }
 
-function readSourceData(value: unknown): MediaGalleryInlineData["items"][number]["source"] | undefined {
+function readSourceData(
+  value: unknown,
+): MediaGalleryInlineData["items"][number]["source"] | undefined {
   if (!isRecord(value)) return undefined
   const role =
     value.role === "original" ||
@@ -293,12 +289,12 @@ function readMediaItem(value: unknown): MediaGalleryInlineData["items"][number] 
   const rawUrl = readNullableString(value.rawUrl)
   const fileName = readNullableString(value.fileName)
   if (
-    !itemID
-    || title === undefined
-    || !mediaType
-    || mimeType === undefined
-    || !source
-    || !availability
+    !itemID ||
+    title === undefined ||
+    !mediaType ||
+    mimeType === undefined ||
+    !source ||
+    !availability
   ) {
     return undefined
   }
@@ -329,9 +325,7 @@ function readQuestionSetChoice(value: unknown): QuestionSetInlineChoice | undefi
   }
 }
 
-function readQuestionSetPayload(
-  value: unknown,
-): QuestionSetInlineQuestion["payload"] | undefined {
+function readQuestionSetPayload(value: unknown): QuestionSetInlineQuestion["payload"] | undefined {
   if (!isRecord(value)) return undefined
   const multipleSelect = readBoolean(value.multipleSelect)
   const countChoices = readOptionalBooleanField(value, "countChoices")
@@ -347,7 +341,10 @@ function readQuestionSetPayload(
   }
   if (multipleSelect === undefined) return undefined
   if ("countChoices" in value && countChoices === undefined) return undefined
-  if ("numCorrect" in value && (numCorrect === undefined || !Number.isInteger(numCorrect) || numCorrect <= 0)) {
+  if (
+    "numCorrect" in value &&
+    (numCorrect === undefined || !Number.isInteger(numCorrect) || numCorrect <= 0)
+  ) {
     return undefined
   }
   if ("hasNoneOfTheAbove" in value && hasNoneOfTheAbove === undefined) return undefined
@@ -385,9 +382,7 @@ function readQuestionSetInlineObject(value: unknown): QuestionSetInlineObject | 
   const objectID = readString(value.objectID)
   const title = readString(value.title)
   const groupType =
-    value.groupType === "quiz" ||
-    value.groupType === "practice" ||
-    value.groupType === "assessment"
+    value.groupType === "quiz" || value.groupType === "practice" || value.groupType === "assessment"
       ? value.groupType
       : undefined
   if (!Array.isArray(value.questions)) return undefined
@@ -414,10 +409,23 @@ function readInlineData(value: unknown): BuddyInlineViewData | undefined {
     const entryPath = readString(value.entryPath)
     const sourceVersion = readNullableString(value.sourceVersion)
     const viewportPreset = readString(value.viewportPreset)
-    if (!runtimeUrl || !sourceRoot || !entryPath || sourceVersion === undefined || !viewportPreset) {
+    if (
+      !runtimeUrl ||
+      !sourceRoot ||
+      !entryPath ||
+      sourceVersion === undefined ||
+      !viewportPreset
+    ) {
       return undefined
     }
-    return { renderer: "html-widget", runtimeUrl, sourceRoot, entryPath, sourceVersion, viewportPreset }
+    return {
+      renderer: "html-widget",
+      runtimeUrl,
+      sourceRoot,
+      entryPath,
+      sourceVersion,
+      viewportPreset,
+    }
   }
   if (value.renderer === "media-gallery") {
     const layout =
@@ -425,7 +433,9 @@ function readInlineData(value: unknown): BuddyInlineViewData | undefined {
         ? value.layout
         : undefined
     const items = Array.isArray(value.items)
-      ? value.items.map(readMediaItem).filter((item): item is MediaGalleryInlineData["items"][number] => item !== undefined)
+      ? value.items
+          .map(readMediaItem)
+          .filter((item): item is MediaGalleryInlineData["items"][number] => item !== undefined)
       : undefined
     if (!layout || !items) return undefined
     return { renderer: "media-gallery", layout, items }
@@ -436,11 +446,20 @@ function readInlineData(value: unknown): BuddyInlineViewData | undefined {
     const alt = readString(value.alt)
     const caption = readNullableString(value.caption)
     const renderStatus =
-      value.renderStatus === "ready" || value.renderStatus === "stale" || value.renderStatus === "error"
+      value.renderStatus === "ready" ||
+      value.renderStatus === "stale" ||
+      value.renderStatus === "error"
         ? value.renderStatus
         : undefined
     const failedRenderKey = readNullableString(value.failedRenderKey)
-    if (!source || svgUrl === undefined || !alt || caption === undefined || !renderStatus || failedRenderKey === undefined) {
+    if (
+      !source ||
+      svgUrl === undefined ||
+      !alt ||
+      caption === undefined ||
+      !renderStatus ||
+      failedRenderKey === undefined
+    ) {
       return undefined
     }
     return { renderer: "mermaid", source, svgUrl, alt, caption, renderStatus, failedRenderKey }
@@ -451,10 +470,18 @@ function readInlineData(value: unknown): BuddyInlineViewData | undefined {
     const alt = readNullableString(value.alt)
     const caption = readNullableString(value.caption)
     const renderStatus =
-      value.renderStatus === "ready" || value.renderStatus === "stale" || value.renderStatus === "error"
+      value.renderStatus === "ready" ||
+      value.renderStatus === "stale" ||
+      value.renderStatus === "error"
         ? value.renderStatus
         : undefined
-    if (svgUrl === undefined || source === undefined || alt === undefined || caption === undefined || !renderStatus) {
+    if (
+      svgUrl === undefined ||
+      source === undefined ||
+      alt === undefined ||
+      caption === undefined ||
+      !renderStatus
+    ) {
       return undefined
     }
     return { renderer: "figure", svgUrl, source, alt, caption, renderStatus }
@@ -509,12 +536,24 @@ function readBuddyObjectResult(metadata: Record<string, unknown>): BuddyObjectRe
   const message = readString(value.message)
   const primaryRef = value.primaryRef === null ? null : readObjectRef(value.primaryRef)
   const objects = Array.isArray(value.objects)
-    ? value.objects.map(readObjectSummary).filter((item): item is BuddyObjectSummary => item !== undefined)
+    ? value.objects
+        .map(readObjectSummary)
+        .filter((item): item is BuddyObjectSummary => item !== undefined)
     : undefined
   const presentations = Array.isArray(value.presentations)
-    ? value.presentations.map(readPresentation).filter((item): item is BuddyPresentationDescriptor => item !== undefined)
+    ? value.presentations
+        .map(readPresentation)
+        .filter((item): item is BuddyPresentationDescriptor => item !== undefined)
     : undefined
-  if (!version || !status || reason === undefined || !message || primaryRef === undefined || !objects || !presentations) {
+  if (
+    !version ||
+    !status ||
+    reason === undefined ||
+    !message ||
+    primaryRef === undefined ||
+    !objects ||
+    !presentations
+  ) {
     return undefined
   }
   return { version, status, reason, message, primaryRef, objects, presentations }
@@ -528,9 +567,9 @@ function readInlinePresentation(
   return result?.presentations.find(
     (presentation) =>
       presentation.surface === "inline" &&
-      (presentation.data?.renderer === renderer
-        || (presentation.data === null
-          && inlineRendererForObjectKind(presentation.ref.kind) === renderer)),
+      (presentation.data?.renderer === renderer ||
+        (presentation.data === null &&
+          inlineRendererForObjectKind(presentation.ref.kind) === renderer)),
   )
 }
 
@@ -595,10 +634,10 @@ function metadataWithInlinePresentation(
     buddyObjectResult: {
       ...result,
       presentations: result.presentations.map((candidate) =>
-        candidate.surface === presentation.surface
-        && candidate.viewID === presentation.viewID
-        && candidate.ref.kind === presentation.ref.kind
-        && candidate.ref.objectID === presentation.ref.objectID
+        candidate.surface === presentation.surface &&
+        candidate.viewID === presentation.viewID &&
+        candidate.ref.kind === presentation.ref.kind &&
+        candidate.ref.objectID === presentation.ref.objectID
           ? presentation
           : candidate,
       ),

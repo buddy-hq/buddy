@@ -49,17 +49,11 @@ function readBenchPresentationPreferences(): BenchPresentationPreferences {
   return { modeBySurface }
 }
 
-function setBenchPresentationModePreference(input: {
-  target: BenchTarget
-  mode: BenchMode
-}): void {
+function setBenchPresentationModePreference(input: { target: BenchTarget; mode: BenchMode }): void {
   if (typeof window === "undefined") return
   const key = benchModePreferenceKey(input.target)
   window.localStorage.setItem(storageKeyForBenchModePreference(key), input.mode)
 }
 
-export {
-  readBenchPresentationPreferences,
-  setBenchPresentationModePreference,
-}
+export { readBenchPresentationPreferences, setBenchPresentationModePreference }
 export type { BenchPresentationPreferences }

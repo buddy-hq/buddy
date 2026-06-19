@@ -68,40 +68,36 @@ function seedRepairTurnMessages(input: {
 }
 
 describe("render_mermaid tool", () => {
-  test(
-    "creates a fresh object when a non-repair turn passes a missing repairOfObjectID",
-    async () => {
-      await using project = await tmpdir({ git: true })
+  test("creates a fresh object when a non-repair turn passes a missing repairOfObjectID", async () => {
+    await using project = await tmpdir({ git: true })
 
-      const result = await renderMermaidTool.run(
-        {
-          alt: "Placeholder repair id diagram",
-          source: "flowchart LR\nA-->B",
-          repairOfObjectID: PLACEHOLDER_OBJECT_ID,
-        },
-        createBuddyToolContext({
-          directory: project.path,
-          sessionID: "ses_mermaid",
-          messageID: "msg_mermaid",
-          agent: "buddy",
-        }),
-      )
-
-      expect(result.output).toContain("Ignored repairOfObjectID")
-      const objectResult = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
-      expect(objectResult.primaryRef?.kind).toBe(BUDDY_OBJECT_KINDS.mermaid)
-      const objectID = objectResult.primaryRef?.objectID ?? ""
-
-      const object = await readMermaidObject({
+    const result = await renderMermaidTool.run(
+      {
+        alt: "Placeholder repair id diagram",
+        source: "flowchart LR\nA-->B",
+        repairOfObjectID: PLACEHOLDER_OBJECT_ID,
+      },
+      createBuddyToolContext({
         directory: project.path,
-        objectID,
-      })
-      expect(object.source).toBe("flowchart LR\nA-->B")
-      expect(object.repairOfObjectID).toBeNull()
-      expect(object.supersedesRevisionID).toBeNull()
-    },
-    10_000,
-  )
+        sessionID: "ses_mermaid",
+        messageID: "msg_mermaid",
+        agent: "buddy",
+      }),
+    )
+
+    expect(result.output).toContain("Ignored repairOfObjectID")
+    const objectResult = BuddyObjectResultSchema.parse(result.metadata?.buddyObjectResult)
+    expect(objectResult.primaryRef?.kind).toBe(BUDDY_OBJECT_KINDS.mermaid)
+    const objectID = objectResult.primaryRef?.objectID ?? ""
+
+    const object = await readMermaidObject({
+      directory: project.path,
+      objectID,
+    })
+    expect(object.source).toBe("flowchart LR\nA-->B")
+    expect(object.repairOfObjectID).toBeNull()
+    expect(object.supersedesRevisionID).toBeNull()
+  }, 10_000)
 
   test("keeps auto-repair strict when the latest user turn requests a missing object", async () => {
     await using project = await tmpdir({ git: true })
@@ -109,7 +105,7 @@ describe("render_mermaid tool", () => {
     const assistantMessageID = "msg_mermaid_assistant"
     const repairRequestID = `${MERMAID_AUTO_REPAIR_MESSAGE_ID_PREFIX}test`
     const context = createBuddyToolContext({
-        directory: project.path,
+      directory: project.path,
       sessionID,
       messageID: repairRequestID,
       agent: "buddy",
@@ -148,25 +144,19 @@ describe("render_mermaid tool", () => {
         agent: "buddy",
       }),
     )
-    const originalObjectResult = BuddyObjectResultSchema.parse(
-      original.metadata?.buddyObjectResult,
-    )
+    const originalObjectResult = BuddyObjectResultSchema.parse(original.metadata?.buddyObjectResult)
     const originalObjectID = originalObjectResult.primaryRef?.objectID
     const originalRevisionID = originalObjectResult.primaryRef?.revisionID
     if (!originalObjectID || !originalRevisionID) {
       throw new Error("Expected original Mermaid object and revision IDs.")
     }
-    const failedRender = await storeMermaidObjectRenderRecord(
-      project.path,
-      originalObjectID,
-      {
-        status: "failed",
-        errorMessage: "Parse error on line 2",
-        renderConfigVersion: 1,
-        rendererVersion: "11.12.0",
-        themeSignature: '{"backgroundBase":"#fff"}',
-      },
-    )
+    const failedRender = await storeMermaidObjectRenderRecord(project.path, originalObjectID, {
+      status: "failed",
+      errorMessage: "Parse error on line 2",
+      renderConfigVersion: 1,
+      rendererVersion: "11.12.0",
+      themeSignature: '{"backgroundBase":"#fff"}',
+    })
     const repairRequest = await createMermaidRepairRequest({
       directory: project.path,
       sessionID,
@@ -196,9 +186,7 @@ describe("render_mermaid tool", () => {
       },
       context,
     )
-    const repairedObjectResult = BuddyObjectResultSchema.parse(
-      repaired.metadata?.buddyObjectResult,
-    )
+    const repairedObjectResult = BuddyObjectResultSchema.parse(repaired.metadata?.buddyObjectResult)
     const repairedRevisionID = repairedObjectResult.primaryRef?.revisionID
     if (!repairedRevisionID) {
       throw new Error("Expected repaired Mermaid revision ID.")

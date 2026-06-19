@@ -47,10 +47,7 @@ type ResolvedDockedBenchShellLayout = {
   rightWorkspace: ResolvedDockedBenchRightWorkspaceLayout
 }
 
-type DockedBenchResizeIntentDecision =
-  | "clamp"
-  | "suppress-left-sidebar"
-  | "float"
+type DockedBenchResizeIntentDecision = "clamp" | "suppress-left-sidebar" | "float"
 
 type BenchLayoutProfileSpec = {
   dockedChatWidthPx: number
@@ -163,11 +160,7 @@ const BENCH_LAYOUT_PROFILE_SPECS = {
   },
 } satisfies Record<BenchLayoutProfileID, BenchLayoutProfileSpec>
 
-function clampNumber(input: {
-  value: number
-  min: number
-  max: number
-}): number {
+function clampNumber(input: { value: number; min: number; max: number }): number {
   if (input.max < input.min) {
     return input.min
   }
@@ -286,8 +279,7 @@ function resolveDockedBenchRightWorkspaceLayout(input: {
     viewport: input.viewport,
   })
   const availableWidthPx = Math.max(0, input.viewport.widthPx)
-  const preferredWorkspaceMinWidthPx =
-    defaults.benchMinWidthPx + input.workspaceChromeWidthPx
+  const preferredWorkspaceMinWidthPx = defaults.benchMinWidthPx + input.workspaceChromeWidthPx
   const workspaceMinWidthPx = Math.min(
     preferredWorkspaceMinWidthPx,
     Math.max(input.workspaceChromeWidthPx, availableWidthPx - defaults.dockedChatMinWidthPx),

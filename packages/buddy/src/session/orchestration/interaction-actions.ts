@@ -44,17 +44,13 @@ import {
   type MermaidAutoRepairState,
 } from "../../learning/features/diagrams/service/types"
 import { getOpenCodeClient } from "../../opencode-runtime/client"
-import {
-  persistCommandInvocationDisplay,
-  withCommandInvocationDisplay,
-} from "./command-transcript"
+import { persistCommandInvocationDisplay, withCommandInvocationDisplay } from "./command-transcript"
 
 const MERMAID_AUTO_REPAIR_TIMEOUT_MESSAGE =
   "Automatic Mermaid repair timed out before a replacement diagram was created."
 const MERMAID_AUTO_REPAIR_COMPLETED_WITHOUT_REPLACEMENT_MESSAGE =
   "Automatic Mermaid repair completed without creating a replacement diagram."
-const MERMAID_AUTO_REPAIR_IDLE_EXHAUST_GRACE_MS =
-  MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS * 2
+const MERMAID_AUTO_REPAIR_IDLE_EXHAUST_GRACE_MS = MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS * 2
 
 type RuntimeSessionMessage = Awaited<ReturnType<typeof OpenCodeSession.messages>>[number]
 
@@ -88,10 +84,7 @@ type SessionInteractionRuntime = {
     sessionID: string
     repairRequestID: string
   }) => Promise<boolean>
-  isMermaidRepairSessionIdle: (input: {
-    directory: string
-    sessionID: string
-  }) => Promise<boolean>
+  isMermaidRepairSessionIdle: (input: { directory: string; sessionID: string }) => Promise<boolean>
 }
 
 async function sendSessionPromptAsyncToOpenCode(input: {
@@ -290,10 +283,12 @@ function isMermaidRepairPastIdleGrace(input: { createdAt: string }): boolean {
   )
 }
 
-function mermaidSessionOrigin(object: MermaidObjectReadResult): {
-  sessionID: string
-  messageID: string
-} | undefined {
+function mermaidSessionOrigin(object: MermaidObjectReadResult):
+  | {
+      sessionID: string
+      messageID: string
+    }
+  | undefined {
   const origin = object.origin
   if (origin.kind === "tool" || origin.kind === "markdown") {
     return {
@@ -408,9 +403,7 @@ async function resolveMermaidRepairPromptRuntimeFromOpenCode(input: {
       const priorMessages = await OpenCodeSession.messages({
         sessionID: SessionID.make(origin.sessionID),
       })
-      const priorMessage = priorMessages.find(
-        (entry) => entry.info.id === origin.messageID,
-      )
+      const priorMessage = priorMessages.find((entry) => entry.info.id === origin.messageID)
       if (!priorMessage || priorMessage.info.role !== "assistant") return undefined
 
       return {
@@ -532,7 +525,9 @@ export async function postSessionCommand(c: Context): Promise<Response> {
 
     const rawCommandMessageID = body.messageID
     const commandMessageID =
-      typeof rawCommandMessageID === "string" ? MessageID.make(rawCommandMessageID) : MessageID.ascending()
+      typeof rawCommandMessageID === "string"
+        ? MessageID.make(rawCommandMessageID)
+        : MessageID.ascending()
     const commandBody = {
       ...body,
       messageID: commandMessageID,

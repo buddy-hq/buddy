@@ -186,9 +186,7 @@ describe("bench navigation policy", () => {
         })
 
         expect(layout.chatWidthPx).toBeGreaterThanOrEqual(layout.chatMinWidthPx)
-        expect(layout.workspaceWidthPx).toBeGreaterThanOrEqual(
-          RIGHT_WORKSPACE_CHROME_WIDTH_PX,
-        )
+        expect(layout.workspaceWidthPx).toBeGreaterThanOrEqual(RIGHT_WORKSPACE_CHROME_WIDTH_PX)
         expect(layout.chatWidthPx + layout.workspaceWidthPx).toBe(widthPx)
         expect(layout.workspaceWidthPx).toBeLessThanOrEqual(layout.workspaceMaxWidthPx)
       }
@@ -196,9 +194,7 @@ describe("bench navigation policy", () => {
   })
 
   test("maps Bench targets to semantic layout profiles", () => {
-    expect(resolveBenchLayoutProfile(RESOURCE_OBJECT_TARGET)).toBe(
-      BENCH_LAYOUT_PROFILE_READING,
-    )
+    expect(resolveBenchLayoutProfile(RESOURCE_OBJECT_TARGET)).toBe(BENCH_LAYOUT_PROFILE_READING)
     expect(
       resolveBenchLayoutProfile({
         type: "workspace-file",
@@ -234,9 +230,7 @@ describe("bench navigation policy", () => {
         viewer: "file",
       }),
     ).toBe(BENCH_LAYOUT_PROFILE_VISUAL)
-    expect(resolveBenchLayoutProfile(WHITEBOARD_OBJECT_TARGET)).toBe(
-      BENCH_LAYOUT_PROFILE_VISUAL,
-    )
+    expect(resolveBenchLayoutProfile(WHITEBOARD_OBJECT_TARGET)).toBe(BENCH_LAYOUT_PROFILE_VISUAL)
     expect(resolveBenchLayoutProfile(QUESTION_SET_OBJECT_TARGET)).toBe(
       BENCH_LAYOUT_PROFILE_PRACTICE,
     )
@@ -376,7 +370,11 @@ describe("bench navigation policy", () => {
   })
 
   test("policy mode preserves current live mode while bench is already open", () => {
-    const currentTarget = { type: "workspace-file", path: "notes.md", viewer: "markdown" } satisfies BenchTarget
+    const currentTarget = {
+      type: "workspace-file",
+      path: "notes.md",
+      viewer: "markdown",
+    } satisfies BenchTarget
     expect(
       resolveOpenPolicy({
         request: openRequest({ type: "workspace-file", path: "diagram.png", viewer: "file" }),
@@ -399,7 +397,11 @@ describe("bench navigation policy", () => {
   })
 
   test("auto-open does not replace a different active bench target", () => {
-    const currentTarget = { type: "workspace-file", path: "notes.md", viewer: "markdown" } satisfies BenchTarget
+    const currentTarget = {
+      type: "workspace-file",
+      path: "notes.md",
+      viewer: "markdown",
+    } satisfies BenchTarget
     expect(
       resolveOpenPolicy({
         request: {
@@ -446,8 +448,16 @@ describe("bench navigation policy", () => {
   })
 
   test("classifies bench transitions from policy states", () => {
-    const markdownTarget = { type: "workspace-file", path: "notes.md", viewer: "markdown" } satisfies BenchTarget
-    const fileTarget = { type: "workspace-file", path: "diagram.png", viewer: "file" } satisfies BenchTarget
+    const markdownTarget = {
+      type: "workspace-file",
+      path: "notes.md",
+      viewer: "markdown",
+    } satisfies BenchTarget
+    const fileTarget = {
+      type: "workspace-file",
+      path: "diagram.png",
+      viewer: "file",
+    } satisfies BenchTarget
     const openMarkdownDocked = {
       status: "open",
       directory: DIRECTORY,

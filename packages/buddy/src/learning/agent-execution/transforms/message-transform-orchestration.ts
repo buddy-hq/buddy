@@ -76,8 +76,7 @@ export async function orchestrateSessionMessageTransform(input: {
           benchTurnContextDigest: turnContextDelivery.currentBenchFingerprint,
           ...(turnContextDelivery.deliveredBenchFingerprint
             ? {
-                lastDeliveredBenchTurnContextDigest:
-                  turnContextDelivery.deliveredBenchFingerprint,
+                lastDeliveredBenchTurnContextDigest: turnContextDelivery.deliveredBenchFingerprint,
               }
             : turnContextDelivery.currentBenchFingerprint === undefined
               ? {
@@ -118,8 +117,7 @@ export async function orchestrateSessionMessageTransform(input: {
         : {}),
       ...(previousState?.lastDeliveredBenchTurnContextDigest
         ? {
-            lastDeliveredBenchTurnContextDigest:
-              previousState.lastDeliveredBenchTurnContextDigest,
+            lastDeliveredBenchTurnContextDigest: previousState.lastDeliveredBenchTurnContextDigest,
           }
         : {}),
       ...(previousState?.lastDeliveredTeachingTurnContextDigest

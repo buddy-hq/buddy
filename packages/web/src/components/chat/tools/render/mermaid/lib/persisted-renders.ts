@@ -12,7 +12,10 @@ import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 type MermaidObjectRecord = ObjectMermaidReadSourceResponses[200]
 type MermaidResolvedRenderResponse = ObjectMermaidResolveRenderResponses[200]
 type MermaidStoredRenderRecord = ObjectMermaidStoreRenderResponses[200]
-type MermaidRenderedStoreInput = Extract<ObjectMermaidStoreRenderData["body"], { status: "rendered" }>
+type MermaidRenderedStoreInput = Extract<
+  ObjectMermaidStoreRenderData["body"],
+  { status: "rendered" }
+>
 type MermaidRepairStartResponse = SessionMermaidRepairAsyncResponses[200]
 type MermaidRepairStatusResponse = SessionMermaidRepairStatusResponses[200]
 type MermaidInlineCreateResponse = ObjectMermaidCreateInlineResponses[200]

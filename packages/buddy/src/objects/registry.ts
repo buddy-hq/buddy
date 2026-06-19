@@ -1,9 +1,5 @@
 import type { z } from "zod"
-import type {
-  BuddyObjectManifest,
-  BuddyObjectRef,
-  BuddyObjectSummary,
-} from "./manifest"
+import type { BuddyObjectManifest, BuddyObjectRef, BuddyObjectSummary } from "./manifest"
 import type { BuddyObjectKind } from "./kinds"
 import type { BuddyObjectViewResponse } from "./view-data"
 
@@ -58,15 +54,8 @@ type BuddyObjectKindDefinition<Summary extends BuddyObjectSummary> = {
   resolveBenchView(
     input: ResolveObjectViewToBenchTargetInput,
   ): Promise<ResolveObjectViewToBenchTargetResult>
-  readContext?(input: {
-    directory: string
-    ref: BuddyObjectRef
-    viewID: string
-  }): Promise<string>
-  delete?(input: {
-    directory: string
-    ref: BuddyObjectRef
-  }): Promise<void>
+  readContext?(input: { directory: string; ref: BuddyObjectRef; viewID: string }): Promise<string>
+  delete?(input: { directory: string; ref: BuddyObjectRef }): Promise<void>
 }
 
 const objectKindDefinitions = new Map<
@@ -74,9 +63,7 @@ const objectKindDefinitions = new Map<
   BuddyObjectKindDefinition<BuddyObjectSummary>
 >()
 
-function registerBuddyObjectKind(
-  definition: BuddyObjectKindDefinition<BuddyObjectSummary>,
-): void {
+function registerBuddyObjectKind(definition: BuddyObjectKindDefinition<BuddyObjectSummary>): void {
   objectKindDefinitions.set(definition.kind, definition)
 }
 
@@ -96,11 +83,7 @@ function requireBuddyObjectKindDefinition(
   return definition
 }
 
-export {
-  getBuddyObjectKindDefinition,
-  registerBuddyObjectKind,
-  requireBuddyObjectKindDefinition,
-}
+export { getBuddyObjectKindDefinition, registerBuddyObjectKind, requireBuddyObjectKindDefinition }
 export type {
   BuddyObjectKindDefinition,
   ManagedBenchTarget,

@@ -25,10 +25,7 @@ import buddyStateEmptyFlashcardsUrl from "../../../../../../assets/mascot/buddy-
 import { language } from "@/context/language"
 import { getPlatform } from "@/context/platform"
 import { stringifyError } from "@/lib/api-client"
-import {
-  getFlashcardDueCount,
-  type FlashcardDueCounts,
-} from "@/lib/flashcard"
+import { getFlashcardDueCount, type FlashcardDueCounts } from "@/lib/flashcard"
 import type { ObjectsViewResponse } from "@buddy/sdk/types"
 import { pickResourceFilePath } from "@/lib/resource-file-picker"
 import { fileExtensionFromPath } from "@/lib/workspace-file-paths"
@@ -95,7 +92,10 @@ export type LibraryPanelResourceTarget = ResourceCardTarget
 
 type QuestionSetObjectListItem = QuestionSetLibraryObject
 type HtmlWidgetObjectListItem = HtmlWidgetLibraryObject
-type MediaGalleryObjectViewData = Extract<ObjectsViewResponse["data"], { renderer: "media-gallery" }>
+type MediaGalleryObjectViewData = Extract<
+  ObjectsViewResponse["data"],
+  { renderer: "media-gallery" }
+>
 type FigureObjectViewData = Extract<ObjectsViewResponse["data"], { renderer: "figure" }>
 type HtmlWidgetObjectViewData = Extract<ObjectsViewResponse["data"], { renderer: "html-widget" }>
 
@@ -1081,10 +1081,7 @@ function FlashcardDueBadges(props: { dueCounts: FlashcardDueCounts }) {
   )
 }
 
-function FlashcardDeckObjectRow(props: {
-  directory: string
-  deck: FlashcardDeckLibraryObject
-}) {
+function FlashcardDeckObjectRow(props: { directory: string; deck: FlashcardDeckLibraryObject }) {
   const openLibrary = useLibraryOpen()
   const deckQuery = useQuery({
     ...objectFlashcardDeckPayloadQueryOptions({
@@ -1224,7 +1221,6 @@ function FlashcardNotebookShelf(props: {
           ))}
         </div>
       </div>
-
     </>
   )
 }
@@ -1480,9 +1476,7 @@ function QuestionSetNotebookShelf(props: {
   )
 }
 
-function QuestionSetsTab(props: {
-  directories: string[]
-}) {
+function QuestionSetsTab(props: { directories: string[] }) {
   const { directories } = props
   const isMultiNotebookView = directories.length > 1
   const shelfQueries = useQueries({
@@ -1631,9 +1625,7 @@ function HtmlWidgetObjectRow(props: { directory: string; widget: HtmlWidgetObjec
         <span className="block truncate text-sm font-semibold text-text-strong">
           {props.widget.title}
         </span>
-        <span className="mt-0.5 block truncate text-xs text-text-weak">
-          {subtitle}
-        </span>
+        <span className="mt-0.5 block truncate text-xs text-text-weak">{subtitle}</span>
       </span>
       <span className="hidden shrink-0 rounded-md border border-border-base bg-surface-base px-2 py-1 text-[11px] font-medium text-text-weak sm:inline-flex">
         {viewportLabel}
@@ -1688,11 +1680,7 @@ function HtmlWidgetsNotebookShelf(props: {
         {loading
           ? Array.from({ length: 3 }, (_, index) => <ShelfRowSkeleton key={index} />)
           : visibleWidgets.map((widget) => (
-              <HtmlWidgetObjectRow
-                key={widget.objectID}
-                directory={directory}
-                widget={widget}
-              />
+              <HtmlWidgetObjectRow key={widget.objectID} directory={directory} widget={widget} />
             ))}
         {!loading && canShowMore ? (
           <ShelfShowMoreButton count={nextBatchCount} onClick={showMore} />
@@ -1999,7 +1987,10 @@ function MediaTab(props: { directories: string[] }) {
     directories,
     snapshots: shelfQueries,
   })
-  const totalMedia = Array.from(mediaCountByDirectory.values()).reduce((sum, count) => sum + count, 0)
+  const totalMedia = Array.from(mediaCountByDirectory.values()).reduce(
+    (sum, count) => sum + count,
+    0,
+  )
   const allLoaded = shelfQueries.every((query) => !query.isPending)
   const loadError = shelfQueries.find((query) => query.error)?.error
   const showNotebookHeaders = directories.length > 1
@@ -2698,11 +2689,7 @@ function DiagramsTab(props: { directories: string[]; active: boolean }) {
 // Main panel
 // ---------------------------------------------------------------------------
 
-export function LibraryPanel({
-  directories,
-  onOpen,
-  initialTab,
-}: LibraryPanelProps) {
+export function LibraryPanel({ directories, onOpen, initialTab }: LibraryPanelProps) {
   const [activeTab, setActiveTab] = useState<LibraryTab>(initialTab ?? "resources")
 
   useEffect(() => {
@@ -2743,42 +2730,40 @@ export function LibraryPanel({
 
   return (
     <LibraryOpenContext.Provider value={onOpen}>
-    <div data-component="library-panel" className="space-y-6">
-      <div className="flex gap-1 border-b border-border-base">
-        {LIBRARY_TABS.map(({ tab, labelKey }) => (
-          <button
-            key={tab}
-            type="button"
-            className={`px-3 py-1.5 text-sm font-medium transition-colors ${
-              activeTab === tab
-                ? "border-b-2 border-text-interactive-base text-text-interactive-base"
-                : "text-text-weak hover:text-text-base"
-            }`}
-            onClick={() => handleTabChange(tab)}
-          >
-            {language.t(labelKey)}
-          </button>
-        ))}
+      <div data-component="library-panel" className="space-y-6">
+        <div className="flex gap-1 border-b border-border-base">
+          {LIBRARY_TABS.map(({ tab, labelKey }) => (
+            <button
+              key={tab}
+              type="button"
+              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                activeTab === tab
+                  ? "border-b-2 border-text-interactive-base text-text-interactive-base"
+                  : "text-text-weak hover:text-text-base"
+              }`}
+              onClick={() => handleTabChange(tab)}
+            >
+              {language.t(labelKey)}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "resources" ? (
+          <ResourcesTab directories={directories} onOpenResource={openResource} />
+        ) : null}
+
+        {activeTab === "flashcards" ? <FlashcardsTab directories={directories} /> : null}
+
+        {activeTab === "question-sets" ? <QuestionSetsTab directories={directories} /> : null}
+
+        {activeTab === "widgets" ? <WidgetsTab directories={directories} /> : null}
+
+        {activeTab === "diagrams" ? (
+          <DiagramsTab directories={directories} active={activeTab === "diagrams"} />
+        ) : null}
+
+        {activeTab === "media" ? <MediaTab directories={directories} /> : null}
       </div>
-
-      {activeTab === "resources" ? (
-        <ResourcesTab directories={directories} onOpenResource={openResource} />
-      ) : null}
-
-      {activeTab === "flashcards" ? <FlashcardsTab directories={directories} /> : null}
-
-      {activeTab === "question-sets" ? (
-        <QuestionSetsTab directories={directories} />
-      ) : null}
-
-      {activeTab === "widgets" ? <WidgetsTab directories={directories} /> : null}
-
-      {activeTab === "diagrams" ? (
-        <DiagramsTab directories={directories} active={activeTab === "diagrams"} />
-      ) : null}
-
-      {activeTab === "media" ? <MediaTab directories={directories} /> : null}
-    </div>
     </LibraryOpenContext.Provider>
   )
 }

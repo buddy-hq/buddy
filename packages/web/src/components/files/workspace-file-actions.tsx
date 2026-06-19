@@ -65,21 +65,23 @@ export function WorkspaceFileActionsMenu(props: { directory: string; path: strin
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {platform.openPath ? (
-          <DropdownMenuItem onSelect={() => run(() => platform.openPath?.(absolutePath) ?? Promise.resolve())}>
+          <DropdownMenuItem
+            onSelect={() => run(() => platform.openPath?.(absolutePath) ?? Promise.resolve())}
+          >
             <ExternalLinkIcon className="size-4" aria-hidden />
             Open in default app
           </DropdownMenuItem>
         ) : null}
         {platform.revealPath ? (
-          <DropdownMenuItem onSelect={() => run(() => platform.revealPath?.(absolutePath) ?? Promise.resolve())}>
+          <DropdownMenuItem
+            onSelect={() => run(() => platform.revealPath?.(absolutePath) ?? Promise.resolve())}
+          >
             <FolderOpenIcon className="size-4" aria-hidden />
             {revealLabel}
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem
-          onSelect={() =>
-            run(() => navigator.clipboard.writeText(absolutePath), "Path copied")
-          }
+          onSelect={() => run(() => navigator.clipboard.writeText(absolutePath), "Path copied")}
         >
           <ClipboardCopyIcon className="size-4" aria-hidden />
           Copy path
@@ -109,8 +111,8 @@ export function WorkspaceFileLargeWarning(props: {
           <AlertTriangleIcon className="mx-auto size-6 text-icon-warning-base" aria-hidden />
           <h2 className="mt-3 text-sm font-semibold text-text-strong">Large file</h2>
           <p className="mt-1 text-sm text-text-weak">
-            This file is {formatFileSize(props.sizeBytes)}. Opening it in Buddy may use
-            significant memory.
+            This file is {formatFileSize(props.sizeBytes)}. Opening it in Buddy may use significant
+            memory.
           </p>
           <Button type="button" className="mt-4" onClick={props.onOpenAnyway}>
             Open anyway

@@ -6,10 +6,7 @@ import {
   type MarkdownBenchContentTheme,
 } from "../src/components/bench/markdown-bench-document-theme"
 import { createMermaidThemeConfig } from "../src/components/chat/tools/render/mermaid/lib/theme"
-import {
-  MARKDOWN_PDF_PRINT_PALETTE,
-  MARKDOWN_PDF_PRINT_TYPE,
-} from "../src/lib/markdown-pdf-export"
+import { MARKDOWN_PDF_PRINT_PALETTE, MARKDOWN_PDF_PRINT_TYPE } from "../src/lib/markdown-pdf-export"
 import {
   MAX_MARKDOWN_BENCH_CONTENT_FONT_SCALE,
   MIN_MARKDOWN_BENCH_CONTENT_FONT_SCALE,

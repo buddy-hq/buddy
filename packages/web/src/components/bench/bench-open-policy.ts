@@ -156,7 +156,9 @@ function readObjectPresentationAutoOpenCandidate(
   }
 }
 
-function readCompletedObjectAutoOpenCandidate(part: MessagePart): BenchAutoOpenCandidate | undefined {
+function readCompletedObjectAutoOpenCandidate(
+  part: MessagePart,
+): BenchAutoOpenCandidate | undefined {
   if (part.type !== "tool") return undefined
 
   const state = parseToolState(part)

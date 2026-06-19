@@ -80,9 +80,15 @@ $$`)
   })
 
   test("protects currency while leaving code math byte-for-byte unchanged", () => {
-    const markdown = ["The price is $2.50 and then $3.00 today.", "", "`$inline$`", "", "```", "$fenced$", "```"].join(
-      "\n",
-    )
+    const markdown = [
+      "The price is $2.50 and then $3.00 today.",
+      "",
+      "`$inline$`",
+      "",
+      "```",
+      "$fenced$",
+      "```",
+    ].join("\n")
 
     expect(prepareMarkdownForMdxEditor(markdown)).toBe(
       [

@@ -195,9 +195,7 @@ export async function listResources(directory: string): Promise<ResourceRecord[]
   return records.map(stripRegisteredResourceRecord)
 }
 
-export async function listRegisteredResources(
-  directory: string,
-): Promise<ResourceRecord[]> {
+export async function listRegisteredResources(directory: string): Promise<ResourceRecord[]> {
   const resources = await listResolvedResourceObjects({ directory })
   return resources
     .map(resourceResolvedToRegisteredRecord)
@@ -252,7 +250,9 @@ export async function getResourceByKey(
       throw error
     },
   )
-  return resource ? stripRegisteredResourceRecord(resourceResolvedToRegisteredRecord(resource)) : undefined
+  return resource
+    ? stripRegisteredResourceRecord(resourceResolvedToRegisteredRecord(resource))
+    : undefined
 }
 
 export async function getRegisteredResourceByKey(
@@ -437,7 +437,10 @@ export async function resolveResourceReference(input: {
   }
 }
 
-export async function resolveResourceObjectIDByKey(directory: string, key: string): Promise<string> {
+export async function resolveResourceObjectIDByKey(
+  directory: string,
+  key: string,
+): Promise<string> {
   return (await resolveResourceObjectByKey({ directory, resourceKey: key })).objectID
 }
 
@@ -470,7 +473,10 @@ export async function resolveResourceObjectByKey(
       directory: input.directory,
       objectID,
     }).catch((error: unknown) => {
-      if (error instanceof BuddyObjectNotFoundError || error instanceof BuddyObjectUnavailableError) {
+      if (
+        error instanceof BuddyObjectNotFoundError ||
+        error instanceof BuddyObjectUnavailableError
+      ) {
         return undefined
       }
       throw error
@@ -547,7 +553,8 @@ export async function resolveResourcePackPaths(input: {
 
 async function runResourceObjectPackBuild(input: ResourceObjectPackBuildInput): Promise<void> {
   const sourceStat = await fs.stat(input.sourcePath)
-  const sourceRelpath = path.relative(input.directory, input.sourcePath) || path.basename(input.sourcePath)
+  const sourceRelpath =
+    path.relative(input.directory, input.sourcePath) || path.basename(input.sourcePath)
   await ensureResourcePackWithBuildInput(
     {
       directory: input.directory,
@@ -1060,7 +1067,9 @@ async function prepareResourceObjectInternal(input: {
 async function readResourceObjectManifest(
   directory: string,
   objectID: string,
-): Promise<BuddyObjectManifest & { summary: ReturnType<typeof ResourceObjectSummarySchema.parse> }> {
+): Promise<
+  BuddyObjectManifest & { summary: ReturnType<typeof ResourceObjectSummarySchema.parse> }
+> {
   const manifest = await readObjectManifest({
     directory,
     kind: BUDDY_OBJECT_KINDS.resource,
@@ -1085,7 +1094,10 @@ async function resourceManifestToResolved(
     manifest.sourceRefs.find((ref) => ref.role === RESOURCE_OBJECT_SOURCE_ROLE_ORIGINAL) ?? null
   const packRoot = resourcePackRootPath(directory, manifest.objectID)
   const entrypointPath = (await fileExists(path.join(packRoot, RESOURCE_PACK_ENTRYPOINT_FILE_NAME)))
-    ? path.posix.join(resourcePackDisplayRootPath(manifest.objectID), RESOURCE_PACK_ENTRYPOINT_FILE_NAME)
+    ? path.posix.join(
+        resourcePackDisplayRootPath(manifest.objectID),
+        RESOURCE_PACK_ENTRYPOINT_FILE_NAME,
+      )
     : null
   const tocPath = (await fileExists(path.join(packRoot, RESOURCE_PACK_TOC_FILE_NAME)))
     ? path.posix.join(resourcePackDisplayRootPath(manifest.objectID), RESOURCE_PACK_TOC_FILE_NAME)
@@ -1127,7 +1139,10 @@ async function resourceManifestToResolved(
     status,
     managedSourceRef,
     originalSourceRef,
-    objectPath: BuddyObjectPath.relativeObjectDirectory(BUDDY_OBJECT_KINDS.resource, manifest.objectID),
+    objectPath: BuddyObjectPath.relativeObjectDirectory(
+      BUDDY_OBJECT_KINDS.resource,
+      manifest.objectID,
+    ),
     entrypointPath,
     tocPath,
     packPath: (await directoryExists(packRoot)) ? displayPackRoot : null,
@@ -1165,7 +1180,9 @@ async function resourceOriginalSourceChanged(input: {
 async function refreshManagedResourceSourceFromOriginal(input: {
   directory: string
   manifest: BuddyObjectManifest & { summary: ReturnType<typeof ResourceObjectSummarySchema.parse> }
-}): Promise<BuddyObjectManifest & { summary: ReturnType<typeof ResourceObjectSummarySchema.parse> }> {
+}): Promise<
+  BuddyObjectManifest & { summary: ReturnType<typeof ResourceObjectSummarySchema.parse> }
+> {
   const originalSourceRef =
     input.manifest.sourceRefs.find((ref) => ref.role === RESOURCE_OBJECT_SOURCE_ROLE_ORIGINAL) ??
     null
@@ -1246,7 +1263,9 @@ async function resolveResourcePackCoverRelpath(input: {
 
   const entries = await fs.readdir(input.packRoot, { withFileTypes: true }).catch(() => [])
   const cover = entries
-    .filter((entry) => entry.isFile() && entry.name.startsWith(`${RESOURCE_PACK_COVER_FILE_PREFIX}.`))
+    .filter(
+      (entry) => entry.isFile() && entry.name.startsWith(`${RESOURCE_PACK_COVER_FILE_PREFIX}.`),
+    )
     .map((entry) => entry.name)
     .toSorted()[0]
   return cover ? path.posix.join(input.displayPackRoot, cover) : undefined
@@ -1330,11 +1349,12 @@ async function findLiveResourceObjectIDsByAlias(input: {
   )
   return manifests
     .filter(
-      (manifest): manifest is BuddyObjectManifest & {
+      (
+        manifest,
+      ): manifest is BuddyObjectManifest & {
         summary: ReturnType<typeof ResourceObjectSummarySchema.parse>
       } =>
-        manifest !== undefined &&
-        normalizeAliasToken(manifest.summary.alias) === normalizedAlias,
+        manifest !== undefined && normalizeAliasToken(manifest.summary.alias) === normalizedAlias,
     )
     .map((manifest) => manifest.objectID)
     .toSorted()
@@ -1382,7 +1402,9 @@ function resourceAliasIndexPath(directory: string): string {
 }
 
 function managedSourceAbsolutePath(directory: string, manifest: BuddyObjectManifest): string {
-  const sourceRef = manifest.sourceRefs.find((ref) => ref.role === RESOURCE_OBJECT_SOURCE_ROLE_MANAGED)
+  const sourceRef = manifest.sourceRefs.find(
+    (ref) => ref.role === RESOURCE_OBJECT_SOURCE_ROLE_MANAGED,
+  )
   if (!sourceRef?.workspacePath) {
     throw new ResourceValidationError(`Resource object ${manifest.objectID} has no managed source.`)
   }
@@ -1478,10 +1500,7 @@ function stringArrayValue(record: Record<string, unknown>, key: string): string[
   return value.filter((entry): entry is string => typeof entry === "string")
 }
 
-function numberValue(
-  record: Record<string, unknown>,
-  key: string,
-): number | undefined {
+function numberValue(record: Record<string, unknown>, key: string): number | undefined {
   const value = record[key]
   if (typeof value === "number" && Number.isFinite(value)) return value
   if (typeof value === "string" && value.trim().length > 0) {

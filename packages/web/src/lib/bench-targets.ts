@@ -34,15 +34,11 @@ export type BenchTarget =
   | { type: "workspace-file"; path: string; viewer: "markdown" | "file" }
   | { type: "object"; ref: BenchObjectRef; viewID: string }
 
-export type BenchMode =
-  | typeof BENCH_CHAT_LAYOUT_DOCKED
-  | typeof BENCH_CHAT_LAYOUT_FLOATING
+export type BenchMode = typeof BENCH_CHAT_LAYOUT_DOCKED | typeof BENCH_CHAT_LAYOUT_FLOATING
 
 export type BenchChatLayoutMode = BenchMode
 
-export type BenchModeRequest =
-  | typeof BENCH_MODE_REQUEST_POLICY
-  | BenchMode
+export type BenchModeRequest = typeof BENCH_MODE_REQUEST_POLICY | BenchMode
 
 export type BenchAutoOpenPolicyID =
   | typeof BENCH_AUTO_OPEN_POLICY_WHITEBOARD

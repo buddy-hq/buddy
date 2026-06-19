@@ -17,20 +17,17 @@ describe("notebook resources context", () => {
         status: "ready",
         warnings: [],
         benchReaderRelpath: "books/readable-book.pdf",
-        packPath:
-          ".buddy/objects/v1/resource/01ARZ3NDEKTSV4RRFFQ69G5FAV/derived/pack",
+        packPath: ".buddy/objects/v1/resource/01ARZ3NDEKTSV4RRFFQ69G5FAV/derived/pack",
       },
       {
         objectID: "01BRZ3NDEKTSV4RRFFQ69G5FBW",
         name: "Internal Text",
         alias: "internal-text",
-        managedSource:
-          ".buddy/objects/v1/resource/01BRZ3NDEKTSV4RRFFQ69G5FBW/source/internal.txt",
+        managedSource: ".buddy/objects/v1/resource/01BRZ3NDEKTSV4RRFFQ69G5FBW/source/internal.txt",
         format: "text",
         status: "ready",
         warnings: [],
-        packPath:
-          ".buddy/objects/v1/resource/01BRZ3NDEKTSV4RRFFQ69G5FBW/derived/pack",
+        packPath: ".buddy/objects/v1/resource/01BRZ3NDEKTSV4RRFFQ69G5FBW/derived/pack",
       },
     ] satisfies PromptResource[]
 

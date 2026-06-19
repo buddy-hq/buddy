@@ -57,9 +57,7 @@ const requiredAssets: RequiredAsset[] = [
 ]
 
 function usage(): never {
-  throw new Error(
-    "Usage: bun ./script/verify-release-assets.ts --tag v0.0.40 [--repo owner/repo]",
-  )
+  throw new Error("Usage: bun ./script/verify-release-assets.ts --tag v0.0.40 [--repo owner/repo]")
 }
 
 function parseArgs(): { repo: string; tag: string } {
@@ -178,7 +176,9 @@ function assertManifestRepositoryReferences(input: {
 }): void {
   const privateRepoUrl = `github.com/${DEFAULT_SOURCE_REPOSITORY}/`
   if (input.content.includes(privateRepoUrl)) {
-    throw new Error(`${input.name} references private source repository ${DEFAULT_SOURCE_REPOSITORY}`)
+    throw new Error(
+      `${input.name} references private source repository ${DEFAULT_SOURCE_REPOSITORY}`,
+    )
   }
 
   const githubUrlMatches = input.content.matchAll(/https:\/\/github\.com\/([^/\s]+\/[^/\s]+)\//g)
@@ -189,7 +189,10 @@ function assertManifestRepositoryReferences(input: {
     }
   }
 
-  if (input.name === "latest-mac.json" && !input.content.includes(`github.com/${input.releaseRepo}/`)) {
+  if (
+    input.name === "latest-mac.json" &&
+    !input.content.includes(`github.com/${input.releaseRepo}/`)
+  ) {
     throw new Error(`${input.name} does not include absolute ${input.releaseRepo} asset URLs`)
   }
 }

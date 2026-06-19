@@ -302,230 +302,232 @@ const markdownBenchHistoryControlsPlugin = realmPlugin<MarkdownBenchHistoryPlugi
   },
 })
 
-export const MarkdownBenchEditor = forwardRef<
-  MarkdownBenchEditorHandle,
-  MarkdownBenchEditorProps
->(function MarkdownBenchEditor(props, ref) {
-  const editorRef = useRef<MDXEditorMethods>(null)
-  const editorRootRef = useRef<HTMLDivElement>(null)
-  const [selectionSection, setSelectionSection] = useState<MarkdownBenchSelectionSection | undefined>(
-    undefined,
-  )
-  const applyingExternalMarkdownRef = useRef(false)
-  const historyControlsRef = useRef<MarkdownBenchHistoryControls>(
-    EMPTY_MARKDOWN_BENCH_HISTORY_CONTROLS,
-  )
-  const onHistoryControlsChangeRef = useRef(props.onHistoryControlsChange)
-  const rawThemeScopeID = useId()
-  const themeScopeID = useMemo(
-    () => sanitizeMarkdownBenchThemeScopeID(rawThemeScopeID),
-    [rawThemeScopeID],
-  )
-  const scopedThemeCss = useMemo(() => {
-    if (!props.contentTheme) return undefined
-    return buildMarkdownBenchContentThemeCss({
-      contentFontScale: props.contentFontScale,
-      scopeID: themeScopeID,
-      theme: props.contentTheme,
-    })
-  }, [props.contentFontScale, props.contentTheme, themeScopeID])
-  const mermaidViewOptions = useMemo<MarkdownBenchMermaidViewOptions | undefined>(() => {
-    if (!props.contentTheme) return undefined
-    return {
-      presentation: props.contentTheme.mode === "print" ? "static" : "interactive",
-      themeConfig: props.contentTheme.mermaidThemeConfig,
-    }
-  }, [props.contentTheme])
-  const isPrintView = props.contentTheme?.mode === "print"
-  const editorMarkdown = useMemo(() => prepareMarkdownForMdxEditor(props.markdown), [props.markdown])
-  const onSelectionChange = props.onSelectionChange
-  const handleHistoryControlsChange = useCallback((controls: MarkdownBenchHistoryControls) => {
-    historyControlsRef.current = controls
-    onHistoryControlsChangeRef.current?.({
-      canRedo: controls.canRedo,
-      canUndo: controls.canUndo,
-    })
-  }, [])
-  const notifySelectionChange = useCallback(() => {
-    if (!onSelectionChange) return
-    window.requestAnimationFrame(() => {
-      const editorRoot = editorRootRef.current
-      const selection = window.getSelection()
-      if (
-        !editorRoot ||
-        !selection ||
-        selection.isCollapsed ||
-        selection.rangeCount === 0 ||
-        !selection.anchorNode ||
-        !selection.focusNode ||
-        !editorRoot.contains(selection.anchorNode) ||
-        !editorRoot.contains(selection.focusNode)
-      ) {
-        setSelectionSection(undefined)
-        onSelectionChange({ text: "" })
+export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, MarkdownBenchEditorProps>(
+  function MarkdownBenchEditor(props, ref) {
+    const editorRef = useRef<MDXEditorMethods>(null)
+    const editorRootRef = useRef<HTMLDivElement>(null)
+    const [selectionSection, setSelectionSection] = useState<
+      MarkdownBenchSelectionSection | undefined
+    >(undefined)
+    const applyingExternalMarkdownRef = useRef(false)
+    const historyControlsRef = useRef<MarkdownBenchHistoryControls>(
+      EMPTY_MARKDOWN_BENCH_HISTORY_CONTROLS,
+    )
+    const onHistoryControlsChangeRef = useRef(props.onHistoryControlsChange)
+    const rawThemeScopeID = useId()
+    const themeScopeID = useMemo(
+      () => sanitizeMarkdownBenchThemeScopeID(rawThemeScopeID),
+      [rawThemeScopeID],
+    )
+    const scopedThemeCss = useMemo(() => {
+      if (!props.contentTheme) return undefined
+      return buildMarkdownBenchContentThemeCss({
+        contentFontScale: props.contentFontScale,
+        scopeID: themeScopeID,
+        theme: props.contentTheme,
+      })
+    }, [props.contentFontScale, props.contentTheme, themeScopeID])
+    const mermaidViewOptions = useMemo<MarkdownBenchMermaidViewOptions | undefined>(() => {
+      if (!props.contentTheme) return undefined
+      return {
+        presentation: props.contentTheme.mode === "print" ? "static" : "interactive",
+        themeConfig: props.contentTheme.mermaidThemeConfig,
+      }
+    }, [props.contentTheme])
+    const isPrintView = props.contentTheme?.mode === "print"
+    const editorMarkdown = useMemo(
+      () => prepareMarkdownForMdxEditor(props.markdown),
+      [props.markdown],
+    )
+    const onSelectionChange = props.onSelectionChange
+    const handleHistoryControlsChange = useCallback((controls: MarkdownBenchHistoryControls) => {
+      historyControlsRef.current = controls
+      onHistoryControlsChangeRef.current?.({
+        canRedo: controls.canRedo,
+        canUndo: controls.canUndo,
+      })
+    }, [])
+    const notifySelectionChange = useCallback(() => {
+      if (!onSelectionChange) return
+      window.requestAnimationFrame(() => {
+        const editorRoot = editorRootRef.current
+        const selection = window.getSelection()
+        if (
+          !editorRoot ||
+          !selection ||
+          selection.isCollapsed ||
+          selection.rangeCount === 0 ||
+          !selection.anchorNode ||
+          !selection.focusNode ||
+          !editorRoot.contains(selection.anchorNode) ||
+          !editorRoot.contains(selection.focusNode)
+        ) {
+          setSelectionSection(undefined)
+          onSelectionChange({ text: "" })
+          return
+        }
+
+        const range = selection.getRangeAt(0)
+        setSelectionSection(resolveMarkdownBenchSelectionSection({ range, scrollRoot: editorRoot }))
+        const headingPath = resolveSelectionHeadingPath(editorRoot, range)
+        onSelectionChange({
+          text: selection.toString().trim(),
+          ...(headingPath ? { headingPath } : {}),
+        })
+      })
+    }, [onSelectionChange])
+    const plugins = useMemo(
+      () => [
+        headingsPlugin(),
+        listsPlugin(),
+        quotePlugin(),
+        thematicBreakPlugin(),
+        buddyMathPlugin(),
+        buddyMermaidPlugin(),
+        linkPlugin(),
+        tablePlugin(),
+        codeBlockPlugin(),
+        codeMirrorPlugin({
+          codeBlockLanguages: CODE_BLOCK_LANGUAGES,
+          codeMirrorExtensions: BUDDY_CODE_MIRROR_EXTENSIONS,
+        }),
+        frontmatterPlugin(),
+        imagePlugin(),
+        markdownShortcutPlugin(),
+        markdownBenchHistoryControlsPlugin({
+          onChange: handleHistoryControlsChange,
+        }),
+      ],
+      [handleHistoryControlsChange],
+    )
+
+    useEffect(() => {
+      setSelectionSection(undefined)
+    }, [props.markdown])
+
+    useEffect(() => {
+      onHistoryControlsChangeRef.current = props.onHistoryControlsChange
+    }, [props.onHistoryControlsChange])
+
+    useImperativeHandle(
+      ref,
+      () => ({
+        getSelectionMarkdown() {
+          return editorRef.current?.getSelectionMarkdown() ?? ""
+        },
+        setMarkdown(markdown: string) {
+          applyingExternalMarkdownRef.current = true
+          editorRef.current?.setMarkdown(prepareMarkdownForMdxEditor(markdown))
+          window.queueMicrotask(() => {
+            applyingExternalMarkdownRef.current = false
+          })
+        },
+        focus() {
+          editorRef.current?.focus()
+        },
+        redo() {
+          historyControlsRef.current.redo()
+        },
+        undo() {
+          historyControlsRef.current.undo()
+        },
+      }),
+      [],
+    )
+
+    useEffect(() => {
+      const editor = editorRef.current
+      if (!editor) return
+      const currentMarkdown = editor.getMarkdown()
+      if (currentMarkdown === props.markdown) {
         return
       }
 
-      const range = selection.getRangeAt(0)
-      setSelectionSection(resolveMarkdownBenchSelectionSection({ range, scrollRoot: editorRoot }))
-      const headingPath = resolveSelectionHeadingPath(editorRoot, range)
-      onSelectionChange({
-        text: selection.toString().trim(),
-        ...(headingPath ? { headingPath } : {}),
+      applyingExternalMarkdownRef.current = true
+      editor.setMarkdown(editorMarkdown)
+      window.queueMicrotask(() => {
+        applyingExternalMarkdownRef.current = false
       })
-    })
-  }, [onSelectionChange])
-  const plugins = useMemo(
-    () => [
-      headingsPlugin(),
-      listsPlugin(),
-      quotePlugin(),
-      thematicBreakPlugin(),
-      buddyMathPlugin(),
-      buddyMermaidPlugin(),
-      linkPlugin(),
-      tablePlugin(),
-      codeBlockPlugin(),
-      codeMirrorPlugin({
-        codeBlockLanguages: CODE_BLOCK_LANGUAGES,
-        codeMirrorExtensions: BUDDY_CODE_MIRROR_EXTENSIONS,
-      }),
-      frontmatterPlugin(),
-      imagePlugin(),
-      markdownShortcutPlugin(),
-      markdownBenchHistoryControlsPlugin({
-        onChange: handleHistoryControlsChange,
-      }),
-    ],
-    [handleHistoryControlsChange],
-  )
+    }, [editorMarkdown, props.markdown])
 
-  useEffect(() => {
-    setSelectionSection(undefined)
-  }, [props.markdown])
+    const mdxEditorElement = (
+      <div
+        data-component="markdown-bench-paper"
+        className="mx-auto w-full max-w-3xl min-h-full overflow-hidden rounded-lg border border-border-weak-base bg-background-base shadow-sm"
+      >
+        <MDXEditor
+          ref={editorRef}
+          className={cn(
+            "min-h-full bg-background-base text-text-base",
+            MDX_EDITOR_THEME_CLASS_NAME,
+          )}
+          markdown={editorMarkdown}
+          plugins={plugins}
+          readOnly={isPrintView}
+          toMarkdownOptions={MARKDOWN_SERIALIZATION_OPTIONS}
+          onChange={(nextMarkdown, initialMarkdownNormalize) => {
+            if (initialMarkdownNormalize || applyingExternalMarkdownRef.current) {
+              return
+            }
+            props.onChange(nextMarkdown)
+          }}
+          contentEditableClassName={MARKDOWN_CONTENT_CLASS_NAME}
+        />
+      </div>
+    )
 
-  useEffect(() => {
-    onHistoryControlsChangeRef.current = props.onHistoryControlsChange
-  }, [props.onHistoryControlsChange])
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      getSelectionMarkdown() {
-        return editorRef.current?.getSelectionMarkdown() ?? ""
-      },
-      setMarkdown(markdown: string) {
-        applyingExternalMarkdownRef.current = true
-        editorRef.current?.setMarkdown(prepareMarkdownForMdxEditor(markdown))
-        window.queueMicrotask(() => {
-          applyingExternalMarkdownRef.current = false
-        })
-      },
-      focus() {
-        editorRef.current?.focus()
-      },
-      redo() {
-        historyControlsRef.current.redo()
-      },
-      undo() {
-        historyControlsRef.current.undo()
-      },
-    }),
-    [],
-  )
-
-  useEffect(() => {
-    const editor = editorRef.current
-    if (!editor) return
-    const currentMarkdown = editor.getMarkdown()
-    if (currentMarkdown === props.markdown) {
-      return
-    }
-
-    applyingExternalMarkdownRef.current = true
-    editor.setMarkdown(editorMarkdown)
-    window.queueMicrotask(() => {
-      applyingExternalMarkdownRef.current = false
-    })
-  }, [editorMarkdown, props.markdown])
-
-  const mdxEditorElement = (
-    <div
-      data-component="markdown-bench-paper"
-      className="mx-auto w-full max-w-3xl min-h-full overflow-hidden rounded-lg border border-border-weak-base bg-background-base shadow-sm"
-    >
-      <MDXEditor
-        ref={editorRef}
+    return (
+      <div
+        ref={editorRootRef}
+        data-component="markdown-bench-editor"
+        data-dirty={props.dirty ? "true" : "false"}
+        data-saving={props.saving ? "true" : "false"}
+        data-conflict={props.conflict ? "true" : "false"}
+        data-version={props.version}
+        data-content-theme={props.contentTheme?.mode}
+        data-markdown-bench-theme-scope={themeScopeID}
         className={cn(
-          "min-h-full bg-background-base text-text-base",
-          MDX_EDITOR_THEME_CLASS_NAME,
+          "markdown-bench-editor relative h-full min-h-0 overflow-y-auto bg-background-weak px-6 pt-6 pb-48 text-text-base",
+          props.className,
         )}
-        markdown={editorMarkdown}
-        plugins={plugins}
-        readOnly={isPrintView}
-        toMarkdownOptions={MARKDOWN_SERIALIZATION_OPTIONS}
-        onChange={(nextMarkdown, initialMarkdownNormalize) => {
-          if (initialMarkdownNormalize || applyingExternalMarkdownRef.current) {
-            return
-          }
-          props.onChange(nextMarkdown)
-        }}
-        contentEditableClassName={MARKDOWN_CONTENT_CLASS_NAME}
-      />
-    </div>
-  )
-
-  return (
-    <div
-      ref={editorRootRef}
-      data-component="markdown-bench-editor"
-      data-dirty={props.dirty ? "true" : "false"}
-      data-saving={props.saving ? "true" : "false"}
-      data-conflict={props.conflict ? "true" : "false"}
-      data-version={props.version}
-      data-content-theme={props.contentTheme?.mode}
-      data-markdown-bench-theme-scope={themeScopeID}
-      className={cn(
-        "markdown-bench-editor relative h-full min-h-0 overflow-y-auto bg-background-weak px-6 pt-6 pb-48 text-text-base",
-        props.className,
-      )}
-      onPointerUp={notifySelectionChange}
-      onKeyUp={notifySelectionChange}
-    >
-      {selectionSection ? (
-        <div
-          aria-hidden
-          data-component="markdown-bench-selection-section-overlay"
-          className="pointer-events-none absolute left-1/2 top-0 z-20 w-full max-w-3xl -translate-x-1/2"
-        >
+        onPointerUp={notifySelectionChange}
+        onKeyUp={notifySelectionChange}
+      >
+        {selectionSection ? (
           <div
-            data-component="markdown-bench-selection-section"
-            className="absolute left-0 right-0 bg-[color:color-mix(in_oklab,var(--surface-warning-base)_42%,transparent)]"
-            style={{
-              top: selectionSection.top,
-              height: selectionSection.height,
-            }}
+            aria-hidden
+            data-component="markdown-bench-selection-section-overlay"
+            className="pointer-events-none absolute left-1/2 top-0 z-20 w-full max-w-3xl -translate-x-1/2"
           >
             <div
-              data-component="markdown-bench-selection-edge"
-              className="absolute inset-y-0 left-0 rounded-r-sm bg-border-warning-base"
-              style={{ width: MARKDOWN_BENCH_SELECTION_EDGE_WIDTH_PX }}
-            />
+              data-component="markdown-bench-selection-section"
+              className="absolute left-0 right-0 bg-[color:color-mix(in_oklab,var(--surface-warning-base)_42%,transparent)]"
+              style={{
+                top: selectionSection.top,
+                height: selectionSection.height,
+              }}
+            >
+              <div
+                data-component="markdown-bench-selection-edge"
+                className="absolute inset-y-0 left-0 rounded-r-sm bg-border-warning-base"
+                style={{ width: MARKDOWN_BENCH_SELECTION_EDGE_WIDTH_PX }}
+              />
+            </div>
           </div>
-        </div>
-      ) : null}
-      {scopedThemeCss ? (
-        <style data-markdown-bench-content-theme-style data-markdown-export-ignore>
-          {scopedThemeCss}
-        </style>
-      ) : null}
-      {mermaidViewOptions ? (
-        <MarkdownBenchMermaidViewProvider value={mermaidViewOptions}>
-          {mdxEditorElement}
-        </MarkdownBenchMermaidViewProvider>
-      ) : (
-        mdxEditorElement
-      )}
-    </div>
-  )
-})
+        ) : null}
+        {scopedThemeCss ? (
+          <style data-markdown-bench-content-theme-style data-markdown-export-ignore>
+            {scopedThemeCss}
+          </style>
+        ) : null}
+        {mermaidViewOptions ? (
+          <MarkdownBenchMermaidViewProvider value={mermaidViewOptions}>
+            {mdxEditorElement}
+          </MarkdownBenchMermaidViewProvider>
+        ) : (
+          mdxEditorElement
+        )}
+      </div>
+    )
+  },
+)

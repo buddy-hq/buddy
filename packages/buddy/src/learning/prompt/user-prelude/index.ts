@@ -215,8 +215,7 @@ function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild
   const metadataLines = benchContext.metadata
     .slice(0, BENCH_TURN_CONTEXT_METADATA_LIMIT)
     .map((line) => `- ${line}`)
-  const metadataBlock =
-    metadataLines.length > 0 ? `Details:\n${metadataLines.join("\n")}\n` : ""
+  const metadataBlock = metadataLines.length > 0 ? `Details:\n${metadataLines.join("\n")}\n` : ""
 
   const text = [
     "<bench_turn_context>",
@@ -292,9 +291,7 @@ export function buildBuddyUserPrelude(input: {
     readingTurnContext.text,
     benchTurnContext.text,
     teachingTurnContext.text,
-  ].filter(
-    (line): line is string => line !== undefined,
-  )
+  ].filter((line): line is string => line !== undefined)
 
   const sectionLines = [
     ...contextLines,

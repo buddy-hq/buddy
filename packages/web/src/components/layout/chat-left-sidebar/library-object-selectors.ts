@@ -16,9 +16,7 @@ type QuestionSetLibraryObject = WorkspaceObjectOfKind<"question-set">
 type FlashcardDeckLibraryObject = WorkspaceObjectOfKind<"flashcard-deck">
 type HtmlWidgetLibraryObject = WorkspaceObjectOfKind<"html-widget">
 type MediaPresentationLibraryObject = WorkspaceObjectOfKind<"media-presentation">
-type MediaLibraryObject = WorkspaceObjectOfKind<
-  "media-presentation" | "figure" | "freeform-figure"
->
+type MediaLibraryObject = WorkspaceObjectOfKind<"media-presentation" | "figure" | "freeform-figure">
 type FlashcardDeckObjectSummary = {
   noteCount: number
   cardCount: number
@@ -51,9 +49,8 @@ function workspaceObjectLoadErrorKey(loadError: WorkspaceObjectLoadError): strin
 }
 
 function objectKindFilter<TKind extends WorkspaceObjectIndexItem["kind"]>(kind: TKind) {
-  return (
-    object: WorkspaceObjectIndexItem,
-  ): object is WorkspaceObjectOfKind<TKind> => object.kind === kind
+  return (object: WorkspaceObjectIndexItem): object is WorkspaceObjectOfKind<TKind> =>
+    object.kind === kind
 }
 
 function isLibraryVisibleObject(object: WorkspaceObjectIndexItem): boolean {

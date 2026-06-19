@@ -9,12 +9,7 @@ import {
 const nonEmptyString = z.string().trim().min(1)
 const timestampString = z.string().datetime()
 
-const BuddyObjectLifecycleSchema = z.enum([
-  "revisioned",
-  "live",
-  "imported",
-  "external-reference",
-])
+const BuddyObjectLifecycleSchema = z.enum(["revisioned", "live", "imported", "external-reference"])
 
 const BuddyObjectStatusSchema = z.enum([
   "ready",
@@ -37,7 +32,10 @@ const BuddyObjectSourceRefSchema = z
     copied: z.boolean(),
     availability: z.enum(["available", "missing", "error"]),
     exists: z.boolean().optional(),
-    contentHash: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+    contentHash: z
+      .string()
+      .regex(/^[a-f0-9]{64}$/u)
+      .optional(),
     sizeBytes: z.number().int().nonnegative().optional(),
     modifiedAt: timestampString.optional(),
   })

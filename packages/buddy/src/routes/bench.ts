@@ -48,15 +48,7 @@ const buddyObjectRefOpenApiSchema = {
 
 const workspaceFileBenchContextTargetOpenApiSchema = {
   type: "object" as const,
-  required: [
-    "type",
-    "title",
-    "workspaceRoot",
-    "path",
-    "absolutePath",
-    "route",
-    "status",
-  ],
+  required: ["type", "title", "workspaceRoot", "path", "absolutePath", "route", "status"],
   additionalProperties: false,
   properties: {
     type: { type: "string" as const, enum: ["workspace-file"] },

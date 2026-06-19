@@ -21,9 +21,7 @@ const MARKDOWN_PDF_RENDER_READY_SCRIPT = `
 const MARKDOWN_PDF_LETTER_WIDTH_PIXELS = 816
 const MARKDOWN_PDF_LETTER_HEIGHT_PIXELS = 1056
 
-export async function exportMarkdownPdf(
-  input: MarkdownPdfExportInput,
-): Promise<string | null> {
+export async function exportMarkdownPdf(input: MarkdownPdfExportInput): Promise<string | null> {
   const result = await dialog.showSaveDialog({
     title: "Export Markdown as PDF",
     defaultPath: join(app.getPath("documents"), input.defaultPath),

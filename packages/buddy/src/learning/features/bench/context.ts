@@ -1,19 +1,10 @@
 import path from "node:path"
 import z from "zod"
-import {
-  BuddyObjectRefSchema,
-  nonEmptyString,
-} from "../../../objects"
+import { BuddyObjectRefSchema, nonEmptyString } from "../../../objects"
 
 const BENCH_CONTEXT_REGISTRY_LIMIT = 512
 
-const BenchContextStatusSchema = z.enum([
-  "ready",
-  "loading",
-  "dirty",
-  "error",
-  "unavailable",
-])
+const BenchContextStatusSchema = z.enum(["ready", "loading", "dirty", "error", "unavailable"])
 
 const WorkspaceFileBenchTargetSchema = z
   .object({

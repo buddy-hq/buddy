@@ -423,7 +423,10 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
   return parts
 }
 
-function appendSelectionCard(root: HTMLElement, part: PromptReadingSelectionPart | PromptSelectionContextPart) {
+function appendSelectionCard(
+  root: HTMLElement,
+  part: PromptReadingSelectionPart | PromptSelectionContextPart,
+) {
   const card = document.createElement("div")
   card.className =
     "my-1.5 inline-flex max-w-full flex-col gap-1 rounded-lg border border-border-base bg-surface-weak px-3 py-2 text-left align-top"

@@ -160,9 +160,7 @@ export function workspaceHtmlWidgetObjectsQueryOptions(directory: string) {
   return workspaceObjectsQueryOptions(directory, HTML_WIDGET_OBJECTS_QUERY_KEY)
 }
 
-export async function loadObjectView(
-  input: ObjectViewQueryInput,
-): Promise<ObjectsViewResponse> {
+export async function loadObjectView(input: ObjectViewQueryInput): Promise<ObjectsViewResponse> {
   return requireBuddyData(
     await getBuddyClient(input.directory).objects.view({
       directory: input.directory,
@@ -270,27 +268,19 @@ export async function loadObjectMediaAvailability(
   )
 }
 
-function objectMediaAvailabilityError(
-  error: unknown,
-): ObjectMediaPresentationAvailabilityResponse {
+function objectMediaAvailabilityError(error: unknown): ObjectMediaPresentationAvailabilityResponse {
   return {
     status: "error",
     message: error instanceof Error ? error.message : String(error),
   }
 }
 
-export function objectMediaAvailabilityQueryOptions(
-  input: ObjectMediaAvailabilityQueryInput,
-) {
+export function objectMediaAvailabilityQueryOptions(input: ObjectMediaAvailabilityQueryInput) {
   return queryOptions({
     queryKey: workspaceObjectsQueryKeys.mediaAvailability(input),
-    queryFn: () =>
-      loadObjectMediaAvailability(input).catch(objectMediaAvailabilityError),
+    queryFn: () => loadObjectMediaAvailability(input).catch(objectMediaAvailabilityError),
     staleTime: WORKSPACE_OBJECTS_STALE_TIME_MS,
   })
 }
 
-export type {
-  ObjectViewKind,
-  WorkspaceObjectKind,
-}
+export type { ObjectViewKind, WorkspaceObjectKind }

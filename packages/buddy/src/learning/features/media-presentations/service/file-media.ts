@@ -223,9 +223,7 @@ function isMissingPresentedMediaError(error: unknown): boolean {
   )
 }
 
-async function refreshPresentedMediaItem(
-  item: PresentedMediaItem,
-): Promise<PresentedMediaItem> {
+async function refreshPresentedMediaItem(item: PresentedMediaItem): Promise<PresentedMediaItem> {
   try {
     const stats = await fs.stat(item.absolutePath)
     if (!stats.isFile()) {
@@ -514,7 +512,7 @@ export async function buildPresentedMediaObjectOutput(input: {
     version: 1,
     kind: BUDDY_OBJECT_KINDS.mediaPresentation,
     objectID,
-    title: items.length === 1 ? items[0]?.fileName ?? "Media presentation" : "Media presentation",
+    title: items.length === 1 ? (items[0]?.fileName ?? "Media presentation") : "Media presentation",
     status: "ready",
     lifecycle: "external-reference",
     createdAt: now,
@@ -655,11 +653,7 @@ export async function readPresentedMediaObjectRawResponse(input: {
   includeBody: boolean
   rangeHeader: string | undefined
 }): Promise<Response> {
-  const item = await resolvePresentedMediaObjectItem(
-    input.directory,
-    input.objectID,
-    input.itemID,
-  )
+  const item = await resolvePresentedMediaObjectItem(input.directory, input.objectID, input.itemID)
   if (!item) {
     return Response.json({ error: PROJECT_FILE_NOT_FOUND_ERROR }, { status: 404 })
   }
@@ -671,9 +665,7 @@ export async function readPresentedMediaObjectRawResponse(input: {
   })
 }
 
-export {
-  PresentedMediaSummarySchema,
-}
+export { PresentedMediaSummarySchema }
 
 registerBuddyObjectKind({
   kind: BUDDY_OBJECT_KINDS.mediaPresentation,

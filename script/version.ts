@@ -118,10 +118,11 @@ if (existing.exitCode === 0) {
 
   await createRelease(file)
 
-  release = (await $`gh release view ${tag} --json tagName,databaseId --repo ${releaseRepo}`.json()) as {
-    databaseId: number
-    tagName: string
-  }
+  release =
+    (await $`gh release view ${tag} --json tagName,databaseId --repo ${releaseRepo}`.json()) as {
+      databaseId: number
+      tagName: string
+    }
 }
 
 const output = [

@@ -550,9 +550,7 @@ export function getToolInfo(tool: string, state: ToolState): ToolInfo {
           ? resolveHtmlWidgetViewport(presentation.data.viewportPreset)
           : undefined
       const objectTitle = objectResult?.objects.find(
-        (object) =>
-          object.kind === "html-widget" &&
-          object.objectID === presentation?.ref.objectID,
+        (object) => object.kind === "html-widget" && object.objectID === presentation?.ref.objectID,
       )?.title
       return withMetadataTitle(
         {

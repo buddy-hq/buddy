@@ -13,9 +13,7 @@ type DirectoryChatBenchConversationPaneProps = Omit<
   showThreadBrowser?: boolean
 }
 
-export function DirectoryChatBenchConversationPane(
-  props: DirectoryChatBenchConversationPaneProps,
-) {
+export function DirectoryChatBenchConversationPane(props: DirectoryChatBenchConversationPaneProps) {
   const {
     linkedSessionID,
     onFloatChat,

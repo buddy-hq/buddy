@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type MutableRefObject,
-} from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react"
 import { useLocation } from "@tanstack/react-router"
 import {
   DownloadIcon,
@@ -23,10 +16,7 @@ import {
   Undo2Icon,
 } from "lucide-react"
 import { Button, ToggleGroup, ToggleGroupItem, toast } from "@buddy/ui"
-import {
-  BenchViewerShell,
-  type BenchViewerAction,
-} from "@/components/bench/bench-viewer-shell"
+import { BenchViewerShell, type BenchViewerAction } from "@/components/bench/bench-viewer-shell"
 import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
 import {
   routeString,
@@ -117,8 +107,7 @@ function filePathMatchesTarget(candidate: string | undefined, targetPath: string
   const normalizedCandidate = normalizePathForCompare(candidate)
   const normalizedTarget = normalizePathForCompare(targetPath)
   return (
-    normalizedCandidate === normalizedTarget ||
-    normalizedCandidate.endsWith(`/${normalizedTarget}`)
+    normalizedCandidate === normalizedTarget || normalizedCandidate.endsWith(`/${normalizedTarget}`)
   )
 }
 
@@ -236,13 +225,16 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
       directoryState.messagesBySessionID?.[activeSessionID] ??
       (directoryState.sessionID === activeSessionID ? directoryState.messages : [])
     return messages.flatMap((message) =>
-      message.parts.filter((part) => part.type === "tool" && toolMetadataTargetsPath(part, props.path)),
+      message.parts.filter(
+        (part) => part.type === "tool" && toolMetadataTargetsPath(part, props.path),
+      ),
     )
   })
   const dirty = markdown !== savedMarkdown
   const title = fileNameFromPath(props.path) || props.path
   const saveState = conflict ? "conflict" : saveError ? "error" : saving ? "saving" : "ready"
-  const targetStatus = conflict || saveError ? "error" : dirty ? "dirty" : loading ? "loading" : "ready"
+  const targetStatus =
+    conflict || saveError ? "error" : dirty ? "dirty" : loading ? "loading" : "ready"
   const contextProvider = useMemo(
     () => ({
       read: () => ({
@@ -271,7 +263,9 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
             note: "Markdown file on Bench.",
           }),
         ],
-        hints: dirty ? ["Content may differ from the saved file because Bench has unsaved edits."] : [],
+        hints: dirty
+          ? ["Content may differ from the saved file because Bench has unsaved edits."]
+          : [],
       }),
     }),
     [
@@ -300,16 +294,7 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
       saving,
       version,
     }),
-    [
-      conflict,
-      markdown,
-      props.directory,
-      props.path,
-      saveError,
-      savedMarkdown,
-      saving,
-      version,
-    ],
+    [conflict, markdown, props.directory, props.path, saveError, savedMarkdown, saving, version],
   )
   const latestSaveSnapshotRef = useRef(currentSaveSnapshot)
   const previousCommittedSaveSnapshotRef = useRef(currentSaveSnapshot)
@@ -393,10 +378,7 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
 
   useEffect(() => {
     const previousSnapshot = previousCommittedSaveSnapshotRef.current
-    if (
-      previousSnapshot.directory !== props.directory ||
-      previousSnapshot.path !== props.path
-    ) {
+    if (previousSnapshot.directory !== props.directory || previousSnapshot.path !== props.path) {
       void flushMarkdownBenchPendingSave(previousSnapshot)
     }
 
@@ -519,38 +501,41 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
     }
   }, [platform, props.path, title])
 
-  const syncSelectionToChat = useCallback((selection: MarkdownBenchDocumentSelection) => {
-    if (controller.status !== "ready") return
-    const text = selection.text.trim()
-    const promptKey = controller.mainPaneProps.chatState.promptKey
-    const currentDraft = getPromptDraft(usePromptStore.getState(), promptKey)
-    const stagedSelectionKey = stagedSelectionKeyRef.current
-    const draftWithoutPreviousSelection = stagedSelectionKey
-      ? (removeSelectionContextFromDraft(currentDraft, stagedSelectionKey) ?? currentDraft)
-      : currentDraft
+  const syncSelectionToChat = useCallback(
+    (selection: MarkdownBenchDocumentSelection) => {
+      if (controller.status !== "ready") return
+      const text = selection.text.trim()
+      const promptKey = controller.mainPaneProps.chatState.promptKey
+      const currentDraft = getPromptDraft(usePromptStore.getState(), promptKey)
+      const stagedSelectionKey = stagedSelectionKeyRef.current
+      const draftWithoutPreviousSelection = stagedSelectionKey
+        ? (removeSelectionContextFromDraft(currentDraft, stagedSelectionKey) ?? currentDraft)
+        : currentDraft
 
-    if (!text) {
-      stagedSelectionKeyRef.current = undefined
-      if (draftWithoutPreviousSelection !== currentDraft) {
-        setPromptDraft(promptKey, draftWithoutPreviousSelection)
+      if (!text) {
+        stagedSelectionKeyRef.current = undefined
+        if (draftWithoutPreviousSelection !== currentDraft) {
+          setPromptDraft(promptKey, draftWithoutPreviousSelection)
+        }
+        return
       }
-      return
-    }
 
-    const selectionKey = createMarkdownSelectionKey()
-    stagedSelectionKeyRef.current = selectionKey
-    setPromptDraft(
-      promptKey,
-      appendSelectionContextToDraft(draftWithoutPreviousSelection, {
-        source: "markdown",
-        text,
-        selectionKey,
-        path: props.path,
-        version,
-        ...(selection.headingPath ? { headingPath: selection.headingPath } : {}),
-      }),
-    )
-  }, [controller, props.path, setPromptDraft, version])
+      const selectionKey = createMarkdownSelectionKey()
+      stagedSelectionKeyRef.current = selectionKey
+      setPromptDraft(
+        promptKey,
+        appendSelectionContextToDraft(draftWithoutPreviousSelection, {
+          source: "markdown",
+          text,
+          selectionKey,
+          path: props.path,
+          version,
+          ...(selection.headingPath ? { headingPath: selection.headingPath } : {}),
+        }),
+      )
+    },
+    [controller, props.path, setPromptDraft, version],
+  )
 
   const setDocumentContentThemeMode = useCallback(
     (mode: string) => {
@@ -754,25 +739,10 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
         },
       },
     ],
-    [
-      conflict,
-      dirty,
-      exportPdf,
-      exporting,
-      loading,
-      reload,
-      save,
-      saving,
-    ],
+    [conflict, dirty, exportPdf, exporting, loading, reload, save, saving],
   )
 
-  const status = conflict
-    ? "Conflict"
-    : saving
-      ? "Saving..."
-      : dirty
-        ? "Unsaved"
-        : "Saved"
+  const status = conflict ? "Conflict" : saving ? "Saving..." : dirty ? "Unsaved" : "Saved"
   const subtitle = status === "Saved" ? props.path : `${props.path} · ${status}`
 
   return (

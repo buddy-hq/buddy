@@ -150,7 +150,9 @@ export function useWorkspaceFileOpen(
       }
 
       const result = await executeTarget(input, target)
-      return result?.action === "open" || result?.policyID === "already-open" || result === undefined
+      return (
+        result?.action === "open" || result?.policyID === "already-open" || result === undefined
+      )
     },
     [directory, executeTarget, resolvePlan],
   )

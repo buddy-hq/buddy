@@ -17,7 +17,11 @@ const originalFetch = globalThis.fetch
 const MERMAID_OBJECT_ID = "object_1"
 const MERMAID_REVISION_ID = "revision_1"
 
-function createMermaidObjectResult(input: { objectID: string; revisionID: string; source: string }) {
+function createMermaidObjectResult(input: {
+  objectID: string
+  revisionID: string
+  source: string
+}) {
   const ref = {
     kind: "mermaid",
     objectID: input.objectID,

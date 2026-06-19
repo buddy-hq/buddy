@@ -84,9 +84,7 @@ function WorkspaceQuestionSetPanelItem(props: {
               <span>{formatTimestamp(questionSet?.createdAt ?? props.objectStub.updatedAt)}</span>
             </div>
             {detailQuery.error ? (
-              <p className="text-xs text-icon-critical-base">
-                {stringifyError(detailQuery.error)}
-              </p>
+              <p className="text-xs text-icon-critical-base">{stringifyError(detailQuery.error)}</p>
             ) : null}
           </CardContent>
         </button>

@@ -13,14 +13,8 @@ import {
   type BuddyObjectResult,
 } from "../../../../objects"
 import SAVE_QUESTION_SET_DESCRIPTION from "./save-question-set.md"
-import {
-  QUESTION_SET_SUBAGENT_ID,
-  type PublicQuestionSetObject,
-} from "../types"
-import {
-  saveQuestionSetObject,
-  toPublicQuestionSetObject,
-} from "../storage/save-object"
+import { QUESTION_SET_SUBAGENT_ID, type PublicQuestionSetObject } from "../types"
+import { saveQuestionSetObject, toPublicQuestionSetObject } from "../storage/save-object"
 
 const GroupTypeSchema = z.enum(["quiz", "practice", "assessment"])
 

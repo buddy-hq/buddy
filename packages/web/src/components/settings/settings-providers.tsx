@@ -302,10 +302,7 @@ function ChatGptAccountCard(props: ChatGptAccountCardProps) {
         ) : windows.length > 0 ? (
           <div className="grid gap-2 sm:grid-cols-2">
             {windows.map((window) => (
-              <UsageWindow
-                key={`${window.windowSeconds}:${window.resetsAt}`}
-                window={window}
-              />
+              <UsageWindow key={`${window.windowSeconds}:${window.resetsAt}`} window={window} />
             ))}
           </div>
         ) : null}
@@ -578,10 +575,7 @@ export function ProvidersSettings() {
   async function handleRefreshChatGpt() {
     setChatGptRefreshing(true)
     try {
-      await Promise.allSettled([
-        refreshOpenAIUsage(queryClient),
-        refreshOpenAIModelAvailability(),
-      ])
+      await Promise.allSettled([refreshOpenAIUsage(queryClient), refreshOpenAIModelAvailability()])
       await invalidateAllProviderCatalogSnapshotQueries(queryClient)
     } finally {
       setChatGptRefreshing(false)

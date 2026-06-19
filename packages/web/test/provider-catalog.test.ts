@@ -284,17 +284,18 @@ describe("normalizeProviderCatalog", () => {
     }
 
     const optimistic = normalizeProviderCatalog(providers, {}, { status: "loading" })
-    expect(optimistic.providers[0]?.models.map((model) => model.id)).toEqual([
-      "gpt-5.4",
-      "gpt-5.5",
-    ])
+    expect(optimistic.providers[0]?.models.map((model) => model.id)).toEqual(["gpt-5.4", "gpt-5.5"])
 
-    const resolved = normalizeProviderCatalog(providers, {}, {
-      status: "ready",
-      modelIDs: ["gpt-5.5"],
-      fetchedAt: "2026-06-10T12:00:00.000Z",
-      refreshing: false,
-    })
+    const resolved = normalizeProviderCatalog(
+      providers,
+      {},
+      {
+        status: "ready",
+        modelIDs: ["gpt-5.5"],
+        fetchedAt: "2026-06-10T12:00:00.000Z",
+        refreshing: false,
+      },
+    )
     expect(resolved.providers[0]?.models.map((model) => model.id)).toEqual(["gpt-5.5"])
     expect(resolved.default.openai).toBe("gpt-5.5")
   })

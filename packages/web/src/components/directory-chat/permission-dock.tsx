@@ -70,11 +70,7 @@ function PermissionLabeledValue(props: PermissionLabeledValueProps) {
         data-scope={props.scope}
         data-request-id={props.requestID}
       >
-        {props.highlightPath ? (
-          <PermissionDockPathValue path={props.value} />
-        ) : (
-          props.value
-        )}
+        {props.highlightPath ? <PermissionDockPathValue path={props.value} /> : props.value}
       </code>
     </div>
   )

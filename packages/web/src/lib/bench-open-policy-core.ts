@@ -23,9 +23,7 @@ type BenchSurfaceDefaults = {
   layoutProfile: BenchLayoutProfileID
 }
 
-type BenchGeometryDirective =
-  | "preserve"
-  | "use-profile"
+type BenchGeometryDirective = "preserve" | "use-profile"
 
 type BenchTransition =
   | "enter"
@@ -121,7 +119,9 @@ const BENCH_SURFACE_DEFAULTS = {
   },
 } satisfies Record<BenchModePreferenceKey, Pick<BenchSurfaceDefaults, "mode">>
 
-function resolveWorkspaceFileLayoutProfile(target: Extract<BenchTarget, { type: "workspace-file" }>) {
+function resolveWorkspaceFileLayoutProfile(
+  target: Extract<BenchTarget, { type: "workspace-file" }>,
+) {
   if (target.viewer === "markdown") return BENCH_LAYOUT_PROFILE_DOCUMENT
   if (isWorkspaceReaderPath(target.path)) return BENCH_LAYOUT_PROFILE_READING
 
@@ -130,7 +130,11 @@ function resolveWorkspaceFileLayoutProfile(target: Extract<BenchTarget, { type: 
     mimeType: undefined,
     sizeBytes: undefined,
   })
-  if (media.renderMode === "image" || media.renderMode === "audio" || media.renderMode === "video") {
+  if (
+    media.renderMode === "image" ||
+    media.renderMode === "audio" ||
+    media.renderMode === "video"
+  ) {
     return BENCH_LAYOUT_PROFILE_VISUAL
   }
 
@@ -192,8 +196,7 @@ function resolveBenchOpenMode(input: {
     }
   }
 
-  const savedMode =
-    input.preferences.modeBySurface[benchModePreferenceKey(input.request.target)]
+  const savedMode = input.preferences.modeBySurface[benchModePreferenceKey(input.request.target)]
   if (savedMode) {
     return {
       mode: savedMode,

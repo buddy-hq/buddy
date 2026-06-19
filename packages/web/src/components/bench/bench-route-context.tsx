@@ -35,9 +35,7 @@ type BenchSetModeRequest = {
   origin: "user" | "agent"
 }
 
-type BenchFloatingChatState =
-  | "open"
-  | "minimized"
+type BenchFloatingChatState = "open" | "minimized"
 
 type BenchRuntimeState = {
   directory: string
@@ -52,20 +50,21 @@ type BenchRuntimeState = {
 type BenchSurfaceRegistration = {
   target: BenchTarget
   provider: BenchContextProvider
-  leaveGuard?: (input: BenchLeaveGuardInput) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>
+  leaveGuard?: (
+    input: BenchLeaveGuardInput,
+  ) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>
 }
 
 type BenchRouteContextValue = {
   state: BenchRuntimeState
   setMode(input: BenchSetModeRequest): void
-  setFloatingChatState(input: {
-    state: BenchFloatingChatState
-    origin: "user"
-  }): void
+  setFloatingChatState(input: { state: BenchFloatingChatState; origin: "user" }): void
   registerSurface(input: {
     target: BenchTarget
     contextProvider: BenchContextProvider
-    leaveGuard?: (input: BenchLeaveGuardInput) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>
+    leaveGuard?: (
+      input: BenchLeaveGuardInput,
+    ) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>
   }): () => void
   flushContext(input: { sessionID: string }): Promise<void>
   publishCurrent(): Promise<void>
@@ -146,10 +145,7 @@ export function BenchRouteContextProvider(props: {
   activeSessionID: string | undefined
   fallbackProvider: BenchContextProvider
   setMode(input: BenchSetModeRequest): void
-  setFloatingChatState(input: {
-    state: BenchFloatingChatState
-    origin: "user"
-  }): void
+  setFloatingChatState(input: { state: BenchFloatingChatState; origin: "user" }): void
   children: ReactNode
 }) {
   const [registration, setRegistration] = useState<BenchSurfaceRegistration | undefined>(undefined)
@@ -204,7 +200,7 @@ export function BenchRouteContextProvider(props: {
       target: BenchTarget
       contextProvider: BenchContextProvider
       leaveGuard?: (
-        input: BenchLeaveGuardInput
+        input: BenchLeaveGuardInput,
       ) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>
     }) => {
       const nextRegistration = {
@@ -313,7 +309,9 @@ export function useBenchRouteContext() {
 
 export function useRegisterBenchContextProvider(
   provider: BenchContextProvider,
-  leaveGuard?: (input: BenchLeaveGuardInput) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>,
+  leaveGuard?: (
+    input: BenchLeaveGuardInput,
+  ) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>,
 ): void {
   const benchContext = useBenchRouteContext()
   const registerSurface = benchContext.registerSurface
@@ -330,8 +328,7 @@ export function useRegisterBenchContextProvider(
     [],
   )
   const registeredLeaveGuard = useCallback(
-    (input: BenchLeaveGuardInput) =>
-      leaveGuardRef.current?.(input) ?? allowBenchLeave(),
+    (input: BenchLeaveGuardInput) => leaveGuardRef.current?.(input) ?? allowBenchLeave(),
     [],
   )
 

@@ -264,7 +264,9 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
       } else {
         await addResource(readyDirectory, { sourcePath: normalizedPath })
       }
-      await queryClient.invalidateQueries({ queryKey: resourcesQueryOptions(readyDirectory).queryKey })
+      await queryClient.invalidateQueries({
+        queryKey: resourcesQueryOptions(readyDirectory).queryKey,
+      })
     } catch (error) {
       setProcessingError(stringifyError(error))
       toast.error(stringifyError(error))
@@ -395,7 +397,10 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   }
 
   return readyDirectory && normalizedPath ? (
-    <div data-component="directory-chat-reading-page" className="flex h-full min-h-0 w-full flex-col">
+    <div
+      data-component="directory-chat-reading-page"
+      className="flex h-full min-h-0 w-full flex-col"
+    >
       {canProcessResource || processing || processingError ? (
         <div className="shrink-0 border-b border-border-base/70 bg-surface-base px-3 py-2 text-xs text-text-weak">
           <div className="flex flex-wrap items-center gap-2">
@@ -429,46 +434,46 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
         </div>
       ) : null}
       <div className="min-h-0 flex-1">
-      <DirectoryChatReadingReaderPane
-        directory={readyDirectory}
-        resourceName={resourceName}
-        resourcePath={normalizedPath}
-        objectID={resourceRecord?.objectID}
-        coverRelpath={resourceRecord?.coverRelpath}
-        coverExtension={resourceFileExtensionFromFormat(resourceRecord?.format ?? "")}
-        resourceStatus={resourceRecord?.status}
-        onLocationChange={(location) => {
-          updateActiveReadingResourceLocation(readyDirectory, {
-            cfi: location.cfi,
-            index: location.index,
-            fraction: location.fraction,
-            locationLabel: location.locationLabel,
-            tocLabel: location.tocLabel,
-            pageLabel: location.pageLabel,
-            currentPassageText: location.currentPassageText,
-          })
-          if (location.tocLabel) {
-            appendReadingTrailEntry(readyDirectory, {
-              tocLabel: location.tocLabel,
+        <DirectoryChatReadingReaderPane
+          directory={readyDirectory}
+          resourceName={resourceName}
+          resourcePath={normalizedPath}
+          objectID={resourceRecord?.objectID}
+          coverRelpath={resourceRecord?.coverRelpath}
+          coverExtension={resourceFileExtensionFromFormat(resourceRecord?.format ?? "")}
+          resourceStatus={resourceRecord?.status}
+          onLocationChange={(location) => {
+            updateActiveReadingResourceLocation(readyDirectory, {
               cfi: location.cfi,
+              index: location.index,
               fraction: location.fraction,
+              locationLabel: location.locationLabel,
+              tocLabel: location.tocLabel,
+              pageLabel: location.pageLabel,
+              currentPassageText: location.currentPassageText,
             })
-          }
-        }}
-        onChatSelection={(selection) => {
-          stageReadingSelection(selection)
-        }}
-        onChatSelectionRemoved={(selectionKey) => {
-          removeStagedReadingSelection(selectionKey)
-        }}
-        onAnnotationsChange={(annotations) => {
-          const summary = annotations.slice(-10).map((annotation) => {
-            const note = annotation.note?.trim()
-            return note ? { text: annotation.text ?? "", note } : { text: annotation.text ?? "" }
-          })
-          setActiveReadingAnnotationSummary(readyDirectory, summary)
-        }}
-      />
+            if (location.tocLabel) {
+              appendReadingTrailEntry(readyDirectory, {
+                tocLabel: location.tocLabel,
+                cfi: location.cfi,
+                fraction: location.fraction,
+              })
+            }
+          }}
+          onChatSelection={(selection) => {
+            stageReadingSelection(selection)
+          }}
+          onChatSelectionRemoved={(selectionKey) => {
+            removeStagedReadingSelection(selectionKey)
+          }}
+          onAnnotationsChange={(annotations) => {
+            const summary = annotations.slice(-10).map((annotation) => {
+              const note = annotation.note?.trim()
+              return note ? { text: annotation.text ?? "", note } : { text: annotation.text ?? "" }
+            })
+            setActiveReadingAnnotationSummary(readyDirectory, summary)
+          }}
+        />
       </div>
     </div>
   ) : null

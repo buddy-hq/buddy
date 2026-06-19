@@ -22,10 +22,7 @@ export function readSuppressedBenchAutoOpenKey(
   return suppressedBenchAutoOpenKeyByDirectoryAndPolicy.get(stateKey(directory, policyID))
 }
 
-export function clearSuppressedBenchAutoOpen(
-  directory: string,
-  policyID: BenchAutoOpenPolicyID,
-) {
+export function clearSuppressedBenchAutoOpen(directory: string, policyID: BenchAutoOpenPolicyID) {
   if (!directory) return
   suppressedBenchAutoOpenKeyByDirectoryAndPolicy.delete(stateKey(directory, policyID))
 }

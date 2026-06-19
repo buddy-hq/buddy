@@ -142,7 +142,9 @@ describe("freeform figure tools", () => {
     expect(output.revisionID).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/)
     expect(output.relativePath).toBe(freeformFigureRelativePath(output.objectID, output.revisionID))
     expect(output.alt).toBe("Custom SVG figure")
-    expect(output.markdown).toContain(`/api/objects/freeform-figure/${output.objectID}/raw?directory=`)
+    expect(output.markdown).toContain(
+      `/api/objects/freeform-figure/${output.objectID}/raw?directory=`,
+    )
     expect(svg).toContain("<svg")
     expect(svg).toContain("</svg>")
     expect(svg).toContain("<path")

@@ -6,10 +6,7 @@ import z from "zod"
 import { ModelID, ProviderID } from "@buddy/opencode-adapter/id"
 import type { MessageV2 } from "@buddy/opencode-adapter/message"
 import { Provider } from "@buddy/opencode-adapter/provider"
-import {
-  RESOURCE_PACK_STATUS_READY,
-  estimateTokenCountFromText,
-} from "../../../../resource-packs"
+import { RESOURCE_PACK_STATUS_READY, estimateTokenCountFromText } from "../../../../resource-packs"
 import { resolveResourceObjectByKey } from "../../../../resources/resource-registry-service"
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
 
@@ -41,7 +38,9 @@ const ResourceIngestFullTextParameters = z.object({
   resourceKey: z
     .string()
     .min(1)
-    .describe("Resource objectID or alias to ingest into context from its prepared full-text file."),
+    .describe(
+      "Resource objectID or alias to ingest into context from its prepared full-text file.",
+    ),
 })
 
 const ActiveModelSchema = z.object({
@@ -207,9 +206,7 @@ function resolveContextBudget(input: {
 }) {
   const inputWindow = input.model.limit.input ?? input.model.limit.context
   const contextWindow = input.model.limit.context
-  const reserve = clampPostFullTextIngestReserve(
-    inputWindow * POST_FULL_TEXT_INGEST_RESERVE_RATIO,
-  )
+  const reserve = clampPostFullTextIngestReserve(inputWindow * POST_FULL_TEXT_INGEST_RESERVE_RATIO)
   const latestAssistantTotal = lastAssistantTokenTotal(input.messages)
   const messageHistoryEstimate = estimateMessageHistoryTokens(input.messages)
   const liveUsageEstimate = Math.max(latestAssistantTotal, messageHistoryEstimate)
@@ -291,7 +288,10 @@ export const ingestFullTextTool = createBuddyTool({
       throw new Error("Could not resolve the active model for full-text ingestion.")
     }
 
-    const fullTextSource = await fs.readFile(path.resolve(ctx.directory, resource.fullTextPath), "utf8")
+    const fullTextSource = await fs.readFile(
+      path.resolve(ctx.directory, resource.fullTextPath),
+      "utf8",
+    )
     const parsed = matter(fullTextSource)
     const fullText = parsed.content.trim()
     if (!fullText) {

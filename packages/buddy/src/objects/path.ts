@@ -58,11 +58,7 @@ function kindIndexRoot(directory: string, kind: BuddyObjectKind): string {
   return path.join(kindRoot(directory, kind), OBJECT_INDEX_DIRECTORY_NAME)
 }
 
-function objectDirectory(
-  directory: string,
-  kind: BuddyObjectKind,
-  objectID: string,
-): string {
+function objectDirectory(directory: string, kind: BuddyObjectKind, objectID: string): string {
   return path.join(kindRoot(directory, kind), sanitizeObjectID(objectID))
 }
 

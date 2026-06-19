@@ -211,7 +211,10 @@ async function createStoredFlashcardDeck(directory: string): Promise<FlashcardDe
   return saved.deck
 }
 
-async function saveFlashcardDeckWithTool(directory: string, sessionID: string): Promise<{
+async function saveFlashcardDeckWithTool(
+  directory: string,
+  sessionID: string,
+): Promise<{
   result: BuddyObjectResult
   ref: BuddyObjectRef
   revisionID: string
@@ -413,9 +416,9 @@ describe("flashcard tools and routes", () => {
     await expect(
       fs.readFile(flashcardReviewFile(project.path, deck.objectID, reviewID), "utf8"),
     ).resolves.toContain(reviewID)
-    await expect(fs.access(pendingFlashcardReviewFile(project.path, deck.objectID))).rejects.toMatchObject(
-      { code: "ENOENT" },
-    )
+    await expect(
+      fs.access(pendingFlashcardReviewFile(project.path, deck.objectID)),
+    ).rejects.toMatchObject({ code: "ENOENT" })
   })
 
   test("rejects malformed cloze notes that contain no cloze markers", async () => {

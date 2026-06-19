@@ -306,26 +306,22 @@ describe("command transcript display", () => {
       fn: () => OpenCodeSession.messages({ sessionID }),
     })
 
-    expect(messages[0]?.parts).toContainEqual(
-      {
-        id: partID,
-        sessionID,
-        messageID,
-        type: "text",
-        ignored: true,
-        text: "/whiteboard-authoring make the flowchart clearer",
-      },
-    )
-    expect(messages[0]?.parts).toContainEqual(
-      {
-        id: contextPartID,
-        sessionID,
-        messageID,
-        type: "text",
-        synthetic: true,
-        text: expandedText,
-      },
-    )
+    expect(messages[0]?.parts).toContainEqual({
+      id: partID,
+      sessionID,
+      messageID,
+      type: "text",
+      ignored: true,
+      text: "/whiteboard-authoring make the flowchart clearer",
+    })
+    expect(messages[0]?.parts).toContainEqual({
+      id: contextPartID,
+      sessionID,
+      messageID,
+      type: "text",
+      synthetic: true,
+      text: expandedText,
+    })
   })
 
   test("persists compact display for subtask-only commands", async () => {
@@ -388,15 +384,13 @@ describe("command transcript display", () => {
     })
 
     expect(messages[0]?.parts).toContainEqual(subtaskPart)
-    expect(messages[0]?.parts).toContainEqual(
-      {
-        id: displayPartID,
-        sessionID,
-        messageID,
-        type: "text",
-        ignored: true,
-        text: "/review focus on transcript display",
-      },
-    )
+    expect(messages[0]?.parts).toContainEqual({
+      id: displayPartID,
+      sessionID,
+      messageID,
+      type: "text",
+      ignored: true,
+      text: "/review focus on transcript display",
+    })
   })
 })

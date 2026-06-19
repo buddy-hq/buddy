@@ -51,11 +51,13 @@ async function readFreeformFigureObject(input: {
 }> {
   const manifest = BuddyObjectManifestSchema.safeExtend({
     summary: FreeformFigureObjectSummarySchema,
-  }).parse(await readObjectManifest({
-    directory: input.directory,
-    kind: BUDDY_OBJECT_KINDS.freeformFigure,
-    objectID: input.objectID,
-  }))
+  }).parse(
+    await readObjectManifest({
+      directory: input.directory,
+      kind: BUDDY_OBJECT_KINDS.freeformFigure,
+      objectID: input.objectID,
+    }),
+  )
   const revisionID = input.revisionID ?? manifest.currentRevisionID
   if (!revisionID) {
     throw new Error(`Freeform figure object '${input.objectID}' has no current revision.`)
@@ -175,11 +177,13 @@ registerBuddyObjectKind({
   kind: BUDDY_OBJECT_KINDS.freeformFigure,
   manifestSchema: freeformFigureManifestSchema,
   async readManifest(input): Promise<FreeformFigureObjectManifest> {
-    return freeformFigureManifestSchema.parse(await readObjectManifest({
-      directory: input.directory,
-      kind: BUDDY_OBJECT_KINDS.freeformFigure,
-      objectID: input.ref.objectID,
-    }))
+    return freeformFigureManifestSchema.parse(
+      await readObjectManifest({
+        directory: input.directory,
+        kind: BUDDY_OBJECT_KINDS.freeformFigure,
+        objectID: input.ref.objectID,
+      }),
+    )
   },
   async readView(input): Promise<BuddyObjectViewResponse> {
     if (input.viewID !== FREEFORM_FIGURE_RENDERED_VIEW_ID) {

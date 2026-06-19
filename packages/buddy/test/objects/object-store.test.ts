@@ -66,11 +66,7 @@ describe("managed object store", () => {
       alt: "Tombstone resolution",
       source: "graph TD\nA-->B",
     })
-    const tombstonePath = BuddyObjectPath.tombstoneFile(
-      project.path,
-      "figure",
-      object.objectID,
-    )
+    const tombstonePath = BuddyObjectPath.tombstoneFile(project.path, "figure", object.objectID)
     await fs.mkdir(BuddyObjectPath.objectDirectory(project.path, "figure", object.objectID), {
       recursive: true,
     })

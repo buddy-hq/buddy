@@ -1,9 +1,5 @@
 import { createHash } from "node:crypto"
-import {
-  BUDDY_OBJECT_KINDS,
-  BuddyObjectPath,
-  generateObjectID,
-} from "../../../../../objects"
+import { BUDDY_OBJECT_KINDS, BuddyObjectPath, generateObjectID } from "../../../../../objects"
 import { RenderFreeformFigureOutputSchema, type RenderFreeformFigureOutput } from "../types"
 import {
   buildFreeformFigureObjectRawUrl,

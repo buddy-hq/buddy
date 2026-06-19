@@ -28,11 +28,9 @@ const RenderMermaidInputSchema = z.object({
   source: nonEmptyString.describe(
     "Mermaid source to render as a fresh diagram or repaired diagram.",
   ),
-  repairOfObjectID: BuddyObjectIDSchema
-    .optional()
-    .describe(
-      "Optional repair target. Only pass this when repairing or superseding an existing Mermaid object ID copied verbatim from a prior failed diagram or repair prompt. Omit for every new diagram. Never invent IDs, use placeholders, or use repeated-character sample IDs.",
-    ),
+  repairOfObjectID: BuddyObjectIDSchema.optional().describe(
+    "Optional repair target. Only pass this when repairing or superseding an existing Mermaid object ID copied verbatim from a prior failed diagram or repair prompt. Omit for every new diagram. Never invent IDs, use placeholders, or use repeated-character sample IDs.",
+  ),
 })
 
 type RenderMermaidInput = z.infer<typeof RenderMermaidInputSchema>
@@ -213,9 +211,7 @@ const renderMermaidTool = createBuddyTool({
       source: parsed.source,
       ...(previousObjectID ? { repairOfObjectID: previousObjectID } : {}),
       ...(previousObjectID && autoRepairRequestID ? { autoRepairRequestID } : {}),
-      ...(autoRepairRequest
-        ? { expectedSupersededRevisionID: autoRepairRequest.revisionID }
-        : {}),
+      ...(autoRepairRequest ? { expectedSupersededRevisionID: autoRepairRequest.revisionID } : {}),
     })
 
     const buddyObjectResult = buildRenderMermaidObjectResult({

@@ -198,7 +198,6 @@ export function FlashcardAuthorTaskCard({
           </>
         ) : null}
       </SubagentCard>
-
     </>
   )
 }

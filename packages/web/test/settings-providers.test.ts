@@ -10,10 +10,7 @@ import {
   resolveProviderListRowControls,
   resolveRecommendedProviderCards,
 } from "../src/components/settings/settings-providers"
-import {
-  clearOpenAIUsageQuery,
-  openAIUsageQueryKeys,
-} from "../src/state/openai-usage-query"
+import { clearOpenAIUsageQuery, openAIUsageQueryKeys } from "../src/state/openai-usage-query"
 import { createProviderInfo } from "./test-utils"
 
 describe("resolveRecommendedProviderCards", () => {

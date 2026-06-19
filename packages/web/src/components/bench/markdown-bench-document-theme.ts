@@ -4,10 +4,7 @@ import {
   createMermaidThemeConfig,
   type MermaidThemeConfig,
 } from "@/components/chat/tools/render/mermaid/lib/theme"
-import {
-  MARKDOWN_PDF_PRINT_PALETTE,
-  MARKDOWN_PDF_PRINT_TYPE,
-} from "@/lib/markdown-pdf-export"
+import { MARKDOWN_PDF_PRINT_PALETTE, MARKDOWN_PDF_PRINT_TYPE } from "@/lib/markdown-pdf-export"
 
 export type MarkdownBenchContentThemeMode = "light" | "dark" | "print"
 

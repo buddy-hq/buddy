@@ -68,11 +68,7 @@ export function useFoliateBook(
     onOpenExternalLink?: (href: string) => void
     onError?: (error: Error) => void
   }>,
-  applyReaderPreferences: (
-    view: FoliateView,
-    theme: any,
-    preferences: any,
-  ) => void,
+  applyReaderPreferences: (view: FoliateView, theme: any, preferences: any) => void,
   getThemeDefinition: (themeId: string) => any,
   drawAnnotation: (event: CustomEvent<FoliateDrawAnnotationEventDetail>) => void,
   openSelectionToolbar: (action: {

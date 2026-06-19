@@ -83,9 +83,7 @@ async function readTodayObjectReviewRecords(
     entries
       .filter(
         (entry) =>
-          entry.isFile() &&
-          entry.name.endsWith(".json") &&
-          entry.name !== "pending-review.json",
+          entry.isFile() && entry.name.endsWith(".json") && entry.name !== "pending-review.json",
       )
       .map((entry) => readJsonFile(path.join(reviewDirectory, entry.name), ReviewRecordSchema)),
   )
@@ -100,7 +98,10 @@ async function readFlashcardObjectReviewedTodayCounts(
   return countReviewedToday(await readTodayObjectReviewRecords(directory, objectID))
 }
 
-async function readFlashcardDeckObject(directory: string, objectID: string): Promise<FlashcardDeck> {
+async function readFlashcardDeckObject(
+  directory: string,
+  objectID: string,
+): Promise<FlashcardDeck> {
   return readObjectJsonFile({
     directory,
     kind: BUDDY_OBJECT_KINDS.flashcardDeck,
@@ -110,11 +111,7 @@ async function readFlashcardDeckObject(directory: string, objectID: string): Pro
   })
 }
 
-export {
-  readFlashcardDeckObject,
-  readFlashcardObjectReviewedTodayCounts,
-  todayISO,
-}
+export { readFlashcardDeckObject, readFlashcardObjectReviewedTodayCounts, todayISO }
 
 registerBuddyObjectKind({
   kind: BUDDY_OBJECT_KINDS.flashcardDeck,
@@ -124,11 +121,13 @@ registerBuddyObjectKind({
   async readManifest(input) {
     return BuddyObjectManifestSchema.safeExtend({
       summary: FlashcardDeckObjectSummarySchema,
-    }).parse(await readObjectManifest({
-      directory: input.directory,
-      kind: BUDDY_OBJECT_KINDS.flashcardDeck,
-      objectID: input.ref.objectID,
-    }))
+    }).parse(
+      await readObjectManifest({
+        directory: input.directory,
+        kind: BUDDY_OBJECT_KINDS.flashcardDeck,
+        objectID: input.ref.objectID,
+      }),
+    )
   },
   async readView(input): Promise<BuddyObjectViewResponse> {
     if (input.viewID !== FLASHCARD_DECK_OBJECT_VIEW_ID) {

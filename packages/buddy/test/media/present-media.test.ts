@@ -109,12 +109,12 @@ describe("present media", () => {
     expect(result.output).toContain("Presented 1 media item")
     expect(result.metadata?.buddyObjectResult?.primaryRef.kind).toBe("media-presentation")
     expect(result.metadata?.buddyObjectResult?.primaryRef.objectID).toBeTruthy()
-    expect(
-      result.metadata?.buddyObjectResult?.presentations[0]?.data.items[0]?.mediaType,
-    ).toBe("pdf")
-    expect(
-      result.metadata?.buddyObjectResult?.presentations[0]?.data.items[0]?.mimeType,
-    ).toBe("application/pdf")
+    expect(result.metadata?.buddyObjectResult?.presentations[0]?.data.items[0]?.mediaType).toBe(
+      "pdf",
+    )
+    expect(result.metadata?.buddyObjectResult?.presentations[0]?.data.items[0]?.mimeType).toBe(
+      "application/pdf",
+    )
   })
 
   test("accepts an absolute local image path outside the workspace", async () => {
@@ -141,9 +141,7 @@ describe("present media", () => {
     expect(output.output.items[0]?.rawUrl?.startsWith("/api/objects/media-presentation/")).toBe(
       true,
     )
-    expect(output.output.items[0]?.rawUrl).toContain(
-      `/${output.output.objectID}/raw/media_item_1`,
-    )
+    expect(output.output.items[0]?.rawUrl).toContain(`/${output.output.objectID}/raw/media_item_1`)
     expect(output.output.items[0]?.rawUrl?.includes(encodeURIComponent(localPath))).toBe(false)
   })
 

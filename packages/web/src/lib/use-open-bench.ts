@@ -60,8 +60,7 @@ function useOpenBench(): OpenBench {
         defaults,
         preferences: readBenchPresentationPreferences(),
         autoOpenSuppressed:
-          request.autoOpen !== null &&
-          request.autoOpen.eventKey === suppressedAutoOpenKey,
+          request.autoOpen !== null && request.autoOpen.eventKey === suppressedAutoOpenKey,
       })
 
       if (

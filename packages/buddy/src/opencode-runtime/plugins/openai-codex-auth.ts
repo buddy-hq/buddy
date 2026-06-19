@@ -372,10 +372,7 @@ function stopOAuthServer() {
   oauthServer = undefined
 }
 
-function waitForOAuthCallback(
-  pkce: PkceCodes,
-  state: string,
-): Promise<OpenAICodexTokenResponse> {
+function waitForOAuthCallback(pkce: PkceCodes, state: string): Promise<OpenAICodexTokenResponse> {
   return new Promise((resolve, reject) => {
     rejectPendingOAuth("superseded", SUPERSEDED_AUTHORIZATION_ERROR)
 
@@ -516,20 +513,17 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
                     authorization_code: string
                     code_verifier: string
                   }
-                  const tokenResponse = await fetch(
-                    `${OPENAI_CODEX_AUTH_ISSUER}/oauth/token`,
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                      body: new URLSearchParams({
-                        grant_type: "authorization_code",
-                        code: data.authorization_code,
-                        redirect_uri: `${OPENAI_CODEX_AUTH_ISSUER}/deviceauth/callback`,
-                        client_id: OPENAI_CODEX_CLIENT_ID,
-                        code_verifier: data.code_verifier,
-                      }).toString(),
-                    },
-                  )
+                  const tokenResponse = await fetch(`${OPENAI_CODEX_AUTH_ISSUER}/oauth/token`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: new URLSearchParams({
+                      grant_type: "authorization_code",
+                      code: data.authorization_code,
+                      redirect_uri: `${OPENAI_CODEX_AUTH_ISSUER}/deviceauth/callback`,
+                      client_id: OPENAI_CODEX_CLIENT_ID,
+                      code_verifier: data.code_verifier,
+                    }).toString(),
+                  })
 
                   if (!tokenResponse.ok) {
                     throw new Error(`Token exchange failed: ${tokenResponse.status}`)
