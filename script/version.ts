@@ -5,10 +5,7 @@ import os from "node:os"
 import path from "node:path"
 import { Script } from "@buddy/script"
 import { buildNotes, getLatestRelease } from "./changelog.ts"
-
-function releaseRepo() {
-  return process.env.BUDDY_REPO || process.env.GITHUB_REPOSITORY || "prashantbhudwal/buddy"
-}
+import { releaseRepository, sourceRepository } from "./release-repositories"
 
 function currentTag() {
   if (process.env.GITHUB_REF_TYPE !== "tag") {
@@ -45,14 +42,52 @@ if (!tagRef) {
   }
 }
 
-const repo = releaseRepo()
+const releaseRepo = releaseRepository()
+const sourceRepo = sourceRepository()
 const tag = `v${Script.version}`
 
 if (tagRef && tagRef !== tag) {
   throw new Error(`Tag ref ${tagRef} does not match computed version ${tag}`)
 }
 
-const existing = await $`gh release view ${tag} --repo ${repo}`.quiet().nothrow()
+async function releaseTargetSha() {
+  return (
+    process.env.GITHUB_SHA?.trim() ||
+    (await $`git rev-parse HEAD`.text().then((output) => output.trim()))
+  )
+}
+
+async function ensureSourceTag() {
+  if (tagRef) return
+
+  const target = await releaseTargetSha()
+  const existingTag = await $`git ls-remote origin ${`refs/tags/${tag}`}`.text()
+  const existingSha = existingTag.trim().split(/\s+/)[0]
+  if (existingSha) {
+    if (existingSha === target) return
+    throw new Error(`Source tag ${tag} already exists at ${existingSha}, expected ${target}`)
+  }
+
+  await $`git tag ${tag} ${target}`
+  await $`git push origin ${`refs/tags/${tag}`}`
+}
+
+async function createRelease(file: string) {
+  if (releaseRepo === sourceRepo) {
+    const target = await releaseTargetSha()
+    if (tagRef) {
+      await $`gh release create ${tag} -d --title ${tag} --notes-file ${file} --repo ${releaseRepo}`
+    } else {
+      await $`gh release create ${tag} -d --title ${tag} --notes-file ${file} --target ${target} --repo ${releaseRepo}`
+    }
+    return
+  }
+
+  await ensureSourceTag()
+  await $`gh release create ${tag} -d --title ${tag} --notes-file ${file} --repo ${releaseRepo}`
+}
+
+const existing = await $`gh release view ${tag} --repo ${releaseRepo}`.quiet().nothrow()
 let release: {
   databaseId: number
   isDraft?: boolean
@@ -61,7 +96,7 @@ let release: {
 
 if (existing.exitCode === 0) {
   release =
-    (await $`gh release view ${tag} --json tagName,databaseId,isDraft --repo ${repo}`.json()) as {
+    (await $`gh release view ${tag} --json tagName,databaseId,isDraft --repo ${releaseRepo}`.json()) as {
       databaseId: number
       isDraft: boolean
       tagName: string
@@ -70,6 +105,7 @@ if (existing.exitCode === 0) {
   if (!release.isDraft) {
     throw new Error(`Release ${tag} already exists`)
   }
+  await ensureSourceTag()
 } else {
   const previous = await getLatestRelease(undefined)
   const notes = await buildNotes(previous, "HEAD")
@@ -80,13 +116,9 @@ if (existing.exitCode === 0) {
   )
   await Bun.write(file, body)
 
-  if (tagRef) {
-    await $`gh release create ${tag} -d --title ${tag} --notes-file ${file} --repo ${repo}`
-  } else {
-    await $`gh release create ${tag} -d --title ${tag} --notes-file ${file} --target ${process.env.GITHUB_SHA || "HEAD"} --repo ${repo}`
-  }
+  await createRelease(file)
 
-  release = (await $`gh release view ${tag} --json tagName,databaseId --repo ${repo}`.json()) as {
+  release = (await $`gh release view ${tag} --json tagName,databaseId --repo ${releaseRepo}`.json()) as {
     databaseId: number
     tagName: string
   }
@@ -96,7 +128,9 @@ const output = [
   `version=${Script.version}`,
   `release=${release.databaseId}`,
   `tag=${release.tagName}`,
-  `repo=${repo}`,
+  `release_repo=${releaseRepo}`,
+  `repo=${releaseRepo}`,
+  `source_repo=${sourceRepo}`,
 ]
 
 if (process.env.GITHUB_OUTPUT) {

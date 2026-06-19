@@ -61,14 +61,16 @@ jobs:
       - id: version
         run: bun ./script/version.ts
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
           BUDDY_BUMP: ${{ inputs.bump }}
           BUDDY_VERSION: ${{ inputs.version }}
     outputs:
       version: ${{ steps.version.outputs.version }}
       release: ${{ steps.version.outputs.release }}
       tag: ${{ steps.version.outputs.tag }}
-      repo: ${{ steps.version.outputs.repo }}
+      release_repo: ${{ steps.version.outputs.release_repo }}
+      repo: ${{ steps.version.outputs.release_repo }}
+      source_repo: ${{ steps.version.outputs.source_repo }}
 
   build-electron-app:
     runs-on: ubuntu-latest
@@ -100,6 +102,7 @@ jobs:
         with:
           name: electron-app-out
           path: packages/desktop-electron/out
+          retention-days: 1
 
   build-sidecar-macos-arm64:
     runs-on: ubuntu-latest
@@ -127,6 +130,7 @@ jobs:
         with:
           name: buddy-sidecar-aarch64-apple-darwin
           path: packages/buddy/dist/release-sidecars
+          retention-days: 1
 
   build-sidecar-macos-x64:
     runs-on: ubuntu-latest
@@ -154,6 +158,7 @@ jobs:
         with:
           name: buddy-sidecar-x86_64-apple-darwin
           path: packages/buddy/dist/release-sidecars
+          retention-days: 1
 
   build-sidecar-windows-x64:
     runs-on: ubuntu-latest
@@ -181,6 +186,7 @@ jobs:
         with:
           name: buddy-sidecar-x86_64-pc-windows-msvc
           path: packages/buddy/dist/release-sidecars
+          retention-days: 1
 
   smoke-compiled-sidecar:
     runs-on: ubuntu-latest
@@ -299,6 +305,7 @@ jobs:
             packages/desktop-electron/dist/*.exe
             packages/desktop-electron/dist/*.blockmap
           compression-level: 0
+          retention-days: 1
 
       - name: Upload latest yml
         uses: actions/upload-artifact@v6
@@ -307,6 +314,7 @@ jobs:
           path: |
             packages/desktop-electron/dist/latest*.yml
           if-no-files-found: ignore
+          retention-days: 1
 
   build-electron-macos-x64:
     needs:
@@ -396,6 +404,7 @@ jobs:
             packages/desktop-electron/dist/*.exe
             packages/desktop-electron/dist/*.blockmap
           compression-level: 0
+          retention-days: 1
 
       - name: Upload latest yml
         uses: actions/upload-artifact@v6
@@ -404,6 +413,7 @@ jobs:
           path: |
             packages/desktop-electron/dist/latest*.yml
           if-no-files-found: ignore
+          retention-days: 1
 
   build-electron-windows-x64:
     needs:
@@ -493,6 +503,7 @@ jobs:
             packages/desktop-electron/dist/*.exe
             packages/desktop-electron/dist/*.blockmap
           compression-level: 0
+          retention-days: 1
 
       - name: Upload latest yml
         uses: actions/upload-artifact@v6
@@ -501,6 +512,7 @@ jobs:
           path: |
             packages/desktop-electron/dist/latest*.yml
           if-no-files-found: ignore
+          retention-days: 1
 
   upload-electron-release:
     needs:
@@ -542,8 +554,8 @@ jobs:
       - name: Upload packaged binaries to release
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.repo }}
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}
           BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
         run: |
           set -euo pipefail
@@ -557,8 +569,8 @@ jobs:
       - name: Finalize and upload latest yml
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ needs.version.outputs.repo }}
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          GH_REPO: ${{ needs.version.outputs.release_repo }}
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
           LATEST_YML_DIR: ${{ github.workspace }}/latest-yml
           ELECTRON_DIST_DIR: ${{ github.workspace }}/electron-dist
@@ -572,8 +584,8 @@ jobs:
       - name: Finalize and upload latest mac json
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ needs.version.outputs.repo }}
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          GH_REPO: ${{ needs.version.outputs.release_repo }}
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
           LATEST_YML_DIR: ${{ github.workspace }}/latest-yml
           ELECTRON_DIST_DIR: ${{ github.workspace }}/electron-dist
@@ -587,8 +599,8 @@ jobs:
       - name: Finalize and upload recovery policy
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ needs.version.outputs.repo }}
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          GH_REPO: ${{ needs.version.outputs.release_repo }}
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
@@ -642,8 +654,8 @@ jobs:
       - id: advanced-math-asset
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.repo }}
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}
           BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
           BUDDY_RUST_TARGET: ${{ matrix.settings.target }}
           RUNTIME_VERSION: ${{ steps.runtime-version.outputs.version }}
@@ -727,8 +739,8 @@ jobs:
 
       - shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.repo }}
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}
           BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
         run: |
           gh release upload "$BUDDY_RELEASE_TAG" \
@@ -762,8 +774,8 @@ jobs:
 
       - shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.repo }}
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}
           BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
         run: |
           set -euo pipefail
@@ -802,6 +814,7 @@ jobs:
 
       - run: bun ./script/publish.ts
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
           BUDDY_RELEASE: ${{ needs.version.outputs.release }}
+          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}

@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process"
 import { createInterface } from "node:readline/promises"
 import { stdin as input, stdout as output } from "node:process"
 import { buildNotes, getLatestRelease } from "./changelog.ts"
+import { releaseRepository, sourceRepository } from "./release-repositories"
 
 const ROOT_DIR = path.resolve(import.meta.dir, "..")
 const RELEASE_BRANCH = "main"
@@ -29,10 +30,6 @@ type WorkflowRun = {
   headBranch: string
   headSha: string
   url: string
-}
-
-function releaseRepo() {
-  return process.env.BUDDY_REPO || process.env.GITHUB_REPOSITORY || "prashantbhudwal/buddy"
 }
 
 function normalizeVersion(input: string) {
@@ -165,7 +162,7 @@ function ensureGithubAuth() {
 
 async function ensureReleaseSecrets() {
   printStep("Secrets", "Checking optional Electron signing/notarization secrets.")
-  const output = await $`gh secret list --repo ${releaseRepo()}`.cwd(ROOT_DIR).text()
+  const output = await $`gh secret list --repo ${sourceRepository()}`.cwd(ROOT_DIR).text()
   const names = new Set(
     output
       .split(/\r?\n/)
@@ -184,6 +181,12 @@ async function ensureReleaseSecrets() {
     "WINDOWS_CERTIFICATE",
     "WINDOWS_CERTIFICATE_PASSWORD",
   ]
+  const requiredSecrets = ["BUDDY_RELEASE_TOKEN"]
+
+  const missingRequired = requiredSecrets.filter((name) => !names.has(name))
+  if (missingRequired.length > 0) {
+    throw new Error(`Required release secrets not configured: ${missingRequired.join(", ")}`)
+  }
 
   const missing = optionalSecrets.filter((name) => !names.has(name))
   if (missing.length > 0) {
@@ -320,7 +323,7 @@ async function chooseVersion(rl: ReturnType<typeof createInterface>, fast = fals
 }
 
 async function loadRelease(tag: string) {
-  const existing = await $`gh release view ${tag} --repo ${releaseRepo()}`
+  const existing = await $`gh release view ${tag} --repo ${releaseRepository()}`
     .cwd(ROOT_DIR)
     .quiet()
     .nothrow()
@@ -329,7 +332,7 @@ async function loadRelease(tag: string) {
     return undefined
   }
 
-  return (await $`gh release view ${tag} --repo ${releaseRepo()} --json name,body,isDraft,url,tagName`
+  return (await $`gh release view ${tag} --repo ${releaseRepository()} --json name,body,isDraft,url,tagName`
     .cwd(ROOT_DIR)
     .json()) as ReleaseSummary
 }
@@ -427,26 +430,40 @@ async function upsertDraftRelease(
 ) {
   const tag = `v${version}`
   printStep("Draft Release", `Creating or updating draft release ${tag}.`)
+  const releaseRepo = releaseRepository()
+  const sourceRepo = sourceRepository()
 
   if (existingDraft?.isDraft) {
     if (notesPath) {
-      await $`gh release edit ${tag} --title ${title} --notes-file ${notesPath} --repo ${releaseRepo()}`.cwd(
+      await $`gh release edit ${tag} --title ${title} --notes-file ${notesPath} --repo ${releaseRepo}`.cwd(
         ROOT_DIR,
       )
     } else {
-      await $`gh release edit ${tag} --title ${title} --notes ${body} --repo ${releaseRepo()}`.cwd(
+      await $`gh release edit ${tag} --title ${title} --notes ${body} --repo ${releaseRepo}`.cwd(
         ROOT_DIR,
       )
     }
   } else {
     if (notesPath) {
-      await $`gh release create ${tag} -d --title ${title} --notes-file ${notesPath} --target ${targetSha} --repo ${releaseRepo()}`.cwd(
-        ROOT_DIR,
-      )
+      if (releaseRepo === sourceRepo) {
+        await $`gh release create ${tag} -d --title ${title} --notes-file ${notesPath} --target ${targetSha} --repo ${releaseRepo}`.cwd(
+          ROOT_DIR,
+        )
+      } else {
+        await $`gh release create ${tag} -d --title ${title} --notes-file ${notesPath} --repo ${releaseRepo}`.cwd(
+          ROOT_DIR,
+        )
+      }
     } else {
-      await $`gh release create ${tag} -d --title ${title} --notes ${body} --target ${targetSha} --repo ${releaseRepo()}`.cwd(
-        ROOT_DIR,
-      )
+      if (releaseRepo === sourceRepo) {
+        await $`gh release create ${tag} -d --title ${title} --notes ${body} --target ${targetSha} --repo ${releaseRepo}`.cwd(
+          ROOT_DIR,
+        )
+      } else {
+        await $`gh release create ${tag} -d --title ${title} --notes ${body} --repo ${releaseRepo}`.cwd(
+          ROOT_DIR,
+        )
+      }
     }
   }
 
@@ -467,7 +484,7 @@ function runRequiredGates() {
 async function waitForRunUrl(version: string, targetSha: string) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const runs =
-      (await $`gh run list --repo ${releaseRepo()} --workflow publish.yml --limit 10 --json displayTitle,headBranch,headSha,event,url,createdAt`
+      (await $`gh run list --repo ${sourceRepository()} --workflow publish.yml --limit 10 --json displayTitle,headBranch,headSha,event,url,createdAt`
         .cwd(ROOT_DIR)
         .json()) as WorkflowRun[]
 
@@ -502,7 +519,7 @@ async function dispatchRelease(version: string, targetSha: string) {
   printStep("Dispatch", `Triggering GitHub release workflow for v${version}.`)
 
   const dispatchOutput =
-    await $`gh workflow run publish.yml --repo ${releaseRepo()} -f ${`version=${version}`}`
+    await $`gh workflow run publish.yml --repo ${sourceRepository()} -f ${`version=${version}`}`
       .cwd(ROOT_DIR)
       .text()
       .then((output) => output.trim())
@@ -528,7 +545,7 @@ function runIdFromUrl(url: string) {
 
 function watchRun(runId: string) {
   printStep("Watch", `Watching GitHub Actions run ${runId}.`)
-  runCommand("gh", ["run", "watch", runId, "--repo", releaseRepo(), "--exit-status"])
+  runCommand("gh", ["run", "watch", runId, "--repo", sourceRepository(), "--exit-status"])
 }
 
 function syncTagsFromOrigin() {

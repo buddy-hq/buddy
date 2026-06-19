@@ -3,7 +3,7 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 $repo = if ([string]::IsNullOrWhiteSpace($env:BUDDY_RELEASE_REPO)) {
-  "prashantbhudwal/buddy"
+  "prashantbhudwal/buddy-releases"
 } else {
   $env:BUDDY_RELEASE_REPO
 }

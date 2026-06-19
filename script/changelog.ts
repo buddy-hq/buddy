@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import { releaseRepository } from "./release-repositories"
 
 type Release = {
   isDraft: boolean
@@ -37,12 +38,8 @@ const SECTION_RULES = [
   { prefix: "vendor/opencode/packages/script/", section: "Vendored Core" },
 ] as const
 
-function releaseRepo() {
-  return process.env.BUDDY_REPO || process.env.GITHUB_REPOSITORY || "prashantbhudwal/buddy"
-}
-
 export async function getLatestRelease(skip?: string) {
-  const repo = releaseRepo()
+  const repo = releaseRepository()
   const releases =
     (await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()) as Release[]
   const skipTag = skip?.replace(/^v/, "")

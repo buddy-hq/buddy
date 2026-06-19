@@ -8,10 +8,7 @@ import {
   stageReleaseVersionPackageFiles,
   updateReleaseVersionPackageFiles,
 } from "./release-version-files"
-
-function releaseRepo() {
-  return process.env.BUDDY_REPO || process.env.GITHUB_REPOSITORY || "prashantbhudwal/buddy"
-}
+import { releaseRepository } from "./release-repositories"
 
 function currentRefType() {
   return process.env.GITHUB_REF_TYPE?.trim()
@@ -110,4 +107,4 @@ if (currentRefType() !== "tag") {
   await persistWorkflowDispatchReleaseVersion(tag)
 }
 
-await $`gh release edit ${tag} --draft=false --repo ${releaseRepo()}`
+await $`gh release edit ${tag} --draft=false --repo ${releaseRepository()}`

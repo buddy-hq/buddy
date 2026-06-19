@@ -38,10 +38,10 @@ describe("update common", () => {
     }
 
     await expect(resolveLatestPrereleaseAssetUrl(LATEST_YML_FILENAME)).resolves.toBe(
-      "https://github.com/prashantbhudwal/buddy/releases/download/v2.1.0-beta.2/latest.yml",
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.1.0-beta.2/latest.yml",
     )
     expect(requestedUrl).toBe(
-      "https://api.github.com/repos/prashantbhudwal/buddy/releases?per_page=100",
+      "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100",
     )
   })
 })

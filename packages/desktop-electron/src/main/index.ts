@@ -62,6 +62,7 @@ import {
   BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY,
   fetchSignedElectronUpdateManifest,
   isAbsoluteUrl,
+  RELEASE_REPOSITORY,
   RELEASE_REPOSITORY_NAME,
   RELEASE_REPOSITORY_OWNER,
   resolveLatestReleaseAssetUrl,
@@ -82,7 +83,7 @@ const LOADING_WINDOW_COMPLETE_TIMEOUT_MS = 5_000
 const MAC_UPDATE_CACHE_DIRECTORY_NAME = "mac-updater"
 const WINDOWS_UPDATE_MANIFEST_CACHE_DIRECTORY_NAME = "windows-updater"
 const WINDOWS_UPDATE_MANIFEST_FILENAME = "latest.yml"
-const BUDDY_DOWNLOAD_URL = "https://github.com/prashantbhudwal/buddy/releases/latest"
+const BUDDY_DOWNLOAD_URL = `https://github.com/${RELEASE_REPOSITORY}/releases/latest`
 const PRIMARY_DIALOG_RESPONSE = 0
 const SECONDARY_DIALOG_RESPONSE = 1
 const STARTUP_FAILURE_UPDATE_CHECK_BUTTONS = ["Check for Update", "Quit"] as const

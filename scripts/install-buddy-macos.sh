@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${BUDDY_RELEASE_REPO:-prashantbhudwal/buddy}"
+REPO="${BUDDY_RELEASE_REPO:-prashantbhudwal/buddy-releases}"
 DEST_DIR="${BUDDY_DOWNLOAD_DIR:-$HOME/Downloads/buddy-release}"
 QUARANTINE_ATTR="com.apple.quarantine"
 BUDDY_APP_PATH="/Applications/Buddy.app"

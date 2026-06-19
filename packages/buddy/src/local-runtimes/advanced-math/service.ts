@@ -12,7 +12,7 @@ const ADVANCED_MATH_DIR = path.join(Global.Path.data, "advanced-math")
 const ADVANCED_MATH_CACHE_DIR = path.join(Global.Path.cache, "advanced-math")
 const ADVANCED_MATH_STATE_FILE = path.join(Global.Path.state, "advanced-math.json")
 const BACKEND_ROOT = path.resolve(import.meta.dir, "../../..")
-const DEFAULT_RELEASE_REPOSITORY = "prashantbhudwal/buddy"
+const DEFAULT_RELEASE_REPOSITORY = "prashantbhudwal/buddy-releases"
 const ADVANCED_MATH_BUNDLE_DIR = "buddy-advanced-math"
 const ADVANCED_MATH_EXECUTABLE =
   process.platform === "win32" ? "buddy-advanced-math.exe" : "buddy-advanced-math"
@@ -162,8 +162,7 @@ async function writeRuntimeState(state: z.infer<typeof advancedMathRuntimeStateS
 
 function releaseRepository() {
   return (
-    process.env.BUDDY_REPO?.trim() ||
-    process.env.GITHUB_REPOSITORY?.trim() ||
+    process.env.BUDDY_RELEASE_REPO?.trim() ||
     DEFAULT_RELEASE_REPOSITORY
   )
 }

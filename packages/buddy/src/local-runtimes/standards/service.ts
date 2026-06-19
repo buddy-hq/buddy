@@ -25,7 +25,7 @@ const STANDARDS_CACHE_DIR = path.join(Global.Path.cache, "standards")
 const STANDARDS_STATE_FILE = path.join(Global.Path.state, "standards.json")
 const STANDARDS_OPERATION_LOCK_FILE = path.join(Global.Path.state, "standards.lock")
 const BACKEND_ROOT = path.resolve(import.meta.dir, "../../..")
-const DEFAULT_RELEASE_REPOSITORY = "prashantbhudwal/buddy"
+const DEFAULT_RELEASE_REPOSITORY = "prashantbhudwal/buddy-releases"
 const IN_PROGRESS_STATES = new Set(["downloading", "installing", "repairing", "removing"])
 const READY_STATE = "ready"
 const APP_VERSION_ENV = "BUDDY_APP_VERSION"
@@ -142,8 +142,7 @@ function writeRuntimeStateSync(state: z.infer<typeof standardsRuntimeStateSchema
 
 function releaseRepository() {
   return (
-    process.env.BUDDY_REPO?.trim() ||
-    process.env.GITHUB_REPOSITORY?.trim() ||
+    process.env.BUDDY_RELEASE_REPO?.trim() ||
     DEFAULT_RELEASE_REPOSITORY
   )
 }

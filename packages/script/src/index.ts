@@ -26,8 +26,13 @@ const env = {
   BUDDY_RELEASE: process.env.BUDDY_RELEASE,
 }
 
+function cleanRepository(value: string | undefined) {
+  const trimmed = value?.trim()
+  return trimmed && trimmed.length > 0 ? trimmed : undefined
+}
+
 function releaseRepo() {
-  return process.env.BUDDY_REPO || process.env.GITHUB_REPOSITORY || "prashantbhudwal/buddy"
+  return cleanRepository(process.env.BUDDY_RELEASE_REPO) || "prashantbhudwal/buddy-releases"
 }
 
 function normalizeVersion(input: string) {

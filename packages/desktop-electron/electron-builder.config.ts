@@ -100,7 +100,7 @@ function resolveChannelConfiguration(): Configuration {
       publish: {
         provider: "github",
         owner: "prashantbhudwal",
-        repo: "buddy",
+        repo: "buddy-releases",
         channel: "latest",
       },
     }
@@ -113,7 +113,7 @@ function resolveChannelConfiguration(): Configuration {
     publish: {
       provider: "github",
       owner: "prashantbhudwal",
-      repo: "buddy",
+      repo: "buddy-releases",
       channel: "latest",
     },
   }
