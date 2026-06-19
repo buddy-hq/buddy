@@ -1,4 +1,4 @@
-const LARGE_TEXT_FILE_LIMIT_BYTES = 1_000_000
+export const LARGE_TEXT_FILE_LIMIT_BYTES = 1_000_000
 const IMAGE_MIME_PREFIX = "image/"
 
 const IMAGE_FILE_EXTENSIONS = new Set([
@@ -13,10 +13,11 @@ const IMAGE_FILE_EXTENSIONS = new Set([
   "webp",
 ])
 
-const READER_FILE_EXTENSIONS = new Set(["azw", "azw3", "cbz", "epub", "fb2", "fbz", "mobi", "pdf"])
+const READER_FILE_EXTENSIONS = new Set(["epub", "pdf"])
 const PRESENTATION_FILE_EXTENSIONS = new Set(["key", "odp", "ppt", "pptx"])
 const DOCUMENT_FILE_EXTENSIONS = new Set(["doc", "docx", "odt", "rtf"])
 const SPREADSHEET_FILE_EXTENSIONS = new Set(["csv", "ods", "tsv", "xls", "xlsx"])
+const TEXT_SPREADSHEET_FILE_EXTENSIONS = new Set(["csv", "tsv"])
 const AUDIO_FILE_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "ogg", "wav"])
 const VIDEO_FILE_EXTENSIONS = new Set(["avi", "m4v", "mov", "mp4", "mkv", "webm"])
 const ARCHIVE_FILE_EXTENSIONS = new Set(["7z", "bz2", "gz", "rar", "tar", "zip"])
@@ -64,16 +65,18 @@ export function isWorkspaceReaderPath(filepath: string) {
   return READER_FILE_EXTENSIONS.has(fileExtensionFromPath(filepath))
 }
 
-export function shouldOpenFileInDefaultAppBySize(input: {
+export function isWorkspaceFileOverSoftLimit(input: {
   path: string
   sizeBytes: number | undefined
   mimeType: string | undefined
 }) {
   if (typeof input.sizeBytes !== "number") return false
   if (input.sizeBytes <= LARGE_TEXT_FILE_LIMIT_BYTES) return false
-  if (isImageMimeType(input.mimeType) || isWorkspaceImagePath(input.path)) return false
-  return true
+  const classification = classifyWorkspaceMedia(input)
+  return classification.renderMode === "file"
 }
+
+export const shouldOpenFileInDefaultAppBySize = isWorkspaceFileOverSoftLimit
 
 export function classifyWorkspaceMedia(input: {
   path: string
@@ -114,7 +117,7 @@ export function classifyWorkspaceMedia(input: {
         ? "audio"
         : mediaKind === "video"
           ? "video"
-          : mediaKind === "pdf" || isWorkspaceReaderPath(normalizedPath)
+          : mediaKind === "pdf"
             ? "pdf"
             : "file"
 
@@ -125,17 +128,20 @@ export function classifyWorkspaceMedia(input: {
   }
 }
 
-export function canOpenWorkspaceFileInPanel(input: {
+export function canOpenWorkspaceFileOnBench(input: {
   path: string
   mimeType: string | undefined
   sizeBytes: number | undefined
 }) {
   const classification = classifyWorkspaceMedia(input)
-  if (classification.renderMode === "image" || classification.renderMode === "pdf") {
-    return true
-  }
-  if (shouldOpenFileInDefaultAppBySize(input)) {
-    return false
-  }
-  return classification.mediaKind === "other"
+  return (
+    classification.renderMode === "image" ||
+    classification.renderMode === "audio" ||
+    classification.renderMode === "video" ||
+    classification.mediaKind === "pdf" ||
+    TEXT_SPREADSHEET_FILE_EXTENSIONS.has(fileExtensionFromPath(input.path)) ||
+    classification.mediaKind === "other"
+  )
 }
+
+export const canOpenWorkspaceFileInPanel = canOpenWorkspaceFileOnBench
