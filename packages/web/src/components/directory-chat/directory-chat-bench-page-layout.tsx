@@ -438,17 +438,17 @@ function resizeFloatingChatRect(input: {
 }
 
 export function BenchContent(props: { bordered: boolean; children: ReactNode }) {
+  // Size-based FLIP transforms expose the temporary collapsed width to embedded surfaces without
+  // triggering a later ResizeObserver update. Editors and canvases must observe real layout sizes.
   return (
-    <motion.div
-      layout
-      transition={BENCH_LAYOUT_TRANSITION}
+    <div
       className={cn(
-        "min-w-0 h-full bg-background-base [view-transition-name:buddy-bench-surface]",
+        "min-w-0 h-full w-full bg-background-base [view-transition-name:buddy-bench-surface]",
         props.bordered ? "border-r border-border-weaker-base" : "",
       )}
     >
       {props.children}
-    </motion.div>
+    </div>
   )
 }
 

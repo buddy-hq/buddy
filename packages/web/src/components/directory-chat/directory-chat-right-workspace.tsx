@@ -34,12 +34,17 @@ import {
   useOpenBench,
 } from "@/lib/bench-navigation"
 import { guardBenchLeaveBeforeNavigation } from "@/lib/bench-leave-guard"
+import {
+  closeBenchWorkspace,
+  waitForBenchRightWorkspaceCollapse,
+} from "@/lib/close-bench-workspace"
 import { encodeDirectory } from "@/lib/directory-token"
 import { ensureNotebookAgentsMd } from "@/lib/ensure-notebook-agents-md"
 import {
   RIGHT_WORKSPACE_RAIL_WIDTH_PX,
   resolveRightWorkspaceSelectorDrawerWidth,
 } from "@/lib/directory-chat/right-sidebar-layout"
+import { resolveRightWorkspaceSelector } from "@/lib/directory-chat/right-workspace-policy"
 import { useChatStore } from "@/state/chat-store"
 import type { MessageWithParts } from "@/state/chat-types"
 import type { ResourceOpenOptions } from "@/state/resources-query"
@@ -149,14 +154,20 @@ function RightWorkspaceRail(props: { items: RightWorkspaceRailItem[] }) {
 }
 
 export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspaceProps) {
-  const [activeSelector, setActiveSelector] = useState<RightWorkspaceSelector | undefined>()
   const [fallbackSelectorSuppressed, setFallbackSelectorSuppressed] = useState(false)
   const [openingInstructions, setOpeningInstructions] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const openBenchRoute = useOpenBench()
-  const setRightSidebarOpen = useUiPreferences((state) => state.setRightSidebarOpen)
+  const closeRightWorkspace = useUiPreferences((state) => state.closeRightWorkspace)
+  const activeSurface = useUiPreferences(
+    (state) => state.rightWorkspaceSurfaceByDirectory[props.directory],
+  )
+  const setRightWorkspaceSurface = useUiPreferences((state) => state.setRightWorkspaceSurface)
+  const activateRightWorkspaceSurface = useUiPreferences(
+    (state) => state.activateRightWorkspaceSurface,
+  )
   const lastOpenedReadingResource = useChatStore(
     (state) => state.lastOpenedReadingResourceByDirectory[props.directory],
   )
@@ -177,11 +188,18 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     benchPolicyState.target.ref.kind === "whiteboard"
   const showWhiteboardAction = isWhiteboardObjectRoute || hasWhiteboardCreate(props.messages)
   const showReadingAction = isResourceObjectRoute || !!lastOpenedReadingResource
-  const hasVisibleBench = props.bench !== undefined && props.workspaceOpen
+  const hasBenchTarget = props.bench !== undefined
+  const hasVisibleBench = hasBenchTarget && props.workspaceOpen
+  const activeSelector =
+    activeSurface === "explorer" || activeSurface === "library" ? activeSurface : undefined
   const fallbackSelector = props.lastSelector ?? "explorer"
-  const resolvedSelector = hasVisibleBench
-    ? activeSelector
-    : (activeSelector ?? (fallbackSelectorSuppressed ? undefined : fallbackSelector))
+  const resolvedSelector = resolveRightWorkspaceSelector({
+    workspaceOpen: props.workspaceOpen,
+    hasBenchTarget,
+    activeSelector,
+    fallbackSelector,
+    fallbackSelectorSuppressed,
+  })
   const selectorDrawerWidth =
     resolvedSelector === undefined
       ? 0
@@ -192,29 +210,32 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
 
   useEffect(() => {
     if (props.workspaceOpen) return
-    setActiveSelector(undefined)
+    setRightWorkspaceSurface(props.directory, undefined)
     setFallbackSelectorSuppressed(false)
-  }, [props.workspaceOpen])
+  }, [props.directory, props.workspaceOpen, setRightWorkspaceSurface])
 
   useEffect(() => {
     if (benchPolicyState.status !== "open") return
-    setActiveSelector(undefined)
-  }, [benchPolicyState.status, benchTargetKey])
+    setRightWorkspaceSurface(props.directory, "bench")
+  }, [benchPolicyState.status, benchTargetKey, props.directory, setRightWorkspaceSurface])
 
-  function closeSelector() {
-    setActiveSelector(undefined)
+  const closeSelector = useCallback(() => {
+    setRightWorkspaceSurface(props.directory, hasBenchTarget ? "bench" : undefined)
     setFallbackSelectorSuppressed(true)
-  }
+  }, [hasBenchTarget, props.directory, setRightWorkspaceSurface])
 
-  function restoreExplorerSelector() {
+  const restoreExplorerSelector = useCallback(() => {
     setFallbackSelectorSuppressed(false)
-    setActiveSelector("explorer")
-  }
+    activateRightWorkspaceSurface(props.directory, "explorer")
+  }, [activateRightWorkspaceSurface, props.directory])
 
   function openSelector(selector: RightWorkspaceSelector) {
     props.onLastSelectorChange(selector)
     setFallbackSelectorSuppressed(false)
-    setActiveSelector((current) => (hasVisibleBench && current === selector ? undefined : selector))
+    setRightWorkspaceSurface(
+      props.directory,
+      hasVisibleBench && activeSelector === selector ? "bench" : selector,
+    )
   }
 
   const openLibraryRequest = useCallback(
@@ -250,7 +271,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
         return "failed"
       }
     },
-    [benchPolicyState, openBenchRoute, props],
+    [benchPolicyState, closeSelector, openBenchRoute, props],
   )
 
   async function openInstructions() {
@@ -286,12 +307,17 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       if (guardResult.status === "block") return
     }
 
-    await navigate({
-      to: "/$directory/chat",
-      params: { directory: encodeDirectory(props.directory) },
-      replace: true,
+    await closeBenchWorkspace({
+      closeWorkspace: () => closeRightWorkspace(props.directory),
+      waitForWorkspaceCollapse: waitForBenchRightWorkspaceCollapse,
+      navigateToChat: () =>
+        navigate({
+          to: "/$directory/chat",
+          params: { directory: encodeDirectory(props.directory) },
+          replace: true,
+          viewTransition: false,
+        }),
     })
-    setRightSidebarOpen(false)
   }
 
   function openReading() {
@@ -393,14 +419,14 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
         }}
       />
     )
-  }, [openLibraryRequest, props, resolvedSelector])
+  }, [closeSelector, openLibraryRequest, props, resolvedSelector, restoreExplorerSelector])
 
   const railItems: RightWorkspaceRailItem[] = [
     {
       id: "reading",
       label: READING_SHORTCUT_LABEL,
       icon: <BookOpenIcon />,
-      active: isResourceObjectRoute,
+      active: isResourceObjectRoute && resolvedSelector === undefined,
       disabled: !showReadingAction,
       onClick: openReading,
     },
@@ -408,7 +434,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       id: "whiteboard",
       label: WHITEBOARD_SHORTCUT_LABEL,
       icon: <PresentationIcon />,
-      active: isWhiteboardObjectRoute,
+      active: isWhiteboardObjectRoute && resolvedSelector === undefined,
       disabled: !showWhiteboardAction,
       onClick: openWhiteboard,
     },

@@ -6,6 +6,7 @@ import {
   useResizablePanelRef,
   type ResizeHandleIntent,
 } from "@buddy/ui"
+import { BENCH_RIGHT_WORKSPACE_PANEL_COMPONENT } from "@/lib/close-bench-workspace"
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
 import { usePersistentResizablePanelLayout } from "@/components/layout/use-persistent-resizable-panel-layout"
 import { RIGHT_SIDEBAR_COLLAPSE_THRESHOLD_PX } from "@/lib/directory-chat/right-sidebar-layout"
@@ -43,7 +44,7 @@ type DirectoryChatShellProps = {
   rightSidebarMaxWidth: number
   onRightSidebarResize: (width: number) => void
   onRightSidebarResizeIntent?: (intent: ResizeHandleIntent) => void
-  onRightSidebarExpand: () => void
+  onRightWorkspaceToggle: () => void
   onRightSidebarCollapse: () => void
 }
 
@@ -75,7 +76,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     rightSidebarMaxWidth,
     onRightSidebarResize,
     onRightSidebarResizeIntent,
-    onRightSidebarExpand,
+    onRightWorkspaceToggle,
     onRightSidebarCollapse,
   } = props
 
@@ -174,13 +175,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           leftSidebarOpen={leftSidebarOpen}
           rightSidebarOpen={rightSidebarOpen}
           onLeftSidebarToggle={onLeftSidebarToggle}
-          onRightSidebarToggle={() => {
-            if (rightSidebarOpen) {
-              onRightSidebarCollapse()
-              return
-            }
-            onRightSidebarExpand()
-          }}
+          onRightSidebarToggle={onRightWorkspaceToggle}
         />
       </div>
 
@@ -216,7 +211,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           orientation="horizontal"
           defaultLayout={defaultLayout}
           onLayoutChanged={onLayoutChanged}
-          className="h-full min-w-0 flex-1"
+          className="h-full min-w-0 flex-1 [&>[data-panel]]:transition-[flex-grow] [&>[data-panel]]:duration-200 [&>[data-panel]]:[transition-timing-function:cubic-bezier(0.77,0,0.175,1)] motion-reduce:[&>[data-panel]]:transition-none"
         >
           <ResizablePanel
             id={DIRECTORY_CHAT_MAIN_PANEL_ID}
@@ -228,19 +223,18 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
 
           <ResizablePanel
             id={DIRECTORY_CHAT_RIGHT_SIDEBAR_PANEL_ID}
+            data-component={BENCH_RIGHT_WORKSPACE_PANEL_COMPONENT}
             panelRef={rightSidebarPanelRef}
             defaultSize={rightSidebarOpen ? rightSidebarDisplayWidth : 0}
             minSize={rightSidebarOpen ? rightSidebarMinWidth : 0}
             maxSize={rightSidebarOpen ? rightSidebarMaxWidth : 0}
-            className="relative flex min-h-0 min-w-0 overflow-hidden transition-[flex-basis,width] duration-200 ease-out motion-reduce:transition-none"
+            className="relative flex min-h-0 min-w-0 overflow-hidden"
           >
             <div
               data-component="directory-chat-right-sidebar-shell"
               data-open={rightSidebarOpen ? "true" : "false"}
               aria-hidden={!rightSidebarOpen}
-              className={`h-full w-full transition-opacity duration-200 ease-out motion-reduce:transition-none ${
-                rightSidebarOpen ? "opacity-100" : "pointer-events-none opacity-0"
-              }`}
+              className={`h-full w-full ${rightSidebarOpen ? "" : "pointer-events-none"}`}
             >
               {rightSidebar}
             </div>

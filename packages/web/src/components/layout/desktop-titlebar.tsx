@@ -22,10 +22,6 @@ import {
   LayoutRightIcon,
   LayoutRightPartialIcon,
 } from "./sidebar-icons"
-import {
-  getRightSidebarDefaultWidth,
-  getRightSidebarMinWidth,
-} from "@/lib/directory-chat/right-sidebar-layout"
 import { TextShimmer } from "@/components/chat/tools/text-shimmer"
 
 type DesktopTitlebarProps = {
@@ -108,9 +104,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
   const setLeftSidebarOpen = useUiPreferences((state) => state.setLeftSidebarOpen)
   const persistedRightSidebarOpen = useUiPreferences((state) => state.rightSidebarOpen)
-  const rightSidebarWidth = useUiPreferences((state) => state.rightSidebarWidth)
   const setRightSidebarOpen = useUiPreferences((state) => state.setRightSidebarOpen)
-  const setRightSidebarWidth = useUiPreferences((state) => state.setRightSidebarWidth)
   const routerState = useRouterState()
   const focusedBenchMatch = routerState.matches.find(
     (match) =>
@@ -173,16 +167,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       return
     }
 
-    if (rightSidebarOpen) {
-      setRightSidebarOpen(false)
-      return
-    }
-
-    if (rightSidebarWidth < getRightSidebarMinWidth("files")) {
-      setRightSidebarWidth(getRightSidebarDefaultWidth("files"))
-    }
-
-    setRightSidebarOpen(true)
+    setRightSidebarOpen(!rightSidebarOpen)
   }
 
   function onToggleLeftSidebar() {

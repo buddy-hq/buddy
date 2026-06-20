@@ -3,8 +3,10 @@ import {
   BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
   BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
   htmlWidgetAutoOpenKey,
+  readLatestActiveWhiteboardAutoOpen,
   readLatestBenchAction,
   readLatestBenchAutoOpenCandidate,
+  resolveBenchAutoOpenSuppressions,
 } from "../src/components/bench/bench-open-policy"
 import type { AssistantMessageInfo, MessageWithParts } from "../src/state/chat-types"
 
@@ -166,6 +168,92 @@ function createBenchPresentPart(input: {
 }
 
 describe("bench open policy", () => {
+  test("identifies whiteboard work before tool input generation completes", () => {
+    const activeWhiteboard = readLatestActiveWhiteboardAutoOpen([
+      createAssistantMessage([
+        {
+          id: "part-1",
+          sessionID: "session-1",
+          messageID: "message-1",
+          type: "tool",
+          callID: "call-1",
+          tool: "whiteboard_create_view",
+          state: {
+            status: "pending",
+            input: {},
+            raw: '{"boardAction":"continue_current_board","elements":"[',
+          },
+        },
+      ]),
+    ])
+
+    expect(activeWhiteboard).toEqual({
+      policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+      eventKey: "whiteboard:session-1:message-1:call-1",
+      sessionID: "session-1",
+    })
+  })
+
+  test("does not early-open whiteboard work left pending on a terminal message", () => {
+    expect(
+      readLatestActiveWhiteboardAutoOpen([
+        createAssistantMessage(
+          [
+            {
+              id: "part-1",
+              sessionID: "session-1",
+              messageID: "message-1",
+              type: "tool",
+              callID: "call-1",
+              tool: "whiteboard_create_view",
+              state: {
+                status: "pending",
+                input: {},
+                raw: "",
+              },
+            },
+          ],
+          { time: { created: 1, completed: 2 } },
+        ),
+      ]),
+    ).toBeUndefined()
+  })
+
+  test("suppresses the current whiteboard event when the open workspace is collapsed", () => {
+    expect(
+      resolveBenchAutoOpenSuppressions({
+        workspaceWasOpen: true,
+        workspaceOpen: false,
+        activeWhiteboard: {
+          policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+          eventKey: "whiteboard:session-1:message-1:call-1",
+          sessionID: "session-1",
+        },
+        candidate: undefined,
+      }),
+    ).toEqual([
+      {
+        policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+        eventKey: "whiteboard:session-1:message-1:call-1",
+      },
+    ])
+  })
+
+  test("does not suppress a new whiteboard event while the workspace was already collapsed", () => {
+    expect(
+      resolveBenchAutoOpenSuppressions({
+        workspaceWasOpen: false,
+        workspaceOpen: false,
+        activeWhiteboard: {
+          policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+          eventKey: "whiteboard:session-1:message-1:call-1",
+          sessionID: "session-1",
+        },
+        candidate: undefined,
+      }),
+    ).toEqual([])
+  })
+
   test("identifies active whiteboard work as an auto-open candidate", () => {
     const candidate = readLatestBenchAutoOpenCandidate([
       createAssistantMessage([

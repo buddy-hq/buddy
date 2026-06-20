@@ -1,9 +1,11 @@
 import { parseToolState } from "@/components/chat/tools/parse-tool-state"
 import type { MessagePart, MessageWithParts } from "@/state/chat-types"
+import { isTerminalAssistantMessageInfo } from "@/state/chat-tool-parts"
 import {
   BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
   BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
   isBenchObjectKind,
+  type BenchAutoOpenIdentity,
   type BenchAutoOpenPolicyID,
   type BenchObjectRef,
   type BenchTarget,
@@ -26,6 +28,19 @@ export type BenchAutoOpenCandidate = {
   policyID: BenchAutoOpenPolicyID
   eventKey: string
   target: BenchTarget
+}
+
+export type ActiveWhiteboardAutoOpen = {
+  policyID: typeof BENCH_AUTO_OPEN_POLICY_WHITEBOARD
+  eventKey: string
+  sessionID: string
+}
+
+type ResolveBenchAutoOpenSuppressionsInput = {
+  workspaceWasOpen: boolean
+  workspaceOpen: boolean
+  activeWhiteboard: ActiveWhiteboardAutoOpen | undefined
+  candidate: BenchAutoOpenCandidate | undefined
 }
 
 export type BenchPresentationAction =
@@ -187,6 +202,24 @@ function readStartOfToolAutoOpenCandidate(part: MessagePart): BenchAutoOpenCandi
   return readBenchAutoOpenCandidateMetadata(state.metadata.benchAutoOpenCandidate)
 }
 
+function readActiveWhiteboardAutoOpen(part: MessagePart): ActiveWhiteboardAutoOpen | undefined {
+  if (part.type !== "tool" || part.tool !== "whiteboard_create_view") return undefined
+
+  const state = parseToolState(part)
+  if (state.status !== "pending" && state.status !== "running") return undefined
+
+  const sessionID = readString(part.sessionID)
+  const messageID = readString(part.messageID)
+  const callID = readString(part.callID)
+  if (!sessionID || !messageID || !callID) return undefined
+
+  return {
+    policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+    eventKey: `whiteboard:${sessionID}:${messageID}:${callID}`,
+    sessionID,
+  }
+}
+
 function readBenchPresentationAction(input: {
   messageID: string
   part: MessagePart
@@ -271,4 +304,56 @@ export function readLatestBenchAutoOpenCandidate(
   }
 
   return undefined
+}
+
+export function readLatestActiveWhiteboardAutoOpen(
+  messages: MessageWithParts[],
+): ActiveWhiteboardAutoOpen | undefined {
+  for (const message of messages.toReversed()) {
+    if (message.info.role === "user") {
+      return undefined
+    }
+
+    if (message.info.role !== "assistant") {
+      continue
+    }
+    if (isTerminalAssistantMessageInfo(message.info)) {
+      continue
+    }
+
+    for (const part of message.parts.toReversed()) {
+      const activeWhiteboard = readActiveWhiteboardAutoOpen(part)
+      if (activeWhiteboard) return activeWhiteboard
+    }
+  }
+
+  return undefined
+}
+
+export function resolveBenchAutoOpenSuppressions(
+  input: ResolveBenchAutoOpenSuppressionsInput,
+): BenchAutoOpenIdentity[] {
+  if (!input.workspaceWasOpen || input.workspaceOpen) return []
+
+  const suppressions: BenchAutoOpenIdentity[] = []
+  if (input.activeWhiteboard) {
+    suppressions.push({
+      policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+      eventKey: input.activeWhiteboard.eventKey,
+    })
+  }
+  const candidate = input.candidate
+  if (
+    candidate &&
+    !suppressions.some(
+      (suppression) =>
+        suppression.policyID === candidate.policyID && suppression.eventKey === candidate.eventKey,
+    )
+  ) {
+    suppressions.push({
+      policyID: candidate.policyID,
+      eventKey: candidate.eventKey,
+    })
+  }
+  return suppressions
 }

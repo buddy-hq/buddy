@@ -12,13 +12,14 @@ import {
   type BenchOpenDecision,
 } from "./bench-open-policy-core"
 import { readBenchPresentationPreferences } from "./bench-preferences"
-import { BENCH_CHAT_LAYOUT_DOCKED, isSameBenchTarget, type BenchOpenRequest } from "./bench-targets"
+import {
+  BENCH_CHAT_LAYOUT_DOCKED,
+  BENCH_CHAT_LAYOUT_FLOATING,
+  isSameBenchTarget,
+  type BenchOpenRequest,
+} from "./bench-targets"
 import type { BenchLeaveOrigin } from "./bench-leave-guard"
 import { useUiPreferences } from "@/state/ui-preferences"
-import {
-  getRightSidebarDefaultWidth,
-  getRightSidebarMinWidth,
-} from "@/lib/directory-chat/right-sidebar-layout"
 
 type OpenBenchOptions = {
   origin: Exclude<BenchLeaveOrigin, "route">
@@ -28,12 +29,8 @@ type OpenBench = {
   (request: BenchOpenRequest, options?: OpenBenchOptions): Promise<BenchOpenDecision>
 }
 
-function ensureRightWorkspaceOpenForDockedBench() {
-  const state = useUiPreferences.getState()
-  if (state.rightSidebarWidth < getRightSidebarMinWidth("files")) {
-    state.setRightSidebarWidth(getRightSidebarDefaultWidth("files"))
-  }
-  state.setRightSidebarOpen(true)
+function activateDockedBenchWorkspace(directory: string) {
+  useUiPreferences.getState().activateRightWorkspaceSurface(directory, "bench")
 }
 
 function useOpenBench(): OpenBench {
@@ -51,12 +48,17 @@ function useOpenBench(): OpenBench {
         pathname: location.pathname,
         search: location.search,
       })
+      const currentVisible =
+        current.status === "open" &&
+        (current.mode === BENCH_CHAT_LAYOUT_FLOATING ||
+          useUiPreferences.getState().rightSidebarOpen)
       const suppressedAutoOpenKey = request.autoOpen
         ? readSuppressedBenchAutoOpenKey(request.directory, request.autoOpen.policyID)
         : undefined
       const decision = resolveBenchOpenPolicy({
         request,
         current,
+        currentVisible,
         defaults,
         preferences: readBenchPresentationPreferences(),
         autoOpenSuppressed:
@@ -69,7 +71,7 @@ function useOpenBench(): OpenBench {
         current.status === "open" &&
         current.mode === BENCH_CHAT_LAYOUT_DOCKED
       ) {
-        ensureRightWorkspaceOpenForDockedBench()
+        activateDockedBenchWorkspace(request.directory)
       }
 
       if (decision.action === "open") {
@@ -98,7 +100,7 @@ function useOpenBench(): OpenBench {
         }
 
         if (decision.mode === BENCH_CHAT_LAYOUT_DOCKED) {
-          ensureRightWorkspaceOpenForDockedBench()
+          activateDockedBenchWorkspace(decision.directory)
         }
 
         await navigate(

@@ -7,6 +7,7 @@ const RIGHT_SIDEBAR_EDITOR_MAX_WIDTH = 1080
 const RIGHT_SIDEBAR_FILES_MIN_WIDTH = 560
 const RIGHT_SIDEBAR_FILES_DEFAULT_WIDTH = 820
 const RIGHT_SIDEBAR_FILES_MAX_WIDTH = 1200
+const RIGHT_WORKSPACE_DEFAULT_WIDTH_PX = 380
 const RIGHT_WORKSPACE_RAIL_WIDTH_PX = 44
 // Right-workspace selectors are overlays, not layout columns. Explorer is a compact tree, so it
 // should stay narrow; Library carries tabs and richer cards, so it gets a wider default while still
@@ -25,6 +26,7 @@ export {
   RIGHT_SIDEBAR_FILES_MAX_WIDTH,
   RIGHT_SIDEBAR_FILES_MIN_WIDTH,
   RIGHT_WORKSPACE_EXPLORER_DRAWER_WIDTH_PX,
+  RIGHT_WORKSPACE_DEFAULT_WIDTH_PX,
   RIGHT_WORKSPACE_LIBRARY_DRAWER_WIDTH_PX,
   RIGHT_WORKSPACE_RAIL_WIDTH_PX,
 }
@@ -55,4 +57,11 @@ export function resolveRightWorkspaceSelectorDrawerWidth(input: {
       : RIGHT_WORKSPACE_EXPLORER_DRAWER_WIDTH_PX
   const contentWidth = Math.max(0, input.workspaceWidthPx - RIGHT_WORKSPACE_RAIL_WIDTH_PX)
   return Math.min(preferredWidth, contentWidth)
+}
+
+export function resolveRightWorkspaceWidth(widthPx: number) {
+  return Math.min(
+    RIGHT_SIDEBAR_DEFAULT_MAX_WIDTH,
+    Math.max(RIGHT_SIDEBAR_DEFAULT_MIN_WIDTH, widthPx),
+  )
 }

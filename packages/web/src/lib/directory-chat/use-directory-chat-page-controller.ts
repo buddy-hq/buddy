@@ -114,8 +114,11 @@ import { useTeachingWorkspace } from "./use-teaching-workspace"
 import { useAutoScroll } from "./use-auto-scroll"
 import {
   getRightSidebarDefaultWidth,
-  getRightSidebarMinWidth,
+  RIGHT_SIDEBAR_DEFAULT_MAX_WIDTH,
+  RIGHT_SIDEBAR_DEFAULT_MIN_WIDTH,
   RIGHT_SIDEBAR_EDITOR_MIN_WIDTH,
+  RIGHT_WORKSPACE_DEFAULT_WIDTH_PX,
+  resolveRightWorkspaceWidth,
 } from "./right-sidebar-layout"
 import {
   DIRECTORY_CHAT_SHELL_VIEW,
@@ -1812,13 +1815,18 @@ export function useDirectoryChatPageController(
     onLeftSidebarResize: cs.setLeftSidebarWidth,
     onLeftSidebarCollapse: () => cs.setLeftSidebarOpen(false),
     rightSidebarOpen: cs.rightSidebarOpen,
-    rightSidebarDisplayWidth: cs.rightSidebarDisplayWidth,
-    rightSidebarMinWidth: cs.rightSidebarMinWidth,
-    rightSidebarMaxWidth: cs.rightSidebarMaxWidth,
+    rightSidebarDisplayWidth: resolveRightWorkspaceWidth(cs.rightSidebarWidth),
+    rightSidebarMinWidth: RIGHT_SIDEBAR_DEFAULT_MIN_WIDTH,
+    rightSidebarMaxWidth: RIGHT_SIDEBAR_DEFAULT_MAX_WIDTH,
     onRightSidebarResize: cs.setRightSidebarWidth,
-    onRightSidebarExpand: () => {
-      if (cs.rightSidebarWidth < getRightSidebarMinWidth("files")) {
-        cs.setRightSidebarWidth(getRightSidebarDefaultWidth("files"))
+    onRightWorkspaceToggle: () => {
+      if (cs.rightSidebarOpen) {
+        cs.setRightSidebarOpen(false)
+        return
+      }
+
+      if (cs.rightSidebarWidth < RIGHT_SIDEBAR_DEFAULT_MIN_WIDTH) {
+        cs.setRightSidebarWidth(RIGHT_WORKSPACE_DEFAULT_WIDTH_PX)
       }
       cs.setRightSidebarOpen(true)
     },

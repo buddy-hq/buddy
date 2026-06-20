@@ -1,4 +1,5 @@
 import {
+  BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
   BENCH_LAYOUT_PROFILE_CODE,
@@ -78,6 +79,7 @@ type BenchOpenDecision =
 type ResolveBenchOpenPolicyInput = {
   request: BenchOpenRequest
   current: BenchOpenPolicyState
+  currentVisible: boolean
   defaults: BenchSurfaceDefaults
   preferences: BenchPresentationPreferences
   autoOpenSuppressed: boolean
@@ -227,7 +229,9 @@ function resolveBenchOpenPolicy(input: ResolveBenchOpenPolicyInput): BenchOpenDe
 
   if (
     input.request.autoOpen &&
+    input.request.autoOpen.policyID !== BENCH_AUTO_OPEN_POLICY_WHITEBOARD &&
     input.current.status === "open" &&
+    input.currentVisible &&
     (!isSameBenchTarget(input.current.target, input.request.target) ||
       input.current.directory !== input.request.directory)
   ) {

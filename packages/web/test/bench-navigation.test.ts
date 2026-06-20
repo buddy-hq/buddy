@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import {
+  BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
   BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
@@ -29,6 +30,7 @@ import {
 } from "../src/lib/bench-navigation"
 import { encodeDirectory } from "../src/lib/directory-token"
 import { resolveRightWorkspaceSelectorDrawerWidth } from "../src/lib/directory-chat/right-sidebar-layout"
+import { closeBenchWorkspace } from "../src/lib/close-bench-workspace"
 
 const DIRECTORY = "/workspace/buddy"
 const RESOURCE_OBJECT_TARGET = {
@@ -90,12 +92,14 @@ const RIGHT_WORKSPACE_CHROME_WIDTH_PX = 44
 function resolveOpenPolicy(input: {
   request: BenchOpenRequest
   current?: BenchOpenPolicyState
+  currentVisible?: boolean
   preferences?: BenchPresentationPreferences
   autoOpenSuppressed?: boolean
 }): BenchOpenDecision {
   return resolveBenchOpenPolicy({
     request: input.request,
     current: input.current ?? { status: "closed" },
+    currentVisible: input.currentVisible ?? (input.current?.status === "open"),
     defaults: resolveBenchSurfaceDefaults(input.request.target),
     preferences: input.preferences ?? EMPTY_PREFERENCES,
     autoOpenSuppressed: input.autoOpenSuppressed ?? false,
@@ -112,6 +116,32 @@ function openRequest(target: BenchTarget): BenchOpenRequest {
 }
 
 describe("bench navigation policy", () => {
+  test("waits for workspace collapse before resetting the Bench route", async () => {
+    const events: string[] = []
+
+    await closeBenchWorkspace({
+      closeWorkspace: () => events.push("workspace-closed"),
+      waitForWorkspaceCollapse: async () => {
+        events.push("collapse-started")
+        await Promise.resolve()
+        events.push("collapse-finished")
+      },
+      navigateToChat: async () => {
+        events.push("navigation-started")
+        await Promise.resolve()
+        events.push("navigation-finished")
+      },
+    })
+
+    expect(events).toEqual([
+      "workspace-closed",
+      "collapse-started",
+      "collapse-finished",
+      "navigation-started",
+      "navigation-finished",
+    ])
+  })
+
   test("resolves content-based layout profile defaults", () => {
     const expectedProfiles = [
       {
@@ -396,7 +426,38 @@ describe("bench navigation policy", () => {
     })
   })
 
-  test("auto-open does not replace a different active bench target", () => {
+  test("fullscreen widget auto-open does not replace a different active bench target", () => {
+    const currentTarget = {
+      type: "workspace-file",
+      path: "notes.md",
+      viewer: "markdown",
+    } satisfies BenchTarget
+    expect(
+      resolveOpenPolicy({
+        request: {
+          directory: DIRECTORY,
+          target: HTML_WIDGET_OBJECT_TARGET,
+          mode: BENCH_MODE_REQUEST_POLICY,
+          autoOpen: {
+            policyID: BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
+            eventKey: "message-1:part-1",
+          },
+        },
+        current: {
+          status: "open",
+          directory: DIRECTORY,
+          target: currentTarget,
+          mode: BENCH_CHAT_LAYOUT_DOCKED,
+          layoutProfile: resolveBenchSurfaceDefaults(currentTarget).layoutProfile,
+        },
+      }),
+    ).toEqual({
+      action: "ignore",
+      policyID: "auto-open-not-authorized",
+    })
+  })
+
+  test("whiteboard auto-open replaces a different active bench rail target", () => {
     const currentTarget = {
       type: "workspace-file",
       path: "notes.md",
@@ -421,9 +482,49 @@ describe("bench navigation policy", () => {
           layoutProfile: resolveBenchSurfaceDefaults(currentTarget).layoutProfile,
         },
       }),
-    ).toEqual({
-      action: "ignore",
-      policyID: "auto-open-not-authorized",
+    ).toMatchObject({
+      action: "open",
+      target: WHITEBOARD_OBJECT_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    })
+  })
+
+  test("auto-open replaces a different bench target parked behind a collapsed workspace", () => {
+    const currentTarget = {
+      type: "object",
+      ref: {
+        kind: "html-widget",
+        objectID: "widget-1",
+        revisionID: null,
+        itemID: null,
+      },
+      viewID: "runtime",
+    } satisfies BenchTarget
+    expect(
+      resolveOpenPolicy({
+        request: {
+          directory: DIRECTORY,
+          target: WHITEBOARD_OBJECT_TARGET,
+          mode: BENCH_MODE_REQUEST_POLICY,
+          autoOpen: {
+            policyID: BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
+            eventKey: "message-1:part-1",
+          },
+        },
+        current: {
+          status: "open",
+          directory: DIRECTORY,
+          target: currentTarget,
+          mode: BENCH_CHAT_LAYOUT_DOCKED,
+          layoutProfile: resolveBenchSurfaceDefaults(currentTarget).layoutProfile,
+        },
+        currentVisible: false,
+      }),
+    ).toMatchObject({
+      action: "open",
+      target: WHITEBOARD_OBJECT_TARGET,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+      policyID: "preserved-current-mode",
     })
   })
 

@@ -509,7 +509,7 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
   )
 
   return (
-    <div className="relative h-full overflow-hidden">
+    <div className="relative h-full w-full overflow-hidden">
       {!fontsReady || !canvasSettled ? (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-base text-xs text-text-weaker">
           Preparing whiteboard…
@@ -521,7 +521,7 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
         </div>
       ) : null}
       {fontsReady ? (
-        <div className="h-full">
+        <div className="h-full w-full">
           <Excalidraw
             excalidrawAPI={setApi}
             initialData={initialData}

@@ -6,6 +6,7 @@ import { createPlatformJsonStorage } from "../context/platform"
 export const UI_PREFERENCES_STORAGE_KEY = "buddy.ui.v1"
 
 export type RightWorkspaceSelector = "explorer" | "library"
+export type RightWorkspaceSurface = "bench" | RightWorkspaceSelector
 
 const DEFAULT_SIDEBAR_WIDTH_PX = 344
 const DEFAULT_PROJECT_FILE_TREE_OPEN = false
@@ -46,6 +47,7 @@ export type UiPreferencesStore = {
   rightSidebarWidth: number
   projectFileTreeOpen: boolean
   rightWorkspaceLastSelectorByDirectory: Record<string, RightWorkspaceSelector>
+  rightWorkspaceSurfaceByDirectory: Record<string, RightWorkspaceSurface>
   rightSidebarTab:
     | "curriculum"
     | "diagrams"
@@ -70,6 +72,12 @@ export type UiPreferencesStore = {
   setRightSidebarWidth: (width: number) => void
   setProjectFileTreeOpen: (open: boolean) => void
   setRightWorkspaceLastSelector: (directory: string, selector: RightWorkspaceSelector) => void
+  setRightWorkspaceSurface: (
+    directory: string,
+    surface: RightWorkspaceSurface | undefined,
+  ) => void
+  activateRightWorkspaceSurface: (directory: string, surface: RightWorkspaceSurface) => void
+  closeRightWorkspace: (directory: string) => void
   setRightSidebarTab: (
     tab:
       | "curriculum"
@@ -156,6 +164,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         | "rightSidebarWidth"
         | "projectFileTreeOpen"
         | "rightWorkspaceLastSelectorByDirectory"
+        | "rightWorkspaceSurfaceByDirectory"
         | "rightSidebarTab"
         | "setLeftSidebarOpen"
         | "setChatLeftSidebarWidth"
@@ -164,6 +173,9 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         | "setRightSidebarWidth"
         | "setProjectFileTreeOpen"
         | "setRightWorkspaceLastSelector"
+        | "setRightWorkspaceSurface"
+        | "activateRightWorkspaceSurface"
+        | "closeRightWorkspace"
         | "setRightSidebarTab"
       > = {
         leftSidebarOpen: true,
@@ -173,6 +185,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         rightSidebarWidth: 380,
         projectFileTreeOpen: DEFAULT_PROJECT_FILE_TREE_OPEN,
         rightWorkspaceLastSelectorByDirectory: {},
+        rightWorkspaceSurfaceByDirectory: {},
         rightSidebarTab: "curriculum",
         setLeftSidebarOpen(open) {
           set((state) => {
@@ -207,6 +220,27 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         setRightWorkspaceLastSelector(directory, selector) {
           set((state) => {
             state.rightWorkspaceLastSelectorByDirectory[directory] = selector
+          })
+        },
+        setRightWorkspaceSurface(directory, surface) {
+          set((state) => {
+            if (surface) {
+              state.rightWorkspaceSurfaceByDirectory[directory] = surface
+              return
+            }
+            delete state.rightWorkspaceSurfaceByDirectory[directory]
+          })
+        },
+        activateRightWorkspaceSurface(directory, surface) {
+          set((state) => {
+            state.rightWorkspaceSurfaceByDirectory[directory] = surface
+            state.rightSidebarOpen = true
+          })
+        },
+        closeRightWorkspace(directory) {
+          set((state) => {
+            delete state.rightWorkspaceSurfaceByDirectory[directory]
+            state.rightSidebarOpen = false
           })
         },
         setRightSidebarTab(tab) {

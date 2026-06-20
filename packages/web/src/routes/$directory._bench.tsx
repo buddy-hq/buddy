@@ -659,7 +659,11 @@ function ReadyDirectoryBenchRouteLayout(props: { controller: ReadyDirectoryBench
           rightSidebarMaxWidth={dockedWorkspaceLayout.workspaceMaxWidthPx}
           onRightSidebarResize={setDockedWorkspaceWidthPx}
           onRightSidebarResizeIntent={handleDockedWorkspaceResizeIntent}
-          onRightSidebarExpand={() => controller.mainPaneProps.chatState.setRightSidebarOpen(true)}
+          onRightWorkspaceToggle={() =>
+            controller.mainPaneProps.chatState.setRightSidebarOpen(
+              !controller.mainPaneProps.chatState.rightSidebarOpen,
+            )
+          }
           chatTitle={controller.mainPaneProps.chatState.sessionTitle}
           titlebarVariant="chat"
           onRightSidebarCollapse={() =>
