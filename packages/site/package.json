@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@buddy/site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "lint": "bun ../../node_modules/oxlint/bin/oxlint",
+    "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
+    "typecheck:raw": "astro check"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "12.6.3",
+    "@astrojs/starlight": "0.34.3",
+    "astro": "5.7.13"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.6",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

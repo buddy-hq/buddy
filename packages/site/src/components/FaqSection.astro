@@ -1,0 +1,161 @@
+---
+// FAQ section — no props needed
+---
+
+<section id="faq" class="faq-section reveal">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title">Common Questions</h2>
+    </div>
+
+    <div class="faq-list">
+      <details>
+        <summary>
+          Is Buddy really local-first?
+          <svg class="summary-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="faq-answer">
+          Yes. All your files, reading logs, drawing canvases, and notes are saved directly to your hard drive. Your data never leaves your machine.
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          Which AI providers does Buddy support?
+          <svg class="summary-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="faq-answer">
+          Buddy is Bring-Your-Own-Key. It works with OpenAI, Anthropic, Google, Ollama, and dozens of other cloud or local AI providers through a flexible configuration.
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          How can I extend Buddy's capabilities?
+          <svg class="summary-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="faq-answer">
+          Connect custom Model Context Protocol (MCP) servers, add reusable skill bundles, or register new shell tools directly to expand what Buddy can do.
+        </div>
+      </details>
+
+      <details>
+        <summary>
+          How does Buddy guide my learning?
+          <svg class="summary-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="faq-answer">
+          Buddy uses proven educational frameworks like Bloom's Taxonomy and active recall. It guides you through reasoning with Socratic-style questions rather than simply giving you answers.
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<style is:global>
+  /* === FAQ === */
+  .faq-section {
+    padding-block: clamp(3.5rem, 8vw, 6rem);
+    border-top: 1px solid var(--color-card-border);
+  }
+
+  .faq-list {
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  details {
+    background-color: var(--color-card-bg);
+    border: 1px solid var(--color-card-border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+  }
+
+  details:hover {
+    border-color: var(--color-card-hover-border);
+  }
+
+  details[open] {
+    border-color: rgba(255, 107, 0, 0.3);
+    box-shadow: 0 4px 20px rgba(255, 107, 0, 0.05);
+  }
+
+  summary {
+    list-style: none;
+    padding: 16px 20px;
+    font-size: var(--text-base);
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    user-select: none;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .summary-icon {
+    color: var(--color-text-secondary);
+    transition: transform 0.25s var(--ease-out);
+    flex-shrink: 0;
+  }
+
+  details[open] summary .summary-icon {
+    transform: rotate(180deg);
+    color: var(--color-accent-primary);
+  }
+
+  .faq-answer {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 250ms var(--ease-out), opacity 250ms var(--ease-out), padding 250ms var(--ease-out);
+    padding: 0 20px;
+    color: var(--color-text-tertiary);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    border-top: 1px solid transparent;
+    max-width: 65ch;
+    will-change: max-height;
+  }
+
+  details[open] .faq-answer {
+    padding: 0 20px 16px 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.03);
+  }
+</style>
+
+<script>
+  // FAQ accordion with smooth height animation
+  document.querySelectorAll("details").forEach((el) => {
+    const summary = el.querySelector("summary")
+    const answer = el.querySelector(".faq-answer") as HTMLElement
+
+    if (summary && answer) {
+      summary.addEventListener("click", (e) => {
+        e.preventDefault()
+        if (el.hasAttribute("open")) {
+          // Close: animate then remove open
+          answer.style.maxHeight = "0px"
+          answer.style.opacity = "0"
+          setTimeout(() => {
+            el.removeAttribute("open")
+          }, 250)
+        } else {
+          // Open: set open, then animate
+          el.setAttribute("open", "")
+          // Force reflow so transition triggers
+          void answer.offsetHeight
+          answer.style.maxHeight = `${answer.scrollHeight}px`
+          answer.style.opacity = "1"
+        }
+      })
+    }
+  })
+</script>

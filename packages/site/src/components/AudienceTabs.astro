@@ -1,0 +1,316 @@
+---
+import { Image } from "astro:assets"
+import stateFlashcards from "../assets/mascot/buddy-state-empty-flashcards.png"
+import stateBooks from "../assets/mascot/buddy-state-empty-books.png"
+import stateExercises from "../assets/mascot/buddy-state-empty-exercises.png"
+import mascotIdea from "../assets/mascot/buddy-mascot-idea.png"
+import mascotRead from "../assets/mascot/buddy-mascot-read.png"
+import mascotThink from "../assets/mascot/buddy-mascot-think.png"
+---
+
+<section id="audience" class="segment-section reveal">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title">Built for how you learn</h2>
+    </div>
+
+    <div class="segment-tabs" role="tablist">
+      <button class="segment-tab-btn active" data-segment="students" role="tab" aria-selected="true" aria-controls="segment-students" id="tab-students">For Students</button>
+      <button class="segment-tab-btn" data-segment="learners" role="tab" aria-selected="false" aria-controls="segment-learners" id="tab-learners">For Lifelong Learners</button>
+      <button class="segment-tab-btn" data-segment="educators" role="tab" aria-selected="false" aria-controls="segment-educators" id="tab-educators">For Educators</button>
+    </div>
+
+    <div class="segment-content-wrapper">
+      <!-- Students -->
+      <div id="segment-students" class="segment-content active" role="tabpanel" aria-labelledby="tab-students">
+        <div class="segment-grid">
+          <div class="segment-info">
+            <h3 class="segment-title">Ace your exams with active study tools</h3>
+            <p class="segment-desc">
+              Import textbooks or syllabus material, then generate flashcards, practice quizzes, and visual summaries that target exactly what you need to review.
+            </p>
+            <ul class="segment-features">
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Generate active recall flashcards from core textbook chapters
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Solve equations and plot charts inside a sandboxed Python runtime
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Track memory retention using spaced repetition algorithms
+              </li>
+            </ul>
+          </div>
+          <div class="segment-visual">
+            <div class="capability-visual-wrapper">
+              <Image src={stateFlashcards} alt="Buddy flashcard study mode" class="capability-state-img" />
+              <Image src={mascotIdea} alt="" class="capability-mascot-overlay" aria-hidden="true" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lifelong Learners -->
+      <div id="segment-learners" class="segment-content" role="tabpanel" aria-labelledby="tab-learners">
+        <div class="segment-grid">
+          <div class="segment-info">
+            <h3 class="segment-title">Explore new subjects at your own pace</h3>
+            <p class="segment-desc">
+              Dive into any discipline — from history to programming. Buddy acts as a knowledgeable co-reader, helping you break down dense texts and organize your research.
+            </p>
+            <ul class="segment-features">
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Highlight, search, and annotate text inline as you read
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Sketch mental models on the integrated Excalidraw whiteboard
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Author Markdown notes with live LaTeX math and Mermaid diagrams
+              </li>
+            </ul>
+          </div>
+          <div class="segment-visual">
+            <div class="capability-visual-wrapper">
+              <Image src={stateBooks} alt="Buddy ebook reader mode" class="capability-state-img" />
+              <Image src={mascotRead} alt="" class="capability-mascot-overlay" aria-hidden="true" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Educators -->
+      <div id="segment-educators" class="segment-content" role="tabpanel" aria-labelledby="tab-educators">
+        <div class="segment-grid">
+          <div class="segment-info">
+            <h3 class="segment-title">Create structured materials in minutes</h3>
+            <p class="segment-desc">
+              Generate standards-aligned worksheets, map lessons to learning objectives, and export polished resources — without starting from scratch.
+            </p>
+            <ul class="segment-features">
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Export lesson plans and worksheets to print-ready PDF layouts
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Align lesson objectives to Bloom's Taxonomy & grade-level targets
+              </li>
+              <li>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Map exercises to CCSS, NGSS, and state guidelines
+              </li>
+            </ul>
+          </div>
+          <div class="segment-visual">
+            <div class="capability-visual-wrapper">
+              <Image src={stateExercises} alt="Buddy worksheet generation" class="capability-state-img" />
+              <Image src={mascotThink} alt="" class="capability-mascot-overlay" aria-hidden="true" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style is:global>
+  /* === Audience tabs === */
+  .segment-section {
+    padding-block: clamp(3.5rem, 8vw, 6rem);
+    border-top: 1px solid var(--color-card-border);
+  }
+
+  .segment-tabs {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-12);
+  }
+
+  .segment-tab-btn {
+    background-color: var(--color-card-bg);
+    border: 1px solid var(--color-card-border);
+    border-radius: 50px;
+    padding: 8px 20px;
+    color: var(--color-text-secondary);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 150ms var(--ease-out), border-color 150ms var(--ease-out), color 150ms var(--ease-out), transform 150ms var(--ease-out);
+    letter-spacing: var(--tracking-wide);
+  }
+
+  .segment-tab-btn:active { transform: scale(0.97); }
+
+  .segment-tab-btn.active {
+    background-color: rgba(255, 107, 0, 0.15);
+    border-color: #ff6b00;
+    color: #fafaf9;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .segment-tab-btn:hover {
+      border-color: var(--color-card-hover-border);
+      color: var(--color-text-primary);
+    }
+  }
+
+  /* Tab panels — visibility-based transition (no display:none) */
+  .segment-content-wrapper {
+    position: relative;
+  }
+
+  .segment-content {
+    opacity: 0;
+    visibility: hidden;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    pointer-events: none;
+    transition: opacity 0.3s var(--ease-out), visibility 0.3s var(--ease-out);
+  }
+
+  .segment-content.active {
+    opacity: 1;
+    visibility: visible;
+    position: relative;
+    pointer-events: auto;
+  }
+
+  .segment-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    gap: clamp(2rem, 6vw, 4rem);
+    align-items: center;
+  }
+
+  .segment-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .segment-title {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: 700;
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tight);
+    margin-bottom: var(--space-4);
+    color: var(--color-text-primary);
+  }
+
+  .segment-desc {
+    color: var(--color-text-tertiary);
+    font-size: var(--text-base);
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-8);
+    max-width: 58ch;
+  }
+
+  .segment-features {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    list-style: none;
+  }
+
+  .segment-features li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    letter-spacing: var(--tracking-normal);
+  }
+
+  .segment-features li svg {
+    flex-shrink: 0;
+    margin-top: 3px;
+    color: var(--color-accent-cool);
+  }
+
+  .capability-visual-wrapper {
+    position: relative;
+    background-color: var(--color-card-bg);
+    border: 1px solid var(--color-card-border);
+    border-radius: 20px;
+    padding: clamp(1rem, 3vw, 1.5rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    aspect-ratio: 16/10;
+    width: 100%;
+  }
+
+  .capability-state-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+    transition: transform 0.4s var(--ease-out);
+  }
+
+  .capability-visual-wrapper:hover .capability-state-img {
+    transform: scale(1.02);
+  }
+
+  .capability-mascot-overlay {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 25%;
+    height: auto;
+    z-index: 5;
+    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.3));
+  }
+
+  @media (max-width: 992px) {
+    .segment-grid {
+      grid-template-columns: 1fr;
+      gap: var(--space-8);
+    }
+  }
+
+  @media (max-width: 576px) {
+    .segment-tabs {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+</style>
+
+<script>
+  const segBtns = document.querySelectorAll(".segment-tab-btn")
+  const segPanels = document.querySelectorAll(".segment-content")
+
+  segBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = btn.getAttribute("data-segment")
+      if (btn.classList.contains("active")) return
+
+      // Update buttons
+      segBtns.forEach((b) => {
+        b.classList.remove("active")
+        b.setAttribute("aria-selected", "false")
+      })
+      btn.classList.add("active")
+      btn.setAttribute("aria-selected", "true")
+
+      // Update panels — just toggle .active class (CSS handles transitions)
+      segPanels.forEach((p) => p.classList.remove("active"))
+      const panel = document.getElementById(`segment-${target}`)
+      if (panel) panel.classList.add("active")
+    })
+  })
+</script>

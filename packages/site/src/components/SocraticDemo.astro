@@ -1,0 +1,217 @@
+---
+import { DOCS_PATH } from "../lib/constants"
+---
+
+<section class="socratic-demo reveal">
+  <div class="container socratic-grid">
+    <div>
+      <h2 class="section-title" style="text-align: left;">
+        A guide, not a lecturer
+      </h2>
+      <p class="socratic-subtitle">
+        Buddy doesn't hand you answers. It asks the right questions at the right
+        time, guiding you to uncover concepts yourself — the way great teachers
+        do.
+      </p>
+      <div style="margin-top: 24px;">
+        <a href={DOCS_PATH} class="btn-secondary">How Socratic teaching works</a
+        >
+      </div>
+    </div>
+
+    <div class="chat-mockup">
+      <div class="chat-header">
+        <div class="chat-user-info">
+          <div class="chat-avatar">B</div>
+          <div>
+            <div class="chat-username">Buddy AI</div>
+            <div class="chat-status-label">Socratic Tutor</div>
+          </div>
+        </div>
+        <div class="chat-status-dot"></div>
+      </div>
+      <div class="chat-body">
+        <div class="chat-bubble bubble-user">
+          Can you explain photosynthesis to me? I have a biology quiz tomorrow.
+        </div>
+        <div class="chat-bubble bubble-buddy">
+          Let's break it down! If plants require light to create their food,
+          what specialized green pigment inside their leaves do you think gathers
+          that sunlight?
+        </div>
+        <div class="chat-bubble bubble-user">Is that chlorophyll?</div>
+        <div class="chat-bubble bubble-buddy">
+          Precisely! Chlorophyll is key. Now, once it captures that solar energy,
+          what ingredients from the environment does the leaf combine it with?
+        </div>
+      </div>
+      <div class="chat-footer">
+        <div class="chat-input-field">Type your reply...</div>
+        <button class="chat-send-btn" aria-label="Send message">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style is:global>
+  /* === Socratic Showcase === */
+  .socratic-demo {
+    background-color: rgba(22, 19, 18, 0.25);
+    border-top: 1px solid var(--color-card-border);
+    border-bottom: 1px solid var(--color-card-border);
+    padding-block: clamp(3.5rem, 8vw, 6rem);
+  }
+
+  .socratic-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    gap: clamp(2rem, 6vw, 4rem);
+    align-items: center;
+  }
+
+  .socratic-subtitle {
+    font-size: var(--text-base);
+    font-weight: 450;
+    line-height: var(--leading-relaxed);
+    color: var(--color-text-secondary);
+    opacity: 0.88;
+    max-width: 48ch;
+    letter-spacing: var(--tracking-snug);
+  }
+
+  /* === Chat mockup === */
+  .chat-mockup {
+    background-color: rgba(22, 19, 18, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--color-card-border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  }
+
+  .chat-header {
+    background-color: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid var(--color-card-border);
+    padding: 14px var(--space-6);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .chat-user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .chat-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: var(--color-accent-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: #ffffff;
+  }
+
+  .chat-username {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .chat-status-label {
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+
+  .chat-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #10b981;
+  }
+
+  .chat-body {
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    font-size: var(--text-sm);
+  }
+
+  .chat-bubble {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    line-height: 1.5;
+  }
+
+  .bubble-buddy {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--color-card-border);
+    align-self: flex-start;
+    border-top-left-radius: 2px;
+  }
+
+  .bubble-user {
+    background-color: var(--color-accent-primary);
+    color: #ffffff;
+    align-self: flex-end;
+    border-top-right-radius: 2px;
+  }
+
+  .chat-footer {
+    padding: var(--space-4) var(--space-6);
+    background-color: rgba(255, 255, 255, 0.01);
+    border-top: 1px solid var(--color-card-border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .chat-input-field {
+    flex-grow: 1;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--color-card-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--color-text-muted);
+    font-size: 12px;
+  }
+
+  .chat-send-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background-color: var(--color-accent-primary);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    cursor: pointer;
+  }
+
+  @media (max-width: 992px) {
+    .socratic-grid {
+      grid-template-columns: 1fr;
+      gap: var(--space-8);
+    }
+  }
+</style>

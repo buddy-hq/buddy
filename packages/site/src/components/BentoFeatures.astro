@@ -1,0 +1,531 @@
+---
+// No image imports — mockups are CSS-only
+---
+
+<section id="features" class="reveal">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title">Everything you need to learn deeply</h2>
+    </div>
+
+    <div class="bento-grid">
+      <!-- Card 1: Persistent Context (col-span-2) -->
+      <div class="bento-card col-span-2-lg">
+        <div class="bento-card-content">
+          <div class="bento-icon-box">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="M12 6v6l4 2"></path></svg>
+          </div>
+          <h3 class="bento-title">Pick up right where you left off</h3>
+          <p class="bento-desc">
+            Buddy remembers your reading position, notes, and weak spots across every session. Come back tomorrow and continue exactly where you stopped.
+          </p>
+        </div>
+        <div class="bento-card-visual">
+          <div class="study-list-mockup">
+            <div class="study-list-header">
+              <span>RECENT SESSIONS</span>
+              <span class="study-status-badge"><span class="study-status-dot"></span>ACTIVE</span>
+            </div>
+            <div class="study-item">
+              <div class="study-item-info">
+                <span class="study-item-title">world_history_ch2.epub</span>
+                <span class="study-item-percent">85%</span>
+              </div>
+              <div class="study-progress-bar">
+                <div class="study-progress-fill" style="width: 85%;"></div>
+              </div>
+            </div>
+            <div class="study-item">
+              <div class="study-item-info">
+                <span class="study-item-title">intro_to_algorithms.pdf</span>
+                <span class="study-item-percent">40%</span>
+              </div>
+              <div class="study-progress-bar">
+                <div class="study-progress-fill" style="width: 40%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Active Recall (col-span-1) -->
+      <div class="bento-card">
+        <div class="bento-card-content">
+          <div class="bento-icon-box">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M12 12h.01"></path></svg>
+          </div>
+          <h3 class="bento-title">Learn through guided recall</h3>
+          <p class="bento-desc">
+            Active recall flashcards and spaced repetition help you move knowledge from short-term cramming to long-term memory.
+          </p>
+        </div>
+        <div class="bento-card-visual">
+          <div class="flashcard-mockup">
+            <div class="flashcard-inner">
+              <div class="flashcard-front">
+                <span class="flashcard-label">Active Recall</span>
+                <span class="flashcard-text">What is the Spanish word for "library"?</span>
+                <span class="flashcard-hint">Hover to flip</span>
+              </div>
+              <div class="flashcard-back">
+                <span class="flashcard-label" style="color: #ffffff;">Answer</span>
+                <span class="flashcard-text">biblioteca — from the Greek bibliothēkē (book + repository)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Privacy — uses cool teal accent -->
+      <div class="bento-card bento-card-cool">
+        <div class="bento-card-content">
+          <div class="bento-icon-box bento-icon-cool">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </div>
+          <h3 class="bento-title">Your data never leaves your machine</h3>
+          <p class="bento-desc">
+            All files, notes, and conversations are stored on your local drive. Connect any AI provider with your own API keys — Buddy never sees them.
+          </p>
+        </div>
+        <div class="bento-card-visual">
+          <div class="local-storage-mockup">
+            <div class="local-storage-header">
+              <span>~/.local/share/buddy/</span>
+              <span class="local-badge">SECURED</span>
+            </div>
+            <div class="tree-item">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+              <span class="tree-file-name">buddy.db</span>
+              <span class="tree-file-size">14.8 MB</span>
+            </div>
+            <div class="tree-item">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              <span>~/.buddy-runtime/</span>
+            </div>
+            <div class="tree-item tree-indent">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+              <span class="tree-file-name">opencode.db</span>
+              <span class="tree-file-size">8.2 MB</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 4: Interactive Workspace (col-span-2) -->
+      <div class="bento-card col-span-2-lg">
+        <div class="bento-card-content">
+          <div class="bento-icon-box">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2z"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+          </div>
+          <h3 class="bento-title">Read, sketch, code & quiz — side by side</h3>
+          <p class="bento-desc">
+            A tabbed workspace that adapts to your flow. View books, sketch on Excalidraw whiteboards, render diagrams, run sandboxed Python, and review quizzes — all without switching apps.
+          </p>
+        </div>
+        <div class="bento-card-visual">
+          <div class="workspace-nodes-mockup">
+            <svg class="workspace-svg" viewBox="0 0 400 150" preserveAspectRatio="xMidYMid meet">
+              <path class="connection-path" d="M 60 30 Q 130 30 200 75" />
+              <path class="connection-path-glow" d="M 60 30 Q 130 30 200 75" />
+              <path class="connection-path" d="M 80 120 Q 140 120 200 75" />
+              <path class="connection-path-glow" d="M 80 120 Q 140 120 200 75" />
+              <path class="connection-path" d="M 340 30 Q 270 30 200 75" />
+              <path class="connection-path-glow" d="M 340 30 Q 270 30 200 75" />
+              <path class="connection-path" d="M 320 120 Q 260 120 200 75" />
+              <path class="connection-path-glow" d="M 320 120 Q 260 120 200 75" />
+            </svg>
+
+            <div class="node-center" title="Agent Core">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path><path d="M12 6v6l4 2"></path></svg>
+            </div>
+
+            <div class="node-outer node-1" title="Web Search">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </div>
+            <div class="node-outer node-2" title="Python Sandbox">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+            </div>
+            <div class="node-outer node-3" title="Local LLM">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+            </div>
+            <div class="node-outer node-4" title="File System">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style is:global>
+  /* === Bento grid === */
+  .bento-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+    margin-bottom: var(--space-12);
+  }
+
+  @media (min-width: 992px) {
+    .bento-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .col-span-2-lg {
+      grid-column: span 2;
+    }
+  }
+
+  .bento-card {
+    background: linear-gradient(135deg, rgba(22, 19, 18, 0.7) 0%, rgba(12, 10, 9, 0.4) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    padding: var(--space-6) var(--space-6) 0 var(--space-6);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+    transition: border-color 300ms var(--ease-out), box-shadow 300ms var(--ease-out), transform 300ms var(--ease-out);
+    position: relative;
+    min-height: 360px;
+  }
+
+  @media (min-width: 992px) {
+    .bento-card { min-height: 380px; }
+    .bento-card.col-span-2-lg {
+      flex-direction: row;
+      padding-bottom: var(--space-6);
+      padding-right: 0;
+    }
+    .bento-card.col-span-2-lg .bento-card-content {
+      width: 45%;
+      padding-bottom: 0;
+      margin-bottom: 0;
+    }
+    .bento-card.col-span-2-lg .bento-card-visual {
+      width: 55%;
+      height: 100%;
+      align-self: flex-end;
+      margin-top: 0;
+    }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .bento-card:hover {
+      border-color: rgba(255, 107, 0, 0.35);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 107, 0, 0.08);
+      transform: translateY(-2px);
+    }
+    .bento-card-cool:hover {
+      border-color: rgba(45, 212, 191, 0.35);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(45, 212, 191, 0.08);
+    }
+    .node-outer:hover {
+      color: #ffffff;
+      border-color: var(--color-accent-primary);
+      transform: scale(1.08);
+    }
+  }
+
+  .bento-card-content { padding-bottom: var(--space-6); }
+
+  .bento-icon-box {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-accent-primary);
+    margin-bottom: var(--space-4);
+    transition: color 250ms var(--ease-out), background-color 250ms var(--ease-out);
+  }
+
+  /* Privacy card — cool teal accent */
+  .bento-icon-cool {
+    color: var(--color-accent-cool);
+  }
+
+  .bento-card:hover .bento-icon-box {
+    color: #ffffff;
+    background-color: var(--color-accent-primary);
+    border-color: rgba(255, 107, 0, 0.2);
+  }
+
+  .bento-card-cool:hover .bento-icon-cool {
+    background-color: var(--color-accent-cool);
+    border-color: rgba(45, 212, 191, 0.2);
+  }
+
+  .bento-title {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    margin-bottom: var(--space-2);
+    color: #fafaf9;
+    letter-spacing: var(--tracking-tight);
+    line-height: 1.25;
+  }
+
+  .bento-desc {
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    line-height: 1.55;
+    letter-spacing: var(--tracking-snug);
+  }
+
+  .bento-card-visual {
+    margin-top: var(--space-4);
+    position: relative;
+    flex-grow: 1;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  /* --- Study list mockup --- */
+  .study-list-mockup {
+    width: 90%;
+    background-color: rgba(12, 10, 9, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px 12px 0 0;
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.4);
+  }
+
+  .study-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    padding-bottom: 6px;
+  }
+
+  .study-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: #10b981;
+  }
+
+  .study-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #10b981;
+    display: inline-block;
+  }
+
+  .study-item { display: flex; flex-direction: column; gap: 6px; }
+  .study-item-info { display: flex; justify-content: space-between; font-size: 10px; }
+  .study-item-title { font-weight: 600; color: var(--color-text-secondary); }
+  .study-item-percent { color: var(--color-accent-primary); font-weight: 700; }
+
+  .study-progress-bar {
+    height: 4px;
+    background-color: rgba(255, 255, 255, 0.04);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .study-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-accent-secondary), var(--color-accent-primary));
+    border-radius: 2px;
+  }
+
+  /* --- Flashcard mockup --- */
+  .flashcard-mockup {
+    perspective: 1000px;
+    width: 85%;
+    height: 120px;
+    margin-bottom: var(--space-4);
+    cursor: pointer;
+  }
+
+  .flashcard-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+    transform-style: preserve-3d;
+  }
+
+  .flashcard-mockup:hover .flashcard-inner { transform: rotateY(180deg); }
+
+  .flashcard-front, .flashcard-back {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    border-radius: 12px;
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .flashcard-front {
+    background-color: rgba(18, 15, 14, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--color-text-primary);
+  }
+
+  .flashcard-back {
+    background: linear-gradient(135deg, rgba(255, 107, 0, 0.12) 0%, rgba(22, 19, 18, 0.95) 100%);
+    border: 1px solid rgba(255, 107, 0, 0.3);
+    color: #fafaf9;
+    transform: rotateY(180deg);
+  }
+
+  .flashcard-label {
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-accent-primary);
+    margin-bottom: 6px;
+    font-weight: 700;
+  }
+
+  .flashcard-text { font-size: 11px; font-weight: 600; line-height: 1.4; }
+  .flashcard-hint { font-size: 8px; color: var(--color-text-muted); margin-top: 12px; }
+
+  /* --- Local storage mockup --- */
+  .local-storage-mockup {
+    width: 85%;
+    background-color: rgba(12, 10, 9, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px 12px 0 0;
+    padding: var(--space-4);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-secondary);
+    box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .local-storage-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    padding-bottom: 6px;
+    margin-bottom: 4px;
+  }
+
+  .local-badge {
+    background-color: rgba(45, 212, 191, 0.1);
+    color: var(--color-accent-cool);
+    border: 1px solid rgba(45, 212, 191, 0.2);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .tree-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .tree-indent {
+    margin-left: 12px;
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    padding-left: 8px;
+  }
+
+  .tree-file-name { color: var(--color-accent-cool); }
+  .tree-file-size { color: var(--color-text-muted); margin-left: auto; font-size: 9px; }
+
+  /* --- Workspace nodes mockup --- */
+  .workspace-nodes-mockup {
+    width: 90%;
+    height: 150px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .node-center {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--color-accent-primary) 0%, #d95300 100%);
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 20px rgba(255, 107, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    z-index: 10;
+  }
+
+  .node-outer {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: rgba(18, 15, 14, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+    z-index: 10;
+    transition: color 0.3s, border-color 0.3s, transform 0.3s;
+  }
+
+  .node-1 { top: 15px; left: 15%; }
+  .node-2 { bottom: 15px; left: 20%; }
+  .node-3 { top: 15px; right: 15%; }
+  .node-4 { bottom: 15px; right: 20%; }
+
+  .workspace-svg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .connection-path {
+    stroke: rgba(255, 107, 0, 0.15);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 6;
+    fill: none;
+    animation: dash-pulse 20s linear infinite;
+  }
+
+  .connection-path-glow {
+    stroke: var(--color-accent-primary);
+    stroke-width: 1.5;
+    stroke-dasharray: 6 30;
+    fill: none;
+    animation: dash-pulse 6s linear infinite;
+  }
+
+  @keyframes dash-pulse {
+    to { stroke-dashoffset: -100; }
+  }
+</style>

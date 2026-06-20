@@ -1,0 +1,228 @@
+---
+import { Image } from "astro:assets"
+import buddyAppIcon from "../assets/buddy-app-icon.png"
+import { DOCS_PATH, GITHUB_URL } from "../lib/constants"
+---
+
+<header>
+  <div class="container nav-wrapper">
+    <a href="#" class="logo-group">
+      <Image src={buddyAppIcon} alt="Buddy Logo" class="logo-icon" />
+      <span class="logo-text">Buddy</span>
+    </a>
+    <nav class="desktop-nav">
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#install" class="nav-link">Install</a>
+      <a href="#faq" class="nav-link">FAQ</a>
+      <a href={DOCS_PATH} class="nav-link">Docs</a>
+      <a
+        href={GITHUB_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="nav-link">GitHub</a
+      >
+    </nav>
+    <div class="nav-actions">
+      <a href="#install" class="btn-cta nav-install-btn">Install Free</a>
+      <button
+        class="mobile-nav-toggle"
+        aria-label="Toggle navigation"
+        aria-expanded="false"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </div>
+  <div class="mobile-nav-drawer" aria-hidden="true">
+    <a href="#features" class="mobile-nav-link">Features</a>
+    <a href="#install" class="mobile-nav-link">Install</a>
+    <a href="#faq" class="mobile-nav-link">FAQ</a>
+    <a href={DOCS_PATH} class="mobile-nav-link">Docs</a>
+    <a
+      href={GITHUB_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      class="mobile-nav-link">GitHub</a
+    >
+    <a href="#install" class="btn-cta mobile-install-btn">Install Buddy</a>
+  </div>
+</header>
+
+<style is:global>
+  /* === Sticky header === */
+  header {
+    position: sticky;
+    top: 0;
+    background-color: rgba(10, 8, 7, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--color-card-border);
+    z-index: 100;
+  }
+
+  .nav-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 64px;
+  }
+
+  .logo-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    text-decoration: none;
+    transition: opacity 200ms var(--ease-out);
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    object-fit: cover;
+  }
+
+  .logo-text {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--color-text-primary);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  .desktop-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-6);
+  }
+
+  .nav-link {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--color-text-tertiary);
+    text-decoration: none;
+    transition: color 0.18s var(--ease-out);
+    letter-spacing: var(--tracking-normal);
+  }
+
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  /* === Mobile hamburger === */
+  .mobile-nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .mobile-nav-toggle span {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background-color: var(--color-text-secondary);
+    border-radius: 1px;
+    transition: transform 0.25s var(--ease-out), opacity 0.25s var(--ease-out);
+  }
+
+  .mobile-nav-toggle[aria-expanded="true"] span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+  .mobile-nav-toggle[aria-expanded="true"] span:nth-child(2) {
+    opacity: 0;
+  }
+  .mobile-nav-toggle[aria-expanded="true"] span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+
+  /* === Mobile drawer === */
+  .mobile-nav-drawer {
+    display: none;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-4) var(--space-6) var(--space-6);
+    background-color: rgba(10, 8, 7, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--color-card-border);
+  }
+
+  .mobile-nav-drawer.open {
+    display: flex;
+  }
+
+  .mobile-nav-link {
+    font-size: var(--text-base);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    padding: var(--space-3) 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    transition: color 0.15s ease;
+  }
+
+  .mobile-nav-link:hover {
+    color: var(--color-text-primary);
+  }
+
+  .mobile-install-btn {
+    margin-top: var(--space-3);
+    justify-content: center;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .logo-group:hover {
+      opacity: 0.9;
+    }
+    .nav-link:hover {
+      color: var(--color-text-primary);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .desktop-nav {
+      display: none;
+    }
+    .nav-install-btn {
+      display: none;
+    }
+    .mobile-nav-toggle {
+      display: flex;
+    }
+  }
+</style>
+
+<script>
+  const toggle = document.querySelector(".mobile-nav-toggle")
+  const drawer = document.querySelector(".mobile-nav-drawer")
+
+  if (toggle && drawer) {
+    toggle.addEventListener("click", () => {
+      const isOpen = toggle.getAttribute("aria-expanded") === "true"
+      toggle.setAttribute("aria-expanded", String(!isOpen))
+      drawer.classList.toggle("open")
+      drawer.setAttribute("aria-hidden", String(isOpen))
+    })
+
+    drawer.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => {
+        toggle.setAttribute("aria-expanded", "false")
+        drawer.classList.remove("open")
+        drawer.setAttribute("aria-hidden", "true")
+      })
+    })
+  }
+</script>

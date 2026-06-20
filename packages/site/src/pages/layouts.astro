@@ -1,0 +1,3260 @@
+---
+import Landing from "../layouts/Landing.astro"
+import { Image } from "astro:assets"
+
+// Import existing assets
+import stateFlashcards from "../assets/mascot/buddy-state-empty-flashcards.png"
+import stateBooks from "../assets/mascot/buddy-state-empty-books.png"
+import stateExercises from "../assets/mascot/buddy-state-empty-exercises.png"
+import mascotIdea from "../assets/mascot/buddy-mascot-idea.png"
+import mascotRead from "../assets/mascot/buddy-mascot-read.png"
+import mascotThink from "../assets/mascot/buddy-mascot-think.png"
+
+const audiences = [
+  {
+    id: "students",
+    num: "01",
+    label: "For Students",
+    tag: "STUDENT",
+    title: "Ace your exams with active study tools",
+    description: "Import textbooks or syllabus material, then generate flashcards, practice quizzes, and visual summaries that target exactly what you need to review.",
+    features: [
+      "Generate active recall flashcards from core textbook chapters",
+      "Solve equations and plot charts inside a sandboxed Python runtime",
+      "Track memory retention using spaced repetition algorithms"
+    ],
+    bg: stateFlashcards,
+    mascot: mascotIdea,
+    accent: "#ff6b00",
+    glow: "rgba(255, 107, 0, 0.15)",
+    file: "students.py",
+    lang: "python",
+    osWindow: "students_workspace.exe",
+    icon: "🐍"
+  },
+  {
+    id: "learners",
+    num: "02",
+    label: "For Lifelong Learners",
+    tag: "LEARNER",
+    title: "Explore new subjects at your own pace",
+    description: "Dive into any discipline — from history to programming. Buddy acts as a knowledgeable co-reader, helping you break down dense texts and organize your research.",
+    features: [
+      "Highlight, search, and annotate text inline as you read",
+      "Sketch mental models on the integrated Excalidraw whiteboard",
+      "Author Markdown notes with live LaTeX math and Mermaid diagrams"
+    ],
+    bg: stateBooks,
+    mascot: mascotRead,
+    accent: "#2dd4bf",
+    glow: "rgba(45, 212, 191, 0.15)",
+    file: "learners.md",
+    lang: "markdown",
+    osWindow: "read_annotate.app",
+    icon: "📝"
+  },
+  {
+    id: "educators",
+    num: "03",
+    label: "For Educators",
+    tag: "EDUCATOR",
+    title: "Create structured materials in minutes",
+    description: "Generate standards-aligned worksheets, map lessons to learning objectives, and export polished resources — without starting from scratch.",
+    features: [
+      "Export lesson plans and worksheets to print-ready PDF layouts",
+      "Align lesson objectives to Bloom's Taxonomy & grade-level targets",
+      "Map exercises to CCSS, NGSS, and state guidelines"
+    ],
+    bg: stateExercises,
+    mascot: mascotThink,
+    accent: "#f59e0b",
+    glow: "rgba(245, 158, 11, 0.15)",
+    file: "educators.yaml",
+    lang: "yaml",
+    osWindow: "worksheet_builder.dmg",
+    icon: "⚙️"
+  }
+]
+
+const layoutNames = [
+  { id: "1", name: "01. Split Stage Deck" },
+  { id: "2", name: "02. Code Sandbox Workspace" },
+  { id: "3", name: "03. Hover Drawer Accordion" },
+  { id: "4", name: "04. Retro Window Cascades" },
+  { id: "5", name: "05. Studio Mixer Console" },
+  { id: "6", name: "06. Retro Rotary Dial" },
+  { id: "7", name: "07. Interactive Chat Shell" },
+  { id: "8", name: "08. Venn Intersection diagram" },
+  { id: "9", name: "09. Waveform Track Visualizer" },
+  { id: "10", name: "10. Node Graph Navigator" }
+]
+---
+
+<Landing title="10 Audience Layout Prototypes — Buddy">
+  <!-- Top bar to switch layouts -->
+  <header class="layouts-nav">
+    <div class="nav-container">
+      <div class="nav-brand">
+        <a href="/" class="back-link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          Back
+        </a>
+        <span class="divider">/</span>
+        <span class="nav-title">Buddy Design Prototypes</span>
+      </div>
+
+      <div class="layout-grid-selector" role="tablist">
+        {layoutNames.map((l) => (
+          <button class={`layout-grid-btn ${l.id === '1' ? 'active' : ''}`} data-layout={l.id} role="tab" aria-selected={l.id === '1' ? 'true' : 'false'}>
+            {l.name}
+          </button>
+        ))}
+      </div>
+    </div>
+  </header>
+
+  <main class="prototypes-container">
+    
+    <!-- ==========================================
+         LAYOUT 1: SPLIT STAGE
+         ========================================== -->
+    <section id="layout-1" class="layout-section active">
+      <div class="container">
+        <div class="layout-intro text-center">
+          <span class="badge">Layout 01: Split Stage Deck</span>
+          <h2 class="prototype-heading">Built for how you learn</h2>
+          <p class="prototype-subheading">An interactive deck that layers screen mockups and mascot states in a physical stack layout.</p>
+        </div>
+
+        <div class="l1-split-grid">
+          <div class="l1-left">
+            <div class="l1-tabs" role="tablist">
+              {audiences.map((aud, index) => (
+                <button class={`l1-tab-btn ${index === 0 ? 'active' : ''}`} data-target={aud.id} style={`--accent: ${aud.accent}; --glow: ${aud.glow};`}>
+                  <span class="l1-tab-num">{aud.num}</span>
+                  <span class="l1-tab-lbl">{aud.label}</span>
+                </button>
+              ))}
+            </div>
+
+            <div class="l1-content-box">
+              {audiences.map((aud, index) => (
+                <div class={`l1-panel ${index === 0 ? 'active' : ''}`} id={`l1-panel-${aud.id}`}>
+                  <h3 class="l1-panel-title">{aud.title}</h3>
+                  <p class="l1-panel-desc">{aud.description}</p>
+                  <ul class="l1-panel-list">
+                    {aud.features.map(feat => (
+                      <li>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={aud.accent} stroke-width="3">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        <span>{feat}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div class="l1-right">
+            <div class="l1-stack-container">
+              {audiences.map((aud, index) => (
+                <div class={`l1-stack-card ${index === 0 ? 'active' : index === 1 ? 'next' : 'back'}`} id={`l1-card-${aud.id}`} style={`--card-accent: ${aud.accent};`}>
+                  <div class="l1-card-inner">
+                    <Image src={aud.bg} alt={aud.label} class="l1-card-bg" />
+                    <div class="l1-mascot-wrapper">
+                      <Image src={aud.mascot} alt="" class="l1-mascot-img" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         LAYOUT 2: CODE SANDBOX WORKSPACE (formerly 5)
+         ========================================== -->
+    <section id="layout-2" class="layout-section">
+      <div class="container">
+        <div class="layout-intro text-center">
+          <span class="badge">Layout 02: Code Sandbox Workspace</span>
+          <h2 class="prototype-heading">Built for how you learn</h2>
+          <p class="prototype-subheading">A terminal & IDE styled interface mirroring Buddy's sandboxed environment.</p>
+        </div>
+
+        <div class="l5-workspace-frame">
+          <div class="l5-sidebar">
+            <div class="l5-sb-section">
+              <span class="l5-sb-header">EXPLORER: BUDDY</span>
+              <div class="l5-files">
+                {audiences.map((aud, index) => (
+                  <button class={`l5-file-row ${index === 0 ? 'active' : ''}`} data-file={aud.id}>
+                    <span class="l5-file-icon" style={`color: ${aud.accent};`}>{aud.icon}</span>
+                    <span class="l5-file-name">{aud.file}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div class="l5-main-editor">
+            <div class="l5-editor-tabs">
+              {audiences.map((aud, index) => (
+                <div class={`l5-editor-tab ${index === 0 ? 'active' : ''}`} id={`l5-tab-header-${aud.id}`} data-target={aud.id}>
+                  <span>{aud.file}</span>
+                  <span class="close-btn">×</span>
+                </div>
+              ))}
+            </div>
+
+            <div class="l5-editor-body">
+              {audiences.map((aud, index) => (
+                <div class={`l5-editor-content ${index === 0 ? 'active' : ''}`} id={`l5-editor-${aud.id}`}>
+                  <div class="line-numbers">
+                    {Array.from({ length: 14 }).map((_, i) => (
+                      <span>{i + 1}</span>
+                    ))}
+                  </div>
+                  <pre class="code-highlight"><code>
+{aud.lang === 'python' ? (
+`# ${aud.label} Configuration
+import buddy_runtime as buddy
+
+class ${aud.label.replace(/\s+/g, '')}Workspace:
+    def __init__(self):
+        self.objective = "${aud.title}"
+        self.description = "${aud.description}"
+        self.features = [
+            "${aud.features[0]}",
+            "${aud.features[1]}",
+            "${aud.features[2]}"
+        ]
+
+    def load_environment(self):
+        return buddy.Sandbox(self.features)`
+) : aud.lang === 'markdown' ? (
+`# ${aud.label} Mode
+
+## ${aud.title}
+
+${aud.description}
+
+### Core Tooling
+* **Reader**: ${aud.features[0]}
+* **Excalidraw**: ${aud.features[1]}
+* **Notes**: ${aud.features[2]}`
+) : (
+`# yaml-language-server: $schema=buddy-schema
+cohort: "${aud.label}"
+action: "${aud.title}"
+details: "${aud.description}"
+deliverables:
+  - "${aud.features[0]}"
+  - "${aud.features[1]}"
+  - "${aud.features[2]}"`
+)}
+                  </code></pre>
+                </div>
+              ))}
+            </div>
+
+            <div class="l5-console-pane">
+              <div class="l5-console-header">
+                <span class="console-title">🖥️ LIVE COMPILER RUNTIME</span>
+                <span class="console-status">CONNECTED</span>
+              </div>
+              <div class="l5-console-body">
+                {audiences.map((aud, index) => (
+                  <div class={`l5-console-output ${index === 0 ? 'active' : ''}`} id={`l5-console-${aud.id}`}>
+                    <div class="console-logs">
+                      <p class="log-info">[system] Initializing {aud.file}...</p>
+                      <p class="log-success">[system] Workspace ready!</p>
+                    </div>
+                    <div class="l5-console-visual">
+                      <div class="l5-c-frame">
+                        <Image src={aud.bg} alt={aud.label} class="l5-c-bg" />
+                        <Image src={aud.mascot} alt="" class="l5-c-mascot" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         LAYOUT 3: HOVER DRAWER ACCORDION (formerly 6)
+         ========================================== -->
+    <section id="layout-3" class="layout-section">
+      <div class="container">
+        <div class="layout-intro text-center">
+          <span class="badge">Layout 03: Hover Drawer Accordion</span>
+          <h2 class="prototype-heading">Built for how you learn</h2>
+          <p class="prototype-subheading">Vertical panels that expand horizontally on hover, giving a highly dynamic spatial focus.</p>
+        </div>
+
+        <div class="l6-accordion-container">
+          {audiences.map((aud, index) => (
+            <div class={`l6-drawer ${index === 0 ? 'active' : ''}`} style={`--drawer-accent: ${aud.accent}; --drawer-glow: ${aud.glow};`}>
+              <div class="l6-collapsed-header">
+                <span class="l6-vertical-num">{aud.num}</span>
+                <h3 class="l6-vertical-title">{aud.label}</h3>
+              </div>
+              <div class="l6-expanded-content">
+                <div class="l6-grid">
+                  <div class="l6-info">
+                    <span class="l6-tag" style={`color: ${aud.accent}; background-color: ${aud.glow};`}>{aud.label}</span>
+                    <h4 class="l6-title">{aud.title}</h4>
+                    <p class="l6-desc">{aud.description}</p>
+                    <ul class="l6-features">
+                      {aud.features.map(feat => (
+                        <li>
+                          <span class="bullet" style={`background-color: ${aud.accent};`}></span>
+                          <span>{feat}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div class="l6-visual">
+                    <div class="l6-img-frame">
+                      <Image src={aud.bg} alt={aud.label} class="l6-bg-img" />
+                      <Image src={aud.mascot} alt="" class="l6-mascot" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         LAYOUT 4: RETRO WINDOW CASCADES (formerly 11)
+         ========================================== -->
+    <section id="layout-4" class="layout-section">
+      <div class="container">
+        <div class="layout-intro text-center">
+          <span class="badge">Layout 04: Retro Window Cascades</span>
+          <h2 class="prototype-heading">Built for how you learn</h2>
+          <p class="prototype-subheading">A nostalgic operating system layout. Click desktop window header bars to pull workspaces to front.</p>
+        </div>
+
+        <div class="l11-desktop-workspace">
+          <div class="l11-icon-sidebar">
+            {audiences.map((aud) => (
+              <div class="l11-file-shortcut" data-open={aud.id}>
+                <div class="shortcut-icon" style={`background-color: ${aud.accent}1c; border-color: ${aud.accent}55;`}>
+                  {aud.icon}
+                </div>
+                <span class="shortcut-name">{aud.file}</span>
+              </div>
+            ))}
+          </div>
+
+          <div class="l11-windows-container">
+            {audiences.map((aud, index) => (
+              <div 
+                class="l11-window" 
+                id={`l11-win-${aud.id}`} 
+                style={`--win-accent: ${aud.accent}; --index: ${index}; z-index: ${10 + index}; top: ${40 + index*35}px; left: ${40 + index*40}px;`}
+              >
+                <div class="l11-title-bar">
+                  <div class="l11-win-ctrls">
+                    <span class="ctrl-dot red"></span>
+                    <span class="ctrl-dot yellow"></span>
+                    <span class="ctrl-dot green"></span>
+                  </div>
+                  <span class="l11-win-title">{aud.osWindow}</span>
+                  <div class="l11-win-status">ACTIVE</div>
+                </div>
+                
+                <div class="l11-win-body">
+                  <div class="l11-win-grid">
+                    <div class="l11-win-text">
+                      <span class="l11-tag" style={`border-color: ${aud.accent}; color: ${aud.accent};`}>{aud.label}</span>
+                      <h3 class="l11-title">{aud.title}</h3>
+                      <p class="l11-desc">{aud.description}</p>
+                      
+                      <div class="l11-bullets">
+                        {aud.features.map(f => (
+                          <div class="l11-bullet-row">
+                            <span class="bullet" style={`background-color: ${aud.accent};`}></span>
+                            <span>{f}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div class="l11-win-media">
+                      <div class="l11-card-mockup">
+                        <Image src={aud.bg} alt={aud.label} class="l11-m-bg" />
+                        <Image src={aud.mascot} alt="" class="l11-m-mascot" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         LAYOUT 5: STUDIO MIXER CONSOLE (formerly 12)
+         ========================================== -->
+    <section id="layout-5" class="layout-section">
+      <div class="container">
+        <div class="layout-intro text-center">
+          <span class="badge">Layout 05: Studio Mixer Interface</span>
+          <h2 class="prototype-heading">Built for how you learn</h2>
+          <p class="prototype-subheading">Adjust faders or click channels to crossfade details and active visual layouts on the mixing console.</p>
+        </div>
+
+        <div class="l12-mixer-deck">
+          <div class="l12-channel-strips">
+            {audiences.map((aud, index) => (
+              <div class={`l12-strip ${index === 0 ? 'active' : ''}`} data-index={index} data-target={aud.id} style={`--ch-accent: ${aud.accent};`}>
+                <div class="l12-strip-header">
+                  <span class="ch-num">{aud.num}</span>
+                  <span class="ch-name">{aud.label.replace('For ', '')}</span>
+                </div>
+                
+                <div class="l12-fader-track">
+                  <div class="fader-db-ticks">
+                    <span>+10</span><span>+5</span><span>0</span><span>-5</span><span>-10</span><span>-20</span><span>-∞</span>
+                  </div>
+                  <div class="l12-fader-knob" style={`bottom: ${index === 0 ? '80%' : '10%'};`}>
+                    <span class="knob-line"></span>
+                  </div>
+                </div>
+
+                <div class="l12-mute-solo">
+                  <button class="btn-solo active">MUTE</button>
+                  <button class="btn-select">SEL</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div class="l12-mixer-monitor">
+            {audiences.map((aud, index) => (
+              <div class={`l12-monitor-screen ${index === 0 ? 'active' : ''}`} id={`l12-monitor-${aud.id}`} style={`--m-accent: ${aud.accent};`}>
+                <div class="l12-mon-grid">
+                  <div class="l12-mon-info">
+                    <span class="l12-mon-badge" style={`background-color: ${aud.accent}12; border-color: ${aud.accent}33; color: ${aud.accent};`}>{aud.label}</span>
+                    <h3 class="l12-mon-title">{aud.title}</h3>
+                    <p class="l12-mon-desc">{aud.description}</p>
+                    <ul class="l12-mon-features">
+                      {aud.features.map(f => (
+                        <li>
+                          <span class="bullet" style={`background-color: ${aud.accent};`}></span>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div class="l12-mon-visual">
+                    <div class="l12-mon-frame">
+                      <Image src={aud.bg} alt={aud.label} class="l12-bg" />
+                      <Image src={aud.mascot} alt="" class="l12-mascot" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         LAYOUT 6: RETRO ROTARY DIAL (NEW)
+         ========================================== -->
+    <section id="layout-6" class="layout-section">
+      <div class="container">
+        <div class="layout-intro text-center">
+          <span class="badge">Layout 06: Retro Rotary Phone Dial</span>
+          <h2 class="prototype-heading">Built for how you learn</h2>
+          <p class="prototype-subheading">A playful rotary phone interface. Spin the dial to pull a cohort stream onto the vintage display.</p>
+        </div>
+
+        <div class="l6-rotary-grid">
+          <div class="l6-rotary-left">
+            <div class="l6-rotary-phone">
+              <div class="rotary-face" id="rotary-dialer">
+                <div class="rotary-center">
+                  <span class="center-brand">BUDDY</span>
+                </div>
+                {audiences.map((aud, index) => {
+                  const angles = [45, 135, 225]
+                  const angle = angles[index]
+                  return (
+                    <button 
+                      class={`rotary-hole ${index === 0 ? 'active' : ''}`} 
+                      data-target={aud.id} 
+                      data-angle={angle}
+                      style={`transform: rotate(${angle}deg) translate(95px) rotate(-${angle}deg); --hole-accent: ${aud.accent};`}
+                    >
+                      <span class="num">{index + 1}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div class="l6-rotary-right">
+            <div class="l6-retro-crt">
+              <div class="crt-glare"></div>
+              <div class="crt-content">
+                {audiences.map((aud, index) => (
+                  <div class={`l6-crt-panel ${index === 0 ? 'active' : ''}`} id={`l6-crt-${aud.id}`} style={`--crt-accent: ${aud.accent};`}>
+                    <div class="crt-header">COHORT_MODE: {aud.label.toUpperCase()}</div>
+                    <h3 class="crt-title">{aud.title}</h3>
+                    <p class="crt-desc">{aud.description}</p>
+                    <div class="crt-screen-mockup">
+                      <Image src={aud.bg} alt="" class="crt-mock-bg" />
+                      <Image src={aud.mascot} alt="" class="crt-mock-mascot" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         LAYOUT 7: INTERACTIVE CHAT SHELL (NEW)
+         ========================================== -->
+    <section id="layout-7" class="layout-section">
+      <div class="container">
+        <div class="layout-intro text-center">
+          <span class="badge">Layout 07: Command Shell Terminal</span>
+          <h2 class="prototype-heading">Built for how you learn</h2>
+          <p class="prototype-subheading">A mock chat console where entering queries activates specialized workspaces.</p>
+        </div>
+
+        <div class="l7-shell-frame">
+          <div class="l7-shell-sidebar">
+            <span class="sb-title">SELECT PROMPT</span>
+            <div class="prompt-suggestions">
+              {audiences.map((aud) => (
+                <button class="prompt-btn" data-target={aud.id} data-prompt={`/workspace load ${aud.id}`}>
+                  <span class="arrow">&gt;</span> /load {aud.id}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div class="l7-shell-console">
+            <div class="console-screen" id="l7-console-screen">
+              <p class="system-line">[system] Initializing Buddy shell agent v1.0.4...</p>
+              <p class="system-line">[system] Ready. Click prompt buttons on the left to execute commands.</p>
+              
+              <!-- Logs appended dynamically by JS -->
+            </div>
+            
+            <div class="console-input-bar">
+              <span class="prompt-prefix">buddy@local:~$</span>
+              <input type="text" id="l7-console-input" class="console-input" readonly placeholder="Click a suggestions button to type..." />
+              <span class="cursor-blink">_</span>
+            </div>
+          </div>
+
+          <div class="l7-shell-output-preview">
+            <div class="preview-header">RENDER SCREEN</div>
+            <div class="preview-stage" id="l7-shell-preview-box">
+              {audiences.map((aud, index) => (
+                <div class={`l7-shell-img-card ${index === 0 ? 'active' : ''}`} id={`l7-shell-img-${aud.id}`}>
+                  <Image src={aud.bg} alt="" class="l7-sh-bg" />
+                  <Image src={aud.mascot} alt="" class="l7-sh-mascot" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         LAYOUT 8: VENN INTERSECTION DIAGRAM (NEW)
+         ========================================== -->
+    <section id="layout-8" class="layout-section">
+      <div class="container">
+        <div class="layout-intro text-center">
+          <span class="badge">Layout 08: Venn Intersection Graph</span>
+          <h2 class="prototype-heading">Built for how you learn</h2>
+          <p class="prototype-subheading">Hover intersection circles or nodes to reveal corresponding cohort modules.</p>
+        </div>
+
+        <div class="l8-venn-layout">
+          <div class="l8-venn-graphics">
+            <div class="venn-diagram-wrapper">
+              <div class="venn-circle c1" id="venn-c-students" style="--v-accent: #ff6b00; --v-glow: rgba(255,107,0,0.12)">
+                <span class="v-label">ACADEMIC</span>
+              </div>
+              <div class="venn-circle c2" id="venn-c-learners" style="--v-accent: #2dd4bf; --v-glow: rgba(45,212,191,0.12)">
+                <span class="v-label">RESEARCH</span>
+              </div>
+              <div class="venn-circle c3" id="venn-c-educators" style="--v-accent: #f59e0b; --v-glow: rgba(245,158,11,0.12)">
+                <span class="v-label">DESIGN</span>
+              </div>
+              <div class="venn-intersection-center">
+                <span class="hub-bullet">★</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="l8-venn-details">
+            {audiences.map((aud, index) => (
+              <div class={`l8-venn-panel ${index === 0 ? 'active' : ''}`} id={`l8-venn-${aud.id}`} style={`--venn-accent: ${aud.accent}; --venn-glow: ${aud.glow};`}>
+                <span class="venn-badge" style={`color: ${aud.accent}; background-color: ${aud.glow};`}>{aud.label}</span>
+                <h3 class="venn-title">{aud.title}</h3>
+                <p class="venn-desc">{aud.description}</p>
+                <div class="venn-bullets">
+                  {aud.features.map(f => (
+                    <div class="venn-row">
+                      <span class="bullet" style={`background-color: ${aud.accent};`}></span>
+                      <span>{f}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         LAYOUT 9: WAVEFORM TRACK VISUALIZER (NEW)
+         ========================================== -->
+    <section id="layout-9" class="layout-section">
+      <div class="container">
+        <div class="layout-intro text-center">
+          <span class="badge">Layout 09: Audio Waveform Tracks</span>
+          <h2 class="prototype-heading">Built for how you learn</h2>
+          <p class="prototype-subheading">A digital mixing deck where each cohort represents a channel waveform stream.</p>
+        </div>
+
+        <div class="l9-waveform-container">
+          <div class="l9-wave-tracks">
+            {audiences.map((aud, index) => (
+              <div class={`l9-wave-track ${index === 0 ? 'active' : ''}`} data-target={aud.id} style={`--wave-accent: ${aud.accent};`}>
+                <div class="track-header">
+                  <span class="track-play-btn">▶</span>
+                  <span class="track-title">{aud.label}</span>
+                </div>
+                
+                <div class="track-visualizer">
+                  {Array.from({ length: 48 }).map(() => {
+                    const h = Math.floor(Math.random() * 28) + 6
+                    return <span class="wave-bar" style={`height: ${h}px;`}></span>
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div class="l9-wave-output">
+            {audiences.map((aud, index) => (
+              <div class={`l9-wave-panel ${index === 0 ? 'active' : ''}`} id={`l9-wave-panel-${aud.id}`} style={`--w-accent: ${aud.accent}; --w-glow: ${aud.glow};`}>
+                <div class="wave-panel-grid">
+                  <div class="wave-p-info">
+                    <span class="wave-tag" style={`border-color: ${aud.accent}; color: ${aud.accent};`}>{aud.label}</span>
+                    <h3 class="wave-title">{aud.title}</h3>
+                    <p class="wave-desc">{aud.description}</p>
+                    <ul class="wave-list">
+                      {aud.features.map(f => (
+                        <li>{f}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div class="wave-p-media">
+                    <div class="wave-media-box">
+                      <Image src={aud.bg} alt="" class="wave-bg" />
+                      <Image src={aud.mascot} alt="" class="wave-mascot" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================
+         LAYOUT 10: NODE GRAPH NAVIGATOR (NEW)
+         ========================================== -->
+    <section id="layout-10" class="layout-section">
+      <div class="container">
+        <div class="layout-intro text-center">
+          <span class="badge">Layout 10: Node Graph Navigator</span>
+          <h2 class="prototype-heading">Built for how you learn</h2>
+          <p class="prototype-subheading">An interactive graph mapping relational workspaces to Buddy's core core module.</p>
+        </div>
+
+        <div class="l10-graph-workspace">
+          <div class="l10-graph-left">
+            <div class="node-graph-area">
+              <div class="center-node">
+                <span class="core-bullet">BUDDY</span>
+              </div>
+              
+              <!-- Draw SVG linking lines -->
+              <svg class="graph-svg" viewBox="0 0 300 300">
+                <line x1="150" y1="150" x2="60" y2="70" stroke="rgba(255,107,0,0.4)" stroke-width="1.5" />
+                <line x1="150" y1="150" x2="240" y2="70" stroke="rgba(45,212,191,0.4)" stroke-width="1.5" />
+                <line x1="150" y1="150" x2="150" y2="240" stroke="rgba(245,158,11,0.4)" stroke-width="1.5" />
+              </svg>
+
+              {audiences.map((aud, index) => {
+                const positions = [
+                  { left: "60px", top: "70px" },
+                  { left: "240px", top: "70px" },
+                  { left: "150px", top: "240px" }
+                ]
+                const pos = positions[index]
+                return (
+                  <button 
+                    class={`graph-node ${index === 0 ? 'active' : ''}`} 
+                    data-target={aud.id} 
+                    style={`left: ${pos.left}; top: ${pos.top}; --node-accent: ${aud.accent}; --node-glow: ${aud.glow};`}
+                  >
+                    <span class="node-bullet">•</span>
+                    <span class="node-label">{aud.label.replace('For ', '')}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div class="l10-graph-right">
+            <div class="l10-graph-viewer">
+              {audiences.map((aud, index) => (
+                <div class={`l10-graph-panel ${index === 0 ? 'active' : ''}`} id={`l10-graph-panel-${aud.id}`} style={`--g-accent: ${aud.accent};`}>
+                  <div class="graph-panel-header">NODE OBJECT: {aud.id.toUpperCase()}</div>
+                  <h3 class="graph-panel-title">{aud.title}</h3>
+                  <p class="graph-panel-desc">{aud.description}</p>
+                  <ul class="graph-panel-features">
+                    {aud.features.map(f => (
+                      <li>
+                        <span class="arrow">-</span>
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div class="graph-panel-media">
+                    <Image src={aud.bg} alt="" class="g-bg" />
+                    <Image src={aud.mascot} alt="" class="g-mascot" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</Landing>
+
+<style is:global>
+  /* ============================================================
+     LAYOUT MANAGER LAYOUT & TOP GRID BAR
+     ============================================================ */
+  .layouts-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background-color: rgba(10, 8, 7, 0.95);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-block: var(--space-4);
+  }
+
+  .nav-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding-inline: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--color-text-tertiary);
+    text-decoration: none;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    transition: color 150ms var(--ease-out);
+  }
+
+  .back-link:hover {
+    color: var(--color-accent-primary);
+  }
+
+  .divider {
+    color: rgba(255, 255, 255, 0.15);
+    font-weight: 300;
+  }
+
+  .nav-title {
+    color: var(--color-text-primary);
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: var(--text-base);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  .layout-grid-selector {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: var(--space-1);
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 6px;
+    border-radius: 12px;
+  }
+
+  .layout-grid-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 8px 10px;
+    border-radius: 6px;
+    color: var(--color-text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+    transition: all 180ms var(--ease-out);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .layout-grid-btn:hover {
+    color: var(--color-text-primary);
+    background-color: rgba(255, 255, 255, 0.03);
+  }
+
+  .layout-grid-btn.active {
+    background-color: rgba(255, 107, 0, 0.12);
+    border-color: rgba(255, 107, 0, 0.25);
+    color: #ffffff;
+  }
+
+  .layout-section {
+    display: none;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);
+    padding-block: clamp(2rem, 5vw, 4rem);
+  }
+
+  .layout-section.active {
+    display: block;
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .layout-intro {
+    margin-bottom: var(--space-12);
+  }
+
+  .badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-accent-primary);
+    background-color: rgba(255, 107, 0, 0.12);
+    border: 1px solid rgba(255, 107, 0, 0.2);
+    padding: 4px 10px;
+    border-radius: 30px;
+    margin-bottom: var(--space-3);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+  }
+
+  .prototype-heading {
+    font-size: var(--text-3xl);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    letter-spacing: var(--tracking-tighter);
+    margin-bottom: var(--space-2);
+  }
+
+  .prototype-subheading {
+    font-size: var(--text-base);
+    color: var(--color-text-tertiary);
+    max-width: 60ch;
+    margin: 0 auto;
+  }
+
+  .text-center {
+    text-align: center;
+  }
+
+  @media (max-width: 1024px) {
+    .layout-grid-selector {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .layout-grid-selector {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  /* ============================================================
+     LAYOUT 1: SPLIT STAGE SPECIFIC STYLE
+     ============================================================ */
+  .l1-split-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.1fr;
+    gap: clamp(2rem, 6vw, 4.5rem);
+    align-items: center;
+    margin-top: var(--space-8);
+  }
+
+  .l1-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin-bottom: var(--space-8);
+    position: relative;
+  }
+
+  .l1-tab-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: var(--space-4) var(--space-5);
+    color: var(--color-text-secondary);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 250ms var(--ease-out);
+  }
+
+  .l1-tab-btn:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .l1-tab-btn.active {
+    background: var(--glow);
+    border-color: var(--accent);
+    color: #ffffff;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  }
+
+  .l1-tab-num {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    opacity: 0.5;
+  }
+
+  .l1-tab-btn.active .l1-tab-num {
+    opacity: 1;
+    color: var(--accent);
+  }
+
+  .l1-tab-lbl {
+    font-size: var(--text-base);
+    letter-spacing: var(--tracking-wide);
+  }
+
+  .l1-content-box {
+    position: relative;
+    min-height: 250px;
+  }
+
+  .l1-panel {
+    display: none;
+    opacity: 0;
+    animation: fadeInUp 0.4s var(--ease-out) forwards;
+  }
+
+  .l1-panel.active {
+    display: block;
+    opacity: 1;
+  }
+
+  .l1-panel-title {
+    font-size: var(--text-xl);
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: var(--space-3);
+  }
+
+  .l1-panel-desc {
+    color: var(--color-text-tertiary);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-6);
+  }
+
+  .l1-panel-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .l1-panel-list li {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .l1-panel-list li svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .l1-right {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .l1-stack-container {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    height: 340px;
+  }
+
+  .l1-stack-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 20px;
+    background-color: var(--color-card-bg);
+    border: 1px solid var(--color-card-border);
+    padding: var(--space-4);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    transition: all 450ms cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  .l1-card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .l1-card-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.9;
+  }
+
+  .l1-mascot-wrapper {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    width: 25%;
+    max-width: 100px;
+    z-index: 10;
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.4));
+  }
+
+  .l1-mascot-img {
+    width: 100%;
+    height: auto;
+  }
+
+  .l1-stack-card.active {
+    z-index: 30;
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    border-color: var(--card-accent);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 107, 0, 0.05);
+  }
+
+  .l1-stack-card.next {
+    z-index: 20;
+    opacity: 0.5;
+    transform: translate(30px, -15px) scale(0.94) rotate(1.5deg);
+    pointer-events: none;
+  }
+
+  .l1-stack-card.back {
+    z-index: 10;
+    opacity: 0.15;
+    transform: translate(60px, -30px) scale(0.88) rotate(3deg);
+    pointer-events: none;
+  }
+
+  @media (max-width: 992px) {
+    .l1-split-grid {
+      grid-template-columns: 1fr;
+      gap: var(--space-12);
+    }
+  }
+
+  /* ============================================================
+     LAYOUT 2: DEV WORKSPACE SPECIFIC STYLE
+     ============================================================ */
+  .l5-workspace-frame {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background-color: #0e0c0b;
+    overflow: hidden;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+    margin-top: var(--space-8);
+  }
+
+  .l5-sidebar {
+    background-color: #0b0908;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    padding-block: var(--space-4);
+  }
+
+  .l5-sb-header {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    padding-inline: var(--space-4);
+    margin-bottom: var(--space-2);
+    letter-spacing: var(--tracking-wider);
+  }
+
+  .l5-files {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .l5-file-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: transparent;
+    border: none;
+    color: var(--color-text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 8px var(--space-4);
+    cursor: pointer;
+    text-align: left;
+    transition: all 120ms var(--ease-out);
+    border-left: 2px solid transparent;
+  }
+
+  .l5-file-row:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+    color: #ffffff;
+  }
+
+  .l5-file-row.active {
+    background-color: rgba(255, 255, 255, 0.04);
+    color: #ffffff;
+    border-left-color: var(--color-accent-primary);
+  }
+
+  .l5-main-editor {
+    display: flex;
+    flex-direction: column;
+    min-height: 480px;
+  }
+
+  .l5-editor-tabs {
+    display: flex;
+    background-color: #0b0908;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .l5-editor-tab {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    background-color: #0d0b0a;
+    border-right: 1px solid rgba(255, 255, 255, 0.04);
+    padding: 8px var(--space-4);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+  }
+
+  .l5-editor-tab.active {
+    background-color: #0e0c0b;
+    color: #ffffff;
+    border-bottom: 2px solid var(--color-accent-primary);
+  }
+
+  .l5-editor-tab .close-btn {
+    opacity: 0.3;
+    font-size: 12px;
+  }
+
+  .l5-editor-body {
+    flex-grow: 1;
+    position: relative;
+    background-color: #0e0c0b;
+  }
+
+  .l5-editor-content {
+    display: none;
+    padding: var(--space-4);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .l5-editor-content.active {
+    display: flex;
+    gap: var(--space-4);
+  }
+
+  .l5-editor-content .line-numbers {
+    display: flex;
+    flex-direction: column;
+    color: #443e3a;
+    text-align: right;
+    user-select: none;
+  }
+
+  .l5-editor-content pre {
+    margin: 0;
+    color: #dfdcd8;
+    overflow-x: auto;
+  }
+
+  .l5-console-pane {
+    background-color: #070605;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .l5-console-header {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    margin-bottom: var(--space-2);
+  }
+
+  .l5-console-header .console-status {
+    color: var(--color-accent-cool);
+    font-weight: 700;
+  }
+
+  .l5-console-body {
+    min-height: 120px;
+  }
+
+  .l5-console-output {
+    display: none;
+    grid-template-columns: 1.5fr 1fr;
+    gap: var(--space-4);
+    align-items: center;
+  }
+
+  .l5-console-output.active {
+    display: grid;
+  }
+
+  .l5-console-output .console-logs {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #a8a29e;
+  }
+
+  .l5-console-output .console-logs .log-success {
+    color: var(--color-accent-cool);
+  }
+
+  .l5-console-visual {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .l5-c-frame {
+    position: relative;
+    width: 140px;
+    height: 90px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  .l5-c-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .l5-c-mascot {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 25%;
+    z-index: 5;
+  }
+
+  @media (max-width: 768px) {
+    .l5-workspace-frame {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ============================================================
+     LAYOUT 3: HOVER DRAWER ACCORDION SPECIFIC STYLE
+     ============================================================ */
+  .l6-accordion-container {
+    display: flex;
+    gap: var(--space-4);
+    height: 480px;
+    margin-top: var(--space-8);
+    width: 100%;
+  }
+
+  .l6-drawer {
+    flex: 1;
+    background-color: var(--color-card-bg);
+    border: 1px solid var(--color-card-border);
+    border-radius: 24px;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    display: flex;
+    transition: flex 600ms cubic-bezier(0.25, 1, 0.3, 1), border-color 300ms var(--ease-out);
+  }
+
+  .l6-drawer:hover, .l6-drawer.active {
+    flex: 4;
+    border-color: var(--drawer-accent);
+    background-color: rgba(22, 19, 18, 0.6);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 25px var(--drawer-glow);
+  }
+
+  .l6-collapsed-header {
+    width: 72px;
+    min-width: 72px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding-block: var(--space-8);
+    border-right: 1px solid rgba(255, 255, 255, 0.03);
+    background: rgba(0, 0, 0, 0.15);
+  }
+
+  .l6-vertical-num {
+    font-family: var(--font-mono);
+    font-size: var(--text-base);
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-8);
+  }
+
+  .l6-vertical-title {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    letter-spacing: var(--tracking-wide);
+  }
+
+  .l6-drawer:hover .l6-vertical-title, .l6-drawer.active .l6-vertical-title {
+    color: var(--drawer-accent);
+  }
+
+  .l6-expanded-content {
+    flex-grow: 1;
+    opacity: 0;
+    visibility: hidden;
+    padding: var(--space-8);
+    display: flex;
+    align-items: center;
+    transition: opacity 300ms var(--ease-out) 150ms, visibility 300ms var(--ease-out) 150ms;
+    overflow: hidden;
+  }
+
+  .l6-drawer:hover .l6-expanded-content, .l6-drawer.active .l6-expanded-content {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .l6-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-8);
+    width: 100%;
+    align-items: center;
+  }
+
+  .l6-tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: var(--space-4);
+  }
+
+  .l6-title {
+    font-size: var(--text-xl);
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: var(--space-3);
+  }
+
+  .l6-desc {
+    color: var(--color-text-tertiary);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-4);
+  }
+
+  .l6-features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .l6-features li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .l6-features li .bullet {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .l6-img-frame {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    aspect-ratio: 16/10;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.25);
+  }
+
+  .l6-bg-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .l6-mascot {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 25%;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+  }
+
+  @media (max-width: 768px) {
+    .l6-accordion-container {
+      flex-direction: column;
+      height: auto;
+    }
+    .l6-drawer {
+      height: 100px;
+    }
+    .l6-drawer:hover, .l6-drawer.active {
+      height: 380px;
+    }
+  }
+
+  /* ============================================================
+     LAYOUT 4: RETRO WINDOW CASCADES SPECIFIC STYLE
+     ============================================================ */
+  .l11-desktop-workspace {
+    position: relative;
+    width: 100%;
+    height: 600px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    background-color: #0b0908;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    background-size: 16px 16px;
+    overflow: hidden;
+    margin-top: var(--space-8);
+  }
+
+  .l11-icon-sidebar {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    z-index: 5;
+  }
+
+  .l11-file-shortcut {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    width: 72px;
+  }
+
+  .shortcut-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    border: 1px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    transition: transform 150ms var(--ease-out);
+  }
+
+  .l11-file-shortcut:hover .shortcut-icon {
+    transform: scale(1.06);
+  }
+
+  .shortcut-name {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-tertiary);
+    margin-top: 4px;
+    text-align: center;
+  }
+
+  .l11-windows-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .l11-window {
+    position: absolute;
+    width: 580px;
+    background-color: #161312;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+  }
+
+  .l11-window.focus-window {
+    border-color: var(--win-accent);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.45), 0 0 15px rgba(255,107,0,0.05);
+  }
+
+  .l11-title-bar {
+    height: 34px;
+    background-color: #0e0c0b;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-inline: var(--space-4);
+    cursor: move;
+    user-select: none;
+  }
+
+  .l11-win-ctrls {
+    display: flex;
+    gap: 6px;
+  }
+
+  .l11-win-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    font-weight: 700;
+  }
+
+  .l11-window.focus-window .l11-win-title {
+    color: #ffffff;
+  }
+
+  .l11-win-status {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    background-color: rgba(45, 212, 191, 0.1);
+    color: #2dd4bf;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+
+  .l11-win-body {
+    padding: var(--space-5);
+  }
+
+  .l11-win-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: var(--space-5);
+    align-items: center;
+  }
+
+  .l11-win-text .l11-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    border: 1px solid;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: var(--space-3);
+  }
+
+  .l11-win-text .l11-title {
+    font-size: var(--text-base);
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: 6px;
+  }
+
+  .l11-win-text .l11-desc {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-4);
+  }
+
+  .l11-bullets {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .l11-bullet-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+  }
+
+  .l11-bullet-row .bullet {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .l11-win-media {
+    display: flex;
+    justify-content: center;
+  }
+
+  .l11-card-mockup {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    aspect-ratio: 16/10;
+    background: rgba(0,0,0,0.25);
+    width: 100%;
+  }
+
+  .l11-m-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .l11-m-mascot {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 25%;
+  }
+
+  @media (max-width: 768px) {
+    .l11-window {
+      width: 100%;
+    }
+  }
+
+  /* ============================================================
+     LAYOUT 5: STUDIO MIXER SPECIFIC STYLE
+     ============================================================ */
+  .l12-mixer-deck {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    background-color: #0d0b0a;
+    overflow: hidden;
+    margin-top: var(--space-8);
+  }
+
+  .l12-channel-strips {
+    display: flex;
+    background-color: #080706;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .l12-strip {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-block: var(--space-5);
+    border-right: 1px solid rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    transition: background-color 200ms var(--ease-out);
+  }
+
+  .l12-strip:hover, .l12-strip.active {
+    background-color: rgba(255, 255, 255, 0.015);
+  }
+
+  .l12-strip-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    margin-bottom: var(--space-6);
+  }
+
+  .l12-strip-header .ch-num {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+  }
+
+  .l12-strip-header .ch-name {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--color-text-tertiary);
+  }
+
+  .l12-strip.active .ch-name {
+    color: var(--ch-accent);
+  }
+
+  .l12-fader-track {
+    position: relative;
+    width: 40px;
+    height: 220px;
+    background-color: #030202;
+    border-radius: 4px;
+    margin-bottom: var(--space-6);
+    border-left: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .fader-db-ticks {
+    position: absolute;
+    left: -24px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 7px;
+    color: var(--color-text-muted);
+    text-align: right;
+  }
+
+  .l12-fader-knob {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 38px;
+    border-radius: 3px;
+    background-color: #26211e;
+    border: 1px solid #3c3430;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    cursor: ns-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: bottom 300ms cubic-bezier(0.25, 1, 0.3, 1);
+  }
+
+  .l12-strip.active .l12-fader-knob {
+    background-color: var(--ch-accent);
+    border-color: #ffffff;
+  }
+
+  .knob-line {
+    width: 100%;
+    height: 2px;
+    background-color: #ffffff;
+  }
+
+  .l12-mute-solo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 80%;
+  }
+
+  .l12-mute-solo button {
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 700;
+    padding-block: 4px;
+    background-color: #161312;
+    color: var(--color-text-muted);
+    cursor: pointer;
+  }
+
+  .l12-strip.active .btn-select {
+    background-color: var(--ch-accent);
+    color: #ffffff;
+  }
+
+  .l12-mixer-monitor {
+    padding: var(--space-8);
+    display: flex;
+    align-items: center;
+  }
+
+  .l12-monitor-screen {
+    display: none;
+    width: 100%;
+    animation: fadeInUp 0.4s var(--ease-out) forwards;
+  }
+
+  .l12-monitor-screen.active {
+    display: block;
+  }
+
+  .l12-mon-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-8);
+    align-items: center;
+  }
+
+  .l12-mon-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    border: 1px solid;
+    padding: 3px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: var(--space-4);
+  }
+
+  .l12-mon-title {
+    font-size: var(--text-xl);
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: var(--space-3);
+  }
+
+  .l12-mon-desc {
+    color: var(--color-text-tertiary);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-6);
+  }
+
+  .l12-mon-features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .l12-mon-features li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .l12-mon-features li .bullet {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .l12-mon-frame {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    aspect-ratio: 16/10;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(0,0,0,0.25);
+  }
+
+  .l12-mon-frame .l12-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .l12-mon-frame .l12-mascot {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 25%;
+  }
+
+  @media (max-width: 992px) {
+    .l12-mon-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ============================================================
+     LAYOUT 6: RETRO ROTARY DIAL SPECIFIC STYLE
+     ============================================================ */
+  .l6-rotary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-12);
+    align-items: center;
+    margin-top: var(--space-8);
+  }
+
+  .l6-rotary-left {
+    display: flex;
+    justify-content: center;
+  }
+
+  .l6-rotary-phone {
+    width: 320px;
+    height: 320px;
+    background-color: #12100f;
+    border: 3px solid #282421;
+    border-radius: 50%;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .rotary-face {
+    width: 260px;
+    height: 260px;
+    background-color: #1a1816;
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 50%;
+    position: relative;
+    transition: transform 600ms cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  .rotary-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90px;
+    height: 90px;
+    background-color: #0b0908;
+    border: 2px solid #ff6b00;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 4px 10px rgba(0,0,0,0.8);
+    z-index: 10;
+  }
+
+  .center-brand {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 900;
+    color: #ff6b00;
+    letter-spacing: var(--tracking-wider);
+  }
+
+  .rotary-hole {
+    position: absolute;
+    top: calc(50% - 25px);
+    left: calc(50% - 25px);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: rgba(0,0,0,0.4);
+    border: 1.5px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 14px;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.6);
+    transition: all 180ms var(--ease-out);
+  }
+
+  .rotary-hole:hover {
+    border-color: var(--hole-accent);
+    color: var(--hole-accent);
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.6), 0 0 10px var(--hole-accent);
+  }
+
+  .rotary-hole.active {
+    background-color: var(--hole-accent);
+    color: #000;
+    border-color: #fff;
+    box-shadow: 0 0 12px var(--hole-accent);
+  }
+
+  .l6-rotary-right {
+    display: flex;
+    justify-content: center;
+  }
+
+  /* CRT Terminal display */
+  .l6-retro-crt {
+    width: 100%;
+    max-width: 480px;
+    background-color: #12100f;
+    border: 6px solid #2c2724;
+    border-radius: 20px;
+    aspect-ratio: 4/3;
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 40px rgba(0,0,0,1), 0 15px 30px rgba(0,0,0,0.5);
+  }
+
+  .crt-glare {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 50%, rgba(0,0,0,0.15) 100%);
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .crt-content {
+    height: 100%;
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background-color: #060505;
+  }
+
+  .l6-crt-panel {
+    display: none;
+    opacity: 0;
+    animation: fadeInUp 0.4s var(--ease-out) forwards;
+  }
+
+  .l6-crt-panel.active {
+    display: block;
+    opacity: 1;
+  }
+
+  .crt-header {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--crt-accent);
+    letter-spacing: 2px;
+    margin-bottom: var(--space-2);
+  }
+
+  .crt-title {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: var(--space-2);
+    text-shadow: 0 0 4px rgba(255,255,255,0.3);
+  }
+
+  .crt-desc {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-4);
+  }
+
+  .crt-screen-mockup {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.3);
+    aspect-ratio: 16/10;
+    width: 80%;
+  }
+
+  .crt-mock-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.8;
+  }
+
+  .crt-mock-mascot {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 25%;
+  }
+
+  @media (max-width: 992px) {
+    .l6-rotary-grid {
+      grid-template-columns: 1fr;
+      gap: var(--space-8);
+    }
+  }
+
+  /* ============================================================
+     LAYOUT 7: INTERACTIVE CHAT SHELL SPECIFIC STYLE
+     ============================================================ */
+  .l7-shell-frame {
+    display: grid;
+    grid-template-columns: 200px 1fr 280px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    background-color: #0b0908;
+    overflow: hidden;
+    margin-top: var(--space-8);
+    min-height: 400px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  }
+
+  .l7-shell-sidebar {
+    background-color: #060505;
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    padding: var(--space-4);
+  }
+
+  .l7-shell-sidebar .sb-title {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    letter-spacing: 1px;
+    margin-bottom: var(--space-4);
+  }
+
+  .prompt-suggestions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .prompt-btn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    padding: 8px 10px;
+    text-align: left;
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 180ms var(--ease-out);
+  }
+
+  .prompt-btn:hover {
+    background-color: rgba(255,255,255,0.03);
+    border-color: var(--color-accent-primary);
+    color: #ffffff;
+  }
+
+  .prompt-btn .arrow {
+    color: var(--color-accent-primary);
+    margin-right: 2px;
+  }
+
+  .l7-shell-console {
+    background-color: #090807;
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .console-screen {
+    flex-grow: 1;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #a8a29e;
+    line-height: 1.6;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 250px;
+  }
+
+  .system-line { color: #78716c; }
+  .user-line { color: #ff6b00; }
+  .reply-line { color: #2dd4bf; }
+  .bold-text { color: #ffffff; font-weight: 700; }
+
+  .console-input-bar {
+    display: flex;
+    align-items: center;
+    border-top: 1px solid rgba(255,255,255,0.04);
+    padding-top: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  .prompt-prefix {
+    color: var(--color-accent-cool);
+    margin-right: 8px;
+  }
+
+  .console-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #ffffff;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    flex-grow: 1;
+  }
+
+  .cursor-blink {
+    color: var(--color-accent-cool);
+    animation: cursor-flicker 1s steps(2, start) infinite;
+  }
+
+  @keyframes cursor-flicker {
+    to { visibility: hidden; }
+  }
+
+  /* Render screen right panel */
+  .l7-shell-output-preview {
+    background-color: #060505;
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .preview-header {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+    letter-spacing: 1px;
+    margin-bottom: var(--space-4);
+  }
+
+  .preview-stage {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    background-color: rgba(0,0,0,0.25);
+    overflow: hidden;
+  }
+
+  .l7-shell-img-card {
+    display: none;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: 16/10;
+  }
+
+  .l7-shell-img-card.active {
+    display: block;
+    animation: fadeInUp 0.4s var(--ease-out) forwards;
+  }
+
+  .l7-sh-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .l7-sh-mascot {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 25%;
+  }
+
+  @media (max-width: 992px) {
+    .l7-shell-frame {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ============================================================
+     LAYOUT 8: VENN INTERSECTION SPECIFIC STYLE
+     ============================================================ */
+  .l8-venn-layout {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: var(--space-12);
+    align-items: center;
+    margin-top: var(--space-8);
+  }
+
+  .l8-venn-graphics {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 420px;
+  }
+
+  .venn-diagram-wrapper {
+    position: relative;
+    width: 320px;
+    height: 320px;
+  }
+
+  .venn-circle {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    border: 2px solid var(--v-accent);
+    background-color: var(--v-glow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    transition: all 300ms var(--ease-out);
+  }
+
+  .venn-circle.c1 { top: 0; left: 60px; }
+  .venn-circle.c2 { bottom: 0; left: 0; }
+  .venn-circle.c3 { bottom: 0; right: 0; }
+
+  .venn-circle:hover {
+    transform: scale(1.05);
+    box-shadow: 0 15px 35px var(--v-glow), 0 0 25px var(--v-accent);
+    z-index: 10;
+  }
+
+  .venn-circle.active {
+    background-color: var(--v-accent);
+    border-color: #ffffff;
+    z-index: 10;
+  }
+
+  .venn-circle .v-label {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: var(--tracking-wider);
+    color: #ffffff;
+  }
+
+  .venn-circle.active .v-label {
+    color: #000;
+  }
+
+  .venn-intersection-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 44px;
+    height: 44px;
+    background-color: #12100f;
+    border: 1.5px dashed rgba(255,255,255,0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 15;
+    pointer-events: none;
+  }
+
+  .hub-bullet {
+    color: var(--color-accent-secondary);
+    font-size: 16px;
+  }
+
+  .l8-venn-details {
+    position: relative;
+    min-height: 280px;
+  }
+
+  .l8-venn-panel {
+    display: none;
+    opacity: 0;
+    animation: fadeInUp 0.4s var(--ease-out) forwards;
+  }
+
+  .l8-venn-panel.active {
+    display: block;
+    opacity: 1;
+  }
+
+  .venn-badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: var(--space-4);
+  }
+
+  .venn-title {
+    font-size: var(--text-xl);
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: var(--space-3);
+  }
+
+  .venn-desc {
+    color: var(--color-text-tertiary);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-6);
+  }
+
+  .venn-bullets {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .venn-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .venn-row .bullet {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 992px) {
+    .l8-venn-layout {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ============================================================
+     LAYOUT 9: WAVEFORM TRACK SPECIFIC STYLE
+     ============================================================ */
+  .l9-waveform-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    margin-top: var(--space-8);
+  }
+
+  .l9-wave-tracks {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-4);
+  }
+
+  .l9-wave-track {
+    background-color: var(--color-card-bg);
+    border: 1px solid var(--color-card-border);
+    border-radius: 16px;
+    padding: var(--space-4);
+    cursor: pointer;
+    transition: all 250ms var(--ease-out);
+  }
+
+  .l9-wave-track:hover, .l9-wave-track.active {
+    border-color: var(--wave-accent);
+    background-color: rgba(255,255,255,0.015);
+  }
+
+  .track-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: var(--space-3);
+  }
+
+  .track-play-btn {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background-color: rgba(255,255,255,0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    color: var(--color-text-secondary);
+  }
+
+  .l9-wave-track.active .track-play-btn {
+    background-color: var(--wave-accent);
+    color: #000;
+  }
+
+  .track-title {
+    font-family: var(--font-display);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+  }
+
+  .l9-wave-track.active .track-title {
+    color: #ffffff;
+  }
+
+  .track-visualizer {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 44px;
+    overflow: hidden;
+  }
+
+  .wave-bar {
+    flex-grow: 1;
+    width: 3px;
+    background-color: rgba(255,255,255,0.08);
+    border-radius: 1px;
+    transition: background-color 300ms var(--ease-out), height 300ms var(--ease-out);
+  }
+
+  .l9-wave-track.active .wave-bar {
+    background-color: var(--wave-accent);
+  }
+
+  /* Output screen */
+  .l9-wave-output {
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    background-color: #0d0b0a;
+    padding: var(--space-8);
+  }
+
+  .l9-wave-panel {
+    display: none;
+    width: 100%;
+    animation: fadeInUp 0.4s var(--ease-out) forwards;
+  }
+
+  .l9-wave-panel.active {
+    display: block;
+  }
+
+  .wave-panel-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-8);
+    align-items: center;
+  }
+
+  .wave-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    border: 1px solid;
+    padding: 3px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: var(--space-3);
+  }
+
+  .wave-desc {
+    color: var(--color-text-tertiary);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-6);
+  }
+
+  .wave-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    list-style: square;
+    color: var(--color-text-secondary);
+    padding-left: var(--space-4);
+    font-size: var(--text-sm);
+  }
+
+  .wave-media-box {
+    position: relative;
+    border-radius: 16px;
+    overflow: hidden;
+    aspect-ratio: 16/10;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(0,0,0,0.25);
+  }
+
+  .wave-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .wave-mascot {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 25%;
+  }
+
+  @media (max-width: 768px) {
+    .l9-wave-tracks {
+      grid-template-columns: 1fr;
+    }
+    .wave-panel-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ============================================================
+     LAYOUT 10: NODE GRAPH SPECIFIC STYLE
+     ============================================================ */
+  .l10-graph-workspace {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: var(--space-12);
+    align-items: center;
+    margin-top: var(--space-8);
+  }
+
+  .l10-graph-left {
+    display: flex;
+    justify-content: center;
+  }
+
+  .node-graph-area {
+    position: relative;
+    width: 300px;
+    height: 300px;
+  }
+
+  .graph-svg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .center-node {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: #ff6b00;
+    color: #000000;
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 900;
+    padding: 10px 14px;
+    border-radius: 30px;
+    z-index: 10;
+    box-shadow: 0 0 20px rgba(255,107,0,0.4);
+  }
+
+  .graph-node {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    background-color: var(--color-card-bg);
+    border: 1px solid var(--color-card-border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    z-index: 5;
+    transition: all 250ms var(--ease-out);
+  }
+
+  .graph-node:hover, .graph-node.active {
+    border-color: var(--node-accent);
+    background-color: rgba(22, 19, 18, 0.8);
+    box-shadow: 0 0 15px var(--node-glow);
+  }
+
+  .graph-node.active {
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+
+  .node-bullet {
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .graph-node.active .node-bullet {
+    color: var(--node-accent);
+  }
+
+  .graph-node .node-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+  }
+
+  .graph-node.active .node-label {
+    color: #ffffff;
+  }
+
+  /* Right viewer */
+  .l10-graph-right {
+    position: relative;
+    min-height: 300px;
+  }
+
+  .l10-graph-viewer {
+    background-color: #0d0b0a;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: var(--space-6);
+  }
+
+  .l10-graph-panel {
+    display: none;
+    opacity: 0;
+    animation: fadeInUp 0.4s var(--ease-out) forwards;
+  }
+
+  .l10-graph-panel.active {
+    display: block;
+  }
+
+  .graph-panel-header {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--g-accent);
+    letter-spacing: 1px;
+    margin-bottom: var(--space-3);
+  }
+
+  .graph-panel-title {
+    font-size: var(--text-lg);
+    font-weight: 800;
+    color: #ffffff;
+    margin-bottom: var(--space-2);
+  }
+
+  .graph-panel-desc {
+    color: var(--color-text-tertiary);
+    font-size: var(--text-xs);
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-4);
+  }
+
+  .graph-panel-features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: var(--space-5);
+  }
+
+  .graph-panel-features li {
+    display: flex;
+    gap: 8px;
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+  }
+
+  .graph-panel-features li .arrow {
+    color: var(--g-accent);
+  }
+
+  .graph-panel-media {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    aspect-ratio: 16/10;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(0,0,0,0.25);
+    width: 90%;
+  }
+
+  .g-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .g-mascot {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 22%;
+  }
+
+  @media (max-width: 992px) {
+    .l10-graph-workspace {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<script>
+  // ==========================================
+  // TOP BAR LAYOUT SWITCHING
+  // ==========================================
+  const layoutGridBtns = document.querySelectorAll(".layout-grid-btn");
+  const layoutSections = document.querySelectorAll(".layout-section");
+
+  layoutGridBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const layoutId = btn.getAttribute("data-layout");
+      if (!layoutId) return;
+
+      // Update switcher buttons
+      layoutGridBtns.forEach((b) => {
+        b.classList.remove("active");
+        b.setAttribute("aria-selected", "false");
+      });
+      btn.classList.add("active");
+      btn.setAttribute("aria-selected", "true");
+
+      // Show/hide sections
+      layoutSections.forEach((sec) => {
+        sec.classList.remove("active");
+      });
+      
+      const activeSec = document.getElementById(`layout-${layoutId}`);
+      if (activeSec) {
+        activeSec.classList.add("active");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+  });
+
+  // ==========================================
+  // INTERACTIVE SCRIPTS FOR LAYOUT 1: SPLIT STAGE
+  // ==========================================
+  const l1Btns = document.querySelectorAll(".l1-tab-btn");
+  const l1Panels = document.querySelectorAll(".l1-panel");
+  const l1Cards = document.querySelectorAll(".l1-stack-card");
+
+  l1Btns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = btn.getAttribute("data-target");
+      if (!target || btn.classList.contains("active")) return;
+
+      l1Btns.forEach((b) => {
+        b.classList.remove("active");
+        b.setAttribute("aria-selected", "false");
+      });
+      btn.classList.add("active");
+      btn.setAttribute("aria-selected", "true");
+
+      l1Panels.forEach((panel) => {
+        panel.classList.remove("active");
+      });
+      const activePanel = document.getElementById(`l1-panel-${target}`);
+      if (activePanel) activePanel.classList.add("active");
+
+      const targetIdx = Array.from(l1Btns).indexOf(btn);
+      
+      l1Cards.forEach((card, idx) => {
+        card.classList.remove("active", "next", "back");
+        if (idx === targetIdx) {
+          card.classList.add("active");
+        } else if ((idx === targetIdx + 1) || (targetIdx === l1Btns.length - 1 && idx === 0)) {
+          card.classList.add("next");
+        } else {
+          card.classList.add("back");
+        }
+      });
+    });
+  });
+
+  // ==========================================
+  // INTERACTIVE SCRIPTS FOR LAYOUT 2: DEV WORKSPACE
+  // ==========================================
+  const fileRows = document.querySelectorAll(".l5-file-row");
+  const editorTabs = document.querySelectorAll(".l5-editor-tab");
+  const editorContents = document.querySelectorAll(".l5-editor-content");
+  const consoleOutputs = document.querySelectorAll(".l5-console-output");
+
+  function switchIDEFile(cohortId: string) {
+    fileRows.forEach((row) => {
+      if (row.getAttribute("data-file") === cohortId) {
+        row.classList.add("active");
+      } else {
+        row.classList.remove("active");
+      }
+    });
+
+    editorTabs.forEach((tab) => {
+      if (tab.getAttribute("data-target") === cohortId) {
+        tab.classList.add("active");
+      } else {
+        tab.classList.remove("active");
+      }
+    });
+
+    editorContents.forEach((content) => {
+      if (content.getAttribute("id") === `l5-editor-${cohortId}`) {
+        content.classList.add("active");
+      } else {
+        content.classList.remove("active");
+      }
+    });
+
+    consoleOutputs.forEach((output) => {
+      if (output.getAttribute("id") === `l5-console-${cohortId}`) {
+        output.classList.add("active");
+      } else {
+        output.classList.remove("active");
+      }
+    });
+  }
+
+  fileRows.forEach((row) => {
+    row.addEventListener("click", () => {
+      const fileId = row.getAttribute("data-file");
+      if (fileId) switchIDEFile(fileId);
+    });
+  });
+
+  editorTabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const targetId = tab.getAttribute("data-target");
+      if (targetId) switchIDEFile(targetId);
+    });
+  });
+
+  // ==========================================
+  // INTERACTIVE SCRIPTS FOR LAYOUT 3: ACCORDION
+  // ==========================================
+  const l6Drawers = document.querySelectorAll(".l6-drawer");
+
+  l6Drawers.forEach((drawer) => {
+    drawer.addEventListener("click", () => {
+      l6Drawers.forEach((d) => d.classList.remove("active"));
+      drawer.classList.add("active");
+    });
+  });
+
+  // ==========================================
+  // INTERACTIVE SCRIPTS FOR LAYOUT 4: OS WINDOWS DRAG
+  // ==========================================
+  const windows = document.querySelectorAll(".l11-window");
+  const shortcuts = document.querySelectorAll(".l11-file-shortcut");
+
+  function focusWindow(win: HTMLElement) {
+    windows.forEach((w) => {
+      w.classList.remove("focus-window");
+    });
+    
+    win.classList.add("focus-window");
+    
+    let maxZ = 10;
+    windows.forEach((w) => {
+      const zVal = parseInt(window.getComputedStyle(w).zIndex);
+      if (!isNaN(zVal) && zVal > maxZ) {
+        maxZ = zVal;
+      }
+    });
+    
+    win.style.zIndex = (maxZ + 1).toString();
+  }
+
+  shortcuts.forEach((sc) => {
+    sc.addEventListener("click", () => {
+      const targetId = sc.getAttribute("data-open");
+      if (!targetId) return;
+
+      const targetWin = document.getElementById(`l11-win-${targetId}`);
+      if (targetWin) {
+        focusWindow(targetWin);
+      }
+    });
+  });
+
+  windows.forEach((win) => {
+    const htmlWin = win as HTMLElement;
+    
+    htmlWin.addEventListener("mousedown", () => {
+      focusWindow(htmlWin);
+    });
+
+    const titleBar = htmlWin.querySelector(".l11-title-bar") as HTMLElement;
+    if (!titleBar) return;
+    
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    
+    titleBar.addEventListener("mousedown", (e: MouseEvent) => {
+      isDragging = true;
+      startX = e.clientX - htmlWin.offsetLeft;
+      startY = e.clientY - htmlWin.offsetTop;
+      focusWindow(htmlWin);
+      e.preventDefault();
+    });
+    
+    document.addEventListener("mousemove", (e: MouseEvent) => {
+      if (!isDragging) return;
+      
+      const newLeft = e.clientX - startX;
+      const newTop = e.clientY - startY;
+      
+      const workspace = htmlWin.parentElement as HTMLElement;
+      if (workspace) {
+        const rect = workspace.getBoundingClientRect();
+        if (newLeft >= 0 && newLeft <= rect.width - 200) {
+          htmlWin.style.left = `${newLeft}px`;
+        }
+        if (newTop >= 0 && newTop <= rect.height - 100) {
+          htmlWin.style.top = `${newTop}px`;
+        }
+      }
+    });
+    
+    document.addEventListener("mouseup", () => {
+      isDragging = false;
+    });
+  });
+
+  // ==========================================
+  // INTERACTIVE SCRIPTS FOR LAYOUT 5: AUDIO MIXER
+  // ==========================================
+  const mixerStrips = document.querySelectorAll(".l12-strip");
+  const mixerMonitors = document.querySelectorAll(".l12-monitor-screen");
+
+  mixerStrips.forEach((strip) => {
+    strip.addEventListener("click", () => {
+      const target = strip.getAttribute("data-target");
+      const indexStr = strip.getAttribute("data-index");
+      if (!target || !indexStr) return;
+      const targetIdx = parseInt(indexStr);
+
+      mixerStrips.forEach((s) => s.classList.remove("active"));
+      strip.classList.add("active");
+
+      mixerStrips.forEach((s, idx) => {
+        const knob = s.querySelector(".l12-fader-knob") as HTMLElement;
+        if (knob) {
+          if (idx === targetIdx) {
+            knob.style.bottom = "80%";
+          } else {
+            knob.style.bottom = "10%";
+          }
+        }
+      });
+
+      mixerMonitors.forEach((m) => m.classList.remove("active"));
+      const activeMon = document.getElementById(`l12-monitor-${target}`);
+      if (activeMon) activeMon.classList.add("active");
+    });
+  });
+
+  // ==========================================
+  // INTERACTIVE SCRIPTS FOR LAYOUT 6: RETRO ROTARY
+  // ==========================================
+  const rotaryHoles = document.querySelectorAll(".rotary-hole");
+  const rotaryDialer = document.getElementById("rotary-dialer");
+  const crtPanels = document.querySelectorAll(".l6-crt-panel");
+
+  rotaryHoles.forEach((hole) => {
+    hole.addEventListener("click", () => {
+      const target = hole.getAttribute("data-target");
+      const angleStr = hole.getAttribute("data-angle");
+      if (!target || !angleStr || !rotaryDialer) return;
+      
+      const angle = parseInt(angleStr);
+
+      // Animation: spin the rotary wheel, then back
+      rotaryHoles.forEach(h => h.classList.remove("active"));
+      hole.classList.add("active");
+
+      rotaryDialer.style.transform = `rotate(${360 - angle}deg)`;
+      
+      setTimeout(() => {
+        if (rotaryDialer) rotaryDialer.style.transform = `rotate(0deg)`;
+      }, 500);
+
+      // Update screen
+      crtPanels.forEach(p => p.classList.remove("active"));
+      const activeCrt = document.getElementById(`l6-crt-${target}`);
+      if (activeCrt) activeCrt.classList.add("active");
+    });
+  });
+
+  // ==========================================
+  // INTERACTIVE SCRIPTS FOR LAYOUT 7: CHAT SHELL
+  // ==========================================
+  const promptBtns = document.querySelectorAll(".prompt-btn");
+  const consoleScreen = document.getElementById("l7-console-screen");
+  const consoleInput = document.getElementById("l7-console-input") as HTMLInputElement;
+  const shellPreviewBox = document.querySelectorAll(".l7-shell-img-card");
+
+  promptBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = btn.getAttribute("data-target");
+      const promptText = btn.getAttribute("data-prompt");
+      if (!target || !promptText || !consoleScreen || !consoleInput) return;
+
+      // Simulate user typing
+      consoleInput.value = promptText;
+
+      // Create log lines
+      const userLine = document.createElement("p");
+      userLine.className = "user-line";
+      userLine.innerHTML = `buddy@local:~$ <span class="bold-text">${promptText}</span>`;
+      consoleScreen.appendChild(userLine);
+
+      const loaderLine = document.createElement("p");
+      loaderLine.className = "system-line";
+      loaderLine.innerText = `[system] Fetching sandbox metadata for '${target}'...`;
+      consoleScreen.appendChild(loaderLine);
+
+      setTimeout(() => {
+        const replyLine = document.createElement("p");
+        replyLine.className = "reply-line";
+        replyLine.innerText = `[system] Sandboxed instance for ${target} loaded successfully. Display channel opened.`;
+        consoleScreen.appendChild(replyLine);
+        
+        // Scroll screen
+        consoleScreen.scrollTop = consoleScreen.scrollHeight;
+
+        // Toggle preview image
+        shellPreviewBox.forEach(card => card.classList.remove("active"));
+        const activeCard = document.getElementById(`l7-shell-img-${target}`);
+        if (activeCard) activeCard.classList.add("active");
+      }, 600);
+    });
+  });
+
+  // ==========================================
+  // INTERACTIVE SCRIPTS FOR LAYOUT 8: VENN DIAGRAM
+  // ==========================================
+  const vennCircles = document.querySelectorAll(".venn-circle");
+  const vennPanels = document.querySelectorAll(".l8-venn-panel");
+
+  vennCircles.forEach((circle) => {
+    circle.addEventListener("mouseenter", () => {
+      const id = circle.getAttribute("id");
+      if (!id) return;
+      
+      const cohort = id.replace("venn-c-", "");
+      
+      // Update circle visual
+      vennCircles.forEach(c => c.classList.remove("active"));
+      circle.classList.add("active");
+
+      // Update detail panel
+      vennPanels.forEach(p => p.classList.remove("active"));
+      const activePanel = document.getElementById(`l8-venn-${cohort}`);
+      if (activePanel) activePanel.classList.add("active");
+    });
+  });
+
+  // ==========================================
+  // INTERACTIVE SCRIPTS FOR LAYOUT 9: WAVEFORM VISUALIZER
+  // ==========================================
+  const waveTracks = document.querySelectorAll(".l9-wave-track");
+  const wavePanels = document.querySelectorAll(".l9-wave-panel");
+
+  waveTracks.forEach((track) => {
+    track.addEventListener("click", () => {
+      const target = track.getAttribute("data-target");
+      if (!target) return;
+
+      waveTracks.forEach(t => t.classList.remove("active"));
+      track.classList.add("active");
+
+      // Animate active waveform heights slightly
+      const bars = track.querySelectorAll(".wave-bar");
+      bars.forEach((bar) => {
+        const hBar = bar as HTMLElement;
+        const targetHeight = Math.floor(Math.random() * 32) + 8;
+        hBar.style.height = `${targetHeight}px`;
+      });
+
+      wavePanels.forEach(p => p.classList.remove("active"));
+      const activePanel = document.getElementById(`l9-wave-panel-${target}`);
+      if (activePanel) activePanel.classList.add("active");
+    });
+  });
+
+  // ==========================================
+  // INTERACTIVE SCRIPTS FOR LAYOUT 10: NODE GRAPH NAVIGATOR
+  // ==========================================
+  const graphNodes = document.querySelectorAll(".graph-node");
+  const graphPanels = document.querySelectorAll(".l10-graph-panel");
+
+  graphNodes.forEach((node) => {
+    node.addEventListener("click", () => {
+      const target = node.getAttribute("data-target");
+      if (!target) return;
+
+      graphNodes.forEach(n => n.classList.remove("active"));
+      node.classList.add("active");
+
+      graphPanels.forEach(p => p.classList.remove("active"));
+      const activePanel = document.getElementById(`l10-graph-panel-${target}`);
+      if (activePanel) activePanel.classList.add("active");
+    });
+  });
+</script>

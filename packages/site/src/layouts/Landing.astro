@@ -1,0 +1,65 @@
+---
+import "../styles/global.css"
+
+type Props = {
+  title?: string
+  description?: string
+}
+
+const {
+  title = "Buddy — Your Personal Learning Companion",
+  description = "A private, local-first desktop learning assistant for students, lifelong learners, and educators.",
+} = Astro.props
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300..900&family=Plus+Jakarta+Sans:wght@300..800&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="bg-overlay"></div>
+    <div class="glow-1"></div>
+    <div class="glow-2"></div>
+    <slot />
+
+    <script>
+      // Smooth scroll for anchor links
+      document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+        anchor.addEventListener("click", (e) => {
+          e.preventDefault()
+          const target = e.currentTarget as HTMLAnchorElement
+          const href = target.getAttribute("href")
+          if (href) {
+            const el = document.querySelector(href)
+            if (el) el.scrollIntoView({ behavior: "smooth" })
+          }
+        })
+      })
+
+      // Scroll reveal via IntersectionObserver
+      const revealEls = document.querySelectorAll(".reveal")
+      const revealObs = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("revealed")
+              revealObs.unobserve(entry.target)
+            }
+          })
+        },
+        { threshold: 0.1, rootMargin: "0px 0px -60px 0px" },
+      )
+      revealEls.forEach((el) => revealObs.observe(el))
+    </script>
+  </body>
+</html>

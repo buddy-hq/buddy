@@ -80,6 +80,7 @@
   "scripts": {
     "dev": "bun --env-file=.env run --cwd packages/buddy dev",
     "smoke": "bun run --cwd packages/buddy smoke",
+    "dev:site": "bun run --cwd packages/site dev",
     "dev:web": "bun run --cwd packages/web dev",
     "dev:storybook": "bun run --cwd packages/storybook storybook",
     "dev:desktop": "bun run --cwd packages/desktop-electron dev",
