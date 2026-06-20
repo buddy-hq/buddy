@@ -113,6 +113,26 @@ function mergeResolvedPresentedMediaItem(
   }
 }
 
+function presentedMediaAvailabilityQuery(
+  directory: string,
+  objectID: string,
+  itemID: string,
+) {
+  const options = objectMediaAvailabilityQueryOptions({
+    directory,
+    objectID,
+    itemID,
+  })
+
+  return {
+    queryKey: options.queryKey,
+    queryFn: options.queryFn,
+    staleTime: options.staleTime,
+    retry: false,
+    refetchOnWindowFocus: false,
+  }
+}
+
 function usePresentedMediaAvailability(
   directory: string | undefined,
   objectID: string | undefined,
@@ -121,15 +141,9 @@ function usePresentedMediaAvailability(
   const availabilityQueries = useQueries({
     queries:
       directory && objectID
-        ? (items ?? []).map((item) => ({
-            ...objectMediaAvailabilityQueryOptions({
-              directory,
-              objectID,
-              itemID: item.id,
-            }),
-            retry: false,
-            refetchOnWindowFocus: false,
-          }))
+        ? (items ?? []).map((item) =>
+            presentedMediaAvailabilityQuery(directory, objectID, item.id),
+          )
         : [],
   })
 

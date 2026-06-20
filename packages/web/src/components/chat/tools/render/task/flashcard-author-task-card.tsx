@@ -76,6 +76,21 @@ function FlashcardDeckTaskPreview(props: {
   )
 }
 
+function flashcardDeckDetailQuery(
+  directory: string,
+  objectID: string,
+  enabled: boolean,
+) {
+  const options = objectFlashcardDeckPayloadQueryOptions({ directory, objectID })
+
+  return {
+    queryKey: options.queryKey,
+    queryFn: options.queryFn,
+    staleTime: options.staleTime,
+    enabled,
+  }
+}
+
 export function FlashcardAuthorTaskCard({
   state,
   onOpenSession,
@@ -102,14 +117,11 @@ export function FlashcardAuthorTaskCard({
   })
 
   const deckObjects = selectFlashcardDeckObjects(decksQuery)
+  const shouldLoadDecks = state.status === "completed" && !!directory && !!childSessionID
   const deckDetailQueries = useQueries({
-    queries: deckObjects.map((deck) => ({
-      ...objectFlashcardDeckPayloadQueryOptions({
-        directory: directory ?? "",
-        objectID: deck.objectID,
-      }),
-      enabled: state.status === "completed" && !!directory && !!childSessionID,
-    })),
+    queries: deckObjects.map((deck) =>
+      flashcardDeckDetailQuery(directory ?? "", deck.objectID, shouldLoadDecks),
+    ),
   })
   const items = childSessionID
     ? deckDetailQueries

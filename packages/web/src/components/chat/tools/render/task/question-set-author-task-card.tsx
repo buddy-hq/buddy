@@ -56,6 +56,21 @@ function QuestionSetObjectTaskPreview(props: {
   )
 }
 
+function questionSetDetailQuery(
+  directory: string,
+  objectID: string,
+  enabled: boolean,
+) {
+  const options = objectQuestionSetPayloadQueryOptions({ directory, objectID })
+
+  return {
+    queryKey: options.queryKey,
+    queryFn: options.queryFn,
+    staleTime: options.staleTime,
+    enabled,
+  }
+}
+
 export function QuestionSetAuthorTaskCard({
   state,
   onOpenSession,
@@ -82,14 +97,11 @@ export function QuestionSetAuthorTaskCard({
   })
 
   const objectStubs = selectQuestionSetObjects(objectsQuery)
+  const shouldLoadObjects = state.status === "completed" && !!directory && !!childSessionID
   const objectDetailQueries = useQueries({
-    queries: objectStubs.map((object) => ({
-      ...objectQuestionSetPayloadQueryOptions({
-        directory: directory ?? "",
-        objectID: object.objectID,
-      }),
-      enabled: state.status === "completed" && !!directory && !!childSessionID,
-    })),
+    queries: objectStubs.map((object) =>
+      questionSetDetailQuery(directory ?? "", object.objectID, shouldLoadObjects),
+    ),
   })
 
   const items = childSessionID
