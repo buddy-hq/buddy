@@ -30,7 +30,6 @@ Long term maintainability is a core priority. If you add new functionality, firs
   - It defines component creation, styling, and how shadcn should be treated as a foundation rather than a finished theme.
 - `packages/sdk`: OpenAPI-generated client via hey-api/openapi-ts
 - `packages/opencode-adapter`: Buddy compatibility bridge over vendored OpenCode modules
-- `packages/storybook`: storybook setup
 
 ## Vendor
 - Core agent/runtime/server code lives under `vendor/opencode/packages/*`. Buddy integrates it via `packages/opencode-adapter`, not by reimplementing it.

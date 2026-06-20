@@ -73,7 +73,6 @@
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "20.0.11",
-    "@storybook/react-vite": "catalog:",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/router-plugin": "^1.167.22",
     "@types/bun": "catalog:",
@@ -83,7 +82,6 @@
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.0",
-    "storybook": "catalog:",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.0.0",
     "vite": "7.1.4"

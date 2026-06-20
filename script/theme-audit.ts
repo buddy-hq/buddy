@@ -16,7 +16,7 @@ import {
 
 const SOURCE_ROOTS = ["packages/ui/src", "packages/web/src"] as const
 const SOURCE_EXTENSIONS = [".css", ".ts", ".tsx"] as const
-const IGNORED_PATH_PARTS = [".stories.", "/designs/"] as const
+const IGNORED_PATH_PARTS = ["/designs/"] as const
 const UI_PRIMITIVES_ROOT = "packages/ui/src/components/ui" as const
 const PRIMITIVE_DARK_MODE_EXCEPTIONS = ["packages/ui/src/components/ui/chart.tsx"] as const
 

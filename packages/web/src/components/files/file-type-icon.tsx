@@ -40,7 +40,6 @@ import fileRubyIconUrl from "@uiw/file-icons/icon/ruby.svg"
 import fileRustIconUrl from "@uiw/file-icons/icon/rust.svg"
 import fileSassIconUrl from "@uiw/file-icons/icon/sass.svg"
 import fileSettingsIconUrl from "@uiw/file-icons/icon/settings.svg"
-import fileStorybookIconUrl from "@uiw/file-icons/icon/storybook.svg"
 import fileSwiftIconUrl from "@uiw/file-icons/icon/swift.svg"
 import fileTableIconUrl from "@uiw/file-icons/icon/table.svg"
 import fileTerraformIconUrl from "@uiw/file-icons/icon/terraform.svg"
@@ -99,7 +98,6 @@ const FILE_ICON_BY_KEY = {
   rust: fileRustIconUrl,
   sass: fileSassIconUrl,
   settings: fileSettingsIconUrl,
-  storybook: fileStorybookIconUrl,
   swift: fileSwiftIconUrl,
   table: fileTableIconUrl,
   terraform: fileTerraformIconUrl,
@@ -341,7 +339,6 @@ function detectIconKey(fileName: string) {
   const extensionMatch = detectIconKeyByExtension(extension)
   if (extensionMatch) return extensionMatch
 
-  if (normalizedFileName.includes("storybook")) return "storybook"
   if (normalizedFileName.includes("webpack")) return "webpack"
   if (normalizedFileName.includes("nginx")) return "nginx"
   if (normalizedFileName.startsWith(".git")) return "git"
