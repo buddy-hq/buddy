@@ -564,7 +564,12 @@ jobs:
             echo "No Electron artifacts found"
             exit 1
           fi
-          gh release upload "$BUDDY_RELEASE_TAG" "${artifacts[@]}" --clobber --repo "$BUDDY_RELEASE_REPO"
+          gh release upload "$BUDDY_RELEASE_TAG" \
+            "${artifacts[@]}" \
+            scripts/install-buddy-macos.sh \
+            scripts/install-buddy-windows.ps1 \
+            --clobber \
+            --repo "$BUDDY_RELEASE_REPO"
 
       - name: Finalize and upload latest yml
         shell: bash
