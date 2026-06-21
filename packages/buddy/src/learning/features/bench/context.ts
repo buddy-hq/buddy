@@ -4,6 +4,8 @@ import { BuddyObjectRefSchema, nonEmptyString } from "../../../objects"
 
 const BENCH_CONTEXT_REGISTRY_LIMIT = 512
 const BENCH_CONTEXT_HISTORY_LIMIT = 512
+const BENCH_TARGET_KEY_PART_SEPARATOR = "\u0000"
+const BENCH_TARGET_KEY_NULL_PART = "\u2400"
 
 const BenchContextStatusSchema = z.enum(["ready", "loading", "dirty", "error", "unavailable"])
 
@@ -81,6 +83,7 @@ const BenchReadContextClosedOutputSchema = z
 const BenchReadContextOpenOutputSchema = z
   .object({
     status: z.literal("open"),
+    targetKey: nonEmptyString,
     target: BenchContextTargetSchema,
     drawer: BenchDrawerContextSchema.nullable(),
     metadata: z.array(z.string()),
@@ -308,19 +311,26 @@ function clearBenchContextRegistry(): void {
   benchContextRegistry.clear()
 }
 
-function benchTargetFromContextTarget(target: BenchContextTarget): BenchTarget {
-  if (target.type === "object") {
-    return BenchTargetSchema.parse({
-      type: "object",
-      ref: target.ref,
-      viewID: target.viewID,
-    })
+function benchTargetKey(target: BenchTarget): string {
+  const parsed = BenchTargetSchema.parse(target)
+  if (parsed.type === "workspace-file") {
+    return [
+      "workspace-file",
+      parsed.viewer,
+      encodeURIComponent(parsed.path),
+    ].join(BENCH_TARGET_KEY_PART_SEPARATOR)
   }
-  return BenchTargetSchema.parse({
-    type: "workspace-file",
-    path: target.path,
-    viewer: target.path.toLowerCase().endsWith(".md") ? "markdown" : "file",
-  })
+
+  return [
+    "object",
+    parsed.ref.kind,
+    encodeURIComponent(parsed.ref.objectID),
+    parsed.ref.revisionID
+      ? encodeURIComponent(parsed.ref.revisionID)
+      : BENCH_TARGET_KEY_NULL_PART,
+    parsed.ref.itemID ? encodeURIComponent(parsed.ref.itemID) : BENCH_TARGET_KEY_NULL_PART,
+    encodeURIComponent(parsed.viewID),
+  ].join(BENCH_TARGET_KEY_PART_SEPARATOR)
 }
 
 const BenchReadContextInputSchema = z.object({}).strict()
@@ -345,7 +355,7 @@ export {
   PublishedWorkspaceFileBenchContextTargetSchema,
   PublishBenchContextResponseSchema,
   WorkspaceFileBenchTargetSchema,
-  benchTargetFromContextTarget,
+  benchTargetKey,
   clearBenchContextRegistry,
   closedBenchContext,
   publishSequencedBenchContext,

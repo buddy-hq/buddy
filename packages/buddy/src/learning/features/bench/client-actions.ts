@@ -5,8 +5,10 @@ import {
   BenchClientLeaseIdentitySchema,
   BenchReadContextOutputSchema,
   BenchTargetSchema,
+  benchTargetKey,
   publishSequencedBenchContext,
   type BenchClientLeaseIdentity,
+  type BenchTarget,
 } from "./context"
 
 const BENCH_CLIENT_ACTION_VERSION = 1
@@ -294,8 +296,8 @@ function isSameLeaseIdentity(left: BenchClientLease, right: BenchClientLeaseIden
   )
 }
 
-function isSameTarget(left: z.infer<typeof BenchTargetSchema>, right: z.infer<typeof BenchTargetSchema>): boolean {
-  return JSON.stringify(BenchTargetSchema.parse(left)) === JSON.stringify(BenchTargetSchema.parse(right))
+function isSameTargetKey(left: BenchTarget, right: BenchTarget): boolean {
+  return benchTargetKey(left) === benchTargetKey(right)
 }
 
 function commandMatchesCommittedCompletion(
@@ -314,22 +316,10 @@ function commandMatchesCommittedCompletion(
   if (completion.observedVisibility !== "visible") return false
   if (completion.context.status !== "open") return false
 
+  const expectedTargetKey = benchTargetKey(action.command.target)
   return (
-    isSameTarget(completion.observedRoute.target, action.command.target) &&
-    isSameTarget(
-      action.command.target,
-      completion.context.target.type === "workspace-file"
-        ? {
-            type: "workspace-file",
-            path: completion.context.target.path,
-            viewer: completion.context.target.path.toLowerCase().endsWith(".md") ? "markdown" : "file",
-          }
-        : {
-            type: "object",
-            ref: completion.context.target.ref,
-            viewID: completion.context.target.viewID,
-          },
-    )
+    isSameTargetKey(completion.observedRoute.target, action.command.target) &&
+    completion.context.targetKey === expectedTargetKey
   )
 }
 
