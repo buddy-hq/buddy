@@ -33,6 +33,7 @@
     "./session-tool-ui": "./src/session-tool-ui.ts",
     "./session-status": "./src/session-status.ts",
     "./session-prompt": "./src/session-prompt.ts",
+    "./file-watcher": "./src/file-watcher.ts",
     "./file": "./src/file.ts",
     "./global": "./src/global.ts",
     "./provider": "./src/provider.ts",
