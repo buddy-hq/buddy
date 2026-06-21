@@ -5,15 +5,27 @@ import { createFoliatePdfVitePlugin } from "./scripts/create-foliate-pdf-vite-pl
 const BUDDY_WEB_PACKAGE_NAME = "@buddy/web"
 const BUDDY_WEB_SOURCE_ALIAS = "@"
 const WEB_SOURCE_DIRECTORY = fileURLToPath(new URL("./src", import.meta.url))
+// TanStack Router auto-splits route components, so Vite's initial crawl cannot
+// reliably discover component-only dependencies before the first navigation.
+const WEB_OPTIMIZE_DEPS_INCLUDES = ["@mdxeditor/editor", "lexical"]
 const WEB_OPTIMIZE_DEPS_EXCLUDES = [
   "foliate-js/view.js",
   "foliate-js/pdf.js",
+  "foliate-js/overlayer.js",
   "foliate-js/vendor/pdfjs/pdf.mjs",
 ]
 const WEB_DEDUPE_MODULES = ["react", "react-dom"]
 
 export type BuddyWebVitePluginOptions = {
   includeRootAlias?: boolean
+  resolveOptimizeDepsFromLinkedWebPackage?: boolean
+}
+
+function resolveOptimizeDepsIncludes(fromLinkedWebPackage: boolean): string[] {
+  if (!fromLinkedWebPackage) return WEB_OPTIMIZE_DEPS_INCLUDES
+  return WEB_OPTIMIZE_DEPS_INCLUDES.map(
+    (dependency) => `${BUDDY_WEB_PACKAGE_NAME} > ${dependency}`,
+  )
 }
 
 function createBuddyWebResolveAlias(includeRootAlias: boolean) {
@@ -35,6 +47,9 @@ function createBuddyWebResolveAlias(includeRootAlias: boolean) {
 
 export function buddyWebVitePlugin(options: BuddyWebVitePluginOptions = {}): PluginOption[] {
   const includeRootAlias = options.includeRootAlias ?? true
+  const optimizeDepsIncludes = resolveOptimizeDepsIncludes(
+    options.resolveOptimizeDepsFromLinkedWebPackage ?? false,
+  )
 
   return [
     {
@@ -42,6 +57,7 @@ export function buddyWebVitePlugin(options: BuddyWebVitePluginOptions = {}): Plu
       config() {
         return {
           optimizeDeps: {
+            include: optimizeDepsIncludes,
             exclude: WEB_OPTIMIZE_DEPS_EXCLUDES,
           },
           resolve: {

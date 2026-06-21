@@ -37,7 +37,7 @@ export default defineConfig({
   },
   renderer: {
     plugins: [
-      ...buddyWebVitePlugin(),
+      ...buddyWebVitePlugin({ resolveOptimizeDepsFromLinkedWebPackage: true }),
       tanstackRouter({
         target: "react",
         routesDirectory: path.resolve(webDir, "src/routes"),
