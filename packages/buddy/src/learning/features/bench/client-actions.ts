@@ -126,9 +126,7 @@ type BenchClientActionCommand = z.infer<typeof BenchClientActionCommandSchema>
 type BenchClientAction = z.infer<typeof BenchClientActionSchema>
 type BenchClientLease = z.infer<typeof BenchClientLeaseSchema>
 type BenchClientActionCompletion = z.infer<typeof BenchClientActionCompletionSchema>
-type BenchClientActionCompletionResponse = z.infer<
-  typeof BenchClientActionCompletionResponseSchema
->
+type BenchClientActionCompletionResponse = z.infer<typeof BenchClientActionCompletionResponseSchema>
 type BenchClientLeaseReleaseResponse = z.infer<typeof BenchClientLeaseReleaseResponseSchema>
 
 type BenchBrokerClockTimer = () => void
@@ -437,10 +435,7 @@ export class BenchClientActionBroker {
     return { released: false }
   }
 
-  validateLease(input: {
-    directory: string
-    lease: BenchClientLeaseIdentity
-  }): boolean {
+  validateLease(input: { directory: string; lease: BenchClientLeaseIdentity }): boolean {
     const state = this.#state(input.directory)
     return Boolean(state.lease && isSameLeaseIdentity(state.lease, input.lease))
   }
@@ -471,9 +466,12 @@ export class BenchClientActionBroker {
       expiryTimer: null,
       resolve: deferred.resolve,
     }
-    entry.expiryTimer = this.#clock.setTimeout(() => {
-      this.#expireAction(action.directory, action.actionID)
-    }, Math.max(0, action.expiresAt - this.#clock.now()))
+    entry.expiryTimer = this.#clock.setTimeout(
+      () => {
+        this.#expireAction(action.directory, action.actionID)
+      },
+      Math.max(0, action.expiresAt - this.#clock.now()),
+    )
 
     state.actions.set(action.actionID, entry)
     this.#deliverEligibleActions(state)
@@ -520,7 +518,10 @@ export class BenchClientActionBroker {
     if (entry.terminal) {
       return entry.completionKey === key ? { status: "already_completed" } : { status: "conflict" }
     }
-    if (parsed.outcome === "committed" && !commandMatchesCommittedCompletion(entry.action, parsed)) {
+    if (
+      parsed.outcome === "committed" &&
+      !commandMatchesCommittedCompletion(entry.action, parsed)
+    ) {
       return { status: "conflict" }
     }
 

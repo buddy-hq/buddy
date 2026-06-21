@@ -557,7 +557,8 @@ export const dict = {
   "devtools.learnerSnapshot.unknown": "unknown",
   "devtools.learnerSnapshot.workspaceFallback": "Workspace",
   "devtools.learnerSnapshot.teachingWorkspaceState": "Teaching workspace state",
-  "devtools.learnerSnapshot.unavailable": "No learner snapshot is available for this workspace yet.",
+  "devtools.learnerSnapshot.unavailable":
+    "No learner snapshot is available for this workspace yet.",
   "routes.chat.chooseFolder": "choose a folder",
   "routes.chat.newNotebook": "New notebook",
   "routes.chat.notebookHomeHint": "New notebooks are created in {{directory}}",

@@ -8,12 +8,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react"
-import {
-  Button,
-  ResizeHandle,
-  cn,
-  type ResizeHandleIntent,
-} from "@buddy/ui"
+import { Button, ResizeHandle, cn, type ResizeHandleIntent } from "@buddy/ui"
 import { MessageSquareIcon, Minimize2Icon, PanelRightOpenIcon } from "lucide-react"
 import { readDesktopTitlebarBottomOffset } from "@/components/layout/desktop-titlebar-inset"
 import {
@@ -843,7 +838,9 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
       </div>
       <motion.div
         ref={conversationHostRef}
-        data-component={isFloating ? "directory-chat-floating-window" : "directory-chat-docked-window"}
+        data-component={
+          isFloating ? "directory-chat-floating-window" : "directory-chat-docked-window"
+        }
         data-mode={isFloating ? BENCH_CHAT_LAYOUT_FLOATING : BENCH_CHAT_LAYOUT_DOCKED}
         aria-hidden={isFloatingMinimized}
         style={conversationHostStyle}
@@ -879,7 +876,10 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
                 className="flex h-full min-w-0 flex-1 cursor-grab touch-none select-none items-center active:cursor-grabbing"
                 onPointerDown={startFloatingChatDrag}
               >
-                <span className="h-1 w-10 rounded-full bg-border-stronger-base" aria-hidden="true" />
+                <span
+                  className="h-1 w-10 rounded-full bg-border-stronger-base"
+                  aria-hidden="true"
+                />
                 <span className="sr-only">{BENCH_CHAT_DRAG_LABEL}</span>
               </div>
               <Button

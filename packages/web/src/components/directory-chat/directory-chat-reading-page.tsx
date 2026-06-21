@@ -8,10 +8,7 @@ import {
   useRegisterBenchContextProvider,
   type BenchContextProvider,
 } from "@/components/bench/bench-route-context"
-import {
-  objectRef,
-  workspaceFileRef,
-} from "@/components/bench/bench-context-utils"
+import { objectRef, workspaceFileRef } from "@/components/bench/bench-context-utils"
 import {
   appendReadingSelectionToDraft,
   removeReadingSelectionFromDraft,
@@ -23,11 +20,7 @@ import { getPromptDraft, usePromptStore } from "@/state/prompt-store"
 import { resourceFileExtensionFromFormat, resourcesQueryOptions } from "@/state/resources-query"
 import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runtime"
 import { addResource, rebuildResource, type ResourceRecord } from "@/state/resource-actions"
-import {
-  BENCH_CHAT_LAYOUT_DOCKED,
-  useOpenBench,
-  type BenchTarget,
-} from "@/lib/bench-navigation"
+import { BENCH_CHAT_LAYOUT_DOCKED, useOpenBench, type BenchTarget } from "@/lib/bench-navigation"
 import { stringifyError } from "@/lib/api-client"
 
 type DirectoryChatReadingPageProps = {

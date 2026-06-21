@@ -781,7 +781,8 @@ function timedOutClientResult(): BenchPresentOutput {
     target: null,
     benchTarget: null,
     mode: null,
-    message: "Bench did not change because the client did not acknowledge the Bench command in time.",
+    message:
+      "Bench did not change because the client did not acknowledge the Bench command in time.",
     objectResult: null,
   }
 }

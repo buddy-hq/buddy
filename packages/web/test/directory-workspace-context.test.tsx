@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { createMemoryHistory, createRootRoute, createRouter, RouterProvider } from "@tanstack/react-router"
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterProvider,
+} from "@tanstack/react-router"
 import { StrictMode, act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { DesktopTitlebar } from "../src/components/layout/desktop-titlebar"

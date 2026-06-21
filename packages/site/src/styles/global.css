@@ -44,13 +44,15 @@
   --color-accent-cool-glow: rgba(45, 212, 191, 0.12);
 
   /* Fonts */
-  --font-display: "Outfit", "Outfit Fallback", system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-body: "Plus Jakarta Sans", "Plus Jakarta Sans Fallback", system-ui,
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
-    Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-display:
+    "Outfit", "Outfit Fallback", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-body:
+    "Plus Jakarta Sans", "Plus Jakarta Sans Fallback", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono:
+    "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
 
   /* Easing */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -120,7 +122,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   font-variant-ligatures: common-ligatures contextual;
-  font-feature-settings: "liga" 1, "calt" 1;
+  font-feature-settings:
+    "liga" 1,
+    "calt" 1;
 }
 
 /* ============================================================
@@ -135,12 +139,19 @@ h6 {
   font-family: var(--font-display);
   text-rendering: optimizeLegibility;
   font-variant-ligatures: common-ligatures contextual;
-  font-feature-settings: "liga" 1, "calt" 1, "ss01" 1;
+  font-feature-settings:
+    "liga" 1,
+    "calt" 1,
+    "ss01" 1;
 }
 
 [data-numeric] {
   font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1, "liga" 1, "calt" 1;
+  font-feature-settings:
+    "tnum" 1,
+    "lnum" 1,
+    "liga" 1,
+    "calt" 1;
 }
 
 /* ============================================================
@@ -196,11 +207,7 @@ section {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  background: linear-gradient(
-    135deg,
-    var(--color-accent-secondary),
-    var(--color-accent-primary)
-  );
+  background: linear-gradient(135deg, var(--color-accent-secondary), var(--color-accent-primary));
   border: none;
   border-radius: 8px;
   padding: 8px 16px;
@@ -210,9 +217,11 @@ section {
   color: #ffffff;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05),
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.05),
     0 4px 12px rgba(255, 107, 0, 0.15);
-  transition: transform 160ms var(--ease-out),
+  transition:
+    transform 160ms var(--ease-out),
     box-shadow 160ms var(--ease-out);
   letter-spacing: var(--tracking-wide);
 }
@@ -235,8 +244,10 @@ section {
   color: var(--color-text-primary);
   text-decoration: none;
   cursor: pointer;
-  transition: background-color 0.18s var(--ease-out),
-    border-color 0.18s var(--ease-out), transform 160ms var(--ease-out);
+  transition:
+    background-color 0.18s var(--ease-out),
+    border-color 0.18s var(--ease-out),
+    transform 160ms var(--ease-out);
   letter-spacing: var(--tracking-wide);
 }
 
@@ -268,10 +279,7 @@ section {
   right: 0;
   bottom: 0;
   z-index: -2;
-  background-image: radial-gradient(
-    rgba(255, 255, 255, 0.03) 1px,
-    transparent 1px
-  );
+  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
   background-size: 32px 32px;
   opacity: 0.65;
   pointer-events: none;
@@ -283,11 +291,7 @@ section {
   left: 20%;
   width: 60vw;
   height: 60vw;
-  background: radial-gradient(
-    circle,
-    var(--color-accent-secondary-glow) 0%,
-    transparent 70%
-  );
+  background: radial-gradient(circle, var(--color-accent-secondary-glow) 0%, transparent 70%);
   z-index: -1;
   pointer-events: none;
 }
@@ -298,11 +302,7 @@ section {
   right: -10%;
   width: 50vw;
   height: 50vw;
-  background: radial-gradient(
-    circle,
-    var(--color-accent-primary-glow) 0%,
-    transparent 70%
-  );
+  background: radial-gradient(circle, var(--color-accent-primary-glow) 0%, transparent 70%);
   z-index: -1;
   pointer-events: none;
 }
@@ -313,7 +313,9 @@ section {
 .reveal {
   opacity: 0;
   transform: translateY(24px);
-  transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out);
+  transition:
+    opacity 0.6s var(--ease-out),
+    transform 0.6s var(--ease-out);
 }
 
 .reveal.revealed {

@@ -196,9 +196,7 @@ function mediaAvailabilityFromItem(item: ObjectMediaGalleryItem): ObjectMediaAva
   }
 }
 
-function objectBenchTarget(
-  view: ObjectsViewResponse,
-): Extract<BenchTarget, { type: "object" }> {
+function objectBenchTarget(view: ObjectsViewResponse): Extract<BenchTarget, { type: "object" }> {
   return {
     type: "object",
     ref: view.ref,
@@ -387,14 +385,7 @@ function ObjectBenchContextProvider(props: {
         hints: props.hints ?? [],
       }),
     }),
-    [
-      props.content,
-      props.hints,
-      props.metadata,
-      props.refs,
-      props.status,
-      props.view,
-    ],
+    [props.content, props.hints, props.metadata, props.refs, props.status, props.view],
   )
   useRegisterBenchContextProvider({
     target: objectBenchTarget(props.view),

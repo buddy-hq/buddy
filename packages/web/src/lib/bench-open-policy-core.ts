@@ -258,11 +258,7 @@ function resolveBenchOpenPolicy(input: ResolveBenchOpenPolicyInput): BenchOpenDe
   }
 }
 
-export {
-  resolveBenchLayoutProfile,
-  resolveBenchOpenPolicy,
-  resolveBenchSurfaceDefaults,
-}
+export { resolveBenchLayoutProfile, resolveBenchOpenPolicy, resolveBenchSurfaceDefaults }
 export type {
   BenchIgnorePolicyID,
   BenchOpenDecision,

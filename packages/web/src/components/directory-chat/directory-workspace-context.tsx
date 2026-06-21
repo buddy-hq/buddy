@@ -66,7 +66,9 @@ function initialDockedState(route: BenchRouteSnapshot) {
 
 function dockedStateFromPersistedState(
   state: PersistedDirectoryWorkspaceState,
-): ReturnType<typeof createCollapsedWorkspaceState> | ReturnType<typeof createExpandedWorkspaceState> {
+):
+  | ReturnType<typeof createCollapsedWorkspaceState>
+  | ReturnType<typeof createExpandedWorkspaceState> {
   return state.visibility === WORKSPACE_VISIBILITY_EXPANDED
     ? createExpandedWorkspaceState(null)
     : createCollapsedWorkspaceState()

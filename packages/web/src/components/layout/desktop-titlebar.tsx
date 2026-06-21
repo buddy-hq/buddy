@@ -330,7 +330,9 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       onMouseDownCapture={(event) =>
         logBenchToggleDomEvent("right-toggle-wrapper-mousedown-capture", event)
       }
-      onClickCapture={(event) => logBenchToggleDomEvent("right-toggle-wrapper-click-capture", event)}
+      onClickCapture={(event) =>
+        logBenchToggleDomEvent("right-toggle-wrapper-click-capture", event)
+      }
     >
       <Button
         type="button"
@@ -357,7 +359,9 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         onMouseUpCapture={(event) =>
           logBenchToggleDomEvent("right-toggle-button-mouseup-capture", event)
         }
-        onClickCapture={(event) => logBenchToggleDomEvent("right-toggle-button-click-capture", event)}
+        onClickCapture={(event) =>
+          logBenchToggleDomEvent("right-toggle-button-click-capture", event)
+        }
         onClick={onToggleRightWorkspace}
       >
         {rightWorkspaceOpen ? (

@@ -1,7 +1,4 @@
-import {
-  Outlet,
-  useLocation,
-} from "@tanstack/react-router"
+import { Outlet, useLocation } from "@tanstack/react-router"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { BenchRouteContextProvider } from "@/components/bench/bench-route-context"
 import {
@@ -147,10 +144,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const routeChatLayoutMode =
     benchPolicyState.status === "open" ? benchPolicyState.mode : BENCH_CHAT_LAYOUT_DOCKED
   const chatLayoutMode = routeChatLayoutMode
-  const workspaceLayoutMode = workspaceHydrated
-    ? chatLayoutMode
-    : BENCH_CHAT_LAYOUT_DOCKED
-  const workspaceOpen = workspace.projection.dockedState.visibility === WORKSPACE_VISIBILITY_EXPANDED
+  const workspaceLayoutMode = workspaceHydrated ? chatLayoutMode : BENCH_CHAT_LAYOUT_DOCKED
+  const workspaceOpen =
+    workspace.projection.dockedState.visibility === WORKSPACE_VISIBILITY_EXPANDED
   const workspaceHostOpen =
     workspaceHydrated &&
     (workspaceOpen ||

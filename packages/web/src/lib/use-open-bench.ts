@@ -53,8 +53,4 @@ function useOpenBench(): OpenBench {
 }
 
 export { useOpenBench }
-export type {
-  DirectoryWorkspaceOpenResult as OpenBenchResult,
-  OpenBench,
-  OpenBenchOptions,
-}
+export type { DirectoryWorkspaceOpenResult as OpenBenchResult, OpenBench, OpenBenchOptions }

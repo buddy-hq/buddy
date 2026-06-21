@@ -247,15 +247,15 @@ export function SourceFileBenchView(props: { directory: string; path: string }) 
     ? "Loading"
     : !existsOnDisk
       ? "Unavailable"
-    : snapshot?.conflict
-      ? "Conflict"
-      : snapshot?.saving
-        ? "Saving"
-        : snapshot?.saveError
-          ? "Save failed"
-          : snapshot?.dirty
-            ? "Dirty"
-            : undefined
+      : snapshot?.conflict
+        ? "Conflict"
+        : snapshot?.saving
+          ? "Saving"
+          : snapshot?.saveError
+            ? "Save failed"
+            : snapshot?.dirty
+              ? "Dirty"
+              : undefined
 
   return (
     <BenchViewerShell
@@ -276,9 +276,7 @@ export function SourceFileBenchView(props: { directory: string; path: string }) 
           <div className="max-w-sm rounded-2xl border border-border-base bg-surface-base px-5 py-4 shadow-sm">
             <AlertCircleIcon className="mx-auto mb-2 size-5 text-icon-warning-base" aria-hidden />
             <h2 className="text-sm font-medium text-text-base">File deleted or moved</h2>
-            <p className="mt-2 text-sm text-text-weak">
-              {props.path} no longer exists on disk.
-            </p>
+            <p className="mt-2 text-sm text-text-weak">{props.path} no longer exists on disk.</p>
           </div>
         </div>
       ) : (

@@ -1,10 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { setRuntimeServerConnection } from "../src/context/server"
 import { DirectoryWorkspaceLifecycleService } from "../src/lib/directory-workspace-lifecycle"
-import type {
-  BenchLeaveGuardInput,
-  BenchLeaveGuardResult,
-} from "../src/lib/bench-leave-guard"
+import type { BenchLeaveGuardInput, BenchLeaveGuardResult } from "../src/lib/bench-leave-guard"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   benchTargetKey,
@@ -614,9 +611,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
 
       expect(syncReasons).toEqual(["turn-complete"])
       expect(publishBodies).toHaveLength(1)
-      expect(readPublishContextProbe(publishBodies[0]).value?.content).toBe(
-        "after-turn-complete",
-      )
+      expect(readPublishContextProbe(publishBodies[0]).value?.content).toBe("after-turn-complete")
       await service.dispose()
     } finally {
       globalThis.fetch = previousFetch
@@ -776,7 +771,10 @@ describe("DirectoryWorkspaceLifecycleService", () => {
         const url = request?.url ?? String(input)
         const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
         const body = init?.body ?? (request ? await request.clone().text() : undefined)
-        if (url.includes("/bench/client-actions/action-stale-context/complete") && method === "POST") {
+        if (
+          url.includes("/bench/client-actions/action-stale-context/complete") &&
+          method === "POST"
+        ) {
           completionBodies.push(JSON.parse(String(body)))
           return new Response(JSON.stringify({ status: "completed" }), {
             status: 200,

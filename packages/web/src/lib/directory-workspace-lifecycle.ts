@@ -1,9 +1,6 @@
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
-import type {
-  BenchLeaveGuardInput,
-  BenchLeaveGuardResult,
-} from "@/lib/bench-leave-guard"
+import type { BenchLeaveGuardInput, BenchLeaveGuardResult } from "@/lib/bench-leave-guard"
 import { allowBenchLeave } from "@/lib/bench-leave-guard"
 import { benchTargetKey, type BenchTarget } from "@/lib/bench-navigation"
 import type {
@@ -199,8 +196,7 @@ function workspaceFileSignalMatchesTarget(input: {
   const signalPath = normalizeWorkspaceFilePath(input.signalPath)
   const targetPath = normalizeWorkspaceFilePath(input.targetPath)
   return (
-    signalPath === targetPath ||
-    targetPath.startsWith(`${signalPath}${WORKSPACE_PATH_SEPARATOR}`)
+    signalPath === targetPath || targetPath.startsWith(`${signalPath}${WORKSPACE_PATH_SEPARATOR}`)
   )
 }
 
@@ -237,7 +233,9 @@ function contextTargetDiagnostic(value: BenchReadContextOutput): Record<string, 
   }
 }
 
-function surfaceContextDiagnostic(value: BenchReadSurfaceContextOpenOutput): Record<string, unknown> {
+function surfaceContextDiagnostic(
+  value: BenchReadSurfaceContextOpenOutput,
+): Record<string, unknown> {
   return {
     status: value.status,
     targetKey: value.targetKey,
@@ -263,9 +261,7 @@ export class DirectoryWorkspaceLifecycleService {
   ) => BenchReadSurfaceContextOpenOutput | null
   readonly #instanceID = nextWorkspaceInstanceID()
   #registrations = new Map<string, BenchSurfaceRegistration>()
-  #fallbackProvider:
-    | (() => BenchReadSurfaceContextOpenOutput)
-    | null = null
+  #fallbackProvider: (() => BenchReadSurfaceContextOpenOutput) | null = null
   #publishQueue: Promise<void> = Promise.resolve()
   #activeSessionID: string | undefined
   #requestedActiveSessionID: string | undefined
@@ -376,9 +372,7 @@ export class DirectoryWorkspaceLifecycleService {
     })
   }
 
-  setFallbackProvider(
-    provider: () => BenchReadSurfaceContextOpenOutput,
-  ): () => void {
+  setFallbackProvider(provider: () => BenchReadSurfaceContextOpenOutput): () => void {
     this.#fallbackProvider = provider
     return () => {
       if (this.#fallbackProvider === provider) {
@@ -518,10 +512,7 @@ export class DirectoryWorkspaceLifecycleService {
     return complete
   }
 
-  async #publishForSession(
-    sessionID: string,
-    options: { force: boolean },
-  ): Promise<void> {
+  async #publishForSession(sessionID: string, options: { force: boolean }): Promise<void> {
     if (this.#disposed) return
     const publish = this.#publishQueue.then(
       () => this.#publishCurrentSnapshot(sessionID, options),
@@ -778,10 +769,7 @@ export class DirectoryWorkspaceLifecycleService {
     visibility: EffectiveWorkspaceProjection["bench"]["visibility"]
     drawer: DrawerKind | null
   }): BenchContextPublishSnapshot {
-    if (
-      input.visibility !== "visible" ||
-      input.route.status === "closed"
-    ) {
+    if (input.visibility !== "visible" || input.route.status === "closed") {
       return {
         status: "closed",
         publicationKey: closedPublicationKey({
@@ -824,16 +812,19 @@ export class DirectoryWorkspaceLifecycleService {
         return output
       }
 
-      logBenchToggleStep("workspace-lifecycle-read-observed-snapshot-registration-target-mismatch", () => ({
-        directory: this.#directory,
-        sessionID: input.sessionID,
-        targetKey,
-        registrationID: registration.registrationID,
-        snapshotTarget: snapshot.target,
-        snapshotTargetKey: snapshot.targetKey,
-        expectedTarget: observedTarget,
-        snapshot: surfaceContextDiagnostic(snapshot.context),
-      }))
+      logBenchToggleStep(
+        "workspace-lifecycle-read-observed-snapshot-registration-target-mismatch",
+        () => ({
+          directory: this.#directory,
+          sessionID: input.sessionID,
+          targetKey,
+          registrationID: registration.registrationID,
+          snapshotTarget: snapshot.target,
+          snapshotTargetKey: snapshot.targetKey,
+          expectedTarget: observedTarget,
+          snapshot: surfaceContextDiagnostic(snapshot.context),
+        }),
+      )
     }
 
     const currentTargetKey = this.#getProjection().bench.targetKey
@@ -886,13 +877,13 @@ export class DirectoryWorkspaceLifecycleService {
     return output
   }
 
-  async #publishCurrentSnapshot(
-    sessionID: string,
-    options: { force: boolean },
-  ): Promise<void> {
+  async #publishCurrentSnapshot(sessionID: string, options: { force: boolean }): Promise<void> {
     if (this.#disposed) return
     const snapshot = this.#readCurrentPublishSnapshot(sessionID)
-    if (!options.force && this.#lastPublishedKeyBySession.get(sessionID) === snapshot.publicationKey) {
+    if (
+      !options.force &&
+      this.#lastPublishedKeyBySession.get(sessionID) === snapshot.publicationKey
+    ) {
       return
     }
     const published = await this.#publishSnapshot(sessionID, snapshot)
@@ -906,7 +897,10 @@ export class DirectoryWorkspaceLifecycleService {
     snapshot: BenchContextPublishSnapshot
     force: boolean
   }): Promise<void> {
-    if (!input.force && this.#lastPublishedKeyBySession.get(input.sessionID) === input.snapshot.publicationKey) {
+    if (
+      !input.force &&
+      this.#lastPublishedKeyBySession.get(input.sessionID) === input.snapshot.publicationKey
+    ) {
       return
     }
 

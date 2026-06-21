@@ -12,9 +12,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-function isWorkspaceFileWatcherEventKind(
-  value: unknown,
-): value is WorkspaceFileWatcherEventKind {
+function isWorkspaceFileWatcherEventKind(value: unknown): value is WorkspaceFileWatcherEventKind {
   return value === "add" || value === "change" || value === "unlink"
 }
 

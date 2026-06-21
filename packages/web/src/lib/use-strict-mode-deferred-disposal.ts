@@ -8,9 +8,7 @@ type StrictModeDeferredDisposalInput = {
   logEvent?: (event: string, details: Record<string, unknown>) => void
 }
 
-export function useStrictModeDeferredDisposal(
-  input: StrictModeDeferredDisposalInput,
-): void {
+export function useStrictModeDeferredDisposal(input: StrictModeDeferredDisposalInput): void {
   const { eventPrefix, logEvent, ownerKey } = input
   const disposalGenerationRef = useRef(0)
   const disposeRef = useRef(input.dispose)

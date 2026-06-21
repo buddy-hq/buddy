@@ -35,7 +35,8 @@ function flushEffects(): Promise<void> {
 function RightWorkspaceHarness() {
   const workspace = useDirectoryWorkspace()
   const location = useLocation()
-  const workspaceOpen = workspace.projection.dockedState.visibility === WORKSPACE_VISIBILITY_EXPANDED
+  const workspaceOpen =
+    workspace.projection.dockedState.visibility === WORKSPACE_VISIBILITY_EXPANDED
 
   return (
     <div>

@@ -686,7 +686,9 @@ function DevToolsSnapshotTab(props: { directory: string }) {
       </div>
 
       {query.isPending ? (
-        <div className="text-sm text-text-weak">{language.t("devtools.learnerSnapshot.loading")}</div>
+        <div className="text-sm text-text-weak">
+          {language.t("devtools.learnerSnapshot.loading")}
+        </div>
       ) : curriculumView ? (
         <div className="flex-1 min-h-0 space-y-3 overflow-y-auto">
           <Card size="sm" className="gap-0 py-0">

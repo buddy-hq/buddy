@@ -258,8 +258,15 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   const dirty = markdown !== savedMarkdown
   const title = fileNameFromPath(props.path) || props.path
   const saveState = conflict ? "conflict" : saveError ? "error" : saving ? "saving" : "ready"
-  const targetStatus =
-    !exists ? "unavailable" : conflict || saveError ? "error" : dirty ? "dirty" : loading ? "loading" : "ready"
+  const targetStatus = !exists
+    ? "unavailable"
+    : conflict || saveError
+      ? "error"
+      : dirty
+        ? "dirty"
+        : loading
+          ? "loading"
+          : "ready"
   const fileStateRef = useRef<MarkdownBenchFileState>({
     conflict,
     exists,
@@ -331,16 +338,15 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
             : current.saving
               ? "saving"
               : "ready"
-        const currentTargetStatus =
-          !current.exists
-            ? "unavailable"
-            : current.conflict || current.saveError
-              ? "error"
-              : currentDirty
-                ? "dirty"
-                : current.loading
-                  ? "loading"
-                  : "ready"
+        const currentTargetStatus = !current.exists
+          ? "unavailable"
+          : current.conflict || current.saveError
+            ? "error"
+            : currentDirty
+              ? "dirty"
+              : current.loading
+                ? "loading"
+                : "ready"
         const unavailableClean = !current.exists && !currentDirty
         const verificationErrorClean = current.exists && !!current.saveError && !currentDirty
 
@@ -355,12 +361,11 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
             `theme_mode: ${contentThemeMode}`,
             `font_scale: ${contentFontScale}`,
           ],
-          content:
-            unavailableClean
-              ? `The Markdown file at ${props.path} was deleted or moved. No verified file content is available.`
-              : verificationErrorClean
-                ? `The Markdown file at ${props.path} could not be verified. No verified file content is available.`
-                : current.markdown,
+          content: unavailableClean
+            ? `The Markdown file at ${props.path} was deleted or moved. No verified file content is available.`
+            : verificationErrorClean
+              ? `The Markdown file at ${props.path} could not be verified. No verified file content is available.`
+              : current.markdown,
           refs: [
             workspaceFileRef({
               path: props.path,
@@ -386,12 +391,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         }
       },
     }),
-    [
-      contentFontScale,
-      contentThemeMode,
-      props.path,
-      title,
-    ],
+    [contentFontScale, contentThemeMode, props.path, title],
   )
   const currentSaveSnapshot = useMemo<MarkdownBenchPendingSaveSnapshot>(
     () => ({
@@ -510,7 +510,8 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
       }
 
       if (latestDirty) {
-        const changed = !latest.exists || !latest.conflict || latest.saveError !== MARKDOWN_FILE_CHANGED_MESSAGE
+        const changed =
+          !latest.exists || !latest.conflict || latest.saveError !== MARKDOWN_FILE_CHANGED_MESSAGE
         patchFileStateRef({
           exists: true,
           loading: false,
@@ -1077,7 +1078,15 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
     [conflict, dirty, exists, exportPdf, exporting, loading, reload, save, saving, synchronize],
   )
 
-  const status = !exists ? "Unavailable" : conflict ? "Conflict" : saving ? "Saving..." : dirty ? "Unsaved" : "Saved"
+  const status = !exists
+    ? "Unavailable"
+    : conflict
+      ? "Conflict"
+      : saving
+        ? "Saving..."
+        : dirty
+          ? "Unsaved"
+          : "Saved"
   const subtitle = status === "Saved" ? props.path : `${props.path} · ${status}`
   const showUnavailableCleanState = !exists && !dirty
 
@@ -1103,9 +1112,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
                 aria-hidden
               />
               <h2 className="text-sm font-medium text-text-base">File deleted or moved</h2>
-              <p className="mt-2 text-sm text-text-weak">
-                {props.path} no longer exists on disk.
-              </p>
+              <p className="mt-2 text-sm text-text-weak">{props.path} no longer exists on disk.</p>
             </div>
           </div>
         ) : (

@@ -183,9 +183,7 @@ describe("transformOpenCodeEventStreamResponse", () => {
       new ReadableStream<Uint8Array>({
         pull(controller) {
           upstreamPullCount += 1
-          controller.enqueue(
-            encoder.encode(`data: {"sequence":${upstreamPullCount}}\n\n`),
-          )
+          controller.enqueue(encoder.encode(`data: {"sequence":${upstreamPullCount}}\n\n`))
           if (upstreamPullCount === BACKPRESSURE_UPSTREAM_CHUNK_COUNT) {
             controller.close()
           }

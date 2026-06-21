@@ -114,11 +114,9 @@ describe("bench target keys", () => {
         viewer: "markdown",
       }),
     ).toBe(
-      [
-        "workspace-file",
-        "markdown",
-        "docs%2Fintro%20notes.md",
-      ].join(BENCH_TARGET_KEY_PART_SEPARATOR),
+      ["workspace-file", "markdown", "docs%2Fintro%20notes.md"].join(
+        BENCH_TARGET_KEY_PART_SEPARATOR,
+      ),
     )
 
     expect(
@@ -128,11 +126,7 @@ describe("bench target keys", () => {
         viewer: "file",
       }),
     ).toBe(
-      [
-        "workspace-file",
-        "file",
-        "docs%2Fintro%20notes.md",
-      ].join(BENCH_TARGET_KEY_PART_SEPARATOR),
+      ["workspace-file", "file", "docs%2Fintro%20notes.md"].join(BENCH_TARGET_KEY_PART_SEPARATOR),
     )
 
     expect(

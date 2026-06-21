@@ -290,59 +290,62 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
 
       <div className="col-start-2 row-start-2 min-h-0 min-w-0 overflow-hidden">
         {contentLayout !== undefined ? (
-          <div data-component="directory-chat-shell-content-layout" className="h-full min-h-0 w-full">
+          <div
+            data-component="directory-chat-shell-content-layout"
+            className="h-full min-h-0 w-full"
+          >
             {contentLayout}
           </div>
         ) : (
           <ResizablePanelGroup
-          id={DIRECTORY_CHAT_LAYOUT_ID}
-          orientation="horizontal"
-          defaultLayout={defaultLayout}
-          onLayoutChanged={onLayoutChanged}
-          className="h-full min-w-0 flex-1 [&>[data-panel]]:transition-[flex-grow] [&>[data-panel]]:duration-200 [&>[data-panel]]:[transition-timing-function:cubic-bezier(0.77,0,0.175,1)] motion-reduce:[&>[data-panel]]:transition-none"
-        >
-          <ResizablePanel
-            id={DIRECTORY_CHAT_MAIN_PANEL_ID}
-            minSize={mainPaneMinWidth}
-            className="flex min-h-0 min-w-0 overflow-hidden"
+            id={DIRECTORY_CHAT_LAYOUT_ID}
+            orientation="horizontal"
+            defaultLayout={defaultLayout}
+            onLayoutChanged={onLayoutChanged}
+            className="h-full min-w-0 flex-1 [&>[data-panel]]:transition-[flex-grow] [&>[data-panel]]:duration-200 [&>[data-panel]]:[transition-timing-function:cubic-bezier(0.77,0,0.175,1)] motion-reduce:[&>[data-panel]]:transition-none"
           >
-            {mainPane}
-          </ResizablePanel>
-
-          <ResizablePanel
-            id={DIRECTORY_CHAT_RIGHT_WORKSPACE_PANEL_ID}
-            data-component={BENCH_RIGHT_WORKSPACE_PANEL_COMPONENT}
-            panelRef={rightWorkspacePanelRef}
-            defaultSize={rightWorkspaceOpen ? rightWorkspaceDisplayWidth : 0}
-            minSize={rightWorkspaceOpen ? rightWorkspaceMinWidth : 0}
-            maxSize={rightWorkspaceOpen ? rightWorkspaceMaxWidth : 0}
-            className="relative flex min-h-0 min-w-0 overflow-hidden"
-          >
-            <div
-              data-component="directory-chat-right-workspace-shell"
-              data-open={rightWorkspaceOpen ? "true" : "false"}
-              aria-hidden={!rightWorkspaceOpen}
-              className={`h-full w-full ${rightWorkspaceOpen ? "" : "pointer-events-none"}`}
+            <ResizablePanel
+              id={DIRECTORY_CHAT_MAIN_PANEL_ID}
+              minSize={mainPaneMinWidth}
+              className="flex min-h-0 min-w-0 overflow-hidden"
             >
-              {rightWorkspace}
-            </div>
-            {rightWorkspaceOpen ? (
-              <ResizeHandle
-                direction="horizontal"
-                edge="start"
-                size={rightWorkspaceDisplayWidth}
-                min={rightWorkspaceMinWidth}
-                max={rightWorkspaceMaxWidth}
-                collapseThreshold={RIGHT_WORKSPACE_COLLAPSE_THRESHOLD_PX}
-                onResize={(width) => {
-                  rightWorkspacePanelRef.current?.resize(width)
-                  onRightWorkspaceResize(width)
-                }}
-                onResizeIntent={onRightWorkspaceResizeIntent}
-                onCollapse={handleRightWorkspaceCollapse}
-              />
-            ) : null}
-          </ResizablePanel>
+              {mainPane}
+            </ResizablePanel>
+
+            <ResizablePanel
+              id={DIRECTORY_CHAT_RIGHT_WORKSPACE_PANEL_ID}
+              data-component={BENCH_RIGHT_WORKSPACE_PANEL_COMPONENT}
+              panelRef={rightWorkspacePanelRef}
+              defaultSize={rightWorkspaceOpen ? rightWorkspaceDisplayWidth : 0}
+              minSize={rightWorkspaceOpen ? rightWorkspaceMinWidth : 0}
+              maxSize={rightWorkspaceOpen ? rightWorkspaceMaxWidth : 0}
+              className="relative flex min-h-0 min-w-0 overflow-hidden"
+            >
+              <div
+                data-component="directory-chat-right-workspace-shell"
+                data-open={rightWorkspaceOpen ? "true" : "false"}
+                aria-hidden={!rightWorkspaceOpen}
+                className={`h-full w-full ${rightWorkspaceOpen ? "" : "pointer-events-none"}`}
+              >
+                {rightWorkspace}
+              </div>
+              {rightWorkspaceOpen ? (
+                <ResizeHandle
+                  direction="horizontal"
+                  edge="start"
+                  size={rightWorkspaceDisplayWidth}
+                  min={rightWorkspaceMinWidth}
+                  max={rightWorkspaceMaxWidth}
+                  collapseThreshold={RIGHT_WORKSPACE_COLLAPSE_THRESHOLD_PX}
+                  onResize={(width) => {
+                    rightWorkspacePanelRef.current?.resize(width)
+                    onRightWorkspaceResize(width)
+                  }}
+                  onResizeIntent={onRightWorkspaceResizeIntent}
+                  onCollapse={handleRightWorkspaceCollapse}
+                />
+              ) : null}
+            </ResizablePanel>
           </ResizablePanelGroup>
         )}
       </div>

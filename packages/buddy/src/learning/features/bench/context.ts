@@ -249,11 +249,7 @@ function publishSequencedBenchContext(input: {
   const entry = benchContextRegistry.get(key)
   if (!entry) return snapshot
 
-  setBoundedContextHistoryEntry(
-    entry.lastSequenceByLeaseKey,
-    leaseKey,
-    body.publicationSequence,
-  )
+  setBoundedContextHistoryEntry(entry.lastSequenceByLeaseKey, leaseKey, body.publicationSequence)
   setBoundedContextHistoryEntry(entry.acceptedWrites, body.idempotencyKey, {
     idempotencyKey: body.idempotencyKey,
     leaseKey,
@@ -314,20 +310,16 @@ function clearBenchContextRegistry(): void {
 function benchTargetKey(target: BenchTarget): string {
   const parsed = BenchTargetSchema.parse(target)
   if (parsed.type === "workspace-file") {
-    return [
-      "workspace-file",
-      parsed.viewer,
-      encodeURIComponent(parsed.path),
-    ].join(BENCH_TARGET_KEY_PART_SEPARATOR)
+    return ["workspace-file", parsed.viewer, encodeURIComponent(parsed.path)].join(
+      BENCH_TARGET_KEY_PART_SEPARATOR,
+    )
   }
 
   return [
     "object",
     parsed.ref.kind,
     encodeURIComponent(parsed.ref.objectID),
-    parsed.ref.revisionID
-      ? encodeURIComponent(parsed.ref.revisionID)
-      : BENCH_TARGET_KEY_NULL_PART,
+    parsed.ref.revisionID ? encodeURIComponent(parsed.ref.revisionID) : BENCH_TARGET_KEY_NULL_PART,
     parsed.ref.itemID ? encodeURIComponent(parsed.ref.itemID) : BENCH_TARGET_KEY_NULL_PART,
     encodeURIComponent(parsed.viewID),
   ].join(BENCH_TARGET_KEY_PART_SEPARATOR)

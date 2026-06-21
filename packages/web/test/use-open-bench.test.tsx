@@ -151,9 +151,7 @@ describe("useOpenBench", () => {
     )
 
     await act(async () => {
-      container
-        ?.querySelector<HTMLButtonElement>('[data-testid="open-cross-directory"]')
-        ?.click()
+      container?.querySelector<HTMLButtonElement>('[data-testid="open-cross-directory"]')?.click()
       await flushEffects()
     })
 
@@ -174,16 +172,18 @@ describe("useOpenBench", () => {
     let openResult: OpenBenchResult | undefined
 
     await act(async () => {
-      root?.render(<OpenBenchWithoutProviderProbe onResult={(result) => {
-        openResult = result
-      }} />)
+      root?.render(
+        <OpenBenchWithoutProviderProbe
+          onResult={(result) => {
+            openResult = result
+          }}
+        />,
+      )
       await flushEffects()
     })
 
     await act(async () => {
-      container
-        ?.querySelector<HTMLButtonElement>('[data-testid="open-without-provider"]')
-        ?.click()
+      container?.querySelector<HTMLButtonElement>('[data-testid="open-without-provider"]')?.click()
       await flushEffects()
     })
 

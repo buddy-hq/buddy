@@ -128,11 +128,9 @@ describe("bench target keys", () => {
         viewer: "markdown",
       }),
     ).toBe(
-      [
-        "workspace-file",
-        "markdown",
-        "docs%2Fintro%20notes.md",
-      ].join(BENCH_TARGET_KEY_PART_SEPARATOR),
+      ["workspace-file", "markdown", "docs%2Fintro%20notes.md"].join(
+        BENCH_TARGET_KEY_PART_SEPARATOR,
+      ),
     )
 
     expect(
@@ -142,11 +140,7 @@ describe("bench target keys", () => {
         viewer: "file",
       }),
     ).toBe(
-      [
-        "workspace-file",
-        "file",
-        "docs%2Fintro%20notes.md",
-      ].join(BENCH_TARGET_KEY_PART_SEPARATOR),
+      ["workspace-file", "file", "docs%2Fintro%20notes.md"].join(BENCH_TARGET_KEY_PART_SEPARATOR),
     )
 
     expect(
@@ -325,7 +319,11 @@ describe("effectiveWorkspaceProjection", () => {
     } satisfies PendingWorkspaceIntent
 
     expect(
-      effectiveWorkspaceProjection(CLOSED_ROUTE, projectionState({ visibility: "collapsed", drawer: null }), intent),
+      effectiveWorkspaceProjection(
+        CLOSED_ROUTE,
+        projectionState({ visibility: "collapsed", drawer: null }),
+        intent,
+      ),
     ).toMatchObject({
       route: previousProjection.route,
       bench: previousProjection.bench,

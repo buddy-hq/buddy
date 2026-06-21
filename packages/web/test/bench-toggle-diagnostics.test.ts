@@ -3,10 +3,7 @@ import {
   BENCH_TOGGLE_DIAGNOSTIC_CHANNEL,
   logBenchToggleStep,
 } from "../src/lib/bench-toggle-diagnostics"
-import {
-  clearDiagnosticLog,
-  setDiagnosticLogEnabled,
-} from "../src/lib/diagnostic-log"
+import { clearDiagnosticLog, setDiagnosticLogEnabled } from "../src/lib/diagnostic-log"
 
 afterEach(async () => {
   setDiagnosticLogEnabled(BENCH_TOGGLE_DIAGNOSTIC_CHANNEL, false)

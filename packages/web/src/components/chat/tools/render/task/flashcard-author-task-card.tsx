@@ -76,11 +76,7 @@ function FlashcardDeckTaskPreview(props: {
   )
 }
 
-function flashcardDeckDetailQuery(
-  directory: string,
-  objectID: string,
-  enabled: boolean,
-) {
+function flashcardDeckDetailQuery(directory: string, objectID: string, enabled: boolean) {
   const options = objectFlashcardDeckPayloadQueryOptions({ directory, objectID })
 
   return {

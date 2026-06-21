@@ -38,9 +38,7 @@ type BenchClientActionV1 = {
   origin: "agent" | "auto-open"
   acknowledgement: "required" | "best-effort"
   expiresAt: number
-  command:
-    | { type: "present"; target: BenchTarget }
-    | { type: "close" }
+  command: { type: "present"; target: BenchTarget } | { type: "close" }
 }
 
 type BenchObjectKind = Extract<BenchTarget, { type: "object" }>["ref"]["kind"]
@@ -143,7 +141,13 @@ function readBenchTarget(value: unknown): BenchTarget | undefined {
   const revisionID = readNullableString(value.ref.revisionID)
   const itemID = readNullableString(value.ref.itemID)
   const viewID = readString(value.viewID)
-  if (!isBenchObjectKind(kind) || !objectID || revisionID === undefined || itemID === undefined || !viewID) {
+  if (
+    !isBenchObjectKind(kind) ||
+    !objectID ||
+    revisionID === undefined ||
+    itemID === undefined ||
+    !viewID
+  ) {
     return undefined
   }
   return {
@@ -306,7 +310,9 @@ function isActionExpired(action: BenchClientActionV1): boolean {
   return action.expiresAt <= Date.now()
 }
 
-function bestEffortAutoOpenIdentity(action: BenchClientActionV1): BenchAutoOpenIdentity | undefined {
+function bestEffortAutoOpenIdentity(
+  action: BenchClientActionV1,
+): BenchAutoOpenIdentity | undefined {
   if (action.acknowledgement !== "best-effort") return undefined
   if (action.command.type !== "present") return undefined
   if (action.command.target.type !== "object") return undefined
@@ -523,9 +529,7 @@ export class DirectoryWorkspaceClientActionLedger {
         return
       }
       const finalCompletion =
-        completionSessionID === action.sessionID
-          ? baseCompletion
-          : inactiveSessionCompletion()
+        completionSessionID === action.sessionID ? baseCompletion : inactiveSessionCompletion()
       logBenchToggleStep("client-action-ledger-finish-completion-before-complete", {
         action,
         completion: baseCompletion,

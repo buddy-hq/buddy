@@ -22,14 +22,7 @@ type UseTeachingWorkspaceProps = {
 }
 
 export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
-  const {
-    decodedDirectory,
-    sessionID,
-    sessionKey,
-    isInteractiveMode,
-    isBusy,
-    messages,
-  } = props
+  const { decodedDirectory, sessionID, sessionKey, isInteractiveMode, isBusy, messages } = props
 
   const saveInFlightRef = useRef<Promise<boolean> | null>(null)
   const workspaceProbeBySessionRef = useRef(

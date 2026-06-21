@@ -209,10 +209,7 @@ type ReadyDirectoryChatPageControllerState = {
   status: "ready"
   leftSidebarProps: ComponentProps<typeof ChatLeftSidebar>
   mainPaneProps: DirectoryChatMainPaneProps
-  shellProps: Omit<
-    DirectoryChatShellProps,
-    "leftSidebar" | "mainPane" | "rightWorkspace"
-  >
+  shellProps: Omit<DirectoryChatShellProps, "leftSidebar" | "mainPane" | "rightWorkspace">
 }
 
 export type DirectoryChatPageControllerState =
@@ -389,7 +386,14 @@ export function useDirectoryChatPageController(
       route: workspace.route,
       shellView,
     })
-  }, [decodedDirectory, rightWorkspaceOpen, sessionID, shellView, workspace.projection, workspace.route])
+  }, [
+    decodedDirectory,
+    rightWorkspaceOpen,
+    sessionID,
+    shellView,
+    workspace.projection,
+    workspace.route,
+  ])
 
   const { slashCommands } = chatConfig
   const slashCommandCandidates = useMemo(() => {

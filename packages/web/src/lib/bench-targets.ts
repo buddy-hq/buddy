@@ -128,11 +128,9 @@ function benchModePreferenceKey(target: BenchTarget): BenchModePreferenceKey {
 
 function benchTargetKey(target: BenchTarget): string {
   if (target.type === "workspace-file") {
-    return [
-      "workspace-file",
-      target.viewer,
-      encodeURIComponent(target.path),
-    ].join(BENCH_TARGET_KEY_PART_SEPARATOR)
+    return ["workspace-file", target.viewer, encodeURIComponent(target.path)].join(
+      BENCH_TARGET_KEY_PART_SEPARATOR,
+    )
   }
 
   return [

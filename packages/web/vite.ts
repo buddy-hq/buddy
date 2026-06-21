@@ -23,9 +23,7 @@ export type BuddyWebVitePluginOptions = {
 
 function resolveOptimizeDepsIncludes(fromLinkedWebPackage: boolean): string[] {
   if (!fromLinkedWebPackage) return WEB_OPTIMIZE_DEPS_INCLUDES
-  return WEB_OPTIMIZE_DEPS_INCLUDES.map(
-    (dependency) => `${BUDDY_WEB_PACKAGE_NAME} > ${dependency}`,
-  )
+  return WEB_OPTIMIZE_DEPS_INCLUDES.map((dependency) => `${BUDDY_WEB_PACKAGE_NAME} > ${dependency}`)
 }
 
 function createBuddyWebResolveAlias(includeRootAlias: boolean) {

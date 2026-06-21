@@ -82,10 +82,7 @@ export function resolveLibraryOpenOutcome(
   if (!openResult) return "failed"
   if (openResult.outcome === "blocked") return "blocked"
   if (openResult.outcome !== "committed") return "failed"
-  if (
-    openResult.decision.action === "ignore" &&
-    openResult.decision.policyID === "already-open"
-  ) {
+  if (openResult.decision.action === "ignore" && openResult.decision.policyID === "already-open") {
     return "focused"
   }
   return "opened"
@@ -421,7 +418,14 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
         }}
       />
     )
-  }, [closeSelector, openLibraryRequest, props, resolvedSelector, restoreExplorerSelector, selectorAccessEnabled])
+  }, [
+    closeSelector,
+    openLibraryRequest,
+    props,
+    resolvedSelector,
+    restoreExplorerSelector,
+    selectorAccessEnabled,
+  ])
 
   const railItems: RightWorkspaceRailItem[] = [
     {

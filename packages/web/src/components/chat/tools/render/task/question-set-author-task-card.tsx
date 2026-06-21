@@ -56,11 +56,7 @@ function QuestionSetObjectTaskPreview(props: {
   )
 }
 
-function questionSetDetailQuery(
-  directory: string,
-  objectID: string,
-  enabled: boolean,
-) {
+function questionSetDetailQuery(directory: string, objectID: string, enabled: boolean) {
   const options = objectQuestionSetPayloadQueryOptions({ directory, objectID })
 
   return {

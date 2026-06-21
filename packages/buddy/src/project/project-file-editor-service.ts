@@ -153,17 +153,19 @@ export async function readProjectTextFileStatus(input: {
   return OpenCodeInstance.provide({
     directory: input.directory,
     fn: async () => {
-      const realPath = await fs.realpath(path.resolve(input.directory, normalizedPath)).catch((error: unknown) => {
-        if (
-          typeof error === "object" &&
-          error !== null &&
-          "code" in error &&
-          error.code === "ENOENT"
-        ) {
-          return undefined
-        }
-        throw error
-      })
+      const realPath = await fs
+        .realpath(path.resolve(input.directory, normalizedPath))
+        .catch((error: unknown) => {
+          if (
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            error.code === "ENOENT"
+          ) {
+            return undefined
+          }
+          throw error
+        })
 
       if (!realPath) {
         await assertContainedParentDirectory(input.directory, normalizedPath)

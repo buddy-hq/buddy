@@ -27,14 +27,7 @@ export function BenchStaticContextProvider(props: BenchStaticContextProviderProp
         hints: props.hints ?? [],
       }),
     }),
-    [
-      props.content,
-      props.hints,
-      props.metadata,
-      props.refs,
-      props.status,
-      props.title,
-    ],
+    [props.content, props.hints, props.metadata, props.refs, props.status, props.title],
   )
   useRegisterBenchContextProvider({
     target: benchContext.state.target,

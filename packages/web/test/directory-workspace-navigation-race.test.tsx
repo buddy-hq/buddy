@@ -114,7 +114,9 @@ function createRouteTree(input: {
     component: () => null,
   })
 
-  return rootRoute.addChildren([directoryRoute.addChildren([chatRoute, markdownRoute, objectRoute])])
+  return rootRoute.addChildren([
+    directoryRoute.addChildren([chatRoute, markdownRoute, objectRoute]),
+  ])
 }
 
 function createMemoryTestRouter(input: {

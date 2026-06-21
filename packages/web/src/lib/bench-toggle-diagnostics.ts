@@ -35,7 +35,11 @@ type DiagnosticEventLike = {
   currentTarget: EventTarget | null
 }
 
-function closestAttributeValue(element: Element, selector: string, attribute: string): string | null {
+function closestAttributeValue(
+  element: Element,
+  selector: string,
+  attribute: string,
+): string | null {
   return element.closest(selector)?.getAttribute(attribute) ?? null
 }
 

@@ -49,9 +49,7 @@ type DirectoryWorkspaceLocation = {
   search: unknown
 }
 
-type DirectoryWorkspaceNavigate = (
-  options: NavigateOptions,
-) => Promise<DirectoryWorkspaceLocation>
+type DirectoryWorkspaceNavigate = (options: NavigateOptions) => Promise<DirectoryWorkspaceLocation>
 
 type NavigationTerminalOutcome = "allowed" | "blocked" | "failed" | "superseded"
 
@@ -298,14 +296,8 @@ export class DirectoryWorkspaceBlocker {
   readonly #getCurrentRoute: () => BenchRouteSnapshot
   readonly #guardLeave: DirectoryWorkspaceGuardLeave
   #registeredAttempts = new Map<string, RegisteredNavigationAttempt>()
-  #controllerAttempts = new Map<
-    string,
-    Pick<NavigationAttemptOutcome, "attemptID" | "commandID">
-  >()
-  #activeAttempts = new Map<
-    string,
-    Pick<NavigationAttemptOutcome, "attemptID" | "commandID">
-  >()
+  #controllerAttempts = new Map<string, Pick<NavigationAttemptOutcome, "attemptID" | "commandID">>()
+  #activeAttempts = new Map<string, Pick<NavigationAttemptOutcome, "attemptID" | "commandID">>()
   #outcomes = new Map<string, NavigationAttemptOutcome>()
   #disposed = false
 
@@ -382,13 +374,14 @@ export class DirectoryWorkspaceBlocker {
       break
     }
     const nextDirectory = registeredAttempt?.expectedDirectory ?? this.#directory
-    const next = registeredAttempt && registeredNext
-      ? registeredNext
-      : readBenchRouteSnapshotFromLocation({
-          directory: this.#directory,
-          pathname: nextLocation.pathname,
-          search: nextLocation.search,
-        })
+    const next =
+      registeredAttempt && registeredNext
+        ? registeredNext
+        : readBenchRouteSnapshotFromLocation({
+            directory: this.#directory,
+            pathname: nextLocation.pathname,
+            search: nextLocation.search,
+          })
 
     if (!registeredAttempt) {
       this.supersedeControllerAttempts()
@@ -412,7 +405,8 @@ export class DirectoryWorkspaceBlocker {
       return false
     }
 
-    const attemptID = registeredAttempt?.attemptID ?? createWorkspaceAttemptID(WORKSPACE_DIRECT_ATTEMPT_ID_PREFIX)
+    const attemptID =
+      registeredAttempt?.attemptID ?? createWorkspaceAttemptID(WORKSPACE_DIRECT_ATTEMPT_ID_PREFIX)
     const commandID = registeredAttempt?.commandID ?? null
     const origin = registeredAttempt?.origin ?? "route"
     this.#activeAttempts.set(attemptID, { attemptID, commandID })
@@ -632,14 +626,12 @@ export class DirectoryWorkspaceController {
     })
     for (const queued of queuedCommands) {
       if (queued.kind === "open") {
-        void this.executeOpen(queued.request, queued.options).then(
-          queued.resolve,
-          () => queued.resolve(inactiveProjectionResult(this.#currentProjection())),
+        void this.executeOpen(queued.request, queued.options).then(queued.resolve, () =>
+          queued.resolve(inactiveProjectionResult(this.#currentProjection())),
         )
       } else {
-        void this.execute(queued.command, queued.options).then(
-          queued.resolve,
-          () => queued.resolve(inactiveProjectionResult(this.#currentProjection())),
+        void this.execute(queued.command, queued.options).then(queued.resolve, () =>
+          queued.resolve(inactiveProjectionResult(this.#currentProjection())),
         )
       }
     }
@@ -1018,10 +1010,7 @@ export class DirectoryWorkspaceController {
         activeCommandID: this.#activeCommandID,
       })
       const result = supersededProjectionResult(previousProjection)
-      return this.#finishNavigationAttempt(
-        attemptID,
-        result,
-      )
+      return this.#finishNavigationAttempt(attemptID, result)
     }
 
     const navigationOutcome = this.#blocker.readOutcome(attemptID)
@@ -1031,10 +1020,7 @@ export class DirectoryWorkspaceController {
     ) {
       this.#store.getState().clearPendingIntent(input.commandID)
       const result = supersededProjectionResult(previousProjection)
-      return this.#finishNavigationAttempt(
-        attemptID,
-        result,
-      )
+      return this.#finishNavigationAttempt(attemptID, result)
     }
 
     const finalRoute = readBenchRouteSnapshotFromLocation({
@@ -1098,21 +1084,17 @@ export class DirectoryWorkspaceController {
     return this.#finishNavigationAttempt(attemptID, result)
   }
 
-  #finishNavigationFailure(
-    commandID: string,
-    attemptID: string,
-  ): DirectoryWorkspaceCommandResult {
+  #finishNavigationFailure(commandID: string, attemptID: string): DirectoryWorkspaceCommandResult {
     this.#store.getState().clearPendingIntent(commandID)
     const blockerOutcome = this.#blocker.readOutcome(attemptID)
     const projection = this.#currentProjection()
-    const result =
-      this.#disposed
-        ? inactiveProjectionResult(projection)
-        : this.#activeCommandID !== commandID || blockerOutcome?.outcome === "superseded"
-          ? supersededProjectionResult(projection)
-          : blockerOutcome?.outcome === "blocked"
-            ? blockedProjectionResult(projection)
-            : failedProjectionResult(projection)
+    const result = this.#disposed
+      ? inactiveProjectionResult(projection)
+      : this.#activeCommandID !== commandID || blockerOutcome?.outcome === "superseded"
+        ? supersededProjectionResult(projection)
+        : blockerOutcome?.outcome === "blocked"
+          ? blockedProjectionResult(projection)
+          : failedProjectionResult(projection)
     logBenchToggleStep("workspace-controller-navigation-failure-result", {
       directory: this.#directory,
       commandID,

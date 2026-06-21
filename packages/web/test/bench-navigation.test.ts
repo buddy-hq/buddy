@@ -97,7 +97,7 @@ function resolveOpenPolicy(input: {
   return resolveBenchOpenPolicy({
     request: input.request,
     current: input.current ?? { status: "closed" },
-    currentVisible: input.currentVisible ?? (input.current?.status === "open"),
+    currentVisible: input.currentVisible ?? input.current?.status === "open",
     defaults: resolveBenchSurfaceDefaults(input.request.target),
     preferences: input.preferences ?? EMPTY_PREFERENCES,
     autoOpenSuppressed: input.autoOpenSuppressed ?? false,

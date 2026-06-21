@@ -113,11 +113,7 @@ function mergeResolvedPresentedMediaItem(
   }
 }
 
-function presentedMediaAvailabilityQuery(
-  directory: string,
-  objectID: string,
-  itemID: string,
-) {
+function presentedMediaAvailabilityQuery(directory: string, objectID: string, itemID: string) {
   const options = objectMediaAvailabilityQueryOptions({
     directory,
     objectID,
@@ -141,9 +137,7 @@ function usePresentedMediaAvailability(
   const availabilityQueries = useQueries({
     queries:
       directory && objectID
-        ? (items ?? []).map((item) =>
-            presentedMediaAvailabilityQuery(directory, objectID, item.id),
-          )
+        ? (items ?? []).map((item) => presentedMediaAvailabilityQuery(directory, objectID, item.id))
         : [],
   })
 

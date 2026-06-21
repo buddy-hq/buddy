@@ -148,12 +148,7 @@ export function BenchRouteContextProvider(props: {
 
   useEffect(() => {
     void workspace.lifecycle.publishCurrent()
-  }, [
-    props.fallbackProvider,
-    props.state,
-    props.visible,
-    workspace.lifecycle,
-  ])
+  }, [props.fallbackProvider, props.state, props.visible, workspace.lifecycle])
 
   const value = useMemo(
     () => ({
@@ -177,9 +172,7 @@ export function BenchRouteContextProvider(props: {
   return <BenchRouteContext.Provider value={value}>{props.children}</BenchRouteContext.Provider>
 }
 
-export function BenchClosedContextPublisher(props: {
-  activeSessionID: string | undefined
-}) {
+export function BenchClosedContextPublisher(props: { activeSessionID: string | undefined }) {
   const workspace = useDirectoryWorkspace()
 
   useEffect(() => {
@@ -197,9 +190,7 @@ export function useBenchRouteContext() {
   return value
 }
 
-export function useRegisterBenchContextProvider(
-  input: BenchContextProviderRegistration,
-): void {
+export function useRegisterBenchContextProvider(input: BenchContextProviderRegistration): void {
   const benchContext = useBenchRouteContext()
   const registerSurface = benchContext.registerSurface
   const targetKey = benchTargetKey(input.target)

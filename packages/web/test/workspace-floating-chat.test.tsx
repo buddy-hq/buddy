@@ -112,13 +112,25 @@ function StableWorkspaceLayoutHarness() {
       bench={<div key={targetKey} data-component="stable-bench-probe" data-target={targetKey} />}
       conversation={(controls) => (
         <div data-component="stable-conversation-probe">
-          <button type="button" data-action="collapse-workspace" onClick={() => setWorkspaceOpen(false)}>
+          <button
+            type="button"
+            data-action="collapse-workspace"
+            onClick={() => setWorkspaceOpen(false)}
+          >
             Collapse
           </button>
-          <button type="button" data-action="reveal-workspace" onClick={() => setWorkspaceOpen(true)}>
+          <button
+            type="button"
+            data-action="reveal-workspace"
+            onClick={() => setWorkspaceOpen(true)}
+          >
             Reveal
           </button>
-          <button type="button" data-action="replace-target" onClick={() => setTargetKey("target-2")}>
+          <button
+            type="button"
+            data-action="replace-target"
+            onClick={() => setTargetKey("target-2")}
+          >
             Replace target
           </button>
           {controls.onFloatChat ? (
@@ -287,7 +299,11 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
       await flushEffects()
     })
 
-    expect(container.querySelector('[data-component="directory-chat-bench-host"]')?.getAttribute("aria-hidden")).toBe("true")
+    expect(
+      container
+        .querySelector('[data-component="directory-chat-bench-host"]')
+        ?.getAttribute("aria-hidden"),
+    ).toBe("true")
     expect(container.querySelector('[data-component="stable-conversation-probe"]')).toBe(
       initialConversation,
     )
@@ -321,9 +337,7 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
     expect(container.querySelector('[data-component="stable-conversation-probe"]')).toBe(
       initialConversation,
     )
-    expect(container.querySelector('[data-component="stable-bench-probe"]')).not.toBe(
-      initialTarget,
-    )
+    expect(container.querySelector('[data-component="stable-bench-probe"]')).not.toBe(initialTarget)
   })
 
   test("can start with chat in a floating window", async () => {

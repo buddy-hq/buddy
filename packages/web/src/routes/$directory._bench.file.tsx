@@ -6,10 +6,7 @@ import { BenchStaticContextProvider } from "@/components/bench/bench-static-cont
 import { BenchSurfaceViewer } from "@/components/bench/bench-viewer-shell"
 import { SourceFileBenchView } from "@/components/bench/source-file-bench-view"
 import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
-import {
-  urlRef,
-  workspaceFileRef,
-} from "@/components/bench/bench-context-utils"
+import { urlRef, workspaceFileRef } from "@/components/bench/bench-context-utils"
 import { DirectoryChatReadingPage } from "@/components/directory-chat/directory-chat-reading-page"
 import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
 import {

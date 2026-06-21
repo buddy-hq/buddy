@@ -80,10 +80,7 @@ function createBroker() {
   }
 }
 
-function connectClient(input: {
-  broker: BenchClientActionBroker
-  generation?: number
-}) {
+function connectClient(input: { broker: BenchClientActionBroker; generation?: number }) {
   const lease = input.broker.connectLease({
     directory: DIRECTORY,
     instanceID: INSTANCE_ID,
@@ -106,10 +103,7 @@ function connectClient(input: {
   }
 }
 
-function enqueuePresentAction(
-  broker: BenchClientActionBroker,
-  input?: { sessionID?: string },
-) {
+function enqueuePresentAction(broker: BenchClientActionBroker, input?: { sessionID?: string }) {
   return broker.enqueueRequiredAction({
     directory: DIRECTORY,
     sessionID: input?.sessionID ?? SESSION_ID,
@@ -257,7 +251,9 @@ describe("BenchClientActionBroker", () => {
     firstClient.unsubscribe()
 
     const secondClient = connectClient({ broker, generation: 2 })
-    expect(secondClient.actions.map((action) => action.actionID)).toEqual([enqueued.action.actionID])
+    expect(secondClient.actions.map((action) => action.actionID)).toEqual([
+      enqueued.action.actionID,
+    ])
   })
 
   test("expires undelivered actions as no-client failures", async () => {

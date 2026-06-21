@@ -47,9 +47,7 @@ type OpenApiRequestBodyObject = Extract<
   NonNullable<DescribeRouteOptions["requestBody"]>,
   { content: unknown }
 >
-type OpenApiRequestBodySchema = NonNullable<
-  OpenApiRequestBodyObject["content"][string]["schema"]
->
+type OpenApiRequestBodySchema = NonNullable<OpenApiRequestBodyObject["content"][string]["schema"]>
 
 const stringArrayOpenApiSchema = {
   type: "array" as const,

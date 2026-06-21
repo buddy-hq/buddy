@@ -134,9 +134,7 @@ function createHarness(input?: {
       async completeClientAction(completion) {
         const { getActiveSessionID: _getActiveSessionID, ...recordedCompletion } = completion
         completions.push(recordedCompletion)
-        return input?.completeClientAction
-          ? input.completeClientAction(recordedCompletion)
-          : true
+        return input?.completeClientAction ? input.completeClientAction(recordedCompletion) : true
       },
     },
     getActiveSessionID: () => activeSessionID,

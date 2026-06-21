@@ -11,10 +11,7 @@ import {
   type BenchMode,
   type BenchTarget,
 } from "./bench-targets"
-import {
-  resolveBenchSurfaceDefaults,
-  type BenchOpenPolicyState,
-} from "./bench-open-policy-core"
+import { resolveBenchSurfaceDefaults, type BenchOpenPolicyState } from "./bench-open-policy-core"
 
 const CHAT_ROUTE_CHILD = "chat"
 const BENCH_ROUTE_GROUP_CHILD = "_bench"
