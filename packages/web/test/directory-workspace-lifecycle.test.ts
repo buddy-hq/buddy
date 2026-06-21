@@ -20,12 +20,22 @@ const DIRECTORY = "/workspace/lifecycle-test"
 const TARGET = {
   type: "workspace-file",
   path: "docs/intro.md",
-  viewer: "markdown",
+  viewer: "file",
 } satisfies BenchTarget
 const OTHER_TARGET = {
   type: "workspace-file",
   path: "docs/other.md",
   viewer: "markdown",
+} satisfies BenchTarget
+const RESOURCE_TARGET = {
+  type: "object",
+  ref: {
+    kind: "resource",
+    objectID: "resource-1",
+    revisionID: null,
+    itemID: null,
+  },
+  viewID: "reader",
 } satisfies BenchTarget
 type PublishBodyProbe = {
   idempotencyKey: string
@@ -89,6 +99,7 @@ function projectionFor(target: BenchTarget): EffectiveWorkspaceProjection {
 function openSurfaceContext(target: typeof TARGET = TARGET) {
   return {
     status: "open" as const,
+    targetKey: benchTargetKey(target),
     target: {
       type: "workspace-file" as const,
       title: target.path,
@@ -100,6 +111,49 @@ function openSurfaceContext(target: typeof TARGET = TARGET) {
     },
     metadata: [],
     content: target.path,
+    refs: [],
+    hints: [],
+  }
+}
+
+function openObjectFallbackContext(target: Extract<BenchTarget, { type: "object" }>) {
+  return {
+    status: "open" as const,
+    targetKey: benchTargetKey(target),
+    target: {
+      type: "object" as const,
+      title: target.ref.objectID,
+      workspaceRoot: DIRECTORY,
+      ref: target.ref,
+      viewID: target.viewID,
+      route: `/objects/${target.ref.kind}/${target.ref.objectID}?view=${target.viewID}`,
+      status: "loading" as const,
+    },
+    metadata: ["provider: route-fallback"],
+    content: "fallback",
+    refs: [],
+    hints: [],
+  }
+}
+
+function openObjectSurfaceContext(input: {
+  target: Extract<BenchTarget, { type: "object" }>
+  content: string
+}) {
+  return {
+    status: "open" as const,
+    targetKey: benchTargetKey(input.target),
+    target: {
+      type: "object" as const,
+      title: input.target.ref.objectID,
+      workspaceRoot: DIRECTORY,
+      ref: input.target.ref,
+      viewID: input.target.viewID,
+      route: `/objects/${input.target.ref.kind}/${input.target.ref.objectID}?view=${input.target.viewID}`,
+      status: "ready" as const,
+    },
+    metadata: ["provider: live-surface"],
+    content: input.content,
     refs: [],
     hints: [],
   }
@@ -126,9 +180,12 @@ function registerGuard(input: {
   return input.service.registerSurface({
     target: input.target,
     getSnapshot: () => ({
+      target: input.target,
+      targetKey: benchTargetKey(input.target),
       semanticRevision: 1,
       context: {
         status: "open",
+        targetKey: benchTargetKey(input.target),
         target: {
           type: "workspace-file",
           title: input.label,
@@ -289,7 +346,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
     }
   })
 
-  test("captures committed action context before waiting behind ordinary publication", async () => {
+  test("captures raw markdown-file context before waiting behind ordinary publication", async () => {
     let projection = projectionFor(TARGET)
     let releaseContextPublish: (() => void) | undefined
     let markContextPublishStarted: (() => void) | undefined
@@ -344,9 +401,12 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       service.registerSurface({
         target: TARGET,
         getSnapshot: () => ({
+          target: TARGET,
+          targetKey: benchTargetKey(TARGET),
           semanticRevision: 1,
           context: {
             status: "open",
+            targetKey: benchTargetKey(TARGET),
             target: {
               type: "workspace-file",
               title: "intro",
@@ -367,9 +427,12 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       service.registerSurface({
         target: OTHER_TARGET,
         getSnapshot: () => ({
+          target: OTHER_TARGET,
+          targetKey: benchTargetKey(OTHER_TARGET),
           semanticRevision: 1,
           context: {
             status: "open",
+            targetKey: benchTargetKey(OTHER_TARGET),
             target: {
               type: "workspace-file",
               title: "other",
@@ -419,6 +482,217 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       expect(completionBodies[0]).toMatchObject({
         observedRoute: { status: "open", target: TARGET },
         context: { status: "open", target: { path: TARGET.path } },
+      })
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  test("uses route fallback when a matching registration returns stale target context", async () => {
+    const completionBodies: unknown[] = []
+    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/client-actions/action-stale-context/complete") && method === "POST") {
+          completionBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ status: "completed" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "PUT" || method === "DELETE") {
+          return new Response(JSON.stringify({ revision: 1, released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projectionFor(RESOURCE_TARGET),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: (route) =>
+          route.status === "open" && route.target.type === "object"
+            ? openObjectFallbackContext(route.target)
+            : null,
+      })
+      service.registerSurface({
+        target: RESOURCE_TARGET,
+        getSnapshot: () => ({
+          target: RESOURCE_TARGET,
+          targetKey: benchTargetKey(RESOURCE_TARGET),
+          semanticRevision: 2,
+          context: {
+            ...openSurfaceContext(TARGET),
+            target: {
+              ...openSurfaceContext(TARGET).target,
+              route: `/objects/${RESOURCE_TARGET.ref.kind}/${RESOURCE_TARGET.ref.objectID}?view=${RESOURCE_TARGET.viewID}`,
+            },
+          },
+        }),
+        subscribe: () => () => undefined,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+
+      await expect(
+        service.completeClientAction({
+          actionID: "action-stale-context",
+          sessionID: "session-1",
+          getActiveSessionID: () => "session-1",
+          completion: {
+            outcome: "committed",
+            observedRoute: projectionFor(RESOURCE_TARGET).route,
+            observedVisibility: "visible",
+            drawer: null,
+            changed: true,
+          },
+        }),
+      ).resolves.toBeTrue()
+
+      expect(completionBodies).toHaveLength(1)
+      expect(completionBodies[0]).toMatchObject({
+        observedRoute: { status: "open", target: RESOURCE_TARGET },
+        context: {
+          status: "open",
+          target: {
+            type: "object",
+            ref: RESOURCE_TARGET.ref,
+            viewID: RESOURCE_TARGET.viewID,
+            status: "loading",
+          },
+        },
+      })
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  test("skips a stale newest registration and uses an older valid registration", async () => {
+    const completionBodies: unknown[] = []
+    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (
+          url.includes("/bench/client-actions/action-stale-newer-valid-older/complete") &&
+          method === "POST"
+        ) {
+          completionBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ status: "completed" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "PUT" || method === "DELETE") {
+          return new Response(JSON.stringify({ revision: 1, released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projectionFor(RESOURCE_TARGET),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: (route) =>
+          route.status === "open" && route.target.type === "object"
+            ? openObjectFallbackContext(route.target)
+            : null,
+      })
+      service.registerSurface({
+        target: RESOURCE_TARGET,
+        getSnapshot: () => ({
+          target: RESOURCE_TARGET,
+          targetKey: benchTargetKey(RESOURCE_TARGET),
+          semanticRevision: 3,
+          context: openObjectSurfaceContext({
+            target: RESOURCE_TARGET,
+            content: "older valid surface",
+          }),
+        }),
+        subscribe: () => () => undefined,
+      })
+      service.registerSurface({
+        target: RESOURCE_TARGET,
+        getSnapshot: () => ({
+          target: RESOURCE_TARGET,
+          targetKey: benchTargetKey(RESOURCE_TARGET),
+          semanticRevision: 4,
+          context: openSurfaceContext(TARGET),
+        }),
+        subscribe: () => () => undefined,
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+
+      await expect(
+        service.completeClientAction({
+          actionID: "action-stale-newer-valid-older",
+          sessionID: "session-1",
+          getActiveSessionID: () => "session-1",
+          completion: {
+            outcome: "committed",
+            observedRoute: projectionFor(RESOURCE_TARGET).route,
+            observedVisibility: "visible",
+            drawer: null,
+            changed: true,
+          },
+        }),
+      ).resolves.toBeTrue()
+
+      expect(completionBodies).toHaveLength(1)
+      expect(completionBodies[0]).toMatchObject({
+        observedRoute: { status: "open", target: RESOURCE_TARGET },
+        context: {
+          status: "open",
+          targetKey: benchTargetKey(RESOURCE_TARGET),
+          target: {
+            type: "object",
+            ref: RESOURCE_TARGET.ref,
+            viewID: RESOURCE_TARGET.viewID,
+            status: "ready",
+          },
+          metadata: ["provider: live-surface"],
+          content: "older valid surface",
+        },
       })
       await service.dispose()
     } finally {

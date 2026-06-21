@@ -28,7 +28,7 @@ import {
   type BenchTarget,
 } from "../src/lib/bench-navigation"
 import { encodeDirectory } from "../src/lib/directory-token"
-import { resolveRightWorkspaceSelectorDrawerWidth } from "../src/lib/directory-chat/right-sidebar-layout"
+import { resolveRightWorkspaceSelectorDrawerWidth } from "../src/lib/directory-chat/right-workspace-layout"
 
 const DIRECTORY = "/workspace/buddy"
 const RESOURCE_OBJECT_TARGET = {

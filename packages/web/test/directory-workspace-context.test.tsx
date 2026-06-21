@@ -255,7 +255,7 @@ describe("DirectoryWorkspaceProvider", () => {
 
     await act(async () => {
       container
-        ?.querySelector<HTMLButtonElement>('[data-action="titlebar-toggle-right-sidebar"]')
+        ?.querySelector<HTMLButtonElement>('[data-action="titlebar-toggle-right-workspace"]')
         ?.click()
       await flushEffects()
     })

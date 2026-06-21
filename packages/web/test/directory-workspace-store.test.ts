@@ -65,6 +65,8 @@ const OBJECT_TARGET_NEXT_VIEW = {
   viewID: "summary",
 } satisfies BenchTarget
 
+const BENCH_TARGET_KEY_PART_SEPARATOR = "\u0000"
+const BENCH_TARGET_KEY_NULL_PART = "\u2400"
 const CLOSED_ROUTE = { status: BENCH_ROUTE_STATUS_CLOSED } satisfies BenchRouteSnapshot
 const DOCKED_OBJECT_ROUTE = {
   status: BENCH_ROUTE_STATUS_OPEN,
@@ -118,6 +120,80 @@ function createMemoryStorage(): DirectoryWorkspacePersistenceStorage & {
 }
 
 describe("bench target keys", () => {
+  test("preserves the canonical backend key format", () => {
+    expect(
+      benchTargetKey({
+        type: "workspace-file",
+        path: "docs/intro notes.md",
+        viewer: "markdown",
+      }),
+    ).toBe(
+      [
+        "workspace-file",
+        "markdown",
+        "docs%2Fintro%20notes.md",
+      ].join(BENCH_TARGET_KEY_PART_SEPARATOR),
+    )
+
+    expect(
+      benchTargetKey({
+        type: "workspace-file",
+        path: "docs/intro notes.md",
+        viewer: "file",
+      }),
+    ).toBe(
+      [
+        "workspace-file",
+        "file",
+        "docs%2Fintro%20notes.md",
+      ].join(BENCH_TARGET_KEY_PART_SEPARATOR),
+    )
+
+    expect(
+      benchTargetKey({
+        type: "object",
+        ref: {
+          kind: "resource",
+          objectID: "01KG1A0KH77HJ9QGAQ5QK0N4BD",
+          revisionID: null,
+          itemID: null,
+        },
+        viewID: "reader",
+      }),
+    ).toBe(
+      [
+        "object",
+        "resource",
+        "01KG1A0KH77HJ9QGAQ5QK0N4BD",
+        BENCH_TARGET_KEY_NULL_PART,
+        BENCH_TARGET_KEY_NULL_PART,
+        "reader",
+      ].join(BENCH_TARGET_KEY_PART_SEPARATOR),
+    )
+
+    expect(
+      benchTargetKey({
+        type: "object",
+        ref: {
+          kind: "resource",
+          objectID: "01KG1A0KH77HJ9QGAQ5QK0N4BD",
+          revisionID: "rev 2",
+          itemID: "item/3",
+        },
+        viewID: "reader notes",
+      }),
+    ).toBe(
+      [
+        "object",
+        "resource",
+        "01KG1A0KH77HJ9QGAQ5QK0N4BD",
+        "rev%202",
+        "item%2F3",
+        "reader%20notes",
+      ].join(BENCH_TARGET_KEY_PART_SEPARATOR),
+    )
+  })
+
   test("derive canonical keys from the complete target identity and exclude mode", () => {
     expect(benchTargetKey(FILE_TARGET)).not.toBe(benchTargetKey(FILE_TARGET_AS_FILE))
     expect(benchTargetKey(OBJECT_TARGET)).not.toBe(benchTargetKey(OBJECT_TARGET_NEXT_VIEW))

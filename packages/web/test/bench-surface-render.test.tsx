@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
   createMemoryHistory,
@@ -6,10 +6,13 @@ import {
   createRouter,
   RouterProvider,
 } from "@tanstack/react-router"
-import { act, type ReactNode } from "react"
+import { act, useMemo, type ReactNode } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { FlashcardBenchReview } from "../src/components/bench/flashcard-bench-review"
-import { BenchRouteContextProvider } from "../src/components/bench/bench-route-context"
+import {
+  BenchRouteContextProvider,
+  useRegisterBenchContextProvider,
+} from "../src/components/bench/bench-route-context"
 import { BenchMediaPreview } from "../src/components/bench/bench-media-preview"
 import { DirectoryWorkspaceProvider } from "../src/components/directory-chat/directory-workspace-context"
 import { QuestionSetBenchReview } from "../src/components/bench/question-set-bench-review"
@@ -22,8 +25,17 @@ import {
 import { HtmlWidgetFrame } from "../src/components/chat/tools/render/html-widget"
 import { ServerProvider, type ServerConnection } from "../src/context/server"
 import { withFetchPreconnect } from "../src/lib/fetch-transport"
-import { BENCH_CHAT_LAYOUT_DOCKED, BENCH_LAYOUT_PROFILE_VISUAL } from "../src/lib/bench-navigation"
+import {
+  BENCH_CHAT_LAYOUT_DOCKED,
+  BENCH_LAYOUT_PROFILE_VISUAL,
+  benchTargetKey,
+  type BenchTarget,
+} from "../src/lib/bench-navigation"
 import type { HtmlWidgetPresentation } from "../src/lib/html-widgets"
+import {
+  DirectoryWorkspaceLifecycleService,
+  type BenchSurfaceRegistrationInput,
+} from "../src/lib/directory-workspace-lifecycle"
 import type {
   ObjectFlashcardDeckNextCardResponse,
   ObjectFlashcardDeckReadDeckResponse,
@@ -35,8 +47,26 @@ const TEST_DECK_ID = "deck-1"
 const TEST_NOTE_ID = "note-1"
 const TEST_CARD_ID = "card-1"
 const TEST_QUESTION_SET_ID = "object-questions"
-const TEST_FLASHCARD_ROUTE = "/repo/_bench/objects/flashcard-deck/deck-1?view=review"
-const TEST_QUESTION_SET_ROUTE = "/repo/_bench/objects/question-set/object-questions?view=practice"
+const TEST_FLASHCARD_TARGET = {
+  type: "object",
+  ref: {
+    kind: "flashcard-deck",
+    objectID: TEST_DECK_ID,
+    revisionID: null,
+    itemID: null,
+  },
+  viewID: "review",
+} satisfies BenchTarget
+const TEST_QUESTION_SET_TARGET = {
+  type: "object",
+  ref: {
+    kind: "question-set",
+    objectID: TEST_QUESTION_SET_ID,
+    revisionID: null,
+    itemID: null,
+  },
+  viewID: "practice",
+} satisfies BenchTarget
 const FLUSH_DELAY_MS = 0
 const WAIT_FOR_EFFECT_ATTEMPTS = 20
 const FLASHCARD_DECK_READ_PATH = `/api/objects/flashcard-deck/${TEST_DECK_ID}?`
@@ -47,6 +77,16 @@ const TEST_FLOATING_RECT = {
   width: 480,
   height: 360,
 }
+const TEST_ALPHA_MARKDOWN_TARGET = {
+  type: "workspace-file",
+  path: "alpha-switch.md",
+  viewer: "markdown",
+} satisfies BenchTarget
+const TEST_BETA_MARKDOWN_TARGET = {
+  type: "workspace-file",
+  path: "beta-switch.md",
+  viewer: "markdown",
+} satisfies BenchTarget
 
 const originalFetch = globalThis.fetch
 
@@ -73,23 +113,25 @@ function TestRouterProvider(props: { children: ReactNode }) {
   return <RouterProvider router={router} />
 }
 
-function TestBenchContextProvider(props: { children: ReactNode }) {
+function TestBenchContextProvider(props: { children: ReactNode; target?: BenchTarget }) {
+  const target = props.target ?? {
+    type: "object" as const,
+    ref: {
+      kind: "whiteboard" as const,
+      objectID: "whiteboard-1",
+      revisionID: null,
+      itemID: null,
+    },
+    viewID: "current",
+  }
   return (
     <TestRouterProvider>
       <DirectoryWorkspaceProvider directory={TEST_DIRECTORY}>
         <BenchRouteContextProvider
           state={{
             directory: TEST_DIRECTORY,
-            target: {
-              type: "object",
-              ref: {
-                kind: "whiteboard",
-                objectID: "whiteboard-1",
-                revisionID: null,
-                itemID: null,
-              },
-              viewID: "current",
-            },
+            target,
+            route: "/test",
             mode: BENCH_CHAT_LAYOUT_DOCKED,
             layoutProfile: BENCH_LAYOUT_PROFILE_VISUAL,
             dockedChatWidthPx: 480,
@@ -103,6 +145,16 @@ function TestBenchContextProvider(props: { children: ReactNode }) {
           fallbackProvider={{
             read: () => ({
               status: "open",
+              targetKey: benchTargetKey({
+                type: "object",
+                ref: {
+                  kind: "whiteboard",
+                  objectID: "whiteboard-1",
+                  revisionID: null,
+                  itemID: null,
+                },
+                viewID: "current",
+              }),
               target: {
                 type: "object",
                 title: "Test Bench",
@@ -129,6 +181,21 @@ function TestBenchContextProvider(props: { children: ReactNode }) {
       </DirectoryWorkspaceProvider>
     </TestRouterProvider>
   )
+}
+
+function TargetBoundContextProbe(props: { target: BenchTarget; content: string }) {
+  const provider = useMemo(
+    () => ({
+      read: () => ({
+        targetStatus: "ready" as const,
+        metadata: [],
+        content: props.content,
+      }),
+    }),
+    [props.content],
+  )
+  useRegisterBenchContextProvider({ target: props.target, provider })
+  return null
 }
 
 function createWidget(): HtmlWidgetPresentation {
@@ -311,6 +378,53 @@ describe("bench surface rendering", () => {
     expect(iframe?.getAttribute("style") ?? "").not.toContain("transform")
   })
 
+  test("does not register an outgoing surface under the next route target", async () => {
+    const registrations: BenchSurfaceRegistrationInput[] = []
+    const registerSurface = spyOn(
+      DirectoryWorkspaceLifecycleService.prototype,
+      "registerSurface",
+    ).mockImplementation((input) => {
+      registrations.push(input)
+      return () => undefined
+    })
+
+    try {
+      await act(async () => {
+        root.render(
+          <TestBenchContextProvider target={TEST_ALPHA_MARKDOWN_TARGET}>
+            <TargetBoundContextProbe
+              target={TEST_ALPHA_MARKDOWN_TARGET}
+              content="alpha-token-9944-zzzz"
+            />
+          </TestBenchContextProvider>,
+        )
+        await flushEffects()
+      })
+
+      expect(registrations.map((registration) => benchTargetKey(registration.target))).toEqual([
+        benchTargetKey(TEST_ALPHA_MARKDOWN_TARGET),
+      ])
+
+      await act(async () => {
+        root.render(
+          <TestBenchContextProvider target={TEST_BETA_MARKDOWN_TARGET}>
+            <TargetBoundContextProbe
+              target={TEST_ALPHA_MARKDOWN_TARGET}
+              content="alpha-token-9944-zzzz"
+            />
+          </TestBenchContextProvider>,
+        )
+        await flushEffects()
+      })
+
+      expect(registrations.map((registration) => benchTargetKey(registration.target))).toEqual([
+        benchTargetKey(TEST_ALPHA_MARKDOWN_TARGET),
+      ])
+    } finally {
+      registerSurface.mockRestore()
+    }
+  })
+
   test("renders image previews against the full bench surface", async () => {
     await act(async () => {
       root.render(
@@ -433,7 +547,7 @@ describe("bench surface rendering", () => {
               <FlashcardBenchReview
                 directory={TEST_DIRECTORY}
                 objectID={TEST_DECK_ID}
-                route={TEST_FLASHCARD_ROUTE}
+                target={TEST_FLASHCARD_TARGET}
                 deck={createFlashcardDeck()}
               />
             </QueryClientProvider>
@@ -464,7 +578,7 @@ describe("bench surface rendering", () => {
         <TestBenchContextProvider>
           <QuestionSetBenchReview
             directory={TEST_DIRECTORY}
-            route={TEST_QUESTION_SET_ROUTE}
+            target={TEST_QUESTION_SET_TARGET}
             questionSet={createRandomizedQuestionSet()}
             onSubmit={async () => ({
               totalQuestions: 1,

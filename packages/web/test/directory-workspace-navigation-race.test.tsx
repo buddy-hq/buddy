@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import {
+  createBrowserHistory,
   createMemoryHistory,
   createRootRoute,
   createRoute,
@@ -13,12 +14,23 @@ import {
   DirectoryWorkspaceProvider,
   useDirectoryWorkspace,
 } from "../src/components/directory-chat/directory-workspace-context"
-import { BENCH_CHAT_LAYOUT_DOCKED, type BenchTarget } from "../src/lib/bench-navigation"
+import { benchContextTargetFromBenchTarget } from "../src/components/bench/bench-context-utils"
+import type { BenchLeaveGuardInput } from "../src/lib/bench-leave-guard"
+import {
+  BENCH_CHAT_LAYOUT_DOCKED,
+  benchTargetKey,
+  type BenchTarget,
+} from "../src/lib/bench-navigation"
 import type { DirectoryWorkspaceController } from "../src/lib/directory-workspace-controller"
+import type { BenchSurfaceSnapshot } from "../src/lib/directory-workspace-lifecycle"
 import { encodeDirectory } from "../src/lib/directory-token"
 import type { DirectoryWorkspaceCommandResult } from "../src/state/directory-workspace-store"
 
 const DIRECTORY = "/workspace/navigation-race"
+const ENCODED_DIRECTORY = encodeDirectory(DIRECTORY)
+const CHAT_PATH = `/${ENCODED_DIRECTORY}/chat`
+const MARKDOWN_PATH = `/${ENCODED_DIRECTORY}/markdown`
+const TEST_ORIGIN_URL = "http://localhost/"
 const FILE_TARGET = {
   type: "workspace-file",
   path: "docs/delayed.md",
@@ -34,7 +46,9 @@ const OBJECT_TARGET = {
   },
   viewID: "reader",
 } satisfies BenchTarget
+const OBJECT_PATH = `/${ENCODED_DIRECTORY}/objects/resource/${OBJECT_TARGET.ref.objectID}`
 const FLUSH_DELAY_MS = 0
+const ROUTE_SETTLE_ATTEMPTS = 20
 
 function flushEffects(): Promise<void> {
   return new Promise((resolve) => {
@@ -55,15 +69,22 @@ function deferredCompletion() {
   }
 }
 
-function ControllerProbe(props: { onController: (controller: DirectoryWorkspaceController) => void }) {
+type DirectoryWorkspaceHandle = ReturnType<typeof useDirectoryWorkspace>
+
+function ControllerProbe(props: {
+  onController: (controller: DirectoryWorkspaceController) => void
+  onWorkspace?: (workspace: DirectoryWorkspaceHandle) => void
+}) {
   const workspace = useDirectoryWorkspace()
   props.onController(workspace.controller)
+  props.onWorkspace?.(workspace)
   return null
 }
 
-function createTestRouter(input: {
+function createRouteTree(input: {
   delayedLoader: Promise<void>
   onController: (controller: DirectoryWorkspaceController) => void
+  onWorkspace?: (workspace: DirectoryWorkspaceHandle) => void
 }) {
   const rootRoute = createRootRoute({ component: () => <Outlet /> })
   const directoryRoute = createRoute({
@@ -71,7 +92,7 @@ function createTestRouter(input: {
     path: "$directory",
     component: () => (
       <DirectoryWorkspaceProvider directory={DIRECTORY}>
-        <ControllerProbe onController={input.onController} />
+        <ControllerProbe onController={input.onController} onWorkspace={input.onWorkspace} />
         <Outlet />
       </DirectoryWorkspaceProvider>
     ),
@@ -93,14 +114,64 @@ function createTestRouter(input: {
     component: () => null,
   })
 
+  return rootRoute.addChildren([directoryRoute.addChildren([chatRoute, markdownRoute, objectRoute])])
+}
+
+function createMemoryTestRouter(input: {
+  delayedLoader: Promise<void>
+  onController: (controller: DirectoryWorkspaceController) => void
+  onWorkspace?: (workspace: DirectoryWorkspaceHandle) => void
+}) {
   return createRouter({
-    routeTree: rootRoute.addChildren([
-      directoryRoute.addChildren([chatRoute, markdownRoute, objectRoute]),
-    ]),
+    routeTree: createRouteTree(input),
     history: createMemoryHistory({
-      initialEntries: [`/${encodeDirectory(DIRECTORY)}/chat`],
+      initialEntries: [CHAT_PATH],
     }),
   })
+}
+
+function createBrowserTestRouter(input: {
+  delayedLoader: Promise<void>
+  onController: (controller: DirectoryWorkspaceController) => void
+  onWorkspace?: (workspace: DirectoryWorkspaceHandle) => void
+}) {
+  return createRouter({
+    routeTree: createRouteTree(input),
+    history: createBrowserHistory(),
+  })
+}
+
+async function waitForRoutePath(
+  router: ReturnType<typeof createMemoryTestRouter> | ReturnType<typeof createBrowserTestRouter>,
+  expectedPath: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < ROUTE_SETTLE_ATTEMPTS; attempt += 1) {
+    if (router.state.location.pathname === expectedPath) return
+    await flushEffects()
+  }
+  expect(router.state.location.pathname).toBe(expectedPath)
+}
+
+function surfaceSnapshotForTarget(target: BenchTarget): BenchSurfaceSnapshot {
+  return {
+    target,
+    targetKey: benchTargetKey(target),
+    semanticRevision: 1,
+    context: {
+      status: "open",
+      targetKey: benchTargetKey(target),
+      target: benchContextTargetFromBenchTarget({
+        target,
+        directory: DIRECTORY,
+        route: target.type === "workspace-file" ? MARKDOWN_PATH : OBJECT_PATH,
+        status: "ready",
+      }),
+      metadata: [],
+      content: "test surface",
+      refs: [],
+      hints: [],
+    },
+  }
 }
 
 describe("DirectoryWorkspaceController navigation arbitration", () => {
@@ -118,6 +189,7 @@ describe("DirectoryWorkspaceController navigation arbitration", () => {
     root = undefined
     container = undefined
     localStorage.clear()
+    window.location.href = TEST_ORIGIN_URL
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
 
@@ -128,7 +200,7 @@ describe("DirectoryWorkspaceController navigation arbitration", () => {
     root = createRoot(container)
     const delayedLoader = deferredCompletion()
     let controller: DirectoryWorkspaceController | undefined
-    const router = createTestRouter({
+    const router = createMemoryTestRouter({
       delayedLoader: delayedLoader.promise,
       onController: (nextController) => {
         controller = nextController
@@ -153,7 +225,7 @@ describe("DirectoryWorkspaceController navigation arbitration", () => {
     })
     if (!presentResultPromise) throw new Error("Expected pending present result")
 
-    expect(router.state.location.pathname).toBe(`/${encodeDirectory(DIRECTORY)}/markdown`)
+    expect(router.state.location.pathname).toBe(MARKDOWN_PATH)
 
     let closeResult: DirectoryWorkspaceCommandResult | undefined
     let presentResult: DirectoryWorkspaceCommandResult | undefined
@@ -172,7 +244,7 @@ describe("DirectoryWorkspaceController navigation arbitration", () => {
       outcome: "superseded",
       reason: "newer_command",
     })
-    expect(router.state.location.pathname).toBe(`/${encodeDirectory(DIRECTORY)}/chat`)
+    expect(router.state.location.pathname).toBe(CHAT_PATH)
   })
 
   test("a newer target replacement supersedes a delayed target navigation", async () => {
@@ -182,7 +254,7 @@ describe("DirectoryWorkspaceController navigation arbitration", () => {
     root = createRoot(container)
     const delayedLoader = deferredCompletion()
     let controller: DirectoryWorkspaceController | undefined
-    const router = createTestRouter({
+    const router = createMemoryTestRouter({
       delayedLoader: delayedLoader.promise,
       onController: (nextController) => {
         controller = nextController
@@ -226,9 +298,7 @@ describe("DirectoryWorkspaceController navigation arbitration", () => {
 
     expect(firstResult).toMatchObject({ outcome: "superseded" })
     expect(secondResult).toMatchObject({ outcome: "committed" })
-    expect(router.state.location.pathname).toBe(
-      `/${encodeDirectory(DIRECTORY)}/objects/resource/${OBJECT_TARGET.ref.objectID}`,
-    )
+    expect(router.state.location.pathname).toBe(OBJECT_PATH)
   })
 
   test("same-destination attempts keep distinct command outcomes", async () => {
@@ -238,7 +308,7 @@ describe("DirectoryWorkspaceController navigation arbitration", () => {
     root = createRoot(container)
     const delayedLoader = deferredCompletion()
     let controller: DirectoryWorkspaceController | undefined
-    const router = createTestRouter({
+    const router = createMemoryTestRouter({
       delayedLoader: delayedLoader.promise,
       onController: (nextController) => {
         controller = nextController
@@ -282,6 +352,156 @@ describe("DirectoryWorkspaceController navigation arbitration", () => {
 
     expect(firstResult).toMatchObject({ outcome: "superseded" })
     expect(secondResult).toMatchObject({ outcome: "committed" })
-    expect(router.state.location.pathname).toBe(`/${encodeDirectory(DIRECTORY)}/markdown`)
+    expect(router.state.location.pathname).toBe(MARKDOWN_PATH)
+  })
+
+  test("direct route navigation supersedes a delayed controller attempt", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const delayedLoader = deferredCompletion()
+    let controller: DirectoryWorkspaceController | undefined
+    const router = createMemoryTestRouter({
+      delayedLoader: delayedLoader.promise,
+      onController: (nextController) => {
+        controller = nextController
+      },
+    })
+
+    await act(async () => {
+      root?.render(<RouterProvider router={router} />)
+      await flushEffects()
+    })
+    if (!controller) throw new Error("Expected workspace controller")
+
+    let presentResultPromise: Promise<DirectoryWorkspaceCommandResult> | undefined
+    await act(async () => {
+      presentResultPromise = controller?.execute({
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      })
+      await flushEffects()
+    })
+    if (!presentResultPromise) throw new Error("Expected pending present result")
+
+    let presentResult: DirectoryWorkspaceCommandResult | undefined
+    await act(async () => {
+      const directNavigation = router.navigate({
+        to: "/$directory/chat",
+        params: { directory: ENCODED_DIRECTORY },
+        replace: true,
+      })
+      delayedLoader.complete()
+      const results = await Promise.all([presentResultPromise, directNavigation])
+      presentResult = results[0]
+      await flushEffects()
+    })
+
+    expect(presentResult).toMatchObject({
+      outcome: "superseded",
+      reason: "newer_command",
+    })
+    expect(router.state.location.pathname).toBe(CHAT_PATH)
+  })
+
+  test("browser Back and Forward use the blocker path for Bench history", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    window.location.href = TEST_ORIGIN_URL
+    window.history.replaceState(null, "", CHAT_PATH)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+    const delayedLoader = Promise.resolve()
+    const guardCalls: BenchLeaveGuardInput[] = []
+    let shouldBlock = false
+    let controller: DirectoryWorkspaceController | undefined
+    let workspace: DirectoryWorkspaceHandle | undefined
+    const router = createBrowserTestRouter({
+      delayedLoader,
+      onController: (nextController) => {
+        controller = nextController
+      },
+      onWorkspace: (nextWorkspace) => {
+        workspace = nextWorkspace
+      },
+    })
+
+    await act(async () => {
+      root?.render(<RouterProvider router={router} />)
+      await flushEffects()
+    })
+    if (!controller) throw new Error("Expected workspace controller")
+    if (!workspace) throw new Error("Expected workspace")
+
+    await act(async () => {
+      await controller?.execute({
+        type: "present",
+        directory: DIRECTORY,
+        target: FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      })
+      await flushEffects()
+    })
+    expect(router.state.location.pathname).toBe(MARKDOWN_PATH)
+
+    await act(async () => {
+      await controller?.execute({
+        type: "present",
+        directory: DIRECTORY,
+        target: OBJECT_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      })
+      await flushEffects()
+    })
+    expect(router.state.location.pathname).toBe(OBJECT_PATH)
+
+    const unregister = workspace.lifecycle.registerSurface({
+      target: OBJECT_TARGET,
+      getSnapshot: () => surfaceSnapshotForTarget(OBJECT_TARGET),
+      subscribe: () => () => undefined,
+      guardLeave: (input) => {
+        guardCalls.push(input)
+        if (!shouldBlock) return { status: "allow" }
+        return {
+          status: "block",
+          reason: "dirty",
+          message: "blocked by test",
+        }
+      },
+    })
+
+    await act(async () => {
+      window.history.back()
+      await waitForRoutePath(router, CHAT_PATH)
+    })
+
+    expect(guardCalls).toHaveLength(1)
+    expect(guardCalls[0]).toMatchObject({
+      intent: "close",
+      origin: "route",
+      current: OBJECT_TARGET,
+      next: null,
+    })
+    expect(router.state.location.pathname).toBe(CHAT_PATH)
+
+    await act(async () => {
+      window.history.forward()
+      await waitForRoutePath(router, OBJECT_PATH)
+    })
+
+    expect(guardCalls).toHaveLength(1)
+    shouldBlock = true
+
+    await act(async () => {
+      window.history.back()
+      await flushEffects()
+    })
+
+    expect(guardCalls).toHaveLength(2)
+    expect(router.state.location.pathname).toBe(OBJECT_PATH)
+    unregister()
   })
 })
