@@ -45,6 +45,10 @@ function sseResponse(body: string) {
   )
 }
 
+function eventFrame(payload: unknown) {
+  return ["id: evt_watcher", `data: ${JSON.stringify(payload)}`, ""].join("\n")
+}
+
 describe("transformOpenCodeEventStreamResponse", () => {
   test("adds Buddy tool UI metadata to message.part.updated frames", async () => {
     ToolRegistry.registerToolUiCatalog("/tmp/buddy-event-stream", [
@@ -108,6 +112,68 @@ describe("transformOpenCodeEventStreamResponse", () => {
     })
 
     expect(await response.text()).toBe(body)
+  })
+
+  test("adds workspace-relative paths to watcher frames", async () => {
+    const response = transformOpenCodeEventStreamResponse({
+      directory: "/tmp/buddy-event-stream",
+      response: sseResponse(
+        eventFrame({
+          directory: "/tmp/buddy-event-stream",
+          payload: {
+            type: "file.watcher.updated",
+            properties: {
+              file: "/tmp/buddy-event-stream/src/app.ts",
+              event: "unlink",
+            },
+          },
+        }),
+      ),
+    })
+
+    const text = await response.text()
+    const dataLine = text.split("\n").find((line) => line.startsWith("data: "))
+    expect(dataLine).toBeDefined()
+    const payload = JSON.parse((dataLine ?? "").slice("data: ".length)) as {
+      payload: {
+        properties?: {
+          relativePath?: string
+        }
+      }
+    }
+
+    expect(payload.payload.properties?.relativePath).toBe("src/app.ts")
+  })
+
+  test("normalizes Windows watcher paths at the stream boundary", async () => {
+    const response = transformOpenCodeEventStreamResponse({
+      directory: "C:\\Users\\buddy\\project",
+      response: sseResponse(
+        eventFrame({
+          directory: "C:\\Users\\buddy\\project",
+          payload: {
+            type: "file.watcher.updated",
+            properties: {
+              file: "C:\\Users\\buddy\\project\\docs\\intro.md",
+              event: "change",
+            },
+          },
+        }),
+      ),
+    })
+
+    const text = await response.text()
+    const dataLine = text.split("\n").find((line) => line.startsWith("data: "))
+    expect(dataLine).toBeDefined()
+    const payload = JSON.parse((dataLine ?? "").slice("data: ".length)) as {
+      payload: {
+        properties?: {
+          relativePath?: string
+        }
+      }
+    }
+
+    expect(payload.payload.properties?.relativePath).toBe("docs/intro.md")
   })
 
   test("does not drain the transformed upstream while the downstream is paused", async () => {

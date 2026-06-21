@@ -25,6 +25,19 @@ describe("project file editor routes", () => {
     expect(readBody.content).toBe("const answer = 42  \n\n")
     expect(typeof readBody.version).toBe("string")
 
+    const statusResponse = await app.request("/api/file/edit/status?path=src/app.ts", {
+      headers: {
+        "x-buddy-directory": repo,
+      },
+    })
+
+    expect(statusResponse.status).toBe(200)
+    expect(await statusResponse.json()).toEqual({
+      path: "src/app.ts",
+      exists: true,
+      version: readBody.version,
+    })
+
     const saveResponse = await app.request("/api/file/edit?path=src/app.ts", {
       method: "PUT",
       headers: {
@@ -91,6 +104,14 @@ describe("project file editor routes", () => {
     })
 
     expect(readResponse.status).toBe(415)
+
+    const statusResponse = await app.request("/api/file/edit/status?path=report.pdf", {
+      headers: {
+        "x-buddy-directory": repo,
+      },
+    })
+
+    expect(statusResponse.status).toBe(415)
   })
 
   test("rejects paths that escape the project directory", async () => {
@@ -105,5 +126,31 @@ describe("project file editor routes", () => {
     })
 
     expect(readResponse.status).toBe(403)
+
+    const statusResponse = await app.request("/api/file/edit/status?path=../outside.txt", {
+      headers: {
+        "x-buddy-directory": repo,
+      },
+    })
+
+    expect(statusResponse.status).toBe(403)
+  })
+
+  test("reports contained missing editable files without content", async () => {
+    const repo = createGitRepo("buddy-project-file-editor-missing-status")
+    await fs.mkdir(path.join(repo, "src"), { recursive: true })
+
+    const statusResponse = await app.request("/api/file/edit/status?path=src/missing.md", {
+      headers: {
+        "x-buddy-directory": repo,
+      },
+    })
+
+    expect(statusResponse.status).toBe(200)
+    expect(await statusResponse.json()).toEqual({
+      path: "src/missing.md",
+      exists: false,
+      version: null,
+    })
   })
 })
