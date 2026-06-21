@@ -18,6 +18,7 @@ import {
   WHITEBOARD_CURRENT_VIEW_ID,
 } from "../service/store"
 import { buildWhiteboardLayoutDigest, type WhiteboardLayoutDigest } from "../service/layout-digest"
+import { dispatchBestEffortBenchPresent } from "../../bench/auto-open"
 
 const CREATE_WHITEBOARD_VIEW_BOARD_ACTIONS = [
   "continue_current_board",
@@ -47,6 +48,10 @@ type CreateWhiteboardViewInput = z.infer<typeof CreateWhiteboardViewInputSchema>
 
 function createdByCallID(ctx: BuddyToolContext): string {
   return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : "unknown"
+}
+
+function nullableCallID(ctx: BuddyToolContext): string | null {
+  return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : null
 }
 
 function buildWhiteboardObjectResult(input: {
@@ -161,7 +166,8 @@ const createWhiteboardViewTool = createBuddyTool({
   async execute(params: CreateWhiteboardViewInput, ctx: BuddyToolContext) {
     const sessionID = String(ctx.sessionID)
     const messageID = String(ctx.messageID)
-    const callID = createdByCallID(ctx)
+    const callID = nullableCallID(ctx)
+    const eventCallID = callID ?? createdByCallID(ctx)
     const whiteboardObject = await ensureWhiteboardObjectForSession({
       directory: ctx.directory,
       sessionID,
@@ -173,8 +179,24 @@ const createWhiteboardViewTool = createBuddyTool({
           objectID: whiteboardObject.objectID,
           sessionID,
           messageID,
-          callID,
+          callID: eventCallID,
         }),
+      },
+    })
+    dispatchBestEffortBenchPresent({
+      directory: ctx.directory,
+      sessionID,
+      messageID,
+      callID,
+      target: {
+        type: "object",
+        ref: {
+          kind: BUDDY_OBJECT_KINDS.whiteboard,
+          objectID: whiteboardObject.objectID,
+          revisionID: null,
+          itemID: null,
+        },
+        viewID: WHITEBOARD_CURRENT_VIEW_ID,
       },
     })
     await ctx.ask({
@@ -203,7 +225,7 @@ const createWhiteboardViewTool = createBuddyTool({
       objectID: whiteboardObject.objectID,
       sessionID,
       messageID,
-      callID,
+      callID: eventCallID,
     })
     return {
       title: "Updated Whiteboard",

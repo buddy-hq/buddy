@@ -4,6 +4,11 @@ const SSE_DATA_PREFIX = "data:"
 const SSE_FRAME_DELIMITER = "\n\n"
 const MESSAGE_PART_UPDATED = "message.part.updated"
 
+type BuddyEventStreamMultiplexer = {
+  initialEvents?: readonly unknown[]
+  subscribe(listener: (event: unknown) => void): () => void
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
@@ -69,6 +74,10 @@ function transformSseFrame(frame: string, directory: string) {
   return nextLines.join("\n")
 }
 
+function encodeSseEvent(encoder: TextEncoder, event: unknown): Uint8Array {
+  return encoder.encode(`${SSE_DATA_PREFIX} ${JSON.stringify(event)}${SSE_FRAME_DELIMITER}`)
+}
+
 export function buildOpenCodeEventStreamRequestHeaders(inbound: Headers): Headers {
   const headers = new Headers(inbound)
   headers.set("accept", "text/event-stream")
@@ -78,6 +87,7 @@ export function buildOpenCodeEventStreamRequestHeaders(inbound: Headers): Header
 export function transformOpenCodeEventStreamResponse(input: {
   response: Response
   directory: string
+  buddyEvents?: BuddyEventStreamMultiplexer
 }): Response {
   if (!input.response.body) {
     return input.response
@@ -116,7 +126,47 @@ export function transformOpenCodeEventStreamResponse(input: {
     }),
   )
 
-  return new Response(stream, {
+  let streamReader: ReadableStreamDefaultReader<Uint8Array> | undefined
+  let unsubscribeBuddyEvents: (() => void) | undefined
+  const multiplexedStream = input.buddyEvents
+    ? new ReadableStream<Uint8Array>({
+        start(controller) {
+          streamReader = stream.getReader()
+          unsubscribeBuddyEvents = input.buddyEvents?.subscribe((event) => {
+            controller.enqueue(encodeSseEvent(encoder, event))
+          })
+
+          for (const event of input.buddyEvents?.initialEvents ?? []) {
+            controller.enqueue(encodeSseEvent(encoder, event))
+          }
+        },
+        async pull(controller) {
+          const reader = streamReader
+          if (!reader) {
+            controller.close()
+            return
+          }
+          try {
+            const result = await reader.read()
+            if (result.done) {
+              unsubscribeBuddyEvents?.()
+              controller.close()
+              return
+            }
+            controller.enqueue(result.value)
+          } catch (error) {
+            unsubscribeBuddyEvents?.()
+            controller.error(error)
+          }
+        },
+        cancel() {
+          unsubscribeBuddyEvents?.()
+          void streamReader?.cancel()
+        },
+      })
+    : stream
+
+  return new Response(multiplexedStream, {
     status: input.response.status,
     statusText: input.response.statusText,
     headers: input.response.headers,

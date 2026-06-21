@@ -9,7 +9,7 @@ import {
 const benchReadContextTool = createBuddyTool({
   id: "bench_read_context",
   description:
-    "Read what the learner is currently seeing on Bench. Returns status closed when Bench is closed; otherwise returns the active target, machine refs, metadata, and a model-readable context dump.",
+    "Read the current model-visible Bench context. Returns status closed when Bench is closed; otherwise returns the loaded Bench target, drawer state, machine refs, metadata, and a model-readable context dump. If Explorer or Library is open as a drawer, the target remains loaded on Bench while that drawer is over it.",
   parameters: BenchReadContextInputSchema,
   ui: {
     presentation: "hidden-summary",
@@ -42,6 +42,7 @@ const benchReadContextTool = createBuddyTool({
       metadata: {
         benchStatus: "open",
         benchTarget: benchTargetFromContextTarget(result.target),
+        drawer: result.drawer?.kind ?? null,
         targetType: result.target.type,
         surfaceStatus: result.target.status,
       },

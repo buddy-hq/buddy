@@ -3,6 +3,7 @@ import z from "zod"
 import { BuddyObjectRefSchema, nonEmptyString } from "../../../objects"
 
 const BENCH_CONTEXT_REGISTRY_LIMIT = 512
+const BENCH_CONTEXT_HISTORY_LIMIT = 512
 
 const BenchContextStatusSchema = z.enum(["ready", "loading", "dirty", "error", "unavailable"])
 
@@ -64,6 +65,13 @@ const BenchContextRefSchema = z
   })
   .strict()
 
+const BenchDrawerContextSchema = z
+  .object({
+    kind: z.enum(["explorer", "library"]),
+    presentation: z.literal("drawer"),
+  })
+  .strict()
+
 const BenchReadContextClosedOutputSchema = z
   .object({
     status: z.literal("closed"),
@@ -74,6 +82,7 @@ const BenchReadContextOpenOutputSchema = z
   .object({
     status: z.literal("open"),
     target: BenchContextTargetSchema,
+    drawer: BenchDrawerContextSchema.nullable(),
     metadata: z.array(z.string()),
     content: z.string(),
     refs: z.array(BenchContextRefSchema),
@@ -92,6 +101,23 @@ const PublishBenchContextResponseSchema = z
   })
   .strict()
 
+const BenchClientLeaseIdentitySchema = z
+  .object({
+    instanceID: z.string().min(1),
+    generation: z.number().int().nonnegative(),
+    leaseEpoch: z.number().int().nonnegative(),
+  })
+  .strict()
+
+const PublishBenchContextInputSchema = z
+  .object({
+    lease: BenchClientLeaseIdentitySchema,
+    publicationSequence: z.number().int().positive(),
+    idempotencyKey: z.string().min(1),
+    value: BenchReadContextOutputSchema,
+  })
+  .strict()
+
 const closedBenchContext = {
   status: "closed",
 } as const
@@ -99,9 +125,12 @@ const closedBenchContext = {
 type BenchTarget = z.infer<typeof BenchTargetSchema>
 type WorkspaceFileBenchTarget = z.infer<typeof WorkspaceFileBenchTargetSchema>
 type ObjectBenchTarget = z.infer<typeof ObjectBenchTargetSchema>
+type BenchClientLeaseIdentity = z.infer<typeof BenchClientLeaseIdentitySchema>
 type BenchContextTarget = z.infer<typeof BenchContextTargetSchema>
+type BenchDrawerContext = z.infer<typeof BenchDrawerContextSchema>
 type BenchReadContextOpenOutput = z.infer<typeof BenchReadContextOpenOutputSchema>
 type BenchReadContextOutput = z.infer<typeof BenchReadContextOutputSchema>
+type PublishBenchContextInput = z.infer<typeof PublishBenchContextInputSchema>
 type PublishBenchContextResponse = z.infer<typeof PublishBenchContextResponseSchema>
 
 type StoredBenchContextSnapshot = {
@@ -114,12 +143,28 @@ type StoredBenchContextEntry = {
   directory: string
   sessionID: string
   snapshot: StoredBenchContextSnapshot
+  acceptedWrites: Map<string, StoredBenchContextWrite>
+  lastSequenceByLeaseKey: Map<string, number>
+}
+
+type StoredBenchContextWrite = {
+  idempotencyKey: string
+  leaseKey: string
+  publicationSequence: number
+  revision: number
 }
 
 class BenchContextSnapshotMissingError extends Error {
   constructor(input: { directory: string; sessionID: string }) {
     super(`Bench context has not been synchronized for session ${input.sessionID}.`)
     this.name = "BenchContextSnapshotMissingError"
+  }
+}
+
+class BenchContextWriteConflictError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "BenchContextWriteConflictError"
   }
 }
 
@@ -142,7 +187,80 @@ function evictOldestBenchContextEntriesIfNeeded(): void {
   }
 }
 
-function publishBenchContext(input: {
+function benchContextLeaseKey(lease: BenchClientLeaseIdentity): string {
+  return [lease.instanceID, String(lease.generation), String(lease.leaseEpoch)].join("\u0000")
+}
+
+function setBoundedContextHistoryEntry<Value>(
+  history: Map<string, Value>,
+  key: string,
+  value: Value,
+): void {
+  history.delete(key)
+  history.set(key, value)
+  while (history.size > BENCH_CONTEXT_HISTORY_LIMIT) {
+    const oldestKey = history.keys().next().value
+    if (typeof oldestKey !== "string") return
+    history.delete(oldestKey)
+  }
+}
+
+function publishSequencedBenchContext(input: {
+  directory: string
+  sessionID: string
+  body: PublishBenchContextInput
+}): StoredBenchContextSnapshot {
+  const body = PublishBenchContextInputSchema.parse(input.body)
+  const key = benchContextRegistryKey(input)
+  const current = benchContextRegistry.get(key)
+  const accepted = current?.acceptedWrites.get(body.idempotencyKey)
+  if (accepted) {
+    if (
+      accepted.leaseKey !== benchContextLeaseKey(body.lease) ||
+      accepted.publicationSequence !== body.publicationSequence
+    ) {
+      throw new BenchContextWriteConflictError(
+        "Bench context idempotency key was already used with different lease or sequence.",
+      )
+    }
+    if (current) {
+      setBoundedContextHistoryEntry(current.acceptedWrites, body.idempotencyKey, accepted)
+      touchBenchContextEntry(current)
+      return current.snapshot
+    }
+  }
+
+  const leaseKey = benchContextLeaseKey(body.lease)
+  const lastSequence = current?.lastSequenceByLeaseKey.get(leaseKey) ?? 0
+  if (body.publicationSequence <= lastSequence) {
+    throw new BenchContextWriteConflictError(
+      "Bench context publication sequence is older than the accepted snapshot.",
+    )
+  }
+
+  const snapshot = publishBenchContextSnapshot({
+    directory: input.directory,
+    sessionID: input.sessionID,
+    value: body.value,
+  })
+  const entry = benchContextRegistry.get(key)
+  if (!entry) return snapshot
+
+  setBoundedContextHistoryEntry(
+    entry.lastSequenceByLeaseKey,
+    leaseKey,
+    body.publicationSequence,
+  )
+  setBoundedContextHistoryEntry(entry.acceptedWrites, body.idempotencyKey, {
+    idempotencyKey: body.idempotencyKey,
+    leaseKey,
+    publicationSequence: body.publicationSequence,
+    revision: snapshot.revision,
+  })
+  return snapshot
+}
+
+function publishBenchContextSnapshot(input: {
   directory: string
   sessionID: string
   value: BenchReadContextOutput
@@ -159,6 +277,8 @@ function publishBenchContext(input: {
     directory: path.resolve(input.directory),
     sessionID: input.sessionID,
     snapshot,
+    acceptedWrites: current?.acceptedWrites ?? new Map(),
+    lastSequenceByLeaseKey: current?.lastSequenceByLeaseKey ?? new Map(),
   })
   evictOldestBenchContextEntriesIfNeeded()
   return snapshot
@@ -206,10 +326,15 @@ function benchTargetFromContextTarget(target: BenchContextTarget): BenchTarget {
 const BenchReadContextInputSchema = z.object({}).strict()
 
 export {
+  BENCH_CONTEXT_HISTORY_LIMIT,
   BenchContextRefSchema,
   BenchContextSnapshotMissingError,
   BenchContextStatusSchema,
   BenchContextTargetSchema,
+  BenchContextWriteConflictError,
+  BenchDrawerContextSchema,
+  BenchClientLeaseIdentitySchema,
+  PublishBenchContextInputSchema,
   BenchReadContextClosedOutputSchema,
   BenchReadContextInputSchema,
   BenchReadContextOpenOutputSchema,
@@ -223,15 +348,18 @@ export {
   benchTargetFromContextTarget,
   clearBenchContextRegistry,
   closedBenchContext,
-  publishBenchContext,
+  publishSequencedBenchContext,
   readBenchContext,
   readCurrentBenchContext,
 }
 
 export type {
+  BenchClientLeaseIdentity,
   BenchContextTarget,
+  BenchDrawerContext,
   BenchReadContextOpenOutput,
   BenchReadContextOutput,
+  PublishBenchContextInput,
   BenchTarget,
   ObjectBenchTarget,
   PublishBenchContextResponse,

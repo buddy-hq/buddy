@@ -22,16 +22,17 @@ import {
 } from "../../../../objects"
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
 import {
-  BenchContextSnapshotMissingError,
   BenchTargetSchema,
-  benchTargetFromContextTarget,
-  readCurrentBenchContext,
   type BenchContextTarget,
-  type BenchReadContextOutput,
   type BenchTarget,
   type ObjectBenchTarget,
   type WorkspaceFileBenchTarget,
 } from "../context"
+import {
+  benchClientActionBroker,
+  type BenchBrokerTerminal,
+  type BenchClientActionCommand,
+} from "../client-actions"
 import {
   ensureWhiteboardObjectForSession,
   WHITEBOARD_CURRENT_VIEW_ID,
@@ -67,6 +68,11 @@ const BenchPresentReasonSchema = z.enum([
   "unsupported_target",
   "blocked_by_unsaved_work",
   "sync_error",
+  "client_inactive",
+  "client_unavailable",
+  "client_timeout",
+  "client_navigation_error",
+  "action_superseded",
 ])
 
 const BenchPresentInputSchema = z
@@ -403,188 +409,6 @@ function objectRefFromManifest(manifest: BuddyObjectManifest): BuddyObjectRef {
     revisionID: manifest.currentRevisionID ?? null,
     itemID: null,
   }
-}
-
-function isSameBenchTarget(left: BenchTarget, right: BenchTarget): boolean {
-  if (left.type !== right.type) return false
-  if (left.type === "workspace-file" && right.type === "workspace-file") {
-    return left.path === right.path && left.viewer === right.viewer
-  }
-  if (left.type === "object" && right.type === "object") {
-    return (
-      left.ref.kind === right.ref.kind &&
-      left.ref.objectID === right.ref.objectID &&
-      left.ref.revisionID === right.ref.revisionID &&
-      left.ref.itemID === right.ref.itemID &&
-      left.viewID === right.viewID
-    )
-  }
-  return false
-}
-
-function readCurrentBenchContextForPresentation(input: { directory: string; sessionID: string }):
-  | {
-      status: "ready"
-      value: BenchReadContextOutput
-    }
-  | {
-      status: "sync_error"
-      result: BenchPresentOutput
-    } {
-  try {
-    return {
-      status: "ready",
-      value: readCurrentBenchContext(input),
-    }
-  } catch (error) {
-    if (error instanceof BenchContextSnapshotMissingError) {
-      return {
-        status: "sync_error",
-        result: {
-          status: "blocked",
-          reason: "sync_error",
-          target: null,
-          benchTarget: null,
-          mode: null,
-          message:
-            "Bench context has not been synchronized for this session. Try again after the app finishes syncing Bench state.",
-          objectResult: null,
-        },
-      }
-    }
-    throw error
-  }
-}
-
-function metadataIncludes(input: { metadata: string[]; prefix: string; value: string }): boolean {
-  return input.metadata.some((entry) => entry.trim() === `${input.prefix}: ${input.value}`)
-}
-
-function blockedByCurrentBenchState(input: {
-  current: BenchReadContextOutput | undefined
-  nextTarget: BenchTarget | null
-}): BenchPresentOutput | undefined {
-  if (input.current?.status !== "open") {
-    return undefined
-  }
-
-  const currentTarget = benchTargetFromContextTarget(input.current.target)
-  if (input.nextTarget && isSameBenchTarget(currentTarget, input.nextTarget)) {
-    return undefined
-  }
-
-  if (currentTarget.type !== "workspace-file" || currentTarget.viewer !== "markdown") {
-    return undefined
-  }
-
-  if (
-    metadataIncludes({
-      metadata: input.current.metadata,
-      prefix: "save_state",
-      value: "saving",
-    })
-  ) {
-    return {
-      status: "blocked",
-      reason: "blocked_by_unsaved_work",
-      target: input.current.target,
-      benchTarget: currentTarget,
-      mode: null,
-      message: "Bench Markdown is still saving. Wait for the save to finish before changing Bench.",
-      objectResult: null,
-    }
-  }
-
-  if (
-    metadataIncludes({
-      metadata: input.current.metadata,
-      prefix: "save_state",
-      value: "conflict",
-    })
-  ) {
-    return {
-      status: "blocked",
-      reason: "blocked_by_unsaved_work",
-      target: input.current.target,
-      benchTarget: currentTarget,
-      mode: null,
-      message: "Bench Markdown has a file conflict. Resolve it before changing Bench.",
-      objectResult: null,
-    }
-  }
-
-  if (
-    metadataIncludes({
-      metadata: input.current.metadata,
-      prefix: "save_state",
-      value: "error",
-    })
-  ) {
-    return {
-      status: "blocked",
-      reason: "blocked_by_unsaved_work",
-      target: input.current.target,
-      benchTarget: currentTarget,
-      mode: null,
-      message: "Bench Markdown has a save error. Resolve it before changing Bench.",
-      objectResult: null,
-    }
-  }
-
-  if (
-    input.current.target.status === "dirty" ||
-    metadataIncludes({
-      metadata: input.current.metadata,
-      prefix: "dirty",
-      value: "true",
-    })
-  ) {
-    return {
-      status: "blocked",
-      reason: "blocked_by_unsaved_work",
-      target: input.current.target,
-      benchTarget: currentTarget,
-      mode: null,
-      message: "Bench Markdown has unsaved edits. Save or resolve them before changing Bench.",
-      objectResult: null,
-    }
-  }
-
-  return undefined
-}
-
-function finalizeBenchPresentation(input: {
-  current: BenchReadContextOutput | undefined
-  requested: BenchPresentOutput
-}): BenchPresentOutput {
-  if (input.requested.status !== "presented") {
-    return input.requested
-  }
-
-  if (
-    input.current?.status === "open" &&
-    input.requested.benchTarget &&
-    isSameBenchTarget(
-      benchTargetFromContextTarget(input.current.target),
-      input.requested.benchTarget,
-    )
-  ) {
-    return {
-      status: "already_presenting",
-      reason: "already_showing_target",
-      target: input.current.target,
-      benchTarget: benchTargetFromContextTarget(input.current.target),
-      mode: input.requested.mode,
-      message: "Bench is already showing that target.",
-      objectResult: input.requested.objectResult,
-    }
-  }
-
-  const blocked = blockedByCurrentBenchState({
-    current: input.current,
-    nextTarget: input.requested.benchTarget,
-  })
-  return blocked ?? input.requested
 }
 
 function buildObjectResult(input: {
@@ -926,32 +750,100 @@ async function presentWhiteboard(input: {
   })
 }
 
-async function presentOnBench(input: {
-  directory: string
-  sessionID: string
-  action: BenchPresentInput["action"]
-  path: string | null
-  resourceKey: string | null
-  objectID: string | null
-}): Promise<BenchPresentOutput> {
-  const currentRead = readCurrentBenchContextForPresentation({
-    directory: input.directory,
-    sessionID: input.sessionID,
-  })
-  if (currentRead.status === "sync_error") {
-    return currentRead.result
+function inactiveClientResult(): BenchPresentOutput {
+  return {
+    status: "error",
+    reason: "client_inactive",
+    target: null,
+    benchTarget: null,
+    mode: null,
+    message: "Bench did not change because this session is no longer active in the client.",
+    objectResult: null,
   }
-  const current = currentRead.value
+}
 
-  if (input.action === "close") {
-    const blocked = blockedByCurrentBenchState({
-      current,
-      nextTarget: null,
-    })
-    if (blocked) {
-      return blocked
-    }
+function unavailableClientResult(): BenchPresentOutput {
+  return {
+    status: "error",
+    reason: "client_unavailable",
+    target: null,
+    benchTarget: null,
+    mode: null,
+    message: "Bench did not change because no active Bench client was available.",
+    objectResult: null,
+  }
+}
 
+function timedOutClientResult(): BenchPresentOutput {
+  return {
+    status: "error",
+    reason: "client_timeout",
+    target: null,
+    benchTarget: null,
+    mode: null,
+    message: "Bench did not change because the client did not acknowledge the Bench command in time.",
+    objectResult: null,
+  }
+}
+
+function supersededActionResult(): BenchPresentOutput {
+  return {
+    status: "error",
+    reason: "action_superseded",
+    target: null,
+    benchTarget: null,
+    mode: null,
+    message: "Bench did not change because a newer Bench command superseded this request.",
+    objectResult: null,
+  }
+}
+
+function navigationFailedResult(): BenchPresentOutput {
+  return {
+    status: "error",
+    reason: "client_navigation_error",
+    target: null,
+    benchTarget: null,
+    mode: null,
+    message: "Bench did not change because the client could not complete Bench navigation.",
+    objectResult: null,
+  }
+}
+
+function contextSyncFailedResult(): BenchPresentOutput {
+  return {
+    status: "blocked",
+    reason: "sync_error",
+    target: null,
+    benchTarget: null,
+    mode: null,
+    message: "Bench did not change because the client could not synchronize Bench context.",
+    objectResult: null,
+  }
+}
+
+function leaveGuardBlockedResult(): BenchPresentOutput {
+  return {
+    status: "blocked",
+    reason: "blocked_by_unsaved_work",
+    target: null,
+    benchTarget: null,
+    mode: null,
+    message: "Bench did not change because the current Bench target has unsaved work.",
+    objectResult: null,
+  }
+}
+
+function committedBenchActionResult(input: {
+  command: BenchClientActionCommand
+  requested: BenchPresentOutput
+  completion: Extract<BenchBrokerTerminal, { status: "completed" }>["completion"]
+}): BenchPresentOutput {
+  if (input.completion.outcome !== "committed") {
+    throw new Error("Expected committed Bench action completion.")
+  }
+
+  if (input.command.type === "close") {
     return {
       status: "closed",
       reason: "closed_by_request",
@@ -961,6 +853,134 @@ async function presentOnBench(input: {
       message: "Requested closing Bench.",
       objectResult: null,
     }
+  }
+
+  if (!input.completion.changed) {
+    return {
+      status: "already_presenting",
+      reason: "already_showing_target",
+      target:
+        input.completion.context.status === "open"
+          ? input.completion.context.target
+          : input.requested.target,
+      benchTarget: input.requested.benchTarget,
+      mode: input.requested.mode,
+      message: "Bench is already showing that target.",
+      objectResult: input.requested.objectResult,
+    }
+  }
+
+  return input.requested
+}
+
+function completedBenchActionResult(input: {
+  command: BenchClientActionCommand
+  requested: BenchPresentOutput
+  completion: Extract<BenchBrokerTerminal, { status: "completed" }>["completion"]
+}): BenchPresentOutput {
+  if (input.completion.outcome === "committed") {
+    return committedBenchActionResult(input)
+  }
+  if (input.completion.outcome === "blocked") {
+    return leaveGuardBlockedResult()
+  }
+  if (input.completion.outcome === "inactive_session") {
+    return inactiveClientResult()
+  }
+  if (input.completion.outcome === "superseded") {
+    return supersededActionResult()
+  }
+  if (input.completion.reason === "navigation_failed") {
+    return navigationFailedResult()
+  }
+  return contextSyncFailedResult()
+}
+
+function brokerTerminalResult(input: {
+  command: BenchClientActionCommand
+  requested: BenchPresentOutput
+  terminal: BenchBrokerTerminal
+}): BenchPresentOutput {
+  if (input.terminal.status === "expired") {
+    return input.terminal.delivered ? timedOutClientResult() : unavailableClientResult()
+  }
+  if (input.terminal.status === "cancelled") {
+    return supersededActionResult()
+  }
+  return completedBenchActionResult({
+    command: input.command,
+    requested: input.requested,
+    completion: input.terminal.completion,
+  })
+}
+
+async function dispatchRequiredBenchAction(input: {
+  directory: string
+  sessionID: string
+  messageID: string
+  callID: string | null
+  abort: AbortSignal
+  command: BenchClientActionCommand
+  requested: BenchPresentOutput
+}): Promise<BenchPresentOutput> {
+  input.abort.throwIfAborted()
+  const enqueued = benchClientActionBroker.enqueueRequiredAction({
+    directory: input.directory,
+    sessionID: input.sessionID,
+    messageID: input.messageID,
+    callID: input.callID,
+    command: input.command,
+  })
+  const cancelAction = () => {
+    benchClientActionBroker.cancelAction({
+      directory: input.directory,
+      actionID: enqueued.action.actionID,
+    })
+  }
+  input.abort.addEventListener("abort", cancelAction, { once: true })
+  try {
+    const terminal = await enqueued.completion
+    input.abort.throwIfAborted()
+    return brokerTerminalResult({
+      command: input.command,
+      requested: input.requested,
+      terminal,
+    })
+  } finally {
+    input.abort.removeEventListener("abort", cancelAction)
+  }
+}
+
+async function presentOnBench(input: {
+  directory: string
+  sessionID: string
+  messageID: string
+  callID: string | null
+  abort: AbortSignal
+  action: BenchPresentInput["action"]
+  path: string | null
+  resourceKey: string | null
+  objectID: string | null
+}): Promise<BenchPresentOutput> {
+  if (input.action === "close") {
+    const requested = {
+      status: "closed",
+      reason: "closed_by_request",
+      target: null,
+      benchTarget: null,
+      mode: null,
+      message: "Requested closing Bench.",
+      objectResult: null,
+    } satisfies BenchPresentOutput
+    return dispatchRequiredBenchAction({
+      directory: input.directory,
+      sessionID: input.sessionID,
+      messageID: input.messageID,
+      callID: input.callID,
+      abort: input.abort,
+      command: { type: "close" },
+      requested,
+    })
   }
 
   let requested: BenchPresentOutput
@@ -993,8 +1013,20 @@ async function presentOnBench(input: {
       break
   }
 
-  return finalizeBenchPresentation({
-    current,
+  if (requested.status !== "presented" || !requested.benchTarget) {
+    return requested
+  }
+
+  return dispatchRequiredBenchAction({
+    directory: input.directory,
+    sessionID: input.sessionID,
+    messageID: input.messageID,
+    callID: input.callID,
+    abort: input.abort,
+    command: {
+      type: "present",
+      target: requested.benchTarget,
+    },
     requested,
   })
 }
@@ -1037,6 +1069,9 @@ const benchPresentTool = createBuddyTool({
     const result = await presentOnBench({
       directory: ctx.directory,
       sessionID: String(ctx.sessionID),
+      messageID: String(ctx.messageID),
+      callID: ctx.callID ? String(ctx.callID) : null,
+      abort: ctx.abort,
       action: params.action,
       path: params.path,
       resourceKey: params.resourceKey,

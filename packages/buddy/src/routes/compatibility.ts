@@ -12,6 +12,10 @@ import {
   transformOpenCodeEventStreamResponse,
 } from "../http/opencode-event-stream"
 import {
+  SSE_EVENT_TYPE_CLIENT_LEASE,
+  benchClientActionBroker,
+} from "../learning/features/bench/client-actions"
+import {
   routeErrors,
   directoryForbiddenResponse,
   directoryQuerySchema,
@@ -70,6 +74,11 @@ const healthResponseSchema = z.object({
   version: z.string(),
 })
 
+const eventStreamQuerySchema = directoryQuerySchema.extend({
+  workspaceInstanceID: z.string().min(1).optional(),
+  connectionGeneration: z.coerce.number().int().nonnegative().optional(),
+})
+
 const FILE_ESCAPE_ERROR = "Access denied: path escapes project directory"
 
 function resolveProjectFilePath(directory: string, relativePath: string) {
@@ -115,10 +124,11 @@ export const CompatibilityRoutes = new Hono()
         403: directoryForbiddenResponse,
       },
     }),
-    validator("query", directoryQuerySchema),
+    validator("query", eventStreamQuerySchema),
     async (c) => {
       const directoryContext = resolveDirectoryRequestContext(c)
       if (!directoryContext.ok) return directoryContext.response
+      const eventQuery = c.req.valid("query")
 
       const query = new URLSearchParams()
       query.set("directory", directoryContext.context.directory)
@@ -134,6 +144,40 @@ export const CompatibilityRoutes = new Hono()
       return transformOpenCodeEventStreamResponse({
         response,
         directory: directoryContext.context.directory,
+        buddyEvents:
+          eventQuery.workspaceInstanceID && eventQuery.connectionGeneration !== undefined
+            ? (() => {
+                const lease = benchClientActionBroker.connectLease({
+                  directory: directoryContext.context.directory,
+                  instanceID: eventQuery.workspaceInstanceID,
+                  generation: eventQuery.connectionGeneration,
+                })
+                const accepted =
+                  lease.instanceID === eventQuery.workspaceInstanceID &&
+                  lease.generation === eventQuery.connectionGeneration
+                return {
+                  initialEvents: accepted
+                    ? []
+                    : [
+                        {
+                          directory: directoryContext.context.directory,
+                          payload: {
+                            type: SSE_EVENT_TYPE_CLIENT_LEASE,
+                            properties: { lease },
+                          },
+                        },
+                      ],
+                  subscribe: accepted
+                    ? (listener: (event: unknown) => void) =>
+                        benchClientActionBroker.subscribe({
+                          directory: directoryContext.context.directory,
+                          lease,
+                          listener,
+                        })
+                    : () => () => undefined,
+                }
+              })()
+            : undefined,
       })
     },
   )

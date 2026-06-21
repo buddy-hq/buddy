@@ -175,6 +175,14 @@ function benchSurfaceLabel(context: PromptContext): string {
   return target.path.toLowerCase().endsWith(".md") ? "markdown file" : "workspace file"
 }
 
+function benchDrawerStatusLine(context: PromptContext): string {
+  const benchContext = context.benchContext
+  if (!benchContext || benchContext.status === "closed") return "No Bench target is loaded."
+  if (!benchContext.drawer) return "No Explorer or Library drawer is open over the target."
+  const drawerLabel = benchContext.drawer.kind === "explorer" ? "Explorer" : "Library"
+  return `${drawerLabel} is open as a drawer over the loaded Bench target. The target remains loaded, but the drawer is currently over it.`
+}
+
 function isBenchShowingActiveResource(context: PromptContext): boolean {
   const benchContext = context.benchContext
   const activeResource = context.activeResource
@@ -219,7 +227,8 @@ function buildBenchTurnContextPart(context: PromptContext): TurnContextPartBuild
 
   const text = [
     "<bench_turn_context>",
-    `The learner has Bench open on ${benchSurfaceLabel(context)}.`,
+    `The learner has Bench loaded with ${benchSurfaceLabel(context)}.`,
+    benchDrawerStatusLine(context),
     locationLines.join("\n"),
     metadataBlock.trimEnd(),
     "Use bench_read_context if the learner refers to Bench contents or if exact current Bench context matters.",

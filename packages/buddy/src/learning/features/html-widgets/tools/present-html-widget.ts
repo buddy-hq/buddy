@@ -16,6 +16,7 @@ import {
 import { presentHtmlWidgetObject, type PresentHtmlWidgetObjectResult } from "../service/store"
 import { HtmlWidgetViewportPresetSchema } from "../service/types"
 import { normalizePresentedMediaPermissionPath } from "../../media-presentations/service/file-media"
+import { dispatchBestEffortBenchPresent } from "../../bench/auto-open"
 
 const HTML_WIDGET_RUNTIME_VIEW_ID = "runtime" as const
 const HTML_WIDGET_AUTO_OPEN_POLICY_ID = "fullscreen-html-widget" as const
@@ -117,6 +118,10 @@ function validatePresentHtmlWidgetInput(input: PresentHtmlWidgetInput, ctx: z.Re
 
 function createdByCallID(ctx: BuddyToolContext): string {
   return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : "unknown"
+}
+
+function nullableCallID(ctx: BuddyToolContext): string | null {
+  return typeof ctx.callID === "string" && ctx.callID.trim().length > 0 ? ctx.callID : null
 }
 
 function formatPresentHtmlWidgetValidationError(error: z.ZodError): string {
@@ -274,6 +279,27 @@ const presentHtmlWidgetTool = createBuddyTool({
           },
     )
     const buddyObjectResult = buildHtmlWidgetObjectResult({ result })
+    const shouldAutoOpen = HTML_WIDGET_AUTO_OPEN_VIEWPORT_PRESETS.has(
+      result.manifest.summary.viewportPreset,
+    )
+    if (shouldAutoOpen) {
+      dispatchBestEffortBenchPresent({
+        directory: ctx.directory,
+        sessionID: String(ctx.sessionID),
+        messageID: String(ctx.messageID),
+        callID: nullableCallID(ctx),
+        target: {
+          type: "object",
+          ref: {
+            kind: BUDDY_OBJECT_KINDS.htmlWidget,
+            objectID: result.manifest.objectID,
+            revisionID: null,
+            itemID: null,
+          },
+          viewID: HTML_WIDGET_RUNTIME_VIEW_ID,
+        },
+      })
+    }
     return {
       title: "Presented HTML widget",
       output: [
