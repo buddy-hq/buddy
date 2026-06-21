@@ -1,18 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useLocation } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button, toast } from "@buddy/ui"
 import { DirectoryInvalidNotebook } from "./directory-invalid-notebook"
 import { DirectoryChatReadingReaderPane } from "@/components/directory-chat/directory-chat-reading-reader-pane"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
 import {
-  useBenchRouteContext,
   useRegisterBenchContextProvider,
+  type BenchContextProvider,
 } from "@/components/bench/bench-route-context"
 import {
-  benchContextTargetFromBenchTarget,
   objectRef,
-  routeString,
   workspaceFileRef,
 } from "@/components/bench/bench-context-utils"
 import {
@@ -26,13 +23,18 @@ import { getPromptDraft, usePromptStore } from "@/state/prompt-store"
 import { resourceFileExtensionFromFormat, resourcesQueryOptions } from "@/state/resources-query"
 import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runtime"
 import { addResource, rebuildResource, type ResourceRecord } from "@/state/resource-actions"
-import { BENCH_CHAT_LAYOUT_DOCKED, useOpenBench } from "@/lib/bench-navigation"
+import {
+  BENCH_CHAT_LAYOUT_DOCKED,
+  useOpenBench,
+  type BenchTarget,
+} from "@/lib/bench-navigation"
 import { stringifyError } from "@/lib/api-client"
 
 type DirectoryChatReadingPageProps = {
   directory: string
   resourcePath: string
   resourceKey?: string
+  target: BenchTarget
 }
 
 function normalizeResourceRecordPath(record: ResourceRecord) {
@@ -47,11 +49,8 @@ function createReadingSelectionKey() {
 }
 
 export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
-  const location = useLocation()
   const queryClient = useQueryClient()
   const openBenchRoute = useOpenBench()
-  const benchRouteContext = useBenchRouteContext()
-  const benchRouteTarget = benchRouteContext.state.target
   const [processing, setProcessing] = useState(false)
   const [processingError, setProcessingError] = useState<string | undefined>(undefined)
   const [processBannerDismissed, setProcessBannerDismissed] = useState(false)
@@ -121,20 +120,16 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
         : readerStatus === "unsupported"
           ? "unavailable"
           : "ready"
-  const contextProvider = useMemo(
+  const contextProvider = useMemo<BenchContextProvider>(
     () => ({
       read: () => {
         const routeObjectID =
-          benchRouteTarget.type === "object" && benchRouteTarget.ref.kind === "resource"
-            ? benchRouteTarget.ref.objectID
+          props.target.type === "object" && props.target.ref.kind === "resource"
+            ? props.target.ref.objectID
             : null
         const objectID =
           routeObjectID ?? resourceRecord?.objectID ?? activeReadingResource?.objectID ?? null
         const alias = resourceRecord?.alias ?? activeReadingResource?.alias
-        const route = routeString({
-          pathname: location.pathname,
-          searchStr: location.searchStr,
-        })
         const metadata = [
           `resource_status: ${resourceRecord?.status ?? activeReadingResource?.status ?? "unknown"}`,
           ...(alias ? [`resource_alias: ${alias}`] : []),
@@ -186,14 +181,8 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
         ].filter((part): part is string => part !== undefined)
 
         return {
-          status: "open" as const,
-          target: benchContextTargetFromBenchTarget({
-            target: benchRouteTarget,
-            directory: props.directory,
-            title: resourceName,
-            route,
-            status: targetStatus,
-          }),
+          targetStatus,
+          title: resourceName,
           metadata,
           content: contentParts.join("\n\n"),
           refs: [
@@ -216,18 +205,15 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     }),
     [
       activeReadingResource,
-      benchRouteTarget,
-      location.pathname,
-      location.searchStr,
       normalizedPath,
-      props.directory,
+      props.target,
       readerStatus,
       resourceName,
       resourceRecord,
       targetStatus,
     ],
   )
-  useRegisterBenchContextProvider(contextProvider)
+  useRegisterBenchContextProvider({ target: props.target, provider: contextProvider })
   useEffect(() => {
     if (!readyDirectory || props.resourceKey || !resourceRecord?.objectID) return
     void openBenchRoute({

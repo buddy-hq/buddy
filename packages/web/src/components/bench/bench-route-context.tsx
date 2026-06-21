@@ -13,12 +13,17 @@ import {
   type BenchLeaveGuardResult,
 } from "@/lib/bench-leave-guard"
 import { useDirectoryWorkspace } from "@/components/directory-chat/directory-workspace-context"
+import {
+  buildBenchSurfaceContextSnapshot,
+  type BenchSurfaceContextEnrichment,
+} from "@/components/bench/bench-context-utils"
 import type {
   BenchLayoutProfileID,
   BenchMode,
   BenchRect,
   BenchTarget,
 } from "@/lib/bench-navigation"
+import { benchTargetKey } from "@/lib/bench-navigation"
 import type {
   BenchReadContextOpenOutput,
   BenchReadContextOutput,
@@ -27,6 +32,22 @@ import type {
 } from "@/lib/directory-workspace-lifecycle"
 
 type BenchContextProvider = {
+  read(input: {
+    target: BenchTarget
+    directory: string
+    route: string
+  }): BenchSurfaceContextEnrichment
+}
+
+type BenchContextProviderRegistration = {
+  target: BenchTarget
+  provider: BenchContextProvider
+  leaveGuard?: (
+    input: BenchLeaveGuardInput,
+  ) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>
+}
+
+type BenchFallbackContextProvider = {
   read(): BenchReadSurfaceContextOpenOutput
 }
 
@@ -40,6 +61,7 @@ type BenchFloatingChatState = "open" | "minimized"
 type BenchRuntimeState = {
   directory: string
   target: BenchTarget
+  route: string
   mode: BenchMode
   layoutProfile: BenchLayoutProfileID
   dockedChatWidthPx: number
@@ -69,7 +91,7 @@ export function BenchRouteContextProvider(props: {
   state: BenchRuntimeState
   visible: boolean
   activeSessionID: string | undefined
-  fallbackProvider: BenchContextProvider
+  fallbackProvider: BenchFallbackContextProvider
   setMode(input: BenchSetModeRequest): void
   setFloatingChatState(input: { state: BenchFloatingChatState; origin: "user" }): void
   children: ReactNode
@@ -163,34 +185,45 @@ export function useBenchRouteContext() {
 }
 
 export function useRegisterBenchContextProvider(
-  provider: BenchContextProvider,
-  leaveGuard?: (
-    input: BenchLeaveGuardInput,
-  ) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>,
+  input: BenchContextProviderRegistration,
 ): void {
   const benchContext = useBenchRouteContext()
   const registerSurface = benchContext.registerSurface
-  const target = benchContext.state.target
-  const providerRef = useRef(provider)
-  const leaveGuardRef = useRef(leaveGuard)
+  const targetKey = benchTargetKey(input.target)
+  const routeTargetKey = benchTargetKey(benchContext.state.target)
+  const targetBindingRef = useRef({ targetKey, target: input.target })
+  if (targetBindingRef.current.targetKey !== targetKey) {
+    targetBindingRef.current = { targetKey, target: input.target }
+  }
+  const target = targetBindingRef.current.target
+  const providerRef = useRef(input.provider)
+  const leaveGuardRef = useRef(input.leaveGuard)
   const semanticRevisionRef = useRef(0)
   const listenersRef = useRef(new Set<() => void>())
-  providerRef.current = provider
-  leaveGuardRef.current = leaveGuard
+  providerRef.current = input.provider
+  leaveGuardRef.current = input.leaveGuard
 
   useEffect(() => {
     semanticRevisionRef.current += 1
     for (const listener of listenersRef.current) {
       listener()
     }
-  }, [provider])
+  }, [input.provider])
 
   const getSnapshot = useCallback(
-    () => ({
-      semanticRevision: semanticRevisionRef.current,
-      context: providerRef.current.read(),
-    }),
-    [],
+    () =>
+      buildBenchSurfaceContextSnapshot({
+        target,
+        directory: benchContext.state.directory,
+        route: benchContext.state.route,
+        semanticRevision: semanticRevisionRef.current,
+        enrichment: providerRef.current.read({
+          target,
+          directory: benchContext.state.directory,
+          route: benchContext.state.route,
+        }),
+      }),
+    [benchContext.state.directory, benchContext.state.route, target],
   )
   const subscribe = useCallback((listener: () => void) => {
     listenersRef.current.add(listener)
@@ -204,6 +237,7 @@ export function useRegisterBenchContextProvider(
   )
 
   useEffect(() => {
+    if (targetKey !== routeTargetKey) return
     const unregister = registerSurface({
       target,
       getSnapshot,
@@ -211,11 +245,13 @@ export function useRegisterBenchContextProvider(
       leaveGuard: registeredLeaveGuard,
     })
     return unregister
-  }, [getSnapshot, registerSurface, registeredLeaveGuard, subscribe, target])
+  }, [getSnapshot, registerSurface, registeredLeaveGuard, routeTargetKey, subscribe, target, targetKey])
 }
 
 export type {
   BenchContextProvider,
+  BenchContextProviderRegistration,
+  BenchFallbackContextProvider,
   BenchFloatingChatState,
   BenchReadContextOpenOutput,
   BenchReadContextOutput,

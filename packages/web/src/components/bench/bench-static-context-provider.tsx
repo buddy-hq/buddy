@@ -1,10 +1,4 @@
-import { useLocation } from "@tanstack/react-router"
 import { useMemo, type ReactNode } from "react"
-import {
-  benchContextRefsFromBenchTarget,
-  benchContextTargetFromBenchTarget,
-  routeString,
-} from "./bench-context-utils"
 import { useBenchRouteContext, useRegisterBenchContextProvider } from "./bench-route-context"
 import type { BenchReadContextOpenOutput } from "./bench-route-context"
 
@@ -21,33 +15,19 @@ type BenchStaticContextProviderProps = {
 }
 
 export function BenchStaticContextProvider(props: BenchStaticContextProviderProps) {
-  const location = useLocation()
   const benchContext = useBenchRouteContext()
   const contextProvider = useMemo(
     () => ({
       read: () => ({
-        status: "open" as const,
-        target: benchContextTargetFromBenchTarget({
-          target: benchContext.state.target,
-          directory: benchContext.state.directory,
-          route: routeString({
-            pathname: location.pathname,
-            searchStr: location.searchStr,
-          }),
-          status: props.status,
-          ...(props.title ? { title: props.title } : {}),
-        }),
+        targetStatus: props.status,
+        ...(props.title ? { title: props.title } : {}),
         metadata: props.metadata,
         content: props.content,
-        refs: props.refs ?? benchContextRefsFromBenchTarget(benchContext.state.target),
+        ...(props.refs ? { refs: props.refs } : {}),
         hints: props.hints ?? [],
       }),
     }),
     [
-      benchContext.state.directory,
-      benchContext.state.target,
-      location.pathname,
-      location.searchStr,
       props.content,
       props.hints,
       props.metadata,
@@ -56,7 +36,10 @@ export function BenchStaticContextProvider(props: BenchStaticContextProviderProp
       props.title,
     ],
   )
-  useRegisterBenchContextProvider(contextProvider)
+  useRegisterBenchContextProvider({
+    target: benchContext.state.target,
+    provider: contextProvider,
+  })
 
   return <>{props.children}</>
 }

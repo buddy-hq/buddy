@@ -2,8 +2,11 @@ import { useMemo, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Button, cn } from "@buddy/ui"
 import { CheckIcon, ListIcon, PresentationIcon, XIcon } from "lucide-react"
-import { objectRef, objectTarget } from "@/components/bench/bench-context-utils"
-import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
+import { objectRef } from "@/components/bench/bench-context-utils"
+import {
+  useRegisterBenchContextProvider,
+  type BenchContextProvider,
+} from "@/components/bench/bench-route-context"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
 import {
   QuestionMarkdown,
@@ -13,6 +16,7 @@ import type {
   ObjectQuestionSetReadQuestionsResponse,
   ObjectQuestionSetSubmitAttemptResponse,
 } from "@buddy/sdk/types"
+import type { BenchTarget } from "@/lib/bench-navigation"
 
 type AnswerState = Record<string, string[]>
 type QuestionSetObject = ObjectQuestionSetReadQuestionsResponse
@@ -21,7 +25,7 @@ type QuestionSetQuestion = QuestionSetObject["questions"][number]
 
 type QuestionSetBenchReviewProps = {
   directory: string
-  route: string
+  target: Extract<BenchTarget, { type: "object" }>
   questionSet: QuestionSetObject
   onSubmit: (answers: AnswerState) => Promise<QuestionSetEvaluationResult>
 }
@@ -160,26 +164,11 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
     [props.questionSet, randomizeSeed],
   )
   const resultState = error ? "error" : result ? "submitted" : "not-submitted"
-  const contextProvider = useMemo(
+  const contextProvider = useMemo<BenchContextProvider>(
     () => ({
       read: () => ({
-        status: "open" as const,
-        target: objectTarget({
-          directory: props.directory,
-          title: props.questionSet.title,
-          target: {
-            type: "object",
-            ref: {
-              kind: "question-set",
-              objectID: props.questionSet.objectID,
-              revisionID: props.questionSet.revisionID,
-              itemID: null,
-            },
-            viewID: "practice",
-          },
-          route: props.route,
-          status: error ? "error" : "ready",
-        }),
+        targetStatus: error ? "error" : "ready",
+        title: props.questionSet.title,
         metadata: [
           `group_type: ${props.questionSet.groupType}`,
           `question_count: ${props.questionSet.questions.length}`,
@@ -213,15 +202,13 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
       error,
       evaluationByQuestionID,
       orderedChoicesByQuestionID,
-      props.directory,
       props.questionSet,
-      props.route,
       result,
       resultState,
       viewMode,
     ],
   )
-  useRegisterBenchContextProvider(contextProvider)
+  useRegisterBenchContextProvider({ target: props.target, provider: contextProvider })
 
   function updateAnswer(questionID: string, nextSelectedChoiceIds: string[]) {
     if (result) {

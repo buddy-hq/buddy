@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react"
-import { useLocation } from "@tanstack/react-router"
 import {
   DownloadIcon,
   Loader2Icon,
@@ -17,12 +16,11 @@ import {
 } from "lucide-react"
 import { Button, ToggleGroup, ToggleGroupItem, toast } from "@buddy/ui"
 import { BenchViewerShell, type BenchViewerAction } from "@/components/bench/bench-viewer-shell"
-import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
 import {
-  routeString,
-  workspaceFileRef,
-  workspaceFileTarget,
-} from "@/components/bench/bench-context-utils"
+  useRegisterBenchContextProvider,
+  type BenchContextProvider,
+} from "@/components/bench/bench-route-context"
+import { workspaceFileRef } from "@/components/bench/bench-context-utils"
 import { parseToolState } from "@/components/chat/tools/parse-tool-state"
 import { isRecord, readNonEmptyString, readString } from "@/components/chat/tools/types"
 import {
@@ -47,6 +45,7 @@ import {
   waitForMarkdownPdfRenderReady,
 } from "@/lib/markdown-pdf-export"
 import { fileNameFromPath } from "@/lib/workspace-file-paths"
+import type { BenchTarget } from "@/lib/bench-navigation"
 import {
   ProjectExplorerFileVersionConflictError,
   readProjectExplorerEditableFile,
@@ -186,7 +185,6 @@ async function waitForMarkdownBenchSaveToSettle(input: {
 }
 
 export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
-  const location = useLocation()
   const { controller } = useDirectoryNotebookRouteContext()
   const platform = usePlatform()
   const { themeId, themes } = useTheme()
@@ -235,20 +233,15 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
   const saveState = conflict ? "conflict" : saveError ? "error" : saving ? "saving" : "ready"
   const targetStatus =
     conflict || saveError ? "error" : dirty ? "dirty" : loading ? "loading" : "ready"
-  const contextProvider = useMemo(
+  const contextTarget = useMemo<BenchTarget>(
+    () => ({ type: "workspace-file", path: props.path, viewer: "markdown" }),
+    [props.path],
+  )
+  const contextProvider = useMemo<BenchContextProvider>(
     () => ({
       read: () => ({
-        status: "open" as const,
-        target: workspaceFileTarget({
-          directory: props.directory,
-          title,
-          path: props.path,
-          route: routeString({
-            pathname: location.pathname,
-            searchStr: location.searchStr,
-          }),
-          status: targetStatus,
-        }),
+        targetStatus,
+        title,
         metadata: [
           `dirty: ${dirty}`,
           `version: ${version}`,
@@ -272,10 +265,7 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
       contentFontScale,
       contentThemeMode,
       dirty,
-      location.pathname,
-      location.searchStr,
       markdown,
-      props.directory,
       props.path,
       saveState,
       targetStatus,
@@ -348,7 +338,11 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
       message: "Markdown could not be saved before leaving Bench.",
     }
   }, [])
-  useRegisterBenchContextProvider(contextProvider, leaveGuard)
+  useRegisterBenchContextProvider({
+    target: contextTarget,
+    provider: contextProvider,
+    leaveGuard,
+  })
   const contentTheme = useMemo(() => {
     const theme = themes[themeId]
     if (!theme) return undefined

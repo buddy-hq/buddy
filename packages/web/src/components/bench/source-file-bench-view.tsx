@@ -7,13 +7,11 @@ import {
   type VersionedTextFileEditorSnapshot,
 } from "@/components/editors/versioned-text-file-editor"
 import { WorkspaceFileActionsMenu } from "@/components/files/workspace-file-actions"
-import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
 import {
-  routeString,
-  workspaceFileRef,
-  workspaceFileTarget,
-} from "@/components/bench/bench-context-utils"
-import { useLocation } from "@tanstack/react-router"
+  useRegisterBenchContextProvider,
+  type BenchContextProvider,
+} from "@/components/bench/bench-route-context"
+import { workspaceFileRef } from "@/components/bench/bench-context-utils"
 import { allowBenchLeave, type BenchLeaveGuardResult } from "@/lib/bench-leave-guard"
 import {
   isReadableWorkspaceText,
@@ -21,6 +19,7 @@ import {
   workspaceTextEncoding,
 } from "@/lib/workspace-file-content"
 import { fileNameFromPath } from "@/lib/workspace-file-paths"
+import type { BenchTarget } from "@/lib/bench-navigation"
 import {
   ProjectExplorerFileVersionConflictError,
   readProjectExplorerEditableFile,
@@ -37,12 +36,15 @@ function blockBenchLeave(
 }
 
 export function SourceFileBenchView(props: { directory: string; path: string }) {
-  const location = useLocation()
   const editorRef = useRef<VersionedTextFileEditorHandle>(null)
   const snapshotRef = useRef<VersionedTextFileEditorSnapshot>()
   const [snapshot, setSnapshot] = useState<VersionedTextFileEditorSnapshot>()
   const [unreadable, setUnreadable] = useState(false)
   const title = fileNameFromPath(props.path) || props.path
+  const contextTarget = useMemo<BenchTarget>(
+    () => ({ type: "workspace-file", path: props.path, viewer: "file" }),
+    [props.path],
+  )
 
   const load = useCallback(async () => {
     const file = await readProjectExplorerEditableFile({
@@ -74,22 +76,13 @@ export function SourceFileBenchView(props: { directory: string; path: string }) 
     setSnapshot(next)
   }, [])
 
-  const contextProvider = useMemo(
+  const contextProvider = useMemo<BenchContextProvider>(
     () => ({
       read: () => {
         const current = snapshotRef.current
         return {
-          status: "open" as const,
-          target: workspaceFileTarget({
-            directory: props.directory,
-            title,
-            path: props.path,
-            route: routeString({
-              pathname: location.pathname,
-              searchStr: location.searchStr,
-            }),
-            status: current?.loading ? "loading" : unreadable ? "error" : "ready",
-          }),
+          targetStatus: current?.loading ? "loading" : unreadable ? "error" : "ready",
+          title,
           metadata: [
             "renderer: source-editor",
             `version: ${current?.version ?? "unknown"}`,
@@ -110,7 +103,7 @@ export function SourceFileBenchView(props: { directory: string; path: string }) 
         }
       },
     }),
-    [location.pathname, location.searchStr, props.directory, props.path, title, unreadable],
+    [props.path, title, unreadable],
   )
 
   const leaveGuard = useCallback(async (): Promise<BenchLeaveGuardResult> => {
@@ -136,7 +129,11 @@ export function SourceFileBenchView(props: { directory: string; path: string }) 
     return blockBenchLeave("dirty", "Source file changes could not be saved.")
   }, [unreadable])
 
-  useRegisterBenchContextProvider(contextProvider, leaveGuard)
+  useRegisterBenchContextProvider({
+    target: contextTarget,
+    provider: contextProvider,
+    leaveGuard,
+  })
 
   useEffect(() => {
     const shouldBlock = Boolean(

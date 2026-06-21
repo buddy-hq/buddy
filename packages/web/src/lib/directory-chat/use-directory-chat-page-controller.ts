@@ -110,11 +110,11 @@ import { useChatConfig } from "./use-chat-config"
 import { useTeachingWorkspace } from "./use-teaching-workspace"
 import { useAutoScroll } from "./use-auto-scroll"
 import {
-  RIGHT_SIDEBAR_DEFAULT_MAX_WIDTH,
-  RIGHT_SIDEBAR_DEFAULT_MIN_WIDTH,
+  RIGHT_WORKSPACE_DEFAULT_MAX_WIDTH_PX,
+  RIGHT_WORKSPACE_DEFAULT_MIN_WIDTH_PX,
   RIGHT_WORKSPACE_DEFAULT_WIDTH_PX,
   resolveRightWorkspaceWidth,
-} from "./right-sidebar-layout"
+} from "./right-workspace-layout"
 import {
   DIRECTORY_CHAT_SHELL_VIEW,
   type DirectoryChatShellView,
@@ -211,7 +211,7 @@ type ReadyDirectoryChatPageControllerState = {
   mainPaneProps: DirectoryChatMainPaneProps
   shellProps: Omit<
     DirectoryChatShellProps,
-    "leftSidebar" | "mainPane" | "rightSidebar"
+    "leftSidebar" | "mainPane" | "rightWorkspace"
   >
 }
 
@@ -1703,11 +1703,11 @@ export function useDirectoryChatPageController(
     leftSidebarMaxWidth: cs.leftSidebarMaxWidth,
     onLeftSidebarResize: cs.setLeftSidebarWidth,
     onLeftSidebarCollapse: () => cs.setLeftSidebarOpen(false),
-    rightSidebarOpen: rightWorkspaceOpen,
-    rightSidebarDisplayWidth: resolveRightWorkspaceWidth(RIGHT_WORKSPACE_DEFAULT_WIDTH_PX),
-    rightSidebarMinWidth: RIGHT_SIDEBAR_DEFAULT_MIN_WIDTH,
-    rightSidebarMaxWidth: RIGHT_SIDEBAR_DEFAULT_MAX_WIDTH,
-    onRightSidebarResize: () => undefined,
+    rightWorkspaceOpen: rightWorkspaceOpen,
+    rightWorkspaceDisplayWidth: resolveRightWorkspaceWidth(RIGHT_WORKSPACE_DEFAULT_WIDTH_PX),
+    rightWorkspaceMinWidth: RIGHT_WORKSPACE_DEFAULT_MIN_WIDTH_PX,
+    rightWorkspaceMaxWidth: RIGHT_WORKSPACE_DEFAULT_MAX_WIDTH_PX,
+    onRightWorkspaceResize: () => undefined,
     onRightWorkspaceToggle: () => {
       const commandType = rightWorkspaceOpen ? "collapse" : "reveal"
       logBenchToggleStep("directory-chat-page-controller-right-toggle-callback-entry", {
@@ -1737,7 +1737,7 @@ export function useDirectoryChatPageController(
           })
         })
     },
-    onRightSidebarCollapse: () => {
+    onRightWorkspaceCollapse: () => {
       logBenchToggleStep("directory-chat-page-controller-right-collapse-callback-entry", {
         decodedDirectory,
         sessionID,

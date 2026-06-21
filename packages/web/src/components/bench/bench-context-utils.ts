@@ -1,9 +1,25 @@
 import { fileNameFromPath } from "@/lib/workspace-file-paths"
-import type { BenchTarget } from "@/lib/bench-navigation"
+import { benchTargetKey, type BenchTarget } from "@/lib/bench-navigation"
 import type { BenchReadContextOpenOutput } from "./bench-route-context"
 
 type BenchContextTarget = BenchReadContextOpenOutput["target"]
 type BenchContextRef = BenchReadContextOpenOutput["refs"][number]
+type BenchReadSurfaceContextOpenOutput = Omit<BenchReadContextOpenOutput, "drawer"> &
+  Partial<Pick<BenchReadContextOpenOutput, "drawer">>
+type BenchSurfaceContextEnrichment = {
+  targetStatus: BenchContextTarget["status"]
+  title?: string
+  metadata: string[]
+  content: string
+  refs?: BenchContextRef[]
+  hints?: string[]
+}
+type BenchSurfaceContextSnapshot = {
+  target: BenchTarget
+  targetKey: string
+  semanticRevision: number
+  context: BenchReadSurfaceContextOpenOutput
+}
 
 const POSIX_PATH_SEPARATOR = "/"
 const WINDOWS_PATH_SEPARATOR = "\\"
@@ -159,6 +175,7 @@ function benchRouteFallbackContextFromTarget(input: {
 }): BenchReadContextOpenOutput {
   return {
     status: "open",
+    targetKey: benchTargetKey(input.target),
     target: benchContextTargetFromBenchTarget({
       target: input.target,
       directory: input.directory,
@@ -174,10 +191,40 @@ function benchRouteFallbackContextFromTarget(input: {
   }
 }
 
+function buildBenchSurfaceContextSnapshot(input: {
+  target: BenchTarget
+  directory: string
+  route: string
+  semanticRevision: number
+  enrichment: BenchSurfaceContextEnrichment
+}): BenchSurfaceContextSnapshot {
+  return {
+    target: input.target,
+    targetKey: benchTargetKey(input.target),
+    semanticRevision: input.semanticRevision,
+    context: {
+      status: "open",
+      targetKey: benchTargetKey(input.target),
+      target: benchContextTargetFromBenchTarget({
+        target: input.target,
+        directory: input.directory,
+        route: input.route,
+        status: input.enrichment.targetStatus,
+        ...(input.enrichment.title ? { title: input.enrichment.title } : {}),
+      }),
+      metadata: input.enrichment.metadata,
+      content: input.enrichment.content,
+      refs: input.enrichment.refs ?? benchContextRefsFromBenchTarget(input.target),
+      hints: input.enrichment.hints ?? [],
+    },
+  }
+}
+
 export {
   benchRouteFallbackContextFromTarget,
   benchContextTargetFromBenchTarget,
   benchContextRefsFromBenchTarget,
+  buildBenchSurfaceContextSnapshot,
   objectRef,
   objectTarget,
   routeString,
@@ -186,4 +233,10 @@ export {
   workspaceAbsolutePath,
   workspaceFileRef,
   workspaceFileTarget,
+}
+
+export type {
+  BenchReadSurfaceContextOpenOutput,
+  BenchSurfaceContextEnrichment,
+  BenchSurfaceContextSnapshot,
 }

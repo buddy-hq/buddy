@@ -35,9 +35,9 @@ type DesktopTitlebarProps = {
   isTurnActive?: boolean
   variant?: "chat" | "shell"
   leftSidebarOpen?: boolean
-  rightSidebarOpen?: boolean
+  rightWorkspaceOpen?: boolean
   onLeftSidebarToggle?: () => void
-  onRightSidebarToggle?: () => void
+  onRightWorkspaceToggle?: () => void
 }
 
 const ROOT_TITLEBAR_HEIGHT_CLASS = "h-10"
@@ -117,9 +117,9 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
     isFocusedBenchPage &&
     readBenchChatLayoutMode(readSearchParam(location.search, BENCH_CHAT_SEARCH_PARAM)) ===
       BENCH_CHAT_LAYOUT_FLOATING
-  const workspaceRightSidebarOpen =
+  const projectedRightWorkspaceOpen =
     workspace?.projection.dockedState.visibility === WORKSPACE_VISIBILITY_EXPANDED
-  const rightSidebarOpen = props.rightSidebarOpen ?? workspaceRightSidebarOpen ?? false
+  const rightWorkspaceOpen = props.rightWorkspaceOpen ?? projectedRightWorkspaceOpen ?? false
   const isParkedBenchPage =
     isFocusedBenchPage &&
     !isFloatingBenchPage &&
@@ -172,10 +172,10 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       isMac,
       isWindows,
       showSidebarToggles,
-      hasRightSidebarCallback: props.onRightSidebarToggle !== undefined,
+      hasRightWorkspaceCallback: props.onRightWorkspaceToggle !== undefined,
       hasWorkspaceContext: workspace !== undefined,
-      rightSidebarOpen,
-      workspaceRightSidebarOpen,
+      rightWorkspaceOpen,
+      projectedRightWorkspaceOpen,
       isFocusedBenchPage,
       isFloatingBenchPage,
       isParkedBenchPage,
@@ -191,12 +191,12 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
     isWindows,
     pathname,
     placement,
-    props.onRightSidebarToggle,
+    props.onRightWorkspaceToggle,
     props.variant,
-    rightSidebarOpen,
+    rightWorkspaceOpen,
     showSidebarToggles,
     workspace,
-    workspaceRightSidebarOpen,
+    projectedRightWorkspaceOpen,
   ])
 
   useEffect(() => {
@@ -238,24 +238,24 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
     return null
   }
 
-  function onToggleRightSidebar() {
-    const commandType = rightSidebarOpen ? "collapse" : "reveal"
+  function onToggleRightWorkspace() {
+    const commandType = rightWorkspaceOpen ? "collapse" : "reveal"
     logBenchToggleStep("desktop-titlebar-right-toggle-handler-entry", {
       placement,
       variant: props.variant ?? "chat",
       pathname,
-      rightSidebarOpen,
+      rightWorkspaceOpen,
       commandType,
-      hasRightSidebarCallback: props.onRightSidebarToggle !== undefined,
+      hasRightWorkspaceCallback: props.onRightWorkspaceToggle !== undefined,
       hasWorkspaceContext: workspace !== undefined,
-      workspaceRightSidebarOpen,
+      projectedRightWorkspaceOpen,
     })
 
-    if (props.onRightSidebarToggle) {
+    if (props.onRightWorkspaceToggle) {
       logBenchToggleStep("desktop-titlebar-right-toggle-calling-prop-callback", {
         commandType,
       })
-      props.onRightSidebarToggle()
+      props.onRightWorkspaceToggle()
       logBenchToggleStep("desktop-titlebar-right-toggle-prop-callback-returned", {
         commandType,
       })
@@ -320,7 +320,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
     await workspace.controller.execute({ type: "close" })
   }
 
-  const rightSidebarToggle = showSidebarToggles ? (
+  const rightWorkspaceToggle = showSidebarToggles ? (
     <div
       data-titlebar-no-drag
       className="mr-2 flex shrink-0 items-center gap-1 motion-reduce:transition-none [-webkit-app-region:no-drag]"
@@ -334,17 +334,17 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
     >
       <Button
         type="button"
-        data-action="titlebar-toggle-right-sidebar"
+        data-action="titlebar-toggle-right-workspace"
         variant="ghost"
         className="relative h-6 w-8 p-0 box-border text-icon-base hover:bg-surface-base-hover [-webkit-app-region:no-drag]"
         aria-label={
-          rightSidebarOpen
+          rightWorkspaceOpen
             ? language.t("desktopTitlebar.collapseRightPanel")
             : language.t("desktopTitlebar.expandRightPanel")
         }
-        aria-expanded={rightSidebarOpen}
+        aria-expanded={rightWorkspaceOpen}
         title={
-          rightSidebarOpen
+          rightWorkspaceOpen
             ? language.t("desktopTitlebar.collapseRightPanel")
             : language.t("desktopTitlebar.expandRightPanel")
         }
@@ -358,9 +358,9 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
           logBenchToggleDomEvent("right-toggle-button-mouseup-capture", event)
         }
         onClickCapture={(event) => logBenchToggleDomEvent("right-toggle-button-click-capture", event)}
-        onClick={onToggleRightSidebar}
+        onClick={onToggleRightWorkspace}
       >
-        {rightSidebarOpen ? (
+        {rightWorkspaceOpen ? (
           <TitlebarIcon icon={LayoutRightPartialIcon} />
         ) : (
           <TitlebarIcon icon={LayoutRightIcon} />
@@ -522,7 +522,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
           data-titlebar-no-drag
           className="flex shrink-0 items-center gap-1 mr-2 ml-auto [-webkit-app-region:no-drag]"
         >
-          {!isShellVariant && rightSidebarToggle}
+          {!isShellVariant && rightWorkspaceToggle}
 
           {isWindows ? (
             <>

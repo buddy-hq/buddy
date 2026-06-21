@@ -40,7 +40,7 @@ import { ensureNotebookAgentsMd } from "@/lib/ensure-notebook-agents-md"
 import {
   RIGHT_WORKSPACE_RAIL_WIDTH_PX,
   resolveRightWorkspaceSelectorDrawerWidth,
-} from "@/lib/directory-chat/right-sidebar-layout"
+} from "@/lib/directory-chat/right-workspace-layout"
 import { useChatStore } from "@/state/chat-store"
 import type { MessageWithParts } from "@/state/chat-types"
 import type { ResourceOpenOptions } from "@/state/resources-query"

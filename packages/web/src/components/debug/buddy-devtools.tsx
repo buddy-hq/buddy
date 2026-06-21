@@ -667,11 +667,11 @@ function DevToolsSnapshotTab(props: { directory: string }) {
     <div className="flex h-full min-h-0 flex-col p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-medium">{language.t("rightSidebar.snapshot.title")}</p>
+          <p className="text-xs font-medium">{language.t("devtools.learnerSnapshot.title")}</p>
           <p className="text-[11px] text-text-weak">
             {curriculumView?.workspace.label ??
-              language.t("rightSidebar.snapshot.workspaceFallback")}{" "}
-            {curriculumView?.coldStart ? language.t("rightSidebar.snapshot.coldStartBadge") : ""}
+              language.t("devtools.learnerSnapshot.workspaceFallback")}{" "}
+            {curriculumView?.coldStart ? language.t("devtools.learnerSnapshot.coldStartBadge") : ""}
           </p>
         </div>
         <Button
@@ -686,19 +686,19 @@ function DevToolsSnapshotTab(props: { directory: string }) {
       </div>
 
       {query.isPending ? (
-        <div className="text-sm text-text-weak">{language.t("rightSidebar.snapshot.loading")}</div>
+        <div className="text-sm text-text-weak">{language.t("devtools.learnerSnapshot.loading")}</div>
       ) : curriculumView ? (
         <div className="flex-1 min-h-0 space-y-3 overflow-y-auto">
           <Card size="sm" className="gap-0 py-0">
             <CardContent className="space-y-3 px-3 py-3">
               <div className="space-y-1">
                 <p className="text-sm font-medium text-text-base">
-                  {language.t("rightSidebar.snapshot.teachingWorkspaceState")}
+                  {language.t("devtools.learnerSnapshot.teachingWorkspaceState")}
                 </p>
                 <p className="text-sm text-text-weak">
                   {curriculumView.coldStart
-                    ? language.t("rightSidebar.snapshot.noGoals")
-                    : language.t("rightSidebar.snapshot.showingCurrentState")}
+                    ? language.t("devtools.learnerSnapshot.noGoals")
+                    : language.t("devtools.learnerSnapshot.showingCurrentState")}
                 </p>
               </div>
             </CardContent>
@@ -714,15 +714,15 @@ function DevToolsSnapshotTab(props: { directory: string }) {
               />
             ))}
             <RuntimeListSection
-              title={language.t("rightSidebar.snapshot.constraints")}
+              title={language.t("devtools.learnerSnapshot.constraints")}
               items={curriculumView.constraintsSummary}
-              empty={language.t("rightSidebar.snapshot.noConstraints")}
+              empty={language.t("devtools.learnerSnapshot.noConstraints")}
             />
           </div>
         </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-border-base/70 bg-background-base p-3 text-sm text-text-weak">
-          {language.t("rightSidebar.unavailable.snapshot")}
+          {language.t("devtools.learnerSnapshot.unavailable")}
         </div>
       )}
 

@@ -1,4 +1,5 @@
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
+import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import type {
   BenchLeaveGuardInput,
   BenchLeaveGuardResult,
@@ -42,6 +43,8 @@ type BenchClientActionCompletionDraft =
   | Omit<BenchTerminalClientActionCompletion, "lease">
 
 type BenchSurfaceSnapshot = {
+  target: BenchTarget
+  targetKey: string
   semanticRevision: number
   context: BenchReadSurfaceContextOpenOutput
 }
@@ -160,6 +163,68 @@ function withDrawerContext(input: {
   return {
     ...context,
     drawer: drawerContext(input.drawer),
+  }
+}
+
+function snapshotMatchesBenchTarget(input: {
+  snapshot: BenchSurfaceSnapshot
+  target: BenchTarget
+}): boolean {
+  const targetKey = benchTargetKey(input.target)
+  return (
+    input.snapshot.targetKey === targetKey &&
+    input.snapshot.context.targetKey === targetKey &&
+    benchTargetKey(input.snapshot.target) === targetKey
+  )
+}
+
+function contextTargetDiagnosticValue(
+  target: BenchReadContextOpenOutput["target"],
+): Record<string, unknown> {
+  if (target.type === "workspace-file") {
+    return {
+      type: target.type,
+      path: target.path,
+      route: target.route,
+      status: target.status,
+    }
+  }
+
+  return {
+    type: target.type,
+    kind: target.ref.kind,
+    objectID: target.ref.objectID,
+    revisionID: target.ref.revisionID,
+    itemID: target.ref.itemID,
+    viewID: target.viewID,
+    route: target.route,
+    status: target.status,
+  }
+}
+
+function contextTargetDiagnostic(value: BenchReadContextOutput): Record<string, unknown> {
+  if (value.status === "closed") return { status: value.status }
+  return {
+    status: value.status,
+    targetKey: value.targetKey,
+    target: contextTargetDiagnosticValue(value.target),
+  }
+}
+
+function surfaceContextDiagnostic(value: BenchReadSurfaceContextOpenOutput): Record<string, unknown> {
+  return {
+    status: value.status,
+    targetKey: value.targetKey,
+    target: contextTargetDiagnosticValue(value.target),
+  }
+}
+
+function snapshotDiagnostic(snapshot: BenchContextPublishSnapshot | null): Record<string, unknown> {
+  if (!snapshot) return { status: "missing" }
+  return {
+    status: snapshot.status,
+    publicationKey: snapshot.publicationKey,
+    value: contextTargetDiagnostic(snapshot.value),
   }
 }
 
@@ -369,6 +434,13 @@ export class DirectoryWorkspaceLifecycleService {
             drawer: input.completion.drawer,
           })
         : null
+    logBenchToggleStep("workspace-lifecycle-complete-client-action-captured", () => ({
+      directory: this.#directory,
+      actionID: input.actionID,
+      sessionID: input.sessionID,
+      completion: input.completion,
+      snapshot: snapshotDiagnostic(completedSnapshot),
+    }))
     const complete = this.#publishQueue.then(
       () => this.#completeClientAction(input, completedSnapshot),
       () => this.#completeClientAction(input, completedSnapshot),
@@ -493,7 +565,35 @@ export class DirectoryWorkspaceLifecycleService {
           body,
         }),
       )
+      logBenchToggleStep("workspace-lifecycle-complete-client-action-response", () => ({
+        directory: this.#directory,
+        actionID: input.actionID,
+        sessionID: input.sessionID,
+        response,
+        completionOutcome: input.completion.outcome,
+        lease: leaseIdentity,
+        body:
+          body.outcome === "committed"
+            ? {
+                observedRoute: body.observedRoute,
+                observedVisibility: body.observedVisibility,
+                drawer: body.drawer,
+                changed: body.changed,
+                publicationSequence: body.publicationSequence,
+                context: contextTargetDiagnostic(body.context),
+              }
+            : body,
+      }))
       if (response.status === "conflict") {
+        logBenchToggleStep("workspace-lifecycle-complete-client-action-conflict", () => ({
+          directory: this.#directory,
+          actionID: input.actionID,
+          sessionID: input.sessionID,
+          activeSessionID,
+          completion: input.completion,
+          snapshot: snapshotDiagnostic(completedSnapshot),
+          lease: leaseIdentity,
+        }))
         if (this.#lease === lease) return false
         continue
       }
@@ -552,25 +652,47 @@ export class DirectoryWorkspaceLifecycleService {
       }
     }
 
-    const targetKey = benchTargetKey(input.route.target)
-    const registration = this.#selectedRegistration(targetKey)
-    if (registration) {
+    const observedTarget = input.route.target
+    const targetKey = benchTargetKey(observedTarget)
+    const registrations = this.#selectedRegistrations(targetKey)
+    for (const registration of registrations) {
       const snapshot = registration.getSnapshot()
-      return {
-        status: "open",
-        publicationKey: openPublicationKey({
+      if (snapshotMatchesBenchTarget({ snapshot, target: observedTarget })) {
+        const output = {
+          status: "open",
+          publicationKey: openPublicationKey({
+            directory: this.#directory,
+            sessionID: input.sessionID,
+            targetKey,
+            visibility: input.visibility,
+            drawer: input.drawer,
+            semanticRevision: snapshot.semanticRevision,
+          }),
+          value: withDrawerContext({
+            context: snapshot.context,
+            drawer: input.drawer,
+          }),
+        } satisfies BenchContextPublishSnapshot
+        logBenchToggleStep("workspace-lifecycle-read-observed-snapshot-registration", () => ({
           directory: this.#directory,
           sessionID: input.sessionID,
-          targetKey: registration.targetKey,
-          visibility: input.visibility,
-          drawer: input.drawer,
-          semanticRevision: snapshot.semanticRevision,
-        }),
-        value: withDrawerContext({
-          context: snapshot.context,
-          drawer: input.drawer,
-        }),
+          targetKey,
+          registrationID: registration.registrationID,
+          snapshot: snapshotDiagnostic(output),
+        }))
+        return output
       }
+
+      logBenchToggleStep("workspace-lifecycle-read-observed-snapshot-registration-target-mismatch", () => ({
+        directory: this.#directory,
+        sessionID: input.sessionID,
+        targetKey,
+        registrationID: registration.registrationID,
+        snapshotTarget: snapshot.target,
+        snapshotTargetKey: snapshot.targetKey,
+        expectedTarget: observedTarget,
+        snapshot: surfaceContextDiagnostic(snapshot.context),
+      }))
     }
 
     const currentTargetKey = this.#getProjection().bench.targetKey
@@ -578,7 +700,7 @@ export class DirectoryWorkspaceLifecycleService {
       (currentTargetKey === targetKey ? this.#fallbackProvider?.() : null) ??
       this.#getRouteFallbackContext(input.route)
     if (!fallbackContext) {
-      return {
+      const output = {
         status: "closed",
         publicationKey: closedPublicationKey({
           directory: this.#directory,
@@ -586,10 +708,18 @@ export class DirectoryWorkspaceLifecycleService {
           visibility: input.visibility,
         }),
         value: closedBenchContext(),
-      }
+      } satisfies BenchContextPublishSnapshot
+      logBenchToggleStep("workspace-lifecycle-read-observed-snapshot-missing-context", () => ({
+        directory: this.#directory,
+        sessionID: input.sessionID,
+        targetKey,
+        currentTargetKey,
+        snapshot: snapshotDiagnostic(output),
+      }))
+      return output
     }
 
-    return {
+    const output = {
       status: "open",
       publicationKey: openPublicationKey({
         directory: this.#directory,
@@ -603,7 +733,16 @@ export class DirectoryWorkspaceLifecycleService {
         context: fallbackContext,
         drawer: input.drawer,
       }),
-    }
+    } satisfies BenchContextPublishSnapshot
+    logBenchToggleStep("workspace-lifecycle-read-observed-snapshot-fallback", () => ({
+      directory: this.#directory,
+      sessionID: input.sessionID,
+      targetKey,
+      currentTargetKey,
+      usedLiveFallbackProvider: currentTargetKey === targetKey,
+      snapshot: snapshotDiagnostic(output),
+    }))
+    return output
   }
 
   async #publishCurrentSnapshot(
@@ -716,19 +855,23 @@ export class DirectoryWorkspaceLifecycleService {
     return next
   }
 
+  #selectedRegistrations(
+    targetKey = this.#getProjection().bench.targetKey,
+  ): BenchSurfaceRegistration[] {
+    if (!targetKey) return []
+
+    const selected: BenchSurfaceRegistration[] = []
+    for (const registration of this.#registrations.values()) {
+      if (registration.targetKey !== targetKey) continue
+      selected.push(registration)
+    }
+    return selected.toSorted((left, right) => right.order - left.order)
+  }
+
   #selectedRegistration(
     targetKey = this.#getProjection().bench.targetKey,
   ): BenchSurfaceRegistration | undefined {
-    if (!targetKey) return undefined
-
-    let selected: BenchSurfaceRegistration | undefined
-    for (const registration of this.#registrations.values()) {
-      if (registration.targetKey !== targetKey) continue
-      if (!selected || registration.order > selected.order) {
-        selected = registration
-      }
-    }
-    return selected
+    return this.#selectedRegistrations(targetKey)[0]
   }
 }
 

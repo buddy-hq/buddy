@@ -68,7 +68,7 @@ export function describeBenchToggleEvent(event: DiagnosticEventLike): DomEventDi
 export function isBenchToggleEventTarget(target: EventTarget | null): boolean {
   return (
     target instanceof Element &&
-    target.closest('[data-action="titlebar-toggle-right-sidebar"]') !== null
+    target.closest('[data-action="titlebar-toggle-right-workspace"]') !== null
   )
 }
 

@@ -8,12 +8,12 @@ import {
 } from "@buddy/ui"
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
 import { usePersistentResizablePanelLayout } from "@/components/layout/use-persistent-resizable-panel-layout"
-import { RIGHT_SIDEBAR_COLLAPSE_THRESHOLD_PX } from "@/lib/directory-chat/right-sidebar-layout"
+import { RIGHT_WORKSPACE_COLLAPSE_THRESHOLD_PX } from "@/lib/directory-chat/right-workspace-layout"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 
 const DIRECTORY_CHAT_LAYOUT_ID = "directory-chat-layout"
 const DIRECTORY_CHAT_MAIN_PANEL_ID = "directory-chat-main-pane"
-const DIRECTORY_CHAT_RIGHT_SIDEBAR_PANEL_ID = "directory-chat-right-sidebar"
+const DIRECTORY_CHAT_RIGHT_WORKSPACE_PANEL_ID = "directory-chat-right-workspace"
 const BENCH_RIGHT_WORKSPACE_PANEL_COMPONENT = "bench-right-workspace-panel"
 const CHAT_TITLEBAR_HEIGHT_PX = 52
 const DIRECTORY_CHAT_MAIN_PANE_MIN_WIDTH_PX = 320
@@ -21,7 +21,7 @@ const DIRECTORY_CHAT_MAIN_PANE_MIN_WIDTH_PX = 320
 type DirectoryChatShellProps = {
   leftSidebar: ReactNode
   mainPane: ReactNode
-  rightSidebar: ReactNode
+  rightWorkspace: ReactNode
   contentLayout?: ReactNode
   immersive?: boolean
   chatTitle?: string
@@ -40,21 +40,21 @@ type DirectoryChatShellProps = {
   leftSidebarOverlayOpen?: boolean
   onLeftSidebarOverlayOpenChange?: (open: boolean) => void
   onLeftSidebarToggle?: () => void
-  rightSidebarOpen: boolean
-  rightSidebarDisplayWidth: number
-  rightSidebarMinWidth: number
-  rightSidebarMaxWidth: number
-  onRightSidebarResize: (width: number) => void
-  onRightSidebarResizeIntent?: (intent: ResizeHandleIntent) => void
+  rightWorkspaceOpen: boolean
+  rightWorkspaceDisplayWidth: number
+  rightWorkspaceMinWidth: number
+  rightWorkspaceMaxWidth: number
+  onRightWorkspaceResize: (width: number) => void
+  onRightWorkspaceResizeIntent?: (intent: ResizeHandleIntent) => void
   onRightWorkspaceToggle: () => void
-  onRightSidebarCollapse: () => void
+  onRightWorkspaceCollapse: () => void
 }
 
 export function DirectoryChatShell(props: DirectoryChatShellProps) {
   const {
     leftSidebar,
     mainPane,
-    rightSidebar,
+    rightWorkspace,
     contentLayout,
     immersive = false,
     chatTitle,
@@ -73,17 +73,17 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     leftSidebarOverlayOpen = false,
     onLeftSidebarOverlayOpenChange,
     onLeftSidebarToggle,
-    rightSidebarOpen,
-    rightSidebarDisplayWidth,
-    rightSidebarMinWidth,
-    rightSidebarMaxWidth,
-    onRightSidebarResize,
-    onRightSidebarResizeIntent,
+    rightWorkspaceOpen,
+    rightWorkspaceDisplayWidth,
+    rightWorkspaceMinWidth,
+    rightWorkspaceMaxWidth,
+    onRightWorkspaceResize,
+    onRightWorkspaceResizeIntent,
     onRightWorkspaceToggle,
-    onRightSidebarCollapse,
+    onRightWorkspaceCollapse,
   } = props
 
-  const rightSidebarPanelRef = useResizablePanelRef()
+  const rightWorkspacePanelRef = useResizablePanelRef()
   const leftSidebarOverlayRef = useRef<HTMLDivElement>(null)
 
   const leftSidebarResolvedWidth = !immersive && leftSidebarOpen ? leftSidebarDisplayWidth : 0
@@ -91,7 +91,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
   const hasContentLayout = contentLayout !== undefined
 
   const layoutPanelIds = useMemo(() => {
-    return [DIRECTORY_CHAT_MAIN_PANEL_ID, DIRECTORY_CHAT_RIGHT_SIDEBAR_PANEL_ID]
+    return [DIRECTORY_CHAT_MAIN_PANEL_ID, DIRECTORY_CHAT_RIGHT_WORKSPACE_PANEL_ID]
   }, [])
   const { defaultLayout, onLayoutChanged } = usePersistentResizablePanelLayout({
     id: DIRECTORY_CHAT_LAYOUT_ID,
@@ -99,31 +99,31 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
   })
 
   useEffect(() => {
-    const nextSize = rightSidebarOpen ? rightSidebarDisplayWidth : 0
+    const nextSize = rightWorkspaceOpen ? rightWorkspaceDisplayWidth : 0
     logBenchToggleStep("directory-chat-shell-resize-effect-before", {
-      rightSidebarOpen,
-      rightSidebarDisplayWidth,
+      rightWorkspaceOpen,
+      rightWorkspaceDisplayWidth,
       nextSize,
-      hasPanelRef: rightSidebarPanelRef.current !== null,
+      hasPanelRef: rightWorkspacePanelRef.current !== null,
     })
-    rightSidebarPanelRef.current?.resize(nextSize)
+    rightWorkspacePanelRef.current?.resize(nextSize)
     logBenchToggleStep("directory-chat-shell-resize-effect-after", {
-      rightSidebarOpen,
-      rightSidebarDisplayWidth,
+      rightWorkspaceOpen,
+      rightWorkspaceDisplayWidth,
       nextSize,
-      hasPanelRef: rightSidebarPanelRef.current !== null,
+      hasPanelRef: rightWorkspacePanelRef.current !== null,
     })
-  }, [rightSidebarDisplayWidth, rightSidebarOpen, rightSidebarPanelRef])
+  }, [rightWorkspaceDisplayWidth, rightWorkspaceOpen, rightWorkspacePanelRef])
 
   useEffect(() => {
     logBenchToggleStep("directory-chat-shell-state", {
       leftSidebarOpen,
       leftSidebarDisplayWidth,
       leftSidebarResolvedWidth,
-      rightSidebarOpen,
-      rightSidebarDisplayWidth,
-      rightSidebarMinWidth,
-      rightSidebarMaxWidth,
+      rightWorkspaceOpen,
+      rightWorkspaceDisplayWidth,
+      rightWorkspaceMinWidth,
+      rightWorkspaceMaxWidth,
       titlebarVariant,
       mainPaneMinWidth,
       immersive,
@@ -136,10 +136,10 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     hasContentLayout,
     immersive,
     mainPaneMinWidth,
-    rightSidebarDisplayWidth,
-    rightSidebarMaxWidth,
-    rightSidebarMinWidth,
-    rightSidebarOpen,
+    rightWorkspaceDisplayWidth,
+    rightWorkspaceMaxWidth,
+    rightWorkspaceMinWidth,
+    rightWorkspaceOpen,
     titlebarVariant,
   ])
 
@@ -184,34 +184,34 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
 
   function handleRightWorkspaceToggle() {
     logBenchToggleStep("directory-chat-shell-right-toggle-callback-entry", {
-      rightSidebarOpen,
-      rightSidebarDisplayWidth,
-      rightSidebarMinWidth,
-      rightSidebarMaxWidth,
+      rightWorkspaceOpen,
+      rightWorkspaceDisplayWidth,
+      rightWorkspaceMinWidth,
+      rightWorkspaceMaxWidth,
     })
     onRightWorkspaceToggle()
     logBenchToggleStep("directory-chat-shell-right-toggle-callback-returned", {
-      rightSidebarOpen,
-      rightSidebarDisplayWidth,
+      rightWorkspaceOpen,
+      rightWorkspaceDisplayWidth,
     })
   }
 
-  function handleRightSidebarCollapse() {
+  function handleRightWorkspaceCollapse() {
     logBenchToggleStep("directory-chat-shell-right-collapse-callback-entry", {
-      rightSidebarOpen,
-      rightSidebarDisplayWidth,
+      rightWorkspaceOpen,
+      rightWorkspaceDisplayWidth,
     })
-    onRightSidebarCollapse()
+    onRightWorkspaceCollapse()
     logBenchToggleStep("directory-chat-shell-right-collapse-callback-returned", {
-      rightSidebarOpen,
-      rightSidebarDisplayWidth,
+      rightWorkspaceOpen,
+      rightWorkspaceDisplayWidth,
     })
   }
 
   return (
     <div
       data-component="directory-chat-shell"
-      data-right-workspace-open={rightSidebarOpen ? "true" : "false"}
+      data-right-workspace-open={rightWorkspaceOpen ? "true" : "false"}
       className="relative grid h-full w-full overflow-hidden bg-surface-raised-base transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none"
       style={{
         gridTemplateColumns: `${leftSidebarResolvedWidth}px minmax(0, 1fr)`,
@@ -252,9 +252,9 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           isTurnActive={isTurnActive}
           variant={titlebarVariant}
           leftSidebarOpen={leftSidebarOpen}
-          rightSidebarOpen={rightSidebarOpen}
+          rightWorkspaceOpen={rightWorkspaceOpen}
           onLeftSidebarToggle={onLeftSidebarToggle}
-          onRightSidebarToggle={handleRightWorkspaceToggle}
+          onRightWorkspaceToggle={handleRightWorkspaceToggle}
         />
       </div>
 
@@ -310,36 +310,36 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           </ResizablePanel>
 
           <ResizablePanel
-            id={DIRECTORY_CHAT_RIGHT_SIDEBAR_PANEL_ID}
+            id={DIRECTORY_CHAT_RIGHT_WORKSPACE_PANEL_ID}
             data-component={BENCH_RIGHT_WORKSPACE_PANEL_COMPONENT}
-            panelRef={rightSidebarPanelRef}
-            defaultSize={rightSidebarOpen ? rightSidebarDisplayWidth : 0}
-            minSize={rightSidebarOpen ? rightSidebarMinWidth : 0}
-            maxSize={rightSidebarOpen ? rightSidebarMaxWidth : 0}
+            panelRef={rightWorkspacePanelRef}
+            defaultSize={rightWorkspaceOpen ? rightWorkspaceDisplayWidth : 0}
+            minSize={rightWorkspaceOpen ? rightWorkspaceMinWidth : 0}
+            maxSize={rightWorkspaceOpen ? rightWorkspaceMaxWidth : 0}
             className="relative flex min-h-0 min-w-0 overflow-hidden"
           >
             <div
-              data-component="directory-chat-right-sidebar-shell"
-              data-open={rightSidebarOpen ? "true" : "false"}
-              aria-hidden={!rightSidebarOpen}
-              className={`h-full w-full ${rightSidebarOpen ? "" : "pointer-events-none"}`}
+              data-component="directory-chat-right-workspace-shell"
+              data-open={rightWorkspaceOpen ? "true" : "false"}
+              aria-hidden={!rightWorkspaceOpen}
+              className={`h-full w-full ${rightWorkspaceOpen ? "" : "pointer-events-none"}`}
             >
-              {rightSidebar}
+              {rightWorkspace}
             </div>
-            {rightSidebarOpen ? (
+            {rightWorkspaceOpen ? (
               <ResizeHandle
                 direction="horizontal"
                 edge="start"
-                size={rightSidebarDisplayWidth}
-                min={rightSidebarMinWidth}
-                max={rightSidebarMaxWidth}
-                collapseThreshold={RIGHT_SIDEBAR_COLLAPSE_THRESHOLD_PX}
+                size={rightWorkspaceDisplayWidth}
+                min={rightWorkspaceMinWidth}
+                max={rightWorkspaceMaxWidth}
+                collapseThreshold={RIGHT_WORKSPACE_COLLAPSE_THRESHOLD_PX}
                 onResize={(width) => {
-                  rightSidebarPanelRef.current?.resize(width)
-                  onRightSidebarResize(width)
+                  rightWorkspacePanelRef.current?.resize(width)
+                  onRightWorkspaceResize(width)
                 }}
-                onResizeIntent={onRightSidebarResizeIntent}
-                onCollapse={handleRightSidebarCollapse}
+                onResizeIntent={onRightWorkspaceResizeIntent}
+                onCollapse={handleRightWorkspaceCollapse}
               />
             ) : null}
           </ResizablePanel>

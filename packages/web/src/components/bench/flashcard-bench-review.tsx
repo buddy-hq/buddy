@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { objectRef, objectTarget } from "@/components/bench/bench-context-utils"
-import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
+import { objectRef } from "@/components/bench/bench-context-utils"
+import {
+  useRegisterBenchContextProvider,
+  type BenchContextProvider,
+} from "@/components/bench/bench-route-context"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
 import {
   ReviewContent,
@@ -13,11 +16,12 @@ import type {
   ObjectFlashcardDeckSubmitReviewResponse,
 } from "@buddy/sdk/types"
 import { buildFlashcardVisibleContent } from "@/components/flashcard/flashcard-card-content"
+import type { BenchTarget } from "@/lib/bench-navigation"
 
 type FlashcardBenchReviewProps = {
   directory: string
   objectID: string
-  route: string
+  target: Extract<BenchTarget, { type: "object" }>
   deck: ObjectFlashcardDeckReadDeckResponse
 }
 
@@ -79,26 +83,12 @@ export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
   const [swipeRating, setSwipeRating] = useState<CardRating | null>(null)
   const cardsReviewedRef = useRef(0)
   const cardStartTimeRef = useRef(Date.now())
-  const contextProvider = useMemo(
+  const contextProvider = useMemo<BenchContextProvider>(
     () => ({
       read: () => ({
-        status: "open" as const,
-        target: objectTarget({
-          directory: props.directory,
-          title: deck.title,
-          target: {
-            type: "object",
-            ref: {
-              kind: "flashcard-deck",
-              objectID: props.objectID,
-              revisionID: null,
-              itemID: null,
-            },
-            viewID: "review",
-          },
-          route: props.route,
-          status: phase.kind === "error" ? "error" : phase.kind === "loading" ? "loading" : "ready",
-        }),
+        targetStatus:
+          phase.kind === "error" ? "error" : phase.kind === "loading" ? "loading" : "ready",
+        title: deck.title,
         metadata: [
           `review_phase: ${phase.kind}`,
           `revealed: ${revealed}`,
@@ -122,9 +112,9 @@ export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
         hints: ["Do not include hidden answer text until it is revealed."],
       }),
     }),
-    [cardsReviewed, deck, phase, props.directory, props.objectID, props.route, revealed],
+    [cardsReviewed, deck, phase, props.objectID, revealed],
   )
-  useRegisterBenchContextProvider(contextProvider)
+  useRegisterBenchContextProvider({ target: props.target, provider: contextProvider })
 
   const fetchNextCard = useCallback(
     async (options?: FetchNextCardOptions): Promise<void> => {

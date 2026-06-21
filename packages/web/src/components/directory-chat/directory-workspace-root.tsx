@@ -39,7 +39,7 @@ import {
 } from "@/lib/bench-navigation"
 import type { BenchFloatingChatState } from "@/components/bench/bench-route-context"
 import { resourceSessionKey, useChatStore } from "@/state/chat-store"
-import { RIGHT_WORKSPACE_RAIL_WIDTH_PX } from "@/lib/directory-chat/right-sidebar-layout"
+import { RIGHT_WORKSPACE_RAIL_WIDTH_PX } from "@/lib/directory-chat/right-workspace-layout"
 import {
   WORKSPACE_HYDRATION_PENDING,
   WORKSPACE_VISIBILITY_EXPANDED,
@@ -468,6 +468,10 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     return {
       directory: currentDirectory,
       target: benchPolicyState.target,
+      route: routeString({
+        pathname: location.pathname,
+        searchStr: location.searchStr,
+      }),
       mode: chatLayoutMode,
       layoutProfile,
       dockedChatWidthPx,
@@ -482,6 +486,8 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     floatingChatState,
     floatingRect,
     layoutProfile,
+    location.pathname,
+    location.searchStr,
   ])
 
   const setFloatingChatStateFromLayout = useCallback(
@@ -615,7 +621,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     <DirectoryChatShell
       leftSidebar={<ChatLeftSidebar {...controller.leftSidebarProps} />}
       mainPane={null}
-      rightSidebar={null}
+      rightWorkspace={null}
       contentLayout={
         <DirectoryChatBenchPageLayout
           chatLayoutMode={workspaceLayoutMode}
@@ -669,16 +675,16 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       onLeftSidebarOverlayOpenChange={setLeftSidebarOverlayOpen}
       onLeftSidebarToggle={isDockedBenchRoute ? handleLeftSidebarToggle : undefined}
       mainPaneMinWidth={dockedWorkspaceLayout.chatMinWidthPx}
-      rightSidebarDisplayWidth={dockedWorkspaceDisplayWidthPx}
-      rightSidebarMinWidth={dockedWorkspaceLayout.workspaceMinWidthPx}
-      rightSidebarMaxWidth={dockedWorkspaceLayout.workspaceMaxWidthPx}
-      onRightSidebarResize={setDockedWorkspaceWidthPx}
-      onRightSidebarResizeIntent={handleDockedWorkspaceResizeIntent}
+      rightWorkspaceDisplayWidth={dockedWorkspaceDisplayWidthPx}
+      rightWorkspaceMinWidth={dockedWorkspaceLayout.workspaceMinWidthPx}
+      rightWorkspaceMaxWidth={dockedWorkspaceLayout.workspaceMaxWidthPx}
+      onRightWorkspaceResize={setDockedWorkspaceWidthPx}
+      onRightWorkspaceResizeIntent={handleDockedWorkspaceResizeIntent}
       onRightWorkspaceToggle={handleRightWorkspaceToggle}
       chatTitle={controller.mainPaneProps.chatState.sessionTitle}
       titlebarVariant="chat"
-      rightSidebarOpen={workspaceHostOpen}
-      onRightSidebarCollapse={handleRightWorkspaceCollapse}
+      rightWorkspaceOpen={workspaceHostOpen}
+      onRightWorkspaceCollapse={handleRightWorkspaceCollapse}
     />
   )
 }
