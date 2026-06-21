@@ -32,6 +32,7 @@ import { fetchInProcessOpenCode } from "../opencode-runtime/in-process-fetch"
 import {
   mapProjectTextFileEditorError,
   readProjectTextFile,
+  readProjectTextFileStatus,
   saveProjectTextFile,
 } from "../project/project-file-editor-service"
 import { buildRawFileHeaders, readRawFileRecord } from "../project/raw-file-response-service"
@@ -66,6 +67,12 @@ const fileEditBodySchema = z.object({
 const fileEditResponseSchema = z.object({
   path: z.string(),
   content: z.string(),
+  version: z.string().nullable(),
+})
+
+const fileEditStatusResponseSchema = z.object({
+  path: z.string(),
+  exists: z.boolean(),
   version: z.string().nullable(),
 })
 
@@ -382,6 +389,38 @@ export const CompatibilityRoutes = new Hono()
         },
       })
     },
+  )
+  .get(
+    "/file/edit/status",
+    describeRoute({
+      operationId: "explorer.file.edit.status",
+      summary: "Read editable project text file status",
+      responses: {
+        200: {
+          description: "Editable project text file status",
+          content: {
+            "application/json": {
+              schema: resolver(fileEditStatusResponseSchema),
+            },
+          },
+        },
+        ...routeErrors(403, 404, 415),
+      },
+    }),
+    validator("query", fileReadQuerySchema),
+    async (c) =>
+      withDirectoryRoute(c, async (context) =>
+        runRouteTask({
+          task: async () =>
+            c.json(
+              await readProjectTextFileStatus({
+                directory: context.directory,
+                path: c.req.valid("query").path,
+              }),
+            ),
+          mapError: mapProjectTextFileEditorError,
+        }),
+      ),
   )
   .get(
     "/file/edit",

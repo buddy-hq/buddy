@@ -1,8 +1,14 @@
+import path from "node:path"
+import { readWorkspaceFileWatcherUpdatePayload } from "@buddy/opencode-adapter/file-watcher"
 import { withToolUiOnUnknownPart } from "@buddy/opencode-adapter/session-tool-ui"
 
 const SSE_DATA_PREFIX = "data:"
 const SSE_FRAME_DELIMITER = "\n\n"
 const MESSAGE_PART_UPDATED = "message.part.updated"
+const EMPTY_RELATIVE_PATH = ""
+const CURRENT_DIRECTORY_RELATIVE_PATH = "."
+const PARENT_DIRECTORY_RELATIVE_PATH = ".."
+const WINDOWS_DRIVE_PATH_PREFIX_PATTERN = /^[a-zA-Z]:[\\/]/u
 
 type BuddyEventStreamMultiplexer = {
   initialEvents?: readonly unknown[]
@@ -18,8 +24,54 @@ function readSseDataValue(line: string) {
   return line.startsWith("data: ") ? line.slice(6) : line.slice(5)
 }
 
+function shouldUseWindowsPathTools(input: { directory: string; absolutePath: string }) {
+  return (
+    WINDOWS_DRIVE_PATH_PREFIX_PATTERN.test(input.directory) ||
+    WINDOWS_DRIVE_PATH_PREFIX_PATTERN.test(input.absolutePath)
+  )
+}
+
+function containedWorkspaceRelativePath(input: {
+  directory: string
+  absolutePath: string
+}): string | undefined {
+  const pathTools = shouldUseWindowsPathTools(input) ? path.win32 : path.posix
+  const relativePath = pathTools.relative(input.directory, input.absolutePath)
+  if (
+    relativePath === EMPTY_RELATIVE_PATH ||
+    relativePath === CURRENT_DIRECTORY_RELATIVE_PATH ||
+    relativePath === PARENT_DIRECTORY_RELATIVE_PATH ||
+    relativePath.startsWith(`${PARENT_DIRECTORY_RELATIVE_PATH}${pathTools.sep}`) ||
+    pathTools.isAbsolute(relativePath)
+  ) {
+    return undefined
+  }
+
+  return relativePath.replaceAll(pathTools.sep, "/")
+}
+
 function transformGlobalEventPayload(payload: unknown, directory: string): unknown {
   if (!isRecord(payload)) return payload
+  const watcherUpdate = readWorkspaceFileWatcherUpdatePayload(payload.payload)
+  if (watcherUpdate && isRecord(payload.payload) && isRecord(payload.payload.properties)) {
+    const relativePath = containedWorkspaceRelativePath({
+      directory,
+      absolutePath: watcherUpdate.absolutePath,
+    })
+    if (!relativePath) return payload
+
+    return {
+      ...payload,
+      payload: {
+        ...payload.payload,
+        properties: {
+          ...payload.payload.properties,
+          relativePath,
+        },
+      },
+    }
+  }
+
   if (!isRecord(payload.payload) || payload.payload.type !== MESSAGE_PART_UPDATED) {
     return payload
   }

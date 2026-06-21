@@ -15,6 +15,12 @@ export type ProjectTextFileState = {
   version: string | null
 }
 
+export type ProjectTextFileStatus = {
+  path: string
+  exists: boolean
+  version: string | null
+}
+
 export type ProjectTextFileSaveResult = {
   path: string
   content: string
@@ -133,6 +139,55 @@ export async function readProjectTextFile(input: {
       return {
         path: normalizedPath,
         content,
+        version: contentVersion(content),
+      }
+    },
+  })
+}
+
+export async function readProjectTextFileStatus(input: {
+  directory: string
+  path: string
+}): Promise<ProjectTextFileStatus> {
+  const normalizedPath = normalizeRelativePath(input.path)
+  return OpenCodeInstance.provide({
+    directory: input.directory,
+    fn: async () => {
+      const realPath = await fs.realpath(path.resolve(input.directory, normalizedPath)).catch((error: unknown) => {
+        if (
+          typeof error === "object" &&
+          error !== null &&
+          "code" in error &&
+          error.code === "ENOENT"
+        ) {
+          return undefined
+        }
+        throw error
+      })
+
+      if (!realPath) {
+        await assertContainedParentDirectory(input.directory, normalizedPath)
+        return {
+          path: normalizedPath,
+          exists: false,
+          version: null,
+        }
+      }
+
+      if (!OpenCodeInstance.containsPath(realPath)) {
+        throw new ProjectFilePathEscapeError(PROJECT_FILE_ESCAPE_ERROR)
+      }
+
+      const stats = await fs.stat(realPath)
+      if (!stats.isFile()) {
+        throw new ProjectFileNotFoundError(PROJECT_FILE_NOT_FOUND_ERROR)
+      }
+
+      await assertTextEditableFile(normalizedPath)
+      const content = (await readFileContent(realPath)) ?? ""
+      return {
+        path: normalizedPath,
+        exists: true,
         version: contentVersion(content),
       }
     },
