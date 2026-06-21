@@ -5,6 +5,9 @@ import {
   transformOpenCodeEventStreamResponse,
 } from "../../src/http/opencode-event-stream"
 
+const BACKPRESSURE_UPSTREAM_CHUNK_COUNT = 64
+const BACKPRESSURE_OBSERVATION_DELAY_MS = 10
+
 describe("buildOpenCodeEventStreamRequestHeaders", () => {
   test("forwards inbound SSE headers and normalizes accept", () => {
     const inbound = new Headers({
@@ -105,5 +108,37 @@ describe("transformOpenCodeEventStreamResponse", () => {
     })
 
     expect(await response.text()).toBe(body)
+  })
+
+  test("does not drain the transformed upstream while the downstream is paused", async () => {
+    const encoder = new TextEncoder()
+    let upstreamPullCount = 0
+    const upstreamResponse = new Response(
+      new ReadableStream<Uint8Array>({
+        pull(controller) {
+          upstreamPullCount += 1
+          controller.enqueue(
+            encoder.encode(`data: {"sequence":${upstreamPullCount}}\n\n`),
+          )
+          if (upstreamPullCount === BACKPRESSURE_UPSTREAM_CHUNK_COUNT) {
+            controller.close()
+          }
+        },
+      }),
+      { headers: { "content-type": "text/event-stream" } },
+    )
+
+    const response = transformOpenCodeEventStreamResponse({
+      directory: "/tmp/buddy-event-stream",
+      response: upstreamResponse,
+      buddyEvents: {
+        subscribe: () => () => undefined,
+      },
+    })
+
+    await Bun.sleep(BACKPRESSURE_OBSERVATION_DELAY_MS)
+
+    expect(upstreamPullCount).toBeLessThan(BACKPRESSURE_UPSTREAM_CHUNK_COUNT)
+    await response.body?.cancel()
   })
 })

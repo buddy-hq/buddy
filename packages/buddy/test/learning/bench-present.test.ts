@@ -2,10 +2,13 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { setTimeout as sleep } from "node:timers/promises"
 import { afterEach, describe, expect, test } from "bun:test"
+import { clearBenchContextRegistry } from "../../src/learning/features/bench/context"
 import {
-  clearBenchContextRegistry,
-  publishBenchContext,
-} from "../../src/learning/features/bench/context"
+  SSE_EVENT_TYPE_CLIENT_ACTION,
+  benchClientActionBroker,
+  type BenchClientAction,
+  type BenchClientLease,
+} from "../../src/learning/features/bench/client-actions"
 import { benchPresentTool, presentOnBench } from "../../src/learning/features/bench/tools/present"
 import {
   addResource,
@@ -15,51 +18,184 @@ import { createBuddyToolContext } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
 
 const SESSION_ID = "session-bench-present"
+const TEST_CLIENT_INSTANCE_ID = "test-bench-client"
 
 afterEach(() => {
   clearBenchContextRegistry()
+  benchClientActionBroker.reset()
 })
 
-function publishMarkdownBenchContext(input: {
+type TestBenchClient = {
   directory: string
-  relativePath: string
-  dirty: boolean
-}) {
-  publishBenchContext({
+  lease: BenchClientLease
+  actions: BenchClientAction[]
+  publicationSequence: number
+  unsubscribe: () => void
+}
+
+function connectTestBenchClient(input: { directory: string }): TestBenchClient {
+  const lease = benchClientActionBroker.connectLease({
     directory: input.directory,
-    sessionID: SESSION_ID,
-    value: {
-      status: "open",
+    instanceID: TEST_CLIENT_INSTANCE_ID,
+    generation: 1,
+  })
+  const actions: BenchClientAction[] = []
+  const unsubscribe = benchClientActionBroker.subscribe({
+    directory: input.directory,
+    lease,
+    listener(event) {
+      if (event.payload.type === SSE_EVENT_TYPE_CLIENT_ACTION) {
+        actions.push(event.payload.properties.action)
+      }
+    },
+  })
+  return {
+    directory: input.directory,
+    lease,
+    actions,
+    publicationSequence: 0,
+    unsubscribe,
+  }
+}
+
+async function readNextAction(client: TestBenchClient): Promise<BenchClientAction> {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const action = client.actions.shift()
+    if (action) return action
+    await sleep(0)
+  }
+  throw new Error("Expected a Bench client action.")
+}
+
+function nextPublicationSequence(client: TestBenchClient): number {
+  client.publicationSequence += 1
+  return client.publicationSequence
+}
+
+function leaseIdentity(lease: BenchClientLease) {
+  return {
+    instanceID: lease.instanceID,
+    generation: lease.generation,
+    leaseEpoch: lease.leaseEpoch,
+  }
+}
+
+function openContextForAction(input: { directory: string; action: BenchClientAction }) {
+  if (input.action.command.type !== "present") {
+    return { status: "closed" as const }
+  }
+  const target = input.action.command.target
+  if (target.type === "workspace-file") {
+    return {
+      status: "open" as const,
       target: {
-        type: "workspace-file",
-        title: path.basename(input.relativePath),
+        type: "workspace-file" as const,
+        title: path.basename(target.path),
         workspaceRoot: input.directory,
-        path: input.relativePath,
-        absolutePath: path.join(input.directory, input.relativePath),
-        route: `/_bench/markdown?path=${encodeURIComponent(input.relativePath)}`,
-        status: input.dirty ? "dirty" : "ready",
+        path: target.path,
+        absolutePath: path.join(input.directory, target.path),
+        route: `/_bench/${target.viewer === "markdown" ? "markdown" : "file"}?path=${encodeURIComponent(target.path)}`,
+        status: "ready" as const,
       },
-      metadata: [`dirty: ${input.dirty}`, "save_state: ready"],
-      content: "Current markdown snapshot.",
+      drawer: null,
+      metadata: ["dirty: false", "save_state: ready"],
+      content: "Current Bench snapshot.",
       refs: [
         {
-          kind: "file",
-          value: input.relativePath,
-          note: "Markdown file on Bench.",
+          kind: "file" as const,
+          value: target.path,
+          note: "File on Bench.",
         },
       ],
       hints: [],
+    }
+  }
+  return {
+    status: "open" as const,
+    target: {
+      type: "object" as const,
+      title: "Bench object",
+      workspaceRoot: input.directory,
+      ref: target.ref,
+      viewID: target.viewID,
+      route: `/_bench/objects/${target.ref.kind}/${target.ref.objectID}?view=${encodeURIComponent(target.viewID)}`,
+      status: "ready" as const,
+    },
+    drawer: null,
+    metadata: [],
+    content: "Current Bench object snapshot.",
+    refs: [
+      {
+        kind: "object" as const,
+        value: target.ref.objectID,
+        note: "Object on Bench.",
+      },
+    ],
+    hints: [],
+  }
+}
+
+function completeCommittedAction(input: {
+  client: TestBenchClient
+  action: BenchClientAction
+  changed: boolean
+}) {
+  const completion =
+    input.action.command.type === "close"
+      ? {
+          outcome: "committed" as const,
+          lease: leaseIdentity(input.client.lease),
+          publicationSequence: nextPublicationSequence(input.client),
+          observedRoute: { status: "closed" as const },
+          observedVisibility: "closed" as const,
+          drawer: null,
+          context: { status: "closed" as const },
+          changed: input.changed,
+        }
+      : {
+          outcome: "committed" as const,
+          lease: leaseIdentity(input.client.lease),
+          publicationSequence: nextPublicationSequence(input.client),
+          observedRoute: {
+            status: "open" as const,
+            target: input.action.command.target,
+            mode: "docked" as const,
+          },
+          observedVisibility: "visible" as const,
+          drawer: null,
+          context: openContextForAction({
+            directory: input.client.directory,
+            action: input.action,
+          }),
+          changed: input.changed,
+        }
+  return benchClientActionBroker.completeAction({
+    directory: input.client.directory,
+    actionID: input.action.actionID,
+    completion,
+  })
+}
+
+function completeBlockedAction(input: { client: TestBenchClient; action: BenchClientAction }) {
+  return benchClientActionBroker.completeAction({
+    directory: input.client.directory,
+    actionID: input.action.actionID,
+    completion: {
+      outcome: "blocked",
+      lease: leaseIdentity(input.client.lease),
+      reason: "leave_guard_blocked",
     },
   })
 }
 
-function publishClosedBenchContext(directory: string) {
-  publishBenchContext({
-    directory,
-    sessionID: SESSION_ID,
-    value: {
-      status: "closed",
-    },
+function presentOnBenchWithTestContext(
+  input: Omit<Parameters<typeof presentOnBench>[0], "messageID" | "callID" | "abort">,
+) {
+  return presentOnBench({
+    ...input,
+    messageID: "msg_bench_present_test",
+    callID: null,
+    abort: new AbortController().signal,
   })
 }
 
@@ -81,9 +217,9 @@ async function waitForResourceReader(input: {
 describe("bench_present", () => {
   test("accepts omitted inactive nullable fields for close", async () => {
     await using project = await tmpdir({ git: true })
-    publishClosedBenchContext(project.path)
+    const client = connectTestBenchClient({ directory: project.path })
 
-    const result = await benchPresentTool.run(
+    const run = benchPresentTool.run(
       {
         action: "close",
       },
@@ -94,6 +230,10 @@ describe("bench_present", () => {
         agent: "buddy",
       }),
     )
+    const action = await readNextAction(client)
+    expect(action.command).toEqual({ type: "close" })
+    completeCommittedAction({ client, action, changed: true })
+    const result = await run
 
     expect(result.output).toBe("Requested closing Bench.")
     expect(result.metadata).toMatchObject({
@@ -110,9 +250,9 @@ describe("bench_present", () => {
         await fs.writeFile(path.join(directory, "notes.md"), "# Notes\n")
       },
     })
-    publishClosedBenchContext(project.path)
+    const client = connectTestBenchClient({ directory: project.path })
 
-    const result = await presentOnBench({
+    const run = presentOnBenchWithTestContext({
       directory: project.path,
       sessionID: SESSION_ID,
       action: "present_file",
@@ -120,6 +260,9 @@ describe("bench_present", () => {
       resourceKey: null,
       objectID: null,
     })
+    const action = await readNextAction(client)
+    completeCommittedAction({ client, action, changed: true })
+    const result = await run
 
     expect(result).toMatchObject({
       status: "presented",
@@ -142,9 +285,7 @@ describe("bench_present", () => {
         await fs.writeFile(path.join(directory, "widget.html"), "<button>Start</button>")
       },
     })
-    publishClosedBenchContext(project.path)
-
-    const result = await presentOnBench({
+    const result = await presentOnBenchWithTestContext({
       directory: project.path,
       sessionID: SESSION_ID,
       action: "present_file",
@@ -161,14 +302,15 @@ describe("bench_present", () => {
     expect(result.message).toContain("present_html_widget")
   })
 
-  test("blocks when Bench state has not been synchronized", async () => {
+  test("dispatches without a synchronized Bench context preflight", async () => {
     await using project = await tmpdir({
       init: async (directory) => {
         await fs.writeFile(path.join(directory, "notes.md"), "# Notes\n")
       },
     })
 
-    const result = await presentOnBench({
+    const client = connectTestBenchClient({ directory: project.path })
+    const run = presentOnBenchWithTestContext({
       directory: project.path,
       sessionID: SESSION_ID,
       action: "present_file",
@@ -176,11 +318,17 @@ describe("bench_present", () => {
       resourceKey: null,
       objectID: null,
     })
+    const action = await readNextAction(client)
+    completeCommittedAction({ client, action, changed: true })
+    const result = await run
 
     expect(result).toMatchObject({
-      status: "blocked",
-      reason: "sync_error",
-      target: null,
+      status: "presented",
+      reason: "presented_file",
+      target: {
+        type: "workspace-file",
+        path: "notes.md",
+      },
     })
   })
 
@@ -190,13 +338,9 @@ describe("bench_present", () => {
         await fs.writeFile(path.join(directory, "notes.md"), "# Notes\n")
       },
     })
-    publishMarkdownBenchContext({
-      directory: project.path,
-      relativePath: "notes.md",
-      dirty: false,
-    })
+    const client = connectTestBenchClient({ directory: project.path })
 
-    const result = await presentOnBench({
+    const run = presentOnBenchWithTestContext({
       directory: project.path,
       sessionID: SESSION_ID,
       action: "present_file",
@@ -204,6 +348,9 @@ describe("bench_present", () => {
       resourceKey: null,
       objectID: null,
     })
+    const action = await readNextAction(client)
+    completeCommittedAction({ client, action, changed: false })
+    const result = await run
 
     expect(result).toMatchObject({
       status: "already_presenting",
@@ -227,13 +374,9 @@ describe("bench_present", () => {
         await fs.writeFile(path.join(directory, "other.txt"), "Other\n")
       },
     })
-    publishMarkdownBenchContext({
-      directory: project.path,
-      relativePath: "notes.md",
-      dirty: true,
-    })
+    const client = connectTestBenchClient({ directory: project.path })
 
-    const result = await presentOnBench({
+    const run = presentOnBenchWithTestContext({
       directory: project.path,
       sessionID: SESSION_ID,
       action: "present_file",
@@ -241,19 +384,13 @@ describe("bench_present", () => {
       resourceKey: null,
       objectID: null,
     })
+    const action = await readNextAction(client)
+    completeBlockedAction({ client, action })
+    const result = await run
 
     expect(result).toMatchObject({
       status: "blocked",
       reason: "blocked_by_unsaved_work",
-      target: {
-        type: "workspace-file",
-        path: "notes.md",
-      },
-      benchTarget: {
-        type: "workspace-file",
-        path: "notes.md",
-        viewer: "markdown",
-      },
     })
   })
 
@@ -268,13 +405,13 @@ describe("bench_present", () => {
         })
       },
     })
-    publishClosedBenchContext(project.path)
     await waitForResourceReader({
       directory: project.path,
       resourceKey: "book",
     })
+    const client = connectTestBenchClient({ directory: project.path })
 
-    const result = await presentOnBench({
+    const run = presentOnBenchWithTestContext({
       directory: project.path,
       sessionID: SESSION_ID,
       action: "present_resource",
@@ -282,6 +419,9 @@ describe("bench_present", () => {
       resourceKey: "book",
       objectID: null,
     })
+    const action = await readNextAction(client)
+    completeCommittedAction({ client, action, changed: true })
+    const result = await run
 
     expect(result).toMatchObject({
       status: "presented",
@@ -308,9 +448,7 @@ describe("bench_present", () => {
         })
       },
     })
-    publishClosedBenchContext(project.path)
-
-    const result = await presentOnBench({
+    const result = await presentOnBenchWithTestContext({
       directory: project.path,
       sessionID: SESSION_ID,
       action: "present_resource",
