@@ -1,5 +1,7 @@
 # Managed Objects Implementation Log
 
+> Historical note: this implementation log is preserved for audit context. Current Bench presentation, client-action, and lifecycle behavior is documented in `current-architecture.md` and governed by `bench-refactor.md`.
+
 This log records implementation decisions for
 `docs/features/bench-mode/managed-objects-design.md`.
 

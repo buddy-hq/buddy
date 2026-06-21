@@ -1,5 +1,7 @@
 # Bench Mode Implementation Log
 
+> Historical note: this log tracks the earlier Bench implementation pass against `design.md`. The current post-refactor architecture is documented in `current-architecture.md`, and `bench-refactor.md` is the authoritative refactor and acceptance plan. Entries below are preserved for audit context and may describe code paths that have since been deleted.
+
 This log tracks implementation work against `design.md`. Update it after every meaningful edit.
 
 ## 2026-06-16

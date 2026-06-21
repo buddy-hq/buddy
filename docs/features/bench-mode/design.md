@@ -1,5 +1,7 @@
 # Bench Mode Design
 
+> Historical note: this document records the pre-refactor Bench mode design history. The current post-refactor architecture is documented in `current-architecture.md`, and `bench-refactor.md` is the authoritative refactor plan. Keep the material below for context, but do not use stale references to `BenchAutoOpen`, transcript-driven presentation, transition classifiers, or legacy right-sidebar state as current implementation guidance.
+
 ## Objective
 
 Bench mode is the first-class Buddy workspace for artifacts, files, reading, markdown editing, whiteboards, and other non-chat surfaces that benefit from more space than the transcript can provide.

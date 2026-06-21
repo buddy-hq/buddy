@@ -1,5 +1,7 @@
 # Buddy Managed Objects
 
+> Historical note: this document contains managed-object design background that predates the final Bench ownership refactor. Managed-object domain concepts may still be relevant, but stale Bench presentation details such as `BenchAutoOpen` policy wiring should be checked against `current-architecture.md` and the authoritative `bench-refactor.md` plan before implementation.
+
 This is the working design source for consolidating Buddy resources,
 artifacts, whiteboards, media presentations, HTML widgets, and other
 app-managed learner objects.

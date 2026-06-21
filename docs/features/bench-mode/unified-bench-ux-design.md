@@ -1,5 +1,7 @@
 # Unified Bench UX
 
+> Historical note: this document is retained as product/background context. The current implementation no longer uses legacy right-sidebar ownership or transcript-scanned Bench presentation. For the active architecture and invariants, read `current-architecture.md`; for the authoritative refactor plan, read `bench-refactor.md`.
+
 Status: Cut 1 implemented; Cut 2 UX and implementation contract locked.
 
 This document sits beside `managed-objects-design.md`. That document defines

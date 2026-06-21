@@ -1,5 +1,7 @@
 # Bench Mode Known Issues
 
+> Historical note: this file predates the ownership refactor. Some open issues below were resolved or replaced by the architecture in `current-architecture.md` and the authoritative plan in `bench-refactor.md`. Keep the historical analysis, but verify any issue against the current scoped workspace, typed client-action, and directory-owned lifecycle implementation before acting on it.
+
 This document tracks architecture issues that are not blocking Bench mode v1, but should be resolved before Bench becomes the foundation for richer editable surfaces, tabs, multi-surface history, or stronger agent control.
 
 ## Resolved In Current Pass
