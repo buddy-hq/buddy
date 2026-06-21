@@ -49,10 +49,19 @@ type BenchSurfaceSnapshot = {
   context: BenchReadSurfaceContextOpenOutput
 }
 
+type BenchSurfaceSynchronizationReason = "watcher" | "turn-complete" | "context-flush"
+
+type BenchSurfaceSynchronizationResult = {
+  changed: boolean
+}
+
 type BenchSurfaceRegistrationInput = {
   target: BenchTarget
   getSnapshot: () => BenchSurfaceSnapshot
   subscribe: (listener: () => void) => () => void
+  synchronize?: (
+    reason: BenchSurfaceSynchronizationReason,
+  ) => Promise<BenchSurfaceSynchronizationResult>
   guardLeave?: (
     input: BenchLeaveGuardInput,
   ) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>
@@ -80,6 +89,7 @@ type BenchContextPublishSnapshot =
 const DIRECTORY_WORKSPACE_REGISTRATION_ID_PREFIX = "bench-surface-registration"
 const DIRECTORY_WORKSPACE_INSTANCE_ID_PREFIX = "bench-workspace"
 const DIRECTORY_WORKSPACE_FALLBACK_REVISION = 0
+const WORKSPACE_PATH_SEPARATOR = "/"
 
 let registrationIDSequence = 0
 let workspaceInstanceIDSequence = 0
@@ -175,6 +185,22 @@ function snapshotMatchesBenchTarget(input: {
     input.snapshot.targetKey === targetKey &&
     input.snapshot.context.targetKey === targetKey &&
     benchTargetKey(input.snapshot.target) === targetKey
+  )
+}
+
+function normalizeWorkspaceFilePath(path: string): string {
+  return path.replaceAll("\\", WORKSPACE_PATH_SEPARATOR).replace(/^\.?\//u, "")
+}
+
+function workspaceFileSignalMatchesTarget(input: {
+  signalPath: string
+  targetPath: string
+}): boolean {
+  const signalPath = normalizeWorkspaceFilePath(input.signalPath)
+  const targetPath = normalizeWorkspaceFilePath(input.targetPath)
+  return (
+    signalPath === targetPath ||
+    targetPath.startsWith(`${signalPath}${WORKSPACE_PATH_SEPARATOR}`)
   )
 }
 
@@ -393,7 +419,16 @@ export class DirectoryWorkspaceLifecycleService {
   }
 
   async flushContextBeforePrompt(input: { sessionID: string }): Promise<void> {
-    await this.#publishForSession(input.sessionID, { force: true })
+    if (this.#disposed) return
+    const publish = this.#publishQueue.then(
+      () => this.#synchronizeAndPublishCurrentSnapshot(input.sessionID, { force: true }),
+      () => this.#synchronizeAndPublishCurrentSnapshot(input.sessionID, { force: true }),
+    )
+    this.#publishQueue = publish.then(
+      () => undefined,
+      () => undefined,
+    )
+    await publish
   }
 
   async publishCurrent(): Promise<void> {
@@ -416,6 +451,37 @@ export class DirectoryWorkspaceLifecycleService {
       },
       force: false,
     })
+  }
+
+  async synchronizeWorkspaceFile(input: {
+    path: string
+    reason: BenchSurfaceSynchronizationReason
+  }): Promise<void> {
+    if (this.#disposed) return
+    const synchronize = this.#publishQueue.then(
+      () => this.#synchronizeWorkspaceFileAndPublish(input),
+      () => this.#synchronizeWorkspaceFileAndPublish(input),
+    )
+    this.#publishQueue = synchronize.then(
+      () => undefined,
+      () => undefined,
+    )
+    await synchronize
+  }
+
+  async synchronizeCurrentWorkspaceFile(input: {
+    reason: BenchSurfaceSynchronizationReason
+  }): Promise<void> {
+    if (this.#disposed) return
+    const synchronize = this.#publishQueue.then(
+      () => this.#synchronizeCurrentWorkspaceFileAndPublish(input.reason),
+      () => this.#synchronizeCurrentWorkspaceFileAndPublish(input.reason),
+    )
+    this.#publishQueue = synchronize.then(
+      () => undefined,
+      () => undefined,
+    )
+    await synchronize
   }
 
   async completeClientAction(input: {
@@ -466,6 +532,81 @@ export class DirectoryWorkspaceLifecycleService {
       () => undefined,
     )
     await publish
+  }
+
+  async #synchronizeAndPublishCurrentSnapshot(
+    sessionID: string,
+    options: { force: boolean },
+  ): Promise<void> {
+    await this.#synchronizeCurrentWorkspaceFile("context-flush")
+    await this.#publishCurrentSnapshot(sessionID, options)
+  }
+
+  async #synchronizeWorkspaceFileAndPublish(input: {
+    path: string
+    reason: BenchSurfaceSynchronizationReason
+  }): Promise<void> {
+    const changed = await this.#synchronizeWorkspaceFile(input)
+    if (!changed) return
+    const sessionID = this.#activeSessionID
+    if (!sessionID) return
+    await this.#publishCurrentSnapshot(sessionID, { force: false })
+  }
+
+  async #synchronizeCurrentWorkspaceFileAndPublish(
+    reason: BenchSurfaceSynchronizationReason,
+  ): Promise<void> {
+    const changed = await this.#synchronizeCurrentWorkspaceFile(reason)
+    if (!changed) return
+    const sessionID = this.#activeSessionID
+    if (!sessionID) return
+    await this.#publishCurrentSnapshot(sessionID, { force: false })
+  }
+
+  async #synchronizeCurrentWorkspaceFile(
+    reason: BenchSurfaceSynchronizationReason,
+  ): Promise<boolean> {
+    const projection = this.#getProjection()
+    if (projection.bench.visibility !== "visible" || projection.route.status === "closed") {
+      return false
+    }
+    if (projection.route.target.type !== "workspace-file") return false
+    return this.#synchronizeWorkspaceFile({
+      path: projection.route.target.path,
+      reason,
+    })
+  }
+
+  async #synchronizeWorkspaceFile(input: {
+    path: string
+    reason: BenchSurfaceSynchronizationReason
+  }): Promise<boolean> {
+    const projection = this.#getProjection()
+    if (projection.bench.visibility !== "visible" || projection.route.status === "closed") {
+      return false
+    }
+
+    const target = projection.route.target
+    if (target.type !== "workspace-file") return false
+    if (
+      !workspaceFileSignalMatchesTarget({
+        signalPath: input.path,
+        targetPath: target.path,
+      })
+    ) {
+      return false
+    }
+
+    const registration = this.#selectedRegistration(benchTargetKey(target))
+    if (!registration?.synchronize) return false
+    if (registration.targetKey !== benchTargetKey(target)) return false
+
+    try {
+      const result = await registration.synchronize(input.reason)
+      return result.changed
+    } catch {
+      return false
+    }
   }
 
   async #transitionActiveSessionID(sessionID: string | undefined): Promise<void> {
@@ -881,6 +1022,8 @@ export type {
   BenchReadSurfaceContextOpenOutput,
   BenchClientActionCompletionDraft,
   BenchClientLease,
+  BenchSurfaceSynchronizationReason,
+  BenchSurfaceSynchronizationResult,
   BenchSurfaceRegistrationInput,
   BenchSurfaceSnapshot,
 }

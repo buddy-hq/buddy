@@ -5,6 +5,7 @@ import type {
   ConfigPersonasResponses,
   ExplorerFileEditReadResponses,
   ExplorerFileEditSaveResponses,
+  ExplorerFileEditStatusResponses,
   FileContent,
   FileNode,
   FindFilesResponses,
@@ -2704,6 +2705,7 @@ export type ProjectExplorerFileNode = FileNode
 export type ProjectExplorerFileContent = FileContent
 export type ProjectExplorerEditableFileState = ExplorerFileEditReadResponses[200]
 export type ProjectExplorerEditableFileSaveResult = ExplorerFileEditSaveResponses[200]
+export type ProjectExplorerEditableFileStatus = ExplorerFileEditStatusResponses[200]
 
 export class ProjectExplorerFileVersionConflictError extends Error {
   constructor(message: string) {
@@ -2740,6 +2742,16 @@ export async function readProjectExplorerEditableFile(input: {
     path: input.path,
   })
   return requireBuddyData<ProjectExplorerEditableFileState>(response)
+}
+
+export async function readProjectExplorerEditableFileStatus(input: {
+  directory: string
+  path: string
+}): Promise<ProjectExplorerEditableFileStatus> {
+  const response = await getBuddyClient(input.directory).explorer.file.edit.status({
+    path: input.path,
+  })
+  return requireBuddyData<ProjectExplorerEditableFileStatus>(response)
 }
 
 export async function saveProjectExplorerEditableFile(input: {

@@ -356,6 +356,21 @@ export function useDirectoryChatPageController(
       benchActionLedger.handle(action),
     [benchActionLedger],
   )
+  const onAgentTurnComplete = useCallback(
+    () =>
+      workspace.lifecycle.synchronizeCurrentWorkspaceFile({
+        reason: "turn-complete",
+      }),
+    [workspace.lifecycle],
+  )
+  const onWorkspaceFileChanged = useCallback(
+    (input: { path: string }) =>
+      workspace.lifecycle.synchronizeWorkspaceFile({
+        path: input.path,
+        reason: "watcher",
+      }),
+    [workspace.lifecycle],
+  )
   const visibleReadingResource =
     benchPolicyStateForPrompt.status === "open" &&
     benchPolicyStateForPrompt.mode === BENCH_CHAT_LAYOUT_DOCKED &&
@@ -433,6 +448,8 @@ export function useDirectoryChatPageController(
     getBenchEventStreamLeaseQuery,
     onBenchClientLease,
     onBenchClientAction,
+    onAgentTurnComplete,
+    onWorkspaceFileChanged,
   })
 
   type PromptSnapshot = ReturnType<typeof clonePromptDraft> & {

@@ -41,6 +41,10 @@ type VersionedTextFileFlushOptions = {
   retryFailedContent?: boolean
 }
 
+type VersionedTextFileReloadOptions = {
+  silent?: boolean
+}
+
 export type VersionedTextFileFlushResult = "clean" | "saved" | "blocked"
 
 export type VersionedTextFileEditorSnapshot = {
@@ -114,6 +118,7 @@ type VersionedTextFileEditorProps = {
 export type VersionedTextFileEditorHandle = {
   flushPendingSave: () => Promise<boolean>
   hasUnsavedChanges: () => boolean
+  reloadFromDisk: (options?: VersionedTextFileReloadOptions) => Promise<void>
 }
 
 function stringifyError(error: unknown) {
@@ -404,8 +409,9 @@ export const VersionedTextFileEditor = forwardRef<
         existsRef.current &&
         !conflictMessageRef.current &&
         contentRef.current !== savedContentRef.current,
+      reloadFromDisk: refresh,
     }),
-    [flushPendingSave],
+    [flushPendingSave, refresh],
   )
 
   useEffect(() => {

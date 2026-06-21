@@ -29,6 +29,8 @@ import type {
   BenchReadContextOutput,
   BenchReadSurfaceContextOpenOutput,
   BenchSurfaceSnapshot,
+  BenchSurfaceSynchronizationReason,
+  BenchSurfaceSynchronizationResult,
 } from "@/lib/directory-workspace-lifecycle"
 
 type BenchContextProvider = {
@@ -42,6 +44,10 @@ type BenchContextProvider = {
 type BenchContextProviderRegistration = {
   target: BenchTarget
   provider: BenchContextProvider
+  semanticKey?: string
+  synchronize?: (
+    reason: BenchSurfaceSynchronizationReason,
+  ) => Promise<BenchSurfaceSynchronizationResult>
   leaveGuard?: (
     input: BenchLeaveGuardInput,
   ) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>
@@ -77,6 +83,9 @@ type BenchRouteContextValue = {
     target: BenchTarget
     getSnapshot: () => BenchSurfaceSnapshot
     subscribe: (listener: () => void) => () => void
+    synchronize?: (
+      reason: BenchSurfaceSynchronizationReason,
+    ) => Promise<BenchSurfaceSynchronizationResult>
     leaveGuard?: (
       input: BenchLeaveGuardInput,
     ) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>
@@ -112,6 +121,9 @@ export function BenchRouteContextProvider(props: {
       target: BenchTarget
       getSnapshot: () => BenchSurfaceSnapshot
       subscribe: (listener: () => void) => () => void
+      synchronize?: (
+        reason: BenchSurfaceSynchronizationReason,
+      ) => Promise<BenchSurfaceSynchronizationResult>
       leaveGuard?: (
         input: BenchLeaveGuardInput,
       ) => BenchLeaveGuardResult | Promise<BenchLeaveGuardResult>
@@ -120,6 +132,7 @@ export function BenchRouteContextProvider(props: {
         target: input.target,
         getSnapshot: input.getSnapshot,
         subscribe: input.subscribe,
+        ...(input.synchronize ? { synchronize: input.synchronize } : {}),
         ...(input.leaveGuard ? { guardLeave: input.leaveGuard } : {}),
       }),
     [workspace.lifecycle],
@@ -197,10 +210,12 @@ export function useRegisterBenchContextProvider(
   }
   const target = targetBindingRef.current.target
   const providerRef = useRef(input.provider)
+  const synchronizeRef = useRef(input.synchronize)
   const leaveGuardRef = useRef(input.leaveGuard)
   const semanticRevisionRef = useRef(0)
   const listenersRef = useRef(new Set<() => void>())
   providerRef.current = input.provider
+  synchronizeRef.current = input.synchronize
   leaveGuardRef.current = input.leaveGuard
 
   useEffect(() => {
@@ -208,7 +223,7 @@ export function useRegisterBenchContextProvider(
     for (const listener of listenersRef.current) {
       listener()
     }
-  }, [input.provider])
+  }, [input.provider, input.semanticKey])
 
   const getSnapshot = useCallback(
     () =>
@@ -235,6 +250,23 @@ export function useRegisterBenchContextProvider(
     (input: BenchLeaveGuardInput) => leaveGuardRef.current?.(input) ?? allowBenchLeave(),
     [],
   )
+  const registeredSynchronize = useCallback(
+    async (
+      reason: BenchSurfaceSynchronizationReason,
+    ): Promise<BenchSurfaceSynchronizationResult> => {
+      const synchronize = synchronizeRef.current
+      if (!synchronize) return { changed: false }
+      const result = await synchronize(reason)
+      if (result.changed) {
+        semanticRevisionRef.current += 1
+        for (const listener of listenersRef.current) {
+          listener()
+        }
+      }
+      return result
+    },
+    [],
+  )
 
   useEffect(() => {
     if (targetKey !== routeTargetKey) return
@@ -242,10 +274,21 @@ export function useRegisterBenchContextProvider(
       target,
       getSnapshot,
       subscribe,
+      synchronize: input.synchronize ? registeredSynchronize : undefined,
       leaveGuard: registeredLeaveGuard,
     })
     return unregister
-  }, [getSnapshot, registerSurface, registeredLeaveGuard, routeTargetKey, subscribe, target, targetKey])
+  }, [
+    getSnapshot,
+    input.synchronize,
+    registerSurface,
+    registeredLeaveGuard,
+    registeredSynchronize,
+    routeTargetKey,
+    subscribe,
+    target,
+    targetKey,
+  ])
 }
 
 export type {
@@ -258,6 +301,8 @@ export type {
   BenchRouteContextValue,
   BenchRuntimeState,
   BenchSetModeRequest,
+  BenchSurfaceSynchronizationReason,
+  BenchSurfaceSynchronizationResult,
   BenchLeaveGuardInput,
   BenchLeaveGuardResult,
 }

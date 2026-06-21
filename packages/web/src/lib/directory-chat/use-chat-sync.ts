@@ -1,5 +1,9 @@
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import {
+  readWorkspaceFileWatcherUpdatePayload,
+  type WorkspaceFileWatcherEventKind,
+} from "@buddy/opencode-adapter/file-watcher"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { startChatSync } from "@/state/chat-sync"
@@ -167,6 +171,11 @@ type UseChatSyncProps = {
   getBenchEventStreamLeaseQuery?: () => Partial<NonNullable<EventStreamData["query"]>>
   onBenchClientLease?: (lease: BenchClientLease) => void
   onBenchClientAction?: (action: BenchClientActionV1) => void | Promise<void>
+  onAgentTurnComplete?: () => void | Promise<void>
+  onWorkspaceFileChanged?: (input: {
+    path: string
+    event: WorkspaceFileWatcherEventKind
+  }) => void | Promise<void>
 }
 
 export function useChatSync(props: UseChatSyncProps) {
@@ -194,6 +203,8 @@ export function useChatSync(props: UseChatSyncProps) {
     getBenchEventStreamLeaseQuery,
     onBenchClientLease,
     onBenchClientAction,
+    onAgentTurnComplete,
+    onWorkspaceFileChanged,
   } = props
 
   // ── SSE sync ────────────────────────────────────────────────────────────────
@@ -262,6 +273,14 @@ export function useChatSync(props: UseChatSyncProps) {
           void onBenchClientAction?.(benchAction)
           return
         }
+        const watcherUpdate = readWorkspaceFileWatcherUpdatePayload(payload)
+        if (watcherUpdate?.relativePath) {
+          void onWorkspaceFileChanged?.({
+            path: watcherUpdate.relativePath,
+            event: watcherUpdate.event,
+          })
+          return
+        }
         if (!("properties" in payload)) {
           return
         }
@@ -288,6 +307,7 @@ export function useChatSync(props: UseChatSyncProps) {
               workingSessions.delete(statusSessionID) &&
               isParentSession(directory, statusSessionID)
             ) {
+              void onAgentTurnComplete?.()
               appendTurnCompleteNotification(directory, statusSessionID)
               const notificationPreferences = useNotificationPreferences.getState().preferences
               if (notificationPreferences.agent) {
@@ -492,6 +512,8 @@ export function useChatSync(props: UseChatSyncProps) {
     getBenchEventStreamLeaseQuery,
     onBenchClientLease,
     onBenchClientAction,
+    onAgentTurnComplete,
+    onWorkspaceFileChanged,
   ])
 
   // ── Foreground refresh hooks ────────────────────────────────────────────────

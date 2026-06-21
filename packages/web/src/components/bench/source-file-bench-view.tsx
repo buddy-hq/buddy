@@ -23,10 +23,12 @@ import type { BenchTarget } from "@/lib/bench-navigation"
 import {
   ProjectExplorerFileVersionConflictError,
   readProjectExplorerEditableFile,
+  readProjectExplorerEditableFileStatus,
   saveProjectExplorerEditableFile,
 } from "@/state/chat-actions"
 
 const EXTERNAL_FILE_REFRESH_INTERVAL_MS = 2_000
+const SOURCE_FILE_CONTEXT_SEMANTIC_KEY_SEPARATOR = "\u0000"
 
 function blockBenchLeave(
   reason: "dirty" | "saving" | "conflict" | "save_error",
@@ -38,13 +40,19 @@ function blockBenchLeave(
 export function SourceFileBenchView(props: { directory: string; path: string }) {
   const editorRef = useRef<VersionedTextFileEditorHandle>(null)
   const snapshotRef = useRef<VersionedTextFileEditorSnapshot>()
+  const existsOnDiskRef = useRef(true)
   const [snapshot, setSnapshot] = useState<VersionedTextFileEditorSnapshot>()
   const [unreadable, setUnreadable] = useState(false)
+  const [existsOnDisk, setExistsOnDisk] = useState(true)
   const title = fileNameFromPath(props.path) || props.path
   const contextTarget = useMemo<BenchTarget>(
     () => ({ type: "workspace-file", path: props.path, viewer: "file" }),
     [props.path],
   )
+  const updateExistsOnDisk = useCallback((nextExistsOnDisk: boolean) => {
+    existsOnDiskRef.current = nextExistsOnDisk
+    setExistsOnDisk(nextExistsOnDisk)
+  }, [])
 
   const load = useCallback(async () => {
     const file = await readProjectExplorerEditableFile({
@@ -75,35 +83,115 @@ export function SourceFileBenchView(props: { directory: string; path: string }) 
     snapshotRef.current = next
     setSnapshot(next)
   }, [])
+  const synchronize = useCallback(async () => {
+    const current = snapshotRef.current
+    if (current?.saving) return { changed: false }
+
+    const status = await readProjectExplorerEditableFileStatus({
+      directory: props.directory,
+      path: props.path,
+    })
+
+    if (!status.exists) {
+      const changed = existsOnDiskRef.current
+      updateExistsOnDisk(false)
+      return { changed }
+    }
+
+    let changed = false
+    if (!existsOnDiskRef.current) {
+      updateExistsOnDisk(true)
+      changed = true
+    }
+
+    if (!current || current.loading || current.dirty || current.conflict) {
+      return { changed }
+    }
+
+    if (!current.exists || current.version !== status.version) {
+      await editorRef.current?.reloadFromDisk({ silent: true })
+      return { changed: true }
+    }
+
+    return { changed }
+  }, [props.directory, props.path, updateExistsOnDisk])
 
   const contextProvider = useMemo<BenchContextProvider>(
     () => ({
       read: () => {
         const current = snapshotRef.current
+        const currentExistsOnDisk = existsOnDiskRef.current
+        const dirty = current?.dirty ?? false
+        const unavailableClean = !currentExistsOnDisk && !dirty
+        const targetStatus = unavailableClean
+          ? "unavailable"
+          : current?.loading
+            ? "loading"
+            : unreadable
+              ? "error"
+              : "ready"
+
         return {
-          targetStatus: current?.loading ? "loading" : unreadable ? "error" : "ready",
+          targetStatus,
           title,
           metadata: [
             "renderer: source-editor",
+            `exists: ${currentExistsOnDisk}`,
             `version: ${current?.version ?? "unknown"}`,
             `encoding: ${current ? workspaceTextEncoding(current.content) : "unknown"}`,
-            `dirty: ${current?.dirty ? "true" : "false"}`,
+            `dirty: ${dirty ? "true" : "false"}`,
             `save_state: ${current?.saveState ?? "loading"}`,
           ],
-          content: current?.content ?? "Source editor is loading.",
+          content: unavailableClean
+            ? `The source file at ${props.path} was deleted or moved. No verified file content is available.`
+            : (current?.content ?? "Source editor is loading."),
           refs: [
             workspaceFileRef({
               path: props.path,
               note: "Source file currently visible and editable on Bench.",
             }),
           ],
-          hints: current?.dirty
-            ? ["The context includes unsaved in-memory edits."]
-            : ["The context contains the complete in-memory editor buffer."],
+          hints: [
+            ...(dirty ? ["The context includes unsaved in-memory edits."] : []),
+            ...(!currentExistsOnDisk && dirty
+              ? [
+                  "The file no longer exists on disk; this source content exists only in Bench memory until explicitly restored.",
+                ]
+              : []),
+            ...(!currentExistsOnDisk && !dirty
+              ? ["File content is unavailable because the file no longer exists on disk."]
+              : []),
+            ...(currentExistsOnDisk && !dirty
+              ? ["The context contains the complete in-memory editor buffer."]
+              : []),
+          ],
         }
       },
     }),
     [props.path, title, unreadable],
+  )
+  const contextSemanticKey = useMemo(
+    () =>
+      [
+        existsOnDisk,
+        snapshot?.content ?? "",
+        snapshot?.version ?? "",
+        snapshot?.dirty ?? false,
+        snapshot?.saveState ?? "loading",
+        snapshot?.saveError ?? "",
+        snapshot?.conflict ?? "",
+        unreadable,
+      ].join(SOURCE_FILE_CONTEXT_SEMANTIC_KEY_SEPARATOR),
+    [
+      existsOnDisk,
+      snapshot?.conflict,
+      snapshot?.content,
+      snapshot?.dirty,
+      snapshot?.saveError,
+      snapshot?.saveState,
+      snapshot?.version,
+      unreadable,
+    ],
   )
 
   const leaveGuard = useCallback(async (): Promise<BenchLeaveGuardResult> => {
@@ -132,8 +220,14 @@ export function SourceFileBenchView(props: { directory: string; path: string }) 
   useRegisterBenchContextProvider({
     target: contextTarget,
     provider: contextProvider,
+    semanticKey: contextSemanticKey,
+    synchronize,
     leaveGuard,
   })
+
+  useEffect(() => {
+    updateExistsOnDisk(true)
+  }, [props.directory, props.path, updateExistsOnDisk])
 
   useEffect(() => {
     const shouldBlock = Boolean(
@@ -151,6 +245,8 @@ export function SourceFileBenchView(props: { directory: string; path: string }) 
 
   const saveStatus = snapshot?.loading
     ? "Loading"
+    : !existsOnDisk
+      ? "Unavailable"
     : snapshot?.conflict
       ? "Conflict"
       : snapshot?.saving
@@ -175,28 +271,45 @@ export function SourceFileBenchView(props: { directory: string; path: string }) 
             This file is not readable UTF-8 text. Use the file actions to open it externally.
           </div>
         </div>
+      ) : !existsOnDisk && !snapshot?.dirty ? (
+        <div className="flex h-full items-center justify-center p-6 text-center text-sm text-text-weak">
+          <div className="max-w-sm rounded-2xl border border-border-base bg-surface-base px-5 py-4 shadow-sm">
+            <AlertCircleIcon className="mx-auto mb-2 size-5 text-icon-warning-base" aria-hidden />
+            <h2 className="text-sm font-medium text-text-base">File deleted or moved</h2>
+            <p className="mt-2 text-sm text-text-weak">
+              {props.path} no longer exists on disk.
+            </p>
+          </div>
+        </div>
       ) : (
-        <VersionedTextFileEditor
-          ref={editorRef}
-          fallbackPath={props.path}
-          languageId={monacoLanguageForWorkspacePath(props.path)}
-          statusIndicator="none"
-          errorPresentation="inline"
-          reloadBehavior="once"
-          externalReloadIntervalMs={EXTERNAL_FILE_REFRESH_INTERVAL_MS}
-          className="gap-0 p-0"
-          editorOptions={{
-            lineNumbers: "on",
-            minimap: { enabled: false },
-            wordWrap: "off",
-          }}
-          load={load}
-          save={save}
-          isVersionConflictError={(error) =>
-            error instanceof ProjectExplorerFileVersionConflictError
-          }
-          onSnapshotChange={handleSnapshotChange}
-        />
+        <div className="flex h-full min-h-0 flex-col">
+          {!existsOnDisk ? (
+            <div className="border-b border-border-warning-base/50 bg-surface-warning-weak px-4 py-2 text-xs text-text-on-warning-weak">
+              File deleted or moved on disk. Save/overwrite only after deciding to restore it.
+            </div>
+          ) : null}
+          <VersionedTextFileEditor
+            ref={editorRef}
+            fallbackPath={props.path}
+            languageId={monacoLanguageForWorkspacePath(props.path)}
+            statusIndicator="none"
+            errorPresentation="inline"
+            reloadBehavior="once"
+            externalReloadIntervalMs={EXTERNAL_FILE_REFRESH_INTERVAL_MS}
+            className="gap-0 p-0"
+            editorOptions={{
+              lineNumbers: "on",
+              minimap: { enabled: false },
+              wordWrap: "off",
+            }}
+            load={load}
+            save={save}
+            isVersionConflictError={(error) =>
+              error instanceof ProjectExplorerFileVersionConflictError
+            }
+            onSnapshotChange={handleSnapshotChange}
+          />
+        </div>
       )}
     </BenchViewerShell>
   )

@@ -44,11 +44,12 @@ import {
   serializeMarkdownPdfDocument,
   waitForMarkdownPdfRenderReady,
 } from "@/lib/markdown-pdf-export"
-import { fileNameFromPath } from "@/lib/workspace-file-paths"
+import { fileNameFromPath, workspaceFileInstanceKey } from "@/lib/workspace-file-paths"
 import type { BenchTarget } from "@/lib/bench-navigation"
 import {
   ProjectExplorerFileVersionConflictError,
   readProjectExplorerEditableFile,
+  readProjectExplorerEditableFileStatus,
   saveProjectExplorerEditableFile,
   type ProjectExplorerEditableFileState,
 } from "@/state/chat-actions"
@@ -64,6 +65,9 @@ import { getPromptDraft, usePromptStore } from "@/state/prompt-store"
 const MARKDOWN_SAVE_DEBOUNCE_MS = 900
 const MARKDOWN_LEAVE_GUARD_WAIT_MS = 5000
 const MARKDOWN_LEAVE_GUARD_POLL_MS = 50
+const MARKDOWN_FILE_UNAVAILABLE_MESSAGE = "Markdown file was deleted or moved on disk."
+const MARKDOWN_FILE_CHANGED_MESSAGE = "Markdown file changed on disk."
+const MARKDOWN_CONTEXT_SEMANTIC_KEY_SEPARATOR = "\u0000"
 const FILE_EDIT_TOOL_NAMES = new Set(["edit", "write", "apply_patch"])
 
 type MarkdownBenchPageProps = {
@@ -76,6 +80,7 @@ export type MarkdownBenchPendingSaveSnapshot = {
   conflict: boolean
   content: string
   directory: string
+  exists: boolean
   path: string
   saveError: boolean
   savedContent: string
@@ -86,6 +91,17 @@ export type MarkdownBenchPendingSaveSnapshot = {
 type MarkdownBenchSaveFile = (
   input: Parameters<typeof saveProjectExplorerEditableFile>[0],
 ) => ReturnType<typeof saveProjectExplorerEditableFile>
+
+type MarkdownBenchFileState = {
+  conflict: boolean
+  exists: boolean
+  loading: boolean
+  markdown: string
+  savedMarkdown: string
+  saveError: string | undefined
+  saving: boolean
+  version: string
+}
 
 function markdownPdfFileName(filepath: string) {
   const name = fileNameFromPath(filepath) || "document.md"
@@ -145,6 +161,7 @@ export function shouldFlushMarkdownBenchPendingSave(
   snapshot: MarkdownBenchPendingSaveSnapshot,
 ): boolean {
   return (
+    snapshot.exists &&
     snapshot.content !== snapshot.savedContent &&
     !snapshot.saving &&
     !snapshot.conflict &&
@@ -185,6 +202,15 @@ async function waitForMarkdownBenchSaveToSettle(input: {
 }
 
 export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
+  const fileKey = useMemo(
+    () => workspaceFileInstanceKey({ directory: props.directory, path: props.path }),
+    [props.directory, props.path],
+  )
+
+  return <MarkdownBenchPageInstance key={fileKey} {...props} />
+}
+
+function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   const { controller } = useDirectoryNotebookRouteContext()
   const platform = usePlatform()
   const { themeId, themes } = useTheme()
@@ -193,6 +219,7 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
   const [markdown, setMarkdown] = useState(props.initialFile.content)
   const [savedMarkdown, setSavedMarkdown] = useState(props.initialFile.content)
   const [version, setVersion] = useState(props.initialFile.version ?? "")
+  const [exists, setExists] = useState(true)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
   const [conflict, setConflict] = useState(false)
@@ -232,45 +259,138 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
   const title = fileNameFromPath(props.path) || props.path
   const saveState = conflict ? "conflict" : saveError ? "error" : saving ? "saving" : "ready"
   const targetStatus =
-    conflict || saveError ? "error" : dirty ? "dirty" : loading ? "loading" : "ready"
+    !exists ? "unavailable" : conflict || saveError ? "error" : dirty ? "dirty" : loading ? "loading" : "ready"
+  const fileStateRef = useRef<MarkdownBenchFileState>({
+    conflict,
+    exists,
+    loading,
+    markdown,
+    savedMarkdown,
+    saveError,
+    saving,
+    version,
+  })
+  fileStateRef.current = {
+    conflict,
+    exists,
+    loading,
+    markdown,
+    savedMarkdown,
+    saveError,
+    saving,
+    version,
+  }
+  const patchFileStateRef = useCallback((patch: Partial<MarkdownBenchFileState>) => {
+    fileStateRef.current = {
+      ...fileStateRef.current,
+      ...patch,
+    }
+  }, [])
   const contextTarget = useMemo<BenchTarget>(
     () => ({ type: "workspace-file", path: props.path, viewer: "markdown" }),
     [props.path],
   )
-  const contextProvider = useMemo<BenchContextProvider>(
-    () => ({
-      read: () => ({
+  const contextSemanticKey = useMemo(
+    () =>
+      [
+        exists,
+        dirty,
+        markdown,
+        savedMarkdown,
+        version,
+        saveState,
+        saveError ?? "",
+        saving,
         targetStatus,
-        title,
-        metadata: [
-          `dirty: ${dirty}`,
-          `version: ${version}`,
-          `save_state: ${saveState}`,
-          `theme_mode: ${contentThemeMode}`,
-          `font_scale: ${contentFontScale}`,
-        ],
-        content: markdown,
-        refs: [
-          workspaceFileRef({
-            path: props.path,
-            note: "Markdown file on Bench.",
-          }),
-        ],
-        hints: dirty
-          ? ["Content may differ from the saved file because Bench has unsaved edits."]
-          : [],
-      }),
-    }),
+        contentThemeMode,
+        contentFontScale,
+      ].join(MARKDOWN_CONTEXT_SEMANTIC_KEY_SEPARATOR),
     [
       contentFontScale,
       contentThemeMode,
       dirty,
+      exists,
       markdown,
-      props.path,
+      saveError,
       saveState,
+      savedMarkdown,
+      saving,
       targetStatus,
-      title,
       version,
+    ],
+  )
+  const contextProvider = useMemo<BenchContextProvider>(
+    () => ({
+      read: () => {
+        const current = fileStateRef.current
+        const currentDirty = current.markdown !== current.savedMarkdown
+        const currentSaveState = current.conflict
+          ? "conflict"
+          : current.saveError
+            ? "error"
+            : current.saving
+              ? "saving"
+              : "ready"
+        const currentTargetStatus =
+          !current.exists
+            ? "unavailable"
+            : current.conflict || current.saveError
+              ? "error"
+              : currentDirty
+                ? "dirty"
+                : current.loading
+                  ? "loading"
+                  : "ready"
+        const unavailableClean = !current.exists && !currentDirty
+        const verificationErrorClean = current.exists && !!current.saveError && !currentDirty
+
+        return {
+          targetStatus: currentTargetStatus,
+          title,
+          metadata: [
+            `exists: ${current.exists}`,
+            `dirty: ${currentDirty}`,
+            `version: ${current.version}`,
+            `save_state: ${currentSaveState}`,
+            `theme_mode: ${contentThemeMode}`,
+            `font_scale: ${contentFontScale}`,
+          ],
+          content:
+            unavailableClean
+              ? `The Markdown file at ${props.path} was deleted or moved. No verified file content is available.`
+              : verificationErrorClean
+                ? `The Markdown file at ${props.path} could not be verified. No verified file content is available.`
+                : current.markdown,
+          refs: [
+            workspaceFileRef({
+              path: props.path,
+              note: "Markdown file on Bench.",
+            }),
+          ],
+          hints: [
+            ...(currentDirty
+              ? ["Content may differ from the saved file because Bench has unsaved edits."]
+              : []),
+            ...(!current.exists && currentDirty
+              ? [
+                  "The file no longer exists on disk; this Markdown content exists only in Bench memory until explicitly restored.",
+                ]
+              : []),
+            ...(!current.exists && !currentDirty
+              ? ["File content is unavailable because the file no longer exists on disk."]
+              : []),
+            ...(verificationErrorClean
+              ? ["File content is unavailable because verification failed."]
+              : []),
+          ],
+        }
+      },
+    }),
+    [
+      contentFontScale,
+      contentThemeMode,
+      props.path,
+      title,
     ],
   )
   const currentSaveSnapshot = useMemo<MarkdownBenchPendingSaveSnapshot>(
@@ -278,13 +398,24 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
       conflict,
       content: markdown,
       directory: props.directory,
+      exists,
       path: props.path,
       saveError: saveError !== undefined,
       savedContent: savedMarkdown,
       saving,
       version,
     }),
-    [conflict, markdown, props.directory, props.path, saveError, savedMarkdown, saving, version],
+    [
+      conflict,
+      exists,
+      markdown,
+      props.directory,
+      props.path,
+      saveError,
+      savedMarkdown,
+      saving,
+      version,
+    ],
   )
   const latestSaveSnapshotRef = useRef(currentSaveSnapshot)
   const previousCommittedSaveSnapshotRef = useRef(currentSaveSnapshot)
@@ -338,9 +469,133 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
       message: "Markdown could not be saved before leaving Bench.",
     }
   }, [])
+  const synchronize = useCallback(async () => {
+    const current = fileStateRef.current
+    if (current.saving) return { changed: false }
+
+    try {
+      const status = await readProjectExplorerEditableFileStatus({
+        directory: props.directory,
+        path: props.path,
+      })
+      const latest = fileStateRef.current
+      const latestDirty = latest.markdown !== latest.savedMarkdown
+
+      if (!status.exists) {
+        const nextConflict = latestDirty
+        const nextSaveError = nextConflict ? MARKDOWN_FILE_UNAVAILABLE_MESSAGE : undefined
+        const changed =
+          latest.exists ||
+          latest.conflict !== nextConflict ||
+          latest.saveError !== nextSaveError ||
+          latest.loading
+
+        if (!changed) return { changed: false }
+
+        patchFileStateRef({
+          exists: false,
+          loading: false,
+          conflict: nextConflict,
+          saveError: nextSaveError,
+        })
+        setExists(false)
+        setLoading(false)
+        setConflict(nextConflict)
+        setSaveError(nextSaveError)
+        return { changed: true }
+      }
+
+      if (latest.exists && latest.version === status.version) {
+        return { changed: false }
+      }
+
+      if (latestDirty) {
+        const changed = !latest.exists || !latest.conflict || latest.saveError !== MARKDOWN_FILE_CHANGED_MESSAGE
+        patchFileStateRef({
+          exists: true,
+          loading: false,
+          conflict: true,
+          saveError: MARKDOWN_FILE_CHANGED_MESSAGE,
+        })
+        setExists(true)
+        setLoading(false)
+        setConflict(true)
+        setSaveError(MARKDOWN_FILE_CHANGED_MESSAGE)
+        return { changed }
+      }
+
+      const next = await readProjectExplorerEditableFile({
+        directory: props.directory,
+        path: props.path,
+      })
+      const settled = fileStateRef.current
+      if (settled.saving) return { changed: false }
+      if (settled.markdown !== settled.savedMarkdown) {
+        patchFileStateRef({
+          exists: true,
+          loading: false,
+          conflict: true,
+          saveError: MARKDOWN_FILE_CHANGED_MESSAGE,
+        })
+        setExists(true)
+        setLoading(false)
+        setConflict(true)
+        setSaveError(MARKDOWN_FILE_CHANGED_MESSAGE)
+        return { changed: true }
+      }
+
+      const nextVersion = next.version ?? ""
+      const changed =
+        !settled.exists ||
+        settled.markdown !== next.content ||
+        settled.savedMarkdown !== next.content ||
+        settled.version !== nextVersion ||
+        settled.conflict ||
+        settled.saveError !== undefined ||
+        settled.loading
+
+      if (!changed) return { changed: false }
+
+      patchFileStateRef({
+        exists: true,
+        loading: false,
+        markdown: next.content,
+        savedMarkdown: next.content,
+        version: nextVersion,
+        conflict: false,
+        saveError: undefined,
+      })
+      setExists(true)
+      setMarkdown(next.content)
+      setSavedMarkdown(next.content)
+      setVersion(nextVersion)
+      setLoading(false)
+      setConflict(false)
+      setSaveError(undefined)
+      editorRef.current?.setMarkdown(next.content)
+      return { changed: true }
+    } catch (error) {
+      const latest = fileStateRef.current
+      const latestDirty = latest.markdown !== latest.savedMarkdown
+      const nextSaveError = error instanceof Error ? error.message : String(error)
+      patchFileStateRef({
+        loading: false,
+      })
+      setLoading(false)
+      if (!latestDirty) return { changed: false }
+      if (latestDirty && latest.saveError === nextSaveError) return { changed: false }
+      patchFileStateRef({
+        saveError: nextSaveError,
+      })
+      setSaveError(nextSaveError)
+      return { changed: true }
+    }
+  }, [patchFileStateRef, props.directory, props.path])
   useRegisterBenchContextProvider({
     target: contextTarget,
     provider: contextProvider,
+    semanticKey: contextSemanticKey,
+    synchronize,
     leaveGuard,
   })
   const contentTheme = useMemo(() => {
@@ -379,12 +634,23 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
     setMarkdown(props.initialFile.content)
     setSavedMarkdown(props.initialFile.content)
     setVersion(props.initialFile.version ?? "")
+    setExists(true)
     setSaving(false)
     setLoading(false)
     setConflict(false)
     setSaveError(undefined)
+    patchFileStateRef({
+      exists: true,
+      markdown: props.initialFile.content,
+      savedMarkdown: props.initialFile.content,
+      version: props.initialFile.version ?? "",
+      saving: false,
+      loading: false,
+      conflict: false,
+      saveError: undefined,
+    })
     editorRef.current?.setMarkdown(props.initialFile.content)
-  }, [props.directory, props.initialFile, props.path])
+  }, [patchFileStateRef, props.directory, props.initialFile, props.path])
 
   useEffect(() => {
     previousCommittedSaveSnapshotRef.current = currentSaveSnapshot
@@ -399,28 +665,54 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
   const reload = useCallback(async () => {
     setLoading(true)
     setSaveError(undefined)
+    patchFileStateRef({
+      loading: true,
+      saveError: undefined,
+    })
     try {
       const next = await readProjectExplorerEditableFile({
         directory: props.directory,
         path: props.path,
       })
+      const nextVersion = next.version ?? ""
+      patchFileStateRef({
+        exists: true,
+        markdown: next.content,
+        savedMarkdown: next.content,
+        version: nextVersion,
+        conflict: false,
+        saveError: undefined,
+      })
+      setExists(true)
       setMarkdown(next.content)
       setSavedMarkdown(next.content)
-      setVersion(next.version ?? "")
+      setVersion(nextVersion)
       setConflict(false)
       editorRef.current?.setMarkdown(next.content)
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : String(error))
+      const nextSaveError = error instanceof Error ? error.message : String(error)
+      patchFileStateRef({
+        saveError: nextSaveError,
+      })
+      setSaveError(nextSaveError)
     } finally {
+      patchFileStateRef({
+        loading: false,
+      })
       setLoading(false)
     }
-  }, [props.directory, props.path])
+  }, [patchFileStateRef, props.directory, props.path])
 
   const save = useCallback(
     async (input?: { overwrite?: boolean }) => {
+      if (!exists && !input?.overwrite) return
       if (!dirty && !input?.overwrite) return
       setSaving(true)
       setSaveError(undefined)
+      patchFileStateRef({
+        saving: true,
+        saveError: undefined,
+      })
       try {
         const saved = await saveProjectExplorerEditableFile({
           directory: props.directory,
@@ -428,30 +720,66 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
           content: markdown,
           expectedVersion: input?.overwrite ? undefined : version,
         })
+        const nextVersion = saved.version ?? ""
+        patchFileStateRef({
+          exists: true,
+          savedMarkdown: saved.content,
+          version: nextVersion,
+          conflict: false,
+          saving: false,
+          saveError: undefined,
+        })
+        setExists(true)
         setSavedMarkdown(saved.content)
-        setVersion(saved.version ?? "")
+        setVersion(nextVersion)
         setConflict(false)
       } catch (error) {
         if (error instanceof ProjectExplorerFileVersionConflictError) {
+          const status = await readProjectExplorerEditableFileStatus({
+            directory: props.directory,
+            path: props.path,
+          }).catch(() => undefined)
+          if (status && !status.exists) {
+            patchFileStateRef({
+              exists: false,
+              conflict: true,
+              saveError: MARKDOWN_FILE_UNAVAILABLE_MESSAGE,
+            })
+            setExists(false)
+            setConflict(true)
+            setSaveError(MARKDOWN_FILE_UNAVAILABLE_MESSAGE)
+            return
+          }
+          patchFileStateRef({
+            conflict: true,
+            saveError: error.message,
+          })
           setConflict(true)
           setSaveError(error.message)
         } else {
-          setSaveError(error instanceof Error ? error.message : String(error))
+          const nextSaveError = error instanceof Error ? error.message : String(error)
+          patchFileStateRef({
+            saveError: nextSaveError,
+          })
+          setSaveError(nextSaveError)
         }
       } finally {
+        patchFileStateRef({
+          saving: false,
+        })
         setSaving(false)
       }
     },
-    [dirty, markdown, props.directory, props.path, version],
+    [dirty, exists, markdown, patchFileStateRef, props.directory, props.path, version],
   )
 
   useEffect(() => {
-    if (!dirty || saving || conflict) return
+    if (!exists || !dirty || saving || conflict) return
     const timeout = window.setTimeout(() => {
       void save()
     }, MARKDOWN_SAVE_DEBOUNCE_MS)
     return () => window.clearTimeout(timeout)
-  }, [conflict, dirty, save, saving])
+  }, [conflict, dirty, exists, save, saving])
 
   useEffect(() => {
     if (agentEditActivity.running) {
@@ -537,6 +865,15 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
       setContentThemeMode(mode)
     },
     [setContentThemeMode],
+  )
+  const changeMarkdown = useCallback(
+    (nextMarkdown: string) => {
+      patchFileStateRef({
+        markdown: nextMarkdown,
+      })
+      setMarkdown(nextMarkdown)
+    },
+    [patchFileStateRef],
   )
   const undo = useCallback(() => {
     editorRef.current?.undo()
@@ -683,7 +1020,7 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
       ...(conflict
         ? [
             {
-              label: "Overwrite file",
+              label: exists ? "Overwrite file" : "Restore file",
               dataAction: "markdown-overwrite",
               icon: <TriangleAlertIcon className="size-4" aria-hidden />,
               onClick: () => {
@@ -707,7 +1044,7 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
             } satisfies BenchViewerAction,
           ]),
       {
-        label: loading ? "Reloading" : "Reload",
+        label: loading ? "Checking" : exists ? "Reload" : "Check again",
         dataAction: "markdown-reload",
         disabled: loading,
         icon: loading ? (
@@ -716,7 +1053,11 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
           <RefreshCwIcon className="size-4" aria-hidden />
         ),
         onClick: () => {
-          void reload()
+          if (exists) {
+            void reload()
+            return
+          }
+          void synchronize()
         },
       },
       {
@@ -733,11 +1074,12 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
         },
       },
     ],
-    [conflict, dirty, exportPdf, exporting, loading, reload, save, saving],
+    [conflict, dirty, exists, exportPdf, exporting, loading, reload, save, saving, synchronize],
   )
 
-  const status = conflict ? "Conflict" : saving ? "Saving..." : dirty ? "Unsaved" : "Saved"
+  const status = !exists ? "Unavailable" : conflict ? "Conflict" : saving ? "Saving..." : dirty ? "Unsaved" : "Saved"
   const subtitle = status === "Saved" ? props.path : `${props.path} · ${status}`
+  const showUnavailableCleanState = !exists && !dirty
 
   return (
     <BenchViewerShell
@@ -753,19 +1095,34 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
         </div>
       ) : null}
       <div ref={exportRef} className="h-full min-h-0">
-        <MarkdownBenchEditor
-          ref={editorRef}
-          markdown={markdown}
-          version={version}
-          dirty={dirty}
-          saving={saving}
-          conflict={conflict}
-          contentFontScale={contentFontScale}
-          contentTheme={contentTheme}
-          onChange={setMarkdown}
-          onHistoryControlsChange={setHistoryControls}
-          onSelectionChange={syncSelectionToChat}
-        />
+        {showUnavailableCleanState ? (
+          <div className="flex h-full min-h-0 items-center justify-center p-6">
+            <div className="max-w-md rounded-2xl border border-border-base bg-surface-base px-5 py-4 text-center shadow-sm">
+              <TriangleAlertIcon
+                className="mx-auto mb-3 size-5 text-icon-warning-base"
+                aria-hidden
+              />
+              <h2 className="text-sm font-medium text-text-base">File deleted or moved</h2>
+              <p className="mt-2 text-sm text-text-weak">
+                {props.path} no longer exists on disk.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <MarkdownBenchEditor
+            ref={editorRef}
+            markdown={markdown}
+            version={version}
+            dirty={dirty}
+            saving={saving}
+            conflict={conflict}
+            contentFontScale={contentFontScale}
+            contentTheme={contentTheme}
+            onChange={changeMarkdown}
+            onHistoryControlsChange={setHistoryControls}
+            onSelectionChange={syncSelectionToChat}
+          />
+        )}
       </div>
     </BenchViewerShell>
   )
