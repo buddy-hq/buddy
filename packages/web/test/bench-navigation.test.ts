@@ -10,7 +10,6 @@ import {
   BENCH_LAYOUT_PROFILE_READING,
   BENCH_LAYOUT_PROFILE_VISUAL,
   BENCH_MODE_REQUEST_POLICY,
-  classifyBenchTransition,
   isBenchRoutePathname,
   readBenchOpenPolicyStateFromLocation,
   readBenchTargetFromLocation,
@@ -30,7 +29,6 @@ import {
 } from "../src/lib/bench-navigation"
 import { encodeDirectory } from "../src/lib/directory-token"
 import { resolveRightWorkspaceSelectorDrawerWidth } from "../src/lib/directory-chat/right-sidebar-layout"
-import { closeBenchWorkspace } from "../src/lib/close-bench-workspace"
 
 const DIRECTORY = "/workspace/buddy"
 const RESOURCE_OBJECT_TARGET = {
@@ -116,32 +114,6 @@ function openRequest(target: BenchTarget): BenchOpenRequest {
 }
 
 describe("bench navigation policy", () => {
-  test("waits for workspace collapse before resetting the Bench route", async () => {
-    const events: string[] = []
-
-    await closeBenchWorkspace({
-      closeWorkspace: () => events.push("workspace-closed"),
-      waitForWorkspaceCollapse: async () => {
-        events.push("collapse-started")
-        await Promise.resolve()
-        events.push("collapse-finished")
-      },
-      navigateToChat: async () => {
-        events.push("navigation-started")
-        await Promise.resolve()
-        events.push("navigation-finished")
-      },
-    })
-
-    expect(events).toEqual([
-      "workspace-closed",
-      "collapse-started",
-      "collapse-finished",
-      "navigation-started",
-      "navigation-finished",
-    ])
-  })
-
   test("resolves content-based layout profile defaults", () => {
     const expectedProfiles = [
       {
@@ -376,9 +348,6 @@ describe("bench navigation policy", () => {
       mode: BENCH_CHAT_LAYOUT_FLOATING,
       layoutProfile: BENCH_LAYOUT_PROFILE_VISUAL,
       policyID: "target-default-mode",
-      dockedWidth: "use-profile",
-      floatingSize: "use-profile",
-      floatingPosition: "use-profile",
     })
   })
 
@@ -420,9 +389,6 @@ describe("bench navigation policy", () => {
       action: "open",
       mode: BENCH_CHAT_LAYOUT_FLOATING,
       policyID: "preserved-current-mode",
-      dockedWidth: "preserve",
-      floatingSize: "preserve",
-      floatingPosition: "preserve",
     })
   })
 
@@ -548,76 +514,7 @@ describe("bench navigation policy", () => {
     })
   })
 
-  test("classifies bench transitions from policy states", () => {
-    const markdownTarget = {
-      type: "workspace-file",
-      path: "notes.md",
-      viewer: "markdown",
-    } satisfies BenchTarget
-    const fileTarget = {
-      type: "workspace-file",
-      path: "diagram.png",
-      viewer: "file",
-    } satisfies BenchTarget
-    const openMarkdownDocked = {
-      status: "open",
-      directory: DIRECTORY,
-      target: markdownTarget,
-      mode: BENCH_CHAT_LAYOUT_DOCKED,
-      layoutProfile: resolveBenchSurfaceDefaults(markdownTarget).layoutProfile,
-    } satisfies BenchOpenPolicyState
-
-    expect(
-      classifyBenchTransition({
-        previous: { status: "closed" },
-        next: openMarkdownDocked,
-      }),
-    ).toBe("enter")
-    expect(
-      classifyBenchTransition({
-        previous: openMarkdownDocked,
-        next: { status: "closed" },
-      }),
-    ).toBe("exit")
-    expect(
-      classifyBenchTransition({
-        previous: openMarkdownDocked,
-        next: {
-          ...openMarkdownDocked,
-          target: fileTarget,
-          layoutProfile: resolveBenchSurfaceDefaults(fileTarget).layoutProfile,
-        },
-      }),
-    ).toBe("replace")
-    expect(
-      classifyBenchTransition({
-        previous: openMarkdownDocked,
-        next: {
-          ...openMarkdownDocked,
-          mode: BENCH_CHAT_LAYOUT_FLOATING,
-        },
-      }),
-    ).toBe("change-mode")
-    expect(
-      classifyBenchTransition({
-        previous: openMarkdownDocked,
-        next: {
-          ...openMarkdownDocked,
-          target: fileTarget,
-          mode: BENCH_CHAT_LAYOUT_FLOATING,
-          layoutProfile: resolveBenchSurfaceDefaults(fileTarget).layoutProfile,
-        },
-      }),
-    ).toBe("replace-and-change-mode")
-    expect(
-      classifyBenchTransition({
-        previous: openMarkdownDocked,
-        next: openMarkdownDocked,
-      }),
-    ).toBe("none")
-  })
-
-  test("maps route view transitions through bench policy-state classification", () => {
+  test("maps route view transitions from committed route states", () => {
     const directoryParam = encodeDirectory(DIRECTORY)
     const markdownPathname = `/${directoryParam}/markdown`
     const filePathname = `/${directoryParam}/file`

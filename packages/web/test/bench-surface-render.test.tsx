@@ -11,6 +11,7 @@ import { createRoot, type Root } from "react-dom/client"
 import { FlashcardBenchReview } from "../src/components/bench/flashcard-bench-review"
 import { BenchRouteContextProvider } from "../src/components/bench/bench-route-context"
 import { BenchMediaPreview } from "../src/components/bench/bench-media-preview"
+import { DirectoryWorkspaceProvider } from "../src/components/directory-chat/directory-workspace-context"
 import { QuestionSetBenchReview } from "../src/components/bench/question-set-bench-review"
 import { SvgObjectBenchView } from "../src/components/bench/svg-object-bench-view"
 import {
@@ -75,36 +76,12 @@ function TestRouterProvider(props: { children: ReactNode }) {
 function TestBenchContextProvider(props: { children: ReactNode }) {
   return (
     <TestRouterProvider>
-      <BenchRouteContextProvider
-        state={{
-          directory: TEST_DIRECTORY,
-          target: {
-            type: "object",
-            ref: {
-              kind: "whiteboard",
-              objectID: "whiteboard-1",
-              revisionID: null,
-              itemID: null,
-            },
-            viewID: "current",
-          },
-          mode: BENCH_CHAT_LAYOUT_DOCKED,
-          layoutProfile: BENCH_LAYOUT_PROFILE_VISUAL,
-          dockedChatWidthPx: 480,
-          floatingRect: TEST_FLOATING_RECT,
-          floatingChatState: "open",
-        }}
-        visible={true}
-        activeSessionID={undefined}
-        setMode={() => undefined}
-        setFloatingChatState={() => undefined}
-        fallbackProvider={{
-          read: () => ({
-            status: "open",
+      <DirectoryWorkspaceProvider directory={TEST_DIRECTORY}>
+        <BenchRouteContextProvider
+          state={{
+            directory: TEST_DIRECTORY,
             target: {
               type: "object",
-              title: "Test Bench",
-              workspaceRoot: TEST_DIRECTORY,
               ref: {
                 kind: "whiteboard",
                 objectID: "whiteboard-1",
@@ -112,18 +89,44 @@ function TestBenchContextProvider(props: { children: ReactNode }) {
                 itemID: null,
               },
               viewID: "current",
-              route: "/test",
-              status: "ready",
             },
-            metadata: [],
-            content: "Test Bench context.",
-            refs: [],
-            hints: [],
-          }),
-        }}
-      >
-        {props.children}
-      </BenchRouteContextProvider>
+            mode: BENCH_CHAT_LAYOUT_DOCKED,
+            layoutProfile: BENCH_LAYOUT_PROFILE_VISUAL,
+            dockedChatWidthPx: 480,
+            floatingRect: TEST_FLOATING_RECT,
+            floatingChatState: "open",
+          }}
+          visible={true}
+          activeSessionID={undefined}
+          setMode={() => undefined}
+          setFloatingChatState={() => undefined}
+          fallbackProvider={{
+            read: () => ({
+              status: "open",
+              target: {
+                type: "object",
+                title: "Test Bench",
+                workspaceRoot: TEST_DIRECTORY,
+                ref: {
+                  kind: "whiteboard",
+                  objectID: "whiteboard-1",
+                  revisionID: null,
+                  itemID: null,
+                },
+                viewID: "current",
+                route: "/test",
+                status: "ready",
+              },
+              metadata: [],
+              content: "Test Bench context.",
+              refs: [],
+              hints: [],
+            }),
+          }}
+        >
+          {props.children}
+        </BenchRouteContextProvider>
+      </DirectoryWorkspaceProvider>
     </TestRouterProvider>
   )
 }

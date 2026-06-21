@@ -9,9 +9,6 @@ function resetUiPreferences() {
     leftSidebarOpen: true,
     chatLeftSidebarWidth: 344,
     settingsSidebarWidth: 344,
-    rightSidebarOpen: false,
-    rightSidebarWidth: 344,
-    rightSidebarTab: "curriculum",
   })
 }
 
@@ -29,10 +26,6 @@ describe("ui preference persistence parity", () => {
     state.setLeftSidebarOpen(false)
     state.setChatLeftSidebarWidth(280)
     state.setSettingsSidebarWidth(320)
-    state.setRightSidebarOpen(true)
-    state.setRightSidebarWidth(420)
-    state.setRightSidebarTab("settings")
-    state.setRightSidebarTab("resources")
 
     const raw = localStorage.getItem(UI_PREFERENCES_STORAGE_KEY)
     expect(raw).toBeTruthy()
@@ -44,12 +37,11 @@ describe("ui preference persistence parity", () => {
       leftSidebarOpen: false,
       chatLeftSidebarWidth: 280,
       settingsSidebarWidth: 320,
-      rightSidebarOpen: true,
-      rightSidebarWidth: 420,
-      rightSidebarTab: "resources",
     })
     expect(parsed.state.togglePinned).toBeUndefined()
-    expect(parsed.state.setRightSidebarOpen).toBeUndefined()
+    expect(parsed.state.rightSidebarOpen).toBeUndefined()
+    expect(parsed.state.rightSidebarWidth).toBeUndefined()
+    expect(parsed.state.rightSidebarTab).toBeUndefined()
   })
 
   test("clears pinned and unread state for archived session", () => {
@@ -74,9 +66,10 @@ describe("ui preference persistence parity", () => {
           unreadByDirectory: {},
           leftSidebarOpen: true,
           leftSidebarWidth: 412,
-          rightSidebarOpen: false,
-          rightSidebarWidth: 344,
-          rightSidebarTab: "curriculum",
+          rightSidebarOpen: true,
+          rightSidebarWidth: 520,
+          rightSidebarTab: "resources",
+          rightWorkspaceLastSelectorByDirectory: { "/repo": "library" },
         },
         version: 10,
       }),
@@ -87,6 +80,10 @@ describe("ui preference persistence parity", () => {
     const next = useUiPreferences.getState()
     expect(next.chatLeftSidebarWidth).toBe(412)
     expect(next.settingsSidebarWidth).toBe(412)
+    expect("rightSidebarOpen" in next).toBe(false)
+    expect("rightSidebarWidth" in next).toBe(false)
+    expect("rightSidebarTab" in next).toBe(false)
+    expect("rightWorkspaceLastSelectorByDirectory" in next).toBe(false)
   })
 })
 

@@ -74,6 +74,64 @@ function TestBenchPageLayout(props: { initialMode?: BenchChatLayoutMode }) {
   )
 }
 
+function StableWorkspaceLayoutHarness() {
+  const [mode, setMode] = useState<BenchChatLayoutMode>(BENCH_CHAT_LAYOUT_DOCKED)
+  const [workspaceOpen, setWorkspaceOpen] = useState(true)
+  const [targetKey, setTargetKey] = useState("target-1")
+  const [dockedChatWidthPx, setDockedChatWidthPx] = useState(() =>
+    readInitialChatPanelWidth(BENCH_LAYOUT_PROFILE_DOCUMENT),
+  )
+  const [floatingRect, setFloatingRect] = useState(() =>
+    resolveDefaultFloatingChatRect(
+      resolveInitialFloatingChatContainerSize(),
+      BENCH_LAYOUT_PROFILE_DOCUMENT,
+    ),
+  )
+  const [floatingChatState, setFloatingChatState] = useState<"open" | "minimized">("open")
+
+  return (
+    <DirectoryChatBenchPageLayout
+      chatLayoutMode={mode}
+      layoutProfile={BENCH_LAYOUT_PROFILE_DOCUMENT}
+      dockedChatWidthPx={dockedChatWidthPx}
+      floatingRect={floatingRect}
+      floatingChatState={floatingChatState}
+      onChatLayoutModeChange={setMode}
+      onDockedChatWidthChange={setDockedChatWidthPx}
+      onFloatingRectChange={setFloatingRect}
+      onFloatingChatStateChange={setFloatingChatState}
+      benchInteractive={mode === BENCH_CHAT_LAYOUT_FLOATING || workspaceOpen}
+      dockedBenchLayout={{
+        open: workspaceOpen,
+        widthPx: 640,
+        minWidthPx: 480,
+        maxWidthPx: 800,
+        onResize: () => undefined,
+        onCollapse: () => setWorkspaceOpen(false),
+      }}
+      bench={<div key={targetKey} data-component="stable-bench-probe" data-target={targetKey} />}
+      conversation={(controls) => (
+        <div data-component="stable-conversation-probe">
+          <button type="button" data-action="collapse-workspace" onClick={() => setWorkspaceOpen(false)}>
+            Collapse
+          </button>
+          <button type="button" data-action="reveal-workspace" onClick={() => setWorkspaceOpen(true)}>
+            Reveal
+          </button>
+          <button type="button" data-action="replace-target" onClick={() => setTargetKey("target-2")}>
+            Replace target
+          </button>
+          {controls.onFloatChat ? (
+            <button type="button" data-action="float-workspace-chat" onClick={controls.onFloatChat}>
+              Float
+            </button>
+          ) : null}
+        </div>
+      )}
+    />
+  )
+}
+
 describe("workspace floating chat helpers", () => {
   test("keeps floating chat within the workspace viewport", () => {
     const bounds: FloatingChatBounds = {
@@ -159,13 +217,16 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
 
-  test("moves the existing conversation between docked and floating shells", async () => {
+  test("preserves conversation identity between docked and floating modes", async () => {
     await act(async () => {
       root.render(<TestBenchPageLayout />)
       await flushEffects()
     })
 
-    expect(container.querySelector('[data-component="conversation-probe"]')).not.toBeNull()
+    const dockedConversation = requireElement(
+      container.querySelector('[data-component="conversation-probe"]'),
+    )
+    const dockedBench = requireElement(container.querySelector('[data-component="bench-probe"]'))
     expect(container.querySelector('[data-component="directory-chat-floating-window"]')).toBeNull()
 
     const floatButton = requireElement(
@@ -180,7 +241,15 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
     expect(
       container.querySelector('[data-component="directory-chat-floating-window"]'),
     ).not.toBeNull()
-    expect(container.querySelector('[data-component="conversation-probe"]')).not.toBeNull()
+    expect(
+      container
+        .querySelector('[data-component="directory-chat-floating-window"]')
+        ?.getAttribute("aria-hidden"),
+    ).toBe("false")
+    expect(container.querySelector('[data-component="conversation-probe"]')).toBe(
+      dockedConversation,
+    )
+    expect(container.querySelector('[data-component="bench-probe"]')).toBe(dockedBench)
 
     const dockButton = requireElement(
       container.querySelector<HTMLButtonElement>('[data-action="directory-chat-dock"]'),
@@ -192,7 +261,69 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
     })
 
     expect(container.querySelector('[data-action="directory-chat-float"]')).not.toBeNull()
-    expect(container.querySelector('[data-component="conversation-probe"]')).not.toBeNull()
+    expect(container.querySelector('[data-component="conversation-probe"]')).toBe(
+      dockedConversation,
+    )
+    expect(container.querySelector('[data-component="bench-probe"]')).toBe(dockedBench)
+  })
+
+  test("keeps stable hosts through visibility and mode changes and remounts only a new target", async () => {
+    await act(async () => {
+      root.render(<StableWorkspaceLayoutHarness />)
+      await flushEffects()
+    })
+
+    const initialConversation = requireElement(
+      container.querySelector('[data-component="stable-conversation-probe"]'),
+    )
+    const initialTarget = requireElement(
+      container.querySelector('[data-component="stable-bench-probe"]'),
+    )
+
+    await act(async () => {
+      requireElement(
+        container.querySelector<HTMLButtonElement>('[data-action="collapse-workspace"]'),
+      ).click()
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-component="directory-chat-bench-host"]')?.getAttribute("aria-hidden")).toBe("true")
+    expect(container.querySelector('[data-component="stable-conversation-probe"]')).toBe(
+      initialConversation,
+    )
+    expect(container.querySelector('[data-component="stable-bench-probe"]')).toBe(initialTarget)
+
+    await act(async () => {
+      requireElement(
+        container.querySelector<HTMLButtonElement>('[data-action="reveal-workspace"]'),
+      ).click()
+      requireElement(
+        container.querySelector<HTMLButtonElement>('[data-action="float-workspace-chat"]'),
+      ).click()
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-component="stable-conversation-probe"]')).toBe(
+      initialConversation,
+    )
+    expect(container.querySelector('[data-component="stable-bench-probe"]')).toBe(initialTarget)
+
+    await act(async () => {
+      requireElement(
+        container.querySelector<HTMLButtonElement>('[data-action="directory-chat-dock"]'),
+      ).click()
+      requireElement(
+        container.querySelector<HTMLButtonElement>('[data-action="replace-target"]'),
+      ).click()
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-component="stable-conversation-probe"]')).toBe(
+      initialConversation,
+    )
+    expect(container.querySelector('[data-component="stable-bench-probe"]')).not.toBe(
+      initialTarget,
+    )
   })
 
   test("can start with chat in a floating window", async () => {
@@ -226,10 +357,17 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
       await flushEffects(350)
     })
 
-    expect(container.querySelector('[data-component="directory-chat-floating-window"]')).toBeNull()
+    expect(
+      container
+        .querySelector('[data-component="directory-chat-floating-window"]')
+        ?.getAttribute("aria-hidden"),
+    ).toBe("true")
     expect(
       container.querySelector('[data-component="directory-chat-floating-restore"]'),
     ).not.toBeNull()
+    const minimizedConversation = requireElement(
+      container.querySelector('[data-component="conversation-probe"]'),
+    )
 
     const restoreButton = requireElement(
       container.querySelector<HTMLButtonElement>('[data-action="directory-chat-restore"]'),
@@ -248,5 +386,8 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
       container.querySelector('[data-component="directory-chat-floating-window"]'),
     ).not.toBeNull()
     expect(container.querySelector('[data-component="directory-chat-floating-restore"]')).toBeNull()
+    expect(container.querySelector('[data-component="conversation-probe"]')).toBe(
+      minimizedConversation,
+    )
   })
 })
