@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { clearBenchContextRegistry } from "../../src/learning/features/bench/context"
+import {
+  benchTargetKey,
+  clearBenchContextRegistry,
+  type BenchTarget,
+} from "../../src/learning/features/bench/context"
 import {
   BenchClientActionBroker,
   SSE_EVENT_TYPE_CLIENT_ACTION,
@@ -170,6 +174,7 @@ function committedCompletion(input: {
     drawer: null,
     context: {
       status: "open",
+      targetKey: benchTargetKey(input.action.command.target),
       target: {
         type: "workspace-file",
         title: "notes.md",
@@ -197,6 +202,14 @@ function committedResourceCompletion(input: {
   if (input.action.command.type !== "present" || input.action.command.target.type !== "object") {
     throw new Error("Expected resource present action.")
   }
+  const contextTarget = {
+    type: "object",
+    ref: {
+      ...input.action.command.target.ref,
+      revisionID: input.contextRevisionID,
+    },
+    viewID: input.action.command.target.viewID,
+  } satisfies BenchTarget
   return {
     outcome: "committed",
     lease: {
@@ -214,15 +227,13 @@ function committedResourceCompletion(input: {
     drawer: null,
     context: {
       status: "open",
+      targetKey: benchTargetKey(contextTarget),
       target: {
         type: "object",
         title: "Book",
         workspaceRoot: DIRECTORY,
-        ref: {
-          ...input.action.command.target.ref,
-          revisionID: input.contextRevisionID,
-        },
-        viewID: input.action.command.target.viewID,
+        ref: contextTarget.ref,
+        viewID: contextTarget.viewID,
         route: "/_bench/objects/resource/book?view=reader",
         status: "ready",
       },
@@ -336,6 +347,50 @@ describe("BenchClientActionBroker", () => {
         }),
       }),
     ).toEqual({ status: "conflict" })
+  })
+
+  test("rejects same-path file completions whose context target key uses markdown identity", () => {
+    const { broker } = createBroker()
+    const client = connectClient({ broker })
+    const enqueued = broker.enqueueRequiredAction({
+      directory: DIRECTORY,
+      sessionID: SESSION_ID,
+      messageID: "msg_file_viewer",
+      callID: null,
+      command: {
+        type: "present",
+        target: {
+          type: "workspace-file",
+          path: "notes.md",
+          viewer: "file",
+        },
+      },
+    })
+    const action = client.actions[0]
+    if (!action) throw new Error("Expected delivered action.")
+    const completion = committedCompletion({ lease: client.lease, action })
+    if (completion.outcome !== "committed" || completion.context.status !== "open") {
+      throw new Error("Expected committed open completion.")
+    }
+
+    expect(
+      broker.completeAction({
+        directory: DIRECTORY,
+        actionID: action.actionID,
+        completion: {
+          ...completion,
+          context: {
+            ...completion.context,
+            targetKey: benchTargetKey({
+              type: "workspace-file",
+              path: "notes.md",
+              viewer: "markdown",
+            }),
+          },
+        },
+      }),
+    ).toEqual({ status: "conflict" })
+    expect(enqueued.action.actionID).toBe(action.actionID)
   })
 
   test("rejects resource completions whose synchronized context drops requested revision identity", async () => {

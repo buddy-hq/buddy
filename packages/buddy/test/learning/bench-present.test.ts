@@ -2,7 +2,10 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { setTimeout as sleep } from "node:timers/promises"
 import { afterEach, describe, expect, test } from "bun:test"
-import { clearBenchContextRegistry } from "../../src/learning/features/bench/context"
+import {
+  benchTargetKey,
+  clearBenchContextRegistry,
+} from "../../src/learning/features/bench/context"
 import {
   SSE_EVENT_TYPE_CLIENT_ACTION,
   benchClientActionBroker,
@@ -88,6 +91,7 @@ function openContextForAction(input: { directory: string; action: BenchClientAct
   if (target.type === "workspace-file") {
     return {
       status: "open" as const,
+      targetKey: benchTargetKey(target),
       target: {
         type: "workspace-file" as const,
         title: path.basename(target.path),
@@ -112,6 +116,7 @@ function openContextForAction(input: { directory: string; action: BenchClientAct
   }
   return {
     status: "open" as const,
+    targetKey: benchTargetKey(target),
     target: {
       type: "object" as const,
       title: "Bench object",
