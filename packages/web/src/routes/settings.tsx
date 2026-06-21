@@ -323,9 +323,6 @@ function SettingsRoute() {
                   .catch(() => undefined)
               }}
               onCloseDirectory={(targetDirectory) => void onCloseDirectory(targetDirectory)}
-              onOpenCurriculum={() => {
-                if (currentDirectory) openChat(currentDirectory)
-              }}
               onOpenSettings={() => undefined}
               showHeader={false}
               footer={null}

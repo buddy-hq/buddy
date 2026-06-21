@@ -2,9 +2,8 @@ import { useLocation, useNavigate } from "@tanstack/react-router"
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
-import { flushBenchContextBeforePrompt } from "@/components/bench/bench-route-context"
+import { useDirectoryWorkspace } from "@/components/directory-chat/directory-workspace-context"
 import { getFilename } from "@/components/layout/sidebar-helpers"
-import { CreateTeachingFileDialog } from "@/components/teaching/create-teaching-file-dialog"
 import {
   PROMPT_PART_TYPE_TEXT,
   RESOURCE_REFERENCE_PART_TYPE,
@@ -26,7 +25,6 @@ import {
 } from "@/components/prompt/slash-autocomplete"
 import type { MentionableAgent } from "@/components/prompt/mention-autocomplete"
 import type { DirectoryChatConversationPane } from "@/components/directory-chat/directory-chat-conversation-pane"
-import type { DirectoryChatRightSidebar } from "@/components/directory-chat/directory-chat-right-sidebar"
 import type { DirectoryChatShell } from "@/components/directory-chat/directory-chat-shell"
 import {
   isResourceLocalSlashCommandName,
@@ -43,7 +41,6 @@ import { resolveTeachingPromptContext } from "../teaching-context"
 import { pickProjectDirectory } from "../directory-picker"
 import { decodeDirectory, encodeDirectory } from "../directory-token"
 import {
-  type LearnerCurriculumView,
   abortPrompt,
   closeOpenProject,
   ensureDirectorySession,
@@ -88,7 +85,6 @@ import {
 import { teachingSessionStateQueryOptions } from "../../state/teaching-session-query"
 import {
   clonePromptDraft,
-  createTextPromptDraft,
   getPromptDraft,
   getPromptScopeKey,
   normalizePromptDraft,
@@ -109,14 +105,13 @@ import {
 } from "./chat-prompt-helpers"
 import { useDirectoryChatState } from "./use-directory-chat-state"
 import { useChatSync } from "./use-chat-sync"
+import { DirectoryWorkspaceClientActionLedger } from "@/lib/directory-workspace-client-actions"
 import { useChatConfig } from "./use-chat-config"
 import { useTeachingWorkspace } from "./use-teaching-workspace"
 import { useAutoScroll } from "./use-auto-scroll"
 import {
-  getRightSidebarDefaultWidth,
   RIGHT_SIDEBAR_DEFAULT_MAX_WIDTH,
   RIGHT_SIDEBAR_DEFAULT_MIN_WIDTH,
-  RIGHT_SIDEBAR_EDITOR_MIN_WIDTH,
   RIGHT_WORKSPACE_DEFAULT_WIDTH_PX,
   resolveRightWorkspaceWidth,
 } from "./right-sidebar-layout"
@@ -129,9 +124,12 @@ import {
   readBenchOpenPolicyStateFromLocation,
   useOpenBench,
 } from "@/lib/bench-navigation"
+import { WORKSPACE_VISIBILITY_EXPANDED } from "@/state/directory-workspace-store"
 import { bootstrapLearnerMemoryForNotebookBestEffort } from "@/lib/learner-memory"
 import { FOLLOWUP_BEHAVIOR_QUEUE, useChatSettings } from "@/state/chat-settings"
 import { language } from "@/context/language"
+import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
+import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-disposal"
 
 const SIDEBAR_MIN_WIDTH = 220
 const READING_PREFETCH_BLOCKED_STATUSES = new Set<NonNullable<ResourceReadingTarget["status"]>>([
@@ -139,10 +137,6 @@ const READING_PREFETCH_BLOCKED_STATUSES = new Set<NonNullable<ResourceReadingTar
   "unsupported",
   "error",
 ])
-
-function personaSurfaceToSidebarTab(value: "curriculum" | "editor" | "question-set") {
-  return value === "editor" ? "editor" : "curriculum"
-}
 
 const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = []
 const E2E_BACKEND_COMMAND_NAME = "e2e-backend-command"
@@ -210,18 +204,15 @@ type DirectoryChatPageControllerProps = {
 
 type DirectoryChatShellProps = ComponentProps<typeof DirectoryChatShell>
 type DirectoryChatMainPaneProps = ComponentProps<typeof DirectoryChatConversationPane>
-type DirectoryChatRightSidebarProps = ComponentProps<typeof DirectoryChatRightSidebar>
 
 type ReadyDirectoryChatPageControllerState = {
   status: "ready"
   leftSidebarProps: ComponentProps<typeof ChatLeftSidebar>
   mainPaneProps: DirectoryChatMainPaneProps
-  rightSidebarProps: DirectoryChatRightSidebarProps
   shellProps: Omit<
     DirectoryChatShellProps,
-    "leftSidebar" | "mainPane" | "rightSidebar" | "createTeachingFileDialog"
+    "leftSidebar" | "mainPane" | "rightSidebar"
   >
-  dialogProps: ComponentProps<typeof CreateTeachingFileDialog>
 }
 
 export type DirectoryChatPageControllerState =
@@ -235,9 +226,16 @@ export function useDirectoryChatPageController(
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const location = useLocation()
+  const workspace = useDirectoryWorkspace()
   const closingDirectoryRef = useRef<string | undefined>(undefined)
   const previousDirectoryRef = useRef<string | undefined>(undefined)
-  const [systemPromptRefreshToken, setSystemPromptRefreshToken] = useState(0)
+  const benchActionLedgerDiagnosticRef = useRef<{
+    decodedDirectory: string
+    sessionID: string | undefined
+  }>({
+    decodedDirectory: "",
+    sessionID: undefined,
+  })
   const [pendingSuggestionOverride, setPendingSuggestionOverride] = useState<
     | {
         label: string
@@ -246,8 +244,6 @@ export function useDirectoryChatPageController(
       }
     | undefined
   >(undefined)
-  const [isStartingInteractiveLesson, setIsStartingInteractiveLesson] = useState(false)
-  const [createFileDialogOpen, setCreateFileDialogOpen] = useState(false)
   const [shellView, setShellView] = useState<DirectoryChatShellView>(
     DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE,
   )
@@ -258,6 +254,7 @@ export function useDirectoryChatPageController(
     undefined,
   )
   const followupBehavior = useChatSettings((state) => state.followupBehavior)
+  const activeSessionIDRef = useRef<string | undefined>(undefined)
 
   const decodedDirectory = useMemo(() => {
     try {
@@ -266,12 +263,6 @@ export function useDirectoryChatPageController(
       return ""
     }
   }, [props.directoryToken])
-
-  const showDevSessionTrace = false
-  const showCapabilitiesSidebarTab = showDevSessionTrace
-  const showSystemPromptSidebarTab = showDevSessionTrace
-  const showSnapshotSidebarTab = showDevSessionTrace
-  const showPaletteSidebarTab = showDevSessionTrace
 
   const openProjects = useChatStore(useShallow((state) => state.openProjects))
   const activeReadingResource = useChatStore((state) =>
@@ -306,9 +297,6 @@ export function useDirectoryChatPageController(
     configuredModel: chatConfig.configuredModel,
     autoCompactionEnabled: chatConfig.autoCompactionEnabled,
     personaCatalog: chatConfig.personaCatalog,
-    showSystemPromptSidebarTab,
-    showCapabilitiesSidebarTab,
-    showPaletteSidebarTab,
   })
   const {
     clearUnread,
@@ -317,10 +305,6 @@ export function useDirectoryChatPageController(
     selectedThinking,
     sessionID,
     sessionKey,
-    rightSidebarWidth,
-    setRightSidebarOpen,
-    setRightSidebarTab,
-    setRightSidebarWidth,
     setActiveDirectory,
     pushRecentModelKey,
     setSelectedAgent,
@@ -328,12 +312,69 @@ export function useDirectoryChatPageController(
     setSelectedVariant,
     validOpenProjects,
   } = cs
+  activeSessionIDRef.current = sessionID
+  benchActionLedgerDiagnosticRef.current = {
+    decodedDirectory,
+    sessionID,
+  }
+  const benchActionLedger = useMemo(
+    () =>
+      new DirectoryWorkspaceClientActionLedger({
+        directory: decodedDirectory,
+        controller: workspace.controller,
+        lifecycle: workspace.lifecycle,
+        getActiveSessionID: () => activeSessionIDRef.current,
+      }),
+    [decodedDirectory, workspace.controller, workspace.lifecycle],
+  )
+
+  useStrictModeDeferredDisposal({
+    ownerKey: benchActionLedger,
+    eventPrefix: "directory-chat-page-controller-ledger",
+    logEvent: logBenchToggleStep,
+    getDiagnostics: () => benchActionLedgerDiagnosticRef.current,
+    dispose: () => benchActionLedger.dispose(),
+  })
+
+  useEffect(() => {
+    void benchActionLedger.drainPendingSessionActions()
+  }, [benchActionLedger, sessionID])
+
+  const getBenchEventStreamLeaseQuery = useCallback(
+    () => workspace.lifecycle.beginEventStreamLease(),
+    [workspace.lifecycle],
+  )
+  const onBenchClientLease = useCallback(
+    (lease: Parameters<typeof workspace.lifecycle.acceptLease>[0]) => {
+      workspace.lifecycle.acceptLease(lease)
+      void benchActionLedger.drainPendingSessionActions()
+    },
+    [benchActionLedger, workspace.lifecycle],
+  )
+  const onBenchClientAction = useCallback(
+    (action: Parameters<DirectoryWorkspaceClientActionLedger["handle"]>[0]) =>
+      benchActionLedger.handle(action),
+    [benchActionLedger],
+  )
   const visibleReadingResource =
     benchPolicyStateForPrompt.status === "open" &&
     benchPolicyStateForPrompt.mode === BENCH_CHAT_LAYOUT_DOCKED &&
-    !cs.rightSidebarOpen
+    workspace.projection.dockedState.visibility !== WORKSPACE_VISIBILITY_EXPANDED
       ? undefined
       : activeReadingResource
+  const rightWorkspaceOpen =
+    workspace.projection.dockedState.visibility === WORKSPACE_VISIBILITY_EXPANDED
+
+  useEffect(() => {
+    logBenchToggleStep("directory-chat-page-controller-right-workspace-state", {
+      decodedDirectory,
+      sessionID,
+      rightWorkspaceOpen,
+      projection: workspace.projection,
+      route: workspace.route,
+      shellView,
+    })
+  }, [decodedDirectory, rightWorkspaceOpen, sessionID, shellView, workspace.projection, workspace.route])
 
   const { slashCommands } = chatConfig
   const slashCommandCandidates = useMemo(() => {
@@ -368,16 +409,6 @@ export function useDirectoryChatPageController(
     isInteractiveMode: cs.isInteractiveMode,
     isBusy: cs.isBusy,
     messages: cs.messages,
-    selectedPersonaSupportsEditor: cs.selectedPersonaSupportsEditor,
-    selectedPersona: cs.selectedPersona,
-    preferredLanguage: cs.preferredLanguage,
-    effectiveModelSelection: cs.effectiveModelSelection,
-    setDirectoryError: cs.setDirectoryError,
-    setRightSidebarTab: cs.setRightSidebarTab,
-    setRightSidebarOpen: cs.setRightSidebarOpen,
-    setRightSidebarWidth: cs.setRightSidebarWidth,
-    rightSidebarWidth: cs.rightSidebarWidth,
-    setIsStartingInteractiveLesson,
   })
 
   useChatSync({
@@ -397,9 +428,11 @@ export function useDirectoryChatPageController(
     clearDirectoryError: cs.clearDirectoryError,
     setDirectoryError: cs.setDirectoryError,
     setStreamStatus: cs.setStreamStatus,
-    setSystemPromptRefreshToken,
     refreshSlashCommands: chatConfig.refreshSlashCommands,
     refreshMcpStatus: chatConfig.refreshMcpStatus,
+    getBenchEventStreamLeaseQuery,
+    onBenchClientLease,
+    onBenchClientAction,
   })
 
   type PromptSnapshot = ReturnType<typeof clonePromptDraft> & {
@@ -446,11 +479,6 @@ export function useDirectoryChatPageController(
     [cs, decodedDirectory],
   )
 
-  function stagePromptText(value: string) {
-    const nextDraft = createTextPromptDraft(value)
-    cs.setPromptDraft(cs.promptKey, nextDraft)
-  }
-
   const autoScroll = useAutoScroll({
     working: cs.isBusy,
     contentDep: cs.messages,
@@ -469,10 +497,7 @@ export function useDirectoryChatPageController(
       return
     }
 
-    setSystemPromptRefreshToken(0)
     setPendingSuggestionOverride(undefined)
-    setIsStartingInteractiveLesson(false)
-    setCreateFileDialogOpen(false)
   }, [decodedDirectory])
 
   useEffect(() => {
@@ -870,16 +895,10 @@ export function useDirectoryChatPageController(
     cs.clearUnread(targetDirectory, targetSessionID)
   }
 
-  function openCurriculumPanel() {
-    cs.setRightSidebarTab("curriculum")
-    cs.setRightSidebarOpen(true)
-  }
-
   function openResourceLibrary() {
     if (decodedDirectory) {
       void invalidateResourcesQueries(queryClient, decodedDirectory)
-      cs.setRightWorkspaceLastSelector(decodedDirectory, "library")
-      cs.setRightSidebarOpen(true)
+      void workspace.controller.execute({ type: "open-drawer", drawer: "library" })
     }
   }
 
@@ -938,14 +957,6 @@ export function useDirectoryChatPageController(
     },
     [linkReadingResourceSession, linkedSessionByResource, queryClient, openBenchRoute],
   )
-
-  const openTeachingEditorPanel = useCallback(() => {
-    setRightSidebarTab("editor")
-    if (rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
-      setRightSidebarWidth(getRightSidebarDefaultWidth("editor"))
-    }
-    setRightSidebarOpen(true)
-  }, [rightSidebarWidth, setRightSidebarOpen, setRightSidebarTab, setRightSidebarWidth])
 
   async function handleResourceCommand(
     command: ResourceLocalSlashCommand,
@@ -1082,8 +1093,7 @@ export function useDirectoryChatPageController(
         teaching: teachingContext,
         optimistic: input.optimistic,
         beforePostPrompt: ({ sessionID }) =>
-          flushBenchContextBeforePrompt({
-            directory: decodedDirectory,
+          workspace.lifecycle.flushContextBeforePrompt({
             sessionID,
           }),
         ...(visibleReadingResource
@@ -1143,7 +1153,6 @@ export function useDirectoryChatPageController(
       if (input.clearDrafts ?? true) {
         clearSubmittedPromptDrafts(submittedSessionID)
       }
-      setSystemPromptRefreshToken((token) => token + 1)
       void syncTeachingRuntimeSelection({
         directory: decodedDirectory,
         sessionID: submittedSessionID,
@@ -1160,6 +1169,7 @@ export function useDirectoryChatPageController(
       selectedThinking,
       syncTeachingRuntimeSelection,
       teachingWs,
+      workspace.lifecycle,
       cs,
     ],
   )
@@ -1316,7 +1326,6 @@ export function useDirectoryChatPageController(
           if (restoreDraft) {
             cs.setPromptDraft(cs.promptKey, restoreDraft)
           }
-          setSystemPromptRefreshToken((token) => token + 1)
           void syncTeachingRuntimeSelection()
         } catch {
           restorePromptSnapshot(draftSnapshot)
@@ -1330,7 +1339,6 @@ export function useDirectoryChatPageController(
           await restoreRevertedSessionMessage(decodedDirectory, {
             sessionID,
           })
-          setSystemPromptRefreshToken((token) => token + 1)
           void syncTeachingRuntimeSelection()
         } catch {
           restorePromptSnapshot(draftSnapshot)
@@ -1344,7 +1352,6 @@ export function useDirectoryChatPageController(
           const forkedSession = await forkSessionFromMessage(decodedDirectory, {
             sessionID,
           })
-          setSystemPromptRefreshToken((token) => token + 1)
           void syncTeachingRuntimeSelection({
             directory: decodedDirectory,
             sessionID: forkedSession.id,
@@ -1369,7 +1376,6 @@ export function useDirectoryChatPageController(
             return
           }
           setPendingSuggestionOverride(undefined)
-          setSystemPromptRefreshToken((token) => token + 1)
           void syncTeachingRuntimeSelection()
         } catch {
           restorePromptSnapshot(draftSnapshot)
@@ -1396,7 +1402,6 @@ export function useDirectoryChatPageController(
             providerID: cs.effectiveModelSelection.providerID,
             modelID: cs.effectiveModelSelection.modelID,
           })
-          setSystemPromptRefreshToken((token) => token + 1)
           void syncTeachingRuntimeSelection()
         } catch {
           restorePromptSnapshot(draftSnapshot)
@@ -1438,7 +1443,6 @@ export function useDirectoryChatPageController(
             variant,
           },
         )
-        setSystemPromptRefreshToken((token) => token + 1)
         void syncTeachingRuntimeSelection({
           directory: decodedDirectory,
           sessionID: submittedSessionID,
@@ -1486,42 +1490,6 @@ export function useDirectoryChatPageController(
     }
   }
 
-  async function onRunCurriculumAction(action: LearnerCurriculumView["actions"][number]) {
-    const override = {
-      label: `${action.label}: ${action.reason}`,
-      prompt: action.prompt,
-      focusGoalIds: action.focusGoalIds,
-    }
-
-    setPendingSuggestionOverride(override)
-
-    const currentDraft = getPromptDraft(usePromptStore.getState(), cs.promptKey)
-    const canSendImmediately =
-      !!decodedDirectory &&
-      !!cs.sessionKey &&
-      !cs.isBusy &&
-      currentDraft.value.trim().length === 0 &&
-      currentDraft.attachments.length === 0
-
-    if (canSendImmediately) {
-      try {
-        const sent = await sendRuntimePrompt({
-          content: override.prompt,
-          focusGoalIds: override.focusGoalIds,
-        })
-        if (sent) {
-          setPendingSuggestionOverride(undefined)
-          cs.clearPromptDraft(cs.promptKey)
-          return
-        }
-      } catch {
-        // Fall through to staging the override in the composer.
-      }
-    }
-
-    stagePromptText(action.prompt)
-  }
-
   async function onAbort() {
     if (!decodedDirectory) return
     await abortPrompt(decodedDirectory)
@@ -1531,55 +1499,6 @@ export function useDirectoryChatPageController(
 
   function onPersonaChange(persona: string) {
     cs.setSessionPersona(cs.sessionKey, persona)
-
-    const nextPersona = cs.primaryPersonaOptions.find((option) => option.id === persona)
-    if (!nextPersona) return
-
-    if (cs.rightSidebarActiveTab === "capabilities" && showCapabilitiesSidebarTab) return
-    if (cs.rightSidebarActiveTab === "agents-md") return
-    if (cs.rightSidebarActiveTab === "diagrams") return
-    if (cs.rightSidebarActiveTab === "files") return
-    if (cs.rightSidebarActiveTab === "editor") return
-
-    if (nextPersona.surfaces.includes("editor") && cs.teachingWorkspace) {
-      openTeachingEditorPanel()
-      return
-    }
-
-    const selectedPersonaSurface = cs.selectedSurfaceTab === "editor" ? "editor" : "curriculum"
-    if (!nextPersona.surfaces.includes(selectedPersonaSurface)) {
-      cs.setRightSidebarTab(personaSurfaceToSidebarTab(nextPersona.defaultSurface))
-    }
-  }
-
-  function onTeachingCreateFile() {
-    if (!decodedDirectory || !cs.sessionID || !cs.sessionKey) return
-    setCreateFileDialogOpen(true)
-  }
-
-  async function onStartInteractiveLesson() {
-    if (
-      !decodedDirectory ||
-      !cs.sessionID ||
-      !cs.sessionKey ||
-      !cs.selectedPersonaSupportsEditor ||
-      cs.isBusy ||
-      isStartingInteractiveLesson
-    )
-      return
-
-    await teachingWs.onStartInteractiveLesson({
-      sessionID: cs.sessionID,
-      sessionKey: cs.sessionKey,
-      preferredLanguage: cs.preferredLanguage,
-      selectedPersona: cs.selectedPersona,
-      effectiveModelSelection: cs.effectiveModelSelection,
-      isBusy: cs.isBusy,
-      isStartingInteractiveLesson,
-      selectedPersonaSupportsEditor: cs.selectedPersonaSupportsEditor,
-      rightSidebarWidth: cs.rightSidebarWidth,
-      setIsStartingInteractiveLesson,
-    })
   }
 
   if (!decodedDirectory) return { status: "invalid" }
@@ -1690,7 +1609,6 @@ export function useDirectoryChatPageController(
     onCloseDirectory: (targetDirectory) => {
       void onCloseDirectory(targetDirectory)
     },
-    onOpenCurriculum: openCurriculumPanel,
     shellView,
     onSelectSkills: showSkills,
     onOpenSettings: openSettingsPanel,
@@ -1721,12 +1639,10 @@ export function useDirectoryChatPageController(
       if (restoreDraft) {
         cs.setPromptDraft(cs.promptKey, restoreDraft)
       }
-      setSystemPromptRefreshToken((token) => token + 1)
       void syncTeachingRuntimeSelection()
     },
     onForkMessage: async ({ sessionID, messageID }) => {
       const forkedSession = await forkSessionFromMessage(decodedDirectory, { sessionID, messageID })
-      setSystemPromptRefreshToken((token) => token + 1)
       void syncTeachingRuntimeSelection({
         directory: decodedDirectory,
         sessionID: forkedSession.id,
@@ -1741,7 +1657,6 @@ export function useDirectoryChatPageController(
       try {
         await restoreRevertedSessionMessage(decodedDirectory, { sessionID })
         cs.clearPromptDraft(cs.promptKey)
-        setSystemPromptRefreshToken((token) => token + 1)
         void syncTeachingRuntimeSelection()
       } catch {
         restorePromptSnapshot(draftSnapshot)
@@ -1776,32 +1691,6 @@ export function useDirectoryChatPageController(
     },
   }
 
-  const rightSidebarProps: DirectoryChatRightSidebarProps = {
-    directory: decodedDirectory,
-    chatState: cs,
-    teachingWorkspace: teachingWs,
-    showCapabilitiesTab: showCapabilitiesSidebarTab,
-    showSystemPromptTab: showSystemPromptSidebarTab,
-    showSnapshotTab: showSnapshotSidebarTab,
-    showPaletteTab: showPaletteSidebarTab,
-    systemPromptRefreshToken,
-    isStartingInteractiveLesson,
-    onOpenResource: openResourceInReadingMode,
-    onRunCurriculumAction: (action) => {
-      void onRunCurriculumAction(action)
-    },
-    onOpenCreateTeachingFileDialog: onTeachingCreateFile,
-    onStartInteractiveLesson: () => {
-      void onStartInteractiveLesson()
-    },
-  }
-
-  const dialogProps: ComponentProps<typeof CreateTeachingFileDialog> = {
-    open: createFileDialogOpen,
-    onOpenChange: setCreateFileDialogOpen,
-    onConfirm: (path) => void teachingWs.onCreateTeachingFileConfirm(path),
-  }
-
   const shellProps: ReadyDirectoryChatPageControllerState["shellProps"] = {
     chatTitle: cs.sessionTitle,
     projectName: getFilename(decodedDirectory),
@@ -1814,31 +1703,70 @@ export function useDirectoryChatPageController(
     leftSidebarMaxWidth: cs.leftSidebarMaxWidth,
     onLeftSidebarResize: cs.setLeftSidebarWidth,
     onLeftSidebarCollapse: () => cs.setLeftSidebarOpen(false),
-    rightSidebarOpen: cs.rightSidebarOpen,
-    rightSidebarDisplayWidth: resolveRightWorkspaceWidth(cs.rightSidebarWidth),
+    rightSidebarOpen: rightWorkspaceOpen,
+    rightSidebarDisplayWidth: resolveRightWorkspaceWidth(RIGHT_WORKSPACE_DEFAULT_WIDTH_PX),
     rightSidebarMinWidth: RIGHT_SIDEBAR_DEFAULT_MIN_WIDTH,
     rightSidebarMaxWidth: RIGHT_SIDEBAR_DEFAULT_MAX_WIDTH,
-    onRightSidebarResize: cs.setRightSidebarWidth,
+    onRightSidebarResize: () => undefined,
     onRightWorkspaceToggle: () => {
-      if (cs.rightSidebarOpen) {
-        cs.setRightSidebarOpen(false)
-        return
-      }
-
-      if (cs.rightSidebarWidth < RIGHT_SIDEBAR_DEFAULT_MIN_WIDTH) {
-        cs.setRightSidebarWidth(RIGHT_WORKSPACE_DEFAULT_WIDTH_PX)
-      }
-      cs.setRightSidebarOpen(true)
+      const commandType = rightWorkspaceOpen ? "collapse" : "reveal"
+      logBenchToggleStep("directory-chat-page-controller-right-toggle-callback-entry", {
+        decodedDirectory,
+        sessionID,
+        commandType,
+        rightWorkspaceOpen,
+        projection: workspace.projection,
+        route: workspace.route,
+      })
+      void workspace.controller
+        .execute({ type: commandType })
+        .then((result) => {
+          logBenchToggleStep("directory-chat-page-controller-right-toggle-controller-result", {
+            decodedDirectory,
+            sessionID,
+            commandType,
+            result,
+          })
+        })
+        .catch((error: unknown) => {
+          logBenchToggleStep("directory-chat-page-controller-right-toggle-controller-error", {
+            decodedDirectory,
+            sessionID,
+            commandType,
+            error,
+          })
+        })
     },
-    onRightSidebarCollapse: () => cs.setRightSidebarOpen(false),
+    onRightSidebarCollapse: () => {
+      logBenchToggleStep("directory-chat-page-controller-right-collapse-callback-entry", {
+        decodedDirectory,
+        sessionID,
+        rightWorkspaceOpen,
+        projection: workspace.projection,
+      })
+      void workspace.controller
+        .execute({ type: "collapse" })
+        .then((result) => {
+          logBenchToggleStep("directory-chat-page-controller-right-collapse-controller-result", {
+            decodedDirectory,
+            sessionID,
+            result,
+          })
+        })
+        .catch((error: unknown) => {
+          logBenchToggleStep("directory-chat-page-controller-right-collapse-controller-error", {
+            decodedDirectory,
+            sessionID,
+            error,
+          })
+        })
+    },
   }
 
   return {
     status: "ready",
     leftSidebarProps,
     mainPaneProps,
-    rightSidebarProps,
     shellProps,
-    dialogProps,
   }
 }

@@ -3,6 +3,12 @@ import { useQueryClient } from "@tanstack/react-query"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { startChatSync } from "@/state/chat-sync"
+import {
+  readBenchClientActionEvent,
+  readBenchClientLeaseEvent,
+  type BenchClientActionV1,
+} from "@/lib/directory-workspace-client-actions"
+import type { BenchClientLease } from "@/lib/directory-workspace-lifecycle"
 import { resyncDirectory, resyncDirectoryAfterReconnect } from "@/state/chat-actions"
 import { isAbortLikeError } from "@/state/chat-error"
 import { useUiPreferences } from "@/state/ui-preferences"
@@ -31,6 +37,7 @@ import type {
   SessionStatusInfo,
   SessionInfo,
 } from "@/state/chat-types"
+import type { EventStreamData } from "@buddy/sdk/types"
 import { encodeDirectory } from "../directory-token"
 
 const DOCUMENT_VISIBILITY_VISIBLE = "visible"
@@ -155,9 +162,11 @@ type UseChatSyncProps = {
   clearDirectoryError: (directory: string) => void
   setDirectoryError: (directory: string, error: string) => void
   setStreamStatus: (status: "idle" | "connecting" | "connected" | "error") => void
-  setSystemPromptRefreshToken: (updater: (current: number) => number) => void
   refreshSlashCommands: () => void
   refreshMcpStatus: () => void
+  getBenchEventStreamLeaseQuery?: () => Partial<NonNullable<EventStreamData["query"]>>
+  onBenchClientLease?: (lease: BenchClientLease) => void
+  onBenchClientAction?: (action: BenchClientActionV1) => void | Promise<void>
 }
 
 export function useChatSync(props: UseChatSyncProps) {
@@ -182,7 +191,9 @@ export function useChatSync(props: UseChatSyncProps) {
     refreshSlashCommands,
     setDirectoryError,
     setStreamStatus,
-    setSystemPromptRefreshToken,
+    getBenchEventStreamLeaseQuery,
+    onBenchClientLease,
+    onBenchClientAction,
   } = props
 
   // ── SSE sync ────────────────────────────────────────────────────────────────
@@ -214,6 +225,7 @@ export function useChatSync(props: UseChatSyncProps) {
 
     const sync = startChatSync({
       directory: decodedDirectory,
+      eventQuery: getBenchEventStreamLeaseQuery,
       onStatus(status) {
         setStreamStatus(status)
         if (status === "connected") {
@@ -240,6 +252,16 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         const payload = event.payload
+        const benchLease = readBenchClientLeaseEvent(payload)
+        if (benchLease) {
+          onBenchClientLease?.(benchLease)
+          return
+        }
+        const benchAction = readBenchClientActionEvent(payload)
+        if (benchAction) {
+          void onBenchClientAction?.(benchAction)
+          return
+        }
         if (!("properties" in payload)) {
           return
         }
@@ -283,13 +305,6 @@ export function useChatSync(props: UseChatSyncProps) {
           const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
           if (normalizedStatus.type === "busy" && statusSessionID === activeSessionID) {
             clearDirectoryError(directory)
-          }
-          if (
-            normalizedStatus.type === "idle" &&
-            statusSessionID &&
-            statusSessionID === activeSessionID
-          ) {
-            setSystemPromptRefreshToken((token) => token + 1)
           }
           return
         }
@@ -474,7 +489,9 @@ export function useChatSync(props: UseChatSyncProps) {
     queryClient,
     setDirectoryError,
     setStreamStatus,
-    setSystemPromptRefreshToken,
+    getBenchEventStreamLeaseQuery,
+    onBenchClientLease,
+    onBenchClientAction,
   ])
 
   // ── Foreground refresh hooks ────────────────────────────────────────────────

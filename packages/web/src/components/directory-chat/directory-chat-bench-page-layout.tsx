@@ -1,6 +1,7 @@
 import { motion, type Transition } from "motion/react"
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -10,10 +11,8 @@ import {
 import {
   Button,
   ResizeHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
   cn,
-  useResizablePanelRef,
+  type ResizeHandleIntent,
 } from "@buddy/ui"
 import { MessageSquareIcon, Minimize2Icon, PanelRightOpenIcon } from "lucide-react"
 import { readDesktopTitlebarBottomOffset } from "@/components/layout/desktop-titlebar-inset"
@@ -39,15 +38,24 @@ type DirectoryChatBenchPageLayoutProps = {
   onDockedChatWidthChange: (widthPx: number) => void
   onFloatingRectChange: (rect: FloatingChatRect) => void
   onFloatingChatStateChange: (state: BenchFloatingChatState) => void
+  dockedBenchLayout?: DirectoryChatDockedBenchLayout
+  benchInteractive?: boolean
+}
+
+type DirectoryChatDockedBenchLayout = {
+  open: boolean
+  widthPx: number
+  minWidthPx: number
+  maxWidthPx: number
+  onResize: (widthPx: number) => void
+  onResizeIntent?: (intent: ResizeHandleIntent) => void
+  onCollapse: () => void
 }
 
 export type DirectoryChatBenchConversationControls = {
   onFloatChat?: () => void
 }
 
-const BENCH_LAYOUT_ID = "directory-chat-reading-layout"
-const BENCH_PANEL_ID = "directory-chat-reading-reader"
-const BENCH_CONVERSATION_PANEL_ID = "directory-chat-reading-conversation"
 const BENCH_CHAT_DOCK_LABEL = "Dock chat"
 const BENCH_CHAT_DRAG_LABEL = "Drag floating chat"
 const BENCH_CHAT_MINIMIZE_LABEL = "Minimize chat"
@@ -60,7 +68,6 @@ const BENCH_LAYOUT_TRANSITION = {
   ease: [0.22, 1, 0.36, 1],
 } satisfies Transition
 const FLOATING_CHAT_WINDOW_TRANSITION_DURATION_SECONDS = 0.26
-const FLOATING_CHAT_EXIT_DURATION_MS = FLOATING_CHAT_WINDOW_TRANSITION_DURATION_SECONDS * 1000
 const FLOATING_CHAT_WINDOW_TRANSITION = {
   type: "spring",
   duration: FLOATING_CHAT_WINDOW_TRANSITION_DURATION_SECONDS,
@@ -99,42 +106,6 @@ type FloatingChatResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | 
 type FloatingChatMinimumSize = {
   minWidth: number
   minHeight: number
-}
-
-type DelayedPresenceState = {
-  isPresent: boolean
-  isExiting: boolean
-}
-
-function useDelayedPresence(visible: boolean): DelayedPresenceState {
-  const [presence, setPresence] = useState<DelayedPresenceState>({
-    isPresent: visible,
-    isExiting: false,
-  })
-
-  useEffect(() => {
-    if (visible) {
-      setPresence((current) =>
-        current.isPresent && !current.isExiting ? current : { isPresent: true, isExiting: false },
-      )
-      return
-    }
-
-    if (!presence.isPresent) return
-
-    setPresence((current) =>
-      current.isPresent && !current.isExiting ? { isPresent: true, isExiting: true } : current,
-    )
-    const timeoutID = window.setTimeout(() => {
-      setPresence({ isPresent: false, isExiting: false })
-    }, FLOATING_CHAT_EXIT_DURATION_MS)
-
-    return () => {
-      window.clearTimeout(timeoutID)
-    }
-  }, [presence.isPresent, visible])
-
-  return presence
 }
 
 function areFloatingChatRectsEqual(left: FloatingChatRect, right: FloatingChatRect): boolean {
@@ -452,14 +423,6 @@ export function BenchContent(props: { bordered: boolean; children: ReactNode }) 
   )
 }
 
-function DockedConversationContent(props: { children: ReactNode }) {
-  return (
-    <motion.div layout transition={BENCH_LAYOUT_TRANSITION} className="relative h-full w-full">
-      {props.children}
-    </motion.div>
-  )
-}
-
 function FloatingChatResizeHandle(props: {
   direction: FloatingChatResizeDirection
   className: string
@@ -484,128 +447,14 @@ function FloatingChatResizeHandle(props: {
   )
 }
 
-function FloatingChatWindow(props: {
-  rect: FloatingChatRect
-  conversation: ReactNode
-  animateInitial: boolean
-  exiting: boolean
-  onDock: () => void
-  onMinimize: () => void
-  onDragStart: (event: ReactPointerEvent<HTMLDivElement>) => void
-  onResizeStart: (
-    direction: FloatingChatResizeDirection,
-    event: ReactPointerEvent<HTMLDivElement>,
-  ) => void
-}) {
-  const floatingWindowStyle = {
-    left: props.rect.x,
-    top: props.rect.y,
-    width: props.rect.width,
-    height: props.rect.height,
-    transformOrigin: "70% 100%",
-  } satisfies CSSProperties
-
-  return (
-    <motion.div
-      data-component="directory-chat-floating-window"
-      style={floatingWindowStyle}
-      initial={props.animateInitial ? { opacity: 0, scale: 0.95, y: 22 } : false}
-      animate={props.exiting ? { opacity: 0, scale: 0.97, y: 16 } : { opacity: 1, scale: 1, y: 0 }}
-      transition={FLOATING_CHAT_WINDOW_TRANSITION}
-      className={cn(
-        "absolute z-40 flex min-h-0 min-w-0 overflow-hidden rounded-2xl border border-border-base/70 bg-background-stronger shadow-[0_24px_80px_rgba(0,0,0,0.28)]",
-        props.exiting && "pointer-events-none",
-      )}
-    >
-      <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
-        <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border-weaker-base bg-surface-raised-base/95 px-3 backdrop-blur">
-          <div
-            data-component="directory-chat-floating-window-drag-handle"
-            className="flex h-full min-w-0 flex-1 cursor-grab touch-none select-none items-center active:cursor-grabbing"
-            onPointerDown={props.onDragStart}
-          >
-            <span className="h-1 w-10 rounded-full bg-border-stronger-base" aria-hidden="true" />
-            <span className="sr-only">{BENCH_CHAT_DRAG_LABEL}</span>
-          </div>
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
-            data-action="directory-chat-minimize"
-            aria-label={BENCH_CHAT_MINIMIZE_LABEL}
-            title={BENCH_CHAT_MINIMIZE_LABEL}
-            className="text-text-weaker hover:bg-surface-base-hover hover:text-text-base"
-            onClick={props.onMinimize}
-          >
-            <Minimize2Icon />
-          </Button>
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
-            data-action="directory-chat-dock"
-            aria-label={BENCH_CHAT_DOCK_LABEL}
-            title={BENCH_CHAT_DOCK_LABEL}
-            className="text-text-weaker hover:bg-surface-base-hover hover:text-text-base"
-            onClick={props.onDock}
-          >
-            <PanelRightOpenIcon />
-          </Button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-hidden">{props.conversation}</div>
-      </div>
-      <FloatingChatResizeHandle
-        direction="n"
-        className="inset-x-6 top-0 h-2 -translate-y-1/2 cursor-ns-resize before:h-[3px] before:top-1/2 before:-translate-y-1/2"
-        onResizeStart={props.onResizeStart}
-      />
-      <FloatingChatResizeHandle
-        direction="s"
-        className="inset-x-6 bottom-0 h-2 translate-y-1/2 cursor-ns-resize before:h-[3px] before:top-1/2 before:-translate-y-1/2"
-        onResizeStart={props.onResizeStart}
-      />
-      <FloatingChatResizeHandle
-        direction="e"
-        className="inset-y-6 right-0 w-2 translate-x-1/2 cursor-ew-resize before:left-1/2 before:w-[3px] before:-translate-x-1/2"
-        onResizeStart={props.onResizeStart}
-      />
-      <FloatingChatResizeHandle
-        direction="w"
-        className="inset-y-6 left-0 w-2 -translate-x-1/2 cursor-ew-resize before:left-1/2 before:w-[3px] before:-translate-x-1/2"
-        onResizeStart={props.onResizeStart}
-      />
-      <FloatingChatResizeHandle
-        direction="ne"
-        className="right-0 top-0 size-5 -translate-y-1/2 translate-x-1/2 cursor-nesw-resize"
-        onResizeStart={props.onResizeStart}
-      />
-      <FloatingChatResizeHandle
-        direction="nw"
-        className="left-0 top-0 size-5 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize"
-        onResizeStart={props.onResizeStart}
-      />
-      <FloatingChatResizeHandle
-        direction="se"
-        className="bottom-0 right-0 size-5 translate-x-1/2 translate-y-1/2 cursor-nwse-resize"
-        onResizeStart={props.onResizeStart}
-      />
-      <FloatingChatResizeHandle
-        direction="sw"
-        className="bottom-0 left-0 size-5 -translate-x-1/2 translate-y-1/2 cursor-nesw-resize"
-        onResizeStart={props.onResizeStart}
-      />
-    </motion.div>
-  )
-}
-
-function FloatingChatRestoreButton(props: { exiting: boolean; onRestore: () => void }) {
+function FloatingChatRestoreButton(props: { onRestore: () => void }) {
   return (
     <motion.div
       data-component="directory-chat-floating-restore"
       initial={{ opacity: 0, scale: 0.92, y: 8 }}
-      animate={props.exiting ? { opacity: 0, scale: 0.92, y: 8 } : { opacity: 1, scale: 1, y: 0 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={FLOATING_CHAT_WINDOW_TRANSITION}
-      className={cn("absolute bottom-6 right-6 z-40", props.exiting && "pointer-events-none")}
+      className="absolute bottom-6 right-6 z-40"
     >
       <Button
         type="button"
@@ -635,26 +484,75 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
     chatLayoutMode !== BENCH_CHAT_LAYOUT_FLOATING,
   )
   const layoutRef = useRef<HTMLElement | null>(null)
+  const benchHostRef = useRef<HTMLDivElement | null>(null)
+  const conversationHostRef = useRef<HTMLDivElement | null>(null)
   const containerSizeRef = useRef(containerSize)
   const previousChatLayoutModeRef = useRef(chatLayoutMode)
-  const conversationPanelRef = useResizablePanelRef()
   const chatPanelWidth = props.dockedChatWidthPx
   const floatingRect = props.floatingRect
   const floatingChatState = props.floatingChatState
-  const floatingWindowPresence = useDelayedPresence(
-    chatLayoutMode === BENCH_CHAT_LAYOUT_FLOATING && floatingChatState === "open",
-  )
-  const floatingRestorePresence = useDelayedPresence(
-    chatLayoutMode === BENCH_CHAT_LAYOUT_FLOATING && floatingChatState === "minimized",
-  )
+  const isFloating = chatLayoutMode === BENCH_CHAT_LAYOUT_FLOATING
+  const isFloatingOpen = isFloating && floatingChatState === "open"
+  const isFloatingMinimized = isFloating && floatingChatState === "minimized"
+  const usesRightDockedBench = props.dockedBenchLayout !== undefined
+  const dockedBenchOpen = props.dockedBenchLayout?.open ?? true
+  const benchInteractive = props.benchInteractive ?? true
   const layoutDefaults = resolveBenchLayoutDefaults({
     profile: props.layoutProfile,
     viewport: benchViewportFromContainerSize(containerSize),
   })
+  const conversationControls = isFloating ? {} : { onFloatChat: floatChat }
+  const conversation = props.conversation(conversationControls)
+  const benchHostStyle = isFloating
+    ? ({
+        inset: 0,
+      } satisfies CSSProperties)
+    : usesRightDockedBench
+      ? ({
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: dockedBenchOpen ? props.dockedBenchLayout?.widthPx : 0,
+        } satisfies CSSProperties)
+      : ({
+          top: 0,
+          right: chatPanelWidth,
+          bottom: 0,
+          left: 0,
+        } satisfies CSSProperties)
+  const conversationHostStyle = isFloating
+    ? ({
+        left: floatingRect.x,
+        top: floatingRect.y,
+        width: floatingRect.width,
+        height: floatingRect.height,
+        transformOrigin: "70% 100%",
+      } satisfies CSSProperties)
+    : usesRightDockedBench
+      ? ({
+          top: 0,
+          right: dockedBenchOpen ? props.dockedBenchLayout?.widthPx : 0,
+          bottom: 0,
+          left: 0,
+        } satisfies CSSProperties)
+      : ({
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: chatPanelWidth,
+        } satisfies CSSProperties)
 
   useEffect(() => {
     containerSizeRef.current = containerSize
   }, [containerSize])
+
+  useLayoutEffect(() => {
+    benchHostRef.current?.toggleAttribute("inert", !benchInteractive)
+  }, [benchInteractive])
+
+  useLayoutEffect(() => {
+    conversationHostRef.current?.toggleAttribute("inert", isFloatingMinimized)
+  }, [isFloatingMinimized])
 
   useEffect(() => {
     const observedNode = layoutRef.current
@@ -915,66 +813,160 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
       data-component="directory-chat-bench-page-layout"
       className="relative flex h-full min-h-0 w-full flex-col overflow-hidden bg-surface-raised-base"
     >
-      {chatLayoutMode === BENCH_CHAT_LAYOUT_FLOATING ? (
-        <div className="min-h-0 flex-1 w-full overflow-hidden">
-          <BenchContent bordered={false}>{props.bench}</BenchContent>
+      <div
+        ref={benchHostRef}
+        data-component="directory-chat-bench-host"
+        aria-hidden={!benchInteractive}
+        className={cn(
+          "absolute min-h-0 min-w-0 overflow-hidden",
+          benchInteractive ? "" : "pointer-events-none opacity-0",
+          usesRightDockedBench && !isFloating ? "border-l border-border-weaker-base" : "",
+          !isFloating
+            ? "transition-[width,opacity] duration-200 ease-out motion-reduce:transition-none"
+            : "",
+        )}
+        style={benchHostStyle}
+      >
+        <BenchContent bordered={!isFloating && !usesRightDockedBench}>{props.bench}</BenchContent>
+        {!isFloating && usesRightDockedBench && dockedBenchOpen ? (
+          <ResizeHandle
+            direction="horizontal"
+            edge="start"
+            size={props.dockedBenchLayout?.widthPx ?? 0}
+            min={props.dockedBenchLayout?.minWidthPx ?? 0}
+            max={props.dockedBenchLayout?.maxWidthPx ?? 0}
+            onResize={props.dockedBenchLayout?.onResize ?? (() => undefined)}
+            onResizeIntent={props.dockedBenchLayout?.onResizeIntent}
+            onCollapse={props.dockedBenchLayout?.onCollapse ?? (() => undefined)}
+          />
+        ) : null}
+      </div>
+      <motion.div
+        ref={conversationHostRef}
+        data-component={isFloating ? "directory-chat-floating-window" : "directory-chat-docked-window"}
+        data-mode={isFloating ? BENCH_CHAT_LAYOUT_FLOATING : BENCH_CHAT_LAYOUT_DOCKED}
+        aria-hidden={isFloatingMinimized}
+        style={conversationHostStyle}
+        initial={floatingEntryAnimation && isFloating ? { opacity: 0, scale: 0.95, y: 22 } : false}
+        animate={
+          isFloating
+            ? {
+                opacity: isFloatingOpen ? 1 : 0,
+                scale: isFloatingOpen ? 1 : 0.97,
+                y: isFloatingOpen ? 0 : 16,
+              }
+            : { opacity: 1, scale: 1, y: 0 }
+        }
+        transition={isFloating ? FLOATING_CHAT_WINDOW_TRANSITION : BENCH_LAYOUT_TRANSITION}
+        className={cn(
+          "absolute z-30 flex min-h-0 min-w-0 overflow-hidden",
+          isFloating
+            ? "rounded-2xl border border-border-base/70 bg-background-stronger shadow-[0_24px_80px_rgba(0,0,0,0.28)]"
+            : cn(
+                "bg-background-base",
+                usesRightDockedBench
+                  ? "transition-[right] duration-200 ease-out motion-reduce:transition-none"
+                  : "border-l border-border-weaker-base",
+              ),
+          isFloatingMinimized && "pointer-events-none",
+        )}
+      >
+        <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
+          {isFloating ? (
+            <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border-weaker-base bg-surface-raised-base/95 px-3 backdrop-blur">
+              <div
+                data-component="directory-chat-floating-window-drag-handle"
+                className="flex h-full min-w-0 flex-1 cursor-grab touch-none select-none items-center active:cursor-grabbing"
+                onPointerDown={startFloatingChatDrag}
+              >
+                <span className="h-1 w-10 rounded-full bg-border-stronger-base" aria-hidden="true" />
+                <span className="sr-only">{BENCH_CHAT_DRAG_LABEL}</span>
+              </div>
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                data-action="directory-chat-minimize"
+                aria-label={BENCH_CHAT_MINIMIZE_LABEL}
+                title={BENCH_CHAT_MINIMIZE_LABEL}
+                className="text-text-weaker hover:bg-surface-base-hover hover:text-text-base"
+                onClick={() => onFloatingChatStateChange("minimized")}
+              >
+                <Minimize2Icon />
+              </Button>
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                data-action="directory-chat-dock"
+                aria-label={BENCH_CHAT_DOCK_LABEL}
+                title={BENCH_CHAT_DOCK_LABEL}
+                className="text-text-weaker hover:bg-surface-base-hover hover:text-text-base"
+                onClick={dockChat}
+              >
+                <PanelRightOpenIcon />
+              </Button>
+            </div>
+          ) : null}
+          <div className="min-h-0 flex-1 overflow-hidden">{conversation}</div>
         </div>
-      ) : (
-        <ResizablePanelGroup
-          id={BENCH_LAYOUT_ID}
-          orientation="horizontal"
-          className="min-h-0 flex-1 w-full"
-        >
-          <ResizablePanel
-            id={BENCH_PANEL_ID}
-            minSize={layoutDefaults.benchMinWidthPx}
-            className="min-h-0 min-w-0 overflow-hidden"
-          >
-            <BenchContent bordered>{props.bench}</BenchContent>
-          </ResizablePanel>
-
-          <ResizablePanel
-            id={BENCH_CONVERSATION_PANEL_ID}
-            panelRef={conversationPanelRef}
-            defaultSize={chatPanelWidth}
-            minSize={layoutDefaults.dockedChatMinWidthPx}
-            maxSize={layoutDefaults.dockedChatMaxWidthPx}
-            className="relative flex min-h-0 min-w-0 overflow-hidden"
-          >
-            <DockedConversationContent>
-              {props.conversation({ onFloatChat: floatChat })}
-            </DockedConversationContent>
-            <ResizeHandle
-              direction="horizontal"
-              edge="start"
-              size={chatPanelWidth}
-              min={layoutDefaults.dockedChatMinWidthPx}
-              max={layoutDefaults.dockedChatMaxWidthPx}
-              onResize={(width) => {
-                conversationPanelRef.current?.resize(width)
-                onDockedChatWidthChange(width)
-              }}
+        {isFloating ? (
+          <>
+            <FloatingChatResizeHandle
+              direction="n"
+              className="inset-x-6 top-0 h-2 -translate-y-1/2 cursor-ns-resize before:h-[3px] before:top-1/2 before:-translate-y-1/2"
+              onResizeStart={startFloatingChatResize}
             />
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      )}
-      {floatingWindowPresence.isPresent ? (
-        <FloatingChatWindow
-          key="directory-chat-floating-window"
-          rect={floatingRect}
-          conversation={props.conversation({})}
-          animateInitial={floatingEntryAnimation}
-          exiting={floatingWindowPresence.isExiting}
-          onDock={dockChat}
-          onMinimize={() => onFloatingChatStateChange("minimized")}
-          onDragStart={startFloatingChatDrag}
-          onResizeStart={startFloatingChatResize}
-        />
-      ) : null}
-      {floatingRestorePresence.isPresent ? (
+            <FloatingChatResizeHandle
+              direction="s"
+              className="inset-x-6 bottom-0 h-2 translate-y-1/2 cursor-ns-resize before:h-[3px] before:top-1/2 before:-translate-y-1/2"
+              onResizeStart={startFloatingChatResize}
+            />
+            <FloatingChatResizeHandle
+              direction="e"
+              className="inset-y-6 right-0 w-2 translate-x-1/2 cursor-ew-resize before:left-1/2 before:w-[3px] before:-translate-x-1/2"
+              onResizeStart={startFloatingChatResize}
+            />
+            <FloatingChatResizeHandle
+              direction="w"
+              className="inset-y-6 left-0 w-2 -translate-x-1/2 cursor-ew-resize before:left-1/2 before:w-[3px] before:-translate-x-1/2"
+              onResizeStart={startFloatingChatResize}
+            />
+            <FloatingChatResizeHandle
+              direction="ne"
+              className="right-0 top-0 size-5 -translate-y-1/2 translate-x-1/2 cursor-nesw-resize"
+              onResizeStart={startFloatingChatResize}
+            />
+            <FloatingChatResizeHandle
+              direction="nw"
+              className="left-0 top-0 size-5 -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize"
+              onResizeStart={startFloatingChatResize}
+            />
+            <FloatingChatResizeHandle
+              direction="se"
+              className="bottom-0 right-0 size-5 translate-x-1/2 translate-y-1/2 cursor-nwse-resize"
+              onResizeStart={startFloatingChatResize}
+            />
+            <FloatingChatResizeHandle
+              direction="sw"
+              className="bottom-0 left-0 size-5 -translate-x-1/2 translate-y-1/2 cursor-nesw-resize"
+              onResizeStart={startFloatingChatResize}
+            />
+          </>
+        ) : usesRightDockedBench ? null : (
+          <ResizeHandle
+            direction="horizontal"
+            edge="start"
+            size={chatPanelWidth}
+            min={layoutDefaults.dockedChatMinWidthPx}
+            max={layoutDefaults.dockedChatMaxWidthPx}
+            onResize={onDockedChatWidthChange}
+          />
+        )}
+      </motion.div>
+      {isFloatingMinimized ? (
         <FloatingChatRestoreButton
           key="directory-chat-floating-restore"
-          exiting={floatingRestorePresence.isExiting}
           onRestore={() => onFloatingChatStateChange("open")}
         />
       ) : null}

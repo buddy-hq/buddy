@@ -5,13 +5,15 @@ import { Button, toast } from "@buddy/ui"
 import { DirectoryInvalidNotebook } from "./directory-invalid-notebook"
 import { DirectoryChatReadingReaderPane } from "@/components/directory-chat/directory-chat-reading-reader-pane"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
-import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
 import {
+  useBenchRouteContext,
+  useRegisterBenchContextProvider,
+} from "@/components/bench/bench-route-context"
+import {
+  benchContextTargetFromBenchTarget,
   objectRef,
-  objectTarget,
   routeString,
   workspaceFileRef,
-  workspaceFileTarget,
 } from "@/components/bench/bench-context-utils"
 import {
   appendReadingSelectionToDraft,
@@ -48,6 +50,8 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const location = useLocation()
   const queryClient = useQueryClient()
   const openBenchRoute = useOpenBench()
+  const benchRouteContext = useBenchRouteContext()
+  const benchRouteTarget = benchRouteContext.state.target
   const [processing, setProcessing] = useState(false)
   const [processingError, setProcessingError] = useState<string | undefined>(undefined)
   const [processBannerDismissed, setProcessBannerDismissed] = useState(false)
@@ -120,7 +124,12 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const contextProvider = useMemo(
     () => ({
       read: () => {
-        const objectID = resourceRecord?.objectID ?? activeReadingResource?.objectID ?? null
+        const routeObjectID =
+          benchRouteTarget.type === "object" && benchRouteTarget.ref.kind === "resource"
+            ? benchRouteTarget.ref.objectID
+            : null
+        const objectID =
+          routeObjectID ?? resourceRecord?.objectID ?? activeReadingResource?.objectID ?? null
         const alias = resourceRecord?.alias ?? activeReadingResource?.alias
         const route = routeString({
           pathname: location.pathname,
@@ -178,30 +187,13 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
 
         return {
           status: "open" as const,
-          target: objectID
-            ? objectTarget({
-                directory: props.directory,
-                title: resourceName,
-                target: {
-                  type: "object",
-                  ref: {
-                    kind: "resource",
-                    objectID,
-                    revisionID: null,
-                    itemID: null,
-                  },
-                  viewID: "reader",
-                },
-                route,
-                status: targetStatus,
-              })
-            : workspaceFileTarget({
-                directory: props.directory,
-                title: resourceName,
-                path: normalizedPath,
-                route,
-                status: targetStatus,
-              }),
+          target: benchContextTargetFromBenchTarget({
+            target: benchRouteTarget,
+            directory: props.directory,
+            title: resourceName,
+            route,
+            status: targetStatus,
+          }),
           metadata,
           content: contentParts.join("\n\n"),
           refs: [
@@ -224,6 +216,7 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     }),
     [
       activeReadingResource,
+      benchRouteTarget,
       location.pathname,
       location.searchStr,
       normalizedPath,

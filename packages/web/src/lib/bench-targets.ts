@@ -9,6 +9,8 @@ export const BENCH_LAYOUT_PROFILE_CODE = "code"
 export const BENCH_LAYOUT_PROFILE_VISUAL = "visual"
 export const BENCH_AUTO_OPEN_POLICY_WHITEBOARD = "whiteboard"
 export const BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET = "fullscreen-html-widget"
+const BENCH_TARGET_KEY_PART_SEPARATOR = "\u0000"
+const BENCH_TARGET_KEY_NULL_PART = "\u2400"
 
 export type BenchObjectKind =
   | "resource"
@@ -124,28 +126,32 @@ function benchModePreferenceKey(target: BenchTarget): BenchModePreferenceKey {
   return target.viewer
 }
 
+function benchTargetKey(target: BenchTarget): string {
+  if (target.type === "workspace-file") {
+    return [
+      "workspace-file",
+      target.viewer,
+      encodeURIComponent(target.path),
+    ].join(BENCH_TARGET_KEY_PART_SEPARATOR)
+  }
+
+  return [
+    "object",
+    target.ref.kind,
+    encodeURIComponent(target.ref.objectID),
+    target.ref.revisionID ? encodeURIComponent(target.ref.revisionID) : BENCH_TARGET_KEY_NULL_PART,
+    target.ref.itemID ? encodeURIComponent(target.ref.itemID) : BENCH_TARGET_KEY_NULL_PART,
+    encodeURIComponent(target.viewID),
+  ].join(BENCH_TARGET_KEY_PART_SEPARATOR)
+}
+
 function isSameBenchTarget(left: BenchTarget, right: BenchTarget): boolean {
-  if (left.type !== right.type) return false
-
-  if (left.type === "workspace-file" && right.type === "workspace-file") {
-    return left.path === right.path && left.viewer === right.viewer
-  }
-
-  if (left.type === "object" && right.type === "object") {
-    return (
-      left.ref.kind === right.ref.kind &&
-      left.ref.objectID === right.ref.objectID &&
-      left.ref.revisionID === right.ref.revisionID &&
-      left.ref.itemID === right.ref.itemID &&
-      left.viewID === right.viewID
-    )
-  }
-
-  return false
+  return benchTargetKey(left) === benchTargetKey(right)
 }
 
 export {
   benchModePreferenceKey,
+  benchTargetKey,
   defaultBenchObjectViewID,
   isBenchObjectKind,
   isSameBenchTarget,

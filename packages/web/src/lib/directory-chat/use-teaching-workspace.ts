@@ -1,25 +1,16 @@
 import { useCallback, useEffect, useRef } from "react"
 import {
-  teachingLanguageLabel,
   type TeachingConflict,
   type TeachingLanguage,
   useTeachingRuntime,
 } from "@/state/teaching-runtime"
 import {
-  activateTeachingWorkspaceFile,
-  checkpointTeachingWorkspace,
-  createTeachingWorkspaceFile,
-  ensureTeachingWorkspace,
   loadTeachingWorkspace,
   probeTeachingWorkspace,
-  restoreTeachingWorkspace,
   saveTeachingWorkspace,
   stringifyError,
   TeachingConflictError,
 } from "@/state/teaching-actions"
-import { sendPrompt } from "@/state/chat-actions"
-import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
-import { getRightSidebarDefaultWidth, RIGHT_SIDEBAR_EDITOR_MIN_WIDTH } from "./right-sidebar-layout"
 
 type UseTeachingWorkspaceProps = {
   decodedDirectory: string
@@ -28,16 +19,6 @@ type UseTeachingWorkspaceProps = {
   isInteractiveMode: boolean
   isBusy: boolean
   messages: unknown[]
-  selectedPersonaSupportsEditor: boolean
-  selectedPersona: string
-  preferredLanguage: TeachingLanguage
-  effectiveModelSelection: { providerID: string; modelID: string } | undefined
-  setDirectoryError: (directory: string, error: string) => void
-  setRightSidebarTab: (tab: ChatRightSidebarTab) => void
-  setRightSidebarOpen: (open: boolean) => void
-  setRightSidebarWidth: (width: number) => void
-  rightSidebarWidth: number
-  setIsStartingInteractiveLesson: (value: boolean) => void
 }
 
 export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
@@ -48,16 +29,9 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
     isInteractiveMode,
     isBusy,
     messages,
-    selectedPersonaSupportsEditor,
-    setRightSidebarTab,
-    setRightSidebarOpen,
-    setRightSidebarWidth,
-    rightSidebarWidth,
-    setDirectoryError,
   } = props
 
   const saveInFlightRef = useRef<Promise<boolean> | null>(null)
-  const teachingSessionInitializedRef = useRef(new Set<string>())
   const workspaceProbeBySessionRef = useRef(
     new Map<string, Promise<Awaited<ReturnType<typeof loadTeachingWorkspace>> | undefined>>(),
   )
@@ -93,36 +67,6 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
       cancelled = true
     }
   }, [decodedDirectory, isBusy, messages.length, sessionID, sessionKey, teachingWorkspace])
-
-  // ── Open editor sidebar on first workspace load ─────────────────────────────
-  useEffect(() => {
-    if (
-      !decodedDirectory ||
-      !sessionID ||
-      !sessionKey ||
-      !teachingWorkspace ||
-      !selectedPersonaSupportsEditor
-    )
-      return
-    if (teachingSessionInitializedRef.current.has(sessionKey)) return
-
-    teachingSessionInitializedRef.current.add(sessionKey)
-    setRightSidebarTab("editor")
-    setRightSidebarOpen(true)
-    if (rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
-      setRightSidebarWidth(getRightSidebarDefaultWidth("editor"))
-    }
-  }, [
-    decodedDirectory,
-    rightSidebarWidth,
-    sessionID,
-    sessionKey,
-    selectedPersonaSupportsEditor,
-    setRightSidebarOpen,
-    setRightSidebarTab,
-    setRightSidebarWidth,
-    teachingWorkspace,
-  ])
 
   // ── Reload workspace after agent turn completes ─────────────────────────────
   const previousBusyRef = useRef(false)
@@ -301,195 +245,8 @@ export function useTeachingWorkspace(props: UseTeachingWorkspaceProps) {
     teachingWorkspace?.conflict,
   ])
 
-  async function onTeachingSelectFile(relativePath: string) {
-    if (!decodedDirectory || !sessionID || !sessionKey) return
-    const currentWorkspace = useTeachingRuntime.getState().workspaceBySession[sessionKey]
-    if (currentWorkspace?.activeRelativePath === relativePath) return
-
-    const ready = await flushTeachingWorkspace()
-    if (!ready) return
-
-    try {
-      const workspace = await activateTeachingWorkspaceFile({
-        directory: decodedDirectory,
-        sessionID,
-        relativePath,
-      })
-      useTeachingRuntime.getState().setWorkspace(sessionKey, workspace)
-      useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
-    } catch (fileError) {
-      useTeachingRuntime.getState().setSaveError(sessionKey, stringifyError(fileError))
-    }
-  }
-
-  async function onCreateTeachingFileConfirm(relativePath: string) {
-    if (!decodedDirectory || !sessionID || !sessionKey) return
-
-    const ready = await flushTeachingWorkspace()
-    if (!ready) return
-
-    try {
-      const workspace = await createTeachingWorkspaceFile({
-        directory: decodedDirectory,
-        sessionID,
-        relativePath,
-        activate: true,
-      })
-      useTeachingRuntime.getState().setWorkspace(sessionKey, workspace)
-      useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
-      setRightSidebarTab("editor")
-      setRightSidebarOpen(true)
-    } catch (fileError) {
-      useTeachingRuntime.getState().setSaveError(sessionKey, stringifyError(fileError))
-    }
-  }
-
-  function onTeachingCodeChange(code: string) {
-    if (!sessionKey) return
-    useTeachingRuntime.getState().updateWorkspaceCode(sessionKey, code)
-  }
-
-  function onTeachingSelectionChange(selection?: {
-    selectionStartLine?: number
-    selectionStartColumn?: number
-    selectionEndLine?: number
-    selectionEndColumn?: number
-  }) {
-    if (!sessionKey) return
-    useTeachingRuntime.getState().setSelection(sessionKey, selection)
-  }
-
-  function onTeachingLanguageChange(language: TeachingLanguage) {
-    void flushTeachingWorkspace({ language })
-  }
-
-  function onTeachingPreferredLanguageChange(language: TeachingLanguage) {
-    if (!sessionKey) return
-    const teaching = useTeachingRuntime.getState()
-    teaching.setPreferredLanguage(sessionKey, language)
-  }
-
-  async function onTeachingCheckpoint() {
-    if (!decodedDirectory || !sessionID || !sessionKey) return
-    const ready = await flushTeachingWorkspace()
-    if (!ready) return
-
-    try {
-      await checkpointTeachingWorkspace({
-        directory: decodedDirectory,
-        sessionID,
-      })
-      useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
-    } catch (checkpointError) {
-      useTeachingRuntime.getState().setSaveError(sessionKey, stringifyError(checkpointError))
-    }
-  }
-
-  async function onTeachingRestoreAccepted() {
-    if (!decodedDirectory || !sessionID || !sessionKey) return
-
-    try {
-      const workspace = await restoreTeachingWorkspace({
-        directory: decodedDirectory,
-        sessionID,
-      })
-      useTeachingRuntime.getState().setWorkspace(sessionKey, workspace)
-      useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
-    } catch (restoreError) {
-      useTeachingRuntime.getState().setSaveError(sessionKey, stringifyError(restoreError))
-    }
-  }
-
-  function onLoadExternalChanges() {
-    if (!sessionKey) return
-    useTeachingRuntime.getState().loadConflictVersion(sessionKey)
-  }
-
-  function onForceOverwrite() {
-    void flushTeachingWorkspace({ forceOverwrite: true })
-  }
-
-  async function onStartInteractiveLesson(input: {
-    sessionID: string
-    sessionKey: string
-    preferredLanguage: TeachingLanguage
-    selectedPersona: string
-    effectiveModelSelection: { providerID: string; modelID: string } | undefined
-    isBusy: boolean
-    isStartingInteractiveLesson: boolean
-    selectedPersonaSupportsEditor: boolean
-    rightSidebarWidth: number
-    setIsStartingInteractiveLesson: (value: boolean) => void
-  }) {
-    const { isBusy, isStartingInteractiveLesson, selectedPersonaSupportsEditor } = input
-
-    if (
-      !decodedDirectory ||
-      !sessionID ||
-      !sessionKey ||
-      !selectedPersonaSupportsEditor ||
-      isBusy ||
-      isStartingInteractiveLesson
-    )
-      return
-
-    input.setIsStartingInteractiveLesson(true)
-    setRightSidebarTab("editor")
-    if (input.rightSidebarWidth < RIGHT_SIDEBAR_EDITOR_MIN_WIDTH) {
-      setRightSidebarWidth(getRightSidebarDefaultWidth("editor"))
-    }
-    setRightSidebarOpen(true)
-
-    try {
-      const workspace = await ensureTeachingWorkspace({
-        directory: decodedDirectory,
-        sessionID,
-        language: input.preferredLanguage,
-        persona: input.selectedPersona,
-      })
-      useTeachingRuntime.getState().setWorkspace(sessionKey, workspace)
-      useTeachingRuntime.getState().setSaveError(sessionKey, undefined)
-
-      await sendPrompt(
-        decodedDirectory,
-        `I started an interactive lesson in ${teachingLanguageLabel(input.preferredLanguage)} mode. Interactive workspace tools are now available. Please use the editor workspace to set up the next hands-on step and guide me there.`,
-        {
-          persona: input.selectedPersona,
-          model: input.effectiveModelSelection,
-          teaching: {
-            active: true,
-            sessionID: workspace.sessionID,
-            lessonFilePath: workspace.lessonFilePath,
-            checkpointFilePath: workspace.checkpointFilePath,
-            language: workspace.language,
-            revision: workspace.revision,
-          },
-        },
-      )
-    } catch (interactiveError) {
-      const message = stringifyError(interactiveError)
-      setDirectoryError(decodedDirectory, message)
-      useTeachingRuntime.getState().setSaveError(sessionKey, message)
-    } finally {
-      input.setIsStartingInteractiveLesson(false)
-    }
-  }
-
   return {
     flushTeachingWorkspace,
     workspaceProbeBySessionRef,
-    onTeachingSelectFile,
-    onCreateTeachingFileConfirm,
-    onTeachingCodeChange,
-    onTeachingSelectionChange,
-    onTeachingLanguageChange,
-    onTeachingPreferredLanguageChange,
-    onTeachingCheckpoint,
-    onTeachingRestoreAccepted,
-    onLoadExternalChanges,
-    onForceOverwrite,
-    onStartInteractiveLesson,
   }
 }
-
-export type TeachingWorkspaceController = ReturnType<typeof useTeachingWorkspace>

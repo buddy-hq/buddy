@@ -6,14 +6,15 @@ import {
   useResizablePanelRef,
   type ResizeHandleIntent,
 } from "@buddy/ui"
-import { BENCH_RIGHT_WORKSPACE_PANEL_COMPONENT } from "@/lib/close-bench-workspace"
 import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
 import { usePersistentResizablePanelLayout } from "@/components/layout/use-persistent-resizable-panel-layout"
 import { RIGHT_SIDEBAR_COLLAPSE_THRESHOLD_PX } from "@/lib/directory-chat/right-sidebar-layout"
+import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 
 const DIRECTORY_CHAT_LAYOUT_ID = "directory-chat-layout"
 const DIRECTORY_CHAT_MAIN_PANEL_ID = "directory-chat-main-pane"
 const DIRECTORY_CHAT_RIGHT_SIDEBAR_PANEL_ID = "directory-chat-right-sidebar"
+const BENCH_RIGHT_WORKSPACE_PANEL_COMPONENT = "bench-right-workspace-panel"
 const CHAT_TITLEBAR_HEIGHT_PX = 52
 const DIRECTORY_CHAT_MAIN_PANE_MIN_WIDTH_PX = 320
 
@@ -21,7 +22,8 @@ type DirectoryChatShellProps = {
   leftSidebar: ReactNode
   mainPane: ReactNode
   rightSidebar: ReactNode
-  createTeachingFileDialog: ReactNode
+  contentLayout?: ReactNode
+  immersive?: boolean
   chatTitle?: string
   projectName?: string
   isTurnActive?: boolean
@@ -53,7 +55,8 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     leftSidebar,
     mainPane,
     rightSidebar,
-    createTeachingFileDialog,
+    contentLayout,
+    immersive = false,
     chatTitle,
     projectName,
     isTurnActive,
@@ -83,7 +86,9 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
   const rightSidebarPanelRef = useResizablePanelRef()
   const leftSidebarOverlayRef = useRef<HTMLDivElement>(null)
 
-  const leftSidebarResolvedWidth = leftSidebarOpen ? leftSidebarDisplayWidth : 0
+  const leftSidebarResolvedWidth = !immersive && leftSidebarOpen ? leftSidebarDisplayWidth : 0
+  const titlebarHeight = immersive ? 0 : CHAT_TITLEBAR_HEIGHT_PX
+  const hasContentLayout = contentLayout !== undefined
 
   const layoutPanelIds = useMemo(() => {
     return [DIRECTORY_CHAT_MAIN_PANEL_ID, DIRECTORY_CHAT_RIGHT_SIDEBAR_PANEL_ID]
@@ -94,8 +99,49 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
   })
 
   useEffect(() => {
-    rightSidebarPanelRef.current?.resize(rightSidebarOpen ? rightSidebarDisplayWidth : 0)
+    const nextSize = rightSidebarOpen ? rightSidebarDisplayWidth : 0
+    logBenchToggleStep("directory-chat-shell-resize-effect-before", {
+      rightSidebarOpen,
+      rightSidebarDisplayWidth,
+      nextSize,
+      hasPanelRef: rightSidebarPanelRef.current !== null,
+    })
+    rightSidebarPanelRef.current?.resize(nextSize)
+    logBenchToggleStep("directory-chat-shell-resize-effect-after", {
+      rightSidebarOpen,
+      rightSidebarDisplayWidth,
+      nextSize,
+      hasPanelRef: rightSidebarPanelRef.current !== null,
+    })
   }, [rightSidebarDisplayWidth, rightSidebarOpen, rightSidebarPanelRef])
+
+  useEffect(() => {
+    logBenchToggleStep("directory-chat-shell-state", {
+      leftSidebarOpen,
+      leftSidebarDisplayWidth,
+      leftSidebarResolvedWidth,
+      rightSidebarOpen,
+      rightSidebarDisplayWidth,
+      rightSidebarMinWidth,
+      rightSidebarMaxWidth,
+      titlebarVariant,
+      mainPaneMinWidth,
+      immersive,
+      hasContentLayout,
+    })
+  }, [
+    leftSidebarDisplayWidth,
+    leftSidebarOpen,
+    leftSidebarResolvedWidth,
+    hasContentLayout,
+    immersive,
+    mainPaneMinWidth,
+    rightSidebarDisplayWidth,
+    rightSidebarMaxWidth,
+    rightSidebarMinWidth,
+    rightSidebarOpen,
+    titlebarVariant,
+  ])
 
   useEffect(() => {
     if (!leftSidebarOverlayOpen) return
@@ -136,13 +182,40 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     onLeftSidebarOverlayOpenChange?.(false)
   }
 
+  function handleRightWorkspaceToggle() {
+    logBenchToggleStep("directory-chat-shell-right-toggle-callback-entry", {
+      rightSidebarOpen,
+      rightSidebarDisplayWidth,
+      rightSidebarMinWidth,
+      rightSidebarMaxWidth,
+    })
+    onRightWorkspaceToggle()
+    logBenchToggleStep("directory-chat-shell-right-toggle-callback-returned", {
+      rightSidebarOpen,
+      rightSidebarDisplayWidth,
+    })
+  }
+
+  function handleRightSidebarCollapse() {
+    logBenchToggleStep("directory-chat-shell-right-collapse-callback-entry", {
+      rightSidebarOpen,
+      rightSidebarDisplayWidth,
+    })
+    onRightSidebarCollapse()
+    logBenchToggleStep("directory-chat-shell-right-collapse-callback-returned", {
+      rightSidebarOpen,
+      rightSidebarDisplayWidth,
+    })
+  }
+
   return (
     <div
       data-component="directory-chat-shell"
+      data-right-workspace-open={rightSidebarOpen ? "true" : "false"}
       className="relative grid h-full w-full overflow-hidden bg-surface-raised-base transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none"
       style={{
         gridTemplateColumns: `${leftSidebarResolvedWidth}px minmax(0, 1fr)`,
-        gridTemplateRows: `${CHAT_TITLEBAR_HEIGHT_PX}px minmax(0, 1fr)`,
+        gridTemplateRows: `${titlebarHeight}px minmax(0, 1fr)`,
       }}
     >
       {/* Row 1, Col 1: Sidebar header area — provides background continuity with the sidebar below.
@@ -150,6 +223,8 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           webkit-app-region exclusion prevents Col 1's drag region from intercepting toggle clicks
           when the sidebar is open. The actual button lives inside DesktopTitlebar's header. */}
       <div
+        hidden={immersive}
+        aria-hidden={immersive}
         className={`relative col-start-1 row-start-1 select-none [-webkit-app-region:drag] ${leftSidebarOpen ? "border-r border-border-weaker-base" : ""}`}
       >
         <div
@@ -165,7 +240,11 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
       </div>
 
       {/* Row 1, Col 2: Main titlebar */}
-      <div className="col-start-2 row-start-1 min-w-0">
+      <div
+        hidden={immersive}
+        aria-hidden={immersive}
+        className="col-start-2 row-start-1 min-w-0 overflow-hidden"
+      >
         <DesktopTitlebar
           placement="chat"
           chatTitle={chatTitle}
@@ -175,11 +254,15 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           leftSidebarOpen={leftSidebarOpen}
           rightSidebarOpen={rightSidebarOpen}
           onLeftSidebarToggle={onLeftSidebarToggle}
-          onRightSidebarToggle={onRightWorkspaceToggle}
+          onRightSidebarToggle={handleRightWorkspaceToggle}
         />
       </div>
 
-      <div className="col-start-1 row-start-2 min-h-0 min-w-0 overflow-hidden">
+      <div
+        hidden={immersive}
+        aria-hidden={immersive}
+        className="col-start-1 row-start-2 min-h-0 min-w-0 overflow-hidden"
+      >
         <div
           data-component="directory-chat-left-sidebar-shell"
           data-open={leftSidebarOpen ? "true" : "false"}
@@ -206,7 +289,12 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
       </div>
 
       <div className="col-start-2 row-start-2 min-h-0 min-w-0 overflow-hidden">
-        <ResizablePanelGroup
+        {contentLayout !== undefined ? (
+          <div data-component="directory-chat-shell-content-layout" className="h-full min-h-0 w-full">
+            {contentLayout}
+          </div>
+        ) : (
+          <ResizablePanelGroup
           id={DIRECTORY_CHAT_LAYOUT_ID}
           orientation="horizontal"
           defaultLayout={defaultLayout}
@@ -251,13 +339,14 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
                   onRightSidebarResize(width)
                 }}
                 onResizeIntent={onRightSidebarResizeIntent}
-                onCollapse={onRightSidebarCollapse}
+                onCollapse={handleRightSidebarCollapse}
               />
             ) : null}
           </ResizablePanel>
-        </ResizablePanelGroup>
+          </ResizablePanelGroup>
+        )}
       </div>
-      {leftSidebarOverlayEnabled && !leftSidebarOpen ? (
+      {!immersive && leftSidebarOverlayEnabled && !leftSidebarOpen ? (
         <div
           data-component="directory-chat-left-sidebar-edge-trigger"
           className="absolute bottom-0 left-0 z-30 w-2 [-webkit-app-region:no-drag]"
@@ -266,7 +355,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           onPointerDown={() => onLeftSidebarOverlayOpenChange?.(true)}
         />
       ) : null}
-      {leftSidebarOverlayOpen && !leftSidebarOpen ? (
+      {!immersive && leftSidebarOverlayOpen && !leftSidebarOpen ? (
         <div
           ref={leftSidebarOverlayRef}
           data-component="directory-chat-left-sidebar-overlay"
@@ -281,7 +370,6 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           <div className="h-full min-h-0 w-full min-w-0">{leftSidebar}</div>
         </div>
       ) : null}
-      {createTeachingFileDialog}
     </div>
   )
 }

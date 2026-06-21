@@ -5,10 +5,7 @@ import { createPlatformJsonStorage } from "../context/platform"
 
 export const UI_PREFERENCES_STORAGE_KEY = "buddy.ui.v1"
 
-export type RightWorkspaceSelector = "explorer" | "library"
-export type RightWorkspaceSurface = "bench" | RightWorkspaceSelector
-
-const DEFAULT_SIDEBAR_WIDTH_PX = 344
+const DEFAULT_LEFT_SIDEBAR_WIDTH_PX = 344
 const DEFAULT_PROJECT_FILE_TREE_OPEN = false
 
 type PersistedUiPreferences = {
@@ -18,12 +15,8 @@ type PersistedUiPreferences = {
   leftSidebarWidth?: number
   chatLeftSidebarWidth?: number
   settingsSidebarWidth?: number
-  rightSidebarOpen?: boolean
-  rightSidebarWidth?: number
   projectFileTreeOpen?: boolean
   mainPaneTab?: unknown
-  rightSidebarTab?: UiPreferencesStore["rightSidebarTab"]
-  rightWorkspaceLastSelectorByDirectory?: Record<string, unknown>
 }
 
 function isPersistedUiPreferences(value: unknown): value is PersistedUiPreferences {
@@ -32,7 +25,7 @@ function isPersistedUiPreferences(value: unknown): value is PersistedUiPreferenc
 
 function readLegacyLeftSidebarWidth(state: PersistedUiPreferences | undefined) {
   if (!state || typeof state.leftSidebarWidth !== "number") {
-    return DEFAULT_SIDEBAR_WIDTH_PX
+    return DEFAULT_LEFT_SIDEBAR_WIDTH_PX
   }
   return state.leftSidebarWidth
 }
@@ -43,22 +36,7 @@ export type UiPreferencesStore = {
   leftSidebarOpen: boolean
   chatLeftSidebarWidth: number
   settingsSidebarWidth: number
-  rightSidebarOpen: boolean
-  rightSidebarWidth: number
   projectFileTreeOpen: boolean
-  rightWorkspaceLastSelectorByDirectory: Record<string, RightWorkspaceSelector>
-  rightWorkspaceSurfaceByDirectory: Record<string, RightWorkspaceSurface>
-  rightSidebarTab:
-    | "curriculum"
-    | "diagrams"
-    | "files"
-    | "editor"
-    | "resources"
-    | "agents-md"
-    | "capabilities"
-    | "system-prompt"
-    | "palette"
-    | "settings"
   isPinned: (directory: string, sessionID: string) => boolean
   togglePinned: (directory: string, sessionID: string) => void
   markUnread: (directory: string, sessionID: string) => void
@@ -68,29 +46,7 @@ export type UiPreferencesStore = {
   setLeftSidebarOpen: (open: boolean) => void
   setChatLeftSidebarWidth: (width: number) => void
   setSettingsSidebarWidth: (width: number) => void
-  setRightSidebarOpen: (open: boolean) => void
-  setRightSidebarWidth: (width: number) => void
   setProjectFileTreeOpen: (open: boolean) => void
-  setRightWorkspaceLastSelector: (directory: string, selector: RightWorkspaceSelector) => void
-  setRightWorkspaceSurface: (
-    directory: string,
-    surface: RightWorkspaceSurface | undefined,
-  ) => void
-  activateRightWorkspaceSurface: (directory: string, surface: RightWorkspaceSurface) => void
-  closeRightWorkspace: (directory: string) => void
-  setRightSidebarTab: (
-    tab:
-      | "curriculum"
-      | "diagrams"
-      | "files"
-      | "editor"
-      | "resources"
-      | "agents-md"
-      | "capabilities"
-      | "system-prompt"
-      | "palette"
-      | "settings",
-  ) => void
 }
 
 export const useUiPreferences = create<UiPreferencesStore>()(
@@ -160,33 +116,16 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         | "leftSidebarOpen"
         | "chatLeftSidebarWidth"
         | "settingsSidebarWidth"
-        | "rightSidebarOpen"
-        | "rightSidebarWidth"
         | "projectFileTreeOpen"
-        | "rightWorkspaceLastSelectorByDirectory"
-        | "rightWorkspaceSurfaceByDirectory"
-        | "rightSidebarTab"
         | "setLeftSidebarOpen"
         | "setChatLeftSidebarWidth"
         | "setSettingsSidebarWidth"
-        | "setRightSidebarOpen"
-        | "setRightSidebarWidth"
         | "setProjectFileTreeOpen"
-        | "setRightWorkspaceLastSelector"
-        | "setRightWorkspaceSurface"
-        | "activateRightWorkspaceSurface"
-        | "closeRightWorkspace"
-        | "setRightSidebarTab"
       > = {
         leftSidebarOpen: true,
         chatLeftSidebarWidth: 280,
         settingsSidebarWidth: 260,
-        rightSidebarOpen: false,
-        rightSidebarWidth: 380,
         projectFileTreeOpen: DEFAULT_PROJECT_FILE_TREE_OPEN,
-        rightWorkspaceLastSelectorByDirectory: {},
-        rightWorkspaceSurfaceByDirectory: {},
-        rightSidebarTab: "curriculum",
         setLeftSidebarOpen(open) {
           set((state) => {
             state.leftSidebarOpen = open
@@ -202,50 +141,9 @@ export const useUiPreferences = create<UiPreferencesStore>()(
             state.settingsSidebarWidth = width
           })
         },
-        setRightSidebarOpen(open) {
-          set((state) => {
-            state.rightSidebarOpen = open
-          })
-        },
-        setRightSidebarWidth(width) {
-          set((state) => {
-            state.rightSidebarWidth = width
-          })
-        },
         setProjectFileTreeOpen(open) {
           set((state) => {
             state.projectFileTreeOpen = open
-          })
-        },
-        setRightWorkspaceLastSelector(directory, selector) {
-          set((state) => {
-            state.rightWorkspaceLastSelectorByDirectory[directory] = selector
-          })
-        },
-        setRightWorkspaceSurface(directory, surface) {
-          set((state) => {
-            if (surface) {
-              state.rightWorkspaceSurfaceByDirectory[directory] = surface
-              return
-            }
-            delete state.rightWorkspaceSurfaceByDirectory[directory]
-          })
-        },
-        activateRightWorkspaceSurface(directory, surface) {
-          set((state) => {
-            state.rightWorkspaceSurfaceByDirectory[directory] = surface
-            state.rightSidebarOpen = true
-          })
-        },
-        closeRightWorkspace(directory) {
-          set((state) => {
-            delete state.rightWorkspaceSurfaceByDirectory[directory]
-            state.rightSidebarOpen = false
-          })
-        },
-        setRightSidebarTab(tab) {
-          set((state) => {
-            state.rightSidebarTab = tab
           })
         },
       }
@@ -257,7 +155,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     }),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 14,
+      version: 15,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = isPersistedUiPreferences(persistedState) ? persistedState : undefined
@@ -268,37 +166,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           leftSidebarOpen: state?.leftSidebarOpen ?? true,
           chatLeftSidebarWidth: state?.chatLeftSidebarWidth ?? legacyLeftSidebarWidth,
           settingsSidebarWidth: state?.settingsSidebarWidth ?? legacyLeftSidebarWidth,
-          rightSidebarOpen: state?.rightSidebarOpen ?? false,
-          rightSidebarWidth: state?.rightSidebarWidth ?? DEFAULT_SIDEBAR_WIDTH_PX,
           projectFileTreeOpen: state?.projectFileTreeOpen ?? DEFAULT_PROJECT_FILE_TREE_OPEN,
-          rightWorkspaceLastSelectorByDirectory: Object.fromEntries(
-            Object.entries(state?.rightWorkspaceLastSelectorByDirectory ?? {}).map(
-              ([directory, selector]) => [
-                directory,
-                selector === "library" ? "library" : "explorer",
-              ],
-            ),
-          ),
-          rightSidebarTab:
-            state?.rightSidebarTab === "settings"
-              ? "settings"
-              : state?.rightSidebarTab === "system-prompt"
-                ? "system-prompt"
-                : state?.rightSidebarTab === "capabilities"
-                  ? "capabilities"
-                  : state?.rightSidebarTab === "resources"
-                    ? "resources"
-                    : state?.rightSidebarTab === "agents-md"
-                      ? "agents-md"
-                      : state?.rightSidebarTab === "files"
-                        ? "files"
-                        : state?.rightSidebarTab === "editor"
-                          ? "editor"
-                          : state?.rightSidebarTab === "diagrams"
-                            ? "diagrams"
-                            : state?.rightSidebarTab === "palette"
-                              ? "palette"
-                              : "curriculum",
         }
       },
       partialize(state) {
@@ -308,11 +176,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           leftSidebarOpen: state.leftSidebarOpen,
           chatLeftSidebarWidth: state.chatLeftSidebarWidth,
           settingsSidebarWidth: state.settingsSidebarWidth,
-          rightSidebarOpen: state.rightSidebarOpen,
-          rightSidebarWidth: state.rightSidebarWidth,
           projectFileTreeOpen: state.projectFileTreeOpen,
-          rightWorkspaceLastSelectorByDirectory: state.rightWorkspaceLastSelectorByDirectory,
-          rightSidebarTab: state.rightSidebarTab,
         }
       },
     },

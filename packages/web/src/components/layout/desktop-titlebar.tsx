@@ -1,6 +1,6 @@
 import type { MouseEvent } from "react"
 import { useEffect, useState } from "react"
-import { useLocation, useNavigate, useRouterState } from "@tanstack/react-router"
+import { useLocation, useRouterState } from "@tanstack/react-router"
 import { Button, MoveLeftIcon } from "@buddy/ui"
 import { type LucideIcon } from "lucide-react"
 import { language } from "@/context/language"
@@ -10,11 +10,15 @@ import {
   BENCH_CHAT_SEARCH_PARAM,
   isBenchRoutePathname,
   readBenchChatLayoutMode,
-  readBenchOpenPolicyStateFromLocation,
 } from "@/lib/bench-navigation"
-import { guardBenchLeaveBeforeNavigation } from "@/lib/bench-leave-guard"
-import { decodeDirectory } from "@/lib/directory-token"
+import { useDirectoryWorkspaceOptional } from "@/components/directory-chat/directory-workspace-context"
 import { useUiPreferences } from "@/state/ui-preferences"
+import { WORKSPACE_VISIBILITY_EXPANDED } from "@/state/directory-workspace-store"
+import {
+  isBenchToggleEventTarget,
+  logBenchToggleDomEvent,
+  logBenchToggleStep,
+} from "@/lib/bench-toggle-diagnostics"
 import { isTitlebarInteractiveTarget } from "./desktop-titlebar-helpers"
 import {
   LayoutLeftIcon,
@@ -94,8 +98,8 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const placement = props.placement ?? "root"
   const titlebarHeightClass =
     placement === "chat" ? CHAT_TITLEBAR_HEIGHT_CLASS : ROOT_TITLEBAR_HEIGHT_CLASS
-  const navigate = useNavigate()
   const location = useLocation()
+  const workspace = useDirectoryWorkspaceOptional()
   const platform = usePlatform()
   const isDesktop = platform.platform === "desktop"
   const isMac = isDesktop && platform.os === "macos"
@@ -103,8 +107,6 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const pathname = location.pathname
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
   const setLeftSidebarOpen = useUiPreferences((state) => state.setLeftSidebarOpen)
-  const persistedRightSidebarOpen = useUiPreferences((state) => state.rightSidebarOpen)
-  const setRightSidebarOpen = useUiPreferences((state) => state.setRightSidebarOpen)
   const routerState = useRouterState()
   const focusedBenchMatch = routerState.matches.find(
     (match) =>
@@ -115,33 +117,19 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
     isFocusedBenchPage &&
     readBenchChatLayoutMode(readSearchParam(location.search, BENCH_CHAT_SEARCH_PARAM)) ===
       BENCH_CHAT_LAYOUT_FLOATING
-  const rightSidebarOpen = props.rightSidebarOpen ?? persistedRightSidebarOpen
-  const isParkedBenchPage = isFocusedBenchPage && !isFloatingBenchPage && !rightSidebarOpen
+  const workspaceRightSidebarOpen =
+    workspace?.projection.dockedState.visibility === WORKSPACE_VISIBILITY_EXPANDED
+  const rightSidebarOpen = props.rightSidebarOpen ?? workspaceRightSidebarOpen ?? false
+  const isParkedBenchPage =
+    isFocusedBenchPage &&
+    !isFloatingBenchPage &&
+    workspace?.projection.bench.visibility === "parked"
   const directoryToken = isFocusedBenchPage
     ? (readDirectoryParam(focusedBenchMatch?.params) ??
       readDirectoryParamFromMatches(routerState.matches) ??
       readDirectoryTokenFromPathname(pathname))
     : undefined
   const [isFullscreen, setIsFullscreen] = useState(false)
-
-  useEffect(() => {
-    if (!isMac) return
-    void platform.getIsFullscreen?.().then((v) => {
-      if (typeof v === "boolean") setIsFullscreen(v)
-    })
-    const handler = (e: Event) => {
-      if (e instanceof CustomEvent && typeof e.detail?.isFullscreen === "boolean") {
-        setIsFullscreen(e.detail.isFullscreen as boolean)
-      }
-    }
-    window.addEventListener("buddy:fullscreen-changed", handler)
-    return () => window.removeEventListener("buddy:fullscreen-changed", handler)
-  }, [isMac, platform])
-
-  if (!isMac && !isWindows) {
-    return null
-  }
-
   const resolvedLeftSidebarOpen = props.leftSidebarOpen ?? leftSidebarOpen
   const showSidebarToggles =
     placement === "chat" || (pathname !== "/chat" && pathname.endsWith("/chat"))
@@ -161,13 +149,144 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         : chatToggleLeft + CHAT_SIDEBAR_TOGGLE_RESERVED_PX
       : 0
 
+  useEffect(() => {
+    if (!isMac) return
+    void platform.getIsFullscreen?.().then((v) => {
+      if (typeof v === "boolean") setIsFullscreen(v)
+    })
+    const handler = (e: Event) => {
+      if (e instanceof CustomEvent && typeof e.detail?.isFullscreen === "boolean") {
+        setIsFullscreen(e.detail.isFullscreen as boolean)
+      }
+    }
+    window.addEventListener("buddy:fullscreen-changed", handler)
+    return () => window.removeEventListener("buddy:fullscreen-changed", handler)
+  }, [isMac, platform])
+
+  useEffect(() => {
+    logBenchToggleStep("desktop-titlebar-state", {
+      placement,
+      variant: props.variant ?? "chat",
+      pathname,
+      isDesktop,
+      isMac,
+      isWindows,
+      showSidebarToggles,
+      hasRightSidebarCallback: props.onRightSidebarToggle !== undefined,
+      hasWorkspaceContext: workspace !== undefined,
+      rightSidebarOpen,
+      workspaceRightSidebarOpen,
+      isFocusedBenchPage,
+      isFloatingBenchPage,
+      isParkedBenchPage,
+      directoryToken,
+    })
+  }, [
+    directoryToken,
+    isDesktop,
+    isFloatingBenchPage,
+    isFocusedBenchPage,
+    isMac,
+    isParkedBenchPage,
+    isWindows,
+    pathname,
+    placement,
+    props.onRightSidebarToggle,
+    props.variant,
+    rightSidebarOpen,
+    showSidebarToggles,
+    workspace,
+    workspaceRightSidebarOpen,
+  ])
+
+  useEffect(() => {
+    if (!isDesktop || !showSidebarToggles) return
+
+    function onDocumentPointerDown(event: PointerEvent) {
+      if (!isBenchToggleEventTarget(event.target)) return
+      logBenchToggleDomEvent("document-pointerdown-capture", event)
+    }
+
+    function onDocumentMouseDown(event: globalThis.MouseEvent) {
+      if (!isBenchToggleEventTarget(event.target)) return
+      logBenchToggleDomEvent("document-mousedown-capture", event)
+    }
+
+    function onDocumentMouseUp(event: globalThis.MouseEvent) {
+      if (!isBenchToggleEventTarget(event.target)) return
+      logBenchToggleDomEvent("document-mouseup-capture", event)
+    }
+
+    function onDocumentClick(event: globalThis.MouseEvent) {
+      if (!isBenchToggleEventTarget(event.target)) return
+      logBenchToggleDomEvent("document-click-capture", event)
+    }
+
+    document.addEventListener("pointerdown", onDocumentPointerDown, true)
+    document.addEventListener("mousedown", onDocumentMouseDown, true)
+    document.addEventListener("mouseup", onDocumentMouseUp, true)
+    document.addEventListener("click", onDocumentClick, true)
+    return () => {
+      document.removeEventListener("pointerdown", onDocumentPointerDown, true)
+      document.removeEventListener("mousedown", onDocumentMouseDown, true)
+      document.removeEventListener("mouseup", onDocumentMouseUp, true)
+      document.removeEventListener("click", onDocumentClick, true)
+    }
+  }, [isDesktop, showSidebarToggles])
+
+  if (!isMac && !isWindows) {
+    return null
+  }
+
   function onToggleRightSidebar() {
+    const commandType = rightSidebarOpen ? "collapse" : "reveal"
+    logBenchToggleStep("desktop-titlebar-right-toggle-handler-entry", {
+      placement,
+      variant: props.variant ?? "chat",
+      pathname,
+      rightSidebarOpen,
+      commandType,
+      hasRightSidebarCallback: props.onRightSidebarToggle !== undefined,
+      hasWorkspaceContext: workspace !== undefined,
+      workspaceRightSidebarOpen,
+    })
+
     if (props.onRightSidebarToggle) {
+      logBenchToggleStep("desktop-titlebar-right-toggle-calling-prop-callback", {
+        commandType,
+      })
       props.onRightSidebarToggle()
+      logBenchToggleStep("desktop-titlebar-right-toggle-prop-callback-returned", {
+        commandType,
+      })
       return
     }
 
-    setRightSidebarOpen(!rightSidebarOpen)
+    if (workspace) {
+      logBenchToggleStep("desktop-titlebar-right-toggle-fallback-controller-execute", {
+        commandType,
+      })
+      void workspace.controller
+        .execute({ type: commandType })
+        .then((result) => {
+          logBenchToggleStep("desktop-titlebar-right-toggle-fallback-controller-result", {
+            commandType,
+            result,
+          })
+        })
+        .catch((error: unknown) => {
+          logBenchToggleStep("desktop-titlebar-right-toggle-fallback-controller-error", {
+            commandType,
+            error,
+          })
+        })
+      return
+    }
+
+    logBenchToggleStep("desktop-titlebar-right-toggle-no-target", {
+      commandType,
+    })
+    return
   }
 
   function onToggleLeftSidebar() {
@@ -197,43 +316,22 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   }
 
   async function onBackToChat() {
-    if (!directoryToken) return
-
-    let directory: string
-    try {
-      directory = decodeDirectory(directoryToken)
-    } catch {
-      return
-    }
-
-    const benchPolicyState = readBenchOpenPolicyStateFromLocation({
-      directory,
-      pathname,
-      search: location.search,
-    })
-    if (benchPolicyState.status === "open") {
-      const guardResult = await guardBenchLeaveBeforeNavigation({
-        directory,
-        intent: "close",
-        origin: "user",
-        current: benchPolicyState.target,
-        next: null,
-      })
-      if (guardResult.status === "block") return
-    }
-
-    await navigate({
-      to: "/$directory/chat",
-      params: {
-        directory: directoryToken,
-      },
-      replace: true,
-    })
-    setRightSidebarOpen(false)
+    if (!directoryToken || !workspace) return
+    await workspace.controller.execute({ type: "close" })
   }
 
   const rightSidebarToggle = showSidebarToggles ? (
-    <div className="mr-2 flex shrink-0 items-center gap-1">
+    <div
+      data-titlebar-no-drag
+      className="mr-2 flex shrink-0 items-center gap-1 motion-reduce:transition-none [-webkit-app-region:no-drag]"
+      onPointerDownCapture={(event) =>
+        logBenchToggleDomEvent("right-toggle-wrapper-pointerdown-capture", event)
+      }
+      onMouseDownCapture={(event) =>
+        logBenchToggleDomEvent("right-toggle-wrapper-mousedown-capture", event)
+      }
+      onClickCapture={(event) => logBenchToggleDomEvent("right-toggle-wrapper-click-capture", event)}
+    >
       <Button
         type="button"
         data-action="titlebar-toggle-right-sidebar"
@@ -250,6 +348,16 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
             ? language.t("desktopTitlebar.collapseRightPanel")
             : language.t("desktopTitlebar.expandRightPanel")
         }
+        onPointerDownCapture={(event) =>
+          logBenchToggleDomEvent("right-toggle-button-pointerdown-capture", event)
+        }
+        onMouseDownCapture={(event) =>
+          logBenchToggleDomEvent("right-toggle-button-mousedown-capture", event)
+        }
+        onMouseUpCapture={(event) =>
+          logBenchToggleDomEvent("right-toggle-button-mouseup-capture", event)
+        }
+        onClickCapture={(event) => logBenchToggleDomEvent("right-toggle-button-click-capture", event)}
         onClick={onToggleRightSidebar}
       >
         {rightSidebarOpen ? (
@@ -316,6 +424,22 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       data-component="desktop-titlebar"
       data-variant={props.variant ?? "chat"}
       className={`shrink-0 ${borderClass} bg-background-base text-text-base select-none [-webkit-app-region:drag] ${titlebarHeightClass}`}
+      onPointerDownCapture={(event) => {
+        if (!isBenchToggleEventTarget(event.target)) return
+        logBenchToggleDomEvent("desktop-titlebar-pointerdown-capture", event)
+      }}
+      onMouseDownCapture={(event) => {
+        if (!isBenchToggleEventTarget(event.target)) return
+        logBenchToggleDomEvent("desktop-titlebar-mousedown-capture", event)
+      }}
+      onMouseUpCapture={(event) => {
+        if (!isBenchToggleEventTarget(event.target)) return
+        logBenchToggleDomEvent("desktop-titlebar-mouseup-capture", event)
+      }}
+      onClickCapture={(event) => {
+        if (!isBenchToggleEventTarget(event.target)) return
+        logBenchToggleDomEvent("desktop-titlebar-click-capture", event)
+      }}
       onMouseDown={onMouseDown}
       onDoubleClick={onDoubleClick}
     >
@@ -394,7 +518,10 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
           ) : (
             <div className="min-w-0 flex-1">{benchBackButton}</div>
           ))}
-        <div className="flex shrink-0 items-center gap-1 mr-2 ml-auto">
+        <div
+          data-titlebar-no-drag
+          className="flex shrink-0 items-center gap-1 mr-2 ml-auto [-webkit-app-region:no-drag]"
+        >
           {!isShellVariant && rightSidebarToggle}
 
           {isWindows ? (

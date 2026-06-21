@@ -24,16 +24,6 @@ type BenchSurfaceDefaults = {
   layoutProfile: BenchLayoutProfileID
 }
 
-type BenchGeometryDirective = "preserve" | "use-profile"
-
-type BenchTransition =
-  | "enter"
-  | "exit"
-  | "replace"
-  | "change-mode"
-  | "replace-and-change-mode"
-  | "none"
-
 type BenchOpenPolicyState =
   | {
       status: "closed"
@@ -70,9 +60,6 @@ type BenchOpenDecision =
       target: BenchTarget
       mode: BenchMode
       layoutProfile: BenchLayoutProfileID
-      dockedWidth: BenchGeometryDirective
-      floatingSize: BenchGeometryDirective
-      floatingPosition: BenchGeometryDirective
       policyID: BenchResolvedOpenPolicyID
     }
 
@@ -261,73 +248,26 @@ function resolveBenchOpenPolicy(input: ResolveBenchOpenPolicyInput): BenchOpenDe
     }
   }
 
-  const currentOpen = input.current.status === "open"
   return {
     action: "open",
     directory: input.request.directory,
     target: input.request.target,
     mode: resolvedMode.mode,
     layoutProfile: input.defaults.layoutProfile,
-    dockedWidth: currentOpen ? "preserve" : "use-profile",
-    floatingSize: currentOpen ? "preserve" : "use-profile",
-    floatingPosition: currentOpen ? "preserve" : "use-profile",
     policyID: resolvedMode.policyID,
   }
 }
 
-function classifyBenchTransition(input: {
-  previous: BenchOpenPolicyState
-  next: BenchOpenPolicyState
-}): BenchTransition {
-  if (input.previous.status === "closed" && input.next.status === "closed") {
-    return "none"
-  }
-
-  if (input.previous.status === "closed" && input.next.status === "open") {
-    return "enter"
-  }
-
-  if (input.previous.status === "open" && input.next.status === "closed") {
-    return "exit"
-  }
-
-  if (input.previous.status === "closed" || input.next.status === "closed") {
-    return "none"
-  }
-
-  const targetChanged =
-    input.previous.directory !== input.next.directory ||
-    !isSameBenchTarget(input.previous.target, input.next.target)
-  const modeChanged = input.previous.mode !== input.next.mode
-
-  if (targetChanged && modeChanged) {
-    return "replace-and-change-mode"
-  }
-
-  if (targetChanged) {
-    return "replace"
-  }
-
-  if (modeChanged) {
-    return "change-mode"
-  }
-
-  return "none"
-}
-
 export {
-  classifyBenchTransition,
   resolveBenchLayoutProfile,
   resolveBenchOpenPolicy,
   resolveBenchSurfaceDefaults,
 }
 export type {
-  BenchGeometryDirective,
   BenchIgnorePolicyID,
   BenchOpenDecision,
   BenchOpenPolicyState,
   BenchResolvedOpenPolicyID,
   BenchSurfaceDefaults,
-  BenchTransition,
   ResolveBenchOpenPolicyInput,
 }

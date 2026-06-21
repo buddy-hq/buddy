@@ -23,8 +23,8 @@ import {
   BENCH_MODE_REQUEST_POLICY,
   useOpenBench,
   type BenchModeRequest,
+  type OpenBenchResult,
 } from "@/lib/bench-navigation"
-import type { BenchOpenDecision } from "@/lib/bench-open-policy-core"
 import {
   grantWorkspaceFileLargeOpenApproval,
   revokeWorkspaceFileLargeOpenApproval,
@@ -35,7 +35,7 @@ export type WorkspaceResourceOpener = (
   directory: string,
   resource: ResourceReadingTarget,
   options?: ResourceOpenOptions,
-) => Promise<BenchOpenDecision> | void
+) => Promise<OpenBenchResult> | void
 
 export type WorkspaceFileActionInput = Omit<WorkspaceFileOpenInput, "canOpenReading"> & {
   name?: string
@@ -143,16 +143,14 @@ export function useWorkspaceFileOpen(
         if (!directory) return false
         grantWorkspaceFileLargeOpenApproval(directory, input.path)
         const result = await executeTarget(input, target)
-        if (result?.action !== "open") {
+        if (result && result.outcome !== "committed") {
           revokeWorkspaceFileLargeOpenApproval(directory, input.path)
         }
-        return result?.action === "open" || result?.policyID === "already-open"
+        return result === undefined || result.outcome === "committed"
       }
 
       const result = await executeTarget(input, target)
-      return (
-        result?.action === "open" || result?.policyID === "already-open" || result === undefined
-      )
+      return result === undefined || result.outcome === "committed"
     },
     [directory, executeTarget, resolvePlan],
   )

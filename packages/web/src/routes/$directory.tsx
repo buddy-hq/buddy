@@ -1,6 +1,8 @@
-import { Outlet, createFileRoute } from "@tanstack/react-router"
-import { motion, AnimatePresence } from "motion/react"
+import { createFileRoute } from "@tanstack/react-router"
 import { DirectoryNotebookRouteProvider } from "@/components/directory-chat/directory-notebook-route-context"
+import { DirectoryWorkspaceProvider } from "@/components/directory-chat/directory-workspace-context"
+import { DirectoryWorkspaceRoot } from "@/components/directory-chat/directory-workspace-root"
+import { decodeDirectory } from "@/lib/directory-token"
 import { openProjectsWithSessionsQueryOptions } from "@/state/bootstrap-query"
 
 export const Route = createFileRoute("/$directory")({
@@ -14,20 +16,23 @@ export const Route = createFileRoute("/$directory")({
 
 function DirectoryRouteLayout() {
   const params = Route.useParams()
+  const directory = decodeRouteDirectory(params.directory)
 
   return (
-    <AnimatePresence mode="popLayout" initial={false}>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.15 }}
-        className="h-full w-full overflow-hidden"
-      >
+    <div className="h-full w-full overflow-hidden">
+      <DirectoryWorkspaceProvider key={params.directory} directory={directory}>
         <DirectoryNotebookRouteProvider directoryToken={params.directory}>
-          <Outlet />
+          <DirectoryWorkspaceRoot />
         </DirectoryNotebookRouteProvider>
-      </motion.div>
-    </AnimatePresence>
+      </DirectoryWorkspaceProvider>
+    </div>
   )
+}
+
+function decodeRouteDirectory(directoryToken: string): string {
+  try {
+    return decodeDirectory(directoryToken)
+  } catch {
+    return ""
+  }
 }

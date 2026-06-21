@@ -42,6 +42,10 @@ export function getServerConnection() {
   return currentServerConnection
 }
 
+export function setRuntimeServerConnection(connection: ServerConnection) {
+  currentServerConnection = normalizeConnection(connection)
+}
+
 export function createBrowserServerConnection(): ServerConnection {
   return {
     url: "",

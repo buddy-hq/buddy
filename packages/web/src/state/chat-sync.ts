@@ -1,6 +1,7 @@
 import type { GlobalEvent } from "./chat-types"
 import { unstable_batchedUpdates } from "react-dom"
 import { getBuddyClient } from "../lib/buddy-client"
+import type { EventStreamData } from "@buddy/sdk/types"
 import {
   CHAT_STREAM_GLOBAL_DIRECTORY,
   createChatStreamEventBuffer,
@@ -8,6 +9,7 @@ import {
 
 type SyncHandlers = {
   directory?: string
+  eventQuery?: () => Partial<NonNullable<EventStreamData["query"]>>
   onOpen?: () => void
   onEvent: (event: GlobalEvent) => void
   onError?: (error: unknown) => void
@@ -264,8 +266,12 @@ export function startChatSync(handlers: SyncHandlers) {
         }
 
         try {
+          const query = {
+            ...(handlers.directory ? { directory: handlers.directory } : {}),
+            ...handlers.eventQuery?.(),
+          }
           const events = await getBuddyClient(handlers.directory).event.stream(
-            handlers.directory ? { directory: handlers.directory } : undefined,
+            Object.keys(query).length > 0 ? query : undefined,
             {
               headers: {
                 accept: EVENT_STREAM_ACCEPT,

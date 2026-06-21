@@ -59,7 +59,6 @@ type ChatLeftSidebarProps = {
   onRenameSession: (directory: string, sessionID: string, title: string) => Promise<void>
   onReorderDirectories: (newOrder: string[]) => void
   onCloseDirectory: (directory: string) => void
-  onOpenCurriculum: () => void
   shellView?: DirectoryChatShellView
   onSelectSkills?: () => void
   onOpenSettings: () => void

@@ -33,7 +33,6 @@ import type {
   SessionStatusInfo,
 } from "@/state/chat-types"
 import type { AgentConfigOption, PersonaConfigOption } from "@/state/chat-actions"
-import type { ChatRightSidebarTab } from "@/components/layout/chat-right-sidebar"
 import {
   getConnectedProviders,
   resolveAutoModelSelection,
@@ -41,7 +40,6 @@ import {
   type ProviderModelSelection,
 } from "@/lib/provider-catalog"
 import { resolveCurrentAgent } from "./agent-catalog"
-import { getRightSidebarMaxWidth, getRightSidebarMinWidth } from "./right-sidebar-layout"
 
 const EMPTY_LIST: never[] = []
 const EMPTY_RECORD: Record<string, never> = {}
@@ -171,16 +169,6 @@ function resolveSelectedVariant(input: {
   return undefined
 }
 
-function isSidebarSurface(value: string): value is PersonaConfigOption["surfaces"][number] {
-  return value === "curriculum" || value === "editor"
-}
-
-function personaSurfaceToSidebarTab(
-  value: PersonaConfigOption["defaultSurface"],
-): ChatRightSidebarTab {
-  return value === "editor" ? "editor" : "curriculum"
-}
-
 type UseDirectoryChatStateProps = {
   decodedDirectory: string
   agentCatalog: AgentConfigOption[]
@@ -188,9 +176,6 @@ type UseDirectoryChatStateProps = {
   configuredModel: { providerID: string; modelID: string } | undefined
   autoCompactionEnabled: boolean
   personaCatalog: PersonaConfigOption[]
-  showSystemPromptSidebarTab: boolean
-  showCapabilitiesSidebarTab: boolean
-  showPaletteSidebarTab: boolean
 }
 
 type DirectoryChatStoreSlice = Pick<
@@ -216,17 +201,9 @@ type DirectoryChatStoreSlice = Pick<
 type DirectoryChatUiSlice = Pick<
   UiPreferencesStore,
   | "leftSidebarOpen"
-  | "rightSidebarOpen"
-  | "rightSidebarWidth"
-  | "rightWorkspaceLastSelectorByDirectory"
-  | "rightSidebarTab"
   | "pinnedByDirectory"
   | "unreadByDirectory"
   | "setLeftSidebarOpen"
-  | "setRightSidebarOpen"
-  | "setRightSidebarWidth"
-  | "setRightWorkspaceLastSelector"
-  | "setRightSidebarTab"
   | "togglePinned"
   | "markUnread"
   | "clearUnread"
@@ -277,11 +254,6 @@ export type DirectoryChatState = DirectoryChatStoreSlice &
     leftSidebarWidth: UiPreferencesStore["chatLeftSidebarWidth"]
     leftSidebarDisplayWidth: number
     leftSidebarMaxWidth: number
-    rightSidebarDisplayWidth: number
-    rightSidebarMinWidth: number
-    rightSidebarMaxWidth: number
-    rightSidebarActiveTab: ChatRightSidebarTab
-    editorPanelSizing: boolean
     sidebarDirectories: string[]
     validOpenProjects: string[]
     hasRegisteredProject: boolean
@@ -300,10 +272,7 @@ export type DirectoryChatState = DirectoryChatStoreSlice &
     storedPersona: string
     preferredLanguage: TeachingLanguage
     selectedPersona: string
-    selectedPersonaSurfaces: PersonaConfigOption["surfaces"]
-    selectedPersonaDefaultSurface: PersonaConfigOption["defaultSurface"]
     selectedPersonaSupportsEditor: boolean
-    selectedSurfaceTab: ChatRightSidebarTab
     isInteractiveMode: boolean
     autoCompactionEnabled: boolean
     isBusy: ChatStore["directories"][string]["isBusy"]
@@ -350,22 +319,10 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
   // ── UI preferences ─────────────────────────────────────────────────────────
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
   const leftSidebarWidth = useUiPreferences((state) => state.chatLeftSidebarWidth)
-  const rightSidebarOpen = useUiPreferences((state) => state.rightSidebarOpen)
-  const rightSidebarWidth = useUiPreferences((state) => state.rightSidebarWidth)
-  const rightWorkspaceLastSelectorByDirectory = useUiPreferences(
-    (state) => state.rightWorkspaceLastSelectorByDirectory,
-  )
-  const rightSidebarTab = useUiPreferences((state) => state.rightSidebarTab)
   const pinnedByDirectory = useUiPreferences((state) => state.pinnedByDirectory)
   const unreadByDirectory = useUiPreferences((state) => state.unreadByDirectory)
   const setLeftSidebarOpen = useUiPreferences((state) => state.setLeftSidebarOpen)
   const setLeftSidebarWidth = useUiPreferences((state) => state.setChatLeftSidebarWidth)
-  const setRightSidebarOpen = useUiPreferences((state) => state.setRightSidebarOpen)
-  const setRightSidebarWidth = useUiPreferences((state) => state.setRightSidebarWidth)
-  const setRightWorkspaceLastSelector = useUiPreferences(
-    (state) => state.setRightWorkspaceLastSelector,
-  )
-  const setRightSidebarTab = useUiPreferences((state) => state.setRightSidebarTab)
   const togglePinned = useUiPreferences((state) => state.togglePinned)
   const markUnread = useUiPreferences((state) => state.markUnread)
   const clearUnread = useUiPreferences((state) => state.clearUnread)
@@ -629,36 +586,8 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
   const selectedPersona = selectedPersonaConfig?.id ?? storedPersona
   const selectedPersonaSurfaces =
     selectedPersonaConfig?.surfaces ?? (["curriculum"] satisfies PersonaConfigOption["surfaces"])
-  const selectedPersonaDefaultSurface = selectedPersonaConfig?.defaultSurface ?? "curriculum"
   const selectedPersonaSupportsEditor = selectedPersonaSurfaces.includes("editor")
   const isInteractiveMode = !!sessionID && !!teachingWorkspace
-  const selectedSurfaceTab: ChatRightSidebarTab =
-    rightSidebarTab === "editor"
-      ? "editor"
-      : isSidebarSurface(rightSidebarTab) && selectedPersonaSurfaces.includes(rightSidebarTab)
-        ? rightSidebarTab
-        : personaSurfaceToSidebarTab(selectedPersonaDefaultSurface)
-  const rightSidebarActiveTab: ChatRightSidebarTab =
-    rightSidebarTab === "system-prompt" && props.showSystemPromptSidebarTab
-      ? "system-prompt"
-      : rightSidebarTab === "capabilities" && props.showCapabilitiesSidebarTab
-        ? "capabilities"
-        : rightSidebarTab === "palette" && props.showPaletteSidebarTab
-          ? "palette"
-          : rightSidebarTab === "diagrams"
-            ? "diagrams"
-            : rightSidebarTab === "agents-md"
-              ? "agents-md"
-              : rightSidebarTab === "files"
-                ? "files"
-                : selectedSurfaceTab
-  const wideSidebarSizing = rightSidebarActiveTab === "editor" || rightSidebarActiveTab === "files"
-  const rightSidebarMinWidth = getRightSidebarMinWidth(rightSidebarActiveTab)
-  const rightSidebarMaxWidth = getRightSidebarMaxWidth(rightSidebarActiveTab)
-  const rightSidebarDisplayWidth = Math.min(
-    Math.max(rightSidebarWidth, rightSidebarMinWidth),
-    rightSidebarMaxWidth,
-  )
   const leftSidebarMaxWidth = 360
   const leftSidebarDisplayWidth = Math.max(leftSidebarWidth, 220)
 
@@ -687,10 +616,6 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     // UI preferences actions
     setLeftSidebarOpen,
     setLeftSidebarWidth,
-    setRightSidebarOpen,
-    setRightSidebarWidth,
-    setRightWorkspaceLastSelector,
-    setRightSidebarTab,
     togglePinned,
     markUnread,
     clearUnread,
@@ -715,15 +640,6 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     leftSidebarWidth,
     leftSidebarDisplayWidth,
     leftSidebarMaxWidth,
-    rightSidebarOpen,
-    rightSidebarWidth,
-    rightWorkspaceLastSelectorByDirectory,
-    rightSidebarDisplayWidth,
-    rightSidebarMinWidth,
-    rightSidebarMaxWidth,
-    rightSidebarTab,
-    rightSidebarActiveTab,
-    editorPanelSizing: wideSidebarSizing,
     pinnedByDirectory,
     unreadByDirectory,
     sidebarDirectories,
@@ -747,10 +663,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     storedPersona,
     preferredLanguage,
     selectedPersona,
-    selectedPersonaSurfaces,
-    selectedPersonaDefaultSurface,
     selectedPersonaSupportsEditor,
-    selectedSurfaceTab,
     isInteractiveMode,
     autoCompactionEnabled: props.autoCompactionEnabled,
     // Directory state

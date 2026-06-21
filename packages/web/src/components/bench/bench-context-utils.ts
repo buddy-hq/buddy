@@ -152,7 +152,30 @@ function benchContextRefsFromBenchTarget(target: BenchTarget): BenchContextRef[]
   return refs
 }
 
+function benchRouteFallbackContextFromTarget(input: {
+  target: BenchTarget
+  directory: string
+  route: string
+}): BenchReadContextOpenOutput {
+  return {
+    status: "open",
+    target: benchContextTargetFromBenchTarget({
+      target: input.target,
+      directory: input.directory,
+      route: input.route,
+      status: "loading",
+    }),
+    drawer: null,
+    metadata: ["provider: route-fallback", "surface_status: loading"],
+    content:
+      "The Bench route is open and the surface is still loading or has not registered its live context provider yet.",
+    refs: benchContextRefsFromBenchTarget(input.target),
+    hints: ["Try bench_read_context again after the Bench surface finishes loading."],
+  }
+}
+
 export {
+  benchRouteFallbackContextFromTarget,
   benchContextTargetFromBenchTarget,
   benchContextRefsFromBenchTarget,
   objectRef,

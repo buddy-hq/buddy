@@ -6,12 +6,12 @@ import {
   BENCH_CHAT_SEARCH_PARAM,
   defaultBenchObjectViewID,
   isBenchObjectKind,
+  isSameBenchTarget,
   readBenchChatLayoutMode,
   type BenchMode,
   type BenchTarget,
 } from "./bench-targets"
 import {
-  classifyBenchTransition,
   resolveBenchSurfaceDefaults,
   type BenchOpenPolicyState,
 } from "./bench-open-policy-core"
@@ -102,20 +102,22 @@ function resolveBenchRouteViewTransitionTypes(
 ): string[] | false {
   if (!input.pathChanged && !input.hrefChanged) return false
 
-  const transition = classifyBenchTransition({
-    previous: readBenchOpenPolicyStateFromRouteLocation(input.fromLocation),
-    next: readBenchOpenPolicyStateFromRouteLocation(input.toLocation),
-  })
+  const previous = readBenchOpenPolicyStateFromRouteLocation(input.fromLocation)
+  const next = readBenchOpenPolicyStateFromRouteLocation(input.toLocation)
 
-  if (transition === "enter") {
+  if (previous.status === "closed" && next.status === "open") {
     return [BENCH_VIEW_TRANSITION_TYPE_ROUTE, BENCH_VIEW_TRANSITION_TYPE_OPEN]
   }
 
-  if (transition === "exit") {
+  if (previous.status === "open" && next.status === "closed") {
     return [BENCH_VIEW_TRANSITION_TYPE_ROUTE, BENCH_VIEW_TRANSITION_TYPE_CLOSE]
   }
 
-  if (transition === "replace" || transition === "replace-and-change-mode") {
+  if (
+    previous.status === "open" &&
+    next.status === "open" &&
+    (previous.directory !== next.directory || !isSameBenchTarget(previous.target, next.target))
+  ) {
     return [BENCH_VIEW_TRANSITION_TYPE_ROUTE, BENCH_VIEW_TRANSITION_TYPE_SWAP]
   }
 
