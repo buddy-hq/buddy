@@ -1,4 +1,4 @@
-import { createFileRoute, useLocation } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { toast } from "@buddy/ui"
 import {
@@ -12,8 +12,6 @@ import {
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import {
   objectRef,
-  objectTarget,
-  routeString,
   toolRef,
   urlRef,
   workspaceFileRef,
@@ -81,7 +79,6 @@ type ObjectBenchSearch = {
 type ObjectBenchContextStatus = BenchReadContextOpenOutput["target"]["status"]
 type ObjectBenchContextRefs = BenchReadContextOpenOutput["refs"]
 type ObjectViewData = ObjectsViewResponse["data"]
-type ObjectRouteTarget = Extract<BenchTarget, { type: "object" }>
 type ObjectResourceViewData = Extract<ObjectViewData, { renderer: "resource-reader" }>
 type ObjectWhiteboardViewData = Extract<ObjectViewData, { renderer: "whiteboard" }>
 type ObjectHtmlWidgetViewData = Extract<ObjectViewData, { renderer: "html-widget" }>
@@ -119,14 +116,6 @@ const OBJECT_RENDER_STATUS_ERROR = "error"
 
 function readString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined
-}
-
-function objectRouteTarget(view: ObjectsViewResponse): ObjectRouteTarget {
-  return {
-    type: "object",
-    ref: view.ref,
-    viewID: view.viewID,
-  }
 }
 
 function resourceSourcePath(record: ResourceRecord | undefined): string | undefined {
@@ -207,11 +196,14 @@ function mediaAvailabilityFromItem(item: ObjectMediaGalleryItem): ObjectMediaAva
   }
 }
 
-function routeLabelFromLocation(input: { pathname: string; searchStr: string }): string {
-  return routeString({
-    pathname: input.pathname,
-    searchStr: input.searchStr,
-  })
+function objectBenchTarget(
+  view: ObjectsViewResponse,
+): Extract<BenchTarget, { type: "object" }> {
+  return {
+    type: "object",
+    ref: view.ref,
+    viewID: view.viewID,
+  }
 }
 
 export const Route = createFileRoute("/$directory/_bench/objects/$kind/$objectID")({
@@ -379,21 +371,11 @@ function ObjectBenchContextProvider(props: {
   hints?: string[]
   children: ReactNode
 }) {
-  const location = useLocation()
   const contextProvider = useMemo(
     () => ({
       read: () => ({
-        status: "open" as const,
-        target: objectTarget({
-          directory: props.directory,
-          title: props.view.title,
-          target: objectRouteTarget(props.view),
-          route: routeLabelFromLocation({
-            pathname: location.pathname,
-            searchStr: location.searchStr,
-          }),
-          status: props.status,
-        }),
+        targetStatus: props.status,
+        title: props.view.title,
         metadata: props.metadata,
         content: props.content,
         refs: props.refs ?? [
@@ -406,10 +388,7 @@ function ObjectBenchContextProvider(props: {
       }),
     }),
     [
-      location.pathname,
-      location.searchStr,
       props.content,
-      props.directory,
       props.hints,
       props.metadata,
       props.refs,
@@ -417,7 +396,10 @@ function ObjectBenchContextProvider(props: {
       props.view,
     ],
   )
-  useRegisterBenchContextProvider(contextProvider)
+  useRegisterBenchContextProvider({
+    target: objectBenchTarget(props.view),
+    provider: contextProvider,
+  })
 
   return <>{props.children}</>
 }
@@ -553,6 +535,7 @@ function ResourceObjectBenchView(props: {
         directory={props.directory}
         resourcePath={props.resourcePath}
         resourceKey={props.resourceKey ?? props.data.alias}
+        target={objectBenchTarget(props.view)}
       />
     )
   }
@@ -1041,7 +1024,6 @@ function QuestionSetObjectBenchView(props: {
   view: ObjectsViewResponse
   questionSet?: ObjectQuestionSetReadQuestionsResponse
 }) {
-  const location = useLocation()
   const questionSet = props.questionSet
   if (!questionSet) {
     return (
@@ -1064,10 +1046,7 @@ function QuestionSetObjectBenchView(props: {
   return (
     <QuestionSetBenchReview
       directory={props.directory}
-      route={routeLabelFromLocation({
-        pathname: location.pathname,
-        searchStr: location.searchStr,
-      })}
+      target={objectBenchTarget(props.view)}
       questionSet={questionSet}
       onSubmit={async (answers) => {
         const response = await getBuddyClient(props.directory).objectQuestionSet.submitAttempt({
@@ -1089,7 +1068,6 @@ function FlashcardDeckObjectBenchView(props: {
   view: ObjectsViewResponse
   deck?: ObjectFlashcardDeckReadDeckResponse
 }) {
-  const location = useLocation()
   if (!props.deck) {
     return (
       <ObjectBenchContextProvider
@@ -1112,10 +1090,7 @@ function FlashcardDeckObjectBenchView(props: {
     <FlashcardBenchReview
       directory={props.directory}
       objectID={props.deck.objectID}
-      route={routeLabelFromLocation({
-        pathname: location.pathname,
-        searchStr: location.searchStr,
-      })}
+      target={objectBenchTarget(props.view)}
       deck={props.deck}
     />
   )

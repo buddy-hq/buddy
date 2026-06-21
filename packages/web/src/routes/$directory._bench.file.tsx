@@ -1,4 +1,4 @@
-import { createFileRoute, useLocation } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { AlertCircleIcon, Loader2Icon } from "lucide-react"
 import { useMemo, useState } from "react"
 import { BenchMediaPreview } from "@/components/bench/bench-media-preview"
@@ -7,10 +7,8 @@ import { BenchSurfaceViewer } from "@/components/bench/bench-viewer-shell"
 import { SourceFileBenchView } from "@/components/bench/source-file-bench-view"
 import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
 import {
-  routeString,
   urlRef,
   workspaceFileRef,
-  workspaceFileTarget,
 } from "@/components/bench/bench-context-utils"
 import { DirectoryChatReadingPage } from "@/components/directory-chat/directory-chat-reading-page"
 import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
@@ -30,6 +28,7 @@ import {
 import { fileNameFromPath, workspaceFileInstanceKey } from "@/lib/workspace-file-paths"
 import { isSupportedReadingResourcePath } from "@/state/resources-query"
 import { consumeWorkspaceFileLargeOpenApproval } from "@/state/workspace-file-open-dialog-store"
+import type { BenchTarget } from "@/lib/bench-navigation"
 
 type ProjectFileBenchSearch = {
   path?: string
@@ -97,7 +96,13 @@ function ProjectFileBenchRoute() {
     const directory = decodeDirectory(params.directory)
     if (!search.path) return <ProjectFileBenchError />
     if (isSupportedReadingResourcePath(search.path)) {
-      return <DirectoryChatReadingPage directory={directory} resourcePath={search.path} />
+      return (
+        <DirectoryChatReadingPage
+          directory={directory}
+          resourcePath={search.path}
+          target={{ type: "workspace-file", path: search.path, viewer: "file" }}
+        />
+      )
     }
     return (
       <ProjectFileBenchView
@@ -166,22 +171,19 @@ function ProjectFileMediaView(props: {
   metadata: { mimeType: string | undefined; sizeBytes: number | undefined }
   renderMode: "image" | "audio" | "video"
 }) {
-  const location = useLocation()
   const rawUrl = resolveAssetUrl(
     buildProjectFileRawUrl({ directory: props.directory, path: props.path }),
   )
   const title = fileNameFromPath(props.path) || props.path
+  const contextTarget = useMemo<BenchTarget>(
+    () => ({ type: "workspace-file", path: props.path, viewer: "file" }),
+    [props.path],
+  )
   const contextProvider = useMemo(
     () => ({
       read: () => ({
-        status: "open" as const,
-        target: workspaceFileTarget({
-          directory: props.directory,
-          title,
-          path: props.path,
-          route: routeString({ pathname: location.pathname, searchStr: location.searchStr }),
-          status: "ready",
-        }),
+        targetStatus: "ready" as const,
+        title,
         metadata: [
           `mime_type: ${props.metadata.mimeType ?? "unknown"}`,
           `size_bytes: ${props.metadata.sizeBytes ?? "unknown"}`,
@@ -195,9 +197,16 @@ function ProjectFileMediaView(props: {
         hints: ["Use file, image, or media-capable tools to inspect the file bytes."],
       }),
     }),
-    [location.pathname, location.searchStr, props, rawUrl, title],
+    [
+      props.metadata.mimeType,
+      props.metadata.sizeBytes,
+      props.path,
+      props.renderMode,
+      rawUrl,
+      title,
+    ],
   )
-  useRegisterBenchContextProvider(contextProvider)
+  useRegisterBenchContextProvider({ target: contextTarget, provider: contextProvider })
 
   return (
     <BenchSurfaceViewer
