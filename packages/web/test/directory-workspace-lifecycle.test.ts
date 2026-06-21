@@ -43,6 +43,12 @@ type PublishBodyProbe = {
   value: { status: string }
 }
 
+type PublishContextProbe = {
+  value?: {
+    content?: string
+  }
+}
+
 type ContextPublicationProbe = {
   sessionID: string
   generation: number
@@ -73,6 +79,23 @@ function readPublishBodyProbe(value: unknown): PublishBodyProbe {
     idempotencyKey,
     publicationSequence,
     value: { status: contextValue.status },
+  }
+}
+
+function readPublishContextProbe(value: unknown): PublishContextProbe {
+  if (!isRecord(value)) {
+    throw new Error("Expected publish body to be an object.")
+  }
+  const contextValue = value.value
+  if (!isRecord(contextValue)) return {}
+  const content = contextValue.content
+  if (typeof content !== "string") {
+    return { value: {} }
+  }
+  return {
+    value: {
+      content,
+    },
   }
 }
 
@@ -340,6 +363,260 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       expect(firstForcedClosed.publicationSequence).toBe(3)
       expect(secondForcedClosed.publicationSequence).toBe(4)
       expect(firstForcedClosed.idempotencyKey).not.toBe(secondForcedClosed.idempotencyKey)
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  test("prompt flush synchronizes the active workspace file before publishing context", async () => {
+    const publishBodies: unknown[] = []
+    const syncReasons: string[] = []
+    let content = "before-sync"
+    let semanticRevision = 1
+    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/session/session-1/context") && method === "PUT") {
+          publishBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ revision: 1 }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "DELETE") {
+          return new Response(JSON.stringify({ released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projectionFor(TARGET),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      service.registerSurface({
+        target: TARGET,
+        getSnapshot: () => ({
+          target: TARGET,
+          targetKey: benchTargetKey(TARGET),
+          semanticRevision,
+          context: {
+            ...openSurfaceContext(TARGET),
+            content,
+          },
+        }),
+        subscribe: () => () => undefined,
+        synchronize: async (reason) => {
+          syncReasons.push(reason)
+          content = "after-sync"
+          semanticRevision += 1
+          return { changed: true }
+        },
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+      await service.setActiveSessionID("session-1")
+      publishBodies.length = 0
+
+      await service.flushContextBeforePrompt({ sessionID: "session-1" })
+
+      expect(syncReasons).toEqual(["context-flush"])
+      expect(publishBodies).toHaveLength(1)
+      expect(readPublishContextProbe(publishBodies[0]).value?.content).toBe("after-sync")
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  test("watcher synchronization publishes only matching workspace file paths", async () => {
+    const publishBodies: unknown[] = []
+    const syncReasons: string[] = []
+    let content = "before-watcher"
+    let semanticRevision = 1
+    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/session/session-1/context") && method === "PUT") {
+          publishBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ revision: 1 }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "DELETE") {
+          return new Response(JSON.stringify({ released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projectionFor(TARGET),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      service.registerSurface({
+        target: TARGET,
+        getSnapshot: () => ({
+          target: TARGET,
+          targetKey: benchTargetKey(TARGET),
+          semanticRevision,
+          context: {
+            ...openSurfaceContext(TARGET),
+            content,
+          },
+        }),
+        subscribe: () => () => undefined,
+        synchronize: async (reason) => {
+          syncReasons.push(reason)
+          content = "after-watcher"
+          semanticRevision += 1
+          return { changed: true }
+        },
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+      await service.setActiveSessionID("session-1")
+      publishBodies.length = 0
+
+      await service.synchronizeWorkspaceFile({
+        path: "docs",
+        reason: "watcher",
+      })
+      await service.synchronizeWorkspaceFile({
+        path: "unrelated",
+        reason: "watcher",
+      })
+
+      expect(syncReasons).toEqual(["watcher"])
+      expect(publishBodies).toHaveLength(1)
+      expect(readPublishContextProbe(publishBodies[0]).value?.content).toBe("after-watcher")
+      await service.dispose()
+    } finally {
+      globalThis.fetch = previousFetch
+    }
+  })
+
+  test("turn-complete synchronization publishes the active workspace file without a watcher path", async () => {
+    const publishBodies: unknown[] = []
+    const syncReasons: string[] = []
+    let content = "before-turn-complete"
+    let semanticRevision = 1
+    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    const previousFetch = globalThis.fetch
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const request = input instanceof Request ? input : null
+        const url = request?.url ?? String(input)
+        const method = (init?.method ?? request?.method ?? "GET").toUpperCase()
+        const body = init?.body ?? (request ? await request.clone().text() : undefined)
+        if (url.includes("/bench/session/session-1/context") && method === "PUT") {
+          publishBodies.push(JSON.parse(String(body)))
+          return new Response(JSON.stringify({ revision: 1 }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        if (method === "DELETE") {
+          return new Response(JSON.stringify({ released: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        }
+        return new Response(JSON.stringify({ error: { message: "unexpected request" } }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
+      },
+      { preconnect: () => undefined },
+    )
+
+    try {
+      const service = new DirectoryWorkspaceLifecycleService({
+        directory: DIRECTORY,
+        getProjection: () => projectionFor(TARGET),
+        getHydrationStatus: () => "ready",
+        getRouteFallbackContext: () => null,
+      })
+      service.registerSurface({
+        target: TARGET,
+        getSnapshot: () => ({
+          target: TARGET,
+          targetKey: benchTargetKey(TARGET),
+          semanticRevision,
+          context: {
+            ...openSurfaceContext(TARGET),
+            content,
+          },
+        }),
+        subscribe: () => () => undefined,
+        synchronize: async (reason) => {
+          syncReasons.push(reason)
+          content = "after-turn-complete"
+          semanticRevision += 1
+          return { changed: true }
+        },
+      })
+      const leaseQuery = service.beginEventStreamLease()
+      service.acceptLease({
+        instanceID: String(leaseQuery.workspaceInstanceID),
+        generation: Number(leaseQuery.connectionGeneration),
+        leaseEpoch: 1,
+        directory: DIRECTORY,
+      })
+      await service.setActiveSessionID("session-1")
+      publishBodies.length = 0
+
+      await service.synchronizeCurrentWorkspaceFile({
+        reason: "turn-complete",
+      })
+
+      expect(syncReasons).toEqual(["turn-complete"])
+      expect(publishBodies).toHaveLength(1)
+      expect(readPublishContextProbe(publishBodies[0]).value?.content).toBe(
+        "after-turn-complete",
+      )
       await service.dispose()
     } finally {
       globalThis.fetch = previousFetch
