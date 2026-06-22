@@ -28,6 +28,11 @@ import {
   WORKSPACE_VISIBILITY_EXPANDED,
   type DirectoryWorkspacePersistenceStorage,
 } from "../src/state/directory-workspace-store"
+import {
+  BENCH_CHAT_LAYOUT_FLOATING,
+  BENCH_CHAT_SEARCH_PARAM,
+  BENCH_DOCK_FLOATING_CHAT_EVENT,
+} from "../src/lib/bench-navigation"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_STRICT_MODE_DIRECTORY = "/repo-strict-mode"
@@ -80,6 +85,29 @@ function TitlebarWorkspaceProbe() {
   )
 }
 
+function ThreadControlsTitlebarProbe(props: { showSidebarThreadControls: boolean }) {
+  return (
+    <DesktopTitlebar
+      placement="chat"
+      variant="chat"
+      leftSidebarOpen
+      showSidebarThreadControls={props.showSidebarThreadControls}
+      sessions={[]}
+      onNewSession={() => undefined}
+      onSelectSession={() => undefined}
+      onFloatChat={() => undefined}
+    />
+  )
+}
+
+function RootFloatingBenchTitlebarProbe() {
+  return (
+    <PlatformProvider value={TEST_DESKTOP_PLATFORM}>
+      <DesktopTitlebar />
+    </PlatformProvider>
+  )
+}
+
 function TestRouterProvider() {
   const rootRoute = createRootRoute({
     component: () => (
@@ -92,6 +120,22 @@ function TestRouterProvider() {
     routeTree: rootRoute,
     history: createMemoryHistory({
       initialEntries: ["/repo/chat"],
+    }),
+  })
+
+  return <RouterProvider router={router} />
+}
+
+function TestRootFloatingBenchTitlebarRouterProvider() {
+  const rootRoute = createRootRoute({
+    component: RootFloatingBenchTitlebarProbe,
+  })
+  const router = createRouter({
+    routeTree: rootRoute,
+    history: createMemoryHistory({
+      initialEntries: [
+        `/repo/_bench?${BENCH_CHAT_SEARCH_PARAM}=${BENCH_CHAT_LAYOUT_FLOATING}`,
+      ],
     }),
   })
 
@@ -112,6 +156,26 @@ function TestTitlebarRouterProvider() {
     routeTree: rootRoute,
     history: createMemoryHistory({
       initialEntries: ["/repo-titlebar/chat"],
+    }),
+  })
+
+  return <RouterProvider router={router} />
+}
+
+function TestThreadControlsTitlebarRouterProvider(props: { showSidebarThreadControls: boolean }) {
+  const rootRoute = createRootRoute({
+    component: () => (
+      <PlatformProvider value={TEST_DESKTOP_PLATFORM}>
+        <ThreadControlsTitlebarProbe
+          showSidebarThreadControls={props.showSidebarThreadControls}
+        />
+      </PlatformProvider>
+    ),
+  })
+  const router = createRouter({
+    routeTree: rootRoute,
+    history: createMemoryHistory({
+      initialEntries: ["/repo/chat"],
     }),
   })
 
@@ -268,6 +332,67 @@ describe("DirectoryWorkspaceProvider", () => {
     expect(container.querySelector('[data-testid="visibility"]')?.textContent).toBe(
       WORKSPACE_VISIBILITY_EXPANDED,
     )
+  })
+
+  test("titlebar sidebar thread controls require an explicit placement gate", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(
+        <TestThreadControlsTitlebarRouterProvider showSidebarThreadControls={false} />,
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[aria-label="Pop out chat"]')).toBeNull()
+    expect(container.querySelector('[aria-label="New chat"]')).toBeNull()
+
+    await act(async () => {
+      root?.render(
+        <TestThreadControlsTitlebarRouterProvider showSidebarThreadControls={true} />,
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[aria-label="Pop out chat"]')).not.toBeNull()
+    expect(container.querySelector('[aria-label="New chat"]')).not.toBeNull()
+  })
+
+  test("floating Bench root titlebar keeps the chat titlebar height", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<TestRootFloatingBenchTitlebarRouterProvider />)
+      await flushEffects()
+    })
+
+    const titlebar = container.querySelector('[data-component="desktop-titlebar"]')
+    expect(titlebar?.className).toContain("h-[52px]")
+    expect(titlebar?.className).not.toContain("h-10")
+    const dockButton = container.querySelector<HTMLButtonElement>(
+      '[data-action="titlebar-dock-floating-bench"]',
+    )
+    expect(dockButton).not.toBeNull()
+
+    let dockEventCount = 0
+    function onDockFloatingChat() {
+      dockEventCount += 1
+    }
+
+    window.addEventListener(BENCH_DOCK_FLOATING_CHAT_EVENT, onDockFloatingChat)
+    await act(async () => {
+      dockButton?.click()
+      await flushEffects()
+    })
+    window.removeEventListener(BENCH_DOCK_FLOATING_CHAT_EVENT, onDockFloatingChat)
+
+    expect(dockEventCount).toBe(1)
   })
 
   test("StrictMode effect replay does not leave the controller disposed", async () => {
