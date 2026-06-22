@@ -9,7 +9,7 @@
     "preview": "astro preview",
     "lint": "bun ../../node_modules/oxlint/bin/oxlint",
     "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
-    "typecheck:raw": "astro check"
+    "typecheck:raw": "bun ./node_modules/astro/astro.js check"
   },
   "dependencies": {
     "@astrojs/cloudflare": "12.6.3",

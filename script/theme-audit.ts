@@ -164,9 +164,14 @@ type AuditFailure = {
   message: string
 }
 
+function toPortablePath(path: string): string {
+  return path.replaceAll("\\", "/")
+}
+
 function isSourceFile(path: string): boolean {
   if (!SOURCE_EXTENSIONS.some((extension) => path.endsWith(extension))) return false
-  return !IGNORED_PATH_PARTS.some((part) => path.includes(part))
+  const portablePath = toPortablePath(path)
+  return !IGNORED_PATH_PARTS.some((part) => portablePath.includes(part))
 }
 
 function listSourceFiles(root: string): string[] {
@@ -328,7 +333,7 @@ function auditPrimitiveContracts(): AuditFailure[] {
   const failures: AuditFailure[] = []
 
   for (const file of listSourceFiles(UI_PRIMITIVES_ROOT)) {
-    const relativePath = relative(process.cwd(), file)
+    const relativePath = toPortablePath(relative(process.cwd(), file))
     const source = readFileSync(file, "utf8")
 
     if (
