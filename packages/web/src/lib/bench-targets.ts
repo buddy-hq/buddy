@@ -1,6 +1,7 @@
 export const BENCH_CHAT_SEARCH_PARAM = "benchChat"
 export const BENCH_CHAT_LAYOUT_DOCKED = "docked"
 export const BENCH_CHAT_LAYOUT_FLOATING = "floating"
+export const BENCH_DOCK_FLOATING_CHAT_EVENT = "buddy:bench:dock-floating-chat"
 export const BENCH_MODE_REQUEST_POLICY = "policy"
 export const BENCH_LAYOUT_PROFILE_READING = "reading"
 export const BENCH_LAYOUT_PROFILE_DOCUMENT = "document"
