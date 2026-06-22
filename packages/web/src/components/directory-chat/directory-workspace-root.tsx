@@ -23,6 +23,7 @@ import type { DirectoryChatPageControllerState } from "@/lib/directory-chat/use-
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
+  BENCH_DOCK_FLOATING_CHAT_EVENT,
   BENCH_LAYOUT_PROFILE_DOCUMENT,
   readBenchOpenPolicyStateFromLocation,
   resolveDockedBenchResizeIntent,
@@ -372,6 +373,15 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     [setBenchMode],
   )
 
+  useEffect(() => {
+    function onDockFloatingChat() {
+      setBenchChatLayoutMode(BENCH_CHAT_LAYOUT_DOCKED)
+    }
+
+    window.addEventListener(BENCH_DOCK_FLOATING_CHAT_EVENT, onDockFloatingChat)
+    return () => window.removeEventListener(BENCH_DOCK_FLOATING_CHAT_EVENT, onDockFloatingChat)
+  }, [setBenchChatLayoutMode])
+
   const handleLeftSidebarToggle = useCallback(() => {
     if (dockedLeftSidebarVisible) {
       setLeftSidebarForcedSuppressed(false)
@@ -582,6 +592,10 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     [controller.leftSidebarProps, currentDirectory, isWhiteboardTarget, openChatRoute],
   )
 
+  const handleFloatChat = useCallback(() => {
+    setBenchChatLayoutMode(BENCH_CHAT_LAYOUT_FLOATING)
+  }, [setBenchChatLayoutMode])
+
   const benchTargetKey = workspace.projection.bench.targetKey ?? CLOSED_BENCH_TARGET_KEY
   const benchOutlet = (
     <div
@@ -609,9 +623,17 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const shellLeftSidebarOpen = isDockedBenchRoute
     ? dockedLeftSidebarVisible
     : controller.shellProps.leftSidebarOpen
-  const showThreadBrowser =
+  const showThreadBrowserInTitlebar =
     benchPolicyState.status === "open" &&
-    (workspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING || !dockedLeftSidebarVisible)
+    workspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED &&
+    !dockedLeftSidebarVisible
+  const showThreadBrowserInPane =
+    benchPolicyState.status === "open" &&
+    workspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING
+  const showSidebarThreadControls =
+    benchPolicyState.status === "open" &&
+    workspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED &&
+    dockedLeftSidebarVisible
 
   return (
     <DirectoryChatShell
@@ -651,12 +673,26 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
               presentationMode={chatLayoutMode}
             />
           }
-          conversation={(controls) => (
+          threadBrowserProps={
+            showThreadBrowserInPane
+              ? {
+                  sessionTitle: chatState.sessionTitle,
+                  notebookName: controller.shellProps.projectName,
+                  sessions: chatState.sessions,
+                  activeSessionID: chatState.sessionID,
+                  linkedSessionID: linkedReadingSessionID,
+                  parentSession: chatState.parentSession,
+                  isTurnActive: chatState.isTurnActive,
+                  onNewSession: handleNewSession,
+                  onSelectSession: handleSelectSession,
+                }
+              : undefined
+          }
+          conversation={() => (
             <DirectoryChatBenchConversationPane
               {...controller.mainPaneProps}
               linkedSessionID={linkedReadingSessionID}
-              onFloatChat={controls.onFloatChat}
-              showThreadBrowser={showThreadBrowser}
+              showThreadBrowser={false}
               onNewSession={handleNewSession}
               onSelectSession={handleSelectSession}
             />
@@ -681,6 +717,15 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       titlebarVariant="chat"
       rightWorkspaceOpen={workspaceHostOpen}
       onRightWorkspaceCollapse={handleRightWorkspaceCollapse}
+      showThreadBrowser={showThreadBrowserInTitlebar}
+      showSidebarThreadControls={showSidebarThreadControls}
+      sessions={chatState.sessions}
+      activeSessionID={chatState.sessionID}
+      linkedSessionID={linkedReadingSessionID}
+      parentSession={chatState.parentSession}
+      onNewSession={handleNewSession}
+      onSelectSession={handleSelectSession}
+      onFloatChat={handleFloatChat}
     />
   )
 }

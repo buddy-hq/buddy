@@ -7,7 +7,6 @@ type DirectoryChatBenchConversationPaneProps = Omit<
   "className" | "topContent"
 > & {
   linkedSessionID?: string
-  onFloatChat?: () => void
   onNewSession: () => void | Promise<void>
   onSelectSession: (sessionID: string) => void | Promise<void>
   showThreadBrowser?: boolean
@@ -16,7 +15,6 @@ type DirectoryChatBenchConversationPaneProps = Omit<
 export function DirectoryChatBenchConversationPane(props: DirectoryChatBenchConversationPaneProps) {
   const {
     linkedSessionID,
-    onFloatChat,
     onNewSession,
     onSelectSession,
     showThreadBrowser = true,
@@ -35,7 +33,6 @@ export function DirectoryChatBenchConversationPane(props: DirectoryChatBenchConv
             activeSessionID={threadBrowserState.sessionID}
             linkedSessionID={linkedSessionID}
             parentSession={threadBrowserState.parentSession}
-            onFloatChat={onFloatChat}
             onNewSession={onNewSession}
             onSelectSession={onSelectSession}
           />

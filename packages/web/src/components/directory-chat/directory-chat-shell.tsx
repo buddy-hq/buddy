@@ -10,6 +10,7 @@ import { DesktopTitlebar } from "@/components/layout/desktop-titlebar"
 import { usePersistentResizablePanelLayout } from "@/components/layout/use-persistent-resizable-panel-layout"
 import { RIGHT_WORKSPACE_COLLAPSE_THRESHOLD_PX } from "@/lib/directory-chat/right-workspace-layout"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
+import type { SessionInfo } from "@/state/chat-types"
 
 const DIRECTORY_CHAT_LAYOUT_ID = "directory-chat-layout"
 const DIRECTORY_CHAT_MAIN_PANEL_ID = "directory-chat-main-pane"
@@ -48,6 +49,15 @@ type DirectoryChatShellProps = {
   onRightWorkspaceResizeIntent?: (intent: ResizeHandleIntent) => void
   onRightWorkspaceToggle: () => void
   onRightWorkspaceCollapse: () => void
+  showThreadBrowser?: boolean
+  showSidebarThreadControls?: boolean
+  sessions?: SessionInfo[]
+  activeSessionID?: string
+  linkedSessionID?: string
+  parentSession?: SessionInfo
+  onNewSession?: () => void | Promise<void>
+  onSelectSession?: (sessionID: string) => void | Promise<void>
+  onFloatChat?: () => void
 }
 
 export function DirectoryChatShell(props: DirectoryChatShellProps) {
@@ -81,6 +91,15 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
     onRightWorkspaceResizeIntent,
     onRightWorkspaceToggle,
     onRightWorkspaceCollapse,
+    showThreadBrowser,
+    showSidebarThreadControls,
+    sessions,
+    activeSessionID,
+    linkedSessionID,
+    parentSession,
+    onNewSession,
+    onSelectSession,
+    onFloatChat,
   } = props
 
   const rightWorkspacePanelRef = useResizablePanelRef()
@@ -255,6 +274,15 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
           rightWorkspaceOpen={rightWorkspaceOpen}
           onLeftSidebarToggle={onLeftSidebarToggle}
           onRightWorkspaceToggle={handleRightWorkspaceToggle}
+          showThreadBrowser={showThreadBrowser}
+          showSidebarThreadControls={showSidebarThreadControls}
+          sessions={sessions}
+          activeSessionID={activeSessionID}
+          linkedSessionID={linkedSessionID}
+          parentSession={parentSession}
+          onNewSession={onNewSession}
+          onSelectSession={onSelectSession}
+          onFloatChat={onFloatChat}
         />
       </div>
 

@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react"
 import { Button, ResizeHandle, cn, type ResizeHandleIntent } from "@buddy/ui"
-import { MessageSquareIcon, Minimize2Icon, PanelRightOpenIcon } from "lucide-react"
+import { MessageSquareIcon } from "lucide-react"
 import { readDesktopTitlebarBottomOffset } from "@/components/layout/desktop-titlebar-inset"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
@@ -20,6 +20,14 @@ import {
   type BenchLayoutProfileID,
 } from "@/lib/bench-navigation"
 import type { BenchFloatingChatState } from "@/components/bench/bench-route-context"
+import type { SessionInfo } from "@/state/chat-types"
+import {
+  ThreadActionPill,
+  ThreadParentReturnButton,
+} from "@/components/directory-chat/thread-titlebar-controls"
+import { ThreadHistoryPopover } from "@/components/directory-chat/thread-history-popover"
+import { TextShimmer } from "@/components/chat/tools/text-shimmer"
+import { language } from "@/context/language"
 
 type DirectoryChatBenchPageLayoutProps = {
   chatLayoutMode: BenchChatLayoutMode
@@ -35,6 +43,17 @@ type DirectoryChatBenchPageLayoutProps = {
   onFloatingChatStateChange: (state: BenchFloatingChatState) => void
   dockedBenchLayout?: DirectoryChatDockedBenchLayout
   benchInteractive?: boolean
+  threadBrowserProps?: {
+    sessionTitle: string
+    notebookName?: string
+    sessions: SessionInfo[]
+    activeSessionID?: string
+    linkedSessionID?: string
+    parentSession?: SessionInfo
+    isTurnActive?: boolean
+    onNewSession: () => void | Promise<void>
+    onSelectSession: (sessionID: string) => void | Promise<void>
+  }
 }
 
 type DirectoryChatDockedBenchLayout = {
@@ -51,9 +70,6 @@ export type DirectoryChatBenchConversationControls = {
   onFloatChat?: () => void
 }
 
-const BENCH_CHAT_DOCK_LABEL = "Dock chat"
-const BENCH_CHAT_DRAG_LABEL = "Drag floating chat"
-const BENCH_CHAT_MINIMIZE_LABEL = "Minimize chat"
 const BENCH_CHAT_RESTORE_LABEL = "Restore chat"
 const FLOATING_CHAT_DEFAULT_CONTAINER_WIDTH_PX = 1280
 const FLOATING_CHAT_DEFAULT_CONTAINER_HEIGHT_PX = 800
@@ -666,6 +682,16 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
 
   function startFloatingChatDrag(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.pointerType === "mouse" && event.button !== 0) return
+    const target = event.target as HTMLElement
+    if (
+      target.closest("button") ||
+      target.closest("a") ||
+      target.closest("input") ||
+      target.closest('[role="dialog"]') ||
+      target.closest('[role="menu"]')
+    ) {
+      return
+    }
     event.preventDefault()
 
     const handle = event.currentTarget
@@ -870,42 +896,64 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
       >
         <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
           {isFloating ? (
-            <div className="flex h-9 shrink-0 items-center gap-2 border-b border-border-weaker-base bg-surface-raised-base/95 px-3 backdrop-blur">
-              <div
-                data-component="directory-chat-floating-window-drag-handle"
-                className="flex h-full min-w-0 flex-1 cursor-grab touch-none select-none items-center active:cursor-grabbing"
-                onPointerDown={startFloatingChatDrag}
-              >
-                <span
-                  className="h-1 w-10 rounded-full bg-border-stronger-base"
-                  aria-hidden="true"
-                />
-                <span className="sr-only">{BENCH_CHAT_DRAG_LABEL}</span>
-              </div>
-              <Button
-                type="button"
-                size="icon-xs"
-                variant="ghost"
-                data-action="directory-chat-minimize"
-                aria-label={BENCH_CHAT_MINIMIZE_LABEL}
-                title={BENCH_CHAT_MINIMIZE_LABEL}
-                className="text-text-weaker hover:bg-surface-base-hover hover:text-text-base"
-                onClick={() => onFloatingChatStateChange("minimized")}
-              >
-                <Minimize2Icon />
-              </Button>
-              <Button
-                type="button"
-                size="icon-xs"
-                variant="ghost"
-                data-action="directory-chat-dock"
-                aria-label={BENCH_CHAT_DOCK_LABEL}
-                title={BENCH_CHAT_DOCK_LABEL}
-                className="text-text-weaker hover:bg-surface-base-hover hover:text-text-base"
-                onClick={dockChat}
-              >
-                <PanelRightOpenIcon />
-              </Button>
+            <div
+              className="flex h-10 shrink-0 items-center gap-2 border-b border-border-weaker-base bg-surface-raised-base/95 px-3 backdrop-blur cursor-grab active:cursor-grabbing select-none"
+              onPointerDown={startFloatingChatDrag}
+            >
+              <ThreadParentReturnButton
+                parentSession={props.threadBrowserProps?.parentSession}
+                onSelectSession={props.threadBrowserProps?.onSelectSession}
+                size="compact"
+                className="[-webkit-app-region:no-drag]"
+              />
+
+              <ThreadActionPill
+                sessions={[]}
+                onSelectSession={() => undefined}
+                onMinimizeChat={() => onFloatingChatStateChange("minimized")}
+                onDockChat={dockChat}
+                showHistory={false}
+                size="mini"
+                className="[-webkit-app-region:no-drag]"
+              />
+
+              {props.threadBrowserProps ? (
+                <div className="flex min-w-0 max-w-[34rem] shrink items-center gap-1">
+                  <ThreadActionPill
+                    sessions={props.threadBrowserProps.sessions}
+                    activeSessionID={props.threadBrowserProps.activeSessionID}
+                    linkedSessionID={props.threadBrowserProps.linkedSessionID}
+                    onSelectSession={props.threadBrowserProps.onSelectSession}
+                    notebookName={props.threadBrowserProps.notebookName}
+                    onNewSession={props.threadBrowserProps.onNewSession}
+                    showHistory
+                    size="mini"
+                    className="[-webkit-app-region:no-drag]"
+                  />
+                  <ThreadHistoryPopover
+                    sessions={props.threadBrowserProps.sessions}
+                    activeSessionID={props.threadBrowserProps.activeSessionID}
+                    linkedSessionID={props.threadBrowserProps.linkedSessionID}
+                    onSelectSession={props.threadBrowserProps.onSelectSession}
+                    notebookName={props.threadBrowserProps.notebookName}
+                    openOnTriggerHover
+                    trigger={
+                      <button
+                        type="button"
+                        className="block min-w-0 max-w-[28rem] shrink truncate pr-2 text-left text-sm font-normal text-text-strong transition-colors hover:text-text-base [-webkit-app-region:no-drag]"
+                        aria-label={language.t("sidebar.showAllThreads")}
+                      >
+                        <TextShimmer
+                          text={props.threadBrowserProps.sessionTitle}
+                          active={props.threadBrowserProps.isTurnActive ?? false}
+                        />
+                      </button>
+                    }
+                  />
+                </div>
+              ) : (
+                <div className="min-w-0 flex-1" />
+              )}
             </div>
           ) : null}
           <div className="min-h-0 flex-1 overflow-hidden">{conversation}</div>
