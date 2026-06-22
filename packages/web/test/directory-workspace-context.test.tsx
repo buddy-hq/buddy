@@ -133,9 +133,7 @@ function TestRootFloatingBenchTitlebarRouterProvider() {
   const router = createRouter({
     routeTree: rootRoute,
     history: createMemoryHistory({
-      initialEntries: [
-        `/repo/_bench?${BENCH_CHAT_SEARCH_PARAM}=${BENCH_CHAT_LAYOUT_FLOATING}`,
-      ],
+      initialEntries: [`/repo/_bench?${BENCH_CHAT_SEARCH_PARAM}=${BENCH_CHAT_LAYOUT_FLOATING}`],
     }),
   })
 
@@ -166,9 +164,7 @@ function TestThreadControlsTitlebarRouterProvider(props: { showSidebarThreadCont
   const rootRoute = createRootRoute({
     component: () => (
       <PlatformProvider value={TEST_DESKTOP_PLATFORM}>
-        <ThreadControlsTitlebarProbe
-          showSidebarThreadControls={props.showSidebarThreadControls}
-        />
+        <ThreadControlsTitlebarProbe showSidebarThreadControls={props.showSidebarThreadControls} />
       </PlatformProvider>
     ),
   })
@@ -341,9 +337,7 @@ describe("DirectoryWorkspaceProvider", () => {
     root = createRoot(container)
 
     await act(async () => {
-      root?.render(
-        <TestThreadControlsTitlebarRouterProvider showSidebarThreadControls={false} />,
-      )
+      root?.render(<TestThreadControlsTitlebarRouterProvider showSidebarThreadControls={false} />)
       await flushEffects()
     })
 
@@ -351,9 +345,7 @@ describe("DirectoryWorkspaceProvider", () => {
     expect(container.querySelector('[aria-label="New chat"]')).toBeNull()
 
     await act(async () => {
-      root?.render(
-        <TestThreadControlsTitlebarRouterProvider showSidebarThreadControls={true} />,
-      )
+      root?.render(<TestThreadControlsTitlebarRouterProvider showSidebarThreadControls={true} />)
       await flushEffects()
     })
 

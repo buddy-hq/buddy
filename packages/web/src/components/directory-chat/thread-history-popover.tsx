@@ -137,7 +137,9 @@ export function ThreadHistoryPopover(props: ThreadHistoryPopoverProps) {
               <div className="flex flex-col items-center justify-center py-12 text-center opacity-30">
                 <SearchIcon className="mb-3 size-8 stroke-[1px]" />
                 <p className="text-xs font-medium tracking-tight">
-                  {hasQuery ? language.t("prompt.autocomplete.noMatches") : language.t("sidebar.noThreads")}
+                  {hasQuery
+                    ? language.t("prompt.autocomplete.noMatches")
+                    : language.t("sidebar.noThreads")}
                 </p>
               </div>
             </CommandEmpty>
@@ -173,10 +175,7 @@ export function ThreadHistoryPopover(props: ThreadHistoryPopoverProps) {
                       {title}
                     </span>
                     {isLinkedSession ? (
-                      <Badge
-                        variant="outline"
-                        className="h-5 border-border-base text-text-weaker"
-                      >
+                      <Badge variant="outline" className="h-5 border-border-base text-text-weaker">
                         {language.t("sidebar.currentBook")}
                       </Badge>
                     ) : null}

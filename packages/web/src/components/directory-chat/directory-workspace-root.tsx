@@ -628,8 +628,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     workspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED &&
     !dockedLeftSidebarVisible
   const showThreadBrowserInPane =
-    benchPolicyState.status === "open" &&
-    workspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING
+    benchPolicyState.status === "open" && workspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING
   const showSidebarThreadControls =
     benchPolicyState.status === "open" &&
     workspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED &&

@@ -100,8 +100,7 @@ export function ThreadActionPill(props: ThreadActionPillProps) {
   const showHistory = props.showHistory ?? true
   const showNewSession = props.onNewSession !== undefined
   const showFloat = props.onFloatChat !== undefined
-  const showWindowControls =
-    props.onMinimizeChat !== undefined || props.onDockChat !== undefined
+  const showWindowControls = props.onMinimizeChat !== undefined || props.onDockChat !== undefined
   const hasLeadingControls = showHistory || showNewSession || showFloat
 
   if (!hasLeadingControls && !showWindowControls) {
@@ -152,7 +151,9 @@ export function ThreadActionPill(props: ThreadActionPillProps) {
       title={language.t("sidebar.popOutChat")}
       onClick={props.onFloatChat}
     >
-      <PictureInPicture2Icon className={cn("animate-in fade-in zoom-in duration-200", styles.icon)} />
+      <PictureInPicture2Icon
+        className={cn("animate-in fade-in zoom-in duration-200", styles.icon)}
+      />
     </Button>
   ) : null
 
