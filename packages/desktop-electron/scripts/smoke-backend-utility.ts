@@ -31,6 +31,8 @@ const electronBin = resolveElectronBin()
 function resolveElectronBin(): string {
   const basePath = path.resolve(packageDir, ...ELECTRON_BIN_PATH_SEGMENTS)
   if (process.platform !== "win32") return basePath
+  const executablePath = `${basePath}.exe`
+  if (existsSync(executablePath)) return executablePath
   const commandPath = `${basePath}.cmd`
   return existsSync(commandPath) ? commandPath : basePath
 }
@@ -91,8 +93,7 @@ function createElectronMainScript(smokeRoot: string): string {
 }
 
 function electronCommand(mainScript: string): string[] {
-  if (process.platform !== "win32") return [electronBin, mainScript]
-  return ["cmd.exe", "/d", "/s", "/c", `"${electronBin}" "${mainScript}"`]
+  return [electronBin, mainScript]
 }
 
 function electronMainSource(): string {
