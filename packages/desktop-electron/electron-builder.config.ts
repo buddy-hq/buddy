@@ -1,5 +1,9 @@
 import { existsSync } from "node:fs"
-import type { Configuration } from "electron-builder"
+import path from "node:path"
+import { Arch, type AfterPackContext, type Configuration } from "electron-builder"
+import {
+  assertBackendNodeArtifactRuntimeFiles,
+} from "../../script/backend-node-artifact"
 
 const CHANNEL_ENV_KEY = "BUDDY_CHANNEL"
 
@@ -38,6 +42,56 @@ function requiredRuntimeResource(name: (typeof runtimeResourceNames)[number]) {
 
 const runtimeResources = runtimeResourceNames.map((name) => requiredRuntimeResource(name))
 
+function requiredBackendNodeModulesResource() {
+  const nodeModulesDir = new URL("./resources/backend-node/node_modules", import.meta.url)
+  if (!existsSync(nodeModulesDir)) {
+    throw new Error(
+      "Required Electron backend-node runtime packages missing: resources/backend-node/node_modules. Run the desktop prebuild or prepare:release script before packaging.",
+    )
+  }
+
+  return {
+    from: "resources/backend-node/node_modules",
+    to: "backend-node/node_modules",
+    filter: ["**/*"],
+  }
+}
+
+function packagedResourcesDir(context: AfterPackContext): string {
+  if (context.electronPlatformName === "darwin") {
+    return path.join(
+      context.appOutDir,
+      `${context.packager.appInfo.productFilename}.app`,
+      "Contents",
+      "Resources",
+    )
+  }
+
+  return path.join(context.appOutDir, "resources")
+}
+
+function assertPackagedRuntimeResources(context: AfterPackContext): void {
+  const artifactDir = path.join(packagedResourcesDir(context), "backend-node")
+  assertBackendNodeArtifactRuntimeFiles({
+    artifactDir,
+    target: {
+      arch: backendNodeArchName(context.arch),
+      platform: context.electronPlatformName,
+    },
+  })
+}
+
+function backendNodeArchName(arch: Arch): string {
+  switch (arch) {
+    case Arch.arm64:
+      return "arm64"
+    case Arch.x64:
+      return "x64"
+    default:
+      throw new Error(`Unsupported Buddy backend-node artifact architecture: ${String(arch)}`)
+  }
+}
+
 const BASE_CONFIGURATION: Configuration = {
   artifactName: "buddy-electron-${os}-${arch}.${ext}",
   directories: {
@@ -47,12 +101,14 @@ const BASE_CONFIGURATION: Configuration = {
   files: ["out/**/*"],
   extraResources: [
     ...runtimeResources,
+    requiredBackendNodeModulesResource(),
     {
       from: "resources",
       to: "",
       filter: ["mac-install-update.sh"],
     },
   ],
+  afterPack: assertPackagedRuntimeResources,
   protocols: {
     name: "Buddy",
     schemes: ["buddy"],

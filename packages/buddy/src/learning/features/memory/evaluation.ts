@@ -7,6 +7,7 @@ import {
   type ModelExtractionResult,
 } from "./extractor"
 import { defaultEvaluationFixtures } from "./fixtures/default-fixtures"
+import { EVALUATION_CURRENT_PROJECT_PATH } from "./evaluation-project-paths"
 import { regenerateLearnerMemoryMarkdown } from "./markdown"
 import { searchLearnerMemory } from "./retrieval"
 import { LEARNER_MEMORY_EVALUATION_TUNING } from "./tuning"
@@ -188,7 +189,7 @@ async function runCorrectionChecks(input: {
     const hiddenSearchResults = await searchLearnerMemory({
       directory: input.directory,
       query: "bridge validation boundary structured errors",
-      projectPath: "/Users/prashantbhudwal/Code/buddy",
+      projectPath: EVALUATION_CURRENT_PROJECT_PATH,
       limit: 5,
     })
     const passed = hiddenSearchResults.every((result) => result.memory.id !== hiddenMemoryId)
@@ -210,7 +211,7 @@ async function runCorrectionChecks(input: {
     const rejectedSearchResults = await searchLearnerMemory({
       directory: input.directory,
       query: "examples theory database indexing",
-      projectPath: "/Users/prashantbhudwal/Code/buddy",
+      projectPath: EVALUATION_CURRENT_PROJECT_PATH,
       limit: 5,
     })
     const passed = rejectedSearchResults.every((result) => result.memory.id !== rejectedMemoryId)
@@ -248,7 +249,7 @@ async function runCorrectionChecks(input: {
     const deletedSearchResults = await searchLearnerMemory({
       directory: input.directory,
       query: "renderer route schema validation",
-      projectPath: "/Users/prashantbhudwal/Code/buddy",
+      projectPath: EVALUATION_CURRENT_PROJECT_PATH,
       limit: 5,
     })
     const passed =
@@ -326,7 +327,7 @@ async function runLearnerMemoryEvaluation(input: {
     const results = await searchLearnerMemory({
       directory: input.directory,
       query,
-      projectPath: "/Users/prashantbhudwal/Code/buddy",
+      projectPath: EVALUATION_CURRENT_PROJECT_PATH,
       limit: 3,
       recordUsage: true,
     })

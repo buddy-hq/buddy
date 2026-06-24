@@ -1,12 +1,13 @@
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs"
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { createServer } from "node:net"
 import os from "node:os"
 import path from "node:path"
+import { pathToFileURL } from "node:url"
 import {
   assertBackendNodeArtifactRuntimeFiles,
   currentBackendNodeArtifactTarget,
   parcelWatcherNativePackageName,
-} from "./backend-node-artifact"
+} from "../../../script/backend-node-artifact"
 import { syncBackendSourceResources } from "../../../script/desktop-runtime-resources"
 
 export const HOSTNAME = "127.0.0.1"
@@ -18,8 +19,17 @@ export const DEFAULT_STARTUP_TIMEOUT_MS = 30_000
 export const DEFAULT_POLL_INTERVAL_MS = 250
 export const DEFAULT_SHUTDOWN_TIMEOUT_MS = 2_000
 export const LOG_TAIL_CHARACTERS = 8_000
+const DIRECTORY_HEADER = "x-buddy-directory" as const
 const ISOLATED_ARTIFACT_DIR_NAME = "backend-node"
+const JSON_CONTENT_TYPE = "application/json" as const
 const NODE_PATH_ENV_KEY = "NODE_PATH"
+const RESOURCE_ROUTE_PATH = "/api/objects/resource" as const
+const RESOURCE_ROUTE_SMOKE_ALIAS = "artifact-route-smoke" as const
+const RESOURCE_ROUTE_SMOKE_FILENAME = "artifact-route-smoke.md" as const
+const RESOURCE_ROUTE_SMOKE_TEXT = "# Artifact Route Smoke\n\nPackaged route resource prep smoke.\n"
+const RESOURCE_READY_STATUS = "ready" as const
+
+type UnknownRecord = Record<PropertyKey, unknown>
 
 const BACKEND_DIR = path.resolve(import.meta.dir, "..")
 const DEFAULT_ENTRYPOINT = path.resolve(BACKEND_DIR, "dist/node/node.js")
@@ -38,6 +48,7 @@ export type SpawnedNodeArtifact = {
   artifactRoot: string
   baseUrl: string
   child: NodeArtifactProcess
+  notebookRoot: string
   runtimeRoot: string
   stderr: Promise<string>
   stdout: Promise<string>
@@ -142,6 +153,42 @@ require(packageName);`,
       `Buddy Node artifact failed to load ${watcherBindingPackage}: ${tail(stderrText || stdoutText)}`,
     )
   }
+
+  await assertNodeArtifactResourcePackPrep(entrypoint)
+}
+
+async function assertNodeArtifactResourcePackPrep(entrypoint: string): Promise<void> {
+  const artifactDir = path.dirname(entrypoint)
+  const probe = Bun.spawn(
+    [
+      "node",
+      "--input-type=module",
+      "-e",
+      `const entrypoint = ${JSON.stringify(pathToFileURL(entrypoint).href)};
+const module = await import(entrypoint);
+if (typeof module.runNodeArtifactResourcePackSmoke !== "function") {
+  throw new Error("Buddy Node artifact does not export runNodeArtifactResourcePackSmoke()");
+}
+await module.runNodeArtifactResourcePackSmoke();`,
+    ],
+    {
+      cwd: artifactDir,
+      env: baseEnvironment(),
+      stderr: "pipe",
+      stdout: "pipe",
+      windowsHide: true,
+    },
+  )
+  const [code, stdoutText, stderrText] = await Promise.all([
+    probe.exited,
+    readStream(probe.stdout),
+    readStream(probe.stderr),
+  ])
+  if (code !== 0) {
+    throw new Error(
+      `Buddy Node artifact failed resource-pack prep smoke: ${tail(stderrText || stdoutText)}`,
+    )
+  }
 }
 
 export function tail(text: string): string {
@@ -235,6 +282,7 @@ export async function spawnNodeArtifact(input: {
   await assertNodeArtifactRuntimeAssets(entrypoint)
   const migrationDir = resolveMigrationDir(input.migrationDir)
   const runtimeRoot = createRuntimeRoot()
+  const notebookRoot = path.join(runtimeRoot, "notebook")
   const backendResourcesDir = syncBackendSourceResources(path.join(runtimeRoot, "backend-resources"))
   const port = input.port ?? (await allocatePort())
   const baseUrl = `http://${HOSTNAME}:${port}`
@@ -258,10 +306,78 @@ export async function spawnNodeArtifact(input: {
     artifactRoot: artifact.artifactRoot,
     baseUrl,
     child,
+    notebookRoot,
     runtimeRoot,
     stderr: readStream(child.stderr),
     stdout: readStream(child.stdout),
   }
+}
+
+export async function assertNodeArtifactResourceRouteSmoke(input: {
+  baseUrl: string
+  directory: string
+  timeoutMs: number
+}): Promise<void> {
+  const sourcePath = path.join(input.directory, RESOURCE_ROUTE_SMOKE_FILENAME)
+  writeFileSync(sourcePath, RESOURCE_ROUTE_SMOKE_TEXT, "utf8")
+
+  const createResponse = await fetch(new URL(RESOURCE_ROUTE_PATH, input.baseUrl), {
+    method: "POST",
+    headers: {
+      authorization: basicAuthorizationHeader(),
+      [DIRECTORY_HEADER]: input.directory,
+      "content-type": JSON_CONTENT_TYPE,
+    },
+    body: JSON.stringify({
+      alias: RESOURCE_ROUTE_SMOKE_ALIAS,
+      sourcePath: RESOURCE_ROUTE_SMOKE_FILENAME,
+    }),
+  })
+  if (!createResponse.ok) {
+    throw new Error(
+      `Resource route smoke create failed (${createResponse.status}): ${await createResponse.text()}`,
+    )
+  }
+
+  const deadline = Date.now() + input.timeoutMs
+  let last = ""
+  while (Date.now() < deadline) {
+    const listResponse = await fetch(new URL(RESOURCE_ROUTE_PATH, input.baseUrl), {
+      headers: {
+        authorization: basicAuthorizationHeader(),
+        [DIRECTORY_HEADER]: input.directory,
+      },
+      signal: AbortSignal.timeout(DEFAULT_POLL_INTERVAL_MS),
+    })
+    last = await listResponse.text()
+    if (listResponse.ok) {
+      const body: unknown = JSON.parse(last)
+      const resources = readResourceList(body)
+      const resource = resources.find(
+        (entry) => entry.alias === RESOURCE_ROUTE_SMOKE_ALIAS,
+      )
+      if (
+        resource?.status === RESOURCE_READY_STATUS &&
+        typeof resource.packPath === "string" &&
+        typeof resource.fullTextPath === "string"
+      ) {
+        return
+      }
+    }
+
+    await delay(DEFAULT_POLL_INTERVAL_MS)
+  }
+
+  throw new Error(`Resource route smoke did not become ready: ${last}`)
+}
+
+function isObjectRecord(value: unknown): value is UnknownRecord {
+  return typeof value === "object" && value !== null
+}
+
+function readResourceList(value: unknown): UnknownRecord[] {
+  if (!isObjectRecord(value) || !Array.isArray(value.resources)) return []
+  return value.resources.filter(isObjectRecord)
 }
 
 export async function probe(input: {

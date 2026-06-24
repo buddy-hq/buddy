@@ -198,6 +198,9 @@ jobs:
       - name: Smoke staged backend artifact
         run: bun run --cwd packages/buddy smoke:node -- --entrypoint ../desktop-electron/resources/backend-node/node.js --migration-dir ../desktop-electron/resources/migrations/buddy
 
+      - name: Smoke Electron backend utility
+        run: bun run --cwd packages/desktop-electron smoke:backend-utility
+
       - run: bunx --bun electron-builder --mac --arm64 --publish never --config electron-builder.config.ts
         working-directory: packages/desktop-electron
 
@@ -290,6 +293,9 @@ jobs:
       - name: Smoke staged backend artifact
         run: bun run --cwd packages/buddy smoke:node -- --entrypoint ../desktop-electron/resources/backend-node/node.js --migration-dir ../desktop-electron/resources/migrations/buddy
 
+      - name: Smoke Electron backend utility
+        run: bun run --cwd packages/desktop-electron smoke:backend-utility
+
       - run: bunx --bun electron-builder --mac --x64 --publish never --config electron-builder.config.ts
         working-directory: packages/desktop-electron
 
@@ -381,6 +387,9 @@ jobs:
 
       - name: Smoke staged backend artifact
         run: bun run --cwd packages/buddy smoke:node -- --entrypoint ../desktop-electron/resources/backend-node/node.js --migration-dir ../desktop-electron/resources/migrations/buddy
+
+      - name: Smoke Electron backend utility
+        run: bun run --cwd packages/desktop-electron smoke:backend-utility
 
       - run: bunx --bun electron-builder --win --x64 --publish never --config electron-builder.config.ts
         working-directory: packages/desktop-electron

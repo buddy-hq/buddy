@@ -1,9 +1,15 @@
+import { Buffer } from "node:buffer"
 import * as http from "node:http"
 import * as tls from "node:tls"
 import { existsSync } from "node:fs"
 import { pathToFileURL } from "node:url"
 
 const BACKEND_NODE_ENTRY_ENV = "BUDDY_BACKEND_NODE_ENTRY"
+const BACKEND_SERVER_PASSWORD_ENV = "BUDDY_SERVER_PASSWORD"
+const BACKEND_SERVER_USERNAME_ENV = "BUDDY_SERVER_USERNAME"
+const DEFAULT_BACKEND_SERVER_USERNAME = "buddy"
+const GLOBAL_DISPOSE_PATH = "/api/global/dispose" as const
+const RUNTIME_DISPOSE_TIMEOUT_MS = 3_000
 
 type NodeHttpWithEnvProxy = typeof http & {
   setGlobalProxyFromEnv: () => void
@@ -44,8 +50,16 @@ type BackendModule = {
   listen: (config: { hostname: string; port: number }) => Listener | Promise<Listener>
 }
 
+type ActiveServer = {
+  hostname: string
+  password: string | undefined
+  port: number
+  username: string
+}
+
 const parentPort = getParentPort()
 let listener: Listener | undefined
+let activeServer: ActiveServer | undefined
 let backendModuleTask: Promise<BackendModule> | undefined
 
 parentPort.on("message", (event) => {
@@ -74,6 +88,12 @@ async function start(command: StartCommand) {
       hostname: command.hostname,
       port: command.port,
     })
+    activeServer = {
+      hostname: command.hostname,
+      password: process.env[BACKEND_SERVER_PASSWORD_ENV],
+      port: command.port,
+      username: process.env[BACKEND_SERVER_USERNAME_ENV] ?? DEFAULT_BACKEND_SERVER_USERNAME,
+    }
     postParentMessage({ type: "ready" })
   } catch (error) {
     postParentMessage({ type: "error", error: serializeError(error) })
@@ -83,12 +103,38 @@ async function start(command: StartCommand) {
 
 async function stop() {
   try {
+    await disposeActiveServer()
     await listener?.stop(true)
   } finally {
+    activeServer = undefined
     listener = undefined
     postParentMessage({ type: "stopped" })
     setImmediate(() => process.exit(0))
   }
+}
+
+async function disposeActiveServer(): Promise<void> {
+  if (!activeServer?.password) return
+
+  const authorization = Buffer.from(`${activeServer.username}:${activeServer.password}`).toString(
+    "base64",
+  )
+  try {
+    await fetch(new URL(GLOBAL_DISPOSE_PATH, serverBaseUrl(activeServer)), {
+      method: "POST",
+      headers: {
+        authorization: `Basic ${authorization}`,
+      },
+      signal: AbortSignal.timeout(RUNTIME_DISPOSE_TIMEOUT_MS),
+    })
+  } catch (error) {
+    console.warn("failed to dispose Buddy backend runtime before shutdown", error)
+  }
+}
+
+function serverBaseUrl(server: ActiveServer): string {
+  const hostname = server.hostname.includes(":") ? `[${server.hostname}]` : server.hostname
+  return `http://${hostname}:${server.port}`
 }
 
 async function loadBackendModule(): Promise<BackendModule> {

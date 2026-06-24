@@ -130,6 +130,7 @@ if (isEntrypoint(import.meta.url)) {
 }
 
 export { app }
+export { runNodeArtifactResourcePackSmoke } from "./node-artifact-smoke"
 
 function resolveEntrypointPath(value: string) {
   const resolved = path.resolve(value)

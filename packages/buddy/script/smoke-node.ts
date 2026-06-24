@@ -4,6 +4,7 @@ import {
   DEFAULT_STARTUP_TIMEOUT_MS,
   HEALTHZ_PATH,
   HEALTH_PATH,
+  assertNodeArtifactResourceRouteSmoke,
   cleanupArtifactRoot,
   cleanupRuntimeRoot,
   hasFlag,
@@ -69,6 +70,12 @@ async function main(): Promise<void> {
     if (!health.ok) {
       throw new Error(`${HEALTH_PATH} failed: ${health.body || health.error || "unknown"}`)
     }
+
+    await assertNodeArtifactResourceRouteSmoke({
+      baseUrl: spawned.baseUrl,
+      directory: spawned.notebookRoot,
+      timeoutMs: options.startupTimeoutMs,
+    })
 
     console.log(`Buddy Node backend smoke passed at ${spawned.baseUrl}`)
   } catch (error) {

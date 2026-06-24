@@ -25,6 +25,7 @@
     "electron-builder.config.ts",
     "../web/vite.ts",
     "../web/scripts/create-foliate-pdf-vite-plugin.ts",
+    "../../script/backend-node-artifact.ts",
     "../../script/desktop-runtime-resources.ts"
   ]
 }

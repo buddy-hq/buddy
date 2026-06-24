@@ -1,5 +1,9 @@
 import { createLearnerEvent } from "../storage"
 import { EvaluationFixtureSchema, type EvaluationFixture } from "../types"
+import {
+  EVALUATION_CURRENT_PROJECT_PATH,
+  EVALUATION_DECOY_PROJECT_PATH,
+} from "../evaluation-project-paths"
 
 const BASE_TIME = "2026-04-28T10:"
 
@@ -50,7 +54,7 @@ const defaultEvaluationFixtures: EvaluationFixture[] = EvaluationFixtureSchema.a
   {
     id: "fixture_deep_tutoring",
     title: "Deep tutoring on Electron bridge validation",
-    projectPath: "/Users/prashantbhudwal/Code/buddy",
+    projectPath: EVALUATION_CURRENT_PROJECT_PATH,
     expected: {
       shouldExtract: true,
       notes: ["Should produce one fragile-skill/open-loop candidate with source pointers."],
@@ -103,7 +107,7 @@ const defaultEvaluationFixtures: EvaluationFixture[] = EvaluationFixtureSchema.a
   {
     id: "fixture_cross_project_decoy",
     title: "Cross-project decoy",
-    projectPath: "/tmp/unrelated-project",
+    projectPath: EVALUATION_DECOY_PROJECT_PATH,
     expected: {
       shouldExtract: true,
       notes: ["Useful for retrieval decoy tests; should not outrank current Buddy memory."],
@@ -187,7 +191,7 @@ const defaultEvaluationFixtures: EvaluationFixture[] = EvaluationFixtureSchema.a
   {
     id: "fixture_verified_success",
     title: "Verified bridge validation success",
-    projectPath: "/Users/prashantbhudwal/Code/buddy",
+    projectPath: EVALUATION_CURRENT_PROJECT_PATH,
     expected: {
       shouldExtract: true,
       notes: ["Should create evidence from verified task success, not a vague trait."],
@@ -263,7 +267,7 @@ const defaultEvaluationFixtures: EvaluationFixture[] = EvaluationFixtureSchema.a
   {
     id: "fixture_contradictory_evidence",
     title: "Contradictory validation evidence",
-    projectPath: "/Users/prashantbhudwal/Code/buddy",
+    projectPath: EVALUATION_CURRENT_PROJECT_PATH,
     expected: {
       shouldExtract: true,
       notes: [

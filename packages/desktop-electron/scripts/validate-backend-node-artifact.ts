@@ -5,7 +5,7 @@ import {
   assertBackendNodeArtifactRuntimeFiles,
   currentBackendNodeArtifactTarget,
   type BackendNodeArtifactTarget,
-} from "../../buddy/script/backend-node-artifact"
+} from "../../../script/backend-node-artifact"
 
 const PACKAGE_DIR = path.resolve(import.meta.dir, "..")
 const BACKEND_NODE_RESOURCES_DIR = path.resolve(PACKAGE_DIR, "resources/backend-node")
