@@ -61,6 +61,7 @@ packages/desktop-electron/.turbo/
 packages/desktop-electron/out/
 packages/desktop-electron/dist/
 packages/desktop-electron/node_modules/
+packages/desktop-electron/resources/backend-node/
 packages/desktop-electron/resources/icons/
 packages/desktop-electron/*.tsbuildinfo
 packages/desktop-electron/*.log

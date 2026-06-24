@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs"
-import { Database } from "bun:sqlite"
+import { Database } from "#sqlite"
 import { DatabasePath as OpenCodeDatabasePath } from "@buddy/opencode-adapter/storage-db"
 
 const DRIZZLE_MIGRATIONS_TABLE = "__drizzle_migrations" as const
@@ -18,6 +18,16 @@ type MigrationJournalRow = {
 type LegacyMigrationRepair = {
   migrationName: string
   requiredTables: readonly string[]
+}
+
+type SqliteStatement = {
+  all: (...params: (number | string)[]) => unknown[]
+  get: (...params: (number | string)[]) => unknown
+  run: (...params: (number | string)[]) => unknown
+}
+
+type SqliteDatabase = {
+  prepare: (sql: string) => SqliteStatement
 }
 
 const LEGACY_MIGRATION_REPAIRS: readonly LegacyMigrationRepair[] = [
@@ -43,16 +53,16 @@ function parseMigrationTimestamp(migrationName: string): number {
   )
 }
 
-function hasTable(db: Database, tableName: string): boolean {
+function hasTable(db: SqliteDatabase, tableName: string): boolean {
   const row = db
-    .query("select 1 as present from sqlite_master where type = 'table' and name = ? limit 1")
+    .prepare("select 1 as present from sqlite_master where type = 'table' and name = ? limit 1")
     .get(tableName)
 
   return !!row
 }
 
-function listTables(db: Database): Set<string> {
-  const rows = db.query("select name from sqlite_master where type = 'table'").all() as Array<{
+function listTables(db: SqliteDatabase): Set<string> {
+  const rows = db.prepare("select name from sqlite_master where type = 'table'").all() as Array<{
     name: string
   }>
 
@@ -76,13 +86,13 @@ function findRepairForRow(
   })
 }
 
-export function repairLegacyMigrationJournal(db: Database): string[] {
+export function repairLegacyMigrationJournal(db: SqliteDatabase): string[] {
   if (!hasTable(db, DRIZZLE_MIGRATIONS_TABLE)) {
     return []
   }
 
   const incompleteRows = db
-    .query(
+    .prepare(
       `select rowid, id, created_at, name, applied_at
        from ${DRIZZLE_MIGRATIONS_TABLE}
       where name is null or applied_at is null
@@ -96,7 +106,7 @@ export function repairLegacyMigrationJournal(db: Database): string[] {
 
   const existingTables = listTables(db)
   const repairedMigrations: string[] = []
-  const updateRow = db.query(
+  const updateRow = db.prepare(
     `update ${DRIZZLE_MIGRATIONS_TABLE}
         set name = coalesce(name, ?),
             applied_at = coalesce(applied_at, ?)
@@ -111,8 +121,13 @@ export function repairLegacyMigrationJournal(db: Database): string[] {
       continue
     }
 
-    const appliedAt = row.applied_at ?? new Date(row.created_at ?? Date.now()).toISOString()
-    updateRow.run(repair.migrationName, appliedAt, row.created_at, repair.migrationName, appliedAt)
+    const createdAt = row.created_at
+    if (createdAt === null) {
+      continue
+    }
+
+    const appliedAt = row.applied_at ?? new Date(createdAt).toISOString()
+    updateRow.run(repair.migrationName, appliedAt, createdAt, repair.migrationName, appliedAt)
     repairedMigrations.push(repair.migrationName)
   }
 

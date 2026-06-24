@@ -13,10 +13,10 @@ describe("skill catalog library", () => {
     const root = mkdtempSync(path.join(os.tmpdir(), "buddy-skill-catalog-paths-"))
     const sourceModule = path.join(root, "source", "library.js")
     const runtimeIndex = path.join(root, "runtime", "index.js")
-    const runtimeEntrypoint = path.join(root, "packaged", "buddy-backend.js")
+    const runtimeEntrypoint = path.join(root, "packaged", "index.js")
 
     const candidates = catalogPathCandidates({
-      argv: ["buddy-backend", "run", runtimeIndex, "run", runtimeEntrypoint],
+      argv: ["node", runtimeIndex, "run", runtimeEntrypoint],
       moduleUrl: pathToFileURL(sourceModule).href,
     })
 

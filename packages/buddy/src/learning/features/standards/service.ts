@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite"
+import { Database } from "#sqlite"
 import {
   KNOWLEDGE_GRAPH_DEFAULT_COMPONENT_LIMIT,
   KNOWLEDGE_GRAPH_DEFAULT_CROSSWALK_LIMIT,
@@ -395,20 +395,20 @@ export class KnowledgeGraphService {
 
   private queryStandards(sql: string, ...params: (string | number)[]) {
     return this.connection()
-      .query<KnowledgeGraphStandardRecord, (string | number)[]>(sql)
+      .prepare<KnowledgeGraphStandardRecord>(sql)
       .all(...params)
   }
 
   private queryLearningComponents(sql: string, ...params: (string | number)[]) {
     return this.connection()
-      .query<KnowledgeGraphLearningComponentRecord, (string | number)[]>(sql)
+      .prepare<KnowledgeGraphLearningComponentRecord>(sql)
       .all(...params)
   }
 
   runSqlQuery(input: KnowledgeGraphSqlQueryInput): KnowledgeGraphSqlQueryResult {
     const sql = normalizeSqlStatement(input.sql)
     const rowLimit = normalizeSqlRowLimit(input.rowLimit)
-    const rawRows = this.connection().query<Record<string, unknown>, []>(sql).all()
+    const rawRows = this.connection().prepare<Record<string, unknown>>(sql).all()
     const rows = rawRows.slice(0, rowLimit).map(normalizeSqlRow)
 
     return {
@@ -623,7 +623,7 @@ export class KnowledgeGraphService {
     const limit = normalizeLimit(input.limit, KNOWLEDGE_GRAPH_DEFAULT_PROGRESS_LIMIT)
 
     return this.connection()
-      .query<ProgressionRow, (string | number)[]>(
+      .prepare<ProgressionRow>(
         `
           with recursive prerequisite_chain(id, distance) as (
             select r.source_id, 1
@@ -667,7 +667,7 @@ export class KnowledgeGraphService {
     const limit = normalizeLimit(input.limit, KNOWLEDGE_GRAPH_DEFAULT_PROGRESS_LIMIT)
 
     return this.connection()
-      .query<ProgressionRow, (string | number)[]>(
+      .prepare<ProgressionRow>(
         `
           with recursive next_chain(id, distance) as (
             select r.target_id, 1
@@ -710,7 +710,7 @@ export class KnowledgeGraphService {
     const limit = normalizeLimit(input.limit, KNOWLEDGE_GRAPH_DEFAULT_CROSSWALK_LIMIT)
 
     return this.connection()
-      .query<CrosswalkRow, (string | number)[]>(
+      .prepare<CrosswalkRow>(
         `
           with crosswalks as (
             select

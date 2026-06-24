@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite"
+import { Database } from "#sqlite"
 import fs from "node:fs/promises"
 import { parseLearnerMemoryRegistryMarkdown } from "./memory-registry-markdown"
 import { LearnerMemoryPath } from "./paths"

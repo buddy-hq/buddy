@@ -69,7 +69,7 @@ type CreateCustomMacUpdaterOptions = {
   appRootPath: string
   resourcesPath: string
   logger: LoggerLike
-  killSidecar: () => void
+  stopBackend: () => Promise<void> | void
   quit: () => void
   isVersionBlocked?: (version: string) => boolean
   metadataUrl?: string
@@ -196,7 +196,7 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
 
       await waitForInstallerLaunch(child)
       child.unref()
-      options.killSidecar()
+      await options.stopBackend()
       options.quit()
     },
   }

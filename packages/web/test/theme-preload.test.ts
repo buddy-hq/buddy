@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import { applyThemePreload } from "../src/theme/preload-runtime"
+import { THEME_CACHE_VERSION } from "../src/theme/storage"
 
 const run = () =>
   applyThemePreload({
@@ -61,7 +62,7 @@ describe("theme preload", () => {
 
     localStorage.setItem("opencode-theme-id", "nightowl")
     localStorage.setItem("opencode-color-scheme", "system")
-    localStorage.setItem("opencode-theme-cache-version", "4")
+    localStorage.setItem("opencode-theme-cache-version", THEME_CACHE_VERSION)
     localStorage.setItem("opencode-theme-css-dark", "--background:#000;")
 
     run()
@@ -80,7 +81,7 @@ describe("theme preload", () => {
 
     run()
 
-    expect(localStorage.getItem("opencode-theme-cache-version")).toBe("4")
+    expect(localStorage.getItem("opencode-theme-cache-version")).toBe(THEME_CACHE_VERSION)
     expect(localStorage.getItem("opencode-theme-css-light")).toContain("--background-base:")
     expect(localStorage.getItem("opencode-theme-css-dark")).toContain("--background-base:")
     expect(document.getElementById("oc-theme-preload")?.textContent).toContain("--background-base:")

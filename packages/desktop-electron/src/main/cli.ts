@@ -1,64 +1,28 @@
-import { execFileSync, spawn } from "node:child_process"
-import { chmodSync, copyFileSync, existsSync, mkdirSync } from "node:fs"
-import { EventEmitter } from "node:events"
+import { existsSync, mkdirSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import readline from "node:readline"
 import { app } from "electron"
-import treeKill from "tree-kill"
-import { SIDECAR_BINARY_NAME, SIDECAR_USERNAME } from "./constants"
+import { BACKEND_SERVER_USERNAME } from "./constants"
 import { getUserShell, loadShellEnv, mergeShellEnv } from "./shell-env"
 
-const CLI_INSTALL_DIR = ".buddy/bin"
-const CLI_BINARY_NAME = "buddy"
-const SQLITE_PROGRESS_PREFIX = "sqlite-migration:"
-const SERVE_COMMAND = "serve"
-const HOSTNAME_OPTION = "--hostname"
-const PORT_OPTION = "--port"
-const WATCH_OPTION = "--watch"
-const BUN_RUN_COMMAND = "run"
-const BUN_EXECUTABLE = "bun"
 const ADVANCED_MATH_LOCAL_ASSET_DIR_ENV = "BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR"
+const BACKEND_NODE_ENTRY_ENV = "BUDDY_BACKEND_NODE_ENTRY"
+const BACKEND_RESOURCES_DIR_ENV = "BUDDY_BACKEND_RESOURCES_DIR"
 const STANDARDS_LOCAL_ASSET_DIR_ENV = "BUDDY_STANDARDS_LOCAL_ASSET_DIR"
-const BUN_BE_BUN_ENV = "BUN_BE_BUN"
 const ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS = ["dist", "advanced-math-runtime"] as const
+const BACKEND_NODE_ENTRY_PATH_SEGMENTS = ["dist", "node", "node.js"] as const
 const STANDARDS_LOCAL_ASSET_PATH_SEGMENTS = ["resources", "knowledge-graph"] as const
 const RUNTIME_SUBDIRECTORIES = ["data", "cache", "config", "state", "tmp"] as const
 const OPENCODE_DATA_SUBDIRECTORY = "opencode"
 const BUDDY_RUNTIME_DIRECTORY_NAME = ".buddy-runtime"
 const BUDDY_RUNTIME_XDG_DIRECTORY_NAME = "xdg"
-const BUNDLED_BACKEND_DIRECTORY_NAME = "backend"
+const BUNDLED_BACKEND_NODE_DIRECTORY_NAME = "backend-node"
 const BUNDLED_MIGRATIONS_DIRECTORY_NAME = "migrations"
 const BUDDY_MIGRATION_DIRECTORY_NAME = "buddy"
 const DEVELOPMENT_BACKEND_PACKAGE_NAME = "buddy"
 const DEVELOPMENT_BACKEND_ENTRYPOINT_PATH_SEGMENTS = ["src", "index.ts"] as const
-const DEVELOPMENT_BACKEND_WRAPPER_PATH_SEGMENTS = ["src", "dev", "start-with-safe-env.ts"] as const
 const DEVELOPMENT_BACKEND_MIGRATION_PATH_SEGMENTS = ["migration"] as const
 const DEFAULT_NOTEBOOK_HOME_SEGMENTS = ["Documents", "Buddy"] as const
-const PATH_ENV_KEYS = ["PATH", "Path"] as const
-const POSIX_SIDECAR_PATH_ENTRIES = [
-  "/opt/homebrew/bin",
-  "/usr/local/bin",
-  "/usr/bin",
-  "/bin",
-  "/usr/sbin",
-  "/sbin",
-] as const
-export type SqliteMigrationProgress = { type: "InProgress"; value: number } | { type: "Done" }
-
-export type TerminatedPayload = {
-  code: number | null
-  signal: number | null
-}
-
-export type CommandChild = {
-  pid: number | undefined
-  kill: () => void
-}
-
-function sidecarBinaryName() {
-  return process.platform === "win32" ? `${SIDECAR_BINARY_NAME}.exe` : SIDECAR_BINARY_NAME
-}
 
 function resourcesDirectory() {
   if (app.isPackaged) {
@@ -80,22 +44,6 @@ function resolveDefaultNotebookHome(home: string) {
   return path.join(home, ...DEFAULT_NOTEBOOK_HOME_SEGMENTS)
 }
 
-export function getSidecarPath() {
-  return path.join(resourcesDirectory(), sidecarBinaryName())
-}
-
-function getBundledBackendEntrypointPath() {
-  const entrypoint = path.join(
-    resourcesDirectory(),
-    BUNDLED_BACKEND_DIRECTORY_NAME,
-    `${SIDECAR_BINARY_NAME}.js`,
-  )
-  if (!existsSync(entrypoint)) {
-    throw new Error(`Bundled Buddy backend entrypoint not found at ${entrypoint}`)
-  }
-  return entrypoint
-}
-
 function getBundledBuddyMigrationDir() {
   const migrationDir = path.join(
     resourcesDirectory(),
@@ -106,6 +54,26 @@ function getBundledBuddyMigrationDir() {
     throw new Error(`Bundled Buddy migration directory not found at ${migrationDir}`)
   }
   return migrationDir
+}
+
+function getBundledBackendResourcesDir() {
+  const resourcesDir = path.join(resourcesDirectory(), "backend")
+  if (!existsSync(resourcesDir)) {
+    throw new Error(`Bundled Buddy backend resources directory not found at ${resourcesDir}`)
+  }
+  return resourcesDir
+}
+
+function getBundledBackendNodeEntry() {
+  const entry = path.join(
+    resourcesDirectory(),
+    BUNDLED_BACKEND_NODE_DIRECTORY_NAME,
+    "node.js",
+  )
+  if (!existsSync(entry)) {
+    throw new Error(`Bundled Buddy Node backend entry not found at ${entry}`)
+  }
+  return entry
 }
 
 function resolveDevelopmentBackendRoot() {
@@ -137,26 +105,48 @@ function getBuddyMigrationDir() {
   return getBundledBuddyMigrationDir()
 }
 
-async function buildRuntimeEnvironment(password: string, port: number) {
+function resolveDevelopmentBackendNodeEntry() {
+  const backendRoot = resolveDevelopmentBackendRoot()
+  if (!backendRoot) return undefined
+
+  const entry = path.join(backendRoot, ...BACKEND_NODE_ENTRY_PATH_SEGMENTS)
+  if (!existsSync(entry)) return undefined
+  return entry
+}
+
+function getBackendNodeEntry() {
+  const developmentEntry = resolveDevelopmentBackendNodeEntry()
+  if (developmentEntry) {
+    return developmentEntry
+  }
+
+  return getBundledBackendNodeEntry()
+}
+
+export async function buildRuntimeEnvironment(password: string, port: number) {
   const runtimeRoot = resolveBuddyRuntimeRoot()
   const xdgDataHome = path.join(runtimeRoot, "data")
   const home = os.homedir()
-  const base = Object.fromEntries(
+  const appEnvironment = Object.fromEntries(
     Object.entries(process.env).filter(
       (entry): entry is [string, string] => typeof entry[1] === "string",
     ),
   )
+  const shellEnvironment =
+    process.platform === "win32" ? null : loadShellEnv(getUserShell())
+  const base = mergeShellEnv(shellEnvironment, appEnvironment)
 
   ensureRuntimeDirectories(runtimeRoot, xdgDataHome)
 
   const environment: Record<string, string> = {
     ...base,
-    [BUN_BE_BUN_ENV]: "1",
-    BUDDY_SERVER_USERNAME: SIDECAR_USERNAME,
+    [BACKEND_NODE_ENTRY_ENV]: getBackendNodeEntry(),
+    BUDDY_SERVER_USERNAME: BACKEND_SERVER_USERNAME,
     BUDDY_SERVER_PASSWORD: password,
-    OPENCODE_SERVER_USERNAME: SIDECAR_USERNAME,
+    OPENCODE_SERVER_USERNAME: BACKEND_SERVER_USERNAME,
     OPENCODE_SERVER_PASSWORD: password,
     BUDDY_APP_VERSION: app.getVersion(),
+    [BACKEND_RESOURCES_DIR_ENV]: getBundledBackendResourcesDir(),
     BUDDY_MIGRATION_DIR: getBuddyMigrationDir(),
     BUDDY_DIRECTORY_BASE: resolveDefaultNotebookHome(home),
     BUDDY_ALLOWED_DIRECTORY_ROOTS: resolveAllowedDirectoryRoots({
@@ -179,7 +169,7 @@ async function buildRuntimeEnvironment(password: string, port: number) {
     environment[ADVANCED_MATH_LOCAL_ASSET_DIR_ENV] = advancedMathAssetDir
   }
 
-  const standardsAssetDir = resolveDevelopmentStandardsAssetDir()
+  const standardsAssetDir = resolveStandardsAssetDir()
   if (standardsAssetDir) {
     environment[STANDARDS_LOCAL_ASSET_DIR_ENV] = standardsAssetDir
   }
@@ -253,215 +243,16 @@ function resolveDevelopmentStandardsAssetDir() {
   return undefined
 }
 
-function killStaleDevelopmentSidecars(runtimeRoot: string) {
-  if (app.isPackaged || process.platform === "win32") return
+function resolveStandardsAssetDir() {
+  const developmentAssetDir = resolveDevelopmentStandardsAssetDir()
+  if (developmentAssetDir) return developmentAssetDir
 
-  const sidecarPath = getSidecarPath()
-  const backendRoot = resolveDevelopmentBackendRoot()
-  const developmentEntrypoint = backendRoot
-    ? path.join(backendRoot, ...DEVELOPMENT_BACKEND_WRAPPER_PATH_SEGMENTS)
-    : undefined
-  const currentPid = process.pid
+  const bundledAssetDir = path.join(resourcesDirectory(), "knowledge-graph")
+  if (existsSync(bundledAssetDir)) return bundledAssetDir
 
-  try {
-    const output = execFileSync("ps", ["eww", "-ax"], {
-      encoding: "utf8",
-    })
-
-    for (const line of output.split("\n")) {
-      const trimmed = line.trim()
-      if (!trimmed.includes(`BUDDY_RUNTIME_ROOT=${runtimeRoot}`)) continue
-      const matchesBundledSidecar = trimmed.includes(sidecarPath)
-      const matchesDevelopmentSidecar = developmentEntrypoint
-        ? trimmed.includes(BUN_EXECUTABLE) && trimmed.includes(developmentEntrypoint)
-        : false
-      if (!matchesBundledSidecar && !matchesDevelopmentSidecar) continue
-
-      const pidText = trimmed.split(/\s+/, 1)[0]
-      const pid = Number.parseInt(pidText, 10)
-      if (Number.isNaN(pid) || pid === currentPid) continue
-
-      try {
-        treeKill(pid)
-      } catch {
-        // noop
-      }
-    }
-  } catch {
-    // noop
-  }
+  return undefined
 }
 
-export async function serve(hostname: string, port: number, password: string) {
-  const backendRoot = resolveDevelopmentBackendRoot()
-  const command = backendRoot ? BUN_EXECUTABLE : getSidecarPath()
-  const entrypoint = backendRoot
-    ? path.join(backendRoot, ...DEVELOPMENT_BACKEND_WRAPPER_PATH_SEGMENTS)
-    : getBundledBackendEntrypointPath()
-  const args = backendRoot
-    ? [
-        `--env-file=${path.resolve(backendRoot, "..", "..", ".env")}`,
-        BUN_RUN_COMMAND,
-        entrypoint,
-        WATCH_OPTION,
-        SERVE_COMMAND,
-        HOSTNAME_OPTION,
-        hostname,
-        PORT_OPTION,
-        String(port),
-      ]
-    : [
-        BUN_RUN_COMMAND,
-        entrypoint,
-        SERVE_COMMAND,
-        HOSTNAME_OPTION,
-        hostname,
-        PORT_OPTION,
-        String(port),
-      ]
-
-  const shell = process.platform === "win32" ? null : getUserShell()
-  const env = await buildRuntimeEnvironment(password, port)
-  killStaleDevelopmentSidecars(env.BUDDY_RUNTIME_ROOT)
-  const envs = ensureSidecarCommandPath(shell ? mergeShellEnv(loadShellEnv(shell), env) : env)
-
-  const child = spawn(command, args, {
-    cwd: backendRoot ?? undefined,
-    env: envs,
-    detached: app.isPackaged && process.platform !== "win32",
-    windowsHide: true,
-    stdio: ["ignore", "pipe", "pipe"],
-  })
-
-  const events = new EventEmitter()
-  const exit = new Promise<TerminatedPayload>((resolve) => {
-    child.on("exit", (code, signal) => {
-      void signal
-      resolve({ code: code ?? null, signal: null })
-    })
-    child.on("error", (error: Error) => {
-      events.emit("error", error.message)
-    })
-  })
-
-  if (child.stdout) {
-    readline.createInterface({ input: child.stdout }).on("line", (line) => {
-      if (handleSqliteProgress(events, line)) return
-      events.emit("stdout", `${line}\n`)
-    })
-  }
-
-  if (child.stderr) {
-    readline.createInterface({ input: child.stderr }).on("line", (line) => {
-      if (handleSqliteProgress(events, line)) return
-      events.emit("stderr", `${line}\n`)
-    })
-  }
-
-  exit.then((payload) => {
-    events.emit("terminated", payload)
-  })
-
-  const wrappedChild: CommandChild = {
-    pid: child.pid,
-    kill: () => {
-      if (!child.pid) return
-      treeKill(child.pid)
-    },
-  }
-
-  return {
-    child: wrappedChild,
-    exit,
-    events,
-  }
-}
-
-function ensureSidecarCommandPath(env: Record<string, string>) {
-  if (process.platform === "win32") {
-    return env
-  }
-
-  const pathKey = pathKeyForEnvironment(env)
-  const values = new Set(
-    splitPathValue(env[pathKey] ?? "").map((entry) => normalizePathEntry(entry)),
-  )
-  const nextEntries = splitPathValue(env[pathKey] ?? "")
-
-  for (const entry of POSIX_SIDECAR_PATH_ENTRIES) {
-    const normalized = normalizePathEntry(entry)
-    if (values.has(normalized)) continue
-    values.add(normalized)
-    nextEntries.push(entry)
-  }
-
-  env[pathKey] = nextEntries.join(path.delimiter)
-  if (pathKey === "PATH") {
-    delete env.Path
-  } else {
-    delete env.PATH
-  }
-  return env
-}
-
-function pathKeyForEnvironment(env: Record<string, string>) {
-  for (const key of PATH_ENV_KEYS) {
-    const value = env[key]
-    if (typeof value === "string" && value.trim().length > 0) {
-      return key
-    }
-  }
-  return PATH_ENV_KEYS[0]
-}
-
-function splitPathValue(value: string) {
-  return value
-    .split(path.delimiter)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0)
-}
-
-function normalizePathEntry(entry: string) {
-  return process.platform === "win32" ? entry.toLowerCase() : entry
-}
-
-function handleSqliteProgress(events: EventEmitter, line: string) {
-  const stripped = line.startsWith(SQLITE_PROGRESS_PREFIX)
-    ? line.slice(SQLITE_PROGRESS_PREFIX.length).trim()
-    : null
-
-  if (!stripped) return false
-
-  if (stripped === "done") {
-    events.emit("sqlite", { type: "Done" } satisfies SqliteMigrationProgress)
-    return true
-  }
-
-  const value = Number.parseInt(stripped, 10)
-  if (!Number.isNaN(value)) {
-    events.emit("sqlite", { type: "InProgress", value } satisfies SqliteMigrationProgress)
-    return true
-  }
-
-  return false
-}
-
-export async function installCli() {
-  if (process.platform === "win32") {
-    throw new Error("CLI installation is only supported on macOS and Linux")
-  }
-
-  const source = getSidecarPath()
-  if (!existsSync(source)) {
-    throw new Error(`Sidecar binary not found at ${source}`)
-  }
-
-  const installRoot = path.join(os.homedir(), CLI_INSTALL_DIR)
-  mkdirSync(installRoot, { recursive: true })
-
-  const destination = path.join(installRoot, CLI_BINARY_NAME)
-  copyFileSync(source, destination)
-  chmodSync(destination, 0o755)
-
-  return destination
+export function installCli(): Promise<string> {
+  return Promise.reject(new Error("Buddy desktop does not currently provide a standalone CLI installer"))
 }

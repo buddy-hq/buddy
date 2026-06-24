@@ -51,14 +51,14 @@ const APP_IDS: Record<ReleaseChannel, string> = {
 }
 
 export const APP_PROTOCOL = "buddy"
-export const SIDECAR_BINARY_NAME = "buddy-backend"
-export const SIDECAR_USERNAME = "buddy"
+export const BACKEND_SERVER_USERNAME = "buddy"
 export const SETTINGS_STORE = "buddy.settings"
 export const DEFAULT_SERVER_URL_KEY = "defaultServerUrl"
 export const WSL_ENABLED_KEY = "wslEnabled"
-export const API_HEALTH_PATH = "/api/health"
+export const API_HEALTH_PATH = "/api/healthz"
+export const API_VENDOR_HEALTH_PATH = "/api/health"
 export const LOOPBACK_HOSTNAME = "127.0.0.1"
-export const SIDECAR_HEALTH_TIMEOUT_MS = 30_000
+export const BACKEND_HEALTH_TIMEOUT_MS = 30_000
 export const UPDATER_ENABLED = app.isPackaged && CHANNEL !== "dev"
 
 export function resolveAppName(packaged: boolean) {

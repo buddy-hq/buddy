@@ -14,25 +14,29 @@ function resolveChannel(): Channel {
 }
 
 const channel = resolveChannel()
-const backendResourcesDir = new URL("./resources/backend", import.meta.url)
-const migrationsResourcesDir = new URL("./resources/migrations", import.meta.url)
+const runtimeResourceNames = [
+  "backend",
+  "backend-node",
+  "knowledge-graph",
+  "migrations",
+] as const
 
-const optionalRuntimeResources = [
-  existsSync(backendResourcesDir)
-    ? {
-        from: "resources/backend",
-        to: "backend",
-        filter: ["**/*"],
-      }
-    : undefined,
-  existsSync(migrationsResourcesDir)
-    ? {
-        from: "resources/migrations",
-        to: "migrations",
-        filter: ["**/*"],
-      }
-    : undefined,
-].filter((entry): entry is NonNullable<typeof entry> => entry !== undefined)
+function requiredRuntimeResource(name: (typeof runtimeResourceNames)[number]) {
+  const resourceDir = new URL(`./resources/${name}`, import.meta.url)
+  if (!existsSync(resourceDir)) {
+    throw new Error(
+      `Required Electron runtime resource missing: resources/${name}. Run the desktop prebuild or prepare:release script before packaging.`,
+    )
+  }
+
+  return {
+    from: `resources/${name}`,
+    to: name,
+    filter: ["**/*"],
+  }
+}
+
+const runtimeResources = runtimeResourceNames.map((name) => requiredRuntimeResource(name))
 
 const BASE_CONFIGURATION: Configuration = {
   artifactName: "buddy-electron-${os}-${arch}.${ext}",
@@ -40,14 +44,9 @@ const BASE_CONFIGURATION: Configuration = {
     output: "dist",
     buildResources: "resources",
   },
-  files: ["out/**/*", "resources/**/*"],
+  files: ["out/**/*"],
   extraResources: [
-    {
-      from: "resources",
-      to: "",
-      filter: ["buddy-backend*"],
-    },
-    ...optionalRuntimeResources,
+    ...runtimeResources,
     {
       from: "resources",
       to: "",

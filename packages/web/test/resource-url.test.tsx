@@ -9,7 +9,7 @@ function createServerConnection(overrides: Partial<ServerConnection> = {}): Serv
     url: "",
     username: null,
     password: null,
-    isSidecar: false,
+    isEmbeddedBackend: false,
     ...overrides,
   }
 }
@@ -32,7 +32,7 @@ describe("resolveAssetUrl", () => {
     container?.remove()
   })
 
-  test("omits embedded credentials for sidecar asset URLs", async () => {
+  test("omits embedded credentials for embedded backend asset URLs", async () => {
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -46,7 +46,7 @@ describe("resolveAssetUrl", () => {
             url: "http://127.0.0.1:53295",
             username: "buddy",
             password: "secret-token",
-            isSidecar: true,
+            isEmbeddedBackend: true,
           })}
         >
           <CaptureResolvedUrl

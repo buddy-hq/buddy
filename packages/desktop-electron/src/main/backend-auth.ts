@@ -1,13 +1,13 @@
 import { Buffer } from "node:buffer"
 import { session } from "electron"
 
-type SidecarAuthConfig = {
+type BackendAuthConfig = {
   origin: string
   headerValue: string
 }
 
 let registered = false
-let currentConfig: SidecarAuthConfig | null = null
+let currentConfig: BackendAuthConfig | null = null
 
 function matchesOrigin(url: string, origin: string) {
   try {
@@ -17,7 +17,7 @@ function matchesOrigin(url: string, origin: string) {
   }
 }
 
-export function registerSidecarRequestAuth() {
+export function registerBackendRequestAuth() {
   if (registered) return
   registered = true
 
@@ -42,7 +42,7 @@ export function registerSidecarRequestAuth() {
   })
 }
 
-export function configureSidecarRequestAuth(input: {
+export function configureBackendRequestAuth(input: {
   url: string
   username: string | null
   password: string | null

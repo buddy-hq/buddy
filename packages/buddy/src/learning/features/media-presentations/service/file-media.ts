@@ -19,6 +19,7 @@ import {
   type BuddyObjectViewResponse,
   type MediaGalleryInlineData,
 } from "../../../../objects"
+import { mimeTypeForPath } from "../../../../http/mime"
 import { readRawFileResponse } from "../../../../project/raw-file-response-service"
 import {
   classifyWorkspaceMedia,
@@ -264,7 +265,7 @@ async function refreshPresentedMediaItem(item: PresentedMediaItem): Promise<Pres
 }
 
 function fileMimeType(filepath: string) {
-  return Bun.file(filepath).type || DEFAULT_BINARY_MIME_TYPE
+  return mimeTypeForPath(filepath, DEFAULT_BINARY_MIME_TYPE)
 }
 
 function classifyPresentedMedia(input: { path: string; mimeType: string | undefined }): {

@@ -55,8 +55,9 @@ describe("whiteboard tool-input delta bridge", () => {
     expect(aiSdkSource).toContain("text: event.delta ??")
     expect(processorSource).toContain('case "tool-input-delta":')
     expect(processorSource).toContain(
-      "delta fragments into `state.raw` is redundant work for no current consumer.",
+      "raw: toolCall.call.raw + value.text",
     )
+    expect(processorSource).toContain('case "tool-input-end":')
   })
 
   test("wires both sides of the bridge before server startup without opening runtime state", async () => {

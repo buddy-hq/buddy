@@ -76,7 +76,7 @@ if (hasAddEventListener(globalEventTarget)) {
 }
 
 const api: ElectronAPI = {
-  killSidecar: () => ipcRenderer.invoke("kill-sidecar"),
+  killBackendUtility: () => ipcRenderer.invoke("kill-backend-utility"),
   installCli: () => ipcRenderer.invoke("install-cli"),
   awaitInitialization: (onStep) => {
     const handler = (_: unknown, step: InitStep) => onStep(step)

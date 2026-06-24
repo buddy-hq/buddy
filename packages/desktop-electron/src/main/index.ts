@@ -9,7 +9,7 @@ import { pathToFileURL } from "node:url"
 import { app, BrowserWindow, dialog, shell } from "electron"
 import type { Event } from "electron"
 import electronUpdaterPackage from "electron-updater"
-import type { InitStep, ServerReadyData, SqliteMigrationProgress } from "../preload/types"
+import type { InitStep, ServerReadyData } from "../preload/types"
 import {
   createCustomMacUpdater,
   parseMacInstallerResult,
@@ -21,22 +21,20 @@ import {
 } from "./custom-mac-updater"
 import {
   APP_PROTOCOL,
+  BACKEND_HEALTH_TIMEOUT_MS,
+  BACKEND_SERVER_USERNAME,
   CHANNEL,
   LOOPBACK_HOSTNAME,
   resolveAppId,
   resolveAppName,
-  SIDECAR_HEALTH_TIMEOUT_MS,
-  SIDECAR_USERNAME,
   UPDATER_ENABLED,
 } from "./constants"
-import type { CommandChild, TerminatedPayload } from "./cli"
 import { checkAppExists, resolveAppPath, wslPath } from "./apps"
 import { installCli } from "./cli"
 import {
   registerIpcHandlers,
   sendDeepLinks,
   sendMenuCommand,
-  sendSqliteMigrationProgress,
 } from "./ipc"
 import { initLogging, safelyWriteToStandardStream } from "./logging"
 import { parseMarkdown } from "./markdown"
@@ -50,13 +48,15 @@ import {
   validateRecoveryTarget,
   type RecoveryTarget,
 } from "./recovery-policy"
-import { configureSidecarRequestAuth, registerSidecarRequestAuth } from "./sidecar-auth"
+import { configureBackendRequestAuth, registerBackendRequestAuth } from "./backend-auth"
 import {
   getDefaultServerUrl,
   getWslConfig,
   setDefaultServerUrl,
   setWslConfig,
   spawnLocalServer,
+  type CommandChild,
+  type TerminatedPayload,
 } from "./server"
 import {
   BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY,
@@ -104,7 +104,7 @@ const initEmitter = new EventEmitter()
 
 let initStep: InitStep = { phase: "server_waiting" }
 let mainWindow: BrowserWindow | null = null
-let sidecar: CommandChild | null = null
+let backendUtility: CommandChild | null = null
 let updateReady = false
 let readyUpdateVersion: string | undefined
 let updaterEnabled = UPDATER_ENABLED
@@ -148,22 +148,21 @@ function setupApplication() {
   })
 
   app.on("before-quit", () => {
-    killSidecar()
+    void killBackendUtility()
   })
 
   app.on("will-quit", () => {
-    killSidecar()
+    void killBackendUtility()
   })
 
   for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"] as const) {
     process.on(signal, () => {
-      killSidecar()
-      app.exit(0)
+      void killBackendUtility().finally(() => app.exit(0))
     })
   }
 
   void app.whenReady().then(async () => {
-    registerSidecarRequestAuth()
+    registerBackendRequestAuth()
     app.setAsDefaultProtocolClient(APP_PROTOCOL)
     if (process.platform === "darwin") {
       customMacUpdater = createCustomMacUpdater({
@@ -181,7 +180,7 @@ function setupApplication() {
         appRootPath: app.getAppPath(),
         resourcesPath: process.resourcesPath,
         logger,
-        killSidecar: () => killSidecar(),
+        stopBackend: () => killBackendUtility(),
         quit: () => app.quit(),
         isVersionBlocked: (version) => isUpdateVersionBlocked(version),
         ...resolveCustomMacUpdaterOptions(),
@@ -215,66 +214,38 @@ function setInitStep(step: InitStep) {
 
 async function initialize() {
   const needsMigration = !sqliteFileExists()
-  const sqliteDone = needsMigration ? defer<void>() : undefined
   let overlay: BrowserWindow | null = null
 
   try {
-    const port = await getSidecarPort()
+    const port = await getBackendPort()
     const hostname = LOOPBACK_HOSTNAME
     const url = `http://${hostname}:${port}`
     const password = randomUUID()
 
     const { child, health, events } = await spawnLocalServer(hostname, port, password)
-    sidecar = child
-    wireSidecarLogs(events)
+    backendUtility = child
+    wireBackendUtilityLogs(events)
 
     serverReady.resolve({
+      isEmbeddedBackend: true,
       url,
-      username: SIDECAR_USERNAME,
+      username: BACKEND_SERVER_USERNAME,
       password,
-      isSidecar: true,
     })
-    configureSidecarRequestAuth({
+    configureBackendRequestAuth({
       url,
-      username: SIDECAR_USERNAME,
+      username: BACKEND_SERVER_USERNAME,
       password,
     })
 
-    const sidecarReady = Promise.race([
+    const backendReady = Promise.race([
       health.wait,
-      delay(SIDECAR_HEALTH_TIMEOUT_MS).then(() => {
-        throw new Error("Sidecar health check timed out")
+      delay(BACKEND_HEALTH_TIMEOUT_MS).then(() => {
+        throw new Error("Backend health check timed out")
       }),
     ])
 
-    const loadingTask = (async () => {
-      let sqliteMigrationCompleted = false
-
-      events.on("sqlite", (progress: SqliteMigrationProgress) => {
-        setInitStep({ phase: "sqlite_waiting" })
-        if (overlay) sendSqliteMigrationProgress(overlay, progress)
-        if (mainWindow) sendSqliteMigrationProgress(mainWindow, progress)
-        if (progress.type === "Done") {
-          sqliteMigrationCompleted = true
-          sqliteDone?.resolve()
-        }
-      })
-
-      if (needsMigration && sqliteDone) {
-        await Promise.race([
-          sqliteDone.promise,
-          sidecarReady.then(() => {
-            if (!sqliteMigrationCompleted) {
-              logger.warn(
-                "sqlite migration completion signal missing; continuing after sidecar readiness",
-              )
-            }
-          }),
-        ])
-      }
-
-      await sidecarReady
-    })()
+    const loadingTask = backendReady
 
     const windowGlobals = {
       updaterEnabled,
@@ -326,7 +297,7 @@ async function handleInitializationFailure(error: unknown, overlay: BrowserWindo
     overlay.close()
   }
 
-  killSidecar()
+  await killBackendUtility()
 
   if (await offerStartupFailureUpdateRecovery(error)) {
     return
@@ -575,7 +546,9 @@ function wireMenu() {
       }
     },
     installCli: () => {
-      void installCli()
+      void installCli().catch((error: unknown) => {
+        logger.error("Failed to install CLI", error)
+      })
     },
     checkForUpdates: () => {
       void checkForUpdates(true)
@@ -584,15 +557,16 @@ function wireMenu() {
       mainWindow?.reload()
     },
     relaunch: () => {
-      killSidecar()
-      app.relaunch()
-      app.exit(0)
+      void killBackendUtility().finally(() => {
+        app.relaunch()
+        app.exit(0)
+      })
     },
   })
 }
 
 registerIpcHandlers({
-  killSidecar: () => killSidecar(),
+  killBackendUtility: () => killBackendUtility(),
   installCli: async () => installCli(),
   awaitInitialization: async (sendStep) => {
     sendStep(initStep)
@@ -623,33 +597,25 @@ registerIpcHandlers({
   exportMarkdownPdf: (input) => exportMarkdownPdf(input),
 })
 
-function killSidecar() {
-  if (!sidecar) return
+async function killBackendUtility() {
+  if (!backendUtility) return
 
-  const pid = sidecar.pid
-  sidecar.kill()
-  sidecar = null
-
-  if (pid && process.platform !== "win32") {
-    try {
-      process.kill(-pid, "SIGTERM")
-    } catch {
-      // noop
-    }
-  }
+  const current = backendUtility
+  backendUtility = null
+  await current.kill()
 }
 
-function wireSidecarLogs(events: EventEmitter) {
-  const mirrorToStdIo = !app.isPackaged && process.env.BUDDY_ELECTRON_DEV_SIDECAR_LOGS !== "0"
+function wireBackendUtilityLogs(events: EventEmitter) {
+  const mirrorToStdIo = !app.isPackaged && process.env.BUDDY_ELECTRON_DEV_BACKEND_LOGS !== "0"
 
   events.on("stdout", (line: string) => {
     const message = line.trimEnd()
     if (message.length === 0) return
-    logger.log(`[sidecar] ${message}`)
+    logger.log(`[backend] ${message}`)
     if (mirrorToStdIo) {
       safelyWriteToStandardStream(
         process.stdout,
-        `[sidecar] ${line.endsWith("\n") ? line : `${line}\n`}`,
+        `[backend] ${line.endsWith("\n") ? line : `${line}\n`}`,
       )
     }
   })
@@ -657,28 +623,28 @@ function wireSidecarLogs(events: EventEmitter) {
   events.on("stderr", (line: string) => {
     const message = line.trimEnd()
     if (message.length === 0) return
-    logger.warn(`[sidecar] ${message}`)
+    logger.warn(`[backend] ${message}`)
     if (mirrorToStdIo) {
       safelyWriteToStandardStream(
         process.stderr,
-        `[sidecar] ${line.endsWith("\n") ? line : `${line}\n`}`,
+        `[backend] ${line.endsWith("\n") ? line : `${line}\n`}`,
       )
     }
   })
 
   events.on("error", (message: string) => {
-    logger.error("sidecar spawn error", message)
+    logger.error("backend utility spawn error", message)
     if (mirrorToStdIo) {
-      safelyWriteToStandardStream(process.stderr, `[sidecar:error] ${message}\n`)
+      safelyWriteToStandardStream(process.stderr, `[backend:error] ${message}\n`)
     }
   })
 
   events.on("terminated", (payload: TerminatedPayload) => {
-    logger.warn("sidecar terminated", payload)
+    logger.warn("backend utility terminated", payload)
     if (mirrorToStdIo) {
       safelyWriteToStandardStream(
         process.stderr,
-        `[sidecar:terminated] code=${payload.code ?? "null"} signal=${payload.signal ?? "null"}\n`,
+        `[backend:terminated] code=${payload.code ?? "null"} signal=${payload.signal ?? "null"}\n`,
       )
     }
   })
@@ -705,7 +671,7 @@ function ensureLoopbackNoProxy() {
   upsert("no_proxy")
 }
 
-async function getSidecarPort() {
+async function getBackendPort() {
   const fromEnv = process.env.BUDDY_PORT
   if (fromEnv) {
     const parsed = Number.parseInt(fromEnv, 10)
@@ -963,7 +929,7 @@ async function installUpdate() {
   }
 
   if (!updateReady) return
-  killSidecar()
+  await killBackendUtility()
   autoUpdater.quitAndInstall()
 }
 

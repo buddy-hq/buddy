@@ -4,6 +4,7 @@ import fsp from "node:fs/promises"
 import path from "node:path"
 import { Transform, type TransformCallback } from "node:stream"
 import { pipeline } from "node:stream/promises"
+import { fileURLToPath } from "node:url"
 import { createZstdDecompress } from "node:zlib"
 import z from "zod"
 import {
@@ -24,7 +25,8 @@ const STANDARDS_DIR = path.join(Global.Path.data, "standards")
 const STANDARDS_CACHE_DIR = path.join(Global.Path.cache, "standards")
 const STANDARDS_STATE_FILE = path.join(Global.Path.state, "standards.json")
 const STANDARDS_OPERATION_LOCK_FILE = path.join(Global.Path.state, "standards.lock")
-const BACKEND_ROOT = path.resolve(import.meta.dir, "../../..")
+const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url))
+const BACKEND_ROOT = path.resolve(MODULE_DIRECTORY, "../../..")
 const DEFAULT_RELEASE_REPOSITORY = "prashantbhudwal/buddy-releases"
 const IN_PROGRESS_STATES = new Set(["downloading", "installing", "repairing", "removing"])
 const READY_STATE = "ready"

@@ -23,7 +23,8 @@ import {
 
 const CATALOG_SCHEMA_VERSION = 1
 const CATALOG_FILE_NAME = "catalog.json"
-const RUNTIME_ENTRYPOINT_FILE_NAMES = new Set(["index.js", "buddy-backend.js"])
+const BACKEND_RESOURCES_DIR_ENV = "BUDDY_BACKEND_RESOURCES_DIR"
+const RUNTIME_ENTRYPOINT_FILE_NAMES = new Set(["index.js"])
 const WITHDRAWN_PATH_MAX_ATTEMPTS = 100
 
 type WithdrawnSkillMove = {
@@ -135,7 +136,9 @@ export function catalogPathCandidates(input: {
   argv: readonly string[]
   moduleUrl: string
 }): string[] {
+  const resourcesRoot = process.env[BACKEND_RESOURCES_DIR_ENV]?.trim()
   const paths = [
+    ...(resourcesRoot ? [path.join(resourcesRoot, CATALOG_FILE_NAME)] : []),
     path.join(path.dirname(fileURLToPath(input.moduleUrl)), CATALOG_FILE_NAME),
     ...input.argv.flatMap((arg) => {
       if (!RUNTIME_ENTRYPOINT_FILE_NAMES.has(path.basename(arg))) return []

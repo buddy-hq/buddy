@@ -17,6 +17,7 @@ import {
   resolveHtmlWidgetObjectRuntimeFile,
 } from "../learning/features/html-widgets/service/store"
 import { HTML_WIDGET_RUNTIME_CSP } from "../learning/features/html-widgets/service/types"
+import { createRawFileStream, readRawFileRecord } from "../project/raw-file-response-service"
 
 const objectIDParamSchema = z
   .object({
@@ -139,7 +140,10 @@ export const ObjectHtmlWidgetRoutes = new Hono()
             assetPath: params.assetPath,
             version: htmlWidgetRuntimeVersionFromToken(params.versionToken),
           })
-          return new Response(Bun.file(runtime.filePath), {
+          const fileRecord = readRawFileRecord(runtime.filePath)
+          if (!fileRecord.ok) return fileRecord.response
+
+          return new Response(createRawFileStream(fileRecord), {
             headers: {
               ...(runtime.immutable ? immutableRuntimeHeaders : liveRuntimeHeaders),
               ...(runtime.isDocument ? runtimeDocumentHeaders : {}),

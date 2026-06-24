@@ -1,37 +1,16 @@
 import { $ } from "bun"
 import path from "node:path"
-import {
-  currentTargetTriple,
-  readDesktopPackageVersion,
-  updateDesktopPackageVersion,
-  windowsify,
-} from "./utils"
+import { readDesktopPackageVersion, updateDesktopPackageVersion } from "./utils"
 
 const packageDir = path.resolve(import.meta.dir, "..")
-const backendDir = path.resolve(packageDir, "../buddy")
-const target = currentTargetTriple()
 const originalVersion = readDesktopPackageVersion()
-const version = Bun.env.BUDDY_VERSION?.trim() || originalVersion
-const artifactDir = path.resolve(backendDir, "dist/release-sidecars")
+const version = process.env.BUDDY_VERSION?.trim() || originalVersion
 
 try {
-  await $`bun run --cwd ${backendDir} build:release-sidecar --target ${target}`
-
   await $`bun ./scripts/prepare.ts`.cwd(packageDir).env({
     ...process.env,
-    BUDDY_RUST_TARGET: target,
-    BUDDY_SIDECAR_ARTIFACT_DIR: artifactDir,
     BUDDY_VERSION: version,
   })
-
-  await $`bun run --cwd ${backendDir} smoke:compiled-sidecar --binary ${path.resolve(
-    packageDir,
-    "resources",
-    windowsify("buddy-backend", target),
-  )} --entrypoint ${path.resolve(
-    packageDir,
-    "resources/backend/buddy-backend.js",
-  )} --migration-dir ${path.resolve(packageDir, "resources/migrations/buddy")}`
 
   await $`bun run build`.cwd(packageDir)
 
@@ -45,7 +24,7 @@ try {
 
   await $`bun ./scripts/copy-bundles.ts`.cwd(packageDir)
 } finally {
-  if (Bun.env.BUDDY_VERSION?.trim() && originalVersion !== version) {
+  if (process.env.BUDDY_VERSION?.trim() && originalVersion !== version) {
     updateDesktopPackageVersion(originalVersion)
   }
 }

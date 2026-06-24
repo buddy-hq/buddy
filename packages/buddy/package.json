@@ -4,17 +4,21 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts"
+  },
+  "imports": {
+    "#sqlite": {
+      "bun": "./src/sqlite/database.bun.ts",
+      "node": "./src/sqlite/database.node.ts",
+      "default": "./src/sqlite/database.node.ts"
+    }
   },
   "scripts": {
     "dev": "bun run ensure:advanced-math-runtime && bun --env-file=../../.env run src/dev/start-with-safe-env.ts --watch",
     "build": "tsc",
+    "build:node": "bun ./script/build-node.ts",
     "lint": "bun ../../node_modules/oxlint/bin/oxlint",
-    "build:single": "bun ./script/build-single.ts",
-    "build:desktop-sidecar": "bun run build:single",
-    "build:release-sidecar": "bun ./script/build-sidecar.ts",
-    "build:release-sidecars": "bun ./script/build-sidecar.ts --all",
-    "smoke:compiled-sidecar": "bun ./script/smoke-compiled-sidecar.ts",
     "build:knowledge-graph": "bun ./script/update-knowledge-graph.ts",
     "update:knowledge-graph": "bun ./script/update-knowledge-graph.ts",
     "verify:knowledge-graph": "bun ./script/verify-knowledge-graph.ts",
@@ -36,6 +40,8 @@
     "test:contracts": "bun test --preload ./test/preload.ts test/parity",
     "learner-memory:evaluate": "bun ./script/learner-memory-evaluation.ts",
     "smoke": "bun ./script/smoke.ts",
+    "smoke:node": "bun ./script/smoke-node.ts",
+    "measure:node-memory": "bun ./script/measure-node-memory.ts",
     "db": "bun drizzle-kit"
   },
   "dependencies": {
@@ -44,7 +50,9 @@
     "@buddy/opencode-adapter": "workspace:*",
     "@buddy/workspace-file-policy": "workspace:*",
     "@chonkiejs/core": "^0.0.8",
+    "@hono/node-server": "^1.19.9",
     "@hono/standard-validator": "^0.2.2",
+    "@lydell/node-pty": "catalog:",
     "@opencode-ai/plugin": "workspace:*",
     "@opencode-ai/sdk": "workspace:*",
     "@zip.js/zip.js": "^2.8.23",
@@ -58,12 +66,21 @@
     "hono-openapi": "1.1.2",
     "jsonc-parser": "^3.3.1",
     "mammoth": "^1.12.0",
+    "mime-types": "^3.0.2",
     "pdfjs-dist": "^5.5.207",
     "remeda": "^2.33.0",
     "turndown": "^7.2.2",
     "ulid": "^3.0.1",
     "xdg-basedir": "5.1.0",
     "zod": "4.1.8"
+  },
+  "optionalDependencies": {
+    "@lydell/node-pty-darwin-arm64": "1.2.0-beta.12",
+    "@lydell/node-pty-darwin-x64": "1.2.0-beta.12",
+    "@lydell/node-pty-linux-arm64": "1.2.0-beta.12",
+    "@lydell/node-pty-linux-x64": "1.2.0-beta.12",
+    "@lydell/node-pty-win32-arm64": "1.2.0-beta.12",
+    "@lydell/node-pty-win32-x64": "1.2.0-beta.12"
   },
   "devDependencies": {
     "@types/bun": "catalog:",

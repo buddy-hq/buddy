@@ -37,7 +37,7 @@ Provider bootstrap tests also exposed cold runtime timeouts under Bun's default 
 
 ## Probe Summary
 
-Measurements were taken with a rebuilt Windows sidecar and the reusable script added in `packages/buddy/script/measure-sidecar-memory.ts`.
+Measurements were taken with the built Windows Node backend artifact and the reusable script added in `packages/buddy/script/measure-node-memory.ts`.
 The script now defaults to the standard optimization probe shape: `/api/healthz`, `/api/health`, `/api/provider`, and `/api/provider/auth` over 2 cycles, with 2s settle time, 30s final settle time, 180s probe timeout, automatic cleanup, and a timestamped durable JSON output. Current memory optimization measurements are kept under `docs/memory-optimization/log/`.
 
 Durable measurement files:

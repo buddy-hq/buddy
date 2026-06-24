@@ -1,10 +1,10 @@
 export type InitStep = { phase: "server_waiting" } | { phase: "sqlite_waiting" } | { phase: "done" }
 
 export type ServerReadyData = {
+  isEmbeddedBackend: boolean
   url: string
   username: string | null
   password: string | null
-  isSidecar: boolean
 }
 
 export type SqliteMigrationProgress = { type: "InProgress"; value: number } | { type: "Done" }
@@ -20,7 +20,7 @@ export type TitlebarTheme = {
 }
 
 export type ElectronAPI = {
-  killSidecar: () => Promise<void>
+  killBackendUtility: () => Promise<void>
   installCli: () => Promise<string>
   awaitInitialization: (onStep: (step: InitStep) => void) => Promise<ServerReadyData>
   getDefaultServerUrl: () => Promise<string | null>

@@ -4,14 +4,14 @@ export type ServerConnection = {
   url: string
   username?: string | null
   password?: string | null
-  isSidecar: boolean
+  isEmbeddedBackend: boolean
 }
 
 const defaultServerConnection: ServerConnection = {
   url: "",
   username: null,
   password: null,
-  isSidecar: false,
+  isEmbeddedBackend: false,
 }
 
 let currentServerConnection = defaultServerConnection
@@ -21,7 +21,7 @@ function normalizeConnection(value: ServerConnection): ServerConnection {
     url: value.url.replace(/\/+$/, ""),
     username: value.username ?? null,
     password: value.password ?? null,
-    isSidecar: value.isSidecar,
+    isEmbeddedBackend: value.isEmbeddedBackend,
   }
 }
 
@@ -51,6 +51,6 @@ export function createBrowserServerConnection(): ServerConnection {
     url: "",
     username: null,
     password: null,
-    isSidecar: false,
+    isEmbeddedBackend: false,
   }
 }

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 import fs from "node:fs"
 import path from "node:path"
+import { fileURLToPath } from "node:url"
 
 const RUNTIME_SOURCE_RELATIVE_PATH = "runtime/main.py"
 const RUNTIME_BUILD_SCRIPT_RELATIVE_PATH = "../../../script/build-advanced-math-runtime.ts"
@@ -34,6 +35,7 @@ const RUNTIME_VERSION_INPUTS: readonly RuntimeVersionInput[] = [
 ]
 
 let cachedRuntimeVersion: string | undefined
+const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url))
 
 function readVersionOverride() {
   const override = process.env[ADVANCED_MATH_VERSION_OVERRIDE_ENV]?.trim()
@@ -56,7 +58,7 @@ function runtimeHash(content: string) {
 }
 
 function versionInputPath(input: RuntimeVersionInput) {
-  return path.resolve(import.meta.dir, input.relativePath)
+  return path.resolve(MODULE_DIRECTORY, input.relativePath)
 }
 
 function normalizeInputContent(content: string) {

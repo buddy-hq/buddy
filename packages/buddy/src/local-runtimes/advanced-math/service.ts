@@ -4,6 +4,7 @@ import fs from "node:fs"
 import fsp from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import { fileURLToPath } from "node:url"
 import z from "zod"
 import { Global } from "../../storage/global"
 import { resolveAdvancedMathRuntimeVersion } from "./version"
@@ -11,7 +12,8 @@ import { resolveAdvancedMathRuntimeVersion } from "./version"
 const ADVANCED_MATH_DIR = path.join(Global.Path.data, "advanced-math")
 const ADVANCED_MATH_CACHE_DIR = path.join(Global.Path.cache, "advanced-math")
 const ADVANCED_MATH_STATE_FILE = path.join(Global.Path.state, "advanced-math.json")
-const BACKEND_ROOT = path.resolve(import.meta.dir, "../../..")
+const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url))
+const BACKEND_ROOT = path.resolve(MODULE_DIRECTORY, "../../..")
 const DEFAULT_RELEASE_REPOSITORY = "prashantbhudwal/buddy-releases"
 const ADVANCED_MATH_BUNDLE_DIR = "buddy-advanced-math"
 const ADVANCED_MATH_EXECUTABLE =

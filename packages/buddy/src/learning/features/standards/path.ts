@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
+import { fileURLToPath } from "node:url"
 import { zstdDecompressSync } from "node:zlib"
 import type { KnowledgeGraphArtifactManifest } from "./artifact"
 import {
@@ -20,6 +21,7 @@ const BYTES_PER_KIB = 1024
 const KIB_PER_MIB = 1024
 const FILE_HASH_CHUNK_BYTES = BYTES_PER_KIB * KIB_PER_MIB
 const MATERIALIZED_VALIDATION_CACHE_KEY_SEPARATOR = "\0"
+const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url))
 
 type MaterializedDatabaseStats = {
   dev: number
@@ -52,8 +54,8 @@ function candidateRoots() {
   const roots = [
     process.cwd(),
     path.dirname(process.execPath),
-    import.meta.dir,
-    path.resolve(import.meta.dir, "../../../.."),
+    MODULE_DIRECTORY,
+    path.resolve(MODULE_DIRECTORY, "../../../.."),
   ]
 
   return Array.from(new Set(roots.map((root) => path.resolve(root))))

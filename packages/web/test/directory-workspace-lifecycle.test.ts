@@ -231,7 +231,7 @@ function registerGuard(input: {
 
 describe("DirectoryWorkspaceLifecycleService", () => {
   afterEach(() => {
-    setRuntimeServerConnection({ url: "", isSidecar: false })
+    setRuntimeServerConnection({ url: "", isEmbeddedBackend: false })
   })
 
   test("selects the newest matching target registration and cleanup restores the previous one", async () => {
@@ -283,7 +283,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
     let projection = projectionFor(TARGET)
     let hydrationStatus: "pending" | "ready" = "pending"
     const publishBodies: unknown[] = []
-    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
     globalThis.fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -371,7 +371,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
     const syncReasons: string[] = []
     let content = "before-sync"
     let semanticRevision = 1
-    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
     globalThis.fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -452,7 +452,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
     const syncReasons: string[] = []
     let content = "before-watcher"
     let semanticRevision = 1
-    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
     globalThis.fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -540,7 +540,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
     const syncReasons: string[] = []
     let content = "before-turn-complete"
     let semanticRevision = 1
-    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
     globalThis.fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -627,7 +627,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
       markContextPublishStarted = resolve
     })
     const completionBodies: unknown[] = []
-    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
     globalThis.fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -763,7 +763,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
 
   test("uses route fallback when a matching registration returns stale target context", async () => {
     const completionBodies: unknown[] = []
-    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
     globalThis.fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -865,7 +865,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
 
   test("skips a stale newest registration and uses an older valid registration", async () => {
     const completionBodies: unknown[] = []
-    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
     globalThis.fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -977,7 +977,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
 
   test("retries a conflicting completion when the authoritative lease changed", async () => {
     const completionBodies: Array<{ lease?: { generation?: number } }> = []
-    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
     let service: DirectoryWorkspaceLifecycleService | undefined
     globalThis.fetch = Object.assign(
@@ -1054,7 +1054,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
   test("keeps same-lease conflicts incomplete but treats expiry as terminal", async () => {
     const statuses = ["conflict", "expired"] as const
     let requestIndex = 0
-    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
     globalThis.fetch = Object.assign(
       async () =>
@@ -1098,7 +1098,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
 
   test("publishes the outgoing session closed before adopting the incoming session", async () => {
     const publications: ContextPublicationProbe[] = []
-    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
     globalThis.fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -1170,7 +1170,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
     const outgoingCloseStarted = new Promise<void>((resolve) => {
       markOutgoingCloseStarted = resolve
     })
-    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
     globalThis.fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -1248,7 +1248,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
 
   test("republishes unchanged active context with sequence one after reconnect", async () => {
     const publications: ContextPublicationProbe[] = []
-    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
     globalThis.fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -1326,7 +1326,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
     const publishStarted = new Promise<void>((resolve) => {
       markPublishStarted = resolve
     })
-    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
     globalThis.fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -1409,7 +1409,7 @@ describe("DirectoryWorkspaceLifecycleService", () => {
 
   test("publishes closed context before releasing the lease on disposal", async () => {
     const requests: Array<{ method: string; value?: unknown }> = []
-    setRuntimeServerConnection({ url: "http://buddy.test", isSidecar: false })
+    setRuntimeServerConnection({ url: "http://buddy.test", isEmbeddedBackend: false })
     const previousFetch = globalThis.fetch
     globalThis.fetch = Object.assign(
       async (input: RequestInfo | URL, init?: RequestInit) => {

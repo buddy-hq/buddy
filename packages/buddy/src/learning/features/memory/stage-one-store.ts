@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite"
+import { Database } from "#sqlite"
 import fs from "node:fs/promises"
 import path from "node:path"
 import { ulid } from "ulid"
@@ -253,7 +253,7 @@ function ensureColumn(
 ): void {
   const rows = z
     .array(z.object({ name: z.string() }))
-    .parse(db.query(`PRAGMA table_info(${tableName})`).all())
+    .parse(db.prepare(`PRAGMA table_info(${tableName})`).all())
   if (rows.some((row) => row.name === columnName)) return
   db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnType}`)
 }
@@ -261,7 +261,7 @@ function ensureColumn(
 function readStageOneJob(db: Database, jobKey: string) {
   return StageOneJobRowSchema.nullable().parse(
     db
-      .query(
+      .prepare(
         `SELECT job_key,
                 ownership_token,
                 worker_id,
@@ -318,7 +318,7 @@ async function tryClaimLearnerMemoryStageOneJob(input: {
     }
 
     const ownershipToken = `lease_${ulid()}`
-    db.query(
+    db.prepare(
       `INSERT INTO stage_one_jobs (
           job_key,
           ownership_token,
@@ -452,7 +452,7 @@ async function listLearnerMemoryStageOneOutputRecords(
   const db = openJobLedger(directory)
   const rows = z.array(StageOneOutputRowSchema).parse(
     db
-      .query(
+      .prepare(
         `SELECT session_id,
                 job_key,
                 source_updated_at_ms,
@@ -508,7 +508,7 @@ async function releaseLearnerMemoryStageOneJobSkipped(input: {
   const now = Date.now()
   try {
     db.exec("BEGIN IMMEDIATE")
-    db.query(
+    db.prepare(
       `UPDATE stage_one_jobs
           SET ownership_token = NULL,
               worker_id = NULL,
@@ -547,7 +547,7 @@ async function tryClaimLearnerMemoryExtractionBudget(input: {
       .object({ count: z.number() })
       .parse(
         db
-          .query(`SELECT COUNT(*) AS count FROM extraction_budget_claims WHERE session_id = ?`)
+          .prepare(`SELECT COUNT(*) AS count FROM extraction_budget_claims WHERE session_id = ?`)
           .get(input.sessionID),
       ).count
     if (sessionCount >= input.maxExtractionCallsPerSession) {
@@ -559,7 +559,7 @@ async function tryClaimLearnerMemoryExtractionBudget(input: {
       .object({ count: z.number() })
       .parse(
         db
-          .query(`SELECT COUNT(*) AS count FROM extraction_budget_claims WHERE day_key = ?`)
+          .prepare(`SELECT COUNT(*) AS count FROM extraction_budget_claims WHERE day_key = ?`)
           .get(today),
       ).count
     if (dayCount >= input.maxExtractionCallsPerDay) {
@@ -567,7 +567,7 @@ async function tryClaimLearnerMemoryExtractionBudget(input: {
       return { claimed: false, reason: "daily_extraction_budget_exhausted" }
     }
 
-    db.query(
+    db.prepare(
       `INSERT INTO extraction_budget_claims (id, session_id, day_key, created_at_ms)
        VALUES (?, ?, ?, ?)`,
     ).run(claimID, input.sessionID, today, now)
@@ -665,7 +665,7 @@ async function markLearnerMemoryStageOneJobSucceeded(input: StageOneWriteInput):
   const now = Date.now()
   try {
     db.exec("BEGIN IMMEDIATE")
-    db.query(
+    db.prepare(
       `UPDATE stage_one_jobs
           SET ownership_token = NULL,
               worker_id = NULL,
@@ -686,7 +686,7 @@ async function markLearnerMemoryStageOneJobSucceeded(input: StageOneWriteInput):
       input.claim.jobKey,
       input.claim.ownershipToken,
     )
-    db.query(
+    db.prepare(
       `INSERT INTO stage_one_outputs (
           session_id,
           job_key,
@@ -739,7 +739,7 @@ async function markLearnerMemoryStageOneJobSucceededNoOutput(input: {
   const now = Date.now()
   try {
     db.exec("BEGIN IMMEDIATE")
-    db.query(
+    db.prepare(
       `UPDATE stage_one_jobs
           SET ownership_token = NULL,
               worker_id = NULL,
@@ -760,7 +760,7 @@ async function markLearnerMemoryStageOneJobSucceededNoOutput(input: {
       input.claim.jobKey,
       input.claim.ownershipToken,
     )
-    db.query("DELETE FROM stage_one_outputs WHERE session_id = ?").run(input.claim.sessionID)
+    db.prepare("DELETE FROM stage_one_outputs WHERE session_id = ?").run(input.claim.sessionID)
     db.exec("COMMIT")
   } catch (error) {
     db.exec("ROLLBACK")
@@ -781,7 +781,7 @@ async function markLearnerMemoryStageOneJobFailed(input: {
   const message = input.error instanceof Error ? input.error.message : String(input.error)
   try {
     db.exec("BEGIN IMMEDIATE")
-    db.query(
+    db.prepare(
       `UPDATE stage_one_jobs
           SET ownership_token = NULL,
               worker_id = NULL,
@@ -813,7 +813,7 @@ async function getLearnerMemoryStageOneInputWatermark(directory: string): Promis
   try {
     const row = z.object({ input_watermark_ms: z.number().nullable() }).parse(
       db
-        .query(
+        .prepare(
           `SELECT MAX(source_updated_at_ms) AS input_watermark_ms
                FROM stage_one_outputs`,
         )
@@ -884,7 +884,7 @@ async function pruneLearnerMemoryStageOneOutputs(input: {
   const db = openJobLedger(input.directory)
   try {
     db.exec("BEGIN IMMEDIATE")
-    const remove = db.query("DELETE FROM stage_one_outputs WHERE session_id = ?")
+    const remove = db.prepare("DELETE FROM stage_one_outputs WHERE session_id = ?")
     for (const record of pruned) {
       remove.run(record.sessionID)
     }
@@ -939,7 +939,7 @@ async function getLearnerMemoryPipelineDiagnostics(
   try {
     jobRows = z.array(StageOneJobRowSchema).parse(
       db
-        .query(
+        .prepare(
           `SELECT job_key,
                   ownership_token,
                   worker_id,
@@ -959,11 +959,11 @@ async function getLearnerMemoryPipelineDiagnostics(
     const today = extractionBudgetDayKey(new Date())
     todayCount = BudgetCountRowSchema.parse(
       db
-        .query(`SELECT COUNT(*) AS count FROM extraction_budget_claims WHERE day_key = ?`)
+        .prepare(`SELECT COUNT(*) AS count FROM extraction_budget_claims WHERE day_key = ?`)
         .get(today),
     ).count
     totalCount = BudgetCountRowSchema.parse(
-      db.query(`SELECT COUNT(*) AS count FROM extraction_budget_claims`).get(),
+      db.prepare(`SELECT COUNT(*) AS count FROM extraction_budget_claims`).get(),
     ).count
   } finally {
     db.close()
@@ -1035,7 +1035,7 @@ async function tryClaimLearnerMemoryPhaseTwoJob(input: {
     }
 
     const ownershipToken = `lease_${ulid()}`
-    db.query(
+    db.prepare(
       `INSERT INTO stage_one_jobs (
           job_key,
           ownership_token,
@@ -1094,7 +1094,7 @@ async function markLearnerMemoryPhaseTwoJobSucceeded(input: {
   const now = Date.now()
   try {
     db.exec("BEGIN IMMEDIATE")
-    db.query(
+    db.prepare(
       `UPDATE stage_one_jobs
           SET ownership_token = NULL,
               worker_id = NULL,
@@ -1107,14 +1107,14 @@ async function markLearnerMemoryPhaseTwoJobSucceeded(input: {
           AND ownership_token = ?`,
     ).run(input.claim.inputWatermarkMs, now, input.claim.jobKey, input.claim.ownershipToken)
 
-    db.query(
+    db.prepare(
       `UPDATE stage_one_outputs
           SET selected_for_consolidation = 0,
               selected_source_updated_at_ms = NULL,
               updated_at_ms = ?`,
     ).run(now)
 
-    const markSelected = db.query(
+    const markSelected = db.prepare(
       `UPDATE stage_one_outputs
           SET selected_for_consolidation = 1,
               selected_source_updated_at_ms = source_updated_at_ms,
@@ -1142,7 +1142,7 @@ async function heartbeatLearnerMemoryPhaseTwoJob(input: {
   const now = Date.now()
   try {
     const result = db
-      .query(
+      .prepare(
         `UPDATE stage_one_jobs
             SET lease_expires_at_ms = ?,
                 updated_at_ms = ?
@@ -1169,7 +1169,7 @@ async function recordLearnerMemoryStageOneUsage(input: {
   const db = openJobLedger(input.directory)
   const now = Date.now()
   try {
-    db.query(
+    db.prepare(
       `UPDATE stage_one_outputs
           SET usage_count = usage_count + 1,
               last_usage_ms = ?,
@@ -1217,7 +1217,7 @@ async function markLearnerMemoryPhaseTwoJobFailed(input: {
   const message = input.error instanceof Error ? input.error.message : String(input.error)
   try {
     db.exec("BEGIN IMMEDIATE")
-    db.query(
+    db.prepare(
       `UPDATE stage_one_jobs
           SET ownership_token = NULL,
               worker_id = NULL,

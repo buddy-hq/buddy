@@ -11,14 +11,14 @@ export function resolveAssetUrl(endpoint: string) {
     }
 
     const url = new URL(resolved, origin)
-    if (!server.isSidecar) {
+    if (!server.isEmbeddedBackend) {
       applyAuthToUrl(url)
     }
     return url.toString()
   }
 
   const url = new URL(resolved)
-  if (!server.isSidecar) {
+  if (!server.isEmbeddedBackend) {
     applyAuthToUrl(url)
   }
   return url.toString()

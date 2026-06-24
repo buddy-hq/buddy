@@ -1,7 +1,7 @@
 import fs from "node:fs"
+import { mimeTypeForPath } from "../http/mime"
 
 const FILE_NOT_FOUND_ERROR = "File not found"
-const DEFAULT_BINARY_MIME_TYPE = "application/octet-stream"
 const BYTE_RANGE_UNIT = "bytes"
 const HTTP_PARTIAL_CONTENT_STATUS = 206
 const HTTP_RANGE_NOT_SATISFIABLE_STATUS = 416
@@ -60,7 +60,7 @@ function readRawFileRecord(filepath: string): RawFileRecord {
 }
 
 function readRawFileMimeType(filepath: string): string {
-  return Bun.file(filepath).type || DEFAULT_BINARY_MIME_TYPE
+  return mimeTypeForPath(filepath)
 }
 
 function buildRawFileHeaders(input: {
@@ -197,6 +197,13 @@ function createRawFileRangeStream(
   })
 }
 
+function createRawFileStream(fileRecord: Extract<RawFileRecord, { ok: true }>) {
+  return createRawFileRangeStream(fileRecord.filepath, {
+    start: 0,
+    end: fileRecord.size - 1,
+  })
+}
+
 function readRawFileResponse(input: {
   absolutePath: string
   downloadName: string
@@ -228,7 +235,7 @@ function readRawFileResponse(input: {
   }
 
   if (rangeResolution.kind === "full") {
-    return new Response(input.includeBody ? Bun.file(fileRecord.filepath) : null, {
+    return new Response(input.includeBody ? createRawFileStream(fileRecord) : null, {
       headers: baseHeaders,
     })
   }
@@ -248,4 +255,4 @@ function readRawFileResponse(input: {
   )
 }
 
-export { buildRawFileHeaders, readRawFileRecord, readRawFileResponse }
+export { buildRawFileHeaders, createRawFileStream, readRawFileRecord, readRawFileResponse }

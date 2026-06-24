@@ -157,7 +157,7 @@ export function createDesktopPlatform(): Platform {
     },
     async restart() {
       await flushAll()
-      await window.api.killSidecar().catch(() => undefined)
+      await window.api.killBackendUtility().catch(() => undefined)
       window.api.relaunch()
     },
     checkUpdate() {

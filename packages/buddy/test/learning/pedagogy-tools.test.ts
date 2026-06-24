@@ -61,8 +61,9 @@ describe("pedagogy tools", () => {
     })
 
     expect(result.prepareResource.title).toBe("prepare_resource")
-    expect(result.prepareResource.output).toContain("<resource_preparation")
+    expect(result.prepareResource.output).toContain("Prepared resource prepare-resource-sample.")
     expect(result.prepareResource.output).toContain("status=ready")
     expect(result.prepareResource.output).toContain("timed_out=false")
+    expect(result.prepareResource.metadata.buddyObjectResult.status).toBe("ok")
   })
 })

@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test"
 import {
   getPromptSelectPerformanceSummary,
   PROMPT_SELECT_ANALYSIS_TURN_WINDOW,
+  PROMPT_SELECT_MERMAID_RENDER_THRESHOLD,
 } from "../src/components/prompt/prompt-select-performance"
 import {
   createAssistantMessageInfo,
@@ -130,7 +131,10 @@ describe("prompt select performance", () => {
       "  B -->|No| D[Fallback]",
       "```",
     ].join("\n")
-    const repeatedMermaid = Array.from({ length: 8 }, () => mermaidBlock).join("\n\n")
+    const repeatedMermaid = Array.from(
+      { length: PROMPT_SELECT_MERMAID_RENDER_THRESHOLD },
+      () => mermaidBlock,
+    ).join("\n\n")
 
     const summary = getPromptSelectPerformanceSummary([
       createTextMessage({
@@ -140,7 +144,7 @@ describe("prompt select performance", () => {
       }),
     ])
 
-    expect(summary.mermaidSignalCount).toBe(8)
+    expect(summary.mermaidSignalCount).toBe(PROMPT_SELECT_MERMAID_RENDER_THRESHOLD)
     expect(summary.shouldPreferNativeSelects).toBe(true)
   })
 

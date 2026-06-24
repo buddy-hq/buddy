@@ -22,6 +22,7 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: "src/main/index.ts",
+          "backend-utility": "src/main/backend-utility.ts",
         },
       },
     },

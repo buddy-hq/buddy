@@ -487,15 +487,15 @@ The user wants CI to fail if these regressions occur again, so they are caught b
 
 ### Intended guards
 
-1. **Provider response size check (Linux smoke job)**: The existing `smoke-compiled-sidecar` job on `ubuntu-latest` already starts the sidecar. Add a step that hits `/api/provider` and asserts the response size is below a threshold (e.g. < 1 MB). This would have caught the 3.88 MB / 5254-model regression directly. Platform-independent — the response size is the same on all platforms.
+1. **Provider response size check (Linux smoke job)**: The `smoke-node-backend` job on `ubuntu-latest` starts the built Node backend artifact. Add a step that hits `/api/provider` and asserts the response size is below a threshold (e.g. < 1 MB). This would have caught the 3.88 MB / 5254-model regression directly. Platform-independent — the response size is the same on all platforms.
 
-2. **Sidecar memory check (Windows runner)**: The `build-electron-windows-x64` job already runs on `windows-2025-vs2026` and already has the compiled sidecar binary as a downloaded artifact. Add post-build steps that:
-   - Start the sidecar in the background
+2. **Node backend memory check (Windows runner)**: The `build-electron-windows-x64` job already runs on `windows-2025-vs2026` and stages the built Node backend artifact. Add post-build steps that:
+   - Start the Node backend artifact in the background
    - Hit `/api/provider` to trigger catalog load
-   - Measure `WorkingSet64` via PowerShell (`(Get-Process buddy-backend).WorkingSet64`)
+   - Measure `WorkingSet64` via PowerShell using the backend process ID
    - Assert peak memory < threshold (e.g. < 400 MB)
    - Wait 30s, measure steady-state memory, assert < threshold (e.g. < 250 MB)
-   - Kill the sidecar
+   - Stop the backend
 
    This catches the Windows-specific memory retention regression on the actual platform where it occurs.
 

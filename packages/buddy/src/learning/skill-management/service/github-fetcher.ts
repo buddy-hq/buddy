@@ -1,6 +1,9 @@
+import { Buffer } from "node:buffer"
+import { spawn, type ChildProcessByStdio } from "node:child_process"
 import fsp from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import type { Readable } from "node:stream"
 import { skillSourceRefSchema, type SkillSourceRef } from "./catalog-schemas"
 import { SkillServiceError } from "./contracts"
 import {
@@ -14,6 +17,8 @@ const GIT_FETCH_TIMEOUT_MS = 120_000
 const GIT_PROCESS_KILL_GRACE_MS = 1_000
 const GIT_STDERR_MAX_BYTES = 8_192
 const SKILL_DOCUMENT_FILENAME = "SKILL.md"
+
+type GitChildProcess = ChildProcessByStdio<null, Readable, Readable>
 
 export type GitCommandResult = {
   code: number
@@ -67,20 +72,19 @@ async function runGitCommand(input: {
   cwd: string
   timeoutMs: number
 }): Promise<GitCommandResult> {
-  const process = Bun.spawn(["git", ...input.args], {
+  const child = spawn("git", input.args, {
     cwd: input.cwd,
-    stdout: "pipe",
-    stderr: "pipe",
+    stdio: ["ignore", "pipe", "pipe"],
   })
   const killTimer = setTimeout(() => {
-    process.kill()
+    terminateProcess(child)
   }, input.timeoutMs)
 
   try {
     const [stdout, stderr, code] = await Promise.all([
-      new Response(process.stdout).text(),
-      new Response(process.stderr).text(),
-      process.exited,
+      readStreamUtf8(child.stdout),
+      readStreamUtf8(child.stderr),
+      waitForProcessExit(child),
     ])
     return {
       code,
@@ -90,6 +94,53 @@ async function runGitCommand(input: {
   } finally {
     clearTimeout(killTimer)
   }
+}
+
+function readStreamUtf8(stream: Readable): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []
+
+    stream.on("data", (chunk: unknown) => {
+      if (Buffer.isBuffer(chunk)) {
+        chunks.push(chunk)
+        return
+      }
+      if (typeof chunk === "string") {
+        chunks.push(Buffer.from(chunk))
+        return
+      }
+      chunks.push(Buffer.from(String(chunk)))
+    })
+    stream.on("error", reject)
+    stream.on("end", () => {
+      resolve(Buffer.concat(chunks).toString("utf8"))
+    })
+  })
+}
+
+function waitForProcessExit(child: GitChildProcess): Promise<number> {
+  return new Promise((resolve, reject) => {
+    child.on("error", reject)
+    child.on("close", (code) => {
+      resolve(code ?? 1)
+    })
+  })
+}
+
+function terminateProcess(child: GitChildProcess) {
+  if (child.killed) return
+
+  let closed = false
+  let forceKillTimer: NodeJS.Timeout | undefined
+  child.once("close", () => {
+    closed = true
+    if (forceKillTimer) clearTimeout(forceKillTimer)
+  })
+
+  child.kill()
+  forceKillTimer = setTimeout(() => {
+    if (!closed) child.kill("SIGKILL")
+  }, GIT_PROCESS_KILL_GRACE_MS)
 }
 
 async function checkedGit(input: {

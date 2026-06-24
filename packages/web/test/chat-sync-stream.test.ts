@@ -46,7 +46,7 @@ function setServerConnection(input: {
   url: string
   username?: string | null
   password?: string | null
-  isSidecar: boolean
+  isEmbeddedBackend: boolean
 }) {
   ServerProvider({
     value: input,
@@ -68,7 +68,7 @@ beforeEach(() => {
     url: "",
     username: null,
     password: null,
-    isSidecar: false,
+    isEmbeddedBackend: false,
   })
 })
 
@@ -129,7 +129,7 @@ describe("startChatSync fetch stream", () => {
       url: "http://127.0.0.1:4000",
       username: "buddy",
       password: "secret",
-      isSidecar: true,
+      isEmbeddedBackend: true,
     })
 
     const event = await new Promise<GlobalEvent>((resolve, reject) => {

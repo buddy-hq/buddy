@@ -35,7 +35,11 @@ import {
   readProjectTextFileStatus,
   saveProjectTextFile,
 } from "../project/project-file-editor-service"
-import { buildRawFileHeaders, readRawFileRecord } from "../project/raw-file-response-service"
+import {
+  buildRawFileHeaders,
+  createRawFileStream,
+  readRawFileRecord,
+} from "../project/raw-file-response-service"
 
 const findFileQuerySchema = z.object({
   query: z.string(),
@@ -344,7 +348,7 @@ export const CompatibilityRoutes = new Hono()
           }
 
           const downloadName = path.basename(requestedPath) || c.req.valid("param").fileName
-          return new Response(Bun.file(fileRecord.filepath), {
+          return new Response(createRawFileStream(fileRecord), {
             headers: buildRawFileHeaders({
               downloadName,
               filepath: fileRecord.filepath,

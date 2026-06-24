@@ -8,6 +8,6 @@ export function createDesktopServerConnection(ready?: ServerReadyData): ServerCo
     url: ready?.url ?? import.meta.env.VITE_BUDDY_SERVER_URL ?? DEFAULT_BUDDY_SERVER_URL,
     username: ready?.username ?? null,
     password: ready?.password ?? null,
-    isSidecar: ready?.isSidecar ?? false,
+    isEmbeddedBackend: ready?.isEmbeddedBackend ?? false,
   }
 }

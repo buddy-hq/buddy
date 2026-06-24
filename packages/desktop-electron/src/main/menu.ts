@@ -25,6 +25,7 @@ export function createMenu(deps: MenuDeps) {
         },
         {
           label: "Install CLI...",
+          enabled: false,
           click: () => deps.installCli(),
         },
         {

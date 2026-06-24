@@ -104,91 +104,7 @@ jobs:
           path: packages/desktop-electron/out
           retention-days: 1
 
-  build-sidecar-macos-arm64:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.sha }}
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - uses: actions/cache@v5
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - run: bun install
-
-      - run: bun run --cwd packages/buddy build:release-sidecar --target aarch64-apple-darwin
-
-      - uses: actions/upload-artifact@v6
-        with:
-          name: buddy-sidecar-aarch64-apple-darwin
-          path: packages/buddy/dist/release-sidecars
-          retention-days: 1
-
-  build-sidecar-macos-x64:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.sha }}
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - uses: actions/cache@v5
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - run: bun install
-
-      - run: bun run --cwd packages/buddy build:release-sidecar --target x86_64-apple-darwin
-
-      - uses: actions/upload-artifact@v6
-        with:
-          name: buddy-sidecar-x86_64-apple-darwin
-          path: packages/buddy/dist/release-sidecars
-          retention-days: 1
-
-  build-sidecar-windows-x64:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.sha }}
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - uses: actions/cache@v5
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - run: bun install
-
-      - run: bun run --cwd packages/buddy build:release-sidecar --target x86_64-pc-windows-msvc
-
-      - uses: actions/upload-artifact@v6
-        with:
-          name: buddy-sidecar-x86_64-pc-windows-msvc
-          path: packages/buddy/dist/release-sidecars
-          retention-days: 1
-
-  smoke-compiled-sidecar:
+  smoke-node-backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -210,21 +126,19 @@ jobs:
 
       - run: bun run --cwd packages/desktop-electron smoke:recovery-policy
 
-      - run: bun run --cwd packages/buddy build:release-sidecar --target x86_64-unknown-linux-gnu
+      - run: bun run --cwd packages/buddy build:node
 
-      - run: >
-          bun run --cwd packages/buddy smoke:compiled-sidecar
-          --target x86_64-unknown-linux-gnu
-          --entrypoint dist/release-sidecars/buddy-backend-linux-x64/app/index.js
+      - run: bun run --cwd packages/buddy smoke:node
 
   build-electron-macos-arm64:
     needs:
       - version
       - build-electron-app
-      - build-sidecar-macos-arm64
     runs-on: macos-latest
     env:
       BUDDY_CHANNEL: prod
+      BUDDY_NODE_ARTIFACT_TARGET_PLATFORM: darwin
+      BUDDY_NODE_ARTIFACT_TARGET_ARCH: arm64
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
     steps:
@@ -263,11 +177,6 @@ jobs:
           name: electron-app-out
           path: electron-app-artifact
 
-      - uses: actions/download-artifact@v7
-        with:
-          name: buddy-sidecar-aarch64-apple-darwin
-          path: sidecar-artifact
-
       - shell: bash
         run: |
           set -euo pipefail
@@ -278,19 +187,16 @@ jobs:
             mv electron-app-artifact packages/desktop-electron/out
           fi
 
-          rm -rf packages/buddy/dist/release-sidecars
-          mkdir -p packages/buddy/dist
-          if [ -d sidecar-artifact/release-sidecars ]; then
-            mv sidecar-artifact/release-sidecars packages/buddy/dist/release-sidecars
-          else
-            mv sidecar-artifact packages/buddy/dist/release-sidecars
-          fi
-
       - run: bun run --cwd packages/desktop-electron prepare:release
         env:
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
-          BUDDY_RUST_TARGET: aarch64-apple-darwin
-          BUDDY_SIDECAR_ARTIFACT_DIR: ${{ github.workspace }}/packages/buddy/dist/release-sidecars
+
+      - name: Verify staged backend native package
+        run: bun ./scripts/validate-backend-node-artifact.ts --platform darwin --arch arm64
+        working-directory: packages/desktop-electron
+
+      - name: Smoke staged backend artifact
+        run: bun run --cwd packages/buddy smoke:node -- --entrypoint ../desktop-electron/resources/backend-node/node.js --migration-dir ../desktop-electron/resources/migrations/buddy
 
       - run: bunx --bun electron-builder --mac --arm64 --publish never --config electron-builder.config.ts
         working-directory: packages/desktop-electron
@@ -320,10 +226,11 @@ jobs:
     needs:
       - version
       - build-electron-app
-      - build-sidecar-macos-x64
-    runs-on: macos-latest
+    runs-on: macos-15-intel
     env:
       BUDDY_CHANNEL: prod
+      BUDDY_NODE_ARTIFACT_TARGET_PLATFORM: darwin
+      BUDDY_NODE_ARTIFACT_TARGET_ARCH: x64
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
     steps:
@@ -362,11 +269,6 @@ jobs:
           name: electron-app-out
           path: electron-app-artifact
 
-      - uses: actions/download-artifact@v7
-        with:
-          name: buddy-sidecar-x86_64-apple-darwin
-          path: sidecar-artifact
-
       - shell: bash
         run: |
           set -euo pipefail
@@ -377,19 +279,16 @@ jobs:
             mv electron-app-artifact packages/desktop-electron/out
           fi
 
-          rm -rf packages/buddy/dist/release-sidecars
-          mkdir -p packages/buddy/dist
-          if [ -d sidecar-artifact/release-sidecars ]; then
-            mv sidecar-artifact/release-sidecars packages/buddy/dist/release-sidecars
-          else
-            mv sidecar-artifact packages/buddy/dist/release-sidecars
-          fi
-
       - run: bun run --cwd packages/desktop-electron prepare:release
         env:
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
-          BUDDY_RUST_TARGET: x86_64-apple-darwin
-          BUDDY_SIDECAR_ARTIFACT_DIR: ${{ github.workspace }}/packages/buddy/dist/release-sidecars
+
+      - name: Verify staged backend native package
+        run: bun ./scripts/validate-backend-node-artifact.ts --platform darwin --arch x64
+        working-directory: packages/desktop-electron
+
+      - name: Smoke staged backend artifact
+        run: bun run --cwd packages/buddy smoke:node -- --entrypoint ../desktop-electron/resources/backend-node/node.js --migration-dir ../desktop-electron/resources/migrations/buddy
 
       - run: bunx --bun electron-builder --mac --x64 --publish never --config electron-builder.config.ts
         working-directory: packages/desktop-electron
@@ -419,10 +318,11 @@ jobs:
     needs:
       - version
       - build-electron-app
-      - build-sidecar-windows-x64
     runs-on: windows-2025-vs2026
     env:
       BUDDY_CHANNEL: prod
+      BUDDY_NODE_ARTIFACT_TARGET_PLATFORM: win32
+      BUDDY_NODE_ARTIFACT_TARGET_ARCH: x64
       ELECTRON_CACHE: ${{ github.workspace }}/.cache/electron
       ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
     steps:
@@ -461,11 +361,6 @@ jobs:
           name: electron-app-out
           path: electron-app-artifact
 
-      - uses: actions/download-artifact@v7
-        with:
-          name: buddy-sidecar-x86_64-pc-windows-msvc
-          path: sidecar-artifact
-
       - shell: bash
         run: |
           set -euo pipefail
@@ -476,19 +371,16 @@ jobs:
             mv electron-app-artifact packages/desktop-electron/out
           fi
 
-          rm -rf packages/buddy/dist/release-sidecars
-          mkdir -p packages/buddy/dist
-          if [ -d sidecar-artifact/release-sidecars ]; then
-            mv sidecar-artifact/release-sidecars packages/buddy/dist/release-sidecars
-          else
-            mv sidecar-artifact packages/buddy/dist/release-sidecars
-          fi
-
       - run: bun run --cwd packages/desktop-electron prepare:release
         env:
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
-          BUDDY_RUST_TARGET: x86_64-pc-windows-msvc
-          BUDDY_SIDECAR_ARTIFACT_DIR: ${{ github.workspace }}/packages/buddy/dist/release-sidecars
+
+      - name: Verify staged backend native package
+        run: bun ./scripts/validate-backend-node-artifact.ts --platform win32 --arch x64
+        working-directory: packages/desktop-electron
+
+      - name: Smoke staged backend artifact
+        run: bun run --cwd packages/buddy smoke:node -- --entrypoint ../desktop-electron/resources/backend-node/node.js --migration-dir ../desktop-electron/resources/migrations/buddy
 
       - run: bunx --bun electron-builder --win --x64 --publish never --config electron-builder.config.ts
         working-directory: packages/desktop-electron
@@ -517,7 +409,7 @@ jobs:
   upload-electron-release:
     needs:
       - version
-      - smoke-compiled-sidecar
+      - smoke-node-backend
       - build-electron-macos-arm64
       - build-electron-macos-x64
       - build-electron-windows-x64

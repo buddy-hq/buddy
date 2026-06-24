@@ -26,7 +26,7 @@ const policy = parseRecoveryPolicy(
         mode: "roll-forward",
         platforms: ["darwin", "win32"],
         blockVersion: true,
-        reason: "compiled sidecar startup failure",
+        reason: "backend utility startup failure",
       },
     ],
   }),

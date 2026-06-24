@@ -95,7 +95,7 @@ function createServerConnection(): ServerConnection {
     url: "",
     username: null,
     password: null,
-    isSidecar: false,
+    isEmbeddedBackend: false,
   }
 }
 

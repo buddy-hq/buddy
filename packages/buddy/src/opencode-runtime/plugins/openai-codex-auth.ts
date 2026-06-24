@@ -428,7 +428,7 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
     },
     methods: [
       {
-        label: "ChatGPT (browser)",
+        label: "ChatGPT Pro/Plus (browser)",
         type: "oauth",
         authorize: async () => {
           const { redirectUri } = await startOAuthServer()
@@ -461,7 +461,7 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
         },
       },
       {
-        label: "ChatGPT (headless)",
+        label: "ChatGPT Pro/Plus (headless)",
         type: "oauth",
         authorize: async () => {
           const deviceResponse = await fetch(

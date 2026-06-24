@@ -1,91 +1,41 @@
-import {
-  chmodSync,
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs"
+import { readFileSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import {
-  syncBundledBackendResources,
+  syncBundledBackendNodeArtifacts,
+  syncBackendSourceResources,
   syncBundledKnowledgeGraphAssets,
   syncBundledMigrations,
 } from "../../../script/desktop-runtime-resources"
-import {
-  currentDesktopRustTarget,
-  getSidecarTargetByRustTarget,
-  isWindowsRustTarget,
-  resolveDesktopRustTarget,
-  SIDECAR_BINARIES as SHARED_SIDECAR_BINARIES,
-  windowsifyBinaryName,
-  type DesktopSidecarTarget,
-} from "../../../script/desktop-sidecar-targets"
 
 export type Channel = "dev" | "beta" | "prod"
-
-export type SidecarBinary = DesktopSidecarTarget
 
 const PACKAGE_DIR = path.resolve(import.meta.dir, "..")
 const PACKAGE_JSON_PATH = path.resolve(PACKAGE_DIR, "package.json")
 const BACKEND_RESOURCES_DIR = path.resolve(PACKAGE_DIR, "resources/backend")
+const BACKEND_NODE_RESOURCES_DIR = path.resolve(PACKAGE_DIR, "resources/backend-node")
 const KNOWLEDGE_GRAPH_RESOURCES_DIR = path.resolve(PACKAGE_DIR, "resources/knowledge-graph")
 const MIGRATIONS_DIR = path.resolve(PACKAGE_DIR, "resources/migrations")
 const TAURI_SIGNER_BINARY_RELATIVE_PATH = "node_modules/.bin/tauri"
-
-export const SIDECAR_BINARIES: SidecarBinary[] = SHARED_SIDECAR_BINARIES
-
-export const BUDDY_RUST_TARGET = resolveDesktopRustTarget(Bun.env)
+const LEGACY_BACKEND_EXECUTABLE_RESOURCE_NAMES = ["buddy-backend", "buddy-backend.exe"] as const
 
 export function resolveChannel(): Channel {
-  const raw = Bun.env.BUDDY_CHANNEL
+  const raw = process.env.BUDDY_CHANNEL
   if (raw === "dev" || raw === "beta" || raw === "prod") return raw
   return "dev"
 }
 
-export function currentTargetTriple() {
-  return currentDesktopRustTarget()
+export function syncBackendResources() {
+  return syncBackendSourceResources(BACKEND_RESOURCES_DIR)
 }
 
-export function getCurrentSidecar(target = BUDDY_RUST_TARGET ?? currentTargetTriple()) {
-  return getSidecarTargetByRustTarget(target)
+export function syncBackendNodeResources() {
+  return syncBundledBackendNodeArtifacts(BACKEND_NODE_RESOURCES_DIR)
 }
 
-export function isWindowsTarget(target = BUDDY_RUST_TARGET ?? currentTargetTriple()) {
-  return isWindowsRustTarget(target)
-}
-
-export function windowsify(filepath: string, target = BUDDY_RUST_TARGET ?? currentTargetTriple()) {
-  return windowsifyBinaryName(filepath, target)
-}
-
-export function copyBinaryToResources(source: string, target = currentTargetTriple()) {
-  if (!existsSync(source)) {
-    throw new Error(`Buddy sidecar build missing at ${source}`)
+export function removeLegacyBackendExecutableResources() {
+  for (const name of LEGACY_BACKEND_EXECUTABLE_RESOURCE_NAMES) {
+    rmSync(path.resolve(PACKAGE_DIR, "resources", name), { force: true })
   }
-
-  const resourcesDir = path.resolve(PACKAGE_DIR, "resources")
-  mkdirSync(resourcesDir, { recursive: true })
-
-  const destination = path.resolve(resourcesDir, windowsify("buddy-backend", target))
-  copyFileSync(source, destination)
-
-  if (!isWindowsTarget(target)) {
-    chmodSync(destination, 0o755)
-  }
-
-  return destination
-}
-
-export function syncBackendRuntimeResources(
-  sourceDir: string,
-  target = BUDDY_RUST_TARGET ?? currentTargetTriple(),
-) {
-  return syncBundledBackendResources({
-    destinationDir: BACKEND_RESOURCES_DIR,
-    sourceDir,
-    target,
-  })
 }
 
 export function syncMigrations() {
@@ -96,6 +46,31 @@ export function syncKnowledgeGraphResources() {
   return syncBundledKnowledgeGraphAssets({
     destinationDir: KNOWLEDGE_GRAPH_RESOURCES_DIR,
   })
+}
+
+export type DesktopRuntimeResources = {
+  backendNodeEntry: string
+  backendResources: string
+  knowledgeGraphArchive: string
+  migrations: string
+}
+
+export function syncDesktopRuntimeResources(): DesktopRuntimeResources {
+  removeLegacyBackendExecutableResources()
+
+  return {
+    backendNodeEntry: syncBackendNodeResources(),
+    backendResources: syncBackendResources(),
+    knowledgeGraphArchive: syncKnowledgeGraphResources(),
+    migrations: syncMigrations(),
+  }
+}
+
+export function logDesktopRuntimeResources(resources: DesktopRuntimeResources) {
+  console.log(`Prepared Buddy Node backend artifact at ${resources.backendNodeEntry}`)
+  console.log(`Prepared Buddy backend resources at ${resources.backendResources}`)
+  console.log(`Prepared Knowledge Graph bundle at ${resources.knowledgeGraphArchive}`)
+  console.log(`Prepared Buddy migrations at ${resources.migrations}`)
 }
 
 export function updateDesktopPackageVersion(version: string) {
@@ -113,7 +88,7 @@ export function readDesktopPackageVersion() {
   return pkg.version
 }
 
-export function resolveTauriSignerBinaryPath(environment: NodeJS.ProcessEnv = Bun.env) {
+export function resolveTauriSignerBinaryPath(environment: NodeJS.ProcessEnv = process.env) {
   return (
     environment.TAURI_SIGNER_BINARY_PATH?.trim() ||
     path.join(PACKAGE_DIR, TAURI_SIGNER_BINARY_RELATIVE_PATH)

@@ -21,6 +21,7 @@ import {
   type BuddyObjectSourceRef,
   type BuddyObjectViewResponse,
 } from "../../../../objects"
+import { mimeTypeForPath } from "../../../../http/mime"
 import { writeJsonFileAtomic } from "../../../../storage/atomic-file"
 import {
   MAX_HTML_WIDGET_SOURCE_BYTES,
@@ -402,7 +403,7 @@ export async function resolveHtmlWidgetObjectRuntimeFile(input: {
   }).catch(() => null)
   return {
     filePath,
-    contentType: Bun.file(filePath).type || HTML_WIDGET_DEFAULT_CONTENT_TYPE,
+    contentType: mimeTypeForPath(filePath, HTML_WIDGET_DEFAULT_CONTENT_TYPE),
     isDocument: HTML_FILE_EXTENSIONS.has(path.extname(filePath).toLowerCase()),
     immutable: !!input.version && !!sourceVersion && input.version === sourceVersion,
   }

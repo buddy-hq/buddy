@@ -13,6 +13,7 @@
     "**/routeTree.gen.ts",
     "**/bindings.ts",
     "packages/desktop-electron/resources/backend",
+    "packages/desktop-electron/resources/backend-node",
     "packages/desktop-electron/resources/migrations",
     "packages/desktop/src-tauri/resources/backend",
     "packages/desktop/src-tauri/resources/migrations",

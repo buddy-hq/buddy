@@ -16,7 +16,7 @@
   "include": [
     "scripts/**/*.ts",
     "src/main/recovery-policy-core.ts",
-    "../../script/desktop-sidecar-targets.ts",
+    "../buddy/script/backend-node-artifact.ts",
     "../../script/desktop-runtime-resources.ts"
   ]
 }
