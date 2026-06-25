@@ -52,6 +52,7 @@ type UtilityCommand =
 
 const BACKEND_UTILITY_SERVICE_NAME = "Buddy backend"
 const BACKEND_UTILITY_STOP_TIMEOUT_MS = 6_000
+const BACKEND_UTILITY_FORCE_KILL_TIMEOUT_MS = 2_000
 const BACKEND_UTILITY_TERMINATION_SIGNAL: NodeJS.Signals = "SIGTERM"
 const BACKEND_UTILITY_FORCE_KILL_SIGNAL: NodeJS.Signals = "SIGKILL"
 
@@ -149,16 +150,25 @@ export async function spawnLocalServer(hostname: string, port: number, password:
 
       try {
         postUtilityCommand(child, { type: "stop" })
+        stopping = setTimeout(() => {
+          stopping = undefined
+          terminateUtilityProcessTree()
+        }, BACKEND_UTILITY_STOP_TIMEOUT_MS)
       } catch {
-        // The tree-kill fallback below owns shutdown if IPC is already gone.
+        terminateUtilityProcessTree()
       }
 
-      killUtilityProcessTree(child, BACKEND_UTILITY_TERMINATION_SIGNAL)
-      stopping = setTimeout(() => {
-        if (!exited) killUtilityProcessTree(child, BACKEND_UTILITY_FORCE_KILL_SIGNAL)
-      }, BACKEND_UTILITY_STOP_TIMEOUT_MS)
       return exit.promise
     },
+  }
+
+  const terminateUtilityProcessTree = () => {
+    if (exited) return
+    killUtilityProcessTree(child, BACKEND_UTILITY_TERMINATION_SIGNAL)
+    stopping = setTimeout(() => {
+      stopping = undefined
+      if (!exited) killUtilityProcessTree(child, BACKEND_UTILITY_FORCE_KILL_SIGNAL)
+    }, BACKEND_UTILITY_FORCE_KILL_TIMEOUT_MS)
   }
 
   const wait = (async () => {
