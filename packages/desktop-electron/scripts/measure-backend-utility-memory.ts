@@ -1,6 +1,14 @@
 #!/usr/bin/env bun
 
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
 import { createRequire } from "node:module"
 import os from "node:os"
 import path from "node:path"
@@ -170,7 +178,10 @@ function createBackendEnvironment(input: {
   }
 }
 
-function createIsolatedMainOutput(smokeRoot: string): { isolatedMainDir: string; utilityPath: string } {
+function createIsolatedMainOutput(smokeRoot: string): {
+  isolatedMainDir: string
+  utilityPath: string
+} {
   const isolatedMainDir = path.join(smokeRoot, "main")
   cpSync(mainOutputDir, isolatedMainDir, { recursive: true, dereference: false })
   return {
@@ -179,9 +190,7 @@ function createIsolatedMainOutput(smokeRoot: string): { isolatedMainDir: string;
   }
 }
 
-function readableStream(
-  stream: NodeArtifactProcess["stdout"],
-): ReadableStream<Uint8Array> | null {
+function readableStream(stream: NodeArtifactProcess["stdout"]): ReadableStream<Uint8Array> | null {
   return stream instanceof ReadableStream ? stream : null
 }
 
@@ -315,7 +324,10 @@ async function record(input: {
 function scenario(mode: Mode): Array<{
   endpoint: string
   label: string
-  request?: (context: { baseUrl: string; directory: string }) => Promise<{ bodyBytes: number; status: number }>
+  request?: (context: {
+    baseUrl: string
+    directory: string
+  }) => Promise<{ bodyBytes: number; status: number }>
   settleMs?: number
 }> {
   if (mode === MODE_HEALTHZ_ONLY) {
@@ -323,7 +335,11 @@ function scenario(mode: Mode): Array<{
       endpointStep("cycle-1", HEALTHZ_PATH),
       endpointStep("cycle-2", HEALTHZ_PATH),
       endpointStep("cycle-3", HEALTHZ_PATH),
-      { endpoint: "process", label: `final-settle-${FINAL_SETTLE_MS}ms`, settleMs: FINAL_SETTLE_MS },
+      {
+        endpoint: "process",
+        label: `final-settle-${FINAL_SETTLE_MS}ms`,
+        settleMs: FINAL_SETTLE_MS,
+      },
     ]
   }
 
@@ -337,7 +353,11 @@ function scenario(mode: Mode): Array<{
       endpointStep("safe-healthz-2", HEALTHZ_PATH),
       endpointStep("safe-provider-2", API_PROVIDER_PATH),
       endpointStep("safe-provider-auth-2", API_PROVIDER_AUTH_PATH),
-      { endpoint: "process", label: `final-settle-${FINAL_SETTLE_MS}ms`, settleMs: FINAL_SETTLE_MS },
+      {
+        endpoint: "process",
+        label: `final-settle-${FINAL_SETTLE_MS}ms`,
+        settleMs: FINAL_SETTLE_MS,
+      },
     ]
   }
 
@@ -354,10 +374,16 @@ function scenario(mode: Mode): Array<{
   ]
 }
 
-function endpointStep(label: string, endpoint: string): {
+function endpointStep(
+  label: string,
+  endpoint: string,
+): {
   endpoint: string
   label: string
-  request: (context: { baseUrl: string; directory: string }) => Promise<{ bodyBytes: number; status: number }>
+  request: (context: {
+    baseUrl: string
+    directory: string
+  }) => Promise<{ bodyBytes: number; status: number }>
 } {
   return {
     endpoint,
@@ -366,18 +392,23 @@ function endpointStep(label: string, endpoint: string): {
       request({
         baseUrl,
         pathname: endpoint,
-        search: endpoint === HEALTHZ_PATH || endpoint === API_HEALTH_PATH ? undefined : { directory },
+        search:
+          endpoint === HEALTHZ_PATH || endpoint === API_HEALTH_PATH ? undefined : { directory },
       }),
   }
 }
 
 function currentCommit(): string {
-  return Bun.spawnSync(["git", "rev-parse", "HEAD"], {
-    cwd: path.resolve(packageDir, "..", ".."),
-    stderr: "ignore",
-    stdout: "pipe",
-    windowsHide: true,
-  }).stdout.toString().trim() || "unknown"
+  return (
+    Bun.spawnSync(["git", "rev-parse", "HEAD"], {
+      cwd: path.resolve(packageDir, "..", ".."),
+      stderr: "ignore",
+      stdout: "pipe",
+      windowsHide: true,
+    })
+      .stdout.toString()
+      .trim() || "unknown"
+  )
 }
 
 function isReadyFile(value: unknown): value is ReadyFile {
@@ -415,7 +446,9 @@ function printTable(samples: MemorySample[]): void {
 }
 
 if (!existsSync(utilityPath)) {
-  throw new Error(`Backend utility build output missing at ${utilityPath}. Run desktop build first.`)
+  throw new Error(
+    `Backend utility build output missing at ${utilityPath}. Run desktop build first.`,
+  )
 }
 if (!existsSync(electronBin)) {
   throw new Error(`Electron binary missing at ${electronBin}. Run bun install first.`)

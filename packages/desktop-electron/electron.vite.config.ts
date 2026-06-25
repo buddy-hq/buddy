@@ -25,8 +25,10 @@ const nativeRuntimePackages = [nodePtyPkg, parcelWatcherPkg] as const
 const require = createRequire(import.meta.url)
 
 function isMainExternal(id: string) {
-  return optionalRuntimeExternalPackages.some((packageName) => packageName === id) ||
+  return (
+    optionalRuntimeExternalPackages.some((packageName) => packageName === id) ||
     id.startsWith("cloudflare:")
+  )
 }
 
 const channel = (() => {

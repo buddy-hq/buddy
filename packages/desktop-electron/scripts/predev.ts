@@ -1,10 +1,7 @@
 import { $ } from "bun"
 import { existsSync, readFileSync, rmSync } from "node:fs"
 import path from "node:path"
-import {
-  logDesktopRuntimeResources,
-  syncDesktopRuntimeResources,
-} from "./utils"
+import { logDesktopRuntimeResources, syncDesktopRuntimeResources } from "./utils"
 
 function resolveMainRepoAdvancedMathCacheDir(packageDir: string): string | undefined {
   const gitFile = path.resolve(packageDir, "../../.git")

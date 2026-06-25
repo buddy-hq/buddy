@@ -1,11 +1,4 @@
-import {
-  copyFileSync,
-  cpSync,
-  existsSync,
-  mkdirSync,
-  rmSync,
-  statSync,
-} from "node:fs"
+import { copyFileSync, cpSync, existsSync, mkdirSync, rmSync, statSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 

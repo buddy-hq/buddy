@@ -46,9 +46,7 @@ type UtilityMessage =
   | { type: "stopped" }
   | { type: "error"; error: { message: string; stack?: string } }
 
-type UtilityCommand =
-  | { type: "start"; hostname: string; port: number }
-  | { type: "stop" }
+type UtilityCommand = { type: "start"; hostname: string; port: number } | { type: "stop" }
 
 const BACKEND_UTILITY_SERVICE_NAME = "Buddy backend"
 const BACKEND_UTILITY_STOP_TIMEOUT_MS = 6_000

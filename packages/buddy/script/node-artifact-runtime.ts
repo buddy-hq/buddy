@@ -154,9 +154,7 @@ export async function assertNodeArtifactResourceRouteSmoke(input: {
     if (listResponse.ok) {
       const body: unknown = JSON.parse(last)
       const resources = readResourceList(body)
-      const resource = resources.find(
-        (entry) => entry.alias === RESOURCE_ROUTE_SMOKE_ALIAS,
-      )
+      const resource = resources.find((entry) => entry.alias === RESOURCE_ROUTE_SMOKE_ALIAS)
       if (
         resource?.status === RESOURCE_READY_STATUS &&
         typeof resource.packPath === "string" &&
@@ -175,7 +173,9 @@ export async function assertNodeArtifactResourceRouteSmoke(input: {
 function assertNoArtifactLocalNodeModules(artifactDir: string): void {
   const nodeModulesPath = path.join(artifactDir, "node_modules")
   if (existsSync(nodeModulesPath)) {
-    throw new Error(`Buddy Node artifact must not carry a runtime node_modules tree: ${nodeModulesPath}`)
+    throw new Error(
+      `Buddy Node artifact must not carry a runtime node_modules tree: ${nodeModulesPath}`,
+    )
   }
 }
 

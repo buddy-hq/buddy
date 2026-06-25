@@ -185,10 +185,7 @@ function useSystemCertificates() {
   try {
     const nodeTls = tls as NodeTlsWithSystemCertificates
     nodeTls.setDefaultCACertificates([
-      ...new Set([
-        ...nodeTls.getCACertificates("default"),
-        ...nodeTls.getCACertificates("system"),
-      ]),
+      ...new Set([...nodeTls.getCACertificates("default"), ...nodeTls.getCACertificates("system")]),
     ])
   } catch (error) {
     console.warn("failed to load system certificates", error)

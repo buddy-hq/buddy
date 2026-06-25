@@ -121,7 +121,10 @@ function createBackendEnvironment(input: {
   }
 }
 
-function createIsolatedMainOutput(smokeRoot: string): { isolatedMainDir: string; utilityPath: string } {
+function createIsolatedMainOutput(smokeRoot: string): {
+  isolatedMainDir: string
+  utilityPath: string
+} {
   const isolatedMainDir = path.join(smokeRoot, "main")
   cpSync(mainOutputDir, isolatedMainDir, { recursive: true, dereference: false })
   return {
@@ -134,9 +137,7 @@ function electronCommand(mainScript: string): string[] {
   return [electronBin, mainScript]
 }
 
-function readableStream(
-  stream: NodeArtifactProcess["stdout"],
-): ReadableStream<Uint8Array> | null {
+function readableStream(stream: NodeArtifactProcess["stdout"]): ReadableStream<Uint8Array> | null {
   return stream instanceof ReadableStream ? stream : null
 }
 
@@ -342,7 +343,9 @@ async function waitForProcessExit(
 }
 
 if (!existsSync(utilityPath)) {
-  throw new Error(`Backend utility build output missing at ${utilityPath}. Run desktop build first.`)
+  throw new Error(
+    `Backend utility build output missing at ${utilityPath}. Run desktop build first.`,
+  )
 }
 if (!existsSync(electronBin)) {
   throw new Error(`Electron binary missing at ${electronBin}. Run bun install first.`)

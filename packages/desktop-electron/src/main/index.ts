@@ -31,11 +31,7 @@ import {
 } from "./constants"
 import { checkAppExists, resolveAppPath, wslPath } from "./apps"
 import { installCli } from "./cli"
-import {
-  registerIpcHandlers,
-  sendDeepLinks,
-  sendMenuCommand,
-} from "./ipc"
+import { registerIpcHandlers, sendDeepLinks, sendMenuCommand } from "./ipc"
 import { initLogging, safelyWriteToStandardStream } from "./logging"
 import { parseMarkdown } from "./markdown"
 import { exportMarkdownPdf } from "./markdown-pdf"

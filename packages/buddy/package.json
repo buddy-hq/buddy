@@ -3,16 +3,16 @@
   "version": "0.0.43",
   "private": true,
   "type": "module",
-  "exports": {
-    ".": "./src/index.ts",
-    "./node": "./src/node.ts"
-  },
   "imports": {
     "#sqlite": {
       "bun": "./src/sqlite/database.bun.ts",
       "node": "./src/sqlite/database.node.ts",
       "default": "./src/sqlite/database.node.ts"
     }
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node.ts"
   },
   "scripts": {
     "dev": "bun run ensure:advanced-math-runtime && bun --env-file=../../.env run src/dev/start-with-safe-env.ts --watch",
@@ -74,6 +74,12 @@
     "xdg-basedir": "5.1.0",
     "zod": "4.1.8"
   },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/turndown": "^5.0.5",
+    "drizzle-kit": "1.0.0-beta.12-a5629fb",
+    "typescript": "^5.0.0"
+  },
   "optionalDependencies": {
     "@lydell/node-pty-darwin-arm64": "1.2.0-beta.12",
     "@lydell/node-pty-darwin-x64": "1.2.0-beta.12",
@@ -89,11 +95,5 @@
     "@parcel/watcher-linux-x64-musl": "2.5.1",
     "@parcel/watcher-win32-arm64": "2.5.1",
     "@parcel/watcher-win32-x64": "2.5.1"
-  },
-  "devDependencies": {
-    "@types/bun": "catalog:",
-    "@types/turndown": "^5.0.5",
-    "drizzle-kit": "1.0.0-beta.12-a5629fb",
-    "typescript": "^5.0.0"
   }
 }

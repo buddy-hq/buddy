@@ -97,7 +97,10 @@ export function startEntrypointServer(argv: string[]): NodeServerListener {
 }
 
 export function isEntrypoint(moduleUrl: string, entrypoint = process.argv[1]) {
-  return !!entrypoint && resolveEntrypointPath(entrypoint) === resolveEntrypointPath(fileURLToPath(moduleUrl))
+  return (
+    !!entrypoint &&
+    resolveEntrypointPath(entrypoint) === resolveEntrypointPath(fileURLToPath(moduleUrl))
+  )
 }
 
 export function isMainModule(entrypoint = process.argv[1]) {

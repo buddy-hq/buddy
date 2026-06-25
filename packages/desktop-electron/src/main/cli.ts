@@ -99,8 +99,7 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
       (entry): entry is [string, string] => typeof entry[1] === "string",
     ),
   )
-  const shellEnvironment =
-    process.platform === "win32" ? null : loadShellEnv(getUserShell())
+  const shellEnvironment = process.platform === "win32" ? null : loadShellEnv(getUserShell())
   const base = mergeShellEnv(shellEnvironment, appEnvironment)
 
   ensureRuntimeDirectories(runtimeRoot, xdgDataHome)
@@ -220,5 +219,7 @@ function resolveStandardsAssetDir() {
 }
 
 export function installCli(): Promise<string> {
-  return Promise.reject(new Error("Buddy desktop does not currently provide a standalone CLI installer"))
+  return Promise.reject(
+    new Error("Buddy desktop does not currently provide a standalone CLI installer"),
+  )
 }

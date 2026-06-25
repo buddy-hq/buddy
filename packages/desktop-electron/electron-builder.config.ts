@@ -14,11 +14,7 @@ function resolveChannel(): Channel {
 }
 
 const channel = resolveChannel()
-const runtimeResourceNames = [
-  "backend",
-  "knowledge-graph",
-  "migrations",
-] as const
+const runtimeResourceNames = ["backend", "knowledge-graph", "migrations"] as const
 
 function requiredRuntimeResource(name: (typeof runtimeResourceNames)[number]) {
   const resourceDir = new URL(`./resources/${name}`, import.meta.url)

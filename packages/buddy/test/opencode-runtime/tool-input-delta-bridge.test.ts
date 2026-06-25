@@ -54,9 +54,7 @@ describe("whiteboard tool-input delta bridge", () => {
     expect(aiSdkSource).toContain("name: state.toolNames[event.id] ??")
     expect(aiSdkSource).toContain("text: event.delta ??")
     expect(processorSource).toContain('case "tool-input-delta":')
-    expect(processorSource).toContain(
-      "raw: toolCall.call.raw + value.text",
-    )
+    expect(processorSource).toContain("raw: toolCall.call.raw + value.text")
     expect(processorSource).toContain('case "tool-input-end":')
   })
 
