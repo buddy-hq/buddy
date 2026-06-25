@@ -29,8 +29,7 @@ if (!version) {
 }
 
 const outputDirectory =
-  process.env[ELECTRON_DIST_DIR_ENV_KEY]?.trim() ||
-  path.resolve(import.meta.dir, "..", "dist")
+  process.env[ELECTRON_DIST_DIR_ENV_KEY]?.trim() || path.resolve(import.meta.dir, "..", "dist")
 
 const updateAssets = [
   ...resolveAllMacOsReleaseArchiveFilenames(version),
