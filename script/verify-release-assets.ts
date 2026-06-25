@@ -1,6 +1,10 @@
 #!/usr/bin/env bun
 
 import { releaseRepository } from "./release-repositories"
+import {
+  resolveMacOsReleaseArtifactFilename,
+  resolveWindowsReleaseArtifactFilename,
+} from "../packages/desktop-electron/src/shared/release-asset-names"
 
 const DEFAULT_SOURCE_REPOSITORY = "prashantbhudwal/buddy"
 const GITHUB_API_VERSION = "2022-11-28"
@@ -16,45 +20,7 @@ type GithubReleaseAsset = {
   name: string
 }
 
-const exactAssets = [
-  "buddy-electron-mac-arm64.dmg",
-  "buddy-electron-mac-arm64.dmg.blockmap",
-  "buddy-electron-mac-arm64.zip",
-  "buddy-electron-mac-arm64.zip.blockmap",
-  "buddy-electron-mac-x64.dmg",
-  "buddy-electron-mac-x64.dmg.blockmap",
-  "buddy-electron-mac-x64.zip",
-  "buddy-electron-mac-x64.zip.blockmap",
-  "buddy-electron-win-x64.exe",
-  "buddy-electron-win-x64.exe.blockmap",
-  "latest-mac.json",
-  "latest-mac.json.sig",
-  "latest-mac.yml",
-  "latest-mac.yml.sig",
-  "latest.yml",
-  "latest.yml.sig",
-  "learning-commons-knowledge-graph.db.json",
-  "learning-commons-knowledge-graph.db.zst",
-  "learning-commons-knowledge-graph.db.zst.sha256",
-  "recovery-policy.json",
-  "recovery-policy.json.sig",
-] as const
-
 const advancedMathTargets = ["aarch64-apple-darwin", "x86_64-apple-darwin"] as const
-
-const requiredAssets: RequiredAsset[] = [
-  ...exactAssets.map((name) => ({ label: name, matcher: name })),
-  ...advancedMathTargets.flatMap((target) => [
-    {
-      label: `advanced math bundle (${target})`,
-      matcher: new RegExp(`^buddy-advanced-math-v.+-${target}\\.zip$`),
-    },
-    {
-      label: `advanced math checksum (${target})`,
-      matcher: new RegExp(`^buddy-advanced-math-v.+-${target}\\.zip\\.sha256$`),
-    },
-  ]),
-]
 
 function usage(): never {
   throw new Error("Usage: bun ./script/verify-release-assets.ts --tag v0.0.40 [--repo owner/repo]")
@@ -146,6 +112,51 @@ function findAsset(assets: GithubReleaseAsset[], required: RequiredAsset): Githu
   return asset
 }
 
+function releaseVersionFromTag(tag: string): string {
+  return tag.replace(/^v/, "")
+}
+
+function requiredAssetsForTag(tag: string): RequiredAsset[] {
+  const version = releaseVersionFromTag(tag)
+  const exactAssets = [
+    resolveMacOsReleaseArtifactFilename(version, "arm64", "dmg"),
+    `${resolveMacOsReleaseArtifactFilename(version, "arm64", "dmg")}.blockmap`,
+    resolveMacOsReleaseArtifactFilename(version, "arm64", "zip"),
+    `${resolveMacOsReleaseArtifactFilename(version, "arm64", "zip")}.blockmap`,
+    resolveMacOsReleaseArtifactFilename(version, "x64", "dmg"),
+    `${resolveMacOsReleaseArtifactFilename(version, "x64", "dmg")}.blockmap`,
+    resolveMacOsReleaseArtifactFilename(version, "x64", "zip"),
+    `${resolveMacOsReleaseArtifactFilename(version, "x64", "zip")}.blockmap`,
+    resolveWindowsReleaseArtifactFilename(version, "x64", "exe"),
+    `${resolveWindowsReleaseArtifactFilename(version, "x64", "exe")}.blockmap`,
+    "latest-mac.json",
+    "latest-mac.json.sig",
+    "latest-mac.yml",
+    "latest-mac.yml.sig",
+    "latest.yml",
+    "latest.yml.sig",
+    "learning-commons-knowledge-graph.db.json",
+    "learning-commons-knowledge-graph.db.zst",
+    "learning-commons-knowledge-graph.db.zst.sha256",
+    "recovery-policy.json",
+    "recovery-policy.json.sig",
+  ] as const
+
+  return [
+    ...exactAssets.map((name) => ({ label: name, matcher: name })),
+    ...advancedMathTargets.flatMap((target) => [
+      {
+        label: `advanced math bundle (${target})`,
+        matcher: new RegExp(`^buddy-advanced-math-v.+-${target}\\.zip$`),
+      },
+      {
+        label: `advanced math checksum (${target})`,
+        matcher: new RegExp(`^buddy-advanced-math-v.+-${target}\\.zip\\.sha256$`),
+      },
+    ]),
+  ]
+}
+
 async function assertReachable(asset: GithubReleaseAsset): Promise<void> {
   const response = await fetch(asset.browserDownloadUrl, {
     method: "HEAD",
@@ -200,7 +211,7 @@ function assertManifestRepositoryReferences(input: {
 const { repo, tag } = parseArgs()
 const releaseApiUrl = `https://api.github.com/repos/${repo}/releases/tags/${tag}`
 const assets = parseReleaseAssets(await fetchJson(releaseApiUrl))
-const required = requiredAssets.map((asset) => findAsset(assets, asset))
+const required = requiredAssetsForTag(tag).map((asset) => findAsset(assets, asset))
 
 await Promise.all(required.map((asset) => assertReachable(asset)))
 

@@ -3,6 +3,7 @@
 import { $ } from "bun"
 import { existsSync, readFileSync } from "node:fs"
 import path from "node:path"
+import { resolveAllMacOsReleaseArchiveFilenames } from "../src/shared/release-asset-names"
 import { readDesktopPackageVersion, resolveTauriSignerBinaryPath } from "./utils"
 
 const DEFAULT_UPDATE_HOSTNAME = "127.0.0.1"
@@ -24,7 +25,6 @@ const TAURI_SIGNING_PRIVATE_KEY_PASSWORD_ENV_KEY = "TAURI_SIGNING_PRIVATE_KEY_PA
 const LOCAL_TAURI_KEY_DIRECTORY = ".config/buddy"
 const LOCAL_TAURI_KEY_FILENAME = "tauri-updater.key"
 const LOCAL_TAURI_KEY_PASSWORD_FILENAME = "tauri-updater.key.password"
-const ELECTRON_MAC_ARCHIVE_NAMES = ["buddy-electron-mac-arm64.zip", "buddy-electron-mac-x64.zip"]
 const TRUE_ENV_VALUE = "1"
 const NOT_FOUND_STATUS = 404
 const FORBIDDEN_STATUS = 403
@@ -123,7 +123,7 @@ function resolvePort(rawPort: string | undefined) {
 }
 
 function ensureDistHasMacArtifacts(rootDir: string) {
-  const availableArchive = ELECTRON_MAC_ARCHIVE_NAMES.find((filename) =>
+  const availableArchive = resolveAllMacOsReleaseArchiveFilenames(version).find((filename) =>
     existsSync(path.join(rootDir, filename)),
   )
 
@@ -205,7 +205,7 @@ function renderIndex() {
     `Manifest: /${UPDATE_MANIFEST_FILENAME}`,
     `Signature: /${UPDATE_MANIFEST_SIGNATURE_FILENAME}`,
     "Archives:",
-    ...ELECTRON_MAC_ARCHIVE_NAMES.map((filename) => `- /${filename}`),
+    ...resolveAllMacOsReleaseArchiveFilenames(version).map((filename) => `- /${filename}`),
   ].join("\n")
 }
 

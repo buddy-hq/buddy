@@ -16,6 +16,7 @@
   "include": [
     "scripts/**/*.ts",
     "src/main/recovery-policy-core.ts",
+    "src/shared/**/*.ts",
     "../buddy/script/node-artifact-runtime.ts",
     "../../script/backend-node-artifact.ts",
     "../../script/desktop-runtime-resources.ts"

@@ -4,6 +4,7 @@ import { $ } from "bun"
 import path from "node:path"
 import { createHash } from "node:crypto"
 import { access, mkdir, readFile, stat } from "node:fs/promises"
+import { resolveAllMacOsReleaseArchiveFilenames } from "../src/shared/release-asset-names"
 import { resolveTauriSignerBinaryPath } from "./utils"
 
 const LATEST_YML_DIR_ENV_KEY = "LATEST_YML_DIR"
@@ -127,7 +128,7 @@ async function synthesizeManifest() {
     return undefined
   }
 
-  const candidates = ["buddy-electron-mac-arm64.zip", "buddy-electron-mac-x64.zip"]
+  const candidates = resolveAllMacOsReleaseArchiveFilenames(releaseVersion)
   const files: FileEntry[] = []
 
   for (const candidate of candidates) {

@@ -11,13 +11,10 @@ import {
   resolveReleaseAssetUrl as resolveSharedReleaseAssetUrl,
 } from "./update-common"
 import { compareVersions } from "./recovery-policy-core"
+import { resolveMacOsReleaseArtifactFilename } from "../shared/release-asset-names"
 
 const RELEASE_METADATA_URL = resolveLatestReleaseAssetUrl("latest-mac.json")
 const BUDDY_UPDATE_METADATA_URL_ENV_KEY = "BUDDY_UPDATE_METADATA_URL"
-const MAC_ARCHIVE_NAMES: Record<string, string> = {
-  arm64: "buddy-electron-mac-arm64.zip",
-  x64: "buddy-electron-mac-x64.zip",
-}
 const UPDATE_CACHE_DIRECTORY_NAME = "custom-mac-updater"
 const INSTALLER_SCRIPT_NAME = "mac-install-update.sh"
 const INSTALLER_LOG_FILENAME = "update-installer.log"
@@ -247,7 +244,7 @@ async function checkManifestForUpdate(input: {
     }
   }
 
-  const entry = resolveArchiveEntry(metadata.files)
+  const entry = resolveArchiveEntry(metadata.version, metadata.files)
   if (!entry) {
     input.options.logger.warn("custom mac updater could not find a matching archive", {
       metadataUrl: input.metadataUrl,
@@ -304,11 +301,12 @@ function isFileEntry(value: unknown): value is FileEntry {
   return typeof url === "string" && typeof sha512 === "string" && typeof size === "number"
 }
 
-function resolveArchiveEntry(files: FileEntry[]) {
-  const expectedName = MAC_ARCHIVE_NAMES[process.arch]
-  if (!expectedName) {
+function resolveArchiveEntry(version: string, files: FileEntry[]) {
+  if (process.arch !== "arm64" && process.arch !== "x64") {
     return null
   }
+
+  const expectedName = resolveMacOsReleaseArtifactFilename(version, process.arch, "zip")
 
   return files.find((file) => resolveArchiveName(file.url) === expectedName) ?? null
 }

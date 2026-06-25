@@ -20,6 +20,7 @@
   "include": [
     "src/main/**/*.ts",
     "src/preload/**/*.ts",
+    "src/shared/**/*.ts",
     "src/main/env.d.ts",
     "electron.vite.config.ts",
     "electron-builder.config.ts",

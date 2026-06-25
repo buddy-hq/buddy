@@ -1,7 +1,13 @@
 import { existsSync } from "node:fs"
 import type { Configuration } from "electron-builder"
+import {
+  WINDOWS_RELEASE_ARCHS,
+  resolveMacOsReleaseArtifactPattern,
+  resolveWindowsReleaseArtifactPattern,
+} from "./src/shared/release-asset-names"
 
 const CHANNEL_ENV_KEY = "BUDDY_CHANNEL"
+const WINDOWS_RELEASE_TARGET_ARCH = WINDOWS_RELEASE_ARCHS[0]
 
 type Channel = "dev" | "beta" | "prod"
 
@@ -34,7 +40,6 @@ function requiredRuntimeResource(name: (typeof runtimeResourceNames)[number]) {
 const runtimeResources = runtimeResourceNames.map((name) => requiredRuntimeResource(name))
 
 const BASE_CONFIGURATION: Configuration = {
-  artifactName: "buddy-electron-${os}-${arch}.${ext}",
   directories: {
     output: "dist",
     buildResources: "resources",
@@ -57,6 +62,7 @@ const BASE_CONFIGURATION: Configuration = {
     schemes: ["buddy"],
   },
   mac: {
+    artifactName: resolveMacOsReleaseArtifactPattern(),
     category: "public.app-category.developer-tools",
     icon: "resources/icons/icon.icns",
     hardenedRuntime: true,
@@ -70,6 +76,7 @@ const BASE_CONFIGURATION: Configuration = {
     sign: true,
   },
   win: {
+    artifactName: resolveWindowsReleaseArtifactPattern(WINDOWS_RELEASE_TARGET_ARCH),
     icon: "resources/icons/icon.ico",
     target: ["nsis"],
   },

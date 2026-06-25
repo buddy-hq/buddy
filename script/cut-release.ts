@@ -12,6 +12,7 @@ import { releaseRepository, sourceRepository } from "./release-repositories"
 
 const ROOT_DIR = path.resolve(import.meta.dir, "..")
 const RELEASE_BRANCH = "main"
+const RELEASE_WORKFLOW_FILENAME = "publish-cheap.yml"
 
 type SyncState = "in-sync" | "ahead" | "behind" | "diverged"
 
@@ -484,7 +485,7 @@ function runRequiredGates() {
 async function waitForRunUrl(version: string, targetSha: string) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const runs =
-      (await $`gh run list --repo ${sourceRepository()} --workflow publish.yml --limit 10 --json displayTitle,headBranch,headSha,event,url,createdAt`
+      (await $`gh run list --repo ${sourceRepository()} --workflow ${RELEASE_WORKFLOW_FILENAME} --limit 10 --json displayTitle,headBranch,headSha,event,url,createdAt`
         .cwd(ROOT_DIR)
         .json()) as WorkflowRun[]
 
@@ -519,7 +520,7 @@ async function dispatchRelease(version: string, targetSha: string) {
   printStep("Dispatch", `Triggering GitHub release workflow for v${version}.`)
 
   const dispatchOutput =
-    await $`gh workflow run publish.yml --repo ${sourceRepository()} -f ${`version=${version}`}`
+    await $`gh workflow run ${RELEASE_WORKFLOW_FILENAME} --repo ${sourceRepository()} -f ${`version=${version}`}`
       .cwd(ROOT_DIR)
       .text()
       .then((output) => output.trim())

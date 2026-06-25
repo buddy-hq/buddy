@@ -4,6 +4,10 @@ import { $ } from "bun"
 import { createHash } from "node:crypto"
 import { access, readFile, stat } from "node:fs/promises"
 import path from "node:path"
+import {
+  resolveAllMacOsReleaseArchiveFilenames,
+  resolveWindowsReleaseArtifactFilename,
+} from "../src/shared/release-asset-names"
 import { resolveTauriSignerBinaryPath } from "./utils"
 
 const rawLatestYmlDir = process.env.LATEST_YML_DIR
@@ -171,8 +175,8 @@ async function synthesizeLatest(platform: "mac" | "windows") {
 
   const candidates =
     platform === "mac"
-      ? ["buddy-electron-mac-arm64.zip", "buddy-electron-mac-x64.zip"]
-      : ["buddy-electron-win-x64.exe"]
+      ? resolveAllMacOsReleaseArchiveFilenames(releaseVersion)
+      : [resolveWindowsReleaseArtifactFilename(releaseVersion, "x64", "exe")]
 
   const entries: FileEntry[] = []
   for (const candidate of candidates) {
