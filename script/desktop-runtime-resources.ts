@@ -67,7 +67,7 @@ export function syncBundledBackendNodeArtifacts(destinationDir: string) {
 
   rmSync(destinationDir, { recursive: true, force: true })
   mkdirSync(destinationDir, { recursive: true })
-  cpSync(BACKEND_NODE_DIST_DIR, destinationDir, { recursive: true, dereference: true })
+  cpSync(BACKEND_NODE_DIST_DIR, destinationDir, { recursive: true, dereference: false })
   return path.resolve(destinationDir, "node.js")
 }
 

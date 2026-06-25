@@ -154,7 +154,93 @@ require(packageName);`,
     )
   }
 
+  await assertNodeArtifactLazyRuntimePackages(entrypoint)
   await assertNodeArtifactResourcePackPrep(entrypoint)
+}
+
+async function assertNodeArtifactLazyRuntimePackages(entrypoint: string): Promise<void> {
+  const artifactDir = path.dirname(entrypoint)
+  const probe = Bun.spawn(
+    [
+      "node",
+      "--input-type=module",
+      "-e",
+      `import { createRequire } from "node:module";
+import { realpathSync, readFileSync } from "node:fs";
+import path from "node:path";
+
+const require = createRequire(import.meta.url);
+const artifactDir = path.resolve(process.cwd());
+const artifactPrefix = artifactDir.endsWith(path.sep) ? artifactDir : artifactDir + path.sep;
+
+function assertInsideArtifact(resolved) {
+  const real = realpathSync(resolved);
+  if (real !== artifactDir && !real.startsWith(artifactPrefix)) {
+    throw new Error(resolved + " resolved outside artifact as " + real);
+  }
+  return real;
+}
+
+function readPackageVersion(manifestPath) {
+  return JSON.parse(readFileSync(manifestPath, "utf8")).version;
+}
+
+const { Arborist } = await import("@npmcli/arborist");
+if (typeof Arborist !== "function") throw new Error("@npmcli/arborist did not expose Arborist");
+
+const aws = await import("@aws-sdk/credential-providers");
+if (typeof aws.fromNodeProviderChain !== "function") {
+  throw new Error("@aws-sdk/credential-providers did not expose fromNodeProviderChain");
+}
+
+const pino = await import("pino");
+if (typeof pino.default !== "function") throw new Error("pino did not expose a default logger");
+
+assertInsideArtifact(require.resolve("node-gyp/bin/node-gyp.js"));
+const topLevelNodeGypManifest = assertInsideArtifact(require.resolve("node-gyp/package.json"));
+const topLevelNodeGypVersion = readPackageVersion(topLevelNodeGypManifest);
+if (!topLevelNodeGypVersion.startsWith("12.")) {
+  throw new Error("top-level node-gyp resolved node-gyp@" + topLevelNodeGypVersion);
+}
+
+const arboristManifest = assertInsideArtifact(require.resolve("@npmcli/arborist/package.json"));
+const arboristRequire = createRequire(arboristManifest);
+const runScriptManifest = assertInsideArtifact(arboristRequire.resolve("@npmcli/run-script/package.json"));
+const runScriptRequire = createRequire(runScriptManifest);
+const runScriptNodeGypManifest = assertInsideArtifact(runScriptRequire.resolve("node-gyp/package.json"));
+const runScriptNodeGypVersion = readPackageVersion(runScriptNodeGypManifest);
+if (!runScriptNodeGypVersion.startsWith("12.")) {
+  throw new Error("@npmcli/run-script resolved node-gyp@" + runScriptNodeGypVersion);
+}
+
+const awsManifest = assertInsideArtifact(require.resolve("@aws-sdk/credential-providers/package.json"));
+const awsRequire = createRequire(awsManifest);
+const awsCoreManifest = assertInsideArtifact(awsRequire.resolve("@aws-sdk/core/package.json"));
+const awsCoreRequire = createRequire(awsCoreManifest);
+const smithyTypesManifest = assertInsideArtifact(awsCoreRequire.resolve("@smithy/types/package.json"));
+const smithyTypesVersion = readPackageVersion(smithyTypesManifest);
+const smithyParts = smithyTypesVersion.split(".").map((part) => Number.parseInt(part, 10));
+if (smithyParts[0] !== 4 || smithyParts[1] < 14 || (smithyParts[1] === 14 && smithyParts[2] < 3)) {
+  throw new Error("@aws-sdk/core resolved @smithy/types@" + smithyTypesVersion);
+}`,
+    ],
+    {
+      cwd: artifactDir,
+      stderr: "pipe",
+      stdout: "pipe",
+      windowsHide: true,
+    },
+  )
+  const [code, stdoutText, stderrText] = await Promise.all([
+    probe.exited,
+    readStream(probe.stdout),
+    readStream(probe.stderr),
+  ])
+  if (code !== 0) {
+    throw new Error(
+      `Buddy Node artifact failed lazy runtime package smoke: ${tail(stderrText || stdoutText)}`,
+    )
+  }
 }
 
 async function assertNodeArtifactResourcePackPrep(entrypoint: string): Promise<void> {
@@ -221,7 +307,7 @@ function createIsolatedArtifact(entrypoint: string): {
   const sourceDir = path.dirname(entrypoint)
   const artifactRoot = mkdtempSync(path.join(os.tmpdir(), "buddy-node-artifact-bundle-"))
   const artifactDir = path.join(artifactRoot, ISOLATED_ARTIFACT_DIR_NAME)
-  cpSync(sourceDir, artifactDir, { recursive: true, dereference: true })
+  cpSync(sourceDir, artifactDir, { recursive: true, dereference: false })
 
   return {
     artifactRoot,
