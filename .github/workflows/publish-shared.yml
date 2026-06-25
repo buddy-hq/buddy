@@ -173,7 +173,8 @@ jobs:
           compression-level: 0
           retention-days: 1
 
-      - name: Upload latest yml
+      - if: ${{ !inputs.direct_release_uploads }}
+        name: Upload latest yml
         uses: actions/upload-artifact@v6
         with:
           name: latest-yml-aarch64-apple-darwin
@@ -256,7 +257,8 @@ jobs:
           compression-level: 0
           retention-days: 1
 
-      - name: Upload latest yml
+      - if: ${{ !inputs.direct_release_uploads }}
+        name: Upload latest yml
         uses: actions/upload-artifact@v6
         with:
           name: latest-yml-x86_64-apple-darwin
@@ -339,7 +341,8 @@ jobs:
           compression-level: 0
           retention-days: 1
 
-      - name: Upload latest yml
+      - if: ${{ !inputs.direct_release_uploads }}
+        name: Upload latest yml
         uses: actions/upload-artifact@v6
         with:
           name: latest-yml-x86_64-pc-windows-msvc
@@ -381,10 +384,21 @@ jobs:
           path: electron-dist
           merge-multiple: true
 
-      - uses: actions/download-artifact@v7
+      - if: ${{ !inputs.direct_release_uploads }}
+        uses: actions/download-artifact@v7
         with:
           pattern: latest-yml-*
           path: latest-yml
+
+      - if: ${{ inputs.direct_release_uploads }}
+        name: Download update assets from draft release
+        env:
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          BUDDY_VERSION: ${{ needs.version.outputs.version }}
+          ELECTRON_DIST_DIR: ${{ github.workspace }}/electron-dist
+        run: bun ./packages/desktop-electron/scripts/download-release-update-assets.ts
 
       - name: Upload release installer scripts
         shell: bash
