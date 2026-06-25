@@ -1,10 +1,7 @@
 import { Buffer } from "node:buffer"
 import * as http from "node:http"
 import * as tls from "node:tls"
-import { existsSync } from "node:fs"
-import { pathToFileURL } from "node:url"
 
-const BACKEND_NODE_ENTRY_ENV = "BUDDY_BACKEND_NODE_ENTRY"
 const BACKEND_SERVER_PASSWORD_ENV = "BUDDY_SERVER_PASSWORD"
 const BACKEND_SERVER_USERNAME_ENV = "BUDDY_SERVER_USERNAME"
 const DEFAULT_BACKEND_SERVER_USERNAME = "buddy"
@@ -139,27 +136,15 @@ function serverBaseUrl(server: ActiveServer): string {
 
 async function loadBackendModule(): Promise<BackendModule> {
   backendModuleTask ??= (async () => {
-    const entry = resolveBackendNodeEntry()
     await assertNodeSqliteAvailable()
-    const loaded: unknown = await import(pathToFileURL(entry).href)
+    const loaded: unknown = await import("virtual:buddy-server")
     if (!isBackendModule(loaded)) {
-      throw new Error(`Buddy Node backend artifact does not export listen(): ${entry}`)
+      throw new Error("Buddy Node backend artifact does not export listen()")
     }
     return loaded
   })()
 
   return backendModuleTask
-}
-
-function resolveBackendNodeEntry() {
-  const entry = process.env[BACKEND_NODE_ENTRY_ENV]?.trim()
-  if (!entry) {
-    throw new Error(`${BACKEND_NODE_ENTRY_ENV} is not configured for the backend utility process`)
-  }
-  if (!existsSync(entry)) {
-    throw new Error(`Buddy Node backend artifact not found at ${entry}`)
-  }
-  return entry
 }
 
 async function assertNodeSqliteAvailable() {

@@ -72,38 +72,6 @@ jobs:
       repo: ${{ steps.version.outputs.release_repo }}
       source_repo: ${{ steps.version.outputs.source_repo }}
 
-  build-electron-app:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.sha }}
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - uses: actions/cache@v5
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - run: bun install
-
-      - run: bun run sdk:generate
-
-      - run: bun run --cwd packages/desktop-electron build
-        env:
-          BUDDY_CHANNEL: prod
-
-      - uses: actions/upload-artifact@v6
-        with:
-          name: electron-app-out
-          path: packages/desktop-electron/out
-          retention-days: 1
-
   smoke-node-backend:
     runs-on: ubuntu-latest
     steps:
@@ -133,7 +101,6 @@ jobs:
   build-electron-macos-arm64:
     needs:
       - version
-      - build-electron-app
     runs-on: macos-latest
     env:
       BUDDY_CHANNEL: prod
@@ -168,35 +135,14 @@ jobs:
 
       - run: bun install
 
-      - name: Restore packaged icons
-        run: bun ./scripts/copy-icons.ts prod
-        working-directory: packages/desktop-electron
-
-      - uses: actions/download-artifact@v7
-        with:
-          name: electron-app-out
-          path: electron-app-artifact
-
-      - shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf packages/desktop-electron/out
-          if [ -d electron-app-artifact/out ]; then
-            mv electron-app-artifact/out packages/desktop-electron/out
-          else
-            mv electron-app-artifact packages/desktop-electron/out
-          fi
+      - run: bun run sdk:generate
 
       - run: bun run --cwd packages/desktop-electron prepare:release
         env:
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
 
-      - name: Verify staged backend native package
-        run: bun ./scripts/validate-backend-node-artifact.ts --platform darwin --arch arm64
-        working-directory: packages/desktop-electron
-
-      - name: Smoke staged backend artifact
-        run: bun run --cwd packages/buddy smoke:node -- --entrypoint ../desktop-electron/resources/backend-node/node.js --migration-dir ../desktop-electron/resources/migrations/buddy
+      - name: Build Electron app for darwin-arm64
+        run: bun run --cwd packages/desktop-electron build
 
       - name: Smoke Electron backend utility
         run: bun run --cwd packages/desktop-electron smoke:backend-utility
@@ -228,7 +174,6 @@ jobs:
   build-electron-macos-x64:
     needs:
       - version
-      - build-electron-app
     runs-on: macos-15-intel
     env:
       BUDDY_CHANNEL: prod
@@ -263,35 +208,14 @@ jobs:
 
       - run: bun install
 
-      - name: Restore packaged icons
-        run: bun ./scripts/copy-icons.ts prod
-        working-directory: packages/desktop-electron
-
-      - uses: actions/download-artifact@v7
-        with:
-          name: electron-app-out
-          path: electron-app-artifact
-
-      - shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf packages/desktop-electron/out
-          if [ -d electron-app-artifact/out ]; then
-            mv electron-app-artifact/out packages/desktop-electron/out
-          else
-            mv electron-app-artifact packages/desktop-electron/out
-          fi
+      - run: bun run sdk:generate
 
       - run: bun run --cwd packages/desktop-electron prepare:release
         env:
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
 
-      - name: Verify staged backend native package
-        run: bun ./scripts/validate-backend-node-artifact.ts --platform darwin --arch x64
-        working-directory: packages/desktop-electron
-
-      - name: Smoke staged backend artifact
-        run: bun run --cwd packages/buddy smoke:node -- --entrypoint ../desktop-electron/resources/backend-node/node.js --migration-dir ../desktop-electron/resources/migrations/buddy
+      - name: Build Electron app for darwin-x64
+        run: bun run --cwd packages/desktop-electron build
 
       - name: Smoke Electron backend utility
         run: bun run --cwd packages/desktop-electron smoke:backend-utility
@@ -323,7 +247,6 @@ jobs:
   build-electron-windows-x64:
     needs:
       - version
-      - build-electron-app
     runs-on: windows-2025-vs2026
     env:
       BUDDY_CHANNEL: prod
@@ -358,35 +281,14 @@ jobs:
 
       - run: bun install
 
-      - name: Restore packaged icons
-        run: bun ./scripts/copy-icons.ts prod
-        working-directory: packages/desktop-electron
-
-      - uses: actions/download-artifact@v7
-        with:
-          name: electron-app-out
-          path: electron-app-artifact
-
-      - shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf packages/desktop-electron/out
-          if [ -d electron-app-artifact/out ]; then
-            mv electron-app-artifact/out packages/desktop-electron/out
-          else
-            mv electron-app-artifact packages/desktop-electron/out
-          fi
+      - run: bun run sdk:generate
 
       - run: bun run --cwd packages/desktop-electron prepare:release
         env:
           BUDDY_VERSION: ${{ needs.version.outputs.version }}
 
-      - name: Verify staged backend native package
-        run: bun ./scripts/validate-backend-node-artifact.ts --platform win32 --arch x64
-        working-directory: packages/desktop-electron
-
-      - name: Smoke staged backend artifact
-        run: bun run --cwd packages/buddy smoke:node -- --entrypoint ../desktop-electron/resources/backend-node/node.js --migration-dir ../desktop-electron/resources/migrations/buddy
+      - name: Build Electron app for win32-x64
+        run: bun run --cwd packages/desktop-electron build
 
       - name: Smoke Electron backend utility
         run: bun run --cwd packages/desktop-electron smoke:backend-utility
@@ -548,7 +450,7 @@ jobs:
         shell: bash
         run: |
           runtime_version="$(
-            bun --eval 'import { resolveAdvancedMathRuntimeVersion } from "./packages/buddy/script/advanced-math-version.ts"; process.stdout.write(resolveAdvancedMathRuntimeVersion())'
+            bun ./packages/buddy/script/print-advanced-math-version.ts
           )"
           if [ -z "$runtime_version" ]; then
             echo "Failed to resolve advanced math runtime version"

@@ -1,7 +1,6 @@
 import { readFileSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import {
-  syncBundledBackendNodeArtifacts,
   syncBackendSourceResources,
   syncBundledKnowledgeGraphAssets,
   syncBundledMigrations,
@@ -12,7 +11,6 @@ export type Channel = "dev" | "beta" | "prod"
 const PACKAGE_DIR = path.resolve(import.meta.dir, "..")
 const PACKAGE_JSON_PATH = path.resolve(PACKAGE_DIR, "package.json")
 const BACKEND_RESOURCES_DIR = path.resolve(PACKAGE_DIR, "resources/backend")
-const BACKEND_NODE_RESOURCES_DIR = path.resolve(PACKAGE_DIR, "resources/backend-node")
 const KNOWLEDGE_GRAPH_RESOURCES_DIR = path.resolve(PACKAGE_DIR, "resources/knowledge-graph")
 const MIGRATIONS_DIR = path.resolve(PACKAGE_DIR, "resources/migrations")
 const TAURI_SIGNER_BINARY_RELATIVE_PATH = "node_modules/.bin/tauri"
@@ -26,10 +24,6 @@ export function resolveChannel(): Channel {
 
 export function syncBackendResources() {
   return syncBackendSourceResources(BACKEND_RESOURCES_DIR)
-}
-
-export function syncBackendNodeResources() {
-  return syncBundledBackendNodeArtifacts(BACKEND_NODE_RESOURCES_DIR)
 }
 
 export function removeLegacyBackendExecutableResources() {
@@ -49,7 +43,6 @@ export function syncKnowledgeGraphResources() {
 }
 
 export type DesktopRuntimeResources = {
-  backendNodeEntry: string
   backendResources: string
   knowledgeGraphArchive: string
   migrations: string
@@ -59,7 +52,6 @@ export function syncDesktopRuntimeResources(): DesktopRuntimeResources {
   removeLegacyBackendExecutableResources()
 
   return {
-    backendNodeEntry: syncBackendNodeResources(),
     backendResources: syncBackendResources(),
     knowledgeGraphArchive: syncKnowledgeGraphResources(),
     migrations: syncMigrations(),
@@ -67,7 +59,6 @@ export function syncDesktopRuntimeResources(): DesktopRuntimeResources {
 }
 
 export function logDesktopRuntimeResources(resources: DesktopRuntimeResources) {
-  console.log(`Prepared Buddy Node backend artifact at ${resources.backendNodeEntry}`)
   console.log(`Prepared Buddy backend resources at ${resources.backendResources}`)
   console.log(`Prepared Knowledge Graph bundle at ${resources.knowledgeGraphArchive}`)
   console.log(`Prepared Buddy migrations at ${resources.migrations}`)

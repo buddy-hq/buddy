@@ -1,19 +1,17 @@
-import { existsSync, readFileSync, readdirSync, realpathSync } from "node:fs"
+import { existsSync, readdirSync } from "node:fs"
 import path from "node:path"
 
 const CHONKIE_WASM_RELATIVE_PATH = ["pkg", "chonkiejs_chunk_bg.wasm"] as const
 const PHOTON_WASM_PATTERN = /^photon_rs_bg(?:-[a-z0-9]+)?\.wasm$/i
-const JSONC_PARSER_PACKAGE = "jsonc-parser"
-const NODE_PTY_PACKAGE = "@lydell/node-pty"
-const NPM_ARBORIST_PACKAGE = "@npmcli/arborist"
-const AWS_CREDENTIAL_PROVIDERS_PACKAGE = "@aws-sdk/credential-providers"
-const NODE_GYP_PACKAGE = "node-gyp"
-const PINO_PACKAGE = "pino"
-const PACKAGE_MANIFEST = "package.json"
+const DIRECTORY_NODE_MODULES = "node_modules" as const
 
 export type BackendNodeArtifactTarget = {
   arch: string
   platform: string
+}
+
+export type BuildOutputScan = {
+  packagedNodeModules: string[]
 }
 
 export function currentBackendNodeArtifactTarget(): BackendNodeArtifactTarget {
@@ -24,7 +22,7 @@ export function currentBackendNodeArtifactTarget(): BackendNodeArtifactTarget {
 }
 
 export function nodePtyNativePackageName(target: BackendNodeArtifactTarget): string {
-  return `${NODE_PTY_PACKAGE}-${target.platform}-${target.arch}`
+  return `@lydell/node-pty-${target.platform}-${target.arch}`
 }
 
 export function parcelWatcherNativePackageName(target: BackendNodeArtifactTarget): string {
@@ -32,60 +30,7 @@ export function parcelWatcherNativePackageName(target: BackendNodeArtifactTarget
   return `@parcel/watcher-${target.platform}-${target.arch}${libcSuffix}`
 }
 
-export function backendNodeRuntimePackageNames(target: BackendNodeArtifactTarget): string[] {
-  return [
-    JSONC_PARSER_PACKAGE,
-    NODE_PTY_PACKAGE,
-    nodePtyNativePackageName(target),
-    parcelWatcherNativePackageName(target),
-    NPM_ARBORIST_PACKAGE,
-    AWS_CREDENTIAL_PROVIDERS_PACKAGE,
-    NODE_GYP_PACKAGE,
-    PINO_PACKAGE,
-  ]
-}
-
-export function runtimePackagePath(artifactDir: string, packageName: string): string {
-  return path.join(artifactDir, "node_modules", ...packageName.split("/"))
-}
-
-export function assertPathInsideDirectory(input: {
-  directory: string
-  pathToCheck: string
-}): void {
-  const directoryRealPath = realpathSync(input.directory)
-  const checkedRealPath = realpathSync(input.pathToCheck)
-  const rootPrefix = directoryRealPath.endsWith(path.sep)
-    ? directoryRealPath
-    : `${directoryRealPath}${path.sep}`
-
-  if (checkedRealPath !== directoryRealPath && !checkedRealPath.startsWith(rootPrefix)) {
-    throw new Error(`${input.pathToCheck} resolves outside ${input.directory}`)
-  }
-}
-
-export function assertRuntimePackageInArtifact(input: {
-  artifactDir: string
-  packageName: string
-}): string {
-  const packageRoot = runtimePackagePath(input.artifactDir, input.packageName)
-  const manifestPath = path.join(packageRoot, PACKAGE_MANIFEST)
-  if (!existsSync(manifestPath)) {
-    throw new Error(`Buddy Node artifact is missing ${input.packageName} at ${packageRoot}`)
-  }
-
-  assertPathInsideDirectory({
-    directory: input.artifactDir,
-    pathToCheck: manifestPath,
-  })
-
-  return manifestPath
-}
-
-export function assertBackendNodeArtifactRuntimeFiles(input: {
-  artifactDir: string
-  target: BackendNodeArtifactTarget
-}): void {
+export function assertBackendNodeArtifactRuntimeFiles(input: { artifactDir: string }): void {
   const entrypoint = path.join(input.artifactDir, "node.js")
   if (!existsSync(entrypoint)) {
     throw new Error(`Buddy Node artifact entrypoint missing at ${entrypoint}`)
@@ -99,29 +44,55 @@ export function assertBackendNodeArtifactRuntimeFiles(input: {
   if (!readdirSync(input.artifactDir).some((name) => PHOTON_WASM_PATTERN.test(name))) {
     throw new Error(`Buddy Node artifact is missing Photon WASM in ${input.artifactDir}`)
   }
+}
 
-  for (const packageName of backendNodeRuntimePackageNames(input.target)) {
-    assertRuntimePackageInArtifact({
-      artifactDir: input.artifactDir,
-      packageName,
-    })
+export function scanBuildOutput(rootDir: string): BuildOutputScan {
+  return {
+    packagedNodeModules: listPackagedNodeModules(rootDir),
   }
 }
 
-export function assertArtifactFileDoesNotContain(input: {
-  artifactFile: string
-  forbiddenText: string
-}): void {
-  if (!existsSync(input.artifactFile)) {
-    throw new Error(`Buddy Node artifact file missing at ${input.artifactFile}`)
+function listPackagedNodeModules(rootDir: string): string[] {
+  const packages = new Set<string>()
+  const stack = [rootDir]
+
+  while (stack.length > 0) {
+    const current = stack.pop()
+    if (!current) continue
+
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue
+
+      const entryPath = path.join(current, entry.name)
+      if (entry.name === DIRECTORY_NODE_MODULES) {
+        for (const packageName of listPackagesInNodeModules(entryPath)) {
+          packages.add(packageName)
+        }
+        continue
+      }
+
+      stack.push(entryPath)
+    }
   }
 
-  if (!input.forbiddenText) return
+  return [...packages].toSorted()
+}
 
-  const content = readFileSync(input.artifactFile, "utf8")
-  if (content.includes(input.forbiddenText)) {
-    throw new Error(
-      `Buddy Node artifact contains forbidden local path ${input.forbiddenText}: ${input.artifactFile}`,
-    )
+function listPackagesInNodeModules(nodeModulesDir: string): string[] {
+  const packages: string[] = []
+  for (const entry of readdirSync(nodeModulesDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    if (!entry.name.startsWith("@")) {
+      packages.push(entry.name)
+      continue
+    }
+
+    const scopeDir = path.join(nodeModulesDir, entry.name)
+    for (const scopedEntry of readdirSync(scopeDir, { withFileTypes: true })) {
+      if (!scopedEntry.isDirectory()) continue
+      packages.push(`${entry.name}/${scopedEntry.name}`)
+    }
   }
+
+  return packages
 }

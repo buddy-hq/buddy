@@ -6,17 +6,14 @@ import { BACKEND_SERVER_USERNAME } from "./constants"
 import { getUserShell, loadShellEnv, mergeShellEnv } from "./shell-env"
 
 const ADVANCED_MATH_LOCAL_ASSET_DIR_ENV = "BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR"
-const BACKEND_NODE_ENTRY_ENV = "BUDDY_BACKEND_NODE_ENTRY"
 const BACKEND_RESOURCES_DIR_ENV = "BUDDY_BACKEND_RESOURCES_DIR"
 const STANDARDS_LOCAL_ASSET_DIR_ENV = "BUDDY_STANDARDS_LOCAL_ASSET_DIR"
 const ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS = ["dist", "advanced-math-runtime"] as const
-const BACKEND_NODE_ENTRY_PATH_SEGMENTS = ["dist", "node", "node.js"] as const
 const STANDARDS_LOCAL_ASSET_PATH_SEGMENTS = ["resources", "knowledge-graph"] as const
 const RUNTIME_SUBDIRECTORIES = ["data", "cache", "config", "state", "tmp"] as const
 const OPENCODE_DATA_SUBDIRECTORY = "opencode"
 const BUDDY_RUNTIME_DIRECTORY_NAME = ".buddy-runtime"
 const BUDDY_RUNTIME_XDG_DIRECTORY_NAME = "xdg"
-const BUNDLED_BACKEND_NODE_DIRECTORY_NAME = "backend-node"
 const BUNDLED_MIGRATIONS_DIRECTORY_NAME = "migrations"
 const BUDDY_MIGRATION_DIRECTORY_NAME = "buddy"
 const DEVELOPMENT_BACKEND_PACKAGE_NAME = "buddy"
@@ -64,18 +61,6 @@ function getBundledBackendResourcesDir() {
   return resourcesDir
 }
 
-function getBundledBackendNodeEntry() {
-  const entry = path.join(
-    resourcesDirectory(),
-    BUNDLED_BACKEND_NODE_DIRECTORY_NAME,
-    "node.js",
-  )
-  if (!existsSync(entry)) {
-    throw new Error(`Bundled Buddy Node backend entry not found at ${entry}`)
-  }
-  return entry
-}
-
 function resolveDevelopmentBackendRoot() {
   if (app.isPackaged) return undefined
 
@@ -105,24 +90,6 @@ function getBuddyMigrationDir() {
   return getBundledBuddyMigrationDir()
 }
 
-function resolveDevelopmentBackendNodeEntry() {
-  const backendRoot = resolveDevelopmentBackendRoot()
-  if (!backendRoot) return undefined
-
-  const entry = path.join(backendRoot, ...BACKEND_NODE_ENTRY_PATH_SEGMENTS)
-  if (!existsSync(entry)) return undefined
-  return entry
-}
-
-function getBackendNodeEntry() {
-  const developmentEntry = resolveDevelopmentBackendNodeEntry()
-  if (developmentEntry) {
-    return developmentEntry
-  }
-
-  return getBundledBackendNodeEntry()
-}
-
 export async function buildRuntimeEnvironment(password: string, port: number) {
   const runtimeRoot = resolveBuddyRuntimeRoot()
   const xdgDataHome = path.join(runtimeRoot, "data")
@@ -140,7 +107,6 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
 
   const environment: Record<string, string> = {
     ...base,
-    [BACKEND_NODE_ENTRY_ENV]: getBackendNodeEntry(),
     BUDDY_SERVER_USERNAME: BACKEND_SERVER_USERNAME,
     BUDDY_SERVER_PASSWORD: password,
     OPENCODE_SERVER_USERNAME: BACKEND_SERVER_USERNAME,

@@ -11,7 +11,6 @@ import { fileURLToPath } from "node:url"
 
 const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const BACKEND_DIR = path.resolve(ROOT_DIR, "packages/buddy")
-const BACKEND_NODE_DIST_DIR = path.resolve(BACKEND_DIR, "dist/node")
 const BACKEND_SOURCE_DIR = path.resolve(BACKEND_DIR, "src")
 const BUDDY_MIGRATION_SOURCE = path.resolve(BACKEND_DIR, "migration")
 const KNOWLEDGE_GRAPH_ASSET_SOURCE_ENV = "BUDDY_KNOWLEDGE_GRAPH_DB_SOURCE"
@@ -56,19 +55,6 @@ export function syncBundledMigrations(destinationDir: string) {
   mkdirSync(destinationDir, { recursive: true })
   cpSync(BUDDY_MIGRATION_SOURCE, path.resolve(destinationDir, "buddy"), { recursive: true })
   return destinationDir
-}
-
-export function syncBundledBackendNodeArtifacts(destinationDir: string) {
-  if (!existsSync(BACKEND_NODE_DIST_DIR)) {
-    throw new Error(
-      `Buddy Node backend artifact missing at ${BACKEND_NODE_DIST_DIR}. Run \`bun run --cwd packages/buddy build:node\`.`,
-    )
-  }
-
-  rmSync(destinationDir, { recursive: true, force: true })
-  mkdirSync(destinationDir, { recursive: true })
-  cpSync(BACKEND_NODE_DIST_DIR, destinationDir, { recursive: true, dereference: false })
-  return path.resolve(destinationDir, "node.js")
 }
 
 function resolveKnowledgeGraphAssetSourcePath(sourcePath: string | undefined) {

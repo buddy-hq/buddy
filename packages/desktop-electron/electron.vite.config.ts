@@ -1,11 +1,33 @@
 import path from "node:path"
+import * as fs from "node:fs/promises"
+import { createRequire } from "node:module"
 import { defineConfig } from "electron-vite"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
+import {
+  currentBackendNodeArtifactTarget,
+  nodePtyNativePackageName,
+  parcelWatcherNativePackageName,
+} from "../../script/backend-node-artifact"
 import buddyWebVitePlugin from "../web/vite"
 
 const webDir = path.resolve(__dirname, "../web")
+const buddyDir = path.resolve(__dirname, "../buddy")
+const BUDDY_SERVER_DIST = path.resolve(__dirname, "../buddy/dist/node")
+const BUDDY_SERVER_ENTRY = path.resolve(BUDDY_SERVER_DIST, "node.js")
+const MAIN_CHUNKS_DIR = path.resolve(__dirname, "out/main/chunks")
+const nativeTarget = currentBackendNodeArtifactTarget()
+const nodePtyPkg = nodePtyNativePackageName(nativeTarget)
+const parcelWatcherPkg = parcelWatcherNativePackageName(nativeTarget)
+const optionalRuntimeExternalPackages = ["@chonkiejs/token"] as const
+const nativeRuntimePackages = [nodePtyPkg, parcelWatcherPkg] as const
+const require = createRequire(import.meta.url)
+
+function isMainExternal(id: string) {
+  return optionalRuntimeExternalPackages.some((packageName) => packageName === id) ||
+    id.startsWith("cloudflare:")
+}
 
 const channel = (() => {
   const raw = process.env.BUDDY_CHANNEL
@@ -25,7 +47,38 @@ export default defineConfig({
           "backend-utility": "src/main/backend-utility.ts",
         },
       },
+      externalizeDeps: { include: [...nativeRuntimePackages] },
     },
+    plugins: [
+      {
+        name: "buddy:runtime-externals",
+        enforce: "pre",
+        resolveId(id) {
+          if (isMainExternal(id)) return { id, external: true }
+        },
+      },
+      {
+        name: "buddy:node-pty-narrower",
+        enforce: "pre",
+        resolveId(id) {
+          if (id === "@lydell/node-pty") return nodePtyPkg
+        },
+      },
+      {
+        name: "buddy:virtual-server-module",
+        enforce: "pre",
+        resolveId(id) {
+          if (id === "virtual:buddy-server") return this.resolve(BUDDY_SERVER_ENTRY)
+        },
+      },
+      {
+        name: "buddy:copy-server-assets",
+        async writeBundle() {
+          await copyWasmAssets(BUDDY_SERVER_DIST, MAIN_CHUNKS_DIR)
+          await copyNativeRuntimePackages()
+        },
+      },
+    ],
   },
   preload: {
     build: {
@@ -60,3 +113,61 @@ export default defineConfig({
     },
   },
 })
+
+async function copyWasmAssets(sourceDir: string, destinationDir: string) {
+  const entries = await fs.readdir(sourceDir, { withFileTypes: true })
+  await fs.mkdir(destinationDir, { recursive: true })
+
+  for (const entry of entries) {
+    const source = path.join(sourceDir, entry.name)
+    const destination = path.join(destinationDir, entry.name)
+
+    if (entry.isDirectory()) {
+      await copyWasmAssets(source, destination)
+      continue
+    }
+
+    if (entry.isFile() && entry.name.endsWith(".wasm")) {
+      await fs.copyFile(source, destination)
+    }
+  }
+}
+
+async function copyNativeRuntimePackages() {
+  for (const packageName of nativeRuntimePackages) {
+    const source = await resolveNativePackageDirectory(packageName)
+    const destination = path.join(MAIN_CHUNKS_DIR, "node_modules", ...packageName.split("/"))
+    await fs.rm(destination, { recursive: true, force: true })
+    await fs.mkdir(path.dirname(destination), { recursive: true })
+    await fs.cp(source, destination, { recursive: true, dereference: false })
+  }
+}
+
+async function resolveNativePackageDirectory(packageName: string): Promise<string> {
+  const entryPath = require.resolve(packageName, {
+    paths: [buddyDir],
+  })
+
+  let currentDir = path.dirname(entryPath)
+  while (true) {
+    const manifestPath = path.join(currentDir, "package.json")
+    if (await fileExists(manifestPath)) {
+      return currentDir
+    }
+
+    const parentDir = path.dirname(currentDir)
+    if (parentDir === currentDir) {
+      throw new Error(`Could not locate package.json for ${packageName} from ${entryPath}`)
+    }
+    currentDir = parentDir
+  }
+}
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath)
+    return true
+  } catch {
+    return false
+  }
+}
