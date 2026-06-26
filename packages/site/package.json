@@ -9,7 +9,9 @@
     "preview": "astro preview",
     "lint": "bun ../../node_modules/oxlint/bin/oxlint",
     "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
-    "typecheck:raw": "bun ./node_modules/astro/astro.js check"
+    "typecheck:raw": "bun ./node_modules/astro/astro.js check",
+    "deploy:dry": "astro build && wrangler deploy --dry-run",
+    "deploy": "astro build && wrangler deploy"
   },
   "dependencies": {
     "@astrojs/cloudflare": "12.6.3",
