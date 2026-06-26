@@ -1,0 +1,1546 @@
+---
+import Landing from "../../layouts/Landing.astro"
+---
+
+<Landing title="Local-First Data Ownership — Buddy">
+  <main class="ownership-gallery-page">
+    <div class="container">
+      <div class="gallery-header">
+        <span class="badge">DESIGN STUDY</span>
+        <h1>Yours to Keep</h1>
+        <p>60 visual concepts showcasing local-first data ownership, offline sovereignty, nature-inspired protection, abstract safety shapes, and panda safety metaphors.</p>
+      </div>
+
+      <!-- Part 1: Product & Device Metaphors -->
+      <h2 class="section-divider-title">01. Product & Device Metaphors</h2>
+      <div class="grid-container">
+        
+        <!-- Concept 01: The Isolated Laptop -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Laptop Frame -->
+              <rect x="50" y="60" width="140" height="90" rx="8" stroke="currentColor" stroke-width="2.5" fill="var(--color-bg, #09090b)" />
+              <line x1="30" y1="150" x2="210" y2="150" stroke="currentColor" stroke-width="4" stroke-linecap="round" />
+              <line x1="110" y1="150" x2="130" y2="150" stroke="currentColor" stroke-width="2" opacity="0.6" />
+
+              <!-- Local circulation path on screen -->
+              <circle cx="120" cy="100" r="24" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.3" />
+              <circle r="3" fill="var(--color-accent-primary, #ff6b00)">
+                <animateMotion path="M 120,76 A 24,24 0 1,1 119.9,76 Z" dur="3s" repeatCount="indefinite" />
+              </circle>
+
+              <!-- External cloud sending lines that bounce off -->
+              <path d="M 120,15 C 130,15 140,25 135,35" stroke="currentColor" stroke-width="1.5" opacity="0.2" />
+              <path d="M 120,35 L 120,55" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.2" />
+              
+              <!-- Deflector shield line above laptop screen -->
+              <path d="M 80,50 Q 120,40 160,50" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2" stroke-linecap="round" opacity="0.8">
+                <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite" />
+              </path>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>01. Isolated Laptop</h3>
+            <p>Data circulates exclusively inside the local screen workspace. External cloud connections are physically blocked by an active local shield.</p>
+          </div>
+        </div>
+
+        <!-- Concept 02: Local Hard Drive Vault -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Hard Drive Disk Platter -->
+              <circle cx="120" cy="100" r="55" stroke="currentColor" stroke-width="2.5" fill="var(--color-bg, #09090b)" />
+              <circle cx="120" cy="100" r="16" stroke="currentColor" stroke-width="2" />
+
+              <!-- Reading arm/head -->
+              <g transform="translate(120, 100)">
+                <g>
+                  <line x1="0" y1="0" x2="-48" y2="-28" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+                  <polygon points="-48,-28 -44,-32 -52,-32" fill="var(--color-accent-primary, #ff6b00)" />
+                  <animateTransform attributeName="transform" type="rotate" values="-10; 15; -10" dur="4s" repeatCount="indefinite" />
+                </g>
+              </g>
+
+              <!-- Localized sector glow -->
+              <circle cx="120" cy="100" r="40" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1.5" stroke-dasharray="20 180" opacity="0.8">
+                <animateTransform attributeName="transform" type="rotate" from="0 120 100" to="360 120 100" dur="2s" repeatCount="indefinite" />
+              </circle>
+
+              <!-- Mechanical Lock around the platter -->
+              <path d="M 85,95 L 85,80 C 85,60 155,60 155,80 L 155,95" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.3" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>02. Storage Platter Lock</h3>
+            <p>A physical disk drive reading arm writes bits locally. A heavy mechanical lock holds the storage assembly secure from external mounts.</p>
+          </div>
+        </div>
+
+        <!-- Concept 03: The Data Safe -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Safe Box Frame -->
+              <rect x="60" y="45" width="120" height="110" rx="6" stroke="currentColor" stroke-width="3" fill="var(--color-bg, #09090b)" />
+              
+              <!-- Safe Dial lock -->
+              <circle cx="120" cy="100" r="22" stroke="currentColor" stroke-width="2" />
+              <circle cx="120" cy="100" r="16" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 4" />
+              
+              <!-- Indicator notch -->
+              <line x1="120" y1="78" x2="120" y2="84" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2" />
+
+              <g transform="translate(120, 100)">
+                <line x1="0" y1="0" x2="0" y2="-12" stroke="currentColor" stroke-width="2" />
+                <animateTransform attributeName="transform" type="rotate" values="0; 120; 80; 360" keyTimes="0; 0.3; 0.6; 1" dur="6s" repeatCount="indefinite" />
+              </g>
+
+              <!-- Circular arrows inside safe walls showing internal movement -->
+              <rect x="75" y="60" width="90" height="80" rx="3" stroke="currentColor" stroke-width="1" stroke-dasharray="5 15" opacity="0.2" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>03. Combination Safe</h3>
+            <p>Your documents reside inside a heavy-gauge iron vault. The mechanical combination dial turns locally to lock down configuration files.</p>
+          </div>
+        </div>
+
+        <!-- Concept 04: The Unplugged Cord -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Computer Monitor -->
+              <rect x="60" y="50" width="120" height="80" rx="6" stroke="currentColor" stroke-width="2" fill="var(--color-bg, #09090b)" />
+              <polygon points="100,130 140,130 150,155 90,155" stroke="currentColor" stroke-width="2" fill="none" />
+
+              <!-- Cord coming out of back and hanging loose -->
+              <path d="M 120,110 Q 120,175 75,170" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none" />
+              <!-- Plug end with open pins -->
+              <g transform="translate(75, 170) rotate(10)">
+                <rect x="-8" y="-4" width="8" height="8" rx="1" fill="currentColor" />
+                <line x1="-12" y1="-2" x2="-8" y2="-2" stroke="currentColor" stroke-width="1.5" />
+                <line x1="-12" y1="2" x2="-8" y2="2" stroke="currentColor" stroke-width="1.5" />
+              </g>
+
+              <!-- Internally cycling data spark -->
+              <circle r="3" fill="var(--color-accent-primary, #ff6b00)">
+                <animateMotion path="M 75,90 L 165,90 L 165,65 L 75,65 Z" dur="4s" repeatCount="indefinite" />
+              </circle>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>04. Unplugged Cable</h3>
+            <p>A physical connection cable hangs loose and open on your desk. The application operates in a completely air-gapped sandbox.</p>
+          </div>
+        </div>
+
+        <!-- Concept 05: Folder Lock Clamped Shut -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Folder back -->
+              <path d="M 45,150 L 45,70 C 45,65 50,60 55,60 L 95,60 L 110,75 L 185,75 C 190,75 195,80 195,85 L 195,150 Z" stroke="currentColor" stroke-width="2" fill="var(--color-bg, #09090b)" />
+              
+              <!-- Document sliding into the folder -->
+              <g>
+                <rect x="75" y="80" width="80" height="50" rx="3" stroke="currentColor" stroke-width="1.5" fill="var(--color-bg, #09090b)" />
+                <line x1="85" y1="95" x2="145" y2="95" stroke="currentColor" stroke-width="1" opacity="0.5" />
+                <line x1="85" y1="110" x2="125" y2="110" stroke="currentColor" stroke-width="1" opacity="0.5" />
+                
+                <animateTransform attributeName="transform" type="translate" values="0,15; 0,-15; 0,15" dur="4s" repeatCount="indefinite" />
+              </g>
+
+              <!-- Folder front lip -->
+              <path d="M 40,150 L 40,90 C 40,88 43,85 47,85 L 193,85 C 197,85 200,88 200,90 L 200,150 Z" stroke="currentColor" stroke-width="2" fill="currentColor" fill-opacity="0.05" />
+
+              <!-- Padlock locking the folder -->
+              <g transform="translate(160, 100)">
+                <rect x="-8" y="0" width="16" height="12" rx="1.5" fill="var(--color-accent-primary, #ff6b00)" stroke="none" />
+                <path d="M -5,0 L -5,-6 C -5,-10 5,-10 5,-6 L 5,0" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1.5" fill="none" />
+              </g>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>05. Local Folder Seal</h3>
+            <p>Files drop directly into local system directories. An integrated passcode padlock clamps the directory structure shut.</p>
+          </div>
+        </div>
+
+        <!-- Concept 06: Zero-Account Direct Entry -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Window interface representing "No Sign In" -->
+              <rect x="50" y="45" width="140" height="110" rx="6" stroke="currentColor" stroke-width="2" fill="var(--color-bg, #09090b)" />
+              <line x1="50" y1="70" x2="190" y2="70" stroke="currentColor" stroke-width="1.5" />
+              <circle cx="65" cy="58" r="3" fill="currentColor" />
+              <circle cx="75" cy="58" r="3" fill="currentColor" />
+              <circle cx="85" cy="58" r="3" fill="currentColor" />
+
+              <!-- User avatar silhouette with a slash (No profiles) -->
+              <circle cx="120" cy="100" r="12" stroke="currentColor" stroke-width="1.8" />
+              <path d="M 105,122 C 105,115 110,112 120,112 C 130,112 135,115 135,122" stroke="currentColor" stroke-width="1.8" />
+              <line x1="95" y1="125" x2="145" y2="95" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2.5" stroke-linecap="round" />
+
+              <!-- Direct Unlock arrow -->
+              <path d="M 80,105 L 70,105 L 70,125 L 85,125" stroke="currentColor" stroke-width="1" opacity="0.3" />
+              <polygon points="85,121 93,125 85,129" fill="currentColor" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>06. Zero-Account Access</h3>
+            <p>No user login pages, no profile registrations, and no credential handshakes. The editor loads directly from the local disk.</p>
+          </div>
+        </div>
+
+        <!-- Concept 07: Home Boundary Shield -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- House contour enclosing local database -->
+              <path d="M 60,150 L 60,100 L 120,50 L 180,100 L 180,150 Z" stroke="currentColor" stroke-width="2" fill="var(--color-bg, #09090b)" />
+
+              <!-- Database cylinders inside house -->
+              <g transform="translate(120, 115)">
+                <ellipse cx="0" cy="-15" rx="18" ry="5" stroke="currentColor" stroke-width="1.5" />
+                <ellipse cx="0" cy="0" rx="18" ry="5" stroke="currentColor" stroke-width="1.5" />
+                <path d="M -18,-15 L -18,15 A 18,5 0 0,0 18,15 L 18,-15" stroke="currentColor" stroke-width="1.5" fill="none" />
+                <ellipse cx="0" cy="15" rx="18" ry="5" stroke="currentColor" stroke-width="1.5" />
+                <line x1="-18" y1="0" x2="-18" y2="15" stroke="currentColor" stroke-width="1.5" />
+                <line x1="18" y1="0" x2="18" y2="15" stroke="currentColor" stroke-width="1.5" />
+              </g>
+
+              <!-- External signals bouncing off roof -->
+              <path d="M 30,80 Q 75,40 120,35" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.2" />
+              <path d="M 120,35 L 130,45" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>07. Home Boundary Shield</h3>
+            <p>Your database stays enclosed within physical home boundaries. External requests bounce off the roofline and dissolve.</p>
+          </div>
+        </div>
+
+        <!-- Concept 08: Direct Device-to-Device Link -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Laptop (Left) -->
+              <rect x="35" y="75" width="60" height="40" rx="3" stroke="currentColor" stroke-width="1.8" />
+              <line x1="25" y1="115" x2="105" y2="115" stroke="currentColor" stroke-width="3" />
+
+              <!-- Mobile Phone (Right) -->
+              <rect x="155" y="65" width="35" height="65" rx="5" stroke="currentColor" stroke-width="1.8" />
+              <circle cx="172.5" cy="120" r="2.5" fill="currentColor" />
+
+              <!-- Connecting physical cable path -->
+              <path d="M 95,110 C 115,110 115,85 155,85" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none" />
+
+              <!-- Floating files/pulses on cable -->
+              <circle r="3" fill="var(--color-accent-primary, #ff6b00)">
+                <animateMotion path="M 95,110 C 115,110 115,85 155,85" dur="3s" repeatCount="indefinite" />
+              </circle>
+
+              <!-- Cloud crossed out at top -->
+              <g opacity="0.2">
+                <path d="M 110,35 C 105,35 100,40 100,45 C 95,45 92,50 95,55 C 95,60 125,60 125,55 C 128,50 125,45 120,45 C 120,40 115,35 110,35 Z" stroke="currentColor" stroke-width="1.5" />
+                <line x1="90" y1="30" x2="135" y2="65" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2" />
+              </g>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>08. Local Sync Cable</h3>
+            <p>Data transfers directly between adjacent peer devices over local cables. Cloud servers are completely bypassed and crossed out.</p>
+          </div>
+        </div>
+
+        <!-- Concept 09: The Offline Sandbox -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Closed Box/Sandbox walls -->
+              <polygon points="120,40 190,75 190,145 120,180 50,145 50,75" stroke="currentColor" stroke-width="2" fill="var(--color-bg, #09090b)" />
+              
+              <!-- Inner walls -->
+              <line x1="120" y1="40" x2="120" y2="180" stroke="currentColor" stroke-width="1.5" opacity="0.3" />
+              <line x1="50" y1="75" x2="120" y2="110" stroke="currentColor" stroke-width="1.5" opacity="0.3" />
+              <line x1="190" y1="75" x2="120" y2="110" stroke="currentColor" stroke-width="1.5" opacity="0.3" />
+
+              <!-- Recycled flow particles staying inside sandbox -->
+              <circle r="3.5" fill="var(--color-accent-primary, #ff6b00)">
+                <animateMotion 
+                  path="M 120,60 L 160,80 L 160,130 L 120,150 L 80,130 L 80,80 Z" 
+                  dur="4s" 
+                  repeatCount="indefinite" 
+                />
+              </circle>
+              <circle r="2.5" fill="currentColor" opacity="0.6">
+                <animateMotion 
+                  path="M 120,60 L 80,80 L 80,130 L 120,150 L 160,130 L 160,80 Z" 
+                  dur="4s" 
+                  begin="2s"
+                  repeatCount="indefinite" 
+                />
+              </circle>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>09. Sealed Sandbox</h3>
+            <p>The code interpreter runs inside a sealed virtual sandbox. Files cycle internally through secure loops and never leak outside.</p>
+          </div>
+        </div>
+
+        <!-- Concept 10: Zero-Tracking shield -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Profile Silhouette -->
+              <circle cx="120" cy="90" r="15" stroke="currentColor" stroke-width="2" />
+              <path d="M 95,125 C 95,112 105,108 120,108 C 135,108 145,112 145,125" stroke="currentColor" stroke-width="2" />
+
+              <!-- Defensive Shield surrounding profile -->
+              <path d="M 80,80 C 80,60 160,60 160,80 C 160,130 120,155 120,155 C 120,155 80,130 80,80 Z" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2.5" fill="none" />
+
+              <!-- Scanning laser targeting lines fading away -->
+              <g opacity="0.15">
+                <line x1="30" y1="60" x2="70" y2="80" stroke="currentColor" stroke-width="1.5" />
+                <line x1="30" y1="120" x2="70" y2="110" stroke="currentColor" stroke-width="1.5" />
+                <line x1="210" y1="60" x2="170" y2="80" stroke="currentColor" stroke-width="1.5" />
+                <line x1="210" y1="120" x2="170" y2="110" stroke="currentColor" stroke-width="1.5" />
+              </g>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>10. Zero-Tracking Shield</h3>
+            <p>Telemetry nodes are deactivated. Analytical scan lines fade away and dissolve before they can catalog your workspaces.</p>
+          </div>
+        </div>
+
+        <!-- Concept 11: Grounded Database Anchor -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Database icon at top -->
+              <g transform="translate(120, 65)">
+                <ellipse cx="0" cy="-12" rx="20" ry="5" stroke="currentColor" stroke-width="1.8" fill="var(--color-bg, #09090b)" />
+                <path d="M -20,-12 L -20,12 A 20,5 0 0,0 20,12 L 20,-12" stroke="currentColor" stroke-width="1.8" fill="none" />
+                <ellipse cx="0" cy="0" rx="20" ry="5" stroke="currentColor" stroke-width="1.8" fill="none" />
+                <ellipse cx="0" cy="12" rx="20" ry="5" stroke="currentColor" stroke-width="1.8" fill="none" />
+              </g>
+
+              <!-- Heavy Anchor deep in ground keeping it local -->
+              <line x1="120" y1="85" x2="120" y2="135" stroke="currentColor" stroke-width="2.5" />
+              <g transform="translate(120, 140)">
+                <path d="M -20,-10 C -20,15 20,15 20,-10" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="3.5" fill="none" stroke-linecap="round" />
+                <line x1="0" y1="-10" x2="0" y2="5" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="3" />
+                <circle cx="0" cy="-14" r="5" fill="var(--color-bg, #09090b)" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2" />
+              </g>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>11. Grounded Database</h3>
+            <p>Database engines are compiled to run locally. An iron tether anchors your dataset permanently down onto the motherboard.</p>
+          </div>
+        </div>
+
+        <!-- Concept 12: Offline Mode Switch -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Offline Toggle Switch (ON) -->
+              <rect x="70" y="80" width="100" height="40" rx="20" stroke="currentColor" stroke-width="2.5" fill="var(--color-bg, #09090b)" />
+              <circle cx="140" cy="100" r="14" fill="var(--color-accent-primary, #ff6b00)">
+                <animate attributeName="cx" values="140; 100; 140" dur="5s" repeatCount="indefinite" />
+              </circle>
+
+              <!-- Cut network connection line below -->
+              <path d="M 50,150 L 105,150 M 135,150 L 190,150" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.3" />
+              <line x1="105" y1="150" x2="135" y2="150" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2" stroke-dasharray="3 3" opacity="0.8">
+                <animate attributeName="opacity" values="0.8;0.1;0.8" dur="2s" repeatCount="indefinite" />
+              </line>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>12. Offline Switch</h3>
+            <p>A mechanical toggle forces offline operation. Cloud telemetry pipelines are physically severed and disconnected.</p>
+          </div>
+        </div>
+
+        <!-- Concept 13: Local File Ring -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Central Laptop representing Host -->
+              <rect x="85" y="80" width="70" height="45" rx="3" stroke="currentColor" stroke-width="2" fill="var(--color-bg, #09090b)" />
+              <line x1="70" y1="125" x2="170" y2="125" stroke="currentColor" stroke-width="3.5" />
+
+              <!-- Orbital safety boundary -->
+              <circle cx="120" cy="105" r="55" stroke="currentColor" stroke-width="1" stroke-dasharray="4 4" opacity="0.2" />
+
+              <!-- Orbiting local document files -->
+              <g>
+                <rect x="-8" y="-6" width="16" height="12" rx="1.5" fill="var(--color-bg, #09090b)" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1.5" />
+                <line x1="-4" y1="-2" x2="4" y2="-2" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1" />
+                <animateMotion path="M 120,50 A 55,55 0 1,1 119.9,50 Z" dur="4s" repeatCount="indefinite" />
+              </g>
+              <g>
+                <rect x="-8" y="-6" width="16" height="12" rx="1.5" fill="var(--color-bg, #09090b)" stroke="currentColor" stroke-width="1.5" />
+                <line x1="-4" y1="-2" x2="4" y2="-2" stroke="currentColor" stroke-width="1" />
+                <animateMotion path="M 120,50 A 55,55 0 1,0 119.9,50 Z" dur="6s" repeatCount="indefinite" />
+              </g>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>13. Local Orbit</h3>
+            <p>Documents orbit strictly around the host machine icon, never crossing the outer dotted safety boundary.</p>
+          </div>
+        </div>
+
+        <!-- Concept 14: Sealed Memory Platter -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Multi-track memory circles -->
+              <circle cx="120" cy="100" r="55" stroke="currentColor" stroke-width="1" opacity="0.15" />
+              <circle cx="120" cy="100" r="40" stroke="currentColor" stroke-width="1" opacity="0.2" />
+              <circle cx="120" cy="100" r="25" stroke="currentColor" stroke-width="1.5" opacity="0.3" />
+
+              <!-- Write heads writing in loops -->
+              <path d="M 120,45 L 120,75" stroke="currentColor" stroke-width="1.8" opacity="0.4" />
+              <path d="M 120,125 L 120,155" stroke="currentColor" stroke-width="1.8" opacity="0.4" />
+
+              <!-- Sectors lighting up locally -->
+              <circle cx="120" cy="60" r="3" fill="var(--color-accent-primary, #ff6b00)">
+                <animate attributeName="opacity" values="0.2;1;0.2" dur="2s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="140" cy="100" r="3.5" fill="var(--color-accent-primary, #ff6b00)">
+                <animate attributeName="opacity" values="1;0.2;1" dur="2s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="100" cy="100" r="3" fill="currentColor">
+                <animate attributeName="opacity" values="0.1;0.9;0.1" dur="1.5s" repeatCount="indefinite" />
+              </circle>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>14. Memory Platter</h3>
+            <p>Integrated state managers read and write data blocks directly to active RAM partitions, bypassing central servers.</p>
+          </div>
+        </div>
+
+        <!-- Concept 15: The Faraday Computer -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Grid mesh cage background -->
+              <g opacity="0.2">
+                <line x1="40" y1="40" x2="200" y2="40" stroke="currentColor" />
+                <line x1="40" y1="60" x2="200" y2="60" stroke="currentColor" />
+                <line x1="40" y1="80" x2="200" y2="80" stroke="currentColor" />
+                <line x1="40" y1="100" x2="200" y2="100" stroke="currentColor" />
+                <line x1="40" y1="120" x2="200" y2="120" stroke="currentColor" />
+                <line x1="40" y1="140" x2="200" y2="140" stroke="currentColor" />
+                <line x1="40" y1="160" x2="200" y2="160" stroke="currentColor" />
+
+                <line x1="40" y1="40" x2="40" y2="160" stroke="currentColor" />
+                <line x1="60" y1="40" x2="60" y2="160" stroke="currentColor" />
+                <line x1="80" y1="40" x2="80" y2="160" stroke="currentColor" />
+                <line x1="100" y1="40" x2="100" y2="160" stroke="currentColor" />
+                <line x1="120" y1="40" x2="120" y2="160" stroke="currentColor" />
+                <line x1="140" y1="40" x2="140" y2="160" stroke="currentColor" />
+                <line x1="160" y1="40" x2="160" y2="160" stroke="currentColor" />
+                <line x1="180" y1="40" x2="180" y2="160" stroke="currentColor" />
+                <line x1="200" y1="40" x2="200" y2="160" stroke="currentColor" />
+              </g>
+
+              <!-- Computer glowing inside the cage -->
+              <rect x="80" y="70" width="80" height="55" rx="4" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2.5" fill="var(--color-bg, #09090b)" />
+              <line x1="60" y1="125" x2="180" y2="125" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="3" />
+
+              <circle cx="120" cy="97" r="8" fill="var(--color-accent-primary, #ff6b00)" opacity="0.3">
+                <animate attributeName="r" values="4; 12; 4" dur="3s" repeatCount="indefinite" />
+              </circle>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>15. Faraday Computer</h3>
+            <p>A fine-grid electromagnetic grid isolates the active workstation. Radiating signals cannot leak beyond the chassis lines.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Part 2: Nature-Inspired Sovereignty -->
+      <h2 class="section-divider-title">02. Nature-Inspired Sovereignty</h2>
+      <div class="grid-container">
+
+        <!-- Concept 16: The Pearl in the Oyster -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Oyster Top Shell -->
+              <g transform="translate(120, 120)">
+                <g>
+                  <path d="M -60,0 C -60,-40 -30,-60 0,-60 C 30,-60 60,-40 60,0" stroke="currentColor" stroke-width="2" fill="var(--color-bg, #09090b)" />
+                  <line x1="-30" y1="-60" x2="-20" y2="0" stroke="currentColor" stroke-width="1.2" opacity="0.2" />
+                  <line x1="0" y1="-60" x2="0" y2="0" stroke="currentColor" stroke-width="1.2" opacity="0.2" />
+                  <line x1="30" y1="-60" x2="20" y2="0" stroke="currentColor" stroke-width="1.2" opacity="0.2" />
+                  <animateTransform attributeName="transform" type="rotate" values="0; -12; 0" dur="4s" repeatCount="indefinite" />
+                </g>
+              </g>
+
+              <!-- Oyster Bottom Shell -->
+              <path d="M 60,120 C 60,150 90,165 120,165 C 150,165 180,150 180,120 Z" stroke="currentColor" stroke-width="2" fill="currentColor" fill-opacity="0.04" />
+
+              <!-- Pearl Inside -->
+              <circle cx="120" cy="120" r="10" fill="var(--color-accent-primary, #ff6b00)" opacity="0.3">
+                <animate attributeName="r" values="8; 12; 8" dur="3s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="120" cy="120" r="6" fill="var(--color-accent-primary, #ff6b00)" />
+
+              <!-- Ocean currents passing around shell -->
+              <path d="M 20,80 Q 80,70 120,50 Q 160,30 220,50" stroke="currentColor" stroke-width="1.5" opacity="0.15">
+                <animate attributeName="stroke-dasharray" values="10 100; 100 10" dur="5s" repeatCount="indefinite" />
+              </path>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>16. The Oyster's Pearl</h3>
+            <p>Your thoughts sit inside a sealed, heavy bivalve shell. Currents wash past externally, but the valve protects the inner pearl.</p>
+          </div>
+        </div>
+
+        <!-- Concept 17: Squirrel's Oak Hollow -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Tree Trunk Outline -->
+              <path d="M 50,20 L 50,180 M 190,20 L 190,180" stroke="currentColor" stroke-width="2.5" />
+              <path d="M 50,90 Q 90,85 100,100 Q 110,120 120,120 Q 130,120 140,100 Q 150,85 190,90" stroke="currentColor" stroke-width="2" opacity="0.4" />
+
+              <!-- Hollow cavity -->
+              <path d="M 90,75 C 70,100 70,140 120,140 C 170,140 170,100 150,75" stroke="currentColor" stroke-width="2" fill="var(--color-bg, #09090b)" />
+
+              <!-- Glowing Acorn/Nut inside -->
+              <g transform="translate(120, 105)">
+                <path d="M -12,-2 C -12,-8 12,-8 12,-2 Z" fill="currentColor" />
+                <line x1="0" y1="-8" x2="0" y2="-12" stroke="currentColor" stroke-width="1.5" />
+                <path d="M -10,-2 C -10,12 0,20 0,20 C 0,20 10,12 10,-2 Z" fill="var(--color-accent-primary, #ff6b00)" stroke="none" />
+                <animate attributeName="opacity" values="0.4;1;0.4" dur="3s" repeatCount="indefinite" />
+              </g>
+
+              <!-- Falling leaves -->
+              <g>
+                <path d="M 25,40 C 20,45 15,40 20,35 Z" fill="currentColor" opacity="0.3">
+                  <animate attributeName="transform" type="translate" values="0,0; 10,120" dur="4s" repeatCount="indefinite" />
+                </path>
+              </g>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>17. Squirrel's Hollow</h3>
+            <p>Acorns are hoarded deep inside a thick, woody oak cavity. Rain and falling forest debris blow past the bark line.</p>
+          </div>
+        </div>
+
+        <!-- Concept 18: Chrysalis Sanctuary -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M 40,30 Q 120,40 200,30" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+
+              <!-- Chrysalis Outline suspended -->
+              <g transform="translate(120, 36)">
+                <line x1="0" y1="0" x2="0" y2="15" stroke="currentColor" stroke-width="2" />
+                <path d="M -16,15 C -25,45 -22,80 0,110 C 22,80 25,45 16,15 Z" stroke="currentColor" stroke-width="2" fill="var(--color-bg, #09090b)" />
+                <path d="M -15,35 Q 0,40 15,35" stroke="currentColor" opacity="0.4" />
+                <path d="M -18,55 Q 0,60 18,55" stroke="currentColor" opacity="0.4" />
+
+                <circle cx="0" cy="60" r="10" fill="var(--color-accent-primary, #ff6b00)" opacity="0.2">
+                  <animate attributeName="r" values="6; 14; 6" dur="4s" repeatCount="indefinite" />
+                </circle>
+                <circle cx="0" cy="60" r="4" fill="var(--color-accent-primary, #ff6b00)" />
+              </g>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>18. Butterfly Chrysalis</h3>
+            <p>Delicate transformations develop in isolation inside a chitinous shell. External winds sway the branch, but the internal growth remains sealed.</p>
+          </div>
+        </div>
+
+        <!-- Concept 19: Safe Nesting -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M 50,120 C 50,160 190,160 190,120" stroke="currentColor" stroke-width="3" stroke-linecap="round" opacity="0.5" />
+              <path d="M 40,110 C 70,140 170,140 200,110" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.6" />
+
+              <g transform="translate(100, 115)">
+                <ellipse cx="0" cy="0" rx="10" ry="14" stroke="currentColor" stroke-width="1.8" fill="var(--color-bg, #09090b)" transform="rotate(-15 0 0)" />
+                <circle cx="-2" cy="0" r="2.5" fill="var(--color-accent-primary, #ff6b00)" />
+              </g>
+              <g transform="translate(140, 115)">
+                <ellipse cx="0" cy="0" rx="10" ry="14" stroke="currentColor" stroke-width="1.8" fill="var(--color-bg, #09090b)" transform="rotate(15 0 0)" />
+                <circle cx="2" cy="0" r="2.5" fill="var(--color-accent-primary, #ff6b00)" />
+              </g>
+              <g transform="translate(120, 105)">
+                <ellipse cx="0" cy="0" rx="9" ry="13" stroke="currentColor" stroke-width="1.8" fill="var(--color-bg, #09090b)" />
+                <circle cx="0" cy="0" r="2" fill="currentColor" />
+              </g>
+
+              <ellipse cx="120" cy="120" rx="35" ry="12" fill="var(--color-accent-primary, #ff6b00)" opacity="0.1">
+                <animate attributeName="rx" values="25; 45; 25" dur="3s" repeatCount="indefinite" />
+              </ellipse>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>19. Safe Nesting</h3>
+            <p>Concentric twigs wrap around three glowing glass eggs. Incubating cycles are fueled internally by parent wood warmth.</p>
+          </div>
+        </div>
+
+        <!-- Concept 20: Anchored Seed Sprout -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="40" y1="120" x2="200" y2="120" stroke="currentColor" stroke-width="1.5" opacity="0.3" />
+
+              <circle cx="120" cy="140" r="10" fill="var(--color-accent-primary, #ff6b00)" opacity="0.2">
+                <animate attributeName="r" values="8; 12; 8" dur="3s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="120" cy="140" r="5" fill="var(--color-accent-primary, #ff6b00)" />
+
+              <path d="M 120,140 Q 110,165 95,175 M 120,140 Q 130,165 145,175 M 120,140 L 120,180" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+              <path d="M 120,140 L 120,105 Q 115,95 105,98 M 120,105 Q 125,95 135,98" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>20. Anchored Seed</h3>
+            <p>An underground seed pod sends anchor roots down, holding its resource store firmly locked into local soil horizons.</p>
+          </div>
+        </div>
+
+        <!-- Concept 21: Honeycomb Hexagon -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <g opacity="0.3">
+                <polygon points="120,70 146,85 146,115 120,130 94,115 94,85" stroke="currentColor" stroke-width="1.5" />
+                <polygon points="120,10 146,25 146,55 120,70 94,55 94,25" stroke="currentColor" stroke-width="1" />
+                <polygon points="172,40 198,55 198,85 172,100 146,85 146,55" stroke="currentColor" stroke-width="1" />
+                <polygon points="172,100 198,115 198,145 172,160 146,145 146,115" stroke="currentColor" stroke-width="1" />
+                <polygon points="120,130 146,145 146,175 120,190 94,175 94,145" stroke="currentColor" stroke-width="1" />
+                <polygon points="68,100 94,115 94,145 68,160 42,145 42,115" stroke="currentColor" stroke-width="1" />
+                <polygon points="68,40 94,55 94,85 68,100 42,85 42,55" stroke="currentColor" stroke-width="1" />
+              </g>
+
+              <polygon points="120,70 146,85 146,115 120,130 94,115 94,85" fill="var(--color-accent-primary, #ff6b00)" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2.5" opacity="0.25">
+                <animate attributeName="opacity" values="0.1; 0.6; 0.1" dur="4s" repeatCount="indefinite" />
+              </polygon>
+              <circle cx="120" cy="100" r="10" fill="var(--color-accent-primary, #ff6b00)" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>21. Honeycomb Cell</h3>
+            <p>Golden nectar is sealed inside individual hexagonal wax walls. The honey stays inside its own cell cavity, self-contained.</p>
+          </div>
+        </div>
+
+        <!-- Concept 22: Spiral Snail Shell -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M 120,100 C 130,100 135,110 125,115 C 110,120 100,105 110,90 C 125,75 150,90 145,115 C 135,140 100,140 85,115 C 70,85 100,55 135,65 C 170,75 180,120 150,150 C 110,180 60,150 60,110" stroke="currentColor" stroke-width="2.2" opacity="0.5" stroke-linecap="round" />
+
+              <path d="M 60,110 C 60,150 110,180 150,150 C 180,120 170,75 135,65 C 100,55 70,85 85,115 C 100,140 135,140 145,115 C 150,90 125,75 110,90 C 100,105 110,120 125,115 C 135,110 130,100 120,100" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="3" stroke-linecap="round" fill="none" stroke-dasharray="80 500" stroke-dashoffset="580">
+                <animate attributeName="stroke-dashoffset" values="580; 0" dur="5s" repeatCount="indefinite" />
+              </path>
+              <circle cx="120" cy="100" r="4.5" fill="var(--color-accent-primary, #ff6b00)" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>22. Snail Shell</h3>
+            <p>A natural spiral shell stores data records in winding chambers, containing and grounding active paths toward the center.</p>
+          </div>
+        </div>
+
+        <!-- Concept 23: Protective Pea Pod -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M 40,90 C 90,65 150,65 200,90 C 180,135 120,145 40,90 Z" stroke="currentColor" stroke-width="2.2" fill="var(--color-bg, #09090b)" />
+              <path d="M 40,90 Q 120,95 200,90" stroke="currentColor" stroke-width="1.2" opacity="0.3" />
+
+              <circle cx="80" cy="98" r="8" fill="var(--color-accent-primary, #ff6b00)" opacity="0.8">
+                <animate attributeName="r" values="6; 9; 6" dur="3s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="120" cy="105" r="8.5" fill="currentColor">
+                <animate attributeName="opacity" values="0.3;1;0.3" dur="3s" begin="1s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="160" cy="98" r="8" fill="var(--color-accent-primary, #ff6b00)" opacity="0.8">
+                <animate attributeName="r" values="6; 9; 6" dur="3s" begin="2s" repeatCount="indefinite" />
+              </circle>
+              <path d="M 40,90 Q 30,95 24,92" stroke="currentColor" stroke-width="2" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>23. Protective Pod</h3>
+            <p>Three seeds develop side-by-side inside a thick, closed peapod shell. The pod outer skin shields them from outside moisture.</p>
+          </div>
+        </div>
+
+        <!-- Concept 24: Inner Tree Heartwood -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="120" cy="100" r="65" stroke="currentColor" stroke-width="2.5" opacity="0.2" />
+              <circle cx="120" cy="100" r="50" stroke="currentColor" stroke-width="1.8" opacity="0.3" />
+              <circle cx="120" cy="100" r="35" stroke="currentColor" stroke-width="1.5" opacity="0.4" />
+              <circle cx="120" cy="100" r="20" stroke="currentColor" stroke-width="1" opacity="0.5" />
+
+              <path d="M 60,90 A 65,65 0 0,1 70,70" stroke="currentColor" stroke-width="1.5" opacity="0.15" />
+              <path d="M 170,120 A 50,50 0 0,1 160,135" stroke="currentColor" stroke-width="1.5" opacity="0.15" />
+
+              <circle cx="120" cy="100" r="8" fill="var(--color-accent-primary, #ff6b00)">
+                <animate attributeName="opacity" values="0.4;1;0.4" dur="2.5s" repeatCount="indefinite" />
+              </circle>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>24. Tree Heartwood</h3>
+            <p>Concentric growth rings protect the vital heartwood core. The inner core pulses, shielded by multiple layers of woody insulation.</p>
+          </div>
+        </div>
+
+        <!-- Concept 25: Crystal Geode -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M 60,110 C 50,80 70,40 120,40 C 170,40 190,80 180,110 C 170,140 150,165 120,165 C 90,165 70,140 60,110 Z" stroke="currentColor" stroke-width="2.5" fill="var(--color-bg, #09090b)" />
+              <path d="M 85,110 C 75,90 90,65 120,65 C 150,65 165,90 155,110 C 145,130 135,145 120,145 C 105,145 95,130 85,110 Z" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.3" />
+
+              <g transform="translate(120, 105)">
+                <polygon points="0,0 -8,-25 0,-30 8,-25" fill="var(--color-accent-primary, #ff6b00)" opacity="0.9">
+                  <animate attributeName="opacity" values="0.4;1;0.4" dur="2s" repeatCount="indefinite" />
+                </polygon>
+                <polygon points="-12,5 -25,-10 -20,-15 -8,-5" fill="currentColor" opacity="0.7">
+                  <animate attributeName="opacity" values="0.7;0.2;0.7" dur="3.2s" repeatCount="indefinite" />
+                </polygon>
+                <polygon points="12,5 25,-10 20,-15 8,-5" fill="var(--color-accent-primary, #ff6b00)" opacity="0.8">
+                  <animate attributeName="opacity" values="0.2;0.9;0.2" dur="2.7s" repeatCount="indefinite" />
+                </polygon>
+              </g>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>25. Crystal Geode</h3>
+            <p>An outer stone shell protects raw crystals. Spires grow and twinkle in isolation, safe from external environmental shifts.</p>
+          </div>
+        </div>
+
+        <!-- Concept 26: Closed Vortex Whirlpool -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <ellipse cx="120" cy="100" rx="70" ry="30" stroke="currentColor" stroke-width="1" opacity="0.15" />
+              <ellipse cx="120" cy="100" rx="50" ry="20" stroke="currentColor" stroke-width="1.5" opacity="0.25" />
+              <ellipse cx="120" cy="100" rx="30" ry="12" stroke="currentColor" stroke-width="2" opacity="0.3" />
+              <circle cx="120" cy="100" r="5" fill="var(--color-accent-primary, #ff6b00)" />
+
+              <circle r="3" fill="var(--color-accent-primary, #ff6b00)">
+                <animateMotion 
+                  path="M 50,100 C 50,70 190,70 190,100 C 190,130 50,130 50,100" 
+                  dur="4s" 
+                  repeatCount="indefinite" 
+                />
+              </circle>
+              <circle r="2.5" fill="currentColor">
+                <animateMotion 
+                  path="M 70,100 C 70,80 170,80 170,100 C 170,120 70,120 70,100" 
+                  dur="3s" 
+                  begin="1.5s"
+                  repeatCount="indefinite" 
+                />
+              </circle>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>26. Vortex Whirlpool</h3>
+            <p>Water currents draw elements inward in a spiral. Floating particles swirl indefinitely, unable to escape the local vortex.</p>
+          </div>
+        </div>
+
+        <!-- Concept 27: Beaver Dam Lodge -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M 50,140 C 50,70 190,70 190,140 Z" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="var(--color-bg, #09090b)" opacity="0.5" />
+              <line x1="60" y1="140" x2="160" y2="80" stroke="currentColor" stroke-width="1.8" opacity="0.6" />
+              <line x1="180" y1="140" x2="80" y2="80" stroke="currentColor" stroke-width="1.8" opacity="0.6" />
+              <line x1="120" y1="140" x2="120" y2="70" stroke="currentColor" stroke-width="2" opacity="0.4" />
+
+              <ellipse cx="120" cy="120" rx="30" ry="12" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity="0.3" />
+              <circle cx="120" cy="120" r="6" fill="var(--color-accent-primary, #ff6b00)">
+                <animate attributeName="opacity" values="0.4;1;0.4" dur="2s" repeatCount="indefinite" />
+              </circle>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>27. Beaver Lodge</h3>
+            <p>Interlocking branches filter out rushing currents. Inner chambers contain a warm, isolated pond where signals sit quietly.</p>
+          </div>
+        </div>
+
+        <!-- Concept 28: Hibernation Den -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M 30,160 L 80,120 Q 110,60 160,80 L 210,160 Z" stroke="currentColor" stroke-width="2.5" fill="var(--color-bg, #09090b)" />
+              <path d="M 80,160 C 80,110 160,110 160,160 Z" stroke="currentColor" stroke-width="2" fill="currentColor" fill-opacity="0.04" />
+
+              <circle cx="120" cy="145" r="7" fill="var(--color-accent-primary, #ff6b00)">
+                <animate attributeName="opacity" values="0.25; 1; 0.25" dur="6s" repeatCount="indefinite" />
+                <animate attributeName="r" values="5; 9; 5" dur="6s" repeatCount="indefinite" />
+              </circle>
+
+              <path d="M 30,130 C 50,115 50,90 30,75" stroke="currentColor" stroke-width="1" opacity="0.15">
+                <animate attributeName="transform" type="translate" values="0,-10; 0,10; 0,-10" dur="4s" repeatCount="indefinite" />
+              </path>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>28. Hibernation Den</h3>
+            <p>A deep mountain hollow stores a warm, sleeping state. Severe blizzards blow outside, but the inner node rests protected.</p>
+          </div>
+        </div>
+
+        <!-- Concept 29: Venus Flytrap Lock -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <g transform="translate(120, 110)">
+                <g>
+                  <path d="M -30,-40 C -30,10 0,20 0,20" stroke="currentColor" stroke-width="2" fill="var(--color-bg, #09090b)" />
+                  <line x1="-30" y1="-40" x2="-35" y2="-45" stroke="currentColor" stroke-width="1.5" />
+                  <line x1="-20" y1="-20" x2="-26" y2="-26" stroke="currentColor" stroke-width="1.5" />
+                  <line x1="-10" y1="-5" x2="-15" y2="-10" stroke="currentColor" stroke-width="1.5" />
+                  <animateTransform attributeName="transform" type="rotate" values="0; 22; 0" dur="4s" repeatCount="indefinite" />
+                </g>
+                <g>
+                  <path d="M 30,-40 C 30,10 0,20 0,20" stroke="currentColor" stroke-width="2" fill="var(--color-bg, #09090b)" />
+                  <line x1="30" y1="-40" x2="35" y2="-45" stroke="currentColor" stroke-width="1.5" />
+                  <line x1="20" y1="-20" x2="26" y2="-26" stroke="currentColor" stroke-width="1.5" />
+                  <line x1="10" y1="-5" x2="15" y2="-10" stroke="currentColor" stroke-width="1.5" />
+                  <animateTransform attributeName="transform" type="rotate" values="0; -22; 0" dur="4s" repeatCount="indefinite" />
+                </g>
+              </g>
+
+              <circle cx="120" cy="100" r="5" fill="var(--color-accent-primary, #ff6b00)">
+                <animate attributeName="opacity" values="1;0.4;1" dur="2s" repeatCount="indefinite" />
+              </circle>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>29. Flytrap Vault</h3>
+            <p>Two protective sensory leaves snap closed over a local data trigger, keeping it clamped within secure biological boundaries.</p>
+          </div>
+        </div>
+
+        <!-- Concept 30: Spider Silk Cocoon -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <g opacity="0.15">
+                <line x1="40" y1="40" x2="200" y2="160" stroke="currentColor" />
+                <line x1="200" y1="40" x2="40" y2="160" stroke="currentColor" />
+                <line x1="120" y1="20" x2="120" y2="180" stroke="currentColor" />
+                <line x1="40" y1="100" x2="200" y2="100" stroke="currentColor" />
+              </g>
+
+              <circle cx="120" cy="100" r="30" stroke="currentColor" stroke-width="1" stroke-dasharray="6 6" opacity="0.3">
+                <animateTransform attributeName="transform" type="rotate" from="0 120 100" to="360 120 100" dur="10s" repeatCount="indefinite" />
+              </circle>
+
+              <ellipse cx="120" cy="100" rx="14" ry="22" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2" fill="var(--color-bg, #09090b)" />
+              <path d="M 112,85 C 118,90 122,90 128,85" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1" opacity="0.5" />
+              <path d="M 112,100 C 118,105 122,105 128,100" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1" opacity="0.5" />
+              <path d="M 112,115 C 118,120 122,120 128,115" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1" opacity="0.5" />
+
+              <circle cx="120" cy="100" r="4.5" fill="var(--color-accent-primary, #ff6b00)">
+                <animate attributeName="opacity" values="0.3;1;0.3" dur="2s" repeatCount="indefinite" />
+              </circle>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>30. Silk Wrap Cocoon</h3>
+            <p>Tough spider silk loops wrap around a central key, binding it tightly into an impenetrable, self-contained bundle.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Part 3: Abstract Safety Geometries -->
+      <h2 class="section-divider-title">03. Abstract Safety Geometries</h2>
+      <div class="grid-container">
+
+        <!-- Concept 31: Concentric Shield Rings -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="120" cy="100" r="55" stroke="currentColor" stroke-width="2.5" stroke-dasharray="20 40" opacity="0.4">
+                <animateTransform attributeName="transform" type="rotate" from="0 120 100" to="360 120 100" dur="8s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="120" cy="100" r="42" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1.8" stroke-dasharray="40 20" opacity="0.8">
+                <animateTransform attributeName="transform" type="rotate" from="360 120 100" to="0 120 100" dur="6s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="120" cy="100" r="28" stroke="currentColor" stroke-width="1.5" stroke-dasharray="10 15" opacity="0.5">
+                <animateTransform attributeName="transform" type="rotate" from="0 120 100" to="360 120 100" dur="4s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="120" cy="100" r="6" fill="var(--color-accent-primary, #ff6b00)" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>31. Concentric Shield</h3>
+            <p>Three mechanical rings rotate in opposing direction sequences, forming a protective dynamic shell around a center node.</p>
+          </div>
+        </div>
+
+        <!-- Concept 32: Deflection Wedge -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M 80,50 L 140,100 L 80,150" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M 70,60 L 120,100 L 70,140" stroke="currentColor" stroke-width="1.5" opacity="0.3" stroke-linecap="round" stroke-linejoin="round" />
+
+              <circle r="3.5" fill="var(--color-accent-primary, #ff6b00)">
+                <animateMotion 
+                  path="M 210,100 L 140,100 L 210,40" 
+                  dur="3s" 
+                  repeatCount="indefinite" 
+                />
+              </circle>
+              <circle r="3.5" fill="currentColor">
+                <animateMotion 
+                  path="M 210,100 L 140,100 L 210,160" 
+                  dur="3s" 
+                  begin="1.5s"
+                  repeatCount="indefinite" 
+                />
+              </circle>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>32. Deflective Wedge</h3>
+            <p>A solid abstract chevron wedge deflects incoming trajectory lines, sending them harmlessly sliding away from the apex.</p>
+          </div>
+        </div>
+
+        <!-- Concept 33: Interlocking Brackets -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <g>
+                <path d="M 65,85 L 65,55 L 95,55" stroke="currentColor" stroke-width="2.5" />
+                <path d="M 175,85 L 175,55 L 145,55" stroke="currentColor" stroke-width="2.5" />
+                <path d="M 65,115 L 65,145 L 95,145" stroke="currentColor" stroke-width="2.5" />
+                <path d="M 175,115 L 175,145 L 145,145" stroke="currentColor" stroke-width="2.5" />
+                <animateTransform attributeName="transform" type="scale" values="1; 0.85; 1" dur="4s" repeatCount="indefinite" transform-origin="120 100" />
+              </g>
+
+              <rect x="100" y="85" width="40" height="30" rx="3" fill="var(--color-accent-primary, #ff6b00)" opacity="0.8">
+                <animate attributeName="opacity" values="0.4;1;0.4" dur="2s" repeatCount="indefinite" />
+              </rect>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>33. Interlocking Brackets</h3>
+            <p>Four geometric corner brackets expand and slide shut in sync, clamping down over a central workspace core.</p>
+          </div>
+        </div>
+
+        <!-- Concept 34: Tetrahedral Cage -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <g transform="translate(120, 100)">
+                <g>
+                  <polygon points="0,-40 35,20 -35,20" stroke="currentColor" stroke-width="1.8" fill="var(--color-bg, #09090b)" fill-opacity="0.05" />
+                  <line x1="0" y1="0" x2="0" y2="-40" stroke="currentColor" stroke-width="1.8" />
+                  <line x1="0" y1="0" x2="35" y2="20" stroke="currentColor" stroke-width="1.8" />
+                  <line x1="0" y1="0" x2="-35" y2="20" stroke="currentColor" stroke-width="1.8" />
+                  <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="8s" repeatCount="indefinite" />
+                </g>
+              </g>
+              <circle cx="120" cy="95" r="7" fill="var(--color-accent-primary, #ff6b00)" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>34. Tetrahedral Cage</h3>
+            <p>A multi-dimensional tetrahedral frame spins on its axes, encasing a core crystal inside a secure geometric volume.</p>
+          </div>
+        </div>
+
+        <!-- Concept 35: Weighted Pedestal -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M 50,150 Q 120,135 190,150 L 190,165 Q 120,155 50,165 Z" fill="currentColor" opacity="0.3" />
+              <line x1="40" y1="150" x2="200" y2="150" stroke="currentColor" stroke-width="2.5" />
+
+              <line x1="80" y1="90" x2="80" y2="140" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity="0.2" />
+              <line x1="120" y1="80" x2="120" y2="140" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.25" />
+              <line x1="160" y1="90" x2="160" y2="140" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity="0.2" />
+
+              <circle cx="120" cy="60" r="6" fill="var(--color-accent-primary, #ff6b00)">
+                <animate attributeName="cy" values="60; 140; 60" dur="4s" repeatCount="indefinite" />
+              </circle>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>35. Grounded Pedestal</h3>
+            <p>A heavy horizontal base plate exerts gravitational attraction, drawing loose floating elements down into a stable rest position.</p>
+          </div>
+        </div>
+
+        <!-- Concept 36: Sliding Shield Halves -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="120" cy="100" r="7" fill="var(--color-accent-primary, #ff6b00)" />
+              <g>
+                <path d="M 80,60 C 80,100 105,120 105,120 C 105,120 80,140 80,140" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none" />
+                <animateTransform attributeName="transform" type="translate" values="-15,0; 5,0; -15,0" dur="4s" repeatCount="indefinite" />
+              </g>
+              <g>
+                <path d="M 160,60 C 160,100 135,120 135,120 C 135,120 160,140 160,140" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none" />
+                <animateTransform attributeName="transform" type="translate" values="15,0; -5,0; 15,0" dur="4s" repeatCount="indefinite" />
+              </g>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>36. Sliding Shields</h3>
+            <p>Opposing curved shield profiles slide together from both margins, locking borders to enclose a pulsing center node.</p>
+          </div>
+        </div>
+
+        <!-- Concept 37: Sine-Wave Buffer -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="120" cy="100" r="6" fill="var(--color-accent-primary, #ff6b00)" />
+              <circle cx="120" cy="100" r="16" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.5" />
+
+              <path d="M 25,100 Q 45,60 65,100 T 105,100 L 135,100 T 175,100 Q 195,140 215,100" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none">
+                <animate attributeName="d" 
+                  values="
+                    M 25,100 Q 45,60 65,100 T 105,100 L 135,100 T 175,100 Q 195,140 215,100;
+                    M 25,100 Q 45,140 65,100 T 105,100 L 135,100 T 175,100 Q 195,60 215,100;
+                    M 25,100 Q 45,60 65,100 T 105,100 L 135,100 T 175,100 Q 195,140 215,100
+                  " 
+                  dur="4s" 
+                  repeatCount="indefinite" 
+                />
+              </path>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>37. Sine-Wave Buffer</h3>
+            <p>External network fluctuations oscillate wildly outside, but flatten into a quiet, linear baseline near the data node.</p>
+          </div>
+        </div>
+
+        <!-- Concept 38: Nested Cubes -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <g transform="translate(120, 100)">
+                <g>
+                  <polygon points="0,-45 39,-22 39,22 0,45 -39,22 -39,-22" stroke="currentColor" stroke-width="1.5" opacity="0.3" fill="none" />
+                  <line x1="0" y1="0" x2="0" y2="45" stroke="currentColor" stroke-width="1.5" opacity="0.3" />
+                  <line x1="0" y1="0" x2="39" y2="-22" stroke="currentColor" stroke-width="1.5" opacity="0.3" />
+                  <line x1="0" y1="0" x2="-39" y2="-22" stroke="currentColor" stroke-width="1.5" opacity="0.3" />
+                  <animateTransform attributeName="transform" type="rotate" from="0" to="-360" dur="12s" repeatCount="indefinite" />
+                </g>
+                <g>
+                  <polygon points="0,-25 21,-12 21,12 0,25 -21,12 -21,-12" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1.8" fill="none" />
+                  <line x1="0" y1="0" x2="0" y2="25" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1.5" />
+                  <line x1="0" y1="0" x2="21" y2="-12" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1.5" />
+                  <line x1="0" y1="0" x2="-21" y2="-12" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1.5" />
+                  <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="8s" repeatCount="indefinite" />
+                </g>
+              </g>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>38. Nested Cubes</h3>
+            <p>Three nested isometric box outlines spin in alternate configurations, securing data deep within structural boundaries.</p>
+          </div>
+        </div>
+
+        <!-- Concept 39: Keystone Archway -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M 60,150 L 60,100 A 60,60 0 0,1 180,100 L 180,150" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" fill="none" />
+              <polygon points="110,30 130,30 125,50 115,50" fill="currentColor" />
+
+              <circle cx="120" cy="20" r="4" fill="var(--color-accent-primary, #ff6b00)" opacity="0">
+                <animate attributeName="cy" values="20; 40" dur="3s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0; 1; 0" keyTimes="0; 0.9; 1" dur="3s" repeatCount="indefinite" />
+              </circle>
+
+              <path d="M 120,40 A 60,60 0 0,0 60,100" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2" stroke-linecap="round" stroke-dasharray="20 80" stroke-dashoffset="100" fill="none">
+                <animate attributeName="stroke-dashoffset" values="100; 0" dur="3s" repeatCount="indefinite" />
+              </path>
+              <path d="M 120,40 A 60,60 0 0,1 180,100" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2" stroke-linecap="round" stroke-dasharray="20 80" stroke-dashoffset="100" fill="none">
+                <animate attributeName="stroke-dashoffset" values="100; 0" dur="3s" repeatCount="indefinite" />
+              </path>
+
+              <circle cx="120" cy="115" r="8" fill="currentColor" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>39. Keystone Arch</h3>
+            <p>An architectural block arch distributes external forces downwards, insulating internal files stored under the vault ceiling.</p>
+          </div>
+        </div>
+
+        <!-- Concept 40: Faraday Diamond Grid -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <g transform="translate(120, 100)">
+                <g>
+                  <polygon points="0,-50 50,0 0,50 -50,0" stroke="currentColor" stroke-width="1.8" fill="var(--color-bg, #09090b)" />
+                  <polygon points="0,-30 30,0 0,30 -30,0" stroke="currentColor" stroke-width="1.2" opacity="0.4" />
+                  <polygon points="0,-15 15,0 0,15 -15,0" stroke="currentColor" stroke-width="1" opacity="0.2" />
+                  <animateTransform attributeName="transform" type="scale" values="1; 1.08; 1" dur="4s" repeatCount="indefinite" transform-origin="120 100" />
+                </g>
+              </g>
+              <circle cx="120" cy="100" r="4.5" fill="var(--color-accent-primary, #ff6b00)" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>40. Faraday Diamond</h3>
+            <p>Concentric diamond boundaries expand and contract, filtering out electrostatic noise to keep center bits protected.</p>
+          </div>
+        </div>
+
+        <!-- Concept 41: Buffered Core Capsule -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="80" y="50" width="80" height="100" rx="40" stroke="currentColor" stroke-width="2.5" fill="var(--color-bg, #09090b)" />
+
+              <g transform="translate(0, 0)">
+                <rect x="95" y="75" width="50" height="50" rx="25" fill="var(--color-accent-primary, #ff6b00)" stroke="none" opacity="0.8" />
+                <circle cx="120" cy="100" r="5" fill="var(--color-bg, #09090b)" />
+                <animateTransform attributeName="transform" type="translate" values="0,-8; 0,8; 0,-8" dur="4s" repeatCount="indefinite" />
+              </g>
+
+              <path d="M 70,80 Q 75,100 70,120" stroke="currentColor" stroke-width="1" opacity="0.3" />
+              <path d="M 170,80 Q 165,100 170,120" stroke="currentColor" stroke-width="1" opacity="0.3" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>41. Buffered Capsule</h3>
+            <p>An internal key capsule floats suspended inside protective walls, cushioning local data sequences from keyboard bumps.</p>
+          </div>
+        </div>
+
+        <!-- Concept 42: Refractive Prism -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="120,45 175,140 65,140" stroke="currentColor" stroke-width="2" fill="var(--color-bg, #09090b)" />
+              <line x1="20" y1="100" x2="90" y2="100" stroke="currentColor" stroke-width="1.8" stroke-dasharray="5 5" opacity="0.5" />
+
+              <path d="M 90,100 L 120,80 L 165,50" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2" stroke-linecap="round" fill="none" stroke-dasharray="100" stroke-dashoffset="100">
+                <animate attributeName="stroke-dashoffset" values="100; 0" dur="4s" repeatCount="indefinite" />
+              </path>
+              <path d="M 90,100 L 120,120 L 165,150" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1.8" stroke-linecap="round" fill="none" stroke-dasharray="100" stroke-dashoffset="100">
+                <animate attributeName="stroke-dashoffset" values="100; 0" dur="4s" begin="1s" repeatCount="indefinite" />
+              </path>
+
+              <circle cx="120" cy="100" r="6" fill="currentColor" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>42. Refractive Prism</h3>
+            <p>A triangular prism refracts external trace beams, separating and diverting outgoing waves away from the center.</p>
+          </div>
+        </div>
+
+        <!-- Concept 43: Clamping Caliper -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="120" cy="100" r="7" fill="var(--color-accent-primary, #ff6b00)" />
+              <g transform="translate(120, 100)">
+                <g>
+                  <path d="M -50,-40 C -50,-10 -22,0 -22,0" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none" />
+                  <animateTransform attributeName="transform" type="rotate" values="0; 15; 0" dur="4s" repeatCount="indefinite" />
+                </g>
+              </g>
+              <g transform="translate(120, 100)">
+                <g>
+                  <path d="M 50,40 C 50,10 22,0 22,0" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none" />
+                  <animateTransform attributeName="transform" type="rotate" values="0; 15; 0" dur="4s" repeatCount="indefinite" />
+                </g>
+              </g>
+              <line x1="60" y1="60" x2="180" y2="140" stroke="currentColor" stroke-width="1" opacity="0.25" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>43. Clamping Caliper</h3>
+            <p>Opposing mechanical arms slide along guide tracks, clamping shut to lock the coordinate position of local files.</p>
+          </div>
+        </div>
+
+        <!-- Concept 44: Wave Breaker Barriers -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="60,110 75,140 45,140" stroke="currentColor" stroke-width="1.8" fill="var(--color-bg, #09090b)" />
+              <polygon points="120,100 135,140 105,140" stroke="currentColor" stroke-width="2" fill="var(--color-bg, #09090b)" />
+              <polygon points="180,110 195,140 165,140" stroke="currentColor" stroke-width="1.8" fill="var(--color-bg, #09090b)" />
+
+              <path d="M 20,80 Q 70,60 120,80 T 220,80" stroke="currentColor" stroke-width="1" stroke-dasharray="4 4" opacity="0.15" />
+              <path d="M 120,30 L 120,100" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2" opacity="0" />
+              
+              <circle r="2.5" fill="var(--color-accent-primary, #ff6b00)">
+                <animateMotion path="M 120,70 Q 120,100 90,140" dur="2s" repeatCount="indefinite" />
+              </circle>
+              <circle r="2.5" fill="var(--color-accent-primary, #ff6b00)">
+                <animateMotion path="M 120,70 Q 120,100 150,140" dur="2s" begin="0.5s" repeatCount="indefinite" />
+              </circle>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>44. Wave Breaker</h3>
+            <p>Solid barrier wedges break up incoming fluid data rushes, splitting clean streams into harmless localized droplets.</p>
+          </div>
+        </div>
+
+        <!-- Concept 45: Protective Shelter Arch -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M 55,130 C 55,70 185,70 185,130" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" fill="none" />
+              <path d="M 65,140 C 65,85 175,85 175,140" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.3" />
+
+              <circle cx="120" cy="115" r="7" fill="var(--color-accent-primary, #ff6b00)">
+                <animate attributeName="opacity" values="0.4;1;0.4" dur="3s" repeatCount="indefinite" />
+              </circle>
+
+              <line x1="45" y1="20" x2="45" y2="40" stroke="currentColor" stroke-width="1.2" opacity="0.2">
+                <animate attributeName="y1" values="20; 150" dur="2s" repeatCount="indefinite" />
+                <animate attributeName="y2" values="40; 170" dur="2s" repeatCount="indefinite" />
+              </line>
+              <line x1="195" y1="20" x2="195" y2="40" stroke="currentColor" stroke-width="1.2" opacity="0.2">
+                <animate attributeName="y1" values="20; 150" dur="2.4s" repeatCount="indefinite" />
+                <animate attributeName="y2" values="40; 170" dur="2.4s" repeatCount="indefinite" />
+              </line>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>45. Vault Shelter</h3>
+            <p>A heavy structural curve isolates your core database. Vertical rainfall lines slide down the outer shield edges.</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Part 4: Panda-Inspired Safety Metaphors -->
+      <h2 class="section-divider-title">04. Panda-Inspired Safety Metaphors</h2>
+      <div class="grid-container">
+
+        <!-- Concept 46: Panda Bamboo Hug -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Bamboo Cane -->
+              <rect x="110" y="30" width="20" height="140" rx="3" stroke="currentColor" stroke-width="2.5" fill="var(--color-bg, #09090b)" />
+              <line x1="110" y1="75" x2="130" y2="75" stroke="currentColor" stroke-width="2" />
+              <line x1="110" y1="125" x2="130" y2="125" stroke="currentColor" stroke-width="2" />
+
+              <!-- Luminous local leaf inside the stalk -->
+              <path d="M 120,90 Q 128,80 120,70 Q 112,80 120,90 Z" fill="var(--color-accent-primary, #ff6b00)" stroke="none">
+                <animate attributeName="opacity" values="0.4;1;0.4" dur="3s" repeatCount="indefinite" />
+              </path>
+
+              <!-- Panda arms/paws wrapping around it -->
+              <g>
+                <!-- Left paw -->
+                <path d="M 80,105 Q 100,95 118,100" stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none" />
+                <!-- Right paw -->
+                <path d="M 160,102 Q 140,95 122,100" stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none" />
+                
+                <animateTransform attributeName="transform" type="translate" values="0,-3; 0,3; 0,-3" dur="4s" repeatCount="indefinite" />
+              </g>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>46. Bamboo Hug</h3>
+            <p>Panda arms cradle a thick bamboo section, securing a local glowing data leaf from environmental drafts.</p>
+          </div>
+        </div>
+
+        <!-- Concept 47: Panda Roll Ball -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Rolling Panda Circle (Defensive Sphere) -->
+              <g transform="translate(120, 100)">
+                <g>
+                  <!-- Outer white body -->
+                  <circle cx="0" cy="0" r="45" stroke="currentColor" stroke-width="2.5" fill="var(--color-bg, #09090b)" />
+                  <!-- Black patches (ears and limbs rolled in) -->
+                  <path d="M -30,-30 A 12,12 0 1,1 -15,-40" stroke="currentColor" stroke-width="3" fill="currentColor" />
+                  <path d="M 30,-30 A 12,12 0 1,0 15,-40" stroke="currentColor" stroke-width="3" fill="currentColor" />
+                  <!-- Back crescent -->
+                  <path d="M -40,15 C -20,40 20,40 40,15" stroke="currentColor" stroke-width="8" fill="none" stroke-linecap="round" />
+                  
+                  <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="4s" repeatCount="indefinite" />
+                </g>
+              </g>
+
+              <!-- External signals deflecting off -->
+              <path d="M 210,60 Q 185,75 210,90" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1.8" opacity="0.3" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>47. Panda Roll</h3>
+            <p>A stylized panda rolls into a tight, circular ball, deflecting stray network query waves off its back.</p>
+          </div>
+        </div>
+
+        <!-- Concept 48: Bamboo Palisade Screen -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Panda Face behind the screen -->
+              <g transform="translate(120, 100)" opacity="0.6">
+                <circle cx="0" cy="0" r="30" stroke="currentColor" stroke-width="1.5" fill="var(--color-bg, #09090b)" />
+                <ellipse cx="-10" cy="-6" rx="5" ry="7" fill="currentColor" transform="rotate(-15 -10 -6)" />
+                <ellipse cx="10" cy="-6" rx="5" ry="7" fill="currentColor" transform="rotate(15 10 -6)" />
+                <circle cx="-10" cy="-6" r="1.5" fill="var(--color-bg, #09090b)" />
+                <circle cx="10" cy="-6" r="1.5" fill="var(--color-bg, #09090b)" />
+              </g>
+
+              <!-- Interlocking Bamboo vertical screen -->
+              <g>
+                <rect x="70" y="30" width="10" height="140" rx="2" stroke="currentColor" fill="var(--color-bg, #09090b)" />
+                <rect x="95" y="30" width="10" height="140" rx="2" stroke="currentColor" fill="var(--color-bg, #09090b)" />
+                <rect x="120" y="30" width="10" height="140" rx="2" stroke="currentColor" fill="var(--color-bg, #09090b)" />
+                <rect x="145" y="30" width="10" height="140" rx="2" stroke="currentColor" fill="var(--color-bg, #09090b)" />
+                <rect x="170" y="30" width="10" height="140" rx="2" stroke="currentColor" fill="var(--color-bg, #09090b)" />
+                
+                <animateTransform attributeName="transform" type="translate" values="-3,0; 3,0; -3,0" dur="6s" repeatCount="indefinite" />
+              </g>
+
+              <!-- Scanning laser block -->
+              <line x1="30" y1="100" x2="60" y2="100" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="2" opacity="0.8">
+                <animate attributeName="opacity" values="0.8;0.2;0.8" dur="2s" repeatCount="indefinite" />
+              </line>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>48. Bamboo Palisade</h3>
+            <p>Interlocking vertical bamboo posts weave a protective fence, shielding client credentials from target sweeps.</p>
+          </div>
+        </div>
+
+        <!-- Concept 49: Panda Paw Cradle -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Left Paw curved -->
+              <path d="M 65,115 C 65,140 100,150 115,140" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" fill="none" />
+              <!-- Right Paw curved -->
+              <path d="M 175,115 C 175,140 140,150 125,140" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" fill="none" />
+
+              <!-- Circular paw pads -->
+              <circle cx="90" cy="132" r="3.5" fill="currentColor" />
+              <circle cx="150" cy="132" r="3.5" fill="currentColor" />
+
+              <!-- Luminous Database locked in core -->
+              <circle cx="120" cy="105" r="10" fill="var(--color-accent-primary, #ff6b00)" opacity="0.25">
+                <animate attributeName="r" values="8; 13; 8" dur="3s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="120" cy="105" r="5" fill="var(--color-accent-primary, #ff6b00)" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>49. Paw Cradle</h3>
+            <p>Two soft, curved panda paws form a local basin, cradling the active key database securely in place.</p>
+          </div>
+        </div>
+
+        <!-- Concept 50: Local Shoot Digestion -->
+        <div class="card" tabindex="0">
+          <div class="card-visual">
+            <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- Panda mouth contour open slightly -->
+              <path d="M 100,120 Q 120,135 140,120" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              <path d="M 105,120 Q 120,145 135,120" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="var(--color-bg, #09090b)" />
+
+              <!-- Bamboo shoot segment -->
+              <g transform="translate(120, 85)">
+                <rect x="-6" y="-30" width="12" height="40" rx="1.5" stroke="currentColor" fill="var(--color-bg, #09090b)" />
+                <path d="M 6,-15 C 12,-20 18,-20 18,-15" stroke="var(--color-accent-primary, #ff6b00)" stroke-width="1.5" />
+                <animateTransform attributeName="transform" type="translate" values="0,-5; 0,25; 0,-5" dur="5s" repeatCount="indefinite" />
+              </g>
+
+              <!-- Local ingestion spark -->
+              <circle cx="120" cy="122" r="3" fill="var(--color-accent-primary, #ff6b00)" />
+            </svg>
+          </div>
+          <div class="card-content">
+            <h3>50. Shoot Ingestion</h3>
+            <p>Data segments are consumed locally like bamboo shoots, processed inside the device engine with no external egress.</p>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+</Landing>
+
+<style is:global>
+  /* Layout Page Structure */
+  .ownership-gallery-page {
+    padding: var(--space-16) 0;
+    min-height: 100vh;
+    background-color: var(--color-bg, #09090b);
+  }
+
+  .ownership-gallery-page .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+  }
+
+  .gallery-header {
+    margin-bottom: var(--space-16);
+    max-width: 700px;
+  }
+
+  .gallery-header .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-accent-primary, #ff6b00);
+    margin-bottom: var(--space-3);
+    border: 1px solid rgba(255, 107, 0, 0.3);
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: rgba(255, 107, 0, 0.05);
+  }
+
+  .gallery-header h1 {
+    font-size: var(--text-4xl, 36px);
+    font-weight: 700;
+    color: var(--color-text-primary, #ffffff);
+    margin: 0 0 var(--space-3) 0;
+  }
+
+  .gallery-header p {
+    font-size: var(--text-lg, 16px);
+    color: var(--color-text-secondary, #a1a1aa);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* Section Dividers */
+  .section-divider-title {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-text-primary, #ffffff);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: var(--space-3);
+    margin-top: 48px;
+    margin-bottom: 24px;
+    opacity: 0.9;
+  }
+
+  /* Grid Layout */
+  .grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+    padding-bottom: 24px;
+  }
+
+  .grid-container:last-of-type {
+    padding-bottom: 80px;
+  }
+
+  /* Static Card Containers */
+  .card {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 15px;
+    background: transparent;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    outline: none;
+    cursor: default;
+    transition: none !important; /* Force static wrapper */
+  }
+
+  .card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Title Headings at EXACTLY 15px */
+  .card h3 {
+    font-size: 15px !important;
+    font-weight: 500;
+    margin: 0;
+    color: var(--color-text-primary, #ffffff);
+    line-height: 1.2;
+  }
+
+  .card p {
+    font-size: 13px;
+    color: var(--color-text-muted, #8e8e93);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* Animated SVG Visual Containers */
+  .card-visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 200px;
+    background: transparent;
+    color: var(--color-text-secondary, #a1a1aa);
+    filter: grayscale(100%) opacity(0.35);
+    transition: filter 0.3s ease, color 0.3s ease;
+  }
+
+  /* SVG Sizes (30% scale increase inside container) */
+  .card-visual svg {
+    width: 90%;
+    height: 90%;
+    max-height: 180px;
+  }
+
+  /* Hover & Focus state: Highlight and color the SVG itself, keeping container static */
+  .card:hover .card-visual,
+  .card:focus-within .card-visual {
+    color: var(--color-accent-primary, #ff6b00);
+    filter: grayscale(0%) opacity(1) drop-shadow(0 0 15px rgba(255, 107, 0, 0.25));
+  }
+</style>

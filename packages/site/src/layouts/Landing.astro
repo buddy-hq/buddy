@@ -6,10 +6,31 @@ type Props = {
   description?: string
 }
 
+const SITE_URL = "https://hibuddy.in"
+
 const {
   title = "Buddy — Your Personal Learning Companion",
   description = "A private, local-first desktop learning assistant for students, lifelong learners, and educators.",
 } = Astro.props
+
+const canonicalURL = new URL(Astro.url.pathname, SITE_URL).href
+const ogImage = `${SITE_URL}/og.png`
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Buddy",
+  applicationCategory: "EducationApplication",
+  operatingSystem: "macOS, Windows",
+  description,
+  url: SITE_URL,
+  image: ogImage,
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+  },
+}
 ---
 
 <!doctype html>
@@ -19,6 +40,27 @@ const {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
     <title>{title}</title>
+
+    <link rel="canonical" href={canonicalURL} />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="Buddy" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

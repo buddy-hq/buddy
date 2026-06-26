@@ -1,0 +1,436 @@
+---
+import { content } from "../../../content/site"
+const { capabilities } = content
+---
+
+<div class="capabilities-layout-15">
+  <div class="container">
+    <div class="matrix-layout">
+      
+      <!-- Left side: Capability descriptions -->
+      <div class="selector-side" id="p15-selector">
+        <div class="section-intro">
+          <h2 class="headline">{capabilities.headline}</h2>
+          <p class="subtext">{capabilities.subtext}</p>
+        </div>
+
+        <div class="selector-stack">
+          {capabilities.items.map((item, idx) => (
+            <div class="selector-card" data-index={idx} id={`p15-cap-card-${idx}`}>
+              <div class="card-title-row">
+                <span class="step-num">0{idx + 1}</span>
+                <h3 class="name">{item.name}</h3>
+              </div>
+              <p class="detail">{item.detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- Right side: Simulator comparing Chatbot and Buddy Loop -->
+      <div class="comparison-display">
+        <div class="display-container-inner">
+          
+          <!-- Simulation trigger button -->
+          <div class="simulation-header">
+            <button class="sim-play-btn" id="p15-sim-play-btn" aria-label="Run Flow Simulation">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              <span>RUN COMPARISON SIMULATION</span>
+            </button>
+          </div>
+
+          <!-- Flow 01: Chatbot (Linear remote cloud) -->
+          <div class="flowchart-box chatbot-flow">
+            <div class="flow-meta">
+              <span class="flow-title">CHATBOT ROUTING (LINEAR CLOUD)</span>
+              <span class="flow-status" id="p15-status-chatbot">OFFLINE</span>
+            </div>
+            <svg class="flow-svg" viewBox="0 0 160 50">
+              <!-- Linear route line -->
+              <path d="M 20,25 H 140" stroke="rgba(255,255,255,0.06)" stroke-width="2" stroke-linecap="round" />
+              
+              <!-- Input -> Cloud -> Output nodes -->
+              <circle cx="20" cy="25" r="4.5" fill="#090909" stroke="rgba(255,255,255,0.2)" stroke-width="1.2" />
+              <rect x="65" y="15" width="30" height="20" rx="3" fill="#090909" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
+              <circle cx="140" cy="25" r="4.5" fill="#090909" stroke="rgba(255,255,255,0.2)" stroke-width="1.2" />
+              
+              <!-- Signal dot -->
+              <circle class="sim-dot" id="p15-dot-chatbot" cx="20" cy="25" r="2.5" fill="var(--color-accent-primary)" style="opacity: 0;" />
+            </svg>
+          </div>
+
+          <!-- Flow 02: Buddy (Local recursive loop) -->
+          <div class="flowchart-box agent-flow">
+            <div class="flow-meta">
+              <span class="flow-title">BUDDY LOOP (LOCAL RECURSIVE ROUTE)</span>
+              <span class="flow-status" id="p15-status-agent">OFFLINE</span>
+            </div>
+            <svg class="flow-svg" viewBox="0 0 160 80">
+              <!-- Loop circle path -->
+              <circle cx="80" cy="40" r="28" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1.5" />
+              
+              <!-- Spokes to subsystems -->
+              <line x1="80" y1="40" x2="80" y2="12" stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="2,2" />
+              <line x1="80" y1="40" x2="108" y2="40" stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="2,2" />
+              <line x1="80" y1="40" x2="80" y2="68" stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="2,2" />
+              <line x1="80" y1="40" x2="52" y2="40" stroke="rgba(255,255,255,0.08)" stroke-width="1" stroke-dasharray="2,2" />
+              
+              <!-- Central motherboard node -->
+              <circle cx="80" cy="40" r="5" fill="#090909" stroke="var(--color-accent-primary)" stroke-width="1.5" />
+              
+              <!-- Node dots for subsystems (interactive) -->
+              <g class="sim-node-group" id="p15-node-subagents" data-index="0" style="cursor: pointer;">
+                <circle cx="80" cy="12" r="4.5" fill="#090909" stroke="rgba(255,255,255,0.2)" stroke-width="1.2" class="node-circle" />
+              </g>
+              <g class="sim-node-group" id="p15-node-mcp" data-index="1" style="cursor: pointer;">
+                <circle cx="108" cy="40" r="4.5" fill="#090909" stroke="rgba(255,255,255,0.2)" stroke-width="1.2" class="node-circle" />
+              </g>
+              <g class="sim-node-group" id="p15-node-skills" data-index="2" style="cursor: pointer;">
+                <circle cx="80" cy="68" r="4.5" fill="#090909" stroke="rgba(255,255,255,0.2)" stroke-width="1.2" class="node-circle" />
+              </g>
+              <g class="sim-node-group" id="p15-node-tools" data-index="3" style="cursor: pointer;">
+                <circle cx="52" cy="40" r="4.5" fill="#090909" stroke="rgba(255,255,255,0.2)" stroke-width="1.2" class="node-circle" />
+              </g>
+
+              <!-- Outer steering ring boundary (AGENTS.md) -->
+              <rect x="42" y="2" width="76" height="76" rx="4" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1.2" class="sim-steer-box" id="p15-node-agents" data-index="4" style="cursor: pointer;" />
+              
+              <!-- Signal dot traveling the loop recursively -->
+              <circle class="sim-dot" id="p15-dot-agent" cx="80" cy="40" r="2" fill="var(--color-accent-primary)" style="opacity: 0;" />
+            </svg>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .capabilities-layout-15 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+    background-color: #050505;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  }
+
+  .capabilities-layout-15 .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .capabilities-layout-15 .matrix-layout {
+    display: flex;
+    gap: var(--space-10);
+    align-items: stretch;
+    width: 100%;
+  }
+
+  /* Left Column */
+  .capabilities-layout-15 .selector-side {
+    width: 45%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .capabilities-layout-15 .section-intro {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .capabilities-layout-15 .headline {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 3.5vw, 2.25rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.15;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+  }
+
+  .capabilities-layout-15 .subtext {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .capabilities-layout-15 .selector-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .capabilities-layout-15 .selector-card {
+    text-align: left;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    background-color: rgba(255, 255, 255, 0.002);
+    border-radius: 12px;
+    padding: var(--space-4) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .capabilities-layout-15 .card-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .capabilities-layout-15 .step-num {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+    font-weight: bold;
+  }
+
+  .capabilities-layout-15 .name {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .capabilities-layout-15 .detail {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  /* Highlights */
+  .capabilities-layout-15 .selector-card.active {
+    border-color: rgba(255, 107, 0, 0.2);
+    background-color: rgba(255, 107, 0, 0.015);
+  }
+
+  .capabilities-layout-15 .selector-card.active .name {
+    color: var(--color-text-primary);
+  }
+
+  .capabilities-layout-15 .selector-card.active .detail {
+    color: var(--color-text-secondary);
+  }
+
+  /* Right Column displays */
+  .capabilities-layout-15 .comparison-display {
+    width: 55%;
+    background-color: #090909;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    padding: var(--space-6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  .capabilities-layout-15 .display-container-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    max-width: 240px;
+  }
+
+  .capabilities-layout-15 .simulation-header {
+    display: flex;
+    justify-content: center;
+  }
+
+  .capabilities-layout-15 .sim-play-btn {
+    background-color: transparent;
+    border: 1.5px solid var(--color-accent-primary);
+    color: var(--color-accent-primary);
+    border-radius: 6px;
+    padding: var(--space-2) var(--space-4);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 200ms ease;
+  }
+
+  .capabilities-layout-15 .sim-play-btn:hover {
+    background-color: rgba(255, 107, 0, 0.05);
+  }
+
+  .capabilities-layout-15 .flowchart-box {
+    background-color: rgba(0,0,0,0.15);
+    border: 1px solid rgba(255,255,255,0.02);
+    border-radius: 10px;
+    padding: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .capabilities-layout-15 .flow-meta {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 7px;
+    color: var(--color-text-muted);
+    font-weight: 700;
+  }
+
+  .capabilities-layout-15 .flow-status {
+    color: var(--color-text-muted);
+  }
+
+  .capabilities-layout-15 .flow-status.running {
+    color: var(--color-accent-primary);
+  }
+
+  .capabilities-layout-15 .flow-status.completed {
+    color: rgb(74, 222, 128);
+  }
+
+  .capabilities-layout-15 .flow-svg {
+    width: 100%;
+    height: auto;
+  }
+
+  .capabilities-layout-15 .sim-node-group:hover circle {
+    stroke: var(--color-accent-primary);
+  }
+
+  .capabilities-layout-15 .sim-steer-box:hover {
+    stroke: var(--color-accent-primary);
+  }
+
+  @media (max-width: 900px) {
+    .capabilities-layout-15 .matrix-layout {
+      flex-direction: column;
+    }
+    .capabilities-layout-15 .selector-side,
+    .capabilities-layout-15 .comparison-display {
+      width: 100%;
+    }
+  }
+</style>
+
+<script>
+  const setupCapabilitiesLayout15 = () => {
+    const cards = document.querySelectorAll(".capabilities-layout-15 .selector-card")
+    const playBtn = document.getElementById("p15-sim-play-btn")
+    
+    const dotChatbot = document.getElementById("p15-dot-chatbot")
+    const dotAgent = document.getElementById("p15-dot-agent")
+    
+    const statusChatbot = document.getElementById("p15-status-chatbot")
+    const statusAgent = document.getElementById("p15-status-agent")
+
+    // Interactive nodes
+    const nodeSubagents = document.getElementById("p15-node-subagents")
+    const nodeMcp = document.getElementById("p15-node-mcp")
+    const nodeSkills = document.getElementById("p15-node-skills")
+    const nodeTools = document.getElementById("p15-node-tools")
+    const nodeAgents = document.getElementById("p15-node-agents")
+
+    const nodeElements = [nodeSubagents, nodeMcp, nodeSkills, nodeTools, nodeAgents]
+
+    nodeElements.forEach((node, idx) => {
+      node?.addEventListener("mouseenter", () => {
+        cards.forEach((c) => c.classList.remove("active"))
+        document.getElementById(`p15-cap-card-${idx}`)?.classList.add("active")
+      })
+    })
+
+    let chatbotTimer: ReturnType<typeof setInterval> | null = null
+    let agentTimer: ReturnType<typeof setInterval> | null = null
+
+    const runChatbotSimulation = () => {
+      if (!dotChatbot || !statusChatbot) return
+      dotChatbot.style.opacity = "1"
+      statusChatbot.textContent = "RUNNING"
+      statusChatbot.className = "flow-status running"
+      
+      let x = 20
+      chatbotTimer = setInterval(() => {
+        x += 4
+        dotChatbot.setAttribute("cx", x.toString())
+        if (x >= 140) {
+          if (chatbotTimer) clearInterval(chatbotTimer)
+          statusChatbot.textContent = "COMPLETED"
+          statusChatbot.className = "flow-status completed"
+          setTimeout(() => { dotChatbot.style.opacity = "0" }, 500)
+        }
+      }, 30)
+    }
+
+    const runAgentSimulation = () => {
+      if (!dotAgent || !statusAgent) return
+      dotAgent.style.opacity = "1"
+      statusAgent.textContent = "RUNNING"
+      statusAgent.className = "flow-status running"
+
+      let step = 0
+      let angle = 0
+
+      agentTimer = setInterval(() => {
+        // Buddy flow has recursive loop routing:
+        // User -> core (80, 40) -> Loops around satellite orbit -> returns core
+        if (step === 0) {
+          // Travel from user towards core (dx 80, dy 40)
+          dotAgent.setAttribute("cx", "80")
+          dotAgent.setAttribute("cy", "40")
+          step++
+        } else if (step === 1) {
+          // Orbit cycle path (r=28, center 80,40)
+          angle += 12
+          const rad = (angle - 90) * (Math.PI / 180)
+          const cx = 80 + 28 * Math.cos(rad)
+          const cy = 40 + 28 * Math.sin(rad)
+          dotAgent.setAttribute("cx", cx.toString())
+          dotAgent.setAttribute("cy", cy.toString())
+          
+          if (angle >= 360) {
+            step++
+          }
+        } else {
+          // finish
+          if (agentTimer) clearInterval(agentTimer)
+          dotAgent.setAttribute("cx", "80")
+          dotAgent.setAttribute("cy", "40")
+          statusAgent.textContent = "COMPLETED"
+          statusAgent.className = "flow-status completed"
+          setTimeout(() => { dotAgent.style.opacity = "0" }, 500)
+        }
+      }, 30)
+    }
+
+    playBtn?.addEventListener("click", () => {
+      if (chatbotTimer) clearInterval(chatbotTimer)
+      if (agentTimer) clearInterval(agentTimer)
+      
+      // Reset
+      dotChatbot?.setAttribute("cx", "20")
+      dotAgent?.setAttribute("cx", "80")
+      dotAgent?.setAttribute("cy", "40")
+
+      runChatbotSimulation()
+      runAgentSimulation()
+    })
+  }
+
+  setupCapabilitiesLayout15()
+</script>

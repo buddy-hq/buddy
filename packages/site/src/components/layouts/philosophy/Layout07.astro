@@ -1,0 +1,188 @@
+---
+import { content } from "../../../content/site"
+const { philosophy } = content
+---
+
+<div class="philosophy-layout-07">
+  <div class="container">
+    <div class="manifesto-rows">
+      
+      <!-- Top header with blur highlight -->
+      <div class="header-row">
+        <h2 class="title">{philosophy.headline}</h2>
+        <div class="glow-accent"></div>
+      </div>
+      
+      <!-- List of rows with layout design accent points -->
+      <div class="rows-list">
+        {philosophy.items.map((item, idx) => (
+          <div class="horizontal-row">
+            
+            <!-- Graphic element column -->
+            <div class="row-graphic-col">
+              <span class="index-num">0{idx + 1}</span>
+              <span class="led-dot"></span>
+            </div>
+
+            <!-- Content details -->
+            <div class="row-label-col">
+              <h3 class="label">{item.label}</h3>
+            </div>
+            <div class="row-detail-col">
+              <p class="detail">{item.detail}</p>
+            </div>
+
+          </div>
+        ))}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .philosophy-layout-07 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+    background: radial-gradient(circle at 10% 80%, rgba(255, 107, 0, 0.02) 0%, transparent 40%);
+  }
+
+  .philosophy-layout-07 .container {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .philosophy-layout-07 .manifesto-rows {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: var(--space-8);
+  }
+
+  .philosophy-layout-07 .header-row {
+    position: relative;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: var(--space-6);
+  }
+
+  .philosophy-layout-07 .title {
+    font-family: var(--font-display);
+    font-size: clamp(2.25rem, 5.5vw, 3rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.05;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+    position: relative;
+    z-index: 2;
+  }
+
+  .philosophy-layout-07 .glow-accent {
+    position: absolute;
+    top: 50%;
+    left: -50px;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: var(--color-accent-primary);
+    filter: blur(80px);
+    opacity: 0.15;
+    pointer-events: none;
+  }
+
+  .philosophy-layout-07 .rows-list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    background-color: rgba(255, 255, 255, 0.005);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .philosophy-layout-07 .horizontal-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    padding: var(--space-6) var(--space-8);
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .philosophy-layout-07 .horizontal-row:last-child {
+    border-bottom: none;
+  }
+
+  .philosophy-layout-07 .horizontal-row:hover {
+    background-color: rgba(255, 107, 0, 0.01);
+  }
+
+  /* Micro-graphic row details */
+  .philosophy-layout-07 .row-graphic-col {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    width: 10%;
+  }
+
+  .philosophy-layout-07 .index-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+
+  .philosophy-layout-07 .led-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .philosophy-layout-07 .horizontal-row:hover .led-dot {
+    background-color: var(--color-accent-primary);
+    box-shadow: 0 0 6px var(--color-accent-primary);
+  }
+
+  .philosophy-layout-07 .row-label-col {
+    width: 30%;
+  }
+
+  .philosophy-layout-07 .label {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .philosophy-layout-07 .row-detail-col {
+    width: 60%;
+  }
+
+  .philosophy-layout-07 .detail {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  @media (max-width: 860px) {
+    .philosophy-layout-07 .horizontal-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-3);
+      padding: var(--space-5);
+    }
+    .philosophy-layout-07 .row-graphic-col,
+    .philosophy-layout-07 .row-label-col,
+    .philosophy-layout-07 .row-detail-col {
+      width: 100%;
+    }
+  }
+</style>

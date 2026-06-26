@@ -1,0 +1,165 @@
+---
+import { content } from "../../../content/site"
+const { bringYourOwn } = content
+
+const logins = [
+  { ...bringYourOwn.primary, subtext: bringYourOwn.primary.description },
+  { name: bringYourOwn.secondary.options[0], icon: "github", subtext: "Log in with GitHub. No new bill." }
+]
+---
+
+<div class="byo-layout-01">
+  <div class="container">
+    <h2 class="section-title text-center">{bringYourOwn.headline}</h2>
+    
+    <div class="logins-grid">
+      {logins.map((login) => (
+        <div class="login-card">
+          <div class="card-icon-wrapper">
+            {login.icon === "openai" ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 24px; height: 24px;"><path d="M4.5 16.5c-1.5-2.5-1-6 1.5-7.5s6-1 7.5 1.5m0 0c1.5 2.5 1 6-1.5 7.5s-6 1-7.5-1.5M12 9V3m0 6c2-1 4.5-.5 5.5 1.5s-.5 4.5-2.5 5.5m0 0l5 3m-5-3c.5 2-.5 4.5-2.5 5.5S10 20 9 18" stroke-linecap="round"/></svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 24px; height: 24px;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            )}
+          </div>
+          <h3 class="login-name">{login.name}</h3>
+          <p class="login-desc">{login.subtext}</p>
+        </div>
+      ))}
+    </div>
+
+    <div class="trailing-section text-center">
+      <h3 class="trailing-title">{bringYourOwn.secondary.label}</h3>
+      <div class="providers-cloud">
+        {bringYourOwn.secondary.providers.map((provider) => (
+          <span class="provider-pill">{provider}</span>
+        ))}
+      </div>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .byo-layout-01 {
+    padding: var(--space-12) 0;
+    width: 100%;
+  }
+
+  .byo-layout-01 .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+  }
+
+  .byo-layout-01 .text-center {
+    text-align: center;
+  }
+
+  .byo-layout-01 .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-10);
+    letter-spacing: var(--tracking-tight);
+    line-height: 1.1;
+  }
+
+  .byo-layout-01 .logins-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-6);
+    margin-bottom: var(--space-12);
+  }
+
+  .byo-layout-01 .login-card {
+    background-color: #0b0908;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: var(--space-8) var(--space-6);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .byo-layout-01 .login-card:hover {
+    border-color: rgba(255, 107, 0, 0.25);
+    background-color: rgba(255, 255, 255, 0.01);
+    transform: translateY(-4px);
+  }
+
+  .byo-layout-01 .card-icon-wrapper {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: var(--space-4);
+    color: var(--color-text-muted);
+  }
+
+  .byo-layout-01 .login-card:hover .card-icon-wrapper {
+    color: var(--color-accent-primary);
+    background-color: rgba(255, 107, 0, 0.03);
+    border-color: rgba(255, 107, 0, 0.15);
+  }
+
+  .byo-layout-01 .login-name {
+    font-family: var(--font-display);
+    font-size: var(--text-base);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-2);
+  }
+
+  .byo-layout-01 .login-desc {
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  .byo-layout-01 .trailing-section {
+    margin-top: var(--space-6);
+  }
+
+  .byo-layout-01 .trailing-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-5);
+  }
+
+  .byo-layout-01 .providers-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-3);
+    max-width: 650px;
+    margin: 0 auto;
+  }
+
+  .byo-layout-01 .provider-pill {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    background-color: rgba(255, 255, 255, 0.01);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    padding: 6px 14px;
+    border-radius: 99px;
+    transition: all 0.2s var(--ease-out);
+  }
+
+  .byo-layout-01 .provider-pill:hover {
+    color: var(--color-accent-primary);
+    border-color: rgba(255, 107, 0, 0.2);
+    background-color: rgba(255, 107, 0, 0.03);
+  }
+</style>

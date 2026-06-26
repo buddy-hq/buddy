@@ -1,277 +1,264 @@
 ---
-import { MAC_INSTALL_CMD, WIN_INSTALL_CMD, DOCS_PATH } from "../lib/constants"
+import { MAC_INSTALL_CMD, WIN_INSTALL_CMD } from "../lib/constants"
 ---
 
 <section id="install" class="install-section reveal">
   <div class="container">
-    <div class="section-header">
+    <div class="install-header">
       <h2 class="section-title">Install Buddy</h2>
-    </div>
-
-    <div class="terminal-mockup">
-      <div class="terminal-header">
-        <div class="terminal-dots">
-          <div class="terminal-dot terminal-dot-red"></div>
-          <div class="terminal-dot terminal-dot-yellow"></div>
-          <div class="terminal-dot terminal-dot-green"></div>
-        </div>
-        <div class="terminal-tabs" role="tablist">
-          <button id="tab-mac" class="terminal-tab-btn active" role="tab" aria-selected="true" aria-controls="cmd-mac">macOS</button>
-          <button id="tab-win" class="terminal-tab-btn" role="tab" aria-selected="false" aria-controls="cmd-win">Windows</button>
-        </div>
-      </div>
-      <div class="terminal-body">
-        <!-- macOS -->
-        <div id="cmd-mac" class="cmd-container active" role="tabpanel" aria-labelledby="tab-mac">
-          <div class="cmd-line">
-            <span class="cmd-prefix">$</span>{MAC_INSTALL_CMD}
-          </div>
-          <button class="copy-btn" data-copy={MAC_INSTALL_CMD} aria-label="Copy macOS install command">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            <span>Copy</span>
-          </button>
-        </div>
-
-        <!-- Windows -->
-        <div id="cmd-win" class="cmd-container" role="tabpanel" aria-labelledby="tab-win">
-          <div class="cmd-line">
-            <span class="cmd-prefix">PS&gt;</span>{WIN_INSTALL_CMD}
-          </div>
-          <button class="copy-btn" data-copy={WIN_INSTALL_CMD} aria-label="Copy Windows install command">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            <span>Copy</span>
-          </button>
-        </div>
+      <div class="install-platform">
+        <button class="platform-btn active" data-os="mac">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.08 1.85-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"></path></svg>
+          <span>macOS</span>
+        </button>
+        <button class="platform-btn" data-os="win">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.899"></path></svg>
+          <span>Windows</span>
+        </button>
       </div>
     </div>
 
-    <p class="install-note">
-      Requires macOS 12+ or Windows 10+. See <a href={DOCS_PATH}>installation docs</a> for details.
-    </p>
+    <div class="install-command-wrapper">
+      <span class="install-cmd-prefix" id="cmd-prefix">$</span>
+      <code class="install-command" id="install-command">{MAC_INSTALL_CMD}</code>
+      <button class="install-copy-btn" id="install-copy-btn" data-copy={MAC_INSTALL_CMD} aria-label="Copy install command">
+        <svg class="copy-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        <svg class="check-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+      </button>
+    </div>
+
+    <div class="install-steps">
+      <div class="install-step">
+        <span class="step-num">1</span>
+        <span class="step-text">Copy</span>
+      </div>
+      <span class="step-arrow">→</span>
+      <div class="install-step">
+        <span class="step-num">2</span>
+        <span class="step-text">Paste in terminal</span>
+      </div>
+      <span class="step-arrow">→</span>
+      <div class="install-step">
+        <span class="step-num">3</span>
+        <span class="step-text">Launch Buddy</span>
+      </div>
+    </div>
   </div>
 </section>
 
 <style is:global>
-  /* === Install section === */
   .install-section {
-    background: radial-gradient(circle at 50% 50%, rgba(255, 107, 0, 0.06) 0%, transparent 60%);
     padding-block: clamp(3.5rem, 8vw, 6rem);
     border-top: 1px solid var(--color-card-border);
+    position: relative;
+    text-align: center;
   }
 
-  .terminal-mockup {
-    background-color: #0c0a09;
-    border: 1px solid var(--color-card-border);
-    border-radius: 16px;
-    max-width: 720px;
-    margin: 0 auto;
-    overflow: hidden;
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
-  }
-
-  .terminal-header {
-    background-color: rgba(255, 255, 255, 0.02);
-    border-bottom: 1px solid var(--color-card-border);
-    padding: 12px var(--space-6);
+  /* Header — title + toggle stacked */
+  .install-header {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    justify-content: space-between;
+    gap: var(--space-5);
+    margin-bottom: var(--space-12);
   }
 
-  /* Scoped terminal dots (no conflict with mockup dots) */
-  .terminal-dots {
-    display: flex;
-    gap: 8px;
+
+
+  /* Platform toggle */
+  .install-platform {
+    display: inline-flex;
+    gap: 2px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+    padding: 3px;
   }
 
-  .terminal-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-  }
-
-  .terminal-dot-red { background-color: #ef4444; }
-  .terminal-dot-yellow { background-color: #f59e0b; }
-  .terminal-dot-green { background-color: #10b981; }
-
-  .terminal-tabs {
-    display: flex;
-    background-color: rgba(0, 0, 0, 0.2);
-    border-radius: 6px;
-    padding: 2px;
-    border: 1px solid var(--color-card-border);
-  }
-
-  .terminal-tab-btn {
+  .platform-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
     background: none;
     border: none;
-    color: var(--color-text-secondary);
+    border-radius: 999px;
+    padding: 6px 16px;
     font-family: var(--font-body);
     font-size: var(--text-xs);
     font-weight: 600;
-    padding: 5px 12px;
-    border-radius: 4px;
+    color: var(--color-text-muted);
     cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition: color 0.25s var(--ease-out), background-color 0.25s var(--ease-out);
   }
 
-  .terminal-tab-btn.active {
-    background-color: rgba(255, 255, 255, 0.08);
+  .platform-btn.active {
+    background-color: rgba(255, 255, 255, 0.06);
     color: var(--color-text-primary);
   }
 
-  .terminal-body {
-    padding: var(--space-6);
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    position: relative;
-    min-height: 120px;
-  }
-
-  /* Visibility-based tab transition */
-  .cmd-container {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    opacity: 0;
-    visibility: hidden;
-    position: absolute;
-    top: var(--space-6);
-    left: var(--space-6);
-    right: var(--space-6);
-    pointer-events: none;
-    transition: opacity 0.2s var(--ease-out), visibility 0.2s var(--ease-out);
-  }
-
-  .cmd-container.active {
-    opacity: 1;
-    visibility: visible;
-    position: relative;
-    top: auto;
-    left: auto;
-    right: auto;
-    pointer-events: auto;
-  }
-
-  .cmd-line {
-    color: #f59e0b;
-    word-break: break-all;
-    padding-top: 4px;
-    font-weight: 500;
-    line-height: 1.5;
-  }
-
-  .cmd-prefix {
-    color: #10b981;
-    user-select: none;
-    margin-right: 8px;
-  }
-
-  .copy-btn {
-    background-color: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--color-card-border);
-    border-radius: 6px;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    padding: 6px 12px;
-    font-family: var(--font-body);
-    font-size: var(--text-xs);
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
-  }
-
-  .copy-btn:active { transform: scale(0.95); }
-
-  .copy-btn.copied {
-    background-color: rgba(255, 107, 0, 0.15);
-    border-color: rgba(255, 107, 0, 0.3);
-    color: #ff6b00;
-  }
+  .platform-btn svg { opacity: 0.55; }
+  .platform-btn.active svg { opacity: 1; }
 
   @media (hover: hover) and (pointer: fine) {
-    .copy-btn:hover {
-      background-color: rgba(255, 255, 255, 0.1);
-      border-color: var(--color-card-hover-border);
+    .platform-btn:hover:not(.active) {
+      color: var(--color-text-secondary);
+    }
+  }
+
+  /* Command bar — truncated, with inline copy */
+  .install-command-wrapper {
+    display: flex;
+    align-items: center;
+    max-width: 600px;
+    margin: 0 auto var(--space-8);
+    background-color: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  }
+
+  .install-cmd-prefix {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: #10b981;
+    padding: 14px 0 14px 16px;
+    user-select: none;
+    flex-shrink: 0;
+  }
+
+  .install-command {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    padding: 14px 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.5;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .install-copy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255, 255, 255, 0.04);
+    border: none;
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    padding: 0 16px;
+    align-self: stretch;
+    transition: background-color 0.15s var(--ease-out), color 0.15s var(--ease-out);
+  }
+
+  .install-copy-btn:active { transform: scale(0.96); }
+
+  .install-copy-btn .check-icon { display: none; }
+  .install-copy-btn.copied {
+    background-color: rgba(45, 212, 191, 0.12);
+    color: #2dd4bf;
+  }
+  .install-copy-btn.copied .copy-icon { display: none; }
+  .install-copy-btn.copied .check-icon { display: block; }
+
+  @media (hover: hover) and (pointer: fine) {
+    .install-copy-btn:hover {
+      background-color: rgba(255, 255, 255, 0.08);
       color: var(--color-text-primary);
     }
   }
 
-  .install-note {
-    text-align: center;
-    margin-top: var(--space-6);
-    font-size: var(--text-sm);
+  /* Steps */
+  .install-steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+  }
+
+  .install-step {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--color-text-tertiary);
+    flex-shrink: 0;
+  }
+
+  .step-text {
+    font-size: var(--text-xs);
     color: var(--color-text-muted);
   }
 
-  .install-note a {
-    color: var(--color-accent-primary);
-    text-decoration: none;
-    transition: color 0.15s ease;
+  .step-arrow {
+    color: var(--color-text-muted);
+    opacity: 0.3;
+    font-size: var(--text-xs);
   }
 
-  .install-note a:hover {
-    color: var(--color-text-primary);
+  @media (max-width: 640px) {
+    .install-steps {
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+    .step-arrow { transform: rotate(90deg); }
   }
 </style>
 
-<script>
-  // OS tab switching
-  const macTab = document.getElementById("tab-mac")
-  const winTab = document.getElementById("tab-win")
-  const macCmd = document.getElementById("cmd-mac")
-  const winCmd = document.getElementById("cmd-win")
-
-  function switchTerminalTab(
-    active: HTMLElement,
-    inactive: HTMLElement,
-    activePanel: HTMLElement,
-    inactivePanel: HTMLElement,
-  ) {
-    if (active.classList.contains("active")) return
-
-    active.classList.add("active")
-    active.setAttribute("aria-selected", "true")
-    inactive.classList.remove("active")
-    inactive.setAttribute("aria-selected", "false")
-
-    inactivePanel.classList.remove("active")
-    activePanel.classList.add("active")
+<script define:vars={{ MAC_INSTALL_CMD, WIN_INSTALL_CMD }}>
+  const commands = {
+    mac: { cmd: MAC_INSTALL_CMD, prefix: "$" },
+    win: { cmd: WIN_INSTALL_CMD, prefix: "PS>" },
   }
 
-  if (macTab && winTab && macCmd && winCmd) {
-    macTab.addEventListener("click", () =>
-      switchTerminalTab(macTab, winTab, macCmd, winCmd),
-    )
-    winTab.addEventListener("click", () =>
-      switchTerminalTab(winTab, macTab, winCmd, macCmd),
-    )
+  const cmdEl = document.getElementById("install-command")
+  const cmdPrefix = document.getElementById("cmd-prefix")
+  const copyBtn = document.getElementById("install-copy-btn")
+  const platformBtns = document.querySelectorAll(".platform-btn")
+
+  function setOS(os) {
+    const data = commands[os]
+    if (!data) return
+    cmdEl.textContent = data.cmd
+    cmdPrefix.textContent = data.prefix
+    copyBtn.setAttribute("data-copy", data.cmd)
+    platformBtns.forEach((b) => b.classList.remove("active"))
+    document.querySelector(`.platform-btn[data-os="${os}"]`)?.classList.add("active")
   }
 
-  // Copy buttons
-  document.querySelectorAll(".copy-btn").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const text = btn.getAttribute("data-copy")
-      if (!text) return
-      try {
-        await navigator.clipboard.writeText(text)
-        const original = btn.innerHTML
-        btn.innerHTML = `
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          <span>Copied!</span>
-        `
-        btn.classList.add("copied")
-        setTimeout(() => {
-          btn.innerHTML = original
-          btn.classList.remove("copied")
-        }, 2000)
-      } catch (err) {
-        console.error("Copy failed:", err)
-      }
-    })
+  platformBtns.forEach((btn) => {
+    btn.addEventListener("click", () => setOS(btn.getAttribute("data-os")))
+  })
+
+  const isWindows = navigator.userAgent.includes("Win")
+  setOS(isWindows ? "win" : "mac")
+
+  copyBtn.addEventListener("click", async () => {
+    const text = copyBtn.getAttribute("data-copy")
+    if (!text) return
+    try {
+      await navigator.clipboard.writeText(text)
+      copyBtn.classList.add("copied")
+      setTimeout(() => copyBtn.classList.remove("copied"), 2000)
+    } catch (err) {
+      console.error("Copy failed:", err)
+    }
   })
 </script>

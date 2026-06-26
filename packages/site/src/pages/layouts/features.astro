@@ -1,0 +1,62 @@
+---
+import Landing from "../../layouts/Landing.astro"
+import FeatureSteps from "../../components/features/FeatureSteps.astro"
+---
+
+<Landing title="Interactive Feature Bookend Narrative — Buddy">
+  <main class="prototypes-container">
+    
+    <!-- Mock Hero Section (Top Scroll Space) -->
+    <div class="container">
+      <div class="mock-scroll-section">
+        <span>[ Mock Hero / Top Section — Scroll down to see features stack ]</span>
+      </div>
+    </div>
+
+    <!-- Bookend Stack Section -->
+    <div class="layout-section active">
+      <FeatureSteps />
+    </div>
+
+    <!-- Mock Footer Section (Bottom Scroll Space) -->
+    <div class="container">
+      <div class="mock-scroll-section">
+        <span>[ Mock Footer / Bottom Section — Scroll up to see features unstack ]</span>
+      </div>
+    </div>
+
+  </main>
+</Landing>
+
+<style is:global>
+  /* Container layout */
+  .prototypes-container {
+    padding-block: var(--space-8);
+    min-height: 100vh;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+  }
+
+  .layout-section {
+    display: block;
+  }
+
+  /* Mock scroll sections */
+  .mock-scroll-section {
+    height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed rgba(255, 255, 255, 0.05);
+    background-color: rgba(255, 255, 255, 0.01);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-family: var(--font-mono);
+    margin-block: var(--space-8);
+    border-radius: 12px;
+  }
+</style>

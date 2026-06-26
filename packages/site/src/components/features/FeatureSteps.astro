@@ -1,0 +1,656 @@
+---
+import { content } from "../../content/site"
+
+const learnersSteps = content.learners.features
+const educatorsSteps = content.educators.features
+
+const mockTitles = [
+  "workspace_import.json",
+  "socratic_dialogue.py",
+  "spaced_repetition.db"
+]
+---
+
+<div class="bookend-cards-stack">
+  {[0, 1, 2].map((i) => {
+    const learnerStep = learnersSteps[i]
+    const educatorStep = educatorsSteps[i]
+    const mockTitle = mockTitles[i]
+
+    return (
+      <>
+        <div class="bookend-card-wrapper" style={`--index: ${i + 1}; --tab-left: ${32 + i * 132}px;`}>
+          
+          <!-- Folder Tab/Leaf on the TOP side, visible ONLY when stacked -->
+          <div class="bookend-tab-leaf">
+            <span class="leaf-tag swap swap-content swap-audience-learners active">{learnerStep.tag}</span>
+            <span class="leaf-tag swap swap-content swap-audience-educators">{educatorStep.tag}</span>
+          </div>
+          
+          <!-- Main Folder Body (A4 Aspect Ratio Sheet) -->
+          <div class="bookend-card-body">
+            <div class="bookend-card-left">
+              <!-- Learners Content -->
+              <div class="swap swap-content swap-audience-learners active">
+                <h3 class="step-title">{learnerStep.title}</h3>
+                <p class="step-desc">{learnerStep.subtext}</p>
+              </div>
+
+              <!-- Educators Content -->
+              <div class="swap swap-content swap-audience-educators">
+                <h3 class="step-title">{educatorStep.title}</h3>
+                <p class="step-desc">{educatorStep.subtext}</p>
+              </div>
+            </div>
+            <div class="bookend-card-right">
+              <div class="sticky-mockup-wrapper">
+                <div class="mockup-header-bar">
+                  <div class="mockup-dots"><span></span><span></span><span></span></div>
+                  <div class="mockup-tab-title">{mockTitle}</div>
+                </div>
+              <div class="mockup-viewport">
+                {i === 0 && (
+                  <div class="mock-import-box">
+                    <div class="mock-drag-zone">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 10px; opacity: 0.5;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      <span style="font-weight: 500;">Drag & drop materials here</span>
+                      <span style="font-size: 10px; opacity: 0.4; margin-top: 4px;">PDF, EPUB, TXT, MP3, or MP4</span>
+                    </div>
+                    <div class="mock-file-list">
+                      <div class="file-row">
+                        <span>lecture_notes_week3.pdf</span>
+                        <span class="size">4.2 MB</span>
+                      </div>
+                      <div class="file-row">
+                        <span>system_design_interview.epub</span>
+                        <span class="size">1.8 MB</span>
+                      </div>
+                      <div class="file-row">
+                        <span>audio_recording_june24.mp3</span>
+                        <span class="size">12.5 MB</span>
+                      </div>
+                      <div class="file-row active-upload">
+                        <div class="upload-info">
+                          <span>uploading_transcript.mp4</span>
+                          <span class="pct">45%</span>
+                        </div>
+                        <div class="upload-progress-bar">
+                          <div class="fill" style="width: 45%"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {i === 1 && (
+                  <div class="mock-chat-box">
+                    <div class="chat-bubble user">Explain the difference between REST and gRPC.</div>
+                    <div class="chat-bubble bot">REST is resource-based, usually using JSON over HTTP/1.1. gRPC is contract-based, using Protocol Buffers over HTTP/2.</div>
+                    <div class="chat-bubble user">When should I choose gRPC over REST?</div>
+                    <div class="chat-bubble bot">Choose gRPC for low-latency microservice communications, real-time streaming interfaces, and polyglot systems where strong API contracts are required.</div>
+                    <div class="chat-input-line">
+                      <span>Ask follow-up question...</span>
+                      <kbd>⌘K</kbd>
+                    </div>
+                  </div>
+                )}
+                {i === 2 && (
+                  <div class="mock-recall-box">
+                    <div class="flashcard-preview">
+                      <span class="badge-mini">Active Recall</span>
+                      <p style="margin-block: 16px; font-weight: 500; font-size: 15px; line-height: 1.4;">What is the time complexity of searching in a Red-Black Tree?</p>
+                      <span style="font-size: 10px; opacity: 0.4; margin-bottom: 12px;">Click to reveal answer</span>
+                      <div class="flashcard-options">
+                        <button class="card-option-btn">Show Answer</button>
+                      </div>
+                    </div>
+                    
+                    <div class="recall-stats">
+                      <div class="stat-row-flex">
+                        <div class="stat-item">
+                          <div class="stat-val">42 / 50</div>
+                          <div class="stat-lbl">Cards Studied</div>
+                        </div>
+                        <div class="stat-item">
+                          <div class="stat-val">87%</div>
+                          <div class="stat-lbl">Retention</div>
+                        </div>
+                        <div class="stat-item">
+                          <div class="stat-val">4h</div>
+                          <div class="stat-lbl">Next Review</div>
+                        </div>
+                      </div>
+                      
+                      <div class="stat-progress-bar">
+                        <div class="fill" style="width: 87%"></div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+        {i < 2 ? (
+          <div class="scroll-gap"></div>
+        ) : (
+          <div class="scroll-gap last-gap"></div>
+        )}
+      </>
+    )
+  })}
+</div>
+
+<style>
+  .bookend-cards-stack {
+    max-width: min(75vw, 1436px);
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    position: relative;
+    padding-top: 40px; /* Leave room for top tabs when stacked */
+    padding-bottom: 0;
+  }
+
+  .bookend-card-wrapper {
+    position: sticky;
+    /* Cards stack exactly centered vertically in the viewport with a safety minimum top to clear headers */
+    /* Width is 76vw (max 1200px), max-height is 80vh. Dynamic half-height is min(424px, 26.9vw, 40vh) */
+    top: max(160px, calc(50vh - min(424px, 26.9vw, 40vh)));
+    width: 100%;
+    margin-bottom: 0; /* Margin-bottom is zero because scroll-gap elements handle spacing in the document flow */
+  }
+
+  .scroll-gap {
+    height: 80vh; /* Spaces out scroll distance so each card has its own phase */
+  }
+
+  .scroll-gap.last-gap {
+    height: 40vh; /* Shorter dwell time and smaller gap at the end to prevent the "black hole" */
+  }
+
+  /* Folder Index leaf/tab on top - FIXED WIDTH for perfect equal spacing */
+  .bookend-tab-leaf {
+    position: absolute;
+    left: var(--tab-left);
+    top: -27px; /* Sits exactly on the top border of the card body */
+    width: 120px; /* Fixed width */
+    height: 28px;
+    background-color: #12100f;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1;
+    
+    /* Hidden by default, appears when stacked */
+    opacity: 0;
+    transform: translateY(6px);
+    pointer-events: none;
+    transition: opacity 0.35s var(--ease-out), transform 0.35s var(--ease-out), border-color 0.35s var(--ease-out);
+  }
+
+  .leaf-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 750;
+    color: var(--color-text-muted);
+    letter-spacing: 0.08em;
+    user-select: none;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  .bookend-tab-leaf .swap {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    transform: translateY(-50%);
+    text-align: center;
+  }
+
+  .bookend-tab-leaf .swap.active {
+    position: absolute;
+    transform: translateY(-50%);
+  }
+
+  /* When card gets stacked, reveal the leaf */
+  .bookend-card-wrapper.stacked .bookend-tab-leaf {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+    z-index: 3;
+    border-color: rgba(255, 107, 0, 0.25);
+  }
+
+  .bookend-card-wrapper.stacked .leaf-tag {
+    color: var(--color-accent-primary);
+  }
+
+  .bookend-card-body {
+    background-color: rgba(22, 19, 18, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    padding: var(--space-10);
+    width: 100%;
+    max-width: 100%;
+    aspect-ratio: 1.414 / 1; /* Horizontal A4 aspect ratio */
+    max-height: 80vh; /* Constrain max height to 80% of the viewport */
+    margin-inline: auto; /* Centers card when it shrinks due to max-height constraint */
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4),
+                0 1px 0 rgba(255, 255, 255, 0.05) inset;
+    backdrop-filter: blur(20px);
+    position: relative;
+    z-index: 2;
+    transition: border-color 0.3s var(--ease-out);
+    overflow: hidden;
+  }
+
+  .bookend-card-wrapper.stacked .bookend-card-body {
+    border-color: rgba(255, 107, 0, 0.15);
+  }
+
+  .bookend-card-left {
+    width: 48%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    position: relative;
+    z-index: 5;
+    transform: translateY(0);
+    transition: transform 0.4s var(--ease-out);
+  }
+
+  .bookend-card-wrapper.stacked .bookend-card-left {
+    transform: translateY(-24px); /* Shifts text up when tag disappears to create screenshot space */
+  }
+
+  .bookend-card-right {
+    position: absolute;
+    top: 42%; /* Pushed slightly higher than the centerline */
+    right: -30px;
+    width: 74%;
+    z-index: 1;
+    transform: rotate(-3.5deg) translateY(80px); /* Default: offset down */
+    transform-origin: top left;
+    transition: transform 0.6s var(--ease-out);
+  }
+
+  .bookend-card-wrapper.stacked .bookend-card-right {
+    transform: rotate(-3.5deg) translateY(0); /* Slide up into position when stacked */
+  }
+
+  .bookend-card-wrapper.stacked:hover .bookend-card-right {
+    transform: rotate(-2deg) scale(1.02) translateY(0);
+  }
+
+
+
+  .step-title {
+    font-family: var(--font-display);
+    font-size: 48px;
+    font-weight: 700;
+    letter-spacing: var(--tracking-tight);
+    margin-top: var(--space-10);
+    margin-bottom: var(--space-4);
+    color: var(--color-text-primary);
+  }
+
+  @media (max-width: 992px) {
+    .step-title {
+      font-size: 40px;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .step-title {
+      font-size: 24px;
+    }
+  }
+
+  .step-desc {
+    color: var(--color-text-tertiary);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+  }
+
+  /* Shared Mockup Styles */
+  .sticky-mockup-wrapper {
+    background-color: #12100f;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .mockup-header-bar {
+    display: flex;
+    align-items: center;
+    height: 36px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    padding-inline: var(--space-4);
+    gap: var(--space-4);
+  }
+
+  .mockup-dots {
+    display: flex;
+    gap: 6px;
+  }
+
+  .mockup-dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .mockup-tab-title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+
+  .mockup-viewport {
+    height: 500px !important; /* Force taller height to override global styles */
+    padding: var(--space-6);
+    position: relative;
+  }
+
+  .mock-import-box, .mock-chat-box, .mock-recall-box {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: var(--space-4);
+  }
+
+  .mock-drag-zone {
+    flex: 1;
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+  }
+
+  .mock-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .file-row {
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: var(--text-xs);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--color-text-secondary);
+  }
+
+  .file-row .size {
+    color: var(--color-text-muted);
+  }
+
+  .active-upload {
+    border-color: rgba(255, 107, 0, 0.2) !important;
+    background-color: rgba(255, 107, 0, 0.02) !important;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 6px;
+  }
+
+  .upload-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    width: 100%;
+  }
+
+  .upload-info .pct {
+    color: var(--color-accent-primary);
+    font-weight: 600;
+  }
+
+  .upload-progress-bar {
+    height: 4px;
+    background-color: rgba(255, 255, 255, 0.04);
+    border-radius: 99px;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .upload-progress-bar .fill {
+    height: 100%;
+    background-color: var(--color-accent-primary);
+  }
+
+  .chat-bubble {
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: var(--text-xs);
+    max-width: 80%;
+  }
+
+  .chat-bubble.bot {
+    background-color: rgba(255, 255, 255, 0.03);
+    align-self: flex-start;
+    color: var(--color-text-secondary);
+  }
+
+  .chat-bubble.user {
+    background-color: rgba(255, 107, 0, 0.1);
+    color: var(--color-accent-primary);
+    align-self: flex-end;
+  }
+
+  .chat-input-line {
+    margin-top: auto;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+  }
+
+  .chat-input-line kbd {
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+  }
+
+  .flashcard-preview {
+    flex: 1;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.01);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-4);
+    text-align: center;
+  }
+
+  .flashcard-preview p {
+    font-size: var(--text-sm);
+    font-weight: 500;
+  }
+
+  .flashcard-options {
+    margin-top: auto;
+    width: 100%;
+  }
+
+  .card-option-btn {
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--color-text-primary);
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s var(--ease-out);
+  }
+
+  .card-option-btn:hover {
+    background-color: rgba(255, 107, 0, 0.1);
+    border-color: rgba(255, 107, 0, 0.25);
+    color: var(--color-accent-primary);
+  }
+
+  .badge-mini {
+    font-size: 8px;
+    color: var(--color-accent-primary);
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .recall-stats {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .stat-row-flex {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: 4px;
+  }
+
+  .stat-item {
+    flex: 1;
+    background-color: rgba(255, 255, 255, 0.01);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  .stat-lbl {
+    font-size: 8px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 2px;
+  }
+
+  .stat-progress-bar {
+    height: 4px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 99px;
+    overflow: hidden;
+    width: 100%;
+  }
+
+  .stat-progress-bar .fill {
+    height: 100%;
+    background-color: var(--color-accent-cool);
+  }
+
+  @media (max-width: 960px) {
+    .bookend-cards-stack {
+      width: 100%;
+      max-width: 100%;
+      padding-top: 0;
+    }
+    .bookend-tab-leaf {
+      display: none !important;
+    }
+    .bookend-card-body {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-6);
+      padding: var(--space-5);
+      aspect-ratio: auto; /* disable A4 on mobile for readability */
+      overflow: visible;
+    }
+    .bookend-card-left {
+      width: 100%;
+    }
+    .bookend-card-right {
+      position: relative;
+      bottom: 0;
+      right: 0;
+      width: 100%;
+      transform: none !important;
+    }
+    .mockup-viewport {
+      height: 240px;
+      padding: var(--space-4);
+    }
+    .bookend-card-wrapper {
+      position: relative;
+      top: 0 !important;
+      margin-bottom: var(--space-4);
+    }
+    .bookend-card-wrapper:last-child {
+      margin-bottom: var(--space-4);
+    }
+    .scroll-gap {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  const checkStacking = () => {
+    const cards = document.querySelectorAll(".bookend-card-wrapper")
+    cards.forEach((card) => {
+      const rect = card.getBoundingClientRect()
+      const style = window.getComputedStyle(card)
+      const stickyTop = parseInt(style.top, 10)
+      
+      if (isNaN(stickyTop)) return
+
+      // Triggers `.stacked` class with 4px tolerance
+      const isStacked = rect.top <= stickyTop + 4
+      card.classList.toggle("stacked", isStacked)
+    })
+  }
+
+  window.addEventListener("scroll", checkStacking)
+  window.addEventListener("resize", checkStacking)
+  
+  // Trigger check when layout toggles
+  document.querySelectorAll(".layout-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      setTimeout(checkStacking, 50)
+    })
+  })
+
+  // Initial check
+  checkStacking()
+</script>

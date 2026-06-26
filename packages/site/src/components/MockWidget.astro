@@ -1,0 +1,63 @@
+---
+// HTML Widget sub-pane for BuddyWorkspaceMock
+---
+<!-- Surface 6: HTML Widget Pane -->
+<section class="surface-widget">
+  <div class="widget-calibrator">
+    
+    <!-- Header -->
+    <header class="calibrator-header">
+      <span class="calibrator-tag">CALIBRATOR</span>
+      <h2 class="calibrator-title">Self-Reliance Gauge</h2>
+    </header>
+
+    <!-- Hero Visual Area -->
+    <div class="calibrator-hero" id="visual-zone" style="--pressure: 0.5;">
+      <!-- Glowing Inner Orb -->
+      <div class="mind-orb">
+        <span class="mind-orb-text">MIND</span>
+      </div>
+      <!-- Crowd Pressure Dots -->
+      <div class="crowd-particles">
+        <span class="particle" style="--dx: -60px; --dy: -25px;"></span>
+        <span class="particle" style="--dx: 60px; --dy: -30px;"></span>
+        <span class="particle" style="--dx: -35px; --dy: 20px;"></span>
+        <span class="particle" style="--dx: 35px; --dy: 25px;"></span>
+        <span class="particle" style="--dx: -70px; --dy: 5px;"></span>
+        <span class="particle" style="--dx: 70px; --dy: 8px;"></span>
+      </div>
+      <!-- Rippling pressure boundary -->
+      <div class="pressure-ring"></div>
+    </div>
+
+    <!-- Integrated Control Section -->
+    <div class="calibrator-controls">
+      <div class="control-labels">
+        <span class="lbl-inward">INWARD: <span id="val-inward">50%</span></span>
+        <span class="lbl-crowd">CROWD: <span id="val-crowd">50%</span></span>
+      </div>
+      
+      <div class="slider-wrapper">
+        <input id="widget-pressure" type="range" min="0" max="100" value="50" class="calibrator-slider" />
+        <div class="slider-gradient-track"></div>
+      </div>
+    </div>
+
+    <!-- Output Quote Section -->
+    <div class="calibrator-output">
+      <div class="quote-container">
+        <span class="quote-glyph-open">“</span>
+        <p class="widget-quote" id="widget-quote">To be great is to be misunderstood.</p>
+        <p class="widget-explain" id="widget-explain">Maintaining your integrity while in society requires constant, balanced resolve.</p>
+      </div>
+    </div>
+
+    <!-- Presets Mode Selector -->
+    <div class="calibrator-presets">
+      <button class="mode-btn" data-val="0">TRUTH</button>
+      <button class="mode-btn active" data-val="50">BALANCE</button>
+      <button class="mode-btn" data-val="100">CONFORM</button>
+    </div>
+
+  </div>
+</section>

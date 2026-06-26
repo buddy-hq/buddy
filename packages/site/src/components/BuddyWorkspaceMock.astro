@@ -1,0 +1,3537 @@
+---
+// Component for the real Buddy workspace mockup
+import MockWhiteboard from "./MockWhiteboard.astro";
+import MockSidebar from "./MockSidebar.astro";
+import MockChat from "./MockChat.astro";
+import MockReader from "./MockReader.astro";
+import MockWidget from "./MockWidget.astro";
+import MockNotebook from "./MockNotebook.astro";
+---
+
+<div class="buddy-window">
+  <!-- Workspace layout with macOS unified titlebar split -->
+  <div class="workspace-body right-pane-collapsed">
+    
+    <!-- Surface 1: Sidebar -->
+    <MockSidebar />
+
+    <!-- Surface 2: Chat Pane -->
+    <MockChat />
+
+    <!-- Surface 3: Document Reader (Warm Cream paper) -->
+    <MockReader />
+
+    <!-- Surface 5: Whiteboard Pane -->
+    <MockWhiteboard />
+
+    <!-- Surface 6: HTML Widget Pane -->
+    <MockWidget />
+
+    <!-- Surface 7: Notebook Pane -->
+    <MockNotebook />
+
+    <!-- Surface 4: Action Toolbar -->
+    <aside class="surface-actions">
+      <div class="action-icons">
+        <button class="action-btn active" title="Library">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+          </svg>
+        </button>
+        <button class="action-btn" title="Notebook">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="9" x2="15" y2="9"></line>
+            <line x1="9" y1="13" x2="15" y2="13"></line>
+          </svg>
+        </button>
+        <button class="action-btn" title="HTML Widget">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6"></polyline>
+            <polyline points="8 6 2 12 8 18"></polyline>
+          </svg>
+        </button>
+        <button class="action-btn" title="Whiteboard">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 3h20"></path>
+            <path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"></path>
+            <path d="m7 21 5-5 5 5"></path>
+          </svg>
+        </button>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+<script>
+  // Data for notebooks matching real app structure
+  const notebookData = {
+    "self-reliance": {
+      title: "self reliance",
+      session: "Understanding self-reliance meaning",
+      readerTitle: "Self Reliance",
+      pages: [
+        {
+          quote: "Whoso would be a man must be a nonconformist.",
+          body: "Is non-conformity required for everyone? Probably not. But to be courageous—to be \"a man\" as Emerson is in a time of different language—you must first be willing to think for yourself. And as Martin Luther King, Jr. (another inspiring non-conformist) said years later, \"Nothing pains some people more than having to think.\" If you can think for yourself, and put those thoughts into meaningful action that improves the state of the world, you're well on the way to a courageous, remarkable life.",
+          signature: "Chris Guillebeau",
+          location: "BEGIN READING · LOCATION 19 / 95"
+        },
+        {
+          quote: "To be yourself in a world that is constantly trying to make you something else is the greatest accomplishment.",
+          body: "Self-trust is the first secret of success. Stoic principles teach that we must depend on our internal compass rather than external validation. Let us not be swayed by the noise of the crowd or the expectations of society, but remain steady in our reason.",
+          signature: "Ralph Waldo Emerson",
+          location: "LOCATION 20 / 95"
+        }
+      ],
+      messages: [
+        { sender: "user", text: "what do you mean by self-reliance?" },
+        { sender: "buddy", text: "Emerson argues you should trust your own mind instead of conforming to what the crowd or your past self expects.<br><br><div class='wb-chat-card'><div class='wb-chat-icon'><svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path d='M2 3h20'></path><path d='M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3'></path><path d='m7 21 5-5 5 5'></path></svg></div><div class='wb-chat-title-group'><div class='wb-chat-title'>Whiteboard</div><div class='wb-chat-subtitle'>Trust Thyself</div></div></div><br><br>I've sketched a quick summary on your whiteboard." },
+        { sender: "user", text: "load the text so we can dig into it" },
+        { sender: "buddy", text: "<div class='illustration-card'><img class='ill-cover' src='/self-reliance.webp' alt='Self Reliance' /><div class='ill-text'><span class='ill-title'>Self Reliance</span><span class='ill-author'>Ralph Waldo Emerson</span><span class='ill-meta'>17.3k words · Essay</span></div></div><br><br>Loaded. I've highlighted his core thesis on non-conformity in the e-reader." },
+        { sender: "user", text: "make me a widget to play with this idea" },
+        { sender: "buddy", text: "<div class='widget-chat-card' id='widget-preview-card'><div class='widget-chat-icon'><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><polyline points='16 18 22 12 16 6'></polyline><polyline points='8 6 2 12 8 18'></polyline></svg></div><div class='widget-chat-title-group'><div class='widget-chat-title'>Self-Reliance Gauge</div><div class='widget-chat-subtitle'>Interactive UI Component</div></div></div><br><br>Sure! I have generated the Self-Reliance Gauge in your workspace to visualize the balance between integrity and conformity." }
+      ],
+      whiteboardHtml: ""
+    },
+    "deep-learning": {
+      title: "deep learning",
+      session: "Backpropagation chain rule",
+      readerTitle: "Deep Learning Book (Ch 6)",
+      pages: [
+        {
+          quote: "The gradient points in the direction of greatest increase.",
+          body: "To update the weights of a neural network, we calculate the gradient of the loss function using backpropagation. This requires computing derivatives layer-by-layer backwards through the network via the recursive chain rule.",
+          signature: "Ian Goodfellow",
+          location: "BEGIN READING · LOCATION 32 / 120"
+        },
+        {
+          quote: "Optimization is the search for weight configurations that minimize loss.",
+          body: "In practice, we use stochastic gradient descent or adaptive optimizers like Adam. By analyzing the curvature and history of gradients, we can navigate complex loss landscapes and avoid flat regions or saddle points.",
+          signature: "Yoshua Bengio",
+          location: "LOCATION 33 / 120"
+        }
+      ],
+      messages: [
+        { sender: "user", text: "how does backprop calculate gradients?" },
+        { sender: "buddy", text: "It uses the recursive chain rule layer-by-layer backwards through the network to update weights.<br><br>Want to look at the math in Chapter 6?" },
+        { sender: "user", text: "yes" },
+        { sender: "buddy", text: "<div class='illustration-card'><div class='ill-cover-fallback dl'><div class='fallback-cover-text'>Deep Learning</div></div><div class='ill-text'><span class='ill-title'>Deep Learning Book</span><span class='ill-author'>Ian Goodfellow et al.</span><span class='ill-meta'>Ch 6 · 12.4k words</span></div></div><br><br>I've opened the chapter in the reader and highlighted the recursive equations." },
+        { sender: "user", text: "show me the equations" },
+        { sender: "buddy", text: "<div class='wb-chat-card'><div class='wb-chat-icon'><svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path d='M2 3h20'></path><path d='M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3'></path><path d='m7 21 5-5 5 5'></path></svg></div><div class='wb-chat-title-group'><div class='wb-chat-title'>Whiteboard</div><div class='wb-chat-subtitle'>Backprop derivatives</div></div></div><br><br>Sure, I'll calculate and render the derivatives on your whiteboard." }
+      ],
+      whiteboardHtml: ""
+    },
+    "world-history": {
+      title: "world history",
+      session: "Causes of World War I",
+      readerTitle: "World History (Ch 22)",
+      pages: [
+        {
+          quote: "The assassination was the spark that ignited the European powder keg.",
+          body: "Although the assassination of Archduke Franz Ferdinand in June 1914 was the immediate catalyst, the war's root causes lay in imperialism, militarism, nationalist rivalries, and the rigid alliance network. The secret mutual defense pacts quickly turned a local Balkan conflict into a global catastrophe.",
+          signature: "Modern History Press",
+          location: "BEGIN READING · LOCATION 48 / 90"
+        },
+        {
+          quote: "The alliance network transformed a localized conflict into a global tragedy.",
+          body: "By early August 1914, the major European powers had fully mobilized. Mobilization schedules were extremely rigid, meaning that once one nation began the process, its neighbors felt compelled to do the same to avoid being caught unprepared.",
+          signature: "A. J. P. Taylor",
+          location: "LOCATION 49 / 90"
+        }
+      ],
+      messages: [
+        { sender: "user", text: "why did so many countries get pulled into ww1 so quickly?" },
+        { sender: "buddy", text: "The rigid network of mutual defense alliances escalated a local Balkan conflict into a global war within weeks.<br><br>Ready to check the diplomatic crisis text?" },
+        { sender: "user", text: "yes" },
+        { sender: "buddy", text: "<div class='illustration-card'><div class='ill-cover-fallback wh'><div class='fallback-cover-text'>World History</div></div><div class='ill-text'><span class='ill-title'>World History</span><span class='ill-author'>Modern History Press</span><span class='ill-meta'>Ch 22 · 15.1k words</span></div></div><br><br>Loaded Chapter 22. It outlines how Austria-Hungary's declaration of war triggered Russia, Germany, and France." },
+        { sender: "user", text: "explain the alliance timeline" },
+        { sender: "buddy", text: "<div class='wb-chat-card'><div class='wb-chat-icon'><svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path d='M2 3h20'></path><path d='M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3'></path><path d='m7 21 5-5 5 5'></path></svg></div><div class='wb-chat-title-group'><div class='wb-chat-title'>Whiteboard</div><div class='wb-chat-subtitle'>Alliance Timeline</div></div></div><br><br>I've mapped the diplomatic communications of July 1914 on your whiteboard." }
+      ],
+      whiteboardHtml: ""
+    }
+  };
+
+  type NotebookKey = "self-reliance" | "deep-learning" | "world-history";
+
+  let activeNotebook: NotebookKey = "self-reliance";
+  let currentPageIndices: Record<NotebookKey, number> = {
+    "self-reliance": 0,
+    "deep-learning": 0,
+    "world-history": 0
+  };
+
+  const chatFeed = document.getElementById("chat-feed-container");
+  const windowActiveNotebook = document.querySelector(".window-active-notebook");
+  const windowActiveSession = document.querySelector(".window-active-session");
+  const readerTabTitle = document.getElementById("reader-tab-title");
+  const readerQuoteText = document.getElementById("reader-quote-text");
+  const readerBodyText = document.getElementById("reader-body-text");
+  const readerSigText = document.getElementById("reader-sig-text");
+  const readerLocationText = document.getElementById("reader-location-text");
+  const fontToggleBtn = document.getElementById("font-toggle-btn");
+  const readerContentPane = document.getElementById("reader-content-pane");
+  const chatForm = document.getElementById("mockup-chat-form");
+  const chatInput = document.getElementById("mockup-chat-input") as HTMLTextAreaElement;
+  
+  const readerPrevBtn = document.getElementById("reader-prev-btn");
+  const readerNextBtn = document.getElementById("reader-next-btn");
+  const wbDrawings = document.querySelector(".wb-drawings") as HTMLElement | null;
+
+  let currentStreamId = 0;
+  let isGenerating = false;
+  let activeSidebarPromise = Promise.resolve();
+  const chatSubmitBtn = document.getElementById("chat-submit-btn");
+
+  function setGenerating(generating: boolean) {
+    isGenerating = generating;
+    if (chatSubmitBtn) {
+      if (generating) {
+        chatSubmitBtn.classList.add("generating");
+      } else {
+        chatSubmitBtn.classList.remove("generating");
+      }
+    }
+    
+    // Stop pulsing if generation is over
+    if (!generating) {
+      const pulsingItem = document.querySelector('.session-item.pulse-slow');
+      if (pulsingItem) {
+        pulsingItem.classList.remove('pulse-slow');
+      }
+    }
+  }
+
+  async function typeWbHtml(container: HTMLElement, htmlText: string, streamId: number, speed = 30) {
+    const chunks: string[] = [];
+    let i = 0;
+    while (i < htmlText.length) {
+      if (htmlText[i] === '<') {
+        const closingIndex = htmlText.indexOf('>', i);
+        if (closingIndex !== -1) {
+          chunks.push(htmlText.substring(i, closingIndex + 1));
+          i = closingIndex + 1;
+          continue;
+        }
+      }
+      chunks.push(htmlText[i]);
+      i++;
+    }
+
+    let currentText = "";
+    for (const chunk of chunks) {
+      if (streamId !== currentStreamId) return;
+      currentText += chunk;
+      container.innerHTML = currentText;
+      const delay = chunk.startsWith('<') ? 0 : (Math.random() * (speed / 2) + (speed / 2));
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  async function animateWhiteboard(notebookKey: NotebookKey, streamId: number) {
+    if (!wbDrawings) return;
+    
+    // Clear and set to initial blank state
+    wbDrawings.innerHTML = "";
+
+    if (notebookKey === "self-reliance") {
+      // Title
+      const hi = document.createElement("div");
+      hi.className = "wb-handwriting-hi";
+      wbDrawings.appendChild(hi);
+      await typeWbHtml(hi, "Trust Thyself", streamId, 45);
+      if (streamId !== currentStreamId) return;
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Quote
+      const quote = document.createElement("div");
+      quote.className = "wb-welcome-text";
+      wbDrawings.appendChild(quote);
+      await typeWbHtml(quote, '"every heart vibrates to that iron string."', streamId, 25);
+      if (streamId !== currentStreamId) return;
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Doodle arrow down
+      const arrow = document.createElement("div");
+      arrow.className = "wb-doodle-arrow";
+      arrow.innerHTML = `
+        <svg width="40" height="20" viewBox="0 0 40 20" fill="none" stroke="#3b82f6" stroke-width="2">
+          <path d="M20,2 L20,18 M15,13 L20,18 L25,13" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      `;
+      wbDrawings.appendChild(arrow);
+      await new Promise(resolve => setTimeout(resolve, 50));
+      arrow.classList.add("visible");
+      await new Promise(resolve => setTimeout(resolve, 300));
+      if (streamId !== currentStreamId) return;
+
+      // Comparative Grid
+      const grid = document.createElement("div");
+      grid.className = "wb-split-grid";
+      wbDrawings.appendChild(grid);
+
+      // Create Integrity Card (empty body)
+      const integrityCard = document.createElement("div");
+      integrityCard.className = "wb-card integrity";
+      integrityCard.innerHTML = `<div class="wb-card-title">✓ Integrity</div><div class="wb-card-body"></div>`;
+      grid.appendChild(integrityCard);
+
+      // Create Conformity Card (empty body)
+      const conformityCard = document.createElement("div");
+      conformityCard.className = "wb-card conformity";
+      conformityCard.innerHTML = `<div class="wb-card-title">✗ Conformity</div><div class="wb-card-body"></div>`;
+      grid.appendChild(conformityCard);
+
+      // Animate card borders appearing
+      await new Promise(resolve => setTimeout(resolve, 50));
+      integrityCard.classList.add("visible");
+      conformityCard.classList.add("visible");
+      await new Promise(resolve => setTimeout(resolve, 600)); // Let transition finish
+      if (streamId !== currentStreamId) return;
+
+      // Stream text inside cards
+      const integrityBody = integrityCard.querySelector(".wb-card-body") as HTMLElement;
+      await typeWbHtml(integrityBody, "- Inward Conviction<br>- Self-Trust<br>- Originality", streamId, 25);
+      if (streamId !== currentStreamId) return;
+
+      const conformityBody = conformityCard.querySelector(".wb-card-body") as HTMLElement;
+      await typeWbHtml(conformityBody, "- Social Pressure<br>- Imitation = Suicide<br>- Joint-stock company", streamId, 25);
+      if (streamId !== currentStreamId) return;
+
+      // Bottom Conclusion Card
+      const conclusionCard = document.createElement("div");
+      conclusionCard.className = "wb-sketch-node bottom-conclusion";
+      conclusionCard.style.opacity = "0";
+      conclusionCard.style.transform = "scale(0.8) rotate(1deg)";
+      conclusionCard.style.transition = "all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)";
+      conclusionCard.style.marginTop = "15px";
+      conclusionCard.style.width = "100%";
+      conclusionCard.style.maxWidth = "280px";
+      wbDrawings.appendChild(conclusionCard);
+
+      // Animate bottom box coming
+      await new Promise(resolve => setTimeout(resolve, 100));
+      conclusionCard.style.opacity = "1";
+      conclusionCard.style.transform = "scale(1) rotate(1deg)";
+      await new Promise(resolve => setTimeout(resolve, 500));
+      if (streamId !== currentStreamId) return;
+
+      await typeWbHtml(conclusionCard, "Inward Conviction ➔ Universal Truth", streamId, 30);
+    } 
+    else if (notebookKey === "deep-learning") {
+      // Title
+      const hi = document.createElement("div");
+      hi.className = "wb-handwriting-hi";
+      hi.style.color = "#3b82f6";
+      wbDrawings.appendChild(hi);
+      await typeWbHtml(hi, "Backprop Chain Rule", streamId, 45);
+      if (streamId !== currentStreamId) return;
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Neural graph sketch
+      const graph = document.createElement("div");
+      graph.className = "wb-neural-graph";
+      graph.innerHTML = `
+        <div class="wb-neural-node" id="node-x">x</div>
+        <div class="wb-neural-edge">
+          <svg width="30" height="10" viewBox="0 0 30 10">
+            <path d="M0,5 L28,5 M24,2 L28,5 L24,8" stroke="#3b82f6" stroke-width="1.5" fill="none" />
+          </svg>
+          <span class="wb-edge-weight">w1</span>
+        </div>
+        <div class="wb-neural-node" id="node-h">h</div>
+        <div class="wb-neural-edge">
+          <svg width="30" height="10" viewBox="0 0 30 10">
+            <path d="M0,5 L28,5 M24,2 L28,5 L24,8" stroke="#3b82f6" stroke-width="1.5" fill="none" />
+          </svg>
+          <span class="wb-edge-weight">w2</span>
+        </div>
+        <div class="wb-neural-node" id="node-y">y</div>
+      `;
+      wbDrawings.appendChild(graph);
+      await new Promise(resolve => setTimeout(resolve, 50));
+      graph.classList.add("visible");
+
+      // Animate node circles popping in order
+      const nodes = graph.querySelectorAll(".wb-neural-node");
+      for (let idx = 0; idx < nodes.length; idx++) {
+        await new Promise(resolve => setTimeout(resolve, 150));
+        nodes[idx].classList.add("visible");
+        const edge = nodes[idx].nextElementSibling;
+        if (edge && edge.classList.contains("wb-neural-edge")) {
+          edge.classList.add("visible");
+        }
+      }
+      await new Promise(resolve => setTimeout(resolve, 400));
+      if (streamId !== currentStreamId) return;
+
+      // Block container
+      const block = document.createElement("div");
+      block.className = "wb-equation-block";
+      wbDrawings.appendChild(block);
+
+      // Equation Box 1 (empty body)
+      const eqCard1 = document.createElement("div");
+      eqCard1.className = "wb-card integrity";
+      eqCard1.style.width = "220px";
+      eqCard1.style.textAlign = "center";
+      eqCard1.innerHTML = `<div class="wb-card-body"></div>`;
+      block.appendChild(eqCard1);
+
+      // Animate Equation Card 1 appearing
+      await new Promise(resolve => setTimeout(resolve, 50));
+      eqCard1.classList.add("visible");
+      await new Promise(resolve => setTimeout(resolve, 500));
+      if (streamId !== currentStreamId) return;
+
+      const eqBody1 = eqCard1.querySelector(".wb-card-body") as HTMLElement;
+      await typeWbHtml(eqBody1, "∂L / ∂w<sub>i</sub> = (∂L / ∂y) · (∂y / ∂z) · (∂z / ∂w<sub>i</sub>)", streamId, 25);
+      if (streamId !== currentStreamId) return;
+      await new Promise(resolve => setTimeout(resolve, 400));
+
+      // Sketched Arrow
+      const arrow = document.createElement("div");
+      arrow.className = "wb-timeline-arrow";
+      arrow.style.color = "#3b82f6";
+      arrow.style.opacity = "0";
+      arrow.style.transform = "translateY(-10px)";
+      arrow.style.transition = "all 0.5s ease";
+      block.appendChild(arrow);
+      arrow.innerHTML = "↓";
+
+      // Animate arrow
+      await new Promise(resolve => setTimeout(resolve, 50));
+      arrow.style.opacity = "1";
+      arrow.style.transform = "translateY(0)";
+      await new Promise(resolve => setTimeout(resolve, 400));
+      if (streamId !== currentStreamId) return;
+
+      // Equation Box 2 (empty body)
+      const eqCard2 = document.createElement("div");
+      eqCard2.className = "wb-card conformity";
+      eqCard2.style.width = "220px";
+      eqCard2.style.textAlign = "center";
+      eqCard2.innerHTML = `<div class="wb-card-body" style="color: #10b981;"></div>`;
+      block.appendChild(eqCard2);
+
+      // Animate Equation Card 2 appearing
+      await new Promise(resolve => setTimeout(resolve, 50));
+      eqCard2.classList.add("visible");
+      await new Promise(resolve => setTimeout(resolve, 500));
+      if (streamId !== currentStreamId) return;
+
+      const eqBody2 = eqCard2.querySelector(".wb-card-body") as HTMLElement;
+      await typeWbHtml(eqBody2, "δ<sup>(l)</sup> = ((W<sup>(l+1)</sup>)<sup>T</sup> δ<sup>(l+1)</sup>) ⊙ f'(z<sup>(l)</sup>)", streamId, 25);
+    } 
+    else if (notebookKey === "world-history") {
+      // Title
+      const hi = document.createElement("div");
+      hi.className = "wb-handwriting-hi";
+      hi.style.color = "#f59e0b";
+      wbDrawings.appendChild(hi);
+      await typeWbHtml(hi, "WWI Alliance Timeline", streamId, 45);
+      if (streamId !== currentStreamId) return;
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // Timeline container
+      const flow = document.createElement("div");
+      flow.className = "wb-timeline-flow";
+      wbDrawings.appendChild(flow);
+
+      const steps = [
+        { date: "June 28", event: "Franz Ferdinand assassinated 💥", class: "integrity" },
+        { date: "July 28", event: "Austria-Hungary declares war", class: "conformity" },
+        { date: "Aug 1-3", event: "General European mobilization ➔ Ignite!", class: "conformity" }
+      ];
+
+      for (let k = 0; k < steps.length; k++) {
+        if (streamId !== currentStreamId) return;
+        const stepData = steps[k];
+
+        // Create step card empty
+        const card = document.createElement("div");
+        card.className = `wb-timeline-step-card ${stepData.class}`;
+        card.innerHTML = `<div class="step-header">${stepData.date}</div><div class="step-body"></div>`;
+        flow.appendChild(card);
+
+        // Animate card appearing
+        await new Promise(resolve => setTimeout(resolve, 50));
+        card.classList.add("visible");
+        await new Promise(resolve => setTimeout(resolve, 400));
+        if (streamId !== currentStreamId) return;
+
+        // Type inside card body
+        const bodyEl = card.querySelector(".step-body") as HTMLElement;
+        await typeWbHtml(bodyEl, stepData.event, streamId, 25);
+        if (streamId !== currentStreamId) return;
+
+        if (k < steps.length - 1) {
+          const arrow = document.createElement("div");
+          arrow.className = "wb-flow-arrow";
+          arrow.innerHTML = "↓";
+          flow.appendChild(arrow);
+          
+          await new Promise(resolve => setTimeout(resolve, 50));
+          arrow.classList.add("visible");
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+      }
+    }
+  }
+
+  function loadNotebook(key: NotebookKey) {
+    activeNotebook = key;
+    activeSidebarPromise = Promise.resolve();
+    const data = notebookData[key];
+    if (!data) return;
+
+    if (windowActiveNotebook) windowActiveNotebook.textContent = data.title;
+    if (windowActiveSession) windowActiveSession.textContent = data.session;
+    if (readerTabTitle) readerTabTitle.textContent = data.readerTitle;
+
+    // Reset components to initial states before streaming
+    if (readerQuoteText) readerQuoteText.textContent = "";
+    if (readerBodyText) readerBodyText.textContent = "Waiting for document load command...";
+    if (readerSigText) readerSigText.textContent = "";
+    if (readerLocationText) readerLocationText.textContent = "";
+    if (wbDrawings) wbDrawings.innerHTML = '<div class="wb-welcome-text" style="opacity: 0.3; font-family: var(--font-body); font-size: 13px; padding: 20px;">Whiteboard ready...</div>';
+    if (libraryRailBtn) {
+      document.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+      libraryRailBtn.classList.add('active');
+      const buddyWindow = document.querySelector('.buddy-window');
+      if (buddyWindow) {
+        buddyWindow.classList.remove('show-whiteboard');
+        buddyWindow.classList.remove('show-widget');
+        buddyWindow.classList.remove('show-notes');
+      }
+    }
+
+    // Collapse right pane initially on loading/switching notebook
+    const workspaceBody = document.querySelector('.workspace-body');
+    if (workspaceBody) {
+      workspaceBody.classList.add('right-pane-collapsed');
+    }
+
+    // Add pulse animation back to the active session item
+    const activeSessionItem = document.querySelector('.sessions-list .session-item.active');
+    if (activeSessionItem) {
+      activeSessionItem.classList.add('pulse-slow');
+    }
+
+    currentStreamId++;
+    const streamId = currentStreamId;
+
+    if (chatFeed) {
+      chatFeed.innerHTML = "";
+    }
+
+    // Start streaming simulation
+    runChatStream(key, streamId);
+  }
+
+  async function runChatStream(key: NotebookKey, streamId: number) {
+    const data = notebookData[key];
+    if (!data) return;
+
+    setGenerating(true);
+
+    try {
+      for (let i = 0; i < data.messages.length; i++) {
+        if (streamId !== currentStreamId) return;
+
+        const msg = data.messages[i];
+        if (msg.sender === "user") {
+          await new Promise(resolve => setTimeout(resolve, i === 0 ? 300 : 800));
+          if (streamId !== currentStreamId) return;
+
+          if (chatInput) {
+            chatInput.value = "";
+            for (let charIndex = 0; charIndex < msg.text.length; charIndex++) {
+              if (streamId !== currentStreamId) return;
+              chatInput.value += msg.text[charIndex];
+              chatInput.style.height = "auto";
+              chatInput.style.height = (chatInput.scrollHeight) + "px";
+              const delay = msg.text.length > 30 ? 20 : 30;
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 250));
+          if (streamId !== currentStreamId) return;
+
+          if (chatSubmitBtn) {
+            chatSubmitBtn.classList.add("simulated-click");
+          }
+          await new Promise(resolve => setTimeout(resolve, 150));
+          if (streamId !== currentStreamId) return;
+          if (chatSubmitBtn) {
+            chatSubmitBtn.classList.remove("simulated-click");
+          }
+
+          if (chatInput) {
+            chatInput.value = "";
+            chatInput.style.height = "auto";
+          }
+          appendMessage("user", msg.text);
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 400));
+          if (streamId !== currentStreamId) return;
+
+          // Show typing indicator
+          const typingIndicator = document.createElement("div");
+          typingIndicator.className = "mock-chat-bubble buddy typing";
+          typingIndicator.innerHTML = `
+            <div class="typing-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          `;
+          if (chatFeed) {
+            chatFeed.appendChild(typingIndicator);
+            chatFeed.scrollTop = chatFeed.scrollHeight;
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 800));
+          if (streamId !== currentStreamId) return;
+          typingIndicator.remove();
+
+          // Create message bubble
+          const bubble = document.createElement("div");
+          bubble.className = `mock-chat-bubble buddy`;
+          const inner = document.createElement("div");
+          inner.className = "bubble-content";
+          bubble.appendChild(inner);
+          if (chatFeed) {
+            chatFeed.appendChild(bubble);
+            chatFeed.scrollTop = chatFeed.scrollHeight;
+          }
+
+          await typeMessage(inner, msg.text, streamId, key, i);
+          if (streamId !== currentStreamId) return;
+
+          // Await activeSidebarPromise to resolve completely (e.g. whiteboard animation finishes)
+          await activeSidebarPromise;
+          if (streamId !== currentStreamId) return;
+
+          // Stay on that state for 1 second before proceeding to the next message
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+    } finally {
+      if (streamId === currentStreamId) {
+        setGenerating(false);
+      }
+    }
+  }
+
+  async function typeMessage(container: HTMLElement, htmlText: string, streamId: number, notebookKey: NotebookKey, messageIndex: number) {
+    const parts = htmlText.split("<br><br>");
+    for (let partIdx = 0; partIdx < parts.length; partIdx++) {
+      if (streamId !== currentStreamId) return;
+      const part = parts[partIdx];
+      
+      const isCard = part.includes("widget-chat-card") || part.includes("illustration-card") || part.includes("wb-chat-card");
+      
+      if (isCard) {
+        // Render card instantly
+        const cardDiv = document.createElement("div");
+        cardDiv.style.display = "contents";
+        cardDiv.innerHTML = part;
+        
+        // Add skeleton state on creation
+        const cardEl = cardDiv.firstElementChild;
+        if (cardEl) {
+          cardEl.classList.add("state-skeleton");
+        }
+        
+        container.appendChild(cardDiv);
+        if (chatFeed) chatFeed.scrollTop = chatFeed.scrollHeight;
+
+        // Trigger opening of sidebar!
+        if (messageIndex !== -1) {
+          triggerSidebarOpen(notebookKey, messageIndex);
+          activeSidebarPromise = resolveCardSkeleton(notebookKey, messageIndex, streamId);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 150));
+      } else {
+        // Typewriter text
+        const textSpan = document.createElement("span");
+        container.appendChild(textSpan);
+        await typeMessageInner(textSpan, part, streamId);
+      }
+
+      if (partIdx < parts.length - 1) {
+        const nextPart = parts[partIdx + 1];
+        const nextIsCard = nextPart.includes("widget-chat-card") || nextPart.includes("illustration-card") || nextPart.includes("wb-chat-card");
+        
+        if (!isCard && !nextIsCard) {
+          // Double break between text paragraphs
+          container.appendChild(document.createElement("br"));
+          container.appendChild(document.createElement("br"));
+        } else {
+          // Tight spacing between card and text
+          const spacer = document.createElement("div");
+          spacer.style.height = "8px";
+          container.appendChild(spacer);
+        }
+        if (chatFeed) chatFeed.scrollTop = chatFeed.scrollHeight;
+      }
+    }
+  }
+
+  async function typeMessageInner(container: HTMLElement, htmlText: string, streamId: number) {
+    const chunks: string[] = [];
+    let i = 0;
+    while (i < htmlText.length) {
+      if (htmlText[i] === '<') {
+        const closingIndex = htmlText.indexOf('>', i);
+        if (closingIndex !== -1) {
+          chunks.push(htmlText.substring(i, closingIndex + 1));
+          i = closingIndex + 1;
+          continue;
+        }
+      }
+      chunks.push(htmlText[i]);
+      i++;
+    }
+
+    let currentText = "";
+    for (const chunk of chunks) {
+      if (streamId !== currentStreamId) return;
+      currentText += chunk;
+      container.innerHTML = currentText;
+      if (chatFeed) chatFeed.scrollTop = chatFeed.scrollHeight;
+      
+      const delay = chunk.startsWith('<') ? 0 : (Math.random() * 12 + 6);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  function triggerSidebarOpen(notebookKey: NotebookKey, messageIndex: number) {
+    const buddyWindow = document.querySelector('.buddy-window');
+    const workspaceBody = document.querySelector('.workspace-body');
+
+    if (notebookKey === "self-reliance") {
+      if (messageIndex === 1) {
+        // Whiteboard
+        if (wbDrawings) wbDrawings.innerHTML = ""; // Clear drawings instantly so it opens blank
+        if (whiteboardRailBtn && buddyWindow) {
+          document.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+          whiteboardRailBtn.classList.add('active');
+          buddyWindow.classList.add('show-whiteboard');
+          buddyWindow.classList.remove('show-widget', 'show-notes');
+          if (windowActiveNotebook) windowActiveNotebook.textContent = "Whiteboard";
+          if (windowActiveSession) windowActiveSession.textContent = "Current board";
+          if (workspaceBody) {
+            workspaceBody.classList.remove('right-pane-collapsed');
+          }
+        }
+      } else if (messageIndex === 3) {
+        // Reader
+        loadReaderPage("self-reliance", 0);
+        if (libraryRailBtn && buddyWindow) {
+          document.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+          libraryRailBtn.classList.add('active');
+          buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-notes');
+          const data = notebookData["self-reliance"];
+          if (windowActiveNotebook) windowActiveNotebook.textContent = data.title;
+          if (windowActiveSession) windowActiveSession.textContent = data.session;
+          if (workspaceBody) {
+            workspaceBody.classList.remove('right-pane-collapsed');
+          }
+        }
+      } else if (messageIndex === 5) {
+        // Widget
+        if (widgetRailBtn && buddyWindow) {
+          document.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+          widgetRailBtn.classList.add('active');
+          buddyWindow.classList.remove('show-whiteboard', 'show-notes');
+          buddyWindow.classList.add('show-widget');
+          if (windowActiveNotebook) windowActiveNotebook.textContent = "Self-Reliance basics";
+          if (windowActiveSession) windowActiveSession.textContent = "HTML Widget";
+          if (workspaceBody) {
+            workspaceBody.classList.remove('right-pane-collapsed');
+          }
+        }
+      }
+    } else if (notebookKey === "deep-learning") {
+      if (messageIndex === 1) {
+        // Reader
+        loadReaderPage("deep-learning", 0);
+        if (libraryRailBtn && buddyWindow) {
+          document.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+          libraryRailBtn.classList.add('active');
+          buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-notes');
+          const data = notebookData["deep-learning"];
+          if (windowActiveNotebook) windowActiveNotebook.textContent = data.title;
+          if (windowActiveSession) windowActiveSession.textContent = data.session;
+          if (workspaceBody) {
+            workspaceBody.classList.remove('right-pane-collapsed');
+          }
+        }
+      } else if (messageIndex === 5) {
+        // Whiteboard
+        if (wbDrawings) wbDrawings.innerHTML = ""; // Clear drawings instantly so it opens blank
+        if (whiteboardRailBtn && buddyWindow) {
+          document.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+          whiteboardRailBtn.classList.add('active');
+          buddyWindow.classList.add('show-whiteboard');
+          buddyWindow.classList.remove('show-widget', 'show-notes');
+          if (windowActiveNotebook) windowActiveNotebook.textContent = "Whiteboard";
+          if (windowActiveSession) windowActiveSession.textContent = "Current board";
+          if (workspaceBody) {
+            workspaceBody.classList.remove('right-pane-collapsed');
+          }
+        }
+      }
+    } else if (notebookKey === "world-history") {
+      if (messageIndex === 3) {
+        // Reader
+        loadReaderPage("world-history", 0);
+        if (libraryRailBtn && buddyWindow) {
+          document.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+          libraryRailBtn.classList.add('active');
+          buddyWindow.classList.remove('show-whiteboard', 'show-widget', 'show-notes');
+          const data = notebookData["world-history"];
+          if (windowActiveNotebook) windowActiveNotebook.textContent = data.title;
+          if (windowActiveSession) windowActiveSession.textContent = data.session;
+          if (workspaceBody) {
+            workspaceBody.classList.remove('right-pane-collapsed');
+          }
+        }
+      } else if (messageIndex === 5) {
+        // Whiteboard
+        if (wbDrawings) wbDrawings.innerHTML = ""; // Clear drawings instantly so it opens blank
+        if (whiteboardRailBtn && buddyWindow) {
+          document.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+          whiteboardRailBtn.classList.add('active');
+          buddyWindow.classList.add('show-whiteboard');
+          buddyWindow.classList.remove('show-widget', 'show-notes');
+          if (windowActiveNotebook) windowActiveNotebook.textContent = "Whiteboard";
+          if (windowActiveSession) windowActiveSession.textContent = "Current board";
+          if (workspaceBody) {
+            workspaceBody.classList.remove('right-pane-collapsed');
+          }
+        }
+      }
+    }
+  }
+
+  async function resolveCardSkeleton(notebookKey: NotebookKey, messageIndex: number, streamId: number) {
+    // 1. Remove skeleton class
+    if (notebookKey === "self-reliance") {
+      if (messageIndex === 1) {
+        const sk = document.querySelector(".wb-chat-card.state-skeleton");
+        if (sk) sk.classList.remove("state-skeleton");
+        await animateWhiteboard("self-reliance", streamId);
+      } else if (messageIndex === 3) {
+        const sk = document.querySelector(".illustration-card.state-skeleton");
+        if (sk) sk.classList.remove("state-skeleton");
+      } else if (messageIndex === 5) {
+        const sk = document.querySelector(".widget-chat-card.state-skeleton");
+        if (sk) sk.classList.remove("state-skeleton");
+      }
+    } else if (notebookKey === "deep-learning") {
+      if (messageIndex === 1) {
+        const sk = document.querySelector(".illustration-card.state-skeleton");
+        if (sk) sk.classList.remove("state-skeleton");
+      } else if (messageIndex === 5) {
+        const sk = document.querySelector(".wb-chat-card.state-skeleton");
+        if (sk) sk.classList.remove("state-skeleton");
+        await animateWhiteboard("deep-learning", streamId);
+      }
+    } else if (notebookKey === "world-history") {
+      if (messageIndex === 3) {
+        const sk = document.querySelector(".illustration-card.state-skeleton");
+        if (sk) sk.classList.remove("state-skeleton");
+      } else if (messageIndex === 5) {
+        const sk = document.querySelector(".wb-chat-card.state-skeleton");
+        if (sk) sk.classList.remove("state-skeleton");
+        await animateWhiteboard("world-history", streamId);
+      }
+    }
+  }
+
+  function loadReaderPage(notebookKey: NotebookKey, pageIndex: number) {
+    const data = notebookData[notebookKey];
+    if (!data || !data.pages || !data.pages[pageIndex]) return;
+
+    const page = data.pages[pageIndex];
+    if (readerQuoteText) readerQuoteText.textContent = page.quote;
+    if (readerBodyText) readerBodyText.textContent = page.body;
+    if (readerSigText) readerSigText.textContent = page.signature;
+    if (readerLocationText) readerLocationText.textContent = page.location;
+  }
+
+  function appendMessage(sender: string, text: string) {
+    if (!chatFeed) return;
+    const bubble = document.createElement("div");
+    bubble.className = `mock-chat-bubble ${sender}`;
+
+    const inner = document.createElement("div");
+    inner.className = "bubble-content";
+    inner.innerHTML = text;
+
+    bubble.appendChild(inner);
+
+    chatFeed.appendChild(bubble);
+    chatFeed.scrollTop = chatFeed.scrollHeight;
+  }
+
+  document.querySelectorAll(".notebook-header").forEach(header => {
+    header.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const parent = header.closest(".notebook-item");
+      if (parent) parent.classList.toggle("expanded");
+    });
+  });
+
+  document.querySelectorAll(".session-item").forEach(item => {
+    item.addEventListener("click", (e) => {
+      e.stopPropagation();
+      document.querySelectorAll(".session-item").forEach(el => el.classList.remove("active"));
+      item.classList.add("active");
+
+      const parent = item.closest(".notebook-item");
+      if (parent) {
+        const key = parent.getAttribute("data-notebook") as NotebookKey;
+        loadNotebook(key);
+      }
+    });
+  });
+
+  if (fontToggleBtn && readerContentPane) {
+    fontToggleBtn.addEventListener("click", () => {
+      readerContentPane.classList.toggle("serif-font");
+      fontToggleBtn.classList.toggle("active");
+    });
+  }
+
+  if (readerPrevBtn) {
+    readerPrevBtn.addEventListener("click", () => {
+      const totalPages = notebookData[activeNotebook].pages.length;
+      let idx = currentPageIndices[activeNotebook];
+      idx = (idx - 1 + totalPages) % totalPages;
+      currentPageIndices[activeNotebook] = idx;
+      loadReaderPage(activeNotebook, idx);
+    });
+  }
+
+  if (readerNextBtn) {
+    readerNextBtn.addEventListener("click", () => {
+      const totalPages = notebookData[activeNotebook].pages.length;
+      let idx = currentPageIndices[activeNotebook];
+      idx = (idx + 1) % totalPages;
+      currentPageIndices[activeNotebook] = idx;
+      loadReaderPage(activeNotebook, idx);
+    });
+  }
+
+  if (chatForm && chatInput) {
+    chatInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        chatForm.dispatchEvent(new Event("submit"));
+      }
+    });
+
+    chatForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+
+      if (isGenerating) {
+        // Cancel the current stream!
+        currentStreamId++;
+        setGenerating(false);
+        
+        // Remove typing indicator if it exists
+        const typingIndicator = document.querySelector(".mock-chat-bubble.buddy.typing");
+        if (typingIndicator) {
+          typingIndicator.remove();
+        }
+        return;
+      }
+
+      const text = chatInput.value.trim();
+      if (!text) return;
+
+      // Cancel current auto-stream
+      currentStreamId++;
+      const streamId = currentStreamId;
+
+      appendMessage("user", text);
+      chatInput.value = "";
+      chatInput.style.height = "auto";
+
+      setGenerating(true);
+
+      setTimeout(() => {
+        if (!chatFeed || streamId !== currentStreamId) {
+          setGenerating(false);
+          return;
+        }
+        const typingIndicator = document.createElement("div");
+        typingIndicator.className = "mock-chat-bubble buddy typing";
+        typingIndicator.innerHTML = `
+          <div class="typing-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        `;
+        chatFeed.appendChild(typingIndicator);
+        chatFeed.scrollTop = chatFeed.scrollHeight;
+
+        setTimeout(async () => {
+          if (streamId !== currentStreamId) {
+            setGenerating(false);
+            return;
+          }
+          typingIndicator.remove();
+          
+          let reply = "I've searched your active documents but found no matching citations for that query. Would you like me to broaden the search to your whole home directory?";
+          if (text.toLowerCase().includes("quote") || text.toLowerCase().includes("emerson") || text.toLowerCase().includes("marcus")) {
+            reply = "Both authors highlight that individual action must align with internal truth. Let's create an active recall flashcard for this comparison.";
+          } else if (text.toLowerCase().includes("widget") || text.toLowerCase().includes("timeline") || text.toLowerCase().includes("map")) {
+            reply = "Sure. I've updated the interactive sidebar view in your reader interface.";
+          } else {
+            reply = `Interesting. Let's analyze this aspect of <strong>${activeNotebook}</strong> together. I've indexed the corresponding sections.`;
+          }
+
+          const bubble = document.createElement("div");
+          bubble.className = `mock-chat-bubble buddy`;
+          const inner = document.createElement("div");
+          inner.className = "bubble-content";
+          bubble.appendChild(inner);
+          chatFeed.appendChild(bubble);
+          chatFeed.scrollTop = chatFeed.scrollHeight;
+
+          await typeMessage(inner, reply, streamId, activeNotebook, -1);
+          if (streamId === currentStreamId) {
+            setGenerating(false);
+          }
+        }, 1200);
+
+      }, 300);
+    });
+
+    chatInput.addEventListener("input", () => {
+      chatInput.style.height = "auto";
+      chatInput.style.height = (chatInput.scrollHeight) + "px";
+    });
+  }
+
+  const libraryRailBtn = document.querySelector('.action-btn[title="Library"]') as HTMLButtonElement | null;
+  const whiteboardRailBtn = document.querySelector('.action-btn[title="Whiteboard"]') as HTMLButtonElement | null;
+  const widgetRailBtn = document.querySelector('.action-btn[title="HTML Widget"]') as HTMLButtonElement | null;
+  const flashcardsRailBtn = document.querySelector('.action-btn[title="Notebook"]') as HTMLButtonElement | null;
+  const buddyWindow = document.querySelector('.buddy-window');
+  
+  if (buddyWindow) {
+    if (whiteboardRailBtn) {
+      whiteboardRailBtn.addEventListener('click', () => {
+        document.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+        whiteboardRailBtn.classList.add('active');
+        buddyWindow.classList.add('show-whiteboard');
+        buddyWindow.classList.remove('show-widget');
+        buddyWindow.classList.remove('show-notes');
+        
+        if (windowActiveNotebook) windowActiveNotebook.textContent = "Whiteboard";
+        if (windowActiveSession) windowActiveSession.textContent = "Current board";
+
+        if (workspaceBody) {
+          workspaceBody.classList.remove('right-pane-collapsed');
+        }
+      });
+    }
+    
+    if (libraryRailBtn) {
+      libraryRailBtn.addEventListener('click', () => {
+        document.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+        libraryRailBtn.classList.add('active');
+        buddyWindow.classList.remove('show-whiteboard');
+        buddyWindow.classList.remove('show-widget');
+        buddyWindow.classList.remove('show-notes');
+        
+        const data = notebookData[activeNotebook];
+        if (data) {
+          if (windowActiveNotebook) windowActiveNotebook.textContent = data.title;
+          if (windowActiveSession) windowActiveSession.textContent = data.session;
+        }
+
+        if (workspaceBody) {
+          workspaceBody.classList.remove('right-pane-collapsed');
+        }
+      });
+    }
+
+    if (widgetRailBtn) {
+      widgetRailBtn.addEventListener('click', () => {
+        document.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+        widgetRailBtn.classList.add('active');
+        buddyWindow.classList.remove('show-whiteboard');
+        buddyWindow.classList.add('show-widget');
+        buddyWindow.classList.remove('show-notes');
+        
+        if (windowActiveNotebook) windowActiveNotebook.textContent = "Self-Reliance basics";
+        if (windowActiveSession) windowActiveSession.textContent = "HTML Widget";
+
+        if (workspaceBody) {
+          workspaceBody.classList.remove('right-pane-collapsed');
+        }
+      });
+    }
+
+    if (flashcardsRailBtn) {
+      flashcardsRailBtn.addEventListener('click', () => {
+        document.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+        flashcardsRailBtn.classList.add('active');
+        buddyWindow.classList.remove('show-whiteboard');
+        buddyWindow.classList.remove('show-widget');
+        buddyWindow.classList.add('show-notes');
+        
+        if (windowActiveNotebook) windowActiveNotebook.textContent = "Notebook";
+        if (windowActiveSession) windowActiveSession.textContent = "Personal Notes";
+
+        if (workspaceBody) {
+          workspaceBody.classList.remove('right-pane-collapsed');
+        }
+      });
+    }
+
+    const wbLibraryBtn = document.querySelector('.wb-library-btn');
+    if (wbLibraryBtn && libraryRailBtn) {
+      wbLibraryBtn.addEventListener('click', () => {
+        libraryRailBtn.dispatchEvent(new Event('click'));
+      });
+    }
+  }
+
+  // Notebook/Notes Logic (auto-save removed)
+
+  // Minimal HTML Widget Logic
+  const wSlider = document.getElementById('widget-pressure') as HTMLInputElement;
+  const wValInward = document.getElementById('val-inward');
+  const wValCrowd = document.getElementById('val-crowd');
+  const wQuote = document.getElementById('widget-quote');
+  const wExplain = document.getElementById('widget-explain');
+  const wVisualZone = document.getElementById('visual-zone');
+
+  function updateMinimalWidget() {
+    if (!wSlider || !wValInward || !wValCrowd || !wQuote || !wExplain) return;
+    
+    const crowdVal = Number(wSlider.value);
+    
+    if (wVisualZone) {
+      wVisualZone.style.setProperty('--pressure', String(crowdVal / 100));
+    }
+
+    const inwardVal = 100 - crowdVal;
+
+    wValInward.textContent = inwardVal + '%';
+    wValCrowd.textContent = crowdVal + '%';
+
+    let quoteText = '';
+    let explainText = '';
+
+    if (crowdVal <= 35) {
+      quoteText = 'Nothing is at last sacred but the integrity of your own mind.';
+      explainText = 'Trust your own honest conscience and independent judgment above all else.';
+    } else if (crowdVal <= 70) {
+      quoteText = 'To be great is to be misunderstood.';
+      explainText = 'Maintaining your integrity while in society requires constant, balanced resolve.';
+    } else {
+      quoteText = 'Imitation is suicide.';
+      explainText = 'Copying the crowd keeps you from discovering what only you can accomplish.';
+    }
+
+    wQuote.textContent = quoteText;
+    wExplain.textContent = explainText;
+
+    // Update active preset button style based on value
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      const val = Number(btn.getAttribute('data-val'));
+      if (val === crowdVal) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+
+  if (wSlider) {
+    wSlider.addEventListener('input', updateMinimalWidget);
+
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = btn.getAttribute('data-val');
+        if (val !== null) {
+          wSlider.value = val;
+          updateMinimalWidget();
+        }
+      });
+    });
+
+    updateMinimalWidget();
+  }
+
+  document.querySelectorAll(".wb-tool-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".wb-tool-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+    });
+  });
+
+  const zoomOutBtn = document.getElementById("wb-zoom-out");
+  const zoomInBtn = document.getElementById("wb-zoom-in");
+  const zoomValue = document.getElementById("wb-zoom-value");
+  let currentZoom = 130;
+
+  if (zoomOutBtn && zoomInBtn && zoomValue) {
+    zoomOutBtn.addEventListener("click", () => {
+      if (currentZoom > 50) {
+        currentZoom -= 10;
+        zoomValue.textContent = `${currentZoom}%`;
+      }
+    });
+    zoomInBtn.addEventListener("click", () => {
+      if (currentZoom < 200) {
+        currentZoom += 10;
+        zoomValue.textContent = `${currentZoom}%`;
+      }
+    });
+  }
+
+  // Sidebar toggle animation logic
+  const sidebarToggleBtn = document.querySelector('.circle-btn[title="Toggle Sidebar"]');
+  const floatingToggleBtn = document.getElementById("floating-toggle-btn");
+  const workspaceBody = document.querySelector('.workspace-body');
+
+  if (sidebarToggleBtn && workspaceBody) {
+    sidebarToggleBtn.addEventListener('click', () => {
+      workspaceBody.classList.add('sidebar-closed');
+    });
+  }
+
+  if (floatingToggleBtn && workspaceBody) {
+    floatingToggleBtn.addEventListener('click', () => {
+      workspaceBody.classList.remove('sidebar-closed');
+    });
+  }
+
+  if (chatFeed) {
+    chatFeed.addEventListener("click", (e) => {
+      const targetEl = e.target as HTMLElement | null;
+      if (!targetEl) return;
+      const target = targetEl.closest(".doc-tag, .wb-tag, .system-status, .widget-chat-card, .illustration-card, .wb-chat-card") as HTMLElement | null;
+      if (!target) return;
+
+      if (target.classList.contains("doc-tag") || target.classList.contains("illustration-card")) {
+        if (libraryRailBtn) libraryRailBtn.click();
+      } else if (target.classList.contains("wb-tag") || target.classList.contains("wb-chat-card")) {
+        if (whiteboardRailBtn) whiteboardRailBtn.click();
+      } else if (target.classList.contains("widget-chat-card")) {
+        if (widgetRailBtn) widgetRailBtn.click();
+      } else if (target.classList.contains("system-status")) {
+        const text = target.textContent || "";
+        if (text.toLowerCase().includes("widget")) {
+          if (widgetRailBtn) widgetRailBtn.click();
+        } else if (
+          text.toLowerCase().includes("derivatives") ||
+          text.toLowerCase().includes("equations") ||
+          text.toLowerCase().includes("timeline") ||
+          text.toLowerCase().includes("whiteboard")
+        ) {
+          if (whiteboardRailBtn) whiteboardRailBtn.click();
+        }
+      }
+    });
+  }
+
+  // Whiteboard panning logic
+  const wbCanvas = document.querySelector(".whiteboard-canvas") as HTMLElement | null;
+  if (wbCanvas) {
+    let isPanning = false;
+    let startX = 0;
+    let startY = 0;
+    let panX = 0;
+    let panY = 0;
+
+    wbCanvas.addEventListener("mousedown", (e) => {
+      if ((e.target as HTMLElement).closest("button, input, select, textarea")) return;
+      isPanning = true;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!isPanning) return;
+      panX = e.clientX - startX;
+      panY = e.clientY - startY;
+      wbCanvas.style.setProperty("--pan-x", `${panX}px`);
+      wbCanvas.style.setProperty("--pan-y", `${panY}px`);
+    });
+
+    window.addEventListener("mouseup", () => {
+      isPanning = false;
+    });
+  }
+
+  setTimeout(() => {
+    loadNotebook("self-reliance");
+  }, 2000);
+</script>
+
+<style is:global>
+  @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap');
+
+  /* === Window Shell (Exact high fidelity replica) === */
+  .buddy-window {
+    width: 100%;
+    background-color: #0b0a0b;
+    border: 1px solid rgba(255, 107, 0, 0.12);
+    border-radius: 12px;
+    box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.95),
+                0 0 30px -4px rgba(255, 107, 0, 0.04);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+  }
+
+  .window-header {
+    height: 42px;
+    background-color: #0d0c0c;
+    border-bottom: 1px solid #1c1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    user-select: none;
+  }
+
+  .window-dots {
+    display: flex;
+    gap: 6px;
+  }
+
+  .win-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    opacity: 0.8;
+  }
+
+  .win-dot.red { background-color: #ff5f56; }
+  .win-dot.yellow { background-color: #ffbd2e; }
+  .win-dot.green { background-color: #27c93f; }
+
+  .window-title-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-body);
+    font-size: 11.5px;
+    font-weight: 550;
+  }
+
+  .window-active-notebook {
+    color: #ffffff;
+  }
+
+  .window-active-session {
+    color: var(--color-text-muted);
+  }
+
+  .window-active-session::before {
+    content: "—";
+    margin-right: 8px;
+    color: #333231;
+  }
+
+  .window-controls-right {
+    color: var(--color-text-muted);
+  }
+
+  /* === Workspace Layout === */
+  .workspace-body {
+    display: grid;
+    grid-template-columns: 210px 1.25fr 1.15fr 48px;
+    grid-template-rows: 100%;
+    height: 700px;
+    overflow: hidden;
+    background-color: #0b0a0b;
+    transition: grid-template-columns 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-sizing: border-box !important;
+  }
+
+  .workspace-body, .workspace-body * {
+    box-sizing: border-box !important;
+  }
+
+  .workspace-body.sidebar-closed {
+    grid-template-columns: 0px 1.25fr 1.15fr 48px;
+  }
+
+  .workspace-body.right-pane-collapsed {
+    grid-template-columns: 210px 1.25fr 0px 48px;
+  }
+
+  .workspace-body.sidebar-closed.right-pane-collapsed {
+    grid-template-columns: 0px 1.25fr 0px 48px;
+  }
+
+  /* Make sure right pane borders and contents collapse nicely */
+  .workspace-body.right-pane-collapsed .surface-reader,
+  .workspace-body.right-pane-collapsed .surface-whiteboard,
+  .workspace-body.right-pane-collapsed .surface-widget,
+  .workspace-body.right-pane-collapsed .surface-notes {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    overflow: hidden !important;
+    border-right-width: 0px !important;
+  }
+
+  @media (min-width: 993px) {
+    .surface-sidebar {
+      grid-column: 1 !important;
+      grid-row: 1 !important;
+    }
+    .surface-chat {
+      grid-column: 2 !important;
+      grid-row: 1 !important;
+      height: 100% !important;
+      align-self: stretch !important;
+    }
+    .surface-reader, .surface-whiteboard, .surface-widget, .surface-notes {
+      grid-column: 3 !important;
+      grid-row: 1 !important;
+      height: 100% !important;
+      align-self: stretch !important;
+      min-width: 0 !important;
+      display: flex !important;
+      
+      /* Animation transitions */
+      opacity: 0;
+      visibility: hidden;
+      transform: translateX(-30px);
+      transition: opacity 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+                  transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1),
+                  visibility 0.35s;
+      pointer-events: none;
+    }
+
+    /* Desktop active tab switching states */
+    .buddy-window:not(.show-whiteboard):not(.show-widget):not(.show-notes) .surface-reader,
+    .buddy-window.show-whiteboard .surface-whiteboard,
+    .buddy-window.show-widget .surface-widget,
+    .buddy-window.show-notes .surface-notes {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .surface-actions {
+      grid-column: 4 !important;
+      grid-row: 1 !important;
+      height: 100% !important;
+      align-self: stretch !important;
+    }
+  }
+
+  @media (max-width: 992px) {
+    .workspace-body {
+      grid-template-columns: 1fr;
+      height: auto;
+    }
+    
+    /* Mobile-only tab switching rules */
+    .show-whiteboard .surface-reader,
+    .show-whiteboard .surface-notes,
+    .show-whiteboard .surface-widget {
+      display: none !important;
+    }
+    .show-whiteboard .surface-whiteboard {
+      display: flex !important;
+    }
+
+    .show-widget .surface-reader,
+    .show-widget .surface-whiteboard,
+    .show-widget .surface-notes {
+      display: none !important;
+    }
+    .show-widget .surface-widget {
+      display: flex !important;
+    }
+
+    .show-notes .surface-reader,
+    .show-notes .surface-whiteboard,
+    .show-notes .surface-widget {
+      display: none !important;
+    }
+    .show-notes .surface-notes {
+      display: flex !important;
+    }
+  }
+
+  /* --- Pane 1: Sidebar (Charcoal black) --- */
+  .surface-sidebar {
+    background-color: #0d0b0c;
+    border-right: 1px solid #1c1a1a;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  @media (max-width: 992px) {
+    .surface-sidebar {
+      display: none;
+    }
+  }
+
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 42px;
+    padding-inline: 14px;
+    border-bottom: 1px solid #1c1a1a;
+  }
+
+  .sidebar-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .capsule-btn {
+    display: flex;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 9999px;
+    padding: 1.5px;
+    gap: 1.5px;
+  }
+
+  .action-sub-btn {
+    background: transparent;
+    border: none;
+    color: #8c8985;
+    cursor: pointer;
+    width: 22px;
+    height: 22px;
+    border-radius: 9999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    padding: 0;
+  }
+
+  .action-sub-btn:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .circle-btn {
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #8c8985;
+    cursor: pointer;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    padding: 0;
+  }
+
+  .circle-btn:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .sidebar-brand-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    color: #ffffff;
+    font-size: 13px;
+    padding: 12px 14px;
+  }
+
+  .brand-icon {
+    color: var(--color-accent-primary);
+  }
+
+  .sidebar-scrollable {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 16px 8px;
+  }
+
+  .sidebar-section .section-title {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    padding: 4px 8px;
+    margin-bottom: 8px;
+  }
+
+  .notebooks-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .notebook-item {
+    cursor: pointer;
+  }
+
+  .notebook-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--color-text-secondary);
+    padding: 6px 8px;
+    border-radius: 6px;
+    transition: all 0.2s var(--ease-out);
+  }
+
+  .notebook-header .icon {
+    color: var(--color-text-muted);
+  }
+
+  .notebook-item:hover .notebook-header {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+
+  .notebook-item.active .notebook-header {
+    background-color: rgba(255, 107, 0, 0.08);
+    color: var(--color-accent-primary);
+    font-weight: 600;
+  }
+
+  .notebook-item.active .notebook-header .icon {
+    color: var(--color-accent-primary);
+  }
+
+  .sessions-list-wrapper {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 250ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease;
+    opacity: 0;
+    overflow: hidden;
+    margin-left: 16px;
+    border-left: 1px solid rgba(255, 107, 0, 0.1);
+  }
+
+  .notebook-item.expanded .sessions-list-wrapper {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+
+  .sessions-list {
+    list-style: none;
+    padding-left: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 0;
+    margin-top: 4px;
+  }
+
+  .session-item {
+    font-size: 11.5px;
+    color: var(--color-text-muted);
+    padding: 5px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: all 0.15s ease;
+  }
+
+  .session-item:hover {
+    color: var(--color-text-secondary);
+  }
+
+  .session-item.active {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.04);
+    font-weight: 550;
+  }
+
+  .sidebar-footer {
+    padding: 12px 8px;
+    border-top: 1px solid #1c1a1a;
+  }
+
+  .settings-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    font-family: var(--font-body);
+    font-size: 11.5px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 4px;
+    text-align: left;
+    transition: color 0.2s ease;
+  }
+
+  .settings-btn:hover {
+    color: #ffffff;
+  }
+
+  /* --- Pane 2: Chat Pane (Dark purple-black, flat styling) --- */
+  .surface-chat {
+    background-color: #110f11;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid #1c1a1a;
+    padding: 0 !important;
+    margin: 0 !important;
+    height: 100%;
+    position: relative; /* relative parent for absolute button */
+  }
+
+  .floating-sidebar-toggle {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 40;
+    display: none;
+  }
+
+  .workspace-body.sidebar-closed .floating-sidebar-toggle {
+    display: block;
+  }
+
+  .workspace-body.sidebar-closed .chat-feed {
+    padding-top: 40px;
+  }
+
+  .chat-header {
+    height: 40px;
+    border-bottom: 1px solid rgba(255, 107, 0, 0.06);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .chat-header .active-notebook-title {
+    color: #ffffff;
+  }
+
+  .chat-header .header-divider {
+    color: rgba(255, 107, 0, 0.3);
+    margin: 0 6px;
+  }
+
+  .chat-header .active-session-title {
+    color: var(--color-text-tertiary);
+  }
+
+  .chat-feed {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+  }
+
+  .mock-chat-bubble {
+    max-width: 580px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-self: center;
+  }
+
+  .mock-chat-bubble.buddy {
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .mock-chat-bubble.user {
+    align-items: flex-end;
+  }
+
+  .mock-chat-bubble .bubble-content {
+    font-family: var(--font-body);
+    font-size: 11.5px;
+    line-height: 1.65;
+    word-break: break-word;
+    letter-spacing: -0.01em;
+    width: 100%;
+    max-width: 75%;
+  }
+
+  /* User Message: rounded capsule with warm styling */
+  .mock-chat-bubble.user .bubble-content {
+    width: fit-content;
+    background-color: #16151c;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: #c4c3be;
+    padding: 8px 14px;
+    border-radius: 12px;
+    border-bottom-right-radius: 2px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Buddy message: borderless raw premium text on canvas */
+  .mock-chat-bubble.buddy .bubble-content {
+    color: #92908b; /* Softer, less bright gray */
+    padding: 0;
+    background: none;
+    border: none;
+    font-weight: 450;
+  }
+
+  .mock-chat-bubble.buddy .bubble-content strong {
+    font-weight: 600;
+    color: #b5b3ae; /* Soft white/gray for strong tags */
+  }
+
+  .mock-chat-bubble.buddy .bubble-content em {
+    color: #f59e0b; /* Warm gold/amber for em tags */
+    font-style: italic;
+  }
+
+  /* Buddy source metadata tag */
+  .buddy-source-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #8c8985;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-top: 10px;
+    font-weight: 550;
+    user-select: none;
+  }
+
+  .src-icon {
+    opacity: 0.7;
+    filter: grayscale(1);
+  }
+
+  /* Highlight documents / badges */
+  .doc-tag, .wb-tag, .system-status {
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+                box-shadow 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+                background-color 0.2s ease,
+                border-color 0.2s ease;
+  }
+
+  .doc-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: #c4c3be;
+    margin-block: 8px;
+    font-weight: 550;
+  }
+
+  .doc-tag:hover {
+    transform: translateY(-1px);
+    background-color: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  }
+
+  .wb-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: #c4c3be;
+    margin-block: 8px;
+    font-weight: 550;
+  }
+
+  .wb-tag:hover {
+    transform: translateY(-1px);
+    background-color: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  }
+
+  .system-status:hover {
+    transform: translateY(-1px);
+    background-color: #0d0b0d;
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    color: #ffffff;
+  }
+
+  /* Illustration book cover in mockup */
+  .illustration-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background-color: rgba(22, 21, 28, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    width: 100%;
+    max-width: 320px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    cursor: pointer;
+    transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+    text-align: left;
+    align-self: flex-start;
+    animation: card-appear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .illustration-card:hover {
+    transform: translateY(-1.5px);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .ill-cover {
+    width: 44px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Cover fallbacks with gradient colors for dl and wh */
+  .ill-cover-fallback {
+    width: 44px;
+    height: 60px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  }
+
+  .ill-cover-fallback.dl {
+    background: linear-gradient(135deg, #1d2b44 0%, #0e1525 100%);
+    border-color: rgba(59, 130, 246, 0.3);
+  }
+
+  .ill-cover-fallback.wh {
+    background: linear-gradient(135deg, #44321d 0%, #251b0e 100%);
+    border-color: rgba(245, 158, 11, 0.3);
+  }
+
+  .fallback-cover-text {
+    font-size: 8px;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1.1;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-family: var(--font-body);
+  }
+
+  .ill-text {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+  }
+
+  .ill-title {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #ffffff;
+    font-family: var(--font-body);
+  }
+
+  .ill-author {
+    font-size: 9px;
+    color: var(--color-text-secondary);
+    font-family: var(--font-body);
+    margin-top: 1px;
+  }
+
+  .ill-meta {
+    font-size: 9px;
+    color: var(--color-text-muted);
+    font-family: var(--font-body);
+    margin-top: 2px;
+  }
+
+  /* Inline Whiteboard Card */
+  .wb-chat-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(11, 10, 12, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    width: 100%;
+    max-width: 320px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    cursor: pointer;
+    transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+    text-align: left;
+    align-self: flex-start;
+    animation: card-appear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .wb-chat-card:hover {
+    transform: translateY(-1.5px);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  .wb-chat-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #a8a29e;
+    flex-shrink: 0;
+  }
+
+  .wb-chat-title-group {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+  }
+
+  .wb-chat-title {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #ffffff;
+    font-family: var(--font-body);
+  }
+
+  .wb-chat-subtitle {
+    font-size: 9px;
+    color: var(--color-text-muted);
+    font-family: var(--font-body);
+    margin-top: 2px;
+  }
+
+  .wb-card-preview-sketch {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.01);
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+    font-family: 'Architects Daughter', cursive, sans-serif;
+  }
+
+  .preview-sketch-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: #3b82f6;
+  }
+
+  .preview-sketch-arrow {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.2);
+    margin-block: 2px;
+  }
+
+  .preview-sketch-node {
+    font-size: 10px;
+    border: 1px dashed rgba(59, 130, 246, 0.3);
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: #a8a29e;
+  }
+
+  /* Shell / status log line */
+  .system-status {
+    background-color: #060506;
+    border: 1px solid #1c1a1b;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #a8a29e;
+    margin-top: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 450;
+  }
+
+  .chat-footer {
+    padding: 16px;
+    background-color: #110f11;
+  }
+
+  .chat-input-form {
+    max-width: 580px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .chat-input-area {
+    display: flex;
+    flex-direction: column;
+    background-color: #0d0c0d;
+    border: 1px solid #201e20;
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+
+  .chat-input {
+    background: none;
+    border: none;
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: #ffffff;
+    outline: none;
+    resize: none;
+    min-height: 20px;
+    max-height: 100px;
+    line-height: 1.5;
+  }
+
+  .chat-input::placeholder {
+    color: #4c4a4c;
+  }
+
+  .chat-input-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.02);
+    padding-top: 6px;
+  }
+
+  .model-select-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: color 0.15s ease;
+  }
+
+  .model-select-trigger:hover {
+    color: var(--color-text-secondary);
+  }
+
+  .send-btn {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+  }
+
+  .send-btn:hover {
+    color: var(--color-accent-primary);
+  }
+
+  /* --- Pane 3: Document Reader (Warm paper layout, zero borders inside) --- */
+  .surface-reader {
+    background-color: #f6f4eb;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    border-right: 1px solid #e1ded3;
+    padding: 0 !important;
+    margin: 0 !important;
+    height: 100% !important;
+    align-self: stretch !important;
+  }
+
+  .reader-header {
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  }
+
+  .reader-title-bar {
+    display: flex;
+    align-items: center;
+  }
+
+  .reader-doc-title {
+    font-family: var(--font-body);
+    font-size: 12px;
+    color: #4a483f;
+    font-weight: 600;
+  }
+
+  .reader-controls {
+    display: flex;
+    gap: 6px;
+  }
+
+  .reader-controls .control-btn {
+    background: none;
+    border: none;
+    color: #8c897f;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .reader-controls .control-btn:hover {
+    color: #2b2a26;
+  }
+
+  .reader-controls .control-btn.active {
+    color: #ff6b00;
+  }
+
+  .reader-controls .control-btn .icon-text {
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .reader-content {
+    flex-grow: 1;
+    padding: 48px 32px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  .reader-page {
+    width: 100%;
+    max-width: 32ch;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    text-align: center;
+  }
+
+  .reader-content .dots-separator {
+    color: #b0ad9d;
+    letter-spacing: 0.8em;
+    font-size: 13px;
+    font-weight: 800;
+    margin-block: 8px;
+  }
+
+  /* Big highlighted typography quote */
+  .reader-quote {
+    font-family: Georgia, Cambria, "Times New Roman", Times, serif;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: #cb3c28;
+    text-wrap: balance;
+    margin-top: 12px;
+    text-align: center;
+  }
+
+  .reader-body {
+    font-family: Georgia, Cambria, "Times New Roman", Times, serif;
+    font-style: italic;
+    font-size: 11.5px;
+    line-height: 1.7;
+    color: #4a483f;
+    text-align: justify;
+    text-justify: inter-word;
+  }
+
+  .reader-signature {
+    font-family: Georgia, Cambria, "Times New Roman", Times, serif;
+    font-size: 10px;
+    color: #8c897f;
+    text-align: right;
+    margin-top: -8px;
+    padding-right: 4px;
+  }
+
+  /* serif toggle styling override */
+  .serif-font .reader-body {
+    font-family: var(--font-body);
+    font-style: normal;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: #4a483f;
+  }
+
+  /* Floating navigation arrows */
+  .nav-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.95);
+    border: 1px solid #dcd8ca;
+    color: #8c897f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 10;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  }
+
+  .nav-arrow:hover {
+    color: #ff6b00;
+    border-color: #ff6b00;
+    background-color: #ffffff;
+    transform: translateY(-50%) scale(1.05);
+  }
+
+  .nav-arrow.left { left: 10px; }
+  .nav-arrow.right { right: 10px; }
+
+  .reader-footer {
+    height: 32px;
+    background-color: #edeae0;
+    border-top: 1px solid #dcd8ca;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+
+  .reader-footer .location-text {
+    color: #8c897f;
+  }
+
+  /* --- Surface 5: Whiteboard Pane --- */
+  .surface-whiteboard {
+    background-color: #0b0a0c;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden !important;
+    height: 100% !important;
+    width: 100%;
+    user-select: none;
+    border-right: 1px solid #1c1a1a;
+  }
+
+  /* Share board button (only visible on whiteboard view) */
+  .wb-share-btn {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    background-color: rgba(255, 107, 0, 0.05);
+    border: 1px solid rgba(255, 107, 0, 0.15);
+    border-radius: 6px;
+    color: #e3e3e8;
+    padding: 4px 10px;
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 555;
+    cursor: pointer;
+    margin-right: 12px;
+    transition: all 0.2s ease;
+  }
+
+  .wb-share-btn:hover {
+    background-color: rgba(255, 107, 0, 0.1);
+    border-color: rgba(255, 107, 0, 0.3);
+    color: #ffffff;
+  }
+
+  .show-whiteboard .wb-share-btn {
+    display: inline-flex;
+  }
+
+  .whiteboard-canvas {
+    position: relative;
+    width: 100%;
+    height: 100% !important;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background-color: #0b0a0c;
+    background-image: 
+      radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+    background-size: 20px 20px;
+    background-position: calc(50% + var(--pan-x, 0px)) calc(50% + var(--pan-y, 0px));
+    cursor: grab;
+    overflow: hidden !important;
+    user-select: none;
+  }
+
+  .whiteboard-canvas:active {
+    cursor: grabbing;
+  }
+
+  /* Top Toolbar floating - centered tools capsule layout */
+  .wb-top-toolbar {
+    position: absolute;
+    top: 12px;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    z-index: 20;
+  }
+
+  .wb-tools-capsule {
+    background-color: #1a1a1e;
+    border: 1px solid #2d2d34;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    gap: 1px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    flex-shrink: 0;
+  }
+
+  .wb-tool-btn {
+    background: none;
+    border: none;
+    color: #a1a1aa;
+    height: 20px;
+    width: 20px;
+    border-radius: 3px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.15s ease;
+  }
+
+  .wb-tool-btn svg {
+    width: 11px !important;
+    height: 11px !important;
+  }
+
+  .wb-tool-btn:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .wb-tool-btn.active {
+    color: #a78bfa; /* Violet accent from screen */
+    background-color: rgba(167, 139, 250, 0.15);
+    border: 1px solid rgba(167, 139, 250, 0.25);
+  }
+
+  .wb-hotkey {
+    display: none; /* Hide hotkeys in narrow view */
+  }
+
+  .wb-divider {
+    width: 1px;
+    height: 10px;
+    background-color: #2d2d34;
+    margin-inline: 1px;
+  }
+
+  .wb-hint {
+    display: none; /* Hide helper text on narrower sidepanels to save vertical space */
+  }
+
+  /* Drawings inside whiteboard */
+  .wb-drawings {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transform: translate(var(--pan-x, 0px), var(--pan-y, 0px));
+    will-change: transform;
+    pointer-events: none; /* Let canvas capture drag events directly */
+  }
+
+  .wb-handwriting-hi {
+    font-family: 'Architects Daughter', cursive, sans-serif;
+    font-size: 38px; /* reduced for sidepanel */
+    font-weight: 700;
+    color: #3b82f6; /* Beautiful handwriting blue */
+    margin-bottom: 6px;
+    transform: rotate(-3deg);
+    letter-spacing: -0.02em;
+  }
+
+  .wb-welcome-text {
+    font-family: 'Architects Daughter', cursive, sans-serif;
+    font-size: 16px; /* reduced for sidepanel */
+    color: #a8a29e;
+    transform: rotate(-1.5deg);
+    letter-spacing: -0.01em;
+  }
+
+  /* Whiteboard Drawings & Custom Mindmaps */
+  .wb-sketch-node {
+    font-family: 'Architects Daughter', cursive, sans-serif;
+    font-size: 13px;
+    color: #3b82f6; /* Blue matching whiteboard drawings */
+    border: 1.5px dashed rgba(59, 130, 246, 0.4);
+    padding: 6px 12px;
+    border-radius: 8px;
+    margin-top: 15px;
+    transform: rotate(1deg);
+  }
+  .wb-equation-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 15px;
+  }
+  .wb-eq-line {
+    font-family: 'Architects Daughter', cursive, sans-serif;
+    font-size: 15px;
+    color: #e3e3e8;
+    letter-spacing: 0.05em;
+  }
+  .wb-timeline-sketch {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    margin-top: 12px;
+    padding-left: 20px;
+  }
+  .wb-timeline-item {
+    font-family: 'Architects Daughter', cursive, sans-serif;
+    font-size: 12.5px;
+    color: #a8a29e;
+    display: flex;
+    gap: 12px;
+  }
+  .wb-time-date {
+    color: #f59e0b;
+    font-weight: bold;
+    min-width: 60px;
+  }
+  .wb-timeline-arrow {
+    font-family: 'Architects Daughter', cursive, sans-serif;
+    font-size: 14px;
+    color: #44403c;
+    padding-left: 24px;
+  }
+
+  /* Bottom Left Zoom/History Controls */
+  .wb-bottom-left-controls {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 20;
+  }
+
+  .wb-zoom-capsule, .wb-history-capsule {
+    background-color: #1a1a1e;
+    border: 1px solid #2d2d34;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  .wb-zoom-btn, .wb-history-btn {
+    background: none;
+    border: none;
+    color: #a1a1aa;
+    height: 28px;
+    width: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }
+
+  .wb-zoom-btn {
+    font-size: 14px;
+    font-weight: bold;
+  }
+
+  .wb-zoom-val {
+    font-size: 11px;
+    color: #e3e3e8;
+    padding: 0 6px;
+    min-width: 44px;
+    text-align: center;
+    font-weight: 600;
+    font-family: var(--font-body);
+  }
+
+  .wb-zoom-btn:hover, .wb-history-btn:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  /* Help button */
+  .wb-help-btn {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    background-color: #1a1a1e;
+    border: 1px solid #2d2d34;
+    border-radius: 8px;
+    color: #a1a1aa;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    transition: all 0.15s ease;
+    z-index: 20;
+  }
+
+  .wb-help-btn:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  /* --- Surface 6: HTML Widget Pane --- */
+  .surface-widget {
+    background-color: #0c0c0e;
+    border-right: 1px solid #1a1a1c;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 16px;
+    height: 100% !important;
+    align-self: stretch !important;
+    color: #f4f7fb;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+
+  /* --- HTML Widget Glowing Orb Visual --- */
+  .widget-visual-zone {
+    height: 100px;
+    background: radial-gradient(circle at center, #111115 0%, #050507 100%);
+    border: 1px solid #222226;
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+
+  .mind-orb {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 8px;
+    letter-spacing: 0.05em;
+    color: #000000;
+    background: hsl(calc(140 * (1 - var(--pressure))), 85%, 65%);
+    box-shadow: 0 0 calc(10px + (1 - var(--pressure)) * 18px) hsl(calc(140 * (1 - var(--pressure))), 85%, 65%);
+    transform: translate(-50%, -50%) scale(calc(1.35 - var(--pressure) * 0.65));
+    transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), background 0.25s ease, box-shadow 0.25s ease;
+    animation: orb-pulse 2.5s infinite ease-in-out;
+    z-index: 10;
+  }
+
+  .mind-orb-text {
+    opacity: calc(1.2 - var(--pressure));
+    transition: opacity 0.25s ease;
+  }
+
+  .crowd-particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .particle {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ff6f8b;
+    border: 1.5px solid #000000;
+    box-shadow: 0 0 5px rgba(255, 111, 139, 0.4);
+    opacity: calc(0.25 + var(--pressure) * 0.65);
+    transform: translate(
+      calc(var(--dx) * (1.25 - var(--pressure) * 0.95)),
+      calc(var(--dy) * (1.25 - var(--pressure) * 0.95))
+    ) scale(calc(0.6 + var(--pressure) * 0.6));
+    transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.25s ease;
+  }
+
+  .pressure-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 90px;
+    height: 90px;
+    border: 1px dashed rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(calc(1 - var(--pressure) * 0.45));
+    opacity: calc(0.1 + var(--pressure) * 0.3);
+    transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.25s ease;
+    pointer-events: none;
+  }
+
+  /* --- Surface 7: Notebook Pane (Matches warm paper reader theme) --- */
+  .surface-notes {
+    background-color: #f6f4eb;
+    border-right: 1px solid #e1ded3;
+    flex-direction: column;
+    padding: 0;
+    height: 100% !important;
+    align-self: stretch !important;
+    color: #4a483f;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+
+  /* Notes Layout styles */
+  .notes-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .notes-header {
+    height: 42px;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    border-bottom: 1px solid #e1ded3;
+  }
+
+  .notes-title {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: #4a483f;
+    letter-spacing: 0.05em;
+    font-family: var(--font-display);
+    text-transform: uppercase;
+  }
+
+  .notes-input {
+    flex-grow: 1;
+    background: transparent;
+    border: none;
+    padding: 24px;
+    color: #4a483f;
+    font-family: Georgia, Cambria, "Times New Roman", Times, serif;
+    font-style: italic;
+    font-size: 11.5px;
+    line-height: 1.7;
+    resize: none;
+    outline: none;
+  }
+
+  /* --- Calibrator Widget Unified Layout --- */
+  .widget-calibrator {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 18px;
+  }
+
+  .calibrator-header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .calibrator-tag {
+    font-size: 8px;
+    font-weight: 800;
+    color: #ff6b00;
+    letter-spacing: 0.15em;
+    font-family: var(--font-display);
+  }
+
+  .calibrator-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+  }
+
+  .calibrator-hero {
+    height: 120px;
+    background: radial-gradient(circle at center, #0f0f13 0%, #030305 100%);
+    border: 1px solid #1a1a1f;
+    border-radius: 14px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 4px 20px rgba(0, 0, 0, 0.6);
+  }
+
+  .mind-orb {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    color: #000000;
+    background: hsl(calc(140 * (1 - var(--pressure))), 85%, 65%);
+    box-shadow: 0 0 calc(10px + (1 - var(--pressure)) * 18px) hsl(calc(140 * (1 - var(--pressure))), 85%, 65%);
+    transform: translate(-50%, -50%) scale(calc(1.35 - var(--pressure) * 0.65));
+    transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), background 0.25s ease, box-shadow 0.25s ease;
+    animation: orb-pulse 2.5s infinite ease-in-out;
+    z-index: 10;
+  }
+
+  .mind-orb-text {
+    opacity: calc(1.2 - var(--pressure));
+    transition: opacity 0.25s ease;
+  }
+
+  .crowd-particles {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .particle {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ff6f8b;
+    border: 1.5px solid #000000;
+    box-shadow: 0 0 5px rgba(255, 111, 139, 0.4);
+    opacity: calc(0.2 + var(--pressure) * 0.7);
+    transform: translate(
+      calc(var(--dx) * (1.25 - var(--pressure) * 0.95)),
+      calc(var(--dy) * (1.25 - var(--pressure) * 0.95))
+    ) scale(calc(0.6 + var(--pressure) * 0.6));
+    transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.25s ease;
+  }
+
+  .pressure-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 100px;
+    height: 100px;
+    border: 1px dashed rgba(255, 255, 255, 0.04);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(calc(1 - var(--pressure) * 0.45));
+    opacity: calc(0.1 + var(--pressure) * 0.3);
+    transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.25s ease;
+    pointer-events: none;
+  }
+
+  .calibrator-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .control-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+  }
+
+  .lbl-inward {
+    color: #55d68f;
+  }
+
+  .lbl-inward span {
+    color: #ffffff;
+  }
+
+  .lbl-crowd {
+    color: #ff6f8b;
+  }
+
+  .lbl-crowd span {
+    color: #ffffff;
+  }
+
+  .slider-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 16px;
+  }
+
+  .calibrator-slider {
+    width: 100%;
+    height: 4px;
+    background: transparent;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
+    z-index: 5;
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .slider-gradient-track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 4px;
+    border-radius: 2px;
+    background: linear-gradient(to right, #55d68f, #f4b942, #ff6f8b);
+    pointer-events: none;
+    opacity: 0.8;
+  }
+
+  .calibrator-slider::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: 2px solid #08080a;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+    transition: transform 0.1s ease;
+  }
+
+  .calibrator-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.25);
+  }
+
+  .calibrator-output {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-top: 1px solid #141416;
+    border-bottom: 1px solid #141416;
+    padding: 14px 0;
+    min-height: 90px;
+  }
+
+  .quote-container {
+    position: relative;
+    width: 100%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .quote-glyph-open {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: Georgia, serif;
+    font-size: 28px;
+    color: rgba(255, 255, 255, 0.02);
+    font-weight: bold;
+    pointer-events: none;
+  }
+
+  .widget-quote {
+    font-size: 12px;
+    line-height: 1.45;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+    text-wrap: balance;
+    font-family: Georgia, Cambria, serif;
+    font-style: italic;
+  }
+
+  .widget-explain {
+    color: #8a929e;
+    font-size: 10px;
+    line-height: 1.45;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .calibrator-presets {
+    display: flex;
+    justify-content: space-between;
+    background: #111114;
+    border: 1px solid #1c1c22;
+    border-radius: 8px;
+    padding: 3px;
+  }
+
+  .mode-btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: #647086;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    padding: 6px 0;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.2s ease;
+  }
+
+  .mode-btn:hover {
+    color: #ffffff;
+  }
+
+  .mode-btn.active {
+    background: #1c1c22;
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  }
+
+  @keyframes orb-pulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(calc(1.35 - var(--pressure) * 0.65)); }
+    50% { transform: translate(-50%, -50%) scale(calc(1.42 - var(--pressure) * 0.65)); box-shadow: 0 0 calc(12px + (1 - var(--pressure)) * 22px) hsl(calc(140 * (1 - var(--pressure))), 85%, 65%); }
+  }
+
+  /* --- Pane 4: Action Toolbar (Very dark strip) --- */
+  .surface-actions {
+    background-color: #0b0a0b;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0;
+  }
+
+  @media (max-width: 992px) {
+    .surface-actions {
+      display: none;
+    }
+  }
+
+  .action-icons {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .action-btn {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s var(--ease-out);
+  }
+
+  .action-btn:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.03);
+  }
+
+  .action-btn.active {
+    color: var(--color-accent-primary);
+    background-color: rgba(255, 107, 0, 0.06);
+    border: 1px solid rgba(255, 107, 0, 0.15);
+  }
+
+  /* Pulse slow animation for first chat item */
+  @keyframes pulse-slow {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+
+  .pulse-slow {
+    animation: pulse-slow 3.2s ease-in-out infinite;
+  }
+
+  /* Toggle send/stop button during generation */
+  .send-btn.generating .icon-send {
+    display: none !important;
+  }
+
+  .send-btn.generating .icon-stop {
+    display: inline-block !important;
+    color: #ef4444;
+  }
+
+  /* Simulated button click effect */
+  .send-btn.simulated-click {
+    transform: scale(0.85);
+    color: var(--color-accent-primary) !important;
+    background-color: rgba(255, 107, 0, 0.12) !important;
+  }
+
+  /* Premium HTML Widget Chat Card */
+  .widget-chat-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(22, 21, 28, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    width: 100%;
+    max-width: 320px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    cursor: pointer;
+    transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+    text-align: left;
+    align-self: flex-start;
+    animation: card-appear 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @keyframes card-appear {
+    0% { opacity: 0; transform: translateY(12px) scale(0.95); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .widget-chat-card:hover {
+    transform: translateY(-1.5px);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .widget-chat-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #a8a29e;
+    flex-shrink: 0;
+  }
+
+  .widget-chat-title-group {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+  }
+
+  .widget-chat-title {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #ffffff;
+    font-family: var(--font-body);
+  }
+
+  .widget-chat-subtitle {
+    font-size: 9px;
+    color: var(--color-text-muted);
+    font-family: var(--font-body);
+    margin-top: 2px;
+  }
+
+  .widget-card-body {
+    padding: 4px 0;
+  }
+
+  .widget-card-preview-gauge {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-family: var(--font-body);
+  }
+
+  .widget-card-preview-gauge .preview-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+    font-weight: 550;
+  }
+
+  .widget-card-preview-gauge .preview-lbl.integrity {
+    color: #55d68f;
+  }
+
+  .widget-card-preview-gauge .preview-lbl.conformity {
+    color: #ff6f8b;
+  }
+
+  .widget-card-preview-gauge .preview-track-bar {
+    width: 100%;
+    height: 5px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 9999px;
+    overflow: hidden;
+  }
+
+  .widget-card-preview-gauge .preview-fill-bar {
+    height: 100%;
+    background: linear-gradient(to right, #55d68f, #f4b942, #ff6f8b);
+    border-radius: 9999px;
+  }
+
+  .widget-card-footer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    padding-top: 8px;
+    margin-top: 8px;
+    font-size: 9px;
+    color: var(--color-text-muted);
+    font-family: var(--font-body);
+  }
+
+  .status-dot-pulsing {
+    width: 6px;
+    height: 6px;
+    background-color: #10b981;
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 8px #10b981;
+    animation: status-pulse-slow 2s infinite ease-in-out;
+  }
+
+  @keyframes status-pulse-slow {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  .widget-card-action-text {
+    margin-left: auto;
+    font-weight: 550;
+    color: var(--color-accent-primary);
+  }
+
+  /* Sketched / whiteboardy layouts */
+  .wb-layout-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+    font-family: 'Architects Daughter', cursive, sans-serif;
+  }
+  
+  .wb-split-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    width: 100%;
+    margin-top: 15px;
+  }
+  
+  .wb-card {
+    border: 2px dashed rgba(255, 255, 255, 0.15);
+    background-color: rgba(255, 255, 255, 0.01);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: left;
+    opacity: 0;
+    transform: scale(0.9) rotate(var(--rot, 0deg));
+    transition: opacity 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  
+  .wb-card.visible {
+    opacity: 1;
+    transform: scale(1) rotate(var(--rot, 0deg));
+  }
+  
+  .wb-card.integrity {
+    --rot: -1.5deg;
+    border-color: rgba(74, 222, 128, 0.3);
+    background-color: rgba(74, 222, 128, 0.02);
+  }
+  
+  .wb-card.integrity .wb-card-title {
+    color: #4ade80;
+  }
+  
+  .wb-card.conformity {
+    --rot: 1.5deg;
+    border-color: rgba(248, 113, 113, 0.3);
+    background-color: rgba(248, 113, 113, 0.02);
+  }
+  
+  .wb-card.conformity .wb-card-title {
+    color: #f87171;
+  }
+  
+  .wb-card-title {
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 6px;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.08);
+    padding-bottom: 4px;
+  }
+  
+  .wb-card-body {
+    font-size: 11px;
+    line-height: 1.5;
+    color: #a8a29e;
+  }
+
+  .wb-doodle-arrow {
+    margin-block: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .wb-doodle-arrow.visible {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* Deep learning graph styles */
+  .wb-neural-graph {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 15px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.01);
+    border: 1px dashed rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    opacity: 0;
+    transform: scale(0.9);
+    transition: all 0.5s ease;
+  }
+
+  .wb-neural-graph.visible {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .wb-neural-node {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1.5px solid #3b82f6;
+    color: #3b82f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    background-color: #0b0a0c;
+    opacity: 0;
+    transform: scale(0.5);
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .wb-neural-node.visible {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .wb-neural-edge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    width: 40px;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .wb-neural-edge.visible {
+    opacity: 1;
+  }
+
+  .wb-edge-weight {
+    font-size: 8px;
+    color: #78716c;
+    margin-top: -2px;
+  }
+
+  /* Timeline flow style */
+  .wb-timeline-flow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    margin-top: 15px;
+    gap: 8px;
+  }
+
+  .wb-timeline-step-card {
+    border: 2px dashed rgba(245, 158, 11, 0.25);
+    background-color: rgba(245, 158, 11, 0.02);
+    border-radius: 8px;
+    padding: 8px 12px;
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    opacity: 0;
+    transform: translateX(-15px);
+    transition: all 0.4s ease;
+  }
+
+  .wb-timeline-step-card.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .wb-timeline-step-card .step-header {
+    font-size: 12px;
+    font-weight: bold;
+    color: #f59e0b;
+    margin-bottom: 2px;
+  }
+
+  .wb-timeline-step-card .step-body {
+    font-size: 11px;
+    color: #a8a29e;
+  }
+
+  .wb-flow-arrow {
+    font-size: 14px;
+    color: rgba(245, 158, 11, 0.3);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .wb-flow-arrow.visible {
+    opacity: 1;
+  }
+
+  /* Decrease chat bubble and input width by 20% when sidebar is closed */
+  .workspace-body.sidebar-closed .mock-chat-bubble,
+  .workspace-body.sidebar-closed .chat-input-form {
+    max-width: 460px;
+  }
+
+  /* Skeleton State styling for premium cards */
+  .state-skeleton {
+    pointer-events: none !important;
+    position: relative;
+    border-color: rgba(255, 255, 255, 0.06) !important;
+    background-color: rgba(255, 255, 255, 0.02) !important;
+    box-shadow: none !important;
+    animation: card-skeleton-pulse 1.5s infinite ease-in-out !important;
+  }
+
+  .state-skeleton * {
+    opacity: 0.25 !important;
+    filter: grayscale(1) blur(0.5px) !important;
+  }
+
+  @keyframes card-skeleton-pulse {
+    0%, 100% {
+      opacity: 0.6;
+      border-color: rgba(255, 255, 255, 0.04);
+    }
+    50% {
+      opacity: 0.95;
+      border-color: rgba(255, 255, 255, 0.15);
+      background-color: rgba(255, 255, 255, 0.04);
+    }
+  }
+
+  /* Children transition during skeleton resolution */
+  .illustration-card *,
+  .wb-chat-card *,
+  .widget-chat-card * {
+    transition: opacity 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+</style>

@@ -1,0 +1,52 @@
+---
+// Reader sub-pane for BuddyWorkspaceMock
+---
+<!-- Surface 3: Document Reader (Warm Cream paper) -->
+<section class="surface-reader">
+  <div class="reader-header">
+    <div class="reader-title-bar">
+      <span class="reader-doc-title" id="reader-tab-title">Self Reliance</span>
+    </div>
+    <div class="reader-controls">
+      <button class="control-btn" id="font-toggle-btn" title="Toggle font styling">
+        <span class="icon-text">Aa</span>
+      </button>
+      <button class="control-btn" title="Bookmark page">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+        </svg>
+      </button>
+      <button class="control-btn" title="Options">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="1.5"></circle>
+          <circle cx="12" cy="5" r="1.5"></circle>
+          <circle cx="12" cy="19" r="1.5"></circle>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="reader-content" id="reader-content-pane">
+    <div class="reader-page">
+      <div class="dots-separator">...</div>
+      <h2 class="reader-quote" id="reader-quote-text">Whoso would be a man must be a nonconformist.</h2>
+      <p class="reader-body" id="reader-body-text">
+        Is non-conformity required for everyone? Probably not. But to be courageous—to be "a man" as Emerson is in a time of different language—you must first be willing to think for yourself. And as Martin Luther King, Jr. (another inspiring non-conformist) said years later, "Nothing pains some people more than having to think." If you can think for yourself, and put those thoughts into meaningful action that improves the state of the world, you're well on the way to a courageous, remarkable life.
+      </p>
+      <div class="reader-signature" id="reader-sig-text">Chris Guillebeau</div>
+      <div class="dots-separator">...</div>
+    </div>
+
+    <!-- Navigation arrows overlay -->
+    <button class="nav-arrow left" id="reader-prev-btn" aria-label="Previous page">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+    <button class="nav-arrow right" id="reader-next-btn" aria-label="Next page">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </button>
+  </div>
+
+  <div class="reader-footer">
+    <span class="location-text" id="reader-location-text">BEGIN READING · LOCATION 19 / 95</span>
+  </div>
+</section>

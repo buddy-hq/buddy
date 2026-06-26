@@ -1,0 +1,278 @@
+---
+import Landing from "../../layouts/Landing.astro"
+import Layout01 from "../../components/layouts/philosophy/Layout01.astro"
+import Layout02 from "../../components/layouts/philosophy/Layout02.astro"
+import Layout03 from "../../components/layouts/philosophy/Layout03.astro"
+import Layout04 from "../../components/layouts/philosophy/Layout04.astro"
+import Layout05 from "../../components/layouts/philosophy/Layout05.astro"
+import Layout06 from "../../components/layouts/philosophy/Layout06.astro"
+import Layout07 from "../../components/layouts/philosophy/Layout07.astro"
+import Layout08 from "../../components/layouts/philosophy/Layout08.astro"
+import Layout09 from "../../components/layouts/philosophy/Layout09.astro"
+import Layout10 from "../../components/layouts/philosophy/Layout10.astro"
+import Layout11 from "../../components/layouts/philosophy/Layout11.astro"
+import Layout12 from "../../components/layouts/philosophy/Layout12.astro"
+import Layout13 from "../../components/layouts/philosophy/Layout13.astro"
+import Layout14 from "../../components/layouts/philosophy/Layout14.astro"
+import Layout15 from "../../components/layouts/philosophy/Layout15.astro"
+---
+
+<Landing title="Philosophy — Layout Switcher">
+  <main class="switcher-page">
+    
+    <!-- Top playground nav switcher -->
+    <div class="playground-nav">
+      <div class="container nav-inner">
+        <div class="nav-left">
+          <span class="nav-badge">PROTOTYPE</span>
+          <span class="nav-title">Section: Philosophy</span>
+        </div>
+        
+        <div class="layout-selector-bar" role="tablist" aria-label="Select layout style">
+          <button class="layout-btn active" role="tab" aria-selected="true" data-layout="01">01: Raycast Editorial</button>
+          <button class="layout-btn" role="tab" aria-selected="false" data-layout="02">02: Preferences Panel</button>
+          <button class="layout-btn" role="tab" aria-selected="false" data-layout="03">03: Chronicle Scroll</button>
+          <button class="layout-btn" role="tab" aria-selected="false" data-layout="04">04: Split Graphics</button>
+          <button class="layout-btn" role="tab" aria-selected="false" data-layout="05">05: Tactile Stack</button>
+          <button class="layout-btn" role="tab" aria-selected="false" data-layout="06">06: Horizon Split</button>
+          <button class="layout-btn" role="tab" aria-selected="false" data-layout="07">07: Ribbon Row</button>
+          <button class="layout-btn" role="tab" aria-selected="false" data-layout="08">08: Sidebar Split</button>
+          <button class="layout-btn" role="tab" aria-selected="false" data-layout="09">09: Horizon Stages</button>
+          <button class="layout-btn" role="tab" aria-selected="false" data-layout="10">10: Spec Sheet</button>
+          <button class="layout-btn" role="tab" aria-selected="false" data-layout="11">11: Sandbox</button>
+          <button class="layout-btn" role="tab" aria-selected="false" data-layout="12">12: Blueprint</button>
+          <button class="layout-btn" role="tab" aria-selected="false" data-layout="13">13: Binder</button>
+          <button class="layout-btn" role="tab" aria-selected="false" data-layout="14">14: Explorer</button>
+          <button class="layout-btn" role="tab" aria-selected="false" data-layout="15">15: Cursor Matrix</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Layout Viewports -->
+    <div class="playground-stage">
+      
+      <div class="layout-viewport" data-layout-id="01">
+        <Layout01 />
+      </div>
+
+      <div class="layout-viewport hidden" data-layout-id="02">
+        <Layout02 />
+      </div>
+
+      <div class="layout-viewport hidden" data-layout-id="03">
+        <Layout03 />
+      </div>
+
+      <div class="layout-viewport hidden" data-layout-id="04">
+        <Layout04 />
+      </div>
+
+      <div class="layout-viewport hidden" data-layout-id="05">
+        <Layout05 />
+      </div>
+
+      <div class="layout-viewport hidden" data-layout-id="06">
+        <Layout06 />
+      </div>
+
+      <div class="layout-viewport hidden" data-layout-id="07">
+        <Layout07 />
+      </div>
+
+      <div class="layout-viewport hidden" data-layout-id="08">
+        <Layout08 />
+      </div>
+
+      <div class="layout-viewport hidden" data-layout-id="09">
+        <Layout09 />
+      </div>
+
+      <div class="layout-viewport hidden" data-layout-id="10">
+        <Layout10 />
+      </div>
+
+      <div class="layout-viewport hidden" data-layout-id="11">
+        <Layout11 />
+      </div>
+
+      <div class="layout-viewport hidden" data-layout-id="12">
+        <Layout12 />
+      </div>
+
+      <div class="layout-viewport hidden" data-layout-id="13">
+        <Layout13 />
+      </div>
+
+      <div class="layout-viewport hidden" data-layout-id="14">
+        <Layout14 />
+      </div>
+
+      <div class="layout-viewport hidden" data-layout-id="15">
+        <Layout15 />
+      </div>
+
+    </div>
+
+  </main>
+</Landing>
+
+<style is:global>
+  /* Global prototype page resets/styles */
+  .switcher-page {
+    min-height: 100vh;
+    background-color: #0a0807;
+    padding-top: 0;
+    color: var(--color-text-primary);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .playground-nav {
+    position: relative;
+    width: 100%;
+    background-color: rgba(10, 8, 7, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    z-index: 1000;
+  }
+
+  .nav-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 72px;
+    height: auto;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--space-4) var(--space-6);
+    gap: var(--space-4);
+  }
+
+  .nav-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-shrink: 0;
+  }
+
+  .nav-badge {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--color-accent-primary);
+    border: 1px solid rgba(255, 107, 0, 0.2);
+    background-color: rgba(255, 107, 0, 0.04);
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+  }
+
+  .nav-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  /* Segmented controller layout switcher */
+  .layout-selector-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 4px;
+    max-width: 100%;
+  }
+
+  .layout-btn {
+    background: none;
+    border: none;
+    border-radius: 99px;
+    padding: 6px 14px;
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s var(--ease-out);
+  }
+
+  .layout-btn.active {
+    background-color: rgba(255, 255, 255, 0.07);
+    color: var(--color-text-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  }
+
+  .layout-btn:hover:not(.active) {
+    color: var(--color-text-secondary);
+    background-color: rgba(255, 255, 255, 0.01);
+  }
+
+  /* Viewport/Stage */
+  .playground-stage {
+    position: relative;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .layout-viewport {
+    display: block;
+    width: 100%;
+    min-height: calc(100vh - 72px);
+    transition: opacity 0.3s var(--ease-out);
+  }
+
+  .layout-viewport.hidden {
+    display: none !important;
+  }
+
+  @media (max-width: 900px) {
+    .nav-inner {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-4);
+    }
+    .layout-selector-bar {
+      width: 100%;
+    }
+  }
+</style>
+
+<script>
+  const setupLayoutSwitcher = () => {
+    const buttons = document.querySelectorAll(".layout-btn")
+    const viewports = document.querySelectorAll(".layout-viewport")
+
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const layoutId = btn.getAttribute("data-layout")
+        if (btn.classList.contains("active")) return
+
+        // Toggle buttons
+        buttons.forEach((b) => {
+          b.classList.remove("active")
+          b.setAttribute("aria-selected", "false")
+        })
+        btn.classList.add("active")
+        btn.setAttribute("aria-selected", "true")
+
+        // Toggle viewports
+        viewports.forEach((vp) => {
+          const vpId = vp.getAttribute("data-layout-id")
+          if (vpId === layoutId) {
+            vp.classList.remove("hidden")
+          } else {
+            vp.classList.add("hidden")
+          }
+        })
+      })
+    })
+  }
+
+  // Load handler
+  setupLayoutSwitcher()
+</script>

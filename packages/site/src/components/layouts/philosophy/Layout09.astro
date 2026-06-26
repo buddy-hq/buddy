@@ -1,0 +1,195 @@
+---
+import { content } from "../../../content/site"
+const { philosophy } = content
+---
+
+<div class="philosophy-layout-09">
+  <div class="container">
+    <div class="pipeline-flow-layout">
+      
+      <div class="header-zone text-center">
+        <h2 class="title">{philosophy.headline}</h2>
+      </div>
+
+      <div class="flow-track">
+        {philosophy.items.map((item, idx) => (
+          <div class="flow-node">
+            <div class="node-graphic-row">
+              <div class="node-circle-ring">
+                <span class="core-dot"></span>
+              </div>
+              {idx < philosophy.items.length - 1 && (
+                <div class="line-connector-wrap">
+                  <svg viewBox="0 0 100 10" fill="none" class="dash-flow-svg">
+                    <path d="M0 5 H100" stroke="rgba(255, 107, 0, 0.2)" stroke-width="1.5" />
+                    <path d="M0 5 H100" stroke="var(--color-accent-primary)" stroke-width="1.5" stroke-dasharray="8,20" class="marching-dash" />
+                  </svg>
+                </div>
+              )}
+            </div>
+            
+            <div class="node-body">
+              <span class="node-step-index">0{idx + 1}</span>
+              <h3 class="label">{item.label}</h3>
+              <p class="detail">{item.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .philosophy-layout-09 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+    background: radial-gradient(circle at 50% 50%, rgba(255, 107, 0, 0.015) 0%, transparent 60%);
+  }
+
+  .philosophy-layout-09 .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .philosophy-layout-09 .text-center {
+    text-align: center;
+  }
+
+  .philosophy-layout-09 .pipeline-flow-layout {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: var(--space-12);
+  }
+
+  .philosophy-layout-09 .header-zone {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .philosophy-layout-09 .title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+  }
+
+  .philosophy-layout-09 .flow-track {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-4);
+    align-items: stretch;
+  }
+
+  .philosophy-layout-09 .flow-node {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .philosophy-layout-09 .node-graphic-row {
+    display: flex;
+    align-items: center;
+    position: relative;
+    height: 24px;
+  }
+
+  .philosophy-layout-09 .node-circle-ring {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 107, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #0b0908;
+    z-index: 5;
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .philosophy-layout-09 .flow-node:hover .node-circle-ring {
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 10px rgba(255, 107, 0, 0.3);
+  }
+
+  .philosophy-layout-09 .core-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--color-accent-primary);
+    box-shadow: 0 0 6px var(--color-accent-primary);
+  }
+
+  .philosophy-layout-09 .line-connector-wrap {
+    flex: 1;
+    height: 10px;
+    display: flex;
+    align-items: center;
+    margin-left: -2px;
+  }
+
+  .philosophy-layout-09 .dash-flow-svg {
+    width: 100%;
+    height: 10px;
+  }
+
+  /* Animated marching flow connection */
+  .philosophy-layout-09 .marching-dash {
+    animation: march 4s linear infinite;
+  }
+
+  @keyframes march {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: -28; }
+  }
+
+  .philosophy-layout-09 .node-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .philosophy-layout-09 .node-step-index {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: bold;
+    color: var(--color-text-muted);
+  }
+
+  .philosophy-layout-09 .label {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .philosophy-layout-09 .detail {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  @media (max-width: 768px) {
+    .philosophy-layout-09 .flow-track {
+      flex-direction: column;
+      gap: var(--space-6);
+    }
+    .philosophy-layout-09 .line-connector-wrap {
+      display: none;
+    }
+  }
+</style>

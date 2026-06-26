@@ -1,0 +1,174 @@
+---
+import { content } from "../../../content/site"
+const { philosophy } = content
+---
+
+<div class="philosophy-layout-06">
+  <div class="container">
+    <div class="grid-wrapper">
+      
+      <!-- Left side: Typography Headline -->
+      <div class="left-hero">
+        <h2 class="section-title">{philosophy.headline}</h2>
+      </div>
+
+      <!-- Right side: Geometric Visual Node Strip -->
+      <div class="right-nodes">
+        {philosophy.items.map((item, idx) => (
+          <div class="geo-node-card">
+            <!-- Graphical Node Element (No invented text labels) -->
+            <div class="node-art">
+              <svg viewBox="0 0 100 100" class="geo-svg" style="width: 60px; height: 60px;">
+                <circle cx="50" cy="50" r="45" stroke="rgba(255, 107, 0, 0.15)" stroke-width="1.5" fill="none" />
+                <circle cx="50" cy="50" r="30" stroke="var(--color-accent-primary)" stroke-width="1" stroke-dasharray="2,2" fill="none" />
+                <circle cx="50" cy="50" r="8" fill="var(--color-accent-primary)" />
+              </svg>
+              <div class="node-number">0{idx + 1}</div>
+            </div>
+
+            <!-- Content -->
+            <div class="node-content">
+              <h3 class="label">{item.label}</h3>
+              <p class="detail">{item.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .philosophy-layout-06 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+    background-radial-gradient: circle at 80% 20%, rgba(255, 107, 0, 0.03) 0%, transparent 50%;
+  }
+
+  .philosophy-layout-06 .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .philosophy-layout-06 .grid-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-10);
+  }
+
+  .philosophy-layout-06 .left-hero {
+    width: 35%;
+  }
+
+  .philosophy-layout-06 .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+  }
+
+  .philosophy-layout-06 .right-nodes {
+    width: 65%;
+    display: flex;
+    gap: var(--space-4);
+  }
+
+  .philosophy-layout-06 .geo-node-card {
+    flex: 1;
+    background-color: #0b0908;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 16px;
+    padding: var(--space-6) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s var(--ease-out);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .philosophy-layout-06 .geo-node-card:hover {
+    border-color: rgba(255, 107, 0, 0.2);
+    background-color: rgba(255, 107, 0, 0.01);
+    transform: translateY(-4px);
+  }
+
+  /* Geometric Node SVG graphics */
+  .philosophy-layout-06 .node-art {
+    position: relative;
+    width: 60px;
+    height: 60px;
+  }
+
+  .philosophy-layout-06 .geo-svg {
+    animation: rotateSlow 20s linear infinite;
+  }
+
+  .philosophy-layout-06 .geo-node-card:hover .geo-svg {
+    animation-duration: 8s;
+  }
+
+  .philosophy-layout-06 .node-number {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: bold;
+    color: var(--color-text-primary);
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  .philosophy-layout-06 .node-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .philosophy-layout-06 .label {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .philosophy-layout-06 .detail {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  @keyframes rotateSlow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  @media (max-width: 900px) {
+    .philosophy-layout-06 .grid-wrapper {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .philosophy-layout-06 .left-hero, .philosophy-layout-06 .right-nodes {
+      width: 100%;
+    }
+    .philosophy-layout-06 .right-nodes {
+      flex-direction: column;
+    }
+  }
+</style>

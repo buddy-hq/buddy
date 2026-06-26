@@ -1,0 +1,161 @@
+---
+import Landing from "../../layouts/Landing.astro"
+import BuddyWorkspaceMock from "../../components/BuddyWorkspaceMock.astro"
+---
+
+<Landing title="Workspace Mock Motion Prototype — Buddy">
+  <div class="mock-page-container">
+    
+    <!-- Top Nav Header -->
+    <header class="mock-nav">
+      <div class="nav-content">
+        <a href="/" class="back-home-link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          <span>Back to Home</span>
+        </a>
+        <div class="nav-title">Buddy Interactive Workspace Mockup (Motion Prototype)</div>
+        <div class="nav-links">
+          <a href="/layouts" class="layouts-link">All Layouts</a>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace Stage -->
+    <main class="mock-stage">
+      <div class="mock-bg-glow"></div>
+      <div class="mockup-frame">
+        <BuddyWorkspaceMock />
+      </div>
+      <div class="mockup-reflection"></div>
+      <div class="mockup-floor-indicator"></div>
+    </main>
+
+  </div>
+</Landing>
+
+<style is:global>
+  .mock-page-container {
+    min-height: 100vh;
+    background-color: #060505;
+    color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* Nav Header Styling */
+  .mock-nav {
+    height: 56px;
+    border-bottom: 1px solid rgba(255, 107, 0, 0.1);
+    background-color: rgba(10, 8, 7, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .nav-content {
+    max-width: 1200px;
+    height: 100%;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .back-home-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 550;
+    transition: color 0.2s ease;
+  }
+
+  .back-home-link:hover {
+    color: var(--color-accent-primary);
+  }
+
+  .nav-title {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+  }
+
+  .layouts-link, .layouts-link:visited, .layouts-link:active,
+  .layouts-link:hover, .layouts-link:focus {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    font-weight: 550;
+  }
+
+  .layouts-link:hover {
+    color: var(--color-accent-primary);
+  }
+
+  /* Mock Stage */
+  .mock-stage {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: var(--space-12) var(--space-6);
+  }
+
+  .mock-bg-glow {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(255, 107, 0, 0.05) 0%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .mockup-frame {
+    width: 100%;
+    max-width: 1100px;
+    position: relative;
+    z-index: 1;
+    border-radius: 12px;
+    box-shadow: 0 30px 100px rgba(0, 0, 0, 0.8), 
+                0 0 2px 1px rgba(255, 255, 255, 0.05),
+                0 0 40px rgba(255, 107, 0, 0.02);
+  }
+
+  .mockup-reflection {
+    position: absolute;
+    bottom: -60px;
+    width: 100%;
+    max-width: 1100px;
+    height: 120px;
+    background: linear-gradient(to bottom, rgba(255, 107, 0, 0.02) 0%, transparent 100%);
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 0;
+    transform: perspective(800px) rotateX(60deg);
+  }
+
+  .mockup-floor-indicator {
+    position: absolute;
+    bottom: 0;
+    width: 80%;
+    height: 1px;
+    background: linear-gradient(to right, transparent, rgba(255, 107, 0, 0.1), transparent);
+    pointer-events: none;
+  }
+</style>

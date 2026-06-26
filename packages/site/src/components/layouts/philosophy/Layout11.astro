@@ -1,0 +1,713 @@
+---
+import { content } from "../../../content/site"
+const { philosophy } = content
+---
+
+<div class="philosophy-layout-11" id="p11-container">
+  <div class="container">
+    <div class="scroll-split-wrapper">
+      
+      <!-- Left: Vertically spaced scroll content triggers -->
+      <div class="scroll-content-side">
+        <h2 class="section-headline">{philosophy.headline}</h2>
+        <div class="scroll-items-list">
+          {philosophy.items.map((item, idx) => (
+            <div class="scroll-item-trigger-box" data-index={idx} id={`p11-trigger-box-${idx}`}>
+              <span class="index">0{idx + 1}</span>
+              <h3 class="label">{item.label}</h3>
+              <p class="detail">{item.detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- Right: Sticky Pinned Visual Console -->
+      <div class="sticky-visual-side">
+        <div class="sticky-viewport-panel" id="p11-sticky-panel">
+          
+          <!-- State 0: Yours to Keep (Local Device Storage & Padlock Enclosure) -->
+          <div class="layer-visual active" id="p11-layer-visual-0">
+            <div class="console-box-inner">
+              <div class="visual-header">
+                <span class="mono-tag">LOCAL VAULT SECURED</span>
+                <span class="status-indicator live" id="p11-vault-status-led"></span>
+              </div>
+              <div class="svg-container">
+                <svg class="schematic-svg" viewBox="0 0 100 100">
+                  <rect class="machine-box" x="15" y="15" width="70" height="70" rx="8" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1.5" />
+                  
+                  <!-- Local database representation -->
+                  <rect x="30" y="55" width="40" height="20" rx="3" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+                  <line x1="30" y1="62" x2="70" y2="62" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+                  <line x1="30" y1="69" x2="70" y2="69" stroke="rgba(255,255,255,0.1)" stroke-width="1" />
+                  
+                  <!-- Encrypted connection line -->
+                  <path id="p11-secure-link" d="M 50,55 V 36" stroke="rgba(255,255,255,0.1)" stroke-width="1.5" stroke-dasharray="2,2" />
+                  
+                  <!-- Lock Icon (interactive) -->
+                  <g class="padlock-g" id="p11-padlock" style="cursor: pointer; pointer-events: auto;">
+                    <rect x="42" y="32" width="16" height="12" rx="2" fill="#090909" stroke="var(--color-accent-primary)" stroke-width="1.5" />
+                    <path class="shackle" id="p11-shackle" d="M 45,32 V 26 A 5,5 0 0,1 55,26 V 32" fill="none" stroke="var(--color-accent-primary)" stroke-width="1.5" style="transition: transform 300ms ease; transform-origin: 55px 32px;" />
+                  </g>
+                </svg>
+              </div>
+              <div class="interactive-helper">
+                <button class="action-trigger-btn" id="p11-lock-toggle-btn" aria-label="Toggle Vault Lock">
+                  <span class="btn-text" id="p11-lock-text">CLICK TO UNLOCK</span>
+                  <span class="btn-glow-layer"></span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- State 1: Yours to Shape (Live Configuration Sliders) -->
+          <div class="layer-visual hidden" id="p11-layer-visual-1">
+            <div class="console-box-inner">
+              <div class="visual-header">
+                <span class="mono-tag">DEFAULTS CONFIGURATOR</span>
+                <span class="mono-tag-val" id="p11-config-avg">50%</span>
+              </div>
+              
+              <!-- Wave graphic driven by sliders -->
+              <div class="monitor-scope">
+                <svg viewBox="0 0 160 40" class="scope-grid">
+                  <path d="M0,20 H160" stroke="rgba(255,255,255,0.03)" stroke-width="1" />
+                  <path id="p11-scope-curve" d="M0,20 Q40,20 80,20 Q120,20 160,20" fill="none" stroke="var(--color-accent-primary)" stroke-width="1.5" />
+                </svg>
+              </div>
+
+              <div class="sliders-rack">
+                <!-- Fader 1 -->
+                <div class="fader-row">
+                  <div class="fader-label">
+                    <span class="fader-title">SPEED</span>
+                    <span class="fader-val" id="p11-val-a">50%</span>
+                  </div>
+                  <div class="fader-track-guide">
+                    <div class="fader-track-fill" id="p11-fader-fill-a" style="width: 50%;"></div>
+                    <div class="fader-thumb-knob" id="p11-fader-knob-a" style="left: 50%; cursor: ew-resize;">
+                      <span class="thumb-glow"></span>
+                    </div>
+                  </div>
+                </div>
+                <!-- Fader 2 -->
+                <div class="fader-row">
+                  <div class="fader-label">
+                    <span class="fader-title">DEPTH</span>
+                    <span class="fader-val" id="p11-val-b">30%</span>
+                  </div>
+                  <div class="fader-track-guide">
+                    <div class="fader-track-fill" id="p11-fader-fill-b" style="width: 30%;"></div>
+                    <div class="fader-thumb-knob" id="p11-fader-knob-b" style="left: 30%; cursor: ew-resize;">
+                      <span class="thumb-glow"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- State 2: Yours to Control (Pipeline Consent Switch) -->
+          <div class="layer-visual hidden" id="p11-layer-visual-2">
+            <div class="console-box-inner">
+              <div class="visual-header">
+                <span class="mono-tag">CONSENT GATEWAY</span>
+                <span class="mono-tag-status" id="p11-gate-status-text" style="color: rgb(248, 113, 113);">BLOCKED</span>
+              </div>
+              
+              <!-- Pipeline flow visual -->
+              <div class="pipeline-scope">
+                <svg viewBox="0 0 160 50" class="pipe-svg">
+                  <!-- Wire paths -->
+                  <path d="M 10,25 H 70" stroke="rgba(255,255,255,0.06)" stroke-width="3" stroke-linecap="round" />
+                  <path d="M 90,25 H 150" stroke="rgba(255,255,255,0.06)" stroke-width="3" stroke-linecap="round" />
+                  
+                  <!-- Switch gate bridge -->
+                  <line id="p11-gate-bridge" x1="70" y1="25" x2="85" y2="10" stroke="rgb(248, 113, 113)" stroke-width="3" stroke-linecap="round" style="transform-origin: 70px 25px; transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), stroke 300ms ease;" />
+                  
+                  <!-- Flow dots -->
+                  <circle class="pipeline-dot" id="p11-pipe-dot" cx="10" cy="25" r="2.5" fill="var(--color-accent-primary)" />
+                </svg>
+              </div>
+
+              <div class="interactive-helper flex-center">
+                <div class="toggle-switch-wrapper">
+                  <span class="switch-label">CONSENT</span>
+                  <button class="tactile-switch-btn" id="p11-consent-switch" aria-label="Toggle Consent Gate" style="cursor: pointer;">
+                    <span class="switch-handle" id="p11-switch-handle"></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .philosophy-layout-11 {
+    width: 100%;
+    background-color: #050505;
+    position: relative;
+    padding-bottom: var(--space-20);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  }
+
+  .philosophy-layout-11 .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .philosophy-layout-11 .scroll-split-wrapper {
+    display: flex;
+    gap: var(--space-10);
+    width: 100%;
+    position: relative;
+  }
+
+  /* Left Column: Triggers */
+  .philosophy-layout-11 .scroll-content-side {
+    width: 45%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .philosophy-layout-11 .section-headline {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 2.5rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.15;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+    padding-top: var(--space-12);
+  }
+
+  .philosophy-layout-11 .scroll-items-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .philosophy-layout-11 .scroll-item-trigger-box {
+    min-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-3);
+    opacity: 0.15;
+    transition: opacity 350ms cubic-bezier(0.16, 1, 0.3, 1), transform 350ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .philosophy-layout-11 .scroll-item-trigger-box.active {
+    opacity: 1;
+    transform: translateX(4px);
+  }
+
+  .philosophy-layout-11 .index {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-accent-primary);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .philosophy-layout-11 .label {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .philosophy-layout-11 .detail {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  /* Right Column: Sticky panel */
+  .philosophy-layout-11 .sticky-visual-side {
+    width: 55%;
+    position: relative;
+  }
+
+  .philosophy-layout-11 .sticky-viewport-panel {
+    position: sticky;
+    top: 150px;
+    height: 320px;
+    background-color: #090909;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  .philosophy-layout-11 .layer-visual {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+    transition: opacity 300ms ease, filter 300ms ease, transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .philosophy-layout-11 .layer-visual.hidden {
+    display: none !important;
+    opacity: 0;
+    filter: blur(8px);
+    transform: scale(0.95);
+  }
+
+  .philosophy-layout-11 .layer-visual.active {
+    opacity: 1;
+    filter: blur(0px);
+    transform: scale(1);
+  }
+
+  .philosophy-layout-11 .console-box-inner {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .philosophy-layout-11 .visual-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    padding-bottom: var(--space-2);
+  }
+
+  .philosophy-layout-11 .mono-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    letter-spacing: 0.1em;
+    font-weight: 700;
+  }
+
+  .philosophy-layout-11 .mono-tag-val,
+  .philosophy-layout-11 .mono-tag-status {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .philosophy-layout-11 .status-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: rgb(248, 113, 113);
+  }
+
+  .philosophy-layout-11 .status-indicator.live {
+    background-color: rgb(74, 222, 128);
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+  }
+
+  .philosophy-layout-11 .svg-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .philosophy-layout-11 .schematic-svg {
+    width: auto;
+    height: 130px;
+  }
+
+  .philosophy-layout-11 .padlock-g:hover rect {
+    stroke: var(--color-text-primary);
+  }
+
+  .philosophy-layout-11 .padlock-g:hover path {
+    stroke: var(--color-text-primary);
+  }
+
+  /* Interactive Button */
+  .philosophy-layout-11 .interactive-helper {
+    display: flex;
+    justify-content: center;
+    padding-top: var(--space-2);
+  }
+
+  .philosophy-layout-11 .action-trigger-btn {
+    background-color: transparent;
+    border: 1.5px dashed var(--color-accent-primary);
+    border-radius: 6px;
+    padding: var(--space-2) var(--space-4);
+    position: relative;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 200ms ease;
+  }
+
+  .philosophy-layout-11 .action-trigger-btn:hover {
+    border-style: solid;
+    background-color: rgba(255, 107, 0, 0.05);
+    box-shadow: 0 0 10px rgba(255, 107, 0, 0.15);
+  }
+
+  .philosophy-layout-11 .btn-text {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-accent-primary);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .philosophy-layout-11 .btn-text:hover {
+    color: var(--color-text-primary);
+  }
+
+  /* State 1: Configuration Sliders */
+  .philosophy-layout-11 .monitor-scope {
+    height: 60px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    margin: var(--space-3) 0;
+    display: flex;
+    align-items: center;
+  }
+
+  .philosophy-layout-11 .scope-grid {
+    width: 100%;
+    height: 100%;
+  }
+
+  .philosophy-layout-11 .sliders-rack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .philosophy-layout-11 .fader-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .philosophy-layout-11 .fader-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+  }
+
+  .philosophy-layout-11 .fader-title {
+    font-weight: 700;
+  }
+
+  .philosophy-layout-11 .fader-track-guide {
+    height: 4px;
+    background-color: rgba(255, 255, 255, 0.04);
+    border-radius: 99px;
+    position: relative;
+  }
+
+  .philosophy-layout-11 .fader-track-fill {
+    height: 100%;
+    background-color: var(--color-accent-primary);
+    border-radius: 99px;
+  }
+
+  .philosophy-layout-11 .fader-thumb-knob {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: var(--color-text-primary);
+    border: 1.5px solid var(--color-accent-primary);
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    transition: box-shadow 200ms ease;
+  }
+
+  .philosophy-layout-11 .fader-thumb-knob:hover {
+    box-shadow: 0 0 10px var(--color-accent-primary);
+  }
+
+  /* State 2: Consent Gate */
+  .philosophy-layout-11 .pipeline-scope {
+    height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .philosophy-layout-11 .pipe-svg {
+    width: 160px;
+    height: 50px;
+  }
+
+  .philosophy-layout-11 .pipeline-dot {
+    animation: flowPipe 2s infinite linear;
+  }
+
+  /* When flow is blocked, dot stops at 70px */
+  .philosophy-layout-11 .sticky-viewport-panel:not(.flow-allowed) .pipeline-dot {
+    animation: flowPipeBlocked 2s infinite linear;
+  }
+
+  @keyframes flowPipe {
+    0% { cx: 10px; opacity: 0; }
+    20% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { cx: 150px; opacity: 0; }
+  }
+
+  @keyframes flowPipeBlocked {
+    0% { cx: 10px; opacity: 0; }
+    20% { opacity: 1; }
+    50%, 100% { cx: 70px; opacity: 0.1; }
+  }
+
+  .philosophy-layout-11 .flex-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .philosophy-layout-11 .toggle-switch-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .philosophy-layout-11 .switch-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    font-weight: 700;
+  }
+
+  .philosophy-layout-11 .tactile-switch-btn {
+    width: 38px;
+    height: 20px;
+    border-radius: 99px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    transition: all 200ms ease;
+  }
+
+  .philosophy-layout-11 .switch-handle {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background-color: #6b7280;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    transition: left 200ms cubic-bezier(0.16, 1, 0.3, 1), background-color 200ms ease;
+  }
+
+  .philosophy-layout-11 .tactile-switch-btn:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  /* Allowed State classes */
+  .philosophy-layout-11 .sticky-viewport-panel.flow-allowed .tactile-switch-btn {
+    background-color: rgba(74, 222, 128, 0.15);
+    border-color: rgb(74, 222, 128);
+  }
+
+  .philosophy-layout-11 .sticky-viewport-panel.flow-allowed .switch-handle {
+    left: 20px;
+    background-color: rgb(74, 222, 128);
+    box-shadow: 0 0 6px rgb(74, 222, 128);
+  }
+
+  @media (max-width: 900px) {
+    .philosophy-layout-11 .scroll-split-wrapper {
+      flex-direction: column;
+    }
+    .philosophy-layout-11 .scroll-content-side,
+    .philosophy-layout-11 .sticky-visual-side {
+      width: 100%;
+    }
+    .philosophy-layout-11 .sticky-viewport-panel {
+      position: relative;
+      top: 0;
+    }
+    .philosophy-layout-11 .scroll-item-trigger-box {
+      min-height: auto;
+      padding-block: var(--space-6);
+    }
+  }
+</style>
+
+<script>
+  const setupLayout11 = () => {
+    const triggers = document.querySelectorAll(".philosophy-layout-11 .scroll-item-trigger-box")
+    const viewport = document.getElementById("p11-sticky-panel")
+    const visuals = document.querySelectorAll(".philosophy-layout-11 .layer-visual")
+
+    const updatePanelState = (idx: number) => {
+      if (!viewport) return
+      viewport.classList.remove("state-0", "state-1", "state-2")
+      viewport.classList.add(`state-${idx}`)
+
+      visuals.forEach((v) => {
+        v.classList.add("hidden")
+        v.classList.remove("active")
+      })
+
+      const targetVisual = document.getElementById(`p11-layer-visual-${idx}`)
+      if (targetVisual) {
+        targetVisual.classList.remove("hidden")
+        targetVisual.classList.add("active")
+      }
+    }
+
+    // Scroll observing
+    const observerOptions = {
+      root: null,
+      rootMargin: "0px 0px -50% 0px",
+      threshold: 0.2
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const idx = parseInt(entry.target.getAttribute("data-index") || "0")
+          triggers.forEach((t) => t.classList.remove("active"))
+          entry.target.classList.add("active")
+          updatePanelState(idx)
+        }
+      })
+    }, observerOptions)
+
+    triggers.forEach((trigger) => observer.observe(trigger))
+
+    // Interactive State 0: Padlock lock toggler
+    const lockBtn = document.getElementById("p11-lock-toggle-btn")
+    const shackle = document.getElementById("p11-shackle")
+    const vaultStatusLed = document.getElementById("p11-vault-status-led")
+    const lockText = document.getElementById("p11-lock-text")
+    let isVaultLocked = true
+
+    lockBtn?.addEventListener("click", () => {
+      isVaultLocked = !isVaultLocked
+      if (isVaultLocked) {
+        shackle?.setAttribute("d", "M 45,32 V 26 A 5,5 0 0,1 55,26 V 32")
+        vaultStatusLed?.classList.add("live")
+        if (lockText) lockText.textContent = "CLICK TO UNLOCK"
+      } else {
+        // Rotate shackle outwards to represent open
+        shackle?.setAttribute("d", "M 45,32 V 23 A 5,5 0 0,1 55,23 V 28")
+        vaultStatusLed?.classList.remove("live")
+        if (lockText) lockText.textContent = "CLICK TO LOCK"
+      }
+    })
+
+    // Interactive State 1: Configuration slider controls & scope update
+    const curve = document.getElementById("p11-scope-curve")
+    const valAEl = document.getElementById("p11-val-a")
+    const valBEl = document.getElementById("p11-val-b")
+    const configAvg = document.getElementById("p11-config-avg")
+
+    let valA = 50
+    let valB = 30
+
+    const updateWaveScope = () => {
+      if (!curve) return
+      const avg = Math.round((valA + valB) / 2)
+      if (configAvg) configAvg.textContent = `${avg}%`
+      
+      const amp = (valA / 100) * 15
+      const freq = (valB / 100) * 20
+      curve.setAttribute("d", `M 0,20 Q 40,${20 - amp} 80,20 Q 120,${20 + amp} 160,20`)
+    }
+
+    const setupSliderNode = (thumbId: string, fillId: string, valLabelId: string, isA: boolean) => {
+      const thumb = document.getElementById(thumbId)
+      const fill = document.getElementById(fillId)
+      const label = document.getElementById(valLabelId)
+      if (!thumb || !fill) return
+
+      const track = thumb.parentElement
+      if (!track) return
+
+      let isDragging = false
+
+      const onMove = (clientX: number) => {
+        const rect = track.getBoundingClientRect()
+        const relativeX = clientX - rect.left
+        const percent = Math.max(0, Math.min(100, Math.round((relativeX / rect.width) * 100)))
+        
+        thumb.style.left = `${percent}%`
+        fill.style.width = `${percent}%`
+        if (label) label.textContent = `${percent}%`
+
+        if (isA) valA = percent
+        else valB = percent
+
+        updateWaveScope()
+      }
+
+      thumb.addEventListener("mousedown", () => { isDragging = true })
+      window.addEventListener("mouseup", () => { isDragging = false })
+      window.addEventListener("mousemove", (e: MouseEvent) => {
+        if (isDragging) onMove(e.clientX)
+      })
+
+      // Touch support
+      thumb.addEventListener("touchstart", () => { isDragging = true })
+      window.addEventListener("touchend", () => { isDragging = false })
+      window.addEventListener("touchmove", (e: TouchEvent) => {
+        if (isDragging && e.touches[0]) onMove(e.touches[0].clientX)
+      })
+    }
+
+    setupSliderNode("p11-fader-knob-a", "p11-fader-fill-a", "p11-val-a", true)
+    setupSliderNode("p11-fader-knob-b", "p11-fader-fill-b", "p11-val-b", false)
+    updateWaveScope()
+
+    // Interactive State 2: Consent Switch
+    const switchBtn = document.getElementById("p11-consent-switch")
+    const gateStatusText = document.getElementById("p11-gate-status-text")
+    const gateBridge = document.getElementById("p11-gate-bridge")
+
+    switchBtn?.addEventListener("click", () => {
+      const isAllowed = viewport?.classList.toggle("flow-allowed")
+      if (isAllowed) {
+        if (gateStatusText) {
+          gateStatusText.textContent = "ALLOWED"
+          gateStatusText.style.color = "rgb(74, 222, 128)"
+        }
+        gateBridge?.setAttribute("x2", "90")
+        gateBridge?.setAttribute("y2", "25")
+        gateBridge?.setAttribute("stroke", "rgb(74, 222, 128)")
+      } else {
+        if (gateStatusText) {
+          gateStatusText.textContent = "BLOCKED"
+          gateStatusText.style.color = "rgb(248, 113, 113)"
+        }
+        gateBridge?.setAttribute("x2", "85")
+        gateBridge?.setAttribute("y2", "10")
+        gateBridge?.setAttribute("stroke", "rgb(248, 113, 113)")
+      }
+    })
+  }
+
+  setupLayout11()
+</script>

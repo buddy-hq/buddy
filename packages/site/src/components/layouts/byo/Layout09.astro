@@ -1,0 +1,197 @@
+---
+import { content } from "../../../content/site"
+const { bringYourOwn } = content
+
+const logins = [
+  { ...bringYourOwn.primary, subtext: bringYourOwn.primary.description },
+  { name: bringYourOwn.secondary.options[0], icon: "github", subtext: "Log in with GitHub. No new bill." }
+]
+---
+
+<div class="byo-layout-09">
+  
+  <!-- Row 1: Headline -->
+  <div class="row-headline">
+    <div class="container-inner">
+      <h2 class="section-title">{bringYourOwn.headline}</h2>
+    </div>
+  </div>
+
+  <!-- Row 2: Logins horizontal band -->
+  <div class="row-logins-band">
+    <div class="container-inner flex-row">
+      {logins.map((login) => (
+        <div class="login-band-item">
+          <div class="brand-group">
+            <span class="icon-holder">
+              {login.icon === "openai" ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 22px; height: 22px;"><path d="M4.5 16.5c-1.5-2.5-1-6 1.5-7.5s6-1 7.5 1.5m0 0c1.5 2.5 1 6-1.5 7.5s-6 1-7.5-1.5M12 9V3m0 6c2-1 4.5-.5 5.5 1.5s-.5 4.5-2.5 5.5m0 0l5 3m-5-3c.5 2-.5 4.5-2.5 5.5S10 20 9 18" stroke-linecap="round"/></svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 22px; height: 22px;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              )}
+            </span>
+            <span class="name">{login.name}</span>
+          </div>
+          <span class="subtext">{login.subtext}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+
+  <!-- Row 3: Providers horizontal strip -->
+  <div class="row-providers-strip">
+    <div class="container-inner strip-flex">
+      <h3 class="trailing-title">{bringYourOwn.secondary.label}</h3>
+      <div class="providers-inline-list">
+        {bringYourOwn.secondary.providers.map((provider) => (
+          <span class="provider-pill">{provider}</span>
+        ))}
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<style is:global>
+  .byo-layout-09 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0;
+    min-height: calc(100vh - 72px);
+  }
+
+  .byo-layout-09 .container-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .byo-layout-09 .row-headline {
+    padding-bottom: var(--space-8);
+  }
+
+  .byo-layout-09 .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+  }
+
+  /* Logins band */
+  .byo-layout-09 .row-logins-band {
+    background-color: rgba(255, 255, 255, 0.01);
+    border-block: 1px solid rgba(255, 255, 255, 0.05);
+    padding: var(--space-8) 0;
+  }
+
+  .byo-layout-09 .flex-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-10);
+  }
+
+  .byo-layout-09 .login-band-item {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-6);
+    border-right: 1px dashed rgba(255, 255, 255, 0.05);
+    padding-right: var(--space-10);
+  }
+
+  .byo-layout-09 .login-band-item:last-child {
+    border-right: none;
+    padding-right: 0;
+  }
+
+  .byo-layout-09 .brand-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .byo-layout-09 .icon-holder {
+    color: var(--color-accent-primary);
+    display: flex;
+    align-items: center;
+  }
+
+  .byo-layout-09 .login-band-item .name {
+    font-family: var(--font-display);
+    font-size: var(--text-base);
+    font-weight: 750;
+    color: var(--color-text-primary);
+  }
+
+  .byo-layout-09 .login-band-item .subtext {
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+  }
+
+  /* Providers strip */
+  .byo-layout-09 .row-providers-strip {
+    padding-top: var(--space-8);
+  }
+
+  .byo-layout-09 .strip-flex {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-8);
+  }
+
+  .byo-layout-09 .trailing-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    margin: 0;
+  }
+
+  .byo-layout-09 .providers-inline-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    justify-content: flex-end;
+  }
+
+  .byo-layout-09 .provider-pill {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    background-color: rgba(255, 255, 255, 0.01);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    padding: 4px 10px;
+    border-radius: 4px;
+  }
+
+  @media (max-width: 860px) {
+    .byo-layout-09 .flex-row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--space-4);
+    }
+    .byo-layout-09 .login-band-item {
+      border-right: none;
+      padding-right: 0;
+    }
+    .byo-layout-09 .strip-flex {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-4);
+    }
+    .byo-layout-09 .providers-inline-list {
+      justify-content: flex-start;
+    }
+  }
+</style>

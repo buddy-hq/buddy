@@ -1,0 +1,216 @@
+---
+import { content } from "../../../content/site"
+const { bringYourOwn } = content
+
+const logins = [
+  { ...bringYourOwn.primary, subtext: bringYourOwn.primary.description },
+  { name: bringYourOwn.secondary.options[0], icon: "github", subtext: "Log in with GitHub. No new bill." }
+]
+---
+
+<div class="byo-layout-10">
+  <div class="container">
+    <div class="spec-matrix-table">
+      
+      <!-- Row 1: Headline Cell -->
+      <div class="matrix-row row-header">
+        <div class="matrix-cell cell-full">
+          <span class="cell-label">// SPECIFICATION</span>
+          <h2 class="section-title">{bringYourOwn.headline}</h2>
+        </div>
+      </div>
+
+      <!-- Row 2: Content Split -->
+      <div class="matrix-row row-content">
+        
+        <!-- Left: Logins -->
+        <div class="matrix-cell cell-half cell-border-right">
+          <span class="cell-label">// AUTH_FLOWS</span>
+          <div class="matrix-logins-list">
+            {logins.map((login) => (
+              <div class="matrix-login-row">
+                <div class="login-headline">
+                  <span class="bullet">►</span>
+                  <span class="name">{login.name}</span>
+                </div>
+                <div class="login-body">
+                  <span class="subtext">{login.subtext}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <!-- Right: Providers -->
+        <div class="matrix-cell cell-half">
+          <span class="cell-label">// CUSTOM_KEYS</span>
+          <div class="matrix-providers-box">
+            <h3 class="trailing-title">{bringYourOwn.secondary.label}</h3>
+            <div class="providers-inline-list">
+              {bringYourOwn.secondary.providers.map((provider, idx) => (
+                <span class="provider-pill">
+                  {provider}{idx < bringYourOwn.secondary.providers.length - 1 ? "," : ""}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .byo-layout-10 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+  }
+
+  .byo-layout-10 .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .byo-layout-10 .spec-matrix-table {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.005);
+    font-family: var(--font-mono);
+  }
+
+  .byo-layout-10 .matrix-row {
+    display: flex;
+    width: 100%;
+  }
+
+  .byo-layout-10 .row-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .byo-layout-10 .matrix-cell {
+    padding: var(--space-6) var(--space-8);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .byo-layout-10 .cell-full {
+    width: 100%;
+  }
+
+  .byo-layout-10 .cell-half {
+    width: 50%;
+  }
+
+  .byo-layout-10 .cell-border-right {
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .byo-layout-10 .cell-label {
+    font-size: 9px;
+    color: var(--color-accent-primary);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .byo-layout-10 .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tight);
+    margin: 0;
+  }
+
+  /* Logins cell layout */
+  .byo-layout-10 .matrix-logins-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .byo-layout-10 .matrix-login-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .byo-layout-10 .login-headline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .byo-layout-10 .login-headline .bullet {
+    color: var(--color-accent-primary);
+    font-size: 8px;
+  }
+
+  .byo-layout-10 .login-headline .name {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+  }
+
+  .byo-layout-10 .login-body {
+    padding-left: 16px;
+  }
+
+  .byo-layout-10 .login-body .subtext {
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+  }
+
+  /* Providers cell layout */
+  .byo-layout-10 .matrix-providers-box {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .byo-layout-10 .trailing-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .byo-layout-10 .providers-inline-list {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 8px;
+    row-gap: 4px;
+  }
+
+  .byo-layout-10 .provider-pill {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    transition: color 0.2s var(--ease-out);
+  }
+
+  .byo-layout-10 .provider-pill:hover {
+    color: var(--color-accent-primary);
+  }
+
+  @media (max-width: 860px) {
+    .byo-layout-10 .matrix-row {
+      flex-direction: column;
+    }
+    .byo-layout-10 .cell-half {
+      width: 100%;
+    }
+    .byo-layout-10 .cell-border-right {
+      border-right: none;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  }
+</style>

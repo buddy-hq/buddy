@@ -1,0 +1,125 @@
+---
+const steps = [
+  {
+    num: "01",
+    tag: "INGEST",
+    title: "Lorem ipsum dolor sit amet",
+    subtext: "Consectetur adipiscing elit. Phasellus imperdiet, nulla et dictum interdum, nisi lorem egestas vitae.",
+    mockTitle: "workspace_import.json"
+  },
+  {
+    num: "02",
+    tag: "INTERACT",
+    title: "Sodales tempor convallis vel",
+    subtext: "Curabitur vulputate porta dui vel finibus. Class aptent taciti sociosqu ad litora torquent per conubia nostra.",
+    mockTitle: "socratic_dialogue.py"
+  },
+  {
+    num: "03",
+    tag: "RETAIN",
+    title: "Aliquam erat volutpat suspendisse",
+    subtext: "Integer elementum, lorem ut luctus hendrerit, ante sem rhoncus sem, ac sollicitudin ante lorem et magna.",
+    mockTitle: "spaced_repetition.db"
+  }
+]
+---
+
+<div class="overlapping-cards-stack">
+  {steps.map((step, i) => (
+    <div class="stack-card-wrapper" style={`--index: ${i + 1}`}>
+      <div class="stack-card-body">
+        <div class="stack-card-left">
+          <div class="step-meta">
+            <span class="step-number" data-numeric>{step.num}</span>
+            <span class="step-tag">{step.tag}</span>
+          </div>
+          <h3 class="step-title">{step.title}</h3>
+          <p class="step-desc">{step.subtext}</p>
+        </div>
+        <div class="stack-card-right">
+          <div class="sticky-mockup-wrapper">
+            <div class="mockup-header-bar">
+              <div class="mockup-dots"><span></span><span></span><span></span></div>
+              <div class="mockup-tab-title">{step.mockTitle}</div>
+            </div>
+            <div class="mockup-viewport">
+              {i === 0 && (
+                <div class="mock-import-box">
+                  <div class="mock-drag-zone">
+                    <span>Drop materials here</span>
+                  </div>
+                </div>
+              )}
+              {i === 1 && (
+                <div class="mock-chat-box">
+                  <div class="chat-bubble bot">Lorem ipsum dolor sit amet?</div>
+                </div>
+              )}
+              {i === 2 && (
+                <div class="mock-recall-box">
+                  <div class="flashcard-preview">
+                    <p>Quisque cursus...</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  ))}
+</div>
+
+<style is:global>
+  .overlapping-cards-stack {
+    max-width: 900px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    padding-bottom: 40vh; /* Creates scroll dwell space to keep cards stacked */
+  }
+
+  .stack-card-wrapper {
+    position: sticky;
+    top: calc(130px + var(--index) * 20px);
+    width: 100%;
+    margin-bottom: 60vh;
+  }
+
+  .stack-card-body {
+    background-color: rgba(22, 19, 18, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    padding: var(--space-8);
+    display: grid;
+    grid-template-columns: 1fr 1.2fr;
+    gap: var(--space-8);
+    align-items: center;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3),
+                0 1px 0 rgba(255, 255, 255, 0.05) inset;
+    backdrop-filter: blur(20px);
+  }
+
+  .stack-card-left {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  @media (max-width: 900px) {
+    .stack-card-body {
+      grid-template-columns: 1fr;
+      gap: var(--space-6);
+      padding: var(--space-5);
+    }
+    .overlapping-cards-stack {
+      gap: var(--space-4);
+    }
+    .stack-card-wrapper {
+      position: relative;
+      top: 0 !important;
+      margin-bottom: 0;
+    }
+  }
+</style>

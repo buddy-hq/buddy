@@ -1,0 +1,607 @@
+---
+import { content } from "../../../content/site"
+const { philosophy } = content
+---
+
+<div class="philosophy-layout-12">
+  <div class="container">
+    <div class="console-box">
+      
+      <div class="console-header text-center">
+        <h2 class="headline">{philosophy.headline}</h2>
+      </div>
+
+      <div class="console-panel">
+        
+        <!-- Module 1: Yours to Keep (Key Drive Insertion Slot) -->
+        <div class="widget-card keep-panel" id="p12-widget-0">
+          <div class="widget-head">
+            <span class="step-idx">MODULE 01</span>
+            <h3 class="name">{philosophy.items[0].label}</h3>
+          </div>
+          
+          <!-- Tactile Key Insert Interface -->
+          <div class="key-drive-receiver-box">
+            <div class="slot-entry-gate" id="p12-key-slot">
+              <!-- Indicators inside slot -->
+              <span class="slot-status-led" id="p12-slot-led"></span>
+              <span class="receiver-label" id="p12-slot-label">INSERT PRIVATE KEY</span>
+            </div>
+            
+            <!-- Draggable Key Drive token -->
+            <div class="draggable-key-wrapper">
+              <div class="draggable-key-token" id="p12-key-token" style="cursor: grab;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5M14 9l1.5-1.5M16.5 6.5L19 4"></path>
+                </svg>
+                <span class="token-label">DRAG ME</span>
+              </div>
+            </div>
+          </div>
+          
+          <p class="description">{philosophy.items[0].detail}</p>
+        </div>
+
+        <!-- Module 2: Yours to Shape (Config Dial & Monitor) -->
+        <div class="widget-card shape-panel" id="p12-widget-1">
+          <div class="widget-head">
+            <span class="step-idx">MODULE 02</span>
+            <h3 class="name">{philosophy.items[1].label}</h3>
+          </div>
+
+          <!-- Spline monitor + rotary dial with guidelines -->
+          <div class="tactile-tuner-rack">
+            <svg class="scope-display" viewBox="0 0 120 40">
+              <path class="grid-line" d="M 0,20 H 120" stroke="rgba(255,255,255,0.03)" stroke-width="1" />
+              <path class="scope-spline-curve" id="p12-scope-wave" d="M 10,20 Q 35,20 60,20 Q 85,20 110,20" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" />
+            </svg>
+            
+            <div class="dial-container">
+              <div class="rotary-dial-knob" id="p12-rotary-knob" style="cursor: ns-resize;">
+                <span class="dial-tick-dot"></span>
+              </div>
+              <div class="dial-profile-badge" id="p12-profile-badge">DEFAULT</div>
+            </div>
+          </div>
+
+          <p class="description">{philosophy.items[1].detail}</p>
+        </div>
+
+        <!-- Module 3: Yours to Control (Flow permission lever) -->
+        <div class="widget-card control-panel" id="p12-widget-2">
+          <div class="widget-head">
+            <span class="step-idx">MODULE 03</span>
+            <h3 class="name">{philosophy.items[2].label}</h3>
+          </div>
+
+          <!-- Flow circuit + lever toggle switch -->
+          <div class="gate-lever-group">
+            <svg class="circuit-scope" viewBox="0 0 120 60">
+              <path class="circuit-wire" d="M 10,30 H 45" stroke="rgba(255,255,255,0.08)" stroke-width="3" stroke-linecap="round" />
+              <path class="circuit-wire" d="M 75,30 H 110" stroke="rgba(255,255,255,0.08)" stroke-width="3" stroke-linecap="round" />
+              <!-- Gate breaker switch -->
+              <line class="gate-switch-latch" id="p12-gate-latch" x1="60" y1="15" x2="60" y2="45" stroke="rgb(248, 113, 113)" stroke-width="3.5" stroke-linecap="round" />
+              <!-- Data path dot -->
+              <circle class="signal-dot" id="p12-signal-dot" cx="15" cy="30" r="2.5" fill="var(--color-accent-primary)" />
+            </svg>
+            
+            <!-- Lever Switch track -->
+            <div class="lever-track-slot" id="p12-lever" style="cursor: pointer;">
+              <div class="lever-knob-handle" id="p12-lever-handle"></div>
+            </div>
+          </div>
+
+          <p class="description">{philosophy.items[2].detail}</p>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .philosophy-layout-12 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+    background-color: #050505;
+  }
+
+  .philosophy-layout-12 .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .philosophy-layout-12 .text-center {
+    text-align: center;
+  }
+
+  .philosophy-layout-12 .console-box {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    width: 100%;
+  }
+
+  .philosophy-layout-12 .headline {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+  }
+
+  .philosophy-layout-12 .console-panel {
+    display: flex;
+    gap: var(--space-4);
+    width: 100%;
+  }
+
+  .philosophy-layout-12 .widget-card {
+    flex: 1;
+    background-color: #090909;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    transition: border-color 300ms ease, box-shadow 300ms ease;
+  }
+
+  .philosophy-layout-12 .widget-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    padding-bottom: var(--space-3);
+  }
+
+  .philosophy-layout-12 .step-idx {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+    font-weight: 700;
+  }
+
+  .philosophy-layout-12 .name {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .philosophy-layout-12 .description {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+    margin-top: auto;
+  }
+
+  /* Card 0: Key Drive insertion */
+  .philosophy-layout-12 .key-drive-receiver-box {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    background-color: rgba(0, 0, 0, 0.15);
+    border: 1.5px solid rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+    padding: var(--space-4);
+    position: relative;
+  }
+
+  .philosophy-layout-12 .slot-entry-gate {
+    height: 40px;
+    background-color: #020202;
+    border: 2px dashed rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 250ms ease;
+  }
+
+  .philosophy-layout-12 .slot-status-led {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: rgb(248, 113, 113);
+    box-shadow: 0 0 6px rgb(248, 113, 113);
+  }
+
+  .philosophy-layout-12 .receiver-label {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-text-muted);
+    font-weight: 700;
+  }
+
+  .philosophy-layout-12 .draggable-key-wrapper {
+    display: flex;
+    justify-content: center;
+  }
+
+  .philosophy-layout-12 .draggable-key-token {
+    background-color: #111;
+    border: 1.5px solid #222;
+    border-radius: 6px;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+    user-select: none;
+    position: relative;
+    z-index: 5;
+  }
+
+  .philosophy-layout-12 .draggable-key-token:hover {
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 10px rgba(255, 107, 0, 0.2);
+  }
+
+  .philosophy-layout-12 .token-label {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-text-primary);
+    font-weight: 700;
+  }
+
+  /* Success insert state */
+  .philosophy-layout-12 .widget-card.key-locked {
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 15px rgba(255, 107, 0, 0.08);
+  }
+
+  .philosophy-layout-12 .widget-card.key-locked .slot-entry-gate {
+    background-color: rgba(255, 107, 0, 0.05);
+    border-color: var(--color-accent-primary);
+  }
+
+  .philosophy-layout-12 .widget-card.key-locked .slot-status-led {
+    background-color: var(--color-accent-primary);
+    box-shadow: 0 0 8px var(--color-accent-primary);
+  }
+
+  .philosophy-layout-12 .widget-card.key-locked .receiver-label {
+    color: var(--color-accent-primary);
+  }
+
+  /* Card 1: Dial control */
+  .philosophy-layout-12 .tactile-tuner-rack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background-color: rgba(0, 0, 0, 0.15);
+    border: 1.5px solid rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+    padding: var(--space-4);
+    align-items: center;
+  }
+
+  .philosophy-layout-12 .scope-display {
+    width: 100%;
+    height: 40px;
+    background-color: #020202;
+    border-radius: 6px;
+    border: 1.5px solid rgba(255,255,255,0.02);
+  }
+
+  .philosophy-layout-12 .scope-spline-curve {
+    transition: d 200ms ease-out;
+  }
+
+  .philosophy-layout-12 .dial-container {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    justify-content: center;
+    padding-top: 4px;
+  }
+
+  .philosophy-layout-12 .rotary-dial-knob {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #222, #0d0d0d);
+    border: 2px solid #333;
+    position: relative;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    transform: rotate(0deg);
+    transition: transform 100ms ease-out, border-color 200ms ease;
+  }
+
+  .philosophy-layout-12 .rotary-dial-knob:hover {
+    border-color: var(--color-accent-primary);
+  }
+
+  .philosophy-layout-12 .dial-tick-dot {
+    position: absolute;
+    top: 5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    height: 6px;
+    border-radius: 99px;
+    background-color: var(--color-accent-primary);
+  }
+
+  .philosophy-layout-12 .dial-profile-badge {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-accent-primary);
+    background-color: rgba(255, 107, 0, 0.05);
+    border: 1px solid rgba(255, 107, 0, 0.15);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-weight: 700;
+  }
+
+  /* Card 2: Lever switcher */
+  .philosophy-layout-12 .gate-lever-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background-color: rgba(0, 0, 0, 0.15);
+    border: 1.5px solid rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+    padding: var(--space-4);
+    align-items: center;
+  }
+
+  .philosophy-layout-12 .circuit-scope {
+    width: 100%;
+    height: 50px;
+    background-color: #020202;
+    border-radius: 6px;
+    border: 1.5px solid rgba(255, 255, 255, 0.02);
+  }
+
+  .philosophy-layout-12 .gate-switch-latch {
+    transform-origin: 60px 30px;
+    transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1), stroke 250ms ease;
+  }
+
+  .philosophy-layout-12 .signal-dot {
+    animation: localCircuitTravel 2.5s infinite linear;
+  }
+
+  /* Blocked state simulation path */
+  .philosophy-layout-12 .widget-card:not(.flow-allowed) .signal-dot {
+    animation: localCircuitBlocked 2.5s infinite linear;
+  }
+
+  @keyframes localCircuitTravel {
+    0% { cx: 15px; opacity: 0; }
+    20% { opacity: 1; }
+    100% { cx: 105px; opacity: 0; }
+  }
+
+  @keyframes localCircuitBlocked {
+    0% { cx: 15px; opacity: 0; }
+    20% { opacity: 1; }
+    40%, 100% { cx: 45px; opacity: 0.1; }
+  }
+
+  .philosophy-layout-12 .lever-track-slot {
+    width: 20px;
+    height: 46px;
+    background-color: #030303;
+    border: 1.5px solid #222;
+    border-radius: 12px;
+    position: relative;
+    transition: border-color 200ms ease;
+  }
+
+  .philosophy-layout-12 .lever-track-slot:hover {
+    border-color: rgb(74, 222, 128);
+  }
+
+  .philosophy-layout-12 .lever-knob-handle {
+    width: 14px;
+    height: 14px;
+    background-color: #4b5563;
+    border-radius: 50%;
+    position: absolute;
+    left: 2px;
+    bottom: 2px;
+    transition: bottom 200ms cubic-bezier(0.16, 1, 0.3, 1), background-color 200ms ease, box-shadow 200ms ease;
+  }
+
+  /* Active Switch class styles */
+  .philosophy-layout-12 .widget-card.flow-allowed {
+    border-color: rgb(74, 222, 128);
+    box-shadow: 0 0 15px rgba(74, 222, 128, 0.08);
+  }
+
+  .philosophy-layout-12 .widget-card.flow-allowed .lever-knob-handle {
+    bottom: 26px;
+    background-color: rgb(74, 222, 128);
+    box-shadow: 0 0 6px rgb(74, 222, 128);
+  }
+
+  .philosophy-layout-12 .widget-card.flow-allowed .gate-switch-latch {
+    transform: rotate(90deg);
+    stroke: rgb(74, 222, 128);
+  }
+
+  @media (max-width: 900px) {
+    .philosophy-layout-12 .console-panel {
+      flex-direction: column;
+    }
+  }
+</style>
+
+<script>
+  const setupLayout12 = () => {
+    // 1: Key Drive drag sub-system
+    const keyToken = document.getElementById("p12-key-token")
+    const keySlot = document.getElementById("p12-key-slot")
+    const cardKeep = document.getElementById("p12-widget-0")
+    const slotLabel = document.getElementById("p12-slot-label")
+
+    if (keyToken && keySlot) {
+      let isDragging = false
+      let startX = 0, startY = 0
+      let curX = 0, curY = 0
+
+      const onStart = (clientX: number, clientY: number) => {
+        isDragging = true
+        startX = clientX - curX
+        startY = clientY - curY
+        keyToken.style.cursor = "grabbing"
+      }
+
+      const onMove = (clientX: number, clientY: number) => {
+        if (!isDragging) return
+        curX = clientX - startX
+        curY = clientY - startY
+        keyToken.style.transform = `translate(${curX}px, ${curY}px)`
+
+        // Check bounding box intersection
+        const slotRect = keySlot.getBoundingClientRect()
+        const tokenRect = keyToken.getBoundingClientRect()
+
+        const isOverlapping = !(
+          tokenRect.right < slotRect.left ||
+          tokenRect.left > slotRect.right ||
+          tokenRect.bottom < slotRect.top ||
+          tokenRect.top > slotRect.bottom
+        )
+
+        if (isOverlapping) {
+          cardKeep?.classList.add("key-locked")
+          if (slotLabel) slotLabel.textContent = "KEY VAULT CONNECTED"
+        } else {
+          cardKeep?.classList.remove("key-locked")
+          if (slotLabel) slotLabel.textContent = "INSERT PRIVATE KEY"
+        }
+      }
+
+      const onEnd = () => {
+        isDragging = false
+        keyToken.style.cursor = "grab"
+        // Snap back if not locked
+        if (!cardKeep?.classList.contains("key-locked")) {
+          curX = 0
+          curY = 0
+          keyToken.style.transform = `translate(0px, 0px)`
+        } else {
+          // snap right into the slot visually
+          const slotRect = keySlot.getBoundingClientRect()
+          const wrapperRect = keyToken.parentElement?.getBoundingClientRect()
+          if (wrapperRect) {
+            const destX = (slotRect.left + slotRect.width/2) - (wrapperRect.left + wrapperRect.width/2)
+            const destY = (slotRect.top + slotRect.height/2) - (wrapperRect.top + wrapperRect.height/2)
+            curX = destX
+            curY = destY
+            keyToken.style.transform = `translate(${destX}px, ${destY}px)`
+          }
+        }
+      }
+
+      keyToken.addEventListener("mousedown", (e) => onStart(e.clientX, e.clientY))
+      window.addEventListener("mousemove", (e) => onMove(e.clientX, e.clientY))
+      window.addEventListener("mouseup", onEnd)
+
+      // Touch support
+      keyToken.addEventListener("touchstart", (e) => {
+        if (e.touches[0]) onStart(e.touches[0].clientX, e.touches[0].clientY)
+      })
+      window.addEventListener("touchmove", (e) => {
+        if (e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY)
+      })
+      window.addEventListener("touchend", onEnd)
+    }
+
+    // 2: Dial Tuner sub-system
+    const dial = document.getElementById("p12-rotary-knob")
+    const wave = document.getElementById("p12-scope-wave")
+    const badge = document.getElementById("p12-profile-badge")
+    const cardShape = document.getElementById("p12-widget-1")
+
+    if (dial && wave) {
+      let isDialing = false
+      let startY = 0
+      let currentAngle = 0
+
+      const onStart = (clientY: number) => {
+        isDialing = true
+        startY = clientY
+      }
+
+      const onMove = (clientY: number) => {
+        if (!isDialing) return
+        const diffY = clientY - startY
+        startY = clientY
+        
+        currentAngle = Math.max(-90, Math.min(270, currentAngle + diffY * 1.5))
+        dial.style.transform = `rotate(${currentAngle}deg)`
+
+        // Calculate dynamic profile states based on angle
+        const ratio = (currentAngle + 90) / 360 // 0 to 1
+        
+        // Update spline path amplitude
+        const amp = 2 + ratio * 16
+        const freq = 1 + ratio * 3
+        wave.setAttribute("d", `M 10,20 Q 35,${20 - amp} 60,20 Q 85,${20 + amp} 110,20`)
+        wave.setAttribute("stroke", `rgba(255, 107, 0, ${0.15 + ratio * 0.75})`)
+
+        if (cardShape) {
+          cardShape.style.borderColor = `rgba(255, 107, 0, ${0.03 + ratio * 0.2})`
+          cardShape.style.boxShadow = `0 10px 30px rgba(0, 0, 0, 0.4), 0 0 10px rgba(255, 107, 0, ${ratio * 0.1})`
+        }
+
+        if (badge) {
+          if (ratio < 0.3) {
+            badge.textContent = "DIRECT"
+          } else if (ratio < 0.7) {
+            badge.textContent = "DEFAULT"
+          } else {
+            badge.textContent = "SOCRATIC"
+          }
+        }
+      }
+
+      const onEnd = () => {
+        isDialing = false
+      }
+
+      dial.addEventListener("mousedown", (e) => onStart(e.clientY))
+      window.addEventListener("mousemove", (e) => onMove(e.clientY))
+      window.addEventListener("mouseup", onEnd)
+
+      // Touch support
+      dial.addEventListener("touchstart", (e) => {
+        if (e.touches[0]) onStart(e.touches[0].clientY)
+      })
+      window.addEventListener("touchmove", (e) => {
+        if (e.touches[0]) onMove(e.touches[0].clientY)
+      })
+      window.addEventListener("touchend", onEnd)
+    }
+
+    // 3: Mechanical Lever Switch
+    const lever = document.getElementById("p12-lever")
+    const cardControl = document.getElementById("p12-widget-2")
+
+    lever?.addEventListener("click", () => {
+      cardControl?.classList.toggle("flow-allowed")
+    })
+  }
+
+  setupLayout12()
+</script>

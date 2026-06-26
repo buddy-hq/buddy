@@ -1,0 +1,204 @@
+---
+import { content } from "../../../content/site"
+const { capabilities } = content
+---
+
+<div class="capabilities-layout-09">
+  <div class="container">
+    <div class="pipeline-flow-layout">
+      
+      <div class="header-box text-center">
+        <h2 class="title">{capabilities.headline}</h2>
+        <p class="subtext">{capabilities.subtext}</p>
+      </div>
+
+      <div class="flow-track">
+        {capabilities.items.map((item, idx) => (
+          <div class="flow-node">
+            <div class="node-graphic-row">
+              <div class="node-circle-ring">
+                <span class="core-dot"></span>
+              </div>
+              {idx < capabilities.items.length - 1 && (
+                <div class="line-connector-wrap">
+                  <svg viewBox="0 0 100 10" fill="none" class="dash-flow-svg">
+                    <path d="M0 5 H100" stroke="rgba(255, 107, 0, 0.2)" stroke-width="1.5" />
+                    <path d="M0 5 H100" stroke="var(--color-accent-primary)" stroke-width="1.5" stroke-dasharray="8,20" class="marching-dash" />
+                  </svg>
+                </div>
+              )}
+            </div>
+            <div class="node-body">
+              <span class="node-step-index">0{idx + 1}</span>
+              <h3 class="name">{item.name}</h3>
+              <p class="detail">{item.detail}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .capabilities-layout-09 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+    background: radial-gradient(circle at 50% 50%, rgba(255, 107, 0, 0.015) 0%, transparent 60%);
+  }
+
+  .capabilities-layout-09 .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .capabilities-layout-09 .text-center {
+    text-align: center;
+  }
+
+  .capabilities-layout-09 .pipeline-flow-layout {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: var(--space-12);
+  }
+
+  .capabilities-layout-09 .header-box {
+    max-width: 800px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .capabilities-layout-09 .title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+  }
+
+  .capabilities-layout-09 .subtext {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .capabilities-layout-09 .flow-track {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-4);
+    align-items: stretch;
+  }
+
+  .capabilities-layout-09 .flow-node {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .capabilities-layout-09 .node-graphic-row {
+    display: flex;
+    align-items: center;
+    position: relative;
+    height: 24px;
+  }
+
+  .capabilities-layout-09 .node-circle-ring {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 107, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #0b0908;
+    z-index: 5;
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .capabilities-layout-09 .flow-node:hover .node-circle-ring {
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 10px rgba(255, 107, 0, 0.3);
+  }
+
+  .capabilities-layout-09 .core-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--color-accent-primary);
+    box-shadow: 0 0 6px var(--color-accent-primary);
+  }
+
+  .capabilities-layout-09 .line-connector-wrap {
+    flex: 1;
+    height: 10px;
+    display: flex;
+    align-items: center;
+    margin-left: -2px;
+  }
+
+  .capabilities-layout-09 .dash-flow-svg {
+    width: 100%;
+    height: 10px;
+  }
+
+  /* Animated flow connect */
+  .capabilities-layout-09 .marching-dash {
+    animation: capabilitiesMarch 4s linear infinite;
+  }
+
+  @keyframes capabilitiesMarch {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: -28; }
+  }
+
+  .capabilities-layout-09 .node-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .capabilities-layout-09 .node-step-index {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: bold;
+    color: var(--color-text-muted);
+  }
+
+  .capabilities-layout-09 .name {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .capabilities-layout-09 .detail {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  @media (max-width: 900px) {
+    .capabilities-layout-09 .flow-track {
+      flex-direction: column;
+      gap: var(--space-6);
+    }
+    .capabilities-layout-09 .line-connector-wrap {
+      display: none;
+    }
+  }
+</style>

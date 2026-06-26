@@ -1,0 +1,206 @@
+---
+import { content } from "../../../content/site"
+const { bringYourOwn } = content
+
+const logins = [
+  { ...bringYourOwn.primary, subtext: bringYourOwn.primary.description },
+  { name: bringYourOwn.secondary.options[0], icon: "github", subtext: "Log in with GitHub. No new bill." }
+]
+---
+
+<div class="byo-layout-05">
+  <div class="container">
+    <div class="layout-stack-wrapper">
+      <h2 class="section-title text-center">{bringYourOwn.headline}</h2>
+      
+      <div class="stack-list">
+        {logins.map((login) => (
+          <div class="stack-item login-stack-item">
+            <div class="item-meta">
+              <div class="icon-frame">
+                {login.icon === "openai" ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 20px; height: 20px;"><path d="M4.5 16.5c-1.5-2.5-1-6 1.5-7.5s6-1 7.5 1.5m0 0c1.5 2.5 1 6-1.5 7.5s-6 1-7.5-1.5M12 9V3m0 6c2-1 4.5-.5 5.5 1.5s-.5 4.5-2.5 5.5m0 0l5 3m-5-3c.5 2-.5 4.5-2.5 5.5S10 20 9 18" stroke-linecap="round"/></svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 20px; height: 20px;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                )}
+              </div>
+              <h3 class="login-name">{login.name}</h3>
+            </div>
+            <p class="login-subtext">{login.subtext}</p>
+          </div>
+        ))}
+
+        <div class="stack-item providers-stack-item">
+          <div class="providers-header">
+            <h3 class="trailing-title">{bringYourOwn.secondary.label}</h3>
+          </div>
+          <div class="providers-flex">
+            {bringYourOwn.secondary.providers.map((provider) => (
+              <span class="provider-tag">{provider}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .byo-layout-05 {
+    padding: var(--space-12) 0;
+    width: 100%;
+  }
+
+  .byo-layout-05 .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+  }
+
+  .byo-layout-05 .text-center {
+    text-align: center;
+  }
+
+  .byo-layout-05 .layout-stack-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-10);
+  }
+
+  .byo-layout-05 .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    letter-spacing: var(--tracking-tight);
+    line-height: 1.1;
+    margin: 0;
+  }
+
+  .byo-layout-05 .stack-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .byo-layout-05 .stack-item {
+    background-color: #0b0908;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: var(--space-6) var(--space-8);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-6);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .byo-layout-05 .stack-item:hover {
+    border-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.005);
+    transform: scale(1.005);
+  }
+
+  .byo-layout-05 .login-stack-item:hover {
+    border-color: rgba(255, 107, 0, 0.15);
+  }
+
+  .byo-layout-05 .item-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    min-width: 180px;
+  }
+
+  .byo-layout-05 .icon-frame {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+    transition: all 0.2s var(--ease-out);
+  }
+
+  .byo-layout-05 .login-stack-item:hover .icon-frame {
+    color: var(--color-accent-primary);
+    border-color: rgba(255, 107, 0, 0.12);
+    background-color: rgba(255, 107, 0, 0.02);
+  }
+
+  .byo-layout-05 .login-name {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .byo-layout-05 .login-subtext {
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    margin: 0;
+    flex: 1;
+    text-align: right;
+  }
+
+  /* Providers Row style */
+  .byo-layout-05 .providers-stack-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-4);
+    padding: var(--space-6) var(--space-8);
+  }
+
+  .byo-layout-05 .providers-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    padding-bottom: var(--space-3);
+  }
+
+  .byo-layout-05 .trailing-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .byo-layout-05 .providers-flex {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .byo-layout-05 .provider-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    background-color: rgba(255, 255, 255, 0.01);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    padding: 4px 10px;
+    border-radius: 6px;
+    transition: all 0.2s var(--ease-out);
+  }
+
+  .byo-layout-05 .provider-tag:hover {
+    color: var(--color-text-primary);
+    border-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+
+  @media (max-width: 768px) {
+    .byo-layout-05 .stack-item {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-3);
+      padding: var(--space-5) var(--space-6);
+    }
+    .byo-layout-05 .login-subtext {
+      text-align: left;
+    }
+  }
+</style>

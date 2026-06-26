@@ -1,0 +1,234 @@
+---
+const steps = [
+  {
+    num: "01",
+    tag: "INGEST",
+    title: "Lorem ipsum dolor sit amet",
+    subtext: "Consectetur adipiscing elit. Phasellus imperdiet, nulla et dictum interdum, nisi lorem egestas vitae.",
+    mockTitle: "workspace_import.json"
+  },
+  {
+    num: "02",
+    tag: "INTERACT",
+    title: "Sodales tempor convallis vel",
+    subtext: "Curabitur vulputate porta dui vel finibus. Class aptent taciti sociosqu ad litora torquent per conubia nostra.",
+    mockTitle: "socratic_dialogue.py"
+  },
+  {
+    num: "03",
+    tag: "RETAIN",
+    title: "Aliquam erat volutpat suspendisse",
+    subtext: "Integer elementum, lorem ut luctus hendrerit, ante sem rhoncus sem, ac sollicitudin ante lorem et magna.",
+    mockTitle: "spaced_repetition.db"
+  }
+]
+---
+
+<div class="accordion-layout-grid">
+  <div class="accordion-list">
+    {steps.map((step, i) => (
+      <div class={`accordion-item ${i === 0 ? 'active' : ''}`} data-index={i}>
+        <button class="accordion-header">
+          <span class="acc-num" data-numeric>{step.num}</span>
+          <span class="acc-title">{step.title}</span>
+          <svg class="acc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="accordion-body">
+          <span class="acc-tag">{step.tag}</span>
+          <p class="acc-desc">{step.subtext}</p>
+        </div>
+      </div>
+    ))}
+  </div>
+
+  <div class="accordion-visual-side">
+    <div class="sticky-mockup-wrapper">
+      <div class="mockup-header-bar">
+        <div class="mockup-dots"><span></span><span></span><span></span></div>
+        <div class="mockup-tab-title" id="acc-tab-title">workspace_import.json</div>
+      </div>
+      <div class="mockup-viewport">
+        <div class="viewport-stage active" id="acc-stage-0">
+          <div class="mock-import-box">
+            <div class="mock-drag-zone">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              <span>Drag material to index</span>
+            </div>
+          </div>
+        </div>
+        <div class="viewport-stage" id="acc-stage-1">
+          <div class="mock-chat-box">
+            <div class="chat-bubble bot">Lorem ipsum dolor sit amet?</div>
+            <div class="chat-input-line">
+              <span>Ask Buddy...</span>
+            </div>
+          </div>
+        </div>
+        <div class="viewport-stage" id="acc-stage-2">
+          <div class="mock-recall-box">
+            <div class="flashcard-preview">
+              <p>Quisque cursus imperdiet tristique?</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .accordion-layout-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-12);
+    align-items: center;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  .accordion-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .accordion-item {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    padding-bottom: var(--space-4);
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .accordion-header {
+    width: 100%;
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-block: var(--space-2);
+    cursor: pointer;
+    text-align: left;
+    color: var(--color-text-secondary);
+    transition: color 0.2s var(--ease-out);
+  }
+
+  .acc-num {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 800;
+    color: var(--color-text-muted);
+    margin-right: var(--space-4);
+    transition: color 0.25s var(--ease-out);
+  }
+
+  .acc-title {
+    flex: 1;
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    letter-spacing: var(--tracking-tight);
+  }
+
+  .acc-chevron {
+    color: var(--color-text-muted);
+    transition: transform 0.25s var(--ease-out), color 0.25s var(--ease-out);
+  }
+
+  .accordion-body {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s var(--ease-out);
+    padding-left: 2.25rem;
+  }
+
+  .acc-tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-accent-primary);
+    letter-spacing: 0.1em;
+    margin-bottom: var(--space-2);
+  }
+
+  .acc-desc {
+    color: var(--color-text-tertiary);
+    font-size: var(--text-xs);
+    line-height: var(--leading-relaxed);
+  }
+
+  /* Active State */
+  .accordion-item.active {
+    border-color: rgba(255, 107, 0, 0.2);
+  }
+
+  .accordion-item.active .accordion-header {
+    color: var(--color-text-primary);
+  }
+
+  .accordion-item.active .acc-num {
+    color: var(--color-accent-primary);
+  }
+
+  .accordion-item.active .acc-chevron {
+    transform: rotate(180deg);
+    color: var(--color-text-primary);
+  }
+
+  .accordion-item.active .accordion-body {
+    max-height: 120px;
+    opacity: 1;
+    margin-top: var(--space-2);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .accordion-header:hover {
+      color: var(--color-text-primary);
+    }
+  }
+
+  @media (max-width: 900px) {
+    .accordion-layout-grid {
+      grid-template-columns: 1fr;
+    }
+    .accordion-visual-side {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  const accordionItems = document.querySelectorAll(".accordion-item")
+  const accStages = document.querySelectorAll("[id^='acc-stage-']")
+  const accTabTitle = document.getElementById("acc-tab-title")
+
+  const titles = [
+    "workspace_import.json",
+    "socratic_dialogue.py",
+    "spaced_repetition.db"
+  ]
+
+  accordionItems.forEach((item) => {
+    const header = item.querySelector(".accordion-header")
+    header?.addEventListener("click", () => {
+      if (item.classList.contains("active")) return
+
+      const idxStr = item.getAttribute("data-index")
+      if (idxStr === null) return
+      const idx = parseInt(idxStr, 10)
+
+      // Reset others
+      accordionItems.forEach((el) => el.classList.remove("active"))
+      item.classList.add("active")
+
+      // Sync stages
+      accStages.forEach((stage, sIdx) => {
+        stage.classList.toggle("active", sIdx === idx)
+      })
+
+      if (accTabTitle) {
+        accTabTitle.textContent = titles[idx] || ""
+      }
+    })
+  })
+</script>

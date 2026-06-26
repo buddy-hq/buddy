@@ -1,0 +1,212 @@
+---
+import { content } from "../../../content/site"
+const { bringYourOwn } = content
+
+const logins = [
+  { ...bringYourOwn.primary, subtext: bringYourOwn.primary.description },
+  { name: bringYourOwn.secondary.options[0], icon: "github", subtext: "Log in with GitHub. No new bill." }
+]
+---
+
+<div class="byo-layout-08">
+  <div class="container">
+    <div class="sidebar-grid">
+      
+      <!-- Left sidebar with titles -->
+      <div class="grid-sidebar">
+        <div class="sidebar-top">
+          <h2 class="section-title">{bringYourOwn.headline}</h2>
+        </div>
+        <div class="sidebar-bottom">
+          <h4 class="trailing-title">{bringYourOwn.secondary.label}</h4>
+        </div>
+      </div>
+
+      <!-- Right contents area -->
+      <div class="grid-main">
+        
+        <!-- Logins section -->
+        <div class="logins-wide-row">
+          {logins.map((login) => (
+            <div class="login-flat-card">
+              <div class="login-brand">
+                <span class="icon-holder">
+                  {login.icon === "openai" ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 18px; height: 18px;"><path d="M4.5 16.5c-1.5-2.5-1-6 1.5-7.5s6-1 7.5 1.5m0 0c1.5 2.5 1 6-1.5 7.5s-6 1-7.5-1.5M12 9V3m0 6c2-1 4.5-.5 5.5 1.5s-.5 4.5-2.5 5.5m0 0l5 3m-5-3c.5 2-.5 4.5-2.5 5.5S10 20 9 18" stroke-linecap="round"/></svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 18px; height: 18px;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  )}
+                </span>
+                <span class="login-name">{login.name}</span>
+              </div>
+              <span class="login-desc">{login.subtext}</span>
+            </div>
+          ))}
+        </div>
+
+        <!-- Providers catalog -->
+        <div class="providers-matrix-grid">
+          {bringYourOwn.secondary.providers.map((provider) => (
+            <div class="provider-cell">
+              <span class="provider-text">{provider}</span>
+            </div>
+          ))}
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .byo-layout-08 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+  }
+
+  .byo-layout-08 .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .byo-layout-08 .sidebar-grid {
+    display: flex;
+    gap: var(--space-10);
+    align-items: stretch;
+  }
+
+  .byo-layout-08 .grid-sidebar {
+    width: 30%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    padding-right: var(--space-6);
+  }
+
+  .byo-layout-08 .grid-main {
+    width: 70%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+
+  .byo-layout-08 .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tight);
+    margin: 0;
+  }
+
+  .byo-layout-08 .trailing-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    margin: 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: var(--space-6);
+  }
+
+  /* Logins flat row */
+  .byo-layout-08 .logins-wide-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .byo-layout-08 .login-flat-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: rgba(255, 255, 255, 0.01);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    padding: var(--space-4) var(--space-5);
+    transition: all 0.2s var(--ease-out);
+  }
+
+  .byo-layout-08 .login-flat-card:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .byo-layout-08 .login-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .byo-layout-08 .icon-holder {
+    color: var(--color-accent-primary);
+    display: flex;
+    align-items: center;
+  }
+
+  .byo-layout-08 .login-name {
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    font-weight: 750;
+    color: var(--color-text-primary);
+  }
+
+  .byo-layout-08 .login-desc {
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+  }
+
+  /* Providers matrix */
+  .byo-layout-08 .providers-matrix-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .byo-layout-08 .provider-cell {
+    border: 1px solid rgba(255, 255, 255, 0.02);
+    padding: var(--space-4);
+    text-align: center;
+    transition: all 0.2s var(--ease-out);
+  }
+
+  .byo-layout-08 .provider-cell:hover {
+    background-color: rgba(255, 107, 0, 0.02);
+  }
+
+  .byo-layout-08 .provider-text {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+  }
+
+  .byo-layout-08 .provider-cell:hover .provider-text {
+    color: var(--color-accent-primary);
+  }
+
+  @media (max-width: 860px) {
+    .byo-layout-08 .sidebar-grid {
+      flex-direction: column;
+    }
+    .byo-layout-08 .grid-sidebar, .byo-layout-08 .grid-main {
+      width: 100%;
+      border-right: none;
+      padding-right: 0;
+    }
+    .byo-layout-08 .trailing-title {
+      border-top: none;
+      padding-top: 0;
+      margin-top: var(--space-4);
+    }
+  }
+</style>

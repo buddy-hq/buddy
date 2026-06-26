@@ -1,0 +1,291 @@
+---
+import { content } from "../../../content/site"
+const { capabilities } = content
+---
+
+<div class="cap-layout-04">
+  <div class="container">
+    <div class="dial-tabs-wrapper">
+      
+      <!-- Left side: Selectable capability list -->
+      <div class="dial-list">
+        <h2 class="section-title">{capabilities.headline}</h2>
+        <p class="section-desc">{capabilities.subtext}</p>
+        
+        <div class="cap-selector-group">
+          {capabilities.items.map((item, idx) => (
+            <button class="cap-selector-btn" data-index={idx}>
+              <span class="btn-num">0{idx + 1}</span>
+              <span class="btn-name">{item.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <!-- Right side: IDE code mockup panel -->
+      <div class="ide-sandbox">
+        <div class="ide-header-bar">
+          <div class="ide-dots"><span></span><span></span><span></span></div>
+          <div class="ide-tab-title" id="ide-filename">subagents.json</div>
+        </div>
+        <div class="ide-editor-screen" id="ide-screen">
+          
+          <!-- Code Block 0 (Subagents) -->
+          <pre class="code-block code-0 active"><code><span class="keyword">const</span> subagents = &#123;
+  <span class="property">"goal-writer"</span>: &#123;
+    <span class="property">"tools"</span>: [<span class="string">"search"</span>, <span class="string">"read_file"</span>],
+    <span class="property">"prompt"</span>: <span class="string">"Draft teaching objectives..."</span>
+  &#125;
+&#125;</code></pre>
+
+          <!-- Code Block 1 (MCPs) -->
+          <pre class="code-block code-1 hidden"><code><span class="keyword">const</span> mcpConfig = &#123;
+  <span class="property">"mcpServers"</span>: &#123;
+    <span class="property">"sqlite"</span>: &#123;
+      <span class="property">"command"</span>: <span class="string">"uvx"</span>,
+      <span class="property">"args"</span>: [<span class="string">"mcp-server-sqlite"</span>]
+    &#125;
+  &#125;
+&#125;</code></pre>
+
+          <!-- Code Block 2 (Skills) -->
+          <pre class="code-block code-2 hidden"><code><span class="comment"># Space Repetition capability bundle</span>
+<span class="keyword">name</span>: spaced-repetition
+<span class="keyword">version</span>: 1.0.0
+<span class="keyword">dependencies</span>:
+  - sqlite-adapter@v1.2</code></pre>
+
+          <!-- Code Block 3 (Tools) -->
+          <pre class="code-block code-3 hidden"><code><span class="keyword">const</span> schema = &#123;
+  <span class="property">"name"</span>: <span class="string">"calculate_retention_score"</span>,
+  <span class="property">"description"</span>: <span class="string">"Compute memory decay..."</span>,
+  <span class="property">"parameters"</span>: &#123; <span class="property">"type"</span>: <span class="string">"object"</span> &#125;
+&#125;</code></pre>
+
+          <!-- Code Block 4 (AGENTS.md) -->
+          <pre class="code-block code-4 hidden"><code><span class="comment"># AGENTS.md</span>
+- Buddy is a Bun + TS Monorepo
+- Strict compiling: no casts, no any.
+- Verify using <span class="string">bun typecheck</span></code></pre>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style>
+  .cap-layout-04 {
+    padding: var(--space-12) 0;
+  }
+
+  .container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+  }
+
+  .dial-tabs-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-12);
+  }
+
+  .dial-list {
+    width: 44%;
+  }
+
+  .ide-sandbox {
+    width: 50%;
+    background-color: #0b0908;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: var(--leading-relaxed);
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-3);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  .section-desc {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-8);
+  }
+
+  /* Selector Buttons Group */
+  .cap-selector-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .cap-selector-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    background-color: rgba(255, 255, 255, 0.01);
+    padding: var(--space-4);
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .btn-num {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    transition: color 0.3s var(--ease-out);
+  }
+
+  .btn-name {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    transition: color 0.3s var(--ease-out);
+  }
+
+  /* Interactive active button states */
+  .cap-selector-btn:hover, .cap-selector-btn.btn-active {
+    background-color: rgba(255, 255, 255, 0.02);
+    border-color: rgba(255, 107, 0, 0.25);
+  }
+
+  .cap-selector-btn:hover .btn-num, .cap-selector-btn.btn-active .btn-num {
+    color: var(--color-accent-primary);
+  }
+
+  .cap-selector-btn:hover .btn-name, .cap-selector-btn.btn-active .btn-name {
+    color: var(--color-text-primary);
+  }
+
+  /* IDE Sandbox Window */
+  .ide-header-bar {
+    height: 38px;
+    background-color: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    display: flex;
+    align-items: center;
+    padding-inline: var(--space-4);
+    gap: var(--space-4);
+  }
+
+  .ide-dots {
+    display: flex;
+    gap: 6px;
+  }
+
+  .ide-dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .ide-tab-title {
+    color: var(--color-text-muted);
+    font-size: 10px;
+  }
+
+  .ide-editor-screen {
+    padding: var(--space-5);
+    min-height: 180px;
+  }
+
+  .code-block {
+    margin: 0;
+    color: #e5e5e0;
+  }
+
+  .code-block.hidden {
+    display: none !important;
+  }
+
+  /* Syntax Highlighting */
+  .keyword { color: #ff6b00; font-weight: bold; }
+  .property { color: #f59e0b; }
+  .string { color: #10b981; }
+  .comment { color: rgba(255, 255, 255, 0.25); }
+
+  @media (max-width: 860px) {
+    .dial-tabs-wrapper {
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--space-8);
+    }
+    .dial-list, .ide-sandbox {
+      width: 100%;
+    }
+  }
+</style>
+
+<script>
+  const setupIdeSandbox = () => {
+    const buttons = document.querySelectorAll(".cap-selector-btn")
+    const codeBlocks = document.querySelectorAll(".code-block")
+    const filenameTab = document.getElementById("ide-filename")
+    
+    if (!filenameTab) return
+
+    const filenames = [
+      "subagents.json",
+      "mcp_config.json",
+      "spaced_repetition.yaml",
+      "tool_schema.json",
+      "AGENTS.md"
+    ]
+
+    // Set first active
+    if (buttons.length > 0 && !document.querySelector(".cap-selector-btn.btn-active")) {
+      buttons[0].classList.add("btn-active")
+    }
+
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const index = btn.getAttribute("data-index")
+        
+        buttons.forEach((b) => b.classList.remove("btn-active"))
+        btn.classList.add("btn-active")
+
+        // Set tab filename
+        const idxNum = parseInt(index || "0", 10)
+        filenameTab.textContent = filenames[idxNum]
+
+        // Toggle code screens
+        codeBlocks.forEach((block, bIdx) => {
+          if (String(bIdx) === index) {
+            block.classList.remove("hidden")
+          } else {
+            block.classList.add("hidden")
+          }
+        })
+      })
+    })
+  }
+
+  // Bind handlers
+  setupIdeSandbox()
+
+  // Re-run setup when layout switches
+  document.querySelectorAll(".layout-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      setTimeout(setupIdeSandbox, 50)
+    })
+  })
+</script>

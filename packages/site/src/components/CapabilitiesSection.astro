@@ -1,0 +1,260 @@
+---
+import { content } from "../content/site"
+const { capabilities } = content
+---
+
+<div class="capabilities-section">
+  <div class="container">
+    <div class="bento-header">
+      <h2 class="section-title">{capabilities.headline}</h2>
+      <p class="section-subtext">{capabilities.subtext}</p>
+    </div>
+
+    <!-- Bento Grid -->
+    <div class="bento-grid-wrapper">
+      
+      <!-- Card 1: Subagents (col-span-2) -->
+      <div class="bento-item col-span-2">
+        <div class="bento-inner">
+          <div class="bento-meta">
+            <span class="bento-sys">{capabilities.items[0].name}</span>
+          </div>
+          <p class="bento-desc">{capabilities.items[0].detail}</p>
+          <div class="bento-visual subagents-visual">
+            <div class="subagent-row">
+              <span class="sub-name">goal-writer</span>
+              <span class="sub-status active">ACTIVE</span>
+            </div>
+            <div class="subagent-row">
+              <span class="sub-name">rubric-critic</span>
+              <span class="sub-status idle">IDLE</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: MCPs (col-span-1) -->
+      <div class="bento-item col-span-1">
+        <div class="bento-inner">
+          <div class="bento-meta">
+            <span class="bento-sys">{capabilities.items[1].name}</span>
+          </div>
+          <p class="bento-desc">{capabilities.items[1].detail}</p>
+          <div class="bento-visual mcp-visual">
+            <div class="mcp-server-box">
+              <span class="mcp-label">sqlite://db</span>
+              <span class="mcp-ping"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3: Skills (col-span-1) -->
+      <div class="bento-item col-span-1">
+        <div class="bento-inner">
+          <div class="bento-meta">
+            <span class="bento-sys">{capabilities.items[2].name}</span>
+          </div>
+          <p class="bento-desc">{capabilities.items[2].detail}</p>
+        </div>
+      </div>
+
+      <!-- Card 4: Tools (col-span-1) -->
+      <div class="bento-item col-span-1">
+        <div class="bento-inner">
+          <div class="bento-meta">
+            <span class="bento-sys">{capabilities.items[3].name}</span>
+          </div>
+          <p class="bento-desc">{capabilities.items[3].detail}</p>
+        </div>
+      </div>
+
+      <!-- Card 5: AGENTS.md (col-span-1) -->
+      <div class="bento-item col-span-1">
+        <div class="bento-inner animate-glow-border">
+          <div class="bento-meta">
+            <span class="bento-sys">{capabilities.items[4].name}</span>
+          </div>
+          <p class="bento-desc">{capabilities.items[4].detail}</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style>
+  .capabilities-section {
+    padding: var(--space-12) 0;
+  }
+
+  .text-center {
+    text-align: center;
+  }
+
+  .bento-header {
+    margin-bottom: 96px;
+    text-align: left;
+    max-width: 700px;
+  }
+
+
+
+  .section-subtext {
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
+    line-height: var(--leading-relaxed);
+  }
+
+  /* Bento Grid */
+  .bento-grid-wrapper {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-5);
+  }
+
+  .bento-item {
+    background-color: #0b0908;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 14px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .bento-inner {
+    padding: var(--space-6);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  .bento-item:hover {
+    border-color: rgba(255, 107, 0, 0.25);
+    transform: translateY(-4px);
+    background-color: rgba(255, 255, 255, 0.01);
+  }
+
+  .bento-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+
+  .bento-sys {
+    font-family: var(--font-display);
+    font-size: var(--text-base);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    letter-spacing: var(--tracking-wide);
+  }
+
+  .bento-desc {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    line-height: var(--leading-relaxed);
+    margin-bottom: var(--space-4);
+  }
+
+  /* Grid definitions */
+  .col-span-2 {
+    grid-column: span 2;
+  }
+
+  .col-span-1 {
+    grid-column: span 1;
+  }
+
+  /* Visual features inside cards */
+  .bento-visual {
+    margin-top: auto;
+    background-color: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    padding: var(--space-3);
+    font-family: var(--font-mono);
+    font-size: 9px;
+  }
+
+  .subagents-visual {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .subagent-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.01);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    padding: 6px 10px;
+    border-radius: 4px;
+  }
+
+  .sub-name {
+    color: var(--color-text-secondary);
+  }
+
+  .sub-status {
+    font-size: 8px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .sub-status.active {
+    color: #10b981;
+    background-color: rgba(16, 185, 129, 0.05);
+    border: 1px solid rgba(16, 185, 129, 0.15);
+  }
+
+  .sub-status.idle {
+    color: var(--color-text-muted);
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .mcp-visual {
+    display: flex;
+    justify-content: center;
+    padding-block: var(--space-4);
+  }
+
+  .mcp-server-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: rgba(255, 107, 0, 0.03);
+    border: 1px solid rgba(255, 107, 0, 0.1);
+    padding: 6px 12px;
+    border-radius: 6px;
+    color: var(--color-accent-primary);
+    font-weight: 550;
+  }
+
+  .mcp-ping {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background-color: var(--color-accent-primary);
+    box-shadow: 0 0 6px var(--color-accent-primary);
+  }
+
+  .animate-glow-border {
+    border-color: rgba(255, 107, 0, 0.15) !important;
+    background-color: rgba(255, 107, 0, 0.01) !important;
+  }
+
+  @media (max-width: 768px) {
+    .bento-grid-wrapper {
+      grid-template-columns: 1fr;
+    }
+    .col-span-2 {
+      grid-column: span 1;
+    }
+  }
+</style>

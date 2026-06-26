@@ -20,4 +20,4 @@ Items that couldn't be fixed without external data, assets, or a separate effort
 - [ ] Self-host Outfit + Plus Jakarta Sans fonts (eliminate Google Fonts render-blocking dependency)
 - [ ] Set up `.dmg` / `.exe` direct download links as primary CTA for non-technical users
 - [ ] Make hero badge version dynamic (pull latest release from GitHub Releases API)
-- [ ] Add Open Graph + Twitter Card `<meta>` images for social sharing previews
+- [x] Add Open Graph + Twitter Card `<meta>` images for social sharing previews

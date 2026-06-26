@@ -1,0 +1,524 @@
+---
+import { content } from "../../../content/site"
+const { philosophy } = content
+---
+
+<div class="philosophy-layout-14">
+  <div class="container">
+    <div class="pipeline-container">
+      
+      <!-- Top info -->
+      <div class="pipeline-header">
+        <h2 class="headline">{philosophy.headline}</h2>
+        <div class="pipeline-status-badge" id="p14-system-status">SYSTEM READY</div>
+      </div>
+
+      <!-- Main body layout -->
+      <div class="pipeline-body">
+        
+        <!-- Timeline visual route -->
+        <div class="timeline-visual-wrapper">
+          <div class="timeline-track-rail">
+            <div class="timeline-track-fill" id="p14-timeline-fill" style="width: 0%;"></div>
+          </div>
+          
+          <div class="timeline-checkpoints">
+            <!-- Checkpoint 0: Yours to keep -->
+            <div class="checkpoint-node active" id="p14-node-0" style="left: 0%;">
+              <span class="node-indicator"></span>
+              <span class="node-label">{philosophy.items[0].label}</span>
+            </div>
+            <!-- Checkpoint 1: Yours to shape -->
+            <div class="checkpoint-node" id="p14-node-1" style="left: 50%;">
+              <span class="node-indicator"></span>
+              <span class="node-label">{philosophy.items[1].label}</span>
+            </div>
+            <!-- Checkpoint 2: Yours to control -->
+            <div class="checkpoint-node" id="p14-node-2" style="left: 100%;">
+              <span class="node-indicator"></span>
+              <span class="node-label">{philosophy.items[2].label}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dashboard panel: Live terminal logs and gate switches -->
+        <div class="pipeline-dashboard">
+          
+          <!-- Terminal log output -->
+          <div class="terminal-log-output">
+            <div class="terminal-header-bar">
+              <span class="dot-win close"></span>
+              <span class="dot-win minimize"></span>
+              <span class="dot-win expand"></span>
+              <span class="terminal-title">buddy-consent-daemon.log</span>
+            </div>
+            <div class="terminal-log-body" id="p14-log-body">
+              <div class="log-row info">&gt; Initializing local teaching sandbox...</div>
+              <div class="log-row info">&gt; Session started. Standing by for simulation.</div>
+            </div>
+          </div>
+
+          <!-- Interaction Console (Plays, approves, denies) -->
+          <div class="interaction-console">
+            
+            <div class="play-section">
+              <button class="console-play-btn" id="p14-play-btn" aria-label="Run Authorization Test">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <span class="play-btn-text" id="p14-play-text">RUN SEQUENCE</span>
+              </button>
+            </div>
+
+            <!-- Gate decisions (Hidden until gate is reached) -->
+            <div class="gate-actions-panel hidden" id="p14-gate-actions">
+              <span class="gate-alert-text">USER CONSENT REQUIRED:</span>
+              <div class="decision-row">
+                <button class="decision-btn deny-action" id="p14-btn-deny" aria-label="Deny Consent">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                  <span>DENY</span>
+                </button>
+                <button class="decision-btn approve-action" id="p14-btn-approve" aria-label="Approve Consent">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  <span>APPROVE</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .philosophy-layout-14 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+    background-color: #050505;
+  }
+
+  .philosophy-layout-14 .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .philosophy-layout-14 .pipeline-container {
+    background-color: #090909;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    padding: var(--space-8);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    width: 100%;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  .philosophy-layout-14 .pipeline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+    padding-bottom: var(--space-4);
+  }
+
+  .philosophy-layout-14 .headline {
+    font-family: var(--font-display);
+    font-size: var(--text-base);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .philosophy-layout-14 .pipeline-status-badge {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-weight: 700;
+  }
+
+  .philosophy-layout-14 .pipeline-body {
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+  }
+
+  /* Timeline rail */
+  .philosophy-layout-14 .timeline-visual-wrapper {
+    position: relative;
+    width: 80%;
+    margin: 0 auto;
+    height: 12px;
+  }
+
+  .philosophy-layout-14 .timeline-track-rail {
+    position: absolute;
+    top: 5px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: rgba(255, 255, 255, 0.04);
+  }
+
+  .philosophy-layout-14 .timeline-track-fill {
+    height: 100%;
+    background-color: var(--color-accent-primary);
+    width: 0%;
+  }
+
+  .philosophy-layout-14 .timeline-checkpoints {
+    position: absolute;
+    inset: 0;
+  }
+
+  .philosophy-layout-14 .checkpoint-node {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .philosophy-layout-14 .node-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #090909;
+    border: 1.5px solid rgba(255, 255, 255, 0.15);
+    transition: all 250ms ease;
+  }
+
+  .philosophy-layout-14 .checkpoint-node.active .node-indicator {
+    border-color: var(--color-accent-primary);
+    background-color: var(--color-accent-primary);
+    box-shadow: 0 0 8px var(--color-accent-primary);
+  }
+
+  .philosophy-layout-14 .node-label {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-text-muted);
+    font-weight: 700;
+    white-space: nowrap;
+    transition: color 250ms ease;
+  }
+
+  .philosophy-layout-14 .checkpoint-node.active .node-label {
+    color: var(--color-text-primary);
+  }
+
+  /* Dashboard row */
+  .philosophy-layout-14 .pipeline-dashboard {
+    display: flex;
+    gap: var(--space-4);
+    align-items: stretch;
+  }
+
+  .philosophy-layout-14 .terminal-log-output {
+    flex: 1.2;
+    background-color: #020202;
+    border: 1px solid rgba(255,255,255,0.03);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    min-height: 120px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+
+  .philosophy-layout-14 .terminal-header-bar {
+    background-color: #0a0a0a;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .philosophy-layout-14 .dot-win {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background-color: #333;
+  }
+
+  .philosophy-layout-14 .terminal-title {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-text-muted);
+    margin-left: 8px;
+    font-weight: 700;
+  }
+
+  .philosophy-layout-14 .terminal-log-body {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+  }
+
+  .philosophy-layout-14 .log-row {
+    color: var(--color-text-secondary);
+    line-height: 1.3;
+  }
+
+  .philosophy-layout-14 .log-row.info { color: #888; }
+  .philosophy-layout-14 .log-row.alert { color: var(--color-accent-primary); }
+  .philosophy-layout-14 .log-row.success { color: rgb(74, 222, 128); }
+  .philosophy-layout-14 .log-row.deny { color: rgb(248, 113, 113); }
+
+  /* Interaction console */
+  .philosophy-layout-14 .interaction-console {
+    flex: 0.8;
+    background-color: rgba(255,255,255,0.005);
+    border: 1px solid rgba(255,255,255,0.02);
+    border-radius: 8px;
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .philosophy-layout-14 .console-play-btn {
+    background-color: transparent;
+    border: 1.5px solid var(--color-accent-primary);
+    color: var(--color-accent-primary);
+    border-radius: 6px;
+    padding: var(--space-2.5) var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    transition: all 250ms ease;
+  }
+
+  .philosophy-layout-14 .console-play-btn:hover {
+    background-color: rgba(255,107,0,0.05);
+    box-shadow: 0 0 10px rgba(255,107,0,0.2);
+  }
+
+  .philosophy-layout-14 .console-play-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-color: #333;
+    color: #444;
+  }
+
+  .philosophy-layout-14 .gate-actions-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    animation: slideUpFade 300ms ease;
+  }
+
+  .philosophy-layout-14 .gate-actions-panel.hidden {
+    display: none !important;
+  }
+
+  .philosophy-layout-14 .gate-alert-text {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-accent-primary);
+    font-weight: 700;
+  }
+
+  .philosophy-layout-14 .decision-row {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .philosophy-layout-14 .decision-btn {
+    flex: 1;
+    background-color: #0a0a0a;
+    border: 1px solid #222;
+    border-radius: 6px;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 200ms ease;
+  }
+
+  .philosophy-layout-14 .deny-action {
+    color: rgb(248, 113, 113);
+  }
+  .philosophy-layout-14 .deny-action:hover {
+    background-color: rgba(248, 113, 113, 0.1);
+    border-color: rgb(248, 113, 113);
+  }
+
+  .philosophy-layout-14 .approve-action {
+    color: rgb(74, 222, 128);
+    border-color: rgb(74, 222, 128);
+    box-shadow: 0 0 10px rgba(74, 222, 128, 0.15);
+  }
+  .philosophy-layout-14 .approve-action:hover {
+    background-color: rgba(74, 222, 128, 0.15);
+    box-shadow: 0 0 15px rgba(74, 222, 128, 0.3);
+  }
+
+  @keyframes slideUpFade {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 768px) {
+    .philosophy-layout-14 .pipeline-dashboard {
+      flex-direction: column;
+    }
+  }
+</style>
+
+<script>
+  const setupLayout14 = () => {
+    const playBtn = document.getElementById("p14-play-btn")
+    const playText = document.getElementById("p14-play-text")
+    const fillLine = document.getElementById("p14-timeline-fill")
+    const logBody = document.getElementById("p14-log-body")
+    const systemStatus = document.getElementById("p14-system-status")
+    const gatePanel = document.getElementById("p14-gate-actions")
+    
+    const node1 = document.getElementById("p14-node-1")
+    const node2 = document.getElementById("p14-node-2")
+
+    const btnApprove = document.getElementById("p14-btn-approve")
+    const btnDeny = document.getElementById("p14-btn-deny")
+
+    let currentProgress = 0
+    let timer: ReturnType<typeof setInterval> | null = null
+
+    const addLog = (msg: string, type = "info") => {
+      if (!logBody) return
+      const row = document.createElement("div")
+      row.className = `log-row ${type}`
+      row.textContent = `> ${msg}`
+      logBody.appendChild(row)
+      logBody.scrollTop = logBody.scrollHeight
+    }
+
+    const resetTimeline = () => {
+      currentProgress = 0
+      if (timer) clearInterval(timer)
+      if (fillLine) fillLine.style.width = "0%"
+      if (systemStatus) {
+        systemStatus.textContent = "SYSTEM READY"
+        systemStatus.style.borderColor = "rgba(255, 255, 255, 0.08)"
+        systemStatus.style.color = "var(--color-text-muted)"
+      }
+      node1?.classList.remove("active")
+      node2?.classList.remove("active")
+      gatePanel?.classList.add("hidden")
+      playBtn?.classList.remove("disabled")
+      if (playBtn) playBtn.removeAttribute("disabled")
+    }
+
+    playBtn?.addEventListener("click", () => {
+      if (playBtn.classList.contains("disabled")) return
+      
+      resetTimeline()
+      playBtn.classList.add("disabled")
+      playBtn.setAttribute("disabled", "true")
+      
+      if (systemStatus) {
+        systemStatus.textContent = "EXECUTING ROUTE"
+        systemStatus.style.borderColor = "var(--color-accent-primary)"
+        systemStatus.style.color = "var(--color-accent-primary)"
+      }
+
+      addLog("Starting process authorization test pipeline...", "info")
+      
+      timer = setInterval(() => {
+        currentProgress += 2
+        if (fillLine) fillLine.style.width = `${currentProgress}%`
+
+        if (currentProgress === 50) {
+          node1?.classList.add("active")
+          addLog("Checkpoint 01 passed: Keep bounds local and secure.", "success")
+        }
+
+        if (currentProgress === 100) {
+          if (timer) clearInterval(timer)
+          node2?.classList.add("active")
+          addLog("Checkpoint 02 reached: Consent gateway validation pending...", "alert")
+          
+          if (systemStatus) {
+            systemStatus.textContent = "WAITING ON CONSENT"
+            systemStatus.style.borderColor = "var(--color-accent-primary)"
+            systemStatus.style.color = "var(--color-accent-primary)"
+          }
+
+          gatePanel?.classList.remove("hidden")
+        }
+      }, 50)
+    })
+
+    btnApprove?.addEventListener("click", () => {
+      gatePanel?.classList.add("hidden")
+      addLog("User clicked APPROVE. Authorizing terminal output pipeline...", "success")
+      
+      let finalProgress = 100
+      if (systemStatus) {
+        systemStatus.textContent = "SUCCESS"
+        systemStatus.style.borderColor = "rgb(74, 222, 128)"
+        systemStatus.style.color = "rgb(74, 222, 128)"
+      }
+
+      setTimeout(() => {
+        addLog("Data successfully compiled. Sequence finished securely.", "success")
+        playBtn?.classList.remove("disabled")
+        if (playBtn) playBtn.removeAttribute("disabled")
+      }, 1000)
+    })
+
+    btnDeny?.addEventListener("click", () => {
+      gatePanel?.classList.add("hidden")
+      addLog("User clicked DENY. Access forbidden, sandbox process terminated.", "deny")
+      
+      if (systemStatus) {
+        systemStatus.textContent = "ABORTED"
+        systemStatus.style.borderColor = "rgb(248, 113, 113)"
+        systemStatus.style.color = "rgb(248, 113, 113)"
+      }
+
+      playBtn?.classList.remove("disabled")
+      if (playBtn) playBtn.removeAttribute("disabled")
+    })
+  }
+
+  setupLayout14()
+</script>

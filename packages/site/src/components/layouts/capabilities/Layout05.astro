@@ -1,0 +1,193 @@
+---
+import { content } from "../../../content/site"
+const { capabilities } = content
+---
+
+<div class="cap-layout-05">
+  <div class="container">
+    <h2 class="section-title text-center">{capabilities.headline}</h2>
+    
+    <!-- 3D Sheet Stack -->
+    <div class="sheet-stack-wrapper">
+      {capabilities.items.map((item, idx) => (
+        <div class="sheet-layer" data-index={idx} style={`--layer-index: ${idx + 1};`}>
+          <div class="layer-accent-line"></div>
+          <div class="layer-header">
+            <span class="layer-num">0{idx + 1}</span>
+            <h3 class="layer-title">{item.name}</h3>
+          </div>
+          <div class="layer-body">
+            <p class="layer-desc">{item.detail}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</div>
+
+<style>
+  .cap-layout-05 {
+    padding: var(--space-12) 0;
+  }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+  }
+
+  .text-center {
+    text-align: center;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-12);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  /* 3D layered sheet stack */
+  .sheet-stack-wrapper {
+    position: relative;
+    height: 420px;
+    max-width: 600px;
+    margin: 0 auto;
+    perspective: 1000px;
+  }
+
+  .sheet-layer {
+    position: absolute;
+    width: 100%;
+    background-color: rgba(22, 19, 18, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: var(--space-5) var(--space-6);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    
+    /* 3D sheet layering transform */
+    transform: rotateX(15deg) translateZ(calc((var(--layer-index) - 1) * -40px)) translateY(calc((var(--layer-index) - 1) * 35px));
+    opacity: calc(1 - (var(--layer-index) - 1) * 0.18);
+    z-index: calc(10 - var(--layer-index));
+    
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .layer-accent-line {
+    width: 32px;
+    height: 3px;
+    background-color: var(--color-accent-primary);
+    border-radius: 99px;
+    margin-bottom: var(--space-3);
+    box-shadow: 0 0 8px var(--color-accent-primary);
+    transition: background-color 0.3s var(--ease-out);
+  }
+
+  .sheet-layer:nth-child(even) .layer-accent-line {
+    background-color: var(--color-accent-cool);
+    box-shadow: 0 0 8px var(--color-accent-cool);
+  }
+
+  .layer-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+  }
+
+  .layer-num {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+  }
+
+  .layer-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-secondary);
+    transition: color 0.3s var(--ease-out);
+  }
+
+  .layer-body {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .layer-desc {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  /* Layer focused state */
+  .sheet-layer.active-layer {
+    z-index: 20;
+    opacity: 1;
+    border-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(26, 22, 20, 0.98);
+    transform: rotateX(0deg) translateZ(30px) translateY(0);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 0 0 30px rgba(255, 107, 0, 0.04);
+  }
+
+  .sheet-layer.active-layer .layer-title {
+    color: var(--color-text-primary);
+  }
+
+  .sheet-layer.active-layer .layer-body {
+    max-height: 120px;
+    opacity: 1;
+    padding-top: var(--space-2);
+  }
+</style>
+
+<script>
+  const setupSheetStack = () => {
+    const layers = document.querySelectorAll<HTMLElement>(".sheet-layer")
+
+    // Set first card active by default
+    if (layers.length > 0 && !document.querySelector(".sheet-layer.active-layer")) {
+      layers[0].classList.add("active-layer")
+    }
+
+    layers.forEach((layer) => {
+      layer.addEventListener("click", () => {
+        if (layer.classList.contains("active-layer")) return
+
+        layers.forEach((l) => l.classList.remove("active-layer"))
+        layer.classList.add("active-layer")
+
+        const focusedIndex = Number.parseInt(layer.dataset.index ?? "0", 10)
+
+        layers.forEach((l) => {
+          const idx = Number.parseInt(l.dataset.index ?? "0", 10)
+
+          let diff = idx - focusedIndex
+          if (diff < 0) {
+            diff = diff + 5
+          }
+
+          l.style.setProperty("--layer-index", String(diff + 1))
+        })
+      })
+    })
+  }
+
+  // Bind handlers
+  setupSheetStack()
+
+  // Re-run setup when layout switches
+  document.querySelectorAll(".layout-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      setTimeout(setupSheetStack, 50)
+    })
+  })
+</script>

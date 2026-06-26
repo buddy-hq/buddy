@@ -125,6 +125,7 @@ body {
   font-feature-settings:
     "liga" 1,
     "calt" 1;
+  overflow-x: clip;
 }
 
 /* ============================================================
@@ -158,24 +159,25 @@ h6 {
    SCROLLBAR
    ============================================================ */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--color-bg);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* ============================================================
    SHARED LAYOUT
    ============================================================ */
 .container {
-  max-width: 1140px;
+  max-width: min(75vw, 1436px);
   margin: 0 auto;
   padding: 0 var(--space-6);
 }
@@ -193,11 +195,24 @@ section {
 
 .section-title {
   font-family: var(--font-display);
-  font-size: var(--text-3xl);
+  font-size: 48px;
   font-weight: 700;
   line-height: var(--leading-tight);
   letter-spacing: var(--tracking-tighter);
   margin-bottom: var(--space-4);
+  color: var(--color-text-primary);
+}
+
+@media (max-width: 992px) {
+  .section-title {
+    font-size: 40px;
+  }
+}
+
+@media (max-width: 576px) {
+  .section-title {
+    font-size: 24px;
+  }
 }
 
 /* ============================================================
@@ -261,7 +276,10 @@ section {
 @media (hover: hover) and (pointer: fine) {
   .btn-cta:hover {
     transform: translateY(-1px);
-    box-shadow: 0 8px 24px rgba(255, 107, 0, 0.3);
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.08),
+      0 8px 24px rgba(255, 107, 0, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
   }
   .btn-secondary:hover {
     background-color: rgba(255, 255, 255, 0.1);
@@ -324,6 +342,52 @@ section {
 }
 
 /* ============================================================
+   SWAP — reusable audience content transition
+   Two variants: content swap (text, heavy blur) and media swap (images/mocks, light blur)
+   Usage: render both audiences in DOM, toggle .active class via JS.
+   ============================================================ */
+.swap {
+  opacity: 0;
+  visibility: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+}
+
+.swap.active {
+  opacity: 1;
+  visibility: visible;
+  position: relative;
+  pointer-events: auto;
+}
+
+.swap-content {
+  transition:
+    opacity 1s var(--ease-out),
+    filter 1.2s var(--ease-out),
+    visibility 1s var(--ease-out);
+  filter: blur(12px);
+}
+
+.swap-content.active {
+  filter: blur(0);
+}
+
+.swap-media {
+  transition:
+    opacity 0.8s var(--ease-out),
+    filter 0.9s var(--ease-out),
+    visibility 0.8s var(--ease-out);
+  filter: blur(6px);
+}
+
+.swap-media.active {
+  filter: blur(0);
+}
+
+/* ============================================================
    SHARED KEYFRAMES
    ============================================================ */
 @keyframes fadeInUp {
@@ -374,4 +438,36 @@ section {
     opacity: 1;
     transform: none;
   }
+  .swap {
+    filter: none !important;
+  }
+}
+
+/* ============================================================
+   SECTION SEPARATORS
+   ============================================================ */
+hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  margin: 0 auto;
+  max-width: min(75vw, 1436px);
+  width: 100%;
+}
+
+/* ============================================================
+   SECTION PADDING AND BORDERS
+   ============================================================ */
+.hero,
+.philosophy-section,
+.bookend-cards-stack,
+.capabilities-section,
+.segment-section,
+.install-section {
+  padding-top: var(--space-32) !important;
+  padding-bottom: var(--space-32) !important;
+}
+
+.segment-section,
+.install-section {
+  border-top: none !important;
 }

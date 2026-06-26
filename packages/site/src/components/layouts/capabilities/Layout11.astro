@@ -1,0 +1,873 @@
+---
+import { content } from "../../../content/site"
+const { capabilities } = content
+---
+
+<div class="capabilities-layout-11" id="p11-cap-container">
+  <div class="container">
+    <div class="scroll-split-wrapper">
+      
+      <!-- Left side: Scroll content triggers -->
+      <div class="scroll-content-side">
+        <h2 class="section-headline">{capabilities.headline}</h2>
+        <p class="section-subtext">{capabilities.subtext}</p>
+        <div class="scroll-items-list">
+          {capabilities.items.map((item, idx) => (
+            <div class="scroll-item-trigger-box" data-index={idx} id={`p11-cap-trigger-${idx}`}>
+              <span class="index">CAPABILITY 0{idx + 1}</span>
+              <h3 class="label">{item.name}</h3>
+              <p class="detail">{item.detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- Right side: Sticky IDE Console Panel -->
+      <div class="sticky-visual-side">
+        <div class="sticky-viewport-panel" id="p11-cap-sticky-panel">
+          
+          <!-- Mock IDE Wrapper -->
+          <div class="mock-ide-wrapper">
+            <!-- IDE Title Bar -->
+            <div class="ide-title-bar">
+              <div class="ide-window-dots">
+                <span class="dot close"></span>
+                <span class="dot minimize"></span>
+                <span class="dot expand"></span>
+              </div>
+              <span class="ide-filename">buddy-developer-workspace</span>
+            </div>
+            
+            <!-- IDE Inner Layout -->
+            <div class="ide-inner-layout">
+              
+              <!-- Sidebar File Tree Explorer -->
+              <div class="ide-sidebar">
+                <div class="sidebar-header">EXPLORER</div>
+                <div class="file-tree">
+                  <div class="tree-item folder" id="p11-folder-subagents">
+                    <span class="arrow-icon">▼</span>
+                    <span class="item-name">subagents</span>
+                  </div>
+                  <div class="tree-children">
+                    <div class="tree-item file" id="p11-file-agent-ts">
+                      <span class="bullet-file"></span>
+                      <span class="item-name">research.ts</span>
+                    </div>
+                  </div>
+                  <div class="tree-item folder" id="p11-folder-mcp">
+                    <span class="arrow-icon">▼</span>
+                    <span class="item-name">mcp-bridge</span>
+                  </div>
+                  <div class="tree-item folder" id="p11-folder-skills">
+                    <span class="arrow-icon">▼</span>
+                    <span class="item-name">skills</span>
+                  </div>
+                  <div class="tree-item folder" id="p11-folder-tools">
+                    <span class="arrow-icon">▼</span>
+                    <span class="item-name">tools</span>
+                  </div>
+                  <div class="tree-item file" id="p11-file-agents-md">
+                    <span class="bullet-file"></span>
+                    <span class="item-name">AGENTS.md</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Main Code Workspace Area -->
+              <div class="ide-main-editor">
+                
+                <!-- Active Editor Tab Headers -->
+                <div class="ide-tab-bar">
+                  <div class="ide-tab active" id="p11-tab-header">subagents</div>
+                </div>
+
+                <!-- Tab Editor Contents -->
+                <div class="ide-tab-viewport">
+                  
+                  <!-- Tab 0: Subagents (Process Tree Graph) -->
+                  <div class="ide-view-pane active" id="p11-pane-subagents">
+                    <div class="process-graph">
+                      <svg class="graph-svg" viewBox="0 0 160 100">
+                        <line x1="80" y1="20" x2="40" y2="60" stroke="rgba(255,255,255,0.08)" stroke-width="1.5" />
+                        <line x1="80" y1="20" x2="120" y2="60" stroke="rgba(255,255,255,0.08)" stroke-width="1.5" />
+                        
+                        <!-- Core Buddy -->
+                        <circle cx="80" cy="20" r="7" fill="#090909" stroke="var(--color-accent-primary)" stroke-width="1.5" />
+                        <circle cx="80" cy="20" r="3" fill="var(--color-accent-primary)" />
+                        
+                        <!-- Subagent A (Research) -->
+                        <g class="graph-node-interactive" id="p11-node-research" style="cursor: pointer;">
+                          <circle cx="40" cy="60" r="6" fill="#090909" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
+                          <circle cx="40" cy="60" r="2" fill="rgba(255,255,255,0.2)" />
+                        </g>
+
+                        <!-- Subagent B (Coder) -->
+                        <g class="graph-node-interactive" id="p11-node-coder" style="cursor: pointer;">
+                          <circle cx="120" cy="60" r="6" fill="#090909" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
+                          <circle cx="120" cy="60" r="2" fill="rgba(255,255,255,0.2)" />
+                        </g>
+                      </svg>
+                    </div>
+                    <div class="pane-helper-text">HOVER NODE TO INSPECT SUBAGENT</div>
+                  </div>
+
+                  <!-- Tab 1: MCP Bridge Panel -->
+                  <div class="ide-view-pane" id="p11-pane-mcp">
+                    <div class="mcp-servers-grid">
+                      <div class="mcp-server-row">
+                        <div class="mcp-server-meta">
+                          <span class="mcp-name">filesystem-bridge</span>
+                          <span class="mcp-status offline" id="p11-mcp-status-fs">OFFLINE</span>
+                        </div>
+                        <button class="mcp-connect-toggle" id="p11-mcp-btn-fs" aria-label="Toggle Filesystem MCP">CONNECT</button>
+                      </div>
+                      <div class="mcp-server-row">
+                        <div class="mcp-server-meta">
+                          <span class="mcp-name">sqlite-database</span>
+                          <span class="mcp-status offline" id="p11-mcp-status-db">OFFLINE</span>
+                        </div>
+                        <button class="mcp-connect-toggle" id="p11-mcp-btn-db" aria-label="Toggle SQLite MCP">CONNECT</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Tab 2: Skills Compiler -->
+                  <div class="ide-view-pane" id="p11-pane-skills">
+                    <div class="skills-code-editor">
+                      <div class="code-editor-lines">
+                        <div><span class="line-num">1</span><span class="keyword">import</span> &#123; Skill &#125; <span class="keyword">from</span> <span class="string">"buddy/sdk"</span></div>
+                        <div><span class="line-num">2</span><span class="keyword">export const</span> <span class="def">readSkill</span> = Skill.define(&#123;</div>
+                        <div><span class="line-num">3</span>  name: <span class="string">"doc-reader"</span></div>
+                        <div><span class="line-num">4</span>&#125;)</div>
+                      </div>
+                      <button class="skill-run-btn" id="p11-skill-run-btn" aria-label="Run Code Skill">
+                        <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
+                          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        <span>COMPILE SKILL</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Tab 3: Tools Grid -->
+                  <div class="ide-view-pane" id="p11-pane-tools">
+                    <div class="tools-grid-box">
+                      <button class="tool-cell-btn" data-tool="terminal" aria-label="Execute Terminal tool">
+                        <span class="tool-icon">🐚</span>
+                        <span class="tool-label">TERMINAL</span>
+                      </button>
+                      <button class="tool-cell-btn" data-tool="web" aria-label="Execute Web Search tool">
+                        <span class="tool-icon">🌐</span>
+                        <span class="tool-label">WEB_SEARCH</span>
+                      </button>
+                      <button class="tool-cell-btn" data-tool="files" aria-label="Execute File system tool">
+                        <span class="tool-icon">📁</span>
+                        <span class="tool-label">FS_READ</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Tab 4: AGENTS.md Config -->
+                  <div class="ide-view-pane" id="p11-pane-agents">
+                    <div class="markdown-rules-list">
+                      <div class="rule-checkbox-row">
+                        <input type="checkbox" id="p11-rule-local" checked class="rule-cb" />
+                        <label for="p11-rule-local" class="rule-label">Perform loop inside local home directory state</label>
+                      </div>
+                      <div class="rule-checkbox-row">
+                        <input type="checkbox" id="p11-rule-debug" class="rule-cb" />
+                        <label for="p11-rule-debug" class="rule-label">Expose subagent connection sockets</label>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                <!-- Shared Terminal Console Output -->
+                <div class="ide-terminal">
+                  <div class="terminal-bar">TERMINAL</div>
+                  <div class="terminal-log-lines" id="p11-terminal-logs">
+                    <div class="term-log-row">&gt; Standing by...</div>
+                  </div>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .capabilities-layout-11 {
+    width: 100%;
+    background-color: #050505;
+    position: relative;
+    padding-bottom: var(--space-20);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  }
+
+  .capabilities-layout-11 .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .capabilities-layout-11 .scroll-split-wrapper {
+    display: flex;
+    gap: var(--space-10);
+    width: 100%;
+    position: relative;
+  }
+
+  /* Left Side scroll triggers */
+  .capabilities-layout-11 .scroll-content-side {
+    width: 45%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .capabilities-layout-11 .section-headline {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 2.5rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.15;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+    padding-top: var(--space-12);
+  }
+
+  .capabilities-layout-11 .section-subtext {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    margin-top: 4px;
+    margin-bottom: 24px;
+  }
+
+  .capabilities-layout-11 .scroll-items-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .capabilities-layout-11 .scroll-item-trigger-box {
+    min-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-3);
+    opacity: 0.15;
+    transition: opacity 350ms cubic-bezier(0.16, 1, 0.3, 1), transform 350ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .capabilities-layout-11 .scroll-item-trigger-box.active {
+    opacity: 1;
+    transform: translateX(4px);
+  }
+
+  .capabilities-layout-11 .index {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-accent-primary);
+    font-weight: 700;
+  }
+
+  .capabilities-layout-11 .label {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .capabilities-layout-11 .detail {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  /* Right Side sticky IDE */
+  .capabilities-layout-11 .sticky-visual-side {
+    width: 55%;
+    position: relative;
+  }
+
+  .capabilities-layout-11 .sticky-viewport-panel {
+    position: sticky;
+    top: 150px;
+    height: 380px;
+    background-color: #090909;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+  }
+
+  .capabilities-layout-11 .mock-ide-wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .capabilities-layout-11 .ide-title-bar {
+    background-color: #030303;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .capabilities-layout-11 .ide-window-dots {
+    display: flex;
+    gap: 5px;
+  }
+
+  .capabilities-layout-11 .dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background-color: #222;
+  }
+
+  .capabilities-layout-11 .ide-filename {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-text-muted);
+    font-weight: 700;
+  }
+
+  .capabilities-layout-11 .ide-inner-layout {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* IDE Sidebar File Tree */
+  .capabilities-layout-11 .ide-sidebar {
+    width: 110px;
+    background-color: #070707;
+    border-right: 1px solid rgba(255, 255, 255, 0.02);
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+  }
+
+  .capabilities-layout-11 .sidebar-header {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-text-muted);
+    font-weight: bold;
+    margin-bottom: 6px;
+    letter-spacing: 0.05em;
+  }
+
+  .capabilities-layout-11 .file-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .capabilities-layout-11 .tree-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background-color 150ms ease;
+  }
+
+  .capabilities-layout-11 .tree-item:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+
+  .capabilities-layout-11 .tree-item.active {
+    background-color: rgba(255, 107, 0, 0.08);
+  }
+
+  .capabilities-layout-11 .arrow-icon {
+    font-size: 6px;
+    color: #444;
+  }
+
+  .capabilities-layout-11 .bullet-file {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background-color: #666;
+    margin-left: 3px;
+  }
+
+  .capabilities-layout-11 .item-name {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-text-secondary);
+  }
+
+  .capabilities-layout-11 .tree-children {
+    padding-left: 10px;
+  }
+
+  /* IDE main workspace */
+  .capabilities-layout-11 .ide-main-editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .capabilities-layout-11 .ide-tab-bar {
+    background-color: #050505;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+    display: flex;
+    height: 24px;
+  }
+
+  .capabilities-layout-11 .ide-tab {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    padding: 0 12px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    color: var(--color-text-muted);
+    border-right: 1px solid rgba(255, 255, 255, 0.02);
+    font-weight: 700;
+  }
+
+  .capabilities-layout-11 .ide-tab.active {
+    background-color: #090909;
+    color: var(--color-accent-primary);
+  }
+
+  .capabilities-layout-11 .ide-tab-viewport {
+    flex: 1.2;
+    padding: var(--space-4);
+    position: relative;
+    overflow-y: auto;
+  }
+
+  .capabilities-layout-11 .ide-view-pane {
+    width: 100%;
+    height: 100%;
+    display: none;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .capabilities-layout-11 .ide-view-pane.active {
+    display: flex;
+  }
+
+  /* View Pane 0: Subagents graph */
+  .capabilities-layout-11 .process-graph {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .capabilities-layout-11 .graph-svg {
+    width: 160px;
+    height: 100px;
+  }
+
+  .capabilities-layout-11 .graph-node-interactive:hover circle {
+    stroke: var(--color-accent-primary);
+  }
+
+  .capabilities-layout-11 .pane-helper-text {
+    font-family: var(--font-mono);
+    font-size: 7px;
+    color: #444;
+    text-align: center;
+    font-weight: 700;
+  }
+
+  /* View Pane 1: MCP list */
+  .capabilities-layout-11 .mcp-servers-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .capabilities-layout-11 .mcp-server-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.02);
+    padding: 6px 10px;
+    border-radius: 6px;
+  }
+
+  .capabilities-layout-11 .mcp-server-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .capabilities-layout-11 .mcp-name {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-text-secondary);
+    font-weight: 700;
+  }
+
+  .capabilities-layout-11 .mcp-status {
+    font-family: var(--font-mono);
+    font-size: 7px;
+    font-weight: 700;
+  }
+
+  .capabilities-layout-11 .mcp-status.offline { color: rgb(248, 113, 113); }
+  .capabilities-layout-11 .mcp-status.online { color: rgb(74, 222, 128); }
+
+  .capabilities-layout-11 .mcp-connect-toggle {
+    background-color: transparent;
+    border: 1px dashed rgba(255,255,255,0.15);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 7px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 150ms ease;
+  }
+
+  .capabilities-layout-11 .mcp-connect-toggle:hover {
+    border-style: solid;
+    color: var(--color-text-primary);
+  }
+
+  .capabilities-layout-11 .mcp-connect-toggle.connected {
+    border-color: rgb(74, 222, 128);
+    background-color: rgba(74, 222, 128, 0.05);
+    color: rgb(74, 222, 128);
+    border-style: solid;
+  }
+
+  /* View Pane 2: Skills Compiler */
+  .capabilities-layout-11 .skills-code-editor {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    height: 100%;
+    justify-content: space-between;
+  }
+
+  .capabilities-layout-11 .code-editor-lines {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    line-height: 1.4;
+    color: #888;
+  }
+
+  .capabilities-layout-11 .keyword { color: #f43f5e; }
+  .capabilities-layout-11 .string { color: #34d399; }
+  .capabilities-layout-11 .def { color: #60a5fa; }
+  .capabilities-layout-11 .line-num {
+    display: inline-block;
+    width: 14px;
+    color: #444;
+  }
+
+  .capabilities-layout-11 .skill-run-btn {
+    align-self: flex-start;
+    background-color: transparent;
+    border: 1.5px solid var(--color-accent-primary);
+    color: var(--color-accent-primary);
+    border-radius: 4px;
+    padding: 4px 10px;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 150ms ease;
+  }
+
+  .capabilities-layout-11 .skill-run-btn:hover {
+    background-color: rgba(255, 107, 0, 0.05);
+  }
+
+  /* View Pane 3: Tools Grid */
+  .capabilities-layout-11 .tools-grid-box {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .capabilities-layout-11 .tool-cell-btn {
+    background-color: #0c0c0c;
+    border: 1px solid rgba(255,255,255,0.02);
+    border-radius: 6px;
+    padding: 12px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .capabilities-layout-11 .tool-cell-btn:hover {
+    border-color: var(--color-accent-primary);
+    background-color: rgba(255, 107, 0, 0.02);
+  }
+
+  .capabilities-layout-11 .tool-icon {
+    font-size: 12px;
+  }
+
+  .capabilities-layout-11 .tool-label {
+    font-family: var(--font-mono);
+    font-size: 7px;
+    color: var(--color-text-secondary);
+    font-weight: 700;
+  }
+
+  /* View Pane 4: AGENTS.md rule checks */
+  .capabilities-layout-11 .markdown-rules-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .capabilities-layout-11 .rule-checkbox-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .capabilities-layout-11 .rule-cb {
+    margin-top: 2px;
+    cursor: pointer;
+    accent-color: var(--color-accent-primary);
+  }
+
+  .capabilities-layout-11 .rule-label {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-text-secondary);
+    line-height: 1.3;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  /* IDE Terminal shared */
+  .capabilities-layout-11 .ide-terminal {
+    flex: 0.8;
+    background-color: #020202;
+    border-top: 1px solid rgba(255, 255, 255, 0.02);
+    display: flex;
+    flex-direction: column;
+    padding: 6px var(--space-4);
+  }
+
+  .capabilities-layout-11 .terminal-bar {
+    font-family: var(--font-mono);
+    font-size: 7px;
+    color: var(--color-text-muted);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .capabilities-layout-11 .terminal-log-lines {
+    flex: 1;
+    overflow-y: auto;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: #777;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .capabilities-layout-11 .term-log-row {
+    line-height: 1.3;
+  }
+
+  .capabilities-layout-11 .term-log-row.highlight {
+    color: var(--color-accent-primary);
+  }
+
+  @media (max-width: 900px) {
+    .capabilities-layout-11 .scroll-split-wrapper {
+      flex-direction: column;
+    }
+    .capabilities-layout-11 .scroll-content-side,
+    .capabilities-layout-11 .sticky-visual-side {
+      width: 100%;
+    }
+    .capabilities-layout-11 .sticky-viewport-panel {
+      position: relative;
+      top: 0;
+    }
+    .capabilities-layout-11 .scroll-item-trigger-box {
+      min-height: auto;
+      padding-block: var(--space-6);
+    }
+  }
+</style>
+
+<script>
+  const setupCapabilitiesLayout11 = () => {
+    const triggers = document.querySelectorAll(".capabilities-layout-11 .scroll-item-trigger-box")
+    const viewport = document.getElementById("p11-cap-sticky-panel")
+    
+    // Explorer node mappings
+    const folderSubagents = document.getElementById("p11-folder-subagents")
+    const folderMcp = document.getElementById("p11-folder-mcp")
+    const folderSkills = document.getElementById("p11-folder-skills")
+    const folderTools = document.getElementById("p11-folder-tools")
+    const fileAgents = document.getElementById("p11-file-agents-md")
+
+    const tabs = ["subagents", "mcp", "skills", "tools", "agents"]
+    const sidebarItems = [folderSubagents, folderMcp, folderSkills, folderTools, fileAgents]
+
+    const tabHeader = document.getElementById("p11-tab-header")
+    const panes = document.querySelectorAll(".capabilities-layout-11 .ide-view-pane")
+    const terminalLogs = document.getElementById("p11-terminal-logs")
+
+    const appendTermLog = (msg: string, isAccent = false) => {
+      if (!terminalLogs) return
+      const row = document.createElement("div")
+      row.className = `term-log-row ${isAccent ? 'highlight' : ''}`
+      row.textContent = `&gt; ${msg}`
+      terminalLogs.appendChild(row)
+      terminalLogs.scrollTop = terminalLogs.scrollHeight
+    }
+
+    const switchIDEToTab = (idx: number) => {
+      // Update tab header text
+      if (tabHeader) {
+        tabHeader.textContent = tabs[idx] === "agents" ? "AGENTS.md" : tabs[idx]
+      }
+
+      // Highlight explorer element
+      sidebarItems.forEach((item) => item?.classList.remove("active"))
+      sidebarItems[idx]?.classList.add("active")
+
+      // Update panes visibility
+      panes.forEach((pane) => pane.classList.remove("active"))
+      const targetPane = document.getElementById(`p11-pane-${tabs[idx]}`)
+      if (targetPane) targetPane.classList.add("active")
+
+      appendTermLog(`Switched IDE focus to: ${tabs[idx]} module`, false)
+    }
+
+    // Scroll trigger observer setup
+    const observerOptions = {
+      root: null,
+      rootMargin: "0px 0px -50% 0px",
+      threshold: 0.2
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const idx = parseInt(entry.target.getAttribute("data-index") || "0")
+          triggers.forEach((t) => t.classList.remove("active"))
+          entry.target.classList.add("active")
+          switchIDEToTab(idx)
+        }
+      })
+    }, observerOptions)
+
+    triggers.forEach((trigger) => observer.observe(trigger))
+
+    // Interactive Tab 0: Subagent inspect details
+    const nodeResearch = document.getElementById("p11-node-research")
+    const nodeCoder = document.getElementById("p11-node-coder")
+
+    nodeResearch?.addEventListener("mouseenter", () => {
+      appendTermLog("Inspecting node: research subagent (tools: terminal, search)", true)
+    })
+
+    nodeCoder?.addEventListener("mouseenter", () => {
+      appendTermLog("Inspecting node: developer subagent (tools: file-edit, linter)", true)
+    })
+
+    // Interactive Tab 1: MCP Server connections
+    const setupMcpRow = (btnId: string, statusId: string, serverName: string) => {
+      const btn = document.getElementById(btnId)
+      const status = document.getElementById(statusId)
+      let isConnected = false
+
+      btn?.addEventListener("click", () => {
+        isConnected = !isConnected
+        if (isConnected) {
+          btn.textContent = "DISCONNECT"
+          btn.classList.add("connected")
+          if (status) {
+            status.textContent = "CONNECTED"
+            status.className = "mcp-status online"
+          }
+          appendTermLog(`MCP Server [${serverName}] bound successfully.`, true)
+        } else {
+          btn.textContent = "CONNECT"
+          btn.classList.remove("connected")
+          if (status) {
+            status.textContent = "OFFLINE"
+            status.className = "mcp-status offline"
+          }
+          appendTermLog(`MCP Server [${serverName}] connection closed.`, false)
+        }
+      })
+    }
+
+    setupMcpRow("p11-mcp-btn-fs", "p11-mcp-status-fs", "filesystem-bridge")
+    setupMcpRow("p11-mcp-btn-db", "p11-mcp-status-db", "sqlite-database")
+
+    // Interactive Tab 2: Skills compile script running
+    const skillRunBtn = document.getElementById("p11-skill-run-btn")
+    skillRunBtn?.addEventListener("click", () => {
+      appendTermLog("Bundling skill 'doc-reader'...", false)
+      setTimeout(() => {
+        appendTermLog("Skill compiled: doc-reader.js successfully staged.", true)
+      }, 800)
+    })
+
+    // Interactive Tab 3: Tools trigger mock scripts
+    const toolBtns = document.querySelectorAll(".tool-cell-btn")
+    toolBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const toolName = btn.getAttribute("data-tool")
+        appendTermLog(`Executing capability tool: ${toolName}...`, true)
+        setTimeout(() => {
+          appendTermLog(`Tool [${toolName}] execution completed successfully.`, false)
+        }, 600)
+      })
+    })
+
+    // Interactive Tab 4: AGENTS.md instruction toggles
+    const ruleLocal = document.getElementById("p11-rule-local") as HTMLInputElement
+    const ruleDebug = document.getElementById("p11-rule-debug") as HTMLInputElement
+
+    ruleLocal?.addEventListener("change", () => {
+      appendTermLog(`Rule local-first configuration: ${ruleLocal.checked ? 'ENABLED' : 'DISABLED'}`, true)
+    })
+
+    ruleDebug?.addEventListener("change", () => {
+      appendTermLog(`Rule socket debugging exposure: ${ruleDebug.checked ? 'ENABLED' : 'DISABLED'}`, true)
+    })
+  }
+
+  setupCapabilitiesLayout11()
+</script>

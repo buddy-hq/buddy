@@ -1,0 +1,85 @@
+---
+interface Props {
+  title: string
+  description: string
+}
+
+const { title, description } = Astro.props
+const titleSegments = title.split(" · ")
+---
+
+<div class="byo-option">
+  <div class="byo-option-row">
+    <div class="byo-option-marker">
+      <slot name="marker" />
+    </div>
+    <h3 class="byo-option-title">
+      {titleSegments.map((segment, index) => (
+        <>
+          {index > 0 ? <span class="byo-option-separator">·</span> : null}
+          {segment}
+        </>
+      ))}
+    </h3>
+  </div>
+  <p class="byo-option-description">{description}</p>
+</div>
+
+<style is:global>
+  .byo-option {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-12);
+  }
+
+  .byo-option-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .byo-option-marker {
+    width: 45px;
+    height: 28px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .byo-option-marker-text {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 750;
+    color: var(--color-text-muted);
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .byo-option-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .byo-option-separator {
+    margin: 0 0.4em;
+  }
+
+  .byo-option-description {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+    margin-left: calc(45px + var(--space-3));
+  }
+
+  .byo-option-marker svg {
+    width: 28px;
+    height: 28px;
+    color: var(--color-text-muted);
+  }
+</style>

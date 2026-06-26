@@ -2,23 +2,30 @@
 import Landing from "../layouts/Landing.astro"
 import Header from "../components/Header.astro"
 import Hero from "../components/Hero.astro"
-import SocraticDemo from "../components/SocraticDemo.astro"
-import BentoFeatures from "../components/BentoFeatures.astro"
-import AudienceTabs from "../components/AudienceTabs.astro"
+import PhilosophySection from "../components/PhilosophySection.astro"
+import FeatureSteps from "../components/features/FeatureSteps.astro"
+import CapabilitiesSection from "../components/CapabilitiesSection.astro"
+import BringYourOwn from "../components/BringYourOwn.astro"
 import InstallSection from "../components/InstallSection.astro"
-import FaqSection from "../components/FaqSection.astro"
 import Footer from "../components/Footer.astro"
+
+export const prerender = true
 ---
 
 <Landing>
   <Header />
   <main>
     <Hero />
-    <SocraticDemo />
-    <BentoFeatures />
-    <AudienceTabs />
+    <hr />
+    <PhilosophySection />
+    <hr />
+    <FeatureSteps />
+    <hr />
+    <CapabilitiesSection />
+    <hr />
+    <BringYourOwn />
+    <hr />
     <InstallSection />
-    <FaqSection />
   </main>
   <Footer />
 </Landing>

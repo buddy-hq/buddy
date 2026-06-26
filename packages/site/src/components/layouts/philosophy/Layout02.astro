@@ -1,0 +1,237 @@
+---
+import { content } from "../../../content/site"
+const { philosophy } = content
+---
+
+<div class="philosophy-layout-02">
+  <div class="container">
+    <div class="preferences-panel-wrapper">
+      
+      <!-- Left Heading side -->
+      <div class="preferences-info">
+        <span class="control-tag">CONSTITUTION / PRIVACY</span>
+        <h2 class="section-title">{philosophy.headline}</h2>
+        <p class="section-desc">
+          We don't sell your data, we don't sync your library to a cloud server, and we never ask for your email address. You possess your data completely, and you decide which components run.
+        </p>
+      </div>
+
+      <!-- Right Control Toggles side -->
+      <div class="preferences-box">
+        <div class="panel-window-bar">
+          <div class="dot-switches"><span></span><span></span><span></span></div>
+          <div class="panel-window-title">Preferences.app</div>
+        </div>
+        <div class="panel-options-list">
+          {philosophy.items.map((item, idx) => (
+            <div class="toggle-option-row">
+              <div class="toggle-text-left">
+                <span class="toggle-option-title">{item.label}</span>
+                <span class="toggle-option-desc">{item.detail}</span>
+              </div>
+              <div class="toggle-switch-wrapper">
+                <label class="switch">
+                  <input type="checkbox" checked={idx !== 2} />
+                  <span class="slider round"></span>
+                </label>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style>
+  .philosophy-layout-02 {
+    padding: var(--space-12) 0;
+  }
+
+  .container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+  }
+
+  .preferences-panel-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-10);
+  }
+
+  .preferences-info {
+    width: 46%;
+  }
+
+  .preferences-box {
+    width: 48%;
+    background-color: #0b0908;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+  }
+
+  .control-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: 0.1em;
+    color: var(--color-accent-primary);
+    text-transform: uppercase;
+    margin-bottom: var(--space-4);
+    display: inline-block;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-4);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  .section-desc {
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
+    line-height: var(--leading-relaxed);
+  }
+
+  /* Preference Panel Window */
+  .panel-window-bar {
+    height: 36px;
+    background-color: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    display: flex;
+    align-items: center;
+    padding-inline: var(--space-4);
+    position: relative;
+  }
+
+  .dot-switches {
+    display: flex;
+    gap: 6px;
+  }
+
+  .dot-switches span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .panel-window-title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    color: var(--color-text-muted);
+    font-size: 10px;
+    font-family: var(--font-mono);
+  }
+
+  .panel-options-list {
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+
+  .toggle-option-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .toggle-text-left {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .toggle-option-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  .toggle-option-desc {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    line-height: var(--leading-normal);
+    max-width: 32ch;
+  }
+
+  /* Toggle Switch (Checkbox Slider) */
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 38px;
+    height: 20px;
+  }
+
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: .3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 2px;
+    bottom: 2px;
+    background-color: var(--color-text-muted);
+    transition: .3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  input:checked + .slider {
+    background-color: rgba(255, 107, 0, 0.15);
+    border-color: rgba(255, 107, 0, 0.3);
+  }
+
+  input:checked + .slider:before {
+    background-color: var(--color-accent-primary);
+    transform: translateX(18px);
+  }
+
+  /* Rounded sliders */
+  .slider.round {
+    border-radius: 34px;
+  }
+
+  .slider.round:before {
+    border-radius: 50%;
+  }
+
+  @media (max-width: 860px) {
+    .preferences-panel-wrapper {
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--space-8);
+    }
+    .preferences-info, .preferences-box {
+      width: 100%;
+    }
+  }
+</style>

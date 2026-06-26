@@ -1,0 +1,41 @@
+---
+// Chat sub-pane for BuddyWorkspaceMock
+---
+<!-- Surface 2: Chat Pane -->
+<section class="surface-chat">
+  <!-- Floating sidebar toggle button (visible when sidebar is closed) -->
+  <div class="floating-sidebar-toggle">
+    <button type="button" class="circle-btn" id="floating-toggle-btn" title="Toggle Sidebar">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="9" y1="3" x2="9" y2="21"></line>
+      </svg>
+    </button>
+  </div>
+  <div class="chat-feed" id="chat-feed-container">
+    <!-- Messages will be populated by JavaScript -->
+  </div>
+
+  <div class="chat-footer">
+    <form class="chat-input-form" id="mockup-chat-form">
+      <div class="chat-input-area">
+        <textarea class="chat-input" placeholder="Ask Buddy..." id="mockup-chat-input" rows="1"></textarea>
+        <div class="chat-input-bottom">
+          <div class="model-select-trigger">
+            <span>GPT-5</span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+          <button type="submit" class="send-btn" aria-label="Send message" id="chat-submit-btn">
+            <svg class="icon-send" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+            <svg class="icon-stop" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+              <rect x="4" y="4" width="16" height="16" rx="2" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</section>

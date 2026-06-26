@@ -1,0 +1,166 @@
+---
+const steps = [
+  {
+    num: "01",
+    tag: "INGEST",
+    title: "Lorem ipsum dolor sit amet",
+    subtext: "Consectetur adipiscing elit. Phasellus imperdiet, nulla et dictum interdum, nisi lorem egestas vitae.",
+    mockTitle: "workspace_import.json"
+  },
+  {
+    num: "02",
+    tag: "INTERACT",
+    title: "Sodales tempor convallis vel",
+    subtext: "Curabitur vulputate porta dui vel finibus. Class aptent taciti sociosqu ad litora torquent per conubia nostra.",
+    mockTitle: "socratic_dialogue.py"
+  },
+  {
+    num: "03",
+    tag: "RETAIN",
+    title: "Aliquam erat volutpat suspendisse",
+    subtext: "Integer elementum, lorem ut luctus hendrerit, ante sem rhoncus sem, ac sollicitudin ante lorem et magna.",
+    mockTitle: "spaced_repetition.db"
+  }
+]
+---
+
+<div class="scroll-spy-grid">
+  <div class="spy-left-content">
+    {steps.map((step, i) => (
+      <div class="spy-step-block" data-step-index={i}>
+        <div class="step-meta">
+          <span class="step-number" data-numeric>{step.num}</span>
+          <span class="step-tag">{step.tag}</span>
+        </div>
+        <h3 class="step-title">{step.title}</h3>
+        <p class="step-desc">{step.subtext}</p>
+      </div>
+    ))}
+  </div>
+
+  <div class="spy-right-sticky">
+    <div class="sticky-mockup-wrapper">
+      <div class="mockup-header-bar">
+        <div class="mockup-dots"><span></span><span></span><span></span></div>
+        <div class="mockup-tab-title" id="spy-tab-title">workspace_import.json</div>
+      </div>
+      <div class="mockup-viewport">
+        <div class="viewport-stage active" id="spy-stage-0">
+          <div class="mock-import-box">
+            <div class="mock-drag-zone">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              <span>Drag material to index</span>
+            </div>
+            <div class="mock-file-list">
+              <div class="file-row">📄 textbook_chapter_4.pdf <span class="size">14.2 MB</span></div>
+              <div class="file-row">📄 chemistry_syllabus.docx <span class="size">1.8 MB</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="viewport-stage" id="spy-stage-1">
+          <div class="mock-chat-box">
+            <div class="chat-bubble bot">Lorem ipsum dolor sit amet?</div>
+            <div class="chat-bubble user">Consectetur adipiscing elit.</div>
+            <div class="chat-input-line">
+              <span>Ask Buddy...</span>
+              <kbd>⌘K</kbd>
+            </div>
+          </div>
+        </div>
+        <div class="viewport-stage" id="spy-stage-2">
+          <div class="mock-recall-box">
+            <div class="flashcard-preview">
+              <div class="flashcard-front">
+                <span class="badge-mini">QUESTION 14</span>
+                <p>Quisque cursus imperdiet tristique?</p>
+              </div>
+            </div>
+            <div class="recall-stats">
+              <div class="stat-bar"><div class="fill" style="width: 78%"></div></div>
+              <span class="stat-label">Daily Retention: 78%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .scroll-spy-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-16);
+    align-items: start;
+    position: relative;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .spy-left-content {
+    display: flex;
+    flex-direction: column;
+    gap: 35vh;
+    padding-bottom: 25vh;
+  }
+
+  .spy-step-block {
+    opacity: 0.3;
+    transform: translateY(20px);
+    transition: opacity 0.5s var(--ease-out), transform 0.5s var(--ease-out);
+    padding-block: var(--space-4);
+  }
+
+  .spy-step-block.active {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .spy-right-sticky {
+    position: sticky;
+    top: 200px;
+    padding-block: var(--space-6);
+  }
+</style>
+
+<script>
+  // Scrollspy logic
+  const spyBlockElements = document.querySelectorAll(".spy-step-block")
+  const spyStages = document.querySelectorAll("[id^='spy-stage-']")
+  const spyTabTitle = document.getElementById("spy-tab-title")
+
+  const titles = [
+    "workspace_import.json",
+    "socratic_dialogue.py",
+    "spaced_repetition.db"
+  ]
+
+  const observerOptions = {
+    root: null,
+    rootMargin: "-20% 0px -40% 0px",
+    threshold: 0.1
+  }
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        const indexStr = entry.target.getAttribute("data-step-index")
+        if (indexStr === null) return
+        const index = parseInt(indexStr, 10)
+
+        spyBlockElements.forEach((el) => el.classList.remove("active"))
+        entry.target.classList.add("active")
+
+        spyStages.forEach((stage, sIdx) => {
+          stage.classList.toggle("active", sIdx === index)
+        })
+
+        if (spyTabTitle) {
+          spyTabTitle.textContent = titles[index] || ""
+        }
+      }
+    })
+  }, observerOptions)
+
+  spyBlockElements.forEach((block) => observer.observe(block))
+</script>

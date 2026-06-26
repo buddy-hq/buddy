@@ -1,0 +1,375 @@
+---
+import { content } from "../../../content/site"
+const { philosophy } = content
+---
+
+<div class="philosophy-layout-04">
+  <div class="container">
+    <div class="splitscreen-wrapper">
+      
+      <!-- Left side: philosophy text items -->
+      <div class="splitscreen-left">
+        <h2 class="section-title">{philosophy.headline}</h2>
+        <div class="philosophy-hover-list">
+          {philosophy.items.map((item, idx) => (
+            <div class="splitscreen-item" data-index={idx}>
+              <div class="item-index">0{idx + 1}</div>
+              <div class="item-text">
+                <h3 class="item-title">{item.label}</h3>
+                <p class="item-desc">{item.detail}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- Right side: abstract graphic animations -->
+      <div class="splitscreen-right">
+        <div class="graphic-stage">
+          
+          <!-- Graphic 1: Yours to Keep (Locked circle) -->
+          <div class="abstract-graphic graphic-0 active">
+            <div class="concentric-circle ring-outer"></div>
+            <div class="concentric-circle ring-middle"></div>
+            <div class="concentric-circle ring-inner">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="lock-svg"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            </div>
+          </div>
+
+          <!-- Graphic 2: Yours to Shape (Modular dots) -->
+          <div class="abstract-graphic graphic-1">
+            <div class="shape-grid">
+              <span></span><span></span><span></span>
+              <span></span><span class="center-glow"></span><span></span>
+              <span></span><span></span><span></span>
+            </div>
+            <div class="orbiting-dot"></div>
+          </div>
+
+          <!-- Graphic 3: Yours to Control (Pivot pointer) -->
+          <div class="abstract-graphic graphic-2">
+            <div class="dial-base">
+              <div class="dial-pivot">
+                <div class="dial-pointer"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style>
+  .philosophy-layout-04 {
+    padding: var(--space-12) 0;
+  }
+
+  .container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+  }
+
+  .splitscreen-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-12);
+  }
+
+  .splitscreen-left {
+    width: 48%;
+  }
+
+  .splitscreen-right {
+    width: 44%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4.5vw, 2.75rem);
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-8);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  .philosophy-hover-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .splitscreen-item {
+    display: flex;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.01);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .item-index {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--color-text-muted);
+    transition: color 0.3s var(--ease-out);
+  }
+
+  .item-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-1);
+    transition: color 0.3s var(--ease-out);
+  }
+
+  .item-desc {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    line-height: var(--leading-relaxed);
+  }
+
+  /* Splitscreen item: active/hover states */
+  .splitscreen-item:hover, .splitscreen-item.item-active {
+    background-color: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 107, 0, 0.15);
+  }
+
+  .splitscreen-item:hover .item-index, .splitscreen-item.item-active .item-index {
+    color: var(--color-accent-primary);
+  }
+
+  .splitscreen-item:hover .item-title, .splitscreen-item.item-active .item-title {
+    color: var(--color-text-primary);
+  }
+
+  /* Graphic stage right side */
+  .graphic-stage {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    background-color: #0b0908;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  }
+
+  .abstract-graphic {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.9);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+  }
+
+  .abstract-graphic.active {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+  }
+
+  /* Graphic 0: Concentric circles */
+  .concentric-circle {
+    position: absolute;
+    border: 1.5px solid rgba(255, 255, 255, 0.03);
+    border-radius: 50%;
+  }
+
+  .ring-outer {
+    width: 180px;
+    height: 180px;
+    border-color: rgba(255, 107, 0, 0.05);
+    animation: rotateSlow 20s linear infinite;
+  }
+
+  .ring-middle {
+    width: 130px;
+    height: 130px;
+    border-color: rgba(255, 107, 0, 0.1);
+    animation: rotateSlow 15s linear infinite reverse;
+  }
+
+  .ring-inner {
+    width: 80px;
+    height: 80px;
+    background-color: rgba(255, 107, 0, 0.03);
+    border-color: rgba(255, 107, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-accent-primary);
+    box-shadow: 0 0 20px rgba(255, 107, 0, 0.1);
+  }
+
+  .lock-svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Graphic 1: Grid dots + Orbiting dot */
+  .shape-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+
+  .shape-grid span {
+    width: 8px;
+    height: 8px;
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+  }
+
+  .shape-grid span.center-glow {
+    background-color: var(--color-accent-primary);
+    box-shadow: 0 0 12px var(--color-accent-primary);
+  }
+
+  .orbiting-dot {
+    position: absolute;
+    width: 140px;
+    height: 140px;
+    border: 1px dashed rgba(255, 255, 255, 0.04);
+    border-radius: 50%;
+    animation: rotateSlow 8s linear infinite;
+  }
+
+  .orbiting-dot:before {
+    content: "";
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background-color: var(--color-accent-primary);
+    border-radius: 50%;
+    top: -4px;
+    left: 50%;
+    margin-left: -4px;
+    box-shadow: 0 0 10px var(--color-accent-primary);
+  }
+
+  /* Graphic 2: Dial pivot pointer */
+  .dial-base {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.05);
+    background-color: rgba(255, 255, 255, 0.01);
+    position: relative;
+  }
+
+  .dial-pivot {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform: rotate(45deg);
+    transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .dial-pointer {
+    width: 4px;
+    height: 60px;
+    background: linear-gradient(to top, rgba(255, 107, 0, 0.05) 0%, #ff6b00 100%);
+    position: absolute;
+    top: 15px;
+    left: 50%;
+    margin-left: -2px;
+    border-radius: 99px;
+  }
+
+  .dial-pointer:before {
+    content: "";
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: #ff6b00;
+    box-shadow: 0 0 12px #ff6b00;
+    top: -6px;
+    left: -4px;
+  }
+
+  .abstract-graphic.active .dial-pivot {
+    transform: rotate(220deg);
+  }
+
+  @keyframes rotateSlow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  @media (max-width: 860px) {
+    .splitscreen-wrapper {
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--space-8);
+    }
+    .splitscreen-left, .splitscreen-right {
+      width: 100%;
+    }
+  }
+</style>
+
+<script>
+  const setupSplitscreenHover = () => {
+    const items = document.querySelectorAll(".splitscreen-item")
+    const graphics = document.querySelectorAll(".abstract-graphic")
+
+    // Set first active
+    if (items.length > 0 && !document.querySelector(".item-active")) {
+      items[0].classList.add("item-active")
+    }
+
+    items.forEach((item) => {
+      const showGraphic = () => {
+        const index = item.getAttribute("data-index")
+        
+        items.forEach((it) => it.classList.remove("item-active"))
+        item.classList.add("item-active")
+
+        graphics.forEach((gp, idx) => {
+          if (String(idx) === index) {
+            gp.classList.add("active")
+          } else {
+            gp.classList.remove("active")
+          }
+        })
+      }
+
+      item.addEventListener("mouseenter", showGraphic)
+      item.addEventListener("click", showGraphic)
+    })
+  }
+
+  // Bind handlers
+  setupSplitscreenHover()
+
+  // Re-run setup when layout switches
+  document.querySelectorAll(".layout-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      setTimeout(setupSplitscreenHover, 50)
+    })
+  })
+</script>

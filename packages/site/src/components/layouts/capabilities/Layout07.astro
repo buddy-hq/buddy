@@ -1,0 +1,213 @@
+---
+import { content } from "../../../content/site"
+const { capabilities } = content
+---
+
+<div class="capabilities-layout-07">
+  <div class="container">
+    <div class="split-spec-layout">
+      
+      <!-- Left sidebar -->
+      <div class="sidebar-col">
+        <h2 class="title">{capabilities.headline}</h2>
+        <p class="subtext">{capabilities.subtext}</p>
+        <div class="glow-sphere"></div>
+      </div>
+
+      <!-- Right rows with visual step indicators -->
+      <div class="main-rows">
+        {capabilities.items.map((item, idx) => (
+          <div class="horizontal-spec-row">
+            
+            <div class="row-graphic-indicator">
+              <span class="step-badge">0{idx + 1}</span>
+              <span class="step-connector-dot"></span>
+            </div>
+
+            <div class="row-name-col">
+              <h3 class="name">{item.name}</h3>
+            </div>
+            
+            <div class="row-detail-col">
+              <p class="detail">{item.detail}</p>
+            </div>
+
+          </div>
+        ))}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .capabilities-layout-07 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+    background: radial-gradient(circle at 10% 90%, rgba(255, 107, 0, 0.015) 0%, transparent 50%);
+  }
+
+  .capabilities-layout-07 .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .capabilities-layout-07 .split-spec-layout {
+    display: flex;
+    gap: var(--space-10);
+    align-items: center;
+    width: 100%;
+  }
+
+  .capabilities-layout-07 .sidebar-col {
+    width: 30%;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    padding-right: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    position: relative;
+  }
+
+  .capabilities-layout-07 .title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 3.5vw, 2.25rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+  }
+
+  .capabilities-layout-07 .subtext {
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  .capabilities-layout-07 .glow-sphere {
+    position: absolute;
+    top: -50px;
+    left: -50px;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: var(--color-accent-primary);
+    filter: blur(80px);
+    opacity: 0.1;
+    pointer-events: none;
+  }
+
+  .capabilities-layout-07 .main-rows {
+    width: 70%;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    background-color: rgba(255, 255, 255, 0.005);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  .capabilities-layout-07 .horizontal-spec-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    padding: var(--space-5) var(--space-6);
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .capabilities-layout-07 .horizontal-spec-row:last-child {
+    border-bottom: none;
+  }
+
+  .capabilities-layout-07 .horizontal-spec-row:hover {
+    background-color: rgba(255, 107, 0, 0.01);
+  }
+
+  /* Spec row graphic indicators */
+  .capabilities-layout-07 .row-graphic-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 15%;
+  }
+
+  .capabilities-layout-07 .step-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: bold;
+    color: var(--color-text-muted);
+  }
+
+  .capabilities-layout-07 .step-connector-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .capabilities-layout-07 .horizontal-spec-row:hover .step-connector-dot {
+    background-color: var(--color-accent-primary);
+    box-shadow: 0 0 6px var(--color-accent-primary);
+  }
+
+  .capabilities-layout-07 .row-name-col {
+    width: 25%;
+  }
+
+  .capabilities-layout-07 .name {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .capabilities-layout-07 .row-detail-col {
+    width: 60%;
+  }
+
+  .capabilities-layout-07 .detail {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  @media (max-width: 860px) {
+    .capabilities-layout-07 .split-spec-layout {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .capabilities-layout-07 .sidebar-col {
+      width: 100%;
+      border-right: none;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-right: 0;
+      padding-bottom: var(--space-4);
+    }
+    .capabilities-layout-07 .main-rows {
+      width: 100%;
+    }
+    .capabilities-layout-07 .horizontal-spec-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-3);
+      padding: var(--space-5);
+    }
+    .capabilities-layout-07 .row-graphic-indicator,
+    .capabilities-layout-07 .row-name-col,
+    .capabilities-layout-07 .row-detail-col {
+      width: 100%;
+    }
+  }
+</style>

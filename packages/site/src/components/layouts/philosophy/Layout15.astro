@@ -1,0 +1,389 @@
+---
+import { content } from "../../../content/site"
+const { philosophy } = content
+---
+
+<div class="philosophy-layout-15">
+  <div class="container">
+    <div class="matrix-card">
+      
+      <!-- Table Header -->
+      <div class="matrix-row row-header">
+        <h2 class="headline">{philosophy.headline}</h2>
+      </div>
+
+      <!-- Table Body Rows -->
+      <div class="rows-stack" id="p15-rows">
+        <!-- Row 0: Yours to Keep -->
+        <div class="matrix-row row-body active" data-index="0" id="p15-row-0">
+          <div class="col-cursor">
+            <span class="cursor-block">▋</span>
+            <span class="row-num">01</span>
+          </div>
+          <div class="col-label border-right">
+            <h3 class="label-text">{philosophy.items[0].label}</h3>
+          </div>
+          <div class="col-tuner border-right">
+            <div class="option-cycle-buttons">
+              <button class="cycle-btn active" data-val="local" id="p15-keep-btn-local" aria-label="Local Only mode">LOCAL ONLY</button>
+              <button class="cycle-btn" data-val="cloud" id="p15-keep-btn-cloud" aria-label="Cloud Sync mode">CLOUD SYNC</button>
+            </div>
+          </div>
+          <div class="col-detail">
+            <p class="detail-text">{philosophy.items[0].detail}</p>
+          </div>
+        </div>
+
+        <!-- Row 1: Yours to Shape -->
+        <div class="matrix-row row-body" data-index="1" id="p15-row-1">
+          <div class="col-cursor">
+            <span class="cursor-block">▋</span>
+            <span class="row-num">02</span>
+          </div>
+          <div class="col-label border-right">
+            <h3 class="label-text">{philosophy.items[1].label}</h3>
+          </div>
+          <div class="col-tuner border-right">
+            <div class="option-cycle-buttons">
+              <button class="cycle-btn active" data-val="default" id="p15-shape-btn-def" aria-label="Default tutor depth">DEFAULT</button>
+              <button class="cycle-btn" data-val="socratic" id="p15-shape-btn-soc" aria-label="Socratic tutor depth">SOCRATIC</button>
+            </div>
+          </div>
+          <div class="col-detail">
+            <p class="detail-text">{philosophy.items[1].detail}</p>
+          </div>
+        </div>
+
+        <!-- Row 2: Yours to Control -->
+        <div class="matrix-row row-body" data-index="2" id="p15-row-2">
+          <div class="col-cursor">
+            <span class="cursor-block">▋</span>
+            <span class="row-num">03</span>
+          </div>
+          <div class="col-label border-right">
+            <h3 class="label-text">{philosophy.items[2].label}</h3>
+          </div>
+          <div class="col-tuner border-right">
+            <div class="option-cycle-buttons">
+              <button class="cycle-btn active" data-val="always" id="p15-ctrl-btn-ask" aria-label="Always ask mode">ALWAYS ASK</button>
+              <button class="cycle-btn" data-val="auto" id="p15-ctrl-btn-auto" aria-label="Auto-execute mode">AUTO-RUN</button>
+            </div>
+          </div>
+          <div class="col-detail">
+            <p class="detail-text">{philosophy.items[2].detail}</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Config Logger Terminal -->
+      <div class="config-terminal-log">
+        <div class="term-title-bar">sys-config-kernel.sh</div>
+        <div class="term-log-rows" id="p15-term-log">
+          <div class="term-line info">&gt; Config init: ready.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .philosophy-layout-15 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+    background-color: #050505;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  }
+
+  .philosophy-layout-15 .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .philosophy-layout-15 .matrix-card {
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    background-color: #090909;
+    border-radius: 16px;
+    overflow: hidden;
+    width: 100%;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  .philosophy-layout-15 .matrix-row {
+    display: flex;
+    width: 100%;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    transition: background-color 200ms ease;
+  }
+
+  /* Header Row styling */
+  .philosophy-layout-15 .row-header {
+    padding: var(--space-6) var(--space-8);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .philosophy-layout-15 .headline {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 3.5vw, 2.25rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.15;
+    letter-spacing: var(--tracking-tight);
+    margin: 0;
+  }
+
+  .philosophy-layout-15 .rows-stack {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  /* Column cells */
+  .philosophy-layout-15 .col-cursor {
+    width: 8%;
+    padding: var(--space-5) var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .philosophy-layout-15 .cursor-block {
+    color: var(--color-accent-primary);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    opacity: 0;
+    transition: opacity 150ms ease;
+  }
+
+  .philosophy-layout-15 .matrix-row.active .cursor-block {
+    opacity: 1;
+    animation: termRowBlink 1s step-end infinite;
+  }
+
+  @keyframes termRowBlink {
+    from, to { color: transparent }
+    50% { color: var(--color-accent-primary) }
+  }
+
+  .philosophy-layout-15 .row-num {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+    font-weight: 700;
+  }
+
+  .philosophy-layout-15 .col-label {
+    width: 22%;
+    padding: var(--space-5) var(--space-6);
+    display: flex;
+    align-items: center;
+  }
+
+  .philosophy-layout-15 .label-text {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .philosophy-layout-15 .col-tuner {
+    width: 25%;
+    padding: var(--space-5) var(--space-6);
+    display: flex;
+    align-items: center;
+  }
+
+  .philosophy-layout-15 .option-cycle-buttons {
+    display: flex;
+    gap: 6px;
+    background-color: #020202;
+    border: 1px solid rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    padding: 3px;
+    width: 100%;
+  }
+
+  .philosophy-layout-15 .cycle-btn {
+    flex: 1;
+    background-color: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 0;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .philosophy-layout-15 .cycle-btn.active {
+    background-color: var(--color-accent-primary);
+    color: #050505;
+  }
+
+  .philosophy-layout-15 .cycle-btn:hover:not(.active) {
+    color: var(--color-text-primary);
+  }
+
+  .philosophy-layout-15 .col-detail {
+    width: 45%;
+    padding: var(--space-5) var(--space-6);
+    display: flex;
+    align-items: center;
+    transition: opacity 250ms ease;
+  }
+
+  .philosophy-layout-15 .detail-text {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  /* Matrix row dimming when not active */
+  .philosophy-layout-15 .matrix-row:not(.active) {
+    background-color: transparent;
+  }
+
+  .philosophy-layout-15 .matrix-row:not(.active) .col-label,
+  .philosophy-layout-15 .matrix-row:not(.active) .col-detail {
+    opacity: 0.35;
+  }
+
+  .philosophy-layout-15 .border-right {
+    border-right: 1px solid rgba(255, 255, 255, 0.03);
+  }
+
+  /* Terminal log styling */
+  .philosophy-layout-15 .config-terminal-log {
+    background-color: #020202;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: var(--space-4) var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .philosophy-layout-15 .term-title-bar {
+    color: var(--color-text-muted);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .philosophy-layout-15 .term-log-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 80px;
+    overflow-y: auto;
+  }
+
+  .philosophy-layout-15 .term-line {
+    line-height: 1.3;
+    color: var(--color-text-secondary);
+  }
+
+  .philosophy-layout-15 .term-line.info { color: #666; }
+  .philosophy-layout-15 .term-line.warning { color: rgb(248, 113, 113); }
+  .philosophy-layout-15 .term-line.success { color: rgb(74, 222, 128); }
+
+  @media (max-width: 900px) {
+    .philosophy-layout-15 .matrix-row {
+      flex-direction: column;
+    }
+    .philosophy-layout-15 .col-cursor,
+    .philosophy-layout-15 .col-label,
+    .philosophy-layout-15 .col-tuner,
+    .philosophy-layout-15 .col-detail {
+      width: 100%;
+      padding-block: var(--space-3);
+    }
+    .philosophy-layout-15 .border-right {
+      border-right: none;
+    }
+  }
+</style>
+
+<script>
+  const setupLayout15 = () => {
+    const rows = document.querySelectorAll(".philosophy-layout-15 .matrix-row.row-body")
+    const logContainer = document.getElementById("p15-term-log")
+
+    const appendLogLine = (text: string, type = "success") => {
+      if (!logContainer) return
+      const line = document.createElement("div")
+      line.className = `term-line ${type}`
+      line.textContent = `> ${text}`
+      logContainer.appendChild(line)
+      logContainer.scrollTop = logContainer.scrollHeight
+    }
+
+    rows.forEach((row) => {
+      row.addEventListener("mouseenter", () => {
+        rows.forEach((r) => r.classList.remove("active"))
+        row.classList.add("active")
+      })
+    })
+
+    // Setup Keep Row Actions
+    const btnLocal = document.getElementById("p15-keep-btn-local")
+    const btnCloud = document.getElementById("p15-keep-btn-cloud")
+
+    btnLocal?.addEventListener("click", () => {
+      btnLocal.classList.add("active")
+      btnCloud?.classList.remove("active")
+      appendLogLine("Storage path confirmed: /local/sandbox. Secure encryption verified.", "success")
+    })
+
+    btnCloud?.addEventListener("click", () => {
+      btnCloud.classList.add("active")
+      btnLocal?.classList.remove("active")
+      appendLogLine("WARNING: Remote synchronization requested. Credentials required.", "warning")
+    })
+
+    // Setup Shape Row Actions
+    const btnDef = document.getElementById("p15-shape-btn-def")
+    const btnSoc = document.getElementById("p15-shape-btn-soc")
+
+    btnDef?.addEventListener("click", () => {
+      btnDef.classList.add("active")
+      btnSoc?.classList.remove("active")
+      appendLogLine("Tutor engine configured to standard direct replies.", "success")
+    })
+
+    btnSoc?.addEventListener("click", () => {
+      btnSoc.classList.add("active")
+      btnDef?.classList.remove("active")
+      appendLogLine("Tutor engine configured to Socratic Dialogue loop.", "success")
+    })
+
+    // Setup Control Row Actions
+    const btnAsk = document.getElementById("p15-ctrl-btn-ask")
+    const btnAuto = document.getElementById("p15-ctrl-btn-auto")
+
+    btnAsk?.addEventListener("click", () => {
+      btnAsk.classList.add("active")
+      btnAuto?.classList.remove("active")
+      appendLogLine("Permission strategy: Always ask before execution.", "success")
+    })
+
+    btnAuto?.addEventListener("click", () => {
+      btnAuto.classList.add("active")
+      btnAsk?.classList.remove("active")
+      appendLogLine("CRITICAL WARNING: Auto-run unlocked. Agent sandbox permissions enabled.", "warning")
+    })
+  }
+
+  setupLayout15()
+</script>

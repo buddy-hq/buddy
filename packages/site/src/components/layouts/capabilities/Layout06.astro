@@ -1,0 +1,184 @@
+---
+import { content } from "../../../content/site"
+const { capabilities } = content
+---
+
+<div class="capabilities-layout-06">
+  <div class="container">
+    <div class="horizontal-strip-flow">
+      
+      <div class="header-col">
+        <h2 class="title">{capabilities.headline}</h2>
+        <p class="subtext">{capabilities.subtext}</p>
+      </div>
+      
+      <div class="items-row">
+        {capabilities.items.map((item, idx) => (
+          <div class="item-block">
+            <div class="block-header">
+              <!-- Custom Visual Icon based on capability name (No invented text labels) -->
+              <div class="block-icon">
+                {idx === 0 ? (
+                  /* Subagents: connected circles icon */
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 18px; height: 18px;"><path d="M12 6a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM12 6l-6 9m6-9l6 9" stroke-linecap="round"/></svg>
+                ) : idx === 1 ? (
+                  /* MCPs: socket / port icon */
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 18px; height: 18px;"><path d="M5 3h14v11a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V3zM12 18v3M9 8h6M12 3v5" stroke-linecap="round"/></svg>
+                ) : idx === 2 ? (
+                  /* Skills: packages / box icon */
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 18px; height: 18px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke-linecap="round"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke-linecap="round"/></svg>
+                ) : idx === 3 ? (
+                  /* Tools: setting dial / wrench icon */
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 18px; height: 18px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" stroke-linecap="round"/></svg>
+                ) : (
+                  /* AGENTS.md: document file icon */
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 18px; height: 18px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke-linecap="round"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke-linecap="round"/></svg>
+                )}
+              </div>
+              <span class="block-num">0{idx + 1}</span>
+            </div>
+            
+            <h3 class="name">{item.name}</h3>
+            <p class="detail">{item.detail}</p>
+          </div>
+        ))}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .capabilities-layout-06 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+    background: radial-gradient(circle at 10% 20%, rgba(255, 107, 0, 0.02) 0%, transparent 40%);
+  }
+
+  .capabilities-layout-06 .container {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .capabilities-layout-06 .horizontal-strip-flow {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: var(--space-8);
+  }
+
+  .capabilities-layout-06 .header-col {
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .capabilities-layout-06 .title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+  }
+
+  .capabilities-layout-06 .subtext {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .capabilities-layout-06 .items-row {
+    display: flex;
+    gap: var(--space-4);
+    overflow-x: auto;
+    padding-bottom: var(--space-4);
+  }
+
+  .capabilities-layout-06 .items-row::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .capabilities-layout-06 .items-row::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.01);
+  }
+
+  .capabilities-layout-06 .items-row::-webkit-scrollbar-thumb {
+    background: rgba(255, 107, 0, 0.15);
+    border-radius: 99px;
+  }
+
+  .capabilities-layout-06 .item-block {
+    flex: 0 0 260px;
+    background-color: #0b0908;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 16px;
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    transition: all 0.3s var(--ease-out);
+    position: relative;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+  }
+
+  .capabilities-layout-06 .item-block:hover {
+    border-color: rgba(255, 107, 0, 0.2);
+    background-color: rgba(255, 107, 0, 0.01);
+    transform: translateY(-4px);
+  }
+
+  /* Block Header details */
+  .capabilities-layout-06 .block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .capabilities-layout-06 .block-icon {
+    width: 36px;
+    height: 36px;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+    transition: all 0.2s var(--ease-out);
+  }
+
+  .capabilities-layout-06 .item-block:hover .block-icon {
+    color: var(--color-accent-primary);
+    border-color: rgba(255, 107, 0, 0.15);
+  }
+
+  .capabilities-layout-06 .block-num {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+  }
+
+  .capabilities-layout-06 .name {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .capabilities-layout-06 .detail {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+</style>

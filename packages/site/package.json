@@ -13,12 +13,16 @@
   },
   "dependencies": {
     "@astrojs/cloudflare": "12.6.3",
+    "@astrojs/sitemap": "^3.7.3",
     "@astrojs/starlight": "0.34.3",
-    "astro": "5.7.13"
+    "astro": "5.7.13",
+    "cf-workers-og": "^3.0.1"
   },
   "devDependencies": {
     "@astrojs/check": "0.9.6",
+    "@resvg/resvg-js": "^2.6.2",
     "@types/node": "catalog:",
+    "sharp": "^0.35.2",
     "typescript": "catalog:"
   }
 }

@@ -1,0 +1,173 @@
+---
+import { content } from "../../../content/site"
+const { philosophy } = content
+---
+
+<div class="philosophy-layout-10">
+  <div class="container">
+    <div class="technical-spec-matrix">
+      
+      <!-- Table Header Row with Window Control Dots -->
+      <div class="matrix-row row-head">
+        <div class="window-controls">
+          <span></span><span></span><span></span>
+        </div>
+        <h2 class="section-title">{philosophy.headline}</h2>
+      </div>
+
+      <!-- Content Columns -->
+      <div class="matrix-row row-body">
+        {philosophy.items.map((item, idx) => (
+          <div class="matrix-cell">
+            <div class="cell-header">
+              <span class="cell-status-led"></span>
+              <span class="cell-index">0{idx + 1}</span>
+            </div>
+            <h3 class="item-title">{item.label}</h3>
+            <p class="item-detail">{item.detail}</p>
+          </div>
+        ))}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .philosophy-layout-10 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+  }
+
+  .philosophy-layout-10 .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .philosophy-layout-10 .technical-spec-matrix {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.003);
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  }
+
+  .philosophy-layout-10 .matrix-row {
+    display: flex;
+    width: 100%;
+  }
+
+  .philosophy-layout-10 .row-head {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding: var(--space-6) var(--space-8);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: rgba(255, 255, 255, 0.005);
+  }
+
+  /* Window dot controllers */
+  .philosophy-layout-10 .window-controls {
+    display: flex;
+    gap: 6px;
+  }
+
+  .philosophy-layout-10 .window-controls span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .philosophy-layout-10 .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tight);
+    margin: 0;
+  }
+
+  .philosophy-layout-10 .row-body {
+    display: flex;
+  }
+
+  .philosophy-layout-10 .matrix-cell {
+    flex: 1;
+    padding: var(--space-6) var(--space-8);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    transition: all 0.2s var(--ease-out);
+  }
+
+  .philosophy-layout-10 .matrix-cell:last-child {
+    border-right: none;
+  }
+
+  .philosophy-layout-10 .matrix-cell:hover {
+    background-color: rgba(255, 255, 255, 0.005);
+  }
+
+  .philosophy-layout-10 .cell-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .philosophy-layout-10 .cell-status-led {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.15);
+    transition: all 0.2s var(--ease-out);
+  }
+
+  .philosophy-layout-10 .matrix-cell:hover .cell-status-led {
+    background-color: #10b981;
+    box-shadow: 0 0 6px #10b981;
+  }
+
+  .philosophy-layout-10 .cell-index {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+  }
+
+  .philosophy-layout-10 .item-title {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--color-accent-primary);
+    margin: 0;
+  }
+
+  .philosophy-layout-10 .item-detail {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  @media (max-width: 860px) {
+    .philosophy-layout-10 .row-body {
+      flex-direction: column;
+    }
+    .philosophy-layout-10 .matrix-cell {
+      border-right: none;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .philosophy-layout-10 .matrix-cell:last-child {
+      border-bottom: none;
+    }
+  }
+</style>

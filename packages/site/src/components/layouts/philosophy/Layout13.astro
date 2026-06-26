@@ -1,0 +1,399 @@
+---
+import { content } from "../../../content/site"
+const { philosophy } = content
+---
+
+<div class="philosophy-layout-13" id="p13-container">
+  <div class="container">
+    <div class="scroll-split-wrapper">
+      
+      <!-- Left side: Direct Tenet scroll triggers -->
+      <div class="scroll-content-side">
+        <h2 class="section-headline">{philosophy.headline}</h2>
+        <div class="scroll-items-list">
+          {philosophy.items.map((item, idx) => (
+            <div class="scroll-item-trigger-box" data-index={idx} id={`p13-trigger-box-${idx}`}>
+              <span class="index">0{idx + 1}</span>
+              <h3 class="label">{item.label}</h3>
+              <p class="detail">{item.detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- Right side: The Adaptive SVG Mesh Canvas -->
+      <div class="sticky-visual-side">
+        <div class="sticky-viewport-panel" id="p13-sticky-panel">
+          
+          <svg class="mesh-svg" id="p13-mesh-svg" viewBox="0 0 240 240">
+            <!-- Grid BG lines -->
+            <defs>
+              <pattern id="p13-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.015)" stroke-width="1" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#p13-grid)" />
+            
+            <!-- Orbit Path for Yours to Keep -->
+            <circle class="keep-orbit-ring" cx="120" cy="120" r="45" fill="none" stroke="rgba(255,255,255,0.02)" stroke-width="1.5" />
+            <circle class="keep-core-box" cx="120" cy="120" r="20" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="1" />
+            
+            <!-- Shape Spline Path -->
+            <path class="shape-spline-path" id="p13-spline" d="M 30,120 Q 120,120 210,120" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2" />
+            
+            <!-- Control Gate Switch visual -->
+            <g class="control-switch-gate" id="p13-switch-gate">
+              <line x1="80" y1="120" x2="160" y2="120" class="gate-lead" stroke="rgba(255,255,255,0.06)" stroke-width="5" stroke-linecap="round" />
+              <!-- Toggling gap breaker -->
+              <line x1="100" y1="120" x2="135" y2="90" class="gate-breaker" id="p13-breaker" stroke="rgb(248, 113, 113)" stroke-width="3" stroke-linecap="round" style="cursor: pointer; transform-origin: 100px 120px; transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1), stroke 300ms ease;" />
+              <!-- Data path pulses -->
+              <circle class="flow-particle" cx="30" cy="120" r="3" fill="var(--color-accent-primary)" />
+            </g>
+
+            <!-- Network Nodes Group -->
+            <g class="network-nodes" id="p13-nodes">
+              <!-- Node A -->
+              <circle class="net-node node-a" cx="70" cy="90" r="6" fill="#050505" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
+              <!-- Node B -->
+              <circle class="net-node node-b" cx="170" cy="90" r="6" fill="#050505" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
+              <!-- Node C -->
+              <circle class="net-node node-c" cx="120" cy="170" r="6" fill="#050505" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
+              
+              <!-- Connection paths between nodes -->
+              <path class="net-link link-ab" d="M 70,90 L 170,90" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
+              <path class="net-link link-bc" d="M 170,90 L 120,170" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
+              <path class="net-link link-ca" d="M 120,170 L 70,90" stroke="rgba(255,255,255,0.05)" stroke-width="1" />
+            </g>
+
+            <!-- Drag Handle Anchors (For Shape Spline) -->
+            <circle class="shape-anchor anchor-left" cx="30" cy="120" r="4" fill="#0f172a" stroke="#334155" stroke-width="1.5" />
+            <circle class="shape-anchor anchor-ctrl" id="p13-spline-handle" cx="120" cy="120" r="7" fill="var(--color-accent-primary)" stroke="#3b82f6" stroke-width="1.5" style="cursor: ns-resize; opacity: 0; pointer-events: none; transition: opacity 250ms ease;" />
+            <circle class="shape-anchor anchor-right" cx="210" cy="120" r="4" fill="#0f172a" stroke="#334155" stroke-width="1.5" />
+
+          </svg>
+          
+          <!-- Tactile Info badge -->
+          <div class="mesh-mode-badge" id="p13-mesh-badge">VAULT LOCKED</div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .philosophy-layout-13 {
+    width: 100%;
+    background-color: #050505;
+    position: relative;
+    padding-bottom: var(--space-20);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  }
+
+  .philosophy-layout-13 .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .philosophy-layout-13 .scroll-split-wrapper {
+    display: flex;
+    gap: var(--space-10);
+    width: 100%;
+    position: relative;
+  }
+
+  /* Left Side: Scroll text */
+  .philosophy-layout-13 .scroll-content-side {
+    width: 45%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .philosophy-layout-13 .section-headline {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 4vw, 2.5rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.15;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+    padding-top: var(--space-12);
+  }
+
+  .philosophy-layout-13 .scroll-items-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .philosophy-layout-13 .scroll-item-trigger-box {
+    min-height: 60vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-3);
+    opacity: 0.15;
+    transition: opacity 350ms cubic-bezier(0.16, 1, 0.3, 1), transform 350ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .philosophy-layout-13 .scroll-item-trigger-box.active {
+    opacity: 1;
+    transform: translateX(4px);
+  }
+
+  .philosophy-layout-13 .index {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-accent-primary);
+    font-weight: 700;
+  }
+
+  .philosophy-layout-13 .label {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .philosophy-layout-13 .detail {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  /* Right Side: Sticky SVG Canvas */
+  .philosophy-layout-13 .sticky-visual-side {
+    width: 55%;
+    position: relative;
+  }
+
+  .philosophy-layout-13 .sticky-viewport-panel {
+    position: sticky;
+    top: 150px;
+    height: 320px;
+    background-color: #090909;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  .philosophy-layout-13 .mesh-svg {
+    width: 100%;
+    max-width: 240px;
+    height: auto;
+  }
+
+  .philosophy-layout-13 .net-node {
+    transition: cx 500ms cubic-bezier(0.16, 1, 0.3, 1),
+                cy 500ms cubic-bezier(0.16, 1, 0.3, 1),
+                stroke 250ms ease,
+                fill 250ms ease;
+  }
+
+  .philosophy-layout-13 .net-link {
+    transition: d 500ms cubic-bezier(0.16, 1, 0.3, 1),
+                stroke 250ms ease;
+  }
+
+  /* Keep mode coordinates */
+  .philosophy-layout-13 .sticky-viewport-panel.state-0 .node-a { cx: 120px; cy: 104px; stroke: var(--color-accent-primary); fill: rgba(255, 107, 0, 0.2); }
+  .philosophy-layout-13 .sticky-viewport-panel.state-0 .node-b { cx: 133px; cy: 128px; stroke: var(--color-accent-primary); fill: rgba(255, 107, 0, 0.2); }
+  .philosophy-layout-13 .sticky-viewport-panel.state-0 .node-c { cx: 107px; cy: 128px; stroke: var(--color-accent-primary); fill: rgba(255, 107, 0, 0.2); }
+  .philosophy-layout-13 .sticky-viewport-panel.state-0 .link-ab { d: M 120,104 L 133,128; stroke: rgba(255,107,0,0.3); }
+  .philosophy-layout-13 .sticky-viewport-panel.state-0 .link-bc { d: M 133,128 L 107,128; stroke: rgba(255,107,0,0.3); }
+  .philosophy-layout-13 .sticky-viewport-panel.state-0 .link-ca { d: M 107,128 L 120,104; stroke: rgba(255,107,0,0.3); }
+
+  /* Hide nodes / meshes dynamically depending on active state */
+  .philosophy-layout-13 .sticky-viewport-panel:not(.state-0) .keep-orbit-ring,
+  .philosophy-layout-13 .sticky-viewport-panel:not(.state-0) .keep-core-box,
+  .philosophy-layout-13 .sticky-viewport-panel:not(.state-0) .network-nodes {
+    display: none;
+  }
+
+  .philosophy-layout-13 .sticky-viewport-panel:not(.state-1) .shape-spline-path,
+  .philosophy-layout-13 .sticky-viewport-panel:not(.state-1) .shape-anchor {
+    display: none;
+  }
+
+  .philosophy-layout-13 .sticky-viewport-panel:not(.state-2) .control-switch-gate {
+    display: none;
+  }
+
+  /* Shape mode drag handle appearance */
+  .philosophy-layout-13 .sticky-viewport-panel.state-1 .anchor-ctrl {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Control Mode pipeline breaker */
+  .philosophy-layout-13 .flow-particle {
+    animation: meshFlow 2s infinite linear;
+  }
+
+  .philosophy-layout-13 .sticky-viewport-panel:not(.flow-allowed) .flow-particle {
+    animation: meshFlowBlocked 2s infinite linear;
+  }
+
+  @keyframes meshFlow {
+    0% { cx: 30px; opacity: 0; }
+    20% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { cx: 210px; opacity: 0; }
+  }
+
+  @keyframes meshFlowBlocked {
+    0% { cx: 30px; opacity: 0; }
+    20% { opacity: 1; }
+    50%, 100% { cx: 100px; opacity: 0.1; }
+  }
+
+  /* Allowed flow */
+  .philosophy-layout-13 .sticky-viewport-panel.flow-allowed .gate-breaker {
+    transform: rotate(30deg);
+    stroke: rgb(74, 222, 128);
+  }
+
+  .philosophy-layout-13 .mesh-mode-badge {
+    position: absolute;
+    bottom: 12px;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--color-accent-primary);
+    background-color: rgba(255, 107, 0, 0.05);
+    border: 1px solid rgba(255, 107, 0, 0.15);
+    border-radius: 4px;
+    padding: 3px 8px;
+    letter-spacing: 0.05em;
+  }
+
+  @media (max-width: 900px) {
+    .philosophy-layout-13 .scroll-split-wrapper {
+      flex-direction: column;
+    }
+    .philosophy-layout-13 .scroll-content-side,
+    .philosophy-layout-13 .sticky-visual-side {
+      width: 100%;
+    }
+    .philosophy-layout-13 .sticky-viewport-panel {
+      position: relative;
+      top: 0;
+    }
+    .philosophy-layout-13 .scroll-item-trigger-box {
+      min-height: auto;
+      padding-block: var(--space-6);
+    }
+  }
+</style>
+
+<script>
+  const setupLayout13 = () => {
+    const triggers = document.querySelectorAll(".philosophy-layout-13 .scroll-item-trigger-box")
+    const viewport = document.getElementById("p13-sticky-panel")
+    const badge = document.getElementById("p13-mesh-badge")
+
+    const updatePanelState = (idx: number) => {
+      if (!viewport || !badge) return
+      viewport.classList.remove("state-0", "state-1", "state-2")
+      viewport.classList.add(`state-${idx}`)
+
+      if (idx === 0) {
+        badge.textContent = "VAULT SECURED"
+        badge.style.color = "var(--color-accent-primary)"
+        badge.style.borderColor = "rgba(255, 107, 0, 0.15)"
+        badge.style.backgroundColor = "rgba(255, 107, 0, 0.05)"
+      } else if (idx === 1) {
+        badge.textContent = "DRAG KNOB TO SHAPE"
+        badge.style.color = "#3b82f6"
+        badge.style.borderColor = "rgba(59, 130, 246, 0.2)"
+        badge.style.backgroundColor = "rgba(59, 130, 246, 0.05)"
+      } else if (idx === 2) {
+        if (viewport.classList.contains("flow-allowed")) {
+          badge.textContent = "GATE FLOW: PERMITTED"
+          badge.style.color = "rgb(74, 222, 128)"
+          badge.style.borderColor = "rgba(74, 222, 128, 0.2)"
+          badge.style.backgroundColor = "rgba(74, 222, 128, 0.05)"
+        } else {
+          badge.textContent = "GATE FLOW: BLOCKED"
+          badge.style.color = "rgb(248, 113, 113)"
+          badge.style.borderColor = "rgba(248, 113, 113, 0.2)"
+          badge.style.backgroundColor = "rgba(248, 113, 113, 0.05)"
+        }
+      }
+    }
+
+    // Scroll observing
+    const observerOptions = {
+      root: null,
+      rootMargin: "0px 0px -50% 0px",
+      threshold: 0.2
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const idx = parseInt(entry.target.getAttribute("data-index") || "0")
+          triggers.forEach((t) => t.classList.remove("active"))
+          entry.target.classList.add("active")
+          updatePanelState(idx)
+        }
+      })
+    }, observerOptions)
+
+    triggers.forEach((trigger) => observer.observe(trigger))
+
+    // Interactive State 1: Spline drag
+    const splineHandle = document.getElementById("p13-spline-handle")
+    const spline = document.getElementById("p13-spline")
+    let isDragging = false
+
+    if (splineHandle && spline) {
+      const onMove = (clientY: number) => {
+        const svg = document.getElementById("p13-mesh-svg") as unknown as SVGGraphicsElement
+        if (!svg) return
+
+        const rect = svg.getBoundingClientRect()
+        const relativeY = ((clientY - rect.top) / rect.height) * 240
+        const clampedY = Math.max(20, Math.min(220, relativeY))
+
+        splineHandle.setAttribute("cy", clampedY.toString())
+        spline.setAttribute("d", `M 30,120 Q 120,${clampedY} 210,120`)
+        if (badge) badge.textContent = `TENSION: ${Math.round((clampedY/240)*100)}%`
+      }
+
+      splineHandle.addEventListener("mousedown", () => { isDragging = true })
+      window.addEventListener("mouseup", () => { isDragging = false })
+      window.addEventListener("mousemove", (e: MouseEvent) => {
+        if (isDragging) onMove(e.clientY)
+      })
+
+      // Touch
+      splineHandle.addEventListener("touchstart", () => { isDragging = true })
+      window.addEventListener("touchend", () => { isDragging = false })
+      window.addEventListener("touchmove", (e: TouchEvent) => {
+        if (isDragging && e.touches[0]) onMove(e.touches[0].clientY)
+      })
+    }
+
+    // Interactive State 2: Breaker toggle
+    const breaker = document.getElementById("p13-breaker")
+    breaker?.addEventListener("click", () => {
+      const isAllowed = viewport?.classList.toggle("flow-allowed")
+      if (viewport?.classList.contains("state-2")) {
+        updatePanelState(2)
+      }
+    })
+  }
+
+  setupLayout13()
+</script>

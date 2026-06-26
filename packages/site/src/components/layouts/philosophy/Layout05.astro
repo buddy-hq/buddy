@@ -1,0 +1,211 @@
+---
+import { content } from "../../../content/site"
+const { philosophy } = content
+---
+
+<div class="philosophy-layout-05">
+  <div class="container">
+    <h2 class="section-title text-center">{philosophy.headline}</h2>
+    
+    <!-- Tactile Overlapping Stack -->
+    <div class="focus-stack-container">
+      {philosophy.items.map((item, idx) => (
+        <div class="focus-stack-card" data-index={idx} style={`--card-index: ${idx + 1};`}>
+          <div class="card-inner-glow"></div>
+          <div class="card-header-bar">
+            <span class="stack-badge">PILLAR 0{idx + 1}</span>
+            <span class="lock-indicator"></span>
+          </div>
+          <div class="card-content-body">
+            <h3 class="card-title">{item.label}</h3>
+            <p class="card-desc">{item.detail}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</div>
+
+<style>
+  .philosophy-layout-05 {
+    padding: var(--space-12) 0;
+  }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+  }
+
+  .text-center {
+    text-align: center;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-12);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  /* Tactile Stack */
+  .focus-stack-container {
+    position: relative;
+    height: 380px;
+    max-width: 580px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  .focus-stack-card {
+    position: absolute;
+    width: 100%;
+    background-color: rgba(22, 19, 18, 0.98);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: var(--space-6) var(--space-8);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    
+    /* Variable card offset states defined via script */
+    transform: translateY(calc((var(--card-index) - 1) * 60px)) scale(calc(1 - (var(--card-index) - 1) * 0.03));
+    z-index: calc(10 - var(--card-index));
+    opacity: calc(1 - (var(--card-index) - 1) * 0.25);
+    filter: blur(calc((var(--card-index) - 1) * 1.5px));
+    
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .card-inner-glow {
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    border: 1px solid transparent;
+    pointer-events: none;
+    transition: border-color 0.3s var(--ease-out);
+  }
+
+  /* Header details */
+  .card-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-4);
+  }
+
+  .stack-badge {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .lock-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .card-title {
+    font-family: var(--font-display);
+    font-size: var(--text-base);
+    font-weight: 750;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-2);
+    transition: color 0.3s var(--ease-out);
+  }
+
+  .card-desc {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    line-height: var(--leading-relaxed);
+    max-width: 45ch;
+  }
+
+  /* Focused State (Frontmost card) */
+  .focus-stack-card.focused {
+    z-index: 15;
+    opacity: 1;
+    filter: blur(0);
+    border-color: rgba(255, 107, 0, 0.25);
+    background-color: rgba(26, 22, 20, 0.98);
+    box-shadow: 0 20px 50px rgba(255, 107, 0, 0.08);
+  }
+
+  .focus-stack-card.focused .card-inner-glow {
+    border-color: rgba(255, 107, 0, 0.1) inset;
+  }
+
+  .focus-stack-card.focused .stack-badge {
+    color: var(--color-accent-primary);
+    border-color: rgba(255, 107, 0, 0.2);
+    background-color: rgba(255, 107, 0, 0.04);
+  }
+
+  .focus-stack-card.focused .lock-indicator {
+    background-color: var(--color-accent-primary);
+    box-shadow: 0 0 6px var(--color-accent-primary);
+  }
+
+  .focus-stack-card.focused .card-title {
+    color: var(--color-text-primary);
+  }
+</style>
+
+<script>
+  const setupTactileStack = () => {
+    const cards = document.querySelectorAll<HTMLElement>(".focus-stack-card")
+
+    // Set first card active by default
+    if (cards.length > 0 && !document.querySelector(".focus-stack-card.focused")) {
+      cards[0].classList.add("focused")
+    }
+
+    cards.forEach((card) => {
+      card.addEventListener("click", () => {
+        if (card.classList.contains("focused")) return
+
+        cards.forEach((c) => c.classList.remove("focused"))
+        card.classList.add("focused")
+
+        // Dynamically adjust translateY and scale offsets relative to the clicked index
+        const focusedIndex = Number.parseInt(card.dataset.index ?? "0", 10)
+
+        cards.forEach((c) => {
+          const idx = Number.parseInt(c.dataset.index ?? "0", 10)
+
+          // Compute visual depth based on distance to focused card
+          // Loop around or offset back
+          let diff = idx - focusedIndex
+          if (diff < 0) {
+            diff = diff + 3 // push behind
+          }
+
+          c.style.setProperty("--card-index", String(diff + 1))
+        })
+      })
+    })
+  }
+
+  // Bind handlers
+  setupTactileStack()
+
+  // Re-run setup when layout switches
+  document.querySelectorAll(".layout-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      setTimeout(setupTactileStack, 50)
+    })
+  })
+</script>

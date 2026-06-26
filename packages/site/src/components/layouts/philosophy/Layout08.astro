@@ -1,0 +1,161 @@
+---
+import { content } from "../../../content/site"
+const { philosophy } = content
+---
+
+<div class="philosophy-layout-08">
+  <div class="container">
+    <div class="staggered-layout">
+      
+      <div class="header-zone">
+        <h2 class="title">{philosophy.headline}</h2>
+      </div>
+      
+      <div class="columns-zone">
+        {philosophy.items.map((item, idx) => (
+          <div class={`stagger-column col-${idx}`}>
+            
+            <!-- Glassmorphic Card Accent Icon -->
+            <div class="card-icon-frame">
+              {idx === 0 ? (
+                /* Shield / local database storage icon */
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 20px; height: 20px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              ) : idx === 1 ? (
+                /* Slider configuration controls icon */
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 20px; height: 20px;"><path d="M4 21v-7m0-4V3m8 18v-11m0-4V3m8 18v-5m0-4V3M2 14h4m4-4h4m4 8h4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              ) : (
+                /* Gatekeeper approval checkmark icon */
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 20px; height: 20px;"><path d="M9 12l2 2 4-4M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              )}
+            </div>
+
+            <h3 class="label">{item.label}</h3>
+            <p class="detail">{item.detail}</p>
+          </div>
+        ))}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .philosophy-layout-08 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+    background: radial-gradient(circle at 90% 95%, rgba(255, 107, 0, 0.02) 0%, transparent 40%);
+  }
+
+  .philosophy-layout-08 .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .philosophy-layout-08 .staggered-layout {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: var(--space-10);
+  }
+
+  .philosophy-layout-08 .header-zone {
+    max-width: 700px;
+  }
+
+  .philosophy-layout-08 .title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+  }
+
+  .philosophy-layout-08 .columns-zone {
+    display: flex;
+    gap: var(--space-6);
+  }
+
+  .philosophy-layout-08 .stagger-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    background-color: rgba(255, 255, 255, 0.005);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: var(--space-6);
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .philosophy-layout-08 .stagger-column:hover {
+    border-color: rgba(255, 107, 0, 0.2);
+    background-color: rgba(255, 107, 0, 0.01);
+    transform: translateY(-4px) scale(1.02);
+  }
+
+  /* Icon Frames styling */
+  .philosophy-layout-08 .card-icon-frame {
+    width: 40px;
+    height: 40px;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .philosophy-layout-08 .stagger-column:hover .card-icon-frame {
+    color: var(--color-accent-primary);
+    border-color: rgba(255, 107, 0, 0.15);
+    background-color: rgba(255, 107, 0, 0.03);
+  }
+
+  /* Offset staggers */
+  .philosophy-layout-08 .col-1 {
+    margin-top: var(--space-6);
+  }
+
+  .philosophy-layout-08 .col-2 {
+    margin-top: var(--space-12);
+  }
+
+  .philosophy-layout-08 .label {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .philosophy-layout-08 .detail {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  @media (max-width: 768px) {
+    .philosophy-layout-08 .columns-zone {
+      flex-direction: column;
+      gap: var(--space-6);
+    }
+    .philosophy-layout-08 .col-1,
+    .philosophy-layout-08 .col-2 {
+      margin-top: 0;
+    }
+  }
+</style>

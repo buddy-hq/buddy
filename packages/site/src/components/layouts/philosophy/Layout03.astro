@@ -1,0 +1,141 @@
+---
+import { content } from "../../../content/site"
+const { philosophy } = content
+---
+
+<div class="philosophy-layout-03">
+  <div class="container">
+    <h2 class="section-title text-center">{philosophy.headline}</h2>
+    
+    <!-- Chronicle Cards Grid -->
+    <div class="chronicle-cards-row">
+      {philosophy.items.map((item, idx) => (
+        <div class="chronicle-card">
+          <div class="card-outline-glow"></div>
+          <span class="chronicle-num">0{idx + 1}</span>
+          <div class="chronicle-content">
+            <h3 class="chronicle-label">{item.label}</h3>
+            <p class="chronicle-detail">{item.detail}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+
+  </div>
+</div>
+
+<style>
+  .philosophy-layout-03 {
+    padding: var(--space-12) 0;
+  }
+
+  .container {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+  }
+
+  .text-center {
+    text-align: center;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-12);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  /* Chronicle Cards Flex-Row */
+  .chronicle-cards-row {
+    display: flex;
+    gap: var(--space-6);
+    overflow-x: auto;
+    padding-bottom: var(--space-6);
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 107, 0, 0.1) transparent;
+  }
+
+  .chronicle-cards-row::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .chronicle-cards-row::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 107, 0, 0.15);
+    border-radius: 99px;
+  }
+
+  .chronicle-card {
+    flex: 1;
+    min-width: 280px;
+    background-color: rgba(255, 255, 255, 0.01);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 16px;
+    padding: var(--space-8) var(--space-6);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+    min-height: 240px;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .card-outline-glow {
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    border: 1px solid transparent;
+    pointer-events: none;
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .chronicle-card:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .chronicle-card:hover .card-outline-glow {
+    border-color: rgba(255, 107, 0, 0.2);
+    box-shadow: 0 0 20px rgba(255, 107, 0, 0.03) inset;
+  }
+
+  .chronicle-num {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xl);
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.04);
+    transition: color 0.3s var(--ease-out);
+    user-select: none;
+  }
+
+  .chronicle-card:hover .chronicle-num {
+    color: rgba(255, 107, 0, 0.15);
+  }
+
+  .chronicle-content {
+    z-index: 2;
+  }
+
+  .chronicle-label {
+    font-family: var(--font-display);
+    font-size: var(--text-base);
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-2);
+    transition: color 0.3s var(--ease-out);
+  }
+
+  .chronicle-card:hover .chronicle-label {
+    color: var(--color-text-primary);
+  }
+
+  .chronicle-detail {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    line-height: var(--leading-relaxed);
+  }
+</style>

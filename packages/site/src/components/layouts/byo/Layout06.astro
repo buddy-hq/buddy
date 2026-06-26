@@ -1,0 +1,207 @@
+---
+import { content } from "../../../content/site"
+const { bringYourOwn } = content
+
+const logins = [
+  { ...bringYourOwn.primary, subtext: bringYourOwn.primary.description },
+  { name: bringYourOwn.secondary.options[0], icon: "github", subtext: "Log in with GitHub. No new bill." }
+]
+---
+
+<div class="byo-layout-06">
+  <div class="container">
+    <div class="horizontal-strip-grid">
+      
+      <!-- Column 1: Headline -->
+      <div class="strip-col col-headline">
+        <h2 class="section-title">{bringYourOwn.headline}</h2>
+      </div>
+
+      <!-- Column 2: Logins -->
+      <div class="strip-col col-logins">
+        <div class="logins-horizontal-list">
+          {logins.map((login) => (
+            <div class="login-strip-card">
+              <div class="login-icon-frame">
+                {login.icon === "openai" ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 18px; height: 18px;"><path d="M4.5 16.5c-1.5-2.5-1-6 1.5-7.5s6-1 7.5 1.5m0 0c1.5 2.5 1 6-1.5 7.5s-6 1-7.5-1.5M12 9V3m0 6c2-1 4.5-.5 5.5 1.5s-.5 4.5-2.5 5.5m0 0l5 3m-5-3c.5 2-.5 4.5-2.5 5.5S10 20 9 18" stroke-linecap="round"/></svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 18px; height: 18px;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                )}
+              </div>
+              <div class="login-details">
+                <h4 class="login-name">{login.name}</h4>
+                <p class="login-subtext">{login.subtext}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- Column 3: Providers -->
+      <div class="strip-col col-providers">
+        <h3 class="trailing-title">{bringYourOwn.secondary.label}</h3>
+        <div class="providers-row-list">
+          {bringYourOwn.secondary.providers.map((provider) => (
+            <span class="provider-item">{provider}</span>
+          ))}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .byo-layout-06 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+  }
+
+  .byo-layout-06 .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .byo-layout-06 .horizontal-strip-grid {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-8);
+    align-items: stretch;
+  }
+
+  .byo-layout-06 .strip-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .byo-layout-06 .col-headline {
+    width: 30%;
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    padding-right: var(--space-6);
+  }
+
+  .byo-layout-06 .col-logins {
+    width: 35%;
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    padding-right: var(--space-6);
+  }
+
+  .byo-layout-06 .col-providers {
+    width: 35%;
+  }
+
+  .byo-layout-06 .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 3.5vw, 2.5rem);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tight);
+    margin: 0;
+  }
+
+  .byo-layout-06 .logins-horizontal-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .byo-layout-06 .login-strip-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    background-color: rgba(255, 255, 255, 0.01);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    padding: var(--space-4);
+    border-radius: 12px;
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .byo-layout-06 .login-strip-card:hover {
+    border-color: rgba(255, 107, 0, 0.15);
+    background-color: rgba(255, 107, 0, 0.01);
+  }
+
+  .byo-layout-06 .login-icon-frame {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+  }
+
+  .byo-layout-06 .login-strip-card:hover .login-icon-frame {
+    color: var(--color-accent-primary);
+    background-color: rgba(255, 107, 0, 0.03);
+    border-color: rgba(255, 107, 0, 0.1);
+  }
+
+  .byo-layout-06 .login-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .byo-layout-06 .login-name {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .byo-layout-06 .login-subtext {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin: 0;
+  }
+
+  .byo-layout-06 .trailing-title {
+    font-family: var(--font-display);
+    font-size: var(--text-xs);
+    font-weight: 750;
+    color: var(--color-text-muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: var(--space-4);
+  }
+
+  .byo-layout-06 .providers-row-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .byo-layout-06 .provider-item {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-secondary);
+    background-color: rgba(255, 255, 255, 0.02);
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  @media (max-width: 992px) {
+    .byo-layout-06 .horizontal-strip-grid {
+      flex-direction: column;
+      gap: var(--space-8);
+    }
+    .byo-layout-06 .col-headline, .byo-layout-06 .col-logins, .byo-layout-06 .col-providers {
+      width: 100%;
+      border-right: none;
+      padding-right: 0;
+    }
+  }
+</style>

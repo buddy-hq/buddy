@@ -1,0 +1,467 @@
+---
+import { content } from "../../../content/site"
+const { capabilities } = content
+---
+
+<div class="capabilities-layout-14">
+  <div class="container">
+    <div class="compiler-card">
+      
+      <!-- Top Section Info -->
+      <div class="compiler-header">
+        <h2 class="headline">{capabilities.headline}</h2>
+        <p class="subtext">{capabilities.subtext}</p>
+      </div>
+
+      <!-- Execution trace layout -->
+      <div class="compiler-body">
+        
+        <!-- Timeline track line (Scrubbable) -->
+        <div class="timeline-visual-wrapper" id="p14-timeline-wrapper">
+          <div class="timeline-line-bg">
+            <div class="timeline-line-fill" id="p14-timeline-fill" style="width: 0%;"></div>
+          </div>
+          
+          <div class="timeline-nodes">
+            {capabilities.items.map((_, idx) => (
+              <div class="timeline-node-dot" id={`p14-node-dot-${idx}`} style={`left: ${idx * 25}%;`}>
+                <span class="dot-inner"></span>
+                <span class="node-num-label">0{idx + 1}</span>
+              </div>
+            ))}
+          </div>
+
+          <!-- Draggable Playhead slider knob -->
+          <div class="timeline-playhead-handle" id="p14-playhead" style="left: 0%; cursor: ew-resize;">
+            <div class="playhead-glow-ring"></div>
+            <div class="playhead-guide-line"></div>
+          </div>
+        </div>
+
+        <!-- Simulation play action & output logs -->
+        <div class="debugger-display">
+          
+          <div class="controls-row">
+            <button class="debug-play-btn" id="p14-play-btn" aria-label="Compile Loop">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              <span class="btn-lbl" id="p14-play-lbl">RUN</span>
+            </button>
+            <span class="scrub-helper-badge">SCRUB TIMELINE TO DEEP INSPECT</span>
+          </div>
+          
+          <div class="log-viewport-minimal">
+            <div class="terminal-shell-header">SYSTEM TRACE OUTPUT</div>
+            <div class="log-card" id="p14-log-card">
+              <span class="log-meta" id="p14-log-step">STEP_01</span>
+              <h3 class="name" id="p14-log-name">{capabilities.items[0].name}</h3>
+              <p class="detail" id="p14-log-detail">{capabilities.items[0].detail}</p>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .capabilities-layout-14 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+    background-color: #050505;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  }
+
+  .capabilities-layout-14 .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .capabilities-layout-14 .compiler-card {
+    background-color: #090909;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    padding: var(--space-8);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+    width: 100%;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  .capabilities-layout-14 .compiler-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .capabilities-layout-14 .headline {
+    font-family: var(--font-display);
+    font-size: var(--text-base);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .capabilities-layout-14 .subtext {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .capabilities-layout-14 .compiler-body {
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+    width: 100%;
+  }
+
+  /* Timeline horizontal pipeline */
+  .capabilities-layout-14 .timeline-visual-wrapper {
+    position: relative;
+    width: 90%;
+    margin: 0 auto;
+    height: 24px;
+    display: flex;
+    align-items: center;
+  }
+
+  .capabilities-layout-14 .timeline-line-bg {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background-color: rgba(255,255,255,0.04);
+    border-radius: 99px;
+  }
+
+  .capabilities-layout-14 .timeline-line-fill {
+    height: 100%;
+    background-color: var(--color-accent-primary);
+    border-radius: 99px;
+    width: 0%;
+  }
+
+  .capabilities-layout-14 .timeline-nodes {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 100%;
+  }
+
+  .capabilities-layout-14 .timeline-node-dot {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #090909;
+    border: 1.5px solid rgba(255,255,255,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+  }
+
+  .capabilities-layout-14 .dot-inner {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: transparent;
+    transition: background-color 200ms ease;
+  }
+
+  .capabilities-layout-14 .node-num-label {
+    position: absolute;
+    top: 14px;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-text-muted);
+    font-weight: 700;
+  }
+
+  /* Node Active state */
+  .capabilities-layout-14 .timeline-node-dot.active {
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 8px rgba(255, 107, 0, 0.3);
+  }
+
+  .capabilities-layout-14 .timeline-node-dot.active .dot-inner {
+    background-color: var(--color-accent-primary);
+  }
+
+  /* Playhead Knob */
+  .capabilities-layout-14 .timeline-playhead-handle {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background-color: var(--color-text-primary);
+    border: 2px solid var(--color-accent-primary);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    top: 50%;
+    z-index: 10;
+  }
+
+  .capabilities-layout-14 .playhead-glow-ring {
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+    border: 1px dashed var(--color-accent-primary);
+    opacity: 0;
+    transition: opacity 200ms ease;
+  }
+
+  .capabilities-layout-14 .timeline-playhead-handle:hover .playhead-glow-ring {
+    opacity: 0.6;
+    animation: playheadPulse 1.5s infinite ease-out;
+  }
+
+  @keyframes playheadPulse {
+    0% { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+
+  .capabilities-layout-14 .playhead-guide-line {
+    position: absolute;
+    width: 1px;
+    height: 40px;
+    border-left: 1px dashed var(--color-accent-primary);
+    left: 50%;
+    top: 14px;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 200ms ease;
+    pointer-events: none;
+  }
+
+  .capabilities-layout-14 .timeline-playhead-handle:hover .playhead-guide-line {
+    opacity: 0.4;
+  }
+
+  /* Play details display */
+  .capabilities-layout-14 .debugger-display {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    align-items: stretch;
+  }
+
+  .capabilities-layout-14 .controls-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .capabilities-layout-14 .debug-play-btn {
+    border: 1.5px solid var(--color-accent-primary);
+    background-color: transparent;
+    border-radius: 6px;
+    padding: var(--space-2) var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--color-accent-primary);
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    transition: all 200ms ease;
+  }
+
+  .capabilities-layout-14 .debug-play-btn:hover {
+    background-color: rgba(255, 107, 0, 0.05);
+  }
+
+  .capabilities-layout-14 .debug-play-btn.playing {
+    color: #090909;
+    background-color: var(--color-accent-primary);
+  }
+
+  .capabilities-layout-14 .scrub-helper-badge {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-text-muted);
+    font-weight: 700;
+  }
+
+  .capabilities-layout-14 .log-viewport-minimal {
+    background-color: #020202;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .capabilities-layout-14 .terminal-shell-header {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-text-muted);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+    padding-bottom: 4px;
+  }
+
+  .capabilities-layout-14 .log-card {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 50px;
+  }
+
+  .capabilities-layout-14 .log-meta {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-accent-primary);
+    font-weight: 700;
+  }
+
+  .capabilities-layout-14 .name {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .capabilities-layout-14 .detail {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  @media (max-width: 600px) {
+    .capabilities-layout-14 .timeline-visual-wrapper {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  const setupCapabilitiesLayout14 = () => {
+    const playBtn = document.getElementById("p14-play-btn")
+    const playLbl = document.getElementById("p14-play-lbl")
+    const fillLine = document.getElementById("p14-timeline-fill")
+    const wrapper = document.getElementById("p14-timeline-wrapper")
+    const playhead = document.getElementById("p14-playhead")
+
+    const logStep = document.getElementById("p14-log-step")
+    const logName = document.getElementById("p14-log-name")
+    const logDetail = document.getElementById("p14-log-detail")
+
+    const nodes = document.querySelectorAll(".capabilities-layout-14 .timeline-node-dot")
+
+    // Dynamic copy lists
+    const items = [
+      { name: "Subagents", detail: "Specialized agents with their own tools and context. Ships with built-in ones — or build your own." },
+      { name: "MCPs", detail: "Connect external tools and data via Model Context Protocol." },
+      { name: "Skills", detail: "Reusable, versioned capability bundles. Ships with built-in ones — or build your own." },
+      { name: "Tools", detail: "30+ built-in tools for learning. Or define your own with full runtime control." },
+      { name: "AGENTS.md", detail: "Instructions you give the agent. Per project, per context." }
+    ]
+
+    let currentPercent = 0
+    let isPlaying = false
+    let timer: ReturnType<typeof setInterval> | null = null
+    let isDragging = false
+
+    const updateTimelineVisuals = (pct: number) => {
+      currentPercent = pct
+      if (fillLine) fillLine.style.width = `${pct}%`
+      if (playhead) playhead.style.left = `${pct}%`
+
+      // Highlight nodes
+      nodes.forEach((node, idx) => {
+        const threshold = idx * 25
+        if (pct >= threshold) {
+          node.classList.add("active")
+        } else {
+          node.classList.remove("active")
+        }
+      })
+
+      // Update log text based on segment index
+      const segmentIdx = Math.min(4, Math.floor(pct / 20))
+      const targetItem = items[segmentIdx]
+      if (logStep) logStep.textContent = `TRACE_STEP_0${segmentIdx + 1}`
+      if (logName) logName.textContent = targetItem.name
+      if (logDetail) logDetail.textContent = targetItem.detail
+    }
+
+    const startAutoRun = () => {
+      isPlaying = true
+      if (playBtn) playBtn.classList.add("playing")
+      if (playLbl) playLbl.textContent = "HALT"
+      
+      timer = setInterval(() => {
+        currentPercent += 1
+        if (currentPercent > 100) {
+          stopAutoRun()
+          currentPercent = 100
+        }
+        updateTimelineVisuals(currentPercent)
+      }, 50)
+    }
+
+    const stopAutoRun = () => {
+      isPlaying = false
+      if (timer) clearInterval(timer)
+      if (playBtn) playBtn.classList.remove("playing")
+      if (playLbl) playLbl.textContent = "RUN"
+    }
+
+    playBtn?.addEventListener("click", () => {
+      if (isPlaying) {
+        stopAutoRun()
+      } else {
+        if (currentPercent >= 100) currentPercent = 0
+        startAutoRun()
+      }
+    })
+
+    // Drag timeline scrubber system
+    const onScrubMove = (clientX: number) => {
+      if (!wrapper) return
+      const rect = wrapper.getBoundingClientRect()
+      const relativeX = clientX - rect.left
+      const percent = Math.max(0, Math.min(100, Math.round((relativeX / rect.width) * 100)))
+      
+      stopAutoRun()
+      updateTimelineVisuals(percent)
+    }
+
+    playhead?.addEventListener("mousedown", () => { isDragging = true })
+    window.addEventListener("mouseup", () => { isDragging = false })
+    window.addEventListener("mousemove", (e: MouseEvent) => {
+      if (isDragging) onScrubMove(e.clientX)
+    })
+
+    // Touch support
+    playhead?.addEventListener("touchstart", () => { isDragging = true })
+    window.addEventListener("touchend", () => { isDragging = false })
+    window.addEventListener("touchmove", (e: TouchEvent) => {
+      if (isDragging && e.touches[0]) onScrubMove(e.touches[0].clientX)
+    })
+
+    // Initial state
+    updateTimelineVisuals(0)
+  }
+
+  setupCapabilitiesLayout14()
+</script>

@@ -1,0 +1,201 @@
+---
+import { content } from "../../../content/site"
+const { bringYourOwn } = content
+
+const logins = [
+  { ...bringYourOwn.primary, subtext: bringYourOwn.primary.description },
+  { name: bringYourOwn.secondary.options[0], icon: "github", subtext: "Log in with GitHub. No new bill." }
+]
+---
+
+<div class="byo-layout-04">
+  <div class="container">
+    <div class="bento-grid">
+      <!-- Title box (spanning full width or large area) -->
+      <div class="bento-card hero-card">
+        <h2 class="section-title">{bringYourOwn.headline}</h2>
+      </div>
+
+      <!-- Logins cards -->
+      {logins.map((login) => (
+        <div class="bento-card login-card">
+          <div class="card-header">
+            <span class="icon-holder">
+              {login.icon === "openai" ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 22px; height: 22px;"><path d="M4.5 16.5c-1.5-2.5-1-6 1.5-7.5s6-1 7.5 1.5m0 0c1.5 2.5 1 6-1.5 7.5s-6 1-7.5-1.5M12 9V3m0 6c2-1 4.5-.5 5.5 1.5s-.5 4.5-2.5 5.5m0 0l5 3m-5-3c.5 2-.5 4.5-2.5 5.5S10 20 9 18" stroke-linecap="round"/></svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 22px; height: 22px;"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              )}
+            </span>
+            <h3 class="login-name">{login.name}</h3>
+          </div>
+          <p class="login-subtext">{login.subtext}</p>
+        </div>
+      ))}
+
+      <!-- Providers card (taking up larger space) -->
+      <div class="bento-card providers-card">
+        <h3 class="trailing-title">{bringYourOwn.secondary.label}</h3>
+        <div class="providers-list-inline">
+          {bringYourOwn.secondary.providers.map((provider) => (
+            <div class="provider-item">
+              <span class="provider-text">{provider}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .byo-layout-04 {
+    padding: var(--space-12) 0;
+    width: 100%;
+  }
+
+  .byo-layout-04 .container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+  }
+
+  .byo-layout-04 .bento-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: var(--space-4);
+  }
+
+  .byo-layout-04 .bento-card {
+    background-color: #0b0908;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: var(--space-6);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .byo-layout-04 .bento-card:hover {
+    border-color: rgba(255, 255, 255, 0.09);
+    background-color: rgba(255, 255, 255, 0.005);
+  }
+
+  .byo-layout-04 .hero-card {
+    grid-column: span 6;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin-bottom: var(--space-4);
+  }
+
+  .byo-layout-04 .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tight);
+    margin: 0;
+  }
+
+  .byo-layout-04 .login-card {
+    grid-column: span 3;
+    min-height: 180px;
+  }
+
+  .byo-layout-04 .login-card:hover {
+    border-color: rgba(255, 107, 0, 0.2);
+  }
+
+  .byo-layout-04 .card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+
+  .byo-layout-04 .icon-holder {
+    width: 38px;
+    height: 38px;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+  }
+
+  .byo-layout-04 .login-card:hover .icon-holder {
+    color: var(--color-accent-primary);
+    border-color: rgba(255, 107, 0, 0.15);
+    background-color: rgba(255, 107, 0, 0.03);
+  }
+
+  .byo-layout-04 .login-name {
+    font-family: var(--font-display);
+    font-size: var(--text-base);
+    font-weight: 750;
+    color: var(--color-text-primary);
+  }
+
+  .byo-layout-04 .login-subtext {
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  .byo-layout-04 .providers-card {
+    grid-column: span 6;
+    min-height: 200px;
+  }
+
+  .byo-layout-04 .trailing-title {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin-bottom: var(--space-6);
+  }
+
+  .byo-layout-04 .providers-list-inline {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: var(--space-3);
+  }
+
+  .byo-layout-04 .provider-item {
+    background-color: rgba(255, 255, 255, 0.01);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    padding: var(--space-3);
+    text-align: center;
+    transition: all 0.2s var(--ease-out);
+  }
+
+  .byo-layout-04 .provider-item:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .byo-layout-04 .provider-text {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-text-secondary);
+  }
+
+  .byo-layout-04 .provider-item:hover .provider-text {
+    color: var(--color-accent-primary);
+  }
+
+  @media (max-width: 768px) {
+    .byo-layout-04 .login-card {
+      grid-column: span 6;
+    }
+  }
+</style>

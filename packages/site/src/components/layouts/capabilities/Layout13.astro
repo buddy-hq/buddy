@@ -1,0 +1,390 @@
+---
+import { content } from "../../../content/site"
+const { capabilities } = content
+---
+
+<div class="capabilities-layout-13">
+  <div class="container">
+    <div class="bridge-workspace">
+      
+      <!-- Left Column: Capability cards -->
+      <div class="bridge-triggers" id="p13-triggers">
+        <div class="intro-box">
+          <h2 class="headline">{capabilities.headline}</h2>
+          <p class="subtext">{capabilities.subtext}</p>
+        </div>
+
+        <div class="triggers-stack">
+          {capabilities.items.map((item, idx) => (
+            <div class="trigger-card" data-index={idx} id={`p13-card-${idx}`}>
+              <div class="trigger-meta">
+                <span class="trigger-idx">0{idx + 1}</span>
+                <h3 class="name">{item.name}</h3>
+              </div>
+              <p class="detail">{item.detail}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <!-- Right Column: Interactive Orbital Hub -->
+      <div class="bridge-display-panel" id="p13-display-panel">
+        <div class="display-inner">
+          <svg class="bridge-svg" id="p13-orbit-svg" viewBox="0 0 160 160">
+            <!-- Concentric orbit guides -->
+            <circle cx="80" cy="80" r="30" fill="none" stroke="rgba(255,255,255,0.015)" stroke-width="1" />
+            <circle cx="80" cy="80" r="50" fill="none" stroke="rgba(255,255,255,0.015)" stroke-width="1" stroke-dasharray="3,3" />
+            <circle cx="80" cy="80" r="70" fill="none" stroke="rgba(255,255,255,0.01)" stroke-width="1" />
+
+            <!-- Local Agent Core Node -->
+            <circle cx="80" cy="80" r="8" fill="#090909" stroke="var(--color-accent-primary)" stroke-width="2" />
+            <circle cx="80" cy="80" r="3" fill="var(--color-accent-primary)" />
+            
+            <!-- Connection Spokes (dynamic line paths) -->
+            <line x1="80" y1="80" x2="80" y2="35" class="connector-spoke-line line-0" id="p13-line-0" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="2,2" />
+            <line x1="80" y1="80" x2="115" y2="55" class="connector-spoke-line line-1" id="p13-line-1" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="2,2" />
+            <line x1="80" y1="80" x2="105" y2="115" class="connector-spoke-line line-2" id="p13-line-2" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="2,2" />
+            <line x1="80" y1="80" x2="55" y2="115" class="connector-spoke-line line-3" id="p13-line-3" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="2,2" />
+            <line x1="80" y1="80" x2="45" y2="55" class="connector-spoke-line line-4" id="p13-line-4" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="2,2" />
+
+            <!-- Orbiting satellite nodes (interactive, draggable) -->
+            <g class="satellite-group" id="p13-sat-0" data-index="0" style="cursor: grab;">
+              <circle cx="80" cy="35" r="5.5" fill="#090909" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" class="target-node" />
+              <circle cx="80" cy="35" r="2" fill="rgba(255,255,255,0.3)" class="target-inner" />
+            </g>
+            <g class="satellite-group" id="p13-sat-1" data-index="1" style="cursor: grab;">
+              <circle cx="115" cy="55" r="5.5" fill="#090909" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" class="target-node" />
+              <circle cx="115" cy="55" r="2" fill="rgba(255,255,255,0.3)" class="target-inner" />
+            </g>
+            <g class="satellite-group" id="p13-sat-2" data-index="2" style="cursor: grab;">
+              <circle cx="105" cy="115" r="5.5" fill="#090909" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" class="target-node" />
+              <circle cx="105" cy="115" r="2" fill="rgba(255,255,255,0.3)" class="target-inner" />
+            </g>
+            <g class="satellite-group" id="p13-sat-3" data-index="3" style="cursor: grab;">
+              <circle cx="55" cy="115" r="5.5" fill="#090909" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" class="target-node" />
+              <circle cx="55" cy="115" r="2" fill="rgba(255,255,255,0.3)" class="target-inner" />
+            </g>
+            <g class="satellite-group" id="p13-sat-4" data-index="4" style="cursor: grab;">
+              <circle cx="45" cy="55" r="5.5" fill="#090909" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" class="target-node" />
+              <circle cx="45" cy="55" r="2" fill="rgba(255,255,255,0.3)" class="target-inner" />
+            </g>
+          </svg>
+
+          <!-- Priority Status Box -->
+          <div class="priority-status-board" id="p13-status-board">DRAG NODE TO PRIORITIZE</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .capabilities-layout-13 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+    background-color: #050505;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+  }
+
+  .capabilities-layout-13 .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .capabilities-layout-13 .bridge-workspace {
+    display: flex;
+    gap: var(--space-10);
+    align-items: stretch;
+    width: 100%;
+  }
+
+  /* Left column triggers */
+  .capabilities-layout-13 .bridge-triggers {
+    width: 45%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .capabilities-layout-13 .intro-box {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .capabilities-layout-13 .headline {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 3.5vw, 2.25rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.15;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+  }
+
+  .capabilities-layout-13 .subtext {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .capabilities-layout-13 .triggers-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .capabilities-layout-13 .trigger-card {
+    text-align: left;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    background-color: rgba(255, 255, 255, 0.002);
+    border-radius: 12px;
+    padding: var(--space-4) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    transition: all 250ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .capabilities-layout-13 .trigger-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .capabilities-layout-13 .trigger-idx {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+    font-weight: bold;
+  }
+
+  .capabilities-layout-13 .name {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .capabilities-layout-13 .detail {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  /* Highlights */
+  .capabilities-layout-13 .trigger-card.active {
+    border-color: rgba(255, 107, 0, 0.2);
+    background-color: rgba(255, 107, 0, 0.015);
+  }
+
+  .capabilities-layout-13 .trigger-card.active .name {
+    color: var(--color-text-primary);
+  }
+
+  .capabilities-layout-13 .trigger-card.active .detail {
+    color: var(--color-text-secondary);
+  }
+
+  /* Right orbital hub */
+  .capabilities-layout-13 .bridge-display-panel {
+    width: 55%;
+    background-color: #090909;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 320px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  }
+
+  .capabilities-layout-13 .display-inner {
+    width: 220px;
+    height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .capabilities-layout-13 .bridge-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .capabilities-layout-13 .satellite-group:hover circle.target-node {
+    stroke: var(--color-accent-primary);
+  }
+
+  .capabilities-layout-13 .satellite-group.dragging circle.target-node {
+    stroke: var(--color-accent-primary);
+    fill: rgba(255, 107, 0, 0.15);
+  }
+
+  .capabilities-layout-13 .priority-status-board {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    color: var(--color-accent-primary);
+    background-color: rgba(255, 107, 0, 0.05);
+    border: 1px solid rgba(255, 107, 0, 0.15);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-weight: 700;
+  }
+
+  @media (max-width: 900px) {
+    .capabilities-layout-13 .bridge-workspace {
+      flex-direction: column;
+    }
+    .capabilities-layout-13 .bridge-triggers,
+    .capabilities-layout-13 .bridge-display-panel {
+      width: 100%;
+    }
+  }
+</style>
+
+<script>
+  const setupCapabilitiesLayout13 = () => {
+    const cards = document.querySelectorAll(".capabilities-layout-13 .trigger-card")
+    const svg = document.getElementById("p13-orbit-svg") as unknown as SVGSVGElement
+    const statusBoard = document.getElementById("p13-status-board")
+    const satGroups = document.querySelectorAll(".capabilities-layout-13 .satellite-group")
+    
+    const layerNames = ["SUBAGENTS", "MCPS", "SKILLS", "TOOLS", "AGENTS.MD"]
+    const angles = [0, 72, 144, 216, 288] // Angle profiles
+
+    // Satellite drag parameters
+    let activeDragIdx: number | null = null
+
+    const updateVisualSpoke = (idx: number, dist: number) => {
+      const sat = document.getElementById(`p13-sat-${idx}`)
+      const line = document.getElementById(`p13-line-${idx}`)
+      if (!sat || !line) return
+
+      const angleRad = (angles[idx] - 90) * (Math.PI / 180)
+      const cx = 80 + dist * Math.cos(angleRad)
+      const cy = 80 + dist * Math.sin(angleRad)
+
+      // Set node circle position
+      const node = sat.querySelector(".target-node")
+      const innerNode = sat.querySelector(".target-inner")
+      node?.setAttribute("cx", cx.toString())
+      node?.setAttribute("cy", cy.toString())
+      innerNode?.setAttribute("cx", cx.toString())
+      innerNode?.setAttribute("cy", cy.toString())
+
+      // Set line spokes path
+      line.setAttribute("x2", cx.toString())
+      line.setAttribute("y2", cy.toString())
+
+      // Update color depending on priority
+      if (dist < 40) {
+        node?.setAttribute("stroke", "var(--color-accent-primary)")
+        line?.setAttribute("stroke", "var(--color-accent-primary)")
+      } else {
+        node?.setAttribute("stroke", "rgba(255,255,255,0.3)")
+        line?.setAttribute("stroke", "rgba(255,255,255,0.12)")
+      }
+    }
+
+    satGroups.forEach((sat, sIdx) => {
+      const onMove = (clientX: number, clientY: number) => {
+        if (activeDragIdx !== sIdx || !svg) return
+        const rect = svg.getBoundingClientRect()
+        
+        // Relative mouse coordinates
+        const mouseX = ((clientX - rect.left) / rect.width) * 160
+        const mouseY = ((clientY - rect.top) / rect.height) * 160
+        
+        // Distance from center (80, 80)
+        const dx = mouseX - 80
+        const dy = mouseY - 80
+        const rawDist = Math.sqrt(dx * dx + dy * dy)
+        const clampedDist = Math.max(20, Math.min(75, rawDist))
+
+        updateVisualSpoke(sIdx, clampedDist)
+
+        if (statusBoard) {
+          const priority = clampedDist < 42 ? "HIGH" : clampedDist < 60 ? "NORMAL" : "LOW"
+          statusBoard.textContent = `${layerNames[sIdx]}: PRIORITY ${priority}`
+        }
+      }
+
+      sat.addEventListener("mousedown", (e) => {
+        activeDragIdx = sIdx
+        sat.classList.add("dragging")
+        // Trigger active left card
+        cards.forEach((c) => c.classList.remove("active"))
+        document.getElementById(`p13-card-${sIdx}`)?.classList.add("active")
+        
+        if (statusBoard) {
+          statusBoard.textContent = `CONFIGURING: ${layerNames[sIdx]}`
+        }
+      })
+
+      window.addEventListener("mouseup", () => {
+        if (activeDragIdx === sIdx) {
+          activeDragIdx = null
+          sat.classList.remove("dragging")
+        }
+      })
+
+      window.addEventListener("mousemove", (e: MouseEvent) => {
+        if (activeDragIdx === sIdx) onMove(e.clientX, e.clientY)
+      })
+
+      // Touch
+      sat.addEventListener("touchstart", (e) => {
+        activeDragIdx = sIdx
+        sat.classList.add("dragging")
+        cards.forEach((c) => c.classList.remove("active"))
+        document.getElementById(`p13-card-${sIdx}`)?.classList.add("active")
+      })
+      window.addEventListener("touchend", () => {
+        if (activeDragIdx === sIdx) {
+          activeDragIdx = null
+          sat.classList.remove("dragging")
+        }
+      })
+      window.addEventListener("touchmove", (e: TouchEvent) => {
+        if (activeDragIdx === sIdx && e.touches[0]) onMove(e.touches[0].clientX, e.touches[0].clientY)
+      })
+    })
+
+    // Setup left card clicking to focus satellites
+    cards.forEach((card, cIdx) => {
+      card.addEventListener("click", () => {
+        cards.forEach((c) => c.classList.remove("active"))
+        card.classList.add("active")
+
+        // Brief flash on corresponding node
+        const satNode = document.getElementById(`p13-sat-${cIdx}`)?.querySelector(".target-node")
+        if (satNode) {
+          satNode.setAttribute("stroke", "var(--color-accent-primary)")
+          setTimeout(() => {
+            satNode.setAttribute("stroke", "rgba(255,255,255,0.3)")
+          }, 400)
+        }
+
+        if (statusBoard) {
+          statusBoard.textContent = `CAPABILITY: ${layerNames[cIdx]}`
+        }
+      })
+    })
+  }
+
+  setupCapabilitiesLayout13()
+</script>

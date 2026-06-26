@@ -1,0 +1,194 @@
+---
+import { content } from "../../../content/site"
+const { capabilities } = content
+---
+
+<div class="capabilities-layout-10">
+  <div class="container">
+    <div class="technical-matrix-table">
+      
+      <!-- Table Header Row with Window Controls -->
+      <div class="matrix-row row-header">
+        <div class="matrix-cell cell-full">
+          <div class="window-decorations">
+            <div class="decor-dots"><span></span><span></span><span></span></div>
+          </div>
+          <h2 class="title">{capabilities.headline}</h2>
+          <p class="subtext">{capabilities.subtext}</p>
+        </div>
+      </div>
+
+      <!-- Table Body Rows -->
+      {capabilities.items.map((item, idx) => (
+        <div class="matrix-row row-body">
+          
+          <div class="matrix-cell cell-name-col border-right">
+            <div class="name-accent-row">
+              <span class="active-status-led"></span>
+              <span class="row-index">0{idx + 1}</span>
+            </div>
+            <h3 class="name">{item.name}</h3>
+          </div>
+
+          <div class="matrix-cell cell-detail-col">
+            <p class="detail">{item.detail}</p>
+          </div>
+
+        </div>
+      ))}
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .capabilities-layout-10 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+  }
+
+  .capabilities-layout-10 .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .capabilities-layout-10 .technical-matrix-table {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.003);
+    font-family: var(--font-mono);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  }
+
+  .capabilities-layout-10 .matrix-row {
+    display: flex;
+    width: 100%;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .capabilities-layout-10 .matrix-row:last-child {
+    border-bottom: none;
+  }
+
+  .capabilities-layout-10 .matrix-cell {
+    padding: var(--space-5) var(--space-6);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .capabilities-layout-10 .cell-full {
+    width: 100%;
+    gap: var(--space-2);
+    background-color: rgba(255, 255, 255, 0.005);
+  }
+
+  .capabilities-layout-10 .window-decorations {
+    display: flex;
+    margin-bottom: var(--space-2);
+  }
+
+  .capabilities-layout-10 .decor-dots {
+    display: flex;
+    gap: 6px;
+  }
+
+  .capabilities-layout-10 .decor-dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .capabilities-layout-10 .cell-name-col {
+    width: 30%;
+    gap: var(--space-2);
+    transition: all 0.2s var(--ease-out);
+  }
+
+  .capabilities-layout-10 .matrix-row:hover .cell-name-col {
+    background-color: rgba(255, 255, 255, 0.005);
+  }
+
+  .capabilities-layout-10 .name-accent-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .capabilities-layout-10 .active-status-led {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.15);
+    transition: all 0.2s var(--ease-out);
+  }
+
+  .capabilities-layout-10 .matrix-row:hover .active-status-led {
+    background-color: #10b981;
+    box-shadow: 0 0 6px #10b981;
+  }
+
+  .capabilities-layout-10 .row-index {
+    font-size: 9px;
+    color: var(--color-text-muted);
+  }
+
+  .capabilities-layout-10 .cell-detail-col {
+    width: 70%;
+  }
+
+  .capabilities-layout-10 .border-right {
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .capabilities-layout-10 .title {
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tight);
+    margin: 0;
+  }
+
+  .capabilities-layout-10 .subtext {
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .capabilities-layout-10 .name {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .capabilities-layout-10 .detail {
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  @media (max-width: 768px) {
+    .capabilities-layout-10 .matrix-row {
+      flex-direction: column;
+    }
+    .capabilities-layout-10 .cell-name-col, .capabilities-layout-10 .cell-detail-col {
+      width: 100%;
+    }
+    .capabilities-layout-10 .border-right {
+      border-right: none;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  }
+</style>

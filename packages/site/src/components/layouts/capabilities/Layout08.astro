@@ -1,0 +1,178 @@
+---
+import { content } from "../../../content/site"
+const { capabilities } = content
+---
+
+<div class="capabilities-layout-08">
+  <div class="container">
+    <div class="staggered-columns-flow">
+      
+      <div class="header-box text-center">
+        <h2 class="title">{capabilities.headline}</h2>
+        <p class="subtext">{capabilities.subtext}</p>
+      </div>
+
+      <div class="grid-columns">
+        {capabilities.items.map((item, idx) => (
+          <div class={`grid-col col-${idx}`}>
+            
+            <!-- Custom Vector SVG Icon -->
+            <div class="card-icon-frame">
+              {idx === 0 ? (
+                /* Subagents: connected circles */
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 20px; height: 20px;"><path d="M12 6a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM12 6l-6 9m6-9l6 9" stroke-linecap="round"/></svg>
+              ) : idx === 1 ? (
+                /* MCPs: socket connection */
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 20px; height: 20px;"><path d="M5 3h14v11a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V3zM12 18v3M9 8h6M12 3v5" stroke-linecap="round"/></svg>
+              ) : idx === 2 ? (
+                /* Skills: modules package box */
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 20px; height: 20px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke-linecap="round"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12" stroke-linecap="round"/></svg>
+              ) : idx === 3 ? (
+                /* Tools: dial setting gear */
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 20px; height: 20px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" stroke-linecap="round"/></svg>
+              ) : (
+                /* AGENTS.md: config file sheet */
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width: 20px; height: 20px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke-linecap="round"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke-linecap="round"/></svg>
+              )}
+            </div>
+
+            <h3 class="name">{item.name}</h3>
+            <p class="detail">{item.detail}</p>
+          </div>
+        ))}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .capabilities-layout-08 {
+    padding: var(--space-12) 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 72px);
+    background: radial-gradient(circle at 90% 10%, rgba(255, 107, 0, 0.02) 0%, transparent 40%);
+  }
+
+  .capabilities-layout-08 .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--space-6);
+    width: 100%;
+  }
+
+  .capabilities-layout-08 .text-center {
+    text-align: center;
+  }
+
+  .capabilities-layout-08 .staggered-columns-flow {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: var(--space-10);
+  }
+
+  .capabilities-layout-08 .header-box {
+    max-width: 800px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .capabilities-layout-08 .title {
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 5vw, 2.75rem);
+    font-weight: 850;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0;
+  }
+
+  .capabilities-layout-08 .subtext {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .capabilities-layout-08 .grid-columns {
+    display: flex;
+    gap: var(--space-4);
+  }
+
+  .capabilities-layout-08 .grid-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    background-color: rgba(255, 255, 255, 0.005);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: var(--space-5);
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .capabilities-layout-08 .grid-col:hover {
+    border-color: rgba(255, 107, 0, 0.25);
+    background-color: rgba(255, 107, 0, 0.015);
+    transform: translateY(-4px) scale(1.02);
+  }
+
+  /* Icons styling */
+  .capabilities-layout-08 .card-icon-frame {
+    width: 40px;
+    height: 40px;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+    transition: all 0.3s var(--ease-out);
+  }
+
+  .capabilities-layout-08 .grid-col:hover .card-icon-frame {
+    color: var(--color-accent-primary);
+    border-color: rgba(255, 107, 0, 0.15);
+    background-color: rgba(255, 107, 0, 0.03);
+  }
+
+  /* Offset staggers */
+  .capabilities-layout-08 .col-1 { margin-top: var(--space-4); }
+  .capabilities-layout-08 .col-2 { margin-top: var(--space-8); }
+  .capabilities-layout-08 .col-3 { margin-top: var(--space-12); }
+  .capabilities-layout-08 .col-4 { margin-top: var(--space-16); }
+
+  .capabilities-layout-08 .name {
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 750;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .capabilities-layout-08 .detail {
+    font-family: var(--font-body);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    margin: 0;
+  }
+
+  @media (max-width: 900px) {
+    .capabilities-layout-08 .grid-columns {
+      flex-direction: column;
+      gap: var(--space-6);
+    }
+    .capabilities-layout-08 .grid-col {
+      margin-top: 0 !important;
+    }
+  }
+</style>
