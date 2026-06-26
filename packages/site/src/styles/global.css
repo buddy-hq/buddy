@@ -125,6 +125,9 @@ body {
   font-feature-settings:
     "liga" 1,
     "calt" 1;
+}
+
+main {
   overflow-x: clip;
 }
 
@@ -182,6 +185,13 @@ h6 {
   padding: 0 var(--space-6);
 }
 
+@media (max-width: 768px) {
+  .container {
+    max-width: 100%;
+    padding: 0 var(--space-5);
+  }
+}
+
 section {
   padding-block: clamp(3.5rem, 8vw, 6rem);
   position: relative;
@@ -191,6 +201,12 @@ section {
   text-align: center;
   max-width: 600px;
   margin: 0 auto var(--space-12) auto;
+}
+
+@media (max-width: 576px) {
+  .section-header {
+    margin-bottom: var(--space-8);
+  }
 }
 
 .section-title {
@@ -300,28 +316,6 @@ section {
   background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
   background-size: 32px 32px;
   opacity: 0.65;
-  pointer-events: none;
-}
-
-.glow-1 {
-  position: absolute;
-  top: -10%;
-  left: 20%;
-  width: 60vw;
-  height: 60vw;
-  background: radial-gradient(circle, var(--color-accent-secondary-glow) 0%, transparent 70%);
-  z-index: -1;
-  pointer-events: none;
-}
-
-.glow-2 {
-  position: absolute;
-  bottom: 10%;
-  right: -10%;
-  width: 50vw;
-  height: 50vw;
-  background: radial-gradient(circle, var(--color-accent-primary-glow) 0%, transparent 70%);
-  z-index: -1;
   pointer-events: none;
 }
 
@@ -454,17 +448,35 @@ hr {
   width: 100%;
 }
 
+@media (max-width: 768px) {
+  hr {
+    max-width: 100%;
+  }
+}
+
 /* ============================================================
    SECTION PADDING AND BORDERS
    ============================================================ */
 .hero,
 .philosophy-section,
-.bookend-cards-stack,
+.features-section,
 .capabilities-section,
 .segment-section,
 .install-section {
-  padding-top: var(--space-32) !important;
+  padding-top: var(--space-24) !important;
   padding-bottom: var(--space-32) !important;
+}
+
+@media (max-width: 768px) {
+  .hero,
+  .philosophy-section,
+  .features-section,
+  .capabilities-section,
+  .segment-section,
+  .install-section {
+    padding-top: var(--space-12) !important;
+    padding-bottom: var(--space-16) !important;
+  }
 }
 
 .segment-section,

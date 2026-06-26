@@ -45,6 +45,9 @@ import { content } from "../content/site"
 </section>
 
 <style is:global>
+  /* Hero Install CTA (Mobile only) */
+
+
   /* === Hero Base === */
   .hero {
     position: relative;
@@ -57,6 +60,12 @@ import { content } from "../content/site"
     margin-bottom: 96px;
     animation: fadeInUp 400ms var(--ease-out) forwards;
     position: relative;
+  }
+
+  @media (max-width: 576px) {
+    .hero-header-section {
+      margin-bottom: 48px;
+    }
   }
 
   .hero-title {
@@ -74,12 +83,14 @@ import { content } from "../content/site"
   @media (max-width: 992px) {
     .hero-title {
       font-size: 54px;
+      font-weight: 500; /* Not bold in mobile */
     }
   }
 
   @media (max-width: 576px) {
     .hero-title {
       font-size: 38px;
+      font-weight: 500; /* Not bold in mobile */
     }
   }
 
@@ -262,8 +273,6 @@ import { content } from "../content/site"
     pointer-events: none;
   }
 
-
-
   /* --- Responsive --- */
   @media (max-width: 992px) {
     .hero-header-row {
@@ -274,6 +283,140 @@ import { content } from "../content/site"
 
     .hero-header-right {
       align-self: flex-start;
+    }
+
+    /* Force workspace mock to stay in desktop layout when inside hero */
+    .hero-visual .workspace-body {
+      grid-template-columns: 160px 1fr 0px 40px !important;
+      grid-template-rows: 100% !important;
+      height: 500px !important;
+      overflow: hidden !important;
+    }
+
+    .hero-visual .workspace-body.right-pane-collapsed {
+      grid-template-columns: 160px 1fr 0px 40px !important;
+    }
+
+    .hero-visual .surface-sidebar {
+      display: flex !important;
+      grid-column: 1 !important;
+      grid-row: 1 !important;
+    }
+
+    .hero-visual .surface-chat {
+      grid-column: 2 !important;
+      grid-row: 1 !important;
+      height: 100% !important;
+      align-self: stretch !important;
+    }
+
+    .hero-visual .surface-actions {
+      display: flex !important;
+      grid-column: 4 !important;
+      grid-row: 1 !important;
+      height: 100% !important;
+      align-self: stretch !important;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .hero-visual {
+      display: block;
+      height: 460px; /* Increased height to show more mock content vertically */
+      overflow: hidden; /* Crop both vertical overflow and horizontal viewport overflow */
+      position: relative;
+      background-color: transparent;
+      width: 100vw; /* Stretch full width of viewport */
+      margin-left: calc(-50vw + 50%); /* Break out of container to left edge of viewport */
+      padding-left: max(16px, calc(50vw - 50%)); /* Keep content padding aligned with container */
+    }
+
+    /* Make the mock render wider than viewport to show desktop proportions */
+    .hero-visual .app-mockup-wrapper {
+      position: absolute;
+      top: 0;
+      left: max(16px, calc(50vw - 50%)); /* Align left edge of mockup exactly with normal page container margin */
+      width: 880px; /* Desktop simulated width */
+      min-width: 880px;
+      z-index: 5;
+    }
+
+    /* Keep the mockup grid open and styled as desktop mock */
+    .hero-visual .workspace-body {
+      grid-template-columns: 180px 1.2fr 1.1fr 44px !important;
+      grid-template-rows: 100% !important;
+      height: 400px !important; /* Increased workspace height */
+      overflow: hidden !important;
+    }
+
+    .hero-visual .workspace-body.right-pane-collapsed {
+      grid-template-columns: 180px 1.2fr 1.1fr 44px !important;
+    }
+
+    .hero-visual .surface-sidebar {
+      display: flex !important;
+      grid-column: 1 !important;
+      grid-row: 1 !important;
+    }
+
+    .hero-visual .surface-chat {
+      grid-column: 2 !important;
+      grid-row: 1 !important;
+      height: 100% !important;
+      align-self: stretch !important;
+    }
+
+    .hero-visual .surface-whiteboard {
+      display: flex !important;
+      grid-column: 3 !important;
+      grid-row: 1 !important;
+      height: 100% !important;
+      align-self: stretch !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      transform: none !important;
+    }
+
+    .hero-visual .surface-actions {
+      display: flex !important;
+      grid-column: 4 !important;
+      grid-row: 1 !important;
+      height: 100% !important;
+      align-self: stretch !important;
+    }
+
+    /* Static product shot — no interaction on mobile */
+    .hero-visual .buddy-window {
+      pointer-events: none;
+      /* Add slight bottom shadow to elevate the mockup edge */
+      box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.9);
+    }
+
+    /* Kill all animations inside hero on mobile */
+    .hero-visual .pulse-slow,
+    .hero-visual [class*="pulse"] {
+      animation: none !important;
+    }
+
+    /* Fade on right edge only so the bottom border stays sharp and fully visible */
+    .hero-visual::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      width: 100vw;
+      background: linear-gradient(to right, transparent 60%, var(--color-bg) 95%);
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .mockup-reflection {
+      display: none;
+    }
+
+    .mockup-glow {
+      display: none;
     }
   }
 
@@ -286,6 +429,10 @@ import { content } from "../content/site"
     .hero-btn-primary,
     .hero-btn-secondary {
       width: 100%;
+    }
+
+    .hero-header-left {
+      max-width: 100%;
     }
   }
 </style>

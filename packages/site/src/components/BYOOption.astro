@@ -82,4 +82,16 @@ const titleSegments = title.split(" · ")
     height: 28px;
     color: var(--color-text-muted);
   }
+
+  @media (max-width: 768px) {
+    .byo-option {
+      padding: var(--space-6) var(--space-4);
+    }
+    .byo-option-title {
+      font-size: 1.15rem !important; /* Scale option titles down on mobile */
+    }
+    .byo-option-marker-text {
+      font-size: 1.15rem !important; /* Scale marker text down on mobile */
+    }
+  }
 </style>

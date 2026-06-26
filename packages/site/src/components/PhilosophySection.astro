@@ -9,6 +9,7 @@ const { philosophy } = content
       
       <div class="header-zone">
         <h2 class="section-title">{philosophy.headline}</h2>
+        {philosophy.subtext && <p class="section-subtext">{philosophy.subtext}</p>}
       </div>
       
       <div class="columns-zone">
@@ -155,6 +156,16 @@ const { philosophy } = content
   }
 
   .philosophy-section .section-title {
+    margin: 0 0 var(--space-3);
+  }
+
+  .philosophy-section .section-subtext {
+    font-size: var(--text-base);
+    font-weight: 450;
+    color: var(--color-text-secondary);
+    line-height: var(--leading-relaxed);
+    opacity: 0.88;
+    letter-spacing: var(--tracking-snug);
     margin: 0;
   }
 
@@ -271,6 +282,35 @@ const { philosophy } = content
     .philosophy-section .columns-zone {
       flex-direction: column;
       gap: var(--space-6);
+    }
+
+    .philosophy-section .staggered-layout {
+      gap: 48px;
+    }
+
+    .philosophy-section .section-title {
+      font-size: 24px !important; /* Scale heading down on mobile */
+    }
+
+    .philosophy-section .section-subtext {
+      font-size: var(--text-sm) !important; /* Scale subheading down on mobile */
+    }
+
+    .philosophy-section .header-zone {
+      max-width: 100%;
+    }
+
+    .philosophy-section .card-hero-visual {
+      height: 180px;
+      margin-bottom: var(--space-4);
+    }
+
+    .philosophy-section .card-hero-visual svg {
+      height: 180px !important;
+    }
+
+    .philosophy-section .stagger-column {
+      padding: var(--space-5);
     }
   }
 </style>

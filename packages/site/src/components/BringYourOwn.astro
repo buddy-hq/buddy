@@ -121,4 +121,28 @@ const openaiIconPath =
       text-align: left;
     }
   }
+
+  @media (max-width: 768px) {
+    .bring-your-own .section-header {
+      margin-bottom: 48px;
+      max-width: 100%;
+    }
+    .bring-your-own .section-title {
+      font-size: 24px !important; /* Scale title down on mobile */
+    }
+    .bring-your-own .section-subtext {
+      font-size: var(--text-sm) !important; /* Scale subtext down on mobile */
+    }
+    .bring-your-own .promo {
+      padding: 48px var(--space-4) 0;
+    }
+    .bring-your-own .container {
+      max-width: 100%;
+      padding: 0 var(--space-5);
+    }
+    .bring-your-own .promo-text {
+      font-size: 1.15rem !important; /* Clean promo size on mobile */
+      text-align: left;
+    }
+  }
 </style>

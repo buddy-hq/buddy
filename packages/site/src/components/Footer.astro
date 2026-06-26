@@ -1,92 +1,47 @@
 ---
-import {
-  DOCS_PATH,
-  GITHUB_URL,
-  GITHUB_RELEASES_URL,
-  GITHUB_DISCUSSIONS_URL,
-} from "../lib/constants"
 ---
 
 <footer>
   <div class="container footer-content">
-    <div class="footer-top">
-      <p class="footer-tagline">Built with care for curious minds.</p>
-      <div class="footer-links">
-        <a href={DOCS_PATH} class="footer-link">Documentation</a>
-        <a
-          href={GITHUB_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="footer-link">GitHub</a
-        >
-        <a
-          href={GITHUB_RELEASES_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="footer-link">Releases</a
-        >
-        <a
-          href={GITHUB_DISCUSSIONS_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          class="footer-link">Community</a
-        >
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <p>&copy; {new Date().getFullYear()} Buddy. All rights reserved.</p>
-    </div>
+    <p class="footer-tagline">Built with care for curious minds.</p>
+    <p class="footer-copy">&copy; {new Date().getFullYear()} Buddy</p>
   </div>
 </footer>
 
 <style is:global>
   footer {
-    background-color: #060505;
-    border-top: 1px solid var(--color-card-border);
-    padding: var(--space-12) 0 var(--space-8);
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+    padding: var(--space-10) 0;
     font-size: var(--text-sm);
     color: var(--color-text-muted);
   }
 
   .footer-content {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-8);
-  }
-
-  .footer-top {
-    display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: var(--space-6);
+    align-items: center;
   }
 
   .footer-tagline {
-    color: var(--color-accent-cool);
+    color: var(--color-text-tertiary);
     font-size: var(--text-sm);
-    font-weight: 500;
-    letter-spacing: var(--tracking-wide);
+    font-weight: 450;
+    letter-spacing: var(--tracking-snug);
   }
 
-  .footer-links {
-    display: flex;
-    gap: var(--space-6);
-    flex-wrap: wrap;
-  }
-
-  .footer-link {
+  .footer-copy {
+    font-size: var(--text-xs);
     color: var(--color-text-muted);
-    text-decoration: none;
-    transition: color 0.15s ease;
   }
 
-  .footer-link:hover {
-    color: var(--color-text-secondary);
-  }
-
-  .footer-bottom {
-    border-top: 1px solid rgba(255, 255, 255, 0.04);
-    padding-top: var(--space-6);
+  @media (max-width: 576px) {
+    footer {
+      padding: var(--space-8) 0;
+    }
+    .footer-content {
+      flex-direction: column;
+      gap: var(--space-2);
+      text-align: center;
+    }
   }
 </style>

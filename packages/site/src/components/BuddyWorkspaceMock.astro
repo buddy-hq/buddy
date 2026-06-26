@@ -1280,9 +1280,84 @@ import MockNotebook from "./MockNotebook.astro";
     });
   }
 
-  setTimeout(() => {
-    loadNotebook("self-reliance");
-  }, 2000);
+  // Pre-populate the mock instantly with the final state on mobile for a static product shot
+  function loadNotebookStatic(key: NotebookKey) {
+    activeNotebook = key;
+    const data = notebookData[key];
+    if (!data) return;
+
+    if (windowActiveNotebook) windowActiveNotebook.textContent = data.title;
+    if (windowActiveSession) windowActiveSession.textContent = data.session;
+    if (readerTabTitle) readerTabTitle.textContent = data.readerTitle;
+
+    // Load reader page
+    loadReaderPage(key, currentPageIndices[key]);
+
+    // Populate chat feed instantly
+    if (chatFeed) {
+      chatFeed.innerHTML = "";
+      data.messages.forEach((msg) => {
+        appendMessage(msg.sender, msg.text);
+      });
+      // Remove skeleton classes from cards
+      document.querySelectorAll(".wb-chat-card, .illustration-card, .widget-chat-card").forEach(el => {
+        el.classList.remove("state-skeleton");
+      });
+    }
+
+    // Populate whiteboard instantly with final elements
+    if (wbDrawings) {
+      wbDrawings.innerHTML = "";
+      if (key === "self-reliance") {
+        wbDrawings.innerHTML = `
+          <div class="wb-handwriting-hi visible">Trust Thyself</div>
+          <div class="wb-welcome-text visible">"every heart vibrates to that iron string."</div>
+          <div class="wb-doodle-arrow visible">
+            <svg width="40" height="20" viewBox="0 0 40 20" fill="none" stroke="#3b82f6" stroke-width="2">
+              <path d="M20,2 L20,18 M15,13 L20,18 L25,13" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="wb-split-grid">
+            <div class="wb-card integrity visible">
+              <div class="wb-card-title">✓ Integrity</div>
+              <div class="wb-card-body">- Inward Conviction<br>- Self-Trust<br>- Originality</div>
+            </div>
+            <div class="wb-card conformity visible">
+              <div class="wb-card-title">✗ Conformity</div>
+              <div class="wb-card-body">- Social Pressure<br>- Imitation = Suicide<br>- Joint-stock company</div>
+            </div>
+          </div>
+          <div class="wb-sketch-node bottom-conclusion" style="opacity: 1; transform: scale(1) rotate(1deg); margin-top: 15px; width: 100%; max-width: 280px;">
+            Inward Conviction ➔ Universal Truth
+          </div>
+        `;
+      }
+    }
+
+    // Set active tab (e.g. show whiteboard)
+    if (buddyWindow && whiteboardRailBtn) {
+      document.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+      whiteboardRailBtn.classList.add('active');
+      buddyWindow.classList.add('show-whiteboard');
+      buddyWindow.classList.remove('show-widget', 'show-notes');
+    }
+
+    // Expand the right pane
+    if (workspaceBody) {
+      workspaceBody.classList.remove('right-pane-collapsed');
+    }
+
+    setGenerating(false);
+  }
+
+  // Only run streaming animation on desktop — mobile shows a static product shot
+  if (window.innerWidth <= 768) {
+    loadNotebookStatic("self-reliance");
+  } else {
+    setTimeout(() => {
+      loadNotebook("self-reliance");
+    }, 2000);
+  }
 </script>
 
 <style is:global>

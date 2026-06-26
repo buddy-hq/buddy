@@ -3,6 +3,8 @@ import { content } from "../../content/site"
 
 const learnersSteps = content.learners.features
 const educatorsSteps = content.educators.features
+const learnersHeader = content.learners.featuresHeader
+const educatorsHeader = content.educators.featuresHeader
 
 const mockTitles = [
   "workspace_import.json",
@@ -11,15 +13,31 @@ const mockTitles = [
 ]
 ---
 
-<div class="bookend-cards-stack">
-  {[0, 1, 2].map((i) => {
-    const learnerStep = learnersSteps[i]
-    const educatorStep = educatorsSteps[i]
-    const mockTitle = mockTitles[i]
+<section class="features-section">
+<div class="container">
+  <div class="features-section-header animate-in">
+    <!-- Learners Content -->
+    <div class="swap swap-content swap-audience-learners active">
+      <h2 class="section-title">{learnersHeader.headline}</h2>
+      <p class="section-subtext">{learnersHeader.subtext}</p>
+    </div>
 
-    return (
-      <>
-        <div class="bookend-card-wrapper" style={`--index: ${i + 1}; --tab-left: ${32 + i * 132}px;`}>
+    <!-- Educators Content -->
+    <div class="swap swap-content swap-audience-educators">
+      <h2 class="section-title">{educatorsHeader.headline}</h2>
+      <p class="section-subtext">{educatorsHeader.subtext}</p>
+    </div>
+  </div>
+
+  <div class="bookend-cards-stack">
+    {[0, 1, 2].map((i) => {
+      const learnerStep = learnersSteps[i]
+      const educatorStep = educatorsSteps[i]
+      const mockTitle = mockTitles[i]
+
+      return (
+        <>
+          <div class="bookend-card-wrapper" style={`--index: ${i + 1}; --tab-left: ${32 + i * 132}px;`}>
           
           <!-- Folder Tab/Leaf on the TOP side, visible ONLY when stacked -->
           <div class="bookend-tab-leaf">
@@ -139,9 +157,46 @@ const mockTitles = [
       </>
     )
   })}
+  </div>
 </div>
+</section>
 
 <style>
+  .features-section-header {
+    text-align: left;
+    max-width: 700px;
+    margin-bottom: 96px;
+    position: relative;
+  }
+
+  .features-section-header .section-title {
+    font-size: 48px;
+    font-weight: 700;
+    line-height: var(--leading-tight);
+    letter-spacing: var(--tracking-tighter);
+    margin-bottom: var(--space-4);
+    color: var(--color-text-primary);
+  }
+
+  .features-section-header .section-subtext {
+    font-size: var(--text-sm);
+    color: var(--color-text-tertiary);
+    line-height: var(--leading-relaxed);
+  }
+
+  @media (max-width: 768px) {
+    .features-section-header {
+      margin-bottom: 48px;
+      max-width: 100%;
+    }
+    .features-section-header .section-title {
+      font-size: 24px !important;
+    }
+    .features-section-header .section-subtext {
+      font-size: var(--text-sm) !important;
+    }
+  }
+
   .bookend-cards-stack {
     max-width: min(75vw, 1436px);
     width: 100%;
@@ -592,8 +647,8 @@ const mockTitles = [
     .bookend-card-body {
       display: flex;
       flex-direction: column;
-      gap: var(--space-6);
-      padding: var(--space-5);
+      gap: var(--space-8); /* Taller gap between title and mock */
+      padding: var(--space-8); /* Roomier padding on tablet/mobile */
       aspect-ratio: auto; /* disable A4 on mobile for readability */
       overflow: visible;
     }
@@ -606,6 +661,21 @@ const mockTitles = [
       right: 0;
       width: 100%;
       transform: none !important;
+      overflow: hidden; /* Crop horizontal overflow of mock */
+      border-radius: 12px;
+    }
+    .bookend-card-right::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      /* Fade right edge of mock to match card background color #161312 */
+      background: linear-gradient(to right, transparent 65%, rgba(22, 19, 18, 0.98) 98%);
+      pointer-events: none;
+      z-index: 10;
+    }
+    .sticky-mockup-wrapper {
+      width: 500px !important; /* Fixed width to represent desktop proportion */
+      min-width: 500px !important;
     }
     .mockup-viewport {
       height: 240px;
@@ -614,13 +684,51 @@ const mockTitles = [
     .bookend-card-wrapper {
       position: relative;
       top: 0 !important;
-      margin-bottom: var(--space-4);
+      margin-bottom: 2.5rem !important; /* Spacious margin between stacked cards on mobile */
     }
     .bookend-card-wrapper:last-child {
-      margin-bottom: var(--space-4);
+      margin-bottom: 0 !important;
     }
     .scroll-gap {
       display: none;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .bookend-card-body {
+      padding: 1.5rem !important; /* Spacious but tailored for small phone screens */
+      gap: var(--space-6);
+    }
+    .mockup-viewport {
+      height: 220px !important;
+      padding: var(--space-3);
+      overflow: hidden;
+      position: relative;
+    }
+    .mockup-viewport::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 48px;
+      background: linear-gradient(to bottom, transparent, #12100f);
+      pointer-events: none;
+      z-index: 5;
+    }
+    .step-title {
+      margin-top: var(--space-4);
+    }
+    .mockup-header-bar {
+      height: 28px;
+      padding-inline: var(--space-3);
+    }
+    .mockup-dots span {
+      width: 6px;
+      height: 6px;
+    }
+    .mockup-tab-title {
+      font-size: 9px;
     }
   }
 </style>
