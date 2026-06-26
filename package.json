@@ -132,6 +132,7 @@
     "oxlint": "^1.55.0",
     "turbo": "^2.0.0"
   },
+  "trustedDependencies": ["electron"],
   "overrides": {
     "@types/node": "22.13.9",
     "drizzle-orm": "catalog:"

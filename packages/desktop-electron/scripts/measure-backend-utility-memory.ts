@@ -9,7 +9,6 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs"
-import { createRequire } from "node:module"
 import os from "node:os"
 import path from "node:path"
 import {
@@ -25,6 +24,7 @@ import {
   tail,
 } from "../../buddy/script/node-artifact-runtime"
 import type { NodeArtifactProcess } from "../../buddy/script/node-artifact-runtime"
+import { resolveElectronBin } from "./electron-bin"
 import { syncDesktopRuntimeResources } from "./utils"
 
 const BACKEND_UTILITY_SCRIPT = "backend-utility.js" as const
@@ -87,7 +87,7 @@ const packageDir = path.resolve(import.meta.dir, "..")
 const mainOutputDir = path.resolve(packageDir, "out", "main")
 const utilityPath = path.resolve(mainOutputDir, BACKEND_UTILITY_SCRIPT)
 const memoryMainScript = path.resolve(import.meta.dir, "backend-utility-memory-main.mjs")
-const electronBin = resolveElectronBin()
+const electronBin = resolveElectronBin(packageDir)
 
 function readFlagValue(args: string[], flag: string): string | undefined {
   const index = args.indexOf(flag)
@@ -115,18 +115,6 @@ function resolveOutputPath(mode: Mode): string {
     "log",
     `current-backend-utility-${shortCommit}-${mode}.json`,
   )
-}
-
-function resolveElectronBin(): string {
-  const require = createRequire(import.meta.url)
-  const manifestPath = require.resolve("electron/package.json", { paths: [packageDir] })
-  const electronDir = path.dirname(manifestPath)
-  if (process.platform === "win32") return path.join(electronDir, "dist", "electron.exe")
-  const electronExport: unknown = require("electron")
-  if (typeof electronExport !== "string") {
-    throw new Error("Electron package did not export an executable path")
-  }
-  return electronExport
 }
 
 function baseEnvironment(): Record<string, string> {

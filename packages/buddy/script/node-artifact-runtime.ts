@@ -18,6 +18,7 @@ const RESOURCE_ROUTE_SMOKE_ALIAS = "artifact-route-smoke" as const
 const RESOURCE_ROUTE_SMOKE_FILENAME = "artifact-route-smoke.md" as const
 const RESOURCE_ROUTE_SMOKE_TEXT = "# Artifact Route Smoke\n\nPackaged route resource prep smoke.\n"
 const RESOURCE_READY_STATUS = "ready" as const
+const RESOURCE_ROUTE_POLL_TIMEOUT_MS = 3_000
 
 type UnknownRecord = Record<PropertyKey, unknown>
 
@@ -143,25 +144,29 @@ export async function assertNodeArtifactResourceRouteSmoke(input: {
   const deadline = Date.now() + input.timeoutMs
   let last = ""
   while (Date.now() < deadline) {
-    const listResponse = await fetch(new URL(RESOURCE_ROUTE_PATH, input.baseUrl), {
-      headers: {
-        authorization: basicAuthorizationHeader(),
-        [DIRECTORY_HEADER]: input.directory,
-      },
-      signal: AbortSignal.timeout(DEFAULT_POLL_INTERVAL_MS),
-    })
-    last = await listResponse.text()
-    if (listResponse.ok) {
-      const body: unknown = JSON.parse(last)
-      const resources = readResourceList(body)
-      const resource = resources.find((entry) => entry.alias === RESOURCE_ROUTE_SMOKE_ALIAS)
-      if (
-        resource?.status === RESOURCE_READY_STATUS &&
-        typeof resource.packPath === "string" &&
-        typeof resource.fullTextPath === "string"
-      ) {
-        return
+    try {
+      const listResponse = await fetch(new URL(RESOURCE_ROUTE_PATH, input.baseUrl), {
+        headers: {
+          authorization: basicAuthorizationHeader(),
+          [DIRECTORY_HEADER]: input.directory,
+        },
+        signal: AbortSignal.timeout(RESOURCE_ROUTE_POLL_TIMEOUT_MS),
+      })
+      last = await listResponse.text()
+      if (listResponse.ok) {
+        const body: unknown = JSON.parse(last)
+        const resources = readResourceList(body)
+        const resource = resources.find((entry) => entry.alias === RESOURCE_ROUTE_SMOKE_ALIAS)
+        if (
+          resource?.status === RESOURCE_READY_STATUS &&
+          typeof resource.packPath === "string" &&
+          typeof resource.fullTextPath === "string"
+        ) {
+          return
+        }
       }
+    } catch (error) {
+      last = error instanceof Error ? error.message : String(error)
     }
 
     await delay(DEFAULT_POLL_INTERVAL_MS)

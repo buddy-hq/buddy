@@ -1020,6 +1020,9 @@
       },
     },
   },
+  "trustedDependencies": [
+    "electron",
+  ],
   "patchedDependencies": {
     "solid-js@1.9.10": "patches/solid-js@1.9.10.patch",
     "@standard-community/standard-json@0.3.5": "patches/@standard-community%2Fstandard-json@0.3.5.patch",

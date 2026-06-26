@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 
 import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
-import { createRequire } from "node:module"
 import os from "node:os"
 import path from "node:path"
 import {
@@ -26,6 +25,7 @@ import {
   scanBuildOutput,
 } from "../../../script/backend-node-artifact"
 import { syncDesktopRuntimeResources } from "./utils"
+import { resolveElectronBin } from "./electron-bin"
 
 const BACKEND_UTILITY_SCRIPT = "backend-utility.js" as const
 const ELECTRON_RUN_AS_NODE_ENV = "ELECTRON_RUN_AS_NODE" as const
@@ -54,19 +54,7 @@ const smokeMainScript = path.resolve(import.meta.dir, "backend-utility-smoke-mai
 const nativePackageProbeScript = path.resolve(import.meta.dir, "native-package-probe.mjs")
 const mainOutputDir = path.resolve(packageDir, "out", "main")
 const utilityPath = path.resolve(mainOutputDir, BACKEND_UTILITY_SCRIPT)
-const electronBin = resolveElectronBin()
-
-function resolveElectronBin(): string {
-  const require = createRequire(import.meta.url)
-  const manifestPath = require.resolve("electron/package.json", { paths: [packageDir] })
-  const electronDir = path.dirname(manifestPath)
-  if (process.platform === "win32") return path.join(electronDir, "dist", "electron.exe")
-  const electronExport: unknown = require("electron")
-  if (typeof electronExport !== "string") {
-    throw new Error("Electron package did not export an executable path")
-  }
-  return electronExport
-}
+const electronBin = resolveElectronBin(packageDir)
 
 function baseEnvironment(): Record<string, string> {
   return Object.fromEntries(
