@@ -32,7 +32,7 @@ import {
   BENCH_CHAT_LAYOUT_FLOATING,
   resolveBenchSurfaceDefaults,
   useOpenBench,
-  type BenchMode,
+  type BenchOpenPolicyState,
   type OpenBenchResult,
 } from "@/lib/bench-navigation"
 import { useDirectoryWorkspace } from "@/components/directory-chat/directory-workspace-context"
@@ -47,6 +47,7 @@ import type { ResourceOpenOptions } from "@/state/resources-query"
 import { useQueryClient } from "@tanstack/react-query"
 import { BENCH_ROUTE_STATUS_OPEN, type DrawerKind } from "@/state/directory-workspace-store"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
+import type { WorkspacePresentation } from "@/lib/directory-chat/workspace-presentation"
 
 type DirectoryChatRightWorkspaceProps = {
   directory: string
@@ -59,8 +60,16 @@ type DirectoryChatRightWorkspaceProps = {
     options?: ResourceOpenOptions,
   ) => Promise<OpenBenchResult> | void
   bench?: ReactNode
-  workspaceOpen: boolean
-  presentationMode?: BenchMode
+  presentation: Pick<
+    WorkspacePresentation,
+    | "benchTarget"
+    | "benchVisible"
+    | "kind"
+    | "mode"
+    | "retainedBenchTarget"
+    | "selector"
+    | "workspaceOpen"
+  >
 }
 
 type RightWorkspaceRailItem = {
@@ -75,6 +84,10 @@ type RightWorkspaceRailItem = {
 type LibraryOpenResolution =
   | Pick<Extract<OpenBenchResult, { outcome: "committed" }>, "outcome" | "decision">
   | Pick<Exclude<OpenBenchResult, { outcome: "committed" }>, "outcome">
+
+const CLOSED_BENCH_POLICY_STATE = {
+  status: "closed",
+} satisfies BenchOpenPolicyState
 
 export function resolveLibraryOpenOutcome(
   openResult: LibraryOpenResolution | void,
@@ -139,6 +152,45 @@ function RightWorkspaceRail(props: { items: RightWorkspaceRailItem[] }) {
   )
 }
 
+export function DirectoryChatRightWorkspaceContent(props: {
+  hasBenchTarget: boolean
+  bench?: ReactNode
+  selectorContent: ReactNode
+  selectorDrawerWidth: number
+}) {
+  return (
+    <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
+      {props.hasBenchTarget && props.bench ? (
+        <div className="min-h-0 min-w-0 flex-1">
+          <BenchContent bordered={false}>{props.bench}</BenchContent>
+        </div>
+      ) : props.selectorContent ? (
+        <div
+          data-component="right-workspace-selector-content"
+          className="min-h-0 min-w-0 flex-1"
+        >
+          {props.selectorContent}
+        </div>
+      ) : (
+        <div
+          data-component="right-workspace-empty-bench-surface"
+          className="min-h-0 min-w-0 flex-1 bg-background-base"
+        />
+      )}
+
+      {props.hasBenchTarget && props.selectorContent ? (
+        <aside
+          data-component="right-workspace-selector-drawer"
+          className="absolute inset-y-0 right-0 h-full min-h-0 max-w-full border-l border-border-weaker-base bg-background-base shadow-xl animate-in fade-in slide-in-from-right-3 duration-150"
+          style={{ width: props.selectorDrawerWidth }}
+        >
+          {props.selectorContent}
+        </aside>
+      ) : null}
+    </div>
+  )
+}
+
 export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspaceProps) {
   const [openingInstructions, setOpeningInstructions] = useState(false)
   const queryClient = useQueryClient()
@@ -147,21 +199,21 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
   const lastOpenedReadingResource = useChatStore(
     (state) => state.lastOpenedReadingResourceByDirectory[props.directory],
   )
-  const presentationMode = props.presentationMode ?? BENCH_CHAT_LAYOUT_DOCKED
-  const selectorAccessEnabled = presentationMode !== BENCH_CHAT_LAYOUT_FLOATING
+  const selectorAccessEnabled = props.presentation.mode !== BENCH_CHAT_LAYOUT_FLOATING
 
   const benchPolicyState = useMemo(
     () =>
-      workspace.route.status === BENCH_ROUTE_STATUS_OPEN
+      props.presentation.benchTarget
         ? {
             status: BENCH_ROUTE_STATUS_OPEN,
             directory: props.directory,
-            target: workspace.route.target,
-            mode: workspace.route.mode,
-            layoutProfile: resolveBenchSurfaceDefaults(workspace.route.target).layoutProfile,
+            target: props.presentation.benchTarget,
+            mode: props.presentation.mode,
+            layoutProfile: resolveBenchSurfaceDefaults(props.presentation.benchTarget)
+              .layoutProfile,
           }
-        : ({ status: "closed" } as const),
-    [props.directory, workspace.route],
+        : CLOSED_BENCH_POLICY_STATE,
+    [props.directory, props.presentation.benchTarget, props.presentation.mode],
   )
   const isResourceObjectRoute =
     benchPolicyState.status === "open" &&
@@ -173,9 +225,9 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     benchPolicyState.target.ref.kind === "whiteboard"
   const showWhiteboardAction = isWhiteboardObjectRoute || hasWhiteboardCreate(props.messages)
   const showReadingAction = isResourceObjectRoute || !!lastOpenedReadingResource
-  const hasBenchTarget = benchPolicyState.status === BENCH_ROUTE_STATUS_OPEN
-  const hasVisibleBench = hasBenchTarget && props.workspaceOpen
-  const resolvedSelector = workspace.projection.drawer
+  const hasBenchTarget = props.presentation.retainedBenchTarget
+  const hasVisibleBench = props.presentation.benchVisible && props.presentation.workspaceOpen
+  const resolvedSelector = props.presentation.selector
   const selectorDrawerWidth =
     resolvedSelector === null
       ? 0
@@ -188,45 +240,45 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     logBenchToggleStep("directory-chat-right-workspace-state", {
       directory: props.directory,
       sessionID: props.sessionID,
-      workspaceOpen: props.workspaceOpen,
+      workspaceOpen: props.presentation.workspaceOpen,
       workspaceWidth: props.workspaceWidth,
       hasBenchTarget,
       hasVisibleBench,
       benchPolicyState,
       resolvedSelector,
       selectorDrawerWidth,
-      projection: workspace.projection,
+      presentationKind: props.presentation.kind,
     })
   }, [
     benchPolicyState,
     hasBenchTarget,
     hasVisibleBench,
     props.directory,
+    props.presentation.kind,
+    props.presentation.workspaceOpen,
     props.sessionID,
-    props.workspaceOpen,
     props.workspaceWidth,
     resolvedSelector,
     selectorDrawerWidth,
-    workspace.projection,
   ])
 
   const closeSelector = useCallback(() => {
     logBenchToggleStep("directory-chat-right-workspace-close-selector", {
       directory: props.directory,
       resolvedSelector,
-      workspaceOpen: props.workspaceOpen,
+      workspaceOpen: props.presentation.workspaceOpen,
     })
     void workspace.controller.execute({ type: "close-drawer" })
-  }, [props.directory, props.workspaceOpen, resolvedSelector, workspace.controller])
+  }, [props.directory, props.presentation.workspaceOpen, resolvedSelector, workspace.controller])
 
   const restoreExplorerSelector = useCallback(() => {
     logBenchToggleStep("directory-chat-right-workspace-restore-explorer-selector", {
       directory: props.directory,
       resolvedSelector,
-      workspaceOpen: props.workspaceOpen,
+      workspaceOpen: props.presentation.workspaceOpen,
     })
     void workspace.controller.execute({ type: "open-drawer", drawer: "explorer" })
-  }, [props.directory, props.workspaceOpen, resolvedSelector, workspace.controller])
+  }, [props.directory, props.presentation.workspaceOpen, resolvedSelector, workspace.controller])
 
   function openSelector(selector: DrawerKind) {
     logBenchToggleStep("directory-chat-right-workspace-open-selector", {
@@ -234,7 +286,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       selector,
       resolvedSelector,
       hasVisibleBench,
-      workspaceOpen: props.workspaceOpen,
+      workspaceOpen: props.presentation.workspaceOpen,
     })
     if (hasVisibleBench && resolvedSelector === selector) {
       void workspace.controller.execute({ type: "close-drawer" })
@@ -305,8 +357,9 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       directory: props.directory,
       shortcut,
       resolvedSelector,
-      benchVisibility: workspace.projection.bench.visibility,
-      workspaceOpen: props.workspaceOpen,
+      benchVisible: props.presentation.benchVisible,
+      workspaceOpen: props.presentation.workspaceOpen,
+      presentationKind: props.presentation.kind,
     })
 
     if (resolvedSelector !== null) {
@@ -314,7 +367,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       return
     }
 
-    if (workspace.projection.bench.visibility === "parked") {
+    if (props.presentation.retainedBenchTarget && !props.presentation.benchVisible) {
       void workspace.controller.execute({ type: "reveal" })
     }
   }
@@ -474,33 +527,17 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       data-bench-visible={hasVisibleBench ? "true" : "false"}
       className="flex h-full min-h-0 w-full overflow-hidden bg-background-base"
     >
-      <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
-        {props.bench ? (
-          <div className="min-h-0 min-w-0 flex-1">
-            <BenchContent bordered={false}>{props.bench}</BenchContent>
-          </div>
-        ) : (
-          <div
-            data-component="right-workspace-empty-bench-surface"
-            className="min-h-0 min-w-0 flex-1 bg-background-base"
-          />
-        )}
-
-        {selectorContent ? (
-          <aside
-            data-component="right-workspace-selector-drawer"
-            className="absolute inset-y-0 right-0 h-full min-h-0 max-w-full border-l border-border-weaker-base bg-background-base shadow-xl animate-in fade-in slide-in-from-right-3 duration-150"
-            style={{ width: selectorDrawerWidth }}
-          >
-            {selectorContent}
-          </aside>
-        ) : null}
-      </div>
+      <DirectoryChatRightWorkspaceContent
+        hasBenchTarget={hasBenchTarget}
+        bench={props.bench}
+        selectorContent={selectorContent}
+        selectorDrawerWidth={selectorDrawerWidth}
+      />
 
       {selectorAccessEnabled ? <RightWorkspaceRail items={railItems} /> : null}
     </section>
   )
 }
 
-const WHITEBOARD_SHORTCUT_LABEL = "Toggle whiteboard view"
-const READING_SHORTCUT_LABEL = "Toggle reading view"
+const WHITEBOARD_SHORTCUT_LABEL = "Show whiteboard"
+const READING_SHORTCUT_LABEL = "Show reading"

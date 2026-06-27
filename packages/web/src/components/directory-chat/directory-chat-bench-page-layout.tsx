@@ -28,20 +28,19 @@ import {
 import { ThreadHistoryPopover } from "@/components/directory-chat/thread-history-popover"
 import { TextShimmer } from "@/components/chat/tools/text-shimmer"
 import { language } from "@/context/language"
+import { RIGHT_WORKSPACE_COLLAPSE_THRESHOLD_PX } from "@/lib/directory-chat/right-workspace-layout"
 
 type DirectoryChatBenchPageLayoutProps = {
   chatLayoutMode: BenchChatLayoutMode
   layoutProfile: BenchLayoutProfileID
-  dockedChatWidthPx: number
   floatingRect: FloatingChatRect
   floatingChatState: BenchFloatingChatState
   bench: ReactNode
   conversation: (controls: DirectoryChatBenchConversationControls) => ReactNode
   onChatLayoutModeChange: (mode: BenchChatLayoutMode) => void
-  onDockedChatWidthChange: (widthPx: number) => void
   onFloatingRectChange: (rect: FloatingChatRect) => void
   onFloatingChatStateChange: (state: BenchFloatingChatState) => void
-  dockedBenchLayout?: DirectoryChatDockedBenchLayout
+  dockedBenchLayout: DirectoryChatDockedBenchLayout
   benchInteractive?: boolean
   threadBrowserProps?: {
     sessionTitle: string
@@ -61,8 +60,7 @@ type DirectoryChatDockedBenchLayout = {
   widthPx: number
   minWidthPx: number
   maxWidthPx: number
-  onResize: (widthPx: number) => void
-  onResizeIntent?: (intent: ResizeHandleIntent) => void
+  onResizeIntent: (intent: ResizeHandleIntent) => void
   onCollapse: () => void
 }
 
@@ -84,6 +82,7 @@ const FLOATING_CHAT_WINDOW_TRANSITION = {
   duration: FLOATING_CHAT_WINDOW_TRANSITION_DURATION_SECONDS,
   bounce: 0.08,
 } satisfies Transition
+const ignoreClampedDockedBenchResize = () => undefined
 
 export type FloatingChatPosition = {
   x: number
@@ -189,27 +188,6 @@ function readFloatingChatContainerSize(
     containerHeight: rect.height,
     safeTop: readFloatingChatSafeTop(layoutNode),
   }
-}
-
-function readWindowBenchViewport() {
-  return {
-    widthPx:
-      typeof window === "undefined" || !hasUsableDimension(window.innerWidth)
-        ? FLOATING_CHAT_DEFAULT_CONTAINER_WIDTH_PX
-        : window.innerWidth,
-    heightPx:
-      typeof window === "undefined" || !hasUsableDimension(window.innerHeight)
-        ? FLOATING_CHAT_DEFAULT_CONTAINER_HEIGHT_PX
-        : window.innerHeight,
-    safeTopPx: FLOATING_CHAT_DEFAULT_SAFE_TOP_PX,
-  }
-}
-
-export function readInitialChatPanelWidth(profile: BenchLayoutProfileID): number {
-  return resolveBenchLayoutDefaults({
-    profile,
-    viewport: readWindowBenchViewport(),
-  }).dockedChatWidthPx
 }
 
 function resolveFloatingChatMinimumSize(
@@ -485,7 +463,6 @@ function FloatingChatRestoreButton(props: { onRestore: () => void }) {
 
 export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayoutProps) {
   const chatLayoutMode = props.chatLayoutMode
-  const onDockedChatWidthChange = props.onDockedChatWidthChange
   const onFloatingChatStateChange = props.onFloatingChatStateChange
   const onFloatingRectChange = props.onFloatingRectChange
   const [containerSize, setContainerSize] = useState<FloatingChatContainerSize>(
@@ -499,38 +476,25 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
   const conversationHostRef = useRef<HTMLDivElement | null>(null)
   const containerSizeRef = useRef(containerSize)
   const previousChatLayoutModeRef = useRef(chatLayoutMode)
-  const chatPanelWidth = props.dockedChatWidthPx
   const floatingRect = props.floatingRect
   const floatingChatState = props.floatingChatState
   const isFloating = chatLayoutMode === BENCH_CHAT_LAYOUT_FLOATING
   const isFloatingOpen = isFloating && floatingChatState === "open"
   const isFloatingMinimized = isFloating && floatingChatState === "minimized"
-  const usesRightDockedBench = props.dockedBenchLayout !== undefined
-  const dockedBenchOpen = props.dockedBenchLayout?.open ?? true
+  const dockedBenchOpen = props.dockedBenchLayout.open
   const benchInteractive = props.benchInteractive ?? true
-  const layoutDefaults = resolveBenchLayoutDefaults({
-    profile: props.layoutProfile,
-    viewport: benchViewportFromContainerSize(containerSize),
-  })
   const conversationControls = isFloating ? {} : { onFloatChat: floatChat }
   const conversation = props.conversation(conversationControls)
   const benchHostStyle = isFloating
     ? ({
         inset: 0,
       } satisfies CSSProperties)
-    : usesRightDockedBench
-      ? ({
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: dockedBenchOpen ? props.dockedBenchLayout?.widthPx : 0,
-        } satisfies CSSProperties)
-      : ({
-          top: 0,
-          right: chatPanelWidth,
-          bottom: 0,
-          left: 0,
-        } satisfies CSSProperties)
+    : ({
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: dockedBenchOpen ? props.dockedBenchLayout.widthPx : 0,
+      } satisfies CSSProperties)
   const conversationHostStyle = isFloating
     ? ({
         left: floatingRect.x,
@@ -539,19 +503,12 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
         height: floatingRect.height,
         transformOrigin: "70% 100%",
       } satisfies CSSProperties)
-    : usesRightDockedBench
-      ? ({
-          top: 0,
-          right: dockedBenchOpen ? props.dockedBenchLayout?.widthPx : 0,
-          bottom: 0,
-          left: 0,
-        } satisfies CSSProperties)
-      : ({
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: chatPanelWidth,
-        } satisfies CSSProperties)
+    : ({
+        top: 0,
+        right: dockedBenchOpen ? props.dockedBenchLayout.widthPx : 0,
+        bottom: 0,
+        left: 0,
+      } satisfies CSSProperties)
 
   useEffect(() => {
     containerSizeRef.current = containerSize
@@ -623,21 +580,6 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
       onFloatingChatStateChange("open")
     }
   }, [chatLayoutMode, onFloatingChatStateChange])
-
-  useEffect(() => {
-    const nextWidth = Math.min(
-      layoutDefaults.dockedChatMaxWidthPx,
-      Math.max(layoutDefaults.dockedChatMinWidthPx, chatPanelWidth),
-    )
-    if (nextWidth !== chatPanelWidth) {
-      onDockedChatWidthChange(nextWidth)
-    }
-  }, [
-    chatPanelWidth,
-    layoutDefaults.dockedChatMaxWidthPx,
-    layoutDefaults.dockedChatMinWidthPx,
-    onDockedChatWidthChange,
-  ])
 
   useEffect(() => {
     const previousChatLayoutMode = previousChatLayoutModeRef.current
@@ -841,24 +783,26 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
         className={cn(
           "absolute min-h-0 min-w-0 overflow-hidden",
           benchInteractive ? "" : "pointer-events-none opacity-0",
-          usesRightDockedBench && !isFloating ? "border-l border-border-weaker-base" : "",
+          !isFloating ? "border-l border-border-weaker-base" : "",
           !isFloating
             ? "transition-[width,opacity] duration-200 ease-out motion-reduce:transition-none"
             : "",
         )}
         style={benchHostStyle}
       >
-        <BenchContent bordered={!isFloating && !usesRightDockedBench}>{props.bench}</BenchContent>
-        {!isFloating && usesRightDockedBench && dockedBenchOpen ? (
+        <BenchContent bordered={false}>{props.bench}</BenchContent>
+        {!isFloating && dockedBenchOpen ? (
           <ResizeHandle
+            data-component="directory-chat-docked-bench-resize-handle"
             direction="horizontal"
             edge="start"
-            size={props.dockedBenchLayout?.widthPx ?? 0}
-            min={props.dockedBenchLayout?.minWidthPx ?? 0}
-            max={props.dockedBenchLayout?.maxWidthPx ?? 0}
-            onResize={props.dockedBenchLayout?.onResize ?? (() => undefined)}
-            onResizeIntent={props.dockedBenchLayout?.onResizeIntent}
-            onCollapse={props.dockedBenchLayout?.onCollapse ?? (() => undefined)}
+            size={props.dockedBenchLayout.widthPx}
+            min={props.dockedBenchLayout.minWidthPx}
+            max={props.dockedBenchLayout.maxWidthPx}
+            collapseThreshold={RIGHT_WORKSPACE_COLLAPSE_THRESHOLD_PX}
+            onResize={ignoreClampedDockedBenchResize}
+            onResizeIntent={props.dockedBenchLayout.onResizeIntent}
+            onCollapse={props.dockedBenchLayout.onCollapse}
           />
         ) : null}
       </div>
@@ -887,9 +831,7 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
             ? "rounded-2xl border border-border-base/70 bg-background-stronger shadow-[0_24px_80px_rgba(0,0,0,0.28)]"
             : cn(
                 "bg-background-base",
-                usesRightDockedBench
-                  ? "transition-[right] duration-200 ease-out motion-reduce:transition-none"
-                  : "border-l border-border-weaker-base",
+                "transition-[right] duration-200 ease-out motion-reduce:transition-none",
               ),
           isFloatingMinimized && "pointer-events-none",
         )}
@@ -1001,16 +943,7 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
               onResizeStart={startFloatingChatResize}
             />
           </>
-        ) : usesRightDockedBench ? null : (
-          <ResizeHandle
-            direction="horizontal"
-            edge="start"
-            size={chatPanelWidth}
-            min={layoutDefaults.dockedChatMinWidthPx}
-            max={layoutDefaults.dockedChatMaxWidthPx}
-            onResize={onDockedChatWidthChange}
-          />
-        )}
+        ) : null}
       </motion.div>
       {isFloatingMinimized ? (
         <FloatingChatRestoreButton

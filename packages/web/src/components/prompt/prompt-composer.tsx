@@ -15,7 +15,6 @@ import {
   toast,
   cn,
 } from "@buddy/ui"
-import { useNavigate } from "@tanstack/react-router"
 import { Gamepad2Icon, XIcon } from "lucide-react"
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence } from "motion/react"
@@ -142,6 +141,7 @@ type PromptComposerProps = {
   onSubmit: (draft: Omit<PromptDraftState, "updatedAt">) => void | Promise<void>
   onAbort: () => void
   onNewSession: () => void
+  onOpenSettings?: () => void
   onOpenMcpDialog?: () => void
   onSearchFiles?: (query: string) => Promise<MentionableFile[]>
   onRefreshSlashCommands?: () => void
@@ -201,7 +201,6 @@ function createEmptyPromptDraftState() {
 }
 
 export function PromptComposer(props: PromptComposerProps) {
-  const navigate = useNavigate()
   const isQuestionActive = props.activeQuestionID !== undefined
   const editorRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -1074,7 +1073,7 @@ export function PromptComposer(props: PromptComposerProps) {
                   setShowGameBall(false)
                 }}
                 onOpenSettings={() => {
-                  navigate({ to: "/settings", search: { tab: "general" } })
+                  props.onOpenSettings?.()
                 }}
               />
             )}
@@ -1534,7 +1533,7 @@ export function PromptComposer(props: PromptComposerProps) {
                 </ContextMenuItem>
                 <ContextMenuItem
                   onSelect={() => {
-                    navigate({ to: "/settings", search: { tab: "general" } })
+                    props.onOpenSettings?.()
                   }}
                 >
                   {language.t("game.ball.openSettings")}

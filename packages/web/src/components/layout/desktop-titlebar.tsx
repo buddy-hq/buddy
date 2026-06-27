@@ -1,6 +1,6 @@
 import type { MouseEvent } from "react"
 import { useEffect, useState } from "react"
-import { useLocation, useRouterState } from "@tanstack/react-router"
+import { useLocation } from "@tanstack/react-router"
 import { Button } from "@buddy/ui"
 import {
   ArrowLeftIcon,
@@ -17,16 +17,8 @@ import { ThreadHistoryPopover } from "@/components/directory-chat/thread-history
 import type { SessionInfo } from "@/state/chat-types"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
-import {
-  BENCH_CHAT_LAYOUT_FLOATING,
-  BENCH_CHAT_SEARCH_PARAM,
-  BENCH_DOCK_FLOATING_CHAT_EVENT,
-  isBenchRoutePathname,
-  readBenchChatLayoutMode,
-} from "@/lib/bench-navigation"
-import { useDirectoryWorkspaceOptional } from "@/components/directory-chat/directory-workspace-context"
+import { BENCH_DOCK_FLOATING_CHAT_EVENT } from "@/lib/bench-navigation"
 import { useUiPreferences } from "@/state/ui-preferences"
-import { WORKSPACE_VISIBILITY_EXPANDED } from "@/state/directory-workspace-store"
 import {
   isBenchToggleEventTarget,
   logBenchToggleDomEvent,
@@ -54,6 +46,7 @@ type DesktopTitlebarProps = {
   onNewSession?: () => void | Promise<void>
   onSelectSession?: (sessionID: string) => void | Promise<void>
   onFloatChat?: () => void
+  showDockFloatingBench?: boolean
 }
 
 const ROOT_TITLEBAR_HEIGHT_CLASS = "h-10"
@@ -85,37 +78,9 @@ function TitlebarIcon(props: { icon: LucideIcon }) {
   )
 }
 
-function readDirectoryParam(params: unknown) {
-  if (!params || typeof params !== "object") return undefined
-  if (!("directory" in params)) return undefined
-  return typeof params.directory === "string" ? params.directory : undefined
-}
-
-function readDirectoryParamFromMatches(matches: readonly { params: unknown }[]) {
-  for (const match of matches) {
-    const directory = readDirectoryParam(match.params)
-    if (directory) return directory
-  }
-  return undefined
-}
-
-function readDirectoryTokenFromPathname(pathname: string) {
-  return pathname.split("/").find((segment) => segment.length > 0)
-}
-
-function isUnknownRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-}
-
-function readSearchParam(search: unknown, key: string): unknown {
-  if (!isUnknownRecord(search)) return undefined
-  return search[key]
-}
-
 export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const placement = props.placement ?? "root"
   const location = useLocation()
-  const workspace = useDirectoryWorkspaceOptional()
   const platform = usePlatform()
   const isDesktop = platform.platform === "desktop"
   const isMac = isDesktop && platform.os === "macos"
@@ -123,32 +88,11 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
   const pathname = location.pathname
   const leftSidebarOpen = useUiPreferences((state) => state.leftSidebarOpen)
   const setLeftSidebarOpen = useUiPreferences((state) => state.setLeftSidebarOpen)
-  const routerState = useRouterState()
-  const focusedBenchMatch = routerState.matches.find(
-    (match) =>
-      match.routeId === "/$directory/_bench" || match.routeId.startsWith("/$directory/_bench/"),
-  )
-  const isFocusedBenchPage = focusedBenchMatch !== undefined || isBenchRoutePathname(pathname)
-  const isFloatingBenchPage =
-    isFocusedBenchPage &&
-    readBenchChatLayoutMode(readSearchParam(location.search, BENCH_CHAT_SEARCH_PARAM)) ===
-      BENCH_CHAT_LAYOUT_FLOATING
   const titlebarHeightClass =
-    placement === "chat" || (placement === "root" && isFloatingBenchPage)
+    placement === "chat" || (placement === "root" && props.showDockFloatingBench)
       ? CHAT_TITLEBAR_HEIGHT_CLASS
       : ROOT_TITLEBAR_HEIGHT_CLASS
-  const projectedRightWorkspaceOpen =
-    workspace?.projection.dockedState.visibility === WORKSPACE_VISIBILITY_EXPANDED
-  const rightWorkspaceOpen = props.rightWorkspaceOpen ?? projectedRightWorkspaceOpen ?? false
-  const isParkedBenchPage =
-    isFocusedBenchPage &&
-    !isFloatingBenchPage &&
-    workspace?.projection.bench.visibility === "parked"
-  const directoryToken = isFocusedBenchPage
-    ? (readDirectoryParam(focusedBenchMatch?.params) ??
-      readDirectoryParamFromMatches(routerState.matches) ??
-      readDirectoryTokenFromPathname(pathname))
-    : undefined
+  const rightWorkspaceOpen = props.rightWorkspaceOpen ?? false
   const [isFullscreen, setIsFullscreen] = useState(false)
   const resolvedLeftSidebarOpen = props.leftSidebarOpen ?? leftSidebarOpen
   const showSidebarToggles =
@@ -175,8 +119,10 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       if (typeof v === "boolean") setIsFullscreen(v)
     })
     const handler = (e: Event) => {
-      if (e instanceof CustomEvent && typeof e.detail?.isFullscreen === "boolean") {
-        setIsFullscreen(e.detail.isFullscreen as boolean)
+      if (!(e instanceof CustomEvent)) return
+      const nextIsFullscreen = e.detail?.isFullscreen
+      if (typeof nextIsFullscreen === "boolean") {
+        setIsFullscreen(nextIsFullscreen)
       }
     }
     window.addEventListener("buddy:fullscreen-changed", handler)
@@ -193,30 +139,20 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       isWindows,
       showSidebarToggles,
       hasRightWorkspaceCallback: props.onRightWorkspaceToggle !== undefined,
-      hasWorkspaceContext: workspace !== undefined,
       rightWorkspaceOpen,
-      projectedRightWorkspaceOpen,
-      isFocusedBenchPage,
-      isFloatingBenchPage,
-      isParkedBenchPage,
-      directoryToken,
+      showDockFloatingBench: props.showDockFloatingBench === true,
     })
   }, [
-    directoryToken,
     isDesktop,
-    isFloatingBenchPage,
-    isFocusedBenchPage,
     isMac,
-    isParkedBenchPage,
     isWindows,
     pathname,
     placement,
     props.onRightWorkspaceToggle,
+    props.showDockFloatingBench,
     props.variant,
     rightWorkspaceOpen,
     showSidebarToggles,
-    workspace,
-    projectedRightWorkspaceOpen,
   ])
 
   useEffect(() => {
@@ -267,8 +203,6 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       rightWorkspaceOpen,
       commandType,
       hasRightWorkspaceCallback: props.onRightWorkspaceToggle !== undefined,
-      hasWorkspaceContext: workspace !== undefined,
-      projectedRightWorkspaceOpen,
     })
 
     if (props.onRightWorkspaceToggle) {
@@ -279,27 +213,6 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       logBenchToggleStep("desktop-titlebar-right-toggle-prop-callback-returned", {
         commandType,
       })
-      return
-    }
-
-    if (workspace) {
-      logBenchToggleStep("desktop-titlebar-right-toggle-fallback-controller-execute", {
-        commandType,
-      })
-      void workspace.controller
-        .execute({ type: commandType })
-        .then((result) => {
-          logBenchToggleStep("desktop-titlebar-right-toggle-fallback-controller-result", {
-            commandType,
-            result,
-          })
-        })
-        .catch((error: unknown) => {
-          logBenchToggleStep("desktop-titlebar-right-toggle-fallback-controller-error", {
-            commandType,
-            error,
-          })
-        })
       return
     }
 
@@ -385,9 +298,6 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
           onClick={onToggleRightWorkspace}
         >
           <TitlebarIcon icon={PanelRightIcon} />
-          {isParkedBenchPage ? (
-            <span className="absolute right-1 top-1 size-1.5 rounded-full bg-text-interactive-base" />
-          ) : null}
         </Button>
       </div>
     </div>
@@ -510,7 +420,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         {shouldReserveMacWindowControls ? (
           <div className={`${MAC_WINDOW_CONTROL_INSET_CLASS} shrink-0`} />
         ) : null}
-        {placement === "root" && isFloatingBenchPage ? (
+        {placement === "root" && props.showDockFloatingBench ? (
           <div className="ml-2 flex shrink-0 items-center [-webkit-app-region:no-drag]">
             <div className={TITLEBAR_TOGGLE_PILL_CLASS}>
               <Button

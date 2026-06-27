@@ -1,5 +1,5 @@
 import { Outlet, useLocation } from "@tanstack/react-router"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { BenchRouteContextProvider } from "@/components/bench/bench-route-context"
 import {
   benchRouteFallbackContextFromTarget,
@@ -10,7 +10,6 @@ import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-
 import { DirectoryChatBenchConversationPane } from "@/components/directory-chat/directory-chat-bench-conversation-pane"
 import {
   DirectoryChatBenchPageLayout,
-  readInitialChatPanelWidth,
   resolveDefaultFloatingChatRect,
   resolveInitialFloatingChatContainerSize,
 } from "@/components/directory-chat/directory-chat-bench-page-layout"
@@ -27,24 +26,20 @@ import {
   BENCH_LAYOUT_PROFILE_DOCUMENT,
   readBenchOpenPolicyStateFromLocation,
   resolveDockedBenchResizeIntent,
-  resolveDockedBenchRightWorkspaceLayout,
-  resolveDockedBenchShellLayout,
-  setBenchPresentationModePreference,
+  finalizeBenchModeTransition,
+  setBenchPresentationWorkspaceWidth,
+  useBenchPresentationPreferences,
   type BenchChatLayoutMode,
-  type BenchLayoutProfileID,
   type BenchViewport,
   type BenchMode,
 } from "@/lib/bench-navigation"
 import type { BenchFloatingChatState } from "@/components/bench/bench-route-context"
 import { resourceSessionKey, useChatStore } from "@/state/chat-store"
-import { RIGHT_WORKSPACE_RAIL_WIDTH_PX } from "@/lib/directory-chat/right-workspace-layout"
-import {
-  WORKSPACE_HYDRATION_PENDING,
-  WORKSPACE_VISIBILITY_EXPANDED,
-} from "@/state/directory-workspace-store"
+import { WORKSPACE_HYDRATION_PENDING } from "@/state/directory-workspace-store"
 import type { ResizeHandleIntent } from "@buddy/ui"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { useStore } from "zustand"
+import { resolveWorkspacePresentation } from "@/lib/directory-chat/workspace-presentation"
 
 type ReadyDirectoryBenchController = Extract<DirectoryChatPageControllerState, { status: "ready" }>
 
@@ -74,19 +69,6 @@ function readDockedBenchViewport(): BenchViewport {
       : DOCKED_BENCH_DEFAULT_VIEWPORT_HEIGHT_PX,
     safeTopPx: 0,
   }
-}
-
-function clampNumber(input: { value: number; min: number; max: number }) {
-  if (input.max < input.min) return input.min
-  return Math.min(input.max, Math.max(input.min, input.value))
-}
-
-function resolveInitialDockedWorkspaceWidth(profile: BenchLayoutProfileID) {
-  return resolveDockedBenchRightWorkspaceLayout({
-    profile,
-    viewport: readDockedBenchViewport(),
-    workspaceChromeWidthPx: RIGHT_WORKSPACE_RAIL_WIDTH_PX,
-  }).workspaceWidthPx
 }
 
 export function DirectoryWorkspaceRoot() {
@@ -145,13 +127,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const routeChatLayoutMode =
     benchPolicyState.status === "open" ? benchPolicyState.mode : BENCH_CHAT_LAYOUT_DOCKED
   const chatLayoutMode = routeChatLayoutMode
-  const workspaceLayoutMode = workspaceHydrated ? chatLayoutMode : BENCH_CHAT_LAYOUT_DOCKED
-  const workspaceOpen =
-    workspace.projection.dockedState.visibility === WORKSPACE_VISIBILITY_EXPANDED
-  const workspaceHostOpen =
-    workspaceHydrated &&
-    (workspaceOpen ||
-      (benchPolicyState.status === "open" && chatLayoutMode === BENCH_CHAT_LAYOUT_FLOATING))
   const workspaceRenderedSurface = workspace.projection.renderedSurface
   const workspacePending = workspace.projection.pending
   const workspaceBenchVisibility = workspace.projection.bench.visibility
@@ -179,32 +154,24 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     }),
     [benchPolicyState, currentDirectory, location.pathname, location.searchStr],
   )
-  const [dockedChatWidthPx, setDockedChatWidthPx] = useState(() =>
-    readInitialChatPanelWidth(layoutProfile),
-  )
   const [dockedBenchViewport, setDockedBenchViewport] = useState(readDockedBenchViewport)
-  const [dockedWorkspaceWidthPx, setDockedWorkspaceWidthPx] = useState(() =>
-    resolveInitialDockedWorkspaceWidth(layoutProfile),
-  )
-  const [leftSidebarForcedSuppressed, setLeftSidebarForcedSuppressed] = useState(false)
   const [leftSidebarOverlayOpen, setLeftSidebarOverlayOpen] = useState(false)
   const [floatingRect, setFloatingRect] = useState(() =>
     resolveDefaultFloatingChatRect(resolveInitialFloatingChatContainerSize(), layoutProfile),
   )
   const [floatingChatState, setFloatingChatState] = useState<BenchFloatingChatState>("open")
-  const leftSidebarVisibleRef = useRef(false)
-  const dockedWorkspaceMinWidthRef = useRef(0)
-  const dockedWorkspaceMaxWidthRef = useRef(0)
-  const suppressedWorkspaceMinWidthRef = useRef(0)
-  const suppressedWorkspaceMaxWidthRef = useRef(0)
-  const previousViewportWidthRef = useRef(dockedBenchViewport.widthPx)
   const chatState = controller.mainPaneProps.chatState
-  const fitBasedDockedShellLayout = useMemo(
+  const requestedWorkspaceWidthPx = useBenchPresentationPreferences(
+    (state) => state.workspaceWidthPx,
+  )
+  const presentation = useMemo(
     () =>
-      resolveDockedBenchShellLayout({
-        profile: layoutProfile,
+      resolveWorkspacePresentation({
+        projection: workspace.projection,
+        hydrated: workspaceHydrated,
+        layoutProfile,
         viewport: dockedBenchViewport,
-        workspaceChromeWidthPx: RIGHT_WORKSPACE_RAIL_WIDTH_PX,
+        requestedWorkspaceWidthPx,
         leftSidebarPreferredOpen: chatState.leftSidebarOpen,
         leftSidebarWidthPx: chatState.leftSidebarDisplayWidth,
       }),
@@ -213,42 +180,21 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       chatState.leftSidebarOpen,
       dockedBenchViewport,
       layoutProfile,
+      requestedWorkspaceWidthPx,
+      workspace.projection,
+      workspaceHydrated,
     ],
   )
-  const suppressedDockedShellLayout = useMemo(
-    () =>
-      resolveDockedBenchShellLayout({
-        profile: layoutProfile,
-        viewport: dockedBenchViewport,
-        workspaceChromeWidthPx: RIGHT_WORKSPACE_RAIL_WIDTH_PX,
-        leftSidebarPreferredOpen: false,
-        leftSidebarWidthPx: chatState.leftSidebarDisplayWidth,
-      }),
-    [chatState.leftSidebarDisplayWidth, dockedBenchViewport, layoutProfile],
-  )
-  const dockedShellLayout = leftSidebarForcedSuppressed
-    ? suppressedDockedShellLayout
-    : fitBasedDockedShellLayout
-  const dockedWorkspaceLayout = dockedShellLayout.rightWorkspace
-  const dockedWorkspaceDisplayWidthPx = clampNumber({
-    value: dockedWorkspaceWidthPx,
-    min: dockedWorkspaceLayout.workspaceMinWidthPx,
-    max: dockedWorkspaceLayout.workspaceMaxWidthPx,
-  })
-  const dockedLeftSidebarVisible = dockedShellLayout.leftSidebarVisible
+  const workspaceLayoutMode = presentation.mode
+  const workspaceOpen = presentation.workspaceOpen
+  const workspaceHostOpen = presentation.workspaceOpen
+  const dockedWorkspaceDisplayWidthPx = presentation.workspace.widthPx
+  const dockedLeftSidebarVisible = presentation.leftSidebar.visible
   const canPinLeftSidebarWithoutResizing =
     dockedBenchViewport.widthPx >=
     chatState.leftSidebarDisplayWidth +
       dockedWorkspaceDisplayWidthPx +
-      dockedWorkspaceLayout.chatMinWidthPx
-
-  leftSidebarVisibleRef.current = dockedLeftSidebarVisible
-  dockedWorkspaceMinWidthRef.current = dockedWorkspaceLayout.workspaceMinWidthPx
-  dockedWorkspaceMaxWidthRef.current = dockedWorkspaceLayout.workspaceMaxWidthPx
-  suppressedWorkspaceMinWidthRef.current =
-    suppressedDockedShellLayout.rightWorkspace.workspaceMinWidthPx
-  suppressedWorkspaceMaxWidthRef.current =
-    suppressedDockedShellLayout.rightWorkspace.workspaceMaxWidthPx
+      presentation.workspace.chatMinWidthPx
 
   useEffect(() => {
     logBenchToggleStep("directory-workspace-root-state", {
@@ -262,13 +208,12 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       workspaceBenchVisibility,
       workspaceDrawer,
       workspacePending,
-      dockedWorkspaceWidthPx,
       dockedWorkspaceDisplayWidthPx,
-      dockedWorkspaceMinWidthPx: dockedWorkspaceLayout.workspaceMinWidthPx,
-      dockedWorkspaceMaxWidthPx: dockedWorkspaceLayout.workspaceMaxWidthPx,
+      dockedWorkspaceMinWidthPx: presentation.workspace.minWidthPx,
+      dockedWorkspaceMaxWidthPx: presentation.workspace.maxWidthPx,
       dockedLeftSidebarVisible,
-      leftSidebarForcedSuppressed,
       leftSidebarOverlayOpen,
+      presentationKind: presentation.kind,
     })
   }, [
     activeSessionID,
@@ -277,11 +222,10 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     currentDirectory,
     dockedLeftSidebarVisible,
     dockedWorkspaceDisplayWidthPx,
-    dockedWorkspaceLayout.workspaceMaxWidthPx,
-    dockedWorkspaceLayout.workspaceMinWidthPx,
-    dockedWorkspaceWidthPx,
-    leftSidebarForcedSuppressed,
     leftSidebarOverlayOpen,
+    presentation.kind,
+    presentation.workspace.maxWidthPx,
+    presentation.workspace.minWidthPx,
     routeChatLayoutMode,
     workspaceBenchVisibility,
     workspaceDrawer,
@@ -303,40 +247,10 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   }, [])
 
   useEffect(() => {
-    const nextWidth = clampNumber({
-      value: dockedWorkspaceWidthPx,
-      min: dockedWorkspaceLayout.workspaceMinWidthPx,
-      max: dockedWorkspaceLayout.workspaceMaxWidthPx,
-    })
-    if (nextWidth !== dockedWorkspaceWidthPx) {
-      setDockedWorkspaceWidthPx(nextWidth)
-    }
-  }, [
-    dockedWorkspaceLayout.workspaceMaxWidthPx,
-    dockedWorkspaceLayout.workspaceMinWidthPx,
-    dockedWorkspaceWidthPx,
-  ])
-
-  useEffect(() => {
-    if (dockedLeftSidebarVisible || routeChatLayoutMode !== BENCH_CHAT_LAYOUT_DOCKED) {
+    if (dockedLeftSidebarVisible || !presentation.dockedBenchVisible) {
       setLeftSidebarOverlayOpen(false)
     }
-  }, [dockedLeftSidebarVisible, routeChatLayoutMode])
-
-  useEffect(() => {
-    const viewportWidthChanged = previousViewportWidthRef.current !== dockedBenchViewport.widthPx
-    previousViewportWidthRef.current = dockedBenchViewport.widthPx
-    if (!viewportWidthChanged) return
-    if (!leftSidebarForcedSuppressed) return
-    if (!chatState.leftSidebarOpen || !canPinLeftSidebarWithoutResizing) return
-
-    setLeftSidebarForcedSuppressed(false)
-  }, [
-    canPinLeftSidebarWithoutResizing,
-    chatState.leftSidebarOpen,
-    dockedBenchViewport.widthPx,
-    leftSidebarForcedSuppressed,
-  ])
+  }, [dockedLeftSidebarVisible, presentation.dockedBenchVisible])
 
   const openChatRoute = useCallback(async (): Promise<boolean> => {
     const result = await workspace.controller.execute({ type: "close" })
@@ -346,22 +260,25 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const setBenchMode = useCallback(
     (input: { mode: BenchMode; origin: "user" | "agent" }) => {
       if (benchPolicyState.status !== "open") return
-      if (input.mode === BENCH_CHAT_LAYOUT_DOCKED) {
-        setFloatingChatState("open")
-      }
-      if (input.origin === "user") {
-        setBenchPresentationModePreference({
-          target: benchPolicyState.target,
-          mode: input.mode,
-        })
-      }
+      const target = benchPolicyState.target
       void workspace.controller.execute(
         {
           type: "set-mode",
           mode: input.mode,
         },
         { origin: input.origin },
-      )
+      ).then((result) => {
+        const transitionCommitted = finalizeBenchModeTransition({
+          target,
+          mode: input.mode,
+          persistPreference: input.origin === "user",
+          result,
+        })
+        if (!transitionCommitted) return
+        if (input.mode === BENCH_CHAT_LAYOUT_DOCKED) {
+          setFloatingChatState("open")
+        }
+      })
     },
     [benchPolicyState, workspace.controller],
   )
@@ -384,7 +301,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
 
   const handleLeftSidebarToggle = useCallback(() => {
     if (dockedLeftSidebarVisible) {
-      setLeftSidebarForcedSuppressed(false)
       setLeftSidebarOverlayOpen(false)
       chatState.setLeftSidebarOpen(false)
       return
@@ -396,7 +312,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     }
 
     if (canPinLeftSidebarWithoutResizing) {
-      setLeftSidebarForcedSuppressed(false)
       setLeftSidebarOverlayOpen(false)
       chatState.setLeftSidebarOpen(true)
       return
@@ -412,53 +327,30 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
 
   const handleDockedWorkspaceResizeIntent = useCallback(
     (intent: ResizeHandleIntent) => {
-      const minWorkspaceWidthPx = leftSidebarVisibleRef.current
-        ? dockedWorkspaceMinWidthRef.current
-        : suppressedWorkspaceMinWidthRef.current
-      const maxWorkspaceWidthPx = leftSidebarVisibleRef.current
-        ? dockedWorkspaceMaxWidthRef.current
-        : suppressedWorkspaceMaxWidthRef.current
       const decision = resolveDockedBenchResizeIntent({
         rawWorkspaceWidthPx: intent.rawSize,
-        maxWorkspaceWidthPx,
-        hasVisibleBenchTarget: benchPolicyState.status === "open",
-        leftSidebarVisible: leftSidebarVisibleRef.current,
+        maxWorkspaceWidthPx: presentation.workspace.maxWidthPx,
+        hasVisibleBenchTarget: presentation.dockedBenchVisible,
+        leftSidebarVisible: presentation.leftSidebar.visible,
       })
       if (decision === "clamp") {
-        if (intent.min !== minWorkspaceWidthPx || intent.max !== maxWorkspaceWidthPx) {
-          setDockedWorkspaceWidthPx(
-            clampNumber({
-              value: intent.rawSize,
-              min: minWorkspaceWidthPx,
-              max: maxWorkspaceWidthPx,
-            }),
-          )
-        }
+        setBenchPresentationWorkspaceWidth(intent.rawSize)
         return
       }
 
       if (decision === "suppress-left-sidebar") {
-        leftSidebarVisibleRef.current = false
-        dockedWorkspaceMinWidthRef.current = suppressedWorkspaceMinWidthRef.current
-        dockedWorkspaceMaxWidthRef.current = suppressedWorkspaceMaxWidthRef.current
         setLeftSidebarOverlayOpen(false)
-        setLeftSidebarForcedSuppressed(true)
-        setDockedWorkspaceWidthPx(
-          clampNumber({
-            value: intent.rawSize,
-            min: suppressedWorkspaceMinWidthRef.current,
-            max: suppressedWorkspaceMaxWidthRef.current,
-          }),
-        )
+        setBenchPresentationWorkspaceWidth(intent.rawSize)
         return
       }
 
+      setBenchPresentationWorkspaceWidth(intent.rawSize)
       setBenchMode({
         mode: BENCH_CHAT_LAYOUT_FLOATING,
         origin: "user",
       })
     },
-    [benchPolicyState.status, setBenchMode],
+    [presentation, setBenchMode],
   )
 
   const setFloatingChatSubstate = useCallback(
@@ -480,7 +372,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       }),
       mode: chatLayoutMode,
       layoutProfile,
-      dockedChatWidthPx,
       floatingRect,
       floatingChatState,
     }
@@ -488,7 +379,6 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     benchPolicyState,
     chatLayoutMode,
     currentDirectory,
-    dockedChatWidthPx,
     floatingChatState,
     floatingRect,
     layoutProfile,
@@ -607,7 +497,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       {benchRuntimeState ? (
         <BenchRouteContextProvider
           state={benchRuntimeState}
-          visible={workspaceHydrated && workspace.projection.bench.visibility === "visible"}
+          visible={presentation.benchVisible}
           activeSessionID={activeSessionID}
           fallbackProvider={fallbackContextProvider}
           setMode={setBenchMode}
@@ -618,45 +508,26 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       ) : null}
     </div>
   )
-  const isDockedBenchRoute =
-    benchPolicyState.status === "open" && chatLayoutMode === BENCH_CHAT_LAYOUT_DOCKED
-  const shellLeftSidebarOpen = isDockedBenchRoute
-    ? dockedLeftSidebarVisible
-    : controller.shellProps.leftSidebarOpen
-  const showThreadBrowserInTitlebar =
-    benchPolicyState.status === "open" &&
-    workspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED &&
-    !dockedLeftSidebarVisible
-  const showThreadBrowserInPane =
-    benchPolicyState.status === "open" && workspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING
-  const showSidebarThreadControls =
-    benchPolicyState.status === "open" &&
-    workspaceLayoutMode === BENCH_CHAT_LAYOUT_DOCKED &&
-    dockedLeftSidebarVisible
+  const shellLeftSidebarOpen = presentation.leftSidebar.visible
 
   return (
     <DirectoryChatShell
       leftSidebar={<ChatLeftSidebar {...controller.leftSidebarProps} />}
-      mainPane={null}
-      rightWorkspace={null}
       contentLayout={
         <DirectoryChatBenchPageLayout
           chatLayoutMode={workspaceLayoutMode}
           layoutProfile={layoutProfile}
-          dockedChatWidthPx={dockedChatWidthPx}
           floatingRect={floatingRect}
           floatingChatState={floatingChatState}
           onChatLayoutModeChange={setBenchChatLayoutMode}
-          onDockedChatWidthChange={setDockedChatWidthPx}
           onFloatingRectChange={setFloatingRect}
           onFloatingChatStateChange={setFloatingChatStateFromLayout}
           benchInteractive={workspaceHostOpen}
           dockedBenchLayout={{
             open: workspaceHydrated && workspaceOpen,
             widthPx: dockedWorkspaceDisplayWidthPx,
-            minWidthPx: dockedWorkspaceLayout.workspaceMinWidthPx,
-            maxWidthPx: dockedWorkspaceLayout.workspaceMaxWidthPx,
-            onResize: setDockedWorkspaceWidthPx,
+            minWidthPx: presentation.workspace.minWidthPx,
+            maxWidthPx: presentation.workspace.maxWidthPx,
             onResizeIntent: handleDockedWorkspaceResizeIntent,
             onCollapse: handleRightWorkspaceCollapse,
           }}
@@ -668,12 +539,11 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
               workspaceWidth={dockedWorkspaceDisplayWidthPx}
               onOpenResource={controller.mainPaneProps.onOpenResource}
               bench={benchOutlet}
-              workspaceOpen={workspaceHostOpen}
-              presentationMode={chatLayoutMode}
+              presentation={presentation}
             />
           }
           threadBrowserProps={
-            showThreadBrowserInPane
+            presentation.controls.showThreadBrowserInPane
               ? {
                   sessionTitle: chatState.sessionTitle,
                   notebookName: controller.shellProps.projectName,
@@ -701,30 +571,23 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       {...controller.shellProps}
       immersive={workspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING}
       leftSidebarOpen={shellLeftSidebarOpen}
-      leftSidebarOverlayEnabled={isDockedBenchRoute && !dockedLeftSidebarVisible}
+      leftSidebarOverlayEnabled={presentation.leftSidebar.overlayEnabled}
       leftSidebarOverlayOpen={leftSidebarOverlayOpen}
       onLeftSidebarOverlayOpenChange={setLeftSidebarOverlayOpen}
-      onLeftSidebarToggle={isDockedBenchRoute ? handleLeftSidebarToggle : undefined}
-      mainPaneMinWidth={dockedWorkspaceLayout.chatMinWidthPx}
-      rightWorkspaceDisplayWidth={dockedWorkspaceDisplayWidthPx}
-      rightWorkspaceMinWidth={dockedWorkspaceLayout.workspaceMinWidthPx}
-      rightWorkspaceMaxWidth={dockedWorkspaceLayout.workspaceMaxWidthPx}
-      onRightWorkspaceResize={setDockedWorkspaceWidthPx}
-      onRightWorkspaceResizeIntent={handleDockedWorkspaceResizeIntent}
+      onLeftSidebarToggle={presentation.dockedBenchVisible ? handleLeftSidebarToggle : undefined}
       onRightWorkspaceToggle={handleRightWorkspaceToggle}
       chatTitle={controller.mainPaneProps.chatState.sessionTitle}
       titlebarVariant="chat"
       rightWorkspaceOpen={workspaceHostOpen}
-      onRightWorkspaceCollapse={handleRightWorkspaceCollapse}
-      showThreadBrowser={showThreadBrowserInTitlebar}
-      showSidebarThreadControls={showSidebarThreadControls}
+      showThreadBrowser={presentation.controls.showThreadBrowserInTitlebar}
+      showSidebarThreadControls={presentation.controls.showSidebarThreadControls}
       sessions={chatState.sessions}
       activeSessionID={chatState.sessionID}
       linkedSessionID={linkedReadingSessionID}
       parentSession={chatState.parentSession}
       onNewSession={handleNewSession}
       onSelectSession={handleSelectSession}
-      onFloatChat={handleFloatChat}
+      onFloatChat={presentation.controls.showFloatChat ? handleFloatChat : undefined}
     />
   )
 }
