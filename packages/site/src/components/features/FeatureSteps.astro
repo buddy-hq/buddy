@@ -8,7 +8,9 @@ const educatorsHeader = content.educators.featuresHeader
 
 const mockTitles = [
   "workspace_import.json",
-  "socratic_dialogue.py",
+  "reader_session.md",
+  "whiteboard_explore.html",
+  "practice_session.db",
   "spaced_repetition.db"
 ]
 ---
@@ -30,14 +32,14 @@ const mockTitles = [
   </div>
 
   <div class="bookend-cards-stack">
-    {[0, 1, 2].map((i) => {
+    {[0, 1, 2, 3, 4].map((i) => {
       const learnerStep = learnersSteps[i]
       const educatorStep = educatorsSteps[i]
       const mockTitle = mockTitles[i]
 
       return (
         <>
-          <div class="bookend-card-wrapper" style={`--index: ${i + 1}; --tab-left: ${32 + i * 132}px;`}>
+          <div class="bookend-card-wrapper" style={`--index: ${i + 1}; --tab-left: ${32 + i * 110}px;`}>
           
           <!-- Folder Tab/Leaf on the TOP side, visible ONLY when stacked -->
           <div class="bookend-tab-leaf">
@@ -48,6 +50,11 @@ const mockTitles = [
           <!-- Main Folder Body (A4 Aspect Ratio Sheet) -->
           <div class="bookend-card-body">
             <div class="bookend-card-left">
+              <div class="mobile-tag-wrapper">
+                <span class="mobile-tag swap swap-content swap-audience-learners active">{learnerStep.tag}</span>
+                <span class="mobile-tag swap swap-content swap-audience-educators">{educatorStep.tag}</span>
+              </div>
+              
               <!-- Learners Content -->
               <div class="swap swap-content swap-audience-learners active">
                 <h3 class="step-title">{learnerStep.title}</h3>
@@ -67,7 +74,7 @@ const mockTitles = [
                   <div class="mockup-tab-title">{mockTitle}</div>
                 </div>
               <div class="mockup-viewport">
-                {i === 0 && (
+                {(i === 0) && (
                   <div class="mock-import-box">
                     <div class="mock-drag-zone">
                       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 10px; opacity: 0.5;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -99,7 +106,7 @@ const mockTitles = [
                     </div>
                   </div>
                 )}
-                {i === 1 && (
+                {(i === 1 || i === 2) && (
                   <div class="mock-chat-box">
                     <div class="chat-bubble user">Explain the difference between REST and gRPC.</div>
                     <div class="chat-bubble bot">REST is resource-based, usually using JSON over HTTP/1.1. gRPC is contract-based, using Protocol Buffers over HTTP/2.</div>
@@ -111,7 +118,7 @@ const mockTitles = [
                     </div>
                   </div>
                 )}
-                {i === 2 && (
+                {(i === 3 || i === 4) && (
                   <div class="mock-recall-box">
                     <div class="flashcard-preview">
                       <span class="badge-mini">Active Recall</span>
@@ -149,7 +156,7 @@ const mockTitles = [
           </div>
         </div>
       </div>
-        {i < 2 ? (
+        {i < 4 ? (
           <div class="scroll-gap"></div>
         ) : (
           <div class="scroll-gap last-gap"></div>
@@ -171,29 +178,29 @@ const mockTitles = [
 
   .features-section-header .section-title {
     font-size: 48px;
-    font-weight: 700;
-    line-height: var(--leading-tight);
-    letter-spacing: var(--tracking-tighter);
+    font-weight: 510;
+    line-height: 1;
+    letter-spacing: -0.022em;
     margin-bottom: var(--space-4);
     color: var(--color-text-primary);
   }
 
-  .features-section-header .section-subtext {
-    font-size: var(--text-sm);
-    color: var(--color-text-tertiary);
-    line-height: var(--leading-relaxed);
+  @media (max-width: 992px) {
+    .features-section-header .section-title {
+      font-size: 40px;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .features-section-header .section-title {
+      font-size: 24px;
+    }
   }
 
   @media (max-width: 768px) {
     .features-section-header {
       margin-bottom: 48px;
       max-width: 100%;
-    }
-    .features-section-header .section-title {
-      font-size: 24px !important;
-    }
-    .features-section-header .section-subtext {
-      font-size: var(--text-sm) !important;
     }
   }
 
@@ -252,8 +259,8 @@ const mockTitles = [
 
   .leaf-tag {
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 750;
+    font-size: 12px;
+    font-weight: 600;
     color: var(--color-text-muted);
     letter-spacing: 0.08em;
     user-select: none;
@@ -349,8 +356,8 @@ const mockTitles = [
 
   .step-title {
     font-family: var(--font-display);
-    font-size: 48px;
-    font-weight: 700;
+    font-size: 32px;
+    font-weight: 600;
     letter-spacing: var(--tracking-tight);
     margin-top: var(--space-10);
     margin-bottom: var(--space-4);
@@ -359,19 +366,19 @@ const mockTitles = [
 
   @media (max-width: 992px) {
     .step-title {
-      font-size: 40px;
+      font-size: 28px;
     }
   }
 
   @media (max-width: 576px) {
     .step-title {
-      font-size: 24px;
+      font-size: 22px;
     }
   }
 
   .step-desc {
     color: var(--color-text-tertiary);
-    font-size: var(--text-sm);
+    font-size: var(--text-base);
     line-height: var(--leading-relaxed);
   }
 
@@ -635,47 +642,81 @@ const mockTitles = [
     background-color: var(--color-accent-cool);
   }
 
+  .mobile-tag-wrapper {
+    display: none;
+  }
+
   @media (max-width: 960px) {
+    .mobile-tag-wrapper {
+      display: block;
+      margin-bottom: var(--space-3);
+    }
+    .mobile-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-accent-primary);
+      letter-spacing: var(--tracking-wider);
+      text-transform: uppercase;
+    }
     .bookend-cards-stack {
       width: 100%;
       max-width: 100%;
       padding-top: 0;
+      gap: 0;
     }
     .bookend-tab-leaf {
       display: none !important;
     }
     .bookend-card-body {
+      background-color: transparent !important;
+      border: none !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      backdrop-filter: none !important;
+      padding: 0 !important;
+      aspect-ratio: auto !important;
       display: flex;
-      flex-direction: column;
-      gap: var(--space-8); /* Taller gap between title and mock */
-      padding: var(--space-8); /* Roomier padding on tablet/mobile */
-      aspect-ratio: auto; /* disable A4 on mobile for readability */
-      overflow: visible;
+      flex-direction: column-reverse; /* Screenshot at top, text at bottom */
+      gap: var(--space-4);
+      width: 100%;
+      overflow: visible !important;
     }
     .bookend-card-left {
       width: 100%;
+      transform: none !important;
+      transition: none !important;
     }
     .bookend-card-right {
       position: relative;
-      bottom: 0;
-      right: 0;
-      width: 100%;
+      top: auto !important;
+      right: auto !important;
+      width: calc(100% + var(--space-6));
+      margin-left: 0;
+      margin-right: calc(-1 * var(--space-6));
       transform: none !important;
-      overflow: hidden; /* Crop horizontal overflow of mock */
-      border-radius: 12px;
+      transition: none !important;
+      overflow: hidden;
+      display: flex;
+      justify-content: flex-start;
+      padding-top: var(--space-4);
+      padding-bottom: 0;
+      background: radial-gradient(circle at left center, rgba(255, 107, 0, 0.04) 0%, transparent 70%);
     }
     .bookend-card-right::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      /* Fade right edge of mock to match card background color #161312 */
-      background: linear-gradient(to right, transparent 65%, rgba(22, 19, 18, 0.98) 98%);
-      pointer-events: none;
-      z-index: 10;
+      content: '' !important;
+      position: absolute !important;
+      inset: 0 !important;
+      background: 
+        linear-gradient(to bottom, transparent 50%, var(--color-bg) 95%),
+        linear-gradient(to right, transparent 65%, var(--color-bg) 98%) !important;
+      pointer-events: none !important;
+      z-index: 10 !important;
     }
     .sticky-mockup-wrapper {
-      width: 500px !important; /* Fixed width to represent desktop proportion */
-      min-width: 500px !important;
+      width: 480px !important;
+      min-width: 480px !important;
+      max-width: none !important;
     }
     .mockup-viewport {
       height: 240px;
@@ -684,19 +725,30 @@ const mockTitles = [
     .bookend-card-wrapper {
       position: relative;
       top: 0 !important;
-      margin-bottom: 2.5rem !important; /* Spacious margin between stacked cards on mobile */
+      margin-bottom: var(--space-12) !important; /* Spacious margin between flush sections */
+      padding-bottom: var(--space-12);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
     .bookend-card-wrapper:last-child {
+      border-bottom: none;
       margin-bottom: 0 !important;
+      padding-bottom: 0;
     }
     .scroll-gap {
       display: none;
     }
   }
 
+  @media (max-width: 768px) {
+    .bookend-card-right {
+      width: calc(100% + var(--space-5)) !important;
+      margin-right: calc(-1 * var(--space-5)) !important;
+      margin-left: 0 !important;
+    }
+  }
+
   @media (max-width: 576px) {
     .bookend-card-body {
-      padding: 1.5rem !important; /* Spacious but tailored for small phone screens */
       gap: var(--space-6);
     }
     .mockup-viewport {
@@ -717,7 +769,9 @@ const mockTitles = [
       z-index: 5;
     }
     .step-title {
-      margin-top: var(--space-4);
+      margin-top: 0 !important;
+      font-size: 24px !important;
+      line-height: 1.25 !important;
     }
     .mockup-header-bar {
       height: 28px;

@@ -1,6 +1,10 @@
 ---
 import { content } from "../content/site"
-const { philosophy } = content
+
+const learnersPhilosophy = content.learners.philosophy
+const educatorsPhilosophy = content.educators.philosophy
+
+const philosophyItems = learnersPhilosophy.items
 ---
 
 <div class="philosophy-section">
@@ -8,19 +12,26 @@ const { philosophy } = content
     <div class="staggered-layout">
       
       <div class="header-zone">
-        <h2 class="section-title">{philosophy.headline}</h2>
-        {philosophy.subtext && <p class="section-subtext">{philosophy.subtext}</p>}
+        <!-- Learners Content -->
+        <div class="swap swap-content swap-audience-learners active">
+          <h2 class="section-title">{learnersPhilosophy.headline}</h2>
+          {learnersPhilosophy.subtext && <p class="section-subtext">{learnersPhilosophy.subtext}</p>}
+        </div>
+        <!-- Educators Content -->
+        <div class="swap swap-content swap-audience-educators">
+          <h2 class="section-title">{educatorsPhilosophy.headline}</h2>
+          {educatorsPhilosophy.subtext && <p class="section-subtext">{educatorsPhilosophy.subtext}</p>}
+        </div>
       </div>
       
       <div class="columns-zone">
-        {philosophy.items.map((item, idx) => (
+        {philosophyItems.map((item, idx) => (
           <div class={`stagger-column col-${idx}`}>
             
             <!-- Glassmorphic Card Accent Icon -->
-            <!-- Glassmorphic Card Accent Icon -->
             <div class={`card-hero-visual hero-visual-${idx}`}>
               {idx === 0 && (
-                <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2" style="width: 100%; height: 260px;">
+                <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2" style="width: 100%; height: 180px;">
                   <!-- Outer rotating dashed ring -->
                   <g>
                     <animateTransform
@@ -60,7 +71,7 @@ const { philosophy } = content
                 </svg>
               )}
               {idx === 1 && (
-                <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2" style="width: 100%; height: 260px;">
+                <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2" style="width: 100%; height: 180px;">
                   <path fill="var(--color-accent-primary)" fill-opacity="0.05" stroke="var(--color-accent-primary)" stroke-width="2.5" stroke-linecap="round">
                     <animate 
                       attributeName="d" 
@@ -89,7 +100,7 @@ const { philosophy } = content
                 </svg>
               )}
               {idx === 2 && (
-                <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2" style="width: 100%; height: 260px;">
+                <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2" style="width: 100%; height: 180px;">
                   <!-- Incoming track -->
                   <path d="M 20,100 L 100,100" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity="0.3" />
 
@@ -125,10 +136,64 @@ const { philosophy } = content
                   </g>
                 </svg>
               )}
+              {idx === 3 && (
+                <svg viewBox="0 0 240 200" fill="none" stroke="currentColor" stroke-width="2" style="width: 100%; height: 180px;">
+                  <!-- Central device representing your machine -->
+                  <rect x="95" y="80" width="50" height="40" rx="6" fill="var(--color-bg)" stroke="currentColor" stroke-width="2" />
+                  <circle cx="120" cy="100" r="3" fill="var(--color-accent-primary)" stroke="none" />
+
+                  <!-- Outgoing signal lines (broken/blocked) -->
+                  <path d="M 120,80 L 120,40" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.2" />
+                  <path d="M 145,90 L 200,60" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.2" />
+                  <path d="M 145,110 L 200,140" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.2" />
+
+                  <!-- Blocked cloud shapes at the ends -->
+                  <g opacity="0.15">
+                    <circle cx="120" cy="30" r="12" fill="none" stroke="currentColor" stroke-width="1.5" />
+                    <line x1="108" y1="18" x2="132" y2="42" stroke="currentColor" stroke-width="1.5" />
+                  </g>
+                  <g opacity="0.15">
+                    <circle cx="210" cy="55" r="12" fill="none" stroke="currentColor" stroke-width="1.5" />
+                    <line x1="198" y1="43" x2="222" y2="67" stroke="currentColor" stroke-width="1.5" />
+                  </g>
+                  <g opacity="0.15">
+                    <circle cx="210" cy="145" r="12" fill="none" stroke="currentColor" stroke-width="1.5" />
+                    <line x1="198" y1="133" x2="222" y2="157" stroke="currentColor" stroke-width="1.5" />
+                  </g>
+
+                  <!-- Shield barrier around device -->
+                  <path d="M 120,60 C 140,65 155,75 155,100 C 155,125 140,140 120,145 C 100,140 85,125 85,100 C 85,75 100,65 120,60 Z" fill="none" stroke="var(--color-accent-primary)" stroke-width="1.5" opacity="0.15" stroke-dasharray="3 3">
+                    <animate attributeName="opacity" values="0.1;0.25;0.1" dur="4s" repeatCount="indefinite" />
+                  </path>
+
+                  <!-- Data particles staying inside the shield -->
+                  <circle r="2.5" fill="var(--color-accent-primary)" stroke="none">
+                    <animateMotion
+                      dur="5s"
+                      repeatCount="indefinite"
+                      path="M 120,75 A 30,25 0 1,1 119.9,75 Z"
+                    />
+                  </circle>
+                  <circle r="2" fill="var(--color-accent-primary)" stroke="none" opacity="0.5">
+                    <animateMotion
+                      dur="5s"
+                      repeatCount="indefinite"
+                      begin="2.5s"
+                      path="M 120,75 A 30,25 0 1,1 119.9,75 Z"
+                    />
+                  </circle>
+                </svg>
+              )}
             </div>
 
-            <h3 class="label">{item.label}</h3>
-            <p class="detail">{item.detail}</p>
+            <h3 class="label">
+              <span class="swap swap-content swap-audience-learners active">{learnersPhilosophy.items[idx].label}</span>
+              <span class="swap swap-content swap-audience-educators">{educatorsPhilosophy.items[idx].label}</span>
+            </h3>
+            <p class="detail">
+              <span class="swap swap-content swap-audience-learners active">{learnersPhilosophy.items[idx].detail}</span>
+              <span class="swap swap-content swap-audience-educators">{educatorsPhilosophy.items[idx].detail}</span>
+            </p>
           </div>
         ))}
       </div>
@@ -153,6 +218,7 @@ const { philosophy } = content
 
   .philosophy-section .header-zone {
     max-width: 700px;
+    position: relative;
   }
 
   .philosophy-section .section-title {
@@ -160,18 +226,13 @@ const { philosophy } = content
   }
 
   .philosophy-section .section-subtext {
-    font-size: var(--text-base);
-    font-weight: 450;
     color: var(--color-text-secondary);
-    line-height: var(--leading-relaxed);
     opacity: 0.88;
-    letter-spacing: var(--tracking-snug);
-    margin: 0;
   }
 
   .philosophy-section .columns-zone {
     display: flex;
-    gap: var(--space-6);
+    gap: var(--space-4);
   }
 
   .philosophy-section .stagger-column {
@@ -180,7 +241,7 @@ const { philosophy } = content
     flex-direction: column;
     gap: var(--space-4);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    padding: var(--space-6);
+    padding: var(--space-5);
     border-radius: 15px;
   }
 
@@ -190,9 +251,9 @@ const { philosophy } = content
     align-items: center;
     justify-content: center;
     width: 100%;
-    height: 260px;
+    height: 180px;
     color: var(--color-text-secondary);
-    margin-bottom: var(--space-8);
+    margin-bottom: var(--space-4);
     transition: all 0.3s var(--ease-out);
     position: relative;
     filter: grayscale(100%) opacity(0.4);
@@ -264,52 +325,59 @@ const { philosophy } = content
 
   .philosophy-section .label {
     font-family: var(--font-display);
-    font-size: 15px;
-    font-weight: 750;
+    font-size: 1.0625rem;
+    font-weight: 590;
+    line-height: 1.4;
+    letter-spacing: -0.012em;
     color: var(--color-text-primary);
     margin: 0;
   }
 
   .philosophy-section .detail {
     font-family: var(--font-body);
-    font-size: var(--text-xs);
+    font-size: 0.9375rem;
+    font-weight: 300;
     color: var(--color-text-secondary);
-    line-height: var(--leading-relaxed);
+    line-height: 22px;
+    letter-spacing: -0.011em;
+    opacity: 0.8;
+    max-width: 440px;
     margin: 0;
   }
 
-  @media (max-width: 768px) {
-    .philosophy-section .columns-zone {
-      flex-direction: column;
-      gap: var(--space-6);
-    }
+  .philosophy-section .closing-zone {
+    display: none;
+  }
 
+  @media (max-width: 768px) {
     .philosophy-section .staggered-layout {
       gap: 48px;
     }
 
-    .philosophy-section .section-title {
-      font-size: 24px !important; /* Scale heading down on mobile */
+    .philosophy-section .columns-zone {
+      flex-direction: row;
+      gap: var(--space-4);
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      padding-bottom: var(--space-2);
     }
 
-    .philosophy-section .section-subtext {
-      font-size: var(--text-sm) !important; /* Scale subheading down on mobile */
+    .philosophy-section .columns-zone::after {
+      content: "";
+      flex: 0 0 var(--space-6);
+      scroll-snap-align: end;
     }
 
-    .philosophy-section .header-zone {
-      max-width: 100%;
-    }
-
-    .philosophy-section .card-hero-visual {
-      height: 180px;
-      margin-bottom: var(--space-4);
-    }
-
-    .philosophy-section .card-hero-visual svg {
-      height: 180px !important;
+    .philosophy-section .columns-zone::-webkit-scrollbar {
+      display: none;
     }
 
     .philosophy-section .stagger-column {
+      flex: 0 0 80%;
+      scroll-snap-align: start;
       padding: var(--space-5);
     }
   }

@@ -4,13 +4,13 @@ import { DOCS_PATH } from "../lib/constants"
 
 <section class="socratic-demo reveal">
   <div class="container socratic-grid">
-    <div>
+    <div class="socratic-text-column">
       <h2 class="section-title" style="text-align: left;">
         A guide, not a lecturer
       </h2>
       <p class="socratic-subtitle">
         Buddy doesn't hand you answers. It asks the right questions at the right
-        time, guiding you to uncover concepts yourself — the way great teachers
+        time, guiding you to uncover concepts yourself, the way great teachers
         do.
       </p>
       <div style="margin-top: 24px;">
@@ -81,14 +81,34 @@ import { DOCS_PATH } from "../lib/constants"
     align-items: center;
   }
 
+  .socratic-text-column {
+    max-width: 700px;
+  }
+
   .socratic-subtitle {
-    font-size: var(--text-base);
-    font-weight: 450;
-    line-height: var(--leading-relaxed);
+    font-family: var(--font-body);
+    font-size: 1.5rem;
+    font-weight: 400;
+    line-height: 1.33;
+    letter-spacing: -0.012em;
     color: var(--color-text-secondary);
     opacity: 0.88;
-    max-width: 48ch;
-    letter-spacing: var(--tracking-snug);
+    max-width: 38ch;
+    text-wrap: pretty;
+  }
+
+  @media (max-width: 992px) {
+    .socratic-subtitle {
+      font-size: 1.25rem;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .socratic-subtitle {
+      font-size: 0.9375rem;
+      line-height: 1.6;
+      letter-spacing: -0.011em;
+    }
   }
 
   /* === Chat mockup === */

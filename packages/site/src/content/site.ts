@@ -25,6 +25,10 @@ export type BringYourOwn = {
   readonly promo: string
 }
 
+export type Download = {
+  readonly tagline: string
+}
+
 export type PhilosophyItem = {
   readonly label: string
   readonly detail: string
@@ -33,7 +37,13 @@ export type PhilosophyItem = {
 export type Philosophy = {
   readonly headline: string
   readonly subtext?: string
-  readonly items: readonly [PhilosophyItem, PhilosophyItem, PhilosophyItem]
+  readonly items: readonly [
+    PhilosophyItem,
+    PhilosophyItem,
+    PhilosophyItem,
+    PhilosophyItem,
+  ]
+  readonly closingStatement: string
 }
 
 export type CapabilityItem = {
@@ -59,44 +69,84 @@ const bringYourOwn: BringYourOwn = {
   primary: {
     name: "ChatGPT",
     icon: "openai",
-    description: "Use your Free, Go, Plus, or Pro subscription.",
+    description: "Use Go, Plus, Pro subscriptions.",
   },
   secondary: {
     label: "",
-    options: ["API keys", "Local models"],
-    providers: ["Opencode", "Mistral", "Google", "Copilot"],
+    options: ["API keys"],
+    providers: ["Opencode", "Google", "Copilot"],
     providerCount: "50",
   },
   promo: "Free models included for a limited time.",
 }
 
-const philosophy: Philosophy = {
-  headline: "It's not about the AI.",
-  subtext: "It's about who owns it. Buddy is a local-first learning companion designed to be completely private, customizable, and under your command.",
+const learnersPhilosophy: Philosophy = {
+  headline: "What you learn is yours.",
+  subtext:
+    "No account, no cloud, no tracking. Your data never leaves your computer.",
   items: [
     {
-      label: "Yours to keep",
-      detail: "Your data stays on your machine. No account, no tracking.",
+      label: "No logins",
+      detail:
+        "Open the app and start. No sign-up, no password, nothing to cancel later.",
     },
     {
-      label: "Yours to shape",
-      detail: "Good defaults, easy to change. Buddy doesn't assume what you want to learn or how.",
+      label: "On device",
+      detail:
+        "Your notes, chats, and files live on your computer. No internet needed.",
     },
     {
-      label: "Yours to control",
-      detail: "Buddy asks before it acts. You decide what happens.",
+      label: "Asks permission",
+      detail:
+        "Buddy asks before it does anything. You approve every file and action.",
+    },
+    {
+      label: "No tracking",
+      detail:
+        "We can't see what you study. Your chats go to your AI provider.",
     },
   ],
+  closingStatement: "",
+}
+
+const educatorsPhilosophy: Philosophy = {
+  headline: "Your classroom, your data.",
+  subtext:
+    "No account, no cloud, no tracking. Your curriculum and your learners' data never leave your computer.",
+  items: [
+    {
+      label: "No logins",
+      detail:
+        "Open the app and start. No sign-up, no password, nothing to cancel later.",
+    },
+    {
+      label: "On device",
+      detail:
+        "Your curriculum and lessons live on your computer. No internet needed.",
+    },
+    {
+      label: "Asks permission",
+      detail:
+        "Buddy asks before it does anything. You approve every file and action.",
+    },
+    {
+      label: "No tracking",
+      detail:
+        "We can't see what you teach. Your chats go to your AI provider.",
+    },
+  ],
+  closingStatement: "",
 }
 
 const capabilities: Capabilities = {
-  headline: "Not a chatbot with a learning skin.",
-  subtext: "A state of the art AI Agent, on your machine.",
+  headline: "Not a wrapper around ChatGPT.",
+  subtext:
+    "A complete agent system with its own tools, skills, and subagents. Running entirely on your machine.",
   items: [
     {
       name: "Subagents",
       detail:
-        "Specialized agents with their own tools and context. Ships with built-in ones — or build your own.",
+        "Specialized agents with their own tools and context. Ships with built-in ones, or build your own.",
     },
     {
       name: "MCPs",
@@ -105,7 +155,7 @@ const capabilities: Capabilities = {
     {
       name: "Skills",
       detail:
-        "Reusable, versioned capability bundles. Ships with built-in ones — or build your own.",
+        "Reusable, versioned capability bundles. Ships with built-in ones, or build your own.",
     },
     {
       name: "Tools",
@@ -123,68 +173,97 @@ export const content = {
     hero: {
       headlineLines: ["The personal learning system", "for curious minds"],
       subtext:
-        "A desktop learning agent that learns with you - for anything you've ever wanted to know.",
+        "Read, understand, and remember with a learning agent on your machine.",
     },
     featuresHeader: {
-      headline: "Zero configuration learning.",
-      subtext:
-        "Import any text, audio, or video. Buddy instantly structures your materials into study notebooks, e-reader highlights, active recall cards, and interactive whiteboard widgets.",
+      headline: "Built for how you actually learn.",
+      subtext: "",
     },
     features: [
       {
-        tag: "INGEST",
-        title: "Import your materials",
+        tag: "STUDY",
+        title: "Drop in what you're studying",
         subtext:
-          "Drag and drop PDFs, EPUBs, video, or audio. Buddy processes everything locally into a unified workspace.",
+          "A PDF, an EPUB, a video, a lecture recording. Buddy reads it all and you're ready to go.",
       },
       {
-        tag: "INTERACT",
-        title: "Socratic Dialogue",
+        tag: "READ",
+        title: "Get unstuck while you read",
         subtext:
-          "Chat with an AI that doesn't just give answers, but guides you through complex topics with targeted questions.",
+          "Highlight a passage, ask a question. Buddy sees what you're reading and explains it right there.",
       },
       {
-        tag: "RETAIN",
-        title: "Spaced Repetition",
+        tag: "PLAY",
+        title: "Play until it clicks",
         subtext:
-          "Convert your readings and chats into flashcards automatically. Study with a smart system that optimizes recall.",
+          "Reading it again won't help. Sketch it on the whiteboard, play a game Buddy builds, explore until it clicks.",
+      },
+      {
+        tag: "QUIZ",
+        title: "Know if you're ready",
+        subtext:
+          "Buddy quizzes you on what you've learned. See what clicks and what needs another pass.",
+      },
+      {
+        tag: "REVIEW",
+        title: "Make it stick",
+        subtext:
+          "Stop forgetting what you learned. Buddy turns your reading and chats into flashcards automatically. Review on your schedule.",
       },
     ] as const,
+    philosophy: learnersPhilosophy,
+    download: {
+      tagline: "The learning superapp",
+    },
   },
   educators: {
     hero: {
       headlineLines: ["The personal teaching assistant", "for every task"],
       subtext:
-        "Standards-aligned lesson plans, worksheets, and assessments — generated by an AI that understands your curriculum. All on your machine.",
+        "Plan, create, and assess with a teaching assistant on your machine.",
     },
     featuresHeader: {
-      headline: "Zero preparation lesson planning.",
-      subtext:
-        "Align lessons, design worksheets, and generate quizzes in seconds. Buddy translates your standards and materials into ready-to-use classroom resources.",
+      headline: "Built for how you actually teach.",
+      subtext: "",
     },
     features: [
       {
-        tag: "PLAN",
-        title: "Curriculum Mapping",
+        tag: "ALIGN",
+        title: "Aligned to your standards",
         subtext:
-          "Import standards, textbooks, or past materials. Buddy aligns lessons to your state standards automatically.",
+          "Instead of mapping standards by hand, import them. Buddy knows the prerequisites and what comes next.",
+      },
+      {
+        tag: "PLAN",
+        title: "Plan lessons in minutes",
+        subtext:
+          "Buddy writes clear learning goals from your standards. Know what to teach and why, in minutes not hours.",
       },
       {
         tag: "CREATE",
-        title: "Interactive Worksheets",
+        title: "One lesson, every level",
         subtext:
-          "Generate differentiated worksheets, prompt-based exercises, and customized rubrics for any student level.",
+          "Stop making different versions for different levels. Buddy tailors worksheets, activities, and diagrams for every learner, no extra effort.",
       },
       {
         tag: "ASSESS",
-        title: "Standards-Aligned Quizzes",
+        title: "Test what you actually taught",
         subtext:
-          "Create assessments matching your exact curriculum goals. Output ready-to-print or exportable question sets.",
+          "Quizzes and practice problems built from your actual curriculum goals. Not generic, aligned to what you taught. Print, share, or assign.",
+      },
+      {
+        tag: "EXPORT",
+        title: "Ready for class tomorrow",
+        subtext:
+          "Quizzes, worksheets, and lessons, print-ready or digital. Export in one click. Everything stays on your machine.",
       },
     ] as const,
+    philosophy: educatorsPhilosophy,
+    download: {
+      tagline: "The teaching superapp",
+    },
   },
   bringYourOwn,
-  philosophy,
   capabilities,
 } as const satisfies Record<
   Audience,
@@ -197,6 +276,8 @@ export const content = {
       readonly headline: string
       readonly subtext: string
     }
-    features: readonly [FeatureItem, FeatureItem, FeatureItem]
+    features: readonly [FeatureItem, FeatureItem, FeatureItem, FeatureItem, FeatureItem]
+    philosophy: Philosophy
+    download: Download
   }
-> & { bringYourOwn: BringYourOwn; philosophy: Philosophy; capabilities: Capabilities }
+> & { bringYourOwn: BringYourOwn; capabilities: Capabilities }

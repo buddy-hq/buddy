@@ -1,6 +1,7 @@
 ---
 import { content } from "../content/site"
 import BYOOption from "./BYOOption.astro"
+import ollamaIcon from "../assets/ollama-icon.svg?raw"
 
 const { bringYourOwn } = content
 
@@ -18,7 +19,18 @@ const openaiIconPath =
 
     <div class="byo-card">
       <div class="byo-card-inner">
-        <BYOOption title={`Log in with ${bringYourOwn.primary.name}`} description={bringYourOwn.primary.description}>
+        <BYOOption title="Free models" description="Try free for a limited time.">
+          <svg slot="marker" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 7v14"></path>
+            <path d="M20 11v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8"></path>
+            <path d="M7.5 7a1 1 0 0 1 0-5A4.8 8 0 0 1 12 7a4.8 8 0 0 1 4.5-5 1 1 0 0 1 0 5"></path>
+            <rect x="3" y="7" width="18" height="4" rx="1"></rect>
+          </svg>
+        </BYOOption>
+
+        <div class="sep"></div>
+
+        <BYOOption title="Use ChatGPT" description="Log in with Go, Plus, Pro.">
           <svg slot="marker" viewBox="0 0 24 24" fill="currentColor">
             <path d={openaiIconPath} />
           </svg>
@@ -26,13 +38,21 @@ const openaiIconPath =
 
         <div class="sep"></div>
 
-        <BYOOption title={bringYourOwn.secondary.options.join(" · ")} description={`${bringYourOwn.secondary.providers.join(", ")}, and ${bringYourOwn.secondary.providerCount} more.`}>
-          <span slot="marker" class="byo-option-marker-text">Or</span>
+        <BYOOption title="API keys" description="Bring your own API keys.">
+          <svg slot="marker" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 11v6"></path>
+            <path d="M19 13h2"></path>
+            <path d="M2 21a8 8 0 0 1 12.868-6.349"></path>
+            <circle cx="10" cy="8" r="5"></circle>
+            <circle cx="19" cy="19" r="2"></circle>
+          </svg>
         </BYOOption>
-      </div>
 
-      <div class="promo">
-        <p class="promo-text">{bringYourOwn.promo}</p>
+        <div class="sep"></div>
+
+        <BYOOption title="Local models" description="Log in with Ollama.">
+          <span slot="marker" class="byo-option-marker-svg" set:html={ollamaIcon} />
+        </BYOOption>
       </div>
     </div>
 
@@ -59,31 +79,30 @@ const openaiIconPath =
 
   .bring-your-own .section-title {
     font-family: var(--font-display);
-    font-size: clamp(2rem, 5vw, 2.75rem);
-    font-weight: 800;
+    font-size: 48px;
+    font-weight: 510;
     color: var(--color-text-primary);
-    line-height: 1.1;
-    letter-spacing: var(--tracking-tight);
+    line-height: 1;
+    letter-spacing: -0.022em;
     margin: 0 0 var(--space-3);
   }
 
   .bring-your-own .section-subtext {
-    font-size: var(--text-base);
-    font-weight: 450;
     color: var(--color-text-secondary);
-    line-height: var(--leading-relaxed);
     opacity: 0.88;
-    letter-spacing: var(--tracking-snug);
-    margin: 0;
   }
 
   .bring-your-own .byo-card {
     overflow: hidden;
+    background-color: #0b0908;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
   }
 
   .bring-your-own .byo-card-inner {
     display: grid;
-    grid-template-columns: 1fr 1px 1fr;
+    grid-template-columns: 1fr 1px 1fr 1px 1fr 1px 1fr;
     align-items: stretch;
   }
 
@@ -93,21 +112,10 @@ const openaiIconPath =
     align-self: center;
   }
 
-  .bring-your-own .promo {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 96px var(--space-12) 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-  }
-
-  .bring-your-own .promo-text {
-    font-family: var(--font-display);
-    font-size: clamp(1.5rem, 3vw, 2rem);
-    font-weight: 500;
-    color: var(--color-text-primary);
-    line-height: var(--leading-relaxed);
-    text-align: center;
+  @media (max-width: 992px) {
+    .bring-your-own .section-title {
+      font-size: 40px;
+    }
   }
 
   @media (max-width: 860px) {
@@ -117,9 +125,6 @@ const openaiIconPath =
     .bring-your-own .sep {
       display: none;
     }
-    .bring-your-own .promo-text {
-      text-align: left;
-    }
   }
 
   @media (max-width: 768px) {
@@ -128,21 +133,14 @@ const openaiIconPath =
       max-width: 100%;
     }
     .bring-your-own .section-title {
-      font-size: 24px !important; /* Scale title down on mobile */
+      font-size: 24px !important;
     }
     .bring-your-own .section-subtext {
       font-size: var(--text-sm) !important; /* Scale subtext down on mobile */
     }
-    .bring-your-own .promo {
-      padding: 48px var(--space-4) 0;
-    }
     .bring-your-own .container {
       max-width: 100%;
       padding: 0 var(--space-5);
-    }
-    .bring-your-own .promo-text {
-      font-size: 1.15rem !important; /* Clean promo size on mobile */
-      text-align: left;
     }
   }
 </style>

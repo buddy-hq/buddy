@@ -2,20 +2,11 @@
    FONT FALLBACKS — metric-matched to prevent CLS / FOUT
    ============================================================ */
 @font-face {
-  font-family: "Outfit Fallback";
+  font-family: "Geist Fallback";
   src: local("Arial");
-  size-adjust: 98.3%;
-  ascent-override: 97.45%;
-  descent-override: 25.42%;
-  line-gap-override: 0%;
-}
-
-@font-face {
-  font-family: "Plus Jakarta Sans Fallback";
-  src: local("Arial");
-  size-adjust: 103.36%;
-  ascent-override: 103.8%;
-  descent-override: 22.2%;
+  size-adjust: 104.1%;
+  ascent-override: 95.8%;
+  descent-override: 23.2%;
   line-gap-override: 0%;
 }
 
@@ -45,11 +36,11 @@
 
   /* Fonts */
   --font-display:
-    "Outfit", "Outfit Fallback", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Geist", "Geist Fallback", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif;
   --font-body:
-    "Plus Jakarta Sans", "Plus Jakarta Sans Fallback", system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    "Geist", "Geist Fallback", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
   --font-mono:
     "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
@@ -73,20 +64,20 @@
   --space-32: 8rem;
 
   /* Tracking */
-  --tracking-tighter: -0.04em;
-  --tracking-tight: -0.02em;
+  --tracking-tighter: -0.02em;
+  --tracking-tight: -0.015em;
   --tracking-snug: -0.01em;
   --tracking-normal: -0.005em;
-  --tracking-wide: 0.02em;
+  --tracking-wide: 0;
   --tracking-wider: 0.08em;
 
   /* Leading */
   --leading-none: 1;
-  --leading-tighter: 1.1;
-  --leading-tight: 1.2;
-  --leading-snug: 1.35;
+  --leading-tighter: 1.05;
+  --leading-tight: 1.1;
+  --leading-snug: 1.3;
   --leading-normal: 1.5;
-  --leading-relaxed: 1.625;
+  --leading-relaxed: 1.5;
 
   /* Fluid type scale (bumped base to 16-17px) */
   --text-xs: clamp(0.75rem, 0.73rem + 0.1vw, 0.8125rem);
@@ -146,6 +137,7 @@ h6 {
   font-feature-settings:
     "liga" 1,
     "calt" 1,
+    "cv01" 1,
     "ss01" 1;
 }
 
@@ -212,11 +204,12 @@ section {
 .section-title {
   font-family: var(--font-display);
   font-size: 48px;
-  font-weight: 700;
-  line-height: var(--leading-tight);
-  letter-spacing: var(--tracking-tighter);
+  font-weight: 510;
+  line-height: 1;
+  letter-spacing: -0.022em;
   margin-bottom: var(--space-4);
   color: var(--color-text-primary);
+  text-wrap: balance;
 }
 
 @media (max-width: 992px) {
@@ -228,6 +221,36 @@ section {
 @media (max-width: 576px) {
   .section-title {
     font-size: 24px;
+    line-height: 1.33;
+    letter-spacing: -0.012em;
+    font-weight: 510;
+    max-width: 18ch;
+  }
+}
+
+.section-subtext {
+  font-family: var(--font-body);
+  font-size: 1.5rem;
+  font-weight: 400;
+  line-height: 1.33;
+  letter-spacing: -0.012em;
+  color: var(--color-text-tertiary);
+  max-width: 38ch;
+  text-wrap: pretty;
+  margin: 0;
+}
+
+@media (max-width: 992px) {
+  .section-subtext {
+    font-size: 1.25rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .section-subtext {
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    letter-spacing: -0.011em;
   }
 }
 
@@ -244,7 +267,7 @@ section {
   padding: 8px 16px;
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 500;
   color: #ffffff;
   text-decoration: none;
   cursor: pointer;
@@ -271,7 +294,7 @@ section {
   padding: 8px 16px;
   font-family: var(--font-body);
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 500;
   color: var(--color-text-primary);
   text-decoration: none;
   cursor: pointer;

@@ -4,6 +4,7 @@ import { content } from "../content/site"
 ---
 
 <section class="hero animate-in">
+  <div class="hero-bg-gradient" aria-hidden="true"></div>
   <div class="container">
 
     <!-- Hero Header -->
@@ -55,6 +56,23 @@ import { content } from "../content/site"
     overflow: hidden;
   }
 
+  .hero-bg-gradient {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(52.53% 57.5% at 50% 100%, #0a080700 0%, #0a080780 100%), 
+                linear-gradient(180deg, #0a0807 62%, #ff8f66 100%);
+    opacity: 0.28;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .hero .container {
+    position: relative;
+    z-index: 1;
+  }
+
   /* --- Hero Header Section --- */
   .hero-header-section {
     margin-bottom: 96px;
@@ -71,9 +89,9 @@ import { content } from "../content/site"
   .hero-title {
     font-family: var(--font-display);
     font-size: 64px;
-    font-weight: 700;
-    line-height: 1.05;
-    letter-spacing: -0.03em;
+    font-weight: 510;
+    line-height: 1.06;
+    letter-spacing: -0.022em;
     margin-bottom: var(--space-6);
     color: var(--color-text-primary);
     text-wrap: balance;
@@ -90,7 +108,7 @@ import { content } from "../content/site"
   @media (max-width: 576px) {
     .hero-title {
       font-size: 38px;
-      font-weight: 500; /* Not bold in mobile */
+      font-weight: 500;
     }
   }
 
@@ -116,12 +134,29 @@ import { content } from "../content/site"
   }
 
   .hero-subtitle {
-    font-size: var(--text-base);
-    font-weight: 450;
-    line-height: var(--leading-relaxed);
+    font-family: var(--font-body);
+    font-size: 1.5rem;
+    font-weight: 400;
+    line-height: 1.33;
+    letter-spacing: -0.012em;
     color: var(--color-text-secondary);
     opacity: 0.88;
-    letter-spacing: var(--tracking-snug);
+    max-width: 38ch;
+    text-wrap: pretty;
+  }
+
+  @media (max-width: 992px) {
+    .hero-subtitle {
+      font-size: 1.25rem;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .hero-subtitle {
+      font-size: 0.9375rem;
+      line-height: 1.6;
+      letter-spacing: -0.011em;
+    }
   }
 
   /* Actions buttons */
@@ -141,7 +176,7 @@ import { content } from "../content/site"
     padding: 12px 24px;
     font-family: var(--font-body);
     font-size: var(--text-sm);
-    font-weight: 600;
+    font-weight: 500;
     color: #ffffff;
     text-decoration: none;
     cursor: pointer;
@@ -163,7 +198,7 @@ import { content } from "../content/site"
     padding: 12px 24px;
     font-family: var(--font-body);
     font-size: var(--text-sm);
-    font-weight: 600;
+    font-weight: 500;
     color: var(--color-text-primary);
     text-decoration: none;
     cursor: pointer;
@@ -223,7 +258,7 @@ import { content } from "../content/site"
   .announcement-badge {
     background: linear-gradient(135deg, #ff8025 0%, #ff6b00 100%);
     color: #ffffff;
-    font-weight: 700;
+    font-weight: 600;
     padding: 2px 8px;
     border-radius: 99px;
     font-size: 10px;
@@ -275,6 +310,16 @@ import { content } from "../content/site"
 
   /* --- Responsive --- */
   @media (max-width: 992px) {
+    .hero {
+      padding-bottom: var(--space-6) !important; /* Decrease spacing under the mockup on mobile */
+    }
+
+    .hero-bg-gradient {
+      background: radial-gradient(52.53% 57.5% at 50% 100%, #0a080700 0%, #0a080780 100%), 
+                  linear-gradient(180deg, #0a0807 48%, #ff8f66 100%) !important;
+      opacity: 0.42 !important;
+    }
+
     .hero-header-row {
       flex-direction: column;
       align-items: flex-start;
@@ -285,7 +330,31 @@ import { content } from "../content/site"
       align-self: flex-start;
     }
 
-    /* Force workspace mock to stay in desktop layout when inside hero */
+    .hero-visual {
+      display: block !important; /* Prevent browser flexbox overflow alignment bugs on mobile */
+      height: 440px; /* Taller visual stage to show full mockup without vertical cropping */
+      overflow: hidden;
+      position: relative;
+      background-color: transparent;
+      width: calc(100% + var(--space-6));
+      margin-left: 0;
+      margin-right: calc(-1 * var(--space-6));
+      padding-left: 0;
+    }
+
+    .hero-visual .app-mockup-wrapper {
+      position: relative;
+      left: 4px !important; /* Prevent browser crop boundary from clipping the left border */
+      top: 4px !important;  /* Prevent browser crop boundary from clipping the top border */
+      width: 880px;
+      min-width: 880px;
+      transform: scale(0.8) translateZ(0);
+      will-change: transform;
+      transform-origin: top left;
+      z-index: 5;
+    }
+
+    /* Keep the mockup grid open and styled as desktop mock */
     .hero-visual .workspace-body {
       grid-template-columns: 160px 1fr 0px 40px !important;
       grid-template-rows: 100% !important;
@@ -317,79 +386,12 @@ import { content } from "../content/site"
       height: 100% !important;
       align-self: stretch !important;
     }
-  }
 
-  @media (max-width: 768px) {
-    .hero-visual {
-      display: block;
-      height: 460px; /* Increased height to show more mock content vertically */
-      overflow: hidden; /* Crop both vertical overflow and horizontal viewport overflow */
-      position: relative;
-      background-color: transparent;
-      width: 100vw; /* Stretch full width of viewport */
-      margin-left: calc(-50vw + 50%); /* Break out of container to left edge of viewport */
-      padding-left: max(16px, calc(50vw - 50%)); /* Keep content padding aligned with container */
-    }
-
-    /* Make the mock render wider than viewport to show desktop proportions */
-    .hero-visual .app-mockup-wrapper {
-      position: absolute;
-      top: 0;
-      left: max(16px, calc(50vw - 50%)); /* Align left edge of mockup exactly with normal page container margin */
-      width: 880px; /* Desktop simulated width */
-      min-width: 880px;
-      z-index: 5;
-    }
-
-    /* Keep the mockup grid open and styled as desktop mock */
-    .hero-visual .workspace-body {
-      grid-template-columns: 180px 1.2fr 1.1fr 44px !important;
-      grid-template-rows: 100% !important;
-      height: 400px !important; /* Increased workspace height */
-      overflow: hidden !important;
-    }
-
-    .hero-visual .workspace-body.right-pane-collapsed {
-      grid-template-columns: 180px 1.2fr 1.1fr 44px !important;
-    }
-
-    .hero-visual .surface-sidebar {
-      display: flex !important;
-      grid-column: 1 !important;
-      grid-row: 1 !important;
-    }
-
-    .hero-visual .surface-chat {
-      grid-column: 2 !important;
-      grid-row: 1 !important;
-      height: 100% !important;
-      align-self: stretch !important;
-    }
-
-    .hero-visual .surface-whiteboard {
-      display: flex !important;
-      grid-column: 3 !important;
-      grid-row: 1 !important;
-      height: 100% !important;
-      align-self: stretch !important;
-      opacity: 1 !important;
-      visibility: visible !important;
-      transform: none !important;
-    }
-
-    .hero-visual .surface-actions {
-      display: flex !important;
-      grid-column: 4 !important;
-      grid-row: 1 !important;
-      height: 100% !important;
-      align-self: stretch !important;
-    }
-
-    /* Static product shot — no interaction on mobile */
+    /* Make the workspace mockup fully interactive on mobile */
     .hero-visual .buddy-window {
-      pointer-events: none;
-      /* Add slight bottom shadow to elevate the mockup edge */
-      box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.9);
+      pointer-events: auto !important;
+      border: 1px solid rgba(255, 143, 102, 0.3) !important;
+      box-shadow: inset 0 0 0 1px rgba(255, 143, 102, 0.3) !important; /* Forces the border to render on top of child backgrounds */
     }
 
     /* Kill all animations inside hero on mobile */
@@ -398,17 +400,8 @@ import { content } from "../content/site"
       animation: none !important;
     }
 
-    /* Fade on right edge only so the bottom border stays sharp and fully visible */
     .hero-visual::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 0;
-      width: 100vw;
-      background: linear-gradient(to right, transparent 60%, var(--color-bg) 95%);
-      pointer-events: none;
-      z-index: 10;
+      content: none !important; /* Remove bottom fade overlay */
     }
 
     .mockup-reflection {
@@ -418,6 +411,106 @@ import { content } from "../content/site"
     .mockup-glow {
       display: none;
     }
+  }
+
+  @media (max-width: 768px) {
+    .hero-visual {
+      width: calc(100% + var(--space-5)) !important;
+      margin-right: calc(-1 * var(--space-5)) !important;
+      height: 455px;
+    }
+    .hero-visual .app-mockup-wrapper {
+      transform: scale(0.75) translateZ(0);
+    }
+
+    /* Keep the mockup grid open and styled as desktop mock */
+    .hero-visual .workspace-body {
+      grid-template-columns: 0px 0.9fr 1.3fr 44px !important;
+      grid-template-rows: 100% !important;
+      height: 560px !important; /* Taller workspace to see more content vertically */
+      overflow: hidden !important;
+    }
+
+    .hero-visual .workspace-body.right-pane-collapsed {
+      grid-template-columns: 0px 0.9fr 1.3fr 44px !important;
+    }
+
+    .hero-visual .surface-sidebar {
+      display: none !important;
+    }
+
+    .hero-visual .surface-chat {
+      grid-column: 2 !important;
+      grid-row: 1 !important;
+      height: 100% !important;
+      align-self: stretch !important;
+    }
+
+    .hero-visual .surface-whiteboard,
+    .hero-visual .surface-reader,
+    .hero-visual .surface-widget,
+    .hero-visual .surface-notes {
+      grid-column: 3 !important;
+      grid-row: 1 !important;
+      height: 100% !important;
+      align-self: stretch !important;
+      transform: none !important;
+      display: none !important; /* Hidden by default unless active */
+    }
+
+    /* Force active right-pane display states on mobile viewports */
+    .hero-visual .buddy-window.show-whiteboard .surface-whiteboard,
+    .hero-visual .buddy-window:not(.show-whiteboard):not(.show-widget):not(.show-notes) .surface-reader,
+    .hero-visual .buddy-window.show-widget .surface-widget,
+    .hero-visual .buddy-window.show-notes .surface-notes {
+      display: flex !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+
+    /* Decrease padding on the left and right of the whiteboard drawings container */
+    .hero-visual .wb-layout-container {
+      max-width: 440px !important;
+    }
+
+    .hero-visual .whiteboard-canvas {
+      padding: 8px !important;
+    }
+
+    .hero-visual .surface-actions {
+      display: flex !important;
+      grid-column: 4 !important;
+      grid-row: 1 !important;
+      height: 100% !important;
+      align-self: stretch !important;
+    }
+  }
+
+  @media (max-width: 580px) {
+    .hero-visual {
+      height: 410px;
+    }
+    .hero-visual .app-mockup-wrapper {
+      transform: scale(0.68) translateZ(0);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .hero-visual {
+      height: 374px;
+    }
+    .hero-visual .app-mockup-wrapper {
+      transform: scale(0.62) translateZ(0);
+    }
+  }
+
+  @media (max-width: 380px) {
+    .hero-visual {
+      height: 332px;
+    }
+    .hero-visual .app-mockup-wrapper {
+      transform: scale(0.55) translateZ(0);
+    } 
   }
 
   @media (max-width: 576px) {

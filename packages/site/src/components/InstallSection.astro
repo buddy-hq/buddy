@@ -1,17 +1,26 @@
 ---
+import { content } from "../content/site"
 import { MAC_INSTALL_CMD, WIN_INSTALL_CMD } from "../lib/constants"
+
+const { learners, educators } = content
 ---
 
 <section id="install" class="install-section reveal">
   <div class="container">
     <div class="install-card">
-      <h2 class="install-title">Install Buddy</h2>
-      <p class="install-subtitle">One command. Free forever. No account required.</p>
+      <div class="swap swap-content swap-audience-learners active">
+        <p class="install-subtitle">{learners.download.tagline}</p>
+        <h2 class="install-title">made for you</h2>
+      </div>
+      <div class="swap swap-content swap-audience-educators">
+        <p class="install-subtitle">{educators.download.tagline}</p>
+        <h2 class="install-title">made for you</h2>
+      </div>
 
       <div class="install-command-wrapper">
         <span class="install-cmd-prefix" id="cmd-prefix">$</span>
         <code class="install-command" id="install-command">{MAC_INSTALL_CMD}</code>
-        <button class="install-copy-btn" id="install-copy-btn" data-copy={MAC_INSTALL_CMD} aria-label="Copy install command">
+        <button class="install-copy-btn" id="install-copy-btn" data-copy={MAC_INSTALL_CMD} aria-label="Copy download command">
           <svg class="copy-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
           <svg class="check-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </button>
@@ -39,41 +48,65 @@ import { MAC_INSTALL_CMD, WIN_INSTALL_CMD } from "../lib/constants"
   }
 
   .install-card {
-    max-width: 560px;
+    width: 100%;
     margin: 0 auto;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--space-6);
+    position: relative;
+  }
+
+  .install-card .swap {
+    width: 100%;
+    text-align: center;
   }
 
   .install-title {
     font-family: var(--font-display);
-    font-size: 48px;
-    font-weight: 700;
-    line-height: var(--leading-tight);
-    letter-spacing: var(--tracking-tighter);
+    font-size: 4.5rem;
+    font-weight: 510;
+    line-height: 1;
+    letter-spacing: -0.022em;
     color: var(--color-text-primary);
+    text-wrap: balance;
+    text-align: center;
   }
 
   @media (max-width: 992px) {
     .install-title {
-      font-size: 40px;
+      font-size: 3rem;
     }
   }
 
   @media (max-width: 576px) {
     .install-title {
-      font-size: 28px;
+      font-size: 2rem;
     }
   }
 
   .install-subtitle {
-    font-size: var(--text-base);
-    color: var(--color-text-tertiary);
-    line-height: var(--leading-relaxed);
-    letter-spacing: var(--tracking-snug);
-    margin-top: calc(-1 * var(--space-2));
+    font-family: var(--font-display);
+    font-size: 4.5rem;
+    font-weight: 510;
+    line-height: 1;
+    letter-spacing: -0.022em;
+    color: var(--color-text-primary);
+    text-wrap: balance;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 992px) {
+    .install-subtitle {
+      font-size: 3rem;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .install-subtitle {
+      font-size: 2rem;
+    }
   }
 
   /* Command bar */
@@ -81,6 +114,7 @@ import { MAC_INSTALL_CMD, WIN_INSTALL_CMD } from "../lib/constants"
     display: flex;
     align-items: center;
     width: 100%;
+    max-width: 560px;
     background-color: rgba(0, 0, 0, 0.4);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 12px;
@@ -164,7 +198,7 @@ import { MAC_INSTALL_CMD, WIN_INSTALL_CMD } from "../lib/constants"
     padding: 6px 16px;
     font-family: var(--font-body);
     font-size: var(--text-xs);
-    font-weight: 600;
+    font-weight: 500;
     color: var(--color-text-muted);
     cursor: pointer;
     transition: color 0.25s var(--ease-out), background-color 0.25s var(--ease-out);

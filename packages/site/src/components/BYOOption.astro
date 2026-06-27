@@ -29,29 +29,29 @@ const titleSegments = title.split(" · ")
   .byo-option {
     display: flex;
     flex-direction: column;
-    gap: var(--space-1);
-    padding: var(--space-12);
+    gap: 0;
+    padding: var(--space-8);
   }
 
   .byo-option-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: var(--space-3);
   }
 
   .byo-option-marker {
     width: 45px;
-    height: 28px;
     flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    margin-top: 2px;
   }
 
   .byo-option-marker-text {
     font-family: var(--font-display);
-    font-size: clamp(1.5rem, 3vw, 2rem);
-    font-weight: 750;
+    font-size: 20px;
+    font-weight: 600;
     color: var(--color-text-muted);
     line-height: 1;
     white-space: nowrap;
@@ -59,8 +59,10 @@ const titleSegments = title.split(" · ")
 
   .byo-option-title {
     font-family: var(--font-display);
-    font-size: clamp(1.5rem, 3vw, 2rem);
-    font-weight: 750;
+    font-size: 1.0625rem;
+    font-weight: 510;
+    line-height: 1.4;
+    letter-spacing: -0.012em;
     color: var(--color-text-primary);
     margin: 0;
   }
@@ -70,9 +72,14 @@ const titleSegments = title.split(" · ")
   }
 
   .byo-option-description {
-    font-size: var(--text-sm);
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    font-weight: 300;
     color: var(--color-text-secondary);
-    line-height: var(--leading-relaxed);
+    line-height: 22px;
+    letter-spacing: -0.011em;
+    opacity: 0.8;
+    max-width: 440px;
     margin: 0;
     margin-left: calc(45px + var(--space-3));
   }
@@ -86,12 +93,6 @@ const titleSegments = title.split(" · ")
   @media (max-width: 768px) {
     .byo-option {
       padding: var(--space-6) var(--space-4);
-    }
-    .byo-option-title {
-      font-size: 1.15rem !important; /* Scale option titles down on mobile */
-    }
-    .byo-option-marker-text {
-      font-size: 1.15rem !important; /* Scale marker text down on mobile */
     }
   }
 </style>

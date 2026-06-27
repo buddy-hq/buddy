@@ -1350,14 +1350,9 @@ import MockNotebook from "./MockNotebook.astro";
     setGenerating(false);
   }
 
-  // Only run streaming animation on desktop — mobile shows a static product shot
-  if (window.innerWidth <= 768) {
-    loadNotebookStatic("self-reliance");
-  } else {
-    setTimeout(() => {
-      loadNotebook("self-reliance");
-    }, 2000);
-  }
+  setTimeout(() => {
+    loadNotebook("self-reliance");
+  }, 2000);
 </script>
 
 <style is:global>
@@ -1367,10 +1362,11 @@ import MockNotebook from "./MockNotebook.astro";
   .buddy-window {
     width: 100%;
     background-color: #0b0a0b;
-    border: 1px solid rgba(255, 107, 0, 0.12);
-    border-radius: 12px;
-    box-shadow: 0 24px 64px -12px rgba(0, 0, 0, 0.95),
-                0 0 30px -4px rgba(255, 107, 0, 0.04);
+    border: 1px solid rgba(255, 143, 102, 0.24);
+    border-radius: 10px;
+    box-shadow: inset 0 0 0 1px rgba(255, 143, 102, 0.2),
+                0 24px 64px -12px rgba(0, 0, 0, 0.95),
+                0 0 30px -4px rgba(255, 143, 102, 0.04);
     overflow: hidden;
     display: flex;
     flex-direction: column;

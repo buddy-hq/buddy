@@ -100,12 +100,6 @@ const { capabilities } = content
 
 
 
-  .section-subtext {
-    font-size: var(--text-sm);
-    color: var(--color-text-tertiary);
-    line-height: var(--leading-relaxed);
-  }
-
   /* Bento Grid */
   .bento-grid-wrapper {
     display: grid;
@@ -133,8 +127,6 @@ const { capabilities } = content
 
   .bento-item:hover {
     border-color: rgba(255, 107, 0, 0.25);
-    transform: translateY(-4px);
-    background-color: rgba(255, 255, 255, 0.01);
   }
 
   .bento-meta {
@@ -146,16 +138,22 @@ const { capabilities } = content
 
   .bento-sys {
     font-family: var(--font-display);
-    font-size: var(--text-base);
-    font-weight: 750;
+    font-size: 1.0625rem;
+    font-weight: 590;
+    line-height: 1.4;
+    letter-spacing: -0.012em;
     color: var(--color-text-primary);
-    letter-spacing: var(--tracking-wide);
   }
 
   .bento-desc {
-    font-size: var(--text-xs);
-    color: var(--color-text-tertiary);
-    line-height: var(--leading-relaxed);
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    font-weight: 300;
+    color: var(--color-text-secondary);
+    line-height: 22px;
+    letter-spacing: -0.011em;
+    opacity: 0.8;
+    max-width: 440px;
     margin-bottom: var(--space-4);
   }
 
@@ -233,7 +231,7 @@ const { capabilities } = content
     padding: 6px 12px;
     border-radius: 6px;
     color: var(--color-accent-primary);
-    font-weight: 550;
+    font-weight: 500;
   }
 
   .mcp-ping {
@@ -251,11 +249,37 @@ const { capabilities } = content
 
   @media (max-width: 768px) {
     .bento-grid-wrapper {
-      grid-template-columns: 1fr;
+      display: flex;
+      flex-direction: row;
+      gap: var(--space-4);
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      padding-bottom: var(--space-2);
     }
+
+    .bento-grid-wrapper::after {
+      content: "";
+      flex: 0 0 var(--space-6);
+      scroll-snap-align: end;
+    }
+
+    .bento-grid-wrapper::-webkit-scrollbar {
+      display: none;
+    }
+
+    .bento-item {
+      flex: 0 0 80%;
+      scroll-snap-align: start;
+      min-height: 280px;
+    }
+
     .col-span-2 {
       grid-column: span 1;
     }
+
     .bento-header {
       margin-bottom: 48px;
       max-width: 100%;
