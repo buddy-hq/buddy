@@ -42,6 +42,12 @@ import {
 import { useShallow } from "zustand/react/shallow"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { pickProjectDirectory } from "../lib/directory-picker"
+import {
+  readSettingsReturnTo,
+  resolveSettingsReturnLocation,
+  settingsSearchForTab,
+  type SettingsSearch,
+} from "@/lib/settings-navigation"
 
 const SETTINGS_SIDEBAR_MIN_WIDTH_PX = 220
 const SETTINGS_TITLEBAR_HEIGHT_PX = 40
@@ -52,15 +58,22 @@ function readSeededSessionList(directory: string) {
 }
 
 export const Route = createFileRoute("/settings")({
-  validateSearch: (search: Record<string, unknown>): { tab: SettingsTab } => {
+  validateSearch: (search: Record<string, unknown>): SettingsSearch => {
     const tab = search.tab
+    const returnTo = readSettingsReturnTo(search.returnTo)
     if (typeof tab === "string") {
       const resolvedTab = resolveSettingsTab(tab)
       if (resolvedTab) {
-        return { tab: resolvedTab }
+        return {
+          tab: resolvedTab,
+          ...(returnTo ? { returnTo } : {}),
+        }
       }
     }
-    return { tab: DEFAULT_SETTINGS_TAB }
+    return {
+      tab: DEFAULT_SETTINGS_TAB,
+      ...(returnTo ? { returnTo } : {}),
+    }
   },
   loader: async ({ context }) => {
     await Promise.allSettled([
@@ -73,7 +86,7 @@ export const Route = createFileRoute("/settings")({
 function SettingsRoute() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const { tab } = useSearch({ from: "/settings" })
+  const { tab, returnTo } = useSearch({ from: "/settings" })
   const platform = usePlatform()
   const openProjects = useChatStore(useShallow((state) => state.openProjects))
   const activeDirectory = useChatStore((state) => state.activeDirectory)
@@ -148,7 +161,7 @@ function SettingsRoute() {
 
     navigate({
       to: "/settings",
-      search: { tab: fallbackTab },
+      search: (previous) => settingsSearchForTab(previous, fallbackTab),
       replace: true,
     })
   }, [navigate, standardsStatus, tab, visibleTabIDs])
@@ -333,14 +346,20 @@ function SettingsRoute() {
                 mainTabs={mainTabs}
                 optionalTabs={optionalTabs}
                 onTabChange={(nextTab) => {
-                  navigate({ to: "/settings", search: { tab: nextTab } })
+                  navigate({
+                    to: "/settings",
+                    search: (previous) => settingsSearchForTab(previous, nextTab),
+                    replace: true,
+                  })
                 }}
                 onBack={() => {
-                  if (currentDirectory) {
-                    openChat(currentDirectory)
-                    return
-                  }
-                  navigate({ to: "/chat" })
+                  void navigate({
+                    href: resolveSettingsReturnLocation({
+                      ...(returnTo ? { returnTo } : {}),
+                      ...(currentDirectory ? { activeDirectory: currentDirectory } : {}),
+                    }),
+                    replace: true,
+                  })
                 }}
               />
             </ChatLeftSidebar>
