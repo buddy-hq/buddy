@@ -68,7 +68,7 @@ type ResolveBenchOpenPolicyInput = {
   current: BenchOpenPolicyState
   currentVisible: boolean
   defaults: BenchSurfaceDefaults
-  preferences: BenchPresentationPreferences
+  preferences: Pick<BenchPresentationPreferences, "modeBySurface">
   autoOpenSuppressed: boolean
 }
 
@@ -166,7 +166,7 @@ function resolveBenchOpenMode(input: {
   request: BenchOpenRequest
   current: BenchOpenPolicyState
   defaults: BenchSurfaceDefaults
-  preferences: BenchPresentationPreferences
+  preferences: Pick<BenchPresentationPreferences, "modeBySurface">
 }): {
   mode: BenchMode
   policyID: BenchResolvedOpenPolicyID

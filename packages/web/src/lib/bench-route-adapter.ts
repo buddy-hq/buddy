@@ -15,7 +15,8 @@ import { resolveBenchSurfaceDefaults, type BenchOpenPolicyState } from "./bench-
 
 const CHAT_ROUTE_CHILD = "chat"
 const BENCH_ROUTE_GROUP_CHILD = "_bench"
-const BENCH_OBJECT_ROUTE_CHILD_PREFIX = "objects/"
+const BENCH_OBJECT_ROUTE_CHILD = "objects"
+const BENCH_OBJECT_ROUTE_CHILD_PREFIX = `${BENCH_OBJECT_ROUTE_CHILD}/`
 const BENCH_ROUTE_CHILDREN = new Set(["markdown", "file"])
 const BENCH_VIEW_TRANSITION_TYPE_ROUTE = "bench-route"
 const BENCH_VIEW_TRANSITION_TYPE_OPEN = "bench-open"
@@ -91,7 +92,19 @@ function isBenchRoutePathname(pathname: string): boolean {
   if (rawChildPath === BENCH_ROUTE_GROUP_CHILD) return true
   const childPath = normalizeBenchChildPath(rawChildPath)
   if (BENCH_ROUTE_CHILDREN.has(childPath)) return true
-  return childPath.startsWith(BENCH_OBJECT_ROUTE_CHILD_PREFIX)
+  if (!childPath.startsWith(BENCH_OBJECT_ROUTE_CHILD_PREFIX)) return false
+
+  const segments = childPath.split("/")
+  const kind = segments[1]
+  const objectID = segments[2]
+  return (
+    segments.length === 3 &&
+    segments[0] === BENCH_OBJECT_ROUTE_CHILD &&
+    kind !== undefined &&
+    isBenchObjectKind(kind) &&
+    objectID !== undefined &&
+    objectID.length > 0
+  )
 }
 
 function resolveBenchRouteViewTransitionTypes(
@@ -165,6 +178,10 @@ function readBenchTargetFromLocation(input: {
   }
 
   const segments = childPath.split("/")
+  if (segments.length !== 3 || segments[0] !== BENCH_OBJECT_ROUTE_CHILD) {
+    return undefined
+  }
+
   const kind = segments[1]
   const objectID = segments[2]
   if (!kind || !isBenchObjectKind(kind) || !objectID) {

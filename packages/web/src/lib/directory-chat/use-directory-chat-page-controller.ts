@@ -110,12 +110,6 @@ import { useChatConfig } from "./use-chat-config"
 import { useTeachingWorkspace } from "./use-teaching-workspace"
 import { useAutoScroll } from "./use-auto-scroll"
 import {
-  RIGHT_WORKSPACE_DEFAULT_MAX_WIDTH_PX,
-  RIGHT_WORKSPACE_DEFAULT_MIN_WIDTH_PX,
-  RIGHT_WORKSPACE_DEFAULT_WIDTH_PX,
-  resolveRightWorkspaceWidth,
-} from "./right-workspace-layout"
-import {
   DIRECTORY_CHAT_SHELL_VIEW,
   type DirectoryChatShellView,
 } from "@/lib/directory-chat/directory-chat-shell-view"
@@ -130,6 +124,7 @@ import { FOLLOWUP_BEHAVIOR_QUEUE, useChatSettings } from "@/state/chat-settings"
 import { language } from "@/context/language"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-disposal"
+import { useOpenSettings } from "@/lib/settings-navigation"
 
 const SIDEBAR_MIN_WIDTH = 220
 const READING_PREFETCH_BLOCKED_STATUSES = new Set<NonNullable<ResourceReadingTarget["status"]>>([
@@ -209,7 +204,10 @@ type ReadyDirectoryChatPageControllerState = {
   status: "ready"
   leftSidebarProps: ComponentProps<typeof ChatLeftSidebar>
   mainPaneProps: DirectoryChatMainPaneProps
-  shellProps: Omit<DirectoryChatShellProps, "leftSidebar" | "mainPane" | "rightWorkspace">
+  shellProps: Omit<
+    DirectoryChatShellProps,
+    "leftSidebar" | "contentLayout" | "rightWorkspaceOpen" | "onRightWorkspaceToggle"
+  >
 }
 
 export type DirectoryChatPageControllerState =
@@ -222,6 +220,7 @@ export function useDirectoryChatPageController(
 ): DirectoryChatPageControllerState {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const openSettings = useOpenSettings()
   const location = useLocation()
   const workspace = useDirectoryWorkspace()
   const closingDirectoryRef = useRef<string | undefined>(undefined)
@@ -374,27 +373,6 @@ export function useDirectoryChatPageController(
     workspace.projection.dockedState.visibility !== WORKSPACE_VISIBILITY_EXPANDED
       ? undefined
       : activeReadingResource
-  const rightWorkspaceOpen =
-    workspace.projection.dockedState.visibility === WORKSPACE_VISIBILITY_EXPANDED
-
-  useEffect(() => {
-    logBenchToggleStep("directory-chat-page-controller-right-workspace-state", {
-      decodedDirectory,
-      sessionID,
-      rightWorkspaceOpen,
-      projection: workspace.projection,
-      route: workspace.route,
-      shellView,
-    })
-  }, [
-    decodedDirectory,
-    rightWorkspaceOpen,
-    sessionID,
-    shellView,
-    workspace.projection,
-    workspace.route,
-  ])
-
   const { slashCommands } = chatConfig
   const slashCommandCandidates = useMemo(() => {
     const candidates = new Map<string, { name: string; aliases?: string[] }>()
@@ -924,7 +902,7 @@ export function useDirectoryChatPageController(
   }
 
   function openSettingsPanel() {
-    navigate({ to: "/settings", search: { tab: "general" } })
+    openSettings("general")
   }
 
   const openResourceInReadingMode = useCallback(
@@ -1333,7 +1311,7 @@ export function useDirectoryChatPageController(
 
       if (slashCommand.command.name === "mcp") {
         cs.clearPromptDraft(cs.promptKey)
-        navigate({ to: "/settings", search: { tab: "mcps" } })
+        openSettings("mcps")
         return
       }
 
@@ -1559,8 +1537,9 @@ export function useDirectoryChatPageController(
     onNewSession: () => {
       void onNewSession()
     },
+    onOpenSettings: openSettingsPanel,
     onOpenMcpDialog: () => {
-      navigate({ to: "/settings", search: { tab: "mcps" } })
+      openSettings("mcps")
     },
     onSearchFiles: onSearchMentionFiles,
     onRefreshSlashCommands: chatConfig.refreshSlashCommands,
@@ -1724,64 +1703,6 @@ export function useDirectoryChatPageController(
     leftSidebarMaxWidth: cs.leftSidebarMaxWidth,
     onLeftSidebarResize: cs.setLeftSidebarWidth,
     onLeftSidebarCollapse: () => cs.setLeftSidebarOpen(false),
-    rightWorkspaceOpen: rightWorkspaceOpen,
-    rightWorkspaceDisplayWidth: resolveRightWorkspaceWidth(RIGHT_WORKSPACE_DEFAULT_WIDTH_PX),
-    rightWorkspaceMinWidth: RIGHT_WORKSPACE_DEFAULT_MIN_WIDTH_PX,
-    rightWorkspaceMaxWidth: RIGHT_WORKSPACE_DEFAULT_MAX_WIDTH_PX,
-    onRightWorkspaceResize: () => undefined,
-    onRightWorkspaceToggle: () => {
-      const commandType = rightWorkspaceOpen ? "collapse" : "reveal"
-      logBenchToggleStep("directory-chat-page-controller-right-toggle-callback-entry", {
-        decodedDirectory,
-        sessionID,
-        commandType,
-        rightWorkspaceOpen,
-        projection: workspace.projection,
-        route: workspace.route,
-      })
-      void workspace.controller
-        .execute({ type: commandType })
-        .then((result) => {
-          logBenchToggleStep("directory-chat-page-controller-right-toggle-controller-result", {
-            decodedDirectory,
-            sessionID,
-            commandType,
-            result,
-          })
-        })
-        .catch((error: unknown) => {
-          logBenchToggleStep("directory-chat-page-controller-right-toggle-controller-error", {
-            decodedDirectory,
-            sessionID,
-            commandType,
-            error,
-          })
-        })
-    },
-    onRightWorkspaceCollapse: () => {
-      logBenchToggleStep("directory-chat-page-controller-right-collapse-callback-entry", {
-        decodedDirectory,
-        sessionID,
-        rightWorkspaceOpen,
-        projection: workspace.projection,
-      })
-      void workspace.controller
-        .execute({ type: "collapse" })
-        .then((result) => {
-          logBenchToggleStep("directory-chat-page-controller-right-collapse-controller-result", {
-            decodedDirectory,
-            sessionID,
-            result,
-          })
-        })
-        .catch((error: unknown) => {
-          logBenchToggleStep("directory-chat-page-controller-right-collapse-controller-error", {
-            decodedDirectory,
-            sessionID,
-            error,
-          })
-        })
-    },
   }
 
   return {

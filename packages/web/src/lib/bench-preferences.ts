@@ -1,59 +1,133 @@
+import { create, type StoreApi, type UseBoundStore } from "zustand"
+import { persist } from "zustand/middleware"
+import { createPlatformJsonStorage } from "@/context/platform"
+import { RIGHT_WORKSPACE_DEFAULT_WIDTH_PX } from "@/lib/directory-chat/right-workspace-layout"
 import {
   benchModePreferenceKey,
+  isBenchModePreferenceKey,
   readBenchChatLayoutMode,
   type BenchMode,
   type BenchModePreferenceKey,
   type BenchTarget,
 } from "./bench-targets"
+import type { DirectoryWorkspaceCommandResult } from "@/state/directory-workspace-store"
 
-type BenchPresentationPreferences = {
+const BENCH_PRESENTATION_PREFERENCES_STORAGE_KEY = "buddy.bench.presentation.v1"
+const BENCH_PRESENTATION_PREFERENCES_STORAGE_FILE = "buddy.bench.presentation.dat"
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+export type BenchPresentationPreferences = {
   modeBySurface: Partial<Record<BenchModePreferenceKey, BenchMode>>
+  workspaceWidthPx: number
 }
 
-const BENCH_PRESENTATION_PREFERENCE_STORAGE_PREFIX = "buddy.bench.presentation.mode"
-
-const BENCH_MODE_PREFERENCE_KEYS = [
-  "reading",
-  "whiteboard",
-  "markdown",
-  "file",
-  "artifact:mermaid",
-  "artifact:html-widget",
-  "artifact:figure",
-  "artifact:freeform-figure",
-  "artifact:media-presentation",
-  "artifact:question-set",
-  "artifact:flashcard-deck",
-] satisfies BenchModePreferenceKey[]
-
-function storageKeyForBenchModePreference(key: BenchModePreferenceKey): string {
-  return `${BENCH_PRESENTATION_PREFERENCE_STORAGE_PREFIX}:${key}`
+type BenchPresentationPreferencesStore = BenchPresentationPreferences & {
+  setModePreference: (input: { target: BenchTarget; mode: BenchMode }) => void
+  setWorkspaceWidth: (widthPx: number) => void
 }
+
+const useBenchPresentationPreferencesStore = create<BenchPresentationPreferencesStore>()(
+  persist(
+    (set) => ({
+      modeBySurface: {},
+      workspaceWidthPx: RIGHT_WORKSPACE_DEFAULT_WIDTH_PX,
+      setModePreference(input) {
+        const key = benchModePreferenceKey(input.target)
+        set((state) => ({
+          modeBySurface: {
+            ...state.modeBySurface,
+            [key]: input.mode,
+          },
+        }))
+      },
+      setWorkspaceWidth(widthPx) {
+        if (!Number.isFinite(widthPx) || widthPx <= 0) return
+        set({ workspaceWidthPx: widthPx })
+      },
+    }),
+    {
+      name: BENCH_PRESENTATION_PREFERENCES_STORAGE_KEY,
+      version: 1,
+      storage: createPlatformJsonStorage(BENCH_PRESENTATION_PREFERENCES_STORAGE_FILE),
+      partialize(state) {
+        return {
+          modeBySurface: state.modeBySurface,
+          workspaceWidthPx: state.workspaceWidthPx,
+        }
+      },
+      merge(persistedState, currentState) {
+        if (!isRecord(persistedState)) return currentState
+
+        const modeBySurface: BenchPresentationPreferences["modeBySurface"] = {}
+        if (isRecord(persistedState.modeBySurface)) {
+          for (const [key, value] of Object.entries(persistedState.modeBySurface)) {
+            const mode = readBenchChatLayoutMode(value)
+            if (isBenchModePreferenceKey(key) && mode) {
+              modeBySurface[key] = mode
+            }
+          }
+        }
+        const workspaceWidthPx =
+          typeof persistedState.workspaceWidthPx === "number" &&
+          Number.isFinite(persistedState.workspaceWidthPx) &&
+          persistedState.workspaceWidthPx > 0
+            ? persistedState.workspaceWidthPx
+            : currentState.workspaceWidthPx
+
+        return {
+          ...currentState,
+          modeBySurface,
+          workspaceWidthPx,
+        }
+      },
+    },
+  ),
+)
+
+export const useBenchPresentationPreferences: UseBoundStore<
+  StoreApi<BenchPresentationPreferences>
+> = useBenchPresentationPreferencesStore
 
 function readBenchPresentationPreferences(): BenchPresentationPreferences {
-  const modeBySurface: Partial<Record<BenchModePreferenceKey, BenchMode>> = {}
-
-  if (typeof window === "undefined") {
-    return { modeBySurface }
+  const state = useBenchPresentationPreferencesStore.getState()
+  return {
+    modeBySurface: state.modeBySurface,
+    workspaceWidthPx: state.workspaceWidthPx,
   }
-
-  for (const key of BENCH_MODE_PREFERENCE_KEYS) {
-    const mode = readBenchChatLayoutMode(
-      window.localStorage.getItem(storageKeyForBenchModePreference(key)),
-    )
-    if (mode) {
-      modeBySurface[key] = mode
-    }
-  }
-
-  return { modeBySurface }
 }
 
 function setBenchPresentationModePreference(input: { target: BenchTarget; mode: BenchMode }): void {
-  if (typeof window === "undefined") return
-  const key = benchModePreferenceKey(input.target)
-  window.localStorage.setItem(storageKeyForBenchModePreference(key), input.mode)
+  useBenchPresentationPreferencesStore.getState().setModePreference(input)
+}
+
+export function setBenchPresentationWorkspaceWidth(widthPx: number): void {
+  useBenchPresentationPreferencesStore.getState().setWorkspaceWidth(widthPx)
+}
+
+export function finalizeBenchModeTransition(input: {
+  target: BenchTarget
+  mode: BenchMode
+  persistPreference: boolean
+  result: Pick<DirectoryWorkspaceCommandResult, "outcome" | "projection">
+}): boolean {
+  if (
+    input.result.outcome !== "committed" ||
+    input.result.projection.route.status !== "open" ||
+    input.result.projection.route.mode !== input.mode
+  ) {
+    return false
+  }
+
+  if (input.persistPreference) {
+    setBenchPresentationModePreference({
+      target: input.target,
+      mode: input.mode,
+    })
+  }
+  return true
 }
 
 export { readBenchPresentationPreferences, setBenchPresentationModePreference }
-export type { BenchPresentationPreferences }

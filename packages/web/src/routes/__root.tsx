@@ -93,17 +93,21 @@ function RootLayout() {
   const location = useLocation()
   const isOnboarding = location.pathname.startsWith("/onboarding")
   const isDirectoryChat = location.pathname !== "/chat" && location.pathname.endsWith("/chat")
-  const isDockedBench =
-    isBenchRoutePathname(location.pathname) &&
-    readBenchChatLayoutMode(readSearchParam(location.search, BENCH_CHAT_SEARCH_PARAM)) !==
-      BENCH_CHAT_LAYOUT_FLOATING
+  const isBenchRoute = isBenchRoutePathname(location.pathname)
+  const benchChatLayoutMode = readBenchChatLayoutMode(
+    readSearchParam(location.search, BENCH_CHAT_SEARCH_PARAM),
+  )
+  const isFloatingBench = isBenchRoute && benchChatLayoutMode === BENCH_CHAT_LAYOUT_FLOATING
+  const isDockedBench = isBenchRoute && !isFloatingBench
   const isSettings = location.pathname === "/settings"
 
   return (
     <div className="h-full overflow-hidden bg-background-base text-text-base flex min-h-0 flex-col">
       <ReleaseUpdateWatcher />
       <WorkspaceFileOpenDialog />
-      {!isOnboarding && !isDirectoryChat && !isDockedBench && !isSettings && <DesktopTitlebar />}
+      {!isOnboarding && !isDirectoryChat && !isDockedBench && !isSettings && (
+        <DesktopTitlebar showDockFloatingBench={isFloatingBench} />
+      )}
       <div className="min-h-0 flex-1">
         <Outlet />
       </div>

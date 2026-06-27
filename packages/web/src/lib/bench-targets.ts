@@ -91,6 +91,15 @@ function isBenchObjectKind(value: string): value is BenchObjectKind {
   )
 }
 
+function isBenchModePreferenceKey(value: unknown): value is BenchModePreferenceKey {
+  if (value === "markdown" || value === "file" || value === "reading" || value === "whiteboard") {
+    return true
+  }
+  if (typeof value !== "string" || !value.startsWith("artifact:")) return false
+  const kind = value.slice("artifact:".length)
+  return isBenchObjectKind(kind) && kind !== "resource" && kind !== "whiteboard"
+}
+
 function readBenchChatLayoutMode(value: unknown): BenchChatLayoutMode | undefined {
   return isBenchMode(value) ? value : undefined
 }
@@ -153,6 +162,7 @@ export {
   benchTargetKey,
   defaultBenchObjectViewID,
   isBenchObjectKind,
+  isBenchModePreferenceKey,
   isSameBenchTarget,
   readBenchChatLayoutMode,
 }

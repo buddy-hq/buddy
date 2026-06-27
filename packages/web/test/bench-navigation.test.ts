@@ -84,14 +84,14 @@ const FLASHCARD_DECK_OBJECT_TARGET = {
 
 const EMPTY_PREFERENCES = {
   modeBySurface: {},
-} satisfies BenchPresentationPreferences
+} satisfies Pick<BenchPresentationPreferences, "modeBySurface">
 const RIGHT_WORKSPACE_CHROME_WIDTH_PX = 44
 
 function resolveOpenPolicy(input: {
   request: BenchOpenRequest
   current?: BenchOpenPolicyState
   currentVisible?: boolean
-  preferences?: BenchPresentationPreferences
+  preferences?: Pick<BenchPresentationPreferences, "modeBySurface">
   autoOpenSuppressed?: boolean
 }): BenchOpenDecision {
   return resolveBenchOpenPolicy({
@@ -118,37 +118,27 @@ describe("bench navigation policy", () => {
     const expectedProfiles = [
       {
         profile: BENCH_LAYOUT_PROFILE_READING,
-        chatDefault: 520,
         chatMin: 380,
-        chatMax: 600,
         surfaceMin: 560,
       },
       {
         profile: BENCH_LAYOUT_PROFILE_DOCUMENT,
-        chatDefault: 500,
         chatMin: 380,
-        chatMax: 576,
         surfaceMin: 600,
       },
       {
         profile: BENCH_LAYOUT_PROFILE_PRACTICE,
-        chatDefault: 500,
         chatMin: 380,
-        chatMax: 576,
         surfaceMin: 600,
       },
       {
         profile: BENCH_LAYOUT_PROFILE_CODE,
-        chatDefault: 440,
         chatMin: 360,
-        chatMax: 504,
         surfaceMin: 720,
       },
       {
         profile: BENCH_LAYOUT_PROFILE_VISUAL,
-        chatDefault: 380,
         chatMin: 360,
-        chatMax: 432,
         surfaceMin: 780,
       },
     ] as const
@@ -160,9 +150,7 @@ describe("bench navigation policy", () => {
           viewport: { widthPx: 1_200, heightPx: 900, safeTopPx: 24 },
         }),
       ).toMatchObject({
-        dockedChatWidthPx: expected.chatDefault,
         dockedChatMinWidthPx: expected.chatMin,
-        dockedChatMaxWidthPx: expected.chatMax,
         benchMinWidthPx: expected.surfaceMin,
         floatingMarginPx: 24,
       })
@@ -187,10 +175,11 @@ describe("bench navigation policy", () => {
           workspaceChromeWidthPx: RIGHT_WORKSPACE_CHROME_WIDTH_PX,
         })
 
-        expect(layout.chatWidthPx).toBeGreaterThanOrEqual(layout.chatMinWidthPx)
-        expect(layout.workspaceWidthPx).toBeGreaterThanOrEqual(RIGHT_WORKSPACE_CHROME_WIDTH_PX)
-        expect(layout.chatWidthPx + layout.workspaceWidthPx).toBe(widthPx)
-        expect(layout.workspaceWidthPx).toBeLessThanOrEqual(layout.workspaceMaxWidthPx)
+        expect(layout.workspaceMinWidthPx).toBeGreaterThanOrEqual(
+          RIGHT_WORKSPACE_CHROME_WIDTH_PX,
+        )
+        expect(layout.workspaceMaxWidthPx).toBeGreaterThanOrEqual(layout.workspaceMinWidthPx)
+        expect(layout.workspaceMaxWidthPx + layout.chatMinWidthPx).toBe(widthPx)
       }
     }
   })
@@ -246,6 +235,7 @@ describe("bench navigation policy", () => {
       profile: BENCH_LAYOUT_PROFILE_READING,
       viewport: { widthPx: 1_440, heightPx: 900, safeTopPx: 24 },
       workspaceChromeWidthPx: RIGHT_WORKSPACE_CHROME_WIDTH_PX,
+      requestedWorkspaceWidthPx: 700,
       leftSidebarPreferredOpen: true,
       leftSidebarWidthPx: 280,
     })
@@ -257,6 +247,7 @@ describe("bench navigation policy", () => {
       profile: BENCH_LAYOUT_PROFILE_READING,
       viewport: { widthPx: 1_280, heightPx: 900, safeTopPx: 24 },
       workspaceChromeWidthPx: RIGHT_WORKSPACE_CHROME_WIDTH_PX,
+      requestedWorkspaceWidthPx: 700,
       leftSidebarPreferredOpen: true,
       leftSidebarWidthPx: 280,
     })
@@ -583,5 +574,20 @@ describe("bench navigation policy", () => {
       target: WHITEBOARD_OBJECT_TARGET,
       mode: BENCH_CHAT_LAYOUT_FLOATING,
     })
+  })
+
+  test("rejects malformed object Bench routes with extra path segments", () => {
+    const directoryParam = encodeDirectory(DIRECTORY)
+    const pathname = `/${directoryParam}/objects/resource/resource-1/extra`
+
+    expect(isBenchRoutePathname(pathname)).toBe(false)
+    expect(readBenchTargetFromLocation({ pathname, search: { view: "reader" } })).toBeUndefined()
+    expect(
+      readBenchOpenPolicyStateFromLocation({
+        directory: DIRECTORY,
+        pathname,
+        search: { view: "reader" },
+      }),
+    ).toEqual({ status: "closed" })
   })
 })

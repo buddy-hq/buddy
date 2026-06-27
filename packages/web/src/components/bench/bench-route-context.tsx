@@ -70,7 +70,6 @@ type BenchRuntimeState = {
   route: string
   mode: BenchMode
   layoutProfile: BenchLayoutProfileID
-  dockedChatWidthPx: number
   floatingRect: BenchRect
   floatingChatState: BenchFloatingChatState
 }
