@@ -76,11 +76,21 @@ function WorkspaceProbe() {
 function TitlebarWorkspaceProbe() {
   const workspace = useDirectoryWorkspace()
   const visibility = workspace.projection.dockedState.visibility
+  const rightWorkspaceOpen = visibility === WORKSPACE_VISIBILITY_EXPANDED
 
   return (
     <div>
       <span data-testid="visibility">{visibility}</span>
-      <DesktopTitlebar placement="chat" variant="chat" />
+      <DesktopTitlebar
+        placement="chat"
+        variant="chat"
+        rightWorkspaceOpen={rightWorkspaceOpen}
+        onRightWorkspaceToggle={() => {
+          void workspace.controller.execute({
+            type: rightWorkspaceOpen ? "collapse" : "reveal",
+          })
+        }}
+      />
     </div>
   )
 }
@@ -103,7 +113,7 @@ function ThreadControlsTitlebarProbe(props: { showSidebarThreadControls: boolean
 function RootFloatingBenchTitlebarProbe() {
   return (
     <PlatformProvider value={TEST_DESKTOP_PLATFORM}>
-      <DesktopTitlebar />
+      <DesktopTitlebar showDockFloatingBench />
     </PlatformProvider>
   )
 }

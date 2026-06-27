@@ -4,7 +4,6 @@ import { createRoot, type Root } from "react-dom/client"
 import {
   clampFloatingChatPosition,
   DirectoryChatBenchPageLayout,
-  readInitialChatPanelWidth,
   resolveDefaultFloatingChatPosition,
   resolveDefaultFloatingChatRect,
   resolveFloatingChatSize,
@@ -33,12 +32,66 @@ function requireElement<TElement extends Element>(element: TElement | null): TEl
   return element
 }
 
+function dispatchResizePointerEvent(input: {
+  target: Element
+  type: "pointerdown" | "pointermove" | "pointerup"
+  clientX: number
+}) {
+  input.target.dispatchEvent(
+    new PointerEvent(input.type, {
+      bubbles: true,
+      pointerId: 1,
+      pointerType: "mouse",
+      button: 0,
+      buttons: input.type === "pointerup" ? 0 : 1,
+      clientX: input.clientX,
+      clientY: 100,
+    }),
+  )
+}
+
+function installPointerCapturePolyfill(): () => void {
+  const setPointerCaptureMissing = !("setPointerCapture" in Element.prototype)
+  const hasPointerCaptureMissing = !("hasPointerCapture" in Element.prototype)
+  const releasePointerCaptureMissing = !("releasePointerCapture" in Element.prototype)
+
+  if (setPointerCaptureMissing) {
+    Object.defineProperty(Element.prototype, "setPointerCapture", {
+      configurable: true,
+      value() {},
+    })
+  }
+  if (hasPointerCaptureMissing) {
+    Object.defineProperty(Element.prototype, "hasPointerCapture", {
+      configurable: true,
+      value() {
+        return false
+      },
+    })
+  }
+  if (releasePointerCaptureMissing) {
+    Object.defineProperty(Element.prototype, "releasePointerCapture", {
+      configurable: true,
+      value() {},
+    })
+  }
+
+  return () => {
+    if (setPointerCaptureMissing) {
+      Reflect.deleteProperty(Element.prototype, "setPointerCapture")
+    }
+    if (hasPointerCaptureMissing) {
+      Reflect.deleteProperty(Element.prototype, "hasPointerCapture")
+    }
+    if (releasePointerCaptureMissing) {
+      Reflect.deleteProperty(Element.prototype, "releasePointerCapture")
+    }
+  }
+}
+
 function TestBenchPageLayout(props: { initialMode?: BenchChatLayoutMode }) {
   const [mode, setMode] = useState<BenchChatLayoutMode>(
     props.initialMode ?? BENCH_CHAT_LAYOUT_DOCKED,
-  )
-  const [dockedChatWidthPx, setDockedChatWidthPx] = useState(() =>
-    readInitialChatPanelWidth(BENCH_LAYOUT_PROFILE_DOCUMENT),
   )
   const [floatingRect, setFloatingRect] = useState(() =>
     resolveDefaultFloatingChatRect(
@@ -52,13 +105,19 @@ function TestBenchPageLayout(props: { initialMode?: BenchChatLayoutMode }) {
     <DirectoryChatBenchPageLayout
       chatLayoutMode={mode}
       layoutProfile={BENCH_LAYOUT_PROFILE_DOCUMENT}
-      dockedChatWidthPx={dockedChatWidthPx}
       floatingRect={floatingRect}
       floatingChatState={floatingChatState}
       onChatLayoutModeChange={setMode}
-      onDockedChatWidthChange={setDockedChatWidthPx}
       onFloatingRectChange={setFloatingRect}
       onFloatingChatStateChange={setFloatingChatState}
+      dockedBenchLayout={{
+        open: true,
+        widthPx: 640,
+        minWidthPx: 480,
+        maxWidthPx: 800,
+        onResizeIntent: () => undefined,
+        onCollapse: () => undefined,
+      }}
       bench={<div data-component="bench-probe">Bench</div>}
       conversation={(controls) => (
         <div data-component="conversation-probe">
@@ -78,9 +137,6 @@ function StableWorkspaceLayoutHarness() {
   const [mode, setMode] = useState<BenchChatLayoutMode>(BENCH_CHAT_LAYOUT_DOCKED)
   const [workspaceOpen, setWorkspaceOpen] = useState(true)
   const [targetKey, setTargetKey] = useState("target-1")
-  const [dockedChatWidthPx, setDockedChatWidthPx] = useState(() =>
-    readInitialChatPanelWidth(BENCH_LAYOUT_PROFILE_DOCUMENT),
-  )
   const [floatingRect, setFloatingRect] = useState(() =>
     resolveDefaultFloatingChatRect(
       resolveInitialFloatingChatContainerSize(),
@@ -93,11 +149,9 @@ function StableWorkspaceLayoutHarness() {
     <DirectoryChatBenchPageLayout
       chatLayoutMode={mode}
       layoutProfile={BENCH_LAYOUT_PROFILE_DOCUMENT}
-      dockedChatWidthPx={dockedChatWidthPx}
       floatingRect={floatingRect}
       floatingChatState={floatingChatState}
       onChatLayoutModeChange={setMode}
-      onDockedChatWidthChange={setDockedChatWidthPx}
       onFloatingRectChange={setFloatingRect}
       onFloatingChatStateChange={setFloatingChatState}
       benchInteractive={mode === BENCH_CHAT_LAYOUT_FLOATING || workspaceOpen}
@@ -106,7 +160,7 @@ function StableWorkspaceLayoutHarness() {
         widthPx: 640,
         minWidthPx: 480,
         maxWidthPx: 800,
-        onResize: () => undefined,
+        onResizeIntent: () => undefined,
         onCollapse: () => setWorkspaceOpen(false),
       }}
       bench={<div key={targetKey} data-component="stable-bench-probe" data-target={targetKey} />}
@@ -199,12 +253,14 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
   let container: HTMLDivElement
   let root: Root
   let originalResizeObserver: typeof globalThis.ResizeObserver | undefined
+  let cleanupPointerCapturePolyfill: (() => void) | undefined
 
   beforeEach(() => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
+    cleanupPointerCapturePolyfill = installPointerCapturePolyfill()
 
     originalResizeObserver = globalThis.ResizeObserver
     class MockResizeObserver implements ResizeObserver {
@@ -226,6 +282,8 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
     } else {
       Reflect.deleteProperty(globalThis, "ResizeObserver")
     }
+    cleanupPointerCapturePolyfill?.()
+    cleanupPointerCapturePolyfill = undefined
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
 
@@ -304,6 +362,11 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
         .querySelector('[data-component="directory-chat-bench-host"]')
         ?.getAttribute("aria-hidden"),
     ).toBe("true")
+    expect(
+      container
+        .querySelector('[data-component="directory-chat-bench-host"]')
+        ?.hasAttribute("inert"),
+    ).toBe(true)
     expect(container.querySelector('[data-component="stable-conversation-probe"]')).toBe(
       initialConversation,
     )
@@ -338,6 +401,45 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
       initialConversation,
     )
     expect(container.querySelector('[data-component="stable-bench-probe"]')).not.toBe(initialTarget)
+  })
+
+  test("collapses docked Bench when the divider is dragged below threshold", async () => {
+    await act(async () => {
+      root.render(<StableWorkspaceLayoutHarness />)
+      await flushEffects()
+    })
+
+    const resizeHandle = requireElement(
+      container.querySelector('[data-component="directory-chat-docked-bench-resize-handle"]'),
+    )
+
+    await act(async () => {
+      dispatchResizePointerEvent({
+        target: resizeHandle,
+        type: "pointerdown",
+        clientX: 900,
+      })
+      dispatchResizePointerEvent({
+        target: resizeHandle,
+        type: "pointermove",
+        clientX: 1_400,
+      })
+      dispatchResizePointerEvent({
+        target: resizeHandle,
+        type: "pointerup",
+        clientX: 1_400,
+      })
+      await flushEffects()
+    })
+
+    expect(
+      container
+        .querySelector('[data-component="directory-chat-bench-host"]')
+        ?.getAttribute("aria-hidden"),
+    ).toBe("true")
+    expect(
+      container.querySelector('[data-component="directory-chat-docked-bench-resize-handle"]'),
+    ).toBeNull()
   })
 
   test("can start with chat in a floating window", async () => {

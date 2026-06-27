@@ -13,6 +13,7 @@ import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import {
   DirectoryChatRightWorkspace,
+  DirectoryChatRightWorkspaceContent,
   resolveLibraryOpenOutcome,
 } from "../src/components/directory-chat/directory-chat-right-workspace"
 import {
@@ -20,7 +21,8 @@ import {
   useDirectoryWorkspace,
 } from "../src/components/directory-chat/directory-workspace-context"
 import { encodeDirectory } from "../src/lib/directory-token"
-import { WORKSPACE_VISIBILITY_EXPANDED } from "../src/state/directory-workspace-store"
+import { BENCH_LAYOUT_PROFILE_READING } from "../src/lib/bench-navigation"
+import { resolveWorkspacePresentation } from "../src/lib/directory-chat/workspace-presentation"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_RESOURCE_ID = "resource-1"
@@ -35,8 +37,15 @@ function flushEffects(): Promise<void> {
 function RightWorkspaceHarness() {
   const workspace = useDirectoryWorkspace()
   const location = useLocation()
-  const workspaceOpen =
-    workspace.projection.dockedState.visibility === WORKSPACE_VISIBILITY_EXPANDED
+  const presentation = resolveWorkspacePresentation({
+    projection: workspace.projection,
+    hydrated: true,
+    layoutProfile: BENCH_LAYOUT_PROFILE_READING,
+    viewport: { widthPx: 1_440, heightPx: 900, safeTopPx: 0 },
+    requestedWorkspaceWidthPx: 720,
+    leftSidebarPreferredOpen: true,
+    leftSidebarWidthPx: 280,
+  })
 
   return (
     <div>
@@ -48,9 +57,9 @@ function RightWorkspaceHarness() {
         messages={[]}
         sessionID="session-1"
         workspaceWidth={720}
-        workspaceOpen={workspaceOpen}
         onOpenResource={() => undefined}
         bench={<div data-testid="bench-target">Reader target</div>}
+        presentation={presentation}
       />
     </div>
   )
@@ -132,7 +141,7 @@ describe("DirectoryChatRightWorkspace", () => {
     })
 
     const readingButton = container.querySelector<HTMLButtonElement>(
-      '[aria-label="Toggle reading view"]',
+      '[aria-label="Show reading"]',
     )
     expect(readingButton).not.toBeNull()
     expect(readingButton?.getAttribute("aria-pressed")).toBe("true")
@@ -173,5 +182,55 @@ describe("DirectoryChatRightWorkspace", () => {
         outcome: "blocked",
       }),
     ).toBe("blocked")
+  })
+
+  test("fills a targetless workspace with the selector instead of rendering an overlay", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(
+        <DirectoryChatRightWorkspaceContent
+          hasBenchTarget={false}
+          bench={<div data-testid="bench-target">Reader target</div>}
+          selectorContent={<div data-testid="selector-content">Explorer</div>}
+          selectorDrawerWidth={360}
+        />,
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-component="right-workspace-selector-content"]')).not.toBe(
+      null,
+    )
+    expect(container.querySelector('[data-component="right-workspace-selector-drawer"]')).toBeNull()
+    expect(container.querySelector('[data-testid="bench-target"]')).toBeNull()
+  })
+
+  test("overlays a selector when Bench has a retained target", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(
+        <DirectoryChatRightWorkspaceContent
+          hasBenchTarget
+          bench={<div data-testid="bench-target">Reader target</div>}
+          selectorContent={<div data-testid="selector-content">Explorer</div>}
+          selectorDrawerWidth={360}
+        />,
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-component="right-workspace-selector-content"]')).toBeNull()
+    expect(
+      container.querySelector('[data-component="right-workspace-selector-drawer"]'),
+    ).not.toBeNull()
+    expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
   })
 })

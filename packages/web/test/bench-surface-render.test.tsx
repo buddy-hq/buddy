@@ -134,7 +134,6 @@ function TestBenchContextProvider(props: { children: ReactNode; target?: BenchTa
             route: "/test",
             mode: BENCH_CHAT_LAYOUT_DOCKED,
             layoutProfile: BENCH_LAYOUT_PROFILE_VISUAL,
-            dockedChatWidthPx: 480,
             floatingRect: TEST_FLOATING_RECT,
             floatingChatState: "open",
           }}
