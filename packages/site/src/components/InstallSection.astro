@@ -17,28 +17,75 @@ const { learners, educators } = content
         <h2 class="install-title">made for you</h2>
       </div>
 
-      <div class="install-command-wrapper">
-        <span class="install-cmd-prefix" id="cmd-prefix">$</span>
-        <code class="install-command" id="install-command">{MAC_INSTALL_CMD}</code>
-        <button class="install-copy-btn" id="install-copy-btn" data-copy={MAC_INSTALL_CMD} aria-label="Copy download command">
-          <svg class="copy-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          <svg class="check-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+      <!-- Download Button Group -->
+      <div class="download-buttons-group">
+        <button class="download-btn btn-mac" data-os="mac" aria-label="Download for macOS">
+          <svg class="btn-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.08 1.85-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"></path>
+          </svg>
+          <span>Download for Mac</span>
         </button>
-      </div>
 
-      <div class="install-platform">
-        <button class="platform-btn active" data-os="mac">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.08 1.85-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"></path></svg>
-          <span>macOS</span>
-        </button>
-        <button class="platform-btn" data-os="win">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.899"></path></svg>
-          <span>Windows</span>
+        <button class="download-btn btn-win" data-os="win" aria-label="Download for Windows">
+          <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M0 0h11v11H0zM13 0h11v11H13zM0 13h11v11H0zM13 13h11v11H13z"></path>
+          </svg>
+          <span>Download for Windows</span>
         </button>
       </div>
     </div>
   </div>
 </section>
+
+<!-- Download Instruction Modal (Mounted outside transformed containers to ensure centered fullscreen backdrop blur) -->
+<div class="download-modal-overlay" id="download-modal" aria-hidden="true" role="dialog">
+  <div class="download-modal-card">
+    <button class="modal-close-btn" id="modal-close-btn" aria-label="Close dialog">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+
+    <div class="modal-header">
+      <h3 class="modal-title" id="modal-title">Install Buddy</h3>
+    </div>
+
+    <div class="modal-body">
+      <!-- High-fidelity Terminal Mockup with Integrated Copy Button -->
+      <div class="modal-terminal-wrapper" title="Click anywhere inside terminal to copy command">
+        <div class="terminal-header">
+          <div class="terminal-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="terminal-title" id="terminal-title">Terminal</div>
+        </div>
+        <div class="terminal-body">
+          <div class="terminal-line">
+            <span class="terminal-prompt" id="modal-cmd-prefix">$</span>
+            <code class="terminal-command" id="modal-cmd-text">curl ...</code>
+            
+            <button class="terminal-copy-action-btn" id="modal-copy-btn" aria-label="Copy install command">
+              <svg class="copy-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <svg class="check-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span class="copy-text">Copy</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Visual Installation Workflow Diagram -->
+      <div class="install-workflow-visual" id="modal-steps-container">
+        <!-- Populated dynamically via JS -->
+      </div>
+    </div>
+  </div>
+</div>
 
 <style is:global>
   .install-section {
@@ -53,7 +100,7 @@ const { learners, educators } = content
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--space-6);
+    gap: var(--space-8);
     position: relative;
   }
 
@@ -109,170 +156,595 @@ const { learners, educators } = content
     }
   }
 
-  /* Command bar */
-  .install-command-wrapper {
+  /* Download Button Styles */
+  .download-buttons-group {
     display: flex;
+    flex-direction: row;
+    justify-content: center;
     align-items: center;
-    width: 100%;
-    max-width: 560px;
-    background-color: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.3),
-      0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+    gap: var(--space-4);
+    margin-top: var(--space-4);
   }
 
-  .install-cmd-prefix {
-    font-family: var(--font-mono);
+  @media (max-width: 576px) {
+    .download-buttons-group {
+      flex-direction: column;
+      width: 100%;
+      max-width: 320px;
+    }
+  }
+
+  .download-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    background-color: #f3f3f3;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #0a0807;
+    font-family: var(--font-body);
     font-size: var(--text-sm);
-    color: #10b981;
-    padding: 16px 0 16px 18px;
+    font-weight: 550;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s var(--ease-out), color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  @media (max-width: 576px) {
+    .download-btn {
+      width: 100%;
+    }
+  }
+
+  .download-btn .btn-icon {
+    flex-shrink: 0;
+  }
+
+  .download-btn:hover {
+    background-color: #ffffff;
+    box-shadow: 0 6px 20px rgba(255, 255, 255, 0.15);
+  }
+
+  .download-btn:active {
+    transform: scale(0.98);
+  }
+
+  /* Download Modal Overlay Styles */
+  .download-modal-overlay {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.3s var(--ease-out), visibility 0.3s var(--ease-out);
+    padding: var(--space-4);
+  }
+
+  .download-modal-overlay.visible {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .download-modal-card {
+    background-color: rgba(22, 19, 18, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 40px 48px;
+    width: 100%;
+    max-width: 680px;
+    position: relative;
+    box-shadow: 0 32px 64px -12px rgba(0, 0, 0, 0.8),
+                0 0 40px -4px rgba(255, 107, 0, 0.03);
+    text-align: center;
+    transform: scale(0.95);
+    transition: transform 0.3s var(--ease-out);
+  }
+
+  .download-modal-overlay.visible .download-modal-card {
+    transform: scale(1);
+  }
+
+  .modal-close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    transition: color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .modal-close-btn:hover {
+    color: var(--color-text-primary);
+    background-color: rgba(255, 255, 255, 0.04);
+  }
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-4);
+    margin-bottom: var(--space-8);
+  }
+
+
+
+  .modal-title {
+    font-family: var(--font-display);
+    font-size: 1.625rem;
+    font-weight: 550;
+    color: var(--color-text-primary);
+    margin: 0;
+    letter-spacing: -0.015em;
+  }
+
+  /* High-fidelity Terminal Window Mockup */
+  .modal-terminal-wrapper {
+    background-color: #050505;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: var(--space-8);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.45);
+    cursor: pointer; /* Terminal wrapper is fully clickable */
+    transition: border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+  }
+
+  .modal-terminal-wrapper:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55), 0 0 16px rgba(255, 255, 255, 0.02);
+  }
+
+  .terminal-header {
+    display: flex;
+    align-items: center;
+    height: 34px;
+    background-color: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    padding-inline: 14px;
+  }
+
+  .terminal-dots {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .terminal-dots span {
+    width: 6.5px;
+    height: 6.5px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .terminal-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    margin-left: var(--space-3);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .terminal-body {
+    padding: 16px 20px;
+    text-align: left;
+  }
+
+  .terminal-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .terminal-prompt {
+    font-family: var(--font-mono);
+    font-size: 13px;
     user-select: none;
     flex-shrink: 0;
   }
 
-  .install-command {
-    flex: 1;
+  .terminal-command {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-tertiary);
-    padding: 16px 10px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-size: 13px;
+    color: #e5e5e5;
     line-height: 1.5;
-    min-width: 0;
-    text-align: left;
+    white-space: nowrap;
+    overflow-x: auto;
+    flex: 1;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
   }
 
-  .install-copy-btn {
+  .terminal-command::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Integrated Terminal Copy Button */
+  .terminal-copy-action-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background-color: rgba(255, 255, 255, 0.03);
-    border: none;
-    border-left: 1px solid rgba(255, 255, 255, 0.06);
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    padding: 0 18px;
-    align-self: stretch;
-    transition: background-color 0.15s var(--ease-out), color 0.15s var(--ease-out);
-  }
-
-  .install-copy-btn:active { transform: scale(0.96); }
-
-  .install-copy-btn .check-icon { display: none; }
-  .install-copy-btn.copied {
-    background-color: rgba(45, 212, 191, 0.12);
-    color: #2dd4bf;
-  }
-  .install-copy-btn.copied .copy-icon { display: none; }
-  .install-copy-btn.copied .check-icon { display: block; }
-
-  @media (hover: hover) and (pointer: fine) {
-    .install-copy-btn:hover {
-      background-color: rgba(255, 255, 255, 0.08);
-      color: var(--color-text-primary);
-    }
-  }
-
-  /* Platform toggle */
-  .install-platform {
-    display: inline-flex;
-    gap: 2px;
-    background-color: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 999px;
-    padding: 3px;
-  }
-
-  .platform-btn {
-    display: inline-flex;
-    align-items: center;
     gap: 6px;
-    background: none;
-    border: none;
-    border-radius: 999px;
-    padding: 6px 16px;
+    background-color: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--color-text-secondary);
     font-family: var(--font-body);
-    font-size: var(--text-xs);
+    font-size: 11px;
     font-weight: 500;
-    color: var(--color-text-muted);
     cursor: pointer;
-    transition: color 0.25s var(--ease-out), background-color 0.25s var(--ease-out);
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: all 0.2s var(--ease-out);
+    flex-shrink: 0;
   }
 
-  .platform-btn.active {
-    background-color: rgba(255, 255, 255, 0.06);
+  .terminal-copy-action-btn .check-icon { display: none; }
+  .terminal-copy-action-btn.copied .copy-icon { display: none; }
+  .terminal-copy-action-btn.copied .check-icon { display: block; }
+
+  .terminal-copy-action-btn:hover:not(.copied) {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
     color: var(--color-text-primary);
   }
 
-  .platform-btn svg { opacity: 0.5; }
-  .platform-btn.active svg { opacity: 1; }
-
-  @media (hover: hover) and (pointer: fine) {
-    .platform-btn:hover:not(.active) {
-      color: var(--color-text-secondary);
-    }
+  /* Dynamic OS specific buttons inside CTA */
+  .download-modal-overlay.overlay-mac .terminal-copy-action-btn.copied {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: #e5e5e5 !important;
+  }
+  .download-modal-overlay.overlay-win .terminal-copy-action-btn.copied {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: #e5e5e5 !important;
   }
 
-  @media (max-width: 576px) {
-    .install-command-wrapper {
-      border-radius: 10px;
+  /* Visual Installation Workflow Diagram */
+  .install-workflow-visual {
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding-top: var(--space-8);
+    display: flex;
+    flex-direction: row;
+    align-items: stretch; /* Stretch columns so cards have uniform height */
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+
+  /* Flat raw visual timeline step layout */
+  .workflow-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+    flex: 1; /* Give equal width to all step containers */
+    min-width: 0;
+  }
+
+  .workflow-icon-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    background-color: transparent !important;
+    border: none !important;
+    color: #a3a3a3 !important;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 550;
+    transition: color 0.2s var(--ease-out);
+  }
+
+  /* Highlight icon inside hovered step */
+  .workflow-step:hover .workflow-icon-box {
+    color: #ffffff !important;
+  }
+
+  .workflow-text-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .workflow-step-title {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .workflow-step-desc {
+    font-family: var(--font-body);
+    font-size: 13px;
+    color: var(--color-text-muted);
+    margin-top: 4px;
+    margin-bottom: 0;
+    line-height: 1.4;
+  }
+
+  .workflow-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: flex-start; /* Align with the centers of the step icon boxes */
+    margin-top: 14px; /* Align perfectly centered horizontally with the larger numbers */
+    color: var(--color-text-muted);
+    opacity: 0.2;
+    flex-shrink: 0;
+  }
+
+  /* Step 1 success checkmark state toggles */
+  .step-icon-success {
+    display: none !important;
+  }
+  .workflow-icon-box.success .step-icon-main {
+    display: none !important;
+  }
+  .workflow-icon-box.success .step-icon-success {
+    display: block !important;
+  }
+  .workflow-icon-box.success {
+    color: #10b981 !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+
+  
+  .download-modal-overlay.overlay-mac .terminal-prompt,
+  .download-modal-overlay.overlay-win .terminal-prompt {
+    color: #a3a3a3 !important;
+  }
+
+  @media (max-width: 640px) {
+    .install-workflow-visual {
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
     }
-    .install-cmd-prefix {
-      padding: 14px 0 14px 14px;
-      font-size: var(--text-xs);
+    .workflow-step {
+      width: 100%;
     }
-    .install-command {
-      font-size: 11px;
-      padding: 14px 8px;
+    .workflow-arrow {
+      transform: rotate(90deg);
+      align-self: center;
+      height: auto;
+      margin-block: 4px;
     }
-    .install-copy-btn {
-      padding: 0 14px;
+    .download-modal-card {
+      padding: 36px 28px;
     }
   }
 </style>
 
 <script define:vars={{ MAC_INSTALL_CMD, WIN_INSTALL_CMD }}>
   const commands = {
-    mac: { cmd: MAC_INSTALL_CMD, prefix: "$" },
-    win: { cmd: WIN_INSTALL_CMD, prefix: "PS>" },
+    mac: {
+      title: "Install Buddy for macOS",
+      cmd: MAC_INSTALL_CMD,
+      prefix: "$",
+      terminal: "Terminal",
+      icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.08 1.85-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"></path></svg>`,
+      steps: [
+        {
+          title: "Copy Command",
+          desc: "Copy command above",
+          icon: `
+            <span class="step-icon-main">1</span>
+            <svg class="step-icon-success" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          `
+        },
+        {
+          title: "Open Terminal",
+          desc: "Press ⌘+Space & type Terminal",
+          icon: `<span class="step-icon-main">2</span>`
+        },
+        {
+          title: "Run",
+          desc: "Paste & press Return",
+          icon: `<span class="step-icon-main">3</span>`
+        }
+      ]
+    },
+    win: {
+      title: "Install Buddy for Windows",
+      cmd: WIN_INSTALL_CMD,
+      prefix: "PS>",
+      terminal: "PowerShell",
+      icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M0 0h11v11H0zM13 0h11v11H13zM0 13h11v11H0zM13 13h11v11H13z"></path></svg>`,
+      steps: [
+        {
+          title: "Copy Command",
+          desc: "Copy command above",
+          icon: `
+            <span class="step-icon-main">1</span>
+            <svg class="step-icon-success" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          `
+        },
+        {
+          title: "Open PowerShell",
+          desc: "Press Win & type PowerShell",
+          icon: `<span class="step-icon-main">2</span>`
+        },
+        {
+          title: "Run",
+          desc: "Paste & press Enter",
+          icon: `<span class="step-icon-main">3</span>`
+        }
+      ]
+    }
   }
 
-  const cmdEl = document.getElementById("install-command")
-  const cmdPrefix = document.getElementById("cmd-prefix")
-  const copyBtn = document.getElementById("install-copy-btn")
-  const platformBtns = document.querySelectorAll(".platform-btn")
+  const modal = document.getElementById("download-modal")
+  const modalCloseBtn = document.getElementById("modal-close-btn")
+  const downloadBtns = document.querySelectorAll(".download-btn")
 
-  function setOS(os) {
+  function openModal(os) {
     const data = commands[os]
     if (!data) return
-    cmdEl.textContent = data.cmd
-    cmdPrefix.textContent = data.prefix
-    copyBtn.setAttribute("data-copy", data.cmd)
-    platformBtns.forEach((b) => b.classList.remove("active"))
-    document.querySelector(`.platform-btn[data-os="${os}"]`)?.classList.add("active")
+
+    // Set OS specific classes to target color branding
+    modal.classList.remove("overlay-mac", "overlay-win")
+    modal.classList.add(`overlay-${os}`)
+
+    // Set modal content dynamically
+    document.getElementById("modal-title").textContent = data.title
+    document.getElementById("modal-cmd-text").textContent = data.cmd
+    document.getElementById("modal-cmd-prefix").textContent = data.prefix
+    document.getElementById("terminal-title").textContent = data.terminal
+    
+
+
+    document.getElementById("modal-copy-btn").setAttribute("data-copy", data.cmd)
+
+    // Build the visual steps stepper dynamically (as columns)
+    const stepsContainer = document.getElementById("modal-steps-container")
+    stepsContainer.innerHTML = ""
+    data.steps.forEach((step, index) => {
+      // Create Step Node
+      const stepNode = document.createElement("div")
+      stepNode.className = "workflow-step"
+      stepNode.innerHTML = `
+        <div class="workflow-icon-box os-${os}">
+          ${step.icon}
+        </div>
+        <div class="workflow-text-box">
+          <h5 class="workflow-step-title">${step.title}</h5>
+          <p class="workflow-step-desc">${step.desc}</p>
+        </div>
+      `
+      stepsContainer.appendChild(stepNode)
+
+      // Add connecting arrow if not the last step
+      if (index < data.steps.length - 1) {
+        const arrowNode = document.createElement("div")
+        arrowNode.className = "workflow-arrow"
+        arrowNode.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        `
+        stepsContainer.appendChild(arrowNode)
+      }
+    })
+
+    // Reset copy button state
+    const copyBtn = document.getElementById("modal-copy-btn")
+    copyBtn.classList.remove("copied")
+    const btnText = copyBtn.querySelector(".copy-text")
+    if (btnText) btnText.textContent = "Copy"
+
+    // Show modal
+    modal.classList.add("visible")
+    modal.setAttribute("aria-hidden", "false")
+    document.body.style.overflow = "hidden"
   }
 
-  platformBtns.forEach((btn) => {
-    btn.addEventListener("click", () => setOS(btn.getAttribute("data-os")))
+  function closeModal() {
+    modal.classList.remove("visible")
+    modal.setAttribute("aria-hidden", "true")
+    document.body.style.overflow = ""
+  }
+
+  // Hook up button clicks
+  downloadBtns.forEach((btn) => {
+    btn.addEventListener("click", () => openModal(btn.getAttribute("data-os")))
   })
 
-  const isWindows = navigator.userAgent.includes("Win")
-  setOS(isWindows ? "win" : "mac")
+  // Hook up close actions
+  modalCloseBtn.addEventListener("click", closeModal)
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeModal()
+  })
 
-  copyBtn.addEventListener("click", async () => {
+  // Close on Escape key
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && modal.classList.contains("visible")) {
+      closeModal()
+    }
+  })
+
+  // Expose function globally so the header button can open the modal based on OS
+  window.openBuddyDownloadModal = (os) => {
+    openModal(os);
+  };
+
+  // Unified Copy Action Handler
+  const copyBtn = document.getElementById("modal-copy-btn")
+  const stepsContainer = document.getElementById("modal-steps-container")
+
+  async function handleCopy() {
     const text = copyBtn.getAttribute("data-copy")
     if (!text) return
     try {
       await navigator.clipboard.writeText(text)
+      
+      // Update Copy Button state
       copyBtn.classList.add("copied")
-      setTimeout(() => copyBtn.classList.remove("copied"), 2000)
+      const btnText = copyBtn.querySelector(".copy-text")
+      if (btnText) btnText.textContent = "Copied!"
+
+      // Toggle Step 1 card to checkmark/green success state
+      const step1Card = stepsContainer.querySelector(".workflow-step:first-child")
+      const step1IconBox = stepsContainer.querySelector(".workflow-step:first-child .workflow-icon-box")
+      if (step1Card) {
+        step1Card.classList.add("success")
+      }
+      if (step1IconBox) {
+        step1IconBox.classList.add("success")
+      }
+
+      // Reset feedback states after 2 seconds
+      setTimeout(() => {
+        copyBtn.classList.remove("copied")
+        if (btnText) btnText.textContent = "Copy"
+        if (step1Card) {
+          step1Card.classList.remove("success")
+        }
+        if (step1IconBox) {
+          step1IconBox.classList.remove("success")
+        }
+      }, 2000)
     } catch (err) {
       console.error("Copy failed:", err)
     }
+  }
+
+  // Copy button click (prevent double trigger since it lies inside terminal wrapper)
+  copyBtn.addEventListener("click", (e) => {
+    e.stopPropagation()
+    handleCopy()
   })
+
+  // Clicking anywhere on the terminal window mockup copies the command
+  const terminalWrapper = document.querySelector(".modal-terminal-wrapper")
+  if (terminalWrapper) {
+    terminalWrapper.addEventListener("click", () => {
+      handleCopy()
+    })
+  }
 </script>
