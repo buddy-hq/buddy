@@ -27,6 +27,7 @@ $localAppData = [Environment]::GetFolderPath("LocalApplicationData")
 $roamingAppData = [Environment]::GetFolderPath("ApplicationData")
 $homeDir = [Environment]::GetFolderPath("UserProfile")
 $documentsDir = [Environment]::GetFolderPath("MyDocuments")
+$tempDir = [System.IO.Path]::GetTempPath().TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
 $startMenuPrograms = Join-Path $roamingAppData "Microsoft\Windows\Start Menu\Programs"
 
 function Join-NonEmptyPath {
@@ -57,6 +58,7 @@ function Get-CleanupPaths {
   foreach ($appId in $appIds) {
     $paths.Add((Join-NonEmptyPath -BasePath $roamingAppData -ChildPath $appId))
     $paths.Add((Join-NonEmptyPath -BasePath $localAppData -ChildPath $appId))
+    $paths.Add((Join-NonEmptyPath -BasePath $tempDir -ChildPath $appId))
   }
 
   $paths.Add((Join-NonEmptyPath -BasePath $localAppData -ChildPath "@buddydesktop-electron-updater"))
