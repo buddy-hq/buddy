@@ -37,8 +37,9 @@ export async function resolveRemoteSourceTagSha(
 ): Promise<string | undefined> {
   const ref = tagRef(input.tag)
   const peeledRef = peeledTagRef(input.tag)
-  const output =
-    await $`git ls-remote ${SOURCE_REMOTE} ${ref} ${peeledRef}`.cwd(input.rootDir).text()
+  const output = await $`git ls-remote ${SOURCE_REMOTE} ${ref} ${peeledRef}`
+    .cwd(input.rootDir)
+    .text()
   let directSha: string | undefined
 
   for (const line of output.split(/\r?\n/)) {
