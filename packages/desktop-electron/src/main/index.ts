@@ -1,11 +1,10 @@
 import { randomUUID } from "node:crypto"
 import { EventEmitter } from "node:events"
 import { existsSync } from "node:fs"
-import { mkdir, readFile, unlink, writeFile } from "node:fs/promises"
+import { readFile, unlink } from "node:fs/promises"
 import { createServer } from "node:net"
 import { homedir } from "node:os"
 import { join } from "node:path"
-import { pathToFileURL } from "node:url"
 import { app, BrowserWindow, dialog, shell } from "electron"
 import type { Event } from "electron"
 import electronUpdaterPackage from "electron-updater"
@@ -57,7 +56,6 @@ import {
 import {
   BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY,
   fetchSignedElectronUpdateManifest,
-  isAbsoluteUrl,
   RELEASE_REPOSITORY,
   RELEASE_REPOSITORY_NAME,
   RELEASE_REPOSITORY_OWNER,
@@ -65,6 +63,12 @@ import {
   resolveLatestPrereleaseAssetUrl,
   resolveReleaseAssetUrl,
 } from "./update-common"
+import {
+  createWindowsUpdateFeedProviderOptions,
+  startWindowsUpdateFeed,
+  WINDOWS_UPDATE_MANIFEST_FILENAME,
+  type WindowsUpdateFeed,
+} from "./windows-update-feed"
 import { createLoadingWindow, createMainWindow, setBackgroundColor, setDockIcon } from "./windows"
 
 const { autoUpdater } = electronUpdaterPackage
@@ -77,8 +81,6 @@ const STARTUP_FAILURE_MESSAGE = "Buddy failed to start."
 const UNKNOWN_STARTUP_FAILURE_DETAIL = "The local Buddy server did not become ready."
 const LOADING_WINDOW_COMPLETE_TIMEOUT_MS = 5_000
 const MAC_UPDATE_CACHE_DIRECTORY_NAME = "mac-updater"
-const WINDOWS_UPDATE_MANIFEST_CACHE_DIRECTORY_NAME = "windows-updater"
-const WINDOWS_UPDATE_MANIFEST_FILENAME = "latest.yml"
 const BUDDY_DOWNLOAD_URL = `https://github.com/${RELEASE_REPOSITORY}/releases/latest`
 const PRIMARY_DIALOG_RESPONSE = 0
 const SECONDARY_DIALOG_RESPONSE = 1
@@ -113,6 +115,10 @@ type UpdateCheckResult = {
   recoveryTarget?: RecoveryTarget
   updateAvailable: boolean
   version?: string
+}
+
+type SignedWindowsUpdateFeed = WindowsUpdateFeed & {
+  version: string
 }
 
 const loadingComplete = defer<void>()
@@ -742,18 +748,19 @@ async function checkUpdate() {
   }
 
   checkUpdateTask = (async () => {
+    let signedFeed: SignedWindowsUpdateFeed | undefined
     try {
-      const signedManifestVersion = await configureSignedWindowsUpdateFeed()
+      signedFeed = await configureSignedWindowsUpdateFeed()
       const result = await autoUpdater.checkForUpdates()
       const version = result?.updateInfo?.version
       if (result?.isUpdateAvailable === false || !version) {
         return { updateAvailable: false }
       }
 
-      if (version !== signedManifestVersion) {
+      if (version !== signedFeed.version) {
         logger.error("signed update manifest version mismatch", {
           resolvedVersion: version,
-          signedManifestVersion,
+          signedManifestVersion: signedFeed.version,
         })
         return { updateAvailable: false, failed: true }
       }
@@ -774,6 +781,8 @@ async function checkUpdate() {
       logger.error("update check failed", error)
       return { updateAvailable: false, failed: true }
     } finally {
+      await closeWindowsUpdateFeed(signedFeed)
+      configureDefaultElectronUpdaterProvider()
       checkUpdateTask = undefined
     }
   })()
@@ -793,18 +802,19 @@ async function checkUpdateForVersion(version: string): Promise<UpdateCheckResult
     return await customMacUpdater.checkForVersion(version)
   }
 
+  let signedFeed: SignedWindowsUpdateFeed | undefined
   try {
-    const signedManifestVersion = await configureSignedWindowsUpdateFeed(version)
+    signedFeed = await configureSignedWindowsUpdateFeed(version)
     const result = await autoUpdater.checkForUpdates()
     const resolvedVersion = result?.updateInfo?.version
     if (result?.isUpdateAvailable === false || !resolvedVersion) {
       return { updateAvailable: false }
     }
 
-    if (resolvedVersion !== signedManifestVersion) {
+    if (resolvedVersion !== signedFeed.version) {
       logger.error("signed recovery update manifest version mismatch", {
         resolvedVersion,
-        signedManifestVersion,
+        signedManifestVersion: signedFeed.version,
         targetVersion: version,
       })
       return { failed: true, updateAvailable: false }
@@ -829,11 +839,14 @@ async function checkUpdateForVersion(version: string): Promise<UpdateCheckResult
     logger.error("recovery update check failed", error)
     return { failed: true, updateAvailable: false }
   } finally {
+    await closeWindowsUpdateFeed(signedFeed)
     configureDefaultElectronUpdaterProvider()
   }
 }
 
-async function configureSignedWindowsUpdateFeed(expectedVersion?: string): Promise<string> {
+async function configureSignedWindowsUpdateFeed(
+  expectedVersion?: string,
+): Promise<SignedWindowsUpdateFeed> {
   const manifestUrl = await resolveSignedWindowsUpdateManifestUrl(expectedVersion)
   const manifest = await fetchSignedElectronUpdateManifest({
     publicKey: process.env[BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY]?.trim() || undefined,
@@ -846,26 +859,21 @@ async function configureSignedWindowsUpdateFeed(expectedVersion?: string): Promi
     )
   }
 
-  const cacheDirectory = join(
-    app.getPath("temp"),
-    resolveAppId(app.isPackaged),
-    WINDOWS_UPDATE_MANIFEST_CACHE_DIRECTORY_NAME,
-    expectedVersion ?? "latest",
-  )
-  await mkdir(cacheDirectory, { recursive: true })
-  await writeFile(
-    join(cacheDirectory, WINDOWS_UPDATE_MANIFEST_FILENAME),
-    absolutizeElectronUpdateManifestUrls(manifest.content, manifest.version),
-    "utf8",
-  )
-
-  autoUpdater.setFeedURL({
-    channel: "latest",
-    provider: "generic",
-    url: toFileDirectoryUrl(cacheDirectory),
+  const feed = await startWindowsUpdateFeed({
+    content: manifest.content,
+    version: manifest.version,
   })
+  try {
+    autoUpdater.setFeedURL(createWindowsUpdateFeedProviderOptions(feed))
+  } catch (error) {
+    await closeWindowsUpdateFeed(feed)
+    throw error
+  }
 
-  return manifest.version
+  return {
+    ...feed,
+    version: manifest.version,
+  }
 }
 
 async function resolveSignedWindowsUpdateManifestUrl(expectedVersion?: string): Promise<string> {
@@ -880,33 +888,14 @@ async function resolveSignedWindowsUpdateManifestUrl(expectedVersion?: string): 
   return resolveLatestReleaseAssetUrl(WINDOWS_UPDATE_MANIFEST_FILENAME)
 }
 
-function toFileDirectoryUrl(directory: string): string {
-  const url = pathToFileURL(directory).toString()
-  return url.endsWith("/") ? url : `${url}/`
-}
+async function closeWindowsUpdateFeed(feed: WindowsUpdateFeed | undefined): Promise<void> {
+  if (!feed) return
 
-function absolutizeElectronUpdateManifestUrls(content: string, version: string): string {
-  return content
-    .split(/\r?\n/u)
-    .map((line) => absolutizeElectronUpdateManifestUrlLine(line, version))
-    .join("\n")
-}
-
-function absolutizeElectronUpdateManifestUrlLine(line: string, version: string): string {
-  const match = line.match(/^(\s*(?:-\s*)?(?:url|path):\s*)(.+?)(\s*)$/u)
-  if (!match) return line
-
-  const [, prefix, rawValue, suffix] = match
-  const quote =
-    (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
-    (rawValue.startsWith("'") && rawValue.endsWith("'"))
-      ? rawValue[0]
-      : undefined
-  const value = quote ? rawValue.slice(1, -1) : rawValue
-  if (isAbsoluteUrl(value)) return line
-
-  const absoluteUrl = resolveReleaseAssetUrl(version, value)
-  return `${prefix}${quote ?? ""}${absoluteUrl}${quote ?? ""}${suffix}`
+  try {
+    await feed.close()
+  } catch (error) {
+    logger.warn("failed to close windows update feed", error)
+  }
 }
 
 function configureDefaultElectronUpdaterProvider() {

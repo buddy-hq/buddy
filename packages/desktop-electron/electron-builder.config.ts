@@ -86,6 +86,7 @@ const BASE_CONFIGURATION: Configuration = {
     artifactName: resolveWindowsReleaseArtifactPattern(WINDOWS_RELEASE_TARGET_ARCH),
     icon: "resources/icons/icon.ico",
     target: ["nsis"],
+    verifyUpdateCodeSignature: false,
   },
   nsis: {
     oneClick: false,
