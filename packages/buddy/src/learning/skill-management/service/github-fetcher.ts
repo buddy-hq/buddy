@@ -209,6 +209,19 @@ export async function fetchPinnedGitHubSkill(
     await fsp.mkdir(checkoutRoot, { recursive: true })
     await checkedGit({ args: ["init", "-q"], cwd: checkoutRoot, runGit, timeoutMs })
     await checkedGit({
+      // Force normalized LF checkouts so the reviewed tree hash is stable on Windows too.
+      args: ["config", "core.autocrlf", "false"],
+      cwd: checkoutRoot,
+      runGit,
+      timeoutMs,
+    })
+    await checkedGit({
+      args: ["config", "core.eol", "lf"],
+      cwd: checkoutRoot,
+      runGit,
+      timeoutMs,
+    })
+    await checkedGit({
       args: ["remote", "add", "origin", githubRemoteUrl(parsedSource, options?.remoteBaseUrl)],
       cwd: checkoutRoot,
       runGit,

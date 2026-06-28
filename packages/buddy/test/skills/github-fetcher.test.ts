@@ -58,6 +58,8 @@ describe("pinned GitHub skill fetcher", () => {
     try {
       expect(fetched.skillRoot.endsWith(path.join("skills", "fetched"))).toBe(true)
       expect(fetched.stats.fileCount).toBe(1)
+      expect(git.commands).toContainEqual(["config", "core.autocrlf", "false"])
+      expect(git.commands).toContainEqual(["config", "core.eol", "lf"])
       expect(git.commands).toContainEqual(["fetch", "--depth", "1", "origin", COMMIT_SHA])
       expect(git.commands).toContainEqual(["sparse-checkout", "set", "skills/fetched"])
       expect(git.commands).toContainEqual([
