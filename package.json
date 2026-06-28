@@ -119,6 +119,7 @@
     "release:version": "bun ./script/version.ts",
     "release:publish": "bun ./script/publish.ts",
     "install:release": "bash ./script/install-latest-release.sh",
+    "cleanup:windows": "powershell -ExecutionPolicy Bypass -File ./scripts/cleanup-buddy-windows.ps1",
     "cfmt": "bun fmt && git add . && git commit -m 'chore: run formatter' && git push"
   },
   "dependencies": {

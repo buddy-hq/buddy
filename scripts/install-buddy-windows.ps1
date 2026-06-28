@@ -36,9 +36,9 @@ if (-not [int]::TryParse($downloadRetriesRaw, [ref]$downloadRetries) -or $downlo
   throw "BUDDY_DOWNLOAD_RETRIES must be a positive integer, got: $downloadRetriesRaw"
 }
 
-$latestReleaseDownloadBaseUrl = "https://github.com/$repo/releases/latest/download"
-$supportsUseBasicParsing =
-  (Get-Command -Name Invoke-WebRequest).Parameters.ContainsKey("UseBasicParsing")
+$downloadBufferSizeBytes = 1024 * 1024
+$progressUpdateMilliseconds = 500
+$percentCompleteMax = 100
 
 function Enable-Tls12ForWindowsPowerShell {
   if ($PSVersionTable.PSEdition -ne "Desktop") {
@@ -69,44 +69,112 @@ function Get-NativeArchitecture {
   }
 }
 
-function Invoke-WebRequestCompat {
+function Format-Megabytes {
+  param(
+    [Parameter(Mandatory = $true)]
+    [long]$Bytes
+  )
+
+  return "$([math]::Round($Bytes / 1MB, 1)) MB"
+}
+
+function Save-FileFromUrl {
   param(
     [Parameter(Mandatory = $true)]
     [string]$Uri,
-    [string]$OutFile
+    [Parameter(Mandatory = $true)]
+    [string]$OutFile,
+    [long]$ExpectedBytes = 0
   )
 
-  $requestParameters = @{
-    Uri = $Uri
+  $request = [System.Net.HttpWebRequest]::Create($Uri)
+  $request.AllowAutoRedirect = $true
+  $response = $request.GetResponse()
+  $inputStream = $null
+  $outputStream = $null
+  $bytesWritten = [long]0
+  $lastProgressAt = Get-Date
+
+  try {
+    $inputStream = $response.GetResponseStream()
+    $outputStream = [System.IO.File]::Open($OutFile, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+    $buffer = New-Object byte[] $downloadBufferSizeBytes
+
+    while ($true) {
+      $bytesRead = $inputStream.Read($buffer, 0, $buffer.Length)
+      if ($bytesRead -le 0) {
+        break
+      }
+
+      $outputStream.Write($buffer, 0, $bytesRead)
+      $bytesWritten += $bytesRead
+
+      $now = Get-Date
+      if (($now - $lastProgressAt).TotalMilliseconds -ge $progressUpdateMilliseconds) {
+        $status = "$(Format-Megabytes -Bytes $bytesWritten)"
+        $progressParameters = @{
+          Activity = "Downloading Buddy"
+          Status = $status
+        }
+
+        if ($ExpectedBytes -gt 0) {
+          $percentComplete = [math]::Min($percentCompleteMax, [math]::Floor(($bytesWritten * $percentCompleteMax) / $ExpectedBytes))
+          $progressParameters.PercentComplete = $percentComplete
+          $progressParameters.Status = "$status / $(Format-Megabytes -Bytes $ExpectedBytes)"
+        }
+
+        Write-Progress @progressParameters
+        $lastProgressAt = $now
+      }
+    }
+  } finally {
+    Write-Progress -Activity "Downloading Buddy" -Completed
+    if ($null -ne $outputStream) {
+      $outputStream.Dispose()
+    }
+    if ($null -ne $inputStream) {
+      $inputStream.Dispose()
+    }
+    $response.Dispose()
   }
 
-  if (-not [string]::IsNullOrWhiteSpace($OutFile)) {
-    $requestParameters.OutFile = $OutFile
+  if ($ExpectedBytes -gt 0 -and $bytesWritten -ne $ExpectedBytes) {
+    throw "Downloaded $bytesWritten bytes, expected $ExpectedBytes bytes."
   }
-
-  if ($supportsUseBasicParsing) {
-    $requestParameters.UseBasicParsing = $true
-  }
-
-  Invoke-WebRequest @requestParameters -ErrorAction Stop
 }
 
 function Download-CandidateAsset {
   param(
     [Parameter(Mandatory = $true)]
-    [string]$CandidateName
+    [object]$CandidateAsset
   )
 
-  $candidateUrl = "$latestReleaseDownloadBaseUrl/$CandidateName"
-  $candidateOutput = Join-Path $destDir $CandidateName
+  $candidateName = $CandidateAsset.Name
+  $candidateUrl = $CandidateAsset.BrowserDownloadUrl
+  $candidateSizeBytes = [long]$CandidateAsset.SizeBytes
+  $candidateOutput = Join-Path $destDir $candidateName
   $delaySeconds = 2
 
-  Write-Info "Downloading $CandidateName..."
+  if (Test-Path -LiteralPath $candidateOutput) {
+    $existingFile = Get-Item -LiteralPath $candidateOutput
+    if ($existingFile.Length -eq $candidateSizeBytes) {
+      Write-Ok "Using existing download $candidateName ($(Format-Megabytes -Bytes $candidateSizeBytes))"
+      return @{
+        Name = $candidateName
+        Url = $candidateUrl
+        OutputPath = $candidateOutput
+      }
+    }
+
+    Write-Warn2 "Replacing partial download $candidateName ($(Format-Megabytes -Bytes $existingFile.Length) / $(Format-Megabytes -Bytes $candidateSizeBytes))"
+  }
+
+  Write-Info "Downloading $candidateName ($(Format-Megabytes -Bytes $candidateSizeBytes))..."
   for ($attempt = 1; $attempt -le $downloadRetries; $attempt++) {
     try {
-      Invoke-WebRequestCompat -Uri $candidateUrl -OutFile $candidateOutput | Out-Null
+      Save-FileFromUrl -Uri $candidateUrl -OutFile $candidateOutput -ExpectedBytes $candidateSizeBytes
       return @{
-        Name = $CandidateName
+        Name = $candidateName
         Url = $candidateUrl
         OutputPath = $candidateOutput
       }
@@ -129,12 +197,12 @@ function Download-CandidateAsset {
       Remove-Item -LiteralPath $candidateOutput -Force -ErrorAction SilentlyContinue
 
       if ($statusCode -eq 404) {
-        Write-Warn2 "Asset $CandidateName not found (HTTP 404), trying next..."
+        Write-Warn2 "Asset $candidateName not found (HTTP 404), trying next..."
         return $null
       }
 
       if ($attempt -eq $downloadRetries) {
-        throw "Failed to download $CandidateName after $downloadRetries attempts. $errorMessage"
+        throw "Failed to download $candidateName after $downloadRetries attempts. $errorMessage"
       }
 
       Write-Warn2 "Attempt $attempt/$downloadRetries failed: $errorMessage"
@@ -147,20 +215,18 @@ function Download-CandidateAsset {
   return $null
 }
 
-function Resolve-ReleaseTag {
-  try {
-    $headers = @{
-      "User-Agent" = "buddy-windows-installer"
-      "Accept" = "application/vnd.github+json"
-    }
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -Headers $headers -ErrorAction Stop
-    if ($release -and -not [string]::IsNullOrWhiteSpace($release.tag_name)) {
-      return $release.tag_name
-    }
-  } catch {
+function Resolve-LatestRelease {
+  $headers = @{
+    "User-Agent" = "buddy-windows-installer"
+    "Accept" = "application/vnd.github+json"
   }
 
-  return "latest"
+  $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/latest" -Headers $headers -ErrorAction Stop
+  if ($null -eq $release -or [string]::IsNullOrWhiteSpace($release.tag_name)) {
+    throw "Could not resolve latest Buddy release from https://api.github.com/repos/$repo/releases/latest"
+  }
+
+  return $release
 }
 
 function Get-VersionFromTag {
@@ -176,10 +242,42 @@ function Get-VersionFromTag {
   return $Tag
 }
 
+function Find-CandidateAssets {
+  param(
+    [Parameter(Mandatory = $true)]
+    [object]$Release,
+    [Parameter(Mandatory = $true)]
+    [string[]]$CandidateNames
+  )
+
+  $foundAssets = New-Object System.Collections.Generic.List[object]
+  foreach ($candidateName in $CandidateNames) {
+    $asset = $Release.assets | Where-Object { $_.name -eq $candidateName } | Select-Object -First 1
+    if ($null -eq $asset) {
+      Write-Warn2 "Asset $candidateName not found, trying next..."
+      continue
+    }
+
+    if ([string]::IsNullOrWhiteSpace($asset.browser_download_url) -or $asset.size -le 0) {
+      Write-Warn2 "Asset $candidateName is missing download metadata, trying next..."
+      continue
+    }
+
+    $foundAssets.Add([pscustomobject]@{
+      Name = $asset.name
+      BrowserDownloadUrl = $asset.browser_download_url
+      SizeBytes = [long]$asset.size
+    })
+  }
+
+  return $foundAssets
+}
+
 Enable-Tls12ForWindowsPowerShell
 
 $arch = Get-NativeArchitecture
-$tag = Resolve-ReleaseTag
+$release = Resolve-LatestRelease
+$tag = $release.tag_name
 Write-Ok "Latest release $tag"
 $version = Get-VersionFromTag -Tag $tag
 $candidateAssets = @(
@@ -195,15 +293,16 @@ New-Item -ItemType Directory -Path $destDir -Force | Out-Null
 
 Write-ProgressHint "Downloading Buddy for $arch. This can take a minute."
 $downloadResult = $null
-foreach ($assetName in $candidateAssets) {
-  $downloadResult = Download-CandidateAsset -CandidateName $assetName
+$candidateReleaseAssets = Find-CandidateAssets -Release $release -CandidateNames $candidateAssets
+foreach ($asset in $candidateReleaseAssets) {
+  $downloadResult = Download-CandidateAsset -CandidateAsset $asset
   if ($null -ne $downloadResult) {
     break
   }
 }
 
 if ($null -eq $downloadResult) {
-  Write-Fail "No Windows installer found in release $tag: $($candidateAssets -join ", ")"
+  Write-Fail "No Windows installer found in release ${tag}: $($candidateAssets -join ", ")"
   throw "Download failed"
 }
 
