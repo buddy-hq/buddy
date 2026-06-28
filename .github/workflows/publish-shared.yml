@@ -27,7 +27,7 @@ permissions:
   contents: write
 
 env:
-  BUN_VERSION: "1.3.11"
+  BUN_VERSION: "1.3.14"
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
@@ -102,7 +102,7 @@ jobs:
   build-electron-macos-arm64:
     needs:
       - version
-    runs-on: macos-latest
+    runs-on: macos-26
     env:
       BUDDY_CHANNEL: prod
       BUDDY_NODE_ARTIFACT_TARGET_PLATFORM: darwin
@@ -134,7 +134,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-electron-builder-
 
-      - run: bun install
+      - run: bun install --os=darwin --cpu=arm64
 
       - run: bun run sdk:generate
 
@@ -186,7 +186,7 @@ jobs:
   build-electron-macos-x64:
     needs:
       - version
-    runs-on: macos-15-intel
+    runs-on: macos-26-intel
     env:
       BUDDY_CHANNEL: prod
       BUDDY_NODE_ARTIFACT_TARGET_PLATFORM: darwin
@@ -218,7 +218,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-electron-builder-
 
-      - run: bun install
+      - run: bun install --os=darwin --cpu=x64
 
       - run: bun run sdk:generate
 

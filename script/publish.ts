@@ -9,6 +9,10 @@ import {
   updateReleaseVersionPackageFiles,
 } from "./release-version-files"
 import { releaseRepository } from "./release-repositories"
+import { publishWithSourceTag } from "./release-source-tag"
+
+const RELEASE_DRAFT_VALUE = "true"
+const RELEASE_PUBLISHED_VALUE = "false"
 
 function currentRefType() {
   return process.env.GITHUB_REF_TYPE?.trim()
@@ -41,7 +45,25 @@ function parseStatusPaths(output: string) {
     })
 }
 
-async function persistWorkflowDispatchReleaseVersion(tag: string) {
+async function releaseTargetSha(): Promise<string> {
+  const target = process.env.GITHUB_SHA?.trim() || "HEAD"
+  return $`git rev-parse ${`${target}^{commit}`}`
+    .cwd(ROOT_DIR)
+    .text()
+    .then((output) => output.trim())
+}
+
+async function isReleasePublished(tag: string, repository: string): Promise<boolean> {
+  const isDraft = await $`gh release view ${tag} --json isDraft --jq .isDraft --repo ${repository}`
+    .text()
+    .then((output) => output.trim())
+
+  if (isDraft === RELEASE_PUBLISHED_VALUE) return true
+  if (isDraft === RELEASE_DRAFT_VALUE) return false
+  throw new Error(`Unexpected draft state for release ${tag}: ${isDraft || "empty"}`)
+}
+
+async function persistWorkflowDispatchReleaseVersion(tag: string, releaseTarget: string) {
   const branch = currentBranch()
 
   if (branch !== "main") {
@@ -51,13 +73,6 @@ async function persistWorkflowDispatchReleaseVersion(tag: string) {
   await configureReleaseCommitter()
   await $`git fetch origin ${branch} --tags`.cwd(ROOT_DIR)
 
-  const releaseTarget = (
-    process.env.GITHUB_SHA?.trim() ||
-    (await $`git rev-parse HEAD`
-      .cwd(ROOT_DIR)
-      .text()
-      .then((output) => output.trim()))
-  ).trim()
   const remoteHead = await $`git rev-parse ${`origin/${branch}`}`
     .cwd(ROOT_DIR)
     .text()
@@ -102,9 +117,23 @@ if (!Script.release) {
 }
 
 const tag = `v${Script.version}`
+const releaseTarget = await releaseTargetSha()
+const releaseRepo = releaseRepository()
 
 if (currentRefType() !== "tag") {
-  await persistWorkflowDispatchReleaseVersion(tag)
+  await persistWorkflowDispatchReleaseVersion(tag, releaseTarget)
 }
 
-await $`gh release edit ${tag} --draft=false --repo ${releaseRepository()}`
+await publishWithSourceTag(
+  {
+    rootDir: ROOT_DIR,
+    tag,
+    target: releaseTarget,
+  },
+  {
+    isPublished: () => isReleasePublished(tag, releaseRepo),
+    publish: async () => {
+      await $`gh release edit ${tag} --draft=false --repo ${releaseRepo}`
+    },
+  },
+)

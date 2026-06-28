@@ -57,21 +57,6 @@ async function releaseTargetSha() {
   )
 }
 
-async function ensureSourceTag() {
-  if (tagRef) return
-
-  const target = await releaseTargetSha()
-  const existingTag = await $`git ls-remote origin ${`refs/tags/${tag}`}`.text()
-  const existingSha = existingTag.trim().split(/\s+/)[0]
-  if (existingSha) {
-    if (existingSha === target) return
-    throw new Error(`Source tag ${tag} already exists at ${existingSha}, expected ${target}`)
-  }
-
-  await $`git tag ${tag} ${target}`
-  await $`git push origin ${`refs/tags/${tag}`}`
-}
-
 async function createRelease(file: string) {
   if (releaseRepo === sourceRepo) {
     const target = await releaseTargetSha()
@@ -83,7 +68,6 @@ async function createRelease(file: string) {
     return
   }
 
-  await ensureSourceTag()
   await $`gh release create ${tag} -d --title ${tag} --notes-file ${file} --repo ${releaseRepo}`
 }
 
@@ -105,7 +89,6 @@ if (existing.exitCode === 0) {
   if (!release.isDraft) {
     throw new Error(`Release ${tag} already exists`)
   }
-  await ensureSourceTag()
 } else {
   const previous = await getLatestRelease(undefined)
   const notes = await buildNotes(previous, "HEAD")
