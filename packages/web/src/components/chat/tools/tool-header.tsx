@@ -9,19 +9,19 @@ import type { ToolState } from "./registry"
  *
  * - `pending` / `running`: nothing — the TextShimmer on the title is the indicator
  * - `completed`: nothing — absence of shimmer is sufficient
- * - `error`: red XCircleIcon with pop-in spring
+ * - `error`: red XCircleIcon, animated only when a mounted tool enters the error state
  */
 export function ToolStatusIndicator({ status }: { status: ToolState["status"] }) {
   const isError = status === "error"
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence initial={false}>
       {isError ? (
         <motion.span
           key="error"
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0, opacity: 0 }}
+          initial={{ opacity: 0, transform: "scale(0.96)" }}
+          animate={{ opacity: 1, transform: "scale(1)" }}
+          exit={{ opacity: 0, transform: "scale(0.96)" }}
           transition={MOTION_SNAPPY}
           className="inline-flex shrink-0"
           title={language.t("chatTools.status.error")}

@@ -1,4 +1,5 @@
 import type { DirectoryChatState, MessagePart, MessageWithParts } from "@/state/chat-types"
+import { getTranscriptMessages } from "@/state/transcript-repository"
 
 type SlimRecord = Record<string, unknown>
 
@@ -176,7 +177,7 @@ export function buildSessionTrace(input: {
   streamStatus: string
 }) {
   const directoryState = input.directoryState
-  const sid = input.sessionID
+  const sid = input.sessionID ?? directoryState?.sessionID
 
   return JSON.stringify(
     {
@@ -199,7 +200,7 @@ export function buildSessionTrace(input: {
             sessions: directoryState.sessions
               .filter((s) => !sid || s.id === sid)
               .map((s) => slimSession(s, s.id === sid)),
-            messages: directoryState.messages.map(slimMessage),
+            messages: getTranscriptMessages(input.directory, sid).map(slimMessage),
           }
         : undefined,
     },

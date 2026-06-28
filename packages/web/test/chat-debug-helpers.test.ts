@@ -1,14 +1,58 @@
-import { describe, expect, test } from "bun:test"
+import { beforeEach, describe, expect, test } from "bun:test"
 import { buildSessionTrace } from "../src/lib/directory-chat/chat-debug-helpers"
+import { resetTranscriptRepositoryForTests } from "../src/state/transcript-repository"
 import {
   createAssistantMessageInfo,
   createDirectoryChatState,
   createMessageWithParts,
   createUserMessageInfo,
+  seedTranscriptMessages,
 } from "./test-utils"
 
 describe("chat debug helpers", () => {
+  beforeEach(() => {
+    resetTranscriptRepositoryForTests()
+  })
+
   test("buildSessionTrace includes the latest active directory snapshot", () => {
+    const directory = "/repo"
+    const firstMessages = [
+      createMessageWithParts(
+        createAssistantMessageInfo({
+          id: "message_1",
+          sessionID: "session_1",
+          finish: "stop",
+        }),
+        [
+          {
+            id: "part_1",
+            sessionID: "session_1",
+            messageID: "message_1",
+            type: "text",
+            text: "first turn",
+          },
+        ],
+      ),
+    ]
+    const secondMessages = [
+      ...firstMessages,
+      createMessageWithParts(
+        createAssistantMessageInfo({
+          id: "message_2",
+          sessionID: "session_1",
+          finish: "stop",
+        }),
+        [
+          {
+            id: "part_2",
+            sessionID: "session_1",
+            messageID: "message_2",
+            type: "text",
+            text: "second turn",
+          },
+        ],
+      ),
+    ]
     const firstState = createDirectoryChatState({
       sessionID: "session_1",
       sessionTitle: "World War 2",
@@ -28,61 +72,22 @@ describe("chat debug helpers", () => {
       },
       isBusy: true,
       isReady: true,
-      messages: [
-        createMessageWithParts(
-          createAssistantMessageInfo({
-            id: "message_1",
-            sessionID: "session_1",
-            finish: "stop",
-          }),
-          [
-            {
-              id: "part_1",
-              sessionID: "session_1",
-              messageID: "message_1",
-              type: "text",
-              text: "first turn",
-            },
-          ],
-        ),
-      ],
     })
 
-    const secondState = {
-      ...firstState,
-      messages: [
-        ...firstState.messages,
-        createMessageWithParts(
-          createAssistantMessageInfo({
-            id: "message_2",
-            sessionID: "session_1",
-            finish: "stop",
-          }),
-          [
-            {
-              id: "part_2",
-              sessionID: "session_1",
-              messageID: "message_2",
-              type: "text",
-              text: "second turn",
-            },
-          ],
-        ),
-      ],
-    }
-
+    seedTranscriptMessages(directory, firstMessages)
     const firstTrace = JSON.parse(
       buildSessionTrace({
-        directory: "/repo",
+        directory,
         directoryState: firstState,
         sessionID: "session_1",
         streamStatus: "connected",
       }),
     ) as Record<string, unknown>
+    seedTranscriptMessages(directory, secondMessages)
     const secondTrace = JSON.parse(
       buildSessionTrace({
-        directory: "/repo",
-        directoryState: secondState,
+        directory,
+        directoryState: firstState,
         sessionID: "session_1",
         streamStatus: "connected",
       }),
@@ -90,42 +95,43 @@ describe("chat debug helpers", () => {
 
     const firstDirectoryState = firstTrace.directoryState as Record<string, unknown>
     const secondDirectoryState = secondTrace.directoryState as Record<string, unknown>
-    const firstMessages = firstDirectoryState.messages as Array<Record<string, unknown>>
-    const secondMessages = secondDirectoryState.messages as Array<Record<string, unknown>>
+    const firstTraceMessages = firstDirectoryState.messages as Array<Record<string, unknown>>
+    const secondTraceMessages = secondDirectoryState.messages as Array<Record<string, unknown>>
 
-    expect(firstMessages).toHaveLength(1)
-    expect(secondMessages).toHaveLength(2)
+    expect(firstTraceMessages).toHaveLength(1)
+    expect(secondTraceMessages).toHaveLength(2)
     expect(JSON.stringify(firstTrace)).not.toContain("second turn")
     expect(JSON.stringify(secondTrace)).toContain("second turn")
   })
 
   test("buildSessionTrace includes reasoning text", () => {
+    const messages = [
+      createMessageWithParts(
+        createAssistantMessageInfo({
+          id: "message_1",
+          sessionID: "session_1",
+          finish: "stop",
+        }),
+        [
+          {
+            id: "part_1",
+            sessionID: "session_1",
+            messageID: "message_1",
+            type: "reasoning",
+            text: "reasoning should stay visible in copied traces",
+            time: {
+              start: 1,
+              end: 2,
+            },
+          },
+        ],
+      ),
+    ]
     const state = createDirectoryChatState({
       sessionID: "session_1",
       sessionTitle: "Debug trace",
-      messages: [
-        createMessageWithParts(
-          createAssistantMessageInfo({
-            id: "message_1",
-            sessionID: "session_1",
-            finish: "stop",
-          }),
-          [
-            {
-              id: "part_1",
-              sessionID: "session_1",
-              messageID: "message_1",
-              type: "reasoning",
-              text: "reasoning should stay visible in copied traces",
-              time: {
-                start: 1,
-                end: 2,
-              },
-            },
-          ],
-        ),
-      ],
     })
+    seedTranscriptMessages("/repo", messages)
 
     const trace = buildSessionTrace({
       directory: "/repo",
@@ -139,23 +145,24 @@ describe("chat debug helpers", () => {
   })
 
   test("buildSessionTrace omits uploaded image data urls", () => {
+    const messages = [
+      createMessageWithParts(createUserMessageInfo({ id: "message_1", sessionID: "session_1" }), [
+        {
+          id: "part_1",
+          sessionID: "session_1",
+          messageID: "message_1",
+          type: "file",
+          mime: "image/png",
+          filename: "diagram.png",
+          url: "data:image/png;base64,raw-image-bytes-should-not-be-in-trace",
+        },
+      ]),
+    ]
     const state = createDirectoryChatState({
       sessionID: "session_1",
       sessionTitle: "Image trace",
-      messages: [
-        createMessageWithParts(createUserMessageInfo({ id: "message_1", sessionID: "session_1" }), [
-          {
-            id: "part_1",
-            sessionID: "session_1",
-            messageID: "message_1",
-            type: "file",
-            mime: "image/png",
-            filename: "diagram.png",
-            url: "data:image/png;base64,raw-image-bytes-should-not-be-in-trace",
-          },
-        ]),
-      ],
     })
+    seedTranscriptMessages("/repo", messages)
 
     const trace = buildSessionTrace({
       directory: "/repo",
@@ -172,28 +179,29 @@ describe("chat debug helpers", () => {
   })
 
   test("buildSessionTrace redacts text-expanded uploaded images", () => {
+    const messages = [
+      createMessageWithParts(createUserMessageInfo({ id: "message_1", sessionID: "session_1" }), [
+        {
+          id: "part_1",
+          sessionID: "session_1",
+          messageID: "message_1",
+          type: "text",
+          text: "Attached file (diagram.svg):\n<svg><text>raw image text should not leak</text></svg>",
+        },
+        {
+          id: "part_2",
+          sessionID: "session_1",
+          messageID: "message_1",
+          type: "text",
+          text: "Attached file (notes.txt):\nregular text should remain visible",
+        },
+      ]),
+    ]
     const state = createDirectoryChatState({
       sessionID: "session_1",
       sessionTitle: "SVG trace",
-      messages: [
-        createMessageWithParts(createUserMessageInfo({ id: "message_1", sessionID: "session_1" }), [
-          {
-            id: "part_1",
-            sessionID: "session_1",
-            messageID: "message_1",
-            type: "text",
-            text: "Attached file (diagram.svg):\n<svg><text>raw image text should not leak</text></svg>",
-          },
-          {
-            id: "part_2",
-            sessionID: "session_1",
-            messageID: "message_1",
-            type: "text",
-            text: "Attached file (notes.txt):\nregular text should remain visible",
-          },
-        ]),
-      ],
     })
+    seedTranscriptMessages("/repo", messages)
 
     const trace = buildSessionTrace({
       directory: "/repo",

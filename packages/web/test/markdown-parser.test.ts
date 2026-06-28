@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import { sanitizeMarkdownHtml } from "../src/components/markdown/markdown-html-segment"
-import { parseMarkdownToHtml } from "../src/components/markdown/markdown-parser"
+import {
+  parseMarkdownToHtml,
+  projectMarkdownBlocks,
+  streamBlocks,
+} from "../src/components/markdown/markdown-parser"
 
 describe("markdown parser", () => {
   test("renders external links like OpenCode", async () => {
@@ -23,6 +27,7 @@ describe("markdown parser", () => {
     const html = await parseMarkdownToHtml("```ts\nconst x = 1\n```")
 
     expect(html).toContain("shiki")
+    expect(html).toContain("var(--color-text-base)")
     expect(html).toContain("const")
   })
 
@@ -183,5 +188,82 @@ $$\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$$
 
     expect(html).toContain("katex-display")
     expect(html).not.toContain("katex-error")
+  })
+
+  test("projects completed streaming blocks separately from the live tail", () => {
+    const blocks = streamBlocks(
+      ["First paragraph.", "", "Second paragraph.", "", "Incomplete [link"].join("\n"),
+      true,
+    )
+
+    expect(blocks.map((block) => block.mode)).toEqual(["full", "full", "live"])
+    expect(blocks[0]?.raw).toBe("First paragraph.\n\n")
+    expect(blocks[1]?.raw).toBe("Second paragraph.\n\n")
+    expect(blocks[2]?.src).toContain("Incomplete")
+  })
+
+  test("keeps stable content separate from an open streaming math tail", () => {
+    const blocks = streamBlocks(["Stable paragraph.", "", "$$ x^2"].join("\n"), true)
+
+    expect(blocks.map((block) => block.mode)).toEqual(["full", "live"])
+    expect(blocks[0]?.raw).toBe("Stable paragraph.\n\n")
+    expect(blocks[1]?.src).toContain("$$ x^2")
+  })
+
+  test("projects code fences as dedicated streaming blocks", () => {
+    expect(streamBlocks("before\n\n```ts\nconst x = 1", true)).toEqual([
+      { raw: "before\n\n", src: "before\n\n", mode: "full" },
+      {
+        raw: "```ts\nconst x = 1",
+        src: "const x = 1",
+        mode: "code",
+        language: "ts",
+      },
+    ])
+  })
+
+  test("keeps completed code fences in dedicated blocks", () => {
+    expect(streamBlocks("```ts\nconst x = 1\n```\n\nafter", true)).toEqual([
+      {
+        raw: "```ts\nconst x = 1\n```\n\n",
+        src: "const x = 1",
+        mode: "code",
+        language: "ts",
+        complete: true,
+      },
+      { raw: "after", src: "after", mode: "live" },
+    ])
+  })
+
+  test("appends open code deltas without reprojecting frozen blocks", () => {
+    const previous = projectMarkdownBlocks(undefined, "# Plan\n\n```ts\nconst one = 1\n", true)
+    const next = projectMarkdownBlocks(
+      previous,
+      `${previous.text}const two = 2\n`,
+      true,
+    )
+
+    expect(next.blocks[0]).toBe(previous.blocks[0])
+    expect(next.blocks.at(-1)).toEqual({
+      raw: "```ts\nconst one = 1\nconst two = 2\n",
+      src: "const one = 1\nconst two = 2\n",
+      mode: "code",
+      language: "ts",
+    })
+  })
+
+  test("closes code fences split across provider deltas", () => {
+    const open = projectMarkdownBlocks(undefined, "```ts\nconst x = 1\n", true)
+    const one = projectMarkdownBlocks(open, `${open.text}\``, true)
+    const two = projectMarkdownBlocks(one, `${one.text}\``, true)
+    const closed = projectMarkdownBlocks(two, `${two.text}\``, true)
+
+    expect(closed.blocks.at(-1)).toEqual({
+      raw: "```ts\nconst x = 1\n```",
+      src: "const x = 1",
+      mode: "code",
+      language: "ts",
+      complete: true,
+    })
   })
 })

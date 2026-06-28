@@ -3,9 +3,19 @@ import type { MessageWithParts } from "./chat-types"
 import { getBuddyClient, requireBuddyData } from "../lib/buddy-client"
 import { retry } from "../lib/retry"
 
+export const INITIAL_TRANSCRIPT_MESSAGE_LIMIT = 2
+export const HISTORY_TRANSCRIPT_MESSAGE_LIMIT = 200
+
 const TRANSCRIPT_RETRY_ATTEMPTS = 4
 const TRANSCRIPT_RETRY_DELAY_MS = 500
 const TRANSCRIPT_RETRY_FACTOR = 2
+const NEXT_CURSOR_HEADER = "x-next-cursor"
+
+export type SessionMessagesPage = {
+  messages: MessageWithParts[]
+  nextCursor: string | undefined
+  complete: boolean
+}
 
 class RetryableTranscriptReloadError extends Error {
   constructor(cause: unknown) {
@@ -44,14 +54,27 @@ export function parseSessionMessagesPayload(value: unknown): MessageWithParts[] 
   throw new Error("Session messages payload must be an array of message parts.")
 }
 
-export async function fetchSessionMessages(directory: string, sessionID: string) {
-  const payload = requireBuddyData<SessionMessagesResponses[200]>(
-    await getBuddyClient(directory).session.messages({
-      sessionID,
-    }),
-  )
+export async function fetchSessionMessagesPage(
+  directory: string,
+  sessionID: string,
+  input?: {
+    limit?: number
+    before?: string
+  },
+): Promise<SessionMessagesPage> {
+  const result = await getBuddyClient(directory).session.messages({
+    sessionID,
+    ...(input?.limit === undefined ? {} : { limit: input.limit }),
+    ...(input?.before === undefined ? {} : { before: input.before }),
+  })
+  const payload = requireBuddyData<SessionMessagesResponses[200]>(result)
+  const nextCursor = result.response?.headers.get(NEXT_CURSOR_HEADER) ?? undefined
 
-  return parseSessionMessagesPayload(payload)
+  return {
+    messages: parseSessionMessagesPayload(payload),
+    nextCursor,
+    complete: nextCursor === undefined,
+  }
 }
 
 export async function fetchSessionMessagesWithRetry(
@@ -59,12 +82,17 @@ export async function fetchSessionMessagesWithRetry(
   sessionID: string,
   input?: {
     shouldRetryMissing?: (error: unknown) => Promise<boolean>
+    limit?: number
+    before?: string
   },
-) {
+): Promise<SessionMessagesPage> {
   return retry(
     async () => {
       try {
-        return await fetchSessionMessages(directory, sessionID)
+        return await fetchSessionMessagesPage(directory, sessionID, {
+          limit: input?.limit ?? INITIAL_TRANSCRIPT_MESSAGE_LIMIT,
+          before: input?.before,
+        })
       } catch (error) {
         const shouldRetry = input?.shouldRetryMissing
           ? await input.shouldRetryMissing(error)

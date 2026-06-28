@@ -1,21 +1,16 @@
 import { Button, CheckIcon, CopyIcon, cn } from "@buddy/ui"
-import { motion } from "motion/react"
 import { useRef, useState, useCallback, useEffect } from "react"
 import { language } from "@/context/language"
 import { useMermaidRender } from "./use-mermaid-render"
 import { MermaidInlineView } from "./mermaid-inline-view"
 import { MermaidActionBar } from "./mermaid-action-bar"
-import { MODAL_EXPAND_SPRING } from "./motion"
 import { mermaidConstants } from "./constants"
 import { useMermaidViewport, type MermaidViewportZoomState } from "./use-mermaid-viewport"
 import type { MermaidThemeConfig } from "./lib/theme"
-import { useInlineAssetActivation } from "@/components/chat/inline-asset-boundary"
-
-export const DIAGRAM_REVEAL_SPRING = {
-  type: "spring",
-  duration: 0.3,
-  bounce: 0,
-} as const
+import {
+  useInlineAssetActivation,
+  useInlineAssetLifecycleReporter,
+} from "@/components/chat/inline-asset-boundary"
 
 function buildMermaidErrorClipboardText(input: { message: string; source?: string }): string {
   const sections = [language.t("chatTools.mermaidDiagram.renderErrorTitle"), "", input.message]
@@ -95,6 +90,10 @@ function summarizeMermaidErrorText(message: string): string {
   return `${singleLine.slice(0, 237)}...`
 }
 
+function stateIsAssetReady(status: string) {
+  return status === "ready" || status === "error"
+}
+
 export function MermaidDiagram(props: {
   source: string
   alt: string
@@ -111,7 +110,6 @@ export function MermaidDiagram(props: {
     actions: React.ReactNode | null,
   ) => React.ReactNode
   minimalActions?: boolean
-  disableRevealAnimation?: boolean
   enabled?: boolean
   renderPriority?: number
   presentation?: "interactive" | "static"
@@ -145,6 +143,10 @@ export function MermaidDiagram(props: {
     priority: props.renderPriority,
     revisionID,
     themeConfig: props.themeConfig,
+  })
+  useInlineAssetLifecycleReporter({
+    ref: activation.ref,
+    active: enabled && stateIsAssetReady(state.status),
   })
 
   useEffect(() => {
@@ -292,20 +294,14 @@ export function MermaidDiagram(props: {
       ) : null}
 
       {state.status === "ready" && isInteractive ? (
-        <motion.div
-          className="h-full overflow-hidden rounded-[14px]"
-          transition={MODAL_EXPAND_SPRING}
-          {...(!props.disableRevealAnimation && {
-            initial: {
-              opacity: 0,
-              y: mermaidConstants.animation.Y_OFFSET,
-              scale: mermaidConstants.animation.SCALE_START,
-            },
-            animate: { opacity: 1, y: 0, scale: 1 },
-          })}
-        >
+        <div className="relative h-full overflow-hidden rounded-[14px]">
+          {!inlineViewport.isInitialized && !props.hideLoadingPlaceholder ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center text-sm text-text-weak">
+              {language.t("chatTools.mermaidDiagram.rendering")}
+            </div>
+          ) : null}
           <MermaidInlineView ariaLabel={props.alt} viewport={inlineViewport} />
-        </motion.div>
+        </div>
       ) : null}
 
       {state.status === "ready" && !isInteractive ? (

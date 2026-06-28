@@ -1,5 +1,5 @@
 import { useQueries, useQuery } from "@tanstack/react-query"
-import { motion, AnimatePresence } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
 import { getFlashcardDueCount, isFlashcardReviewAvailable } from "@/lib/flashcard"
@@ -17,7 +17,11 @@ import type { ObjectFlashcardDeckReadDeckResponse } from "@buddy/sdk/types"
 import { ToolOutputPanel } from "../../tool-output-panel"
 import type { ToolPartProps } from "../../registry"
 import { readString } from "../../types"
-import { TASK_CARD_TRANSITION } from "../task-motion"
+import {
+  TASK_CARD_ENTER_ANIMATE,
+  TASK_CARD_TRANSITION,
+  taskCardEnterInitial,
+} from "../task-motion"
 import { useSubagentCardData } from "./task-card-header"
 import { SubagentCard } from "./subagent-card"
 import { parseTaskResultOutput } from "./task-utils"
@@ -32,19 +36,14 @@ function FlashcardDeckTaskPreview(props: {
 
   if (!reviewAvailable) {
     return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={TASK_CARD_TRANSITION}
-        className="flex items-center justify-between gap-4 px-3 py-2.5"
-      >
+      <div className="flex items-center justify-between gap-4 px-3 py-2.5">
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-text-strong">{props.deck.title}</p>
           <p className="mt-0.5 text-xs text-text-weak">
             {summary.cardCount} {summary.cardCount === 1 ? "card" : "cards"}
           </p>
         </div>
-      </motion.div>
+      </div>
     )
   }
 
@@ -54,9 +53,6 @@ function FlashcardDeckTaskPreview(props: {
       onClick={() =>
         props.onStartReview({ objectID: props.deck.objectID, title: props.deck.title })
       }
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={TASK_CARD_TRANSITION}
       whileHover={{ backgroundColor: "var(--surface-weak)" }}
       whileTap={{ scale: 0.995 }}
       className="w-full cursor-pointer px-3 py-2.5 text-left transition-colors"
@@ -103,6 +99,7 @@ export function FlashcardAuthorTaskCard({
     activityActive,
     status,
   } = useSubagentCardData({ state, onOpenSession, directory })
+  const reducedMotion = useReducedMotion() === true
   const output = state.output || (state.error ?? "")
   const taskResultOutput = parseTaskResultOutput(output)
 
@@ -159,20 +156,20 @@ export function FlashcardAuthorTaskCard({
         {showCompletedBody ? (
           <>
             {loadingObjects ? (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={TASK_CARD_TRANSITION}
-                className="text-sm text-text-weak px-3 py-2.5"
-              >
+              <div className="text-sm text-text-weak px-3 py-2.5">
                 {language.t("chatTools.loadingFlashcards", {
                   defaultValue: "Loading generated flashcard deck...",
                 })}
-              </motion.div>
+              </div>
             ) : null}
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence initial={false}>
               {items.map((deck) => (
-                <div key={deck.objectID}>
+                <motion.div
+                  key={deck.objectID}
+                  initial={taskCardEnterInitial(reducedMotion)}
+                  animate={TASK_CARD_ENTER_ANIMATE}
+                  transition={TASK_CARD_TRANSITION}
+                >
                   <FlashcardDeckTaskPreview
                     deck={deck}
                     onStartReview={(selectedDeck) => {
@@ -185,7 +182,7 @@ export function FlashcardAuthorTaskCard({
                       })
                     }}
                   />
-                </div>
+                </motion.div>
               ))}
             </AnimatePresence>
             {shouldShowOutputFallback ? (
@@ -194,14 +191,9 @@ export function FlashcardAuthorTaskCard({
               </div>
             ) : null}
             {shouldShowObjectError ? (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={TASK_CARD_TRANSITION}
-                className="text-xs text-icon-critical-base px-3 py-2.5"
-              >
+              <p className="text-xs text-icon-critical-base px-3 py-2.5">
                 {stringifyError(objectError)}
-              </motion.p>
+              </p>
             ) : null}
           </>
         ) : null}

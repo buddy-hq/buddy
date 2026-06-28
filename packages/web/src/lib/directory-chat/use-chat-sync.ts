@@ -17,6 +17,15 @@ import { resyncDirectory, resyncDirectoryAfterReconnect } from "@/state/chat-act
 import { isAbortLikeError } from "@/state/chat-error"
 import { useUiPreferences } from "@/state/ui-preferences"
 import { useChatStore } from "@/state/chat-store"
+import {
+  addTranscriptPendingInput,
+  getTranscriptMessages,
+  markTranscriptSessionOptimistic,
+  markTranscriptSessionRunning,
+  removeTranscriptPendingInput,
+  sealTranscriptAssistantMessages,
+  syncTranscriptPendingInputs,
+} from "@/state/transcript-repository"
 import { useNotifications } from "@/state/notifications"
 import { useNotificationPreferences } from "@/state/notification-preferences"
 import { getModelSelectionScopeKey, useModelSelectionStore } from "@/state/model-selection-store"
@@ -94,11 +103,7 @@ function truncateNotificationText(text: string) {
 }
 
 function readLatestAssistantResponsePreview(directory: string, sessionID: string) {
-  const directoryState = useChatStore.getState().directories[directory]
-  const messages =
-    directoryState?.messagesBySessionID?.[sessionID] ??
-    (directoryState?.sessionID === sessionID ? directoryState.messages : undefined)
-  if (!messages) return undefined
+  const messages = getTranscriptMessages(directory, sessionID)
 
   for (const message of messages.toReversed()) {
     if (message.info.role !== "assistant") continue
@@ -222,6 +227,16 @@ export function useChatSync(props: UseChatSyncProps) {
         directoryState?.pendingPermissions ?? [],
       )
       setDirectoryQuestionsQueryData(queryClient, directory, directoryState?.pendingQuestions ?? [])
+      syncTranscriptPendingInputs(directory, [
+        ...(directoryState?.pendingPermissions ?? []).map((request) => ({
+          requestID: request.id,
+          sessionID: request.sessionID,
+        })),
+        ...(directoryState?.pendingQuestions ?? []).map((request) => ({
+          requestID: request.id,
+          sessionID: request.sessionID,
+        })),
+      ])
     }
 
     const resyncQueryBackedDirectory = (directory: string) =>
@@ -302,6 +317,9 @@ export function useChatSync(props: UseChatSyncProps) {
           const normalizedStatus = normalizeSessionStatusValue(properties.status)
           const statusSessionID = String(properties.sessionID ?? "")
           if (normalizedStatus.type === "idle") {
+            if (statusSessionID) {
+              sealTranscriptAssistantMessages(directory, statusSessionID, Date.now())
+            }
             if (
               statusSessionID &&
               workingSessions.delete(statusSessionID) &&
@@ -321,6 +339,13 @@ export function useChatSync(props: UseChatSyncProps) {
           } else if (statusSessionID) {
             workingSessions.add(statusSessionID)
           }
+          if (statusSessionID) {
+            markTranscriptSessionRunning(
+              directory,
+              statusSessionID,
+              normalizedStatus.type !== "idle",
+            )
+          }
           applySessionStatus(directory, statusSessionID, normalizedStatus)
           const activeSessionID = useChatStore.getState().directories[directory]?.sessionID
           if (normalizedStatus.type === "busy" && statusSessionID === activeSessionID) {
@@ -338,6 +363,7 @@ export function useChatSync(props: UseChatSyncProps) {
             return
           }
           if (erroredSessionID) {
+            markTranscriptSessionRunning(directory, erroredSessionID, false)
             applySessionStatus(directory, erroredSessionID, IDLE_SESSION_STATUS)
           }
           if (isAbortLikeError(properties.error)) {
@@ -366,6 +392,9 @@ export function useChatSync(props: UseChatSyncProps) {
 
         if (payload.type === "message.updated") {
           const info = properties.info as MessageInfo
+          if (info.role === "user" && info.sessionID) {
+            markTranscriptSessionOptimistic(directory, info.sessionID, false)
+          }
           applyMessageUpdated(directory, info)
           if (info.role === "user" && info.sessionID) {
             useModelSelectionStore
@@ -426,6 +455,10 @@ export function useChatSync(props: UseChatSyncProps) {
 
         if (payload.type === "permission.asked") {
           const permissionRequest = properties as PermissionRequest
+          addTranscriptPendingInput(directory, {
+            requestID: permissionRequest.id,
+            sessionID: permissionRequest.sessionID,
+          })
           applyPermissionAsked(directory, permissionRequest)
           upsertDirectoryPermissionQueryData(queryClient, directory, permissionRequest)
           const notificationPreferences = useNotificationPreferences.getState().preferences
@@ -447,17 +480,23 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "permission.replied") {
-          applyPermissionReplied(directory, String(properties.requestID ?? ""))
+          const requestID = String(properties.requestID ?? "")
+          removeTranscriptPendingInput(directory, requestID)
+          applyPermissionReplied(directory, requestID)
           removeDirectoryPermissionQueryData(
             queryClient,
             directory,
-            String(properties.requestID ?? ""),
+            requestID,
           )
           return
         }
 
         if (payload.type === "question.asked") {
           const questionRequest = properties as QuestionRequest
+          addTranscriptPendingInput(directory, {
+            requestID: questionRequest.id,
+            sessionID: questionRequest.sessionID,
+          })
           applyQuestionAsked(directory, questionRequest)
           upsertDirectoryQuestionQueryData(queryClient, directory, questionRequest)
           const notificationPreferences = useNotificationPreferences.getState().preferences
@@ -480,6 +519,7 @@ export function useChatSync(props: UseChatSyncProps) {
 
         if (payload.type === "question.replied" || payload.type === "question.rejected") {
           const requestID = String(properties.requestID ?? "")
+          removeTranscriptPendingInput(directory, requestID)
           applyQuestionResolved(directory, requestID)
           removeDirectoryQuestionQueryData(queryClient, directory, requestID)
         }

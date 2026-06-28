@@ -10,7 +10,7 @@ import { language } from "@/context/language"
 import { readNonEmptyString } from "../../../tools/types"
 import { unwrapError } from "../../../utils/error"
 import { sendPrompt } from "@/state/chat-actions"
-import { useChatStore } from "@/state/chat-store"
+import { getTranscriptMessages, useTranscriptSessionMessages } from "@/state/transcript-repository"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import {
   metadataWithInlinePresentation,
@@ -282,15 +282,7 @@ function resolveMermaidFixPromptTarget(
 }
 
 function selectSessionMessages(directory: string, sessionID: string): MessageWithParts[] {
-  const directoryState = useChatStore.getState().directories[directory]
-  if (!directoryState) {
-    return []
-  }
-
-  return (
-    directoryState.messagesBySessionID?.[sessionID] ??
-    (directoryState.sessionID === sessionID ? directoryState.messages : [])
-  )
+  return getTranscriptMessages(directory, sessionID)
 }
 
 function repairStateFromObject(object: MermaidObjectRecord | undefined): MermaidRepairState {
@@ -347,19 +339,7 @@ function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) 
   const objectSessionID = rehydrated
     ? (mermaidOriginSessionID(rehydrated.origin) ?? part.sessionID)
     : part.sessionID
-  const sessionMessages = useChatStore((store) => {
-    if (!directory || !objectSessionID) {
-      return []
-    }
-    const directoryState = store.directories[directory]
-    if (!directoryState) {
-      return []
-    }
-    return (
-      directoryState.messagesBySessionID?.[objectSessionID] ??
-      (directoryState.sessionID === objectSessionID ? directoryState.messages : [])
-    )
-  })
+  const sessionMessages = useTranscriptSessionMessages(directory, objectSessionID)
 
   useEffect(() => {
     setRehydrated(undefined)

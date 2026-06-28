@@ -9,6 +9,7 @@ import {
 } from "@/state/chat-actions"
 import { useChatStore } from "@/state/chat-store"
 import { isSessionWorking } from "@/state/session-status"
+import { useTranscriptSessionMessages } from "@/state/transcript-repository"
 import {
   teachingSessionQueryKeys,
   teachingSessionStateQueryOptions,
@@ -136,13 +137,14 @@ export function SystemPromptPanel(props: SystemPromptPanelProps) {
   const currentPromptRef = useRef<string | undefined>(undefined)
   const previousPromptRef = useRef<string | undefined>(undefined)
   const previousRefreshTokenRef = useRef<number | undefined>(refreshToken)
+  const sessionMessages = useTranscriptSessionMessages(directory, sessionID)
   const activeSessionBusy = useChatStore((state) => {
     const directoryState = state.directories[directory]
     if (!directoryState || !sessionID) return false
     return isSessionWorking({
       info: directoryState.sessions.find((session) => session.id === sessionID),
       status: directoryState.sessionStatusByID[sessionID],
-      messages: directoryState.sessionID === sessionID ? directoryState.messages : undefined,
+      messages: sessionMessages,
     })
   })
   const systemPromptQuery = useQuery({

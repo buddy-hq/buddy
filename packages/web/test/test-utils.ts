@@ -1,4 +1,8 @@
 import { useChatStore } from "../src/state/chat-store"
+import {
+  applyTranscriptMessageUpdated,
+  applyTranscriptPartUpdated,
+} from "../src/state/transcript-repository"
 import { withFetchPreconnect, type FetchTransport } from "../src/lib/fetch-transport"
 import type {
   AssistantMessageInfo,
@@ -12,19 +16,31 @@ import type {
 } from "../src/state/chat-types"
 
 type FetchStub = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+type DirectoryChatStateTestInput = Partial<DirectoryChatState> & {
+  messages?: MessageWithParts[]
+  messagesBySessionID?: Record<string, MessageWithParts[]>
+}
+
+function inferSeededSessionID(input: DirectoryChatStateTestInput) {
+  if (input.sessionID) return input.sessionID
+  const firstInlineMessage = input.messages?.[0]
+  if (firstInlineMessage) return firstInlineMessage.info.sessionID
+  const firstSessionID = Object.keys(input.messagesBySessionID ?? {})[0]
+  return firstSessionID
+}
 
 export function createFetchStub(implementation: FetchStub): FetchTransport {
   return withFetchPreconnect(implementation, globalThis.fetch)
 }
 
 export function createDirectoryChatState(
-  input: Partial<DirectoryChatState> = {},
+  input: DirectoryChatStateTestInput = {},
 ): DirectoryChatState {
+  const { messages: _messages, messagesBySessionID: _messagesBySessionID, ...stateInput } = input
   const merged = {
     sessionTitle: "New thread",
     sessions: [],
     sessionStatusByID: {},
-    messages: [],
     pendingPermissions: [],
     pendingQuestions: [],
     providers: [],
@@ -32,7 +48,7 @@ export function createDirectoryChatState(
     mcpStatus: {},
     isBusy: false,
     isReady: false,
-    ...input,
+    ...stateInput,
   }
 
   return {
@@ -41,13 +57,33 @@ export function createDirectoryChatState(
   }
 }
 
-export function seedDirectoryChatState(directory: string, input: Partial<DirectoryChatState> = {}) {
+export function seedTranscriptMessages(directory: string, messages: MessageWithParts[]) {
+  for (const message of messages) {
+    applyTranscriptMessageUpdated(directory, message.info)
+    for (const part of message.parts) {
+      applyTranscriptPartUpdated(directory, part)
+    }
+  }
+}
+
+export function seedDirectoryChatState(
+  directory: string,
+  transcriptInput: DirectoryChatStateTestInput = {},
+) {
+  const sessionID = inferSeededSessionID(transcriptInput)
   useChatStore.setState((state) => ({
     directories: {
       ...state.directories,
-      [directory]: createDirectoryChatState(input),
+      [directory]: createDirectoryChatState({
+        ...transcriptInput,
+        sessionID,
+      }),
     },
   }))
+  seedTranscriptMessages(directory, transcriptInput.messages ?? [])
+  for (const messages of Object.values(transcriptInput.messagesBySessionID ?? {})) {
+    seedTranscriptMessages(directory, messages)
+  }
 }
 
 export function createUserMessageInfo(

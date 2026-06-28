@@ -9,7 +9,7 @@ import { getToolInfo } from "../../tools/tool-info"
 import type { ToolCardRenderer, ToolPartProps } from "../../tools/registry"
 import type { ChatToolPart } from "../../utils/part-guards"
 
-interface ToolPartRendererProps {
+type ToolPartRendererProps = {
   part: ChatToolPart
   directory?: string
   onOpenSession?: (sessionID: string) => void

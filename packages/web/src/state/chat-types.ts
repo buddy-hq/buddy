@@ -150,9 +150,6 @@ export type DirectoryChatState = {
   sessionTitle: string
   sessions: SessionInfo[]
   sessionStatusByID: Record<string, SessionStatusInfo>
-  messages: MessageWithParts[]
-  messagesBySessionID?: Record<string, MessageWithParts[]>
-  orphanPartsByMessageID?: Record<string, MessagePart[]>
   pendingPermissions: PermissionRequest[]
   pendingQuestions: QuestionRequest[]
   providers: ProviderInfo[]

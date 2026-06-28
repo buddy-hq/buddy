@@ -44,11 +44,16 @@ import type {
   SessionInfo,
 } from "./chat-types"
 import {
-  directorySessionMessagesQueryOptions,
-  setDirectorySessionMessagesQueryData,
-} from "./session-messages-query"
-import { appQueryClient } from "./query-client"
-import { fetchSessionMessagesWithRetry } from "./session-messages"
+  applyTranscriptMessageRemoved,
+  applyTranscriptMessageUpdated,
+  applyTranscriptPartUpdated,
+  getTranscriptMessages,
+  hasTranscriptMessages,
+  loadTranscriptMessages,
+  markTranscriptSessionOptimistic,
+  setTranscriptSessionEmpty,
+  syncTranscriptPendingInputs,
+} from "./transcript-repository"
 import type { TeachingPromptContext } from "./teaching-runtime"
 import { stringifyError } from "../lib/api-client"
 import { OPENCODE_PROVIDER_ID, OPENAI_PROVIDER_ID } from "../lib/provider-ids"
@@ -503,9 +508,7 @@ function promoteSessionMutation(input: {
   const activeState = store.directories[input.directory]
   const isActiveSession = activeState?.sessionID === input.sessionID
   store.setDirectoryReady(input.directory, true)
-  const sessionMessages =
-    activeState?.messagesBySessionID?.[input.sessionID] ??
-    (isActiveSession ? (activeState?.messages ?? []) : [])
+  const sessionMessages = getTranscriptMessages(input.directory, input.sessionID)
 
   const optimisticReplacementParts =
     input.response.info.role === "user" &&
@@ -522,13 +525,13 @@ function promoteSessionMutation(input: {
           ) ?? [])
       : []
 
-  store.applyMessageUpdated(input.directory, input.response.info)
+  applyTranscriptMessageUpdated(input.directory, input.response.info)
   for (const part of input.response.parts) {
-    store.applyPartUpdated(input.directory, part)
+    applyTranscriptPartUpdated(input.directory, part)
   }
   if (input.response.parts.length === 0) {
     for (const part of optimisticReplacementParts) {
-      store.applyPartUpdated(input.directory, part)
+      applyTranscriptPartUpdated(input.directory, part)
     }
   }
 
@@ -537,11 +540,12 @@ function promoteSessionMutation(input: {
     input.optimisticMessageID &&
     input.optimisticMessageID !== input.response.info.id
   ) {
-    store.applyMessageRemoved(input.directory, {
+    applyTranscriptMessageRemoved(input.directory, {
       sessionID: input.sessionID,
       messageID: input.optimisticMessageID,
     })
   }
+  markTranscriptSessionOptimistic(input.directory, input.sessionID, false)
   if (input.response.info.role === "user") {
     useModelSelectionStore
       .getState()
@@ -605,7 +609,8 @@ function addOptimisticPromptMessage(input: OptimisticPromptInput) {
   const optimisticModel = resolveOptimisticPromptModel(input)
   store.setActiveSession(input.directory, input.sessionID)
   store.setDirectoryReady(input.directory, true)
-  store.applyMessageUpdated(input.directory, {
+  markTranscriptSessionOptimistic(input.directory, input.sessionID, true)
+  applyTranscriptMessageUpdated(input.directory, {
     id: input.messageID,
     sessionID: input.sessionID,
     role: "user",
@@ -621,7 +626,7 @@ function addOptimisticPromptMessage(input: OptimisticPromptInput) {
   })
 
   for (const part of createOptimisticPromptParts(input)) {
-    store.applyPartUpdated(input.directory, part)
+    applyTranscriptPartUpdated(input.directory, part)
   }
 
   return true
@@ -630,10 +635,7 @@ function addOptimisticPromptMessage(input: OptimisticPromptInput) {
 function resolveOptimisticPromptModel(input: OptimisticPromptInput) {
   if (input.model) return input.model
 
-  const state = useChatStore.getState().directories[input.directory]
-  const messages =
-    state?.messagesBySessionID?.[input.sessionID] ??
-    (state?.sessionID === input.sessionID ? (state.messages ?? []) : [])
+  const messages = getTranscriptMessages(input.directory, input.sessionID)
   const lastUserMessage = messages.findLast(
     (message) => message.info.sessionID === input.sessionID && message.info.role === "user",
   )
@@ -1209,7 +1211,8 @@ export async function loadMessages(directory: string, sessionID: string) {
   let lastError: unknown
 
   try {
-    const messages = await fetchSessionMessagesWithRetry(directory, sessionID, {
+    const messages = await loadTranscriptMessages(directory, sessionID, {
+      force: true,
       shouldRetryMissing: async (error) => {
         if (!isLatestTranscriptRequest(directory, requestSequence)) {
           return false
@@ -1227,8 +1230,7 @@ export async function loadMessages(directory: string, sessionID: string) {
       return messages
     }
 
-    store.setMessages(directory, sessionID, messages)
-    setDirectorySessionMessagesQueryData(appQueryClient, directory, sessionID, messages)
+    store.clearLoadingSession(directory, sessionID)
     restoreSessionSelectionFromMessages(directory, sessionID, messages)
     store.setDirectoryError(directory, undefined)
     return messages
@@ -1248,24 +1250,11 @@ export async function loadMessages(directory: string, sessionID: string) {
 }
 
 export async function prefetchSessionMessages(directory: string, sessionID: string) {
-  const store = useChatStore.getState()
-  const directoryState = store.directories[directory]
-  if (
-    directoryState?.messagesBySessionID &&
-    Object.hasOwn(directoryState.messagesBySessionID, sessionID)
-  ) {
-    return directoryState.messagesBySessionID[sessionID] ?? []
+  if (hasTranscriptMessages(directory, sessionID)) {
+    return getTranscriptMessages(directory, sessionID)
   }
 
-  if (directoryState?.sessionID === sessionID && directoryState.messages.length > 0) {
-    return directoryState.messages
-  }
-
-  const messages = await appQueryClient.fetchQuery(
-    directorySessionMessagesQueryOptions(directory, sessionID),
-  )
-  useChatStore.getState().setMessages(directory, sessionID, messages)
-  return messages
+  return loadTranscriptMessages(directory, sessionID)
 }
 
 export async function loadPermissions(directory: string): Promise<PermissionRequest[]> {
@@ -1275,6 +1264,7 @@ export async function loadPermissions(directory: string): Promise<PermissionRequ
       await getBuddyClient(directory).permission.list(),
     )
     store.setPendingPermissions(directory, requests)
+    syncPendingInputProtection(directory)
     store.setDirectoryError(directory, undefined)
     return requests
   } catch (error) {
@@ -1290,12 +1280,27 @@ export async function loadQuestions(directory: string) {
       await getBuddyClient(directory).question.list(),
     )
     store.setPendingQuestions(directory, requests)
+    syncPendingInputProtection(directory)
     store.setDirectoryError(directory, undefined)
     return requests
   } catch (error) {
     store.setDirectoryError(directory, stringifyError(error))
     throw error
   }
+}
+
+function syncPendingInputProtection(directory: string) {
+  const state = useChatStore.getState().directories[directory]
+  syncTranscriptPendingInputs(directory, [
+    ...(state?.pendingPermissions ?? []).map((request) => ({
+      requestID: request.id,
+      sessionID: request.sessionID,
+    })),
+    ...(state?.pendingQuestions ?? []).map((request) => ({
+      requestID: request.id,
+      sessionID: request.sessionID,
+    })),
+  ])
 }
 
 export async function loadProviderCatalog(directory: string) {
@@ -1329,8 +1334,7 @@ async function createSession(directory: string) {
   const createPromise = (async () => {
     const info = requireBuddyData<SessionInfo>(await getBuddyClient(directory).session.create())
     selectCanonicalSession(directory, info)
-    const store = useChatStore.getState()
-    store.setMessages(directory, info.id, [])
+    setTranscriptSessionEmpty(directory, info.id)
     useModelSelectionStore.getState().migrateWorkspaceSelection(directory, info.id)
     return info
   })()
@@ -1445,7 +1449,7 @@ export async function ensureDirectorySession(directory: string) {
         const activeState = useChatStore.getState().directories[targetDirectory]
         const hasLiveTranscript =
           activeState?.sessionID === info.id &&
-          (activeState.messages.length > 0 || activeState.isBusy)
+          (hasTranscriptMessages(targetDirectory, info.id) || activeState.isBusy)
         if (!hasLiveTranscript) {
           store.setDirectoryReady(targetDirectory, false)
           await loadMessages(targetDirectory, info.id)
@@ -1680,10 +1684,11 @@ export async function sendPrompt(
 
       store.applySessionStatus(directory, resolvedSessionID, IDLE_SESSION_STATUS)
       if (optimisticAdded) {
-        store.applyMessageRemoved(directory, {
+        applyTranscriptMessageRemoved(directory, {
           sessionID: resolvedSessionID,
           messageID: optimisticMessageID,
         })
+        markTranscriptSessionOptimistic(directory, resolvedSessionID, false)
       }
       selectDraftSession(directory)
       const recoveredSessionID = await resolveSessionForSend(directory)
@@ -1734,10 +1739,11 @@ export async function sendPrompt(
     if (sessionID) {
       store.applySessionStatus(directory, sessionID, IDLE_SESSION_STATUS)
       if (optimisticAdded && optimisticMessageID) {
-        store.applyMessageRemoved(directory, {
+        applyTranscriptMessageRemoved(directory, {
           sessionID,
           messageID: optimisticMessageID,
         })
+        markTranscriptSessionOptimistic(directory, sessionID, false)
       }
       if (missingSession && !requestedSessionID) {
         selectDraftSession(directory)
@@ -1946,11 +1952,11 @@ export async function abortPrompt(directory: string) {
       }),
     )
     if (aborted) {
-      const latestAssistantMessage = useChatStore
-        .getState()
-        .directories[directory]?.messages.findLast((message) => message.info.role === "assistant")
+      const latestAssistantMessage = getTranscriptMessages(directory, sessionID).findLast(
+        (message) => message.info.role === "assistant",
+      )
       if (latestAssistantMessage?.info.role === "assistant") {
-        store.applyMessageUpdated(directory, {
+        applyTranscriptMessageUpdated(directory, {
           ...latestAssistantMessage.info,
           finish: "aborted",
         })
@@ -2081,7 +2087,7 @@ export async function undoLastSessionMessage(
   const latestState = useChatStore.getState().directories[directory]
   const activeSession = latestState?.sessions.find((session) => session.id === sessionID)
   const messageID = resolveUndoTargetMessageID({
-    messages: latestState?.messages ?? [],
+    messages: getTranscriptMessages(directory, sessionID),
     session: activeSession,
     explicitMessageID: input?.messageID,
   })
@@ -2125,7 +2131,7 @@ export async function forkSessionFromMessage(
 
   const activeSession = state?.sessions.find((session) => session.id === sessionID)
   const messageID = resolveForkTargetMessageID({
-    messages: state?.messages ?? [],
+    messages: getTranscriptMessages(directory, sessionID),
     session: activeSession,
     explicitMessageID: input?.messageID,
   })
@@ -2187,7 +2193,7 @@ export async function restoreRevertedSessionMessage(
   const latestState = useChatStore.getState().directories[directory]
   const activeSession = latestState?.sessions.find((session) => session.id === sessionID)
   const nextMessageID = resolveRestoreTargetMessageID({
-    messages: latestState?.messages ?? [],
+    messages: getTranscriptMessages(directory, sessionID),
     session: activeSession,
   })
   const hasRevertState = !!activeSession?.revert?.messageID

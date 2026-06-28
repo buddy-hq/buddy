@@ -1,5 +1,5 @@
 import { useQueries, useQuery } from "@tanstack/react-query"
-import { motion, AnimatePresence } from "motion/react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
 import {
@@ -15,7 +15,11 @@ import { ToolOutputPanel } from "../../tool-output-panel"
 import type { ToolPartProps } from "../../registry"
 import { readString } from "../../types"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
-import { TASK_CARD_TRANSITION } from "../task-motion"
+import {
+  TASK_CARD_ENTER_ANIMATE,
+  TASK_CARD_TRANSITION,
+  taskCardEnterInitial,
+} from "../task-motion"
 import { useSubagentCardData } from "./task-card-header"
 import { SubagentCard } from "./subagent-card"
 import { parseTaskResultOutput } from "./task-utils"
@@ -34,9 +38,6 @@ function QuestionSetObjectTaskPreview(props: {
     <motion.button
       type="button"
       onClick={() => props.onOpenObject(props.object)}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={TASK_CARD_TRANSITION}
       whileHover={{ backgroundColor: "var(--surface-weak)" }}
       whileTap={{ scale: 0.995 }}
       className="w-full cursor-pointer px-3 py-2.5 text-left transition-colors"
@@ -82,6 +83,7 @@ export function QuestionSetAuthorTaskCard({
     activityActive,
     status,
   } = useSubagentCardData({ state, onOpenSession, directory })
+  const reducedMotion = useReducedMotion() === true
   const openBenchRoute = useOpenBench()
   const output = state.output || (state.error ?? "")
   const taskResultOutput = parseTaskResultOutput(output)
@@ -145,27 +147,27 @@ export function QuestionSetAuthorTaskCard({
       {showCompletedBody ? (
         <>
           {loadingObjects ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={TASK_CARD_TRANSITION}
-              className="text-sm text-text-weak px-3 py-2.5"
-            >
+            <div className="text-sm text-text-weak px-3 py-2.5">
               {language.t("chatTools.loadingQuestionSet", {
                 defaultValue: "Loading generated question set...",
               })}
-            </motion.div>
+            </div>
           ) : null}
-          <AnimatePresence mode="popLayout">
+          <AnimatePresence initial={false}>
             {items.map((object) => (
-              <div key={object.objectID}>
+              <motion.div
+                key={object.objectID}
+                initial={taskCardEnterInitial(reducedMotion)}
+                animate={TASK_CARD_ENTER_ANIMATE}
+                transition={TASK_CARD_TRANSITION}
+              >
                 <QuestionSetObjectTaskPreview
                   object={object}
                   onOpenObject={(targetObject) => {
                     void handleOpenObject(targetObject)
                   }}
                 />
-              </div>
+              </motion.div>
             ))}
           </AnimatePresence>
           {shouldShowOutputFallback ? (
@@ -174,14 +176,9 @@ export function QuestionSetAuthorTaskCard({
             </div>
           ) : null}
           {shouldShowObjectError ? (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={TASK_CARD_TRANSITION}
-              className="text-xs text-icon-critical-base px-3 py-2.5"
-            >
+            <p className="text-xs text-icon-critical-base px-3 py-2.5">
               {stringifyError(objectError)}
-            </motion.p>
+            </p>
           ) : null}
         </>
       ) : null}

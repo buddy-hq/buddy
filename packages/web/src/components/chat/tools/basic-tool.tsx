@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react"
+import { createContext, useContext, useState, type ReactNode } from "react"
 import { motion } from "motion/react"
 import { Collapsible, CollapsibleTrigger, CollapsibleContent, ChevronRightIcon } from "@buddy/ui"
 import { ToolStatusIndicator } from "../tools/tool-header"
@@ -7,7 +7,7 @@ import { TextShimmer } from "../tools/text-shimmer"
 import { ToolRowAction, ToolRowSubject, ToolRowArg } from "../tools/tool-row"
 import type { ToolState } from "../tools/registry"
 
-export interface BasicToolTrigger {
+export type BasicToolTrigger = {
   title: string
   subtitle?: string
   args?: string[]
@@ -15,7 +15,7 @@ export interface BasicToolTrigger {
   trailing?: ReactNode
 }
 
-export interface BasicToolProps {
+export type BasicToolProps = {
   icon?: ReactNode
   trigger: BasicToolTrigger | ReactNode
   status?: ToolState["status"]
@@ -23,6 +23,24 @@ export interface BasicToolProps {
   defaultOpen?: boolean
   hideDetails?: boolean
   children?: ReactNode
+}
+
+type ToolExpansionState = {
+  open: boolean | undefined
+  onOpenChange: (open: boolean) => void
+}
+
+const ToolExpansionStateContext = createContext<ToolExpansionState | undefined>(undefined)
+
+export function ToolExpansionStateProvider(props: {
+  value: ToolExpansionState
+  children: ReactNode
+}) {
+  return (
+    <ToolExpansionStateContext.Provider value={props.value}>
+      {props.children}
+    </ToolExpansionStateContext.Provider>
+  )
 }
 
 function isTriggerTitle(val: unknown): val is BasicToolTrigger {
@@ -43,7 +61,9 @@ export function BasicTool({
   hideDetails = false,
   children,
 }: BasicToolProps) {
-  const [open, setOpen] = useState(defaultOpen)
+  const expansionState = useContext(ToolExpansionStateContext)
+  const [localOpen, setLocalOpen] = useState(defaultOpen)
+  const open = expansionState?.open ?? localOpen
   const running = status === "pending" || status === "running"
 
   return (
@@ -51,7 +71,8 @@ export function BasicTool({
       open={open}
       onOpenChange={(value) => {
         if (running) return
-        setOpen(value)
+        setLocalOpen(value)
+        expansionState?.onOpenChange(value)
       }}
       className="min-w-0 w-full max-w-full"
     >

@@ -14,6 +14,7 @@ import {
   type BuddyPresentationDescriptor,
 } from "./buddy-object-result"
 import { useHydratedInlinePresentation } from "./use-hydrated-inline-presentation"
+import { InlineAssetBoundary } from "../../inline-asset-boundary"
 
 type RenderFigureToolOutput = {
   kind: "figure" | "freeform-figure"
@@ -111,7 +112,14 @@ function FigureGallery(props: { directory?: string; items: ToolImageGalleryItem[
   }
 
   return (
-    <div className="w-full">
+    <InlineAssetBoundary
+      className="w-full"
+      fallback={
+        <div className="h-[24rem] w-full rounded-xl border border-border-base/40 bg-surface-weak/30 p-4">
+          <div className="h-full w-full animate-pulse rounded-lg bg-surface-weak/70" />
+        </div>
+      }
+    >
       <ToolImageGallery
         dialogDescription="Figure preview"
         contentClassName="h-[24rem]"
@@ -128,9 +136,9 @@ function FigureGallery(props: { directory?: string; items: ToolImageGalleryItem[
                 })
               }
             : undefined
-        }
+          }
       />
-    </div>
+    </InlineAssetBoundary>
   )
 }
 

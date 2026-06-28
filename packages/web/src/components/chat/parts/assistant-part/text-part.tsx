@@ -18,7 +18,6 @@ type AssistantTextPartProps = {
   stripLeadingMermaidSources?: string[]
   directory?: string
   onOpenResource?: WorkspaceResourceOpener
-  onFinalRender?: () => void
 }
 
 function stripLeadingRenderFigureMarkdown(text: string): string {
@@ -69,7 +68,6 @@ function assistantTextPartEqual(
   if (prevProps.stripLeadingMermaidSources !== nextProps.stripLeadingMermaidSources) return false
   if (prevProps.directory !== nextProps.directory) return false
   if (prevProps.onOpenResource !== nextProps.onOpenResource) return false
-  if (prevProps.onFinalRender !== nextProps.onFinalRender) return false
   return prevProps.part.text === nextProps.part.text
 }
 
@@ -84,7 +82,6 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   stripLeadingMermaidSources,
   directory,
   onOpenResource,
-  onFinalRender,
 }: AssistantTextPartProps) {
   const text = part.text
   const withoutLeadingFigure = stripLeadingFigureImage
@@ -95,7 +92,6 @@ export const AssistantTextPart = memo(function AssistantTextPart({
     : withoutLeadingFigure
   const displayedText = useAdaptiveStreamingText(visibleText, {
     live: streaming && interrupted !== true,
-    onFinalRender,
   })
   const useStreamingMath = streaming || displayedText !== visibleText || interrupted === true
   const mermaidContext: MarkdownMermaidContext | undefined =

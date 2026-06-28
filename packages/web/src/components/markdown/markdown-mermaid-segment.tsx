@@ -9,10 +9,13 @@ import {
 } from "react"
 import { language } from "@/context/language"
 import { sendPrompt } from "@/state/chat-actions"
-import { useChatStore } from "@/state/chat-store"
+import { getTranscriptMessages, useTranscriptSessionMessages } from "@/state/transcript-repository"
 import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
 import { MermaidToolCard } from "@/components/chat/tools/render/mermaid/mermaid-tool-card"
-import { useInlineAssetActivation } from "@/components/chat/inline-asset-boundary"
+import {
+  useInlineAssetActivation,
+  useInlineAssetLifecycleReporter,
+} from "@/components/chat/inline-asset-boundary"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import {
   createInlineMermaidObject,
@@ -95,14 +98,7 @@ function resolveAssistantMessage(
   directory: string,
   input: { messageID: string; sessionID: string },
 ): MermaidFixPromptTarget | undefined {
-  const directoryState = useChatStore.getState().directories[directory]
-  if (!directoryState) {
-    return undefined
-  }
-
-  const messages =
-    directoryState.messagesBySessionID?.[input.sessionID] ??
-    (directoryState.sessionID === input.sessionID ? directoryState.messages : [])
+  const messages = getTranscriptMessages(directory, input.sessionID)
   const assistantMessage = messages.find(
     (
       message,
@@ -218,20 +214,18 @@ export function MarkdownMermaidSegment(props: {
   const [repairState, setRepairState] = useState<MermaidRepairState>({ status: "idle" })
   const [fixRequested, setFixRequested] = useState(false)
   const activation = useInlineAssetActivation()
+  useInlineAssetLifecycleReporter({
+    ref: activation.ref,
+    active: activation.active && ready,
+  })
   const openBenchRoute = useOpenBench()
   const startedRepairRef = useRef<string | undefined>(undefined)
   const requestedSourceByObjectIDRef = useRef(new Map<string, string>())
   const objectID = object?.objectID
-  const sessionMessages = useChatStore((store) => {
-    const directoryState = store.directories[props.context.directory]
-    if (!directoryState) {
-      return []
-    }
-    return (
-      directoryState.messagesBySessionID?.[props.context.sessionID] ??
-      (directoryState.sessionID === props.context.sessionID ? directoryState.messages : [])
-    )
-  })
+  const sessionMessages = useTranscriptSessionMessages(
+    props.context.directory,
+    props.context.sessionID,
+  )
 
   useEffect(() => {
     if (

@@ -6,8 +6,6 @@ import { ReasoningPart } from "./reasoning-part"
 import { ToolPartCard } from "./tool-part"
 import type { MessagePart } from "@/state/chat-types"
 import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "../../utils/part-guards"
-import { motion } from "motion/react"
-import { CONTENT_REVEAL_TRANSITION } from "../../tools/tool-motion"
 
 // Serialize tool state for comparison
 function getToolStateHash(part: MessagePart): string {
@@ -16,7 +14,7 @@ function getToolStateHash(part: MessagePart): string {
   return `${state.status}:${JSON.stringify(state.output)}:${JSON.stringify(state.metadata)}:${JSON.stringify(state.attachments)}`
 }
 
-export interface AssistantPartRendererProps {
+export type AssistantPartRendererProps = {
   part: MessagePart
   copyPartID?: string
   metaText?: string
@@ -33,7 +31,6 @@ export interface AssistantPartRendererProps {
   stripLeadingMermaidSources?: string[]
   directory?: string
   defaultOpen?: boolean
-  onTextFinalRender?: () => void
 }
 
 // Custom equality check for AssistantPartRenderer props
@@ -53,7 +50,6 @@ function assistantPartRendererEqual(
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
   if (prevProps.onOpenResource !== nextProps.onOpenResource) return false
   if (prevProps.defaultOpen !== nextProps.defaultOpen) return false
-  if (prevProps.onTextFinalRender !== nextProps.onTextFinalRender) return false
 
   // Deep comparison for part content
   if (isChatTextPart(prevProps.part) && isChatTextPart(nextProps.part)) {
@@ -82,7 +78,6 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
   stripLeadingMermaidSources,
   directory,
   defaultOpen,
-  onTextFinalRender,
 }: AssistantPartRendererProps) {
   if (part.type === "step-start" || part.type === "step-finish") {
     return null
@@ -101,7 +96,6 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
         stripLeadingMermaidSources={stripLeadingMermaidSources}
         directory={directory}
         onOpenResource={onOpenResource}
-        onFinalRender={onTextFinalRender}
       />
     )
   }
@@ -116,11 +110,8 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
 
   if (isChatToolPart(part)) {
     return (
-      <motion.div
-        layout
-        initial={{ opacity: 0, height: 0 }}
-        animate={{ opacity: 1, height: "auto" }}
-        transition={CONTENT_REVEAL_TRANSITION}
+      <div
+        data-component="tool-part-wrapper"
         className="w-full overflow-hidden p-1 -m-1"
       >
         <ToolPartCard
@@ -130,7 +121,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
           onOpenResource={onOpenResource}
           defaultOpen={defaultOpen}
         />
-      </motion.div>
+      </div>
     )
   }
 

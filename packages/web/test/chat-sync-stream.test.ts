@@ -3,6 +3,7 @@ import { ServerProvider } from "../src/context/server"
 import { setRuntimePlatform, type Platform } from "../src/context/platform"
 import { startChatSync } from "../src/state/chat-sync"
 import {
+  MESSAGE_PART_DELTA_EVENT_TYPE,
   MESSAGE_PART_UPDATED_EVENT_TYPE,
   STREAMING_PART_RAW_FIELD,
   TOOL_PART_TYPE,
@@ -153,7 +154,7 @@ describe("startChatSync fetch stream", () => {
     expect(event.directory).toBe("/repo")
   })
 
-  test("drops stale part deltas when a newer part update is coalesced", async () => {
+  test("preserves part deltas between snapshots", async () => {
     globalThis.fetch = createFetchStub(async () => {
       const body = new ReadableStream({
         start(controller) {
@@ -208,10 +209,12 @@ describe("startChatSync fetch stream", () => {
       }, 40)
     })
 
-    expect(events).toHaveLength(1)
-    expect(events[0]?.payload.type).toBe("message.part.updated")
-    const firstEvent = events[0]
-    const firstEventPayload = firstEvent?.payload
+    expect(events.map((event) => event.payload.type)).toEqual([
+      MESSAGE_PART_UPDATED_EVENT_TYPE,
+      MESSAGE_PART_DELTA_EVENT_TYPE,
+      MESSAGE_PART_UPDATED_EVENT_TYPE,
+    ])
+    const firstEventPayload = events[2]?.payload
     let partText: string | undefined
     if (firstEventPayload && "properties" in firstEventPayload) {
       partText = (firstEventPayload.properties as { part?: { text?: string } } | undefined)?.part
@@ -220,7 +223,7 @@ describe("startChatSync fetch stream", () => {
     expect(partText).toBe("final")
   })
 
-  test("merges whiteboard raw tool deltas when a part update is coalesced", async () => {
+  test("preserves whiteboard raw tool deltas between snapshots", async () => {
     globalThis.fetch = createFetchStub(async () => {
       const body = new ReadableStream({
         start(controller) {
@@ -317,8 +320,13 @@ describe("startChatSync fetch stream", () => {
       }, 40)
     })
 
-    expect(events.map((event) => event.payload.type)).toEqual([MESSAGE_PART_UPDATED_EVENT_TYPE])
-    expect(eventPartState(events[0])?.raw).toBe('{"elements":"[{')
+    expect(events.map((event) => event.payload.type)).toEqual([
+      MESSAGE_PART_UPDATED_EVENT_TYPE,
+      MESSAGE_PART_DELTA_EVENT_TYPE,
+      MESSAGE_PART_UPDATED_EVENT_TYPE,
+    ])
+    expect(eventPartState(events[0])?.raw).toBe("")
+    expect(eventPartState(events[2])?.raw).toBe("")
   })
 
   test("skips vendor sync payloads and keeps streaming", async () => {

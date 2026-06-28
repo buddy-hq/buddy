@@ -146,7 +146,6 @@ function BuddyMermaidEditor(props: BuddyMermaidEditorProps): ReactElement {
             themeConfig={viewOptions?.themeConfig}
             hideFullscreenAction
             minimalActions
-            disableRevealAnimation
             showRawSourceOnError
             hideLoadingPlaceholder={false}
           />

@@ -8,13 +8,11 @@ Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
 
 type HarnessHandle = {
   pause: () => void
-  settleToBottom: () => void
+  forceScrollToBottom: () => void
 }
 
 type HarnessProps = {
-  contentDep: number
   onReady: (handle: HarnessHandle) => void
-  working: boolean
 }
 
 type ScrollMetrics = {
@@ -25,17 +23,14 @@ type ScrollMetrics = {
 
 function Harness(props: HarnessProps) {
   const onReady = props.onReady
-  const auto = useAutoScroll({
-    working: props.working,
-    contentDep: props.contentDep,
-  })
+  const auto = useAutoScroll()
 
   useLayoutEffect(() => {
     onReady({
       pause: auto.pause,
-      settleToBottom: auto.settleToBottom,
+      forceScrollToBottom: auto.forceScrollToBottom,
     })
-  }, [auto.pause, auto.settleToBottom, onReady])
+  }, [auto.forceScrollToBottom, auto.pause, onReady])
 
   return (
     <div
@@ -45,12 +40,7 @@ function Harness(props: HarnessProps) {
       }}
       onScroll={auto.handleScroll}
     >
-      <div
-        data-testid="content"
-        ref={(node) => {
-          Reflect.set(auto.contentRef, "current", node)
-        }}
-      />
+      <div data-testid="content" />
     </div>
   )
 }
@@ -83,12 +73,6 @@ function installScrollMetrics(element: HTMLDivElement, metrics: ScrollMetrics) {
   })
 }
 
-async function waitForAnimationFrame(): Promise<void> {
-  await new Promise<void>((resolve) => {
-    window.requestAnimationFrame(() => resolve())
-  })
-}
-
 describe("useAutoScroll", () => {
   let container: HTMLDivElement
   let root: Root
@@ -106,14 +90,12 @@ describe("useAutoScroll", () => {
     container.remove()
   })
 
-  test("keeps the bottom pinned for later transcript growth while still attached", async () => {
+  test("explicit sends force the viewport to the bottom", async () => {
     let handle: HarnessHandle | undefined
 
     await act(async () => {
       root.render(
         <Harness
-          working={false}
-          contentDep={0}
           onReady={(nextHandle) => {
             handle = nextHandle
           }}
@@ -127,25 +109,15 @@ describe("useAutoScroll", () => {
     const metrics: ScrollMetrics = {
       clientHeight: 400,
       scrollHeight: 800,
-      scrollTop: 400,
+      scrollTop: 120,
     }
     installScrollMetrics(scrollElement, metrics)
 
-    metrics.scrollHeight = 1_000
-
     await act(async () => {
-      root.render(
-        <Harness
-          working={false}
-          contentDep={1}
-          onReady={(nextHandle) => {
-            handle = nextHandle
-          }}
-        />,
-      )
+      handle?.forceScrollToBottom()
     })
 
-    expect(metrics.scrollTop).toBe(600)
+    expect(metrics.scrollTop).toBe(400)
   })
 
   test("does not pull the viewport back down after an explicit detach", async () => {
@@ -154,8 +126,6 @@ describe("useAutoScroll", () => {
     await act(async () => {
       root.render(
         <Harness
-          working={false}
-          contentDep={0}
           onReady={(nextHandle) => {
             handle = nextHandle
           }}
@@ -180,68 +150,10 @@ describe("useAutoScroll", () => {
       readyHandle.pause()
     })
     metrics.scrollHeight = 1_000
-
     await act(async () => {
-      root.render(
-        <Harness
-          working={false}
-          contentDep={1}
-          onReady={(nextHandle) => {
-            handle = nextHandle
-          }}
-        />,
-      )
+      scrollElement.dispatchEvent(new Event("scroll", { bubbles: true }))
     })
 
     expect(metrics.scrollTop).toBe(200)
-  })
-
-  test("keeps bottom pinned across late final-render height changes", async () => {
-    let handle: HarnessHandle | undefined
-
-    await act(async () => {
-      root.render(
-        <Harness
-          working={true}
-          contentDep={0}
-          onReady={(nextHandle) => {
-            handle = nextHandle
-          }}
-        />,
-      )
-    })
-
-    const scrollElement = requireDiv(container, '[data-testid="scroll"]')
-    const metrics: ScrollMetrics = {
-      clientHeight: 400,
-      scrollHeight: 800,
-      scrollTop: 400,
-    }
-    installScrollMetrics(scrollElement, metrics)
-
-    await act(async () => {
-      root.render(
-        <Harness
-          working={false}
-          contentDep={1}
-          onReady={(nextHandle) => {
-            handle = nextHandle
-          }}
-        />,
-      )
-    })
-
-    metrics.scrollHeight = 1_000
-    await act(async () => {
-      await waitForAnimationFrame()
-    })
-    expect(metrics.scrollTop).toBe(600)
-
-    metrics.scrollHeight = 1_200
-    await act(async () => {
-      handle?.settleToBottom()
-      await waitForAnimationFrame()
-    })
-    expect(metrics.scrollTop).toBe(800)
   })
 })

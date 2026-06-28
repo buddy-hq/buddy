@@ -7,10 +7,18 @@ import type { ChatTextPart } from "../src/components/chat/utils/part-guards"
 import { MARKDOWN_MATH_PLACEHOLDER_COMPONENT } from "../src/components/markdown/markdown-math-placeholder"
 import { useChatStore } from "../src/state/chat-store"
 import {
+  applyTranscriptPartUpdated,
+  resetTranscriptRepositoryForTests,
+} from "../src/state/transcript-repository"
+import {
   createAssistantMessageInfo,
   createMessageWithParts,
   seedDirectoryChatState,
 } from "./test-utils"
+import {
+  createChatTranscriptTestViewport,
+  type ChatTranscriptTestViewport,
+} from "./chat-transcript-harness"
 
 const directory = "/repo"
 const sessionID = "ses_interrupted"
@@ -53,12 +61,14 @@ describe("interrupted chat rendering", () => {
   let container: HTMLDivElement
   let root: Root
   let originalResizeObserver: typeof globalThis.ResizeObserver | undefined
+  let transcriptViewport: ChatTranscriptTestViewport
 
   beforeEach(() => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
+    transcriptViewport = createChatTranscriptTestViewport()
 
     originalResizeObserver = globalThis.ResizeObserver
     class MockResizeObserver implements ResizeObserver {
@@ -75,6 +85,8 @@ describe("interrupted chat rendering", () => {
       await flushEffects()
     })
     useChatStore.setState({ directories: {} })
+    resetTranscriptRepositoryForTests()
+    transcriptViewport.cleanup()
     container.remove()
     if (originalResizeObserver) {
       globalThis.ResizeObserver = originalResizeObserver
@@ -114,7 +126,7 @@ describe("interrupted chat rendering", () => {
           ),
         ],
       })
-      root.render(<ChatTranscript directory={directory} />)
+      root.render(<ChatTranscript directory={directory} scrollViewportRef={transcriptViewport.ref} />)
       await flushEffects()
     })
 
@@ -130,7 +142,7 @@ describe("interrupted chat rendering", () => {
     expect(container.textContent).not.toContain("\\frac")
   })
 
-  test("flushes locally paced text when a live turn is interrupted", async () => {
+  test("renders latest text immediately when a live turn is interrupted", async () => {
     const firstText = "Short prefix."
     const finalText = `${firstText} ${"This response arrived in a large buffered chunk. ".repeat(30)}Final tail.`
 
@@ -149,7 +161,7 @@ describe("interrupted chat rendering", () => {
       await flushEffects(30)
     })
 
-    expect(container.textContent).not.toContain("Final tail.")
+    expect(container.textContent).toContain("Final tail.")
 
     await act(async () => {
       root.render(
@@ -196,12 +208,12 @@ describe("interrupted chat rendering", () => {
           ),
         ],
       })
-      root.render(<ChatTranscript directory={directory} />)
+      root.render(<ChatTranscript directory={directory} scrollViewportRef={transcriptViewport.ref} />)
       await flushEffects()
     })
 
     await act(async () => {
-      useChatStore.getState().applyPartUpdated(directory, {
+      applyTranscriptPartUpdated(directory, {
         ...interruptedTextPart(finalText),
         time: {
           start: 1,

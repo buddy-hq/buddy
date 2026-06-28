@@ -6,7 +6,6 @@ import {
   STREAMING_PART_RAW_FIELD,
   TOOL_PART_TYPE,
   TOOL_STATE_PENDING_STATUS,
-  TOOL_STATE_RUNNING_STATUS,
 } from "../src/state/chat-stream-event-buffer"
 import type { GlobalEvent } from "../src/state/chat-types"
 
@@ -69,7 +68,7 @@ function eventPartState(event: GlobalEvent | undefined) {
 }
 
 describe("chat stream event buffer", () => {
-  test("drops stale text deltas when a later full part update is in the same frame", () => {
+  test("preserves text deltas between full part snapshots", () => {
     const events = bufferChatStreamEvents([
       messagePartUpdated({
         type: "text",
@@ -85,11 +84,17 @@ describe("chat stream event buffer", () => {
       }),
     ])
 
-    expect(events.map((event) => event.payload.type)).toEqual([MESSAGE_PART_UPDATED_EVENT_TYPE])
-    expect(eventPart(events[0])?.text).toBe("hello")
+    expect(events.map((event) => event.payload.type)).toEqual([
+      MESSAGE_PART_UPDATED_EVENT_TYPE,
+      MESSAGE_PART_DELTA_EVENT_TYPE,
+      MESSAGE_PART_UPDATED_EVENT_TYPE,
+    ])
+    expect(eventPart(events[0])?.text).toBe("hel")
+    expect(eventProperties(events[1])?.delta).toBe("lo")
+    expect(eventPart(events[2])?.text).toBe("hello")
   })
 
-  test("drops stale text deltas even when the earlier part snapshot already flushed", () => {
+  test("preserves leading text deltas before a later snapshot", () => {
     const events = bufferChatStreamEvents([
       messagePartDelta({
         field: "text",
@@ -101,11 +106,47 @@ describe("chat stream event buffer", () => {
       }),
     ])
 
-    expect(events.map((event) => event.payload.type)).toEqual([MESSAGE_PART_UPDATED_EVENT_TYPE])
-    expect(eventPart(events[0])?.text).toBe("hello world")
+    expect(events.map((event) => event.payload.type)).toEqual([
+      MESSAGE_PART_DELTA_EVENT_TYPE,
+      MESSAGE_PART_UPDATED_EVENT_TYPE,
+    ])
+    expect(eventProperties(events[0])?.delta).toBe(" world")
+    expect(eventPart(events[1])?.text).toBe("hello world")
   })
 
-  test("merges raw tool deltas into a later active tool snapshot when the raw base is known", () => {
+  test("coalesces adjacent compatible text deltas", () => {
+    const events = bufferChatStreamEvents([
+      messagePartDelta({
+        field: "text",
+        delta: "hel",
+      }),
+      messagePartDelta({
+        field: "text",
+        delta: "lo",
+      }),
+    ])
+
+    expect(events.map((event) => event.payload.type)).toEqual([MESSAGE_PART_DELTA_EVENT_TYPE])
+    expect(eventProperties(events[0])?.delta).toBe("hello")
+  })
+
+  test("coalesces adjacent compatible full part snapshots", () => {
+    const events = bufferChatStreamEvents([
+      messagePartUpdated({
+        type: "text",
+        text: "hel",
+      }),
+      messagePartUpdated({
+        type: "text",
+        text: "hello",
+      }),
+    ])
+
+    expect(events.map((event) => event.payload.type)).toEqual([MESSAGE_PART_UPDATED_EVENT_TYPE])
+    expect(eventPart(events[0])?.text).toBe("hello")
+  })
+
+  test("does not coalesce across ordering barriers", () => {
     const events = bufferChatStreamEvents([
       messagePartUpdated({
         type: TOOL_PART_TYPE,
@@ -124,58 +165,7 @@ describe("chat stream event buffer", () => {
         type: TOOL_PART_TYPE,
         tool: WHITEBOARD_CREATE_VIEW_TOOL_ID,
         state: {
-          status: TOOL_STATE_RUNNING_STATUS,
-          input: {},
-          time: { start: 1 },
-        },
-      }),
-    ])
-
-    expect(events.map((event) => event.payload.type)).toEqual([MESSAGE_PART_UPDATED_EVENT_TYPE])
-    expect(eventPartState(events[0])?.raw).toBe('{"elements":"[{\\"type\\":\\"rectangle\\"}')
-  })
-
-  test("does not duplicate raw deltas already present in a later snapshot", () => {
-    const events = bufferChatStreamEvents([
-      messagePartUpdated({
-        type: TOOL_PART_TYPE,
-        tool: WHITEBOARD_CREATE_VIEW_TOOL_ID,
-        state: {
           status: TOOL_STATE_PENDING_STATUS,
-          input: {},
-          raw: "",
-        },
-      }),
-      messagePartDelta({
-        field: STREAMING_PART_RAW_FIELD,
-        delta: "abc",
-      }),
-      messagePartUpdated({
-        type: TOOL_PART_TYPE,
-        tool: WHITEBOARD_CREATE_VIEW_TOOL_ID,
-        state: {
-          status: TOOL_STATE_PENDING_STATUS,
-          input: {},
-          raw: "abc",
-        },
-      }),
-    ])
-
-    expect(events.map((event) => event.payload.type)).toEqual([MESSAGE_PART_UPDATED_EVENT_TYPE])
-    expect(eventPartState(events[0])?.raw).toBe("abc")
-  })
-
-  test("keeps raw deltas when a later update cannot safely absorb them", () => {
-    const events = bufferChatStreamEvents([
-      messagePartDelta({
-        field: STREAMING_PART_RAW_FIELD,
-        delta: "next",
-      }),
-      messagePartUpdated({
-        type: TOOL_PART_TYPE,
-        tool: WHITEBOARD_CREATE_VIEW_TOOL_ID,
-        state: {
-          status: TOOL_STATE_RUNNING_STATUS,
           input: {},
           time: { start: 1 },
         },
@@ -183,8 +173,12 @@ describe("chat stream event buffer", () => {
     ])
 
     expect(events.map((event) => event.payload.type)).toEqual([
+      MESSAGE_PART_UPDATED_EVENT_TYPE,
       MESSAGE_PART_DELTA_EVENT_TYPE,
       MESSAGE_PART_UPDATED_EVENT_TYPE,
     ])
+    expect(eventPartState(events[0])?.raw).toBe('{"elements":"[')
+    expect(eventProperties(events[1])?.delta).toBe('{\\"type\\":\\"rectangle\\"}')
+    expect(eventPartState(events[2])?.raw).toBeUndefined()
   })
 })

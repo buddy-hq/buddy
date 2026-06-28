@@ -44,7 +44,7 @@ import { useLocation, useNavigate } from "@tanstack/react-router"
 import { language } from "@/context/language"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { useChatStore } from "@/state/chat-store"
-import type { MessageWithParts } from "@/state/chat-types"
+import { useTranscriptSessionMessages } from "@/state/transcript-repository"
 import { useGlobalLearnerMemorySettings } from "@/state/learner-memory-settings"
 import { teachingSessionKey, useTeachingRuntime } from "@/state/teaching-runtime"
 import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
@@ -99,7 +99,6 @@ const MEMORY_TEST_DEFAULT_QUERY = "bridge validation boundary structured errors"
 const MEMORY_TEST_MILLISECONDS_PER_MINUTE = 60_000
 const MEMORY_TEST_MILLISECONDS_PER_HOUR = 60 * MEMORY_TEST_MILLISECONDS_PER_MINUTE
 const MEMORY_TEST_MILLISECONDS_PER_DAY = 24 * MEMORY_TEST_MILLISECONDS_PER_HOUR
-const EMPTY_MESSAGES: MessageWithParts[] = []
 const DEVTOOLS_AFFORDANCE_POSITION_LABELS: Record<DevToolsAffordancePosition, string> = {
   "bottom-right": "Bottom right",
   "top-right": "Top right",
@@ -2446,7 +2445,7 @@ function titleCaseLabel(value: string) {
 function CapabilitiesChips(props: { directory: string }) {
   const { directory } = props
   const sessionID = useChatStore((s) => s.directories[directory]?.sessionID)
-  const messages = useChatStore((s) => s.directories[directory]?.messages ?? EMPTY_MESSAGES)
+  const messages = useTranscriptSessionMessages(directory, sessionID)
   const sessionKey = useMemo(
     () => (sessionID ? teachingSessionKey(directory, sessionID) : ""),
     [directory, sessionID],

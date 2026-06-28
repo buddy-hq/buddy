@@ -380,7 +380,7 @@ describe("hidden steps read rendering", () => {
     })
 
     expect(container.querySelector("[data-hidden-steps-stable-streaming='true']")).not.toBeNull()
-    expect(container.querySelector("[data-reasoning-streaming-plain='true']")).not.toBeNull()
+    expect(container.textContent).toContain("const value = 1")
   })
 
   test("keeps expanded reasoning rows open when streaming stability changes", async () => {
@@ -426,7 +426,7 @@ describe("hidden steps read rendering", () => {
     expect(container.textContent).toContain("const value = 1")
   })
 
-  test("renders long active reasoning as plain streaming text", async () => {
+  test("renders long active reasoning in the normal markdown flow", async () => {
     await act(async () => {
       root.render(
         <TooltipProvider>
@@ -444,7 +444,6 @@ describe("hidden steps read rendering", () => {
       await flushEffects(20)
     })
 
-    expect(container.querySelector("[data-reasoning-streaming-plain='true']")).not.toBeNull()
     expect(container.textContent).toContain("Reasoning paragraph 420")
   })
 

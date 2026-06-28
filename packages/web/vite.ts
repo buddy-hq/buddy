@@ -62,6 +62,9 @@ export function buddyWebVitePlugin(options: BuddyWebVitePluginOptions = {}): Plu
             dedupe: WEB_DEDUPE_MODULES,
             alias: createBuddyWebResolveAlias(includeRootAlias),
           },
+          worker: {
+            format: "es",
+          },
         } satisfies UserConfig
       },
     },

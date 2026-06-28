@@ -32,10 +32,6 @@ export const mermaidConstants = {
     FULLSCREEN_PADDING_SM_TOP: 112,
     FULLSCREEN_PADDING_BOTTOM: 24,
   },
-  animation: {
-    Y_OFFSET: 8,
-    SCALE_START: 0.995,
-  },
   patterns: {
     VOID_HTML_TAG:
       /<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)(\s[^>]*?)?\s*\/?>/giu,

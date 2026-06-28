@@ -1,7 +1,5 @@
 import type { MessageInfo, MessagePart, MessageWithParts } from "@/state/chat-types"
 
-import { VIRTUAL_CHAT_TURN_ESTIMATE_PX } from "@/components/virtualization/virtualization-defaults"
-
 import { parseToolState } from "../tools/parse-tool-state"
 import { parseToolUiMetadata } from "../tools/parse-tool-ui-metadata"
 import { resolveToolRenderer } from "../tools/registry"
@@ -278,39 +276,6 @@ export function buildTurns(messages: MessageWithParts[]): ChatTurn[] {
   return turns
 }
 
-function messageTextLength(message: MessageWithParts | undefined): number {
-  if (!message) return 0
-
-  return message.parts.reduce((total, part) => {
-    if (!("text" in part) || typeof part.text !== "string") return total
-    return total + part.text.length
-  }, 0)
-}
-
-export function estimateTurnHeight(turn: ChatTurn): number {
-  const userPartCount = turn.user?.parts.length ?? 0
-  const assistantPartCount = turn.assistants.reduce(
-    (count, message) => count + message.parts.length,
-    0,
-  )
-  const assistantMessageCount = turn.assistants.length
-  const userTextLength = messageTextLength(turn.user)
-  const assistantTextLength = turn.assistants.reduce(
-    (total, message) => total + messageTextLength(message),
-    0,
-  )
-  const combinedTextLength = userTextLength + assistantTextLength
-
-  return Math.max(
-    VIRTUAL_CHAT_TURN_ESTIMATE_PX,
-    180 +
-      userPartCount * 36 +
-      assistantPartCount * 40 +
-      assistantMessageCount * 48 +
-      Math.ceil(combinedTextLength / 220) * 28,
-  )
-}
-
 export function chatTranscriptEqual(
   prevProps: ChatTranscriptProps,
   nextProps: ChatTranscriptProps,
@@ -318,8 +283,6 @@ export function chatTranscriptEqual(
   return (
     prevProps.directory === nextProps.directory &&
     prevProps.scrollViewportRef === nextProps.scrollViewportRef &&
-    prevProps.userScrolled === nextProps.userScrolled &&
-    prevProps.onAssistantTextFinalRender === nextProps.onAssistantTextFinalRender &&
     prevProps.onOpenSession === nextProps.onOpenSession &&
     prevProps.onOpenResource === nextProps.onOpenResource &&
     prevProps.onForkMessage === nextProps.onForkMessage &&

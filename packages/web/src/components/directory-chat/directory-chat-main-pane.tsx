@@ -27,7 +27,7 @@ import { getSessionContextMetrics } from "@/state/context-metrics"
 import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
 import type { MessageWithParts, ProviderInfo, QuestionRequest } from "@/state/chat-types"
 import type { PermissionReply } from "@/state/permission-types"
-import { Redo2Icon } from "lucide-react"
+import { ArrowDownIcon, Redo2Icon } from "lucide-react"
 import { BenchClosedContextPublisher } from "@/components/bench/bench-route-context"
 import { isBenchRoutePathname } from "@/lib/bench-navigation"
 import { useLocation } from "@tanstack/react-router"
@@ -41,8 +41,8 @@ type DirectoryChatMainPaneProps = {
   directory: string
   chatState: DirectoryChatState
   transcriptRef: RefObject<HTMLElement | null>
-  transcriptContentRef: RefObject<HTMLElement | null>
-  userScrolled: boolean
+  showJumpToLatest: boolean
+  onJumpToLatest: () => void
   onTranscriptScroll: (event: UIEvent<HTMLElement>) => void
   onTranscriptWheel: (event: WheelEvent<HTMLElement>) => void
   onTranscriptKeyDown: (event: KeyboardEvent<HTMLElement>) => void
@@ -52,7 +52,6 @@ type DirectoryChatMainPaneProps = {
   onTranscriptTouchEnd: () => void
   onTranscriptTouchCancel: () => void
   onTranscriptInteraction?: () => void
-  onAssistantTextFinalRender?: () => void
   onOpenSession: (sessionID: string) => void
   onOpenResource: (
     directory: string,
@@ -174,8 +173,8 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     directory,
     chatState,
     transcriptRef,
-    transcriptContentRef,
-    userScrolled,
+    showJumpToLatest,
+    onJumpToLatest,
     onTranscriptScroll,
     onTranscriptWheel,
     onTranscriptKeyDown,
@@ -185,7 +184,6 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     onTranscriptTouchEnd,
     onTranscriptTouchCancel,
     onTranscriptInteraction,
-    onAssistantTextFinalRender,
     onOpenSession,
     onOpenResource,
     onForkMessage,
@@ -241,68 +239,78 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
               <div className="mb-4">{props.topContent}</div>
             </div>
           ) : null}
-          <ScrollArea
-            data-component="chat-transcript-scroll-area"
-            viewportRef={transcriptRef as React.Ref<HTMLDivElement>}
-            onScroll={onTranscriptScroll as React.UIEventHandler<HTMLDivElement>}
-            onWheel={onTranscriptWheel as React.WheelEventHandler<HTMLDivElement>}
-            onKeyDown={onTranscriptKeyDown as React.KeyboardEventHandler<HTMLDivElement>}
-            onPointerDown={onTranscriptPointerDown as React.PointerEventHandler<HTMLDivElement>}
-            onTouchStart={onTranscriptTouchStart as React.TouchEventHandler<HTMLDivElement>}
-            onTouchMove={onTranscriptTouchMove as React.TouchEventHandler<HTMLDivElement>}
-            onTouchEnd={onTranscriptTouchEnd as React.TouchEventHandler<HTMLDivElement>}
-            onTouchCancel={onTranscriptTouchCancel as React.TouchEventHandler<HTMLDivElement>}
-            fillContentWidth
-            className="min-w-0 flex-1 min-h-0"
-          >
-            <div
-              ref={transcriptContentRef as React.Ref<HTMLDivElement>}
-              onClick={onTranscriptInteraction}
-              className={`mx-auto min-w-0 w-full max-w-full px-4 pt-4 pb-12 space-y-4 md:max-w-200 ${
-                chatState.messages.length === 0 && chatState.isReady ? "h-full" : ""
-              }`}
+          <div className="relative min-h-0 flex-1">
+            <ScrollArea
+              data-component="chat-transcript-scroll-area"
+              viewportRef={transcriptRef as React.Ref<HTMLDivElement>}
+              onScroll={onTranscriptScroll as React.UIEventHandler<HTMLDivElement>}
+              onWheel={onTranscriptWheel as React.WheelEventHandler<HTMLDivElement>}
+              onKeyDown={onTranscriptKeyDown as React.KeyboardEventHandler<HTMLDivElement>}
+              onPointerDown={onTranscriptPointerDown as React.PointerEventHandler<HTMLDivElement>}
+              onTouchStart={onTranscriptTouchStart as React.TouchEventHandler<HTMLDivElement>}
+              onTouchMove={onTranscriptTouchMove as React.TouchEventHandler<HTMLDivElement>}
+              onTouchEnd={onTranscriptTouchEnd as React.TouchEventHandler<HTMLDivElement>}
+              onTouchCancel={onTranscriptTouchCancel as React.TouchEventHandler<HTMLDivElement>}
+              fillContentWidth
+              className="h-full min-w-0 min-h-0"
             >
-              {!chatState.isReady ? (
-                <p className="text-sm text-text-weak">
-                  {language.t("directoryChat.loadingConversationHistory")}
-                </p>
-              ) : isTranscriptLoading ? (
-                <div className="space-y-6 pt-2">
-                  <div className="h-3 w-28 rounded-full bg-surface-raised-base" />
-                  <div className="space-y-3">
-                    <div className="h-4 w-4/5 rounded-full bg-surface-raised-base/80" />
-                    <div className="h-4 w-3/5 rounded-full bg-surface-raised-base/60" />
-                    <div className="h-40 w-full rounded-xl bg-surface-raised-base/50" />
+              <div
+                onClick={onTranscriptInteraction}
+                className={`mx-auto min-w-0 w-full max-w-full px-4 pt-4 pb-12 space-y-4 md:max-w-200 ${
+                  chatState.messages.length === 0 && chatState.isReady ? "h-full" : ""
+                }`}
+              >
+                {!chatState.isReady ? (
+                  <p className="text-sm text-text-weak">
+                    {language.t("directoryChat.loadingConversationHistory")}
+                  </p>
+                ) : isTranscriptLoading ? (
+                  <div className="space-y-6 pt-2">
+                    <div className="h-3 w-28 rounded-full bg-surface-raised-base" />
+                    <div className="space-y-3">
+                      <div className="h-4 w-4/5 rounded-full bg-surface-raised-base/80" />
+                      <div className="h-4 w-3/5 rounded-full bg-surface-raised-base/60" />
+                      <div className="h-40 w-full rounded-xl bg-surface-raised-base/50" />
+                    </div>
+                    <div className="space-y-3">
+                      <div className="h-4 w-2/3 rounded-full bg-surface-raised-base/60" />
+                      <div className="h-4 w-1/2 rounded-full bg-surface-raised-base/50" />
+                    </div>
                   </div>
-                  <div className="space-y-3">
-                    <div className="h-4 w-2/3 rounded-full bg-surface-raised-base/60" />
-                    <div className="h-4 w-1/2 rounded-full bg-surface-raised-base/50" />
+                ) : chatState.messages.length === 0 ? (
+                  <div className="h-full flex flex-col">
+                    <ChatEmptyStateBoard
+                      directory={directory}
+                      directories={props.directories}
+                      onSelectNotebook={props.onSelectNotebook}
+                    />
                   </div>
-                </div>
-              ) : chatState.messages.length === 0 ? (
-                <div className="h-full flex flex-col">
-                  <ChatEmptyStateBoard
-                    directory={directory}
-                    directories={props.directories}
-                    onSelectNotebook={props.onSelectNotebook}
-                  />
-                </div>
-              ) : (
-                <>
+                ) : (
                   <ChatTranscript
+                    key={chatState.sessionID}
                     directory={directory}
                     scrollViewportRef={transcriptRef}
-                    userScrolled={userScrolled}
-                    onAssistantTextFinalRender={onAssistantTextFinalRender}
                     onOpenSession={onOpenSession}
                     onOpenResource={onOpenResource}
                     onForkMessage={onForkMessage}
                     onRevertMessage={onRevertMessage}
                   />
-                </>
-              )}
-            </div>
-          </ScrollArea>
+                )}
+              </div>
+            </ScrollArea>
+            {showJumpToLatest ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-full bg-background-stronger shadow-md"
+                onClick={onJumpToLatest}
+              >
+                <ArrowDownIcon className="mr-1 h-4 w-4" />
+                {language.t("chat.jumpToLatest")}
+              </Button>
+            ) : null}
+          </div>
 
           {chatState.error ? (
             <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">

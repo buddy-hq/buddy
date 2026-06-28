@@ -1,12 +1,16 @@
 import { useState, useRef, useEffect, type ReactNode } from "react"
-import { motion, AnimatePresence } from "motion/react"
+import { motion, AnimatePresence, useReducedMotion } from "motion/react"
 import { Bot, BotMessageSquare, XCircle, ChevronDown, ChevronUp } from "lucide-react"
 import { cn } from "@buddy/ui"
 import { TextShimmer } from "../../text-shimmer"
 import { ToolErrorPanel } from "../../tool-error-panel"
 import { Markdown } from "@/components/markdown/Markdown"
 import type { ToolIconRenderer } from "../../tool-registry-types"
-import { TASK_CARD_TRANSITION } from "../task-motion"
+import {
+  TASK_CARD_ENTER_ANIMATE,
+  TASK_CARD_TRANSITION,
+  taskCardEnterInitial,
+} from "../task-motion"
 
 export type SubagentCardStatus = "pending" | "running" | "completed" | "error"
 
@@ -193,12 +197,11 @@ export function SubagentCard({
   const hasBody = hasChildBody || hasErrorBody
   const displayName = agentName ?? "Specialist"
   const displayTaskTitle = taskTitle ?? DEFAULT_TASK_TITLE
+  const reducedMotion = useReducedMotion() === true
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={TASK_CARD_TRANSITION}
+    <div
+      data-component="subagent-card"
       className="w-full overflow-hidden rounded-xl border border-border-base bg-surface-base"
     >
       <HeaderArea
@@ -223,9 +226,9 @@ export function SubagentCard({
         {hasChildBody ? (
           <motion.div
             key="completed"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
+            data-component="subagent-card-completed-body"
+            initial={taskCardEnterInitial(reducedMotion)}
+            animate={TASK_CARD_ENTER_ANIMATE}
             transition={TASK_CARD_TRANSITION}
             className="flex flex-col"
           >
@@ -238,15 +241,15 @@ export function SubagentCard({
         {hasErrorBody ? (
           <motion.div
             key="error"
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
+            data-component="subagent-card-error-body"
+            initial={taskCardEnterInitial(reducedMotion)}
+            animate={TASK_CARD_ENTER_ANIMATE}
             transition={TASK_CARD_TRANSITION}
           >
             <ToolErrorPanel error={error} />
           </motion.div>
         ) : null}
       </AnimatePresence>
-    </motion.div>
+    </div>
   )
 }

@@ -2229,7 +2229,6 @@ function LazyMermaidObjectCard(props: {
           renderPriority={1}
           showRawSourceOnError
           minimalActions
-          disableRevealAnimation
           onFullscreenOpen={() => {
             void openLibrary({
               type: "object",

@@ -19,6 +19,7 @@ export const dict = {
   "chat.emptyState.notebookHint":
     "Start a new thread here, or create another notebook from the sidebar when you want a separate space.",
   "chat.emptyState.title": "Let's understand",
+  "chat.jumpToLatest": "Jump to latest",
   "chat.permissionDock.action.bash": "Run command",
   "chat.permissionDock.action.edit": "Edit {{path}}",
   "chat.permissionDock.action.editGeneric": "Edit file",

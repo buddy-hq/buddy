@@ -176,6 +176,8 @@ type HiddenStepsItemEntryProps = {
   metaText?: string
   interrupted?: boolean
   streaming?: boolean
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 function HiddenStepsItemContent({
@@ -209,8 +211,17 @@ function HiddenStepsItemContent({
 }
 
 function HiddenStepsItemRow(props: HiddenStepsItemEntryProps) {
-  const [isOpen, setIsOpen] = useState(false)
+  const [localOpen, setLocalOpen] = useState(false)
   const { entry } = props
+  const isOpen = props.open ?? localOpen
+  const setIsOpen = (next: boolean | ((current: boolean) => boolean)) => {
+    const value = typeof next === "function" ? next(isOpen) : next
+    if (props.onOpenChange) {
+      props.onOpenChange(value)
+      return
+    }
+    setLocalOpen(value)
+  }
   const icon = entryIcon(entry)
   const label = getHiddenStepsEntryLabel(entry)
   const hasDetails = hiddenStepsEntryHasDetails(entry)
@@ -265,6 +276,13 @@ type HiddenStepsProps = {
   metaText?: string
   interrupted?: boolean
   isBusy?: boolean
+  expansionState?: HiddenStepsExpansionState
+  onExpansionStateChange?: (state: HiddenStepsExpansionState) => void
+}
+
+export type HiddenStepsExpansionState = {
+  open: boolean
+  itemOpenByPartID: Record<string, boolean>
 }
 
 export function HiddenSteps({
@@ -275,8 +293,22 @@ export function HiddenSteps({
   metaText,
   interrupted,
   isBusy,
+  expansionState,
+  onExpansionStateChange,
 }: HiddenStepsProps) {
-  const [isOpen, setIsOpen] = useState(false)
+  const [localOpen, setLocalOpen] = useState(false)
+  const isOpen = expansionState?.open ?? localOpen
+  const setIsOpen = (next: boolean | ((current: boolean) => boolean)) => {
+    const value = typeof next === "function" ? next(isOpen) : next
+    if (expansionState && onExpansionStateChange) {
+      onExpansionStateChange({
+        ...expansionState,
+        open: value,
+      })
+      return
+    }
+    setLocalOpen(value)
+  }
 
   const { entries, isActive, hasError, resolvedHeader } = useMemo(() => {
     const entries = parts.map((part) => createHiddenStepsEntry(part))
@@ -359,7 +391,24 @@ export function HiddenSteps({
                 </div>
               ) : (
                 entries.map((entry) => (
-                  <HiddenStepsItemRow key={entry.part.id} entry={entry} {...itemProps} />
+                  <HiddenStepsItemRow
+                    key={entry.part.id}
+                    entry={entry}
+                    open={expansionState?.itemOpenByPartID[entry.part.id]}
+                    onOpenChange={
+                      expansionState && onExpansionStateChange
+                        ? (open) =>
+                            onExpansionStateChange({
+                              ...expansionState,
+                              itemOpenByPartID: {
+                                ...expansionState.itemOpenByPartID,
+                                [entry.part.id]: open,
+                              },
+                            })
+                        : undefined
+                    }
+                    {...itemProps}
+                  />
                 ))
               )}
             </div>

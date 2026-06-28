@@ -103,4 +103,17 @@ describe("Buddy session message route", () => {
     const secondBody = (await secondPage.json()) as OpenCodeMessage.WithParts[]
     expect(secondBody.map((message) => message.info.id)).toEqual(seeded.ids.slice(-4, -2))
   })
+
+  test("returns not found for paginated transcript reads on missing sessions", async () => {
+    await using project = await tmpdir({ git: true })
+
+    const response = await app.request("/api/session/ses_missing_message_route/message?limit=2", {
+      headers: {
+        "x-buddy-directory": project.path,
+      },
+    })
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toEqual({ error: "Session not found" })
+  })
 })

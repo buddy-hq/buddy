@@ -93,7 +93,6 @@ function HydratedMermaidObjectCard(props: {
       renderPriority={1}
       showRawSourceOnError
       minimalActions
-      disableRevealAnimation
       onFullscreenOpen={() => {
         void openBenchRoute({
           directory: props.directory,

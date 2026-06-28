@@ -478,11 +478,7 @@ export function useDirectoryChatPageController(
     [cs, decodedDirectory],
   )
 
-  const autoScroll = useAutoScroll({
-    working: cs.isBusy,
-    contentDep: cs.messages,
-  })
-  const snapToBottomForThreadSwitch = autoScroll.snapToBottomForThreadSwitch
+  const autoScroll = useAutoScroll()
 
   useEffect(() => {
     setPendingSuggestionOverride(undefined)
@@ -573,10 +569,6 @@ export function useDirectoryChatPageController(
     if (closingDirectory === decodedDirectory) return
     closingDirectoryRef.current = undefined
   }, [decodedDirectory])
-
-  useEffect(() => {
-    snapToBottomForThreadSwitch()
-  }, [sessionID, snapToBottomForThreadSwitch])
 
   useEffect(() => {
     if (!decodedDirectory || !sessionID) return
@@ -1620,8 +1612,8 @@ export function useDirectoryChatPageController(
     directory: decodedDirectory,
     chatState: cs,
     transcriptRef: autoScroll.scrollRef,
-    transcriptContentRef: autoScroll.contentRef,
-    userScrolled: autoScroll.userScrolled,
+    showJumpToLatest: autoScroll.showJumpToLatest,
+    onJumpToLatest: autoScroll.forceScrollToBottom,
     onTranscriptScroll: autoScroll.handleScroll,
     onTranscriptWheel: autoScroll.handleWheel,
     onTranscriptKeyDown: autoScroll.handleKeyDown,
@@ -1631,7 +1623,6 @@ export function useDirectoryChatPageController(
     onTranscriptTouchEnd: autoScroll.handleTouchEnd,
     onTranscriptTouchCancel: autoScroll.handleTouchCancel,
     onTranscriptInteraction: autoScroll.handleInteraction,
-    onAssistantTextFinalRender: autoScroll.settleToBottom,
     onOpenSession: handleOpenCurrentDirectorySession,
     onRevertMessage: async ({ sessionID, messageID }) => {
       const restoreDraft = resolveUndoRestoreDraft(messageID)

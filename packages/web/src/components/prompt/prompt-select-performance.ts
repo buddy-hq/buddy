@@ -1,8 +1,10 @@
 import type { MessagePart, MessageWithParts } from "@/state/chat-types"
 import { parseToolState } from "@/components/chat/tools/parse-tool-state"
 import { isChatToolPart } from "@/components/chat/utils/part-guards"
+import { VIRTUAL_CHAT_TURN_ESTIMATE_PX } from "@/components/virtualization/virtualization-defaults"
 
-import { buildTurns, estimateTurnHeight } from "@/components/chat/utils/message-utils"
+import { buildTurns } from "@/components/chat/utils/message-utils"
+import type { ChatTurn } from "@/components/chat/types"
 
 export const PROMPT_SELECT_MODE_SETTLE_DELAY_MS = 250
 export const PROMPT_SELECT_MODE_IDLE_TIMEOUT_MS = 500
@@ -56,6 +58,30 @@ function countFencedCodeBlocks(text: string) {
 
 function getMessageTextLength(message: MessageWithParts) {
   return message.parts.reduce((total, part) => total + getPartTextLength(part), 0)
+}
+
+function estimatePromptSelectTurnHeight(turn: ChatTurn): number {
+  const userPartCount = turn.user?.parts.length ?? 0
+  const assistantPartCount = turn.assistants.reduce(
+    (count, message) => count + message.parts.length,
+    0,
+  )
+  const assistantMessageCount = turn.assistants.length
+  const userTextLength = turn.user ? getMessageTextLength(turn.user) : 0
+  const assistantTextLength = turn.assistants.reduce(
+    (total, message) => total + getMessageTextLength(message),
+    0,
+  )
+  const combinedTextLength = userTextLength + assistantTextLength
+
+  return Math.max(
+    VIRTUAL_CHAT_TURN_ESTIMATE_PX,
+    180 +
+      userPartCount * 36 +
+      assistantPartCount * 40 +
+      assistantMessageCount * 48 +
+      Math.ceil(combinedTextLength / 220) * 28,
+  )
 }
 
 function flattenTurns(turns: ReturnType<typeof buildTurns>): MessageWithParts[] {
@@ -114,7 +140,7 @@ export function getPromptSelectPerformanceSummary(
   }
 
   const estimatedWindowHeight = analysisTurns.reduce(
-    (total, turn) => total + estimateTurnHeight(turn),
+    (total, turn) => total + estimatePromptSelectTurnHeight(turn),
     0,
   )
   const mermaidRenderCount = mermaidSignalCount + renderMermaidToolCount

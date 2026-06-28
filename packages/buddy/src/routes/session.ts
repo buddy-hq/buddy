@@ -69,6 +69,11 @@ const sessionListQuerySchema = z.object({
   limit: z.coerce.number().optional(),
 })
 
+const sessionMessagesQuerySchema = directoryQuerySchema.extend({
+  limit: z.coerce.number().optional(),
+  before: z.string().optional(),
+})
+
 const sessionUpdateBodySchema = z.object({
   title: z.string().optional(),
   time: z
@@ -371,7 +376,7 @@ export const SessionRoutes = new Hono()
         ...routeErrors(403, 404),
       },
     }),
-    validator("query", directoryQuerySchema),
+    validator("query", sessionMessagesQuerySchema),
     validator("param", SessionIDParamSchema),
     listSessionMessagesHandler,
   )

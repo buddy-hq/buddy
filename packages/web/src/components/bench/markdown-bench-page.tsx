@@ -54,7 +54,7 @@ import {
   type ProjectExplorerEditableFileState,
 } from "@/state/chat-actions"
 import type { MessagePart } from "@/state/chat-types"
-import { useChatStore } from "@/state/chat-store"
+import { useTranscriptSessionMessages } from "@/state/transcript-repository"
 import {
   MAX_MARKDOWN_BENCH_CONTENT_FONT_SCALE,
   MIN_MARKDOWN_BENCH_CONTENT_FONT_SCALE,
@@ -243,18 +243,16 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   const stagedSelectionKeyRef = useRef<string | undefined>(undefined)
   const activeSessionID =
     controller.status === "ready" ? controller.mainPaneProps.chatState.sessionID : undefined
-  const toolParts = useChatStore((state) => {
-    const directoryState = state.directories[props.directory]
-    if (!directoryState || !activeSessionID) return []
-    const messages =
-      directoryState.messagesBySessionID?.[activeSessionID] ??
-      (directoryState.sessionID === activeSessionID ? directoryState.messages : [])
-    return messages.flatMap((message) =>
-      message.parts.filter(
-        (part) => part.type === "tool" && toolMetadataTargetsPath(part, props.path),
+  const activeMessages = useTranscriptSessionMessages(props.directory, activeSessionID)
+  const toolParts = useMemo(
+    () =>
+      activeMessages.flatMap((message) =>
+        message.parts.filter(
+          (part) => part.type === "tool" && toolMetadataTargetsPath(part, props.path),
+        ),
       ),
-    )
-  })
+    [activeMessages, props.path],
+  )
   const dirty = markdown !== savedMarkdown
   const title = fileNameFromPath(props.path) || props.path
   const saveState = conflict ? "conflict" : saveError ? "error" : saving ? "saving" : "ready"

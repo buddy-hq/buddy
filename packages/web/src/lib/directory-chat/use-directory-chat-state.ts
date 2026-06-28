@@ -22,11 +22,23 @@ import {
   directoryQuestionsQueryOptions,
   directorySessionsQueryOptions,
 } from "@/state/directory-chat-query"
+import {
+  applyTranscriptMessageRemoved,
+  applyTranscriptMessageUpdated,
+  applyTranscriptPartDelta,
+  applyTranscriptPartRemoved,
+  applyTranscriptPartUpdated,
+  useTranscriptSessionMessages,
+  useTranscriptSessionMeta,
+} from "@/state/transcript-repository"
 import { getSessionFamily, type SessionFamily } from "../session-family"
 import { isSessionWorking } from "@/state/session-status"
 import { modelSelectionKey, parseConfiguredModel } from "./chat-prompt-helpers"
 import { formatSessionTitle } from "@/lib/session-title"
 import type {
+  MessageInfo,
+  MessagePart,
+  MessageWithParts,
   ProviderInfo,
   ProviderModelInfo,
   SessionInfo,
@@ -185,11 +197,6 @@ type DirectoryChatStoreSlice = Pick<
   | "setActiveDirectory"
   | "applySessionUpdated"
   | "applySessionStatus"
-  | "applyMessageUpdated"
-  | "applyMessageRemoved"
-  | "applyPartUpdated"
-  | "applyPartRemoved"
-  | "applyPartDelta"
   | "applyPermissionAsked"
   | "applyPermissionReplied"
   | "applyQuestionAsked"
@@ -197,6 +204,23 @@ type DirectoryChatStoreSlice = Pick<
   | "clearDirectoryError"
   | "setDirectoryError"
 >
+
+type DirectoryChatTranscriptActionSlice = {
+  applyMessageUpdated: (directory: string, info: MessageInfo) => void
+  applyMessageRemoved: (
+    directory: string,
+    input: { sessionID: string; messageID: string },
+  ) => void
+  applyPartUpdated: (directory: string, part: MessagePart) => void
+  applyPartRemoved: (
+    directory: string,
+    input: { sessionID: string; messageID: string; partID: string },
+  ) => void
+  applyPartDelta: (
+    directory: string,
+    input: { sessionID: string; messageID: string; partID: string; field: string; delta: string },
+  ) => void
+}
 
 type DirectoryChatUiSlice = Pick<
   UiPreferencesStore,
@@ -235,6 +259,7 @@ type DirectoryChatThinkingOption = {
 }
 
 export type DirectoryChatState = DirectoryChatStoreSlice &
+  DirectoryChatTranscriptActionSlice &
   DirectoryChatUiSlice &
   DirectoryChatModelSlice &
   DirectoryChatTeachingSlice & {
@@ -282,7 +307,7 @@ export type DirectoryChatState = DirectoryChatStoreSlice &
     error: ChatStore["directories"][string]["error"] | undefined
     pendingPermissions: ChatStore["directories"][string]["pendingPermissions"]
     pendingQuestions: ChatStore["directories"][string]["pendingQuestions"]
-    messages: ChatStore["directories"][string]["messages"]
+    messages: MessageWithParts[]
     providers: ChatStore["directories"][string]["providers"]
     sessionsByDirectory: Record<string, SessionInfo[]>
     sessionStatusByDirectory: Record<string, Record<string, SessionStatusInfo>>
@@ -304,11 +329,6 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
   const setStreamStatus = useChatStore((state) => state.setStreamStatus)
   const applySessionUpdated = useChatStore((state) => state.applySessionUpdated)
   const applySessionStatus = useChatStore((state) => state.applySessionStatus)
-  const applyMessageUpdated = useChatStore((state) => state.applyMessageUpdated)
-  const applyMessageRemoved = useChatStore((state) => state.applyMessageRemoved)
-  const applyPartUpdated = useChatStore((state) => state.applyPartUpdated)
-  const applyPartRemoved = useChatStore((state) => state.applyPartRemoved)
-  const applyPartDelta = useChatStore((state) => state.applyPartDelta)
   const applyPermissionAsked = useChatStore((state) => state.applyPermissionAsked)
   const applyPermissionReplied = useChatStore((state) => state.applyPermissionReplied)
   const applyQuestionAsked = useChatStore((state) => state.applyQuestionAsked)
@@ -432,10 +452,12 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
         : undefined,
     [sessionFamily.current?.parentID, sessionFamily.family],
   )
-  const messages = directoryState?.messages ?? EMPTY_LIST
+  const messages = useTranscriptSessionMessages(decodedDirectory, sessionID)
+  const transcriptMeta = useTranscriptSessionMeta(decodedDirectory, sessionID)
   const isTurnActive = isSessionWorking({
     info: sessionFamily.current,
     status: sessionID ? directoryState?.sessionStatusByID[sessionID] : undefined,
+    messages,
   })
   const providers = directoryState?.providers ?? EMPTY_LIST
   const providerDefault = directoryState?.providerDefault ?? EMPTY_RECORD
@@ -549,9 +571,12 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
       }) ?? THINKING_DEFAULT_KEY,
     [configuredVariant, effectiveModelInfo?.variants, selectedVariantKey],
   )
-  const isBusy = directoryState?.isBusy ?? false
+  const isBusy = isTurnActive
   const isReady = directoryState?.isReady ?? false
-  const loadingSessionID = directoryState?.loadingSessionID
+  const loadingSessionID =
+    transcriptMeta.loading && sessionID && messages.length === 0
+      ? sessionID
+      : directoryState?.loadingSessionID
   const error = directoryState?.error
   const pendingPermissions = directoryState?.pendingPermissions ?? []
   const pendingQuestions = directoryState?.pendingQuestions ?? []
@@ -597,11 +622,11 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
     setStreamStatus,
     applySessionUpdated,
     applySessionStatus,
-    applyMessageUpdated,
-    applyMessageRemoved,
-    applyPartUpdated,
-    applyPartRemoved,
-    applyPartDelta,
+    applyMessageUpdated: applyTranscriptMessageUpdated,
+    applyMessageRemoved: applyTranscriptMessageRemoved,
+    applyPartUpdated: applyTranscriptPartUpdated,
+    applyPartRemoved: applyTranscriptPartRemoved,
+    applyPartDelta: applyTranscriptPartDelta,
     applyPermissionAsked,
     applyPermissionReplied,
     applyQuestionAsked,

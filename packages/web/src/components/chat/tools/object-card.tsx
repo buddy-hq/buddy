@@ -1,6 +1,4 @@
-import { motion } from "motion/react"
 import { ToolStatusIndicator } from "./tool-header"
-import { MOTION_SOFT } from "./tool-motion"
 import { cn } from "@buddy/ui"
 import type { ToolState } from "./types"
 
@@ -65,10 +63,8 @@ export function ObjectCard({
   )
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 4 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={MOTION_SOFT}
+    <div
+      data-component="object-card"
       className="flex min-w-0 w-full max-w-full flex-col overflow-hidden rounded-xl bg-background-base shadow-sm ring-1 ring-border-base/50"
     >
       {headerPosition === "top" ? header : null}
@@ -111,6 +107,6 @@ export function ObjectCard({
         </div>
       ) : null}
       {headerPosition === "bottom" ? header : null}
-    </motion.div>
+    </div>
   )
 }

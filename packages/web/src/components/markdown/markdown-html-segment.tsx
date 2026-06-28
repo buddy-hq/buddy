@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import DOMPurify from "dompurify"
 import morphdom from "morphdom"
 import "katex/dist/katex.min.css"
@@ -16,7 +16,25 @@ import { useWorkspaceFileOpen, type WorkspaceResourceOpener } from "@/lib/use-wo
 import { usePlatform } from "@/context/platform"
 import { getServerConnection } from "@/context/server"
 import { resolveAssetUrl } from "@/lib/resource-url"
-import { parseMarkdownToHtml } from "./markdown-parser"
+import {
+  parseMarkdownToHtml,
+  projectMarkdownBlocks,
+  type MarkdownProjection,
+} from "./markdown-parser"
+import {
+  disposeMarkdownWorkerKey,
+  highlightStreamingCode,
+  MarkdownWorkerDisposedError,
+  MarkdownWorkerSupersededError,
+  MarkdownWorkerUnavailableError,
+} from "./markdown-worker"
+import {
+  shouldResetCodeTokens,
+  type RenderedCodeState,
+} from "./markdown-code-state"
+import type { MarkdownToken, MarkdownWorkerState } from "./markdown-worker-protocol"
+import { hasOpenStreamingMath } from "./markdown-math"
+import { useInlineAssetLifecycleReporter } from "@/components/chat/inline-asset-boundary"
 
 if (typeof window !== "undefined" && DOMPurify.isSupported) {
   DOMPurify.addHook("afterSanitizeAttributes", (node: Element) => {
@@ -95,8 +113,13 @@ type MarkdownCacheEntry = {
   html: string
 }
 
+type MarkdownHtmlBlockMode = "full" | "live" | "code"
+
 const MARKDOWN_CACHE_MAX = 200
 const markdownCache = new Map<string, MarkdownCacheEntry>()
+const renderedCodeTokens = new WeakMap<HTMLDivElement, RenderedCodeState>()
+const CODE_FALLBACK_BACKGROUND_COLOR = "var(--color-background-stronger)"
+const CODE_FALLBACK_COLOR = "var(--color-text-base)"
 
 const copyIconPath =
   '<path d="M6.2513 6.24935V2.91602H17.0846V13.7493H13.7513M13.7513 6.24935V17.0827H2.91797V6.24935H13.7513Z" stroke="currentColor" stroke-linecap="round"/>'
@@ -421,7 +444,93 @@ function decoratedMarkdownRoot(html: string, labels: CopyLabels): HTMLDivElement
   return nextRoot
 }
 
-export function MarkdownHtmlSegment(props: {
+function isSameMarkdownImage(fromElement: Element, toElement: Element): boolean {
+  if (!(fromElement instanceof HTMLImageElement) || !(toElement instanceof HTMLImageElement)) {
+    return false
+  }
+
+  return (
+    fromElement.getAttribute("src") === toElement.getAttribute("src") &&
+    fromElement.getAttribute("alt") === toElement.getAttribute("alt") &&
+    fromElement.getAttribute("title") === toElement.getAttribute("title")
+  )
+}
+
+function decoratedCodeFallbackRoot(input: {
+  code: string
+  language: string | undefined
+  labels: CopyLabels
+}): HTMLDivElement {
+  const root = document.createElement("div")
+  const pre = document.createElement("pre")
+  pre.className = "shiki OpenCode"
+  pre.style.backgroundColor = CODE_FALLBACK_BACKGROUND_COLOR
+  pre.style.color = CODE_FALLBACK_COLOR
+  const code = document.createElement("code")
+  code.className = `language-${input.language || "text"}`
+  code.appendChild(createCodeTokenSpan([input.code, ""]))
+  pre.appendChild(code)
+  root.appendChild(pre)
+  decorateMarkdown(root, input.labels)
+  return root
+}
+
+function sameCodeToken(left: MarkdownToken, right: MarkdownToken | undefined) {
+  return !!right && left[0] === right[0] && left[1] === right[1]
+}
+
+function createCodeTokenSpan(token: MarkdownToken) {
+  const span = document.createElement("span")
+  span.setAttribute("style", token[1])
+  span.textContent = token[0]
+  return span
+}
+
+function updateCodeTokens(input: {
+  root: HTMLDivElement
+  language: string
+  raw: string
+  result: MarkdownWorkerState
+}) {
+  const code = input.root.querySelector("code")
+  if (!(code instanceof HTMLElement)) return
+
+  code.className = `language-${input.language}`
+  const previous = renderedCodeTokens.get(input.root)
+  const reset = shouldResetCodeTokens(previous, {
+    language: input.language,
+    generation: input.result.generation,
+    stableCount: input.result.stable.length,
+    raw: input.raw,
+  })
+  const stableCount = reset ? 0 : previous?.stableCount ?? 0
+  const tail = [...input.result.stable.slice(stableCount), ...input.result.unstable]
+  const prior = reset ? [] : previous?.unstable ?? []
+  const prefix = prior.findIndex((token, index) => !sameCodeToken(token, tail[index]))
+  const keep = stableCount + (prefix < 0 ? Math.min(prior.length, tail.length) : prefix)
+
+  if (reset) {
+    code.replaceChildren()
+  } else {
+    while (code.children.length > keep) {
+      code.lastElementChild?.remove()
+    }
+  }
+  tail
+    .slice(keep - stableCount)
+    .map(createCodeTokenSpan)
+    .forEach((span) => code.appendChild(span))
+
+  renderedCodeTokens.set(input.root, {
+    language: input.language,
+    generation: input.result.generation,
+    stableCount: input.result.stable.length,
+    unstable: input.result.unstable,
+    raw: input.raw,
+  })
+}
+
+type MarkdownHtmlSegmentProps = {
   text: string
   cacheKey?: string
   className?: string
@@ -429,7 +538,14 @@ export function MarkdownHtmlSegment(props: {
   onOpenResource?: WorkspaceResourceOpener
   streaming?: boolean
   interrupted?: boolean
-}) {
+}
+
+type MarkdownHtmlBlockProps = MarkdownHtmlSegmentProps & {
+  blockKey: string
+  blockMode: Exclude<MarkdownHtmlBlockMode, "code">
+}
+
+const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlockProps) {
   const rootRef = useRef<HTMLDivElement | null>(null)
   const renderIdRef = useRef(0)
   const copyCleanupRef = useRef<(() => void) | undefined>(undefined)
@@ -443,6 +559,10 @@ export function MarkdownHtmlSegment(props: {
       `${props.cacheKey ?? props.text}::${sanitizeContextKey}::${props.streaming ? "live" : "full"}::${props.interrupted ? "interrupted" : "active"}`,
     [props.cacheKey, props.text, sanitizeContextKey, props.streaming, props.interrupted],
   )
+  useInlineAssetLifecycleReporter({
+    ref: rootRef,
+    active: true,
+  })
   const cachedEntry = useMemo(() => {
     const cached = markdownCache.get(fullCacheKey)
     if (cached && cached.source === props.text) {
@@ -529,6 +649,15 @@ export function MarkdownHtmlSegment(props: {
     const renderId = renderIdRef.current + 1
     renderIdRef.current = renderId
     let cancelled = false
+    const preserveRenderedFallback =
+      props.streaming === true && hasOpenStreamingMath(props.text)
+    if (!cachedEntry && !preserveRenderedFallback && root.childNodes.length === 0) {
+      const fallbackRoot = decoratedMarkdownRoot(sanitizeRawMarkdownFallback(props.text), copyLabels)
+      if (fallbackRoot) {
+        root.replaceChildren(...Array.from(fallbackRoot.childNodes))
+        resetCodeCopy()
+      }
+    }
 
     void (async () => {
       let html: string
@@ -548,6 +677,9 @@ export function MarkdownHtmlSegment(props: {
       morphdom(root, nextRoot, {
         childrenOnly: true,
         onBeforeElUpdated: (fromEl, toEl) => {
+          if (isSameMarkdownImage(fromEl, toEl)) {
+            return false
+          }
           if (
             fromEl instanceof HTMLButtonElement &&
             toEl instanceof HTMLButtonElement &&
@@ -574,6 +706,7 @@ export function MarkdownHtmlSegment(props: {
       resetCodeCopy()
     }
   }, [
+    cachedEntry,
     copyLabels,
     executePrimary,
     fullCacheKey,
@@ -582,12 +715,154 @@ export function MarkdownHtmlSegment(props: {
     props.cacheKey,
     props.directory,
     props.interrupted,
+    props.blockMode,
     props.text,
     props.streaming,
     resetCodeCopy,
   ])
 
-  return <div ref={rootRef} className={props.className ?? markdownClassName} />
+  return (
+    <div
+      ref={rootRef}
+      data-markdown-block-key={props.blockKey}
+      className={props.className}
+    />
+  )
+})
+
+type MarkdownCodeBlockProps = {
+  blockKey: string
+  raw: string
+  code: string
+  language?: string
+  complete?: boolean
+}
+
+const MarkdownCodeBlock = memo(function MarkdownCodeBlock(props: MarkdownCodeBlockProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const copyCleanupRef = useRef<(() => void) | undefined>(undefined)
+  const copyLabels = useMemo<CopyLabels>(() => ({ copy: "Copy code", copied: "Copied" }), [])
+  const language = props.language || "text"
+  const workerKey = props.blockKey
+
+  useInlineAssetLifecycleReporter({
+    ref: rootRef,
+    active: true,
+  })
+
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    if (!root || root.childNodes.length > 0) return
+    const fallbackRoot = decoratedCodeFallbackRoot({
+      code: props.code,
+      language,
+      labels: copyLabels,
+    })
+    root.replaceChildren(...Array.from(fallbackRoot.childNodes))
+    copyCleanupRef.current = setupCodeCopy(root, copyLabels)
+  }, [copyLabels, language, props.code])
+
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    let cancelled = false
+
+    void highlightStreamingCode({
+      key: workerKey,
+      text: props.code,
+      language,
+      complete: props.complete,
+    })
+      .then((result) => {
+        if (cancelled || !root.isConnected) return
+        updateCodeTokens({
+          root,
+          language,
+          raw: props.raw,
+          result,
+        })
+      })
+      .catch((error: unknown) => {
+        if (
+          error instanceof MarkdownWorkerDisposedError ||
+          error instanceof MarkdownWorkerSupersededError ||
+          error instanceof MarkdownWorkerUnavailableError
+        ) {
+          return
+        }
+        console.error("Markdown highlighting worker failed", error)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [language, props.code, props.complete, props.raw, workerKey])
+
+  useEffect(() => {
+    return () => {
+      copyCleanupRef.current?.()
+      copyCleanupRef.current = undefined
+      disposeMarkdownWorkerKey(workerKey)
+    }
+  }, [workerKey])
+
+  return (
+    <div
+      ref={rootRef}
+      data-markdown-block-key={props.blockKey}
+      data-markdown-complete={props.complete ? "true" : "false"}
+      className=""
+    />
+  )
+})
+
+export function MarkdownHtmlSegment(props: MarkdownHtmlSegmentProps) {
+  const projectionRef = useRef<MarkdownProjection | undefined>(undefined)
+  const projection = useMemo(() => {
+    const next = projectMarkdownBlocks(
+      projectionRef.current,
+      props.text,
+      props.streaming ?? false,
+    )
+    projectionRef.current = next
+    return next
+  }, [props.streaming, props.text])
+  const blocks = projection.blocks
+  const baseCacheKey = props.cacheKey ?? props.text
+
+  return (
+    <div className={props.className ?? markdownClassName}>
+      {blocks.map((block, index) => {
+        const blockKey = `${baseCacheKey}:${index}:${block.mode}`
+        if (block.mode === "code") {
+          return (
+            <MarkdownCodeBlock
+              key={blockKey}
+              blockKey={blockKey}
+              raw={block.raw}
+              code={block.src}
+              language={block.language}
+              complete={block.complete}
+            />
+          )
+        }
+        return (
+          <MarkdownHtmlBlock
+            key={blockKey}
+            blockKey={blockKey}
+            blockMode={block.mode}
+            text={block.src}
+            cacheKey={blockKey}
+            className=""
+            directory={props.directory}
+            onOpenResource={props.onOpenResource}
+            streaming={block.mode === "live"}
+            interrupted={props.interrupted}
+          />
+        )
+      })}
+    </div>
+  )
 }
 
 export { markdownClassName }

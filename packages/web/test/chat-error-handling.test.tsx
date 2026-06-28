@@ -4,6 +4,10 @@ import { createRoot, type Root } from "react-dom/client"
 import { ChatTranscript } from "../src/components/chat/chat-transcript"
 import type { MessagePart, MessageWithParts } from "../src/state/chat-types"
 import { seedDirectoryChatState } from "./test-utils"
+import {
+  createChatTranscriptTestViewport,
+  type ChatTranscriptTestViewport,
+} from "./chat-transcript-harness"
 
 async function flushEffects(delay = 0) {
   await Promise.resolve()
@@ -146,12 +150,14 @@ describe("chat error handling", () => {
   let container: HTMLDivElement
   let root: Root
   let originalResizeObserver: typeof globalThis.ResizeObserver | undefined
+  let transcriptViewport: ChatTranscriptTestViewport
 
   beforeEach(() => {
     ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
+    transcriptViewport = createChatTranscriptTestViewport()
 
     originalResizeObserver = globalThis.ResizeObserver
     class MockResizeObserver implements ResizeObserver {
@@ -167,6 +173,7 @@ describe("chat error handling", () => {
       root.unmount()
       await flushEffects()
     })
+    transcriptViewport.cleanup()
     container.remove()
     if (originalResizeObserver) {
       globalThis.ResizeObserver = originalResizeObserver
@@ -189,7 +196,7 @@ describe("chat error handling", () => {
           }),
         ],
       })
-      root.render(<ChatTranscript directory="/repo" />)
+      root.render(<ChatTranscript directory="/repo" scrollViewportRef={transcriptViewport.ref} />)
       await flushEffects()
     })
 
@@ -204,7 +211,7 @@ describe("chat error handling", () => {
       seedDirectoryChatState("/repo", {
         messages: [userMessage(), hiddenAutoRepairUserMessage()],
       })
-      root.render(<ChatTranscript directory="/repo" />)
+      root.render(<ChatTranscript directory="/repo" scrollViewportRef={transcriptViewport.ref} />)
       await flushEffects()
     })
 
@@ -217,7 +224,7 @@ describe("chat error handling", () => {
       seedDirectoryChatState("/repo", {
         messages: [userMessage(), prefixedAutoRepairUserMessage()],
       })
-      root.render(<ChatTranscript directory="/repo" />)
+      root.render(<ChatTranscript directory="/repo" scrollViewportRef={transcriptViewport.ref} />)
       await flushEffects()
     })
 

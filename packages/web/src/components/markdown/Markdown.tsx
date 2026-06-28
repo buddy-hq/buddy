@@ -95,7 +95,6 @@ export function Markdown(props: {
               alt="Mermaid diagram"
               directory={props.directory}
               minimalActions
-              disableRevealAnimation
               className="min-h-56"
             />
           </div>

@@ -4,9 +4,6 @@ import { immer } from "zustand/middleware/immer"
 import { createPlatformJsonStorage } from "../context/platform"
 import type {
   DirectoryChatState,
-  MessageInfo,
-  MessagePart,
-  MessageWithParts,
   McpStatusMap,
   PermissionRequest,
   QuestionRequest,
@@ -14,16 +11,6 @@ import type {
   SessionStatusInfo,
   SessionInfo,
 } from "./chat-types"
-import {
-  appendPartDelta,
-  preserveStreamingRawState,
-  removeMessage,
-  removePart,
-  upsertMessage,
-  upsertPart,
-} from "./chat-reducer"
-import { STREAMING_PART_RAW_FIELD } from "./chat-stream-event-buffer"
-import { reconcileTerminalAssistantParts } from "./chat-tool-parts"
 import { IDLE_SESSION_STATUS, isSessionWorking, sessionStatusEquals } from "./session-status"
 
 type StreamStatus = "idle" | "connecting" | "connected" | "error"
@@ -96,21 +83,9 @@ export type ChatStore = {
   setActiveSession: (directory: string, sessionID?: string) => void
   startSessionDraft: (directory: string) => void
   setSessionInfo: (directory: string, info: SessionInfo) => void
-  setMessages: (directory: string, sessionID: string, messages: MessageWithParts[]) => void
   clearLoadingSession: (directory: string, sessionID: string) => void
   applySessionUpdated: (directory: string, info: SessionInfo) => void
   applySessionStatus: (directory: string, sessionID: string, status: SessionStatusInfo) => void
-  applyMessageUpdated: (directory: string, info: MessageInfo) => void
-  applyMessageRemoved: (directory: string, input: { sessionID: string; messageID: string }) => void
-  applyPartUpdated: (directory: string, part: MessagePart) => void
-  applyPartRemoved: (
-    directory: string,
-    input: { sessionID: string; messageID: string; partID: string },
-  ) => void
-  applyPartDelta: (
-    directory: string,
-    input: { sessionID: string; messageID: string; partID: string; field: string; delta: string },
-  ) => void
   setPendingPermissions: (directory: string, requests: PermissionRequest[]) => void
   setPendingQuestions: (directory: string, requests: QuestionRequest[]) => void
   setProviders: (directory: string, input: ProviderCatalogState) => void
@@ -320,9 +295,6 @@ function emptyDirectoryState(): DirectoryChatState {
     sessionTitle: DEFAULT_TITLE,
     sessions: [],
     sessionStatusByID: {},
-    messages: [],
-    messagesBySessionID: {},
-    orphanPartsByMessageID: {},
     pendingPermissions: [],
     pendingQuestions: [],
     providers: [],
@@ -401,56 +373,13 @@ function resolveActiveSessionBusy(input: {
   sessionID: string | undefined
   sessions: SessionInfo[]
   sessionStatusByID: Record<string, SessionStatusInfo>
-  messages?: MessageWithParts[]
 }) {
   if (!input.sessionID) return false
 
   return isSessionWorking({
     info: findSessionInfo(input.sessions, input.sessionID),
     status: input.sessionStatusByID[input.sessionID],
-    messages: input.messages,
   })
-}
-
-function sessionMessages(state: DirectoryChatState, sessionID: string | undefined) {
-  if (!sessionID) return []
-  return (
-    state.messagesBySessionID?.[sessionID] ?? (state.sessionID === sessionID ? state.messages : [])
-  )
-}
-
-function hasCachedSessionMessages(state: DirectoryChatState, sessionID: string | undefined) {
-  if (!sessionID) return false
-  return Object.hasOwn(state.messagesBySessionID ?? {}, sessionID)
-}
-
-function nextMessagesBySession(
-  state: DirectoryChatState,
-  sessionID: string,
-  messages: MessageWithParts[],
-) {
-  return {
-    ...state.messagesBySessionID,
-    [sessionID]: messages,
-  }
-}
-
-function mergeLiveSessionMessages(
-  currentMessages: MessageWithParts[],
-  incomingMessages: MessageWithParts[],
-) {
-  if (currentMessages.length === 0) {
-    return incomingMessages
-  }
-
-  let nextMessages = incomingMessages
-  for (const currentMessage of currentMessages) {
-    nextMessages = upsertMessage(nextMessages, currentMessage.info)
-    for (const currentPart of currentMessage.parts) {
-      nextMessages = upsertPart(nextMessages, currentPart)
-    }
-  }
-  return nextMessages
 }
 
 function shouldPreserveMissingActiveSession(
@@ -459,148 +388,6 @@ function shouldPreserveMissingActiveSession(
 ) {
   if (!sessionID) return false
   return state.isBusy
-}
-
-function upsertOrphanPart(parts: MessagePart[], incoming: MessagePart) {
-  const index = parts.findIndex((part) => part.id === incoming.id)
-  if (index === -1) {
-    const insertIndex = parts.findIndex((part) => part.id > incoming.id)
-    if (insertIndex === -1) {
-      return [...parts, incoming]
-    }
-    return [...parts.slice(0, insertIndex), incoming, ...parts.slice(insertIndex)]
-  }
-
-  const next = [...parts]
-  next[index] = preserveStreamingRawState(next[index], incoming)
-  return next
-}
-
-function appendOrphanPartDelta(
-  parts: MessagePart[],
-  input: { partID: string; field: string; delta: string },
-) {
-  const index = parts.findIndex((part) => part.id === input.partID)
-  if (index === -1) {
-    return parts
-  }
-
-  const next = [...parts]
-  const part = parts[index]
-  if (!part) return parts
-  if (input.field === STREAMING_PART_RAW_FIELD) {
-    const state = part.state
-    if (!state || typeof state !== "object" || Array.isArray(state) || !("raw" in state)) {
-      return parts
-    }
-    if (typeof state.raw !== "string") return parts
-    next[index] = {
-      ...part,
-      state: {
-        ...state,
-        raw: state.raw + input.delta,
-      },
-    }
-  } else {
-    const currentFieldValue = part[input.field]
-    if (typeof currentFieldValue !== "string") {
-      return parts
-    }
-    next[index] = {
-      ...part,
-      [input.field]: currentFieldValue + input.delta,
-    }
-  }
-  return next
-}
-
-function removeOrphanPart(parts: MessagePart[], partID: string) {
-  const index = parts.findIndex((part) => part.id === partID)
-  if (index === -1) {
-    return parts
-  }
-
-  const next = [...parts]
-  next.splice(index, 1)
-  return next
-}
-
-function nextOrphanPartsByMessage(
-  state: DirectoryChatState,
-  messageID: string,
-  parts: MessagePart[] | undefined,
-) {
-  const next = { ...state.orphanPartsByMessageID }
-  if (!parts || parts.length === 0) {
-    delete next[messageID]
-    return next
-  }
-
-  next[messageID] = parts
-  return next
-}
-
-function mergeOrphanPartsIntoMessages(
-  messages: MessageWithParts[],
-  orphanPartsByMessageID: Record<string, MessagePart[]>,
-) {
-  let nextMessages = messages
-  let nextOrphanPartsByMessageID = orphanPartsByMessageID
-  let changed = false
-
-  for (const message of messages) {
-    const orphanParts = nextOrphanPartsByMessageID[message.info.id]
-    if (!orphanParts || orphanParts.length === 0) {
-      continue
-    }
-
-    changed = true
-    for (const part of orphanParts) {
-      nextMessages = upsertPart(nextMessages, part)
-    }
-    if (nextOrphanPartsByMessageID === orphanPartsByMessageID) {
-      nextOrphanPartsByMessageID = { ...orphanPartsByMessageID }
-    }
-    delete nextOrphanPartsByMessageID[message.info.id]
-  }
-
-  return changed
-    ? { messages: nextMessages, orphanPartsByMessageID: nextOrphanPartsByMessageID }
-    : { messages, orphanPartsByMessageID }
-}
-
-function pruneOrphanPartsForSession(
-  orphanPartsByMessageID: Record<string, MessagePart[]>,
-  sessionID: string,
-) {
-  const next = Object.fromEntries(
-    Object.entries(orphanPartsByMessageID).filter(([, parts]) => parts[0]?.sessionID !== sessionID),
-  )
-  return next
-}
-
-function sealCompletedAssistantMessages(messages: MessageWithParts[], completedAt: number) {
-  let changed = false
-
-  const nextMessages = messages.map((message) => {
-    if (message.info.role !== "assistant" || typeof message.info.time.completed === "number") {
-      return message
-    }
-
-    changed = true
-    return {
-      ...message,
-      info: {
-        ...message.info,
-        time: {
-          ...message.info.time,
-          completed: completedAt,
-        },
-      },
-    }
-  })
-
-  return changed ? nextMessages : messages
 }
 
 type ChatStoreHook = UseBoundStore<
@@ -777,12 +564,10 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             ? nextSessions.find((session) => session.id === activeSessionID)
             : undefined
           const switchedSession = activeSessionID !== current.sessionID
-          const nextMessages = sessionMessages(current, activeSessionID)
           const nextBusy = resolveActiveSessionBusy({
             sessionID: activeSessionID,
             sessions: nextSessions,
             sessionStatusByID: nextSessionStatusByID,
-            messages: nextMessages,
           })
 
           state.directories[directory] = {
@@ -792,9 +577,6 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             sessionID: activeSessionID,
             sessionTitle: activeInfo?.title ?? DEFAULT_TITLE,
             sessionStatusByID: nextSessionStatusByID,
-            messages: nextMessages,
-            messagesBySessionID: current.messagesBySessionID ?? {},
-            orphanPartsByMessageID: current.orphanPartsByMessageID ?? {},
             pendingPermissions: switchedSession
               ? current.pendingPermissions.filter(
                   (request: PermissionRequest) => request.sessionID === activeSessionID,
@@ -821,9 +603,6 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
               sessionID: undefined,
               loadingSessionID: undefined,
               sessionTitle: DEFAULT_TITLE,
-              messages: [],
-              messagesBySessionID: current.messagesBySessionID ?? {},
-              orphanPartsByMessageID: current.orphanPartsByMessageID ?? {},
               pendingPermissions: [],
               pendingQuestions: current.pendingQuestions,
               isBusy: false,
@@ -835,17 +614,12 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             (session: SessionInfo) => session.id === sessionID,
           )
           const switchedSession = current.sessionID !== sessionID
-          const hasCachedMessages = hasCachedSessionMessages(current, sessionID)
-          const nextMessages = sessionMessages(current, sessionID)
           state.directories[directory] = {
             ...current,
             isDraft: false,
             sessionID,
-            loadingSessionID: hasCachedMessages ? undefined : sessionID,
+            loadingSessionID: undefined,
             sessionTitle: activeInfo?.title ?? current.sessionTitle,
-            messages: nextMessages,
-            messagesBySessionID: current.messagesBySessionID ?? {},
-            orphanPartsByMessageID: current.orphanPartsByMessageID ?? {},
             pendingPermissions: switchedSession
               ? current.pendingPermissions.filter(
                   (request: PermissionRequest) => request.sessionID === sessionID,
@@ -856,7 +630,6 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
               sessionID,
               sessions: current.sessions,
               sessionStatusByID: current.sessionStatusByID,
-              messages: nextMessages,
             }),
           }
           state.lastSessionByDirectory[directory] = sessionID
@@ -870,82 +643,18 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const current = state.directories[directory] ?? emptyDirectoryState()
           const nextSessions = upsertSession(current.sessions, info)
           state.lastSessionByDirectory[directory] = info.id
-          const hasCachedMessages = hasCachedSessionMessages(current, info.id)
-          const nextMessages = sessionMessages(current, info.id)
           state.directories[directory] = {
             ...current,
             isDraft: false,
             sessions: nextSessions,
             sessionID: info.id,
-            loadingSessionID: hasCachedMessages ? undefined : info.id,
+            loadingSessionID: undefined,
             sessionTitle: info.title || DEFAULT_TITLE,
-            messages: nextMessages,
-            messagesBySessionID: current.messagesBySessionID ?? {},
-            orphanPartsByMessageID: current.orphanPartsByMessageID ?? {},
             isBusy: resolveActiveSessionBusy({
               sessionID: info.id,
               sessions: nextSessions,
               sessionStatusByID: current.sessionStatusByID,
-              messages: nextMessages,
             }),
-          }
-        })
-      },
-      setMessages(directory, sessionID, messages) {
-        set((state) => {
-          const current = state.directories[directory] ?? emptyDirectoryState()
-          const incomingMessages = Array.isArray(messages) ? messages : []
-          const nextSessionID = current.sessionID
-          const isActiveSession = nextSessionID === sessionID
-          const incomingWithOrphans = mergeOrphanPartsIntoMessages(
-            incomingMessages,
-            current.orphanPartsByMessageID ?? {},
-          )
-          const currentWithOrphans =
-            isActiveSession && current.isBusy
-              ? mergeOrphanPartsIntoMessages(
-                  sessionMessages(current, sessionID),
-                  incomingWithOrphans.orphanPartsByMessageID,
-                )
-              : undefined
-          const nextMessages = reconcileTerminalAssistantParts(
-            isActiveSession && current.isBusy
-              ? mergeLiveSessionMessages(
-                  currentWithOrphans?.messages ?? sessionMessages(current, sessionID),
-                  incomingWithOrphans.messages,
-                )
-              : incomingWithOrphans.messages,
-          )
-          const activeInfo = current.sessions.find(
-            (session: SessionInfo) => session.id === nextSessionID,
-          )
-          const nextSessionStatusByID = {
-            ...current.sessionStatusByID,
-            [sessionID]: current.sessionStatusByID[sessionID] ?? IDLE_SESSION_STATUS,
-          }
-          state.directories[directory] = {
-            ...current,
-            isDraft: isActiveSession ? false : current.isDraft,
-            sessionID: nextSessionID,
-            loadingSessionID:
-              isActiveSession && current.loadingSessionID === sessionID
-                ? undefined
-                : current.loadingSessionID,
-            sessionTitle: activeInfo?.title ?? current.sessionTitle,
-            messages: isActiveSession ? nextMessages : current.messages,
-            messagesBySessionID: nextMessagesBySession(current, sessionID, nextMessages),
-            orphanPartsByMessageID:
-              currentWithOrphans?.orphanPartsByMessageID ??
-              incomingWithOrphans.orphanPartsByMessageID,
-            isBusy: isActiveSession
-              ? resolveActiveSessionBusy({
-                  sessionID,
-                  sessions: current.sessions,
-                  sessionStatusByID: nextSessionStatusByID,
-                  messages: nextMessages,
-                })
-              : current.isBusy,
-            sessionStatusByID: nextSessionStatusByID,
           }
         })
       },
@@ -977,19 +686,11 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const nextActiveInfo = nextSessionID
             ? nextSessions.find((session) => session.id === nextSessionID)
             : undefined
-          const nextMessages = switchedActiveSession
-            ? sessionMessages(current, nextSessionID)
-            : current.messages
-          const nextLoadingSessionID = switchedActiveSession
-            ? hasCachedSessionMessages(current, nextSessionID)
-              ? undefined
-              : nextSessionID
-            : current.loadingSessionID
+          const nextLoadingSessionID = switchedActiveSession ? undefined : current.loadingSessionID
           const nextBusy = resolveActiveSessionBusy({
             sessionID: nextSessionID,
             sessions: nextSessions,
             sessionStatusByID: nextSessionStatusByID,
-            messages: nextMessages,
           })
 
           state.directories[directory] = {
@@ -999,17 +700,6 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
             sessionID: nextSessionID,
             loadingSessionID: nextLoadingSessionID,
             sessionTitle: nextActiveInfo?.title ?? DEFAULT_TITLE,
-            messages: nextMessages,
-            messagesBySessionID: info.time.archived
-              ? Object.fromEntries(
-                  Object.entries(current.messagesBySessionID ?? {}).filter(
-                    ([messageSessionID]) => messageSessionID !== info.id,
-                  ),
-                )
-              : (current.messagesBySessionID ?? {}),
-            orphanPartsByMessageID: info.time.archived
-              ? pruneOrphanPartsForSession(current.orphanPartsByMessageID ?? {}, info.id)
-              : (current.orphanPartsByMessageID ?? {}),
             pendingPermissions: switchedActiveSession
               ? current.pendingPermissions.filter(
                   (request: PermissionRequest) => request.sessionID === nextSessionID,
@@ -1029,15 +719,7 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
         set((state) => {
           const current = state.directories[directory] ?? emptyDirectoryState()
           const existingStatus = current.sessionStatusByID[sessionID] ?? IDLE_SESSION_STATUS
-          const currentSessionMessages = sessionMessages(current, sessionID)
-          const nextTargetMessages =
-            status.type === "idle"
-              ? reconcileTerminalAssistantParts(
-                  sealCompletedAssistantMessages(currentSessionMessages, Date.now()),
-                )
-              : currentSessionMessages
-          const targetMessagesChanged = nextTargetMessages !== currentSessionMessages
-          if (sessionStatusEquals(existingStatus, status) && !targetMessagesChanged) {
+          if (sessionStatusEquals(existingStatus, status)) {
             return
           }
           const nextSessionStatusByID = {
@@ -1047,175 +729,14 @@ export const useChatStore: ChatStoreHook = create<ChatStore>()(
           const isActiveSession = current.sessionID === sessionID
           state.directories[directory] = {
             ...current,
-            messages: isActiveSession ? nextTargetMessages : current.messages,
-            messagesBySessionID: targetMessagesChanged
-              ? nextMessagesBySession(current, sessionID, nextTargetMessages)
-              : (current.messagesBySessionID ?? {}),
             sessionStatusByID: nextSessionStatusByID,
             isBusy: isActiveSession
               ? resolveActiveSessionBusy({
                   sessionID,
                   sessions: current.sessions,
                   sessionStatusByID: nextSessionStatusByID,
-                  messages: nextTargetMessages,
                 })
               : current.isBusy,
-          }
-        })
-      },
-      applyMessageUpdated(directory, info) {
-        set((state) => {
-          const current = state.directories[directory] ?? emptyDirectoryState()
-          const merged = mergeOrphanPartsIntoMessages(
-            upsertMessage(sessionMessages(current, info.sessionID), info),
-            current.orphanPartsByMessageID ?? {},
-          )
-          const messages = reconcileTerminalAssistantParts(merged.messages)
-          const isActiveSession = current.sessionID === info.sessionID
-          const nextBusy = resolveActiveSessionBusy({
-            sessionID: info.sessionID,
-            sessions: current.sessions,
-            sessionStatusByID: current.sessionStatusByID,
-            messages,
-          })
-          state.directories[directory] = {
-            ...current,
-            isDraft: isActiveSession ? false : current.isDraft,
-            messages: isActiveSession ? messages : current.messages,
-            messagesBySessionID: nextMessagesBySession(current, info.sessionID, messages),
-            orphanPartsByMessageID: merged.orphanPartsByMessageID,
-            isBusy: isActiveSession ? nextBusy : current.isBusy,
-          }
-        })
-      },
-      applyMessageRemoved(directory, input) {
-        set((state) => {
-          const current = state.directories[directory] ?? emptyDirectoryState()
-          const messages = reconcileTerminalAssistantParts(
-            removeMessage(sessionMessages(current, input.sessionID), input.messageID),
-          )
-          const isActiveSession = current.sessionID === input.sessionID
-          const nextBusy = resolveActiveSessionBusy({
-            sessionID: input.sessionID,
-            sessions: current.sessions,
-            sessionStatusByID: current.sessionStatusByID,
-            messages,
-          })
-          state.directories[directory] = {
-            ...current,
-            isDraft: isActiveSession ? false : current.isDraft,
-            messages: isActiveSession ? messages : current.messages,
-            messagesBySessionID: nextMessagesBySession(current, input.sessionID, messages),
-            orphanPartsByMessageID: nextOrphanPartsByMessage(current, input.messageID, undefined),
-            isBusy: isActiveSession ? nextBusy : current.isBusy,
-          }
-        })
-      },
-      applyPartUpdated(directory, part) {
-        set((state) => {
-          const current = state.directories[directory] ?? emptyDirectoryState()
-          const currentMessages = sessionMessages(current, part.sessionID)
-          const targetExists = currentMessages.some((message) => message.info.id === part.messageID)
-          const messages = reconcileTerminalAssistantParts(
-            targetExists ? upsertPart(currentMessages, part) : currentMessages,
-          )
-          const isActiveSession = current.sessionID === part.sessionID
-          const nextBusy = resolveActiveSessionBusy({
-            sessionID: part.sessionID,
-            sessions: current.sessions,
-            sessionStatusByID: current.sessionStatusByID,
-            messages,
-          })
-          state.directories[directory] = {
-            ...current,
-            isDraft: isActiveSession ? false : current.isDraft,
-            messages: isActiveSession ? messages : current.messages,
-            messagesBySessionID: nextMessagesBySession(current, part.sessionID, messages),
-            orphanPartsByMessageID: targetExists
-              ? (current.orphanPartsByMessageID ?? {})
-              : nextOrphanPartsByMessage(
-                  current,
-                  part.messageID,
-                  upsertOrphanPart(current.orphanPartsByMessageID?.[part.messageID] ?? [], part),
-                ),
-            isBusy: isActiveSession ? nextBusy : current.isBusy,
-          }
-        })
-      },
-      applyPartRemoved(directory, input) {
-        set((state) => {
-          const current = state.directories[directory] ?? emptyDirectoryState()
-          const currentMessages = sessionMessages(current, input.sessionID)
-          const targetExists = currentMessages.some(
-            (message) => message.info.id === input.messageID,
-          )
-          const messages = reconcileTerminalAssistantParts(
-            targetExists
-              ? removePart(currentMessages, {
-                  messageID: input.messageID,
-                  partID: input.partID,
-                })
-              : currentMessages,
-          )
-          const isActiveSession = current.sessionID === input.sessionID
-          const nextBusy = resolveActiveSessionBusy({
-            sessionID: input.sessionID,
-            sessions: current.sessions,
-            sessionStatusByID: current.sessionStatusByID,
-            messages,
-          })
-          state.directories[directory] = {
-            ...current,
-            isDraft: isActiveSession ? false : current.isDraft,
-            messages: isActiveSession ? messages : current.messages,
-            messagesBySessionID: nextMessagesBySession(current, input.sessionID, messages),
-            orphanPartsByMessageID: targetExists
-              ? (current.orphanPartsByMessageID ?? {})
-              : nextOrphanPartsByMessage(
-                  current,
-                  input.messageID,
-                  removeOrphanPart(
-                    current.orphanPartsByMessageID?.[input.messageID] ?? [],
-                    input.partID,
-                  ),
-                ),
-            isBusy: isActiveSession ? nextBusy : current.isBusy,
-          }
-        })
-      },
-      applyPartDelta(directory, input) {
-        set((state) => {
-          const current = state.directories[directory] ?? emptyDirectoryState()
-          const currentMessages = sessionMessages(current, input.sessionID)
-          const targetExists = currentMessages.some(
-            (message) => message.info.id === input.messageID,
-          )
-          const messages = reconcileTerminalAssistantParts(
-            targetExists ? appendPartDelta(currentMessages, input) : currentMessages,
-          )
-          const isActiveSession = current.sessionID === input.sessionID
-          const nextBusy = resolveActiveSessionBusy({
-            sessionID: input.sessionID,
-            sessions: current.sessions,
-            sessionStatusByID: current.sessionStatusByID,
-            messages,
-          })
-          state.directories[directory] = {
-            ...current,
-            isDraft: isActiveSession ? false : current.isDraft,
-            messages: isActiveSession ? messages : current.messages,
-            messagesBySessionID: nextMessagesBySession(current, input.sessionID, messages),
-            orphanPartsByMessageID: targetExists
-              ? (current.orphanPartsByMessageID ?? {})
-              : nextOrphanPartsByMessage(
-                  current,
-                  input.messageID,
-                  appendOrphanPartDelta(
-                    current.orphanPartsByMessageID?.[input.messageID] ?? [],
-                    input,
-                  ),
-                ),
-            isBusy: isActiveSession ? nextBusy : current.isBusy,
           }
         })
       },

@@ -1,8 +1,10 @@
+import { useMemo } from "react"
 import { useShallow } from "zustand/react/shallow"
 import { parseSubagentSession } from "@/lib/session-family"
 import { isTerminalAssistantMessageInfo } from "@/state/chat-tool-parts"
 import { useChatStore } from "@/state/chat-store"
 import { isSessionStatusActive } from "@/state/session-status"
+import { useTranscriptSessionMessages } from "@/state/transcript-repository"
 import { readNonEmptyString, readString } from "../../types"
 import type { ToolPartProps } from "../../registry"
 import {
@@ -47,17 +49,12 @@ export function useSubagentCardData(
     childSessionID && onOpenSession ? () => onOpenSession(childSessionID) : undefined
 
   const parentToolIsActive = input.state.status === "pending" || input.state.status === "running"
+  const childMessages = useTranscriptSessionMessages(input.directory, childSessionID)
 
   const {
     agentName,
     taskTitle,
-    headerLabel,
-    headerIcon,
-    throttleFileTools,
-    fileName,
-    headerVerb,
-    childHasActiveTool,
-    childSettled,
+    childSessionStatus,
   } = useChatStore(
     useShallow((store) => {
       const dirState = input.directory ? store.directories[input.directory] : undefined
@@ -69,40 +66,33 @@ export function useSubagentCardData(
       const agentName = rawName ? formatAgentName(rawName) : undefined
       const taskTitle = parsedSession?.title ?? configuredTaskTitle
 
-      // Build activity summary from ALL assistant messages in the child session so
-      // earlier-turn tool usage isn't hidden when the last message is text-only.
-      const childMessages = childSessionID
-        ? (dirState?.messagesBySessionID?.[childSessionID] ?? [])
-        : []
-      const latestChildAssistant = childMessages.findLast(
-        (message) => message.info.role === "assistant",
-      )
-      const childSettled =
-        !!latestChildAssistant &&
-        isTerminalAssistantMessageInfo(latestChildAssistant.info) &&
-        !isSessionStatusActive(
-          childSessionID ? dirState?.sessionStatusByID[childSessionID] : undefined,
-        )
-      const cardIsActive = parentToolIsActive && !childSettled
-      const allEntries = childMessages
-        .filter((m) => m.info.role === "assistant")
-        .flatMap((m) => m.parts.map(createHiddenStepsEntry))
-      const header = resolveHiddenStepsHeader(allEntries, cardIsActive)
-      const childHasActiveTool = allEntries.some(hiddenStepsEntryIsActive)
-
       return {
         agentName,
         taskTitle,
-        headerLabel: header.label,
-        headerIcon: header.icon,
-        throttleFileTools: header.throttleFileTools,
-        fileName: header.fileName,
-        headerVerb: header.verb,
-        childHasActiveTool,
-        childSettled,
+        childSessionStatus: childSessionID ? dirState?.sessionStatusByID[childSessionID] : undefined,
       }
     }),
   )
+  const latestChildAssistant = childMessages.findLast(
+    (message) => message.info.role === "assistant",
+  )
+  const childSettled =
+    !!latestChildAssistant &&
+    isTerminalAssistantMessageInfo(latestChildAssistant.info) &&
+    !isSessionStatusActive(childSessionStatus)
+  const cardIsActiveForHeader = parentToolIsActive && !childSettled
+  const allEntries = useMemo(
+    () =>
+      childMessages
+        .filter((message) => message.info.role === "assistant")
+        .flatMap((message) => message.parts.map(createHiddenStepsEntry)),
+    [childMessages],
+  )
+  const header = useMemo(
+    () => resolveHiddenStepsHeader(allEntries, cardIsActiveForHeader),
+    [allEntries, cardIsActiveForHeader],
+  )
+  const childHasActiveTool = allEntries.some(hiddenStepsEntryIsActive)
 
   const toolStatus = toolStateToSubagentStatus(input.state.status)
   const status =
@@ -112,11 +102,11 @@ export function useSubagentCardData(
   const cardIsActive = status === "pending" || status === "running"
 
   const displayHeader = useFileToolHeaderDisplay({
-    label: headerLabel,
-    icon: headerIcon,
-    throttleFileTools,
-    fileName,
-    verb: headerVerb,
+    label: header.label,
+    icon: header.icon,
+    throttleFileTools: header.throttleFileTools,
+    fileName: header.fileName,
+    verb: header.verb,
     isBusy: cardIsActive,
   })
 

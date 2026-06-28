@@ -1,4 +1,4 @@
-import { Marked, marked } from "marked"
+import { Marked, marked, type Tokens } from "marked"
 import markedShiki from "marked-shiki"
 import { bundledLanguages, createHighlighter, type BundledLanguage } from "shiki"
 import remend from "remend"
@@ -6,7 +6,7 @@ import { buddyMathExtension, hasOpenStreamingMath } from "./markdown-math"
 
 let highlighterPromise: ReturnType<typeof createHighlighter> | undefined
 
-async function getSharedHighlighter() {
+export async function getSharedHighlighter() {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighter({
       themes: [openCodeTheme],
@@ -20,7 +20,7 @@ export const openCodeTheme = {
   name: "OpenCode",
   colors: {
     "editor.background": "var(--color-background-stronger)",
-    "editor.foreground": "var(--text-base)",
+    "editor.foreground": "var(--color-text-base)",
     "gitDecoration.addedResourceForeground": "var(--syntax-diff-add)",
     "gitDecoration.deletedResourceForeground": "var(--syntax-diff-delete)",
   },
@@ -216,7 +216,7 @@ export const openCodeTheme = {
         "markup.ignored",
         "markup.untracked",
       ],
-      settings: { foreground: "var(--text-base)" },
+      settings: { foreground: "var(--color-text-base)" },
     },
     {
       scope: "meta.diff.range",
@@ -300,11 +300,19 @@ export const openCodeTheme = {
 export type Block = {
   raw: string
   src: string
-  mode: "full" | "live"
+  mode: "full" | "live" | "code"
+  language?: string
+  complete?: boolean
+}
+
+export type MarkdownProjection = {
+  text: string
+  blocks: Block[]
 }
 
 function refs(text: string) {
-  return /^\[[^\]]+\]:\s+\S+/m.test(text) || /^\[\^[^\]]+\]:\s+/m.test(text)
+  if (!text.includes("]:")) return false
+  return /^[ \t]{0,3}\[[^\]]+\]:[ \t]*(?:\S+|\r?\n[ \t]+\S+)/m.test(text)
 }
 
 function fenceOpen(raw: string) {
@@ -318,30 +326,116 @@ function fenceOpen(raw: string) {
   return !new RegExp(`^[\\t ]{0,3}${char}{${size},}[\\t ]*$`).test(last)
 }
 
+function closesFence(raw: string, suffix: string) {
+  const mark = raw.match(/^[ \t]{0,3}(`{3,}|~{3,})/u)?.[1]
+  if (!mark) return suffix.includes("```") || suffix.includes("~~~")
+  return `${raw.slice(-(mark.length - 1))}${suffix}`.includes(mark)
+}
+
+function codeLanguage(value: string | undefined) {
+  return value?.trim().split(/\s+/u, 1)[0] || undefined
+}
+
+function openCode(raw: string) {
+  const newline = raw.indexOf("\n")
+  return newline < 0 ? "" : raw.slice(newline + 1)
+}
+
 function heal(text: string) {
   return remend(text, { linkMode: "text-only" })
 }
 
 export function streamBlocks(text: string, live: boolean): Block[] {
   if (!live) return [{ raw: text, src: text, mode: "full" }]
-  const src = hasOpenStreamingMath(text) ? text : heal(text)
-  if (refs(text)) return [{ raw: text, src, mode: "live" }]
+  if (refs(text)) return [{ raw: text, src: heal(text), mode: "live" }]
+
   const tokens = marked.lexer(text)
   const tail = tokens.findLastIndex((token) => token.type !== "space")
-  if (tail < 0) return [{ raw: text, src, mode: "live" }]
+  if (tail < 0) return [{ raw: text, src: heal(text), mode: "live" }]
   const last = tokens[tail]
-  if (!last || last.type !== "code") return [{ raw: text, src, mode: "live" }]
-  const code = last as import("marked").Tokens.Code
-  if (!fenceOpen(code.raw)) return [{ raw: text, src, mode: "live" }]
-  const head = tokens
-    .slice(0, tail)
+  if (!last) return [{ raw: text, src: heal(text), mode: "live" }]
+
+  const blocks: Block[] = []
+  for (let index = 0; index < tail; index += 1) {
+    const token = tokens[index]
+    if (!token || token.type === "space") continue
+    let raw = token.raw
+    while (tokens[index + 1]?.type === "space" && index + 1 < tail) {
+      index += 1
+      raw += tokens[index]?.raw ?? ""
+    }
+    if (token.type === "code") {
+      const code = token as Tokens.Code
+      blocks.push({
+        raw,
+        src: code.text,
+        mode: "code",
+        language: codeLanguage(code.lang),
+        complete: true,
+      })
+      continue
+    }
+    blocks.push({ raw, src: raw, mode: "full" })
+  }
+
+  const raw = tokens
+    .slice(tail)
     .map((token) => token.raw)
     .join("")
-  if (!head) return [{ raw: code.raw, src: code.raw, mode: "live" }]
+  if (last.type !== "code") {
+    return [...blocks, { raw, src: hasOpenStreamingMath(raw) ? raw : heal(raw), mode: "live" }]
+  }
+
+  const code = last as import("marked").Tokens.Code
+  if (!fenceOpen(code.raw)) {
+    return [
+      ...blocks,
+      {
+        raw,
+        src: code.text,
+        mode: "code",
+        language: codeLanguage(code.lang),
+        complete: true,
+      },
+    ]
+  }
   return [
-    { raw: head, src: heal(head), mode: "live" },
-    { raw: code.raw, src: code.raw, mode: "live" },
+    ...blocks,
+    {
+      raw: code.raw,
+      src: openCode(code.raw),
+      mode: "code",
+      language: codeLanguage(code.lang),
+    },
   ]
+}
+
+export function projectMarkdownBlocks(
+  previous: MarkdownProjection | undefined,
+  text: string,
+  live: boolean,
+): MarkdownProjection {
+  if (!live || !previous || !text.startsWith(previous.text)) {
+    return { text, blocks: streamBlocks(text, live) }
+  }
+
+  const tail = previous.blocks.at(-1)
+  const suffix = text.slice(previous.text.length)
+  if (!suffix || tail?.mode !== "code" || tail.complete || closesFence(tail.raw, suffix)) {
+    return { text, blocks: streamBlocks(text, live) }
+  }
+
+  return {
+    text,
+    blocks: [
+      ...previous.blocks.slice(0, -1),
+      {
+        ...tail,
+        raw: tail.raw + suffix,
+        src: tail.src + suffix,
+      },
+    ],
+  }
 }
 
 // ── Marked parser ──────────────────────────────────────────────────────────
@@ -438,7 +532,9 @@ export async function parseMarkdownToHtml(
           return cached.html
         }
 
-        const html = await Promise.resolve(streamingParser.parse(block.src))
+        const html = await Promise.resolve(
+          streamingParser.parse(block.mode === "code" ? block.raw : block.src),
+        )
         if (hash) touchBlockCache(key, { hash, html })
         return html
       }),
