@@ -43,6 +43,7 @@
     "tree-kill": "^1.2.2"
   },
   "devDependencies": {
+    "@buddy/script": "workspace:*",
     "@buddy/ui": "workspace:*",
     "@buddy/web": "workspace:*",
     "@tailwindcss/vite": "^4.1.18",

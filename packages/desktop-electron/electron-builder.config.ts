@@ -1,6 +1,10 @@
 import { existsSync } from "node:fs"
 import type { Configuration } from "electron-builder"
 import {
+  BUDDY_BRANDING,
+  formatCopyrightNotice,
+} from "@buddy/script/branding"
+import {
   WINDOWS_RELEASE_ARCHS,
   resolveMacOsReleaseArtifactPattern,
   resolveWindowsReleaseArtifactPattern,
@@ -21,6 +25,8 @@ function resolveChannel(): Channel {
 
 const channel = resolveChannel()
 const runtimeResourceNames = ["backend", "knowledge-graph", "migrations"] as const
+const DEV_PRODUCT_NAME = `${BUDDY_BRANDING.productName} Dev`
+const BETA_PRODUCT_NAME = `${BUDDY_BRANDING.productName} Beta`
 
 function requiredRuntimeResource(name: (typeof runtimeResourceNames)[number]) {
   const resourceDir = new URL(`./resources/${name}`, import.meta.url)
@@ -40,9 +46,13 @@ function requiredRuntimeResource(name: (typeof runtimeResourceNames)[number]) {
 const runtimeResources = runtimeResourceNames.map((name) => requiredRuntimeResource(name))
 
 const BASE_CONFIGURATION: Configuration = {
+  copyright: formatCopyrightNotice(),
   directories: {
     output: "dist",
     buildResources: "resources",
+  },
+  extraMetadata: {
+    description: BUDDY_BRANDING.desktopPackageDescription,
   },
   asarUnpack: [
     "out/main/chunks/node_modules/@lydell/node-pty-*/**/*",
@@ -58,7 +68,7 @@ const BASE_CONFIGURATION: Configuration = {
     },
   ],
   protocols: {
-    name: "Buddy",
+    name: BUDDY_BRANDING.productName,
     schemes: ["buddy"],
   },
   mac: {
@@ -93,7 +103,7 @@ function resolveChannelConfiguration(): Configuration {
     return {
       ...BASE_CONFIGURATION,
       appId: "ai.buddy.desktop.dev",
-      productName: "Buddy Dev",
+      productName: DEV_PRODUCT_NAME,
     }
   }
 
@@ -101,7 +111,7 @@ function resolveChannelConfiguration(): Configuration {
     return {
       ...BASE_CONFIGURATION,
       appId: "ai.buddy.desktop.beta",
-      productName: "Buddy Beta",
+      productName: BETA_PRODUCT_NAME,
       publish: {
         provider: "github",
         owner: "prashantbhudwal",
@@ -114,7 +124,7 @@ function resolveChannelConfiguration(): Configuration {
   return {
     ...BASE_CONFIGURATION,
     appId: "ai.buddy.desktop",
-    productName: "Buddy",
+    productName: BUDDY_BRANDING.productName,
     publish: {
       provider: "github",
       owner: "prashantbhudwal",

@@ -1,9 +1,12 @@
 ---
+import { formatCopyrightLabel } from "@buddy/script/branding"
+
+const footerCopyrightLabel = formatCopyrightLabel()
 ---
 
 <footer>
   <div class="container footer-content">
-    <p class="footer-copy">&copy; {new Date().getFullYear()} Buddy</p>
+    <p class="footer-copy">&copy; {footerCopyrightLabel}</p>
   </div>
 </footer>
 

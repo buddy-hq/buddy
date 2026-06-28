@@ -14,6 +14,7 @@
     "deploy": "astro build && wrangler deploy"
   },
   "dependencies": {
+    "@buddy/script": "workspace:*",
     "@astrojs/cloudflare": "12.6.3",
     "@astrojs/sitemap": "^3.7.3",
     "@astrojs/starlight": "0.34.3",
