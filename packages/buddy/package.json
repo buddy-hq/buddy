@@ -16,7 +16,7 @@
   },
   "scripts": {
     "dev": "bun run ensure:advanced-math-runtime && bun --env-file=../../.env run src/dev/start-with-safe-env.ts --watch",
-    "build": "tsc",
+    "build": "bun run build:node",
     "build:node": "bun ./script/build-node.ts",
     "lint": "bun ../../node_modules/oxlint/bin/oxlint",
     "build:knowledge-graph": "bun ./script/update-knowledge-graph.ts",
