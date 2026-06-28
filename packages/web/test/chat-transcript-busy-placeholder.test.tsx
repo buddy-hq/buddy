@@ -25,8 +25,9 @@ async function flushEffects() {
 }
 
 function assistantArticleByText(container: HTMLElement, text: string) {
-  return Array.from(container.querySelectorAll<HTMLElement>('[data-timeline-row="AssistantPart"]'))
-    .find((element) => element.textContent?.includes(text))
+  return Array.from(
+    container.querySelectorAll<HTMLElement>('[data-timeline-row="AssistantPart"]'),
+  ).find((element) => element.textContent?.includes(text))
 }
 
 describe("chat transcript busy placeholder", () => {
@@ -123,9 +124,7 @@ describe("chat transcript busy placeholder", () => {
     expect(articles).toHaveLength(2)
     expect(articles[0]?.textContent).toContain("Normal prompt")
     expect(articles[1]?.textContent).toContain("Thinking")
-    const virtualSlots = Array.from(
-      container.querySelectorAll<HTMLElement>("[data-timeline-key]"),
-    )
+    const virtualSlots = Array.from(container.querySelectorAll<HTMLElement>("[data-timeline-key]"))
     expect(virtualSlots.length).toBeGreaterThan(0)
     expect(virtualSlots.every((slot) => slot.style.overflow === "clip")).toBe(true)
     expect(virtualSlots.every((slot) => slot.querySelector(":scope > [data-index]"))).toBe(true)

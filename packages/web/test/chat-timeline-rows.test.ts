@@ -76,17 +76,19 @@ function rowsFor(input: {
   })
 }
 
-function isGroupedAssistantRow(
-  row: TimelineRow,
-): row is Extract<TimelineRow, { type: "assistant" }> & {
+function isGroupedAssistantRow(row: TimelineRow): row is Extract<
+  TimelineRow,
+  { type: "assistant" }
+> & {
   item: Extract<TimelineRow, { type: "assistant" }>["item"] & { type: "grouped-parts" }
 } {
   return row.type === "assistant" && row.item.type === "grouped-parts"
 }
 
-function isAbstractedAssistantRow(
-  row: TimelineRow,
-): row is Extract<TimelineRow, { type: "assistant" }> & {
+function isAbstractedAssistantRow(row: TimelineRow): row is Extract<
+  TimelineRow,
+  { type: "assistant" }
+> & {
   item: Extract<TimelineRow, { type: "assistant" }>["item"] & { type: "abstracted" }
 } {
   return row.type === "assistant" && row.item.type === "abstracted"

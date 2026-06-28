@@ -242,15 +242,13 @@ export function upsertMessagePart(current: MessagePart[], incoming: MessagePart)
       (part) => !shouldReplaceOptimisticPart(part, incoming),
     )
     const insertIndex = partsWithoutReplacedOptimistic.findIndex((part) => part.id > incoming.id)
-    return (
-      insertIndex === -1
-        ? [...partsWithoutReplacedOptimistic, incoming]
-        : [
-            ...partsWithoutReplacedOptimistic.slice(0, insertIndex),
-            incoming,
-            ...partsWithoutReplacedOptimistic.slice(insertIndex),
-          ]
-    )
+    return insertIndex === -1
+      ? [...partsWithoutReplacedOptimistic, incoming]
+      : [
+          ...partsWithoutReplacedOptimistic.slice(0, insertIndex),
+          incoming,
+          ...partsWithoutReplacedOptimistic.slice(insertIndex),
+        ]
   }
 
   const parts = [...current]

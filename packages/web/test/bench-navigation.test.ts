@@ -175,9 +175,7 @@ describe("bench navigation policy", () => {
           workspaceChromeWidthPx: RIGHT_WORKSPACE_CHROME_WIDTH_PX,
         })
 
-        expect(layout.workspaceMinWidthPx).toBeGreaterThanOrEqual(
-          RIGHT_WORKSPACE_CHROME_WIDTH_PX,
-        )
+        expect(layout.workspaceMinWidthPx).toBeGreaterThanOrEqual(RIGHT_WORKSPACE_CHROME_WIDTH_PX)
         expect(layout.workspaceMaxWidthPx).toBeGreaterThanOrEqual(layout.workspaceMinWidthPx)
         expect(layout.workspaceMaxWidthPx + layout.chatMinWidthPx).toBe(widthPx)
       }

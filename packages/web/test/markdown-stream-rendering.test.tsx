@@ -74,11 +74,7 @@ describe("streaming markdown rendering", () => {
 
     await act(async () => {
       root.render(
-        <MarkdownHtmlSegment
-          text={initial}
-          cacheKey="streaming-broken-image"
-          streaming
-        />,
+        <MarkdownHtmlSegment text={initial} cacheKey="streaming-broken-image" streaming />,
       )
       await flushUntil(() => container.querySelector("img") !== null)
     })
@@ -119,7 +115,10 @@ describe("streaming markdown rendering", () => {
         super()
       }
 
-      postMessage(_message: unknown, _options?: StructuredSerializeOptions | Transferable[]): void {}
+      postMessage(
+        _message: unknown,
+        _options?: StructuredSerializeOptions | Transferable[],
+      ): void {}
       terminate(): void {}
     }
 
@@ -297,11 +296,7 @@ $$\mathb{a} \times \mathbf{b} = \begin{vmatrix} \mathbf{i} & \mathbf{j} & \mathb
     try {
       await act(async () => {
         root.render(
-          <MarkdownHtmlSegment
-            text={"```ts\nconst x"}
-            cacheKey="streaming-code"
-            streaming
-          />,
+          <MarkdownHtmlSegment text={"```ts\nconst x"} cacheKey="streaming-code" streaming />,
         )
         await flushEffects()
       })
@@ -316,11 +311,7 @@ $$\mathb{a} \times \mathbf{b} = \begin{vmatrix} \mathbf{i} & \mathbf{j} & \mathb
 
       await act(async () => {
         root.render(
-          <MarkdownHtmlSegment
-            text={"```ts\nconst x = 1"}
-            cacheKey="streaming-code"
-            streaming
-          />,
+          <MarkdownHtmlSegment text={"```ts\nconst x = 1"} cacheKey="streaming-code" streaming />,
         )
         await flushEffects()
       })
@@ -356,10 +347,7 @@ $$\mathb{a} \times \mathbf{b} = \begin{vmatrix} \mathbf{i} & \mathbf{j} & \mathb
 
       await act(async () => {
         root.render(
-          <MarkdownHtmlSegment
-            text={"```ts\nconst x = 1\n```"}
-            cacheKey="streaming-code"
-          />,
+          <MarkdownHtmlSegment text={"```ts\nconst x = 1\n```"} cacheKey="streaming-code" />,
         )
         await flushEffects()
       })

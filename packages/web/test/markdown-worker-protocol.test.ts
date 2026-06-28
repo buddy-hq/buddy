@@ -35,18 +35,9 @@ describe("markdown worker protocol", () => {
   })
 
   test("increments generation only when token identity resets", () => {
-    const first = applyMarkdownWorkerResponse(
-      undefined,
-      response(1, true, [["const", ""]], []),
-    )
-    const append = applyMarkdownWorkerResponse(
-      first,
-      response(2, false, [[" x", ""]], []),
-    )
-    const replacement = applyMarkdownWorkerResponse(
-      append,
-      response(3, true, [["let y", ""]], []),
-    )
+    const first = applyMarkdownWorkerResponse(undefined, response(1, true, [["const", ""]], []))
+    const append = applyMarkdownWorkerResponse(first, response(2, false, [[" x", ""]], []))
+    const replacement = applyMarkdownWorkerResponse(append, response(3, true, [["let y", ""]], []))
 
     expect([first.generation, append.generation, replacement.generation]).toEqual([1, 1, 2])
   })
@@ -58,12 +49,9 @@ describe("markdown worker protocol", () => {
       stable: [token("current")],
       unstable: [],
     }
-    expect(
-      applyMarkdownWorkerResponse(
-        current,
-        response(1, false, [token("stale")], []),
-      ),
-    ).toBe(current)
+    expect(applyMarkdownWorkerResponse(current, response(1, false, [token("stale")], []))).toBe(
+      current,
+    )
     expect(shouldReleaseMarkdownWorkerState(true, 4, 4)).toBe(true)
     expect(shouldReleaseMarkdownWorkerState(true, 5, 4)).toBe(false)
     expect(shouldReleaseMarkdownWorkerState(false, 4, 4)).toBe(false)

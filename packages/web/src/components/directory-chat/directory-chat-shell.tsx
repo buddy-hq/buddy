@@ -208,10 +208,7 @@ export function DirectoryChatShell(props: DirectoryChatShellProps) {
       </div>
 
       <div className="col-start-2 row-start-2 min-h-0 min-w-0 overflow-hidden">
-        <div
-          data-component="directory-chat-shell-content-layout"
-          className="h-full min-h-0 w-full"
-        >
+        <div data-component="directory-chat-shell-content-layout" className="h-full min-h-0 w-full">
           {contentLayout}
         </div>
       </div>

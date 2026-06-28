@@ -140,9 +140,7 @@ describe("DirectoryChatRightWorkspace", () => {
       await flushEffects()
     })
 
-    const readingButton = container.querySelector<HTMLButtonElement>(
-      '[aria-label="Show reading"]',
-    )
+    const readingButton = container.querySelector<HTMLButtonElement>('[aria-label="Show reading"]')
     expect(readingButton).not.toBeNull()
     expect(readingButton?.getAttribute("aria-pressed")).toBe("true")
     expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
@@ -227,7 +225,9 @@ describe("DirectoryChatRightWorkspace", () => {
       await flushEffects()
     })
 
-    expect(container.querySelector('[data-component="right-workspace-selector-content"]')).toBeNull()
+    expect(
+      container.querySelector('[data-component="right-workspace-selector-content"]'),
+    ).toBeNull()
     expect(
       container.querySelector('[data-component="right-workspace-selector-drawer"]'),
     ).not.toBeNull()

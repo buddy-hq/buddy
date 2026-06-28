@@ -126,7 +126,9 @@ describe("interrupted chat rendering", () => {
           ),
         ],
       })
-      root.render(<ChatTranscript directory={directory} scrollViewportRef={transcriptViewport.ref} />)
+      root.render(
+        <ChatTranscript directory={directory} scrollViewportRef={transcriptViewport.ref} />,
+      )
       await flushEffects()
     })
 
@@ -208,7 +210,9 @@ describe("interrupted chat rendering", () => {
           ),
         ],
       })
-      root.render(<ChatTranscript directory={directory} scrollViewportRef={transcriptViewport.ref} />)
+      root.render(
+        <ChatTranscript directory={directory} scrollViewportRef={transcriptViewport.ref} />,
+      )
       await flushEffects()
     })
 

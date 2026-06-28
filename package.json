@@ -118,7 +118,8 @@
     "release:notes": "bun ./script/changelog.ts",
     "release:version": "bun ./script/version.ts",
     "release:publish": "bun ./script/publish.ts",
-    "install:release": "bash ./script/install-latest-release.sh"
+    "install:release": "bash ./script/install-latest-release.sh",
+    "cfmt": "bun fmt && git add . && git commit -m 'chore: run formatter' && git push"
   },
   "dependencies": {
     "@buddy/script": "workspace:*"

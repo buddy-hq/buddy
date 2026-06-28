@@ -110,10 +110,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
 
   if (isChatToolPart(part)) {
     return (
-      <div
-        data-component="tool-part-wrapper"
-        className="w-full overflow-hidden p-1 -m-1"
-      >
+      <div data-component="tool-part-wrapper" className="w-full overflow-hidden p-1 -m-1">
         <ToolPartCard
           part={part}
           directory={directory}

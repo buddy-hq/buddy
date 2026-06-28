@@ -149,10 +149,7 @@ describe("transcript artifact motion", () => {
   test("gates the Mermaid SVG until its first fit without fading on resize", () => {
     act(() => {
       root.render(
-        <MermaidInlineView
-          ariaLabel="Readiness diagram"
-          viewport={createMermaidViewport(false)}
-        />,
+        <MermaidInlineView ariaLabel="Readiness diagram" viewport={createMermaidViewport(false)} />,
       )
     })
 
@@ -162,10 +159,7 @@ describe("transcript artifact motion", () => {
 
     act(() => {
       root.render(
-        <MermaidInlineView
-          ariaLabel="Readiness diagram"
-          viewport={createMermaidViewport(true)}
-        />,
+        <MermaidInlineView ariaLabel="Readiness diagram" viewport={createMermaidViewport(true)} />,
       )
     })
 
@@ -180,11 +174,7 @@ describe("transcript artifact motion", () => {
     const renderCompletedCard = () => {
       root.render(
         <TooltipProvider>
-          <SubagentCard
-            agentName="Researcher"
-            taskTitle="Inspect transcript"
-            status="completed"
-          >
+          <SubagentCard agentName="Researcher" taskTitle="Inspect transcript" status="completed">
             <div>Completed artifact</div>
           </SubagentCard>
         </TooltipProvider>,

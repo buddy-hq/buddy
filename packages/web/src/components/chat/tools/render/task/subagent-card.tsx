@@ -6,11 +6,7 @@ import { TextShimmer } from "../../text-shimmer"
 import { ToolErrorPanel } from "../../tool-error-panel"
 import { Markdown } from "@/components/markdown/Markdown"
 import type { ToolIconRenderer } from "../../tool-registry-types"
-import {
-  TASK_CARD_ENTER_ANIMATE,
-  TASK_CARD_TRANSITION,
-  taskCardEnterInitial,
-} from "../task-motion"
+import { TASK_CARD_ENTER_ANIMATE, TASK_CARD_TRANSITION, taskCardEnterInitial } from "../task-motion"
 
 export type SubagentCardStatus = "pending" | "running" | "completed" | "error"
 

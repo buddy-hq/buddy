@@ -136,7 +136,7 @@ function FigureGallery(props: { directory?: string; items: ToolImageGalleryItem[
                 })
               }
             : undefined
-          }
+        }
       />
     </InlineAssetBoundary>
   )

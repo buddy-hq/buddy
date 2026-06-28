@@ -40,11 +40,7 @@ function directoryKey(event: GlobalEvent) {
   return event.directory ?? CHAT_STREAM_GLOBAL_DIRECTORY
 }
 
-function messagePartKey(input: {
-  directory: string
-  messageID: string
-  partID: string
-}) {
+function messagePartKey(input: { directory: string; messageID: string; partID: string }) {
   return `${input.directory}:${input.messageID}:${input.partID}`
 }
 

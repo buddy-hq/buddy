@@ -301,7 +301,9 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
       (input.showReasoningSummaries ? assistantItems.length === 0 : true)
 
     if (showThinking) {
-      const reasoning = input.showReasoningSummaries ? undefined : currentReasoningPart(assistantParts)
+      const reasoning = input.showReasoningSummaries
+        ? undefined
+        : currentReasoningPart(assistantParts)
       rows.push({
         type: "thinking",
         key: `thinking:${userMessageID}`,
@@ -331,9 +333,7 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
     }
 
     const errorName =
-      error &&
-      typeof error.name === "string" &&
-      error.name !== "UnknownError"
+      error && typeof error.name === "string" && error.name !== "UnknownError"
         ? error.name
         : undefined
 
@@ -414,7 +414,11 @@ export function timelineRowsEqual(left: TimelineRow, right: TimelineRow) {
         left.previousAssistantPart === right.previousAssistantPart
       )
     case "retry":
-      return right.type === "retry" && left.userMessageID === right.userMessageID && left.status === right.status
+      return (
+        right.type === "retry" &&
+        left.userMessageID === right.userMessageID &&
+        left.status === right.status
+      )
     case "error":
       return (
         right.type === "error" &&

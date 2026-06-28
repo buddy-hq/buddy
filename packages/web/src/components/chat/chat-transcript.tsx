@@ -39,10 +39,7 @@ import {
   VIRTUAL_CHAT_TURN_ESTIMATE_PX,
 } from "@/components/virtualization/virtualization-defaults"
 import { ChatScrollProvider } from "./chat-scroll-context"
-import {
-  InlineAssetLifecycleProvider,
-  type InlineAssetSize,
-} from "./inline-asset-boundary"
+import { InlineAssetLifecycleProvider, type InlineAssetSize } from "./inline-asset-boundary"
 import {
   projectTimelineRows,
   reuseTimelineRows,
@@ -190,7 +187,9 @@ function restoreVisibleTimelineAnchor(input: {
       `[data-timeline-key="${CSS.escape(input.anchor.key)}"]`,
     )
     const delta = element
-      ? element.getBoundingClientRect().top - input.root.getBoundingClientRect().top - input.anchor.offset
+      ? element.getBoundingClientRect().top -
+        input.root.getBoundingClientRect().top -
+        input.anchor.offset
       : undefined
     lastDeltaPx = delta
 
@@ -287,10 +286,7 @@ function TimelineUserRow(props: {
 }) {
   const info = useTranscriptMessage(props.row.userMessageID)
   const parts = useTranscriptParts(props.row.partIDs)
-  const userMessage = useMemo(
-    () => (info ? { info, parts } : undefined),
-    [info, parts],
-  )
+  const userMessage = useMemo(() => (info ? { info, parts } : undefined), [info, parts])
 
   return (
     <article
@@ -470,9 +466,7 @@ function TimelineAssistantRow(props: {
   )
 }
 
-function TimelineThinkingRow(props: {
-  row: Extract<TimelineRow, { type: "thinking" }>
-}) {
+function TimelineThinkingRow(props: { row: Extract<TimelineRow, { type: "thinking" }> }) {
   const reasoningPart = useTranscriptPart(props.row.reasoningPartID)
   const detail =
     props.row.reasoningHeading ??
@@ -486,9 +480,7 @@ function TimelineThinkingRow(props: {
       data-timeline-row="Thinking"
       className="relative min-w-0 w-full max-w-full px-4 md:px-5"
     >
-      <div
-        className={`flow-root ${props.row.previousAssistantPart ? "pt-4" : "pt-5"}`}
-      >
+      <div className={`flow-root ${props.row.previousAssistantPart ? "pt-4" : "pt-5"}`}>
         <HiddenStepsPlaceholder detail={detail} />
       </div>
     </article>
@@ -675,9 +667,7 @@ function TimelineVirtualRow(props: {
       }}
     >
       <div data-index={virtualRow.index} ref={bindElement} className="flow-root">
-        <InlineAssetLifecycleProvider value={lifecycle}>
-          {children}
-        </InlineAssetLifecycleProvider>
+        <InlineAssetLifecycleProvider value={lifecycle}>{children}</InlineAssetLifecycleProvider>
       </div>
     </div>
   )
@@ -697,9 +687,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
   )
   const sessionID = directoryState?.sessionID
   const sessions = directoryState?.sessions ?? []
-  const activeSession = sessionID
-    ? sessions.find((session) => session.id === sessionID)
-    : undefined
+  const activeSession = sessionID ? sessions.find((session) => session.id === sessionID) : undefined
   const providers = directoryState?.providers ?? EMPTY_PROVIDERS
   const activeSessionStatus = sessionID
     ? (directoryState?.sessionStatusByID[sessionID] ?? IDLE_SESSION_STATUS)
@@ -727,7 +715,8 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     activeSessionStatus,
     showReasoningSummaries,
   })
-  const lastUserMessageID = visibleMessages.findLast((message) => message.info.role === "user")?.info.id
+  const lastUserMessageID = visibleMessages.findLast((message) => message.info.role === "user")
+    ?.info.id
   const cacheKey = timelineCacheKey(directory, sessionID)
   const cached = cacheKey ? timelineCache.get(cacheKey) : undefined
   const virtualContentRef = useRef<HTMLDivElement | null>(null)
@@ -868,7 +857,9 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
         Math.abs(size - previous) > root.clientHeight * VIEWPORT_SIZE_CHANGE_PIN_MULTIPLIER
       ) {
         const view = root.getBoundingClientRect()
-        resizePinnedIndexesRef.current = Array.from(root.querySelectorAll<HTMLElement>("[data-index]"))
+        resizePinnedIndexesRef.current = Array.from(
+          root.querySelectorAll<HTMLElement>("[data-index]"),
+        )
           .filter((element) => {
             const rect = element.getBoundingClientRect()
             return rect.bottom > view.top && rect.top < view.bottom
@@ -1004,32 +995,26 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     }
   }, [])
 
-  const handleInlineAssetContentReady = useCallback(
-    (rowKey: string) => {
-      recordTranscriptPerfEvent({
-        type: "inline-asset",
-        at: performance.now(),
-        rowKey,
-        action: "content-ready",
-        width: undefined,
-        height: undefined,
-      })
-    },
-    [],
-  )
-  const handleInlineAssetSizeChange = useCallback(
-    (rowKey: string, size: InlineAssetSize) => {
-      recordTranscriptPerfEvent({
-        type: "inline-asset",
-        at: performance.now(),
-        rowKey,
-        action: "size-change",
-        width: size.width,
-        height: size.height,
-      })
-    },
-    [],
-  )
+  const handleInlineAssetContentReady = useCallback((rowKey: string) => {
+    recordTranscriptPerfEvent({
+      type: "inline-asset",
+      at: performance.now(),
+      rowKey,
+      action: "content-ready",
+      width: undefined,
+      height: undefined,
+    })
+  }, [])
+  const handleInlineAssetSizeChange = useCallback((rowKey: string, size: InlineAssetSize) => {
+    recordTranscriptPerfEvent({
+      type: "inline-asset",
+      at: performance.now(),
+      rowKey,
+      action: "size-change",
+      width: size.width,
+      height: size.height,
+    })
+  }, [])
   const virtualItems = rowVirtualizer.getVirtualItems()
   const firstVirtualIndex = virtualItems[0]?.index
   const lastVirtualIndex = virtualItems.at(-1)?.index

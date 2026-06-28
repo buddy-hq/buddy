@@ -237,11 +237,7 @@ $$\int_{0}^{\infty} e^{-x^2} dx = \frac{\sqrt{\pi}}{2}$$
 
   test("appends open code deltas without reprojecting frozen blocks", () => {
     const previous = projectMarkdownBlocks(undefined, "# Plan\n\n```ts\nconst one = 1\n", true)
-    const next = projectMarkdownBlocks(
-      previous,
-      `${previous.text}const two = 2\n`,
-      true,
-    )
+    const next = projectMarkdownBlocks(previous, `${previous.text}const two = 2\n`, true)
 
     expect(next.blocks[0]).toBe(previous.blocks[0])
     expect(next.blocks.at(-1)).toEqual({

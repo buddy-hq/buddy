@@ -74,9 +74,7 @@ async function highlight(request: HighlightRequest) {
         reset: true,
         stable: result.tokens
           .flatMap((line, index) =>
-            index === result.tokens.length - 1
-              ? line
-              : line.concat({ content: "\n", offset: 0 }),
+            index === result.tokens.length - 1 ? line : line.concat({ content: "\n", offset: 0 }),
           )
           .map(token),
         unstable: [],

@@ -51,11 +51,7 @@ export function useSubagentCardData(
   const parentToolIsActive = input.state.status === "pending" || input.state.status === "running"
   const childMessages = useTranscriptSessionMessages(input.directory, childSessionID)
 
-  const {
-    agentName,
-    taskTitle,
-    childSessionStatus,
-  } = useChatStore(
+  const { agentName, taskTitle, childSessionStatus } = useChatStore(
     useShallow((store) => {
       const dirState = input.directory ? store.directories[input.directory] : undefined
 
@@ -69,7 +65,9 @@ export function useSubagentCardData(
       return {
         agentName,
         taskTitle,
-        childSessionStatus: childSessionID ? dirState?.sessionStatusByID[childSessionID] : undefined,
+        childSessionStatus: childSessionID
+          ? dirState?.sessionStatusByID[childSessionID]
+          : undefined,
       }
     }),
   )

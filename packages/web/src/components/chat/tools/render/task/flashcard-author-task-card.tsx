@@ -17,11 +17,7 @@ import type { ObjectFlashcardDeckReadDeckResponse } from "@buddy/sdk/types"
 import { ToolOutputPanel } from "../../tool-output-panel"
 import type { ToolPartProps } from "../../registry"
 import { readString } from "../../types"
-import {
-  TASK_CARD_ENTER_ANIMATE,
-  TASK_CARD_TRANSITION,
-  taskCardEnterInitial,
-} from "../task-motion"
+import { TASK_CARD_ENTER_ANIMATE, TASK_CARD_TRANSITION, taskCardEnterInitial } from "../task-motion"
 import { useSubagentCardData } from "./task-card-header"
 import { SubagentCard } from "./subagent-card"
 import { parseTaskResultOutput } from "./task-utils"

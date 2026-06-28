@@ -261,24 +261,26 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     (input: { mode: BenchMode; origin: "user" | "agent" }) => {
       if (benchPolicyState.status !== "open") return
       const target = benchPolicyState.target
-      void workspace.controller.execute(
-        {
-          type: "set-mode",
-          mode: input.mode,
-        },
-        { origin: input.origin },
-      ).then((result) => {
-        const transitionCommitted = finalizeBenchModeTransition({
-          target,
-          mode: input.mode,
-          persistPreference: input.origin === "user",
-          result,
+      void workspace.controller
+        .execute(
+          {
+            type: "set-mode",
+            mode: input.mode,
+          },
+          { origin: input.origin },
+        )
+        .then((result) => {
+          const transitionCommitted = finalizeBenchModeTransition({
+            target,
+            mode: input.mode,
+            persistPreference: input.origin === "user",
+            result,
+          })
+          if (!transitionCommitted) return
+          if (input.mode === BENCH_CHAT_LAYOUT_DOCKED) {
+            setFloatingChatState("open")
+          }
         })
-        if (!transitionCommitted) return
-        if (input.mode === BENCH_CHAT_LAYOUT_DOCKED) {
-          setFloatingChatState("open")
-        }
-      })
     },
     [benchPolicyState, workspace.controller],
   )

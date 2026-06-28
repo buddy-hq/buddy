@@ -28,10 +28,7 @@ import {
   MarkdownWorkerSupersededError,
   MarkdownWorkerUnavailableError,
 } from "./markdown-worker"
-import {
-  shouldResetCodeTokens,
-  type RenderedCodeState,
-} from "./markdown-code-state"
+import { shouldResetCodeTokens, type RenderedCodeState } from "./markdown-code-state"
 import type { MarkdownToken, MarkdownWorkerState } from "./markdown-worker-protocol"
 import { hasOpenStreamingMath } from "./markdown-math"
 import { useInlineAssetLifecycleReporter } from "@/components/chat/inline-asset-boundary"
@@ -503,9 +500,9 @@ function updateCodeTokens(input: {
     stableCount: input.result.stable.length,
     raw: input.raw,
   })
-  const stableCount = reset ? 0 : previous?.stableCount ?? 0
+  const stableCount = reset ? 0 : (previous?.stableCount ?? 0)
   const tail = [...input.result.stable.slice(stableCount), ...input.result.unstable]
-  const prior = reset ? [] : previous?.unstable ?? []
+  const prior = reset ? [] : (previous?.unstable ?? [])
   const prefix = prior.findIndex((token, index) => !sameCodeToken(token, tail[index]))
   const keep = stableCount + (prefix < 0 ? Math.min(prior.length, tail.length) : prefix)
 
@@ -649,10 +646,12 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
     const renderId = renderIdRef.current + 1
     renderIdRef.current = renderId
     let cancelled = false
-    const preserveRenderedFallback =
-      props.streaming === true && hasOpenStreamingMath(props.text)
+    const preserveRenderedFallback = props.streaming === true && hasOpenStreamingMath(props.text)
     if (!cachedEntry && !preserveRenderedFallback && root.childNodes.length === 0) {
-      const fallbackRoot = decoratedMarkdownRoot(sanitizeRawMarkdownFallback(props.text), copyLabels)
+      const fallbackRoot = decoratedMarkdownRoot(
+        sanitizeRawMarkdownFallback(props.text),
+        copyLabels,
+      )
       if (fallbackRoot) {
         root.replaceChildren(...Array.from(fallbackRoot.childNodes))
         resetCodeCopy()
@@ -721,13 +720,7 @@ const MarkdownHtmlBlock = memo(function MarkdownHtmlBlock(props: MarkdownHtmlBlo
     resetCodeCopy,
   ])
 
-  return (
-    <div
-      ref={rootRef}
-      data-markdown-block-key={props.blockKey}
-      className={props.className}
-    />
-  )
+  return <div ref={rootRef} data-markdown-block-key={props.blockKey} className={props.className} />
 })
 
 type MarkdownCodeBlockProps = {
@@ -819,11 +812,7 @@ const MarkdownCodeBlock = memo(function MarkdownCodeBlock(props: MarkdownCodeBlo
 export function MarkdownHtmlSegment(props: MarkdownHtmlSegmentProps) {
   const projectionRef = useRef<MarkdownProjection | undefined>(undefined)
   const projection = useMemo(() => {
-    const next = projectMarkdownBlocks(
-      projectionRef.current,
-      props.text,
-      props.streaming ?? false,
-    )
+    const next = projectMarkdownBlocks(projectionRef.current, props.text, props.streaming ?? false)
     projectionRef.current = next
     return next
   }, [props.streaming, props.text])

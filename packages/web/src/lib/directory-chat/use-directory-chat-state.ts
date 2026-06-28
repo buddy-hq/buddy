@@ -207,10 +207,7 @@ type DirectoryChatStoreSlice = Pick<
 
 type DirectoryChatTranscriptActionSlice = {
   applyMessageUpdated: (directory: string, info: MessageInfo) => void
-  applyMessageRemoved: (
-    directory: string,
-    input: { sessionID: string; messageID: string },
-  ) => void
+  applyMessageRemoved: (directory: string, input: { sessionID: string; messageID: string }) => void
   applyPartUpdated: (directory: string, part: MessagePart) => void
   applyPartRemoved: (
     directory: string,

@@ -12,10 +12,7 @@ import {
   RIGHT_WORKSPACE_DEFAULT_MIN_WIDTH_PX,
   RIGHT_WORKSPACE_RAIL_WIDTH_PX,
 } from "@/lib/directory-chat/right-workspace-layout"
-import type {
-  DrawerKind,
-  EffectiveWorkspaceProjection,
-} from "@/state/directory-workspace-store"
+import type { DrawerKind, EffectiveWorkspaceProjection } from "@/state/directory-workspace-store"
 
 const WORKSPACE_PRESENTATION_CHAT_MIN_WIDTH_PX = 320
 

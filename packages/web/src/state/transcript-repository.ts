@@ -334,7 +334,10 @@ function removeRecordMessage(record: TranscriptSessionRecord, messageID: string)
   emitMessage(messageID)
 }
 
-function removeRecordPart(record: TranscriptSessionRecord, input: { messageID: string; partID: string }) {
+function removeRecordPart(
+  record: TranscriptSessionRecord,
+  input: { messageID: string; partID: string },
+) {
   const key = transcriptSessionKey(record)
   record.partsByID.delete(input.partID)
   if (recordKeyByPartID.get(input.partID) === key) recordKeyByPartID.delete(input.partID)
@@ -716,7 +719,10 @@ function readTranscriptMeta(record: TranscriptSessionRecord): TranscriptSessionM
   return snapshot
 }
 
-export function getTranscriptMessages(directory: string | undefined, sessionID: string | undefined) {
+export function getTranscriptMessages(
+  directory: string | undefined,
+  sessionID: string | undefined,
+) {
   if (!directory || !sessionID) return EMPTY_MESSAGES
   return readTranscriptMessages(getOrCreateRecord({ directory, sessionID }))
 }
@@ -741,7 +747,10 @@ export function getTranscriptSessionMeta(
   return readTranscriptMeta(getOrCreateRecord({ directory, sessionID }))
 }
 
-export function hasTranscriptMessages(directory: string | undefined, sessionID: string | undefined) {
+export function hasTranscriptMessages(
+  directory: string | undefined,
+  sessionID: string | undefined,
+) {
   if (!directory || !sessionID) return false
   const record = records.get(transcriptSessionKey({ directory, sessionID }))
   return !!record && record.messageIDs.length > 0
@@ -884,7 +893,11 @@ export function sealTranscriptAssistantMessages(
   emitSession(key)
 }
 
-export function markTranscriptSessionRunning(directory: string, sessionID: string, running: boolean) {
+export function markTranscriptSessionRunning(
+  directory: string,
+  sessionID: string,
+  running: boolean,
+) {
   const key = transcriptSessionKey({ directory, sessionID })
   if (running) {
     runningSessions.add(key)
@@ -1152,7 +1165,8 @@ export function useTranscriptSessionMeta(
 
 export function useTranscriptMessage(messageID: string | undefined) {
   return useSyncExternalStore(
-    (listener) => (messageID ? subscribeToKey(messageListeners, messageID, listener) : () => undefined),
+    (listener) =>
+      messageID ? subscribeToKey(messageListeners, messageID, listener) : () => undefined,
     () => getTranscriptMessage(messageID),
     () => undefined,
   )

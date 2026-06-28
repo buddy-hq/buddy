@@ -37,12 +37,7 @@ export type PhilosophyItem = {
 export type Philosophy = {
   readonly headline: string
   readonly subtext?: string
-  readonly items: readonly [
-    PhilosophyItem,
-    PhilosophyItem,
-    PhilosophyItem,
-    PhilosophyItem,
-  ]
+  readonly items: readonly [PhilosophyItem, PhilosophyItem, PhilosophyItem, PhilosophyItem]
   readonly closingStatement: string
 }
 
@@ -82,28 +77,23 @@ const bringYourOwn: BringYourOwn = {
 
 const learnersPhilosophy: Philosophy = {
   headline: "What you learn is yours.",
-  subtext:
-    "No account, no cloud, no tracking. Your data never leaves your computer.",
+  subtext: "No account, no cloud, no tracking. Your data never leaves your computer.",
   items: [
     {
       label: "No logins",
-      detail:
-        "Open the app and start. No sign-up, no password, nothing to cancel later.",
+      detail: "Open the app and start. No sign-up, no password, nothing to cancel later.",
     },
     {
       label: "On device",
-      detail:
-        "Your notes, chats, and files live on your computer. No internet needed.",
+      detail: "Your notes, chats, and files live on your computer. No internet needed.",
     },
     {
       label: "Asks permission",
-      detail:
-        "Buddy asks before it does anything. You approve every file and action.",
+      detail: "Buddy asks before it does anything. You approve every file and action.",
     },
     {
       label: "No tracking",
-      detail:
-        "We can't see what you study. Your chats go to your AI provider.",
+      detail: "We can't see what you study. Your chats go to your AI provider.",
     },
   ],
   closingStatement: "",
@@ -116,23 +106,19 @@ const educatorsPhilosophy: Philosophy = {
   items: [
     {
       label: "No logins",
-      detail:
-        "Open the app and start. No sign-up, no password, nothing to cancel later.",
+      detail: "Open the app and start. No sign-up, no password, nothing to cancel later.",
     },
     {
       label: "On device",
-      detail:
-        "Your curriculum and lessons live on your computer. No internet needed.",
+      detail: "Your curriculum and lessons live on your computer. No internet needed.",
     },
     {
       label: "Asks permission",
-      detail:
-        "Buddy asks before it does anything. You approve every file and action.",
+      detail: "Buddy asks before it does anything. You approve every file and action.",
     },
     {
       label: "No tracking",
-      detail:
-        "We can't see what you teach. Your chats go to your AI provider.",
+      detail: "We can't see what you teach. Your chats go to your AI provider.",
     },
   ],
   closingStatement: "",
@@ -172,8 +158,7 @@ export const content = {
   learners: {
     hero: {
       headlineLines: ["The personal learning system", "for curious minds"],
-      subtext:
-        "Read, understand, and remember with a learning agent on your machine.",
+      subtext: "Read, understand, and remember with a learning agent on your machine.",
     },
     featuresHeader: {
       headline: "Built for how you actually learn.",
@@ -219,8 +204,7 @@ export const content = {
   educators: {
     hero: {
       headlineLines: ["The personal teaching assistant", "for every task"],
-      subtext:
-        "Plan, create, and assess with a teaching assistant on your machine.",
+      subtext: "Plan, create, and assess with a teaching assistant on your machine.",
     },
     featuresHeader: {
       headline: "Built for how you actually teach.",

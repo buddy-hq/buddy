@@ -70,8 +70,7 @@ export function highlightStreamingCode(input: {
       id,
       key: input.key,
       text: input.text,
-      language:
-        input.language && input.language in bundledLanguages ? input.language : "text",
+      language: input.language && input.language in bundledLanguages ? input.language : "text",
       complete: input.complete,
     })
   })
@@ -146,11 +145,7 @@ function getWorker() {
     }
     const state = applyMarkdownWorkerResponse(states.get(event.data.key), event.data)
     if (
-      shouldReleaseMarkdownWorkerState(
-        result.complete,
-        latest.get(event.data.key),
-        event.data.id,
-      )
+      shouldReleaseMarkdownWorkerState(result.complete, latest.get(event.data.key), event.data.id)
     ) {
       states.delete(event.data.key)
       keys.delete(event.data.key)
@@ -177,9 +172,12 @@ function getWorker() {
 
   worker.addEventListener("error", (event) => fail(event.message || "Markdown worker failed"))
   worker.addEventListener("messageerror", () => fail("Markdown worker response failed"))
-  worker.postMessage({
-    type: "init",
-    theme: normalizeTheme(openCodeTheme),
-  } satisfies MarkdownWorkerRequest, [])
+  worker.postMessage(
+    {
+      type: "init",
+      theme: normalizeTheme(openCodeTheme),
+    } satisfies MarkdownWorkerRequest,
+    [],
+  )
   return worker
 }

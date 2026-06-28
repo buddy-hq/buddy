@@ -11,10 +11,7 @@ async function flushEffects(delay = 0) {
   await Promise.resolve()
 }
 
-function StreamingTextProbe(props: {
-  value: string
-  live?: boolean
-}) {
+function StreamingTextProbe(props: { value: string; live?: boolean }) {
   const text = useAdaptiveStreamingText(props.value, {
     live: props.live ?? true,
   })

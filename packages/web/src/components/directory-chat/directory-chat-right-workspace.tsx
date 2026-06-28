@@ -165,10 +165,7 @@ export function DirectoryChatRightWorkspaceContent(props: {
           <BenchContent bordered={false}>{props.bench}</BenchContent>
         </div>
       ) : props.selectorContent ? (
-        <div
-          data-component="right-workspace-selector-content"
-          className="min-h-0 min-w-0 flex-1"
-        >
+        <div data-component="right-workspace-selector-content" className="min-h-0 min-w-0 flex-1">
           {props.selectorContent}
         </div>
       ) : (

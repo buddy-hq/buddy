@@ -287,9 +287,7 @@ function resolveDockedBenchShellLayout(input: {
   const leftSidebarFits =
     input.leftSidebarPreferredOpen &&
     input.viewport.widthPx >=
-      input.leftSidebarWidthPx +
-        defaults.dockedChatMinWidthPx +
-        requestedWorkspaceWidthPx
+      input.leftSidebarWidthPx + defaults.dockedChatMinWidthPx + requestedWorkspaceWidthPx
   const leftSidebarVisible = input.leftSidebarPreferredOpen && leftSidebarFits
   const availableShellWidthPx = Math.max(
     0,

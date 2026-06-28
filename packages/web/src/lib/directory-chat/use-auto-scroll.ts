@@ -160,10 +160,7 @@ export function useAutoScroll(options?: AutoScrollOptions): AutoScrollResult {
     scrollGestureUntilRef.current = Date.now() + SCROLL_GESTURE_WINDOW_MS
   }, [])
 
-  const hasScrollGesture = useCallback(
-    () => Date.now() < scrollGestureUntilRef.current,
-    [],
-  )
+  const hasScrollGesture = useCallback(() => Date.now() < scrollGestureUntilRef.current, [])
 
   const scrollToBottomInstant = useCallback(
     (element: HTMLElement) => {

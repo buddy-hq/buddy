@@ -242,7 +242,10 @@ describe("transcript repository", () => {
     await flushMicrotasks()
 
     applyTranscriptMessageUpdated(directory, assistantMessage("m2", 2).info)
-    applyTranscriptPartUpdated(directory, textPart({ id: "m2_part", messageID: "m2", text: "live" }))
+    applyTranscriptPartUpdated(
+      directory,
+      textPart({ id: "m2_part", messageID: "m2", text: "live" }),
+    )
 
     fetchControl.resolve()
     await load
@@ -509,7 +512,10 @@ describe("transcript repository", () => {
     const load = loadTranscriptMessages(directory, sessionID, { force: true })
     await flushMicrotasks()
 
-    applyTranscriptPartUpdated(directory, textPart({ id: "m2_live_part", messageID: "m2", text: "live" }))
+    applyTranscriptPartUpdated(
+      directory,
+      textPart({ id: "m2_live_part", messageID: "m2", text: "live" }),
+    )
 
     fetchControl.resolve()
     await load

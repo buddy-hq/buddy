@@ -483,11 +483,7 @@ export function useChatSync(props: UseChatSyncProps) {
           const requestID = String(properties.requestID ?? "")
           removeTranscriptPendingInput(directory, requestID)
           applyPermissionReplied(directory, requestID)
-          removeDirectoryPermissionQueryData(
-            queryClient,
-            directory,
-            requestID,
-          )
+          removeDirectoryPermissionQueryData(queryClient, directory, requestID)
           return
         }
 

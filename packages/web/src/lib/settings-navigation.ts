@@ -48,10 +48,7 @@ export function readSettingsReturnTo(value: unknown): string | undefined {
   return `${url.pathname}${url.search}`
 }
 
-export function buildSettingsSearch(input: {
-  tab: SettingsTab
-  returnTo: string
-}): SettingsSearch {
+export function buildSettingsSearch(input: { tab: SettingsTab; returnTo: string }): SettingsSearch {
   const returnTo = readSettingsReturnTo(input.returnTo)
   return {
     tab: input.tab,
