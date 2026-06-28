@@ -1,9 +1,6 @@
 import { existsSync } from "node:fs"
 import type { Configuration } from "electron-builder"
-import {
-  BUDDY_BRANDING,
-  formatCopyrightNotice,
-} from "@buddy/script/branding"
+import { BUDDY_BRANDING, formatCopyrightNotice } from "@buddy/script/branding"
 import {
   WINDOWS_RELEASE_ARCHS,
   resolveMacOsReleaseArtifactPattern,
