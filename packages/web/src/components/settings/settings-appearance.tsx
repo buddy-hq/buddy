@@ -1,14 +1,12 @@
 import { useMemo, useState } from "react"
 import {
   Button,
-  Progress,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
   Separator,
-  Switch,
   toast,
 } from "@buddy/ui"
 import { language } from "@/context/language"
@@ -16,11 +14,11 @@ import { usePlatform } from "@/context/platform"
 import { showDesktopUpdateToast } from "../../lib/desktop-updates"
 import { useTheme, type ColorScheme } from "@/theme"
 import { SettingsListCard, SettingsRow, SettingsContent } from "./settings-primitives"
+import { useAdvancedMathRuntime } from "./use-advanced-math-runtime"
 import {
-  advancedMathStatusLabel,
-  formatRuntimeVersion,
-  useAdvancedMathRuntime,
-} from "./use-advanced-math-runtime"
+  AdvancedMathRuntimeControl,
+  advancedMathRuntimeDescription,
+} from "./advanced-math-runtime-control"
 import { ConfirmRemoveMathRuntimeDialog } from "./confirm-remove-math-runtime-dialog"
 
 function isColorScheme(value: string): value is ColorScheme {
@@ -165,52 +163,17 @@ export function AppearanceSettings() {
                 <>
                   <SettingsRow
                     title={language.t("settings.appearance.advancedMathTitle")}
-                    description={language.t("settings.appearance.advancedMathDescription")}
+                    description={advancedMathRuntimeDescription(platform.os)}
                     control={
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-xs text-text-weak">
-                              {advancedMathStatusLabel(advancedMathStatus, advancedMathLoading)}
-                            </span>
-                            {advancedMathStatus?.installedRuntimeVersion && (
-                              <span className="text-[11px] text-text-subtle">
-                                {formatRuntimeVersion(advancedMathStatus.installedRuntimeVersion)}
-                              </span>
-                            )}
-                          </div>
-                          <Switch
-                            data-action="settings-advanced-math-toggle"
-                            aria-label={language.t("settings.appearance.advancedMathToggleAria")}
-                            checked={advancedMathEnabled}
-                            disabled={advancedMathBusy || advancedMathStatus === null}
-                            onCheckedChange={onToggleAdvancedMathRuntime}
-                          />
-                        </div>
-                        {advancedMathStatus?.progressMessage ||
-                        typeof advancedMathStatus?.progressPercent === "number" ? (
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between gap-2 text-[11px] text-text-weak">
-                              <span className="truncate">
-                                {advancedMathStatus?.progressMessage ??
-                                  language.t("settings.appearance.working")}
-                              </span>
-                              {typeof advancedMathStatus?.progressPercent === "number" ? (
-                                <span>{Math.round(advancedMathStatus.progressPercent)}%</span>
-                              ) : null}
-                            </div>
-                            <Progress
-                              value={advancedMathStatus?.progressPercent ?? 0}
-                              className="h-1.5"
-                            />
-                          </div>
-                        ) : null}
-                        {advancedMathStatus?.lastError ? (
-                          <p className="text-xs text-icon-critical-base">
-                            {advancedMathStatus.lastError}
-                          </p>
-                        ) : null}
-                      </div>
+                      <AdvancedMathRuntimeControl
+                        os={platform.os}
+                        status={advancedMathStatus}
+                        loading={advancedMathLoading}
+                        busy={advancedMathBusy}
+                        enabled={advancedMathEnabled}
+                        onToggle={onToggleAdvancedMathRuntime}
+                        showStatusLabel
+                      />
                     }
                   />
                   <Separator />

@@ -652,10 +652,13 @@ export const dict = {
   "settings.advanced.title": "Advanced",
   "settings.appearance.advancedMathDescription":
     "Uses python to do advanced mathematics and graph work.",
+  "settings.appearance.advancedMathComingSoonDescription":
+    "Advanced math is coming soon on Windows.",
   "settings.appearance.advancedMathTitle": "Advanced Math Package",
   "settings.appearance.advancedMathToggleAria": "Toggle advanced math runtime",
   "settings.appearance.checkForUpdates": "Check for updates",
   "settings.appearance.checking": "Checking...",
+  "settings.appearance.comingSoon": "Coming soon",
   "settings.appearance.colorSchemeDescription":
     "Choose how Buddy should render on this machine. System follows your OS setting.",
   "settings.appearance.colorSchemePlaceholder": "Select color scheme",

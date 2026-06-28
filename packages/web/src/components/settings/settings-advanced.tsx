@@ -34,7 +34,11 @@ import {
   SettingsSection,
   SettingsSectionHeader,
 } from "./settings-primitives"
-import { formatRuntimeVersion, useAdvancedMathRuntime } from "./use-advanced-math-runtime"
+import {
+  AdvancedMathRuntimeControl,
+  advancedMathRuntimeDescription,
+} from "./advanced-math-runtime-control"
+import { useAdvancedMathRuntime } from "./use-advanced-math-runtime"
 import { useStandardsRuntime } from "./use-standards-runtime"
 
 const DEFAULT_LOG_LEVEL_VALUE = "__default__"
@@ -72,6 +76,7 @@ export function AdvancedSettings() {
   const skillsSettingsLoading = globalConfigQuery.isPending || globalConfigQuery.isFetching
   const {
     advancedMathStatus,
+    advancedMathLoading,
     advancedMathBusy,
     advancedMathEnabled,
     onToggleAdvancedMathRuntime,
@@ -203,47 +208,16 @@ export function AdvancedSettings() {
             <SettingsListCard>
               <SettingsRow
                 title={language.t("settings.appearance.advancedMathTitle")}
-                description={language.t("settings.appearance.advancedMathDescription")}
+                description={advancedMathRuntimeDescription(platform.os)}
                 control={
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-end">
-                      <Switch
-                        data-action="settings-advanced-math-toggle"
-                        aria-label={language.t("settings.appearance.advancedMathToggleAria")}
-                        checked={advancedMathEnabled}
-                        disabled={advancedMathBusy || advancedMathStatus === null}
-                        onCheckedChange={onToggleAdvancedMathRuntime}
-                      />
-                    </div>
-                    {advancedMathStatus?.installedRuntimeVersion ? (
-                      <span className="text-[11px] text-text-subtle">
-                        {formatRuntimeVersion(advancedMathStatus.installedRuntimeVersion)}
-                      </span>
-                    ) : null}
-                    {advancedMathStatus?.progressMessage ||
-                    typeof advancedMathStatus?.progressPercent === "number" ? (
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-2 text-[11px] text-text-weak">
-                          <span className="truncate">
-                            {advancedMathStatus?.progressMessage ??
-                              language.t("settings.appearance.working")}
-                          </span>
-                          {typeof advancedMathStatus?.progressPercent === "number" ? (
-                            <span>{Math.round(advancedMathStatus.progressPercent)}%</span>
-                          ) : null}
-                        </div>
-                        <Progress
-                          value={advancedMathStatus?.progressPercent ?? 0}
-                          className="h-1.5"
-                        />
-                      </div>
-                    ) : null}
-                    {advancedMathStatus?.lastError ? (
-                      <p className="text-xs text-icon-critical-base">
-                        {advancedMathStatus.lastError}
-                      </p>
-                    ) : null}
-                  </div>
+                  <AdvancedMathRuntimeControl
+                    os={platform.os}
+                    status={advancedMathStatus}
+                    loading={advancedMathLoading}
+                    busy={advancedMathBusy}
+                    enabled={advancedMathEnabled}
+                    onToggle={onToggleAdvancedMathRuntime}
+                  />
                 }
               />
               <SettingsRow
