@@ -40,6 +40,7 @@ on:
 concurrency: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref_type == 'tag' && github.ref_name || inputs.version || inputs.bump || github.sha }}
 
 permissions:
+  actions: read
   contents: write
 
 jobs:
