@@ -3,13 +3,15 @@
 import { $ } from "bun"
 import { existsSync, readFileSync } from "node:fs"
 import path from "node:path"
-import { resolveAllMacOsReleaseArchiveFilenames } from "../src/shared/release-asset-names"
+import {
+  resolveConfiguredDesktopReleaseTargetArch,
+  resolveMacOsReleaseArtifactFilename,
+  resolveMacOsUpdateManifestFilename,
+} from "../src/shared/release-asset-names"
 import { readDesktopPackageVersion, resolveTauriSignerBinaryPath } from "./utils"
 
 const DEFAULT_UPDATE_HOSTNAME = "127.0.0.1"
 const DEFAULT_UPDATE_PORT = 43199
-const UPDATE_MANIFEST_FILENAME = "latest-mac.json"
-const UPDATE_MANIFEST_SIGNATURE_FILENAME = "latest-mac.json.sig"
 const ELECTRON_DIST_DIR_ENV_KEY = "ELECTRON_DIST_DIR"
 const UPDATE_HOST_ENV_KEY = "BUDDY_UPDATE_HOST"
 const UPDATE_PORT_ENV_KEY = "BUDDY_UPDATE_PORT"
@@ -47,6 +49,14 @@ const distDir = path.resolve(
   Bun.env[ELECTRON_DIST_DIR_ENV_KEY]?.trim() || path.join(packageDir, "dist"),
 )
 const version = Bun.env[VERSION_ENV_KEY]?.trim() || readDesktopPackageVersion()
+const macUpdateArch = resolveConfiguredDesktopReleaseTargetArch()
+if (macUpdateArch !== "arm64" && macUpdateArch !== "x64") {
+  throw new Error(`Unsupported local mac update architecture: ${macUpdateArch}`)
+}
+
+const updateArchiveFilename = resolveMacOsReleaseArtifactFilename(version, macUpdateArch, "zip")
+const UPDATE_MANIFEST_FILENAME = resolveMacOsUpdateManifestFilename(macUpdateArch)
+const UPDATE_MANIFEST_SIGNATURE_FILENAME = `${UPDATE_MANIFEST_FILENAME}.sig`
 const hostname = Bun.env[UPDATE_HOST_ENV_KEY]?.trim() || DEFAULT_UPDATE_HOSTNAME
 const port = resolvePort(Bun.env[UPDATE_PORT_ENV_KEY])
 const assetBaseUrl = `http://${hostname}:${port}/`
@@ -123,12 +133,8 @@ function resolvePort(rawPort: string | undefined) {
 }
 
 function ensureDistHasMacArtifacts(rootDir: string) {
-  const availableArchive = resolveAllMacOsReleaseArchiveFilenames(version).find((filename) =>
-    existsSync(path.join(rootDir, filename)),
-  )
-
-  if (!availableArchive) {
-    throw new Error(`Missing macOS update archives in ${rootDir}`)
+  if (!existsSync(path.join(rootDir, updateArchiveFilename))) {
+    throw new Error(`Missing macOS update archive ${updateArchiveFilename} in ${rootDir}`)
   }
 }
 
@@ -205,7 +211,7 @@ function renderIndex() {
     `Manifest: /${UPDATE_MANIFEST_FILENAME}`,
     `Signature: /${UPDATE_MANIFEST_SIGNATURE_FILENAME}`,
     "Archives:",
-    ...resolveAllMacOsReleaseArchiveFilenames(version).map((filename) => `- /${filename}`),
+    `- /${updateArchiveFilename}`,
   ].join("\n")
 }
 

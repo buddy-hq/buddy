@@ -4,7 +4,11 @@ import { $ } from "bun"
 import path from "node:path"
 import { createHash } from "node:crypto"
 import { access, mkdir, readFile, stat } from "node:fs/promises"
-import { resolveAllMacOsReleaseArchiveFilenames } from "../src/shared/release-asset-names"
+import {
+  resolveConfiguredDesktopReleaseTargetArch,
+  resolveMacOsReleaseArtifactFilename,
+  resolveMacOsUpdateManifestFilename,
+} from "../src/shared/release-asset-names"
 import { resolveTauriSignerBinaryPath } from "./utils"
 
 const LATEST_YML_DIR_ENV_KEY = "LATEST_YML_DIR"
@@ -34,7 +38,13 @@ const outputDirectory =
   process.env[UPDATE_OUTPUT_DIR_ENV_KEY]?.trim() ||
   process.env.RUNNER_TEMP ||
   DEFAULT_OUTPUT_DIRECTORY
-const outputPath = path.join(outputDirectory, "latest-mac.json")
+const manifestArch = resolveConfiguredDesktopReleaseTargetArch()
+if (manifestArch !== "arm64" && manifestArch !== "x64") {
+  throw new Error(`Unsupported macOS update manifest architecture: ${manifestArch}`)
+}
+
+const outputFilename = resolveMacOsUpdateManifestFilename(manifestArch)
+const outputPath = path.join(outputDirectory, outputFilename)
 
 type FileEntry = {
   url: string
@@ -128,7 +138,7 @@ async function synthesizeManifest() {
     return undefined
   }
 
-  const candidates = resolveAllMacOsReleaseArchiveFilenames(releaseVersion)
+  const candidates = [resolveMacOsReleaseArtifactFilename(releaseVersion, manifestArch, "zip")]
   const files: FileEntry[] = []
 
   for (const candidate of candidates) {
@@ -156,8 +166,13 @@ async function readLatestMacYml() {
   }
 
   const candidates = [
-    path.join(latestYmlDir, "latest-yml-aarch64-apple-darwin", "latest-mac.yml"),
-    path.join(latestYmlDir, "latest-yml-x86_64-apple-darwin", "latest-mac.yml"),
+    path.join(
+      latestYmlDir,
+      manifestArch === "arm64"
+        ? "latest-yml-aarch64-apple-darwin"
+        : "latest-yml-x86_64-apple-darwin",
+      "latest-mac.yml",
+    ),
   ]
 
   for (const candidate of candidates) {
@@ -215,7 +230,7 @@ function ensureTrailingSlash(value: string) {
 
 const latest = (await readLatestMacYml()) ?? (await synthesizeManifest())
 if (!latest) {
-  throw new Error("No macOS update artifacts available to build latest-mac.json")
+  throw new Error(`No macOS update artifacts available to build ${outputFilename}`)
 }
 
 const output = {
@@ -245,7 +260,7 @@ if (!skipUpload) {
   await $`gh release upload ${tag} ${outputPath} ${`${outputPath}.sig`} --clobber --repo ${repo}`
 }
 
-console.log("finalized latest-mac.json")
+console.log(`finalized ${outputFilename}`)
 
 function resolveSignerEnvironment() {
   const environment = { ...process.env }

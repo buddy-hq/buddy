@@ -66,9 +66,9 @@ import {
 import {
   createWindowsUpdateFeedProviderOptions,
   startWindowsUpdateFeed,
-  WINDOWS_UPDATE_MANIFEST_FILENAME,
   type WindowsUpdateFeed,
 } from "./windows-update-feed"
+import { resolveWindowsUpdateManifestFilename } from "../shared/release-asset-names"
 import { createLoadingWindow, createMainWindow, setBackgroundColor, setDockIcon } from "./windows"
 
 const { autoUpdater } = electronUpdaterPackage
@@ -82,6 +82,7 @@ const UNKNOWN_STARTUP_FAILURE_DETAIL = "The local Buddy server did not become re
 const LOADING_WINDOW_COMPLETE_TIMEOUT_MS = 5_000
 const MAC_UPDATE_CACHE_DIRECTORY_NAME = "mac-updater"
 const BUDDY_DOWNLOAD_URL = `https://github.com/${RELEASE_REPOSITORY}/releases/latest`
+const WINDOWS_REMOTE_UPDATE_MANIFEST_FILENAME = resolveWindowsUpdateManifestFilename("x64")
 const PRIMARY_DIALOG_RESPONSE = 0
 const SECONDARY_DIALOG_RESPONSE = 1
 const STARTUP_FAILURE_UPDATE_CHECK_BUTTONS = ["Check for Update", "Quit"] as const
@@ -878,14 +879,14 @@ async function configureSignedWindowsUpdateFeed(
 
 async function resolveSignedWindowsUpdateManifestUrl(expectedVersion?: string): Promise<string> {
   if (expectedVersion) {
-    return resolveReleaseAssetUrl(expectedVersion, WINDOWS_UPDATE_MANIFEST_FILENAME)
+    return resolveReleaseAssetUrl(expectedVersion, WINDOWS_REMOTE_UPDATE_MANIFEST_FILENAME)
   }
 
   if (CHANNEL !== "prod") {
-    return await resolveLatestPrereleaseAssetUrl(WINDOWS_UPDATE_MANIFEST_FILENAME)
+    return await resolveLatestPrereleaseAssetUrl(WINDOWS_REMOTE_UPDATE_MANIFEST_FILENAME)
   }
 
-  return resolveLatestReleaseAssetUrl(WINDOWS_UPDATE_MANIFEST_FILENAME)
+  return resolveLatestReleaseAssetUrl(WINDOWS_REMOTE_UPDATE_MANIFEST_FILENAME)
 }
 
 async function closeWindowsUpdateFeed(feed: WindowsUpdateFeed | undefined): Promise<void> {

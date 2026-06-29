@@ -97,9 +97,8 @@ version_from_tag() {
   printf '%s\n' "${TAG#v}"
 }
 
-candidate_asset_size() {
-  local candidate_name="$1"
-  local candidate_url="${LATEST_RELEASE_DOWNLOAD_BASE_URL}/${candidate_name}"
+asset_size() {
+  local candidate_url="$1"
 
   curl -fsSLI "${candidate_url}" 2>/dev/null |
     awk 'BEGIN { IGNORECASE = 1 } /^content-length:/ { print $2 }' |
@@ -154,12 +153,19 @@ start_download_spinner() {
 download_candidate_asset() {
   local candidate_name="$1"
   local candidate_url="${LATEST_RELEASE_DOWNLOAD_BASE_URL}/${candidate_name}"
+
+  download_asset_url "${candidate_name}" "${candidate_url}"
+}
+
+download_asset_url() {
+  local candidate_name="$1"
+  local candidate_url="$2"
   local candidate_output="${DEST_DIR}/${candidate_name}"
   local attempt=1
   local delay_seconds=2
   local expected_bytes
 
-  expected_bytes="$(candidate_asset_size "${candidate_name}")"
+  expected_bytes="$(asset_size "${candidate_url}")"
   if [[ -z "${expected_bytes}" || "${expected_bytes}" == "0" ]]; then
     return 1
   fi
@@ -188,6 +194,34 @@ download_candidate_asset() {
   done
 
   return 1
+}
+
+download_asset_from_target_manifest() {
+  local manifest_name="latest-macos-${ARCH}.json"
+  local manifest_url="${LATEST_RELEASE_DOWNLOAD_BASE_URL}/${manifest_name}"
+  local archive_url
+  local archive_name
+
+  archive_url="$(
+    curl -fsSL "${manifest_url}" 2>/dev/null |
+      sed -nE 's/.*"url"[[:space:]]*:[[:space:]]*"([^"]+\.zip)".*/\1/p' |
+      head -1
+  )"
+
+  if [[ -z "${archive_url}" ]]; then
+    return 1
+  fi
+
+  if [[ "${archive_url}" != http://* && "${archive_url}" != https://* ]]; then
+    archive_url="${LATEST_RELEASE_DOWNLOAD_BASE_URL}/${archive_url}"
+  fi
+
+  archive_name="$(basename "${archive_url%%\?*}")"
+  if [[ -z "${archive_name}" ]]; then
+    return 1
+  fi
+
+  download_asset_url "${archive_name}" "${archive_url}"
 }
 
 resolve_release_tag_from_asset_url() {
@@ -225,8 +259,10 @@ elif download_candidate_asset "${CANDIDATE_ASSETS[2]}"; then
   ok "Downloaded ${ASSET_NAME}"
 elif download_candidate_asset "${CANDIDATE_ASSETS[3]}"; then
   ok "Downloaded ${ASSET_NAME}"
+elif download_asset_from_target_manifest; then
+  ok "Downloaded pinned ${ASSET_NAME} from ${TAG} target manifest"
 else
-  fail "Latest release ${TAG} does not contain a supported macOS asset for ${ARCH}"
+  fail "Latest release ${TAG} does not contain or point to a supported macOS asset for ${ARCH}"
   exit 1
 fi
 

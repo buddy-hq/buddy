@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { resolveLatestPrereleaseAssetUrl } from "../src/main/update-common"
+import { resolveWindowsUpdateManifestFilename } from "../src/shared/release-asset-names"
 
 const ORIGINAL_FETCH = globalThis.fetch
-const LATEST_YML_FILENAME = "latest.yml"
+const WINDOWS_UPDATE_MANIFEST_FILENAME = resolveWindowsUpdateManifestFilename("x64")
 
 afterEach(() => {
   globalThis.fetch = ORIGINAL_FETCH
@@ -37,8 +38,8 @@ describe("update common", () => {
       )
     }
 
-    await expect(resolveLatestPrereleaseAssetUrl(LATEST_YML_FILENAME)).resolves.toBe(
-      "https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.1.0-beta.2/latest.yml",
+    await expect(resolveLatestPrereleaseAssetUrl(WINDOWS_UPDATE_MANIFEST_FILENAME)).resolves.toBe(
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.1.0-beta.2/latest-windows-x64.yml",
     )
     expect(requestedUrl).toBe(
       "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100",

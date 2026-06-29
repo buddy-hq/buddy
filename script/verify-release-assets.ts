@@ -3,7 +3,9 @@
 import { releaseRepository } from "./release-repositories"
 import {
   resolveMacOsReleaseArtifactFilename,
+  resolveMacOsUpdateManifestFilename,
   resolveWindowsReleaseArtifactFilename,
+  resolveWindowsUpdateManifestFilename,
 } from "../packages/desktop-electron/src/shared/release-asset-names"
 
 const DEFAULT_SOURCE_REPOSITORY = "prashantbhudwal/buddy"
@@ -20,16 +22,29 @@ type GithubReleaseAsset = {
   name: string
 }
 
+type ReleaseTargetSelection = {
+  macosArm64: boolean
+  macosX64: boolean
+  windowsX64: boolean
+}
+
 const advancedMathTargets = ["aarch64-apple-darwin", "x86_64-apple-darwin"] as const
 
 function usage(): never {
-  throw new Error("Usage: bun ./script/verify-release-assets.ts --tag v0.0.40 [--repo owner/repo]")
+  throw new Error(
+    "Usage: bun ./script/verify-release-assets.ts --tag v0.0.40 [--repo owner/repo] [--macos-arm64 true|false] [--macos-x64 true|false] [--windows-x64 true|false]",
+  )
 }
 
-function parseArgs(): { repo: string; tag: string } {
+function parseArgs(): { repo: string; tag: string; targets: ReleaseTargetSelection } {
   const args = process.argv.slice(2)
   let repo = releaseRepository()
   let tag = ""
+  const targets: ReleaseTargetSelection = {
+    macosArm64: true,
+    macosX64: true,
+    windowsX64: true,
+  }
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]
@@ -43,6 +58,21 @@ function parseArgs(): { repo: string; tag: string } {
       index += 1
       continue
     }
+    if (arg === "--macos-arm64") {
+      targets.macosArm64 = parseBooleanFlag(args[index + 1])
+      index += 1
+      continue
+    }
+    if (arg === "--macos-x64") {
+      targets.macosX64 = parseBooleanFlag(args[index + 1])
+      index += 1
+      continue
+    }
+    if (arg === "--windows-x64") {
+      targets.windowsX64 = parseBooleanFlag(args[index + 1])
+      index += 1
+      continue
+    }
     if (!arg?.startsWith("--") && !tag) {
       tag = arg.trim()
       continue
@@ -51,7 +81,17 @@ function parseArgs(): { repo: string; tag: string } {
   }
 
   if (!repo || !tag) usage()
-  return { repo, tag }
+  if (!targets.macosArm64 && !targets.macosX64 && !targets.windowsX64) {
+    throw new Error("At least one release target must be selected")
+  }
+
+  return { repo, tag, targets }
+}
+
+function parseBooleanFlag(value: string | undefined): boolean {
+  if (value === "true" || value === "1") return true
+  if (value === "false" || value === "0") return false
+  usage()
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -116,25 +156,43 @@ function releaseVersionFromTag(tag: string): string {
   return tag.replace(/^v/, "")
 }
 
-function requiredAssetsForTag(tag: string): RequiredAsset[] {
+function requiredAssetsForTag(tag: string, targets: ReleaseTargetSelection): RequiredAsset[] {
   const version = releaseVersionFromTag(tag)
+  const selectedTargetAssets = [
+    ...(targets.macosArm64
+      ? [
+          resolveMacOsReleaseArtifactFilename(version, "arm64", "dmg"),
+          `${resolveMacOsReleaseArtifactFilename(version, "arm64", "dmg")}.blockmap`,
+          resolveMacOsReleaseArtifactFilename(version, "arm64", "zip"),
+          `${resolveMacOsReleaseArtifactFilename(version, "arm64", "zip")}.blockmap`,
+        ]
+      : []),
+    ...(targets.macosX64
+      ? [
+          resolveMacOsReleaseArtifactFilename(version, "x64", "dmg"),
+          `${resolveMacOsReleaseArtifactFilename(version, "x64", "dmg")}.blockmap`,
+          resolveMacOsReleaseArtifactFilename(version, "x64", "zip"),
+          `${resolveMacOsReleaseArtifactFilename(version, "x64", "zip")}.blockmap`,
+        ]
+      : []),
+    ...(targets.windowsX64
+      ? [
+          resolveWindowsReleaseArtifactFilename(version, "x64", "exe"),
+          `${resolveWindowsReleaseArtifactFilename(version, "x64", "exe")}.blockmap`,
+        ]
+      : []),
+  ] as const
+  const targetManifestAssets = [
+    resolveMacOsUpdateManifestFilename("arm64"),
+    `${resolveMacOsUpdateManifestFilename("arm64")}.sig`,
+    resolveMacOsUpdateManifestFilename("x64"),
+    `${resolveMacOsUpdateManifestFilename("x64")}.sig`,
+    resolveWindowsUpdateManifestFilename("x64"),
+    `${resolveWindowsUpdateManifestFilename("x64")}.sig`,
+  ] as const
   const exactAssets = [
-    resolveMacOsReleaseArtifactFilename(version, "arm64", "dmg"),
-    `${resolveMacOsReleaseArtifactFilename(version, "arm64", "dmg")}.blockmap`,
-    resolveMacOsReleaseArtifactFilename(version, "arm64", "zip"),
-    `${resolveMacOsReleaseArtifactFilename(version, "arm64", "zip")}.blockmap`,
-    resolveMacOsReleaseArtifactFilename(version, "x64", "dmg"),
-    `${resolveMacOsReleaseArtifactFilename(version, "x64", "dmg")}.blockmap`,
-    resolveMacOsReleaseArtifactFilename(version, "x64", "zip"),
-    `${resolveMacOsReleaseArtifactFilename(version, "x64", "zip")}.blockmap`,
-    resolveWindowsReleaseArtifactFilename(version, "x64", "exe"),
-    `${resolveWindowsReleaseArtifactFilename(version, "x64", "exe")}.blockmap`,
-    "latest-mac.json",
-    "latest-mac.json.sig",
-    "latest-mac.yml",
-    "latest-mac.yml.sig",
-    "latest.yml",
-    "latest.yml.sig",
+    ...selectedTargetAssets,
+    ...targetManifestAssets,
     "learning-commons-knowledge-graph.db.json",
     "learning-commons-knowledge-graph.db.zst",
     "learning-commons-knowledge-graph.db.zst.sha256",
@@ -142,9 +200,14 @@ function requiredAssetsForTag(tag: string): RequiredAsset[] {
     "recovery-policy.json.sig",
   ] as const
 
+  const selectedAdvancedMathTargets = [
+    ...(targets.macosArm64 ? [advancedMathTargets[0]] : []),
+    ...(targets.macosX64 ? [advancedMathTargets[1]] : []),
+  ]
+
   return [
     ...exactAssets.map((name) => ({ label: name, matcher: name })),
-    ...advancedMathTargets.flatMap((target) => [
+    ...selectedAdvancedMathTargets.flatMap((target) => [
       {
         label: `advanced math bundle (${target})`,
         matcher: new RegExp(`^buddy-advanced-math-v.+-${target}\\.zip$`),
@@ -201,21 +264,25 @@ function assertManifestRepositoryReferences(input: {
   }
 
   if (
-    input.name === "latest-mac.json" &&
+    input.name.startsWith("latest-") &&
     !input.content.includes(`github.com/${input.releaseRepo}/`)
   ) {
     throw new Error(`${input.name} does not include absolute ${input.releaseRepo} asset URLs`)
   }
 }
 
-const { repo, tag } = parseArgs()
+const { repo, tag, targets } = parseArgs()
 const releaseApiUrl = `https://api.github.com/repos/${repo}/releases/tags/${tag}`
 const assets = parseReleaseAssets(await fetchJson(releaseApiUrl))
-const required = requiredAssetsForTag(tag).map((asset) => findAsset(assets, asset))
+const required = requiredAssetsForTag(tag, targets).map((asset) => findAsset(assets, asset))
 
 await Promise.all(required.map((asset) => assertReachable(asset)))
 
-for (const name of ["latest-mac.json", "latest.yml"] as const) {
+for (const name of [
+  resolveMacOsUpdateManifestFilename("arm64"),
+  resolveMacOsUpdateManifestFilename("x64"),
+  resolveWindowsUpdateManifestFilename("x64"),
+] as const) {
   const asset = findAsset(assets, { label: name, matcher: name })
   const content = await fetchTextAsset(asset)
   assertManifestRepositoryReferences({ content, name, releaseRepo: repo })

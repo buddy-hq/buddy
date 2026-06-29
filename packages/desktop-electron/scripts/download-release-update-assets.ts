@@ -4,7 +4,7 @@ import { $ } from "bun"
 import { access, mkdir } from "node:fs/promises"
 import path from "node:path"
 import {
-  resolveAllMacOsReleaseArchiveFilenames,
+  resolveMacOsReleaseArtifactFilename,
   resolveWindowsReleaseArtifactFilename,
 } from "../src/shared/release-asset-names"
 
@@ -12,6 +12,9 @@ const RELEASE_REPOSITORY_ENV_KEY = "BUDDY_RELEASE_REPO"
 const RELEASE_TAG_ENV_KEY = "BUDDY_RELEASE_TAG"
 const VERSION_ENV_KEY = "BUDDY_VERSION"
 const ELECTRON_DIST_DIR_ENV_KEY = "ELECTRON_DIST_DIR"
+const MACOS_ARM64_TARGET_ENV_KEY = "BUDDY_RELEASE_TARGET_MACOS_ARM64"
+const MACOS_X64_TARGET_ENV_KEY = "BUDDY_RELEASE_TARGET_MACOS_X64"
+const WINDOWS_X64_TARGET_ENV_KEY = "BUDDY_RELEASE_TARGET_WINDOWS_X64"
 
 const repo = process.env[RELEASE_REPOSITORY_ENV_KEY]?.trim()
 if (!repo) {
@@ -31,10 +34,23 @@ if (!version) {
 const outputDirectory =
   process.env[ELECTRON_DIST_DIR_ENV_KEY]?.trim() || path.resolve(import.meta.dir, "..", "dist")
 
-const updateAssets = [
-  ...resolveAllMacOsReleaseArchiveFilenames(version),
-  resolveWindowsReleaseArtifactFilename(version, "x64", "exe"),
-].flatMap((filename) => [filename, `${filename}.blockmap`])
+const updateArchives = [
+  ...(readRequiredBooleanEnvironmentVariable(MACOS_ARM64_TARGET_ENV_KEY)
+    ? [resolveMacOsReleaseArtifactFilename(version, "arm64", "zip")]
+    : []),
+  ...(readRequiredBooleanEnvironmentVariable(MACOS_X64_TARGET_ENV_KEY)
+    ? [resolveMacOsReleaseArtifactFilename(version, "x64", "zip")]
+    : []),
+  ...(readRequiredBooleanEnvironmentVariable(WINDOWS_X64_TARGET_ENV_KEY)
+    ? [resolveWindowsReleaseArtifactFilename(version, "x64", "exe")]
+    : []),
+]
+
+if (updateArchives.length === 0) {
+  throw new Error("At least one release target must be selected")
+}
+
+const updateAssets = updateArchives.flatMap((filename) => [filename, `${filename}.blockmap`])
 
 async function assertFileExists(filepath: string): Promise<void> {
   try {
@@ -52,3 +68,16 @@ for (const asset of updateAssets) {
 }
 
 console.log(`downloaded ${updateAssets.length} release update asset(s) to ${outputDirectory}`)
+
+function readRequiredBooleanEnvironmentVariable(name: string): boolean {
+  const raw = process.env[name]?.trim()
+  if (raw === "true" || raw === "1") {
+    return true
+  }
+
+  if (raw === "false" || raw === "0") {
+    return false
+  }
+
+  throw new Error(`${name} must be true or false`)
+}

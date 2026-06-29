@@ -11,9 +11,11 @@ import {
   resolveReleaseAssetUrl as resolveSharedReleaseAssetUrl,
 } from "./update-common"
 import { compareVersions } from "./recovery-policy-core"
-import { resolveMacOsReleaseArtifactFilename } from "../shared/release-asset-names"
+import {
+  resolveMacOsReleaseArtifactFilename,
+  resolveMacOsUpdateManifestFilename,
+} from "../shared/release-asset-names"
 
-const RELEASE_METADATA_URL = resolveLatestReleaseAssetUrl("latest-mac.json")
 const BUDDY_UPDATE_METADATA_URL_ENV_KEY = "BUDDY_UPDATE_METADATA_URL"
 const UPDATE_CACHE_DIRECTORY_NAME = "custom-mac-updater"
 const INSTALLER_SCRIPT_NAME = "mac-install-update.sh"
@@ -102,7 +104,7 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
       }
 
       checkForUpdateTask ??= checkManifestForUpdate({
-        metadataUrl: options.metadataUrl ?? RELEASE_METADATA_URL,
+        metadataUrl: options.metadataUrl ?? resolveDefaultMacMetadataUrl(),
         options,
         pendingUpdate,
         setPendingUpdate: (update) => {
@@ -143,7 +145,7 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
       const task = checkManifestForUpdate({
         expectedVersion: version,
         metadataUrl:
-          options.metadataUrl ?? resolveSharedReleaseAssetUrl(version, "latest-mac.json"),
+          options.metadataUrl ?? resolveSharedReleaseAssetUrl(version, resolveMacMetadataFilename()),
         options,
         pendingUpdate,
         setPendingUpdate: (update) => {
@@ -276,12 +278,12 @@ function parseLatestManifest(content: string): LatestManifest {
   const parsed = JSON.parse(content) as Partial<LatestManifest>
 
   if (typeof parsed.version !== "string" || !Array.isArray(parsed.files)) {
-    throw new Error("Invalid latest-mac.json payload")
+    throw new Error("Invalid macOS update manifest payload")
   }
 
   const files = parsed.files.filter(isFileEntry)
   if (files.length !== parsed.files.length) {
-    throw new Error("Invalid latest-mac.json file entries")
+    throw new Error("Invalid macOS update manifest file entries")
   }
 
   return {
@@ -435,4 +437,16 @@ export function resolveCustomMacUpdaterOptions() {
     metadataUrl: process.env[BUDDY_UPDATE_METADATA_URL_ENV_KEY]?.trim() || undefined,
     publicKey: process.env[BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY]?.trim() || undefined,
   }
+}
+
+function resolveMacMetadataFilename(): string {
+  if (process.arch !== "arm64" && process.arch !== "x64") {
+    throw new Error(`Unsupported macOS update architecture: ${process.arch}`)
+  }
+
+  return resolveMacOsUpdateManifestFilename(process.arch)
+}
+
+function resolveDefaultMacMetadataUrl(): string {
+  return resolveLatestReleaseAssetUrl(resolveMacMetadataFilename())
 }

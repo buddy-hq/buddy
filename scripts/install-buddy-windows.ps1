@@ -143,6 +143,27 @@ function Save-FileFromUrl {
   }
 }
 
+function Get-RemoteFileSize {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Uri
+  )
+
+  $request = [System.Net.HttpWebRequest]::Create($Uri)
+  $request.Method = "HEAD"
+  $request.AllowAutoRedirect = $true
+  $response = $null
+
+  try {
+    $response = $request.GetResponse()
+    return [long]$response.ContentLength
+  } finally {
+    if ($null -ne $response) {
+      $response.Dispose()
+    }
+  }
+}
+
 function Download-CandidateAsset {
   param(
     [Parameter(Mandatory = $true)]
@@ -273,6 +294,48 @@ function Find-CandidateAssets {
   return $foundAssets
 }
 
+function Find-TargetManifestAsset {
+  $manifestName = "latest-windows-x64.yml"
+  $manifestUrl = "https://github.com/$repo/releases/latest/download/$manifestName"
+  $manifestContent = ""
+
+  try {
+    $manifestContent = (Invoke-WebRequest -UseBasicParsing -Uri $manifestUrl -ErrorAction Stop).Content
+  } catch {
+    Write-Warn2 "Could not download $manifestName, no pinned Windows installer fallback is available."
+    return $null
+  }
+
+  $match = [regex]::Match($manifestContent, "(?m)^\s*-\s*url:\s*['""]?([^'""]+\.exe)['""]?\s*$")
+  if (-not $match.Success) {
+    Write-Warn2 "$manifestName did not include a Windows installer URL."
+    return $null
+  }
+
+  $installerUrl = $match.Groups[1].Value.Trim()
+  if (-not ($installerUrl.StartsWith("https://", [System.StringComparison]::OrdinalIgnoreCase) -or $installerUrl.StartsWith("http://", [System.StringComparison]::OrdinalIgnoreCase))) {
+    $installerUrl = "https://github.com/$repo/releases/latest/download/$installerUrl"
+  }
+
+  $installerName = Split-Path ([System.Uri]$installerUrl).AbsolutePath -Leaf
+  if ([string]::IsNullOrWhiteSpace($installerName)) {
+    Write-Warn2 "$manifestName pointed to an installer URL without a filename."
+    return $null
+  }
+
+  $installerSizeBytes = Get-RemoteFileSize -Uri $installerUrl
+  if ($installerSizeBytes -le 0) {
+    Write-Warn2 "$installerName is missing download size metadata."
+    return $null
+  }
+
+  return [pscustomobject]@{
+    Name = $installerName
+    BrowserDownloadUrl = $installerUrl
+    SizeBytes = [long]$installerSizeBytes
+  }
+}
+
 Enable-Tls12ForWindowsPowerShell
 
 $arch = Get-NativeArchitecture
@@ -302,7 +365,15 @@ foreach ($asset in $candidateReleaseAssets) {
 }
 
 if ($null -eq $downloadResult) {
-  Write-Fail "No Windows installer found in release ${tag}: $($candidateAssets -join ", ")"
+  $pinnedAsset = Find-TargetManifestAsset
+  if ($null -ne $pinnedAsset) {
+    Write-ProgressHint "Latest release pins Windows to $($pinnedAsset.Name); downloading pinned installer."
+    $downloadResult = Download-CandidateAsset -CandidateAsset $pinnedAsset
+  }
+}
+
+if ($null -eq $downloadResult) {
+  Write-Fail "No Windows installer found or pinned by release ${tag}: $($candidateAssets -join ", ")"
   throw "Download failed"
 }
 

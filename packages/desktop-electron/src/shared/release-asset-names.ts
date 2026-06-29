@@ -38,6 +38,14 @@ export function resolveWindowsReleaseArchLabel(arch: WindowsReleaseArch): Window
   return arch
 }
 
+export function resolveMacOsUpdateManifestFilename(arch: MacOsReleaseArch): string {
+  return `latest-macos-${arch}.json`
+}
+
+export function resolveWindowsUpdateManifestFilename(arch: WindowsReleaseArch): string {
+  return `latest-windows-${arch}.yml`
+}
+
 export function resolveMacOsReleaseArtifactFilename(
   version: string,
   arch: MacOsReleaseArch,

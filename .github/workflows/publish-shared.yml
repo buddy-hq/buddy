@@ -6,7 +6,23 @@ on:
       bump:
         required: false
         type: string
+      build_macos_arm64:
+        required: false
+        type: boolean
+        default: true
+      build_macos_x64:
+        required: false
+        type: boolean
+        default: true
+      build_windows_x64:
+        required: false
+        type: boolean
+        default: true
       direct_release_uploads:
+        required: false
+        type: boolean
+        default: false
+      dry_run:
         required: false
         type: boolean
         default: false
@@ -24,6 +40,7 @@ on:
         required: false
 
 permissions:
+  actions: read
   contents: write
 
 env:
@@ -31,9 +48,52 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  version:
+  preflight:
     runs-on: ubuntu-latest
+    outputs:
+      any_macos: ${{ steps.plan.outputs.any_macos }}
+      build_macos_arm64: ${{ steps.plan.outputs.build_macos_arm64 }}
+      build_macos_x64: ${{ steps.plan.outputs.build_macos_x64 }}
+      build_windows_x64: ${{ steps.plan.outputs.build_windows_x64 }}
+      dry_run: ${{ steps.plan.outputs.dry_run }}
+      release: ${{ steps.version.outputs.release || steps.dry_version.outputs.release }}
+      release_repo: ${{ steps.version.outputs.release_repo || steps.dry_version.outputs.release_repo }}
+      repo: ${{ steps.version.outputs.release_repo || steps.dry_version.outputs.release_repo }}
+      source_repo: ${{ steps.version.outputs.source_repo || steps.dry_version.outputs.source_repo }}
+      tag: ${{ steps.version.outputs.tag || steps.dry_version.outputs.tag }}
+      version: ${{ steps.version.outputs.version || steps.dry_version.outputs.version }}
     steps:
+      - id: plan
+        name: Validate release target plan
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          build_macos_arm64="${{ inputs.build_macos_arm64 }}"
+          build_macos_x64="${{ inputs.build_macos_x64 }}"
+          build_windows_x64="${{ inputs.build_windows_x64 }}"
+          dry_run="${{ inputs.dry_run }}"
+
+          if [[ "$build_macos_arm64" != "true" && "$build_macos_x64" != "true" && "$build_windows_x64" != "true" ]]; then
+            echo "At least one release target must be selected." >&2
+            exit 1
+          fi
+
+          any_macos="false"
+          if [[ "$build_macos_arm64" == "true" || "$build_macos_x64" == "true" ]]; then
+            any_macos="true"
+          fi
+
+          {
+            echo "build_macos_arm64=$build_macos_arm64"
+            echo "build_macos_x64=$build_macos_x64"
+            echo "build_windows_x64=$build_windows_x64"
+            echo "any_macos=$any_macos"
+            echo "dry_run=$dry_run"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Targets: macOS ARM64=$build_macos_arm64, macOS x64=$build_macos_x64, Windows x64=$build_windows_x64, dry run=$dry_run"
+
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
@@ -46,9 +106,7 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
 
       - run: bun install
 
@@ -59,49 +117,60 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: bun run --cwd packages/desktop-electron verify:update-signing
 
-      - id: version
-        run: bun ./script/version.ts
-        env:
-          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
-          BUDDY_BUMP: ${{ inputs.bump || '' }}
-          BUDDY_VERSION: ${{ inputs.version || '' }}
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      release: ${{ steps.version.outputs.release }}
-      tag: ${{ steps.version.outputs.tag }}
-      release_repo: ${{ steps.version.outputs.release_repo }}
-      repo: ${{ steps.version.outputs.release_repo }}
-      source_repo: ${{ steps.version.outputs.source_repo }}
-
-  smoke-node-backend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.sha }}
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - uses: actions/cache@v5
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - run: bun install
-
       - run: bun run --cwd packages/desktop-electron smoke:recovery-policy
 
       - run: bun run --cwd packages/buddy build:node
 
       - run: bun run --cwd packages/buddy smoke:node
 
+      - id: version
+        if: ${{ !inputs.dry_run }}
+        run: bun ./script/version.ts
+        env:
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          BUDDY_BUMP: ${{ inputs.bump || '' }}
+          BUDDY_VERSION: ${{ inputs.version || '' }}
+
+      - id: dry_version
+        if: ${{ inputs.dry_run }}
+        name: Resolve dry-run version outputs
+        shell: bash
+        env:
+          BUDDY_VERSION_INPUT: ${{ inputs.version || '' }}
+        run: |
+          set -euo pipefail
+          version="$BUDDY_VERSION_INPUT"
+          if [ -z "$version" ]; then
+            version="$(
+              bun -e 'const pkg = await Bun.file("packages/desktop-electron/package.json").json(); console.log(pkg.version)'
+            )"
+          fi
+          {
+            echo "version=$version"
+            echo "release=dry-run"
+            echo "tag=dry-run-v${version}-${GITHUB_RUN_ID}"
+            echo "release_repo=prashantbhudwal/buddy-releases"
+            echo "repo=prashantbhudwal/buddy-releases"
+            echo "source_repo=${GITHUB_REPOSITORY}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Dry-run version: $version"
+
+      - name: Check omitted target manifest feasibility
+        env:
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          BUDDY_RELEASE_REPO: ${{ steps.version.outputs.release_repo || steps.dry_version.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ steps.version.outputs.tag || steps.dry_version.outputs.tag }}
+          BUDDY_VERSION: ${{ steps.version.outputs.version || steps.dry_version.outputs.version }}
+          BUDDY_RELEASE_TARGET_MACOS_ARM64: ${{ steps.plan.outputs.build_macos_arm64 }}
+          BUDDY_RELEASE_TARGET_MACOS_X64: ${{ steps.plan.outputs.build_macos_x64 }}
+          BUDDY_RELEASE_TARGET_WINDOWS_X64: ${{ steps.plan.outputs.build_windows_x64 }}
+          BUDDY_RELEASE_CHECK_ONLY: "1"
+        run: bun ./packages/desktop-electron/scripts/finalize-target-update-manifests.ts
+
   build-electron-macos-arm64:
     needs:
-      - version
+      - preflight
+    if: needs.preflight.outputs.build_macos_arm64 == 'true'
     runs-on: macos-26
     env:
       BUDDY_CHANNEL: prod
@@ -121,18 +190,17 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+
+      - id: cache-versions
+        run: bun ./script/release-cache-versions.ts
 
       - uses: actions/cache@v5
         with:
           path: |
             .cache/electron
             .cache/electron-builder
-          key: ${{ runner.os }}-electron-builder-${{ hashFiles('packages/desktop-electron/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-electron-builder-
+          key: release-electron-v1-${{ runner.os }}-${{ runner.arch }}-electron-${{ steps.cache-versions.outputs.electron }}-builder-${{ steps.cache-versions.outputs.electron_builder }}
 
       - run: bun install --os=darwin --cpu=arm64
 
@@ -140,7 +208,7 @@ jobs:
 
       - run: bun run --cwd packages/desktop-electron prepare:release
         env:
-          BUDDY_VERSION: ${{ needs.version.outputs.version }}
+          BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
 
       - name: Build Electron app for darwin-arm64
         run: bun run --cwd packages/desktop-electron build
@@ -151,16 +219,16 @@ jobs:
       - run: bunx --bun electron-builder --mac --arm64 --publish never --config electron-builder.config.ts
         working-directory: packages/desktop-electron
 
-      - if: ${{ inputs.direct_release_uploads }}
+      - if: ${{ inputs.direct_release_uploads && !inputs.dry_run }}
         name: Upload packaged binaries to release
         env:
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
-          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}
-          BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
           BUDDY_RELEASE_ASSET_DIR: packages/desktop-electron/dist
         run: bun ./packages/desktop-electron/scripts/upload-release-assets.ts
 
-      - if: ${{ !inputs.direct_release_uploads }}
+      - if: ${{ !inputs.direct_release_uploads && !inputs.dry_run }}
         name: Upload packaged binaries
         uses: actions/upload-artifact@v6
         with:
@@ -173,19 +241,10 @@ jobs:
           compression-level: 0
           retention-days: 1
 
-      - if: ${{ !inputs.direct_release_uploads }}
-        name: Upload latest yml
-        uses: actions/upload-artifact@v6
-        with:
-          name: latest-yml-aarch64-apple-darwin
-          path: |
-            packages/desktop-electron/dist/latest*.yml
-          if-no-files-found: ignore
-          retention-days: 1
-
   build-electron-macos-x64:
     needs:
-      - version
+      - preflight
+    if: needs.preflight.outputs.build_macos_x64 == 'true'
     runs-on: macos-26-intel
     env:
       BUDDY_CHANNEL: prod
@@ -205,18 +264,17 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+
+      - id: cache-versions
+        run: bun ./script/release-cache-versions.ts
 
       - uses: actions/cache@v5
         with:
           path: |
             .cache/electron
             .cache/electron-builder
-          key: ${{ runner.os }}-electron-builder-${{ hashFiles('packages/desktop-electron/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-electron-builder-
+          key: release-electron-v1-${{ runner.os }}-${{ runner.arch }}-electron-${{ steps.cache-versions.outputs.electron }}-builder-${{ steps.cache-versions.outputs.electron_builder }}
 
       - run: bun install --os=darwin --cpu=x64
 
@@ -224,7 +282,7 @@ jobs:
 
       - run: bun run --cwd packages/desktop-electron prepare:release
         env:
-          BUDDY_VERSION: ${{ needs.version.outputs.version }}
+          BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
 
       - name: Build Electron app for darwin-x64
         run: bun run --cwd packages/desktop-electron build
@@ -235,16 +293,16 @@ jobs:
       - run: bunx --bun electron-builder --mac --x64 --publish never --config electron-builder.config.ts
         working-directory: packages/desktop-electron
 
-      - if: ${{ inputs.direct_release_uploads }}
+      - if: ${{ inputs.direct_release_uploads && !inputs.dry_run }}
         name: Upload packaged binaries to release
         env:
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
-          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}
-          BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
           BUDDY_RELEASE_ASSET_DIR: packages/desktop-electron/dist
         run: bun ./packages/desktop-electron/scripts/upload-release-assets.ts
 
-      - if: ${{ !inputs.direct_release_uploads }}
+      - if: ${{ !inputs.direct_release_uploads && !inputs.dry_run }}
         name: Upload packaged binaries
         uses: actions/upload-artifact@v6
         with:
@@ -257,19 +315,10 @@ jobs:
           compression-level: 0
           retention-days: 1
 
-      - if: ${{ !inputs.direct_release_uploads }}
-        name: Upload latest yml
-        uses: actions/upload-artifact@v6
-        with:
-          name: latest-yml-x86_64-apple-darwin
-          path: |
-            packages/desktop-electron/dist/latest*.yml
-          if-no-files-found: ignore
-          retention-days: 1
-
   build-electron-windows-x64:
     needs:
-      - version
+      - preflight
+    if: needs.preflight.outputs.build_windows_x64 == 'true'
     runs-on: windows-2025-vs2026
     env:
       BUDDY_CHANNEL: prod
@@ -289,18 +338,17 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+
+      - id: cache-versions
+        run: bun ./script/release-cache-versions.ts
 
       - uses: actions/cache@v5
         with:
           path: |
             .cache/electron
             .cache/electron-builder
-          key: ${{ runner.os }}-electron-builder-${{ hashFiles('packages/desktop-electron/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-electron-builder-
+          key: release-electron-v1-${{ runner.os }}-${{ runner.arch }}-electron-${{ steps.cache-versions.outputs.electron }}-builder-${{ steps.cache-versions.outputs.electron_builder }}
 
       - run: bun install
 
@@ -308,7 +356,7 @@ jobs:
 
       - run: bun run --cwd packages/desktop-electron prepare:release
         env:
-          BUDDY_VERSION: ${{ needs.version.outputs.version }}
+          BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
 
       - name: Build Electron app for win32-x64
         run: bun run --cwd packages/desktop-electron build
@@ -319,16 +367,16 @@ jobs:
       - run: bunx --bun electron-builder --win --x64 --publish never --config electron-builder.config.ts
         working-directory: packages/desktop-electron
 
-      - if: ${{ inputs.direct_release_uploads }}
+      - if: ${{ inputs.direct_release_uploads && !inputs.dry_run }}
         name: Upload packaged binaries to release
         env:
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
-          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}
-          BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
           BUDDY_RELEASE_ASSET_DIR: packages/desktop-electron/dist
         run: bun ./packages/desktop-electron/scripts/upload-release-assets.ts
 
-      - if: ${{ !inputs.direct_release_uploads }}
+      - if: ${{ !inputs.direct_release_uploads && !inputs.dry_run }}
         name: Upload packaged binaries
         uses: actions/upload-artifact@v6
         with:
@@ -341,144 +389,10 @@ jobs:
           compression-level: 0
           retention-days: 1
 
-      - if: ${{ !inputs.direct_release_uploads }}
-        name: Upload latest yml
-        uses: actions/upload-artifact@v6
-        with:
-          name: latest-yml-x86_64-pc-windows-msvc
-          path: |
-            packages/desktop-electron/dist/latest*.yml
-          if-no-files-found: ignore
-          retention-days: 1
-
-  finalize-electron-release:
-    needs:
-      - version
-      - smoke-node-backend
-      - build-electron-macos-arm64
-      - build-electron-macos-x64
-      - build-electron-windows-x64
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.sha }}
-
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - uses: actions/cache@v5
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - run: bun install
-
-      - if: ${{ !inputs.direct_release_uploads }}
-        uses: actions/download-artifact@v7
-        with:
-          pattern: electron-package-*
-          path: electron-dist
-          merge-multiple: true
-
-      - if: ${{ !inputs.direct_release_uploads }}
-        uses: actions/download-artifact@v7
-        with:
-          pattern: latest-yml-*
-          path: latest-yml
-
-      - if: ${{ inputs.direct_release_uploads }}
-        name: Download update assets from draft release
-        env:
-          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
-          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}
-          BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
-          BUDDY_VERSION: ${{ needs.version.outputs.version }}
-          ELECTRON_DIST_DIR: ${{ github.workspace }}/electron-dist
-        run: bun ./packages/desktop-electron/scripts/download-release-update-assets.ts
-
-      - name: Upload release installer scripts
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
-          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}
-          BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
-        run: |
-          set -euo pipefail
-          gh release upload "$BUDDY_RELEASE_TAG" \
-            scripts/install-buddy-macos.sh \
-            scripts/install-buddy-windows.ps1 \
-            --clobber \
-            --repo "$BUDDY_RELEASE_REPO"
-
-      - if: ${{ !inputs.direct_release_uploads }}
-        name: Upload packaged binaries to release
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
-          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}
-          BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
-        run: |
-          set -euo pipefail
-          mapfile -t artifacts < <(find electron-dist -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.blockmap' \))
-          if [ "${#artifacts[@]}" -eq 0 ]; then
-            echo "No Electron artifacts found"
-            exit 1
-          fi
-          gh release upload "$BUDDY_RELEASE_TAG" \
-            "${artifacts[@]}" \
-            --clobber \
-            --repo "$BUDDY_RELEASE_REPO"
-
-      - name: Finalize and upload latest yml
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
-          GH_REPO: ${{ needs.version.outputs.release_repo }}
-          BUDDY_VERSION: ${{ needs.version.outputs.version }}
-          LATEST_YML_DIR: ${{ github.workspace }}/latest-yml
-          ELECTRON_DIST_DIR: ${{ github.workspace }}/electron-dist
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          bun ./packages/desktop-electron/scripts/finalize-latest-yml.ts
-
-      - name: Finalize and upload latest mac json
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
-          GH_REPO: ${{ needs.version.outputs.release_repo }}
-          BUDDY_VERSION: ${{ needs.version.outputs.version }}
-          LATEST_YML_DIR: ${{ github.workspace }}/latest-yml
-          ELECTRON_DIST_DIR: ${{ github.workspace }}/electron-dist
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          bun ./packages/desktop-electron/scripts/finalize-latest-mac-json.ts
-
-      - name: Finalize and upload recovery policy
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
-          GH_REPO: ${{ needs.version.outputs.release_repo }}
-          BUDDY_VERSION: ${{ needs.version.outputs.version }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-          bun ./packages/desktop-electron/scripts/finalize-recovery-policy.ts
-
   prepare-advanced-math:
     needs:
-      - version
+      - preflight
+    if: needs.preflight.outputs.any_macos == 'true'
     runs-on: ubuntu-latest
     outputs:
       mode: ${{ steps.prepare.outputs.mode }}
@@ -493,19 +407,15 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
 
-      - uses: actions/cache@v5
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
       - id: prepare
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
-          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}
-          BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          BUDDY_RELEASE_TARGET_MACOS_ARM64: ${{ needs.preflight.outputs.build_macos_arm64 }}
+          BUDDY_RELEASE_TARGET_MACOS_X64: ${{ needs.preflight.outputs.build_macos_x64 }}
+          BUDDY_RELEASE_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
         run: |
           set -euo pipefail
 
@@ -518,6 +428,20 @@ jobs:
           fi
           echo "runtime_version=$runtime_version" >> "$GITHUB_OUTPUT"
           echo "Runtime version: $runtime_version"
+
+          targets=()
+          if [[ "$BUDDY_RELEASE_TARGET_MACOS_ARM64" == "true" ]]; then
+            targets+=("aarch64-apple-darwin")
+          fi
+          if [[ "$BUDDY_RELEASE_TARGET_MACOS_X64" == "true" ]]; then
+            targets+=("x86_64-apple-darwin")
+          fi
+
+          if [ "${#targets[@]}" -eq 0 ]; then
+            echo "mode=skipped" >> "$GITHUB_OUTPUT"
+            echo "No selected macOS targets; advanced math runtime is not required."
+            exit 0
+          fi
 
           current_tag="$BUDDY_RELEASE_TAG"
           previous_tag="$(
@@ -551,10 +475,7 @@ jobs:
           temp_dir="$(mktemp -d)"
           trap 'rm -rf "$temp_dir"' EXIT
           output_root="packages/buddy/dist/advanced-math-runtime"
-          targets=(
-            "aarch64-apple-darwin"
-            "x86_64-apple-darwin"
-          )
+          upload_paths=()
 
           for target in "${targets[@]}"; do
             asset_name="buddy-advanced-math-v${runtime_version}-${target}.zip"
@@ -577,31 +498,27 @@ jobs:
             mkdir -p "$output_dir"
             cp "$previous_bundle" "$output_dir/$asset_name"
             cp "$previous_checksum" "$output_dir/${asset_name}.sha256"
+            upload_paths+=("$output_dir/$asset_name" "$output_dir/${asset_name}.sha256")
           done
 
-          gh release upload "$BUDDY_RELEASE_TAG" \
-            "$output_root/aarch64-apple-darwin"/* \
-            "$output_root/x86_64-apple-darwin"/* \
-            --clobber \
-            --repo "$BUDDY_RELEASE_REPO"
+          if [ "$BUDDY_RELEASE_DRY_RUN" = "1" ]; then
+            echo "Dry run: selected advanced math runtime assets were resolved but not uploaded."
+          else
+            gh release upload "$BUDDY_RELEASE_TAG" \
+              "${upload_paths[@]}" \
+              --clobber \
+              --repo "$BUDDY_RELEASE_REPO"
+          fi
 
           echo "mode=reused" >> "$GITHUB_OUTPUT"
-          echo "Reused advanced math runtime assets from $previous_tag (runtime version $runtime_version)."
+          echo "Reused selected advanced math runtime assets from $previous_tag (runtime version $runtime_version)."
 
-  build-advanced-math:
+  build-advanced-math-macos-arm64:
     needs:
-      - version
+      - preflight
       - prepare-advanced-math
-    if: needs.prepare-advanced-math.outputs.mode == 'build'
-    strategy:
-      fail-fast: false
-      matrix:
-        settings:
-          - host: macos-latest
-            target: aarch64-apple-darwin
-          - host: macos-latest
-            target: x86_64-apple-darwin
-    runs-on: ${{ matrix.settings.host }}
+    if: needs.preflight.outputs.build_macos_arm64 == 'true' && needs.prepare-advanced-math.outputs.mode == 'build'
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v6
         with:
@@ -615,12 +532,11 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+
+      - run: bun install
 
       - name: Resolve advanced math runtime version
-        shell: bash
         run: |
           echo "Runtime version: ${{ needs.prepare-advanced-math.outputs.runtime_version }}"
 
@@ -630,22 +546,70 @@ jobs:
 
       - run: bun run --cwd packages/buddy build:advanced-math-runtime
         env:
-          BUDDY_RUST_TARGET: ${{ matrix.settings.target }}
+          BUDDY_RUST_TARGET: aarch64-apple-darwin
 
-      - shell: bash
+      - if: ${{ !inputs.dry_run }}
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
-          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}
-          BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
         run: |
           gh release upload "$BUDDY_RELEASE_TAG" \
-            "packages/buddy/dist/advanced-math-runtime/${{ matrix.settings.target }}"/* \
+            packages/buddy/dist/advanced-math-runtime/aarch64-apple-darwin/* \
+            --clobber \
+            --repo "$BUDDY_RELEASE_REPO"
+
+  build-advanced-math-macos-x64:
+    needs:
+      - preflight
+      - prepare-advanced-math
+    if: needs.preflight.outputs.build_macos_x64 == 'true' && needs.prepare-advanced-math.outputs.mode == 'build'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+
+      - run: bun install
+
+      - name: Resolve advanced math runtime version
+        run: |
+          echo "Runtime version: ${{ needs.prepare-advanced-math.outputs.runtime_version }}"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: bun run --cwd packages/buddy build:advanced-math-runtime
+        env:
+          BUDDY_RUST_TARGET: x86_64-apple-darwin
+
+      - if: ${{ !inputs.dry_run }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+        run: |
+          gh release upload "$BUDDY_RELEASE_TAG" \
+            packages/buddy/dist/advanced-math-runtime/x86_64-apple-darwin/* \
             --clobber \
             --repo "$BUDDY_RELEASE_REPO"
 
   build-standards:
     needs:
-      - version
+      - preflight
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -659,19 +623,18 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
 
       - run: bun install
 
       - run: bun run --cwd packages/buddy verify:knowledge-graph
 
-      - shell: bash
+      - if: ${{ !inputs.dry_run }}
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
-          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}
-          BUDDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
         run: |
           set -euo pipefail
 
@@ -682,19 +645,25 @@ jobs:
             --clobber \
             --repo "$BUDDY_RELEASE_REPO"
 
-  publish:
+  finalize-and-publish:
     if: |
       always() &&
-      needs.version.result == 'success' &&
-      needs.finalize-electron-release.result == 'success' &&
-      needs.prepare-advanced-math.result == 'success' &&
-      (needs.build-advanced-math.result == 'success' || needs.build-advanced-math.result == 'skipped') &&
+      needs.preflight.result == 'success' &&
+      (needs.build-electron-macos-arm64.result == 'success' || needs.build-electron-macos-arm64.result == 'skipped') &&
+      (needs.build-electron-macos-x64.result == 'success' || needs.build-electron-macos-x64.result == 'skipped') &&
+      (needs.build-electron-windows-x64.result == 'success' || needs.build-electron-windows-x64.result == 'skipped') &&
+      (needs.prepare-advanced-math.result == 'success' || needs.prepare-advanced-math.result == 'skipped') &&
+      (needs.build-advanced-math-macos-arm64.result == 'success' || needs.build-advanced-math-macos-arm64.result == 'skipped') &&
+      (needs.build-advanced-math-macos-x64.result == 'success' || needs.build-advanced-math-macos-x64.result == 'skipped') &&
       needs.build-standards.result == 'success'
     needs:
-      - version
-      - finalize-electron-release
+      - preflight
+      - build-electron-macos-arm64
+      - build-electron-macos-x64
+      - build-electron-windows-x64
       - prepare-advanced-math
-      - build-advanced-math
+      - build-advanced-math-macos-arm64
+      - build-advanced-math-macos-x64
       - build-standards
     runs-on: ubuntu-latest
     steps:
@@ -709,15 +678,107 @@ jobs:
       - uses: actions/cache@v5
         with:
           path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock', 'patches/**') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+          key: release-bun-v1-${{ env.BUN_VERSION }}-${{ runner.os }}-${{ runner.arch }}
 
       - run: bun install
 
-      - run: bun ./script/publish.ts
+      - if: ${{ !inputs.direct_release_uploads && !inputs.dry_run }}
+        uses: actions/download-artifact@v7
+        with:
+          pattern: electron-package-*
+          path: electron-dist
+          merge-multiple: true
+
+      - if: ${{ inputs.direct_release_uploads && !inputs.dry_run }}
+        name: Download update assets from draft release
         env:
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
-          BUDDY_VERSION: ${{ needs.version.outputs.version }}
-          BUDDY_RELEASE: ${{ needs.version.outputs.release }}
-          BUDDY_RELEASE_REPO: ${{ needs.version.outputs.release_repo }}
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
+          ELECTRON_DIST_DIR: ${{ github.workspace }}/electron-dist
+          BUDDY_RELEASE_TARGET_MACOS_ARM64: ${{ needs.preflight.outputs.build_macos_arm64 }}
+          BUDDY_RELEASE_TARGET_MACOS_X64: ${{ needs.preflight.outputs.build_macos_x64 }}
+          BUDDY_RELEASE_TARGET_WINDOWS_X64: ${{ needs.preflight.outputs.build_windows_x64 }}
+        run: bun ./packages/desktop-electron/scripts/download-release-update-assets.ts
+
+      - if: ${{ !inputs.dry_run }}
+        name: Upload release installer scripts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release upload "$BUDDY_RELEASE_TAG" \
+            scripts/install-buddy-macos.sh \
+            scripts/install-buddy-windows.ps1 \
+            --clobber \
+            --repo "$BUDDY_RELEASE_REPO"
+
+      - if: ${{ !inputs.direct_release_uploads && !inputs.dry_run }}
+        name: Upload packaged binaries to release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mapfile -t artifacts < <(find electron-dist -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.blockmap' \))
+          if [ "${#artifacts[@]}" -eq 0 ]; then
+            echo "No Electron artifacts found"
+            exit 1
+          fi
+          gh release upload "$BUDDY_RELEASE_TAG" \
+            "${artifacts[@]}" \
+            --clobber \
+            --repo "$BUDDY_RELEASE_REPO"
+
+      - if: ${{ !inputs.dry_run }}
+        name: Finalize and upload target update manifests
+        env:
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
+          ELECTRON_DIST_DIR: ${{ github.workspace }}/electron-dist
+          BUDDY_RELEASE_TARGET_MACOS_ARM64: ${{ needs.preflight.outputs.build_macos_arm64 }}
+          BUDDY_RELEASE_TARGET_MACOS_X64: ${{ needs.preflight.outputs.build_macos_x64 }}
+          BUDDY_RELEASE_TARGET_WINDOWS_X64: ${{ needs.preflight.outputs.build_windows_x64 }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bun ./packages/desktop-electron/scripts/finalize-target-update-manifests.ts
+
+      - name: Finalize recovery policy
+        env:
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          GH_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          BUDDY_UPDATE_SKIP_UPLOAD: ${{ inputs.dry_run && '1' || '' }}
+        run: bun ./packages/desktop-electron/scripts/finalize-recovery-policy.ts
+
+      - if: ${{ inputs.dry_run }}
+        name: Dry-run cost report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUDDY_RELEASE_TRANSPORT: ${{ inputs.direct_release_uploads && 'publish-cheap/direct-release-uploads' || 'publish/artifacts' }}
+          BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
+          BUDDY_RELEASE_TARGET_MACOS_ARM64: ${{ needs.preflight.outputs.build_macos_arm64 }}
+          BUDDY_RELEASE_TARGET_MACOS_X64: ${{ needs.preflight.outputs.build_macos_x64 }}
+          BUDDY_RELEASE_TARGET_WINDOWS_X64: ${{ needs.preflight.outputs.build_windows_x64 }}
+        run: bun ./script/release-dry-run-report.ts
+
+      - if: ${{ !inputs.dry_run }}
+        name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
+          BUDDY_RELEASE: ${{ needs.preflight.outputs.release }}
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+        run: bun ./script/publish.ts

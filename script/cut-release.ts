@@ -33,6 +33,18 @@ type WorkflowRun = {
   url: string
 }
 
+type ReleaseTargets = {
+  macosArm64: boolean
+  macosX64: boolean
+  windowsX64: boolean
+}
+
+type ReleaseWizardFlags = {
+  fast: boolean
+  help: boolean
+  targets: ReleaseTargets
+}
+
 function normalizeVersion(input: string) {
   const trimmed = input.trim().replace(/^v/, "")
   if (!/^\d+\.\d+\.\d+$/.test(trimmed)) {
@@ -516,11 +528,11 @@ async function waitForRunUrl(version: string, targetSha: string) {
   return undefined
 }
 
-async function dispatchRelease(version: string, targetSha: string) {
+async function dispatchRelease(version: string, targetSha: string, targets: ReleaseTargets) {
   printStep("Dispatch", `Triggering GitHub release workflow for v${version}.`)
 
   const dispatchOutput =
-    await $`gh workflow run ${RELEASE_WORKFLOW_FILENAME} --repo ${sourceRepository()} -f ${`version=${version}`}`
+    await $`gh workflow run ${RELEASE_WORKFLOW_FILENAME} --repo ${sourceRepository()} -f ${`version=${version}`} -f ${`build_macos_arm64=${String(targets.macosArm64)}`} -f ${`build_macos_x64=${String(targets.macosX64)}`} -f ${`build_windows_x64=${String(targets.windowsX64)}`}`
       .cwd(ROOT_DIR)
       .text()
       .then((output) => output.trim())
@@ -570,15 +582,152 @@ async function maybePullReleaseSync(rl: ReturnType<typeof createInterface>, fast
   runCommand("git", ["pull", "--rebase", "origin", RELEASE_BRANCH])
 }
 
-function parseArgs() {
+function parseArgs(): ReleaseWizardFlags {
   const args = process.argv.slice(2)
-  return {
-    fast: args.includes("--fast"),
+  const targets = defaultReleaseTargets()
+  let targetsConfigured = false
+  let fast = false
+  let help = false
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index]
+    if (arg === "--fast") {
+      fast = true
+      continue
+    }
+
+    if (arg === "--help" || arg === "-h") {
+      help = true
+      continue
+    }
+
+    if (arg === "--targets") {
+      const rawTargets = args[index + 1]?.trim()
+      if (!rawTargets) {
+        throw new Error("--targets requires a value")
+      }
+      Object.assign(targets, parseReleaseTargets(rawTargets))
+      targetsConfigured = true
+      index += 1
+      continue
+    }
+
+    if (arg?.startsWith("--targets=")) {
+      Object.assign(targets, parseReleaseTargets(arg.slice("--targets=".length)))
+      targetsConfigured = true
+      continue
+    }
+
+    throw new Error(`Unknown release wizard argument: ${arg}`)
   }
+
+  if (targetsConfigured) {
+    ensureReleaseTargetSelected(targets)
+  }
+
+  return {
+    fast,
+    help,
+    targets,
+  }
+}
+
+function printUsage(): void {
+  console.log(
+    [
+      "Usage: bun ./script/cut-release.ts [--fast] [--targets <target-list>]",
+      "",
+      "Target list examples:",
+      "  --targets all",
+      "  --targets macos-arm64",
+      "  --targets macos-arm64,windows-x64",
+      "  --targets mac",
+      "  --targets windows",
+    ].join("\n"),
+  )
+}
+
+function defaultReleaseTargets(): ReleaseTargets {
+  return {
+    macosArm64: true,
+    macosX64: true,
+    windowsX64: true,
+  }
+}
+
+function parseReleaseTargets(value: string): ReleaseTargets {
+  const targets: ReleaseTargets = {
+    macosArm64: false,
+    macosX64: false,
+    windowsX64: false,
+  }
+
+  for (const rawToken of value.split(",")) {
+    const token = rawToken.trim().toLowerCase()
+    if (!token) {
+      continue
+    }
+
+    switch (token) {
+      case "all":
+        targets.macosArm64 = true
+        targets.macosX64 = true
+        targets.windowsX64 = true
+        break
+      case "mac":
+      case "macos":
+        targets.macosArm64 = true
+        targets.macosX64 = true
+        break
+      case "macos-arm64":
+      case "mac-arm64":
+        targets.macosArm64 = true
+        break
+      case "macos-x64":
+      case "mac-intel":
+      case "macos-intel":
+        targets.macosX64 = true
+        break
+      case "windows":
+      case "windows-x64":
+      case "win":
+      case "win-x64":
+        targets.windowsX64 = true
+        break
+      default:
+        throw new Error(`Unknown release target: ${rawToken}`)
+    }
+  }
+
+  ensureReleaseTargetSelected(targets)
+  return targets
+}
+
+function ensureReleaseTargetSelected(targets: ReleaseTargets): void {
+  if (targets.macosArm64 || targets.macosX64 || targets.windowsX64) {
+    return
+  }
+
+  throw new Error("At least one release target must be selected")
+}
+
+function describeReleaseTargets(targets: ReleaseTargets): string {
+  const selected = [
+    ...(targets.macosArm64 ? ["macOS ARM64"] : []),
+    ...(targets.macosX64 ? ["macOS Intel"] : []),
+    ...(targets.windowsX64 ? ["Windows x64"] : []),
+  ]
+
+  return selected.join(", ")
 }
 
 async function main() {
   const flags = parseArgs()
+  if (flags.help) {
+    printUsage()
+    return
+  }
+
   ensureInteractiveTerminal()
   await ensureMainBranch()
   await ensureCleanTree()
@@ -590,6 +739,8 @@ async function main() {
   try {
     const targetSha = await alignWithOriginMain(rl)
     await ensureCleanTree()
+
+    printStep("Targets", describeReleaseTargets(flags.targets))
 
     const version = await chooseVersion(rl, flags.fast)
     const tag = `v${version}`
@@ -613,7 +764,7 @@ async function main() {
         runRequiredGates()
         await ensureCleanTree()
 
-        const runUrl = await dispatchRelease(version, targetSha)
+        const runUrl = await dispatchRelease(version, targetSha, flags.targets)
         console.log(`Workflow dispatched: ${runUrl}`)
 
         const runId = runIdFromUrl(runUrl)
