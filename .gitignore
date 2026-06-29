@@ -39,6 +39,7 @@ packages/web/src/routeTree.gen.ts
 # Local OpenCode/Buddy runtime artifacts
 /.buddy/
 /.buddy-runtime/
+/.release-local-runner-cache/
 /.tmp-xdg/
 /packages/buddy/.buddy-runtime/
 /packages/desktop/src-tauri/.buddy-runtime/
