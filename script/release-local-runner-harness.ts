@@ -199,9 +199,16 @@ async function initHarness(): Promise<void> {
 
 async function resetLocalOutputs(): Promise<void> {
   const outputPaths = [
+    resolve(repositoryRoot, "node_modules"),
+    resolve(repositoryRoot, "packages/buddy/node_modules"),
+    resolve(repositoryRoot, "packages/desktop-electron/node_modules"),
+    resolve(repositoryRoot, "packages/sdk/src/gen"),
+    resolve(repositoryRoot, "packages/web/src/routeTree.gen.ts"),
     resolve(repositoryRoot, "packages/desktop-electron/dist"),
     resolve(repositoryRoot, "packages/desktop-electron/out"),
     resolve(repositoryRoot, "packages/desktop-electron/.turbo"),
+    resolve(repositoryRoot, "packages/desktop-electron/resources/backend-node"),
+    resolve(repositoryRoot, "packages/desktop-electron/resources/icons"),
     resolve(repositoryRoot, ".turbo"),
   ]
 
