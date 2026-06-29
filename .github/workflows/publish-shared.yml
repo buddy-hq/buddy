@@ -704,8 +704,6 @@ jobs:
       - build-advanced-math-macos-x64
       - build-standards
     runs-on: ubuntu-latest
-    env:
-      ELECTRON_DIST_DIR: ${{ runner.temp }}/electron-dist
     steps:
       - uses: actions/checkout@v6
         with:
@@ -732,6 +730,7 @@ jobs:
       - if: ${{ inputs.direct_release_uploads && !inputs.dry_run }}
         name: Download update assets from draft release
         env:
+          ELECTRON_DIST_DIR: ${{ runner.temp }}/electron-dist
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
           BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
           BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
@@ -760,6 +759,7 @@ jobs:
         name: Upload packaged binaries to release
         shell: bash
         env:
+          ELECTRON_DIST_DIR: ${{ runner.temp }}/electron-dist
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
           BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
           BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
@@ -778,6 +778,7 @@ jobs:
       - if: ${{ !inputs.dry_run }}
         name: Finalize and upload target update manifests
         env:
+          ELECTRON_DIST_DIR: ${{ runner.temp }}/electron-dist
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
           BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
           BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
