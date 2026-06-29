@@ -51,6 +51,7 @@ import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
 import { useOnboardingStore } from "@/state/onboarding-store"
 import { SystemPromptPanel } from "./system-prompt-panel"
 import { PalettePanel } from "./palette-panel"
+import { DevToolsContextTab } from "./devtools-context-tab"
 import { buildSessionTrace, copyToClipboard } from "@/lib/directory-chat/chat-debug-helpers"
 import { OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
 import {
@@ -65,7 +66,15 @@ import {
   readOnboardingTestReturnTo,
   buildOnboardingChatEntryReturnTo,
 } from "@/lib/onboarding-test-mode"
-type BuddyDevToolsTab = "palette" | "trace" | "system" | "snapshot" | "memory" | "query" | "actions"
+type BuddyDevToolsTab =
+  | "palette"
+  | "trace"
+  | "context"
+  | "system"
+  | "snapshot"
+  | "memory"
+  | "query"
+  | "actions"
 
 const DEVTOOLS_AFFORDANCE_POSITIONS = [
   "bottom-right",
@@ -170,6 +179,7 @@ function isBuddyDevToolsTab(value: string): value is BuddyDevToolsTab {
   return (
     value === "palette" ||
     value === "trace" ||
+    value === "context" ||
     value === "system" ||
     value === "snapshot" ||
     value === "memory" ||
@@ -2924,6 +2934,9 @@ export function BuddyDevTools() {
                   <TabsTrigger value="trace" className="text-xs">
                     Trace
                   </TabsTrigger>
+                  <TabsTrigger value="context" className="text-xs">
+                    Context
+                  </TabsTrigger>
                   <TabsTrigger value="system" className="text-xs">
                     System
                   </TabsTrigger>
@@ -2998,6 +3011,16 @@ export function BuddyDevTools() {
             <TabsContent value="system" className="min-h-0 flex-1 overflow-hidden mt-0">
               {activeDirectory ? (
                 <SystemPromptPanel directory={activeDirectory} sessionID={sessionID} />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-text-weak">
+                  No active directory
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="context" className="min-h-0 flex-1 overflow-hidden mt-0">
+              {activeDirectory ? (
+                <DevToolsContextTab directory={activeDirectory} sessionID={sessionID} />
               ) : (
                 <div className="flex h-full items-center justify-center text-sm text-text-weak">
                   No active directory
