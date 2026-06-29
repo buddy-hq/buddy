@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url"
 import { z } from "zod"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import {
+  normalizeSkillArtifactSha256,
   skillArtifactIntegritySchema,
   skillSourceRefSchema,
   type SkillSourceRef,
@@ -111,6 +112,30 @@ function toSkillLibraryItemView(input: {
   }
 }
 
+export function isCatalogSkillUpdateAvailable(input: {
+  entry: Pick<SkillCatalogEntry, "integrity">
+  lockEntry: InstalledSkillLockEntry | undefined
+}): boolean {
+  return (
+    input.lockEntry?.state === "active" &&
+    normalizeSkillArtifactSha256(input.lockEntry.integrity.sha256) !==
+      normalizeSkillArtifactSha256(input.entry.integrity.sha256)
+  )
+}
+
+export function resolveCatalogSkillState(input: {
+  entry: Pick<SkillCatalogEntry, "integrity" | "status">
+  lockEntry: InstalledSkillLockEntry | undefined
+}): SkillLibraryItemView["state"] {
+  if (input.entry.status === "withdrawn" || input.lockEntry?.state === "withdrawn") {
+    return "withdrawn_installed"
+  }
+  if (input.lockEntry?.state !== "active") {
+    return "available"
+  }
+  return isCatalogSkillUpdateAvailable(input) ? "update_available" : "installed"
+}
+
 async function readCatalogJson(): Promise<unknown> {
   const source = await fsp.readFile(await resolveCatalogPath(), "utf8")
   try {
@@ -207,12 +232,7 @@ export async function listCatalogLibraryItems(): Promise<SkillLibraryItemView[]>
       return []
     }
 
-    const state: SkillLibraryItemView["state"] =
-      entry.status === "withdrawn" || lockEntry?.state === "withdrawn"
-        ? "withdrawn_installed"
-        : lockEntry?.state === "active"
-          ? "installed"
-          : "available"
+    const state = resolveCatalogSkillState({ entry, lockEntry })
 
     return [
       toSkillLibraryItemView({

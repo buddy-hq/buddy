@@ -1,6 +1,7 @@
 import fsp from "node:fs/promises"
 import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { normalizeSkillArtifactSha256 } from "./catalog-schemas"
 import type { CreateCustomSkillInput, SkillRuleAction } from "./contracts"
 import { SkillServiceError } from "./contracts"
 import {
@@ -10,8 +11,11 @@ import {
   skillDocument,
 } from "./documents"
 import { resolveInstalledSkillByName } from "./discovery"
-import { fetchPinnedGitHubSkill } from "./github-fetcher"
-import { readCatalogEntryByID } from "./library"
+import {
+  fetchPinnedGitHubSkill,
+  type FetchedGitHubSkill,
+} from "./github-fetcher"
+import { isCatalogSkillUpdateAvailable, readCatalogEntryByID } from "./library"
 import { readInstalledSkillLock, writeInstalledSkillLock } from "./lock"
 import {
   curatedSkillsCacheRoot,
@@ -39,6 +43,13 @@ async function writeManagedSkillFile(folder: string, document: string) {
 
 async function refreshSkillRuntime() {
   await OpenCodeInstance.disposeAll()
+}
+
+export type InstallCuratedLibrarySkillDependencies = {
+  readCatalogEntryByID?: typeof readCatalogEntryByID
+  fetchPinnedGitHubSkill?: (source: FetchedGitHubSkill["source"]) => Promise<FetchedGitHubSkill>
+  resolveInstalledSkillByName?: typeof resolveInstalledSkillByName
+  refreshSkillRuntime?: () => Promise<void>
 }
 
 function requiredSkillName(name: string) {
@@ -83,7 +94,10 @@ function ensureExpectedIntegrity(input: {
   expectedSizeBytes?: number
   actualSizeBytes: number
 }) {
-  if (input.actualSha256.toLowerCase() !== input.expectedSha256.toLowerCase()) {
+  if (
+    normalizeSkillArtifactSha256(input.actualSha256) !==
+    normalizeSkillArtifactSha256(input.expectedSha256)
+  ) {
     throw new SkillServiceError("forbidden", "Fetched skill does not match approved integrity hash")
   }
   if (input.expectedFileCount !== undefined && input.actualFileCount !== input.expectedFileCount) {
@@ -205,9 +219,18 @@ async function publishSkillTree(input: {
   }
 }
 
-export async function installCuratedLibrarySkill(skillID: string, directory: string) {
+export async function installCuratedLibrarySkill(
+  skillID: string,
+  directory: string,
+  dependencies?: InstallCuratedLibrarySkillDependencies,
+) {
   const normalizedSkillID = validateLibrarySkillID(skillID)
-  const entry = await readCatalogEntryByID(normalizedSkillID)
+  const readCatalogEntry = dependencies?.readCatalogEntryByID ?? readCatalogEntryByID
+  const fetchSkill = dependencies?.fetchPinnedGitHubSkill ?? fetchPinnedGitHubSkill
+  const resolveInstalledSkill =
+    dependencies?.resolveInstalledSkillByName ?? resolveInstalledSkillByName
+  const refreshRuntime = dependencies?.refreshSkillRuntime ?? refreshSkillRuntime
+  const entry = await readCatalogEntry(normalizedSkillID)
   if (!entry || entry.status !== "approved") {
     throw new SkillServiceError("not_found", "Unknown skill library item")
   }
@@ -219,23 +242,30 @@ export async function installCuratedLibrarySkill(skillID: string, directory: str
   const targetRoot = path.join(managedLibraryRoot(), normalizedSkillID)
   let replaceExistingInstall = false
   if (existingLockEntry?.state === "active") {
+    const updateAvailable = isCatalogSkillUpdateAvailable({
+      entry,
+      lockEntry: existingLockEntry,
+    })
     const installedStat = await fsp.stat(existingLockEntry.installedPath).catch(() => undefined)
     if (installedStat?.isDirectory()) {
       const installedSkill = await loadManagedSkillFile(
         path.join(existingLockEntry.installedPath, SKILL_DOCUMENT_FILENAME),
       )
       if (installedSkill?.name === existingLockEntry.skillName) {
-        return existingLockEntry.skillName
+        if (!updateAvailable) {
+          return existingLockEntry.skillName
+        }
+        replaceExistingInstall = true
+      } else {
+        replaceExistingInstall = true
       }
-
-      replaceExistingInstall = true
     }
   }
   if (existingLockEntry?.state === "withdrawn") {
     throw new SkillServiceError("forbidden", "Withdrawn library skills cannot be reinstalled")
   }
 
-  const fetched = await fetchPinnedGitHubSkill(entry.source)
+  const fetched = await fetchSkill(entry.source)
   let published = false
   let lockWritten = false
   let permissionSetSkillName: string | undefined
@@ -247,7 +277,16 @@ export async function installCuratedLibrarySkill(skillID: string, directory: str
       throw new SkillServiceError("invalid_input", "Fetched skill has invalid SKILL.md metadata")
     }
     const skillName = validateCuratedSkillName(skill.name)
-    const existingSkill = await resolveInstalledSkillByName(skillName, directory)
+    if (
+      existingLockEntry?.state === "active" &&
+      skillName !== existingLockEntry.skillName
+    ) {
+      throw new SkillServiceError(
+        "conflict",
+        `Curated skill update cannot change name from "${existingLockEntry.skillName}" to "${skillName}"`,
+      )
+    }
+    const existingSkill = await resolveInstalledSkill(skillName, directory)
     if (
       existingSkill &&
       (!replaceExistingInstall || path.resolve(path.dirname(existingSkill.location)) !== targetRoot)
@@ -319,11 +358,13 @@ export async function installCuratedLibrarySkill(skillID: string, directory: str
       state: "active",
       installedPath: targetRoot,
     }
-    await setSkillPermission(skillName, "allow")
-    permissionSetSkillName = skillName
+    if (!existingLockEntry) {
+      await setSkillPermission(skillName, "allow")
+      permissionSetSkillName = skillName
+    }
     await writeInstalledSkillLock(nextLock)
     lockWritten = true
-    await refreshSkillRuntime()
+    await refreshRuntime()
     if (publishedSkillTree?.replacedBackupRoot) {
       await fsp
         .rm(publishedSkillTree.replacedBackupRoot, {
@@ -338,7 +379,11 @@ export async function installCuratedLibrarySkill(skillID: string, directory: str
     if (lockWritten) {
       const nextLock = await readInstalledSkillLock().catch(() => undefined)
       if (nextLock) {
-        delete nextLock.installed[normalizedSkillID]
+        if (existingLockEntry) {
+          nextLock.installed[normalizedSkillID] = existingLockEntry
+        } else {
+          delete nextLock.installed[normalizedSkillID]
+        }
         await writeInstalledSkillLock(nextLock).catch(() => undefined)
       }
     }

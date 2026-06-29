@@ -22,7 +22,11 @@ export type InstalledSkillInfo = {
   libraryID?: string
 }
 
-export type SkillLibraryItemState = "available" | "installed" | "withdrawn_installed"
+export type SkillLibraryItemState =
+  | "available"
+  | "installed"
+  | "update_available"
+  | "withdrawn_installed"
 
 export type SkillLibraryItemView = {
   id: string

@@ -58,7 +58,7 @@ const skillLibraryEntrySchema = z.object({
   tags: z.array(z.string()),
   sourceKind: z.literal("github"),
   sourceLabel: z.string(),
-  state: z.enum(["available", "installed", "withdrawn_installed"]),
+  state: z.enum(["available", "installed", "update_available", "withdrawn_installed"]),
 })
 
 const skillsCatalogResponseSchema = z.object({
@@ -155,10 +155,10 @@ export const SkillsRoutes = new Hono()
     "/library/:skillID/install",
     describeRoute({
       operationId: "skills.library.install",
-      summary: "Install a curated library skill into Buddy-managed storage",
+      summary: "Install or update a curated library skill in Buddy-managed storage",
       responses: {
         200: {
-          description: "Installed skill",
+          description: "Installed or updated skill",
           content: {
             "application/json": { schema: resolver(skillCreatedResponseSchema) },
           },
