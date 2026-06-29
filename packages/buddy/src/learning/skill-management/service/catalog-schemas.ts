@@ -5,6 +5,10 @@ const GITHUB_COMMIT_SHA_PATTERN = /^[0-9a-f]{40}$/i
 const GITHUB_REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/
 const GITHUB_SOURCE_PATH_PATTERN = /^[A-Za-z0-9._/-]+$/
 
+export function normalizeSkillArtifactSha256(sha256: string): string {
+  return sha256.toLowerCase()
+}
+
 export const skillSourceRefSchema = z.object({
   type: z.literal("github"),
   repo: z.string().trim().min(1).regex(GITHUB_REPO_PATTERN, "repo must be owner/name"),
