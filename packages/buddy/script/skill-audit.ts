@@ -29,7 +29,7 @@ const DEFAULT_REVIEW_PACK_OUTPUT_ROOT = path.join(
   WORKSPACE_ROOT,
   "docs",
   "features",
-  "skill-library",
+  "skills",
   "reviews",
   "generated",
 )
