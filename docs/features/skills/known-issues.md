@@ -1,17 +1,14 @@
 # Skill Library Known Issues
 
-## No visible install progress for curated skills
+No current known issues.
 
-When a user installs a skill from the library, the UI currently disables the action but does not show a spinner, loading label, download indicator, or file-level progress.
+## Resolved
 
-What the user sees today:
+### Visible progress for curated skill actions
 
-- the install button becomes unavailable
-- the page can appear hung for some time
-- the skill flips to `Installed` only after the backend work completes
+Resolved by tracking active library actions independently and showing a spinner plus an
+operation-specific label in each affected skill button:
 
-Why this is a problem:
-
-- larger skills or skills with multiple files feel unreliable
-- there is no clear signal that download and extraction are still in progress
-- the experience gets worse on slower Windows machines
+- `Installing...`
+- `Updating...`
+- `Removing...`
