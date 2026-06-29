@@ -36,6 +36,11 @@ on:
         required: false
         default: false
         type: boolean
+      resume_draft:
+        description: "Publish an existing complete draft without rebuilding platform binaries"
+        required: false
+        default: false
+        type: boolean
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}-${{ github.ref_type == 'tag' && github.ref_name || inputs.version || inputs.bump || github.sha }}
 
@@ -53,5 +58,6 @@ jobs:
       bump: ${{ github.event.inputs.bump || '' }}
       direct_release_uploads: true
       dry_run: ${{ inputs.dry_run }}
+      resume_draft: ${{ inputs.resume_draft }}
       version: ${{ github.event.inputs.version || '' }}
     secrets: inherit

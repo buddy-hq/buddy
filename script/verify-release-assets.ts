@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 
+import { $ } from "bun"
 import { releaseRepository } from "./release-repositories"
 import {
   resolveMacOsReleaseArtifactFilename,
@@ -11,6 +12,8 @@ import {
 const DEFAULT_SOURCE_REPOSITORY = "prashantbhudwal/buddy"
 const GITHUB_API_VERSION = "2022-11-28"
 const GITHUB_USER_AGENT = "buddy-release-asset-verifier"
+const VERIFICATION_ATTEMPTS = 5
+const VERIFICATION_RETRY_DELAY_MS = 2_000
 
 type RequiredAsset = {
   label: string
@@ -32,12 +35,18 @@ const advancedMathTargets = ["aarch64-apple-darwin", "x86_64-apple-darwin"] as c
 
 function usage(): never {
   throw new Error(
-    "Usage: bun ./script/verify-release-assets.ts --tag v0.0.40 [--repo owner/repo] [--macos-arm64 true|false] [--macos-x64 true|false] [--windows-x64 true|false]",
+    "Usage: bun ./script/verify-release-assets.ts --tag v0.0.40 [--repo owner/repo] [--draft] [--macos-arm64 true|false] [--macos-x64 true|false] [--windows-x64 true|false]",
   )
 }
 
-function parseArgs(): { repo: string; tag: string; targets: ReleaseTargetSelection } {
+function parseArgs(): {
+  draft: boolean
+  repo: string
+  tag: string
+  targets: ReleaseTargetSelection
+} {
   const args = process.argv.slice(2)
+  let draft = false
   let repo = releaseRepository()
   let tag = ""
   const targets: ReleaseTargetSelection = {
@@ -51,6 +60,10 @@ function parseArgs(): { repo: string; tag: string; targets: ReleaseTargetSelecti
     if (arg === "--repo") {
       repo = args[index + 1]?.trim() || ""
       index += 1
+      continue
+    }
+    if (arg === "--draft") {
+      draft = true
       continue
     }
     if (arg === "--tag") {
@@ -85,7 +98,7 @@ function parseArgs(): { repo: string; tag: string; targets: ReleaseTargetSelecti
     throw new Error("At least one release target must be selected")
   }
 
-  return { repo, tag, targets }
+  return { draft, repo, tag, targets }
 }
 
 function parseBooleanFlag(value: string | undefined): boolean {
@@ -114,7 +127,7 @@ function parseReleaseAssets(value: unknown): GithubReleaseAsset[] {
     }
 
     const name = asset.name
-    const browserDownloadUrl = asset.browser_download_url
+    const browserDownloadUrl = asset.browser_download_url ?? asset.url
     if (typeof name !== "string" || typeof browserDownloadUrl !== "string") {
       throw new Error("GitHub release asset was missing name or browser_download_url")
     }
@@ -123,20 +136,31 @@ function parseReleaseAssets(value: unknown): GithubReleaseAsset[] {
   })
 }
 
-async function fetchJson(url: string): Promise<unknown> {
-  const response = await fetch(url, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      "User-Agent": GITHUB_USER_AGENT,
-      "X-GitHub-Api-Version": GITHUB_API_VERSION,
-    },
-  })
+async function fetchDraftReleaseAssets(repo: string, tag: string): Promise<GithubReleaseAsset[]> {
+  const value: unknown = await $`gh release view ${tag} --repo ${repo} --json assets`.quiet().json()
+  return parseReleaseAssets(value)
+}
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`)
+async function fetchJson(url: string): Promise<unknown> {
+  for (let attempt = 1; attempt <= VERIFICATION_ATTEMPTS; attempt += 1) {
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        "User-Agent": GITHUB_USER_AGENT,
+        "X-GitHub-Api-Version": GITHUB_API_VERSION,
+      },
+    })
+
+    if (response.ok) {
+      return await response.json()
+    }
+    if (attempt === VERIFICATION_ATTEMPTS) {
+      throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`)
+    }
+    await Bun.sleep(VERIFICATION_RETRY_DELAY_MS)
   }
 
-  return await response.json()
+  throw new Error(`Failed to fetch ${url}`)
 }
 
 function findAsset(assets: GithubReleaseAsset[], required: RequiredAsset): GithubReleaseAsset {
@@ -198,6 +222,8 @@ function requiredAssetsForTag(tag: string, targets: ReleaseTargetSelection): Req
     "learning-commons-knowledge-graph.db.zst.sha256",
     "recovery-policy.json",
     "recovery-policy.json.sig",
+    "install-buddy-macos.sh",
+    "install-buddy-windows.ps1",
   ] as const
 
   const selectedAdvancedMathTargets = [
@@ -221,26 +247,37 @@ function requiredAssetsForTag(tag: string, targets: ReleaseTargetSelection): Req
 }
 
 async function assertReachable(asset: GithubReleaseAsset): Promise<void> {
-  const response = await fetch(asset.browserDownloadUrl, {
-    method: "HEAD",
-  })
-
-  if (!response.ok) {
-    throw new Error(
-      `Release asset is not reachable: ${asset.name} (${response.status} ${response.statusText})`,
-    )
+  for (let attempt = 1; attempt <= VERIFICATION_ATTEMPTS; attempt += 1) {
+    const response = await fetch(asset.browserDownloadUrl, {
+      method: "HEAD",
+    })
+    if (response.ok) {
+      return
+    }
+    if (attempt === VERIFICATION_ATTEMPTS) {
+      throw new Error(
+        `Release asset is not reachable: ${asset.name} (${response.status} ${response.statusText})`,
+      )
+    }
+    await Bun.sleep(VERIFICATION_RETRY_DELAY_MS)
   }
 }
 
 async function fetchTextAsset(asset: GithubReleaseAsset): Promise<string> {
-  const response = await fetch(asset.browserDownloadUrl)
-  if (!response.ok) {
-    throw new Error(
-      `Failed to fetch text release asset: ${asset.name} (${response.status} ${response.statusText})`,
-    )
+  for (let attempt = 1; attempt <= VERIFICATION_ATTEMPTS; attempt += 1) {
+    const response = await fetch(asset.browserDownloadUrl)
+    if (response.ok) {
+      return await response.text()
+    }
+    if (attempt === VERIFICATION_ATTEMPTS) {
+      throw new Error(
+        `Failed to fetch text release asset: ${asset.name} (${response.status} ${response.statusText})`,
+      )
+    }
+    await Bun.sleep(VERIFICATION_RETRY_DELAY_MS)
   }
 
-  return await response.text()
+  throw new Error(`Failed to fetch text release asset: ${asset.name}`)
 }
 
 function assertManifestRepositoryReferences(input: {
@@ -271,21 +308,25 @@ function assertManifestRepositoryReferences(input: {
   }
 }
 
-const { repo, tag, targets } = parseArgs()
+const { draft, repo, tag, targets } = parseArgs()
 const releaseApiUrl = `https://api.github.com/repos/${repo}/releases/tags/${tag}`
-const assets = parseReleaseAssets(await fetchJson(releaseApiUrl))
+const assets = draft
+  ? await fetchDraftReleaseAssets(repo, tag)
+  : parseReleaseAssets(await fetchJson(releaseApiUrl))
 const required = requiredAssetsForTag(tag, targets).map((asset) => findAsset(assets, asset))
 
-await Promise.all(required.map((asset) => assertReachable(asset)))
+if (!draft) {
+  await Promise.all(required.map((asset) => assertReachable(asset)))
 
-for (const name of [
-  resolveMacOsUpdateManifestFilename("arm64"),
-  resolveMacOsUpdateManifestFilename("x64"),
-  resolveWindowsUpdateManifestFilename("x64"),
-] as const) {
-  const asset = findAsset(assets, { label: name, matcher: name })
-  const content = await fetchTextAsset(asset)
-  assertManifestRepositoryReferences({ content, name, releaseRepo: repo })
+  for (const name of [
+    resolveMacOsUpdateManifestFilename("arm64"),
+    resolveMacOsUpdateManifestFilename("x64"),
+    resolveWindowsUpdateManifestFilename("x64"),
+  ] as const) {
+    const asset = findAsset(assets, { label: name, matcher: name })
+    const content = await fetchTextAsset(asset)
+    assertManifestRepositoryReferences({ content, name, releaseRepo: repo })
+  }
 }
 
-console.log(`Verified ${required.length} release assets for ${repo}@${tag}`)
+console.log(`Verified ${required.length} ${draft ? "draft " : ""}release assets for ${repo}@${tag}`)

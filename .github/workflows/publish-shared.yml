@@ -26,6 +26,10 @@ on:
         required: false
         type: boolean
         default: false
+      resume_draft:
+        required: false
+        type: boolean
+        default: false
       version:
         required: false
         type: string
@@ -73,9 +77,15 @@ jobs:
           build_macos_x64="${{ inputs.build_macos_x64 }}"
           build_windows_x64="${{ inputs.build_windows_x64 }}"
           dry_run="${{ inputs.dry_run }}"
+          resume_draft="${{ inputs.resume_draft }}"
 
           if [[ "$build_macos_arm64" != "true" && "$build_macos_x64" != "true" && "$build_windows_x64" != "true" ]]; then
             echo "At least one release target must be selected." >&2
+            exit 1
+          fi
+
+          if [[ "$resume_draft" == "true" && ("$dry_run" == "true" || "${{ inputs.direct_release_uploads }}" != "true") ]]; then
+            echo "Draft recovery requires publish-cheap with dry_run disabled." >&2
             exit 1
           fi
 
@@ -92,7 +102,7 @@ jobs:
             echo "dry_run=$dry_run"
           } >> "$GITHUB_OUTPUT"
 
-          echo "Targets: macOS ARM64=$build_macos_arm64, macOS x64=$build_macos_x64, Windows x64=$build_windows_x64, dry run=$dry_run"
+          echo "Targets: macOS ARM64=$build_macos_arm64, macOS x64=$build_macos_x64, Windows x64=$build_windows_x64, dry run=$dry_run, resume draft=$resume_draft"
 
       - uses: actions/checkout@v6
         with:
@@ -146,7 +156,7 @@ jobs:
   build-electron-macos-arm64:
     needs:
       - preflight
-    if: needs.preflight.outputs.build_macos_arm64 == 'true'
+    if: needs.preflight.outputs.build_macos_arm64 == 'true' && !inputs.resume_draft
     runs-on: macos-26
     env:
       BUDDY_CHANNEL: prod
@@ -237,7 +247,7 @@ jobs:
   build-electron-macos-x64:
     needs:
       - preflight
-    if: needs.preflight.outputs.build_macos_x64 == 'true'
+    if: needs.preflight.outputs.build_macos_x64 == 'true' && !inputs.resume_draft
     runs-on: macos-26-intel
     env:
       BUDDY_CHANNEL: prod
@@ -328,7 +338,7 @@ jobs:
   build-electron-windows-x64:
     needs:
       - preflight
-    if: needs.preflight.outputs.build_windows_x64 == 'true'
+    if: needs.preflight.outputs.build_windows_x64 == 'true' && !inputs.resume_draft
     runs-on: windows-2025-vs2026
     env:
       BUDDY_CHANNEL: prod
@@ -419,7 +429,7 @@ jobs:
   prepare-advanced-math:
     needs:
       - preflight
-    if: needs.preflight.outputs.any_macos == 'true'
+    if: needs.preflight.outputs.any_macos == 'true' && !inputs.resume_draft
     runs-on: ubuntu-latest
     outputs:
       mode: ${{ steps.prepare.outputs.mode }}
@@ -637,6 +647,7 @@ jobs:
   build-standards:
     needs:
       - preflight
+    if: ${{ !inputs.resume_draft }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -682,7 +693,7 @@ jobs:
       (needs.prepare-advanced-math.result == 'success' || needs.prepare-advanced-math.result == 'skipped') &&
       (needs.build-advanced-math-macos-arm64.result == 'success' || needs.build-advanced-math-macos-arm64.result == 'skipped') &&
       (needs.build-advanced-math-macos-x64.result == 'success' || needs.build-advanced-math-macos-x64.result == 'skipped') &&
-      needs.build-standards.result == 'success'
+      (needs.build-standards.result == 'success' || (inputs.resume_draft && needs.build-standards.result == 'skipped'))
     needs:
       - preflight
       - build-electron-macos-arm64
@@ -693,6 +704,8 @@ jobs:
       - build-advanced-math-macos-x64
       - build-standards
     runs-on: ubuntu-latest
+    env:
+      ELECTRON_DIST_DIR: ${{ runner.temp }}/electron-dist
     steps:
       - uses: actions/checkout@v6
         with:
@@ -713,7 +726,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           pattern: electron-package-*
-          path: electron-dist
+          path: ${{ runner.temp }}/electron-dist
           merge-multiple: true
 
       - if: ${{ inputs.direct_release_uploads && !inputs.dry_run }}
@@ -723,7 +736,6 @@ jobs:
           BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
           BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
           BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
-          ELECTRON_DIST_DIR: ${{ github.workspace }}/electron-dist
           BUDDY_RELEASE_TARGET_MACOS_ARM64: ${{ needs.preflight.outputs.build_macos_arm64 }}
           BUDDY_RELEASE_TARGET_MACOS_X64: ${{ needs.preflight.outputs.build_macos_x64 }}
           BUDDY_RELEASE_TARGET_WINDOWS_X64: ${{ needs.preflight.outputs.build_windows_x64 }}
@@ -753,7 +765,7 @@ jobs:
           BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
         run: |
           set -euo pipefail
-          mapfile -t artifacts < <(find electron-dist -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.blockmap' \))
+          mapfile -t artifacts < <(find "$ELECTRON_DIST_DIR" -type f \( -name '*.dmg' -o -name '*.zip' -o -name '*.exe' -o -name '*.blockmap' \))
           if [ "${#artifacts[@]}" -eq 0 ]; then
             echo "No Electron artifacts found"
             exit 1
@@ -770,7 +782,6 @@ jobs:
           BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
           BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
           BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
-          ELECTRON_DIST_DIR: ${{ github.workspace }}/electron-dist
           BUDDY_RELEASE_TARGET_MACOS_ARM64: ${{ needs.preflight.outputs.build_macos_arm64 }}
           BUDDY_RELEASE_TARGET_MACOS_X64: ${{ needs.preflight.outputs.build_macos_x64 }}
           BUDDY_RELEASE_TARGET_WINDOWS_X64: ${{ needs.preflight.outputs.build_windows_x64 }}
@@ -802,6 +813,19 @@ jobs:
         run: bun ./script/release-dry-run-report.ts
 
       - if: ${{ !inputs.dry_run }}
+        name: Verify draft release asset inventory
+        env:
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+        run: >
+          bun ./script/verify-release-assets.ts
+          --draft
+          --repo "${{ needs.preflight.outputs.release_repo }}"
+          --tag "${{ needs.preflight.outputs.tag }}"
+          --macos-arm64 "${{ needs.preflight.outputs.build_macos_arm64 }}"
+          --macos-x64 "${{ needs.preflight.outputs.build_macos_x64 }}"
+          --windows-x64 "${{ needs.preflight.outputs.build_windows_x64 }}"
+
+      - if: ${{ !inputs.dry_run }}
         name: Publish release
         env:
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
@@ -809,3 +833,13 @@ jobs:
           BUDDY_RELEASE: ${{ needs.preflight.outputs.release }}
           BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
         run: bun ./script/publish.ts
+
+      - if: ${{ !inputs.dry_run }}
+        name: Verify published release assets
+        run: >
+          bun ./script/verify-release-assets.ts
+          --repo "${{ needs.preflight.outputs.release_repo }}"
+          --tag "${{ needs.preflight.outputs.tag }}"
+          --macos-arm64 "${{ needs.preflight.outputs.build_macos_arm64 }}"
+          --macos-x64 "${{ needs.preflight.outputs.build_macos_x64 }}"
+          --windows-x64 "${{ needs.preflight.outputs.build_windows_x64 }}"
