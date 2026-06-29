@@ -559,9 +559,24 @@ function runIdFromUrl(url: string) {
   return match?.[1]
 }
 
-function watchRun(runId: string) {
+function watchRun(runId: string): boolean {
   printStep("Watch", `Watching GitHub Actions run ${runId}.`)
-  runCommand("gh", ["run", "watch", runId, "--repo", sourceRepository(), "--exit-status"])
+  const result = spawnSync(
+    "gh",
+    ["run", "watch", runId, "--repo", sourceRepository(), "--exit-status"],
+    {
+      cwd: ROOT_DIR,
+      stdio: "inherit",
+    },
+  )
+  if (result.status === 0) {
+    return true
+  }
+
+  console.warn(
+    `Local workflow monitoring failed. The GitHub Actions run is still authoritative: https://github.com/${sourceRepository()}/actions/runs/${runId}`,
+  )
+  return false
 }
 
 function syncTagsFromOrigin() {
@@ -808,7 +823,9 @@ async function main() {
           runId &&
           (flags.fast || (await confirm(rl, "Watch the release workflow until it finishes?", true)))
         ) {
-          watchRun(runId)
+          if (!watchRun(runId)) {
+            return
+          }
         }
 
         const published = await loadRelease(tag)
