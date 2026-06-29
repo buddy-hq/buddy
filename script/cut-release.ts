@@ -7,6 +7,7 @@ import { mkdtempSync, rmSync } from "node:fs"
 import { spawnSync } from "node:child_process"
 import { createInterface } from "node:readline/promises"
 import { stdin as input, stdout as output } from "node:process"
+import { cancel, isCancel, multiselect } from "@clack/prompts"
 import { buildNotes, getLatestRelease } from "./changelog.ts"
 import { releaseRepository, sourceRepository } from "./release-repositories"
 
@@ -42,8 +43,10 @@ type ReleaseTargets = {
 type ReleaseWizardFlags = {
   fast: boolean
   help: boolean
-  targets: ReleaseTargets
+  targets: ReleaseTargets | undefined
 }
+
+type ReleaseTargetChoice = "all" | "macos-arm64" | "macos-x64" | "windows-x64"
 
 function normalizeVersion(input: string) {
   const trimmed = input.trim().replace(/^v/, "")
@@ -584,8 +587,7 @@ async function maybePullReleaseSync(rl: ReturnType<typeof createInterface>, fast
 
 function parseArgs(): ReleaseWizardFlags {
   const args = process.argv.slice(2)
-  const targets = defaultReleaseTargets()
-  let targetsConfigured = false
+  let targets: ReleaseTargets | undefined
   let fast = false
   let help = false
 
@@ -606,23 +608,17 @@ function parseArgs(): ReleaseWizardFlags {
       if (!rawTargets) {
         throw new Error("--targets requires a value")
       }
-      Object.assign(targets, parseReleaseTargets(rawTargets))
-      targetsConfigured = true
+      targets = parseReleaseTargets(rawTargets)
       index += 1
       continue
     }
 
     if (arg?.startsWith("--targets=")) {
-      Object.assign(targets, parseReleaseTargets(arg.slice("--targets=".length)))
-      targetsConfigured = true
+      targets = parseReleaseTargets(arg.slice("--targets=".length))
       continue
     }
 
     throw new Error(`Unknown release wizard argument: ${arg}`)
-  }
-
-  if (targetsConfigured) {
-    ensureReleaseTargetSelected(targets)
   }
 
   return {
@@ -643,6 +639,8 @@ function printUsage(): void {
       "  --targets macos-arm64,windows-x64",
       "  --targets mac",
       "  --targets windows",
+      "",
+      "Without --targets, the wizard opens an interactive target multiselect.",
     ].join("\n"),
   )
 }
@@ -703,6 +701,43 @@ function parseReleaseTargets(value: string): ReleaseTargets {
   return targets
 }
 
+async function chooseReleaseTargets(): Promise<ReleaseTargets> {
+  const selected = await multiselect<ReleaseTargetChoice>({
+    message: "Select release targets",
+    options: [
+      {
+        value: "all",
+        label: "All",
+        hint: "macOS ARM64, macOS Intel, and Windows x64",
+      },
+      {
+        value: "macos-arm64",
+        label: "macOS ARM64",
+      },
+      {
+        value: "macos-x64",
+        label: "macOS Intel",
+      },
+      {
+        value: "windows-x64",
+        label: "Windows x64",
+      },
+    ],
+    required: true,
+  })
+
+  if (isCancel(selected)) {
+    cancel("Release cancelled.")
+    process.exit(0)
+  }
+
+  if (selected.includes("all")) {
+    return defaultReleaseTargets()
+  }
+
+  return parseReleaseTargets(selected.join(","))
+}
+
 function ensureReleaseTargetSelected(targets: ReleaseTargets): void {
   if (targets.macosArm64 || targets.macosX64 || targets.windowsX64) {
     return
@@ -731,6 +766,7 @@ async function main() {
   ensureInteractiveTerminal()
   await ensureMainBranch()
   await ensureCleanTree()
+  const targets = flags.targets ?? (await chooseReleaseTargets())
   ensureGithubAuth()
   await ensureReleaseSecrets()
 
@@ -740,7 +776,7 @@ async function main() {
     const targetSha = await alignWithOriginMain(rl)
     await ensureCleanTree()
 
-    printStep("Targets", describeReleaseTargets(flags.targets))
+    printStep("Targets", describeReleaseTargets(targets))
 
     const version = await chooseVersion(rl, flags.fast)
     const tag = `v${version}`
@@ -764,7 +800,7 @@ async function main() {
         runRequiredGates()
         await ensureCleanTree()
 
-        const runUrl = await dispatchRelease(version, targetSha, flags.targets)
+        const runUrl = await dispatchRelease(version, targetSha, targets)
         console.log(`Workflow dispatched: ${runUrl}`)
 
         const runId = runIdFromUrl(runUrl)

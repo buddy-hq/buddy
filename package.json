@@ -126,6 +126,7 @@
     "@buddy/script": "workspace:*"
   },
   "devDependencies": {
+    "@clack/prompts": "1.0.0-alpha.1",
     "@tanstack/eslint-plugin-query": "^5.99.0",
     "@tsconfig/node22": "catalog:",
     "@typescript/native-preview": "7.0.0-dev.20251207.1",

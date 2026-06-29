@@ -31,7 +31,7 @@ Buddy is made for anyone who wants to learn anything. You can be a student prepa
 Paste this in your terminal, and run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/prashantbhudwal/buddy-releases/main/scripts/install-buddy-macos.sh | bash
+curl -fsSL https://github.com/prashantbhudwal/buddy-releases/releases/latest/download/install-buddy-macos.sh | bash
 ```
 
 ## Install (Windows)
@@ -39,7 +39,7 @@ curl -fsSL https://raw.githubusercontent.com/prashantbhudwal/buddy-releases/main
 Run in PowerShell/Terminal, and run:
 
 ```powershell
-irm -UseBasicParsing https://raw.githubusercontent.com/prashantbhudwal/buddy-releases/main/scripts/install-buddy-windows.ps1 | iex
+irm -UseBasicParsing https://github.com/prashantbhudwal/buddy-releases/releases/latest/download/install-buddy-windows.ps1 | iex
 ```
 
 
