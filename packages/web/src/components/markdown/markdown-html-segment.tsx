@@ -83,6 +83,10 @@ const markdownClassName = [
   "[--tw-prose-lead:var(--color-text-weak)]",
   "[--tw-prose-pre-bg:transparent]",
   "[--tw-prose-pre-code:var(--color-text-base)]",
+  // Markdown blocks add one wrapper between the prose root and rendered content.
+  // Reset only the outer edges so separate streaming blocks retain their internal rhythm.
+  "[&>[data-markdown-block-key]:first-child>*:first-child]:mt-0",
+  "[&>[data-markdown-block-key]:last-child>*:last-child]:mb-0",
   // Keep headings the same size as body text (chat context)
   "[&_h1]:text-sm [&_h2]:text-sm [&_h3]:text-sm [&_h4]:text-sm [&_h5]:text-sm [&_h6]:text-sm",
   "prose-headings:font-medium",
