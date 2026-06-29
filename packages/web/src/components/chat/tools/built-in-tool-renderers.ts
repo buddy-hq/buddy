@@ -106,7 +106,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     summary: {
       display: "card",
       pattern: "info",
-      countSummary: { verb: "Wrote", singular: "file", plural: "files" },
+      countSummary: { verb: "Edited", singular: "file", plural: "files" },
     },
   }),
   apply_patch: createToolRenderer({
@@ -115,7 +115,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
     summary: {
       display: "card",
       pattern: "info",
-      countSummary: { verb: "Applied", singular: "patch", plural: "patches" },
+      countSummary: { verb: "Edited", singular: "file", plural: "files" },
     },
   }),
   bash: createToolRenderer({
