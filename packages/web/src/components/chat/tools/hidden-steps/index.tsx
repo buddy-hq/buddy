@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react"
 
 import { ChevronRightIcon, cn } from "@buddy/ui"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react"
 import { AlertCircle, Wrench } from "lucide-react"
 
 import type { MessagePart } from "@/state/chat-types"
@@ -35,10 +35,56 @@ const DEFAULT_STEPS_TITLE = "Steps"
 const FALLBACK_ICON: ToolIconRenderer = (cls) => <Wrench className={cls} />
 
 const EXPAND_TRANSITION = { duration: 0.35, ease: [0.4, 0, 0.2, 1] } as const
+const HEADER_STATUS_TRANSITION = {
+  duration: 0.18,
+  ease: [0.23, 1, 0.32, 1],
+} as const
 
 function entryIcon(entry: HiddenStepsEntry): ToolIconRenderer {
   if (entry.part.type === "reasoning") return HIDDEN_STEPS_REASONING_ICON
   return entry.icon ?? FALLBACK_ICON
+}
+
+function HiddenStepsHeaderStatus(props: {
+  icon?: ToolIconRenderer
+  title: string
+  shimmer: boolean
+}) {
+  const isPresent = useIsPresent()
+  const reduceMotion = useReducedMotion()
+  const hiddenState = reduceMotion
+    ? { opacity: 0 }
+    : {
+        opacity: 0,
+        filter: "blur(2px)",
+        transform: "translateY(1px)",
+      }
+  const visibleState = reduceMotion
+    ? { opacity: 1 }
+    : {
+        opacity: 1,
+        filter: "blur(0px)",
+        transform: "translateY(0px)",
+      }
+
+  return (
+    <motion.span
+      aria-hidden={isPresent ? undefined : true}
+      className="flex min-w-0 items-center gap-2 [grid-area:1/1]"
+      initial={hiddenState}
+      animate={visibleState}
+      exit={hiddenState}
+      transition={HEADER_STATUS_TRANSITION}
+    >
+      {props.icon ? <span className="shrink-0">{props.icon("h-3.5 w-3.5 shrink-0")}</span> : null}
+      <TextShimmer
+        text={props.title}
+        active={props.shimmer}
+        truncate
+        className="min-w-0 shrink"
+      />
+    </motion.span>
+  )
 }
 
 function hiddenStepsEntrySummaryRowHasDetails(entry: HiddenStepsEntry): boolean {
@@ -235,7 +281,7 @@ function HiddenStepsItemRow(props: HiddenStepsItemEntryProps) {
           if (hasDetails) setIsOpen((v) => !v)
         }}
         className={cn(
-          "group flex w-full cursor-default items-center gap-2 rounded-md px-1 py-1 text-xs text-text-weaker transition-colors",
+          "group flex w-full cursor-default items-center gap-2 rounded-md px-1 py-1.5 text-xs text-text-weaker transition-colors",
           hasDetails && "hover:bg-surface-weak/50 hover:text-text-weak",
         )}
       >
@@ -276,6 +322,7 @@ type HiddenStepsProps = {
   metaText?: string
   interrupted?: boolean
   isBusy?: boolean
+  isCurrent?: boolean
   expansionState?: HiddenStepsExpansionState
   onExpansionStateChange?: (state: HiddenStepsExpansionState) => void
 }
@@ -293,6 +340,7 @@ export function HiddenSteps({
   metaText,
   interrupted,
   isBusy,
+  isCurrent,
   expansionState,
   onExpansionStateChange,
 }: HiddenStepsProps) {
@@ -318,9 +366,13 @@ export function HiddenSteps({
       entries,
       isActive,
       hasError,
-      resolvedHeader: resolveHiddenStepsHeader(entries, Boolean(isBusy)),
+      resolvedHeader: resolveHiddenStepsHeader(
+        entries,
+        Boolean(isBusy),
+        isCurrent ?? Boolean(isBusy),
+      ),
     }
-  }, [parts, isBusy])
+  }, [parts, isBusy, isCurrent])
 
   const displayHeader = useFileToolHeaderDisplay({
     label: resolvedHeader.label,
@@ -332,7 +384,7 @@ export function HiddenSteps({
   })
 
   const title = displayHeader.label ?? DEFAULT_STEPS_TITLE
-  const animateTitle = isActive && Boolean(isBusy)
+  const animateTitle = Boolean(resolvedHeader.shimmer || (isActive && isBusy))
   const canOpen = entries.length > 1 || entries.some(hiddenStepsEntryHasDetails)
   const stableStreamingDetails =
     isOpen && entries.some((entry) => hiddenStepsEntryHasStreamingReasoning(entry, isBusy))
@@ -359,10 +411,18 @@ export function HiddenSteps({
         onClick={() => {
           if (canOpen) setIsOpen((v) => !v)
         }}
-        className="group flex min-w-0 w-full cursor-default items-center gap-2 text-xs text-text-weaker transition-colors duration-200 hover:text-text-weak active:scale-[0.98]"
+        className="group flex min-w-0 w-full cursor-default items-center gap-2 py-1.5 text-xs text-text-weaker transition-colors duration-200 hover:text-text-weak active:scale-[0.98]"
       >
-        {topIcon ? <span className="shrink-0">{topIcon("h-3.5 w-3.5 shrink-0")}</span> : null}
-        <TextShimmer text={title} active={animateTitle} truncate className="min-w-0 shrink" />
+        <span className="inline-grid min-w-0 shrink">
+          <AnimatePresence initial={false}>
+            <HiddenStepsHeaderStatus
+              key={title}
+              icon={topIcon}
+              title={title}
+              shimmer={animateTitle}
+            />
+          </AnimatePresence>
+        </span>
         {hasError && !isBusy && !isOpen ? (
           <AlertCircle className="h-3 w-3 shrink-0 text-text-weaker" />
         ) : null}

@@ -55,7 +55,7 @@ export function assistantPartStartsFollowup(part: MessagePart): boolean {
     const tool = part.tool
     const state = parseToolState(part)
     const renderer = resolveToolRenderer(tool, parseToolUiMetadata(state.metadata))
-    if (renderer.hidden || !renderer.inline) return false
+    if (renderer.hidden || !toolRendererUsesInlinePresentation(renderer, state)) return false
     if (isSilentIngestFullTextFallback(tool, state)) return false
 
     if (tool === "question") {
@@ -84,6 +84,22 @@ function isToolPartNamed(part: MessagePart, tool: string): boolean {
   return isChatToolPart(part) && part.tool === tool
 }
 
+function toolRendererUsesInlinePresentation(
+  renderer: ReturnType<typeof resolveToolRenderer>,
+  state: ReturnType<typeof parseToolState>,
+): boolean {
+  if (!renderer.inline) return false
+  return state.status !== "error" || renderer.renderInlineErrorCard === true
+}
+
+function toolPartUsesInlinePresentation(part: MessagePart): boolean {
+  if (!isChatToolPart(part)) return false
+
+  const state = parseToolState(part)
+  const renderer = resolveToolRenderer(part.tool, parseToolUiMetadata(state.metadata))
+  return toolRendererUsesInlinePresentation(renderer, state)
+}
+
 function collectConsecutiveToolParts(
   parts: MessagePart[],
   startIndex: number,
@@ -94,7 +110,7 @@ function collectConsecutiveToolParts(
 
   while (nextIndex < parts.length) {
     const part = parts[nextIndex]
-    if (!part || !isToolPartNamed(part, tool)) {
+    if (!part || !isToolPartNamed(part, tool) || !toolPartUsesInlinePresentation(part)) {
       break
     }
     groupedParts.push(part)
@@ -132,6 +148,16 @@ export function groupAssistantParts(
   while (i < visibleParts.length) {
     const part = visibleParts[i]
     if (!part) {
+      i++
+      continue
+    }
+
+    const partIsAbstractable =
+      isChatReasoningPart(part) ||
+      (isChatToolPart(part) && !toolPartUsesInlinePresentation(part))
+
+    if (partIsAbstractable) {
+      if (contextStart < 0) contextStart = i
       i++
       continue
     }
@@ -218,18 +244,6 @@ export function groupAssistantParts(
         i = nextIndex
         continue
       }
-    }
-
-    const partIsAbstractable =
-      (isChatToolPart(part) &&
-        !resolveToolRenderer(part.tool, parseToolUiMetadata(parseToolState(part).metadata))
-          .inline) ||
-      isChatReasoningPart(part)
-
-    if (partIsAbstractable) {
-      if (contextStart < 0) contextStart = i
-      i++
-      continue
     }
 
     flushContext(i - 1)

@@ -100,7 +100,7 @@ export function resolveToolSummary(
 
       return {
         display: summary.display,
-        label: buildLabel(props.info.title, command),
+        label: props.info.title,
         details: [command]
           .filter(isNonEmptyString)
           .map((value) => ({ value, format: "text" as const })),

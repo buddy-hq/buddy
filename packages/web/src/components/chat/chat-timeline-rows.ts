@@ -56,6 +56,7 @@ export type TimelineRow =
       assistantAborted: boolean
       turnDurationMs: number | undefined
       active: boolean
+      itemActive: boolean
       previousAssistantPart: boolean
       lastAssistantTextID: string | undefined
     }
@@ -247,6 +248,11 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
     const error = assistantError(turn.assistants)
     const errorText = formatMessageError(error)
     const compaction = turnHasCompaction(turn)
+    const showThinking =
+      active &&
+      !errorText &&
+      !hasReasoningSummaryRow &&
+      (input.showReasoningSummaries ? assistantItems.length === 0 : true)
 
     if (turnIndex > 0) {
       rows.push({
@@ -288,17 +294,12 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
         assistantAborted: aborted,
         turnDurationMs: turnDurationMs(turn),
         active,
+        itemActive: active && !showThinking && itemIndex === assistantItems.length - 1,
         previousAssistantPart: itemIndex > 0,
         lastAssistantTextID: textPartID,
       })
       previousPartID = lastPartID(item) ?? previousPartID
     })
-
-    const showThinking =
-      active &&
-      !errorText &&
-      !hasReasoningSummaryRow &&
-      (input.showReasoningSummaries ? assistantItems.length === 0 : true)
 
     if (showThinking) {
       const reasoning = input.showReasoningSummaries
@@ -402,6 +403,7 @@ export function timelineRowsEqual(left: TimelineRow, right: TimelineRow) {
         left.assistantAborted === right.assistantAborted &&
         left.turnDurationMs === right.turnDurationMs &&
         left.active === right.active &&
+        left.itemActive === right.itemActive &&
         left.previousAssistantPart === right.previousAssistantPart &&
         left.lastAssistantTextID === right.lastAssistantTextID
       )

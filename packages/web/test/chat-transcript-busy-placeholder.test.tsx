@@ -402,7 +402,7 @@ describe("chat transcript busy placeholder", () => {
     expect(thoughtArticle?.className).not.toContain("pt-3")
     expect(textArticle?.className).not.toContain("pt-3")
     expect(thoughtContent?.className).toContain("pt-5")
-    expect(textContent?.className).toContain("pt-4")
+    expect(textContent?.className).toContain("pt-2")
     expect(thoughtContent?.className).not.toContain("mt-5")
     expect(textContent?.className).not.toContain("mt-5")
     expect(thoughtContent?.className).not.toContain("pb-2")

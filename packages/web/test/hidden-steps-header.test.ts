@@ -10,6 +10,7 @@ import {
   resolveSettledFileToolIcon,
 } from "../src/components/chat/tools/file-tool-icon"
 import {
+  ABSTRACTED_WORKING_LABELS,
   createHiddenStepsEntry,
   getHiddenStepsEntryLabel,
   HIDDEN_STEPS_REASONING_ICON,
@@ -90,7 +91,7 @@ function bashPart(status: ToolState["status"]): MessagePart {
     callID: "call_bash",
     state: {
       status,
-      input: { description: "npm test" },
+      input: { command: "bun test", description: "Run tests" },
       metadata: {},
       attachments: [],
       time: { start: 1 },
@@ -98,8 +99,9 @@ function bashPart(status: ToolState["status"]): MessagePart {
   }
 }
 
-function editPart(input: {
+function directFileMutationPart(input: {
   id: string
+  tool: "edit" | "write"
   filePath?: string
   status: ToolState["status"]
 }): MessagePart {
@@ -108,7 +110,7 @@ function editPart(input: {
     sessionID: "ses_test",
     messageID: "msg_test",
     type: "tool",
-    tool: "edit",
+    tool: input.tool,
     callID: `call_${input.id}`,
     state: {
       status: input.status,
@@ -194,6 +196,45 @@ function whiteboardPart(input: { status: ToolState["status"] }): MessagePart {
   }
 }
 
+function invalidToolPart(): MessagePart {
+  return {
+    id: "prt_invalid",
+    sessionID: "ses_test",
+    messageID: "msg_test",
+    type: "tool",
+    tool: "invalid",
+    callID: "call_invalid",
+    state: {
+      status: "completed",
+      input: { tool: "html_widget", error: "Invalid tool input" },
+      metadata: {},
+      attachments: [],
+      output: "The arguments provided to the tool are invalid: Invalid tool input",
+      title: "Invalid Tool",
+      time: { start: 1, end: 2 },
+    },
+  }
+}
+
+function erroredToolPart(): MessagePart {
+  return {
+    id: "prt_error",
+    sessionID: "ses_test",
+    messageID: "msg_test",
+    type: "tool",
+    tool: "bash",
+    callID: "call_error",
+    state: {
+      status: "error",
+      input: { command: "exit 1" },
+      metadata: {},
+      attachments: [],
+      error: "Command failed",
+      time: { start: 1, end: 2 },
+    },
+  }
+}
+
 function skillPart(input: { id: string; name: string; status: ToolState["status"] }): MessagePart {
   return {
     id: input.id,
@@ -241,6 +282,11 @@ describe("isSkillReferencePath", () => {
     ).toBe(true)
     expect(isSkillReferencePath("/workspace/packages/web/src/App.tsx")).toBe(false)
   })
+
+  test("does not classify skill collection directories as individual skills", () => {
+    expect(isSkillReferencePath("/home/.buddy/skills/library")).toBe(false)
+    expect(isSkillReferencePath("/home/.buddy/skills/.system")).toBe(false)
+  })
 })
 
 describe("resolveSkillReference", () => {
@@ -258,6 +304,14 @@ describe("resolveSkillReference", () => {
     ).toMatchObject({
       displayName: "React Best Practices",
       skillName: "React Best Practices",
+    })
+    expect(
+      resolveSkillReference(
+        "/home/.buddy/skills/.system/buddy-pedagogy-explanation/references/guide.md",
+      ),
+    ).toMatchObject({
+      displayName: "Guide",
+      skillName: "Buddy Pedagogy Explanation",
     })
   })
 })
@@ -427,8 +481,9 @@ describe("resolveHiddenStepsHeader", () => {
 
   test("busy gap after edit holds Editing verb with basename", () => {
     const entries = entriesFromParts([
-      editPart({
+      directFileMutationPart({
         id: "edit_1",
+        tool: "edit",
         filePath: "/workspace/App.tsx",
         status: "completed",
       }),
@@ -439,7 +494,7 @@ describe("resolveHiddenStepsHeader", () => {
     expect(header.verb).toBe("Editing")
   })
 
-  test("active read without path holds previous basename in burst", () => {
+  test("active read without path does not reuse the previous basename", () => {
     const entries = entriesFromParts([
       readPart({
         id: "read_1",
@@ -454,11 +509,11 @@ describe("resolveHiddenStepsHeader", () => {
     ])
 
     const header = resolveHiddenStepsHeader(entries, true)
-    expect(header.label).toBe("Reading App.tsx")
-    expect(header.fileName).toBe("App.tsx")
+    expect(header.label).toBe("Reading")
+    expect(header.fileName).toBeUndefined()
   })
 
-  test("active read without path after skill reference shows generic reference label", () => {
+  test("active read without path does not reuse the previous skill reference", () => {
     const entries = entriesFromParts([
       readPart({
         id: "read_skill_1",
@@ -474,10 +529,31 @@ describe("resolveHiddenStepsHeader", () => {
     ])
 
     const header = resolveHiddenStepsHeader(entries, true)
-    expect(header.label).toBe("Using Reference")
-    expect(header.icon).toBe(SKILL_TOOL_ICON)
+    expect(header.label).toBe("Reading")
+    expect(header.icon).toBeUndefined()
     expect(header.fileName).toBeUndefined()
-    expect(header.verb).toBe("Using Reference")
+    expect(header.verb).toBe("Reading")
+  })
+
+  test("active write without path does not reuse the previous explored target", () => {
+    const entries = entriesFromParts([
+      readPart({
+        id: "read_template",
+        filePath: "/workspace/.agents/skills/concept-diagrams/references/template.md",
+        status: "completed",
+        time: { start: 1, end: 2 },
+      }),
+      directFileMutationPart({
+        id: "write_without_path",
+        tool: "write",
+        status: "running",
+      }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, true)
+    expect(header.label).toBe("Editing")
+    expect(header.fileName).toBeUndefined()
+    expect(header.label).not.toContain("Template")
   })
 
   test("active skill reference uses reference wording and humanized name", () => {
@@ -515,6 +591,16 @@ describe("resolveHiddenStepsHeader", () => {
     expect(header.label).not.toBe("App.tsx")
   })
 
+  test("command titles never include the full command", () => {
+    const activeEntry = createHiddenStepsEntry(bashPart("running"))
+    const settledEntry = createHiddenStepsEntry(bashPart("completed"))
+
+    expect(getHiddenStepsEntryLabel(activeEntry)).toBe("Running command")
+    expect(getHiddenStepsEntryLabel(settledEntry)).toBe("Ran command")
+    expect(getHiddenStepsEntryLabel(activeEntry)).not.toContain("bun test")
+    expect(getHiddenStepsEntryLabel(settledEntry)).not.toContain("bun test")
+  })
+
   test("gap after bash does not hold read basename", () => {
     const entries = entriesFromParts([
       readPart({
@@ -528,7 +614,18 @@ describe("resolveHiddenStepsHeader", () => {
 
     const header = resolveHiddenStepsHeader(entries, true)
     expect(header.throttleFileTools).toBeFalsy()
-    expect(header.label).not.toBe("App.tsx")
+    expect(ABSTRACTED_WORKING_LABELS.some((label) => label === header.label)).toBe(true)
+    expect(header.icon).toBe(HIDDEN_STEPS_REASONING_ICON)
+    expect(header.shimmer).toBe(true)
+  })
+
+  test("completed entries in an older live-turn group keep their settled summary", () => {
+    const entries = entriesFromParts([bashPart("completed")])
+
+    const header = resolveHiddenStepsHeader(entries, true, false)
+
+    expect(header.label).toBe("Ran 1 command")
+    expect(header.shimmer).toBeFalsy()
   })
 
   test("burst boundary read bash read does not hold App.tsx from before bash", () => {
@@ -551,7 +648,7 @@ describe("resolveHiddenStepsHeader", () => {
     expect(header.fileName).toBeUndefined()
   })
 
-  test("completed multi-file patch uses generic patching label", () => {
+  test("completed multi-file patch uses the shared editing label", () => {
     const entries = entriesFromParts([
       readPart({
         id: "read_1",
@@ -569,7 +666,7 @@ describe("resolveHiddenStepsHeader", () => {
     ])
 
     const header = resolveHiddenStepsHeader(entries, true)
-    expect(header.label).toBe("Patching 2 files")
+    expect(header.label).toBe("Editing 2 files")
     expect(header.fileName).toBeUndefined()
   })
 
@@ -581,24 +678,49 @@ describe("resolveHiddenStepsHeader", () => {
     expect(getHiddenStepsEntryLabel(entries[0])).toBe("Updating Whiteboard")
   })
 
-  test("settled write burst uses past tense count summary not continuous header", () => {
+  test("settled edit, write, and patch tools share one edited summary", () => {
     const entries = entriesFromParts([
-      editPart({
-        id: "write_1",
+      directFileMutationPart({
+        id: "edit_1",
+        tool: "edit",
         filePath: "/workspace/helper.rb",
         status: "completed",
       }),
-      editPart({
+      directFileMutationPart({
         id: "write_2",
+        tool: "write",
         filePath: "/workspace/other.rb",
         status: "completed",
+      }),
+      applyPatchPart({
+        status: "completed",
+        files: [{ filePath: "/workspace/final.rb", relativePath: "final.rb" }],
       }),
     ])
 
     const header = resolveHiddenStepsHeader(entries, false)
-    expect(header.label).toBe("Edited 2 files")
+    expect(header.label).toBe("Edited 3 files")
     expect(header.throttleFileTools).toBe(false)
     expect(header.label).not.toBe("Editing helper.rb")
+  })
+
+  test("error and invalid entries never contribute to the settled title", () => {
+    const entries = entriesFromParts([
+      directFileMutationPart({
+        id: "edit_before_invalid",
+        tool: "edit",
+        filePath: "/workspace/helper.rb",
+        status: "completed",
+      }),
+      invalidToolPart(),
+      erroredToolPart(),
+      reasoningPart({ id: "reasoning_after_invalid", durationMs: 2_000 }),
+    ])
+
+    const header = resolveHiddenStepsHeader(entries, false)
+
+    expect(header.label).toBe("Edited 1 file · Thought for 2s")
+    expect(header.label).not.toContain("Invalid")
   })
 
   test("settled legacy whiteboard tool uses fallback settled label", () => {
@@ -823,8 +945,9 @@ describe("resolveHiddenStepsHeader", () => {
 
   test("settled edit group uses generic edit icon not file-type icon", () => {
     const entries = entriesFromParts([
-      editPart({
+      directFileMutationPart({
         id: "edit_1",
+        tool: "edit",
         filePath: "/workspace/App.tsx",
         status: "completed",
       }),

@@ -44,6 +44,21 @@ import { isRecord } from "../types"
 
 export const ABSTRACTED_THINKING_LABEL = "Thinking"
 const ABSTRACTED_THOUGHT_LABEL = "Thought"
+const INVALID_TOOL_ID = "invalid"
+export const ABSTRACTED_WORKING_LABELS = [
+  "Foraging",
+  "Sniffing",
+  "Chomping",
+  "Digging",
+  "Gathering",
+  "Pawing",
+  "Climbing",
+  "Gnawing",
+  "Nibbling",
+  "Roaming",
+  "Exploring",
+  "Prodding",
+] as const
 
 export const HIDDEN_STEPS_REASONING_ICON: ToolIconRenderer = (className) =>
   createElement(Panda, { className })
@@ -51,8 +66,8 @@ export const HIDDEN_STEPS_REASONING_ICON: ToolIconRenderer = (className) =>
 const FILE_TOOL_VERBS: Record<TFileToolName, string> = {
   read: "Reading",
   edit: "Editing",
-  write: "Writing",
-  apply_patch: "Patching",
+  write: "Editing",
+  apply_patch: "Editing",
 }
 
 const DIRECTORY_READ_RUNNING_ACTION = "Exploring"
@@ -69,6 +84,7 @@ export type THiddenStepsHeaderResult = {
   throttleFileTools?: boolean
   fileName?: string
   verb?: string
+  shimmer?: boolean
 }
 
 type TFileToolHeaderTarget = {
@@ -390,24 +406,10 @@ export function getActiveHiddenStepsEntry(
   return entries.toReversed().find(hiddenStepsEntryIsActive)
 }
 
-function findActiveEntryAndIndex(entries: HiddenStepsEntry[]): {
-  activeEntry?: HiddenStepsEntry
-  activeIndex: number
-} {
-  for (let i = entries.length - 1; i >= 0; i--) {
-    if (hiddenStepsEntryIsActive(entries[i])) {
-      return { activeEntry: entries[i], activeIndex: i }
-    }
-  }
-  return { activeIndex: -1 }
-}
-
-function findMostRecentToolEntry(
-  entries: HiddenStepsEntry[],
-): { entry: HiddenStepsEntry; index: number } | undefined {
+function findMostRecentToolEntry(entries: HiddenStepsEntry[]): HiddenStepsEntry | undefined {
   for (let i = entries.length - 1; i >= 0; i--) {
     if (entries[i].part.type === "tool") {
-      return { entry: entries[i], index: i }
+      return entries[i]
     }
   }
   return undefined
@@ -440,33 +442,9 @@ function resolveFileTargetForEntry(entry: HiddenStepsEntry): TResolvedFileTarget
   }
 }
 
-function canUseLastKnownFileTarget(tool: string, target: TResolvedFileTarget): boolean {
-  return target.kind !== "directory" || tool === "read"
-}
-
 function multiFilePatchLabel(state: ToolState): string {
   const count = getPatchFileCount(state)
-  return `Patching ${count} files`
-}
-
-function findLastKnownFileTarget(
-  entries: HiddenStepsEntry[],
-  fromIndex: number,
-): TResolvedFileTarget | undefined {
-  for (let i = fromIndex; i >= 0; i--) {
-    const entry = entries[i]
-    if (entry.part.type === "reasoning") continue
-    if (entry.part.type !== "tool") continue
-
-    const tool = String(entry.part.tool ?? "")
-    if (!isFileToolName(tool)) break
-
-    if (tool === "apply_patch" && entry.state && isMultiFilePatch(entry.state)) break
-
-    const target = resolveFileTargetForEntry(entry)
-    if (target?.fileName) return target
-  }
-  return undefined
+  return `${FILE_TOOL_VERBS.apply_patch} ${count} files`
 }
 
 export function resolveFileToolHeaderTarget(
@@ -475,7 +453,7 @@ export function resolveFileToolHeaderTarget(
 ): TFileToolHeaderTarget | undefined {
   if (!isBusy) return undefined
 
-  const { activeEntry, activeIndex } = findActiveEntryAndIndex(entries)
+  const activeEntry = getActiveHiddenStepsEntry(entries)
 
   if (activeEntry) {
     if (activeEntry.part.type === "reasoning") return undefined
@@ -501,20 +479,7 @@ export function resolveFileToolHeaderTarget(
       }
     }
 
-    const activePath =
-      activeTool === "read" && activeEntry.state && activeEntry.info
-        ? resolveFileToolPath(activeTool, activeEntry.state, activeEntry.info)
-        : undefined
-    const lastKnownFileTarget =
-      activeIndex >= 0 ? findLastKnownFileTarget(entries, activeIndex - 1) : undefined
-    let fileTarget = resolveFileTargetForEntry(activeEntry)
-    if (
-      !fileTarget?.fileName &&
-      lastKnownFileTarget?.fileName &&
-      canUseLastKnownFileTarget(activeTool, lastKnownFileTarget)
-    ) {
-      fileTarget = lastKnownFileTarget
-    }
+    const fileTarget = resolveFileTargetForEntry(activeEntry)
     const fileName = fileTarget?.fileName
     const verb = FILE_TOOL_VERBS[activeTool]
     if (activeSkillReference) {
@@ -534,14 +499,6 @@ export function resolveFileToolHeaderTarget(
         verb: directoryDisplay.runningVerb,
       }
     }
-    if (activeTool === "read" && !activePath && lastKnownFileTarget?.kind === "skill-reference") {
-      return {
-        label: getSkillReferenceBurstVerb(),
-        icon: SKILL_TOOL_ICON,
-        fileName: undefined,
-        verb: getSkillReferenceBurstVerb(),
-      }
-    }
     return {
       label: formatFileToolBurstLabel(verb, fileName),
       fileName,
@@ -552,43 +509,27 @@ export function resolveFileToolHeaderTarget(
   const lastTool = findMostRecentToolEntry(entries)
   if (!lastTool) return undefined
 
-  const lastToolName = String(lastTool.entry.part.tool ?? "")
+  const lastToolName = String(lastTool.part.tool ?? "")
   if (!isFileToolName(lastToolName)) return undefined
 
-  if (
-    lastToolName === "apply_patch" &&
-    lastTool.entry.state &&
-    isMultiFilePatch(lastTool.entry.state)
-  ) {
+  if (lastToolName === "apply_patch" && lastTool.state && isMultiFilePatch(lastTool.state)) {
     return {
-      label: multiFilePatchLabel(lastTool.entry.state),
+      label: multiFilePatchLabel(lastTool.state),
       fileName: undefined,
       verb: FILE_TOOL_VERBS.apply_patch,
     }
   }
 
-  const lastToolPath =
-    lastToolName === "read" && lastTool.entry.state && lastTool.entry.info
-      ? resolveFileToolPath(lastToolName, lastTool.entry.state, lastTool.entry.info)
-      : undefined
-  const lastKnownFileTarget = findLastKnownFileTarget(entries, lastTool.index - 1)
-  let fileTarget = resolveFileTargetForEntry(lastTool.entry)
-  if (
-    !fileTarget?.fileName &&
-    lastKnownFileTarget?.fileName &&
-    canUseLastKnownFileTarget(lastToolName, lastKnownFileTarget)
-  ) {
-    fileTarget = lastKnownFileTarget
-  }
+  const fileTarget = resolveFileTargetForEntry(lastTool)
   const fileName = fileTarget?.fileName
   const verb = FILE_TOOL_VERBS[lastToolName]
   const lastSkillReference =
-    lastToolName === "read" && lastTool.entry.state && lastTool.entry.info
+    lastToolName === "read" && lastTool.state && lastTool.info
       ? resolveSkillReferenceInfo({
-          filePath: resolveFileToolPath(lastToolName, lastTool.entry.state, lastTool.entry.info),
-          title: lastTool.entry.info.title,
-          subtitle: lastTool.entry.info.subtitle,
-          detail: lastTool.entry.info.detail,
+          filePath: resolveFileToolPath(lastToolName, lastTool.state, lastTool.info),
+          title: lastTool.info.title,
+          subtitle: lastTool.info.subtitle,
+          detail: lastTool.info.detail,
         })
       : undefined
   if (lastSkillReference) {
@@ -608,14 +549,6 @@ export function resolveFileToolHeaderTarget(
       verb: directoryDisplay.runningVerb,
     }
   }
-  if (lastToolName === "read" && !lastToolPath && lastKnownFileTarget?.kind === "skill-reference") {
-    return {
-      label: getSkillReferenceBurstVerb(),
-      icon: SKILL_TOOL_ICON,
-      fileName: undefined,
-      verb: getSkillReferenceBurstVerb(),
-    }
-  }
   if (fileName) {
     return { label: formatFileToolBurstLabel(verb, fileName), fileName, verb }
   }
@@ -625,6 +558,14 @@ export function resolveFileToolHeaderTarget(
 
 function hiddenStepsEntryHasError(entry: HiddenStepsEntry): boolean {
   return entry.part.type === "tool" && entry.state?.status === "error"
+}
+
+function hiddenStepsEntryIsInvalidTool(entry: HiddenStepsEntry): boolean {
+  return entry.part.type === "tool" && String(entry.part.tool ?? "") === INVALID_TOOL_ID
+}
+
+function hiddenStepsEntryContributesToSummary(entry: HiddenStepsEntry): boolean {
+  return !hiddenStepsEntryHasError(entry) && !hiddenStepsEntryIsInvalidTool(entry)
 }
 
 export function hiddenStepsEntryHasVisibleError(entry: HiddenStepsEntry): boolean {
@@ -656,17 +597,19 @@ function getReasoningDurationLabel(entries: HiddenStepsEntry[]): string {
   return formatThoughtForLabel(totalMs)
 }
 
-export function buildHiddenStepsSummary(
-  entries: HiddenStepsEntry[],
-  isBusy: boolean,
-): string | undefined {
-  // While busy, surface only the active step — count summaries are end-state labels.
-  if (isBusy) {
-    const activeEntry = getActiveHiddenStepsEntry(entries)
-    if (activeEntry) return getHiddenStepsEntryLabel(activeEntry)
-  }
+function getWorkingLabel(entries: HiddenStepsEntry[]): string {
+  const seed = entries.at(-1)?.part.id ?? ""
+  const checksum = Array.from(seed).reduce(
+    (total, character) => total + (character.codePointAt(0) ?? 0),
+    0,
+  )
+  return (
+    ABSTRACTED_WORKING_LABELS[checksum % ABSTRACTED_WORKING_LABELS.length] ??
+    ABSTRACTED_WORKING_LABELS[0]
+  )
+}
 
-  // Completed (or no active step): build count summary.
+function buildSettledHiddenStepsSummary(entries: HiddenStepsEntry[]): string | undefined {
   let hasReasoning = false
   type Group = {
     count: number
@@ -679,7 +622,11 @@ export function buildHiddenStepsSummary(
   for (const entry of entries) {
     if (entry.part.type === "reasoning") {
       hasReasoning = true
-    } else if (entry.part.type === "tool" && entry.info?.title) {
+    } else if (
+      entry.part.type === "tool" &&
+      entry.info?.title &&
+      hiddenStepsEntryContributesToSummary(entry)
+    ) {
       const skillName = String(entry.part.tool ?? "") === "skill" ? entry.info.subtitle : undefined
       const skillReference =
         String(entry.part.tool ?? "") === "read" && entry.state && entry.info
@@ -759,8 +706,11 @@ export function buildHiddenStepsSummary(
 export function resolveHiddenStepsHeader(
   entries: HiddenStepsEntry[],
   isBusy: boolean,
+  isCurrent = isBusy,
 ): THiddenStepsHeaderResult {
-  if (isBusy) {
+  const activeEntry = isBusy ? getActiveHiddenStepsEntry(entries) : undefined
+
+  if (isBusy && (isCurrent || activeEntry)) {
     const fileTarget = resolveFileToolHeaderTarget(entries, isBusy)
     if (fileTarget) {
       return {
@@ -773,7 +723,6 @@ export function resolveHiddenStepsHeader(
     }
   }
 
-  const activeEntry = isBusy ? getActiveHiddenStepsEntry(entries) : undefined
   if (activeEntry) {
     return {
       label: getHiddenStepsEntryLabel(activeEntry),
@@ -782,8 +731,17 @@ export function resolveHiddenStepsHeader(
     }
   }
 
+  if (isBusy && isCurrent) {
+    return {
+      label: getWorkingLabel(entries),
+      icon: HIDDEN_STEPS_REASONING_ICON,
+      throttleFileTools: false,
+      shimmer: true,
+    }
+  }
+
   return {
-    label: buildHiddenStepsSummary(entries, isBusy),
+    label: buildSettledHiddenStepsSummary(entries),
     icon: getGroupDominantIcon(entries),
     throttleFileTools: false,
   }

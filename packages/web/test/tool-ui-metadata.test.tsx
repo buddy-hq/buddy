@@ -101,7 +101,12 @@ function hiddenSummaryToolPart(input?: {
   }
 }
 
-function visibleToolPart(input: { id: string; tool: string }): MessagePart {
+function visibleToolPart(input: {
+  id: string
+  tool: string
+  status?: "completed" | "error"
+}): MessagePart {
+  const status = input.status ?? "completed"
   return {
     id: input.id,
     sessionID: "ses_visible_tool",
@@ -109,13 +114,23 @@ function visibleToolPart(input: { id: string; tool: string }): MessagePart {
     type: "tool",
     tool: input.tool,
     callID: `call_${input.id}`,
-    state: {
-      status: "completed",
-      input: {},
-      metadata: {},
-      attachments: [],
-      output: "",
-    },
+    state:
+      status === "error"
+        ? {
+            status,
+            input: {},
+            metadata: {},
+            attachments: [],
+            error: "boom",
+            time: { start: 1, end: 2 },
+          }
+        : {
+            status,
+            input: {},
+            metadata: {},
+            attachments: [],
+            output: "",
+          },
   }
 }
 
@@ -353,6 +368,34 @@ describe("tool UI metadata", () => {
     expect(grouped).toHaveLength(1)
     expect(grouped[0]?.type).toBe("part")
     expect(assistantPartStartsFollowup(part)).toBe(true)
+  })
+
+  test("inline tool errors join hidden steps unless they opt into an inline error card", () => {
+    const reasoning = reasoningPart({ id: "reasoning_before_widget_error" })
+    const failedWidget = visibleToolPart({
+      id: "failed_html_widget",
+      tool: "present_html_widget",
+      status: "error",
+    })
+    const grouped = groupAssistantParts([reasoning, failedWidget], true)
+
+    expect(grouped).toHaveLength(1)
+    expect(grouped[0]).toMatchObject({
+      type: "abstracted",
+      parts: [reasoning, failedWidget],
+    })
+    expect(assistantPartStartsFollowup(failedWidget)).toBe(false)
+
+    const failedIngest = visibleToolPart({
+      id: "failed_full_text_ingest",
+      tool: "ingest_full_text",
+      status: "error",
+    })
+    expect(groupAssistantParts([failedIngest], true)[0]).toMatchObject({
+      type: "part",
+      part: failedIngest,
+    })
+    expect(assistantPartStartsFollowup(failedIngest)).toBe(true)
   })
 
   test("groups consecutive render_figure tool calls", () => {

@@ -239,6 +239,45 @@ describe("chat timeline rows", () => {
     expect(reasoningRow?.item.partIDs).toEqual(["prt_active_reasoning"])
   })
 
+  test("marks only the newest assistant item as active within a live turn", () => {
+    const rows = rowsFor({
+      messages: [
+        userMessage("msg_multi_step_user"),
+        assistantMessage({
+          id: "msg_multi_step_assistant",
+          parts: [
+            toolPart({ id: "prt_first_tool", tool: "bash" }),
+            {
+              id: "prt_between_text",
+              sessionID: "ses_rows",
+              messageID: "msg_multi_step_assistant",
+              type: "text",
+              text: "Now let me continue.",
+              time: { start: 2, end: 3 },
+            },
+            {
+              id: "prt_current_reasoning",
+              sessionID: "ses_rows",
+              messageID: "msg_multi_step_assistant",
+              type: "reasoning",
+              text: "# Thinking\n\nWorking on the next step.",
+              time: { start: 4 },
+            },
+          ],
+        }),
+      ],
+      isBusy: true,
+      status: BUSY_SESSION_STATUS,
+    })
+
+    const assistantRows = rows.filter(
+      (row): row is Extract<TimelineRow, { type: "assistant" }> => row.type === "assistant",
+    )
+
+    expect(assistantRows.map((row) => row.active)).toEqual([true, true, true])
+    expect(assistantRows.map((row) => row.itemActive)).toEqual([false, false, true])
+  })
+
   test("marks synthetic thinking after assistant content as a following assistant row", () => {
     const rows = rowsFor({
       messages: [

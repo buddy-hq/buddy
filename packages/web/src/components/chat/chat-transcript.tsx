@@ -387,7 +387,7 @@ function TimelineAssistantRow(props: {
     >
       <div
         className={`flow-root min-w-0 w-full max-w-full ${
-          props.row.previousAssistantPart ? "pt-4" : "pt-5"
+          props.row.previousAssistantPart ? "pt-2" : "pt-5"
         }`}
       >
         {props.row.item.type === "abstracted" ? (
@@ -399,6 +399,7 @@ function TimelineAssistantRow(props: {
             metaText={assistantMetaText}
             interrupted={props.row.assistantAborted}
             isBusy={props.row.active}
+            isCurrent={props.row.itemActive}
             expansionState={props.hiddenStepsExpansionState ?? EMPTY_HIDDEN_STEPS_EXPANSION_STATE}
             onExpansionStateChange={props.onHiddenStepsExpansionStateChange}
           />
@@ -480,7 +481,7 @@ function TimelineThinkingRow(props: { row: Extract<TimelineRow, { type: "thinkin
       data-timeline-row="Thinking"
       className="relative min-w-0 w-full max-w-full px-4 md:px-5"
     >
-      <div className={`flow-root ${props.row.previousAssistantPart ? "pt-4" : "pt-5"}`}>
+      <div className={`flow-root ${props.row.previousAssistantPart ? "pt-2" : "pt-5"}`}>
         <HiddenStepsPlaceholder detail={detail} />
       </div>
     </article>

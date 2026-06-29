@@ -5,7 +5,10 @@ import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 
 import { HiddenSteps } from "../src/components/chat/tools/hidden-steps"
-import { createHiddenStepsEntry } from "../src/components/chat/tools/hidden-steps/entries"
+import {
+  ABSTRACTED_WORKING_LABELS,
+  createHiddenStepsEntry,
+} from "../src/components/chat/tools/hidden-steps/entries"
 import {
   useFileToolHeaderDisplay,
   type TUseFileToolHeaderDisplayInput,
@@ -359,6 +362,40 @@ describe("hidden steps read rendering", () => {
     expect(container.textContent).toContain("$ printf red")
     expect(container.textContent).toContain("red")
     expect(container.textContent).not.toContain(ANSI_ESCAPE)
+  })
+
+  test("shimmers a stable working label during the busy gap after a tool completes", async () => {
+    const part = createAnsiBashPart()
+
+    await act(async () => {
+      root.render(
+        <TooltipProvider>
+          <HiddenSteps parts={[part]} isBusy />
+        </TooltipProvider>,
+      )
+      await flushEffects()
+    })
+
+    const shimmer = container.querySelector<HTMLElement>('[data-component="text-shimmer"]')
+    const label = shimmer?.getAttribute("aria-label")
+
+    expect(shimmer?.dataset.active).toBe("true")
+    expect(ABSTRACTED_WORKING_LABELS.some((candidate) => candidate === label)).toBe(true)
+
+    await act(async () => {
+      root.render(
+        <TooltipProvider>
+          <HiddenSteps parts={[part]} isBusy />
+        </TooltipProvider>,
+      )
+      await flushEffects()
+    })
+
+    expect(
+      container
+        .querySelector<HTMLElement>('[data-component="text-shimmer"]')
+        ?.getAttribute("aria-label"),
+    ).toBe(label)
   })
 
   test("uses a stable frame for expanded active reasoning", async () => {

@@ -1,9 +1,19 @@
 import { basename } from "../utils/path"
+
 export type TSkillReference = {
   displayName: string
   filePath: string
   skillName: string
 }
+
+type TSkillReferencePathParts = {
+  displaySource: string
+  skillNameSource: string
+}
+
+const SKILL_MANIFEST_FILE_NAME = "skill.md"
+const SKILLS_DIRECTORY_NAME = "skills"
+const SKILL_RESOURCE_DIRECTORY_NAMES = new Set(["assets", "references", "scripts"])
 
 function toTitleCaseWords(value: string): string {
   return value
@@ -18,35 +28,61 @@ export function humanizeSkillDisplayName(value: string): string {
   return toTitleCaseWords(withoutExtension.replaceAll(/[_-]+/gu, " ").trim().toLowerCase())
 }
 
-export function isSkillReferencePath(filePath: string | undefined): boolean {
-  if (!filePath) return false
-  const segments = filePath
-    .replaceAll("\\", "/")
-    .toLowerCase()
-    .split("/")
-    .filter((segment) => segment.length > 0)
-
-  return segments.includes("skills") || segments.at(-1) === "skill.md"
-}
-
-export function resolveSkillReference(filePath: string | undefined): TSkillReference | undefined {
-  if (!filePath || !isSkillReferencePath(filePath)) return undefined
+function parseSkillReferencePath(
+  filePath: string | undefined,
+): TSkillReferencePathParts | undefined {
+  if (!filePath) return undefined
 
   const normalizedPath = filePath.replaceAll("\\", "/")
   const segments = normalizedPath.split("/").filter((segment) => segment.length > 0)
-  const skillDirectoryIndex = segments.findLastIndex(
-    (segment) => segment.toLowerCase() === "skills",
-  )
+  const lowerSegments = segments.map((segment) => segment.toLowerCase())
   const fileName = basename(normalizedPath)
-  const lowerFileName = fileName.toLowerCase()
-  const displaySource = lowerFileName === "skill.md" ? (segments.at(-2) ?? fileName) : fileName
-  const rawSkillName =
-    skillDirectoryIndex >= 0 ? (segments[skillDirectoryIndex + 1] ?? displaySource) : displaySource
+
+  if (lowerSegments.at(-1) === SKILL_MANIFEST_FILE_NAME) {
+    const skillNameSource = segments.at(-2)
+    if (!skillNameSource) return undefined
+    return {
+      displaySource: skillNameSource,
+      skillNameSource,
+    }
+  }
+
+  const resourceDirectoryIndex = lowerSegments.findLastIndex((segment) =>
+    SKILL_RESOURCE_DIRECTORY_NAMES.has(segment),
+  )
+  if (resourceDirectoryIndex < 0) return undefined
+
+  const skillsDirectoryIndex = lowerSegments.findLastIndex(
+    (segment, index) => segment === SKILLS_DIRECTORY_NAME && index < resourceDirectoryIndex,
+  )
+  const skillNameSource = segments[resourceDirectoryIndex - 1]
+  if (
+    skillsDirectoryIndex < 0 ||
+    resourceDirectoryIndex <= skillsDirectoryIndex + 1 ||
+    !skillNameSource
+  ) {
+    return undefined
+  }
+
+  return {
+    displaySource: fileName,
+    skillNameSource,
+  }
+}
+
+export function isSkillReferencePath(filePath: string | undefined): boolean {
+  return parseSkillReferencePath(filePath) !== undefined
+}
+
+export function resolveSkillReference(filePath: string | undefined): TSkillReference | undefined {
+  if (!filePath) return undefined
+  const pathParts = parseSkillReferencePath(filePath)
+  if (!pathParts) return undefined
 
   return {
     filePath,
-    displayName: humanizeSkillDisplayName(displaySource),
-    skillName: humanizeSkillDisplayName(rawSkillName),
+    displayName: humanizeSkillDisplayName(pathParts.displaySource),
+    skillName: humanizeSkillDisplayName(pathParts.skillNameSource),
   }
 }
 
