@@ -2,6 +2,7 @@
 
 import { createHash } from "node:crypto"
 import { appendFile, mkdir, readdir, readFile, rm, stat } from "node:fs/promises"
+import { homedir } from "node:os"
 import { resolve } from "node:path"
 import desktopPackage from "../packages/desktop-electron/package.json"
 
@@ -18,7 +19,8 @@ const PATCHES_DIRECTORY = "patches"
 const DESKTOP_PACKAGE_PATH = "packages/desktop-electron/package.json"
 const ELECTRON_PACKAGE_NAME = "electron"
 const ELECTRON_BUILDER_PACKAGE_NAME = "electron-builder"
-const HARNESS_CACHE_ROOT = ".release-local-runner-cache"
+const USER_CACHE_DIRECTORY_NAME = ".cache"
+const HARNESS_CACHE_ROOT_DIRECTORY_NAME = "buddy-release-local-runner"
 const HARNESS_OUTPUT_ENV_KEY = "BUDDY_RELEASE_HARNESS_OUTPUT"
 const HARNESS_PROFILE_ENV_KEY = "BUDDY_RELEASE_HARNESS_PROFILE"
 const HARNESS_CACHE_ROOT_ENV_KEY = "BUDDY_RELEASE_HARNESS_CACHE_ROOT"
@@ -346,8 +348,8 @@ async function appendCommandMetric(
 
 async function resolveCachePaths(profile: HarnessProfile): Promise<CachePaths> {
   const rootDirectory = resolve(
-    repositoryRoot,
-    process.env[HARNESS_CACHE_ROOT_ENV_KEY]?.trim() || HARNESS_CACHE_ROOT,
+    process.env[HARNESS_CACHE_ROOT_ENV_KEY]?.trim() ||
+      resolve(homedir(), USER_CACHE_DIRECTORY_NAME, HARNESS_CACHE_ROOT_DIRECTORY_NAME),
   )
 
   if (profile === CURRENT_PROFILE) {
