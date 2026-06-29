@@ -18,7 +18,7 @@ export type SkillLibraryEntry = {
   tags: string[]
   sourceKind: "github"
   sourceLabel: string
-  state: "available" | "installed" | "withdrawn_installed"
+  state: "available" | "installed" | "update_available" | "withdrawn_installed"
 }
 export type SkillPermissionAction = "allow" | "deny"
 type RawInstalledSkillInfo = SkillsListResponses[200]["installed"][number]
@@ -64,6 +64,7 @@ function parseSkillLibraryEntry(value: unknown): SkillLibraryEntry {
     typeof record.sourceLabel !== "string" ||
     (record.state !== "available" &&
       record.state !== "installed" &&
+      record.state !== "update_available" &&
       record.state !== "withdrawn_installed")
   ) {
     throw new Error("Invalid skill library response")

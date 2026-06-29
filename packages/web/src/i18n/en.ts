@@ -1063,7 +1063,11 @@ export const dict = {
   "skills.detail.remove": "Remove",
   "skills.detail.skillContent": "Skill content",
   "skills.install": "Install",
+  "skills.installing": "Installing...",
   "skills.installed": "Installed",
+  "skills.removing": "Removing...",
+  "skills.update": "Update",
+  "skills.updating": "Updating...",
   "skills.installedSection.description":
     "Allow or block each skill name, inspect details, and remove Buddy-managed skills.",
   "skills.installedSection.empty":
@@ -1187,6 +1191,7 @@ export const dict = {
   "skills.permissionReset": "Reset {{name}} to the inherited/default rule.",
   "skills.curatedSyncFailed": "Curated library sync failed: {{error}}",
   "skills.librarySection.addedSkill": "Added {{name}}.",
+  "skills.librarySection.updatedSkill": "Updated {{name}}.",
   "skills.detail.copiedPrompt": "Copied prompt for {{name}}.",
   "skills.detail.copiedSkillContent": "Copied skill content for {{name}}.",
   "skills.detail.copiedFolder": "Copied folder for {{name}}.",

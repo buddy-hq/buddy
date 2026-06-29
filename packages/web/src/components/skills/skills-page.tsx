@@ -44,6 +44,7 @@ import {
   CopyIcon,
   FolderSearchIcon,
   BadgeCheckIcon,
+  Loader2Icon,
 } from "lucide-react"
 import { language } from "@/context/language"
 import {
@@ -60,6 +61,12 @@ import {
 } from "@/state/skills-actions"
 import { skillsCatalogQueryOptions } from "@/state/skills-catalog-query"
 import { usePlatform } from "@/context/platform"
+import {
+  isInstalledLibrarySkill,
+  skillLibraryAction,
+  skillLibraryButtonVariant,
+  type SkillLibraryAction,
+} from "./skill-library-actions"
 
 type SkillsFormState = {
   name: string
@@ -67,6 +74,7 @@ type SkillsFormState = {
   examplePrompt: string
   content: string
 }
+type BusyOperation = "create" | "install" | "permission" | "remove" | "update"
 
 const EMPTY_FORM: SkillsFormState = {
   name: "",
@@ -81,6 +89,25 @@ const SKELETON_CARD_KEYS = [
   "skill-skeleton-3",
   "skill-skeleton-4",
 ] as const
+const CREATE_SKILL_BUSY_KEY = "create-skill"
+
+function installLibraryBusyKey(skillID: string) {
+  return `install:${skillID}`
+}
+
+function removeLibraryBusyKey(skillID: string) {
+  return `remove-library:${skillID}`
+}
+
+function permissionBusyKey(skillName: string) {
+  return `permission:${skillName}`
+}
+
+function installOrUpdateBusyOperation(
+  skill: SkillLibraryEntry,
+): Extract<BusyOperation, "install" | "update"> {
+  return skill.state === "update_available" ? "update" : "install"
+}
 
 function statusLabel(action: InstalledSkillInfo["permissionAction"]) {
   return action === "allow" ? language.t("skills.status.allow") : language.t("skills.status.deny")
@@ -107,6 +134,48 @@ function permissionUpdateMessage(name: string, action: InstalledSkillInfo["permi
 
 function permissionRuleMessage(name: string, action: SkillRuleAction) {
   return permissionUpdateMessage(name, action)
+}
+
+function skillLibraryActionLabel(action: SkillLibraryAction): string {
+  if (action === "install") return language.t("skills.install")
+  if (action === "update") return language.t("skills.update")
+  if (action === "remove") return language.t("skills.detail.remove")
+  return language.t("skills.installed")
+}
+
+function skillLibraryBusyLabel(action: SkillLibraryAction): string {
+  if (action === "install") return language.t("skills.installing")
+  if (action === "update") return language.t("skills.updating")
+  if (action === "remove") return language.t("skills.removing")
+  return language.t("skills.installed")
+}
+
+function skillLibraryMutationMessage(skill: SkillLibraryEntry): string {
+  return skill.state === "update_available"
+    ? language.t("skills.librarySection.updatedSkill", { name: skill.displayName })
+    : language.t("skills.librarySection.addedSkill", { name: skill.displayName })
+}
+
+function libraryBusyAction(
+  skillID: string,
+  busyOperations: ReadonlyMap<string, BusyOperation>,
+): SkillLibraryAction | undefined {
+  const removeOperation = busyOperations.get(removeLibraryBusyKey(skillID))
+  if (removeOperation === "remove") return "remove"
+
+  const installOperation = busyOperations.get(installLibraryBusyKey(skillID))
+  if (installOperation === "install" || installOperation === "update") {
+    return installOperation
+  }
+
+  return undefined
+}
+
+function isLibrarySkillBusy(skillID: string, busyOperations: ReadonlyMap<string, BusyOperation>) {
+  return (
+    busyOperations.has(installLibraryBusyKey(skillID)) ||
+    busyOperations.has(removeLibraryBusyKey(skillID))
+  )
 }
 
 async function copyText(text: string) {
@@ -147,15 +216,50 @@ function SkillCard(props: { skill: InstalledSkillInfo; onManage: () => void }) {
   )
 }
 
-function LibraryCard(props: {
+function LibraryActionButton(props: {
   skill: SkillLibraryEntry
   disabled?: boolean
+  busyAction?: SkillLibraryAction
+  compact?: boolean
+  onInstall: () => void
+  onRemove: () => void
+}) {
+  const action = skillLibraryAction(props.skill.state)
+  const displayAction = props.busyAction ?? action
+  const variant = skillLibraryButtonVariant(displayAction)
+  const busy = props.busyAction !== undefined
+
+  return (
+    <Button
+      type="button"
+      variant={variant}
+      size={props.compact ? "sm" : "default"}
+      className={props.compact ? "h-8 min-w-28 text-xs" : "h-10 min-w-[132px]"}
+      disabled={props.disabled || busy || action === "installed"}
+      onClick={(event) => {
+        event.stopPropagation()
+        if (action === "remove") {
+          props.onRemove()
+          return
+        }
+        props.onInstall()
+      }}
+    >
+      {busy ? <Loader2Icon className="size-3.5 animate-spin" aria-hidden /> : null}
+      {busy ? skillLibraryBusyLabel(displayAction) : skillLibraryActionLabel(displayAction)}
+    </Button>
+  )
+}
+
+function LibraryCard(props: {
+  skill: SkillLibraryEntry
+  busyOperations: ReadonlyMap<string, BusyOperation>
   onInstall: () => void
   onRemove: () => void
   onManage: () => void
 }) {
-  const available = props.skill.state === "available"
-  const withdrawn = props.skill.state === "withdrawn_installed"
+  const busyAction = libraryBusyAction(props.skill.id, props.busyOperations)
+  const disabled = isLibrarySkillBusy(props.skill.id, props.busyOperations)
 
   return (
     <Card
@@ -174,24 +278,14 @@ function LibraryCard(props: {
         <p className="line-clamp-2 text-sm text-text-weak leading-relaxed">{props.skill.summary}</p>
       </CardContent>
       <div className="p-3 pt-0 flex justify-end">
-        <Button
-          type="button"
-          variant={available ? "default" : withdrawn ? "destructive" : "outline"}
-          size="sm"
-          className="h-8 w-24 text-xs"
-          disabled={props.disabled || props.skill.state === "installed"}
-          onClick={(e) => {
-            e.stopPropagation()
-            if (withdrawn) props.onRemove()
-            else props.onInstall()
-          }}
-        >
-          {available
-            ? language.t("skills.install")
-            : withdrawn
-              ? language.t("skills.detail.remove")
-              : language.t("skills.installed")}
-        </Button>
+        <LibraryActionButton
+          skill={props.skill}
+          compact
+          busyAction={busyAction}
+          disabled={disabled}
+          onInstall={props.onInstall}
+          onRemove={props.onRemove}
+        />
       </div>
     </Card>
   )
@@ -296,12 +390,12 @@ const libraryColumnHelper = createColumnHelper<SkillLibraryEntry>()
 
 function LibrarySkillTable(props: {
   skills: SkillLibraryEntry[]
-  busyKey: string | undefined
+  busyOperations: ReadonlyMap<string, BusyOperation>
   onInstall: (skill: SkillLibraryEntry) => void
   onRemove: (skill: SkillLibraryEntry) => void
   onManage: (skill: SkillLibraryEntry) => void
 }) {
-  const { busyKey, onInstall, onRemove, onManage, skills } = props
+  const { busyOperations, onInstall, onRemove, onManage, skills } = props
   const columns = useMemo(
     () => [
       libraryColumnHelper.accessor("displayName", {
@@ -322,34 +416,22 @@ function LibrarySkillTable(props: {
         header: () => null,
         cell: (info) => {
           const skill = info.row.original
-          const available = skill.state === "available"
-          const withdrawn = skill.state === "withdrawn_installed"
           return (
             <div className="flex justify-end">
-              <Button
-                type="button"
-                variant={available ? "default" : withdrawn ? "destructive" : "outline"}
-                size="sm"
-                className="h-8 w-24 text-xs"
-                disabled={busyKey === `install:${skill.id}` || skill.state === "installed"}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (withdrawn) onRemove(skill)
-                  else onInstall(skill)
-                }}
-              >
-                {available
-                  ? language.t("skills.install")
-                  : withdrawn
-                    ? language.t("skills.detail.remove")
-                    : language.t("skills.installed")}
-              </Button>
+              <LibraryActionButton
+                skill={skill}
+                compact
+                busyAction={libraryBusyAction(skill.id, busyOperations)}
+                disabled={isLibrarySkillBusy(skill.id, busyOperations)}
+                onInstall={() => onInstall(skill)}
+                onRemove={() => onRemove(skill)}
+              />
             </div>
           )
         },
       }),
     ],
-    [busyKey, onInstall, onRemove],
+    [busyOperations, onInstall, onRemove],
   )
 
   const table = useReactTable({
@@ -417,7 +499,9 @@ export function SkillsPage(props: { directory?: string }) {
   )
   const [newSkillOpen, setNewSkillOpen] = useState(false)
   const [form, setForm] = useState<SkillsFormState>(EMPTY_FORM)
-  const [busyKey, setBusyKey] = useState<string | undefined>(undefined)
+  const [busyOperations, setBusyOperations] = useState<ReadonlyMap<string, BusyOperation>>(
+    () => new Map(),
+  )
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid")
   const lastLibrarySyncError = useRef<string | undefined>(undefined)
 
@@ -461,8 +545,10 @@ export function SkillsPage(props: { directory?: string }) {
     }
 
     return list.toSorted((a, b) => {
-      const aInstalled = a.state === "installed" || a.state === "withdrawn_installed"
-      const bInstalled = b.state === "installed" || b.state === "withdrawn_installed"
+      const aInstalled =
+        isInstalledLibrarySkill(a.state) || a.state === "withdrawn_installed"
+      const bInstalled =
+        isInstalledLibrarySkill(b.state) || b.state === "withdrawn_installed"
       if (aInstalled && !bInstalled) return -1
       if (!aInstalled && bInstalled) return 1
       return 0
@@ -561,11 +647,16 @@ export function SkillsPage(props: { directory?: string }) {
 
   async function runMutation<T>(
     key: string,
+    operation: BusyOperation,
     work: () => Promise<T>,
     successMessage: string,
     preserveSelection = true,
   ) {
-    setBusyKey(key)
+    setBusyOperations((current) => {
+      const next = new Map(current)
+      next.set(key, operation)
+      return next
+    })
 
     try {
       await work()
@@ -577,7 +668,11 @@ export function SkillsPage(props: { directory?: string }) {
       toast.error(message)
       return false
     } finally {
-      setBusyKey(undefined)
+      setBusyOperations((current) => {
+        const next = new Map(current)
+        next.delete(key)
+        return next
+      })
     }
   }
 
@@ -594,8 +689,12 @@ export function SkillsPage(props: { directory?: string }) {
     }
 
     void (async () => {
-      const key = `permission:${skill.name}`
-      setBusyKey(key)
+      const key = permissionBusyKey(skill.name)
+      setBusyOperations((current) => {
+        const next = new Map(current)
+        next.set(key, "permission")
+        return next
+      })
 
       try {
         const response = await setSkillPermissionAction(skill.name, action, currentDirectory)
@@ -605,7 +704,11 @@ export function SkillsPage(props: { directory?: string }) {
         const message = error instanceof Error ? error.message : language.t("skills.requestFailed")
         toast.error(message)
       } finally {
-        setBusyKey(undefined)
+        setBusyOperations((current) => {
+          const next = new Map(current)
+          next.delete(key)
+          return next
+        })
       }
     })()
   }
@@ -633,7 +736,8 @@ export function SkillsPage(props: { directory?: string }) {
     }
 
     const created = await runMutation(
-      "create-skill",
+      CREATE_SKILL_BUSY_KEY,
+      "create",
       () => createCustomSkill(payload, currentDirectory),
       language.t("skills.createdNewSkill"),
       false,
@@ -646,7 +750,7 @@ export function SkillsPage(props: { directory?: string }) {
   }
 
   const createDisabled =
-    busyKey === "create-skill" ||
+    busyOperations.has(CREATE_SKILL_BUSY_KEY) ||
     !form.name.trim() ||
     !form.description.trim() ||
     !form.content.trim()
@@ -772,22 +876,19 @@ export function SkillsPage(props: { directory?: string }) {
                     <LibraryCard
                       key={skill.id}
                       skill={skill}
-                      disabled={
-                        busyKey === `install:${skill.id}` ||
-                        busyKey === `remove-library:${skill.id}`
-                      }
+                      busyOperations={busyOperations}
                       onInstall={() =>
                         void runMutation(
-                          `install:${skill.id}`,
+                          installLibraryBusyKey(skill.id),
+                          installOrUpdateBusyOperation(skill),
                           () => installLibrarySkill(skill.id, currentDirectory),
-                          language.t("skills.librarySection.addedSkill", {
-                            name: skill.displayName,
-                          }),
+                          skillLibraryMutationMessage(skill),
                         )
                       }
                       onRemove={() =>
                         void runMutation(
-                          `remove-library:${skill.id}`,
+                          removeLibraryBusyKey(skill.id),
+                          "remove",
                           () => removeLibrarySkill(skill.id, currentDirectory),
                           language.t("skills.detail.removedSkill", { name: skill.displayName }),
                         )
@@ -806,17 +907,19 @@ export function SkillsPage(props: { directory?: string }) {
             ) : (
               <LibrarySkillTable
                 skills={filteredLibrary}
-                busyKey={busyKey}
+                busyOperations={busyOperations}
                 onInstall={(skill) =>
                   void runMutation(
-                    `install:${skill.id}`,
+                    installLibraryBusyKey(skill.id),
+                    installOrUpdateBusyOperation(skill),
                     () => installLibrarySkill(skill.id, currentDirectory),
-                    language.t("skills.librarySection.addedSkill", { name: skill.displayName }),
+                    skillLibraryMutationMessage(skill),
                   )
                 }
                 onRemove={(skill) =>
                   void runMutation(
-                    `remove-library:${skill.id}`,
+                    removeLibraryBusyKey(skill.id),
+                    "remove",
                     () => removeLibrarySkill(skill.id, currentDirectory),
                     language.t("skills.detail.removedSkill", { name: skill.displayName }),
                   )
@@ -882,7 +985,7 @@ export function SkillsPage(props: { directory?: string }) {
                       className="scale-90"
                       checked={selectedSkill.permissionAction !== "deny"}
                       onCheckedChange={(checked) => toggleSkillEnabled(selectedSkill, checked)}
-                      disabled={busyKey === `permission:${selectedSkill.name}`}
+                      disabled={busyOperations.has(permissionBusyKey(selectedSkill.name))}
                       aria-label={language.t("skills.toggleAria", { name: selectedSkill.name })}
                     />
                   </div>
@@ -1016,14 +1119,15 @@ export function SkillsPage(props: { directory?: string }) {
               </div>
               <DialogFooter className="px-6 py-6 border-t border-border-base/40 shrink-0">
                 <div className="flex justify-end gap-3 w-full">
-                  {selectedLibrarySkill.state === "installed" && (
+                  {isInstalledLibrarySkill(selectedLibrarySkill.state) && (
                     <Button
                       variant="destructive"
                       className="min-w-[120px] h-10"
-                      disabled={busyKey === `remove-library:${selectedLibrarySkill.id}`}
+                      disabled={isLibrarySkillBusy(selectedLibrarySkill.id, busyOperations)}
                       onClick={() => {
                         void runMutation(
-                          `remove-library:${selectedLibrarySkill.id}`,
+                          removeLibraryBusyKey(selectedLibrarySkill.id),
+                          "remove",
                           () => removeLibrarySkill(selectedLibrarySkill.id, currentDirectory),
                           language.t("skills.detail.removedSkill", {
                             name: selectedLibrarySkill.displayName,
@@ -1032,30 +1136,39 @@ export function SkillsPage(props: { directory?: string }) {
                         setSelectedLibrarySkillID(undefined)
                       }}
                     >
-                      {language.t("skills.detail.remove")}
+                      {busyOperations.has(removeLibraryBusyKey(selectedLibrarySkill.id)) ? (
+                        <Loader2Icon className="size-4 animate-spin" aria-hidden />
+                      ) : null}
+                      {busyOperations.has(removeLibraryBusyKey(selectedLibrarySkill.id))
+                        ? language.t("skills.removing")
+                        : language.t("skills.detail.remove")}
                     </Button>
                   )}
-                  <Button
-                    className="min-w-[120px] h-10"
-                    disabled={
-                      busyKey === `install:${selectedLibrarySkill.id}` ||
-                      selectedLibrarySkill.state === "installed"
-                    }
-                    onClick={() => {
+                  <LibraryActionButton
+                    skill={selectedLibrarySkill}
+                    busyAction={libraryBusyAction(selectedLibrarySkill.id, busyOperations)}
+                    disabled={isLibrarySkillBusy(selectedLibrarySkill.id, busyOperations)}
+                    onInstall={() => {
                       void runMutation(
-                        `install:${selectedLibrarySkill.id}`,
+                        installLibraryBusyKey(selectedLibrarySkill.id),
+                        installOrUpdateBusyOperation(selectedLibrarySkill),
                         () => installLibrarySkill(selectedLibrarySkill.id, currentDirectory),
-                        language.t("skills.librarySection.addedSkill", {
+                        skillLibraryMutationMessage(selectedLibrarySkill),
+                      )
+                      setSelectedLibrarySkillID(undefined)
+                    }}
+                    onRemove={() => {
+                      void runMutation(
+                        removeLibraryBusyKey(selectedLibrarySkill.id),
+                        "remove",
+                        () => removeLibrarySkill(selectedLibrarySkill.id, currentDirectory),
+                        language.t("skills.detail.removedSkill", {
                           name: selectedLibrarySkill.displayName,
                         }),
                       )
                       setSelectedLibrarySkillID(undefined)
                     }}
-                  >
-                    {selectedLibrarySkill.state === "installed"
-                      ? language.t("skills.installed")
-                      : language.t("skills.install")}
-                  </Button>
+                  />
                 </div>
               </DialogFooter>
             </div>
@@ -1141,7 +1254,7 @@ export function SkillsPage(props: { directory?: string }) {
               {language.t("common.cancel")}
             </Button>
             <Button disabled={createDisabled} onClick={() => void submitNewSkill()}>
-              {busyKey === "create-skill"
+              {busyOperations.has(CREATE_SKILL_BUSY_KEY)
                 ? language.t("skills.createDialog.creating")
                 : language.t("skills.createDialog.create")}
             </Button>
