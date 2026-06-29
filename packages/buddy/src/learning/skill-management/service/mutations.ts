@@ -11,10 +11,7 @@ import {
   skillDocument,
 } from "./documents"
 import { resolveInstalledSkillByName } from "./discovery"
-import {
-  fetchPinnedGitHubSkill,
-  type FetchedGitHubSkill,
-} from "./github-fetcher"
+import { fetchPinnedGitHubSkill, type FetchedGitHubSkill } from "./github-fetcher"
 import { isCatalogSkillUpdateAvailable, readCatalogEntryByID } from "./library"
 import { readInstalledSkillLock, writeInstalledSkillLock } from "./lock"
 import {
@@ -277,10 +274,7 @@ export async function installCuratedLibrarySkill(
       throw new SkillServiceError("invalid_input", "Fetched skill has invalid SKILL.md metadata")
     }
     const skillName = validateCuratedSkillName(skill.name)
-    if (
-      existingLockEntry?.state === "active" &&
-      skillName !== existingLockEntry.skillName
-    ) {
+    if (existingLockEntry?.state === "active" && skillName !== existingLockEntry.skillName) {
       throw new SkillServiceError(
         "conflict",
         `Curated skill update cannot change name from "${existingLockEntry.skillName}" to "${skillName}"`,

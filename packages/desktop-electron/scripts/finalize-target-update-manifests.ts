@@ -94,8 +94,7 @@ if (!releaseVersion) {
 
 const checkOnly = process.env[CHECK_ONLY_ENV_KEY]?.trim() === TRUE_ENV_VALUE
 const dryRun = process.env[DRY_RUN_ENV_KEY]?.trim() === TRUE_ENV_VALUE || checkOnly
-const selectedTargetsOnly =
-  process.env[SELECTED_TARGETS_ONLY_ENV_KEY]?.trim() === TRUE_ENV_VALUE
+const selectedTargetsOnly = process.env[SELECTED_TARGETS_ONLY_ENV_KEY]?.trim() === TRUE_ENV_VALUE
 if (selectedTargetsOnly && !dryRun) {
   throw new Error(`${SELECTED_TARGETS_ONLY_ENV_KEY} requires ${DRY_RUN_ENV_KEY}`)
 }
@@ -278,10 +277,7 @@ async function copyPreviousSignedTargetManifest(
   console.log(`copied ${target.manifestFilename} forward from ${previousTag}`)
 }
 
-async function bootstrapMacOsManifest(
-  target: MacOsTarget,
-  previousTag: string,
-): Promise<string> {
+async function bootstrapMacOsManifest(target: MacOsTarget, previousTag: string): Promise<string> {
   const legacyPath = await requireReleaseAsset(previousTag, LEGACY_MACOS_MANIFEST_FILENAME)
   const legacyManifest = parseMacOsManifest(await Bun.file(legacyPath).text())
   const expectedArchive = resolveMacOsReleaseArtifactFilename(
@@ -322,7 +318,9 @@ async function bootstrapWindowsManifest(
     target.arch,
     "exe",
   )
-  const file = legacyManifest.files.find((entry) => basenameFromUrl(entry.url) === expectedInstaller)
+  const file = legacyManifest.files.find(
+    (entry) => basenameFromUrl(entry.url) === expectedInstaller,
+  )
   if (!file) {
     throw new Error(
       `${LEGACY_WINDOWS_MANIFEST_FILENAME} in ${previousTag} does not contain ${expectedInstaller}`,

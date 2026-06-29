@@ -165,10 +165,7 @@ function formatStatus(timing: JobTiming): string {
   return timing.status || "unknown"
 }
 
-function formatNumber(
-  value: number,
-  decimalPlaces = DURATION_DECIMAL_PLACES,
-): string {
+function formatNumber(value: number, decimalPlaces = DURATION_DECIMAL_PLACES): string {
   return value.toFixed(decimalPlaces)
 }
 

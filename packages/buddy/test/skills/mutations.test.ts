@@ -3,7 +3,10 @@ import fsp from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import type { SkillCatalogEntry } from "../../src/learning/skill-management/service/library"
-import { readInstalledSkillLock, writeInstalledSkillLock } from "../../src/learning/skill-management/service/lock"
+import {
+  readInstalledSkillLock,
+  writeInstalledSkillLock,
+} from "../../src/learning/skill-management/service/lock"
 import { installCuratedLibrarySkill } from "../../src/learning/skill-management/service/mutations"
 import { managedLibraryRoot } from "../../src/learning/skill-management/service/paths"
 import { computeSkillTreeSha256 } from "../../src/learning/skill-management/service/tree-hash"

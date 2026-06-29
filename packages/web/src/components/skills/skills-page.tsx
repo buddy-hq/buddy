@@ -545,10 +545,8 @@ export function SkillsPage(props: { directory?: string }) {
     }
 
     return list.toSorted((a, b) => {
-      const aInstalled =
-        isInstalledLibrarySkill(a.state) || a.state === "withdrawn_installed"
-      const bInstalled =
-        isInstalledLibrarySkill(b.state) || b.state === "withdrawn_installed"
+      const aInstalled = isInstalledLibrarySkill(a.state) || a.state === "withdrawn_installed"
+      const bInstalled = isInstalledLibrarySkill(b.state) || b.state === "withdrawn_installed"
       if (aInstalled && !bInstalled) return -1
       if (!aInstalled && bInstalled) return 1
       return 0

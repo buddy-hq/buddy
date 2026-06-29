@@ -5,15 +5,8 @@
       "id": "anthropic-pptx",
       "displayName": "PowerPoint Presentation",
       "summary": "Create, edit, inspect, and analyze PowerPoint presentations with the Anthropic PPTX skill.",
-      "categories": [
-        "productivity",
-        "documents"
-      ],
-      "tags": [
-        "pptx",
-        "presentations",
-        "anthropic"
-      ],
+      "categories": ["productivity", "documents"],
+      "tags": ["pptx", "presentations", "anthropic"],
       "source": {
         "type": "github",
         "repo": "anthropics/skills",
@@ -30,10 +23,7 @@
         "approvedAt": "2026-05-10T00:00:00.000Z",
         "approvedBy": "Buddy maintainers",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "executable-script",
-          "network-fetch"
-        ],
+        "approvedWarningRuleIDs": ["executable-script", "network-fetch"],
         "notes": "Trusted local-test catalog entry. Scanner warnings for executable scripts and normal network references were reviewed."
       },
       "status": "approved"
@@ -42,16 +32,8 @@
       "id": "anthropics-financial-services-xlsx-author",
       "displayName": "xlsx-author",
       "summary": "Produce a .xlsx file on disk (headless) instead of driving a live Excel workbook — for managed-agent sessions with no open Office app.",
-      "categories": [
-        "teaching",
-        "productivity"
-      ],
-      "tags": [
-        "excel",
-        "spreadsheets",
-        "finance",
-        "education"
-      ],
+      "categories": ["teaching", "productivity"],
+      "tags": ["excel", "spreadsheets", "finance", "education"],
       "source": {
         "type": "github",
         "repo": "anthropics/financial-services",
@@ -76,14 +58,8 @@
       "id": "anthropics-skills-docx",
       "displayName": "DOCX",
       "summary": "Create, read, and edit DOCX files programmatically",
-      "categories": [
-        "productivity"
-      ],
-      "tags": [
-        "docx",
-        "office",
-        "document"
-      ],
+      "categories": ["productivity"],
+      "tags": ["docx", "office", "document"],
       "source": {
         "type": "github",
         "repo": "anthropics/skills",
@@ -100,10 +76,7 @@
         "approvedAt": "2026-05-19T11:18:50.632Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "executable-script",
-          "network-fetch"
-        ],
+        "approvedWarningRuleIDs": ["executable-script", "network-fetch"],
         "notes": "Review pack at docs/features/skills/reviews/generated/anthropics-skills-skills-docx-6a5bb069/review.md"
       },
       "status": "approved"
@@ -112,16 +85,8 @@
       "id": "hermes-excalidraw",
       "displayName": "Excalidraw",
       "summary": "Hand-drawn Excalidraw JSON diagrams (arch, flow, seq).",
-      "categories": [
-        "learning",
-        "diagramming"
-      ],
-      "tags": [
-        "excalidraw",
-        "diagrams",
-        "visualization",
-        "education"
-      ],
+      "categories": ["learning", "diagramming"],
+      "tags": ["excalidraw", "diagrams", "visualization", "education"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -138,10 +103,7 @@
         "approvedAt": "2026-06-28T21:12:07.665Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "broad-filesystem-reference",
-          "network-fetch"
-        ],
+        "approvedWarningRuleIDs": ["broad-filesystem-reference", "network-fetch"],
         "notes": "Reviewed expected diagram output paths and optional upload/network references. Local Excalidraw generation does not require credentials."
       },
       "status": "approved"
@@ -150,17 +112,8 @@
       "id": "nousresearch-hermes-agent-arxiv",
       "displayName": "arXiv Research",
       "summary": "Search arXiv papers by keyword, author, category, or ID.",
-      "categories": [
-        "learning",
-        "research"
-      ],
-      "tags": [
-        "arxiv",
-        "papers",
-        "citations",
-        "research",
-        "education"
-      ],
+      "categories": ["learning", "research"],
+      "tags": ["arxiv", "papers", "citations", "research", "education"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -177,12 +130,8 @@
         "approvedAt": "2026-06-28T21:09:20.938Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "network-fetch"
-        ],
-        "approvedBlockRuleIDs": [
-          "download-and-execute"
-        ],
+        "approvedWarningRuleIDs": ["network-fetch"],
+        "approvedBlockRuleIDs": ["download-and-execute"],
         "notes": "Reviewed blocked match. The curl pipeline retrieves public arXiv Atom XML and passes it as data to a fixed local Python parser; it does not execute downloaded code. Network access is expected for arXiv and Semantic Scholar research."
       },
       "status": "approved"
@@ -191,17 +140,8 @@
       "id": "nousresearch-hermes-agent-blogwatcher",
       "displayName": "Blogwatcher",
       "summary": "Monitor blogs and RSS/Atom feeds via blogwatcher-cli tool.",
-      "categories": [
-        "learning",
-        "research"
-      ],
-      "tags": [
-        "rss",
-        "feeds",
-        "research",
-        "monitoring",
-        "education"
-      ],
+      "categories": ["learning", "research"],
+      "tags": ["rss", "feeds", "research", "monitoring", "education"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -231,16 +171,8 @@
       "id": "nousresearch-hermes-agent-concept-diagrams",
       "displayName": "Concept Diagrams",
       "summary": "Generate flat, minimal light/dark-aware SVG diagrams as standalone HTML files, using a unified educational visual language with 9 semantic color ramps, sentence-case typography, and automatic dark mode. Best suited for educational and non-software visuals — physics setups, chemistry mechanisms, math curves, physical objects (aircraft, turbines, smartphones, mechanical watches), anatomy, floor plans, cross-sections, narrative journeys (lifecycle of X, process of Y), hub-spoke system integrations (smart city, IoT), and exploded layer views. If a more specialized skill exists for the subject (dedicated software/cloud architecture, hand-drawn sketches, animated explainers, etc.), prefer that — otherwise this skill can also serve as a general-purpose SVG diagram fallback with a clean educational look. Ships with 15 example diagrams.",
-      "categories": [
-        "teaching",
-        "diagramming"
-      ],
-      "tags": [
-        "concept-diagrams",
-        "svg",
-        "education",
-        "visualization"
-      ],
+      "categories": ["teaching", "diagramming"],
+      "tags": ["concept-diagrams", "svg", "education", "visualization"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -257,13 +189,8 @@
         "approvedAt": "2026-06-28T21:09:38.451Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "broad-filesystem-reference",
-          "network-fetch"
-        ],
-        "approvedBlockRuleIDs": [
-          "hidden-html-instruction"
-        ],
+        "approvedWarningRuleIDs": ["broad-filesystem-reference", "network-fetch"],
+        "approvedBlockRuleIDs": ["hidden-html-instruction"],
         "notes": "Reviewed findings. Hidden HTML matches are benign SVG layout comments in bundled examples; network matches are SVG namespace URLs and optional local preview guidance. Broad paths are user-selected diagram outputs."
       },
       "status": "approved"
@@ -272,17 +199,8 @@
       "id": "nousresearch-hermes-agent-creative-ideation",
       "displayName": "Creative Ideation",
       "summary": "Generate ideas via named methods from creative practice.",
-      "categories": [
-        "learning",
-        "teaching"
-      ],
-      "tags": [
-        "ideation",
-        "creativity",
-        "activities",
-        "projects",
-        "education"
-      ],
+      "categories": ["learning", "teaching"],
+      "tags": ["ideation", "creativity", "activities", "projects", "education"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -299,9 +217,7 @@
         "approvedAt": "2026-06-28T21:12:39.678Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "network-fetch"
-        ],
+        "approvedWarningRuleIDs": ["network-fetch"],
         "notes": "Reviewed reference material and outbound source links. The skill is an instruction/reference workflow with no credentials, executables, or destructive operations."
       },
       "status": "approved"
@@ -310,16 +226,8 @@
       "id": "nousresearch-hermes-agent-duckduckgo-search",
       "displayName": "DuckDuckGo Search",
       "summary": "Free web search via DuckDuckGo — text, news, images, videos. No API key needed. Prefer the `ddgs` CLI when installed; use the Python DDGS library only after verifying that `ddgs` is available in the current runtime.",
-      "categories": [
-        "learning",
-        "research"
-      ],
-      "tags": [
-        "duckduckgo",
-        "search",
-        "web",
-        "research"
-      ],
+      "categories": ["learning", "research"],
+      "tags": ["duckduckgo", "search", "web", "research"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -336,10 +244,7 @@
         "approvedAt": "2026-06-28T21:09:29.888Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "executable-script",
-          "network-fetch"
-        ],
+        "approvedWarningRuleIDs": ["executable-script", "network-fetch"],
         "notes": "Reviewed executable wrapper and expected DuckDuckGo network access. The script performs search requests only and contains no destructive filesystem or credential operations."
       },
       "status": "approved"
@@ -348,17 +253,8 @@
       "id": "nousresearch-hermes-agent-jupyter-live-kernel",
       "displayName": "Jupyter Live Kernel",
       "summary": "Iterative Python via live Jupyter kernel (hamelnb).",
-      "categories": [
-        "learning",
-        "data-science"
-      ],
-      "tags": [
-        "jupyter",
-        "python",
-        "notebooks",
-        "data-science",
-        "education"
-      ],
+      "categories": ["learning", "data-science"],
+      "tags": ["jupyter", "python", "notebooks", "data-science", "education"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -375,10 +271,7 @@
         "approvedAt": "2026-06-28T21:24:43.957Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "broad-filesystem-reference",
-          "network-fetch"
-        ],
+        "approvedWarningRuleIDs": ["broad-filesystem-reference", "network-fetch"],
         "notes": "Reviewed hamelnb clone guidance and local helper paths. The live Jupyter server must remain bound to loopback whenever token/password authentication is disabled. Hermes execute_code and terminal references require Buddy tool-name adaptation."
       },
       "status": "approved"
@@ -387,17 +280,8 @@
       "id": "nousresearch-hermes-agent-manim-video",
       "displayName": "Manim Video",
       "summary": "Manim CE animations: 3Blue1Brown math/algo videos.",
-      "categories": [
-        "teaching",
-        "media"
-      ],
-      "tags": [
-        "manim",
-        "animation",
-        "math",
-        "video",
-        "education"
-      ],
+      "categories": ["teaching", "media"],
+      "tags": ["manim", "animation", "math", "video", "education"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -414,10 +298,7 @@
         "approvedAt": "2026-06-28T21:09:55.730Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "executable-script",
-          "network-fetch"
-        ],
+        "approvedWarningRuleIDs": ["executable-script", "network-fetch"],
         "notes": "Reviewed setup script and documentation links. Executable content installs and validates Manim rendering dependencies; outputs are local educational videos. Buddy media integration and Windows validation remain follow-up work."
       },
       "status": "approved"
@@ -426,17 +307,8 @@
       "id": "nousresearch-hermes-agent-maps",
       "displayName": "Maps",
       "summary": "Geocode, POIs, routes, timezones via OpenStreetMap/OSRM.",
-      "categories": [
-        "learning",
-        "research"
-      ],
-      "tags": [
-        "maps",
-        "geography",
-        "routing",
-        "openstreetmap",
-        "education"
-      ],
+      "categories": ["learning", "research"],
+      "tags": ["maps", "geography", "routing", "openstreetmap", "education"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -453,10 +325,7 @@
         "approvedAt": "2026-06-28T21:12:31.816Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "broad-filesystem-reference",
-          "network-fetch"
-        ],
+        "approvedWarningRuleIDs": ["broad-filesystem-reference", "network-fetch"],
         "notes": "Reviewed public OpenStreetMap, Nominatim, Overpass, OSRM, and timezone requests. The Python helper uses standard library networking without API credentials; broad paths are Hermes installation examples that require Buddy adaptation."
       },
       "status": "approved"
@@ -465,16 +334,8 @@
       "id": "nousresearch-hermes-agent-obsidian",
       "displayName": "Obsidian",
       "summary": "Read, search, create, and edit notes in the Obsidian vault.",
-      "categories": [
-        "learning",
-        "notes"
-      ],
-      "tags": [
-        "obsidian",
-        "notes",
-        "knowledge-base",
-        "local-first"
-      ],
+      "categories": ["learning", "notes"],
+      "tags": ["obsidian", "notes", "knowledge-base", "local-first"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -491,9 +352,7 @@
         "approvedAt": "2026-06-28T21:10:04.393Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "broad-filesystem-reference"
-        ],
+        "approvedWarningRuleIDs": ["broad-filesystem-reference"],
         "notes": "Reviewed filesystem guidance. Access is intentionally limited to the user-selected Obsidian vault. Hermes tool names require a Buddy runtime compatibility pass."
       },
       "status": "approved"
@@ -502,17 +361,8 @@
       "id": "nousresearch-hermes-agent-ocr-and-documents",
       "displayName": "OCR and Documents",
       "summary": "Extract text from PDFs/scans (pymupdf, marker-pdf).",
-      "categories": [
-        "learning",
-        "documents"
-      ],
-      "tags": [
-        "ocr",
-        "pdf",
-        "documents",
-        "extraction",
-        "education"
-      ],
+      "categories": ["learning", "documents"],
+      "tags": ["ocr", "pdf", "documents", "extraction", "education"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -529,10 +379,7 @@
         "approvedAt": "2026-06-28T21:09:03.449Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "broad-filesystem-reference",
-          "network-fetch"
-        ],
+        "approvedWarningRuleIDs": ["broad-filesystem-reference", "network-fetch"],
         "notes": "Reviewed document extraction helpers. Broad paths refer to user-selected input/output files; network use covers optional remote extraction and model/dependency retrieval. Runtime dependency size must be disclosed before advanced OCR installation."
       },
       "status": "approved"
@@ -541,17 +388,8 @@
       "id": "nousresearch-hermes-agent-p5js",
       "displayName": "p5.js",
       "summary": "p5.js sketches: gen art, shaders, interactive, 3D.",
-      "categories": [
-        "learning",
-        "creative-coding"
-      ],
-      "tags": [
-        "p5js",
-        "simulation",
-        "visualization",
-        "interactive",
-        "education"
-      ],
+      "categories": ["learning", "creative-coding"],
+      "tags": ["p5js", "simulation", "visualization", "interactive", "education"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -568,10 +406,7 @@
         "approvedAt": "2026-06-28T21:12:24.039Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "executable-script",
-          "network-fetch"
-        ],
+        "approvedWarningRuleIDs": ["executable-script", "network-fetch"],
         "notes": "Reviewed rendering/export scripts and library retrieval. Scripts create local p5.js artifacts; no credentials are required. Buddy HTML-widget integration and cross-platform script behavior remain follow-up work."
       },
       "status": "approved"
@@ -580,17 +415,8 @@
       "id": "nousresearch-hermes-agent-qmd",
       "displayName": "QMD",
       "summary": "Search personal knowledge bases, notes, docs, and meeting transcripts locally using qmd — a hybrid retrieval engine with BM25, vector search, and LLM reranking. Supports CLI and MCP integration.",
-      "categories": [
-        "learning",
-        "research"
-      ],
-      "tags": [
-        "search",
-        "retrieval",
-        "notes",
-        "documents",
-        "local-first"
-      ],
+      "categories": ["learning", "research"],
+      "tags": ["search", "retrieval", "notes", "documents", "local-first"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -607,10 +433,7 @@
         "approvedAt": "2026-06-28T21:12:15.458Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "broad-filesystem-reference",
-          "network-fetch"
-        ],
+        "approvedWarningRuleIDs": ["broad-filesystem-reference", "network-fetch"],
         "notes": "Reviewed local indexing paths and dependency/model downloads. QMD operates on explicitly configured collections without API credentials; model size and Windows support must be disclosed and validated."
       },
       "status": "approved"
@@ -619,17 +442,8 @@
       "id": "nousresearch-hermes-agent-research-paper-writing",
       "displayName": "Research Paper Writing",
       "summary": "Write ML papers for NeurIPS/ICML/ICLR: design→submit.",
-      "categories": [
-        "learning",
-        "research"
-      ],
-      "tags": [
-        "research",
-        "papers",
-        "citations",
-        "latex",
-        "education"
-      ],
+      "categories": ["learning", "research"],
+      "tags": ["research", "papers", "citations", "latex", "education"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -646,10 +460,7 @@
         "approvedAt": "2026-06-28T21:12:55.416Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "broad-filesystem-reference",
-          "network-fetch"
-        ],
+        "approvedWarningRuleIDs": ["broad-filesystem-reference", "network-fetch"],
         "approvedBlockRuleIDs": [
           "binary-content",
           "credential-exfiltration",
@@ -663,17 +474,8 @@
       "id": "nousresearch-hermes-agent-whisper",
       "displayName": "Whisper",
       "summary": "OpenAI's general-purpose speech recognition model. Supports 99 languages, transcription, translation to English, and language identification. Six model sizes from tiny (39M params) to large (1550M params). Use for speech-to-text, podcast transcription, or multilingual audio processing. Best for robust, multilingual ASR.",
-      "categories": [
-        "learning",
-        "media"
-      ],
-      "tags": [
-        "audio",
-        "transcription",
-        "lecture",
-        "whisper",
-        "education"
-      ],
+      "categories": ["learning", "media"],
+      "tags": ["audio", "transcription", "lecture", "whisper", "education"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -690,9 +492,7 @@
         "approvedAt": "2026-06-28T21:09:12.186Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "network-fetch"
-        ],
+        "approvedWarningRuleIDs": ["network-fetch"],
         "notes": "Reviewed local Whisper transcription workflow. Network references cover package and model retrieval; transcription runs locally without an API key. Windows runtime validation remains required."
       },
       "status": "approved"
@@ -701,16 +501,8 @@
       "id": "nousresearch-hermes-agent-youtube-content",
       "displayName": "YouTube Content",
       "summary": "YouTube transcripts to summaries, threads, blogs.",
-      "categories": [
-        "learning",
-        "research"
-      ],
-      "tags": [
-        "youtube",
-        "transcript",
-        "video",
-        "education"
-      ],
+      "categories": ["learning", "research"],
+      "tags": ["youtube", "transcript", "video", "education"],
       "source": {
         "type": "github",
         "repo": "NousResearch/hermes-agent",
@@ -727,9 +519,7 @@
         "approvedAt": "2026-06-28T21:08:54.776Z",
         "approvedBy": "prashant",
         "policyVersion": 1,
-        "approvedWarningRuleIDs": [
-          "network-fetch"
-        ],
+        "approvedWarningRuleIDs": ["network-fetch"],
         "notes": "Reviewed public YouTube transcript retrieval. Network access is limited to transcript fetching; no credentials or authenticated account access are required."
       },
       "status": "approved"

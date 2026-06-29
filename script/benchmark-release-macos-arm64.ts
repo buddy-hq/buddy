@@ -49,13 +49,7 @@ const commandDefinitions = [
     name: "build Electron app",
   },
   {
-    command: [
-      "bun",
-      "run",
-      "--cwd",
-      "packages/desktop-electron",
-      "smoke:backend-utility",
-    ],
+    command: ["bun", "run", "--cwd", "packages/desktop-electron", "smoke:backend-utility"],
     name: "smoke Electron backend utility",
   },
   {

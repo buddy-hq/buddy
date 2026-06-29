@@ -108,13 +108,7 @@ const commandDefinitions: readonly CommandDefinition[] = [
     name: "build Electron app",
   },
   {
-    command: [
-      "bun",
-      "run",
-      "--cwd",
-      "packages/desktop-electron",
-      "smoke:backend-utility",
-    ],
+    command: ["bun", "run", "--cwd", "packages/desktop-electron", "smoke:backend-utility"],
     name: "smoke Electron backend utility",
   },
   {
@@ -283,7 +277,9 @@ async function compareHarnessRuns(): Promise<void> {
     baseline: summarizeRun(baseline),
     candidate: summarizeRun(candidate),
     commandDeltas: candidate.commands.map((candidateCommand) => {
-      const baselineCommand = baseline.commands.find((command) => command.name === candidateCommand.name)
+      const baselineCommand = baseline.commands.find(
+        (command) => command.name === candidateCommand.name,
+      )
       return {
         baselineDurationMilliseconds: baselineCommand?.durationMilliseconds,
         candidateDurationMilliseconds: candidateCommand.durationMilliseconds,
@@ -370,7 +366,10 @@ async function resolveCachePaths(profile: HarnessProfile): Promise<CachePaths> {
 
   const lockfile = await Bun.file(resolve(repositoryRoot, LOCKFILE_PATH)).text()
   const electronVersion = resolveLockedPackageVersion(lockfile, ELECTRON_PACKAGE_NAME)
-  const electronBuilderVersion = resolveLockedPackageVersion(lockfile, ELECTRON_BUILDER_PACKAGE_NAME)
+  const electronBuilderVersion = resolveLockedPackageVersion(
+    lockfile,
+    ELECTRON_BUILDER_PACKAGE_NAME,
+  )
   const electronRoot = resolve(
     rootDirectory,
     OPTIMIZED_PROFILE,
@@ -395,7 +394,10 @@ async function hashReleaseDependencyInputs(): Promise<string> {
   return hash.digest("hex").slice(0, 16)
 }
 
-async function hashDirectoryIfPresent(directory: string, hash: ReturnType<typeof createHash>): Promise<void> {
+async function hashDirectoryIfPresent(
+  directory: string,
+  hash: ReturnType<typeof createHash>,
+): Promise<void> {
   let entries: Awaited<ReturnType<typeof readdir>>
   try {
     entries = await readdir(directory, { withFileTypes: true })
@@ -418,7 +420,10 @@ async function hashDirectoryIfPresent(directory: string, hash: ReturnType<typeof
 }
 
 async function hashFile(path: string): Promise<string> {
-  return createHash("sha256").update(await readFile(path)).digest("hex").slice(0, 16)
+  return createHash("sha256")
+    .update(await readFile(path))
+    .digest("hex")
+    .slice(0, 16)
 }
 
 function resolveLockedPackageVersion(lockfileContent: string, packageName: string): string {
@@ -762,7 +767,7 @@ async function appendStepSummary(metrics: HarnessMetrics): Promise<void> {
     "| --- | ---: | ---: |",
     ...rows.map((row) => `| ${row} |`),
     "",
-    `Total: ${(((metrics.totalDurationMilliseconds ?? 0) / MILLISECONDS_PER_SECOND)).toFixed(2)}s`,
+    `Total: ${((metrics.totalDurationMilliseconds ?? 0) / MILLISECONDS_PER_SECOND).toFixed(2)}s`,
     "",
   ].join("\n")
 

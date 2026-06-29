@@ -9,12 +9,7 @@
   },
   "commands": [
     {
-      "command": [
-        "bun",
-        "install",
-        "--os=darwin",
-        "--cpu=arm64"
-      ],
+      "command": ["bun", "install", "--os=darwin", "--cpu=arm64"],
       "durationMilliseconds": 55145,
       "exitCode": 0,
       "finishedAt": "2026-06-29T09:38:16.521Z",
@@ -22,11 +17,7 @@
       "startedAt": "2026-06-29T09:37:21.376Z"
     },
     {
-      "command": [
-        "bun",
-        "run",
-        "sdk:generate"
-      ],
+      "command": ["bun", "run", "sdk:generate"],
       "durationMilliseconds": 3605,
       "exitCode": 0,
       "finishedAt": "2026-06-29T09:38:20.289Z",
@@ -34,13 +25,7 @@
       "startedAt": "2026-06-29T09:38:16.684Z"
     },
     {
-      "command": [
-        "bun",
-        "run",
-        "--cwd",
-        "packages/desktop-electron",
-        "prepare:release"
-      ],
+      "command": ["bun", "run", "--cwd", "packages/desktop-electron", "prepare:release"],
       "durationMilliseconds": 679,
       "exitCode": 0,
       "finishedAt": "2026-06-29T09:38:21.040Z",
@@ -48,13 +33,7 @@
       "startedAt": "2026-06-29T09:38:20.361Z"
     },
     {
-      "command": [
-        "bun",
-        "run",
-        "--cwd",
-        "packages/desktop-electron",
-        "build"
-      ],
+      "command": ["bun", "run", "--cwd", "packages/desktop-electron", "build"],
       "durationMilliseconds": 34465,
       "exitCode": 0,
       "finishedAt": "2026-06-29T09:38:55.570Z",
@@ -62,13 +41,7 @@
       "startedAt": "2026-06-29T09:38:21.105Z"
     },
     {
-      "command": [
-        "bun",
-        "run",
-        "--cwd",
-        "packages/desktop-electron",
-        "smoke:backend-utility"
-      ],
+      "command": ["bun", "run", "--cwd", "packages/desktop-electron", "smoke:backend-utility"],
       "durationMilliseconds": 49553,
       "exitCode": 0,
       "finishedAt": "2026-06-29T09:39:45.202Z",
