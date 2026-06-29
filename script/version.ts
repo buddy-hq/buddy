@@ -7,6 +7,11 @@ import { Script } from "@buddy/script"
 import { buildNotes, getLatestRelease } from "./changelog.ts"
 import { releaseRepository, sourceRepository } from "./release-repositories"
 
+const DRY_RUN_ENV_KEY = "BUDDY_RELEASE_DRY_RUN"
+const TRUE_ENV_VALUE = "1"
+const DRY_RUN_RELEASE_ID = "dry-run"
+const LOCAL_RUN_ID = "local"
+
 function currentTag() {
   if (process.env.GITHUB_REF_TYPE !== "tag") {
     return undefined
@@ -29,11 +34,12 @@ async function currentBranch() {
 }
 
 const tagRef = currentTag()
+const dryRun = process.env[DRY_RUN_ENV_KEY]?.trim() === TRUE_ENV_VALUE
 
 if (!tagRef) {
   const branch = await currentBranch()
 
-  if (branch !== "main") {
+  if (!dryRun && branch !== "main") {
     throw new Error(`Stable releases must be cut from main, received '${branch || "detached"}'`)
   }
 
@@ -71,41 +77,49 @@ async function createRelease(file: string) {
   await $`gh release create ${tag} -d --title ${tag} --notes-file ${file} --repo ${releaseRepo}`
 }
 
-const existing = await $`gh release view ${tag} --repo ${releaseRepo}`.quiet().nothrow()
 let release: {
-  databaseId: number
+  databaseId: number | string
   isDraft?: boolean
   tagName: string
 }
 
-if (existing.exitCode === 0) {
-  release =
-    (await $`gh release view ${tag} --json tagName,databaseId,isDraft --repo ${releaseRepo}`.json()) as {
-      databaseId: number
-      isDraft: boolean
-      tagName: string
-    }
-
-  if (!release.isDraft) {
-    throw new Error(`Release ${tag} already exists`)
+if (dryRun) {
+  const runId = process.env.GITHUB_RUN_ID?.trim() || LOCAL_RUN_ID
+  release = {
+    databaseId: DRY_RUN_RELEASE_ID,
+    tagName: `dry-run-${tag}-${runId}`,
   }
 } else {
-  const previous = await getLatestRelease(undefined)
-  const notes = await buildNotes(previous, "HEAD")
-  const body = notes.join("\n") || "No notable changes"
-  const file = path.join(
-    process.env.RUNNER_TEMP || os.tmpdir(),
-    `buddy-release-notes-${Script.version}.md`,
-  )
-  await Bun.write(file, body)
+  const existing = await $`gh release view ${tag} --repo ${releaseRepo}`.quiet().nothrow()
+  if (existing.exitCode === 0) {
+    release =
+      (await $`gh release view ${tag} --json tagName,databaseId,isDraft --repo ${releaseRepo}`.json()) as {
+        databaseId: number
+        isDraft: boolean
+        tagName: string
+      }
 
-  await createRelease(file)
-
-  release =
-    (await $`gh release view ${tag} --json tagName,databaseId --repo ${releaseRepo}`.json()) as {
-      databaseId: number
-      tagName: string
+    if (!release.isDraft) {
+      throw new Error(`Release ${tag} already exists`)
     }
+  } else {
+    const previous = await getLatestRelease(undefined)
+    const notes = await buildNotes(previous, "HEAD")
+    const body = notes.join("\n") || "No notable changes"
+    const file = path.join(
+      process.env.RUNNER_TEMP || os.tmpdir(),
+      `buddy-release-notes-${Script.version}.md`,
+    )
+    await Bun.write(file, body)
+
+    await createRelease(file)
+
+    release =
+      (await $`gh release view ${tag} --json tagName,databaseId --repo ${releaseRepo}`.json()) as {
+        databaseId: number
+        tagName: string
+      }
+  }
 }
 
 const output = [

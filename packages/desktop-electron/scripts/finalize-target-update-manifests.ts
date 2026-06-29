@@ -25,6 +25,7 @@ const MACOS_X64_TARGET_ENV_KEY = "BUDDY_RELEASE_TARGET_MACOS_X64"
 const WINDOWS_X64_TARGET_ENV_KEY = "BUDDY_RELEASE_TARGET_WINDOWS_X64"
 const DRY_RUN_ENV_KEY = "BUDDY_RELEASE_DRY_RUN"
 const CHECK_ONLY_ENV_KEY = "BUDDY_RELEASE_CHECK_ONLY"
+const SELECTED_TARGETS_ONLY_ENV_KEY = "BUDDY_RELEASE_SELECTED_TARGETS_ONLY"
 const TRUE_ENV_VALUE = "1"
 const GITHUB_RELEASE_SEARCH_LIMIT = 100
 const SHA512_HASH_ALGORITHM = "sha512"
@@ -93,6 +94,11 @@ if (!releaseVersion) {
 
 const checkOnly = process.env[CHECK_ONLY_ENV_KEY]?.trim() === TRUE_ENV_VALUE
 const dryRun = process.env[DRY_RUN_ENV_KEY]?.trim() === TRUE_ENV_VALUE || checkOnly
+const selectedTargetsOnly =
+  process.env[SELECTED_TARGETS_ONLY_ENV_KEY]?.trim() === TRUE_ENV_VALUE
+if (selectedTargetsOnly && !dryRun) {
+  throw new Error(`${SELECTED_TARGETS_ONLY_ENV_KEY} requires ${DRY_RUN_ENV_KEY}`)
+}
 const electronDistDir =
   process.env[ELECTRON_DIST_DIR_ENV_KEY]?.trim() || path.resolve(import.meta.dir, "..", "dist")
 const outputDirectory =
@@ -146,6 +152,11 @@ for (const target of releaseTargets) {
     }
 
     await writeSignedTargetManifest(target, signer)
+    continue
+  }
+
+  if (selectedTargetsOnly) {
+    console.log(`skipped omitted ${target.manifestFilename} during selected-target validation`)
     continue
   }
 

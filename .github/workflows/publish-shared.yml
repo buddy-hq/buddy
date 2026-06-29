@@ -56,12 +56,12 @@ jobs:
       build_macos_x64: ${{ steps.plan.outputs.build_macos_x64 }}
       build_windows_x64: ${{ steps.plan.outputs.build_windows_x64 }}
       dry_run: ${{ steps.plan.outputs.dry_run }}
-      release: ${{ steps.version.outputs.release || steps.dry_version.outputs.release }}
-      release_repo: ${{ steps.version.outputs.release_repo || steps.dry_version.outputs.release_repo }}
-      repo: ${{ steps.version.outputs.release_repo || steps.dry_version.outputs.release_repo }}
-      source_repo: ${{ steps.version.outputs.source_repo || steps.dry_version.outputs.source_repo }}
-      tag: ${{ steps.version.outputs.tag || steps.dry_version.outputs.tag }}
-      version: ${{ steps.version.outputs.version || steps.dry_version.outputs.version }}
+      release: ${{ steps.version.outputs.release }}
+      release_repo: ${{ steps.version.outputs.release_repo }}
+      repo: ${{ steps.version.outputs.release_repo }}
+      source_repo: ${{ steps.version.outputs.source_repo }}
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - id: plan
         name: Validate release target plan
@@ -124,43 +124,19 @@ jobs:
       - run: bun run --cwd packages/buddy smoke:node
 
       - id: version
-        if: ${{ !inputs.dry_run }}
         run: bun ./script/version.ts
         env:
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
           BUDDY_BUMP: ${{ inputs.bump || '' }}
+          BUDDY_RELEASE_DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
           BUDDY_VERSION: ${{ inputs.version || '' }}
-
-      - id: dry_version
-        if: ${{ inputs.dry_run }}
-        name: Resolve dry-run version outputs
-        shell: bash
-        env:
-          BUDDY_VERSION_INPUT: ${{ inputs.version || '' }}
-        run: |
-          set -euo pipefail
-          version="$BUDDY_VERSION_INPUT"
-          if [ -z "$version" ]; then
-            version="$(
-              bun -e 'const pkg = await Bun.file("packages/desktop-electron/package.json").json(); console.log(pkg.version)'
-            )"
-          fi
-          {
-            echo "version=$version"
-            echo "release=dry-run"
-            echo "tag=dry-run-v${version}-${GITHUB_RUN_ID}"
-            echo "release_repo=prashantbhudwal/buddy-releases"
-            echo "repo=prashantbhudwal/buddy-releases"
-            echo "source_repo=${GITHUB_REPOSITORY}"
-          } >> "$GITHUB_OUTPUT"
-          echo "Dry-run version: $version"
 
       - name: Check omitted target manifest feasibility
         env:
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
-          BUDDY_RELEASE_REPO: ${{ steps.version.outputs.release_repo || steps.dry_version.outputs.release_repo }}
-          BUDDY_RELEASE_TAG: ${{ steps.version.outputs.tag || steps.dry_version.outputs.tag }}
-          BUDDY_VERSION: ${{ steps.version.outputs.version || steps.dry_version.outputs.version }}
+          BUDDY_RELEASE_REPO: ${{ steps.version.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ steps.version.outputs.tag }}
+          BUDDY_VERSION: ${{ steps.version.outputs.version }}
           BUDDY_RELEASE_TARGET_MACOS_ARM64: ${{ steps.plan.outputs.build_macos_arm64 }}
           BUDDY_RELEASE_TARGET_MACOS_X64: ${{ steps.plan.outputs.build_macos_x64 }}
           BUDDY_RELEASE_TARGET_WINDOWS_X64: ${{ steps.plan.outputs.build_windows_x64 }}
@@ -218,6 +194,23 @@ jobs:
 
       - run: bunx --bun electron-builder --mac --arm64 --publish never --config electron-builder.config.ts
         working-directory: packages/desktop-electron
+
+      - if: ${{ inputs.dry_run }}
+        name: Validate macOS ARM64 target update manifest
+        env:
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
+          ELECTRON_DIST_DIR: ${{ github.workspace }}/packages/desktop-electron/dist
+          BUDDY_RELEASE_TARGET_MACOS_ARM64: "true"
+          BUDDY_RELEASE_TARGET_MACOS_X64: "false"
+          BUDDY_RELEASE_TARGET_WINDOWS_X64: "false"
+          BUDDY_RELEASE_DRY_RUN: "1"
+          BUDDY_RELEASE_SELECTED_TARGETS_ONLY: "1"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bun ./packages/desktop-electron/scripts/finalize-target-update-manifests.ts
 
       - if: ${{ inputs.direct_release_uploads && !inputs.dry_run }}
         name: Upload packaged binaries to release
@@ -293,6 +286,23 @@ jobs:
       - run: bunx --bun electron-builder --mac --x64 --publish never --config electron-builder.config.ts
         working-directory: packages/desktop-electron
 
+      - if: ${{ inputs.dry_run }}
+        name: Validate macOS x64 target update manifest
+        env:
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
+          ELECTRON_DIST_DIR: ${{ github.workspace }}/packages/desktop-electron/dist
+          BUDDY_RELEASE_TARGET_MACOS_ARM64: "false"
+          BUDDY_RELEASE_TARGET_MACOS_X64: "true"
+          BUDDY_RELEASE_TARGET_WINDOWS_X64: "false"
+          BUDDY_RELEASE_DRY_RUN: "1"
+          BUDDY_RELEASE_SELECTED_TARGETS_ONLY: "1"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bun ./packages/desktop-electron/scripts/finalize-target-update-manifests.ts
+
       - if: ${{ inputs.direct_release_uploads && !inputs.dry_run }}
         name: Upload packaged binaries to release
         env:
@@ -366,6 +376,23 @@ jobs:
 
       - run: bunx --bun electron-builder --win --x64 --publish never --config electron-builder.config.ts
         working-directory: packages/desktop-electron
+
+      - if: ${{ inputs.dry_run }}
+        name: Validate Windows x64 target update manifest
+        env:
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
+          ELECTRON_DIST_DIR: ${{ github.workspace }}/packages/desktop-electron/dist
+          BUDDY_RELEASE_TARGET_MACOS_ARM64: "false"
+          BUDDY_RELEASE_TARGET_MACOS_X64: "false"
+          BUDDY_RELEASE_TARGET_WINDOWS_X64: "true"
+          BUDDY_RELEASE_DRY_RUN: "1"
+          BUDDY_RELEASE_SELECTED_TARGETS_ONLY: "1"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PATH: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PATH }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bun ./packages/desktop-electron/scripts/finalize-target-update-manifests.ts
 
       - if: ${{ inputs.direct_release_uploads && !inputs.dry_run }}
         name: Upload packaged binaries to release
