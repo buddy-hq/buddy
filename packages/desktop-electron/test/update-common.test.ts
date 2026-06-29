@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import { resolveLatestPrereleaseAssetUrl } from "../src/main/update-common"
+import {
+  fetchSignedText,
+  resolveLatestPrereleaseAssetUrl,
+  resolveVersionedReleaseAssetUrls,
+  SignedUpdateFetchError,
+} from "../src/main/update-common"
 import { resolveWindowsUpdateManifestFilename } from "../src/shared/release-asset-names"
 
 const ORIGINAL_FETCH = globalThis.fetch
@@ -44,5 +49,29 @@ describe("update common", () => {
     expect(requestedUrl).toBe(
       "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100",
     )
+  })
+
+  test("resolves current and legacy versioned release asset URLs", () => {
+    expect(
+      resolveVersionedReleaseAssetUrls({
+        legacyFilename: "latest.yml",
+        primaryFilename: WINDOWS_UPDATE_MANIFEST_FILENAME,
+        version: "1.9.0",
+      }),
+    ).toEqual([
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/v1.9.0/latest-windows-x64.yml",
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/v1.9.0/latest.yml",
+    ])
+  })
+
+  test("throws typed fetch errors for missing signed update content", async () => {
+    globalThis.fetch = async () => new Response("missing", { status: 404 })
+
+    await expect(
+      fetchSignedText({
+        publicKey: "unused",
+        url: "https://example.invalid/latest.yml",
+      }),
+    ).rejects.toBeInstanceOf(SignedUpdateFetchError)
   })
 })

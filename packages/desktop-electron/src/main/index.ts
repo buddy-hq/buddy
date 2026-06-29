@@ -61,7 +61,8 @@ import {
   RELEASE_REPOSITORY_OWNER,
   resolveLatestReleaseAssetUrl,
   resolveLatestPrereleaseAssetUrl,
-  resolveReleaseAssetUrl,
+  resolveVersionedReleaseAssetUrls,
+  SignedUpdateFetchError,
 } from "./update-common"
 import {
   createWindowsUpdateFeedProviderOptions,
@@ -83,6 +84,7 @@ const LOADING_WINDOW_COMPLETE_TIMEOUT_MS = 5_000
 const MAC_UPDATE_CACHE_DIRECTORY_NAME = "mac-updater"
 const BUDDY_DOWNLOAD_URL = `https://github.com/${RELEASE_REPOSITORY}/releases/latest`
 const WINDOWS_REMOTE_UPDATE_MANIFEST_FILENAME = resolveWindowsUpdateManifestFilename("x64")
+const LEGACY_WINDOWS_UPDATE_MANIFEST_FILENAME = "latest.yml"
 const PRIMARY_DIALOG_RESPONSE = 0
 const SECONDARY_DIALOG_RESPONSE = 1
 const STARTUP_FAILURE_UPDATE_CHECK_BUTTONS = ["Check for Update", "Quit"] as const
@@ -848,11 +850,8 @@ async function checkUpdateForVersion(version: string): Promise<UpdateCheckResult
 async function configureSignedWindowsUpdateFeed(
   expectedVersion?: string,
 ): Promise<SignedWindowsUpdateFeed> {
-  const manifestUrl = await resolveSignedWindowsUpdateManifestUrl(expectedVersion)
-  const manifest = await fetchSignedElectronUpdateManifest({
-    publicKey: process.env[BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY]?.trim() || undefined,
-    url: manifestUrl,
-  })
+  const manifestUrls = await resolveSignedWindowsUpdateManifestUrls(expectedVersion)
+  const manifest = await fetchSignedWindowsUpdateManifest(manifestUrls)
 
   if (expectedVersion && manifest.version !== expectedVersion) {
     throw new Error(
@@ -877,16 +876,56 @@ async function configureSignedWindowsUpdateFeed(
   }
 }
 
-async function resolveSignedWindowsUpdateManifestUrl(expectedVersion?: string): Promise<string> {
+async function resolveSignedWindowsUpdateManifestUrls(
+  expectedVersion?: string,
+): Promise<readonly string[]> {
   if (expectedVersion) {
-    return resolveReleaseAssetUrl(expectedVersion, WINDOWS_REMOTE_UPDATE_MANIFEST_FILENAME)
+    return resolveVersionedReleaseAssetUrls({
+      legacyFilename: LEGACY_WINDOWS_UPDATE_MANIFEST_FILENAME,
+      primaryFilename: WINDOWS_REMOTE_UPDATE_MANIFEST_FILENAME,
+      version: expectedVersion,
+    })
   }
 
   if (CHANNEL !== "prod") {
-    return await resolveLatestPrereleaseAssetUrl(WINDOWS_REMOTE_UPDATE_MANIFEST_FILENAME)
+    return [await resolveLatestPrereleaseAssetUrl(WINDOWS_REMOTE_UPDATE_MANIFEST_FILENAME)]
   }
 
-  return resolveLatestReleaseAssetUrl(WINDOWS_REMOTE_UPDATE_MANIFEST_FILENAME)
+  return [resolveLatestReleaseAssetUrl(WINDOWS_REMOTE_UPDATE_MANIFEST_FILENAME)]
+}
+
+async function fetchSignedWindowsUpdateManifest(
+  manifestUrls: readonly string[],
+): Promise<{ content: string; version: string }> {
+  let lastError: unknown
+
+  for (const [index, manifestUrl] of manifestUrls.entries()) {
+    try {
+      return await fetchSignedElectronUpdateManifest({
+        publicKey: process.env[BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY]?.trim() || undefined,
+        url: manifestUrl,
+      })
+    } catch (error) {
+      lastError = error
+      const fallbackUrl = manifestUrls[index + 1]
+      if (!fallbackUrl || !isMissingSignedManifest(error)) {
+        throw error
+      }
+
+      logger.warn("signed recovery update manifest missing; trying legacy manifest", {
+        fallbackUrl,
+        manifestUrl,
+      })
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("Failed to fetch Windows update manifest")
+}
+
+function isMissingSignedManifest(error: unknown): boolean {
+  return error instanceof SignedUpdateFetchError && error.status === 404
 }
 
 async function closeWindowsUpdateFeed(feed: WindowsUpdateFeed | undefined): Promise<void> {

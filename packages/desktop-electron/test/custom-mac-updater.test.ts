@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test"
-import { isMacUpdateAvailable, parseMacInstallerResult } from "../src/main/custom-mac-updater"
+import {
+  isMacUpdateAvailable,
+  parseMacInstallerResult,
+  resolveMacRecoveryMetadataUrls,
+} from "../src/main/custom-mac-updater"
 
 const CURRENT_VERSION = "2.0.0"
 const ROLLBACK_VERSION = "1.9.0"
@@ -50,6 +54,15 @@ describe("isMacUpdateAvailable", () => {
         nextVersion: NEXT_VERSION,
       }),
     ).toBe(false)
+  })
+})
+
+describe("resolveMacRecoveryMetadataUrls", () => {
+  test("tries target-specific manifest before pre-migration manifest", () => {
+    expect(resolveMacRecoveryMetadataUrls(ROLLBACK_VERSION)).toEqual([
+      `https://github.com/prashantbhudwal/buddy-releases/releases/download/v${ROLLBACK_VERSION}/latest-macos-${process.arch}.json`,
+      `https://github.com/prashantbhudwal/buddy-releases/releases/download/v${ROLLBACK_VERSION}/latest-mac.json`,
+    ])
   })
 })
 

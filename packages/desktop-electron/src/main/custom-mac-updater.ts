@@ -8,7 +8,9 @@ import {
   fetchSignedText,
   isAbsoluteUrl,
   resolveLatestReleaseAssetUrl,
-  resolveReleaseAssetUrl as resolveSharedReleaseAssetUrl,
+  resolveReleaseAssetUrl,
+  resolveVersionedReleaseAssetUrls,
+  SignedUpdateFetchError,
 } from "./update-common"
 import { compareVersions } from "./recovery-policy-core"
 import {
@@ -22,6 +24,7 @@ const INSTALLER_SCRIPT_NAME = "mac-install-update.sh"
 const INSTALLER_LOG_FILENAME = "update-installer.log"
 const INSTALLER_RESULT_FILENAME = "update-installer-result.json"
 const SHA512_HASH_ALGORITHM = "sha512"
+const LEGACY_MACOS_UPDATE_MANIFEST_FILENAME = "latest-mac.json"
 
 type LoggerLike = {
   info: (...args: unknown[]) => void
@@ -104,7 +107,7 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
       }
 
       checkForUpdateTask ??= checkManifestForUpdate({
-        metadataUrl: options.metadataUrl ?? resolveDefaultMacMetadataUrl(),
+        metadataUrls: [options.metadataUrl ?? resolveDefaultMacMetadataUrl()],
         options,
         pendingUpdate,
         setPendingUpdate: (update) => {
@@ -144,8 +147,9 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
 
       const task = checkManifestForUpdate({
         expectedVersion: version,
-        metadataUrl:
-          options.metadataUrl ?? resolveSharedReleaseAssetUrl(version, resolveMacMetadataFilename()),
+        metadataUrls: options.metadataUrl
+          ? [options.metadataUrl]
+          : resolveMacRecoveryMetadataUrls(version),
         options,
         pendingUpdate,
         setPendingUpdate: (update) => {
@@ -210,12 +214,12 @@ function waitForInstallerLaunch(child: ReturnType<typeof spawn>): Promise<void> 
 
 async function checkManifestForUpdate(input: {
   expectedVersion?: string
-  metadataUrl: string
+  metadataUrls: readonly string[]
   options: CreateCustomMacUpdaterOptions
   pendingUpdate: PendingMacUpdate | null
   setPendingUpdate: (update: PendingMacUpdate) => void
 }): Promise<MacUpdaterResult> {
-  const metadata = await fetchLatestManifest(input.metadataUrl, input.options)
+  const metadata = await fetchLatestManifest(input.metadataUrls, input.options)
   if (input.expectedVersion !== undefined && metadata.version !== input.expectedVersion) {
     throw new Error(
       `Recovery manifest version mismatch: expected ${input.expectedVersion}, got ${metadata.version}`,
@@ -249,7 +253,7 @@ async function checkManifestForUpdate(input: {
   const entry = resolveArchiveEntry(metadata.version, metadata.files)
   if (!entry) {
     input.options.logger.warn("custom mac updater could not find a matching archive", {
-      metadataUrl: input.metadataUrl,
+      metadataUrls: input.metadataUrls,
     })
     return { updateAvailable: false, failed: true }
   }
@@ -266,12 +270,34 @@ async function checkManifestForUpdate(input: {
   }
 }
 
-async function fetchLatestManifest(metadataUrl: string, options: CreateCustomMacUpdaterOptions) {
-  const manifestText = await fetchSignedText({
-    publicKey: options.publicKey ?? BUDDY_MINISIGN_PUBLIC_KEY,
-    url: metadataUrl,
-  })
-  return parseLatestManifest(manifestText)
+async function fetchLatestManifest(
+  metadataUrls: readonly string[],
+  options: CreateCustomMacUpdaterOptions,
+): Promise<LatestManifest> {
+  let lastError: unknown
+
+  for (const [index, metadataUrl] of metadataUrls.entries()) {
+    try {
+      const manifestText = await fetchSignedText({
+        publicKey: options.publicKey ?? BUDDY_MINISIGN_PUBLIC_KEY,
+        url: metadataUrl,
+      })
+      return parseLatestManifest(manifestText)
+    } catch (error) {
+      lastError = error
+      const fallbackUrl = metadataUrls[index + 1]
+      if (!fallbackUrl || !isMissingSignedManifest(error)) {
+        throw error
+      }
+
+      options.logger.warn("custom mac recovery manifest missing; trying legacy manifest", {
+        fallbackUrl,
+        metadataUrl,
+      })
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Failed to fetch macOS update manifest")
 }
 
 function parseLatestManifest(content: string): LatestManifest {
@@ -360,7 +386,7 @@ function resolveMacReleaseAssetUrl(filename: string, version: string) {
     return filename
   }
 
-  return resolveSharedReleaseAssetUrl(version, filename)
+  return resolveReleaseAssetUrl(version, filename)
 }
 
 function resolveArchiveName(value: string) {
@@ -449,4 +475,16 @@ function resolveMacMetadataFilename(): string {
 
 function resolveDefaultMacMetadataUrl(): string {
   return resolveLatestReleaseAssetUrl(resolveMacMetadataFilename())
+}
+
+export function resolveMacRecoveryMetadataUrls(version: string): readonly string[] {
+  return resolveVersionedReleaseAssetUrls({
+    legacyFilename: LEGACY_MACOS_UPDATE_MANIFEST_FILENAME,
+    primaryFilename: resolveMacMetadataFilename(),
+    version,
+  })
+}
+
+function isMissingSignedManifest(error: unknown): boolean {
+  return error instanceof SignedUpdateFetchError && error.status === 404
 }

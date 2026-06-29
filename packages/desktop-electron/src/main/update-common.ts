@@ -19,6 +19,24 @@ type GithubRelease = {
   tagName: string
 }
 
+type VersionedReleaseAssetUrlInput = {
+  legacyFilename?: string
+  primaryFilename: string
+  version: string
+}
+
+export class SignedUpdateFetchError extends Error {
+  readonly status: number
+  readonly url: string
+
+  constructor(input: { message: string; status: number; url: string }) {
+    super(input.message)
+    this.name = "SignedUpdateFetchError"
+    this.status = input.status
+    this.url = input.url
+  }
+}
+
 export function resolveLatestReleaseAssetUrl(filename: string): string {
   return `https://github.com/${RELEASE_REPOSITORY}/releases/latest/download/${filename}`
 }
@@ -29,6 +47,17 @@ export function resolveReleaseDownloadBaseUrl(version: string): string {
 
 export function resolveReleaseAssetUrl(version: string, filename: string): string {
   return resolveReleaseTagAssetUrl(`v${version}`, filename)
+}
+
+export function resolveVersionedReleaseAssetUrls(
+  input: VersionedReleaseAssetUrlInput,
+): readonly string[] {
+  const primaryUrl = resolveReleaseAssetUrl(input.version, input.primaryFilename)
+  if (!input.legacyFilename || input.legacyFilename === input.primaryFilename) {
+    return [primaryUrl]
+  }
+
+  return [primaryUrl, resolveReleaseAssetUrl(input.version, input.legacyFilename)]
 }
 
 export function resolveReleaseTagDownloadBaseUrl(tag: string): string {
@@ -140,15 +169,19 @@ export async function fetchSignedText(input: { publicKey?: string; url: string }
   ])
 
   if (!contentResponse.ok) {
-    throw new Error(
-      `Failed to fetch signed update content: ${contentResponse.status} ${contentResponse.statusText}`,
-    )
+    throw new SignedUpdateFetchError({
+      message: `Failed to fetch signed update content: ${contentResponse.status} ${contentResponse.statusText}`,
+      status: contentResponse.status,
+      url: input.url,
+    })
   }
 
   if (!signatureResponse.ok) {
-    throw new Error(
-      `Failed to fetch update signature: ${signatureResponse.status} ${signatureResponse.statusText}`,
-    )
+    throw new SignedUpdateFetchError({
+      message: `Failed to fetch update signature: ${signatureResponse.status} ${signatureResponse.statusText}`,
+      status: signatureResponse.status,
+      url: `${input.url}${SIGNATURE_SUFFIX}`,
+    })
   }
 
   const [contentText, signatureOuterText] = await Promise.all([
