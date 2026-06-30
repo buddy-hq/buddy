@@ -2,10 +2,14 @@ import { createHash } from "node:crypto"
 import fsp from "node:fs/promises"
 import path from "node:path"
 import { ensureManagedSkillPathReady, managedSystemRoot } from "./paths"
+import { BUDDY_SKILL_MANIFEST_RELATIVE_PATH, renderBuddySkillManifest } from "./manifests"
+import { loadManagedSkillFile } from "./documents"
+import type { BuddySkill } from "../../runtime/define-buddy-skill"
 
 type BundledSkillSource = {
   name: string
   directory: string
+  manifest: string
 }
 
 const SYSTEM_SKILLS_FINGERPRINT_FILE = ".buddy-system-skills.fingerprint"
@@ -43,8 +47,12 @@ async function listFilesRecursively(directory: string): Promise<string[]> {
 
 async function collectBundledSystemSkillDirectories(
   roots: string[],
+  skills: readonly BuddySkill[],
 ): Promise<BundledSkillSource[]> {
   const sources = new Map<string, BundledSkillSource>()
+  const manifests = new Map(
+    skills.map((skill) => [skill.name, renderBuddySkillManifest(skill.presentation)]),
+  )
 
   for (const root of roots) {
     const entries = sortByName(await readDirectoryEntries(root))
@@ -54,12 +62,17 @@ async function collectBundledSystemSkillDirectories(
 
       const directory = path.join(root, entry.name)
       const skillDocument = path.join(directory, "SKILL.md")
-      const stats = await fsp.stat(skillDocument).catch(() => undefined)
-      if (!stats?.isFile()) continue
+      const skill = await loadManagedSkillFile(skillDocument)
+      if (!skill) continue
+      const manifest = manifests.get(skill.name)
+      if (!manifest) {
+        throw new Error(`Bundled skill "${skill.name}" is missing typed presentation metadata`)
+      }
 
       sources.set(entry.name, {
         name: entry.name,
         directory,
+        manifest,
       })
     }
   }
@@ -75,12 +88,19 @@ async function fingerprintBundledSources(sources: BundledSkillSource[]) {
     const files = await listFilesRecursively(source.directory)
     for (const file of files) {
       const relative = path.relative(source.directory, file)
+      if (relative === BUDDY_SKILL_MANIFEST_RELATIVE_PATH) {
+        continue
+      }
       const content = await fsp.readFile(file)
       hash.update(relative)
       hash.update("\n")
       hash.update(content)
       hash.update("\n")
     }
+    hash.update(BUDDY_SKILL_MANIFEST_RELATIVE_PATH)
+    hash.update("\n")
+    hash.update(source.manifest)
+    hash.update("\n")
   }
 
   return hash.digest("hex")
@@ -89,8 +109,19 @@ async function fingerprintBundledSources(sources: BundledSkillSource[]) {
 async function destinationMatchesSources(destinationRoot: string, sources: BundledSkillSource[]) {
   for (const source of sources) {
     const destinationSkillFile = path.join(destinationRoot, source.name, "SKILL.md")
-    const stats = await fsp.stat(destinationSkillFile).catch(() => undefined)
-    if (!stats?.isFile()) {
+    const destinationManifestPath = path.join(
+      destinationRoot,
+      source.name,
+      BUDDY_SKILL_MANIFEST_RELATIVE_PATH,
+    )
+    const [skillStats, destinationManifest] = await Promise.all([
+      fsp.stat(destinationSkillFile).catch(() => undefined),
+      fsp.readFile(destinationManifestPath, "utf8").catch(() => undefined),
+    ])
+    if (!skillStats?.isFile()) {
+      return false
+    }
+    if (destinationManifest !== source.manifest) {
       return false
     }
   }
@@ -128,15 +159,22 @@ async function clearDirectoryContents(directory: string) {
 
 async function copySourcesToSystemRoot(systemRoot: string, sources: BundledSkillSource[]) {
   for (const source of sources) {
-    await fsp.cp(source.directory, path.join(systemRoot, source.name), {
+    const destination = path.join(systemRoot, source.name)
+    await fsp.cp(source.directory, destination, {
       recursive: true,
       force: true,
     })
+    const manifestPath = path.join(destination, BUDDY_SKILL_MANIFEST_RELATIVE_PATH)
+    await fsp.mkdir(path.dirname(manifestPath), { recursive: true })
+    await fsp.writeFile(manifestPath, source.manifest, "utf8")
   }
 }
 
-export async function ensureBundledSystemSkillsInstalled(sourceRoots: string[]): Promise<void> {
-  const sources = await collectBundledSystemSkillDirectories(sourceRoots)
+export async function ensureBundledSystemSkillsInstalled(
+  sourceRoots: string[],
+  skills: readonly BuddySkill[],
+): Promise<void> {
+  const sources = await collectBundledSystemSkillDirectories(sourceRoots, skills)
   if (!sources.length) {
     return
   }

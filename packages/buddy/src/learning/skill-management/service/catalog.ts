@@ -6,6 +6,7 @@ import type { InstalledSkillInfo, SkillsCatalog } from "./contracts"
 import { readOptionalString } from "./documents"
 import { loadVisibleSkills } from "./discovery"
 import { listCatalogLibraryItems, reconcileWithdrawnLibrarySkills } from "./library"
+import { loadBuddySkillManifest, resolveSkillPresentation } from "./manifests"
 import { managedSkillsRoot, managedSource, resolveSkillScope } from "./paths"
 import {
   enabledAction,
@@ -34,14 +35,27 @@ async function toInstalledSkillInfo(input: {
 }): Promise<InstalledSkillInfo> {
   const scope = resolveSkillScope(input.skill.location)
   const permissionRule = resolveSkillPermission(input.skill.name, input.ruleset)
-  const metadata = await readSkillMetadata(input.skill.location)
   const source = managedSource(input.skill.location)
+  const skillDirectory = path.dirname(input.skill.location)
+  const [metadata, manifest] = await Promise.all([
+    readSkillMetadata(input.skill.location),
+    source.source === "system"
+      ? loadBuddySkillManifest(skillDirectory)
+      : Promise.resolve(undefined),
+  ])
+  const presentation = resolveSkillPresentation({
+    name: input.skill.name,
+    description: input.skill.description,
+    manifest,
+  })
 
   return {
     name: input.skill.name,
     description: input.skill.description,
+    displayName: presentation.displayName,
+    shortDescription: presentation.shortDescription,
     location: input.skill.location,
-    directory: path.dirname(input.skill.location),
+    directory: skillDirectory,
     content: input.skill.content,
     examplePrompt: metadata.examplePrompt,
     enabled: enabledAction(permissionRule.rule.action),

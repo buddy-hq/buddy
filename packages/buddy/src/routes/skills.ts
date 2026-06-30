@@ -36,6 +36,8 @@ import {
 const installedSkillSchema = z.object({
   name: z.string(),
   description: z.string(),
+  displayName: z.string(),
+  shortDescription: z.string(),
   location: z.string(),
   directory: z.string(),
   content: z.string(),

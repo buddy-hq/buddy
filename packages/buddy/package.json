@@ -24,6 +24,7 @@
     "verify:knowledge-graph": "bun ./script/verify-knowledge-graph.ts",
     "skill:audit": "bun ./script/skill-audit.ts",
     "skill:curate": "bun ./script/skill-curation.ts",
+    "skill:bundled:check": "bun ./script/check-bundled-skills.ts",
     "build:advanced-math-runtime": "bun ./script/build-advanced-math-runtime.ts",
     "ensure:advanced-math-runtime": "bun ./script/ensure-advanced-math-runtime.ts",
     "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",
@@ -72,6 +73,7 @@
     "turndown": "^7.2.2",
     "ulid": "^3.0.1",
     "xdg-basedir": "5.1.0",
+    "yaml": "2.9.0",
     "zod": "4.1.8"
   },
   "devDependencies": {

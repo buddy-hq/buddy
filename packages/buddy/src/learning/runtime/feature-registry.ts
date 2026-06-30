@@ -1,11 +1,13 @@
 import { ALL_BUDDY_FEATURES } from "../features"
 import type { DefinedBuddyFeature } from "./define-buddy-feature"
+import type { BuddySkill } from "./define-buddy-skill"
 import type { BuddyTool } from "./create-buddy-tool"
 
 let cachedFeatures: DefinedBuddyFeature[] | undefined
 
 function validateFeatureSet(features: readonly DefinedBuddyFeature[]): void {
   const featureIDs = new Set<string>()
+  const skillNames = new Set<string>()
   const toolIDs = new Set<string>()
   const subagentIDs = new Set<string>()
 
@@ -14,6 +16,13 @@ function validateFeatureSet(features: readonly DefinedBuddyFeature[]): void {
       throw new Error(`Duplicate Buddy feature id "${feature.id}"`)
     }
     featureIDs.add(feature.id)
+
+    for (const skill of feature.skills) {
+      if (skillNames.has(skill.name)) {
+        throw new Error(`Duplicate Buddy skill id "${skill.name}"`)
+      }
+      skillNames.add(skill.name)
+    }
 
     for (const tool of feature.tools) {
       if (toolIDs.has(tool.id)) {
@@ -94,6 +103,17 @@ function allBuddyFeatureIds(): string[] {
   return validatedFeatures().map((feature) => feature.id)
 }
 
-export { allBuddyFeatureIds, allBuddyFeatures, allBuddyTools, allFeatureTools, getBuddyFeature }
+function allBuddySkills(): BuddySkill[] {
+  return validatedFeatures().flatMap((feature) => feature.skills)
+}
+
+export {
+  allBuddyFeatureIds,
+  allBuddyFeatures,
+  allBuddySkills,
+  allBuddyTools,
+  allFeatureTools,
+  getBuddyFeature,
+}
 
 export type { DefinedBuddyFeature }

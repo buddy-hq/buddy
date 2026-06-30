@@ -4,16 +4,27 @@ import { fileURLToPath } from "node:url"
 type BuddySkillDefinition = {
   file: URL
   content: string
+  presentation: BuddySkillPresentation
+}
+
+type BuddySkillPresentation = {
+  displayName: string
+  shortDescription: string
 }
 
 type BuddySkill = {
   url: URL
   name: string
   description: string
+  presentation: BuddySkillPresentation
 }
 
 const SKILL_NAME_RE = /^name:\s*(.+)$/m
 const SKILL_DESCRIPTION_RE = /^description:\s*(.+)$/m
+const DISPLAY_NAME_MIN_LENGTH = 1
+const DISPLAY_NAME_MAX_LENGTH = 64
+const SHORT_DESCRIPTION_MIN_LENGTH = 25
+const SHORT_DESCRIPTION_MAX_LENGTH = 64
 
 function parseSkillFrontmatter(content: string): { name: string; description: string } {
   const nameMatch = SKILL_NAME_RE.exec(content)
@@ -50,6 +61,38 @@ function resolveSkillDocumentContent(input: BuddySkillDefinition): string {
   }
 }
 
+function validatePresentationField(input: {
+  field: keyof BuddySkillPresentation
+  value: string
+  minLength: number
+  maxLength: number
+}): string {
+  const value = input.value.trim()
+  if (value.length < input.minLength || value.length > input.maxLength) {
+    throw new Error(
+      `Skill presentation ${input.field} must be ${input.minLength}-${input.maxLength} characters`,
+    )
+  }
+  return value
+}
+
+function validateSkillPresentation(presentation: BuddySkillPresentation): BuddySkillPresentation {
+  return {
+    displayName: validatePresentationField({
+      field: "displayName",
+      value: presentation.displayName,
+      minLength: DISPLAY_NAME_MIN_LENGTH,
+      maxLength: DISPLAY_NAME_MAX_LENGTH,
+    }),
+    shortDescription: validatePresentationField({
+      field: "shortDescription",
+      value: presentation.shortDescription,
+      minLength: SHORT_DESCRIPTION_MIN_LENGTH,
+      maxLength: SHORT_DESCRIPTION_MAX_LENGTH,
+    }),
+  }
+}
+
 function defineBuddySkill(input: BuddySkillDefinition): BuddySkill {
   const content = resolveSkillDocumentContent(input)
   const { name, description } = parseSkillFrontmatter(content)
@@ -58,9 +101,10 @@ function defineBuddySkill(input: BuddySkillDefinition): BuddySkill {
     url: input.file,
     name,
     description,
+    presentation: validateSkillPresentation(input.presentation),
   }
 }
 
 export { defineBuddySkill }
 
-export type { BuddySkill, BuddySkillDefinition }
+export type { BuddySkill, BuddySkillDefinition, BuddySkillPresentation }

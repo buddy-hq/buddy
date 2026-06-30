@@ -22,11 +22,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@buddy/ui"
-import {
-  RefreshCwIcon,
-  BadgeCheckIcon,
-  Loader2Icon,
-} from "lucide-react"
+import { RefreshCwIcon, BadgeCheckIcon, Loader2Icon } from "lucide-react"
 import { language } from "@/context/language"
 import {
   createCustomSkill,
@@ -47,6 +43,7 @@ import {
   skillLibraryButtonVariant,
   type SkillLibraryAction,
 } from "./skill-library-actions"
+import { matchesInstalledSkillSearch } from "./skill-presentation"
 
 type SkillsFormState = {
   name: string
@@ -106,15 +103,18 @@ function scopeLabel(scope: InstalledSkillInfo["scope"]) {
     : language.t("skills.scope.global")
 }
 
-function permissionUpdateMessage(name: string, action: InstalledSkillInfo["permissionAction"]) {
+function permissionUpdateMessage(
+  displayName: string,
+  action: InstalledSkillInfo["permissionAction"],
+) {
   return language.t("skills.permissionUpdated", {
-    name: name,
+    name: displayName,
     statusLabel: statusLabel(action).toLowerCase(),
   })
 }
 
-function permissionRuleMessage(name: string, action: SkillRuleAction) {
-  return permissionUpdateMessage(name, action)
+function permissionRuleMessage(displayName: string, action: SkillRuleAction) {
+  return permissionUpdateMessage(displayName, action)
 }
 
 function skillLibraryActionLabel(action: SkillLibraryAction): string {
@@ -168,7 +168,7 @@ function SkillCard(props: { skill: InstalledSkillInfo; onManage: () => void }) {
     >
       <CardHeader className="flex flex-row items-start justify-between gap-4 p-3 pb-0">
         <CardTitle className="text-sm font-semibold text-text-base leading-snug">
-          {props.skill.name}
+          {props.skill.displayName}
         </CardTitle>
         <div className="flex flex-wrap items-center gap-1.5 shrink-0">
           {isActive && <BadgeCheckIcon className="size-4 text-surface-success-base" />}
@@ -176,7 +176,7 @@ function SkillCard(props: { skill: InstalledSkillInfo; onManage: () => void }) {
       </CardHeader>
       <CardContent className="p-3 pt-1.5">
         <p className="line-clamp-2 text-sm text-text-weak leading-relaxed">
-          {props.skill.description}
+          {props.skill.shortDescription}
         </p>
       </CardContent>
     </Card>
@@ -296,36 +296,28 @@ export function SkillsPage(props: { directory?: string }) {
   )
 
   const filteredCustom = useMemo(() => {
-    const query = search.trim().toLowerCase()
     const list = (catalog?.installed ?? []).filter(
       (skill) => skill.source === "custom" || skill.source === "external",
     )
-    if (!query) return list
 
-    return list.filter((skill) => {
-      return (
-        skill.name.toLowerCase().includes(query) ||
-        skill.description.toLowerCase().includes(query) ||
-        skill.source.toLowerCase().includes(query) ||
-        skill.scope.toLowerCase().includes(query) ||
-        statusLabel(skill.permissionAction).toLowerCase().includes(query)
-      )
-    })
+    return list.filter((skill) =>
+      matchesInstalledSkillSearch(skill, search, [
+        skill.source,
+        skill.scope,
+        statusLabel(skill.permissionAction),
+      ]),
+    )
   }, [catalog?.installed, search])
 
   const filteredDefault = useMemo(() => {
-    const query = search.trim().toLowerCase()
     const list = (catalog?.installed ?? []).filter((skill) => skill.source === "system")
-    if (!query) return list
 
-    return list.filter((skill) => {
-      return (
-        skill.name.toLowerCase().includes(query) ||
-        skill.description.toLowerCase().includes(query) ||
-        skill.scope.toLowerCase().includes(query) ||
-        statusLabel(skill.permissionAction).toLowerCase().includes(query)
-      )
-    })
+    return list.filter((skill) =>
+      matchesInstalledSkillSearch(skill, search, [
+        skill.scope,
+        statusLabel(skill.permissionAction),
+      ]),
+    )
   }, [catalog?.installed, search])
 
   const filteredLibrary = useMemo(() => {
@@ -495,7 +487,7 @@ export function SkillsPage(props: { directory?: string }) {
       try {
         const response = await setSkillPermissionAction(skill.name, action, currentDirectory)
         replaceInstalledSkill(response.skill)
-        toast.success(permissionRuleMessage(skill.name, action))
+        toast.success(permissionRuleMessage(skill.displayName, action))
       } catch (error) {
         const message = error instanceof Error ? error.message : language.t("skills.requestFailed")
         toast.error(message)
@@ -552,8 +544,8 @@ export function SkillsPage(props: { directory?: string }) {
     !form.content.trim()
 
   const activeToggleSkill = selectedSkill ?? selectedLibraryInstalledSkill
-  const detailTitle = selectedSkill?.name ?? selectedLibrarySkill?.displayName ?? ""
-  const detailDescription = selectedSkill?.description ?? selectedLibrarySkill?.summary ?? ""
+  const detailTitle = selectedSkill?.displayName ?? selectedLibrarySkill?.displayName ?? ""
+  const detailDescription = selectedSkill?.shortDescription ?? selectedLibrarySkill?.summary ?? ""
 
   return (
     <>
@@ -762,11 +754,9 @@ export function SkillsPage(props: { directory?: string }) {
                         onCheckedChange={(checked) =>
                           toggleSkillEnabled(activeToggleSkill, checked)
                         }
-                        disabled={busyOperations.has(
-                          permissionBusyKey(activeToggleSkill.name),
-                        )}
+                        disabled={busyOperations.has(permissionBusyKey(activeToggleSkill.name))}
                         aria-label={language.t("skills.toggleAria", {
-                          name: activeToggleSkill.name,
+                          name: activeToggleSkill.displayName,
                         })}
                       />
                     </div>

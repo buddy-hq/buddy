@@ -95,7 +95,12 @@ Use the local review workflow for this repository.
       const beforeBody = (await listBefore.json()) as {
         managedRoot: string
         externalVendorRootsEnabled: boolean
-        installed: Array<{ name: string; source: string }>
+        installed: Array<{
+          name: string
+          source: string
+          displayName: string
+          shortDescription: string
+        }>
         library: Array<{ id: string; state: string }>
       }
 
@@ -105,11 +110,27 @@ Use the local review workflow for this repository.
       expect(
         beforeBody.installed.some((skill) => skill.name === "reading" && skill.source === "system"),
       ).toBe(true)
+      expect(beforeBody.installed.find((skill) => skill.name === "reading")).toMatchObject({
+        displayName: "Reading",
+        shortDescription: "Read and analyze books, papers, articles, and resources",
+      })
       expect(
         beforeBody.library.some(
           (entry) => entry.id === "anthropic-pptx" && entry.state === "available",
         ),
       ).toBe(true)
+      const installedSystemManifestPath = path.join(
+        fakeHome,
+        ".buddy",
+        "skills",
+        ".system",
+        "reading",
+        "agents",
+        "buddy.yaml",
+      )
+      expect(fs.existsSync(installedSystemManifestPath)).toBe(true)
+      fs.rmSync(installedSystemManifestPath)
+
       const removeSystemSkillResponse = await app.request("/api/skills/reading", {
         method: "DELETE",
         headers: {
@@ -120,6 +141,7 @@ Use the local review workflow for this repository.
       expect(
         fs.existsSync(path.join(fakeHome, ".buddy", "skills", ".system", "reading", "SKILL.md")),
       ).toBe(true)
+      expect(fs.existsSync(installedSystemManifestPath)).toBe(true)
       const reconciledLock = JSON.parse(fs.readFileSync(installedLockPath, "utf8")) as {
         installed: Record<string, unknown>
       }
@@ -145,7 +167,14 @@ Use the local review workflow for this repository.
       expect(listAfterToggle.status).toBe(200)
       const afterToggleBody = (await listAfterToggle.json()) as {
         externalVendorRootsEnabled: boolean
-        installed: Array<{ name: string; scope: string; permissionAction: string }>
+        installed: Array<{
+          name: string
+          description: string
+          displayName: string
+          shortDescription: string
+          scope: string
+          permissionAction: string
+        }>
       }
       expect(afterToggleBody.externalVendorRootsEnabled).toBe(true)
       expect(
@@ -156,6 +185,12 @@ Use the local review workflow for this repository.
             skill.permissionAction === "allow",
         ),
       ).toBe(true)
+      expect(
+        afterToggleBody.installed.find((skill) => skill.name === "local-review"),
+      ).toMatchObject({
+        displayName: "local-review",
+        shortDescription: "Workspace-local review workflow.",
+      })
       const localRuleResponse = await app.request("/api/skills/local-review", {
         method: "PATCH",
         headers: {
@@ -283,5 +318,5 @@ Use the local review workflow for this repository.
 
       await Config.updateGlobal({})
     }
-  })
+  }, 15_000)
 })

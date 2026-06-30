@@ -240,7 +240,8 @@ async function resolveOpenCodeSkillPaths(
 
   const bundledRoots = await resolveBuddyBundledSkillRoots()
   const sourceBundledRoots = await resolveBuddySourceBundledSkillRoots()
-  await ensureBundledSystemSkillsInstalled(bundledRoots)
+  const { allBuddySkills } = await import("../../learning/runtime/feature-registry.js")
+  await ensureBundledSystemSkillsInstalled(bundledRoots, allBuddySkills())
   for (const managedPath of [managedSkillsRoot(), managedSystemRoot()]) {
     await appendIfDirectory(paths, managedPath)
   }

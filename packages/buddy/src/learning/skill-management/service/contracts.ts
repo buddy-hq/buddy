@@ -8,6 +8,8 @@ export type SkillRuleAction = "allow" | "deny"
 export type InstalledSkillInfo = {
   name: string
   description: string
+  displayName: string
+  shortDescription: string
   location: string
   directory: string
   content: string
