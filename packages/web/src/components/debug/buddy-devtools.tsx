@@ -52,6 +52,8 @@ import { useOnboardingStore } from "@/state/onboarding-store"
 import { SystemPromptPanel } from "./system-prompt-panel"
 import { PalettePanel } from "./palette-panel"
 import { DevToolsContextTab } from "./devtools-context-tab"
+import { DevToolsEaselTab } from "./devtools-easel-tab"
+import { DevToolsTranscriptTab } from "./devtools-transcript-tab"
 import { buildSessionTrace, copyToClipboard } from "@/lib/directory-chat/chat-debug-helpers"
 import { OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
 import {
@@ -75,6 +77,8 @@ type BuddyDevToolsTab =
   | "memory"
   | "query"
   | "actions"
+  | "easel"
+  | "transcript"
 
 const DEVTOOLS_AFFORDANCE_POSITIONS = [
   "bottom-right",
@@ -184,7 +188,9 @@ function isBuddyDevToolsTab(value: string): value is BuddyDevToolsTab {
     value === "snapshot" ||
     value === "memory" ||
     value === "query" ||
-    value === "actions"
+    value === "actions" ||
+    value === "easel" ||
+    value === "transcript"
   )
 }
 
@@ -2952,6 +2958,12 @@ export function BuddyDevTools() {
                   <TabsTrigger value="actions" className="text-xs">
                     Actions
                   </TabsTrigger>
+                  <TabsTrigger value="easel" className="text-xs">
+                    Easel
+                  </TabsTrigger>
+                  <TabsTrigger value="transcript" className="text-xs">
+                    Transcript
+                  </TabsTrigger>
                 </TabsList>
               </div>
             </div>
@@ -3099,6 +3111,14 @@ export function BuddyDevTools() {
 
             <TabsContent value="query" className="min-h-0 flex-1 overflow-hidden mt-0">
               <ReactQueryDevtoolsPanel style={{ height: "100%" }} />
+            </TabsContent>
+
+            <TabsContent value="easel" className="min-h-0 flex-1 overflow-hidden mt-0">
+              <DevToolsEaselTab />
+            </TabsContent>
+
+            <TabsContent value="transcript" className="min-h-0 flex-1 overflow-hidden mt-0">
+              <DevToolsTranscriptTab />
             </TabsContent>
           </Tabs>
 
