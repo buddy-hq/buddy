@@ -1,7 +1,8 @@
 import { formatMessageError, isMessageAbortError } from "./utils/error"
 import { reasoningHeading } from "./utils/markdown"
 import { buildTurns, groupAssistantParts } from "./utils/message-utils"
-import { isChatReasoningPart, isChatTextPart } from "./utils/part-guards"
+import { isChatReasoningPart, isChatTextPart, isChatToolPart } from "./utils/part-guards"
+import { parseToolState } from "./tools/parse-tool-state"
 import type { AssistantRenderItem, ChatTurn } from "./types"
 import type { MessagePart, MessageWithParts, SessionStatusInfo } from "@/state/chat-types"
 import { isSessionStatusRetry } from "@/state/session-status"
@@ -17,6 +18,8 @@ export type TimelineAssistantItem =
       type: "part"
       key: string
       partID: string
+      tool: string | undefined
+      imageAttachmentCount: number
       previousPartID: string | undefined
     }
   | {
@@ -38,6 +41,7 @@ export type TimelineRow =
       key: string
       userMessageID: string
       partIDs: string[]
+      textLength: number
       anchor: boolean
     }
   | {
@@ -117,6 +121,20 @@ function assistantItemHasReasoning(item: AssistantRenderItem) {
   }
 }
 
+function messagePartsTextLength(parts: MessagePart[]) {
+  return parts.reduce((total, part) => {
+    if (!isChatTextPart(part)) return total
+    return total + part.text.length
+  }, 0)
+}
+
+function imageAttachmentCount(part: MessagePart) {
+  if (!isChatToolPart(part)) return 0
+  return parseToolState(part).attachments.filter((attachment) =>
+    attachment.mime.startsWith("image/"),
+  ).length
+}
+
 function convertAssistantItem(
   item: AssistantRenderItem,
   previousPartID: string | undefined,
@@ -142,6 +160,8 @@ function convertAssistantItem(
         type: item.type,
         key: item.key,
         partID: item.part.id,
+        tool: isChatToolPart(item.part) ? item.part.tool : undefined,
+        imageAttachmentCount: imageAttachmentCount(item.part),
         previousPartID,
       }
   }
@@ -268,6 +288,7 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
         key: `user:${turn.user.info.id}`,
         userMessageID: turn.user.info.id,
         partIDs: turn.user.parts.map((part) => part.id),
+        textLength: messagePartsTextLength(turn.user.parts),
         anchor: true,
       })
     }
@@ -357,7 +378,11 @@ function assistantItemsEqual(left: TimelineAssistantItem, right: TimelineAssista
   if (left.key !== right.key) return false
   if (left.previousPartID !== right.previousPartID) return false
   if (left.type === "part" && right.type === "part") {
-    return left.partID === right.partID
+    return (
+      left.partID === right.partID &&
+      left.tool === right.tool &&
+      left.imageAttachmentCount === right.imageAttachmentCount
+    )
   }
   if (left.type === "grouped-parts" && right.type === "grouped-parts") {
     return left.tool === right.tool && stringArraysEqual(left.partIDs, right.partIDs)
@@ -385,6 +410,7 @@ export function timelineRowsEqual(left: TimelineRow, right: TimelineRow) {
         right.type === "user" &&
         left.userMessageID === right.userMessageID &&
         stringArraysEqual(left.partIDs, right.partIDs) &&
+        left.textLength === right.textLength &&
         left.anchor === right.anchor
       )
     case "turn-divider":

@@ -57,7 +57,7 @@ import { HiddenStepsPlaceholder } from "./tools/hidden-steps/thinking-placeholde
 import { parseToolState } from "./tools/parse-tool-state"
 import { GroupedIngestFullTextToolCard } from "./tools/render/ingest-full-text"
 import { parseRenderFigureOutput, GroupedFigureToolCard } from "./tools/render/render-figure"
-import { parseRenderMermaidSources, GroupedMermaidToolCard } from "./tools/render/mermaid"
+import { parseRenderMermaidSources, GroupedMermaidToolCard } from "@/components/media/renderers/mermaid"
 import { ToolExpansionStateProvider } from "./tools/basic-tool"
 import { toolDefaultOpen } from "./utils/constants"
 import { AssistantPartRenderer } from "./parts/assistant-part/assistant-part"
@@ -74,6 +74,19 @@ const TIMELINE_RESIZE_STABLE_FRAMES = 30
 const TIMELINE_RESIZE_MAX_FRAMES = 180
 const TIMELINE_INITIAL_VIEWPORT_HEIGHT_PX = 800
 const VIEWPORT_SIZE_CHANGE_PIN_MULTIPLIER = 1
+const DEFERRED_TOOL_COLLAPSE_GUARD_MIN_PREVIOUS_SIZE_PX = 160
+const DEFERRED_TOOL_COLLAPSE_GUARD_MAX_NEXT_SIZE_PX = 128
+const USER_ROW_BASE_ESTIMATE_PX = 96
+const USER_ROW_CHARS_PER_LINE_ESTIMATE = 76
+const USER_ROW_LINE_HEIGHT_ESTIMATE_PX = 24
+const USER_ROW_MAX_ESTIMATE_PX = 1_600
+const ASSISTANT_GROUPED_VISUAL_ROW_ESTIMATE_PX = 560
+const ASSISTANT_FIGURE_ROW_ESTIMATE_PX = 392
+const ASSISTANT_MEDIA_ROW_ESTIMATE_PX = 600
+const ASSISTANT_HTML_WIDGET_ROW_ESTIMATE_PX = 489
+const ASSISTANT_MERMAID_ROW_ESTIMATE_PX = 526
+const ASSISTANT_PYTHON_TEXT_ROW_ESTIMATE_PX = 180
+const ASSISTANT_PYTHON_PLOT_ROW_ESTIMATE_PX = 560
 const EMPTY_PROVIDERS: ProviderInfo[] = []
 const EMPTY_HIDDEN_STEPS_EXPANSION_STATE: HiddenStepsExpansionState = {
   open: false,
@@ -125,6 +138,37 @@ function assistantPartIsStreaming(part: MessagePart) {
   return typeof part.time?.end !== "number"
 }
 
+function estimateUserRowSize(row: Extract<TimelineRow, { type: "user" }>) {
+  const estimatedLines = Math.max(
+    row.partIDs.length,
+    Math.ceil(row.textLength / USER_ROW_CHARS_PER_LINE_ESTIMATE),
+  )
+  return Math.min(
+    USER_ROW_MAX_ESTIMATE_PX,
+    USER_ROW_BASE_ESTIMATE_PX + estimatedLines * USER_ROW_LINE_HEIGHT_ESTIMATE_PX,
+  )
+}
+
+function estimateAssistantToolRowSize(item: Extract<TimelineAssistantItem, { type: "part" }>) {
+  switch (item.tool) {
+    case "render_figure":
+    case "render_freeform_figure":
+      return ASSISTANT_FIGURE_ROW_ESTIMATE_PX
+    case "present_media":
+      return ASSISTANT_MEDIA_ROW_ESTIMATE_PX
+    case "present_html_widget":
+      return ASSISTANT_HTML_WIDGET_ROW_ESTIMATE_PX
+    case "render_mermaid":
+      return ASSISTANT_MERMAID_ROW_ESTIMATE_PX
+    case "python_calculator":
+      return item.imageAttachmentCount > 0
+        ? ASSISTANT_PYTHON_PLOT_ROW_ESTIMATE_PX
+        : ASSISTANT_PYTHON_TEXT_ROW_ESTIMATE_PX
+    default:
+      return VIRTUAL_CHAT_TURN_ESTIMATE_PX
+  }
+}
+
 function estimateRowSize(row: TimelineRow | undefined) {
   if (!row) return VIRTUAL_CHAT_TURN_ESTIMATE_PX
   switch (row.type) {
@@ -137,11 +181,20 @@ function estimateRowSize(row: TimelineRow | undefined) {
     case "error":
       return 96
     case "user":
-      return Math.max(96, 72 + row.partIDs.length * 36)
+      return estimateUserRowSize(row)
     case "assistant":
-      if (row.item.type === "grouped-parts") return 260
+      if (row.item.type === "grouped-parts") {
+        if (
+          row.item.tool === "render_mermaid" ||
+          row.item.tool === "render_figure" ||
+          row.item.tool === "render_freeform_figure"
+        ) {
+          return ASSISTANT_GROUPED_VISUAL_ROW_ESTIMATE_PX
+        }
+        return 260
+      }
       if (row.item.type === "abstracted") return 96
-      return VIRTUAL_CHAT_TURN_ESTIMATE_PX
+      return estimateAssistantToolRowSize(row.item)
   }
 }
 
@@ -154,6 +207,22 @@ function scheduleConnectedMeasure<TElement extends HTMLElement>(
       measure(element)
     }
   })
+}
+
+export function isDeferredToolFallbackCollapse(input: {
+  root: HTMLElement | null
+  previousSize: number | undefined
+  nextSize: number
+}) {
+  if (
+    !input.root ||
+    input.previousSize === undefined ||
+    input.previousSize < DEFERRED_TOOL_COLLAPSE_GUARD_MIN_PREVIOUS_SIZE_PX ||
+    input.nextSize > DEFERRED_TOOL_COLLAPSE_GUARD_MAX_NEXT_SIZE_PX
+  ) {
+    return false
+  }
+  return input.root.querySelector('[data-component="deferred-tool-fallback"]') !== null
 }
 
 function captureVisibleTimelineAnchor(root: HTMLElement) {
@@ -843,6 +912,12 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
       const item = rowVirtualizer.measurementsCache[index]
       const previous = item ? (rowVirtualizer.itemSizeCache.get(item.key) ?? item.size) : undefined
       const root = scrollViewportRef?.current
+      const element = root?.querySelector<HTMLElement>(`[data-index="${index}"]`) ?? null
+      const skipResize = isDeferredToolFallbackCollapse({
+        root: element,
+        previousSize: previous,
+        nextSize: size,
+      })
       recordTranscriptPerfEvent({
         type: "row-size",
         at: performance.now(),
@@ -851,7 +926,9 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
         previousSize: previous,
         nextSize: size,
         deltaPx: previous === undefined ? undefined : size - previous,
+        ignored: skipResize,
       })
+      if (skipResize) return
       if (
         root &&
         previous !== undefined &&
