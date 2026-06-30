@@ -43,7 +43,7 @@ const installedSkillSchema = z.object({
   enabled: z.boolean(),
   permissionAction: z.enum(["allow", "deny"]),
   permissionSource: z.enum(["explicit", "inherited", "default"]),
-  source: z.enum(["custom", "library", "external"]),
+  source: z.enum(["custom", "library", "system", "external"]),
   scope: z.enum(["global", "workspace"]),
   managed: z.boolean(),
   removable: z.boolean(),

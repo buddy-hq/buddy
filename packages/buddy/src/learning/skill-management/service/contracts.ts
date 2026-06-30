@@ -1,6 +1,6 @@
 import type { PermissionAction } from "@buddy/opencode-adapter/permission"
 
-export type SkillSource = "custom" | "library" | "external"
+export type SkillSource = "custom" | "library" | "system" | "external"
 export type SkillScope = "global" | "workspace"
 export type SkillPermissionSource = "explicit" | "inherited" | "default"
 export type SkillRuleAction = "allow" | "deny"

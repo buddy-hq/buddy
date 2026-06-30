@@ -95,13 +95,16 @@ Use the local review workflow for this repository.
       const beforeBody = (await listBefore.json()) as {
         managedRoot: string
         externalVendorRootsEnabled: boolean
-        installed: Array<{ name: string }>
+        installed: Array<{ name: string; source: string }>
         library: Array<{ id: string; state: string }>
       }
 
       expect(beforeBody.managedRoot).toBe(path.join(fakeHome, ".buddy", "skills"))
       expect(beforeBody.externalVendorRootsEnabled).toBe(false)
       expect(beforeBody.installed.some((skill) => skill.name === "local-review")).toBe(false)
+      expect(
+        beforeBody.installed.some((skill) => skill.name === "reading" && skill.source === "system"),
+      ).toBe(true)
       expect(
         beforeBody.library.some(
           (entry) => entry.id === "anthropic-pptx" && entry.state === "available",

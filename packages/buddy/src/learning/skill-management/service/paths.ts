@@ -112,7 +112,7 @@ export function managedSource(location: string): ManagedSkillSource {
 
   if (segments[0] === ".system") {
     return {
-      source: "external",
+      source: "system",
       managed: true,
       removable: false,
     }

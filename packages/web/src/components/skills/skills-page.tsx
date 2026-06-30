@@ -21,28 +21,9 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-  ToggleGroup,
-  ToggleGroupItem,
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
 } from "@buddy/ui"
-import { Markdown } from "@/components/markdown/Markdown"
-import {
-  useReactTable,
-  getCoreRowModel,
-  flexRender,
-  createColumnHelper,
-} from "@tanstack/react-table"
 import {
   RefreshCwIcon,
-  LayoutGridIcon,
-  ListIcon,
-  CopyIcon,
-  FolderSearchIcon,
   BadgeCheckIcon,
   Loader2Icon,
 } from "lucide-react"
@@ -60,7 +41,6 @@ import {
   type SkillsCatalog,
 } from "@/state/skills-actions"
 import { skillsCatalogQueryOptions } from "@/state/skills-catalog-query"
-import { usePlatform } from "@/context/platform"
 import {
   isInstalledLibrarySkill,
   skillLibraryAction,
@@ -116,6 +96,7 @@ function statusLabel(action: InstalledSkillInfo["permissionAction"]) {
 function sourceLabel(source: InstalledSkillInfo["source"]) {
   if (source === "custom") return language.t("skills.source.custom")
   if (source === "library") return "Curated"
+  if (source === "system") return language.t("skills.source.system")
   return language.t("skills.source.detected")
 }
 
@@ -176,20 +157,6 @@ function isLibrarySkillBusy(skillID: string, busyOperations: ReadonlyMap<string,
     busyOperations.has(installLibraryBusyKey(skillID)) ||
     busyOperations.has(removeLibraryBusyKey(skillID))
   )
-}
-
-async function copyText(text: string) {
-  if (!text) return false
-  if (!("clipboard" in navigator)) return false
-  await navigator.clipboard.writeText(text)
-  return true
-}
-
-async function copyWithSuccessToast(text: string, message: string) {
-  const copied = await copyText(text)
-  if (copied) {
-    toast.success(message)
-  }
 }
 
 function SkillCard(props: { skill: InstalledSkillInfo; onManage: () => void }) {
@@ -291,201 +258,7 @@ function LibraryCard(props: {
   )
 }
 
-const installedColumnHelper = createColumnHelper<InstalledSkillInfo>()
-
-function InstalledSkillTable(props: {
-  skills: InstalledSkillInfo[]
-  onManage: (skill: InstalledSkillInfo) => void
-}) {
-  const { skills, onManage } = props
-  const columns = useMemo(
-    () => [
-      installedColumnHelper.accessor("name", {
-        header: "Name",
-        cell: (info) => {
-          return <span className="font-medium">{info.getValue()}</span>
-        },
-      }),
-      installedColumnHelper.accessor("description", {
-        header: "Description",
-        cell: (info) => (
-          <div className="max-w-[300px] truncate text-text-weak" title={info.getValue()}>
-            {info.getValue()}
-          </div>
-        ),
-      }),
-
-      installedColumnHelper.display({
-        id: "active",
-        header: "Active",
-        cell: (info) => {
-          const skill = info.row.original
-          const isActive = skill.permissionAction !== "deny"
-          const isCurated = skill.source === "library"
-          if (isActive || isCurated) {
-            return (
-              <div className="flex items-center gap-1.5">
-                {isActive && <BadgeCheckIcon className="size-4 text-surface-success-base" />}
-              </div>
-            )
-          }
-          return null
-        },
-      }),
-    ],
-    [],
-  )
-
-  const table = useReactTable({
-    data: skills,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  })
-
-  return (
-    <div className="border border-border-base/60 rounded-md overflow-hidden">
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className="border-border-base/60 bg-surface-base">
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id} className="text-text-weak">
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                className="border-border-base/60 transition-colors hover:bg-surface-weak/30 cursor-pointer"
-                onClick={() => onManage(row.original)}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="py-3">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                {language.t("skills.installedSection.empty")}
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </div>
-  )
-}
-
-const libraryColumnHelper = createColumnHelper<SkillLibraryEntry>()
-
-function LibrarySkillTable(props: {
-  skills: SkillLibraryEntry[]
-  busyOperations: ReadonlyMap<string, BusyOperation>
-  onInstall: (skill: SkillLibraryEntry) => void
-  onRemove: (skill: SkillLibraryEntry) => void
-  onManage: (skill: SkillLibraryEntry) => void
-}) {
-  const { busyOperations, onInstall, onRemove, onManage, skills } = props
-  const columns = useMemo(
-    () => [
-      libraryColumnHelper.accessor("displayName", {
-        header: "Name",
-        cell: (info) => <span className="font-medium">{info.getValue()}</span>,
-      }),
-      libraryColumnHelper.accessor("summary", {
-        header: "Description",
-        cell: (info) => (
-          <div className="max-w-[300px] truncate text-text-weak" title={info.getValue()}>
-            {info.getValue()}
-          </div>
-        ),
-      }),
-
-      libraryColumnHelper.display({
-        id: "actions",
-        header: () => null,
-        cell: (info) => {
-          const skill = info.row.original
-          return (
-            <div className="flex justify-end">
-              <LibraryActionButton
-                skill={skill}
-                compact
-                busyAction={libraryBusyAction(skill.id, busyOperations)}
-                disabled={isLibrarySkillBusy(skill.id, busyOperations)}
-                onInstall={() => onInstall(skill)}
-                onRemove={() => onRemove(skill)}
-              />
-            </div>
-          )
-        },
-      }),
-    ],
-    [busyOperations, onInstall, onRemove],
-  )
-
-  const table = useReactTable({
-    data: skills,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-  })
-
-  return (
-    <div className="border border-border-base/60 rounded-md overflow-hidden">
-      <Table>
-        <TableHeader>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id} className="border-border-base/60 bg-surface-base">
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id} className="text-text-weak">
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.length ? (
-            table.getRowModel().rows.map((row) => (
-              <TableRow
-                key={row.id}
-                className="border-border-base/60 transition-colors hover:bg-surface-weak/30 cursor-pointer"
-                onClick={() => onManage(row.original)}
-              >
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id} className="py-3">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={columns.length} className="h-24 text-center">
-                {language.t("skills.librarySection.empty")}
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </div>
-  )
-}
-
 export function SkillsPage(props: { directory?: string }) {
-  const platform = usePlatform()
   const queryClient = useQueryClient()
   const currentDirectory = props.directory
   const catalogQuery = useQuery(skillsCatalogQueryOptions(currentDirectory))
@@ -502,7 +275,6 @@ export function SkillsPage(props: { directory?: string }) {
   const [busyOperations, setBusyOperations] = useState<ReadonlyMap<string, BusyOperation>>(
     () => new Map(),
   )
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid")
   const lastLibrarySyncError = useRef<string | undefined>(undefined)
 
   const selectedSkill = useMemo(
@@ -515,15 +287,41 @@ export function SkillsPage(props: { directory?: string }) {
     [catalog?.library, selectedLibrarySkillID],
   )
 
-  const filteredInstalled = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    if (!query) return catalog?.installed ?? []
+  const selectedLibraryInstalledSkill = useMemo(
+    () =>
+      selectedLibrarySkill
+        ? catalog?.installed.find((skill) => skill.libraryID === selectedLibrarySkill.id)
+        : undefined,
+    [catalog?.installed, selectedLibrarySkill],
+  )
 
-    return (catalog?.installed ?? []).filter((skill) => {
+  const filteredCustom = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    const list = (catalog?.installed ?? []).filter(
+      (skill) => skill.source === "custom" || skill.source === "external",
+    )
+    if (!query) return list
+
+    return list.filter((skill) => {
       return (
         skill.name.toLowerCase().includes(query) ||
         skill.description.toLowerCase().includes(query) ||
         skill.source.toLowerCase().includes(query) ||
+        skill.scope.toLowerCase().includes(query) ||
+        statusLabel(skill.permissionAction).toLowerCase().includes(query)
+      )
+    })
+  }, [catalog?.installed, search])
+
+  const filteredDefault = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    const list = (catalog?.installed ?? []).filter((skill) => skill.source === "system")
+    if (!query) return list
+
+    return list.filter((skill) => {
+      return (
+        skill.name.toLowerCase().includes(query) ||
+        skill.description.toLowerCase().includes(query) ||
         skill.scope.toLowerCase().includes(query) ||
         statusLabel(skill.permissionAction).toLowerCase().includes(query)
       )
@@ -753,18 +551,27 @@ export function SkillsPage(props: { directory?: string }) {
     !form.description.trim() ||
     !form.content.trim()
 
+  const activeToggleSkill = selectedSkill ?? selectedLibraryInstalledSkill
+  const detailTitle = selectedSkill?.name ?? selectedLibrarySkill?.displayName ?? ""
+  const detailDescription = selectedSkill?.description ?? selectedLibrarySkill?.summary ?? ""
+
   return (
     <>
       <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col px-6 py-8 md:px-8">
-        <Tabs defaultValue="installed" className="flex flex-col flex-1">
+        <Tabs defaultValue="library" className="flex flex-col flex-1">
           <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-border-base/60 mb-6 gap-4">
             <TabsList variant="line" className="w-fit shrink-0">
-              <TabsTrigger value="installed" className="data-[state=active]:text-interactive-base">
-                {language.t("skills.installedSection.title")}
-              </TabsTrigger>
               <TabsTrigger value="library" className="data-[state=active]:text-interactive-base">
                 {language.t("skills.librarySection.title")}
               </TabsTrigger>
+              <TabsTrigger value="default" className="data-[state=active]:text-interactive-base">
+                {language.t("skills.defaultSection.title")}
+              </TabsTrigger>
+              {filteredCustom.length > 0 && (
+                <TabsTrigger value="custom" className="data-[state=active]:text-interactive-base">
+                  {language.t("skills.customSection.title")}
+                </TabsTrigger>
+              )}
             </TabsList>
             <div className="flex flex-1 items-center gap-2 pb-2">
               <div className="flex-1" />
@@ -778,19 +585,6 @@ export function SkillsPage(props: { directory?: string }) {
               >
                 <RefreshCwIcon className="size-4" />
               </Button>
-              <ToggleGroup
-                type="single"
-                value={viewMode}
-                onValueChange={(v) => v && setViewMode(v as any)}
-                className="bg-surface-raised-base/60 border border-border-base/60 rounded-md shrink-0 ml-2"
-              >
-                <ToggleGroupItem value="grid" aria-label="Grid view">
-                  <LayoutGridIcon className="size-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem value="table" aria-label="Table view">
-                  <ListIcon className="size-4" />
-                </ToggleGroupItem>
-              </ToggleGroup>
             </div>
           </div>
 
@@ -804,7 +598,50 @@ export function SkillsPage(props: { directory?: string }) {
           </div>
 
           <TabsContent
-            value="installed"
+            value="library"
+            className="flex-1 mt-0 focus-visible:outline-none"
+            aria-busy={refreshing || loading}
+          >
+            {loading ? (
+              <p className="text-sm text-text-weak">{language.t("skills.loadingSkills")}</p>
+            ) : filteredLibrary.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {filteredLibrary.map((skill) => (
+                  <LibraryCard
+                    key={skill.id}
+                    skill={skill}
+                    busyOperations={busyOperations}
+                    onInstall={() =>
+                      void runMutation(
+                        installLibraryBusyKey(skill.id),
+                        installOrUpdateBusyOperation(skill),
+                        () => installLibrarySkill(skill.id, currentDirectory),
+                        skillLibraryMutationMessage(skill),
+                      )
+                    }
+                    onRemove={() =>
+                      void runMutation(
+                        removeLibraryBusyKey(skill.id),
+                        "remove",
+                        () => removeLibrarySkill(skill.id, currentDirectory),
+                        language.t("skills.detail.removedSkill", { name: skill.displayName }),
+                      )
+                    }
+                    onManage={() => setSelectedLibrarySkillID(skill.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <Card className="border-dashed border-border-base/60 bg-surface-raised-base/30">
+                <CardContent className="p-6 text-sm text-text-weak">
+                  {language.t("skills.librarySection.empty")}
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent
+            value="default"
             className="flex-1 mt-0 focus-visible:outline-none"
             aria-busy={refreshing || loading}
           >
@@ -823,306 +660,201 @@ export function SkillsPage(props: { directory?: string }) {
                           <div className="h-3 w-3/4 rounded-md bg-surface-weak/30" />
                         </div>
                       </div>
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-1.5">
-                          <div className="h-5 w-14 rounded-full bg-surface-weak/30" />
-                          <div className="h-5 w-10 rounded-full bg-surface-weak/30" />
-                        </div>
-                        <div className="h-8 w-8 rounded-full bg-surface-weak/30" />
-                      </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
-            ) : viewMode === "grid" ? (
-              filteredInstalled.length > 0 ? (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {filteredInstalled.map((skill) => (
-                    <SkillCard
-                      key={skill.name}
-                      skill={skill}
-                      onManage={() => setSelectedSkillName(skill.name)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <Card className="border-dashed border-border-base/60 bg-surface-raised-base/30">
-                  <CardContent className="p-6 text-sm text-text-weak">
-                    {language.t("skills.installedSection.empty")}
-                  </CardContent>
-                </Card>
-              )
+            ) : filteredDefault.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2">
+                {filteredDefault.map((skill) => (
+                  <SkillCard
+                    key={skill.name}
+                    skill={skill}
+                    onManage={() => setSelectedSkillName(skill.name)}
+                  />
+                ))}
+              </div>
             ) : (
-              <InstalledSkillTable
-                skills={filteredInstalled}
-                onManage={(skill) => setSelectedSkillName(skill.name)}
-              />
+              <Card className="border-dashed border-border-base/60 bg-surface-raised-base/30">
+                <CardContent className="p-6 text-sm text-text-weak">
+                  {language.t("skills.defaultSection.empty")}
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
 
-          <TabsContent
-            value="library"
-            className="flex-1 mt-0 focus-visible:outline-none"
-            aria-busy={refreshing || loading}
-          >
-            {loading ? (
-              <p className="text-sm text-text-weak">{language.t("skills.loadingSkills")}</p>
-            ) : viewMode === "grid" ? (
-              filteredLibrary.length > 0 ? (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {filteredLibrary.map((skill) => (
-                    <LibraryCard
-                      key={skill.id}
-                      skill={skill}
-                      busyOperations={busyOperations}
-                      onInstall={() =>
-                        void runMutation(
-                          installLibraryBusyKey(skill.id),
-                          installOrUpdateBusyOperation(skill),
-                          () => installLibrarySkill(skill.id, currentDirectory),
-                          skillLibraryMutationMessage(skill),
-                        )
-                      }
-                      onRemove={() =>
-                        void runMutation(
-                          removeLibraryBusyKey(skill.id),
-                          "remove",
-                          () => removeLibrarySkill(skill.id, currentDirectory),
-                          language.t("skills.detail.removedSkill", { name: skill.displayName }),
-                        )
-                      }
-                      onManage={() => setSelectedLibrarySkillID(skill.id)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <Card className="border-dashed border-border-base/60 bg-surface-raised-base/30">
-                  <CardContent className="p-6 text-sm text-text-weak">
-                    {language.t("skills.librarySection.empty")}
-                  </CardContent>
-                </Card>
-              )
-            ) : (
-              <LibrarySkillTable
-                skills={filteredLibrary}
-                busyOperations={busyOperations}
-                onInstall={(skill) =>
-                  void runMutation(
-                    installLibraryBusyKey(skill.id),
-                    installOrUpdateBusyOperation(skill),
-                    () => installLibrarySkill(skill.id, currentDirectory),
-                    skillLibraryMutationMessage(skill),
-                  )
-                }
-                onRemove={(skill) =>
-                  void runMutation(
-                    removeLibraryBusyKey(skill.id),
-                    "remove",
-                    () => removeLibrarySkill(skill.id, currentDirectory),
-                    language.t("skills.detail.removedSkill", { name: skill.displayName }),
-                  )
-                }
-                onManage={(skill) => setSelectedLibrarySkillID(skill.id)}
-              />
-            )}
-          </TabsContent>
+          {filteredCustom.length > 0 && (
+            <TabsContent
+              value="custom"
+              className="flex-1 mt-0 focus-visible:outline-none"
+              aria-busy={refreshing || loading}
+            >
+              <div className="grid gap-4 md:grid-cols-2">
+                {filteredCustom.map((skill) => (
+                  <SkillCard
+                    key={skill.name}
+                    skill={skill}
+                    onManage={() => setSelectedSkillName(skill.name)}
+                  />
+                ))}
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
 
       <Dialog
-        open={!!selectedSkill}
+        open={!!selectedSkill || !!selectedLibrarySkillID}
         onOpenChange={(open) => {
           if (!open) {
             setSelectedSkillName(undefined)
+            setSelectedLibrarySkillID(undefined)
           }
         }}
       >
-        <DialogContent className="sm:max-w-4xl p-0 overflow-hidden max-h-[90vh] flex flex-col">
-          {selectedSkill ? (
+        <DialogContent className="sm:max-w-xl p-0 overflow-hidden bg-surface-raised-base max-h-[90vh] flex flex-col">
+          {(selectedSkill || selectedLibrarySkill) && (
             <div className="flex flex-col flex-1 overflow-hidden">
-              {/* ── Header (Fixed) ── */}
-              <div className="border-b border-border-base/60 bg-surface-raised-base/30 px-6 py-6 shrink-0">
-                <div className="space-y-3 min-w-0">
-                  <DialogTitle className="text-2xl font-bold leading-tight text-text-base">
-                    {selectedSkill.name}
+              <div className="px-6 py-8 border-b border-border-base/40 bg-surface-raised-base/10 shrink-0">
+                <div className="space-y-4">
+                  <DialogTitle className="text-2xl font-bold leading-tight text-text-base flex-1">
+                    {detailTitle}
                   </DialogTitle>
-                  <DialogDescription className="text-sm text-text-weak leading-relaxed max-w-2xl">
-                    {selectedSkill.description}
+                  <DialogDescription className="text-sm text-text-weak leading-relaxed max-w-lg">
+                    {detailDescription}
                   </DialogDescription>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5 mt-4">
-                  <Badge
-                    variant="outline"
-                    className="h-6 rounded-md border-border-base/60 bg-surface-base/50 text-text-weak text-xs px-2.5 py-0.5"
-                  >
-                    {sourceLabel(selectedSkill.source)}
-                  </Badge>
-                  <Badge
-                    variant="outline"
-                    className="h-6 rounded-md border-border-base/60 bg-surface-base/50 text-text-weak text-xs px-2.5 py-0.5"
-                  >
-                    {scopeLabel(selectedSkill.scope)}
-                  </Badge>
-                  {selectedSkill.libraryID ? (
+                {selectedSkill && (
+                  <div className="flex flex-wrap items-center gap-1.5 mt-4">
                     <Badge
                       variant="outline"
                       className="h-6 rounded-md border-border-base/60 bg-surface-base/50 text-text-weak text-xs px-2.5 py-0.5"
                     >
-                      {language.t("skills.detail.libraryIdPrefix")} {selectedSkill.libraryID}
+                      {sourceLabel(selectedSkill.source)}
                     </Badge>
-                  ) : null}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 mt-8">
-                  <div className="flex items-center gap-3 px-3 bg-surface-base rounded-lg border border-border-base/60 shadow-sm h-8 scale-95 origin-left">
-                    <span className="text-[9px] font-bold uppercase tracking-widest text-text-weaker/80">
-                      Active
-                    </span>
-                    <Switch
-                      className="scale-90"
-                      checked={selectedSkill.permissionAction !== "deny"}
-                      onCheckedChange={(checked) => toggleSkillEnabled(selectedSkill, checked)}
-                      disabled={busyOperations.has(permissionBusyKey(selectedSkill.name))}
-                      aria-label={language.t("skills.toggleAria", { name: selectedSkill.name })}
-                    />
+                    <Badge
+                      variant="outline"
+                      className="h-6 rounded-md border-border-base/60 bg-surface-base/50 text-text-weak text-xs px-2.5 py-0.5"
+                    >
+                      {scopeLabel(selectedSkill.scope)}
+                    </Badge>
+                    {selectedSkill.libraryID ? (
+                      <Badge
+                        variant="outline"
+                        className="h-6 rounded-md border-border-base/60 bg-surface-base/50 text-text-weak text-xs px-2.5 py-0.5"
+                      >
+                        {language.t("skills.detail.libraryIdPrefix")} {selectedSkill.libraryID}
+                      </Badge>
+                    ) : null}
                   </div>
-                </div>
-              </div>
+                )}
 
-              {/* File reference section (Fixed Top Bar) */}
-              <div className="px-6 h-12 flex items-center justify-between border-b border-border-base/40 bg-surface-base shrink-0">
-                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-text-weaker/80">
-                  SKILL.md
-                </span>
-                {platform.revealPath && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="xs"
-                    className="h-7 px-2 text-[10px] uppercase tracking-widest text-text-weaker hover:text-text-base hover:bg-surface-weak/10 transition-colors"
-                    onClick={() => {
-                      void platform.revealPath!(selectedSkill.directory).catch((e: unknown) =>
-                        toast.error(e instanceof Error ? e.message : String(e)),
-                      )
-                    }}
-                  >
-                    <FolderSearchIcon className="size-3 mr-1.5 opacity-70" />
-                    Reveal in Finder
-                  </Button>
+                {activeToggleSkill && (
+                  <div className="flex flex-wrap items-center gap-3 mt-6">
+                    <div className="flex items-center gap-3 px-3 bg-surface-base rounded-lg border border-border-base/60 shadow-sm h-8 scale-95 origin-left">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-text-weaker/80">
+                        Active
+                      </span>
+                      <Switch
+                        className="scale-90"
+                        checked={activeToggleSkill.permissionAction !== "deny"}
+                        onCheckedChange={(checked) =>
+                          toggleSkillEnabled(activeToggleSkill, checked)
+                        }
+                        disabled={busyOperations.has(
+                          permissionBusyKey(activeToggleSkill.name),
+                        )}
+                        aria-label={language.t("skills.toggleAria", {
+                          name: activeToggleSkill.name,
+                        })}
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
 
-              {/* ── Scrollable Body ── */}
-              <div className="flex-1 overflow-y-auto min-h-0 bg-surface-base scrollbar-track-surface">
-                <div className="flex flex-col">
-                  {/* Example prompt */}
-                  {selectedSkill.examplePrompt && (
-                    <div className="space-y-3 px-6 py-8 border-b border-border-base/40 bg-surface-raised-base/20">
-                      <div className="flex items-center justify-between">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-text-weaker">
-                          {language.t("skills.detail.examplePrompt")}
-                        </p>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="xs"
-                          className="h-6 text-xs text-text-weak hover:text-text-base"
-                          onClick={() =>
-                            void copyWithSuccessToast(
-                              selectedSkill.examplePrompt!,
-                              language.t("skills.detail.copiedPrompt", {
-                                name: selectedSkill.name,
-                              }),
-                            )
-                          }
-                        >
-                          <CopyIcon className="size-3 mr-1.5" />
-                          {language.t("skills.detail.copy")}
-                        </Button>
-                      </div>
-                      <p className="whitespace-pre-wrap text-sm text-text-base rounded-xl bg-surface-base px-5 py-4 border border-border-base/40 font-medium leading-relaxed shadow-sm">
-                        {selectedSkill.examplePrompt}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Skill content */}
-                  <div className="px-6 py-8">
-                    <Markdown text={selectedSkill.content} directory={selectedSkill.directory} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={!!selectedLibrarySkillID}
-        onOpenChange={(open) => !open && setSelectedLibrarySkillID(undefined)}
-      >
-        <DialogContent className="sm:max-w-xl p-0 overflow-hidden bg-surface-raised-base max-h-[90vh] flex flex-col">
-          {selectedLibrarySkill ? (
-            <div className="flex flex-col flex-1 overflow-hidden">
-              {/* ── Header (Fixed) ── */}
-              <div className="px-6 py-8 border-b border-border-base/40 bg-surface-raised-base/10 shrink-0">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <DialogTitle className="text-2xl font-bold leading-tight text-text-base flex-1">
-                      {selectedLibrarySkill.displayName}
-                    </DialogTitle>
-                  </div>
-                  <DialogDescription className="text-sm text-text-weak leading-relaxed max-w-lg">
-                    {selectedLibrarySkill.summary}
-                  </DialogDescription>
-                </div>
-              </div>
-
-              {/* ── Scrollable Body ── */}
-              <div className="flex-1 overflow-y-auto min-h-0 scrollbar-track-surface">
-                <div className="px-6 py-8 space-y-6">
-                  <div className="grid gap-6 pt-2">
-                    <div className="grid grid-cols-[80px_1fr] items-baseline gap-4">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-text-weaker">
-                        Source
-                      </span>
-                      <span className="text-sm text-text-weak">
-                        {selectedLibrarySkill.sourceLabel}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-[80px_1fr] items-baseline gap-4">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-text-weaker">
-                        Category
-                      </span>
-                      <div className="flex flex-wrap gap-2 text-sm text-text-weak">
-                        {selectedLibrarySkill.categories.join(", ")}
-                      </div>
-                    </div>
-
-                    {selectedLibrarySkill.tags.length > 0 && (
+              {selectedLibrarySkill && (
+                <div className="flex-1 overflow-y-auto min-h-0 scrollbar-track-surface">
+                  <div className="px-6 py-8 space-y-6">
+                    <div className="grid gap-6 pt-2">
                       <div className="grid grid-cols-[80px_1fr] items-baseline gap-4">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-text-weaker">
-                          Tags
+                          Source
                         </span>
-                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-text-weak italic">
-                          {selectedLibrarySkill.tags.map((tag) => (
-                            <span key={tag}>#{tag}</span>
-                          ))}
+                        <span className="text-sm text-text-weak">
+                          {selectedLibrarySkill.sourceLabel}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-[80px_1fr] items-baseline gap-4">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-text-weaker">
+                          Category
+                        </span>
+                        <div className="flex flex-wrap gap-2 text-sm text-text-weak">
+                          {selectedLibrarySkill.categories.join(", ")}
                         </div>
                       </div>
-                    )}
+
+                      {selectedLibrarySkill.tags.length > 0 && (
+                        <div className="grid grid-cols-[80px_1fr] items-baseline gap-4">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-text-weaker">
+                            Tags
+                          </span>
+                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-text-weak italic">
+                            {selectedLibrarySkill.tags.map((tag) => (
+                              <span key={tag}>#{tag}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <DialogFooter className="px-6 py-6 border-t border-border-base/40 shrink-0">
-                <div className="flex justify-end gap-3 w-full">
-                  {isInstalledLibrarySkill(selectedLibrarySkill.state) && (
-                    <Button
-                      variant="destructive"
-                      className="min-w-[120px] h-10"
+              )}
+
+              {selectedLibrarySkill && (
+                <DialogFooter className="px-6 py-6 border-t border-border-base/40 shrink-0">
+                  <div className="flex justify-end gap-3 w-full">
+                    {isInstalledLibrarySkill(selectedLibrarySkill.state) && (
+                      <Button
+                        variant="destructive"
+                        className="min-w-[120px] h-10"
+                        disabled={isLibrarySkillBusy(selectedLibrarySkill.id, busyOperations)}
+                        onClick={() => {
+                          void runMutation(
+                            removeLibraryBusyKey(selectedLibrarySkill.id),
+                            "remove",
+                            () => removeLibrarySkill(selectedLibrarySkill.id, currentDirectory),
+                            language.t("skills.detail.removedSkill", {
+                              name: selectedLibrarySkill.displayName,
+                            }),
+                          )
+                          setSelectedLibrarySkillID(undefined)
+                        }}
+                      >
+                        {busyOperations.has(removeLibraryBusyKey(selectedLibrarySkill.id)) ? (
+                          <Loader2Icon className="size-4 animate-spin" aria-hidden />
+                        ) : null}
+                        {busyOperations.has(removeLibraryBusyKey(selectedLibrarySkill.id))
+                          ? language.t("skills.removing")
+                          : language.t("skills.detail.remove")}
+                      </Button>
+                    )}
+                    <LibraryActionButton
+                      skill={selectedLibrarySkill}
+                      busyAction={libraryBusyAction(selectedLibrarySkill.id, busyOperations)}
                       disabled={isLibrarySkillBusy(selectedLibrarySkill.id, busyOperations)}
-                      onClick={() => {
+                      onInstall={() => {
+                        void runMutation(
+                          installLibraryBusyKey(selectedLibrarySkill.id),
+                          installOrUpdateBusyOperation(selectedLibrarySkill),
+                          () => installLibrarySkill(selectedLibrarySkill.id, currentDirectory),
+                          skillLibraryMutationMessage(selectedLibrarySkill),
+                        )
+                        setSelectedLibrarySkillID(undefined)
+                      }}
+                      onRemove={() => {
                         void runMutation(
                           removeLibraryBusyKey(selectedLibrarySkill.id),
                           "remove",
@@ -1133,44 +865,12 @@ export function SkillsPage(props: { directory?: string }) {
                         )
                         setSelectedLibrarySkillID(undefined)
                       }}
-                    >
-                      {busyOperations.has(removeLibraryBusyKey(selectedLibrarySkill.id)) ? (
-                        <Loader2Icon className="size-4 animate-spin" aria-hidden />
-                      ) : null}
-                      {busyOperations.has(removeLibraryBusyKey(selectedLibrarySkill.id))
-                        ? language.t("skills.removing")
-                        : language.t("skills.detail.remove")}
-                    </Button>
-                  )}
-                  <LibraryActionButton
-                    skill={selectedLibrarySkill}
-                    busyAction={libraryBusyAction(selectedLibrarySkill.id, busyOperations)}
-                    disabled={isLibrarySkillBusy(selectedLibrarySkill.id, busyOperations)}
-                    onInstall={() => {
-                      void runMutation(
-                        installLibraryBusyKey(selectedLibrarySkill.id),
-                        installOrUpdateBusyOperation(selectedLibrarySkill),
-                        () => installLibrarySkill(selectedLibrarySkill.id, currentDirectory),
-                        skillLibraryMutationMessage(selectedLibrarySkill),
-                      )
-                      setSelectedLibrarySkillID(undefined)
-                    }}
-                    onRemove={() => {
-                      void runMutation(
-                        removeLibraryBusyKey(selectedLibrarySkill.id),
-                        "remove",
-                        () => removeLibrarySkill(selectedLibrarySkill.id, currentDirectory),
-                        language.t("skills.detail.removedSkill", {
-                          name: selectedLibrarySkill.displayName,
-                        }),
-                      )
-                      setSelectedLibrarySkillID(undefined)
-                    }}
-                  />
-                </div>
-              </DialogFooter>
+                    />
+                  </div>
+                </DialogFooter>
+              )}
             </div>
-          ) : null}
+          )}
         </DialogContent>
       </Dialog>
 
