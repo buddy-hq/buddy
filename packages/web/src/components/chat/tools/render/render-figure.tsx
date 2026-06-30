@@ -4,7 +4,11 @@ import type { ToolPartProps } from "../registry"
 import type { MessagePart } from "@/state/chat-types"
 import { parseToolState } from "../parse-tool-state"
 import { getToolInfo } from "../tool-info"
-import { ToolImageGallery, type ToolImageGalleryItem } from "./image-gallery"
+import {
+  MEDIA_IMAGE_GALLERY_CONTENT_CLASS_NAME,
+  ToolImageGallery,
+  type ToolImageGalleryItem,
+} from "@/components/media"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import {
   metadataWithInlinePresentation,
@@ -115,14 +119,15 @@ function FigureGallery(props: { directory?: string; items: ToolImageGalleryItem[
     <InlineAssetBoundary
       className="w-full"
       fallback={
-        <div className="h-[24rem] w-full rounded-xl border border-border-base/40 bg-surface-weak/30 p-4">
+        <div
+          className={`${MEDIA_IMAGE_GALLERY_CONTENT_CLASS_NAME} w-full rounded-xl border border-border-base/40 bg-surface-weak/30 p-4`}
+        >
           <div className="h-full w-full animate-pulse rounded-lg bg-surface-weak/70" />
         </div>
       }
     >
       <ToolImageGallery
         dialogDescription="Figure preview"
-        contentClassName="h-[24rem]"
         items={props.items}
         onOpenItem={
           props.directory

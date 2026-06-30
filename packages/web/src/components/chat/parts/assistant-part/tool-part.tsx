@@ -44,17 +44,19 @@ function toolPartCardEqual(
 
 function DeferredToolCardFallback(props: ToolPartProps) {
   return (
-    <BasicTool
-      icon={props.icon?.("h-3.5 w-3.5")}
-      trigger={{ title: props.info.title, subtitle: props.info.subtitle }}
-      status={props.state.status}
-      hideDetails
-    >
-      <div aria-hidden className="space-y-2 py-1">
-        <div className="h-2.5 w-44 rounded-full bg-surface-weak/45" />
-        <div className="h-2.5 w-28 rounded-full bg-surface-weak/35" />
-      </div>
-    </BasicTool>
+    <div data-component="deferred-tool-fallback">
+      <BasicTool
+        icon={props.icon?.("h-3.5 w-3.5")}
+        trigger={{ title: props.info.title, subtitle: props.info.subtitle }}
+        status={props.state.status}
+        hideDetails
+      >
+        <div aria-hidden className="space-y-2 py-1">
+          <div className="h-2.5 w-44 rounded-full bg-surface-weak/45" />
+          <div className="h-2.5 w-28 rounded-full bg-surface-weak/35" />
+        </div>
+      </BasicTool>
+    </div>
   )
 }
 

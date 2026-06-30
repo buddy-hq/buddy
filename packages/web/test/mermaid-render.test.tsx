@@ -2,15 +2,15 @@ import { afterEach, describe, expect, mock, test } from "bun:test"
 import {
   resolveGroupedMermaidDefaultIndex,
   shouldStartMermaidAutoRepair,
-} from "../src/components/chat/tools/render/mermaid"
+} from "../src/components/media/renderers/mermaid"
 import {
   MERMAID_RENDER_CONFIG_VERSION,
   MERMAID_RENDERER_VERSION,
   readCachedMermaidSvg,
   renderMermaidSvg,
-} from "../src/components/chat/tools/render/mermaid/lib/render"
-import { startMermaidAutoRepair } from "../src/components/chat/tools/render/mermaid/lib/persisted-renders"
-import { scheduleMermaidRender } from "../src/components/chat/tools/render/mermaid/lib/scheduler"
+} from "../src/components/media/renderers/mermaid/lib/render"
+import { startMermaidAutoRepair } from "../src/components/media/renderers/mermaid/lib/persisted-renders"
+import { scheduleMermaidRender } from "../src/components/media/renderers/mermaid/lib/scheduler"
 import type { MessagePart } from "../src/state/chat-types"
 
 const originalFetch = globalThis.fetch

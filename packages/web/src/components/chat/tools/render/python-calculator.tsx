@@ -1,6 +1,6 @@
 import { ObjectCard } from "../../tools/object-card"
 import { ToolOutputPanel } from "../../tools/tool-output-panel"
-import { MultiViewShell } from "../../tools/multi-view-shell"
+import { Media, MediaThumbnail, MultiViewShell, type ImageMediaItem } from "@/components/media"
 import { language } from "@/context/language"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import type { ToolPartProps } from "../registry"
@@ -51,17 +51,23 @@ export function renderPythonCalculatorTool({ state }: ToolPartProps) {
             items={plots.map((plot) => {
               const url = resolvePlotUrl(plot.url)
               const alt = plot.filename ?? language.t("chatTools.python")
+              const mediaItem: ImageMediaItem = {
+                kind: "image",
+                state: {
+                  status: "ready",
+                  data: {
+                    src: url,
+                    alt,
+                  },
+                },
+              }
               return {
                 key: plot.id,
-                thumbnail: (
-                  <img src={url} alt={alt} loading="lazy" className="h-full w-full object-cover" />
-                ),
+                thumbnail: <MediaThumbnail item={mediaItem} />,
                 children: (
-                  <img
-                    src={url}
-                    alt={alt}
-                    loading="lazy"
-                    className="h-full w-full object-contain"
+                  <Media
+                    item={mediaItem}
+                    className="h-full min-h-0 border-0 shadow-none"
                   />
                 ),
               }

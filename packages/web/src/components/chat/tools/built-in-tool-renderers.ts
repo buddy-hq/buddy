@@ -30,7 +30,7 @@ import { renderSavedFlashcardDeckTool } from "./render/flashcard-deck/saved-flas
 import { renderGenericTool } from "./render/generic"
 import { renderPresentHtmlWidgetTool } from "./render/html-widget"
 import { renderKnowledgeGraphTool } from "./render/knowledge-graph"
-import { renderRenderMermaidTool } from "./render/mermaid"
+import { renderRenderMermaidTool } from "@/components/media/renderers/mermaid"
 import { renderPythonCalculatorTool } from "./render/python-calculator"
 import { renderQuestionTool } from "./render/question"
 import { renderSavedQuestionSetTool } from "./render/question-set/saved-question-set-tool"
@@ -131,7 +131,6 @@ export const builtInTools: Record<string, ToolRenderer> = {
     inline: true,
     icon: (cn) => createElement(Sigma, { className: cn }),
     card: renderPythonCalculatorTool,
-    deferUntilVisible: true,
   }),
   webfetch: createToolRenderer({
     icon: (cn) => createElement(Globe, { className: cn }),
@@ -180,19 +179,16 @@ export const builtInTools: Record<string, ToolRenderer> = {
     inline: true,
     icon: (cn) => createElement(Image, { className: cn }),
     card: renderRenderFigureTool,
-    deferUntilVisible: true,
   }),
   render_freeform_figure: createToolRenderer({
     inline: true,
     icon: (cn) => createElement(Image, { className: cn }),
     card: renderRenderFigureTool,
-    deferUntilVisible: true,
   }),
   render_mermaid: createToolRenderer({
     inline: true,
     icon: (cn) => createElement(GitBranch, { className: cn }),
     card: renderRenderMermaidTool,
-    deferUntilVisible: true,
   }),
   save_question_set: createToolRenderer({
     inline: true,
@@ -208,13 +204,11 @@ export const builtInTools: Record<string, ToolRenderer> = {
     inline: true,
     icon: (cn) => createElement(Image, { className: cn }),
     card: renderPresentMediaTool,
-    deferUntilVisible: true,
   }),
   present_html_widget: createToolRenderer({
     inline: true,
     icon: (cn) => createElement(AppWindow, { className: cn }),
     card: renderPresentHtmlWidgetTool,
-    deferUntilVisible: true,
   }),
   question: createToolRenderer({
     inline: true,

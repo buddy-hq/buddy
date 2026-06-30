@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { normalizeMermaidSvgContrast } from "../src/components/chat/tools/render/mermaid/lib/svg-contrast"
+import { normalizeMermaidSvgContrast } from "../src/components/media/renderers/mermaid/lib/svg-contrast"
 
 describe("mermaid svg contrast", () => {
   test("rewrites unreadable white text on white node fills", () => {

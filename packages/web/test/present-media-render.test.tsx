@@ -13,6 +13,7 @@ import { ServerProvider, type ServerConnection } from "../src/context/server"
 import type { ToolPartProps } from "../src/components/chat/tools/registry"
 import { renderPresentMediaTool } from "../src/components/chat/tools/render/present-media"
 import { withFetchPreconnect } from "../src/lib/fetch-transport"
+import { RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT } from "../src/state/resources-query"
 import { usePresentedMediaPlaybackStore } from "../src/state/presented-media-playback-store"
 
 function PresentMediaToolHarness(props: ToolPartProps) {
@@ -59,6 +60,14 @@ async function waitForEffect(predicate: () => boolean) {
     })
   }
   throw new Error("Expected effect did not complete")
+}
+
+function mediaFileRows(container: ParentNode) {
+  return container.querySelectorAll<HTMLElement>('[data-component="media-file-row"]')
+}
+
+function firstMediaFileRow(container: ParentNode) {
+  return container.querySelector<HTMLElement>('[data-component="media-file-row"]')
 }
 
 function createPlatform(overrides: Partial<Platform> = {}): Platform {
@@ -328,6 +337,7 @@ describe("present media renderer", () => {
     expect(container.querySelector("video")?.getAttribute("src")).toContain(
       "/api/objects/media-presentation/object_video/raw/item_1",
     )
+    expect(container.querySelector('button[aria-label="Open on Bench"]')).not.toBeNull()
   })
 
   test("renders MIME-typed audio without legacy group headers", async () => {
@@ -434,7 +444,83 @@ describe("present media renderer", () => {
     })
 
     expect(container.textContent).toContain("notes.pdf")
-    expect(container.querySelectorAll("tr").length).toBe(1)
+    expect(mediaFileRows(container).length).toBe(1)
+  })
+
+  test("opens workspace PDFs with the Buddy reader opener instead of the default app", async () => {
+    const openPath = mock(async () => {})
+    const onOpenResource = mock(() => {})
+    globalThis.fetch = withFetchPreconnect(
+      mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+        const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+
+        if (
+          method === "GET" &&
+          url.includes("/api/objects/media-presentation/object_reader/items/item_1/availability") &&
+          url.includes("directory=%2Frepo")
+        ) {
+          return Response.json({ status: "available", message: null })
+        }
+
+        if (method === "GET" && url.includes("/api/objects/resource")) {
+          return Response.json({ resources: [] })
+        }
+
+        throw new Error(`Unexpected fetch: ${method} ${url}`)
+      }),
+      originalFetch,
+    )
+
+    await act(async () => {
+      renderHarness(
+        root,
+        <PlatformProvider value={createPlatform({ openPath })}>
+          <ServerProvider value={createServerConnection()}>
+            <PresentMediaToolHarness
+              {...createToolProps({
+                objectID: "object_reader",
+                layout: "list",
+                items: [
+                  {
+                    path: "generated/notes.pdf",
+                    absolutePath: "/repo/generated/notes.pdf",
+                    fileName: "notes.pdf",
+                    mediaKind: "pdf",
+                    renderMode: "pdf",
+                    rawUrl:
+                      "/api/objects/media-presentation/object_reader/raw/item_1?directory=%2Frepo&fileName=notes.pdf",
+                  },
+                ],
+              })}
+              onOpenResource={onOpenResource}
+            />
+          </ServerProvider>
+        </PlatformProvider>,
+      )
+      await flushEffects()
+    })
+
+    const row = firstMediaFileRow(container)
+    expect(row).not.toBeNull()
+
+    await act(async () => {
+      row?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+      await flushEffects()
+    })
+
+    expect(onOpenResource).toHaveBeenCalledWith(
+      "/repo",
+      {
+        path: "generated/notes.pdf",
+        name: "notes.pdf",
+      },
+      {
+        sessionPreference: RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT,
+      },
+    )
+    expect(openPath).not.toHaveBeenCalled()
   })
 
   test("hides PDF processing actions until resources load", async () => {
@@ -564,7 +650,7 @@ describe("present media renderer", () => {
       await flushEffects()
     })
 
-    const row = container.querySelector("tr")
+    const row = firstMediaFileRow(container)
     expect(row).not.toBeNull()
 
     await act(async () => {
@@ -574,7 +660,7 @@ describe("present media renderer", () => {
 
     expect(container.textContent).toContain("notes.pdf")
     expect(container.textContent).toContain("Outside notebook")
-    expect(container.querySelectorAll("tr").length).toBe(1)
+    expect(mediaFileRows(container).length).toBe(1)
     expect(openPath).toHaveBeenCalledWith("/tmp/notes.pdf")
   })
 
@@ -627,7 +713,7 @@ describe("present media renderer", () => {
       await flushEffects()
     })
 
-    const row = container.querySelector("tr")
+    const row = firstMediaFileRow(container)
     expect(row).not.toBeNull()
 
     await act(async () => {
@@ -695,7 +781,7 @@ describe("present media renderer", () => {
     })
 
     expect(container.textContent).toContain("screenshot.png")
-    expect(container.querySelectorAll("tr").length).toBe(1)
+    expect(mediaFileRows(container).length).toBe(1)
     expect(
       fetchMock.mock.calls.filter(([input, init]) => {
         const url =
@@ -773,7 +859,7 @@ describe("present media renderer", () => {
     expect(container.textContent).toContain("huge.png")
     expect(container.querySelector("video")).toBeNull()
     expect(container.querySelector("audio")).toBeNull()
-    expect(container.querySelectorAll("tr").length).toBe(1)
+    expect(mediaFileRows(container).length).toBe(1)
   })
 
   test("keeps non-previewable image siblings visible beside previewable images", async () => {
@@ -858,7 +944,7 @@ describe("present media renderer", () => {
 
     expect(container.querySelector('img[alt="a.png"]')).not.toBeNull()
     expect(container.textContent).toContain("huge.png")
-    expect(container.querySelectorAll("tr").length).toBe(1)
+    expect(mediaFileRows(container).length).toBe(1)
   })
 
   test("fades unavailable object-backed items instead of retrying path resolution", async () => {
@@ -914,9 +1000,14 @@ describe("present media renderer", () => {
       await flushEffects()
     })
 
-    const row = container.querySelector("tr")
+    const row = firstMediaFileRow(container)
 
-    expect(row?.className.includes("opacity-50")).toBe(true)
+    expect(row?.getAttribute("data-status")).toBe("error")
+    expect(
+      row
+        ?.querySelector('[data-component="media-file-row-content"]')
+        ?.className.includes("opacity-50"),
+    ).toBe(true)
     expect(container.textContent).toContain("notes.pdf")
   })
 })

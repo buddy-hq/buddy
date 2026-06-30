@@ -4,7 +4,7 @@ import { MarkdownHtmlSegment, markdownClassName } from "./markdown-html-segment"
 import { MarkdownMermaidSegment, type MarkdownMermaidContext } from "./markdown-mermaid-segment"
 import { parseMarkdownSegments } from "./markdown-segments"
 import { shouldVirtualizeMarkdown, VirtualizedMarkdown } from "./virtualized-markdown"
-import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
+import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-diagram"
 import type { WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
 
 const POSSIBLE_MERMAID_BLOCK_RE = /(^|\n)[ \t]{0,3}(`{3,}|~{3,})[ \t]*mermaid(?:[ \t][^\n]*)?\r?\n/u

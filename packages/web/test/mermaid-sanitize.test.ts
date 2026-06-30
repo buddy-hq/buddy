@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { sanitizeMermaidSvg } from "../src/components/chat/tools/render/mermaid/lib/svg-sanitize"
+import { sanitizeMermaidSvg } from "../src/components/media/renderers/mermaid/lib/svg-sanitize"
 
 describe("mermaid svg sanitize", () => {
   test("preserves Mermaid ids so embedded stylesheet selectors still match", () => {

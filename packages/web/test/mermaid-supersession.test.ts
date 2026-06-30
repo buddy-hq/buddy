@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { findSupersedingMermaidRevisionID } from "../src/components/chat/tools/render/mermaid/lib/supersession"
+import { findSupersedingMermaidRevisionID } from "../src/components/media/renderers/mermaid/lib/supersession"
 
 const MERMAID_OBJECT_ID = "object_1"
 

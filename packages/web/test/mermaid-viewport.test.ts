@@ -1,12 +1,24 @@
 import { describe, expect, test } from "bun:test"
-import { mermaidConstants } from "../src/components/chat/tools/render/mermaid/constants"
+import { mermaidConstants } from "../src/components/media/renderers/mermaid/constants"
 import {
+  resolveMermaidInitialZoomState,
   resolveMermaidAutoZoom,
   resolveMermaidCanvasMetrics,
   resolveMermaidCenteredScroll,
-} from "../src/components/chat/tools/render/mermaid/use-mermaid-viewport"
+} from "../src/components/media/renderers/mermaid/use-mermaid-viewport"
 
 describe("mermaid viewport auto zoom", () => {
+  test("starts Bench diagrams at fixed 80 percent zoom instead of auto", () => {
+    expect(resolveMermaidInitialZoomState("bench")).toEqual({
+      zoom: mermaidConstants.zoom.BENCH_INITIAL,
+      isAutoZoom: false,
+    })
+    expect(resolveMermaidInitialZoomState(undefined)).toEqual({
+      zoom: mermaidConstants.zoom.DEFAULT,
+      isAutoZoom: true,
+    })
+  })
+
   test("keeps compact diagrams at width-fit zoom in responsive mode", () => {
     const zoom = resolveMermaidAutoZoom({
       defaultZoomMode: "responsive",

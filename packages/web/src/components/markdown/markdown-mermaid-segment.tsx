@@ -10,8 +10,8 @@ import {
 import { language } from "@/context/language"
 import { sendPrompt } from "@/state/chat-actions"
 import { getTranscriptMessages, useTranscriptSessionMessages } from "@/state/transcript-repository"
-import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
-import { MermaidToolCard } from "@/components/chat/tools/render/mermaid/mermaid-tool-card"
+import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-diagram"
+import { MermaidToolCard } from "@/components/media/renderers/mermaid/mermaid-tool-card"
 import {
   useInlineAssetActivation,
   useInlineAssetLifecycleReporter,
@@ -23,8 +23,8 @@ import {
   startMermaidAutoRepair,
   type MermaidObjectRecord,
   type MermaidRepairStartResponse,
-} from "@/components/chat/tools/render/mermaid/lib/persisted-renders"
-import { findSupersedingMermaidRevisionID } from "@/components/chat/tools/render/mermaid/lib/supersession"
+} from "@/components/media/renderers/mermaid/lib/persisted-renders"
+import { findSupersedingMermaidRevisionID } from "@/components/media/renderers/mermaid/lib/supersession"
 import { objectBenchTarget } from "@/components/chat/tools/render/buddy-object-result"
 
 const MERMAID_STREAM_STABLE_DELAY_MS = 600
