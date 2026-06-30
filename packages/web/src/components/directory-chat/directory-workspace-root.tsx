@@ -40,6 +40,7 @@ import type { ResizeHandleIntent } from "@buddy/ui"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { useStore } from "zustand"
 import { resolveWorkspacePresentation } from "@/lib/directory-chat/workspace-presentation"
+import { DIRECTORY_CHAT_SHELL_VIEW } from "@/lib/directory-chat/directory-chat-shell-view"
 
 type ReadyDirectoryBenchController = Extract<DirectoryChatPageControllerState, { status: "ready" }>
 
@@ -186,10 +187,16 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     ],
   )
   const workspaceLayoutMode = presentation.mode
+  const showingSkills = controller.mainPaneProps.shellView === DIRECTORY_CHAT_SHELL_VIEW.SKILLS
+  const effectiveWorkspaceLayoutMode = showingSkills ? BENCH_CHAT_LAYOUT_DOCKED : workspaceLayoutMode
   const workspaceOpen = presentation.workspaceOpen
+  const effectiveWorkspaceOpen = showingSkills ? false : workspaceOpen
   const workspaceHostOpen = presentation.workspaceOpen
+  const effectiveWorkspaceHostOpen = showingSkills ? false : workspaceHostOpen
   const dockedWorkspaceDisplayWidthPx = presentation.workspace.widthPx
-  const dockedLeftSidebarVisible = presentation.leftSidebar.visible
+  const dockedLeftSidebarVisible = showingSkills
+    ? controller.shellProps.leftSidebarOpen
+    : presentation.leftSidebar.visible
   const canPinLeftSidebarWithoutResizing =
     dockedBenchViewport.widthPx >=
     chatState.leftSidebarDisplayWidth +
@@ -499,7 +506,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       {benchRuntimeState ? (
         <BenchRouteContextProvider
           state={benchRuntimeState}
-          visible={presentation.benchVisible}
+          visible={!showingSkills && presentation.benchVisible}
           activeSessionID={activeSessionID}
           fallbackProvider={fallbackContextProvider}
           setMode={setBenchMode}
@@ -510,23 +517,23 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       ) : null}
     </div>
   )
-  const shellLeftSidebarOpen = presentation.leftSidebar.visible
+  const shellLeftSidebarOpen = dockedLeftSidebarVisible
 
   return (
     <DirectoryChatShell
       leftSidebar={<ChatLeftSidebar {...controller.leftSidebarProps} />}
       contentLayout={
         <DirectoryChatBenchPageLayout
-          chatLayoutMode={workspaceLayoutMode}
+          chatLayoutMode={effectiveWorkspaceLayoutMode}
           layoutProfile={layoutProfile}
           floatingRect={floatingRect}
           floatingChatState={floatingChatState}
           onChatLayoutModeChange={setBenchChatLayoutMode}
           onFloatingRectChange={setFloatingRect}
           onFloatingChatStateChange={setFloatingChatStateFromLayout}
-          benchInteractive={workspaceHostOpen}
+          benchInteractive={effectiveWorkspaceHostOpen}
           dockedBenchLayout={{
-            open: workspaceHydrated && workspaceOpen,
+            open: workspaceHydrated && effectiveWorkspaceOpen,
             widthPx: dockedWorkspaceDisplayWidthPx,
             minWidthPx: presentation.workspace.minWidthPx,
             maxWidthPx: presentation.workspace.maxWidthPx,
@@ -545,7 +552,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
             />
           }
           threadBrowserProps={
-            presentation.controls.showThreadBrowserInPane
+            !showingSkills && presentation.controls.showThreadBrowserInPane
               ? {
                   sessionTitle: chatState.sessionTitle,
                   notebookName: controller.shellProps.projectName,
@@ -571,25 +578,27 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         />
       }
       {...controller.shellProps}
-      immersive={workspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING}
+      immersive={effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING}
       leftSidebarOpen={shellLeftSidebarOpen}
-      leftSidebarOverlayEnabled={presentation.leftSidebar.overlayEnabled}
-      leftSidebarOverlayOpen={leftSidebarOverlayOpen}
+      leftSidebarOverlayEnabled={!showingSkills && presentation.leftSidebar.overlayEnabled}
+      leftSidebarOverlayOpen={showingSkills ? false : leftSidebarOverlayOpen}
       onLeftSidebarOverlayOpenChange={setLeftSidebarOverlayOpen}
-      onLeftSidebarToggle={presentation.dockedBenchVisible ? handleLeftSidebarToggle : undefined}
+      onLeftSidebarToggle={
+        !showingSkills && presentation.dockedBenchVisible ? handleLeftSidebarToggle : undefined
+      }
       onRightWorkspaceToggle={handleRightWorkspaceToggle}
       chatTitle={controller.mainPaneProps.chatState.sessionTitle}
-      titlebarVariant="chat"
-      rightWorkspaceOpen={workspaceHostOpen}
-      showThreadBrowser={presentation.controls.showThreadBrowserInTitlebar}
-      showSidebarThreadControls={presentation.controls.showSidebarThreadControls}
+      titlebarVariant={showingSkills ? "shell" : "chat"}
+      rightWorkspaceOpen={effectiveWorkspaceHostOpen}
+      showThreadBrowser={!showingSkills && presentation.controls.showThreadBrowserInTitlebar}
+      showSidebarThreadControls={!showingSkills && presentation.controls.showSidebarThreadControls}
       sessions={chatState.sessions}
       activeSessionID={chatState.sessionID}
       linkedSessionID={linkedReadingSessionID}
       parentSession={chatState.parentSession}
       onNewSession={handleNewSession}
       onSelectSession={handleSelectSession}
-      onFloatChat={presentation.controls.showFloatChat ? handleFloatChat : undefined}
+      onFloatChat={!showingSkills && presentation.controls.showFloatChat ? handleFloatChat : undefined}
     />
   )
 }

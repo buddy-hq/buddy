@@ -7,9 +7,8 @@ import {
   ExternalLinkIcon,
   FolderOpenIcon,
   Loader2Icon,
-  RefreshCwIcon,
 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import { useEffect, useMemo, type ReactNode } from "react"
 import {
   objectRef,
   toolRef,
@@ -22,15 +21,17 @@ import { BenchStaticContextProvider } from "@/components/bench/bench-static-cont
 import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
 import type { BenchReadContextOpenOutput } from "@/components/bench/bench-route-context"
 import {
+  BenchFloatingControlDock,
   BenchSurfaceViewer,
   BenchViewerShell,
   BenchZoomableViewer,
   type BenchViewerAction,
 } from "@/components/bench/bench-viewer-shell"
 import { FlashcardBenchReview } from "@/components/bench/flashcard-bench-review"
+import { MarkdownBenchPage } from "@/components/bench/markdown-bench-page"
 import { QuestionSetBenchReview } from "@/components/bench/question-set-bench-review"
-import { SvgObjectBenchView } from "@/components/bench/svg-object-bench-view"
-import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
+import { SvgBenchView } from "@/components/bench/svg-bench-view"
+import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-diagram"
 import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
 import { DirectoryChatReadingPage } from "@/components/directory-chat/directory-chat-reading-page"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
@@ -48,14 +49,19 @@ import {
 } from "@/lib/bench-navigation"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { decodeDirectory } from "@/lib/directory-token"
+import { resolveResourceObjectViewerPath } from "@/lib/resource-object-viewer-path"
 import { resolveAssetUrl } from "@/lib/resource-url"
-import { fileExtensionFromPath, normalizeRelativePath } from "@/lib/workspace-file-paths"
-import type { ResourceRecord } from "@/state/resource-actions"
+import { isSvgMedia } from "@/lib/svg-media"
+import { fileExtensionFromPath } from "@/lib/workspace-file-paths"
 import {
   isSupportedReadingResourcePath,
   readingResourceBlobQueryOptions,
   resourcesQueryOptions,
 } from "@/state/resources-query"
+import {
+  readProjectExplorerEditableFile,
+  type ProjectExplorerEditableFileState,
+} from "@/state/chat-actions"
 import {
   objectFlashcardDeckPayloadQueryOptions,
   objectMediaAvailabilityQueryOptions,
@@ -103,12 +109,13 @@ type ObjectBenchLoaderData = {
     reason: string | null
   }
   resourcePath?: string
+  resourceViewer?: "reading" | "markdown"
+  resourceMarkdown?: ProjectExplorerEditableFileState
   resourceKey?: string
   questionSet?: ObjectQuestionSetReadQuestionsResponse
   flashcardDeck?: ObjectFlashcardDeckReadDeckResponse
 }
 
-const HTML_WIDGET_RELOAD_SEARCH_PARAM = "reload"
 const HTML_WIDGET_LIVE_VIEW_REFETCH_INTERVAL_MS = 1500
 const OBJECT_RENDER_STATUS_READY = "ready"
 const OBJECT_RENDER_STATUS_STALE = "stale"
@@ -116,14 +123,6 @@ const OBJECT_RENDER_STATUS_ERROR = "error"
 
 function readString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined
-}
-
-function resourceSourcePath(record: ResourceRecord | undefined): string | undefined {
-  if (!record) return undefined
-  const normalized = normalizeRelativePath(
-    record.readerPath ?? record.sourceOriginRelpath ?? record.sourceRelpath,
-  )
-  return normalized || undefined
 }
 
 function renderStatusToContextStatus(
@@ -152,28 +151,6 @@ function resourceStatusToContextStatus(
     case "unavailable":
       return "unavailable"
   }
-}
-
-function objectReadParameters(input: {
-  directory: string
-  objectID: string
-  revisionID: string | null
-}): { directory: string; objectID: string; revisionID?: string } {
-  return input.revisionID
-    ? {
-        directory: input.directory,
-        objectID: input.objectID,
-        revisionID: input.revisionID,
-      }
-    : {
-        directory: input.directory,
-        objectID: input.objectID,
-      }
-}
-
-function appendReloadKey(url: string, key: number): string {
-  const separator = url.includes("?") ? "&" : "?"
-  return `${url}${separator}${HTML_WIDGET_RELOAD_SEARCH_PARAM}=${encodeURIComponent(String(key))}`
 }
 
 function mediaRenderMode(input: {
@@ -265,18 +242,31 @@ export const Route = createFileRoute("/$directory/_bench/objects/$kind/$objectID
       const record = resourceData.processed.find(
         (resource) => resource.objectID === objectID || resource.alias === alias,
       )
-      const sourcePath = resourceSourcePath(record)
-      if (sourcePath && isSupportedReadingResourcePath(sourcePath)) {
+      const viewerPath = resolveResourceObjectViewerPath(record)
+      if (viewerPath?.viewer === "reading" && isSupportedReadingResourcePath(viewerPath.path)) {
         await context.queryClient.ensureQueryData(
-          readingResourceBlobQueryOptions(directory, sourcePath),
+          readingResourceBlobQueryOptions(directory, viewerPath.path),
         )
       }
+      const resourceMarkdown =
+        viewerPath?.viewer === "markdown"
+          ? await readProjectExplorerEditableFile({
+              directory,
+              path: viewerPath.path,
+            })
+          : undefined
       return {
         directory,
         kind,
         objectID,
         view,
-        ...(sourcePath ? { resourcePath: sourcePath } : {}),
+        ...(viewerPath
+          ? {
+              resourcePath: viewerPath.path,
+              resourceViewer: viewerPath.viewer,
+            }
+          : {}),
+        ...(resourceMarkdown ? { resourceMarkdown } : {}),
         ...(record?.objectID ? { resourceKey: record.objectID } : {}),
       }
     }
@@ -440,6 +430,8 @@ function ObjectBenchRoute() {
           view={view}
           data={view.data}
           resourcePath={loaderData.resourcePath}
+          resourceViewer={loaderData.resourceViewer}
+          resourceMarkdown={loaderData.resourceMarkdown}
           resourceKey={loaderData.resourceKey}
         />
       )
@@ -461,7 +453,6 @@ function ObjectBenchRoute() {
       return (
         <FigureObjectBenchView
           directory={loaderData.directory}
-          kind={loaderData.kind}
           view={view}
           data={view.data}
         />
@@ -518,9 +509,11 @@ function ResourceObjectBenchView(props: {
   view: ObjectsViewResponse
   data: ObjectResourceViewData
   resourcePath?: string
+  resourceViewer?: "reading" | "markdown"
+  resourceMarkdown?: ProjectExplorerEditableFileState
   resourceKey?: string
 }) {
-  if (props.resourcePath) {
+  if (props.resourcePath && props.resourceViewer === "reading") {
     return (
       <DirectoryChatReadingPage
         directory={props.directory}
@@ -528,6 +521,46 @@ function ResourceObjectBenchView(props: {
         resourceKey={props.resourceKey ?? props.data.alias}
         target={objectBenchTarget(props.view)}
       />
+    )
+  }
+
+  if (props.resourcePath && props.resourceViewer === "markdown" && props.resourceMarkdown) {
+    return (
+      <ObjectBenchContextProvider
+        directory={props.directory}
+        view={props.view}
+        status="ready"
+        metadata={[
+          `resource_alias: ${props.data.alias}`,
+          `resource_status: ${props.data.status}`,
+          `markdown_path: ${props.resourcePath}`,
+          `reader_path: ${props.data.readerPath ?? "none"}`,
+          `warnings: ${props.data.warnings.length}`,
+        ]}
+        content={[
+          `Resource markdown object: ${props.data.title}`,
+          `Path: ${props.resourcePath}`,
+          "",
+          props.resourceMarkdown.content,
+        ].join("\n")}
+        refs={[
+          objectRef({
+            objectID: props.view.ref.objectID,
+            note: "Resource object on Bench.",
+          }),
+          workspaceFileRef({
+            path: props.resourcePath,
+            note: "Markdown resource path rendered on Bench.",
+          }),
+        ]}
+        hints={["This .md resource is rendered with the Markdown Bench, not Foliate."]}
+      >
+        <MarkdownBenchPage
+          directory={props.directory}
+          path={props.resourcePath}
+          initialFile={props.resourceMarkdown}
+        />
+      </ObjectBenchContextProvider>
     )
   }
 
@@ -636,52 +669,9 @@ function HtmlWidgetObjectBenchView(props: {
   view: ObjectsViewResponse
   data: ObjectHtmlWidgetViewData
 }) {
-  const [reloadKey, setReloadKey] = useState(0)
-  const [copying, setCopying] = useState(false)
   const runtimeUrl = useMemo(
-    () => resolveAssetUrl(appendReloadKey(props.data.runtimeUrl, reloadKey)),
-    [props.data.runtimeUrl, reloadKey],
-  )
-  const copySource = useCallback(async () => {
-    setCopying(true)
-    try {
-      const source = requireBuddyData(
-        await getBuddyClient(props.directory).objectHtmlWidget.source({
-          directory: props.directory,
-          objectID: props.view.ref.objectID,
-        }),
-      )
-      await navigator.clipboard.writeText(source.source)
-      toast("Widget source copied")
-    } catch (error) {
-      toast(stringifyError(error))
-    } finally {
-      setCopying(false)
-    }
-  }, [props.directory, props.view.ref.objectID])
-  const actions = useMemo<BenchViewerAction[]>(
-    () => [
-      {
-        label: "Reload widget",
-        dataAction: "html-widget-reload",
-        icon: <RefreshCwIcon className="size-4" aria-hidden />,
-        onClick: () => setReloadKey((current) => current + 1),
-      },
-      {
-        label: "Copy source",
-        dataAction: "html-widget-copy-source",
-        disabled: copying,
-        icon: copying ? (
-          <Loader2Icon className="size-4 animate-spin" aria-hidden />
-        ) : (
-          <ClipboardCopyIcon className="size-4" aria-hidden />
-        ),
-        onClick: () => {
-          void copySource()
-        },
-      },
-    ],
-    [copySource, copying],
+    () => resolveAssetUrl(props.data.runtimeUrl),
+    [props.data.runtimeUrl],
   )
 
   return (
@@ -718,7 +708,7 @@ function HtmlWidgetObjectBenchView(props: {
       <BenchSurfaceViewer
         title={props.view.title}
         subtitle={props.data.viewportPreset}
-        actions={actions}
+        hideHeader
         surfaceClassName="bg-background-base"
       >
         <iframe
@@ -791,6 +781,10 @@ function SelectedMediaObjectBenchView(props: {
   const renderMode = mediaRenderMode({
     mediaType: props.item.mediaType,
     fileName: props.item.fileName,
+  })
+  const svg = isSvgMedia({
+    fileName: props.item.fileName,
+    mimeType: props.item.mimeType,
   })
   const actions = useMemo<BenchViewerAction[]>(
     () => [
@@ -875,20 +869,41 @@ function SelectedMediaObjectBenchView(props: {
       ]}
       hints={["Use file/read/PDF/image-capable tools to inspect the visible media item."]}
     >
-      <BenchSurfaceViewer title={props.view.title} subtitle={title} actions={actions}>
-        {availability.status !== "available" ? (
+      {availability.status !== "available" ? (
+        <BenchSurfaceViewer
+          title={props.view.title}
+          subtitle={title}
+          actions={actions}
+          controlsPlacement="dock"
+          hideHeader
+        >
           <BenchMediaMessage className="text-icon-critical-base">
             {availability.message ?? "This media item is not available."}
           </BenchMediaMessage>
-        ) : (
+        </BenchSurfaceViewer>
+      ) : svg ? (
+        <SvgBenchView
+          title={props.view.title}
+          subtitle={title}
+          src={src}
+          actions={actions}
+        />
+      ) : (
+        <BenchSurfaceViewer
+          title={props.view.title}
+          subtitle={title}
+          actions={actions}
+          controlsPlacement="dock"
+          hideHeader
+        >
           <BenchMediaPreview
             title={title}
             src={src}
             renderMode={renderMode}
             displayPath={props.item.source.displayPath ?? sourcePath}
           />
-        )}
-      </BenchSurfaceViewer>
+        </BenchSurfaceViewer>
+      )}
     </ObjectBenchContextProvider>
   )
 }
@@ -929,6 +944,7 @@ function MermaidObjectBenchView(props: {
       <BenchSurfaceViewer
         title={props.view.title}
         subtitle={props.data.caption ?? props.data.alt}
+        hideHeader
         surfaceClassName="bg-background-base"
       >
         <MermaidDiagram
@@ -941,6 +957,13 @@ function MermaidObjectBenchView(props: {
           presentation="interactive"
           showRawSourceOnError
           hideFullscreenAction
+          minimalActions
+          renderWrapper={(diagram, actions) => (
+            <div className="relative h-full min-h-0">
+              {diagram}
+              {actions ? <BenchFloatingControlDock>{actions}</BenchFloatingControlDock> : null}
+            </div>
+          )}
         />
       </BenchSurfaceViewer>
     </ObjectBenchContextProvider>
@@ -949,30 +972,11 @@ function MermaidObjectBenchView(props: {
 
 function FigureObjectBenchView(props: {
   directory: string
-  kind: BenchObjectKind
   view: ObjectsViewResponse
   data: ObjectFigureViewData
 }) {
-  const loadSvg = useCallback(async () => {
-    const parameters = objectReadParameters({
-      directory: props.directory,
-      objectID: props.view.ref.objectID,
-      revisionID: props.view.ref.revisionID,
-    })
-    if (props.kind === "freeform-figure") {
-      return requireBuddyData(
-        await getBuddyClient(props.directory).objectFreeformFigure.raw(parameters, {
-          parseAs: "blob",
-        }),
-      )
-    }
-    return requireBuddyData(
-      await getBuddyClient(props.directory).objectFigure.raw(parameters, {
-        parseAs: "blob",
-      }),
-    )
-  }, [props.directory, props.kind, props.view.ref.objectID, props.view.ref.revisionID])
   const subtitle = props.data.caption ?? props.data.alt ?? undefined
+  const src = props.data.svgUrl ? resolveAssetUrl(props.data.svgUrl) : undefined
 
   return (
     <ObjectBenchContextProvider
@@ -1005,7 +1009,7 @@ function FigureObjectBenchView(props: {
       ]}
       hints={["Use the raw SVG view when exact visual source is needed."]}
     >
-      <SvgObjectBenchView title={props.view.title} subtitle={subtitle} loadSvg={loadSvg} />
+      <SvgBenchView title={props.view.title} subtitle={subtitle} src={src} />
     </ObjectBenchContextProvider>
   )
 }

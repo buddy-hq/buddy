@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
+import type { NavigateOptions } from "@tanstack/react-router"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
@@ -130,6 +131,10 @@ function createHarness(input?: {
   let nextRoute: BenchRouteSnapshot | undefined
   let nextDirectory = DIRECTORY
   let navigatedLocation = routeLocation(route)
+  let navigatedOptions: NavigateOptions | undefined
+  const preloadedOptions: NavigateOptions[] = []
+  const routesDuringPreload: BenchRouteSnapshot[] = []
+  const navigationEvents: string[] = []
   const guardCalls: BenchLeaveGuardInput[] = []
   const store = createDirectoryWorkspaceStore({
     directory: DIRECTORY,
@@ -143,6 +148,7 @@ function createHarness(input?: {
     directory: DIRECTORY,
     getCurrentRoute: () => route,
     guardLeave: async (call) => {
+      navigationEvents.push("guard")
       guardCalls.push(call)
       return input?.guard ? input.guard(call) : allowLeave()
     },
@@ -152,7 +158,9 @@ function createHarness(input?: {
     store,
     getRoute: () => route,
     blocker,
-    navigate: async () => {
+    navigate: async (options) => {
+      navigationEvents.push("navigate")
+      navigatedOptions = options
       if (input?.navigationFails) {
         throw new Error("Navigation failed")
       }
@@ -172,6 +180,11 @@ function createHarness(input?: {
         }
       }
       return navigatedLocation
+    },
+    preloadNavigation: async (options) => {
+      navigationEvents.push("preload")
+      routesDuringPreload.push(route)
+      preloadedOptions.push(options)
     },
   })
   if (input?.hydrate !== false) {
@@ -195,6 +208,10 @@ function createHarness(input?: {
     guardCalls,
     readRoute: () => route,
     readNavigatedLocation: () => navigatedLocation,
+    readNavigatedOptions: () => navigatedOptions,
+    readPreloadedOptions: () => preloadedOptions,
+    readRoutesDuringPreload: () => routesDuringPreload,
+    readNavigationEvents: () => navigationEvents,
     setNextRoute: (routeToCommit: BenchRouteSnapshot, directory = DIRECTORY) => {
       nextRoute = routeToCommit
       nextDirectory = directory
@@ -333,6 +350,17 @@ describe("DirectoryWorkspaceController", () => {
     )
 
     expect(result.outcome).toBe("committed")
+    expect(harness.readNavigatedOptions()).toMatchObject({
+      replace: true,
+      viewTransition: false,
+    })
+    expect(harness.readPreloadedOptions()).toHaveLength(1)
+    expect(harness.readPreloadedOptions()[0]).toMatchObject({
+      replace: true,
+      viewTransition: false,
+    })
+    expect(harness.readRoutesDuringPreload()).toEqual([DOCKED_FILE_ROUTE])
+    expect(harness.readNavigationEvents()).toEqual(["preload", "navigate", "guard"])
     expect(harness.guardCalls).toEqual([
       {
         intent: "replace-target",

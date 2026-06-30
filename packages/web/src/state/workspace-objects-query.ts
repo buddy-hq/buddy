@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query"
+import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import type {
   ObjectFlashcardDeckReadDeckResponse,
   ObjectMediaPresentationAvailabilityResponse,
@@ -120,6 +120,16 @@ export const workspaceObjectsQueryKeys = {
       input.objectID,
       input.itemID,
     ] as const,
+}
+
+export function refetchActiveWorkspaceObjectQueries(
+  queryClient: QueryClient,
+  directory: string,
+) {
+  return queryClient.refetchQueries({
+    queryKey: workspaceObjectsQueryKeys.all(directory),
+    type: "active",
+  })
 }
 
 export async function loadWorkspaceObjects(

@@ -30,6 +30,7 @@ import { useNotifications } from "@/state/notifications"
 import { useNotificationPreferences } from "@/state/notification-preferences"
 import { getModelSelectionScopeKey, useModelSelectionStore } from "@/state/model-selection-store"
 import { IDLE_SESSION_STATUS, normalizeSessionStatusValue } from "@/state/session-status"
+import { refetchActiveWorkspaceObjectQueries } from "@/state/workspace-objects-query"
 import {
   removeDirectoryPermissionQueryData,
   removeDirectoryQuestionQueryData,
@@ -261,6 +262,8 @@ export function useChatSync(props: UseChatSyncProps) {
               .then(() => {
                 syncDirectoryQueriesFromStore(decodedDirectory)
               })
+              .catch(() => undefined)
+              .then(() => refetchActiveWorkspaceObjectQueries(queryClient, decodedDirectory))
               .catch(() => undefined)
           }
           hasConnected = true

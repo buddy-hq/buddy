@@ -531,7 +531,7 @@ describe("bench navigation policy", () => {
         fromLocation: { pathname: markdownPathname, search: { path: "notes.md" } },
         toLocation: { pathname: filePathname, search: { path: "diagram.png" } },
       }),
-    ).toEqual(["bench-route", "bench-swap"])
+    ).toBe(false)
 
     expect(
       resolveBenchRouteViewTransitionTypes({

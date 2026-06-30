@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
+import { QueryClient, QueryObserver } from "@tanstack/react-query"
 import { withFetchPreconnect } from "../src/lib/fetch-transport"
 import {
   loadWorkspaceObjects,
@@ -6,6 +7,7 @@ import {
   objectMermaidPayloadQueryOptions,
   objectQuestionSetPayloadQueryOptions,
   objectViewQueryOptions,
+  refetchActiveWorkspaceObjectQueries,
   workspaceObjectsQueryKeys,
   workspaceObjectsQueryOptions,
 } from "../src/state/workspace-objects-query"
@@ -80,6 +82,46 @@ describe("workspace object query", () => {
       "object_4",
       "item_1",
     ])
+  })
+
+  test("refetches only mounted workspace object queries after reconnect", async () => {
+    const queryClient = new QueryClient()
+    const activeKey = workspaceObjectsQueryKeys.view({
+      directory: "/repo",
+      kind: "figure",
+      objectID: "active",
+      viewID: "rendered",
+    })
+    const inactiveKey = workspaceObjectsQueryKeys.view({
+      directory: "/repo",
+      kind: "figure",
+      objectID: "inactive",
+      viewID: "rendered",
+    })
+    let activeLoads = 0
+    let inactiveLoads = 0
+    const activeQuery = {
+      queryKey: activeKey,
+      queryFn: () => Promise.resolve(++activeLoads),
+      staleTime: Number.POSITIVE_INFINITY,
+    }
+    const inactiveQuery = {
+      queryKey: inactiveKey,
+      queryFn: () => Promise.resolve(++inactiveLoads),
+      staleTime: Number.POSITIVE_INFINITY,
+    }
+
+    await queryClient.fetchQuery(activeQuery)
+    await queryClient.fetchQuery(inactiveQuery)
+    const observer = new QueryObserver(queryClient, activeQuery)
+    const unsubscribe = observer.subscribe(() => undefined)
+
+    await refetchActiveWorkspaceObjectQueries(queryClient, "/repo")
+
+    expect(activeLoads).toBe(2)
+    expect(inactiveLoads).toBe(1)
+    unsubscribe()
+    queryClient.clear()
   })
 
   test("loads the unified object index through the generated SDK", async () => {

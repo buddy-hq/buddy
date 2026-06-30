@@ -94,9 +94,11 @@ export function DirectoryWorkspaceProvider(props: {
   const routeRef = useRef(route)
   const locationRef = useRef(location)
   const navigateRef = useRef(navigate)
+  const routerRef = useRef(router)
   routeRef.current = route
   locationRef.current = location
   navigateRef.current = navigate
+  routerRef.current = router
 
   const [store] = useState(() => {
     logBenchToggleStep("directory-workspace-provider-create-store", {
@@ -161,6 +163,9 @@ export function DirectoryWorkspaceProvider(props: {
             pathname: router.state.location.pathname,
             search: router.state.location.search,
           }
+        },
+        preloadNavigation: async (options) => {
+          await routerRef.current.preloadRoute(options)
         },
         blocker,
       }),

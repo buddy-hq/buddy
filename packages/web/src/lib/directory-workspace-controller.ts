@@ -50,6 +50,7 @@ type DirectoryWorkspaceLocation = {
 }
 
 type DirectoryWorkspaceNavigate = (options: NavigateOptions) => Promise<DirectoryWorkspaceLocation>
+type DirectoryWorkspacePreloadNavigation = (options: NavigateOptions) => Promise<void>
 
 type NavigationTerminalOutcome = "allowed" | "blocked" | "failed" | "superseded"
 
@@ -72,6 +73,7 @@ type DirectoryWorkspaceControllerInput = {
   store: DirectoryWorkspaceStore
   getRoute: () => BenchRouteSnapshot
   navigate: DirectoryWorkspaceNavigate
+  preloadNavigation?: DirectoryWorkspacePreloadNavigation
   blocker: DirectoryWorkspaceBlocker
 }
 
@@ -177,6 +179,38 @@ function buildChatNavigation(directory: string): NavigateOptions {
     to: "/$directory/chat",
     params: { directory: encodeDirectory(directory) },
     replace: true,
+    viewTransition: false,
+  }
+}
+
+function shouldDisableBenchNavigationViewTransition(input: {
+  current: BenchRouteSnapshot
+  next: BenchRouteSnapshot
+}) {
+  return (
+    input.current.status === BENCH_ROUTE_STATUS_OPEN &&
+    input.next.status === BENCH_ROUTE_STATUS_OPEN
+  )
+}
+
+function shouldPreloadBenchNavigation(input: {
+  current: BenchRouteSnapshot
+  next: BenchRouteSnapshot
+}) {
+  return shouldDisableBenchNavigationViewTransition(input)
+}
+
+function applyBenchNavigationViewTransitionPolicy(input: {
+  current: BenchRouteSnapshot
+  next: BenchRouteSnapshot
+  navigateOptions: NavigateOptions
+}): NavigateOptions {
+  if (!shouldDisableBenchNavigationViewTransition(input)) {
+    return input.navigateOptions
+  }
+
+  return {
+    ...input.navigateOptions,
     viewTransition: false,
   }
 }
@@ -448,6 +482,7 @@ export class DirectoryWorkspaceController {
   readonly #store: DirectoryWorkspaceStore
   readonly #getRoute: () => BenchRouteSnapshot
   readonly #navigate: DirectoryWorkspaceNavigate
+  readonly #preloadNavigation: DirectoryWorkspacePreloadNavigation | undefined
   readonly #blocker: DirectoryWorkspaceBlocker
   #activeCommandID: string | null = null
   #queuedHydrationCommands: QueuedHydrationWork[] = []
@@ -458,6 +493,7 @@ export class DirectoryWorkspaceController {
     this.#store = input.store
     this.#getRoute = input.getRoute
     this.#navigate = input.navigate
+    this.#preloadNavigation = input.preloadNavigation
     this.#blocker = input.blocker
   }
 
@@ -946,9 +982,18 @@ export class DirectoryWorkspaceController {
   }): Promise<DirectoryWorkspaceCommandResult> {
     const previousProjection = this.#currentProjection()
     const attemptID = createWorkspaceAttemptID()
+    const navigateOptions = applyBenchNavigationViewTransitionPolicy({
+      current: previousProjection.route,
+      next: input.expectedRoute,
+      navigateOptions: input.navigateOptions,
+    })
+    const preloadBeforeCommit = shouldPreloadBenchNavigation({
+      current: previousProjection.route,
+      next: input.expectedRoute,
+    })
     logBenchToggleStep("workspace-controller-navigation-before-pending", () => ({
       directory: this.#directory,
-      input,
+      input: { ...input, navigateOptions, preloadBeforeCommit },
       attemptID,
       previousProjection,
       storeState: this.#store.getState(),
@@ -963,7 +1008,7 @@ export class DirectoryWorkspaceController {
     })
     logBenchToggleStep("workspace-controller-navigation-after-pending", () => ({
       directory: this.#directory,
-      input,
+      input: { ...input, navigateOptions, preloadBeforeCommit },
       attemptID,
       projection: this.#currentProjection(),
       storeState: this.#store.getState(),
@@ -976,24 +1021,60 @@ export class DirectoryWorkspaceController {
       expectedRoute: input.expectedRoute,
     })
 
+    if (preloadBeforeCommit && this.#preloadNavigation) {
+      try {
+        logBenchToggleStep("workspace-controller-navigation-before-preload", {
+          directory: this.#directory,
+          input: { ...input, navigateOptions, preloadBeforeCommit },
+          attemptID,
+        })
+        await this.#preloadNavigation(navigateOptions)
+        logBenchToggleStep("workspace-controller-navigation-after-preload", {
+          directory: this.#directory,
+          input: { ...input, navigateOptions, preloadBeforeCommit },
+          attemptID,
+        })
+      } catch (error) {
+        logBenchToggleStep("workspace-controller-navigation-preload-error", {
+          directory: this.#directory,
+          input: { ...input, navigateOptions, preloadBeforeCommit },
+          attemptID,
+          error,
+        })
+      }
+
+      if (this.#disposed || this.#activeCommandID !== input.commandID) {
+        this.#store.getState().clearPendingIntent(input.commandID)
+        logBenchToggleStep("workspace-controller-navigation-superseded-after-preload", {
+          directory: this.#directory,
+          input: { ...input, navigateOptions, preloadBeforeCommit },
+          attemptID,
+          disposed: this.#disposed,
+          activeCommandID: this.#activeCommandID,
+        })
+        const result = supersededProjectionResult(previousProjection)
+        return this.#finishNavigationAttempt(attemptID, result)
+      }
+    }
+
     let navigatedLocation: DirectoryWorkspaceLocation
     try {
       logBenchToggleStep("workspace-controller-navigation-before-navigate", {
         directory: this.#directory,
-        input,
+        input: { ...input, navigateOptions, preloadBeforeCommit },
         attemptID,
       })
-      navigatedLocation = await this.#navigate(input.navigateOptions)
+      navigatedLocation = await this.#navigate(navigateOptions)
       logBenchToggleStep("workspace-controller-navigation-after-navigate", {
         directory: this.#directory,
-        input,
+        input: { ...input, navigateOptions, preloadBeforeCommit },
         attemptID,
         route: this.#getRoute(),
       })
     } catch (error) {
       logBenchToggleStep("workspace-controller-navigation-navigate-error", {
         directory: this.#directory,
-        input,
+        input: { ...input, navigateOptions, preloadBeforeCommit },
         attemptID,
         error,
       })

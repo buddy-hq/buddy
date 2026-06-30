@@ -6,7 +6,6 @@ import {
   BENCH_CHAT_SEARCH_PARAM,
   defaultBenchObjectViewID,
   isBenchObjectKind,
-  isSameBenchTarget,
   readBenchChatLayoutMode,
   type BenchMode,
   type BenchTarget,
@@ -21,7 +20,6 @@ const BENCH_ROUTE_CHILDREN = new Set(["markdown", "file"])
 const BENCH_VIEW_TRANSITION_TYPE_ROUTE = "bench-route"
 const BENCH_VIEW_TRANSITION_TYPE_OPEN = "bench-open"
 const BENCH_VIEW_TRANSITION_TYPE_CLOSE = "bench-close"
-const BENCH_VIEW_TRANSITION_TYPE_SWAP = "bench-swap"
 
 type BenchRouteLocationChangeInfo = {
   fromLocation?: {
@@ -121,14 +119,6 @@ function resolveBenchRouteViewTransitionTypes(
 
   if (previous.status === "open" && next.status === "closed") {
     return [BENCH_VIEW_TRANSITION_TYPE_ROUTE, BENCH_VIEW_TRANSITION_TYPE_CLOSE]
-  }
-
-  if (
-    previous.status === "open" &&
-    next.status === "open" &&
-    (previous.directory !== next.directory || !isSameBenchTarget(previous.target, next.target))
-  ) {
-    return [BENCH_VIEW_TRANSITION_TYPE_ROUTE, BENCH_VIEW_TRANSITION_TYPE_SWAP]
   }
 
   return false

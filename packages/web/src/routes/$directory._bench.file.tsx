@@ -5,6 +5,7 @@ import { BenchMediaPreview } from "@/components/bench/bench-media-preview"
 import { BenchStaticContextProvider } from "@/components/bench/bench-static-context-provider"
 import { BenchSurfaceViewer } from "@/components/bench/bench-viewer-shell"
 import { SourceFileBenchView } from "@/components/bench/source-file-bench-view"
+import { SvgBenchView } from "@/components/bench/svg-bench-view"
 import { useRegisterBenchContextProvider } from "@/components/bench/bench-route-context"
 import { urlRef, workspaceFileRef } from "@/components/bench/bench-context-utils"
 import { DirectoryChatReadingPage } from "@/components/directory-chat/directory-chat-reading-page"
@@ -16,6 +17,7 @@ import {
 import { decodeDirectory } from "@/lib/directory-token"
 import { buildProjectFileRawUrl } from "@/lib/project-file-raw-url"
 import { resolveAssetUrl } from "@/lib/resource-url"
+import { isSvgMedia } from "@/lib/svg-media"
 import {
   canOpenWorkspaceFileOnBench,
   classifyWorkspaceMedia,
@@ -172,6 +174,10 @@ function ProjectFileMediaView(props: {
     buildProjectFileRawUrl({ directory: props.directory, path: props.path }),
   )
   const title = fileNameFromPath(props.path) || props.path
+  const svg = isSvgMedia({
+    fileName: props.path,
+    mimeType: props.metadata.mimeType,
+  })
   const contextTarget = useMemo<BenchTarget>(
     () => ({ type: "workspace-file", path: props.path, viewer: "file" }),
     [props.path],
@@ -205,11 +211,17 @@ function ProjectFileMediaView(props: {
   )
   useRegisterBenchContextProvider({ target: contextTarget, provider: contextProvider })
 
-  return (
+  const toolbar = <WorkspaceFileActionsMenu directory={props.directory} path={props.path} />
+
+  return svg ? (
+    <SvgBenchView title={title} subtitle={props.path} src={rawUrl} toolbar={toolbar} />
+  ) : (
     <BenchSurfaceViewer
       title={title}
       subtitle={props.path}
-      toolbar={<WorkspaceFileActionsMenu directory={props.directory} path={props.path} />}
+      toolbar={toolbar}
+      controlsPlacement="dock"
+      hideHeader
     >
       <BenchMediaPreview
         title={props.path}
