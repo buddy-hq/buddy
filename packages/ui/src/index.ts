@@ -1,5 +1,13 @@
 export { Button, buttonVariants } from "./components/ui/button"
 export { Badge, badgeVariants } from "./components/ui/badge"
+export {
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
+  AvatarGroup,
+  AvatarGroupCount,
+  AvatarBadge,
+} from "./components/ui/avatar"
 export { Checkbox } from "./components/ui/checkbox"
 export {
   Card,
@@ -125,6 +133,15 @@ export {
 } from "./components/ui/select"
 export { Switch } from "./components/ui/switch"
 export { Skeleton } from "./components/ui/skeleton"
+export { Spinner } from "./components/ui/spinner"
+export {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "./components/ui/empty"
 export { Slider } from "./components/ui/slider"
 export { ToggleGroup, ToggleGroupItem } from "./components/ui/toggle-group"
 export { Toaster } from "./components/ui/sonner"
@@ -219,3 +236,36 @@ export {
   ComposerDockBody,
   ComposerDockFooter,
 } from "./components/ui/composer-dock"
+
+// Experimental — ported from shadcn radix-nova, restyled to Buddy tokens.
+// Requires shadcn-utilities.css (scroll-fade, shimmer) imported in index.css.
+export {
+  Marker,
+  MarkerIcon,
+  MarkerContent,
+} from "./components/experimental/marker"
+export {
+  MessageGroup,
+  Message,
+  MessageAvatar,
+  MessageContent,
+  MessageFooter,
+  MessageHeader,
+} from "./components/experimental/message"
+export {
+  BubbleGroup,
+  Bubble,
+  BubbleContent,
+  BubbleReactions,
+} from "./components/experimental/bubble"
+export {
+  Attachment,
+  AttachmentGroup,
+  AttachmentMedia,
+  AttachmentContent,
+  AttachmentTitle,
+  AttachmentDescription,
+  AttachmentActions,
+  AttachmentAction,
+  AttachmentTrigger,
+} from "./components/experimental/attachment"
