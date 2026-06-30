@@ -47,8 +47,8 @@ import {
   VIRTUAL_MERMAID_CARD_ESTIMATE_PX,
   VIRTUAL_MERMAID_OVERSCAN,
 } from "@/components/virtualization/virtualization-defaults"
-import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
-import { MermaidToolCard } from "@/components/chat/tools/render/mermaid/mermaid-tool-card"
+import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-diagram"
+import { MermaidToolCard } from "@/components/media/renderers/mermaid/mermaid-tool-card"
 import {
   QuestionMarkdown,
   buildQuestionMarkdownCacheKey,

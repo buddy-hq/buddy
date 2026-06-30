@@ -7,8 +7,8 @@ import { useQuery } from "@tanstack/react-query"
 import { useEffect, useRef, useState } from "react"
 
 import { language } from "@/context/language"
-import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
-import { MermaidToolCard } from "@/components/chat/tools/render/mermaid/mermaid-tool-card"
+import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-diagram"
+import { MermaidToolCard } from "@/components/media/renderers/mermaid/mermaid-tool-card"
 import { LayoutTemplateIcon } from "lucide-react"
 import { stringifyError } from "@/lib/api-client"
 import {

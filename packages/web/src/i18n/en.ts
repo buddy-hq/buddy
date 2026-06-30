@@ -1068,11 +1068,10 @@ export const dict = {
   "skills.removing": "Removing...",
   "skills.update": "Update",
   "skills.updating": "Updating...",
-  "skills.installedSection.description":
-    "Allow or block each skill name, inspect details, and remove Buddy-managed skills.",
-  "skills.installedSection.empty":
-    "No installed skills matched your search. Add a curated skill below or create a new custom one.",
-  "skills.installedSection.title": "Installed",
+  "skills.customSection.title": "Custom",
+  "skills.defaultSection.description": "Built-in skills shipped with Buddy.",
+  "skills.defaultSection.empty": "No default skills matched your search.",
+  "skills.defaultSection.title": "Default",
   "skills.librarySection.description": "Install curated skills from the synced catalog.",
   "skills.librarySection.empty": "No library skills matched your search.",
   "skills.librarySection.title": "Library",
@@ -1099,6 +1098,7 @@ export const dict = {
   "skills.source.custom": "Custom",
   "skills.source.detected": "Detected",
   "skills.source.library": "Library",
+  "skills.source.system": "System",
   "skills.status.allow": "Allowed",
   "skills.status.ask": "Allowed",
   "skills.status.deny": "Blocked",
