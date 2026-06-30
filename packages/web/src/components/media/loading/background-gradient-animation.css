@@ -1,0 +1,39 @@
+/* Background gradient animation keyframes.
+ * Source: https://ui.aceternity.com/components/background-gradient-animation
+ * Durations are applied per-instance via inline styles in background-gradient-animation.tsx. */
+
+@keyframes bg-anim-move-vertical {
+  0% {
+    transform: translateY(-50%);
+  }
+  50% {
+    transform: translateY(50%);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+
+@keyframes bg-anim-move-in-circle {
+  0% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes bg-anim-move-horizontal {
+  0% {
+    transform: translateX(-50%) translateY(-10%);
+  }
+  50% {
+    transform: translateX(50%) translateY(10%);
+  }
+  100% {
+    transform: translateX(-50%) translateY(-10%);
+  }
+}
