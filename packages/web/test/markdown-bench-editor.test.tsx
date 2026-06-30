@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { MarkdownBenchEditor } from "../src/components/bench/markdown-bench-editor"
-import { createMermaidThemeConfig } from "../src/components/chat/tools/render/mermaid/lib/theme"
+import { createMermaidThemeConfig } from "../src/components/media/renderers/mermaid/lib/theme"
 import { ThemeProvider } from "../src/theme"
 
 function createMediaQueryList(matches: boolean): MediaQueryList {

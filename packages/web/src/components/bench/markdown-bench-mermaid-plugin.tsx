@@ -19,8 +19,8 @@ import {
 import type { LexicalEditor, NodeKey, SerializedLexicalNode, Spread } from "lexical"
 import type { Code } from "mdast"
 import { Button } from "@buddy/ui"
-import { MermaidDiagram } from "@/components/chat/tools/render/mermaid/mermaid-diagram"
-import type { MermaidThemeConfig } from "@/components/chat/tools/render/mermaid/lib/theme"
+import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-diagram"
+import type { MermaidThemeConfig } from "@/components/media/renderers/mermaid/lib/theme"
 
 type SerializedBuddyMermaidNode = Spread<
   {

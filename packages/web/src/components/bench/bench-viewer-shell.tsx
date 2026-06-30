@@ -43,6 +43,9 @@ type BenchViewerShellProps = {
   actions?: BenchViewerAction[]
   toolbar?: ReactNode
   zoomControls?: BenchZoomControls
+  controlsPlacement?: "header" | "dock"
+  hideHeader?: boolean
+  dock?: ReactNode
   children: ReactNode
   className?: string
   contentClassName?: string
@@ -53,6 +56,9 @@ type BenchSurfaceViewerProps = {
   subtitle?: string
   actions?: BenchViewerAction[]
   toolbar?: ReactNode
+  controlsPlacement?: "header" | "dock"
+  hideHeader?: boolean
+  dock?: ReactNode
   children: ReactNode
   className?: string
   surfaceClassName?: string
@@ -62,6 +68,10 @@ type BenchZoomableViewerProps = {
   title: string
   subtitle?: string
   actions?: BenchViewerAction[]
+  toolbar?: ReactNode
+  controlsPlacement?: "header" | "dock"
+  hideHeader?: boolean
+  dock?: ReactNode
   children: ReactNode
   className?: string
   canvasClassName?: string
@@ -99,10 +109,6 @@ function zoomLabel(value: number) {
 
 function hasMeasuredSize(size: BenchSize) {
   return size.width > 0 && size.height > 0
-}
-
-function nearlyEqual(left: number, right: number) {
-  return Math.abs(left - right) < 0.001
 }
 
 export function resolveBenchFitZoom(input: {
@@ -188,7 +194,7 @@ function isInteractiveTarget(target: EventTarget | null) {
   )
 }
 
-function BenchToolbarButton(props: BenchViewerAction) {
+function BenchToolbarButton(props: BenchViewerAction & { tooltipSide?: "top" | "bottom" }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -196,7 +202,7 @@ function BenchToolbarButton(props: BenchViewerAction) {
           type="button"
           size="icon-sm"
           variant="ghost"
-          className="size-8 rounded-lg text-text-weak hover:bg-surface-base-hover hover:text-text-base"
+          className="size-8 rounded-lg text-text-weak transition-transform hover:bg-surface-base-hover hover:text-text-base active:scale-[0.97]"
           aria-label={props.label}
           title={props.label}
           disabled={props.disabled}
@@ -206,22 +212,65 @@ function BenchToolbarButton(props: BenchViewerAction) {
           {props.icon}
         </Button>
       </TooltipTrigger>
-      <TooltipContent side="bottom" sideOffset={6}>
+      <TooltipContent side={props.tooltipSide ?? "bottom"} sideOffset={6}>
         <p>{props.label}</p>
       </TooltipContent>
     </Tooltip>
   )
 }
 
-function BenchZoomToolbar(props: { controls: BenchZoomControls }) {
+function BenchControlGroup(props: {
+  children: ReactNode
+  placement: "header" | "dock"
+  className?: string
+}) {
   return (
-    <div className="flex items-center gap-1 rounded-xl border border-border-base/60 bg-surface-base/70 p-1">
+    <div
+      className={cn(
+        "flex items-center gap-1",
+        props.placement === "header" &&
+          "rounded-xl border border-border-base/60 bg-surface-base/70 p-1",
+        props.className,
+      )}
+    >
+      {props.children}
+    </div>
+  )
+}
+
+export function BenchFloatingControlDock(props: { children: ReactNode; className?: string }) {
+  if (!props.children) return null
+
+  return (
+    <div
+      data-component="bench-floating-control-dock"
+      className={cn(
+        "pointer-events-none absolute inset-x-0 bottom-4 z-40 flex justify-center px-4",
+        props.className,
+      )}
+    >
+      <div
+        data-component="bench-control-dock"
+        data-bench-pan-disabled
+        className="pointer-events-auto flex max-w-full items-center gap-1 rounded-2xl border border-border-base/70 bg-surface-base/88 p-1.5 text-text-base shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+      >
+        {props.children}
+      </div>
+    </div>
+  )
+}
+
+function BenchZoomToolbar(props: { controls: BenchZoomControls; placement: "header" | "dock" }) {
+  const tooltipSide = props.placement === "dock" ? "top" : "bottom"
+  return (
+    <BenchControlGroup placement={props.placement}>
       <BenchToolbarButton
         label="Zoom out"
         disabled={!props.controls.canZoomOut}
         onClick={props.controls.zoomOut}
         dataAction="bench-zoom-out"
         icon={<MinusIcon className="size-4" aria-hidden />}
+        tooltipSide={tooltipSide}
       />
       <div
         data-component="bench-zoom-label"
@@ -235,6 +284,7 @@ function BenchZoomToolbar(props: { controls: BenchZoomControls }) {
         onClick={props.controls.zoomIn}
         dataAction="bench-zoom-in"
         icon={<PlusIcon className="size-4" aria-hidden />}
+        tooltipSide={tooltipSide}
       />
       <div className="mx-1 h-4 w-px bg-border-base/70" />
       <BenchToolbarButton
@@ -242,42 +292,106 @@ function BenchZoomToolbar(props: { controls: BenchZoomControls }) {
         onClick={props.controls.resetZoom}
         dataAction="bench-reset-zoom"
         icon={<RotateCcwIcon className="size-4" aria-hidden />}
+        tooltipSide={tooltipSide}
       />
-    </div>
+    </BenchControlGroup>
+  )
+}
+
+function BenchActionsToolbar(props: {
+  actions: BenchViewerAction[]
+  placement: "header" | "dock"
+}) {
+  const tooltipSide = props.placement === "dock" ? "top" : "bottom"
+  return (
+    <BenchControlGroup placement={props.placement}>
+      {props.actions.map((action) => (
+        <BenchToolbarButton key={action.label} {...action} tooltipSide={tooltipSide} />
+      ))}
+    </BenchControlGroup>
+  )
+}
+
+function BenchToolbarSlot(props: { children: ReactNode; placement: "header" | "dock" }) {
+  return <BenchControlGroup placement={props.placement}>{props.children}</BenchControlGroup>
+}
+
+function BenchViewerControls(props: {
+  actions?: BenchViewerAction[]
+  toolbar?: ReactNode
+  zoomControls?: BenchZoomControls
+  placement: "header" | "dock"
+}) {
+  const hasActions = props.actions !== undefined && props.actions.length > 0
+  if (!props.zoomControls && !props.toolbar && !hasActions) return null
+
+  return (
+    <>
+      {props.zoomControls ? (
+        <BenchZoomToolbar controls={props.zoomControls} placement={props.placement} />
+      ) : null}
+      {props.toolbar ? (
+        <BenchToolbarSlot placement={props.placement}>{props.toolbar}</BenchToolbarSlot>
+      ) : null}
+      {hasActions ? (
+        <BenchActionsToolbar actions={props.actions ?? []} placement={props.placement} />
+      ) : null}
+    </>
   )
 }
 
 export function BenchViewerShell(props: BenchViewerShellProps) {
+  const controlsPlacement = props.controlsPlacement ?? "header"
+  const showHeader = props.hideHeader !== true
+  const headerControls =
+    controlsPlacement === "header" && showHeader ? (
+      <BenchViewerControls
+        actions={props.actions}
+        toolbar={props.toolbar}
+        zoomControls={props.zoomControls}
+        placement="header"
+      />
+    ) : null
+  const dockControls =
+    controlsPlacement === "dock" ? (
+      <BenchViewerControls
+        actions={props.actions}
+        toolbar={props.toolbar}
+        zoomControls={props.zoomControls}
+        placement="dock"
+      />
+    ) : null
+  const dockContent =
+    props.dock || dockControls ? (
+      <>
+        {dockControls}
+        {props.dock}
+      </>
+    ) : null
+
   return (
     <TooltipProvider>
       <section
         data-component="bench-viewer-shell"
         className={cn("flex h-full min-h-0 w-full flex-col bg-background-base", props.className)}
       >
-        <header className="flex shrink-0 items-center gap-3 border-b border-border-base/70 bg-surface-base/85 px-4 py-2.5 backdrop-blur md:px-5">
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-sm font-semibold text-text-strong">{props.title}</h1>
-            {props.subtitle ? (
-              <p className="truncate text-xs text-text-weak">{props.subtitle}</p>
+        {showHeader ? (
+          <header className="flex shrink-0 items-center gap-3 border-b border-border-base/70 bg-surface-base/85 px-4 py-2.5 backdrop-blur md:px-5">
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-sm font-semibold text-text-strong">{props.title}</h1>
+              {props.subtitle ? (
+                <p className="truncate text-xs text-text-weak">{props.subtitle}</p>
+              ) : null}
+            </div>
+            {headerControls ? (
+              <div className="flex shrink-0 items-center gap-2">{headerControls}</div>
             ) : null}
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {props.zoomControls ? <BenchZoomToolbar controls={props.zoomControls} /> : null}
-            {props.toolbar ? (
-              <div className="flex items-center gap-1 rounded-xl border border-border-base/60 bg-surface-base/70 p-1">
-                {props.toolbar}
-              </div>
-            ) : null}
-            {props.actions && props.actions.length > 0 ? (
-              <div className="flex items-center gap-1 rounded-xl border border-border-base/60 bg-surface-base/70 p-1">
-                {props.actions.map((action) => (
-                  <BenchToolbarButton key={action.label} {...action} />
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </header>
-        <div className={cn("min-h-0 flex-1", props.contentClassName)}>{props.children}</div>
+          </header>
+        ) : null}
+        <div className={cn("relative min-h-0 flex-1", props.contentClassName)}>
+          {props.children}
+          {dockContent ? <BenchFloatingControlDock>{dockContent}</BenchFloatingControlDock> : null}
+        </div>
       </section>
     </TooltipProvider>
   )
@@ -290,6 +404,9 @@ export function BenchSurfaceViewer(props: BenchSurfaceViewerProps) {
       subtitle={props.subtitle}
       actions={props.actions}
       toolbar={props.toolbar}
+      controlsPlacement={props.controlsPlacement}
+      hideHeader={props.hideHeader}
+      dock={props.dock}
       className={props.className}
       contentClassName="overflow-hidden"
     >
@@ -390,35 +507,36 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
     return () => observer.disconnect()
   }, [props.children])
 
-  useEffect(() => {
-    if (!props.fitContent || !zoomState.isAutoFit) return
-
-    const nextZoom = resolveBenchFitZoom({
-      viewportSize,
-      contentSize,
-      canvasPadding: BENCH_CANVAS_PADDING_PX,
-    })
-
-    setZoomState((current) =>
-      nearlyEqual(current.zoom, nextZoom) ? current : { zoom: nextZoom, isAutoFit: true },
-    )
-    shouldCenterScrollRef.current = true
-  }, [contentSize, props.fitContent, viewportSize, zoomState.isAutoFit])
+  const effectiveZoom = useMemo(
+    () =>
+      props.fitContent && zoomState.isAutoFit
+        ? resolveBenchFitZoom({
+            viewportSize,
+            contentSize,
+            canvasPadding: BENCH_CANVAS_PADDING_PX,
+          })
+        : zoomState.zoom,
+    [contentSize, props.fitContent, viewportSize, zoomState.isAutoFit, zoomState.zoom],
+  )
 
   const canvasMetrics = useMemo(
     () =>
       resolveBenchZoomableCanvasMetrics({
         viewportSize,
         contentSize,
-        zoom: zoomState.zoom,
+        zoom: effectiveZoom,
         canvasPadding: BENCH_CANVAS_PADDING_PX,
         panOverscan: BENCH_CANVAS_PAN_OVERSCAN_PX,
       }),
-    [contentSize, viewportSize, zoomState.zoom],
+    [contentSize, effectiveZoom, viewportSize],
   )
 
   useLayoutEffect(() => {
-    if (!shouldCenterScrollRef.current || !viewportRef.current || !hasMeasuredSize(viewportSize)) {
+    if (
+      (!shouldCenterScrollRef.current && !zoomState.isAutoFit) ||
+      !viewportRef.current ||
+      !hasMeasuredSize(viewportSize)
+    ) {
       return
     }
 
@@ -429,23 +547,23 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
     viewportRef.current.scrollLeft = scroll.left
     viewportRef.current.scrollTop = scroll.top
     shouldCenterScrollRef.current = false
-  }, [canvasMetrics, viewportSize])
+  }, [canvasMetrics, viewportSize, zoomState.isAutoFit])
 
   const zoomControls = useMemo<BenchZoomControls>(
     () => ({
-      zoomLabel: zoomLabel(zoomState.zoom),
-      canZoomIn: zoomState.zoom < BENCH_ZOOM_MAX,
-      canZoomOut: zoomState.zoom > BENCH_ZOOM_MIN,
+      zoomLabel: zoomLabel(effectiveZoom),
+      canZoomIn: effectiveZoom < BENCH_ZOOM_MAX,
+      canZoomOut: effectiveZoom > BENCH_ZOOM_MIN,
       zoomIn: () =>
-        setZoomState((current) => ({
-          zoom: clampZoom(current.zoom + BENCH_ZOOM_STEP),
+        setZoomState({
+          zoom: clampZoom(effectiveZoom + BENCH_ZOOM_STEP),
           isAutoFit: false,
-        })),
+        }),
       zoomOut: () =>
-        setZoomState((current) => ({
-          zoom: clampZoom(current.zoom - BENCH_ZOOM_STEP),
+        setZoomState({
+          zoom: clampZoom(effectiveZoom - BENCH_ZOOM_STEP),
           isAutoFit: false,
-        })),
+        }),
       resetZoom: () => {
         shouldCenterScrollRef.current = true
         if (props.fitContent) {
@@ -462,8 +580,9 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
         setZoomState({ zoom: BENCH_ZOOM_DEFAULT, isAutoFit: false })
       },
     }),
-    [contentSize, props.fitContent, viewportSize, zoomState.zoom],
+    [contentSize, effectiveZoom, props.fitContent, viewportSize],
   )
+  const shouldAnimateZoomTransform = !zoomState.isAutoFit
 
   const handlePointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.button !== 0 || !viewportRef.current || isInteractiveTarget(event.target)) {
@@ -505,6 +624,10 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
       title={props.title}
       subtitle={props.subtitle}
       actions={props.actions}
+      toolbar={props.toolbar}
+      controlsPlacement={props.controlsPlacement}
+      hideHeader={props.hideHeader}
+      dock={props.dock}
       zoomControls={zoomControls}
       className={props.className}
       contentClassName="overflow-hidden"
@@ -534,13 +657,14 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
             ref={contentRef}
             data-component="bench-zoom-content"
             className={cn(
-              "absolute origin-top-left transition-transform duration-150",
+              "absolute origin-top-left",
+              shouldAnimateZoomTransform && "transition-transform duration-150 ease-out",
               props.contentClassName,
             )}
             style={{
               left: canvasMetrics.contentOffsetX,
               top: canvasMetrics.contentOffsetY,
-              transform: `scale(${zoomState.zoom})`,
+              transform: `scale(${effectiveZoom})`,
             }}
           >
             {props.children}

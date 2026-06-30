@@ -16,8 +16,10 @@ import {
 import { BenchMediaPreview } from "../src/components/bench/bench-media-preview"
 import { DirectoryWorkspaceProvider } from "../src/components/directory-chat/directory-workspace-context"
 import { QuestionSetBenchReview } from "../src/components/bench/question-set-bench-review"
-import { SvgObjectBenchView } from "../src/components/bench/svg-object-bench-view"
+import { SvgBenchView } from "../src/components/bench/svg-bench-view"
 import {
+  BenchSurfaceViewer,
+  BenchZoomableViewer,
   resolveBenchCenteredScroll,
   resolveBenchFitZoom,
   resolveBenchZoomableCanvasMetrics,
@@ -431,7 +433,7 @@ describe("bench surface rendering", () => {
       )
     })
 
-    const image = container.querySelector("img")
+    const image = container.querySelector<HTMLImageElement>("img")
     expect(image).not.toBeNull()
     expect(image?.className).toContain("max-h-full")
     expect(image?.className).toContain("max-w-full")
@@ -439,38 +441,107 @@ describe("bench surface rendering", () => {
     expect(image?.className).not.toContain("72vw")
   })
 
-  test("renders SVG object previews inline in the zoomable bench", async () => {
+  test("renders SVG previews as isolated images in the zoomable bench", async () => {
     await act(async () => {
       root.render(
-        <SvgObjectBenchView
+        <SvgBenchView
           title="Triangle proof"
           subtitle="Generated figure"
-          loadSvg={async () =>
-            new Blob(
-              [
-                '<svg viewBox="0 0 320 180"><polygon points="160 20 300 160 20 160" fill="green" /></svg>',
-              ],
-              { type: "image/svg+xml" },
-            )
-          }
+          src="/api/objects/figure/triangle/raw"
         />,
       )
       await flushEffects()
     })
-    await waitForEffect(
-      () => container.querySelector('[data-component="svg-object-bench-surface"] svg') !== null,
+
+    const image = container.querySelector<HTMLImageElement>(
+      '[data-component="svg-bench-surface"] img',
     )
+    expect(image).not.toBeNull()
+    if (!image) throw new Error("Expected SVG image")
+
+    Object.defineProperties(image, {
+      naturalWidth: { configurable: true, value: 320 },
+      naturalHeight: { configurable: true, value: 180 },
+    })
+    await act(async () => {
+      image.dispatchEvent(new Event("load"))
+      await flushEffects()
+    })
 
     const surface = container.querySelector<HTMLElement>(
-      '[data-component="svg-object-bench-surface"]',
+      '[data-component="svg-bench-surface"]',
     )
     expect(surface).not.toBeNull()
     expect(surface?.className).not.toContain("border")
     expect(surface?.className).not.toContain("bg-white")
     expect(surface?.style.width).toBe("960px")
     expect(surface?.style.height).toBe("540px")
-    expect(surface?.querySelector("svg")).not.toBeNull()
-    expect(container.querySelector('[data-component="bench-zoom-content"]')).not.toBeNull()
+    const visibleImage = surface?.querySelector<HTMLImageElement>("img")
+    expect(visibleImage).toBe(image)
+    expect(visibleImage?.getAttribute("src")).toBe("/api/objects/figure/triangle/raw")
+    expect(surface?.querySelector("svg")).toBeNull()
+    const zoomContent = container.querySelector('[data-component="bench-zoom-content"]')
+    expect(zoomContent).not.toBeNull()
+    expect(zoomContent?.className).not.toContain("transition-transform")
+  })
+
+  test("renders zoomable asset surfaces without a top bar and places controls in the bottom dock", async () => {
+    await act(async () => {
+      root.render(
+        <SvgBenchView
+          title="Triangle proof"
+          subtitle="Generated figure"
+          src="/api/objects/figure/triangle/raw"
+          actions={[
+            {
+              label: "Copy SVG",
+              dataAction: "copy-svg",
+              icon: <span aria-hidden>Copy</span>,
+              onClick: () => undefined,
+            },
+          ]}
+        />,
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-component="bench-viewer-shell"] header')).toBeNull()
+    expect(
+      container.querySelector(
+        '[data-component="bench-viewer-shell"] header [data-action="copy-svg"]',
+      ),
+    ).toBeNull()
+    expect(
+      container.querySelector(
+        '[data-component="bench-control-dock"] [data-action="copy-svg"]',
+      ),
+    ).not.toBeNull()
+    expect(
+      container.querySelector(
+        '[data-component="bench-control-dock"] [data-action="bench-zoom-in"]',
+      ),
+    ).not.toBeNull()
+  })
+
+  test("renders immersive HTML bench surfaces without header or dock overlays", async () => {
+    await act(async () => {
+      root.render(
+        <BenchSurfaceViewer
+          title="HTML widget"
+          subtitle="standard"
+          hideHeader
+          surfaceClassName="bg-background-base"
+        >
+          <iframe title="HTML widget" src="/widget" className="block h-full w-full border-0" />
+        </BenchSurfaceViewer>,
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[data-component="bench-viewer-shell"] header')).toBeNull()
+    expect(container.querySelector('[data-component="bench-control-dock"]')).toBeNull()
+    expect(container.querySelector("iframe")?.className).toContain("h-full")
+    expect(container.querySelector("iframe")?.className).toContain("w-full")
   })
 
   test("fits zoomable content to the bench viewport with padding", () => {
@@ -481,6 +552,97 @@ describe("bench surface rendering", () => {
     })
 
     expect(zoom).toBe(1.136)
+  })
+
+  test("animates only explicit user zoom changes in the zoomable bench", async () => {
+    await act(async () => {
+      root.render(
+        <BenchZoomableViewer title="Measured asset" fitContent>
+          <div>Asset</div>
+        </BenchZoomableViewer>,
+      )
+      await flushEffects()
+    })
+
+    const zoomContent = container.querySelector<HTMLElement>(
+      '[data-component="bench-zoom-content"]',
+    )
+    expect(zoomContent).not.toBeNull()
+    expect(zoomContent?.className).not.toContain("transition-transform")
+
+    const zoomIn = container.querySelector<HTMLButtonElement>('[data-action="bench-zoom-in"]')
+    expect(zoomIn).not.toBeNull()
+    await act(async () => {
+      zoomIn?.click()
+      await flushEffects()
+    })
+
+    expect(zoomContent?.className).toContain("transition-transform")
+  })
+
+  test("derives auto-fit metrics and centering from the same measured layout", async () => {
+    const originalResizeObserver = globalThis.ResizeObserver
+    Reflect.deleteProperty(globalThis, "ResizeObserver")
+
+    try {
+      await act(async () => {
+        root.render(
+          <BenchZoomableViewer title="Measured asset" fitContent>
+            <div>Asset</div>
+          </BenchZoomableViewer>,
+        )
+        await flushEffects()
+      })
+
+      const viewport = container.querySelector<HTMLElement>(
+        '[data-component="bench-pan-zoom-canvas"]',
+      )
+      const content = container.querySelector<HTMLElement>('[data-component="bench-zoom-content"]')
+      expect(viewport).not.toBeNull()
+      expect(content).not.toBeNull()
+      if (!viewport || !content) throw new Error("Expected zoomable Bench elements")
+
+      Object.defineProperties(viewport, {
+        clientWidth: { configurable: true, value: 1_200 },
+        clientHeight: { configurable: true, value: 900 },
+      })
+      Object.defineProperties(content, {
+        offsetWidth: { configurable: true, value: 1_000 },
+        offsetHeight: { configurable: true, value: 500 },
+      })
+
+      await act(async () => {
+        window.dispatchEvent(new Event("resize"))
+        await flushEffects()
+      })
+
+      const zoom = resolveBenchFitZoom({
+        viewportSize: { width: 1_200, height: 900 },
+        contentSize: { width: 1_000, height: 500 },
+        canvasPadding: 32,
+      })
+      const metrics = resolveBenchZoomableCanvasMetrics({
+        viewportSize: { width: 1_200, height: 900 },
+        contentSize: { width: 1_000, height: 500 },
+        zoom,
+        canvasPadding: 32,
+        panOverscan: 512,
+      })
+      const centered = resolveBenchCenteredScroll({
+        viewportSize: { width: 1_200, height: 900 },
+        metrics,
+      })
+
+      expect(container.querySelector('[data-component="bench-zoom-label"]')?.textContent).toBe(
+        "114%",
+      )
+      expect(viewport.scrollLeft).toBe(centered.left)
+      expect(viewport.scrollTop).toBe(centered.top)
+    } finally {
+      if (originalResizeObserver) {
+        globalThis.ResizeObserver = originalResizeObserver
+      }
+    }
   })
 
   test("keeps zoomable content centered inside a larger pannable canvas", () => {

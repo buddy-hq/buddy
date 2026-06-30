@@ -3,7 +3,7 @@ import { resolveThemeVariant, themeToCss } from "@/theme/resolve"
 import {
   createMermaidThemeConfig,
   type MermaidThemeConfig,
-} from "@/components/chat/tools/render/mermaid/lib/theme"
+} from "@/components/media/renderers/mermaid/lib/theme"
 import { MARKDOWN_PDF_PRINT_PALETTE, MARKDOWN_PDF_PRINT_TYPE } from "@/lib/markdown-pdf-export"
 
 export type MarkdownBenchContentThemeMode = "light" | "dark" | "print"
