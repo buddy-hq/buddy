@@ -50,7 +50,6 @@ type DirectoryWorkspaceLocation = {
 }
 
 type DirectoryWorkspaceNavigate = (options: NavigateOptions) => Promise<DirectoryWorkspaceLocation>
-type DirectoryWorkspacePreloadNavigation = (options: NavigateOptions) => Promise<void>
 
 type NavigationTerminalOutcome = "allowed" | "blocked" | "failed" | "superseded"
 
@@ -73,13 +72,16 @@ type DirectoryWorkspaceControllerInput = {
   store: DirectoryWorkspaceStore
   getRoute: () => BenchRouteSnapshot
   navigate: DirectoryWorkspaceNavigate
-  preloadNavigation?: DirectoryWorkspacePreloadNavigation
   blocker: DirectoryWorkspaceBlocker
 }
 
 type DirectoryWorkspaceCommandOptions = {
   origin: Exclude<BenchLeaveOrigin, "route">
   autoOpen?: BenchAutoOpenIdentity | null
+}
+
+function isForegroundCommand(options: DirectoryWorkspaceCommandOptions): boolean {
+  return options.origin !== "auto-open"
 }
 
 type QueuedHydrationCommand = {
@@ -191,13 +193,6 @@ function shouldDisableBenchNavigationViewTransition(input: {
     input.current.status === BENCH_ROUTE_STATUS_OPEN &&
     input.next.status === BENCH_ROUTE_STATUS_OPEN
   )
-}
-
-function shouldPreloadBenchNavigation(input: {
-  current: BenchRouteSnapshot
-  next: BenchRouteSnapshot
-}) {
-  return shouldDisableBenchNavigationViewTransition(input)
 }
 
 function applyBenchNavigationViewTransitionPolicy(input: {
@@ -482,9 +477,9 @@ export class DirectoryWorkspaceController {
   readonly #store: DirectoryWorkspaceStore
   readonly #getRoute: () => BenchRouteSnapshot
   readonly #navigate: DirectoryWorkspaceNavigate
-  readonly #preloadNavigation: DirectoryWorkspacePreloadNavigation | undefined
   readonly #blocker: DirectoryWorkspaceBlocker
   #activeCommandID: string | null = null
+  #activeForegroundCommandID: string | null = null
   #queuedHydrationCommands: QueuedHydrationWork[] = []
   #disposed = false
 
@@ -493,7 +488,6 @@ export class DirectoryWorkspaceController {
     this.#store = input.store
     this.#getRoute = input.getRoute
     this.#navigate = input.navigate
-    this.#preloadNavigation = input.preloadNavigation
     this.#blocker = input.blocker
   }
 
@@ -505,6 +499,7 @@ export class DirectoryWorkspaceController {
     })
     this.#disposed = true
     this.#activeCommandID = null
+    this.#activeForegroundCommandID = null
     this.#blocker.dispose()
     const projection = this.#currentProjection()
     for (const queued of this.#queuedHydrationCommands.splice(0)) {
@@ -558,6 +553,17 @@ export class DirectoryWorkspaceController {
       })
       return result
     }
+    if (this.#shouldDeferToForegroundCommand(options)) {
+      const result = supersededProjectionResult(this.#currentProjection())
+      logBenchToggleStep("workspace-controller-execute-background-superseded", {
+        directory: this.#directory,
+        command,
+        options,
+        activeForegroundCommandID: this.#activeForegroundCommandID,
+        result,
+      })
+      return result
+    }
     if (this.#store.getState().hydration.status === WORKSPACE_HYDRATION_PENDING) {
       logBenchToggleStep("workspace-controller-execute-hydration-pending", {
         directory: this.#directory,
@@ -569,6 +575,7 @@ export class DirectoryWorkspaceController {
 
     const commandID = createWorkspaceCommandID()
     this.#activeCommandID = commandID
+    this.#beginForegroundCommand(commandID, options)
     this.#blocker.supersedeControllerAttempts()
     logBenchToggleStep("workspace-controller-execute-command-created", {
       directory: this.#directory,
@@ -577,34 +584,38 @@ export class DirectoryWorkspaceController {
       route: this.#getRoute(),
     })
 
-    if (
-      command.type === "reveal" ||
-      command.type === "collapse" ||
-      command.type === "open-drawer" ||
-      command.type === "close-drawer"
-    ) {
-      logBenchToggleStep("workspace-controller-execute-workspace-only-branch", {
+    try {
+      if (
+        command.type === "reveal" ||
+        command.type === "collapse" ||
+        command.type === "open-drawer" ||
+        command.type === "close-drawer"
+      ) {
+        logBenchToggleStep("workspace-controller-execute-workspace-only-branch", {
+          directory: this.#directory,
+          commandID,
+          command,
+        })
+        return this.#executeWorkspaceOnlyCommand(commandID, command)
+      }
+
+      if (command.type === "close") {
+        logBenchToggleStep("workspace-controller-execute-close-branch", {
+          directory: this.#directory,
+          commandID,
+        })
+        return await this.#executeCloseCommand(commandID, options)
+      }
+
+      logBenchToggleStep("workspace-controller-execute-set-mode-branch", {
         directory: this.#directory,
         commandID,
         command,
       })
-      return this.#executeWorkspaceOnlyCommand(commandID, command)
+      return await this.#executeSetModeCommand(commandID, command.mode, options)
+    } finally {
+      this.#finishForegroundCommand(commandID)
     }
-
-    if (command.type === "close") {
-      logBenchToggleStep("workspace-controller-execute-close-branch", {
-        directory: this.#directory,
-        commandID,
-      })
-      return this.#executeCloseCommand(commandID, options)
-    }
-
-    logBenchToggleStep("workspace-controller-execute-set-mode-branch", {
-      directory: this.#directory,
-      commandID,
-      command,
-    })
-    return this.#executeSetModeCommand(commandID, command.mode, options)
   }
 
   async executeOpen(
@@ -624,26 +635,42 @@ export class DirectoryWorkspaceController {
     if (this.#disposed) {
       return inactiveProjectionResult(this.#currentProjection())
     }
+    if (this.#shouldDeferToForegroundCommand(options)) {
+      const result = supersededProjectionResult(this.#currentProjection())
+      logBenchToggleStep("workspace-controller-execute-open-background-superseded", {
+        directory: this.#directory,
+        request,
+        options,
+        activeForegroundCommandID: this.#activeForegroundCommandID,
+        result,
+      })
+      return result
+    }
     if (this.#store.getState().hydration.status === WORKSPACE_HYDRATION_PENDING) {
       return this.#queueHydrationOpen(request, options)
     }
 
     const commandID = createWorkspaceCommandID()
     this.#activeCommandID = commandID
+    this.#beginForegroundCommand(commandID, options)
     this.#blocker.supersedeControllerAttempts()
-    return this.#executePresentCommand(
-      commandID,
-      {
-        type: "present",
-        directory: request.directory,
-        target: request.target,
-        mode: request.mode,
-      },
-      {
-        ...options,
-        autoOpen: request.autoOpen,
-      },
-    )
+    try {
+      return await this.#executePresentCommand(
+        commandID,
+        {
+          type: "present",
+          directory: request.directory,
+          target: request.target,
+          mode: request.mode,
+        },
+        {
+          ...options,
+          autoOpen: request.autoOpen,
+        },
+      )
+    } finally {
+      this.#finishForegroundCommand(commandID)
+    }
   }
 
   drainHydrationQueue(): void {
@@ -673,11 +700,48 @@ export class DirectoryWorkspaceController {
     }
   }
 
+  #hasQueuedForegroundCommand(): boolean {
+    return this.#queuedHydrationCommands.some((queued) => isForegroundCommand(queued.options))
+  }
+
+  #shouldDeferToForegroundCommand(options: DirectoryWorkspaceCommandOptions): boolean {
+    return (
+      !isForegroundCommand(options) &&
+      (this.#activeForegroundCommandID !== null || this.#hasQueuedForegroundCommand())
+    )
+  }
+
+  #beginForegroundCommand(commandID: string, options: DirectoryWorkspaceCommandOptions): void {
+    if (isForegroundCommand(options)) {
+      this.#activeForegroundCommandID = commandID
+    }
+  }
+
+  #finishForegroundCommand(commandID: string): void {
+    if (this.#activeForegroundCommandID === commandID) {
+      this.#activeForegroundCommandID = null
+    }
+  }
+
+  #supersedeQueuedBackgroundWorkForForeground(): void {
+    const queuedWork = this.#queuedHydrationCommands.splice(0)
+    for (const queued of queuedWork) {
+      if (isForegroundCommand(queued.options)) {
+        this.#queuedHydrationCommands.push(queued)
+        continue
+      }
+      this.#supersedeQueuedWork(queued)
+    }
+  }
+
   #queueHydrationCommand(
     command: DirectoryWorkspaceCommand,
     options: DirectoryWorkspaceCommandOptions,
   ): Promise<DirectoryWorkspaceCommandResult> {
     return new Promise((resolve) => {
+      if (isForegroundCommand(options)) {
+        this.#supersedeQueuedBackgroundWorkForForeground()
+      }
       logBenchToggleStep("workspace-controller-queue-hydration-command-entry", {
         directory: this.#directory,
         command,
@@ -711,6 +775,9 @@ export class DirectoryWorkspaceController {
     options: DirectoryWorkspaceCommandOptions,
   ): Promise<DirectoryWorkspaceOpenResult> {
     return new Promise((resolve) => {
+      if (isForegroundCommand(options)) {
+        this.#supersedeQueuedBackgroundWorkForForeground()
+      }
       if (this.#queuedHydrationCommands.length >= WORKSPACE_COMMAND_QUEUE_LIMIT) {
         const evicted = this.#queuedHydrationCommands.shift()
         this.#supersedeQueuedWork(evicted)
@@ -987,13 +1054,9 @@ export class DirectoryWorkspaceController {
       next: input.expectedRoute,
       navigateOptions: input.navigateOptions,
     })
-    const preloadBeforeCommit = shouldPreloadBenchNavigation({
-      current: previousProjection.route,
-      next: input.expectedRoute,
-    })
     logBenchToggleStep("workspace-controller-navigation-before-pending", () => ({
       directory: this.#directory,
-      input: { ...input, navigateOptions, preloadBeforeCommit },
+      input: { ...input, navigateOptions },
       attemptID,
       previousProjection,
       storeState: this.#store.getState(),
@@ -1008,7 +1071,7 @@ export class DirectoryWorkspaceController {
     })
     logBenchToggleStep("workspace-controller-navigation-after-pending", () => ({
       directory: this.#directory,
-      input: { ...input, navigateOptions, preloadBeforeCommit },
+      input: { ...input, navigateOptions },
       attemptID,
       projection: this.#currentProjection(),
       storeState: this.#store.getState(),
@@ -1021,60 +1084,24 @@ export class DirectoryWorkspaceController {
       expectedRoute: input.expectedRoute,
     })
 
-    if (preloadBeforeCommit && this.#preloadNavigation) {
-      try {
-        logBenchToggleStep("workspace-controller-navigation-before-preload", {
-          directory: this.#directory,
-          input: { ...input, navigateOptions, preloadBeforeCommit },
-          attemptID,
-        })
-        await this.#preloadNavigation(navigateOptions)
-        logBenchToggleStep("workspace-controller-navigation-after-preload", {
-          directory: this.#directory,
-          input: { ...input, navigateOptions, preloadBeforeCommit },
-          attemptID,
-        })
-      } catch (error) {
-        logBenchToggleStep("workspace-controller-navigation-preload-error", {
-          directory: this.#directory,
-          input: { ...input, navigateOptions, preloadBeforeCommit },
-          attemptID,
-          error,
-        })
-      }
-
-      if (this.#disposed || this.#activeCommandID !== input.commandID) {
-        this.#store.getState().clearPendingIntent(input.commandID)
-        logBenchToggleStep("workspace-controller-navigation-superseded-after-preload", {
-          directory: this.#directory,
-          input: { ...input, navigateOptions, preloadBeforeCommit },
-          attemptID,
-          disposed: this.#disposed,
-          activeCommandID: this.#activeCommandID,
-        })
-        const result = supersededProjectionResult(previousProjection)
-        return this.#finishNavigationAttempt(attemptID, result)
-      }
-    }
-
     let navigatedLocation: DirectoryWorkspaceLocation
     try {
       logBenchToggleStep("workspace-controller-navigation-before-navigate", {
         directory: this.#directory,
-        input: { ...input, navigateOptions, preloadBeforeCommit },
+        input: { ...input, navigateOptions },
         attemptID,
       })
       navigatedLocation = await this.#navigate(navigateOptions)
       logBenchToggleStep("workspace-controller-navigation-after-navigate", {
         directory: this.#directory,
-        input: { ...input, navigateOptions, preloadBeforeCommit },
+        input: { ...input, navigateOptions },
         attemptID,
         route: this.#getRoute(),
       })
     } catch (error) {
       logBenchToggleStep("workspace-controller-navigation-navigate-error", {
         directory: this.#directory,
-        input: { ...input, navigateOptions, preloadBeforeCommit },
+        input: { ...input, navigateOptions },
         attemptID,
         error,
       })

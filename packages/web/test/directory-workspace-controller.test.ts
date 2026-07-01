@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import type { NavigateOptions } from "@tanstack/react-router"
 import {
+  BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
   BENCH_CHAT_SEARCH_PARAM,
@@ -132,8 +133,6 @@ function createHarness(input?: {
   let nextDirectory = DIRECTORY
   let navigatedLocation = routeLocation(route)
   let navigatedOptions: NavigateOptions | undefined
-  const preloadedOptions: NavigateOptions[] = []
-  const routesDuringPreload: BenchRouteSnapshot[] = []
   const navigationEvents: string[] = []
   const guardCalls: BenchLeaveGuardInput[] = []
   const store = createDirectoryWorkspaceStore({
@@ -181,11 +180,6 @@ function createHarness(input?: {
       }
       return navigatedLocation
     },
-    preloadNavigation: async (options) => {
-      navigationEvents.push("preload")
-      routesDuringPreload.push(route)
-      preloadedOptions.push(options)
-    },
   })
   if (input?.hydrate !== false) {
     store.getState().finishHydration({
@@ -209,8 +203,6 @@ function createHarness(input?: {
     readRoute: () => route,
     readNavigatedLocation: () => navigatedLocation,
     readNavigatedOptions: () => navigatedOptions,
-    readPreloadedOptions: () => preloadedOptions,
-    readRoutesDuringPreload: () => routesDuringPreload,
     readNavigationEvents: () => navigationEvents,
     setNextRoute: (routeToCommit: BenchRouteSnapshot, directory = DIRECTORY) => {
       nextRoute = routeToCommit
@@ -354,13 +346,7 @@ describe("DirectoryWorkspaceController", () => {
       replace: true,
       viewTransition: false,
     })
-    expect(harness.readPreloadedOptions()).toHaveLength(1)
-    expect(harness.readPreloadedOptions()[0]).toMatchObject({
-      replace: true,
-      viewTransition: false,
-    })
-    expect(harness.readRoutesDuringPreload()).toEqual([DOCKED_FILE_ROUTE])
-    expect(harness.readNavigationEvents()).toEqual(["preload", "navigate", "guard"])
+    expect(harness.readNavigationEvents()).toEqual(["navigate", "guard"])
     expect(harness.guardCalls).toEqual([
       {
         intent: "replace-target",
@@ -623,5 +609,66 @@ describe("DirectoryWorkspaceController", () => {
     })
     expect(harness.readRoute()).toEqual(DOCKED_FILE_ROUTE)
     expect(harness.guardCalls).toHaveLength(1)
+  })
+
+  test("background auto-open does not supersede an in-flight agent presentation", async () => {
+    let resolveGuard: ((result: BenchLeaveGuardResult) => void) | undefined
+    const harness = createHarness({
+      initialRoute: DOCKED_FILE_ROUTE,
+      initialExpanded: true,
+      guard: () =>
+        new Promise<BenchLeaveGuardResult>((resolve) => {
+          resolveGuard = resolve
+        }),
+    })
+
+    harness.setNextRoute(DOCKED_NEXT_FILE_ROUTE)
+    const agentResultPromise = harness.controller.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: NEXT_FILE_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      { origin: "agent" },
+    )
+    await Promise.resolve()
+
+    const autoOpenResult = await harness.controller.execute(
+      {
+        type: "present",
+        directory: DIRECTORY,
+        target: OBJECT_TARGET,
+        mode: BENCH_CHAT_LAYOUT_DOCKED,
+      },
+      {
+        origin: "auto-open",
+        autoOpen: {
+          policyID: BENCH_AUTO_OPEN_POLICY_FULLSCREEN_HTML_WIDGET,
+          eventKey: "stale-resource-auto-open",
+        },
+      },
+    )
+    if (!resolveGuard) {
+      throw new Error("Expected guard to be awaiting resolution")
+    }
+    resolveGuard(allowLeave())
+    const agentResult = await agentResultPromise
+
+    expect(autoOpenResult).toMatchObject({
+      outcome: "superseded",
+      reason: "newer_command",
+      projection: {
+        route: DOCKED_FILE_ROUTE,
+      },
+    })
+    expect(agentResult).toMatchObject({
+      outcome: "committed",
+      projection: {
+        route: DOCKED_NEXT_FILE_ROUTE,
+      },
+    })
+    expect(harness.readRoute()).toEqual(DOCKED_NEXT_FILE_ROUTE)
+    expect(harness.readNavigationEvents()).toEqual(["navigate", "guard"])
   })
 })

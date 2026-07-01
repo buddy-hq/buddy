@@ -20,7 +20,7 @@ import { getPromptDraft, usePromptStore } from "@/state/prompt-store"
 import { resourceFileExtensionFromFormat, resourcesQueryOptions } from "@/state/resources-query"
 import { useTeachingRuntime, teachingSelectionKey } from "@/state/teaching-runtime"
 import { addResource, rebuildResource, type ResourceRecord } from "@/state/resource-actions"
-import { BENCH_CHAT_LAYOUT_DOCKED, useOpenBench, type BenchTarget } from "@/lib/bench-navigation"
+import type { BenchTarget } from "@/lib/bench-navigation"
 import { stringifyError } from "@/lib/api-client"
 
 type DirectoryChatReadingPageProps = {
@@ -43,7 +43,6 @@ function createReadingSelectionKey() {
 
 export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
   const queryClient = useQueryClient()
-  const openBenchRoute = useOpenBench()
   const [processing, setProcessing] = useState(false)
   const [processingError, setProcessingError] = useState<string | undefined>(undefined)
   const [processBannerDismissed, setProcessBannerDismissed] = useState(false)
@@ -207,24 +206,6 @@ export function DirectoryChatReadingPage(props: DirectoryChatReadingPageProps) {
     ],
   )
   useRegisterBenchContextProvider({ target: props.target, provider: contextProvider })
-  useEffect(() => {
-    if (!readyDirectory || props.resourceKey || !resourceRecord?.objectID) return
-    void openBenchRoute({
-      directory: readyDirectory,
-      target: {
-        type: "object",
-        ref: {
-          kind: "resource",
-          objectID: resourceRecord.objectID,
-          revisionID: null,
-          itemID: null,
-        },
-        viewID: "reader",
-      },
-      mode: BENCH_CHAT_LAYOUT_DOCKED,
-      autoOpen: null,
-    })
-  }, [openBenchRoute, props.resourceKey, readyDirectory, resourceRecord?.objectID])
 
   async function processResourceForBuddy() {
     if (!readyDirectory || !normalizedPath || processing) return
