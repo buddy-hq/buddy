@@ -29,6 +29,7 @@
         "@chonkiejs/core": "^0.0.8",
         "@hono/node-server": "^1.19.9",
         "@hono/standard-validator": "^0.2.2",
+        "@llamaindex/liteparse": "2.4.0",
         "@lydell/node-pty": "catalog:",
         "@opencode-ai/plugin": "workspace:*",
         "@opencode-ai/sdk": "workspace:*",
@@ -2170,6 +2171,22 @@
     "@lezer/xml": ["@lezer/xml@1.0.6", "", { "dependencies": { "@lezer/common": "^1.2.0", "@lezer/highlight": "^1.0.0", "@lezer/lr": "^1.0.0" } }, "sha512-CdDwirL0OEaStFue/66ZmFSeppuL6Dwjlk8qk153mSQwiSH/Dlri4GNymrNWnUmPl2Um7QfV1FO9KFUyX3Twww=="],
 
     "@lezer/yaml": ["@lezer/yaml@1.0.4", "", { "dependencies": { "@lezer/common": "^1.2.0", "@lezer/highlight": "^1.0.0", "@lezer/lr": "^1.4.0" } }, "sha512-2lrrHqxalACEbxIbsjhqGpSW8kWpUKuY6RHgnSAFZa6qK62wvnPxA8hGOwOoDbwHcOFs5M4o27mjGu+P7TvBmw=="],
+
+    "@llamaindex/liteparse": ["@llamaindex/liteparse@2.4.0", "", { "dependencies": { "commander": "^12.0.0" }, "optionalDependencies": { "@llamaindex/liteparse-darwin-arm64": "2.4.0", "@llamaindex/liteparse-darwin-x64": "2.4.0", "@llamaindex/liteparse-linux-arm64-gnu": "2.4.0", "@llamaindex/liteparse-linux-x64-gnu": "2.4.0", "@llamaindex/liteparse-linux-x64-musl": "2.4.0", "@llamaindex/liteparse-win32-arm64-msvc": "2.4.0", "@llamaindex/liteparse-win32-x64-msvc": "2.4.0" }, "bin": { "lit": "dist/cli.js", "liteparse": "dist/cli.js" } }, "sha512-UuS8ISkBXhknLe38p8Osi6p15JZcva9cjFVzbxHWxT+qzFSLEnYfhLZqBgiZthjYGF2GOVgq8FEblf5TZwrX1Q=="],
+
+    "@llamaindex/liteparse-darwin-arm64": ["@llamaindex/liteparse-darwin-arm64@2.4.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-q58fz2imeCE0JrUJyIV4+zzR223LnAr56sgAUsPnHTxbcMjtbPw2TznGNWKgECd25wOoghlBNJrvYWuDOhrkeQ=="],
+
+    "@llamaindex/liteparse-darwin-x64": ["@llamaindex/liteparse-darwin-x64@2.4.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-7tsTNooVY+qlspu/Qtp30/nCNl0Jdcv5qgncUHLzU7Ygj7qn8r54Q5zurGnPU8Lby3YgQ7B3dQHzr35uNqow8Q=="],
+
+    "@llamaindex/liteparse-linux-arm64-gnu": ["@llamaindex/liteparse-linux-arm64-gnu@2.4.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-eCEmbSsCr25gRfZiG/Sr+wE+ZHgo3O5p2Y4pEmhTpSZEEa2d0gsc5ARPixxtov9/TmuyJYIOLdUinItCmf6eQg=="],
+
+    "@llamaindex/liteparse-linux-x64-gnu": ["@llamaindex/liteparse-linux-x64-gnu@2.4.0", "", { "os": "linux", "cpu": "x64" }, "sha512-8pWwcsjtNUu7ZUhI9qMZQcbwL3McxB6Bed7BXqVv70UtzNg1fk5cZc885bvicdpQaqnmaqcV5wk2WnhJHu/uxg=="],
+
+    "@llamaindex/liteparse-linux-x64-musl": ["@llamaindex/liteparse-linux-x64-musl@2.4.0", "", { "os": "linux", "cpu": "x64" }, "sha512-QMZfVDzlWVb/eBMEVYRtcpVI7QLK8C+cXrETrzCGymPRsvIFIGQL8B4mr45dIy2ndak5PcFEMD2NOTl/RjpbJA=="],
+
+    "@llamaindex/liteparse-win32-arm64-msvc": ["@llamaindex/liteparse-win32-arm64-msvc@2.4.0", "", { "os": "win32", "cpu": "arm64" }, "sha512-rQ/vIvWtRidTU7hWyC/lHZIqyrWXqaU+9wc/g1gPsJPGNVPEYGOmY/SmCxGT+unZ7ibI4a7hoBRScaP49V1GTw=="],
+
+    "@llamaindex/liteparse-win32-x64-msvc": ["@llamaindex/liteparse-win32-x64-msvc@2.4.0", "", { "os": "win32", "cpu": "x64" }, "sha512-VjdFVC5J2HP/iKVLMYjAjoCjO0Sj192ZgaqKKlmIa6LcZ4cU0q6YjUUHR9WH9shozbQm4n2KrV+tvpqPN4/9+w=="],
 
     "@lukeed/ms": ["@lukeed/ms@2.0.2", "", {}, "sha512-9I2Zn6+NJLfaGoz9jN3lpwDgAYvfGeNYdbAIjJOqzs4Tpc+VU3Jqq4IofSUBKajiDS8k9fZIg18/z13mpk1bsA=="],
 
@@ -7200,6 +7217,8 @@
     "@jsx-email/tailwind/react": ["react@18.2.0", "", { "dependencies": { "loose-envify": "^1.1.0" } }, "sha512-/3IjMdb2L9QbBdWiW5e3P2/npwMBaU9mHCSCUzNln0ZCYbcfTsGbTJrU/kGemdH2IWmB2ioZ+zkxtmq6g09fGQ=="],
 
     "@jsx-email/tailwind/react-dom": ["react-dom@18.2.0", "", { "dependencies": { "loose-envify": "^1.1.0", "scheduler": "^0.23.0" }, "peerDependencies": { "react": "^18.2.0" } }, "sha512-6IMTriUmvsjHUjNtEDudZfuDQUoWXVxKHhlEGSk81n4YFS+r/Kl99wXiwlVXtPBtJenozv2P+hxDsw9eA7Xo6g=="],
+
+    "@llamaindex/liteparse/commander": ["commander@12.1.0", "", {}, "sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA=="],
 
     "@malept/flatpak-bundler/fs-extra": ["fs-extra@9.1.0", "", { "dependencies": { "at-least-node": "^1.0.0", "graceful-fs": "^4.2.0", "jsonfile": "^6.0.1", "universalify": "^2.0.0" } }, "sha512-hcg3ZmepS30/7BSFqRvoo3DOMQu7IjqxO5nCDt+zM9XWjb33Wg7ziNT+Qvqbuc3+gWpzO02JubVyk2G4Zvo1OQ=="],
 

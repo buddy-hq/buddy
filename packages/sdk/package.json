@@ -10,6 +10,7 @@
     "./sdk": "./src/gen/sdk.gen.ts"
   },
   "scripts": {
+    "benchmark:pdf-resources": "bun ./scripts/benchmark-pdf-resources.ts",
     "generate": "bun run scripts/generate.ts && tsc -b --force",
     "lint": "bun ../../node_modules/oxlint/bin/oxlint",
     "typecheck": "bun ../../script/typecheck-lock.ts -- bun run typecheck:raw",

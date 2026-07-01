@@ -88,6 +88,7 @@
     "build": "bun ./node_modules/turbo/bin/turbo run build --filter='@buddy/*' --only --output-logs=errors-only",
     "build:desktop": "bun run --cwd packages/desktop-electron build",
     "build:desktop:electron": "bun run --cwd packages/desktop-electron build",
+    "benchmark:pdf-resources": "bun run --cwd packages/sdk benchmark:pdf-resources",
     "build:knowledge-graph": "bun run --cwd packages/buddy update:knowledge-graph",
     "update:knowledge-graph": "bun run --cwd packages/buddy update:knowledge-graph",
     "verify:knowledge-graph": "bun run --cwd packages/buddy verify:knowledge-graph",
