@@ -1,9 +1,12 @@
 #!/usr/bin/env bun
 
-import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs"
+import { copyFileSync, cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
 import { createRequire } from "node:module"
 import path from "node:path"
-import { currentBackendNodeArtifactTarget } from "../../../script/backend-node-artifact"
+import {
+  LITEPARSE_PACKAGE_NAME,
+  currentBackendNodeArtifactTarget,
+} from "../../../script/backend-node-artifact"
 import {
   BUNDLED_ADVANCED_MATH_RUNTIME_VERSION_DEFINE,
   computeAdvancedMathRuntimeVersion,
@@ -16,7 +19,9 @@ const TARGET_PLATFORM_ENV = "BUDDY_NODE_ARTIFACT_TARGET_PLATFORM"
 const TARGET_ARCH_ENV = "BUDDY_NODE_ARTIFACT_TARGET_ARCH"
 const bundledAdvancedMathRuntimeVersion = computeAdvancedMathRuntimeVersion()
 const chonkieWasmOutputPath = path.resolve(outdir, "pkg/chonkiejs_chunk_bg.wasm")
-const firstStageExternals = ["jsonc-parser", "@lydell/node-pty"] as const
+const tessdataSourcePath = path.resolve(backendDir, "resources/tessdata")
+const tessdataOutputPath = path.resolve(outdir, "resources/tessdata")
+const firstStageExternals = ["jsonc-parser", "@lydell/node-pty", LITEPARSE_PACKAGE_NAME] as const
 
 process.chdir(backendDir)
 
@@ -74,6 +79,7 @@ if (!result.success) {
 }
 
 copyChonkieWasm()
+copyTessdata()
 
 console.log(`Built Buddy Node backend at ${path.resolve(outdir, "node.js")}`)
 console.log(`Bundled advanced math runtime version ${bundledAdvancedMathRuntimeVersion}`)
@@ -82,6 +88,14 @@ function copyChonkieWasm(): void {
   const chonkieWasmInputPath = resolveChonkieWasmInputPath()
   mkdirSync(path.dirname(chonkieWasmOutputPath), { recursive: true })
   copyFileSync(chonkieWasmInputPath, chonkieWasmOutputPath)
+}
+
+function copyTessdata(): void {
+  if (!existsSync(tessdataSourcePath)) {
+    throw new Error(`Buddy tessdata runtime not found at ${tessdataSourcePath}`)
+  }
+  mkdirSync(path.dirname(tessdataOutputPath), { recursive: true })
+  cpSync(tessdataSourcePath, tessdataOutputPath, { recursive: true, dereference: true })
 }
 
 function resolveChonkieWasmInputPath(): string {

@@ -2,8 +2,14 @@ import { existsSync, readdirSync } from "node:fs"
 import path from "node:path"
 
 const CHONKIE_WASM_RELATIVE_PATH = ["pkg", "chonkiejs_chunk_bg.wasm"] as const
+const ENGLISH_TESSDATA_RELATIVE_PATH = [
+  "resources",
+  "tessdata",
+  "eng.traineddata",
+] as const
 const PHOTON_WASM_PATTERN = /^photon_rs_bg(?:-[a-z0-9]+)?\.wasm$/i
 const DIRECTORY_NODE_MODULES = "node_modules" as const
+export const LITEPARSE_PACKAGE_NAME = "@llamaindex/liteparse" as const
 
 export type BackendNodeArtifactTarget = {
   arch: string
@@ -30,6 +36,19 @@ export function parcelWatcherNativePackageName(target: BackendNodeArtifactTarget
   return `@parcel/watcher-${target.platform}-${target.arch}${libcSuffix}`
 }
 
+export function liteParseNativePackageName(target: BackendNodeArtifactTarget): string {
+  if (target.platform === "darwin") {
+    return `@llamaindex/liteparse-darwin-${target.arch}`
+  }
+  if (target.platform === "win32") {
+    return `@llamaindex/liteparse-win32-${target.arch}-msvc`
+  }
+  if (target.platform === "linux") {
+    return `@llamaindex/liteparse-linux-${target.arch}-gnu`
+  }
+  throw new Error(`Unsupported LiteParse platform: ${target.platform}-${target.arch}`)
+}
+
 export function assertBackendNodeArtifactRuntimeFiles(input: { artifactDir: string }): void {
   const entrypoint = path.join(input.artifactDir, "node.js")
   if (!existsSync(entrypoint)) {
@@ -43,6 +62,16 @@ export function assertBackendNodeArtifactRuntimeFiles(input: { artifactDir: stri
 
   if (!readdirSync(input.artifactDir).some((name) => PHOTON_WASM_PATTERN.test(name))) {
     throw new Error(`Buddy Node artifact is missing Photon WASM in ${input.artifactDir}`)
+  }
+
+  const englishTessdataPath = path.join(
+    input.artifactDir,
+    ...ENGLISH_TESSDATA_RELATIVE_PATH,
+  )
+  if (!existsSync(englishTessdataPath)) {
+    throw new Error(
+      `Buddy Node artifact is missing English tessdata at ${englishTessdataPath}`,
+    )
   }
 }
 

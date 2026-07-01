@@ -12,6 +12,12 @@ const KNOWLEDGE_GRAPH_ARCHIVE_CHECKSUM_FILENAME = `${KNOWLEDGE_GRAPH_DB_ARCHIVE_
 const KNOWLEDGE_GRAPH_MANIFEST_FILENAME = "learning-commons-knowledge-graph.db.json"
 const KNOWLEDGE_GRAPH_LOCKFILE_FILENAME = "knowledge-graph.lock.json"
 const DEFAULT_KNOWLEDGE_GRAPH_ASSET_SOURCE = path.resolve(BACKEND_DIR, "resources/knowledge-graph")
+const DEFAULT_TESSDATA_ASSET_SOURCE = path.resolve(BACKEND_DIR, "resources/tessdata")
+const TESSDATA_ASSET_FILENAMES = [
+  "eng.traineddata",
+  "eng.traineddata.sha256",
+  "LICENSE",
+] as const
 
 const KNOWLEDGE_GRAPH_ASSET_FILENAMES = [
   KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME,
@@ -92,6 +98,25 @@ export function syncBundledKnowledgeGraphAssets(input: {
   }
 
   return path.resolve(input.destinationDir, KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME)
+}
+
+export function syncBundledTessdataAssets(destinationDir: string) {
+  if (!existsSync(DEFAULT_TESSDATA_ASSET_SOURCE)) {
+    throw new Error(`Tessdata asset source missing at ${DEFAULT_TESSDATA_ASSET_SOURCE}`)
+  }
+
+  rmSync(destinationDir, { recursive: true, force: true })
+  mkdirSync(destinationDir, { recursive: true })
+
+  for (const filename of TESSDATA_ASSET_FILENAMES) {
+    const sourceFile = path.resolve(DEFAULT_TESSDATA_ASSET_SOURCE, filename)
+    if (!existsSync(sourceFile)) {
+      throw new Error(`Tessdata asset ${filename} missing at ${sourceFile}`)
+    }
+    copyFileSync(sourceFile, path.resolve(destinationDir, filename))
+  }
+
+  return destinationDir
 }
 
 export function syncBackendSourceResources(destinationDir: string) {
