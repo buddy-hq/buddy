@@ -28,6 +28,61 @@ packages/web/src/lib/bench-navigation.ts
 
 ## Open Architecture Issues
 
+### Renderer Readiness Is Not Yet A First-Class Tool Outcome
+
+Status: Open.
+
+Risk:
+
+`bench_present` can report that a target was presented after the client commits the Bench route and publishes context, even if the mounted renderer later discovers that the file is unsupported or fails to load. This makes agent-visible state weaker than user-visible state: the user can see a renderer error while the model only sees a successful presentation result.
+
+Recent example:
+
+- A PDF-to-text conversion produced a valid UTF-8 `.txt` file containing form-feed (`\f`) page separators.
+- The source editor path initially treated form-feed as unreadable control content and showed a “not readable UTF-8” error, even though the bytes were valid UTF-8.
+- The narrow text-policy fix is to accept form-feed and validate actual UTF-8 bytes before decoding, but the broader Bench issue remains: renderer terminal readiness is not part of the required action completion contract.
+
+Current weak spots:
+
+- Bench action completion mostly proves navigation/context synchronization, not renderer readiness.
+- Renderer failures are visible in the UI but are not always reflected back into the `bench_present` tool result.
+- Text-file rendering is UTF-8-only. UTF-16, Latin-1, and other legacy encodings are not part of the editable source-file contract.
+- Error copy can conflate byte-level encoding failure with renderer policy failure unless every layer uses structured reason codes.
+
+Decision points to lock:
+
+1. Define a typed renderer terminal status.
+
+   Candidate:
+
+   ```ts
+   type BenchRendererStatus =
+     | { status: "loading" }
+     | { status: "ready"; renderer: string }
+     | { status: "unsupported"; renderer: string; reason: string }
+     | { status: "error"; renderer: string; reason: string }
+   ```
+
+2. Decide when a required `bench_present` action is complete.
+
+   Options:
+   - complete on route commit, as today;
+   - complete after renderer terminal readiness;
+   - complete on route commit but immediately follow with a renderer failure event.
+
+3. Decide the editable text encoding contract.
+
+   Options:
+   - UTF-8 only, with explicit unsupported errors for other encodings;
+   - detect UTF-16 BOM and read-only render it;
+   - detect/transcode multiple encodings and preserve original encoding on save.
+
+4. Decide whether non-UTF-8 text files are editable, read-only, or external-only.
+
+Recommended direction:
+
+Keep the source editor UTF-8-only until an encoding-preservation design exists. Add renderer terminal status to Bench context/action completion so required agent presentations can return a renderer error instead of a false success. If UTF-16 is added, start with BOM-detected read-only rendering, then only allow editing once save can preserve the original encoding safely.
+
 ### Typed Editable-Surface Lifecycle
 
 Status: Open.
