@@ -1,0 +1,68 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-01T15:37:54.238Z",
+  "environment": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "bunVersion": "1.3.13"
+  },
+  "results": [
+    {
+      "sourceBytes": 11434,
+      "mode": "liteparse-selective-ocr",
+      "status": "ready",
+      "extractor": "@llamaindex/liteparse",
+      "characters": 33,
+      "warnings": [
+        "PDF outline extraction failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "scanned.pdf",
+      "durationMs": 1049
+    },
+    {
+      "sourceBytes": 11434,
+      "mode": "liteparse-ocr",
+      "status": "ready",
+      "extractor": "@llamaindex/liteparse",
+      "characters": 33,
+      "warnings": [
+        "PDF outline extraction failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "scanned.pdf",
+      "durationMs": 519
+    },
+    {
+      "sourceBytes": 11434,
+      "mode": "liteparse-no-ocr",
+      "status": "unsupported",
+      "extractor": "unsupported",
+      "characters": 36,
+      "warnings": [
+        "LiteParse failed: LiteParse returned no usable PDF text.",
+        "pdfjs-dist failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "pdftotext returned no text.",
+        "mutool failed: Executable not found in $PATH: \"mutool\"",
+        "Buddy could not extract a usable text representation."
+      ],
+      "source": "scanned.pdf",
+      "durationMs": 523
+    },
+    {
+      "sourceBytes": 11434,
+      "mode": "legacy",
+      "status": "unsupported",
+      "extractor": "unsupported",
+      "characters": 36,
+      "warnings": [
+        "pdfjs-dist failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "pdftotext returned no text.",
+        "mutool failed: Executable not found in $PATH: \"mutool\"",
+        "Buddy could not extract a usable text representation."
+      ],
+      "source": "scanned.pdf",
+      "durationMs": 516
+    }
+  ]
+}

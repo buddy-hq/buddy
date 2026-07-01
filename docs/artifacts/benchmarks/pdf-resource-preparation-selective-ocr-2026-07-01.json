@@ -1,0 +1,223 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-01T15:34:37.093Z",
+  "environment": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "bunVersion": "1.3.13"
+  },
+  "results": [
+    {
+      "sourceBytes": 203869,
+      "mode": "liteparse-selective-ocr",
+      "status": "ready",
+      "extractor": "@llamaindex/liteparse",
+      "characters": 3194,
+      "warnings": [
+        "PDF outline extraction failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "simple-note.pdf",
+      "durationMs": 1183
+    },
+    {
+      "sourceBytes": 1631106,
+      "mode": "liteparse-selective-ocr",
+      "status": "ready",
+      "extractor": "@llamaindex/liteparse",
+      "characters": 19733,
+      "warnings": [
+        "PDF outline extraction failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "ncert-class-8-honeydew-ch8.pdf",
+      "durationMs": 519
+    },
+    {
+      "sourceBytes": 14004471,
+      "mode": "liteparse-selective-ocr",
+      "status": "ready",
+      "extractor": "@llamaindex/liteparse",
+      "characters": 62581,
+      "warnings": [
+        "PDF outline extraction failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "NCERT-Class-9-Science-Exploration-Chapter-3-Tissues-in-Action.pdf",
+      "durationMs": 516
+    },
+    {
+      "sourceBytes": 3314791,
+      "mode": "liteparse-selective-ocr",
+      "status": "ready",
+      "extractor": "@llamaindex/liteparse",
+      "characters": 33944,
+      "warnings": [
+        "PDF outline extraction failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "gecu105.pdf",
+      "durationMs": 1529
+    },
+    {
+      "sourceBytes": 203869,
+      "mode": "liteparse-ocr",
+      "status": "ready",
+      "extractor": "@llamaindex/liteparse",
+      "characters": 3228,
+      "warnings": [
+        "PDF outline extraction failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "simple-note.pdf",
+      "durationMs": 3539
+    },
+    {
+      "sourceBytes": 1631106,
+      "mode": "liteparse-ocr",
+      "status": "ready",
+      "extractor": "@llamaindex/liteparse",
+      "characters": 19957,
+      "warnings": [
+        "PDF outline extraction failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "ncert-class-8-honeydew-ch8.pdf",
+      "durationMs": 17649
+    },
+    {
+      "sourceBytes": 14004471,
+      "mode": "liteparse-ocr",
+      "status": "ready",
+      "extractor": "@llamaindex/liteparse",
+      "characters": 63363,
+      "warnings": [
+        "PDF outline extraction failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "NCERT-Class-9-Science-Exploration-Chapter-3-Tissues-in-Action.pdf",
+      "durationMs": 41836
+    },
+    {
+      "sourceBytes": 3314791,
+      "mode": "liteparse-ocr",
+      "status": "ready",
+      "extractor": "@llamaindex/liteparse",
+      "characters": 34326,
+      "warnings": [
+        "PDF outline extraction failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "gecu105.pdf",
+      "durationMs": 27706
+    },
+    {
+      "sourceBytes": 203869,
+      "mode": "liteparse-no-ocr",
+      "status": "ready",
+      "extractor": "@llamaindex/liteparse",
+      "characters": 3194,
+      "warnings": [
+        "PDF outline extraction failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "simple-note.pdf",
+      "durationMs": 520
+    },
+    {
+      "sourceBytes": 1631106,
+      "mode": "liteparse-no-ocr",
+      "status": "ready",
+      "extractor": "@llamaindex/liteparse",
+      "characters": 19733,
+      "warnings": [
+        "PDF outline extraction failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "ncert-class-8-honeydew-ch8.pdf",
+      "durationMs": 514
+    },
+    {
+      "sourceBytes": 14004471,
+      "mode": "liteparse-no-ocr",
+      "status": "ready",
+      "extractor": "@llamaindex/liteparse",
+      "characters": 62581,
+      "warnings": [
+        "PDF outline extraction failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "NCERT-Class-9-Science-Exploration-Chapter-3-Tissues-in-Action.pdf",
+      "durationMs": 512
+    },
+    {
+      "sourceBytes": 3314791,
+      "mode": "liteparse-no-ocr",
+      "status": "ready",
+      "extractor": "@llamaindex/liteparse",
+      "characters": 33944,
+      "warnings": [
+        "PDF outline extraction failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "gecu105.pdf",
+      "durationMs": 1014
+    },
+    {
+      "sourceBytes": 203869,
+      "mode": "legacy",
+      "status": "ready",
+      "extractor": "pdftotext",
+      "characters": 3474,
+      "warnings": [
+        "pdfjs-dist failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "Used pdftotext fallback.",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "simple-note.pdf",
+      "durationMs": 526
+    },
+    {
+      "sourceBytes": 1631106,
+      "mode": "legacy",
+      "status": "ready",
+      "extractor": "pdftotext",
+      "characters": 22208,
+      "warnings": [
+        "pdfjs-dist failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "Used pdftotext fallback.",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "ncert-class-8-honeydew-ch8.pdf",
+      "durationMs": 534
+    },
+    {
+      "sourceBytes": 14004471,
+      "mode": "legacy",
+      "status": "ready",
+      "extractor": "pdftotext",
+      "characters": 83716,
+      "warnings": [
+        "pdfjs-dist failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "Used pdftotext fallback.",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "NCERT-Class-9-Science-Exploration-Chapter-3-Tissues-in-Action.pdf",
+      "durationMs": 520
+    },
+    {
+      "sourceBytes": 3314791,
+      "mode": "legacy",
+      "status": "ready",
+      "extractor": "pdftotext",
+      "characters": 53640,
+      "warnings": [
+        "pdfjs-dist failed: undefined is not an object (evaluating 'this._transport.getOutline')",
+        "Used pdftotext fallback.",
+        "No PDF outline or chapter headings were found; using page-window chunking."
+      ],
+      "source": "gecu105.pdf",
+      "durationMs": 1022
+    }
+  ]
+}
