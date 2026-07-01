@@ -37,6 +37,14 @@ import {
   renderPageMarkdown,
   renderTocMarkdown,
 } from "./markdown"
+import {
+  PDF_EXTRACTION_MODE_LEGACY,
+  PDF_EXTRACTION_MODE_LITEPARSE_NO_OCR,
+  PDF_EXTRACTION_MODE_LITEPARSE_SELECTIVE_OCR,
+  resolvePdfExtractionMode,
+} from "./pdf/extraction-mode"
+import { extractPdfWithLiteParse } from "./pdf/liteparse-parser"
+import { extractPdfWithSelectiveOcr } from "./pdf/selective-ocr-parser"
 
 type XmlRecord = Record<string, unknown>
 type ResourcePackZipEntry = FileEntry
@@ -75,6 +83,8 @@ const PDF_CHUNKING_FALLBACK_WARNING =
   "No PDF outline or chapter headings were found; using page-window chunking."
 const PDF_CHUNKING_GENERIC_WARNING =
   "Structured chunking was unavailable; using generic paragraph chunking."
+const PDF_LITEPARSE_FALLBACK_WARNING_PREFIX = "LiteParse failed:" as const
+const PDF_LITEPARSE_METADATA_WARNING_PREFIX = "PDF outline extraction failed:" as const
 const PDF_HEADING_PATTERNS = [
   /^chapter\s+([0-9ivxlcdm]+)\b[:.\-\s]*(.*)$/i,
   /^part\s+([0-9ivxlcdm]+)\b[:.\-\s]*(.*)$/i,
@@ -316,6 +326,50 @@ export async function extractResourcePack(
 }
 
 async function extractPdfResource(sourcePath: string): Promise<ResourceExtractionResult> {
+  const extractionMode = resolvePdfExtractionMode()
+  if (extractionMode === PDF_EXTRACTION_MODE_LEGACY) {
+    return extractPdfResourceWithPdfJsPipeline(sourcePath)
+  }
+
+  try {
+    const liteParseResult =
+      extractionMode === PDF_EXTRACTION_MODE_LITEPARSE_SELECTIVE_OCR
+        ? await extractPdfWithSelectiveOcr(sourcePath)
+        : await extractPdfWithLiteParse(sourcePath, {
+            ocrEnabled: extractionMode !== PDF_EXTRACTION_MODE_LITEPARSE_NO_OCR,
+          })
+    const metadataResult = await extractPdfOutlineMetadata(sourcePath).catch((error) => ({
+      outlinePoints: [],
+      tocLines: [],
+      warning: `${PDF_LITEPARSE_METADATA_WARNING_PREFIX} ${errorMessage(error)}`,
+    }))
+
+    return buildPdfExtractionResult({
+      extractor: liteParseResult.extractor,
+      pageTexts: liteParseResult.pageTexts,
+      outlinePoints: metadataResult.outlinePoints,
+      tocLines: metadataResult.tocLines,
+      warnings: [
+        ...liteParseResult.warnings,
+        ...(metadataResult.warning ? [metadataResult.warning] : []),
+      ],
+      coverImage: await extractPdfCoverImage(sourcePath),
+    })
+  } catch (error) {
+    const fallback = await extractPdfResourceWithPdfJsPipeline(sourcePath)
+    return {
+      ...fallback,
+      warnings: [
+        `${PDF_LITEPARSE_FALLBACK_WARNING_PREFIX} ${errorMessage(error)}`,
+        ...fallback.warnings,
+      ],
+    }
+  }
+}
+
+async function extractPdfResourceWithPdfJsPipeline(
+  sourcePath: string,
+): Promise<ResourceExtractionResult> {
   try {
     installPdfJsDOMMatrixFallback()
     const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs")
@@ -403,6 +457,95 @@ async function extractPdfResource(sourcePath: string): Promise<ResourceExtractio
     }
   } catch (error) {
     return extractPdfResourceWithSystemFallback(sourcePath, errorMessage(error))
+  }
+}
+
+async function extractPdfOutlineMetadata(sourcePath: string): Promise<{
+  outlinePoints: PdfOutlinePoint[]
+  tocLines: string[]
+  warning?: string
+}> {
+  installPdfJsDOMMatrixFallback()
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs")
+  const bytes = new Uint8Array(await fs.readFile(sourcePath))
+  const loadingTask = pdfjs.getDocument({
+    data: bytes,
+    useWorkerFetch: false,
+    isEvalSupported: false,
+  })
+  const document = asPdfDocument(await loadingTask.promise)
+  const outline = await document.getOutline().catch(() => undefined)
+  const outlineNodes = Array.isArray(outline) ? outline : []
+  const tocLines: string[] = []
+  if (outlineNodes.length > 0) {
+    flattenPdfOutline(outlineNodes, tocLines)
+  }
+
+  return {
+    outlinePoints: await buildPdfOutlinePoints(document, outlineNodes),
+    tocLines,
+  }
+}
+
+function buildPdfExtractionResult(input: {
+  extractor: string
+  pageTexts: string[]
+  outlinePoints: PdfOutlinePoint[]
+  tocLines: string[]
+  warnings: string[]
+  coverImage?: ResourceExtractionCover
+}): ResourceExtractionResult {
+  const pageMarkdowns = input.pageTexts.map((pageText, index) => ({
+    pageNumber: index + 1,
+    markdown: renderPageMarkdown(index + 1, pageText),
+  }))
+  const fullText = pageMarkdowns.map((page) => page.markdown).join("\n\n")
+  const warnings = [...input.warnings]
+  let chunkUnits = buildPdfOutlineChunkUnits({
+    outlinePoints: input.outlinePoints,
+    pageTexts: input.pageTexts,
+  })
+  if (chunkUnits.length === 0) {
+    chunkUnits = buildPdfInferredHeadingChunkUnits(input.pageTexts)
+  }
+  if (chunkUnits.length === 0) {
+    chunkUnits = buildPdfPageWindowChunkUnits(input.pageTexts)
+    if (chunkUnits.length > 0) {
+      warnings.push(PDF_CHUNKING_FALLBACK_WARNING)
+    }
+  }
+  if (chunkUnits.length === 0 && fullText.trim().length > 0) {
+    chunkUnits = [
+      {
+        unitKind: RESOURCE_PACK_UNIT_KIND_GENERIC,
+        unitTitle: "Chunk 1",
+        unitIndex: 1,
+        text: fullText,
+        splitReason: RESOURCE_PACK_SPLIT_REASON_FALLBACK_STRUCTURE,
+      },
+    ]
+    warnings.push(PDF_CHUNKING_GENERIC_WARNING)
+  }
+
+  const extractedCharacters = input.pageTexts.reduce(
+    (total, pageText) => total + pageText.replace(/\s+/g, "").length,
+    0,
+  )
+  const status =
+    extractedCharacters > 0 ? RESOURCE_PACK_STATUS_READY : RESOURCE_PACK_STATUS_UNSUPPORTED
+  if (status === RESOURCE_PACK_STATUS_UNSUPPORTED) {
+    warnings.push(RESOURCE_PACK_UNSUPPORTED_WARNING)
+  }
+
+  return {
+    status,
+    warnings,
+    extractor: input.extractor,
+    fullText: fullText || renderNoTextMarkdown("PDF"),
+    chunkUnits: chunkUnits.length > 0 ? chunkUnits : undefined,
+    tocMarkdown: input.tocLines.length > 0 ? renderTocMarkdown(input.tocLines) : undefined,
+    pageMarkdowns,
+    coverImage: input.coverImage,
   }
 }
 
@@ -826,32 +969,23 @@ function extractEpubAuthor(opf: XmlRecord, opfXml: string): string | undefined {
 }
 
 function asPdfDocument(value: unknown): PdfDocumentLike {
+  assertPdfDocument(value)
+  return value
+}
+
+function assertPdfDocument(value: unknown): asserts value is PdfDocumentLike {
   if (!isPlainObject(value)) {
     throw new Error("Invalid PDF document result.")
   }
 
-  const numPages = value.numPages
-  const getOutline = value.getOutline
-  const getPage = value.getPage
-  const getDestination = value.getDestination
-  const getPageIndex = value.getPageIndex
-
   if (
-    typeof numPages !== "number" ||
-    typeof getOutline !== "function" ||
-    typeof getPage !== "function" ||
-    typeof getDestination !== "function" ||
-    typeof getPageIndex !== "function"
+    typeof value.numPages !== "number" ||
+    typeof value.getOutline !== "function" ||
+    typeof value.getPage !== "function" ||
+    typeof value.getDestination !== "function" ||
+    typeof value.getPageIndex !== "function"
   ) {
     throw new Error("Invalid PDF document contract.")
-  }
-
-  return {
-    numPages,
-    getOutline: getOutline as PdfDocumentLike["getOutline"],
-    getPage: getPage as PdfDocumentLike["getPage"],
-    getDestination: getDestination as PdfDocumentLike["getDestination"],
-    getPageIndex: getPageIndex as PdfDocumentLike["getPageIndex"],
   }
 }
 
