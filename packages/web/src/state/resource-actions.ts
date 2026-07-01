@@ -20,6 +20,8 @@ export type ResourceRecord = Pick<
   | "sourceRelpath"
   | "format"
   | "status"
+  | "sourceValidity"
+  | "extractionStatus"
   | "warnings"
   | "preparedAt"
   | "sourceMtimeMs"

@@ -23,6 +23,8 @@ const ResourceObjectRecordSchema = z
     sourceOriginRelpath: z.string().optional(),
     format: z.string(),
     status: ResourceStatusSchema,
+    sourceValidity: z.enum(["valid", "invalid", "unknown"]),
+    extractionStatus: ResourceStatusSchema,
     warnings: z.array(z.string()),
     preparedAt: z.string().optional(),
     sourceMtimeMs: z.number().optional(),

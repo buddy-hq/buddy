@@ -104,6 +104,7 @@ export const ObjectMediaPresentationRoutes = new Hono()
               downloadName: query.fileName,
               includeBody: true,
               rangeHeader: c.req.header("range"),
+              signal: c.req.raw.signal,
             })
           },
           mapError: mapMediaObjectRouteError,

@@ -348,8 +348,8 @@ export const CompatibilityRoutes = new Hono()
           }
 
           const downloadName = path.basename(requestedPath) || c.req.valid("param").fileName
-          return new Response(createRawFileStream(fileRecord), {
-            headers: buildRawFileHeaders({
+          return new Response(createRawFileStream(fileRecord, c.req.raw.signal), {
+            headers: await buildRawFileHeaders({
               downloadName,
               filepath: fileRecord.filepath,
               size: fileRecord.size,
@@ -384,7 +384,7 @@ export const CompatibilityRoutes = new Hono()
 
           const downloadName = path.basename(requestedPath) || c.req.valid("param").fileName
           return new Response(null, {
-            headers: buildRawFileHeaders({
+            headers: await buildRawFileHeaders({
               downloadName,
               filepath: fileRecord.filepath,
               size: fileRecord.size,

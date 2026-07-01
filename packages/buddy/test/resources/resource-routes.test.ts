@@ -5,6 +5,7 @@ import { readFile, stat, writeFile } from "node:fs/promises"
 import { app } from "../../src/index.ts"
 import { RESOURCE_PACK_ENTRYPOINT_FILE_NAME } from "../../src/resource-packs"
 import { tmpdir } from "../helpers/tmpdir"
+import { createTestPdf } from "../helpers/pdf"
 
 const DIRECTORY_HEADER = "x-buddy-directory" as const
 const JSON_CONTENT_TYPE = "application/json" as const
@@ -13,6 +14,72 @@ const RESOURCE_POLL_ATTEMPTS = 20
 const RESOURCE_POLL_DELAY_MS = 100
 
 describe("resource routes", () => {
+  test("rejects HTML downloaded with a PDF extension and never advertises PDF MIME", async () => {
+    await using project = await tmpdir({ git: true })
+    const sourceRelpath = "download.pdf"
+    await writeFile(
+      path.join(project.path, sourceRelpath),
+      "<!DOCTYPE html><html><body>Google Drive viewer</body></html>",
+      "utf8",
+    )
+
+    const createResponse = await app.request("/api/objects/resource", {
+      method: "POST",
+      headers: {
+        [DIRECTORY_HEADER]: project.path,
+        "content-type": JSON_CONTENT_TYPE,
+      },
+      body: JSON.stringify({ sourcePath: sourceRelpath }),
+    })
+    expect(createResponse.status).toBe(400)
+    await expect(createResponse.json()).resolves.toEqual({
+      error: "The .pdf file contains HTML instead of a PDF document.",
+    })
+
+    const rawResponse = await app.request(
+      `/api/file/raw/${sourceRelpath}?path=${encodeURIComponent(sourceRelpath)}`,
+      {
+        method: "HEAD",
+        headers: { [DIRECTORY_HEADER]: project.path },
+      },
+    )
+    expect(rawResponse.status).toBe(200)
+    expect(rawResponse.headers.get("content-type")).toBe("application/octet-stream")
+  })
+
+  test("rejects structurally invalid PDFs and never advertises PDF MIME", async () => {
+    await using project = await tmpdir({ git: true })
+    const sourceRelpath = "broken.pdf"
+    await writeFile(
+      path.join(project.path, sourceRelpath),
+      "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n",
+      "utf8",
+    )
+
+    const createResponse = await app.request("/api/objects/resource", {
+      method: "POST",
+      headers: {
+        [DIRECTORY_HEADER]: project.path,
+        "content-type": JSON_CONTENT_TYPE,
+      },
+      body: JSON.stringify({ sourcePath: sourceRelpath }),
+    })
+    expect(createResponse.status).toBe(400)
+    await expect(createResponse.json()).resolves.toEqual({
+      error: "The PDF is missing its EOF marker.",
+    })
+
+    const rawResponse = await app.request(
+      `/api/file/raw/${sourceRelpath}?path=${encodeURIComponent(sourceRelpath)}`,
+      {
+        method: "HEAD",
+        headers: { [DIRECTORY_HEADER]: project.path },
+      },
+    )
+    expect(rawResponse.status).toBe(200)
+    expect(rawResponse.headers.get("content-type")).toBe("application/octet-stream")
+  })
+
   test("serializes concurrent creates that request the same alias", async () => {
     await using project = await tmpdir({ git: true })
     await Promise.all([
@@ -69,11 +136,15 @@ describe("resource routes", () => {
       objectID: string
       alias: string
       status: string
+      sourceValidity: string
+      extractionStatus: string
       sourceRelpath: string
       sourceOriginRelpath?: string
     }
     expect(added.alias).toBe("guide")
     expect(added.status).toBe("preparing")
+    expect(added.sourceValidity).toBe("unknown")
+    expect(added.extractionStatus).toBe("preparing")
     expect(added.sourceRelpath.startsWith(".buddy/objects/v1/resource/")).toBe(true)
     expect(added.sourceRelpath.endsWith("/guide.html")).toBe(true)
     expect(added.sourceOriginRelpath).toBe(sourceRelpath)
@@ -134,7 +205,7 @@ describe("resource routes", () => {
     await using project = await tmpdir({ git: true })
     await using external = await tmpdir({ git: true })
     const externalSourcePath = path.join(external.path, "outside.pdf")
-    await writeFile(externalSourcePath, "%PDF-1.4\n", "utf8")
+    await writeFile(externalSourcePath, createTestPdf(), "utf8")
 
     const response = await app.request("/api/objects/resource", {
       method: "POST",
@@ -148,8 +219,14 @@ describe("resource routes", () => {
     })
 
     expect(response.status).toBe(200)
-    const created = (await response.json()) as { sourceRelpath: string }
+    const created = (await response.json()) as {
+      sourceRelpath: string
+      sourceValidity: string
+      extractionStatus: string
+    }
     expect(created.sourceRelpath.startsWith(".buddy/objects/v1/resource/")).toBe(true)
+    expect(created.sourceValidity).toBe("valid")
+    expect(created.extractionStatus).toBe("preparing")
     await expect(readFile(externalSourcePath, "utf8")).resolves.toContain("%PDF-1.4")
     await expect(
       readFile(path.join(project.path, created.sourceRelpath), "utf8"),
@@ -160,7 +237,7 @@ describe("resource routes", () => {
     await using project = await tmpdir({ git: true })
     const sourceRelpath = "Shape Up (2019).pdf"
     const sourcePath = path.join(project.path, sourceRelpath)
-    await writeFile(sourcePath, "%PDF-1.4\n", "utf8")
+    await writeFile(sourcePath, createTestPdf(), "utf8")
 
     const response = await app.request("/api/objects/resource", {
       method: "POST",

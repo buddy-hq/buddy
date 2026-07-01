@@ -5,6 +5,7 @@ import { RESOURCE_PACK_STATUS_PREPARING } from "../../../../resource-packs"
 import {
   addResource,
   getResourceByKey,
+  ResourceValidationError,
   type ResourceRecord,
   type ResourceStatus,
 } from "../../../../resources/resource-registry-service"
@@ -101,6 +102,8 @@ function formatResourcePreparationOutput(input: {
     `alias=${input.resource.alias}`,
     `status=${input.resource.status}`,
     `format=${input.resource.format}`,
+    `source_validity=${input.resource.sourceValidity}`,
+    `extraction_status=${input.resource.extractionStatus}`,
     `managed_source=${promptAbsolutePath({
       directory: input.directory,
       pathText: input.resource.sourceRelpath,
@@ -142,13 +145,25 @@ function buildPrepareResourceObjectResult(input: {
     revisionID: null,
     itemID: null,
   }
-  const status =
-    input.resource.status === RESOURCE_PACK_STATUS_PREPARING && input.timedOut ? "blocked" : "ok"
+  const blocked =
+    (input.resource.status === RESOURCE_PACK_STATUS_PREPARING && input.timedOut) ||
+    input.resource.status === "unsupported" ||
+    input.resource.status === "error"
+  const status = blocked ? "blocked" : "ok"
+  const reason = input.timedOut
+    ? "resource_still_preparing"
+    : input.resource.status === "unsupported"
+      ? "resource_extraction_unsupported"
+      : input.resource.status === "error"
+        ? "resource_preparation_failed"
+        : null
   return BuddyObjectResultSchema.parse({
     version: 1,
     status,
-    reason: input.timedOut ? "resource_still_preparing" : null,
-    message: `Prepared resource ${input.resource.alias}.`,
+    reason,
+    message: blocked
+      ? `Resource ${input.resource.alias} could not be prepared.`
+      : `Prepared resource ${input.resource.alias}.`,
     primaryRef: ref,
     objects: [
       objectSummaryBaseFromManifest({
@@ -233,11 +248,53 @@ export const prepareResourceTool = createBuddyTool({
       },
     })
 
-    const created = await addResource({
-      directory: ctx.directory,
-      sourcePath: params.sourcePath,
-      alias: params.alias,
-    })
+    let created: ResourceRecord
+    try {
+      created = await addResource({
+        directory: ctx.directory,
+        sourcePath: params.sourcePath,
+        alias: params.alias,
+      })
+    } catch (error) {
+      if (!(error instanceof ResourceValidationError)) throw error
+      const buddyObjectResult = BuddyObjectResultSchema.parse({
+        version: 1,
+        status: "blocked",
+        reason: "invalid_resource_source",
+        message: `Resource source is invalid: ${error.message}`,
+        primaryRef: null,
+        objects: [],
+        presentations: [],
+      })
+      return {
+        title: PREPARE_RESOURCE_TOOL_ID,
+        output: [
+          buddyObjectResult.message,
+          `source=${promptAbsolutePath({ directory: ctx.directory, pathText: params.sourcePath })}`,
+          "source_validity=invalid",
+          "extraction_status=error",
+          "bench_reader=none",
+          "next_step=download_a_valid_source_file_then_run_prepare_resource_again",
+        ].join("\n"),
+        metadata: {
+          buddyObjectResult,
+          resource: params.alias ?? null,
+          objectID: null,
+          status: "error",
+          sourceValidity: "invalid",
+          extractionStatus: "error",
+          managedSourcePath: null,
+          benchReaderPath: null,
+          packPath: null,
+          fullTextPath: null,
+          warnings: [error.message],
+          nextStep: "download_a_valid_source_file_then_run_prepare_resource_again",
+          timedOut: false,
+          waitUntilReady: false,
+          maxWaitMs: resolveMaxWaitMs(params.maxWaitMs),
+        },
+      }
+    }
 
     const shouldWait =
       params.waitUntilReady === true && created.status === RESOURCE_PACK_STATUS_PREPARING
@@ -275,6 +332,8 @@ export const prepareResourceTool = createBuddyTool({
         resource: finalResult.resource.alias,
         objectID: finalResult.resource.objectID,
         status: finalResult.resource.status,
+        sourceValidity: finalResult.resource.sourceValidity,
+        extractionStatus: finalResult.resource.extractionStatus,
         format: finalResult.resource.format,
         managedSourcePath: finalResult.resource.sourceRelpath,
         benchReaderPath: finalResult.resource.readerPath ?? null,

@@ -172,6 +172,8 @@ const ResourceReaderViewDataSchema = z
     alias: nonEmptyString,
     title: nonEmptyString,
     status: z.enum(["ready", "preparing", "stale", "unsupported", "error", "unavailable"]),
+    sourceValidity: z.enum(["valid", "invalid", "unknown"]),
+    extractionStatus: z.enum(["ready", "preparing", "stale", "unsupported", "error"]),
     readerPath: nonEmptyString.nullable(),
     packPath: nonEmptyString.nullable(),
     fullTextPath: nonEmptyString.nullable(),

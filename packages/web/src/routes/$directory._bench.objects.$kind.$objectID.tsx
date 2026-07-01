@@ -49,15 +49,11 @@ import {
 } from "@/lib/bench-navigation"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { decodeDirectory } from "@/lib/directory-token"
-import { resolveResourceObjectViewerPath } from "@/lib/resource-object-viewer-path"
+import { resolveResourceObjectViewerPathWithFallback } from "@/lib/resource-object-viewer-path"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { isSvgMedia } from "@/lib/svg-media"
 import { fileExtensionFromPath } from "@/lib/workspace-file-paths"
-import {
-  isSupportedReadingResourcePath,
-  readingResourceBlobQueryOptions,
-  resourcesQueryOptions,
-} from "@/state/resources-query"
+import { resourcesQueryOptions } from "@/state/resources-query"
 import {
   readProjectExplorerEditableFile,
   type ProjectExplorerEditableFileState,
@@ -242,12 +238,10 @@ export const Route = createFileRoute("/$directory/_bench/objects/$kind/$objectID
       const record = resourceData.processed.find(
         (resource) => resource.objectID === objectID || resource.alias === alias,
       )
-      const viewerPath = resolveResourceObjectViewerPath(record)
-      if (viewerPath?.viewer === "reading" && isSupportedReadingResourcePath(viewerPath.path)) {
-        await context.queryClient.ensureQueryData(
-          readingResourceBlobQueryOptions(directory, viewerPath.path),
-        )
-      }
+      const viewerPath = resolveResourceObjectViewerPathWithFallback({
+        record,
+        authoritativeReaderPath: view.data.readerPath,
+      })
       const resourceMarkdown =
         viewerPath?.viewer === "markdown"
           ? await readProjectExplorerEditableFile({
@@ -267,7 +261,7 @@ export const Route = createFileRoute("/$directory/_bench/objects/$kind/$objectID
             }
           : {}),
         ...(resourceMarkdown ? { resourceMarkdown } : {}),
-        ...(record?.objectID ? { resourceKey: record.objectID } : {}),
+        resourceKey: record?.objectID ?? objectID,
       }
     }
 

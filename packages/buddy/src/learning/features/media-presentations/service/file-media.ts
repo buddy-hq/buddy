@@ -653,16 +653,18 @@ export async function readPresentedMediaObjectRawResponse(input: {
   downloadName: string | undefined
   includeBody: boolean
   rangeHeader: string | undefined
+  signal?: AbortSignal
 }): Promise<Response> {
   const item = await resolvePresentedMediaObjectItem(input.directory, input.objectID, input.itemID)
   if (!item) {
     return Response.json({ error: PROJECT_FILE_NOT_FOUND_ERROR }, { status: 404 })
   }
-  return readRawFileResponse({
+  return await readRawFileResponse({
     absolutePath: item.absolutePath,
     downloadName: input.downloadName ?? item.fileName,
     includeBody: input.includeBody,
     rangeHeader: input.rangeHeader,
+    signal: input.signal,
   })
 }
 

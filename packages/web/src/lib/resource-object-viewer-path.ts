@@ -73,3 +73,12 @@ export function resolveResourceObjectViewerPath(
 
   return undefined
 }
+
+export function resolveResourceObjectViewerPathWithFallback(input: {
+  record: ResourceObjectPathRecord | undefined
+  authoritativeReaderPath: string | null
+}): ResourceObjectViewerPath | undefined {
+  return resolveResourceObjectViewerPath(
+    input.record ?? { readerPath: input.authoritativeReaderPath },
+  )
+}

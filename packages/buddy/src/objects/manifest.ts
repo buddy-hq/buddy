@@ -209,6 +209,10 @@ const ResourceObjectSummarySchema = z
     kind: z.literal(BUDDY_OBJECT_KINDS.resource),
     alias: nonEmptyString,
     format: nonEmptyString,
+    sourceValidity: z.enum(["valid", "invalid", "unknown"]).default("unknown"),
+    extractionStatus: z
+      .enum(["preparing", "ready", "stale", "unsupported", "error"])
+      .default("preparing"),
     generationID: nonEmptyString.nullable(),
     preparedAt: timestampString.nullable(),
     fullTextPath: nonEmptyString.nullable(),

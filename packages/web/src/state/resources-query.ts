@@ -1,4 +1,8 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query"
+import {
+  inspectReaderSourceBytes,
+  readerSourceFormatFromPath,
+} from "@buddy/workspace-file-policy"
 import { getBuddyClient } from "@/lib/buddy-client"
 import { buildProjectFileRawParameters } from "@/lib/project-file-raw-url"
 import { findWorkspaceFiles } from "@/state/chat-actions"
@@ -20,6 +24,7 @@ const RESOURCE_DISCOVERY_LIMIT = 200
 const RESOURCE_STATUS_PREPARING = "preparing"
 const RESOURCE_COVER_STALE_TIME_MS = 5 * 60 * 1000
 const READING_BLOB_STALE_TIME_MS = 30 * 60 * 1000
+const READER_SOURCE_PREFIX_BYTES = 1024
 
 const RESOURCE_DISCOVERY_EXTENSIONS: ReadonlyArray<string> = [
   RESOURCE_FILE_EXTENSION_PDF,
@@ -316,6 +321,20 @@ async function loadProjectFileBlobOrThrow(directory: string, filepath: string) {
     throw new Error(message)
   }
 
+  const prefix = new Uint8Array(
+    await response.data.slice(0, READER_SOURCE_PREFIX_BYTES).arrayBuffer(),
+  )
+  const inspection = inspectReaderSourceBytes({ path: filepath, bytes: prefix })
+  if (inspection.sourceValidity === "invalid") {
+    throw new Error(inspection.reason ?? "The reader source file is invalid.")
+  }
+  const format = readerSourceFormatFromPath(filepath)
+  if (format && response.data.type === "application/octet-stream") {
+    throw new Error(
+      `The .${format} file failed document validation and cannot be opened in the reader.`,
+    )
+  }
+
   return response.data
 }
 
@@ -360,6 +379,7 @@ export function readingResourceBlobQueryOptions(directory: string, resourcePath:
     queryKey: readingResourceBlobQueryKey(directory, resourcePath),
     queryFn: () => loadProjectFileBlobOrThrow(directory, resourcePath),
     staleTime: READING_BLOB_STALE_TIME_MS,
+    retry: false,
   })
 }
 

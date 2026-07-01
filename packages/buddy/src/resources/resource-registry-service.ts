@@ -46,6 +46,11 @@ import {
   type BuddyObjectViewResponse,
 } from "../objects"
 import { resolveBenchReadingResourceRelpath } from "../learning/features/bench/reading-resource"
+import type { ReaderSourceValidity } from "@buddy/workspace-file-policy"
+import {
+  validateReaderSourcePath,
+  type ReaderSourceValidation,
+} from "./reader-source-validator"
 
 const RESOURCE_ALIAS_DEFAULT = "resource" as const
 const RESOURCE_ALIAS_REPLACE_REGEX = /[^a-z0-9._-]+/g
@@ -74,6 +79,8 @@ export type ResourceRecord = {
   sourceOriginRelpath?: string
   format: string
   status: ResourceStatus
+  sourceValidity: ReaderSourceValidity
+  extractionStatus: ResourceStatus
   warnings: string[]
   preparedAt?: string
   sourceMtimeMs?: number
@@ -111,6 +118,8 @@ export type ResourceObjectResolved = {
   alias: string
   title: string | null
   status: ResourceStatus
+  sourceValidity: ReaderSourceValidity
+  extractionStatus: ResourceStatus
   managedSourceRef: BuddyObjectSourceRef
   originalSourceRef: BuddyObjectSourceRef | null
   objectPath: string
@@ -217,11 +226,18 @@ export async function addResource(input: {
   if (!sourceStat.isFile()) {
     throw new ResourceValidationError(RESOURCE_SOURCE_NOT_FILE_ERROR)
   }
+  const sourceValidation = await validateReaderSourcePath(absoluteSourcePath)
+  if (sourceValidation.sourceValidity === "invalid") {
+    throw new ResourceValidationError(
+      sourceValidation.reason ?? "The reader source file is invalid.",
+    )
+  }
 
   const manifest = await createResourceObject({
     directory: input.directory,
     sourcePath: absoluteSourcePath,
     sourceStat,
+    sourceValidation,
     requestedAlias: input.alias,
   })
 
@@ -343,6 +359,8 @@ export async function rebuildResource(input: {
     updatedAt: new Date().toISOString(),
     summary: {
       ...manifest.summary,
+      sourceValidity: "unknown",
+      extractionStatus: RESOURCE_PACK_STATUS_PREPARING,
       generationID,
       preparedAt: null,
       fullTextPath: null,
@@ -632,6 +650,16 @@ registerBuddyObjectKind({
         message: `Resource ${resource.alias} cannot be presented on Bench reading mode because it is not backed by a PDF or EPUB source.`,
       }
     }
+    const validation = await validateReaderSourcePath(
+      path.resolve(input.directory, resource.readerPath),
+    )
+    if (validation.sourceValidity !== "valid") {
+      return {
+        status: "blocked",
+        reason: "invalid_reader_source",
+        message: `Resource ${resource.alias} cannot be presented because its reader source is invalid: ${validation.reason ?? "validation failed"}`,
+      }
+    }
     return {
       status: "ready",
       target: {
@@ -680,6 +708,8 @@ async function readResourceObjectView(input: {
         alias: resource.alias,
         title: resource.title ?? resource.alias,
         status: resource.status,
+        sourceValidity: resource.sourceValidity,
+        extractionStatus: resource.extractionStatus,
         readerPath: resource.readerPath,
         packPath: resource.packPath,
         fullTextPath: resource.fullTextPath,
@@ -738,6 +768,8 @@ function stripRegisteredResourceRecord(record: ResourceRecord): ResourceRecord {
     ...(record.sourceOriginRelpath ? { sourceOriginRelpath: record.sourceOriginRelpath } : {}),
     format: record.format,
     status: record.status,
+    sourceValidity: record.sourceValidity,
+    extractionStatus: record.extractionStatus,
     warnings: record.warnings,
     ...(record.preparedAt ? { preparedAt: record.preparedAt } : {}),
     ...(record.sourceMtimeMs !== undefined ? { sourceMtimeMs: record.sourceMtimeMs } : {}),
@@ -767,6 +799,8 @@ function resourceResolvedToRegisteredRecord(resource: ResourceObjectResolved): R
     ...(sourceOriginRelpath ? { sourceOriginRelpath } : {}),
     format: resource.format,
     status: resource.status,
+    sourceValidity: resource.sourceValidity,
+    extractionStatus: resource.extractionStatus,
     warnings: resource.warnings,
     ...(resource.preparedAt ? { preparedAt: resource.preparedAt } : {}),
     ...(resource.sourceMtimeMs !== null ? { sourceMtimeMs: resource.sourceMtimeMs } : {}),
@@ -790,6 +824,7 @@ async function createResourceObject(input: {
   directory: string
   sourcePath: string
   sourceStat: Awaited<ReturnType<typeof fs.stat>>
+  sourceValidation: ReaderSourceValidation
   requestedAlias?: string
 }): Promise<BuddyObjectManifest> {
   return withResourceAliasIndexMutationLock(input.directory, () =>
@@ -801,6 +836,7 @@ async function createResourceObjectUnlocked(input: {
   directory: string
   sourcePath: string
   sourceStat: Awaited<ReturnType<typeof fs.stat>>
+  sourceValidation: ReaderSourceValidation
   requestedAlias?: string
 }): Promise<BuddyObjectManifest> {
   const objectID = generateObjectID()
@@ -846,6 +882,8 @@ async function createResourceObjectUnlocked(input: {
       kind: BUDDY_OBJECT_KINDS.resource,
       alias,
       format: classification.format,
+      sourceValidity: input.sourceValidation.sourceValidity,
+      extractionStatus: RESOURCE_PACK_STATUS_PREPARING,
       generationID,
       preparedAt: null,
       fullTextPath: null,
@@ -972,6 +1010,24 @@ async function prepareResourceObjectInternal(input: {
   const manifest = await readResourceObjectManifest(input.directory, input.objectID)
   const generationID = input.generationID ?? manifest.summary.generationID ?? generateObjectID()
   const sourcePath = managedSourceAbsolutePath(input.directory, manifest)
+  const sourceValidation = await validateReaderSourcePath(sourcePath)
+  if (sourceValidation.sourceValidity === "invalid") {
+    const warning = sourceValidation.reason ?? "The reader source file is invalid."
+    const invalid = BuddyObjectManifestSchema.parse({
+      ...manifest,
+      status: RESOURCE_PACK_STATUS_ERROR,
+      updatedAt: new Date().toISOString(),
+      summary: ResourceObjectSummarySchema.parse({
+        ...manifest.summary,
+        sourceValidity: "invalid",
+        extractionStatus: RESOURCE_PACK_STATUS_ERROR,
+        readerPath: null,
+        warnings: [warning],
+      }),
+    })
+    await writeObjectManifest({ directory: input.directory, manifest: invalid })
+    return
+  }
   const alias = manifest.summary.alias
   const packRoot = resourcePackRootPath(input.directory, input.objectID)
   const stagingPackRoot = resourcePackStagingRootPath({
@@ -1045,6 +1101,8 @@ async function prepareResourceObjectInternal(input: {
         summary: ResourceObjectSummarySchema.parse({
           ...current.summary,
           format: metadata?.format ?? current.summary.format,
+          sourceValidity: sourceValidation.sourceValidity,
+          extractionStatus: status,
           generationID,
           preparedAt: metadata?.preparedAt ?? null,
           fullTextPath: fullText?.fullTextPath ?? null,
@@ -1137,6 +1195,14 @@ async function resourceManifestToResolved(
     alias: manifest.summary.alias,
     title: metadata?.title ?? (manifest.title === manifest.summary.alias ? null : manifest.title),
     status,
+    sourceValidity: originalSourceChanged ? "unknown" : manifest.summary.sourceValidity,
+    extractionStatus:
+      manifest.status === RESOURCE_PACK_STATUS_READY && originalSourceChanged
+        ? "stale"
+        : manifest.summary.extractionStatus === RESOURCE_PACK_STATUS_PREPARING &&
+            manifest.status !== RESOURCE_PACK_STATUS_PREPARING
+          ? (manifest.status as ResourceStatus)
+          : manifest.summary.extractionStatus,
     managedSourceRef,
     originalSourceRef,
     objectPath: BuddyObjectPath.relativeObjectDirectory(

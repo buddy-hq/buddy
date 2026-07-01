@@ -1,5 +1,6 @@
 import fs from "node:fs"
 import { mimeTypeForPath } from "../http/mime"
+import { validateReaderSourcePath } from "../resources/reader-source-validator"
 
 const FILE_NOT_FOUND_ERROR = "File not found"
 const BYTE_RANGE_UNIT = "bytes"
@@ -59,19 +60,23 @@ function readRawFileRecord(filepath: string): RawFileRecord {
   }
 }
 
-function readRawFileMimeType(filepath: string): string {
+async function readRawFileMimeType(filepath: string): Promise<string> {
+  const validation = await validateReaderSourcePath(filepath)
+  if (validation.format && validation.sourceValidity !== "valid") {
+    return "application/octet-stream"
+  }
   return mimeTypeForPath(filepath)
 }
 
-function buildRawFileHeaders(input: {
+async function buildRawFileHeaders(input: {
   downloadName: string
   filepath: string
   size: number
-}): Record<string, string> {
+}): Promise<Record<string, string>> {
   return {
     "content-disposition": buildInlineContentDisposition(input.downloadName),
     [CONTENT_LENGTH_HEADER]: String(input.size),
-    [CONTENT_TYPE_HEADER]: readRawFileMimeType(input.filepath),
+    [CONTENT_TYPE_HEADER]: await readRawFileMimeType(input.filepath),
   }
 }
 
@@ -155,18 +160,31 @@ function resolveRawFileByteRange(
 function createRawFileRangeStream(
   filepath: string,
   range: RawFileByteRange,
+  signal?: AbortSignal,
 ): ReadableStream<Uint8Array> {
   let fileHandle: fs.promises.FileHandle | undefined
   let offset = range.start
 
   const closeFile = async () => {
+    signal?.removeEventListener("abort", handleAbort)
     const handle = fileHandle
     fileHandle = undefined
     await handle?.close()
   }
+  const handleAbort = () => {
+    void closeFile().catch(() => undefined)
+  }
 
   return new ReadableStream<Uint8Array>({
+    start() {
+      signal?.addEventListener("abort", handleAbort, { once: true })
+    },
     async pull(controller) {
+      if (signal?.aborted) {
+        await closeFile().catch(() => undefined)
+        controller.error(signal.reason)
+        return
+      }
       if (offset > range.end) {
         await closeFile()
         controller.close()
@@ -175,6 +193,11 @@ function createRawFileRangeStream(
 
       try {
         fileHandle ??= await fs.promises.open(filepath, "r")
+        if (signal?.aborted) {
+          await closeFile().catch(() => undefined)
+          controller.error(signal.reason)
+          return
+        }
         const byteLength = Math.min(FILE_RANGE_STREAM_CHUNK_BYTES, range.end - offset + 1)
         const buffer = new Uint8Array(byteLength)
         const { bytesRead } = await fileHandle.read(buffer, 0, byteLength, offset)
@@ -197,29 +220,37 @@ function createRawFileRangeStream(
   })
 }
 
-function createRawFileStream(fileRecord: Extract<RawFileRecord, { ok: true }>) {
-  return createRawFileRangeStream(fileRecord.filepath, {
-    start: 0,
-    end: fileRecord.size - 1,
-  })
+function createRawFileStream(
+  fileRecord: Extract<RawFileRecord, { ok: true }>,
+  signal?: AbortSignal,
+) {
+  return createRawFileRangeStream(
+    fileRecord.filepath,
+    {
+      start: 0,
+      end: fileRecord.size - 1,
+    },
+    signal,
+  )
 }
 
-function readRawFileResponse(input: {
+async function readRawFileResponse(input: {
   absolutePath: string
   downloadName: string
   includeBody: boolean
   rangeHeader: string | undefined
-}): Response {
+  signal?: AbortSignal
+}): Promise<Response> {
   const fileRecord = readRawFileRecord(input.absolutePath)
   if (!fileRecord.ok) return fileRecord.response
 
   const rangeResolution = resolveRawFileByteRange(input.rangeHeader, fileRecord.size)
   const baseHeaders = {
-    ...buildRawFileHeaders({
+    ...(await buildRawFileHeaders({
       downloadName: input.downloadName,
       filepath: fileRecord.filepath,
       size: fileRecord.size,
-    }),
+    })),
     "accept-ranges": BYTE_RANGE_UNIT,
   }
 
@@ -235,15 +266,20 @@ function readRawFileResponse(input: {
   }
 
   if (rangeResolution.kind === "full") {
-    return new Response(input.includeBody ? createRawFileStream(fileRecord) : null, {
-      headers: baseHeaders,
-    })
+    return new Response(
+      input.includeBody ? createRawFileStream(fileRecord, input.signal) : null,
+      {
+        headers: baseHeaders,
+      },
+    )
   }
 
   const { start, end } = rangeResolution.range
   const contentLength = end - start + 1
   return new Response(
-    input.includeBody ? createRawFileRangeStream(fileRecord.filepath, rangeResolution.range) : null,
+    input.includeBody
+      ? createRawFileRangeStream(fileRecord.filepath, rangeResolution.range, input.signal)
+      : null,
     {
       status: HTTP_PARTIAL_CONTENT_STATUS,
       headers: {
