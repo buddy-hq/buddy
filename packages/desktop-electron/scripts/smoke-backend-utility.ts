@@ -19,7 +19,9 @@ import {
 } from "../../buddy/script/node-artifact-runtime"
 import type { NodeArtifactProcess } from "../../buddy/script/node-artifact-runtime"
 import {
+  LITEPARSE_PACKAGE_NAME,
   currentBackendNodeArtifactTarget,
+  liteParseNativePackageName,
   nodePtyNativePackageName,
   parcelWatcherNativePackageName,
   scanBuildOutput,
@@ -76,6 +78,7 @@ function createBackendEnvironment(input: {
   migrations: string
   port: number
   runtimeRoot: string
+  tessdata: string
 }): Record<string, string> {
   const xdgRoot = path.join(input.runtimeRoot, "xdg")
   const notebookRoot = path.join(input.runtimeRoot, "notebook")
@@ -87,6 +90,7 @@ function createBackendEnvironment(input: {
     BUDDY_ALLOWED_DIRECTORY_ROOTS: [notebookRoot, xdgRoot].join(","),
     BUDDY_APP_VERSION: "backend-utility-smoke",
     BUDDY_BACKEND_RESOURCES_DIR: input.backendResources,
+    BUDDY_TESSDATA_DIR: input.tessdata,
     BUDDY_DIRECTORY_BASE: notebookRoot,
     BUDDY_MIGRATION_DIR: path.join(input.migrations, "buddy"),
     BUDDY_RUNTIME_ROOT: xdgRoot,
@@ -256,7 +260,12 @@ function assertDesktopBuildContract(mainDir: string): void {
 
 function nativeRuntimePackageNames(): string[] {
   const target = currentBackendNodeArtifactTarget()
-  return [nodePtyNativePackageName(target), parcelWatcherNativePackageName(target)]
+  return [
+    LITEPARSE_PACKAGE_NAME,
+    liteParseNativePackageName(target),
+    nodePtyNativePackageName(target),
+    parcelWatcherNativePackageName(target),
+  ]
 }
 
 async function assertNativePackageLoadable(input: {
@@ -315,12 +324,15 @@ async function waitForProcessExit(
   stdoutText: Promise<string>,
   stderrText: Promise<string>,
 ): Promise<void> {
-  const exitCode = await Promise.race([
-    child.exited,
-    delay(SMOKE_EXIT_TIMEOUT_MS).then(() => {
-      throw new Error("Electron backend utility smoke did not exit")
-    }),
-  ])
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  const timeoutTask = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => {
+      reject(new Error("Electron backend utility smoke did not exit"))
+    }, SMOKE_EXIT_TIMEOUT_MS)
+  })
+  const exitCode = await Promise.race([child.exited, timeoutTask]).finally(() => {
+    if (timeout !== undefined) clearTimeout(timeout)
+  })
 
   if (exitCode !== 0) {
     const [stdout, stderr] = await Promise.all([stdoutText, stderrText])
@@ -373,6 +385,7 @@ try {
         migrations: resources.migrations,
         port,
         runtimeRoot,
+        tessdata: resources.tessdata,
       }),
       [UTILITY_CWD_ENV]: isolatedMain.isolatedMainDir,
       [UTILITY_EXIT_TIMEOUT_ENV]: String(SMOKE_EXIT_TIMEOUT_MS),

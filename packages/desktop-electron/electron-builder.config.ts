@@ -21,7 +21,7 @@ function resolveChannel(): Channel {
 }
 
 const channel = resolveChannel()
-const runtimeResourceNames = ["backend", "knowledge-graph", "migrations"] as const
+const runtimeResourceNames = ["backend", "knowledge-graph", "migrations", "tessdata"] as const
 const DEV_PRODUCT_NAME = `${BUDDY_BRANDING.productName} Dev`
 const BETA_PRODUCT_NAME = `${BUDDY_BRANDING.productName} Beta`
 
@@ -52,6 +52,7 @@ const BASE_CONFIGURATION: Configuration = {
     description: BUDDY_BRANDING.desktopPackageDescription,
   },
   asarUnpack: [
+    "out/main/chunks/node_modules/@llamaindex/liteparse-*/**/*",
     "out/main/chunks/node_modules/@lydell/node-pty-*/**/*",
     "out/main/chunks/node_modules/@parcel/watcher-*/**/*",
   ],

@@ -7,6 +7,7 @@ import { getUserShell, loadShellEnv, mergeShellEnv } from "./shell-env"
 
 const ADVANCED_MATH_LOCAL_ASSET_DIR_ENV = "BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR"
 const BACKEND_RESOURCES_DIR_ENV = "BUDDY_BACKEND_RESOURCES_DIR"
+const BUDDY_TESSDATA_DIR_ENV = "BUDDY_TESSDATA_DIR"
 const STANDARDS_LOCAL_ASSET_DIR_ENV = "BUDDY_STANDARDS_LOCAL_ASSET_DIR"
 const ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS = ["dist", "advanced-math-runtime"] as const
 const STANDARDS_LOCAL_ASSET_PATH_SEGMENTS = ["resources", "knowledge-graph"] as const
@@ -61,6 +62,14 @@ function getBundledBackendResourcesDir() {
   return resourcesDir
 }
 
+function getBundledTessdataDir() {
+  const tessdataDir = path.join(resourcesDirectory(), "tessdata")
+  if (!existsSync(tessdataDir)) {
+    throw new Error(`Bundled Buddy tessdata directory not found at ${tessdataDir}`)
+  }
+  return tessdataDir
+}
+
 function resolveDevelopmentBackendRoot() {
   if (app.isPackaged) return undefined
 
@@ -112,6 +121,7 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
     OPENCODE_SERVER_PASSWORD: password,
     BUDDY_APP_VERSION: app.getVersion(),
     [BACKEND_RESOURCES_DIR_ENV]: getBundledBackendResourcesDir(),
+    [BUDDY_TESSDATA_DIR_ENV]: getBundledTessdataDir(),
     BUDDY_MIGRATION_DIR: getBuddyMigrationDir(),
     BUDDY_DIRECTORY_BASE: resolveDefaultNotebookHome(home),
     BUDDY_ALLOWED_DIRECTORY_ROOTS: resolveAllowedDirectoryRoots({

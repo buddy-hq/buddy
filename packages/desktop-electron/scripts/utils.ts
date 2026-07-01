@@ -4,6 +4,7 @@ import {
   syncBackendSourceResources,
   syncBundledKnowledgeGraphAssets,
   syncBundledMigrations,
+  syncBundledTessdataAssets,
 } from "../../../script/desktop-runtime-resources"
 
 export type Channel = "dev" | "beta" | "prod"
@@ -13,6 +14,7 @@ const PACKAGE_JSON_PATH = path.resolve(PACKAGE_DIR, "package.json")
 const BACKEND_RESOURCES_DIR = path.resolve(PACKAGE_DIR, "resources/backend")
 const KNOWLEDGE_GRAPH_RESOURCES_DIR = path.resolve(PACKAGE_DIR, "resources/knowledge-graph")
 const MIGRATIONS_DIR = path.resolve(PACKAGE_DIR, "resources/migrations")
+const TESSDATA_RESOURCES_DIR = path.resolve(PACKAGE_DIR, "resources/tessdata")
 const TAURI_SIGNER_BINARY_RELATIVE_PATH = "node_modules/.bin/tauri"
 const LEGACY_BACKEND_EXECUTABLE_RESOURCE_NAMES = ["buddy-backend", "buddy-backend.exe"] as const
 
@@ -42,10 +44,15 @@ export function syncKnowledgeGraphResources() {
   })
 }
 
+export function syncTessdataResources() {
+  return syncBundledTessdataAssets(TESSDATA_RESOURCES_DIR)
+}
+
 export type DesktopRuntimeResources = {
   backendResources: string
   knowledgeGraphArchive: string
   migrations: string
+  tessdata: string
 }
 
 export function syncDesktopRuntimeResources(): DesktopRuntimeResources {
@@ -55,6 +62,7 @@ export function syncDesktopRuntimeResources(): DesktopRuntimeResources {
     backendResources: syncBackendResources(),
     knowledgeGraphArchive: syncKnowledgeGraphResources(),
     migrations: syncMigrations(),
+    tessdata: syncTessdataResources(),
   }
 }
 
@@ -62,6 +70,7 @@ export function logDesktopRuntimeResources(resources: DesktopRuntimeResources) {
   console.log(`Prepared Buddy backend resources at ${resources.backendResources}`)
   console.log(`Prepared Knowledge Graph bundle at ${resources.knowledgeGraphArchive}`)
   console.log(`Prepared Buddy migrations at ${resources.migrations}`)
+  console.log(`Prepared Buddy tessdata at ${resources.tessdata}`)
 }
 
 export function updateDesktopPackageVersion(version: string) {

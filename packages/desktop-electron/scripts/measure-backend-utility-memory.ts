@@ -133,6 +133,7 @@ function createBackendEnvironment(input: {
   migrations: string
   port: number
   runtimeRoot: string
+  tessdata: string
 }): Record<string, string> {
   const xdgRoot = path.join(input.runtimeRoot, "xdg")
   const notebookRoot = path.join(input.runtimeRoot, "notebook")
@@ -144,6 +145,7 @@ function createBackendEnvironment(input: {
     BUDDY_ALLOWED_DIRECTORY_ROOTS: [notebookRoot, xdgRoot].join(","),
     BUDDY_APP_VERSION: "backend-utility-memory",
     BUDDY_BACKEND_RESOURCES_DIR: input.backendResources,
+    BUDDY_TESSDATA_DIR: input.tessdata,
     BUDDY_DIRECTORY_BASE: notebookRoot,
     BUDDY_MIGRATION_DIR: path.join(input.migrations, "buddy"),
     BUDDY_RUNTIME_ROOT: xdgRoot,
@@ -470,6 +472,7 @@ try {
         migrations: resources.migrations,
         port,
         runtimeRoot,
+        tessdata: resources.tessdata,
       }),
       [UTILITY_CWD_ENV]: isolatedMain.isolatedMainDir,
       [UTILITY_EXIT_TIMEOUT_ENV]: String(SMOKE_EXIT_TIMEOUT_MS),

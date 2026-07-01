@@ -6,7 +6,9 @@ import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import {
+  LITEPARSE_PACKAGE_NAME,
   currentBackendNodeArtifactTarget,
+  liteParseNativePackageName,
   nodePtyNativePackageName,
   parcelWatcherNativePackageName,
 } from "../../script/backend-node-artifact"
@@ -18,11 +20,23 @@ const BUDDY_SERVER_DIST = path.resolve(__dirname, "../buddy/dist/node")
 const BUDDY_SERVER_ENTRY = path.resolve(BUDDY_SERVER_DIST, "node.js")
 const MAIN_CHUNKS_DIR = path.resolve(__dirname, "out/main/chunks")
 const nativeTarget = currentBackendNodeArtifactTarget()
+const liteParseNativePkg = liteParseNativePackageName(nativeTarget)
 const nodePtyPkg = nodePtyNativePackageName(nativeTarget)
 const parcelWatcherPkg = parcelWatcherNativePackageName(nativeTarget)
 const optionalRuntimeExternalPackages = ["@chonkiejs/token"] as const
-const nativeRuntimePackages = [nodePtyPkg, parcelWatcherPkg] as const
+const liteParseWrapperRuntimeEntries = ["dist", "package.json", "README.md", "LICENSE"] as const
+const runtimePackages = [
+  LITEPARSE_PACKAGE_NAME,
+  liteParseNativePkg,
+  nodePtyPkg,
+  parcelWatcherPkg,
+] as const
 const require = createRequire(import.meta.url)
+const liteParseRequire = createRequire(
+  require.resolve(`${LITEPARSE_PACKAGE_NAME}/package.json`, {
+    paths: [buddyDir],
+  }),
+)
 
 function isMainExternal(id: string) {
   return (
@@ -49,7 +63,7 @@ export default defineConfig({
           "backend-utility": "src/main/backend-utility.ts",
         },
       },
-      externalizeDeps: { include: [...nativeRuntimePackages] },
+      externalizeDeps: { include: [...runtimePackages] },
     },
     plugins: [
       {
@@ -77,7 +91,7 @@ export default defineConfig({
         name: "buddy:copy-server-assets",
         async writeBundle() {
           await copyWasmAssets(BUDDY_SERVER_DIST, MAIN_CHUNKS_DIR)
-          await copyNativeRuntimePackages()
+          await copyRuntimePackages()
         },
       },
     ],
@@ -135,20 +149,34 @@ async function copyWasmAssets(sourceDir: string, destinationDir: string) {
   }
 }
 
-async function copyNativeRuntimePackages() {
-  for (const packageName of nativeRuntimePackages) {
+async function copyRuntimePackages() {
+  for (const packageName of runtimePackages) {
     const source = await resolveNativePackageDirectory(packageName)
     const destination = path.join(MAIN_CHUNKS_DIR, "node_modules", ...packageName.split("/"))
     await fs.rm(destination, { recursive: true, force: true })
     await fs.mkdir(path.dirname(destination), { recursive: true })
+    if (packageName === LITEPARSE_PACKAGE_NAME) {
+      await copyLiteParseWrapperPackage(source, destination)
+      continue
+    }
     await fs.cp(source, destination, { recursive: true, dereference: false })
   }
 }
 
+async function copyLiteParseWrapperPackage(source: string, destination: string) {
+  await fs.mkdir(destination, { recursive: true })
+  for (const entry of liteParseWrapperRuntimeEntries) {
+    const sourceEntry = path.join(source, entry)
+    if (!(await fileExists(sourceEntry))) continue
+    await fs.cp(sourceEntry, path.join(destination, entry), {
+      recursive: true,
+      dereference: false,
+    })
+  }
+}
+
 async function resolveNativePackageDirectory(packageName: string): Promise<string> {
-  const entryPath = require.resolve(packageName, {
-    paths: [buddyDir],
-  })
+  const entryPath = resolvePackageEntryPath(packageName)
 
   let currentDir = path.dirname(entryPath)
   while (true) {
@@ -162,6 +190,23 @@ async function resolveNativePackageDirectory(packageName: string): Promise<strin
       throw new Error(`Could not locate package.json for ${packageName} from ${entryPath}`)
     }
     currentDir = parentDir
+  }
+}
+
+function resolvePackageEntryPath(packageName: string): string {
+  if (packageName.startsWith(`${LITEPARSE_PACKAGE_NAME}-`)) {
+    try {
+      return liteParseRequire.resolve(`${packageName}/package.json`)
+    } catch {
+      return liteParseRequire.resolve(packageName)
+    }
+  }
+
+  const resolveOptions = { paths: [buddyDir] }
+  try {
+    return require.resolve(`${packageName}/package.json`, resolveOptions)
+  } catch {
+    return require.resolve(packageName, resolveOptions)
   }
 }
 
