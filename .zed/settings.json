@@ -3,17 +3,20 @@
     "TypeScript": {
       "format_on_save": "on",
       "prettier": { "allowed": false },
-      "formatter": [{ "language_server": { "name": "oxfmt" } }]
+      "formatter": [{ "language_server": { "name": "oxfmt" } }],
+      "language_servers": ["oxfmt", "!typescript-language-server", "!oxlint"]
     },
     "JavaScript": {
       "format_on_save": "on",
       "prettier": { "allowed": false },
-      "formatter": [{ "language_server": { "name": "oxfmt" } }]
+      "formatter": [{ "language_server": { "name": "oxfmt" } }],
+      "language_servers": ["oxfmt", "!typescript-language-server", "!oxlint"]
     },
     "TSX": {
       "format_on_save": "on",
       "prettier": { "allowed": false },
-      "formatter": [{ "language_server": { "name": "oxfmt" } }]
+      "formatter": [{ "language_server": { "name": "oxfmt" } }],
+      "language_servers": ["oxfmt", "!typescript-language-server", "!oxlint"]
     }
   },
   "lsp": {
