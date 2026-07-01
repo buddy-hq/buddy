@@ -60,6 +60,49 @@ describe("project file editor routes", () => {
     await expect(fs.readFile(targetPath, "utf8")).resolves.toBe("const answer = 43\n")
   })
 
+  test("reads valid UTF-8 text containing form feed page separators", async () => {
+    const repo = createGitRepo("buddy-project-file-editor-form-feed")
+    const targetPath = path.join(repo, "notes", "pages.txt")
+    const content = "Page 1\n\fPage 2\n"
+    await fs.mkdir(path.dirname(targetPath), { recursive: true })
+    await fs.writeFile(targetPath, content, "utf8")
+
+    const readResponse = await app.request("/api/file/edit?path=notes/pages.txt", {
+      headers: {
+        "x-buddy-directory": repo,
+      },
+    })
+
+    expect(readResponse.status).toBe(200)
+    const readBody = (await readResponse.json()) as {
+      content: string
+      version: string | null
+    }
+    expect(readBody.content).toBe(content)
+    expect(typeof readBody.version).toBe("string")
+  })
+
+  test("rejects invalid UTF-8 text files instead of replacement-decoding them", async () => {
+    const repo = createGitRepo("buddy-project-file-editor-invalid-utf8")
+    const targetPath = path.join(repo, "notes", "invalid.txt")
+    const invalidContinuationByteWithoutLead = 0x80
+    const invalidUtf8Content = Buffer.concat([
+      Buffer.from("fo", "utf8"),
+      Buffer.from([invalidContinuationByteWithoutLead]),
+      Buffer.from("o", "utf8"),
+    ])
+    await fs.mkdir(path.dirname(targetPath), { recursive: true })
+    await fs.writeFile(targetPath, invalidUtf8Content)
+
+    const readResponse = await app.request("/api/file/edit?path=notes/invalid.txt", {
+      headers: {
+        "x-buddy-directory": repo,
+      },
+    })
+
+    expect(readResponse.status).toBe(415)
+  })
+
   test("returns conflict when the on-disk version changed", async () => {
     const repo = createGitRepo("buddy-project-file-editor-conflict")
     const targetPath = path.join(repo, "src", "app.ts")

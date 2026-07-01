@@ -2,7 +2,8 @@ import { fileExtensionFromPath } from "./workspace-file-paths"
 
 const UTF8_BOM = "\uFEFF"
 const REPLACEMENT_CHARACTER = "\uFFFD"
-const ALLOWED_CONTROL_CHARACTERS = new Set(["\t", "\n", "\r"])
+const FORM_FEED = "\f"
+const ALLOWED_CONTROL_CHARACTERS = new Set(["\t", "\n", "\r", FORM_FEED])
 
 const EXTENSION_TO_MONACO_LANGUAGE: Record<string, string> = {
   bash: "shell",

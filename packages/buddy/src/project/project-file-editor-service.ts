@@ -1,3 +1,4 @@
+import { isUtf8 } from "node:buffer"
 import { createHash } from "node:crypto"
 import fs from "node:fs/promises"
 import path from "node:path"
@@ -50,12 +51,17 @@ function contentVersion(content: string | undefined) {
 }
 
 async function readFileContent(filePath: string) {
-  return fs.readFile(filePath, "utf8").catch((error: unknown) => {
+  const content = await fs.readFile(filePath).catch((error: unknown) => {
     if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
       return undefined
     }
     throw error
   })
+  if (content === undefined) return undefined
+  if (!isUtf8(content)) {
+    throw new ProjectTextFileUnsupportedError(PROJECT_TEXT_FILE_UNSUPPORTED_ERROR)
+  }
+  return content.toString("utf8")
 }
 
 async function resolveContainedFile(
