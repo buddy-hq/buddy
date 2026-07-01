@@ -5,8 +5,6 @@ import {
   Button,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -22,7 +20,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@buddy/ui"
-import { RefreshCwIcon, BadgeCheckIcon, Loader2Icon } from "lucide-react"
+import { RefreshCwIcon, Loader2Icon } from "lucide-react"
 import { language } from "@/context/language"
 import {
   createCustomSkill,
@@ -37,13 +35,14 @@ import {
   type SkillsCatalog,
 } from "@/state/skills-actions"
 import { skillsCatalogQueryOptions } from "@/state/skills-catalog-query"
-import {
-  isInstalledLibrarySkill,
-  skillLibraryAction,
-  skillLibraryButtonVariant,
-  type SkillLibraryAction,
-} from "./skill-library-actions"
+import { isInstalledLibrarySkill, type SkillLibraryAction } from "./skill-library-actions"
 import { matchesInstalledSkillSearch } from "./skill-presentation"
+import {
+  LibraryActionButton,
+  SkillTileCard,
+  SkillTileCardSkeleton,
+  type SkillTileStatus,
+} from "./skill-tile-card"
 
 type SkillsFormState = {
   name: string
@@ -103,6 +102,10 @@ function scopeLabel(scope: InstalledSkillInfo["scope"]) {
     : language.t("skills.scope.global")
 }
 
+function installedSkillMeta(skill: InstalledSkillInfo): string {
+  return `${sourceLabel(skill.source)} · ${scopeLabel(skill.scope)}`
+}
+
 function permissionUpdateMessage(
   displayName: string,
   action: InstalledSkillInfo["permissionAction"],
@@ -115,20 +118,6 @@ function permissionUpdateMessage(
 
 function permissionRuleMessage(displayName: string, action: SkillRuleAction) {
   return permissionUpdateMessage(displayName, action)
-}
-
-function skillLibraryActionLabel(action: SkillLibraryAction): string {
-  if (action === "install") return language.t("skills.install")
-  if (action === "update") return language.t("skills.update")
-  if (action === "remove") return language.t("skills.detail.remove")
-  return language.t("skills.installed")
-}
-
-function skillLibraryBusyLabel(action: SkillLibraryAction): string {
-  if (action === "install") return language.t("skills.installing")
-  if (action === "update") return language.t("skills.updating")
-  if (action === "remove") return language.t("skills.removing")
-  return language.t("skills.installed")
 }
 
 function skillLibraryMutationMessage(skill: SkillLibraryEntry): string {
@@ -156,105 +145,6 @@ function isLibrarySkillBusy(skillID: string, busyOperations: ReadonlyMap<string,
   return (
     busyOperations.has(installLibraryBusyKey(skillID)) ||
     busyOperations.has(removeLibraryBusyKey(skillID))
-  )
-}
-
-function SkillCard(props: { skill: InstalledSkillInfo; onManage: () => void }) {
-  const isActive = props.skill.permissionAction !== "deny"
-  return (
-    <Card
-      onClick={props.onManage}
-      className="group/card cursor-pointer border-border-base/60 bg-surface-raised-base/60 transition-colors hover:border-border-base active:scale-[0.985]"
-    >
-      <CardHeader className="flex flex-row items-start justify-between gap-4 p-3 pb-0">
-        <CardTitle className="text-sm font-semibold text-text-base leading-snug">
-          {props.skill.displayName}
-        </CardTitle>
-        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-          {isActive && <BadgeCheckIcon className="size-4 text-surface-success-base" />}
-        </div>
-      </CardHeader>
-      <CardContent className="p-3 pt-1.5">
-        <p className="line-clamp-2 text-sm text-text-weak leading-relaxed">
-          {props.skill.shortDescription}
-        </p>
-      </CardContent>
-    </Card>
-  )
-}
-
-function LibraryActionButton(props: {
-  skill: SkillLibraryEntry
-  disabled?: boolean
-  busyAction?: SkillLibraryAction
-  compact?: boolean
-  onInstall: () => void
-  onRemove: () => void
-}) {
-  const action = skillLibraryAction(props.skill.state)
-  const displayAction = props.busyAction ?? action
-  const variant = skillLibraryButtonVariant(displayAction)
-  const busy = props.busyAction !== undefined
-
-  return (
-    <Button
-      type="button"
-      variant={variant}
-      size={props.compact ? "sm" : "default"}
-      className={props.compact ? "h-8 min-w-28 text-xs" : "h-10 min-w-[132px]"}
-      disabled={props.disabled || busy || action === "installed"}
-      onClick={(event) => {
-        event.stopPropagation()
-        if (action === "remove") {
-          props.onRemove()
-          return
-        }
-        props.onInstall()
-      }}
-    >
-      {busy ? <Loader2Icon className="size-3.5 animate-spin" aria-hidden /> : null}
-      {busy ? skillLibraryBusyLabel(displayAction) : skillLibraryActionLabel(displayAction)}
-    </Button>
-  )
-}
-
-function LibraryCard(props: {
-  skill: SkillLibraryEntry
-  busyOperations: ReadonlyMap<string, BusyOperation>
-  onInstall: () => void
-  onRemove: () => void
-  onManage: () => void
-}) {
-  const busyAction = libraryBusyAction(props.skill.id, props.busyOperations)
-  const disabled = isLibrarySkillBusy(props.skill.id, props.busyOperations)
-
-  return (
-    <Card
-      onClick={props.onManage}
-      className="flex flex-col border-border-base/60 bg-surface-raised-base/60 transition-colors hover:border-border-base cursor-pointer group/card active:scale-[0.985]"
-    >
-      <CardHeader className="flex flex-row items-start justify-between gap-4 p-3 pb-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <CardTitle className="text-sm font-semibold text-text-base leading-snug truncate">
-            {props.skill.displayName}
-          </CardTitle>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5 shrink-0" />
-      </CardHeader>
-      <CardContent className="flex-1 p-3 pt-1.5">
-        <p className="line-clamp-2 text-sm text-text-weak leading-relaxed">{props.skill.summary}</p>
-      </CardContent>
-      <div className="p-3 pt-0 flex justify-end">
-        <LibraryActionButton
-          skill={props.skill}
-          compact
-          busyAction={busyAction}
-          disabled={disabled}
-          onInstall={props.onInstall}
-          onRemove={props.onRemove}
-        />
-      </div>
-    </Card>
   )
 }
 
@@ -515,6 +405,17 @@ export function SkillsPage(props: { directory?: string }) {
     updateSkillPermission(skill, nextAction)
   }
 
+  function installedSkillStatus(skill: InstalledSkillInfo): SkillTileStatus {
+    return {
+      kind: "toggle",
+      active: skill.permissionAction !== "deny",
+      statusLabel: statusLabel(skill.permissionAction),
+      ariaLabel: language.t("skills.toggleAria", { name: skill.displayName }),
+      pending: busyOperations.has(permissionBusyKey(skill.name)),
+      onToggle: (next) => toggleSkillEnabled(skill, next),
+    }
+  }
+
   async function submitNewSkill() {
     const payload: CreateCustomSkillInput = {
       name: form.name,
@@ -595,31 +496,40 @@ export function SkillsPage(props: { directory?: string }) {
             aria-busy={refreshing || loading}
           >
             {loading ? (
-              <p className="text-sm text-text-weak">{language.t("skills.loadingSkills")}</p>
+              <div className="grid gap-4 md:grid-cols-2">
+                {SKELETON_CARD_KEYS.map((key) => (
+                  <SkillTileCardSkeleton key={key} />
+                ))}
+              </div>
             ) : filteredLibrary.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-2">
                 {filteredLibrary.map((skill) => (
-                  <LibraryCard
+                  <SkillTileCard
                     key={skill.id}
-                    skill={skill}
-                    busyOperations={busyOperations}
-                    onInstall={() =>
-                      void runMutation(
-                        installLibraryBusyKey(skill.id),
-                        installOrUpdateBusyOperation(skill),
-                        () => installLibrarySkill(skill.id, currentDirectory),
-                        skillLibraryMutationMessage(skill),
-                      )
-                    }
-                    onRemove={() =>
-                      void runMutation(
-                        removeLibraryBusyKey(skill.id),
-                        "remove",
-                        () => removeLibrarySkill(skill.id, currentDirectory),
-                        language.t("skills.detail.removedSkill", { name: skill.displayName }),
-                      )
-                    }
-                    onManage={() => setSelectedLibrarySkillID(skill.id)}
+                    title={skill.displayName}
+                    description={skill.summary}
+                    meta={skill.sourceLabel}
+                    onSelect={() => setSelectedLibrarySkillID(skill.id)}
+                    status={{
+                      kind: "library",
+                      skill,
+                      busyAction: libraryBusyAction(skill.id, busyOperations),
+                      disabled: isLibrarySkillBusy(skill.id, busyOperations),
+                      onInstall: () =>
+                        void runMutation(
+                          installLibraryBusyKey(skill.id),
+                          installOrUpdateBusyOperation(skill),
+                          () => installLibrarySkill(skill.id, currentDirectory),
+                          skillLibraryMutationMessage(skill),
+                        ),
+                      onRemove: () =>
+                        void runMutation(
+                          removeLibraryBusyKey(skill.id),
+                          "remove",
+                          () => removeLibrarySkill(skill.id, currentDirectory),
+                          language.t("skills.detail.removedSkill", { name: skill.displayName }),
+                        ),
+                    }}
                   />
                 ))}
               </div>
@@ -640,29 +550,19 @@ export function SkillsPage(props: { directory?: string }) {
             {loading ? (
               <div className="grid gap-4 md:grid-cols-2">
                 {SKELETON_CARD_KEYS.map((key) => (
-                  <Card key={key} className="border-border-base/60 bg-surface-raised-base/50">
-                    <CardContent className="flex flex-col gap-4 p-5">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <div className="size-3.5 rounded-full bg-surface-weak/40" />
-                          <div className="h-4 w-32 rounded-md bg-surface-weak/60" />
-                        </div>
-                        <div className="space-y-1.5">
-                          <div className="h-3 w-full rounded-md bg-surface-weak/30" />
-                          <div className="h-3 w-3/4 rounded-md bg-surface-weak/30" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  <SkillTileCardSkeleton key={key} />
                 ))}
               </div>
             ) : filteredDefault.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-2">
                 {filteredDefault.map((skill) => (
-                  <SkillCard
+                  <SkillTileCard
                     key={skill.name}
-                    skill={skill}
-                    onManage={() => setSelectedSkillName(skill.name)}
+                    title={skill.displayName}
+                    description={skill.shortDescription}
+                    meta={installedSkillMeta(skill)}
+                    onSelect={() => setSelectedSkillName(skill.name)}
+                    status={installedSkillStatus(skill)}
                   />
                 ))}
               </div>
@@ -683,10 +583,13 @@ export function SkillsPage(props: { directory?: string }) {
             >
               <div className="grid gap-4 md:grid-cols-2">
                 {filteredCustom.map((skill) => (
-                  <SkillCard
+                  <SkillTileCard
                     key={skill.name}
-                    skill={skill}
-                    onManage={() => setSelectedSkillName(skill.name)}
+                    title={skill.displayName}
+                    description={skill.shortDescription}
+                    meta={installedSkillMeta(skill)}
+                    onSelect={() => setSelectedSkillName(skill.name)}
+                    status={installedSkillStatus(skill)}
                   />
                 ))}
               </div>
