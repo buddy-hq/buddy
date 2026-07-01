@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Loader2Icon } from "lucide-react"
 import { cn } from "@buddy/ui"
@@ -10,6 +10,7 @@ import {
   type FoliateReaderSnapshot,
 } from "@/components/readers/foliate-reader"
 import type { ReaderAnnotation } from "@/components/readers/foliate-reader-types"
+import { FoliateErrorState } from "@/components/readers/ui/foliate-error-state"
 import { ResourceCover } from "@/components/resources/resource-cover"
 import { language } from "@/context/language"
 import {
@@ -33,30 +34,70 @@ type DirectoryChatReadingReaderPaneProps = {
 }
 
 const NOTEBOOK_PERSISTENCE_SUFFIX_PREFIX = "notebook"
+const READER_SOURCE_KEY_SEPARATOR = "\0"
 const READER_REVEAL_EASING = "ease-[cubic-bezier(0.23,1,0.32,1)]"
 const READER_REVEAL_DURATION_CLASS = "duration-220"
+const READER_OPEN_TIMEOUT_MS = 30_000
+
+type ReaderErrorState = {
+  sourceKey: string
+  error: Error
+}
+
+function buildReaderSourceKey(input: {
+  directory: string
+  resourcePath: string
+  dataUpdatedAt: number
+}): string {
+  return [input.directory, input.resourcePath, input.dataUpdatedAt].join(
+    READER_SOURCE_KEY_SEPARATOR,
+  )
+}
 
 export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReaderPaneProps) {
-  const [readerReady, setReaderReady] = useState(false)
-  const [readerFailed, setReaderFailed] = useState(false)
+  const [readerReadySourceKey, setReaderReadySourceKey] = useState<string | null>(null)
+  const [readerErrorState, setReaderErrorState] = useState<ReaderErrorState | null>(null)
   const resourceSupported = isSupportedReadingResourcePath(props.resourcePath)
   const readerBlobQuery = useQuery({
     ...readingResourceBlobQueryOptions(props.directory, props.resourcePath),
     enabled: Boolean(props.resourcePath) && resourceSupported,
   })
+  const readerSourceKey = buildReaderSourceKey({
+    directory: props.directory,
+    resourcePath: props.resourcePath,
+    dataUpdatedAt: readerBlobQuery.dataUpdatedAt,
+  })
+  const readerReady = readerReadySourceKey === readerSourceKey
+  const readerError =
+    readerErrorState?.sourceKey === readerSourceKey ? readerErrorState.error : null
+
+  const handleReaderReady = useCallback(
+    (_snapshot: FoliateReaderSnapshot) => {
+      setReaderReadySourceKey(readerSourceKey)
+      setReaderErrorState((current) => (current?.sourceKey === readerSourceKey ? null : current))
+    },
+    [readerSourceKey],
+  )
+
+  const handleReaderError = useCallback(
+    (error: Error) => {
+      setReaderErrorState({ sourceKey: readerSourceKey, error })
+    },
+    [readerSourceKey],
+  )
 
   useEffect(() => {
-    setReaderReady(false)
-    setReaderFailed(false)
-  }, [props.resourcePath])
-
-  const handleReaderReady = useCallback((_snapshot: FoliateReaderSnapshot) => {
-    setReaderReady(true)
-  }, [])
-
-  const handleReaderError = useCallback((_error: Error) => {
-    setReaderFailed(true)
-  }, [])
+    if (!readerBlobQuery.data || readerReady || readerError) return
+    const timeout = setTimeout(() => {
+      setReaderErrorState({
+        sourceKey: readerSourceKey,
+        error: new Error("The document reader did not finish opening this file."),
+      })
+    }, READER_OPEN_TIMEOUT_MS)
+    return () => {
+      clearTimeout(timeout)
+    }
+  }, [readerBlobQuery.data, readerError, readerReady, readerSourceKey])
 
   function renderOpeningState(label: string) {
     return (
@@ -101,14 +142,13 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
     )
   }
 
-  const readerSource = useMemo<FoliateReaderSource | null>(() => {
-    if (!readerBlobQuery.data) return null
-    return {
+  const readerSource: FoliateReaderSource | null = readerBlobQuery.data
+    ? {
       kind: "blob",
       blob: readerBlobQuery.data,
       name: props.resourceName,
     }
-  }, [props.resourceName, readerBlobQuery.data])
+    : null
 
   if (readerBlobQuery.isPending) {
     return (
@@ -133,6 +173,10 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
     )
   }
 
+  if (readerError) {
+    return <FoliateErrorState error={readerError} />
+  }
+
   if (!readerSource) {
     return null
   }
@@ -140,7 +184,7 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
   const persistenceSuffix = props.objectID
     ? `${NOTEBOOK_PERSISTENCE_SUFFIX_PREFIX}:${props.objectID}`
     : undefined
-  const readerSettled = readerReady || readerFailed
+  const readerSettled = readerReady
 
   return (
     <div className="relative h-full min-h-0 overflow-hidden bg-background-base">
