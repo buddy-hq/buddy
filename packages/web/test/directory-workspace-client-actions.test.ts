@@ -215,6 +215,36 @@ describe("DirectoryWorkspaceClientActionLedger", () => {
     ])
   })
 
+  test("records observed workspace state for a superseded required action", async () => {
+    const harness = createHarness({
+      execute: () => ({
+        outcome: "superseded",
+        reason: "newer_command",
+        projection: projectionForTarget(HTML_WIDGET_TARGET),
+      }),
+    })
+
+    await harness.ledger.handle(benchAction({ actionID: "action-superseded" }))
+
+    expect(harness.completions).toEqual([
+      {
+        actionID: "action-superseded",
+        sessionID: SESSION_ID,
+        completion: {
+          outcome: "superseded",
+          reason: "newer_command",
+          observedRoute: {
+            status: BENCH_ROUTE_STATUS_OPEN,
+            target: HTML_WIDGET_TARGET,
+            mode: BENCH_CHAT_LAYOUT_DOCKED,
+          },
+          observedVisibility: "visible",
+          drawer: null,
+        },
+      },
+    ])
+  })
+
   test("resends duplicate terminal completions without rerunning the command", async () => {
     const harness = createHarness()
     const action = benchAction({ actionID: "action-1" })

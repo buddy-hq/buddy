@@ -282,6 +282,9 @@ const terminalBenchClientActionCompletionOpenApiSchema: OpenApiRequestBodySchema
         "newer_command",
       ],
     },
+    observedRoute: benchRouteSnapshotOpenApiSchema,
+    observedVisibility: { type: "string" as const, enum: ["visible", "parked", "closed"] },
+    drawer: { type: ["string", "null"] as const, enum: ["explorer", "library", null] },
   },
 }
 

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import {
   benchTargetKey,
   clearBenchContextRegistry,
+  type BenchTarget,
 } from "../../src/learning/features/bench/context"
 import {
   SSE_EVENT_TYPE_CLIENT_ACTION,
@@ -19,6 +20,7 @@ import {
 } from "../../src/resources/resource-registry-service"
 import { createBuddyToolContext } from "../helpers/tools"
 import { tmpdir } from "../helpers/tmpdir"
+import { createTestPdf } from "../helpers/pdf"
 
 const SESSION_ID = "session-bench-present"
 const TEST_CLIENT_INSTANCE_ID = "test-bench-client"
@@ -189,6 +191,29 @@ function completeBlockedAction(input: { client: TestBenchClient; action: BenchCl
       outcome: "blocked",
       lease: leaseIdentity(input.client.lease),
       reason: "leave_guard_blocked",
+    },
+  })
+}
+
+function completeSupersededAction(input: {
+  client: TestBenchClient
+  action: BenchClientAction
+  observedTarget: BenchTarget
+}) {
+  return benchClientActionBroker.completeAction({
+    directory: input.client.directory,
+    actionID: input.action.actionID,
+    completion: {
+      outcome: "superseded",
+      lease: leaseIdentity(input.client.lease),
+      reason: "newer_command",
+      observedRoute: {
+        status: "open",
+        target: input.observedTarget,
+        mode: "docked",
+      },
+      observedVisibility: "visible",
+      drawer: null,
     },
   })
 }
@@ -372,6 +397,43 @@ describe("bench_present", () => {
     })
   })
 
+  test("reports observed Bench state when an explicit presentation is replaced", async () => {
+    await using project = await tmpdir({
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "notes.md"), "# Notes\n")
+        await fs.writeFile(path.join(directory, "other.md"), "# Other\n")
+      },
+    })
+    const client = connectTestBenchClient({ directory: project.path })
+    const observedTarget = {
+      type: "workspace-file",
+      path: "other.md",
+      viewer: "markdown",
+    } satisfies BenchTarget
+
+    const run = presentOnBenchWithTestContext({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      action: "present_file",
+      path: "notes.md",
+      resourceKey: null,
+      objectID: null,
+    })
+    const action = await readNextAction(client)
+    completeSupersededAction({ client, action, observedTarget })
+    const result = await run
+
+    expect(result).toMatchObject({
+      status: "error",
+      reason: "action_superseded",
+      target: null,
+      benchTarget: null,
+    })
+    expect(result.message).toContain("replaced before completion")
+    expect(result.message).toContain("other.md")
+    expect(result.message).toContain("bench_read_context")
+  })
+
   test("blocks replacing dirty markdown from the synchronized bench snapshot", async () => {
     await using project = await tmpdir({
       init: async (directory) => {
@@ -402,7 +464,7 @@ describe("bench_present", () => {
   test("presents a resource using the original PDF source path", async () => {
     await using project = await tmpdir({
       init: async (directory) => {
-        await fs.writeFile(path.join(directory, "original.pdf"), "%PDF-1.4\n")
+        await fs.writeFile(path.join(directory, "original.pdf"), createTestPdf())
         await addResource({
           directory,
           sourcePath: "original.pdf",
@@ -440,6 +502,44 @@ describe("bench_present", () => {
         viewID: "reader",
       },
     })
+  })
+
+  test("blocks a reader source that becomes invalid before Bench presentation", async () => {
+    await using project = await tmpdir({
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "original.pdf"), createTestPdf())
+        await addResource({
+          directory,
+          sourcePath: "original.pdf",
+          alias: "book",
+        })
+      },
+    })
+    await waitForResourceReader({
+      directory: project.path,
+      resourceKey: "book",
+    })
+    await fs.writeFile(
+      path.join(project.path, "original.pdf"),
+      "<!DOCTYPE html><html><body>expired download</body></html>",
+    )
+
+    const result = await presentOnBenchWithTestContext({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      action: "present_resource",
+      path: null,
+      resourceKey: "book",
+      objectID: null,
+    })
+
+    expect(result).toMatchObject({
+      status: "blocked",
+      reason: "unsupported_target",
+      target: null,
+      benchTarget: null,
+    })
+    expect(result.message).toContain("reader source is invalid")
   })
 
   test("blocks text-only resources instead of presenting internal full text to reading mode", async () => {

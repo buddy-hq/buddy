@@ -259,12 +259,15 @@ function readBenchClientLeaseEvent(input: unknown): BenchClientLease | undefined
 function completionFromResult(
   result: DirectoryWorkspaceCommandResult,
 ): BenchClientActionCompletionDraft {
+  const observedState = {
+    observedRoute: result.projection.route,
+    observedVisibility: result.projection.bench.visibility,
+    drawer: result.projection.drawer,
+  }
   if (result.outcome === "committed") {
     return {
       outcome: "committed",
-      observedRoute: result.projection.route,
-      observedVisibility: result.projection.bench.visibility,
-      drawer: result.projection.drawer,
+      ...observedState,
       changed: result.changed,
     }
   }
@@ -272,23 +275,27 @@ function completionFromResult(
     return {
       outcome: "blocked",
       reason: result.reason,
+      ...observedState,
     }
   }
   if (result.outcome === "failed") {
     return {
       outcome: "failed",
       reason: result.reason,
+      ...observedState,
     }
   }
   if (result.outcome === "inactive") {
     return {
       outcome: "inactive_session",
       reason: result.reason,
+      ...observedState,
     }
   }
   return {
     outcome: "superseded",
     reason: result.reason,
+    ...observedState,
   }
 }
 

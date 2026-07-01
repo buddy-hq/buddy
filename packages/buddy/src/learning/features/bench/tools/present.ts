@@ -32,6 +32,7 @@ import {
   benchClientActionBroker,
   type BenchBrokerTerminal,
   type BenchClientActionCommand,
+  type BenchClientActionCompletion,
 } from "../client-actions"
 import {
   ensureWhiteboardObjectForSession,
@@ -116,6 +117,11 @@ type BenchPresentAction = z.infer<typeof BenchPresentActionSchema>
 type BenchPresentStatus = z.infer<typeof BenchPresentStatusSchema>
 type BenchPresentReason = z.infer<typeof BenchPresentReasonSchema>
 type BenchPresentToolMetadata = z.infer<typeof BenchPresentToolMetadataSchema>
+type CommittedBenchCompletion = Extract<
+  BenchClientActionCompletion,
+  { outcome: "committed" }
+>
+type TerminalBenchCompletion = Exclude<BenchClientActionCompletion, CommittedBenchCompletion>
 
 type BenchPresentOutput = {
   status: BenchPresentStatus
@@ -787,14 +793,45 @@ function timedOutClientResult(): BenchPresentOutput {
   }
 }
 
-function supersededActionResult(): BenchPresentOutput {
+function formatBenchTargetForMessage(target: BenchTarget): string {
+  if (target.type === "workspace-file") {
+    return `workspace file ${target.path} (${target.viewer})`
+  }
+  const revision = target.ref.revisionID ? `, revision ${target.ref.revisionID}` : ""
+  const item = target.ref.itemID ? `, item ${target.ref.itemID}` : ""
+  return `${target.ref.kind} object ${target.ref.objectID}, view ${target.viewID}${revision}${item}`
+}
+
+function observedBenchStateMessage(completion?: TerminalBenchCompletion): string | undefined {
+  const observedRoute = completion?.observedRoute
+  if (!observedRoute) return undefined
+  if (observedRoute.status === "closed") {
+    return "Observed Bench state: closed."
+  }
+
+  const visibility = completion.observedVisibility
+    ? `visibility ${completion.observedVisibility}`
+    : "visibility unknown"
+  const drawer = completion.drawer ? `, drawer ${completion.drawer}` : ""
+  return `Observed Bench state: ${visibility}, ${formatBenchTargetForMessage(observedRoute.target)} in ${observedRoute.mode} mode${drawer}.`
+}
+
+function supersededActionResult(completion?: TerminalBenchCompletion): BenchPresentOutput {
+  const message = [
+    "Bench command was replaced before completion by another Bench navigation.",
+    observedBenchStateMessage(completion),
+    "Use bench_read_context to inspect the current Bench before retrying. If that target is wrong, call bench_present again for the desired target.",
+  ]
+    .filter((part): part is string => part !== undefined)
+    .join(" ")
+
   return {
     status: "error",
     reason: "action_superseded",
     target: null,
     benchTarget: null,
     mode: null,
-    message: "Bench did not change because a newer Bench command superseded this request.",
+    message,
     objectResult: null,
   }
 }
@@ -889,7 +926,7 @@ function completedBenchActionResult(input: {
     return inactiveClientResult()
   }
   if (input.completion.outcome === "superseded") {
-    return supersededActionResult()
+    return supersededActionResult(input.completion)
   }
   if (input.completion.reason === "navigation_failed") {
     return navigationFailedResult()

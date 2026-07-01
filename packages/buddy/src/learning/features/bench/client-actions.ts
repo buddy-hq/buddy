@@ -101,6 +101,9 @@ const BenchClientActionCompletionTerminalSchema = z
       "session_inactive",
       "newer_command",
     ]),
+    observedRoute: BenchRouteSnapshotSchema.optional(),
+    observedVisibility: z.enum(["visible", "parked", "closed"]).optional(),
+    drawer: z.enum(["explorer", "library"]).nullable().optional(),
   })
   .strict()
 
