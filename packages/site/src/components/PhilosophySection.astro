@@ -358,7 +358,6 @@ const philosophyItems = learnersPhilosophy.items
       flex-direction: row;
       gap: var(--space-4);
       overflow-x: auto;
-      scroll-snap-type: x mandatory;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
       -ms-overflow-style: none;
@@ -368,7 +367,6 @@ const philosophyItems = learnersPhilosophy.items
     .philosophy-section .columns-zone::after {
       content: "";
       flex: 0 0 var(--space-6);
-      scroll-snap-align: end;
     }
 
     .philosophy-section .columns-zone::-webkit-scrollbar {
@@ -377,7 +375,6 @@ const philosophyItems = learnersPhilosophy.items
 
     .philosophy-section .stagger-column {
       flex: 0 0 80%;
-      scroll-snap-align: start;
       padding: var(--space-5);
     }
   }

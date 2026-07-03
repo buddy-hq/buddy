@@ -519,7 +519,18 @@
       cardPanel.classList.remove("fade-enter");
     };
 
-    // Autoplay trigger
-    setTimeout(runTimeline, 1000);
+    // Autoplay trigger when the mock crosses the viewport center
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            observer.unobserve(container);
+            setTimeout(runTimeline, 500);
+          }
+        });
+      },
+      { rootMargin: "-50% 0px -50% 0px", threshold: 0 }
+    );
+    observer.observe(container);
   });
 </script>

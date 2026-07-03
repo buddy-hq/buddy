@@ -649,7 +649,23 @@
       requestAnimationFrame(draw);
     };
 
-    resetGame();
-    draw();
+    const startGame = () => {
+      resetGame();
+      draw();
+    };
+
+    // Start when the mock crosses the viewport center
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            observer.unobserve(container);
+            setTimeout(startGame, 500);
+          }
+        });
+      },
+      { rootMargin: "-50% 0px -50% 0px", threshold: 0 }
+    );
+    observer.observe(container);
   });
 </script>
