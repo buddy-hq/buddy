@@ -1,0 +1,332 @@
+---
+// Component: EducatorAlignMock
+---
+
+<div class="edu-mock" data-align-mock>
+  <div class="edu-feed">
+    <!-- Selected passage reference card (matches the real "selected passage" chat pattern) -->
+    <div class="ref-card">
+      <span class="ref-label">Selected passage</span>
+      <p class="ref-text">…in the <mark data-align-highlight>water cycle</mark>, water moves between the ocean, sky, and land through evaporation, condensation, and precipitation.</p>
+      <span class="ref-meta">grade5_science.pdf · p. 4</span>
+    </div>
+
+    <!-- User message -->
+    <div class="user-bubble">Align this to standards.</div>
+
+    <!-- Tool call -->
+    <div class="tool-row">
+      <span class="tool-icon">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </span>
+      <span class="tool-action" data-tool-action>Search Standards</span>
+      <span class="tool-subject" data-tool-subject>Found 4 standards</span>
+    </div>
+
+    <!-- Assistant response -->
+    <div class="assistant-text" data-assistant-text>
+      <p>4 matches for <strong>water cycle</strong>, grade 5:</p>
+      <ul>
+        <li data-assistant-row><code>CCSS.ELA-LITERACY.RI.5.7</code> Integrate information from several texts</li>
+        <li data-assistant-row><code>NGSS 5-ESS2-1</code> Earth's systems interact</li>
+        <li data-assistant-row><code>NCERT · EVS · G5</code> Aligned learning outcomes</li>
+        <li data-assistant-row><code>DIKSHA</code> Environmental Studies Workbook</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<style>
+  .edu-mock {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #0a0908;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-6);
+    color: var(--color-text-primary);
+    font-family: var(--font-body);
+  }
+
+  .edu-feed {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-3);
+  }
+
+  /* Selected passage reference card */
+  .ref-card {
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.02);
+    padding: 9px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .ref-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-text-muted);
+  }
+
+  .ref-text {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--color-text-tertiary);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .ref-text mark {
+    background: none;
+    color: var(--color-text-muted);
+    font-weight: 650;
+    transition: color 0.4s ease;
+  }
+
+  .ref-text mark.lit {
+    color: var(--color-accent-secondary);
+  }
+
+  .ref-meta {
+    font-size: 10px;
+    color: var(--color-text-muted);
+  }
+
+  /* User message bubble: sharp bottom-right corner, matches the real chat pattern */
+  .user-bubble {
+    align-self: flex-end;
+    max-width: 78%;
+    width: fit-content;
+    background-color: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
+    border-bottom-right-radius: 3px;
+    padding: 7px 13px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+  }
+
+  /* Tool call row */
+  .tool-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+  }
+
+  .tool-icon {
+    flex-shrink: 0;
+    display: flex;
+    color: var(--color-text-muted);
+  }
+
+  .tool-action {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-tertiary);
+  }
+
+  .tool-action.running {
+    color: transparent;
+    background-image: linear-gradient(
+      90deg,
+      var(--color-text-tertiary) 0%,
+      var(--color-text-tertiary) 42%,
+      var(--color-text-primary) 50%,
+      var(--color-text-tertiary) 58%,
+      var(--color-text-tertiary) 100%
+    );
+    background-size: 250% 100%;
+    background-position: 100% 0;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: shimmer-sweep 1.3s linear infinite;
+  }
+
+  @keyframes shimmer-sweep {
+    to {
+      background-position: -150% 0;
+    }
+  }
+
+  .tool-subject {
+    min-width: 0;
+    font-size: 11.5px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    transform: translateY(2px);
+    transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out);
+  }
+
+  .tool-subject.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Assistant response */
+  .assistant-text {
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--color-text-tertiary);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);
+  }
+
+  .assistant-text.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .assistant-text strong {
+    color: var(--color-text-secondary);
+    font-weight: 650;
+  }
+
+  .assistant-text ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .assistant-text li {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.35s var(--ease-out), transform 0.35s var(--ease-out);
+  }
+
+  .assistant-text li.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .assistant-text code {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    background-color: rgba(255, 255, 255, 0.06);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--color-text-secondary);
+  }
+
+  /* Mobile scaling */
+  @media (max-width: 576px) {
+    .edu-mock {
+      padding: var(--space-4) !important;
+    }
+    .edu-feed {
+      gap: var(--space-2) !important;
+    }
+    .ref-text {
+      font-size: 10.5px !important;
+    }
+    .user-bubble {
+      font-size: 11px !important;
+      padding: 6px 11px !important;
+    }
+    .tool-action {
+      font-size: 10.5px !important;
+    }
+    .tool-subject {
+      font-size: 10px !important;
+    }
+    .assistant-text {
+      font-size: 11px !important;
+    }
+    .assistant-text code {
+      font-size: 9.5px !important;
+    }
+  }
+</style>
+
+<script>
+  document.querySelectorAll("[data-align-mock]").forEach((container) => {
+    const highlight = container.querySelector("[data-align-highlight]") as HTMLElement | null;
+    const toolAction = container.querySelector("[data-tool-action]") as HTMLElement | null;
+    const toolSubject = container.querySelector("[data-tool-subject]") as HTMLElement | null;
+    const assistantText = container.querySelector("[data-assistant-text]") as HTMLElement | null;
+    const rows = Array.from(container.querySelectorAll("[data-assistant-row]")) as HTMLElement[];
+
+    if (!highlight || !toolAction || !toolSubject || !assistantText || rows.length === 0) return;
+
+    let isUserInteracting = false;
+    let animationTimeout: any = null;
+
+    const stopAutoplay = () => {
+      isUserInteracting = true;
+      if (animationTimeout) {
+        clearTimeout(animationTimeout);
+        animationTimeout = null;
+      }
+    };
+
+    container.addEventListener("click", stopAutoplay);
+
+    const delay = (ms: number) => new Promise(resolve => {
+      animationTimeout = setTimeout(resolve, ms);
+    });
+
+    const runTimeline = async () => {
+      if (isUserInteracting) return;
+
+      // Reset
+      highlight.classList.remove("lit");
+      toolAction.classList.add("running");
+      toolSubject.classList.remove("visible");
+      assistantText.classList.remove("visible");
+      rows.forEach((row) => row.classList.remove("visible"));
+
+      await delay(600);
+      if (isUserInteracting) return;
+
+      highlight.classList.add("lit");
+      await delay(900);
+      if (isUserInteracting) return;
+
+      // Tool call resolves
+      toolAction.classList.remove("running");
+      toolSubject.classList.add("visible");
+      await delay(400);
+      if (isUserInteracting) return;
+
+      // Assistant responds
+      assistantText.classList.add("visible");
+      await delay(300);
+      if (isUserInteracting) return;
+
+      for (const row of rows) {
+        row.classList.add("visible");
+        await delay(260);
+        if (isUserInteracting) return;
+      }
+    };
+
+    setTimeout(runTimeline, 1000);
+  });
+</script>

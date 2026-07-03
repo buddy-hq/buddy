@@ -64,7 +64,7 @@ const bringYourOwn: BringYourOwn = {
   primary: {
     name: "ChatGPT",
     icon: "openai",
-    description: "Use Go, Plus, Pro subscriptions.",
+    description: "Use Free, Plus, or Pro subscriptions.",
   },
   secondary: {
     label: "",
@@ -166,34 +166,34 @@ export const content = {
     },
     features: [
       {
-        tag: "STUDY",
-        title: "Drop in what you're studying",
-        subtext:
-          "A PDF, an EPUB, a video, a lecture recording. Buddy reads it all and you're ready to go.",
-      },
-      {
         tag: "READ",
-        title: "Get unstuck while you read",
+        title: "Read, with Buddy at your side.",
         subtext:
-          "Highlight a passage, ask a question. Buddy sees what you're reading and explains it right there.",
+          "Bring your ebooks, PDFs or papers and read them with Buddy always at your side. Ask for summaries, save highlights, take notes.",
       },
       {
         tag: "PLAY",
-        title: "Play until it clicks",
+        title: "Make games and apps, to learn.",
         subtext:
-          "Reading it again won't help. Sketch it on the whiteboard, play a game Buddy builds, explore until it clicks.",
+          "Gamify your own learning. Buddy can make and publish games, interactive apps, or anything else you can imagine.",
+      },
+      {
+        tag: "DRAW",
+        title: "Draw on Excalidraw boards.",
+        subtext:
+          "Buddy can draw for you, and see what you are drawing on the built-in Excalidraw board. Ask for diagrams, map concepts, or visualize structures.",
       },
       {
         tag: "QUIZ",
-        title: "Know if you're ready",
+        title: "Test yourself, with Quizzes.",
         subtext:
-          "Buddy quizzes you on what you've learned. See what clicks and what needs another pass.",
+          "Ask Buddy to generate a quiz on any resource, book or topic you are studying.",
       },
       {
-        tag: "REVIEW",
-        title: "Make it stick",
+        tag: "REMEMBER",
+        title: "Make it stick, with Flashcards.",
         subtext:
-          "Stop forgetting what you learned. Buddy turns your reading and chats into flashcards automatically. Review on your schedule.",
+          "Stop forgetting what you learned. Buddy turns your reading and chats into flashcards. Review on your schedule.",
       },
     ] as const,
     philosophy: learnersPhilosophy,
@@ -213,33 +213,33 @@ export const content = {
     features: [
       {
         tag: "ALIGN",
-        title: "Aligned to your standards",
+        title: "Align content to standards or books.",
         subtext:
-          "Instead of mapping standards by hand, import them. Buddy knows the prerequisites and what comes next.",
+          "Buddy comes with built-in CCSS standards, NGSS standards, and standards for all U.S. states. For Indian teachers, it can download NCERT and state board books, DIKSHA resources, and any public resource published on GOI websites."
       },
       {
         tag: "PLAN",
-        title: "Plan lessons in minutes",
+        title: "Plan with any learning framework.",
         subtext:
-          "Buddy writes clear learning goals from your standards. Know what to teach and why, in minutes not hours.",
+          "Buddy can align your content to Bloom levels, DOK levels, or Piaget's stages. It can sequence your lessons using instruction models. It can also help you with materials for project-based learning, SEL, scaffolding, and formative and summative assessment."
       },
       {
         tag: "CREATE",
-        title: "One lesson, every level",
+        title: "Create docs, presentations, or sheets.",
         subtext:
-          "Stop making different versions for different levels. Buddy tailors worksheets, activities, and diagrams for every learner, no extra effort.",
+          "Buddy can create worksheets or lesson plans for your students. And it can create reports, presentations, or spreadsheets for your peers. All ready to export."
       },
       {
-        tag: "ASSESS",
-        title: "Test what you actually taught",
+        tag: "RESEARCH",
+        title: "Research around your material.",
         subtext:
-          "Quizzes and practice problems built from your actual curriculum goals. Not generic, aligned to what you taught. Print, share, or assign.",
+          "Upload your PDFs, ebooks, documents, or web links. Buddy can parse them, understand them, and answer any questions about them. Buddy has a built-in ebook reader, whiteboarding area, and source system to make your research easier."
       },
       {
-        tag: "EXPORT",
-        title: "Ready for class tomorrow",
+        tag: "BUILD",
+        title: "Build interactive experiences.",
         subtext:
-          "Quizzes, worksheets, and lessons, print-ready or digital. Export in one click. Everything stays on your machine.",
+          "Buddy can create apps, games, and websites for you. You can ask Buddy to publish them and then share them with your students or peers. With Buddy, every teacher is a builder."
       },
     ] as const,
     philosophy: educatorsPhilosophy,

@@ -1,0 +1,298 @@
+---
+// Component: EducatorBuildMock
+---
+
+<div class="edu-mock" data-build-mock>
+  <div class="edu-feed">
+    <!-- User message -->
+    <div class="user-bubble">Build a flashcard set from today's lesson.</div>
+
+    <!-- Tool call -->
+    <div class="tool-row">
+      <span class="tool-icon">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
+      </span>
+      <span class="tool-action" data-tool-action>Build</span>
+      <span class="tool-subject" data-tool-subject>12 cards</span>
+    </div>
+
+    <!-- Build log lines (matches the real streaming log pattern) -->
+    <div class="build-log" data-build-log>
+      <span class="log-line" data-log-row>Parsing lesson transcript</span>
+      <span class="log-line" data-log-row>Extracting key terms</span>
+      <span class="log-line" data-log-row>Generating Q/A pairs</span>
+      <span class="log-line" data-log-row>Wrote 12 cards to flashcard-set.json</span>
+    </div>
+
+    <!-- Assistant response: published chip -->
+    <div class="assistant-text" data-assistant-text>
+      <p>Published. Share with your class:</p>
+      <div class="publish-chip">
+        <span class="publish-icon">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+        </span>
+        <span class="publish-label">buddy.app/s/4f8a</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .edu-mock {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #0a0908;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-6);
+    color: var(--color-text-primary);
+    font-family: var(--font-body);
+  }
+
+  .edu-feed {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-3);
+  }
+
+  /* User message bubble */
+  .user-bubble {
+    align-self: flex-end;
+    max-width: 80%;
+    width: fit-content;
+    background-color: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
+    border-bottom-right-radius: 3px;
+    padding: 7px 13px;
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--color-text-secondary);
+  }
+
+  /* Tool call row */
+  .tool-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+  }
+
+  .tool-icon {
+    flex-shrink: 0;
+    display: flex;
+    color: var(--color-text-muted);
+  }
+
+  .tool-action {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-tertiary);
+  }
+
+  .tool-action.running {
+    color: transparent;
+    background-image: linear-gradient(
+      90deg,
+      var(--color-text-tertiary) 0%,
+      var(--color-text-tertiary) 42%,
+      var(--color-text-primary) 50%,
+      var(--color-text-tertiary) 58%,
+      var(--color-text-tertiary) 100%
+    );
+    background-size: 250% 100%;
+    background-position: 100% 0;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: shimmer-sweep 1.3s linear infinite;
+  }
+
+  @keyframes shimmer-sweep {
+    to {
+      background-position: -150% 0;
+    }
+  }
+
+  .tool-subject {
+    min-width: 0;
+    font-size: 11.5px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    transform: translateY(2px);
+    transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out);
+  }
+
+  .tool-subject.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Build log */
+  .build-log {
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.015);
+    padding: 9px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    font-family: var(--font-mono);
+  }
+
+  .log-line {
+    font-size: 10.5px;
+    color: var(--color-text-muted);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out);
+  }
+
+  .log-line.visible {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  .log-line:last-child {
+    color: var(--color-text-tertiary);
+  }
+
+  /* Assistant response */
+  .assistant-text {
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--color-text-tertiary);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);
+  }
+
+  .assistant-text.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .publish-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 7px;
+    padding: 5px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.04);
+  }
+
+  .publish-icon {
+    flex-shrink: 0;
+    display: flex;
+    color: var(--color-text-muted);
+  }
+
+  .publish-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+  }
+
+  /* Mobile scaling */
+  @media (max-width: 576px) {
+    .edu-mock {
+      padding: var(--space-4) !important;
+    }
+    .edu-feed {
+      gap: var(--space-2) !important;
+    }
+    .user-bubble {
+      font-size: 11px !important;
+      padding: 6px 11px !important;
+    }
+    .tool-action {
+      font-size: 10.5px !important;
+    }
+    .tool-subject {
+      font-size: 10px !important;
+    }
+    .log-line {
+      font-size: 9.5px !important;
+    }
+    .assistant-text {
+      font-size: 11px !important;
+    }
+    .publish-label {
+      font-size: 10px !important;
+    }
+  }
+</style>
+
+<script>
+  document.querySelectorAll("[data-build-mock]").forEach((container) => {
+    const toolAction = container.querySelector("[data-tool-action]") as HTMLElement | null;
+    const toolSubject = container.querySelector("[data-tool-subject]") as HTMLElement | null;
+    const buildLog = container.querySelector("[data-build-log]") as HTMLElement | null;
+    const logRows = Array.from(container.querySelectorAll("[data-log-row]")) as HTMLElement[];
+    const assistantText = container.querySelector("[data-assistant-text]") as HTMLElement | null;
+
+    if (!toolAction || !toolSubject || !buildLog || logRows.length === 0 || !assistantText) return;
+
+    let isUserInteracting = false;
+    let animationTimeout: any = null;
+
+    const stopAutoplay = () => {
+      isUserInteracting = true;
+      if (animationTimeout) {
+        clearTimeout(animationTimeout);
+        animationTimeout = null;
+      }
+    };
+
+    container.addEventListener("click", stopAutoplay);
+
+    const delay = (ms: number) => new Promise(resolve => {
+      animationTimeout = setTimeout(resolve, ms);
+    });
+
+    const runTimeline = async () => {
+      if (isUserInteracting) return;
+
+      // Reset
+      toolAction.classList.add("running");
+      toolSubject.classList.remove("visible");
+      logRows.forEach((row) => row.classList.remove("visible"));
+      assistantText.classList.remove("visible");
+
+      await delay(500);
+      if (isUserInteracting) return;
+
+      // Stream log lines
+      for (const row of logRows) {
+        row.classList.add("visible");
+        await delay(420);
+        if (isUserInteracting) return;
+      }
+
+      // Tool call resolves
+      toolAction.classList.remove("running");
+      toolSubject.classList.add("visible");
+      await delay(400);
+      if (isUserInteracting) return;
+
+      // Assistant publishes
+      assistantText.classList.add("visible");
+    };
+
+    setTimeout(runTimeline, 1000);
+  });
+</script>

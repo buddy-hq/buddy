@@ -1,0 +1,655 @@
+---
+// Component: LearnerPlayMock
+---
+
+<div class="game-container" data-play-mock>
+  <div class="game-hud">
+    <span class="hud-mono">MISSION: COLLECT CLEAN ENERGY SOURCES</span>
+    <span class="hud-score">ENERGY: <span class="score-val">0 / 500</span></span>
+  </div>
+  
+  <canvas class="flappy-canvas"></canvas>
+  
+  <!-- Interactive Start/Gameover/Victory messages -->
+  <div class="game-instructions">
+    <span class="instruction-text">CLICK OR TAP TO PLAY</span>
+  </div>
+</div>
+
+<style>
+  .game-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, #06050b 0%, #010003 100%);
+    border-radius: 12px;
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .game-hud {
+    position: absolute;
+    top: var(--space-4);
+    left: var(--space-4);
+    right: var(--space-4);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+    user-select: none;
+    font-family: var(--font-mono);
+    font-size: clamp(11px, 1.3vw, 14px); /* Responsive HUD font size */
+    z-index: 10;
+  }
+
+  .hud-mono {
+    color: rgba(255, 255, 255, 0.4);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .hud-score {
+    color: #00ff66;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-shadow: 0 0 10px rgba(0, 255, 102, 0.3);
+  }
+
+  .game-instructions {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+    user-select: none;
+    z-index: 5;
+    transition: opacity 0.25s ease;
+  }
+
+  .instruction-text {
+    font-family: var(--font-mono);
+    font-size: clamp(12px, 1.6vw, 16px); /* Responsive instruction text size */
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #ffffff;
+    background-color: rgba(0, 0, 0, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 8px 20px;
+    border-radius: 6px;
+    text-align: center;
+    animation: blink 1.5s infinite;
+  }
+
+  .game-container.is-playing .game-instructions {
+    opacity: 0;
+  }
+
+  .flappy-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+</style>
+
+<script>
+  interface DoubleGate {
+    x: number;
+    width: number;
+    topLabel: string;
+    topCorrect: boolean;
+    bottomLabel: string;
+    bottomCorrect: boolean;
+    passed: boolean;
+  }
+
+  interface Particle {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    color: string;
+    radius: number;
+    life: number;
+    decay: number;
+  }
+
+  interface FeedbackMsg {
+    text: string;
+    x: number;
+    y: number;
+    life: number;
+    color: string;
+  }
+
+  // Universally understood clean vs. dirty energy types
+  const CLEAN_ENERGY = ["SOLAR", "WIND", "HYDRO", "BIOMASS", "GEOTHERMAL"];
+  const FOSSIL_ENERGY = ["COAL", "OIL", "GAS", "PETROL", "DIESEL"];
+
+  document.querySelectorAll("[data-play-mock]").forEach((container) => {
+    const canvas = container.querySelector(".flappy-canvas") as HTMLCanvasElement | null;
+    const scoreVal = container.querySelector(".score-val") as HTMLElement | null;
+    const instructionText = container.querySelector(".instruction-text") as HTMLElement | null;
+    if (!canvas) return;
+
+    // Detect if this is a touchscreen device
+    const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+    // Error logging overlay (debug helper, ignoring benign warnings)
+    window.addEventListener("error", (event) => {
+      if (event.message && (event.message.includes("ResizeObserver") || event.message.includes("Script error"))) return;
+      const errorMsg = document.createElement("div");
+      errorMsg.style.position = "absolute";
+      errorMsg.style.top = "45px";
+      errorMsg.style.left = "16px";
+      errorMsg.style.right = "16px";
+      errorMsg.style.background = "rgba(239, 68, 68, 0.95)";
+      errorMsg.style.color = "#ffffff";
+      errorMsg.style.padding = "10px";
+      errorMsg.style.borderRadius = "6px";
+      errorMsg.style.fontFamily = "monospace";
+      errorMsg.style.fontSize = "11px";
+      errorMsg.style.zIndex = "999";
+      errorMsg.textContent = `JS Error: ${event.message} at ${event.filename.split('/').pop()}:${event.lineno}`;
+      container.appendChild(errorMsg);
+    });
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Game states
+    let state: "START" | "PLAYING" | "GAMEOVER" | "VICTORY" = "START";
+    let score = 0;
+    let particles: Particle[] = [];
+    let feedback: FeedbackMsg[] = [];
+    let gates: DoubleGate[] = [];
+    let time = 0;
+    let borderFlash = 0;
+    let lastClean = "";
+    let lastDirty = "";
+
+    // Flappy Bird character physics (Ultra-slow, smooth, floaty low-gravity controls)
+    const bird = {
+      x: 120,
+      y: 150,
+      radius: 12,       // Expanded radius to fit detailed character features
+      vy: 0,
+      gravity: 0.08,    // Low gravity slow falling
+      jumpForce: -2.2,  // Gentle floating tap nudge
+    };
+
+    const gateSpeed = 0.95; // Ultra-slow scrolling speed
+
+    const getCenter = () => {
+      const width = canvas.offsetWidth;
+      const height = canvas.offsetHeight;
+      return {
+        w: width,
+        h: height,
+        cx: width / 2,
+        cy: height / 2
+      };
+    };
+
+    const resetGame = () => {
+      const { h } = getCenter();
+      score = 0;
+      if (scoreVal) scoreVal.textContent = "0 / 500";
+      
+      bird.x = 120;
+      bird.y = h / 2;
+      bird.vy = 0;
+      
+      gates = [];
+      particles = [];
+      feedback = [];
+      lastClean = "";
+      lastDirty = "";
+      state = "START";
+      container.classList.remove("is-playing");
+      
+      if (instructionText) {
+        instructionText.textContent = isTouch ? "TAP TO PLAY" : "CLICK TO PLAY";
+      }
+    };
+
+    const spawnDoubleGate = (xOffset: number) => {
+      // Pick one clean energy randomly (excluding the last clean one to prevent consecutive duplicates)
+      const cleanPool = CLEAN_ENERGY.filter((item) => item !== lastClean);
+      const clean = cleanPool[Math.floor(Math.random() * cleanPool.length)];
+      lastClean = clean;
+
+      // Pick one dirty energy randomly (excluding the last dirty one)
+      const dirtyPool = FOSSIL_ENERGY.filter((item) => item !== lastDirty);
+      const dirty = dirtyPool[Math.floor(Math.random() * dirtyPool.length)];
+      lastDirty = dirty;
+      
+      // Randomly assign clean to top or bottom
+      const isTopCorrect = Math.random() < 0.5;
+      
+      gates.push({
+        x: xOffset,
+        width: 48,
+        topLabel: isTopCorrect ? clean : dirty,
+        topCorrect: isTopCorrect,
+        bottomLabel: isTopCorrect ? dirty : clean,
+        bottomCorrect: !isTopCorrect,
+        passed: false
+      });
+    };
+
+    const triggerExplosion = (x: number, y: number, color: string, force = 2.5) => {
+      const count = 25;
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.8 + Math.random() * force;
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          color,
+          radius: 1.0 + Math.random() * 1.5,
+          life: 1.0,
+          decay: 0.015 + Math.random() * 0.015
+        });
+      }
+    };
+
+    const spawnFeedback = (text: string, x: number, y: number, color: string) => {
+      feedback.push({
+        text,
+        x,
+        y,
+        life: 1.0,
+        color
+      });
+    };
+
+    const handleAction = () => {
+      if (state === "START") {
+        state = "PLAYING";
+        container.classList.add("is-playing");
+      }
+      
+      if (state === "PLAYING") {
+        bird.vy = bird.jumpForce;
+        
+        // Spawn feathers/wind particles on leap
+        for (let i = 0; i < 4; i++) {
+          particles.push({
+            x: bird.x - bird.radius,
+            y: bird.y + (Math.random() * 6 - 3),
+            vx: -1.0 - Math.random() * 1.5,
+            vy: Math.random() * 1.0 - 0.5,
+            color: "#ffca3a", // yellow feathers
+            radius: 1.2,
+            life: 0.8,
+            decay: 0.04
+          });
+        }
+      } else if (state === "GAMEOVER" || state === "VICTORY") {
+        resetGame();
+      }
+    };
+
+    container.addEventListener("mousedown", handleAction);
+    container.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      handleAction();
+    }, { passive: false });
+
+    // Draw the detailed Flappy Bird character (Yellow body, eye, pupil, beak, flapping wing)
+    const drawBird = (x: number, y: number, radius: number) => {
+      ctx.save();
+      
+      // Face direction angle based on velocity (upward leap tilts up, falling tilts down)
+      const targetAngle = Math.max(-0.25, Math.min(0.4, bird.vy * 0.08));
+      ctx.translate(x, y);
+      ctx.rotate(targetAngle);
+
+      // 1. Draw glowing envelope behind bird
+      const birdGlow = ctx.createRadialGradient(0, 0, 1, 0, 0, radius * 1.8);
+      birdGlow.addColorStop(0, "rgba(255, 202, 58, 0.4)");
+      birdGlow.addColorStop(1, "transparent");
+      ctx.fillStyle = birdGlow;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius * 1.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 2. Yellow Bird Body
+      ctx.fillStyle = "#ffca3a";
+      ctx.strokeStyle = "#ea580c";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // 3. Round White Eye
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(radius * 0.35, -radius * 0.25, radius * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // 4. Black Pupil
+      ctx.fillStyle = "#000000";
+      ctx.beginPath();
+      ctx.arc(radius * 0.42, -radius * 0.25, radius * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 5. Orange Beak
+      ctx.fillStyle = "#ff6b00";
+      ctx.beginPath();
+      ctx.moveTo(radius * 0.8, -radius * 0.1);
+      ctx.lineTo(radius * 1.25, radius * 0.1);
+      ctx.lineTo(radius * 0.75, radius * 0.3);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // 6. Flapping Wing (wing offset cycles to flap up and down)
+      const wingCycle = Math.sin(time * 7) * radius * 0.3;
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      // Draws wing tilted slightly backwards
+      ctx.ellipse(-radius * 0.35, wingCycle, radius * 0.45, radius * 0.3, Math.PI / 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.restore();
+    };
+
+    // Main Draw & Game Loop
+    const draw = () => {
+      if (!ctx || !canvas) return;
+
+      const width = canvas.offsetWidth;
+      const height = canvas.offsetHeight;
+
+      if (width <= 0 || height <= 0) {
+        requestAnimationFrame(draw);
+        return;
+      }
+
+      // Inline dynamic resize buffer matching
+      const dpr = window.devicePixelRatio || 1;
+      const targetW = Math.floor(width * dpr);
+      const targetH = Math.floor(height * dpr);
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+        
+        if (state === "START") {
+          bird.y = height / 2;
+        }
+      }
+
+      // Initialize start-screen gates if empty (ensures they are visible immediately on load)
+      if (state === "START" && gates.length === 0) {
+        const firstX = width > 600 ? width * 0.55 : width - 42;
+        spawnDoubleGate(firstX);
+        spawnDoubleGate(firstX + 260);
+      }
+
+      ctx.clearRect(0, 0, width, height);
+
+      time += 0.05;
+
+      // Draw background space stars (slow drift)
+      ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+      for (let i = 0; i < 15; i++) {
+        const starX = (Math.sin(i * 99 + time * 0.05) * 0.5 + 0.5) * width;
+        const starY = (Math.cos(i * 123) * 0.5 + 0.5) * height;
+        ctx.fillRect(starX, starY, 1.2, 1.2);
+      }
+
+      // Physics states
+      if (state === "PLAYING") {
+        bird.vy += bird.gravity;
+        bird.y += bird.vy;
+
+        // Check top/bottom border crash
+        if (bird.y - bird.radius < 0 || bird.y + bird.radius > height) {
+          triggerExplosion(bird.x, bird.y, "#ffca3a");
+          borderFlash = 15;
+          state = "GAMEOVER";
+          container.classList.remove("is-playing");
+          if (instructionText) {
+            instructionText.textContent = isTouch ? "CRASHED! TAP TO REPLAY" : "CRASHED! CLICK TO REPLAY";
+          }
+        }
+      } else if (state === "VICTORY") {
+        // Accelerate forward on win
+        bird.x += 2.8;
+        bird.vy = 0;
+
+        if (bird.x < width + 100) {
+          particles.push({
+            x: bird.x - bird.radius,
+            y: bird.y + (Math.random() * 8 - 4),
+            vx: -2.0 - Math.random() * 2.0,
+            vy: Math.random() * 1.5 - 0.75,
+            color: "#00ff66",
+            radius: 1.5,
+            life: 1.0,
+            decay: 0.03
+          });
+        }
+      }
+
+      // Draw Double Gates (Clean vs Fossil Energy choices)
+      gates = gates.filter((gate) => {
+        if (state === "PLAYING") {
+          gate.x -= gateSpeed;
+        }
+
+        const cy = height / 2;
+        const gapHeight = Math.max(68, height * 0.22); // dynamic responsive gap size
+        const midDividerHeight = 44; // Central solid wall divider
+
+        // Wall segments coordinates
+        const topH = cy - midDividerHeight / 2 - gapHeight;
+        const topGateY1 = topH;
+        const topGateY2 = cy - midDividerHeight / 2;
+
+        const bottomGateY1 = cy + midDividerHeight / 2;
+        const bottomGateY2 = cy + midDividerHeight / 2 + gapHeight;
+        const bottomH = height - bottomGateY2;
+
+        ctx.save();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.02)";
+        ctx.lineWidth = 1.0;
+
+        // Draw ceiling wall
+        if (topH > 0) {
+          ctx.fillRect(gate.x, 0, gate.width, topH);
+          ctx.strokeRect(gate.x, -5, gate.width, topH + 5);
+        }
+
+        // Draw middle divider wall (solid block in center)
+        ctx.fillRect(gate.x, cy - midDividerHeight / 2, gate.width, midDividerHeight);
+        ctx.strokeRect(gate.x, cy - midDividerHeight / 2, gate.width, midDividerHeight);
+
+        // Draw floor wall
+        if (bottomH > 0) {
+          ctx.fillRect(gate.x, bottomGateY2, gate.width, bottomH);
+          ctx.strokeRect(gate.x, bottomGateY2, gate.width, bottomH + 5);
+        }
+
+        // Responsive font size for canvas labels
+        const canvasFontSize = Math.max(10, Math.min(13, height * 0.042));
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = `bold ${Math.floor(canvasFontSize)}px monospace`;
+
+        // Top Gate Label
+        ctx.fillStyle = gate.topCorrect ? "#00ff66" : "#ff4d4d";
+        ctx.fillText(gate.topLabel, gate.x + gate.width / 2, (topGateY1 + topGateY2) / 2);
+
+        // Bottom Gate Label
+        ctx.fillStyle = gate.bottomCorrect ? "#00ff66" : "#ff4d4d";
+        ctx.fillText(gate.bottomLabel, gate.x + gate.width / 2, (bottomGateY1 + bottomGateY2) / 2);
+
+        ctx.restore();
+
+        // Check gate pass and collision checks
+        if (state === "PLAYING") {
+          const hitLeft = gate.x;
+          const hitRight = gate.x + gate.width;
+
+          // 1. Check if passed successfully
+          if (!gate.passed && hitRight < bird.x) {
+            gate.passed = true;
+            
+            // Determine which path player took
+            const tookTop = bird.y < cy;
+            const correctPass = tookTop ? gate.topCorrect : gate.bottomCorrect;
+
+            if (correctPass) {
+              score += 100;
+              if (scoreVal) scoreVal.textContent = `${score} / 500`;
+              
+              triggerExplosion(bird.x, bird.y, "#00ff66", 1.8);
+              spawnFeedback(`+100: Clean Energy!`, bird.x, bird.y - 12, "#00ff66");
+
+              // Win condition at 500 points
+              if (score >= 500) {
+                state = "VICTORY";
+                container.classList.remove("is-playing");
+                triggerExplosion(bird.x, bird.y, "#00ff66", 5.0);
+                if (instructionText) {
+                  instructionText.textContent = isTouch ? "MISSION SUCCESS! TAP TO REPLAY" : "MISSION SUCCESS! CLICK TO REPLAY";
+                }
+              }
+            } else {
+              // Hit incorrect dirty energy gate: crash!
+              triggerExplosion(bird.x, bird.y, "#ff4d4d", 4.0);
+              borderFlash = 15;
+              state = "GAMEOVER";
+              container.classList.remove("is-playing");
+              if (instructionText) {
+                instructionText.textContent = isTouch
+                  ? `CRASHED! ${tookTop ? gate.topLabel : gate.bottomLabel} IS DIRTY! TAP TO REPLAY`
+                  : `CRASHED! ${tookTop ? gate.topLabel : gate.bottomLabel} IS DIRTY! CLICK TO REPLAY`;
+              }
+            }
+          }
+
+          // 2. Physical wall collision check (Top ceiling, Center Divider, Bottom floor)
+          const closestX = Math.max(hitLeft, Math.min(bird.x, hitRight));
+          if (bird.x + bird.radius > hitLeft && bird.x - bird.radius < hitRight) {
+            // Collision with ceiling
+            if (topH > 0 && bird.y - bird.radius < topH) {
+              triggerExplosion(bird.x, bird.y, "#ffffff", 2.0);
+              state = "GAMEOVER";
+              container.classList.remove("is-playing");
+              if (instructionText) {
+                instructionText.textContent = isTouch ? "CRASHED! TAP TO REPLAY" : "CRASHED! CLICK TO REPLAY";
+              }
+            }
+            // Collision with center divider
+            const dividerTop = cy - midDividerHeight / 2;
+            const dividerBottom = cy + midDividerHeight / 2;
+            if (bird.y + bird.radius > dividerTop && bird.y - bird.radius < dividerBottom) {
+              triggerExplosion(bird.x, bird.y, "#ffffff", 2.0);
+              state = "GAMEOVER";
+              container.classList.remove("is-playing");
+              if (instructionText) {
+                instructionText.textContent = isTouch ? "CRASHED! TAP TO REPLAY" : "CRASHED! CLICK TO REPLAY";
+              }
+            }
+            // Collision with floor
+            if (bottomH > 0 && bird.y + bird.radius > bottomGateY2) {
+              triggerExplosion(bird.x, bird.y, "#ffffff", 2.0);
+              state = "GAMEOVER";
+              container.classList.remove("is-playing");
+              if (instructionText) {
+                instructionText.textContent = isTouch ? "CRASHED! TAP TO REPLAY" : "CRASHED! CLICK TO REPLAY";
+              }
+            }
+          }
+        }
+
+        return gate.x + gate.width > -50;
+      });
+
+      // Spawn next gates
+      if (state === "PLAYING" && gates.length > 0) {
+        const lastGate = gates[gates.length - 1];
+        if (lastGate.x < width - 240) {
+          spawnDoubleGate(width + 50);
+        }
+      }
+
+      // Draw the detailed Flappy Bird character (instead of a random blob)
+      if (state !== "GAMEOVER" && bird.x < width + 40) {
+        drawBird(bird.x, bird.y, bird.radius);
+      }
+
+      // Update & Draw Thruster/Feather Particles
+      particles = particles.filter((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+        p.life -= p.decay;
+
+        if (p.life > 0) {
+          ctx.save();
+          ctx.globalAlpha = p.life;
+          ctx.fillStyle = p.color;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, Math.max(0.5, p.radius * p.life), 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+          return true;
+        }
+        return false;
+      });
+
+      // Update & Draw Floating Score Feedback Texts (also using responsive font size)
+      const canvasFontSize = Math.max(10, Math.min(13, height * 0.042));
+      feedback = feedback.filter((msg) => {
+        msg.y -= 0.6; // rise slowly
+        msg.life -= 0.025; // fade out
+
+        if (msg.life > 0) {
+          ctx.save();
+          ctx.globalAlpha = msg.life;
+          ctx.fillStyle = msg.color;
+          ctx.font = `bold ${Math.floor(canvasFontSize * 0.9)}px monospace`;
+          ctx.textAlign = "center";
+          ctx.fillText(msg.text, msg.x, msg.y);
+          ctx.restore();
+          return true;
+        }
+        return false;
+      });
+
+      // Red border crash screen flash
+      if (borderFlash > 0) {
+        ctx.save();
+        ctx.strokeStyle = `rgba(255, 107, 0, ${borderFlash / 15})`;
+        ctx.lineWidth = 4;
+        ctx.strokeRect(0, 0, width, height);
+        ctx.restore();
+        borderFlash--;
+      }
+
+      requestAnimationFrame(draw);
+    };
+
+    resetGame();
+    draw();
+  });
+</script>

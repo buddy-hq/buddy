@@ -1,0 +1,324 @@
+---
+// Component: EducatorCreateMock
+---
+
+<div class="edu-mock" data-create-mock>
+  <div class="edu-feed">
+    <!-- User message -->
+    <div class="user-bubble">Make a differentiated worksheet on photosynthesis.</div>
+
+    <!-- Tool call: file write, matches the real "wrote <file>" pattern -->
+    <div class="tool-row">
+      <span class="tool-icon">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><line x1="9" y1="15" x2="15" y2="15"></line><line x1="9" y1="11" x2="15" y2="11"></line></svg>
+      </span>
+      <span class="tool-action" data-tool-action>wrote</span>
+      <span class="tool-subject" data-tool-subject>photosynthesis-worksheet.docx</span>
+    </div>
+
+    <!-- Assistant response: a small preview of the generated worksheet -->
+    <div class="assistant-text" data-assistant-text>
+      <p>Three levels, ready to print or share.</p>
+      <div class="doc-preview">
+        <span class="doc-preview-title">Photosynthesis Worksheet</span>
+        <span class="doc-preview-levels">Support · Core · Challenge</span>
+        <ol data-assistant-row>
+          <li>Label each stage of the diagram</li>
+          <li>Explain photosynthesis in your own words</li>
+          <li>Answer key, separate page</li>
+        </ol>
+      </div>
+      <p class="also-line">Also available as <code>Slides</code>, <code>Sheet</code>, or <code>PDF</code>.</p>
+    </div>
+  </div>
+</div>
+
+<style>
+  .edu-mock {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #0a0908;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-6);
+    color: var(--color-text-primary);
+    font-family: var(--font-body);
+  }
+
+  .edu-feed {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: var(--space-3);
+  }
+
+  /* User message bubble: sharp bottom-right corner, matches the real chat pattern */
+  .user-bubble {
+    align-self: flex-end;
+    max-width: 78%;
+    width: fit-content;
+    background-color: rgba(255, 255, 255, 0.045);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
+    border-bottom-right-radius: 3px;
+    padding: 7px 13px;
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    color: var(--color-text-secondary);
+  }
+
+  /* Tool call row */
+  .tool-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+  }
+
+  .tool-icon {
+    flex-shrink: 0;
+    display: flex;
+    color: var(--color-text-muted);
+  }
+
+  .tool-action {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-tertiary);
+  }
+
+  .tool-action.running {
+    color: transparent;
+    background-image: linear-gradient(
+      90deg,
+      var(--color-text-tertiary) 0%,
+      var(--color-text-tertiary) 42%,
+      var(--color-text-primary) 50%,
+      var(--color-text-tertiary) 58%,
+      var(--color-text-tertiary) 100%
+    );
+    background-size: 250% 100%;
+    background-position: 100% 0;
+    background-repeat: no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: shimmer-sweep 1.3s linear infinite;
+  }
+
+  @keyframes shimmer-sweep {
+    to {
+      background-position: -150% 0;
+    }
+  }
+
+  .tool-subject {
+    min-width: 0;
+    font-size: 11.5px;
+    font-family: var(--font-mono);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0;
+    transform: translateY(2px);
+    transition: opacity 0.3s var(--ease-out), transform 0.3s var(--ease-out);
+  }
+
+  .tool-subject.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Assistant response */
+  .assistant-text {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--color-text-tertiary);
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);
+  }
+
+  .assistant-text.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .doc-preview {
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.02);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .doc-preview-title {
+    font-size: 12px;
+    font-weight: 650;
+    color: var(--color-text-secondary);
+  }
+
+  .doc-preview-levels {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    margin-bottom: 6px;
+  }
+
+  .doc-preview ol {
+    list-style: none;
+    counter-reset: doc-step;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    opacity: 0;
+    transform: translateY(3px);
+    transition: opacity 0.35s var(--ease-out), transform 0.35s var(--ease-out);
+  }
+
+  .doc-preview ol.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .doc-preview li {
+    counter-increment: doc-step;
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    padding-left: 15px;
+    position: relative;
+  }
+
+  .doc-preview li:last-child {
+    color: var(--color-text-muted);
+  }
+
+  .doc-preview li::before {
+    content: counter(doc-step) ".";
+    position: absolute;
+    left: 0;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+  }
+
+  .also-line {
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+
+  .also-line code {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    background-color: rgba(255, 255, 255, 0.06);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--color-text-secondary);
+  }
+
+  /* Mobile scaling */
+  @media (max-width: 576px) {
+    .edu-mock {
+      padding: var(--space-4) !important;
+    }
+    .edu-feed {
+      gap: var(--space-2) !important;
+    }
+    .user-bubble {
+      font-size: 11px !important;
+      padding: 6px 11px !important;
+    }
+    .tool-action {
+      font-size: 10.5px !important;
+    }
+    .tool-subject {
+      font-size: 10px !important;
+    }
+    .assistant-text {
+      font-size: 11px !important;
+    }
+    .doc-preview {
+      padding: 8px 10px !important;
+    }
+    .doc-preview-title {
+      font-size: 11px !important;
+    }
+    .doc-preview li {
+      font-size: 10px !important;
+    }
+    .also-line {
+      font-size: 10px !important;
+    }
+  }
+</style>
+
+<script>
+  document.querySelectorAll("[data-create-mock]").forEach((container) => {
+    const toolAction = container.querySelector("[data-tool-action]") as HTMLElement | null;
+    const toolSubject = container.querySelector("[data-tool-subject]") as HTMLElement | null;
+    const assistantText = container.querySelector("[data-assistant-text]") as HTMLElement | null;
+    const docList = container.querySelector("[data-assistant-row]") as HTMLElement | null;
+
+    if (!toolAction || !toolSubject || !assistantText || !docList) return;
+
+    let isUserInteracting = false;
+    let animationTimeout: any = null;
+
+    const stopAutoplay = () => {
+      isUserInteracting = true;
+      if (animationTimeout) {
+        clearTimeout(animationTimeout);
+        animationTimeout = null;
+      }
+    };
+
+    container.addEventListener("click", stopAutoplay);
+
+    const delay = (ms: number) => new Promise(resolve => {
+      animationTimeout = setTimeout(resolve, ms);
+    });
+
+    const runTimeline = async () => {
+      if (isUserInteracting) return;
+
+      // Reset
+      toolAction.classList.add("running");
+      toolAction.textContent = "writing";
+      toolSubject.classList.remove("visible");
+      assistantText.classList.remove("visible");
+      docList.classList.remove("visible");
+
+      await delay(1100);
+      if (isUserInteracting) return;
+
+      // Tool call resolves
+      toolAction.classList.remove("running");
+      toolAction.textContent = "wrote";
+      toolSubject.classList.add("visible");
+      await delay(400);
+      if (isUserInteracting) return;
+
+      // Assistant responds
+      assistantText.classList.add("visible");
+      await delay(350);
+      if (isUserInteracting) return;
+
+      docList.classList.add("visible");
+    };
+
+    setTimeout(runTimeline, 1000);
+  });
+</script>

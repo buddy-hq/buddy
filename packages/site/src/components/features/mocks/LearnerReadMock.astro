@@ -1,0 +1,736 @@
+---
+// Component: LearnerReadMock
+---
+
+<div class="read-mock-container" data-read-mock>
+  <!-- Screen 1: Library Cover Flow -->
+  <div class="library-view active">
+    <div class="cover-flow-container">
+      <!-- Deep Learning Book (Left Side, Offset) -->
+      <div class="book-cover-wrapper secondary left-book">
+        <div class="book-cover mock-cover deep-learning">
+          <div class="mock-cover-design">
+            <div class="pattern-lines"></div>
+            <span class="mock-title">Deep Learning</span>
+            <span class="mock-author">Goodfellow et al.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Self Reliance Book (Center Focus, Active) -->
+      <div class="book-cover-wrapper primary active-trigger">
+        <div class="book-cover webp-cover">
+          <img src="/self-reliance.webp" alt="Self Reliance by Ralph Waldo Emerson" class="cover-img" />
+          <div class="book-spine"></div>
+        </div>
+      </div>
+
+      <!-- World History Book (Right Side, Offset) -->
+      <div class="book-cover-wrapper secondary right-book">
+        <div class="book-cover mock-cover world-history">
+          <div class="mock-cover-design">
+            <div class="pattern-dots"></div>
+            <span class="mock-title">World History</span>
+            <span class="mock-author">William H. McNeill</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 2: Clean E-Reader View -->
+  <div class="reader-view">
+    <div class="reader-header">
+      <button class="back-btn">
+        <svg class="back-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        <span>Library</span>
+      </button>
+      <span class="reader-doc-info">Self-Reliance · Essay</span>
+      <span class="reading-progress">12% read</span>
+    </div>
+
+    <div class="reader-scroll-viewport">
+      <article class="reader-article">
+        <h1 class="article-title">Self-Reliance</h1>
+        <p class="article-author">Ralph Waldo Emerson</p>
+        
+        <div class="article-divider"></div>
+        
+        <p class="paragraph">
+          Ne te quæsiveris extra.
+        </p>
+        
+        <p class="paragraph">
+          Man is his own star; and the soul that can<br />
+          Render an honest and a perfect man,<br />
+          Commands all light, all influence, all fate;<br />
+          Nothing to him falls early or too late.<br />
+          Our acts our angels are, or good or ill,<br />
+          Our fatal shadows that walk by us still.
+        </p>
+        
+        <p class="paragraph">
+          I read the other day some verses written by an eminent painter which were original and not conventional. The soul always hears an admonition in such lines, let the subject be what it may. The sentiment they instil is of more value than any thought they may contain. 
+        </p>
+
+        <p class="paragraph">
+          To believe your own thought, to believe that what is true for you in your private heart is true for all men,—that is genius. Speak your latent conviction, and it shall be the universal sense; for the inmost in due time becomes the outmost, and our first thought is rendered back to us by the trumpets of the Last Judgment.
+        </p>
+
+        <p class="paragraph highlight-animated yellow-style">
+          Familiar as the voice of the mind is to each, the highest merit we ascribe to Moses, Plato, and Milton is, that they set at naught books and traditions, and spoke not what men but what they thought.
+        </p>
+
+        <p class="paragraph">
+          A man should learn to detect and watch that gleam of light which flashes across his mind from within, more than the lustre of the firmament of bards and sages. Yet he dismisses without notice his thought, because it is his. In every work of genius we recognize our own rejected thoughts: they come back to us with a certain alienated majesty. 
+        </p>
+
+        <p class="paragraph highlight-animated green-style">
+          There is a time in every man's education when he arrives at the conviction that envy is ignorance; that imitation is suicide; that he must take himself for better, for worse, as his portion; that though the wide universe is full of good, no kernel of nourishing corn can come to him but through his toil bestowed on that plot of ground which is given to him to till.
+        </p>
+
+        <p class="paragraph">
+          Trust thyself: every heart vibrates to that iron string. Accept the place the divine providence has found for you, the society of your contemporaries, the connection of events. Great men have always done so, and confided themselves childlike to the genius of their age, betraying their perception that the absolutely trustworthy was seated at their heart, working through their hands, predominating in all their being.
+        </p>
+      </article>
+    </div>
+  </div>
+
+  <!-- Simulated Click Cursor -->
+  <div class="simulated-cursor">
+    <div class="cursor-dot"></div>
+    <svg class="cursor-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="1.5" stroke-linejoin="round">
+      <path d="M4 4l7.07 17 2.51-7.39L21 11.07z" fill="white" stroke="black" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>
+    <div class="click-pulse"></div>
+  </div>
+</div>
+
+<style>
+  /* Base layout mapping to Flappy Bird layout rules */
+  .read-mock-container {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #0c0a09;
+    font-family: var(--font-body);
+    overflow: hidden;
+    color: var(--color-text-primary);
+  }
+
+  /* Library Selection View CSS */
+  .library-view {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-6);
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.96);
+    transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 1;
+  }
+
+  .library-view.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+  }
+
+  .library-header {
+    margin-bottom: var(--space-8);
+    user-select: none;
+  }
+
+  .lib-title {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--color-accent-primary);
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .lib-meta {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .cover-flow-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-6);
+    position: relative;
+    perspective: 800px;
+    padding-bottom: var(--space-4);
+  }
+
+  /* Book Cover Layout & Style */
+  .book-cover-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .book-cover-wrapper.secondary {
+    opacity: 0.35;
+    transform: translateZ(-80px) rotateY(15deg);
+    pointer-events: none;
+    filter: blur(1.5px);
+  }
+
+  .book-cover-wrapper.secondary.left-book {
+    transform: translateZ(-80px) rotateY(25deg) translateX(20px);
+  }
+
+  .book-cover-wrapper.secondary.right-book {
+    transform: translateZ(-80px) rotateY(-25deg) translateX(-20px);
+  }
+
+  .book-cover-wrapper.primary {
+    cursor: pointer;
+    z-index: 5;
+    transform: translateZ(0);
+  }
+
+  .book-cover-wrapper.primary:hover,
+  .book-cover-wrapper.primary.hovered {
+    transform: translateY(-8px) scale(1.03) translateZ(10px);
+  }
+
+  .book-cover {
+    position: relative;
+    width: clamp(100px, 14vw, 150px);
+    aspect-ratio: 0.67 / 1;
+    border-radius: 6px;
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5),
+                0 0 0 1px rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+    background-color: #1c1917;
+    transition: box-shadow 0.3s ease;
+  }
+
+  .book-cover-wrapper.primary:hover .book-cover,
+  .book-cover-wrapper.primary.hovered .book-cover {
+    box-shadow: 0 24px 48px rgba(255, 107, 0, 0.15),
+                0 0 0 1px rgba(255, 107, 0, 0.2);
+  }
+
+  .cover-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    user-select: none;
+  }
+
+  .book-spine {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 6px;
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.15) 30%, rgba(0, 0, 0, 0.08) 60%, transparent);
+    z-index: 2;
+  }
+
+  /* Styling for generated placeholder covers */
+  .mock-cover {
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  .mock-cover-design {
+    flex: 1;
+    position: relative;
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border-left: 5px solid rgba(0, 0, 0, 0.2);
+  }
+
+  .deep-learning .mock-cover-design {
+    background: linear-gradient(135deg, #1e1b4b 0%, #311042 100%);
+    border-color: #1e1b4b;
+  }
+
+  .world-history .mock-cover-design {
+    background: linear-gradient(135deg, #062f4f 0%, #001f3f 100%);
+    border-color: #062f4f;
+  }
+
+  .mock-title {
+    font-size: clamp(10px, 1.1vw, 13px);
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.2;
+    margin-top: var(--space-2);
+  }
+
+  .mock-author {
+    font-size: 8px;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Cover Pattern decorations */
+  .pattern-lines {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(45deg, transparent 45%, rgba(255, 255, 255, 0.03) 48%, rgba(255, 255, 255, 0.03) 52%, transparent 55%);
+    background-size: 8px 8px;
+    pointer-events: none;
+  }
+
+  .pattern-dots {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: 6px 6px;
+    pointer-events: none;
+  }
+
+  .book-info {
+    margin-top: var(--space-4);
+    text-align: center;
+    user-select: none;
+  }
+
+  .book-title {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .book-author {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin: var(--space-1) 0 0 0;
+  }
+
+  /* Reader View Interface */
+  .reader-view {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    background-color: #12100f;
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(1.04);
+    transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 2;
+  }
+
+  .reader-view.active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: scale(1);
+  }
+
+  .reader-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 48px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    padding-inline: var(--space-4);
+    font-size: 11px;
+    user-select: none;
+    background-color: #0c0a09;
+  }
+
+  .back-btn {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    font-weight: 600;
+    cursor: pointer;
+    padding: var(--space-1.5) var(--space-3);
+    border-radius: 4px;
+    transition: all 0.2s ease;
+  }
+
+  .back-btn:hover {
+    color: var(--color-text-primary);
+    background-color: rgba(255, 255, 255, 0.03);
+  }
+
+  .back-icon {
+    transition: transform 0.2s ease;
+  }
+
+  .back-btn:hover .back-icon {
+    transform: translateX(-2px);
+  }
+
+  .reader-doc-info {
+    font-family: var(--font-mono);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .reading-progress {
+    color: var(--color-accent-primary);
+    font-weight: 600;
+  }
+
+  /* E-Reader Text Scroll Container styling */
+  .reader-scroll-viewport {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-8) var(--space-6);
+    scroll-behavior: smooth;
+  }
+
+  .reader-article {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .article-title {
+    font-family: Georgia, serif;
+    font-size: clamp(24px, 3.5vw, 32px);
+    font-weight: 400;
+    color: var(--color-text-primary);
+    margin: 0 0 var(--space-1) 0;
+    text-align: center;
+  }
+
+  .article-author {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin: 0;
+    text-align: center;
+    font-style: italic;
+  }
+
+  .article-divider {
+    height: 1px;
+    width: 60px;
+    background-color: rgba(255, 255, 255, 0.1);
+    margin: var(--space-6) auto;
+  }
+
+  /* Typography spacing */
+  .paragraph {
+    font-family: Georgia, serif;
+    font-size: clamp(14px, 1.45vw, 16px);
+    line-height: var(--leading-relaxed);
+    color: #e7e5e4;
+    margin-bottom: var(--space-5);
+    text-align: justify;
+    text-justify: inter-word;
+  }
+
+  /* Highlighting effect styles with drawing swipe animation */
+  .highlight-animated {
+    background-repeat: no-repeat;
+    background-size: 0% 100%;
+    transition: background-size 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.3s ease;
+    border-left: 2.5px solid transparent;
+    padding-left: var(--space-3);
+    border-radius: 0 4px 4px 0;
+  }
+
+  .highlight-animated.yellow-style {
+    background-image: linear-gradient(to right, rgba(245, 158, 11, 0.16) 0%, rgba(245, 158, 11, 0.16) 100%);
+  }
+
+  .highlight-animated.yellow-style.highlighted {
+    background-size: 100% 100%;
+    border-color: #f59e0b;
+  }
+
+  .highlight-animated.green-style {
+    background-image: linear-gradient(to right, rgba(16, 185, 129, 0.12) 0%, rgba(16, 185, 129, 0.12) 100%);
+  }
+
+  .highlight-animated.green-style.highlighted {
+    background-size: 100% 100%;
+    border-color: #10b981;
+  }
+
+  /* Simulated Click Cursor */
+  .simulated-cursor {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0;
+    margin-top: -4px;  /* Offset pointer tip (Y) */
+    margin-left: -4px; /* Offset pointer tip (X) */
+    transition: top 0.6s cubic-bezier(0.25, 1, 0.5, 1),
+                left 0.6s cubic-bezier(0.25, 1, 0.5, 1),
+                opacity 0.2s ease;
+  }
+
+  .cursor-dot {
+    display: none;
+  }
+
+  .cursor-arrow {
+    display: block;
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
+  }
+
+  .click-pulse {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--color-accent-primary);
+    border-radius: 50%;
+    opacity: 0;
+  }
+
+  @keyframes pulse {
+    0% {
+      transform: translate(-50%, -50%) scale(0);
+      opacity: 0.85;
+    }
+    100% {
+      transform: translate(-50%, -50%) scale(1.6);
+      opacity: 0;
+    }
+  }
+
+  .simulated-cursor.clicking .click-pulse {
+    animation: pulse 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Responsive layout tweaks */
+  @media (max-width: 960px) {
+    .cover-flow-container {
+      gap: var(--space-4);
+    }
+    .book-cover-wrapper.secondary {
+      display: none; /* Hide off-center books on mobile for tighter fit */
+    }
+    .book-cover {
+      width: 110px;
+    }
+    .reader-header {
+      font-size: 10px;
+    }
+    .reader-scroll-viewport {
+      padding: var(--space-6) var(--space-4);
+    }
+    .paragraph {
+      text-align: left;
+    }
+    .simulated-cursor {
+      transform: translate(-50%, -50%) !important;
+      margin: 0 !important;
+    }
+    .cursor-dot {
+      display: block !important;
+      width: 14px !important;
+      height: 14px !important;
+      background-color: #ffffff !important;
+      border: 2px solid #000000 !important;
+      border-radius: 50% !important;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35) !important;
+    }
+    .cursor-arrow {
+      display: none !important;
+    }
+  }
+</style>
+
+<script>
+  document.querySelectorAll("[data-read-mock]").forEach((container) => {
+    const libraryView = container.querySelector(".library-view");
+    const readerView = container.querySelector(".reader-view");
+    const activeTrigger = container.querySelector(".active-trigger") as HTMLElement | null;
+    const backBtn = container.querySelector(".back-btn");
+    const scrollViewport = container.querySelector(".reader-scroll-viewport") as HTMLElement | null;
+    const cursor = container.querySelector(".simulated-cursor") as HTMLElement | null;
+
+    const middlePara = container.querySelector(".highlight-animated.yellow-style") as HTMLElement | null;
+    const bottomPara = container.querySelector(".highlight-animated.green-style") as HTMLElement | null;
+
+    if (!libraryView || !readerView || !activeTrigger || !backBtn || !scrollViewport || !cursor || !middlePara || !bottomPara) return;
+
+    let isUserInteracting = false;
+    let runCount = 0;
+    let animationTimeout: any = null;
+    let scrollInterval: any = null;
+
+    // Helper to stop autoplay loop on click
+    const stopAutoplay = () => {
+      isUserInteracting = true;
+      cursor.style.opacity = "0";
+      activeTrigger.classList.remove("hovered");
+      middlePara.classList.add("highlighted");
+      bottomPara.classList.add("highlighted");
+      if (animationTimeout) {
+        clearTimeout(animationTimeout);
+        animationTimeout = null;
+      }
+      if (scrollInterval) {
+        cancelAnimationFrame(scrollInterval);
+        scrollInterval = null;
+      }
+    };
+
+    // User interactions override
+    activeTrigger.addEventListener("click", () => {
+      stopAutoplay();
+      libraryView.classList.remove("active");
+      readerView.classList.add("active");
+      scrollViewport.scrollTop = 0;
+    });
+
+    backBtn.addEventListener("click", () => {
+      stopAutoplay();
+      readerView.classList.remove("active");
+      libraryView.classList.add("active");
+    });
+
+    // Custom scroll animation helper
+    const animateScroll = (from: number, to: number, duration: number) => {
+      return new Promise<void>((resolve) => {
+        const start = Date.now();
+        
+        const step = () => {
+          if (isUserInteracting) return resolve();
+          const elapsed = Date.now() - start;
+          const progress = Math.min(elapsed / duration, 1);
+          
+          const ease = progress * (2 - progress); // easeOutQuad
+          scrollViewport.scrollTop = from + ease * (to - from);
+          
+          if (progress < 1) {
+            scrollInterval = requestAnimationFrame(step);
+          } else {
+            resolve();
+          }
+        };
+        
+        scrollInterval = requestAnimationFrame(step);
+      });
+    };
+
+    // Autoplay simulation timeline loop
+    const runTimeline = async () => {
+      if (isUserInteracting) return;
+
+      // 1. Reset state (Library open, scroll reset, cursor resets hidden, highlights cleared)
+      readerView.classList.remove("active");
+      libraryView.classList.add("active");
+      scrollViewport.scrollTop = 0;
+      cursor.style.opacity = "0";
+      cursor.style.top = "80%";
+      cursor.style.left = "80%";
+      cursor.classList.remove("clicking");
+      middlePara.classList.remove("highlighted");
+      bottomPara.classList.remove("highlighted");
+
+      // Gap 1: Library present pause
+      await delay(1000);
+      if (isUserInteracting) return;
+
+      // 2. Click simulated cursor glides to center of the Focus book
+      cursor.style.opacity = "1";
+      const triggerRect = activeTrigger.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const targetY = (triggerRect.top - containerRect.top) + triggerRect.height * 0.48;
+      const targetX = (triggerRect.left - containerRect.left) + triggerRect.width * 0.52;
+      
+      cursor.style.top = `${targetY}px`;
+      cursor.style.left = `${targetX}px`;
+
+      await delay(600); // cursor movement duration
+      if (isUserInteracting) return;
+
+      // Trigger simulated click
+      cursor.classList.add("clicking");
+      activeTrigger.classList.add("hovered");
+
+      await delay(200); // click dwell
+      if (isUserInteracting) return;
+
+      // 3. E-Reader Open
+      libraryView.classList.remove("active");
+      readerView.classList.add("active");
+      cursor.style.opacity = "0";
+      activeTrigger.classList.remove("hovered");
+
+      // Gap 2: Open pause
+      await delay(800);
+      if (isUserInteracting) return;
+
+      // 4. Scroll to Middle (centering middle paragraph in reader)
+      const viewportRect = scrollViewport.getBoundingClientRect();
+      const paraRect = middlePara.getBoundingClientRect();
+      const middleTarget = scrollViewport.scrollTop + (paraRect.top - viewportRect.top) - (viewportRect.height / 2) + (paraRect.height / 2);
+      await animateScroll(0, middleTarget, 1200);
+      if (isUserInteracting) return;
+
+      // Gap 3: Scroll stop pause
+      await delay(600);
+      if (isUserInteracting) return;
+
+      // 5. Text Highlighted (Trigger yellow highlighting swipe animation)
+      middlePara.classList.add("highlighted");
+
+      // Gap 4: Highlight reading pause
+      await delay(1200);
+      if (isUserInteracting) return;
+
+      // 6. Scroll to Bottom
+      const endScroll = scrollViewport.scrollHeight - scrollViewport.clientHeight;
+      await animateScroll(scrollViewport.scrollTop, endScroll, 1200);
+      if (isUserInteracting) return;
+
+      // Gap 5: Scroll stop pause
+      await delay(500);
+      if (isUserInteracting) return;
+
+      // 7. Bottom Highlighted (Trigger green highlighting swipe animation)
+      bottomPara.classList.add("highlighted");
+
+      // Gap 6: Bottom settle pause
+      await delay(1500);
+      if (isUserInteracting) return;
+      
+      // Loop reset: return to library cover flow and settle
+      readerView.classList.remove("active");
+      libraryView.classList.add("active");
+      
+      runCount++;
+      if (runCount < 1) {
+        animationTimeout = setTimeout(runTimeline, 800);
+      }
+    };
+
+    const delay = (ms: number) => new Promise(resolve => {
+      animationTimeout = setTimeout(resolve, ms);
+    });
+
+    // Start autoplay after 1.0 seconds on load
+    setTimeout(runTimeline, 1000);
+  });
+</script>

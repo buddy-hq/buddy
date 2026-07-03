@@ -1,0 +1,563 @@
+---
+// Component: LearnerQuizMock
+---
+
+<div class="quiz-mock-container" data-quiz-mock>
+  <!-- Screen 1: MCQ Question View -->
+  <div class="quiz-screen question-screen active">
+    <!-- Header -->
+    <div class="quiz-header">
+      <div class="quiz-meta-row">
+        <span class="quiz-tracker">Question 5 of 5</span>
+      </div>
+      <div class="quiz-progress-bar">
+        <div class="quiz-progress-fill" style="width: 80%;"></div>
+      </div>
+    </div>
+
+    <!-- Grouped Content that centers vertically on desktop to prevent cramping and black voids -->
+    <div class="quiz-content-group">
+      <!-- Question block -->
+      <div class="quiz-question-box">
+        <h3 class="question-text">According to Ralph Waldo Emerson, what is "the hobgoblin of little minds"?</h3>
+      </div>
+
+      <!-- 4 MCQ Options list -->
+      <div class="quiz-options-list">
+        <div class="quiz-option-card opt-a" data-option="A">
+          <span class="option-badge">A</span>
+          <span class="option-title">Social non-conformity</span>
+          <span class="option-feedback"></span>
+        </div>
+        
+        <!-- Option B: Correct Answer chosen by cursor -->
+        <div class="quiz-option-card opt-b correct-target" data-option="B">
+          <span class="option-badge">B</span>
+          <span class="option-title">A foolish consistency</span>
+          <span class="option-feedback"></span>
+        </div>
+        
+        <div class="quiz-option-card opt-c" data-option="C">
+          <span class="option-badge">C</span>
+          <span class="option-title">Imitation of great bards</span>
+          <span class="option-feedback"></span>
+        </div>
+        
+        <div class="quiz-option-card opt-d" data-option="D">
+          <span class="option-badge">D</span>
+          <span class="option-title">Worship of the future</span>
+          <span class="option-feedback"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Screen 2: Quiz Result View -->
+  <div class="quiz-screen result-screen">
+    <div class="result-box">
+      <!-- Animated Score Circle -->
+      <div class="score-circle-wrapper">
+        <svg class="score-ring" viewBox="0 0 100 100" width="100" height="100">
+          <circle class="ring-bg" cx="50" cy="50" r="42" stroke="rgba(255,255,255,0.03)" stroke-width="6" fill="transparent"></circle>
+          <circle class="ring-fill" cx="50" cy="50" r="42" stroke="#10b981" stroke-width="6" fill="transparent" stroke-dasharray="264" stroke-dashoffset="264"></circle>
+        </svg>
+        <div class="score-value">100%</div>
+      </div>
+
+      <h3 class="result-title">Quiz Completed!</h3>
+      <p class="result-desc">Excellent! You've mastered the consistency tenet of Self-Reliance.</p>
+
+      <div class="result-stats">
+        <div class="stat-row">
+          <span class="stat-label">Correct Answers</span>
+          <span class="stat-val correct">5 / 5</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Simulated cursor pointers -->
+  <div class="simulated-cursor">
+    <div class="cursor-dot"></div>
+    <svg class="cursor-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="1.5" stroke-linejoin="round">
+      <path d="M4 4l7.07 17 2.51-7.39L21 11.07z" fill="white" stroke="black" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>
+    <div class="click-pulse"></div>
+  </div>
+</div>
+
+<style>
+  /* Base Container matching black mock layout */
+  .quiz-mock-container {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #0c0a09;
+    overflow: hidden;
+    color: var(--color-text-primary);
+    font-family: var(--font-display);
+  }
+
+  .quiz-screen {
+    position: absolute;
+    inset: 0;
+    padding: var(--space-6) var(--space-8);
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    transform: scale(0.97);
+    pointer-events: none;
+    transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .quiz-screen.active {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+  }
+
+  /* Header & Progress Bar elements */
+  .quiz-header {
+    margin-bottom: var(--space-4);
+  }
+
+  .quiz-meta-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: var(--space-2);
+  }
+
+  .quiz-progress-bar {
+    height: 4px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .quiz-progress-fill {
+    height: 100%;
+    background-color: var(--color-accent-primary);
+    border-radius: 2px;
+    transition: width 0.6s ease;
+  }
+
+  /* Content Group: Centers the question and option list in the remaining screen height */
+  .quiz-content-group {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  /* Question box block */
+  .quiz-question-box {
+    margin-bottom: var(--space-6);
+    padding-left: var(--space-1);
+    text-align: left;
+  }
+
+  .question-text {
+    font-size: 18px;
+    line-height: 1.4;
+    font-weight: 650;
+    color: #ffffff;
+  }
+
+  /* Option List Cards */
+  .quiz-options-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .quiz-option-card {
+    display: flex;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: var(--space-4) var(--space-5);
+    cursor: pointer;
+    text-align: left;
+    gap: var(--space-4);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .option-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 10px;
+    font-weight: bold;
+    color: var(--color-text-tertiary);
+  }
+
+  .option-title {
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    flex: 1;
+  }
+
+  .option-feedback {
+    width: 14px;
+    height: 14px;
+    border: 1.5px solid rgba(255, 255, 255, 0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  }
+
+  /* Chosen Active/Correct State representation */
+  .quiz-option-card.correct {
+    border-color: rgba(16, 185, 129, 0.35);
+    background-color: rgba(16, 185, 129, 0.04);
+  }
+
+  .quiz-option-card.correct .option-badge {
+    background-color: rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.25);
+    color: #10b981;
+  }
+
+  .quiz-option-card.correct .option-title {
+    color: #4ade80;
+  }
+
+  .quiz-option-card.correct .option-feedback {
+    border-color: #10b981;
+    background-color: #10b981;
+    color: #0c0a09;
+  }
+
+  .quiz-option-card.correct .option-feedback::after {
+    content: "✓";
+    font-size: 10px;
+    font-weight: bold;
+  }
+
+  /* Result screen block styling */
+  .result-screen {
+    justify-content: center;
+    align-items: center;
+  }
+
+  .result-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .score-circle-wrapper {
+    position: relative;
+    width: 110px;
+    height: 110px;
+    margin-bottom: var(--space-5);
+  }
+
+  .score-ring {
+    transform: rotate(-90deg);
+  }
+
+  .ring-fill {
+    transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .score-value {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: #10b981;
+  }
+
+  .result-title {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    margin-bottom: var(--space-3);
+    color: #e7e5e4;
+  }
+
+  .result-desc {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    line-height: 1.5;
+    margin-bottom: var(--space-6);
+  }
+
+  .result-stats {
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2.5);
+  }
+
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--text-xs);
+  }
+
+  .stat-label {
+    color: var(--color-text-muted);
+  }
+
+  .stat-val {
+    font-weight: 600;
+  }
+
+  .stat-val.correct {
+    color: #10b981;
+  }
+
+  .stat-val.points {
+    color: var(--color-accent-primary);
+  }
+
+  /* Simulated pointer cursor styles */
+  .simulated-cursor {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0;
+    margin-top: -4px;  /* Offset pointer tip (Y) */
+    margin-left: -4px; /* Offset pointer tip (X) */
+    transition: top 0.6s cubic-bezier(0.25, 1, 0.5, 1),
+                left 0.6s cubic-bezier(0.25, 1, 0.5, 1),
+                opacity 0.2s ease;
+  }
+
+  .cursor-dot {
+    display: none;
+  }
+
+  .cursor-arrow {
+    display: block;
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
+  }
+
+  .click-pulse {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--color-accent-primary);
+    border-radius: 50%;
+    opacity: 0;
+  }
+
+  @keyframes pulse {
+    0% {
+      transform: translate(-50%, -50%) scale(0);
+      opacity: 0.85;
+    }
+    100% {
+      transform: translate(-50%, -50%) scale(1.6);
+      opacity: 0;
+    }
+  }
+
+  .simulated-cursor.clicking .click-pulse {
+    animation: pulse 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Mobile scaling tweaks styling */
+  @media (max-width: 576px) {
+    .quiz-screen {
+      padding: var(--space-4) !important;
+    }
+    .quiz-content-group {
+      justify-content: flex-start !important; /* Stack neatly on mobile to avoid layout squishing */
+    }
+    .quiz-question-box {
+      padding: 0 !important;
+      margin-bottom: var(--space-3.5) !important;
+    }
+    .question-text {
+      font-size: 14px !important;
+      line-height: 1.35 !important;
+    }
+    .quiz-options-list {
+      gap: 6px !important;
+    }
+    .quiz-option-card {
+      padding: var(--space-2) var(--space-3) !important;
+      border-radius: 6px !important;
+      gap: var(--space-2) !important;
+    }
+    .option-badge {
+      width: 18px !important;
+      height: 18px !important;
+      font-size: 8px !important;
+    }
+    .option-title {
+      font-size: 10px !important;
+    }
+    .score-circle-wrapper {
+      width: 80px !important;
+      height: 80px !important;
+      margin-bottom: var(--space-2) !important;
+    }
+    .score-ring {
+      width: 80px !important;
+      height: 80px !important;
+    }
+    .score-value {
+      font-size: 16px !important;
+    }
+    .result-title {
+      font-size: var(--text-base) !important;
+    }
+    .result-desc {
+      font-size: 10px !important;
+      margin-bottom: var(--space-4) !important;
+    }
+    .result-stats {
+      padding: var(--space-2) var(--space-3) !important;
+    }
+    .simulated-cursor {
+      transform: translate(-50%, -50%) !important;
+      margin: 0 !important;
+    }
+    .cursor-dot {
+      display: block !important;
+      width: 14px !important;
+      height: 14px !important;
+      background-color: #ffffff !important;
+      border: 2px solid #000000 !important;
+      border-radius: 50% !important;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35) !important;
+    }
+    .cursor-arrow {
+      display: none !important;
+    }
+  }
+</style>
+
+<script>
+  document.querySelectorAll("[data-quiz-mock]").forEach((container) => {
+    const qScreen = container.querySelector(".question-screen") as HTMLElement | null;
+    const rScreen = container.querySelector(".result-screen") as HTMLElement | null;
+    const correctOpt = container.querySelector(".correct-target") as HTMLElement | null;
+    const progressFill = container.querySelector(".quiz-progress-fill") as HTMLElement | null;
+    const ringFill = container.querySelector(".ring-fill") as HTMLElement | null;
+    const cursor = container.querySelector(".simulated-cursor") as HTMLElement | null;
+
+    if (!qScreen || !rScreen || !correctOpt || !progressFill || !ringFill || !cursor) return;
+
+    let isUserInteracting = false;
+    let animationTimeout: any = null;
+
+    const stopAutoplay = () => {
+      isUserInteracting = true;
+      if (animationTimeout) {
+        clearTimeout(animationTimeout);
+        animationTimeout = null;
+      }
+    };
+
+    container.addEventListener("click", stopAutoplay);
+
+    const delay = (ms: number) => new Promise(resolve => {
+      animationTimeout = setTimeout(resolve, ms);
+    });
+
+    const runTimeline = async () => {
+      if (isUserInteracting) return;
+
+      // 1. Initial Phase resets (Screen 1 active, Option B default, Ring offset full)
+      rScreen.classList.remove("active");
+      qScreen.classList.add("active");
+      correctOpt.classList.remove("correct");
+      progressFill.style.width = "80%";
+      ringFill.setAttribute("stroke-dashoffset", "264");
+
+      cursor.style.opacity = "0";
+      cursor.style.top = "80%";
+      cursor.style.left = "80%";
+      cursor.classList.remove("clicking");
+
+      // Phase 1: Question presented pause
+      await delay(1500);
+      if (isUserInteracting) return;
+
+      // ==========================================
+      // PHASE 2: Option selected
+      // ==========================================
+      // Fade in cursor and glide to center of Option B (correct option card)
+      cursor.style.opacity = "1";
+      const targetRect = correctOpt.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      const targetY = (targetRect.top - containerRect.top) + targetRect.height * 0.48;
+      const targetX = (targetRect.left - containerRect.left) + targetRect.width * 0.52;
+      
+      cursor.style.top = `${targetY}px`;
+      cursor.style.left = `${targetX}px`;
+
+      await delay(600); // glide movement delay
+      if (isUserInteracting) return;
+
+      // Trigger click animation
+      cursor.classList.add("clicking");
+      correctOpt.classList.add("correct");
+      progressFill.style.width = "100%";
+
+      await delay(500); // click dwell
+      if (isUserInteracting) return;
+
+      // Fade out cursor
+      cursor.style.opacity = "0";
+      await delay(800);
+      if (isUserInteracting) return;
+
+      // ==========================================
+      // PHASE 3: Quiz Result View
+      // ==========================================
+      qScreen.classList.remove("active");
+      rScreen.classList.add("active");
+      await delay(200);
+      if (isUserInteracting) return;
+
+      // Animate progress circle score ring (offset transitions from 264 to 0)
+      ringFill.setAttribute("stroke-dashoffset", "0");
+      
+      // Pause on the results screen for user to review
+      await delay(2500);
+      if (isUserInteracting) return;
+
+      // Return to the question screen and settle there (Option B remains correct/checked)
+      rScreen.classList.remove("active");
+      qScreen.classList.add("active");
+    };
+
+    // Autoplay trigger
+    setTimeout(runTimeline, 1000);
+  });
+</script>

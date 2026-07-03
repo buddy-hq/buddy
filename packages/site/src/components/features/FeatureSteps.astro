@@ -1,18 +1,21 @@
 ---
 import { content } from "../../content/site"
+import LearnerReadMock from "./mocks/LearnerReadMock.astro"
+import LearnerPlayMock from "./mocks/LearnerPlayMock.astro"
+import LearnerDrawMock from "./mocks/LearnerDrawMock.astro"
+import LearnerQuizMock from "./mocks/LearnerQuizMock.astro"
+import LearnerReviewMock from "./mocks/LearnerReviewMock.astro"
+
+import EducatorAlignMock from "./mocks/EducatorAlignMock.astro"
+import EducatorPlanMock from "./mocks/EducatorPlanMock.astro"
+import EducatorCreateMock from "./mocks/EducatorCreateMock.astro"
+import EducatorResearchMock from "./mocks/EducatorResearchMock.astro"
+import EducatorBuildMock from "./mocks/EducatorBuildMock.astro"
 
 const learnersSteps = content.learners.features
 const educatorsSteps = content.educators.features
 const learnersHeader = content.learners.featuresHeader
 const educatorsHeader = content.educators.featuresHeader
-
-const mockTitles = [
-  "workspace_import.json",
-  "reader_session.md",
-  "whiteboard_explore.html",
-  "practice_session.db",
-  "spaced_repetition.db"
-]
 ---
 
 <section class="features-section">
@@ -30,16 +33,16 @@ const mockTitles = [
       <p class="section-subtext">{educatorsHeader.subtext}</p>
     </div>
   </div>
+</div>
 
-  <div class="bookend-cards-stack">
+<div class="bookend-cards-stack">
     {[0, 1, 2, 3, 4].map((i) => {
       const learnerStep = learnersSteps[i]
       const educatorStep = educatorsSteps[i]
-      const mockTitle = mockTitles[i]
 
       return (
         <>
-          <div class="bookend-card-wrapper" style={`--index: ${i + 1}; --tab-left: ${32 + i * 110}px;`}>
+          <div class="bookend-card-wrapper" style={`--index: ${i + 1}; --tab-left: ${32 + i * 130}px;`}>
           
           <!-- Folder Tab/Leaf on the TOP side, visible ONLY when stacked -->
           <div class="bookend-tab-leaf">
@@ -69,93 +72,29 @@ const mockTitles = [
             </div>
             <div class="bookend-card-right">
               <div class="sticky-mockup-wrapper">
-                <div class="mockup-header-bar">
-                  <div class="mockup-dots"><span></span><span></span><span></span></div>
-                  <div class="mockup-tab-title">{mockTitle}</div>
+                <div class="mockup-viewport">
+                  <!-- Learners Mocks -->
+                  <div class="swap swap-content swap-audience-learners active">
+                    {i === 0 && <LearnerReadMock />}
+                    {i === 1 && <LearnerPlayMock />}
+                    {i === 2 && <LearnerDrawMock />}
+                    {i === 3 && <LearnerQuizMock />}
+                    {i === 4 && <LearnerReviewMock />}
+                  </div>
+
+                  <!-- Educators Mocks -->
+                  <div class="swap swap-content swap-audience-educators">
+                    {i === 0 && <EducatorAlignMock />}
+                    {i === 1 && <EducatorPlanMock />}
+                    {i === 2 && <EducatorCreateMock />}
+                    {i === 3 && <EducatorResearchMock />}
+                    {i === 4 && <EducatorBuildMock />}
+                  </div>
                 </div>
-              <div class="mockup-viewport">
-                {(i === 0) && (
-                  <div class="mock-import-box">
-                    <div class="mock-drag-zone">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 10px; opacity: 0.5;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                      <span style="font-weight: 500;">Drag & drop materials here</span>
-                      <span style="font-size: 10px; opacity: 0.4; margin-top: 4px;">PDF, EPUB, TXT, MP3, or MP4</span>
-                    </div>
-                    <div class="mock-file-list">
-                      <div class="file-row">
-                        <span>lecture_notes_week3.pdf</span>
-                        <span class="size">4.2 MB</span>
-                      </div>
-                      <div class="file-row">
-                        <span>system_design_interview.epub</span>
-                        <span class="size">1.8 MB</span>
-                      </div>
-                      <div class="file-row">
-                        <span>audio_recording_june24.mp3</span>
-                        <span class="size">12.5 MB</span>
-                      </div>
-                      <div class="file-row active-upload">
-                        <div class="upload-info">
-                          <span>uploading_transcript.mp4</span>
-                          <span class="pct">45%</span>
-                        </div>
-                        <div class="upload-progress-bar">
-                          <div class="fill" style="width: 45%"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {(i === 1 || i === 2) && (
-                  <div class="mock-chat-box">
-                    <div class="chat-bubble user">Explain the difference between REST and gRPC.</div>
-                    <div class="chat-bubble bot">REST is resource-based, usually using JSON over HTTP/1.1. gRPC is contract-based, using Protocol Buffers over HTTP/2.</div>
-                    <div class="chat-bubble user">When should I choose gRPC over REST?</div>
-                    <div class="chat-bubble bot">Choose gRPC for low-latency microservice communications, real-time streaming interfaces, and polyglot systems where strong API contracts are required.</div>
-                    <div class="chat-input-line">
-                      <span>Ask follow-up question...</span>
-                      <kbd>⌘K</kbd>
-                    </div>
-                  </div>
-                )}
-                {(i === 3 || i === 4) && (
-                  <div class="mock-recall-box">
-                    <div class="flashcard-preview">
-                      <span class="badge-mini">Active Recall</span>
-                      <p style="margin-block: 16px; font-weight: 500; font-size: 15px; line-height: 1.4;">What is the time complexity of searching in a Red-Black Tree?</p>
-                      <span style="font-size: 10px; opacity: 0.4; margin-bottom: 12px;">Click to reveal answer</span>
-                      <div class="flashcard-options">
-                        <button class="card-option-btn">Show Answer</button>
-                      </div>
-                    </div>
-                    
-                    <div class="recall-stats">
-                      <div class="stat-row-flex">
-                        <div class="stat-item">
-                          <div class="stat-val">42 / 50</div>
-                          <div class="stat-lbl">Cards Studied</div>
-                        </div>
-                        <div class="stat-item">
-                          <div class="stat-val">87%</div>
-                          <div class="stat-lbl">Retention</div>
-                        </div>
-                        <div class="stat-item">
-                          <div class="stat-val">4h</div>
-                          <div class="stat-lbl">Next Review</div>
-                        </div>
-                      </div>
-                      
-                      <div class="stat-progress-bar">
-                        <div class="fill" style="width: 87%"></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>
         </div>
-      </div>
         {i < 4 ? (
           <div class="scroll-gap"></div>
         ) : (
@@ -164,7 +103,6 @@ const mockTitles = [
       </>
     )
   })}
-  </div>
 </div>
 </section>
 
@@ -205,7 +143,7 @@ const mockTitles = [
   }
 
   .bookend-cards-stack {
-    max-width: min(75vw, 1436px);
+    max-width: min(85vw, 1630px);
     width: 100%;
     margin: 0 auto;
     display: flex;
@@ -218,9 +156,9 @@ const mockTitles = [
 
   .bookend-card-wrapper {
     position: sticky;
-    /* Cards stack exactly centered vertically in the viewport with a safety minimum top to clear headers */
-    /* Width is 76vw (max 1200px), max-height is 80vh. Dynamic half-height is min(424px, 26.9vw, 40vh) */
-    top: max(160px, calc(50vh - min(424px, 26.9vw, 40vh)));
+    /* Cards stack exactly centered vertically in the viewport with a safety minimum top of 124px to clear headers and tabs */
+    /* Dynamic half-height is min(576px, 30vw, calc( (100dvh - 200px) / 2 )) to prevent bottom overflow */
+    top: max(124px, calc(50dvh - min(576px, 30vw, calc( (100dvh - 200px) / 2 ))));
     width: 100%;
     margin-bottom: 0; /* Margin-bottom is zero because scroll-gap elements handle spacing in the document flow */
   }
@@ -237,9 +175,9 @@ const mockTitles = [
   .bookend-tab-leaf {
     position: absolute;
     left: var(--tab-left);
-    top: -27px; /* Sits exactly on the top border of the card body */
-    width: 120px; /* Fixed width */
-    height: 28px;
+    top: -31px; /* Sits exactly on the top border of the card body */
+    width: 140px; /* Fixed width */
+    height: 32px;
     background-color: #12100f;
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-bottom: none;
@@ -254,6 +192,7 @@ const mockTitles = [
     opacity: 0;
     transform: translateY(6px);
     pointer-events: none;
+    cursor: pointer;
     transition: opacity 0.35s var(--ease-out), transform 0.35s var(--ease-out), border-color 0.35s var(--ease-out);
   }
 
@@ -296,18 +235,16 @@ const mockTitles = [
   }
 
   .bookend-card-body {
-    background-color: rgba(22, 19, 18, 0.98);
+    background-color: #161312; /* Solid opaque color to prevent underlying card text from bleeding through */
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 16px;
-    padding: var(--space-10);
+    padding: 24px; /* Reduced card padding from 40px to 24px for tighter layout */
     width: 100%;
     max-width: 100%;
     aspect-ratio: 1.414 / 1; /* Horizontal A4 aspect ratio */
-    max-height: 80vh; /* Constrain max height to 80% of the viewport */
+    max-height: calc(100dvh - 200px); /* Constrain max height dynamically to prevent bottom overflow while maintaining tab clearance */
     margin-inline: auto; /* Centers card when it shrinks due to max-height constraint */
-    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4),
-                0 1px 0 rgba(255, 255, 255, 0.05) inset;
-    backdrop-filter: blur(20px);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4); /* Solid soft outer drop shadow only */
     position: relative;
     z-index: 2;
     transition: border-color 0.3s var(--ease-out);
@@ -335,21 +272,18 @@ const mockTitles = [
 
   .bookend-card-right {
     position: absolute;
-    top: 42%; /* Pushed slightly higher than the centerline */
-    right: -30px;
-    width: 74%;
+    top: max(25%, 220px); /* Positioned exactly 25% below the top, with a safety minimum of 220px to match the 60px spacing from card top to heading */
+    left: calc( ( min(85vw, 1630px) - min(75vw, 1436px) ) / 2 ); /* Align mockup top-left edge exactly with main container start */
+    width: min(75vw, 1436px); /* Exact width of the main site container */
+    bottom: 24px; /* Align to the reduced 24px bottom padding */
     z-index: 1;
-    transform: rotate(-3.5deg) translateY(80px); /* Default: offset down */
+    transform: rotate(-10deg) translateY(80px); /* Initial fallback */
     transform-origin: top left;
-    transition: transform 0.6s var(--ease-out);
-  }
-
-  .bookend-card-wrapper.stacked .bookend-card-right {
-    transform: rotate(-3.5deg) translateY(0); /* Slide up into position when stacked */
+    transition: transform 0.6s var(--ease-out); /* Slow, smooth lag-inertia transition */
   }
 
   .bookend-card-wrapper.stacked:hover .bookend-card-right {
-    transform: rotate(-2deg) scale(1.02) translateY(0);
+    transform: scale(1.02) translateY(0) !important;
   }
 
 
@@ -359,7 +293,7 @@ const mockTitles = [
     font-size: 32px;
     font-weight: 600;
     letter-spacing: var(--tracking-tight);
-    margin-top: var(--space-10);
+    margin-top: 36px; /* 36px margin + 24px top padding = exactly 60px clearance from card top to heading */
     margin-bottom: var(--space-4);
     color: var(--color-text-primary);
   }
@@ -385,11 +319,11 @@ const mockTitles = [
   /* Shared Mockup Styles */
   .sticky-mockup-wrapper {
     background-color: #12100f;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 2px solid #1c1a19; /* Thicker solid border outline for defined edges */
     border-radius: 12px;
-    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
     overflow: hidden;
     width: 100%;
+    height: 100%;
   }
 
   .mockup-header-bar {
@@ -421,10 +355,18 @@ const mockTitles = [
   }
 
   .mockup-viewport {
-    height: 500px !important; /* Force taller height to override global styles */
-    padding: var(--space-6);
+    height: 100% !important;
+    padding: 0; /* Removed padding completely to let canvas draw edge-to-edge */
     position: relative;
   }
+
+  .mockup-viewport .swap {
+    position: absolute !important;
+    inset: 0 !important;
+    height: 100% !important;
+  }
+
+
 
   .mock-import-box, .mock-chat-box, .mock-recall-box {
     display: flex;
@@ -648,16 +590,7 @@ const mockTitles = [
 
   @media (max-width: 960px) {
     .mobile-tag-wrapper {
-      display: block;
-      margin-bottom: var(--space-3);
-    }
-    .mobile-tag {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--color-accent-primary);
-      letter-spacing: var(--tracking-wider);
-      text-transform: uppercase;
+      display: none !important;
     }
     .bookend-cards-stack {
       width: 100%;
@@ -674,7 +607,7 @@ const mockTitles = [
       border-radius: 0 !important;
       box-shadow: none !important;
       backdrop-filter: none !important;
-      padding: 0 !important;
+      padding: var(--space-5) !important;
       aspect-ratio: auto !important;
       display: flex;
       flex-direction: column-reverse; /* Screenshot at top, text at bottom */
@@ -690,6 +623,8 @@ const mockTitles = [
     .bookend-card-right {
       position: relative;
       top: auto !important;
+      left: auto !important;
+      bottom: auto !important;
       right: auto !important;
       width: calc(100% + var(--space-6));
       margin-left: 0;
@@ -701,7 +636,7 @@ const mockTitles = [
       justify-content: flex-start;
       padding-top: var(--space-4);
       padding-bottom: 0;
-      background: radial-gradient(circle at left center, rgba(255, 107, 0, 0.04) 0%, transparent 70%);
+      background: none !important;
     }
     .bookend-card-right::after {
       content: '' !important;
@@ -717,11 +652,13 @@ const mockTitles = [
       width: 480px !important;
       min-width: 480px !important;
       max-width: none !important;
+      height: auto !important;
     }
     .mockup-viewport {
-      height: 240px;
-      padding: var(--space-4);
+      height: 460px !important;
+      padding: 0 !important;
     }
+
     .bookend-card-wrapper {
       position: relative;
       top: 0 !important;
@@ -752,11 +689,16 @@ const mockTitles = [
       gap: var(--space-6);
     }
     .mockup-viewport {
-      height: 220px !important;
-      padding: var(--space-3);
+      height: 360px !important;
+      padding: 0 !important;
       overflow: hidden;
       position: relative;
     }
+    .sticky-mockup-wrapper {
+      width: 100% !important;
+      min-width: 0 !important;
+    }
+
     .mockup-viewport::after {
       content: '';
       position: absolute;
@@ -800,6 +742,25 @@ const mockTitles = [
       // Triggers `.stacked` class with 4px tolerance
       const isStacked = rect.top <= stickyTop + 4
       card.classList.toggle("stacked", isStacked)
+
+      // Calculate scroll progress from 0 (far below) to 1 (fully stuck)
+      const range = 500 // Map the rotation over 500px of scrolling before sticking
+      let progress = 0
+      if (rect.top <= stickyTop) {
+        progress = 1
+      } else if (rect.top >= stickyTop + range) {
+        progress = 0
+      } else {
+        progress = 1 - (rect.top - stickyTop) / range
+      }
+
+      // Apply transform directly in JS for full cross-browser layout support
+      const mock = card.querySelector(".bookend-card-right") as HTMLElement | null
+      if (mock) {
+        const rotation = -10 * (1 - progress)
+        const translation = 80 * (1 - progress)
+        mock.style.transform = `rotate(${rotation.toFixed(2)}deg) translateY(${translation.toFixed(2)}px)`
+      }
     })
   }
 
@@ -815,4 +776,28 @@ const mockTitles = [
 
   // Initial check
   checkStacking()
+
+  // Handle dynamic tab (ear) click scroll navigation
+  const stack = document.querySelector(".bookend-cards-stack")
+  if (stack) {
+    document.querySelectorAll(".bookend-card-wrapper").forEach((wrapper) => {
+      const tabLeaf = wrapper.querySelector(".bookend-tab-leaf")
+      if (tabLeaf) {
+        tabLeaf.addEventListener("click", (e) => {
+          e.preventDefault()
+          const style = window.getComputedStyle(wrapper)
+          const stickyTop = parseInt(style.top, 10) || 160
+          
+          // Calculate the target scroll position where this card wrapper starts sticking
+          const absoluteStackTop = window.scrollY + stack.getBoundingClientRect().top
+          const targetScrollY = absoluteStackTop + (wrapper as HTMLElement).offsetTop - stickyTop
+          
+          window.scrollTo({
+            top: targetScrollY,
+            behavior: "smooth"
+          })
+        })
+      }
+    })
+  }
 </script>

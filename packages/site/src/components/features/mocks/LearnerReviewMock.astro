@@ -1,0 +1,525 @@
+---
+// Component: LearnerReviewMock
+---
+
+<div class="review-mock-container" data-review-mock>
+  <!-- Central Flashcard display box (Clean, minimalist index card ratio 8:5, no headers/lines) -->
+  <div class="review-card-panel">
+    <!-- Dynamic card content area -->
+    <div class="card-content-wrapper">
+      <p class="card-question-text" data-card-question>In "Self-Reliance," Emerson says "imitation is suicide." Why does he consider imitation to be suicide?</p>
+      <p class="card-answer-text" data-card-answer>Because each person possesses a unique power "new in nature" that only they can discover through their own effort. Imitation destroys the chance to fulfill that divinely appointed potential.</p>
+    </div>
+    
+    <!-- Bottom tap to reveal tip (hidden on flip/answer reveal) -->
+    <div class="card-footer-tip" data-card-tip>Tap to reveal answer</div>
+  </div>
+
+  <!-- Bottom Rating Buttons (slide in when answer is revealed) -->
+  <div class="review-rating-buttons">
+    <button class="rating-btn again">Again</button>
+    <button class="rating-btn hard">Hard</button>
+    <button class="rating-btn good active-target">Good</button>
+    <button class="rating-btn easy">Easy</button>
+  </div>
+
+  <!-- Simulated cursor pointers -->
+  <div class="simulated-cursor">
+    <div class="cursor-dot"></div>
+    <svg class="cursor-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="1.5" stroke-linejoin="round">
+      <path d="M4 4l7.07 17 2.51-7.39L21 11.07z" fill="white" stroke="black" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>
+    <div class="click-pulse"></div>
+  </div>
+</div>
+
+<style>
+  /* Base Container matching black mock layout */
+  .review-mock-container {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #0c0a09;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+    color: var(--color-text-primary);
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    gap: var(--space-6);
+  }
+
+  /* Central Card Display Box with index card aspect-ratio (5 / 3) */
+  .review-card-panel {
+    width: 100%;
+    max-width: 520px;
+    aspect-ratio: 1.6; /* 8:5 standard index card ratio */
+    background-color: #141216 !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-radius: 16px !important; /* rounded-2xl matching web package */
+    padding: var(--space-8) var(--space-6);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    
+    /* Transition styles for flying swipe gestures */
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+    opacity: 1;
+    transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1),
+                opacity 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  /* Card content positioning */
+  .card-content-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    text-align: center;
+    gap: var(--space-4);
+  }
+
+  /* Swiping left on Again option */
+  .review-card-panel.fly-left {
+    transform: translate3d(-140%, -15px, 0) rotate(-12deg) !important;
+    opacity: 0 !important;
+  }
+
+  /* Swiping right on Good/Easy options */
+  .review-card-panel.fly-right {
+    transform: translate3d(140%, -15px, 0) rotate(12deg) !important;
+    opacity: 0 !important;
+  }
+
+  /* Smooth snap scaling slide-in for new cards */
+  .review-card-panel.fade-enter {
+    transform: translate3d(0, 15px, 0) scale(0.96) rotate(0deg) !important;
+    opacity: 0 !important;
+    transition: none !important;
+  }
+
+  /* Typography inside card matching real web card components */
+  .card-question-text {
+    font-size: 19px; /* text-xl/leading-relaxed font-medium */
+    font-weight: 550;
+    color: #e4e4e7;
+    line-height: 1.5;
+    max-width: 440px;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  }
+
+  .card-answer-text {
+    font-size: 19px; /* text-xl/leading-relaxed font-medium */
+    line-height: 1.5;
+    font-weight: 550;
+    color: #10b981; /* text-interactive-base accent color */
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    max-width: 440px;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  }
+
+  /* Answer visibility class */
+  .card-answer-text.revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Footer tips */
+  .card-footer-tip {
+    font-size: 11px;
+    color: #71717a;
+    font-weight: 500;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    transition: opacity 0.2s ease;
+    margin-top: var(--space-4);
+  }
+
+  /* Bottom Rating Buttons Row (hidden by default, slide in when answered) */
+  .review-rating-buttons {
+    display: flex;
+    gap: var(--space-3);
+    justify-content: center;
+    width: 100%;
+    max-width: 360px;
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .review-rating-buttons.active {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
+
+  /* Rating Button styles matching Anki colors */
+  .rating-btn {
+    flex: 1;
+    border: none;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: var(--space-2) var(--space-4);
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    transition: transform 0.2s ease, filter 0.2s ease;
+  }
+
+  .rating-btn:hover {
+    filter: brightness(1.15);
+  }
+
+  .rating-btn.again {
+    background-color: #9f1239; /* Deep Rose Red */
+  }
+
+  .rating-btn.hard {
+    background-color: #701a75; /* Deep Purple */
+  }
+
+  .rating-btn.good {
+    background-color: #14532d; /* Deep Forest Green */
+  }
+
+  .rating-btn.easy {
+    background-color: #1e3a8a; /* Deep Royal Blue */
+  }
+
+  /* Simulated pointer cursor styles */
+  .simulated-cursor {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0;
+    margin-top: -4px;  /* Offset pointer tip (Y) */
+    margin-left: -4px; /* Offset pointer tip (X) */
+    transition: top 0.6s cubic-bezier(0.25, 1, 0.5, 1),
+                left 0.6s cubic-bezier(0.25, 1, 0.5, 1),
+                opacity 0.2s ease;
+  }
+
+  .cursor-dot {
+    display: none;
+  }
+
+  .cursor-arrow {
+    display: block;
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45));
+  }
+
+  .click-pulse {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    width: 36px;
+    height: 36px;
+    border: 2px solid var(--color-accent-primary);
+    border-radius: 50%;
+    opacity: 0;
+  }
+
+  @keyframes pulse {
+    0% {
+      transform: translate(-50%, -50%) scale(0);
+      opacity: 0.85;
+    }
+    100% {
+      transform: translate(-50%, -50%) scale(1.6);
+      opacity: 0;
+    }
+  }
+
+  .simulated-cursor.clicking .click-pulse {
+    animation: pulse 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Mobile scaling tweaks styling */
+  @media (max-width: 576px) {
+    .review-mock-container {
+      padding: var(--space-4) !important;
+    }
+    .review-card-panel {
+      padding: var(--space-5) var(--space-4) var(--space-3) !important;
+      border-radius: 12px !important;
+      aspect-ratio: 1.55 !important;
+    }
+    .card-question-text {
+      font-size: 13px !important;
+    }
+    .card-answer-text {
+      font-size: 13px !important;
+    }
+    .card-footer-tip {
+      font-size: 8px !important;
+    }
+    .review-rating-buttons {
+      gap: 6px !important;
+    }
+    .rating-btn {
+      padding: var(--space-1.5) var(--space-2) !important;
+      font-size: 9px !important;
+    }
+    .simulated-cursor {
+      transform: translate(-50%, -50%) !important;
+      margin: 0 !important;
+    }
+    .cursor-dot {
+      display: block !important;
+      width: 14px !important;
+      height: 14px !important;
+      background-color: #ffffff !important;
+      border: 2px solid #000000 !important;
+      border-radius: 50% !important;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35) !important;
+    }
+    .cursor-arrow {
+      display: none !important;
+    }
+  }
+</style>
+
+<script>
+  console.log("Flashcard dynamic single-container aspect-ratio mock loaded.");
+
+  // Card Content Data structure matching exact web text content
+  const cardsData = [
+    {
+      question: 'In "Self-Reliance," Emerson says "imitation is suicide." Why does he consider imitation to be suicide?',
+      answer: 'Because each person possesses a unique power "new in nature" that only they can discover through their own effort. Imitation destroys the chance to fulfill that divinely appointed potential.'
+    },
+    {
+      question: 'What is "the hobgoblin of little minds" in Emerson\'s view?',
+      answer: 'A foolish consistency—which prevents individuals from expressing original, creative thought and adapts them to social conformity.'
+    },
+    {
+      question: 'Why does Emerson call traveling to find oneself "a fool\'s paradise"?',
+      answer: 'Because you carry your internal restlessness and your "giant" with you wherever you go. True growth is internal, not geographical.'
+    }
+  ];
+
+  document.querySelectorAll("[data-review-mock]").forEach((container) => {
+    // Select dynamic elements
+    const cardPanel = container.querySelector(".review-card-panel") as HTMLElement | null;
+    const questionEl = container.querySelector("[data-card-question]") as HTMLElement | null;
+    const answerEl = container.querySelector("[data-card-answer]") as HTMLElement | null;
+    const footerTip = container.querySelector("[data-card-tip]") as HTMLElement | null;
+
+    // rating buttons wrapper and counter
+    const ratingButtons = container.querySelector(".review-rating-buttons") as HTMLElement | null;
+    const againBtn = container.querySelector(".rating-btn.again") as HTMLElement | null;
+    const goodBtn = container.querySelector(".rating-btn.good") as HTMLElement | null;
+    const cursor = container.querySelector(".simulated-cursor") as HTMLElement | null;
+
+    if (!cardPanel || !questionEl || !answerEl || !ratingButtons || !againBtn || !goodBtn || !cursor) {
+      console.error("Dynamic Flashcard script failed to locate core elements.");
+      return;
+    }
+
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Helper to calculate target coordinate center of an element
+    const getTargetCoordinates = (element: HTMLElement) => {
+      const rect = element.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      
+      // If bounding box has no size (parent swap container is hidden), fallback to default centers
+      if (rect.width === 0 || rect.height === 0) {
+        return { x: 260, y: 150 };
+      }
+      
+      const y = (rect.top - containerRect.top) + rect.height * 0.5;
+      const x = (rect.left - containerRect.left) + rect.width * 0.5;
+      return { x, y };
+    };
+
+    const runTimeline = async () => {
+      console.log("Starting swipe-synced flashcard autoplay timeline...");
+
+      // 1. Initial State (Card 1 active, Answer hidden, Rating buttons hidden, Tip visible)
+      questionEl.innerHTML = cardsData[0].question;
+      answerEl.innerHTML = cardsData[0].answer;
+      answerEl.classList.remove("revealed");
+      ratingButtons.classList.remove("active");
+      if (footerTip) footerTip.style.opacity = "1";
+
+      // Reset panel transform class states safely via classList to preserve Astro style scopes
+      cardPanel.classList.remove("fly-left", "fly-right", "fade-enter");
+
+      cursor.style.opacity = "0";
+      cursor.style.top = "85%";
+      cursor.style.left = "85%";
+      cursor.classList.remove("clicking");
+
+      await delay(1200);
+
+      // ==========================================
+      // CARD 1: Question -> Flip -> Click Option Good -> Swipe Right
+      // ==========================================
+      // Glide cursor to center of card panel to trigger reveal/flip click
+      cursor.style.opacity = "1";
+      let cardCenter = getTargetCoordinates(cardPanel);
+      cursor.style.top = `${cardCenter.y}px`;
+      cursor.style.left = `${cardCenter.x}px`;
+
+      await delay(700);
+
+      // Click to reveal answer
+      cursor.classList.add("clicking");
+      answerEl.classList.add("revealed");
+      ratingButtons.classList.add("active");
+      if (footerTip) footerTip.style.opacity = "0";
+
+      await delay(450); // click dwell
+      cursor.classList.remove("clicking");
+
+      await delay(2000); // Read answer time
+
+      // Glide cursor to click "Good" rating button
+      let goodBtnCenter = getTargetCoordinates(goodBtn);
+      cursor.style.top = `${goodBtnCenter.y}px`;
+      cursor.style.left = `${goodBtnCenter.x}px`;
+
+      await delay(700);
+
+      // Click "Good" button -> card panel flies right
+      cursor.classList.add("clicking");
+      cardPanel.classList.add("fly-right");
+
+      await delay(500); // Wait for flying animation out of viewport
+      cursor.classList.remove("clicking");
+      ratingButtons.classList.remove("active");
+      answerEl.classList.remove("revealed");
+
+      // Load Card 2 and snap in card panel
+      questionEl.innerHTML = cardsData[1].question;
+      answerEl.innerHTML = cardsData[1].answer;
+      if (footerTip) footerTip.style.opacity = "1";
+      cardPanel.classList.remove("fly-right");
+      cardPanel.classList.add("fade-enter");
+      cardPanel.offsetHeight; // force reflow
+      cardPanel.classList.remove("fade-enter");
+
+      await delay(800);
+
+      // ==========================================
+      // CARD 2: Question -> Flip -> Click Option Again -> Swipe Left
+      // ==========================================
+      // Glide cursor back to center of card panel to reveal Card 2
+      cardCenter = getTargetCoordinates(cardPanel);
+      cursor.style.top = `${cardCenter.y}px`;
+      cursor.style.left = `${cardCenter.x}px`;
+
+      await delay(700);
+
+      // Click to reveal answer
+      cursor.classList.add("clicking");
+      answerEl.classList.add("revealed");
+      ratingButtons.classList.add("active");
+      if (footerTip) footerTip.style.opacity = "0";
+
+      await delay(450); // click dwell
+      cursor.classList.remove("clicking");
+
+      await delay(2000); // Read answer time
+
+      // Glide cursor to click "Again" rating button
+      let againBtnCenter = getTargetCoordinates(againBtn);
+      cursor.style.top = `${againBtnCenter.y}px`;
+      cursor.style.left = `${againBtnCenter.x}px`;
+
+      await delay(700);
+
+      // Click "Again" button -> card panel flies left
+      cursor.classList.add("clicking");
+      cardPanel.classList.add("fly-left");
+
+      await delay(500); // Wait for flying animation out of viewport
+      cursor.classList.remove("clicking");
+      ratingButtons.classList.remove("active");
+      answerEl.classList.remove("revealed");
+
+      // Load Card 3 and snap in card panel
+      questionEl.innerHTML = cardsData[2].question;
+      answerEl.innerHTML = cardsData[2].answer;
+      if (footerTip) footerTip.style.opacity = "1";
+      cardPanel.classList.remove("fly-left");
+      cardPanel.classList.add("fade-enter");
+      cardPanel.offsetHeight; // force reflow
+      cardPanel.classList.remove("fade-enter");
+
+      await delay(800);
+
+      // ==========================================
+      // CARD 3: Question -> Flip -> Click Option Good -> Swipe Right
+      // ==========================================
+      // Glide cursor back to center of card panel to reveal Card 3
+      cardCenter = getTargetCoordinates(cardPanel);
+      cursor.style.top = `${cardCenter.y}px`;
+      cursor.style.left = `${cardCenter.x}px`;
+
+      await delay(700);
+
+      // Click to reveal answer
+      cursor.classList.add("clicking");
+      answerEl.classList.add("revealed");
+      ratingButtons.classList.add("active");
+      if (footerTip) footerTip.style.opacity = "0";
+
+      await delay(450); // click dwell
+      cursor.classList.remove("clicking");
+
+      await delay(2500); // Read answer time
+
+      // Glide cursor down to click "Good" rating button
+      goodBtnCenter = getTargetCoordinates(goodBtn);
+      cursor.style.top = `${goodBtnCenter.y}px`;
+      cursor.style.left = `${goodBtnCenter.x}px`;
+
+      await delay(700);
+
+      // Click "Good" button -> card panel flies right
+      cursor.classList.add("clicking");
+      cardPanel.classList.add("fly-right");
+
+      await delay(500); // Wait for flying animation out of viewport
+      cursor.classList.remove("clicking");
+      ratingButtons.classList.remove("active");
+      answerEl.classList.remove("revealed");
+
+      // Fade out cursor
+      cursor.style.opacity = "0";
+      await delay(500);
+
+      // Reset timeline back to Card 1 Front state and settle there (no loop!)
+      console.log("Timeline completed. Settling on Card 1...");
+      questionEl.innerHTML = cardsData[0].question;
+      answerEl.innerHTML = cardsData[0].answer;
+      if (footerTip) footerTip.style.opacity = "1";
+      cardPanel.classList.remove("fly-right");
+      cardPanel.classList.add("fade-enter");
+      cardPanel.offsetHeight; // force reflow
+      cardPanel.classList.remove("fade-enter");
+    };
+
+    // Autoplay trigger
+    setTimeout(runTimeline, 1000);
+  });
+</script>

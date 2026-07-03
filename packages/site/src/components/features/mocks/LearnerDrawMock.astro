@@ -1,0 +1,596 @@
+---
+// Component: LearnerDrawMock
+---
+
+<div class="draw-mock-container" data-draw-mock>
+  <!-- Drawing Board / Canvas Area -->
+  <div class="whiteboard-canvas">
+    <div class="wb-drawings">
+      <svg class="wb-svg" viewBox="0 0 600 380" preserveAspectRatio="xMidYMid meet">
+        <!-- 1. Central Node (Self-Reliance) -->
+        <path 
+          class="sketch-path central-node-path" 
+          d="M 300 135 C 380 135, 410 175, 300 215 C 190 215, 220 135, 300 135 Z" 
+          stroke="#ff6b00" 
+          stroke-width="3" 
+          fill="none"
+          stroke-linecap="round"
+        />
+        <text class="sketch-text central-node-text" x="300" y="180" text-anchor="middle">Self-Reliance</text>
+
+        <!-- 2. Connecting Lines (Phase 1) -->
+        <path 
+          class="sketch-path connect-line-path l1" 
+          d="M 230 145 L 140 105" 
+          stroke="rgba(255, 255, 255, 0.25)" 
+          stroke-width="2" 
+          fill="none"
+          stroke-linecap="round"
+        />
+        <path 
+          class="sketch-path connect-line-path l2" 
+          d="M 370 145 L 460 105" 
+          stroke="rgba(255, 255, 255, 0.25)" 
+          stroke-width="2" 
+          fill="none"
+          stroke-linecap="round"
+        />
+        <path 
+          class="sketch-path connect-line-path l3" 
+          d="M 240 185 L 150 255" 
+          stroke="rgba(255, 255, 255, 0.25)" 
+          stroke-width="2" 
+          fill="none"
+          stroke-linecap="round"
+        />
+
+        <!-- 3. Branch Boxes (Phase 1) -->
+        <!-- Top Left (Trust Thyself) -->
+        <path 
+          class="sketch-path branch-box-path b1" 
+          d="M 20 60 C 65 58, 115 62, 160 60 C 162 80, 158 95, 160 110 C 115 112, 65 108, 20 110 C 18 95, 22 80, 20 60 Z" 
+          stroke="#a78bfa" 
+          stroke-width="2.5" 
+          fill="none"
+          stroke-linecap="round"
+        />
+        <text class="sketch-text branch-text left-title" x="90" y="90" text-anchor="middle">Trust Thyself</text>
+
+        <!-- Top Right (Non-Conformity) -->
+        <path 
+          class="sketch-path branch-box-path b2" 
+          d="M 440 60 C 485 58, 535 62, 580 60 C 582 80, 578 95, 580 110 C 535 112, 485 108, 440 110 C 438 95, 442 80, 440 60 Z" 
+          stroke="#2dd4bf" 
+          stroke-width="2.5" 
+          fill="none"
+          stroke-linecap="round"
+        />
+        <text class="sketch-text branch-text right-title" x="510" y="90" text-anchor="middle">Non-Conformity</text>
+
+        <!-- Bottom Left (Originality) -->
+        <path 
+          class="sketch-path branch-box-path b3" 
+          d="M 60 255 C 105 253, 155 257, 200 255 C 202 275, 198 290, 200 310 C 155 312, 105 308, 60 310 C 58 295, 62 280, 60 255 Z" 
+          stroke="#8ab4f8" 
+          stroke-width="2.5" 
+          fill="none"
+          stroke-linecap="round"
+        />
+        <text class="sketch-text branch-text bottom-left-title" x="130" y="285" text-anchor="middle">Originality</text>
+
+        <!-- ==========================================
+             PHASE 3: Added consistency trap box
+             ========================================== -->
+        <path 
+          class="sketch-path connect-line-path l4 phase3-item" 
+          d="M 360 185 L 450 255" 
+          stroke="rgba(248, 113, 113, 0.4)" 
+          stroke-width="2" 
+          fill="none"
+          stroke-linecap="round"
+        />
+        <path 
+          class="sketch-path branch-box-path b4 phase3-item" 
+          d="M 400 255 C 445 253, 495 257, 540 255 C 542 275, 538 290, 540 310 C 495 312, 445 308, 400 310 C 398 295, 402 280, 400 255 Z" 
+          stroke="#f87171" 
+          stroke-width="2.5" 
+          fill="none"
+          stroke-linecap="round"
+        />
+        <text class="sketch-text branch-text bottom-right-title phase3-item" x="470" y="285" text-anchor="middle">✗ Consistency</text>
+
+        <!-- Red Crossout X marker lines over the consistency box (negative constraint) -->
+        <path 
+          class="sketch-path crossout-line phase3-item" 
+          d="M 415 260 L 525 305" 
+          stroke="#ef4444" 
+          stroke-width="3" 
+          fill="none"
+          stroke-linecap="round"
+        />
+        <path 
+          class="sketch-path crossout-line phase3-item" 
+          d="M 525 260 L 415 305" 
+          stroke="#ef4444" 
+          stroke-width="3" 
+          fill="none"
+          stroke-linecap="round"
+        />
+      </svg>
+    </div>
+
+    <!-- Floating Chat Box (Desktop only, hidden on mobile) -->
+    <div class="wb-chat-popup">
+      <div class="wb-chat-body">
+        <!-- First chat message is already visible by default on load -->
+        <div class="chat-message buddy m1 visible">I've sketched a concept map for Emerson's 'Self-Reliance' on your board. At the core is the individual soul, supported by self-trust, originality, and non-conformity.</div>
+        <div class="chat-message user m2"></div>
+        <div class="chat-message buddy m3"></div>
+      </div>
+      
+      <div class="wb-chat-input-area">
+        <div class="wb-chat-input-placeholder">Ask Buddy...</div>
+        <div class="wb-chat-input-footer">
+          <div class="dropdowns">
+            <span class="dd-pill">DeepSeek V4 Pro</span>
+            <span class="dd-pill">Default</span>
+          </div>
+          <button class="chat-send-btn">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap');
+
+  /* Base wrapper */
+  .draw-mock-container {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #080709;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    font-family: var(--font-display);
+  }
+
+  /* Canvas area with dot grid */
+  .whiteboard-canvas {
+    flex: 1;
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    flex-direction: row; /* SIBLING ROW FLOW: drawing stays left, chat stays right */
+    justify-content: space-between;
+    padding: var(--space-4) var(--space-6) 0 var(--space-6);
+    background-color: #080709;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 18px 18px;
+    overflow: hidden;
+  }
+
+  /* Drawings container: constrained to the left to absolutely prevent overlapping */
+  .wb-drawings {
+    flex: 1; /* occupy remaining left width */
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    overflow: hidden;
+  }
+
+  /* SVG Vector Drawing scaled to fit left pane without overlap */
+  .wb-svg {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .sketch-path {
+    stroke-dasharray: 600;
+    stroke-dashoffset: 600;
+    transition: stroke-dashoffset 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .sketch-path.drawn {
+    stroke-dashoffset: 0;
+  }
+
+  /* Handwriting Typography rules */
+  .sketch-text {
+    font-family: 'Architects Daughter', cursive, sans-serif;
+    font-weight: 700;
+    fill: #ffffff;
+    opacity: 0;
+    user-select: none;
+    transition: opacity 0.4s ease;
+  }
+
+  .sketch-text.visible {
+    opacity: 1;
+  }
+
+  .central-node-text {
+    font-size: 20px;
+    fill: #ff6b00;
+  }
+
+  .branch-text {
+    font-size: 14px;
+  }
+
+  .left-title {
+    fill: #c084fc; /* soft purple */
+  }
+
+  .right-title {
+    fill: #2dd4bf; /* soft teal */
+  }
+
+  .bottom-left-title {
+    fill: #8ab4f8; /* soft blue */
+  }
+
+  .bottom-right-title {
+    fill: #f87171; /* soft red for consistency */
+  }
+
+  /* Floating Chat Box Popup (matches screenshot exactly) - Header-Free */
+  .wb-chat-popup {
+    width: 320px;
+    background-color: #141216;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-bottom: none;
+    border-radius: 12px 12px 0 0;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
+    display: flex;
+    flex-direction: column;
+    z-index: 20;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+    flex-shrink: 0; /* Keep static width */
+    margin-left: var(--space-4);
+    align-self: flex-end; /* Align flush to bottom */
+  }
+
+  /* Message log layout with natural flow (no bubbles for Buddy!) - TALLER height */
+  .wb-chat-body {
+    flex: 1;
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-height: 240px; /* Made taller as requested */
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .chat-message {
+    font-size: 11px;
+    line-height: 1.5;
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+
+  .chat-message.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Buddy messages: clean flowing text (matching screenshot) */
+  .chat-message.buddy {
+    align-self: flex-start;
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+    color: #e3e3e3;
+    max-width: 100% !important;
+    text-align: left;
+  }
+
+  /* User messages: clean pill on the right */
+  .chat-message.user {
+    align-self: flex-end;
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #e3e3e3;
+    padding: var(--space-2) var(--space-3);
+    border-radius: 12px;
+    max-width: 85%;
+    text-align: left;
+  }
+
+  /* Bottom chat prompt input box (matches screenshot) */
+  .wb-chat-input-area {
+    margin: 12px;
+    margin-top: 4px;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.01);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .wb-chat-input-placeholder {
+    color: #52525b;
+    font-size: 11px;
+    padding-bottom: 12px;
+    text-align: left;
+    min-height: 14px;
+  }
+
+  .wb-chat-input-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .dropdowns {
+    display: flex;
+    gap: 4px;
+  }
+
+  .dd-pill {
+    font-size: 8px;
+    color: #71717a;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    padding: 2px 5px;
+    border-radius: 3px;
+  }
+
+  .chat-send-btn {
+    background-color: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #71717a;
+    height: 18px;
+    width: 18px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .chat-send-btn.active {
+    background-color: #8ab4f8;
+    color: #0b0a0c;
+    border-color: #8ab4f8;
+  }
+
+  /* Mobile Query block */
+  @media (max-width: 576px) {
+    .whiteboard-canvas {
+      padding: var(--space-3) !important;
+      justify-content: center !important;
+    }
+    .wb-drawings {
+      width: 100% !important; /* Take full width on mobile */
+      padding-left: 0 !important;
+      justify-content: center !important;
+    }
+    .wb-svg {
+      max-width: 100% !important;
+      max-height: 310px !important;
+    }
+    .wb-chat-popup {
+      display: none !important; /* Hide the chat popup on mobile as requested */
+    }
+  }
+</style>
+
+<script>
+  document.querySelectorAll("[data-draw-mock]").forEach((container) => {
+    // Canvas Phase 1 items
+    const centralNode = container.querySelector(".central-node-path") as HTMLElement | null;
+    const centralText = container.querySelector(".central-node-text") as HTMLElement | null;
+    const l1 = container.querySelector(".connect-line-path.l1") as HTMLElement | null;
+    const l2 = container.querySelector(".connect-line-path.l2") as HTMLElement | null;
+    const l3 = container.querySelector(".connect-line-path.l3") as HTMLElement | null;
+    const b1 = container.querySelector(".branch-box-path.b1") as HTMLElement | null;
+    const b2 = container.querySelector(".branch-box-path.b2") as HTMLElement | null;
+    const b3 = container.querySelector(".branch-box-path.b3") as HTMLElement | null;
+    const t1 = container.querySelector(".sketch-text.left-title") as HTMLElement | null;
+    const t2 = container.querySelector(".sketch-text.right-title") as HTMLElement | null;
+    const t3 = container.querySelector(".sketch-text.bottom-left-title") as HTMLElement | null;
+
+    // Canvas Phase 3 items
+    const l4 = container.querySelector(".connect-line-path.l4") as HTMLElement | null;
+    const b4 = container.querySelector(".branch-box-path.b4") as HTMLElement | null;
+    const t4 = container.querySelector(".sketch-text.bottom-right-title") as HTMLElement | null;
+
+    // Chat items
+    const m2 = container.querySelector(".chat-message.m2") as HTMLElement | null;
+    const m3 = container.querySelector(".chat-message.m3") as HTMLElement | null;
+    const inputPlaceholder = container.querySelector(".wb-chat-input-placeholder") as HTMLElement | null;
+    const sendBtn = container.querySelector(".chat-send-btn") as HTMLElement | null;
+
+    if (!centralNode || !centralText || !l1 || !l2 || !l3 || !b1 || !b2 || !b3 || !t1 || !t2 || !t3 || !l4 || !b4 || !t4) return;
+
+    let isUserInteracting = false;
+    let animationTimeout: any = null;
+
+    const stopAutoplay = () => {
+      isUserInteracting = true;
+      if (animationTimeout) {
+        clearTimeout(animationTimeout);
+        animationTimeout = null;
+      }
+    };
+
+    container.addEventListener("click", stopAutoplay);
+
+    const delay = (ms: number) => new Promise(resolve => {
+      animationTimeout = setTimeout(resolve, ms);
+    });
+
+    // Simulated character-by-character typing stream
+    const streamText = async (element: HTMLElement, text: string, speed = 20) => {
+      let currentText = "";
+      element.classList.add("visible");
+      for (let i = 0; i < text.length; i++) {
+        if (isUserInteracting) return;
+        
+        if (text.substr(i, 4) === "<br>") {
+          currentText += "<br>";
+          i += 3;
+          element.innerHTML = currentText;
+          continue;
+        }
+
+        currentText += text[i];
+        element.innerHTML = currentText;
+        await delay(speed);
+      }
+    };
+
+    const runTimeline = async () => {
+      if (isUserInteracting) return;
+
+      // Reset diagram to start generating Phase 1 on screen in real time
+      centralNode.classList.remove("drawn");
+      centralText.classList.remove("visible");
+      l1.classList.remove("drawn");
+      l2.classList.remove("drawn");
+      l3.classList.remove("drawn");
+      b1.classList.remove("drawn");
+      b2.classList.remove("drawn");
+      b3.classList.remove("drawn");
+      t1.classList.remove("visible");
+      t2.classList.remove("visible");
+      t3.classList.remove("visible");
+
+      // Reset Phase 3 items
+      l4.classList.remove("drawn");
+      b4.classList.remove("drawn");
+      t4.classList.remove("visible");
+      container.querySelectorAll(".crossout-line").forEach(l => l.classList.remove("drawn"));
+
+      // Reset Phase 2/3 chat
+      if (m2) { m2.classList.remove("visible"); m2.innerHTML = ""; }
+      if (m3) { m3.classList.remove("visible"); m3.innerHTML = ""; }
+      if (inputPlaceholder) inputPlaceholder.innerHTML = "Ask Buddy...";
+      if (sendBtn) sendBtn.classList.remove("active");
+
+      await delay(400);
+      if (isUserInteracting) return;
+
+      // ==========================================
+      // PHASE 1: Concept Map Generates in Real Time
+      // ==========================================
+      // Draw Central Ellipse Node
+      centralNode.classList.add("drawn");
+      await delay(600);
+      if (isUserInteracting) return;
+
+      // Fade in Central Text
+      centralText.classList.add("visible");
+      await delay(600);
+      if (isUserInteracting) return;
+
+      // Draw the connecting lines
+      l1.classList.add("drawn");
+      l2.classList.add("drawn");
+      l3.classList.add("drawn");
+      await delay(500);
+      if (isUserInteracting) return;
+
+      // Draw branch box outlines
+      b1.classList.add("drawn");
+      b2.classList.add("drawn");
+      b3.classList.add("drawn");
+      await delay(600);
+      if (isUserInteracting) return;
+
+      // Fade in branch text labels
+      t1.classList.add("visible");
+      t2.classList.add("visible");
+      t3.classList.add("visible");
+      
+      // Let user observe the fully sketched initial map
+      await delay(1500);
+      if (isUserInteracting) return;
+
+      // ==========================================
+      // PHASE 2: User asks for more (dialogue query)
+      // ==========================================
+      if (!isUserInteracting && m2 && inputPlaceholder && sendBtn) {
+        // Simulate typing inside chat input
+        let query = "What does he say about consistency? He has that famous quote about it.";
+        let typed = "";
+        for (let i = 0; i < query.length; i++) {
+          if (isUserInteracting) return;
+          typed += query[i];
+          inputPlaceholder.innerHTML = typed;
+          await delay(35);
+        }
+        
+        await delay(300);
+        sendBtn.classList.add("active");
+        await delay(400);
+
+        // Submit query into chat feed
+        inputPlaceholder.innerHTML = "";
+        sendBtn.classList.remove("active");
+        m2.innerHTML = query;
+        m2.classList.add("visible");
+        
+        await delay(1000); // Simulate Buddy thinking
+        if (isUserInteracting) return;
+      } else {
+        // On mobile: just pause to represent dialogue delay
+        await delay(2500);
+      }
+
+      // Buddy response in chat streams character-by-character (Desktop only)
+      if (m3) {
+        await streamText(m3, "Ah, 'A foolish consistency is the hobgoblin of little minds.' Let's draw it onto the board as the primary barrier to self-reliance.", 15);
+        await delay(800);
+        if (isUserInteracting) return;
+      }
+
+      // ==========================================
+      // PHASE 3: More drawn on the board (Consistency Box)
+      // ==========================================
+      // Draw Line 4
+      l4.classList.add("drawn");
+      await delay(500);
+      if (isUserInteracting) return;
+
+      // Draw box 4 outline (red)
+      b4.classList.add("drawn");
+      await delay(600);
+      if (isUserInteracting) return;
+
+      // Fade in text 4 label (✗ Consistency)
+      t4.classList.add("visible");
+      await delay(500);
+      if (isUserInteracting) return;
+
+      // Draw red crossout X marks
+      container.querySelectorAll(".crossout-line").forEach(l => l.classList.add("drawn"));
+      
+      if (inputPlaceholder) {
+        inputPlaceholder.innerHTML = "Ask Buddy...";
+      }
+    };
+
+    // Autoplay trigger
+    setTimeout(runTimeline, 1000);
+  });
+</script>
