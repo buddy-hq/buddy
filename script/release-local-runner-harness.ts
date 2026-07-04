@@ -4,6 +4,10 @@ import { createHash } from "node:crypto"
 import { appendFile, mkdir, readdir, readFile, rm, stat } from "node:fs/promises"
 import { homedir } from "node:os"
 import { resolve } from "node:path"
+import {
+  BUDDY_CHANNEL_ENV,
+  BUDDY_PACKAGED_FALLBACK_CHANNEL,
+} from "@buddy/script/channel"
 import desktopPackage from "../packages/desktop-electron/package.json"
 
 const BYTES_PER_MEBIBYTE = 1_024 * 1_024
@@ -29,9 +33,7 @@ const ELECTRON_CACHE_ENV_KEY = "ELECTRON_CACHE"
 const ELECTRON_BUILDER_CACHE_ENV_KEY = "ELECTRON_BUILDER_CACHE"
 const TARGET_PLATFORM_ENV_KEY = "BUDDY_NODE_ARTIFACT_TARGET_PLATFORM"
 const TARGET_ARCHITECTURE_ENV_KEY = "BUDDY_NODE_ARTIFACT_TARGET_ARCH"
-const BUDDY_CHANNEL_ENV_KEY = "BUDDY_CHANNEL"
 const BUDDY_VERSION_ENV_KEY = "BUDDY_VERSION"
-const PRODUCTION_CHANNEL = "prod"
 
 type HarnessProfile = typeof CURRENT_PROFILE | typeof OPTIMIZED_PROFILE
 
@@ -179,7 +181,7 @@ async function initHarness(): Promise<void> {
 
   await writeMetrics(outputPath, metrics)
   await appendGithubEnvironment({
-    [BUDDY_CHANNEL_ENV_KEY]: PRODUCTION_CHANNEL,
+    [BUDDY_CHANNEL_ENV]: BUDDY_PACKAGED_FALLBACK_CHANNEL,
     [BUDDY_VERSION_ENV_KEY]: desktopPackage.version,
     [BUN_INSTALL_CACHE_DIR_ENV_KEY]: cachePaths.bunInstallCacheDirectory,
     [ELECTRON_BUILDER_CACHE_ENV_KEY]: cachePaths.electronBuilderCacheDirectory,
@@ -310,7 +312,7 @@ async function appendCommandMetric(
     cwd: definition.cwd ?? repositoryRoot,
     env: {
       ...process.env,
-      [BUDDY_CHANNEL_ENV_KEY]: PRODUCTION_CHANNEL,
+      [BUDDY_CHANNEL_ENV]: BUDDY_PACKAGED_FALLBACK_CHANNEL,
       [BUDDY_VERSION_ENV_KEY]: desktopPackage.version,
       [TARGET_ARCHITECTURE_ENV_KEY]: DEFAULT_ARCHITECTURE,
       [TARGET_PLATFORM_ENV_KEY]: DEFAULT_PLATFORM,
