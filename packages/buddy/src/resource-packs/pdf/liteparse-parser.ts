@@ -2,8 +2,8 @@ import { access } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import type { PageComplexityStats, ParsedPage } from "@llamaindex/liteparse"
+import { BUDDY_ENV } from "../../storage"
 
-const BUDDY_TESSDATA_DIR_ENV = "BUDDY_TESSDATA_DIR" as const
 const ENGLISH_TESSDATA_FILENAME = "eng.traineddata" as const
 const LITEPARSE_EXTRACTOR = "@llamaindex/liteparse" as const
 const LITEPARSE_OCR_LANGUAGE = "eng" as const
@@ -114,7 +114,7 @@ export function formatLiteParseTargetPages(pageNumbers: number[] | undefined): s
 }
 
 export async function resolveLiteParseTessdataDirectory(): Promise<string> {
-  const configuredDirectory = process.env[BUDDY_TESSDATA_DIR_ENV]?.trim()
+  const configuredDirectory = process.env[BUDDY_ENV.TESSDATA_DIR]?.trim()
   const candidates = [
     ...(configuredDirectory ? [path.resolve(configuredDirectory)] : []),
     path.resolve(MODULE_DIRECTORY, "resources", "tessdata"),

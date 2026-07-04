@@ -18,6 +18,7 @@ import {
   KNOWLEDGE_GRAPH_DB_FILENAME,
   KNOWLEDGE_GRAPH_MANIFEST_FILENAME,
 } from "../../learning/features/standards/constants"
+import { BUDDY_ENV } from "../../storage"
 import { fileLockIsActiveSync, withFileLock } from "../../storage/file-lock"
 import { Global } from "../../storage/global"
 
@@ -30,11 +31,9 @@ const BACKEND_ROOT = path.resolve(MODULE_DIRECTORY, "../../..")
 const DEFAULT_RELEASE_REPOSITORY = "prashantbhudwal/buddy-releases"
 const IN_PROGRESS_STATES = new Set(["downloading", "installing", "repairing", "removing"])
 const READY_STATE = "ready"
-const APP_VERSION_ENV = "BUDDY_APP_VERSION"
 const NPM_PACKAGE_VERSION_ENV = "npm_package_version"
 const DEFAULT_RELEASE_TAG_VERSION = "0.0.1"
 const STANDARDS_ASSET_BASE_URL_ENV = "BUDDY_STANDARDS_ASSET_BASE_URL"
-const STANDARDS_LOCAL_ASSET_DIR_ENV = "BUDDY_STANDARDS_LOCAL_ASSET_DIR"
 const INSTALLED_DATASET_VERSION_KEY = "installedDatasetVersion"
 const LEGACY_INSTALLED_VERSION_KEY = "installedVersion"
 const MANIFEST_CACHE_FILENAME = KNOWLEDGE_GRAPH_MANIFEST_FILENAME
@@ -147,7 +146,7 @@ function releaseRepository() {
 }
 
 function releaseTagVersion() {
-  const appVersion = process.env[APP_VERSION_ENV]?.trim()
+  const appVersion = process.env[BUDDY_ENV.APP_VERSION]?.trim()
   if (appVersion && appVersion.length > 0) return appVersion
 
   const packageVersion = process.env[NPM_PACKAGE_VERSION_ENV]?.trim()
@@ -170,7 +169,7 @@ function runtimeAssetUrl(filename: string) {
 }
 
 function localDevelopmentAssetRoot() {
-  const configured = process.env[STANDARDS_LOCAL_ASSET_DIR_ENV]?.trim()
+  const configured = process.env[BUDDY_ENV.STANDARDS_LOCAL_ASSET_DIR]?.trim()
   if (configured) {
     return configured
   }

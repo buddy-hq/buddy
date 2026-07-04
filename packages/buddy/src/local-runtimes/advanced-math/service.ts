@@ -6,6 +6,7 @@ import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import z from "zod"
+import { BUDDY_ENV } from "../../storage"
 import { Global } from "../../storage/global"
 import { resolveAdvancedMathRuntimeVersion } from "./version"
 
@@ -33,7 +34,6 @@ const READY_STATE = "ready"
 const DEFAULT_SELF_CHECK_TIMEOUT_MS = 60_000
 const INSTALLED_RUNTIME_VERSION_KEY = "installedRuntimeVersion"
 const LEGACY_INSTALLED_VERSION_KEY = "installedVersion"
-const APP_VERSION_ENV = "BUDDY_APP_VERSION"
 const NPM_PACKAGE_VERSION_ENV = "npm_package_version"
 const DEFAULT_RELEASE_TAG_VERSION = "0.0.1"
 
@@ -101,7 +101,7 @@ function runtimeVersion() {
 }
 
 function releaseTagVersion() {
-  const appVersion = process.env[APP_VERSION_ENV]?.trim()
+  const appVersion = process.env[BUDDY_ENV.APP_VERSION]?.trim()
   if (appVersion && appVersion.length > 0) return appVersion
 
   const packageVersion = process.env[NPM_PACKAGE_VERSION_ENV]?.trim()
@@ -222,7 +222,7 @@ function runtimeAssetUrl(filename: string) {
 }
 
 function localDevelopmentAssetRoot() {
-  const configured = process.env.BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR?.trim()
+  const configured = process.env[BUDDY_ENV.ADVANCED_MATH_LOCAL_ASSET_DIR]?.trim()
   if (configured) {
     return configured
   }

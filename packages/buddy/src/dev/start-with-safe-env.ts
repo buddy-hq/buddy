@@ -1,12 +1,12 @@
 import path from "node:path"
 import { spawn } from "node:child_process"
 import { mergeSafeRepoEnv } from "./safe-env"
+import { OPENCODE_ENV } from "../storage"
 
 const repoRoot = path.resolve(import.meta.dir, "../../../..")
 const runtimeArgs = process.argv.slice(2)
 const watch = runtimeArgs.includes("--watch")
 const passthroughArgs = runtimeArgs.filter((arg) => arg !== "--watch")
-const OPENCODE_EXPERIMENTAL_FILEWATCHER = "OPENCODE_EXPERIMENTAL_FILEWATCHER"
 const OPENCODE_EXPERIMENTAL_FILEWATCHER_ENABLED = "true"
 const args = [
   "run",
@@ -27,8 +27,9 @@ const child = spawn("bun", args, {
   stdio: "inherit",
   env: {
     ...baseChildEnv,
-    [OPENCODE_EXPERIMENTAL_FILEWATCHER]:
-      baseChildEnv[OPENCODE_EXPERIMENTAL_FILEWATCHER] ?? OPENCODE_EXPERIMENTAL_FILEWATCHER_ENABLED,
+    [OPENCODE_ENV.EXPERIMENTAL_FILEWATCHER]:
+      baseChildEnv[OPENCODE_ENV.EXPERIMENTAL_FILEWATCHER] ??
+      OPENCODE_EXPERIMENTAL_FILEWATCHER_ENABLED,
   },
 })
 

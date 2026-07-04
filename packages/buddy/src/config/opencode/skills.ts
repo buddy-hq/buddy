@@ -7,7 +7,7 @@ import {
   managedSystemRoot,
 } from "../../learning/skill-management/service/paths.js"
 import { ensureBundledSystemSkillsInstalled } from "../../learning/skill-management/service/system-installer.js"
-import { Global } from "../../storage"
+import { BUDDY_ENV, Global } from "../../storage"
 
 const BUNDLED_FEATURE_RELATIVE_PATHS = [
   // Bundled desktop runtime layout: resources/backend/learning/...
@@ -21,7 +21,6 @@ const BUNDLED_FEATURE_RELATIVE_PATHS = [
 ]
 
 const EXTERNAL_VENDOR_SKILL_DIRS = [".claude", ".agents"] as const
-const BACKEND_RESOURCES_DIR_ENV = "BUDDY_BACKEND_RESOURCES_DIR"
 const WORKSPACE_BUNDLED_FEATURE_RELATIVE_PATHS = [
   "packages/buddy/src/learning/features",
   "src/learning/features",
@@ -62,7 +61,7 @@ async function collectFeatureSkillRoots(featuresRoot: string) {
 
 function resolveBundledFeatureRootCandidates() {
   const moduleDirectory = path.dirname(fileURLToPath(import.meta.url))
-  const resourcesRoot = process.env[BACKEND_RESOURCES_DIR_ENV]?.trim()
+  const resourcesRoot = process.env[BUDDY_ENV.BACKEND_RESOURCES_DIR]?.trim()
   return uniqueResolvedPaths([
     ...(resourcesRoot ? [path.join(resourcesRoot, "learning/features")] : []),
     ...resolveWorkspaceBundledFeatureRootCandidates(moduleDirectory),

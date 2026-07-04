@@ -7,12 +7,14 @@
  *
  * Defaults (override only via env when the server sets them):
  *   - URL: http://127.0.0.1:${PORT:-3000}
- *   - Auth: BUDDY_SERVER_USERNAME + BUDDY_SERVER_PASSWORD when set
+ *   - Auth: Buddy server username + password env when set
  *
  * Usage:
  *   bun run --cwd packages/buddy smoke
  *   bun run smoke   # from repo root
  */
+
+import { BUDDY_ENV } from "../src/storage"
 
 const SMOKE_HOST = "127.0.0.1"
 const SMOKE_DEFAULT_PORT = 3000
@@ -51,8 +53,8 @@ function readSmokeBaseUrl() {
 }
 
 function readBasicAuthHeader(): string | undefined {
-  const username = process.env.BUDDY_SERVER_USERNAME?.trim()
-  const password = process.env.BUDDY_SERVER_PASSWORD?.trim()
+  const username = process.env[BUDDY_ENV.SERVER_USERNAME]?.trim()
+  const password = process.env[BUDDY_ENV.SERVER_PASSWORD]?.trim()
   if (!username || !password) return undefined
   const encoded = Buffer.from(`${username}:${password}`, "utf8").toString("base64")
   return `Basic ${encoded}`

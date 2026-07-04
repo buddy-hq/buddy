@@ -2,6 +2,7 @@ import os from "node:os"
 import fs from "node:fs"
 import path from "node:path"
 import {
+  BUDDY_ENV,
   resolveBuddyHomeDirectory,
   resolveConfiguredPath,
   resolveDefaultBuddyGlobalConfigDir,
@@ -16,7 +17,7 @@ function resolveDefaultNotebookHomeDirectory() {
 
 function resolveBuddyGlobalConfigDirectory() {
   return (
-    resolveConfiguredPath(process.env.BUDDY_GLOBAL_CONFIG_DIR) ??
+    resolveConfiguredPath(process.env[BUDDY_ENV.GLOBAL_CONFIG_DIR]) ??
     resolveDefaultBuddyGlobalConfigDir()
   )
 }
@@ -76,7 +77,7 @@ function decodeDirectory(raw: string) {
 }
 
 function directoryBase() {
-  const configured = process.env.BUDDY_DIRECTORY_BASE?.trim()
+  const configured = process.env[BUDDY_ENV.DIRECTORY_BASE]?.trim()
   if (configured) {
     return path.resolve(decodeDirectory(configured))
   }
@@ -144,7 +145,7 @@ export function ensureGlobalBootstrapWorkspaceDirectory() {
 }
 
 export function allowedDirectoryRoots() {
-  const configured = (process.env.BUDDY_ALLOWED_DIRECTORY_ROOTS ?? "")
+  const configured = (process.env[BUDDY_ENV.ALLOWED_DIRECTORY_ROOTS] ?? "")
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean)

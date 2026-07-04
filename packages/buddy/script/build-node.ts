@@ -4,6 +4,11 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, rmSync } from "node:fs"
 import { createRequire } from "node:module"
 import path from "node:path"
 import {
+  OPENCODE_CHANNEL_DEFINE,
+  readBuddyReleaseChannel,
+  resolveOpenCodeChannelForBuddyChannel,
+} from "@buddy/script/channel"
+import {
   LITEPARSE_PACKAGE_NAME,
   currentBackendNodeArtifactTarget,
 } from "../../../script/backend-node-artifact"
@@ -69,6 +74,9 @@ const result = await Bun.build({
   define: {
     [BUNDLED_ADVANCED_MATH_RUNTIME_VERSION_DEFINE]: JSON.stringify(
       bundledAdvancedMathRuntimeVersion,
+    ),
+    [OPENCODE_CHANNEL_DEFINE]: JSON.stringify(
+      resolveOpenCodeChannelForBuddyChannel(readBuddyReleaseChannel()),
     ),
   },
 })

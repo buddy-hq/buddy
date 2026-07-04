@@ -23,6 +23,7 @@ import { SessionRoutes } from "./routes"
 import { SkillsRoutes } from "./routes"
 import { TeachingRoutes } from "./routes"
 import { isJsonContentType, normalizeValidationFailureResponse } from "./http"
+import { BUDDY_ENV } from "./storage"
 
 export function describeFatalError(error: unknown): string {
   if (error instanceof Error) {
@@ -74,8 +75,8 @@ export const app = new Hono()
 const api = new Hono()
 
 api.use("*", async (c, next) => {
-  const username = process.env.BUDDY_SERVER_USERNAME
-  const password = process.env.BUDDY_SERVER_PASSWORD
+  const username = process.env[BUDDY_ENV.SERVER_USERNAME]
+  const password = process.env[BUDDY_ENV.SERVER_PASSWORD]
 
   if (!username || !password) {
     return next()
