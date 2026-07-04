@@ -2,44 +2,29 @@ import { existsSync, mkdirSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { app } from "electron"
-import { BACKEND_SERVER_USERNAME } from "./constants"
+import { BUDDY_ENV, OPENCODE_ENV } from "@buddy/script/storage-env"
+import { BACKEND_SERVER_USERNAME, CHANNEL } from "./constants"
 import { getUserShell, loadShellEnv, mergeShellEnv } from "./shell-env"
+import {
+  resolveAllowedDirectoryRoots,
+  resolveDefaultNotebookHome,
+  resolveDevXdgEnvironment,
+  shouldUseDevRuntimeIsolation,
+} from "./storage-paths"
 
-const ADVANCED_MATH_LOCAL_ASSET_DIR_ENV = "BUDDY_ADVANCED_MATH_LOCAL_ASSET_DIR"
-const BACKEND_RESOURCES_DIR_ENV = "BUDDY_BACKEND_RESOURCES_DIR"
-const BUDDY_TESSDATA_DIR_ENV = "BUDDY_TESSDATA_DIR"
-const STANDARDS_LOCAL_ASSET_DIR_ENV = "BUDDY_STANDARDS_LOCAL_ASSET_DIR"
 const ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS = ["dist", "advanced-math-runtime"] as const
 const STANDARDS_LOCAL_ASSET_PATH_SEGMENTS = ["resources", "knowledge-graph"] as const
-const RUNTIME_SUBDIRECTORIES = ["data", "cache", "config", "state", "tmp"] as const
-const OPENCODE_DATA_SUBDIRECTORY = "opencode"
-const BUDDY_RUNTIME_DIRECTORY_NAME = ".buddy-runtime"
-const BUDDY_RUNTIME_XDG_DIRECTORY_NAME = "xdg"
 const BUNDLED_MIGRATIONS_DIRECTORY_NAME = "migrations"
 const BUDDY_MIGRATION_DIRECTORY_NAME = "buddy"
 const DEVELOPMENT_BACKEND_PACKAGE_NAME = "buddy"
 const DEVELOPMENT_BACKEND_ENTRYPOINT_PATH_SEGMENTS = ["src", "index.ts"] as const
 const DEVELOPMENT_BACKEND_MIGRATION_PATH_SEGMENTS = ["migration"] as const
-const DEFAULT_NOTEBOOK_HOME_SEGMENTS = ["Documents", "Buddy"] as const
 
 function resourcesDirectory() {
   if (app.isPackaged) {
     return process.resourcesPath
   }
   return path.join(import.meta.dirname, "../../resources")
-}
-
-function resolveAllowedDirectoryRoots(input: { home: string; runtimeRoot: string }) {
-  const configuredRoots = [
-    path.join(input.home, ...DEFAULT_NOTEBOOK_HOME_SEGMENTS),
-    input.runtimeRoot,
-  ]
-
-  return Array.from(new Set(configuredRoots)).join(",")
-}
-
-function resolveDefaultNotebookHome(home: string) {
-  return path.join(home, ...DEFAULT_NOTEBOOK_HOME_SEGMENTS)
 }
 
 function getBundledBuddyMigrationDir() {
@@ -100,8 +85,6 @@ function getBuddyMigrationDir() {
 }
 
 export async function buildRuntimeEnvironment(password: string, port: number) {
-  const runtimeRoot = resolveBuddyRuntimeRoot()
-  const xdgDataHome = path.join(runtimeRoot, "data")
   const home = os.homedir()
   const appEnvironment = Object.fromEntries(
     Object.entries(process.env).filter(
@@ -110,60 +93,52 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
   )
   const shellEnvironment = process.platform === "win32" ? null : loadShellEnv(getUserShell())
   const base = mergeShellEnv(shellEnvironment, appEnvironment)
-
-  ensureRuntimeDirectories(runtimeRoot, xdgDataHome)
+  const devXdgEnvironment = shouldUseDevRuntimeIsolation({
+    channel: CHANNEL,
+    isPackaged: app.isPackaged,
+  })
+    ? resolveDevXdgEnvironment(app.getPath("userData"))
+    : {}
+  ensureDirectories(Object.values(devXdgEnvironment))
 
   const environment: Record<string, string> = {
     ...base,
-    BUDDY_SERVER_USERNAME: BACKEND_SERVER_USERNAME,
-    BUDDY_SERVER_PASSWORD: password,
-    OPENCODE_SERVER_USERNAME: BACKEND_SERVER_USERNAME,
-    OPENCODE_SERVER_PASSWORD: password,
-    BUDDY_APP_VERSION: app.getVersion(),
-    [BACKEND_RESOURCES_DIR_ENV]: getBundledBackendResourcesDir(),
-    [BUDDY_TESSDATA_DIR_ENV]: getBundledTessdataDir(),
-    BUDDY_MIGRATION_DIR: getBuddyMigrationDir(),
-    BUDDY_DIRECTORY_BASE: resolveDefaultNotebookHome(home),
-    BUDDY_ALLOWED_DIRECTORY_ROOTS: resolveAllowedDirectoryRoots({
+    ...devXdgEnvironment,
+    [BUDDY_ENV.SERVER_USERNAME]: BACKEND_SERVER_USERNAME,
+    [BUDDY_ENV.SERVER_PASSWORD]: password,
+    [OPENCODE_ENV.SERVER_USERNAME]: BACKEND_SERVER_USERNAME,
+    [OPENCODE_ENV.SERVER_PASSWORD]: password,
+    [BUDDY_ENV.APP_VERSION]: app.getVersion(),
+    [BUDDY_ENV.BACKEND_RESOURCES_DIR]: getBundledBackendResourcesDir(),
+    [BUDDY_ENV.TESSDATA_DIR]: getBundledTessdataDir(),
+    [BUDDY_ENV.MIGRATION_DIR]: getBuddyMigrationDir(),
+    [BUDDY_ENV.DIRECTORY_BASE]: resolveDefaultNotebookHome(home),
+    [BUDDY_ENV.ALLOWED_DIRECTORY_ROOTS]: resolveAllowedDirectoryRoots({
       home,
-      runtimeRoot,
     }),
-    BUDDY_RUNTIME_ROOT: runtimeRoot,
-    XDG_DATA_HOME: xdgDataHome,
-    XDG_CACHE_HOME: path.join(runtimeRoot, "cache"),
-    XDG_CONFIG_HOME: path.join(runtimeRoot, "config"),
-    XDG_STATE_HOME: path.join(runtimeRoot, "state"),
     PORT: String(port),
-    OPENCODE_EXPERIMENTAL_ICON_DISCOVERY: "true",
-    OPENCODE_EXPERIMENTAL_FILEWATCHER: "true",
-    OPENCODE_CLIENT: "desktop",
+    [OPENCODE_ENV.EXPERIMENTAL_ICON_DISCOVERY]: "true",
+    [OPENCODE_ENV.EXPERIMENTAL_FILEWATCHER]: "true",
+    [OPENCODE_ENV.CLIENT]: "desktop",
   }
 
   const advancedMathAssetDir = resolveDevelopmentAdvancedMathAssetDir()
   if (advancedMathAssetDir) {
-    environment[ADVANCED_MATH_LOCAL_ASSET_DIR_ENV] = advancedMathAssetDir
+    environment[BUDDY_ENV.ADVANCED_MATH_LOCAL_ASSET_DIR] = advancedMathAssetDir
   }
 
   const standardsAssetDir = resolveStandardsAssetDir()
   if (standardsAssetDir) {
-    environment[STANDARDS_LOCAL_ASSET_DIR_ENV] = standardsAssetDir
+    environment[BUDDY_ENV.STANDARDS_LOCAL_ASSET_DIR] = standardsAssetDir
   }
 
   return environment
 }
 
-function resolveBuddyRuntimeRoot() {
-  return path.join(os.homedir(), BUDDY_RUNTIME_DIRECTORY_NAME, BUDDY_RUNTIME_XDG_DIRECTORY_NAME)
-}
-
-function ensureRuntimeDirectories(runtimeRoot: string, xdgDataHome: string) {
-  mkdirSync(runtimeRoot, { recursive: true })
-
-  for (const segment of RUNTIME_SUBDIRECTORIES) {
-    mkdirSync(path.join(runtimeRoot, segment), { recursive: true })
+function ensureDirectories(directories: string[]) {
+  for (const directory of directories) {
+    mkdirSync(directory, { recursive: true })
   }
-
-  mkdirSync(path.join(xdgDataHome, OPENCODE_DATA_SUBDIRECTORY), { recursive: true })
 }
 
 function resolveDevelopmentAdvancedMathAssetDir() {

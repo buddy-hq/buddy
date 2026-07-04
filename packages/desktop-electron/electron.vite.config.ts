@@ -6,6 +6,10 @@ import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import {
+  BUDDY_CHANNEL_ENV,
+  readBuddyReleaseChannel,
+} from "@buddy/script/channel"
+import {
   LITEPARSE_PACKAGE_NAME,
   currentBackendNodeArtifactTarget,
   liteParseNativePackageName,
@@ -45,16 +49,12 @@ function isMainExternal(id: string) {
   )
 }
 
-const channel = (() => {
-  const raw = process.env.BUDDY_CHANNEL
-  if (raw === "dev" || raw === "beta" || raw === "prod") return raw
-  return "dev"
-})()
+const channel = readBuddyReleaseChannel()
 
 export default defineConfig({
   main: {
     define: {
-      "import.meta.env.BUDDY_CHANNEL": JSON.stringify(channel),
+      [`import.meta.env.${BUDDY_CHANNEL_ENV}`]: JSON.stringify(channel),
     },
     build: {
       rollupOptions: {

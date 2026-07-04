@@ -1,17 +1,17 @@
 import { app } from "electron"
+import {
+  BUDDY_PACKAGED_FALLBACK_CHANNEL,
+  type BuddyReleaseChannel,
+  isBuddyReleaseChannel,
+} from "@buddy/script/channel"
 
-export type ReleaseChannel = "dev" | "beta" | "prod"
+export type ReleaseChannel = BuddyReleaseChannel
 
 const rawChannel = import.meta.env.BUDDY_CHANNEL
-const PACKAGED_FALLBACK_CHANNEL: ReleaseChannel = "prod"
 const CHANNEL_NAME_HINTS: Record<ReleaseChannel, string> = {
   dev: "dev",
   beta: "beta",
   prod: "buddy",
-}
-
-function isReleaseChannel(value: string | undefined): value is ReleaseChannel {
-  return value === "dev" || value === "beta" || value === "prod"
 }
 
 function resolvePackagedChannelFallback(): ReleaseChannel {
@@ -29,10 +29,10 @@ function resolvePackagedChannelFallback(): ReleaseChannel {
     return "prod"
   }
 
-  return PACKAGED_FALLBACK_CHANNEL
+  return BUDDY_PACKAGED_FALLBACK_CHANNEL
 }
 
-export const CHANNEL: ReleaseChannel = isReleaseChannel(rawChannel)
+export const CHANNEL: ReleaseChannel = isBuddyReleaseChannel(rawChannel)
   ? rawChannel
   : app.isPackaged
     ? resolvePackagedChannelFallback()

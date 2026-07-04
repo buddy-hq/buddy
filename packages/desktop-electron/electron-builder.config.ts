@@ -1,26 +1,16 @@
 import { existsSync } from "node:fs"
 import type { Configuration } from "electron-builder"
 import { BUDDY_BRANDING, formatCopyrightNotice } from "@buddy/script/branding"
+import { readBuddyReleaseChannel } from "@buddy/script/channel"
 import {
   WINDOWS_RELEASE_ARCHS,
   resolveMacOsReleaseArtifactPattern,
   resolveWindowsReleaseArtifactPattern,
 } from "./src/shared/release-asset-names"
 
-const CHANNEL_ENV_KEY = "BUDDY_CHANNEL"
 const WINDOWS_RELEASE_TARGET_ARCH = WINDOWS_RELEASE_ARCHS[0]
 
-type Channel = "dev" | "beta" | "prod"
-
-function resolveChannel(): Channel {
-  const raw = process.env[CHANNEL_ENV_KEY]
-  if (raw === "dev" || raw === "beta" || raw === "prod") {
-    return raw
-  }
-  return "dev"
-}
-
-const channel = resolveChannel()
+const channel = readBuddyReleaseChannel()
 const runtimeResourceNames = ["backend", "knowledge-graph", "migrations", "tessdata"] as const
 const DEV_PRODUCT_NAME = `${BUDDY_BRANDING.productName} Dev`
 const BETA_PRODUCT_NAME = `${BUDDY_BRANDING.productName} Beta`

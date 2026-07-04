@@ -1,9 +1,8 @@
 import { Buffer } from "node:buffer"
 import * as http from "node:http"
 import * as tls from "node:tls"
+import { BUDDY_ENV } from "@buddy/script/storage-env"
 
-const BACKEND_SERVER_PASSWORD_ENV = "BUDDY_SERVER_PASSWORD"
-const BACKEND_SERVER_USERNAME_ENV = "BUDDY_SERVER_USERNAME"
 const DEFAULT_BACKEND_SERVER_USERNAME = "buddy"
 const GLOBAL_DISPOSE_PATH = "/api/global/dispose" as const
 const RUNTIME_DISPOSE_TIMEOUT_MS = 3_000
@@ -87,9 +86,9 @@ async function start(command: StartCommand) {
     })
     activeServer = {
       hostname: command.hostname,
-      password: process.env[BACKEND_SERVER_PASSWORD_ENV],
+      password: process.env[BUDDY_ENV.SERVER_PASSWORD],
       port: command.port,
-      username: process.env[BACKEND_SERVER_USERNAME_ENV] ?? DEFAULT_BACKEND_SERVER_USERNAME,
+      username: process.env[BUDDY_ENV.SERVER_USERNAME] ?? DEFAULT_BACKEND_SERVER_USERNAME,
     }
     postParentMessage({ type: "ready" })
   } catch (error) {

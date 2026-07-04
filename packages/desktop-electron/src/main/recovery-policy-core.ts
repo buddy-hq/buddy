@@ -1,6 +1,8 @@
+import type { BuddyReleaseChannel } from "@buddy/script/channel"
+
 const RECOVERY_POLICY_SCHEMA_VERSION = 1
 
-type ReleaseChannel = "dev" | "beta" | "prod"
+type ReleaseChannel = BuddyReleaseChannel
 type RecoveryMode = "roll-forward" | "downgrade"
 type RecoveryPlatform = "darwin" | "win32"
 

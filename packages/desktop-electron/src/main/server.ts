@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url"
 import { app, utilityProcess } from "electron"
 import type { Details } from "electron"
 import treeKill from "tree-kill"
-import { buildRuntimeEnvironment } from "./cli"
 import {
   API_HEALTH_PATH,
   API_VENDOR_HEALTH_PATH,
@@ -77,12 +76,17 @@ export function setWslConfig(config: WslConfig) {
   store.set(WSL_ENABLED_KEY, config.enabled)
 }
 
-export async function spawnLocalServer(hostname: string, port: number, password: string) {
+export async function spawnLocalServer(
+  hostname: string,
+  port: number,
+  password: string,
+  environment: Readonly<Record<string, string>>,
+) {
   const utilityPath = join(dirname(fileURLToPath(import.meta.url)), "backend-utility.js")
   const events = new EventEmitter()
   const child = utilityProcess.fork(utilityPath, [], {
     cwd: process.cwd(),
-    env: createUtilityEnv(await buildRuntimeEnvironment(password, port)),
+    env: createUtilityEnv(environment),
     serviceName: BACKEND_UTILITY_SERVICE_NAME,
     stdio: "pipe",
   })
@@ -332,7 +336,7 @@ function killUtilityProcessTree(child: Electron.UtilityProcess, signal: NodeJS.S
   treeKill(pid, signal, () => undefined)
 }
 
-function createUtilityEnv(env: Record<string, string>) {
+function createUtilityEnv(env: Readonly<Record<string, string>>) {
   const next = { ...env }
   delete next.DEBUG
   if (process.platform === "linux") delete next.LD_PRELOAD

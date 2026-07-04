@@ -29,7 +29,7 @@ import {
   UPDATER_ENABLED,
 } from "./constants"
 import { checkAppExists, resolveAppPath, wslPath } from "./apps"
-import { installCli } from "./cli"
+import { buildRuntimeEnvironment, installCli } from "./cli"
 import { registerIpcHandlers, sendDeepLinks, sendMenuCommand } from "./ipc"
 import { initLogging, safelyWriteToStandardStream } from "./logging"
 import { parseMarkdown } from "./markdown"
@@ -53,6 +53,7 @@ import {
   type CommandChild,
   type TerminatedPayload,
 } from "./server"
+import { DESKTOP_XDG_ENV, resolveOpenCodeSqlitePath } from "./storage-paths"
 import {
   BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY,
   fetchSignedElectronUpdateManifest,
@@ -73,11 +74,6 @@ import { resolveWindowsUpdateManifestFilename } from "../shared/release-asset-na
 import { createLoadingWindow, createMainWindow, setBackgroundColor, setDockIcon } from "./windows"
 
 const { autoUpdater } = electronUpdaterPackage
-const BUDDY_RUNTIME_DIRECTORY_NAME = ".buddy-runtime"
-const BUDDY_RUNTIME_XDG_DIRECTORY_NAME = "xdg"
-const XDG_DATA_DIRECTORY_NAME = "data"
-const OPENCODE_DATA_DIRECTORY_NAME = "opencode"
-const OPENCODE_DB_FILENAME = "opencode.db"
 const STARTUP_FAILURE_MESSAGE = "Buddy failed to start."
 const UNKNOWN_STARTUP_FAILURE_DETAIL = "The local Buddy server did not become ready."
 const LOADING_WINDOW_COMPLETE_TIMEOUT_MS = 5_000
@@ -218,7 +214,6 @@ function setInitStep(step: InitStep) {
 }
 
 async function initialize() {
-  const needsMigration = !sqliteFileExists()
   let overlay: BrowserWindow | null = null
 
   try {
@@ -226,8 +221,15 @@ async function initialize() {
     const hostname = LOOPBACK_HOSTNAME
     const url = `http://${hostname}:${port}`
     const password = randomUUID()
+    const runtimeEnvironment = await buildRuntimeEnvironment(password, port)
+    const needsMigration = !sqliteFileExists(runtimeEnvironment)
 
-    const { child, health, events } = await spawnLocalServer(hostname, port, password)
+    const { child, health, events } = await spawnLocalServer(
+      hostname,
+      port,
+      password,
+      runtimeEnvironment,
+    )
     backendUtility = child
     wireBackendUtilityLogs(events)
 
@@ -699,19 +701,16 @@ async function getBackendPort() {
   })
 }
 
-function sqliteFileExists() {
-  const runtimeXdgDataHome = join(
-    homedir(),
-    BUDDY_RUNTIME_DIRECTORY_NAME,
-    BUDDY_RUNTIME_XDG_DIRECTORY_NAME,
-    XDG_DATA_DIRECTORY_NAME,
+function sqliteFileExists(environment: Readonly<Record<string, string>>) {
+  return existsSync(
+    resolveOpenCodeSqlitePath({
+      channel: CHANNEL,
+      envXdgDataHome: environment[DESKTOP_XDG_ENV.DATA_HOME],
+      home: homedir(),
+      isPackaged: app.isPackaged,
+      userDataPath: app.getPath("userData"),
+    }),
   )
-  const xdgDataHome =
-    process.env.XDG_DATA_HOME && process.env.XDG_DATA_HOME.length > 0
-      ? process.env.XDG_DATA_HOME
-      : runtimeXdgDataHome
-
-  return existsSync(join(xdgDataHome, OPENCODE_DATA_DIRECTORY_NAME, OPENCODE_DB_FILENAME))
 }
 
 function setupAutoUpdater() {
