@@ -47,10 +47,7 @@ import {
 } from "../objects"
 import { resolveBenchReadingResourceRelpath } from "../learning/features/bench/reading-resource"
 import type { ReaderSourceValidity } from "@buddy/workspace-file-policy"
-import {
-  validateReaderSourcePath,
-  type ReaderSourceValidation,
-} from "./reader-source-validator"
+import { validateReaderSourcePath, type ReaderSourceValidation } from "./reader-source-validator"
 
 const RESOURCE_ALIAS_DEFAULT = "resource" as const
 const RESOURCE_ALIAS_REPLACE_REGEX = /[^a-z0-9._-]+/g

@@ -65,10 +65,7 @@ export function renderPythonCalculatorTool({ state }: ToolPartProps) {
                 key: plot.id,
                 thumbnail: <MediaThumbnail item={mediaItem} />,
                 children: (
-                  <Media
-                    item={mediaItem}
-                    className="h-full min-h-0 border-0 shadow-none"
-                  />
+                  <Media item={mediaItem} className="h-full min-h-0 border-0 shadow-none" />
                 ),
               }
             })}

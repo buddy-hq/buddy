@@ -28,10 +28,7 @@ function buildPaths(input: { data: string; cache: string; config: string; state:
 const preferred = buildPaths({
   data: path.resolve(
     resolveConfiguredPath(process.env[BUDDY_ENV.DATA_DIR]) ??
-      path.join(
-        resolveXdgDirectory(XDG_ENV.DATA_HOME, XDG_DEFAULT_SEGMENTS.data),
-        BUDDY_APP_NAME,
-      ),
+      path.join(resolveXdgDirectory(XDG_ENV.DATA_HOME, XDG_DEFAULT_SEGMENTS.data), BUDDY_APP_NAME),
   ),
   cache: path.resolve(
     resolveConfiguredPath(process.env[BUDDY_ENV.CACHE_DIR]) ??

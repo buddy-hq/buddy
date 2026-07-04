@@ -15,12 +15,8 @@ export { PresentedMediaPlayer } from "./renderers/presented-media-player"
 export type { MultiViewItem } from "./multi-view-shell"
 export type { ToolImageGalleryItem } from "./media-gallery"
 export type { PresentMediaResolvedItem } from "./presented-media-types"
-export type {
-  HtmlWidgetFrameLoadState,
-} from "./renderers/html-widget-frame"
-export type {
-  PresentedMediaPlayerState,
-} from "./renderers/presented-media-player"
+export type { HtmlWidgetFrameLoadState } from "./renderers/html-widget-frame"
+export type { PresentedMediaPlayerState } from "./renderers/presented-media-player"
 export type {
   AudioMediaData,
   AudioMediaItem,

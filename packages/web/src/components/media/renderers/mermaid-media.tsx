@@ -1,13 +1,13 @@
-import { useMemo } from "react";
-import { cn } from "@buddy/ui";
-import { ClipboardCopyIcon, WrenchIcon } from "lucide-react";
+import { useMemo } from "react"
+import { cn } from "@buddy/ui"
+import { ClipboardCopyIcon, WrenchIcon } from "lucide-react"
 import {
   MermaidDiagram,
   type MermaidDiagramRenderState,
-} from "@/components/media/renderers/mermaid/mermaid-diagram";
-import { MediaGridSurface } from "../media-grid-surface";
-import { useKeyedMediaState } from "../use-keyed-media-state";
-import { VisualMediaFrame } from "../visual-media-frame";
+} from "@/components/media/renderers/mermaid/mermaid-diagram"
+import { MediaGridSurface } from "../media-grid-surface"
+import { useKeyedMediaState } from "../use-keyed-media-state"
+import { VisualMediaFrame } from "../visual-media-frame"
 import {
   mediaStateData,
   type MediaAction,
@@ -15,13 +15,13 @@ import {
   type MediaState,
   type MermaidMediaData,
   type MermaidMediaItem,
-} from "../types";
+} from "../types"
 
 function summarizeError(message: string): string {
-  const singleLine = message.trim().replace(/\s+/gu, " ");
-  if (!singleLine) return "Unable to render diagram";
-  if (singleLine.length <= 240) return singleLine;
-  return `${singleLine.slice(0, 237)}...`;
+  const singleLine = message.trim().replace(/\s+/gu, " ")
+  if (!singleLine) return "Unable to render diagram"
+  if (singleLine.length <= 240) return singleLine
+  return `${singleLine.slice(0, 237)}...`
 }
 
 function effectiveMermaidState(
@@ -29,12 +29,12 @@ function effectiveMermaidState(
   renderState: MermaidDiagramRenderState,
   actions: MediaAction[],
 ): MediaState<MermaidMediaData> {
-  if (state.status !== "ready") return state;
+  if (state.status !== "ready") return state
   if (renderState.status === "loading") {
     return {
       status: "loading",
       data: state.data,
-    };
+    }
   }
   if (renderState.status === "error") {
     return {
@@ -43,22 +43,22 @@ function effectiveMermaidState(
       message: "Unable to render diagram",
       detail: state.data.errorDetail ?? summarizeError(renderState.message),
       actions,
-    };
+    }
   }
-  return state;
+  return state
 }
 
-export function MermaidMediaRenderer(
-  props: MediaRendererProps<MermaidMediaItem>,
-) {
-  const data = mediaStateData(props.item.state);
-  const [renderState, setRenderState] =
-    useKeyedMediaState<MermaidDiagramRenderState>(data?.source, {
+export function MermaidMediaRenderer(props: MediaRendererProps<MermaidMediaItem>) {
+  const data = mediaStateData(props.item.state)
+  const [renderState, setRenderState] = useKeyedMediaState<MermaidDiagramRenderState>(
+    data?.source,
+    {
       status: "loading",
-    });
+    },
+  )
 
   const errorActions = useMemo<MediaAction[]>(() => {
-    if (renderState.status !== "error" || !data) return [];
+    if (renderState.status !== "error" || !data) return []
     return [
       ...(data.onRequestFix
         ? [
@@ -76,20 +76,14 @@ export function MermaidMediaRenderer(
         label: "Copy error",
         icon: ClipboardCopyIcon,
         onSelect: () => {
-          if (!("clipboard" in navigator)) return;
-          void navigator.clipboard.writeText(
-            `${renderState.message}\n\n${data.source}`,
-          );
+          if (!("clipboard" in navigator)) return
+          void navigator.clipboard.writeText(`${renderState.message}\n\n${data.source}`)
         },
       },
-    ];
-  }, [data, renderState]);
+    ]
+  }, [data, renderState])
 
-  const state = effectiveMermaidState(
-    props.item.state,
-    renderState,
-    errorActions,
-  );
+  const state = effectiveMermaidState(props.item.state, renderState, errorActions)
 
   return (
     <VisualMediaFrame
@@ -114,13 +108,11 @@ export function MermaidMediaRenderer(
           renderWrapper={(diagram, actions) => (
             <MediaGridSurface>
               <div className="size-full">{diagram}</div>
-              {actions ? (
-                <div className="absolute right-3 bottom-3 z-30">{actions}</div>
-              ) : null}
+              {actions ? <div className="absolute right-3 bottom-3 z-30">{actions}</div> : null}
             </MediaGridSurface>
           )}
         />
       ) : null}
     </VisualMediaFrame>
-  );
+  )
 }

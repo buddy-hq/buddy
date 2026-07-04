@@ -1,7 +1,6 @@
 export const PDF_EXTRACTION_MODE_ENV = "BUDDY_PDF_EXTRACTION_MODE" as const
 
-export const PDF_EXTRACTION_MODE_LITEPARSE_SELECTIVE_OCR =
-  "liteparse-selective-ocr" as const
+export const PDF_EXTRACTION_MODE_LITEPARSE_SELECTIVE_OCR = "liteparse-selective-ocr" as const
 export const PDF_EXTRACTION_MODE_LITEPARSE_OCR = "liteparse-ocr" as const
 export const PDF_EXTRACTION_MODE_LITEPARSE_NO_OCR = "liteparse-no-ocr" as const
 export const PDF_EXTRACTION_MODE_LEGACY = "legacy" as const

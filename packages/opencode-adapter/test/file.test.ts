@@ -45,10 +45,7 @@ describe("File", () => {
       await Promise.all([
         fs.writeFile(path.join(directory, "src", "search-panel.ts"), ""),
         fs.writeFile(path.join(directory, "search-notes.md"), ""),
-        fs.writeFile(
-          path.join(directory, "node_modules", "search-package", "index.ts"),
-          "",
-        ),
+        fs.writeFile(path.join(directory, "node_modules", "search-package", "index.ts"), ""),
         fs.writeFile(path.join(directory, ".buddy", "search-state.json"), ""),
       ])
 

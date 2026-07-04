@@ -2,7 +2,12 @@ import { Skeleton, cn } from "@buddy/ui"
 import { AlertTriangleIcon, FileQuestionIcon } from "lucide-react"
 import { FileTypeIcon } from "@/components/files/file-type-icon"
 import { MediaActions } from "../media-action-bar"
-import { mediaStateData, type FileMediaData, type FileMediaItem, type MediaRendererProps } from "../types"
+import {
+  mediaStateData,
+  type FileMediaData,
+  type FileMediaItem,
+  type MediaRendererProps,
+} from "../types"
 
 function FileContent(props: {
   data: FileMediaData
@@ -39,11 +44,7 @@ function FileContent(props: {
   )
 }
 
-function FileUnavailable(props: {
-  status: "error" | "empty"
-  message?: string
-  detail?: string
-}) {
+function FileUnavailable(props: { status: "error" | "empty"; message?: string; detail?: string }) {
   const Icon = props.status === "error" ? AlertTriangleIcon : FileQuestionIcon
   const message =
     props.message ?? (props.status === "error" ? "File preview unavailable" : "File unavailable")

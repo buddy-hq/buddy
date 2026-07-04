@@ -17,9 +17,7 @@ const loadingVisuals = {
   "gradient-animation": GradientAnimationLoading,
 } satisfies Record<MediaLoadingVariant, (props: MediaLoadingProps) => React.ReactNode>
 
-export function MediaLoadingVisual(
-  props: MediaLoadingProps & { variant: MediaLoadingVariant },
-) {
+export function MediaLoadingVisual(props: MediaLoadingProps & { variant: MediaLoadingVariant }) {
   const Visual = loadingVisuals[props.variant]
   return <Visual label={props.label} detail={props.detail} className={props.className} />
 }

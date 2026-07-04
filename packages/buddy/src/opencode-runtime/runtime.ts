@@ -1,8 +1,5 @@
 import fs from "node:fs/promises"
-import {
-  BUDDY_TMP_DIR,
-  configureOpenCodeEnvironment,
-} from "./env"
+import { BUDDY_TMP_DIR, configureOpenCodeEnvironment } from "./env"
 import { XDG_ENV } from "../storage/constants"
 import {
   ensurePluginServicePatched,
@@ -29,7 +26,9 @@ export async function ensureRuntimeDirectories() {
     process.env[XDG_ENV.CONFIG_HOME],
     process.env[XDG_ENV.STATE_HOME],
     BUDDY_TMP_DIR,
-  ].filter((directory): directory is string => typeof directory === "string" && directory.length > 0)
+  ].filter(
+    (directory): directory is string => typeof directory === "string" && directory.length > 0,
+  )
 
   await Promise.all(directories.map((directory) => fs.mkdir(directory, { recursive: true })))
 }

@@ -1,89 +1,77 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { parseToolState } from "@/components/chat/tools/parse-tool-state";
-import { getToolInfo } from "@/components/chat/tools/tool-info";
-import { Media, MediaThumbnail, MultiViewShell } from "@/components/media";
-import { language } from "@/context/language";
-import { readNonEmptyString } from "@/components/chat/tools/types";
-import { unwrapError } from "@/components/chat/utils/error";
-import { sendPrompt } from "@/state/chat-actions";
-import {
-  getTranscriptMessages,
-  useTranscriptSessionMessages,
-} from "@/state/transcript-repository";
-import {
-  BENCH_MODE_REQUEST_POLICY,
-  useOpenBench,
-} from "@/lib/bench-navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { parseToolState } from "@/components/chat/tools/parse-tool-state"
+import { getToolInfo } from "@/components/chat/tools/tool-info"
+import { Media, MediaThumbnail, MultiViewShell } from "@/components/media"
+import { language } from "@/context/language"
+import { readNonEmptyString } from "@/components/chat/tools/types"
+import { unwrapError } from "@/components/chat/utils/error"
+import { sendPrompt } from "@/state/chat-actions"
+import { getTranscriptMessages, useTranscriptSessionMessages } from "@/state/transcript-repository"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import {
   metadataWithInlinePresentation,
   objectBenchTarget,
   readInlinePresentation,
   type BuddyPresentationDescriptor,
-} from "@/components/chat/tools/render/buddy-object-result";
-import { useHydratedInlinePresentation } from "@/components/chat/tools/render/use-hydrated-inline-presentation";
-import type { ToolPartProps } from "@/components/chat/tools/registry";
-import type {
-  AssistantMessageInfo,
-  MessagePart,
-  MessageWithParts,
-} from "@/state/chat-types";
+} from "@/components/chat/tools/render/buddy-object-result"
+import { useHydratedInlinePresentation } from "@/components/chat/tools/render/use-hydrated-inline-presentation"
+import type { ToolPartProps } from "@/components/chat/tools/registry"
+import type { AssistantMessageInfo, MessagePart, MessageWithParts } from "@/state/chat-types"
 import {
   readMermaidObject,
   readMermaidAutoRepairStatus,
   startMermaidAutoRepair,
   type MermaidObjectRecord,
   type MermaidRepairStartResponse,
-} from "@/components/media/renderers/mermaid/lib/persisted-renders";
-import { hashMermaidSource } from "@/components/media/renderers/mermaid/lib/render";
-import { findSupersedingMermaidRevisionID } from "@/components/media/renderers/mermaid/lib/supersession";
+} from "@/components/media/renderers/mermaid/lib/persisted-renders"
+import { hashMermaidSource } from "@/components/media/renderers/mermaid/lib/render"
+import { findSupersedingMermaidRevisionID } from "@/components/media/renderers/mermaid/lib/supersession"
 
 type RenderMermaidToolOutput = {
-  objectID: string;
-  revisionID: string | null;
-  source: string;
-  sourceHash: string;
-  diagramType: string;
-  alt: string;
-  caption?: string;
-};
+  objectID: string
+  revisionID: string | null
+  source: string
+  sourceHash: string
+  diagramType: string
+  alt: string
+  caption?: string
+}
 
 type RenderMermaidToolReference = Omit<RenderMermaidToolOutput, "source"> & {
-  source?: string;
-  viewID: string;
-};
+  source?: string
+  viewID: string
+}
 
 type RenderMermaidToolSources = {
-  objectSource?: string;
-  inputSource?: string;
-};
+  objectSource?: string
+  inputSource?: string
+}
 
 type MermaidFixPromptTarget = {
-  agent: string;
+  agent: string
   model: {
-    providerID: string;
-    modelID: string;
-  };
-};
+    providerID: string
+    modelID: string
+  }
+}
 
 type MermaidRenderFailure = {
-  message: string;
-  persisted: boolean;
-  renderKey?: string;
-};
+  message: string
+  persisted: boolean
+  renderKey?: string
+}
 
-function mermaidOriginSessionID(
-  origin: MermaidObjectRecord["origin"],
-): string | undefined {
+function mermaidOriginSessionID(origin: MermaidObjectRecord["origin"]): string | undefined {
   if (origin.kind === "tool" || origin.kind === "markdown") {
-    return origin.sessionID;
+    return origin.sessionID
   }
-  return undefined;
+  return undefined
 }
 
 export function shouldStartMermaidAutoRepair(input: {
-  object: Pick<MermaidObjectRecord, "autoRepair" | "origin"> | undefined;
-  directory?: string;
-  renderFailure?: MermaidRenderFailure;
+  object: Pick<MermaidObjectRecord, "autoRepair" | "origin"> | undefined
+  directory?: string
+  renderFailure?: MermaidRenderFailure
 }): boolean {
   return (
     !!input.directory &&
@@ -91,62 +79,58 @@ export function shouldStartMermaidAutoRepair(input: {
     !!input.renderFailure?.renderKey &&
     input.object.origin.kind === "tool" &&
     input.object.autoRepair.status === "eligible"
-  );
+  )
 }
 
 type MermaidRepairState =
   | {
-      status: "idle";
+      status: "idle"
     }
   | {
-      status: "running";
-      repairRequestID: string;
+      status: "running"
+      repairRequestID: string
     }
   | {
-      status: "succeeded";
-      replacementRevisionID: string;
+      status: "succeeded"
+      replacementRevisionID: string
     }
   | {
-      status: "exhausted";
-      lastErrorMessage: string;
+      status: "exhausted"
+      lastErrorMessage: string
     }
   | {
-      status: "ineligible";
-      lastErrorMessage: string;
-    };
+      status: "ineligible"
+      lastErrorMessage: string
+    }
 
-const MERMAID_OBJECT_CACHE_LIMIT = 200;
-const MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS = 1_000;
-const mermaidObjectCache = new Map<string, MermaidObjectRecord>();
-const mermaidObjectRequests = new Map<string, Promise<MermaidObjectRecord>>();
+const MERMAID_OBJECT_CACHE_LIMIT = 200
+const MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS = 1_000
+const mermaidObjectCache = new Map<string, MermaidObjectRecord>()
+const mermaidObjectRequests = new Map<string, Promise<MermaidObjectRecord>>()
 
-function touchMermaidObjectCache(
-  key: string,
-  value: MermaidObjectRecord,
-): void {
-  mermaidObjectCache.delete(key);
-  mermaidObjectCache.set(key, value);
+function touchMermaidObjectCache(key: string, value: MermaidObjectRecord): void {
+  mermaidObjectCache.delete(key)
+  mermaidObjectCache.set(key, value)
 
   if (mermaidObjectCache.size <= MERMAID_OBJECT_CACHE_LIMIT) {
-    return;
+    return
   }
 
-  const oldest = mermaidObjectCache.keys().next().value;
+  const oldest = mermaidObjectCache.keys().next().value
   if (typeof oldest === "string") {
-    mermaidObjectCache.delete(oldest);
+    mermaidObjectCache.delete(oldest)
   }
 }
 
 function parseRenderMermaidReference(
   state: ToolPartProps["state"],
 ): RenderMermaidToolReference | undefined {
-  const presentation = readInlinePresentation(state.metadata, "mermaid");
-  if (presentation?.data?.renderer !== "mermaid") return undefined;
-  const source = presentation.data.source;
+  const presentation = readInlinePresentation(state.metadata, "mermaid")
+  if (presentation?.data?.renderer !== "mermaid") return undefined
+  const source = presentation.data.source
   const diagramType =
-    inferMermaidDiagramTypeFromSource(source) ??
-    language.t("chatTools.defaultMermaidType");
-  const caption = presentation.data.caption;
+    inferMermaidDiagramTypeFromSource(source) ?? language.t("chatTools.defaultMermaidType")
+  const caption = presentation.data.caption
 
   return {
     objectID: presentation.ref.objectID,
@@ -157,15 +141,15 @@ function parseRenderMermaidReference(
     alt: presentation.data.alt,
     viewID: presentation.viewID,
     ...(caption ? { caption } : {}),
-  };
+  }
 }
 
 export function parseRenderMermaidObjectOutput(
   state: ToolPartProps["state"],
 ): RenderMermaidToolOutput | undefined {
-  const parsed = parseRenderMermaidReference(state);
+  const parsed = parseRenderMermaidReference(state)
   if (!parsed?.source) {
-    return undefined;
+    return undefined
   }
 
   return {
@@ -176,17 +160,15 @@ export function parseRenderMermaidObjectOutput(
     diagramType: parsed.diagramType,
     alt: parsed.alt,
     ...(parsed.caption ? { caption: parsed.caption } : {}),
-  };
+  }
 }
 
-export function parseRenderMermaidSources(
-  state: ToolPartProps["state"],
-): RenderMermaidToolSources {
-  const parsed = parseRenderMermaidReference(state);
+export function parseRenderMermaidSources(state: ToolPartProps["state"]): RenderMermaidToolSources {
+  const parsed = parseRenderMermaidReference(state)
   return {
     objectSource: parsed?.source,
     inputSource: readNonEmptyString(state.input.source),
-  };
+  }
 }
 
 async function fetchMermaidObject(
@@ -194,73 +176,69 @@ async function fetchMermaidObject(
   objectID: string,
   revisionID: string | null,
 ): Promise<MermaidObjectRecord> {
-  const key = `${directory}::${objectID}::${revisionID ?? "current"}`;
-  const cached = mermaidObjectCache.get(key);
+  const key = `${directory}::${objectID}::${revisionID ?? "current"}`
+  const cached = mermaidObjectCache.get(key)
   if (cached) {
-    touchMermaidObjectCache(key, cached);
-    return cached;
+    touchMermaidObjectCache(key, cached)
+    return cached
   }
 
-  const existing = mermaidObjectRequests.get(key);
+  const existing = mermaidObjectRequests.get(key)
   if (existing) {
-    return existing;
+    return existing
   }
 
   const request = readMermaidObject(directory, objectID, revisionID)
     .then((object) => {
-      touchMermaidObjectCache(key, object);
-      return object;
+      touchMermaidObjectCache(key, object)
+      return object
     })
     .finally(() => {
-      mermaidObjectRequests.delete(key);
-    });
+      mermaidObjectRequests.delete(key)
+    })
 
-  mermaidObjectRequests.set(key, request);
-  return request;
+  mermaidObjectRequests.set(key, request)
+  return request
 }
 
-function inferMermaidDiagramTypeFromSource(
-  source: string | undefined,
-): string | undefined {
+function inferMermaidDiagramTypeFromSource(source: string | undefined): string | undefined {
   if (!source) {
-    return undefined;
+    return undefined
   }
 
   for (const line of source.split("\n")) {
-    const trimmed = line.trim();
+    const trimmed = line.trim()
     if (!trimmed || trimmed.startsWith("%%")) {
-      continue;
+      continue
     }
 
-    const [token] = trimmed.split(/\s+/u);
+    const [token] = trimmed.split(/\s+/u)
     if (!token) {
-      continue;
+      continue
     }
 
     if (token.toLowerCase() === "graph") {
-      return "flowchart";
+      return "flowchart"
     }
 
-    return token;
+    return token
   }
 
-  return undefined;
+  return undefined
 }
 
 function formatMermaidFixFeedback(input: {
-  alt: string;
-  errorMessage: string;
-  failedRenderKey?: string;
-  objectID: string;
-  source: string;
+  alt: string
+  errorMessage: string
+  failedRenderKey?: string
+  objectID: string
+  source: string
 }): string {
   return [
     `The mermaid diagram (alt: "${input.alt}") failed to render in the browser.`,
     "",
     `Object ID: ${input.objectID}`,
-    ...(input.failedRenderKey
-      ? [`Failed render key: ${input.failedRenderKey}`, ""]
-      : []),
+    ...(input.failedRenderKey ? [`Failed render key: ${input.failedRenderKey}`, ""] : []),
     `Browser render error: ${input.errorMessage}`,
     "",
     "Failed source:",
@@ -270,27 +248,24 @@ function formatMermaidFixFeedback(input: {
     "",
     `Please fix the Mermaid source and call render_mermaid exactly once with repairOfObjectID: "${input.objectID}".`,
     "Copy the object ID verbatim; do not replace it with a placeholder, zeros, repeated characters, or a guessed ID.",
-  ].join("\n");
+  ].join("\n")
 }
 
-function resolveAssistantMessage(
-  messages: MessageWithParts[],
-  part: MessagePart,
-) {
+function resolveAssistantMessage(messages: MessageWithParts[], part: MessagePart) {
   return messages.find(
     (message): message is MessageWithParts & { info: AssistantMessageInfo } =>
       message.info.role === "assistant" && message.info.id === part.messageID,
-  );
+  )
 }
 
 function resolveMermaidFixPromptTarget(
   directory: string,
   part: MessagePart,
 ): MermaidFixPromptTarget | undefined {
-  const messages = selectSessionMessages(directory, part.sessionID);
-  const assistantMessage = resolveAssistantMessage(messages, part);
+  const messages = selectSessionMessages(directory, part.sessionID)
+  const assistantMessage = resolveAssistantMessage(messages, part)
   if (!assistantMessage) {
-    return undefined;
+    return undefined
   }
 
   return {
@@ -299,152 +274,123 @@ function resolveMermaidFixPromptTarget(
       providerID: assistantMessage.info.providerID,
       modelID: assistantMessage.info.modelID,
     },
-  };
+  }
 }
 
-function selectSessionMessages(
-  directory: string,
-  sessionID: string,
-): MessageWithParts[] {
-  return getTranscriptMessages(directory, sessionID);
+function selectSessionMessages(directory: string, sessionID: string): MessageWithParts[] {
+  return getTranscriptMessages(directory, sessionID)
 }
 
-function repairStateFromObject(
-  object: MermaidObjectRecord | undefined,
-): MermaidRepairState {
+function repairStateFromObject(object: MermaidObjectRecord | undefined): MermaidRepairState {
   if (!object) {
-    return { status: "idle" };
+    return { status: "idle" }
   }
   switch (object.autoRepair.status) {
     case "running":
       return {
         status: "running",
         repairRequestID: object.autoRepair.repairRequestID,
-      };
+      }
     case "succeeded":
       return {
         status: "succeeded",
         replacementRevisionID: object.autoRepair.replacementRevisionID,
-      };
+      }
     case "exhausted":
       return {
         status: "exhausted",
         lastErrorMessage: object.autoRepair.lastErrorMessage,
-      };
+      }
     case "not_needed":
       return {
         status: "ineligible",
-        lastErrorMessage: language.t(
-          "chatTools.mermaidDiagram.renderFixRequest",
-        ),
-      };
+        lastErrorMessage: language.t("chatTools.mermaidDiagram.renderFixRequest"),
+      }
     default:
-      return { status: "idle" };
+      return { status: "idle" }
   }
 }
 
-function RenderMermaidToolCard({
-  part,
-  state,
-  info,
-  directory,
-}: ToolPartProps) {
-  const openBenchRoute = useOpenBench();
-  const output = state.output || (state.error ? unwrapError(state.error) : "");
-  const showOutput = output.trim().length > 0;
-  const running = state.status === "pending" || state.status === "running";
+function RenderMermaidToolCard({ part, state, info, directory }: ToolPartProps) {
+  const openBenchRoute = useOpenBench()
+  const output = state.output || (state.error ? unwrapError(state.error) : "")
+  const showOutput = output.trim().length > 0
+  const running = state.status === "pending" || state.status === "running"
   const pendingAlt =
     readNonEmptyString(state.input.alt) ??
     info.subtitle ??
-    language.t("chatTools.defaultMermaidAlt");
-  const parsed =
-    state.status === "completed"
-      ? parseRenderMermaidReference(state)
-      : undefined;
-  const parsedObjectID = parsed?.objectID;
-  const parsedRevisionID = parsed?.revisionID ?? null;
+    language.t("chatTools.defaultMermaidAlt")
+  const parsed = state.status === "completed" ? parseRenderMermaidReference(state) : undefined
+  const parsedObjectID = parsed?.objectID
+  const parsedRevisionID = parsed?.revisionID ?? null
 
-  const [rehydrated, setRehydrated] = useState<MermaidObjectRecord | undefined>(
-    undefined,
-  );
-  const [rehydrationError, setRehydrationError] = useState<string | undefined>(
-    undefined,
-  );
-  const [fixRequested, setFixRequested] = useState(false);
+  const [rehydrated, setRehydrated] = useState<MermaidObjectRecord | undefined>(undefined)
+  const [rehydrationError, setRehydrationError] = useState<string | undefined>(undefined)
+  const [fixRequested, setFixRequested] = useState(false)
   const [repairState, setRepairState] = useState<MermaidRepairState>({
     status: "idle",
-  });
-  const [renderFailure, setRenderFailure] = useState<
-    MermaidRenderFailure | undefined
-  >(undefined);
-  const startedRepairRef = useRef<string | undefined>(undefined);
+  })
+  const [renderFailure, setRenderFailure] = useState<MermaidRenderFailure | undefined>(undefined)
+  const startedRepairRef = useRef<string | undefined>(undefined)
   const objectSessionID = rehydrated
     ? (mermaidOriginSessionID(rehydrated.origin) ?? part.sessionID)
-    : part.sessionID;
-  const sessionMessages = useTranscriptSessionMessages(
-    directory,
-    objectSessionID,
-  );
+    : part.sessionID
+  const sessionMessages = useTranscriptSessionMessages(directory, objectSessionID)
 
   useEffect(() => {
-    setRehydrated(undefined);
-    setRehydrationError(undefined);
+    setRehydrated(undefined)
+    setRehydrationError(undefined)
 
     if (state.status !== "completed") {
-      return;
+      return
     }
     if (!parsedObjectID) {
-      return;
+      return
     }
     if (!directory) {
-      setRehydrationError(language.t("chatTools.mermaidNoWorkspaceDirectory"));
-      return;
+      setRehydrationError(language.t("chatTools.mermaidNoWorkspaceDirectory"))
+      return
     }
 
-    let cancelled = false;
+    let cancelled = false
     void fetchMermaidObject(directory, parsedObjectID, parsedRevisionID)
       .then((object) => {
-        if (cancelled) return;
-        setRehydrated(object);
+        if (cancelled) return
+        setRehydrated(object)
       })
       .catch((error) => {
-        if (cancelled) return;
-        setRehydrationError(
-          error instanceof Error ? error.message : String(error),
-        );
-      });
+        if (cancelled) return
+        setRehydrationError(error instanceof Error ? error.message : String(error))
+      })
 
     return () => {
-      cancelled = true;
-    };
-  }, [directory, parsedObjectID, parsedRevisionID, state.status]);
+      cancelled = true
+    }
+  }, [directory, parsedObjectID, parsedRevisionID, state.status])
 
-  const object = rehydrated;
+  const object = rehydrated
 
   useEffect(() => {
-    setRepairState(repairStateFromObject(object));
-  }, [object]);
+    setRepairState(repairStateFromObject(object))
+  }, [object])
 
   useEffect(() => {
     if (!shouldStartMermaidAutoRepair({ object, directory, renderFailure })) {
-      return;
+      return
     }
-    const renderKey = renderFailure?.renderKey;
+    const renderKey = renderFailure?.renderKey
     if (!directory || !object || !renderKey) {
-      return;
+      return
     }
-    if (
-      object.origin.kind !== "tool" ||
-      object.autoRepair.status !== "eligible"
-    ) {
-      return;
+    if (object.origin.kind !== "tool" || object.autoRepair.status !== "eligible") {
+      return
     }
 
-    const repairKey = `${object.objectID}:${object.revisionID}:${renderKey}`;
+    const repairKey = `${object.objectID}:${object.revisionID}:${renderKey}`
     if (startedRepairRef.current === repairKey) {
-      return;
+      return
     }
-    startedRepairRef.current = repairKey;
+    startedRepairRef.current = repairKey
 
     void startMermaidAutoRepair({
       directory,
@@ -457,35 +403,33 @@ function RenderMermaidToolCard({
           setRepairState({
             status: "running",
             repairRequestID: response.repairRequestID,
-          });
-          return;
+          })
+          return
         }
         setRepairState({
           status: "exhausted",
           lastErrorMessage:
-            response.lastErrorMessage ??
-            language.t("chatTools.mermaidDiagram.renderErrorDefault"),
-        });
+            response.lastErrorMessage ?? language.t("chatTools.mermaidDiagram.renderErrorDefault"),
+        })
       })
       .catch((error) => {
         setRepairState({
           status: "exhausted",
-          lastErrorMessage:
-            error instanceof Error ? error.message : String(error),
-        });
-      });
-  }, [object, directory, renderFailure]);
+          lastErrorMessage: error instanceof Error ? error.message : String(error),
+        })
+      })
+  }, [object, directory, renderFailure])
 
   useEffect(() => {
     if (repairState.status !== "running" || !directory || !object) {
-      return;
+      return
     }
-    const sessionID = mermaidOriginSessionID(object.origin);
+    const sessionID = mermaidOriginSessionID(object.origin)
     if (!sessionID) {
-      return;
+      return
     }
 
-    let cancelled = false;
+    let cancelled = false
     const interval = window.setInterval(() => {
       void readMermaidAutoRepairStatus({
         directory,
@@ -494,10 +438,10 @@ function RenderMermaidToolCard({
       })
         .then((status) => {
           if (cancelled) {
-            return;
+            return
           }
           if (status.status === "running") {
-            return;
+            return
           }
           setRepairState(
             status.status === "succeeded" && status.replacementRevisionID
@@ -511,67 +455,58 @@ function RenderMermaidToolCard({
                     status.lastErrorMessage ??
                     language.t("chatTools.mermaidDiagram.renderErrorDefault"),
                 },
-          );
+          )
         })
         .catch(() => {
           if (cancelled) {
-            return;
+            return
           }
           setRepairState({
             status: "exhausted",
-            lastErrorMessage: language.t(
-              "chatTools.mermaidDiagram.renderErrorDefault",
-            ),
-          });
-        });
-    }, MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS);
+            lastErrorMessage: language.t("chatTools.mermaidDiagram.renderErrorDefault"),
+          })
+        })
+    }, MERMAID_AUTO_REPAIR_POLL_INTERVAL_MS)
 
     return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [object, directory, repairState]);
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [object, directory, repairState])
 
-  const source = parsed?.source ?? object?.source;
-  const alt = parsed?.alt ?? object?.alt ?? pendingAlt;
-  const currentObjectID = parsed?.objectID ?? object?.objectID;
-  const currentRevisionID = parsed?.revisionID ?? object?.revisionID ?? null;
+  const source = parsed?.source ?? object?.source
+  const alt = parsed?.alt ?? object?.alt ?? pendingAlt
+  const currentObjectID = parsed?.objectID ?? object?.objectID
+  const currentRevisionID = parsed?.revisionID ?? object?.revisionID ?? null
   const supersedingRevisionID = useMemo(() => {
     if (!currentObjectID) {
-      return undefined;
+      return undefined
     }
-    return findSupersedingMermaidRevisionID(
-      sessionMessages,
-      currentObjectID,
-      currentRevisionID,
-    );
-  }, [currentObjectID, currentRevisionID, sessionMessages]);
+    return findSupersedingMermaidRevisionID(sessionMessages, currentObjectID, currentRevisionID)
+  }, [currentObjectID, currentRevisionID, sessionMessages])
 
   const handleRenderFailure = useCallback((failure: MermaidRenderFailure) => {
-    setRenderFailure(failure);
-  }, []);
+    setRenderFailure(failure)
+  }, [])
 
   const handleRequestFix = useCallback(() => {
-    if (!directory || fixRequested || !source || !alt) return;
-    const objectID = parsed?.objectID ?? object?.objectID;
-    if (!objectID) return;
-    setFixRequested(true);
+    if (!directory || fixRequested || !source || !alt) return
+    const objectID = parsed?.objectID ?? object?.objectID
+    if (!objectID) return
+    setFixRequested(true)
     const feedback = formatMermaidFixFeedback({
       alt,
       errorMessage:
-        renderFailure?.message ??
-        language.t("chatTools.mermaidDiagram.renderErrorDefault"),
+        renderFailure?.message ?? language.t("chatTools.mermaidDiagram.renderErrorDefault"),
       failedRenderKey: renderFailure?.renderKey,
       objectID,
       source,
-    });
-    void sendPrompt(
-      directory,
-      feedback,
-      resolveMermaidFixPromptTarget(directory, part),
-    ).catch(() => {
-      setFixRequested(false);
-    });
+    })
+    void sendPrompt(directory, feedback, resolveMermaidFixPromptTarget(directory, part)).catch(
+      () => {
+        setFixRequested(false)
+      },
+    )
   }, [
     alt,
     directory,
@@ -581,7 +516,7 @@ function RenderMermaidToolCard({
     part,
     renderFailure,
     source,
-  ]);
+  ])
 
   const canRequestFix =
     !!directory &&
@@ -590,14 +525,14 @@ function RenderMermaidToolCard({
     repairState.status !== "running" &&
     repairState.status !== "succeeded" &&
     !supersedingRevisionID &&
-    (repairState.status === "exhausted" || repairState.status === "ineligible");
+    (repairState.status === "exhausted" || repairState.status === "ineligible")
 
   const errorMeta =
     repairState.status === "running"
       ? language.t("chatTools.mermaidDiagram.repairing")
       : repairState.status === "exhausted"
         ? repairState.lastErrorMessage
-        : undefined;
+        : undefined
 
   if (running) {
     return (
@@ -610,7 +545,7 @@ function RenderMermaidToolCard({
         }}
         className="h-[30rem]"
       />
-    );
+    )
   }
 
   if (!parsed) {
@@ -632,7 +567,7 @@ function RenderMermaidToolCard({
         }}
         className="h-[30rem]"
       />
-    );
+    )
   }
 
   if (repairState.status === "succeeded" || supersedingRevisionID) {
@@ -647,7 +582,7 @@ function RenderMermaidToolCard({
         }}
         className="h-[30rem]"
       />
-    );
+    )
   }
 
   if (!source) {
@@ -663,7 +598,7 @@ function RenderMermaidToolCard({
         }}
         className="h-[30rem]"
       />
-    );
+    )
   }
 
   return (
@@ -695,7 +630,7 @@ function RenderMermaidToolCard({
                     }),
                     mode: BENCH_MODE_REQUEST_POLICY,
                     autoOpen: null,
-                  });
+                  })
                 }
               : undefined,
           },
@@ -703,80 +638,68 @@ function RenderMermaidToolCard({
       }}
       className="h-[30rem]"
     />
-  );
+  )
 }
 
 export function renderRenderMermaidTool(props: ToolPartProps) {
   const presentation =
     props.state.status === "completed"
       ? readInlinePresentation(props.state.metadata, "mermaid")
-      : undefined;
+      : undefined
   if (presentation) {
-    return (
-      <HydratedMermaidToolCard toolProps={props} presentation={presentation} />
-    );
+    return <HydratedMermaidToolCard toolProps={props} presentation={presentation} />
   }
-  return <RenderMermaidToolCard {...props} />;
+  return <RenderMermaidToolCard {...props} />
 }
 
 function HydratedMermaidToolCard(props: {
-  toolProps: ToolPartProps;
-  presentation: BuddyPresentationDescriptor;
+  toolProps: ToolPartProps
+  presentation: BuddyPresentationDescriptor
 }) {
   const hydrated = useHydratedInlinePresentation({
     directory: props.toolProps.directory,
     presentation: props.presentation,
-  });
+  })
   const state = {
     ...props.toolProps.state,
-    metadata: metadataWithInlinePresentation(
-      props.toolProps.state.metadata,
-      hydrated.presentation,
-    ),
-  };
-  return <RenderMermaidToolCard {...props.toolProps} state={state} />;
+    metadata: metadataWithInlinePresentation(props.toolProps.state.metadata, hydrated.presentation),
+  }
+  return <RenderMermaidToolCard {...props.toolProps} state={state} />
 }
 
 function isRenderableGroupedMermaidPart(part: MessagePart): boolean {
-  const state = parseToolState(part);
+  const state = parseToolState(part)
   if (state.status !== "completed") {
-    return false;
+    return false
   }
-  const parsed = parseRenderMermaidReference(state);
-  return !!(parsed?.source ?? readNonEmptyString(state.input.source));
+  const parsed = parseRenderMermaidReference(state)
+  return !!(parsed?.source ?? readNonEmptyString(state.input.source))
 }
 
-export function resolveGroupedMermaidDefaultIndex(
-  parts: MessagePart[],
-): number {
+export function resolveGroupedMermaidDefaultIndex(parts: MessagePart[]): number {
   for (let index = parts.length - 1; index >= 0; index--) {
-    const part = parts[index];
+    const part = parts[index]
     if (part && isRenderableGroupedMermaidPart(part)) {
-      return index;
+      return index
     }
   }
-  return 0;
+  return 0
 }
 
 export function GroupedMermaidToolCard({
   parts,
   directory,
 }: {
-  parts: MessagePart[];
-  directory?: string;
+  parts: MessagePart[]
+  directory?: string
 }) {
   const items = parts.map((part) => {
-    const state = parseToolState(part);
-    const parsed =
-      state.status === "completed"
-        ? parseRenderMermaidReference(state)
-        : undefined;
+    const state = parseToolState(part)
+    const parsed = state.status === "completed" ? parseRenderMermaidReference(state) : undefined
     const source =
-      state.status === "completed"
-        ? (parsed?.source ?? readNonEmptyString(state.input.source))
-        : "";
-    const info = getToolInfo("render_mermaid", state);
-    const canRenderThumbnail = !!source;
+      state.status === "completed" ? (parsed?.source ?? readNonEmptyString(state.input.source)) : ""
+    const info = getToolInfo("render_mermaid", state)
+    const canRenderThumbnail = !!source
 
     return {
       key: part.id,
@@ -816,8 +739,8 @@ export function GroupedMermaidToolCard({
           directory={directory}
         />
       ),
-    };
-  });
+    }
+  })
 
   return (
     <MultiViewShell
@@ -827,5 +750,5 @@ export function GroupedMermaidToolCard({
       thumbnailSize="lg"
       defaultIndex={resolveGroupedMermaidDefaultIndex(parts)}
     />
-  );
+  )
 }

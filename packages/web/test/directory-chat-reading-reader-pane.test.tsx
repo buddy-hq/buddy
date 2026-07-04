@@ -104,9 +104,8 @@ describe("DirectoryChatReadingReaderPane", () => {
   })
 
   test("retries the reader when a repaired same-path blob is loaded", async () => {
-    const { DirectoryChatReadingReaderPane } = await import(
-      "../src/components/directory-chat/directory-chat-reading-reader-pane"
-    )
+    const { DirectoryChatReadingReaderPane } =
+      await import("../src/components/directory-chat/directory-chat-reading-reader-pane")
     const queryKey = [RESOURCE_QUERY_KEY_ROOT, DIRECTORY, RESOURCE_PATH]
     queryClient.setQueryData(queryKey, currentBlob)
 

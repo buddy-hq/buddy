@@ -2,10 +2,7 @@ import { Skeleton, cn } from "@buddy/ui"
 import { useMermaidRender } from "@/components/media/renderers/mermaid/use-mermaid-render"
 import type { MermaidMediaData } from "../types"
 
-export function MermaidThumbnail(props: {
-  data: MermaidMediaData
-  className?: string
-}) {
+export function MermaidThumbnail(props: { data: MermaidMediaData; className?: string }) {
   const { state } = useMermaidRender({
     source: props.data.source,
     directory: props.data.directory,

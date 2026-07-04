@@ -444,13 +444,7 @@ function ObjectBenchRoute() {
         <MermaidObjectBenchView directory={loaderData.directory} view={view} data={view.data} />
       )
     case "figure":
-      return (
-        <FigureObjectBenchView
-          directory={loaderData.directory}
-          view={view}
-          data={view.data}
-        />
-      )
+      return <FigureObjectBenchView directory={loaderData.directory} view={view} data={view.data} />
     case "question-set":
       return (
         <QuestionSetObjectBenchView
@@ -663,10 +657,7 @@ function HtmlWidgetObjectBenchView(props: {
   view: ObjectsViewResponse
   data: ObjectHtmlWidgetViewData
 }) {
-  const runtimeUrl = useMemo(
-    () => resolveAssetUrl(props.data.runtimeUrl),
-    [props.data.runtimeUrl],
-  )
+  const runtimeUrl = useMemo(() => resolveAssetUrl(props.data.runtimeUrl), [props.data.runtimeUrl])
 
   return (
     <ObjectBenchContextProvider
@@ -876,12 +867,7 @@ function SelectedMediaObjectBenchView(props: {
           </BenchMediaMessage>
         </BenchSurfaceViewer>
       ) : svg ? (
-        <SvgBenchView
-          title={props.view.title}
-          subtitle={title}
-          src={src}
-          actions={actions}
-        />
+        <SvgBenchView title={props.view.title} subtitle={title} src={src} actions={actions} />
       ) : (
         <BenchSurfaceViewer
           title={props.view.title}

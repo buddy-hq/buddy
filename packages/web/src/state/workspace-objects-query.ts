@@ -122,10 +122,7 @@ export const workspaceObjectsQueryKeys = {
     ] as const,
 }
 
-export function refetchActiveWorkspaceObjectQueries(
-  queryClient: QueryClient,
-  directory: string,
-) {
+export function refetchActiveWorkspaceObjectQueries(queryClient: QueryClient, directory: string) {
   return queryClient.refetchQueries({
     queryKey: workspaceObjectsQueryKeys.all(directory),
     type: "active",

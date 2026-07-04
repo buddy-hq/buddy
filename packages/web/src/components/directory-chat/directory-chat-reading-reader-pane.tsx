@@ -144,10 +144,10 @@ export function DirectoryChatReadingReaderPane(props: DirectoryChatReadingReader
 
   const readerSource: FoliateReaderSource | null = readerBlobQuery.data
     ? {
-      kind: "blob",
-      blob: readerBlobQuery.data,
-      name: props.resourceName,
-    }
+        kind: "blob",
+        blob: readerBlobQuery.data,
+        name: props.resourceName,
+      }
     : null
 
   if (readerBlobQuery.isPending) {

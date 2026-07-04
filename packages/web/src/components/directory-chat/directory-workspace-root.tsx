@@ -42,11 +42,7 @@ import { useStore } from "zustand"
 import { resolveWorkspacePresentation } from "@/lib/directory-chat/workspace-presentation"
 import { DIRECTORY_CHAT_SHELL_VIEW } from "@/lib/directory-chat/directory-chat-shell-view"
 import { requestPromptComposerFocus } from "@/components/prompt/prompt-composer-focus"
-import {
-  createTextPromptDraft,
-  getPromptDraft,
-  usePromptStore,
-} from "@/state/prompt-store"
+import { createTextPromptDraft, getPromptDraft, usePromptStore } from "@/state/prompt-store"
 
 type ReadyDirectoryBenchController = Extract<DirectoryChatPageControllerState, { status: "ready" }>
 
@@ -198,7 +194,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   )
   const workspaceLayoutMode = presentation.mode
   const showingSkills = controller.mainPaneProps.shellView === DIRECTORY_CHAT_SHELL_VIEW.SKILLS
-  const effectiveWorkspaceLayoutMode = showingSkills ? BENCH_CHAT_LAYOUT_DOCKED : workspaceLayoutMode
+  const effectiveWorkspaceLayoutMode = showingSkills
+    ? BENCH_CHAT_LAYOUT_DOCKED
+    : workspaceLayoutMode
   const workspaceOpen = presentation.workspaceOpen
   const effectiveWorkspaceOpen = showingSkills ? false : workspaceOpen
   const workspaceHostOpen = presentation.workspaceOpen
@@ -643,7 +641,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       parentSession={chatState.parentSession}
       onNewSession={handleNewSession}
       onSelectSession={handleSelectSession}
-      onFloatChat={!showingSkills && presentation.controls.showFloatChat ? handleFloatChat : undefined}
+      onFloatChat={
+        !showingSkills && presentation.controls.showFloatChat ? handleFloatChat : undefined
+      }
     />
   )
 }

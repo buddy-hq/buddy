@@ -1,8 +1,5 @@
 import { useState, type ReactNode } from "react"
-import {
-  BenchZoomableViewer,
-  type BenchViewerAction,
-} from "@/components/bench/bench-viewer-shell"
+import { BenchZoomableViewer, type BenchViewerAction } from "@/components/bench/bench-viewer-shell"
 
 const SVG_DEFAULT_WIDTH = 640
 const SVG_DEFAULT_HEIGHT = 400
@@ -23,10 +20,7 @@ type SvgBounds = {
   height: number
 }
 
-type SvgObjectState =
-  | { kind: "loading" }
-  | { kind: "ready"; bounds: SvgBounds }
-  | { kind: "error" }
+type SvgObjectState = { kind: "loading" } | { kind: "ready"; bounds: SvgBounds } | { kind: "error" }
 
 function measureSvgBounds(bounds: SvgBounds): SvgBounds {
   if (bounds.width <= 0 || bounds.height <= 0) {
@@ -50,14 +44,10 @@ function normalizeSvgRenderBounds(bounds: SvgBounds): SvgBounds {
 
 function SvgBenchViewContent(props: SvgBenchViewProps) {
   const { actions, src, subtitle, title, toolbar } = props
-  const [state, setState] = useState<SvgObjectState>(
-    { kind: "loading" },
-  )
+  const [state, setState] = useState<SvgObjectState>({ kind: "loading" })
 
   const bounds =
-    state.kind === "ready"
-      ? state.bounds
-      : { width: SVG_LOADING_WIDTH, height: SVG_LOADING_HEIGHT }
+    state.kind === "ready" ? state.bounds : { width: SVG_LOADING_WIDTH, height: SVG_LOADING_HEIGHT }
 
   return (
     <BenchZoomableViewer

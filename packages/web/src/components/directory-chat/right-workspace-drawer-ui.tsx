@@ -1,14 +1,6 @@
 import { forwardRef, type ComponentType, type Ref, type ReactNode } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import {
-  Badge,
-  Button,
-  Input,
-  Skeleton,
-  Spinner,
-  XIcon,
-  cn,
-} from "@buddy/ui"
+import { Badge, Button, Input, Skeleton, Spinner, XIcon, cn } from "@buddy/ui"
 import { ChevronRightIcon, SearchIcon } from "lucide-react"
 
 const RIGHT_WORKSPACE_LIST_OVERSCAN = 8
@@ -46,10 +38,7 @@ type RightWorkspaceListRowProps = {
   onClick: () => void
   onPreviewIntent?: (anchor: HTMLButtonElement) => void
   onPreviewEnd?: () => void
-} & (
-  | { icon: ComponentType; visual?: never }
-  | { icon?: never; visual: ReactNode }
-)
+} & ({ icon: ComponentType; visual?: never } | { icon?: never; visual: ReactNode })
 
 type RightWorkspaceVirtualListProps<TItem> = {
   items: readonly TItem[]
@@ -127,10 +116,7 @@ export function RightWorkspaceDrawerShell(props: RightWorkspaceDrawerShellProps)
       <div
         ref={props.scrollRef}
         data-component="right-workspace-drawer-scroll"
-        className={cn(
-          "scrollbar-hover min-h-0 flex-1 overflow-y-auto p-3",
-          props.bodyClassName,
-        )}
+        className={cn("scrollbar-hover min-h-0 flex-1 overflow-y-auto p-3", props.bodyClassName)}
       >
         {props.children}
       </div>
@@ -200,10 +186,7 @@ export function RightWorkspaceListSkeleton(props: { count?: number }) {
   )
 }
 
-export function RightWorkspaceSectionLabel(props: {
-  children: ReactNode
-  trailing?: ReactNode
-}) {
+export function RightWorkspaceSectionLabel(props: { children: ReactNode; trailing?: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 px-1 pb-1">
       <p className="text-[11px] font-medium uppercase tracking-wider text-text-weaker">
@@ -214,9 +197,7 @@ export function RightWorkspaceSectionLabel(props: {
   )
 }
 
-export function RightWorkspaceVirtualList<TItem>(
-  props: RightWorkspaceVirtualListProps<TItem>,
-) {
+export function RightWorkspaceVirtualList<TItem>(props: RightWorkspaceVirtualListProps<TItem>) {
   const virtualizer = useVirtualizer<HTMLDivElement, HTMLDivElement>({
     count: props.items.length,
     getScrollElement: () => props.scrollElement,

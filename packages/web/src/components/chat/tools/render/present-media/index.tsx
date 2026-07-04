@@ -7,15 +7,9 @@ import {
   type MediaPresentationOutput,
   type PresentedMediaItem as PresentMediaItem,
 } from "@/lib/presented-media"
-import {
-  PresentedMediaContent,
-  type PresentMediaResolvedItem,
-} from "@/components/media"
+import { PresentedMediaContent, type PresentMediaResolvedItem } from "@/components/media"
 import type { ToolPartProps } from "../../registry"
-import {
-  readInlinePresentation,
-  type BuddyPresentationDescriptor,
-} from "../buddy-object-result"
+import { readInlinePresentation, type BuddyPresentationDescriptor } from "../buddy-object-result"
 import { useHydratedInlinePresentation } from "../use-hydrated-inline-presentation"
 import { objectMediaAvailabilityQueryOptions } from "@/state/workspace-objects-query"
 import type { ObjectMediaPresentationAvailabilityResponse } from "@buddy/sdk/types"

@@ -21,10 +21,7 @@ describe("pedagogy tools", () => {
       sampleResourcePath,
       "# Sample Resource\n\nThis is a sample resource used to validate tool-driven preparation.\n",
     )
-    writeFileSync(
-      invalidResourcePath,
-      "<!DOCTYPE html><html><body>download portal</body></html>",
-    )
+    writeFileSync(invalidResourcePath, "<!DOCTYPE html><html><body>download portal</body></html>")
     await ensureBuddyPluginTools(project.path)
 
     const result = await OpenCodeInstance.provide({

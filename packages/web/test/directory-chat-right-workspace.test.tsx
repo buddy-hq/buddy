@@ -185,9 +185,7 @@ describe("DirectoryChatRightWorkspace", () => {
     })
 
     expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe("none")
-    expect(
-      container.querySelector('[data-component="right-workspace-selector-drawer"]'),
-    ).toBeNull()
+    expect(container.querySelector('[data-component="right-workspace-selector-drawer"]')).toBeNull()
     expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
   })
 

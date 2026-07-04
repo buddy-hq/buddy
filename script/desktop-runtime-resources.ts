@@ -13,11 +13,7 @@ const KNOWLEDGE_GRAPH_MANIFEST_FILENAME = "learning-commons-knowledge-graph.db.j
 const KNOWLEDGE_GRAPH_LOCKFILE_FILENAME = "knowledge-graph.lock.json"
 const DEFAULT_KNOWLEDGE_GRAPH_ASSET_SOURCE = path.resolve(BACKEND_DIR, "resources/knowledge-graph")
 const DEFAULT_TESSDATA_ASSET_SOURCE = path.resolve(BACKEND_DIR, "resources/tessdata")
-const TESSDATA_ASSET_FILENAMES = [
-  "eng.traineddata",
-  "eng.traineddata.sha256",
-  "LICENSE",
-] as const
+const TESSDATA_ASSET_FILENAMES = ["eng.traineddata", "eng.traineddata.sha256", "LICENSE"] as const
 
 const KNOWLEDGE_GRAPH_ASSET_FILENAMES = [
   KNOWLEDGE_GRAPH_DB_ARCHIVE_FILENAME,

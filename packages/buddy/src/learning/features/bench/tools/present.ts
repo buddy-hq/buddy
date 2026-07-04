@@ -117,10 +117,7 @@ type BenchPresentAction = z.infer<typeof BenchPresentActionSchema>
 type BenchPresentStatus = z.infer<typeof BenchPresentStatusSchema>
 type BenchPresentReason = z.infer<typeof BenchPresentReasonSchema>
 type BenchPresentToolMetadata = z.infer<typeof BenchPresentToolMetadataSchema>
-type CommittedBenchCompletion = Extract<
-  BenchClientActionCompletion,
-  { outcome: "committed" }
->
+type CommittedBenchCompletion = Extract<BenchClientActionCompletion, { outcome: "committed" }>
 type TerminalBenchCompletion = Exclude<BenchClientActionCompletion, CommittedBenchCompletion>
 
 type BenchPresentOutput = {

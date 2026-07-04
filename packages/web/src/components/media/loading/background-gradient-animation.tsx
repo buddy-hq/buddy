@@ -13,11 +13,11 @@ const SPEED_MULTIPLIER: Record<GradientAnimationSpeed, number> = {
 
 // keyframe name, base duration (s), direction — matches official Aceternity defaults
 const BLOB_ANIMATIONS = [
-  { name: "bg-anim-move-vertical",    duration: 30, direction: "normal"  },
-  { name: "bg-anim-move-in-circle",   duration: 20, direction: "reverse" },
-  { name: "bg-anim-move-in-circle",   duration: 40, direction: "normal"  },
-  { name: "bg-anim-move-horizontal",  duration: 40, direction: "normal"  },
-  { name: "bg-anim-move-in-circle",   duration: 20, direction: "normal"  },
+  { name: "bg-anim-move-vertical", duration: 30, direction: "normal" },
+  { name: "bg-anim-move-in-circle", duration: 20, direction: "reverse" },
+  { name: "bg-anim-move-in-circle", duration: 40, direction: "normal" },
+  { name: "bg-anim-move-horizontal", duration: 40, direction: "normal" },
+  { name: "bg-anim-move-in-circle", duration: 20, direction: "normal" },
 ] as const
 
 function blobAnimation(index: number, speed: GradientAnimationSpeed): CSSProperties {

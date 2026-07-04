@@ -153,8 +153,7 @@ export function groupAssistantParts(
     }
 
     const partIsAbstractable =
-      isChatReasoningPart(part) ||
-      (isChatToolPart(part) && !toolPartUsesInlinePresentation(part))
+      isChatReasoningPart(part) || (isChatToolPart(part) && !toolPartUsesInlinePresentation(part))
 
     if (partIsAbstractable) {
       if (contextStart < 0) contextStart = i

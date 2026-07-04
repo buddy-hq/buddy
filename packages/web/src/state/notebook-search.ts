@@ -161,10 +161,7 @@ export function searchNotebookResults(input: {
     if (score === undefined) continue
     scored.push({ result, score })
   }
-  return balanceNotebookSearchResults(
-    scored,
-    input.limit ?? NOTEBOOK_SEARCH_TOTAL_RESULT_LIMIT,
-  )
+  return balanceNotebookSearchResults(scored, input.limit ?? NOTEBOOK_SEARCH_TOTAL_RESULT_LIMIT)
 }
 
 function sessionInfoFromSearchResult(session: Session): SessionInfo {
@@ -217,10 +214,7 @@ export async function searchRemoteNotebookEntities(input: {
     )
     .then(requireBuddyData)
 
-  const [sessionResult, fileResult] = await Promise.allSettled([
-    sessionRequest,
-    fileRequest,
-  ])
+  const [sessionResult, fileResult] = await Promise.allSettled([sessionRequest, fileRequest])
   if (input.signal.aborted) {
     const reason = input.signal.reason
     throw reason instanceof Error ? reason : new DOMException("Search aborted", "AbortError")
@@ -233,8 +227,7 @@ export async function searchRemoteNotebookEntities(input: {
   return {
     sessions: sessionResult.status === "fulfilled" ? sessionResult.value : [],
     files: fileResult.status === "fulfilled" ? fileResult.value.matches : [],
-    fileScanPartial:
-      fileResult.status === "fulfilled" ? fileResult.value.partial : false,
+    fileScanPartial: fileResult.status === "fulfilled" ? fileResult.value.partial : false,
     failedProviders,
   }
 }

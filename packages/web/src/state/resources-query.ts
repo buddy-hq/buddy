@@ -1,8 +1,5 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query"
-import {
-  inspectReaderSourceBytes,
-  readerSourceFormatFromPath,
-} from "@buddy/workspace-file-policy"
+import { inspectReaderSourceBytes, readerSourceFormatFromPath } from "@buddy/workspace-file-policy"
 import { getBuddyClient } from "@/lib/buddy-client"
 import { buildProjectFileRawParameters } from "@/lib/project-file-raw-url"
 import { findWorkspaceFiles } from "@/state/chat-actions"

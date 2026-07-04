@@ -340,9 +340,7 @@ describe("config routes", () => {
         tools?: Record<string, boolean>
       }
       expect(rawBody.tools?.search_standards).toBeUndefined()
-      expect(fs.readFileSync(projectConfigFile(repo), "utf8")).not.toContain(
-        "search_standards",
-      )
+      expect(fs.readFileSync(projectConfigFile(repo), "utf8")).not.toContain("search_standards")
     } finally {
       if (previousGlobal === undefined) {
         fs.rmSync(globalFile, { force: true })

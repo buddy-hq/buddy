@@ -279,8 +279,7 @@ function BuddyMediaTransport(props: {
       }
     } catch (playbackError) {
       pausePlayback(playbackKey)
-      const message =
-        playbackError instanceof Error ? playbackError.message : String(playbackError)
+      const message = playbackError instanceof Error ? playbackError.message : String(playbackError)
       setError(message)
       onStateChange?.({
         status: "error",
@@ -502,9 +501,7 @@ export function PresentedMediaPlayer(props: {
   onStateChange?: (state: PresentedMediaPlayerState) => void
 }) {
   const { item, playbackKey, fallback, compact, onOpen, shouldLoad, onStateChange } = props
-  const isLoaded = usePresentedMediaPlaybackStore((state) =>
-    state.loadedKeys.includes(playbackKey),
-  )
+  const isLoaded = usePresentedMediaPlaybackStore((state) => state.loadedKeys.includes(playbackKey))
   const ensureLoaded = usePresentedMediaPlaybackStore((state) => state.ensureLoaded)
   const isVideo = item.mediaKind === "video"
   const canPreview =

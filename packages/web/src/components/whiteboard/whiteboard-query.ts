@@ -39,8 +39,4 @@ function whiteboardSessionPeekQueryOptions(directory: string, sessionID: string)
   })
 }
 
-export {
-  whiteboardQueryKeys,
-  whiteboardSessionPeekQueryOptions,
-  whiteboardSessionQueryOptions,
-}
+export { whiteboardQueryKeys, whiteboardSessionPeekQueryOptions, whiteboardSessionQueryOptions }

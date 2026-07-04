@@ -57,7 +57,10 @@ import { HiddenStepsPlaceholder } from "./tools/hidden-steps/thinking-placeholde
 import { parseToolState } from "./tools/parse-tool-state"
 import { GroupedIngestFullTextToolCard } from "./tools/render/ingest-full-text"
 import { parseRenderFigureOutput, GroupedFigureToolCard } from "./tools/render/render-figure"
-import { parseRenderMermaidSources, GroupedMermaidToolCard } from "@/components/media/renderers/mermaid"
+import {
+  parseRenderMermaidSources,
+  GroupedMermaidToolCard,
+} from "@/components/media/renderers/mermaid"
 import { ToolExpansionStateProvider } from "./tools/basic-tool"
 import { toolDefaultOpen } from "./utils/constants"
 import { AssistantPartRenderer } from "./parts/assistant-part/assistant-part"

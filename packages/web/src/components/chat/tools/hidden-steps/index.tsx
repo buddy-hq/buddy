@@ -77,12 +77,7 @@ function HiddenStepsHeaderStatus(props: {
       transition={HEADER_STATUS_TRANSITION}
     >
       {props.icon ? <span className="shrink-0">{props.icon("h-3.5 w-3.5 shrink-0")}</span> : null}
-      <TextShimmer
-        text={props.title}
-        active={props.shimmer}
-        truncate
-        className="min-w-0 shrink"
-      />
+      <TextShimmer text={props.title} active={props.shimmer} truncate className="min-w-0 shrink" />
     </motion.span>
   )
 }

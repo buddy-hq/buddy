@@ -163,10 +163,7 @@ async function traceExtractResourcePack(sourcePath: string): Promise<void> {
   })
 }
 
-async function tracePhase<T>(
-  name: string,
-  run: () => Promise<T | TraceValue<T>>,
-): Promise<T> {
+async function tracePhase<T>(name: string, run: () => Promise<T | TraceValue<T>>): Promise<T> {
   const startedAt = performance.now()
   trace(`${name}:start`, memorySnapshot())
   const heartbeat = setInterval(() => {
@@ -217,12 +214,7 @@ function unwrapTraceValue<T>(value: T | TraceValue<T>): TraceValue<T> {
 }
 
 function isTraceValue<T>(value: T | TraceValue<T>): value is TraceValue<T> {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "value" in value &&
-    "summary" in value
-  )
+  return typeof value === "object" && value !== null && "value" in value && "summary" in value
 }
 
 function summarizePages(pages: ParsedPage[]): TraceSummary {

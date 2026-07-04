@@ -1,12 +1,20 @@
 import { EmptyDescription, EmptyHeader, EmptyTitle } from "@buddy/ui"
-import { BackgroundGradientAnimation, type GradientAnimationSpeed } from "./background-gradient-animation"
+import {
+  BackgroundGradientAnimation,
+  type GradientAnimationSpeed,
+} from "./background-gradient-animation"
 import type { MediaLoadingProps } from "./index"
 
 type GradientAnimationLoadingProps = MediaLoadingProps & {
   speed?: GradientAnimationSpeed
 }
 
-export function GradientAnimationLoading({ label, detail, className, speed }: GradientAnimationLoadingProps) {
+export function GradientAnimationLoading({
+  label,
+  detail,
+  className,
+  speed,
+}: GradientAnimationLoadingProps) {
   return (
     <>
       <BackgroundGradientAnimation className={className} speed={speed} />

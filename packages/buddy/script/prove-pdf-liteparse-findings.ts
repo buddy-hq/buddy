@@ -142,9 +142,7 @@ function assertExtractionResultHasOutlineMetadata(
     throw new Error(`${input.label} TOC did not include ${input.expectedTitle}.`)
   }
 
-  const hasChapterUnit = result.chunkUnits?.some(
-    (unit) => unit.unitKind === CHAPTER_UNIT_KIND,
-  )
+  const hasChapterUnit = result.chunkUnits?.some((unit) => unit.unitKind === CHAPTER_UNIT_KIND)
   if (!hasChapterUnit) {
     throw new Error(`${input.label} did not produce outline-backed chapter chunks.`)
   }
@@ -165,11 +163,7 @@ async function assertTargetedPdfLiteParseTestPasses(): Promise<void> {
 
   if (exitCode !== 0) {
     throw new Error(
-      [
-        `Command failed: ${TARGETED_TEST_COMMAND.join(" ")}`,
-        tail(stdout),
-        tail(stderr),
-      ]
+      [`Command failed: ${TARGETED_TEST_COMMAND.join(" ")}`, tail(stdout), tail(stderr)]
         .filter((part) => part.trim().length > 0)
         .join("\n"),
     )
@@ -226,10 +220,7 @@ async function pdfHasOutline(sourcePath: string): Promise<boolean> {
   }
 }
 
-async function withPdfExtractionMode<T>(
-  mode: string,
-  run: () => Promise<T>,
-): Promise<T> {
+async function withPdfExtractionMode<T>(mode: string, run: () => Promise<T>): Promise<T> {
   const previousMode = process.env[PDF_EXTRACTION_MODE_ENV]
   process.env[PDF_EXTRACTION_MODE_ENV] = mode
   try {
@@ -273,9 +264,7 @@ function buildPdf(objects: string[]): string {
     body += `${index + 1} 0 obj\n${object}\nendobj\n`
   }
   const xrefOffset = Buffer.byteLength(body)
-  const xref = offsets
-    .map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`)
-    .join("")
+  const xref = offsets.map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("")
   return `${body}xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${xref}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`
 }
 

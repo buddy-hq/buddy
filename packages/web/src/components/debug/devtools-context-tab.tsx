@@ -34,10 +34,7 @@ import {
   type DevToolsContextBreakdownKey,
 } from "./devtools-context-breakdown"
 import { createDevToolsContextFormatter } from "./devtools-context-format"
-import {
-  createDevToolsContextRows,
-  type DevToolsContextRow,
-} from "./devtools-context-rows"
+import { createDevToolsContextRows, type DevToolsContextRow } from "./devtools-context-rows"
 
 type DevToolsContextTabProps = {
   directory: string
@@ -580,9 +577,7 @@ export function DevToolsContextTab(props: DevToolsContextTabProps) {
                 {props.directory}
               </span>
               {loadError ? (
-                <span className="max-w-full truncate text-icon-critical-base">
-                  {loadError}
-                </span>
+                <span className="max-w-full truncate text-icon-critical-base">{loadError}</span>
               ) : null}
             </div>
             <Separator />

@@ -59,10 +59,7 @@ import {
   normalizeRelativePath,
 } from "@/lib/workspace-file-paths"
 import { parseSubagentSession } from "@/lib/session-family"
-import type {
-  RightWorkspaceOpenOutcome,
-  RightWorkspaceOpenRequest,
-} from "./right-workspace-open"
+import type { RightWorkspaceOpenOutcome, RightWorkspaceOpenRequest } from "./right-workspace-open"
 import {
   RightWorkspaceDrawerShell,
   RightWorkspaceListRow,
@@ -112,25 +109,18 @@ function titleCaseStatus(value: string): string {
 }
 
 function isNotebookSearchFilter(value: string): value is NotebookSearchFilter {
-  return (
-    value === "all" ||
-    NOTEBOOK_SEARCH_RESULT_KINDS.some((candidate) => candidate === value)
-  )
+  return value === "all" || NOTEBOOK_SEARCH_RESULT_KINDS.some((candidate) => candidate === value)
 }
 
 function searchFilterLabel(filter: NotebookSearchFilter): string {
   if (filter === "all") return "All types"
   return (
-    SEARCH_KIND_DEFINITIONS.find((definition) => definition.kind === filter)?.label ??
-    "All types"
+    SEARCH_KIND_DEFINITIONS.find((definition) => definition.kind === filter)?.label ?? "All types"
   )
 }
 
 function resultIcon(kind: NotebookSearchResultKind): ComponentType {
-  return (
-    SEARCH_KIND_DEFINITIONS.find((definition) => definition.kind === kind)?.icon ??
-    FileIcon
-  )
+  return SEARCH_KIND_DEFINITIONS.find((definition) => definition.kind === kind)?.icon ?? FileIcon
 }
 
 function resourcePath(record: {
@@ -332,12 +322,7 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
         : []
 
     return [...resourceResults, ...objectResults, ...threadResults, ...boardResults]
-  }, [
-    boardQuery.data,
-    objectsQuery.data?.objects,
-    props.sessions,
-    resourcesQuery.data,
-  ])
+  }, [boardQuery.data, objectsQuery.data?.objects, props.sessions, resourcesQuery.data])
 
   const processedResourcePaths = useMemo(() => {
     const paths = new Set<string>()
@@ -386,8 +371,7 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
     [localResults],
   )
   const isSearching =
-    canSearch &&
-    (remoteState.status !== "ready" || remoteState.query !== normalizedQuery)
+    canSearch && (remoteState.status !== "ready" || remoteState.query !== normalizedQuery)
   const remoteData =
     remoteState.status === "ready" && remoteState.query === normalizedQuery
       ? remoteState.data
@@ -502,9 +486,7 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
             <p className="text-xs text-text-weaker" aria-live="polite">
               {isSearching
                 ? "Searching…"
-                : `${visibleResults.length} ${
-                    visibleResults.length === 1 ? "result" : "results"
-                  }`}
+                : `${visibleResults.length} ${visibleResults.length === 1 ? "result" : "results"}`}
             </p>
           </div>
         ) : undefined

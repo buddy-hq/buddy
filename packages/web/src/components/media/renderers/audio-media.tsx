@@ -1,29 +1,21 @@
-import { cn } from "@buddy/ui";
-import { MediaActions } from "../media-action-bar";
-import { VisualMediaFrame } from "../visual-media-frame";
-import { VisualMediaState } from "../visual-media-state";
-import {
-  mediaStateData,
-  type AudioMediaItem,
-  type MediaRendererProps,
-} from "../types";
-import { FileMediaRenderer } from "./file-media";
-import { useKeyedMediaState } from "../use-keyed-media-state";
-import {
-  PresentedMediaPlayer,
-  type PresentedMediaPlayerState,
-} from "./presented-media-player";
-import { effectivePresentedPlaybackState } from "./presented-playback-state";
+import { cn } from "@buddy/ui"
+import { MediaActions } from "../media-action-bar"
+import { VisualMediaFrame } from "../visual-media-frame"
+import { VisualMediaState } from "../visual-media-state"
+import { mediaStateData, type AudioMediaItem, type MediaRendererProps } from "../types"
+import { FileMediaRenderer } from "./file-media"
+import { useKeyedMediaState } from "../use-keyed-media-state"
+import { PresentedMediaPlayer, type PresentedMediaPlayerState } from "./presented-media-player"
+import { effectivePresentedPlaybackState } from "./presented-playback-state"
 
 export function AudioMediaRenderer(props: MediaRendererProps<AudioMediaItem>) {
-  const data = mediaStateData(props.item.state);
+  const data = mediaStateData(props.item.state)
   const playerKey = data
     ? JSON.stringify([data.playbackKey, data.item.rawUrl, data.shouldLoad])
-    : undefined;
-  const [playerState, setPlayerState] =
-    useKeyedMediaState<PresentedMediaPlayerState>(playerKey, {
-      status: data?.shouldLoad ? "loading" : "deferred",
-    });
+    : undefined
+  const [playerState, setPlayerState] = useKeyedMediaState<PresentedMediaPlayerState>(playerKey, {
+    status: data?.shouldLoad ? "loading" : "deferred",
+  })
 
   if (props.item.state.status !== "ready" || !data) {
     return (
@@ -35,18 +27,13 @@ export function AudioMediaRenderer(props: MediaRendererProps<AudioMediaItem>) {
       >
         {null}
       </VisualMediaFrame>
-    );
+    )
   }
 
-  const state = effectivePresentedPlaybackState(props.item.state, playerState);
+  const state = effectivePresentedPlaybackState(props.item.state, playerState)
 
   return (
-    <div
-      className={cn(
-        "relative w-full overflow-hidden rounded-xl",
-        props.className,
-      )}
-    >
+    <div className={cn("relative w-full overflow-hidden rounded-xl", props.className)}>
       <PresentedMediaPlayer
         item={data.item}
         playbackKey={data.playbackKey}
@@ -68,5 +55,5 @@ export function AudioMediaRenderer(props: MediaRendererProps<AudioMediaItem>) {
         </div>
       ) : null}
     </div>
-  );
+  )
 }

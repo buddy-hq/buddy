@@ -28,10 +28,7 @@ describe("keyed media state", () => {
     const setters = new Map<string, (state: LoadState) => void>()
 
     function Probe(props: { resourceKey: string }) {
-      const [state, setState] = useKeyedMediaState<LoadState>(
-        props.resourceKey,
-        "loading",
-      )
+      const [state, setState] = useKeyedMediaState<LoadState>(props.resourceKey, "loading")
       setters.set(props.resourceKey, setState)
       return <div data-state={state}>{props.resourceKey}</div>
     }

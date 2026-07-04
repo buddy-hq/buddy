@@ -5,10 +5,7 @@ import { defineConfig } from "electron-vite"
 import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
-import {
-  BUDDY_CHANNEL_ENV,
-  readBuddyReleaseChannel,
-} from "@buddy/script/channel"
+import { BUDDY_CHANNEL_ENV, readBuddyReleaseChannel } from "@buddy/script/channel"
 import {
   LITEPARSE_PACKAGE_NAME,
   currentBackendNodeArtifactTarget,

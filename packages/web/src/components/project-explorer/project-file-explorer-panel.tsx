@@ -233,9 +233,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
             {childState.error ? (
               <p className="px-2 py-1 text-xs text-icon-critical-base">{childState.error}</p>
             ) : null}
-            {visiblyExpanded && childState.loaded
-              ? renderDirectory(node.path, depth + 1)
-              : null}
+            {visiblyExpanded && childState.loaded ? renderDirectory(node.path, depth + 1) : null}
           </div>
         )
       }
@@ -273,9 +271,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
             <h2 className="text-xs font-semibold text-text-base">
               {language.t("projectExplorer.explorer")}
             </h2>
-            <p className="truncate text-xs text-text-weak">
-              {language.t("projectExplorer.files")}
-            </p>
+            <p className="truncate text-xs text-text-weak">{language.t("projectExplorer.files")}</p>
           </div>
           <Button
             type="button"

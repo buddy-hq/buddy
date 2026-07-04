@@ -72,27 +72,13 @@ function ResourceCoverContent({
 
   if (objectUrl) {
     return (
-      <img
-        src={objectUrl}
-        alt={thumbnail ? "" : displayName}
-        className="size-full object-cover"
-      />
+      <img src={objectUrl} alt={thumbnail ? "" : displayName} className="size-full object-cover" />
     )
   }
 
   return (
-    <div
-      className={cn(
-        RESOURCE_COVER_PLACEHOLDER_CLASS,
-        thumbnail && "gap-1 px-1",
-      )}
-    >
-      <div
-        className={cn(
-          RESOURCE_COVER_ICON_FRAME_CLASS,
-          thumbnail && "mb-0 size-6 rounded-md",
-        )}
-      >
+    <div className={cn(RESOURCE_COVER_PLACEHOLDER_CLASS, thumbnail && "gap-1 px-1")}>
+      <div className={cn(RESOURCE_COVER_ICON_FRAME_CLASS, thumbnail && "mb-0 size-6 rounded-md")}>
         <FileTextIcon className={cn("size-6 text-text-weaker", thumbnail && "size-3.5")} />
       </div>
       <span className={cn(RESOURCE_COVER_EXTENSION_CLASS, thumbnail && "mb-0 text-[8px]")}>

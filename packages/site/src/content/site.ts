@@ -186,8 +186,7 @@ export const content = {
       {
         tag: "QUIZ",
         title: "Test yourself, with Quizzes.",
-        subtext:
-          "Ask Buddy to generate a quiz on any resource, book or topic you are studying.",
+        subtext: "Ask Buddy to generate a quiz on any resource, book or topic you are studying.",
       },
       {
         tag: "REMEMBER",
@@ -215,31 +214,31 @@ export const content = {
         tag: "ALIGN",
         title: "Align content to standards or books.",
         subtext:
-          "Buddy comes with built-in CCSS standards, NGSS standards, and standards for all U.S. states. For Indian teachers, it can download NCERT and state board books, DIKSHA resources, and any public resource published on GOI websites."
+          "Buddy comes with built-in CCSS standards, NGSS standards, and standards for all U.S. states. For Indian teachers, it can download NCERT and state board books, DIKSHA resources, and any public resource published on GOI websites.",
       },
       {
         tag: "PLAN",
         title: "Plan with any learning framework.",
         subtext:
-          "Buddy can align your content to Bloom levels, DOK levels, or Piaget's stages. It can sequence your lessons using instruction models. It can also help you with materials for project-based learning, SEL, scaffolding, and formative and summative assessment."
+          "Buddy can align your content to Bloom levels, DOK levels, or Piaget's stages. It can sequence your lessons using instruction models. It can also help you with materials for project-based learning, SEL, scaffolding, and formative and summative assessment.",
       },
       {
         tag: "CREATE",
         title: "Create docs, presentations, or sheets.",
         subtext:
-          "Buddy can create worksheets or lesson plans for your students. And it can create reports, presentations, or spreadsheets for your peers. All ready to export."
+          "Buddy can create worksheets or lesson plans for your students. And it can create reports, presentations, or spreadsheets for your peers. All ready to export.",
       },
       {
         tag: "RESEARCH",
         title: "Research around your material.",
         subtext:
-          "Upload your PDFs, ebooks, documents, or web links. Buddy can parse them, understand them, and answer any questions about them. Buddy has a built-in ebook reader, whiteboarding area, and source system to make your research easier."
+          "Upload your PDFs, ebooks, documents, or web links. Buddy can parse them, understand them, and answer any questions about them. Buddy has a built-in ebook reader, whiteboarding area, and source system to make your research easier.",
       },
       {
         tag: "BUILD",
         title: "Build interactive experiences.",
         subtext:
-          "Buddy can create apps, games, and websites for you. You can ask Buddy to publish them and then share them with your students or peers. With Buddy, every teacher is a builder."
+          "Buddy can create apps, games, and websites for you. You can ask Buddy to publish them and then share them with your students or peers. With Buddy, every teacher is a builder.",
       },
     ] as const,
     philosophy: educatorsPhilosophy,

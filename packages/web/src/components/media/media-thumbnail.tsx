@@ -1,10 +1,5 @@
 import { Skeleton, cn } from "@buddy/ui"
-import {
-  AppWindowIcon,
-  FileIcon,
-  Music2Icon,
-  PlayIcon,
-} from "lucide-react"
+import { AppWindowIcon, FileIcon, Music2Icon, PlayIcon } from "lucide-react"
 import type { MediaItem } from "./types"
 import { MermaidThumbnail } from "./renderers/mermaid-thumbnail"
 

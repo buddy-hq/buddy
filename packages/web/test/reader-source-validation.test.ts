@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import {
-  inspectReaderSourceBytes,
-  readerSourceFormatFromPath,
-} from "@buddy/workspace-file-policy"
+import { inspectReaderSourceBytes, readerSourceFormatFromPath } from "@buddy/workspace-file-policy"
 
 const encoder = new TextEncoder()
 

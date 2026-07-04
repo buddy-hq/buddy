@@ -102,11 +102,7 @@ function MediaMenu(props: { action: Extract<MediaAction, { kind: "menu" }>; mini
             }
             const ItemIcon = item.icon
             return (
-              <DropdownMenuItem
-                key={item.id}
-                disabled={item.disabled}
-                onSelect={item.onSelect}
-              >
+              <DropdownMenuItem key={item.id} disabled={item.disabled} onSelect={item.onSelect}>
                 {ItemIcon ? (
                   <ItemIcon className={item.loading ? "animate-spin" : undefined} aria-hidden />
                 ) : null}

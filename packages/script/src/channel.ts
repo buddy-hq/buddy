@@ -30,7 +30,9 @@ export function resolveBuddyReleaseChannel(input: {
   fallback?: BuddyReleaseChannel
   raw: string | undefined
 }): BuddyReleaseChannel {
-  return isBuddyReleaseChannel(input.raw) ? input.raw : (input.fallback ?? BUDDY_DEFAULT_DEV_CHANNEL)
+  return isBuddyReleaseChannel(input.raw)
+    ? input.raw
+    : (input.fallback ?? BUDDY_DEFAULT_DEV_CHANNEL)
 }
 
 export function readBuddyReleaseChannel(

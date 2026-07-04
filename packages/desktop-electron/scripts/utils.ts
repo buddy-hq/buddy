@@ -6,10 +6,7 @@ import {
   syncBundledMigrations,
   syncBundledTessdataAssets,
 } from "../../../script/desktop-runtime-resources"
-import {
-  type BuddyReleaseChannel,
-  readBuddyReleaseChannel,
-} from "@buddy/script/channel"
+import { type BuddyReleaseChannel, readBuddyReleaseChannel } from "@buddy/script/channel"
 import { BUDDY_ENV, RUNTIME_ROOT_SEGMENTS, XDG_ENV } from "@buddy/script/storage-env"
 
 export type Channel = BuddyReleaseChannel

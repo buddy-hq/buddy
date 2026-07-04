@@ -68,16 +68,13 @@ function DevToolsTranscriptJumpRow({ jump }: { jump: TranscriptGeometryJump }) {
       <div className="mt-2 grid gap-1 text-[11px] text-text-weak">
         <p>
           shell:{" "}
-          <span className="font-medium text-text-base">
-            {shell?.shellKind ?? "not in DOM"}
-          </span>
+          <span className="font-medium text-text-base">{shell?.shellKind ?? "not in DOM"}</span>
           {shell ? ` · measured DOM ${formatPx(shell.rowHeight)}` : ""}
         </p>
         <p>
           recent: mount {jump.recentMount ? "yes" : "no"} · unmount{" "}
-          {jump.recentUnmount ? "yes" : "no"} · asset{" "}
-          {formatInlineAsset(jump.recentInlineAsset)} · ignored{" "}
-          {jump.ignored ? "yes" : "no"}
+          {jump.recentUnmount ? "yes" : "no"} · asset {formatInlineAsset(jump.recentInlineAsset)} ·
+          ignored {jump.ignored ? "yes" : "no"}
         </p>
         {shell?.textPreview ? (
           <p className="line-clamp-2 text-text-weaker" title={shell.textPreview}>
@@ -221,8 +218,8 @@ export function DevToolsTranscriptTab() {
               {formatCount(report.jumpCount)}
             </p>
             <p>
-              The copied report is pure event data: row deltas, recent lifecycle events,
-              inline asset readiness, and the DOM shell present when the row was measured.
+              The copied report is pure event data: row deltas, recent lifecycle events, inline
+              asset readiness, and the DOM shell present when the row was measured.
             </p>
           </CardContent>
         </Card>
@@ -250,9 +247,7 @@ export function DevToolsTranscriptTab() {
               No transcript row activity recorded yet.
             </p>
           ) : (
-            report.topRows.map((row) => (
-              <DevToolsTranscriptRowSummary key={row.rowKey} row={row} />
-            ))
+            report.topRows.map((row) => <DevToolsTranscriptRowSummary key={row.rowKey} row={row} />)
           )}
         </div>
       </div>

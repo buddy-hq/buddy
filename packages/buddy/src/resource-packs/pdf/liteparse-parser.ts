@@ -36,9 +36,7 @@ export async function parsePdfPagesWithLiteParse(
   sourcePath: string,
   options: LiteParsePdfParseOptions,
 ): Promise<ParsedPage[]> {
-  const tessdataPath = options.ocrEnabled
-    ? await resolveLiteParseTessdataDirectory()
-    : undefined
+  const tessdataPath = options.ocrEnabled ? await resolveLiteParseTessdataDirectory() : undefined
   const { LiteParse } = await import("@llamaindex/liteparse")
   const parser = new LiteParse({
     imageMode: "off",
@@ -68,9 +66,7 @@ export async function analyzePdfComplexityWithLiteParse(
   return await parser.isComplex(sourcePath)
 }
 
-export function buildLiteParsePdfExtraction(
-  pages: ParsedPage[],
-): LiteParsePdfExtraction {
+export function buildLiteParsePdfExtraction(pages: ParsedPage[]): LiteParsePdfExtraction {
   const pageTexts = normalizePageTexts(pages)
   const extractedCharacters = pageTexts.reduce(
     (total, pageText) => total + pageText.replace(/\s+/g, "").length,
@@ -85,9 +81,7 @@ export function buildLiteParsePdfExtraction(
     extractor: LITEPARSE_EXTRACTOR,
     pageTexts,
     warnings:
-      emptyPageCount > 0
-        ? [`LiteParse returned ${emptyPageCount} PDF page(s) without text.`]
-        : [],
+      emptyPageCount > 0 ? [`LiteParse returned ${emptyPageCount} PDF page(s) without text.`] : [],
   }
 }
 
@@ -137,11 +131,7 @@ export async function resolveLiteParseTessdataDirectory(): Promise<string> {
 function normalizePageTexts(pages: ParsedPage[]): string[] {
   const orderedPages = pages.toSorted((left, right) => left.pageNum - right.pageNum)
   const lastPageNumber = orderedPages.at(-1)?.pageNum
-  if (
-    lastPageNumber === undefined ||
-    !Number.isInteger(lastPageNumber) ||
-    lastPageNumber < 1
-  ) {
+  if (lastPageNumber === undefined || !Number.isInteger(lastPageNumber) || lastPageNumber < 1) {
     return []
   }
 

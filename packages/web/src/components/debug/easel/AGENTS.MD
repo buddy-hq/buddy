@@ -1,0 +1,4 @@
+- Easel is surface agents can use to quickly show a mock/low fidelity prototype to the user before moving on to the actual design. 
+- Agents can create modular a single file component for the current task and then use the easel tab to show it to the user. 
+- Start with a lowest possible fidelity prototype that serves the current user need - like deciding on visual hierarchy, component strucure, UI, UX.
+- store your work in easel folder and use the component in easel tab.

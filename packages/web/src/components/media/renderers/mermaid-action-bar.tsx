@@ -1,10 +1,4 @@
-import {
-  CheckIcon,
-  CopyIcon,
-  DownloadIcon,
-  ExpandIcon,
-  TargetIcon,
-} from "@buddy/ui"
+import { CheckIcon, CopyIcon, DownloadIcon, ExpandIcon, TargetIcon } from "@buddy/ui"
 import { useCallback, useEffect, useRef, useState, memo } from "react"
 import {
   MediaActionBar,

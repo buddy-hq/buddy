@@ -45,11 +45,7 @@ import type { ResourceOpenOptions } from "@/state/resources-query"
 import { BENCH_ROUTE_STATUS_OPEN, type DrawerKind } from "@/state/directory-workspace-store"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import type { WorkspacePresentation } from "@/lib/directory-chat/workspace-presentation"
-import {
-  CreationsDrawer,
-  PracticeDrawer,
-  SourcesDrawer,
-} from "./right-workspace-catalog-drawers"
+import { CreationsDrawer, PracticeDrawer, SourcesDrawer } from "./right-workspace-catalog-drawers"
 import { RightWorkspaceBoardsDrawer } from "./right-workspace-boards-drawer"
 import { RightWorkspaceDrawerShell } from "./right-workspace-drawer-ui"
 import { RightWorkspaceSearchDrawer } from "./right-workspace-search-drawer"

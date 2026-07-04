@@ -19,11 +19,7 @@ import {
   isPresentedMediaOutsideNotebook,
 } from "@/lib/presented-media"
 import { resolveAssetUrl } from "@/lib/resource-url"
-import {
-  BENCH_MODE_REQUEST_POLICY,
-  useOpenBench,
-  type BenchTarget,
-} from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench, type BenchTarget } from "@/lib/bench-navigation"
 import {
   useWorkspaceFileOpen,
   type WorkspaceFileActionInput,
@@ -138,14 +134,8 @@ function usePresentedFileMediaModel(props: {
   resourceProcessingReady: boolean
   onProcessResource?: (resource: ResourceListItem | undefined, path: string) => Promise<void>
 }): PresentedFileMediaModel {
-  const {
-    directory,
-    item,
-    onOpenResource,
-    onProcessResource,
-    resource,
-    resourceProcessingReady,
-  } = props
+  const { directory, item, onOpenResource, onProcessResource, resource, resourceProcessingReady } =
+    props
   const platform = usePlatform()
   const [processing, setProcessing] = useState(false)
   const { resolvePlan, executeTarget, executePrimary } = useWorkspaceFileOpen(
@@ -260,10 +250,7 @@ function usePresentedFileMediaModel(props: {
             {
               id: "process-resource",
               label: processLabel,
-              icon:
-                processing || resource?.status === "preparing"
-                  ? Loader2Icon
-                  : RefreshCwIcon,
+              icon: processing || resource?.status === "preparing" ? Loader2Icon : RefreshCwIcon,
               disabled: processing || resource?.status === "preparing",
               loading: processing || resource?.status === "preparing",
               onSelect: processResource,
@@ -479,13 +466,7 @@ function PresentedPlaybackCollection(
 
   if (props.items.length === 1) {
     const item = props.items[0]
-    return item ? (
-      <PresentedPlaybackMedia
-        {...props}
-        item={item}
-        shouldLoad
-      />
-    ) : null
+    return item ? <PresentedPlaybackMedia {...props} item={item} shouldLoad /> : null
   }
 
   return (
@@ -567,11 +548,10 @@ export function PresentedMediaContent(props: PresentedMediaContentProps) {
   const videos = props.items.filter((item) => item.mediaKind === "video")
   const audios = props.items.filter((item) => item.mediaKind === "audio")
   const files = props.items.filter(
-    (item) => item.mediaKind !== "image" && item.mediaKind !== "audio" && item.mediaKind !== "video",
+    (item) =>
+      item.mediaKind !== "image" && item.mediaKind !== "audio" && item.mediaKind !== "video",
   )
-  const hasWorkspacePdf = props.items.some(
-    (item) => item.mediaKind === "pdf" && item.workspacePath,
-  )
+  const hasWorkspacePdf = props.items.some((item) => item.mediaKind === "pdf" && item.workspacePath)
   const resourcesQuery = useQuery({
     ...resourcesQueryOptions(props.directory),
     enabled: hasWorkspacePdf,

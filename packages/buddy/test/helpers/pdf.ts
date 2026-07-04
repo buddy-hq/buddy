@@ -8,10 +8,7 @@ export function createTestPdf(): string {
 }
 
 export function createTextPdf(text: string): string {
-  const escapedText = text
-    .replaceAll("\\", "\\\\")
-    .replaceAll("(", "\\(")
-    .replaceAll(")", "\\)")
+  const escapedText = text.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)")
   const content = `BT\n/F1 24 Tf\n72 720 Td\n(${escapedText}) Tj\nET`
   return buildPdf([
     "<< /Type /Catalog /Pages 2 0 R >>",
@@ -30,8 +27,6 @@ function buildPdf(objects: string[]): string {
     body += `${index + 1} 0 obj\n${object}\nendobj\n`
   }
   const xrefOffset = Buffer.byteLength(body)
-  const xref = offsets
-    .map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`)
-    .join("")
+  const xref = offsets.map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("")
   return `${body}xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${xref}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`
 }

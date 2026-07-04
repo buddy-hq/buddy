@@ -1,11 +1,5 @@
 import { promises as fs } from "node:fs"
-import {
-  BlobReader,
-  TextWriter,
-  ZipReader,
-  type Entry,
-  type FileEntry,
-} from "@zip.js/zip.js"
+import { BlobReader, TextWriter, ZipReader, type Entry, type FileEntry } from "@zip.js/zip.js"
 import {
   inspectReaderSourceBytes,
   readerSourceFormatFromPath,
@@ -70,7 +64,10 @@ async function readFileSegment(input: {
   }
 }
 
-function parsePdfStartXrefOffset(input: { tailText: string; startXrefIndex: number }): number | null {
+function parsePdfStartXrefOffset(input: {
+  tailText: string
+  startXrefIndex: number
+}): number | null {
   const offsetText = input.tailText.slice(input.startXrefIndex + PDF_STARTXREF_MARKER.length)
   const match = /^\s*(\d+)/u.exec(offsetText)
   if (!match) return null
@@ -85,7 +82,10 @@ function xrefProbeLooksValid(bytes: Uint8Array): boolean {
   return trimmed.startsWith(PDF_XREF_TABLE_MARKER) || PDF_XREF_STREAM_PATTERN.test(text)
 }
 
-async function probePdf(input: { filepath: string; size: number }): Promise<ReaderSourceValidation> {
+async function probePdf(input: {
+  filepath: string
+  size: number
+}): Promise<ReaderSourceValidation> {
   const tailLength = Math.min(PDF_TAIL_PROBE_BYTES, input.size)
   const tailPosition = Math.max(0, input.size - tailLength)
   try {

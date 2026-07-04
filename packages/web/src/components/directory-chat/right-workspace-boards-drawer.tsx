@@ -13,10 +13,7 @@ import { whiteboardSessionPeekQueryOptions } from "@/components/whiteboard/white
 import { stringifyError } from "@/lib/api-client"
 import { createBenchObjectTarget } from "@/components/layout/chat-left-sidebar/library-object-selectors"
 import { relativeTime } from "@/components/layout/sidebar-helpers"
-import type {
-  RightWorkspaceOpenOutcome,
-  RightWorkspaceOpenRequest,
-} from "./right-workspace-open"
+import type { RightWorkspaceOpenOutcome, RightWorkspaceOpenRequest } from "./right-workspace-open"
 import {
   RightWorkspaceDrawerShell,
   RightWorkspaceListRow,

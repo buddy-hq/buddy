@@ -239,11 +239,7 @@ export {
 
 // Experimental — ported from shadcn radix-nova, restyled to Buddy tokens.
 // Requires shadcn-utilities.css (scroll-fade, shimmer) imported in index.css.
-export {
-  Marker,
-  MarkerIcon,
-  MarkerContent,
-} from "./components/experimental/marker"
+export { Marker, MarkerIcon, MarkerContent } from "./components/experimental/marker"
 export {
   MessageGroup,
   Message,

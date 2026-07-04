@@ -1,5 +1,1 @@
-export type MediaLoadingVariant =
-  | "skeleton"
-  | "space-time"
-  | "dotted-glow"
-  | "gradient-animation"
+export type MediaLoadingVariant = "skeleton" | "space-time" | "dotted-glow" | "gradient-animation"

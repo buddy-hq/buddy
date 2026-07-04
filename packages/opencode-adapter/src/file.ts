@@ -169,10 +169,7 @@ function normalizeSearchValue(value: string): string {
   return value.trim().toLocaleLowerCase()
 }
 
-export function scoreNotebookFileSearchPath(
-  query: string,
-  filePath: string,
-): number | undefined {
+export function scoreNotebookFileSearchPath(query: string, filePath: string): number | undefined {
   const normalizedQuery = normalizeSearchValue(query)
   if (!normalizedQuery) return undefined
 
@@ -288,23 +285,26 @@ export namespace File {
         })
         .pipe(
           Stream.take(scanLimit + 1),
-          Stream.runFold(() => initial, (state, filePath) => {
-            if (state.scanned >= scanLimit) {
+          Stream.runFold(
+            () => initial,
+            (state, filePath) => {
+              if (state.scanned >= scanLimit) {
+                return {
+                  scanned: state.scanned + 1,
+                  ranked: state.ranked,
+                }
+              }
               return {
                 scanned: state.scanned + 1,
-                ranked: state.ranked,
+                ranked: retainRankedFileSearchPath({
+                  ranked: state.ranked,
+                  query,
+                  filePath,
+                  limit,
+                }),
               }
-            }
-            return {
-              scanned: state.scanned + 1,
-              ranked: retainRankedFileSearchPath({
-                ranked: state.ranked,
-                query,
-                filePath,
-                limit,
-              }),
-            }
-          }),
+            },
+          ),
           Effect.scoped,
         ),
     )

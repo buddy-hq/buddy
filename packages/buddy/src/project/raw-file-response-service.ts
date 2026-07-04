@@ -266,12 +266,9 @@ async function readRawFileResponse(input: {
   }
 
   if (rangeResolution.kind === "full") {
-    return new Response(
-      input.includeBody ? createRawFileStream(fileRecord, input.signal) : null,
-      {
-        headers: baseHeaders,
-      },
-    )
+    return new Response(input.includeBody ? createRawFileStream(fileRecord, input.signal) : null, {
+      headers: baseHeaders,
+    })
   }
 
   const { start, end } = rangeResolution.range

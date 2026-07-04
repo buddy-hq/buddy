@@ -53,11 +53,7 @@ import { stringifyError } from "@/lib/api-client"
 import { getFlashcardDueCount } from "@/lib/flashcard"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { pickResourceFilePath } from "@/lib/resource-file-picker"
-import {
-  addResource,
-  rebuildResource,
-  removeResource,
-} from "@/state/resource-actions"
+import { addResource, rebuildResource, removeResource } from "@/state/resource-actions"
 import { useChatStore } from "@/state/chat-store"
 import {
   invalidateResourcesQueries,
@@ -78,10 +74,7 @@ import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-dia
 import { HtmlWidgetFrame } from "@/components/media/renderers/html-widget-frame"
 import { ResourceCover } from "@/components/resources/resource-cover"
 import { relativeTime } from "@/components/layout/sidebar-helpers"
-import {
-  resolveHtmlWidgetViewport,
-  type HtmlWidgetPresentation,
-} from "@/lib/html-widgets"
+import { resolveHtmlWidgetViewport, type HtmlWidgetPresentation } from "@/lib/html-widgets"
 import {
   MEDIA_LIBRARY_KINDS,
   createBenchObjectTarget,
@@ -284,7 +277,10 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
   const visibleResources = useMemo(
     () =>
       resources.filter((resource) =>
-        includesSearch(`${resource.title ?? ""} ${resource.name} ${resource.extension}`, normalizedSearch),
+        includesSearch(
+          `${resource.title ?? ""} ${resource.name} ${resource.extension}`,
+          normalizedSearch,
+        ),
       ),
     [normalizedSearch, resources],
   )
@@ -367,10 +363,7 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
     }
   }
 
-  function openResource(
-    resource: RightWorkspaceResourceTarget,
-    options?: ResourceOpenOptions,
-  ) {
+  function openResource(resource: RightWorkspaceResourceTarget, options?: ResourceOpenOptions) {
     void props.onOpen({
       type: "resource",
       directory: props.directory,
@@ -386,7 +379,9 @@ export function SourcesDrawer(props: CatalogDrawerProps) {
       searchValue={search}
       scrollRef={setScrollElement}
       action={{
-        label: isAdding ? language.t("sidebar.resourcesPreparing") : language.t("sidebar.resourcesAdd"),
+        label: isAdding
+          ? language.t("sidebar.resourcesPreparing")
+          : language.t("sidebar.resourcesAdd"),
         icon: isAdding ? Loader2Icon : PlusIcon,
         busy: isAdding,
         onClick: () => void addFromPicker(),
@@ -650,8 +645,7 @@ export function PracticeDrawer(props: CatalogDrawerProps) {
     if (!query.data) return false
     return getFlashcardDueCount(getFlashcardDeckObjectSummary(query.data).dueCounts) > 0
   })
-  const firstReviewDeck =
-    firstDueDeckIndex >= 0 ? flashcards[firstDueDeckIndex] : undefined
+  const firstReviewDeck = firstDueDeckIndex >= 0 ? flashcards[firstDueDeckIndex] : undefined
   const normalizedSearch = normalizeSearch(search)
   const items = useMemo(() => {
     const combined: PracticeFeedItem[] = [
@@ -786,9 +780,7 @@ function creationIcon(item: CreationFeedItem) {
 function creationViewID(item: CreationFeedItem): string {
   if (item.kind === "widgets") return HTML_WIDGET_RUNTIME_VIEW_ID
   if (item.kind === "diagrams") return RENDERED_OBJECT_VIEW_ID
-  return item.object.kind === "media-presentation"
-    ? MEDIA_GALLERY_VIEW_ID
-    : RENDERED_OBJECT_VIEW_ID
+  return item.object.kind === "media-presentation" ? MEDIA_GALLERY_VIEW_ID : RENDERED_OBJECT_VIEW_ID
 }
 
 function CreationPreviewVisual(props: { directory: string; item: CreationFeedItem }) {
@@ -906,11 +898,7 @@ function MediaCreationPreview(props: { directory: string; object: MediaLibraryOb
   }
 
   return (
-    <img
-      src={src}
-      alt=""
-      className="pointer-events-none h-full w-full rounded-md object-contain"
-    />
+    <img src={src} alt="" className="pointer-events-none h-full w-full rounded-md object-contain" />
   )
 }
 
@@ -1147,7 +1135,11 @@ export function CreationsDrawer(props: CreationsDrawerProps) {
       {!objectsQuery.isPending && !objectsQuery.error && items.length === 0 ? (
         <EmptyInventory
           icon={ShapesIcon}
-          title={widgets.length + diagrams.length + media.length === 0 ? "No creations yet" : "No matches"}
+          title={
+            widgets.length + diagrams.length + media.length === 0
+              ? "No creations yet"
+              : "No matches"
+          }
           description={
             widgets.length + diagrams.length + media.length === 0
               ? "Widgets, diagrams, figures, and media created with Buddy appear here."

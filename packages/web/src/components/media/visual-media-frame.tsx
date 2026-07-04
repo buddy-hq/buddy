@@ -1,40 +1,38 @@
-import type { CSSProperties, ReactNode } from "react";
-import { cn } from "@buddy/ui";
-import { MediaActions } from "./media-action-bar";
-import { VisualMediaState } from "./visual-media-state";
-import type { MediaAction, MediaState } from "./types";
+import type { CSSProperties, ReactNode } from "react"
+import { cn } from "@buddy/ui"
+import { MediaActions } from "./media-action-bar"
+import { VisualMediaState } from "./visual-media-state"
+import type { MediaAction, MediaState } from "./types"
 
 export function VisualMediaFrame<T>(props: {
-  state: MediaState<T>;
-  children: ReactNode;
-  actions?: MediaAction[];
-  chromeLabel?: ReactNode;
-  actionPosition?: "bottom" | "top";
-  className?: string;
-  style?: CSSProperties;
-  fit?: "content" | "fill";
+  state: MediaState<T>
+  children: ReactNode
+  actions?: MediaAction[]
+  chromeLabel?: ReactNode
+  actionPosition?: "bottom" | "top"
+  className?: string
+  style?: CSSProperties
+  fit?: "content" | "fill"
 }) {
   const readyActions =
-    props.state.status === "ready" &&
-    props.actions !== undefined &&
-    props.actions.length > 0
+    props.state.status === "ready" && props.actions !== undefined && props.actions.length > 0
       ? props.actions
-      : undefined;
-  const hasReadyActions = readyActions !== undefined;
+      : undefined
+  const hasReadyActions = readyActions !== undefined
   const hasReadyChromeLabel =
     props.state.status === "ready" &&
     props.chromeLabel !== undefined &&
     props.chromeLabel !== null &&
-    props.chromeLabel !== false;
+    props.chromeLabel !== false
   const showBottomChrome =
-    props.actionPosition !== "top" && (hasReadyActions || hasReadyChromeLabel);
+    props.actionPosition !== "top" && (hasReadyActions || hasReadyChromeLabel)
 
-  const fitContent = props.fit === "content";
+  const fitContent = props.fit === "content"
   const fitClass = fitContent
     ? props.state.status === "ready"
       ? "w-fit max-w-full rounded-xl mx-auto"
       : "w-full rounded-xl"
-    : "w-full rounded-xl border border-border-weaker-base bg-surface-base shadow-sm";
+    : "w-full rounded-xl border border-border-weaker-base bg-surface-base shadow-sm"
 
   return (
     <div
@@ -70,5 +68,5 @@ export function VisualMediaFrame<T>(props: {
         </div>
       ) : null}
     </div>
-  );
+  )
 }

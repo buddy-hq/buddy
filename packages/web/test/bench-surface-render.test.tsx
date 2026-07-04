@@ -468,9 +468,7 @@ describe("bench surface rendering", () => {
       await flushEffects()
     })
 
-    const surface = container.querySelector<HTMLElement>(
-      '[data-component="svg-bench-surface"]',
-    )
+    const surface = container.querySelector<HTMLElement>('[data-component="svg-bench-surface"]')
     expect(surface).not.toBeNull()
     expect(surface?.className).not.toContain("border")
     expect(surface?.className).not.toContain("bg-white")
@@ -512,9 +510,7 @@ describe("bench surface rendering", () => {
       ),
     ).toBeNull()
     expect(
-      container.querySelector(
-        '[data-component="bench-control-dock"] [data-action="copy-svg"]',
-      ),
+      container.querySelector('[data-component="bench-control-dock"] [data-action="copy-svg"]'),
     ).not.toBeNull()
     expect(
       container.querySelector(

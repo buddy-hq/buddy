@@ -263,11 +263,7 @@ function readRowTextPreview(root: Element) {
 }
 
 function classifyShell(snapshot: Omit<TranscriptRowShellSnapshot, "shellKind">) {
-  if (
-    snapshot.hasMermaidLoading ||
-    snapshot.hasMermaidDiagram ||
-    snapshot.hasMermaidError
-  ) {
+  if (snapshot.hasMermaidLoading || snapshot.hasMermaidDiagram || snapshot.hasMermaidError) {
     return TRANSCRIPT_ROW_SHELL_KIND.mermaid
   }
   if (snapshot.iframeCount > 0) return TRANSCRIPT_ROW_SHELL_KIND.htmlWidget
@@ -285,9 +281,7 @@ function readTranscriptRowShellSnapshot(
   rowKey: string | undefined,
 ): TranscriptRowShellSnapshot | undefined {
   if (rowKey === undefined || typeof document === "undefined") return undefined
-  const row = document.querySelector(
-    `[${TIMELINE_KEY_ATTRIBUTE}="${escapeTimelineKey(rowKey)}"]`,
-  )
+  const row = document.querySelector(`[${TIMELINE_KEY_ATTRIBUTE}="${escapeTimelineKey(rowKey)}"]`)
   if (!(row instanceof HTMLElement)) return undefined
   const rect = row.getBoundingClientRect()
   const videoCount = countSelector(row, VIDEO_SELECTOR)
@@ -520,11 +514,9 @@ export function createTranscriptGeometryReport(
       ignored: event.ignored ?? false,
       shell: event.shell,
       recentMount:
-        findRecentRowEvent(events, event.rowKey, "visible-row-mount", event.at) !==
-        undefined,
+        findRecentRowEvent(events, event.rowKey, "visible-row-mount", event.at) !== undefined,
       recentUnmount:
-        findRecentRowEvent(events, event.rowKey, "visible-row-unmount", event.at) !==
-        undefined,
+        findRecentRowEvent(events, event.rowKey, "visible-row-unmount", event.at) !== undefined,
       recentInlineAsset: findRecentInlineAssetEvent(events, event.rowKey, event.at),
     })
   }
@@ -532,10 +524,7 @@ export function createTranscriptGeometryReport(
   const topRows = [...rows.values()]
     .filter(
       (row) =>
-        row.sizeEvents > 0 ||
-        row.mounts > 0 ||
-        row.unmounts > 0 ||
-        row.inlineAssetEvents > 0,
+        row.sizeEvents > 0 || row.mounts > 0 || row.unmounts > 0 || row.inlineAssetEvents > 0,
     )
     .toSorted((first, second) => {
       const deltaDifference = second.maxAbsDeltaPx - first.maxAbsDeltaPx

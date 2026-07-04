@@ -4,10 +4,7 @@ import { createHash } from "node:crypto"
 import { appendFile, mkdir, readdir, readFile, rm, stat } from "node:fs/promises"
 import { homedir } from "node:os"
 import { resolve } from "node:path"
-import {
-  BUDDY_CHANNEL_ENV,
-  BUDDY_PACKAGED_FALLBACK_CHANNEL,
-} from "@buddy/script/channel"
+import { BUDDY_CHANNEL_ENV, BUDDY_PACKAGED_FALLBACK_CHANNEL } from "@buddy/script/channel"
 import desktopPackage from "../packages/desktop-electron/package.json"
 
 const BYTES_PER_MEBIBYTE = 1_024 * 1_024

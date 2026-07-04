@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState } from "react"
 import {
   cn,
   Dialog,
@@ -7,49 +7,41 @@ import {
   DialogHeader,
   DialogTitle,
   Skeleton,
-} from "@buddy/ui";
-import type { BenchTarget } from "@/lib/bench-navigation";
-import type { ReactNode } from "react";
-import { Media } from "./media";
-import { MediaThumbnail } from "./media-thumbnail";
-import { MultiViewShell } from "./multi-view-shell";
-import type { ImageMediaItem } from "./types";
+} from "@buddy/ui"
+import type { BenchTarget } from "@/lib/bench-navigation"
+import type { ReactNode } from "react"
+import { Media } from "./media"
+import { MediaThumbnail } from "./media-thumbnail"
+import { MultiViewShell } from "./multi-view-shell"
+import type { ImageMediaItem } from "./types"
 
-export const MEDIA_IMAGE_GALLERY_CONTENT_CLASS_NAME = "h-[30rem]";
+export const MEDIA_IMAGE_GALLERY_CONTENT_CLASS_NAME = "h-[30rem]"
 
 export type ToolImageGalleryItem = {
-  id: string;
-  src: string | null;
-  alt: string;
-  title: string;
-  caption?: string;
-  benchTarget?: BenchTarget;
-};
+  id: string
+  src: string | null
+  alt: string
+  title: string
+  caption?: string
+  benchTarget?: BenchTarget
+}
 
 type ToolImageGalleryProps = {
-  items: ToolImageGalleryItem[];
-  fallback?: ReactNode;
-  className?: string;
-  contentClassName?: string;
-  dialogDescription: string;
-  onOpenItem?: (item: ToolImageGalleryItem, index: number) => void;
-};
+  items: ToolImageGalleryItem[]
+  fallback?: ReactNode
+  className?: string
+  contentClassName?: string
+  dialogDescription: string
+  onOpenItem?: (item: ToolImageGalleryItem, index: number) => void
+}
 
 function GalleryImage(props: {
-  item: ToolImageGalleryItem;
-  className: string;
-  loadingClassName?: string;
+  item: ToolImageGalleryItem
+  className: string
+  loadingClassName?: string
 }) {
   if (!props.item.src) {
-    return (
-      <Skeleton
-        className={cn(
-          "rounded-[inherit]",
-          props.className,
-          props.loadingClassName,
-        )}
-      />
-    );
+    return <Skeleton className={cn("rounded-[inherit]", props.className, props.loadingClassName)} />
   }
 
   return (
@@ -59,7 +51,7 @@ function GalleryImage(props: {
       loading="lazy"
       className={cn("rounded-[inherit]", props.className)}
     />
-  );
+  )
 }
 
 function galleryMediaItem(item: ToolImageGalleryItem): ImageMediaItem {
@@ -69,7 +61,7 @@ function galleryMediaItem(item: ToolImageGalleryItem): ImageMediaItem {
       state: {
         status: "loading",
       },
-    };
+    }
   }
 
   return {
@@ -82,7 +74,7 @@ function galleryMediaItem(item: ToolImageGalleryItem): ImageMediaItem {
         caption: item.caption,
       },
     },
-  };
+  }
 }
 
 export function ToolImageGallery({
@@ -93,41 +85,37 @@ export function ToolImageGallery({
   dialogDescription,
   onOpenItem,
 }: ToolImageGalleryProps) {
-  const [open, setOpen] = useState(false);
-  const [idx, setIdx] = useState(0);
-  const current = items[idx] ?? items[0];
+  const [open, setOpen] = useState(false)
+  const [idx, setIdx] = useState(0)
+  const current = items[idx] ?? items[0]
 
   useEffect(() => {
-    if (!open || items.length <= 1) return;
+    if (!open || items.length <= 1) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        setIdx((currentIndex) => Math.max(currentIndex - 1, 0));
+        event.preventDefault()
+        setIdx((currentIndex) => Math.max(currentIndex - 1, 0))
       }
       if (event.key === "ArrowRight") {
-        event.preventDefault();
-        setIdx((currentIndex) => Math.min(currentIndex + 1, items.length - 1));
+        event.preventDefault()
+        setIdx((currentIndex) => Math.min(currentIndex + 1, items.length - 1))
       }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [items.length, open]);
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [items.length, open])
 
   if (items.length === 0) {
-    return fallback ? (
-      <div className="w-full max-w-full overflow-hidden">{fallback}</div>
-    ) : null;
+    return fallback ? <div className="w-full max-w-full overflow-hidden">{fallback}</div> : null
   }
 
   return (
     <>
       <MultiViewShell
         className={className}
-        contentClassName={
-          contentClassName ?? MEDIA_IMAGE_GALLERY_CONTENT_CLASS_NAME
-        }
+        contentClassName={contentClassName ?? MEDIA_IMAGE_GALLERY_CONTENT_CLASS_NAME}
         items={items.map((item, index) => {
-          const mediaItem = galleryMediaItem(item);
+          const mediaItem = galleryMediaItem(item)
           return {
             key: item.id,
             thumbnail: <MediaThumbnail item={mediaItem} />,
@@ -137,22 +125,20 @@ export function ToolImageGallery({
                 fit="content"
                 className={MEDIA_IMAGE_GALLERY_CONTENT_CLASS_NAME}
                 onOpen={() => {
-                  if (!item.src) return;
+                  if (!item.src) return
                   if (onOpenItem) {
-                    onOpenItem(item, index);
-                    return;
+                    onOpenItem(item, index)
+                    return
                   }
-                  setIdx(index);
-                  setOpen(true);
+                  setIdx(index)
+                  setOpen(true)
                 }}
               />
             ),
-          };
+          }
         })}
       />
-      {fallback ? (
-        <div className="mt-2 w-full max-w-full overflow-hidden">{fallback}</div>
-      ) : null}
+      {fallback ? <div className="mt-2 w-full max-w-full overflow-hidden">{fallback}</div> : null}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
@@ -172,12 +158,7 @@ export function ToolImageGallery({
               contentClassName="h-[60vh] md:h-[70vh] !bg-transparent !border-none"
               items={items.map((item) => ({
                 key: item.id,
-                thumbnail: (
-                  <GalleryImage
-                    item={item}
-                    className="h-full w-full object-cover"
-                  />
-                ),
+                thumbnail: <GalleryImage item={item} className="h-full w-full object-cover" />,
                 children: (
                   <div className="relative flex h-full w-full items-center justify-center">
                     <GalleryImage
@@ -198,5 +179,5 @@ export function ToolImageGallery({
         </DialogContent>
       </Dialog>
     </>
-  );
+  )
 }

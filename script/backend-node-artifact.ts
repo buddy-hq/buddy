@@ -2,11 +2,7 @@ import { existsSync, readdirSync } from "node:fs"
 import path from "node:path"
 
 const CHONKIE_WASM_RELATIVE_PATH = ["pkg", "chonkiejs_chunk_bg.wasm"] as const
-const ENGLISH_TESSDATA_RELATIVE_PATH = [
-  "resources",
-  "tessdata",
-  "eng.traineddata",
-] as const
+const ENGLISH_TESSDATA_RELATIVE_PATH = ["resources", "tessdata", "eng.traineddata"] as const
 const PHOTON_WASM_PATTERN = /^photon_rs_bg(?:-[a-z0-9]+)?\.wasm$/i
 const DIRECTORY_NODE_MODULES = "node_modules" as const
 export const LITEPARSE_PACKAGE_NAME = "@llamaindex/liteparse" as const
@@ -64,14 +60,9 @@ export function assertBackendNodeArtifactRuntimeFiles(input: { artifactDir: stri
     throw new Error(`Buddy Node artifact is missing Photon WASM in ${input.artifactDir}`)
   }
 
-  const englishTessdataPath = path.join(
-    input.artifactDir,
-    ...ENGLISH_TESSDATA_RELATIVE_PATH,
-  )
+  const englishTessdataPath = path.join(input.artifactDir, ...ENGLISH_TESSDATA_RELATIVE_PATH)
   if (!existsSync(englishTessdataPath)) {
-    throw new Error(
-      `Buddy Node artifact is missing English tessdata at ${englishTessdataPath}`,
-    )
+    throw new Error(`Buddy Node artifact is missing English tessdata at ${englishTessdataPath}`)
   }
 }
 

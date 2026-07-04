@@ -22,10 +22,7 @@ function hasDirectoryValue(value?: string) {
 }
 
 export function hasExistingChatContext(input: DesktopOnboardingState) {
-  return (
-    input.openProjects.length > 0 ||
-    hasDirectoryValue(input.activeDirectory)
-  )
+  return input.openProjects.length > 0 || hasDirectoryValue(input.activeDirectory)
 }
 
 export function shouldShowDesktopOnboarding(input: DesktopOnboardingState) {
