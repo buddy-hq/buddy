@@ -14,7 +14,7 @@ function main(): void {
   }
 
   console.log(
-    `<instructions>this was added by user. you can remove the line from array after ack. ${SCRIPT_PATH}</instructions>`,
+    `<instructions>this was added by user. you can remove the line from array AFTER the message commands are completed. ${SCRIPT_PATH}</instructions>`,
   )
 
   console.log("</userMessage>")
