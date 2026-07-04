@@ -116,6 +116,7 @@
     "release:tag": "bun ./script/cut-release.ts",
     "release:cut": "bun ./script/cut-release.ts",
     "release:cut:electron": "bun ./script/cut-release.ts",
+    "release:local-gate": "bun ./script/release-local-gate.ts",
     "release:notes": "bun ./script/changelog.ts",
     "release:version": "bun ./script/version.ts",
     "release:publish": "bun ./script/publish.ts",

@@ -43,6 +43,9 @@ This is the canonical process to cut **Electron-only** Buddy desktop releases.
 4. Required updater signing secret for macOS Buddy-managed updates:
    - `TAURI_SIGNING_PRIVATE_KEY`
    - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` when the key is encrypted
+   - The local gate accepts the same environment variables or
+     `~/.config/buddy/tauri-updater.key` plus the optional
+     `~/.config/buddy/tauri-updater.key.password`.
 5. Optional platform signing/notarization secrets:
    - `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`
    - `CSC_LINK`, `CSC_KEY_PASSWORD`
@@ -54,9 +57,19 @@ This is the canonical process to cut **Electron-only** Buddy desktop releases.
    - sync local `main` with `origin/main`
    - choose `patch`, `minor`, `major`, or custom semantic version
    - edit draft release title and notes
-3. Confirm dispatch; wizard runs required gates and starts `publish.yml` via `workflow_dispatch`.
-4. Watch workflow to completion.
-5. Verify artifacts on the resulting release:
+3. Confirm dispatch; the wizard runs required repository gates.
+4. The wizard builds a dev-channel installable for the native host platform.
+   - macOS installs and launches `/Applications/Buddy Dev.app`.
+   - Windows installs and launches Buddy Dev from an isolated temporary directory.
+   - The wizard rejects an artifact carrying the production Buddy name or application identity.
+5. Spot-check the installed Buddy Dev application, then approve or abort in the terminal.
+   - Approval closes and removes the temporary Buddy Dev installation.
+   - An existing macOS Buddy Dev installation is restored.
+   - Production Buddy remains installed at its previous version for updater validation.
+6. The wizard builds the native production release target from a detached temporary worktree and dry-runs its signed target updater manifest.
+7. Only after both local gates pass, the wizard creates or updates the draft release and dispatches `publish-cheap.yml`.
+8. Watch the workflow to completion.
+9. Verify artifacts on the resulting release:
    - macOS: `.dmg`, `.zip`, `.blockmap`
    - Windows: `.exe`, `.blockmap`
    - updater metadata:
@@ -65,8 +78,9 @@ This is the canonical process to cut **Electron-only** Buddy desktop releases.
      - `latest-mac.json`
      - `latest-mac.json.sig`
    - advanced math runtime zips/checksums for both macOS targets
-6. Confirm publish job completed and release is no longer draft.
-7. Pull the auto-generated version-sync commit to local `main` when prompted.
+10. Confirm publish job completed and release is no longer draft.
+11. From the preserved production Buddy installation, check for updates and verify download, installation, and restart into the new version.
+12. Pull the auto-generated version-sync commit to local `main` when prompted.
    - The wizard force-syncs local tags from `origin` first, so stale local release tags do not block the pull with a clobber prompt.
 
 ## Workflow Jobs (Expected)
@@ -83,6 +97,8 @@ Stop and fix before retry if any occur:
 - not on `main`
 - failed `gh auth status`
 - failed `bun fmt`, `bun lint`, or `bun typecheck`
+- Buddy Dev installable fails to build, install, launch, or receive manual approval
+- native production release smoke or signed target-manifest dry run fails
 - missing Electron artifacts in release upload step
 - missing updater metadata in release (`latest.yml`, `latest-mac.yml`, `latest-mac.json`, `latest-mac.json.sig`)
 - advanced math runtime missing for required targets

@@ -771,6 +771,40 @@ function describeReleaseTargets(targets: ReleaseTargets): string {
   return selected.join(", ")
 }
 
+function serializeReleaseTargets(targets: ReleaseTargets): string {
+  return [
+    ...(targets.macosArm64 ? ["macos-arm64"] : []),
+    ...(targets.macosX64 ? ["macos-x64"] : []),
+    ...(targets.windowsX64 ? ["windows-x64"] : []),
+  ].join(",")
+}
+
+function runLocalReleaseGates(
+  rl: ReturnType<typeof createInterface>,
+  version: string,
+  targetSha: string,
+  targets: ReleaseTargets,
+): void {
+  printStep(
+    "Local Release Gates",
+    "Building and installing Buddy Dev for manual approval, then validating the native production release target.",
+  )
+  rl.pause()
+  try {
+    runCommand("bun", [
+      "./script/release-local-gate.ts",
+      "--version",
+      version,
+      "--commit",
+      targetSha,
+      "--selected-targets",
+      serializeReleaseTargets(targets),
+    ])
+  } finally {
+    rl.resume()
+  }
+}
+
 async function main() {
   const flags = parseArgs()
   if (flags.help) {
@@ -798,6 +832,32 @@ async function main() {
     const existingDraft = await ensureVersionIsAvailable(version)
     const editedDraft = await editReleaseDraft(rl, version, existingDraft, flags.fast)
     try {
+      const shouldDispatch =
+        flags.fast ||
+        (await confirm(
+          rl,
+          `Run local release gates and dispatch the publish workflow for ${tag}?`,
+          true,
+        ))
+
+      if (!shouldDispatch) {
+        const release = await upsertDraftRelease(
+          version,
+          editedDraft.title,
+          editedDraft.notesPath,
+          editedDraft.body,
+          targetSha,
+          existingDraft,
+        )
+        console.log(`Release draft updated without dispatch: ${release.url}`)
+        return
+      }
+
+      runRequiredGates()
+      await ensureCleanTree()
+      runLocalReleaseGates(rl, version, targetSha, targets)
+      await ensureCleanTree()
+
       const release = await upsertDraftRelease(
         version,
         editedDraft.title,
@@ -806,44 +866,34 @@ async function main() {
         targetSha,
         existingDraft,
       )
-
       console.log(`Draft release ready: ${release.url}`)
+
+      const runUrl = await dispatchRelease(version, targetSha, targets)
+      console.log(`Workflow dispatched: ${runUrl}`)
+
+      const runId = runIdFromUrl(runUrl)
       if (
-        flags.fast ||
-        (await confirm(rl, `Dispatch the publish workflow for ${tag} now?`, true))
+        runId &&
+        (flags.fast || (await confirm(rl, "Watch the release workflow until it finishes?", true)))
       ) {
-        runRequiredGates()
-        await ensureCleanTree()
-
-        const runUrl = await dispatchRelease(version, targetSha, targets)
-        console.log(`Workflow dispatched: ${runUrl}`)
-
-        const runId = runIdFromUrl(runUrl)
-        if (
-          runId &&
-          (flags.fast || (await confirm(rl, "Watch the release workflow until it finishes?", true)))
-        ) {
-          if (!watchRun(runId)) {
-            return
-          }
+        if (!watchRun(runId)) {
+          return
         }
-
-        const published = await loadRelease(tag)
-        if (published && !published.isDraft) {
-          console.log(`Release published: ${published.url}`)
-        } else {
-          console.log(`Release draft: ${release.url}`)
-        }
-
-        await maybePullReleaseSync(rl, flags.fast)
-
-        console.log("\nNext steps:")
-        console.log(`- Install or update from GitHub Release ${tag}`)
-        console.log(`- Smoke test the app and updater banner`)
-        console.log(`- If needed, use bun run install:release ${tag}`)
-      } else {
-        console.log("Release draft updated, but workflow dispatch was skipped.")
       }
+
+      const published = await loadRelease(tag)
+      if (published && !published.isDraft) {
+        console.log(`Release published: ${published.url}`)
+      } else {
+        console.log(`Release draft: ${release.url}`)
+      }
+
+      await maybePullReleaseSync(rl, flags.fast)
+
+      console.log("\nNext steps:")
+      console.log(`- Use the existing production Buddy installation to check for ${tag}`)
+      console.log("- Verify the updater downloads, installs, and restarts into the new version")
+      console.log(`- If needed, use bun run install:release ${tag}`)
     } finally {
       if (editedDraft.tempDir) {
         rmSync(editedDraft.tempDir, { recursive: true, force: true })

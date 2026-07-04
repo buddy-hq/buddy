@@ -19,6 +19,10 @@
     "src/shared/**/*.ts",
     "../buddy/script/node-artifact-runtime.ts",
     "../../script/backend-node-artifact.ts",
-    "../../script/desktop-runtime-resources.ts"
+    "../../script/changelog.ts",
+    "../../script/cut-release.ts",
+    "../../script/desktop-runtime-resources.ts",
+    "../../script/release-local-gate.ts",
+    "../../script/release-repositories.ts"
   ]
 }

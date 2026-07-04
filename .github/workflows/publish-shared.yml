@@ -190,20 +190,10 @@ jobs:
 
       - run: bun install --os=darwin --cpu=arm64
 
-      - run: bun run sdk:generate
-
-      - run: bun run --cwd packages/desktop-electron prepare:release
+      - name: Build and smoke Electron release target
         env:
           BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
-
-      - name: Build Electron app for darwin-arm64
-        run: bun run --cwd packages/desktop-electron build
-
-      - name: Smoke Electron backend utility
-        run: bun run --cwd packages/desktop-electron smoke:backend-utility
-
-      - run: bunx --bun electron-builder --mac --arm64 --publish never --config electron-builder.config.ts
-        working-directory: packages/desktop-electron
+        run: bun ./packages/desktop-electron/scripts/build-release-target.ts --target macos-arm64
 
       - if: ${{ inputs.dry_run }}
         name: Validate macOS ARM64 target update manifest
@@ -281,20 +271,10 @@ jobs:
 
       - run: bun install --os=darwin --cpu=x64
 
-      - run: bun run sdk:generate
-
-      - run: bun run --cwd packages/desktop-electron prepare:release
+      - name: Build and smoke Electron release target
         env:
           BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
-
-      - name: Build Electron app for darwin-x64
-        run: bun run --cwd packages/desktop-electron build
-
-      - name: Smoke Electron backend utility
-        run: bun run --cwd packages/desktop-electron smoke:backend-utility
-
-      - run: bunx --bun electron-builder --mac --x64 --publish never --config electron-builder.config.ts
-        working-directory: packages/desktop-electron
+        run: bun ./packages/desktop-electron/scripts/build-release-target.ts --target macos-x64
 
       - if: ${{ inputs.dry_run }}
         name: Validate macOS x64 target update manifest
@@ -372,20 +352,10 @@ jobs:
 
       - run: bun install
 
-      - run: bun run sdk:generate
-
-      - run: bun run --cwd packages/desktop-electron prepare:release
+      - name: Build and smoke Electron release target
         env:
           BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
-
-      - name: Build Electron app for win32-x64
-        run: bun run --cwd packages/desktop-electron build
-
-      - name: Smoke Electron backend utility
-        run: bun run --cwd packages/desktop-electron smoke:backend-utility
-
-      - run: bunx --bun electron-builder --win --x64 --publish never --config electron-builder.config.ts
-        working-directory: packages/desktop-electron
+        run: bun ./packages/desktop-electron/scripts/build-release-target.ts --target windows-x64
 
       - if: ${{ inputs.dry_run }}
         name: Validate Windows x64 target update manifest
