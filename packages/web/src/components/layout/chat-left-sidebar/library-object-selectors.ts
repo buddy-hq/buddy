@@ -30,6 +30,7 @@ type WorkspaceObjectsQuerySnapshot = {
 
 const MEDIA_LIBRARY_KINDS = ["media-presentation", "figure", "freeform-figure"] as const
 const UNAVAILABLE_OBJECT_STATUS = "unavailable" satisfies WorkspaceObjectIndexItem["status"]
+const BENCH_OBJECT_SURFACE = "bench" satisfies WorkspaceObjectIndexItem["surfaces"][number]
 
 function createBenchObjectTarget(kind: BenchObjectKind, objectID: string): BenchTarget {
   return {
@@ -57,6 +58,13 @@ function isLibraryVisibleObject(object: WorkspaceObjectIndexItem): boolean {
   return object.hasLibraryView && object.status !== UNAVAILABLE_OBJECT_STATUS
 }
 
+function isRightSidebarVisibleObject(object: WorkspaceObjectIndexItem): boolean {
+  return (
+    object.status !== UNAVAILABLE_OBJECT_STATUS &&
+    (object.hasLibraryView || object.surfaces.includes(BENCH_OBJECT_SURFACE))
+  )
+}
+
 function isMediaLibraryObject(object: WorkspaceObjectIndexItem): object is MediaLibraryObject {
   return (
     object.kind === "media-presentation" ||
@@ -68,7 +76,7 @@ function isMediaLibraryObject(object: WorkspaceObjectIndexItem): object is Media
 function isRenderableMediaLibraryObject(
   object: WorkspaceObjectIndexItem,
 ): object is MediaLibraryObject {
-  return isMediaLibraryObject(object) && isLibraryVisibleObject(object)
+  return isMediaLibraryObject(object) && isRightSidebarVisibleObject(object)
 }
 
 function sortMediaLibraryObjects(a: MediaLibraryObject, b: MediaLibraryObject): number {
@@ -79,7 +87,7 @@ function selectMermaidObjects(
   snapshot: WorkspaceObjectsQuerySnapshot | undefined,
 ): MermaidLibraryObject[] {
   return (snapshot?.data?.objects ?? [])
-    .filter(isLibraryVisibleObject)
+    .filter(isRightSidebarVisibleObject)
     .filter(objectKindFilter("mermaid"))
 }
 
@@ -87,7 +95,7 @@ function selectQuestionSetObjects(
   snapshot: WorkspaceObjectsQuerySnapshot | undefined,
 ): QuestionSetLibraryObject[] {
   return (snapshot?.data?.objects ?? [])
-    .filter(isLibraryVisibleObject)
+    .filter(isRightSidebarVisibleObject)
     .filter(objectKindFilter("question-set"))
 }
 
@@ -95,7 +103,7 @@ function selectFlashcardDeckObjects(
   snapshot: WorkspaceObjectsQuerySnapshot | undefined,
 ): FlashcardDeckLibraryObject[] {
   return (snapshot?.data?.objects ?? [])
-    .filter(isLibraryVisibleObject)
+    .filter(isRightSidebarVisibleObject)
     .filter(objectKindFilter("flashcard-deck"))
 }
 
@@ -103,7 +111,7 @@ function selectHtmlWidgetObjects(
   snapshot: WorkspaceObjectsQuerySnapshot | undefined,
 ): HtmlWidgetLibraryObject[] {
   return (snapshot?.data?.objects ?? [])
-    .filter(isLibraryVisibleObject)
+    .filter(isRightSidebarVisibleObject)
     .filter(objectKindFilter("html-widget"))
 }
 
@@ -193,6 +201,7 @@ export {
   isLibraryVisibleObject,
   isMediaLibraryObject,
   isRenderableMediaLibraryObject,
+  isRightSidebarVisibleObject,
   selectFlashcardDeckObjects,
   selectHtmlWidgetObjects,
   selectMediaLibraryObjects,
