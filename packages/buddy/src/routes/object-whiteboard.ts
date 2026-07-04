@@ -28,6 +28,39 @@ const sessionIDParamSchema = z.object({
 
 export const ObjectWhiteboardRoutes = new Hono()
   .get(
+    "/session/:sessionID/peek",
+    describeRoute({
+      operationId: "objectWhiteboard.session.peek",
+      summary: "Read existing session whiteboard state without creating an object",
+      responses: {
+        200: {
+          description: "Existing whiteboard object state",
+          content: {
+            "application/json": { schema: resolver(WhiteboardSessionReadSchema) },
+          },
+        },
+        ...routeErrors(400, 403, 404),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", sessionIDParamSchema),
+    async (c) =>
+      withDirectoryRoute(c, async (context) =>
+        runRouteTask({
+          task: async () => {
+            const sessionID = c.req.valid("param").sessionID
+            await assertSessionExistsInDirectory({
+              directory: context.directory,
+              sessionID,
+              request: c.req.raw,
+            })
+            return c.json(await readWhiteboardSession(context.directory, sessionID))
+          },
+          mapError: mapWhiteboardRouteError,
+        }),
+      ),
+  )
+  .get(
     "/session/:sessionID",
     describeRoute({
       operationId: "objectWhiteboard.session.read",
