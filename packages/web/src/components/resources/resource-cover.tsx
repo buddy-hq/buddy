@@ -16,12 +16,19 @@ const RESOURCE_COVER_EXTENSION_CLASS =
   "mb-1 text-[10px] font-bold uppercase tracking-widest text-text-weaker"
 const RESOURCE_COVER_TITLE_CLASS =
   "line-clamp-3 text-[11px] font-medium leading-relaxed text-text-stronger"
+const RESOURCE_COVER_PRESENTATION_TILE = "tile"
+const RESOURCE_COVER_PRESENTATION_THUMBNAIL = "thumbnail"
+
+type ResourceCoverPresentation =
+  | typeof RESOURCE_COVER_PRESENTATION_TILE
+  | typeof RESOURCE_COVER_PRESENTATION_THUMBNAIL
 
 type ResourceCoverContentProps = {
   directory: string
   coverRelpath?: string
   title?: string
   extension: ResourceFileExtension
+  presentation?: ResourceCoverPresentation
 }
 
 export type ResourceCoverProps = ResourceCoverContentProps & {
@@ -57,28 +64,54 @@ function ResourceCoverContent({
   coverRelpath,
   title,
   extension,
+  presentation = RESOURCE_COVER_PRESENTATION_TILE,
 }: ResourceCoverContentProps) {
   const objectUrl = useResourceCoverObjectUrl(directory, coverRelpath)
   const displayName = title || extension.toUpperCase()
+  const thumbnail = presentation === RESOURCE_COVER_PRESENTATION_THUMBNAIL
 
   if (objectUrl) {
-    return <img src={objectUrl} alt={displayName} className="size-full object-cover" />
+    return (
+      <img
+        src={objectUrl}
+        alt={thumbnail ? "" : displayName}
+        className="size-full object-cover"
+      />
+    )
   }
 
   return (
-    <div className={RESOURCE_COVER_PLACEHOLDER_CLASS}>
-      <div className={RESOURCE_COVER_ICON_FRAME_CLASS}>
-        <FileTextIcon className="size-6 text-text-weaker" />
+    <div
+      className={cn(
+        RESOURCE_COVER_PLACEHOLDER_CLASS,
+        thumbnail && "gap-1 px-1",
+      )}
+    >
+      <div
+        className={cn(
+          RESOURCE_COVER_ICON_FRAME_CLASS,
+          thumbnail && "mb-0 size-6 rounded-md",
+        )}
+      >
+        <FileTextIcon className={cn("size-6 text-text-weaker", thumbnail && "size-3.5")} />
       </div>
-      <span className={RESOURCE_COVER_EXTENSION_CLASS}>{extension}</span>
-      <span className={RESOURCE_COVER_TITLE_CLASS}>{displayName}</span>
+      <span className={cn(RESOURCE_COVER_EXTENSION_CLASS, thumbnail && "mb-0 text-[8px]")}>
+        {extension}
+      </span>
+      {!thumbnail ? <span className={RESOURCE_COVER_TITLE_CLASS}>{displayName}</span> : null}
     </div>
   )
 }
 
 export function ResourceCover({ className, ...contentProps }: ResourceCoverProps) {
   return (
-    <div className={cn(RESOURCE_COVER_FRAME_CLASS, className)}>
+    <div
+      className={cn(
+        RESOURCE_COVER_FRAME_CLASS,
+        contentProps.presentation === RESOURCE_COVER_PRESENTATION_THUMBNAIL && "rounded-md",
+        className,
+      )}
+    >
       <ResourceCoverContent {...contentProps} />
     </div>
   )
@@ -91,7 +124,7 @@ type ResourceCoverButtonProps = ResourceCoverContentProps & {
   className?: string
 }
 
-/** Clickable book cover tile (library grid + chat full-text ingest). */
+/** Clickable book cover tile used by full-size resource presentations. */
 export function ResourceCoverButton({
   onClick,
   ariaLabel,
