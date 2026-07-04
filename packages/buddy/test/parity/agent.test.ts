@@ -1,8 +1,7 @@
 import { describe, expect, test } from "bun:test"
-import path from "node:path"
-import { writeFileSync } from "node:fs"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
+import { writeProjectConfig } from "../helpers/project-config"
 import { withSyncedOpenCodeConfig } from "../helpers/opencode"
 import { withRepo } from "./helpers"
 
@@ -17,8 +16,8 @@ function requireValue<T>(value: T | undefined, label: string): T {
 describe("parity.agent", () => {
   test("preserves Buddy agent defaults when applying partial overrides", async () => {
     await withRepo(async (directory) => {
-      writeFileSync(
-        path.join(directory, "buddy.jsonc"),
+      writeProjectConfig(
+        directory,
         JSON.stringify({
           agent: {
             "code-buddy": {
@@ -46,8 +45,8 @@ describe("parity.agent", () => {
 
   test("preserves curriculum-orchestrator defaults when applying partial overrides", async () => {
     await withRepo(async (directory) => {
-      writeFileSync(
-        path.join(directory, "buddy.jsonc"),
+      writeProjectConfig(
+        directory,
         JSON.stringify({
           agent: {
             "curriculum-orchestrator": {
@@ -83,8 +82,8 @@ describe("parity.agent", () => {
 
   test("preserves wildcard permission rules when adding scoped overrides", async () => {
     await withRepo(async (directory) => {
-      writeFileSync(
-        path.join(directory, "buddy.jsonc"),
+      writeProjectConfig(
+        directory,
         JSON.stringify({
           agent: {
             "code-buddy": {

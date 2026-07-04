@@ -4,6 +4,7 @@ import fs from "node:fs"
 import { writeFileSync } from "node:fs"
 import { Config } from "@buddy/backend/config"
 import { Global } from "../../src/storage"
+import { writeProjectConfig } from "../helpers/project-config"
 import { createGitRepo } from "../helpers/repo"
 
 describe("config precedence", () => {
@@ -15,8 +16,8 @@ describe("config precedence", () => {
     const customPath = path.join(repo, "custom.jsonc")
     writeFileSync(customPath, '{"model":"anthropic/custom"}\n')
 
-    writeFileSync(path.join(repo, "buddy.jsonc"), '{"model":"anthropic/project"}\n')
-    writeFileSync(path.join(nested, "buddy.jsonc"), '{"model":"anthropic/nested"}\n')
+    writeProjectConfig(repo, '{"model":"anthropic/project"}\n')
+    writeProjectConfig(nested, '{"model":"anthropic/nested"}\n')
 
     const globalFile = path.join(Global.Path.config, "buddy.jsonc")
     fs.mkdirSync(path.dirname(globalFile), { recursive: true })

@@ -4,6 +4,7 @@ import fs from "node:fs"
 import { writeFileSync } from "node:fs"
 import { app } from "../../src/index.ts"
 import { Global } from "../../src/storage"
+import { projectConfigFile, writeProjectConfig } from "../helpers/project-config"
 import { createGitRepo } from "../helpers/repo"
 
 function normalizePathForAssertion(value: string): string {
@@ -45,16 +46,14 @@ describe("config routes", () => {
 
     expect(body.default_persona).toBe("code-buddy")
     expect(body.model).toBe("anthropic/route-project")
-    expect(
-      fs.existsSync(path.join(repo, "buddy.jsonc")) || fs.existsSync(path.join(repo, "buddy.json")),
-    ).toBe(true)
+    expect(fs.existsSync(projectConfigFile(repo))).toBe(true)
   })
 
   test("uses only the project root config when nested folders are opened", async () => {
     const repo = createGitRepo("buddy-route-config-root-only")
     const nested = path.join(repo, "nested")
     fs.mkdirSync(nested, { recursive: true })
-    writeFileSync(path.join(nested, "buddy.jsonc"), '{"default_persona":"buddy"}\n')
+    writeProjectConfig(nested, '{"default_persona":"buddy"}\n')
 
     const patchResponse = await app.request("/api/config", {
       method: "PATCH",
@@ -81,12 +80,10 @@ describe("config routes", () => {
     }
 
     expect(body.default_persona).toBe("code-buddy")
-    expect(fs.readFileSync(path.join(nested, "buddy.jsonc"), "utf8")).toContain(
+    expect(fs.readFileSync(projectConfigFile(nested), "utf8")).toContain(
       '"default_persona":"buddy"',
     )
-    expect(
-      fs.existsSync(path.join(repo, "buddy.jsonc")) || fs.existsSync(path.join(repo, "buddy.json")),
-    ).toBe(true)
+    expect(fs.existsSync(projectConfigFile(repo))).toBe(true)
   })
 
   test("returns and patches global config", async () => {
@@ -144,8 +141,8 @@ describe("config routes", () => {
       ? fs.readFileSync(globalFile, "utf8")
       : undefined
 
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
+    writeProjectConfig(
+      repo,
       JSON.stringify(
         {
           default_persona: "code-buddy",
@@ -258,7 +255,7 @@ describe("config routes", () => {
         model: "anthropic/route-global-only",
       })
 
-      const configFile = path.join(repo, "buddy.jsonc")
+      const configFile = projectConfigFile(repo)
       expect(fs.readFileSync(configFile, "utf8")).toContain('"default_persona": "code-buddy"')
       expect(fs.readFileSync(configFile, "utf8")).not.toContain("anthropic/route-global-only")
     } finally {
@@ -286,8 +283,8 @@ describe("config routes", () => {
       ? fs.readFileSync(globalFile, "utf8")
       : undefined
 
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
+    writeProjectConfig(
+      repo,
       JSON.stringify(
         {
           tools: {
@@ -343,7 +340,7 @@ describe("config routes", () => {
         tools?: Record<string, boolean>
       }
       expect(rawBody.tools?.search_standards).toBeUndefined()
-      expect(fs.readFileSync(path.join(repo, "buddy.jsonc"), "utf8")).not.toContain(
+      expect(fs.readFileSync(projectConfigFile(repo), "utf8")).not.toContain(
         "search_standards",
       )
     } finally {
@@ -536,7 +533,7 @@ describe("config routes", () => {
 
   test("returns 400 for invalid project config on provider listing", async () => {
     const repo = createGitRepo("buddy-route-config-providers-invalid")
-    writeFileSync(path.join(repo, "buddy.jsonc"), ["{", '  "model":', "  ", ""].join("\n"))
+    writeProjectConfig(repo, ["{", '  "model":', "  ", ""].join("\n"))
 
     const response = await app.request("/api/config/providers", {
       headers: {
@@ -552,8 +549,8 @@ describe("config routes", () => {
 
   test("returns 400 when project config hides every Buddy persona", async () => {
     const repo = createGitRepo("buddy-route-config-personas-invalid")
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
+    writeProjectConfig(
+      repo,
       JSON.stringify(
         {
           personas: {
@@ -584,8 +581,8 @@ describe("config routes", () => {
 
   test("returns 400 when a persona override removes its inherited default surface", async () => {
     const repo = createGitRepo("buddy-route-config-default-surface-invalid")
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
+    writeProjectConfig(
+      repo,
       JSON.stringify(
         {
           personas: {

@@ -15,6 +15,7 @@ import {
 import { Provider as OpenCodeProvider } from "@buddy/opencode-adapter/provider"
 import { Config } from "@buddy/backend/config"
 import { buildOpenCodeConfigOverlay } from "../../src/index"
+import { writeProjectConfig } from "../helpers/project-config"
 import { tmpdir } from "../helpers/tmpdir"
 
 const OVERLAY_PERMISSION = "buddy_overlay_test_permission"
@@ -67,8 +68,8 @@ describe("opencode config overlay isolation", () => {
     await using firstProject = await tmpdir({ git: true })
     await using secondProject = await tmpdir({ git: true })
 
-    writeFileSync(
-      path.join(firstProject.path, "buddy.jsonc"),
+    writeProjectConfig(
+      firstProject.path,
       JSON.stringify(
         {
           default_persona: "code-buddy",
@@ -85,8 +86,8 @@ describe("opencode config overlay isolation", () => {
         2,
       ) + "\n",
     )
-    writeFileSync(
-      path.join(secondProject.path, "buddy.jsonc"),
+    writeProjectConfig(
+      secondProject.path,
       JSON.stringify(
         {
           default_persona: "buddy",
@@ -196,8 +197,8 @@ describe("opencode config overlay isolation", () => {
         2,
       ) + "\n",
     )
-    writeFileSync(
-      path.join(project.path, "buddy.jsonc"),
+    writeProjectConfig(
+      project.path,
       JSON.stringify(
         {
           mcp: {

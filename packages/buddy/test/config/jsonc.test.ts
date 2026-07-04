@@ -3,13 +3,14 @@ import path from "node:path"
 import { writeFileSync } from "node:fs"
 import { Config, JsonError } from "@buddy/backend/config"
 import { InvalidError } from "@buddy/backend/config"
+import { writeProjectConfig } from "../helpers/project-config"
 import { createGitRepo } from "../helpers/repo"
 
 describe("config jsonc", () => {
   test("parses comments and trailing commas", async () => {
     const repo = createGitRepo("buddy-config-jsonc")
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
+    writeProjectConfig(
+      repo,
       [
         "{",
         "  // JSONC comment",
@@ -47,8 +48,8 @@ describe("config jsonc", () => {
 
   test("rejects configurations that hide every Buddy persona", async () => {
     const repo = createGitRepo("buddy-config-jsonc-hidden-all")
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
+    writeProjectConfig(
+      repo,
       [
         "{",
         '  "personas": {',

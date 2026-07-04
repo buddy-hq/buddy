@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
-import { writeFileSync } from "node:fs"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
 import { Global } from "@buddy/opencode-adapter/global"
 import { PermissionNext } from "@buddy/opencode-adapter/permission"
 import { Truncate } from "@buddy/opencode-adapter/tool"
 import { withSyncedOpenCodeConfig } from "../helpers/opencode"
+import { writeProjectConfig } from "../helpers/project-config"
 import { createGitRepo } from "../helpers/repo"
 import { managedSystemRoot } from "../../src/learning/skill-management/service/paths"
 
@@ -18,8 +18,8 @@ describe("config external_directory permission", () => {
   test("forces external directory access to ask even when project config sets allow", async () => {
     const repo = createGitRepo("buddy-config-external-directory-ask")
 
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
+    writeProjectConfig(
+      repo,
       JSON.stringify(
         {
           permission: {
@@ -84,8 +84,8 @@ describe("config external_directory permission", () => {
   test("forwards compaction settings into the OpenCode runtime overlay", async () => {
     const repo = createGitRepo("buddy-config-compaction-overlay")
 
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
+    writeProjectConfig(
+      repo,
       JSON.stringify(
         {
           compaction: {

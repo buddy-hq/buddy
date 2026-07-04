@@ -1,6 +1,4 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import path from "node:path"
-import { writeFileSync } from "node:fs"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { syncOpenCodeProjectConfig } from "../src/config/runtime/opencode-sync"
@@ -9,6 +7,7 @@ import { resolveSessionRuntime } from "../src/learning/access/resolve-session-ru
 import { REGISTERED_BUDDY_PERSONAS } from "../src/learning/personas/registry"
 import { getBuddyPersona } from "../src/learning/personas/wiring/persona-profiles"
 import { fetchInProcessOpenCode, loadOpenCodeApp } from "../src/opencode-runtime"
+import { writeProjectConfig } from "./helpers/project-config"
 import { tmpdir } from "./helpers/tmpdir"
 
 const SESSION_STATUS_PATH = "/session/status"
@@ -64,8 +63,8 @@ describe("proxy registration", () => {
   test("project tool toggles deny tools via session permissions after plugin pre-registration", async () => {
     await using project = await tmpdir({ git: true })
 
-    writeFileSync(
-      path.join(project.path, "buddy.jsonc"),
+    writeProjectConfig(
+      project.path,
       JSON.stringify(
         {
           tools: {

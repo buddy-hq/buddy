@@ -1,14 +1,13 @@
 import { describe, expect, test } from "bun:test"
-import path from "node:path"
-import { writeFileSync } from "node:fs"
 import { app } from "../../src/index.ts"
+import { writeProjectConfig } from "../helpers/project-config"
 import { createGitRepo } from "../helpers/repo"
 
 describe("teaching routes", () => {
   test("returns 400 for invalid project config when starting a workspace", async () => {
     const repo = createGitRepo("buddy-route-teaching-invalid-config")
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
+    writeProjectConfig(
+      repo,
       JSON.stringify(
         {
           personas: {

@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import path from "node:path"
-import { writeFileSync } from "node:fs"
 import { Agent as OpenCodeAgent } from "@buddy/opencode-adapter/agent"
 import { Config, InvalidError } from "@buddy/backend/config"
 import { withSyncedOpenCodeConfig } from "../helpers/opencode"
+import { writeProjectConfig } from "../helpers/project-config"
 import { createGitRepo } from "../helpers/repo"
 
 describe("config default_persona", () => {
@@ -18,8 +17,8 @@ describe("config default_persona", () => {
   test("uses configured code-buddy as default_persona", async () => {
     const repo = createGitRepo("buddy-config-default-persona-code")
 
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
+    writeProjectConfig(
+      repo,
       JSON.stringify(
         {
           default_persona: "code-buddy",
@@ -37,8 +36,8 @@ describe("config default_persona", () => {
   test("propagates hidden personas into the runtime agent catalog", async () => {
     const repo = createGitRepo("buddy-config-hidden-persona")
 
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
+    writeProjectConfig(
+      repo,
       JSON.stringify(
         {
           personas: {
@@ -62,8 +61,8 @@ describe("config default_persona", () => {
   test("rejects configs that hide every Buddy persona", async () => {
     const repo = createGitRepo("buddy-config-hidden-all-personas")
 
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
+    writeProjectConfig(
+      repo,
       JSON.stringify(
         {
           personas: {
@@ -95,8 +94,8 @@ describe("config default_persona", () => {
   test("rejects surfaces overrides that remove the inherited default surface", async () => {
     const repo = createGitRepo("buddy-config-invalid-default-surface")
 
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
+    writeProjectConfig(
+      repo,
       JSON.stringify(
         {
           personas: {
@@ -125,8 +124,8 @@ describe("config default_persona", () => {
   test("rejects defaultSurface overrides that are not present in inherited surfaces", async () => {
     const repo = createGitRepo("buddy-config-invalid-default-surface-only")
 
-    writeFileSync(
-      path.join(repo, "buddy.jsonc"),
+    writeProjectConfig(
+      repo,
       JSON.stringify(
         {
           personas: {

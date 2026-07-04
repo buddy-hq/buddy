@@ -4,6 +4,7 @@ import { writeFileSync } from "node:fs"
 import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
 import { getOpenCodeClient } from "../../src/opencode-runtime/client"
 import { loadOpenCodeApp } from "../../src/opencode-runtime/runtime"
+import { writeProjectConfig } from "../helpers/project-config"
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("in-process OpenCode fetch overlay", () => {
@@ -27,8 +28,8 @@ describe("in-process OpenCode fetch overlay", () => {
       ) + "\n",
     )
 
-    writeFileSync(
-      path.join(project.path, "buddy.jsonc"),
+    writeProjectConfig(
+      project.path,
       JSON.stringify(
         {
           disabled_providers: ["openai"],

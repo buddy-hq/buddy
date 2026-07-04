@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { rmSync } from "node:fs"
 import path from "node:path"
+import { BUDDY_ENV } from "../src/storage/constants"
 import { Global } from "../src/storage/global"
 
 const originalDirectoryBase = process.env.BUDDY_DIRECTORY_BASE
-const originalBuddyGlobalConfigDir = process.env.BUDDY_GLOBAL_CONFIG_DIR
+const originalBuddyGlobalConfigDir = process.env[BUDDY_ENV.GLOBAL_CONFIG_DIR]
 const missingNotebookHome = path.join(Global.Path.home, "Documents", "Buddy Missing Bootstrap Test")
 const bootstrapConfigDir = path.join(Global.Path.home, ".buddy-bootstrap-routes-test")
 
@@ -15,7 +16,7 @@ describe("global bootstrap routes", () => {
     rmSync(missingNotebookHome, { recursive: true, force: true })
     rmSync(bootstrapConfigDir, { recursive: true, force: true })
     process.env.BUDDY_DIRECTORY_BASE = missingNotebookHome
-    process.env.BUDDY_GLOBAL_CONFIG_DIR = bootstrapConfigDir
+    process.env[BUDDY_ENV.GLOBAL_CONFIG_DIR] = bootstrapConfigDir
   })
 
   afterEach(() => {
@@ -27,9 +28,9 @@ describe("global bootstrap routes", () => {
       process.env.BUDDY_DIRECTORY_BASE = originalDirectoryBase
     }
     if (originalBuddyGlobalConfigDir === undefined) {
-      delete process.env.BUDDY_GLOBAL_CONFIG_DIR
+      delete process.env[BUDDY_ENV.GLOBAL_CONFIG_DIR]
     } else {
-      process.env.BUDDY_GLOBAL_CONFIG_DIR = originalBuddyGlobalConfigDir
+      process.env[BUDDY_ENV.GLOBAL_CONFIG_DIR] = originalBuddyGlobalConfigDir
     }
   })
 
