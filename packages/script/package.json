@@ -5,7 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./branding": "./src/branding.ts"
+    "./branding": "./src/branding.ts",
+    "./channel": "./src/channel.ts",
+    "./storage-env": "./src/storage-env.ts"
   },
   "scripts": {
     "lint": "oxlint"
