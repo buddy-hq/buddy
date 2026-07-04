@@ -1,7 +1,9 @@
 import fs from "node:fs/promises"
 import path from "node:path"
+import { Ripgrep } from "@opencode-ai/core/filesystem/ripgrep"
 import { NonNegativeInt } from "@opencode-ai/core/schema"
-import { Schema } from "effect"
+import { Effect, Schema, Stream } from "effect"
+import { makeRuntime } from "opencode/effect/run-service"
 import { Instance } from "./instance"
 
 const FileInfo = Schema.Struct({
@@ -78,6 +80,38 @@ const KNOWN_BINARY_FILE_EXTENSIONS = new Set([
   ".zip",
 ])
 
+const NOTEBOOK_FILE_SEARCH_SCAN_LIMIT = 25_000
+const NOTEBOOK_FILE_SEARCH_DEFAULT_LIMIT = 20
+const NOTEBOOK_FILE_SEARCH_MAX_LIMIT = 50
+const NOTEBOOK_FILE_SEARCH_EXCLUDED_GLOBS = [
+  "!**/.buddy/**",
+  "!**/node_modules/**",
+  "!**/vendor/**",
+  "!**/dist/**",
+  "!**/build/**",
+  "!**/out/**",
+  "!**/.turbo/**",
+  "!**/coverage/**",
+] as const
+const ripgrepRuntime = makeRuntime(Ripgrep.Service, Ripgrep.defaultLayer)
+
+type RankedFileSearchPath = {
+  path: string
+  score: number
+}
+
+export type NotebookFileSearchInput = {
+  query: string
+  limit?: number
+  scanLimit?: number
+  signal?: AbortSignal
+}
+
+export type NotebookFileSearchResult = {
+  matches: string[]
+  partial: boolean
+}
+
 function hasErrorCode(error: unknown, code: string): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === code
 }
@@ -131,6 +165,83 @@ function hasKnownBinaryExtension(filePath: string): boolean {
   return KNOWN_BINARY_FILE_EXTENSIONS.has(path.extname(filePath).toLowerCase())
 }
 
+function normalizeSearchValue(value: string): string {
+  return value.trim().toLocaleLowerCase()
+}
+
+export function scoreNotebookFileSearchPath(
+  query: string,
+  filePath: string,
+): number | undefined {
+  const normalizedQuery = normalizeSearchValue(query)
+  if (!normalizedQuery) return undefined
+
+  const normalizedPath = normalizeSearchValue(normalizePathForClient(filePath))
+  const basename = normalizedPath.split("/").at(-1) ?? normalizedPath
+  if (basename === normalizedQuery) return 0
+  if (basename.startsWith(normalizedQuery)) return 10 + basename.length - normalizedQuery.length
+
+  const basenameIndex = basename.indexOf(normalizedQuery)
+  if (basenameIndex >= 0) return 30 + basenameIndex
+
+  const pathIndex = normalizedPath.indexOf(normalizedQuery)
+  if (pathIndex >= 0) return 60 + pathIndex
+
+  const tokens = normalizedQuery.split(/\s+/u).filter(Boolean)
+  let tokenScore = 100
+  for (const token of tokens) {
+    const tokenIndex = normalizedPath.indexOf(token)
+    if (tokenIndex < 0) return undefined
+    tokenScore += tokenIndex
+  }
+  return tokenScore
+}
+
+function compareRankedFileSearchPaths(
+  left: RankedFileSearchPath,
+  right: RankedFileSearchPath,
+): number {
+  if (left.score !== right.score) return left.score - right.score
+  return left.path.localeCompare(right.path)
+}
+
+function retainRankedFileSearchPath(input: {
+  ranked: RankedFileSearchPath[]
+  query: string
+  filePath: string
+  limit: number
+}): RankedFileSearchPath[] {
+  const normalizedPath = normalizePathForClient(input.filePath)
+  const score = scoreNotebookFileSearchPath(input.query, normalizedPath)
+  if (score === undefined) return input.ranked
+
+  const next = [...input.ranked, { path: normalizedPath, score }]
+    .toSorted(compareRankedFileSearchPaths)
+    .slice(0, input.limit)
+  return next
+}
+
+export function rankNotebookFileSearchPaths(input: {
+  query: string
+  paths: readonly string[]
+  limit?: number
+}): string[] {
+  const limit = Math.min(
+    NOTEBOOK_FILE_SEARCH_MAX_LIMIT,
+    Math.max(1, input.limit ?? NOTEBOOK_FILE_SEARCH_DEFAULT_LIMIT),
+  )
+  let ranked: RankedFileSearchPath[] = []
+  for (const filePath of input.paths) {
+    ranked = retainRankedFileSearchPath({
+      ranked,
+      query: input.query,
+      filePath,
+      limit,
+    })
+  }
+  return ranked.map((match) => match.path)
+}
+
 export namespace File {
   export const Info = FileInfo
   export type Info = Schema.Schema.Type<typeof FileInfo>
@@ -147,6 +258,61 @@ export namespace File {
 
   export async function status(): Promise<Info[]> {
     return []
+  }
+
+  export async function searchPaths(
+    input: NotebookFileSearchInput,
+  ): Promise<NotebookFileSearchResult> {
+    const query = input.query.trim()
+    if (!query) return { matches: [], partial: false }
+
+    const limit = Math.min(
+      NOTEBOOK_FILE_SEARCH_MAX_LIMIT,
+      Math.max(1, input.limit ?? NOTEBOOK_FILE_SEARCH_DEFAULT_LIMIT),
+    )
+    const scanLimit = Math.min(
+      NOTEBOOK_FILE_SEARCH_SCAN_LIMIT,
+      Math.max(1, input.scanLimit ?? NOTEBOOK_FILE_SEARCH_SCAN_LIMIT),
+    )
+    const initial = {
+      scanned: 0,
+      ranked: [] as RankedFileSearchPath[],
+    }
+    const result = await ripgrepRuntime.runPromise((ripgrep) =>
+      ripgrep
+        .files({
+          cwd: Instance.directory,
+          glob: [...NOTEBOOK_FILE_SEARCH_EXCLUDED_GLOBS],
+          hidden: false,
+          signal: input.signal,
+        })
+        .pipe(
+          Stream.take(scanLimit + 1),
+          Stream.runFold(() => initial, (state, filePath) => {
+            if (state.scanned >= scanLimit) {
+              return {
+                scanned: state.scanned + 1,
+                ranked: state.ranked,
+              }
+            }
+            return {
+              scanned: state.scanned + 1,
+              ranked: retainRankedFileSearchPath({
+                ranked: state.ranked,
+                query,
+                filePath,
+                limit,
+              }),
+            }
+          }),
+          Effect.scoped,
+        ),
+    )
+
+    return {
+      matches: result.ranked.map((match) => match.path),
+      partial: result.scanned > scanLimit,
+    }
   }
 
   export async function read(filePath: string): Promise<Content> {

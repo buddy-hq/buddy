@@ -49,6 +49,17 @@ const findFileQuerySchema = z.object({
   directory: z.string().optional(),
 })
 
+const notebookFileSearchQuerySchema = z.object({
+  query: z.string().trim().min(2).max(200),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
+  directory: z.string().optional(),
+})
+
+const notebookFileSearchResponseSchema = z.object({
+  matches: z.array(z.string()),
+  partial: z.boolean(),
+})
+
 const fileListQuerySchema = z.object({
   path: z.string(),
   directory: z.string().optional(),
@@ -232,6 +243,42 @@ export const CompatibilityRoutes = new Hono()
           limit: query.limit,
         })
         return respondWithSdkResult(c, result)
+      }),
+  )
+  .get(
+    "/find/notebook-file",
+    describeRoute({
+      operationId: "find.notebookFiles",
+      summary: "Search notebook file paths with bounded memory",
+      responses: {
+        200: {
+          description: "Ranked matching file paths and scan completeness",
+          content: {
+            "application/json": {
+              schema: resolver(notebookFileSearchResponseSchema),
+            },
+          },
+        },
+        403: directoryForbiddenResponse,
+      },
+    }),
+    validator("query", notebookFileSearchQuerySchema),
+    async (c) =>
+      runSdkRoute(c, async () => {
+        const directoryContext = resolveDirectoryRequestContext(c)
+        if (!directoryContext.ok) return directoryContext.response
+
+        const query = c.req.valid("query")
+        const result = await OpenCodeInstance.provide({
+          directory: directoryContext.context.directory,
+          fn: () =>
+            OpenCodeFile.searchPaths({
+              query: query.query,
+              limit: query.limit,
+              signal: c.req.raw.signal,
+            }),
+        })
+        return c.json(result)
       }),
   )
   .get(
