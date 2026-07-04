@@ -14,6 +14,7 @@ import {
 } from "@/lib/workspace-file-paths"
 
 const RESOURCE_QUERY_KEY_ROOT = "resources"
+const RESOURCE_PROCESSED_QUERY_KEY = "processed"
 const RESOURCE_COVER_QUERY_KEY = "cover"
 const RESOURCE_READING_BLOB_QUERY_KEY = "reading-blob"
 const RESOURCE_FILE_EXTENSION_PDF = "pdf"
@@ -257,7 +258,7 @@ export function findProcessedResourceByKey(
   return processed.find((entry) => entry.alias === resourceKey || entry.objectID === resourceKey)
 }
 
-/** Same path/name resolution as the library grid (`buildResourceListItems`). */
+/** Same path/name resolution as the Sources catalog (`buildResourceListItems`). */
 export function resolveResourceReadingTarget(
   record: ResourceRecord,
   items: ResourceListItem[],
@@ -342,6 +343,10 @@ export function resourcesQueryKey(directory: string) {
   return [RESOURCE_QUERY_KEY_ROOT, directory]
 }
 
+export function processedResourcesQueryKey(directory: string) {
+  return [RESOURCE_QUERY_KEY_ROOT, RESOURCE_PROCESSED_QUERY_KEY, directory]
+}
+
 export function resourceCoverQueryKey(directory: string, coverRelpath: string) {
   return [RESOURCE_QUERY_KEY_ROOT, RESOURCE_COVER_QUERY_KEY, directory, coverRelpath]
 }
@@ -360,6 +365,18 @@ export function resourcesQueryOptions(directory: string) {
     queryFn: () => loadResourceDirectoryData(directory),
     refetchInterval: (query) =>
       query.state.data?.processed.some((resource) => resource.status === RESOURCE_STATUS_PREPARING)
+        ? RESOURCE_QUERY_AUTO_REFRESH_INTERVAL_MS
+        : false,
+    refetchIntervalInBackground: true,
+  })
+}
+
+export function processedResourcesQueryOptions(directory: string) {
+  return queryOptions({
+    queryKey: processedResourcesQueryKey(directory),
+    queryFn: () => loadResources(directory),
+    refetchInterval: (query) =>
+      query.state.data?.some((resource) => resource.status === RESOURCE_STATUS_PREPARING)
         ? RESOURCE_QUERY_AUTO_REFRESH_INTERVAL_MS
         : false,
     refetchIntervalInBackground: true,
@@ -389,6 +406,9 @@ export async function invalidateResourcesQueries(queryClient: QueryClient, direc
   await Promise.all([
     queryClient.invalidateQueries({
       queryKey: resourcesQueryKey(directory),
+    }),
+    queryClient.invalidateQueries({
+      queryKey: processedResourcesQueryKey(directory),
     }),
     queryClient.invalidateQueries({
       queryKey: [RESOURCE_QUERY_KEY_ROOT, RESOURCE_COVER_QUERY_KEY, directory],
