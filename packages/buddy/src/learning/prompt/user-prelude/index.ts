@@ -163,6 +163,14 @@ function buildTeachingTurnContextPart(input: {
 }
 
 const BENCH_TURN_CONTEXT_METADATA_LIMIT = 5
+const BENCH_DRAWER_LABELS = {
+  search: "Search",
+  sources: "Sources",
+  practice: "Practice",
+  creations: "Creations",
+  boards: "Boards",
+  files: "Files",
+} as const
 
 function benchSurfaceLabel(context: PromptContext): string {
   const benchContext = context.benchContext
@@ -178,8 +186,8 @@ function benchSurfaceLabel(context: PromptContext): string {
 function benchDrawerStatusLine(context: PromptContext): string {
   const benchContext = context.benchContext
   if (!benchContext || benchContext.status === "closed") return "No Bench target is loaded."
-  if (!benchContext.drawer) return "No Explorer or Library drawer is open over the target."
-  const drawerLabel = benchContext.drawer.kind === "explorer" ? "Explorer" : "Library"
+  if (!benchContext.drawer) return "No right workspace drawer is open over the target."
+  const drawerLabel = BENCH_DRAWER_LABELS[benchContext.drawer.kind]
   return `${drawerLabel} is open as a drawer over the loaded Bench target. The target remains loaded, but the drawer is currently over it.`
 }
 

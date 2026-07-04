@@ -3,6 +3,7 @@ import { ulid } from "ulid"
 import z from "zod"
 import {
   BenchClientLeaseIdentitySchema,
+  BenchDrawerKindSchema,
   BenchReadContextOutputSchema,
   BenchTargetSchema,
   benchTargetKey,
@@ -84,7 +85,7 @@ const BenchClientActionCompletionCommittedSchema = z
     publicationSequence: z.number().int().positive(),
     observedRoute: BenchRouteSnapshotSchema,
     observedVisibility: z.enum(["visible", "parked", "closed"]),
-    drawer: z.enum(["explorer", "library"]).nullable(),
+    drawer: BenchDrawerKindSchema.nullable(),
     context: BenchReadContextOutputSchema,
     changed: z.boolean(),
   })
@@ -103,7 +104,7 @@ const BenchClientActionCompletionTerminalSchema = z
     ]),
     observedRoute: BenchRouteSnapshotSchema.optional(),
     observedVisibility: z.enum(["visible", "parked", "closed"]).optional(),
-    drawer: z.enum(["explorer", "library"]).nullable().optional(),
+    drawer: BenchDrawerKindSchema.nullable().optional(),
   })
   .strict()
 

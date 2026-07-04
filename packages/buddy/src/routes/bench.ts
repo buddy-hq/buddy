@@ -8,6 +8,7 @@ import { BUDDY_OBJECT_KIND_VALUES } from "../objects"
 import {
   BenchContextSnapshotMissingError,
   BenchContextWriteConflictError,
+  BENCH_DRAWER_KIND_VALUES,
   PublishBenchContextInputSchema,
   PublishBenchContextResponseSchema,
   publishSequencedBenchContext,
@@ -186,7 +187,7 @@ const benchDrawerContextOpenApiSchema: OpenApiRequestBodySchema = {
       required: ["kind", "presentation"],
       additionalProperties: false,
       properties: {
-        kind: { type: "string" as const, enum: ["explorer", "library"] },
+        kind: { type: "string" as const, enum: [...BENCH_DRAWER_KIND_VALUES] },
         presentation: { type: "string" as const, enum: ["drawer"] },
       },
     },
@@ -256,7 +257,10 @@ const committedBenchClientActionCompletionOpenApiSchema: OpenApiRequestBodySchem
     publicationSequence: { type: "integer" as const, minimum: 1 },
     observedRoute: benchRouteSnapshotOpenApiSchema,
     observedVisibility: { type: "string" as const, enum: ["visible", "parked", "closed"] },
-    drawer: { type: ["string", "null"] as const, enum: ["explorer", "library", null] },
+    drawer: {
+      type: ["string", "null"] as const,
+      enum: [...BENCH_DRAWER_KIND_VALUES, null],
+    },
     context: benchReadContextOutputOpenApiSchema,
     changed: { type: "boolean" as const },
   },
@@ -284,7 +288,10 @@ const terminalBenchClientActionCompletionOpenApiSchema: OpenApiRequestBodySchema
     },
     observedRoute: benchRouteSnapshotOpenApiSchema,
     observedVisibility: { type: "string" as const, enum: ["visible", "parked", "closed"] },
-    drawer: { type: ["string", "null"] as const, enum: ["explorer", "library", null] },
+    drawer: {
+      type: ["string", "null"] as const,
+      enum: [...BENCH_DRAWER_KIND_VALUES, null],
+    },
   },
 }
 

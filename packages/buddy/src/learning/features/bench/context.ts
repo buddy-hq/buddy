@@ -6,8 +6,17 @@ const BENCH_CONTEXT_REGISTRY_LIMIT = 512
 const BENCH_CONTEXT_HISTORY_LIMIT = 512
 const BENCH_TARGET_KEY_PART_SEPARATOR = "\u0000"
 const BENCH_TARGET_KEY_NULL_PART = "\u2400"
+const BENCH_DRAWER_KIND_VALUES = [
+  "search",
+  "sources",
+  "practice",
+  "creations",
+  "boards",
+  "files",
+] as const
 
 const BenchContextStatusSchema = z.enum(["ready", "loading", "dirty", "error", "unavailable"])
+const BenchDrawerKindSchema = z.enum(BENCH_DRAWER_KIND_VALUES)
 
 const WorkspaceFileBenchTargetSchema = z
   .object({
@@ -69,7 +78,7 @@ const BenchContextRefSchema = z
 
 const BenchDrawerContextSchema = z
   .object({
-    kind: z.enum(["explorer", "library"]),
+    kind: BenchDrawerKindSchema,
     presentation: z.literal("drawer"),
   })
   .strict()
@@ -329,12 +338,14 @@ const BenchReadContextInputSchema = z.object({}).strict()
 
 export {
   BENCH_CONTEXT_HISTORY_LIMIT,
+  BENCH_DRAWER_KIND_VALUES,
   BenchContextRefSchema,
   BenchContextSnapshotMissingError,
   BenchContextStatusSchema,
   BenchContextTargetSchema,
   BenchContextWriteConflictError,
   BenchDrawerContextSchema,
+  BenchDrawerKindSchema,
   BenchClientLeaseIdentitySchema,
   PublishBenchContextInputSchema,
   BenchReadContextClosedOutputSchema,

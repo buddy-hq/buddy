@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import {
   BENCH_CONTEXT_HISTORY_LIMIT,
+  BENCH_DRAWER_KIND_VALUES,
   BenchContextWriteConflictError,
+  BenchDrawerContextSchema,
   benchTargetKey,
   clearBenchContextRegistry,
   publishSequencedBenchContext,
@@ -172,5 +174,29 @@ describe("bench target keys", () => {
         "reader%20notes",
       ].join(BENCH_TARGET_KEY_PART_SEPARATOR),
     )
+  })
+})
+
+describe("Bench drawer context", () => {
+  test("accepts every right-workspace drawer and rejects the removed Library taxonomy", () => {
+    expect(BENCH_DRAWER_KIND_VALUES).toContain("search")
+    for (const kind of BENCH_DRAWER_KIND_VALUES) {
+      expect(
+        BenchDrawerContextSchema.parse({
+          kind,
+          presentation: "drawer",
+        }),
+      ).toEqual({
+        kind,
+        presentation: "drawer",
+      })
+    }
+
+    expect(() =>
+      BenchDrawerContextSchema.parse({
+        kind: "library",
+        presentation: "drawer",
+      }),
+    ).toThrow()
   })
 })
