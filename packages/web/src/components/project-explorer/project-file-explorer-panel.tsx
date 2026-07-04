@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { Button, FolderIcon, cn, toast } from "@buddy/ui"
 import { ChevronDownIcon, ChevronRightIcon, Loader2Icon, RefreshCwIcon } from "lucide-react"
 import { FileTypeIcon } from "@/components/files/file-type-icon"
@@ -24,6 +24,9 @@ type ProjectFileExplorerPanelProps = {
   onFileOpenBlocked?: () => void
   onSelectFile?: () => void
   onOpenResource?: WorkspaceResourceOpener
+  searchValue?: string
+  showHeader?: boolean
+  refreshRequest?: number
 }
 
 type ExplorerDirectoryState = {
@@ -62,6 +65,7 @@ function FileNodeIcon(props: { node: ProjectExplorerFileNode }) {
 }
 
 export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
+  const previousRefreshRequestRef = useRef(props.refreshRequest)
   const platform = usePlatform()
   const { executePrimary } = useWorkspaceFileOpen(props.directory, props.onOpenResource, {
     benchMode: props.benchMode,
@@ -124,6 +128,17 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
     void loadDirectory(ROOT_DIRECTORY_PATH)
   }, [loadDirectory])
 
+  useEffect(() => {
+    if (
+      props.refreshRequest === undefined ||
+      previousRefreshRequestRef.current === props.refreshRequest
+    ) {
+      return
+    }
+    previousRefreshRequestRef.current = props.refreshRequest
+    void loadDirectory(ROOT_DIRECTORY_PATH, true)
+  }, [loadDirectory, props.refreshRequest])
+
   const toggleDirectory = async (path: string) => {
     const current = directoriesByPath[path]
     const expanded = !(current?.expanded ?? false)
@@ -165,9 +180,29 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
     }
   }
 
+  function nodeMatchesSearch(
+    node: ProjectExplorerFileNode,
+    normalizedSearch: string,
+    visitedDirectories: Set<string>,
+  ): boolean {
+    if (!normalizedSearch || node.name.toLocaleLowerCase().includes(normalizedSearch)) {
+      return true
+    }
+    if (node.type !== "directory" || visitedDirectories.has(node.path)) return false
+
+    visitedDirectories.add(node.path)
+    const childState = directoriesByPath[node.path]
+    return sortedNodes(childState?.children ?? EMPTY_CHILDREN, nodesByPath).some((child) =>
+      nodeMatchesSearch(child, normalizedSearch, visitedDirectories),
+    )
+  }
+
   function renderDirectory(path: string, depth: number): ReactNode {
     const directoryState = directoriesByPath[path]
-    const children = sortedNodes(directoryState?.children ?? EMPTY_CHILDREN, nodesByPath)
+    const normalizedSearch = props.searchValue?.trim().toLocaleLowerCase() ?? ""
+    const children = sortedNodes(directoryState?.children ?? EMPTY_CHILDREN, nodesByPath).filter(
+      (node) => nodeMatchesSearch(node, normalizedSearch, new Set()),
+    )
 
     return children.map((node) => {
       if (node.type === "directory") {
@@ -175,6 +210,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
           ...ROOT_DIRECTORY_STATE,
           expanded: false,
         }
+        const visiblyExpanded = childState.expanded || normalizedSearch.length > 0
         return (
           <div key={node.path}>
             <button
@@ -183,7 +219,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
               style={{ paddingLeft: depth * TREE_DEPTH_INDENT_PX + TREE_ROW_BASE_PADDING_PX }}
               onClick={() => void toggleDirectory(node.path)}
             >
-              {childState.expanded ? (
+              {visiblyExpanded ? (
                 <ChevronDownIcon className="size-3 shrink-0" aria-hidden />
               ) : (
                 <ChevronRightIcon className="size-3 shrink-0" aria-hidden />
@@ -197,7 +233,7 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
             {childState.error ? (
               <p className="px-2 py-1 text-xs text-icon-critical-base">{childState.error}</p>
             ) : null}
-            {childState.expanded && childState.loaded
+            {visiblyExpanded && childState.loaded
               ? renderDirectory(node.path, depth + 1)
               : null}
           </div>
@@ -231,24 +267,28 @@ export function ProjectFileExplorerPanel(props: ProjectFileExplorerPanelProps) {
       data-mode={props.mode ?? "full"}
       className={cn("flex h-full min-h-0 flex-col bg-background-base", props.className)}
     >
-      <header className="flex items-center justify-between border-b border-border-weaker-base px-3 py-2.5">
-        <div className="min-w-0">
-          <h2 className="text-xs font-semibold text-text-base">
-            {language.t("projectExplorer.explorer")}
-          </h2>
-          <p className="truncate text-xs text-text-weak">{language.t("projectExplorer.files")}</p>
-        </div>
-        <Button
-          type="button"
-          size="icon-sm"
-          variant="ghost"
-          aria-label="Refresh files"
-          title="Refresh files"
-          onClick={() => void loadDirectory(ROOT_DIRECTORY_PATH, true)}
-        >
-          <RefreshCwIcon className={cn("size-4", rootState?.loading && "animate-spin")} />
-        </Button>
-      </header>
+      {props.showHeader !== false ? (
+        <header className="flex items-center justify-between border-b border-border-weaker-base px-3 py-2.5">
+          <div className="min-w-0">
+            <h2 className="text-xs font-semibold text-text-base">
+              {language.t("projectExplorer.explorer")}
+            </h2>
+            <p className="truncate text-xs text-text-weak">
+              {language.t("projectExplorer.files")}
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Refresh files"
+            title="Refresh files"
+            onClick={() => void loadDirectory(ROOT_DIRECTORY_PATH, true)}
+          >
+            <RefreshCwIcon className={cn("size-4", rootState?.loading && "animate-spin")} />
+          </Button>
+        </header>
+      ) : null}
       <div className="scrollbar-hover min-h-0 flex-1 overflow-y-auto p-1.5">
         {rootState?.error ? (
           <p className="p-2 text-xs text-icon-critical-base">{rootState.error}</p>
