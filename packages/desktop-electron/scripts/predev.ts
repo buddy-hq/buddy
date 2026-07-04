@@ -1,6 +1,7 @@
 import { $ } from "bun"
 import { existsSync, readFileSync, rmSync } from "node:fs"
 import path from "node:path"
+import { BUDDY_CHANNEL_ENV, readBuddyReleaseChannel } from "@buddy/script/channel"
 import { logDesktopRuntimeResources, syncDesktopRuntimeResources } from "./utils"
 
 function resolveMainRepoAdvancedMathCacheDir(packageDir: string): string | undefined {
@@ -31,7 +32,9 @@ function resolveMainRepoAdvancedMathCacheDir(packageDir: string): string | undef
   return undefined
 }
 
-await $`bun ./scripts/copy-icons.ts ${process.env.BUDDY_CHANNEL ?? "dev"}`
+const desktopChannel = readBuddyReleaseChannel()
+
+await $`bun ./scripts/copy-icons.ts ${desktopChannel}`
 
 const packageDir = path.resolve(import.meta.dir, "..")
 const viteCacheDirectory = path.resolve(packageDir, "node_modules/.vite")
@@ -48,5 +51,8 @@ rmSync(viteCacheDirectory, { recursive: true, force: true })
 
 await $`bun run --cwd ${webDir} prepare:web`
 await $`bun run --cwd ${backendDir} ensure:advanced-math-runtime`
-await $`bun run --cwd ${backendDir} build:node`
+await $`bun run --cwd ${backendDir} build:node`.env({
+  ...process.env,
+  [BUDDY_CHANNEL_ENV]: desktopChannel,
+})
 logDesktopRuntimeResources(syncDesktopRuntimeResources())

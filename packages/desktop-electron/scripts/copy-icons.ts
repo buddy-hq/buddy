@@ -1,8 +1,9 @@
 import { $ } from "bun"
+import { isBuddyReleaseChannel } from "@buddy/script/channel"
 import { resolveChannel } from "./utils"
 
 const arg = process.argv[2]
-const channel = arg === "dev" || arg === "beta" || arg === "prod" ? arg : resolveChannel()
+const channel = isBuddyReleaseChannel(arg) ? arg : resolveChannel()
 
 const src = `./icons/${channel}`
 const dest = "resources/icons"

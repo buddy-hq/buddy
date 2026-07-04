@@ -25,7 +25,12 @@ import {
 } from "../../buddy/script/node-artifact-runtime"
 import type { NodeArtifactProcess } from "../../buddy/script/node-artifact-runtime"
 import { resolveElectronBin } from "./electron-bin"
-import { syncDesktopRuntimeResources } from "./utils"
+import {
+  resolveExplicitRuntimeRootEnvironment,
+  resolveExplicitRuntimeRootPaths,
+  syncDesktopRuntimeResources,
+} from "./utils"
+import { BUDDY_ENV, OPENCODE_ENV } from "@buddy/script/storage-env"
 
 const BACKEND_UTILITY_SCRIPT = "backend-utility.js" as const
 const ELECTRON_RUN_AS_NODE_ENV = "ELECTRON_RUN_AS_NODE" as const
@@ -135,36 +140,30 @@ function createBackendEnvironment(input: {
   runtimeRoot: string
   tessdata: string
 }): Record<string, string> {
-  const xdgRoot = path.join(input.runtimeRoot, "xdg")
-  const notebookRoot = path.join(input.runtimeRoot, "notebook")
+  const { notebookRoot, xdgRoot } = resolveExplicitRuntimeRootPaths(input.runtimeRoot)
   mkdirSync(notebookRoot, { recursive: true })
   mkdirSync(xdgRoot, { recursive: true })
 
   return {
     ...baseEnvironment(),
-    BUDDY_ALLOWED_DIRECTORY_ROOTS: [notebookRoot, xdgRoot].join(","),
-    BUDDY_APP_VERSION: "backend-utility-memory",
-    BUDDY_BACKEND_RESOURCES_DIR: input.backendResources,
-    BUDDY_TESSDATA_DIR: input.tessdata,
-    BUDDY_DIRECTORY_BASE: notebookRoot,
-    BUDDY_MIGRATION_DIR: path.join(input.migrations, "buddy"),
-    BUDDY_RUNTIME_ROOT: xdgRoot,
-    BUDDY_SERVER_PASSWORD: PASSWORD,
-    BUDDY_SERVER_USERNAME: USERNAME,
-    OPENCODE_CLIENT: "desktop",
-    OPENCODE_DISABLE_CHANNEL_DB: "1",
-    OPENCODE_DISABLE_DEFAULT_PLUGINS: "1",
-    OPENCODE_DISABLE_EXTERNAL_SKILLS: "1",
-    OPENCODE_DISABLE_MODELS_FETCH: "1",
-    OPENCODE_EXPERIMENTAL_FILEWATCHER: "true",
-    OPENCODE_EXPERIMENTAL_ICON_DISCOVERY: "true",
-    OPENCODE_SERVER_PASSWORD: PASSWORD,
-    OPENCODE_SERVER_USERNAME: USERNAME,
+    ...resolveExplicitRuntimeRootEnvironment(xdgRoot),
+    [BUDDY_ENV.ALLOWED_DIRECTORY_ROOTS]: notebookRoot,
+    [BUDDY_ENV.APP_VERSION]: "backend-utility-memory",
+    [BUDDY_ENV.BACKEND_RESOURCES_DIR]: input.backendResources,
+    [BUDDY_ENV.TESSDATA_DIR]: input.tessdata,
+    [BUDDY_ENV.DIRECTORY_BASE]: notebookRoot,
+    [BUDDY_ENV.MIGRATION_DIR]: path.join(input.migrations, "buddy"),
+    [BUDDY_ENV.SERVER_PASSWORD]: PASSWORD,
+    [BUDDY_ENV.SERVER_USERNAME]: USERNAME,
+    [OPENCODE_ENV.CLIENT]: "desktop",
+    [OPENCODE_ENV.DISABLE_DEFAULT_PLUGINS]: "1",
+    [OPENCODE_ENV.DISABLE_EXTERNAL_SKILLS]: "1",
+    [OPENCODE_ENV.DISABLE_MODELS_FETCH]: "1",
+    [OPENCODE_ENV.EXPERIMENTAL_FILEWATCHER]: "true",
+    [OPENCODE_ENV.EXPERIMENTAL_ICON_DISCOVERY]: "true",
+    [OPENCODE_ENV.SERVER_PASSWORD]: PASSWORD,
+    [OPENCODE_ENV.SERVER_USERNAME]: USERNAME,
     PORT: String(input.port),
-    XDG_CACHE_HOME: path.join(xdgRoot, "cache"),
-    XDG_CONFIG_HOME: path.join(xdgRoot, "config"),
-    XDG_DATA_HOME: path.join(xdgRoot, "data"),
-    XDG_STATE_HOME: path.join(xdgRoot, "state"),
   }
 }
 

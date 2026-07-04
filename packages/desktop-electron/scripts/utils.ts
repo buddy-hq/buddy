@@ -6,8 +6,13 @@ import {
   syncBundledMigrations,
   syncBundledTessdataAssets,
 } from "../../../script/desktop-runtime-resources"
+import {
+  type BuddyReleaseChannel,
+  readBuddyReleaseChannel,
+} from "@buddy/script/channel"
+import { BUDDY_ENV, RUNTIME_ROOT_SEGMENTS, XDG_ENV } from "@buddy/script/storage-env"
 
-export type Channel = "dev" | "beta" | "prod"
+export type Channel = BuddyReleaseChannel
 
 const PACKAGE_DIR = path.resolve(import.meta.dir, "..")
 const PACKAGE_JSON_PATH = path.resolve(PACKAGE_DIR, "package.json")
@@ -17,11 +22,11 @@ const MIGRATIONS_DIR = path.resolve(PACKAGE_DIR, "resources/migrations")
 const TESSDATA_RESOURCES_DIR = path.resolve(PACKAGE_DIR, "resources/tessdata")
 const TAURI_SIGNER_BINARY_RELATIVE_PATH = "node_modules/.bin/tauri"
 const LEGACY_BACKEND_EXECUTABLE_RESOURCE_NAMES = ["buddy-backend", "buddy-backend.exe"] as const
+const EXPLICIT_RUNTIME_XDG_DIRECTORY_NAME = "xdg"
+const EXPLICIT_RUNTIME_NOTEBOOK_DIRECTORY_NAME = "notebook"
 
 export function resolveChannel(): Channel {
-  const raw = process.env.BUDDY_CHANNEL
-  if (raw === "dev" || raw === "beta" || raw === "prod") return raw
-  return "dev"
+  return readBuddyReleaseChannel()
 }
 
 export function syncBackendResources() {
@@ -71,6 +76,23 @@ export function logDesktopRuntimeResources(resources: DesktopRuntimeResources) {
   console.log(`Prepared Knowledge Graph bundle at ${resources.knowledgeGraphArchive}`)
   console.log(`Prepared Buddy migrations at ${resources.migrations}`)
   console.log(`Prepared Buddy tessdata at ${resources.tessdata}`)
+}
+
+export function resolveExplicitRuntimeRootPaths(runtimeRoot: string) {
+  return {
+    notebookRoot: path.join(runtimeRoot, EXPLICIT_RUNTIME_NOTEBOOK_DIRECTORY_NAME),
+    xdgRoot: path.join(runtimeRoot, EXPLICIT_RUNTIME_XDG_DIRECTORY_NAME),
+  }
+}
+
+export function resolveExplicitRuntimeRootEnvironment(xdgRoot: string): Record<string, string> {
+  return {
+    [BUDDY_ENV.RUNTIME_ROOT]: xdgRoot,
+    [XDG_ENV.CACHE_HOME]: path.join(xdgRoot, RUNTIME_ROOT_SEGMENTS.cache),
+    [XDG_ENV.CONFIG_HOME]: path.join(xdgRoot, RUNTIME_ROOT_SEGMENTS.config),
+    [XDG_ENV.DATA_HOME]: path.join(xdgRoot, RUNTIME_ROOT_SEGMENTS.data),
+    [XDG_ENV.STATE_HOME]: path.join(xdgRoot, RUNTIME_ROOT_SEGMENTS.state),
+  }
 }
 
 export function updateDesktopPackageVersion(version: string) {

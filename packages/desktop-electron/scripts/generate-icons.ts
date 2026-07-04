@@ -1,6 +1,7 @@
 import { cp, mkdir, mkdtemp, rm, stat } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
 import { tmpdir } from "node:os"
+import { BUDDY_RELEASE_CHANNELS } from "@buddy/script/channel"
 import { resolveChannel, type Channel } from "./utils"
 
 type SizedAsset = {
@@ -44,7 +45,6 @@ const DESKTOP_RUNTIME_ASSETS: SizedAsset[] = [
   { filename: "dock.png", size: 512 },
 ]
 const WINDOWS_ICO_SIZES = [16, 24, 32, 40, 48, 64, 128, 256]
-const CHANNELS: Channel[] = ["dev", "beta", "prod"]
 const PUBLIC_ICON_SIZE = 512
 const ICON_BACKGROUND = "none"
 
@@ -202,7 +202,7 @@ await mkdir(ASSETS_DIRECTORY, { recursive: true })
 await cp(appSourcePath, APP_ICON_CANONICAL_PATH)
 await cp(inAppSourcePath, IN_APP_ICON_CANONICAL_PATH)
 
-for (const channel of CHANNELS) {
+for (const channel of BUDDY_RELEASE_CHANNELS) {
   await generateChannelIcons(APP_ICON_CANONICAL_PATH, channel)
 }
 
