@@ -10,8 +10,12 @@ import {
 } from "@/lib/bench-navigation"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 
-export const WORKSPACE_DRAWER_EXPLORER = "explorer"
-export const WORKSPACE_DRAWER_LIBRARY = "library"
+export const WORKSPACE_DRAWER_SOURCES = "sources"
+export const WORKSPACE_DRAWER_SEARCH = "search"
+export const WORKSPACE_DRAWER_PRACTICE = "practice"
+export const WORKSPACE_DRAWER_CREATIONS = "creations"
+export const WORKSPACE_DRAWER_BOARDS = "boards"
+export const WORKSPACE_DRAWER_FILES = "files"
 export const WORKSPACE_VISIBILITY_COLLAPSED = "collapsed"
 export const WORKSPACE_VISIBILITY_EXPANDED = "expanded"
 export const BENCH_ROUTE_STATUS_CLOSED = "closed"
@@ -22,12 +26,18 @@ export const WORKSPACE_HYDRATION_PENDING = "pending"
 export const WORKSPACE_HYDRATION_READY = "ready"
 export const WORKSPACE_HYDRATION_FAILED = "failed"
 export const WORKSPACE_COMMAND_QUEUE_LIMIT = 64
-export const DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER = WORKSPACE_DRAWER_EXPLORER
-export const DIRECTORY_WORKSPACE_PERSISTENCE_VERSION = 1
-export const DIRECTORY_WORKSPACE_STORAGE_FILE = "buddy.directory-workspace.v1.dat"
+export const DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER = WORKSPACE_DRAWER_SOURCES
+export const DIRECTORY_WORKSPACE_PERSISTENCE_VERSION = 2
+export const DIRECTORY_WORKSPACE_STORAGE_FILE = "buddy.directory-workspace.v2.dat"
 const DIRECTORY_WORKSPACE_STORAGE_KEY_PREFIX = "directory-workspace:"
 
-export type DrawerKind = typeof WORKSPACE_DRAWER_EXPLORER | typeof WORKSPACE_DRAWER_LIBRARY
+export type DrawerKind =
+  | typeof WORKSPACE_DRAWER_SEARCH
+  | typeof WORKSPACE_DRAWER_SOURCES
+  | typeof WORKSPACE_DRAWER_PRACTICE
+  | typeof WORKSPACE_DRAWER_CREATIONS
+  | typeof WORKSPACE_DRAWER_BOARDS
+  | typeof WORKSPACE_DRAWER_FILES
 
 export type BenchRouteSnapshot =
   | { status: typeof BENCH_ROUTE_STATUS_CLOSED }
@@ -196,7 +206,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isDrawerKind(value: unknown): value is DrawerKind {
-  return value === WORKSPACE_DRAWER_EXPLORER || value === WORKSPACE_DRAWER_LIBRARY
+  return (
+    value === WORKSPACE_DRAWER_SEARCH ||
+    value === WORKSPACE_DRAWER_SOURCES ||
+    value === WORKSPACE_DRAWER_PRACTICE ||
+    value === WORKSPACE_DRAWER_CREATIONS ||
+    value === WORKSPACE_DRAWER_BOARDS ||
+    value === WORKSPACE_DRAWER_FILES
+  )
 }
 
 function isWorkspaceVisibility(

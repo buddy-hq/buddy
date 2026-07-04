@@ -12,8 +12,8 @@ import {
 } from "./bench-targets"
 import type { DirectoryWorkspaceCommandResult } from "@/state/directory-workspace-store"
 
-const BENCH_PRESENTATION_PREFERENCES_STORAGE_KEY = "buddy.bench.presentation.v1"
-const BENCH_PRESENTATION_PREFERENCES_STORAGE_FILE = "buddy.bench.presentation.dat"
+const BENCH_PRESENTATION_PREFERENCES_STORAGE_KEY = "buddy.bench.presentation.v2"
+const BENCH_PRESENTATION_PREFERENCES_STORAGE_FILE = "buddy.bench.presentation.v2.dat"
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -50,7 +50,7 @@ const useBenchPresentationPreferencesStore = create<BenchPresentationPreferences
     }),
     {
       name: BENCH_PRESENTATION_PREFERENCES_STORAGE_KEY,
-      version: 1,
+      version: 2,
       storage: createPlatformJsonStorage(BENCH_PRESENTATION_PREFERENCES_STORAGE_FILE),
       partialize(state) {
         return {

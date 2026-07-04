@@ -886,10 +886,10 @@ export function useDirectoryChatPageController(
     cs.clearUnread(targetDirectory, targetSessionID)
   }
 
-  function openResourceLibrary() {
+  function openSourcesDrawer() {
     if (decodedDirectory) {
       void invalidateResourcesQueries(queryClient, decodedDirectory)
-      void workspace.controller.execute({ type: "open-drawer", drawer: "library" })
+      void workspace.controller.execute({ type: "open-drawer", drawer: "sources" })
     }
   }
 
@@ -954,7 +954,7 @@ export function useDirectoryChatPageController(
     input: { rawAttachments: PromptComposerAttachment[] },
   ) {
     if (command.type === RESOURCE_COMMAND_PANEL) {
-      openResourceLibrary()
+      openSourcesDrawer()
       return true
     }
 
@@ -963,7 +963,7 @@ export function useDirectoryChatPageController(
         sourcePath: command.path,
         ...(command.alias ? { alias: command.alias } : {}),
       })
-      openResourceLibrary()
+      openSourcesDrawer()
       return true
     }
 
@@ -973,7 +973,7 @@ export function useDirectoryChatPageController(
       } else {
         await removeResource(decodedDirectory, { resourceKey: command.key })
       }
-      openResourceLibrary()
+      openSourcesDrawer()
       return true
     }
 

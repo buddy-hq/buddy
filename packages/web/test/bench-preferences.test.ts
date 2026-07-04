@@ -37,7 +37,7 @@ function transitionResult(
       { status: "open", target: TARGET, mode },
       {
         docked: createExpandedWorkspaceState(null),
-        lastDrawer: "explorer",
+        lastDrawer: "files",
       },
       null,
     ),

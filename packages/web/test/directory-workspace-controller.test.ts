@@ -16,7 +16,7 @@ import {
 import {
   BENCH_ROUTE_STATUS_CLOSED,
   BENCH_ROUTE_STATUS_OPEN,
-  WORKSPACE_DRAWER_LIBRARY,
+  WORKSPACE_DRAWER_SOURCES,
   WORKSPACE_VISIBILITY_COLLAPSED,
   WORKSPACE_VISIBILITY_EXPANDED,
   createCollapsedWorkspaceState,
@@ -186,7 +186,7 @@ function createHarness(input?: {
       docked: input?.initialExpanded
         ? createExpandedWorkspaceState(null)
         : createCollapsedWorkspaceState(),
-      lastDrawer: WORKSPACE_DRAWER_LIBRARY,
+      lastDrawer: WORKSPACE_DRAWER_SOURCES,
       hydration: { status: "ready" },
     })
   }
@@ -262,7 +262,7 @@ describe("DirectoryWorkspaceController", () => {
 
     harness.store.getState().finishHydration({
       docked: createCollapsedWorkspaceState(),
-      lastDrawer: WORKSPACE_DRAWER_LIBRARY,
+      lastDrawer: WORKSPACE_DRAWER_SOURCES,
       hydration: { status: "ready" },
     })
     harness.controller.drainHydrationQueue()
@@ -561,19 +561,19 @@ describe("DirectoryWorkspaceController", () => {
   test("workspace-only drawer commands commit without navigation and update last drawer", async () => {
     const harness = createHarness()
 
-    const result = await harness.execute({ type: "open-drawer", drawer: WORKSPACE_DRAWER_LIBRARY })
+    const result = await harness.execute({ type: "open-drawer", drawer: WORKSPACE_DRAWER_SOURCES })
 
     expect(result).toMatchObject({
       outcome: "committed",
       changed: true,
       projection: {
         route: CLOSED_ROUTE,
-        drawer: WORKSPACE_DRAWER_LIBRARY,
+        drawer: WORKSPACE_DRAWER_SOURCES,
         renderedSurface: "drawer",
         pending: { status: "none" },
       },
     })
-    expect(harness.store.getState().lastDrawer).toBe(WORKSPACE_DRAWER_LIBRARY)
+    expect(harness.store.getState().lastDrawer).toBe(WORKSPACE_DRAWER_SOURCES)
   })
 
   test("a newer command supersedes an awaiting guarded navigation", async () => {

@@ -9,8 +9,9 @@ import {
   BENCH_ROUTE_STATUS_CLOSED,
   BENCH_ROUTE_STATUS_OPEN,
   DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER,
-  WORKSPACE_DRAWER_EXPLORER,
-  WORKSPACE_DRAWER_LIBRARY,
+  WORKSPACE_DRAWER_FILES,
+  WORKSPACE_DRAWER_SEARCH,
+  WORKSPACE_DRAWER_SOURCES,
   WORKSPACE_PENDING_KIND_NAVIGATION,
   WORKSPACE_PENDING_KIND_WORKSPACE_ONLY,
   WORKSPACE_VISIBILITY_COLLAPSED,
@@ -81,15 +82,15 @@ const FLOATING_OBJECT_ROUTE = {
 
 function projectionState(input: {
   visibility: "collapsed" | "expanded"
-  drawer: "explorer" | "library" | null
-  lastDrawer?: "explorer" | "library"
+  drawer: "files" | "sources" | null
+  lastDrawer?: "files" | "sources"
 }): DirectoryWorkspaceProjectionState {
   return {
     docked:
       input.visibility === WORKSPACE_VISIBILITY_COLLAPSED
         ? createCollapsedWorkspaceState()
         : createExpandedWorkspaceState(input.drawer),
-    lastDrawer: input.lastDrawer ?? WORKSPACE_DRAWER_EXPLORER,
+    lastDrawer: input.lastDrawer ?? WORKSPACE_DRAWER_FILES,
   }
 }
 
@@ -229,14 +230,14 @@ describe("effectiveWorkspaceProjection", () => {
     const state = projectionState({
       visibility: WORKSPACE_VISIBILITY_EXPANDED,
       drawer: null,
-      lastDrawer: WORKSPACE_DRAWER_LIBRARY,
+      lastDrawer: WORKSPACE_DRAWER_SOURCES,
     })
 
     const projection = effectiveWorkspaceProjection(CLOSED_ROUTE, state, null)
 
     expect(projection).toMatchObject({
       bench: { visibility: "closed" },
-      drawer: WORKSPACE_DRAWER_LIBRARY,
+      drawer: WORKSPACE_DRAWER_SOURCES,
       renderedSurface: "drawer",
     })
     expect(state.docked.drawer).toBeNull()
@@ -281,13 +282,13 @@ describe("effectiveWorkspaceProjection", () => {
         DOCKED_OBJECT_ROUTE,
         projectionState({
           visibility: WORKSPACE_VISIBILITY_EXPANDED,
-          drawer: WORKSPACE_DRAWER_EXPLORER,
+          drawer: WORKSPACE_DRAWER_FILES,
         }),
         null,
       ),
     ).toMatchObject({
       bench: { visibility: "visible" },
-      drawer: WORKSPACE_DRAWER_EXPLORER,
+      drawer: WORKSPACE_DRAWER_FILES,
       renderedSurface: "drawer-over-bench",
     })
 
@@ -296,7 +297,7 @@ describe("effectiveWorkspaceProjection", () => {
         FLOATING_OBJECT_ROUTE,
         projectionState({
           visibility: WORKSPACE_VISIBILITY_COLLAPSED,
-          drawer: WORKSPACE_DRAWER_LIBRARY,
+          drawer: WORKSPACE_DRAWER_SOURCES,
         }),
         null,
       ),
@@ -346,7 +347,7 @@ describe("effectiveWorkspaceProjection", () => {
         FLOATING_OBJECT_ROUTE,
         projectionState({
           visibility: WORKSPACE_VISIBILITY_EXPANDED,
-          drawer: WORKSPACE_DRAWER_LIBRARY,
+          drawer: WORKSPACE_DRAWER_SOURCES,
         }),
         intent,
       ),
@@ -362,7 +363,7 @@ describe("effectiveWorkspaceProjection", () => {
       kind: WORKSPACE_PENDING_KIND_WORKSPACE_ONLY,
       commandID: "command-3",
       previousProjection: commandProjection(),
-      workspaceCommit: createExpandedWorkspaceState(WORKSPACE_DRAWER_EXPLORER),
+      workspaceCommit: createExpandedWorkspaceState(WORKSPACE_DRAWER_FILES),
     } satisfies PendingWorkspaceIntent
 
     expect(
@@ -373,7 +374,7 @@ describe("effectiveWorkspaceProjection", () => {
       ),
     ).toMatchObject({
       bench: { visibility: "closed", target: null },
-      drawer: WORKSPACE_DRAWER_EXPLORER,
+      drawer: WORKSPACE_DRAWER_FILES,
       renderedSurface: "drawer",
       pending: { status: "workspace-only", commandID: "command-3" },
     })
@@ -381,7 +382,7 @@ describe("effectiveWorkspaceProjection", () => {
 })
 
 describe("createDirectoryWorkspaceStore", () => {
-  test("creates a collapsed directory-scoped store with explorer as the default last drawer", () => {
+  test("creates a collapsed directory-scoped store with Sources as the default last drawer", () => {
     const store = createDirectoryWorkspaceStore({ directory: "/workspace" })
 
     expect(store.getState()).toMatchObject({
@@ -399,7 +400,7 @@ describe("createDirectoryWorkspaceStore", () => {
       kind: WORKSPACE_PENDING_KIND_WORKSPACE_ONLY,
       commandID: "command-4",
       previousProjection: commandProjection(),
-      workspaceCommit: createExpandedWorkspaceState(WORKSPACE_DRAWER_LIBRARY),
+      workspaceCommit: createExpandedWorkspaceState(WORKSPACE_DRAWER_SOURCES),
     } satisfies PendingWorkspaceIntent
 
     store.getState().setPendingIntent(intent)
@@ -408,11 +409,11 @@ describe("createDirectoryWorkspaceStore", () => {
 
     store.getState().commitDockedState({
       commandID: "command-4",
-      docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_LIBRARY),
+      docked: createExpandedWorkspaceState(WORKSPACE_DRAWER_SOURCES),
     })
 
     expect(store.getState()).toMatchObject({
-      docked: { visibility: WORKSPACE_VISIBILITY_EXPANDED, drawer: WORKSPACE_DRAWER_LIBRARY },
+      docked: { visibility: WORKSPACE_VISIBILITY_EXPANDED, drawer: WORKSPACE_DRAWER_SOURCES },
       pendingIntent: null,
     })
   })
@@ -422,19 +423,41 @@ describe("createDirectoryWorkspaceStore", () => {
 
     store.getState().finishHydration({
       docked: createExpandedWorkspaceState(null),
-      lastDrawer: WORKSPACE_DRAWER_LIBRARY,
+      lastDrawer: WORKSPACE_DRAWER_SOURCES,
       hydration: { status: "ready" },
     })
 
     expect(store.getState()).toMatchObject({
       docked: { visibility: WORKSPACE_VISIBILITY_EXPANDED, drawer: null },
-      lastDrawer: WORKSPACE_DRAWER_LIBRARY,
+      lastDrawer: WORKSPACE_DRAWER_SOURCES,
       hydration: { status: "ready" },
     })
   })
 })
 
 describe("directory workspace persistence", () => {
+  test("accepts Search as a durable last drawer", async () => {
+    const storage = createMemoryStorage()
+    await writePersistedDirectoryWorkspace({
+      directory: "/workspace",
+      storage,
+      state: {
+        visibility: WORKSPACE_VISIBILITY_EXPANDED,
+        lastDrawer: WORKSPACE_DRAWER_SEARCH,
+      },
+    })
+
+    await expect(
+      readPersistedDirectoryWorkspace({ directory: "/workspace", storage }),
+    ).resolves.toEqual({
+      status: "ready",
+      state: {
+        visibility: WORKSPACE_VISIBILITY_EXPANDED,
+        lastDrawer: WORKSPACE_DRAWER_SEARCH,
+      },
+    })
+  })
+
   test("persists only visibility and last drawer under a versioned payload", async () => {
     const storage = createMemoryStorage()
     await writePersistedDirectoryWorkspace({
@@ -442,7 +465,7 @@ describe("directory workspace persistence", () => {
       storage,
       state: {
         visibility: WORKSPACE_VISIBILITY_EXPANDED,
-        lastDrawer: WORKSPACE_DRAWER_LIBRARY,
+        lastDrawer: WORKSPACE_DRAWER_SOURCES,
       },
     })
 
@@ -452,7 +475,7 @@ describe("directory workspace persistence", () => {
       version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
       state: {
         visibility: WORKSPACE_VISIBILITY_EXPANDED,
-        lastDrawer: WORKSPACE_DRAWER_LIBRARY,
+        lastDrawer: WORKSPACE_DRAWER_SOURCES,
       },
     })
     await expect(
@@ -461,7 +484,7 @@ describe("directory workspace persistence", () => {
       status: "ready",
       state: {
         visibility: WORKSPACE_VISIBILITY_EXPANDED,
-        lastDrawer: WORKSPACE_DRAWER_LIBRARY,
+        lastDrawer: WORKSPACE_DRAWER_SOURCES,
       },
     })
   })
@@ -474,7 +497,7 @@ describe("directory workspace persistence", () => {
         version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION + 1,
         state: {
           visibility: WORKSPACE_VISIBILITY_EXPANDED,
-          lastDrawer: WORKSPACE_DRAWER_LIBRARY,
+          lastDrawer: WORKSPACE_DRAWER_SOURCES,
           rightSidebarOpen: true,
         },
       }),
@@ -493,13 +516,13 @@ describe("directory workspace persistence", () => {
       persistedDirectoryWorkspaceStateFromStore(
         projectionState({
           visibility: WORKSPACE_VISIBILITY_EXPANDED,
-          drawer: WORKSPACE_DRAWER_EXPLORER,
-          lastDrawer: WORKSPACE_DRAWER_LIBRARY,
+          drawer: WORKSPACE_DRAWER_FILES,
+          lastDrawer: WORKSPACE_DRAWER_SOURCES,
         }),
       ),
     ).toEqual({
       visibility: WORKSPACE_VISIBILITY_EXPANDED,
-      lastDrawer: WORKSPACE_DRAWER_LIBRARY,
+      lastDrawer: WORKSPACE_DRAWER_SOURCES,
     })
   })
 })

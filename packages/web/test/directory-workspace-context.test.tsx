@@ -21,7 +21,7 @@ import {
 } from "../src/components/directory-chat/directory-workspace-context"
 import {
   DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
-  WORKSPACE_DRAWER_LIBRARY,
+  WORKSPACE_DRAWER_SOURCES,
   WORKSPACE_HYDRATION_PENDING,
   WORKSPACE_HYDRATION_READY,
   WORKSPACE_VISIBILITY_COLLAPSED,
@@ -431,7 +431,7 @@ describe("DirectoryWorkspaceProvider", () => {
       version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
       state: {
         visibility: WORKSPACE_VISIBILITY_EXPANDED,
-        lastDrawer: WORKSPACE_DRAWER_LIBRARY,
+        lastDrawer: WORKSPACE_DRAWER_SOURCES,
       },
     })
     const writes: string[] = []
@@ -460,7 +460,7 @@ describe("DirectoryWorkspaceProvider", () => {
         version: DIRECTORY_WORKSPACE_PERSISTENCE_VERSION,
         state: {
           visibility: WORKSPACE_VISIBILITY_EXPANDED,
-          lastDrawer: WORKSPACE_DRAWER_LIBRARY,
+          lastDrawer: WORKSPACE_DRAWER_SOURCES,
         },
       })
     }

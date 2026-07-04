@@ -31,7 +31,7 @@ const NARROW_VIEWPORT = { widthPx: 1_000, heightPx: 800, safeTopPx: 0 }
 function resolvePresentation(input: {
   route?: BenchRouteSnapshot
   expanded?: boolean
-  drawer?: "explorer" | "library" | null
+  drawer?: "search" | "sources" | "practice" | "creations" | "boards" | "files" | null
   hydrated?: boolean
   viewport?: typeof WIDE_VIEWPORT
   requestedWorkspaceWidthPx?: number
@@ -45,7 +45,7 @@ function resolvePresentation(input: {
         docked: expanded
           ? createExpandedWorkspaceState(input.drawer ?? null)
           : createCollapsedWorkspaceState(),
-        lastDrawer: input.drawer ?? "explorer",
+        lastDrawer: input.drawer ?? "sources",
       },
       null,
     ),
@@ -98,7 +98,7 @@ describe("workspace presentation", () => {
   test("fills the workspace with a targetless selector without suppressing the sidebar", () => {
     const presentation = resolvePresentation({
       expanded: true,
-      drawer: "explorer",
+      drawer: "sources",
       viewport: NARROW_VIEWPORT,
       requestedWorkspaceWidthPx: 900,
     })
@@ -106,7 +106,7 @@ describe("workspace presentation", () => {
     expect(presentation).toMatchObject({
       kind: "selector",
       workspaceOpen: true,
-      selector: "explorer",
+      selector: "sources",
       leftSidebar: { visible: true, overlayEnabled: false },
     })
     expect(presentation.workspace.widthPx).toBe(presentation.workspace.maxWidthPx)

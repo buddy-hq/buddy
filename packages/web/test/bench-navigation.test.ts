@@ -292,25 +292,25 @@ describe("bench navigation policy", () => {
   test("uses drawer-only selector widths and clamps them to workspace content", () => {
     expect(
       resolveRightWorkspaceSelectorDrawerWidth({
-        selector: "explorer",
+        selector: "sources",
         workspaceWidthPx: 900,
       }),
-    ).toBe(360)
+    ).toBe(404)
     expect(
       resolveRightWorkspaceSelectorDrawerWidth({
-        selector: "library",
+        selector: "creations",
         workspaceWidthPx: 900,
       }),
-    ).toBe(560)
+    ).toBe(404)
     expect(
       resolveRightWorkspaceSelectorDrawerWidth({
-        selector: "explorer",
+        selector: "files",
         workspaceWidthPx: 300,
       }),
     ).toBe(256)
     expect(
       resolveRightWorkspaceSelectorDrawerWidth({
-        selector: "library",
+        selector: "boards",
         workspaceWidthPx: 300,
       }),
     ).toBe(256)
