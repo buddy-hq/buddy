@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
 import {
   Button,
   Separator,
@@ -11,22 +11,22 @@ import {
 } from "@buddy/ui"
 import {
   BookOpenIcon,
-  FolderTreeIcon,
-  LibraryIcon,
+  BrainIcon,
+  FolderIcon,
   PresentationIcon,
+  RefreshCwIcon,
   ScrollTextIcon,
+  SearchIcon,
+  ShapesIcon,
 } from "lucide-react"
+import type { SessionInfo } from "@/state/chat-types"
 import { BenchContent } from "@/components/directory-chat/directory-chat-bench-page-layout"
 import {
-  LibraryPanel,
-  type LibraryOpenOutcome,
-  type LibraryOpenRequest,
-  type LibraryPanelResourceTarget,
-} from "@/components/layout/chat-left-sidebar/library-panel"
+  type RightWorkspaceOpenOutcome,
+  type RightWorkspaceOpenRequest,
+  type RightWorkspaceResourceTarget,
+} from "./right-workspace-open"
 import { ProjectFileExplorerPanel } from "@/components/project-explorer/project-file-explorer-panel"
-import { hasWhiteboardCreate } from "@/components/whiteboard/whiteboard-progressive"
-import { whiteboardSessionQueryOptions } from "@/components/whiteboard/whiteboard-query"
-import { language } from "@/context/language"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
@@ -41,22 +41,30 @@ import {
   RIGHT_WORKSPACE_RAIL_WIDTH_PX,
   resolveRightWorkspaceSelectorDrawerWidth,
 } from "@/lib/directory-chat/right-workspace-layout"
-import { useChatStore } from "@/state/chat-store"
-import type { MessageWithParts } from "@/state/chat-types"
 import type { ResourceOpenOptions } from "@/state/resources-query"
-import { useQueryClient } from "@tanstack/react-query"
 import { BENCH_ROUTE_STATUS_OPEN, type DrawerKind } from "@/state/directory-workspace-store"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import type { WorkspacePresentation } from "@/lib/directory-chat/workspace-presentation"
+import {
+  CreationsDrawer,
+  PracticeDrawer,
+  SourcesDrawer,
+} from "./right-workspace-catalog-drawers"
+import { RightWorkspaceBoardsDrawer } from "./right-workspace-boards-drawer"
+import { RightWorkspaceDrawerShell } from "./right-workspace-drawer-ui"
+import { RightWorkspaceSearchDrawer } from "./right-workspace-search-drawer"
 
 type DirectoryChatRightWorkspaceProps = {
   directory: string
-  messages: MessageWithParts[]
   sessionID?: string
+  sessions: SessionInfo[]
   workspaceWidth: number
+  onCreateBoard: () => void
+  onCreateCreation: () => void
+  onOpenThread: (sessionID: string) => Promise<boolean>
   onOpenResource: (
     directory: string,
-    resource: LibraryPanelResourceTarget,
+    resource: RightWorkspaceResourceTarget,
     options?: ResourceOpenOptions,
   ) => Promise<OpenBenchResult> | void
   bench?: ReactNode
@@ -78,10 +86,11 @@ type RightWorkspaceRailItem = {
   icon: ReactNode
   active?: boolean
   disabled?: boolean
+  separatorBefore?: boolean
   onClick: () => void
 }
 
-type LibraryOpenResolution =
+type RightWorkspaceOpenResolution =
   | Pick<Extract<OpenBenchResult, { outcome: "committed" }>, "outcome" | "decision">
   | Pick<Exclude<OpenBenchResult, { outcome: "committed" }>, "outcome">
 
@@ -89,9 +98,9 @@ const CLOSED_BENCH_POLICY_STATE = {
   status: "closed",
 } satisfies BenchOpenPolicyState
 
-export function resolveLibraryOpenOutcome(
-  openResult: LibraryOpenResolution | void,
-): LibraryOpenOutcome {
+export function resolveRightWorkspaceOpenOutcome(
+  openResult: RightWorkspaceOpenResolution | void,
+): RightWorkspaceOpenOutcome {
   if (!openResult) return "failed"
   if (openResult.outcome === "blocked") return "blocked"
   if (openResult.outcome !== "committed") return "failed"
@@ -130,9 +139,6 @@ function RightWorkspaceRailButton(props: RightWorkspaceRailItem) {
 }
 
 function RightWorkspaceRail(props: { items: RightWorkspaceRailItem[] }) {
-  const actionItems = props.items.slice(0, 2)
-  const selectorItems = props.items.slice(2)
-
   return (
     <TooltipProvider delayDuration={350}>
       <div
@@ -140,12 +146,11 @@ function RightWorkspaceRail(props: { items: RightWorkspaceRailItem[] }) {
         className="flex h-full shrink-0 flex-col items-center gap-1 border-l border-border-weaker-base bg-background-base px-1 py-2"
         style={{ width: RIGHT_WORKSPACE_RAIL_WIDTH_PX }}
       >
-        {actionItems.map((item) => (
-          <RightWorkspaceRailButton key={item.id} {...item} />
-        ))}
-        <Separator className="my-1 w-5" />
-        {selectorItems.map((item) => (
-          <RightWorkspaceRailButton key={item.id} {...item} />
+        {props.items.map((item) => (
+          <Fragment key={item.id}>
+            {item.separatorBefore ? <Separator className="my-1 w-5" /> : null}
+            <RightWorkspaceRailButton {...item} />
+          </Fragment>
         ))}
       </div>
     </TooltipProvider>
@@ -190,12 +195,10 @@ export function DirectoryChatRightWorkspaceContent(props: {
 
 export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspaceProps) {
   const [openingInstructions, setOpeningInstructions] = useState(false)
-  const queryClient = useQueryClient()
+  const [fileSearch, setFileSearch] = useState("")
+  const [fileRefreshRequest, setFileRefreshRequest] = useState(0)
   const openBenchRoute = useOpenBench()
   const workspace = useDirectoryWorkspace()
-  const lastOpenedReadingResource = useChatStore(
-    (state) => state.lastOpenedReadingResourceByDirectory[props.directory],
-  )
   const selectorAccessEnabled = props.presentation.mode !== BENCH_CHAT_LAYOUT_FLOATING
 
   const benchPolicyState = useMemo(
@@ -212,16 +215,10 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
         : CLOSED_BENCH_POLICY_STATE,
     [props.directory, props.presentation.benchTarget, props.presentation.mode],
   )
-  const isResourceObjectRoute =
+  const isInstructionsRoute =
     benchPolicyState.status === "open" &&
-    benchPolicyState.target.type === "object" &&
-    benchPolicyState.target.ref.kind === "resource"
-  const isWhiteboardObjectRoute =
-    benchPolicyState.status === "open" &&
-    benchPolicyState.target.type === "object" &&
-    benchPolicyState.target.ref.kind === "whiteboard"
-  const showWhiteboardAction = isWhiteboardObjectRoute || hasWhiteboardCreate(props.messages)
-  const showReadingAction = isResourceObjectRoute || !!lastOpenedReadingResource
+    benchPolicyState.target.type === "workspace-file" &&
+    benchPolicyState.target.path === "AGENTS.md"
   const hasBenchTarget = props.presentation.retainedBenchTarget
   const hasVisibleBench = props.presentation.benchVisible && props.presentation.workspaceOpen
   const resolvedSelector = props.presentation.selector
@@ -268,13 +265,13 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     void workspace.controller.execute({ type: "close-drawer" })
   }, [props.directory, props.presentation.workspaceOpen, resolvedSelector, workspace.controller])
 
-  const restoreExplorerSelector = useCallback(() => {
-    logBenchToggleStep("directory-chat-right-workspace-restore-explorer-selector", {
+  const restoreFilesSelector = useCallback(() => {
+    logBenchToggleStep("directory-chat-right-workspace-restore-files-selector", {
       directory: props.directory,
       resolvedSelector,
       workspaceOpen: props.presentation.workspaceOpen,
     })
-    void workspace.controller.execute({ type: "open-drawer", drawer: "explorer" })
+    void workspace.controller.execute({ type: "open-drawer", drawer: "files" })
   }, [props.directory, props.presentation.workspaceOpen, resolvedSelector, workspace.controller])
 
   function openSelector(selector: DrawerKind) {
@@ -285,18 +282,18 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       hasVisibleBench,
       workspaceOpen: props.presentation.workspaceOpen,
     })
-    if (hasVisibleBench && resolvedSelector === selector) {
+    if (resolvedSelector === selector) {
       void workspace.controller.execute({ type: "close-drawer" })
       return
     }
     void workspace.controller.execute({ type: "open-drawer", drawer: selector })
   }
 
-  const openLibraryRequest = useCallback(
-    async (request: LibraryOpenRequest): Promise<LibraryOpenOutcome> => {
+  const openWorkspaceRequest = useCallback(
+    async (request: RightWorkspaceOpenRequest): Promise<RightWorkspaceOpenOutcome> => {
       try {
         if (request.type === "resource") {
-          const outcome = resolveLibraryOpenOutcome(
+          const outcome = resolveRightWorkspaceOpenOutcome(
             await props.onOpenResource(request.directory, request.resource, request.options),
           )
           if (outcome === "opened" || outcome === "focused") closeSelector()
@@ -310,7 +307,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
           benchPolicyState.target.ref.objectID === request.target.ref.objectID
             ? benchPolicyState.target
             : request.target
-        const outcome = resolveLibraryOpenOutcome(
+        const outcome = resolveRightWorkspaceOpenOutcome(
           await openBenchRoute({
             directory: request.directory,
             target: currentTarget,
@@ -333,7 +330,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     setOpeningInstructions(true)
     try {
       await ensureNotebookAgentsMd(props.directory)
-      const outcome = resolveLibraryOpenOutcome(
+      const outcome = resolveRightWorkspaceOpenOutcome(
         await openBenchRoute({
           directory: props.directory,
           target: { type: "workspace-file", path: "AGENTS.md", viewer: "markdown" },
@@ -349,170 +346,165 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     }
   }
 
-  function focusCurrentBenchShortcut(shortcut: "reading" | "whiteboard") {
-    logBenchToggleStep("directory-chat-right-workspace-focus-current-shortcut", {
-      directory: props.directory,
-      shortcut,
-      resolvedSelector,
-      benchVisible: props.presentation.benchVisible,
-      workspaceOpen: props.presentation.workspaceOpen,
-      presentationKind: props.presentation.kind,
-    })
-
-    if (resolvedSelector !== null) {
-      void workspace.controller.execute({ type: "close-drawer" })
-      return
-    }
-
-    if (props.presentation.retainedBenchTarget && !props.presentation.benchVisible) {
-      void workspace.controller.execute({ type: "reveal" })
-    }
-  }
-
-  function openReading() {
-    if (isResourceObjectRoute) {
-      focusCurrentBenchShortcut("reading")
-      return
-    }
-
-    if (!lastOpenedReadingResource) return
-
-    void openBenchRoute({
-      directory: props.directory,
-      target: lastOpenedReadingResource.objectID
-        ? {
-            type: "object",
-            ref: {
-              kind: "resource",
-              objectID: lastOpenedReadingResource.objectID,
-              revisionID: null,
-              itemID: null,
-            },
-            viewID: "reader",
-          }
-        : {
-            type: "workspace-file",
-            path: lastOpenedReadingResource.path,
-            viewer: "file",
-          },
-      mode: BENCH_CHAT_LAYOUT_DOCKED,
-      autoOpen: null,
-    })
-  }
-
-  function openWhiteboard() {
-    if (isWhiteboardObjectRoute) {
-      focusCurrentBenchShortcut("whiteboard")
-      return
-    }
-
-    const sessionID = props.sessionID
-    if (!sessionID) return
-
-    void (async () => {
-      const session = await queryClient.fetchQuery(
-        whiteboardSessionQueryOptions(props.directory, sessionID),
-      )
-      if (!session.objectID) return
-
-      await openBenchRoute({
-        directory: props.directory,
-        target: {
-          type: "object",
-          ref: {
-            kind: "whiteboard",
-            objectID: session.objectID,
-            revisionID: null,
-            itemID: null,
-          },
-          viewID: "current",
-        },
-        mode: BENCH_CHAT_LAYOUT_DOCKED,
-        autoOpen: null,
-      })
-    })()
-  }
-
   const selectorContent = useMemo(() => {
     if (!selectorAccessEnabled || !resolvedSelector) return null
 
-    if (resolvedSelector === "library") {
+    if (resolvedSelector === "search") {
       return (
-        <div
-          data-library-scroll-container
-          className="scrollbar-hover h-full min-h-0 overflow-y-auto p-3"
-        >
-          <LibraryPanel directories={[props.directory]} onOpen={openLibraryRequest} />
-        </div>
+        <RightWorkspaceSearchDrawer
+          directory={props.directory}
+          sessionID={props.sessionID}
+          sessions={props.sessions}
+          onClose={closeSelector}
+          onOpen={openWorkspaceRequest}
+          onOpenThread={props.onOpenThread}
+        />
       )
     }
-
+    if (resolvedSelector === "sources") {
+      return (
+        <SourcesDrawer
+          directory={props.directory}
+          onClose={closeSelector}
+          onOpen={openWorkspaceRequest}
+        />
+      )
+    }
+    if (resolvedSelector === "practice") {
+      return (
+        <PracticeDrawer
+          directory={props.directory}
+          onClose={closeSelector}
+          onOpen={openWorkspaceRequest}
+        />
+      )
+    }
+    if (resolvedSelector === "creations") {
+      return (
+        <CreationsDrawer
+          directory={props.directory}
+          onClose={closeSelector}
+          onOpen={openWorkspaceRequest}
+          onCreate={() => {
+            closeSelector()
+            props.onCreateCreation()
+          }}
+        />
+      )
+    }
+    if (resolvedSelector === "boards") {
+      return (
+        <RightWorkspaceBoardsDrawer
+          directory={props.directory}
+          sessionID={props.sessionID}
+          onClose={closeSelector}
+          onCreateBoard={() => {
+            closeSelector()
+            props.onCreateBoard()
+          }}
+          onOpen={openWorkspaceRequest}
+        />
+      )
+    }
     return (
-      <ProjectFileExplorerPanel
-        directory={props.directory}
-        mode="selector"
-        benchMode={BENCH_CHAT_LAYOUT_DOCKED}
-        className="h-full min-h-0"
-        onFileOpenBlocked={restoreExplorerSelector}
-        onSelectFile={closeSelector}
-        onOpenResource={(directory, resource, options) => {
-          const pendingDecision = props.onOpenResource(directory, resource, options)
-          if (!pendingDecision) return
-          return pendingDecision.then((decision) => {
-            const outcome = resolveLibraryOpenOutcome(decision)
-            if (outcome === "opened" || outcome === "focused") {
-              closeSelector()
-            }
-            return decision
-          })
+      <RightWorkspaceDrawerShell
+        title="Files"
+        searchLabel="Search files…"
+        searchValue={fileSearch}
+        action={{
+          label: "Refresh files",
+          icon: RefreshCwIcon,
+          onClick: () => setFileRefreshRequest((current) => current + 1),
         }}
-      />
+        bodyClassName="overflow-hidden p-0"
+        onSearchValueChange={setFileSearch}
+        onClose={closeSelector}
+      >
+        <ProjectFileExplorerPanel
+          directory={props.directory}
+          mode="selector"
+          benchMode={BENCH_CHAT_LAYOUT_DOCKED}
+          className="h-full min-h-0"
+          searchValue={fileSearch}
+          showHeader={false}
+          refreshRequest={fileRefreshRequest}
+          onFileOpenBlocked={restoreFilesSelector}
+          onSelectFile={closeSelector}
+          onOpenResource={(directory, resource, options) => {
+            const pendingDecision = props.onOpenResource(directory, resource, options)
+            if (!pendingDecision) return
+            return pendingDecision.then((decision) => {
+              const outcome = resolveRightWorkspaceOpenOutcome(decision)
+              if (outcome === "opened" || outcome === "focused") {
+                closeSelector()
+              }
+              return decision
+            })
+          }}
+        />
+      </RightWorkspaceDrawerShell>
     )
   }, [
     closeSelector,
-    openLibraryRequest,
+    openWorkspaceRequest,
     props,
     resolvedSelector,
-    restoreExplorerSelector,
+    fileRefreshRequest,
+    fileSearch,
+    restoreFilesSelector,
     selectorAccessEnabled,
   ])
 
   const railItems: RightWorkspaceRailItem[] = [
     {
-      id: "reading",
-      label: READING_SHORTCUT_LABEL,
+      id: "search",
+      label: "Search",
+      icon: <SearchIcon />,
+      active: resolvedSelector === "search",
+      onClick: () => openSelector("search"),
+    },
+    {
+      id: "sources",
+      label: "Sources",
       icon: <BookOpenIcon />,
-      active: isResourceObjectRoute && resolvedSelector === null,
-      disabled: !showReadingAction,
-      onClick: openReading,
+      active: resolvedSelector === "sources",
+      onClick: () => openSelector("sources"),
     },
     {
-      id: "whiteboard",
-      label: WHITEBOARD_SHORTCUT_LABEL,
+      id: "practice",
+      label: "Practice",
+      icon: <BrainIcon />,
+      active: resolvedSelector === "practice",
+      onClick: () => openSelector("practice"),
+    },
+    {
+      id: "creations",
+      label: "Creations",
+      icon: <ShapesIcon />,
+      active: resolvedSelector === "creations",
+      onClick: () => openSelector("creations"),
+    },
+    {
+      id: "boards",
+      label: "Boards",
       icon: <PresentationIcon />,
-      active: isWhiteboardObjectRoute && resolvedSelector === null,
-      disabled: !showWhiteboardAction,
-      onClick: openWhiteboard,
+      active: resolvedSelector === "boards",
+      onClick: () => openSelector("boards"),
     },
     {
-      id: "explorer",
-      label: language.t("projectExplorer.explorer"),
-      icon: <FolderTreeIcon />,
-      active: resolvedSelector === "explorer",
-      onClick: () => openSelector("explorer"),
-    },
-    {
-      id: "library",
-      label: language.t("sidebar.library"),
-      icon: <LibraryIcon />,
-      active: resolvedSelector === "library",
-      onClick: () => openSelector("library"),
+      id: "files",
+      label: "Files",
+      icon: <FolderIcon />,
+      active: resolvedSelector === "files",
+      onClick: () => openSelector("files"),
     },
     {
       id: "instructions",
-      label: language.t("sidebar.mainPane.instructions"),
+      label: "Agents",
       icon: <ScrollTextIcon />,
+      active: isInstructionsRoute && resolvedSelector === null,
       disabled: openingInstructions,
+      separatorBefore: true,
       onClick: () => void openInstructions(),
     },
   ]
@@ -535,6 +527,3 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     </section>
   )
 }
-
-const WHITEBOARD_SHORTCUT_LABEL = "Show whiteboard"
-const READING_SHORTCUT_LABEL = "Show reading"

@@ -14,7 +14,7 @@ import { createRoot, type Root } from "react-dom/client"
 import {
   DirectoryChatRightWorkspace,
   DirectoryChatRightWorkspaceContent,
-  resolveLibraryOpenOutcome,
+  resolveRightWorkspaceOpenOutcome,
 } from "../src/components/directory-chat/directory-chat-right-workspace"
 import {
   DirectoryWorkspaceProvider,
@@ -23,6 +23,9 @@ import {
 import { encodeDirectory } from "../src/lib/directory-token"
 import { BENCH_LAYOUT_PROFILE_READING } from "../src/lib/bench-navigation"
 import { resolveWorkspacePresentation } from "../src/lib/directory-chat/workspace-presentation"
+import { processedResourcesQueryKey } from "../src/state/resources-query"
+import { workspaceObjectsQueryKeys } from "../src/state/workspace-objects-query"
+import { whiteboardQueryKeys } from "../src/components/whiteboard/whiteboard-query"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_RESOURCE_ID = "resource-1"
@@ -34,7 +37,7 @@ function flushEffects(): Promise<void> {
   })
 }
 
-function RightWorkspaceHarness() {
+function RightWorkspaceHarness(props: { sessionID?: string }) {
   const workspace = useDirectoryWorkspace()
   const location = useLocation()
   const presentation = resolveWorkspacePresentation({
@@ -54,9 +57,12 @@ function RightWorkspaceHarness() {
       <span data-testid="drawer">{workspace.projection.drawer ?? "none"}</span>
       <DirectoryChatRightWorkspace
         directory={TEST_DIRECTORY}
-        messages={[]}
-        sessionID="session-1"
+        sessionID={props.sessionID}
+        sessions={[]}
         workspaceWidth={720}
+        onCreateBoard={() => undefined}
+        onCreateCreation={() => undefined}
+        onOpenThread={async () => true}
         onOpenResource={() => undefined}
         bench={<div data-testid="bench-target">Reader target</div>}
         presentation={presentation}
@@ -69,13 +75,25 @@ function ChatRouteMarker() {
   return <span data-testid="chat-route">Chat route</span>
 }
 
-function createTestRouter() {
+function createTestRouter(options?: { sessionID?: string }) {
+  const sessionID = options === undefined ? "session-1" : options.sessionID
   const queryClient = new QueryClient({
     defaultOptions: {
-      queries: { retry: false },
+      queries: { retry: false, refetchOnMount: false },
       mutations: { retry: false },
     },
   })
+  queryClient.setQueryData(workspaceObjectsQueryKeys.all(TEST_DIRECTORY), {
+    objects: [],
+    loadErrors: [],
+  })
+  queryClient.setQueryData(processedResourcesQueryKey(TEST_DIRECTORY), [])
+  if (sessionID !== undefined) {
+    queryClient.setQueryData(whiteboardQueryKeys.sessionPeek(TEST_DIRECTORY, sessionID), {
+      objectID: null,
+      currentBoard: null,
+    })
+  }
   const rootRoute = createRootRoute({
     component: () => <Outlet />,
   })
@@ -98,7 +116,7 @@ function createTestRouter() {
   const objectRoute = createRoute({
     getParentRoute: () => directoryRoute,
     path: "objects/$kind/$objectID",
-    component: RightWorkspaceHarness,
+    component: () => <RightWorkspaceHarness sessionID={sessionID} />,
   })
   const routeTree = rootRoute.addChildren([directoryRoute.addChildren([chatRoute, objectRoute])])
   return createRouter({
@@ -129,7 +147,7 @@ describe("DirectoryChatRightWorkspace", () => {
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
 
-  test("reading rail click focuses the active reader instead of closing Bench", async () => {
+  test("opens Sources as a drawer over the retained Bench target", async () => {
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
     container = document.createElement("div")
     document.body.appendChild(container)
@@ -140,13 +158,13 @@ describe("DirectoryChatRightWorkspace", () => {
       await flushEffects()
     })
 
-    const readingButton = container.querySelector<HTMLButtonElement>('[aria-label="Show reading"]')
-    expect(readingButton).not.toBeNull()
-    expect(readingButton?.getAttribute("aria-pressed")).toBe("true")
+    const sourcesButton = container.querySelector<HTMLButtonElement>('[aria-label="Sources"]')
+    expect(sourcesButton).not.toBeNull()
+    expect(sourcesButton?.getAttribute("aria-pressed")).toBe("false")
     expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
 
     await act(async () => {
-      readingButton?.click()
+      sourcesButton?.click()
       await flushEffects()
     })
 
@@ -156,27 +174,142 @@ describe("DirectoryChatRightWorkspace", () => {
       `/${encodeDirectory(TEST_DIRECTORY)}/objects/resource/${TEST_RESOURCE_ID}`,
     )
     expect(container.querySelector('[data-testid="bench-visibility"]')?.textContent).toBe("visible")
+    expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe("sources")
+    expect(
+      container.querySelector('[data-component="right-workspace-selector-drawer"]'),
+    ).not.toBeNull()
+
+    await act(async () => {
+      sourcesButton?.click()
+      await flushEffects()
+    })
+
     expect(container.querySelector('[data-testid="drawer"]')?.textContent).toBe("none")
+    expect(
+      container.querySelector('[data-component="right-workspace-selector-drawer"]'),
+    ).toBeNull()
+    expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
+  })
+
+  test("renders the accepted notebook-scoped rail in order", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<RouterProvider router={createTestRouter()} />)
+      await flushEffects()
+    })
+
+    const labels = Array.from(
+      container.querySelectorAll<HTMLButtonElement>(
+        '[data-component="right-workspace-rail"] button',
+      ),
+      (button) => button.getAttribute("aria-label"),
+    )
+    expect(labels).toEqual([
+      "Search",
+      "Sources",
+      "Practice",
+      "Creations",
+      "Boards",
+      "Files",
+      "Agents",
+    ])
+  })
+
+  test("opens Search as the first notebook-scoped drawer", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<RouterProvider router={createTestRouter()} />)
+      await flushEffects()
+    })
+
+    const searchButton = container.querySelector<HTMLButtonElement>('[aria-label="Search"]')
+    await act(async () => {
+      searchButton?.click()
+      await flushEffects()
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    })
+
+    expect(searchButton?.getAttribute("aria-pressed")).toBe("true")
+    expect(
+      container.querySelector('[data-component="right-workspace-drawer"] h2')?.textContent,
+    ).toBe("Search")
+    expect(container.querySelector('[aria-label="Search this notebook…"]')).not.toBeNull()
+  })
+
+  test("opens Boards from the non-creating peek state", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<RouterProvider router={createTestRouter()} />)
+      await flushEffects()
+    })
+
+    const boardsButton = container.querySelector<HTMLButtonElement>('[aria-label="Boards"]')
+    await act(async () => {
+      boardsButton?.click()
+      await flushEffects()
+    })
+
+    expect(
+      container.querySelector('[data-component="right-workspace-drawer"] h2')?.textContent,
+    ).toBe("Boards")
+    expect(container.textContent).toContain("No board yet")
+  })
+
+  test("shows the create board empty state without an active chat", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<RouterProvider router={createTestRouter({})} />)
+      await flushEffects()
+    })
+
+    const boardsButton = container.querySelector<HTMLButtonElement>('[aria-label="Boards"]')
+    await act(async () => {
+      boardsButton?.click()
+      await flushEffects()
+    })
+
+    expect(
+      container.querySelector('[data-component="right-workspace-drawer"] h2')?.textContent,
+    ).toBe("Boards")
+    expect(container.textContent).toContain("No board yet")
+    expect(container.textContent).toContain("Create board")
+    expect(container.textContent).not.toContain("Start a chat first")
   })
 
   test("keeps unsuccessful open outcomes distinct from drawer-closing success", () => {
     expect(
-      resolveLibraryOpenOutcome({
+      resolveRightWorkspaceOpenOutcome({
         outcome: "failed",
       }),
     ).toBe("failed")
     expect(
-      resolveLibraryOpenOutcome({
+      resolveRightWorkspaceOpenOutcome({
         outcome: "inactive",
       }),
     ).toBe("failed")
     expect(
-      resolveLibraryOpenOutcome({
+      resolveRightWorkspaceOpenOutcome({
         outcome: "superseded",
       }),
     ).toBe("failed")
     expect(
-      resolveLibraryOpenOutcome({
+      resolveRightWorkspaceOpenOutcome({
         outcome: "blocked",
       }),
     ).toBe("blocked")

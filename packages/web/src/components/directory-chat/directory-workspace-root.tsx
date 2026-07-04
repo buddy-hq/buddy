@@ -41,12 +41,22 @@ import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { useStore } from "zustand"
 import { resolveWorkspacePresentation } from "@/lib/directory-chat/workspace-presentation"
 import { DIRECTORY_CHAT_SHELL_VIEW } from "@/lib/directory-chat/directory-chat-shell-view"
+import { requestPromptComposerFocus } from "@/components/prompt/prompt-composer-focus"
+import {
+  createTextPromptDraft,
+  getPromptDraft,
+  usePromptStore,
+} from "@/state/prompt-store"
 
 type ReadyDirectoryBenchController = Extract<DirectoryChatPageControllerState, { status: "ready" }>
 
 const DOCKED_BENCH_DEFAULT_VIEWPORT_WIDTH_PX = 1280
 const DOCKED_BENCH_DEFAULT_VIEWPORT_HEIGHT_PX = 800
 const CLOSED_BENCH_TARGET_KEY = "closed-bench-target"
+const CREATE_BOARD_PROMPT =
+  "Create a whiteboard for this notebook chat that helps me organize and develop the current ideas."
+const CREATE_CREATION_PROMPT =
+  "Create a visual or interactive learning artifact for this notebook chat based on the current context."
 
 function hasUsableDimension(value: number) {
   return Number.isFinite(value) && value > 0
@@ -480,20 +490,52 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     await controller.leftSidebarProps.onNewSession(currentDirectory)
   }, [controller.leftSidebarProps, currentDirectory, isWhiteboardTarget, openChatRoute])
 
-  const handleSelectSession = useCallback(
-    async (nextSessionID: string) => {
+  const selectWorkspaceSession = useCallback(
+    async (nextSessionID: string): Promise<boolean> => {
       if (isWhiteboardTarget && nextSessionID) {
         const didCloseBench = await openChatRoute()
-        if (!didCloseBench) return
+        if (!didCloseBench) return false
       }
       await controller.leftSidebarProps.onSelectSession(currentDirectory, nextSessionID)
+      return true
     },
     [controller.leftSidebarProps, currentDirectory, isWhiteboardTarget, openChatRoute],
+  )
+  const handleSelectSession = useCallback(
+    async (nextSessionID: string): Promise<void> => {
+      await selectWorkspaceSession(nextSessionID)
+    },
+    [selectWorkspaceSession],
   )
 
   const handleFloatChat = useCallback(() => {
     setBenchChatLayoutMode(BENCH_CHAT_LAYOUT_FLOATING)
   }, [setBenchChatLayoutMode])
+
+  const stageWorkspacePrompt = useCallback(
+    (prompt: string) => {
+      const promptKey = controller.mainPaneProps.chatState.promptKey
+      const currentDraft = getPromptDraft(usePromptStore.getState(), promptKey)
+      const nextValue = currentDraft.value.trim()
+        ? `${currentDraft.value.trimEnd()}\n\n${prompt}`
+        : prompt
+      const nextDraft = createTextPromptDraft(nextValue)
+      controller.mainPaneProps.chatState.setPromptDraft(promptKey, {
+        ...nextDraft,
+        attachments: currentDraft.attachments,
+      })
+      requestPromptComposerFocus(currentDirectory)
+    },
+    [controller.mainPaneProps.chatState, currentDirectory],
+  )
+  const handleCreateBoard = useCallback(
+    () => stageWorkspacePrompt(CREATE_BOARD_PROMPT),
+    [stageWorkspacePrompt],
+  )
+  const handleCreateCreation = useCallback(
+    () => stageWorkspacePrompt(CREATE_CREATION_PROMPT),
+    [stageWorkspacePrompt],
+  )
 
   const benchTargetKey = workspace.projection.bench.targetKey ?? CLOSED_BENCH_TARGET_KEY
   const benchOutlet = (
@@ -543,9 +585,12 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
           bench={
             <DirectoryChatRightWorkspace
               directory={currentDirectory}
-              messages={controller.mainPaneProps.chatState.messages}
               sessionID={controller.mainPaneProps.chatState.sessionID}
+              sessions={controller.mainPaneProps.chatState.sessions}
               workspaceWidth={dockedWorkspaceDisplayWidthPx}
+              onCreateBoard={handleCreateBoard}
+              onCreateCreation={handleCreateCreation}
+              onOpenThread={selectWorkspaceSession}
               onOpenResource={controller.mainPaneProps.onOpenResource}
               bench={benchOutlet}
               presentation={presentation}
