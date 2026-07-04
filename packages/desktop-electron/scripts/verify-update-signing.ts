@@ -8,6 +8,18 @@ import { resolveTauriSignerBinaryPath } from "./utils"
 
 const LOCAL_TAURI_KEY_DIRECTORY = ".config/buddy"
 const LOCAL_TAURI_KEY_FILENAME = "tauri-updater.key"
+const SENSITIVE_TAURI_SIGNING_ENV_KEYS = [
+  "TAURI_SIGNING_PRIVATE_KEY",
+  "TAURI_SIGNING_PRIVATE_KEY_PASSWORD",
+] as const
+
+function resolveSignerHelpEnvironment(): NodeJS.ProcessEnv {
+  const environment = { ...process.env }
+  for (const key of SENSITIVE_TAURI_SIGNING_ENV_KEYS) {
+    delete environment[key]
+  }
+  return environment
+}
 
 const signerPath = resolveTauriSignerBinaryPath(process.env)
 
@@ -31,4 +43,4 @@ if (!rawPrivateKey && !privateKeyPath && !existsSync(localPrivateKeyPath)) {
   )
 }
 
-await $`${signerPath} signer sign --help`
+await $`${signerPath} signer sign --help`.env(resolveSignerHelpEnvironment())

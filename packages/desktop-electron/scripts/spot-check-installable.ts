@@ -4,7 +4,6 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process"
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { createInterface } from "node:readline/promises"
 import {
   resolveMacOsReleaseArtifactFilename,
   resolveWindowsReleaseArtifactFilename,
@@ -22,6 +21,7 @@ const WINDOWS_EXECUTABLE_EXTENSION = ".exe"
 const WINDOWS_INSTALLER_SILENT_FLAG = "/S"
 const WINDOWS_INSTALL_DIRECTORY_PREFIX = "/D="
 const TERMINATION_TIMEOUT_MS = 10_000
+const PROMPT_ENCODING = "utf8"
 const INTERRUPT_SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const
 
 type InterruptSignal = (typeof INTERRUPT_SIGNALS)[number]
@@ -255,11 +255,56 @@ async function terminate(child: ChildProcess): Promise<void> {
   }
 }
 
-async function waitForApproval(runningApp: RunningApp): Promise<void> {
-  const readline = createInterface({
-    input: process.stdin,
-    output: process.stdout,
+function readPromptLine(prompt: string, signal: AbortSignal): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new Error("Prompt aborted"))
+      return
+    }
+
+    let finished = false
+
+    const cleanup = () => {
+      process.stdin.off("data", onData)
+      process.stdin.off("error", onError)
+      signal.removeEventListener("abort", onAbort)
+      process.stdin.pause()
+    }
+    const finish = (result: { answer: string } | { error: Error }) => {
+      if (finished) {
+        return
+      }
+
+      finished = true
+      cleanup()
+
+      if ("answer" in result) {
+        resolve(result.answer)
+      } else {
+        reject(result.error)
+      }
+    }
+    const onData = (chunk: string | Buffer) => {
+      finish({ answer: chunk.toString() })
+    }
+    const onError = (error: Error) => {
+      finish({ error })
+    }
+    const onAbort = () => {
+      finish({ error: new Error("Prompt aborted") })
+    }
+
+    process.stdout.write(prompt)
+    process.stdin.setEncoding(PROMPT_ENCODING)
+    process.stdin.resume()
+    process.stdin.once("data", onData)
+    process.stdin.once("error", onError)
+    signal.addEventListener("abort", onAbort, { once: true })
   })
+}
+
+async function waitForApproval(runningApp: RunningApp): Promise<void> {
+  const promptAbort = new AbortController()
   const signalHandlers: Array<{
     handler: () => void
     signal: InterruptSignal
@@ -288,7 +333,7 @@ async function waitForApproval(runningApp: RunningApp): Promise<void> {
     console.log(`\nBuddy Dev launched from ${runningApp.label}.`)
     console.log("Spot-check startup, navigation, a message, and packaged resource loading.")
     const answer = await Promise.race([
-      readline.question("\nContinue with the production release smoke? [y/N]: "),
+      readPromptLine("\nContinue with the production release smoke? [y/N]: ", promptAbort.signal),
       interruption,
       appExited,
     ])
@@ -299,7 +344,7 @@ async function waitForApproval(runningApp: RunningApp): Promise<void> {
       throw new Error("Buddy Dev exited before the spot-check was approved")
     }
   } finally {
-    readline.close()
+    promptAbort.abort()
     for (const { handler, signal } of signalHandlers) {
       process.off(signal, handler)
     }
