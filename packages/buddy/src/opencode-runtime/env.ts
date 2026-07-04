@@ -1,13 +1,19 @@
 import fs from "node:fs"
+import os from "node:os"
 import path from "node:path"
 import {
   BUDDY_APP_NAME,
+  BUDDY_ENV,
+  OPENCODE_ENV,
+  RUNTIME_ROOT_SEGMENTS,
+  XDG_DEFAULT_SEGMENTS,
+  XDG_ENV,
   resolveConfiguredPath,
   resolveDefaultBuddyGlobalConfigDir,
 } from "../storage/constants"
 
-function runtimeRoot() {
-  const configured = process.env.BUDDY_RUNTIME_ROOT?.trim()
+function runtimeRoot(): string | undefined {
+  const configured = process.env[BUDDY_ENV.RUNTIME_ROOT]?.trim()
   if (configured && configured !== "undefined") {
     try {
       return path.resolve(decodeURIComponent(configured))
@@ -16,19 +22,32 @@ function runtimeRoot() {
     }
   }
 
-  return path.resolve(process.cwd(), ".buddy-runtime/xdg")
+  return undefined
 }
 
-const runtimeRootPath = runtimeRoot()
 const DEFAULT_OPENCODE_CLIENT = "web"
 const OPENCODE_ENABLE_FLAG = "1"
+const runtimeRootPath = runtimeRoot()
 
-export const BUDDY_XDG_DATA_HOME = path.join(runtimeRootPath, "data")
-export const BUDDY_XDG_CACHE_HOME = path.join(runtimeRootPath, "cache")
-export const BUDDY_XDG_CONFIG_HOME = path.join(runtimeRootPath, "config")
-export const BUDDY_XDG_STATE_HOME = path.join(runtimeRootPath, "state")
-export const BUDDY_TMP_DIR = path.join(runtimeRootPath, "tmp")
-export const BUDDY_RUNTIME_CONFIG_DIR = path.join(BUDDY_XDG_CONFIG_HOME, BUDDY_APP_NAME)
+function xdgPath(envName: string, fallback: string) {
+  return resolveConfiguredPath(process.env[envName]) ?? path.resolve(fallback)
+}
+
+const BUDDY_XDG_DATA_HOME = runtimeRootPath
+  ? path.join(runtimeRootPath, RUNTIME_ROOT_SEGMENTS.data)
+  : xdgPath(XDG_ENV.DATA_HOME, path.join(os.homedir(), ...XDG_DEFAULT_SEGMENTS.data))
+const BUDDY_XDG_CACHE_HOME = runtimeRootPath
+  ? path.join(runtimeRootPath, RUNTIME_ROOT_SEGMENTS.cache)
+  : xdgPath(XDG_ENV.CACHE_HOME, path.join(os.homedir(), ...XDG_DEFAULT_SEGMENTS.cache))
+const BUDDY_XDG_CONFIG_HOME = runtimeRootPath
+  ? path.join(runtimeRootPath, RUNTIME_ROOT_SEGMENTS.config)
+  : xdgPath(XDG_ENV.CONFIG_HOME, path.join(os.homedir(), ...XDG_DEFAULT_SEGMENTS.config))
+const BUDDY_XDG_STATE_HOME = runtimeRootPath
+  ? path.join(runtimeRootPath, RUNTIME_ROOT_SEGMENTS.state)
+  : xdgPath(XDG_ENV.STATE_HOME, path.join(os.homedir(), ...XDG_DEFAULT_SEGMENTS.state))
+export const BUDDY_TMP_DIR = runtimeRootPath
+  ? path.join(runtimeRootPath, RUNTIME_ROOT_SEGMENTS.tmp)
+  : path.join(os.tmpdir(), BUDDY_APP_NAME)
 export const BUDDY_DEFAULT_GLOBAL_CONFIG_DIR = resolveDefaultBuddyGlobalConfigDir()
 
 let openCodeGlobal: typeof import("@buddy/opencode-adapter/global").Global | undefined
@@ -71,34 +90,37 @@ function applyOptionalPathEnv(name: string, resolvedPath: string | undefined) {
   delete process.env[name]
 }
 
-function configureBuddyTempDirectory() {
+function configureOpenCodeGlobalPaths(configDirectory: string) {
   fs.mkdirSync(BUDDY_TMP_DIR, { recursive: true })
   if (openCodeGlobal) {
+    openCodeGlobal.Path.config = configDirectory
     openCodeGlobal.Path.tmp = BUDDY_TMP_DIR
   }
 }
 
 export function configureOpenCodeEnvironment() {
   const buddyConfigDir =
-    resolveConfiguredPath(process.env.BUDDY_GLOBAL_CONFIG_DIR) ?? BUDDY_DEFAULT_GLOBAL_CONFIG_DIR
+    resolveConfiguredPath(process.env[BUDDY_ENV.GLOBAL_CONFIG_DIR]) ??
+    BUDDY_DEFAULT_GLOBAL_CONFIG_DIR
 
-  process.env.XDG_DATA_HOME = BUDDY_XDG_DATA_HOME
-  process.env.XDG_CACHE_HOME = BUDDY_XDG_CACHE_HOME
-  process.env.XDG_CONFIG_HOME = BUDDY_XDG_CONFIG_HOME
-  process.env.XDG_STATE_HOME = BUDDY_XDG_STATE_HOME
-  process.env.BUDDY_GLOBAL_CONFIG_DIR = buddyConfigDir
-  process.env.OPENCODE_CONFIG_DIR = buddyConfigDir
-  process.env.OPENCODE_DISABLE_CHANNEL_DB ||= "1"
-  process.env.OPENCODE_DISABLE_EXTERNAL_SKILLS ||= "1"
-  process.env.OPENCODE_CLIENT ||= DEFAULT_OPENCODE_CLIENT
-  process.env.OPENCODE_ENABLE_QUESTION_TOOL ||= OPENCODE_ENABLE_FLAG
-  process.env.OPENCODE_ENABLE_EXA ||= "1"
-  applyOptionalPathEnv("BUDDY_MIGRATION_DIR", findRepoPath("packages/buddy/migration"))
-  configureBuddyTempDirectory()
+  if (runtimeRootPath) {
+    process.env[XDG_ENV.DATA_HOME] = BUDDY_XDG_DATA_HOME
+    process.env[XDG_ENV.CACHE_HOME] = BUDDY_XDG_CACHE_HOME
+    process.env[XDG_ENV.CONFIG_HOME] = BUDDY_XDG_CONFIG_HOME
+    process.env[XDG_ENV.STATE_HOME] = BUDDY_XDG_STATE_HOME
+  }
+  process.env[BUDDY_ENV.GLOBAL_CONFIG_DIR] = buddyConfigDir
+  process.env[OPENCODE_ENV.CONFIG_DIR] = buddyConfigDir
+  process.env[OPENCODE_ENV.DISABLE_EXTERNAL_SKILLS] ||= OPENCODE_ENABLE_FLAG
+  process.env[OPENCODE_ENV.CLIENT] ||= DEFAULT_OPENCODE_CLIENT
+  process.env[OPENCODE_ENV.ENABLE_QUESTION_TOOL] ||= OPENCODE_ENABLE_FLAG
+  process.env[OPENCODE_ENV.ENABLE_EXA] ||= OPENCODE_ENABLE_FLAG
+  applyOptionalPathEnv(BUDDY_ENV.MIGRATION_DIR, findRepoPath("packages/buddy/migration"))
+  configureOpenCodeGlobalPaths(buddyConfigDir)
 }
 
 configureOpenCodeEnvironment()
 
 const { Global } = await import("@buddy/opencode-adapter/global")
 openCodeGlobal = Global
-configureBuddyTempDirectory()
+configureOpenCodeEnvironment()
