@@ -1,7 +1,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Global } from "../../storage"
+import { BUDDY_HOME_DIRECTORY_NAME, Global } from "../../storage"
 
 type PathApi = Pick<typeof path, "parse" | "resolve">
 
@@ -34,10 +34,11 @@ export async function resolveProjectConfigContext(
 }
 
 export function resolveProjectConfigFile(directory: string): string {
-  const jsonc = path.join(directory, "buddy.jsonc")
+  const buddyDirectory = path.join(directory, BUDDY_HOME_DIRECTORY_NAME)
+  const jsonc = path.join(buddyDirectory, "buddy.jsonc")
   if (fs.existsSync(jsonc)) return jsonc
 
-  const json = path.join(directory, "buddy.json")
+  const json = path.join(buddyDirectory, "buddy.json")
   if (fs.existsSync(json)) return json
 
   return jsonc

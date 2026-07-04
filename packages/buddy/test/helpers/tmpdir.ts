@@ -3,6 +3,7 @@ import os from "node:os"
 import path from "node:path"
 import type { Config } from "@buddy/backend/config"
 import { LearnerMemoryPath } from "../../src/learning/features/memory"
+import { projectConfigFile } from "./project-config"
 
 type TmpDirOptions<T> = {
   git?: boolean
@@ -48,8 +49,10 @@ export async function tmpdir<T>(options?: TmpDirOptions<T>) {
   }
 
   if (options?.config) {
+    const configFile = projectConfigFile(dirpath)
+    await fs.mkdir(path.dirname(configFile), { recursive: true })
     await Bun.write(
-      path.join(dirpath, "buddy.jsonc"),
+      configFile,
       JSON.stringify({
         ...options.config,
       }),
