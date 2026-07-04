@@ -47,6 +47,7 @@ type ReleaseWizardFlags = {
 }
 
 type ReleaseTargetChoice = "all" | "macos-arm64" | "macos-x64" | "windows-x64"
+type ReleaseReadline = ReturnType<typeof createInterface>
 
 function normalizeVersion(input: string) {
   const trimmed = input.trim().replace(/^v/, "")
@@ -101,11 +102,7 @@ function runCommand(command: string, args: string[], options?: { stdio?: "inheri
   return result
 }
 
-async function promptLine(
-  rl: ReturnType<typeof createInterface>,
-  label: string,
-  defaultValue?: string,
-) {
+async function promptLine(rl: ReleaseReadline, label: string, defaultValue?: string) {
   const suffix = defaultValue ? ` [${defaultValue}]` : ""
   const answer = (await rl.question(`${label}${suffix}: `)).trim()
   if (!answer && defaultValue !== undefined) {
@@ -114,7 +111,7 @@ async function promptLine(
   return answer
 }
 
-async function confirm(rl: ReturnType<typeof createInterface>, label: string, defaultValue = true) {
+async function confirm(rl: ReleaseReadline, label: string, defaultValue = true) {
   const suffix = defaultValue ? " [Y/n]" : " [y/N]"
   const answer = (await rl.question(`${label}${suffix}: `)).trim().toLowerCase()
 
@@ -251,7 +248,7 @@ async function syncState() {
   }
 }
 
-async function alignWithOriginMain(rl: ReturnType<typeof createInterface>) {
+async function alignWithOriginMain(rl: ReleaseReadline) {
   printStep("Git Sync", "Checking whether local main matches origin/main.")
   await fetchOriginMain()
 
@@ -289,7 +286,16 @@ async function alignWithOriginMain(rl: ReturnType<typeof createInterface>) {
   }
 }
 
-async function chooseVersion(rl: ReturnType<typeof createInterface>, fast = false) {
+function closeReadlineQuietly(rl: ReleaseReadline): void {
+  try {
+    rl.close()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn(`Warning: failed to close release prompt cleanly: ${message}`)
+  }
+}
+
+async function chooseVersion(rl: ReleaseReadline, fast = false) {
   const latest = await getLatestRelease()
   const patchSuggestion = latest ? bumpVersion(latest, "patch") : "0.0.1"
   const minorSuggestion = latest ? bumpVersion(latest, "minor") : "0.1.0"
@@ -376,7 +382,7 @@ async function initialReleaseBody(version: string, existingDraft: ReleaseSummary
 }
 
 async function editReleaseDraft(
-  rl: ReturnType<typeof createInterface>,
+  rl: ReleaseReadline,
   version: string,
   existingDraft: ReleaseSummary | undefined,
   fast = false,
@@ -584,7 +590,7 @@ function syncTagsFromOrigin() {
   runCommand("git", ["fetch", "origin", "+refs/tags/*:refs/tags/*"])
 }
 
-async function maybePullReleaseSync(rl: ReturnType<typeof createInterface>, fast = false) {
+async function maybePullReleaseSync(rl: ReleaseReadline, fast = false) {
   await fetchOriginMain()
   const state = await syncState()
   if (state.state !== "behind") {
@@ -779,30 +785,20 @@ function serializeReleaseTargets(targets: ReleaseTargets): string {
   ].join(",")
 }
 
-function runLocalReleaseGates(
-  rl: ReturnType<typeof createInterface>,
-  version: string,
-  targetSha: string,
-  targets: ReleaseTargets,
-): void {
+function runLocalReleaseGates(version: string, targetSha: string, targets: ReleaseTargets): void {
   printStep(
     "Local Release Gates",
     "Building and installing Buddy Dev for manual approval, then validating the native production release target.",
   )
-  rl.pause()
-  try {
-    runCommand("bun", [
-      "./script/release-local-gate.ts",
-      "--version",
-      version,
-      "--commit",
-      targetSha,
-      "--selected-targets",
-      serializeReleaseTargets(targets),
-    ])
-  } finally {
-    rl.resume()
-  }
+  runCommand("bun", [
+    "./script/release-local-gate.ts",
+    "--version",
+    version,
+    "--commit",
+    targetSha,
+    "--selected-targets",
+    serializeReleaseTargets(targets),
+  ])
 }
 
 async function main() {
@@ -855,7 +851,7 @@ async function main() {
 
       runRequiredGates()
       await ensureCleanTree()
-      runLocalReleaseGates(rl, version, targetSha, targets)
+      runLocalReleaseGates(version, targetSha, targets)
       await ensureCleanTree()
 
       const release = await upsertDraftRelease(
@@ -900,7 +896,7 @@ async function main() {
       }
     }
   } finally {
-    rl.close()
+    closeReadlineQuietly(rl)
   }
 }
 

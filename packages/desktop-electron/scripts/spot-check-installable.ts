@@ -22,6 +22,7 @@ const WINDOWS_INSTALLER_SILENT_FLAG = "/S"
 const WINDOWS_INSTALL_DIRECTORY_PREFIX = "/D="
 const TERMINATION_TIMEOUT_MS = 10_000
 const PROMPT_ENCODING = "utf8"
+const SUCCESS_EXIT_CODE = 0
 const INTERRUPT_SIGNALS = ["SIGINT", "SIGTERM", "SIGHUP"] as const
 
 type InterruptSignal = (typeof INTERRUPT_SIGNALS)[number]
@@ -63,6 +64,37 @@ function assertNoRunningMacApp(appPath: string): void {
   const result = spawnSync("pgrep", ["-f", appPath], { stdio: "ignore" })
   if (result.status === 0) {
     throw new Error(`${appPath} is already running; quit it before cutting a release`)
+  }
+}
+
+function ensureForegroundTerminal(): void {
+  if (!process.stdin.isTTY || process.platform === "win32") {
+    return
+  }
+
+  const result = spawnSync("ps", ["-o", "pgid=,tpgid=", "-p", String(process.pid)], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  })
+  if (result.status !== SUCCESS_EXIT_CODE) {
+    return
+  }
+
+  const [processGroup, terminalForegroundGroup] = result.stdout.trim().split(/\s+/)
+  const processGroupId = Number.parseInt(processGroup ?? "", 10)
+  const terminalForegroundGroupId = Number.parseInt(terminalForegroundGroup ?? "", 10)
+  if (
+    !Number.isFinite(processGroupId) ||
+    !Number.isFinite(terminalForegroundGroupId) ||
+    terminalForegroundGroupId <= SUCCESS_EXIT_CODE
+  ) {
+    return
+  }
+
+  if (processGroupId !== terminalForegroundGroupId) {
+    throw new Error(
+      "Manual Buddy Dev approval requires the release job to be in the terminal foreground. Run it in the foreground before approving the spot-check.",
+    )
   }
 }
 
@@ -294,6 +326,7 @@ function readPromptLine(prompt: string, signal: AbortSignal): Promise<string> {
       finish({ error: new Error("Prompt aborted") })
     }
 
+    ensureForegroundTerminal()
     process.stdout.write(prompt)
     process.stdin.setEncoding(PROMPT_ENCODING)
     process.stdin.resume()
@@ -316,16 +349,18 @@ async function waitForApproval(runningApp: RunningApp): Promise<void> {
       process.once(signal, handler)
     }
   })
-  const appExited = new Promise<never>((_resolve, reject) => {
+  const appFailed = new Promise<never>((_resolve, reject) => {
     runningApp.child.once("error", (error) => {
       reject(new Error(`Buddy Dev failed to launch: ${error.message}`))
     })
     runningApp.child.once("exit", (code, signal) => {
-      reject(
-        new Error(
-          `Buddy Dev exited before approval (${signal ? `signal=${signal}` : `code=${String(code)}`})`,
-        ),
-      )
+      if (signal || code !== SUCCESS_EXIT_CODE) {
+        reject(
+          new Error(
+            `Buddy Dev exited before approval (${signal ? `signal=${signal}` : `code=${String(code)}`})`,
+          ),
+        )
+      }
     })
   })
 
@@ -335,12 +370,15 @@ async function waitForApproval(runningApp: RunningApp): Promise<void> {
     const answer = await Promise.race([
       readPromptLine("\nContinue with the production release smoke? [y/N]: ", promptAbort.signal),
       interruption,
-      appExited,
+      appFailed,
     ])
     if (!["y", "yes"].includes(answer.trim().toLowerCase())) {
       throw new Error("Release aborted during Buddy Dev spot-check")
     }
-    if (runningApp.child.exitCode !== null || runningApp.child.signalCode !== null) {
+    if (
+      runningApp.child.signalCode !== null ||
+      (runningApp.child.exitCode !== null && runningApp.child.exitCode !== SUCCESS_EXIT_CODE)
+    ) {
       throw new Error("Buddy Dev exited before the spot-check was approved")
     }
   } finally {
