@@ -24,10 +24,7 @@ function hasDirectoryValue(value?: string) {
 export function hasExistingChatContext(input: DesktopOnboardingState) {
   return (
     input.openProjects.length > 0 ||
-    hasDirectoryValue(input.activeDirectory) ||
-    hasDirectoryValue(input.pendingActiveDirectory) ||
-    Object.keys(input.lastSessionByDirectory).length > 0 ||
-    Object.keys(input.directories).length > 0
+    hasDirectoryValue(input.activeDirectory)
   )
 }
 
@@ -40,7 +37,7 @@ export function shouldShowDesktopOnboarding(input: DesktopOnboardingState) {
     return true
   }
 
-  return !input.setupCompleted && !hasExistingChatContext(input)
+  return !hasExistingChatContext(input)
 }
 
 export function resolveDesktopEntryPath(input: DesktopOnboardingState) {

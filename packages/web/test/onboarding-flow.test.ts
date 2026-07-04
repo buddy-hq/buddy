@@ -107,7 +107,7 @@ describe("desktop onboarding entry routing", () => {
     ).toBe("/onboarding")
   })
 
-  test("skips onboarding after completion or existing chat context", () => {
+  test("keeps onboarding visible when setup is complete without notebook context", () => {
     expect(
       resolveDesktopEntryPath({
         platform: "desktop",
@@ -119,8 +119,10 @@ describe("desktop onboarding entry routing", () => {
         lastSessionByDirectory: {},
         directories: {},
       }),
-    ).toBe("/chat")
+    ).toBe("/onboarding")
+  })
 
+  test("skips onboarding when existing chat context is available", () => {
     expect(
       resolveDesktopEntryPath({
         platform: "desktop",
@@ -133,6 +135,46 @@ describe("desktop onboarding entry routing", () => {
         directories: {},
       }),
     ).toBe("/chat")
+  })
+
+  test("keeps onboarding when setup is complete but the backend has no open projects", async () => {
+    await expect(
+      resolveDesktopEntryPathWithSnapshots({
+        state: {
+          platform: "desktop",
+          setupCompleted: true,
+          personalizationStepPending: false,
+          openProjects: [],
+          activeDirectory: undefined,
+          pendingActiveDirectory: undefined,
+          lastSessionByDirectory: {},
+          directories: {},
+        },
+        async loadOpenProjectsSnapshot() {
+          return []
+        },
+      }),
+    ).resolves.toBe("/onboarding")
+  })
+
+  test("ignores stale persisted chat state when the backend has no open projects", async () => {
+    await expect(
+      resolveDesktopEntryPathWithSnapshots({
+        state: {
+          platform: "desktop",
+          setupCompleted: true,
+          personalizationStepPending: false,
+          openProjects: [],
+          activeDirectory: undefined,
+          pendingActiveDirectory: "/old-notebook",
+          lastSessionByDirectory: { "/old-notebook": "session-id" },
+          directories: {},
+        },
+        async loadOpenProjectsSnapshot() {
+          return []
+        },
+      }),
+    ).resolves.toBe("/onboarding")
   })
 
   test("skips onboarding when open projects already exist in the backend registry", async () => {
