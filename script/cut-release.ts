@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process"
 import { createInterface } from "node:readline/promises"
 import { stdin as input, stdout as output } from "node:process"
 import { cancel, isCancel, multiselect } from "@clack/prompts"
-import { buildNotes, getLatestRelease } from "./changelog.ts"
+import { buildNotes, getLatestPublishedRelease, getLatestRelease } from "./changelog.ts"
 import { releaseRepository, sourceRepository } from "./release-repositories"
 
 const ROOT_DIR = path.resolve(import.meta.dir, "..")
@@ -151,7 +151,9 @@ async function ensureMainBranch() {
     .then((output) => output.trim())
 
   if (branch !== RELEASE_BRANCH) {
-    throw new Error(`Stable releases must be cut from ${RELEASE_BRANCH}, received '${branch}'`)
+    throw new Error(
+      `Preview release candidates must be cut from ${RELEASE_BRANCH}, received '${branch}'`,
+    )
   }
 }
 
@@ -296,26 +298,32 @@ function closeReadlineQuietly(rl: ReleaseReadline): void {
 }
 
 async function chooseVersion(rl: ReleaseReadline, fast = false) {
-  const latest = await getLatestRelease()
-  const patchSuggestion = latest ? bumpVersion(latest, "patch") : "0.0.1"
-  const minorSuggestion = latest ? bumpVersion(latest, "minor") : "0.1.0"
-  const majorSuggestion = latest ? bumpVersion(latest, "major") : "1.0.0"
+  const latestStable = await getLatestRelease()
+  const latestPublished = await getLatestPublishedRelease()
+  const versionBase = latestPublished ?? latestStable
+  const patchSuggestion = versionBase ? bumpVersion(versionBase, "patch") : "0.0.1"
+  const minorSuggestion = versionBase ? bumpVersion(versionBase, "minor") : "0.1.0"
+  const majorSuggestion = versionBase ? bumpVersion(versionBase, "major") : "1.0.0"
+  const versionContext = versionBase
+    ? [
+        latestStable
+          ? `Latest stable release: v${latestStable}`
+          : "No prior stable release found.",
+        `Highest published release tag: v${versionBase}`,
+      ].join("\n")
+    : "No prior published release found."
 
   if (fast) {
     printStep(
       "Version",
-      latest
-        ? `Latest stable release: v${latest}\nUsing suggested patch version: v${patchSuggestion}`
-        : `No prior stable release found.\nUsing first stable release: v${patchSuggestion}`,
+      `${versionContext}\nUsing suggested patch version: v${patchSuggestion}`,
     )
     return patchSuggestion
   }
 
   printStep(
     "Version",
-    latest
-      ? `Latest stable release: v${latest}\nSuggested next release: v${patchSuggestion}`
-      : `No prior stable release found.\nSuggested first stable release: v${patchSuggestion}`,
+    `${versionContext}\nSuggested next release: v${patchSuggestion}`,
   )
 
   console.log("1. Use the suggested patch version")
@@ -515,7 +523,7 @@ async function waitForRunUrl(version: string, targetSha: string) {
         run.event === "workflow_dispatch" &&
         run.headBranch === RELEASE_BRANCH &&
         run.headSha === targetSha &&
-        run.displayTitle === `release ${version}`,
+        run.displayTitle === `preview candidate ${version}`,
     )
     if (exact) {
       return exact.url
@@ -879,7 +887,7 @@ async function main() {
 
       const published = await loadRelease(tag)
       if (published && !published.isDraft) {
-        console.log(`Release published: ${published.url}`)
+        console.log(`Preview release candidate published: ${published.url}`)
       } else {
         console.log(`Release draft: ${release.url}`)
       }
@@ -887,9 +895,10 @@ async function main() {
       await maybePullReleaseSync(rl, flags.fast)
 
       console.log("\nNext steps:")
-      console.log(`- Use the existing production Buddy installation to check for ${tag}`)
+      console.log(`- Use a Preview-channel Buddy installation to check for ${tag}`)
       console.log("- Verify the updater downloads, installs, and restarts into the new version")
-      console.log(`- If needed, use bun run install:release ${tag}`)
+      console.log(`- Promote after soak with: bun run release:promote ${tag}`)
+      console.log(`- If needed, use bun run download:preview ${tag}`)
     } finally {
       if (editedDraft.tempDir) {
         rmSync(editedDraft.tempDir, { recursive: true, force: true })

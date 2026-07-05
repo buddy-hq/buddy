@@ -120,7 +120,9 @@
     "release:notes": "bun ./script/changelog.ts",
     "release:version": "bun ./script/version.ts",
     "release:publish": "bun ./script/publish.ts",
-    "install:release": "bash ./script/install-latest-release.sh",
+    "release:promote": "bun ./script/promote-release.ts",
+    "download:preview": "BUDDY_INSTALL_RELEASE_KIND=preview bash ./script/install-release.sh",
+    "install:release": "bash ./script/install-release.sh",
     "cleanup:windows": "powershell -ExecutionPolicy Bypass -File ./scripts/cleanup-buddy-windows.ps1",
     "cfmt": "bun fmt && git add . && git commit -m 'chore: run formatter' && git push"
   },

@@ -797,7 +797,7 @@ jobs:
           --windows-x64 "${{ needs.preflight.outputs.build_windows_x64 }}"
 
       - if: ${{ !inputs.dry_run }}
-        name: Publish release
+        name: Publish Preview candidate
         env:
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
           BUDDY_VERSION: ${{ needs.preflight.outputs.version }}
@@ -806,7 +806,35 @@ jobs:
         run: bun ./script/publish.ts
 
       - if: ${{ !inputs.dry_run }}
-        name: Verify published release assets
+        name: Verify Preview release state
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          BUDDY_RELEASE_REPO: ${{ needs.preflight.outputs.release_repo }}
+          BUDDY_RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+        run: |
+          set -euo pipefail
+          draft="$(
+            gh release view "$BUDDY_RELEASE_TAG" \
+              --repo "$BUDDY_RELEASE_REPO" \
+              --json isDraft \
+              --jq .isDraft
+          )"
+          prerelease="$(
+            gh release view "$BUDDY_RELEASE_TAG" \
+              --repo "$BUDDY_RELEASE_REPO" \
+              --json isPrerelease \
+              --jq .isPrerelease
+          )"
+          if [[ "$draft" != "false" || "$prerelease" != "true" ]]; then
+            echo "Expected $BUDDY_RELEASE_REPO@$BUDDY_RELEASE_TAG to be a published Preview prerelease, got draft=$draft prerelease=$prerelease" >&2
+            exit 1
+          fi
+
+      - if: ${{ !inputs.dry_run }}
+        name: Verify published Preview candidate assets
+        env:
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
         run: >
           bun ./script/verify-release-assets.ts
           --repo "${{ needs.preflight.outputs.release_repo }}"

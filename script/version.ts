@@ -40,7 +40,9 @@ if (!tagRef) {
   const branch = await currentBranch()
 
   if (!dryRun && branch !== "main") {
-    throw new Error(`Stable releases must be cut from main, received '${branch || "detached"}'`)
+    throw new Error(
+      `Preview release candidates must be cut from main, received '${branch || "detached"}'`,
+    )
   }
 
   if (!process.env.BUDDY_VERSION && !process.env.BUDDY_BUMP) {

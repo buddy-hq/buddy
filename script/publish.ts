@@ -67,7 +67,9 @@ async function persistWorkflowDispatchReleaseVersion(tag: string, releaseTarget:
   const branch = currentBranch()
 
   if (branch !== "main") {
-    throw new Error(`Stable releases must sync version files back to main, received '${branch}'`)
+    throw new Error(
+      `Preview release candidates must sync version files back to main, received '${branch}'`,
+    )
   }
 
   await configureReleaseCommitter()
@@ -133,7 +135,7 @@ await publishWithSourceTag(
   {
     isPublished: () => isReleasePublished(tag, releaseRepo),
     publish: async () => {
-      await $`gh release edit ${tag} --draft=false --repo ${releaseRepo}`
+      await $`gh release edit ${tag} --draft=false --prerelease --repo ${releaseRepo}`
     },
   },
 )

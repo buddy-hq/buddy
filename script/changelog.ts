@@ -1,13 +1,12 @@
 #!/usr/bin/env bun
 
 import { $ } from "bun"
+import {
+  latestReleaseVersionFromReleases as selectLatestReleaseVersionFromReleases,
+  type GithubReleaseVersion,
+  type LatestReleaseVersionInput,
+} from "@buddy/script/release-version"
 import { releaseRepository } from "./release-repositories"
-
-type Release = {
-  isDraft: boolean
-  isPrerelease: boolean
-  tagName: string
-}
 
 type Commit = {
   hash: string
@@ -38,21 +37,34 @@ const SECTION_RULES = [
   { prefix: "vendor/opencode/packages/script/", section: "Vendored Core" },
 ] as const
 
-export async function getLatestRelease(skip?: string) {
+export function latestReleaseVersionFromReleases(
+  releases: readonly GithubReleaseVersion[],
+  input: LatestReleaseVersionInput = {},
+): string | undefined {
+  return selectLatestReleaseVersionFromReleases(releases, {
+    includePrereleases: false,
+    ...input,
+  })
+}
+
+async function listGithubReleases(): Promise<GithubReleaseVersion[]> {
   const repo = releaseRepository()
   const releases =
-    (await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()) as Release[]
-  const skipTag = skip?.replace(/^v/, "")
+    (await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()) as GithubReleaseVersion[]
+  return releases
+}
 
-  for (const release of releases) {
-    if (release.isDraft || release.isPrerelease) continue
-    const tag = release.tagName.replace(/^v/, "")
-    if (skipTag && tag === skipTag) continue
-    if (!/^\d+\.\d+\.\d+$/.test(tag)) continue
-    return tag
-  }
+export async function getLatestRelease(skip?: string) {
+  const releases = await listGithubReleases()
+  return latestReleaseVersionFromReleases(releases, { skip })
+}
 
-  return undefined
+export async function getLatestPublishedRelease(skip?: string) {
+  const releases = await listGithubReleases()
+  return latestReleaseVersionFromReleases(releases, {
+    includePrereleases: true,
+    skip,
+  })
 }
 
 async function listCommitHashes(from: string | undefined, to = "HEAD") {
