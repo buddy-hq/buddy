@@ -12,7 +12,10 @@ import {
   isBenchRoutePathname,
   readBenchChatLayoutMode,
 } from "@/lib/bench-navigation"
-import { showDesktopUpdateToast } from "../lib/desktop-updates"
+import {
+  showDesktopUpdateProgressToast,
+  showDesktopUpdateToast,
+} from "../lib/desktop-updates"
 
 const RELEASE_UPDATE_POLL_INTERVAL_MS = 10 * 60 * 1000
 const DOCUMENT_VISIBILITY_VISIBLE = "visible"
@@ -84,6 +87,13 @@ function ReleaseUpdateWatcher() {
       window.removeEventListener("focus", pollWhenVisible)
       document.removeEventListener("visibilitychange", pollWhenVisible)
     }
+  }, [platform])
+
+  useEffect(() => {
+    if (!platform.onUpdateProgress) return
+    return platform.onUpdateProgress((progress) => {
+      showDesktopUpdateProgressToast({ progress })
+    })
   }, [platform])
 
   return null

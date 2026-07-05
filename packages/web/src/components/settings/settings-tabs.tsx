@@ -4,6 +4,7 @@ import {
   BookOpenIcon,
   BrainIcon,
   CogIcon,
+  RefreshCwIcon,
   UserRoundIcon,
   ScaleIcon,
   SettingsIcon,
@@ -18,9 +19,11 @@ import { StandardsSettings } from "./settings-tools"
 import { AttributionSettings } from "./settings-attribution"
 import { LearnerMemorySettings } from "./settings-learner-memory"
 import { PersonalizationSettings } from "./settings-personalization"
+import { UpdatesSettings } from "./settings-updates"
 
 export type SettingsTab =
   | "general"
+  | "updates"
   | "providers"
   | "mcps"
   | "personalization"
@@ -60,6 +63,15 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     group: "main",
     scope: "global",
     render: () => <GeneralSettings />,
+  },
+  {
+    id: "updates",
+    navLabelKey: "routes.settings.nav.updates",
+    icon: RefreshCwIcon,
+    layout: "standard",
+    group: "main",
+    scope: "global",
+    render: () => <UpdatesSettings />,
   },
   {
     id: "providers",

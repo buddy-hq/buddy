@@ -1,6 +1,5 @@
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import {
-  Button,
   Input,
   Select,
   SelectContent,
@@ -8,10 +7,8 @@ import {
   SelectTrigger,
   SelectValue,
   Switch,
-  toast,
 } from "@buddy/ui"
 import { language } from "@/context/language"
-import { usePlatform } from "@/context/platform"
 import {
   FOLLOWUP_BEHAVIOR_QUEUE,
   FOLLOWUP_BEHAVIOR_STEER,
@@ -26,7 +23,6 @@ import {
   type TGamePromptPreference,
 } from "@/state/game-store"
 import { useNotificationPreferences } from "@/state/notification-preferences"
-import { showDesktopUpdateToast } from "@/lib/desktop-updates"
 import { useTheme, type ColorScheme } from "@/theme"
 import {
   CODE_FONT_PLACEHOLDER,
@@ -111,8 +107,6 @@ function FontSizeInput(props: {
 }
 
 export function GeneralSettings() {
-  const platform = usePlatform()
-  const [checkingForUpdates, setCheckingForUpdates] = useState(false)
   const { themeId, colorScheme, themes, setTheme, setColorScheme } = useTheme()
   const uiFont = useAppearancePreferences((state) => state.uiFont)
   const codeFont = useAppearancePreferences((state) => state.codeFont)
@@ -174,50 +168,6 @@ export function GeneralSettings() {
       })),
     [themes],
   )
-
-  const showDesktopUpdateControls =
-    platform.platform === "desktop" &&
-    !!platform.checkUpdate &&
-    !!platform.update &&
-    !!platform.restart
-
-  async function onCheckForUpdates() {
-    if (
-      platform.platform !== "desktop" ||
-      !platform.checkUpdate ||
-      !platform.update ||
-      !platform.restart
-    ) {
-      return
-    }
-
-    setCheckingForUpdates(true)
-    const result = await platform
-      .checkUpdate()
-      .catch(() => ({ status: "error", stage: "check" }) as const)
-    setCheckingForUpdates(false)
-
-    switch (result.status) {
-      case "ready":
-        showDesktopUpdateToast({ platform, version: result.version })
-        return
-      case "up-to-date":
-        toast(language.t("settings.appearance.upToDate"))
-        return
-      case "disabled":
-        toast(language.t("settings.appearance.updatesUnavailable"))
-        return
-      case "blocked":
-        toast(language.t("settings.appearance.updateBlocked"))
-        return
-      case "error":
-        toast.error(
-          result.stage === "download"
-            ? language.t("settings.appearance.updateDownloadFailed")
-            : language.t("settings.appearance.updateCheckFailed"),
-        )
-    }
-  }
 
   return (
     <SettingsContent>
@@ -413,28 +363,6 @@ export function GeneralSettings() {
         />
       </SettingsSection>
 
-      {showDesktopUpdateControls ? (
-        <SettingsSection title="Updates">
-          <SettingsRow
-            title={language.t("settings.appearance.updatesTitle")}
-            description={language.t("settings.appearance.updatesDescription")}
-            control={
-              <Button
-                data-action="settings-check-updates"
-                type="button"
-                size="xs"
-                variant="outline"
-                onClick={() => void onCheckForUpdates()}
-                disabled={checkingForUpdates}
-              >
-                {checkingForUpdates
-                  ? language.t("settings.appearance.checking")
-                  : language.t("settings.appearance.checkForUpdates")}
-              </Button>
-            }
-          />
-        </SettingsSection>
-      ) : null}
     </SettingsContent>
   )
 }

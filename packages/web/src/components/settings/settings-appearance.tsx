@@ -1,17 +1,13 @@
-import { useMemo, useState } from "react"
+import { useMemo } from "react"
 import {
-  Button,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Separator,
-  toast,
 } from "@buddy/ui"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
-import { showDesktopUpdateToast } from "../../lib/desktop-updates"
 import { useTheme, type ColorScheme } from "@/theme"
 import { SettingsListCard, SettingsRow, SettingsContent } from "./settings-primitives"
 import { useAdvancedMathRuntime } from "./use-advanced-math-runtime"
@@ -27,7 +23,6 @@ function isColorScheme(value: string): value is ColorScheme {
 
 export function AppearanceSettings() {
   const platform = usePlatform()
-  const [checkingForUpdates, setCheckingForUpdates] = useState(false)
 
   const {
     advancedMathStatus,
@@ -58,48 +53,7 @@ export function AppearanceSettings() {
     }))
   }, [themes])
 
-  const showDesktopUpdateControls =
-    platform.platform === "desktop" &&
-    !!platform.checkUpdate &&
-    !!platform.update &&
-    !!platform.restart
   const showAdvancedMathControls = platform.platform === "desktop"
-
-  async function onCheckForUpdates() {
-    if (
-      platform.platform !== "desktop" ||
-      !platform.checkUpdate ||
-      !platform.update ||
-      !platform.restart
-    )
-      return
-    setCheckingForUpdates(true)
-    const result = await platform
-      .checkUpdate()
-      .catch(() => ({ status: "error", stage: "check" }) as const)
-    setCheckingForUpdates(false)
-    switch (result.status) {
-      case "ready":
-        showDesktopUpdateToast({ platform, version: result.version })
-        return
-      case "up-to-date":
-        toast(language.t("settings.appearance.upToDate"))
-        return
-      case "disabled":
-        toast(language.t("settings.appearance.updatesUnavailable"))
-        return
-      case "blocked":
-        toast(language.t("settings.appearance.updateBlocked"))
-        return
-      case "error":
-        toast.error(
-          result.stage === "download"
-            ? language.t("settings.appearance.updateDownloadFailed")
-            : language.t("settings.appearance.updateCheckFailed"),
-        )
-        return
-    }
-  }
 
   return (
     <>
@@ -153,7 +107,7 @@ export function AppearanceSettings() {
           </SettingsListCard>
         </div>
 
-        {showAdvancedMathControls || showDesktopUpdateControls ? (
+        {showAdvancedMathControls ? (
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-text-base">
               {language.t("settings.appearance.desktopSection")}
@@ -173,31 +127,11 @@ export function AppearanceSettings() {
                         enabled={advancedMathEnabled}
                         onToggle={onToggleAdvancedMathRuntime}
                         showStatusLabel
-                      />
-                    }
-                  />
-                  <Separator />
+                    />
+                  }
+                />
                 </>
               ) : null}
-              <SettingsRow
-                title={language.t("settings.appearance.updatesTitle")}
-                description={language.t("settings.appearance.updatesDescription")}
-                last
-                control={
-                  <Button
-                    data-action="settings-check-updates"
-                    type="button"
-                    size="xs"
-                    variant="outline"
-                    onClick={() => void onCheckForUpdates()}
-                    disabled={checkingForUpdates}
-                  >
-                    {checkingForUpdates
-                      ? language.t("settings.appearance.checking")
-                      : language.t("settings.appearance.checkForUpdates")}
-                  </Button>
-                }
-              />
             </SettingsListCard>
           </div>
         ) : null}

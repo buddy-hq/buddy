@@ -23,6 +23,20 @@ export type UpdateCheckResult =
   | { status: "ready"; version?: string }
   | { status: "error"; stage: "check" | "download" }
 
+export type UpdateRing = "stable" | "preview"
+
+export type UpdateProgressSnapshot = {
+  bytesPerSecond?: number
+  errorStage?: "check" | "download" | "install"
+  message?: string
+  percent?: number
+  ring: UpdateRing
+  status: "idle" | "checking" | "downloading" | "ready" | "installing" | "error"
+  totalBytes?: number
+  transferredBytes?: number
+  version?: string
+}
+
 export type Platform = {
   platform: "web" | "desktop"
   os?: "macos" | "windows" | "linux"
@@ -46,6 +60,10 @@ export type Platform = {
   forward(): void
   notify(title: string, description?: string, href?: string): Promise<void>
   checkUpdate?(): Promise<UpdateCheckResult>
+  getUpdateProgress?(): Promise<UpdateProgressSnapshot>
+  getUpdateRing?(): Promise<UpdateRing>
+  onUpdateProgress?(cb: (snapshot: UpdateProgressSnapshot) => void): () => void
+  setUpdateRing?(ring: UpdateRing): Promise<void>
   update?(): Promise<void>
   parseMarkdown?(markdown: string): Promise<string>
 }
