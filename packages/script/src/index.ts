@@ -1,5 +1,9 @@
 import { $, semver } from "bun"
 import path from "node:path"
+import {
+  latestReleaseVersionFromReleases,
+  type GithubReleaseVersion,
+} from "./release-version"
 
 const rootPkgPath = path.resolve(import.meta.dir, "../../../package.json")
 const rootPkg = (await Bun.file(rootPkgPath).json()) as {
@@ -59,20 +63,8 @@ function githubTagVersion() {
 async function getLatestReleaseVersion() {
   const repo = releaseRepo()
   const releases =
-    (await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()) as Array<{
-      isDraft: boolean
-      isPrerelease: boolean
-      tagName: string
-    }>
-
-  for (const release of releases) {
-    if (release.isDraft || release.isPrerelease) continue
-    const tag = release.tagName.replace(/^v/, "")
-    if (!/^\d+\.\d+\.\d+$/.test(tag)) continue
-    return tag
-  }
-
-  return undefined
+    (await $`gh release list --repo ${repo} --json tagName,isDraft,isPrerelease --limit 100`.json()) as GithubReleaseVersion[]
+  return latestReleaseVersionFromReleases(releases)
 }
 
 function bumpVersion(version: string, bump: string | undefined) {

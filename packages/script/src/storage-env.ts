@@ -1,6 +1,7 @@
 export const BUDDY_APP_NAME = "buddy" as const
-export const OPENCODE_APP_NAME = "opencode" as const
 export const BUDDY_HOME_DIRECTORY_NAME = ".buddy" as const
+export const BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME = "opencode" as const
+export const BUDDY_OPENCODE_DB_FILENAME = "opencode.db" as const
 export const DEFAULT_NOTEBOOK_HOME_SEGMENTS = ["Documents", "Buddy"] as const
 
 export const BUDDY_ENV = {
@@ -29,6 +30,7 @@ export const OPENCODE_ENV = {
   CHANNEL: "OPENCODE_CHANNEL",
   CLIENT: "OPENCODE_CLIENT",
   CONFIG_DIR: "OPENCODE_CONFIG_DIR",
+  DB: "OPENCODE_DB",
   DISABLE_CHANNEL_DB: "OPENCODE_DISABLE_CHANNEL_DB",
   DISABLE_DEFAULT_PLUGINS: "OPENCODE_DISABLE_DEFAULT_PLUGINS",
   DISABLE_EXTERNAL_SKILLS: "OPENCODE_DISABLE_EXTERNAL_SKILLS",
