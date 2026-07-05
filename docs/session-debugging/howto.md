@@ -2,7 +2,7 @@
 
 ## Find the live OpenCode database
 
-Buddy's runtime database is not necessarily under the Electron user-data directory. In dev builds, the renderer state may live under `~/Library/Application Support/ai.buddy.desktop.dev`, while OpenCode session data can live under the configured `BUDDY_RUNTIME_ROOT`.
+Buddy's runtime database is not necessarily under the Electron user-data directory. In dev builds, the renderer state may live under `~/Library/Application Support/ai.buddy.desktop.dev`, while OpenCode session data lives under the effective Buddy-owned XDG data root.
 
 The most reliable way to find the active DB is to inspect the running Electron Node service:
 
@@ -13,19 +13,19 @@ ps -axo pid,ppid,stat,lstart,command | rg 'ai\\.buddy\\.desktop\\.dev|Buddy|Elec
 Find the `Electron Helper --type=utility --utility-sub-type=node.mojom.NodeService` process, then inspect its open files:
 
 ```sh
-lsof -p <pid> | rg 'opencode.*\\.db|buddy.*\\.db|\\.buddy-runtime'
+lsof -p <pid> | rg 'buddy/.*/opencode.*\\.db|buddy.*\\.db|opencode\\.db'
 ```
 
-For the June 29, 2026 dev run, this resolved to:
+For a normal prod run, this should resolve to:
 
 ```text
-/Users/prashantbhudwal/.buddy-runtime/xdg/data/opencode/opencode.db
+/Users/<user>/.local/share/buddy/opencode/opencode.db
 ```
 
 The same process environment shows why:
 
 ```sh
-ps eww -p <pid> | tr ' ' '\n' | rg 'BUDDY_RUNTIME_ROOT|XDG_DATA_HOME|OPENCODE'
+ps eww -p <pid> | tr ' ' '\n' | rg 'BUDDY_DATA_DIR|XDG_DATA_HOME|OPENCODE_DB'
 ```
 
 ## Inspect a session
@@ -33,7 +33,7 @@ ps eww -p <pid> | tr ' ' '\n' | rg 'BUDDY_RUNTIME_ROOT|XDG_DATA_HOME|OPENCODE'
 Use `sqlite3` against the live DB path:
 
 ```sh
-DB="$HOME/.buddy-runtime/xdg/data/opencode/opencode.db"
+DB="${BUDDY_DATA_DIR:-$HOME/.local/share/buddy}/opencode/opencode.db"
 SESSION_ID="ses_..."
 
 sqlite3 -header -column "$DB" \
