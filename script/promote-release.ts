@@ -30,9 +30,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
 
-export function parseGithubReleasePromotionState(
-  value: unknown,
-): GithubReleasePromotionState {
+export function parseGithubReleasePromotionState(value: unknown): GithubReleasePromotionState {
   if (!isRecord(value)) {
     throw new Error("GitHub release response was not an object")
   }

@@ -306,25 +306,17 @@ async function chooseVersion(rl: ReleaseReadline, fast = false) {
   const majorSuggestion = versionBase ? bumpVersion(versionBase, "major") : "1.0.0"
   const versionContext = versionBase
     ? [
-        latestStable
-          ? `Latest stable release: v${latestStable}`
-          : "No prior stable release found.",
+        latestStable ? `Latest stable release: v${latestStable}` : "No prior stable release found.",
         `Highest published release tag: v${versionBase}`,
       ].join("\n")
     : "No prior published release found."
 
   if (fast) {
-    printStep(
-      "Version",
-      `${versionContext}\nUsing suggested patch version: v${patchSuggestion}`,
-    )
+    printStep("Version", `${versionContext}\nUsing suggested patch version: v${patchSuggestion}`)
     return patchSuggestion
   }
 
-  printStep(
-    "Version",
-    `${versionContext}\nSuggested next release: v${patchSuggestion}`,
-  )
+  printStep("Version", `${versionContext}\nSuggested next release: v${patchSuggestion}`)
 
   console.log("1. Use the suggested patch version")
   console.log(`   v${patchSuggestion}`)

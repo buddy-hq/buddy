@@ -111,10 +111,7 @@ function updateProgressDescription(progress: UpdateProgressSnapshot): string {
     })
   }
 
-  if (
-    typeof progress.transferredBytes === "number" &&
-    Number.isFinite(progress.transferredBytes)
-  ) {
+  if (typeof progress.transferredBytes === "number" && Number.isFinite(progress.transferredBytes)) {
     return language.t("desktopUpdates.downloadProgressBytes", {
       transferred: formatBytes(progress.transferredBytes),
     })

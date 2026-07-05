@@ -1,11 +1,5 @@
 import { useMemo } from "react"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@buddy/ui"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@buddy/ui"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useTheme, type ColorScheme } from "@/theme"
@@ -127,9 +121,9 @@ export function AppearanceSettings() {
                         enabled={advancedMathEnabled}
                         onToggle={onToggleAdvancedMathRuntime}
                         showStatusLabel
-                    />
-                  }
-                />
+                      />
+                    }
+                  />
                 </>
               ) : null}
             </SettingsListCard>

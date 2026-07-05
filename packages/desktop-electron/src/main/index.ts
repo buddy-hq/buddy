@@ -72,11 +72,7 @@ import type {
   UpdateProgressSnapshot,
   UpdateRing,
 } from "../shared/update-state"
-import {
-  UPDATE_RING_PREVIEW,
-  createIdleUpdateProgress,
-  isUpdateRing,
-} from "../shared/update-state"
+import { UPDATE_RING_PREVIEW, createIdleUpdateProgress, isUpdateRing } from "../shared/update-state"
 import { getUpdateRing, setUpdateRing as persistUpdateRing } from "./update-ring"
 import {
   createWindowsUpdateFeedProviderOptions,
@@ -864,9 +860,7 @@ async function checkUpdate(): Promise<UpdateCheckResult> {
   return await task
 }
 
-function enqueueUpdateCheck(
-  run: () => Promise<UpdateCheckResult>,
-): Promise<UpdateCheckResult> {
+function enqueueUpdateCheck(run: () => Promise<UpdateCheckResult>): Promise<UpdateCheckResult> {
   const task = checkUpdateQueue.then(run, run)
   checkUpdateQueue = task.then(
     () => undefined,

@@ -1,9 +1,6 @@
 import { $, semver } from "bun"
 import path from "node:path"
-import {
-  latestReleaseVersionFromReleases,
-  type GithubReleaseVersion,
-} from "./release-version"
+import { latestReleaseVersionFromReleases, type GithubReleaseVersion } from "./release-version"
 
 const rootPkgPath = path.resolve(import.meta.dir, "../../../package.json")
 const rootPkg = (await Bun.file(rootPkgPath).json()) as {

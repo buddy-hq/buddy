@@ -7,10 +7,7 @@ import {
   type UpdateProgressSnapshot,
   type UpdateRing,
 } from "@/context/platform"
-import {
-  showDesktopUpdateProgressToast,
-  showDesktopUpdateToast,
-} from "@/lib/desktop-updates"
+import { showDesktopUpdateProgressToast, showDesktopUpdateToast } from "@/lib/desktop-updates"
 import { SettingsContent, SettingsRow, SettingsSection } from "./settings-primitives"
 
 const DEFAULT_UPDATE_RING: UpdateRing = "stable"
@@ -241,9 +238,7 @@ export function UpdatesSettings() {
               {progress.status === "downloading" ? (
                 <div className="flex w-full flex-col gap-1.5">
                   <Progress value={progressPercent(progress) ?? 0} />
-                  <span className="text-[11px] text-text-weaker">
-                    {formatProgress(progress)}
-                  </span>
+                  <span className="text-[11px] text-text-weaker">{formatProgress(progress)}</span>
                 </div>
               ) : null}
             </div>

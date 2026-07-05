@@ -684,7 +684,8 @@ export const dict = {
   "settings.updates.channelDescription":
     "Stable installs approved releases. Preview installs release candidates before they are promoted.",
   "settings.updates.channelTitle": "Update channel",
-  "settings.updates.checkDescription": "Check GitHub for the newest release in the selected channel.",
+  "settings.updates.checkDescription":
+    "Check GitHub for the newest release in the selected channel.",
   "settings.updates.checkForUpdates": "Check for updates",
   "settings.updates.checkTitle": "Manual check",
   "settings.updates.checking": "Checking...",

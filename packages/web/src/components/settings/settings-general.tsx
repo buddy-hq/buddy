@@ -362,7 +362,6 @@ export function GeneralSettings() {
           }
         />
       </SettingsSection>
-
     </SettingsContent>
   )
 }

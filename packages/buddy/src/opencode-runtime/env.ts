@@ -54,10 +54,7 @@ const BUDDY_XDG_STATE_HOME = runtimeRootPath
 const BUDDY_TMP_PARENT_DIR = runtimeRootPath
   ? path.join(runtimeRootPath, RUNTIME_ROOT_SEGMENTS.tmp, BUDDY_APP_NAME)
   : path.join(os.tmpdir(), BUDDY_APP_NAME)
-export const BUDDY_TMP_DIR = path.join(
-  BUDDY_TMP_PARENT_DIR,
-  BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME,
-)
+export const BUDDY_TMP_DIR = path.join(BUDDY_TMP_PARENT_DIR, BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME)
 export const BUDDY_DEFAULT_GLOBAL_CONFIG_DIR = resolveDefaultBuddyGlobalConfigDir()
 const BUDDY_DATA_DIR =
   resolveConfiguredPath(process.env[BUDDY_ENV.DATA_DIR]) ??

@@ -12,10 +12,7 @@ import {
   isBenchRoutePathname,
   readBenchChatLayoutMode,
 } from "@/lib/bench-navigation"
-import {
-  showDesktopUpdateProgressToast,
-  showDesktopUpdateToast,
-} from "../lib/desktop-updates"
+import { showDesktopUpdateProgressToast, showDesktopUpdateToast } from "../lib/desktop-updates"
 
 const RELEASE_UPDATE_POLL_INTERVAL_MS = 10 * 60 * 1000
 const DOCUMENT_VISIBILITY_VISIBLE = "visible"
