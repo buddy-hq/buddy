@@ -8,7 +8,7 @@ Buddy currently uses:
 
 - `opencode.db` for vendored engine/runtime data
 - `buddy.db` for Buddy-owned relational data
-- `~/.buddy-runtime/xdg/state/buddy/desktop-notebooks.json` for the curated open-project sidebar list
+- `~/.local/state/buddy/desktop-notebooks.json` for the curated open-project sidebar list
 
 The curated open-project list is intentionally **not** stored in `buddy.db`.
 
@@ -16,7 +16,7 @@ The curated open-project list is intentionally **not** stored in `buddy.db`.
 
 ### `opencode.db` — Chat Engine (managed by vendored OpenCode)
 
-**Location**: `.buddy-runtime/xdg/data/opencode/opencode.db`
+**Location**: `~/.local/share/buddy/opencode/opencode.db`
 **Owner**: `vendor/opencode/packages/opencode/`
 **Tables**: session, message, part, todo, permission, project, session_share, control_account
 
@@ -33,7 +33,7 @@ The curated open-project list is intentionally **not** stored in `buddy.db`.
 
 ### `desktop-notebooks.json` — Curated Open-Projects Registry (managed by Buddy)
 
-**Location**: `~/.buddy-runtime/xdg/state/buddy/desktop-notebooks.json`
+**Location**: `~/.local/state/buddy/desktop-notebooks.json`
 **Owner**: `packages/buddy/`
 **Format**: ordered JSON array of absolute directory strings
 
