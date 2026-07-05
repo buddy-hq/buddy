@@ -5,7 +5,7 @@ This is the canonical process to cut **Electron-only** Buddy desktop releases.
 ## Scope
 - Release target: `@buddy/desktop-electron` only
 - Legacy Tauri package: `packages/desktop` kept in repo, **not** part of publish flow
-- Distribution channel: GitHub Releases
+- Distribution channel: GitHub Releases Preview candidate, then Stable promotion
 - Platforms: macOS (`arm64`, `x64`) and Windows (`x64`)
 - Updater metadata:
   - Windows: `latest.yml`
@@ -18,16 +18,18 @@ This is the canonical process to cut **Electron-only** Buddy desktop releases.
 - Release branch: `main`
 - GitHub repo: `prashantbhudwal/buddy`
 - Workflow: [`.github/workflows/publish.yml`](/Users/prashantbhudwal/Code/buddy/.github/workflows/publish.yml)
-- Release command: `bun run release:cut:electron`
+- Preview candidate command: `bun run release:cut:electron`
+- Stable promotion command: `bun run release:promote vX.Y.Z`
 
 ## Rules
-1. Stable releases are cut from `main` only.
+1. Preview candidates are cut from `main` only.
 2. Working tree must be clean before release.
 3. Required gates must pass before dispatch: `bun fmt`, `bun lint`, `bun typecheck`.
 4. Publish path is workflow-dispatch driven; no local stable tag workflow.
 5. Tauri is excluded from publishing and version-sync scope.
 6. GitHub Releases are the source of truth for Electron installers, updater metadata, and advanced math runtime assets.
 7. macOS unsigned auto-update does not use ShipIt. It uses Buddy-managed `latest-mac.json` metadata signed with the Tauri updater keypair.
+8. `release:cut` publishes a GitHub prerelease. Stable/latest changes only when `release:promote` succeeds.
 
 ## Preconditions
 1. Validate local git state.
@@ -78,9 +80,14 @@ This is the canonical process to cut **Electron-only** Buddy desktop releases.
      - `latest-mac.json`
      - `latest-mac.json.sig`
    - advanced math runtime zips/checksums for both macOS targets
-10. Confirm publish job completed and release is no longer draft.
-11. From the preserved production Buddy installation, check for updates and verify download, installation, and restart into the new version.
-12. Pull the auto-generated version-sync commit to local `main` when prompted.
+10. Confirm the publish job completed and the release is a published prerelease:
+    - `isDraft=false`
+    - `isPrerelease=true`
+11. From the preserved production Buddy installation, open Settings → Updates, select Preview, check for updates, and verify download progress, installation, and restart into the new version.
+12. After manual soak/approval, promote the same assets to Stable:
+    - `bun run release:promote vX.Y.Z`
+    - The script verifies release state and asset inventory, then flips GitHub release metadata to stable/latest.
+13. Pull the auto-generated version-sync commit to local `main` when prompted.
    - The wizard force-syncs local tags from `origin` first, so stale local release tags do not block the pull with a clobber prompt.
 
 ## Workflow Jobs (Expected)
@@ -89,7 +96,7 @@ This is the canonical process to cut **Electron-only** Buddy desktop releases.
 3. `build-electron`: build/package Electron installers for macOS + Windows.
 4. `upload-electron-release`: upload Electron artifacts + finalized updater YAML + signed `latest-mac.json`.
 5. `build-advanced-math`: restore or rebuild advanced math runtime assets, then upload.
-6. `publish`: finalize release and sync workspace versions back to `main`.
+6. `publish`: finalize the Preview prerelease candidate and sync workspace versions back to `main`.
 
 ## Stop Conditions
 Stop and fix before retry if any occur:
@@ -101,6 +108,8 @@ Stop and fix before retry if any occur:
 - native production release smoke or signed target-manifest dry run fails
 - missing Electron artifacts in release upload step
 - missing updater metadata in release (`latest.yml`, `latest-mac.yml`, `latest-mac.json`, `latest-mac.json.sig`)
+- published release is not marked as a prerelease before Stable promotion
+- `release:promote` asset verification fails
 - advanced math runtime missing for required targets
 - `main` advanced during workflow before version-sync commit
 
@@ -111,7 +120,14 @@ Stop and fix before retry if any occur:
 2. If workflow failed after draft creation:
    - fix root cause
    - rerun with the same `version` so existing draft is reused
-3. If local branch is behind after publish:
+3. If a Preview candidate is bad after publication:
+   - leave it as prerelease or mark it draft
+   - cut a newer candidate from fixed `main`
+   - after a newer fixed version is promoted, Stable users skip the bad Preview release; Preview update checks choose the highest published version, so an older bad prerelease cannot outrank a newer promoted Stable
+4. If a promoted Stable release is bad:
+   - move GitHub latest back to the previous stable release
+   - use the signed recovery policy path when a rollback install is required
+5. If local branch is behind after publish:
    - `git pull --rebase origin main`
 
 ## Local macOS Updater Validation
@@ -141,5 +157,6 @@ Required local files if not provided through env vars:
 
 ## Notes
 - `bun run release:cut` and `bun run release:cut:electron` currently execute the same Electron release wizard.
-- `bun run release:tag` remains a compatibility alias; stable tags should still be created by GitHub publish flow.
+- `bun run release:tag` remains a compatibility alias; release tags should still be created by GitHub publish flow.
+- Stable promotion does not rebuild or copy assets. It only changes GitHub release metadata after verification.
 - Tauri code remains in repo for transition only and is intentionally not part of release publishing.

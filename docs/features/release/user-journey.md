@@ -16,7 +16,7 @@ Everything Buddy ships, grouped by how the user reaches it. Agent-only rows are 
 | Area | What the user can do | Where |
 | --- | --- | --- |
 | Install & launch | Download from GitHub, open app, backend starts | Desktop |
-| Auto-update | Update toast on new version; manual check in Settings → General | Desktop |
+| Auto-update | Update toast on new version; manual check in Settings → Updates | Desktop |
 | Onboarding | ChatGPT Plus OAuth or free models; default Buddy Home notebook; optional personalization | `/onboarding` |
 | Entry hub | Quick chat, new notebook, open existing, recovery | `/chat` |
 | Notebook | Create, open, close, reorder; learner memory defaults on create | Left sidebar |
@@ -102,7 +102,7 @@ Install → Onboard → Chat → Import → Read → Learn → Skills → Packag
 | 10 | **Advanced math** | Same Packages section → turn **Advanced math** on → off (confirm remove) | Reaches ready while on; removes cleanly |
 | 11 | **Relaunch** | Quit fully, reopen | Notebook, sessions, library, installed packages state as expected |
 | 12 | **Settings** | Providers + Personalization tabs | Provider connected; profile fields load and save |
-| 13 | **Update** | *(When a newer build is staged)* accept update toast or General → Check for updates | Restarts on new version |
+| 13 | **Update** | *(When a newer build is staged)* accept update toast or Settings → Updates → Check for updates | Restarts on new version |
 
 **Before ship:** run steps 1–12 twice — **Run A** with free models, **Run B** with ChatGPT Plus OAuth (fresh state for step 2). **Run C** is step 13 when an update is staged.
 
