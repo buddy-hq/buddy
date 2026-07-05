@@ -1,4 +1,7 @@
+import { latestReleaseVersionFromReleases } from "@buddy/script/release-version"
 import { verifySignedMessage } from "./minisign"
+import type { UpdateRing } from "../shared/update-state"
+import { UPDATE_RING_PREVIEW } from "../shared/update-state"
 
 const SIGNATURE_SUFFIX = ".sig"
 const GITHUB_RELEASES_API_ACCEPT_HEADER = "application/vnd.github+json"
@@ -74,10 +77,66 @@ export function resolveReleaseTagAssetUrl(tag: string, filename: string): string
 
 export async function resolveLatestPrereleaseAssetUrl(filename: string): Promise<string> {
   const release = await fetchLatestGithubPrerelease()
+  if (!release) {
+    throw new Error("No published GitHub prerelease found")
+  }
+
   return resolveReleaseTagAssetUrl(release.tagName, filename)
 }
 
-async function fetchLatestGithubPrerelease(): Promise<GithubRelease> {
+export async function resolveLatestPreviewAssetUrl(filename: string): Promise<string> {
+  const release = await fetchLatestGithubPreviewRelease()
+  if (!release) {
+    return resolveLatestReleaseAssetUrl(filename)
+  }
+
+  return resolveReleaseTagAssetUrl(release.tagName, filename)
+}
+
+export async function resolveLatestRingAssetUrl(input: {
+  filename: string
+  ring: UpdateRing
+}): Promise<string> {
+  if (input.ring === UPDATE_RING_PREVIEW) {
+    return await resolveLatestPreviewAssetUrl(input.filename)
+  }
+
+  return resolveLatestReleaseAssetUrl(input.filename)
+}
+
+async function fetchLatestGithubPrerelease(): Promise<GithubRelease | undefined> {
+  const releases = await fetchGithubReleases()
+  let latestPrerelease: GithubRelease | undefined
+  for (const release of releases) {
+    if (release.draft || !release.prerelease) continue
+    if (
+      !latestPrerelease ||
+      releasePublishedAtTime(release) > releasePublishedAtTime(latestPrerelease)
+    ) {
+      latestPrerelease = release
+    }
+  }
+
+  return latestPrerelease
+}
+
+async function fetchLatestGithubPreviewRelease(): Promise<GithubRelease | undefined> {
+  const releases = await fetchGithubReleases()
+  const latestVersion = latestReleaseVersionFromReleases(
+    releases.map((release) => ({
+      isDraft: release.draft,
+      isPrerelease: release.prerelease,
+      tagName: release.tagName,
+    })),
+  )
+
+  if (!latestVersion) return undefined
+  return releases.find(
+    (release) => !release.draft && release.tagName.replace(/^v/, "") === latestVersion,
+  )
+}
+
+async function fetchGithubReleases(): Promise<GithubRelease[]> {
   const response = await fetch(
     `https://api.github.com/repos/${RELEASE_REPOSITORY}/releases?per_page=${LATEST_PRERELEASE_SEARCH_LIMIT}`,
     {
@@ -99,23 +158,13 @@ async function fetchLatestGithubPrerelease(): Promise<GithubRelease> {
     throw new Error("GitHub releases response was not an array")
   }
 
-  let latestPrerelease: GithubRelease | undefined
+  const releases: GithubRelease[] = []
   for (const item of body) {
     const release = parseGithubRelease(item)
-    if (!release || release.draft || !release.prerelease) continue
-    if (
-      !latestPrerelease ||
-      releasePublishedAtTime(release) > releasePublishedAtTime(latestPrerelease)
-    ) {
-      latestPrerelease = release
-    }
+    if (release) releases.push(release)
   }
 
-  if (!latestPrerelease) {
-    throw new Error("No published GitHub prerelease found")
-  }
-
-  return latestPrerelease
+  return releases
 }
 
 function releasePublishedAtTime(release: GithubRelease): number {

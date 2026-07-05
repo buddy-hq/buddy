@@ -150,6 +150,14 @@ const api: ElectronAPI = {
   loadingWindowComplete: () => ipcRenderer.send("loading-window-complete"),
   runUpdater: (alertOnFail) => ipcRenderer.invoke("run-updater", alertOnFail),
   checkUpdate: () => ipcRenderer.invoke("check-update"),
+  getUpdateProgress: () => ipcRenderer.invoke("get-update-progress"),
+  getUpdateRing: () => ipcRenderer.invoke("get-update-ring"),
+  onUpdateProgress: (cb) => {
+    const handler = (_: unknown, snapshot: Parameters<typeof cb>[0]) => cb(snapshot)
+    ipcRenderer.on("update-progress", handler)
+    return () => ipcRenderer.removeListener("update-progress", handler)
+  },
+  setUpdateRing: (ring) => ipcRenderer.invoke("set-update-ring", ring),
   installUpdate: () => ipcRenderer.invoke("install-update"),
   setBackgroundColor: (color) => ipcRenderer.invoke("set-background-color", color),
   getPathForFile: (file) => {

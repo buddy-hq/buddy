@@ -1,4 +1,8 @@
-import type { UpdateCheckResult } from "@buddy/web/context/platform"
+import type {
+  UpdateCheckResult,
+  UpdateProgressSnapshot,
+  UpdateRing,
+} from "@buddy/web/context/platform"
 
 function isUpdaterEnabled() {
   const buddyGlobals = Reflect.get(window, "__BUDDY__")
@@ -18,9 +22,10 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
   try {
     const result = await window.api.checkUpdate()
     if (result.failed) {
+      const progress = await window.api.getUpdateProgress().catch(() => null)
       return {
         status: "error",
-        stage: "check",
+        stage: progress?.errorStage === "download" ? "download" : "check",
       }
     }
 
@@ -47,4 +52,20 @@ export async function checkForUpdate(): Promise<UpdateCheckResult> {
 export async function installPendingUpdate() {
   if (!isUpdaterEnabled()) return
   await window.api.installUpdate()
+}
+
+export async function getUpdateProgress(): Promise<UpdateProgressSnapshot> {
+  return await window.api.getUpdateProgress()
+}
+
+export async function getUpdateRing(): Promise<UpdateRing> {
+  return await window.api.getUpdateRing()
+}
+
+export function onUpdateProgress(cb: (snapshot: UpdateProgressSnapshot) => void): () => void {
+  return window.api.onUpdateProgress(cb)
+}
+
+export async function setUpdateRing(ring: UpdateRing): Promise<void> {
+  await window.api.setUpdateRing(ring)
 }

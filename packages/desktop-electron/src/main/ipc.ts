@@ -11,6 +11,7 @@ import type {
   TitlebarTheme,
   WslConfig,
 } from "../preload/types"
+import type { UpdateProgressSnapshot, UpdateRing } from "../shared/update-state"
 import { getStore } from "./store"
 import { setTitlebar } from "./windows"
 
@@ -45,6 +46,9 @@ type Deps = {
     version?: string
     failed?: boolean
   }>
+  getUpdateProgress: () => UpdateProgressSnapshot
+  getUpdateRing: () => UpdateRing
+  setUpdateRing: (ring: UpdateRing) => void
   installUpdate: () => Promise<void> | void
   setBackgroundColor: (color: string) => void
   exportMarkdownPdf: (input: MarkdownPdfExportInput) => Promise<string | null>
@@ -90,6 +94,11 @@ export function registerIpcHandlers(deps: Deps) {
     deps.runUpdater(alertOnFail),
   )
   ipcMain.handle("check-update", () => deps.checkUpdate())
+  ipcMain.handle("get-update-progress", () => deps.getUpdateProgress())
+  ipcMain.handle("get-update-ring", () => deps.getUpdateRing())
+  ipcMain.handle("set-update-ring", (_event: IpcMainInvokeEvent, ring: UpdateRing) =>
+    deps.setUpdateRing(ring),
+  )
   ipcMain.handle("install-update", () => deps.installUpdate())
   ipcMain.handle("set-background-color", (_event: IpcMainInvokeEvent, color: string) =>
     deps.setBackgroundColor(color),

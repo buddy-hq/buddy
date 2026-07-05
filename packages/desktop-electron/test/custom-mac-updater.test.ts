@@ -1,7 +1,8 @@
-import { describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import {
   isMacUpdateAvailable,
   parseMacInstallerResult,
+  resolveDefaultMacMetadataUrl,
   resolveMacRecoveryMetadataUrls,
 } from "../src/main/custom-mac-updater"
 
@@ -10,6 +11,11 @@ const ROLLBACK_VERSION = "1.9.0"
 const NEXT_VERSION = "2.1.0"
 const EMPTY_VERSION = ""
 const INSTALLER_FAILURE_EXIT_CODE = 23
+const ORIGINAL_FETCH = globalThis.fetch
+
+afterEach(() => {
+  globalThis.fetch = ORIGINAL_FETCH
+})
 
 describe("isMacUpdateAvailable", () => {
   test("keeps normal latest update checks newer-only", () => {
@@ -58,6 +64,28 @@ describe("isMacUpdateAvailable", () => {
 })
 
 describe("resolveMacRecoveryMetadataUrls", () => {
+  test("resolves stable and preview metadata urls by update ring", async () => {
+    await expect(resolveDefaultMacMetadataUrl("stable")).resolves.toBe(
+      `https://github.com/prashantbhudwal/buddy-releases/releases/latest/download/latest-macos-${process.arch}.json`,
+    )
+
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify([
+          {
+            draft: false,
+            prerelease: true,
+            published_at: "2026-01-02T00:00:00Z",
+            tag_name: "v2.1.0",
+          },
+        ]),
+      )
+
+    await expect(resolveDefaultMacMetadataUrl("preview")).resolves.toBe(
+      `https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.1.0/latest-macos-${process.arch}.json`,
+    )
+  })
+
   test("tries target-specific manifest before pre-migration manifest", () => {
     expect(resolveMacRecoveryMetadataUrls(ROLLBACK_VERSION)).toEqual([
       `https://github.com/prashantbhudwal/buddy-releases/releases/download/v${ROLLBACK_VERSION}/latest-macos-${process.arch}.json`,

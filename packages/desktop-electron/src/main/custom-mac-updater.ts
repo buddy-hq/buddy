@@ -7,12 +7,14 @@ import {
   BUDDY_UPDATE_PUBLIC_KEY_ENV_KEY,
   fetchSignedText,
   isAbsoluteUrl,
-  resolveLatestReleaseAssetUrl,
+  resolveLatestRingAssetUrl,
   resolveReleaseAssetUrl,
   resolveVersionedReleaseAssetUrls,
   SignedUpdateFetchError,
 } from "./update-common"
 import { compareVersions } from "./recovery-policy-core"
+import type { UpdateRing } from "../shared/update-state"
+import { UPDATE_RING_STABLE } from "../shared/update-state"
 import {
   resolveMacOsReleaseArtifactFilename,
   resolveMacOsUpdateManifestFilename,
@@ -25,6 +27,7 @@ const INSTALLER_LOG_FILENAME = "update-installer.log"
 const INSTALLER_RESULT_FILENAME = "update-installer-result.json"
 const SHA512_HASH_ALGORITHM = "sha512"
 const LEGACY_MACOS_UPDATE_MANIFEST_FILENAME = "latest-mac.json"
+const DOWNLOAD_PROGRESS_EMIT_INTERVAL_MS = 250
 
 type LoggerLike = {
   info: (...args: unknown[]) => void
@@ -44,6 +47,7 @@ type LatestManifest = {
 }
 
 type PendingMacUpdate = {
+  ring: UpdateRing
   version: string
   archivePath: string
 }
@@ -53,6 +57,18 @@ type MacUpdaterResult = {
   updateAvailable: boolean
   version?: string
   failed?: boolean
+}
+
+export type MacUpdateDownloadProgress = {
+  bytesPerSecond?: number
+  percent?: number
+  totalBytes?: number
+  transferredBytes: number
+}
+
+type CheckForUpdateInput = {
+  onProgress?: (progress: MacUpdateDownloadProgress) => void
+  ring?: UpdateRing
 }
 
 export type MacInstallerResult = {
@@ -86,16 +102,17 @@ type MacUpdateAvailabilityInput = {
 
 export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
   let pendingUpdate: PendingMacUpdate | null = null
-  let checkForUpdateTask: Promise<MacUpdaterResult> | undefined
+  const checkForUpdateTasks = new Map<UpdateRing, Promise<MacUpdaterResult>>()
   const checkForVersionTasks = new Map<string, Promise<MacUpdaterResult>>()
 
   return {
-    async checkForUpdate(): Promise<MacUpdaterResult> {
+    async checkForUpdate(input: CheckForUpdateInput = {}): Promise<MacUpdaterResult> {
       if (!options.packaged) {
         return { updateAvailable: false }
       }
 
-      if (pendingUpdate) {
+      const ring = input.ring ?? UPDATE_RING_STABLE
+      if (pendingUpdate?.ring === ring) {
         if (options.isVersionBlocked?.(pendingUpdate.version)) {
           return { blocked: true, updateAvailable: false }
         }
@@ -106,10 +123,18 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
         }
       }
 
-      checkForUpdateTask ??= checkManifestForUpdate({
-        metadataUrls: [options.metadataUrl ?? resolveDefaultMacMetadataUrl()],
+      const existingTask = checkForUpdateTasks.get(ring)
+      if (existingTask) {
+        return await existingTask
+      }
+
+      const metadataUrl = options.metadataUrl ?? (await resolveDefaultMacMetadataUrl(ring))
+      const task = checkManifestForUpdate({
+        metadataUrls: [metadataUrl],
+        onProgress: input.onProgress,
         options,
         pendingUpdate,
+        ring,
         setPendingUpdate: (update) => {
           pendingUpdate = update
         },
@@ -119,10 +144,11 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
           return { updateAvailable: false, failed: true }
         })
         .finally(() => {
-          checkForUpdateTask = undefined
+          checkForUpdateTasks.delete(ring)
         })
 
-      return await checkForUpdateTask
+      checkForUpdateTasks.set(ring, task)
+      return await task
     },
     async checkForVersion(version: string): Promise<MacUpdaterResult> {
       if (!options.packaged) {
@@ -152,6 +178,7 @@ export function createCustomMacUpdater(options: CreateCustomMacUpdaterOptions) {
           : resolveMacRecoveryMetadataUrls(version),
         options,
         pendingUpdate,
+        ring: UPDATE_RING_STABLE,
         setPendingUpdate: (update) => {
           pendingUpdate = update
         },
@@ -215,8 +242,10 @@ function waitForInstallerLaunch(child: ReturnType<typeof spawn>): Promise<void> 
 async function checkManifestForUpdate(input: {
   expectedVersion?: string
   metadataUrls: readonly string[]
+  onProgress?: (progress: MacUpdateDownloadProgress) => void
   options: CreateCustomMacUpdaterOptions
   pendingUpdate: PendingMacUpdate | null
+  ring: UpdateRing
   setPendingUpdate: (update: PendingMacUpdate) => void
 }): Promise<MacUpdaterResult> {
   const metadata = await fetchLatestManifest(input.metadataUrls, input.options)
@@ -258,8 +287,14 @@ async function checkManifestForUpdate(input: {
     return { updateAvailable: false, failed: true }
   }
 
-  const archivePath = await ensureArchiveDownloaded(entry, metadata.version, input.options)
+  const archivePath = await ensureArchiveDownloaded(
+    entry,
+    metadata.version,
+    input.options,
+    input.onProgress,
+  )
   input.setPendingUpdate({
+    ring: input.ring,
     version: metadata.version,
     archivePath,
   })
@@ -343,6 +378,7 @@ async function ensureArchiveDownloaded(
   entry: FileEntry,
   version: string,
   options: CreateCustomMacUpdaterOptions,
+  onProgress?: (progress: MacUpdateDownloadProgress) => void,
 ) {
   const directory = join(options.cachePath, UPDATE_CACHE_DIRECTORY_NAME, version)
   await mkdir(directory, { recursive: true })
@@ -358,7 +394,7 @@ async function ensureArchiveDownloaded(
     throw new Error(`Failed to download update archive: ${response.status} ${response.statusText}`)
   }
 
-  const buffer = Buffer.from(await response.arrayBuffer())
+  const buffer = await readDownloadBuffer(response, entry.size, onProgress)
   const digest = createHash(SHA512_HASH_ALGORITHM).update(buffer).digest("base64")
   if (digest !== entry.sha512) {
     throw new Error("Downloaded update archive failed sha512 verification")
@@ -366,6 +402,75 @@ async function ensureArchiveDownloaded(
 
   await writeFile(archivePath, buffer)
   return archivePath
+}
+
+async function readDownloadBuffer(
+  response: Response,
+  totalBytes: number,
+  onProgress: ((progress: MacUpdateDownloadProgress) => void) | undefined,
+): Promise<Buffer> {
+  if (!response.body) {
+    const buffer = Buffer.from(await response.arrayBuffer())
+    emitDownloadProgress({
+      onProgress,
+      startTime: Date.now(),
+      totalBytes,
+      transferredBytes: buffer.byteLength,
+    })
+    return buffer
+  }
+
+  const reader = response.body.getReader()
+  const chunks: Uint8Array[] = []
+  const startTime = Date.now()
+  let nextEmitAt = 0
+  let transferredBytes = 0
+
+  while (true) {
+    const result = await reader.read()
+    if (result.done) {
+      break
+    }
+
+    chunks.push(result.value)
+    transferredBytes += result.value.byteLength
+
+    const now = Date.now()
+    if (now >= nextEmitAt || transferredBytes >= totalBytes) {
+      emitDownloadProgress({
+        onProgress,
+        startTime,
+        totalBytes,
+        transferredBytes,
+      })
+      nextEmitAt = now + DOWNLOAD_PROGRESS_EMIT_INTERVAL_MS
+    }
+  }
+
+  emitDownloadProgress({
+    onProgress,
+    startTime,
+    totalBytes,
+    transferredBytes,
+  })
+
+  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)))
+}
+
+function emitDownloadProgress(input: {
+  onProgress: ((progress: MacUpdateDownloadProgress) => void) | undefined
+  startTime: number
+  totalBytes: number
+  transferredBytes: number
+}): void {
+  const totalBytes = input.totalBytes > 0 ? input.totalBytes : undefined
+  const elapsedSeconds = Math.max((Date.now() - input.startTime) / 1_000, 0.001)
+  input.onProgress?.({
+    bytesPerSecond: Math.round(input.transferredBytes / elapsedSeconds),
+    percent: totalBytes ? (input.transferredBytes / totalBytes) * 100 : undefined,
+    totalBytes,
+    transferredBytes: input.transferredBytes,
+  })
 }
 
 async function isExistingArchiveValid(archivePath: string, expectedSha512: string) {
@@ -473,8 +578,13 @@ function resolveMacMetadataFilename(): string {
   return resolveMacOsUpdateManifestFilename(process.arch)
 }
 
-function resolveDefaultMacMetadataUrl(): string {
-  return resolveLatestReleaseAssetUrl(resolveMacMetadataFilename())
+export async function resolveDefaultMacMetadataUrl(
+  ring: UpdateRing = UPDATE_RING_STABLE,
+): Promise<string> {
+  return await resolveLatestRingAssetUrl({
+    filename: resolveMacMetadataFilename(),
+    ring,
+  })
 }
 
 export function resolveMacRecoveryMetadataUrls(version: string): readonly string[] {

@@ -1,3 +1,5 @@
+import type { UpdateProgressSnapshot, UpdateRing } from "../shared/update-state"
+
 export type InitStep = { phase: "server_waiting" } | { phase: "sqlite_waiting" } | { phase: "done" }
 
 export type ServerReadyData = {
@@ -83,6 +85,10 @@ export type ElectronAPI = {
     version?: string
     failed?: boolean
   }>
+  getUpdateProgress: () => Promise<UpdateProgressSnapshot>
+  getUpdateRing: () => Promise<UpdateRing>
+  onUpdateProgress: (cb: (snapshot: UpdateProgressSnapshot) => void) => () => void
+  setUpdateRing: (ring: UpdateRing) => Promise<void>
   installUpdate: () => Promise<void>
   setBackgroundColor: (color: string) => Promise<void>
   getPathForFile: (file: File) => string

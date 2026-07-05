@@ -1,5 +1,12 @@
 import { createBrowserPlatform, type Platform } from "@buddy/web/context/platform"
-import { checkForUpdate, installPendingUpdate } from "./updater"
+import {
+  checkForUpdate,
+  getUpdateProgress,
+  getUpdateRing,
+  installPendingUpdate,
+  onUpdateProgress,
+  setUpdateRing,
+} from "./updater"
 
 type BuddyWindow = Window & {
   __BUDDY__?: {
@@ -162,6 +169,18 @@ export function createDesktopPlatform(): Platform {
     },
     checkUpdate() {
       return checkForUpdate()
+    },
+    getUpdateProgress() {
+      return getUpdateProgress()
+    },
+    getUpdateRing() {
+      return getUpdateRing()
+    },
+    onUpdateProgress(cb) {
+      return onUpdateProgress(cb)
+    },
+    setUpdateRing(ring) {
+      return setUpdateRing(ring)
     },
     async update() {
       await installPendingUpdate()

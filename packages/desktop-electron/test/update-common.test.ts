@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import {
   fetchSignedText,
+  resolveLatestRingAssetUrl,
   resolveLatestPrereleaseAssetUrl,
   resolveVersionedReleaseAssetUrls,
   SignedUpdateFetchError,
@@ -15,6 +16,21 @@ afterEach(() => {
 })
 
 describe("update common", () => {
+  test("stable ring resolves stable latest assets without querying prereleases", async () => {
+    globalThis.fetch = async () => {
+      throw new Error("stable ring should not fetch GitHub prereleases")
+    }
+
+    await expect(
+      resolveLatestRingAssetUrl({
+        filename: WINDOWS_UPDATE_MANIFEST_FILENAME,
+        ring: "stable",
+      }),
+    ).resolves.toBe(
+      "https://github.com/prashantbhudwal/buddy-releases/releases/latest/download/latest-windows-x64.yml",
+    )
+  })
+
   test("resolves latest prerelease assets without using the stable latest release", async () => {
     let requestedUrl = ""
     globalThis.fetch = async (input) => {
@@ -48,6 +64,99 @@ describe("update common", () => {
     )
     expect(requestedUrl).toBe(
       "https://api.github.com/repos/prashantbhudwal/buddy-releases/releases?per_page=100",
+    )
+  })
+
+  test("preview ring resolves latest prerelease assets", async () => {
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify([
+          {
+            draft: false,
+            prerelease: true,
+            published_at: "2026-01-02T00:00:00Z",
+            tag_name: "v2.1.0",
+          },
+        ]),
+      )
+
+    await expect(
+      resolveLatestRingAssetUrl({
+        filename: WINDOWS_UPDATE_MANIFEST_FILENAME,
+        ring: "preview",
+      }),
+    ).resolves.toBe(
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.1.0/latest-windows-x64.yml",
+    )
+  })
+
+  test("preview ring resolves the newest stable release when no prerelease candidate exists", async () => {
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify([
+          {
+            draft: false,
+            prerelease: false,
+            published_at: "2026-01-02T00:00:00Z",
+            tag_name: "v2.1.0",
+          },
+        ]),
+      )
+
+    await expect(
+      resolveLatestRingAssetUrl({
+        filename: WINDOWS_UPDATE_MANIFEST_FILENAME,
+        ring: "preview",
+      }),
+    ).resolves.toBe(
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.1.0/latest-windows-x64.yml",
+    )
+  })
+
+  test("preview ring skips an older bad prerelease after a newer stable promotion", async () => {
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify([
+          {
+            draft: false,
+            prerelease: true,
+            published_at: "2026-01-01T00:00:00Z",
+            tag_name: "v2.1.0",
+          },
+          {
+            draft: false,
+            prerelease: false,
+            published_at: "2026-01-03T00:00:00Z",
+            tag_name: "v2.2.0",
+          },
+        ]),
+      )
+
+    await expect(
+      resolveLatestRingAssetUrl({
+        filename: WINDOWS_UPDATE_MANIFEST_FILENAME,
+        ring: "preview",
+      }),
+    ).resolves.toBe(
+      "https://github.com/prashantbhudwal/buddy-releases/releases/download/v2.2.0/latest-windows-x64.yml",
+    )
+  })
+
+  test("explicit prerelease resolver still reports an empty prerelease channel", async () => {
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify([
+          {
+            draft: false,
+            prerelease: false,
+            published_at: "2026-01-02T00:00:00Z",
+            tag_name: "v2.1.0",
+          },
+        ]),
+      )
+
+    await expect(resolveLatestPrereleaseAssetUrl(WINDOWS_UPDATE_MANIFEST_FILENAME)).rejects.toThrow(
+      "No published GitHub prerelease found",
     )
   })
 

@@ -15,5 +15,5 @@
     "rootDir": "../..",
     "types": ["vite/client"]
   },
-  "include": ["src/renderer/**/*", "../web/src/**/*"]
+  "include": ["src/renderer/**/*", "src/shared/update-state.ts", "../web/src/**/*"]
 }
