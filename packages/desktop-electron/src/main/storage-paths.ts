@@ -1,11 +1,10 @@
 import { join } from "node:path"
+import type { BuddyReleaseChannel } from "@buddy/script/channel"
 import {
-  type BuddyReleaseChannel,
-  resolveOpenCodeDatabaseFilenameForBuddyChannel,
-} from "@buddy/script/channel"
-import {
+  BUDDY_APP_NAME,
+  BUDDY_OPENCODE_DB_FILENAME,
+  BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME,
   DEFAULT_NOTEBOOK_HOME_SEGMENTS,
-  OPENCODE_APP_NAME,
   RUNTIME_ROOT_SEGMENTS,
   XDG_DEFAULT_SEGMENTS,
   XDG_ENV,
@@ -35,36 +34,78 @@ export function shouldUseDevRuntimeIsolation(input: {
   return !input.isPackaged || input.channel === "dev"
 }
 
-export function resolveDevXdgEnvironment(userDataPath: string): Record<string, string> {
-  const root = join(userDataPath, DEV_XDG_DIRECTORY_NAME)
+export function resolveRuntimeXdgEnvironment(runtimeRoot: string): Record<string, string> {
   return {
-    [DESKTOP_XDG_ENV.DATA_HOME]: join(root, RUNTIME_ROOT_SEGMENTS.data),
-    [DESKTOP_XDG_ENV.CACHE_HOME]: join(root, RUNTIME_ROOT_SEGMENTS.cache),
-    [DESKTOP_XDG_ENV.STATE_HOME]: join(root, RUNTIME_ROOT_SEGMENTS.state),
+    [DESKTOP_XDG_ENV.DATA_HOME]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.data),
+    [DESKTOP_XDG_ENV.CACHE_HOME]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.cache),
+    [DESKTOP_XDG_ENV.STATE_HOME]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.state),
   }
 }
 
-export function resolveOpenCodeSqlitePath(input: {
+export function resolveDevXdgEnvironment(userDataPath: string): Record<string, string> {
+  return resolveRuntimeXdgEnvironment(join(userDataPath, DEV_XDG_DIRECTORY_NAME))
+}
+
+function resolveConfiguredDesktopPath(value: string | undefined): string | undefined {
+  const configured = value?.trim()
+  if (!configured || configured === "undefined") {
+    return undefined
+  }
+
+  return configured
+}
+
+function resolveDefaultXdgDataHome(home: string): string {
+  return join(home, ...XDG_DEFAULT_SEGMENTS.data)
+}
+
+function resolveEffectiveXdgDataHome(input: {
   channel: StorageChannel
-  envXdgDataHome: string | undefined
+  envXdgDataHome?: string | undefined
   home: string
   isPackaged: boolean
   userDataPath: string
 }): string {
-  const configuredXdgDataHome = input.envXdgDataHome?.trim()
-  const xdgDataHome =
-    configuredXdgDataHome && configuredXdgDataHome.length > 0
-      ? configuredXdgDataHome
-      : shouldUseDevRuntimeIsolation({
-            channel: input.channel,
-            isPackaged: input.isPackaged,
-          })
-        ? join(input.userDataPath, DEV_XDG_DIRECTORY_NAME, RUNTIME_ROOT_SEGMENTS.data)
-        : join(input.home, ...XDG_DEFAULT_SEGMENTS.data)
+  const configured = resolveConfiguredDesktopPath(input.envXdgDataHome)
+  if (configured) return configured
 
+  if (
+    shouldUseDevRuntimeIsolation({
+      channel: input.channel,
+      isPackaged: input.isPackaged,
+    })
+  ) {
+    return join(input.userDataPath, DEV_XDG_DIRECTORY_NAME, RUNTIME_ROOT_SEGMENTS.data)
+  }
+
+  return resolveDefaultXdgDataHome(input.home)
+}
+
+export function resolveBuddyDataDir(input: {
+  channel: StorageChannel
+  envBuddyDataDir?: string | undefined
+  envXdgDataHome?: string | undefined
+  home: string
+  isPackaged: boolean
+  userDataPath: string
+}): string {
+  const configured = resolveConfiguredDesktopPath(input.envBuddyDataDir)
+  if (configured) return configured
+
+  return join(resolveEffectiveXdgDataHome(input), BUDDY_APP_NAME)
+}
+
+export function resolveOpenCodeSqlitePath(input: {
+  channel: StorageChannel
+  envBuddyDataDir?: string | undefined
+  envXdgDataHome?: string | undefined
+  home: string
+  isPackaged: boolean
+  userDataPath: string
+}): string {
   return join(
-    xdgDataHome,
-    OPENCODE_APP_NAME,
-    resolveOpenCodeDatabaseFilenameForBuddyChannel(input.channel),
+    resolveBuddyDataDir(input),
+    BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME,
+    BUDDY_OPENCODE_DB_FILENAME,
   )
 }

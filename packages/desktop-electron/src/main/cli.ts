@@ -2,6 +2,7 @@ import { existsSync, mkdirSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { app } from "electron"
+import { OPENCODE_DB_FILENAME } from "@buddy/script/channel"
 import { BUDDY_ENV, OPENCODE_ENV } from "@buddy/script/storage-env"
 import { BACKEND_SERVER_USERNAME, CHANNEL } from "./constants"
 import { getUserShell, loadShellEnv, mergeShellEnv } from "./shell-env"
@@ -86,6 +87,13 @@ function getBuddyMigrationDir() {
 
 export async function buildRuntimeEnvironment(password: string, port: number) {
   const home = os.homedir()
+  const shouldIsolateDevRuntime = shouldUseDevRuntimeIsolation({
+    channel: CHANNEL,
+    isPackaged: app.isPackaged,
+  })
+  const runtimeXdgEnvironment = shouldIsolateDevRuntime
+    ? resolveDevXdgEnvironment(app.getPath("userData"))
+    : {}
   const appEnvironment = Object.fromEntries(
     Object.entries(process.env).filter(
       (entry): entry is [string, string] => typeof entry[1] === "string",
@@ -93,17 +101,13 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
   )
   const shellEnvironment = process.platform === "win32" ? null : loadShellEnv(getUserShell())
   const base = mergeShellEnv(shellEnvironment, appEnvironment)
-  const devXdgEnvironment = shouldUseDevRuntimeIsolation({
-    channel: CHANNEL,
-    isPackaged: app.isPackaged,
-  })
-    ? resolveDevXdgEnvironment(app.getPath("userData"))
-    : {}
-  ensureDirectories(Object.values(devXdgEnvironment))
+  delete base[BUDDY_ENV.RUNTIME_ROOT]
+  delete base[OPENCODE_ENV.DISABLE_CHANNEL_DB]
+  ensureDirectories(Object.values(runtimeXdgEnvironment))
 
   const environment: Record<string, string> = {
     ...base,
-    ...devXdgEnvironment,
+    ...runtimeXdgEnvironment,
     [BUDDY_ENV.SERVER_USERNAME]: BACKEND_SERVER_USERNAME,
     [BUDDY_ENV.SERVER_PASSWORD]: password,
     [OPENCODE_ENV.SERVER_USERNAME]: BACKEND_SERVER_USERNAME,
@@ -119,6 +123,7 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
     PORT: String(port),
     [OPENCODE_ENV.EXPERIMENTAL_ICON_DISCOVERY]: "true",
     [OPENCODE_ENV.EXPERIMENTAL_FILEWATCHER]: "true",
+    [OPENCODE_ENV.DB]: OPENCODE_DB_FILENAME,
     [OPENCODE_ENV.CLIENT]: "desktop",
   }
 
