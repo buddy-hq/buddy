@@ -1,7 +1,11 @@
-import { afterEach, describe, expect, test } from "bun:test"
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import { ServerProvider, type ServerConnection } from "../src/context/server"
+import {
+  ServerProvider,
+  setRuntimeServerConnection,
+  type ServerConnection,
+} from "../src/context/server"
 import { resolveAssetUrl } from "../src/lib/resource-url"
 
 function createServerConnection(overrides: Partial<ServerConnection> = {}): ServerConnection {
@@ -23,6 +27,10 @@ describe("resolveAssetUrl", () => {
   let container: HTMLDivElement
   let root: Root
 
+  beforeEach(() => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+  })
+
   afterEach(async () => {
     if (root) {
       await act(async () => {
@@ -30,6 +38,8 @@ describe("resolveAssetUrl", () => {
       })
     }
     container?.remove()
+    setRuntimeServerConnection(createServerConnection())
+    Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
   })
 
   test("omits embedded credentials for embedded backend asset URLs", async () => {
@@ -63,5 +73,68 @@ describe("resolveAssetUrl", () => {
       "http://127.0.0.1:53295/api/objects/media-presentation/example/raw/item_1?directory=%2Frepo&fileName=image.png",
     )
     expect(captured.includes("@127.0.0.1")).toBe(false)
+  })
+
+  test("omits configured credentials from third-party absolute asset URLs", async () => {
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    let captured = ""
+
+    await act(async () => {
+      root.render(
+        <ServerProvider
+          value={createServerConnection({
+            url: "http://127.0.0.1:53295",
+            username: "buddy",
+            password: "secret-token",
+            isEmbeddedBackend: false,
+          })}
+        >
+          <CaptureResolvedUrl
+            endpoint="https://attacker.example/pixel.png?lesson=energy"
+            onValue={(value) => {
+              captured = value
+            }}
+          />
+        </ServerProvider>,
+      )
+    })
+
+    expect(captured).toBe("https://attacker.example/pixel.png?lesson=energy")
+    expect(captured.includes("buddy:secret-token")).toBe(false)
+  })
+
+  test("keeps configured credentials on Buddy server asset URLs", async () => {
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    let captured = ""
+
+    await act(async () => {
+      root.render(
+        <ServerProvider
+          value={createServerConnection({
+            url: "http://127.0.0.1:53295",
+            username: "buddy",
+            password: "secret-token",
+            isEmbeddedBackend: false,
+          })}
+        >
+          <CaptureResolvedUrl
+            endpoint="/api/file/raw/particle.png?path=lesson%2Fparticle.png&directory=%2Frepo"
+            onValue={(value) => {
+              captured = value
+            }}
+          />
+        </ServerProvider>,
+      )
+    })
+
+    expect(captured).toBe(
+      "http://buddy:secret-token@127.0.0.1:53295/api/file/raw/particle.png?path=lesson%2Fparticle.png&directory=%2Frepo",
+    )
   })
 })
