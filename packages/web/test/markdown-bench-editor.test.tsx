@@ -185,6 +185,44 @@ describe("MarkdownBenchEditor", () => {
     expect(themeStyle?.textContent).toContain("--markdown-text: #111827;")
   })
 
+  test("raises MDXEditor popup dialogs above the floating chat layer", async () => {
+    await act(async () => {
+      root.render(
+        <ThemeProvider>
+          <MarkdownBenchEditor
+            markdown="Dialog layer test."
+            version="version-1"
+            dirty={false}
+            saving={false}
+            conflict={false}
+            directory="/tmp/test-dir"
+            documentFormat="markdown"
+            path="test.md"
+            onChange={() => {}}
+          />
+        </ThemeProvider>,
+      )
+      await flushEffects()
+    })
+
+    const mdxEditor = container.querySelector<HTMLElement>(".mdxeditor")
+    expect(mdxEditor?.className).toContain("markdown-bench-mdx-editor")
+
+    const popupLayerStyle = container.querySelector<HTMLStyleElement>(
+      "style[data-markdown-bench-mdx-popup-layer-style]",
+    )
+    expect(popupLayerStyle).not.toBeNull()
+    expect(popupLayerStyle?.hasAttribute("data-markdown-export-ignore")).toBe(true)
+    expect(popupLayerStyle?.textContent).toContain(
+      ".markdown-bench-mdx-editor.mdxeditor-popup-container",
+    )
+    expect(popupLayerStyle?.textContent).toContain('[class*="_dialogOverlay_"]')
+    expect(popupLayerStyle?.textContent).toContain('[role="dialog"]')
+    expect(popupLayerStyle?.textContent).toContain("z-index: 60")
+    expect(popupLayerStyle?.textContent).toContain("z-index: 61")
+    expect(popupLayerStyle?.textContent).toContain("z-index: 62")
+  })
+
   test("reports rendered document selections without an explicit action", async () => {
     let selectedMarkdown = ""
     let selectedHeadingPath: string[] | undefined

@@ -307,6 +307,24 @@ const MDX_EDITOR_THEME_CLASS_NAME = [
   "[&_.cm-gutters]:!border-border-weaker-base [&_.cm-gutters]:!bg-background-stronger",
 ].join(" ")
 
+const MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME = "markdown-bench-mdx-editor"
+const MARKDOWN_BENCH_MDX_POPUP_Z_INDEX = 60
+const MARKDOWN_BENCH_MDX_DIALOG_OVERLAY_Z_INDEX = MARKDOWN_BENCH_MDX_POPUP_Z_INDEX + 1
+const MARKDOWN_BENCH_MDX_DIALOG_CONTENT_Z_INDEX = MARKDOWN_BENCH_MDX_POPUP_Z_INDEX + 2
+const MARKDOWN_BENCH_MDX_POPUP_LAYER_CSS = `
+.${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME}.mdxeditor-popup-container {
+  z-index: ${MARKDOWN_BENCH_MDX_POPUP_Z_INDEX};
+}
+
+.${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME}.mdxeditor-popup-container [class*="_dialogOverlay_"] {
+  z-index: ${MARKDOWN_BENCH_MDX_DIALOG_OVERLAY_Z_INDEX};
+}
+
+.${MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME}.mdxeditor-popup-container [role="dialog"] {
+  z-index: ${MARKDOWN_BENCH_MDX_DIALOG_CONTENT_Z_INDEX};
+}
+`
+
 function MarkdownBenchAdvancedToolbarPortal(props: { container?: HTMLElement | null }) {
   if (!props.container) return null
   return createPortal(
@@ -685,6 +703,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
           ref={editorRef}
           className={cn(
             "min-h-full bg-background-base text-text-base",
+            MARKDOWN_BENCH_MDX_EDITOR_CLASS_NAME,
             MDX_EDITOR_THEME_CLASS_NAME,
           )}
           markdown={editorMarkdown}
@@ -749,6 +768,9 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
             {scopedThemeCss}
           </style>
         ) : null}
+        <style data-markdown-bench-mdx-popup-layer-style data-markdown-export-ignore>
+          {MARKDOWN_BENCH_MDX_POPUP_LAYER_CSS}
+        </style>
         {mermaidViewOptions ? (
           <MarkdownBenchMermaidViewProvider value={mermaidViewOptions}>
             <MarkdownBenchIntrinsicScope
