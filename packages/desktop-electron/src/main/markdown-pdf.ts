@@ -1,7 +1,9 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { app, BrowserWindow, dialog } from "electron"
+import { app, BrowserWindow } from "electron"
 import type { MarkdownPdfExportInput } from "../preload/types"
+import { resolveAvailableMarkdownPdfExportPath } from "./markdown-pdf-path"
+import { resolveAllowedDirectoryRoots } from "./storage-paths"
 
 const MARKDOWN_PDF_RENDER_READY_SCRIPT = `
   (async () => {
@@ -21,13 +23,20 @@ const MARKDOWN_PDF_RENDER_READY_SCRIPT = `
 const MARKDOWN_PDF_LETTER_WIDTH_PIXELS = 816
 const MARKDOWN_PDF_LETTER_HEIGHT_PIXELS = 1056
 
+function resolveMarkdownPdfAllowedRoots(): string[] {
+  return [
+    resolveAllowedDirectoryRoots({
+      home: app.getPath("home"),
+    }),
+  ]
+}
+
 export async function exportMarkdownPdf(input: MarkdownPdfExportInput): Promise<string | null> {
-  const result = await dialog.showSaveDialog({
-    title: "Export Markdown as PDF",
-    defaultPath: join(app.getPath("documents"), input.defaultPath),
-    filters: [{ name: "PDF", extensions: ["pdf"] }],
+  const resultPath = await resolveAvailableMarkdownPdfExportPath({
+    allowedRoots: resolveMarkdownPdfAllowedRoots(),
+    defaultPath: input.defaultPath,
+    directory: input.directory,
   })
-  if (result.canceled || !result.filePath) return null
 
   const temporaryDirectory = await mkdtemp(join(app.getPath("temp"), "buddy-markdown-pdf-"))
   const htmlPath = join(temporaryDirectory, "document.html")
@@ -51,8 +60,8 @@ export async function exportMarkdownPdf(input: MarkdownPdfExportInput): Promise<
       preferCSSPageSize: true,
       printBackground: true,
     })
-    await writeFile(result.filePath, pdf)
-    return result.filePath
+    await writeFile(resultPath, pdf)
+    return resultPath
   } finally {
     renderWindow?.destroy()
     await rm(temporaryDirectory, { force: true, recursive: true })

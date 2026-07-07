@@ -96,5 +96,6 @@ export type ElectronAPI = {
 }
 export type MarkdownPdfExportInput = {
   html: string
+  directory: string
   defaultPath: string
 }

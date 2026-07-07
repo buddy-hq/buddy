@@ -6,7 +6,13 @@ import {
   type MarkdownBenchContentTheme,
 } from "../src/components/bench/markdown-bench-document-theme"
 import { createMermaidThemeConfig } from "../src/components/media/renderers/mermaid/lib/theme"
-import { MARKDOWN_PDF_PRINT_PALETTE, MARKDOWN_PDF_PRINT_TYPE } from "../src/lib/markdown-pdf-export"
+import {
+  MARKDOWN_PDF_MAX_ATOMIC_BLOCK_HEIGHT,
+  MARKDOWN_PDF_MAX_MERMAID_BLOCK_HEIGHT,
+  MARKDOWN_PDF_MAX_MERMAID_BLOCK_WIDTH,
+  MARKDOWN_PDF_PRINT_PALETTE,
+  MARKDOWN_PDF_PRINT_TYPE,
+} from "../src/lib/markdown-pdf-export"
 import {
   MAX_MARKDOWN_BENCH_CONTENT_FONT_SCALE,
   MIN_MARKDOWN_BENCH_CONTENT_FONT_SCALE,
@@ -76,11 +82,29 @@ describe("Markdown Bench preferences", () => {
 
     expect(css).toContain("color-scheme: light")
     expect(css).toContain("--markdown-bench-document-font-scale: 1")
-    expect(css).toContain(`background: ${MARKDOWN_PDF_PRINT_PALETTE.page} !important;`)
+    expect(css).toContain(`--markdown-pdf-page: ${MARKDOWN_PDF_PRINT_PALETTE.page};`)
+    expect(css).toContain("background: var(--markdown-pdf-page) !important;")
     expect(css).toContain(`font-size: ${MARKDOWN_PDF_PRINT_TYPE.bodyFontSize} !important;`)
+    expect(css).toContain(`margin: ${MARKDOWN_PDF_PRINT_TYPE.paragraphMarginBlock} !important;`)
+    expect(css).toContain(`orphans: ${MARKDOWN_PDF_PRINT_TYPE.paragraphOrphans};`)
+    expect(css).toContain(`widows: ${MARKDOWN_PDF_PRINT_TYPE.paragraphWidows};`)
+    expect(css).toContain(`font-size: ${MARKDOWN_PDF_PRINT_TYPE.figcaptionFontSize} !important;`)
     expect(css).toContain(`font-weight: ${MARKDOWN_PDF_PRINT_TYPE.strongFontWeight} !important;`)
+    expect(css).toContain(
+      `padding-left: ${MARKDOWN_PDF_PRINT_TYPE.taskListItemPaddingLeft} !important;`,
+    )
+    expect(css).toContain(`width: ${MARKDOWN_PDF_PRINT_TYPE.taskListCheckboxSize} !important;`)
+    expect(css).toContain('li.task-list-item > input[type="checkbox"]')
+    expect(css).toContain('li[role="checkbox"]')
+    expect(css).toContain('[data-component="markdown-bench-mdx-intrinsic"]')
+    expect(css).toContain("break-inside: avoid-page !important;")
+    expect(css).toContain("page-break-inside: avoid !important;")
+    expect(css).toContain(`max-height: ${MARKDOWN_PDF_MAX_ATOMIC_BLOCK_HEIGHT} !important;`)
+    expect(css).toContain(`max-width: ${MARKDOWN_PDF_MAX_MERMAID_BLOCK_WIDTH} !important;`)
+    expect(css).toContain(`max-height: ${MARKDOWN_PDF_MAX_MERMAID_BLOCK_HEIGHT} !important;`)
     expect(css).toContain('[class*="_codeMirrorToolbar_"]')
     expect(css).toContain('data-component="mermaid-diagram-static-viewport"')
+    expect(css).toContain('data-component="mermaid-diagram"] svg')
     expect(css).toContain("border-collapse: collapse !important;")
     expect(css).toContain("display: none !important;")
   })

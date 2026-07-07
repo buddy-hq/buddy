@@ -13,6 +13,7 @@ export type OpenFilePickerOptions = {
 
 export type MarkdownPdfExportInput = {
   html: string
+  directory: string
   defaultPath: string
 }
 
