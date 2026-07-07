@@ -205,7 +205,7 @@ const educatorsPhilosophy: Philosophy = {
 const capabilities: Capabilities = {
   headline: "A frontier agent, at your command.",
   subtext:
-    "Buddy is your learning companion, but it can do everything a frontier agent like Codex, OpenHands, or Claude Code can.",
+    "Buddy is your learning companion, but it can do everything a frontier agent like Codex, OpenClaw, or Claude Code can.",
   items: [
     {
       name: "Subagents",
