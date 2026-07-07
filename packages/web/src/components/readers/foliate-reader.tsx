@@ -1393,6 +1393,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
           <FoliateSelectionToolbar
             selectionAction={selectionToolbar}
+            anchorRoot={readerSurfaceRef.current}
             onCopyText={(text: string) => void handleCopySelection(text)}
             onHighlight={() => {
               removeCurrentChatSelection()
@@ -1443,6 +1444,7 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
 
           <FoliateAnnotationPopover
             popover={annotationPopover}
+            anchorRoot={readerSurfaceRef.current}
             onOpenAnnotationDialog={(ann?: ReaderAnnotation) => openAnnotationDialog(ann)}
             onDeleteAnnotation={(val: string) => void deleteAnnotationValue(val)}
             annotations={annotations}

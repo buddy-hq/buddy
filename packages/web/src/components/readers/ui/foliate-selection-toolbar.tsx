@@ -1,9 +1,11 @@
 import type { ReactNode } from "react"
 import { CopyIcon, HighlighterIcon, PencilLineIcon, SearchIcon, XIcon } from "lucide-react"
 import type { ReaderSelectionToolbarState } from "../foliate-reader-types"
+import { FoliateFloatingOverlay } from "./foliate-floating-overlay"
 
 type FoliateSelectionToolbarProps = {
   selectionAction: ReaderSelectionToolbarState | null
+  anchorRoot: HTMLElement | null
   onCopyText: (text: string) => void
   onHighlight: () => void
   onOpenAnnotationDialog: () => void
@@ -13,6 +15,7 @@ type FoliateSelectionToolbarProps = {
 
 export function FoliateSelectionToolbar({
   selectionAction,
+  anchorRoot,
   onCopyText,
   onHighlight,
   onOpenAnnotationDialog,
@@ -24,9 +27,12 @@ export function FoliateSelectionToolbar({
   const { text, x, y } = selectionAction
 
   return (
-    <div
-      className="absolute z-40 -translate-x-1/2 -translate-y-full pb-2"
-      style={{ left: `${x}px`, top: `${y}px` }}
+    <FoliateFloatingOverlay
+      anchorRoot={anchorRoot}
+      dataComponent="foliate-selection-toolbar"
+      className="-translate-x-1/2 -translate-y-full pb-2"
+      x={x}
+      y={y}
     >
       <div className="flex flex-col items-center animate-in fade-in zoom-in-95 duration-150 origin-bottom">
         <div className="flex select-none items-center gap-0.5 rounded-full border border-border-base bg-surface-raised-base/95 p-1 shadow-lg backdrop-blur-md">
@@ -71,7 +77,7 @@ export function FoliateSelectionToolbar({
         {/* Caret */}
         <div className="h-0 w-0 border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-border-base/60" />
       </div>
-    </div>
+    </FoliateFloatingOverlay>
   )
 }
 

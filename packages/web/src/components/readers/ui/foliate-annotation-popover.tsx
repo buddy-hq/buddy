@@ -1,9 +1,11 @@
 import { PencilLineIcon, XIcon } from "lucide-react"
 import type { ReaderAnnotationPopoverState, ReaderAnnotation } from "../foliate-reader-types"
 import { getAnnotationAtValue } from "../utils/foliate-helpers"
+import { FoliateFloatingOverlay } from "./foliate-floating-overlay"
 
-export interface FoliateAnnotationPopoverProps {
+export type FoliateAnnotationPopoverProps = {
   popover: ReaderAnnotationPopoverState | null
+  anchorRoot: HTMLElement | null
   annotations: ReaderAnnotation[]
   onOpenAnnotationDialog: (annotation?: ReaderAnnotation) => void
   onDeleteAnnotation: (value: string) => void
@@ -11,6 +13,7 @@ export interface FoliateAnnotationPopoverProps {
 
 export function FoliateAnnotationPopover({
   popover,
+  anchorRoot,
   annotations,
   onOpenAnnotationDialog,
   onDeleteAnnotation,
@@ -21,9 +24,12 @@ export function FoliateAnnotationPopover({
   const annotation = getAnnotationAtValue(annotations, value)
 
   return (
-    <div
-      className="absolute z-30 -translate-x-1/2 -translate-y-full pb-1.5"
-      style={{ left: `${x}px`, top: `${y}px` }}
+    <FoliateFloatingOverlay
+      anchorRoot={anchorRoot}
+      dataComponent="foliate-annotation-popover"
+      className="-translate-x-1/2 -translate-y-full pb-1.5"
+      x={x}
+      y={y}
     >
       <div className="flex items-center gap-0 overflow-hidden border border-border-base/60 bg-surface-raised-base/98 shadow-lg backdrop-blur-sm">
         <button
@@ -47,6 +53,6 @@ export function FoliateAnnotationPopover({
       <div className="flex justify-center">
         <div className="size-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-border-base/60" />
       </div>
-    </div>
+    </FoliateFloatingOverlay>
   )
 }
