@@ -324,7 +324,7 @@
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             observer.unobserve(container);
-            setTimeout(runTimeline, 500);
+            runTimeline();
           }
         });
       },
