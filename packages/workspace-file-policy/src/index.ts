@@ -25,6 +25,7 @@ const AUDIO_FILE_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "ogg", "wav"
 const VIDEO_FILE_EXTENSIONS = new Set(["avi", "m4v", "mov", "mp4", "mkv", "webm"])
 const ARCHIVE_FILE_EXTENSIONS = new Set(["7z", "bz2", "gz", "rar", "tar", "zip"])
 
+export type MarkdownBenchDocumentFormat = "markdown" | "mdx"
 export type WorkspaceMediaKind =
   | "image"
   | "pdf"
@@ -131,6 +132,19 @@ export function isWorkspaceImagePath(filepath: string) {
 
 export function isWorkspaceReaderPath(filepath: string) {
   return READER_FILE_EXTENSIONS.has(fileExtensionFromPath(filepath))
+}
+
+export function markdownBenchDocumentFormatFromPath(
+  filepath: string,
+): MarkdownBenchDocumentFormat | null {
+  const extension = fileExtensionFromPath(filepath)
+  if (extension === "md") return "markdown"
+  if (extension === "mdx") return "mdx"
+  return null
+}
+
+export function isMarkdownBenchPath(filepath: string) {
+  return markdownBenchDocumentFormatFromPath(filepath) !== null
 }
 
 export function isWorkspaceFileOverSoftLimit(input: {

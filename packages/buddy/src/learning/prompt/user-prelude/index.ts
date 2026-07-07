@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto"
+import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
 import type { PromptContext, PromptTurnSnapshot } from "../context"
 import {
   buildLearnerContextView,
@@ -180,7 +181,7 @@ function benchSurfaceLabel(context: PromptContext): string {
   if (target.type === "object") {
     return `${target.ref.kind} object`
   }
-  return target.path.toLowerCase().endsWith(".md") ? "markdown file" : "workspace file"
+  return isMarkdownBenchPath(target.path) ? "markdown file" : "workspace file"
 }
 
 function benchDrawerStatusLine(context: PromptContext): string {

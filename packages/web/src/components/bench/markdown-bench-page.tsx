@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react"
 import {
   DownloadIcon,
+  InfoIcon,
   Loader2Icon,
   MinusIcon,
   MoonIcon,
@@ -10,11 +11,13 @@ import {
   RefreshCwIcon,
   RotateCcwIcon,
   SaveIcon,
+  SlidersHorizontalIcon,
   SunIcon,
   TriangleAlertIcon,
   Undo2Icon,
 } from "lucide-react"
 import { Button, ToggleGroup, ToggleGroupItem, toast } from "@buddy/ui"
+import { markdownBenchDocumentFormatFromPath } from "@buddy/workspace-file-policy"
 import { BenchViewerShell, type BenchViewerAction } from "@/components/bench/bench-viewer-shell"
 import {
   useRegisterBenchContextProvider,
@@ -74,6 +77,7 @@ type MarkdownBenchPageProps = {
   directory: string
   path: string
   initialFile: ProjectExplorerEditableFileState
+  placeholder?: ReactNode
 }
 
 export type MarkdownBenchPendingSaveSnapshot = {
@@ -103,9 +107,11 @@ type MarkdownBenchFileState = {
   version: string
 }
 
+type MarkdownBenchDockPanel = "advanced-tools" | "file-info" | undefined
+
 function markdownPdfFileName(filepath: string) {
   const name = fileNameFromPath(filepath) || "document.md"
-  return `${name.replace(/\.md$/iu, "")}.pdf`
+  return `${name.replace(/\.mdx?$/iu, "")}.pdf`
 }
 
 function createMarkdownSelectionKey() {
@@ -211,6 +217,11 @@ export function MarkdownBenchPage(props: MarkdownBenchPageProps) {
 }
 
 function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
+  const documentFormat = markdownBenchDocumentFormatFromPath(props.path)
+  if (!documentFormat) {
+    throw new Error("Markdown Bench received an unsupported document format.")
+  }
+
   const { controller } = useDirectoryNotebookRouteContext()
   const platform = usePlatform()
   const { themeId, themes } = useTheme()
@@ -225,6 +236,9 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   const [conflict, setConflict] = useState(false)
   const [saveError, setSaveError] = useState<string | undefined>(undefined)
   const [exporting, setExporting] = useState(false)
+  const [openDockPanel, setOpenDockPanel] = useState<MarkdownBenchDockPanel>()
+  const [advancedToolbarContainer, setAdvancedToolbarContainer] =
+    useState<HTMLDivElement | null>(null)
   const [historyControls, setHistoryControls] = useState<MarkdownBenchHistoryControlsState>({
     canRedo: false,
     canUndo: false,
@@ -810,17 +824,27 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
           title,
           element: exportElement,
         }),
+        directory: props.directory,
         defaultPath: markdownPdfFileName(props.path),
       })
       if (exportedPath) {
-        toast.success("Markdown exported.")
+        toast.success("Saved PDF to the notebook.", {
+          action: platform.revealPath
+            ? {
+                label: "Open",
+                onClick: () => {
+                  void platform.revealPath?.(exportedPath)
+                },
+              }
+            : undefined,
+        })
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Markdown export failed.")
     } finally {
       setExporting(false)
     }
-  }, [platform, props.path, title])
+  }, [platform, props.directory, props.path, title])
 
   const syncSelectionToChat = useCallback(
     (selection: MarkdownBenchDocumentSelection) => {
@@ -881,10 +905,19 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
     editorRef.current?.redo()
   }, [])
   const isPrintView = contentThemeMode === "print"
+  const advancedToolsOpen = openDockPanel === "advanced-tools"
+  const fileInfoOpen = openDockPanel === "file-info"
   const canDecreaseContentFontScale =
     !isPrintView && contentFontScale > MIN_MARKDOWN_BENCH_CONTENT_FONT_SCALE
   const canIncreaseContentFontScale =
     !isPrintView && contentFontScale < MAX_MARKDOWN_BENCH_CONTENT_FONT_SCALE
+  const toggleAdvancedTools = useCallback(() => {
+    if (isPrintView) return
+    setOpenDockPanel((panel) => (panel === "advanced-tools" ? undefined : "advanced-tools"))
+  }, [isPrintView])
+  const toggleFileInfo = useCallback(() => {
+    setOpenDockPanel((panel) => (panel === "file-info" ? undefined : "file-info"))
+  }, [])
   const viewToolbar = useMemo(
     () => (
       <>
@@ -995,11 +1028,38 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         >
           <PlusIcon className="size-4" aria-hidden />
         </Button>
+        <div className="mx-1 h-4 w-px bg-border-base/70" />
+        <Button
+          type="button"
+          size="icon-sm"
+          variant={advancedToolsOpen && !isPrintView ? "secondary" : "ghost"}
+          aria-label="Advanced editing tools"
+          aria-pressed={advancedToolsOpen && !isPrintView}
+          title="Advanced editing tools"
+          disabled={isPrintView}
+          data-action="markdown-advanced-tools"
+          onClick={toggleAdvancedTools}
+        >
+          <SlidersHorizontalIcon data-icon="inline-start" aria-hidden />
+        </Button>
+        <Button
+          type="button"
+          size="icon-sm"
+          variant={fileInfoOpen ? "secondary" : "ghost"}
+          aria-label="File information"
+          aria-pressed={fileInfoOpen}
+          title="File information"
+          data-action="markdown-file-info"
+          onClick={toggleFileInfo}
+        >
+          <InfoIcon data-icon="inline-start" aria-hidden />
+        </Button>
       </>
     ),
     [
       canDecreaseContentFontScale,
       canIncreaseContentFontScale,
+      advancedToolsOpen,
       contentFontScaleLabel,
       contentThemeMode,
       decreaseContentFontScale,
@@ -1010,6 +1070,9 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
       redo,
       resetContentFontScale,
       setDocumentContentThemeMode,
+      fileInfoOpen,
+      toggleAdvancedTools,
+      toggleFileInfo,
       undo,
     ],
   )
@@ -1060,7 +1123,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         },
       },
       {
-        label: exporting ? "Exporting PDF" : "Export PDF",
+        label: exporting ? "Saving PDF" : "Save as PDF",
         dataAction: "markdown-export-pdf",
         disabled: exporting,
         icon: exporting ? (
@@ -1087,6 +1150,28 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
           : "Saved"
   const subtitle = status === "Saved" ? props.path : `${props.path} · ${status}`
   const showUnavailableCleanState = !exists && !dirty
+  const dockPanel =
+    advancedToolsOpen && !isPrintView ? (
+      <div
+        ref={setAdvancedToolbarContainer}
+        role="toolbar"
+        aria-label="Advanced Markdown editing tools"
+        className="flex min-w-0 max-w-[min(72rem,calc(100vw-3rem))] items-center"
+      />
+    ) : fileInfoOpen ? (
+      <div
+        data-component="markdown-bench-file-info"
+        role="status"
+        aria-label="Markdown file information"
+        className="flex min-w-0 max-w-[min(32rem,calc(100vw-3rem))] items-center gap-2 px-2 py-1"
+      >
+        <InfoIcon className="size-4 shrink-0 text-text-weak" aria-hidden />
+        <span className="shrink-0 text-xs font-medium text-text-weaker">File</span>
+        <span className="min-w-0 truncate text-sm font-medium text-text-strong" title={title}>
+          {title}
+        </span>
+      </div>
+    ) : undefined
 
   return (
     <BenchViewerShell
@@ -1094,6 +1179,9 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
       subtitle={subtitle}
       actions={actions}
       toolbar={viewToolbar}
+      controlsPlacement="dock"
+      hideHeader
+      dockPanel={dockPanel}
       contentClassName="overflow-hidden"
     >
       {saveError ? (
@@ -1121,8 +1209,13 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
             dirty={dirty}
             saving={saving}
             conflict={conflict}
+            advancedToolbarContainer={advancedToolbarContainer}
             contentFontScale={contentFontScale}
             contentTheme={contentTheme}
+            directory={props.directory}
+            documentFormat={documentFormat}
+            path={props.path}
+            placeholder={props.placeholder}
             onChange={changeMarkdown}
             onHistoryControlsChange={setHistoryControls}
             onSelectionChange={syncSelectionToChat}

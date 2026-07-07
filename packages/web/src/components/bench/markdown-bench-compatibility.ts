@@ -42,6 +42,14 @@ function escapeLinkLabel(value: string): string {
   return value.replaceAll("\\", "\\\\").replaceAll("[", "\\[").replaceAll("]", "\\]")
 }
 
+function applyReplacements(markdown: string, replacements: MarkdownReplacement[]): string {
+  let result = markdown
+  for (const replacement of replacements.toSorted((left, right) => right.start - left.start)) {
+    result = result.slice(0, replacement.start) + replacement.value + result.slice(replacement.end)
+  }
+  return result
+}
+
 function collectAutolinkReplacements(
   node: unknown,
   markdown: string,
@@ -71,6 +79,53 @@ function collectAutolinkReplacements(
   if (!Array.isArray(node.children)) return
   for (const child of node.children) {
     collectAutolinkReplacements(child, markdown, replacements)
+  }
+}
+
+function collectCodeRanges(node: unknown, ranges: MarkdownRange[]): void {
+  if (!isRecord(node)) return
+
+  if (node.type === "code" || node.type === "inlineCode") {
+    const start = readOffset(node.position)
+    const end = readEndOffset(node.position)
+    if (start !== undefined && end !== undefined) {
+      ranges.push({ start, end })
+    }
+    return
+  }
+
+  if (!Array.isArray(node.children)) return
+  for (const child of node.children) {
+    collectCodeRanges(child, ranges)
+  }
+}
+
+function collectHtmlCommentReplacements(
+  tree: unknown,
+  markdown: string,
+  replacements: MarkdownReplacement[],
+): void {
+  const codeRanges: MarkdownRange[] = []
+  collectCodeRanges(tree, codeRanges)
+  codeRanges.sort((left, right) => left.start - right.start)
+
+  let searchFrom = 0
+  while (searchFrom < markdown.length) {
+    const start = markdown.indexOf("<!--", searchFrom)
+    if (start < 0) return
+    const endMarker = markdown.indexOf("-->", start + 4)
+    if (endMarker < 0) return
+    const end = endMarker + 3
+    const insideCode = codeRanges.some((range) => start >= range.start && start < range.end)
+    const comment = markdown.slice(start + 4, endMarker)
+    if (!insideCode && !comment.includes("*/")) {
+      replacements.push({
+        start,
+        end,
+        value: `{/*${comment}*/}`,
+      })
+    }
+    searchFrom = end
   }
 }
 
@@ -168,9 +223,21 @@ export function prepareMarkdownForMdxEditor(markdown: string): string {
   collectAutolinkReplacements(tree, normalizedMarkdown, replacements)
   if (replacements.length === 0) return normalizedMarkdown
 
-  let result = normalizedMarkdown
-  for (const replacement of replacements.toSorted((left, right) => right.start - left.start)) {
-    result = result.slice(0, replacement.start) + replacement.value + result.slice(replacement.end)
+  return applyReplacements(normalizedMarkdown, replacements)
+}
+
+export function prepareMdxForMdxEditor(mdx: string): string {
+  const preparedMdx = prepareMarkdownForMdxEditor(mdx)
+  let tree: unknown
+  try {
+    tree = fromMarkdown(preparedMdx)
+  } catch {
+    return preparedMdx
   }
-  return result
+
+  const replacements: MarkdownReplacement[] = []
+  collectHtmlCommentReplacements(tree, preparedMdx, replacements)
+  if (replacements.length === 0) return preparedMdx
+
+  return applyReplacements(preparedMdx, replacements)
 }

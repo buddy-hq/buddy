@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
 import { AlertCircleIcon, Loader2Icon } from "lucide-react"
 import { useEffect, useState } from "react"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
@@ -6,7 +7,7 @@ import { BenchStaticContextProvider } from "@/components/bench/bench-static-cont
 import { MarkdownBenchPage } from "@/components/bench/markdown-bench-page"
 import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
 import { decodeDirectory } from "@/lib/directory-token"
-import { fileExtensionFromPath, workspaceFileInstanceKey } from "@/lib/workspace-file-paths"
+import { workspaceFileInstanceKey } from "@/lib/workspace-file-paths"
 import {
   readProjectExplorerEditableFile,
   type ProjectExplorerEditableFileState,
@@ -17,6 +18,9 @@ import {
 } from "@/lib/workspace-file-media"
 import { WorkspaceFileLargeWarning } from "@/components/files/workspace-file-actions"
 import { consumeWorkspaceFileLargeOpenApproval } from "@/state/workspace-file-open-dialog-store"
+
+const AGENTS_MD_PATH = "AGENTS.md"
+const AGENTS_MD_PLACEHOLDER = "Set rules and customize how Buddy responds in this notebook."
 
 type MarkdownBenchSearch = {
   path?: string
@@ -44,8 +48,8 @@ export const Route = createFileRoute("/$directory/_bench/markdown")({
     if (!deps.path) {
       throw new Error("Missing Markdown path.")
     }
-    if (fileExtensionFromPath(deps.path) !== "md") {
-      throw new Error("Only Markdown files can open on the Markdown Bench.")
+    if (!isMarkdownBenchPath(deps.path)) {
+      throw new Error("Only Markdown and MDX files can open on the Markdown Bench.")
     }
     const directory = decodeDirectory(params.directory)
     const metadata = await readWorkspaceFileRawMetadata({
@@ -102,7 +106,7 @@ function MarkdownBenchError() {
       status="error"
       metadata={["surface_status: error"]}
       content="Markdown Bench is visible, but the requested Markdown file could not be loaded."
-      hints={["Check that the Markdown path exists and is a .md file."]}
+      hints={["Check that the Markdown path exists and is a .md or .mdx file."]}
     >
       <BenchViewerShell title="Markdown unavailable">
         <div className="flex h-full items-center justify-center p-6 text-sm text-icon-critical-base">
@@ -150,6 +154,7 @@ function LargeMarkdownBenchGate(props: {
         directory={props.directory}
         path={props.path}
         initialFile={props.loaderData.initialFile}
+        placeholder={props.path === AGENTS_MD_PATH ? AGENTS_MD_PLACEHOLDER : undefined}
       />
     )
   }
@@ -215,6 +220,7 @@ function ApprovedMarkdownBenchLoader(props: { directory: string; path: string })
       directory={props.directory}
       path={props.path}
       initialFile={state.initialFile}
+      placeholder={props.path === AGENTS_MD_PATH ? AGENTS_MD_PLACEHOLDER : undefined}
     />
   )
 }

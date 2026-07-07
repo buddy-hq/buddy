@@ -1,5 +1,6 @@
 import fs from "node:fs/promises"
 import path from "node:path"
+import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
 import z from "zod"
 import {
   ResourceNotFoundError,
@@ -338,16 +339,12 @@ function absoluteWorkspacePath(input: { directory: string; relativePath: string 
   return path.resolve(input.directory, input.relativePath)
 }
 
-function isMarkdownPath(filepath: string): boolean {
-  return filepath.toLowerCase().endsWith(".md")
-}
-
 function isHtmlPath(filepath: string): boolean {
   return HTML_FILE_EXTENSIONS.has(path.extname(filepath).toLowerCase())
 }
 
 function viewerForWorkspacePath(filepath: string): WorkspaceFileBenchTarget["viewer"] {
-  return isMarkdownPath(filepath) ? "markdown" : "file"
+  return isMarkdownBenchPath(filepath) ? "markdown" : "file"
 }
 
 function workspaceFileRoute(target: WorkspaceFileBenchTarget): string {

@@ -5,13 +5,7 @@ description: Use when Buddy needs to create, critique, or revise tangible teachi
 
 # Teaching Resource Authoring
 
-This skill routes tangible teaching-resource work to source-grounded reference handbooks.
-
-Use it when the user wants a concrete resource that a teacher, learner, or instructional designer could hold, distribute, fill in, score with, revise from, or use during instruction.
-
-Read only the reference files needed for the current artifact, usually one and at most three. If the user asks for a full resource package, combine the relevant families explicitly rather than pretending one handbook covers every component.
-
-## Boundary
+Helps you build teaching resources of teachers and learners.
 
 A teaching resource is a **tangible artifact**, not the teaching theory behind it.
 
@@ -27,6 +21,58 @@ Not resources:
 - Bloom's Taxonomy, DOK, UDL, UbD, explicit instruction, formative assessment, differentiation, scaffolding, metacognition, accessibility.
 
 Those are frameworks, models, or design lenses. Use them to improve the artifact, but do not mistake them for the artifact.
+
+--- [!IMPORTANT] ---
+
+## Buddy Specific Instructions
+
+### Interactive mode
+  
+When a teacher asks you for a material that is normally a document — a worksheet, quiz, study guide, rubric, reading packet, lab sheet, or anything they would hand out, fill in, or print — build it in interactive mode, not as a plain chat answer.
+
+Interactive mode means you write the material as a document file and present it on Bench. Bench is Buddy's document surface: when you present a document there, the teacher sees a clean, rendered version of it beside the conversation, and it is fully editable by them.
+
+This turns authoring into a back-and-forth instead of a one-shot dump:
+
+1. You produce a draft in .mdx format. [DON'T give the material in the chat response.]
+2. Present it on Bench. [use bench_present tool; dont present inline]
+3. The teacher reads it, edits it directly if they want, or selects a specific part of the document and sends that selection back to you.
+4. You revise based on exactly what they highlighted, then present the updated document.
+5. Repeat until the material is right.
+
+The Bench editor also has a Download as PDF button, so the teacher can export the finished material directly. PDF export is available in the desktop app.
+
+### Output format: MDX by default
+
+Use `.mdx` as your default file format for any document-form material.
+
+MDX is a superset of Markdown: everything Markdown can do, MDX can do, plus more. There is no downside to starting with MDX, and you will not have to switch formats later if the material turns out to need richer features.
+
+Use plain `.md` only when the teacher specifically asks for Markdown.
+
+To see exactly what the Bench mdx surface supports and how to use each feature, read `references/buddy-mdx-support.md`. In short, it covers headings, lists, tables, links, code blocks, rendered math, rendered Mermaid diagrams, callout blocks for teacher notes and checks for understanding, YAML frontmatter, images, safe HTML for cards/grids/timelines, and inline safe SVG for labeled diagrams and printable visuals. Custom JSX/MDX components are preserved but shown inertly — they will not execute as code. If the teacher wants something genuinely interactive or application-like, that is a different surface; let them know and use Buddy's HTML widgets for that instead.
+
+### Export and convert
+
+PDF via the Bench download button is the built-in export. But be willing to convert the material into any other format the teacher asks for — DOCX, a styled printable PDF, slides, plain text, or anything else.
+
+You will have skills for some of these conversions already. If a requested format does not have a skill, install and use whatever library is needed to get the job done. Do not refuse a reasonable export request on the grounds of no built-in support — produce the file the teacher asked for.
+
+
+### Direct asks:
+- if the user directly asks for a format like pdf/docx, do the job directly and then when done, educate them on interactive mode.
+
+--- [!IMPORTANT] ---
+
+
+
+## General Instructions
+
+The rest of this skill routes tangible teaching-resource work to source-grounded reference handbooks.
+
+Use it when the user wants a concrete resource that a teacher, learner, or instructional designer could hold, distribute, fill in, score with, revise from, or use during instruction.
+
+Read only the reference files needed for the current artifact, usually one and at most three. If the user asks for a full resource package, combine the relevant families explicitly rather than pretending one handbook covers every component.
 
 ## Router
 

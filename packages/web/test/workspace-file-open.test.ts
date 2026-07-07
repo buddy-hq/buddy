@@ -57,6 +57,20 @@ describe("workspace file open policy", () => {
     })
   })
 
+  test("routes MDX files to the Bench document surface", () => {
+    expect(
+      resolveWorkspaceFileOpenPlan({
+        path: "notes/worksheet.mdx",
+        absolutePath: "/repo/notes/worksheet.mdx",
+        available: true,
+        canOpenInBuddy: true,
+        canOpenReading: true,
+        canOpenDefaultApp: true,
+        canReveal: false,
+      }).primaryTarget,
+    ).toBe(WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH)
+  })
+
   test("falls back to the default app for unsupported workspace files", () => {
     expect(
       resolveWorkspaceFileOpenPlan({

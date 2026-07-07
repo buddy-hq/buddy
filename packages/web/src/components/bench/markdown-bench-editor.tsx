@@ -1,21 +1,33 @@
 import {
+  KitchenSinkToolbar,
   MDXEditor,
+  NestedLexicalEditor,
   createActiveEditorSubscription$,
   codeBlockPlugin,
   codeMirrorPlugin,
+  diffSourcePlugin,
+  directivesPlugin,
   frontmatterPlugin,
   headingsPlugin,
   imagePlugin,
+  jsxPlugin,
   linkPlugin,
+  linkDialogPlugin,
   listsPlugin,
+  markdownProcessingError$,
   markdownShortcutPlugin,
   quotePlugin,
   realmPlugin,
   tablePlugin,
   thematicBreakPlugin,
+  toolbarPlugin,
+  viewMode$,
   type MDXEditorMethods,
+  type JsxComponentDescriptor,
+  type JsxEditorProps,
 } from "@mdxeditor/editor"
 import "@mdxeditor/editor/style.css"
+import { createPortal } from "react-dom"
 import {
   CAN_REDO_COMMAND,
   CAN_UNDO_COMMAND,
@@ -32,10 +44,22 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react"
+import type { RootContent } from "mdast"
 import { cn } from "@buddy/ui"
+import type { MarkdownBenchDocumentFormat } from "@buddy/workspace-file-policy"
 import { markdownClassName } from "@/components/markdown/markdown-html-segment"
-import { prepareMarkdownForMdxEditor } from "@/components/bench/markdown-bench-compatibility"
+import {
+  prepareMarkdownForMdxEditor,
+  prepareMdxForMdxEditor,
+} from "@/components/bench/markdown-bench-compatibility"
+import {
+  canRenderMdxIntrinsic,
+  MarkdownBenchIntrinsicScope,
+  MarkdownBenchMdxIntrinsicPreview,
+} from "@/components/bench/markdown-bench-mdx-intrinsic"
+import { resolveMarkdownBenchImageSrc } from "@/lib/markdown-bench-image-src"
 import { BUDDY_CODE_MIRROR_EXTENSIONS } from "@/components/bench/markdown-bench-code-theme"
 import { buddyMathPlugin } from "@/components/bench/markdown-bench-math-plugin"
 import {
@@ -48,6 +72,7 @@ import {
   sanitizeMarkdownBenchThemeScopeID,
   type MarkdownBenchContentTheme,
 } from "@/components/bench/markdown-bench-document-theme"
+import { MARKDOWN_BENCH_DIRECTIVE_DESCRIPTORS } from "@/components/bench/markdown-bench-directives"
 
 export type MarkdownBenchEditorContract = {
   markdown: string
@@ -58,6 +83,7 @@ export type MarkdownBenchEditorContract = {
   onChange(markdown: string): void
   onSave(markdown: string, expectedVersion: string): void
   onReload(): void
+  getMarkdown(): string
   getSelectionMarkdown(): string
   setMarkdown(markdown: string): void
   focus(): void
@@ -65,7 +91,7 @@ export type MarkdownBenchEditorContract = {
 
 export type MarkdownBenchEditorHandle = Pick<
   MarkdownBenchEditorContract,
-  "getSelectionMarkdown" | "setMarkdown" | "focus"
+  "getMarkdown" | "getSelectionMarkdown" | "setMarkdown" | "focus"
 > & {
   redo(): void
   undo(): void
@@ -94,9 +120,14 @@ type MarkdownBenchEditorProps = Pick<
   MarkdownBenchEditorContract,
   "markdown" | "version" | "dirty" | "saving" | "conflict" | "onChange"
 > & {
+  advancedToolbarContainer?: HTMLElement | null
   className?: string
   contentFontScale?: number
   contentTheme?: MarkdownBenchContentTheme
+  directory: string
+  documentFormat: MarkdownBenchDocumentFormat
+  path: string
+  placeholder?: ReactNode
   onHistoryControlsChange?(controls: MarkdownBenchHistoryControlsState): void
   onSelectionChange?(selection: MarkdownBenchDocumentSelection): void
 }
@@ -119,6 +150,116 @@ const MARKDOWN_SERIALIZATION_OPTIONS = {
   listItemIndent: "one",
   resourceLink: false,
 } as const
+
+type MdxFlowChild = Extract<
+  JsxEditorProps["mdastNode"],
+  { type: "mdxJsxFlowElement" }
+>["children"][number]
+type MdxTextChild = Extract<
+  JsxEditorProps["mdastNode"],
+  { type: "mdxJsxTextElement" }
+>["children"][number]
+
+function isMdxFlowChild(node: RootContent): node is MdxFlowChild {
+  switch (node.type) {
+    case "blockquote":
+    case "code":
+    case "definition":
+    case "footnoteDefinition":
+    case "heading":
+    case "html":
+    case "list":
+    case "math":
+    case "mdxJsxFlowElement":
+    case "paragraph":
+    case "table":
+    case "thematicBreak":
+    case "yaml":
+      return true
+    default:
+      return false
+  }
+}
+
+function isMdxTextChild(node: RootContent): node is MdxTextChild {
+  switch (node.type) {
+    case "break":
+    case "delete":
+    case "emphasis":
+    case "html":
+    case "image":
+    case "imageReference":
+    case "inlineCode":
+    case "link":
+    case "linkReference":
+    case "mdxJsxTextElement":
+    case "strong":
+    case "text":
+      return true
+    default:
+      return false
+  }
+}
+
+function GenericMdxComponentEditor({ mdastNode }: JsxEditorProps) {
+  if (canRenderMdxIntrinsic(mdastNode.name)) {
+    return <MarkdownBenchMdxIntrinsicPreview mdastNode={mdastNode} />
+  }
+
+  const label = (
+    <code className="rounded bg-surface-inset-base px-1.5 py-0.5 text-xs text-text-weak">
+      {mdastNode.name ?? "Fragment"}
+    </code>
+  )
+
+  if (mdastNode.type === "mdxJsxTextElement") {
+    const content = mdastNode.children.length > 0 && (
+      <NestedLexicalEditor<typeof mdastNode>
+        getContent={(node) => node.children}
+        getUpdatedMdastNode={(node, children) => ({
+          ...node,
+          children: children.filter(isMdxTextChild),
+        })}
+      />
+    )
+
+    return (
+      <span data-component="markdown-bench-mdx-component" className="inline-flex items-baseline gap-1">
+        {label}
+        {content}
+      </span>
+    )
+  }
+
+  const content = mdastNode.children.length > 0 && (
+    <NestedLexicalEditor<typeof mdastNode>
+      block
+      getContent={(node) => node.children}
+      getUpdatedMdastNode={(node, children) => ({
+        ...node,
+        children: children.filter(isMdxFlowChild),
+      })}
+    />
+  )
+
+  return (
+    <div
+      data-component="markdown-bench-mdx-component"
+      className="my-2 rounded-md border border-border-weak-base bg-surface-weak p-3"
+    >
+      {label}
+      {content}
+    </div>
+  )
+}
+
+const GENERIC_MDX_COMPONENT_DESCRIPTOR = {
+  name: "*",
+  kind: "flow",
+  props: [],
+  hasChildren: true,
+  Editor: GenericMdxComponentEditor,
+} satisfies JsxComponentDescriptor
 
 const EMPTY_MARKDOWN_BENCH_HISTORY_CONTROLS: MarkdownBenchHistoryControls = {
   canRedo: false,
@@ -166,9 +307,25 @@ const MDX_EDITOR_THEME_CLASS_NAME = [
   "[&_.cm-gutters]:!border-border-weaker-base [&_.cm-gutters]:!bg-background-stronger",
 ].join(" ")
 
+function MarkdownBenchAdvancedToolbarPortal(props: { container?: HTMLElement | null }) {
+  if (!props.container) return null
+  return createPortal(
+    <div
+      data-component="markdown-bench-advanced-toolbar"
+      className={cn(
+        "mdxeditor flex min-w-max items-center gap-1 px-1 [&_[data-toolbar-item]]:mx-0.5 [&_[role='separator']]:mx-2",
+        MDX_EDITOR_THEME_CLASS_NAME,
+      )}
+    >
+      <KitchenSinkToolbar />
+    </div>,
+    props.container,
+  )
+}
+
 const MARKDOWN_CONTENT_CLASS_NAME = [
   markdownClassName,
-  "min-h-[calc(100vh-12rem)] px-8 py-12 focus:outline-none",
+  "min-h-[calc(100vh-12rem)] px-[clamp(0px,calc((100%_-_28rem)/6),2rem)] py-[clamp(0px,calc((100%_-_28rem)/4),3rem)] focus:outline-none",
   // MDXEditor uses --text-base for font sizing, which shadows Buddy's color token alias.
   "![color:var(--markdown-text)]",
   "![font-size:calc(var(--buddy-font-size-sm)*var(--markdown-bench-document-font-scale))]",
@@ -179,6 +336,8 @@ const MARKDOWN_CONTENT_CLASS_NAME = [
 
 const MARKDOWN_BENCH_SELECTION_EDGE_WIDTH_PX = 3
 const MARKDOWN_BENCH_SELECTION_EDGE_MIN_HEIGHT_PX = 3
+const MARKDOWN_BENCH_DOCUMENT_GUTTER_CLASS =
+  "px-[clamp(0px,calc((100%_-_28rem)/8),1.5rem)] pt-[clamp(0px,calc((100%_-_28rem)/8),1.5rem)]"
 
 type MarkdownBenchSelectionSection = {
   top: number
@@ -256,11 +415,12 @@ function resolveMarkdownBenchSelectionSection(input: {
 const markdownBenchHistoryControlsPlugin = realmPlugin<MarkdownBenchHistoryPluginParams>({
   init(realm, params) {
     realm.pub(createActiveEditorSubscription$, (editor) => {
+      let active = true
       let canRedo = false
       let canUndo = false
 
       const publish = () => {
-        params?.onChange({
+        const controls = {
           canRedo,
           canUndo,
           redo() {
@@ -269,6 +429,9 @@ const markdownBenchHistoryControlsPlugin = realmPlugin<MarkdownBenchHistoryPlugi
           undo() {
             editor.dispatchCommand(UNDO_COMMAND, undefined)
           },
+        }
+        queueMicrotask(() => {
+          if (active) params?.onChange(controls)
         })
       }
 
@@ -294,10 +457,21 @@ const markdownBenchHistoryControlsPlugin = realmPlugin<MarkdownBenchHistoryPlugi
       )
 
       return () => {
+        active = false
         unregisterCanUndo()
         unregisterCanRedo()
-        params?.onChange(EMPTY_MARKDOWN_BENCH_HISTORY_CONTROLS)
       }
+    })
+  },
+})
+
+const markdownBenchErrorRecoveryPlugin = realmPlugin({
+  init(realm) {
+    realm.sub(markdownProcessingError$, (error) => {
+      if (!error) return
+      queueMicrotask(() => {
+        realm.pub(viewMode$, "source")
+      })
     })
   },
 })
@@ -336,8 +510,11 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
     }, [props.contentTheme])
     const isPrintView = props.contentTheme?.mode === "print"
     const editorMarkdown = useMemo(
-      () => prepareMarkdownForMdxEditor(props.markdown),
-      [props.markdown],
+      () =>
+        props.documentFormat === "mdx"
+          ? prepareMdxForMdxEditor(props.markdown)
+          : prepareMarkdownForMdxEditor(props.markdown),
+      [props.documentFormat, props.markdown],
     )
     const onSelectionChange = props.onSelectionChange
     const handleHistoryControlsChange = useCallback((controls: MarkdownBenchHistoryControls) => {
@@ -378,6 +555,10 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
     }, [onSelectionChange])
     const plugins = useMemo(
       () => [
+        diffSourcePlugin({
+          codeMirrorExtensions: BUDDY_CODE_MIRROR_EXTENSIONS,
+          viewMode: "rich-text",
+        }),
         headingsPlugin(),
         listsPlugin(),
         quotePlugin(),
@@ -385,6 +566,9 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         buddyMathPlugin(),
         buddyMermaidPlugin(),
         linkPlugin(),
+        linkDialogPlugin({
+          showLinkTitleField: true,
+        }),
         tablePlugin(),
         codeBlockPlugin(),
         codeMirrorPlugin({
@@ -392,13 +576,48 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
           codeMirrorExtensions: BUDDY_CODE_MIRROR_EXTENSIONS,
         }),
         frontmatterPlugin(),
-        imagePlugin(),
+        imagePlugin({
+          imagePreviewHandler: (src) =>
+            Promise.resolve(
+              resolveMarkdownBenchImageSrc({
+                directory: props.directory,
+                documentPath: props.path,
+                src,
+              }),
+            ),
+        }),
+        directivesPlugin({
+          directiveDescriptors: MARKDOWN_BENCH_DIRECTIVE_DESCRIPTORS,
+        }),
+        ...(props.documentFormat === "mdx"
+          ? [
+              jsxPlugin({
+                allowFragment: false,
+                jsxComponentDescriptors: [GENERIC_MDX_COMPONENT_DESCRIPTOR],
+              }),
+            ]
+          : []),
+        markdownBenchErrorRecoveryPlugin(),
         markdownShortcutPlugin(),
+        toolbarPlugin({
+          toolbarClassName: "!hidden",
+          toolbarContents: () => (
+            <MarkdownBenchAdvancedToolbarPortal
+              container={props.advancedToolbarContainer}
+            />
+          ),
+        }),
         markdownBenchHistoryControlsPlugin({
           onChange: handleHistoryControlsChange,
         }),
       ],
-      [handleHistoryControlsChange],
+      [
+        handleHistoryControlsChange,
+        props.advancedToolbarContainer,
+        props.directory,
+        props.documentFormat,
+        props.path,
+      ],
     )
 
     useEffect(() => {
@@ -412,12 +631,19 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
     useImperativeHandle(
       ref,
       () => ({
+        getMarkdown() {
+          return editorRef.current?.getMarkdown() ?? ""
+        },
         getSelectionMarkdown() {
           return editorRef.current?.getSelectionMarkdown() ?? ""
         },
         setMarkdown(markdown: string) {
           applyingExternalMarkdownRef.current = true
-          editorRef.current?.setMarkdown(prepareMarkdownForMdxEditor(markdown))
+          editorRef.current?.setMarkdown(
+            props.documentFormat === "mdx"
+              ? prepareMdxForMdxEditor(markdown)
+              : prepareMarkdownForMdxEditor(markdown),
+          )
           window.queueMicrotask(() => {
             applyingExternalMarkdownRef.current = false
           })
@@ -432,7 +658,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
           historyControlsRef.current.undo()
         },
       }),
-      [],
+      [props.documentFormat],
     )
 
     useEffect(() => {
@@ -464,6 +690,8 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
           markdown={editorMarkdown}
           plugins={plugins}
           readOnly={isPrintView}
+          placeholder={props.placeholder}
+          suppressHtmlProcessing={props.documentFormat === "mdx"}
           toMarkdownOptions={MARKDOWN_SERIALIZATION_OPTIONS}
           onChange={(nextMarkdown, initialMarkdownNormalize) => {
             if (initialMarkdownNormalize || applyingExternalMarkdownRef.current) {
@@ -487,7 +715,8 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         data-content-theme={props.contentTheme?.mode}
         data-markdown-bench-theme-scope={themeScopeID}
         className={cn(
-          "markdown-bench-editor relative h-full min-h-0 overflow-y-auto bg-background-weak px-6 pt-6 pb-48 text-text-base",
+          "markdown-bench-editor relative h-full min-h-0 overflow-y-auto bg-background-weak pb-48 text-text-base",
+          MARKDOWN_BENCH_DOCUMENT_GUTTER_CLASS,
           props.className,
         )}
         onPointerUp={notifySelectionChange}
@@ -522,10 +751,18 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         ) : null}
         {mermaidViewOptions ? (
           <MarkdownBenchMermaidViewProvider value={mermaidViewOptions}>
-            {mdxEditorElement}
+            <MarkdownBenchIntrinsicScope
+              value={{ directory: props.directory, documentPath: props.path }}
+            >
+              {mdxEditorElement}
+            </MarkdownBenchIntrinsicScope>
           </MarkdownBenchMermaidViewProvider>
         ) : (
-          mdxEditorElement
+          <MarkdownBenchIntrinsicScope
+            value={{ directory: props.directory, documentPath: props.path }}
+          >
+            {mdxEditorElement}
+          </MarkdownBenchIntrinsicScope>
         )}
       </div>
     )

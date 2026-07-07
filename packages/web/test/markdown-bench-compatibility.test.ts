@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test"
-import { prepareMarkdownForMdxEditor } from "../src/components/bench/markdown-bench-compatibility"
+import {
+  prepareMarkdownForMdxEditor,
+  prepareMdxForMdxEditor,
+} from "../src/components/bench/markdown-bench-compatibility"
 
 describe("Markdown Bench compatibility", () => {
   test("protects CommonMark URL and email autolinks from MDX parsing", () => {
@@ -98,6 +101,32 @@ $$`)
         "",
         "```",
         "$fenced$",
+        "```",
+      ].join("\n"),
+    )
+  })
+
+  test("converts HTML comments to MDX comments without rewriting code examples", () => {
+    const mdx = [
+      "<svg>",
+      "  <!-- axes -->",
+      '  <line x1="0" x2="10" />',
+      "</svg>",
+      "",
+      "```html",
+      "<!-- example -->",
+      "```",
+    ].join("\n")
+
+    expect(prepareMdxForMdxEditor(mdx)).toBe(
+      [
+        "<svg>",
+        "  {/* axes */}",
+        '  <line x1="0" x2="10" />',
+        "</svg>",
+        "",
+        "```html",
+        "<!-- example -->",
         "```",
       ].join("\n"),
     )

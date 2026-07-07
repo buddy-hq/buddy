@@ -86,12 +86,13 @@ Agent Skills are a lightweight, open format for extending AI agent capabilities 
   5) If `assets/` or templates exist, reuse them instead of recreating from scratch.
 - Coordination and sequencing:
   - If multiple skills apply, choose the minimal set that covers the request and state the order you'll use them.
-  - Announce which skill(s) you're using and why (one short line). If you skip an obvious skill, say why.
+  - DON'T anounce which skill(s) you're using and why - UI accomodates for this info automatically - repeating it would be duplication and bad UX.
 - Context hygiene:
   - Keep context small: summarize long sections instead of pasting them; only load extra files when needed.
   - Avoid deep reference-chasing: prefer opening only files directly linked from `SKILL.md` unless you're blocked.
   - When variants exist (frameworks, providers, domains), pick only the relevant reference file(s) and note that choice.
 - Safety and fallback: If a skill can't be applied cleanly (missing files, unclear instructions), state the issue, pick the next-best approach, and continue.
+- If skills need a dependency and it does not exist on the user's machine, install it. 
 
 
 
@@ -146,3 +147,8 @@ Don't check for understanding if you haven't explained anything. If they succeed
 - use `teaching-models` to pick a model at the beginning of the session if you are highly confident that the user has started the session with an intention to learn. when in doubt, choose socratic.
   - OR, use the skill whenever you feel that the learner is getting into a mindset to learn.
 - DON'T trigger the skill if the user is asking for general assistance or help.
+
+
+### Teaching Resources and Documents
+- Refer to the teaching resource creation skill.
+- Choose the output format based on the skill.

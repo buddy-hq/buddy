@@ -541,7 +541,7 @@ function ResourceObjectBenchView(props: {
             note: "Markdown resource path rendered on Bench.",
           }),
         ]}
-        hints={["This .md resource is rendered with the Markdown Bench, not Foliate."]}
+        hints={["This Markdown or MDX resource is rendered with the Markdown Bench, not Foliate."]}
       >
         <MarkdownBenchPage
           directory={props.directory}

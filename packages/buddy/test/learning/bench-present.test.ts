@@ -309,6 +309,37 @@ describe("bench_present", () => {
     })
   })
 
+  test("presents MDX workspace files on the Markdown Bench", async () => {
+    await using project = await tmpdir({
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "lesson.mdx"), "# Lesson\n")
+      },
+    })
+    const client = connectTestBenchClient({ directory: project.path })
+
+    const run = presentOnBenchWithTestContext({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      action: "present_file",
+      path: "lesson.mdx",
+      resourceKey: null,
+      objectID: null,
+    })
+    const action = await readNextAction(client)
+    completeCommittedAction({ client, action, changed: true })
+    const result = await run
+
+    expect(result).toMatchObject({
+      status: "presented",
+      reason: "presented_file",
+      benchTarget: {
+        type: "workspace-file",
+        path: "lesson.mdx",
+        viewer: "markdown",
+      },
+    })
+  })
+
   test("blocks HTML files so widgets use present_html_widget instead", async () => {
     await using project = await tmpdir({
       init: async (directory) => {

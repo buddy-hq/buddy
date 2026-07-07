@@ -1,6 +1,6 @@
+import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
 import { fileExtensionFromPath, normalizeRelativePath } from "./workspace-file-paths"
 
-const MARKDOWN_FILE_EXTENSION = "md"
 const READING_FILE_EXTENSIONS = new Set(["epub", "pdf"])
 
 export type ResourceObjectViewerPath =
@@ -40,10 +40,6 @@ function isReadingPath(path: string): boolean {
   return READING_FILE_EXTENSIONS.has(fileExtensionFromPath(path))
 }
 
-function isMarkdownPath(path: string): boolean {
-  return fileExtensionFromPath(path) === MARKDOWN_FILE_EXTENSION
-}
-
 export function resolveResourceObjectViewerPath(
   record: ResourceObjectPathRecord | undefined,
 ): ResourceObjectViewerPath | undefined {
@@ -62,7 +58,7 @@ export function resolveResourceObjectViewerPath(
 
   const markdownPath = firstMatchingPath(
     [record.sourceOriginRelpath, record.sourceRelpath, record.readerPath],
-    isMarkdownPath,
+    isMarkdownBenchPath,
   )
   if (markdownPath) {
     return {

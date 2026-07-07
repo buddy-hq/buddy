@@ -42,6 +42,17 @@ describe("resource object viewer path resolution", () => {
     })
   })
 
+  test("routes MDX resources to the Markdown Bench", () => {
+    expect(
+      resolveResourceObjectViewerPath({
+        sourceOriginRelpath: "notes/lesson.mdx",
+      }),
+    ).toEqual({
+      path: "notes/lesson.mdx",
+      viewer: "markdown",
+    })
+  })
+
   test("keeps unsupported resource paths out of Foliate", () => {
     expect(
       resolveResourceObjectViewerPath({

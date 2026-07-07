@@ -1,9 +1,9 @@
+import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
 import {
   canOpenWorkspaceFileOnBench,
   isWorkspaceFileOverSoftLimit,
   isWorkspaceReaderPath,
 } from "./workspace-file-media"
-import { fileExtensionFromPath } from "./workspace-file-paths"
 
 export const WORKSPACE_FILE_OPEN_TARGET_READING = "reading" as const
 export const WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH = "markdown-bench" as const
@@ -51,7 +51,7 @@ export function resolveWorkspaceFileOpenPlan(input: WorkspaceFileOpenInput): Wor
   if (input.canOpenInBuddy && input.canOpenReading && isWorkspaceReaderPath(input.path)) {
     targets.push(WORKSPACE_FILE_OPEN_TARGET_READING)
   }
-  if (input.canOpenInBuddy && fileExtensionFromPath(input.path) === "md") {
+  if (input.canOpenInBuddy && isMarkdownBenchPath(input.path)) {
     targets.push(WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH)
   }
   if (

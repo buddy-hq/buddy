@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ComponentType } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
 import {
   Button,
   DropdownMenu,
@@ -191,7 +192,7 @@ function fileSearchResult(path: string): NotebookSearchResult {
     target: {
       type: "file",
       path: normalizedPath,
-      viewer: extension === "md" ? "markdown" : "file",
+      viewer: isMarkdownBenchPath(normalizedPath) ? "markdown" : "file",
     },
   }
 }
