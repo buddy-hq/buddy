@@ -156,7 +156,7 @@
     inset: 0;
     width: 100%;
     height: 100%;
-    background-color: #080709;
+    background-color: var(--color-mock-bg);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -174,7 +174,7 @@
     flex-direction: row; /* SIBLING ROW FLOW: drawing stays left, chat stays right */
     justify-content: space-between;
     padding: var(--space-4) var(--space-6) 0 var(--space-6);
-    background-color: #080709;
+    background-color: var(--color-mock-bg);
     background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
     background-size: 18px 18px;
     overflow: hidden;
@@ -251,7 +251,7 @@
   /* Floating Chat Box Popup (matches screenshot exactly) - Header-Free */
   .wb-chat-popup {
     width: 320px;
-    background-color: #141216;
+    background-color: var(--color-mock-panel);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-bottom: none;
     border-radius: 12px 12px 0 0;
@@ -487,7 +487,7 @@
       if (inputPlaceholder) inputPlaceholder.innerHTML = "Ask Buddy...";
       if (sendBtn) sendBtn.classList.remove("active");
 
-      await delay(400);
+      await delay(300);
       if (isUserInteracting) return;
 
       // ==========================================
@@ -495,26 +495,26 @@
       // ==========================================
       // Draw Central Ellipse Node
       centralNode.classList.add("drawn");
-      await delay(600);
+      await delay(400);
       if (isUserInteracting) return;
 
       // Fade in Central Text
       centralText.classList.add("visible");
-      await delay(600);
+      await delay(400);
       if (isUserInteracting) return;
 
       // Draw the connecting lines
       l1.classList.add("drawn");
       l2.classList.add("drawn");
       l3.classList.add("drawn");
-      await delay(500);
+      await delay(350);
       if (isUserInteracting) return;
 
       // Draw branch box outlines
       b1.classList.add("drawn");
       b2.classList.add("drawn");
       b3.classList.add("drawn");
-      await delay(600);
+      await delay(400);
       if (isUserInteracting) return;
 
       // Fade in branch text labels
@@ -523,7 +523,7 @@
       t3.classList.add("visible");
       
       // Let user observe the fully sketched initial map
-      await delay(1500);
+      await delay(800);
       if (isUserInteracting) return;
 
       // ==========================================
@@ -537,12 +537,12 @@
           if (isUserInteracting) return;
           typed += query[i];
           inputPlaceholder.innerHTML = typed;
-          await delay(35);
+          await delay(15);
         }
         
-        await delay(300);
+        await delay(200);
         sendBtn.classList.add("active");
-        await delay(400);
+        await delay(250);
 
         // Submit query into chat feed
         inputPlaceholder.innerHTML = "";
@@ -550,17 +550,17 @@
         m2.innerHTML = query;
         m2.classList.add("visible");
         
-        await delay(1000); // Simulate Buddy thinking
+        await delay(500); // Simulate Buddy thinking
         if (isUserInteracting) return;
       } else {
         // On mobile: just pause to represent dialogue delay
-        await delay(2500);
+        await delay(1500);
       }
 
       // Buddy response in chat streams character-by-character (Desktop only)
       if (m3) {
-        await streamText(m3, "Ah, 'A foolish consistency is the hobgoblin of little minds.' Let's draw it onto the board as the primary barrier to self-reliance.", 15);
-        await delay(800);
+        await streamText(m3, "Ah, 'A foolish consistency is the hobgoblin of little minds.' Let's draw it onto the board as the primary barrier to self-reliance.", 10);
+        await delay(400);
         if (isUserInteracting) return;
       }
 
@@ -569,17 +569,17 @@
       // ==========================================
       // Draw Line 4
       l4.classList.add("drawn");
-      await delay(500);
+      await delay(350);
       if (isUserInteracting) return;
 
       // Draw box 4 outline (red)
       b4.classList.add("drawn");
-      await delay(600);
+      await delay(400);
       if (isUserInteracting) return;
 
       // Fade in text 4 label (✗ Consistency)
       t4.classList.add("visible");
-      await delay(500);
+      await delay(350);
       if (isUserInteracting) return;
 
       // Draw red crossout X marks
@@ -596,11 +596,11 @@
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             observer.unobserve(container);
-            setTimeout(runTimeline, 500);
+            runTimeline();
           }
         });
       },
-      { rootMargin: "-50% 0px -50% 0px", threshold: 0 }
+      { rootMargin: "0px 0px -25% 0px", threshold: 0 }
     );
     observer.observe(container);
   });

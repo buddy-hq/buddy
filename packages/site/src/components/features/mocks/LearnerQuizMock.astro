@@ -93,7 +93,7 @@
     inset: 0;
     width: 100%;
     height: 100%;
-    background-color: #0c0a09;
+    background-color: var(--color-mock-bg);
     overflow: hidden;
     color: var(--color-text-primary);
     font-family: var(--font-display);
@@ -347,8 +347,8 @@
     opacity: 0;
     margin-top: -4px;  /* Offset pointer tip (Y) */
     margin-left: -4px; /* Offset pointer tip (X) */
-    transition: top 0.6s cubic-bezier(0.25, 1, 0.5, 1),
-                left 0.6s cubic-bezier(0.25, 1, 0.5, 1),
+    transition: top 0.4s cubic-bezier(0.25, 1, 0.5, 1),
+                left 0.4s cubic-bezier(0.25, 1, 0.5, 1),
                 opacity 0.2s ease;
   }
 
@@ -505,7 +505,7 @@
       cursor.classList.remove("clicking");
 
       // Phase 1: Question presented pause
-      await delay(1500);
+      await delay(800);
       if (isUserInteracting) return;
 
       // ==========================================
@@ -521,7 +521,7 @@
       cursor.style.top = `${targetY}px`;
       cursor.style.left = `${targetX}px`;
 
-      await delay(600); // glide movement delay
+      await delay(400); // glide movement delay
       if (isUserInteracting) return;
 
       // Trigger click animation
@@ -529,12 +529,12 @@
       correctOpt.classList.add("correct");
       progressFill.style.width = "100%";
 
-      await delay(500); // click dwell
+      await delay(300); // click dwell
       if (isUserInteracting) return;
 
       // Fade out cursor
       cursor.style.opacity = "0";
-      await delay(800);
+      await delay(400);
       if (isUserInteracting) return;
 
       // ==========================================
@@ -549,7 +549,7 @@
       ringFill.setAttribute("stroke-dashoffset", "0");
       
       // Pause on the results screen for user to review
-      await delay(2500);
+      await delay(1500);
       if (isUserInteracting) return;
 
       // Return to the question screen and settle there (Option B remains correct/checked)
@@ -563,11 +563,11 @@
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             observer.unobserve(container);
-            setTimeout(runTimeline, 500);
+            runTimeline();
           }
         });
       },
-      { rootMargin: "-50% 0px -50% 0px", threshold: 0 }
+      { rootMargin: "0px 0px -25% 0px", threshold: 0 }
     );
     observer.observe(container);
   });

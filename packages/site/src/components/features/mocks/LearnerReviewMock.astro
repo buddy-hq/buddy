@@ -40,7 +40,7 @@
     inset: 0;
     width: 100%;
     height: 100%;
-    background-color: #0c0a09;
+    background-color: var(--color-mock-bg);
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -57,9 +57,9 @@
   /* Central Card Display Box with index card aspect-ratio (5 / 3) */
   .review-card-panel {
     width: 100%;
-    max-width: 520px;
+    max-width: 600px;
     aspect-ratio: 1.6; /* 8:5 standard index card ratio */
-    background-color: #141216 !important;
+    background-color: var(--color-mock-panel) !important;
     border: 1px solid rgba(255, 255, 255, 0.06) !important;
     border-radius: 16px !important; /* rounded-2xl matching web package */
     padding: var(--space-8) var(--space-6);
@@ -210,8 +210,8 @@
     opacity: 0;
     margin-top: -4px;  /* Offset pointer tip (Y) */
     margin-left: -4px; /* Offset pointer tip (X) */
-    transition: top 0.6s cubic-bezier(0.25, 1, 0.5, 1),
-                left 0.6s cubic-bezier(0.25, 1, 0.5, 1),
+    transition: top 0.4s cubic-bezier(0.25, 1, 0.5, 1),
+                left 0.4s cubic-bezier(0.25, 1, 0.5, 1),
                 opacity 0.2s ease;
   }
 
@@ -254,24 +254,35 @@
   /* Mobile scaling tweaks styling */
   @media (max-width: 576px) {
     .review-mock-container {
-      padding: var(--space-4) !important;
+      padding: var(--space-3) var(--space-4) !important;
+      gap: var(--space-3) !important;
+      justify-content: flex-start !important;
+      padding-top: var(--space-6) !important;
     }
     .review-card-panel {
-      padding: var(--space-5) var(--space-4) var(--space-3) !important;
+      width: 92% !important;
+      aspect-ratio: auto !important;
+      max-height: none !important;
+      padding: var(--space-4) !important;
       border-radius: 12px !important;
-      aspect-ratio: 1.55 !important;
+      flex-shrink: 1 !important;
+      min-height: 0 !important;
     }
     .card-question-text {
-      font-size: 13px !important;
+      font-size: 11px !important;
+      line-height: 1.4 !important;
     }
     .card-answer-text {
-      font-size: 13px !important;
+      font-size: 11px !important;
+      line-height: 1.4 !important;
     }
     .card-footer-tip {
       font-size: 8px !important;
+      margin-top: var(--space-2) !important;
     }
     .review-rating-buttons {
       gap: 6px !important;
+      margin-top: 0 !important;
     }
     .rating-btn {
       padding: var(--space-1.5) var(--space-2) !important;
@@ -368,7 +379,7 @@
       cursor.style.left = "85%";
       cursor.classList.remove("clicking");
 
-      await delay(1200);
+      await delay(600);
 
       // ==========================================
       // CARD 1: Question -> Flip -> Click Option Good -> Swipe Right
@@ -379,7 +390,7 @@
       cursor.style.top = `${cardCenter.y}px`;
       cursor.style.left = `${cardCenter.x}px`;
 
-      await delay(700);
+      await delay(400);
 
       // Click to reveal answer
       cursor.classList.add("clicking");
@@ -387,17 +398,17 @@
       ratingButtons.classList.add("active");
       if (footerTip) footerTip.style.opacity = "0";
 
-      await delay(450); // click dwell
+      await delay(250); // click dwell
       cursor.classList.remove("clicking");
 
-      await delay(2000); // Read answer time
+      await delay(800); // Read answer time
 
       // Glide cursor to click "Good" rating button
       let goodBtnCenter = getTargetCoordinates(goodBtn);
       cursor.style.top = `${goodBtnCenter.y}px`;
       cursor.style.left = `${goodBtnCenter.x}px`;
 
-      await delay(700);
+      await delay(400);
 
       // Click "Good" button -> card panel flies right
       cursor.classList.add("clicking");
@@ -417,7 +428,7 @@
       cardPanel.offsetHeight; // force reflow
       cardPanel.classList.remove("fade-enter");
 
-      await delay(800);
+      await delay(500);
 
       // ==========================================
       // CARD 2: Question -> Flip -> Click Option Again -> Swipe Left
@@ -427,7 +438,7 @@
       cursor.style.top = `${cardCenter.y}px`;
       cursor.style.left = `${cardCenter.x}px`;
 
-      await delay(700);
+      await delay(400);
 
       // Click to reveal answer
       cursor.classList.add("clicking");
@@ -435,17 +446,17 @@
       ratingButtons.classList.add("active");
       if (footerTip) footerTip.style.opacity = "0";
 
-      await delay(450); // click dwell
+      await delay(250); // click dwell
       cursor.classList.remove("clicking");
 
-      await delay(2000); // Read answer time
+      await delay(800); // Read answer time
 
       // Glide cursor to click "Again" rating button
       let againBtnCenter = getTargetCoordinates(againBtn);
       cursor.style.top = `${againBtnCenter.y}px`;
       cursor.style.left = `${againBtnCenter.x}px`;
 
-      await delay(700);
+      await delay(400);
 
       // Click "Again" button -> card panel flies left
       cursor.classList.add("clicking");
@@ -465,7 +476,7 @@
       cardPanel.offsetHeight; // force reflow
       cardPanel.classList.remove("fade-enter");
 
-      await delay(800);
+      await delay(500);
 
       // ==========================================
       // CARD 3: Question -> Flip -> Click Option Good -> Swipe Right
@@ -475,7 +486,7 @@
       cursor.style.top = `${cardCenter.y}px`;
       cursor.style.left = `${cardCenter.x}px`;
 
-      await delay(700);
+      await delay(400);
 
       // Click to reveal answer
       cursor.classList.add("clicking");
@@ -483,17 +494,17 @@
       ratingButtons.classList.add("active");
       if (footerTip) footerTip.style.opacity = "0";
 
-      await delay(450); // click dwell
+      await delay(250); // click dwell
       cursor.classList.remove("clicking");
 
-      await delay(2500); // Read answer time
+      await delay(1500); // Read answer time
 
       // Glide cursor down to click "Good" rating button
       goodBtnCenter = getTargetCoordinates(goodBtn);
       cursor.style.top = `${goodBtnCenter.y}px`;
       cursor.style.left = `${goodBtnCenter.x}px`;
 
-      await delay(700);
+      await delay(400);
 
       // Click "Good" button -> card panel flies right
       cursor.classList.add("clicking");
@@ -506,7 +517,7 @@
 
       // Fade out cursor
       cursor.style.opacity = "0";
-      await delay(500);
+      await delay(300);
 
       // Reset timeline back to Card 1 Front state and settle there (no loop!)
       console.log("Timeline completed. Settling on Card 1...");
@@ -525,11 +536,11 @@
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             observer.unobserve(container);
-            setTimeout(runTimeline, 500);
+            runTimeline();
           }
         });
       },
-      { rootMargin: "-50% 0px -50% 0px", threshold: 0 }
+      { rootMargin: "0px 0px -25% 0px", threshold: 0 }
     );
     observer.observe(container);
   });

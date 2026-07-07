@@ -95,6 +95,12 @@
     0%, 100% { opacity: 0.4; }
     50% { opacity: 1; }
   }
+
+  @media (max-width: 960px) {
+    .game-hud {
+      display: none !important;
+    }
+  }
 </style>
 
 <script>
@@ -660,11 +666,11 @@
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             observer.unobserve(container);
-            setTimeout(startGame, 500);
+            startGame();
           }
         });
       },
-      { rootMargin: "-50% 0px -50% 0px", threshold: 0 }
+      { rootMargin: "0px 0px -25% 0px", threshold: 0 }
     );
     observer.observe(container);
   });

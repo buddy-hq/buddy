@@ -241,17 +241,17 @@ import MockNotebook from "./MockNotebook.astro";
       const hi = document.createElement("div");
       hi.className = "wb-handwriting-hi";
       wbDrawings.appendChild(hi);
-      await typeWbHtml(hi, "Trust Thyself", streamId, 45);
+      await typeWbHtml(hi, "Trust Thyself", streamId, 30);
       if (streamId !== currentStreamId) return;
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Quote
       const quote = document.createElement("div");
       quote.className = "wb-welcome-text";
       wbDrawings.appendChild(quote);
-      await typeWbHtml(quote, '"every heart vibrates to that iron string."', streamId, 25);
+      await typeWbHtml(quote, '"every heart vibrates to that iron string."', streamId, 18);
       if (streamId !== currentStreamId) return;
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Doodle arrow down
       const arrow = document.createElement("div");
@@ -264,7 +264,7 @@ import MockNotebook from "./MockNotebook.astro";
       wbDrawings.appendChild(arrow);
       await new Promise(resolve => setTimeout(resolve, 50));
       arrow.classList.add("visible");
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 200));
       if (streamId !== currentStreamId) return;
 
       // Comparative Grid
@@ -288,16 +288,16 @@ import MockNotebook from "./MockNotebook.astro";
       await new Promise(resolve => setTimeout(resolve, 50));
       integrityCard.classList.add("visible");
       conformityCard.classList.add("visible");
-      await new Promise(resolve => setTimeout(resolve, 600)); // Let transition finish
+      await new Promise(resolve => setTimeout(resolve, 400)); // Let transition finish
       if (streamId !== currentStreamId) return;
 
       // Stream text inside cards
       const integrityBody = integrityCard.querySelector(".wb-card-body") as HTMLElement;
-      await typeWbHtml(integrityBody, "- Inward Conviction<br>- Self-Trust<br>- Originality", streamId, 25);
+      await typeWbHtml(integrityBody, "- Inward Conviction<br>- Self-Trust<br>- Originality", streamId, 18);
       if (streamId !== currentStreamId) return;
 
       const conformityBody = conformityCard.querySelector(".wb-card-body") as HTMLElement;
-      await typeWbHtml(conformityBody, "- Social Pressure<br>- Imitation = Suicide<br>- Joint-stock company", streamId, 25);
+      await typeWbHtml(conformityBody, "- Social Pressure<br>- Imitation = Suicide<br>- Joint-stock company", streamId, 18);
       if (streamId !== currentStreamId) return;
 
       // Bottom Conclusion Card
@@ -312,13 +312,13 @@ import MockNotebook from "./MockNotebook.astro";
       wbDrawings.appendChild(conclusionCard);
 
       // Animate bottom box coming
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 80));
       conclusionCard.style.opacity = "1";
       conclusionCard.style.transform = "scale(1) rotate(1deg)";
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 350));
       if (streamId !== currentStreamId) return;
 
-      await typeWbHtml(conclusionCard, "Inward Conviction ➔ Universal Truth", streamId, 30);
+      await typeWbHtml(conclusionCard, "Inward Conviction ➔ Universal Truth", streamId, 25);
     } 
     else if (notebookKey === "deep-learning") {
       // Title
@@ -326,9 +326,9 @@ import MockNotebook from "./MockNotebook.astro";
       hi.className = "wb-handwriting-hi";
       hi.style.color = "#3b82f6";
       wbDrawings.appendChild(hi);
-      await typeWbHtml(hi, "Backprop Chain Rule", streamId, 45);
+      await typeWbHtml(hi, "Backprop Chain Rule", streamId, 30);
       if (streamId !== currentStreamId) return;
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Neural graph sketch
       const graph = document.createElement("div");
@@ -357,14 +357,14 @@ import MockNotebook from "./MockNotebook.astro";
       // Animate node circles popping in order
       const nodes = graph.querySelectorAll(".wb-neural-node");
       for (let idx = 0; idx < nodes.length; idx++) {
-        await new Promise(resolve => setTimeout(resolve, 150));
+        await new Promise(resolve => setTimeout(resolve, 100));
         nodes[idx].classList.add("visible");
         const edge = nodes[idx].nextElementSibling;
         if (edge && edge.classList.contains("wb-neural-edge")) {
           edge.classList.add("visible");
         }
       }
-      await new Promise(resolve => setTimeout(resolve, 400));
+      await new Promise(resolve => setTimeout(resolve, 300));
       if (streamId !== currentStreamId) return;
 
       // Block container
@@ -383,13 +383,13 @@ import MockNotebook from "./MockNotebook.astro";
       // Animate Equation Card 1 appearing
       await new Promise(resolve => setTimeout(resolve, 50));
       eqCard1.classList.add("visible");
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 350));
       if (streamId !== currentStreamId) return;
 
       const eqBody1 = eqCard1.querySelector(".wb-card-body") as HTMLElement;
-      await typeWbHtml(eqBody1, "∂L / ∂w<sub>i</sub> = (∂L / ∂y) · (∂y / ∂z) · (∂z / ∂w<sub>i</sub>)", streamId, 25);
+      await typeWbHtml(eqBody1, "∂L / ∂w<sub>i</sub> = (∂L / ∂y) · (∂y / ∂z) · (∂z / ∂w<sub>i</sub>)", streamId, 18);
       if (streamId !== currentStreamId) return;
-      await new Promise(resolve => setTimeout(resolve, 400));
+      await new Promise(resolve => setTimeout(resolve, 300));
 
       // Sketched Arrow
       const arrow = document.createElement("div");
@@ -405,7 +405,7 @@ import MockNotebook from "./MockNotebook.astro";
       await new Promise(resolve => setTimeout(resolve, 50));
       arrow.style.opacity = "1";
       arrow.style.transform = "translateY(0)";
-      await new Promise(resolve => setTimeout(resolve, 400));
+      await new Promise(resolve => setTimeout(resolve, 300));
       if (streamId !== currentStreamId) return;
 
       // Equation Box 2 (empty body)
@@ -419,11 +419,11 @@ import MockNotebook from "./MockNotebook.astro";
       // Animate Equation Card 2 appearing
       await new Promise(resolve => setTimeout(resolve, 50));
       eqCard2.classList.add("visible");
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 350));
       if (streamId !== currentStreamId) return;
 
       const eqBody2 = eqCard2.querySelector(".wb-card-body") as HTMLElement;
-      await typeWbHtml(eqBody2, "δ<sup>(l)</sup> = ((W<sup>(l+1)</sup>)<sup>T</sup> δ<sup>(l+1)</sup>) ⊙ f'(z<sup>(l)</sup>)", streamId, 25);
+      await typeWbHtml(eqBody2, "δ<sup>(l)</sup> = ((W<sup>(l+1)</sup>)<sup>T</sup> δ<sup>(l+1)</sup>) ⊙ f'(z<sup>(l)</sup>)", streamId, 18);
     } 
     else if (notebookKey === "world-history") {
       // Title
@@ -431,9 +431,9 @@ import MockNotebook from "./MockNotebook.astro";
       hi.className = "wb-handwriting-hi";
       hi.style.color = "#f59e0b";
       wbDrawings.appendChild(hi);
-      await typeWbHtml(hi, "WWI Alliance Timeline", streamId, 45);
+      await typeWbHtml(hi, "WWI Alliance Timeline", streamId, 30);
       if (streamId !== currentStreamId) return;
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       // Timeline container
       const flow = document.createElement("div");
@@ -459,12 +459,12 @@ import MockNotebook from "./MockNotebook.astro";
         // Animate card appearing
         await new Promise(resolve => setTimeout(resolve, 50));
         card.classList.add("visible");
-        await new Promise(resolve => setTimeout(resolve, 400));
+        await new Promise(resolve => setTimeout(resolve, 300));
         if (streamId !== currentStreamId) return;
 
         // Type inside card body
         const bodyEl = card.querySelector(".step-body") as HTMLElement;
-        await typeWbHtml(bodyEl, stepData.event, streamId, 25);
+        await typeWbHtml(bodyEl, stepData.event, streamId, 18);
         if (streamId !== currentStreamId) return;
 
         if (k < steps.length - 1) {
@@ -475,7 +475,7 @@ import MockNotebook from "./MockNotebook.astro";
           
           await new Promise(resolve => setTimeout(resolve, 50));
           arrow.classList.add("visible");
-          await new Promise(resolve => setTimeout(resolve, 200));
+          await new Promise(resolve => setTimeout(resolve, 150));
         }
       }
     }
@@ -543,7 +543,7 @@ import MockNotebook from "./MockNotebook.astro";
 
         const msg = data.messages[i];
         if (msg.sender === "user") {
-          await new Promise(resolve => setTimeout(resolve, i === 0 ? 300 : 800));
+          await new Promise(resolve => setTimeout(resolve, i === 0 ? 300 : 400));
           if (streamId !== currentStreamId) return;
 
           if (chatInput) {
@@ -553,18 +553,18 @@ import MockNotebook from "./MockNotebook.astro";
               chatInput.value += msg.text[charIndex];
               chatInput.style.height = "auto";
               chatInput.style.height = (chatInput.scrollHeight) + "px";
-              const delay = msg.text.length > 30 ? 20 : 30;
+              const delay = msg.text.length > 30 ? 12 : 15;
               await new Promise(resolve => setTimeout(resolve, delay));
             }
           }
 
-          await new Promise(resolve => setTimeout(resolve, 250));
+          await new Promise(resolve => setTimeout(resolve, 150));
           if (streamId !== currentStreamId) return;
 
           if (chatSubmitBtn) {
             chatSubmitBtn.classList.add("simulated-click");
           }
-          await new Promise(resolve => setTimeout(resolve, 150));
+          await new Promise(resolve => setTimeout(resolve, 100));
           if (streamId !== currentStreamId) return;
           if (chatSubmitBtn) {
             chatSubmitBtn.classList.remove("simulated-click");
@@ -576,7 +576,7 @@ import MockNotebook from "./MockNotebook.astro";
           }
           appendMessage("user", msg.text);
         } else {
-          await new Promise(resolve => setTimeout(resolve, 400));
+          await new Promise(resolve => setTimeout(resolve, 250));
           if (streamId !== currentStreamId) return;
 
           // Show typing indicator
@@ -594,7 +594,7 @@ import MockNotebook from "./MockNotebook.astro";
             chatFeed.scrollTop = chatFeed.scrollHeight;
           }
 
-          await new Promise(resolve => setTimeout(resolve, 800));
+          await new Promise(resolve => setTimeout(resolve, 400));
           if (streamId !== currentStreamId) return;
           typingIndicator.remove();
 
@@ -616,8 +616,25 @@ import MockNotebook from "./MockNotebook.astro";
           await activeSidebarPromise;
           if (streamId !== currentStreamId) return;
 
-          // Stay on that state for 1 second before proceeding to the next message
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Stay on that state for half a second before proceeding to the next message
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      // Settle on the whiteboard as the final resting state
+      if (streamId !== currentStreamId) return;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (streamId !== currentStreamId) return;
+
+      if (whiteboardRailBtn && buddyWindow) {
+        document.querySelectorAll('.action-btn').forEach(btn => btn.classList.remove('active'));
+        whiteboardRailBtn.classList.add('active');
+        buddyWindow.classList.add('show-whiteboard');
+        buddyWindow.classList.remove('show-widget', 'show-notes');
+        if (windowActiveNotebook) windowActiveNotebook.textContent = "Whiteboard";
+        if (windowActiveSession) windowActiveSession.textContent = "Current board";
+        if (workspaceBody) {
+          workspaceBody.classList.remove('right-pane-collapsed');
         }
       }
     } finally {
@@ -656,7 +673,7 @@ import MockNotebook from "./MockNotebook.astro";
           activeSidebarPromise = resolveCardSkeleton(notebookKey, messageIndex, streamId);
         }
 
-        await new Promise(resolve => setTimeout(resolve, 150));
+        await new Promise(resolve => setTimeout(resolve, 100));
       } else {
         // Typewriter text
         const textSpan = document.createElement("span");
@@ -706,7 +723,7 @@ import MockNotebook from "./MockNotebook.astro";
       container.innerHTML = currentText;
       if (chatFeed) chatFeed.scrollTop = chatFeed.scrollHeight;
       
-      const delay = chunk.startsWith('<') ? 0 : (Math.random() * 12 + 6);
+      const delay = chunk.startsWith('<') ? 0 : (Math.random() * 6 + 4);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
@@ -1352,7 +1369,7 @@ import MockNotebook from "./MockNotebook.astro";
 
   setTimeout(() => {
     loadNotebook("self-reliance");
-  }, 2000);
+  }, 800);
 </script>
 
 <style is:global>
@@ -1361,12 +1378,10 @@ import MockNotebook from "./MockNotebook.astro";
   /* === Window Shell (Exact high fidelity replica) === */
   .buddy-window {
     width: 100%;
-    background-color: #0b0a0b;
-    border: 1px solid rgba(255, 143, 102, 0.24);
-    border-radius: 10px;
-    box-shadow: inset 0 0 0 1px rgba(255, 143, 102, 0.2),
-                0 24px 64px -12px rgba(0, 0, 0, 0.95),
-                0 0 30px -4px rgba(255, 143, 102, 0.04);
+    background-color: var(--color-mock-bg);
+    border: none;
+    border-radius: var(--radius);
+    box-shadow: none;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -1375,7 +1390,7 @@ import MockNotebook from "./MockNotebook.astro";
 
   .window-header {
     height: 42px;
-    background-color: #0d0c0c;
+    background-color: var(--color-mock-panel);
     border-bottom: 1px solid #1c1a1a;
     display: flex;
     align-items: center;
@@ -1434,7 +1449,7 @@ import MockNotebook from "./MockNotebook.astro";
     grid-template-rows: 100%;
     height: 700px;
     overflow: hidden;
-    background-color: #0b0a0b;
+    background-color: var(--color-mock-bg);
     transition: grid-template-columns 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
     box-sizing: border-box !important;
   }
@@ -1552,7 +1567,7 @@ import MockNotebook from "./MockNotebook.astro";
 
   /* --- Pane 1: Sidebar (Charcoal black) --- */
   .surface-sidebar {
-    background-color: #0d0b0c;
+    background-color: var(--color-mock-panel);
     border-right: 1px solid #1c1a1a;
     display: flex;
     flex-direction: column;
@@ -1776,7 +1791,7 @@ import MockNotebook from "./MockNotebook.astro";
 
   /* --- Pane 2: Chat Pane (Dark purple-black, flat styling) --- */
   .surface-chat {
-    background-color: #110f11;
+    background-color: var(--color-mock-panel);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -1865,7 +1880,7 @@ import MockNotebook from "./MockNotebook.astro";
   /* User Message: rounded capsule with warm styling */
   .mock-chat-bubble.user .bubble-content {
     width: fit-content;
-    background-color: #16151c;
+    background-color: oklch(0.18 0.005 285.823);
     border: 1px solid rgba(255, 255, 255, 0.05);
     color: #c4c3be;
     padding: 8px 14px;
@@ -1968,7 +1983,7 @@ import MockNotebook from "./MockNotebook.astro";
 
   .system-status:hover {
     transform: translateY(-1px);
-    background-color: #0d0b0d;
+    background-color: var(--color-mock-bg);
     border-color: rgba(255, 255, 255, 0.1);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     color: #ffffff;
@@ -1979,7 +1994,7 @@ import MockNotebook from "./MockNotebook.astro";
     display: flex;
     align-items: center;
     gap: 12px;
-    background-color: rgba(22, 21, 28, 0.7);
+    background-color: oklch(0.205 0 0 / 70%);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 10px;
     padding: 10px 12px;
@@ -2170,7 +2185,7 @@ import MockNotebook from "./MockNotebook.astro";
 
   /* Shell / status log line */
   .system-status {
-    background-color: #060506;
+    background-color: var(--color-mock-bg);
     border: 1px solid #1c1a1b;
     border-radius: 6px;
     padding: 8px 12px;
@@ -2186,7 +2201,7 @@ import MockNotebook from "./MockNotebook.astro";
 
   .chat-footer {
     padding: 16px;
-    background-color: #110f11;
+    background-color: var(--color-mock-panel);
   }
 
   .chat-input-form {
@@ -2198,7 +2213,7 @@ import MockNotebook from "./MockNotebook.astro";
   .chat-input-area {
     display: flex;
     flex-direction: column;
-    background-color: #0d0c0d;
+    background-color: var(--color-mock-bg);
     border: 1px solid #201e20;
     border-radius: 10px;
     padding: 8px 10px;
@@ -2442,7 +2457,8 @@ import MockNotebook from "./MockNotebook.astro";
 
   /* --- Surface 5: Whiteboard Pane --- */
   .surface-whiteboard {
-    background-color: #0b0a0c;
+    background-color: var(--color-mock-bg);
+    display: flex;
     flex-direction: column;
     position: relative;
     overflow: hidden !important;
@@ -2481,16 +2497,14 @@ import MockNotebook from "./MockNotebook.astro";
   }
 
   .whiteboard-canvas {
-    position: relative;
-    width: 100%;
-    height: 100% !important;
-    flex-grow: 1;
+    position: absolute;
+    inset: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 16px;
-    background-color: #0b0a0c;
+    background-color: var(--color-mock-bg);
     background-image: 
       radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
     background-size: 20px 20px;
@@ -2735,7 +2749,7 @@ import MockNotebook from "./MockNotebook.astro";
 
   /* --- Surface 6: HTML Widget Pane --- */
   .surface-widget {
-    background-color: #0c0c0e;
+    background-color: var(--color-mock-bg);
     border-right: 1px solid #1a1a1c;
     flex-direction: column;
     overflow-y: auto;
@@ -3151,7 +3165,7 @@ import MockNotebook from "./MockNotebook.astro";
 
   /* --- Pane 4: Action Toolbar (Very dark strip) --- */
   .surface-actions {
-    background-color: #0b0a0b;
+    background-color: var(--color-mock-panel);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -3482,7 +3496,7 @@ import MockNotebook from "./MockNotebook.astro";
     justify-content: center;
     font-size: 12px;
     font-weight: bold;
-    background-color: #0b0a0c;
+    background-color: var(--color-mock-bg);
     opacity: 0;
     transform: scale(0.5);
     transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
