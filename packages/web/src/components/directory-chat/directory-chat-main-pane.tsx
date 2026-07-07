@@ -31,6 +31,7 @@ import { ArrowDownIcon, Redo2Icon } from "lucide-react"
 import { BenchClosedContextPublisher } from "@/components/bench/bench-route-context"
 import { isBenchRoutePathname } from "@/lib/bench-navigation"
 import { useLocation } from "@tanstack/react-router"
+import { WhiteboardBenchAutoOpen } from "@/components/whiteboard/whiteboard-bench-auto-open"
 
 type PromptComposerProps = Omit<
   ComponentProps<typeof PromptComposer>,
@@ -229,6 +230,11 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
       data-component="directory-chat-main-pane"
       className="relative flex-1 min-w-0 min-h-0 flex flex-col bg-background-stronger"
     >
+      <WhiteboardBenchAutoOpen
+        directory={directory}
+        sessionID={chatState.sessionID}
+        messages={chatState.messages}
+      />
       {!isBenchRoutePathname(location.pathname) ? (
         <BenchClosedContextPublisher activeSessionID={chatState.sessionID} />
       ) : null}
