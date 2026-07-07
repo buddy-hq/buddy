@@ -1,5 +1,5 @@
 import { Button, CheckIcon, CopyIcon, cn } from "@buddy/ui"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { language } from "@/context/language"
 import { useMermaidRender } from "./use-mermaid-render"
 import { MermaidInlineView } from "./mermaid-inline-view"
@@ -276,7 +276,7 @@ export function MermaidDiagram(props: {
         },
   })
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isInteractive || state.status !== "ready") {
       setStaticSvgMounted(false)
       return
@@ -291,8 +291,13 @@ export function MermaidDiagram(props: {
     if (host.innerHTML !== state.value.svg) {
       host.innerHTML = state.value.svg
     }
+    const svg = host.querySelector("svg")
+    svg?.setAttribute(
+      "preserveAspectRatio",
+      svg.getAttribute("preserveAspectRatio") ?? "xMidYMid meet",
+    )
     state.value.bindFunctions?.(host)
-    setStaticSvgMounted(true)
+    setStaticSvgMounted(svg !== null)
   }, [isInteractive, state])
 
   const actions =
@@ -350,13 +355,16 @@ export function MermaidDiagram(props: {
       ) : null}
 
       {state.status === "ready" && !isInteractive ? (
-        <div data-component="mermaid-diagram-static-viewport" className="min-w-0 overflow-visible">
+        <div
+          data-component="mermaid-diagram-static-viewport"
+          className="flex w-full min-w-0 justify-center overflow-visible"
+        >
           <div
             ref={staticSvgHostRef}
             data-component="mermaid-diagram"
             role="img"
             aria-label={props.alt}
-            className="[&_svg]:!block [&_svg]:!h-auto [&_svg]:!max-h-none [&_svg]:!max-w-full [&_svg]:!w-full"
+            className="w-full max-w-full [&_svg]:!mx-auto [&_svg]:!block [&_svg]:!h-auto [&_svg]:!max-h-none [&_svg]:!max-w-full [&_svg]:!w-full"
           />
         </div>
       ) : null}
