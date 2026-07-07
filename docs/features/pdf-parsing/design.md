@@ -96,8 +96,6 @@ LiteParse reports page complexity signals. Buddy interprets them as follows.
   - The page has almost no extractable native text.
 - `garbled`
   - The native text layer exists but decodes into unreadable characters.
-- `vector-text`
-  - Visible letters are drawn as vector shapes instead of represented as text characters.
 
 ### Conditionally OCR
 
@@ -108,6 +106,12 @@ LiteParse reports page complexity signals. Buddy interprets them as follows.
   - Buddy OCRs sparse pages only when the native text is extremely limited or the page is backed
     by a full-page image.
   - The current conservative native-text threshold is fewer than 200 characters.
+- `vector-text`
+  - Visible letters may be drawn as vector shapes instead of represented as text characters.
+  - This can be a real OCR recovery signal when native extraction returns little or unusable text.
+  - It is not a safe strong signal by itself because some PDFs contain healthy native text plus
+    decorative/vector shapes that LiteParse reports as `vector-text`.
+  - Buddy OCRs vector-text pages only when the native text on that page is weak.
 
 ### Do Not OCR By Itself
 
@@ -118,6 +122,64 @@ LiteParse reports page complexity signals. Buddy interprets them as follows.
 
 New or unknown complexity reasons must not silently expand OCR work. They require an explicit
 Buddy policy decision.
+
+### Default Routing Thresholds
+
+The current defaults are intentionally conservative. They are release guards, not universal PDF
+truths.
+
+```text
+automatic_ocr_page_budget = 10
+sparse_text_ocr_max_native_characters = 200
+vector_text_ocr_max_native_characters = 500
+vector_text_ocr_low_coverage_max_native_characters = 1000
+vector_text_ocr_max_text_coverage = 0.05
+native_text_usable_min_chars = 200
+native_text_usable_chars_per_page = 50
+native_text_usable_max_chars = 10000
+```
+
+The page-level OCR routing algorithm is:
+
+```text
+OCR a page when:
+  reason includes scanned
+  OR reason includes no-text
+  OR reason includes garbled
+  OR reason includes sparse-text AND (fullPageImage OR nativeTextLength < 200)
+  OR reason includes vector-text AND (
+       nativeTextLength < 500
+       OR (nativeTextLength < 1000 AND nativeTextCoverage < 0.05)
+     )
+
+Do not OCR a page solely because:
+  reason includes embedded-images
+  OR reason includes vector-text while native text is already healthy
+```
+
+After page routing, Buddy applies the automatic OCR budget:
+
+```text
+selected OCR pages <= automatic OCR page budget
+  -> run targeted OCR and merge those pages into the native extraction
+
+selected OCR pages > automatic OCR page budget AND document native text is usable
+  -> skip OCR, return the native extraction as ready, and warn with skipped-page counts/reasons
+
+selected OCR pages > automatic OCR page budget AND document native text is not usable
+  -> skip OCR and preserve a clear OCR-budget warning before fallback/unsupported handling
+```
+
+Document native text is considered usable when the total non-whitespace native text is at least:
+
+```text
+min(native_text_usable_max_chars,
+    max(native_text_usable_min_chars, page_count * native_text_usable_chars_per_page))
+```
+
+This rule prevents readable PDFs from becoming unsupported merely because OCR was skipped. A
+resource is unsupported only when Buddy cannot produce usable model-readable text by any configured
+non-OCR or fallback path.
 
 ## Targeted OCR And Merge
 

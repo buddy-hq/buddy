@@ -221,6 +221,67 @@ pages.
 
 The sparse-text threshold is also a policy choice rather than a universal truth.
 
+### Recent findings
+
+Two real PDFs exposed different failure modes that the OCR policy must distinguish.
+
+#### Fully scanned book: The History of Western Education
+
+Observed behavior:
+
+```text
+pages = 446
+native_text_pages = 0
+native_non_whitespace_chars = 0
+LiteParse OCR candidates = 446
+candidate reasons = scanned: 446
+```
+
+This is the expected shape of a fully scanned book. Native extraction cannot produce useful model
+text, and OCRing every page in-process is too expensive for the current desktop execution model.
+The automatic OCR budget should prevent this document from entering a full-book OCR call.
+
+#### Mostly text-bearing PDF: NCF-SE-2023
+
+Observed behavior:
+
+```text
+pages = 600
+native_text_pages = 600
+native_non_whitespace_chars = 1,334,808
+LiteParse OCR candidates under the old policy = 482
+candidate reasons under the old policy:
+  vector-text = 461
+  sparse-text / embedded-images+sparse-text = 21
+```
+
+This document has healthy native text on every page. Many `vector-text` pages contain thousands of
+native characters, for example pages with roughly 2,000–3,000 characters. Treating `vector-text` as
+an unconditional strong OCR signal therefore produces a false-positive OCR workload.
+
+The policy implication is:
+
+```text
+vector-text + weak native text
+  -> OCR candidate
+
+vector-text + healthy native text
+  -> not an OCR candidate
+```
+
+With the proposed routing thresholds, the same NCF-SE-2023 document selects only the sparse-text
+pages for OCR:
+
+```text
+proposed OCR candidates = 21
+candidate reasons:
+  sparse-text / embedded-images+sparse-text = 21
+```
+
+This is still over the current 10-page automatic OCR budget, so the shipping compromise remains to
+return the native extraction as ready and warn that those OCR candidates were skipped. The warning
+should not imply that 482 text-bearing pages failed to parse.
+
 ### Intended path
 
 - build a representative education PDF corpus;
@@ -231,3 +292,64 @@ The sparse-text threshold is also a policy choice rather than a universal truth.
 - revise thresholds through named policy constants and benchmark artifacts.
 
 The current selective policy remains the default until this evaluation shows a better balance.
+
+## Automatic OCR Budget For Large Scanned PDFs
+
+### Status
+
+Open, with a shipping compromise in place.
+
+### Current problem
+
+Selective OCR protects ordinary educational PDFs by avoiding OCR on pages that already have usable
+native text. However, an all-image scanned book can still route every page to OCR. In that case the
+selective path degenerates into a full-book OCR job.
+
+This matters for the desktop product because LiteParse OCR is currently invoked in-process and does
+not expose a cancellation or timeout API. Buddy's `prepare_resource` wait timeout only controls how
+long the tool waits before returning; it does not stop a native OCR call that is already running.
+A long OCR call can therefore leave the resource in `preparing` while the backend continues working.
+
+### Current compromise
+
+Automatic OCR is capped by a small page budget. Buddy still runs native extraction for the whole PDF
+and still runs complexity analysis for all pages. The cap applies only to the expensive targeted OCR
+pass.
+
+Current behavior:
+
+```text
+OCR-needed pages <= automatic OCR budget
+  -> run targeted OCR and merge those pages into the native extraction
+
+OCR-needed pages > automatic OCR budget and native text is usable
+  -> skip OCR, return the native extraction as ready, and warn how many OCR-needed pages were
+     skipped plus the reason summary
+
+OCR-needed pages > automatic OCR budget and native text is not usable
+  -> skip OCR, preserve the skipped-OCR reason, and let the existing non-OCR/fallback path
+     determine the terminal resource status
+```
+
+The initial automatic OCR budget is intentionally conservative: 10 pages. This is not a statement
+that 11 OCR pages is intrinsically too large. It is a release guard until Buddy has a better
+execution model for long OCR work.
+
+Buddy does not currently choose the "best" 10 OCR pages from an over-budget document. If the
+selected OCR set is over budget, Buddy skips OCR entirely for that pass. This avoids producing a
+misleading partially-OCRed resource whose page coverage depends on an arbitrary ordering policy.
+
+Warnings for skipped OCR must distinguish `scanned`, `sparse-text`, `vector-text`, and other
+candidate reasons. A warning that only says "OCR skipped for N pages" is not sufficient, because a
+mostly text-bearing PDF can have many vector-text candidates while still producing a complete native
+text extraction.
+
+### Intended path
+
+- persist page-level OCR selection, execution, and skipped-page provenance;
+- add a model-facing way to check an existing resource's preparation status without re-adding it;
+- make `prepare_resource` retries idempotent for the same source object;
+- execute OCR in batches with progress between batches;
+- move OCR into a cancellable process boundary before enforcing wall-clock timeouts;
+- expose clear UI/tool states for OCR running, OCR skipped, OCR timed out, and partial/native-only
+  preparation.
