@@ -491,7 +491,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                   trigger={
                     <button
                       type="button"
-                      className={`min-w-0 flex-1 self-center truncate text-left text-sm font-medium text-text-strong transition-colors hover:text-text-base [-webkit-app-region:no-drag] ${
+                      className={`min-w-0 max-w-[24rem] self-center truncate text-left text-sm font-medium text-text-strong transition-colors hover:text-text-base [-webkit-app-region:no-drag] ${
                         props.showThreadBrowser ? "pl-1 pr-4" : "px-4"
                       }`}
                       aria-label={language.t("sidebar.showAllThreads")}
@@ -502,7 +502,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                 />
               ) : (
                 <h1
-                  className={`min-w-0 flex-1 self-center truncate text-sm font-medium text-text-strong ${
+                  className={`min-w-0 max-w-[24rem] self-center truncate text-sm font-medium text-text-strong ${
                     props.showThreadBrowser ? "pl-1 pr-4" : "px-4"
                   }`}
                 >
@@ -511,6 +511,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                   ) : null}
                 </h1>
               )}
+              <div className="min-w-0 flex-1" />
             </div>
           ) : (
             <div className="min-w-0 flex-1" />
