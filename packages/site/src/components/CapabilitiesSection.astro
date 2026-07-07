@@ -22,12 +22,12 @@ const { capabilities } = content
           <p class="bento-desc">{capabilities.items[0].detail}</p>
           <div class="bento-visual subagents-visual">
             <div class="subagent-row">
-              <span class="sub-name">goal-writer</span>
+              <span class="sub-name">Creating Flashcards</span>
               <span class="sub-status active">ACTIVE</span>
             </div>
             <div class="subagent-row">
-              <span class="sub-name">rubric-critic</span>
-              <span class="sub-status idle">IDLE</span>
+              <span class="sub-name">Finding Books</span>
+              <span class="sub-status idle">DONE</span>
             </div>
           </div>
         </div>
@@ -42,9 +42,10 @@ const { capabilities } = content
           <p class="bento-desc">{capabilities.items[1].detail}</p>
           <div class="bento-visual mcp-visual">
             <div class="mcp-server-box">
-              <span class="mcp-label">sqlite://db</span>
+              <span class="mcp-label">Kaggle MCP </span>
               <span class="mcp-ping"></span>
             </div>
+            
           </div>
         </div>
       </div>
@@ -71,7 +72,7 @@ const { capabilities } = content
 
       <!-- Card 5: AGENTS.md (col-span-1) -->
       <div class="bento-item col-span-1">
-        <div class="bento-inner animate-glow-border">
+        <div class="bento-inner">
           <div class="bento-meta">
             <span class="bento-sys">{capabilities.items[4].name}</span>
           </div>
@@ -108,12 +109,12 @@ const { capabilities } = content
   }
 
   .bento-item {
-    background-color: #0b0908;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 14px;
+    background-color: var(--color-card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     overflow: hidden;
     position: relative;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-card);
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   }
 

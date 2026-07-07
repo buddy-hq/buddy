@@ -20,127 +20,66 @@ const educatorsHeader = content.educators.featuresHeader
 
 <section class="features-section">
 <div class="container">
-  <div class="features-section-header animate-in">
-    <!-- Learners Content -->
-    <div class="swap swap-content swap-audience-learners active">
-      <h2 class="section-title">{learnersHeader.headline}</h2>
-      <p class="section-subtext">{learnersHeader.subtext}</p>
-    </div>
 
-    <!-- Educators Content -->
-    <div class="swap swap-content swap-audience-educators">
-      <h2 class="section-title">{educatorsHeader.headline}</h2>
-      <p class="section-subtext">{educatorsHeader.subtext}</p>
-    </div>
-  </div>
-</div>
 
-<div class="bookend-cards-stack">
-    {[0, 1, 2, 3, 4].map((i) => {
-      const learnerStep = learnersSteps[i]
-      const educatorStep = educatorsSteps[i]
+  <div class="bookend-cards-stack">
+      {[0, 1, 2, 3, 4].map((i) => {
+        const learnerStep = learnersSteps[i]
+        const educatorStep = educatorsSteps[i]
 
-      return (
-        <>
-          <div class="bookend-card-wrapper" style={`--index: ${i + 1}; --tab-left: ${32 + i * 130}px;`}>
-          
-          <!-- Folder Tab/Leaf on the TOP side, visible ONLY when stacked -->
-          <div class="bookend-tab-leaf">
-            <span class="leaf-tag swap swap-content swap-audience-learners active">{learnerStep.tag}</span>
-            <span class="leaf-tag swap swap-content swap-audience-educators">{educatorStep.tag}</span>
-          </div>
-          
-          <!-- Main Folder Body (A4 Aspect Ratio Sheet) -->
-          <div class="bookend-card-body">
-            <div class="bookend-card-left">
-              <div class="mobile-tag-wrapper">
-                <span class="mobile-tag swap swap-content swap-audience-learners active">{learnerStep.tag}</span>
-                <span class="mobile-tag swap swap-content swap-audience-educators">{educatorStep.tag}</span>
+        return (
+          <div class="bookend-card-wrapper">
+            <div class="bookend-card-body">
+              <div class="bookend-card-left">
+                <div class="step-tag-wrapper">
+                  <span class="step-tag swap swap-content swap-audience-learners active">{learnerStep.tag}</span>
+                  <span class="step-tag swap swap-content swap-audience-educators">{educatorStep.tag}</span>
+                </div>
+                
+                <!-- Learners Content -->
+                <div class="swap swap-content swap-audience-learners active">
+                  <h3 class="step-title">{learnerStep.title}</h3>
+                  <p class="step-desc">{learnerStep.subtext}</p>
+                </div>
+
+                <!-- Educators Content -->
+                <div class="swap swap-content swap-audience-educators">
+                  <h3 class="step-title">{educatorStep.title}</h3>
+                  <p class="step-desc">{educatorStep.subtext}</p>
+                </div>
               </div>
-              
-              <!-- Learners Content -->
-              <div class="swap swap-content swap-audience-learners active">
-                <h3 class="step-title">{learnerStep.title}</h3>
-                <p class="step-desc">{learnerStep.subtext}</p>
-              </div>
+              <div class="bookend-card-right">
+                <div class="sticky-mockup-wrapper">
+                  <div class="mockup-viewport">
+                    <!-- Learners Mocks -->
+                    <div class="swap swap-content swap-audience-learners active">
+                      {i === 0 && <LearnerReadMock />}
+                      {i === 1 && <LearnerPlayMock />}
+                      {i === 2 && <LearnerDrawMock />}
+                      {i === 3 && <LearnerQuizMock />}
+                      {i === 4 && <LearnerReviewMock />}
+                    </div>
 
-              <!-- Educators Content -->
-              <div class="swap swap-content swap-audience-educators">
-                <h3 class="step-title">{educatorStep.title}</h3>
-                <p class="step-desc">{educatorStep.subtext}</p>
-              </div>
-            </div>
-            <div class="bookend-card-right">
-              <div class="sticky-mockup-wrapper">
-                <div class="mockup-viewport">
-                  <!-- Learners Mocks -->
-                  <div class="swap swap-content swap-audience-learners active">
-                    {i === 0 && <LearnerReadMock />}
-                    {i === 1 && <LearnerPlayMock />}
-                    {i === 2 && <LearnerDrawMock />}
-                    {i === 3 && <LearnerQuizMock />}
-                    {i === 4 && <LearnerReviewMock />}
-                  </div>
-
-                  <!-- Educators Mocks -->
-                  <div class="swap swap-content swap-audience-educators">
-                    {i === 0 && <EducatorAlignMock />}
-                    {i === 1 && <EducatorPlanMock />}
-                    {i === 2 && <EducatorCreateMock />}
-                    {i === 3 && <EducatorResearchMock />}
-                    {i === 4 && <EducatorBuildMock />}
+                    <!-- Educators Mocks -->
+                    <div class="swap swap-content swap-audience-educators">
+                      {i === 0 && <EducatorAlignMock />}
+                      {i === 1 && <EducatorPlanMock />}
+                      {i === 2 && <EducatorCreateMock />}
+                      {i === 3 && <EducatorResearchMock />}
+                      {i === 4 && <EducatorBuildMock />}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        {i < 4 ? (
-          <div class="scroll-gap"></div>
-        ) : (
-          <div class="scroll-gap last-gap"></div>
-        )}
-      </>
-    )
-  })}
+        )
+      })}
+  </div>
 </div>
 </section>
 
 <style>
-  .features-section-header {
-    text-align: left;
-    max-width: 700px;
-    margin-bottom: 96px;
-    position: relative;
-  }
-
-  .features-section-header .section-title {
-    font-size: 48px;
-    font-weight: 510;
-    line-height: 1;
-    letter-spacing: -0.022em;
-    margin-bottom: var(--space-4);
-    color: var(--color-text-primary);
-  }
-
-  @media (max-width: 992px) {
-    .features-section-header .section-title {
-      font-size: 40px;
-    }
-  }
-
-  @media (max-width: 576px) {
-    .features-section-header .section-title {
-      font-size: 24px;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .features-section-header {
-      margin-bottom: 48px;
-      max-width: 100%;
-    }
-  }
 
   .bookend-cards-stack {
     max-width: min(85vw, 1630px);
@@ -148,152 +87,87 @@ const educatorsHeader = content.educators.featuresHeader
     margin: 0 auto;
     display: flex;
     flex-direction: column;
-    gap: var(--space-8);
+    gap: 0;
     position: relative;
-    padding-top: 40px; /* Leave room for top tabs when stacked */
+    padding-top: 0;
     padding-bottom: 0;
   }
 
   .bookend-card-wrapper {
-    position: sticky;
-    /* Cards stack exactly centered vertically in the viewport with a safety minimum top of 124px to clear headers and tabs */
-    /* Dynamic half-height is min(576px, 30vw, calc( (100dvh - 200px) / 2 )) to prevent bottom overflow */
-    top: max(124px, calc(50dvh - min(576px, 30vw, calc( (100dvh - 200px) / 2 ))));
+    position: relative;
+    top: 0;
     width: 100%;
-    margin-bottom: 0; /* Margin-bottom is zero because scroll-gap elements handle spacing in the document flow */
+    margin-bottom: 96px;
+    padding-bottom: 96px;
   }
 
-  .scroll-gap {
-    height: 80vh; /* Spaces out scroll distance so each card has its own phase */
-  }
-
-  .scroll-gap.last-gap {
-    height: 40vh; /* Shorter dwell time and smaller gap at the end to prevent the "black hole" */
-  }
-
-  /* Folder Index leaf/tab on top - FIXED WIDTH for perfect equal spacing */
-  .bookend-tab-leaf {
+  .bookend-card-wrapper::after {
+    content: '';
     position: absolute;
-    left: var(--tab-left);
-    top: -31px; /* Sits exactly on the top border of the card body */
-    width: 140px; /* Fixed width */
-    height: 32px;
-    background-color: #12100f;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-bottom: none;
-    border-radius: 6px 6px 0 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 1;
-    
-    /* Hidden by default, appears when stacked */
-    opacity: 0;
-    transform: translateY(6px);
-    pointer-events: none;
-    cursor: pointer;
-    transition: opacity 0.35s var(--ease-out), transform 0.35s var(--ease-out), border-color 0.35s var(--ease-out);
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100vw;
+    height: 1px;
+    background-color: var(--border);
   }
 
-  .leaf-tag {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--color-text-muted);
-    letter-spacing: 0.08em;
-    user-select: none;
-    white-space: nowrap;
-    text-align: center;
+  .bookend-card-wrapper:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
   }
 
-  .bookend-tab-leaf .swap {
-    position: absolute;
-    top: 50%;
-    left: 0;
-    width: 100%;
-    transform: translateY(-50%);
-    text-align: center;
-  }
-
-  .bookend-tab-leaf .swap.active {
-    position: absolute;
-    transform: translateY(-50%);
-  }
-
-  /* When card gets stacked, reveal the leaf */
-  .bookend-card-wrapper.stacked .bookend-tab-leaf {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-    z-index: 3;
-    border-color: rgba(255, 107, 0, 0.25);
-  }
-
-  .bookend-card-wrapper.stacked .leaf-tag {
-    color: var(--color-accent-primary);
+  .bookend-card-wrapper:last-child::after {
+    display: none;
   }
 
   .bookend-card-body {
-    background-color: #161312; /* Solid opaque color to prevent underlying card text from bleeding through */
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 16px;
-    padding: 24px; /* Reduced card padding from 40px to 24px for tighter layout */
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
     width: 100%;
     max-width: 100%;
-    aspect-ratio: 1.414 / 1; /* Horizontal A4 aspect ratio */
-    max-height: calc(100dvh - 200px); /* Constrain max height dynamically to prevent bottom overflow while maintaining tab clearance */
-    margin-inline: auto; /* Centers card when it shrinks due to max-height constraint */
-    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4); /* Solid soft outer drop shadow only */
+    aspect-ratio: auto;
+    max-height: none;
+    box-shadow: none;
     position: relative;
-    z-index: 2;
-    transition: border-color 0.3s var(--ease-out);
-    overflow: hidden;
-  }
-
-  .bookend-card-wrapper.stacked .bookend-card-body {
-    border-color: rgba(255, 107, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    overflow: visible;
   }
 
   .bookend-card-left {
-    width: 48%;
+    width: 100%;
+    max-width: 800px;
+    margin-left: 0;
+    margin-right: auto;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    text-align: left;
     position: relative;
     z-index: 5;
-    transform: translateY(0);
-    transition: transform 0.4s var(--ease-out);
-  }
-
-  .bookend-card-wrapper.stacked .bookend-card-left {
-    transform: translateY(-24px); /* Shifts text up when tag disappears to create screenshot space */
   }
 
   .bookend-card-right {
-    position: absolute;
-    top: max(25%, 220px); /* Positioned exactly 25% below the top, with a safety minimum of 220px to match the 60px spacing from card top to heading */
-    left: calc( ( min(85vw, 1630px) - min(75vw, 1436px) ) / 2 ); /* Align mockup top-left edge exactly with main container start */
-    width: min(75vw, 1436px); /* Exact width of the main site container */
-    bottom: 24px; /* Align to the reduced 24px bottom padding */
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: auto;
     z-index: 1;
-    transform: rotate(-10deg) translateY(80px); /* Initial fallback */
-    transform-origin: top left;
-    transition: transform 0.6s var(--ease-out); /* Slow, smooth lag-inertia transition */
+    display: flex;
+    justify-content: flex-start;
   }
-
-  .bookend-card-wrapper.stacked:hover .bookend-card-right {
-    transform: scale(1.02) translateY(0) !important;
-  }
-
-
 
   .step-title {
     font-family: var(--font-display);
     font-size: 32px;
     font-weight: 600;
     letter-spacing: var(--tracking-tight);
-    margin-top: 36px; /* 36px margin + 24px top padding = exactly 60px clearance from card top to heading */
+    margin-top: 0;
     margin-bottom: var(--space-4);
     color: var(--color-text-primary);
   }
@@ -314,16 +188,24 @@ const educatorsHeader = content.educators.featuresHeader
     color: var(--color-text-tertiary);
     font-size: var(--text-base);
     line-height: var(--leading-relaxed);
+    max-width: 55ch;
   }
 
   /* Shared Mockup Styles */
   .sticky-mockup-wrapper {
-    background-color: #12100f;
-    border: 2px solid #1c1a19; /* Thicker solid border outline for defined edges */
-    border-radius: 12px;
+    background-color: #0b0b0d; /* Slate black bezel frame */
+    border: 1px solid var(--border); /* Outer bezel outline */
+    border-radius: calc(var(--radius) + 6px); /* Rounded bezel frame matching concentric math */
+    padding: 6px; /* Even thinner gutter around the mock */
     overflow: hidden;
     width: 100%;
-    height: 100%;
+    aspect-ratio: 16 / 10;
+    box-shadow: var(--shadow-card);
+    transition: transform 0.4s var(--ease-out);
+  }
+
+  .sticky-mockup-wrapper:hover {
+    transform: translateY(-6px);
   }
 
   .mockup-header-bar {
@@ -358,6 +240,9 @@ const educatorsHeader = content.educators.featuresHeader
     height: 100% !important;
     padding: 0; /* Removed padding completely to let canvas draw edge-to-edge */
     position: relative;
+    border-radius: var(--radius); /* Curved inner mockup corners matching standard radius variable */
+    overflow: hidden; /* Clips the mockup to the inner rounded corners */
+    background-color: var(--color-mock-bg);
   }
 
   .mockup-viewport .swap {
@@ -365,8 +250,6 @@ const educatorsHeader = content.educators.featuresHeader
     inset: 0 !important;
     height: 100% !important;
   }
-
-
 
   .mock-import-box, .mock-chat-box, .mock-recall-box {
     display: flex;
@@ -584,14 +467,23 @@ const educatorsHeader = content.educators.featuresHeader
     background-color: var(--color-accent-cool);
   }
 
-  .mobile-tag-wrapper {
-    display: none;
+  .step-tag-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: var(--space-2);
+  }
+
+  .step-tag {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-accent-primary);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
   }
 
   @media (max-width: 960px) {
-    .mobile-tag-wrapper {
-      display: none !important;
-    }
     .bookend-cards-stack {
       width: 100%;
       max-width: 100%;
@@ -607,7 +499,7 @@ const educatorsHeader = content.educators.featuresHeader
       border-radius: 0 !important;
       box-shadow: none !important;
       backdrop-filter: none !important;
-      padding: var(--space-5) !important;
+      padding: 0 !important;
       aspect-ratio: auto !important;
       display: flex;
       flex-direction: column-reverse; /* Screenshot at top, text at bottom */
@@ -653,10 +545,20 @@ const educatorsHeader = content.educators.featuresHeader
       min-width: 480px !important;
       max-width: none !important;
       height: auto !important;
+      padding: 0 !important;
+      aspect-ratio: auto !important;
+      box-shadow: none !important;
+      border-radius: 12px !important;
+      transition: none !important;
+    }
+    .sticky-mockup-wrapper:hover {
+      transform: none !important;
     }
     .mockup-viewport {
       height: 460px !important;
       padding: 0 !important;
+      border-radius: var(--radius);
+      background-color: var(--color-mock-bg);
     }
 
     .bookend-card-wrapper {
@@ -664,12 +566,27 @@ const educatorsHeader = content.educators.featuresHeader
       top: 0 !important;
       margin-bottom: var(--space-12) !important; /* Spacious margin between flush sections */
       padding-bottom: var(--space-12);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-    .bookend-card-wrapper:nth-last-child(2) {
       border-bottom: none;
+    }
+    .bookend-card-wrapper::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100vw;
+      height: 1px;
+      background-color: var(--border);
+    }
+    .bookend-card-wrapper::after {
+      display: none !important;
+    }
+    .bookend-card-wrapper:last-child {
       margin-bottom: 0 !important;
       padding-bottom: 0;
+    }
+    .bookend-card-wrapper:last-child::before {
+      display: none;
     }
     .scroll-gap {
       display: none;
@@ -698,7 +615,6 @@ const educatorsHeader = content.educators.featuresHeader
       width: 100% !important;
       min-width: 0 !important;
     }
-
     .mockup-viewport::after {
       content: '';
       position: absolute;
@@ -706,7 +622,7 @@ const educatorsHeader = content.educators.featuresHeader
       left: 0;
       right: 0;
       height: 48px;
-      background: linear-gradient(to bottom, transparent, #12100f);
+      background: linear-gradient(to bottom, transparent, var(--color-bg));
       pointer-events: none;
       z-index: 5;
     }
@@ -728,76 +644,3 @@ const educatorsHeader = content.educators.featuresHeader
     }
   }
 </style>
-
-<script>
-  const checkStacking = () => {
-    const cards = document.querySelectorAll(".bookend-card-wrapper")
-    cards.forEach((card) => {
-      const rect = card.getBoundingClientRect()
-      const style = window.getComputedStyle(card)
-      const stickyTop = parseInt(style.top, 10)
-      
-      if (isNaN(stickyTop)) return
-
-      // Triggers `.stacked` class with 4px tolerance
-      const isStacked = rect.top <= stickyTop + 4
-      card.classList.toggle("stacked", isStacked)
-
-      // Calculate scroll progress from 0 (far below) to 1 (fully stuck)
-      const range = 500 // Map the rotation over 500px of scrolling before sticking
-      let progress = 0
-      if (rect.top <= stickyTop) {
-        progress = 1
-      } else if (rect.top >= stickyTop + range) {
-        progress = 0
-      } else {
-        progress = 1 - (rect.top - stickyTop) / range
-      }
-
-      // Apply transform directly in JS for full cross-browser layout support
-      const mock = card.querySelector(".bookend-card-right") as HTMLElement | null
-      if (mock) {
-        const rotation = -10 * (1 - progress)
-        const translation = 80 * (1 - progress)
-        mock.style.transform = `rotate(${rotation.toFixed(2)}deg) translateY(${translation.toFixed(2)}px)`
-      }
-    })
-  }
-
-  window.addEventListener("scroll", checkStacking)
-  window.addEventListener("resize", checkStacking)
-  
-  // Trigger check when layout toggles
-  document.querySelectorAll(".layout-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      setTimeout(checkStacking, 50)
-    })
-  })
-
-  // Initial check
-  checkStacking()
-
-  // Handle dynamic tab (ear) click scroll navigation
-  const stack = document.querySelector(".bookend-cards-stack")
-  if (stack) {
-    document.querySelectorAll(".bookend-card-wrapper").forEach((wrapper) => {
-      const tabLeaf = wrapper.querySelector(".bookend-tab-leaf")
-      if (tabLeaf) {
-        tabLeaf.addEventListener("click", (e) => {
-          e.preventDefault()
-          const style = window.getComputedStyle(wrapper)
-          const stickyTop = parseInt(style.top, 10) || 160
-          
-          // Calculate the target scroll position where this card wrapper starts sticking
-          const absoluteStackTop = window.scrollY + stack.getBoundingClientRect().top
-          const targetScrollY = absoluteStackTop + (wrapper as HTMLElement).offsetTop - stickyTop
-          
-          window.scrollTo({
-            top: targetScrollY,
-            behavior: "smooth"
-          })
-        })
-      }
-    })
-  }
-</script>
