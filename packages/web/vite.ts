@@ -7,7 +7,15 @@ const BUDDY_WEB_SOURCE_ALIAS = "@"
 const WEB_SOURCE_DIRECTORY = fileURLToPath(new URL("./src", import.meta.url))
 // TanStack Router auto-splits route components, so Vite's initial crawl cannot
 // reliably discover component-only dependencies before the first navigation.
-const WEB_OPTIMIZE_DEPS_INCLUDES = ["@mdxeditor/editor", "lexical"]
+const WEB_OPTIMIZE_DEPS_INCLUDES = [
+  "@mdxeditor/editor",
+  "lexical",
+  // CJS-only UMD package. Excalidraw's exportToBlob -> loadSceneFonts path
+  // does `new PromisePool(...)`. Without pre-bundling, Vite's runtime CJS
+  // interop exposes the constructor on the wrong slot, so `default` is not a
+  // constructor and sketch export fails with "Could not prepare the sketch."
+  "es6-promise-pool",
+]
 const WEB_OPTIMIZE_DEPS_EXCLUDES = [
   "foliate-js/view.js",
   "foliate-js/pdf.js",

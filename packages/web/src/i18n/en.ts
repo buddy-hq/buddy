@@ -483,6 +483,8 @@ export const dict = {
   "prompt.autocomplete.searchingFiles": "Searching files...",
   "prompt.composer.attachFilesAria": "Attach files",
   "prompt.composer.attachFilesTitle": "Attach files",
+  "prompt.composer.openSketchAria": "Open sketch input",
+  "prompt.composer.openSketchTitle": "Sketch",
   "prompt.compactionNotice.threshold":
     "Compaction is expected around {{threshold}} tokens (~{{thresholdUsage}}% of model context). Current context is {{usage}}% of that threshold, with about {{remaining}} tokens left.",
   "prompt.compactionNotice.title": "Auto-compaction approaching",

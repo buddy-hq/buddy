@@ -2,6 +2,11 @@ import { Outlet, useLocation } from "@tanstack/react-router"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { BenchRouteContextProvider } from "@/components/bench/bench-route-context"
 import {
+  TransientBenchSurfaceProvider,
+  closeTransientBenchSurface,
+  type TransientBenchSurface,
+} from "@/components/bench/transient-bench-surface"
+import {
   benchRouteFallbackContextFromTarget,
   routeString,
 } from "@/components/bench/bench-context-utils"
@@ -24,7 +29,9 @@ import {
   BENCH_CHAT_LAYOUT_FLOATING,
   BENCH_DOCK_FLOATING_CHAT_EVENT,
   BENCH_LAYOUT_PROFILE_DOCUMENT,
+  BENCH_LAYOUT_PROFILE_VISUAL,
   readBenchOpenPolicyStateFromLocation,
+  resolveDockedBenchShellLayout,
   resolveDockedBenchResizeIntent,
   finalizeBenchModeTransition,
   setBenchPresentationWorkspaceWidth,
@@ -104,6 +111,16 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const { controller } = props
   const currentDirectory = controller.mainPaneProps.directory
   const activeSessionID = controller.mainPaneProps.chatState.sessionID
+  const [transientBenchSurface, setTransientBenchSurface] =
+    useState<TransientBenchSurface | null>(null)
+  const [transientBenchHost, setTransientBenchHost] = useState<HTMLDivElement | null>(null)
+  const openTransientBenchSurface = useCallback((surface: TransientBenchSurface) => {
+    setTransientBenchSurface(surface)
+  }, [])
+  const closeActiveTransientBenchSurface = useCallback((surface: TransientBenchSurface) => {
+    closeTransientBenchSurface(setTransientBenchSurface, surface)
+  }, [])
+  const transientBenchActive = transientBenchSurface !== null
   const benchPolicyState = useMemo(
     () =>
       readBenchOpenPolicyStateFromLocation({
@@ -133,13 +150,15 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   })
   const routeChatLayoutMode =
     benchPolicyState.status === "open" ? benchPolicyState.mode : BENCH_CHAT_LAYOUT_DOCKED
-  const chatLayoutMode = routeChatLayoutMode
+  const chatLayoutMode = transientBenchActive ? BENCH_CHAT_LAYOUT_DOCKED : routeChatLayoutMode
   const workspaceRenderedSurface = workspace.projection.renderedSurface
   const workspacePending = workspace.projection.pending
   const workspaceBenchVisibility = workspace.projection.bench.visibility
   const workspaceDrawer = workspace.projection.drawer
   const layoutProfile =
-    benchPolicyState.status === "open"
+    transientBenchActive
+      ? BENCH_LAYOUT_PROFILE_VISUAL
+      : benchPolicyState.status === "open"
       ? benchPolicyState.layoutProfile
       : BENCH_LAYOUT_PROFILE_DOCUMENT
   const fallbackContextProvider = useMemo(
@@ -192,24 +211,63 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       workspaceHydrated,
     ],
   )
+  const transientDockedShellLayout = useMemo(
+    () =>
+      resolveDockedBenchShellLayout({
+        profile: BENCH_LAYOUT_PROFILE_VISUAL,
+        viewport: dockedBenchViewport,
+        workspaceChromeWidthPx: 0,
+        requestedWorkspaceWidthPx,
+        leftSidebarPreferredOpen: chatState.leftSidebarOpen,
+        leftSidebarWidthPx: chatState.leftSidebarDisplayWidth,
+      }),
+    [
+      chatState.leftSidebarDisplayWidth,
+      chatState.leftSidebarOpen,
+      dockedBenchViewport,
+      requestedWorkspaceWidthPx,
+    ],
+  )
+  const transientWorkspaceBounds = transientDockedShellLayout.rightWorkspace
+  const transientWorkspaceWidthPx = Math.min(
+    transientWorkspaceBounds.workspaceMaxWidthPx,
+    Math.max(transientWorkspaceBounds.workspaceMinWidthPx, requestedWorkspaceWidthPx),
+  )
   const workspaceLayoutMode = presentation.mode
   const showingSkills = controller.mainPaneProps.shellView === DIRECTORY_CHAT_SHELL_VIEW.SKILLS
   const effectiveWorkspaceLayoutMode = showingSkills
     ? BENCH_CHAT_LAYOUT_DOCKED
-    : workspaceLayoutMode
+    : transientBenchActive
+      ? BENCH_CHAT_LAYOUT_DOCKED
+      : workspaceLayoutMode
   const workspaceOpen = presentation.workspaceOpen
-  const effectiveWorkspaceOpen = showingSkills ? false : workspaceOpen
+  const effectiveWorkspaceOpen = showingSkills ? false : transientBenchActive || workspaceOpen
   const workspaceHostOpen = presentation.workspaceOpen
-  const effectiveWorkspaceHostOpen = showingSkills ? false : workspaceHostOpen
-  const dockedWorkspaceDisplayWidthPx = presentation.workspace.widthPx
+  const effectiveWorkspaceHostOpen = showingSkills
+    ? false
+    : transientBenchActive || workspaceHostOpen
+  const dockedWorkspaceDisplayWidthPx = transientBenchActive
+    ? transientWorkspaceWidthPx
+    : presentation.workspace.widthPx
+  const dockedWorkspaceMinWidthPx = transientBenchActive
+    ? transientWorkspaceBounds.workspaceMinWidthPx
+    : presentation.workspace.minWidthPx
+  const dockedWorkspaceMaxWidthPx = transientBenchActive
+    ? transientWorkspaceBounds.workspaceMaxWidthPx
+    : presentation.workspace.maxWidthPx
+  const dockedWorkspaceChatMinWidthPx = transientBenchActive
+    ? transientWorkspaceBounds.chatMinWidthPx
+    : presentation.workspace.chatMinWidthPx
   const dockedLeftSidebarVisible = showingSkills
     ? controller.shellProps.leftSidebarOpen
-    : presentation.leftSidebar.visible
+    : transientBenchActive
+      ? transientDockedShellLayout.leftSidebarVisible
+      : presentation.leftSidebar.visible
   const canPinLeftSidebarWithoutResizing =
     dockedBenchViewport.widthPx >=
-    chatState.leftSidebarDisplayWidth +
+      chatState.leftSidebarDisplayWidth +
       dockedWorkspaceDisplayWidthPx +
-      presentation.workspace.chatMinWidthPx
+      dockedWorkspaceChatMinWidthPx
 
   useEffect(() => {
     logBenchToggleStep("directory-workspace-root-state", {
@@ -224,8 +282,8 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       workspaceDrawer,
       workspacePending,
       dockedWorkspaceDisplayWidthPx,
-      dockedWorkspaceMinWidthPx: presentation.workspace.minWidthPx,
-      dockedWorkspaceMaxWidthPx: presentation.workspace.maxWidthPx,
+      dockedWorkspaceMinWidthPx,
+      dockedWorkspaceMaxWidthPx,
       dockedLeftSidebarVisible,
       leftSidebarOverlayOpen,
       presentationKind: presentation.kind,
@@ -239,8 +297,8 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     dockedWorkspaceDisplayWidthPx,
     leftSidebarOverlayOpen,
     presentation.kind,
-    presentation.workspace.maxWidthPx,
-    presentation.workspace.minWidthPx,
+    dockedWorkspaceMaxWidthPx,
+    dockedWorkspaceMinWidthPx,
     routeChatLayoutMode,
     workspaceBenchVisibility,
     workspaceDrawer,
@@ -344,9 +402,13 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
 
   const handleDockedWorkspaceResizeIntent = useCallback(
     (intent: ResizeHandleIntent) => {
+      if (transientBenchActive) {
+        setBenchPresentationWorkspaceWidth(intent.rawSize)
+        return
+      }
       const decision = resolveDockedBenchResizeIntent({
         rawWorkspaceWidthPx: intent.rawSize,
-        maxWorkspaceWidthPx: presentation.workspace.maxWidthPx,
+        maxWorkspaceWidthPx: dockedWorkspaceMaxWidthPx,
         hasVisibleBenchTarget: presentation.dockedBenchVisible,
         leftSidebarVisible: presentation.leftSidebar.visible,
       })
@@ -367,7 +429,12 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         origin: "user",
       })
     },
-    [presentation, setBenchMode],
+    [
+      dockedWorkspaceMaxWidthPx,
+      presentation,
+      setBenchMode,
+      transientBenchActive,
+    ],
   )
 
   const setFloatingChatSubstate = useCallback(
@@ -558,9 +625,24 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     </div>
   )
   const shellLeftSidebarOpen = dockedLeftSidebarVisible
+  const transientBenchContext = useMemo(
+    () => ({
+      activeSurface: transientBenchSurface,
+      host: transientBenchHost,
+      open: openTransientBenchSurface,
+      close: closeActiveTransientBenchSurface,
+    }),
+    [
+      closeActiveTransientBenchSurface,
+      openTransientBenchSurface,
+      transientBenchHost,
+      transientBenchSurface,
+    ],
+  )
 
   return (
-    <DirectoryChatShell
+    <TransientBenchSurfaceProvider value={transientBenchContext}>
+      <DirectoryChatShell
       leftSidebar={<ChatLeftSidebar {...controller.leftSidebarProps} />}
       contentLayout={
         <DirectoryChatBenchPageLayout
@@ -575,24 +657,38 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
           dockedBenchLayout={{
             open: workspaceHydrated && effectiveWorkspaceOpen,
             widthPx: dockedWorkspaceDisplayWidthPx,
-            minWidthPx: presentation.workspace.minWidthPx,
-            maxWidthPx: presentation.workspace.maxWidthPx,
+            minWidthPx: dockedWorkspaceMinWidthPx,
+            maxWidthPx: dockedWorkspaceMaxWidthPx,
             onResizeIntent: handleDockedWorkspaceResizeIntent,
-            onCollapse: handleRightWorkspaceCollapse,
+            onCollapse: transientBenchActive
+              ? () => {
+                  if (transientBenchSurface) {
+                    closeActiveTransientBenchSurface(transientBenchSurface)
+                  }
+                }
+              : handleRightWorkspaceCollapse,
           }}
           bench={
-            <DirectoryChatRightWorkspace
-              directory={currentDirectory}
-              sessionID={controller.mainPaneProps.chatState.sessionID}
-              sessions={controller.mainPaneProps.chatState.sessions}
-              workspaceWidth={dockedWorkspaceDisplayWidthPx}
-              onCreateBoard={handleCreateBoard}
-              onCreateCreation={handleCreateCreation}
-              onOpenThread={selectWorkspaceSession}
-              onOpenResource={controller.mainPaneProps.onOpenResource}
-              bench={benchOutlet}
-              presentation={presentation}
-            />
+            transientBenchActive ? (
+              <div
+                ref={setTransientBenchHost}
+                data-component="transient-bench-surface-host"
+                className="h-full min-h-0 w-full min-w-0 bg-background-base"
+              />
+            ) : (
+              <DirectoryChatRightWorkspace
+                directory={currentDirectory}
+                sessionID={controller.mainPaneProps.chatState.sessionID}
+                sessions={controller.mainPaneProps.chatState.sessions}
+                workspaceWidth={dockedWorkspaceDisplayWidthPx}
+                onCreateBoard={handleCreateBoard}
+                onCreateCreation={handleCreateCreation}
+                onOpenThread={selectWorkspaceSession}
+                onOpenResource={controller.mainPaneProps.onOpenResource}
+                bench={benchOutlet}
+                presentation={presentation}
+              />
+            )
           }
           threadBrowserProps={
             !showingSkills && presentation.controls.showThreadBrowserInPane
@@ -621,7 +717,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         />
       }
       {...controller.shellProps}
-      immersive={effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING}
+      immersive={
+        effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING && !transientBenchActive
+      }
       leftSidebarOpen={shellLeftSidebarOpen}
       leftSidebarOverlayEnabled={!showingSkills && presentation.leftSidebar.overlayEnabled}
       leftSidebarOverlayOpen={showingSkills ? false : leftSidebarOverlayOpen}
@@ -629,7 +727,15 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       onLeftSidebarToggle={
         !showingSkills && presentation.dockedBenchVisible ? handleLeftSidebarToggle : undefined
       }
-      onRightWorkspaceToggle={handleRightWorkspaceToggle}
+      onRightWorkspaceToggle={
+        transientBenchActive
+          ? () => {
+              if (transientBenchSurface) {
+                closeActiveTransientBenchSurface(transientBenchSurface)
+              }
+            }
+          : handleRightWorkspaceToggle
+      }
       chatTitle={controller.mainPaneProps.chatState.sessionTitle}
       titlebarVariant={showingSkills ? "shell" : "chat"}
       rightWorkspaceOpen={effectiveWorkspaceHostOpen}
@@ -644,6 +750,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       onFloatChat={
         !showingSkills && presentation.controls.showFloatChat ? handleFloatChat : undefined
       }
-    />
+      />
+    </TransientBenchSurfaceProvider>
   )
 }

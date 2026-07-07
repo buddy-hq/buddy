@@ -5,20 +5,33 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-  NativeSelect,
-  NativeSelectOption,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  // NativeSelect,
+  // NativeSelectOption,
+  // Select,
+  // SelectContent,
+  // SelectItem,
+  // SelectTrigger,
+  // SelectValue,
   toast,
   cn,
 } from "@buddy/ui"
-import { Gamepad2Icon, XIcon } from "lucide-react"
-import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { Gamepad2Icon, PenLineIcon, XIcon } from "lucide-react"
+import {
+  lazy,
+  startTransition,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
+import {
+  TRANSIENT_BENCH_SURFACE_SKETCH,
+  useTransientBenchSurface,
+} from "@/components/bench/transient-bench-surface"
 import { GameDock } from "../game/game-dock"
 import { GameBall } from "../game/game-ball"
 import {
@@ -75,6 +88,7 @@ import { ImageAttachments } from "./image-attachments"
 import { usePromptComposerAttachments } from "./use-prompt-composer-attachments"
 import { usePromptComposerViewState } from "./use-prompt-composer-view-state"
 import { usePromptEditorSync } from "./use-prompt-editor-sync"
+import type { SketchAttachmentFlush } from "./sketch-dock"
 import {
   consumePromptComposerFocusRequest,
   subscribePromptComposerFocusRequests,
@@ -103,6 +117,13 @@ const CURSOR_NAVIGATION_KEYS = new Set([
   "PageUp",
   "PageDown",
 ])
+
+const SKETCH_IMAGE_MODEL_SUGGESTION_LIMIT = 4
+
+const SketchDock = lazy(async () => {
+  const module = await import("./sketch-dock")
+  return { default: module.SketchDock }
+})
 
 type PromptComposerProps = {
   directory: string
@@ -201,6 +222,7 @@ function createEmptyPromptDraftState() {
 }
 
 export function PromptComposer(props: PromptComposerProps) {
+  const transientBenchSurface = useTransientBenchSurface()
   const isQuestionActive = props.activeQuestionID !== undefined
   const editorRef = useRef<HTMLDivElement | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -226,6 +248,13 @@ export function PromptComposer(props: PromptComposerProps) {
   const pushHistoryEntry = usePromptStore((state) => state.pushHistoryEntry)
   const setHistoryNavigation = usePromptStore((state) => state.setHistoryNavigation)
   const clearHistoryNavigation = usePromptStore((state) => state.resetHistoryNavigation)
+  const [sketchDockOpen, setSketchDockOpen] = useState(false)
+  const [sketchDockMinimized, setSketchDockMinimized] = useState(false)
+  const [sketchHasContent, setSketchHasContent] = useState(false)
+  const sketchAttachmentRef = useRef<PromptComposerAttachment | undefined>(undefined)
+  const flushSketchAttachmentRef = useRef<SketchAttachmentFlush | undefined>(undefined)
+  const sketchBenchOpen =
+    transientBenchSurface?.activeSurface === TRANSIENT_BENCH_SURFACE_SKETCH
   const selectionContextEntries = useMemo(
     () =>
       draft.parts.flatMap((part) =>
@@ -248,6 +277,8 @@ export function PromptComposer(props: PromptComposerProps) {
         : draft.attachments.filter((attachment) => attachmentRequiresVisionInput(attachment.mime)),
     [draft.attachments, props.selectedModelAcceptsImages],
   )
+  const hasActiveSketch = (sketchDockOpen || sketchBenchOpen) && sketchHasContent
+  const hasUnsupportedSketch = hasActiveSketch && !props.selectedModelAcceptsImages
   const unsupportedImageAttachmentIds = useMemo(
     () => new Set(unsupportedImageAttachments.map((attachment) => attachment.id)),
     [unsupportedImageAttachments],
@@ -256,12 +287,18 @@ export function PromptComposer(props: PromptComposerProps) {
   const canSubmit = useMemo(
     () =>
       !hasUnsupportedImageAttachments &&
-      (draftEditorValue.trim().length > 0 || draft.attachments.length > 0 || hasSubmittableParts),
+      !hasUnsupportedSketch &&
+      (draftEditorValue.trim().length > 0 ||
+        draft.attachments.length > 0 ||
+        hasSubmittableParts ||
+        hasActiveSketch),
     [
       draft.attachments.length,
       draftEditorValue,
+      hasActiveSketch,
       hasSubmittableParts,
       hasUnsupportedImageAttachments,
+      hasUnsupportedSketch,
     ],
   )
   const [cursorOffset, setCursorOffset] = useState(() => draft.cursor)
@@ -323,6 +360,17 @@ export function PromptComposer(props: PromptComposerProps) {
     onSearchFiles: props.onSearchFiles,
     onRefreshSlashCommands: props.onRefreshSlashCommands,
   })
+  const sketchImageModelOptions = useMemo(
+    () =>
+      [
+        ...viewState.groupedModelOptions.ungrouped,
+        ...viewState.groupedModelOptions.grouped.flatMap(([, options]) => options),
+      ]
+        .filter((option) => option.acceptsImages && !option.disabled)
+        .slice(0, SKETCH_IMAGE_MODEL_SUGGESTION_LIMIT)
+        .map((option) => ({ key: option.key, label: option.label })),
+    [viewState.groupedModelOptions],
+  )
 
   useEffect(() => {
     if (cursorOffset <= draftEditorValue.length) return
@@ -467,6 +515,26 @@ export function PromptComposer(props: PromptComposerProps) {
       toast.error("This model cannot accept image attachments.")
     },
   })
+
+  const updateSketchAttachment = useCallback((attachment: PromptComposerAttachment | undefined) => {
+    sketchAttachmentRef.current = attachment
+  }, [])
+
+  const updateSketchContent = useCallback((hasContent: boolean) => {
+    setSketchHasContent(hasContent)
+  }, [])
+
+  const updateSketchFlush = useCallback((flush: SketchAttachmentFlush | undefined) => {
+    flushSketchAttachmentRef.current = flush
+  }, [])
+
+  const deactivateSketchDock = useCallback(() => {
+    transientBenchSurface?.close(TRANSIENT_BENCH_SURFACE_SKETCH)
+    setSketchDockOpen(false)
+    setSketchDockMinimized(false)
+    setSketchHasContent(false)
+    updateSketchAttachment(undefined)
+  }, [transientBenchSurface, updateSketchAttachment])
 
   const focusEditorAtDraftCursor = useCallback(() => {
     const editor = editorRef.current
@@ -888,6 +956,7 @@ export function PromptComposer(props: PromptComposerProps) {
   }
 
   function clearComposer(input?: { clearStore?: boolean; resetHistory?: boolean }) {
+    deactivateSketchDock()
     if (input?.resetHistory ?? true) {
       resetHistoryNavigation()
     }
@@ -915,6 +984,9 @@ export function PromptComposer(props: PromptComposerProps) {
       toast.error("Finish answering the question first!")
       return
     }
+    if (sketchDockOpen || sketchBenchOpen) {
+      minimizeSketchDock()
+    }
     if (input?.clearDraft) {
       clearComposer()
     }
@@ -935,6 +1007,46 @@ export function PromptComposer(props: PromptComposerProps) {
     setGameVisible(false)
     setMinimized(true)
     setPaused(true)
+  }
+
+  function openSketchDock() {
+    transientBenchSurface?.close(TRANSIENT_BENCH_SURFACE_SKETCH)
+    setGameVisible(false)
+    setMinimized(false)
+    setPaused(true)
+    setShowGameBall(false)
+    editorRef.current?.blur()
+    setSketchDockOpen(true)
+    setSketchDockMinimized(false)
+  }
+
+  function closeSketchDock() {
+    deactivateSketchDock()
+  }
+
+  function minimizeSketchDock() {
+    transientBenchSurface?.close(TRANSIENT_BENCH_SURFACE_SKETCH)
+    setSketchDockOpen(false)
+    setSketchDockMinimized(true)
+  }
+
+  function maximizeSketchDock() {
+    if (!transientBenchSurface) return
+    setSketchDockOpen(false)
+    setSketchDockMinimized(false)
+    transientBenchSurface.open(TRANSIENT_BENCH_SURFACE_SKETCH)
+  }
+
+  function toggleSketchDock() {
+    if (sketchBenchOpen) {
+      openSketchDock()
+      return
+    }
+    if (sketchDockOpen) {
+      minimizeSketchDock()
+      return
+    }
+    openSketchDock()
   }
 
   function toggleArcade() {
@@ -1000,8 +1112,8 @@ export function PromptComposer(props: PromptComposerProps) {
     })
   }
 
-  function handleSubmit() {
-    if (hasUnsupportedImageAttachments) return
+  async function handleSubmit() {
+    if (hasUnsupportedImageAttachments || hasUnsupportedSketch) return
 
     const currentDraft = readEditorDraft()
 
@@ -1016,18 +1128,32 @@ export function PromptComposer(props: PromptComposerProps) {
     }
 
     const currentHasSubmittableParts = hasSubmittablePromptParts(currentDraft.parts)
+    const activeSketchAttachment =
+      hasActiveSketch && props.selectedModelAcceptsImages
+        ? ((await flushSketchAttachmentRef.current?.()) ?? sketchAttachmentRef.current)
+        : undefined
+    if (hasActiveSketch && !activeSketchAttachment) {
+      toast.error("Could not prepare the sketch.")
+      return
+    }
+    const submissionDraft = activeSketchAttachment
+      ? {
+          ...currentDraft,
+          attachments: [...currentDraft.attachments, activeSketchAttachment],
+        }
+      : currentDraft
 
     if (
-      !currentDraft.value.trim() &&
-      currentDraft.attachments.length === 0 &&
+      !submissionDraft.value.trim() &&
+      submissionDraft.attachments.length === 0 &&
       !currentHasSubmittableParts
     ) {
       return
     }
 
-    commitDraftToHistory(currentDraft)
+    commitDraftToHistory(submissionDraft)
     clearComposer({ resetHistory: false })
-    props.onSubmit(currentDraft)
+    void props.onSubmit(submissionDraft)
   }
 
   const slashMenuVisible =
@@ -1053,6 +1179,40 @@ export function PromptComposer(props: PromptComposerProps) {
             {isGameVisible && (
               <GameDock className="w-full" onClose={closeArcade} onMinimize={minimizeArcade} />
             )}
+          </AnimatePresence>
+        </div>
+
+        <div className="w-full pointer-events-auto">
+          <AnimatePresence>
+            {sketchDockOpen || sketchDockMinimized || sketchBenchOpen ? (
+              <Suspense
+                fallback={
+                  <div className="h-[300px] w-full rounded-2xl border border-border-base bg-surface-raised-base shadow-lg" />
+                }
+              >
+                <SketchDock
+                  className={cn(
+                    "w-full",
+                    (sketchDockMinimized || sketchBenchOpen) && "hidden",
+                  )}
+                  acceptsImages={props.selectedModelAcceptsImages}
+                  benchHost={sketchBenchOpen ? transientBenchSurface?.host : null}
+                  imageModelOptions={sketchImageModelOptions}
+                  isMaximized={sketchBenchOpen}
+                  isOpen={sketchDockOpen || sketchBenchOpen}
+                  onModelChange={props.onModelChange}
+                  onClose={closeSketchDock}
+                  onMaximize={
+                    transientBenchSurface && !sketchBenchOpen ? maximizeSketchDock : undefined
+                  }
+                  onMinimize={minimizeSketchDock}
+                  onRestore={openSketchDock}
+                  onSketchContentChange={updateSketchContent}
+                  onSketchAttachmentChange={updateSketchAttachment}
+                  onFlushSketchAttachmentChange={updateSketchFlush}
+                />
+              </Suspense>
+            ) : null}
           </AnimatePresence>
         </div>
 
@@ -1121,7 +1281,7 @@ export function PromptComposer(props: PromptComposerProps) {
           className="relative"
           onSubmit={(event) => {
             event.preventDefault()
-            handleSubmit()
+            void handleSubmit()
           }}
           onDragEnter={(event) => {
             event.preventDefault()
@@ -1337,7 +1497,7 @@ export function PromptComposer(props: PromptComposerProps) {
                   })
                 ) {
                   event.preventDefault()
-                  handleSubmit()
+                  void handleSubmit()
                 }
               }}
               onKeyUp={(event) => {
@@ -1436,6 +1596,7 @@ export function PromptComposer(props: PromptComposerProps) {
       {props.sessionContextUsage ? (
         <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
           <div className="flex min-w-0 items-center gap-1.5">
+            {/* Removed temporarily until personas are complete.
             {props.selectorMode === "native" ? (
               <NativeSelect
                 value={props.selectedPersona}
@@ -1478,9 +1639,27 @@ export function PromptComposer(props: PromptComposerProps) {
                 </SelectContent>
               </Select>
             )}
+            */}
             {props.contextActions}
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              data-action="prompt-open-sketch"
+              aria-label={language.t("prompt.composer.openSketchAria")}
+              aria-pressed={sketchDockOpen}
+              title={language.t("prompt.composer.openSketchTitle")}
+              onClick={toggleSketchDock}
+              className={cn(
+                "inline-flex size-6 items-center justify-center rounded-md text-text-weaker transition-all hover:bg-surface-base-hover hover:text-text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-border-interactive-base/50 active:scale-95",
+                sketchDockMinimized &&
+                  "bg-surface-base-hover text-text-base ring-1 ring-border-weak-base/80",
+                sketchDockOpen &&
+                  "bg-surface-interactive-base text-text-on-interactive-base shadow-sm shadow-surface-interactive-base/30 ring-1 ring-border-interactive-base/60",
+              )}
+            >
+              <PenLineIcon className="size-3.5" />
+            </button>
             <ContextMenu>
               <ContextMenuTrigger asChild>
                 <button
