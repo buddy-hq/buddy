@@ -14,24 +14,61 @@
    DESIGN TOKENS
    ============================================================ */
 :root {
+  /* OKLCH Theme Tokens (Defaulting to Dark Theme values as marketing site is dark-only) */
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.47 0.157 37.304);
+  --primary-foreground: oklch(0.98 0.016 73.684);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.705 0.213 47.604);
+  --sidebar-primary-foreground: oklch(0.98 0.016 73.684);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+
   /* Surface */
-  --color-bg: #0a0807;
-  --color-card-bg: rgba(22, 19, 18, 0.45);
-  --color-card-border: rgba(255, 255, 255, 0.05);
-  --color-card-hover-border: rgba(255, 107, 0, 0.25);
+  --color-bg: var(--background);
+  --color-card-bg: oklch(0.205 0 0 / 45%);
+  --color-card-border: var(--border);
+  --color-card-hover-border: oklch(0.47 0.157 37.304 / 25%);
+  --color-mock-bg: oklch(0.09 0.002 285.823);
+  --color-mock-panel: oklch(0.13 0.004 285.823);
+  --shadow-card: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 
   /* Text hierarchy */
-  --color-text-primary: #ffffff;
-  --color-text-secondary: #e7e5e4;
-  --color-text-tertiary: #a8a29e;
-  --color-text-muted: #78716c;
+  --color-text-primary: var(--foreground);
+  --color-text-secondary: oklch(0.85 0 0);
+  --color-text-tertiary: var(--muted-foreground);
+  --color-text-muted: oklch(0.556 0 0);
 
   /* Accents (semantic names — not color names) */
-  --color-accent-primary: #ff6b00;
-  --color-accent-secondary: #f59e0b;
+  --color-accent-primary: var(--primary);
+  --color-accent-secondary: oklch(0.87 0.15 37.304);
   --color-accent-cool: #2dd4bf;
-  --color-accent-primary-glow: rgba(255, 107, 0, 0.15);
-  --color-accent-secondary-glow: rgba(245, 158, 11, 0.12);
+  --color-accent-primary-glow: oklch(0.47 0.157 37.304 / 15%);
+  --color-accent-secondary-glow: oklch(0.87 0.15 37.304 / 12%);
   --color-accent-cool-glow: rgba(45, 212, 191, 0.12);
 
   /* Fonts */

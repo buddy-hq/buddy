@@ -61,8 +61,8 @@ import { content } from "../content/site"
     inset: 0;
     width: 100%;
     height: 100%;
-    background: radial-gradient(52.53% 57.5% at 50% 100%, #0a080700 0%, #0a080780 100%), 
-                linear-gradient(180deg, #0a0807 62%, #ff8f66 100%);
+    background: radial-gradient(52.53% 57.5% at 50% 100%, transparent 0%, color-mix(in srgb, var(--color-bg) 50%, transparent) 100%), 
+                linear-gradient(180deg, var(--color-bg) 62%, #ff8f66 100%);
     opacity: 0.28;
     z-index: 0;
     pointer-events: none;
@@ -172,7 +172,7 @@ import { content } from "../content/site"
     gap: 8px;
     background: linear-gradient(135deg, #ff8025 0%, #ff6b00 100%);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
+    border-radius: var(--radius);
     padding: 12px 24px;
     font-family: var(--font-body);
     font-size: var(--text-sm);
@@ -194,7 +194,7 @@ import { content } from "../content/site"
     gap: 8px;
     background-color: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
+    border-radius: var(--radius);
     padding: 12px 24px;
     font-family: var(--font-body);
     font-size: var(--text-sm);
@@ -296,6 +296,12 @@ import { content } from "../content/site"
   .app-mockup-wrapper {
     width: 100%;
     max-width: 100%;
+    background-color: #0b0b0d; /* Slate black bezel frame */
+    border: 1px solid var(--border); /* Outer bezel outline */
+    border-radius: calc(var(--radius) + 6px); /* Rounded bezel frame matching concentric math */
+    padding: 6px; /* Gutter around the mock */
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
   }
 
   .mockup-reflection {
@@ -315,8 +321,8 @@ import { content } from "../content/site"
     }
 
     .hero-bg-gradient {
-      background: radial-gradient(52.53% 57.5% at 50% 100%, #0a080700 0%, #0a080780 100%), 
-                  linear-gradient(180deg, #0a0807 48%, #ff8f66 100%) !important;
+      background: radial-gradient(52.53% 57.5% at 50% 100%, transparent 0%, color-mix(in srgb, var(--color-bg) 50%, transparent) 100%), 
+                  linear-gradient(180deg, var(--color-bg) 48%, #ff8f66 100%) !important;
       opacity: 0.42 !important;
     }
 
@@ -352,6 +358,7 @@ import { content } from "../content/site"
       will-change: transform;
       transform-origin: top left;
       z-index: 5;
+      padding: 0 !important; /* No gutters on mobile */
     }
 
     /* Keep the mockup grid open and styled as desktop mock */
@@ -387,11 +394,10 @@ import { content } from "../content/site"
       align-self: stretch !important;
     }
 
-    /* Make the workspace mockup fully interactive on mobile */
     .hero-visual .buddy-window {
       pointer-events: auto !important;
-      border: 1px solid rgba(255, 143, 102, 0.3) !important;
-      box-shadow: inset 0 0 0 1px rgba(255, 143, 102, 0.3) !important; /* Forces the border to render on top of child backgrounds */
+      border: 1px solid var(--border) !important;
+      box-shadow: none !important;
     }
 
     /* Kill all animations inside hero on mobile */

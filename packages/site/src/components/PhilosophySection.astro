@@ -206,7 +206,6 @@ const philosophyItems = learnersPhilosophy.items
   .philosophy-section {
     padding: var(--space-16) 0 var(--space-24) 0;
     width: 100%;
-    background: radial-gradient(circle at 90% 95%, rgba(255, 107, 0, 0.02) 0%, transparent 40%);
   }
 
   .philosophy-section .staggered-layout {
@@ -240,9 +239,11 @@ const philosophyItems = learnersPhilosophy.items
     display: flex;
     flex-direction: column;
     gap: var(--space-4);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: var(--color-card-bg);
+    border: 1px solid var(--border);
     padding: var(--space-5);
-    border-radius: 15px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
   }
 
   /* Card Hero Visual styling */
