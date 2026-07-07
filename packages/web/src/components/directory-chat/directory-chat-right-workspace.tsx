@@ -115,7 +115,6 @@ function RightWorkspaceRailButton(props: RightWorkspaceRailItem) {
           variant="ghost"
           size="icon-sm"
           aria-label={props.label}
-          title={props.label}
           aria-pressed={props.active}
           disabled={props.disabled}
           className={cn(
@@ -496,7 +495,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     },
     {
       id: "instructions",
-      label: "Agents",
+      label: "Notebook Instructions",
       icon: <ScrollTextIcon />,
       active: isInstructionsRoute && resolvedSelector === null,
       disabled: openingInstructions,
