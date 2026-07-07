@@ -54,6 +54,7 @@ Long term maintainability is a core priority. If you add new functionality, firs
     - **Skills**: a reusable, versioned bundle of files that gives an agent a specific capability or workflow. 
     - **Subagents**: specialized internal agents a persona can delegate to. Subagents carry their own tools, skills, and subagents as object references.
     - **Surfaces**: UI surfaces unlocked by the feature (curriculum, figure, flashcard, editor, question-set).
+- **Bench**: Bench is Buddy's first-class workspace for non-chat surfaces — artifacts, files, reading, markdown editing, whiteboards, and HTML widgets — that need more room than the transcript offers. It lives in theright workspace of a directory, beside the conversation pane, and has two layout modes: docked (chat in a side panel) and floating (chat overlays the bench). The active Bench target is URL-owned; visibility, drawer, and layout are owned by the directory-scoped workspace store and routed through a single DirectoryWorkspaceController. The agent presents targets via bench_present; users open them via the Explorer,Library, or file opens. Bench is predictable by design: one owner per concept, one outlet, deterministicopens.
 - All three capabilities (tools, skills, subagents) are first-class opencode runtime capabilities.
 
 ## Misc Rules
@@ -67,19 +68,6 @@ Long term maintainability is a core priority. If you add new functionality, firs
   - Use `import type { ... }` for type-only imports.
   - Infer local types; annotate exports and public APIs.
 - Skip tests for behavior that is fully guaranteed by TypeScript inference alone. Only write tests when there is observable runtime behavior, explicit API contract behavior, or a type-level edge case not naturally covered by normal compilation.
+- The developer will mostly talk to you via audio transcripts, account for transcrtiption errors.
 
 
-## Current Focus
-<about>
-- this section informs the agents about current WIP so they can be 
-    - more aware of user's current focus lanes
-    - can work in independent lanes
-    - don't trample on each other's work.
-- one agent will own one lane and will not interfere with the other agent's lane.
-</about>
-
-### Focus Lane 1: right-sidebar 
-UI fixes in the web package. Primarily around right sidebar that shows bench, and navigation.user feels that the information hierarchy is incorrect, the navigation is confusing and unpredictable. 
-
-### Focus Lane 2: source-system
-Buddy has object system, where everything durable is stored as an object. One of those objects is resource, which for now just means an epub/pdf that can be prepared using our prepare_resource tool or prepare button. And can be ingested using ingest tool. These can also be read using our built in reader. This is a great start but lacks the robustness of the source system of [/Users/prashantbhudwal/Code/buddy/docs/features/source-system/notebooklm.md]. Since people will judge or product in relation to that, we need to get closer to it in terms of capability. Buddy already has all the right parts, now we need to build a correct architecture and ux around it. The source upload screen is shown here  but it is just one of the parts of the whole system. [/Users/prashantbhudwal/Desktop/Screenshot 2026-07-02 at 13.26.15.png]
