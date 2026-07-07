@@ -89,6 +89,10 @@ export type Install = {
   readonly downloadWin: string
   readonly copyLabel: string
   readonly copiedLabel: string
+  readonly shareLabel: string
+  readonly shareCopiedLabel: string
+  readonly shareTitle: string
+  readonly shareText: string
   readonly mac: InstallOS
   readonly win: InstallOS
 }
@@ -100,6 +104,10 @@ export type Meta = {
   readonly defaultDescription: string
   readonly twitterHandle: string
   readonly organizationSameAs: readonly [string, string, string]
+  readonly analytics: {
+    readonly postHogCaptureEndpoint: string
+    readonly postHogProjectToken: string
+  }
   readonly ogImageWidth: string
   readonly ogImageHeight: string
   readonly jsonLd: {
@@ -243,6 +251,10 @@ const meta: Meta = {
     "https://github.com/prashantbhudwal",
     "https://www.linkedin.com/in/prashantbhudwal/",
   ],
+  analytics: {
+    postHogCaptureEndpoint: "https://us.i.posthog.com/i/v0/e/",
+    postHogProjectToken: "phc_kK4K3GjXXwroa6dEM8tzCa8HVLWh63vKS3cGoLgNiqdv",
+  },
   ogImageWidth: "1200",
   ogImageHeight: "630",
   jsonLd: {
@@ -259,6 +271,10 @@ const install: Install = {
   downloadWin: "Download for Windows",
   copyLabel: "Copy",
   copiedLabel: "Copied!",
+  shareLabel: "Send download link",
+  shareCopiedLabel: "Link copied",
+  shareTitle: "Download Buddy for desktop",
+  shareText: "Open this link on your computer to install Buddy for macOS or Windows.",
   mac: {
     modalTitle: "Install Buddy for macOS",
     terminal: "Terminal",

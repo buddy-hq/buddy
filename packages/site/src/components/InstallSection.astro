@@ -2,10 +2,11 @@
 import { content } from "../content/site"
 import { MAC_INSTALL_CMD, WIN_INSTALL_CMD } from "../lib/constants"
 
-const { learners, educators, install: installContent } = content
+const { learners, educators, install: installContent, meta } = content
+const installShareUrl = new URL("#install", meta.siteUrl).href
 ---
 
-<section id="install" class="install-section reveal">
+<section id="install" class="install-section reveal" data-analytics-section="install">
   <div class="container">
     <div class="install-card">
       <div class="swap swap-content swap-audience-learners active">
@@ -52,6 +53,25 @@ const { learners, educators, install: installContent } = content
     </div>
 
     <div class="modal-body">
+      <button class="download-btn download-share-link-btn" id="download-share-link-btn" type="button" hidden>
+        <span class="download-share-link-label">{installContent.shareLabel}</span>
+        <svg
+          class="download-share-link-icon"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <path d="m22 2-7 20-4-9-9-4Z"></path>
+          <path d="M22 2 11 13"></path>
+        </svg>
+      </button>
+
       <!-- High-fidelity Terminal Mockup with Integrated Copy Button -->
       <div class="modal-terminal-wrapper" title="Click anywhere inside terminal to copy command">
         <div class="terminal-header">
@@ -244,6 +264,8 @@ const { learners, educators, install: installContent } = content
     padding: 40px 48px;
     width: 100%;
     max-width: 680px;
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
     position: relative;
     box-shadow: 0 32px 64px -12px rgba(0, 0, 0, 0.8),
                 0 0 40px -4px rgba(255, 107, 0, 0.03);
@@ -291,6 +313,21 @@ const { learners, educators, install: installContent } = content
     color: var(--color-text-primary);
     margin: 0;
     letter-spacing: -0.015em;
+  }
+
+  .download-share-link-btn {
+    display: none;
+  }
+
+  .download-share-link-btn:not([hidden]) {
+    width: 100%;
+    max-width: 320px;
+    margin-inline: auto;
+    margin-bottom: var(--space-5);
+  }
+
+  .download-share-link-icon {
+    flex-shrink: 0;
   }
 
   /* High-fidelity Terminal Window Mockup */
@@ -520,6 +557,23 @@ const { learners, educators, install: installContent } = content
   }
 
   @media (max-width: 640px) {
+    .download-modal-card {
+      padding: 36px 28px;
+    }
+    .download-modal-overlay.share-link-only .download-modal-card {
+      max-width: min(420px, calc(100vw - 32px));
+    }
+    .download-modal-overlay.share-link-only .modal-header {
+      margin-bottom: var(--space-8);
+    }
+    .download-modal-overlay.share-link-only .modal-terminal-wrapper,
+    .download-modal-overlay.share-link-only .install-workflow-visual {
+      display: none;
+    }
+    .download-share-link-btn:not([hidden]) {
+      display: inline-flex;
+      margin-bottom: 0;
+    }
     .install-workflow-visual {
       flex-direction: column;
       align-items: center;
@@ -534,13 +588,21 @@ const { learners, educators, install: installContent } = content
       height: auto;
       margin-block: 4px;
     }
-    .download-modal-card {
-      padding: 36px 28px;
-    }
   }
 </style>
 
-<script define:vars={{ MAC_INSTALL_CMD, WIN_INSTALL_CMD, installContent }}>
+<script define:vars={{ MAC_INSTALL_CMD, WIN_INSTALL_CMD, installContent, installShareUrl }}>
+  const eventDownloadLinkShareCancel = "download_link_share_cancel"
+  const eventDownloadLinkShareClick = "download_link_share_click"
+  const eventDownloadLinkShareCopyFallback = "download_link_share_copy_fallback"
+  const eventDownloadLinkShareFailed = "download_link_share_failed"
+  const eventDownloadLinkShareShown = "download_link_share_shown"
+  const eventDownloadLinkShareSuccess = "download_link_share_success"
+  const mobileInstallShareMaxWidthPx = 640
+  const osMac = "mac"
+  const osWin = "win"
+  const shareSource = "download_modal"
+
   const commands = {
     mac: {
       title: installContent.mac.modalTitle,
@@ -600,9 +662,50 @@ const { learners, educators, install: installContent } = content
 
   const modal = document.getElementById("download-modal")
   const modalCloseBtn = document.getElementById("modal-close-btn")
-  const downloadBtns = document.querySelectorAll(".download-btn")
+  const shareLinkBtn = document.getElementById("download-share-link-btn")
+  const downloadBtns = document.querySelectorAll(".download-btn[data-os]")
 
-  function openModal(os) {
+  function getModalOs() {
+    return modal.classList.contains("overlay-win") ? osWin : osMac
+  }
+
+  function getShareData() {
+    return {
+      title: installContent.shareTitle,
+      text: installContent.shareText,
+      url: installShareUrl,
+    }
+  }
+
+  function isMobileInstallViewport() {
+    return window.matchMedia(`(max-width: ${mobileInstallShareMaxWidthPx}px)`).matches
+  }
+
+  function trackDownloadLinkShare(eventName, properties = {}) {
+    window.dispatchEvent(
+      new CustomEvent("buddy:analytics", {
+        detail: {
+          event: eventName,
+          properties: {
+            os: getModalOs(),
+            source: shareSource,
+            ...properties,
+          },
+        },
+      }),
+    )
+  }
+
+  function syncShareLinkButtonVisibility() {
+    if (!shareLinkBtn) return false
+
+    const shouldShow = modal.classList.contains("visible") && isMobileInstallViewport()
+    shareLinkBtn.hidden = !shouldShow
+    modal.classList.toggle("share-link-only", shouldShow)
+    return shouldShow
+  }
+
+  function openModal(os, source = "install_section") {
     const data = commands[os]
     if (!data) return
 
@@ -662,17 +765,35 @@ const { learners, educators, install: installContent } = content
     modal.classList.add("visible")
     modal.setAttribute("aria-hidden", "false")
     document.body.style.overflow = "hidden"
+    const shareLinkShown = syncShareLinkButtonVisibility()
+
+    window.dispatchEvent(
+      new CustomEvent("buddy:analytics", {
+        detail: {
+          event: "download_modal_open",
+          properties: {
+            os,
+            source,
+          },
+        },
+      }),
+    )
+
+    if (shareLinkShown) {
+      trackDownloadLinkShare(eventDownloadLinkShareShown, { trigger_source: source })
+    }
   }
 
   function closeModal() {
     modal.classList.remove("visible")
     modal.setAttribute("aria-hidden", "true")
     document.body.style.overflow = ""
+    syncShareLinkButtonVisibility()
   }
 
   // Hook up button clicks
   downloadBtns.forEach((btn) => {
-    btn.addEventListener("click", () => openModal(btn.getAttribute("data-os")))
+    btn.addEventListener("click", () => openModal(btn.getAttribute("data-os"), "install_section"))
   })
 
   // Hook up close actions
@@ -689,13 +810,57 @@ const { learners, educators, install: installContent } = content
   })
 
   // Expose function globally so the header button can open the modal based on OS
-  window.openBuddyDownloadModal = (os) => {
-    openModal(os);
+  window.openBuddyDownloadModal = (os, source = "header") => {
+    openModal(os, source);
   };
 
   // Unified Copy Action Handler
   const copyBtn = document.getElementById("modal-copy-btn")
   const stepsContainer = document.getElementById("modal-steps-container")
+
+  async function handleShareLink() {
+    if (!shareLinkBtn) return
+
+    trackDownloadLinkShare(eventDownloadLinkShareClick)
+
+    if (navigator.share) {
+      try {
+        await navigator.share(getShareData())
+        trackDownloadLinkShare(eventDownloadLinkShareSuccess)
+        return
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          trackDownloadLinkShare(eventDownloadLinkShareCancel)
+          return
+        }
+
+        trackDownloadLinkShare(eventDownloadLinkShareFailed, {
+          error_name: err instanceof Error ? err.name : "Unknown",
+          method: "native_share",
+        })
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(installShareUrl)
+      const shareLabel = shareLinkBtn.querySelector(".download-share-link-label")
+      const previousLabel = shareLabel?.textContent
+      if (shareLabel) shareLabel.textContent = installContent.shareCopiedLabel
+
+      trackDownloadLinkShare(eventDownloadLinkShareCopyFallback, {
+        method: "clipboard",
+      })
+
+      setTimeout(() => {
+        if (shareLabel && previousLabel) shareLabel.textContent = previousLabel
+      }, 2000)
+    } catch (err) {
+      trackDownloadLinkShare(eventDownloadLinkShareFailed, {
+        error_name: err instanceof Error ? err.name : "Unknown",
+        method: "clipboard",
+      })
+    }
+  }
 
   async function handleCopy() {
     const text = copyBtn.getAttribute("data-copy")
@@ -718,6 +883,18 @@ const { learners, educators, install: installContent } = content
         step1IconBox.classList.add("success")
       }
 
+      window.dispatchEvent(
+        new CustomEvent("buddy:analytics", {
+          detail: {
+            event: "install_command_copy",
+            properties: {
+              os: modal.classList.contains("overlay-win") ? "win" : "mac",
+              source: "download_modal",
+            },
+          },
+        }),
+      )
+
       // Reset feedback states after 2 seconds
       setTimeout(() => {
         copyBtn.classList.remove("copied")
@@ -730,6 +907,19 @@ const { learners, educators, install: installContent } = content
         }
       }, 2000)
     } catch (err) {
+      window.dispatchEvent(
+        new CustomEvent("buddy:analytics", {
+          detail: {
+            event: "install_command_copy_failed",
+            properties: {
+              error_name: err instanceof Error ? err.name : "Unknown",
+              os: modal.classList.contains("overlay-win") ? "win" : "mac",
+              source: "download_modal",
+            },
+          },
+        }),
+      )
+
       console.error("Copy failed:", err)
     }
   }
@@ -747,4 +937,12 @@ const { learners, educators, install: installContent } = content
       handleCopy()
     })
   }
+
+  if (shareLinkBtn) {
+    shareLinkBtn.addEventListener("click", handleShareLink)
+  }
+
+  window.addEventListener("resize", () => {
+    syncShareLinkButtonVisibility()
+  }, { passive: true })
 </script>

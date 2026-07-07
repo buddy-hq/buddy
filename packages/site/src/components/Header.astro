@@ -218,17 +218,33 @@ const { header: headerContent } = content
     headerDownloadBtn.addEventListener("click", () => {
       // Call global function defined in InstallSection.astro
       if (typeof (window as any).openBuddyDownloadModal === "function") {
-        (window as any).openBuddyDownloadModal(autoOs)
+        (window as any).openBuddyDownloadModal(autoOs, "header")
       }
     })
   }
 
   // Audience toggle — sync toggle buttons + swap all audience content
+  const audienceLearners = "learners"
+  const audienceEducators = "educators"
   const audienceBtns = document.querySelectorAll(".audience-toggle-btn")
   audienceBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
       const target = btn.getAttribute("data-audience")
+      if (target !== audienceLearners && target !== audienceEducators) return
       if (btn.classList.contains("active")) return
+      const previousAudience =
+        document.querySelector(".audience-toggle-btn.active")?.getAttribute("data-audience") ??
+        audienceLearners
+
+      window.dispatchEvent(
+        new CustomEvent("buddy:audience-changing", {
+          detail: {
+            audience: target,
+            previous_audience: previousAudience,
+            source: "header_toggle",
+          },
+        }),
+      )
 
       audienceBtns.forEach((b) => {
         b.classList.remove("active")
@@ -239,9 +255,22 @@ const { header: headerContent } = content
         b.setAttribute("aria-selected", "true")
       })
 
-      const inactive = target === "learners" ? "educators" : "learners"
+      const inactive = target === audienceLearners ? audienceEducators : audienceLearners
       document.querySelectorAll(`.swap-audience-${inactive}`).forEach((el) => el.classList.remove("active"))
       document.querySelectorAll(`.swap-audience-${target}`).forEach((el) => el.classList.add("active"))
+
+      window.dispatchEvent(
+        new CustomEvent("buddy:analytics", {
+          detail: {
+            event: "audience_selected",
+            properties: {
+              audience: target,
+              previous_audience: previousAudience,
+              source: "header_toggle",
+            },
+          },
+        }),
+      )
     })
   })
 

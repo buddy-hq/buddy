@@ -21,6 +21,8 @@ const canonicalURL = new URL(Astro.url.pathname, meta.siteUrl).href
 const ogImage = `${meta.siteUrl}/og.png`
 const organizationId = `${meta.siteUrl}/#organization`
 const softwareApplicationId = `${meta.siteUrl}/#software-application`
+const postHogCaptureEndpoint = meta.analytics.postHogCaptureEndpoint
+const postHogProjectToken = meta.analytics.postHogProjectToken
 
 const softwareApplicationJsonLd = {
   "@type": "SoftwareApplication",
@@ -99,6 +101,569 @@ const jsonLd = {
       type="font/woff2"
       crossorigin
     />
+
+    <script define:vars={{ postHogCaptureEndpoint, postHogProjectToken }}>
+      const analyticsHosts = new Set(["hibuddy.in", "www.hibuddy.in"])
+      const analyticsEnabled =
+        analyticsHosts.has(window.location.hostname) && navigator.doNotTrack !== "1"
+      const analyticsDistinctIdStorageKey = "buddy_landing_distinct_id"
+      const analyticsDistinctId = analyticsEnabled ? getAnalyticsDistinctId() : ""
+      const mobileMaxViewportWidth = 767
+      const tabletMaxViewportWidth = 1023
+      const percentMultiplier = 100
+      const sectionCompleteMs = 3000
+      const sectionSeenRatio = 0.4
+      const sectionWatchIntervalMs = 1000
+      const analyticsFeatureSelector = "[data-analytics-feature]"
+      const analyticsSectionSelector = "[data-analytics-section]"
+      const educatorAudience = "educators"
+      const eventFeaturesSummary = "landing_features_summary"
+      const eventSectionsSummary = "landing_sections_summary"
+      const learnerAudience = "learners"
+
+      function createAnalyticsDistinctId() {
+        return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      }
+
+      function getAnalyticsDistinctId() {
+        try {
+          const storedDistinctId = window.localStorage.getItem(analyticsDistinctIdStorageKey)
+          if (storedDistinctId) return storedDistinctId
+
+          const distinctId = createAnalyticsDistinctId()
+          window.localStorage.setItem(analyticsDistinctIdStorageKey, distinctId)
+          return distinctId
+        } catch {
+          return createAnalyticsDistinctId()
+        }
+      }
+
+      function getBrowser() {
+        const userAgent = navigator.userAgent
+        if (/Edg\//.test(userAgent)) return "Edge"
+        if (/OPR\//.test(userAgent) || /Opera/.test(userAgent)) return "Opera"
+        if (/Firefox\//.test(userAgent)) return "Firefox"
+        if (/Chrome\//.test(userAgent) || /CriOS\//.test(userAgent)) return "Chrome"
+        if (/Safari\//.test(userAgent)) return "Safari"
+        return "Unknown"
+      }
+
+      function getOperatingSystem() {
+        const userAgent = navigator.userAgent
+        const platform = navigator.platform
+        if (/iPad|iPhone|iPod/.test(userAgent)) return "iOS"
+        if (platform === "MacIntel" && navigator.maxTouchPoints > 1) return "iPadOS"
+        if (/Android/.test(userAgent)) return "Android"
+        if (/Win/.test(platform) || /Windows/.test(userAgent)) return "Windows"
+        if (/Mac/.test(platform) || /Macintosh|Mac OS X/.test(userAgent)) return "Mac OS X"
+        if (/Linux/.test(platform) || /Linux/.test(userAgent)) return "Linux"
+        return "Unknown"
+      }
+
+      function getDeviceType() {
+        const userAgent = navigator.userAgent
+        if (/Mobi|Android|iPhone|iPod/.test(userAgent)) return "Mobile"
+        if (/iPad/.test(userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) {
+          return "Tablet"
+        }
+        if (window.innerWidth <= mobileMaxViewportWidth) return "Mobile"
+        if (window.innerWidth <= tabletMaxViewportWidth) return "Tablet"
+        return "Desktop"
+      }
+
+      function getDeviceProperties() {
+        return {
+          $browser: getBrowser(),
+          $device_type: getDeviceType(),
+          $os: getOperatingSystem(),
+          $screen_height: window.screen.height,
+          $screen_width: window.screen.width,
+          viewport_height: window.innerHeight,
+          viewport_width: window.innerWidth,
+        }
+      }
+
+      function getActiveAudience() {
+        return (
+          document.querySelector(".audience-toggle-btn.active")?.getAttribute("data-audience") ??
+          "learners"
+        )
+      }
+
+      function getCampaignProperties() {
+        const params = new URLSearchParams(window.location.search)
+        return {
+          utm_campaign: params.get("utm_campaign") ?? undefined,
+          utm_content: params.get("utm_content") ?? undefined,
+          utm_medium: params.get("utm_medium") ?? undefined,
+          utm_source: params.get("utm_source") ?? undefined,
+          utm_term: params.get("utm_term") ?? undefined,
+        }
+      }
+
+      function sendPostHogEvent(eventName, properties = {}) {
+        if (!analyticsEnabled) return
+
+        const payload = {
+          api_key: postHogProjectToken,
+          distinct_id: analyticsDistinctId,
+          event: eventName,
+          timestamp: new Date().toISOString(),
+          properties: {
+            $current_url: window.location.href,
+            $host: window.location.host,
+            $pathname: window.location.pathname,
+            $process_person_profile: false,
+            $referrer: document.referrer || undefined,
+            audience: getActiveAudience(),
+            environment: "production",
+            ...getDeviceProperties(),
+            ...getCampaignProperties(),
+            ...properties,
+          },
+        }
+        const body = JSON.stringify(payload)
+        const blob = new Blob([body], { type: "application/json" })
+
+        if (navigator.sendBeacon?.(postHogCaptureEndpoint, blob)) return
+
+        fetch(postHogCaptureEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          keepalive: true,
+        }).catch(() => {})
+      }
+
+      function clampRatio(value) {
+        return Math.max(0, Math.min(1, value))
+      }
+
+      function getPercent(value) {
+        return Math.round(clampRatio(value) * percentMultiplier)
+      }
+
+      function getScrollDepthPercent() {
+        const documentHeight = document.documentElement.scrollHeight
+        if (documentHeight <= window.innerHeight) return percentMultiplier
+
+        return Math.min(
+          percentMultiplier,
+          Math.round(((window.scrollY + window.innerHeight) / documentHeight) * percentMultiplier),
+        )
+      }
+
+      function getSectionVisibleRatio(element) {
+        const rect = element.getBoundingClientRect()
+        const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0)
+        const measurableHeight = Math.min(rect.height, window.innerHeight)
+
+        if (visibleHeight <= 0 || measurableHeight <= 0) return 0
+
+        return clampRatio(visibleHeight / measurableHeight)
+      }
+
+      function getTrackedAudience() {
+        return getActiveAudience() === educatorAudience ? educatorAudience : learnerAudience
+      }
+
+      function startSectionAnalytics() {
+        if (!analyticsEnabled) return
+
+        const sections = Array.from(document.querySelectorAll(analyticsSectionSelector)).map(
+          (element, index) => ({
+            completed: false,
+            element,
+            maxVisibleRatio: 0,
+            order: index + 1,
+            section: element.getAttribute("data-analytics-section") ?? `section_${index + 1}`,
+            seen: false,
+            visibleMs: 0,
+            visibleStartedAt: undefined,
+            visitCount: 0,
+          }),
+        )
+
+        if (sections.length === 0) return
+
+        let maxScrollDepthPercent = getScrollDepthPercent()
+        let sectionUpdateFrame = 0
+        let summarySent = false
+
+        function getTotalVisibleMs(section, now) {
+          if (section.visibleStartedAt === undefined) return section.visibleMs
+
+          return section.visibleMs + now - section.visibleStartedAt
+        }
+
+        function flushSectionExit(section, now) {
+          if (section.visibleStartedAt === undefined) return
+
+          const visibleDeltaMs = now - section.visibleStartedAt
+          section.visibleMs += visibleDeltaMs
+          section.visibleStartedAt = undefined
+
+          if (!section.completed && section.visibleMs >= sectionCompleteMs) {
+            section.completed = true
+          }
+        }
+
+        function updateSectionVisibility() {
+          sectionUpdateFrame = 0
+          const now = performance.now()
+          const canTrackVisibleTime = document.visibilityState !== "hidden"
+          maxScrollDepthPercent = Math.max(maxScrollDepthPercent, getScrollDepthPercent())
+
+          for (const section of sections) {
+            const visibleRatio = canTrackVisibleTime ? getSectionVisibleRatio(section.element) : 0
+            section.maxVisibleRatio = Math.max(section.maxVisibleRatio, visibleRatio)
+
+            if (visibleRatio >= sectionSeenRatio) {
+              if (section.visibleStartedAt === undefined) {
+                section.seen = true
+                section.visibleStartedAt = now
+                section.visitCount += 1
+              }
+
+              if (!section.completed && getTotalVisibleMs(section, now) >= sectionCompleteMs) {
+                section.completed = true
+              }
+            } else {
+              flushSectionExit(section, now)
+            }
+          }
+        }
+
+        function requestSectionUpdate() {
+          if (sectionUpdateFrame !== 0) return
+          sectionUpdateFrame = window.requestAnimationFrame(updateSectionVisibility)
+        }
+
+        function getSectionSummaryProperties(now) {
+          const viewedSections = []
+          const completedSections = []
+          const skippedSections = []
+          const sectionTimeProperties = {}
+          let maxSectionReached = "none"
+          let totalVisibleMs = 0
+
+          for (const section of sections) {
+            const visibleMs = Math.round(getTotalVisibleMs(section, now))
+            sectionTimeProperties[`section_${section.section}_ms`] = visibleMs
+            sectionTimeProperties[`section_${section.section}_max_visible_percent`] = getPercent(
+              section.maxVisibleRatio,
+            )
+            sectionTimeProperties[`section_${section.section}_visit_count`] = section.visitCount
+            totalVisibleMs += visibleMs
+
+            if (section.seen) {
+              viewedSections.push(section.section)
+              maxSectionReached = section.section
+            } else {
+              skippedSections.push(section.section)
+            }
+
+            if (section.completed) {
+              completedSections.push(section.section)
+            }
+          }
+
+          return {
+            ...sectionTimeProperties,
+            completed_section_count: completedSections.length,
+            completed_sections: completedSections.join(","),
+            max_scroll_depth_percent: maxScrollDepthPercent,
+            max_section_reached: maxSectionReached,
+            page_session_ms: Math.round(now),
+            section_count: sections.length,
+            skipped_section_count: skippedSections.length,
+            skipped_sections: skippedSections.join(","),
+            total_section_visible_ms: totalVisibleMs,
+            viewed_section_count: viewedSections.length,
+            viewed_sections: viewedSections.join(","),
+          }
+        }
+
+        function finalizeSectionAnalytics(reason) {
+          const now = performance.now()
+          maxScrollDepthPercent = Math.max(maxScrollDepthPercent, getScrollDepthPercent())
+
+          for (const section of sections) {
+            flushSectionExit(section, now)
+          }
+
+          if (summarySent) return
+          summarySent = true
+
+          sendPostHogEvent(eventSectionsSummary, {
+            ...getSectionSummaryProperties(now),
+            reason,
+          })
+        }
+
+        updateSectionVisibility()
+
+        window.setInterval(updateSectionVisibility, sectionWatchIntervalMs)
+        window.addEventListener("scroll", requestSectionUpdate, { passive: true })
+        window.addEventListener("resize", requestSectionUpdate, { passive: true })
+        window.addEventListener("pagehide", () => finalizeSectionAnalytics("pagehide"))
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "hidden") {
+            const now = performance.now()
+            for (const section of sections) {
+              flushSectionExit(section, now)
+            }
+            return
+          }
+
+          requestSectionUpdate()
+        })
+      }
+
+      function startFeatureAnalytics() {
+        if (!analyticsEnabled) return
+
+        const features = Array.from(document.querySelectorAll(analyticsFeatureSelector)).map(
+          (element, index) => ({
+            audienceInteractionCounts: {
+              [educatorAudience]: 0,
+              [learnerAudience]: 0,
+            },
+            audienceVisibleMs: {
+              [educatorAudience]: 0,
+              [learnerAudience]: 0,
+            },
+            educatorFeature: element.getAttribute("data-analytics-feature-educators") ?? "",
+            element,
+            feature: element.getAttribute("data-analytics-feature") ?? `feature_${index + 1}`,
+            firstInteractionMs: undefined,
+            interactionCount: 0,
+            keyboardInteractionCount: 0,
+            learnerFeature: element.getAttribute("data-analytics-feature-learners") ?? "",
+            maxVisibleRatio: 0,
+            order: index + 1,
+            pointerInteractionCount: 0,
+            seen: false,
+            visibleMs: 0,
+            visibleStartedAt: undefined,
+            visitCount: 0,
+          }),
+        )
+
+        if (features.length === 0) return
+
+        let featureUpdateFrame = 0
+        let summarySent = false
+
+        function addFeatureVisibleTime(feature, now) {
+          if (feature.visibleStartedAt === undefined) return
+
+          const visibleDeltaMs = now - feature.visibleStartedAt
+          if (visibleDeltaMs <= 0) return
+
+          const audience = getTrackedAudience()
+          feature.audienceVisibleMs[audience] += visibleDeltaMs
+          feature.visibleMs += visibleDeltaMs
+          feature.visibleStartedAt = now
+        }
+
+        function updateFeatureVisibility() {
+          featureUpdateFrame = 0
+          const now = performance.now()
+          const canTrackVisibleTime = document.visibilityState !== "hidden"
+
+          for (const feature of features) {
+            const visibleRatio = canTrackVisibleTime ? getSectionVisibleRatio(feature.element) : 0
+            feature.maxVisibleRatio = Math.max(feature.maxVisibleRatio, visibleRatio)
+
+            if (visibleRatio >= sectionSeenRatio) {
+              feature.seen = true
+              if (feature.visibleStartedAt === undefined) {
+                feature.visitCount += 1
+                feature.visibleStartedAt = now
+              } else {
+                addFeatureVisibleTime(feature, now)
+              }
+            } else {
+              addFeatureVisibleTime(feature, now)
+              feature.visibleStartedAt = undefined
+            }
+          }
+        }
+
+        function requestFeatureUpdate() {
+          if (featureUpdateFrame !== 0) return
+          featureUpdateFrame = window.requestAnimationFrame(updateFeatureVisibility)
+        }
+
+        function recordFeatureInteraction(feature, interactionType) {
+          const audience = getTrackedAudience()
+          feature.audienceInteractionCounts[audience] += 1
+          feature.interactionCount += 1
+
+          if (interactionType === "keyboard") {
+            feature.keyboardInteractionCount += 1
+          } else {
+            feature.pointerInteractionCount += 1
+          }
+
+          if (feature.firstInteractionMs === undefined) {
+            feature.firstInteractionMs = Math.round(performance.now())
+          }
+        }
+
+        function flushFeatureVisibility(now) {
+          for (const feature of features) {
+            addFeatureVisibleTime(feature, now)
+            feature.visibleStartedAt = undefined
+          }
+        }
+
+        function getFeatureSummaryProperties(now) {
+          const featureProperties = {}
+          const interactedFeatures = []
+          const seenFeatures = []
+          const skippedFeatures = []
+          let totalFeatureInteractionCount = 0
+          let totalFeatureVisibleMs = 0
+
+          for (const feature of features) {
+            const featurePrefix = `feature_${feature.order}`
+            const visibleMs = Math.round(feature.visibleMs)
+            const educatorVisibleMs = Math.round(feature.audienceVisibleMs[educatorAudience])
+            const learnerVisibleMs = Math.round(feature.audienceVisibleMs[learnerAudience])
+
+            featureProperties[`${featurePrefix}_educators_interactions`] =
+              feature.audienceInteractionCounts[educatorAudience]
+            featureProperties[`${featurePrefix}_educators_key`] = feature.educatorFeature
+            featureProperties[`${featurePrefix}_educators_ms`] = educatorVisibleMs
+            featureProperties[`${featurePrefix}_first_interaction_ms`] = feature.firstInteractionMs
+            featureProperties[`${featurePrefix}_id`] = feature.feature
+            featureProperties[`${featurePrefix}_interactions`] = feature.interactionCount
+            featureProperties[`${featurePrefix}_keyboard_interactions`] = feature.keyboardInteractionCount
+            featureProperties[`${featurePrefix}_learners_interactions`] =
+              feature.audienceInteractionCounts[learnerAudience]
+            featureProperties[`${featurePrefix}_learners_key`] = feature.learnerFeature
+            featureProperties[`${featurePrefix}_learners_ms`] = learnerVisibleMs
+            featureProperties[`${featurePrefix}_max_visible_percent`] = getPercent(feature.maxVisibleRatio)
+            featureProperties[`${featurePrefix}_ms`] = visibleMs
+            featureProperties[`${featurePrefix}_pointer_interactions`] = feature.pointerInteractionCount
+            featureProperties[`${featurePrefix}_visit_count`] = feature.visitCount
+
+            totalFeatureInteractionCount += feature.interactionCount
+            totalFeatureVisibleMs += visibleMs
+
+            if (feature.seen) {
+              seenFeatures.push(feature.feature)
+            } else {
+              skippedFeatures.push(feature.feature)
+            }
+
+            if (feature.interactionCount > 0) {
+              interactedFeatures.push(feature.feature)
+            }
+          }
+
+          return {
+            ...featureProperties,
+            feature_count: features.length,
+            interacted_feature_count: interactedFeatures.length,
+            interacted_features: interactedFeatures.join(","),
+            page_session_ms: Math.round(now),
+            seen_feature_count: seenFeatures.length,
+            seen_features: seenFeatures.join(","),
+            skipped_feature_count: skippedFeatures.length,
+            skipped_features: skippedFeatures.join(","),
+            total_feature_interaction_count: totalFeatureInteractionCount,
+            total_feature_visible_ms: totalFeatureVisibleMs,
+          }
+        }
+
+        function finalizeFeatureAnalytics(reason) {
+          const now = performance.now()
+          flushFeatureVisibility(now)
+
+          if (summarySent) return
+          summarySent = true
+
+          sendPostHogEvent(eventFeaturesSummary, {
+            ...getFeatureSummaryProperties(now),
+            reason,
+          })
+        }
+
+        for (const feature of features) {
+          feature.element.addEventListener(
+            "click",
+            (event) => {
+              if (event instanceof MouseEvent && event.detail === 0) return
+              recordFeatureInteraction(feature, "pointer")
+            },
+            { capture: true },
+          )
+          feature.element.addEventListener(
+            "keydown",
+            (event) => {
+              if (!(event instanceof KeyboardEvent)) return
+              if (event.key !== "Enter" && event.key !== " ") return
+              recordFeatureInteraction(feature, "keyboard")
+            },
+            { capture: true },
+          )
+        }
+
+        updateFeatureVisibility()
+
+        window.setInterval(updateFeatureVisibility, sectionWatchIntervalMs)
+        window.addEventListener("scroll", requestFeatureUpdate, { passive: true })
+        window.addEventListener("resize", requestFeatureUpdate, { passive: true })
+        window.addEventListener("pagehide", () => finalizeFeatureAnalytics("pagehide"))
+        window.addEventListener("buddy:audience-changing", () => {
+          flushFeatureVisibility(performance.now())
+          requestFeatureUpdate()
+        })
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "hidden") {
+            flushFeatureVisibility(performance.now())
+            return
+          }
+
+          requestFeatureUpdate()
+        })
+      }
+
+      function startPassiveAnalytics() {
+        startSectionAnalytics()
+        startFeatureAnalytics()
+      }
+
+      window.addEventListener("buddy:analytics", (event) => {
+        if (!(event instanceof CustomEvent)) return
+        const detail = event.detail
+        if (!detail || typeof detail.event !== "string") return
+
+        const properties =
+          detail.properties && typeof detail.properties === "object" ? detail.properties : {}
+        sendPostHogEvent(detail.event, properties)
+      })
+
+      window.addEventListener(
+        "load",
+        () => {
+          sendPostHogEvent("$pageview", {
+            source: "landing",
+            title: document.title,
+          })
+        },
+        { once: true },
+      )
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", startPassiveAnalytics, { once: true })
+      } else {
+        startPassiveAnalytics()
+      }
+    </script>
   </head>
   <body>
     <div class="bg-overlay"></div>

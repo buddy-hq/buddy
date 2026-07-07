@@ -16,9 +16,10 @@ const learnersSteps = content.learners.features
 const educatorsSteps = content.educators.features
 const learnersHeader = content.learners.featuresHeader
 const educatorsHeader = content.educators.featuresHeader
+const toAnalyticsKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
 ---
 
-<section class="features-section">
+<section class="features-section" data-analytics-section="features">
 <div class="container">
 
 
@@ -28,7 +29,12 @@ const educatorsHeader = content.educators.featuresHeader
         const educatorStep = educatorsSteps[i]
 
         return (
-          <div class="bookend-card-wrapper">
+          <div
+            class="bookend-card-wrapper"
+            data-analytics-feature={`feature_${i + 1}`}
+            data-analytics-feature-learners={toAnalyticsKey(learnerStep.tag)}
+            data-analytics-feature-educators={toAnalyticsKey(educatorStep.tag)}
+          >
             <div class="bookend-card-body">
               <div class="bookend-card-left">
                 <div class="step-tag-wrapper">
