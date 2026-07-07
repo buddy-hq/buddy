@@ -1,34 +1,35 @@
 ---
 import "../styles/global.css"
+import { content } from "../content/site"
 
 type Props = {
   title?: string
   description?: string
 }
 
-const SITE_URL = "https://hibuddy.in"
+const { meta } = content
 
 const {
-  title = "Buddy — Your Personal Learning Companion",
-  description = "A private, local-first desktop learning assistant for students, lifelong learners, and educators.",
+  title = meta.defaultTitle,
+  description = meta.defaultDescription,
 } = Astro.props
 
-const canonicalURL = new URL(Astro.url.pathname, SITE_URL).href
-const ogImage = `${SITE_URL}/og.png`
+const canonicalURL = new URL(Astro.url.pathname, meta.siteUrl).href
+const ogImage = `${meta.siteUrl}/og.png`
 
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  name: "Buddy",
-  applicationCategory: "EducationApplication",
-  operatingSystem: "macOS, Windows",
+  name: meta.siteName,
+  applicationCategory: meta.jsonLd.applicationCategory,
+  operatingSystem: meta.jsonLd.operatingSystem,
   description,
-  url: SITE_URL,
+  url: meta.siteUrl,
   image: ogImage,
   offers: {
     "@type": "Offer",
-    price: "0",
-    priceCurrency: "USD",
+    price: meta.jsonLd.price,
+    priceCurrency: meta.jsonLd.priceCurrency,
   },
 }
 ---
@@ -50,9 +51,9 @@ const jsonLd = {
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalURL} />
     <meta property="og:image" content={ogImage} />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:site_name" content="Buddy" />
+    <meta property="og:image:width" content={meta.ogImageWidth} />
+    <meta property="og:image:height" content={meta.ogImageHeight} />
+    <meta property="og:site_name" content={meta.siteName} />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />

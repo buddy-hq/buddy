@@ -2,7 +2,7 @@
 import { content } from "../content/site"
 import { MAC_INSTALL_CMD, WIN_INSTALL_CMD } from "../lib/constants"
 
-const { learners, educators } = content
+const { learners, educators, install: installContent } = content
 ---
 
 <section id="install" class="install-section reveal">
@@ -10,27 +10,27 @@ const { learners, educators } = content
     <div class="install-card">
       <div class="swap swap-content swap-audience-learners active">
         <p class="install-subtitle">{learners.download.tagline}</p>
-        <h2 class="install-title">made for you</h2>
+        <h2 class="install-title">{installContent.title}</h2>
       </div>
       <div class="swap swap-content swap-audience-educators">
         <p class="install-subtitle">{educators.download.tagline}</p>
-        <h2 class="install-title">made for you</h2>
+        <h2 class="install-title">{installContent.title}</h2>
       </div>
 
       <!-- Download Button Group -->
       <div class="download-buttons-group">
-        <button class="download-btn btn-mac" data-os="mac" aria-label="Download for macOS">
+        <button class="download-btn btn-mac" data-os="mac" aria-label={installContent.downloadMac}>
           <svg class="btn-icon" width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.08 1.85-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"></path>
           </svg>
-          <span>Download for Mac</span>
+          <span>{installContent.downloadMac}</span>
         </button>
 
-        <button class="download-btn btn-win" data-os="win" aria-label="Download for Windows">
+        <button class="download-btn btn-win" data-os="win" aria-label={installContent.downloadWin}>
           <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
             <path d="M0 0h11v11H0zM13 0h11v11H13zM0 13h11v11H0zM13 13h11v11H13z"></path>
           </svg>
-          <span>Download for Windows</span>
+          <span>{installContent.downloadWin}</span>
         </button>
       </div>
     </div>
@@ -48,7 +48,7 @@ const { learners, educators } = content
     </button>
 
     <div class="modal-header">
-      <h3 class="modal-title" id="modal-title">Install Buddy</h3>
+      <h3 class="modal-title" id="modal-title">{installContent.mac.modalTitle}</h3>
     </div>
 
     <div class="modal-body">
@@ -58,14 +58,14 @@ const { learners, educators } = content
           <div class="terminal-dots">
             <span></span><span></span><span></span>
           </div>
-          <div class="terminal-title" id="terminal-title">Terminal</div>
+          <div class="terminal-title" id="terminal-title">{installContent.mac.terminal}</div>
         </div>
         <div class="terminal-body">
           <div class="terminal-line">
-            <span class="terminal-prompt" id="modal-cmd-prefix">$</span>
+            <span class="terminal-prompt" id="modal-cmd-prefix">{installContent.mac.prefix}</span>
             <code class="terminal-command" id="modal-cmd-text">curl ...</code>
             
-            <button class="terminal-copy-action-btn" id="modal-copy-btn" aria-label="Copy install command">
+            <button class="terminal-copy-action-btn" id="modal-copy-btn" aria-label={installContent.copyLabel}>
               <svg class="copy-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -73,7 +73,7 @@ const { learners, educators } = content
               <svg class="check-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
-              <span class="copy-text">Copy</span>
+              <span class="copy-text">{installContent.copyLabel}</span>
             </button>
           </div>
         </div>
@@ -186,7 +186,7 @@ const { learners, educators } = content
     font-size: var(--text-sm);
     font-weight: 550;
     padding: 12px 24px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     cursor: pointer;
     transition: background-color 0.2s var(--ease-out), color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -238,9 +238,9 @@ const { learners, educators } = content
   }
 
   .download-modal-card {
-    background-color: rgba(22, 19, 18, 0.96);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 16px;
+    background-color: oklch(0.205 0 0 / 96%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     padding: 40px 48px;
     width: 100%;
     max-width: 680px;
@@ -265,7 +265,7 @@ const { learners, educators } = content
     color: var(--color-text-muted);
     cursor: pointer;
     padding: 6px;
-    border-radius: 6px;
+    border-radius: var(--radius);
     transition: color 0.15s ease, background-color 0.15s ease;
   }
 
@@ -297,7 +297,7 @@ const { learners, educators } = content
   .modal-terminal-wrapper {
     background-color: #050505;
     border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 10px;
+    border-radius: var(--radius);
     overflow: hidden;
     margin-bottom: var(--space-8);
     box-shadow: 0 16px 32px rgba(0, 0, 0, 0.45);
@@ -390,7 +390,7 @@ const { learners, educators } = content
     font-weight: 500;
     cursor: pointer;
     padding: 6px 12px;
-    border-radius: 6px;
+    border-radius: var(--radius);
     transition: all 0.2s var(--ease-out);
     flex-shrink: 0;
   }
@@ -540,58 +540,58 @@ const { learners, educators } = content
   }
 </style>
 
-<script define:vars={{ MAC_INSTALL_CMD, WIN_INSTALL_CMD }}>
+<script define:vars={{ MAC_INSTALL_CMD, WIN_INSTALL_CMD, installContent }}>
   const commands = {
     mac: {
-      title: "Install Buddy for macOS",
+      title: installContent.mac.modalTitle,
       cmd: MAC_INSTALL_CMD,
-      prefix: "$",
-      terminal: "Terminal",
+      prefix: installContent.mac.prefix,
+      terminal: installContent.mac.terminal,
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.08 1.85-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"></path></svg>`,
       steps: [
         {
-          title: "Copy Command",
-          desc: "Copy command above",
+          title: installContent.mac.steps[0].title,
+          desc: installContent.mac.steps[0].desc,
           icon: `
             <span class="step-icon-main">1</span>
             <svg class="step-icon-success" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
           `
         },
         {
-          title: "Open Terminal",
-          desc: "Press ⌘+Space & type Terminal",
+          title: installContent.mac.steps[1].title,
+          desc: installContent.mac.steps[1].desc,
           icon: `<span class="step-icon-main">2</span>`
         },
         {
-          title: "Run",
-          desc: "Paste & press Return",
+          title: installContent.mac.steps[2].title,
+          desc: installContent.mac.steps[2].desc,
           icon: `<span class="step-icon-main">3</span>`
         }
       ]
     },
     win: {
-      title: "Install Buddy for Windows",
+      title: installContent.win.modalTitle,
       cmd: WIN_INSTALL_CMD,
-      prefix: "PS>",
-      terminal: "PowerShell",
+      prefix: installContent.win.prefix,
+      terminal: installContent.win.terminal,
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M0 0h11v11H0zM13 0h11v11H13zM0 13h11v11H0zM13 13h11v11H13z"></path></svg>`,
       steps: [
         {
-          title: "Copy Command",
-          desc: "Copy command above",
+          title: installContent.win.steps[0].title,
+          desc: installContent.win.steps[0].desc,
           icon: `
             <span class="step-icon-main">1</span>
             <svg class="step-icon-success" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
           `
         },
         {
-          title: "Open PowerShell",
-          desc: "Press Win & type PowerShell",
+          title: installContent.win.steps[1].title,
+          desc: installContent.win.steps[1].desc,
           icon: `<span class="step-icon-main">2</span>`
         },
         {
-          title: "Run",
-          desc: "Paste & press Enter",
+          title: installContent.win.steps[2].title,
+          desc: installContent.win.steps[2].desc,
           icon: `<span class="step-icon-main">3</span>`
         }
       ]
@@ -656,7 +656,7 @@ const { learners, educators } = content
     const copyBtn = document.getElementById("modal-copy-btn")
     copyBtn.classList.remove("copied")
     const btnText = copyBtn.querySelector(".copy-text")
-    if (btnText) btnText.textContent = "Copy"
+    if (btnText) btnText.textContent = installContent.copyLabel
 
     // Show modal
     modal.classList.add("visible")
@@ -706,7 +706,7 @@ const { learners, educators } = content
       // Update Copy Button state
       copyBtn.classList.add("copied")
       const btnText = copyBtn.querySelector(".copy-text")
-      if (btnText) btnText.textContent = "Copied!"
+      if (btnText) btnText.textContent = installContent.copiedLabel
 
       // Toggle Step 1 card to checkmark/green success state
       const step1Card = stepsContainer.querySelector(".workflow-step:first-child")
@@ -721,7 +721,7 @@ const { learners, educators } = content
       // Reset feedback states after 2 seconds
       setTimeout(() => {
         copyBtn.classList.remove("copied")
-        if (btnText) btnText.textContent = "Copy"
+        if (btnText) btnText.textContent = installContent.copyLabel
         if (step1Card) {
           step1Card.classList.remove("success")
         }

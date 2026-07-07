@@ -1,5 +1,12 @@
 export type Audience = "learners" | "educators"
 
+export type Header = {
+  readonly brandName: string
+  readonly audienceLearnersLabel: string
+  readonly audienceEducatorsLabel: string
+  readonly downloadLabel: string
+}
+
 export type FeatureItem = {
   readonly tag: string
   readonly title: string
@@ -9,6 +16,11 @@ export type FeatureItem = {
 export type LoginOption = {
   readonly name: string
   readonly icon: string
+  readonly description: string
+}
+
+export type BYOOption = {
+  readonly title: string
   readonly description: string
 }
 
@@ -23,6 +35,7 @@ export type BringYourOwn = {
     readonly providerCount: string
   }
   readonly promo: string
+  readonly options: readonly [BYOOption, BYOOption, BYOOption, BYOOption]
 }
 
 export type Download = {
@@ -58,6 +71,43 @@ export type Capabilities = {
   ]
 }
 
+export type InstallStep = {
+  readonly title: string
+  readonly desc: string
+}
+
+export type InstallOS = {
+  readonly modalTitle: string
+  readonly terminal: string
+  readonly prefix: string
+  readonly steps: readonly [InstallStep, InstallStep, InstallStep]
+}
+
+export type Install = {
+  readonly title: string
+  readonly downloadMac: string
+  readonly downloadWin: string
+  readonly copyLabel: string
+  readonly copiedLabel: string
+  readonly mac: InstallOS
+  readonly win: InstallOS
+}
+
+export type Meta = {
+  readonly siteUrl: string
+  readonly siteName: string
+  readonly defaultTitle: string
+  readonly defaultDescription: string
+  readonly ogImageWidth: string
+  readonly ogImageHeight: string
+  readonly jsonLd: {
+    readonly applicationCategory: string
+    readonly operatingSystem: string
+    readonly price: string
+    readonly priceCurrency: string
+  }
+}
+
 const bringYourOwn: BringYourOwn = {
   headline: "Bring your own AI.",
   subtext: "No pricing page, no subscriptions to sell. Your ChatGPT, your keys, your local models.",
@@ -72,12 +122,30 @@ const bringYourOwn: BringYourOwn = {
     providers: ["Opencode", "Google", "Copilot"],
     providerCount: "50",
   },
-  promo: "Free models included for a limited time.",
+  promo: "A few models are free out of the box",
+  options: [
+    {
+      title: "Free models",
+      description: "Free models included to start.",
+    },
+    {
+      title: "Use ChatGPT",
+      description: "Log in with Go, Plus, Pro.",
+    },
+    {
+      title: "API keys",
+      description: "Bring your own API keys.",
+    },
+    {
+      title: "Local models",
+      description: "Log in with Ollama.",
+    },
+  ],
 }
 
 const learnersPhilosophy: Philosophy = {
   headline: "What you learn is yours.",
-  subtext: "No account, no cloud, no tracking. Your data never leaves your computer.",
+  subtext: "No account, no cloud, no tracking. Your chats, notes, and files stay on your computer, forever.",
   items: [
     {
       label: "No logins",
@@ -85,7 +153,7 @@ const learnersPhilosophy: Philosophy = {
     },
     {
       label: "On device",
-      detail: "Your notes, chats, and files live on your computer. No internet needed.",
+      detail: "Your notes and files live on your computer. Only the model calls need internet.",
     },
     {
       label: "Asks permission",
@@ -110,7 +178,7 @@ const educatorsPhilosophy: Philosophy = {
     },
     {
       label: "On device",
-      detail: "Your curriculum and lessons live on your computer. No internet needed.",
+      detail: "Your notes and files live on your computer. Only the model calls need internet.",
     },
     {
       label: "Asks permission",
@@ -125,40 +193,91 @@ const educatorsPhilosophy: Philosophy = {
 }
 
 const capabilities: Capabilities = {
-  headline: "Not a wrapper around ChatGPT.",
+  headline: "A frontier agent, at your command.",
   subtext:
-    "A complete agent system with its own tools, skills, and subagents. Running entirely on your machine.",
+    "Buddy is your learning companion, but it can do everything a frontier agent like Codex, OpenHands, or Claude Code can.",
   items: [
     {
       name: "Subagents",
       detail:
-        "Specialized agents with their own tools and context. Ships with built-in ones, or build your own.",
+        "Delegate tasks to worker agents that run in parallel.",
     },
     {
       name: "MCPs",
-      detail: "Connect external tools and data via Model Context Protocol.",
+      detail: "Connect external tools and extend Buddy's capabilities.",
     },
     {
       name: "Skills",
       detail:
-        "Reusable, versioned capability bundles. Ships with built-in ones, or build your own.",
+        "Use built-in skills, choose from a curated library, or bring your own.",
     },
     {
       name: "Tools",
-      detail: "30+ built-in tools for learning. Or define your own with full runtime control.",
+      detail: "Learn or do things on your device with 30+ Buddy tools.",
     },
     {
       name: "AGENTS.md",
-      detail: "Instructions you give the agent. Per project, per context.",
+      detail: "Customize Buddy's behavior to your taste and style.",
     },
   ],
+}
+
+const header: Header = {
+  brandName: "Buddy",
+  audienceLearnersLabel: "For Learners",
+  audienceEducatorsLabel: "For Educators",
+  downloadLabel: "Download",
+}
+
+const meta: Meta = {
+  siteUrl: "https://hibuddy.in",
+  siteName: "Buddy",
+  defaultTitle: "Buddy - The Learning Superapp",
+  defaultDescription:
+    "A private, local-first desktop learning assistant for students, lifelong learners, and educators.",
+  ogImageWidth: "1200",
+  ogImageHeight: "630",
+  jsonLd: {
+    applicationCategory: "EducationApplication",
+    operatingSystem: "macOS, Windows",
+    price: "0",
+    priceCurrency: "USD",
+  },
+}
+
+const install: Install = {
+  title: "made for you",
+  downloadMac: "Download for Mac",
+  downloadWin: "Download for Windows",
+  copyLabel: "Copy",
+  copiedLabel: "Copied!",
+  mac: {
+    modalTitle: "Install Buddy for macOS",
+    terminal: "Terminal",
+    prefix: "$",
+    steps: [
+      { title: "Copy Command", desc: "Copy command above" },
+      { title: "Open Terminal", desc: "Press ⌘+Space & type Terminal" },
+      { title: "Run", desc: "Paste & press Return" },
+    ],
+  },
+  win: {
+    modalTitle: "Install Buddy for Windows",
+    terminal: "PowerShell",
+    prefix: "PS>",
+    steps: [
+      { title: "Copy Command", desc: "Copy command above" },
+      { title: "Open PowerShell", desc: "Press Win & type PowerShell" },
+      { title: "Run", desc: "Paste & press Enter" },
+    ],
+  },
 }
 
 export const content = {
   learners: {
     hero: {
-      headlineLines: ["The personal learning system", "for curious minds"],
-      subtext: "Read, understand, and remember with a learning agent on your machine.",
+      headlineLines: ["A learning buddy", "that lives on your computer."],
+      subtext: "Read, understand, and remember with a learning companion that never leaves your side.",
     },
     featuresHeader: {
       headline: "Built for how you actually learn.",
@@ -169,24 +288,24 @@ export const content = {
         tag: "READ",
         title: "Read, with Buddy at your side.",
         subtext:
-          "Bring your ebooks, PDFs or papers and read them with Buddy always at your side. Ask for summaries, save highlights, take notes.",
+          "Bring your ebooks, PDFs, or papers. Buddy reads alongside you. Ask for summaries, save highlights, take notes.",
       },
       {
         tag: "PLAY",
-        title: "Make games and apps, to learn.",
+        title: "Make games and apps to learn.",
         subtext:
-          "Gamify your own learning. Buddy can make and publish games, interactive apps, or anything else you can imagine.",
+          "Turn any topic into a game. Buddy can create games, interactive apps, or anything else you can imagine.",
       },
       {
         tag: "DRAW",
         title: "Draw on Excalidraw boards.",
         subtext:
-          "Buddy can draw for you, and see what you are drawing on the built-in Excalidraw board. Ask for diagrams, map concepts, or visualize structures.",
+          "Buddy can sketch for you or see what you're sketching. Ask for diagrams, map concepts, or visualize structures.",
       },
       {
         tag: "QUIZ",
         title: "Test yourself, with Quizzes.",
-        subtext: "Ask Buddy to generate a quiz on any resource, book or topic you are studying.",
+        subtext: "Ask Buddy to generate a quiz on any resource, book, or topic you are studying.",
       },
       {
         tag: "REMEMBER",
@@ -202,8 +321,8 @@ export const content = {
   },
   educators: {
     hero: {
-      headlineLines: ["The personal teaching assistant", "for every task"],
-      subtext: "Plan, create, and assess with a teaching assistant on your machine.",
+      headlineLines: ["A teaching buddy", "for whatever's next on your list."],
+      subtext: "Plan, create, and assess with a teaching assistant that lives on your computer.",
     },
     featuresHeader: {
       headline: "Built for how you actually teach.",
@@ -214,7 +333,7 @@ export const content = {
         tag: "ALIGN",
         title: "Align content to standards or books.",
         subtext:
-          "Buddy comes with built-in CCSS standards, NGSS standards, and standards for all U.S. states. For Indian teachers, it can download NCERT and state board books, DIKSHA resources, and any public resource published on GOI websites.",
+          "Buddy comes with built-in CCSS, NGSS, and all-U.S.-state standards. For Indian teachers, it can download NCERT and state board books, DIKSHA resources, and any public resource published on GOI websites.",
       },
       {
         tag: "PLAN",
@@ -224,7 +343,7 @@ export const content = {
       },
       {
         tag: "CREATE",
-        title: "Create docs, presentations, or sheets.",
+        title: "Create docs, presentations, or spreadsheets.",
         subtext:
           "Buddy can create worksheets or lesson plans for your students. And it can create reports, presentations, or spreadsheets for your peers. All ready to export.",
       },
@@ -232,13 +351,13 @@ export const content = {
         tag: "RESEARCH",
         title: "Research around your material.",
         subtext:
-          "Upload your PDFs, ebooks, documents, or web links. Buddy can parse them, understand them, and answer any questions about them. Buddy has a built-in ebook reader, whiteboarding area, and source system to make your research easier.",
+          "Upload your PDFs, ebooks, documents, or web links. Buddy can parse, understand, and answer questions about them. Buddy has a built-in ebook reader, whiteboarding area, and source system to make your research easier.",
       },
       {
         tag: "BUILD",
         title: "Build interactive experiences.",
         subtext:
-          "Buddy can create apps, games, and websites for you. You can ask Buddy to publish them and then share them with your students or peers. With Buddy, every teacher is a builder.",
+          "Ask for an app, a game, or a website, and Buddy builds and publishes it, ready to share with students or peers. Every teacher, a builder.",
       },
     ] as const,
     philosophy: educatorsPhilosophy,
@@ -248,6 +367,9 @@ export const content = {
   },
   bringYourOwn,
   capabilities,
+  header,
+  install,
+  meta,
 } as const satisfies Record<
   Audience,
   {
@@ -263,4 +385,10 @@ export const content = {
     philosophy: Philosophy
     download: Download
   }
-> & { bringYourOwn: BringYourOwn; capabilities: Capabilities }
+> & {
+  bringYourOwn: BringYourOwn
+  capabilities: Capabilities
+  header: Header
+  install: Install
+  meta: Meta
+}
