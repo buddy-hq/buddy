@@ -4,7 +4,7 @@ import { HighlightedText } from "../highlighted-text"
 import { CopyAction } from "../copy-action"
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@buddy/ui"
 import { GitBranch, Undo2Icon } from "lucide-react"
-import { formatTime, titleCase } from "../utils/format"
+import { formatTime } from "../utils/format"
 import type { MessageInfo, ProviderInfo } from "@/state/chat-types"
 import type { ChatAgentPart, ChatFilePart, ChatTextPart } from "../utils/part-guards"
 
@@ -48,10 +48,6 @@ function userMessagePartEqual(
   if (prevProps.part.synthetic !== nextProps.part.synthetic) return false
 
   // Compare info (shallow comparison of key fields)
-  const prevAgent = "agent" in prevProps.info ? prevProps.info.agent : undefined
-  const nextAgent = "agent" in nextProps.info ? nextProps.info.agent : undefined
-  if (prevAgent !== nextAgent) return false
-
   const prevTime = prevProps.info.time?.created
   const nextTime = nextProps.info.time?.created
   if (prevTime !== nextTime) return false
@@ -86,10 +82,7 @@ export const UserMessagePart = memo(function UserMessagePart({
   const text = part.text
   if (!text.trim()) return null
 
-  const agent = "agent" in info ? info.agent : undefined
-  const metaHead = [titleCase(agent), getModelLabel(info, providers)]
-    .filter((value) => !!value)
-    .join("\u00A0\u00B7\u00A0")
+  const metaHead = getModelLabel(info, providers)
   const metaTail = formatTime(info.time?.created)
 
   async function handleRevertClick() {

@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import type { MessageWithParts, ProviderInfo } from "@/state/chat-types"
-import { titleCase, formatDuration } from "../utils/format"
+import { formatDuration } from "../utils/format"
 import { modelLabel } from "../utils/message-utils"
 
 export function useAssistantMeta(
@@ -29,7 +29,6 @@ export function useAssistantMeta(
     }
 
     return [
-      titleCase(info.agent),
       modelName,
       formatDuration(turnDurationMs),
       assistantAborted ? "Interrupted" : "",
