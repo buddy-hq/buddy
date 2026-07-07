@@ -1,0 +1,155 @@
+---
+import { content } from "../content/site"
+
+const learnersPhilosophy = content.learners.philosophy
+const educatorsPhilosophy = content.educators.philosophy
+
+const philosophyItems = learnersPhilosophy.items
+---
+
+<div class="philosophy-new">
+  <div class="container">
+    <div class="staggered-layout">
+
+      <div class="header-zone">
+        <!-- Learners Content -->
+        <div class="swap swap-content swap-audience-learners active">
+          <h2 class="section-title">{learnersPhilosophy.headline}</h2>
+        </div>
+        <!-- Educators Content -->
+        <div class="swap swap-content swap-audience-educators">
+          <h2 class="section-title">{educatorsPhilosophy.headline}</h2>
+        </div>
+      </div>
+
+      <div class="columns-zone">
+        {philosophyItems.map((item, idx) => (
+          <div class={`stagger-column col-${idx}`}>
+
+            <div class="col-index">0{idx + 1}</div>
+
+            <h3 class="label">
+              <span class="swap swap-content swap-audience-learners active">{learnersPhilosophy.items[idx].label}</span>
+              <span class="swap swap-content swap-audience-educators">{educatorsPhilosophy.items[idx].label}</span>
+            </h3>
+            <p class="detail">
+              <span class="swap swap-content swap-audience-learners active">{learnersPhilosophy.items[idx].detail}</span>
+              <span class="swap swap-content swap-audience-educators">{educatorsPhilosophy.items[idx].detail}</span>
+            </p>
+          </div>
+        ))}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style is:global>
+  .philosophy-new {
+    padding: var(--space-24) 0;
+    width: 100%;
+  }
+
+  .philosophy-new .staggered-layout {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 96px;
+  }
+
+  .philosophy-new .header-zone {
+    text-align: center;
+    position: relative;
+  }
+
+  .philosophy-new .section-title {
+    margin: 0 auto;
+    max-width: 18ch;
+  }
+
+  .philosophy-new .columns-zone {
+    display: flex;
+    gap: var(--space-16);
+  }
+
+  .philosophy-new .stagger-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--border);
+  }
+
+  .philosophy-new .col-index {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--color-accent-primary);
+    letter-spacing: 0.05em;
+  }
+
+  .philosophy-new .label {
+    font-family: var(--font-display);
+    font-size: 1.0625rem;
+    font-weight: 590;
+    line-height: 1.4;
+    letter-spacing: -0.012em;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .philosophy-new .detail {
+    font-family: var(--font-body);
+    font-size: 0.9375rem;
+    font-weight: 300;
+    color: var(--color-text-secondary);
+    line-height: 22px;
+    letter-spacing: -0.011em;
+    opacity: 0.8;
+    max-width: 440px;
+    margin: 0;
+  }
+
+  @media (max-width: 768px) {
+    .philosophy-new {
+      padding: var(--space-12) 0;
+    }
+
+    .philosophy-new .staggered-layout {
+      gap: var(--space-12);
+    }
+
+    .philosophy-new .header-zone {
+      text-align: left;
+    }
+
+    .philosophy-new .section-title {
+      margin: 0;
+    }
+
+    .philosophy-new .columns-zone {
+      flex-direction: row;
+      gap: var(--space-10);
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      padding-bottom: var(--space-2);
+    }
+
+    .philosophy-new .columns-zone::after {
+      content: "";
+      flex: 0 0 var(--space-6);
+    }
+
+    .philosophy-new .columns-zone::-webkit-scrollbar {
+      display: none;
+    }
+
+    .philosophy-new .stagger-column {
+      flex: 0 0 72%;
+      padding: var(--space-5);
+    }
+  }
+</style>
