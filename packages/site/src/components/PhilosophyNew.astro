@@ -7,18 +7,18 @@ const educatorsPhilosophy = content.educators.philosophy
 const philosophyItems = learnersPhilosophy.items
 ---
 
-<div class="philosophy-new">
+<section class="philosophy-new" aria-labelledby="philosophy-heading-learners">
   <div class="container">
     <div class="staggered-layout">
 
       <div class="header-zone">
         <!-- Learners Content -->
         <div class="swap swap-content swap-audience-learners active">
-          <h2 class="section-title">{learnersPhilosophy.headline}</h2>
+          <h2 id="philosophy-heading-learners" class="section-title">{learnersPhilosophy.headline}</h2>
         </div>
         <!-- Educators Content -->
         <div class="swap swap-content swap-audience-educators">
-          <h2 class="section-title">{educatorsPhilosophy.headline}</h2>
+          <h2 id="philosophy-heading-educators" class="section-title">{educatorsPhilosophy.headline}</h2>
         </div>
       </div>
 
@@ -42,7 +42,7 @@ const philosophyItems = learnersPhilosophy.items
 
     </div>
   </div>
-</div>
+</section>
 
 <style is:global>
   .philosophy-new {

@@ -1,14 +1,22 @@
 ---
 // Component for the real Buddy workspace mockup
+import { getImage } from "astro:assets";
 import MockWhiteboard from "./MockWhiteboard.astro";
 import MockSidebar from "./MockSidebar.astro";
 import MockChat from "./MockChat.astro";
 import MockReader from "./MockReader.astro";
 import MockWidget from "./MockWidget.astro";
 import MockNotebook from "./MockNotebook.astro";
+import selfRelianceCover from "../assets/self-reliance.webp";
+
+const selfRelianceChatCover = await getImage({
+  src: selfRelianceCover,
+  width: 88,
+  format: "webp",
+});
 ---
 
-<div class="buddy-window">
+<div class="buddy-window" data-self-reliance-cover={selfRelianceChatCover.src}>
   <!-- Workspace layout with macOS unified titlebar split -->
   <div class="workspace-body right-pane-collapsed">
     
@@ -66,6 +74,9 @@ import MockNotebook from "./MockNotebook.astro";
 </div>
 
 <script>
+  const selfRelianceCoverSrc =
+    document.querySelector("[data-self-reliance-cover]")?.getAttribute("data-self-reliance-cover") ?? "";
+
   // Data for notebooks matching real app structure
   const notebookData = {
     "self-reliance": {
@@ -90,7 +101,7 @@ import MockNotebook from "./MockNotebook.astro";
         { sender: "user", text: "what do you mean by self-reliance?" },
         { sender: "buddy", text: "Emerson argues you should trust your own mind instead of conforming to what the crowd or your past self expects.<br><br><div class='wb-chat-card'><div class='wb-chat-icon'><svg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><path d='M2 3h20'></path><path d='M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3'></path><path d='m7 21 5-5 5 5'></path></svg></div><div class='wb-chat-title-group'><div class='wb-chat-title'>Whiteboard</div><div class='wb-chat-subtitle'>Trust Thyself</div></div></div><br><br>I've sketched a quick summary on your whiteboard." },
         { sender: "user", text: "load the text so we can dig into it" },
-        { sender: "buddy", text: "<div class='illustration-card'><img class='ill-cover' src='/self-reliance.webp' alt='Self Reliance' /><div class='ill-text'><span class='ill-title'>Self Reliance</span><span class='ill-author'>Ralph Waldo Emerson</span><span class='ill-meta'>17.3k words · Essay</span></div></div><br><br>Loaded. I've highlighted his core thesis on non-conformity in the e-reader." },
+        { sender: "buddy", text: `<div class='illustration-card'><img class='ill-cover' src='${selfRelianceCoverSrc}' alt='Self Reliance' width='44' height='60' loading='lazy' decoding='async' /><div class='ill-text'><span class='ill-title'>Self Reliance</span><span class='ill-author'>Ralph Waldo Emerson</span><span class='ill-meta'>17.3k words · Essay</span></div></div><br><br>Loaded. I've highlighted his core thesis on non-conformity in the e-reader.` },
         { sender: "user", text: "make me a widget to play with this idea" },
         { sender: "buddy", text: "<div class='widget-chat-card' id='widget-preview-card'><div class='widget-chat-icon'><svg width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5'><polyline points='16 18 22 12 16 6'></polyline><polyline points='8 6 2 12 8 18'></polyline></svg></div><div class='widget-chat-title-group'><div class='widget-chat-title'>Self-Reliance Gauge</div><div class='widget-chat-subtitle'>Interactive UI Component</div></div></div><br><br>Sure! I have generated the Self-Reliance Gauge in your workspace to visualize the balance between integrity and conformity." }
       ],
@@ -1373,8 +1384,6 @@ import MockNotebook from "./MockNotebook.astro";
 </script>
 
 <style is:global>
-  @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap');
-
   /* === Window Shell (Exact high fidelity replica) === */
   .buddy-window {
     width: 100%;

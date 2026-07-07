@@ -178,6 +178,9 @@
     let borderFlash = 0;
     let lastClean = "";
     let lastDirty = "";
+    let animationFrameId = 0;
+    let isAnimationRunning = false;
+    let hasInitializedGame = false;
 
     // Flappy Bird character physics (Ultra-slow, smooth, floaty low-gravity controls)
     const bird = {
@@ -380,7 +383,7 @@
       const height = canvas.offsetHeight;
 
       if (width <= 0 || height <= 0) {
-        requestAnimationFrame(draw);
+        animationFrameId = window.requestAnimationFrame(draw);
         return;
       }
 
@@ -652,21 +655,38 @@
         borderFlash--;
       }
 
-      requestAnimationFrame(draw);
+      animationFrameId = window.requestAnimationFrame(draw);
     };
 
     const startGame = () => {
-      resetGame();
-      draw();
+      if (isAnimationRunning) return;
+
+      isAnimationRunning = true;
+      if (!hasInitializedGame) {
+        resetGame();
+        hasInitializedGame = true;
+      }
+      animationFrameId = window.requestAnimationFrame(draw);
     };
 
-    // Start when the mock crosses the viewport center
+    const stopGame = () => {
+      if (!isAnimationRunning) return;
+
+      isAnimationRunning = false;
+      if (animationFrameId !== 0) {
+        window.cancelAnimationFrame(animationFrameId);
+        animationFrameId = 0;
+      }
+    };
+
+    // Run only while the mock is near the viewport.
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            observer.unobserve(container);
             startGame();
+          } else {
+            stopGame();
           }
         });
       },

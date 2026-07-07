@@ -3,10 +3,10 @@ import { content } from "../content/site"
 const { capabilities } = content
 ---
 
-<div class="capabilities-section">
+<section class="capabilities-section" aria-labelledby="capabilities-heading">
   <div class="container">
     <div class="bento-header">
-      <h2 class="section-title">{capabilities.headline}</h2>
+      <h2 id="capabilities-heading" class="section-title">{capabilities.headline}</h2>
       <p class="section-subtext">{capabilities.subtext}</p>
     </div>
 
@@ -17,7 +17,7 @@ const { capabilities } = content
       <div class="bento-item col-span-2">
         <div class="bento-inner">
           <div class="bento-meta">
-            <span class="bento-sys">{capabilities.items[0].name}</span>
+            <h3 class="bento-sys">{capabilities.items[0].name}</h3>
           </div>
           <p class="bento-desc">{capabilities.items[0].detail}</p>
           <div class="bento-visual subagents-visual">
@@ -37,7 +37,7 @@ const { capabilities } = content
       <div class="bento-item col-span-1">
         <div class="bento-inner">
           <div class="bento-meta">
-            <span class="bento-sys">{capabilities.items[1].name}</span>
+            <h3 class="bento-sys">{capabilities.items[1].name}</h3>
           </div>
           <p class="bento-desc">{capabilities.items[1].detail}</p>
           <div class="bento-visual mcp-visual">
@@ -54,7 +54,7 @@ const { capabilities } = content
       <div class="bento-item col-span-1">
         <div class="bento-inner">
           <div class="bento-meta">
-            <span class="bento-sys">{capabilities.items[2].name}</span>
+            <h3 class="bento-sys">{capabilities.items[2].name}</h3>
           </div>
           <p class="bento-desc">{capabilities.items[2].detail}</p>
         </div>
@@ -64,7 +64,7 @@ const { capabilities } = content
       <div class="bento-item col-span-1">
         <div class="bento-inner">
           <div class="bento-meta">
-            <span class="bento-sys">{capabilities.items[3].name}</span>
+            <h3 class="bento-sys">{capabilities.items[3].name}</h3>
           </div>
           <p class="bento-desc">{capabilities.items[3].detail}</p>
         </div>
@@ -74,7 +74,7 @@ const { capabilities } = content
       <div class="bento-item col-span-1">
         <div class="bento-inner">
           <div class="bento-meta">
-            <span class="bento-sys">{capabilities.items[4].name}</span>
+            <h3 class="bento-sys">{capabilities.items[4].name}</h3>
           </div>
           <p class="bento-desc">{capabilities.items[4].detail}</p>
         </div>
@@ -82,7 +82,7 @@ const { capabilities } = content
 
     </div>
   </div>
-</div>
+</section>
 
 <style>
   .capabilities-section {
@@ -144,6 +144,7 @@ const { capabilities } = content
     line-height: 1.4;
     letter-spacing: -0.012em;
     color: var(--color-text-primary);
+    margin: 0;
   }
 
   .bento-desc {

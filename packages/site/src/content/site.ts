@@ -98,6 +98,8 @@ export type Meta = {
   readonly siteName: string
   readonly defaultTitle: string
   readonly defaultDescription: string
+  readonly twitterHandle: string
+  readonly organizationSameAs: readonly [string, string, string]
   readonly ogImageWidth: string
   readonly ogImageHeight: string
   readonly jsonLd: {
@@ -232,9 +234,15 @@ const header: Header = {
 const meta: Meta = {
   siteUrl: "https://hibuddy.in",
   siteName: "Buddy",
-  defaultTitle: "Buddy - The Learning Superapp",
+  defaultTitle: "Buddy - Agentic Learning Companion for Mac and Windows",
   defaultDescription:
-    "A private, local-first desktop learning assistant for students, lifelong learners, and educators.",
+    "Learn with a local-first AI desktop app for students and educators. Use your own AI, keep files on your computer, and make study stick. Download Buddy.",
+  twitterHandle: "@prashant_hq",
+  organizationSameAs: [
+    "https://x.com/prashant_hq",
+    "https://github.com/prashantbhudwal",
+    "https://www.linkedin.com/in/prashantbhudwal/",
+  ],
   ogImageWidth: "1200",
   ogImageHeight: "630",
   jsonLd: {

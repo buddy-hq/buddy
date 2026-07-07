@@ -1,5 +1,7 @@
 ---
 // Component: LearnerReadMock
+import { Image } from "astro:assets"
+import selfRelianceCover from "../../../assets/self-reliance.webp"
 ---
 
 <div class="read-mock-container" data-read-mock>
@@ -20,7 +22,17 @@
       <!-- Self Reliance Book (Center Focus, Active) -->
       <div class="book-cover-wrapper primary active-trigger">
         <div class="book-cover webp-cover">
-          <img src="/self-reliance.webp" alt="Self Reliance by Ralph Waldo Emerson" class="cover-img" />
+          <Image
+            src={selfRelianceCover}
+            alt="Self Reliance by Ralph Waldo Emerson"
+            class="cover-img"
+            width={240}
+            height={360}
+            widths={[200, 300]}
+            sizes="(max-width: 960px) 110px, 150px"
+            loading="lazy"
+            decoding="async"
+          />
           <div class="book-spine"></div>
         </div>
       </div>
@@ -54,7 +66,7 @@
 
     <div class="reader-scroll-viewport">
       <article class="reader-article">
-        <h1 class="article-title">Self-Reliance</h1>
+        <h2 class="article-title">Self-Reliance</h2>
         <p class="article-author">Ralph Waldo Emerson</p>
         
         <div class="article-divider"></div>

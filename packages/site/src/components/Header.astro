@@ -9,7 +9,13 @@ const { header: headerContent } = content
 <header>
   <div class="container nav-wrapper">
     <a href="#" class="logo-group">
-      <Image src={buddyAppIcon} alt={`${headerContent.brandName} Logo`} class="logo-icon" />
+      <Image
+        src={buddyAppIcon}
+        alt={`${headerContent.brandName} Logo`}
+        class="logo-icon"
+        width={64}
+        height={64}
+      />
       <span class="logo-text">{headerContent.brandName}</span>
     </a>
 
@@ -242,12 +248,24 @@ const { header: headerContent } = content
   // Hide audience toggle container on scroll for cleaner screen workspace
   const toggleContainer = document.querySelector(".audience-toggle")
   if (toggleContainer) {
+    const AUDIENCE_TOGGLE_HIDE_SCROLL_Y = 20
+    let audienceToggleFrame = 0
+    let audienceToggleHidden = window.scrollY > AUDIENCE_TOGGLE_HIDE_SCROLL_Y
+
+    const syncAudienceToggleVisibility = () => {
+      audienceToggleFrame = 0
+      const shouldHide = window.scrollY > AUDIENCE_TOGGLE_HIDE_SCROLL_Y
+      if (shouldHide === audienceToggleHidden) return
+
+      audienceToggleHidden = shouldHide
+      toggleContainer.classList.toggle("toggle-hidden", shouldHide)
+    }
+
+    toggleContainer.classList.toggle("toggle-hidden", audienceToggleHidden)
+
     window.addEventListener("scroll", () => {
-      if (window.scrollY > 20) {
-        toggleContainer.classList.add("toggle-hidden")
-      } else {
-        toggleContainer.classList.remove("toggle-hidden")
-      }
+      if (audienceToggleFrame !== 0) return
+      audienceToggleFrame = window.requestAnimationFrame(syncAudienceToggleVisibility)
     }, { passive: true })
   }
 </script>
