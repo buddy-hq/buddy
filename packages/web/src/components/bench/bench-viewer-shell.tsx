@@ -46,6 +46,7 @@ type BenchViewerShellProps = {
   controlsPlacement?: "header" | "dock"
   hideHeader?: boolean
   dock?: ReactNode
+  dockPanel?: ReactNode
   children: ReactNode
   className?: string
   contentClassName?: string
@@ -59,6 +60,7 @@ type BenchSurfaceViewerProps = {
   controlsPlacement?: "header" | "dock"
   hideHeader?: boolean
   dock?: ReactNode
+  dockPanel?: ReactNode
   children: ReactNode
   className?: string
   surfaceClassName?: string
@@ -72,6 +74,7 @@ type BenchZoomableViewerProps = {
   controlsPlacement?: "header" | "dock"
   hideHeader?: boolean
   dock?: ReactNode
+  dockPanel?: ReactNode
   children: ReactNode
   className?: string
   canvasClassName?: string
@@ -204,7 +207,6 @@ function BenchToolbarButton(props: BenchViewerAction & { tooltipSide?: "top" | "
           variant="ghost"
           className="size-8 rounded-lg text-text-weak transition-transform hover:bg-surface-base-hover hover:text-text-base active:scale-[0.97]"
           aria-label={props.label}
-          title={props.label}
           disabled={props.disabled}
           data-action={props.dataAction}
           onClick={props.onClick}
@@ -238,23 +240,38 @@ function BenchControlGroup(props: {
   )
 }
 
-export function BenchFloatingControlDock(props: { children: ReactNode; className?: string }) {
+export function BenchFloatingControlDock(props: {
+  children: ReactNode
+  className?: string
+  upperRow?: ReactNode
+}) {
   if (!props.children) return null
 
   return (
     <div
       data-component="bench-floating-control-dock"
       className={cn(
-        "pointer-events-none absolute inset-x-0 bottom-4 z-40 flex justify-center px-4",
+        "pointer-events-none absolute inset-x-0 bottom-8 z-40 flex justify-center px-4",
         props.className,
       )}
     >
-      <div
-        data-component="bench-control-dock"
-        data-bench-pan-disabled
-        className="pointer-events-auto flex max-w-full items-center gap-1 rounded-2xl border border-border-base/70 bg-surface-base/88 p-1.5 text-text-base shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl"
-      >
-        {props.children}
+      <div className="flex min-w-0 max-w-full flex-col items-center gap-2">
+        {props.upperRow ? (
+          <div
+            data-component="bench-control-dock-panel"
+            data-bench-pan-disabled
+            className="pointer-events-auto flex min-w-0 max-w-full items-center overflow-x-auto rounded-2xl border border-border-base/70 bg-surface-base/92 p-1.5 text-text-base shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+          >
+            {props.upperRow}
+          </div>
+        ) : null}
+        <div
+          data-component="bench-control-dock"
+          data-bench-pan-disabled
+          className="pointer-events-auto flex max-w-full items-center gap-1 rounded-2xl border border-border-base/70 bg-surface-base/88 p-1.5 text-text-base shadow-[0_18px_48px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+        >
+          {props.children}
+        </div>
       </div>
     </div>
   )
@@ -390,7 +407,11 @@ export function BenchViewerShell(props: BenchViewerShellProps) {
         ) : null}
         <div className={cn("relative min-h-0 flex-1", props.contentClassName)}>
           {props.children}
-          {dockContent ? <BenchFloatingControlDock>{dockContent}</BenchFloatingControlDock> : null}
+          {dockContent ? (
+            <BenchFloatingControlDock upperRow={props.dockPanel}>
+              {dockContent}
+            </BenchFloatingControlDock>
+          ) : null}
         </div>
       </section>
     </TooltipProvider>
@@ -407,6 +428,7 @@ export function BenchSurfaceViewer(props: BenchSurfaceViewerProps) {
       controlsPlacement={props.controlsPlacement}
       hideHeader={props.hideHeader}
       dock={props.dock}
+      dockPanel={props.dockPanel}
       className={props.className}
       contentClassName="overflow-hidden"
     >
@@ -628,6 +650,7 @@ export function BenchZoomableViewer(props: BenchZoomableViewerProps) {
       controlsPlacement={props.controlsPlacement}
       hideHeader={props.hideHeader}
       dock={props.dock}
+      dockPanel={props.dockPanel}
       zoomControls={zoomControls}
       className={props.className}
       contentClassName="overflow-hidden"

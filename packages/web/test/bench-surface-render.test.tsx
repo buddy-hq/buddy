@@ -519,6 +519,30 @@ describe("bench surface rendering", () => {
     ).not.toBeNull()
   })
 
+  test("places expanded controls in a separate row above the minimal dock", async () => {
+    await act(async () => {
+      root.render(
+        <BenchSurfaceViewer
+          title="Document"
+          hideHeader
+          controlsPlacement="dock"
+          toolbar={<button type="button">Minimal</button>}
+          dockPanel={<div data-testid="advanced-tools">Advanced</div>}
+        >
+          <div>Document</div>
+        </BenchSurfaceViewer>,
+      )
+      await flushEffects()
+    })
+
+    const panel = container.querySelector('[data-component="bench-control-dock-panel"]')
+    const dock = container.querySelector('[data-component="bench-control-dock"]')
+    expect(panel?.querySelector('[data-testid="advanced-tools"]')).not.toBeNull()
+    expect(panel?.compareDocumentPosition(dock ?? document.body)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+  })
+
   test("renders immersive HTML bench surfaces without header or dock overlays", async () => {
     await act(async () => {
       root.render(
