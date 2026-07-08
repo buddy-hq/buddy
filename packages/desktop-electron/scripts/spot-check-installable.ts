@@ -30,7 +30,12 @@ type InterruptSignal = (typeof INTERRUPT_SIGNALS)[number]
 type RunningApp = {
   child: ChildProcess
   cleanupInstallation: () => void
+  detached: boolean
   label: string
+}
+
+function isNoSuchProcessError(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "ESRCH"
 }
 
 function readRequiredFlag(name: string): string {
@@ -181,14 +186,21 @@ function installMacOsApp(version: string, distDirectory: string): RunningApp {
   try {
     const executablePath = path.join(installedAppPath, "Contents", "MacOS", DEV_APP_NAME)
     assertFileExists(executablePath, "Buddy Dev executable")
+    // Launch in a detached session so the Electron app cannot steal the
+    // terminal's foreground process group. Without this, the app startup
+    // can push the release job into the background, causing SIGTTIN
+    // ("suspended (tty input)") when the spot-check prompt reads stdin.
     const child = spawn(executablePath, [], {
       env: process.env,
       stdio: "ignore",
+      detached: true,
     })
+    child.unref()
 
     return {
       child,
       cleanupInstallation,
+      detached: true,
       label: installedAppPath,
     }
   } catch (error) {
@@ -257,6 +269,7 @@ function installWindowsApp(version: string, distDirectory: string): RunningApp {
     return {
       child,
       cleanupInstallation,
+      detached: false,
       label: executablePath,
     }
   } catch (error) {
@@ -265,18 +278,42 @@ function installWindowsApp(version: string, distDirectory: string): RunningApp {
   }
 }
 
-async function terminate(child: ChildProcess): Promise<void> {
+function sendTerminationSignal(
+  child: ChildProcess,
+  signal: NodeJS.Signals,
+  detached: boolean,
+): void {
+  if (child.pid === undefined) {
+    return
+  }
+  if (detached) {
+    // Kill the entire process group (negative PID) so Electron helper
+    // processes are cleaned up too. The detached child is its own
+    // process-group leader, so -child.pid targets the group.
+    try {
+      process.kill(-child.pid, signal)
+      return
+    } catch (error) {
+      if (isNoSuchProcessError(error)) {
+        return
+      }
+    }
+  }
+  child.kill(signal)
+}
+
+async function terminate(child: ChildProcess, detached: boolean): Promise<void> {
   if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) {
     return
   }
 
-  child.kill("SIGTERM")
+  sendTerminationSignal(child, "SIGTERM", detached)
   await Promise.race([
     new Promise<void>((resolve) => child.once("exit", () => resolve())),
     Bun.sleep(TERMINATION_TIMEOUT_MS),
   ])
   if (child.exitCode === null && child.signalCode === null) {
-    child.kill("SIGKILL")
+    sendTerminationSignal(child, "SIGKILL", detached)
     await Promise.race([
       new Promise<void>((resolve) => child.once("exit", () => resolve())),
       Bun.sleep(TERMINATION_TIMEOUT_MS),
@@ -410,7 +447,7 @@ try {
   await waitForApproval(runningApp)
 } finally {
   if (runningApp) {
-    await terminate(runningApp.child)
+    await terminate(runningApp.child, runningApp.detached)
     runningApp.cleanupInstallation()
   }
 }
