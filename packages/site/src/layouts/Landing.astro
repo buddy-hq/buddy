@@ -108,18 +108,28 @@ const jsonLd = {
         analyticsHosts.has(window.location.hostname) && navigator.doNotTrack !== "1"
       const analyticsDistinctIdStorageKey = "buddy_landing_distinct_id"
       const analyticsDistinctId = analyticsEnabled ? getAnalyticsDistinctId() : ""
+      const analyticsPageSessionId = analyticsEnabled ? createAnalyticsDistinctId() : ""
       const mobileMaxViewportWidth = 767
       const tabletMaxViewportWidth = 1023
       const percentMultiplier = 100
       const sectionCompleteMs = 3000
       const sectionSeenRatio = 0.4
       const sectionWatchIntervalMs = 1000
+      const summaryInitialCheckpointMs = 5000
+      const summaryCheckpointIntervalMs = 15000
+      const summaryMinVisibleDeltaMs = 1000
+      const summarySchemaVersion = 2
       const analyticsFeatureSelector = "[data-analytics-feature]"
       const analyticsSectionSelector = "[data-analytics-section]"
       const educatorAudience = "educators"
       const eventFeaturesSummary = "landing_features_summary"
       const eventSectionsSummary = "landing_sections_summary"
       const learnerAudience = "learners"
+      const summaryReasonFreeze = "freeze"
+      const summaryReasonInitialCheckpoint = "initial_checkpoint"
+      const summaryReasonIntervalCheckpoint = "interval_checkpoint"
+      const summaryReasonPagehide = "pagehide"
+      const summaryReasonVisibilityHidden = "visibility_hidden"
 
       function createAnalyticsDistinctId() {
         return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -215,8 +225,10 @@ const jsonLd = {
             $pathname: window.location.pathname,
             $process_person_profile: false,
             $referrer: document.referrer || undefined,
+            $session_id: analyticsPageSessionId,
             audience: getActiveAudience(),
             environment: "production",
+            landing_session_id: analyticsPageSessionId,
             ...getDeviceProperties(),
             ...getCampaignProperties(),
             ...properties,
@@ -288,7 +300,11 @@ const jsonLd = {
 
         let maxScrollDepthPercent = getScrollDepthPercent()
         let sectionUpdateFrame = 0
-        let summarySent = false
+        let sectionFinalSnapshotSent = false
+        let sectionInitialCheckpointTimer = 0
+        let sectionCheckpointTimer = 0
+        let sectionLastSnapshotVisibleMs = 0
+        let sectionSnapshotSequence = 0
 
         function getTotalVisibleMs(section, now) {
           if (section.visibleStartedAt === undefined) return section.visibleMs
@@ -339,6 +355,13 @@ const jsonLd = {
           sectionUpdateFrame = window.requestAnimationFrame(updateSectionVisibility)
         }
 
+        function getTotalSectionVisibleMs(now) {
+          return sections.reduce(
+            (totalVisibleMs, section) => totalVisibleMs + getTotalVisibleMs(section, now),
+            0,
+          )
+        }
+
         function getSectionSummaryProperties(now) {
           const viewedSections = []
           const completedSections = []
@@ -384,39 +407,82 @@ const jsonLd = {
           }
         }
 
-        function finalizeSectionAnalytics(reason) {
-          const now = performance.now()
-          maxScrollDepthPercent = Math.max(maxScrollDepthPercent, getScrollDepthPercent())
-
+        function flushSectionVisibility(now) {
           for (const section of sections) {
             flushSectionExit(section, now)
           }
+        }
 
-          if (summarySent) return
-          summarySent = true
+        function stopSectionCheckpoints() {
+          window.clearTimeout(sectionInitialCheckpointTimer)
+          window.clearInterval(sectionCheckpointTimer)
+        }
+
+        function sendSectionSnapshot(reason, isFinal) {
+          const now = performance.now()
+          maxScrollDepthPercent = Math.max(maxScrollDepthPercent, getScrollDepthPercent())
+
+          if (isFinal) flushSectionVisibility(now)
+          if (isFinal && sectionFinalSnapshotSent) return
+
+          const totalVisibleMs = getTotalSectionVisibleMs(now)
+          const visibleDeltaMs = totalVisibleMs - sectionLastSnapshotVisibleMs
+          if (
+            !isFinal &&
+            sectionSnapshotSequence > 0 &&
+            visibleDeltaMs < summaryMinVisibleDeltaMs
+          ) {
+            return
+          }
+
+          sectionSnapshotSequence += 1
+          sectionLastSnapshotVisibleMs = totalVisibleMs
+          if (isFinal) {
+            sectionFinalSnapshotSent = true
+            stopSectionCheckpoints()
+          }
 
           sendPostHogEvent(eventSectionsSummary, {
             ...getSectionSummaryProperties(now),
+            is_final: isFinal,
             reason,
+            snapshot_sequence: sectionSnapshotSequence,
+            summary_schema_version: summarySchemaVersion,
           })
+        }
+
+        function finalizeSectionAnalytics(reason) {
+          sendSectionSnapshot(reason, true)
         }
 
         updateSectionVisibility()
 
         window.setInterval(updateSectionVisibility, sectionWatchIntervalMs)
+        sectionInitialCheckpointTimer = window.setTimeout(
+          () => sendSectionSnapshot(summaryReasonInitialCheckpoint, false),
+          summaryInitialCheckpointMs,
+        )
+        sectionCheckpointTimer = window.setInterval(
+          () => sendSectionSnapshot(summaryReasonIntervalCheckpoint, false),
+          summaryCheckpointIntervalMs,
+        )
         window.addEventListener("scroll", requestSectionUpdate, { passive: true })
         window.addEventListener("resize", requestSectionUpdate, { passive: true })
-        window.addEventListener("pagehide", () => finalizeSectionAnalytics("pagehide"))
+        window.addEventListener("pagehide", () => finalizeSectionAnalytics(summaryReasonPagehide))
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "hidden") {
             const now = performance.now()
-            for (const section of sections) {
-              flushSectionExit(section, now)
-            }
+            flushSectionVisibility(now)
+            sendSectionSnapshot(summaryReasonVisibilityHidden, false)
             return
           }
 
           requestSectionUpdate()
+        })
+        document.addEventListener("freeze", () => {
+          const now = performance.now()
+          flushSectionVisibility(now)
+          sendSectionSnapshot(summaryReasonFreeze, false)
         })
       }
 
@@ -453,7 +519,11 @@ const jsonLd = {
         if (features.length === 0) return
 
         let featureUpdateFrame = 0
-        let summarySent = false
+        let featureFinalSnapshotSent = false
+        let featureInitialCheckpointTimer = 0
+        let featureCheckpointTimer = 0
+        let featureLastSnapshotVisibleMs = 0
+        let featureSnapshotSequence = 0
 
         function addFeatureVisibleTime(feature, now) {
           if (feature.visibleStartedAt === undefined) return
@@ -465,6 +535,21 @@ const jsonLd = {
           feature.audienceVisibleMs[audience] += visibleDeltaMs
           feature.visibleMs += visibleDeltaMs
           feature.visibleStartedAt = now
+        }
+
+        function getFeatureVisibleMs(feature, now) {
+          if (feature.visibleStartedAt === undefined) return feature.visibleMs
+
+          return feature.visibleMs + now - feature.visibleStartedAt
+        }
+
+        function getFeatureAudienceVisibleMs(feature, audience, now) {
+          const visibleMs = feature.audienceVisibleMs[audience]
+          if (feature.visibleStartedAt === undefined || getTrackedAudience() !== audience) {
+            return visibleMs
+          }
+
+          return visibleMs + now - feature.visibleStartedAt
         }
 
         function updateFeatureVisibility() {
@@ -519,6 +604,13 @@ const jsonLd = {
           }
         }
 
+        function getTotalFeatureVisibleMs(now) {
+          return features.reduce(
+            (totalVisibleMs, feature) => totalVisibleMs + getFeatureVisibleMs(feature, now),
+            0,
+          )
+        }
+
         function getFeatureSummaryProperties(now) {
           const featureProperties = {}
           const interactedFeatures = []
@@ -529,9 +621,13 @@ const jsonLd = {
 
           for (const feature of features) {
             const featurePrefix = `feature_${feature.order}`
-            const visibleMs = Math.round(feature.visibleMs)
-            const educatorVisibleMs = Math.round(feature.audienceVisibleMs[educatorAudience])
-            const learnerVisibleMs = Math.round(feature.audienceVisibleMs[learnerAudience])
+            const visibleMs = Math.round(getFeatureVisibleMs(feature, now))
+            const educatorVisibleMs = Math.round(
+              getFeatureAudienceVisibleMs(feature, educatorAudience, now),
+            )
+            const learnerVisibleMs = Math.round(
+              getFeatureAudienceVisibleMs(feature, learnerAudience, now),
+            )
 
             featureProperties[`${featurePrefix}_educators_interactions`] =
               feature.audienceInteractionCounts[educatorAudience]
@@ -579,17 +675,44 @@ const jsonLd = {
           }
         }
 
-        function finalizeFeatureAnalytics(reason) {
-          const now = performance.now()
-          flushFeatureVisibility(now)
+        function stopFeatureCheckpoints() {
+          window.clearTimeout(featureInitialCheckpointTimer)
+          window.clearInterval(featureCheckpointTimer)
+        }
 
-          if (summarySent) return
-          summarySent = true
+        function sendFeatureSnapshot(reason, isFinal) {
+          const now = performance.now()
+          if (isFinal) flushFeatureVisibility(now)
+          if (isFinal && featureFinalSnapshotSent) return
+
+          const totalVisibleMs = getTotalFeatureVisibleMs(now)
+          const visibleDeltaMs = totalVisibleMs - featureLastSnapshotVisibleMs
+          if (
+            !isFinal &&
+            featureSnapshotSequence > 0 &&
+            visibleDeltaMs < summaryMinVisibleDeltaMs
+          ) {
+            return
+          }
+
+          featureSnapshotSequence += 1
+          featureLastSnapshotVisibleMs = totalVisibleMs
+          if (isFinal) {
+            featureFinalSnapshotSent = true
+            stopFeatureCheckpoints()
+          }
 
           sendPostHogEvent(eventFeaturesSummary, {
             ...getFeatureSummaryProperties(now),
+            is_final: isFinal,
             reason,
+            snapshot_sequence: featureSnapshotSequence,
+            summary_schema_version: summarySchemaVersion,
           })
+        }
+
+        function finalizeFeatureAnalytics(reason) {
+          sendFeatureSnapshot(reason, true)
         }
 
         for (const feature of features) {
@@ -615,9 +738,17 @@ const jsonLd = {
         updateFeatureVisibility()
 
         window.setInterval(updateFeatureVisibility, sectionWatchIntervalMs)
+        featureInitialCheckpointTimer = window.setTimeout(
+          () => sendFeatureSnapshot(summaryReasonInitialCheckpoint, false),
+          summaryInitialCheckpointMs,
+        )
+        featureCheckpointTimer = window.setInterval(
+          () => sendFeatureSnapshot(summaryReasonIntervalCheckpoint, false),
+          summaryCheckpointIntervalMs,
+        )
         window.addEventListener("scroll", requestFeatureUpdate, { passive: true })
         window.addEventListener("resize", requestFeatureUpdate, { passive: true })
-        window.addEventListener("pagehide", () => finalizeFeatureAnalytics("pagehide"))
+        window.addEventListener("pagehide", () => finalizeFeatureAnalytics(summaryReasonPagehide))
         window.addEventListener("buddy:audience-changing", () => {
           flushFeatureVisibility(performance.now())
           requestFeatureUpdate()
@@ -625,10 +756,15 @@ const jsonLd = {
         document.addEventListener("visibilitychange", () => {
           if (document.visibilityState === "hidden") {
             flushFeatureVisibility(performance.now())
+            sendFeatureSnapshot(summaryReasonVisibilityHidden, false)
             return
           }
 
           requestFeatureUpdate()
+        })
+        document.addEventListener("freeze", () => {
+          flushFeatureVisibility(performance.now())
+          sendFeatureSnapshot(summaryReasonFreeze, false)
         })
       }
 
