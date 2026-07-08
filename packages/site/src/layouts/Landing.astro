@@ -123,6 +123,7 @@ const jsonLd = {
       const analyticsSectionSelector = "[data-analytics-section]"
       const educatorAudience = "educators"
       const eventFeaturesSummary = "landing_features_summary"
+      const eventSectionSeen = "landing_section_seen"
       const eventSectionsSummary = "landing_sections_summary"
       const learnerAudience = "learners"
       const summaryReasonFreeze = "freeze"
@@ -335,10 +336,16 @@ const jsonLd = {
             section.maxVisibleRatio = Math.max(section.maxVisibleRatio, visibleRatio)
 
             if (visibleRatio >= sectionSeenRatio) {
+              const firstSeen = !section.seen
+              section.seen = true
+
               if (section.visibleStartedAt === undefined) {
-                section.seen = true
                 section.visibleStartedAt = now
                 section.visitCount += 1
+              }
+
+              if (firstSeen) {
+                sendSectionSeenEvent(section, visibleRatio, now)
               }
 
               if (!section.completed && getTotalVisibleMs(section, now) >= sectionCompleteMs) {
@@ -353,6 +360,19 @@ const jsonLd = {
         function requestSectionUpdate() {
           if (sectionUpdateFrame !== 0) return
           sectionUpdateFrame = window.requestAnimationFrame(updateSectionVisibility)
+        }
+
+        function sendSectionSeenEvent(section, visibleRatio, now) {
+          sendPostHogEvent(eventSectionSeen, {
+            max_scroll_depth_percent: maxScrollDepthPercent,
+            page_session_ms: Math.round(now),
+            section: section.section,
+            section_order: section.order,
+            section_seen_threshold_percent: getPercent(sectionSeenRatio),
+            section_visible_percent: getPercent(visibleRatio),
+            source: "section_visibility",
+            summary_schema_version: summarySchemaVersion,
+          })
         }
 
         function getTotalSectionVisibleMs(now) {

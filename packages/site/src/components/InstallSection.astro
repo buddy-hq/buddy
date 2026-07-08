@@ -606,9 +606,14 @@ const installShareUrl = new URL("#install", meta.siteUrl).href
   const eventDownloadLinkShareShown = "download_link_share_shown"
   const eventDownloadLinkShareSuccess = "download_link_share_success"
   const mobileInstallShareMaxWidthPx = 640
+  const modalSourceDownloadModal = "download_modal"
+  const modalSourceHeader = "header"
+  const modalSourceInstallSection = "install_section"
+  const modalSourceUnknown = "unknown"
   const osMac = "mac"
   const osWin = "win"
-  const shareSource = "download_modal"
+  const shareSource = modalSourceDownloadModal
+  let activeModalSource = modalSourceUnknown
 
   const commands = {
     mac: {
@@ -695,6 +700,7 @@ const installShareUrl = new URL("#install", meta.siteUrl).href
           event: eventName,
           properties: {
             os: getModalOs(),
+            modal_source: activeModalSource,
             source: shareSource,
             ...properties,
           },
@@ -712,9 +718,10 @@ const installShareUrl = new URL("#install", meta.siteUrl).href
     return shouldShow
   }
 
-  function openModal(os, source = "install_section") {
+  function openModal(os, source = modalSourceInstallSection) {
     const data = commands[os]
     if (!data) return
+    activeModalSource = source || modalSourceUnknown
 
     // Set OS specific classes to target color branding
     modal.classList.remove("overlay-mac", "overlay-win")
@@ -795,12 +802,13 @@ const installShareUrl = new URL("#install", meta.siteUrl).href
     modal.classList.remove("visible")
     modal.setAttribute("aria-hidden", "true")
     document.body.style.overflow = ""
+    activeModalSource = modalSourceUnknown
     syncShareLinkButtonVisibility()
   }
 
   // Hook up button clicks
   downloadBtns.forEach((btn) => {
-    btn.addEventListener("click", () => openModal(btn.getAttribute("data-os"), "install_section"))
+    btn.addEventListener("click", () => openModal(btn.getAttribute("data-os"), modalSourceInstallSection))
   })
 
   // Hook up close actions
@@ -817,7 +825,7 @@ const installShareUrl = new URL("#install", meta.siteUrl).href
   })
 
   // Expose function globally so the header button can open the modal based on OS
-  window.openBuddyDownloadModal = (os, source = "header") => {
+  window.openBuddyDownloadModal = (os, source = modalSourceHeader) => {
     openModal(os, source);
   };
 
@@ -895,8 +903,9 @@ const installShareUrl = new URL("#install", meta.siteUrl).href
           detail: {
             event: "install_command_copy",
             properties: {
-              os: modal.classList.contains("overlay-win") ? "win" : "mac",
-              source: "download_modal",
+              modal_source: activeModalSource,
+              os: getModalOs(),
+              source: modalSourceDownloadModal,
             },
           },
         }),
@@ -920,8 +929,9 @@ const installShareUrl = new URL("#install", meta.siteUrl).href
             event: "install_command_copy_failed",
             properties: {
               error_name: err instanceof Error ? err.name : "Unknown",
-              os: modal.classList.contains("overlay-win") ? "win" : "mac",
-              source: "download_modal",
+              modal_source: activeModalSource,
+              os: getModalOs(),
+              source: modalSourceDownloadModal,
             },
           },
         }),
