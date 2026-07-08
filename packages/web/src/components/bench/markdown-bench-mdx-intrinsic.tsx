@@ -19,9 +19,7 @@ const HTML_MARKDOWN_RENDER_CONTEXT: SafeMarkdownRenderContext = {
   svg: false,
 }
 
-const MarkdownBenchIntrinsicContext = createContext<MarkdownBenchIntrinsicContextValue | null>(
-  null,
-)
+const MarkdownBenchIntrinsicContext = createContext<MarkdownBenchIntrinsicContextValue | null>(null)
 
 export function MarkdownBenchIntrinsicScope(props: {
   value: MarkdownBenchIntrinsicContextValue
@@ -244,10 +242,7 @@ function safeProps(
 }
 
 function isSafeIntrinsicElement(name: string | null): name is string {
-  return (
-    name !== null &&
-    (SAFE_HTML_ELEMENT_NAMES.has(name) || SAFE_SVG_ELEMENT_NAMES.has(name))
-  )
+  return name !== null && (SAFE_HTML_ELEMENT_NAMES.has(name) || SAFE_SVG_ELEMENT_NAMES.has(name))
 }
 
 function isSafeIntrinsicElementForContext(
@@ -442,9 +437,7 @@ export function canRenderMdxIntrinsic(name: string | null): boolean {
   return isSafeIntrinsicElement(name)
 }
 
-export function MarkdownBenchMdxIntrinsicPreview({
-  mdastNode,
-}: Pick<JsxEditorProps, "mdastNode">) {
+export function MarkdownBenchMdxIntrinsicPreview({ mdastNode }: Pick<JsxEditorProps, "mdastNode">) {
   const imageContext = useIntrinsicImageContext()
   const renderContext = {
     imageContext,
@@ -452,10 +445,7 @@ export function MarkdownBenchMdxIntrinsicPreview({
   }
 
   return (
-    <div
-      data-component="markdown-bench-mdx-intrinsic"
-      className="my-2 max-w-full overflow-auto"
-    >
+    <div data-component="markdown-bench-mdx-intrinsic" className="my-2 max-w-full overflow-auto">
       {renderSafeIntrinsicNode(mdastNode, mdastNode.name ?? "intrinsic", renderContext)}
     </div>
   )

@@ -43,7 +43,5 @@ export function resolveMarkdownBenchImageSrc(input: {
   }
 
   const resolvedPath = joinRelativeImagePath(input.documentPath, src)
-  return resolveAssetUrl(
-    buildProjectFileRawUrl({ directory: input.directory, path: resolvedPath }),
-  )
+  return resolveAssetUrl(buildProjectFileRawUrl({ directory: input.directory, path: resolvedPath }))
 }

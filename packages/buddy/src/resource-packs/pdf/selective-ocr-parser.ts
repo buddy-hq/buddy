@@ -86,9 +86,7 @@ export function skippedOcrWarning(skippedOcr: PdfSkippedOcrSummary): string {
   ].join(" ")
 }
 
-export function skippedOcrWithoutUsableNativeTextWarning(
-  skippedOcr: PdfSkippedOcrSummary,
-): string {
+export function skippedOcrWithoutUsableNativeTextWarning(skippedOcr: PdfSkippedOcrSummary): string {
   return [
     `OCR was not run for ${skippedOcr.pageCount} PDF page(s) because automatic OCR is currently limited to ${PDF_AUTOMATIC_OCR_PAGE_BUDGET} page(s).`,
     `Skipped OCR reasons: ${formatReasonCounts(skippedOcr.reasons)}.`,

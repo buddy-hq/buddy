@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import type { ObjectWhiteboardSessionReadResponse } from "@buddy/sdk/types"
-import {
-  BENCH_AUTO_OPEN_POLICY_WHITEBOARD,
-  type BenchTarget,
-} from "../src/lib/bench-navigation"
+import { BENCH_AUTO_OPEN_POLICY_WHITEBOARD, type BenchTarget } from "../src/lib/bench-navigation"
 import {
   shouldStartWhiteboardBenchAutoOpen,
   whiteboardBenchAutoOpenIdentity,

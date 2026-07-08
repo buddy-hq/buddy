@@ -1,11 +1,6 @@
 import "@excalidraw/excalidraw/index.css"
 
-import {
-  Button,
-  ComposerDock,
-  ComposerDockBody,
-  cn,
-} from "@buddy/ui"
+import { Button, ComposerDock, ComposerDockBody, cn } from "@buddy/ui"
 import { Excalidraw, exportToBlob, MIME_TYPES } from "@excalidraw/excalidraw"
 import type { NonDeletedExcalidrawElement } from "@excalidraw/excalidraw/element/types"
 import type {
@@ -27,10 +22,7 @@ import type { ReactNode } from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useTheme } from "@/theme"
-import {
-  createAttachmentID,
-  readFileAsDataUrl,
-} from "./attachment-utils"
+import { createAttachmentID, readFileAsDataUrl } from "./attachment-utils"
 import type { PromptComposerAttachment } from "./prompt-types"
 
 export type SketchAttachmentFlush = () => Promise<PromptComposerAttachment | undefined>
@@ -308,11 +300,7 @@ export function SketchDock(props: SketchDockProps) {
   }, [isOpen, refreshCanvas])
 
   const handleChange = useCallback(
-    (
-      elements: readonly NonDeletedExcalidrawElement[],
-      appState: AppState,
-      files: BinaryFiles,
-    ) => {
+    (elements: readonly NonDeletedExcalidrawElement[], appState: AppState, files: BinaryFiles) => {
       if (!hasSketchElements(elements)) {
         publishEmptySketch()
         return
@@ -479,9 +467,7 @@ export function SketchDock(props: SketchDockProps) {
         ) : (
           <ComposerDockBody padded>
             <div className="w-full max-w-md">
-              <p className="text-center text-sm leading-6 text-text-weak">
-                {imageModelMessage}
-              </p>
+              <p className="text-center text-sm leading-6 text-text-weak">{imageModelMessage}</p>
               {imageModelOptions.length > 0 ? (
                 <div
                   className={cn(

@@ -1,4 +1,8 @@
-import { NestedLexicalEditor, type DirectiveDescriptor, type DirectiveEditorProps } from "@mdxeditor/editor"
+import {
+  NestedLexicalEditor,
+  type DirectiveDescriptor,
+  type DirectiveEditorProps,
+} from "@mdxeditor/editor"
 import type { RootContent } from "mdast"
 import { cn } from "@buddy/ui"
 
@@ -37,10 +41,8 @@ const MARKDOWN_BENCH_ADMONITION_CONFIGS = {
 const MARKDOWN_BENCH_ADMONITION_TONE_CLASS_NAMES = {
   critical:
     "border-border-critical-base/45 border-l-border-critical-base bg-surface-critical-weak text-text-on-critical-weak",
-  info:
-    "border-border-info-base/45 border-l-border-info-base bg-surface-info-weak text-text-on-info-weak",
-  neutral:
-    "border-border-weak-base border-l-border-strong-base bg-surface-weak text-text-base",
+  info: "border-border-info-base/45 border-l-border-info-base bg-surface-info-weak text-text-on-info-weak",
+  neutral: "border-border-weak-base border-l-border-strong-base bg-surface-weak text-text-base",
   success:
     "border-border-success-base/45 border-l-border-success-base bg-surface-success-weak text-text-on-success-weak",
   warning:
@@ -109,11 +111,7 @@ function isContainerDirectiveChild(node: RootContent): node is ContainerDirectiv
   }
 }
 
-function MarkdownBenchContainerDirectiveBody({
-  mdastNode,
-}: {
-  mdastNode: ContainerDirectiveNode
-}) {
+function MarkdownBenchContainerDirectiveBody({ mdastNode }: { mdastNode: ContainerDirectiveNode }) {
   return (
     <div
       data-slot="markdown-bench-directive-content"
@@ -179,16 +177,17 @@ function MarkdownBenchGenericContainerDirectiveEditor({
   )
 }
 
-const MARKDOWN_BENCH_ADMONITION_DIRECTIVE_DESCRIPTOR: DirectiveDescriptor<ContainerDirectiveNode> = {
-  name: "admonition",
-  attributes: [],
-  hasChildren: true,
-  type: "containerDirective",
-  testNode(node) {
-    return node.type === "containerDirective" && isMarkdownBenchAdmonitionName(node.name)
-  },
-  Editor: MarkdownBenchAdmonitionEditor,
-}
+const MARKDOWN_BENCH_ADMONITION_DIRECTIVE_DESCRIPTOR: DirectiveDescriptor<ContainerDirectiveNode> =
+  {
+    name: "admonition",
+    attributes: [],
+    hasChildren: true,
+    type: "containerDirective",
+    testNode(node) {
+      return node.type === "containerDirective" && isMarkdownBenchAdmonitionName(node.name)
+    },
+    Editor: MarkdownBenchAdmonitionEditor,
+  }
 
 const MARKDOWN_BENCH_CONTAINER_DIRECTIVE_DESCRIPTOR: DirectiveDescriptor<ContainerDirectiveNode> = {
   name: "container",

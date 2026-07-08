@@ -68,7 +68,7 @@ describe("PDF selective OCR", () => {
         pageNumber: 6,
         reasons: ["vector-text"],
         textLength: 2_500,
-        textCoverage: 0.30,
+        textCoverage: 0.3,
       }),
     ]
 

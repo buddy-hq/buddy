@@ -377,7 +377,7 @@ describe("MarkdownBenchEditor", () => {
       root.render(
         <ThemeProvider>
           <MarkdownBenchEditor
-            markdown={'# Broken\n\n<Component value={}>Content</Component>'}
+            markdown={"# Broken\n\n<Component value={}>Content</Component>"}
             version="version-1"
             dirty={false}
             saving={false}
@@ -527,9 +527,7 @@ describe("MarkdownBenchEditor", () => {
 
     expect(container.querySelector(".mdxeditor-toolbar")?.classList.contains("!hidden")).toBe(true)
     expect(
-      advancedToolbarContainer.querySelector(
-        '[data-component="markdown-bench-advanced-toolbar"]',
-      ),
+      advancedToolbarContainer.querySelector('[data-component="markdown-bench-advanced-toolbar"]'),
     ).not.toBeNull()
     expect(container.textContent).toContain("Connect the particle model")
     const admonition = container.querySelector<HTMLElement>(
@@ -545,14 +543,7 @@ describe("MarkdownBenchEditor", () => {
 
   test("renders arbitrary container directives without switching to source mode", async () => {
     const editorRef = createRef<MarkdownBenchEditorHandle>()
-    const markdown = [
-      ":::answer-key",
-      "## Answer Key",
-      "",
-      "1. C",
-      "2. A",
-      ":::",
-    ].join("\n")
+    const markdown = [":::answer-key", "## Answer Key", "", "1. C", "2. A", ":::"].join("\n")
 
     await act(async () => {
       root.render(
@@ -674,7 +665,8 @@ describe("MarkdownBenchEditor", () => {
     expect(container.querySelector(".katex")).not.toBeNull()
     expect(container.querySelector('[data-component="markdown-bench-mermaid"]')).not.toBeNull()
     expect(
-      container.querySelector('[data-component="mermaid-diagram-static-viewport"] svg')?.textContent,
+      container.querySelector('[data-component="mermaid-diagram-static-viewport"] svg')
+        ?.textContent,
     ).toContain("Mermaid")
     expect(container.querySelector('img[alt="Particles"]')).not.toBeNull()
     expect(

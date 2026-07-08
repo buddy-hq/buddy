@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type ReactNode,
+} from "react"
 import {
   DownloadIcon,
   InfoIcon,
@@ -237,8 +245,9 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   const [saveError, setSaveError] = useState<string | undefined>(undefined)
   const [exporting, setExporting] = useState(false)
   const [openDockPanel, setOpenDockPanel] = useState<MarkdownBenchDockPanel>()
-  const [advancedToolbarContainer, setAdvancedToolbarContainer] =
-    useState<HTMLDivElement | null>(null)
+  const [advancedToolbarContainer, setAdvancedToolbarContainer] = useState<HTMLDivElement | null>(
+    null,
+  )
   const [historyControls, setHistoryControls] = useState<MarkdownBenchHistoryControlsState>({
     canRedo: false,
     canUndo: false,

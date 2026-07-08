@@ -155,7 +155,8 @@ const bringYourOwn: BringYourOwn = {
 
 const learnersPhilosophy: Philosophy = {
   headline: "What you learn is yours.",
-  subtext: "No account, no cloud, no tracking. Your chats, notes, and files stay on your computer, forever.",
+  subtext:
+    "No account, no cloud, no tracking. Your chats, notes, and files stay on your computer, forever.",
   items: [
     {
       label: "No logins",
@@ -209,8 +210,7 @@ const capabilities: Capabilities = {
   items: [
     {
       name: "Subagents",
-      detail:
-        "Delegate tasks to worker agents that run in parallel.",
+      detail: "Delegate tasks to worker agents that run in parallel.",
     },
     {
       name: "MCPs",
@@ -218,8 +218,7 @@ const capabilities: Capabilities = {
     },
     {
       name: "Skills",
-      detail:
-        "Use built-in skills, choose from a curated library, or bring your own.",
+      detail: "Use built-in skills, choose from a curated library, or bring your own.",
     },
     {
       name: "Tools",
@@ -301,7 +300,8 @@ export const content = {
   learners: {
     hero: {
       headlineLines: ["A learning buddy", "that lives on your computer."],
-      subtext: "Read, understand, and remember with a learning companion that never leaves your side.",
+      subtext:
+        "Read, understand, and remember with a learning companion that never leaves your side.",
     },
     featuresHeader: {
       headline: "Built for how you actually learn.",

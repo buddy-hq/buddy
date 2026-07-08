@@ -253,8 +253,7 @@ export function PromptComposer(props: PromptComposerProps) {
   const [sketchHasContent, setSketchHasContent] = useState(false)
   const sketchAttachmentRef = useRef<PromptComposerAttachment | undefined>(undefined)
   const flushSketchAttachmentRef = useRef<SketchAttachmentFlush | undefined>(undefined)
-  const sketchBenchOpen =
-    transientBenchSurface?.activeSurface === TRANSIENT_BENCH_SURFACE_SKETCH
+  const sketchBenchOpen = transientBenchSurface?.activeSurface === TRANSIENT_BENCH_SURFACE_SKETCH
   const selectionContextEntries = useMemo(
     () =>
       draft.parts.flatMap((part) =>
@@ -1191,10 +1190,7 @@ export function PromptComposer(props: PromptComposerProps) {
                 }
               >
                 <SketchDock
-                  className={cn(
-                    "w-full",
-                    (sketchDockMinimized || sketchBenchOpen) && "hidden",
-                  )}
+                  className={cn("w-full", (sketchDockMinimized || sketchBenchOpen) && "hidden")}
                   acceptsImages={props.selectedModelAcceptsImages}
                   benchHost={sketchBenchOpen ? transientBenchSurface?.host : null}
                   imageModelOptions={sketchImageModelOptions}

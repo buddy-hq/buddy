@@ -22,9 +22,9 @@ type TransientBenchSurfaceProviderProps = {
   value: TransientBenchSurfaceContextValue
 }
 
-const TransientBenchSurfaceContext = createContext<
-  TransientBenchSurfaceContextValue | undefined
->(undefined)
+const TransientBenchSurfaceContext = createContext<TransientBenchSurfaceContextValue | undefined>(
+  undefined,
+)
 
 function TransientBenchSurfaceProvider(props: TransientBenchSurfaceProviderProps) {
   return (

@@ -224,7 +224,10 @@ function GenericMdxComponentEditor({ mdastNode }: JsxEditorProps) {
     )
 
     return (
-      <span data-component="markdown-bench-mdx-component" className="inline-flex items-baseline gap-1">
+      <span
+        data-component="markdown-bench-mdx-component"
+        className="inline-flex items-baseline gap-1"
+      >
         {label}
         {content}
       </span>
@@ -620,9 +623,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         toolbarPlugin({
           toolbarClassName: "!hidden",
           toolbarContents: () => (
-            <MarkdownBenchAdvancedToolbarPortal
-              container={props.advancedToolbarContainer}
-            />
+            <MarkdownBenchAdvancedToolbarPortal container={props.advancedToolbarContainer} />
           ),
         }),
         markdownBenchHistoryControlsPlugin({

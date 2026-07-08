@@ -17,7 +17,9 @@ describe("markdown PDF export paths", () => {
   const cleanupPaths: string[] = []
 
   afterEach(async () => {
-    await Promise.all(cleanupPaths.splice(0).map((path) => rm(path, { force: true, recursive: true })))
+    await Promise.all(
+      cleanupPaths.splice(0).map((path) => rm(path, { force: true, recursive: true })),
+    )
   })
 
   test("sanitizes renderer-supplied default paths to a notebook-local file name", async () => {
@@ -72,9 +74,9 @@ describe("markdown PDF export paths", () => {
   })
 
   test("detects paths outside a directory", () => {
-    expect(isPathInsideDirectory(join("/tmp", "notebook", "lesson.pdf"), join("/tmp", "notebook"))).toBe(
-      true,
-    )
+    expect(
+      isPathInsideDirectory(join("/tmp", "notebook", "lesson.pdf"), join("/tmp", "notebook")),
+    ).toBe(true)
     expect(isPathInsideDirectory(join("/tmp", "lesson.pdf"), join("/tmp", "notebook"))).toBe(false)
   })
 })

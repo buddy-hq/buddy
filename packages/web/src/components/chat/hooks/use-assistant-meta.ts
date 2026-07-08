@@ -28,11 +28,7 @@ export function useAssistantMeta(
       }
     }
 
-    return [
-      modelName,
-      formatDuration(turnDurationMs),
-      assistantAborted ? "Interrupted" : "",
-    ]
+    return [modelName, formatDuration(turnDurationMs), assistantAborted ? "Interrupted" : ""]
       .filter((value) => !!value)
       .join(" · ")
   }, [assistantMessages, providers, turnDurationMs, assistantAborted])

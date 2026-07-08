@@ -111,8 +111,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const { controller } = props
   const currentDirectory = controller.mainPaneProps.directory
   const activeSessionID = controller.mainPaneProps.chatState.sessionID
-  const [transientBenchSurface, setTransientBenchSurface] =
-    useState<TransientBenchSurface | null>(null)
+  const [transientBenchSurface, setTransientBenchSurface] = useState<TransientBenchSurface | null>(
+    null,
+  )
   const [transientBenchHost, setTransientBenchHost] = useState<HTMLDivElement | null>(null)
   const openTransientBenchSurface = useCallback((surface: TransientBenchSurface) => {
     setTransientBenchSurface(surface)
@@ -155,10 +156,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const workspacePending = workspace.projection.pending
   const workspaceBenchVisibility = workspace.projection.bench.visibility
   const workspaceDrawer = workspace.projection.drawer
-  const layoutProfile =
-    transientBenchActive
-      ? BENCH_LAYOUT_PROFILE_VISUAL
-      : benchPolicyState.status === "open"
+  const layoutProfile = transientBenchActive
+    ? BENCH_LAYOUT_PROFILE_VISUAL
+    : benchPolicyState.status === "open"
       ? benchPolicyState.layoutProfile
       : BENCH_LAYOUT_PROFILE_DOCUMENT
   const fallbackContextProvider = useMemo(
@@ -265,7 +265,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       : presentation.leftSidebar.visible
   const canPinLeftSidebarWithoutResizing =
     dockedBenchViewport.widthPx >=
-      chatState.leftSidebarDisplayWidth +
+    chatState.leftSidebarDisplayWidth +
       dockedWorkspaceDisplayWidthPx +
       dockedWorkspaceChatMinWidthPx
 
@@ -429,12 +429,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         origin: "user",
       })
     },
-    [
-      dockedWorkspaceMaxWidthPx,
-      presentation,
-      setBenchMode,
-      transientBenchActive,
-    ],
+    [dockedWorkspaceMaxWidthPx, presentation, setBenchMode, transientBenchActive],
   )
 
   const setFloatingChatSubstate = useCallback(
@@ -643,113 +638,115 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   return (
     <TransientBenchSurfaceProvider value={transientBenchContext}>
       <DirectoryChatShell
-      leftSidebar={<ChatLeftSidebar {...controller.leftSidebarProps} />}
-      contentLayout={
-        <DirectoryChatBenchPageLayout
-          chatLayoutMode={effectiveWorkspaceLayoutMode}
-          layoutProfile={layoutProfile}
-          floatingRect={floatingRect}
-          floatingChatState={floatingChatState}
-          onChatLayoutModeChange={setBenchChatLayoutMode}
-          onFloatingRectChange={setFloatingRect}
-          onFloatingChatStateChange={setFloatingChatStateFromLayout}
-          benchInteractive={effectiveWorkspaceHostOpen}
-          dockedBenchLayout={{
-            open: workspaceHydrated && effectiveWorkspaceOpen,
-            widthPx: dockedWorkspaceDisplayWidthPx,
-            minWidthPx: dockedWorkspaceMinWidthPx,
-            maxWidthPx: dockedWorkspaceMaxWidthPx,
-            onResizeIntent: handleDockedWorkspaceResizeIntent,
-            onCollapse: transientBenchActive
-              ? () => {
-                  if (transientBenchSurface) {
-                    closeActiveTransientBenchSurface(transientBenchSurface)
+        leftSidebar={<ChatLeftSidebar {...controller.leftSidebarProps} />}
+        contentLayout={
+          <DirectoryChatBenchPageLayout
+            chatLayoutMode={effectiveWorkspaceLayoutMode}
+            layoutProfile={layoutProfile}
+            floatingRect={floatingRect}
+            floatingChatState={floatingChatState}
+            onChatLayoutModeChange={setBenchChatLayoutMode}
+            onFloatingRectChange={setFloatingRect}
+            onFloatingChatStateChange={setFloatingChatStateFromLayout}
+            benchInteractive={effectiveWorkspaceHostOpen}
+            dockedBenchLayout={{
+              open: workspaceHydrated && effectiveWorkspaceOpen,
+              widthPx: dockedWorkspaceDisplayWidthPx,
+              minWidthPx: dockedWorkspaceMinWidthPx,
+              maxWidthPx: dockedWorkspaceMaxWidthPx,
+              onResizeIntent: handleDockedWorkspaceResizeIntent,
+              onCollapse: transientBenchActive
+                ? () => {
+                    if (transientBenchSurface) {
+                      closeActiveTransientBenchSurface(transientBenchSurface)
+                    }
                   }
-                }
-              : handleRightWorkspaceCollapse,
-          }}
-          bench={
-            transientBenchActive ? (
-              <div
-                ref={setTransientBenchHost}
-                data-component="transient-bench-surface-host"
-                className="h-full min-h-0 w-full min-w-0 bg-background-base"
-              />
-            ) : (
-              <DirectoryChatRightWorkspace
-                directory={currentDirectory}
-                sessionID={controller.mainPaneProps.chatState.sessionID}
-                sessions={controller.mainPaneProps.chatState.sessions}
-                workspaceWidth={dockedWorkspaceDisplayWidthPx}
-                onCreateBoard={handleCreateBoard}
-                onCreateCreation={handleCreateCreation}
-                onOpenThread={selectWorkspaceSession}
-                onOpenResource={controller.mainPaneProps.onOpenResource}
-                bench={benchOutlet}
-                presentation={presentation}
-              />
-            )
-          }
-          threadBrowserProps={
-            !showingSkills && presentation.controls.showThreadBrowserInPane
-              ? {
-                  sessionTitle: chatState.sessionTitle,
-                  notebookName: controller.shellProps.projectName,
-                  sessions: chatState.sessions,
-                  activeSessionID: chatState.sessionID,
-                  linkedSessionID: linkedReadingSessionID,
-                  parentSession: chatState.parentSession,
-                  isTurnActive: chatState.isTurnActive,
-                  onNewSession: handleNewSession,
-                  onSelectSession: handleSelectSession,
-                }
-              : undefined
-          }
-          conversation={() => (
-            <DirectoryChatBenchConversationPane
-              {...controller.mainPaneProps}
-              linkedSessionID={linkedReadingSessionID}
-              showThreadBrowser={false}
-              onNewSession={handleNewSession}
-              onSelectSession={handleSelectSession}
-            />
-          )}
-        />
-      }
-      {...controller.shellProps}
-      immersive={
-        effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING && !transientBenchActive
-      }
-      leftSidebarOpen={shellLeftSidebarOpen}
-      leftSidebarOverlayEnabled={!showingSkills && presentation.leftSidebar.overlayEnabled}
-      leftSidebarOverlayOpen={showingSkills ? false : leftSidebarOverlayOpen}
-      onLeftSidebarOverlayOpenChange={setLeftSidebarOverlayOpen}
-      onLeftSidebarToggle={
-        !showingSkills && presentation.dockedBenchVisible ? handleLeftSidebarToggle : undefined
-      }
-      onRightWorkspaceToggle={
-        transientBenchActive
-          ? () => {
-              if (transientBenchSurface) {
-                closeActiveTransientBenchSurface(transientBenchSurface)
-              }
+                : handleRightWorkspaceCollapse,
+            }}
+            bench={
+              transientBenchActive ? (
+                <div
+                  ref={setTransientBenchHost}
+                  data-component="transient-bench-surface-host"
+                  className="h-full min-h-0 w-full min-w-0 bg-background-base"
+                />
+              ) : (
+                <DirectoryChatRightWorkspace
+                  directory={currentDirectory}
+                  sessionID={controller.mainPaneProps.chatState.sessionID}
+                  sessions={controller.mainPaneProps.chatState.sessions}
+                  workspaceWidth={dockedWorkspaceDisplayWidthPx}
+                  onCreateBoard={handleCreateBoard}
+                  onCreateCreation={handleCreateCreation}
+                  onOpenThread={selectWorkspaceSession}
+                  onOpenResource={controller.mainPaneProps.onOpenResource}
+                  bench={benchOutlet}
+                  presentation={presentation}
+                />
+              )
             }
-          : handleRightWorkspaceToggle
-      }
-      chatTitle={controller.mainPaneProps.chatState.sessionTitle}
-      titlebarVariant={showingSkills ? "shell" : "chat"}
-      rightWorkspaceOpen={effectiveWorkspaceHostOpen}
-      showThreadBrowser={!showingSkills && presentation.controls.showThreadBrowserInTitlebar}
-      showSidebarThreadControls={!showingSkills && presentation.controls.showSidebarThreadControls}
-      sessions={chatState.sessions}
-      activeSessionID={chatState.sessionID}
-      linkedSessionID={linkedReadingSessionID}
-      parentSession={chatState.parentSession}
-      onNewSession={handleNewSession}
-      onSelectSession={handleSelectSession}
-      onFloatChat={
-        !showingSkills && presentation.controls.showFloatChat ? handleFloatChat : undefined
-      }
+            threadBrowserProps={
+              !showingSkills && presentation.controls.showThreadBrowserInPane
+                ? {
+                    sessionTitle: chatState.sessionTitle,
+                    notebookName: controller.shellProps.projectName,
+                    sessions: chatState.sessions,
+                    activeSessionID: chatState.sessionID,
+                    linkedSessionID: linkedReadingSessionID,
+                    parentSession: chatState.parentSession,
+                    isTurnActive: chatState.isTurnActive,
+                    onNewSession: handleNewSession,
+                    onSelectSession: handleSelectSession,
+                  }
+                : undefined
+            }
+            conversation={() => (
+              <DirectoryChatBenchConversationPane
+                {...controller.mainPaneProps}
+                linkedSessionID={linkedReadingSessionID}
+                showThreadBrowser={false}
+                onNewSession={handleNewSession}
+                onSelectSession={handleSelectSession}
+              />
+            )}
+          />
+        }
+        {...controller.shellProps}
+        immersive={
+          effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING && !transientBenchActive
+        }
+        leftSidebarOpen={shellLeftSidebarOpen}
+        leftSidebarOverlayEnabled={!showingSkills && presentation.leftSidebar.overlayEnabled}
+        leftSidebarOverlayOpen={showingSkills ? false : leftSidebarOverlayOpen}
+        onLeftSidebarOverlayOpenChange={setLeftSidebarOverlayOpen}
+        onLeftSidebarToggle={
+          !showingSkills && presentation.dockedBenchVisible ? handleLeftSidebarToggle : undefined
+        }
+        onRightWorkspaceToggle={
+          transientBenchActive
+            ? () => {
+                if (transientBenchSurface) {
+                  closeActiveTransientBenchSurface(transientBenchSurface)
+                }
+              }
+            : handleRightWorkspaceToggle
+        }
+        chatTitle={controller.mainPaneProps.chatState.sessionTitle}
+        titlebarVariant={showingSkills ? "shell" : "chat"}
+        rightWorkspaceOpen={effectiveWorkspaceHostOpen}
+        showThreadBrowser={!showingSkills && presentation.controls.showThreadBrowserInTitlebar}
+        showSidebarThreadControls={
+          !showingSkills && presentation.controls.showSidebarThreadControls
+        }
+        sessions={chatState.sessions}
+        activeSessionID={chatState.sessionID}
+        linkedSessionID={linkedReadingSessionID}
+        parentSession={chatState.parentSession}
+        onNewSession={handleNewSession}
+        onSelectSession={handleSelectSession}
+        onFloatChat={
+          !showingSkills && presentation.controls.showFloatChat ? handleFloatChat : undefined
+        }
       />
     </TransientBenchSurfaceProvider>
   )
