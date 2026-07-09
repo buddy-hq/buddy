@@ -18,6 +18,7 @@ import { standardsFeature } from "../features/standards/feature"
 import { stepwiseSolvingFeature } from "../features/stepwise-solving/feature"
 import { teachingGuidanceFeature } from "../features/teaching-guidance/feature"
 import { whiteboardFeature } from "../features/whiteboard/feature"
+import { platformFeature } from "../features/platform/feature"
 
 export const BUDDY = defineBuddyPersona({
   id: "buddy",
@@ -43,6 +44,7 @@ export const BUDDY = defineBuddyPersona({
     htmlWidgetsFeature,
     mathFeature,
     whiteboardFeature,
+    platformFeature,
   ],
   defaultSurface: "curriculum",
   hidden: false,

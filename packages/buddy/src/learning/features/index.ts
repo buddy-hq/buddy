@@ -20,6 +20,7 @@ import { mediaPresentationsFeature } from "./media-presentations/feature"
 import { htmlWidgetsFeature } from "./html-widgets/feature"
 import { mathFeature } from "./math/feature"
 import { whiteboardFeature } from "./whiteboard/feature"
+import { platformFeature } from "./platform/feature"
 
 const ALL_BUDDY_FEATURES = [
   curriculumFeature,
@@ -44,6 +45,7 @@ const ALL_BUDDY_FEATURES = [
   htmlWidgetsFeature,
   mathFeature,
   whiteboardFeature,
+  platformFeature,
 ] as const
 
 export {
@@ -69,5 +71,6 @@ export {
   htmlWidgetsFeature,
   mathFeature,
   whiteboardFeature,
+  platformFeature,
   ALL_BUDDY_FEATURES,
 }
