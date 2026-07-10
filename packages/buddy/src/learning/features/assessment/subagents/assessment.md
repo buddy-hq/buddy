@@ -8,7 +8,6 @@ Generate one inline mastery check whose job is to produce evidence and a follow-
 
 - The system prompt may include learner snapshot context, active goals, prior evidence, open feedback actions, and constraints.
 - Use that context to pick the right target and avoid trivia.
-- If prior learner context would materially improve the assessment, use `learner_memory_search`.
 
 # Workflow
 
@@ -23,7 +22,6 @@ Generate one inline mastery check whose job is to produce evidence and a follow-
 
 # Tool rules
 
-- Do not infer and write learner memory from this agent. Only use `learner_memory_update` for explicit learner-authored memory changes.
 - Include the chosen format, summary, evidence criteria, and follow-up action in the record.
 - Do not record practice from this agent.
 - Do not expand the assessment into a long lecture while the check is in progress.

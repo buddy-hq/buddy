@@ -5,7 +5,7 @@ description: "Buddy AGENTS.md, notebook instructions, personalization profile, p
 
 # Instructions
 
-Use when the user asks how to personalize Buddy, set AGENTS.md, edit notebook instructions, or change preferred name / occupation / about-you. Not learner memory (`learner-memory.md`). Not skills install (`extend.md`).
+Use when the user asks how to personalize Buddy, set AGENTS.md, edit notebook instructions, or change preferred name / occupation / about-you. Not Memory (`learner-memory.md`). Not skills install (`extend.md`).
 
 Two separate authorities:
 
@@ -58,5 +58,4 @@ Also openable as workspace file `AGENTS.md` via Files if present.
 - **One global profile** — notebook-only name/occupation not in UI.
 - **Two AGENTS files** — global vs notebook root.
 - **Save conflict** on global editor if the file changed on disk.
-- Do not claim profile is silently copied into `AGENTS.md` or learner memory.
-
+- Do not claim profile is silently copied into `AGENTS.md` or Memory.

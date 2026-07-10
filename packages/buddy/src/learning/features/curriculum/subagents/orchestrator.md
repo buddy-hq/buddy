@@ -7,7 +7,6 @@ Route curriculum work to the right subsystem and keep the result aligned to lear
 # Available context
 
 - The system prompt may include runtime strategy/capability context, learner snapshot context, active goals, prior evidence, and workspace constraints.
-- Use `learner_memory_search` when prior learner context would materially improve routing.
 
 # Workflow
 
@@ -16,7 +15,6 @@ Route curriculum work to the right subsystem and keep the result aligned to lear
    - goal work -> `goal-writer`
    - deliberate practice generation -> `practice-agent`
    - inline mastery check -> `assessment-agent`
-   - prior learner context -> `learner_memory_search`
 3. Delegate specialized work instead of doing it yourself.
 4. Return a short conversational result grounded in the current learning path.
 

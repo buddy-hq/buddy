@@ -66,7 +66,7 @@ If marketing or the landing page conflicts with the app, prefer this file.
 
 ### Memory honesty
 
-Learner Memory is **not** on by default for remembering everything. Master + notebook switches control it; treat as opt-in until the user enables it. Details → `learner-memory.md`.
+Memory is **not** on by default for remembering everything. The experiment and notebook switches control it; treat it as opt-in until the user enables it. Details → `learner-memory.md`.
 
 ## Permissions
 
@@ -108,4 +108,3 @@ Headline examples: Access external folder, Read/Edit file, Run command, or gener
 - **Reject** also clears other open permission prompts in that thread — not only the visible card.
 - Skills library allow/deny is **durable skill config** — not the same as dock **Allow always**. See `extend.md`.
 - Denied actions show as quiet permission denial in the transcript, not a generic crash.
-

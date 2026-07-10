@@ -39,7 +39,7 @@ No Buddy multi-user accounts. AI providers may still need login or keys — `pro
 | Profile / AGENTS.md | Instructions | `instructions.md` |
 | Models / keys / OAuth | Providers | `providers.md` |
 | Permission prompts | Allow once / always / reject | `trust.md` |
-| Remember me | Learner Memory | `learner-memory.md` |
+| Remember me | Memory | `learner-memory.md` |
 | MCP servers | Settings → MCP | `extend.md` |
 | Math/standards packages | Advanced packages | `extend.md` |
 
@@ -178,4 +178,3 @@ Minimize floating chat does **not** close Bench.
 ### Related
 
 Layout above, `library.md`, `library.md`, `practice.md`, `library.md`, `library.md`, `chat.md`
-

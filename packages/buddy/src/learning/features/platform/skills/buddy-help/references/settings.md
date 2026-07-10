@@ -15,7 +15,7 @@ Deep topics stay thin here — open the sibling ref when the question is the fea
 | --- | --- |
 | Providers / API keys / ChatGPT | `providers.md` |
 | MCP servers | `extend.md` (UI); `config-mcp.md` (file edit) |
-| Learner memory | `learner-memory.md` |
+| Memory | `learner-memory.md` |
 | AGENTS.md / profile | `instructions.md` |
 | Advanced Math / Standards packages | `extend.md` |
 | App install / update channel | `setup.md` |
@@ -40,7 +40,7 @@ Tell the user: **Settings → \<tab\>**.
 | **Providers** | Connect and manage AI providers |
 | **MCPs** | Global MCP definitions |
 | **Personalization** | Profile + global **AGENTS.md** |
-| **Learner Memory** | Master switch, notebook defaults, models, tuning |
+| **Memory** | Experiment opt-in, notebook defaults, models, tuning |
 | **Advanced** | Packages; log level; Read entire book; Auto-compaction; **Buddy Home**; external skill discovery |
 | **Attribution** | Third-party credits (read-only) |
 | **Standards** | Optional — only when Standards package is enabled |
@@ -53,7 +53,7 @@ Notebook header context menu → **Notebook settings**.
 
 Overrides **this notebook only** (Inherited / Override):
 
-- Learner memory participation + auto-extract (blocked if global master is off)
+- Memory participation + auto-extract (shown only when the experiment is enabled)
 - Standards toggles (if Standards installed)
 - Per-MCP on/off (definitions stay under Settings → MCPs)
 
@@ -70,5 +70,5 @@ Autosave. Does **not** set theme, providers, or global profile.
 - Appearance is under **General**, not its own nav item.
 - Standards tab missing → Standards package not enabled (`extend.md`).
 - Updates / package install need the **desktop** app.
-- Global learner memory off → notebook memory controls stay disabled.
+- Memory experiment off → memory settings and notebook controls are hidden.
 - Permission “allow always” is the live permission prompt, not a Settings preference (`trust.md`).

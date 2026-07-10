@@ -52,7 +52,7 @@ Not for subject teaching (math, history, code lessons as content). Use pedagogy 
 - “No Buddy login” ≠ “no AI provider login.” Providers may need OAuth or API keys (`providers.md`, `trust.md`).
 - **Allow always** on permissions = until Buddy restarts — not forever (`trust.md`).
 - Not every action prompts. Do not say “approve every action” as absolute (`trust.md`).
-- Learner memory: opt-in / off by default unless `learner-memory.md` says otherwise; never claim Buddy remembers everything by default.
+- Memory: opt-in / off by default unless `learner-memory.md` says otherwise; never claim Buddy remembers everything by default.
 - Notebook (UI) ≈ workspace folder. Thread (UI) ≈ session.
 
 ## User ↔ product map (not tool docs)

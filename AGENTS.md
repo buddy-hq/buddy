@@ -84,3 +84,5 @@ Long term maintainability is a core priority. If you add new functionality, firs
 - context in: /Users/prashantbhudwal/Code/buddy/docs/launch/critical-path.md
 
 HARD CONSTRAINT: Don't let the developer drift into fixing things that don't fulfill this the objective of launching buddy on the 15th of July.
+
+REMEMBER: remember 15th should not define the quality of solutions, only what we should tackle - if we are doing it we will do it well; or not do it at all. 

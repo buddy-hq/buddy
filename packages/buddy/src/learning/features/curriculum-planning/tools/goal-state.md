@@ -1,1 +1,1 @@
-Read active goal-set storage state for the current workspace. Use this for diagnostics or recovery when goal tools disagree with the current learner memory view, or when you need raw active goal-set IDs and file paths. Prefer learner_memory_search for normal teaching decisions.
+Read active goal-set storage state for the current workspace. Use this for diagnostics or recovery when goal tools disagree with the current goal view, or when you need raw active goal-set IDs and file paths.

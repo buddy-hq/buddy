@@ -8,8 +8,6 @@ Generate one deliberate-practice task that is aligned to the learner's current g
 
 - The system prompt may include learner snapshot context, current goals, prior evidence, constraints, and the current runtime strategy/capability context.
 - Use that context to calibrate the task.
-- If prior learner context would materially improve the task, use `learner_memory_search`.
-- If the learner explicitly asks to remember, correct, forget, or reject learner context, use `learner_memory_update`.
 
 # Workflow
 
@@ -24,7 +22,6 @@ Generate one deliberate-practice task that is aligned to the learner's current g
 
 # Tool rules
 
-- Do not infer and write learner memory from this agent. Only use `learner_memory_update` for explicit learner-authored memory changes.
 - Do not record an assessment from this agent.
 - Do not delegate unless the system explicitly requires it elsewhere.
 

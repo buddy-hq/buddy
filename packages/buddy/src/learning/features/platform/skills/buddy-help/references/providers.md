@@ -36,7 +36,7 @@ Onboarding: ChatGPT → OpenAI-style connection; Free Models → free hosted mod
 - Selection is per notebook/thread on this machine. Opening a thread can restore its last model.
 - Image/sketch needs a model that accepts images; switch model if the toolbar blocks attachments.
 
-There is no Settings “Model” tab — pick models in chat. Learner Memory has its own model controls (`learner-memory.md`).
+There is no Settings “Model” tab — pick models in chat. Memory has its own model controls (`learner-memory.md`).
 
 ## ChatGPT usage (Settings)
 

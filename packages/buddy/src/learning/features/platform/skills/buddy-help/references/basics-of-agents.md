@@ -39,7 +39,7 @@ Use after the general definition. Product detail → listed ref.
 | instruction layers | Profile + AGENTS.md (global / notebook) | `instructions.md` |
 | artifacts | Bench + library rail (Sources, Boards, Creations, Practice, Files) | `workspace.md`, `library.md`, `practice.md` |
 | working memory / context | what the model sees this turn; context usage near composer | `notebooks.md`, `chat.md` |
-| long-term memory | Learner Memory (opt-in) | `learner-memory.md` |
+| long-term memory | Memory (opt-in) | `learner-memory.md` |
 | local-first + egress | no Buddy account; data on machine; chat still goes to provider | `trust.md`, `providers.md` |
 | permissions / approve | permission dock: Allow once / always until restart / Reject | `trust.md` |
 | structured mid-run ask | question UI above composer (≠ Practice quiz) | `chat.md` |
@@ -360,4 +360,4 @@ Not equal to:
 - Do not leave a newbie with abstract agent theory only — name the Buddy surface for each concept you teach.
 - Do not invent product menus/paths from this file; open product refs for UI steps and honesty defaults.
 - Do not restate live tool ids/params.
-- Honesty: local-first + provider egress; approvals not universal; Learner Memory not “everything by default” (`learner-memory.md` / `trust.md`).
+- Honesty: local-first + provider egress; approvals not universal; Memory is not “everything by default” (`learner-memory.md` / `trust.md`).
