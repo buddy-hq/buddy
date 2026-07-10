@@ -15,7 +15,11 @@ import { InvalidError } from "../contract/errors.js"
 
 export async function listProjectPersonas(directory: string) {
   const config = await readProjectConfig(directory)
-  return personaCatalogEntries(config.personas)
+  return personaCatalogEntries({
+    defaultPersona: config.default_persona,
+    primaryUse: config.personalization?.primary_use,
+    overrides: config.personas,
+  })
 }
 
 export async function listProjectAgents(directory: string) {

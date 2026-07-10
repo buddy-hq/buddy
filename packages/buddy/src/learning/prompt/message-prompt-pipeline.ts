@@ -54,6 +54,7 @@ export async function runMessagePromptPipeline(input: {
   const target = normalizePersonaTarget({
     body: input.body,
     config: input.projectConfig,
+    sessionPersona: input.previousState?.persona,
   })
 
   const transformed: Record<string, unknown> = {

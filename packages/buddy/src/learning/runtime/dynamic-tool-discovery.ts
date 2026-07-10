@@ -12,7 +12,6 @@ import type { PersonaDefinition } from "../shared/runtime-types"
 
 const LEARNING_TOOL_SEARCH_TOOL_ID = "learning_tool_search"
 const LEARNING_TOOL_LOAD_TOOL_ID = "learning_tool_load"
-const DEFAULT_PERSONA_ID = "buddy" as const satisfies Persona
 const NO_RESULTS_OUTPUT = "No dynamic learning tools matched the query."
 const NO_EXPOSED_TOOLS_OUTPUT =
   "No dynamic learning tools were exposed. Call `learning_tool_search` first, then pass exact returned tool IDs to `learning_tool_load`."
@@ -78,11 +77,11 @@ async function loadDynamicLearningToolSearchRuntime(): Promise<DynamicLearningTo
 function resolveSearchPersona(input: {
   agent: string
   statePersona?: string
-  configDefaultPersona?: Persona
+  defaultPersona: Persona
 }): Persona {
   if (input.statePersona && isPersona(input.statePersona)) return input.statePersona
   if (isPersona(input.agent)) return input.agent
-  return input.configDefaultPersona ?? DEFAULT_PERSONA_ID
+  return input.defaultPersona
 }
 
 async function resolveDynamicLearningToolContext(input: {
@@ -90,7 +89,11 @@ async function resolveDynamicLearningToolContext(input: {
   sessionID: string
   agent: string
 }): Promise<DynamicLearningToolContext> {
-  const [{ readProjectConfig }, { getBuddyPersona }, { readTeachingSessionState }] =
+  const [
+    { readProjectConfig },
+    { getBuddyPersona, getDefaultBuddyPersona },
+    { readTeachingSessionState },
+  ] =
     await Promise.all([
       import("../../config/runtime/project-config.js"),
       import("../personas/wiring/persona-profiles"),
@@ -103,7 +106,11 @@ async function resolveDynamicLearningToolContext(input: {
   const personaID = resolveSearchPersona({
     agent: input.agent,
     statePersona: teachingState?.persona,
-    configDefaultPersona: projectConfig.default_persona,
+    defaultPersona: getDefaultBuddyPersona({
+      defaultPersona: projectConfig.default_persona,
+      primaryUse: projectConfig.personalization?.primary_use,
+      overrides: projectConfig.personas,
+    }).id,
   })
 
   return {

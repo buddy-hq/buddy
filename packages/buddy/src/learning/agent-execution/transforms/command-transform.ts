@@ -41,6 +41,7 @@ export function createSessionCommandTransform(input: {
       const target = normalizePersonaTarget({
         body,
         config: projectConfig,
+        sessionPersona: previousState?.persona,
       })
 
       if (target.includeBuddySystem && target.personaID) {

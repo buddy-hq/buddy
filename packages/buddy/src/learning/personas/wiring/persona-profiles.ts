@@ -1,4 +1,5 @@
 import type { Persona as BuddyPersona } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { PrimaryUse } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { Surface } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type {
   PersonaCatalogEntry as BuddyPersonaCatalogEntry,
@@ -7,6 +8,7 @@ import type {
 } from "../../shared/runtime-types"
 import type { DefinedBuddyFeature } from "../../runtime/define-buddy-feature"
 import { REGISTERED_BUDDY_PERSONAS } from "../registry"
+import { resolvePreferredBuddyPersona } from "./default-persona"
 
 const BUILTIN_BUDDY_PERSONA_DEFINITIONS = REGISTERED_BUDDY_PERSONAS
 
@@ -192,12 +194,14 @@ function getBuddyPersona(
 
 function getDefaultBuddyPersona(input?: {
   defaultPersona?: BuddyPersona
+  primaryUse?: PrimaryUse
   overrides?: BuddyPersonaOverrides
 }): BuddyPersonaProfile {
   const profiles = resolveBuddyPersonaProfiles(input?.overrides)
+  const preferredPersona = profiles[resolvePreferredBuddyPersona(input)]
 
-  if (input?.defaultPersona) {
-    return profiles[input.defaultPersona]
+  if (!preferredPersona.hidden) {
+    return preferredPersona
   }
 
   const firstVisiblePersona = BUILTIN_BUDDY_PERSONA_IDS.map(

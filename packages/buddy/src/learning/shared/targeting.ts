@@ -25,6 +25,7 @@ export function hasExplicitCommandModel(value: unknown): value is string {
 export function normalizePersonaTarget(input: {
   body: Record<string, unknown>
   config: Awaited<ReturnType<typeof readProjectConfig>>
+  sessionPersona?: BuddyPersona
 }) {
   const rawPersona = typeof input.body.persona === "string" ? input.body.persona.trim() : ""
   const rawAgent = typeof input.body.agent === "string" ? input.body.agent : undefined
@@ -69,8 +70,18 @@ export function normalizePersonaTarget(input: {
     }
   }
 
+  if (input.sessionPersona) {
+    const persona = getBuddyPersona(input.sessionPersona, input.config.personas)
+    return {
+      personaID: persona.id,
+      agent: resolveConfiguredAgentKey(persona.id, mergedAgents),
+      includeBuddySystem: true,
+    }
+  }
+
   const persona = getDefaultBuddyPersona({
     defaultPersona: input.config.default_persona,
+    primaryUse: input.config.personalization?.primary_use,
     overrides: input.config.personas,
   })
 

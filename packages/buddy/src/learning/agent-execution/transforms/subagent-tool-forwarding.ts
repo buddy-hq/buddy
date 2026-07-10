@@ -343,6 +343,7 @@ async function resolveSubagentPolicyContext(input: {
     parentState?.persona ??
     getDefaultBuddyPersona({
       defaultPersona: input.projectConfig.default_persona,
+      primaryUse: input.projectConfig.personalization?.primary_use,
       overrides: input.projectConfig.personas,
     }).id
   const teachingWorkspaceState =

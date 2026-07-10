@@ -102,6 +102,7 @@ async function buildOpenCodeConfigOverlay(input: { config: Config.Info; director
   const defaultAgent = resolveConfiguredAgentKey(
     getDefaultBuddyPersonaMetadata({
       defaultPersona: input.config.default_persona,
+      primaryUse: input.config.personalization?.primary_use,
       overrides: input.config.personas,
     }).id,
     mergedAgents,

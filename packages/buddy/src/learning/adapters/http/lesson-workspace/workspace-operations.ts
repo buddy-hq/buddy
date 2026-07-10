@@ -37,6 +37,7 @@ export function resolveTeachingProvisionPersona(input: {
 
   return getDefaultBuddyPersona({
     defaultPersona: input.config.default_persona,
+    primaryUse: input.config.personalization?.primary_use,
     overrides: input.config.personas,
   })
 }

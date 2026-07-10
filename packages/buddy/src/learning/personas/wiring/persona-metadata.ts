@@ -1,6 +1,8 @@
 import type { Persona as BuddyPersona } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import type { PrimaryUse } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import type { PersonaCatalogEntry, PersonaOverride } from "../../shared/runtime-types"
 import type { PersonaSurface } from "../../shared/teaching-vocabulary"
+import { resolvePreferredBuddyPersona } from "./default-persona"
 
 type BuddyPersonaMetadata = {
   id: BuddyPersona
@@ -22,12 +24,12 @@ const BUILTIN_BUDDY_PERSONA_METADATA = {
     defaultSurface: "curriculum",
     hidden: false,
   },
-  "code-buddy": {
-    id: "code-buddy",
-    label: "Code Buddy",
-    description: "Interactive code Buddy persona for the in-app lesson editor.",
-    surfaces: ["curriculum", "editor", "question-set"],
-    defaultSurface: "editor",
+  "teaching-buddy": {
+    id: "teaching-buddy",
+    label: "Teaching Buddy",
+    description: "A planning and creation partner for teachers and educators.",
+    surfaces: ["curriculum", "flashcard", "question-set"],
+    defaultSurface: "curriculum",
     hidden: false,
   },
 } as const satisfies Record<BuddyPersona, BuddyPersonaMetadata>
@@ -71,12 +73,14 @@ function resolveBuddyPersonaMetadata(
 
 function getDefaultBuddyPersonaMetadata(input?: {
   defaultPersona?: BuddyPersona
+  primaryUse?: PrimaryUse
   overrides?: BuddyPersonaOverrides
 }): BuddyPersonaMetadata {
   const profiles = resolveBuddyPersonaMetadata(input?.overrides)
+  const preferredPersona = profiles[resolvePreferredBuddyPersona(input)]
 
-  if (input?.defaultPersona) {
-    return profiles[input.defaultPersona]
+  if (!preferredPersona.hidden) {
+    return preferredPersona
   }
 
   const firstVisiblePersona = BUILTIN_BUDDY_PERSONA_IDS.map(
@@ -89,11 +93,21 @@ function getDefaultBuddyPersonaMetadata(input?: {
   throw new Error("At least one Buddy persona must remain visible")
 }
 
-function personaCatalogEntries(overrides?: BuddyPersonaOverrides): PersonaCatalogEntry[] {
-  const profiles = resolveBuddyPersonaMetadata(overrides)
-  return BUILTIN_BUDDY_PERSONA_IDS.map((personaID) => profiles[personaID]).filter(
+function personaCatalogEntries(input?: {
+  defaultPersona?: BuddyPersona
+  primaryUse?: PrimaryUse
+  overrides?: BuddyPersonaOverrides
+}): PersonaCatalogEntry[] {
+  const profiles = resolveBuddyPersonaMetadata(input?.overrides)
+  const defaultPersona = getDefaultBuddyPersonaMetadata(input)
+  const visiblePersonas = BUILTIN_BUDDY_PERSONA_IDS.map((personaID) => profiles[personaID]).filter(
     (persona) => !persona.hidden,
   )
+
+  return [
+    defaultPersona,
+    ...visiblePersonas.filter((persona) => persona.id !== defaultPersona.id),
+  ]
 }
 
 export {
