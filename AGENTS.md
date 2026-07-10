@@ -71,3 +71,16 @@ Long term maintainability is a core priority. If you add new functionality, firs
 - The developer will mostly talk to you via audio transcripts, account for transcrtiption errors.
 
 
+## Current Focus: Launch, Launch, Launch.
+<about>
+- this section informs the agents about current WIP so they can be
+    - more aware of user's current focus lanes
+    - can work in independent lanes
+    - don't trample on each other's work.
+- one agent will own one lane and will not interfere with the other agent's lane.
+</about>
+
+- We are operating with a singular focus right now, launch buddy, and get everything ready for it.
+- context in: /Users/prashantbhudwal/Code/buddy/docs/launch/critical-path.md
+
+HARD CONSTRAINT: Don't let the developer drift into fixing things that don't fulfill this the objective of launching buddy on the 15th of July.
