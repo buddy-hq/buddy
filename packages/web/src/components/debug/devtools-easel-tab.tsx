@@ -10,6 +10,11 @@ import {
   FolderIcon,
   Input,
   PlusIcon,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Separator,
   SlidersHorizontalIcon,
   SparklesIcon,
@@ -35,6 +40,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { NotebookSearchDrawer, type EaselSearchResult } from "./easel/notebook-search-drawer"
+import { EaselOnboarding } from "./easel/easel-onboarding"
 
 type EaselSectionID = "search" | "sources" | "practice" | "creations" | "boards" | "files"
 type EaselRailItemID = EaselSectionID | "agents"
@@ -46,6 +52,29 @@ type EaselRailItem = {
   label: string
   icon: LucideIcon
 }
+
+type EaselPrototype =
+  | "right-workspace"
+  | "onboarding-easel"
+
+type EaselPrototypeConfig = {
+  id: EaselPrototype
+  label: string
+  subtitle: string
+}
+
+const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "right-workspace",
+    label: "Right workspace navigator",
+    subtitle: "Drawer-only concept · the rail owns category navigation",
+  },
+  {
+    id: "onboarding-easel",
+    label: "Onboarding Easel",
+    subtitle: "Interview-paradigm suite · 5 layout concepts",
+  },
+]
 
 type EaselDrawerShellProps = {
   title: string
@@ -944,6 +973,7 @@ export function DevToolsEaselTab() {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
+  const [prototype, setPrototype] = useState<EaselPrototype>("onboarding-easel")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1058,103 +1088,134 @@ export function DevToolsEaselTab() {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border-weaker-base px-3 py-2">
         <div className="flex min-w-0 flex-col">
-          <p className="text-xs font-medium text-text-base">Right workspace navigator</p>
+          <Select
+            value={prototype}
+            onValueChange={(value) => setPrototype(value as EaselPrototype)}
+          >
+            <SelectTrigger
+              size="sm"
+              className="h-auto w-fit border-none bg-transparent px-0 py-0 text-xs font-medium text-text-base hover:bg-transparent focus-visible:ring-0"
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="z-[10050]">
+              {EASEL_PROTOTYPES.map((config) => (
+                <SelectItem key={config.id} value={config.id} className="text-xs">
+                  {config.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <p className="truncate text-[11px] text-text-weaker">
-            Drawer-only concept · the rail owns category navigation
+            {EASEL_PROTOTYPES.find((config) => config.id === prototype)?.subtitle}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <label htmlFor="easel-lots-of-content" className="text-xs text-text-weak">
-            Lots of content
-          </label>
-          <Switch
-            id="easel-lots-of-content"
-            size="sm"
-            checked={lotsOfContent}
-            aria-label="Populate every section with lots of content"
-            onCheckedChange={setLotsOfContent}
-          />
+          {prototype === "right-workspace" ? (
+            <>
+              <label htmlFor="easel-lots-of-content" className="text-xs text-text-weak">
+                Lots of content
+              </label>
+              <Switch
+                id="easel-lots-of-content"
+                size="sm"
+                checked={lotsOfContent}
+                aria-label="Populate every section with lots of content"
+                onCheckedChange={setLotsOfContent}
+              />
+            </>
+          ) : null}
           <Badge variant="outline">Easel</Badge>
         </div>
       </div>
 
       <div className="flex min-h-0 flex-1 items-center justify-center bg-surface-inset-base p-3">
-        <div
-          ref={stageRef}
-          className="relative flex h-full min-h-0 w-full max-w-4xl items-center justify-end"
-        >
-          {creationPreview ? (
-            <button
-              type="button"
-              aria-label={`Open ${creationPreview.item.title} on the Bench`}
-              className="absolute z-30 aspect-video rounded-lg border border-border-base bg-background-base p-2 shadow-xl outline-none transition-[border-color,box-shadow] focus-visible:border-border-interactive-base focus-visible:ring-2 focus-visible:ring-border-interactive-base/20"
-              style={{
-                left: creationPreview.left,
-                top: creationPreview.top,
-                width: CREATION_PREVIEW_WIDTH_PX,
-              }}
-              onPointerEnter={keepCreationPreviewOpen}
-              onPointerLeave={scheduleCreationPreviewClose}
-              onFocus={keepCreationPreviewOpen}
-              onBlur={scheduleCreationPreviewClose}
-              onClick={() => openCreation(creationPreview.item)}
-            >
-              <EaselCreationPreviewVisual kind={creationPreview.item.kind} />
-            </button>
-          ) : null}
+        {prototype === "right-workspace" ? (
+          <div
+            ref={stageRef}
+            className="relative flex h-full min-h-0 w-full max-w-4xl items-center justify-end"
+          >
+            {creationPreview ? (
+              <button
+                type="button"
+                aria-label={`Open ${creationPreview.item.title} on the Bench`}
+                className="absolute z-30 aspect-video rounded-lg border border-border-base bg-background-base p-2 shadow-xl outline-none transition-[border-color,box-shadow] focus-visible:border-border-interactive-base focus-visible:ring-2 focus-visible:ring-border-interactive-base/20"
+                style={{
+                  left: creationPreview.left,
+                  top: creationPreview.top,
+                  width: CREATION_PREVIEW_WIDTH_PX,
+                }}
+                onPointerEnter={keepCreationPreviewOpen}
+                onPointerLeave={scheduleCreationPreviewClose}
+                onFocus={keepCreationPreviewOpen}
+                onBlur={scheduleCreationPreviewClose}
+                onClick={() => openCreation(creationPreview.item)}
+              >
+                <EaselCreationPreviewVisual kind={creationPreview.item.kind} />
+              </button>
+            ) : null}
 
-          <div className="relative z-20 flex h-full min-h-0 w-full max-w-md overflow-hidden rounded-lg border border-border-base bg-background-base shadow-lg">
-            <main className="min-w-0 flex-1">
-              {drawerOpen ? (
-                <EaselDrawerContent
-                  section={activeSection}
-                  boardCreated={boardCreated}
-                  lotsOfContent={lotsOfContent}
-                  onCreateBoard={() => setBoardCreated(true)}
-                  onClose={closeDrawer}
-                  onOpenCreation={openCreation}
-                  onOpenSearchResult={openSearchResult}
-                  onPreviewIntent={beginCreationPreview}
-                  onPreviewEnd={scheduleCreationPreviewClose}
-                />
-              ) : (
-                <BenchPlaceholder surface={benchSurface} />
-              )}
-            </main>
+            <div className="relative z-20 flex h-full min-h-0 w-full max-w-md overflow-hidden rounded-lg border border-border-base bg-background-base shadow-lg">
+              <main className="min-w-0 flex-1">
+                {drawerOpen ? (
+                  <EaselDrawerContent
+                    section={activeSection}
+                    boardCreated={boardCreated}
+                    lotsOfContent={lotsOfContent}
+                    onCreateBoard={() => setBoardCreated(true)}
+                    onClose={closeDrawer}
+                    onOpenCreation={openCreation}
+                    onOpenSearchResult={openSearchResult}
+                    onPreviewIntent={beginCreationPreview}
+                    onPreviewEnd={scheduleCreationPreviewClose}
+                  />
+                ) : (
+                  <BenchPlaceholder surface={benchSurface} />
+                )}
+              </main>
 
-            <nav
-              aria-label="Right workspace sections"
-              className="flex w-11 shrink-0 flex-col items-center gap-1 border-l border-border-weaker-base bg-background-base px-1 py-2"
-            >
-              {EASEL_RAIL_ITEMS.map((item) => {
-                const Icon = item.icon
-                const active = isEaselSectionID(item.id)
-                  ? drawerOpen && activeSection === item.id
-                  : !drawerOpen && benchSurface.type === "agents"
+              <nav
+                aria-label="Right workspace sections"
+                className="flex w-11 shrink-0 flex-col items-center gap-1 border-l border-border-weaker-base bg-background-base px-1 py-2"
+              >
+                {EASEL_RAIL_ITEMS.map((item) => {
+                  const Icon = item.icon
+                  const active = isEaselSectionID(item.id)
+                    ? drawerOpen && activeSection === item.id
+                    : !drawerOpen && benchSurface.type === "agents"
 
-                return (
-                  <Fragment key={item.id}>
-                    {item.id === "agents" ? <Separator className="my-1 w-5" /> : null}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label={item.label}
-                      aria-pressed={active}
-                      title={item.label}
-                      className={cn(
-                        active ? "bg-surface-raised-base text-text-strong" : "text-icon-base",
-                      )}
-                      onClick={() => openRailItem(item.id)}
-                    >
-                      <Icon aria-hidden />
-                    </Button>
-                  </Fragment>
-                )
-              })}
-            </nav>
+                  return (
+                    <Fragment key={item.id}>
+                      {item.id === "agents" ? <Separator className="my-1 w-5" /> : null}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={item.label}
+                        aria-pressed={active}
+                        title={item.label}
+                        className={cn(
+                          active ? "bg-surface-raised-base text-text-strong" : "text-icon-base",
+                        )}
+                        onClick={() => openRailItem(item.id)}
+                      >
+                        <Icon aria-hidden />
+                      </Button>
+                    </Fragment>
+                  )
+                })}
+              </nav>
+            </div>
           </div>
-        </div>
+        ) : null}
+
+        {prototype === "onboarding-easel" ? (
+          <div className="relative flex h-full min-h-0 w-full max-w-4xl items-center justify-center">
+            <div className="relative z-20 flex h-full min-h-0 w-full max-w-4xl overflow-hidden rounded-lg border border-border-base shadow-lg">
+              <EaselOnboarding />
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )
