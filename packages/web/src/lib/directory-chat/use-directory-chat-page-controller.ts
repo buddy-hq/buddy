@@ -122,6 +122,7 @@ import { WORKSPACE_VISIBILITY_EXPANDED } from "@/state/directory-workspace-store
 import { bootstrapLearnerMemoryForNotebookBestEffort } from "@/lib/learner-memory"
 import { FOLLOWUP_BEHAVIOR_QUEUE, useChatSettings } from "@/state/chat-settings"
 import { language } from "@/context/language"
+import type { GetStartedChat } from "@/lib/get-started-chats"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-disposal"
 import { useOpenSettings } from "@/lib/settings-navigation"
@@ -1165,6 +1166,18 @@ export function useDirectoryChatPageController(
     ],
   )
 
+  async function onStartGetStartedChat(chat: GetStartedChat) {
+    if (cs.isBusy) return
+
+    showWorkspace()
+
+    try {
+      await sendRuntimePrompt({ content: chat.prompt })
+    } catch {
+      // sendRuntimePrompt owns the session error state.
+    }
+  }
+
   function enqueueFollowup(
     draft: SubmittedPromptDraft,
     kind: QueuedFollowupKind,
@@ -1576,6 +1589,7 @@ export function useDirectoryChatPageController(
     onQuickChat: () => {
       void onQuickChat()
     },
+    onStartGetStartedChat,
     onCreateNotebook,
     onNewSession: (targetDirectory) => {
       void onNewSession(targetDirectory)
@@ -1604,6 +1618,9 @@ export function useDirectoryChatPageController(
     shellView,
     onSelectSkills: showSkills,
     onOpenSettings: openSettingsPanel,
+    onOpenMcpSettings: () => {
+      openSettings("mcps")
+    },
     showHeader: false,
     className: "w-full h-full",
   }

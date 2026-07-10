@@ -28,8 +28,11 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
   CopyIcon,
+  Field,
+  FieldLabel,
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -49,6 +52,7 @@ import { useGlobalLearnerMemorySettings } from "@/state/learner-memory-settings"
 import { teachingSessionKey, useTeachingRuntime } from "@/state/teaching-runtime"
 import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
 import { useOnboardingStore } from "@/state/onboarding-store"
+import { useGetStartedChatTestMode } from "@/state/get-started-chat-test-mode"
 import { SystemPromptPanel } from "./system-prompt-panel"
 import { PalettePanel } from "./palette-panel"
 import { DevToolsContextTab } from "./devtools-context-tab"
@@ -68,6 +72,10 @@ import {
   readOnboardingTestReturnTo,
   buildOnboardingChatEntryReturnTo,
 } from "@/lib/onboarding-test-mode"
+import {
+  GET_STARTED_CHAT_TEST_MODE,
+  isGetStartedChatTestMode,
+} from "@/lib/get-started-chats"
 type BuddyDevToolsTab =
   | "palette"
   | "trace"
@@ -104,6 +112,7 @@ const DEFAULT_DEVTOOLS_WIDTH = 420
 const DEVTOOLS_FLOATING_PADDING_PX = 12
 const DEVTOOLS_RECT_STORAGE_KEY = "buddy-devtools-rect-v3"
 const DEVTOOLS_AFFORDANCE_POSITION_STORAGE_KEY = "buddy-devtools-affordance-position-v1"
+const GET_STARTED_CHAT_TEST_MODE_SELECT_ID = "get-started-chat-test-mode"
 const DEFAULT_DEVTOOLS_AFFORDANCE_POSITION: DevToolsAffordancePosition = "bottom-right"
 const DESKTOP_TITLEBAR_SELECTOR = '[data-component="desktop-titlebar"]'
 const MEMORY_DEVTOOLS_LIMIT = 30
@@ -2624,6 +2633,8 @@ export function BuddyDevTools() {
   const location = useLocation()
   const pathname = location.pathname
   const devInstanceName = readDevInstanceName()
+  const getStartedChatTestMode = useGetStartedChatTestMode((state) => state.mode)
+  const setGetStartedChatTestMode = useGetStartedChatTestMode((state) => state.setMode)
 
   const onboardingToggleLabel =
     pathname === "/onboarding"
@@ -2683,6 +2694,15 @@ export function BuddyDevTools() {
       setIsDisconnectingOpenAi(false)
     }
   }, [])
+
+  const handleGetStartedChatTestModeChange = useCallback(
+    (value: string) => {
+      if (isGetStartedChatTestMode(value)) {
+        setGetStartedChatTestMode(value)
+      }
+    },
+    [setGetStartedChatTestMode],
+  )
 
   const handleToggleOnboarding = useCallback(() => {
     if (pathname === "/onboarding") {
@@ -3004,7 +3024,7 @@ export function BuddyDevTools() {
 
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-text-weak">Onboarding</p>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-col items-start gap-2">
                     <Button
                       type="button"
                       variant="outline"
@@ -3015,6 +3035,39 @@ export function BuddyDevTools() {
                       <SparklesIcon className="size-3.5" />
                       {onboardingToggleLabel}
                     </Button>
+                    <Field orientation="horizontal" className="max-w-xs">
+                      <FieldLabel
+                        htmlFor={GET_STARTED_CHAT_TEST_MODE_SELECT_ID}
+                        className="text-xs text-text-weak"
+                      >
+                        Get started prompts
+                      </FieldLabel>
+                      <Select
+                        value={getStartedChatTestMode}
+                        onValueChange={handleGetStartedChatTestModeChange}
+                      >
+                        <SelectTrigger
+                          id={GET_STARTED_CHAT_TEST_MODE_SELECT_ID}
+                          size="sm"
+                          className="min-w-36 text-xs"
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="z-[10050]" position="popper">
+                          <SelectGroup>
+                            <SelectItem value={GET_STARTED_CHAT_TEST_MODE.hidden}>
+                              Nothing
+                            </SelectItem>
+                            <SelectItem value={GET_STARTED_CHAT_TEST_MODE.student}>
+                              Student prompts
+                            </SelectItem>
+                            <SelectItem value={GET_STARTED_CHAT_TEST_MODE.teacher}>
+                              Teacher prompts
+                            </SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </Field>
                   </div>
                 </div>
               </div>

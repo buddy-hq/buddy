@@ -11,9 +11,18 @@ import {
 } from "@/lib/directory-chat/directory-chat-shell-view"
 import { globalConfigQueryOptions } from "@/state/global-config-query"
 import {
+  GET_STARTED_CHAT_TEST_MODE,
+  getStartedChatsForPrimaryUse,
+  getStartedChatsForTestMode,
+  shouldShowGetStartedChats,
+  type GetStartedChat,
+} from "@/lib/get-started-chats"
+import {
   loadNotebookLearnerMemoryDefaults,
   resolveNotebookLearnerMemorySelection,
 } from "@/state/learner-memory-settings"
+import { readPersonalization } from "@/state/project-config-readers"
+import { useGetStartedChatTestMode } from "@/state/get-started-chat-test-mode"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import {
   ChatLeftSidebarDialogs,
@@ -21,6 +30,7 @@ import {
   NotebookSettingsDialog,
 } from "./chat-left-sidebar/dialogs"
 import { ChatLeftSidebarDirectoryList } from "./chat-left-sidebar/directory-list"
+import { GetStartedChats } from "./chat-left-sidebar/get-started-chats"
 import { ChatLeftSidebarToolbar } from "./chat-left-sidebar/toolbar"
 import { useDirectoryGroups } from "./chat-left-sidebar/use-directory-groups"
 import { useDirectoryReordering } from "./chat-left-sidebar/use-directory-reordering"
@@ -34,6 +44,8 @@ import type {
 import { SettingsIcon } from "./sidebar-icons"
 import { getFilename } from "./sidebar-helpers"
 
+const INBOX_DIRECTORY_NAME = "inbox" as const
+
 type ChatLeftSidebarProps = {
   directories: string[]
   currentDirectory: string
@@ -45,6 +57,7 @@ type ChatLeftSidebarProps = {
   onOpenDirectory: () => void
   onOpenExistingFolder?: () => void | Promise<void>
   onQuickChat?: () => void | Promise<void>
+  onStartGetStartedChat?: (chat: GetStartedChat) => Promise<void> | void
   onCreateNotebook?: (
     name: string,
     enableLearnerMemory?: boolean,
@@ -62,6 +75,7 @@ type ChatLeftSidebarProps = {
   shellView?: DirectoryChatShellView
   onSelectSkills?: () => void
   onOpenSettings: () => void
+  onOpenMcpSettings: () => void
   showHeader?: boolean
   footer?: ReactNode
   children?: ReactNode
@@ -141,6 +155,24 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     () => resolveNotebookLearnerMemorySelection(globalConfigQuery.data ?? {}, {}),
     [globalConfigQuery.data],
   )
+  const primaryUse = readPersonalization(globalConfigQuery.data ?? {}).primaryUse
+  const getStartedChatTestMode = useGetStartedChatTestMode((state) => state.mode)
+  const forceGetStartedChatsVisible =
+    import.meta.env.DEV && getStartedChatTestMode !== GET_STARTED_CHAT_TEST_MODE.hidden
+  const getStartedChats = import.meta.env.DEV
+    ? getStartedChatsForTestMode(getStartedChatTestMode)
+    : getStartedChatsForPrimaryUse(primaryUse)
+  const onStartGetStartedChat = props.onStartGetStartedChat
+  const currentDirectoryIsInbox =
+    getFilename(props.currentDirectory).toLowerCase() === INBOX_DIRECTORY_NAME
+  const currentDirectoryHasSessions = (props.sessionsByDirectory[props.currentDirectory] ?? []).length > 0
+  const showGetStartedChats = shouldShowGetStartedChats({
+    hasChats: getStartedChats.length > 0,
+    hasStartHandler: onStartGetStartedChat !== undefined,
+    currentDirectoryIsInbox,
+    currentDirectoryHasSessions,
+    forceVisible: forceGetStartedChatsVisible,
+  })
 
   useEffect(() => {
     if (!isMacDesktop) return
@@ -329,6 +361,14 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             onShowModeChange={setShowMode}
           />
 
+          {showGetStartedChats && onStartGetStartedChat ? (
+            <GetStartedChats
+              chats={getStartedChats}
+              disabled={!forceGetStartedChatsVisible && props.activeSessionID !== undefined}
+              onStart={onStartGetStartedChat}
+            />
+          ) : null}
+
           <ChatLeftSidebarDirectoryList
             directoryGroups={orderedDirectoryGroups}
             currentDirectory={props.currentDirectory}
@@ -463,6 +503,10 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           if (!open) {
             setNotebookSettingsDirectory(undefined)
           }
+        }}
+        onOpenMcpSettings={() => {
+          setNotebookSettingsDirectory(undefined)
+          props.onOpenMcpSettings()
         }}
       />
     </aside>
