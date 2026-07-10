@@ -9,6 +9,7 @@ export const FORK_SLASH_COMMAND_ALIASES = ["fork"] as const
 export const QUIZ_SLASH_COMMAND_NAME = "quiz" as const
 export const REDO_SLASH_COMMAND_NAME = "redo" as const
 export const UNDO_SLASH_COMMAND_NAME = "undo" as const
+export const HIDDEN_SLASH_COMMAND_NAMES = ["persona"] as const
 export const SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES = [
   "new",
   "mcp",
@@ -31,6 +32,10 @@ export type SlashCommandOption = {
   description?: string
   source?: SlashCommandSource
   aliases?: string[]
+}
+
+export function isHiddenSlashCommandName(name: string): boolean {
+  return HIDDEN_SLASH_COMMAND_NAMES.some((hiddenName) => hiddenName === name)
 }
 
 export type SlashMatch = {

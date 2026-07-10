@@ -41,6 +41,7 @@ function resolveDirectoryQueryKey(directory: string) {
 }
 
 export const directoryChatQueryKeys = {
+  allComposerConfigs: () => [DIRECTORY_CHAT_QUERY_SCOPE, COMPOSER_CONFIG_QUERY_KEY] as const,
   composerConfig: (directory: string) =>
     [
       DIRECTORY_CHAT_QUERY_SCOPE,

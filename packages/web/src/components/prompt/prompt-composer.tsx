@@ -5,13 +5,6 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-  // NativeSelect,
-  // NativeSelectOption,
-  // Select,
-  // SelectContent,
-  // SelectItem,
-  // SelectTrigger,
-  // SelectValue,
   toast,
   cn,
 } from "@buddy/ui"
@@ -131,10 +124,6 @@ type PromptComposerProps = {
   directory: string
   sessionID?: string
   isBusy: boolean
-  personaOptions: Array<{
-    name: string
-    label?: string
-  }>
   mentionableAgents: MentionableAgent[]
   mentionableReferences: MentionableReference[]
   slashCommands: Array<{
@@ -150,7 +139,6 @@ type PromptComposerProps = {
     acceptsImages: boolean
   }>
   selectedModelAcceptsImages: boolean
-  selectedPersona: string
   selectedModel: string
   pendingSteerLabel?: string
   thinkingOptions: Array<{
@@ -158,7 +146,6 @@ type PromptComposerProps = {
     label: string
   }>
   selectedThinking: string
-  onPersonaChange: (persona: string) => void
   onClearPendingSteer?: () => void
   onModelChange: (model: string) => void
   onThinkingChange: (thinking: string) => void
@@ -354,8 +341,6 @@ export function PromptComposer(props: PromptComposerProps) {
   const viewState = usePromptComposerViewState({
     cursorOffset,
     draftValue: draftEditorValue,
-    selectedPersona: props.selectedPersona,
-    personaOptions: props.personaOptions,
     mentionableAgents: props.mentionableAgents,
     mentionableReferences: props.mentionableReferences,
     slashCommands: props.slashCommands,
@@ -1072,19 +1057,6 @@ export function PromptComposer(props: PromptComposerProps) {
         clearComposer()
         props.onNewSession()
         return true
-      case "persona": {
-        if (viewState.personaOptions.length <= 1) return false
-        const currentIndex = viewState.personaOptions.findIndex(
-          (option) => option.name === props.selectedPersona,
-        )
-        const nextIndex =
-          currentIndex >= 0 ? (currentIndex + 1) % viewState.personaOptions.length : 0
-        const nextPersona = viewState.personaOptions[nextIndex]
-        if (!nextPersona) return false
-        clearComposer()
-        props.onPersonaChange(nextPersona.name)
-        return true
-      }
       case "model":
         clearComposer()
         setModelMenuOpenRequest((current) => current + 1)
@@ -1571,9 +1543,6 @@ export function PromptComposer(props: PromptComposerProps) {
         <PromptComposerToolbar
           pendingSteerLabel={props.pendingSteerLabel}
           onClearPendingSteer={props.onClearPendingSteer}
-          selectedPersona={props.selectedPersona}
-          personaOptions={viewState.personaOptions}
-          onPersonaChange={props.onPersonaChange}
           selectedModel={props.selectedModel}
           selectedModelAcceptsImages={props.selectedModelAcceptsImages}
           onModelChange={props.onModelChange}
@@ -1601,50 +1570,6 @@ export function PromptComposer(props: PromptComposerProps) {
       {props.sessionContextUsage ? (
         <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
           <div className="flex min-w-0 items-center gap-1.5">
-            {/* Removed temporarily until personas are complete.
-            {props.selectorMode === "native" ? (
-              <NativeSelect
-                value={props.selectedPersona}
-                onChange={(event) => props.onPersonaChange(event.currentTarget.value)}
-                size="sm"
-                data-action="prompt-persona-select"
-                wrapperClassName="w-[120px] max-w-[120px] min-w-0"
-                className="h-6 border-0 bg-transparent text-xs text-text-weaker shadow-none hover:bg-transparent focus-visible:text-text-base focus-visible:ring-0 focus-visible:ring-offset-0"
-                aria-label={language.t("prompt.toolbar.aria.persona")}
-              >
-                {viewState.personaOptions.map((persona) => (
-                  <NativeSelectOption key={persona.name} value={persona.name}>
-                    {persona.label ?? persona.name}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-            ) : (
-              <Select value={props.selectedPersona} onValueChange={props.onPersonaChange}>
-                <SelectTrigger
-                  type="button"
-                  size="sm"
-                  data-action="prompt-persona-select"
-                  className="h-6 max-w-[120px] min-w-0 border-0 bg-transparent px-0 text-xs text-text-weaker shadow-none hover:bg-transparent hover:text-text-base focus-visible:border-0 focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:border-0 data-[state=open]:text-text-base data-[state=open]:ring-0 [&_svg]:text-inherit [&_svg:last-child]:size-3"
-                  aria-label={language.t("prompt.toolbar.aria.persona")}
-                >
-                  <SelectValue placeholder={language.t("prompt.toolbar.placeholders.persona")} />
-                </SelectTrigger>
-                <SelectContent
-                  side="top"
-                  align="start"
-                  position="popper"
-                  sideOffset={6}
-                  className="w-[min(16rem,calc(100vw-2rem))] max-h-[min(20rem,calc(100vh-8rem))]"
-                >
-                  {viewState.personaOptions.map((persona) => (
-                    <SelectItem key={persona.name} value={persona.name}>
-                      {persona.label ?? persona.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            */}
             {props.contextActions}
           </div>
           <div className="flex shrink-0 items-center gap-1.5">

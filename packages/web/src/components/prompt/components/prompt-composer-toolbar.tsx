@@ -25,12 +25,6 @@ import type { PromptSelectMode } from "../prompt-select-performance"
 type PromptComposerToolbarProps = {
   pendingSteerLabel?: string
   onClearPendingSteer?: () => void
-  selectedPersona: string
-  personaOptions: Array<{
-    name: string
-    label?: string
-  }>
-  onPersonaChange: (persona: string) => void
   selectedModel: string
   selectedModelAcceptsImages: boolean
   onModelChange: (model: string) => void
@@ -47,7 +41,6 @@ type PromptComposerToolbarProps = {
   selectedThinking: string
   thinkingOptions: Array<{ key: string; label: string }>
   onThinkingChange: (thinking: string) => void
-  personaDropdown?: React.ReactNode
   isBusy?: boolean
   canSubmit?: boolean
   onAttach?: () => void

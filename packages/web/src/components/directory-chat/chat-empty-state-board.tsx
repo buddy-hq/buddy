@@ -109,6 +109,7 @@ function BoardDateCorner(props: BoardDateCornerProps) {
 type ChatEmptyStateBoardProps = {
   directory: string
   directories: string[]
+  persona: string
   onSelectNotebook: (directory: string) => void
 }
 
@@ -136,7 +137,10 @@ function formatBoardDate(now: Date) {
 
 export function ChatEmptyStateBoard(props: ChatEmptyStateBoardProps) {
   const isInbox = isInboxDirectory(props.directory)
-  const headline = isInbox ? language.t("sidebar.quickChat") : language.t("chat.emptyState.title")
+  const headline =
+    props.persona === "teaching-buddy"
+      ? language.t("chat.emptyState.teachTitle")
+      : language.t("chat.emptyState.title")
   const boardDate = useMemo(() => formatBoardDate(new Date()), [])
 
   return (

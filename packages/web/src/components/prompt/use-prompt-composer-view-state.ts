@@ -17,6 +17,7 @@ import {
   FORK_SLASH_COMMAND_ALIASES,
   FORK_SLASH_COMMAND_NAME,
   getSlashMatch,
+  isHiddenSlashCommandName,
   QUIZ_SLASH_COMMAND_NAME,
   REDO_SLASH_COMMAND_NAME,
   UNDO_SLASH_COMMAND_NAME,
@@ -32,12 +33,6 @@ const BUILTIN_SLASH_COMMANDS: SlashCommandOption[] = [
     name: "new",
     title: language.t("prompt.slash.new.title"),
     description: language.t("prompt.slash.new.description"),
-  },
-  {
-    type: "builtin",
-    name: "persona",
-    title: language.t("prompt.slash.persona.title"),
-    description: language.t("prompt.slash.persona.description"),
   },
   {
     type: "builtin",
@@ -111,11 +106,6 @@ function dedupeMentionFiles(files: MentionableFile[]) {
 type UsePromptComposerViewStateProps = {
   cursorOffset: number
   draftValue: string
-  selectedPersona: string
-  personaOptions: Array<{
-    name: string
-    label?: string
-  }>
   mentionableAgents: MentionableAgent[]
   mentionableReferences: MentionableReference[]
   slashCommands: Array<{
@@ -154,18 +144,16 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
     () => new Set(props.mentionableAgents.map((agent) => agent.name)),
     [props.mentionableAgents],
   )
-  const personaOptions = useMemo(() => {
-    if (props.personaOptions.length > 0) return props.personaOptions
-    return props.selectedPersona ? [{ name: props.selectedPersona }] : [{ name: "buddy" }]
-  }, [props.personaOptions, props.selectedPersona])
   const slashCommandOptions = useMemo<SlashCommandOption[]>(() => {
-    const customCommands = props.slashCommands.map((command) => ({
-      type: "custom" as const,
-      name: command.name,
-      title: command.name,
-      description: command.description,
-      source: command.source,
-    }))
+    const customCommands = props.slashCommands
+      .filter((command) => !isHiddenSlashCommandName(command.name))
+      .map((command) => ({
+        type: "custom" as const,
+        name: command.name,
+        title: command.name,
+        description: command.description,
+        source: command.source,
+      }))
     const localNames = new Set([
       ...RESOURCE_LOCAL_SLASH_COMMANDS.map((command) => command.name.toLowerCase()),
       COMPACT_SLASH_COMMAND_NAME.toLowerCase(),
@@ -346,7 +334,6 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
 
   return {
     knownAgents,
-    personaOptions,
     groupedModelOptions,
     mentionMatch,
     mentionKey,

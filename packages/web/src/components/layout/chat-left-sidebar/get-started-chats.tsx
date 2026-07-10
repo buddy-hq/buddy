@@ -1,4 +1,4 @@
-import { LoaderCircleIcon, SparklesIcon } from "lucide-react"
+import { LoaderCircleIcon, SparklesIcon, XIcon } from "lucide-react"
 import { useState } from "react"
 import type { GetStartedChat } from "@/lib/get-started-chats"
 
@@ -6,6 +6,7 @@ type GetStartedChatsProps = {
   chats: readonly GetStartedChat[]
   disabled?: boolean
   onStart: (chat: GetStartedChat) => Promise<void> | void
+  onDismiss: () => void
 }
 
 export function GetStartedChats(props: GetStartedChatsProps) {
@@ -32,9 +33,21 @@ export function GetStartedChats(props: GetStartedChatsProps) {
       data-component="get-started-chats"
       className="mb-3 space-y-1"
     >
-      <div className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-text-weak">
-        <SparklesIcon className="size-3 text-text-interactive-base" />
-        <h2 id="get-started-chats-title">Get started</h2>
+      <div className="flex items-center justify-between gap-2 px-2 py-1">
+        <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-text-weak">
+          <SparklesIcon className="size-3 shrink-0 text-text-interactive-base" />
+          <h2 id="get-started-chats-title">Get started</h2>
+        </div>
+        <button
+          type="button"
+          data-action="dismiss-get-started-chats"
+          aria-label="Hide Get Started"
+          title="Hide Get Started"
+          className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-text-weaker outline-none transition-colors hover:bg-surface-raised-base-hover hover:text-text-base focus-visible:ring-2 focus-visible:ring-border-interactive-base"
+          onClick={props.onDismiss}
+        >
+          <XIcon className="size-3.5" />
+        </button>
       </div>
       <div className="space-y-0.5">
         {props.chats.map((chat) => {
@@ -58,13 +71,8 @@ export function GetStartedChats(props: GetStartedChatsProps) {
                   <SparklesIcon className="size-3.5" />
                 )}
               </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-medium text-text-base group-hover/get-started:text-text-strong">
-                  {chat.title}
-                </span>
-                <span className="mt-0.5 block truncate text-xs text-text-weak">
-                  {chat.description}
-                </span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-base group-hover/get-started:text-text-strong">
+                {chat.title}
               </span>
             </button>
           )

@@ -43,6 +43,7 @@ import {
   setOpenProjectsQueryData,
 } from "../state/bootstrap-query"
 import { useChatStore } from "../state/chat-store"
+import { readPersonalization } from "@/state/project-config-readers"
 
 const ENTRY_ACTION = {
   QUICK_CHAT: "quick-chat",
@@ -519,6 +520,7 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
     globalConfigQuery.data ?? {},
     {},
   )
+  const primaryUse = readPersonalization(globalConfigQuery.data ?? {}).primaryUse
 
   async function resetNotebookCreationDefaults() {
     try {
@@ -557,7 +559,11 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
           <h1 className="text-5xl font-bold tracking-tight">
             {language.t("routes.chat.productName")}
           </h1>
-          <p className="text-base text-text-weak">{language.t("routes.chat.tagline")}</p>
+          <p className="text-base text-text-weak">
+            {primaryUse === "teach"
+              ? language.t("routes.chat.taglineTeach")
+              : language.t("routes.chat.tagline")}
+          </p>
           {props.notebookHome?.resolvedDirectory ? (
             <p className="text-xs text-text-weaker">
               {language.t("routes.chat.notebookHomeHint", {
@@ -647,7 +653,11 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
             </form>
           )}
 
-          <p className="pt-1 text-xs text-text-weak">{language.t("routes.chat.startJourney")}</p>
+          <p className="pt-1 text-xs text-text-weak">
+            {primaryUse === "teach"
+              ? language.t("routes.chat.startJourneyTeach")
+              : language.t("routes.chat.startJourney")}
+          </p>
         </CardContent>
       </Card>
 

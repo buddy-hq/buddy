@@ -11,7 +11,6 @@ export type GetStartedChatID = (typeof GET_STARTED_CHAT_IDS)[number]
 export type GetStartedChat = {
   id: GetStartedChatID
   title: string
-  description: string
   prompt: string
 }
 
@@ -26,34 +25,30 @@ export type GetStartedChatTestMode =
 const LEARNER_GET_STARTED_CHATS = [
   {
     id: "visual-explainer",
-    title: "Learn through a visual",
-    description: "Bench visual · practice · flashcards",
+    title: "Explore projectile motion",
     prompt:
-      "Teach me why the seasons change. Start by making a simple visual explanation in the Bench that I can explore. Then give me two short prediction questions, one at a time, and respond to my answers as we go. When we finish, make five flashcards I can keep for review. Keep the language simple, and make it clear why distance from the Sun is not what causes the seasons.",
+      "Help me understand projectile motion for JEE physics by building an interactive simulation in the Bench. Let me change launch speed and angle and see the trajectory, horizontal and vertical velocity, and range update together. Use the simulation to explain why horizontal velocity stays constant while vertical velocity changes, then ask me one prediction question before revealing the answer. Start by creating the interactive visual instead of giving me a long explanation.",
   },
   {
     id: "study-kit",
-    title: "Build a study kit",
-    description: "Study guide · quiz · flashcards",
+    title: "Build a JEE revision kit",
     prompt:
-      "I am preparing for an exam on plate tectonics. Make me a compact study kit: create a visual study guide in the Bench that connects plate boundaries, earthquakes, volcanoes, and mountain building. Then give me a five-question quiz with feedback, and make a flashcard set I can revisit later. Start straight away without asking me for more information.",
+      "I am revising electrostatics for JEE. Build a compact revision kit in the Bench: a visual concept map connecting Coulomb's law, electric field, potential, and potential energy; a five-question diagnostic question set with feedback; and a focused flashcard deck based on the most common confusions. Keep formulas readable, distinguish vectors from scalars, and start immediately.",
   },
 ] as const satisfies readonly GetStartedChat[]
 
 const EDUCATOR_GET_STARTED_CHATS = [
   {
     id: "lesson-plan",
-    title: "Plan a lesson",
-    description: "Bench plan · activity · exit ticket",
+    title: "Plan a standards-aligned lesson",
     prompt:
-      "I teach a mixed-ability Year 8 science class. Build a practical 40-minute lesson on why the seasons change. Start with an editable lesson plan in the Bench. Then create a five-minute student activity and a three-question exit ticket. Include the common misconception that being closer to the Sun causes summer, and make the materials ready to use rather than theoretical.",
+      "I teach Grade 8 science in the US. Find the most relevant NGSS standard for why seasons change and show the exact standard you selected. Then create an editable 45-minute lesson in the Bench with a misconception-first opener, a simple model-based activity, differentiation for support and extension, and a three-question exit ticket. Make it classroom-ready.",
   },
   {
     id: "classroom-activity",
-    title: "Make a classroom activity",
-    description: "Interactive Bench activity · teacher notes",
+    title: "Create an interactive activity",
     prompt:
-      "Create a short, student-facing interactive activity that teaches how to read bar charts critically. Make the activity in the Bench, with one misleading chart students have to interrogate. Then write brief teacher notes explaining the intended answers and add a quick formative check I can use at the end. Keep it suitable for a mixed-ability middle-school class.",
+      "Create a student-facing interactive activity in the Bench for a mixed-ability Grade 7 maths class where students drag data points and see mean and median update in real time. Include one deliberately misleading data set, immediate feedback, brief teacher notes, and a three-question formative check. Make it ready to use without extra setup.",
   },
 ] as const satisfies readonly GetStartedChat[]
 
@@ -86,14 +81,12 @@ export function getStartedChatsForTestMode(
 }
 
 export function shouldShowGetStartedChats(input: {
+  enabled: boolean
   hasChats: boolean
   hasStartHandler: boolean
   currentDirectoryIsInbox: boolean
-  currentDirectoryHasSessions: boolean
   forceVisible: boolean
 }): boolean {
   if (!input.hasChats || !input.hasStartHandler) return false
-  return (
-    input.forceVisible || (input.currentDirectoryIsInbox && !input.currentDirectoryHasSessions)
-  )
+  return input.forceVisible || (input.enabled && input.currentDirectoryIsInbox)
 }

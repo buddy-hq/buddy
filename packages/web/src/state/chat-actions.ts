@@ -319,7 +319,7 @@ export function resolveDefaultPersonaID(
 
 type RawProvider = ProviderListResponse["all"][number]
 type RawProviderModel = RawProvider["models"][string]
-type LearnerSnapshotPersona = "buddy" | "code-buddy"
+type LearnerSnapshotPersona = "buddy" | "teaching-buddy"
 type LearnerMemoryRecord = LearnerMemoryListResponses[200]["memories"][number]
 const DEFAULT_PERSONA_SURFACE: PersonaConfigOption["defaultSurface"] = "curriculum"
 const DEFAULT_LEARNER_MEMORY_LIMIT = 25
@@ -459,7 +459,7 @@ function toLearnerPersona(persona?: string): LearnerSnapshotPersona | undefined 
     case undefined:
       return undefined
     case "buddy":
-    case "code-buddy":
+    case "teaching-buddy":
       return persona
     default:
       throw new Error(`Unsupported learner persona: ${persona}`)

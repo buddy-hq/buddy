@@ -17,6 +17,7 @@ import {
   FORK_SLASH_COMMAND_NAME,
   buildQuizSlashPromptParts,
   buildQuizSlashPrompt,
+  isHiddenSlashCommandName,
   parseSlashCommandInput,
   QUIZ_SLASH_COMMAND_NAME,
   REDO_SLASH_COMMAND_NAME,
@@ -63,6 +64,7 @@ import {
   selectSession,
   sendCommand,
   sendPrompt,
+  startNewSession,
   startNewSessionDraft,
   undoLastSessionMessage,
   updateSession,
@@ -417,6 +419,7 @@ export function useDirectoryChatPageController(
       candidates.set(command.name, { name: command.name })
     }
     for (const command of slashCommands) {
+      if (isHiddenSlashCommandName(command.name)) continue
       candidates.set(command.name, { name: command.name })
     }
     return Array.from(candidates.values())
@@ -1049,6 +1052,8 @@ export function useDirectoryChatPageController(
       parts?: PromptComposerPart[]
       focusGoalIds?: string[]
       clearDrafts?: boolean
+      includeActiveContext?: boolean
+      persona?: string
       targetSessionID?: string
       optimistic?: boolean
     }) => {
@@ -1066,26 +1071,30 @@ export function useDirectoryChatPageController(
 
       if (!contentForSubmission && submissionParts.length === 0) return false
 
-      if (cs.selectedPersonaSupportsEditor && cs.isInteractiveMode) {
+      const includeActiveContext = input.includeActiveContext ?? true
+
+      if (includeActiveContext && cs.selectedPersonaSupportsEditor && cs.isInteractiveMode) {
         const ready = await teachingWs.flushTeachingWorkspace()
         if (!ready) return false
       }
 
       const variant = selectedThinking !== "default" ? selectedThinking : undefined
-      const activeWorkspace = cs.sessionKey
+      const activeWorkspace = includeActiveContext && cs.sessionKey
         ? useTeachingRuntime.getState().workspaceBySession[cs.sessionKey]
         : undefined
-      const teachingContext = await resolveTeachingPromptContext({
-        workspace: activeWorkspace,
-        pendingWorkspace: cs.sessionKey
-          ? teachingWs.workspaceProbeBySessionRef.current.get(cs.sessionKey)
-          : undefined,
-      })
+      const teachingContext = includeActiveContext
+        ? await resolveTeachingPromptContext({
+            workspace: activeWorkspace,
+            pendingWorkspace: cs.sessionKey
+              ? teachingWs.workspaceProbeBySessionRef.current.get(cs.sessionKey)
+              : undefined,
+          })
+        : undefined
 
       const submittedSessionID = await sendPrompt(decodedDirectory, contentForSubmission, {
         sessionID: input.targetSessionID,
         parts: submissionParts,
-        persona: cs.selectedPersona,
+        persona: input.persona ?? cs.selectedPersona,
         focusGoalIds: input.focusGoalIds,
         agent: currentAgentName,
         model: cs.effectiveModelSelection,
@@ -1104,13 +1113,17 @@ export function useDirectoryChatPageController(
             }
           : {}),
         variant,
-        teaching: teachingContext,
+        ...(teachingContext ? { teaching: teachingContext } : {}),
         optimistic: input.optimistic,
-        beforePostPrompt: ({ sessionID }) =>
-          workspace.lifecycle.flushContextBeforePrompt({
-            sessionID,
-          }),
-        ...(visibleReadingResource
+        ...(includeActiveContext
+          ? {
+              beforePostPrompt: ({ sessionID }: { sessionID: string }) =>
+                workspace.lifecycle.flushContextBeforePrompt({
+                  sessionID,
+                }),
+            }
+          : {}),
+        ...(includeActiveContext && visibleReadingResource
           ? {
               reading: {
                 ...(visibleReadingResource.objectID
@@ -1156,7 +1169,7 @@ export function useDirectoryChatPageController(
           : {}),
       })
 
-      if (visibleReadingResource?.objectID) {
+      if (includeActiveContext && visibleReadingResource?.objectID) {
         linkReadingResourceSession(
           decodedDirectory,
           visibleReadingResource.objectID,
@@ -1189,12 +1202,17 @@ export function useDirectoryChatPageController(
   )
 
   async function onStartGetStartedChat(chat: GetStartedChat) {
-    if (cs.isBusy) return
-
     showWorkspace()
 
     try {
-      await sendRuntimePrompt({ content: chat.prompt })
+      const nextSession = await startNewSession(decodedDirectory)
+      const defaultPersona = cs.primaryPersonaOptions[0]?.id ?? cs.selectedPersona
+      await sendRuntimePrompt({
+        content: chat.prompt,
+        includeActiveContext: false,
+        persona: defaultPersona,
+        targetSessionID: nextSession.id,
+      })
     } catch {
       // sendRuntimePrompt owns the session error state.
     }
@@ -1523,10 +1541,6 @@ export function useDirectoryChatPageController(
 
   // Scroll handling is fully managed by useAutoScroll.
 
-  function onPersonaChange(persona: string) {
-    cs.setSessionPersona(cs.sessionKey, persona)
-  }
-
   if (!decodedDirectory) return { status: "invalid" }
   if (!hasRegisteredProject) return { status: "opening" }
 
@@ -1534,21 +1548,15 @@ export function useDirectoryChatPageController(
     directory: decodedDirectory,
     sessionID: cs.sessionID,
     isBusy: cs.isBusy,
-    personaOptions: cs.primaryPersonaOptions.map((persona) => ({
-      name: persona.id,
-      label: persona.label,
-    })),
     mentionableAgents: EMPTY_MENTIONABLE_AGENTS,
     mentionableReferences,
     slashCommands,
     modelOptions: cs.modelOptions,
-    selectedPersona: cs.selectedPersona,
     selectedModel: cs.selectedModelKey,
     selectedModelAcceptsImages: cs.selectedModelAcceptsImages,
     pendingSteerLabel: pendingSuggestionOverride?.label,
     thinkingOptions: cs.thinkingOptions,
     selectedThinking,
-    onPersonaChange,
     onClearPendingSteer: () => {
       setPendingSuggestionOverride(undefined)
     },
