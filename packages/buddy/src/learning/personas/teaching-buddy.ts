@@ -1,16 +1,16 @@
 import { BUDDY_SHARED_FEATURES } from "./shared-features"
 import { defineBuddyPersona } from "./wiring/define-buddy-persona"
 
-export const BUDDY = defineBuddyPersona({
-  id: "buddy",
-  label: "Buddy",
-  description: "The default Buddy persona for learning conversations and project help.",
+export const TEACHING_BUDDY = defineBuddyPersona({
+  id: "teaching-buddy",
+  label: "Teaching Buddy",
+  description: "A planning and creation partner for teachers and educators.",
   features: BUDDY_SHARED_FEATURES,
   defaultSurface: "curriculum",
   hidden: false,
   context: {
     attachCurriculum: true,
-    attachProgress: true,
+    attachProgress: false,
     attachTeachingWorkspace: false,
     attachTeachingPolicy: false,
     attachFigureContext: true,

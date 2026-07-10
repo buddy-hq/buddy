@@ -1,7 +1,7 @@
 import { BUDDY } from "./buddy"
-import { CODE_BUDDY } from "./code-buddy"
+import { TEACHING_BUDDY } from "./teaching-buddy"
 import { registerPersona } from "./wiring/register-persona"
 
 export const REGISTERED_BUDDY_PERSONAS = registerPersona({
-  personas: [BUDDY, CODE_BUDDY],
+  personas: [BUDDY, TEACHING_BUDDY],
 })
