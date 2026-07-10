@@ -2,6 +2,7 @@ import type { ProviderAuthAuthorization } from "@opencode-ai/sdk/v2/client"
 import type { OnboardingAuthChoice } from "@/components/onboarding"
 import { language } from "@/context/language"
 import type { ProviderCatalogState } from "@/state/chat-types"
+import type { PrimaryUse } from "@/state/project-config-readers"
 import { resolveCatalogProviderModelSelection } from "./provider-catalog"
 import { OPENAI_PROVIDER_ID, OPENCODE_PROVIDER_ID } from "./provider-ids"
 import { findPreferredOAuthMethodIndex } from "./provider-auth"
@@ -47,6 +48,10 @@ export function shouldShowOnboardingPersonalizationStep(input: {
   exitPending: boolean
 }) {
   return !input.showProviderSelectionStep && (input.personalizationStepPending || input.exitPending)
+}
+
+export function shouldShowOnboardingPrimaryUseStep(primaryUse: PrimaryUse | undefined) {
+  return primaryUse === undefined
 }
 
 export async function connectChatGptPlusForOnboarding(input: {

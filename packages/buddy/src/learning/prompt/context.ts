@@ -12,6 +12,7 @@ import {
 } from "../features/memory/runtime/snapshot"
 import { getBuddyPersona } from "../personas/wiring/persona-profiles"
 import { REGISTERED_BUDDY_PERSONAS } from "../personas/registry"
+import type { PrimaryUse } from "../shared/teaching-vocabulary"
 import {
   buildLearnerContextView,
   type LearnerContextItem,
@@ -111,6 +112,7 @@ export type PromptModel = {
 }
 
 export type PromptPersonalization = {
+  primaryUse?: PrimaryUse
   preferredName?: string
   occupation?: string
   moreAboutYou?: string
@@ -212,15 +214,17 @@ function resolvePromptPersonalization(
   const personalization = projectConfig.personalization
   if (!personalization) return undefined
 
+  const primaryUse = personalization.primary_use
   const preferredName = personalization.preferred_name?.trim() || undefined
   const occupation = personalization.occupation?.trim() || undefined
   const moreAboutYou = personalization.more_about_you?.trim() || undefined
 
-  if (!preferredName && !occupation && !moreAboutYou) {
+  if (!primaryUse && !preferredName && !occupation && !moreAboutYou) {
     return undefined
   }
 
   return {
+    ...(primaryUse ? { primaryUse } : {}),
     ...(preferredName ? { preferredName } : {}),
     ...(occupation ? { occupation } : {}),
     ...(moreAboutYou ? { moreAboutYou } : {}),

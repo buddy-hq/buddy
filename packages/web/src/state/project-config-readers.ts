@@ -3,21 +3,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export type PersonalizationSettings = {
+  primaryUse?: PrimaryUse
   preferredName: string
   occupation: string
   moreAboutYou: string
 }
 
+export const PRIMARY_USES = ["learn", "teach"] as const
+export type PrimaryUse = (typeof PRIMARY_USES)[number]
+
 export const EMPTY_PERSONALIZATION_SETTINGS: PersonalizationSettings = {
+  primaryUse: undefined,
   preferredName: "",
   occupation: "",
   moreAboutYou: "",
+}
+
+export function isPrimaryUse(value: string): value is PrimaryUse {
+  return PRIMARY_USES.some((primaryUse) => primaryUse === value)
 }
 
 export function normalizePersonalizationSettings(
   input: PersonalizationSettings,
 ): PersonalizationSettings {
   return {
+    primaryUse: input.primaryUse,
     preferredName: input.preferredName.trim(),
     occupation: input.occupation.trim(),
     moreAboutYou: input.moreAboutYou.trim(),
@@ -32,6 +42,7 @@ export function personalizationSettingsMatch(
   const normalizedRight = normalizePersonalizationSettings(right)
 
   return (
+    normalizedLeft.primaryUse === normalizedRight.primaryUse &&
     normalizedLeft.preferredName === normalizedRight.preferredName &&
     normalizedLeft.occupation === normalizedRight.occupation &&
     normalizedLeft.moreAboutYou === normalizedRight.moreAboutYou
@@ -119,7 +130,10 @@ export function readPersonalization(input: Record<string, unknown>): Personaliza
     return EMPTY_PERSONALIZATION_SETTINGS
   }
 
+  const primaryUse = personalization.primary_use
+
   return {
+    primaryUse: typeof primaryUse === "string" && isPrimaryUse(primaryUse) ? primaryUse : undefined,
     preferredName:
       typeof personalization.preferred_name === "string" ? personalization.preferred_name : "",
     occupation: typeof personalization.occupation === "string" ? personalization.occupation : "",
@@ -130,16 +144,18 @@ export function readPersonalization(input: Record<string, unknown>): Personaliza
 
 export function buildPersonalizationPatch(input: PersonalizationSettings) {
   const normalized = normalizePersonalizationSettings(input)
+  const primaryUse = normalized.primaryUse
   const preferredName = normalized.preferredName
   const occupation = normalized.occupation
   const moreAboutYou = normalized.moreAboutYou
 
-  if (!preferredName && !occupation && !moreAboutYou) {
+  if (!primaryUse && !preferredName && !occupation && !moreAboutYou) {
     return { personalization: null }
   }
 
   return {
     personalization: {
+      ...(primaryUse ? { primary_use: primaryUse } : {}),
       ...(preferredName ? { preferred_name: preferredName } : {}),
       ...(occupation ? { occupation } : {}),
       ...(moreAboutYou ? { more_about_you: moreAboutYou } : {}),

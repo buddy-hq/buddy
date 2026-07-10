@@ -337,6 +337,13 @@ function SettingsRoute() {
               }}
               onCloseDirectory={(targetDirectory) => void onCloseDirectory(targetDirectory)}
               onOpenSettings={() => undefined}
+              onOpenMcpSettings={() => {
+                void navigate({
+                  to: "/settings",
+                  search: (previous) => settingsSearchForTab(previous, "mcps"),
+                  replace: true,
+                })
+              }}
               showHeader={false}
               footer={null}
               className="h-full w-full"

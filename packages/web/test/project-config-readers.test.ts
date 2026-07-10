@@ -9,6 +9,7 @@ import {
 describe("project-config personalization helpers", () => {
   test("reads missing personalization as empty values", () => {
     expect(readPersonalization({})).toEqual({
+      primaryUse: undefined,
       preferredName: "",
       occupation: "",
       moreAboutYou: "",
@@ -37,6 +38,34 @@ describe("project-config personalization helpers", () => {
         preferred_name: "Pat",
         occupation: "Researcher",
         more_about_you: "Loves systems thinking.",
+      },
+    })
+  })
+
+  test("reads and writes the user's primary use", () => {
+    expect(
+      readPersonalization({
+        personalization: {
+          primary_use: "teach",
+        },
+      }),
+    ).toEqual({
+      primaryUse: "teach",
+      preferredName: "",
+      occupation: "",
+      moreAboutYou: "",
+    })
+
+    expect(
+      buildPersonalizationPatch({
+        primaryUse: "learn",
+        preferredName: "",
+        occupation: "",
+        moreAboutYou: "",
+      }),
+    ).toEqual({
+      personalization: {
+        primary_use: "learn",
       },
     })
   })

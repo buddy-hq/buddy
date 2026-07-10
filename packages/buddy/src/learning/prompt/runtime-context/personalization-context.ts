@@ -2,6 +2,13 @@ import PERSONALIZATION_CONTEXT_TEMPLATE_SOURCE from "./personalization-context.t
 import { defineRuntimeSection } from "./definition"
 import { definePromptTemplate } from "../template/engine"
 
+const PRIMARY_USE_CONTEXT_LINES = {
+  learn:
+    "Primary use: learning. Help the user understand, practise, and retain ideas through an active conversation.",
+  teach:
+    "Primary use: teaching. Treat the user as a collaborator creating learning experiences for others. When they ask for materials or plans, make useful artifacts and do not default to Socratic tutoring.",
+} as const
+
 const PERSONALIZATION_CONTEXT_TEMPLATE = definePromptTemplate({
   source: PERSONALIZATION_CONTEXT_TEMPLATE_SOURCE,
   debugName: "learning/prompt/runtime-context/personalization-context.t.md",
@@ -15,6 +22,9 @@ export const personalizationSection = defineRuntimeSection({
     if (!personalization) return undefined
 
     const lines = [
+      personalization.primaryUse
+        ? PRIMARY_USE_CONTEXT_LINES[personalization.primaryUse]
+        : undefined,
       personalization.preferredName
         ? `Preferred name: ${personalization.preferredName}`
         : undefined,

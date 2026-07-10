@@ -9,6 +9,7 @@ import { SharedPersonalizationFormFields } from "./shared-personalization-form"
 export function PersonalizationSettings() {
   const form = useForm({
     defaultValues: {
+      primaryUse: undefined,
       preferredName: "",
       occupation: "",
       moreAboutYou: "",

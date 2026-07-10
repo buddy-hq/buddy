@@ -1,7 +1,11 @@
 import path from "node:path"
 import z from "zod"
 import { Config as OpenCodeConfig } from "@buddy/opencode-adapter/config"
-import { PERSONA_SURFACES, PERSONAS } from "@buddy/backend/learning/shared/teaching-vocabulary"
+import {
+  PERSONA_SURFACES,
+  PERSONAS,
+  PRIMARY_USES,
+} from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { zodFromEffectSchema } from "../../http/effect-schema"
 import { resolveBuddyPersonaMetadata } from "../../learning/personas/wiring/persona-metadata"
 
@@ -73,6 +77,7 @@ export namespace ConfigSchema {
     .optional()
   const Personalization = z
     .object({
+      primary_use: z.enum(PRIMARY_USES).optional(),
       preferred_name: z.string().optional(),
       occupation: z.string().optional(),
       more_about_you: z.string().optional(),

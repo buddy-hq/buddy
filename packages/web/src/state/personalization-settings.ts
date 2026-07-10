@@ -15,6 +15,7 @@ import {
   personalizationSettingsQueryKeys,
   type PersonalizationSettingsBundle,
 } from "./personalization-settings-query"
+import { setGlobalConfigQueryData } from "./global-config-query"
 
 const AUTO_SAVE_DELAY_MS = 250
 
@@ -78,6 +79,7 @@ export function usePersonalizationSettingsAutosave(form: AnyFormApi) {
     try {
       const updatedGlobal = await patchGlobalConfig(buildPersonalizationPatch(nextValues))
       const nextPersonalization = readPersonalization(updatedGlobal)
+      setGlobalConfigQueryData(queryClient, updatedGlobal)
       queryClient.setQueryData<PersonalizationSettingsBundle>(
         personalizationSettingsQueryKeys.bundle(),
         {

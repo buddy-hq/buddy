@@ -12,6 +12,7 @@ type OnboardingSetupProps = {
   folderBusy: boolean
   documentsAccessGranted: boolean
   showFolderRecovery: boolean
+  stepOffset?: number
   defaultHomeDirectory?: string
   error?: string
   onChoose: (choice: OnboardingAuthChoice) => void
@@ -172,6 +173,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
     },
   }
   const hasProvider = Boolean(props.authChoice)
+  const stepOffset = props.stepOffset ?? 0
   const isChatGptConnected = props.connectedAuthChoice === "chatgpt_plus"
   const showProviderError = props.error && !props.showFolderRecovery
   const showRecoveryError = props.error && props.showFolderRecovery && hasProvider
@@ -232,7 +234,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
           <StaggerItem index={2} className="flex gap-5">
             {/* Rail */}
             <div className="flex flex-col items-center">
-              <StepDot step={1} isActive />
+              <StepDot step={1 + stepOffset} isActive />
               <div className="mt-2 w-px flex-1 bg-border-base" />
             </div>
 
@@ -368,7 +370,7 @@ export function OnboardingSetup(props: OnboardingSetupProps) {
           <StaggerItem index={3} className="flex gap-5">
             {/* Rail */}
             <div className="flex flex-col items-center">
-              <StepDot step={2} isActive={hasProvider} />
+              <StepDot step={2 + stepOffset} isActive={hasProvider} />
             </div>
 
             {/* Content */}

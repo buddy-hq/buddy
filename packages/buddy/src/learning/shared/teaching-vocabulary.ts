@@ -1,6 +1,9 @@
 export const PERSONAS = ["buddy", "code-buddy"] as const
 export type Persona = (typeof PERSONAS)[number]
 
+export const PRIMARY_USES = ["learn", "teach"] as const
+export type PrimaryUse = (typeof PRIMARY_USES)[number]
+
 export const SURFACES = ["curriculum", "editor", "flashcard", "question-set"] as const
 export type Surface = (typeof SURFACES)[number]
 
@@ -32,6 +35,10 @@ export type PersonaDelegateId = (typeof PERSONA_DELEGATE_IDS)[number]
 
 export function isPersona(value: string): value is Persona {
   return PERSONAS.includes(value as Persona)
+}
+
+export function isPrimaryUse(value: string): value is PrimaryUse {
+  return PRIMARY_USES.some((primaryUse) => primaryUse === value)
 }
 
 export function isPersonaSurface(value: string): value is PersonaSurface {

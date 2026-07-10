@@ -3,6 +3,7 @@ import {
   configureNotebookForOnboarding,
   connectChatGptPlusForOnboarding,
   shouldAutoContinueConnectedOpenAiOnboarding,
+  shouldShowOnboardingPrimaryUseStep,
   shouldShowOnboardingPersonalizationStep,
   shouldResumeOnboardingPersonalization,
 } from "../src/lib/onboarding-flow"
@@ -92,6 +93,12 @@ beforeEach(() => {
 })
 
 describe("desktop onboarding entry routing", () => {
+  test("skips primary-use selection when it has already been saved", () => {
+    expect(shouldShowOnboardingPrimaryUseStep(undefined)).toBe(true)
+    expect(shouldShowOnboardingPrimaryUseStep("learn")).toBe(false)
+    expect(shouldShowOnboardingPrimaryUseStep("teach")).toBe(false)
+  })
+
   test("redirects a first desktop launch to onboarding", () => {
     expect(
       resolveDesktopEntryPath({

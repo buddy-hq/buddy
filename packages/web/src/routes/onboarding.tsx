@@ -9,6 +9,7 @@ import {
   type OnboardingAuthChoice,
   OnboardingSetup,
   OnboardingHeader,
+  PrimaryUseSelection,
 } from "@/components/onboarding"
 import { SharedPersonalizationFormFields } from "@/components/settings/shared-personalization-form"
 import { language } from "@/context/language"
@@ -29,6 +30,7 @@ import {
   configureNotebookForOnboarding,
   connectChatGptPlusForOnboarding,
   shouldAutoContinueConnectedOpenAiOnboarding,
+  shouldShowOnboardingPrimaryUseStep,
   shouldShowOnboardingPersonalizationStep,
   shouldResumeOnboardingPersonalization,
 } from "@/lib/onboarding-flow"
@@ -54,6 +56,7 @@ import {
   setOpenProjectsQueryData,
 } from "@/state/bootstrap-query"
 import { useChatStore } from "@/state/chat-store"
+import { setGlobalConfigQueryData } from "@/state/global-config-query"
 import type { ProviderCatalogState } from "@/state/chat-types"
 import { useOnboardingStore } from "@/state/onboarding-store"
 import {
@@ -64,6 +67,7 @@ import {
 import {
   EMPTY_PERSONALIZATION_SETTINGS,
   buildPersonalizationPatch,
+  type PrimaryUse,
   readPersonalization,
   shouldResetPersonalizationForm,
 } from "@/state/project-config-readers"
@@ -77,7 +81,7 @@ const EMPTY_PROVIDER_CATALOG_SNAPSHOT: ProviderCatalogState = {
   },
 }
 const EASE_OUT = [0.23, 1, 0.32, 1] as const
-const TOTAL_ONBOARDING_STEPS = 2
+const TOTAL_ONBOARDING_STEPS = 4
 
 function StepBadge({ current, total }: { current: number; total: number }) {
   return (
@@ -165,6 +169,9 @@ function OnboardingRoute() {
   const [personalizationExitPending, setPersonalizationExitPending] = useState(false)
   const [authAbort, setAuthAbort] = useState<AbortController | undefined>(undefined)
   const [showProviderSelectionStep, setShowProviderSelectionStep] = useState(false)
+  const [showPrimaryUseStep, setShowPrimaryUseStep] = useState(true)
+  const [primaryUseBusy, setPrimaryUseBusy] = useState(false)
+  const [selectedPrimaryUse, setSelectedPrimaryUse] = useState<PrimaryUse | undefined>(undefined)
   const [personalizationDirectory, setPersonalizationDirectory] = useState<string | undefined>(
     undefined,
   )
@@ -188,22 +195,45 @@ function OnboardingRoute() {
   })
 
   useEffect(() => {
-    void queryClient.ensureQueryData(personalizationSettingsQueryOptions()).then((bundle) => {
-      const currentValues = form.state.values
-      if (
-        !shouldResetPersonalizationForm({
-          nextValues: currentValues,
-          currentValues: bundle.personalization,
-        })
-      ) {
-        return
-      }
+    let cancelled = false
 
-      form.reset(bundle.personalization)
-    })
+    void queryClient
+      .ensureQueryData(personalizationSettingsQueryOptions())
+      .then((bundle) => {
+        if (cancelled) {
+          return
+        }
+
+        const currentValues = form.state.values
+        if (
+          shouldResetPersonalizationForm({
+            nextValues: currentValues,
+            currentValues: bundle.personalization,
+          })
+        ) {
+          form.reset(bundle.personalization)
+        }
+
+        const storedPrimaryUse = bundle.personalization.primaryUse
+        if (shouldShowOnboardingPrimaryUseStep(storedPrimaryUse)) {
+          return
+        }
+
+        setSelectedPrimaryUse(storedPrimaryUse)
+        setShowPrimaryUseStep(false)
+      })
+      .catch(() => undefined)
+
+    return () => {
+      cancelled = true
+    }
   }, [form, queryClient])
 
   useEffect(() => {
+    if (showPrimaryUseStep) {
+      return
+    }
+
     const openAiConnected = hasConnectedOpenAiProvider(providerCatalogSnapshot)
     if (
       !shouldAutoContinueConnectedOpenAiOnboarding({
@@ -246,6 +276,7 @@ function OnboardingRoute() {
     personalizationStepVisible,
     providerCatalogSnapshot,
     setAuthChoice,
+    showPrimaryUseStep,
     showProviderSelectionStep,
     test,
   ])
@@ -258,8 +289,36 @@ function OnboardingRoute() {
     })
   }
 
+  async function handlePrimaryUseSelect(primaryUse: PrimaryUse) {
+    setPrimaryUseBusy(true)
+    setError(undefined)
+    setSelectedPrimaryUse(primaryUse)
+
+    try {
+      const updatedGlobal = await patchGlobalConfig({
+        personalization: {
+          primary_use: primaryUse,
+        },
+      })
+      setGlobalConfigQueryData(queryClient, updatedGlobal)
+      queryClient.setQueryData<PersonalizationSettingsBundle>(
+        personalizationSettingsQueryKeys.bundle(),
+        {
+          globalConfig: updatedGlobal,
+          personalization: readPersonalization(updatedGlobal),
+        },
+      )
+      form.setFieldValue("primaryUse", primaryUse)
+      setShowPrimaryUseStep(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setPrimaryUseBusy(false)
+    }
+  }
+
   async function completePersonalizationAndNavigate(markCompleted: () => void) {
-    // Keep step 2 mounted until the route transition completes to avoid flashing step 1.
+    // Keep the personalization step mounted until the route transition completes.
     setPersonalizationExitPending(true)
     markCompleted()
     setShowProviderSelectionStep(false)
@@ -515,7 +574,7 @@ function OnboardingRoute() {
     }
   }
 
-  const currentStep = personalizationStepVisible ? 2 : 1
+  const currentStep = personalizationStepVisible ? 4 : 2
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-background-base px-6 pb-20 pt-[15vh] text-text-base">
@@ -523,7 +582,18 @@ function OnboardingRoute() {
         <OnboardingHeader />
 
         <AnimatePresence mode="wait">
-          {personalizationStepVisible ? (
+          {showPrimaryUseStep ? (
+            <PrimaryUseSelection
+              busy={primaryUseBusy}
+              error={error}
+              currentStep={1}
+              totalSteps={TOTAL_ONBOARDING_STEPS}
+              value={selectedPrimaryUse}
+              onSelect={(primaryUse) => {
+                void handlePrimaryUseSelect(primaryUse)
+              }}
+            />
+          ) : personalizationStepVisible ? (
             <motion.div
               key="personalization"
               initial={{ opacity: 0, y: 12 }}
@@ -552,7 +622,7 @@ function OnboardingRoute() {
 
               {/* Form fields — flat, no card wrapper */}
               <div className="flex flex-col gap-6 pb-2">
-                <SharedPersonalizationFormFields form={form} />
+                <SharedPersonalizationFormFields form={form} includePrimaryUse={false} />
 
                 {/* Error */}
                 <AnimatePresence>
@@ -612,6 +682,7 @@ function OnboardingRoute() {
                 connectedAuthChoice={connectedAuthChoice}
                 busyChoice={busyChoice}
                 documentsAccessGranted={notebookHomeAccess?.granted ?? false}
+                stepOffset={1}
                 folderBusy={folderBusy}
                 showFolderRecovery={showFolderRecovery}
                 defaultHomeDirectory={notebookHomeAccess?.defaultDirectory}
