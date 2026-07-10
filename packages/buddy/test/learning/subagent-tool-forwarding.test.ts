@@ -159,7 +159,7 @@ async function seedPersonaRuntime(input: {
       defaultSurface: persona.defaultSurface,
     },
     teachingWorkspaceState: "inactive",
-    configuredToolToggles: projectConfig.tools,
+    config: projectConfig,
   })
 
   writeTeachingSessionState(input.directory, {
@@ -237,7 +237,7 @@ describe("subagent tool forwarding", () => {
     expect(tools.save_flashcard_deck).toBe(false)
     expect(tools.debug_attempt).toBe(false)
     expect(tools.goal_state).toBe(false)
-    expect(tools.learner_memory_search).toBe(true)
+    expect(tools.learner_memory_search).toBe(false)
     expect(tools.prepare_resource).toBe(true)
     expect(tools.ingest_full_text).toBe(true)
     expect(tools.render_mermaid).toBe(true)
@@ -356,7 +356,7 @@ describe("subagent tool forwarding", () => {
     expect(userMessage.info.tools?.save_flashcard_deck).toBe(false)
     expect(userMessage.info.tools?.debug_attempt).toBe(false)
     expect(userMessage.info.tools?.goal_state).toBe(false)
-    expect(userMessage.info.tools?.learner_memory_search).toBe(true)
+    expect(userMessage.info.tools?.learner_memory_search).toBe(false)
     expect(userMessage.info.tools?.prepare_resource).toBe(true)
     expect(userMessage.info.tools?.ingest_full_text).toBe(true)
     expect(userMessage.info.tools?.render_mermaid).toBe(true)
@@ -381,7 +381,7 @@ describe("subagent tool forwarding", () => {
     })
   }, 40_000)
 
-  test("standalone subagent prompts merge explicit tool hints with forwarded runtime tools", async () => {
+  test("standalone internal subagent prompts preserve their explicit tool envelope", async () => {
     await using project = await tmpdir({ git: true })
     await syncOpenCodeProjectConfig(project.path)
     await loadOpenCodeApp()
@@ -437,14 +437,14 @@ describe("subagent tool forwarding", () => {
     expect(userMessage.info.tools?.read).toBe(true)
     expect(userMessage.info.tools?.write).toBe(true)
     expect(userMessage.info.tools?.task).toBe(false)
-    expect(userMessage.info.tools?.learner_memory_search).toBe(true)
+    expect(userMessage.info.tools?.learner_memory_search).toBeUndefined()
 
     const session = await OpenCodeInstance.provide({
       directory: project.path,
       fn: () => OpenCodeSession.get(SessionID.make(sessionID)),
     })
     expect(session.permission?.some((rule) => rule.permission === "learner_memory_search")).toBe(
-      true,
+      false,
     )
   }, 40_000)
 

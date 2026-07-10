@@ -40,7 +40,7 @@ async function seedTeachingSession(projectPath: string, sessionID: string) {
       defaultSurface: persona.defaultSurface,
     },
     teachingWorkspaceState: "inactive",
-    configuredToolToggles: config.tools,
+    config,
   })
 
   writeTeachingSessionState(projectPath, {
@@ -158,7 +158,7 @@ describe("dynamic tool permission toggling", () => {
         defaultSurface: persona.defaultSurface,
       },
       teachingWorkspaceState: "inactive",
-      configuredToolToggles: config.tools,
+      config,
     })
 
     expect(sessionRuntime.access.tools[DYNAMIC_REFLECTION_TOOL_ID]).toBe("deny")

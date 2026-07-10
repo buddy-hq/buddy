@@ -1,8 +1,9 @@
 import type { ProviderAuthResponse, ProviderListResponse } from "@buddy/sdk"
 import { describe, expect, test } from "bun:test"
 import {
+  getUsableProviders,
   resolveAutoModelSelection,
-  resolveConnectedModelSelection,
+  resolveUsableModelSelection,
 } from "../src/lib/provider-catalog"
 import { OPENCODE_PROVIDER_ID } from "../src/lib/provider-ids"
 import { normalizeProviderCatalog } from "../src/state/chat-actions"
@@ -240,6 +241,40 @@ describe("resolveAutoModelSelection", () => {
       }),
     ).toEqual({ providerID: "openai", modelID: "gpt-5" })
   })
+
+  test("uses public Zen as an automatic fallback without marking it connected", () => {
+    expect(
+      resolveAutoModelSelection({
+        providers: [
+          createProvider({
+            id: OPENCODE_PROVIDER_ID,
+            connected: false,
+            modelIDs: ["free-model"],
+          }),
+        ],
+        providerDefault: { [OPENCODE_PROVIDER_ID]: "free-model" },
+      }),
+    ).toEqual({ providerID: OPENCODE_PROVIDER_ID, modelID: "free-model" })
+  })
+
+  test("prefers a connected provider before falling back to public Zen", () => {
+    expect(
+      resolveAutoModelSelection({
+        providers: [
+          createProvider({
+            id: OPENCODE_PROVIDER_ID,
+            connected: false,
+            modelIDs: ["free-model"],
+          }),
+          createProvider({ id: "xai", modelIDs: ["grok"] }),
+        ],
+        providerDefault: {
+          [OPENCODE_PROVIDER_ID]: "free-model",
+          xai: "grok",
+        },
+      }),
+    ).toEqual({ providerID: "xai", modelID: "grok" })
+  })
 })
 
 describe("normalizeProviderCatalog", () => {
@@ -251,9 +286,46 @@ describe("normalizeProviderCatalog", () => {
 
     expect(catalog.default[OPENCODE_PROVIDER_ID]).toBe("free-alpha")
     expect(catalog.providers).toHaveLength(1)
-    expect(catalog.providers[0]?.connected).toBe(true)
+    expect(catalog.providers[0]?.connected).toBe(false)
     expect(catalog.providers[0]?.models.map((model) => model.id)).toEqual([
       "free-alpha",
+      "free-zed",
+    ])
+    expect(getUsableProviders(catalog.providers).map((provider) => provider.id)).toEqual([
+      OPENCODE_PROVIDER_ID,
+    ])
+  })
+
+  test("does not treat the anonymous Zen runtime as credential-connected", () => {
+    const providers = createRawProviderCatalog()
+    const provider = providers.all[0]
+    if (!provider) throw new Error("Expected an OpenCode provider fixture")
+
+    delete provider.models.paid
+    providers.connected = [OPENCODE_PROVIDER_ID]
+
+    const catalog = normalizeProviderCatalog(providers, createProviderAuthMethods())
+
+    expect(catalog.providers[0]?.connected).toBe(false)
+    expect(catalog.providers[0]?.source).toBe("custom")
+    expect(catalog.providers[0]?.models.map((model) => model.id)).toEqual([
+      "free-alpha",
+      "free-zed",
+    ])
+    expect(getUsableProviders(catalog.providers)).toHaveLength(1)
+  })
+
+  test("treats Zen as connected when its credential-backed catalog includes paid models", () => {
+    const providers = createRawProviderCatalog()
+    providers.connected = [OPENCODE_PROVIDER_ID]
+
+    const catalog = normalizeProviderCatalog(providers, createProviderAuthMethods())
+
+    expect(catalog.providers[0]?.connected).toBe(true)
+    expect(catalog.default[OPENCODE_PROVIDER_ID]).toBe("paid")
+    expect(catalog.providers[0]?.models.map((model) => model.id)).toEqual([
+      "free-alpha",
+      "paid",
       "free-zed",
     ])
   })
@@ -301,10 +373,10 @@ describe("normalizeProviderCatalog", () => {
   })
 })
 
-describe("resolveConnectedModelSelection", () => {
+describe("resolveUsableModelSelection", () => {
   test("returns selected model when provider and model are connected", () => {
     expect(
-      resolveConnectedModelSelection({
+      resolveUsableModelSelection({
         providers: [createProvider({ id: "openai", modelIDs: ["gpt-5"] })],
         selection: { providerID: "openai", modelID: "gpt-5" },
       }),
@@ -313,16 +385,31 @@ describe("resolveConnectedModelSelection", () => {
 
   test("returns undefined when provider is disconnected", () => {
     expect(
-      resolveConnectedModelSelection({
+      resolveUsableModelSelection({
         providers: [createProvider({ id: "openai", modelIDs: ["gpt-5"], connected: false })],
         selection: { providerID: "openai", modelID: "gpt-5" },
       }),
     ).toBeUndefined()
   })
 
-  test("returns undefined when model is missing from connected provider", () => {
+  test("returns a public Zen model without treating the provider as connected", () => {
     expect(
-      resolveConnectedModelSelection({
+      resolveUsableModelSelection({
+        providers: [
+          createProvider({
+            id: OPENCODE_PROVIDER_ID,
+            modelIDs: ["free-model"],
+            connected: false,
+          }),
+        ],
+        selection: { providerID: OPENCODE_PROVIDER_ID, modelID: "free-model" },
+      }),
+    ).toEqual({ providerID: OPENCODE_PROVIDER_ID, modelID: "free-model" })
+  })
+
+  test("returns undefined when model is missing from usable provider", () => {
+    expect(
+      resolveUsableModelSelection({
         providers: [createProvider({ id: "openai", modelIDs: ["gpt-5"] })],
         selection: { providerID: "openai", modelID: "gpt-5-mini" },
       }),

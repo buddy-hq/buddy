@@ -161,7 +161,7 @@ describe("message prompt resource references", () => {
           },
           projectConfig: config,
         }),
-      ).rejects.toThrow("OpenCode reference is no longer available: docs")
+      ).rejects.toThrow("Workspace reference is no longer available: docs")
 
       await expect(
         runMessagePromptPipeline({
@@ -182,7 +182,7 @@ describe("message prompt resource references", () => {
           },
           projectConfig: config,
         }),
-      ).rejects.toThrow("OpenCode reference is not ready: pending")
+      ).rejects.toThrow("Workspace reference is not ready: pending")
     } finally {
       await OpenCodeInstance.disposeAll()
     }

@@ -84,8 +84,10 @@ describe("runtime tool registration", () => {
         defaultSurface: persona.defaultSurface,
       },
       teachingWorkspaceState: "inactive",
-      configuredToolToggles: {
-        search_standards: false,
+      config: {
+        tools: {
+          search_standards: false,
+        },
       },
     })
     const permission = buildBuddyRuntimeSessionPermissions({
@@ -120,6 +122,7 @@ describe("runtime tool registration", () => {
         defaultSurface: persona.defaultSurface,
       },
       teachingWorkspaceState: "inactive",
+      config: {},
     })
     const permission = buildBuddyRuntimeSessionPermissions({
       sessionRuntime: runtimeWithoutQuestionSets,
@@ -561,6 +564,7 @@ describe("runtime tool registration", () => {
             defaultSurface: buddyPersona.defaultSurface,
           },
           teachingWorkspaceState: "inactive",
+          config: {},
         })
         const buddySessionPermission = buildBuddyRuntimeSessionPermissions({
           sessionRuntime: buddySessionRuntime,

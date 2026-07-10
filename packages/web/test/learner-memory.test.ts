@@ -1,43 +1,8 @@
 import { describe, expect, test } from "bun:test"
 import { QueryClient } from "@tanstack/react-query"
-import {
-  buildLearnerMemoryGlobalBootstrapPatch,
-  buildLearnerMemoryNotebookBootstrapPatch,
-} from "../src/lib/learner-memory"
+import { buildLearnerMemoryNotebookBootstrapPatch } from "../src/lib/learner-memory"
 import { loadNotebookLearnerMemoryDefaults } from "../src/state/learner-memory-settings"
 import { globalConfigQueryKeys } from "../src/state/global-config-query"
-
-describe("buildLearnerMemoryGlobalBootstrapPatch", () => {
-  test("enables the global master switch when notebook creation explicitly opts in", () => {
-    expect(
-      buildLearnerMemoryGlobalBootstrapPatch({
-        globalConfig: {
-          learner_memory: {
-            master_enabled: false,
-          },
-        },
-        enabled: true,
-      }),
-    ).toEqual({
-      learner_memory: {
-        master_enabled: true,
-      },
-    })
-  })
-
-  test("skips the global patch when learner memory is already available", () => {
-    expect(
-      buildLearnerMemoryGlobalBootstrapPatch({
-        globalConfig: {
-          learner_memory: {
-            master_enabled: true,
-          },
-        },
-        enabled: true,
-      }),
-    ).toBeUndefined()
-  })
-})
 
 describe("buildLearnerMemoryNotebookBootstrapPatch", () => {
   test("skips the notebook patch when the selection matches the global defaults", () => {
@@ -99,7 +64,6 @@ describe("loadNotebookLearnerMemoryDefaults", () => {
     const queryClient = new QueryClient()
     queryClient.setQueryData(globalConfigQueryKeys.bundle(), {
       learner_memory: {
-        master_enabled: true,
         enabled: true,
         auto_extract: true,
       },

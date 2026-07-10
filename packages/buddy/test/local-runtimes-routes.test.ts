@@ -73,7 +73,7 @@ async function seedBuddyPersonaRuntime(directory: string, sessionID: string) {
       defaultSurface: persona.defaultSurface,
     },
     teachingWorkspaceState: "inactive",
-    configuredToolToggles: projectConfig.tools,
+    config: projectConfig,
   })
 
   writeTeachingSessionState(directory, {

@@ -9,6 +9,7 @@ import {
   recordQuestionSetAttemptMemory,
 } from "../../src/learning/features/memory"
 import { tmpdir } from "../helpers/tmpdir"
+import { runWithLearnerMemoryLabContext } from "../../src/learning/features/memory/lab-context"
 
 describe("deterministic learner memory", () => {
   test("creates immediate evidence from a perfect question-set attempt", async () => {
@@ -104,7 +105,10 @@ describe("deterministic learner memory", () => {
       reason: "snapshot ordering test",
     })
 
-    const snapshot = await buildLearnerRuntimeSnapshot(project.path)
+    const snapshot = await runWithLearnerMemoryLabContext(
+      { settingsOverride: { enabled: true } },
+      () => buildLearnerRuntimeSnapshot(project.path),
+    )
 
     expect(snapshot.recentEvidence[0]?.id).toBe(stronger.id)
   })

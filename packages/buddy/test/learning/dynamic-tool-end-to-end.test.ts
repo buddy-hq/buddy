@@ -52,7 +52,7 @@ describe("dynamic tool end-to-end", () => {
         defaultSurface: persona.defaultSurface,
       },
       teachingWorkspaceState: "inactive",
-      configuredToolToggles: config.tools,
+      config,
     })
 
     writeTeachingSessionState(project.path, {

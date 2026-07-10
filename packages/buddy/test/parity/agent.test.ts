@@ -137,7 +137,7 @@ describe("parity.agent", () => {
       expect(
         PermissionNext.evaluate("task", "learner-memory-consolidator", buddyAgent.permission)
           .action,
-      ).toBe("allow")
+      ).toBe("deny")
 
       expect(
         PermissionNext.evaluate("task", "curriculum-orchestrator", codeBuddyAgent.permission)
@@ -164,7 +164,7 @@ describe("parity.agent", () => {
       expect(
         PermissionNext.evaluate("task", "learner-memory-consolidator", codeBuddyAgent.permission)
           .action,
-      ).toBe("allow")
+      ).toBe("deny")
     })
   })
 

@@ -1,11 +1,14 @@
 import { describe, expect, test } from "bun:test"
-import { resolveVisibleModelKeys } from "../src/lib/directory-chat/use-directory-chat-state"
+import {
+  resolveProviderModelGroup,
+  resolveVisibleModelKeys,
+} from "../src/lib/directory-chat/use-directory-chat-state"
 import { createProviderInfo, createProviderModelInfo } from "./test-utils"
 
 describe("resolveVisibleModelKeys", () => {
-  test("keeps every connected model visible", () => {
+  test("keeps every usable model visible", () => {
     const visible = resolveVisibleModelKeys({
-      connectedProviders: [
+      usableProviders: [
         createProviderInfo({
           id: "openai",
           connected: true,
@@ -37,7 +40,7 @@ describe("resolveVisibleModelKeys", () => {
 
   test("keeps auto and selected model keys visible", () => {
     const visible = resolveVisibleModelKeys({
-      connectedProviders: [
+      usableProviders: [
         createProviderInfo({
           id: "openai",
           connected: true,
@@ -62,5 +65,23 @@ describe("resolveVisibleModelKeys", () => {
       "openai/gpt-5.5-pro",
       "opencode/free-model",
     ])
+  })
+})
+
+describe("resolveProviderModelGroup", () => {
+  test("labels anonymous Zen models as free models", () => {
+    expect(
+      resolveProviderModelGroup(
+        createProviderInfo({ id: "opencode", name: "OpenCode Zen", connected: false }),
+      ),
+    ).toBe("Free models")
+  })
+
+  test("keeps the Zen provider name after credentials connect it", () => {
+    expect(
+      resolveProviderModelGroup(
+        createProviderInfo({ id: "opencode", name: "OpenCode Zen", connected: true }),
+      ),
+    ).toBe("OpenCode Zen")
   })
 })

@@ -17,7 +17,7 @@ describe("resolveRecommendedProviderCards", () => {
   test("returns only disconnected recommended providers for section headings", () => {
     const providers = resolveRecommendedProviderCards([
       createProviderInfo({ id: "openai", connected: false }),
-      createProviderInfo({ id: "opencode", connected: true }),
+      createProviderInfo({ id: "opencode", connected: false }),
       createProviderInfo({ id: "opencode-go", connected: false }),
       createProviderInfo({ id: "anthropic", connected: false }),
     ])

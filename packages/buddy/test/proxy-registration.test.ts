@@ -95,8 +95,10 @@ describe("proxy registration", () => {
         defaultSurface: persona.defaultSurface,
       },
       teachingWorkspaceState: "inactive",
-      configuredToolToggles: {
-        ingest_full_text: false,
+      config: {
+        tools: {
+          ingest_full_text: false,
+        },
       },
     })
     const permission = buildBuddyRuntimeSessionPermissions({
