@@ -97,6 +97,7 @@ function buildSubagentPermissions(
 
   for (const feature of features) {
     for (const subagent of feature.subagents) {
+      if (!subagent.delegatable) continue
       if (seen.has(subagent.key)) continue
       seen.add(subagent.key)
       permissions[subagent.key] = "allow"

@@ -1,24 +1,34 @@
 import type { BuddyToolConstraints } from "./tool-constraint-types"
-import { allBuddyTools } from "../runtime/feature-registry"
+import { allBuddyFeatures } from "../runtime/feature-registry"
 
 type LearningToolId = string
 type LearningToolMetadata = {
   id: LearningToolId
+  featureID: string
   constraints?: BuddyToolConstraints
 }
 
 function allLearningToolMetadata(): LearningToolMetadata[] {
-  return allBuddyTools().map((tool) => {
-    const metadata: LearningToolMetadata = {
-      id: tool.id,
-    }
+  const seen = new Set<string>()
+  const metadata: LearningToolMetadata[] = []
 
-    if (tool.constraints) {
-      metadata.constraints = tool.constraints
+  for (const feature of allBuddyFeatures()) {
+    const tools = [
+      ...feature.tools,
+      ...feature.subagents.flatMap((subagent) => subagent.tools ?? []),
+    ]
+    for (const tool of tools) {
+      if (seen.has(tool.id)) continue
+      seen.add(tool.id)
+      metadata.push({
+        id: tool.id,
+        featureID: feature.id,
+        ...(tool.constraints ? { constraints: tool.constraints } : {}),
+      })
     }
+  }
 
-    return metadata
-  })
+  return metadata
 }
 
 function allLearningToolIds(): LearningToolId[] {

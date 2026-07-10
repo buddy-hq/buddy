@@ -4,6 +4,11 @@ import { mapConfigRouteError, patchGlobalConfig } from "@buddy/backend/config/or
 import { Config } from "@buddy/backend/config"
 import z from "zod"
 import {
+  EXPERIMENTAL_FEATURE_IDS,
+  readExperimentalFeatureStatuses,
+  setExperimentalFeatureEnabled,
+} from "../experimental-features"
+import {
   mapAgentsMdConflictError,
   readGlobalAgentsMd,
   saveGlobalAgentsMd,
@@ -59,6 +64,17 @@ const managedNotebookSchema = z.object({
   name: z.string(),
   directory: z.string(),
 })
+const experimentalFeatureIDSchema = z.enum(EXPERIMENTAL_FEATURE_IDS)
+const experimentalFeatureStatusSchema = z.object({
+  id: experimentalFeatureIDSchema,
+  enabled: z.boolean(),
+})
+const experimentalFeatureListSchema = z.object({
+  features: z.array(experimentalFeatureStatusSchema),
+})
+const experimentalFeatureUpdateBodySchema = z.object({
+  enabled: z.boolean(),
+})
 
 export const GlobalRoutes = new Hono()
   .get(
@@ -101,6 +117,56 @@ export const GlobalRoutes = new Hono()
     async (c) =>
       runRouteTask({
         task: async () => c.json(await patchGlobalConfig(c.req.valid("json"))),
+        mapError: mapConfigRouteError,
+      }),
+  )
+  .get(
+    "/experimental-features",
+    describeRoute({
+      operationId: "global.experimentalFeatures.list",
+      summary: "List experimental feature opt-ins",
+      responses: {
+        200: {
+          description: "Experimental features available in this Buddy build",
+          content: {
+            "application/json": { schema: resolver(experimentalFeatureListSchema) },
+          },
+        },
+        ...routeErrors(400),
+      },
+    }),
+    async (c) =>
+      runRouteTask({
+        task: async () => c.json({ features: await readExperimentalFeatureStatuses() }),
+        mapError: mapConfigRouteError,
+      }),
+  )
+  .put(
+    "/experimental-features/:featureID",
+    describeRoute({
+      operationId: "global.experimentalFeatures.update",
+      summary: "Update an experimental feature opt-in",
+      responses: {
+        200: {
+          description: "Updated experimental feature status",
+          content: {
+            "application/json": { schema: resolver(experimentalFeatureStatusSchema) },
+          },
+        },
+        ...routeErrors(400),
+      },
+    }),
+    validator("param", z.object({ featureID: experimentalFeatureIDSchema })),
+    validator("json", experimentalFeatureUpdateBodySchema),
+    async (c) =>
+      runRouteTask({
+        task: async () =>
+          c.json(
+            await setExperimentalFeatureEnabled({
+              featureID: c.req.valid("param").featureID,
+              enabled: c.req.valid("json").enabled,
+            }),
+          ),
         mapError: mapConfigRouteError,
       }),
   )

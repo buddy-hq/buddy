@@ -3,6 +3,7 @@ import type { Persona, Surface } from "../shared/teaching-vocabulary"
 import type { DefinedBuddyFeature } from "../runtime/define-buddy-feature"
 import type { ResolvedSessionRuntime, TeachingWorkspaceState } from "./types"
 import { buildResolvedSessionRuntime } from "./build-runtime-permissions"
+import { enabledBuddyFeatures } from "./feature-availability"
 
 function resolveSessionRuntime(input: {
   persona: {
@@ -11,9 +12,10 @@ function resolveSessionRuntime(input: {
     defaultSurface: Surface
   }
   teachingWorkspaceState: TeachingWorkspaceState
-  configuredToolToggles?: Config.Info["tools"]
+  config: Config.Info
 }): ResolvedSessionRuntime {
-  const { features, defaultSurface } = input.persona
+  const { defaultSurface } = input.persona
+  const features = enabledBuddyFeatures(input.persona.features, input.config)
 
   if (!buildVisibleSurfaces(features).includes(defaultSurface)) {
     throw new Error(
@@ -24,12 +26,13 @@ function resolveSessionRuntime(input: {
   const runtime = buildResolvedSessionRuntime({
     features,
     teachingWorkspaceState: input.teachingWorkspaceState,
-    configuredToolToggles: input.configuredToolToggles,
+    configuredToolToggles: input.config.tools,
   })
 
   return {
     persona: input.persona.id,
     teachingWorkspaceState: input.teachingWorkspaceState,
+    enabledFeatureIDs: features.map((feature) => feature.id),
     access: {
       tools: runtime.tools,
       skills: runtime.skills,

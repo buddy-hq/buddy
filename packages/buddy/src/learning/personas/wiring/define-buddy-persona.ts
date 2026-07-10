@@ -55,6 +55,29 @@ function cloneSubagentConfig(
   ) as PersonaSubagentConfig
 }
 
+function assertRuntimeSubagentsAreDelegatable(input: {
+  personaID: string
+  features: readonly DefinedBuddyFeature[]
+  subagents: PersonaSubagentConfig | undefined
+}): void {
+  if (!input.subagents) return
+
+  const internalSubagentIDs = new Set(
+    input.features.flatMap((feature) =>
+      feature.subagents
+        .filter((subagent) => !subagent.delegatable)
+        .map((subagent) => subagent.key),
+    ),
+  )
+
+  for (const subagentID of Object.keys(input.subagents)) {
+    if (!internalSubagentIDs.has(subagentID)) continue
+    throw new Error(
+      `Persona "${input.personaID}" cannot delegate internal subagent "${subagentID}"`,
+    )
+  }
+}
+
 const PRIMARY_PERSONA_PERMISSION = {
   question: "allow",
   plan_enter: "allow",
@@ -63,6 +86,12 @@ const PRIMARY_PERSONA_PERMISSION = {
 export function defineBuddyPersona<const Id extends string>(
   input: BuddyPersonaFullDefinitionInput<Id>,
 ): DefinedBuddyPersona<Id> {
+  assertRuntimeSubagentsAreDelegatable({
+    personaID: input.id,
+    features: input.features,
+    subagents: input.runtime.subagents,
+  })
+
   const derivedSurfaces = new Set<string>()
   for (const feature of input.features) {
     for (const surface of feature.surfaces) {

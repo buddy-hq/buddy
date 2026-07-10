@@ -5,6 +5,7 @@ type TeachingWorkspaceState = "inactive" | "active"
 type ResolvedSessionRuntime = {
   persona: Persona
   teachingWorkspaceState: TeachingWorkspaceState
+  enabledFeatureIDs: string[]
   access: {
     tools: Record<string, "allow" | "deny">
     skills: Record<string, "allow" | "deny">

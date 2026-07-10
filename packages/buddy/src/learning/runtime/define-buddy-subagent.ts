@@ -9,6 +9,7 @@ type BuddySubagentDefinitionInput<Key extends string> = Omit<
   "mode" | "availableSubagents" | "prompt"
 > & {
   key: Key
+  delegatable?: boolean
   kind?: BuddySubagentRuntimeKind
   prompt: string
   permission?: BuddyPermissionInput
@@ -17,13 +18,19 @@ type BuddySubagentDefinitionInput<Key extends string> = Omit<
   subagents?: readonly DefinedBuddySubagent[]
 }
 
-type DefinedBuddySubagent<Key extends string = string> = BuddySubagentDefinitionInput<Key>
+type DefinedBuddySubagent<Key extends string = string> = Omit<
+  BuddySubagentDefinitionInput<Key>,
+  "delegatable"
+> & {
+  delegatable: boolean
+}
 
 export function defineBuddySubagent<const Key extends string>(
   input: BuddySubagentDefinitionInput<Key>,
 ): DefinedBuddySubagent<Key> {
   return {
     ...input,
+    delegatable: input.delegatable ?? true,
     kind: input.kind ?? "subagent",
     prompt: input.prompt.trim(),
     tools: [...(input.tools ?? [])],

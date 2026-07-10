@@ -4,7 +4,6 @@ import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { PermissionNext, type PermissionRuleset } from "@buddy/opencode-adapter/permission"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
-import type { Config } from "@buddy/backend/config"
 import type { readProjectConfig } from "@buddy/backend/config/runtime"
 import type { BuddyPermissionInput } from "../../agent-factories"
 import { resolveSessionRuntime } from "../../access/resolve-session-runtime"
@@ -23,6 +22,7 @@ import { getLearningToolMetadata } from "../../runtime/tool-metadata"
 import { toolMatchesRuntimeConstraints } from "../../runtime/tool-constraints"
 import { getBuddySubagentDefinition } from "../../subagent-manifest"
 import { isDynamicLearningToolSessionRule } from "../../runtime/dynamic-tool-permissions"
+import type { ResolvedSessionRuntime } from "../../access/types"
 
 const EDIT_PERMISSION_TOOL_IDS = new Set(["apply_patch", "edit", "multiedit", "write"])
 
@@ -170,7 +170,8 @@ function toolIDsForPermissionKey(input: {
 }
 
 function currentRuntimeAllowsTool(input: {
-  configuredToolToggles: Config.Info["tools"] | undefined
+  configuredToolToggles: MessageProjectConfig["tools"] | undefined
+  sessionRuntime: ResolvedSessionRuntime
   teachingWorkspaceState: TeachingWorkspaceState
   toolID: string
 }): boolean {
@@ -182,21 +183,22 @@ function currentRuntimeAllowsTool(input: {
   if (!metadata) {
     return true
   }
-
+  if (!input.sessionRuntime.enabledFeatureIDs.includes(metadata.featureID)) {
+    return false
+  }
   if (!toolMatchesRuntimeConstraints(metadata)) {
     return false
   }
-
   if (metadata.constraints?.teachingWorkspace === "active") {
     return input.teachingWorkspaceState === "active"
   }
-
   return true
 }
 
 function specializedToolIDs(input: {
   allToolIDs: readonly string[]
-  configuredToolToggles: Config.Info["tools"] | undefined
+  configuredToolToggles: MessageProjectConfig["tools"] | undefined
+  sessionRuntime: ResolvedSessionRuntime
   targetAgent: string
   teachingWorkspaceState: TeachingWorkspaceState
 }): Set<string> {
@@ -244,6 +246,7 @@ function specializedToolIDs(input: {
     [...visible].filter((toolID) =>
       currentRuntimeAllowsTool({
         configuredToolToggles: input.configuredToolToggles,
+        sessionRuntime: input.sessionRuntime,
         teachingWorkspaceState: input.teachingWorkspaceState,
         toolID,
       }),
@@ -379,7 +382,11 @@ async function resolvePersonaVisibility(input: {
   personaID: Persona
   projectConfig: MessageProjectConfig
   teachingWorkspaceState: TeachingWorkspaceState
-}): Promise<{ sessionPermission: PermissionRuleset; visibleToolIDs: Set<string> }> {
+}): Promise<{
+  sessionPermission: PermissionRuleset
+  sessionRuntime: ResolvedSessionRuntime
+  visibleToolIDs: Set<string>
+}> {
   const personaDefinition = REGISTERED_BUDDY_PERSONAS.find(
     (definition) => definition.id === input.personaID,
   )
@@ -395,7 +402,7 @@ async function resolvePersonaVisibility(input: {
       defaultSurface: persona.defaultSurface,
     },
     teachingWorkspaceState: input.teachingWorkspaceState,
-    configuredToolToggles: input.projectConfig.tools,
+    config: input.projectConfig,
   })
   const personaAgent = await OpenCodeInstance.provide({
     directory: input.directory,
@@ -411,6 +418,7 @@ async function resolvePersonaVisibility(input: {
 
   return {
     sessionPermission,
+    sessionRuntime,
     visibleToolIDs: visibleToolIDs({
       agentPermission: personaAgent.permission,
       allToolIDs: input.allToolIDs,
@@ -594,6 +602,7 @@ export async function resolveSubagentToolForwarding(input: {
   const specialized = specializedToolIDs({
     allToolIDs,
     configuredToolToggles: input.projectConfig.tools,
+    sessionRuntime: personaVisibility.sessionRuntime,
     targetAgent: input.targetAgent,
     teachingWorkspaceState: context.teachingWorkspaceState,
   })

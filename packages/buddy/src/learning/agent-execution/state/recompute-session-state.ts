@@ -25,7 +25,7 @@ export async function recomputeTeachingSessionState(input: {
       defaultSurface: persona.defaultSurface,
     },
     teachingWorkspaceState: input.state.teachingWorkspaceState,
-    configuredToolToggles: projectConfig.tools,
+    config: projectConfig,
   })
 
   return {

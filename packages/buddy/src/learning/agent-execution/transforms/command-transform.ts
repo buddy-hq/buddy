@@ -59,7 +59,7 @@ export function createSessionCommandTransform(input: {
             defaultSurface: persona.defaultSurface,
           },
           teachingWorkspaceState,
-          configuredToolToggles: projectConfig.tools,
+          config: projectConfig,
         })
         const focusGoalIds = resolveFocusGoalIds(body)
         rollbackTeachingState = () =>

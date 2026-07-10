@@ -64,6 +64,7 @@ function deriveFeaturePersonaSubagents(
   const subagents: Record<string, "allow"> = {}
   for (const feature of features) {
     for (const subagent of feature.subagents) {
+      if (!subagent.delegatable) continue
       subagents[subagent.key] = "allow"
     }
   }

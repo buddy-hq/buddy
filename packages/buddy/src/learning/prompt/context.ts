@@ -518,7 +518,7 @@ async function buildPromptContext(
       defaultSurface: persona.defaultSurface,
     },
     teachingWorkspaceState,
-    configuredToolToggles: input.projectConfig.tools,
+    config: input.projectConfig,
   })
 
   const [model, promptResources] = await Promise.all([

@@ -236,6 +236,7 @@ const sessionRuntimeActionSchema = z.enum(["allow", "deny"])
 const resolvedSessionRuntimeSchema = z.object({
   persona: z.enum(PERSONAS),
   teachingWorkspaceState: z.enum(TEACHING_WORKSPACE_STATES),
+    enabledFeatureIDs: z.array(z.string()),
   access: z.object({
     tools: z.record(z.string(), sessionRuntimeActionSchema),
     skills: z.record(z.string(), sessionRuntimeActionSchema),
