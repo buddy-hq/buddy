@@ -1,6 +1,10 @@
 import { mergeDeep } from "remeda"
 import { Flag } from "../../flag"
-import { loadConfigFile, loadConfigText } from "../contract/document.js"
+import {
+  loadConfigFile,
+  loadConfigText,
+  loadProjectConfigFile as loadProjectConfigDocument,
+} from "../contract/document.js"
 import { getCachedGlobalConfig } from "./global-cache.js"
 import { resolveProjectConfigContext, resolveProjectConfigFile } from "./config-paths.js"
 import {
@@ -8,9 +12,9 @@ import {
   applySkillPermissionDefaults,
   applyToolPermissionDefaults,
 } from "./permission-overrides.js"
-import type { Info } from "./types.js"
+import type { Info, ProjectInfo } from "./types.js"
 
-function mergeInfo(target: Info, source: Info): Info {
+function mergeInfo(target: Info, source: Info | ProjectInfo): Info {
   return mergeDeep(target, source)
 }
 
@@ -18,14 +22,14 @@ export async function getGlobalConfig(): Promise<Info> {
   return getCachedGlobalConfig()
 }
 
-export async function loadProjectConfigFile(directory: string): Promise<Info> {
+export async function loadProjectConfigFile(directory: string): Promise<ProjectInfo> {
   const context = await resolveProjectConfigContext(directory)
 
   if (Flag.BUDDY_DISABLE_PROJECT_CONFIG) {
     return {}
   }
 
-  return loadConfigFile(resolveProjectConfigFile(context.configDirectory))
+  return loadProjectConfigDocument(resolveProjectConfigFile(context.configDirectory))
 }
 
 export async function loadProjectConfig(directory: string): Promise<Info> {
@@ -41,7 +45,7 @@ export async function loadProjectConfig(directory: string): Promise<Info> {
   if (!Flag.BUDDY_DISABLE_PROJECT_CONFIG) {
     result = mergeInfo(
       result,
-      await loadConfigFile(resolveProjectConfigFile(context.configDirectory)),
+      await loadProjectConfigDocument(resolveProjectConfigFile(context.configDirectory)),
     )
   }
 

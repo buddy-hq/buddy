@@ -2,7 +2,12 @@ import fsp from "node:fs/promises"
 import path from "node:path"
 import { mergeDeep } from "remeda"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { parseConfigText, patchJsoncDocument, replaceJsoncDocument } from "../contract/document.js"
+import {
+  parseConfigText,
+  parseProjectConfigText,
+  patchJsoncDocument,
+  replaceJsoncDocument,
+} from "../contract/document.js"
 import { JsonError } from "../contract/errors.js"
 import { resetGlobalConfigCache } from "./global-cache.js"
 import {
@@ -10,8 +15,8 @@ import {
   resolveProjectConfigContext,
   resolveProjectConfigFile,
 } from "./config-paths.js"
-import { Info } from "./types.js"
-import type { Mcp, Info as ConfigInfo } from "./types.js"
+import { Info, ProjectInfo } from "./types.js"
+import type { Mcp, Info as ConfigInfo, ProjectInfo as ProjectConfigInfo } from "./types.js"
 
 type GlobalConfigMutation = (current: ConfigInfo) => ConfigInfo
 
@@ -53,7 +58,10 @@ async function withGlobalConfigChangeLock<T>(task: () => Promise<T>): Promise<T>
   }
 }
 
-export async function updateProjectConfig(directory: string, config: ConfigInfo): Promise<void> {
+export async function updateProjectConfig(
+  directory: string,
+  config: ProjectConfigInfo,
+): Promise<void> {
   const { configDirectory } = await resolveProjectConfigContext(directory)
   const filepath = resolveProjectConfigFile(configDirectory)
   await ensureParentDirectory(filepath)
@@ -65,7 +73,7 @@ export async function updateProjectConfig(directory: string, config: ConfigInfo)
   }
 
   const updated = replaceJsoncDocument(before, config)
-  parseConfigText(updated, filepath)
+  parseProjectConfigText(updated, filepath)
   await fsp.writeFile(filepath, updated, "utf8")
 }
 
@@ -80,8 +88,8 @@ export async function setProjectMcpConfig(
 
   const before = await readConfigTextOrDefault(filepath)
   if (!filepath.endsWith(".jsonc")) {
-    const existing = parseConfigText(before, filepath)
-    const next = Info.parse({
+    const existing = parseProjectConfigText(before, filepath)
+    const next = ProjectInfo.parse({
       ...existing,
       mcp: {
         ...existing.mcp,
@@ -97,7 +105,7 @@ export async function setProjectMcpConfig(
       [name]: mcp,
     },
   })
-  parseConfigText(updated, filepath)
+  parseProjectConfigText(updated, filepath)
   await fsp.writeFile(filepath, updated, "utf8")
 }
 

@@ -10,8 +10,13 @@ import {
 } from "jsonc-parser"
 import { ConfigSchema } from "./schema.js"
 import { InvalidError, JsonError } from "./errors.js"
+import type { ZodType } from "zod"
 
 const BUDDY_CONFIG_SCHEMA_URL = "https://buddy/config.json"
+
+type ConfigDocument = {
+  $schema?: string
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
@@ -33,21 +38,25 @@ function formatParseErrors(text: string, errors: JsoncParseError[]) {
     .join("\n")
 }
 
-export async function loadConfigFile(filepath: string): Promise<ConfigSchema.Info> {
+async function loadConfigFileWithSchema<T extends ConfigDocument>(
+  filepath: string,
+  schema: ZodType<T>,
+): Promise<T> {
   const text = await fsp.readFile(filepath, "utf8").catch((err: unknown) => {
     const maybe = err as { code?: string }
     if (maybe.code === "ENOENT") return undefined
     throw new JsonError({ path: filepath }, { cause: err })
   })
 
-  if (!text) return {}
-  return loadConfigText(text, { path: filepath })
+  if (!text) return schema.parse({})
+  return loadConfigTextWithSchema(text, { path: filepath }, schema)
 }
 
-export async function loadConfigText(
+async function loadConfigTextWithSchema<T extends ConfigDocument>(
   text: string,
   options: { path: string } | { dir: string; source: string },
-): Promise<ConfigSchema.Info> {
+  schema: ZodType<T>,
+): Promise<T> {
   const original = text
   const configDir = "path" in options ? path.dirname(options.path) : options.dir
   const source = "path" in options ? options.path : options.source
@@ -94,7 +103,7 @@ export async function loadConfigText(
     })
   }
 
-  const parsed = ConfigSchema.Info.safeParse(data)
+  const parsed = schema.safeParse(data)
   if (!parsed.success) {
     throw new InvalidError({ path: source, issues: parsed.error.issues }, { cause: parsed.error })
   }
@@ -109,7 +118,7 @@ export async function loadConfigText(
   return output
 }
 
-export function parseConfigText(text: string, filepath: string): ConfigSchema.Info {
+function parseConfigTextWithSchema<T>(text: string, filepath: string, schema: ZodType<T>): T {
   const errors: JsoncParseError[] = []
   const data = parseJsonc(text, errors, { allowTrailingComma: true })
   if (errors.length) {
@@ -119,12 +128,38 @@ export function parseConfigText(text: string, filepath: string): ConfigSchema.In
     })
   }
 
-  const parsed = ConfigSchema.Info.safeParse(data)
+  const parsed = schema.safeParse(data)
   if (!parsed.success) {
     throw new InvalidError({ path: filepath, issues: parsed.error.issues }, { cause: parsed.error })
   }
 
   return parsed.data
+}
+
+export function loadConfigFile(filepath: string): Promise<ConfigSchema.Info> {
+  return loadConfigFileWithSchema(filepath, ConfigSchema.Info)
+}
+
+export function loadProjectConfigFile(filepath: string): Promise<ConfigSchema.ProjectInfo> {
+  return loadConfigFileWithSchema(filepath, ConfigSchema.ProjectInfo)
+}
+
+export function loadConfigText(
+  text: string,
+  options: { path: string } | { dir: string; source: string },
+): Promise<ConfigSchema.Info> {
+  return loadConfigTextWithSchema(text, options, ConfigSchema.Info)
+}
+
+export function parseConfigText(text: string, filepath: string): ConfigSchema.Info {
+  return parseConfigTextWithSchema(text, filepath, ConfigSchema.Info)
+}
+
+export function parseProjectConfigText(
+  text: string,
+  filepath: string,
+): ConfigSchema.ProjectInfo {
+  return parseConfigTextWithSchema(text, filepath, ConfigSchema.ProjectInfo)
 }
 
 export function patchJsoncDocument(

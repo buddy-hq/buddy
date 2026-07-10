@@ -11,6 +11,7 @@ import {
   Info as InfoSchema,
   Mcp as McpSchema,
   Permission as PermissionSchema,
+  ProjectInfo as ProjectInfoSchema,
 } from "./store/types.js"
 import type {
   Agent as AgentType,
@@ -19,6 +20,7 @@ import type {
   Permission as PermissionType,
   PermissionAction as PermissionActionType,
   PermissionRule as PermissionRuleType,
+  ProjectInfo as ProjectInfoType,
 } from "./store/types.js"
 
 export { InvalidError, JsonError } from "./contract/errors.js"
@@ -40,6 +42,9 @@ export namespace Config {
   export const Info = InfoSchema
   export type Info = InfoType
 
+  export const ProjectInfo = ProjectInfoSchema
+  export type ProjectInfo = ProjectInfoType
+
   export async function getProject(directory: string) {
     return loadProjectConfig(directory)
   }
@@ -52,7 +57,7 @@ export namespace Config {
     return getGlobalConfig()
   }
 
-  export async function updateProject(directory: string, config: Info) {
+  export async function updateProject(directory: string, config: ProjectInfo) {
     return updateProjectConfig(directory, config)
   }
 

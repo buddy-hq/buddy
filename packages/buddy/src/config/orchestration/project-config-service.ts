@@ -144,6 +144,7 @@ export async function patchProjectConfig(input: { directory: string; payload: un
   const parsed = mergeAndValidateConfigPatch({
     current: await readProjectConfigFile(input.directory),
     patch: input.payload,
+    parse: Config.ProjectInfo.parse,
   })
   await applyAndSyncProjectConfigChange({
     directory: input.directory,
@@ -158,6 +159,7 @@ export async function patchGlobalConfig(payload: unknown) {
     mergeAndValidateConfigPatch({
       current,
       patch: payload,
+      parse: Config.Info.parse,
     }),
   )
 }
@@ -186,7 +188,11 @@ function mergePatchValue(current: unknown, patch: unknown): unknown | typeof DEL
   return base
 }
 
-function mergeAndValidateConfigPatch(input: { current: Config.Info; patch: unknown }): Config.Info {
+function mergeAndValidateConfigPatch<T>(input: {
+  current: T
+  patch: unknown
+  parse: (value: unknown) => T
+}): T {
   if (!isRecord(input.patch)) {
     throw new InvalidError({
       path: "<request>",
@@ -202,7 +208,7 @@ function mergeAndValidateConfigPatch(input: { current: Config.Info; patch: unkno
     })
   }
 
-  return Config.Info.parse(merged)
+  return input.parse(merged)
 }
 
 export async function putProjectMcpConfig(input: {

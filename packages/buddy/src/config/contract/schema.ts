@@ -7,6 +7,7 @@ import {
   PRIMARY_USES,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { zodFromEffectSchema } from "../../http/effect-schema"
+import { EXPERIMENTAL_FEATURE_ID } from "../../experimental-features/catalog"
 import { resolveBuddyPersonaMetadata } from "../../learning/personas/wiring/persona-metadata"
 
 export namespace ConfigSchema {
@@ -38,6 +39,12 @@ export namespace ConfigSchema {
   const BuddySurface = z.enum(PERSONA_SURFACES)
   const BuddyPersonaID = z.enum(PERSONAS)
   const DisabledMcp = z.object({ enabled: z.boolean() }).strict()
+  const ExperimentalFeatures = z
+    .object({
+      [EXPERIMENTAL_FEATURE_ID.learnerMemory]: z.literal(true).optional(),
+    })
+    .strict()
+    .optional()
   const LearnerMemory = z
     .object({
       master_enabled: z.boolean().optional(),
@@ -65,6 +72,7 @@ export namespace ConfigSchema {
       max_unused_stage_one_days: NonNegativeInteger.optional(),
     })
     .strict()
+    .transform(({ master_enabled: _legacyMasterEnabled, ...learnerMemory }) => learnerMemory)
     .optional()
   const Compaction = z
     .object({
@@ -116,29 +124,31 @@ export namespace ConfigSchema {
   export const Personas = z.object(PERSONA_OVERRIDE_SHAPE).strict()
   export type Personas = z.infer<typeof Personas>
 
-  export const Info = z
-    .object({
-      $schema: z.string().optional(),
-      skills: Skills.optional(),
-      disabled_providers: z.array(z.string()).optional(),
-      enabled_providers: z.array(z.string()).optional(),
-      model: ModelID.optional(),
-      small_model: ModelID.optional(),
-      default_persona: BuddyPersonaID.optional(),
-      personas: Personas.optional(),
-      agent: z.record(z.string(), Agent).optional(),
-      provider: z.record(z.string(), Provider).optional(),
-      mcp: z.record(z.string(), z.union([Mcp, DisabledMcp])).optional(),
-      permission: Permission.optional(),
-      compaction: Compaction,
-      personalization: Personalization,
-      tools: TOOL_TOGGLE_MAP,
-      learner_memory: LearnerMemory,
-      skills_external_vendor_roots_enabled: z.boolean().optional(),
-      notebook_home: z.string().nullable().optional(),
-    })
-    .strict()
-    .superRefine((value, ctx) => {
+  const PROJECT_INFO_SHAPE = {
+    $schema: z.string().optional(),
+    skills: Skills.optional(),
+    disabled_providers: z.array(z.string()).optional(),
+    enabled_providers: z.array(z.string()).optional(),
+    model: ModelID.optional(),
+    small_model: ModelID.optional(),
+    default_persona: BuddyPersonaID.optional(),
+    personas: Personas.optional(),
+    agent: z.record(z.string(), Agent).optional(),
+    provider: z.record(z.string(), Provider).optional(),
+    mcp: z.record(z.string(), z.union([Mcp, DisabledMcp])).optional(),
+    permission: Permission.optional(),
+    compaction: Compaction,
+    personalization: Personalization,
+    tools: TOOL_TOGGLE_MAP,
+    learner_memory: LearnerMemory,
+    skills_external_vendor_roots_enabled: z.boolean().optional(),
+    notebook_home: z.string().nullable().optional(),
+  }
+
+  const ProjectInfoBase = z.object(PROJECT_INFO_SHAPE).strict()
+  type ProjectInfoBase = z.output<typeof ProjectInfoBase>
+
+  function validateInfo(value: ProjectInfoBase, ctx: z.RefinementCtx): void {
       const profiles = resolveBuddyPersonaMetadata(value.personas)
 
       for (const personaID of PERSONAS) {
@@ -185,7 +195,18 @@ export namespace ConfigSchema {
           })
         }
       }
+  }
+
+  export const ProjectInfo = ProjectInfoBase.superRefine(validateInfo)
+  export type ProjectInfo = z.output<typeof ProjectInfo>
+
+  export const Info = z
+    .object({
+      ...PROJECT_INFO_SHAPE,
+      experimental_features: ExperimentalFeatures,
     })
+    .strict()
+    .superRefine(validateInfo)
 
   export type Info = z.output<typeof Info>
 }

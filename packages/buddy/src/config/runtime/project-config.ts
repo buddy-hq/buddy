@@ -4,6 +4,6 @@ export async function readProjectConfig(directory: string): Promise<Config.Info>
   return Config.getProject(directory)
 }
 
-export async function readProjectConfigFile(directory: string): Promise<Config.Info> {
+export async function readProjectConfigFile(directory: string): Promise<Config.ProjectInfo> {
   return Config.getProjectFile(directory)
 }

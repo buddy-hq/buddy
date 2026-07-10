@@ -14,3 +14,6 @@ export type Agent = ConfigSchema.Agent
 
 export const Info = ConfigSchema.Info
 export type Info = ConfigSchema.Info
+
+export const ProjectInfo = ConfigSchema.ProjectInfo
+export type ProjectInfo = ConfigSchema.ProjectInfo

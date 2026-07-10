@@ -152,7 +152,7 @@ export const ConfigRoutes = new Hono()
         200: {
           description: "Raw project config payload",
           content: {
-            "application/json": { schema: resolver(Config.Info) },
+            "application/json": { schema: resolver(Config.ProjectInfo) },
           },
         },
         ...routeErrors(400, 403),
