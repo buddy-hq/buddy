@@ -291,7 +291,7 @@ export const dict = {
   "errors.provider.genericStreamFailure":
     "Something went wrong while Buddy was writing. Try again, or switch models if it keeps happening.",
   "errors.provider.zenNetworkRateLimit":
-    "OpenCode Zen temporarily rate limited this network for the selected free model. Try again later, switch networks, or use another model.",
+    "The selected free model temporarily rate limited this network. Try again later, switch networks, or use another model.",
   "directoryChat.backToParentThread": "parent thread",
   "directoryChat.interactiveLesson.description":
     "Start an interactive session to create a tracked workspace with files, checkpoints, and server-backed editor diagnostics.",
@@ -427,8 +427,7 @@ export const dict = {
   "onboardingFlow.completeBrowserSignInFailed":
     "Buddy could not complete browser sign-in automatically.",
   "onboardingFlow.confirmConnectionFailed": "Buddy could not confirm your ChatGPT connection.",
-  "onboardingFlow.freeModelUnavailable":
-    "Buddy could not find an Opencode free model for this notebook.",
+  "onboardingFlow.freeModelUnavailable": "No free model is available right now.",
   "onboardingFlow.openAiNotReady":
     "OpenAI sign-in is not ready yet. Try signing in again or switch to free models.",
   "onboardingFlow.openAiUnavailable": "OpenAI sign-in is unavailable in this build.",
@@ -541,6 +540,7 @@ export const dict = {
   "prompt.toolbar.aria.persona": "Persona",
   "prompt.toolbar.aria.thinking": "Thinking",
   "prompt.toolbar.clearPendingSteerAria": "Clear pending teaching steer",
+  "prompt.toolbar.groups.freeModels": "Free models",
   "prompt.toolbar.placeholders.model": "Auto",
   "prompt.toolbar.placeholders.persona": "Persona",
   "prompt.toolbar.placeholders.thinking": "Thinking",
@@ -620,7 +620,7 @@ export const dict = {
   "routes.settings.nav.attribution": "Attribution",
   "routes.settings.nav.general": "General",
   "routes.settings.nav.personalization": "Personalization",
-  "routes.settings.nav.learnerMemory": "Learner Memory",
+  "routes.settings.nav.learnerMemory": "Memory",
   "routes.settings.nav.mcps": "MCPs",
   "routes.settings.nav.notebook": "Notebook",
   "routes.settings.nav.providers": "Providers",
@@ -648,16 +648,25 @@ export const dict = {
     "Buddy uses many open source libraries and tools. For a complete list of dependencies and their licenses, please refer to the package.json files in the repository and the respective project documentation.",
   "settings.advanced.description": "Advanced settings for power users.",
   "settings.advanced.disabled": "Disabled",
-  "settings.advanced.discoverExternalRootsAria": "Discover external vendor roots",
-  "settings.advanced.discoverExternalSkills":
-    "Discover external .agents/.claude skills (restore vendor behavior)",
+  "settings.advanced.discoverExternalRootsAria": "Discover skills from external folders",
+  "settings.advanced.discoverExternalSkills": "Discover skills from .agents and .claude folders.",
   "settings.advanced.enabled": "Enabled",
+  "settings.advanced.experimentalBadge": "Experimental",
+  "settings.advanced.experimentalFeaturesDescription":
+    "Opt in to unfinished features. They may change, break, or be removed between releases.",
+  "settings.advanced.experimentalFeaturesTitle": "Experimental features",
   "settings.advanced.externalRootsDisabled":
     "External .agents/.claude skill discovery is disabled.",
   "settings.advanced.externalRootsEnabled": "External .agents/.claude skill discovery is enabled.",
   "settings.advanced.externalSkillsDescription":
     "When enabled for this notebook, Buddy discovers skills from home and ancestor directories.",
   "settings.advanced.loadSettingsFailed": "Failed to load settings",
+  "settings.advanced.learnerMemoryExperimentAria": "Enable experimental memory",
+  "settings.advanced.learnerMemoryExperimentDescription":
+    "Lets Buddy retain learner context between chats. Turning it off hides memory controls and stops memory tools, extraction, and new memory writes; existing local data is kept.",
+  "settings.advanced.learnerMemoryExperimentDisabled": "Experimental memory disabled.",
+  "settings.advanced.learnerMemoryExperimentEnabled": "Experimental memory enabled.",
+  "settings.advanced.learnerMemoryExperimentTitle": "Memory",
   "settings.advanced.off": "Off",
   "settings.advanced.on": "On",
   "settings.advanced.remove": "Remove",
@@ -828,13 +837,13 @@ export const dict = {
   "settings.notebook.fullTextDescription":
     "Allow Buddy to read an entire prepared resource into context when there is enough live context budget. Turn this off to avoid expensive full-book reads.",
   "settings.notebook.fullTextTitle": "Read entire book",
-  "settings.notebook.learnerMemoryAria": "Enable learner memory for this notebook",
+  "settings.notebook.learnerMemoryAria": "Enable memory for this notebook",
   "settings.notebook.learnerMemoryDescription":
     "Allow Buddy to learn and store facts from your chats.",
-  "settings.notebook.learnerMemoryTitle": "Learner memory",
+  "settings.notebook.learnerMemoryTitle": "Memory",
   "settings.notebook.inherited": "Inherited",
   "settings.notebook.learnerMemoryAutoExtractAria":
-    "Enable automatic learner memory extraction from real chats",
+    "Enable automatic memory extraction from real chats",
   "settings.notebook.learnerMemoryAutoExtractDescription":
     "Automatically extract facts during conversations.",
   "settings.notebook.learnerMemoryAutoExtractTitle": "Auto-extract from chats",
@@ -850,8 +859,8 @@ export const dict = {
   "settings.notebook.on": "On",
   "settings.notebook.title": "Notebook",
   "settings.learnerMemory.description":
-    "Control Buddy's global learner memory store and the defaults that notebooks inherit.",
-  "settings.learnerMemory.title": "Learner Memory",
+    "Control Buddy's global memory store and the defaults that notebooks inherit.",
+  "settings.learnerMemory.title": "Memory",
   "settings.providers.allConnected": "All available providers are already connected.",
   "settings.providers.allProvidersSection": "All providers",
   "settings.providers.availableProviders": "Available providers",
@@ -885,8 +894,6 @@ export const dict = {
   "settings.providers.hideAllProviders": "Hide all providers",
   "settings.providers.noProvidersConnected": "No providers are connected yet.",
   "settings.providers.noOtherProviders": "No other providers are available right now.",
-  "settings.providers.openCodeZenDescription": "Use OpenCode Zen free and curated hosted models.",
-  "settings.providers.openCodeZenTitle": "OpenCode Zen",
   "settings.providers.openCodeGoDescription": "Start with the hosted OpenCode models.",
   "settings.providers.openCodeGoTitle": "OpenCode Go",
   "settings.providers.recommendedSection": "Recommended",
@@ -953,11 +960,9 @@ export const dict = {
   "sidebar.notebookSettingsAutosaveHint": "Changes save automatically.",
   "sidebar.notebookSettingsBadge": "Notebook",
   "sidebar.notebookSettingsDescription": "Configure local overrides for this notebook.",
-  "sidebar.notebookSettingsLearnerMemoryGlobalDisabled":
-    "Global learner memory is off. Turn it on in global Settings to use notebook memory features.",
   "sidebar.notebookSettingsLearnerMemorySectionDescription":
     "Customize memory behavior for this notebook.",
-  "sidebar.notebookSettingsLearnerMemorySectionTitle": "Learner memory",
+  "sidebar.notebookSettingsLearnerMemorySectionTitle": "Memory",
   "sidebar.notebookSettingsMcpEmpty":
     "No MCPs are configured yet. Add one in global Settings to make it available here.",
   "sidebar.notebookSettingsMcpEditorDescription":
@@ -969,7 +974,7 @@ export const dict = {
     "Override default coding standard tools.",
   "sidebar.notebookSettingsStandardsSectionTitle": "Standards",
   "sidebar.notebookSettingsTitle": "Notebook settings",
-  "sidebar.notebookLearnerMemory": "Learner memory",
+  "sidebar.notebookLearnerMemory": "Memory",
   "sidebar.notebookLearnerMemoryAutoExtract": "Auto-extract from chats",
   "sidebar.closeProject": "Close project",
   "sidebar.help": "Help",
