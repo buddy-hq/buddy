@@ -154,12 +154,12 @@ export async function patchProjectConfig(input: { directory: string; payload: un
 }
 
 export async function patchGlobalConfig(payload: unknown) {
-  const parsed = mergeAndValidateConfigPatch({
-    current: await Config.getGlobal(),
-    patch: payload,
-  })
-
-  return Config.updateGlobal(parsed)
+  return Config.mutateGlobal((current) =>
+    mergeAndValidateConfigPatch({
+      current,
+      patch: payload,
+    }),
+  )
 }
 
 const DELETE_PATCH_SENTINEL = Symbol("delete_patch_value")

@@ -1,5 +1,7 @@
 import { getGlobalConfig, loadProjectConfig, loadProjectConfigFile } from "./store/read-config.js"
 import {
+  mutateGlobalConfig,
+  replaceGlobalConfig,
   setProjectMcpConfig,
   updateGlobalConfig,
   updateProjectConfig,
@@ -60,5 +62,13 @@ export namespace Config {
 
   export async function updateGlobal(config: Info) {
     return updateGlobalConfig(config)
+  }
+
+  export async function replaceGlobal(config: Info) {
+    return replaceGlobalConfig(config)
+  }
+
+  export async function mutateGlobal(mutation: (current: Info) => Info) {
+    return mutateGlobalConfig(mutation)
   }
 }

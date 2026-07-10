@@ -3,6 +3,7 @@ import path from "node:path"
 import fs from "node:fs"
 import { writeFileSync } from "node:fs"
 import { app } from "../../src/index.ts"
+import { Config } from "../../src/config"
 import { Global } from "../../src/storage"
 import { projectConfigFile, writeProjectConfig } from "../helpers/project-config"
 import { createGitRepo } from "../helpers/repo"
@@ -130,6 +131,159 @@ describe("config routes", () => {
         },
         body: JSON.stringify({}),
       })
+    }
+  })
+
+  test("deletes nested global config keys through patch", async () => {
+    const globalFile = path.join(Global.Path.config, "buddy.jsonc")
+    fs.mkdirSync(path.dirname(globalFile), { recursive: true })
+    const previousGlobal = fs.existsSync(globalFile)
+      ? fs.readFileSync(globalFile, "utf8")
+      : undefined
+
+    try {
+      const seedResponse = await app.request("/api/global/config", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "anthropic/global-delete-regression",
+          mcp: {
+            linear: {
+              type: "remote",
+              url: "https://mcp.linear.app/mcp",
+              enabled: true,
+            },
+            docs: {
+              type: "remote",
+              url: "https://example.com/mcp",
+              enabled: false,
+            },
+          },
+        }),
+      })
+      expect(seedResponse.status).toBe(200)
+
+      const removeResponse = await app.request("/api/global/config", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          mcp: {
+            linear: null,
+          },
+        }),
+      })
+      expect(removeResponse.status).toBe(200)
+
+      const body = (await removeResponse.json()) as {
+        model?: string
+        mcp?: Record<string, unknown>
+      }
+      expect(body.model).toBe("anthropic/global-delete-regression")
+      expect(body.mcp?.linear).toBeUndefined()
+      expect(body.mcp?.docs).toEqual({
+        type: "remote",
+        url: "https://example.com/mcp",
+        enabled: false,
+      })
+
+      const getAfter = await app.request("/api/global/config")
+      expect(getAfter.status).toBe(200)
+      const afterBody = (await getAfter.json()) as { mcp?: Record<string, unknown> }
+      expect(afterBody.mcp?.linear).toBeUndefined()
+      expect(afterBody.mcp?.docs).toBeDefined()
+      expect(fs.readFileSync(globalFile, "utf8")).not.toContain('"linear"')
+    } finally {
+      if (previousGlobal === undefined) {
+        fs.rmSync(globalFile, { force: true })
+      } else {
+        writeFileSync(globalFile, previousGlobal)
+      }
+
+      await Config.updateGlobal({})
+    }
+  })
+
+  test("preserves concurrent global config patches", async () => {
+    const globalFile = path.join(Global.Path.config, "buddy.jsonc")
+    fs.mkdirSync(path.dirname(globalFile), { recursive: true })
+    const previousGlobal = fs.existsSync(globalFile)
+      ? fs.readFileSync(globalFile, "utf8")
+      : undefined
+
+    try {
+      await Config.replaceGlobal({})
+      const seedResponse = await app.request("/api/global/config", {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          mcp: {
+            linear: {
+              type: "remote",
+              url: "https://mcp.linear.app/mcp",
+              enabled: true,
+            },
+            docs: {
+              type: "remote",
+              url: "https://example.com/mcp",
+              enabled: false,
+            },
+          },
+        }),
+      })
+      expect(seedResponse.status).toBe(200)
+
+      const [removeResponse, modelResponse] = await Promise.all([
+        app.request("/api/global/config", {
+          method: "PATCH",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            mcp: {
+              linear: null,
+            },
+          }),
+        }),
+        app.request("/api/global/config", {
+          method: "PATCH",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "anthropic/global-concurrent-patch",
+          }),
+        }),
+      ])
+      expect(removeResponse.status).toBe(200)
+      expect(modelResponse.status).toBe(200)
+
+      const getAfter = await app.request("/api/global/config")
+      expect(getAfter.status).toBe(200)
+      const afterBody = (await getAfter.json()) as {
+        model?: string
+        mcp?: Record<string, unknown>
+      }
+      expect(afterBody.model).toBe("anthropic/global-concurrent-patch")
+      expect(afterBody.mcp?.linear).toBeUndefined()
+      expect(afterBody.mcp?.docs).toEqual({
+        type: "remote",
+        url: "https://example.com/mcp",
+        enabled: false,
+      })
+    } finally {
+      if (previousGlobal === undefined) {
+        fs.rmSync(globalFile, { force: true })
+      } else {
+        writeFileSync(globalFile, previousGlobal)
+      }
+
+      await Config.updateGlobal({})
     }
   })
 

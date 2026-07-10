@@ -13,6 +13,10 @@ import {
 import { Info } from "./types.js"
 import type { Mcp, Info as ConfigInfo } from "./types.js"
 
+type GlobalConfigMutation = (current: ConfigInfo) => ConfigInfo
+
+let globalConfigChangeLock: Promise<void> | undefined
+
 async function ensureParentDirectory(filepath: string): Promise<void> {
   await fsp.mkdir(path.dirname(filepath), { recursive: true })
 }
@@ -27,6 +31,26 @@ async function readConfigTextOrDefault(filepath: string): Promise<string> {
 
 function writeJsonFile(filepath: string, value: unknown): Promise<void> {
   return fsp.writeFile(filepath, JSON.stringify(value, null, 2) + "\n", "utf8")
+}
+
+async function withGlobalConfigChangeLock<T>(task: () => Promise<T>): Promise<T> {
+  const previous = globalConfigChangeLock ?? Promise.resolve()
+  let releaseLock!: () => void
+  const current = new Promise<void>((resolve) => {
+    releaseLock = resolve
+  })
+  const queued = previous.finally(() => current)
+  globalConfigChangeLock = queued
+  await previous.catch(() => undefined)
+
+  try {
+    return await task()
+  } finally {
+    releaseLock()
+    if (globalConfigChangeLock === queued) {
+      globalConfigChangeLock = undefined
+    }
+  }
 }
 
 export async function updateProjectConfig(directory: string, config: ConfigInfo): Promise<void> {
@@ -78,26 +102,35 @@ export async function setProjectMcpConfig(
 }
 
 export async function updateGlobalConfig(config: ConfigInfo): Promise<ConfigInfo> {
-  const filepath = resolveGlobalConfigFile()
-  await ensureParentDirectory(filepath)
+  return mutateGlobalConfig((current) => Info.parse(mergeDeep(current, config)))
+}
 
-  const before = await readConfigTextOrDefault(filepath)
-  const next = await (async () => {
+export async function replaceGlobalConfig(config: ConfigInfo): Promise<ConfigInfo> {
+  return mutateGlobalConfig(() => config)
+}
+
+export async function mutateGlobalConfig(
+  mutation: GlobalConfigMutation,
+): Promise<ConfigInfo> {
+  return withGlobalConfigChangeLock(async () => {
+    const filepath = resolveGlobalConfigFile()
+    await ensureParentDirectory(filepath)
+
+    const before = await readConfigTextOrDefault(filepath)
+    const current = parseConfigText(before, filepath)
+    const next = Info.parse(mutation(current))
+
     if (!filepath.endsWith(".jsonc")) {
-      const existing = parseConfigText(before, filepath)
-      const merged = mergeDeep(existing, config)
-      await writeJsonFile(filepath, merged)
-      return merged
+      await writeJsonFile(filepath, next)
+    } else {
+      const updated = replaceJsoncDocument(before, next)
+      parseConfigText(updated, filepath)
+      await fsp.writeFile(filepath, updated, "utf8")
     }
 
-    const updated = patchJsoncDocument(before, config)
-    const merged = parseConfigText(updated, filepath)
-    await fsp.writeFile(filepath, updated, "utf8")
-    return merged
-  })()
+    resetGlobalConfigCache()
+    await OpenCodeInstance.disposeAll()
 
-  resetGlobalConfigCache()
-  await OpenCodeInstance.disposeAll()
-
-  return next
+    return next
+  })
 }
