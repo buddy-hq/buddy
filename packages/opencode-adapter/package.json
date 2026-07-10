@@ -9,6 +9,7 @@
     "./app-runtime": "./src/app-runtime.ts",
     "./command": "./src/command.ts",
     "./mcp": "./src/mcp.ts",
+    "./mcp-oauth-branding": "./src/mcp-oauth-branding.ts",
     "./message": "./src/message.ts",
     "./provider-auth": "./src/provider-auth.ts",
     "./id": "./src/id.ts",

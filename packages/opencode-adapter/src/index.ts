@@ -1,6 +1,7 @@
 export * from "./auth"
 export * from "./command"
 export * from "./mcp"
+export * from "./mcp-oauth-branding"
 export * from "./message"
 export * from "./provider-auth"
 export * from "./id"

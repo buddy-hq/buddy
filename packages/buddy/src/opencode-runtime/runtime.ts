@@ -6,6 +6,7 @@ import {
   registerRuntimePluginFactory,
 } from "@buddy/opencode-adapter/plugin-live"
 import { ensureConfigServicePatched } from "@buddy/opencode-adapter/config"
+import { ensureMcpOAuthBrandingPatched } from "@buddy/opencode-adapter/mcp-oauth-branding"
 import { ensureSessionServicePatched } from "@buddy/opencode-adapter/session-live"
 import { ensureToolInputDeltaBridgePatched } from "@buddy/opencode-adapter/tool-input-delta-live"
 import { Server } from "@buddy/opencode-adapter/server"
@@ -45,6 +46,7 @@ export async function loadOpenCodeApp() {
       } catch (error) {
         console.warn("Skipping legacy OpenCode migration repair:", error)
       }
+      ensureMcpOAuthBrandingPatched()
       if (!buddyRuntimePluginRegistered) {
         registerRuntimePluginFactory(({ directory, worktree }) =>
           createBuddyRuntimeHooks({
