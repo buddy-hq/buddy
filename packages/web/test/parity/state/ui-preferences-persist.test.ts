@@ -9,6 +9,8 @@ function resetUiPreferences() {
     leftSidebarOpen: true,
     chatLeftSidebarWidth: 344,
     settingsSidebarWidth: 344,
+    getStartedChatsVisible: true,
+    teacherStandardsAutoSetupComplete: false,
   })
 }
 
@@ -26,6 +28,8 @@ describe("ui preference persistence parity", () => {
     state.setLeftSidebarOpen(false)
     state.setChatLeftSidebarWidth(280)
     state.setSettingsSidebarWidth(320)
+    state.setGetStartedChatsVisible(false)
+    state.setTeacherStandardsAutoSetupComplete(true)
 
     const raw = localStorage.getItem(UI_PREFERENCES_STORAGE_KEY)
     expect(raw).toBeTruthy()
@@ -37,6 +41,8 @@ describe("ui preference persistence parity", () => {
       leftSidebarOpen: false,
       chatLeftSidebarWidth: 280,
       settingsSidebarWidth: 320,
+      getStartedChatsVisible: false,
+      teacherStandardsAutoSetupComplete: true,
     })
     expect(parsed.state.togglePinned).toBeUndefined()
     expect(parsed.state.rightSidebarOpen).toBeUndefined()
@@ -80,6 +86,8 @@ describe("ui preference persistence parity", () => {
     const next = useUiPreferences.getState()
     expect(next.chatLeftSidebarWidth).toBe(412)
     expect(next.settingsSidebarWidth).toBe(412)
+    expect(next.getStartedChatsVisible).toBe(true)
+    expect(next.teacherStandardsAutoSetupComplete).toBe(false)
     expect("rightSidebarOpen" in next).toBe(false)
     expect("rightSidebarWidth" in next).toBe(false)
     expect("rightSidebarTab" in next).toBe(false)

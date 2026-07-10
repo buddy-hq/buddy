@@ -44,20 +44,32 @@ describe("get started chats", () => {
   test("forces test prompts to remain visible after a chat exists", () => {
     expect(
       shouldShowGetStartedChats({
+        enabled: false,
         hasChats: true,
         hasStartHandler: true,
         currentDirectoryIsInbox: false,
-        currentDirectoryHasSessions: true,
         forceVisible: true,
       }),
     ).toBe(true)
 
     expect(
       shouldShowGetStartedChats({
+        enabled: true,
         hasChats: true,
         hasStartHandler: true,
         currentDirectoryIsInbox: true,
-        currentDirectoryHasSessions: true,
+        forceVisible: false,
+      }),
+    ).toBe(true)
+  })
+
+  test("hides starter chats after the user dismisses them", () => {
+    expect(
+      shouldShowGetStartedChats({
+        enabled: false,
+        hasChats: true,
+        hasStartHandler: true,
+        currentDirectoryIsInbox: true,
         forceVisible: false,
       }),
     ).toBe(false)

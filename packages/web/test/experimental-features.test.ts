@@ -3,7 +3,10 @@ import {
   EXPERIMENTAL_FEATURE_ID,
   experimentalFeatureIsEnabled,
 } from "../src/state/experimental-features-query"
-import { getVisibleSettingsTabDefinitions } from "../src/components/settings/settings-tabs"
+import {
+  getVisibleSettingsTabDefinitions,
+  settingsTabGroupForPrimaryUse,
+} from "../src/components/settings/settings-tabs"
 
 describe("experimentalFeatureIsEnabled", () => {
   test("fails closed before the experimental feature catalog loads", () => {
@@ -37,5 +40,19 @@ describe("experimental settings visibility", () => {
 
     expect(hidden.some((tab) => tab.id === "learnerMemory")).toBe(false)
     expect(visible.some((tab) => tab.id === "learnerMemory")).toBe(true)
+  })
+
+  test("promotes Standards into the main settings group for teachers", () => {
+    const visible = getVisibleSettingsTabDefinitions({
+      standardsEnabled: false,
+      primaryUse: "teach",
+      enabledExperimentalFeatureIDs: new Set(),
+    })
+
+    const standardsTab = visible.find((tab) => tab.id === "standards")
+    if (!standardsTab) {
+      throw new Error("Expected Standards settings to be visible for teachers")
+    }
+    expect(settingsTabGroupForPrimaryUse(standardsTab, "teach")).toBe("main")
   })
 })

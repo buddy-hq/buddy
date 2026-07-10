@@ -14,14 +14,14 @@ describe("config default_persona", () => {
     expect(selected).toBe("buddy")
   })
 
-  test("uses configured code-buddy as default_persona", async () => {
-    const repo = createGitRepo("buddy-config-default-persona-code")
+  test("uses configured teaching-buddy as default_persona", async () => {
+    const repo = createGitRepo("buddy-config-default-persona-teaching")
 
     writeProjectConfig(
       repo,
       JSON.stringify(
         {
-          default_persona: "code-buddy",
+          default_persona: "teaching-buddy",
         },
         null,
         2,
@@ -30,7 +30,50 @@ describe("config default_persona", () => {
 
     const selected = await withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent())
 
-    expect(selected).toBe("code-buddy")
+    expect(selected).toBe("teaching-buddy")
+  })
+
+  test("uses teaching-buddy when teaching is the primary use", async () => {
+    const repo = createGitRepo("buddy-config-primary-use-teach")
+
+    writeProjectConfig(
+      repo,
+      JSON.stringify(
+        {
+          personalization: {
+            primary_use: "teach",
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+
+    const selected = await withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent())
+
+    expect(selected).toBe("teaching-buddy")
+  })
+
+  test("keeps an explicit default_persona ahead of the primary-use default", async () => {
+    const repo = createGitRepo("buddy-config-explicit-default-over-primary-use")
+
+    writeProjectConfig(
+      repo,
+      JSON.stringify(
+        {
+          default_persona: "buddy",
+          personalization: {
+            primary_use: "teach",
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+    )
+
+    const selected = await withSyncedOpenCodeConfig(repo, () => OpenCodeAgent.defaultAgent())
+
+    expect(selected).toBe("buddy")
   })
 
   test("propagates hidden personas into the runtime agent catalog", async () => {
@@ -41,7 +84,7 @@ describe("config default_persona", () => {
       JSON.stringify(
         {
           personas: {
-            "code-buddy": {
+            "teaching-buddy": {
               hidden: true,
             },
           },
@@ -51,11 +94,11 @@ describe("config default_persona", () => {
       ) + "\n",
     )
 
-    const codeBuddy = await withSyncedOpenCodeConfig(repo, async () =>
-      OpenCodeAgent.get("code-buddy"),
+    const teachingBuddy = await withSyncedOpenCodeConfig(repo, async () =>
+      OpenCodeAgent.get("teaching-buddy"),
     )
 
-    expect(codeBuddy?.hidden).toBe(true)
+    expect(teachingBuddy?.hidden).toBe(true)
   })
 
   test("rejects configs that hide every Buddy persona", async () => {
@@ -69,7 +112,7 @@ describe("config default_persona", () => {
             buddy: {
               hidden: true,
             },
-            "code-buddy": {
+            "teaching-buddy": {
               hidden: true,
             },
           },
@@ -99,8 +142,8 @@ describe("config default_persona", () => {
       JSON.stringify(
         {
           personas: {
-            "code-buddy": {
-              surfaces: ["curriculum"],
+            "teaching-buddy": {
+              surfaces: ["flashcard"],
             },
           },
         },
@@ -114,7 +157,7 @@ describe("config default_persona", () => {
       data: {
         issues: expect.arrayContaining([
           expect.objectContaining({
-            message: 'defaultSurface "editor" must remain available for code-buddy',
+            message: 'defaultSurface "curriculum" must remain available for teaching-buddy',
           }),
         ]),
       },
@@ -129,8 +172,8 @@ describe("config default_persona", () => {
       JSON.stringify(
         {
           personas: {
-            "code-buddy": {
-              defaultSurface: "flashcard",
+            "teaching-buddy": {
+              defaultSurface: "editor",
             },
           },
         },
@@ -144,7 +187,7 @@ describe("config default_persona", () => {
       data: {
         issues: expect.arrayContaining([
           expect.objectContaining({
-            message: 'defaultSurface "flashcard" must remain available for code-buddy',
+            message: 'defaultSurface "editor" must remain available for teaching-buddy',
           }),
         ]),
       },

@@ -6,7 +6,10 @@ import { compileRuntimeLearningToolPermissions } from "../../src/learning/runtim
 
 describe("tool permission compiler", () => {
   test("runtime-allowed tools are always included in the static persona permission envelope", () => {
-    const personas = [getBuddyPersona("buddy"), getBuddyPersona("code-buddy")]
+    const personas = [
+      getBuddyPersona("buddy"),
+      getBuddyPersona("teaching-buddy"),
+    ]
 
     for (const persona of personas) {
       const staticPermissions = deriveStaticPersonaToolPermissionsFromProfile(persona)

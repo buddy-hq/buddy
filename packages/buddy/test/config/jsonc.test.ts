@@ -14,7 +14,7 @@ describe("config jsonc", () => {
       [
         "{",
         "  // JSONC comment",
-        '  "default_persona": "code-buddy",',
+        '  "default_persona": "teaching-buddy",',
         '  "model": "anthropic/k2p5",',
         "}",
         "",
@@ -23,7 +23,7 @@ describe("config jsonc", () => {
 
     const cfg = await Config.getProject(repo)
 
-    expect(cfg.default_persona).toBe("code-buddy")
+    expect(cfg.default_persona).toBe("teaching-buddy")
     expect(cfg.model).toBe("anthropic/k2p5")
   })
 
@@ -54,7 +54,7 @@ describe("config jsonc", () => {
         "{",
         '  "personas": {',
         '    "buddy": { "hidden": true },',
-        '    "code-buddy": { "hidden": true }',
+        '    "teaching-buddy": { "hidden": true }',
         "  }",
         "}",
         "",

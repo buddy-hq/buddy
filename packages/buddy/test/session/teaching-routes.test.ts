@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
 import { app } from "../../src/index.ts"
+import { TeachingService } from "../../src/learning/features/lesson-workspace/service/operations"
 import { writeProjectConfig } from "../helpers/project-config"
 import { createGitRepo } from "../helpers/repo"
 
@@ -11,8 +12,8 @@ describe("teaching routes", () => {
       JSON.stringify(
         {
           personas: {
-            "code-buddy": {
-              surfaces: ["curriculum"],
+            "teaching-buddy": {
+              surfaces: ["flashcard"],
             },
           },
         },
@@ -28,7 +29,7 @@ describe("teaching routes", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        persona: "code-buddy",
+        persona: "teaching-buddy",
       }),
     })
 
@@ -46,12 +47,7 @@ describe("teaching routes", () => {
       "content-type": "application/json",
     }
 
-    const provisionResponse = await app.request(`/api/teaching/session/${sessionID}/workspace`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ persona: "code-buddy" }),
-    })
-    expect(provisionResponse.status).toBe(200)
+    await TeachingService.ensure(repo, sessionID, "ts")
 
     const addFileResponse = await app.request(`/api/teaching/session/${sessionID}/file`, {
       method: "POST",

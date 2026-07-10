@@ -44,6 +44,52 @@ function countNonHtmlTags(source: string) {
 }
 
 describe("model runtime context", () => {
+  test("keeps an explicit persona authoritative over the opposite primary use", async () => {
+    await using project = await tmpdir({ git: true })
+    const config = await readProjectConfig(project.path)
+
+    const result = await runMessagePromptPipeline({
+      context: {
+        directory: project.path,
+        sessionID: "ses_explicit_persona",
+      },
+      body: {
+        content: "Help me understand fractions.",
+        persona: "buddy",
+      },
+      projectConfig: {
+        ...config,
+        personalization: {
+          primary_use: "teach",
+        },
+      },
+    })
+
+    expect(result.transformed.agent).toBe("buddy")
+    expect(result.nextTeachingState?.persona).toBe("buddy")
+    expect(result.transformed.system).not.toContain("Primary use: teaching")
+
+    const followup = await runMessagePromptPipeline({
+      context: {
+        directory: project.path,
+        sessionID: "ses_explicit_persona",
+      },
+      body: {
+        content: "Give me another example.",
+      },
+      projectConfig: {
+        ...config,
+        personalization: {
+          primary_use: "teach",
+        },
+      },
+      previousState: result.nextTeachingState,
+    })
+
+    expect(followup.transformed.agent).toBe("buddy")
+    expect(followup.nextTeachingState?.persona).toBe("buddy")
+  })
+
   test("falls back to request model runtime when provider lookup misses", async () => {
     await using project = await tmpdir({ git: true })
     const config = await readProjectConfig(project.path)

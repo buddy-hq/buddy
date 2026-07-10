@@ -16,6 +16,28 @@ function normalizePathForAssertion(value: string): string {
 }
 
 describe("config routes", () => {
+  test("orders teaching-buddy first when teaching is the primary use", async () => {
+    const repo = createGitRepo("buddy-route-config-personas-teach-default")
+    writeProjectConfig(
+      repo,
+      JSON.stringify({
+        personalization: {
+          primary_use: "teach",
+        },
+      }),
+    )
+
+    const response = await app.request("/api/config/personas", {
+      headers: {
+        "x-buddy-directory": repo,
+      },
+    })
+
+    expect(response.status).toBe(200)
+    const personas = (await response.json()) as Array<{ id: string }>
+    expect(personas[0]?.id).toBe("teaching-buddy")
+  })
+
   test("patches and returns project config", async () => {
     const repo = createGitRepo("buddy-route-config-project")
 
@@ -26,7 +48,7 @@ describe("config routes", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        default_persona: "code-buddy",
+        default_persona: "teaching-buddy",
         model: "anthropic/route-project",
       }),
     })
@@ -45,7 +67,7 @@ describe("config routes", () => {
       model?: string
     }
 
-    expect(body.default_persona).toBe("code-buddy")
+    expect(body.default_persona).toBe("teaching-buddy")
     expect(body.model).toBe("anthropic/route-project")
     expect(fs.existsSync(projectConfigFile(repo))).toBe(true)
   })
@@ -63,7 +85,7 @@ describe("config routes", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        default_persona: "code-buddy",
+        default_persona: "teaching-buddy",
       }),
     })
 
@@ -80,7 +102,7 @@ describe("config routes", () => {
       default_persona?: string
     }
 
-    expect(body.default_persona).toBe("code-buddy")
+    expect(body.default_persona).toBe("teaching-buddy")
     expect(fs.readFileSync(projectConfigFile(nested), "utf8")).toContain(
       '"default_persona":"buddy"',
     )
@@ -299,7 +321,7 @@ describe("config routes", () => {
       repo,
       JSON.stringify(
         {
-          default_persona: "code-buddy",
+          default_persona: "teaching-buddy",
           tools: {
             get_next_standards: true,
           },
@@ -336,7 +358,7 @@ describe("config routes", () => {
         model?: string
         tools?: Record<string, boolean>
       }
-      expect(rawBody.default_persona).toBe("code-buddy")
+      expect(rawBody.default_persona).toBe("teaching-buddy")
       expect(rawBody.model).toBeUndefined()
       expect(rawBody.tools?.get_next_standards).toBe(true)
       expect(rawBody.tools?.search_standards).toBeUndefined()
@@ -348,7 +370,7 @@ describe("config routes", () => {
       })
       expect(mergedResponse.status).toBe(200)
       await expect(mergedResponse.json()).resolves.toMatchObject({
-        default_persona: "code-buddy",
+        default_persona: "teaching-buddy",
         model: "anthropic/route-global-default",
         tools: {
           search_standards: false,
@@ -399,18 +421,20 @@ describe("config routes", () => {
           "content-type": "application/json",
         },
         body: JSON.stringify({
-          default_persona: "code-buddy",
+          default_persona: "teaching-buddy",
         }),
       })
 
       expect(patchResponse.status).toBe(200)
       await expect(patchResponse.json()).resolves.toMatchObject({
-        default_persona: "code-buddy",
+        default_persona: "teaching-buddy",
         model: "anthropic/route-global-only",
       })
 
       const configFile = projectConfigFile(repo)
-      expect(fs.readFileSync(configFile, "utf8")).toContain('"default_persona": "code-buddy"')
+      expect(fs.readFileSync(configFile, "utf8")).toContain(
+        '"default_persona": "teaching-buddy"',
+      )
       expect(fs.readFileSync(configFile, "utf8")).not.toContain("anthropic/route-global-only")
     } finally {
       if (previousGlobal === undefined) {
@@ -709,7 +733,7 @@ describe("config routes", () => {
             buddy: {
               hidden: true,
             },
-            "code-buddy": {
+            "teaching-buddy": {
               hidden: true,
             },
           },
@@ -738,8 +762,8 @@ describe("config routes", () => {
       JSON.stringify(
         {
           personas: {
-            "code-buddy": {
-              surfaces: ["curriculum"],
+            "teaching-buddy": {
+              surfaces: ["flashcard"],
             },
           },
         },

@@ -72,7 +72,7 @@ describe("opencode config overlay isolation", () => {
       firstProject.path,
       JSON.stringify(
         {
-          default_persona: "code-buddy",
+          default_persona: "teaching-buddy",
           permission: {
             [OVERLAY_PERMISSION]: "allow",
           },
@@ -112,7 +112,7 @@ describe("opencode config overlay isolation", () => {
       const firstInitial = await readRuntimeAgentState(firstProject.path)
       const secondInitial = await readRuntimeAgentState(secondProject.path)
 
-      expect(firstInitial.defaultAgent).toBe("code-buddy")
+      expect(firstInitial.defaultAgent).toBe("teaching-buddy")
       expect(firstInitial.curriculumOrchestrator?.description).toBe("first project curriculum")
       expect(firstInitial.overlayPermissionAction).toBe("allow")
 
@@ -126,7 +126,7 @@ describe("opencode config overlay isolation", () => {
       const firstAfterReset = await readRuntimeAgentState(firstProject.path)
       const secondAfterReset = await readRuntimeAgentState(secondProject.path)
 
-      expect(firstAfterReset.defaultAgent).toBe("code-buddy")
+      expect(firstAfterReset.defaultAgent).toBe("teaching-buddy")
       expect(firstAfterReset.curriculumOrchestrator?.description).toBe("first project curriculum")
       expect(firstAfterReset.overlayPermissionAction).toBe("allow")
 

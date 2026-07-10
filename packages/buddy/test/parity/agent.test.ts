@@ -20,26 +20,45 @@ describe("parity.agent", () => {
         directory,
         JSON.stringify({
           agent: {
-            "code-buddy": {
+            "teaching-buddy": {
               description: "patched only",
             },
           },
         }),
       )
 
-      const codeBuddyAgent = requireValue(
-        await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("code-buddy")),
-        "code-buddy agent",
+      const teachingBuddyAgent = requireValue(
+        await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("teaching-buddy")),
+        "teaching-buddy agent",
       )
 
-      expect(codeBuddyAgent.description).toBe("patched only")
-      expect(codeBuddyAgent.mode).toBe("primary")
-      if (typeof codeBuddyAgent.steps === "number") {
-        expect(codeBuddyAgent.steps).toBe(8)
+      expect(teachingBuddyAgent.description).toBe("patched only")
+      expect(teachingBuddyAgent.mode).toBe("primary")
+      if (typeof teachingBuddyAgent.steps === "number") {
+        expect(teachingBuddyAgent.steps).toBe(8)
       }
-      const codeBuddyPrompt = requireValue(codeBuddyAgent.prompt, "code-buddy prompt")
-      expect(typeof codeBuddyPrompt).toBe("string")
-      expect(codeBuddyPrompt.length).toBeGreaterThan(0)
+      const teachingBuddyPrompt = requireValue(teachingBuddyAgent.prompt, "teaching-buddy prompt")
+      expect(typeof teachingBuddyPrompt).toBe("string")
+      expect(teachingBuddyPrompt.length).toBeGreaterThan(0)
+    })
+  })
+
+  test("keeps learner and teaching overlays detached pending prompt review", async () => {
+    await withRepo(async (directory) => {
+      const result = await withSyncedOpenCodeConfig(directory, async () => ({
+        buddyAgent: await OpenCodeAgent.get("buddy"),
+        teachingBuddyAgent: await OpenCodeAgent.get("teaching-buddy"),
+      }))
+
+      const buddyPrompt = requireValue(result.buddyAgent?.prompt, "buddy prompt")
+      const teachingBuddyPrompt = requireValue(
+        result.teachingBuddyAgent?.prompt,
+        "teaching-buddy prompt",
+      )
+
+      expect(teachingBuddyPrompt).toBe(buddyPrompt)
+      expect(buddyPrompt).not.toContain("## Persona: Buddy")
+      expect(teachingBuddyPrompt).not.toContain("## Persona: Teaching Buddy")
     })
   })
 
@@ -86,7 +105,7 @@ describe("parity.agent", () => {
         directory,
         JSON.stringify({
           agent: {
-            "code-buddy": {
+            "teaching-buddy": {
               permission: {
                 task: {
                   "notes/*": "allow",
@@ -97,16 +116,16 @@ describe("parity.agent", () => {
         }),
       )
 
-      const codeBuddyAgent = requireValue(
-        await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("code-buddy")),
-        "code-buddy agent",
+      const teachingBuddyAgent = requireValue(
+        await withSyncedOpenCodeConfig(directory, () => OpenCodeAgent.get("teaching-buddy")),
+        "teaching-buddy agent",
       )
 
       expect(
-        PermissionNext.evaluate("task", "notes/lesson.md", codeBuddyAgent.permission).action,
+        PermissionNext.evaluate("task", "notes/lesson.md", teachingBuddyAgent.permission).action,
       ).toBe("allow")
       expect(
-        PermissionNext.evaluate("task", "tmp/scratch.md", codeBuddyAgent.permission).action,
+        PermissionNext.evaluate("task", "tmp/scratch.md", teachingBuddyAgent.permission).action,
       ).toBe("deny")
     })
   })
@@ -115,11 +134,11 @@ describe("parity.agent", () => {
     await withRepo(async (directory) => {
       const result = await withSyncedOpenCodeConfig(directory, async () => ({
         buddyAgent: await OpenCodeAgent.get("buddy"),
-        codeBuddyAgent: await OpenCodeAgent.get("code-buddy"),
+        teachingBuddyAgent: await OpenCodeAgent.get("teaching-buddy"),
       }))
 
       const buddyAgent = requireValue(result.buddyAgent, "buddy agent")
-      const codeBuddyAgent = requireValue(result.codeBuddyAgent, "code-buddy agent")
+      const teachingBuddyAgent = requireValue(result.teachingBuddyAgent, "teaching-buddy agent")
 
       expect(
         PermissionNext.evaluate("task", "curriculum-orchestrator", buddyAgent.permission).action,
@@ -140,30 +159,34 @@ describe("parity.agent", () => {
       ).toBe("deny")
 
       expect(
-        PermissionNext.evaluate("task", "curriculum-orchestrator", codeBuddyAgent.permission)
+        PermissionNext.evaluate("task", "curriculum-orchestrator", teachingBuddyAgent.permission)
           .action,
       ).toBe("deny")
       expect(
-        PermissionNext.evaluate("task", "practice-agent", codeBuddyAgent.permission).action,
+        PermissionNext.evaluate("task", "practice-agent", teachingBuddyAgent.permission).action,
       ).toBe("deny")
       expect(
-        PermissionNext.evaluate("task", "assessment-agent", codeBuddyAgent.permission).action,
+        PermissionNext.evaluate("task", "assessment-agent", teachingBuddyAgent.permission).action,
       ).toBe("deny")
       expect(
-        PermissionNext.evaluate("task", "question-set-author", codeBuddyAgent.permission).action,
-      ).toBe("allow")
-      expect(PermissionNext.evaluate("task", "general", codeBuddyAgent.permission).action).toBe(
-        "allow",
-      )
-      expect(PermissionNext.evaluate("task", "explore", codeBuddyAgent.permission).action).toBe(
-        "allow",
-      )
-      expect(
-        PermissionNext.evaluate("task", "flashcard-author", codeBuddyAgent.permission).action,
-      ).toBe("allow")
-      expect(
-        PermissionNext.evaluate("task", "learner-memory-consolidator", codeBuddyAgent.permission)
+        PermissionNext.evaluate("task", "question-set-author", teachingBuddyAgent.permission)
           .action,
+      ).toBe("allow")
+      expect(PermissionNext.evaluate("task", "general", teachingBuddyAgent.permission).action).toBe(
+        "allow",
+      )
+      expect(PermissionNext.evaluate("task", "explore", teachingBuddyAgent.permission).action).toBe(
+        "deny",
+      )
+      expect(
+        PermissionNext.evaluate("task", "flashcard-author", teachingBuddyAgent.permission).action,
+      ).toBe("allow")
+      expect(
+        PermissionNext.evaluate(
+          "task",
+          "learner-memory-consolidator",
+          teachingBuddyAgent.permission,
+        ).action,
       ).toBe("deny")
     })
   })
@@ -172,11 +195,11 @@ describe("parity.agent", () => {
     await withRepo(async (directory) => {
       const result = await withSyncedOpenCodeConfig(directory, async () => ({
         buddyAgent: await OpenCodeAgent.get("buddy"),
-        codeBuddyAgent: await OpenCodeAgent.get("code-buddy"),
+        teachingBuddyAgent: await OpenCodeAgent.get("teaching-buddy"),
       }))
 
       const buddyAgent = requireValue(result.buddyAgent, "buddy agent")
-      const codeBuddyAgent = requireValue(result.codeBuddyAgent, "code-buddy agent")
+      const teachingBuddyAgent = requireValue(result.teachingBuddyAgent, "teaching-buddy agent")
 
       expect(PermissionNext.evaluate("search_standards", "*", buddyAgent.permission).action).toBe(
         "allow",
@@ -195,8 +218,8 @@ describe("parity.agent", () => {
         ).action,
       ).toBe("deny")
       expect(
-        PermissionNext.evaluate("python_calculator", "*", codeBuddyAgent.permission).action,
-      ).toBe("deny")
+        PermissionNext.evaluate("python_calculator", "*", teachingBuddyAgent.permission).action,
+      ).toBe("allow")
     })
   })
 
@@ -204,12 +227,12 @@ describe("parity.agent", () => {
     await withRepo(async (directory) => {
       const result = await withSyncedOpenCodeConfig(directory, async () => ({
         buddyAgent: await OpenCodeAgent.get("buddy"),
-        codeBuddyAgent: await OpenCodeAgent.get("code-buddy"),
+        teachingBuddyAgent: await OpenCodeAgent.get("teaching-buddy"),
       }))
 
       const agents = [
         requireValue(result.buddyAgent, "buddy agent"),
-        requireValue(result.codeBuddyAgent, "code-buddy agent"),
+        requireValue(result.teachingBuddyAgent, "teaching-buddy agent"),
       ]
 
       for (const agent of agents) {

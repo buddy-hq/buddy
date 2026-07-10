@@ -33,7 +33,7 @@ describe("session prompt preflight regression", () => {
       body: JSON.stringify({
         content: "Teach me closures.",
         persona: "buddy",
-        agent: "code-buddy",
+        agent: "teaching-buddy",
       }),
     })
 

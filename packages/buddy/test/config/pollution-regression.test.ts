@@ -21,7 +21,7 @@ describe("config pollution regression", () => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        default_persona: "code-buddy",
+        default_persona: "teaching-buddy",
         model: "anthropic/k2p5",
       }),
     })
