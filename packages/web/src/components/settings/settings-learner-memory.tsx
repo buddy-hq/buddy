@@ -105,7 +105,7 @@ export function LearnerMemorySettings() {
   return (
     <SettingsContent>
       <GlobalDefaultsSection
-        description="These controls apply to Buddy's learner memory system across every notebook. Notebook-specific overrides now live in notebook settings."
+        description="These controls apply to Buddy's memory system across every notebook. Notebook-specific overrides now live in notebook settings."
         headerAction={
           showRetry ? (
             <Button
@@ -122,30 +122,15 @@ export function LearnerMemorySettings() {
       >
         <SettingsListCard>
           <SettingsRow
-            title="Global learner memory"
-            description="Master switch for Buddy's learner memory store on this machine. When off, no notebook can use memory or run extraction."
-            control={
-              <SettingsSwitchControl
-                dataAction="settings-global-learner-memory"
-                checked={settings.selection.learnerMemoryMasterEnabled}
-                onCheckedChange={settings.actions.setLearnerMemoryMasterEnabled}
-                disabled={globalControlsDisabled}
-                ariaLabel="Enable global learner memory"
-                onLabel={language.t("settings.notebook.on")}
-                offLabel={language.t("settings.notebook.off")}
-              />
-            }
-          />
-          <SettingsRow
             title="Default notebook participation"
-            description="Controls whether newly created and unchanged notebooks use learner memory by default."
+            description="Controls whether newly created and unchanged notebooks use memory by default."
             control={
               <SettingsSwitchControl
                 dataAction="settings-global-learner-memory-default"
                 checked={settings.selection.learnerMemoryDefaultEnabled}
                 onCheckedChange={settings.actions.setLearnerMemoryDefaultEnabled}
-                disabled={globalControlsDisabled || !settings.selection.learnerMemoryMasterEnabled}
-                ariaLabel="Enable learner memory by default for notebooks"
+                disabled={globalControlsDisabled}
+                ariaLabel="Enable memory by default for notebooks"
                 onLabel={language.t("settings.notebook.on")}
                 offLabel={language.t("settings.notebook.off")}
               />
@@ -153,7 +138,7 @@ export function LearnerMemorySettings() {
           />
           <SettingsRow
             title="Default auto-extract"
-            description="Controls whether unchanged notebooks automatically extract learner memory from chats by default."
+            description="Controls whether unchanged notebooks automatically extract memory from chats by default."
             last
             control={
               <SettingsSwitchControl
@@ -162,10 +147,9 @@ export function LearnerMemorySettings() {
                 onCheckedChange={settings.actions.setLearnerMemoryDefaultAutoExtract}
                 disabled={
                   globalControlsDisabled ||
-                  !settings.selection.learnerMemoryMasterEnabled ||
                   !settings.selection.learnerMemoryDefaultEnabled
                 }
-                ariaLabel="Enable learner memory auto-extract by default for notebooks"
+                ariaLabel="Enable memory auto-extract by default for notebooks"
                 onLabel={language.t("settings.notebook.on")}
                 offLabel={language.t("settings.notebook.off")}
               />
@@ -181,7 +165,7 @@ export function LearnerMemorySettings() {
         <SettingsListCard>
           <SettingsRow
             title="Extraction model"
-            description="Small model used to read an idle chat and produce raw learner-memory candidates."
+            description="Small model used to read an idle chat and produce raw memory candidates."
             control={
               <ModelSelectControl
                 dataAction="settings-learner-memory-extract-model"
@@ -221,7 +205,7 @@ export function LearnerMemorySettings() {
         </SettingsListCard>
       </GlobalDefaultsSection>
 
-      <GlobalDefaultsSection description="Extraction tuning is global so the learner-memory pipeline behaves consistently across notebooks.">
+      <GlobalDefaultsSection description="Extraction tuning is global so the memory pipeline behaves consistently across notebooks.">
         <SettingsListCard>
           <SettingsRow
             title="Minimum user messages"

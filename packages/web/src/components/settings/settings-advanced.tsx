@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Button,
+  Badge,
   Progress,
   Select,
   SelectContent,
@@ -40,10 +41,34 @@ import {
 } from "./advanced-math-runtime-control"
 import { useAdvancedMathRuntime } from "./use-advanced-math-runtime"
 import { useStandardsRuntime } from "./use-standards-runtime"
+import {
+  EXPERIMENTAL_FEATURE_ID,
+  type ExperimentalFeatureID,
+  experimentalFeatureIsEnabled,
+  experimentalFeaturesQueryOptions,
+  updateExperimentalFeature,
+} from "@/state/experimental-features-query"
 
 const DEFAULT_LOG_LEVEL_VALUE = "__default__"
 const ADVANCED_LOG_LEVELS = ["debug", "info", "warn", "error"] as const
 const SKILLS_EXTERNAL_VENDOR_ROOTS_ENABLED_CONFIG_KEY = "skills_external_vendor_roots_enabled"
+const EXPERIMENTAL_FEATURE_DEFINITIONS = [
+  {
+    id: EXPERIMENTAL_FEATURE_ID.learnerMemory,
+    titleKey: "settings.advanced.learnerMemoryExperimentTitle",
+    descriptionKey: "settings.advanced.learnerMemoryExperimentDescription",
+    ariaKey: "settings.advanced.learnerMemoryExperimentAria",
+    enabledMessageKey: "settings.advanced.learnerMemoryExperimentEnabled",
+    disabledMessageKey: "settings.advanced.learnerMemoryExperimentDisabled",
+  },
+] as const satisfies readonly {
+  id: ExperimentalFeatureID
+  titleKey: string
+  descriptionKey: string
+  ariaKey: string
+  enabledMessageKey: string
+  disabledMessageKey: string
+}[]
 
 type AdvancedLogLevel = (typeof ADVANCED_LOG_LEVELS)[number]
 
@@ -68,6 +93,7 @@ export function AdvancedSettings() {
   const notebookHomeQuery = useQuery(notebookHomeQueryOptions())
   const notebookHome = notebookHomeQuery.data
   const globalConfigQuery = useQuery(globalConfigQueryOptions())
+  const experimentalFeaturesQuery = useQuery(experimentalFeaturesQueryOptions())
   const logLevelLoading = globalConfigQuery.isPending || globalConfigQuery.isFetching
   const logLevelSelectValue = logLevelDraft
   const showRuntimeControls = platform.platform === "desktop"
@@ -199,9 +225,82 @@ export function AdvancedSettings() {
     })()
   }
 
+  function toggleExperimentalFeature(
+    definition: (typeof EXPERIMENTAL_FEATURE_DEFINITIONS)[number],
+    enabled: boolean,
+  ) {
+    if (experimentalFeatureIsEnabled(experimentalFeaturesQuery.data, definition.id) === enabled) {
+      return
+    }
+
+    void (async () => {
+      const key = `settings:experiment:${definition.id}`
+      setBusyKey(key)
+      try {
+        await updateExperimentalFeature({
+          queryClient,
+          featureID: definition.id,
+          enabled,
+        })
+        toast.success(
+          language.t(enabled ? definition.enabledMessageKey : definition.disabledMessageKey),
+        )
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : language.t("settings.advanced.requestFailed")
+        toast.error(message)
+      } finally {
+        setBusyKey(undefined)
+      }
+    })()
+  }
+
   return (
     <>
       <SettingsContent>
+        <div className="flex flex-col gap-2">
+          <SettingsSectionHeader
+            title={language.t("settings.advanced.experimentalFeaturesTitle")}
+            description={language.t("settings.advanced.experimentalFeaturesDescription")}
+          />
+          <SettingsListCard>
+            {EXPERIMENTAL_FEATURE_DEFINITIONS.map((definition, index) => {
+              const busyKeyForFeature = `settings:experiment:${definition.id}`
+              return (
+                <SettingsRow
+                  key={definition.id}
+                  title={language.t(definition.titleKey)}
+                  description={language.t(definition.descriptionKey)}
+                  last={index === EXPERIMENTAL_FEATURE_DEFINITIONS.length - 1}
+                  control={
+                    <div className="flex items-center gap-3">
+                      <Badge variant="outline" className="h-5 text-text-weak">
+                        {language.t("settings.advanced.experimentalBadge")}
+                      </Badge>
+                      <Switch
+                        data-action={`settings-experiment-${definition.id}`}
+                        aria-label={language.t(definition.ariaKey)}
+                        checked={experimentalFeatureIsEnabled(
+                          experimentalFeaturesQuery.data,
+                          definition.id,
+                        )}
+                        disabled={
+                          experimentalFeaturesQuery.isPending ||
+                          experimentalFeaturesQuery.isError ||
+                          busyKey === busyKeyForFeature
+                        }
+                        onCheckedChange={(enabled) =>
+                          toggleExperimentalFeature(definition, enabled)
+                        }
+                      />
+                    </div>
+                  }
+                />
+              )
+            })}
+          </SettingsListCard>
+        </div>
+
         {showRuntimeControls ? (
           <div className="space-y-2">
             <SettingsSectionHeader title="Packages" />

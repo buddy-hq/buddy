@@ -13,7 +13,6 @@ import {
 import {
   readLearnerMemoryAutoExtract,
   readLearnerMemoryEnabled,
-  readLearnerMemoryMasterEnabled,
   readLearnerMemoryNumber,
   readLearnerMemoryString,
   readRecord,
@@ -60,7 +59,6 @@ type LearnerMemoryStringFieldDefinition = {
 }
 
 export type LearnerMemoryGlobalSettingsDraft = {
-  learnerMemoryMasterEnabled: boolean
   learnerMemoryDefaultEnabled: boolean
   learnerMemoryDefaultAutoExtract: boolean
   learnerMemoryMinUserMessages: number
@@ -136,7 +134,6 @@ export const LEARNER_MEMORY_STRING_FIELDS = [
 ] as const satisfies readonly LearnerMemoryStringFieldDefinition[]
 
 const EMPTY_GLOBAL_DRAFT: LearnerMemoryGlobalSettingsDraft = {
-  learnerMemoryMasterEnabled: false,
   learnerMemoryDefaultEnabled: false,
   learnerMemoryDefaultAutoExtract: false,
   learnerMemoryMinUserMessages: 4,
@@ -162,29 +159,11 @@ function stringifyError(error: unknown) {
   }
 }
 
-export function resolveLearnerMemoryMasterToggleDraft(
-  draft: LearnerMemoryGlobalSettingsDraft,
-  learnerMemoryMasterEnabled: boolean,
-): LearnerMemoryGlobalSettingsDraft {
-  return {
-    ...draft,
-    learnerMemoryMasterEnabled,
-    learnerMemoryDefaultEnabled: learnerMemoryMasterEnabled
-      ? draft.learnerMemoryDefaultEnabled
-      : false,
-    learnerMemoryDefaultAutoExtract:
-      learnerMemoryMasterEnabled && draft.learnerMemoryDefaultEnabled
-        ? draft.learnerMemoryDefaultAutoExtract
-        : false,
-  }
-}
-
 export function buildGlobalLearnerMemoryDraft(
   globalConfig: Record<string, unknown>,
 ): LearnerMemoryGlobalSettingsDraft {
   const draft: LearnerMemoryGlobalSettingsDraft = {
     ...EMPTY_GLOBAL_DRAFT,
-    learnerMemoryMasterEnabled: readLearnerMemoryMasterEnabled(globalConfig, false),
     learnerMemoryDefaultEnabled: readLearnerMemoryEnabled(globalConfig, false),
     learnerMemoryDefaultAutoExtract: readLearnerMemoryAutoExtract(globalConfig, false),
   }
@@ -210,18 +189,13 @@ export function buildGlobalLearnerMemoryPatch(
 ) {
   const learnerMemoryPatch: Record<string, unknown> = {}
 
-  if (draft.learnerMemoryMasterEnabled !== readLearnerMemoryMasterEnabled(globalConfig, false)) {
-    learnerMemoryPatch.master_enabled = draft.learnerMemoryMasterEnabled
-  }
-
   if (draft.learnerMemoryDefaultEnabled !== readLearnerMemoryEnabled(globalConfig, false)) {
     learnerMemoryPatch.enabled = draft.learnerMemoryDefaultEnabled
   }
 
-  const nextDefaultAutoExtract =
-    draft.learnerMemoryMasterEnabled && draft.learnerMemoryDefaultEnabled
-      ? draft.learnerMemoryDefaultAutoExtract
-      : false
+  const nextDefaultAutoExtract = draft.learnerMemoryDefaultEnabled
+    ? draft.learnerMemoryDefaultAutoExtract
+    : false
   if (nextDefaultAutoExtract !== readLearnerMemoryAutoExtract(globalConfig, false)) {
     learnerMemoryPatch.auto_extract = nextDefaultAutoExtract
   }
@@ -258,7 +232,6 @@ export function resolveNotebookLearnerMemorySelection(
   globalConfig: Record<string, unknown>,
   rawProjectConfig: Record<string, unknown>,
 ) {
-  const masterEnabled = readLearnerMemoryMasterEnabled(globalConfig, false)
   const defaultEnabled = readLearnerMemoryEnabled(globalConfig, false)
   const defaultAutoExtract = readLearnerMemoryAutoExtract(globalConfig, false)
   const enabledOverride = readNotebookLearnerMemoryOverride(rawProjectConfig, "enabled")
@@ -268,7 +241,6 @@ export function resolveNotebookLearnerMemorySelection(
   const autoExtract = enabled ? autoExtractWhenEnabled : false
 
   return {
-    masterEnabled,
     defaultEnabled,
     defaultAutoExtract,
     enabled,
@@ -483,11 +455,6 @@ export function useGlobalLearnerMemorySettings() {
       providers: connectedProviders,
     },
     actions: {
-      setLearnerMemoryMasterEnabled(learnerMemoryMasterEnabled: boolean) {
-        setDraft((current) =>
-          resolveLearnerMemoryMasterToggleDraft(current, learnerMemoryMasterEnabled),
-        )
-      },
       setLearnerMemoryDefaultEnabled(learnerMemoryDefaultEnabled: boolean) {
         setDraft((current) => ({
           ...current,
@@ -500,9 +467,6 @@ export function useGlobalLearnerMemorySettings() {
       setLearnerMemoryDefaultAutoExtract(learnerMemoryDefaultAutoExtract: boolean) {
         setDraft((current) => ({
           ...current,
-          learnerMemoryMasterEnabled: learnerMemoryDefaultAutoExtract
-            ? true
-            : current.learnerMemoryMasterEnabled,
           learnerMemoryDefaultEnabled: learnerMemoryDefaultAutoExtract
             ? true
             : current.learnerMemoryDefaultEnabled,

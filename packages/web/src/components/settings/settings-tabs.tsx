@@ -20,6 +20,10 @@ import { AttributionSettings } from "./settings-attribution"
 import { LearnerMemorySettings } from "./settings-learner-memory"
 import { PersonalizationSettings } from "./settings-personalization"
 import { UpdatesSettings } from "./settings-updates"
+import {
+  EXPERIMENTAL_FEATURE_ID,
+  type ExperimentalFeatureID,
+} from "@/state/experimental-features-query"
 
 export type SettingsTab =
   | "general"
@@ -43,6 +47,8 @@ export type SettingsTabDefinition = {
   layout: "standard" | "full-page"
   group: SettingsTabGroup
   scope: SettingsTabScope
+  experimentalFeatureID?: ExperimentalFeatureID
+  badgeLabelKey?: string
   render: () => ReactNode
 }
 
@@ -105,8 +111,10 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
     navLabelKey: "routes.settings.nav.learnerMemory",
     icon: BrainIcon,
     layout: "standard",
-    group: "main",
+    group: "optional",
     scope: "global",
+    experimentalFeatureID: EXPERIMENTAL_FEATURE_ID.learnerMemory,
+    badgeLabelKey: "settings.advanced.experimentalBadge",
     render: () => <LearnerMemorySettings />,
   },
   {
@@ -162,13 +170,25 @@ export function resolveSettingsTab(value: string): SettingsTab | undefined {
 
 export function getVisibleSettingsTabDefinitions(input: {
   standardsEnabled: boolean
+  enabledExperimentalFeatureIDs: ReadonlySet<ExperimentalFeatureID>
 }): SettingsTabDefinition[] {
   return SETTINGS_TABS.filter((tab) => {
+    if (
+      tab.experimentalFeatureID &&
+      !input.enabledExperimentalFeatureIDs.has(tab.experimentalFeatureID)
+    ) {
+      return false
+    }
+
     if (tab.group === "main") {
       return true
     }
 
-    return tab.id === "standards" && input.standardsEnabled
+    if (tab.id === "standards") {
+      return input.standardsEnabled
+    }
+
+    return tab.experimentalFeatureID !== undefined
   })
 }
 

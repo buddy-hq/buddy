@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
-import { useQueries, useQueryClient } from "@tanstack/react-query"
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo } from "react"
-import { Button, ResizeHandle, Separator, cn, toast } from "@buddy/ui"
+import { Badge, Button, ResizeHandle, Separator, cn, toast } from "@buddy/ui"
 import { ArrowLeftIcon } from "lucide-react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
 import {
@@ -48,6 +48,11 @@ import {
   settingsSearchForTab,
   type SettingsSearch,
 } from "@/lib/settings-navigation"
+import {
+  EXPERIMENTAL_FEATURE_ID,
+  experimentalFeatureIsEnabled,
+  experimentalFeaturesQueryOptions,
+} from "@/state/experimental-features-query"
 
 const SETTINGS_SIDEBAR_MIN_WIDTH_PX = 220
 const SETTINGS_TITLEBAR_HEIGHT_PX = 40
@@ -78,6 +83,7 @@ export const Route = createFileRoute("/settings")({
   loader: async ({ context }) => {
     await Promise.allSettled([
       context.queryClient.ensureQueryData(openProjectsWithSessionsQueryOptions()),
+      context.queryClient.ensureQueryData(experimentalFeaturesQueryOptions()),
     ])
   },
   component: SettingsRoute,
@@ -103,6 +109,19 @@ function SettingsRoute() {
     open: true,
     platform: platform.platform,
   })
+  const experimentalFeaturesQuery = useQuery(experimentalFeaturesQueryOptions())
+  const enabledExperimentalFeatureIDs = useMemo(() => {
+    const enabled = new Set<typeof EXPERIMENTAL_FEATURE_ID.learnerMemory>()
+    if (
+      experimentalFeatureIsEnabled(
+        experimentalFeaturesQuery.data,
+        EXPERIMENTAL_FEATURE_ID.learnerMemory,
+      )
+    ) {
+      enabled.add(EXPERIMENTAL_FEATURE_ID.learnerMemory)
+    }
+    return enabled
+  }, [experimentalFeaturesQuery.data])
   const isDesktop = platform.platform === "desktop"
   const isMac = isDesktop && platform.os === "macos"
 
@@ -117,8 +136,8 @@ function SettingsRoute() {
   const activeSessionID = currentDirectory ? directories[currentDirectory]?.sessionID : undefined
   const leftSidebarMaxWidth = 320
   const visibleTabs = useMemo(
-    () => getVisibleSettingsTabDefinitions({ standardsEnabled }),
-    [standardsEnabled],
+    () => getVisibleSettingsTabDefinitions({ standardsEnabled, enabledExperimentalFeatureIDs }),
+    [enabledExperimentalFeatureIDs, standardsEnabled],
   )
   const mainTabs = useMemo(() => visibleTabs.filter((item) => item.group === "main"), [visibleTabs])
   const optionalTabs = useMemo(
@@ -126,6 +145,11 @@ function SettingsRoute() {
     [visibleTabs],
   )
   const visibleTabIDs = useMemo(() => new Set(visibleTabs.map((item) => item.id)), [visibleTabs])
+  const activeTab = visibleTabIDs.has(tab)
+    ? tab
+    : tab === "standards" || tab === "learnerMemory"
+      ? "advanced"
+      : DEFAULT_SETTINGS_TAB
 
   const sessionsByDirectory = useMemo(
     () =>
@@ -154,7 +178,8 @@ function SettingsRoute() {
       return
     }
 
-    const fallbackTab = tab === "standards" ? "advanced" : DEFAULT_SETTINGS_TAB
+    const fallbackTab =
+      tab === "standards" || tab === "learnerMemory" ? "advanced" : DEFAULT_SETTINGS_TAB
     if (visibleTabIDs.has(tab)) {
       return
     }
@@ -349,7 +374,7 @@ function SettingsRoute() {
               className="h-full w-full"
             >
               <SettingsNavContent
-                activeTab={tab}
+                activeTab={activeTab}
                 mainTabs={mainTabs}
                 optionalTabs={optionalTabs}
                 onTabChange={(nextTab) => {
@@ -389,7 +414,7 @@ function SettingsRoute() {
         )}
       >
         <main className="flex h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-background-base">
-          <SettingsPage activeTab={tab} />
+          <SettingsPage activeTab={activeTab} />
         </main>
       </div>
     </div>
@@ -422,6 +447,11 @@ function SettingsNavContent(props: {
       >
         <item.icon className="size-4" />
         {language.t(item.navLabelKey)}
+        {item.badgeLabelKey ? (
+          <Badge variant="outline" className="ml-auto h-5 px-1.5 text-[10px] text-text-weaker">
+            {language.t(item.badgeLabelKey)}
+          </Badge>
+        ) : null}
       </button>
     )
   }

@@ -23,6 +23,11 @@ import {
 } from "@/state/learner-memory-settings"
 import { readPersonalization } from "@/state/project-config-readers"
 import { useGetStartedChatTestMode } from "@/state/get-started-chat-test-mode"
+import {
+  EXPERIMENTAL_FEATURE_ID,
+  experimentalFeatureIsEnabled,
+  experimentalFeaturesQueryOptions,
+} from "@/state/experimental-features-query"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import {
   ChatLeftSidebarDialogs,
@@ -150,6 +155,11 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const [learnerMemoryEnabled, setLearnerMemoryEnabled] = useState(true)
   const [autoExtractEnabled, setAutoExtractEnabled] = useState(true)
   const globalConfigQuery = useQuery(globalConfigQueryOptions())
+  const experimentalFeaturesQuery = useQuery(experimentalFeaturesQueryOptions())
+  const learnerMemoryExperimentEnabled = experimentalFeatureIsEnabled(
+    experimentalFeaturesQuery.data,
+    EXPERIMENTAL_FEATURE_ID.learnerMemory,
+  )
   const hasInitializedCollapsedDirectoriesRef = useRef(false)
   const learnerMemoryDefaults = useMemo(
     () => resolveNotebookLearnerMemorySelection(globalConfigQuery.data ?? {}, {}),
@@ -489,9 +499,11 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             props.onOpenDirectory()
           }
         }}
-        enableLearnerMemory={learnerMemoryEnabled}
+        enableLearnerMemory={
+          learnerMemoryExperimentEnabled ? learnerMemoryEnabled : undefined
+        }
         onLearnerMemoryChange={setLearnerMemoryEnabled}
-        enableAutoExtract={autoExtractEnabled}
+        enableAutoExtract={learnerMemoryExperimentEnabled ? autoExtractEnabled : undefined}
         onAutoExtractChange={setAutoExtractEnabled}
       />
 

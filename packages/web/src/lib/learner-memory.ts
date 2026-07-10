@@ -3,33 +3,11 @@ import {
   buildNotebookLearnerMemoryPatch,
   resolveNotebookLearnerMemorySelection,
 } from "@/state/learner-memory-settings"
-import { readLearnerMemoryMasterEnabled } from "@/state/project-config-readers"
 
 type LearnerMemoryBootstrapInput = {
   directory: string
   enabled?: boolean
   autoExtract?: boolean
-}
-
-type LearnerMemoryBootstrapPatch = {
-  learner_memory: {
-    master_enabled: boolean
-  }
-}
-
-export function buildLearnerMemoryGlobalBootstrapPatch(input: {
-  globalConfig: Record<string, unknown>
-  enabled?: boolean
-}): LearnerMemoryBootstrapPatch | undefined {
-  if (!input.enabled || readLearnerMemoryMasterEnabled(input.globalConfig, false)) {
-    return undefined
-  }
-
-  return {
-    learner_memory: {
-      master_enabled: true,
-    },
-  }
 }
 
 export function buildLearnerMemoryNotebookBootstrapPatch(input: {
@@ -55,35 +33,20 @@ export async function bootstrapLearnerMemoryForNotebook({
   autoExtract,
 }: LearnerMemoryBootstrapInput) {
   const globalConfig = requireBuddyData(await getBuddyClient().global.config.get())
-  const globalPatch = buildLearnerMemoryGlobalBootstrapPatch({
-    globalConfig,
-    enabled,
-  })
   const projectPatch = buildLearnerMemoryNotebookBootstrapPatch({
     globalConfig,
     enabled,
     autoExtract,
   })
 
-  if (!globalPatch && !projectPatch) {
+  if (!projectPatch) {
     return
   }
-
-  if (globalPatch) {
-    requireBuddyData(
-      await getBuddyClient().global.config.patch({
-        body: globalPatch,
-      }),
-    )
-  }
-
-  if (projectPatch) {
-    requireBuddyData(
-      await getBuddyClient(directory).config.update({
-        body: projectPatch,
-      }),
-    )
-  }
+  requireBuddyData(
+    await getBuddyClient(directory).config.update({
+      body: projectPatch,
+    }),
+  )
 }
 
 export async function bootstrapLearnerMemoryForNotebookBestEffort(

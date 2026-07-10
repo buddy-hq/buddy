@@ -8,6 +8,11 @@ import { language } from "@/context/language"
 import { getPlatform, usePlatform } from "@/context/platform"
 import { globalConfigQueryOptions } from "@/state/global-config-query"
 import {
+  EXPERIMENTAL_FEATURE_ID,
+  experimentalFeatureIsEnabled,
+  experimentalFeaturesQueryOptions,
+} from "@/state/experimental-features-query"
+import {
   loadNotebookLearnerMemoryDefaults,
   resolveNotebookLearnerMemorySelection,
 } from "@/state/learner-memory-settings"
@@ -73,6 +78,7 @@ export const Route = createFileRoute("/chat")({
     await Promise.allSettled([
       context.queryClient.ensureQueryData(openProjectsWithSessionsQueryOptions()),
       context.queryClient.ensureQueryData(notebookHomeQueryOptions()),
+      context.queryClient.ensureQueryData(experimentalFeaturesQueryOptions()),
     ])
 
     const activeDirectory = useChatStore.getState().activeDirectory
@@ -503,6 +509,11 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
   const [learnerMemoryEnabled, setLearnerMemoryEnabled] = useState(true)
   const [autoExtractEnabled, setAutoExtractEnabled] = useState(true)
   const globalConfigQuery = useQuery(globalConfigQueryOptions())
+  const experimentalFeaturesQuery = useQuery(experimentalFeaturesQueryOptions())
+  const learnerMemoryExperimentEnabled = experimentalFeatureIsEnabled(
+    experimentalFeaturesQuery.data,
+    EXPERIMENTAL_FEATURE_ID.learnerMemory,
+  )
   const hasNativePicker = typeof platform.openDirectoryPickerDialog === "function"
   const learnerMemoryDefaults = resolveNotebookLearnerMemorySelection(
     globalConfigQuery.data ?? {},
@@ -659,9 +670,11 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
         onCreate={() => {
           void props.onCreateNotebook(notebookName, learnerMemoryEnabled, autoExtractEnabled)
         }}
-        enableLearnerMemory={learnerMemoryEnabled}
+        enableLearnerMemory={
+          learnerMemoryExperimentEnabled ? learnerMemoryEnabled : undefined
+        }
         onLearnerMemoryChange={setLearnerMemoryEnabled}
-        enableAutoExtract={autoExtractEnabled}
+        enableAutoExtract={learnerMemoryExperimentEnabled ? autoExtractEnabled : undefined}
         onAutoExtractChange={setAutoExtractEnabled}
       />
     </div>

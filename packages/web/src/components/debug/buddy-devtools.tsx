@@ -53,6 +53,11 @@ import { teachingSessionKey, useTeachingRuntime } from "@/state/teaching-runtime
 import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
 import { useOnboardingStore } from "@/state/onboarding-store"
 import { useGetStartedChatTestMode } from "@/state/get-started-chat-test-mode"
+import {
+  EXPERIMENTAL_FEATURE_ID,
+  experimentalFeatureIsEnabled,
+  experimentalFeaturesQueryOptions,
+} from "@/state/experimental-features-query"
 import { SystemPromptPanel } from "./system-prompt-panel"
 import { PalettePanel } from "./palette-panel"
 import { DevToolsContextTab } from "./devtools-context-tab"
@@ -1013,11 +1018,11 @@ function MemoryTestPipelineOption(props: {
 function describeMemoryTestSkipReason(reason: string | undefined): string {
   switch (reason) {
     case "learner_memory_startup_disabled":
-      return "Startup backfill is disabled because learner memory or auto-extract is off in effective config."
+      return "Startup backfill is disabled because memory or auto-extract is off in effective config."
     case "learner_memory_disabled":
       return "Memory is disabled in the effective project config."
     case "internal_learner_memory_session":
-      return "The selected session is an internal learner-memory session."
+      return "The selected session is an internal memory session."
     case "attention_gate_skip":
       return "The attention gate decided to skip extraction for this session."
     case "session_not_found":
@@ -1560,7 +1565,7 @@ function MemoryTestLab(props: { directory: string; sessionID?: string; onAfterRu
           </p>
           {selection.pipelineMode === MEMORY_TEST_PIPELINE_MODE.production && !runEnabled ? (
             <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2.5 py-2 text-[11px] leading-relaxed text-icon-critical-base">
-              Default production pipeline will skip immediately because learner memory is currently
+              Default production pipeline will skip immediately because memory is currently
               disabled for this lab run. Use `Forced pipeline` or turn on `Enabled gate` under other
               lab-only tuning if you want to exercise extraction without changing real settings.
             </p>
@@ -1597,7 +1602,7 @@ function MemoryTestLab(props: { directory: string; sessionID?: string; onAfterRu
           {selection.startupSweep && (!runEnabled || !runAutoExtract) ? (
             <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2.5 py-2 text-[11px] leading-relaxed text-icon-critical-base">
               Startup sweep will skip immediately because this lab run currently has
-              {runEnabled ? "" : " learner memory disabled"}
+              {runEnabled ? "" : " memory disabled"}
               {!runEnabled && !runAutoExtract ? " and" : ""}
               {runAutoExtract ? "" : " auto-extract disabled"}. Turn those on under other lab-only
               tuning if you want to exercise the production backfill path without changing real
@@ -2269,7 +2274,7 @@ function DevToolsMemoryTab(props: { directory: string; sessionID?: string }) {
     <div className="flex h-full min-h-0 flex-col p-3">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-medium">Learner Memory</p>
+          <p className="text-xs font-medium">Memory</p>
           <p className="text-[11px] text-text-weak">
             Session {props.sessionID ?? "none"} · {memories.length} loaded records
           </p>
@@ -2318,7 +2323,7 @@ function DevToolsMemoryTab(props: { directory: string; sessionID?: string }) {
         type="search"
         value={queryText}
         onChange={(event) => setQueryText(event.currentTarget.value)}
-        placeholder="Search learner memory for this turn..."
+        placeholder="Search memory for this turn..."
         className="mb-3 h-8 rounded-md border border-border-base/60 bg-background-base px-3 text-xs text-text-base"
       />
 
@@ -2450,7 +2455,7 @@ function DevToolsMemoryTab(props: { directory: string; sessionID?: string }) {
             memories.map((memory) => <MemoryRecordCard key={memory.id} memory={memory} />)
           ) : (
             <p className="rounded-md border border-border-base/60 p-3 text-xs text-text-weak">
-              No learner memory records.
+              No memory records.
             </p>
           )}
         </section>
@@ -2582,7 +2587,18 @@ export function BuddyDevTools() {
   const [affordancePosition, setAffordancePosition] = useState<DevToolsAffordancePosition>(
     readStoredDevToolsAffordancePosition,
   )
+  const experimentalFeaturesQuery = useQuery(experimentalFeaturesQueryOptions())
+  const learnerMemoryExperimentEnabled = experimentalFeatureIsEnabled(
+    experimentalFeaturesQuery.data,
+    EXPERIMENTAL_FEATURE_ID.learnerMemory,
+  )
   const affordanceTopInset = useDesktopTitlebarTopInset()
+
+  useEffect(() => {
+    if (!learnerMemoryExperimentEnabled && activeTab === "memory") {
+      setActiveTab("palette")
+    }
+  }, [activeTab, learnerMemoryExperimentEnabled])
 
   const {
     rect,
@@ -2969,9 +2985,11 @@ export function BuddyDevTools() {
                   <TabsTrigger value="snapshot" className="text-xs">
                     Snapshot
                   </TabsTrigger>
-                  <TabsTrigger value="memory" className="text-xs">
-                    Memory
-                  </TabsTrigger>
+                  {learnerMemoryExperimentEnabled ? (
+                    <TabsTrigger value="memory" className="text-xs">
+                      Memory
+                    </TabsTrigger>
+                  ) : null}
                   <TabsTrigger value="query" className="text-xs">
                     Query
                   </TabsTrigger>
@@ -3107,15 +3125,17 @@ export function BuddyDevTools() {
               )}
             </TabsContent>
 
-            <TabsContent value="memory" className="min-h-0 flex-1 overflow-hidden mt-0">
-              {activeDirectory ? (
-                <DevToolsMemoryTab directory={activeDirectory} sessionID={sessionID} />
-              ) : (
-                <div className="flex h-full items-center justify-center text-sm text-text-weak">
-                  No active directory
-                </div>
-              )}
-            </TabsContent>
+            {learnerMemoryExperimentEnabled ? (
+              <TabsContent value="memory" className="min-h-0 flex-1 overflow-hidden mt-0">
+                {activeDirectory ? (
+                  <DevToolsMemoryTab directory={activeDirectory} sessionID={sessionID} />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-text-weak">
+                    No active directory
+                  </div>
+                )}
+              </TabsContent>
+            ) : null}
 
             <TabsContent value="trace" className="min-h-0 flex-1 overflow-hidden mt-0">
               {sessionTrace ? (

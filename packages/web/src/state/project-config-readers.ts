@@ -96,12 +96,6 @@ export function readLearnerMemoryEnabled(input: Record<string, unknown>, fallbac
   return typeof value === "boolean" ? value : fallback
 }
 
-export function readLearnerMemoryMasterEnabled(input: Record<string, unknown>, fallback: boolean) {
-  const learnerMemory = readRecord(input, "learner_memory")
-  const value = learnerMemory?.master_enabled
-  return typeof value === "boolean" ? value : fallback
-}
-
 export function readLearnerMemoryAutoExtract(input: Record<string, unknown>, fallback: boolean) {
   const learnerMemory = readRecord(input, "learner_memory")
   const value = learnerMemory?.auto_extract

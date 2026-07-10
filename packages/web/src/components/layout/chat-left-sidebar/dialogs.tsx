@@ -20,7 +20,6 @@ import {
   Spinner,
   BookIcon,
 } from "@buddy/ui"
-import { InfoIcon } from "lucide-react"
 import {
   formatMcpError,
   getMcpStatusLabel,
@@ -63,6 +62,11 @@ import {
 } from "../../settings/settings-primitives"
 import { useStandardsRuntime } from "../../settings/use-standards-runtime"
 import type { ArchiveState, RenameState } from "./types"
+import {
+  EXPERIMENTAL_FEATURE_ID,
+  experimentalFeatureIsEnabled,
+  experimentalFeaturesQueryOptions,
+} from "@/state/experimental-features-query"
 
 const EMPTY_CONFIG: Record<string, unknown> = {}
 const EMPTY_MCP_STATUS: McpStatusMap = {}
@@ -283,6 +287,10 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
     ...globalConfigQueryOptions(),
     enabled: props.open,
   })
+  const experimentalFeaturesQuery = useQuery({
+    ...experimentalFeaturesQueryOptions(),
+    enabled: props.open,
+  })
   const rawProjectConfigQuery = useQuery({
     ...notebookRawProjectConfigQueryOptions(props.directory),
     enabled: props.open && props.directory.length > 0,
@@ -312,14 +320,16 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
     globalConfig,
     rawProjectConfig,
   )
+  const learnerMemoryExperimentEnabled = experimentalFeatureIsEnabled(
+    experimentalFeaturesQuery.data,
+    EXPERIMENTAL_FEATURE_ID.learnerMemory,
+  )
   const notebookControlsDisabled =
     globalConfigQuery.isPending ||
-    rawProjectConfigQuery.isPending ||
-    !learnerMemorySelection.masterEnabled
+    rawProjectConfigQuery.isPending
   const autoExtractDisabled =
     globalConfigQuery.isPending ||
     rawProjectConfigQuery.isPending ||
-    !learnerMemorySelection.masterEnabled ||
     !learnerMemorySelection.enabled
   const globalMcpConfigByName = useMemo(() => parseMcpConfigMap(globalConfig), [globalConfig])
   const notebookMcpConfigByName = useMemo(
@@ -487,49 +497,47 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
 
         <div className="space-y-4">
           <div className="max-h-[50vh] overflow-y-auto pr-1 -mr-2 space-y-5">
-            <div className="space-y-3">
-              <SettingsSectionHeader
-                title={language.t("sidebar.notebookSettingsLearnerMemorySectionTitle")}
-              />
-              {!learnerMemorySelection.masterEnabled ? (
-                <div className="rounded-xl border border-border-base bg-surface-weak/30 px-3.5 py-2.5 text-xs text-text-weak flex items-start gap-2.5 shadow-xs">
-                  <InfoIcon className="size-4 shrink-0 text-text-weaker mt-0.5" />
-                  <span className="leading-normal">{language.t("sidebar.notebookSettingsLearnerMemoryGlobalDisabled")}</span>
-                </div>
-              ) : null}
-              <SettingsListCard>
-                <SettingsItemRow
-                  title={language.t("settings.notebook.learnerMemoryTitle")}
-                  disabled={notebookControlsDisabled || pendingKey === "learner-memory"}
-                  control={
-                    <Switch
-                      data-action="notebook-settings-learner-memory"
-                      checked={learnerMemorySelection.enabled}
-                      onCheckedChange={(checked) => {
-                        void onToggleNotebookLearnerMemory(checked)
-                      }}
-                      disabled={notebookControlsDisabled || pendingKey === "learner-memory"}
-                      aria-label={language.t("settings.notebook.learnerMemoryAria")}
-                    />
-                  }
+            {learnerMemoryExperimentEnabled ? (
+              <div className="space-y-3">
+                <SettingsSectionHeader
+                  title={language.t("sidebar.notebookSettingsLearnerMemorySectionTitle")}
                 />
-                <SettingsItemRow
-                  title={language.t("settings.notebook.learnerMemoryAutoExtractTitle")}
-                  disabled={autoExtractDisabled || pendingKey === "learner-memory-auto-extract"}
-                  control={
-                    <Switch
-                      data-action="notebook-settings-learner-memory-auto"
-                      checked={learnerMemorySelection.autoExtract}
-                      onCheckedChange={(checked) => {
-                        void onToggleNotebookLearnerMemoryAutoExtract(checked)
-                      }}
-                      disabled={autoExtractDisabled || pendingKey === "learner-memory-auto-extract"}
-                      aria-label={language.t("settings.notebook.learnerMemoryAutoExtractAria")}
-                    />
-                  }
-                />
-              </SettingsListCard>
-            </div>
+                <SettingsListCard>
+                  <SettingsItemRow
+                    title={language.t("settings.notebook.learnerMemoryTitle")}
+                    disabled={notebookControlsDisabled || pendingKey === "learner-memory"}
+                    control={
+                      <Switch
+                        data-action="notebook-settings-learner-memory"
+                        checked={learnerMemorySelection.enabled}
+                        onCheckedChange={(checked) => {
+                          void onToggleNotebookLearnerMemory(checked)
+                        }}
+                        disabled={notebookControlsDisabled || pendingKey === "learner-memory"}
+                        aria-label={language.t("settings.notebook.learnerMemoryAria")}
+                      />
+                    }
+                  />
+                  <SettingsItemRow
+                    title={language.t("settings.notebook.learnerMemoryAutoExtractTitle")}
+                    disabled={autoExtractDisabled || pendingKey === "learner-memory-auto-extract"}
+                    control={
+                      <Switch
+                        data-action="notebook-settings-learner-memory-auto"
+                        checked={learnerMemorySelection.autoExtract}
+                        onCheckedChange={(checked) => {
+                          void onToggleNotebookLearnerMemoryAutoExtract(checked)
+                        }}
+                        disabled={
+                          autoExtractDisabled || pendingKey === "learner-memory-auto-extract"
+                        }
+                        aria-label={language.t("settings.notebook.learnerMemoryAutoExtractAria")}
+                      />
+                    }
+                  />
+                </SettingsListCard>
+              </div>
+            ) : null}
 
             {standardsLoading || standardsEnabled ? (
               <>
