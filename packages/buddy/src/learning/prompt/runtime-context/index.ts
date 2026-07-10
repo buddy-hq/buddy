@@ -1,6 +1,7 @@
 import type { PromptContext } from "../context"
 import BUDDY_RUNTIME_CONTEXT_TEMPLATE_SOURCE from "./index.t.md"
 import { calculatorSection } from "./calculator-context"
+import { featureInstructionsSection } from "./feature-instructions-context"
 import type { RuntimeSectionContext, RuntimeSectionDefinition } from "./definition"
 import { modelSection } from "./model-context"
 import { personalizationSection } from "./personalization-context"
@@ -62,6 +63,7 @@ export async function buildBuddyRuntimeContext(
 }
 
 const RUNTIME_SECTIONS: readonly RuntimeSectionDefinition[] = [
+  featureInstructionsSection,
   teachingWorkspaceStateSection,
   modelSection,
   personalizationSection,
