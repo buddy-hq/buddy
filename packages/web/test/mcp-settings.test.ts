@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   buildNotebookMcpOverridePatch,
   mcpEnabledByDefault,
+  notebookDefinesMcp,
   readNotebookMcpEnabledOverride,
   resolveNotebookMcpEnabled,
 } from "../src/state/mcp-settings"
@@ -67,6 +68,37 @@ describe("readNotebookMcpEnabledOverride", () => {
   })
 })
 
+describe("notebookDefinesMcp", () => {
+  test("distinguishes notebook definitions from enabled-only overrides", () => {
+    expect(
+      notebookDefinesMcp(
+        {
+          mcp: {
+            linear: {
+              type: "remote",
+              url: "https://notebook.example.com/mcp",
+            },
+          },
+        },
+        "linear",
+      ),
+    ).toBe(true)
+
+    expect(
+      notebookDefinesMcp(
+        {
+          mcp: {
+            linear: {
+              enabled: false,
+            },
+          },
+        },
+        "linear",
+      ),
+    ).toBe(false)
+  })
+})
+
 describe("resolveNotebookMcpEnabled", () => {
   test("prefers a notebook override over the global default", () => {
     expect(
@@ -86,6 +118,23 @@ describe("resolveNotebookMcpEnabled", () => {
 
   test("falls back to the global default when the notebook has no override", () => {
     expect(resolveNotebookMcpEnabled(GLOBAL_MCPS, {}, "docs")).toBe(false)
+  })
+
+  test("inherits an explicitly disabled matching global MCP", () => {
+    expect(
+      resolveNotebookMcpEnabled(
+        GLOBAL_MCPS,
+        {
+          mcp: {
+            docs: {
+              type: "remote",
+              url: "https://docs.example.com/mcp",
+            },
+          },
+        },
+        "docs",
+      ),
+    ).toBe(false)
   })
 })
 
@@ -140,6 +189,79 @@ describe("buildNotebookMcpOverridePatch", () => {
       mcp: {
         docs: {
           enabled: true,
+        },
+      },
+    })
+  })
+
+  test("writes an opt-in override for a notebook definition matching a disabled global MCP", () => {
+    expect(
+      buildNotebookMcpOverridePatch({
+        globalConfigByName: GLOBAL_MCPS,
+        rawProjectConfig: {
+          mcp: {
+            docs: {
+              type: "remote",
+              url: "https://docs.example.com/mcp",
+            },
+          },
+        },
+        name: "docs",
+        enabled: true,
+      }),
+    ).toEqual({
+      mcp: {
+        docs: {
+          enabled: true,
+        },
+      },
+    })
+  })
+
+  test("disables a notebook-defined MCP without replacing its definition", () => {
+    expect(
+      buildNotebookMcpOverridePatch({
+        globalConfigByName: GLOBAL_MCPS,
+        rawProjectConfig: {
+          mcp: {
+            notebookDocs: {
+              type: "remote",
+              url: "https://docs.example.com/mcp",
+            },
+          },
+        },
+        name: "notebookDocs",
+        enabled: false,
+      }),
+    ).toEqual({
+      mcp: {
+        notebookDocs: {
+          enabled: false,
+        },
+      },
+    })
+  })
+
+  test("removes only the enabled flag when a notebook-defined MCP returns to its default", () => {
+    expect(
+      buildNotebookMcpOverridePatch({
+        globalConfigByName: GLOBAL_MCPS,
+        rawProjectConfig: {
+          mcp: {
+            notebookDocs: {
+              type: "remote",
+              url: "https://docs.example.com/mcp",
+              enabled: false,
+            },
+          },
+        },
+        name: "notebookDocs",
+        enabled: true,
+      }),
+    ).toEqual({
+      mcp: {
+        notebookDocs: {
+          enabled: null,
         },
       },
     })

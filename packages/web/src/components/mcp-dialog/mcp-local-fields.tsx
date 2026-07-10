@@ -1,4 +1,4 @@
-import { Textarea } from "@buddy/ui"
+import { Textarea, Field, FieldLabel } from "@buddy/ui"
 import { language } from "@/context/language"
 import { getFieldErrorId, type McpFormDraft } from "./mcp-config-schema"
 
@@ -20,10 +20,10 @@ type McpLocalFieldsProps = {
 export function McpLocalFields(props: McpLocalFieldsProps) {
   return (
     <>
-      <div className="grid gap-2">
-        <label className="text-sm font-medium text-text-base" htmlFor="mcp-command">
+      <Field className="space-y-1.5">
+        <FieldLabel className="text-xs font-semibold text-text-weak uppercase tracking-wider" htmlFor="mcp-command">
           {language.t("mcp.localFields.commandLabel")}
-        </label>
+        </FieldLabel>
         <Textarea
           id="mcp-command"
           value={props.draft.command}
@@ -36,10 +36,10 @@ export function McpLocalFields(props: McpLocalFieldsProps) {
             props.clearFieldError("command")
           }}
           placeholder={language.t("mcp.localFields.commandPlaceholder")}
-          className="min-h-24"
+          className="min-h-24 text-sm px-3 py-2 rounded-lg border-border-base focus-visible:ring-1 focus-visible:ring-border-interactive-base"
           {...props.getFieldProps("command", "mcp-command-help")}
         />
-        <p id="mcp-command-help" className="text-xs text-text-weak">
+        <p id="mcp-command-help" className="text-[11px] text-text-weak leading-normal">
           {language.t("mcp.localFields.commandHelp")}
         </p>
         {props.fieldErrors.command ? (
@@ -47,12 +47,12 @@ export function McpLocalFields(props: McpLocalFieldsProps) {
             {props.fieldErrors.command}
           </p>
         ) : null}
-      </div>
+      </Field>
 
-      <div className="grid gap-2">
-        <label className="text-sm font-medium text-text-base" htmlFor="mcp-environment">
+      <Field className="space-y-1.5">
+        <FieldLabel className="text-xs font-semibold text-text-weak uppercase tracking-wider" htmlFor="mcp-environment">
           {language.t("mcp.localFields.environmentLabel")}
-        </label>
+        </FieldLabel>
         <Textarea
           id="mcp-environment"
           value={props.draft.environmentText}
@@ -65,7 +65,7 @@ export function McpLocalFields(props: McpLocalFieldsProps) {
             props.clearFieldError("environment")
           }}
           placeholder={language.t("mcp.localFields.environmentPlaceholder")}
-          className="min-h-24"
+          className="min-h-24 text-sm px-3 py-2 rounded-lg border-border-base focus-visible:ring-1 focus-visible:ring-border-interactive-base"
           {...props.getFieldProps("environment")}
         />
         {props.fieldErrors.environment ? (
@@ -73,7 +73,7 @@ export function McpLocalFields(props: McpLocalFieldsProps) {
             {props.fieldErrors.environment}
           </p>
         ) : null}
-      </div>
+      </Field>
     </>
   )
 }

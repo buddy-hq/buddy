@@ -74,6 +74,14 @@ export function getMcpStatusLabel(status: McpStatusInfo["status"]) {
   return STATUS_LABELS[status]
 }
 
+export function mcpNeedsAuth(status: McpStatusInfo | undefined) {
+  return status?.status === "needs_auth"
+}
+
+export function mcpNeedsClientRegistration(status: McpStatusInfo | undefined) {
+  return status?.status === "needs_client_registration"
+}
+
 export function formatMcpError(error: unknown) {
   const message = stringifyError(error)
   const normalized = message.toLowerCase()

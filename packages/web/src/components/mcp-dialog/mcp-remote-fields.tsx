@@ -1,4 +1,4 @@
-import { Button, Input, Switch, Textarea } from "@buddy/ui"
+import { Button, Input, Switch, Textarea, Field, FieldLabel } from "@buddy/ui"
 import { language } from "@/context/language"
 import { getFieldErrorId, type McpFormDraft } from "./mcp-config-schema"
 
@@ -17,12 +17,16 @@ type McpRemoteFieldsProps = {
 }
 
 export function McpRemoteFields(props: McpRemoteFieldsProps) {
+  const hasHeaders = props.draft.headersText.trim().length > 0
+  const showAdvancedFields =
+    props.showOAuthClientFields || hasHeaders || !props.draft.oauthEnabled
+
   return (
     <>
-      <div className="grid gap-2">
-        <label className="text-sm font-medium text-text-base" htmlFor="mcp-url">
+      <Field className="space-y-1.5">
+        <FieldLabel className="text-xs font-semibold text-text-weak uppercase tracking-wider" htmlFor="mcp-url">
           {language.t("mcp.remoteFields.remoteUrl")}
-        </label>
+        </FieldLabel>
         <Input
           id="mcp-url"
           value={props.draft.url}
@@ -35,6 +39,7 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
             props.clearFieldError("url")
           }}
           placeholder={language.t("mcp.remoteFields.urlPlaceholder")}
+          className="h-10 text-sm px-3 rounded-lg border-border-base focus-visible:ring-1 focus-visible:ring-border-interactive-base"
           {...props.getFieldProps("url")}
         />
         {props.fieldErrors.url ? (
@@ -42,40 +47,14 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
             {props.fieldErrors.url}
           </p>
         ) : null}
-      </div>
+      </Field>
 
-      <div className="grid gap-2">
-        <label className="text-sm font-medium text-text-base" htmlFor="mcp-headers">
-          {language.t("mcp.remoteFields.headersJson")}
-        </label>
-        <Textarea
-          id="mcp-headers"
-          value={props.draft.headersText}
-          onChange={(event) => {
-            const value = event.target.value
-            props.setDraft((current) => ({
-              ...current,
-              headersText: value,
-            }))
-            props.clearFieldError("headers")
-          }}
-          placeholder={language.t("mcp.remoteFields.headersPlaceholder")}
-          className="min-h-24"
-          {...props.getFieldProps("headers")}
-        />
-        {props.fieldErrors.headers ? (
-          <p id={getFieldErrorId("headers")} className="text-xs text-icon-critical-base">
-            {props.fieldErrors.headers}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
-        <div>
-          <p className="text-sm font-medium text-text-base">
+      <div className="flex items-center justify-between gap-4 py-2 px-1">
+        <div className="space-y-0.5">
+          <span className="text-sm font-semibold text-text-strong">
             {language.t("mcp.remoteFields.oauth")}
-          </p>
-          <p className="text-xs text-text-weak">
+          </span>
+          <p className="text-xs text-text-weak leading-normal">
             {language.t("mcp.remoteFields.oauthDescription")}
           </p>
         </div>
@@ -94,43 +73,67 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
       </div>
 
       {props.draft.oauthEnabled ? (
-        <div className="grid gap-4 rounded-lg border p-3">
-          <div className="space-y-1">
-            <p className="text-sm font-medium text-text-base">
-              {language.t("mcp.remoteFields.browserLogin")}
-            </p>
-            <p className="text-xs text-text-weak">
-              {language.t("mcp.remoteFields.browserLoginDescription")}
-            </p>
-          </div>
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-border-base bg-surface-weak/30 px-4 py-3.5 sm:px-5">
+          <p className="min-w-0 text-xs text-text-weak leading-normal">
+            {language.t("mcp.remoteFields.browserLoginDescription")}
+          </p>
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            className="shrink-0 active:scale-[0.97] transition-transform"
+            onClick={() => props.setShowOAuthClientFields((current) => !current)}
+          >
+            {props.showOAuthClientFields
+              ? language.t("mcp.remoteFields.hideDetails")
+              : language.t("mcp.remoteFields.addDetails")}
+          </Button>
+        </div>
+      ) : null}
 
-          <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
-            <div>
-              <p className="text-sm font-medium text-text-base">
-                {language.t("mcp.remoteFields.customClientDetails")}
+      {showAdvancedFields ? (
+        <>
+          <Field className="space-y-1.5">
+            <FieldLabel className="text-xs font-semibold text-text-weak uppercase tracking-wider" htmlFor="mcp-headers">
+              {language.t("mcp.remoteFields.headersJson")}
+            </FieldLabel>
+            <Textarea
+              id="mcp-headers"
+              value={props.draft.headersText}
+              onChange={(event) => {
+                const value = event.target.value
+                props.setDraft((current) => ({
+                  ...current,
+                  headersText: value,
+                }))
+                props.clearFieldError("headers")
+              }}
+              placeholder={language.t("mcp.remoteFields.headersPlaceholder")}
+              className="min-h-24 text-sm px-3 py-2 rounded-lg border-border-base focus-visible:ring-1 focus-visible:ring-border-interactive-base"
+              {...props.getFieldProps("headers")}
+            />
+            {props.fieldErrors.headers ? (
+              <p id={getFieldErrorId("headers")} className="text-xs text-icon-critical-base">
+                {props.fieldErrors.headers}
               </p>
-              <p className="text-xs text-text-weak">
-                {language.t("mcp.remoteFields.customClientDetailsDescription")}
-              </p>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => props.setShowOAuthClientFields((current) => !current)}
-            >
-              {props.showOAuthClientFields
-                ? language.t("mcp.remoteFields.hideDetails")
-                : language.t("mcp.remoteFields.addDetails")}
-            </Button>
-          </div>
+            ) : null}
+          </Field>
 
-          {props.showOAuthClientFields ? (
-            <>
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-text-base" htmlFor="mcp-client-id">
+          {props.draft.oauthEnabled && props.showOAuthClientFields ? (
+            <div className="grid gap-4 rounded-xl border border-border-base bg-surface-raised-base/30 p-4 sm:p-5">
+              <div className="space-y-1">
+                <span className="text-sm font-semibold text-text-strong">
+                  {language.t("mcp.remoteFields.customClientDetails")}
+                </span>
+                <p className="text-xs text-text-weak leading-normal">
+                  {language.t("mcp.remoteFields.customClientDetailsDescription")}
+                </p>
+              </div>
+
+              <Field className="space-y-1.5">
+                <FieldLabel className="text-xs font-semibold text-text-weak uppercase tracking-wider" htmlFor="mcp-client-id">
                   {language.t("mcp.remoteFields.clientIdOptional")}
-                </label>
+                </FieldLabel>
                 <Input
                   id="mcp-client-id"
                   value={props.draft.clientId}
@@ -138,15 +141,16 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
                     props.setDraft((current) => ({
                       ...current,
                       clientId: event.target.value,
-                    }))
+                     }))
                   }}
+                  className="h-10 text-sm px-3 rounded-lg border-border-base focus-visible:ring-1 focus-visible:ring-border-interactive-base"
                 />
-              </div>
+              </Field>
 
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-text-base" htmlFor="mcp-client-secret">
+              <Field className="space-y-1.5">
+                <FieldLabel className="text-xs font-semibold text-text-weak uppercase tracking-wider" htmlFor="mcp-client-secret">
                   {language.t("mcp.remoteFields.clientSecretOptional")}
-                </label>
+                </FieldLabel>
                 <Input
                   id="mcp-client-secret"
                   value={props.draft.clientSecret}
@@ -156,13 +160,14 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
                       clientSecret: event.target.value,
                     }))
                   }}
+                  className="h-10 text-sm px-3 rounded-lg border-border-base focus-visible:ring-1 focus-visible:ring-border-interactive-base"
                 />
-              </div>
+              </Field>
 
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-text-base" htmlFor="mcp-scope">
+              <Field className="space-y-1.5">
+                <FieldLabel className="text-xs font-semibold text-text-weak uppercase tracking-wider" htmlFor="mcp-scope">
                   {language.t("mcp.remoteFields.scopeOptional")}
-                </label>
+                </FieldLabel>
                 <Input
                   id="mcp-scope"
                   value={props.draft.scope}
@@ -173,11 +178,12 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
                     }))
                   }}
                   placeholder={language.t("mcp.remoteFields.scopePlaceholder")}
+                  className="h-10 text-sm px-3 rounded-lg border-border-base focus-visible:ring-1 focus-visible:ring-border-interactive-base"
                 />
-              </div>
-            </>
+              </Field>
+            </div>
           ) : null}
-        </div>
+        </>
       ) : null}
     </>
   )

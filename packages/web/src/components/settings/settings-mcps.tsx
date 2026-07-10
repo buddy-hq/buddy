@@ -3,26 +3,34 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Badge, Button, Input } from "@buddy/ui"
 import { language } from "@/context/language"
 import {
-  buildConfigFromDraft,
-  buildDraft,
-  emptyDraft,
   formatMcpError,
-  getFieldErrorId,
+  getMcpStatusLabel,
+  mcpNeedsAuth,
+  mcpNeedsClientRegistration,
   parseMcpConfigMap,
   type McpConfig,
-  type McpEditorMode,
-  type McpFieldErrors,
-  type McpFieldName,
-  type McpFormDraft,
 } from "@/components/mcp-dialog/mcp-config-schema"
 import { McpEditorDialog } from "@/components/mcp-dialog/mcp-editor-dialog"
+import { useMcpEditor } from "@/components/mcp-dialog/use-mcp-editor"
 import { reloadProviderRuntime } from "@/lib/provider-auth"
-import { removeGlobalMcpConfig, resyncDirectory, saveGlobalMcpConfig } from "@/state/chat-actions"
+import {
+  authenticateMcpServer,
+  connectMcpServer,
+  removeGlobalMcpConfig,
+  resyncDirectory,
+  saveGlobalMcpConfig,
+} from "@/state/chat-actions"
+import type { McpStatusInfo, McpStatusMap } from "@/state/chat-types"
 import { globalConfigQueryOptions, setGlobalConfigQueryData } from "@/state/global-config-query"
+import { mcpStatusQueryOptions } from "@/state/mcp-directory-query"
+import { notebookDefinesMcp } from "@/state/mcp-settings"
+import { notebookRawProjectConfigQueryOptions } from "@/state/notebook-settings-query"
 import { useChatStore } from "@/state/chat-store"
 import { SettingsContent } from "./settings-primitives"
 
 const MCP_SEARCH_VISIBLE_THRESHOLD = 3
+const EMPTY_CONFIG: Record<string, unknown> = {}
+const EMPTY_MCP_STATUS: McpStatusMap = {}
 
 function isEnabledLabel(config: McpConfig) {
   return config.enabled === false
@@ -30,20 +38,54 @@ function isEnabledLabel(config: McpConfig) {
     : language.t("mcp.settings.defaultOn")
 }
 
+function getConnectButtonLabel(input: {
+  pending: boolean
+  status: McpStatusInfo | undefined
+}) {
+  if (mcpNeedsClientRegistration(input.status)) {
+    return language.t("mcp.listPanel.editDetails")
+  }
+
+  if (input.pending) {
+    return mcpNeedsAuth(input.status)
+      ? language.t("mcp.listPanel.signingIn")
+      : language.t("mcp.listPanel.connecting")
+  }
+
+  return mcpNeedsAuth(input.status)
+    ? language.t("mcp.listPanel.signIn")
+    : language.t("mcp.listPanel.connect")
+}
+
 export function McpsSettings() {
   const queryClient = useQueryClient()
   const openProjects = useChatStore((state) => state.openProjects)
+  const activeDirectory = useChatStore((state) => state.activeDirectory)
+  const connectionDirectory = activeDirectory ?? openProjects[0]
   const [query, setQuery] = useState("")
-  const [editorOpen, setEditorOpen] = useState(false)
-  const [editorMode, setEditorMode] = useState<McpEditorMode>("create")
-  const [draft, setDraft] = useState<McpFormDraft>(() => emptyDraft())
-  const [showOAuthClientFields, setShowOAuthClientFields] = useState(false)
-  const [fieldErrors, setFieldErrors] = useState<McpFieldErrors>({})
-  const [editorError, setEditorError] = useState<string | undefined>(undefined)
-  const [editorSaving, setEditorSaving] = useState(false)
   const [panelError, setPanelError] = useState<string | undefined>(undefined)
   const [pendingRemoveName, setPendingRemoveName] = useState<string | null>(null)
+  const [pendingConnectName, setPendingConnectName] = useState<string | null>(null)
   const globalConfigQuery = useQuery(globalConfigQueryOptions())
+  const activeMcpStatusQuery = useQuery({
+    ...mcpStatusQueryOptions(connectionDirectory ?? ""),
+    enabled: Boolean(connectionDirectory),
+  })
+  const activeProjectConfigQuery = useQuery({
+    ...notebookRawProjectConfigQueryOptions(connectionDirectory ?? ""),
+    enabled: Boolean(connectionDirectory),
+  })
+  const activeProjectConfig = activeProjectConfigQuery.data ?? EMPTY_CONFIG
+  const activeMcpStatusByName = activeMcpStatusQuery.data ?? EMPTY_MCP_STATUS
+
+  const mcpEditor = useMcpEditor({
+    onSave: async ({ name, config }) => {
+      setPanelError(undefined)
+      const updatedGlobal = await saveGlobalMcpConfig(name, config)
+      setGlobalConfigQueryData(queryClient, updatedGlobal)
+      await reloadOpenNotebookMcpRuntimes()
+    },
+  })
 
   const configByName = useMemo(
     () => parseMcpConfigMap(globalConfigQuery.data ?? {}),
@@ -63,35 +105,9 @@ export function McpsSettings() {
     return allNames.filter((name) => name.toLowerCase().includes(search))
   }, [allNames, query])
 
-  function clearFieldError(field: McpFieldName) {
-    setFieldErrors((current) => {
-      if (!current[field]) return current
-      const next = { ...current }
-      delete next[field]
-      return next
-    })
-  }
-
-  function getFieldProps(field: McpFieldName, describedBy?: string) {
-    const error = fieldErrors[field]
-    const errorId = error ? getFieldErrorId(field) : undefined
-    const describedByIds = [describedBy, errorId].filter(Boolean).join(" ")
-
-    return {
-      "aria-describedby": describedByIds || undefined,
-      "aria-errormessage": errorId,
-      "aria-invalid": error ? true : undefined,
-    } as const
-  }
-
   function openCreateEditor() {
-    setEditorMode("create")
-    setDraft(emptyDraft())
-    setShowOAuthClientFields(false)
-    setFieldErrors({})
-    setEditorError(undefined)
     setPanelError(undefined)
-    setEditorOpen(true)
+    mcpEditor.openCreateEditor()
   }
 
   function openEditEditor(name: string) {
@@ -100,62 +116,20 @@ export function McpsSettings() {
       return
     }
 
-    setEditorMode("edit")
-    setDraft(buildDraft(name, config))
-    setShowOAuthClientFields(
-      config.type === "remote" &&
-        typeof config.oauth === "object" &&
-        Object.keys(config.oauth).length > 0,
-    )
-    setFieldErrors({})
-    setEditorError(undefined)
     setPanelError(undefined)
-    setEditorOpen(true)
-  }
-
-  function onEditorOpenChange(nextOpen: boolean) {
-    if (editorSaving) {
-      return
-    }
-
-    if (!nextOpen) {
-      setFieldErrors({})
-      setEditorError(undefined)
-    }
-
-    setEditorOpen(nextOpen)
+    mcpEditor.openEditEditor(name, config)
   }
 
   async function reloadOpenNotebookMcpRuntimes() {
     await reloadProviderRuntime()
-    await Promise.allSettled(openProjects.map((directory) => resyncDirectory(directory)))
-  }
-
-  async function saveConfig() {
-    const parsed = buildConfigFromDraft(draft)
-    if ("fieldError" in parsed) {
-      setFieldErrors({
-        [parsed.fieldError.field]: parsed.fieldError.message,
-      })
-      setEditorError(undefined)
-      return
-    }
-
-    setEditorSaving(true)
-    setFieldErrors({})
-    setEditorError(undefined)
-    setPanelError(undefined)
-
-    try {
-      const updatedGlobal = await saveGlobalMcpConfig(parsed.name, parsed.config)
-      setGlobalConfigQueryData(queryClient, updatedGlobal)
-      await reloadOpenNotebookMcpRuntimes()
-      setEditorOpen(false)
-    } catch (saveError) {
-      setEditorError(formatMcpError(saveError))
-    } finally {
-      setEditorSaving(false)
-    }
+    await Promise.allSettled(
+      openProjects.map(async (directory) => {
+        await resyncDirectory(directory)
+        await queryClient.invalidateQueries({
+          queryKey: mcpStatusQueryOptions(directory).queryKey,
+        })
+      }),
+    )
   }
 
   async function removeConfig(name: string) {
@@ -166,13 +140,54 @@ export function McpsSettings() {
       const updatedGlobal = await removeGlobalMcpConfig(name)
       setGlobalConfigQueryData(queryClient, updatedGlobal)
       await reloadOpenNotebookMcpRuntimes()
-      if (editorMode === "edit" && draft.name === name) {
-        setEditorOpen(false)
+      if (mcpEditor.editorMode === "edit" && mcpEditor.draft.name === name) {
+        mcpEditor.onEditorOpenChange(false)
       }
     } catch (removeError) {
       setPanelError(formatMcpError(removeError))
     } finally {
       setPendingRemoveName(null)
+    }
+  }
+
+  async function connectConfig(name: string) {
+    if (
+      !connectionDirectory ||
+      !activeProjectConfigQuery.isSuccess ||
+      notebookDefinesMcp(activeProjectConfig, name)
+    ) {
+      return
+    }
+
+    const status = activeMcpStatusByName[name]
+    if (mcpNeedsClientRegistration(status)) {
+      openEditEditor(name)
+      return
+    }
+
+    setPendingConnectName(name)
+    setPanelError(undefined)
+
+    try {
+      if (mcpNeedsAuth(status)) {
+        await authenticateMcpServer(connectionDirectory, name)
+      } else {
+        const nextStatusByName = await connectMcpServer(connectionDirectory, name)
+        if (mcpNeedsAuth(nextStatusByName[name])) {
+          await authenticateMcpServer(connectionDirectory, name)
+        }
+        if (mcpNeedsClientRegistration(nextStatusByName[name])) {
+          openEditEditor(name)
+        }
+      }
+
+      await queryClient.invalidateQueries({
+        queryKey: mcpStatusQueryOptions(connectionDirectory).queryKey,
+      })
+    } catch (connectError) {
+      setPanelError(formatMcpError(connectError))
+    } finally {
+      setPendingConnectName(null)
     }
   }
 
@@ -222,6 +237,20 @@ export function McpsSettings() {
               entries.map((name, index) => {
                 const config = configByName[name]
                 const removing = pendingRemoveName === name
+                const notebookDefinitionShadowsGlobal = notebookDefinesMcp(
+                  activeProjectConfig,
+                  name,
+                )
+                const connectionTargetReady =
+                  activeProjectConfigQuery.isSuccess && !notebookDefinitionShadowsGlobal
+                const status = connectionTargetReady ? activeMcpStatusByName[name] : undefined
+                const connecting = pendingConnectName === name
+                const showConnectAction =
+                  Boolean(connectionDirectory) &&
+                  connectionTargetReady &&
+                  config.enabled !== false &&
+                  status?.status !== "connected" &&
+                  status?.status !== "disabled"
 
                 return (
                   <div
@@ -240,6 +269,11 @@ export function McpsSettings() {
                           <Badge variant="secondary" className="h-5">
                             {config.type}
                           </Badge>
+                          {status ? (
+                            <Badge variant="outline" className="h-5">
+                              {getMcpStatusLabel(status.status)}
+                            </Badge>
+                          ) : null}
                         </div>
                         <p className="mt-1 truncate text-xs text-text-weak">
                           {config.type === "remote" ? config.url : config.command.join(" ")}
@@ -247,6 +281,19 @@ export function McpsSettings() {
                       </div>
 
                       <div className="flex shrink-0 items-center gap-2">
+                        {showConnectAction ? (
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="outline"
+                            onClick={() => {
+                              void connectConfig(name)
+                            }}
+                            disabled={removing || connecting}
+                          >
+                            {getConnectButtonLabel({ pending: connecting, status })}
+                          </Button>
+                        ) : null}
                         <Button
                           type="button"
                           size="xs"
@@ -281,23 +328,33 @@ export function McpsSettings() {
               {formatMcpError(globalConfigQuery.error)}
             </p>
           ) : null}
+          {activeMcpStatusQuery.error ? (
+            <p className="text-sm text-icon-critical-base">
+              {formatMcpError(activeMcpStatusQuery.error)}
+            </p>
+          ) : null}
+          {activeProjectConfigQuery.error ? (
+            <p className="text-sm text-icon-critical-base">
+              {formatMcpError(activeProjectConfigQuery.error)}
+            </p>
+          ) : null}
         </div>
       </SettingsContent>
 
       <McpEditorDialog
-        open={editorOpen}
-        onOpenChange={onEditorOpenChange}
-        mode={editorMode}
-        draft={draft}
-        setDraft={setDraft}
-        showOAuthClientFields={showOAuthClientFields}
-        setShowOAuthClientFields={setShowOAuthClientFields}
-        fieldErrors={fieldErrors}
-        editorError={editorError}
-        editorSaving={editorSaving}
-        clearFieldError={clearFieldError}
-        getFieldProps={getFieldProps}
-        onSave={saveConfig}
+        open={mcpEditor.editorOpen}
+        onOpenChange={mcpEditor.onEditorOpenChange}
+        mode={mcpEditor.editorMode}
+        draft={mcpEditor.draft}
+        setDraft={mcpEditor.setDraft}
+        showOAuthClientFields={mcpEditor.showOAuthClientFields}
+        setShowOAuthClientFields={mcpEditor.setShowOAuthClientFields}
+        fieldErrors={mcpEditor.fieldErrors}
+        editorError={mcpEditor.editorError}
+        editorSaving={mcpEditor.editorSaving}
+        clearFieldError={mcpEditor.clearFieldError}
+        getFieldProps={mcpEditor.getFieldProps}
+        onSave={mcpEditor.saveConfig}
       />
     </>
   )
