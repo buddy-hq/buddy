@@ -19,6 +19,7 @@ export const dict = {
   "chat.emptyState.notebookHint":
     "Start a new thread here, or create another notebook from the sidebar when you want a separate space.",
   "chat.emptyState.title": "Let's understand",
+  "chat.emptyState.teachTitle": "What are you planning or creating?",
   "chat.jumpToLatest": "Jump to latest",
   "chat.permissionDock.action.bash": "Run command",
   "chat.permissionDock.action.edit": "Edit {{path}}",
@@ -446,7 +447,7 @@ export const dict = {
   "onboardingSetup.engineSelection.heading": "Select AI Engine",
   "onboardingSetup.header.badge": "Alpha",
   "onboardingSetup.header.logoAlt": "Buddy Logo",
-  "onboardingSetup.header.subtitle": "Your intelligent learning companion.",
+  "onboardingSetup.header.subtitle": "Your partner for learning and teaching.",
   "onboardingSetup.header.title": "Buddy",
   "onboardingSetup.notebookSelection.buttonPickFolderBusy": "Setting up location...",
   "onboardingSetup.notebookSelection.buttonPickFolderIdle": "Choose another folder",
@@ -464,7 +465,7 @@ export const dict = {
   "onboardingPersonalization.badge": "Optional",
   "onboardingPersonalization.back": "Back",
   "onboardingPersonalization.description":
-    "Share a little context so Buddy can adapt how it teaches and explains things to you.",
+    "Share a little context so Buddy can adapt how it works with you.",
   "onboardingPersonalization.next": "Next",
   "onboardingPersonalization.skip": "Skip for now",
   "onboardingPersonalization.submitting": "Saving...",
@@ -604,7 +605,9 @@ export const dict = {
   "routes.chat.recoveryStartingFresh": "Starting fresh...",
   "routes.chat.recoveryTitle": "Choose notebooks to restore",
   "routes.chat.startJourney": "to start your learning journey",
+  "routes.chat.startJourneyTeach": "Start a quick chat or create a notebook for your work.",
   "routes.chat.tagline": "learn something new today",
+  "routes.chat.taglineTeach": "Plan, create, and assess with Buddy.",
   "routes.onboarding.initializeNotebookFailed": "Could not initialize notebook",
   "routes.onboarding.openNotebookFailed": "Could not open notebook",
   "routes.onboarding.pickProviderFirst": "Pick an AI provider first.",
@@ -783,6 +786,10 @@ export const dict = {
   "settings.general.notificationsErrorsDescription":
     "Show a system notification when a chat run fails.",
   "settings.general.notificationsErrorsAria": "Enable error notifications",
+  "settings.general.getStartedChatsTitle": "Show Get Started",
+  "settings.general.getStartedChatsDescription":
+    "Show capability examples in the Inbox sidebar. You can hide them again from the sidebar.",
+  "settings.general.getStartedChatsAria": "Show Get Started examples",
   "notification.session.responseReady.fallbackDescription": "Buddy finished responding.",
   "notification.session.error.title": "Session error",
   "notification.permission.title": "Permission required",
@@ -803,7 +810,7 @@ export const dict = {
   "settings.personalization.occupationPlaceholder": "Student, researcher, designer, founder...",
   "settings.personalization.primaryUseLearn": "Learn with Buddy",
   "settings.personalization.primaryUseTeach": "Teach with Buddy",
-  "settings.personalization.primaryUseTitle": "What you use Buddy for",
+  "settings.personalization.primaryUseTitle": "Default way Buddy works",
   "settings.personalization.moreAboutYouTitle": "More about you",
   "settings.personalization.moreAboutYouDescription":
     "Anything else Buddy should know about how to help you effectively.",
