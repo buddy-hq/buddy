@@ -24,6 +24,7 @@ import {
   EXPERIMENTAL_FEATURE_ID,
   type ExperimentalFeatureID,
 } from "@/state/experimental-features-query"
+import type { PrimaryUse } from "@/state/project-config-readers"
 
 export type SettingsTab =
   | "general"
@@ -170,6 +171,7 @@ export function resolveSettingsTab(value: string): SettingsTab | undefined {
 
 export function getVisibleSettingsTabDefinitions(input: {
   standardsEnabled: boolean
+  primaryUse?: PrimaryUse
   enabledExperimentalFeatureIDs: ReadonlySet<ExperimentalFeatureID>
 }): SettingsTabDefinition[] {
   return SETTINGS_TABS.filter((tab) => {
@@ -185,11 +187,18 @@ export function getVisibleSettingsTabDefinitions(input: {
     }
 
     if (tab.id === "standards") {
-      return input.standardsEnabled
+      return input.primaryUse === "teach" || input.standardsEnabled
     }
 
     return tab.experimentalFeatureID !== undefined
   })
+}
+
+export function settingsTabGroupForPrimaryUse(
+  tab: SettingsTabDefinition,
+  primaryUse: PrimaryUse | undefined,
+): SettingsTabGroup {
+  return tab.id === "standards" && primaryUse === "teach" ? "main" : tab.group
 }
 
 export function getSettingsTabDefinition(id: SettingsTab): SettingsTabDefinition {

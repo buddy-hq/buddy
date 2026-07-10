@@ -16,6 +16,7 @@ import {
   DEFAULT_SETTINGS_TAB,
   getVisibleSettingsTabDefinitions,
   resolveSettingsTab,
+  settingsTabGroupForPrimaryUse,
   type SettingsTab,
   type SettingsTabDefinition,
 } from "@/components/settings/settings-tabs"
@@ -41,6 +42,8 @@ import {
 } from "@/state/directory-chat-query"
 import { useShallow } from "zustand/react/shallow"
 import { useUiPreferences } from "@/state/ui-preferences"
+import { globalConfigQueryOptions } from "@/state/global-config-query"
+import { readPersonalization } from "@/state/project-config-readers"
 import { pickProjectDirectory } from "../lib/directory-picker"
 import {
   readSettingsReturnTo,
@@ -84,6 +87,7 @@ export const Route = createFileRoute("/settings")({
     await Promise.allSettled([
       context.queryClient.ensureQueryData(openProjectsWithSessionsQueryOptions()),
       context.queryClient.ensureQueryData(experimentalFeaturesQueryOptions()),
+      context.queryClient.ensureQueryData(globalConfigQueryOptions()),
     ])
   },
   component: SettingsRoute,
@@ -109,6 +113,8 @@ function SettingsRoute() {
     open: true,
     platform: platform.platform,
   })
+  const globalConfigQuery = useQuery(globalConfigQueryOptions())
+  const primaryUse = readPersonalization(globalConfigQuery.data ?? {}).primaryUse
   const experimentalFeaturesQuery = useQuery(experimentalFeaturesQueryOptions())
   const enabledExperimentalFeatureIDs = useMemo(() => {
     const enabled = new Set<typeof EXPERIMENTAL_FEATURE_ID.learnerMemory>()
@@ -136,13 +142,27 @@ function SettingsRoute() {
   const activeSessionID = currentDirectory ? directories[currentDirectory]?.sessionID : undefined
   const leftSidebarMaxWidth = 320
   const visibleTabs = useMemo(
-    () => getVisibleSettingsTabDefinitions({ standardsEnabled, enabledExperimentalFeatureIDs }),
-    [enabledExperimentalFeatureIDs, standardsEnabled],
+    () =>
+      getVisibleSettingsTabDefinitions({
+        standardsEnabled,
+        primaryUse,
+        enabledExperimentalFeatureIDs,
+      }),
+    [enabledExperimentalFeatureIDs, primaryUse, standardsEnabled],
   )
-  const mainTabs = useMemo(() => visibleTabs.filter((item) => item.group === "main"), [visibleTabs])
+  const mainTabs = useMemo(
+    () =>
+      visibleTabs.filter(
+        (item) => settingsTabGroupForPrimaryUse(item, primaryUse) === "main",
+      ),
+    [primaryUse, visibleTabs],
+  )
   const optionalTabs = useMemo(
-    () => visibleTabs.filter((item) => item.group === "optional"),
-    [visibleTabs],
+    () =>
+      visibleTabs.filter(
+        (item) => settingsTabGroupForPrimaryUse(item, primaryUse) === "optional",
+      ),
+    [primaryUse, visibleTabs],
   )
   const visibleTabIDs = useMemo(() => new Set(visibleTabs.map((item) => item.id)), [visibleTabs])
   const activeTab = visibleTabIDs.has(tab)
@@ -171,6 +191,9 @@ function SettingsRoute() {
   )
 
   useEffect(() => {
+    if (globalConfigQuery.isPending) {
+      return
+    }
     if (tab !== "standards" && visibleTabIDs.has(tab)) {
       return
     }
@@ -189,7 +212,7 @@ function SettingsRoute() {
       search: (previous) => settingsSearchForTab(previous, fallbackTab),
       replace: true,
     })
-  }, [navigate, standardsStatus, tab, visibleTabIDs])
+  }, [globalConfigQuery.isPending, navigate, standardsStatus, tab, visibleTabIDs])
 
   function openChat(directory: string) {
     navigate({

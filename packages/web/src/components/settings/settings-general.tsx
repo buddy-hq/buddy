@@ -23,6 +23,7 @@ import {
   type TGamePromptPreference,
 } from "@/state/game-store"
 import { useNotificationPreferences } from "@/state/notification-preferences"
+import { useUiPreferences } from "@/state/ui-preferences"
 import { useTheme, type ColorScheme } from "@/theme"
 import {
   CODE_FONT_PLACEHOLDER,
@@ -124,6 +125,10 @@ export function GeneralSettings() {
   const setErrorNotifications = useNotificationPreferences((state) => state.setErrors)
   const gamePromptPreference = useGameStore((state) => state.gamePromptPreference)
   const setGamePromptPreference = useGameStore((state) => state.setGamePromptPreference)
+  const getStartedChatsVisible = useUiPreferences((state) => state.getStartedChatsVisible)
+  const setGetStartedChatsVisible = useUiPreferences(
+    (state) => state.setGetStartedChatsVisible,
+  )
 
   const colorSchemeOptions: ReadonlyArray<{ value: ColorScheme; label: string }> = [
     { value: "system", label: language.t("settings.appearance.colorSchemes.system") },
@@ -272,6 +277,18 @@ export function GeneralSettings() {
       </SettingsSection>
 
       <SettingsSection title="Chat">
+        <SettingsRow
+          title={language.t("settings.general.getStartedChatsTitle")}
+          description={language.t("settings.general.getStartedChatsDescription")}
+          control={
+            <Switch
+              data-action="settings-get-started-chats"
+              checked={getStartedChatsVisible}
+              onCheckedChange={setGetStartedChatsVisible}
+              aria-label={language.t("settings.general.getStartedChatsAria")}
+            />
+          }
+        />
         <SettingsRow
           title={language.t("settings.general.followupTitle")}
           description={language.t("settings.general.followupDescription")}

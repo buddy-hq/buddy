@@ -23,6 +23,7 @@ import {
 } from "@/state/learner-memory-settings"
 import { readPersonalization } from "@/state/project-config-readers"
 import { useGetStartedChatTestMode } from "@/state/get-started-chat-test-mode"
+import { useUiPreferences, useUiPreferencesHydrated } from "@/state/ui-preferences"
 import {
   EXPERIMENTAL_FEATURE_ID,
   experimentalFeatureIsEnabled,
@@ -48,6 +49,10 @@ import type {
 } from "./chat-left-sidebar/types"
 import { SettingsIcon } from "./sidebar-icons"
 import { getFilename } from "./sidebar-helpers"
+import {
+  ensureTeacherStandards,
+  shouldAutoSetupTeacherStandards,
+} from "@/lib/teacher-standards"
 
 const INBOX_DIRECTORY_NAME = "inbox" as const
 
@@ -166,6 +171,17 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     [globalConfigQuery.data],
   )
   const primaryUse = readPersonalization(globalConfigQuery.data ?? {}).primaryUse
+  const getStartedChatsVisible = useUiPreferences((state) => state.getStartedChatsVisible)
+  const setGetStartedChatsVisible = useUiPreferences(
+    (state) => state.setGetStartedChatsVisible,
+  )
+  const teacherStandardsAutoSetupComplete = useUiPreferences(
+    (state) => state.teacherStandardsAutoSetupComplete,
+  )
+  const setTeacherStandardsAutoSetupComplete = useUiPreferences(
+    (state) => state.setTeacherStandardsAutoSetupComplete,
+  )
+  const uiPreferencesHydrated = useUiPreferencesHydrated()
   const getStartedChatTestMode = useGetStartedChatTestMode((state) => state.mode)
   const forceGetStartedChatsVisible =
     import.meta.env.DEV && getStartedChatTestMode !== GET_STARTED_CHAT_TEST_MODE.hidden
@@ -175,14 +191,53 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const onStartGetStartedChat = props.onStartGetStartedChat
   const currentDirectoryIsInbox =
     getFilename(props.currentDirectory).toLowerCase() === INBOX_DIRECTORY_NAME
-  const currentDirectoryHasSessions = (props.sessionsByDirectory[props.currentDirectory] ?? []).length > 0
   const showGetStartedChats = shouldShowGetStartedChats({
+    enabled: getStartedChatsVisible,
     hasChats: getStartedChats.length > 0,
     hasStartHandler: onStartGetStartedChat !== undefined,
     currentDirectoryIsInbox,
-    currentDirectoryHasSessions,
     forceVisible: forceGetStartedChatsVisible,
   })
+
+  useEffect(() => {
+    if (!uiPreferencesHydrated) return
+
+    if (primaryUse === "learn") {
+      if (teacherStandardsAutoSetupComplete) {
+        setTeacherStandardsAutoSetupComplete(false)
+      }
+      return
+    }
+    if (
+      !shouldAutoSetupTeacherStandards({
+        preferencesHydrated: uiPreferencesHydrated,
+        primaryUse,
+        setupComplete: teacherStandardsAutoSetupComplete,
+      })
+    ) {
+      return
+    }
+
+    void ensureTeacherStandards({
+      platform: platform.platform,
+      queryClient,
+    })
+      .then((status) => {
+        if (status) {
+          setTeacherStandardsAutoSetupComplete(true)
+        }
+      })
+      .catch((error: unknown) => {
+        console.warn("Could not enable Standards for Teaching Buddy:", error)
+      })
+  }, [
+    platform.platform,
+    primaryUse,
+    queryClient,
+    setTeacherStandardsAutoSetupComplete,
+    teacherStandardsAutoSetupComplete,
+    uiPreferencesHydrated,
+  ])
 
   useEffect(() => {
     if (!isMacDesktop) return
@@ -374,8 +429,8 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           {showGetStartedChats && onStartGetStartedChat ? (
             <GetStartedChats
               chats={getStartedChats}
-              disabled={!forceGetStartedChatsVisible && props.activeSessionID !== undefined}
               onStart={onStartGetStartedChat}
+              onDismiss={() => setGetStartedChatsVisible(false)}
             />
           ) : null}
 

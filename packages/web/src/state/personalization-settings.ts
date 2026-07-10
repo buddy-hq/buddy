@@ -16,6 +16,7 @@ import {
   type PersonalizationSettingsBundle,
 } from "./personalization-settings-query"
 import { setGlobalConfigQueryData } from "./global-config-query"
+import { directoryChatQueryKeys } from "@/lib/directory-chat/chat-config-query"
 
 const AUTO_SAVE_DELAY_MS = 250
 
@@ -88,6 +89,9 @@ export function usePersonalizationSettingsAutosave(form: AnyFormApi) {
         },
       )
       lastSavedValuesRef.current = nextPersonalization
+      await queryClient.invalidateQueries({
+        queryKey: directoryChatQueryKeys.allComposerConfigs(),
+      })
       form.setErrorMap({ onSubmit: undefined })
       return true
     } catch (error) {

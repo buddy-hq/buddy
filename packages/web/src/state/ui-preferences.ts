@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react"
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
@@ -16,6 +17,8 @@ type PersistedUiPreferences = {
   chatLeftSidebarWidth?: number
   settingsSidebarWidth?: number
   projectFileTreeOpen?: boolean
+  getStartedChatsVisible?: boolean
+  teacherStandardsAutoSetupComplete?: boolean
   mainPaneTab?: unknown
 }
 
@@ -37,6 +40,8 @@ export type UiPreferencesStore = {
   chatLeftSidebarWidth: number
   settingsSidebarWidth: number
   projectFileTreeOpen: boolean
+  getStartedChatsVisible: boolean
+  teacherStandardsAutoSetupComplete: boolean
   isPinned: (directory: string, sessionID: string) => boolean
   togglePinned: (directory: string, sessionID: string) => void
   markUnread: (directory: string, sessionID: string) => void
@@ -47,6 +52,8 @@ export type UiPreferencesStore = {
   setChatLeftSidebarWidth: (width: number) => void
   setSettingsSidebarWidth: (width: number) => void
   setProjectFileTreeOpen: (open: boolean) => void
+  setGetStartedChatsVisible: (visible: boolean) => void
+  setTeacherStandardsAutoSetupComplete: (complete: boolean) => void
 }
 
 export const useUiPreferences = create<UiPreferencesStore>()(
@@ -148,14 +155,36 @@ export const useUiPreferences = create<UiPreferencesStore>()(
         },
       }
 
+      const discoverySlice: Pick<
+        UiPreferencesStore,
+        | "getStartedChatsVisible"
+        | "setGetStartedChatsVisible"
+        | "teacherStandardsAutoSetupComplete"
+        | "setTeacherStandardsAutoSetupComplete"
+      > = {
+        getStartedChatsVisible: true,
+        setGetStartedChatsVisible(visible) {
+          set((state) => {
+            state.getStartedChatsVisible = visible
+          })
+        },
+        teacherStandardsAutoSetupComplete: false,
+        setTeacherStandardsAutoSetupComplete(complete) {
+          set((state) => {
+            state.teacherStandardsAutoSetupComplete = complete
+          })
+        },
+      }
+
       return {
         ...sessionStateSlice,
         ...layoutSlice,
+        ...discoverySlice,
       }
     }),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 15,
+      version: 17,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = isPersistedUiPreferences(persistedState) ? persistedState : undefined
@@ -167,6 +196,9 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           chatLeftSidebarWidth: state?.chatLeftSidebarWidth ?? legacyLeftSidebarWidth,
           settingsSidebarWidth: state?.settingsSidebarWidth ?? legacyLeftSidebarWidth,
           projectFileTreeOpen: state?.projectFileTreeOpen ?? DEFAULT_PROJECT_FILE_TREE_OPEN,
+          getStartedChatsVisible: state?.getStartedChatsVisible ?? true,
+          teacherStandardsAutoSetupComplete:
+            state?.teacherStandardsAutoSetupComplete ?? false,
         }
       },
       partialize(state) {
@@ -177,8 +209,36 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           chatLeftSidebarWidth: state.chatLeftSidebarWidth,
           settingsSidebarWidth: state.settingsSidebarWidth,
           projectFileTreeOpen: state.projectFileTreeOpen,
+          getStartedChatsVisible: state.getStartedChatsVisible,
+          teacherStandardsAutoSetupComplete: state.teacherStandardsAutoSetupComplete,
         }
       },
     },
   ),
 )
+
+function subscribeToUiPreferencesHydration(onStoreChange: () => void): () => void {
+  const unsubscribeHydrate = useUiPreferences.persist.onHydrate(onStoreChange)
+  const unsubscribeFinishHydration = useUiPreferences.persist.onFinishHydration(onStoreChange)
+
+  return () => {
+    unsubscribeHydrate()
+    unsubscribeFinishHydration()
+  }
+}
+
+function uiPreferencesHydrationSnapshot(): boolean {
+  return useUiPreferences.persist.hasHydrated()
+}
+
+function uiPreferencesServerHydrationSnapshot(): boolean {
+  return false
+}
+
+export function useUiPreferencesHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeToUiPreferencesHydration,
+    uiPreferencesHydrationSnapshot,
+    uiPreferencesServerHydrationSnapshot,
+  )
+}

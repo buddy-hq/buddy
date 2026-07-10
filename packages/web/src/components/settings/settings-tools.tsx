@@ -1,6 +1,6 @@
 import { memo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Switch } from "@buddy/ui"
+import { Progress, Switch } from "@buddy/ui"
 import { language } from "@/context/language"
 import { patchGlobalConfig } from "@/state/chat-actions"
 import { globalConfigQueryOptions, setGlobalConfigQueryData } from "@/state/global-config-query"
@@ -12,7 +12,15 @@ import {
   buildGlobalStandardsPatch,
   type StandardsToolId,
 } from "@/state/standards-settings"
-import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primitives"
+import {
+  SettingsContent,
+  SettingsListCard,
+  SettingsRow,
+  SettingsSectionHeader,
+} from "./settings-primitives"
+import { usePlatform } from "@/context/platform"
+import { standardsStatusLabel, useStandardsRuntime } from "./use-standards-runtime"
+import { ConfirmRemoveStandardsRuntimeDialog } from "./confirm-remove-standards-runtime-dialog"
 
 function stringifyError(error: unknown) {
   if (error instanceof Error) return error.message
@@ -94,13 +102,28 @@ const GlobalToolRow = memo(function GlobalToolRow(props: {
 
 export function StandardsSettings() {
   const queryClient = useQueryClient()
+  const platform = usePlatform()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | undefined>(undefined)
   const globalConfigQuery = useQuery(globalConfigQueryOptions())
+  const {
+    standardsStatus,
+    standardsLoading,
+    standardsBusy,
+    standardsEnabled,
+    removeConfirmOpen,
+    setRemoveConfirmOpen,
+    onToggleStandardsRuntime,
+    onConfirmRemoveStandardsRuntime,
+  } = useStandardsRuntime({
+    open: true,
+    platform: platform.platform,
+  })
   const defaults = buildGlobalStandardsDefaults(globalConfigQuery.data ?? {})
   const allGlobalEnabled = STANDARDS_TOOL_IDS.every((toolId) => defaults[toolId])
   const someGlobalEnabled = STANDARDS_TOOL_IDS.some((toolId) => defaults[toolId])
-  const toolControlsDisabled = globalConfigQuery.isPending || saving
+  const toolControlsDisabled =
+    globalConfigQuery.isPending || saving || standardsBusy || !standardsEnabled
 
   async function applyDefaults(nextDefaults: typeof defaults) {
     const patch = buildGlobalStandardsPatch(globalConfigQuery.data ?? {}, nextDefaults)
@@ -123,6 +146,40 @@ export function StandardsSettings() {
 
   return (
     <SettingsContent>
+      <div className="space-y-2">
+        <SettingsSectionHeader
+          title={language.t("settings.tools.standardsRuntimeSection")}
+          description={language.t("settings.tools.standardsRuntimeDescription")}
+        />
+        <SettingsListCard>
+          <SettingsRow
+            title={language.t("settings.tools.standardsRuntimeTitle")}
+            description={standardsStatusLabel(standardsStatus, standardsLoading)}
+            control={
+              <Switch
+                data-action="settings-standards-runtime-toggle"
+                aria-label={language.t("settings.tools.standardsRuntimeToggleAria")}
+                checked={standardsEnabled}
+                disabled={standardsBusy || standardsStatus === null}
+                onCheckedChange={onToggleStandardsRuntime}
+              />
+            }
+          />
+          {standardsStatus?.progressMessage ||
+          typeof standardsStatus?.progressPercent === "number" ? (
+            <div className="space-y-1 border-t border-border-base/60 px-4 py-3 sm:px-5">
+              <div className="flex items-center justify-between gap-2 text-[11px] text-text-weak">
+                <span>{standardsStatus.progressMessage}</span>
+                {typeof standardsStatus.progressPercent === "number" ? (
+                  <span>{Math.round(standardsStatus.progressPercent)}%</span>
+                ) : null}
+              </div>
+              <Progress value={standardsStatus.progressPercent ?? 0} className="h-1.5" />
+            </div>
+          ) : null}
+        </SettingsListCard>
+      </div>
+
       <div className="space-y-2">
         <div className="space-y-1">
           <h3 className="text-sm font-medium text-text-base">
@@ -168,6 +225,14 @@ export function StandardsSettings() {
         <p className="text-xs text-icon-critical-base">{stringifyError(globalConfigQuery.error)}</p>
       ) : null}
       {error ? <p className="text-xs text-icon-critical-base">{error}</p> : null}
+      {standardsStatus?.lastError ? (
+        <p className="text-xs text-icon-critical-base">{standardsStatus.lastError}</p>
+      ) : null}
+      <ConfirmRemoveStandardsRuntimeDialog
+        open={removeConfirmOpen}
+        onOpenChange={setRemoveConfirmOpen}
+        onConfirm={onConfirmRemoveStandardsRuntime}
+      />
     </SettingsContent>
   )
 }
