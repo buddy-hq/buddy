@@ -5,6 +5,7 @@ const LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY = "learner-memory-consolidator"
 
 const LEARNER_MEMORY_CONSOLIDATOR_AGENT = defineBuddySubagent({
   key: LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY,
+  delegatable: false,
   description: "Consolidates learner-memory extraction outputs into durable memory decisions.",
   prompt: LEARNER_MEMORY_CONSOLIDATOR_PROMPT,
   permission: {

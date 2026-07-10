@@ -3,7 +3,7 @@ import { SessionID } from "@buddy/opencode-adapter/id"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
-import { appendLearnerEvent, createLearnerEvent } from "../../features/memory/storage"
+import { ingestLearnerContextDelivery } from "../../features/memory/ingestion"
 import { syncBuddyRuntimeSessionPermissions } from "../permissions/runtime-session-permissions"
 import { readTeachingSessionState, writeTeachingSessionState } from "../state/session-state"
 import { restoreTeachingSessionState, writeLastLlmOutbound } from "../state/transform-state"
@@ -181,22 +181,14 @@ export async function orchestrateSessionMessageTransform(input: {
             ...state,
             lastDeliveredLearnerContextMessageId: messageId,
           })
-          await appendLearnerEvent(
-            input.context.directory,
-            createLearnerEvent({
-              type: "learner_context_delivered",
-              sessionId: input.context.sessionID,
-              projectPath: input.context.directory,
-              sourceKind: "learner_context",
-              sourceId: messageId,
-              searchableText: `Learner context ${learnerContextDelivery.kind} delivered for session ${input.context.sessionID}.`,
-              payload: {
-                deliveryKind: learnerContextDelivery.kind,
-                fingerprint: learnerContextDelivery.fingerprint,
-                itemCount: learnerContextDelivery.items?.length ?? 0,
-              },
-            }),
-          )
+          await ingestLearnerContextDelivery({
+            directory: input.context.directory,
+            sessionID: input.context.sessionID,
+            messageID: messageId,
+            deliveryKind: learnerContextDelivery.kind,
+            fingerprint: learnerContextDelivery.fingerprint,
+            itemCount: learnerContextDelivery.items?.length ?? 0,
+          })
         }
       : undefined,
   }

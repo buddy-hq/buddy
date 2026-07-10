@@ -280,7 +280,7 @@ async function extractCandidatePatchesWithModel(input: {
     fn: async () => resolveLearnerMemoryExtractionModel(input.directory),
   })
   if (!extractionModel) {
-    throw new Error("Learner memory extraction model resolution failed")
+    throw new Error("Memory extraction model resolution failed")
   }
   const response = await OpenCodeInstance.provide({
     directory: input.directory,
@@ -343,7 +343,7 @@ async function extractLearnerMemoryStageOneWithModel(input: {
     fn: async () => resolveLearnerMemoryExtractionModel(input.directory),
   })
   if (!extractionModel) {
-    throw new Error("Learner memory extraction model resolution failed")
+    throw new Error("Memory extraction model resolution failed")
   }
   const response = await OpenCodeInstance.provide({
     directory: input.directory,

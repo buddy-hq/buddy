@@ -62,7 +62,6 @@ export const BUDDY = defineBuddyPersona({
       "question-set-author": true,
       "flashcard-author": true,
       general: true,
-      "learner-memory-consolidator": true,
     },
   },
 })

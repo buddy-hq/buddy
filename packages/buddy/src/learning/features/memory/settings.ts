@@ -1,4 +1,6 @@
 import type { readProjectConfig } from "../../../config/runtime"
+import { EXPERIMENTAL_FEATURE_ID } from "../../../experimental-features/catalog"
+import { experimentalFeatureIsEnabled } from "../../../experimental-features/service"
 import { learnerMemoryLabSettingsOverride } from "./lab-context"
 import { LEARNER_MEMORY_SETTINGS_DEFAULTS } from "./tuning"
 
@@ -45,11 +47,13 @@ function readLearnerMemorySettings(
       : undefined
 
   const settings: LearnerMemorySettings = {
-    enabled: learnerMemory?.master_enabled === true && learnerMemory.enabled === true,
+    enabled:
+      experimentalFeatureIsEnabled(config, EXPERIMENTAL_FEATURE_ID.learnerMemory) &&
+      learnerMemory?.enabled === true,
     autoExtract:
-      learnerMemory?.master_enabled === true &&
-      learnerMemory.enabled === true &&
-      learnerMemory.auto_extract === true,
+      experimentalFeatureIsEnabled(config, EXPERIMENTAL_FEATURE_ID.learnerMemory) &&
+      learnerMemory?.enabled === true &&
+      learnerMemory?.auto_extract === true,
     minUserMessages: positiveInteger(
       learnerMemory?.min_user_messages,
       DEFAULT_LEARNER_MEMORY_SETTINGS.minUserMessages,

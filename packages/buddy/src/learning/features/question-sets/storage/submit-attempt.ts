@@ -14,12 +14,7 @@ import {
   type QuestionSetEvaluationResult,
 } from "../types"
 import { correctChoiceIDs, ensureUniqueIDs, readQuestionSetObjectPayload } from "./save-object"
-import {
-  appendLearnerEvent,
-  createLearnerEvent,
-  recordQuestionSetAttemptMemory,
-} from "../../memory"
-import { writeLearnerEvidenceForEvent } from "../../memory/evidence"
+import { ingestQuestionSetAttempt } from "../../memory"
 
 function dedupeStrings(values: string[]): string[] {
   return [...new Set(values)]
@@ -201,59 +196,18 @@ async function submitQuestionSetObjectAttempt(input: {
     objectID: input.objectID,
     attemptRecord,
   })
-  const learnerEvent = createLearnerEvent({
-    type: "question_set_attempt_ingested",
-    sourceKind: "question_set_attempt",
-    sourceId: attemptID,
-    searchableText: `Question set attempt ${input.objectID}: ${evaluation.correctQuestions}/${evaluation.totalQuestions} correct, status ${evaluation.status}.`,
-    payload: {
-      objectID: input.objectID,
-      attemptID,
-      result: evaluation,
-    },
-  })
-  await appendLearnerEvent(input.directory, learnerEvent)
   const tags = dedupeStrings(questionSet.questions.flatMap((question) => question.goalIds))
-  const memory = await recordQuestionSetAttemptMemory({
+  await ingestQuestionSetAttempt({
     directory: input.directory,
-    eventId: learnerEvent.id,
+    objectID: input.objectID,
+    attemptID,
     title: questionSet.title,
     groupType: questionSet.groupType,
     totalQuestions: evaluation.totalQuestions,
     correctQuestions: evaluation.correctQuestions,
+    status: evaluation.status,
     tags,
-    projectPath: input.directory,
-  })
-  await writeLearnerEvidenceForEvent({
-    directory: input.directory,
-    event: learnerEvent,
-    objectId: input.objectID,
-    title: questionSet.title,
-    note: `Question-set attempt recorded with ${evaluation.correctQuestions} of ${evaluation.totalQuestions} correct (${evaluation.status}).`,
-    tags,
-    payload: {
-      groupType: questionSet.groupType,
-      totalQuestions: evaluation.totalQuestions,
-      correctQuestions: evaluation.correctQuestions,
-      status: evaluation.status,
-    },
-    memoryEffects: [
-      {
-        memoryId: memory.id,
-        effect:
-          evaluation.correctQuestions === evaluation.totalQuestions
-            ? "noted"
-            : evaluation.correctQuestions > 0
-              ? "reinforced"
-              : "weakened",
-        reason:
-          evaluation.correctQuestions === evaluation.totalQuestions
-            ? "Perfect assessment evidence is available for this question set."
-            : evaluation.correctQuestions > 0
-              ? "Partial assessment result indicates this topic still needs reinforcement."
-              : "Missed assessment result indicates this topic likely remains weak.",
-      },
-    ],
+    result: evaluation,
   })
 
   return {

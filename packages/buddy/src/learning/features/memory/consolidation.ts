@@ -157,11 +157,11 @@ async function ensureConsolidationTargetFiles(directory: string): Promise<void> 
   await Promise.all([
     writeFileIfMissing(
       LearnerMemoryPath.memoryRegistryFile(directory),
-      "# Learner Memory Registry\n\nNo consolidated learner memories yet.\n",
+      "# Memory Registry\n\nNo consolidated memories yet.\n",
     ),
     writeFileIfMissing(
       LearnerMemoryPath.summaryFile(directory),
-      "# Learner Memory Summary\n\nNo consolidated learner memories yet.\n",
+      "# Memory Summary\n\nNo consolidated memories yet.\n",
     ),
   ])
 }
@@ -196,7 +196,7 @@ async function assertConsolidationOutputReferencesTargetFiles(input: {
   )
   for (const requiredFile of requiredFiles) {
     if (!writtenFiles.has(requiredFile)) {
-      throw new Error(`Learner memory consolidation did not report writing ${requiredFile}`)
+      throw new Error(`Memory consolidation did not report writing ${requiredFile}`)
     }
   }
 }
@@ -299,6 +299,16 @@ async function runLearnerMemoryConsolidation(input: {
   directory: string
   force?: boolean
 }): Promise<LearnerMemoryConsolidationResult> {
+  const settings = readLearnerMemorySettings(await readProjectConfig(input.directory))
+  if (!settings.enabled) {
+    return {
+      claimed: false,
+      skippedReason: "Memory is not enabled for this notebook",
+      selectedCandidateCount: 0,
+      memoryIds: [],
+    }
+  }
+
   const claimOutcome = await tryClaimLearnerMemoryPhaseTwoJob({
     directory: input.directory,
     workerID: `buddy_phase_two_${ulid()}`,
@@ -324,7 +334,6 @@ async function runLearnerMemoryConsolidation(input: {
 
   try {
     await syncOpenCodeProjectConfig(input.directory)
-    const settings = readLearnerMemorySettings(await readProjectConfig(input.directory))
     await pruneLearnerMemoryStageOneOutputs({
       directory: input.directory,
       maxUnusedDays: settings.maxUnusedStageOneDays,

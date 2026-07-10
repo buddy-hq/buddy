@@ -14,9 +14,7 @@ import {
   recoverPendingFlashcardObjectReview,
   writePendingFlashcardObjectReviewTransaction,
 } from "./review-transaction"
-import { appendLearnerEvent, createLearnerEvent, recordFlashcardReviewMemory } from "../../memory"
-import type { LearnerEvent } from "../../memory"
-import { writeLearnerEvidenceForEvent } from "../../memory/evidence"
+import { ingestFlashcardReview } from "../../memory"
 
 const FLASHCARD_REVIEW_QUEUE_SEPARATOR = "\u0000"
 
@@ -32,7 +30,6 @@ class FlashcardCardNotFoundError extends Error {
 type FlashcardReviewMutation = {
   output: SubmitReviewOutput
   record: ReviewRecord
-  learnerEvent: LearnerEvent
   deckTitle: string
   noteTags: string[]
   previousState: FlashcardCard["state"]
@@ -121,20 +118,6 @@ async function submitFlashcardObjectReview(input: {
     })
     await commitFlashcardObjectReviewTransaction(input.directory, transaction)
 
-    const learnerEvent = createLearnerEvent({
-      type: "flashcard_review_ingested",
-      sourceKind: "flashcard_review",
-      sourceId: input.cardID,
-      searchableText: `Flashcard review ${input.objectID}/${input.cardID}: rating ${input.rating}, ${card.state} -> ${result.newState}.`,
-      payload: {
-        objectID: input.objectID,
-        cardID: input.cardID,
-        rating: input.rating,
-        previousState: card.state,
-        newState: result.newState,
-        isLeech: result.isLeech,
-      },
-    })
     const note = deck.notes.find((candidate) => candidate.noteID === card.noteID)
 
     return {
@@ -147,7 +130,6 @@ async function submitFlashcardObjectReview(input: {
         isLeech: result.isLeech,
       },
       record,
-      learnerEvent,
       deckTitle: deck.title,
       noteTags: note?.tags ?? [],
       previousState: card.state,
@@ -157,45 +139,17 @@ async function submitFlashcardObjectReview(input: {
     }
   })
 
-  const learnerEvent = mutation.learnerEvent
-  await appendLearnerEvent(input.directory, learnerEvent)
-  const memory = await recordFlashcardReviewMemory({
+  await ingestFlashcardReview({
     directory: input.directory,
-    eventId: learnerEvent.id,
+    objectID: input.objectID,
+    cardID: input.cardID,
     deckTitle: mutation.deckTitle,
     tags: mutation.noteTags,
     rating: input.rating,
     previousState: mutation.previousState,
     newState: mutation.newState,
     isLeech: mutation.isLeech,
-    projectPath: input.directory,
-  })
-  await writeLearnerEvidenceForEvent({
-    directory: input.directory,
-    event: learnerEvent,
-    objectId: input.objectID,
-    title: mutation.deckTitle,
-    note: `Flashcard review recorded for card ${input.cardID} with rating ${input.rating}; ${mutation.previousState} -> ${mutation.newState}.`,
-    tags: mutation.noteTags,
-    payload: {
-      objectID: input.objectID,
-      cardID: input.cardID,
-      rating: input.rating,
-      previousState: mutation.previousState,
-      newState: mutation.newState,
-      isLeech: mutation.isLeech,
-      nextDue: mutation.nextDue,
-    },
-    memoryEffects: [
-      {
-        ...(memory ? { memoryId: memory.id } : {}),
-        effect: mutation.isLeech || input.rating === "again" ? "reinforced" : "noted",
-        reason:
-          mutation.isLeech || input.rating === "again"
-            ? "Repeated difficulty on this card suggests the topic remains fragile."
-            : "Stable review evidence recorded for this card.",
-      },
-    ],
+    nextDue: mutation.nextDue,
   })
 
   return mutation.output

@@ -34,6 +34,9 @@ import {
 } from "../learning/features/memory"
 import { readLearnerMemorySettings } from "../learning/features/memory/settings"
 import { buildLearnerContextView } from "../learning/shared/learner-context-delivery"
+import { Config } from "../config"
+import { EXPERIMENTAL_FEATURE_ID } from "../experimental-features/catalog"
+import { experimentalFeatureIsEnabled } from "../experimental-features/service"
 
 const learnerMemorySearchQuerySchema = directoryQuerySchema.extend({
   query: z.string().min(1),
@@ -419,6 +422,13 @@ async function readTextArtifact(input: {
 }
 
 export const LearnerRoutes = new Hono()
+  .use("*", async (c, next) => {
+    const config = await Config.getGlobal()
+    if (!experimentalFeatureIsEnabled(config, EXPERIMENTAL_FEATURE_ID.learnerMemory)) {
+      return c.json({ error: "Memory is an experimental feature that is not enabled" }, 403)
+    }
+    await next()
+  })
   .get(
     "/memory/digest",
     describeRoute({
@@ -540,7 +550,7 @@ export const LearnerRoutes = new Hono()
         const query = c.req.valid("query")
         const result = getLearnerMemoryLabRunState(query.runID)
         if (!result || result.directory !== context.directory) {
-          return c.json({ message: "Learner memory lab run not found." }, 404)
+          return c.json({ message: "Memory lab run not found." }, 404)
         }
         return c.json(result)
       }),
@@ -733,7 +743,7 @@ export const LearnerRoutes = new Hono()
           memoryId: c.req.valid("param").memoryId,
         })
         if (!memory) {
-          return c.json({ error: "Learner memory not found" }, 404)
+          return c.json({ error: "Memory not found" }, 404)
         }
         const sources = await buildLearnerMemorySourcePointers({
           directory: context.directory,

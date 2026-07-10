@@ -11,6 +11,8 @@ import {
 import { regenerateLearnerMemoryMarkdown } from "../markdown"
 import { searchLearnerMemory } from "../retrieval"
 import { LearnerMemoryTypeSchema } from "../types"
+import { loadProjectConfig } from "../../../../config/store/read-config"
+import { readLearnerMemorySettings } from "../settings"
 
 const LearnerMemoryRememberInputSchema = z.object({
   operation: z.literal("remember"),
@@ -105,15 +107,20 @@ const LearnerMemoryUpdateInputSchema = z
 const learnerMemoryUpdateTool = createBuddyTool({
   id: "learner_memory_update",
   description:
-    "Update Buddy's learner memory only when the learner explicitly asks Buddy to remember, correct, forget, or reject learner context. Do not use this for inferred memories; background extraction handles inference.",
+    "Update Buddy's memory only when the learner explicitly asks Buddy to remember, correct, forget, or reject learner context. Do not use this for inferred memories; background extraction handles inference.",
   parameters: LearnerMemoryUpdateInputSchema,
   ui: {
     presentation: "hidden-summary",
     labels: {
-      idle: "Update learner memory",
+      idle: "Update memory",
     },
   },
   async execute(params, ctx) {
+    const settings = readLearnerMemorySettings(await loadProjectConfig(ctx.directory))
+    if (!settings.enabled) {
+      throw new Error("Memory is not enabled for this notebook")
+    }
+
     if (params.operation === "remember") {
       const rememberParams = LearnerMemoryRememberInputSchema.parse(params)
       const memory = await createLearnerMemory({
@@ -128,7 +135,7 @@ const learnerMemoryUpdateTool = createBuddyTool({
       })
       await regenerateLearnerMemoryMarkdown(ctx.directory)
       return {
-        title: "Learner memory created",
+        title: "Memory created",
         metadata: {},
         output: JSON.stringify({ memory }, null, 2),
       }
@@ -147,7 +154,7 @@ const learnerMemoryUpdateTool = createBuddyTool({
       })
       await regenerateLearnerMemoryMarkdown(ctx.directory)
       return {
-        title: memory ? "Learner memory corrected" : "Learner memory not found",
+        title: memory ? "Memory corrected" : "Memory not found",
         metadata: {},
         output: JSON.stringify({ memory }, null, 2),
       }
@@ -162,7 +169,7 @@ const learnerMemoryUpdateTool = createBuddyTool({
       })
       await regenerateLearnerMemoryMarkdown(ctx.directory)
       return {
-        title: memory ? "Learner memory rejected" : "Learner memory not found",
+        title: memory ? "Memory rejected" : "Memory not found",
         metadata: {},
         output: JSON.stringify({ memory }, null, 2),
       }
@@ -177,7 +184,7 @@ const learnerMemoryUpdateTool = createBuddyTool({
       })
       await regenerateLearnerMemoryMarkdown(ctx.directory)
       return {
-        title: memory ? "Learner memory resolved" : "Learner memory not found",
+        title: memory ? "Memory resolved" : "Memory not found",
         metadata: {},
         output: JSON.stringify({ memory }, null, 2),
       }
@@ -195,9 +202,9 @@ const learnerMemoryUpdateTool = createBuddyTool({
       return {
         title: memory
           ? pinParams.pinned
-            ? "Learner memory pinned"
-            : "Learner memory unpinned"
-          : "Learner memory not found",
+            ? "Memory pinned"
+            : "Memory unpinned"
+          : "Memory not found",
         metadata: {},
         output: JSON.stringify({ memory }, null, 2),
       }
@@ -217,7 +224,7 @@ const learnerMemoryUpdateTool = createBuddyTool({
       recordUsage: false,
     })
     return {
-      title: memory ? "Learner memory hidden" : "Learner memory not found",
+      title: memory ? "Memory hidden" : "Memory not found",
       metadata: {},
       output: JSON.stringify({ memory, remainingMatches: remaining.length }, null, 2),
     }

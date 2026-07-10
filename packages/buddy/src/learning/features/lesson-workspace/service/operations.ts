@@ -1,8 +1,6 @@
 import fs from "node:fs/promises"
 import { TeachingPath } from "../paths/path"
-import { appendLearnerEvent, createLearnerEvent } from "../../memory/storage"
-import { recordCheckpointMemory } from "../../memory/deterministic"
-import { writeLearnerEvidenceForEvent } from "../../memory/evidence"
+import { ingestTeachingCheckpoint } from "../../memory/ingestion"
 import type {
   TeachingLanguage,
   TeachingWorkspaceCreateFileRequest,
@@ -202,55 +200,13 @@ async function checkpoint(directory: string, sessionID: string) {
       await fs.writeFile(checkpointFilePath, lessonCode, "utf8")
     }),
   )
-  const learnerEvent = createLearnerEvent({
-    type: "task_checkpoint_ingested",
-    sessionId: sessionID,
-    projectPath: directory,
-    sourceKind: "teaching_checkpoint",
-    sourceId: sessionID,
-    searchableText: `Teaching checkpoint saved for ${sessionID}; changedSinceLastCheckpoint=${changedSinceLastCheckpoint}.`,
-    payload: {
-      sessionID,
-      revision: synced.record.revision,
-      lessonFilePath: synced.record.lessonFilePath,
-      checkpointFilePath: synced.record.checkpointFilePath,
-      changedSinceLastCheckpoint,
-    },
-  })
-  await appendLearnerEvent(directory, learnerEvent)
-  const memory = await recordCheckpointMemory({
+  await ingestTeachingCheckpoint({
     directory,
-    eventId: learnerEvent.id,
-    sessionID: sessionID,
+    sessionID,
     lessonFilePath: synced.record.lessonFilePath,
+    checkpointFilePath: synced.record.checkpointFilePath,
     revision: synced.record.revision,
     changedSinceLastCheckpoint,
-    projectPath: directory,
-  })
-  await writeLearnerEvidenceForEvent({
-    directory,
-    event: learnerEvent,
-    objectId: sessionID,
-    title: `Teaching checkpoint ${sessionID}`,
-    note: changedSinceLastCheckpoint
-      ? "Checkpoint captured learner progress changes that differ from the prior checkpoint."
-      : "Checkpoint captured the current learner state without new changes since the prior checkpoint.",
-    tags: ["teaching-checkpoint", sessionID],
-    payload: {
-      revision: synced.record.revision,
-      lessonFilePath: synced.record.lessonFilePath,
-      checkpointFilePath: synced.record.checkpointFilePath,
-      changedSinceLastCheckpoint,
-    },
-    memoryEffects: [
-      {
-        ...(memory ? { memoryId: memory.id } : {}),
-        effect: "noted",
-        reason: changedSinceLastCheckpoint
-          ? "Checkpoint evidence captured a meaningful learner workspace update."
-          : "Checkpoint evidence captured a stable learner workspace state.",
-      },
-    ],
   })
 
   return {

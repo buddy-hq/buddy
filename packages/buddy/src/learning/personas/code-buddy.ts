@@ -56,7 +56,6 @@ export const CODE_BUDDY = defineBuddyPersona({
       "flashcard-author": true,
       general: true,
       explore: true,
-      "learner-memory-consolidator": true,
     },
   },
 })

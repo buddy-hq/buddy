@@ -28,6 +28,12 @@ export {
   recordQuestionSetAttemptMemory,
 } from "./deterministic"
 export { regenerateLearnerMemoryMarkdown } from "./markdown"
+export {
+  ingestFlashcardReview,
+  ingestLearnerContextDelivery,
+  ingestQuestionSetAttempt,
+  ingestTeachingCheckpoint,
+} from "./ingestion"
 export { runLearnerMemoryMaintenance } from "./maintenance"
 export type { LearnerMemoryMaintenanceReport } from "./maintenance"
 export {

@@ -212,7 +212,7 @@ function renderSummaryMarkdown(memories: readonly LearnerMemory[]): string {
     .filter((memory) => memory.type === "fragile_skill" || memory.type === "misconception")
     .map((memory) => `${memory.title}: ${memory.body}`)
 
-  return `# Learner Memory Summary
+  return `# Memory Summary
 
 ## Preferences
 
@@ -268,9 +268,9 @@ function renderRegistryMarkdown(
   )
   const body = [...renderedMemories, ...preservedInvalidBlocks].join("\n")
 
-  return `# Learner Memory Registry
+  return `# Memory Registry
 
-This file is the canonical learner-memory store. Keep each memory as a parseable "##" block.
+This file is the canonical memory store. Keep each memory as a parseable "##" block.
 
 ${body}
 `

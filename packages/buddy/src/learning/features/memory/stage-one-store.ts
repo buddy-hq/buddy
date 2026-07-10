@@ -401,7 +401,7 @@ async function writeRolloutSummaryArtifact(input: {
       `project_path: ${input.output.projectPath}`,
       `candidate_count: ${input.output.candidatePatches.length}`,
       "",
-      input.output.rolloutSummary.trim() || "No learner-memory summary.",
+      input.output.rolloutSummary.trim() || "No memory summary.",
       "",
     ].join("\n"),
     "utf8",
@@ -634,7 +634,7 @@ async function syncLearnerMemoryPhaseTwoArtifacts(input: {
   const body = [
     "# Raw Learner Memories",
     "",
-    "Merged selected stage-one learner-memory outputs for phase-two consolidation.",
+    "Merged selected stage-one memory outputs for phase-two consolidation.",
     "",
     ...input.outputs.flatMap((output) => [
       `## Session ${output.sessionId}`,
@@ -643,7 +643,7 @@ async function syncLearnerMemoryPhaseTwoArtifacts(input: {
       `project_path: ${output.projectPath}`,
       `rollout_summary_file: ${safeArtifactId(output.sessionId)}${LEARNER_MEMORY_STAGE_ONE_TUNING.markdownFileExtension}`,
       "",
-      output.rawMemory.trim() || "No raw learner memory.",
+      output.rawMemory.trim() || "No raw memory.",
       "",
     ]),
   ].join("\n")

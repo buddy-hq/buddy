@@ -3,6 +3,8 @@ import { createBuddyTool } from "../../../runtime/create-buddy-tool"
 import { buildLearnerMemorySourcePointers } from "../evidence"
 import { searchLearnerMemory } from "../retrieval"
 import { LearnerMemoryTypeSchema } from "../types"
+import { loadProjectConfig } from "../../../../config/store/read-config"
+import { readLearnerMemorySettings } from "../settings"
 
 const LearnerMemorySearchInputSchema = z.object({
   query: z.string().min(1),
@@ -15,15 +17,20 @@ const LearnerMemorySearchInputSchema = z.object({
 const learnerMemorySearchTool = createBuddyTool({
   id: "learner_memory_search",
   description:
-    "Search Buddy's learner memory for relevant preferences, goals, evidence, fragile skills, misconceptions, and project context. Use this only when prior learner context would materially improve the current answer.",
+    "Search Buddy's memory for relevant preferences, goals, evidence, fragile skills, misconceptions, and project context. Use this only when prior learner context would materially improve the current answer.",
   parameters: LearnerMemorySearchInputSchema,
   ui: {
     presentation: "hidden-summary",
     labels: {
-      idle: "Search learner memory",
+      idle: "Search memory",
     },
   },
   async execute(params, ctx) {
+    const settings = readLearnerMemorySettings(await loadProjectConfig(ctx.directory))
+    if (!settings.enabled) {
+      throw new Error("Memory is not enabled for this notebook")
+    }
+
     const results = await searchLearnerMemory({
       directory: ctx.directory,
       query: params.query,
@@ -47,7 +54,7 @@ const learnerMemorySearchTool = createBuddyTool({
       : []
 
     return {
-      title: "Learner memory search",
+      title: "Memory search",
       metadata: {
         query: params.query,
         resultCount: filteredResults.length,

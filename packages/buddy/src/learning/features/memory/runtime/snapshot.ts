@@ -68,15 +68,22 @@ async function readBaseMemorySummary(directory: string): Promise<string[]> {
 }
 
 async function buildLearnerRuntimeSnapshot(directory: string): Promise<LearnerRuntimeSnapshot> {
-  const [projectConfig, memories, activeGoals, baseMemorySummary] = await Promise.all([
+  const [projectConfig, activeGoals] = await Promise.all([
     readProjectConfig(directory).catch(() => undefined),
-    listLearnerMemories(directory).catch(() => []),
     listActiveGoals(directory).catch(() => []),
-    readBaseMemorySummary(directory).catch(() => []),
   ])
   const settings = projectConfig
     ? readLearnerMemorySettings(projectConfig)
-    : { defaultContextMemoryLimit: LEARNER_MEMORY_RUNTIME_TUNING.baseMemorySummaryLineLimit }
+    : {
+        enabled: false,
+        defaultContextMemoryLimit: LEARNER_MEMORY_RUNTIME_TUNING.baseMemorySummaryLineLimit,
+      }
+  const [memories, baseMemorySummary] = settings.enabled
+    ? await Promise.all([
+        listLearnerMemories(directory).catch(() => []),
+        readBaseMemorySummary(directory).catch(() => []),
+      ])
+    : [[], []]
   const active = memories.filter((memory) => memory.status === "active")
   const goalRecords = activeGoals
     .slice(0, LEARNER_MEMORY_RUNTIME_TUNING.activeGoalLimit)

@@ -181,7 +181,7 @@ const LEARNER_MEMORY_STORAGE_TUNING = {
 
 const LEARNER_MEMORY_INTERNAL_SESSION_TUNING = {
   sessionPrefix: "ses_learner_memory_",
-  consolidationSessionTitle: "Learner memory consolidation",
+  consolidationSessionTitle: "Memory consolidation",
 } as const
 
 const LEARNER_MEMORY_SESSION_SOURCE_TUNING = {
