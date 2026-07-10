@@ -158,14 +158,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
                 </NativeSelectOption>
               ))}
               {props.groupedModelOptions.grouped.map(([group, options]) => (
-                <NativeSelectOptGroup
-                  key={group}
-                  label={
-                    group === "OpenCode Zen" || group === "Opencode Zen"
-                      ? "Free (via. Opencode)"
-                      : group
-                  }
-                >
+                <NativeSelectOptGroup key={group} label={group}>
                   {options.map((option) => (
                     <NativeSelectOption
                       key={option.key}
@@ -230,11 +223,7 @@ export const PromptComposerToolbar = React.memo(function PromptComposerToolbar(
                 ))}
                 {props.groupedModelOptions.grouped.map(([group, options]) => (
                   <SelectGroup key={group}>
-                    <SelectLabel>
-                      {group === "OpenCode Zen" || group === "Opencode Zen"
-                        ? "Free (via. Opencode)"
-                        : group}
-                    </SelectLabel>
+                    <SelectLabel>{group}</SelectLabel>
                     {options.map((option) => (
                       <SelectItem key={option.key} value={option.key} disabled={option.disabled}>
                         <span className="flex min-w-0 items-center gap-2">

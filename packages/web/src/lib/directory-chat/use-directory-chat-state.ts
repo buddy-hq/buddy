@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 import { useQueries, useQuery } from "@tanstack/react-query"
 import { useShallow } from "zustand/react/shallow"
+import { language } from "@/context/language"
 import { useChatStore, type ChatStore } from "@/state/chat-store"
 import {
   getSelectedAgentKey,
@@ -46,11 +47,12 @@ import type {
 } from "@/state/chat-types"
 import type { AgentConfigOption, PersonaConfigOption } from "@/state/chat-actions"
 import {
-  getConnectedProviders,
+  getUsableProviders,
   resolveAutoModelSelection,
-  resolveConnectedModelSelection,
+  resolveUsableModelSelection,
   type ProviderModelSelection,
 } from "@/lib/provider-catalog"
+import { OPENCODE_PROVIDER_ID } from "@/lib/provider-ids"
 import { resolveCurrentAgent } from "./agent-catalog"
 
 const EMPTY_LIST: never[] = []
@@ -132,13 +134,13 @@ function isModelSelection(
 }
 
 export function resolveVisibleModelKeys(input: {
-  connectedProviders: ProviderInfo[]
+  usableProviders: ProviderInfo[]
   autoModelSelection: ProviderModelSelection | undefined
   selectedModelOverrideKey: string | undefined
 }) {
   const visible = new Set<string>()
 
-  for (const provider of input.connectedProviders) {
+  for (const provider of input.usableProviders) {
     for (const model of provider.models) {
       const key = modelSelectionKey({ providerID: provider.id, modelID: model.id })
       visible.add(key)
@@ -149,6 +151,13 @@ export function resolveVisibleModelKeys(input: {
   if (input.selectedModelOverrideKey) visible.add(input.selectedModelOverrideKey)
 
   return visible
+}
+
+export function resolveProviderModelGroup(provider: ProviderInfo) {
+  if (provider.id === OPENCODE_PROVIDER_ID && !provider.connected) {
+    return language.t("prompt.toolbar.groups.freeModels")
+  }
+  return provider.name
 }
 
 function resolveConfiguredAgentVariant(input: {
@@ -458,7 +467,7 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
   })
   const providers = directoryState?.providers ?? EMPTY_LIST
   const providerDefault = directoryState?.providerDefault ?? EMPTY_RECORD
-  const connectedProviders = useMemo(() => getConnectedProviders(providers), [providers])
+  const usableProviders = useMemo(() => getUsableProviders(providers), [providers])
   const currentAgent = useMemo(
     () =>
       resolveCurrentAgent({
@@ -484,11 +493,11 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
   }, [currentAgent?.model, props.configuredModel, providerDefault, providers, recentModels])
   const visibleModelKeys = useMemo(() => {
     return resolveVisibleModelKeys({
-      connectedProviders,
+      usableProviders,
       autoModelSelection,
       selectedModelOverrideKey,
     })
-  }, [autoModelSelection, connectedProviders, selectedModelOverrideKey])
+  }, [autoModelSelection, selectedModelOverrideKey, usableProviders])
   const primaryPersonaOptions = useMemo(
     () => props.personaCatalog.filter((persona) => !persona.hidden),
     [props.personaCatalog],
@@ -496,43 +505,43 @@ export function useDirectoryChatState(props: UseDirectoryChatStateProps): Direct
   const modelOptions = useMemo(() => {
     const options: DirectoryChatModelOption[] = []
 
-    for (const provider of connectedProviders) {
+    for (const provider of usableProviders) {
       for (const model of provider.models) {
         const key = modelSelectionKey({ providerID: provider.id, modelID: model.id })
         if (!visibleModelKeys.has(key)) continue
         options.push({
           key,
           label: model.name || model.id,
-          group: provider.name,
+          group: resolveProviderModelGroup(provider),
           acceptsImages: model.capabilities.input.image,
         })
       }
     }
 
     return options
-  }, [connectedProviders, visibleModelKeys])
+  }, [usableProviders, visibleModelKeys])
   const selectedModelOverride = useMemo(
     () => parseConfiguredModel(selectedModelOverrideKey),
     [selectedModelOverrideKey],
   )
-  const connectedSelectedModelOverride = useMemo(
+  const usableSelectedModelOverride = useMemo(
     () =>
-      resolveConnectedModelSelection({
+      resolveUsableModelSelection({
         providers,
         selection: selectedModelOverride,
       }),
     [providers, selectedModelOverride],
   )
   const effectiveModelSelection = useMemo(
-    () => connectedSelectedModelOverride ?? autoModelSelection,
-    [autoModelSelection, connectedSelectedModelOverride],
+    () => usableSelectedModelOverride ?? autoModelSelection,
+    [autoModelSelection, usableSelectedModelOverride],
   )
   const effectiveModelInfo = useMemo(() => {
     if (!effectiveModelSelection) return undefined
-    return connectedProviders
+    return usableProviders
       .find((provider) => provider.id === effectiveModelSelection.providerID)
       ?.models.find((model) => model.id === effectiveModelSelection.modelID)
-  }, [connectedProviders, effectiveModelSelection])
+  }, [effectiveModelSelection, usableProviders])
   const configuredVariant = useMemo(
     () =>
       resolveConfiguredAgentVariant({

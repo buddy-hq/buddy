@@ -1,4 +1,5 @@
 import type { ProviderCatalogState, ProviderInfo } from "@/state/chat-types"
+import { OPENCODE_PROVIDER_ID } from "@/lib/provider-ids"
 
 export type ProviderModelSelection = {
   providerID: string
@@ -9,7 +10,14 @@ export function getConnectedProviders(providers: ProviderInfo[]) {
   return providers.filter((provider) => provider.connected)
 }
 
-function resolveConnectedProviderModel(
+export function getUsableProviders(providers: ProviderInfo[]) {
+  return providers.filter(
+    (provider) =>
+      provider.connected || (provider.id === OPENCODE_PROVIDER_ID && provider.models.length > 0),
+  )
+}
+
+function resolveProviderModel(
   provider: ProviderInfo | undefined,
   preferredModelID?: string,
 ) {
@@ -23,20 +31,37 @@ function resolveConnectedProviderModel(
   return provider.models[0]
 }
 
-export function resolveConnectedModelSelection(input: {
+function resolveFirstProviderModelSelection(
+  providers: ProviderInfo[],
+  providerDefault: Record<string, string>,
+) {
+  for (const provider of providers) {
+    const model = resolveProviderModel(provider, providerDefault[provider.id])
+    if (model) {
+      return {
+        providerID: provider.id,
+        modelID: model.id,
+      } satisfies ProviderModelSelection
+    }
+  }
+
+  return undefined
+}
+
+export function resolveUsableModelSelection(input: {
   providers: ProviderInfo[]
   selection: ProviderModelSelection | undefined
 }) {
   const selection = input.selection
   if (!selection) return undefined
 
-  const connectedProvider = getConnectedProviders(input.providers).find(
+  const provider = getUsableProviders(input.providers).find(
     (provider) => provider.id === selection.providerID,
   )
-  if (!connectedProvider) return undefined
+  if (!provider) return undefined
 
-  const connectedModel = connectedProvider.models.find((model) => model.id === selection.modelID)
-  if (!connectedModel) return undefined
+  const model = provider.models.find((model) => model.id === selection.modelID)
+  if (!model) return undefined
 
   return selection
 }
@@ -50,7 +75,7 @@ export function resolveProviderModelSelection(input: {
   const providerPool =
     input.requireConnected === false ? input.providers : getConnectedProviders(input.providers)
   const provider = providerPool.find((entry) => entry.id === input.providerID)
-  const model = resolveConnectedProviderModel(provider, input.providerDefault[input.providerID])
+  const model = resolveProviderModel(provider, input.providerDefault[input.providerID])
 
   if (!provider || !model) return undefined
 
@@ -80,7 +105,7 @@ export function resolveAutoModelSelection(input: {
   configuredModel?: ProviderModelSelection
   recentModels?: ProviderModelSelection[]
 }) {
-  const agentModel = resolveConnectedModelSelection({
+  const agentModel = resolveUsableModelSelection({
     providers: input.providers,
     selection: input.agentModel,
   })
@@ -88,7 +113,7 @@ export function resolveAutoModelSelection(input: {
     return agentModel
   }
 
-  const configuredModel = resolveConnectedModelSelection({
+  const configuredModel = resolveUsableModelSelection({
     providers: input.providers,
     selection: input.configuredModel,
   })
@@ -97,7 +122,7 @@ export function resolveAutoModelSelection(input: {
   }
 
   for (const recentModel of input.recentModels ?? []) {
-    const selection = resolveConnectedModelSelection({
+    const selection = resolveUsableModelSelection({
       providers: input.providers,
       selection: recentModel,
     })
@@ -106,15 +131,16 @@ export function resolveAutoModelSelection(input: {
     }
   }
 
-  for (const provider of getConnectedProviders(input.providers)) {
-    const model = resolveConnectedProviderModel(provider, input.providerDefault[provider.id])
-    if (model) {
-      return {
-        providerID: provider.id,
-        modelID: model.id,
-      } satisfies ProviderModelSelection
-    }
+  const connectedFallback = resolveFirstProviderModelSelection(
+    getConnectedProviders(input.providers),
+    input.providerDefault,
+  )
+  if (connectedFallback) {
+    return connectedFallback
   }
 
-  return undefined
+  return resolveFirstProviderModelSelection(
+    getUsableProviders(input.providers).filter((provider) => !provider.connected),
+    input.providerDefault,
+  )
 }

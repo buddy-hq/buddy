@@ -22,7 +22,7 @@ import { usePlatform } from "@/context/platform"
 import { connectChatGptPlusForOnboarding } from "@/lib/onboarding-flow"
 import { getConnectedProviders } from "@/lib/provider-catalog"
 import { resolveProviderSearchResults } from "@/lib/provider-search"
-import { OPENCODE_PROVIDER_ID, OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
+import { OPENAI_PROVIDER_ID } from "@/lib/provider-ids"
 import {
   authorizeProviderOAuth,
   completeProviderOAuth,
@@ -91,13 +91,6 @@ const RECOMMENDED_PROVIDER_DEFINITIONS: RecommendedProviderDefinition[] = [
     description: language.t("settings.providers.chatGptDescription"),
     iconID: OPENAI_PROVIDER_ID,
     connectLabel: language.t("settings.providers.connectChatGpt"),
-  },
-  {
-    providerID: OPENCODE_PROVIDER_ID,
-    title: language.t("settings.providers.openCodeZenTitle"),
-    description: language.t("settings.providers.openCodeZenDescription"),
-    iconID: OPENCODE_PROVIDER_ID,
-    connectLabel: language.t("common.connect"),
   },
   {
     providerID: OPENCODE_GO_PROVIDER_ID,

@@ -786,7 +786,7 @@ function normalizeProviderModel(
   }
 }
 
-function isPublicOpencodeModel(model: RawProviderModel) {
+function isPublicOpenCodeModel(model: RawProviderModel) {
   return model.cost.input === 0
 }
 
@@ -809,24 +809,29 @@ export function normalizeProviderCatalog(
     openAIModelAvailability,
     providers: providers.all
       .map((provider) => {
-        const isConnected = connected.has(provider.id)
-        const rawModels = Object.values(provider.models).filter(
-          (model) => model.status !== "deprecated",
-        )
+        const catalogModels = Object.values(provider.models)
+        const runtimeConnected = connected.has(provider.id)
+        const credentialConnected =
+          runtimeConnected &&
+          (provider.id !== OPENCODE_PROVIDER_ID ||
+            catalogModels.some((model) => !isPublicOpenCodeModel(model)))
+        const rawModels = catalogModels.filter((model) => model.status !== "deprecated")
         const visibleModels = rawModels.filter((model) => {
-          if (provider.id === OPENCODE_PROVIDER_ID && !isConnected) {
-            return isPublicOpencodeModel(model)
+          if (provider.id === OPENCODE_PROVIDER_ID && !credentialConnected) {
+            return isPublicOpenCodeModel(model)
           }
-          if (provider.id === OPENAI_PROVIDER_ID && isConnected && availableOpenAIModels) {
+          if (
+            provider.id === OPENAI_PROVIDER_ID &&
+            credentialConnected &&
+            availableOpenAIModels
+          ) {
             return availableOpenAIModels.has(model.id)
           }
           return true
         })
-        const treatAsConnected =
-          isConnected || (provider.id === OPENCODE_PROVIDER_ID && visibleModels.length > 0)
         const source = normalizeProviderSource(
           "source" in provider ? provider.source : undefined,
-          treatAsConnected,
+          credentialConnected,
         )
 
         if (
@@ -860,7 +865,7 @@ export function normalizeProviderCatalog(
           name: provider.name,
           source,
           env: provider.env,
-          connected: treatAsConnected,
+          connected: credentialConnected,
           methods: (authMethods[provider.id] ?? []).map((method: ProviderAuthMethod) => ({
             type: method.type,
             label: method.label,
@@ -2378,7 +2383,7 @@ function learnerMemorySectionTitle(type: LearnerMemoryRecord["type"]): string {
 }
 
 function buildLearnerMemoryMarkdown(memories: LearnerMemoryRecord[]): string {
-  if (memories.length === 0) return "No active learner memories yet."
+  if (memories.length === 0) return "No active memories yet."
 
   return memories
     .map((memory) => `- ${memory.type}: ${memory.title} (${memory.confidence})`)
@@ -2398,7 +2403,7 @@ function buildCurriculumViewFromSnapshot(snapshot: LearnerMemorySnapshot): Learn
 
   return {
     workspace: parseWorkspaceView({
-      label: "Learner memory",
+      label: "Memory",
       preferredSurfaces: ["chat", "curriculum", "editor", "question-set"],
     }),
     coldStart: activeMemories.length === 0,
@@ -2547,7 +2552,7 @@ export async function loadLearnerGoals(directory: string): Promise<{ goals: Goal
         actionVerb: "learn",
         task: memory.body,
         cognitiveLevel: "Application",
-        howToTest: "Use learner memory evidence to check whether this goal is still active.",
+        howToTest: "Use memory evidence to check whether this goal is still active.",
         dependsOnGoalIds: [],
         buildsOnGoalIds: [],
         reinforcesGoalIds: [],
