@@ -20,6 +20,7 @@ import {
 import type { NodeArtifactProcess } from "../../buddy/script/node-artifact-runtime"
 import {
   LITEPARSE_PACKAGE_NAME,
+  TYPESCRIPT_RUNTIME_PACKAGE_NAME,
   currentBackendNodeArtifactTarget,
   liteParseNativePackageName,
   nodePtyNativePackageName,
@@ -245,7 +246,7 @@ async function smokeApiRoutes(input: { baseUrl: string; directory: string }): Pr
 
 function assertDesktopBuildContract(mainDir: string): void {
   const scan = scanBuildOutput(mainDir)
-  const allowedPackagedPackages = new Set(nativeRuntimePackageNames())
+  const allowedPackagedPackages = new Set(runtimePackageNames())
   const forbiddenPackagedPackages = scan.packagedNodeModules.filter(
     (packageName) => !allowedPackagedPackages.has(packageName),
   )
@@ -257,17 +258,18 @@ function assertDesktopBuildContract(mainDir: string): void {
   }
 }
 
-function nativeRuntimePackageNames(): string[] {
+function runtimePackageNames(): string[] {
   const target = currentBackendNodeArtifactTarget()
   return [
     LITEPARSE_PACKAGE_NAME,
     liteParseNativePackageName(target),
     nodePtyNativePackageName(target),
     parcelWatcherNativePackageName(target),
+    TYPESCRIPT_RUNTIME_PACKAGE_NAME,
   ]
 }
 
-async function assertNativePackageLoadable(input: {
+async function assertRuntimePackageLoadable(input: {
   mainDir: string
   packageName: string
 }): Promise<void> {
@@ -367,8 +369,8 @@ const isolatedMain = createIsolatedMainOutput(smokeRoot)
 const notebookRoot = path.join(runtimeRoot, "notebook")
 
 assertDesktopBuildContract(isolatedMain.isolatedMainDir)
-for (const packageName of nativeRuntimePackageNames()) {
-  await assertNativePackageLoadable({ mainDir: isolatedMain.isolatedMainDir, packageName })
+for (const packageName of runtimePackageNames()) {
+  await assertRuntimePackageLoadable({ mainDir: isolatedMain.isolatedMainDir, packageName })
 }
 
 let child: NodeArtifactProcess | undefined

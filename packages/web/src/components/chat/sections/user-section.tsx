@@ -14,6 +14,7 @@ import { isHiddenFromUserMessage } from "../utils/message-visibility"
 import {
   readPromptReadingSelectionMetadata,
   readPromptSelectionContextMetadata,
+  OPENCODE_REFERENCE_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "@/components/prompt/prompt-types"
 import type { MessagePart } from "@/state/chat-types"
@@ -38,7 +39,17 @@ type ChatWorkspaceFileReferencePart = MessagePart & {
   path: string
 }
 
-type StandaloneReferencePart = ChatAgentPart | ChatFilePart | ChatWorkspaceFileReferencePart
+type ChatOpenCodeReferencePart = MessagePart & {
+  type: typeof OPENCODE_REFERENCE_PART_TYPE
+  name: string
+  path: string
+}
+
+type StandaloneReferencePart =
+  | ChatAgentPart
+  | ChatFilePart
+  | ChatWorkspaceFileReferencePart
+  | ChatOpenCodeReferencePart
 
 function isChatWorkspaceFileReferencePart(
   part: MessagePart,
@@ -46,12 +57,25 @@ function isChatWorkspaceFileReferencePart(
   return part.type === WORKSPACE_FILE_REFERENCE_PART_TYPE && typeof part.path === "string"
 }
 
+function isChatOpenCodeReferencePart(part: MessagePart): part is ChatOpenCodeReferencePart {
+  return (
+    part.type === OPENCODE_REFERENCE_PART_TYPE &&
+    typeof part.name === "string" &&
+    typeof part.path === "string"
+  )
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
 
 function isStandaloneReferencePart(part: MessagePart): part is StandaloneReferencePart {
-  return isChatAgentPart(part) || isChatFilePart(part) || isChatWorkspaceFileReferencePart(part)
+  return (
+    isChatAgentPart(part) ||
+    isChatFilePart(part) ||
+    isChatWorkspaceFileReferencePart(part) ||
+    isChatOpenCodeReferencePart(part)
+  )
 }
 
 function hasTextSource(part: ChatAgentPart | ChatFilePart) {
@@ -62,6 +86,7 @@ function hasTextSource(part: ChatAgentPart | ChatFilePart) {
 
 function getReferencePath(part: StandaloneReferencePart) {
   if (isChatAgentPart(part)) return part.name
+  if (isChatOpenCodeReferencePart(part)) return part.name
   if (isChatWorkspaceFileReferencePart(part)) return part.path
   return typeof part.filename === "string" && part.filename.length > 0 ? part.filename : part.url
 }
@@ -103,6 +128,10 @@ export const UserSection = memo(function UserSection({
     () => userParts.filter(isChatWorkspaceFileReferencePart),
     [userParts],
   )
+  const userOpenCodeReferenceParts = useMemo(
+    () => userParts.filter(isChatOpenCodeReferencePart),
+    [userParts],
+  )
   const userSelectionContextParts = useMemo(
     () => userParts.map(readChatReadingSelectionPart).filter((part) => part !== undefined),
     [userParts],
@@ -113,9 +142,15 @@ export const UserSection = memo(function UserSection({
       dedupeReferenceParts([
         ...userInlineFileParts.filter((part) => !hasTextSource(part)),
         ...userAgentParts.filter((part) => !hasTextSource(part)),
+        ...userOpenCodeReferenceParts,
         ...userWorkspaceReferenceParts,
       ]),
-    [userAgentParts, userInlineFileParts, userWorkspaceReferenceParts],
+    [
+      userAgentParts,
+      userInlineFileParts,
+      userOpenCodeReferenceParts,
+      userWorkspaceReferenceParts,
+    ],
   )
   const combinedTextPart = useMemo(() => {
     const displayParts = userParts.flatMap((part) => {

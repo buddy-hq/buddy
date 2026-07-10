@@ -2,12 +2,14 @@ import { createTextFragment } from "./editor-dom"
 import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_TEXT,
+  OPENCODE_REFERENCE_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
   type PromptAgentPart,
   type PromptComposerPart,
+  type PromptOpenCodeReferencePart,
   type PromptReadingSelectionPart,
   type PromptSelectionContextPart,
   type PromptTextPart,
@@ -34,6 +36,14 @@ function createAgentPart(name: string): PromptAgentPart {
   return {
     type: PROMPT_PART_TYPE_AGENT,
     name,
+  }
+}
+
+function createOpenCodeReferencePart(name: string, path: string): PromptOpenCodeReferencePart {
+  return {
+    type: OPENCODE_REFERENCE_PART_TYPE,
+    name,
+    path,
   }
 }
 
@@ -107,6 +117,10 @@ export function clonePromptParts(parts: PromptComposerPart[]): PromptComposerPar
       return createAgentPart(part.name)
     }
 
+    if (part.type === OPENCODE_REFERENCE_PART_TYPE) {
+      return createOpenCodeReferencePart(part.name, part.path)
+    }
+
     if (part.type === RESOURCE_REFERENCE_PART_TYPE) {
       return createResourceReferencePart(part.key)
     }
@@ -138,6 +152,16 @@ export function arePromptPartsEqual(left: PromptComposerPart[], right: PromptCom
     if (leftPart.type === PROMPT_PART_TYPE_AGENT) {
       if (rightPart.type !== PROMPT_PART_TYPE_AGENT || leftPart.name !== rightPart.name)
         return false
+      continue
+    }
+    if (leftPart.type === OPENCODE_REFERENCE_PART_TYPE) {
+      if (
+        rightPart.type !== OPENCODE_REFERENCE_PART_TYPE ||
+        leftPart.name !== rightPart.name ||
+        leftPart.path !== rightPart.path
+      ) {
+        return false
+      }
       continue
     }
     if (leftPart.type === WORKSPACE_FILE_REFERENCE_PART_TYPE) {
@@ -245,6 +269,7 @@ export function serializePromptParts(parts: PromptComposerPart[]): string {
     .map((part) => {
       if (part.type === PROMPT_PART_TYPE_TEXT) return part.text
       if (part.type === PROMPT_PART_TYPE_AGENT) return `@${part.name}`
+      if (part.type === OPENCODE_REFERENCE_PART_TYPE) return `@${part.name}`
       if (part.type === RESOURCE_REFERENCE_PART_TYPE) return `resource:${part.key}`
       if (part.type === READING_SELECTION_PART_TYPE) return `"${part.text}"`
       if (part.type === SELECTION_CONTEXT_PART_TYPE) return `"${part.text}"`
@@ -283,6 +308,7 @@ function readDatasetStringArray(value: string | undefined) {
 function isStructuredPromptElement(element: HTMLElement) {
   return (
     element.dataset.type === PROMPT_PART_TYPE_AGENT ||
+    element.dataset.type === OPENCODE_REFERENCE_PART_TYPE ||
     element.dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
     element.dataset.type === RESOURCE_REFERENCE_PART_TYPE ||
     element.dataset.type === READING_SELECTION_PART_TYPE ||
@@ -315,6 +341,16 @@ export function collectPromptParts(root: HTMLElement): PromptComposerPart[] {
       const name = element.dataset.name
       if (name) {
         parts.push(createAgentPart(name))
+      }
+      return
+    }
+
+    if (element.dataset.type === OPENCODE_REFERENCE_PART_TYPE) {
+      flush()
+      const name = element.dataset.name
+      const path = element.dataset.path
+      if (name && path) {
+        parts.push(createOpenCodeReferencePart(name, path))
       }
       return
     }
@@ -508,6 +544,10 @@ export function renderPromptParts(root: HTMLElement, parts: PromptComposerPart[]
     if (part.type === PROMPT_PART_TYPE_AGENT) {
       pill.textContent = `@${part.name}`
       pill.dataset.name = part.name
+    } else if (part.type === OPENCODE_REFERENCE_PART_TYPE) {
+      pill.textContent = `@${part.name}`
+      pill.dataset.name = part.name
+      pill.dataset.path = part.path
     } else if (part.type === RESOURCE_REFERENCE_PART_TYPE) {
       pill.textContent = `resource:${part.key}`
       pill.dataset.key = part.key

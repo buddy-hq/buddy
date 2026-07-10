@@ -141,6 +141,43 @@ describe("File", () => {
     })
   })
 
+  test("excludes ignored directories before applying the path scan limit", async () => {
+    await withTempProject(async (directory) => {
+      const vendorDirectory = path.join(directory, "vendor")
+      await fs.mkdir(vendorDirectory)
+      await Promise.all([
+        fs.writeFile(path.join(vendorDirectory, "search-one.md"), ""),
+        fs.writeFile(path.join(vendorDirectory, "search-two.md"), ""),
+        fs.writeFile(path.join(directory, "search-notes.md"), ""),
+      ])
+      const project = Schema.decodeUnknownSync(Project.Info)({
+        id: "test-project",
+        worktree: directory,
+        time: {
+          created: 0,
+          updated: 0,
+        },
+        sandboxes: [],
+      })
+
+      const result = await Instance.restore(
+        {
+          directory,
+          worktree: directory,
+          project,
+        },
+        () =>
+          File.searchPaths({
+            query: "search",
+            limit: 10,
+            scanLimit: 1,
+          }),
+      )
+
+      expect(result).toEqual({ matches: ["search-notes.md"], partial: false })
+    })
+  })
+
   test("rejects symlinked paths outside the instance directory", async () => {
     await withTempProject(async (directory, root) => {
       const outsidePath = path.join(root, "outside.txt")

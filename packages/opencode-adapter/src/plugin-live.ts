@@ -3,14 +3,15 @@ import path from "node:path"
 import { Effect } from "effect"
 import type { ConfigV1 } from "@opencode-ai/core/v1/config/config"
 import { InstanceRef } from "opencode/effect/instance-ref"
+import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import * as OpenCodeConfig from "opencode/config/config"
 import * as OpenCodePlugin from "opencode/plugin/index"
 import type { Hooks } from "@opencode-ai/plugin"
 import { withCurrentInstance } from "./effect-runtime"
 
-const runtime = makeRuntime(OpenCodePlugin.Service, OpenCodePlugin.defaultLayer)
-const configRuntime = makeRuntime(OpenCodeConfig.Service, OpenCodeConfig.defaultLayer)
+const runtime = makeRuntime(OpenCodePlugin.Service, AppNodeBuilderV1.build(OpenCodePlugin.node))
+const configRuntime = makeRuntime(OpenCodeConfig.Service, AppNodeBuilderV1.build(OpenCodeConfig.node))
 const patchedServices = new WeakSet<OpenCodePlugin.Interface>()
 const runtimePluginFactories = new Set<RuntimePluginFactory>()
 const hookPromisesByInstance = new Map<string, Promise<RuntimeHooks[]>>()

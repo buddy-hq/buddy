@@ -38,7 +38,9 @@ function getMentionFileDescription(path: string): string | undefined {
 }
 
 function getMentionOptionKey(option: MentionOption): string {
-  return option.type === "agent" ? `agent:${option.name}` : `file:${option.path}`
+  if (option.type === "agent") return `agent:${option.name}`
+  if (option.type === "reference") return `reference:${option.name}`
+  return `file:${option.path}`
 }
 
 export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
@@ -51,6 +53,8 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
     : mentionActive
       ? mentionActive.type === "agent"
         ? `agent:${mentionActive.name}`
+        : mentionActive.type === "reference"
+          ? `reference:${mentionActive.name}`
         : `file:${mentionActive.path}`
       : undefined
 
@@ -140,6 +144,8 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
                 const icon =
                   option.type === "agent" ? (
                     <BotIcon className="size-4 shrink-0 text-text-weak" />
+                  ) : option.type === "reference" ? (
+                    <FolderOpenIcon className="size-4 shrink-0 text-text-weak" />
                   ) : fileParts?.isDirectory ? (
                     <FolderOpenIcon className="size-4 shrink-0 text-text-weak" />
                   ) : (
@@ -148,6 +154,8 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
                 const primaryLabel =
                   option.type === "agent"
                     ? `@${option.name}`
+                    : option.type === "reference"
+                      ? `@${option.name}`
                     : `@${fileParts?.label ?? option.path}`
                 return (
                   <CommandItem

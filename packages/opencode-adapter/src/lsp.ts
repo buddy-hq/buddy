@@ -1,8 +1,9 @@
 import * as OpenCodeLSP from "opencode/lsp/lsp"
+import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import { withCurrentInstance } from "./effect-runtime"
 
-const runtime = makeRuntime(OpenCodeLSP.Service, OpenCodeLSP.defaultLayer)
+const runtime = makeRuntime(OpenCodeLSP.Service, AppNodeBuilderV1.build(OpenCodeLSP.node))
 
 export namespace LSP {
   export async function init() {

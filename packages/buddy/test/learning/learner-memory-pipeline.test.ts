@@ -28,7 +28,7 @@ import { truncateHeadTail } from "../../src/learning/features/memory/text-budget
 import { tmpdir } from "../helpers/tmpdir"
 
 describe("learner memory Codex-aligned pipeline mechanics", () => {
-  test("preserves attachment source text in extraction source text", () => {
+  test("preserves file and agent attachment source text in extraction source text", () => {
     const userMessage = Schema.decodeUnknownSync(SessionV2Schema.Message)({
       id: "msg_user",
       type: "user",
@@ -55,18 +55,6 @@ describe("learner memory Codex-aligned pipeline mechanics", () => {
           },
         },
       ],
-      references: [
-        {
-          name: "course-notes",
-          kind: "local",
-          uri: "file:///course-notes",
-          source: {
-            start: 85,
-            end: 126,
-            text: "The learner is currently studying linear algebra.",
-          },
-        },
-      ],
       time: {
         created: 1_777_777_777_000,
       },
@@ -79,7 +67,6 @@ describe("learner memory Codex-aligned pipeline mechanics", () => {
 
     expect(source.transcript).toContain("The learner benefits from fully worked examples.")
     expect(source.transcript).toContain("Focus on concrete explanations before abstraction.")
-    expect(source.transcript).toContain("The learner is currently studying linear algebra.")
   })
 
   test("excludes assistant reasoning from extraction source text", () => {

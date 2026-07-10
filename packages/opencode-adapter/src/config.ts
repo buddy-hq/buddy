@@ -10,6 +10,7 @@ import * as OpenCodeConfigPlugin from "opencode/config/plugin"
 import { ConfigParse as OpenCodeConfigParse } from "opencode/config/parse"
 import { ConfigVariable as OpenCodeConfigVariable } from "opencode/config/variable"
 import { Effect, Schema } from "effect"
+import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import { InstanceRef } from "opencode/effect/instance-ref"
 import {
@@ -27,7 +28,7 @@ type RuntimeConfig = ConfigV1.Info & {
 }
 
 const BUDDY_RUNTIME_CONFIG_OVERLAY_SOURCE = "BUDDY_RUNTIME_CONFIG_OVERLAY"
-const runtime = makeRuntime(OpenCodeConfig.Service, OpenCodeConfig.defaultLayer)
+const runtime = makeRuntime(OpenCodeConfig.Service, AppNodeBuilderV1.build(OpenCodeConfig.node))
 const patchedServices = new WeakSet<OpenCodeConfig.Interface>()
 const appliedRuntimeConfigOverlays = new WeakSet<RuntimeConfig>()
 let patchPromise: Promise<void> | undefined
@@ -98,6 +99,32 @@ function normalizeLoadedConfig(data: unknown) {
   return copy
 }
 
+function preserveWildcardPermissionPrecedence(
+  permission: ConfigPermissionV1.Info,
+): ConfigPermissionV1.Info {
+  const wildcard = permission["*"]
+  if (wildcard === undefined) return permission
+
+  return {
+    "*": wildcard,
+    ...Object.fromEntries(Object.entries(permission).filter(([key]) => key !== "*")),
+  }
+}
+
+function preserveRuntimeConfigPermissionPrecedence(config: RuntimeConfig): RuntimeConfig {
+  if (config.permission) {
+    config.permission = preserveWildcardPermissionPrecedence(config.permission)
+  }
+
+  for (const agent of Object.values(config.agent ?? {})) {
+    if (agent.permission) {
+      agent.permission = preserveWildcardPermissionPrecedence(agent.permission)
+    }
+  }
+
+  return config
+}
+
 const parseRuntimeConfigOverlay = Effect.fn("BuddyConfig.parseRuntimeConfigOverlay")(
   function* (input: { directory: string; overlay: unknown }) {
     const text = JSON.stringify(input.overlay)
@@ -110,10 +137,12 @@ const parseRuntimeConfigOverlay = Effect.fn("BuddyConfig.parseRuntimeConfigOverl
       }),
     )
     const parsed = OpenCodeConfigParse.jsonc(expanded, BUDDY_RUNTIME_CONFIG_OVERLAY_SOURCE)
-    return OpenCodeConfigParse.schema(
-      ConfigV1.Info,
-      normalizeLoadedConfig(parsed),
-      BUDDY_RUNTIME_CONFIG_OVERLAY_SOURCE,
+    return preserveRuntimeConfigPermissionPrecedence(
+      OpenCodeConfigParse.schema(
+        ConfigV1.Info,
+        normalizeLoadedConfig(parsed),
+        BUDDY_RUNTIME_CONFIG_OVERLAY_SOURCE,
+      ),
     )
   },
 )

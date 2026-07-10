@@ -2,17 +2,26 @@ import { describe, expect, test } from "bun:test"
 import { getOpenCodeClient } from "../src/opencode-runtime/client"
 import { tmpdir } from "./helpers/tmpdir"
 
-describe("OpenCode SDK client helper", () => {
-  test("creates a client that can call health endpoint", async () => {
+describe("OpenCode v2 SDK client helper", () => {
+  test("calls the desktop health surface through the v2 SDK client", async () => {
     const client = await getOpenCodeClient()
     const result = await client.global.health()
     expect(result.data).toMatchObject({ healthy: true })
   })
 
-  test("creates a client that can list sessions", async () => {
+  test("calls the desktop session surface through the v2 SDK client", async () => {
     await using project = await tmpdir({ git: true })
     const client = await getOpenCodeClient(project.path)
     const result = await client.session.list({ directory: project.path })
     expect(Array.isArray(result.data)).toBe(true)
+  })
+
+  test("exposes explicit v2 session reads on the same client", async () => {
+    await using project = await tmpdir({ git: true })
+    const client = await getOpenCodeClient(project.path)
+    const result = await client.v2.session.list()
+
+    expect(result.error).toBeUndefined()
+    expect(result.data).toBeDefined()
   })
 })

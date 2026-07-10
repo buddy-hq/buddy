@@ -1,8 +1,12 @@
 import * as OpenCodeSessionStatus from "opencode/session/status"
+import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import { withCurrentInstance } from "./effect-runtime"
 
-const runtime = makeRuntime(OpenCodeSessionStatus.Service, OpenCodeSessionStatus.defaultLayer)
+const runtime = makeRuntime(
+  OpenCodeSessionStatus.Service,
+  AppNodeBuilderV1.build(OpenCodeSessionStatus.node),
+)
 
 export namespace SessionStatus {
   export const Info = OpenCodeSessionStatus.Info

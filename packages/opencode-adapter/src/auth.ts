@@ -1,8 +1,9 @@
 import * as OpenCodeAuth from "opencode/auth/index"
+import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import { withCurrentInstance } from "./effect-runtime"
 
-const runtime = makeRuntime(OpenCodeAuth.Service, OpenCodeAuth.defaultLayer)
+const runtime = makeRuntime(OpenCodeAuth.Service, AppNodeBuilderV1.build(OpenCodeAuth.node))
 
 export namespace Auth {
   export const OAUTH_DUMMY_KEY = OpenCodeAuth.OAUTH_DUMMY_KEY

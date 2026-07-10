@@ -1,5 +1,6 @@
 import { Context, Effect } from "effect"
 import * as Stream from "effect/Stream"
+import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import * as OpenCodeSession from "opencode/session/session"
 import { withCurrentInstance } from "./effect-runtime"
@@ -30,7 +31,10 @@ type PendingWhiteboardToolPartKey = {
   sessionID: string
 }
 
-const sessionRuntime = makeRuntime(OpenCodeSession.Service, OpenCodeSession.defaultLayer)
+const sessionRuntime = makeRuntime(
+  OpenCodeSession.Service,
+  AppNodeBuilderV1.build(OpenCodeSession.node),
+)
 const llmService = Context.Service<LlmService>(OPENCODE_LLM_SERVICE_TAG)
 const patchedSessionServices = new WeakSet<OpenCodeSession.Interface>()
 const patchedLlmServices = new WeakSet<LlmService>()

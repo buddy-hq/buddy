@@ -60,13 +60,7 @@ function jsonText(value: unknown): string | undefined {
 function toolOutputContentText(content: ToolOutputContent): string {
   if (content.type === "text") return content.text
 
-  const source =
-    content.source.type === "file"
-      ? content.source.uri
-      : content.source.type === "url"
-        ? content.source.url
-        : undefined
-  return [content.name, content.mime, source].filter(Boolean).join(" ")
+  return [content.name, content.mime, content.uri].filter(Boolean).join(" ")
 }
 
 function toolStateText(state: AssistantToolContent["state"]): string | undefined {
@@ -108,11 +102,6 @@ function userMessageText(message: SessionV2.User): string {
     ),
     ...(message.agents ?? []).map((agent) =>
       [agent.name, agent.source?.text].filter(Boolean).join("\n"),
-    ),
-    ...(message.references ?? []).map((reference) =>
-      [reference.name, reference.kind, reference.uri, reference.target, reference.source?.text]
-        .filter(Boolean)
-        .join("\n"),
     ),
   ]
     .filter(Boolean)

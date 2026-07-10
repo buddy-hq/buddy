@@ -302,6 +302,9 @@ describe("DirectoryWorkspaceController", () => {
     expect(harness.readRoute()).toEqual(DOCKED_FILE_ROUTE)
     expect(harness.store.getState().pendingIntent).toBeNull()
     expect(harness.guardCalls).toHaveLength(0)
+    expect(harness.readNavigatedOptions()).toMatchObject({
+      viewTransition: false,
+    })
   })
 
   test("changes mode without running the leave guard", async () => {

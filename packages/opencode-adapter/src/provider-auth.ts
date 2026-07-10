@@ -1,8 +1,12 @@
 import * as OpenCodeProviderAuth from "opencode/provider/auth"
+import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import { withCurrentInstance } from "./effect-runtime"
 
-const runtime = makeRuntime(OpenCodeProviderAuth.Service, OpenCodeProviderAuth.defaultLayer)
+const runtime = makeRuntime(
+  OpenCodeProviderAuth.Service,
+  AppNodeBuilderV1.build(OpenCodeProviderAuth.node),
+)
 
 export namespace ProviderAuth {
   export const Method = OpenCodeProviderAuth.Method

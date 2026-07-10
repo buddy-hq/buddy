@@ -33,8 +33,15 @@ describe("mention autocomplete", () => {
     expect(agents.map((agent) => agent.name)).toEqual(["general", "genie"])
   })
 
-  test("places agents before recent and searched files", () => {
+  test("places v2 references before agents, recent files, and searched files", () => {
     const options = filterMentionOptions(
+      [
+        {
+          name: "docs",
+          path: "/reference-cache/docs",
+          description: "Shared documentation",
+        },
+      ],
       [{ name: "explore" }],
       [
         { path: "src/routes/$directory.chat.tsx" },
@@ -44,6 +51,12 @@ describe("mention autocomplete", () => {
     )
 
     expect(options).toEqual([
+      {
+        type: "reference",
+        name: "docs",
+        path: "/reference-cache/docs",
+        description: "Shared documentation",
+      },
       { type: "agent", name: "explore", description: undefined },
       {
         type: "file",
@@ -56,6 +69,24 @@ describe("mention autocomplete", () => {
         path: "src/routes/$directory.chat.tsx",
         description: undefined,
         recent: undefined,
+      },
+    ])
+  })
+
+  test("filters v2 references by alias instead of materialized path", () => {
+    const options = filterMentionOptions(
+      [{ name: "design-system", path: "/cache/a1b2c3", description: "UI guidance" }],
+      [],
+      [],
+      "design",
+    )
+
+    expect(options).toEqual([
+      {
+        type: "reference",
+        name: "design-system",
+        path: "/cache/a1b2c3",
+        description: "UI guidance",
       },
     ])
   })

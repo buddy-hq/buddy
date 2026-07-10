@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "@tanstack/react-router"
-import { useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from "react"
 import { ChatLeftSidebar } from "@/components/layout/chat-left-sidebar"
 import { useDirectoryWorkspace } from "@/components/directory-chat/directory-workspace-context"
@@ -23,7 +23,10 @@ import {
   SUBMITTED_BUILTIN_SLASH_COMMAND_NAMES,
   UNDO_SLASH_COMMAND_NAME,
 } from "@/components/prompt/slash-autocomplete"
-import type { MentionableAgent } from "@/components/prompt/mention-autocomplete"
+import type {
+  MentionableAgent,
+  MentionableReference,
+} from "@/components/prompt/mention-autocomplete"
 import type { DirectoryChatConversationPane } from "@/components/directory-chat/directory-chat-conversation-pane"
 import type { DirectoryChatShell } from "@/components/directory-chat/directory-chat-shell"
 import {
@@ -126,6 +129,7 @@ import type { GetStartedChat } from "@/lib/get-started-chats"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { useStrictModeDeferredDisposal } from "@/lib/use-strict-mode-deferred-disposal"
 import { useOpenSettings } from "@/lib/settings-navigation"
+import { referenceListQueryOptions } from "@/state/reference-query"
 
 const SIDEBAR_MIN_WIDTH = 220
 const READING_PREFETCH_BLOCKED_STATUSES = new Set<NonNullable<ResourceReadingTarget["status"]>>([
@@ -135,6 +139,7 @@ const READING_PREFETCH_BLOCKED_STATUSES = new Set<NonNullable<ResourceReadingTar
 ])
 
 const EMPTY_MENTIONABLE_AGENTS: MentionableAgent[] = []
+const EMPTY_MENTIONABLE_REFERENCES: MentionableReference[] = []
 const E2E_BACKEND_COMMAND_NAME = "e2e-backend-command"
 const COMPACT_SESSION_MISSING_MODEL_ERROR = "Select a model before compacting this session."
 const COMPACT_SESSION_MISSING_SESSION_ERROR = "Start a session before compacting it."
@@ -295,6 +300,23 @@ export function useDirectoryChatPageController(
     autoCompactionEnabled: chatConfig.autoCompactionEnabled,
     personaCatalog: chatConfig.personaCatalog,
   })
+  const referenceQuery = useQuery({
+    ...referenceListQueryOptions(decodedDirectory),
+    enabled: decodedDirectory.length > 0 && hasRegisteredProject,
+  })
+  const mentionableReferences = useMemo(() => {
+    const references = referenceQuery.data?.data
+    if (!references) return EMPTY_MENTIONABLE_REFERENCES
+    return references
+      .filter((reference) => reference.hidden !== true)
+      .map((reference) => ({
+        name: reference.name,
+        path: reference.path,
+        description:
+          reference.description ??
+          (reference.source.type === "git" ? reference.source.repository : reference.source.path),
+      }))
+  }, [referenceQuery.data?.data])
   const {
     clearUnread,
     migrateWorkspaceDraft,
@@ -1517,6 +1539,7 @@ export function useDirectoryChatPageController(
       label: persona.label,
     })),
     mentionableAgents: EMPTY_MENTIONABLE_AGENTS,
+    mentionableReferences,
     slashCommands,
     modelOptions: cs.modelOptions,
     selectedPersona: cs.selectedPersona,

@@ -27,8 +27,10 @@ function createStatement<TRow>(statement: BunStatement<TRow>): Statement<TRow> {
 export class Database {
   private readonly native: BunSqliteDatabase
 
-  constructor(filename: string, options: DatabaseOptions = {}) {
-    this.native = new BunSqliteDatabase(filename, options)
+  constructor(filename: string, options?: DatabaseOptions) {
+    this.native = options
+      ? new BunSqliteDatabase(filename, options)
+      : new BunSqliteDatabase(filename)
   }
 
   close(): void {

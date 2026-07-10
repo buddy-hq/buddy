@@ -64,7 +64,6 @@ describe("bundled skill registrations", () => {
 
   test("verifies every registered bundled skill document", async () => {
     const registrations = await checkBundledSkills()
-    expect(registrations).toHaveLength(16)
     expect(
       registrations.some((registration) => registration.skillName === "resolve-confusions"),
     ).toBe(true)

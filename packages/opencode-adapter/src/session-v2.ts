@@ -1,10 +1,18 @@
 import * as CoreSession from "@opencode-ai/core/session"
+import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
+import { SessionExecution } from "@opencode-ai/core/session/execution"
+import { SessionExecutionLocal } from "@opencode-ai/core/session/execution/local"
 import { SessionMessage } from "@opencode-ai/core/session/message"
 import * as CorePrompt from "@opencode-ai/core/session/prompt"
 import { makeRuntime } from "opencode/effect/run-service"
 import { withCurrentInstance } from "./effect-runtime"
 
-const runtime = makeRuntime(CoreSession.SessionV2.Service, CoreSession.SessionV2.defaultLayer)
+const runtime = makeRuntime(
+  CoreSession.SessionV2.Service,
+  AppNodeBuilder.build(CoreSession.SessionV2.node, [
+    [SessionExecution.node, SessionExecutionLocal.node],
+  ]),
+)
 
 export namespace SessionV2 {
   export const ID = CoreSession.ID

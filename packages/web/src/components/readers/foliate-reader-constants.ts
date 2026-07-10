@@ -175,6 +175,14 @@ export const READER_THEMES: FoliateReaderThemeDefinition[] = [
   },
 ]
 
+export function resolveReaderContentFilter(input: {
+  sourceIsPdf: boolean
+  isFixedLayout: boolean
+  pdfFilter: string
+}): string {
+  return input.sourceIsPdf && input.isFixedLayout ? input.pdfFilter : "none"
+}
+
 // ============================================================
 // Annotation Colors
 // ============================================================

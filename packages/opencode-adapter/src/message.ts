@@ -1,9 +1,10 @@
 import { Database } from "@opencode-ai/core/database/database"
+import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
 import * as MessageSchemas from "@opencode-ai/core/v1/session"
 import { ManagedRuntime } from "effect"
 import * as MessageRuntime from "opencode/session/message-v2"
 
-const runtime = ManagedRuntime.make(Database.defaultLayer)
+const runtime = ManagedRuntime.make(AppNodeBuilder.build(Database.node))
 
 async function page(input: Parameters<typeof MessageRuntime.page>[0]) {
   return runtime.runPromise(MessageRuntime.page(input))

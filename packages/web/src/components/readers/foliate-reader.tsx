@@ -93,6 +93,7 @@ import {
   SEARCH_SECTION_KEY_PREFIX,
   VIEWPORT_CLASS_NAME,
   VIEW_ELEMENT_CLASS_NAME,
+  resolveReaderContentFilter,
 } from "./foliate-reader-constants"
 import {
   buildLandmarks,
@@ -1151,8 +1152,11 @@ export const FoliateReader = forwardRef<FoliateReaderHandle, FoliateReaderProps>
       theme.appearance === "dark"
         ? "bg-surface-strong text-text-strong"
         : "bg-surface-raised-base text-text-base"
-    const readerContentFilter =
-      sourceIsPdf && (snapshot?.isFixedLayout ?? false) ? theme.pdfFilter : "none"
+    const readerContentFilter = resolveReaderContentFilter({
+      sourceIsPdf,
+      isFixedLayout: snapshot?.isFixedLayout ?? false,
+      pdfFilter: theme.pdfFilter,
+    })
 
     const readerPane = (
       <div className="flex h-full min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">

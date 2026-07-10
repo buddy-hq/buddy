@@ -20,7 +20,6 @@ import {
   ShapesIcon,
 } from "lucide-react"
 import type { SessionInfo } from "@/state/chat-types"
-import { BenchContent } from "@/components/directory-chat/directory-chat-bench-page-layout"
 import {
   type RightWorkspaceOpenOutcome,
   type RightWorkspaceOpenRequest,
@@ -161,8 +160,11 @@ export function DirectoryChatRightWorkspaceContent(props: {
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
       {props.hasBenchTarget && props.bench ? (
-        <div className="min-h-0 min-w-0 flex-1">
-          <BenchContent bordered={false}>{props.bench}</BenchContent>
+        <div
+          data-component="right-workspace-bench-target"
+          className="h-full min-h-0 min-w-0 flex-1 bg-background-base"
+        >
+          {props.bench}
         </div>
       ) : props.selectorContent ? (
         <div data-component="right-workspace-selector-content" className="min-h-0 min-w-0 flex-1">

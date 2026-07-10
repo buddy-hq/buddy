@@ -35,6 +35,7 @@ describe("streaming markdown rendering", () => {
       root.unmount()
       await flushEffects()
     })
+    resetMarkdownWorkerForTests()
     container.remove()
     Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", undefined)
   })

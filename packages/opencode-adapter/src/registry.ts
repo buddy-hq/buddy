@@ -3,6 +3,7 @@ import fsp from "node:fs/promises"
 import path from "node:path"
 import { Effect } from "effect"
 import { InstanceRef } from "opencode/effect/instance-ref"
+import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import * as OpenCodeToolRegistry from "opencode/tool/registry"
 import * as OpenCodeTool from "opencode/tool/tool"
@@ -14,7 +15,10 @@ import { cloneToolUiMetadata, type ToolUiMetadata } from "./tool-ui-metadata"
 
 const UNBOUNDED_OUTPUT_POLICY_LIMIT = Number.POSITIVE_INFINITY
 
-const runtime = makeRuntime(OpenCodeToolRegistry.Service, OpenCodeToolRegistry.defaultLayer)
+const runtime = makeRuntime(
+  OpenCodeToolRegistry.Service,
+  AppNodeBuilderV1.build(OpenCodeToolRegistry.node),
+)
 const patchedServices = new WeakSet<OpenCodeToolRegistry.Interface>()
 
 type ToolModelInput = Omit<Parameters<OpenCodeToolRegistry.Interface["tools"]>[0], "agent">

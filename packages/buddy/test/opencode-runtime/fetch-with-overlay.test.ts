@@ -50,8 +50,11 @@ describe("in-process OpenCode fetch overlay", () => {
     await syncOpenCodeProjectConfig(project.path, true)
 
     const client = await getOpenCodeClient(project.path)
-    const [agents, commands, configProviders, providerList, mcpStatus] = await Promise.all([
+    const [agents, skills, commands, configProviders, providerList, mcpStatus] = await Promise.all([
       client.app.agents({
+        directory: project.path,
+      }),
+      client.app.skills({
         directory: project.path,
       }),
       client.command.list({
@@ -70,6 +73,9 @@ describe("in-process OpenCode fetch overlay", () => {
 
     expect(agents.error).toBeUndefined()
     expect(agents.data?.some((agent) => agent.name === "buddy")).toBe(true)
+
+    expect(skills.error).toBeUndefined()
+    expect(Array.isArray(skills.data)).toBe(true)
 
     expect(commands.error).toBeUndefined()
     expect(commands.data?.some((command) => command.name === "flashcard")).toBe(true)

@@ -20,6 +20,7 @@ import {
 import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_TEXT,
+  OPENCODE_REFERENCE_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
@@ -107,6 +108,9 @@ function isPromptComposerPart(value: unknown): value is PromptComposerPart {
   }
   if (value.type === PROMPT_PART_TYPE_AGENT) {
     return typeof value.name === "string"
+  }
+  if (value.type === OPENCODE_REFERENCE_PART_TYPE) {
+    return typeof value.name === "string" && typeof value.path === "string"
   }
   if (value.type === WORKSPACE_FILE_REFERENCE_PART_TYPE) {
     return typeof value.path === "string"

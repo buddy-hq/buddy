@@ -1,11 +1,12 @@
 import { Effect } from "effect"
+import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import * as OpenCodeSession from "opencode/session/session"
 import { withCurrentInstance } from "./effect-runtime"
 
 const liveSessions = new Map<string, OpenCodeSession.Info>()
 const MAX_LIVE_SESSION_CACHE_SIZE = 256
-const runtime = makeRuntime(OpenCodeSession.Service, OpenCodeSession.defaultLayer)
+const runtime = makeRuntime(OpenCodeSession.Service, AppNodeBuilderV1.build(OpenCodeSession.node))
 const patchedServices = new WeakSet<OpenCodeSession.Interface>()
 let patchPromise: Promise<void> | undefined
 

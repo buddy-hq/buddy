@@ -1,9 +1,10 @@
 import * as OpenCodeSession from "opencode/session/session"
+import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import { withCurrentInstance } from "./effect-runtime"
 import { canonicalizeSession, removeCachedSession, updateCachedSession } from "./session-live"
 
-const runtime = makeRuntime(OpenCodeSession.Service, OpenCodeSession.defaultLayer)
+const runtime = makeRuntime(OpenCodeSession.Service, AppNodeBuilderV1.build(OpenCodeSession.node))
 
 export namespace Session {
   export const Info = OpenCodeSession.Info

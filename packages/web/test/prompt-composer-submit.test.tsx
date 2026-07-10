@@ -42,6 +42,7 @@ function renderPromptComposer(input: {
       isBusy={false}
       personaOptions={[{ name: "buddy", label: "Buddy" }]}
       mentionableAgents={[]}
+      mentionableReferences={[]}
       slashCommands={[]}
       modelOptions={[
         {

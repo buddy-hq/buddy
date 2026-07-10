@@ -7,6 +7,7 @@ import {
   type MentionOption,
   type MentionableAgent,
   type MentionableFile,
+  type MentionableReference,
 } from "./mention-autocomplete"
 import { promptPlaceholder } from "./placeholder"
 import {
@@ -116,6 +117,7 @@ type UsePromptComposerViewStateProps = {
     label?: string
   }>
   mentionableAgents: MentionableAgent[]
+  mentionableReferences: MentionableReference[]
   slashCommands: Array<{
     name: string
     description?: string
@@ -191,11 +193,13 @@ export function usePromptComposerViewState(props: UsePromptComposerViewStateProp
   )
   const mentionOptions = useMemo<MentionOption[]>(() => {
     if (!mentionMatch) return []
-    return filterMentionOptions(props.mentionableAgents, mentionFiles, mentionMatch.query).slice(
-      0,
-      10,
-    )
-  }, [mentionFiles, mentionMatch, props.mentionableAgents])
+    return filterMentionOptions(
+      props.mentionableReferences,
+      props.mentionableAgents,
+      mentionFiles,
+      mentionMatch.query,
+    ).slice(0, 10)
+  }, [mentionFiles, mentionMatch, props.mentionableAgents, props.mentionableReferences])
   const mentionVisible =
     !!mentionMatch && mentionOptions.length > 0 && mentionKey !== dismissedMentionKey
   const showMentionLoading = !!mentionMatch && mentionKey !== dismissedMentionKey && searchingFiles

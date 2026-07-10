@@ -2,6 +2,8 @@
 
 This is the repeatable process to sync `vendor/opencode` while preserving local Buddy work and avoiding vendor patch drift.
 
+The algorithm is a safety and evidence scaffold, not the objective. Deviate from its ordering or individual command shapes when required by the selected snapshot, and record material deviations in the sync log. Completion means that the upstream snapshot and any requested Buddy migration work through Buddy's real product paths; mechanically completing the listed commands while Buddy remains broken is not completion.
+
 ## Inputs
 - Buddy repo root: `/Users/prashantbhudwal/Code/buddy`
 - Upstream mirror remote: `opencode-upstream` (GitHub)
@@ -21,11 +23,22 @@ This is the repeatable process to sync `vendor/opencode` while preserving local 
    - keep session identity/permission normalization in `packages/opencode-adapter/src/session.ts` and `session-live.ts`
    - keep tool UI decoration on Buddy-owned HTTP/SSE boundaries, not vendored `Session.updatePart` / `LLM.stream`
 8. If the dry run fails only inside `vendor/opencode/**` or only in a standalone `packages/opencode-adapter` typecheck that does not reproduce in Buddy consumers, stop before churning Buddy wrappers. Fix Buddy only when the failure actually crosses the Buddy-owned boundary.
+9. A sync may explicitly include Buddy adoption of upstream v2 capabilities. Treat that as a combined vendor-sync and Buddy-migration operation, not as a mechanical subtree refresh:
+   - record every candidate v2 capability in the sync log with its Buddy owner, adoption decision, blocker, and validation evidence
+   - migrate only capabilities that are implemented and usable through Buddy's complete execution path; presence in `packages/core` alone is not sufficient
+   - migrate connected contracts together (for example session API + SDK + events + web streaming, or permission requests + replies + persistence + location/project identity)
+   - preserve Buddy-owned teaching, persona, feature, skill, and subagent policy when upstream only replaces the generic runtime mechanism
+   - delete superseded Buddy bridges only after the replacement path passes focused regression and live smoke checks
+10. For a combined v2 adoption sync, the current vendored source is the implementation baseline and `docs/v2/**` is a research aid. Revalidate dated findings against the selected tag because v2 implementation status and hook surfaces can change between snapshots.
+11. Do not adapt upstream v2 surfaces back into Buddy's v1 contracts. For every adopted capability, migrate the connected Buddy backend, adapter call sites, generated SDK, frontend, and tests to the v2 contract directly. Do not add dual-protocol fallbacks or v2-to-v1 translation shims. `@buddy/opencode-adapter` may remain for in-process embedding and Buddy-owned seams, but it must not disguise v2 as v1. If a capability cannot be migrated coherently end to end, leave it wholly on v1 and record the blocker instead of creating a hybrid path.
+12. Use the selected tag's OpenCode desktop/app as the v2 adoption map. If the vendor app uses v2 for a product surface, Buddy must migrate that surface to v2 as part of a combined adoption sync. Audit `packages/app`, the desktop wrapper, SDK v2 calls/types, server handlers, and core implementation together. Defer only surfaces the stable vendor app itself still keeps on v1 or Buddy-specific behavior with no v2 equivalent, and record exact source evidence.
+13. Treat the stable desktop as the mandatory compatibility floor, not the complete v2 horizon. Every combined v2 sync must also inspect the current `upstream/dev` and `upstream/v2` tips so Buddy sees upcoming cutovers before they reach a stable tag. Do not adopt an untagged branch implementation merely because it exists; distinguish backend implementation, desktop activation, and stable release explicitly.
 
 ## Algorithm
 1. Create a checkpoint log entry.
    - File: `docs/logs/upstream-fetch.<date>.md`.
-   - Record current date/time, branch, and short `git status`.
+   - Record current date/time, branch, short `git status`, and whether the run is a mechanical sync or a combined sync plus v2 adoption.
+   - For v2 adoption runs, initialize a capability ledger with: upstream capability, current Buddy bridge, intended disposition, end-to-end adoption gate, validation, and status.
 
 2. Capture baseline and prove no destructive actions are needed.
    - `git status --short`
@@ -40,6 +53,10 @@ This is the repeatable process to sync `vendor/opencode` while preserving local 
    - Compare Buddy's vendored version (for example `vendor/opencode/packages/opencode/package.json`) with the target tag's version.
    - Spot-check the target tree if needed:
      - `git -C /Users/prashantbhudwal/Code/opencode rev-parse <tag>^{tree}`
+   - For a combined v2 adoption sync, refresh and record the forward-looking branch tips too:
+     - `git -C /Users/prashantbhudwal/Code/opencode fetch upstream dev v2`
+     - `git -C /Users/prashantbhudwal/Code/opencode log -1 --format='%H %cI %s' upstream/dev upstream/v2`
+   - The selected stable tag remains the vendored source unless the developer explicitly requests an untagged branch. The branch tips are horizon evidence, not permission to vendor unreleased code.
    - If the vendored version already matches the requested/latest stable tag, stop.
 
 4. Run compatibility dry-run in a temporary worktree.
@@ -59,7 +76,9 @@ This is the repeatable process to sync `vendor/opencode` while preserving local 
     - `bun lint`
     - `bun run --cwd packages/buddy test:contracts`
     - `bun run --cwd packages/web test:contracts`
-    - `bun run --cwd packages/buddy build:single`
+    - `bun run --cwd packages/buddy build:node`
+    - `bun run --cwd packages/desktop-electron build`
+    - `bun run --cwd packages/desktop-electron smoke:backend-utility`
     - Optional diagnostic only:
       - `bun run --cwd packages/opencode-adapter typecheck`
       - If this fails but `bun typecheck` stays green and the failure is confined to vendored imports, log it as a non-gating adapter diagnostic. Do not block the sync on that alone.
@@ -88,6 +107,22 @@ This is the repeatable process to sync `vendor/opencode` while preserving local 
        - do not restore tool UI mutation by patching vendored runtime methods
      - Config/tool/permission overlay isolation across directory changes and runtime disposal/recreation.
      - Desktop renderer asset paths after package moves or build-config changes, especially `publicDir`, loading screens, and chat empty-state assets.
+   - For a combined v2 adoption sync, also compare the selected snapshot against `docs/v2/**` and update the capability ledger. At minimum audit:
+     - session create/prompt/read/context/event support and any still-unavailable operations
+     - SDK and route availability for the v2 session contract
+     - `session.next.*` message and tool-input streaming through the Buddy web client
+     - PermissionV2 requests, replies, saved approvals, deny precedence, and project/location ownership as one coherent path
+     - AgentV2, ConfigV2, and PluginV2 coverage versus Buddy personas, overlays, tools, and chat hooks
+     - child-session identity and generic permission derivation versus Buddy teaching/subagent forwarding
+     - skill visibility/filtering behavior
+     - Buddy adapter patches that can be removed only after their v2 replacement is proven end to end
+   - For every major API, record a three-way v2 status instead of one ambiguous `v2` label:
+     1. **stable desktop active** — the selected tag's desktop actually calls the v2 SDK route and consumes its events/types;
+     2. **v2-branch desktop active** — current `upstream/v2` desktop actually calls the v2 route rather than only importing v2 types;
+     3. **backend ready only** — SessionV2, PermissionV2, PluginV2, or another v2 service/handler exists but neither desktop path has activated it.
+   - Apply that three-way check explicitly to sessions/prompts, session reads, permissions, plugin hooks/tool registration, tools and tool-input events, agents, config, skills, messages, commands, MCP, auth, and server routes.
+   - Prove desktop activation with concrete call-path evidence: desktop call site, generated SDK method and URL, server handler/service, and event/reply contract. Importing `@opencode-ai/sdk/v2` or having a v2 backend handler is not by itself an active desktop cutover.
+   - A stable-desktop cutover is mandatory migration work in the current sync. A v2-branch desktop cutover is a tracked upcoming migration with named Buddy blockers and a prepared test plan. Backend-ready-only work stays deferred without compatibility shims.
    - If this fails, stop and fix before touching real tree.
 
 5. Ensure no Buddy-only patch remains in vendor.
@@ -116,7 +151,9 @@ This is the repeatable process to sync `vendor/opencode` while preserving local 
    - `bun lint`
    - `bun run --cwd packages/buddy test:contracts`
    - `bun run --cwd packages/web test:contracts`
-   - `bun run --cwd packages/buddy build:single`
+   - `bun run --cwd packages/buddy build:node`
+   - `bun run --cwd packages/desktop-electron build`
+   - `bun run --cwd packages/desktop-electron smoke:backend-utility`
    - Also run focused Buddy regression checks for the known sync-risk surfaces:
      - lesson-workspace write path uses upstream write runtime, not raw `fs`
      - missing-session prompt/command routes fail before Buddy state mutation

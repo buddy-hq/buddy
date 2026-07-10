@@ -1,10 +1,11 @@
 import * as OpenCodeAgent from "opencode/agent/agent"
+import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import { withCurrentInstance } from "./effect-runtime"
 import { withConfigOverlay } from "./config"
 import { Instance } from "./instance"
 
-const runtime = makeRuntime(OpenCodeAgent.Service, OpenCodeAgent.defaultLayer)
+const runtime = makeRuntime(OpenCodeAgent.Service, AppNodeBuilderV1.build(OpenCodeAgent.node))
 
 export namespace Agent {
   export const Info = OpenCodeAgent.Info

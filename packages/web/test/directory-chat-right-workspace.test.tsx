@@ -16,6 +16,7 @@ import {
   DirectoryChatRightWorkspaceContent,
   resolveRightWorkspaceOpenOutcome,
 } from "../src/components/directory-chat/directory-chat-right-workspace"
+import { BenchContent } from "../src/components/directory-chat/directory-chat-bench-page-layout"
 import {
   DirectoryWorkspaceProvider,
   useDirectoryWorkspace,
@@ -213,7 +214,7 @@ describe("DirectoryChatRightWorkspace", () => {
       "Creations",
       "Boards",
       "Files",
-      "Agents",
+      "Notebook Instructions",
     ])
   })
 
@@ -363,5 +364,31 @@ describe("DirectoryChatRightWorkspace", () => {
       container.querySelector('[data-component="right-workspace-selector-drawer"]'),
     ).not.toBeNull()
     expect(container.querySelector('[data-testid="bench-target"]')).not.toBeNull()
+  })
+
+  test("keeps one view-transition owner around the composed Bench surface", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(
+        <BenchContent bordered={false}>
+          <DirectoryChatRightWorkspaceContent
+            hasBenchTarget
+            bench={<div data-testid="bench-target">Reader target</div>}
+            selectorContent={null}
+            selectorDrawerWidth={0}
+          />
+        </BenchContent>,
+      )
+      await flushEffects()
+    })
+
+    expect(
+      container.querySelectorAll('[class*="view-transition-name:buddy-bench-surface"]'),
+    ).toHaveLength(1)
+    expect(container.querySelector('[data-component="right-workspace-bench-target"]')).not.toBeNull()
   })
 })

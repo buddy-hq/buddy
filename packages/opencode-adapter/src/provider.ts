@@ -1,10 +1,11 @@
 import * as OpenCodeProvider from "opencode/provider/provider"
+import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import { withCurrentInstance } from "./effect-runtime"
 import { withConfigOverlay } from "./config"
 import { Instance } from "./instance"
 
-const runtime = makeRuntime(OpenCodeProvider.Service, OpenCodeProvider.defaultLayer)
+const runtime = makeRuntime(OpenCodeProvider.Service, AppNodeBuilderV1.build(OpenCodeProvider.node))
 
 export namespace Provider {
   export const Info = OpenCodeProvider.Info

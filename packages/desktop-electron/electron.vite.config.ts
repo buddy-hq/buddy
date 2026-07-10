@@ -8,6 +8,7 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import { BUDDY_CHANNEL_ENV, readBuddyReleaseChannel } from "@buddy/script/channel"
 import {
   LITEPARSE_PACKAGE_NAME,
+  TYPESCRIPT_RUNTIME_PACKAGE_NAME,
   currentBackendNodeArtifactTarget,
   liteParseNativePackageName,
   nodePtyNativePackageName,
@@ -26,11 +27,19 @@ const nodePtyPkg = nodePtyNativePackageName(nativeTarget)
 const parcelWatcherPkg = parcelWatcherNativePackageName(nativeTarget)
 const optionalRuntimeExternalPackages = ["@chonkiejs/token"] as const
 const liteParseWrapperRuntimeEntries = ["dist", "package.json", "README.md", "LICENSE"] as const
+const ELECTRON_MAIN_ESM_SHIM = `
+// -- CommonJS Shims --
+import __cjs_mod__ from 'node:module';
+const __filename = import.meta.filename;
+const __dirname = import.meta.dirname;
+const require = __cjs_mod__.createRequire(import.meta.url);
+`
 const runtimePackages = [
   LITEPARSE_PACKAGE_NAME,
   liteParseNativePkg,
   nodePtyPkg,
   parcelWatcherPkg,
+  TYPESCRIPT_RUNTIME_PACKAGE_NAME,
 ] as const
 const require = createRequire(import.meta.url)
 const liteParseRequire = createRequire(
@@ -63,6 +72,17 @@ export default defineConfig({
       externalizeDeps: { include: [...runtimePackages] },
     },
     plugins: [
+      {
+        name: "buddy:electron-main-esm-shim",
+        enforce: "post",
+        renderChunk: {
+          order: "pre",
+          handler(code, _chunk, options) {
+            if (options.format !== "es") return null
+            return `${ELECTRON_MAIN_ESM_SHIM}${code}`
+          },
+        },
+      },
       {
         name: "buddy:runtime-externals",
         enforce: "pre",

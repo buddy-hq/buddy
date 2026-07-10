@@ -9,6 +9,12 @@ export type MentionableFile = {
   recent?: boolean
 }
 
+export type MentionableReference = {
+  name: string
+  path: string
+  description?: string
+}
+
 export type MentionOption =
   | {
       type: "agent"
@@ -20,6 +26,12 @@ export type MentionOption =
       path: string
       description?: string
       recent?: boolean
+    }
+  | {
+      type: "reference"
+      name: string
+      path: string
+      description?: string
     }
 
 export type MentionMatch = {
@@ -96,11 +108,38 @@ export function filterMentionableFiles(files: MentionableFile[], query: string) 
     })
 }
 
+export function filterMentionableReferences(
+  references: MentionableReference[],
+  query: string,
+) {
+  const normalized = query.trim().toLowerCase()
+
+  return references
+    .filter((reference) => {
+      if (!normalized) return true
+      return reference.name.toLowerCase().includes(normalized)
+    })
+    .toSorted((left, right) => {
+      const scoreDiff = mentionScore(left, normalized) - mentionScore(right, normalized)
+      if (scoreDiff !== 0) return scoreDiff
+      return left.name.localeCompare(right.name)
+    })
+}
+
 export function filterMentionOptions(
+  references: MentionableReference[],
   agents: MentionableAgent[],
   files: MentionableFile[],
   query: string,
 ): MentionOption[] {
+  const referenceOptions = filterMentionableReferences(references, query).map(
+    (reference): MentionOption => ({
+      type: "reference",
+      name: reference.name,
+      path: reference.path,
+      description: reference.description,
+    }),
+  )
   const agentOptions = filterMentionableAgents(agents, query).map(
     (agent): MentionOption => ({
       type: "agent",
@@ -117,5 +156,5 @@ export function filterMentionOptions(
     }),
   )
 
-  return [...agentOptions, ...fileOptions]
+  return [...referenceOptions, ...agentOptions, ...fileOptions]
 }

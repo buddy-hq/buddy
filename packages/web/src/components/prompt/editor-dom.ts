@@ -1,5 +1,6 @@
 import {
   PROMPT_PART_TYPE_AGENT,
+  OPENCODE_REFERENCE_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
@@ -20,6 +21,7 @@ function getStructuredPromptLength(node: Node): number | undefined {
   }
   if (
     element.dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
+    element.dataset.type === OPENCODE_REFERENCE_PART_TYPE ||
     element.dataset.type === PROMPT_PART_TYPE_AGENT ||
     element.dataset.type === RESOURCE_REFERENCE_PART_TYPE
   ) {
@@ -141,6 +143,7 @@ export function setCursorPosition(parent: HTMLElement, position: number) {
     const isStructured =
       node.nodeType === Node.ELEMENT_NODE &&
       ((node as HTMLElement).dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
+        (node as HTMLElement).dataset.type === OPENCODE_REFERENCE_PART_TYPE ||
         (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_AGENT ||
         (node as HTMLElement).dataset.type === RESOURCE_REFERENCE_PART_TYPE ||
         (node as HTMLElement).dataset.type === SELECTION_CONTEXT_PART_TYPE ||
@@ -213,6 +216,7 @@ export function setRangeEdge(
     const isStructured =
       node.nodeType === Node.ELEMENT_NODE &&
       ((node as HTMLElement).dataset.type === WORKSPACE_FILE_REFERENCE_PART_TYPE ||
+        (node as HTMLElement).dataset.type === OPENCODE_REFERENCE_PART_TYPE ||
         (node as HTMLElement).dataset.type === PROMPT_PART_TYPE_AGENT ||
         (node as HTMLElement).dataset.type === RESOURCE_REFERENCE_PART_TYPE ||
         (node as HTMLElement).dataset.type === SELECTION_CONTEXT_PART_TYPE ||

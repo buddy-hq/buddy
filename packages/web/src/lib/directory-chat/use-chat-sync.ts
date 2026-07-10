@@ -30,6 +30,7 @@ import { useNotifications } from "@/state/notifications"
 import { useNotificationPreferences } from "@/state/notification-preferences"
 import { getModelSelectionScopeKey, useModelSelectionStore } from "@/state/model-selection-store"
 import { IDLE_SESSION_STATUS, normalizeSessionStatusValue } from "@/state/session-status"
+import { invalidateReferenceList } from "@/state/reference-query"
 import { refetchActiveWorkspaceObjectQueries } from "@/state/workspace-objects-query"
 import {
   removeDirectoryPermissionQueryData,
@@ -304,6 +305,11 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         if (payload.type === "server.connected" || payload.type === "server.heartbeat") {
+          return
+        }
+
+        if (payload.type === "reference.updated") {
+          void invalidateReferenceList(queryClient, directory)
           return
         }
 

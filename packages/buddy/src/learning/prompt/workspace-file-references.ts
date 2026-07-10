@@ -5,7 +5,11 @@ import { pathToFileURL } from "node:url"
 import { Agent } from "@buddy/opencode-adapter/agent"
 import { SessionTransformValidationError } from "../../session"
 import { resolveResourceReference } from "../../resources/resource-registry-service"
+import { getOpenCodeClient } from "../../opencode-runtime/client"
+import { extractSdkErrorMessage } from "../../http/sdk-response"
 
+// Sync with packages/web/src/components/prompt/prompt-types.ts.
+export const OPENCODE_REFERENCE_PART_TYPE = "opencode-reference" as const
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
 export const WORKSPACE_FILE_REFERENCE_PART_TYPE = "workspace-file-reference" as const
 // Sync with packages/web/src/components/prompt/prompt-types.ts.
@@ -31,6 +35,12 @@ const RESOURCE_REFERENCE_INVALID_PACK = "Resource pack is invalid. Run /resource
 
 export type WorkspaceFileReferencePart = {
   type: typeof WORKSPACE_FILE_REFERENCE_PART_TYPE
+  path: string
+}
+
+export type OpenCodeReferencePart = {
+  type: typeof OPENCODE_REFERENCE_PART_TYPE
+  name: string
   path: string
 }
 
@@ -87,6 +97,16 @@ export async function normalizePromptParts(input: {
   }
 
   for (const part of input.parts) {
+    if (isOpenCodeReferencePart(part)) {
+      normalizedParts.push(
+        await expandOpenCodeReferencePart({
+          directory: input.directory,
+          part,
+        }),
+      )
+      continue
+    }
+
     if (isWorkspaceFileReferencePart(part)) {
       normalizedParts.push(
         ...(await expandWorkspaceFileReferencePart({
@@ -137,6 +157,44 @@ export async function normalizePromptParts(input: {
   }
 
   return normalizedParts
+}
+
+async function expandOpenCodeReferencePart(input: {
+  directory: string
+  part: OpenCodeReferencePart
+}): Promise<Record<string, unknown>> {
+  const client = await getOpenCodeClient(input.directory)
+  const result = await client.v2.reference.list()
+  if (result.error !== undefined) {
+    throw new SessionTransformValidationError(
+      extractSdkErrorMessage(result.error) ?? "Failed to resolve OpenCode reference",
+    )
+  }
+
+  const reference = result.data?.data.find(
+    (candidate) =>
+      candidate.name === input.part.name &&
+      candidate.path === input.part.path &&
+      candidate.hidden !== true,
+  )
+  if (!reference) {
+    throw new SessionTransformValidationError(
+      `OpenCode reference is no longer available: ${input.part.name}`,
+    )
+  }
+
+  const referenceStat = await fs.stat(reference.path).catch(() => undefined)
+  if (!referenceStat?.isDirectory()) {
+    throw new SessionTransformValidationError(
+      `OpenCode reference is not ready: ${input.part.name}`,
+    )
+  }
+
+  return createVendorFilePart({
+    filePath: reference.path,
+    filename: reference.name,
+    mime: FILE_MIME_DIRECTORY,
+  })
 }
 
 async function expandPromptTextPart(input: {
@@ -360,6 +418,15 @@ function isPromptTextPart(part: unknown): part is Record<string, unknown> {
   if (!isPlainObject(part)) return false
   if (part.type !== PROMPT_PART_TYPE_TEXT) return false
   return typeof part.text === "string" || typeof part.content === "string"
+}
+
+function isOpenCodeReferencePart(part: unknown): part is OpenCodeReferencePart {
+  if (!isPlainObject(part)) return false
+  return (
+    part.type === OPENCODE_REFERENCE_PART_TYPE &&
+    typeof part.name === "string" &&
+    typeof part.path === "string"
+  )
 }
 
 function isWorkspaceFileReferencePart(part: unknown): part is WorkspaceFileReferencePart {

@@ -19,6 +19,7 @@ import { PermissionRoutes } from "./routes"
 import { ProjectRoutes } from "./routes"
 import { ProviderRoutes } from "./routes"
 import { QuestionRoutes } from "./routes"
+import { ReferenceRoutes } from "./routes"
 import { SessionRoutes } from "./routes"
 import { SkillsRoutes } from "./routes"
 import { TeachingRoutes } from "./routes"
@@ -101,6 +102,7 @@ api.route("/global", GlobalRoutes)
 api.route("/local-runtimes", LocalRuntimeRoutes)
 api.route("/provider", ProviderRoutes)
 api.route("/question", QuestionRoutes)
+api.route("/reference", ReferenceRoutes)
 api.route("/auth", AuthRoutes)
 api.route("/bench", BenchRoutes)
 api.route("/mcp", McpRoutes)

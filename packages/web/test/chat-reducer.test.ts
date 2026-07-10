@@ -45,6 +45,29 @@ describe("chat reducer", () => {
     ])
   })
 
+  test("replaces an optimistic v2 reference alias with its server directory-file part", () => {
+    const optimistic: MessagePart = {
+      id: "prt_0196_reference_optimistic",
+      sessionID: SESSION_ID,
+      messageID: MESSAGE_ID,
+      type: "opencode-reference",
+      name: "docs",
+      path: "/reference-cache/docs",
+      optimistic: true,
+    }
+    const server: MessagePart = {
+      id: "prt_0196_reference_server",
+      sessionID: SESSION_ID,
+      messageID: MESSAGE_ID,
+      type: "file",
+      mime: "application/x-directory",
+      filename: "docs",
+      url: "file:///reference-cache/docs",
+    }
+
+    expect(upsertMessagePart([optimistic], server)).toEqual([server])
+  })
+
   test("preserves distinct optimistic selection context parts", () => {
     const firstSelection: MessagePart = {
       id: "prt_0196_test_selection_a",

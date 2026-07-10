@@ -63,6 +63,7 @@ import type { McpLocalConfig, McpRemoteConfig } from "../components/mcp-dialog/m
 import {
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
+  OPENCODE_REFERENCE_PART_TYPE,
   type PromptFilePart,
   type PromptSubmissionPart,
 } from "../components/prompt/prompt-types"
@@ -589,6 +590,7 @@ function createOptimisticPromptParts(input: {
         part.type === "text" ||
         part.type === "file" ||
         part.type === "agent" ||
+        part.type === OPENCODE_REFERENCE_PART_TYPE ||
         part.type === SELECTION_CONTEXT_PART_TYPE ||
         part.type === WORKSPACE_FILE_REFERENCE_PART_TYPE,
     )

@@ -3,9 +3,10 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
 import * as OpenCodeProject from "opencode/project/project"
+import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 
-const runtime = makeRuntime(OpenCodeProject.Service, OpenCodeProject.defaultLayer)
+const runtime = makeRuntime(OpenCodeProject.Service, AppNodeBuilderV1.build(OpenCodeProject.node))
 const FILE_REMOTE_PROTOCOL = "file:"
 const SCP_LIKE_REMOTE_REGEX = /^([^@/:]+@)?([^/:]+):(.+)$/
 

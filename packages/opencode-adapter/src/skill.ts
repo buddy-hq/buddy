@@ -1,10 +1,11 @@
 import * as OpenCodeSkill from "opencode/skill/index"
+import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import { withCurrentInstance } from "./effect-runtime"
 import { withConfigOverlay } from "./config"
 import { Instance } from "./instance"
 
-const runtime = makeRuntime(OpenCodeSkill.Service, OpenCodeSkill.defaultLayer)
+const runtime = makeRuntime(OpenCodeSkill.Service, AppNodeBuilderV1.build(OpenCodeSkill.node))
 
 export namespace Skill {
   export const Info = OpenCodeSkill.Info

@@ -89,6 +89,24 @@ describe("prompt parts", () => {
     ])
   })
 
+  test("round-trips v2 reference aliases without exposing their materialized path", () => {
+    const parts = [
+      { type: "text", text: "Use " },
+      {
+        type: "opencode-reference",
+        name: "docs",
+        path: "/reference-cache/docs",
+      },
+    ] as const
+    const root = document.createElement("div")
+
+    expect(serializePromptParts([...parts])).toBe("Use @docs")
+    renderPromptParts(root, [...parts])
+
+    expect(root.textContent).toBe("Use @docs\u200B")
+    expect(collectPromptParts(root)).toEqual([...parts])
+  })
+
   test("round-trips selection context cards", () => {
     const root = document.createElement("div")
     renderPromptParts(root, [

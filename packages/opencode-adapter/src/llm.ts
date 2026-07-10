@@ -3,11 +3,12 @@ import { Effect } from "effect"
 import * as OpenCodeSession from "opencode/session/session"
 import * as OpenCodeProvider from "opencode/provider/provider"
 import * as ProviderTransform from "opencode/provider/transform"
+import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import { withCurrentInstance } from "./effect-runtime"
 import type { Provider } from "./provider"
 
-const runtime = makeRuntime(OpenCodeProvider.Service, OpenCodeProvider.defaultLayer)
+const runtime = makeRuntime(OpenCodeProvider.Service, AppNodeBuilderV1.build(OpenCodeProvider.node))
 
 type SmallTextInput = {
   sessionID: string

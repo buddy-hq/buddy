@@ -185,27 +185,9 @@ function buildChatNavigation(directory: string): NavigateOptions {
   }
 }
 
-function shouldDisableBenchNavigationViewTransition(input: {
-  current: BenchRouteSnapshot
-  next: BenchRouteSnapshot
-}) {
-  return (
-    input.current.status === BENCH_ROUTE_STATUS_OPEN &&
-    input.next.status === BENCH_ROUTE_STATUS_OPEN
-  )
-}
-
-function applyBenchNavigationViewTransitionPolicy(input: {
-  current: BenchRouteSnapshot
-  next: BenchRouteSnapshot
-  navigateOptions: NavigateOptions
-}): NavigateOptions {
-  if (!shouldDisableBenchNavigationViewTransition(input)) {
-    return input.navigateOptions
-  }
-
+function disableBenchNavigationViewTransition(navigateOptions: NavigateOptions): NavigateOptions {
   return {
-    ...input.navigateOptions,
+    ...navigateOptions,
     viewTransition: false,
   }
 }
@@ -1049,11 +1031,7 @@ export class DirectoryWorkspaceController {
   }): Promise<DirectoryWorkspaceCommandResult> {
     const previousProjection = this.#currentProjection()
     const attemptID = createWorkspaceAttemptID()
-    const navigateOptions = applyBenchNavigationViewTransitionPolicy({
-      current: previousProjection.route,
-      next: input.expectedRoute,
-      navigateOptions: input.navigateOptions,
-    })
+    const navigateOptions = disableBenchNavigationViewTransition(input.navigateOptions)
     logBenchToggleStep("workspace-controller-navigation-before-pending", () => ({
       directory: this.#directory,
       input: { ...input, navigateOptions },

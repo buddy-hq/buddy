@@ -6,6 +6,7 @@ const ENGLISH_TESSDATA_RELATIVE_PATH = ["resources", "tessdata", "eng.traineddat
 const PHOTON_WASM_PATTERN = /^photon_rs_bg(?:-[a-z0-9]+)?\.wasm$/i
 const DIRECTORY_NODE_MODULES = "node_modules" as const
 export const LITEPARSE_PACKAGE_NAME = "@llamaindex/liteparse" as const
+export const TYPESCRIPT_RUNTIME_PACKAGE_NAME = "typescript" as const
 
 export type BackendNodeArtifactTarget = {
   arch: string

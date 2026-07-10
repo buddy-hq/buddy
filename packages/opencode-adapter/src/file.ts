@@ -1,8 +1,9 @@
 import fs from "node:fs/promises"
 import path from "node:path"
-import { Ripgrep } from "@opencode-ai/core/filesystem/ripgrep"
+import { AppNodeBuilder } from "@opencode-ai/core/effect/app-node-builder"
+import { Ripgrep } from "@opencode-ai/core/ripgrep"
 import { NonNegativeInt } from "@opencode-ai/core/schema"
-import { Effect, Schema, Stream } from "effect"
+import { Schema } from "effect"
 import { makeRuntime } from "opencode/effect/run-service"
 import { Instance } from "./instance"
 
@@ -83,17 +84,24 @@ const KNOWN_BINARY_FILE_EXTENSIONS = new Set([
 const NOTEBOOK_FILE_SEARCH_SCAN_LIMIT = 25_000
 const NOTEBOOK_FILE_SEARCH_DEFAULT_LIMIT = 20
 const NOTEBOOK_FILE_SEARCH_MAX_LIMIT = 50
-const NOTEBOOK_FILE_SEARCH_EXCLUDED_GLOBS = [
-  "!**/.buddy/**",
-  "!**/node_modules/**",
-  "!**/vendor/**",
-  "!**/dist/**",
-  "!**/build/**",
-  "!**/out/**",
-  "!**/.turbo/**",
-  "!**/coverage/**",
+const NOTEBOOK_FILE_SEARCH_EXCLUDED_DIRECTORIES = [
+  ".buddy",
+  "node_modules",
+  "vendor",
+  "dist",
+  "build",
+  "out",
+  ".turbo",
+  "coverage",
 ] as const
-const ripgrepRuntime = makeRuntime(Ripgrep.Service, Ripgrep.defaultLayer)
+const NOTEBOOK_FILE_SEARCH_EXCLUDED_DIRECTORY_SET = new Set<string>(
+  NOTEBOOK_FILE_SEARCH_EXCLUDED_DIRECTORIES,
+)
+const NOTEBOOK_FILE_SEARCH_GLOB = `!**/{${NOTEBOOK_FILE_SEARCH_EXCLUDED_DIRECTORIES.join(",")}}/**`
+const ripgrepRuntime = makeRuntime(
+  Ripgrep.Service,
+  AppNodeBuilder.build(Ripgrep.node),
+)
 
 type RankedFileSearchPath = {
   path: string
@@ -167,6 +175,12 @@ function hasKnownBinaryExtension(filePath: string): boolean {
 
 function normalizeSearchValue(value: string): string {
   return value.trim().toLocaleLowerCase()
+}
+
+function isNotebookFileSearchPath(filePath: string): boolean {
+  return !normalizePathForClient(filePath)
+    .split("/")
+    .some((segment) => NOTEBOOK_FILE_SEARCH_EXCLUDED_DIRECTORY_SET.has(segment))
 }
 
 export function scoreNotebookFileSearchPath(query: string, filePath: string): number | undefined {
@@ -271,47 +285,26 @@ export namespace File {
       NOTEBOOK_FILE_SEARCH_SCAN_LIMIT,
       Math.max(1, input.scanLimit ?? NOTEBOOK_FILE_SEARCH_SCAN_LIMIT),
     )
-    const initial = {
-      scanned: 0,
-      ranked: [] as RankedFileSearchPath[],
-    }
-    const result = await ripgrepRuntime.runPromise((ripgrep) =>
-      ripgrep
-        .files({
-          cwd: Instance.directory,
-          glob: [...NOTEBOOK_FILE_SEARCH_EXCLUDED_GLOBS],
-          hidden: false,
-          signal: input.signal,
-        })
-        .pipe(
-          Stream.take(scanLimit + 1),
-          Stream.runFold(
-            () => initial,
-            (state, filePath) => {
-              if (state.scanned >= scanLimit) {
-                return {
-                  scanned: state.scanned + 1,
-                  ranked: state.ranked,
-                }
-              }
-              return {
-                scanned: state.scanned + 1,
-                ranked: retainRankedFileSearchPath({
-                  ranked: state.ranked,
-                  query,
-                  filePath,
-                  limit,
-                }),
-              }
-            },
-          ),
-          Effect.scoped,
-        ),
+    const entries = await ripgrepRuntime.runPromise((ripgrep) =>
+      ripgrep.find({
+        cwd: Instance.directory,
+        pattern: NOTEBOOK_FILE_SEARCH_GLOB,
+        limit: scanLimit + 1,
+        hidden: false,
+        signal: input.signal,
+      }),
+    )
+    const candidates = entries.slice(0, scanLimit).filter((entry) =>
+      isNotebookFileSearchPath(entry.path),
     )
 
     return {
-      matches: result.ranked.map((match) => match.path),
-      partial: result.scanned > scanLimit,
+      matches: rankNotebookFileSearchPaths({
+        query,
+        paths: candidates.map((entry) => entry.path),
+        limit,
+      }),
+      partial: entries.length > scanLimit,
     }
   }
 

@@ -3,6 +3,8 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { readProjectConfig } from "@buddy/backend/config/runtime"
+import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { syncOpenCodeProjectConfig } from "../../src/config/runtime/opencode-sync"
 import { runMessagePromptPipeline } from "../../src/learning/prompt/message-prompt-pipeline"
 import {
   addResource,
@@ -10,6 +12,7 @@ import {
 } from "../../src/resources/resource-registry-service"
 import {
   flattenPromptPartsForRuntime,
+  OPENCODE_REFERENCE_PART_TYPE,
   RESOURCE_REFERENCE_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
@@ -86,6 +89,103 @@ describe("message prompt resource references", () => {
       filename: "book chapter 1.pdf",
       url: pathToFileURL(sourcePath).href,
     })
+  })
+
+  test("resolves selected v2 references to the vendor desktop directory-file contract", async () => {
+    await using project = await tmpdir({ git: true })
+    const config = await readProjectConfig(project.path)
+    const referenceDirectory = path.join(project.path, "shared-docs")
+    mkdirSync(referenceDirectory)
+    writeFileSync(
+      path.join(project.path, "opencode.jsonc"),
+      JSON.stringify({
+        references: {
+          docs: {
+            type: "local",
+            path: referenceDirectory,
+          },
+          pending: {
+            type: "local",
+            path: path.join(project.path, "pending-docs"),
+          },
+        },
+      }),
+    )
+    await syncOpenCodeProjectConfig(project.path, true)
+
+    try {
+      const result = await runMessagePromptPipeline({
+        context: {
+          directory: project.path,
+          sessionID: "ses_opencode_reference",
+        },
+        body: {
+          content: "",
+          parts: [
+            {
+              type: OPENCODE_REFERENCE_PART_TYPE,
+              name: "docs",
+              path: referenceDirectory,
+            },
+          ],
+          agent: "custom-agent",
+        },
+        projectConfig: config,
+      })
+
+      expect(result.transformed.parts).toEqual([
+        {
+          type: "file",
+          mime: "application/x-directory",
+          filename: "docs",
+          url: pathToFileURL(referenceDirectory).href,
+        },
+      ])
+
+      await expect(
+        runMessagePromptPipeline({
+          context: {
+            directory: project.path,
+            sessionID: "ses_tampered_opencode_reference",
+          },
+          body: {
+            content: "",
+            parts: [
+              {
+                type: OPENCODE_REFERENCE_PART_TYPE,
+                name: "docs",
+                path: path.join(project.path, "different-path"),
+              },
+            ],
+            agent: "custom-agent",
+          },
+          projectConfig: config,
+        }),
+      ).rejects.toThrow("OpenCode reference is no longer available: docs")
+
+      await expect(
+        runMessagePromptPipeline({
+          context: {
+            directory: project.path,
+            sessionID: "ses_unavailable_opencode_reference",
+          },
+          body: {
+            content: "",
+            parts: [
+              {
+                type: OPENCODE_REFERENCE_PART_TYPE,
+                name: "pending",
+                path: path.join(project.path, "pending-docs"),
+              },
+            ],
+            agent: "custom-agent",
+          },
+          projectConfig: config,
+        }),
+      ).rejects.toThrow("OpenCode reference is not ready: pending")
+    } finally {
+      await OpenCodeInstance.disposeAll()
+    }
   })
 
   test("resolves explicit resource-reference parts to pack entry files", async () => {

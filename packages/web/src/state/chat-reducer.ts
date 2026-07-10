@@ -1,5 +1,6 @@
 import type { MessageInfo, MessagePart, MessageWithParts } from "./chat-types"
 import {
+  OPENCODE_REFERENCE_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
   WORKSPACE_FILE_REFERENCE_PART_TYPE,
 } from "../components/prompt/prompt-types"
@@ -163,6 +164,13 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
       ) {
         return existing.path === incoming.filename
       }
+      if (
+        existing.type === OPENCODE_REFERENCE_PART_TYPE &&
+        typeof existing.name === "string" &&
+        typeof incoming.filename === "string"
+      ) {
+        return existing.name === incoming.filename
+      }
       if (existing.type !== incoming.type) {
         return false
       }
@@ -184,6 +192,16 @@ function shouldReplaceOptimisticPart(existing: MessagePart, incoming: MessagePar
         return false
       }
       return typeof existing.path === "string" && existing.path === incoming.path
+    case OPENCODE_REFERENCE_PART_TYPE:
+      if (existing.type !== incoming.type) {
+        return false
+      }
+      return (
+        typeof existing.name === "string" &&
+        typeof existing.path === "string" &&
+        existing.name === incoming.name &&
+        existing.path === incoming.path
+      )
     case "resource-reference":
       if (existing.type !== incoming.type) {
         return false

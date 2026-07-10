@@ -58,6 +58,7 @@ import {
   type MentionOption,
   type MentionableAgent,
   type MentionableFile,
+  type MentionableReference,
 } from "./mention-autocomplete"
 import {
   clonePromptParts,
@@ -72,6 +73,7 @@ import { PromptComposerToolbar } from "./components/prompt-composer-toolbar"
 import {
   PROMPT_PART_TYPE_AGENT,
   PROMPT_PART_TYPE_TEXT,
+  OPENCODE_REFERENCE_PART_TYPE,
   READING_SELECTION_PART_TYPE,
   SELECTION_CONTEXT_PART_TYPE,
   type PromptComposerAttachment,
@@ -134,6 +136,7 @@ type PromptComposerProps = {
     label?: string
   }>
   mentionableAgents: MentionableAgent[]
+  mentionableReferences: MentionableReference[]
   slashCommands: Array<{
     name: string
     description?: string
@@ -354,6 +357,7 @@ export function PromptComposer(props: PromptComposerProps) {
     selectedPersona: props.selectedPersona,
     personaOptions: props.personaOptions,
     mentionableAgents: props.mentionableAgents,
+    mentionableReferences: props.mentionableReferences,
     slashCommands: props.slashCommands,
     modelOptions: props.modelOptions,
     onSearchFiles: props.onSearchFiles,
@@ -930,6 +934,11 @@ export function PromptComposer(props: PromptComposerProps) {
       pill.textContent = `@${option.name}`
       pill.dataset.type = PROMPT_PART_TYPE_AGENT
       pill.dataset.name = option.name
+    } else if (option.type === "reference") {
+      pill.textContent = `@${option.name}`
+      pill.dataset.type = OPENCODE_REFERENCE_PART_TYPE
+      pill.dataset.name = option.name
+      pill.dataset.path = option.path
     } else {
       pill.textContent = `@${option.path}`
       pill.dataset.type = WORKSPACE_FILE_REFERENCE_PART_TYPE

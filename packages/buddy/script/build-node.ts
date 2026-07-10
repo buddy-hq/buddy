@@ -10,6 +10,7 @@ import {
 } from "@buddy/script/channel"
 import {
   LITEPARSE_PACKAGE_NAME,
+  TYPESCRIPT_RUNTIME_PACKAGE_NAME,
   currentBackendNodeArtifactTarget,
 } from "../../../script/backend-node-artifact"
 import {
@@ -26,7 +27,12 @@ const bundledAdvancedMathRuntimeVersion = computeAdvancedMathRuntimeVersion()
 const chonkieWasmOutputPath = path.resolve(outdir, "pkg/chonkiejs_chunk_bg.wasm")
 const tessdataSourcePath = path.resolve(backendDir, "resources/tessdata")
 const tessdataOutputPath = path.resolve(outdir, "resources/tessdata")
-const firstStageExternals = ["jsonc-parser", "@lydell/node-pty", LITEPARSE_PACKAGE_NAME] as const
+const firstStageExternals = [
+  "jsonc-parser",
+  "@lydell/node-pty",
+  LITEPARSE_PACKAGE_NAME,
+  TYPESCRIPT_RUNTIME_PACKAGE_NAME,
+] as const
 
 process.chdir(backendDir)
 
