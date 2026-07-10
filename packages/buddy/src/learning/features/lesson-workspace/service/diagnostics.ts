@@ -62,7 +62,7 @@ async function ensureOpenCodeRuntimeForDirectory(directory: string) {
   )
 
   if (!response.ok) {
-    throw new Error(`Failed to initialize OpenCode runtime (${response.status})`)
+    throw new Error(`Failed to initialize Buddy runtime (${response.status})`)
   }
 }
 

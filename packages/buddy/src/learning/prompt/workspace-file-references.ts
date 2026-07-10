@@ -167,7 +167,7 @@ async function expandOpenCodeReferencePart(input: {
   const result = await client.v2.reference.list()
   if (result.error !== undefined) {
     throw new SessionTransformValidationError(
-      extractSdkErrorMessage(result.error) ?? "Failed to resolve OpenCode reference",
+      extractSdkErrorMessage(result.error) ?? "Failed to resolve workspace reference",
     )
   }
 
@@ -179,14 +179,14 @@ async function expandOpenCodeReferencePart(input: {
   )
   if (!reference) {
     throw new SessionTransformValidationError(
-      `OpenCode reference is no longer available: ${input.part.name}`,
+      `Workspace reference is no longer available: ${input.part.name}`,
     )
   }
 
   const referenceStat = await fs.stat(reference.path).catch(() => undefined)
   if (!referenceStat?.isDirectory()) {
     throw new SessionTransformValidationError(
-      `OpenCode reference is not ready: ${input.part.name}`,
+      `Workspace reference is not ready: ${input.part.name}`,
     )
   }
 
