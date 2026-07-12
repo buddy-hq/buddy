@@ -22,3 +22,13 @@ bun run build:desktop
 ```bash
 bun run build:installable
 ```
+
+## Reset the local macOS dev install
+
+From the repository root:
+
+```bash
+bun run cleanup:dev:mac
+```
+
+This removes only Buddy Dev's application, user data, cache, logs, preferences, and saved state. It then builds, installs, and opens the current Buddy Dev installable. Production Buddy data is left intact.

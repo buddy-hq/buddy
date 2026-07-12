@@ -130,6 +130,7 @@
     "download:preview": "BUDDY_INSTALL_RELEASE_KIND=preview bash ./script/install-release.sh",
     "install:release": "bash ./script/install-release.sh",
     "cleanup:windows": "powershell -ExecutionPolicy Bypass -File ./scripts/cleanup-buddy-windows.ps1",
+    "cleanup:dev:mac": "bash ./scripts/cleanup-buddy-dev-macos.sh",
     "cfmt": "bun fmt && git add . && git commit -m 'chore: run formatter' && git push"
   },
   "dependencies": {
@@ -142,7 +143,7 @@
     "@tsconfig/node22": "catalog:",
     "@typescript/native-preview": "7.0.0-dev.20251207.1",
     "cspell": "^10.0.0",
-    "oxfmt": "^0.40.0",
+    "oxfmt": "^0.58.0",
     "oxlint": "^1.55.0",
     "turbo": "^2.0.0"
   },
