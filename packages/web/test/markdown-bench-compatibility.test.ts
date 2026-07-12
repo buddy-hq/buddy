@@ -89,9 +89,7 @@ describe("Markdown Bench compatibility", () => {
 
   test("protects placeholders in indented template lists that MDX parses as JSX", () => {
     const markdown = ["## Premises:", "    1. <premise> [explicit/implicit]"].join("\n")
-    expect(prepareMarkdownForMdxEditor(markdown).replaceAll("\u2060", "")).toContain(
-      "\\<premise>",
-    )
+    expect(prepareMarkdownForMdxEditor(markdown).replaceAll("\u2060", "")).toContain("\\<premise>")
   })
 
   test("protects malformed and example angle syntax while preserving the source", () => {

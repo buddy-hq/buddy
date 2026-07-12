@@ -348,7 +348,8 @@ export const dict = {
   "markdownEditor.retrySave": "Retry save",
   "markdownEditor.saveError": "Save error",
   "mcp.editorDialog.addTitle": "Add extension",
-  "mcp.editorDialog.description": "Define the MCP once. Connect from a notebook when sign-in is needed.",
+  "mcp.editorDialog.description":
+    "Define the MCP once. Connect from a notebook when sign-in is needed.",
   "mcp.editorDialog.enabledByDefault": "Enabled by default",
   "mcp.editorDialog.enabledByDefaultDescription": "New notebooks use this unless they override it.",
   "mcp.editorDialog.local": "Local",
@@ -405,8 +406,7 @@ export const dict = {
   "mcp.remoteFields.headersPlaceholder": '{\n  "X-API-Key": "..."\n}',
   "mcp.remoteFields.hideDetails": "Hide advanced",
   "mcp.remoteFields.oauth": "Browser sign-in",
-  "mcp.remoteFields.oauthDescription":
-    "Use the provider's OAuth flow instead of saved headers.",
+  "mcp.remoteFields.oauthDescription": "Use the provider's OAuth flow instead of saved headers.",
   "mcp.remoteFields.remoteUrl": "Remote URL",
   "mcp.remoteFields.scopeOptional": "Scope (optional)",
   "mcp.remoteFields.scopePlaceholder": "Leave blank to use the server default",
@@ -474,9 +474,11 @@ export const dict = {
   "onboardingPrimaryUse.description":
     "We will use this to make your first chat and Buddy's default approach feel relevant.",
   "onboardingPrimaryUse.eyebrow": "Start here",
-  "onboardingPrimaryUse.learn.description": "Understand, practise, and remember what matters to you.",
+  "onboardingPrimaryUse.learn.description":
+    "Understand, practise, and remember what matters to you.",
   "onboardingPrimaryUse.learn.title": "Learn with Buddy",
-  "onboardingPrimaryUse.teach.description": "Plan, create, and assess learning experiences for others.",
+  "onboardingPrimaryUse.teach.description":
+    "Plan, create, and assess learning experiences for others.",
   "onboardingPrimaryUse.teach.title": "Teach with Buddy",
   "onboardingPrimaryUse.title": "What are you here to do first?",
   "pickers.absoluteDirectoryRequired": "Please enter an absolute directory path",
@@ -977,8 +979,7 @@ export const dict = {
   "sidebar.notebookSettingsMcpSectionDescription":
     "Enable or disable Model Context Protocol (MCP) servers.",
   "sidebar.notebookSettingsMcpSectionTitle": "MCP servers",
-  "sidebar.notebookSettingsStandardsSectionDescription":
-    "Override default coding standard tools.",
+  "sidebar.notebookSettingsStandardsSectionDescription": "Override default coding standard tools.",
   "sidebar.notebookSettingsStandardsSectionTitle": "Standards",
   "sidebar.notebookSettingsTitle": "Notebook settings",
   "sidebar.notebookLearnerMemory": "Memory",
@@ -992,7 +993,8 @@ export const dict = {
   "sidebar.newChat": "New chat",
   "sidebar.newNotebook": "New notebook",
   "sidebar.newNotebookDefaultName": "New Notebook",
-  "sidebar.newNotebookDialogDescription": "Create a new folder to store your notes and configuration.",
+  "sidebar.newNotebookDialogDescription":
+    "Create a new folder to store your notes and configuration.",
   "sidebar.newNotebookDialogTitle": "Create notebook",
   "sidebar.newNotebookPlaceholder": "Notebook name",
   "sidebar.newThread": "New thread",

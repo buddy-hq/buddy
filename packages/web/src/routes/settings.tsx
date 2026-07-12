@@ -151,17 +151,12 @@ function SettingsRoute() {
     [enabledExperimentalFeatureIDs, primaryUse, standardsEnabled],
   )
   const mainTabs = useMemo(
-    () =>
-      visibleTabs.filter(
-        (item) => settingsTabGroupForPrimaryUse(item, primaryUse) === "main",
-      ),
+    () => visibleTabs.filter((item) => settingsTabGroupForPrimaryUse(item, primaryUse) === "main"),
     [primaryUse, visibleTabs],
   )
   const optionalTabs = useMemo(
     () =>
-      visibleTabs.filter(
-        (item) => settingsTabGroupForPrimaryUse(item, primaryUse) === "optional",
-      ),
+      visibleTabs.filter((item) => settingsTabGroupForPrimaryUse(item, primaryUse) === "optional"),
     [primaryUse, visibleTabs],
   )
   const visibleTabIDs = useMemo(() => new Set(visibleTabs.map((item) => item.id)), [visibleTabs])

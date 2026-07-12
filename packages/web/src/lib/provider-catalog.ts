@@ -17,10 +17,7 @@ export function getUsableProviders(providers: ProviderInfo[]) {
   )
 }
 
-function resolveProviderModel(
-  provider: ProviderInfo | undefined,
-  preferredModelID?: string,
-) {
+function resolveProviderModel(provider: ProviderInfo | undefined, preferredModelID?: string) {
   if (!provider) return undefined
 
   if (preferredModelID) {

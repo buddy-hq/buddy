@@ -680,9 +680,7 @@ function EmptyProjectsState(props: EmptyProjectsStateProps) {
         onCreate={() => {
           void props.onCreateNotebook(notebookName, learnerMemoryEnabled, autoExtractEnabled)
         }}
-        enableLearnerMemory={
-          learnerMemoryExperimentEnabled ? learnerMemoryEnabled : undefined
-        }
+        enableLearnerMemory={learnerMemoryExperimentEnabled ? learnerMemoryEnabled : undefined}
         onLearnerMemoryChange={setLearnerMemoryEnabled}
         enableAutoExtract={learnerMemoryExperimentEnabled ? autoExtractEnabled : undefined}
         onAutoExtractChange={setAutoExtractEnabled}

@@ -1,7 +1,9 @@
 #!/usr/bin/env bun
 // When removing constant commands, remove them from the array, not from the constants.
-const _commandNew = 'when i say v2 of something i mean internal apis. check docs/v2 for comaparison i last did. you are supposed to bring all those to v2. the comparison was done by an older model. make sure you cross check befrore implementing.'
-const _cleanupCommand = 'while you are doing migrations if you come across a bad pattern or cleanup opportunity that will make your work simpler, feel free to take it. this includes cleaning up of badly written tests.'
+const _commandNew =
+  "when i say v2 of something i mean internal apis. check docs/v2 for comaparison i last did. you are supposed to bring all those to v2. the comparison was done by an older model. make sure you cross check befrore implementing."
+const _cleanupCommand =
+  "while you are doing migrations if you come across a bad pattern or cleanup opportunity that will make your work simpler, feel free to take it. this includes cleaning up of badly written tests."
 
 const messages: string[] = []
 

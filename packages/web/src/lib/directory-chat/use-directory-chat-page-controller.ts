@@ -1088,9 +1088,10 @@ export function useDirectoryChatPageController(
       }
 
       const variant = selectedThinking !== "default" ? selectedThinking : undefined
-      const activeWorkspace = includeActiveContext && cs.sessionKey
-        ? useTeachingRuntime.getState().workspaceBySession[cs.sessionKey]
-        : undefined
+      const activeWorkspace =
+        includeActiveContext && cs.sessionKey
+          ? useTeachingRuntime.getState().workspaceBySession[cs.sessionKey]
+          : undefined
       const teachingContext = includeActiveContext
         ? await resolveTeachingPromptContext({
             workspace: activeWorkspace,
