@@ -25,6 +25,7 @@ process.env[XDG_ENV.CONFIG_HOME] = configHome
 process.env[XDG_ENV.STATE_HOME] = stateHome
 process.env[BUDDY_ENV.TEST_HOME] = testHome
 process.env[BUDDY_ENV.TEST_XDG_ROOT] = runRoot
+process.env[BUDDY_ENV.DISABLE_SKILL_ARTIFACT_FETCH] = "1"
 process.env[OPENCODE_ENV.DISABLE_DEFAULT_PLUGINS] = "1"
 process.env[OPENCODE_ENV.DISABLE_MODELS_FETCH] = "1"
 process.env[OPENCODE_ENV.DISABLE_EXTERNAL_SKILLS] = "1"

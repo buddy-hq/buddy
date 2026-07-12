@@ -94,7 +94,29 @@ For normal user disable, `skill: deny` is sufficient. For catalog withdrawal, Bu
 - The catalog is the trust boundary. Buddy maintains approval records, not hundreds of skill implementations.
 - Approved curated skills are available to all personas in MVP.
 - All-persona availability is an MVP simplification, not a long-term access model.
-- MVP catalog delivery is local/Buddy-controlled: bundled with the app or stored in the Buddy repo. Do not fetch a live remote catalog until signing, caching, rollback protection, and trusted fallback behavior are designed.
+- Every app ships a bundled catalog fallback. Buddy may select a newer signed catalog from its verified local cache after enforcing monotonic revisions and same-revision immutability.
+
+## Independent Skill Delivery
+
+Buddy uses two domain-specific artifacts over one shared signed-delivery foundation:
+
+- **Library catalog**: approval metadata for user-installed external skills. Catalog refresh is automatic; install and reviewed updates remain user-initiated. Withdrawals are enforced automatically.
+- **System skill pack**: Buddy-authored runtime content for skills already registered to app features. Compatible packs update `SKILL.md`, references, and static assets; adding or renaming skills, changing feature ownership, tools, subagents, permissions, surfaces, or runtime code still requires an app release.
+
+Both artifacts use a single-file signed envelope, a dedicated skill-artifact minisign key, atomic cache writes, last-known-good fallback, and rollback floors. A lower revision is rejected. Reusing a revision with different payload bytes is also rejected.
+
+System packs have the stronger compatibility boundary because they activate without a user install action. Each app computes a fingerprint of its bundled system-skill baseline and requests the artifact dedicated to that fingerprint. The pack must also match the compiled runtime-contract version and the exact registered skill-name set. A different app baseline therefore cannot be replaced by a stale or incompatible remote pack.
+
+System packs are staged completely before Buddy atomically swaps the managed `.system` directory. The bundled pack remains the offline fallback and recovery baseline.
+
+Publishing is independent from desktop releases:
+
+```bash
+bun run skills:artifacts:build
+bun run skills:artifacts:publish
+```
+
+The publisher validates and signs the exact catalog bytes, builds the complete system pack, verifies the generated signatures with Buddy's embedded public key, rejects library content changes without a revision increment, and uploads the envelopes to the dedicated `skill-artifacts` release in `prashantbhudwal/buddy-releases`.
 
 ## Minimal End-To-End Flow
 
@@ -519,7 +541,7 @@ Non-goal:
 - All curated MVP skills are available to all personas.
 - No risk rating in the product schema.
 - No compatibility state in MVP.
-- No live remote catalog trust boundary.
+- No unsigned or arbitrary remote catalog sources.
 - No generic artifact URL source in MVP.
 - No semver range resolution.
 - No auto-updates.

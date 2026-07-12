@@ -244,7 +244,13 @@ export async function writeCatalogEntry(input: {
   } else {
     catalog.entries.push(input.entry)
   }
-  await writeCatalogDocument(catalog, catalogPath)
+  await writeCatalogDocument(
+    {
+      ...catalog,
+      revision: catalog.revision + 1,
+    },
+    catalogPath,
+  )
   return existingIndex >= 0 ? ("updated" as const) : ("created" as const)
 }
 

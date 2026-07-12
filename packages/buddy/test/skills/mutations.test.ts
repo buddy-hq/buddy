@@ -213,4 +213,43 @@ describe("curated skill mutations", () => {
       await fsp.rm(testHome, { recursive: true, force: true })
     }
   })
+
+  test("does not publish a skill withdrawn while installation is in progress", async () => {
+    const previousTestHome = process.env.BUDDY_TEST_HOME
+    const testHome = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-skill-withdraw-race-"))
+    process.env.BUDDY_TEST_HOME = testHome
+    const fetchedRoot = path.join(testHome, "fetched")
+    const document = skillDocument(SKILL_NAME, "Reviewed workflow.")
+
+    try {
+      await fsp.mkdir(fetchedRoot, { recursive: true })
+      await fsp.writeFile(path.join(fetchedRoot, "SKILL.md"), document, "utf8")
+      const sizeBytes = Buffer.byteLength(document)
+      const entry = catalogEntry(await computeSkillTreeSha256(fetchedRoot), sizeBytes)
+      const withdrawnEntry: SkillCatalogEntry = { ...entry, status: "withdrawn" }
+      let catalogReadCount = 0
+
+      await expect(
+        installCuratedLibrarySkill(CATALOG_ID, testHome, {
+          readCatalogEntryByID: async () => {
+            catalogReadCount += 1
+            return catalogReadCount === 1 ? entry : withdrawnEntry
+          },
+          readCatalogRevision: async () => "1",
+          fetchPinnedGitHubSkill: async () => fetchedSkill(fetchedRoot, sizeBytes),
+          resolveInstalledSkillByName: async () => undefined,
+          refreshSkillRuntime: async () => undefined,
+        }),
+      ).rejects.toThrow("catalog changed during installation")
+
+      await expect(fsp.stat(path.join(managedLibraryRoot(), CATALOG_ID))).rejects.toThrow()
+    } finally {
+      if (previousTestHome === undefined) {
+        delete process.env.BUDDY_TEST_HOME
+      } else {
+        process.env.BUDDY_TEST_HOME = previousTestHome
+      }
+      await fsp.rm(testHome, { recursive: true, force: true })
+    }
+  })
 })

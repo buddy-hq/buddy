@@ -5,7 +5,12 @@ import { Config } from "@buddy/backend/config"
 import type { InstalledSkillInfo, SkillsCatalog } from "./contracts"
 import { readOptionalString } from "./documents"
 import { loadVisibleSkills } from "./discovery"
-import { listCatalogLibraryItems, reconcileWithdrawnLibrarySkills } from "./library"
+import {
+  listCatalogLibraryItems,
+  readSkillCatalogSnapshot,
+  reconcileWithdrawnLibrarySkills,
+  type SkillCatalogDocument,
+} from "./library"
 import { loadBuddySkillManifest, resolveSkillPresentation } from "./manifests"
 import { managedSkillsRoot, managedSource, resolveSkillScope } from "./paths"
 import {
@@ -14,6 +19,7 @@ import {
   resolveSkillPermission,
   skillRuleset,
 } from "./permissions"
+import { refreshSkillArtifacts } from "./artifact-refresh"
 
 async function readSkillMetadata(location: string) {
   const source = await fsp.readFile(location, "utf8").catch(() => undefined)
@@ -98,8 +104,8 @@ async function readInstalledSkillEntries(input: {
   )
 }
 
-async function readCuratedLibraryEntries() {
-  const entries = await listCatalogLibraryItems()
+async function readCuratedLibraryEntries(catalog: SkillCatalogDocument) {
+  const entries = await listCatalogLibraryItems(catalog)
   return {
     entries,
   }
@@ -111,14 +117,17 @@ export async function listSkillsCatalog(
     refresh?: boolean
   },
 ): Promise<SkillsCatalog> {
-  await reconcileWithdrawnLibrarySkills()
+  const catalogSnapshot = options?.refresh
+    ? (await refreshSkillArtifacts()).catalog
+    : await readSkillCatalogSnapshot()
+  await reconcileWithdrawnLibrarySkills(catalogSnapshot.document)
 
   const [installed, library, globalConfig] = await Promise.all([
     readInstalledSkillEntries({
       directory,
       refresh: options?.refresh,
     }),
-    readCuratedLibraryEntries(),
+    readCuratedLibraryEntries(catalogSnapshot.document),
     Config.getGlobal(),
   ])
 
@@ -128,5 +137,6 @@ export async function listSkillsCatalog(
     externalVendorRootsEnabled: globalConfig.skills_external_vendor_roots_enabled === true,
     installed,
     library: library.entries,
+    ...(catalogSnapshot.syncError ? { librarySyncError: catalogSnapshot.syncError } : {}),
   }
 }

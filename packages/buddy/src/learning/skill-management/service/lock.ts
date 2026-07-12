@@ -26,6 +26,8 @@ const installedSkillLockEntrySchema = z.discriminatedUnion("state", [
     state: z.literal("withdrawn"),
     withdrawnPath: z.string().trim().min(1),
     withdrawnAt: z.string().trim().datetime(),
+    runtimeRefreshPending: z.boolean(),
+    permissionDisposition: z.enum(["denied", "system-replacement"]).optional(),
   }),
 ])
 

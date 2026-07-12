@@ -43,6 +43,18 @@ export function curatedSkillsCacheRoot() {
   return path.join(buddyHomeRoot(), "cache")
 }
 
+export function skillArtifactCacheRoot() {
+  return path.join(curatedSkillsCacheRoot(), "skill-artifacts")
+}
+
+export function libraryCatalogCacheRoot() {
+  return path.join(skillArtifactCacheRoot(), "library-catalog")
+}
+
+export function systemSkillPackCacheRoot() {
+  return path.join(skillArtifactCacheRoot(), "system-skill-pack")
+}
+
 export async function ensureManagedSkillPathReady() {
   await fsp.mkdir(managedSkillsRoot(), { recursive: true })
   await fsp.mkdir(managedSystemRoot(), { recursive: true })

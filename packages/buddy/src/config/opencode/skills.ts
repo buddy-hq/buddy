@@ -6,7 +6,7 @@ import {
   managedSkillsRoot,
   managedSystemRoot,
 } from "../../learning/skill-management/service/paths.js"
-import { ensureBundledSystemSkillsInstalled } from "../../learning/skill-management/service/system-installer.js"
+import { ensureSystemSkillsInstalled } from "../../learning/skill-management/service/system-installer.js"
 import { BUDDY_ENV, Global } from "../../storage"
 
 const BUNDLED_FEATURE_RELATIVE_PATHS = [
@@ -238,14 +238,10 @@ async function resolveOpenCodeSkillPaths(
   )
 
   const bundledRoots = await resolveBuddyBundledSkillRoots()
-  const sourceBundledRoots = await resolveBuddySourceBundledSkillRoots()
   const { allBuddySkills } = await import("../../learning/runtime/feature-registry.js")
-  await ensureBundledSystemSkillsInstalled(bundledRoots, allBuddySkills())
+  await ensureSystemSkillsInstalled(bundledRoots, allBuddySkills())
   for (const managedPath of [managedSkillsRoot(), managedSystemRoot()]) {
     await appendIfDirectory(paths, managedPath)
-  }
-  for (const sourceBundledRoot of sourceBundledRoots) {
-    await appendIfDirectory(paths, sourceBundledRoot)
   }
 
   if (config.skills_external_vendor_roots_enabled) {

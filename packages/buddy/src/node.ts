@@ -3,6 +3,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { app } from "./app"
 import { listenNodeServer } from "./node-server"
+import { startSkillArtifactRefreshLoop } from "./learning/skill-management/service/artifact-refresh"
 
 const OPTION_PRINT_LOGS = "--print-logs"
 const OPTION_LOG_LEVEL = "--log-level"
@@ -83,7 +84,9 @@ export function parseServerBootstrapConfig(argv: string[]): ServerBootstrapConfi
 }
 
 export function listen(config: ServerBootstrapConfig): NodeServerListener {
-  return listenNodeServer(config)
+  const listener = listenNodeServer(config)
+  startSkillArtifactRefreshLoop()
+  return listener
 }
 
 export function startServerFromArgv(argv: string[]): NodeServerListener {

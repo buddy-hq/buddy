@@ -1,21 +1,31 @@
 import { describe, expect, test } from "bun:test"
+import fsp from "node:fs/promises"
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import {
   catalogPathCandidates,
+  parseSkillCatalogDocument,
+  reconcileWithdrawnLibrarySkills,
   resolveCatalogSkillState,
   resolveCatalogPathFromCandidates,
 } from "../../src/learning/skill-management/service/library"
 import type { InstalledSkillLockEntry } from "../../src/learning/skill-management/service/lock"
+import {
+  readInstalledSkillLock,
+  writeInstalledSkillLock,
+} from "../../src/learning/skill-management/service/lock"
+import { managedLibraryRoot } from "../../src/learning/skill-management/service/paths"
 
 const CATALOG_SHA = "a".repeat(64)
 const SKILL_SIZE_BYTES = 100
 const SKILL_FILE_COUNT = 1
 const SCANNER_POLICY_VERSION = 1
 
-function activeLockEntry(sha256: string): InstalledSkillLockEntry {
+function activeLockEntry(
+  sha256: string,
+): Extract<InstalledSkillLockEntry, { state: "active" }> {
   return {
     catalogId: "sample-skill",
     displayName: "Sample Skill",
@@ -100,5 +110,133 @@ describe("skill catalog library", () => {
     expect(resolveCatalogSkillState({ entry, lockEntry: activeLockEntry("c".repeat(64)) })).toBe(
       "update_available",
     )
+  })
+
+  test("denies and moves installed skills withdrawn by a catalog revision", async () => {
+    const previousHome = process.env.BUDDY_TEST_HOME
+    const testHome = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-skill-withdrawal-"))
+    process.env.BUDDY_TEST_HOME = testHome
+    const installedPath = path.join(managedLibraryRoot(), "sample-skill")
+    const lockEntry = activeLockEntry(CATALOG_SHA)
+    const denied: string[] = []
+    let refreshAttempts = 0
+
+    try {
+      await fsp.mkdir(installedPath, { recursive: true })
+      await fsp.writeFile(path.join(installedPath, "SKILL.md"), "withdraw me\n", "utf8")
+      await writeInstalledSkillLock({
+        schemaVersion: 1,
+        installed: {
+          "sample-skill": {
+            ...lockEntry,
+            installedPath,
+          },
+        },
+      })
+      const catalog = parseSkillCatalogDocument({
+        schemaVersion: 1,
+        revision: 2,
+        entries: [
+          {
+            id: "sample-skill",
+            displayName: "Sample Skill",
+            summary: "A withdrawn sample skill.",
+            categories: ["test"],
+            tags: ["test"],
+            source: lockEntry.source,
+            integrity: lockEntry.integrity,
+            review: {
+              approvedAt: "2026-07-11T00:00:00.000Z",
+              policyVersion: 1,
+            },
+            status: "withdrawn",
+          },
+        ],
+      })
+
+      await expect(
+        reconcileWithdrawnLibrarySkills(catalog, {
+          setSkillPermission: async (name, action) => {
+            denied.push(`${name}:${action}`)
+          },
+          refreshSkillRuntime: async () => {
+            refreshAttempts += 1
+            throw new Error("runtime refresh failed")
+          },
+        }),
+      ).rejects.toThrow("runtime refresh failed")
+
+      expect(denied).toEqual(["sample-skill:deny"])
+      const failedLock = await readInstalledSkillLock()
+      const withdrawn = failedLock.installed["sample-skill"]
+      expect(withdrawn?.state).toBe("withdrawn")
+      if (withdrawn?.state !== "withdrawn") {
+        throw new Error("Expected a withdrawn lock entry")
+      }
+      expect(withdrawn.runtimeRefreshPending).toBe(true)
+      expect(await fsp.stat(withdrawn.withdrawnPath).then((stat) => stat.isDirectory())).toBe(true)
+      await expect(fsp.stat(installedPath)).rejects.toThrow()
+
+      denied.length = 0
+      await reconcileWithdrawnLibrarySkills(catalog, {
+        setSkillPermission: async (name, action) => {
+          denied.push(`${name}:${action}`)
+        },
+        refreshSkillRuntime: async () => {
+          refreshAttempts += 1
+        },
+      })
+      expect(denied).toEqual([])
+      expect(refreshAttempts).toBe(2)
+      const reconciledLock = await readInstalledSkillLock()
+      const reconciled = reconciledLock.installed["sample-skill"]
+      expect(reconciled?.state).toBe("withdrawn")
+      if (reconciled?.state !== "withdrawn") {
+        throw new Error("Expected a withdrawn lock entry")
+      }
+      expect(reconciled.runtimeRefreshPending).toBe(false)
+
+      denied.length = 0
+      await reconcileWithdrawnLibrarySkills(catalog, {
+        setSkillPermission: async (name, action) => {
+          denied.push(`${name}:${action}`)
+        },
+        refreshSkillRuntime: async () => {
+          refreshAttempts += 1
+        },
+      })
+      expect(denied).toEqual([])
+      expect(refreshAttempts).toBe(2)
+
+      const cleared: string[] = []
+      denied.length = 0
+      await reconcileWithdrawnLibrarySkills(catalog, {
+        clearSkillPermission: async (name) => {
+          cleared.push(name)
+        },
+        setSkillPermission: async (name, action) => {
+          denied.push(`${name}:${action}`)
+        },
+        systemSkillNames: ["sample-skill"],
+      })
+      expect(cleared).toEqual(["sample-skill"])
+      expect(denied).toEqual([])
+
+      cleared.length = 0
+      await reconcileWithdrawnLibrarySkills(catalog, {
+        clearSkillPermission: async (name) => {
+          cleared.push(name)
+        },
+        systemSkillNames: ["sample-skill"],
+      })
+      expect(cleared).toEqual([])
+    } finally {
+      if (previousHome === undefined) {
+        delete process.env.BUDDY_TEST_HOME
+      } else {
+        process.env.BUDDY_TEST_HOME = previousHome
+      }
+      await fsp.rm(testHome, { recursive: true, force: true })
+    }
   })
 })

@@ -18,15 +18,27 @@ import {
 import {
   ensureManagedSkillPathReady,
   isWithinPath,
+  libraryCatalogCacheRoot,
   managedLibraryRoot,
   managedWithdrawnLibraryRoot,
 } from "./paths"
 import { BUDDY_ENV } from "../../../storage"
+import { allBuddySkills } from "../../runtime/feature-registry"
+import {
+  libraryCatalogArtifactUrl,
+  skillArtifactPublicKey,
+} from "./artifact-config"
+import { createSignedArtifactStore } from "./signed-artifact"
+import { clearSkillPermission, setSkillPermission } from "./permissions"
 
 const CATALOG_SCHEMA_VERSION = 1
 const CATALOG_FILE_NAME = "catalog.json"
 const RUNTIME_ENTRYPOINT_FILE_NAMES = new Set(["index.js"])
 const WITHDRAWN_PATH_MAX_ATTEMPTS = 100
+const WITHDRAWN_PERMISSION_DISPOSITION = {
+  denied: "denied",
+  systemReplacement: "system-replacement",
+} as const
 
 type WithdrawnSkillMove = {
   catalogId: string
@@ -62,6 +74,7 @@ const skillCatalogEntrySchema = z.object({
 
 const skillCatalogDocumentSchema = z.object({
   schemaVersion: z.literal(CATALOG_SCHEMA_VERSION),
+  revision: z.number().int().positive(),
   entries: z.array(skillCatalogEntrySchema),
 })
 
@@ -136,18 +149,14 @@ export function resolveCatalogSkillState(input: {
   return isCatalogSkillUpdateAvailable(input) ? "update_available" : "installed"
 }
 
-async function readCatalogJson(): Promise<unknown> {
-  const source = await fsp.readFile(await resolveCatalogPath(), "utf8")
+function parseCatalogJson(source: string): unknown {
   try {
-    return JSON.parse(source)
+    const parsed: unknown = JSON.parse(source)
+    return parsed
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     throw new Error(`Invalid skill catalog JSON: ${message}`, { cause: error })
   }
-}
-
-export async function readSkillCatalogDocument(): Promise<SkillCatalogDocument> {
-  return parseSkillCatalogDocument(await readCatalogJson())
 }
 
 async function fileExists(filepath: string): Promise<boolean> {
@@ -195,6 +204,46 @@ export async function resolveCatalogPath(): Promise<string> {
   )
 }
 
+async function readBundledCatalogPayload() {
+  const source = await fsp.readFile(await resolveCatalogPath(), "utf8")
+  const value = parseSkillCatalogDocument(parseCatalogJson(source))
+  return {
+    value,
+    payloadBytes: Buffer.from(source, "utf8"),
+    revision: value.revision,
+  }
+}
+
+const skillCatalogStore = createSignedArtifactStore<SkillCatalogDocument>({
+  artifactLabel: "skill library catalog",
+  cacheRoot: libraryCatalogCacheRoot,
+  loadBundled: readBundledCatalogPayload,
+  parsePayload: parseSkillCatalogDocument,
+  publicKey: skillArtifactPublicKey,
+  remoteUrl: libraryCatalogArtifactUrl,
+  revision: (catalog) => catalog.revision,
+})
+
+export async function readSkillCatalogSnapshot(options?: { refresh?: boolean }) {
+  const resolution = options?.refresh
+    ? await skillCatalogStore.refresh()
+    : await skillCatalogStore.get()
+  return {
+    document: resolution.value,
+    revision: resolution.revision,
+    source: resolution.source,
+    syncError: resolution.syncError,
+  }
+}
+
+export async function readSkillCatalogDocument(): Promise<SkillCatalogDocument> {
+  return (await readSkillCatalogSnapshot()).document
+}
+
+export function resetSkillCatalogStoreForTests(): void {
+  skillCatalogStore.reset()
+}
+
 async function readReconciledInstalledSkillLock() {
   const lock = await readInstalledSkillLock()
   let changed = false
@@ -220,9 +269,11 @@ async function readReconciledInstalledSkillLock() {
   return lock
 }
 
-export async function listCatalogLibraryItems(): Promise<SkillLibraryItemView[]> {
+export async function listCatalogLibraryItems(
+  catalogDocument?: SkillCatalogDocument,
+): Promise<SkillLibraryItemView[]> {
   const [catalog, lock] = await Promise.all([
-    readSkillCatalogDocument(),
+    catalogDocument ? Promise.resolve(catalogDocument) : readSkillCatalogDocument(),
     readReconciledInstalledSkillLock(),
   ])
 
@@ -248,6 +299,10 @@ export async function readCatalogEntryByID(
 ): Promise<SkillCatalogEntry | undefined> {
   const catalog = await readSkillCatalogDocument()
   return catalog.entries.find((entry) => entry.id === skillID)
+}
+
+export async function readCatalogRevision(): Promise<string> {
+  return String((await readSkillCatalogSnapshot()).revision)
 }
 
 async function refreshSkillRuntime(): Promise<void> {
@@ -288,20 +343,39 @@ async function rollbackWithdrawnSkillMoves(moves: WithdrawnSkillMove[]): Promise
   }
 }
 
-export async function reconcileWithdrawnLibrarySkills(): Promise<void> {
+export async function reconcileWithdrawnLibrarySkills(
+  catalogDocument?: SkillCatalogDocument,
+  dependencies?: {
+    clearSkillPermission?: typeof clearSkillPermission
+    refreshSkillRuntime?: () => Promise<void>
+    setSkillPermission?: typeof setSkillPermission
+    systemSkillNames?: readonly string[]
+  },
+): Promise<void> {
+  const clearPermission = dependencies?.clearSkillPermission ?? clearSkillPermission
+  const denySkill = dependencies?.setSkillPermission ?? setSkillPermission
+  const refreshRuntime = dependencies?.refreshSkillRuntime ?? refreshSkillRuntime
+  const systemSkillNames = new Set(
+    dependencies?.systemSkillNames ?? allBuddySkills().map((skill) => skill.name),
+  )
   const [catalog, lock] = await Promise.all([
-    readSkillCatalogDocument(),
+    catalogDocument ? Promise.resolve(catalogDocument) : readSkillCatalogDocument(),
     readReconciledInstalledSkillLock(),
   ])
   const withdrawnCatalogIds = new Set(
     catalog.entries.filter((entry) => entry.status === "withdrawn").map((entry) => entry.id),
   )
   let changed = false
+  let runtimeRefreshPending = false
   const movedSkills: WithdrawnSkillMove[] = []
 
   try {
     for (const [catalogId, lockEntry] of Object.entries(lock.installed)) {
-      if (lockEntry.state !== "active" || !withdrawnCatalogIds.has(catalogId)) {
+      if (!withdrawnCatalogIds.has(catalogId)) {
+        continue
+      }
+      if (lockEntry.state !== "active") {
+        if (lockEntry.runtimeRefreshPending) runtimeRefreshPending = true
         continue
       }
 
@@ -340,18 +414,55 @@ export async function reconcileWithdrawnLibrarySkills(): Promise<void> {
         state: "withdrawn",
         withdrawnPath,
         withdrawnAt: new Date().toISOString(),
+        runtimeRefreshPending: true,
       }
       changed = true
+      runtimeRefreshPending = true
     }
 
-    if (!changed) {
-      return
-    }
-
-    await writeInstalledSkillLock(lock)
+    if (changed) await writeInstalledSkillLock(lock)
   } catch (error) {
     await rollbackWithdrawnSkillMoves(movedSkills)
     throw error
   }
-  await refreshSkillRuntime()
+
+  let permissionDispositionChanged = false
+  for (const [catalogId, lockEntry] of Object.entries(lock.installed)) {
+    if (!withdrawnCatalogIds.has(catalogId) || lockEntry.state !== "withdrawn") {
+      continue
+    }
+
+    const replacementExists = systemSkillNames.has(lockEntry.skillName)
+    const permissionDisposition = replacementExists
+      ? WITHDRAWN_PERMISSION_DISPOSITION.systemReplacement
+      : WITHDRAWN_PERMISSION_DISPOSITION.denied
+    if (lockEntry.permissionDisposition === permissionDisposition) {
+      continue
+    }
+
+    if (replacementExists) {
+      await clearPermission(lockEntry.skillName)
+    } else {
+      await denySkill(lockEntry.skillName, "deny")
+    }
+    lock.installed[catalogId] = {
+      ...lockEntry,
+      permissionDisposition,
+    }
+    permissionDispositionChanged = true
+  }
+  if (permissionDispositionChanged) await writeInstalledSkillLock(lock)
+  if (!runtimeRefreshPending) return
+
+  await refreshRuntime()
+  for (const [catalogId, lockEntry] of Object.entries(lock.installed)) {
+    if (
+      withdrawnCatalogIds.has(catalogId) &&
+      lockEntry.state === "withdrawn" &&
+      lockEntry.runtimeRefreshPending
+    ) {
+      lockEntry.runtimeRefreshPending = false
+    }
+  }
+  await writeInstalledSkillLock(lock)
 }

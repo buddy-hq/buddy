@@ -3,7 +3,10 @@ import fsp from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import type { SkillSourceRef } from "../../src/learning/skill-management/service/catalog-schemas"
-import type { SkillCatalogEntry } from "../../src/learning/skill-management/service/library"
+import {
+  parseSkillCatalogDocument,
+  type SkillCatalogEntry,
+} from "../../src/learning/skill-management/service/library"
 import type { CurationArgs } from "../../script/skill-curation"
 import { buildCurationOutput, writeCatalogEntry } from "../../script/skill-curation"
 
@@ -246,6 +249,7 @@ describe("skill curation hardening", () => {
       `${JSON.stringify(
         {
           schemaVersion: 1,
+          revision: 1,
           entries: [entryFixture()],
         },
         null,
@@ -274,9 +278,8 @@ describe("skill curation hardening", () => {
       }),
     ).resolves.toBe("updated")
 
-    const written = JSON.parse(await fsp.readFile(catalogPath, "utf8")) as {
-      entries: SkillCatalogEntry[]
-    }
+    const written = parseSkillCatalogDocument(JSON.parse(await fsp.readFile(catalogPath, "utf8")))
+    expect(written.revision).toBe(2)
     expect(written.entries[0]?.summary).toBe("Updated summary.")
   })
 })

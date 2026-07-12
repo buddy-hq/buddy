@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "revision": 2,
   "entries": [
     {
       "id": "anthropic-pptx",
@@ -355,7 +356,7 @@
         "approvedWarningRuleIDs": ["broad-filesystem-reference"],
         "notes": "Reviewed filesystem guidance. Access is intentionally limited to the user-selected Obsidian vault. Hermes tool names require a Buddy runtime compatibility pass."
       },
-      "status": "approved"
+      "status": "withdrawn"
     },
     {
       "id": "nousresearch-hermes-agent-ocr-and-documents",

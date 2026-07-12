@@ -11,9 +11,11 @@ This folder owns Buddy's skills facade. The runtime still comes from vendored Op
 
 ## Buddy Layer
 
-- `service.ts` reads the upstream `/skill` list, merges in Buddy-managed skills stored under `~/.agents/skills/buddy-managed`, and adds placeholder library entries for the current UI.
+- `service/catalog.ts` reads the upstream skill list, merges Buddy-managed skills, and joins installed state with the signed curated-library catalog.
 - `routes/skills.ts` exposes the API used by the web app for listing, creating, installing, updating, and removing skills.
 - `GET /api/skills?refresh=1` forces a Buddy-side filesystem rescan for local skill sources while preserving cached remote-discovery skills. This is how the UI picks up Finder edits without restarting the app or canceling live chats.
+- The same explicit refresh checks the signed library catalog and compatible system-skill pack. The backend also refreshes these artifacts periodically without blocking startup.
+- Every app retains bundled catalog and system-skill fallbacks. Remote artifacts are accepted only after signature, schema, revision, integrity, and compatibility validation.
 - Buddy shows `scope` as the discovery location (`global` vs `workspace`), but the permission control still follows the core name-based model. The scope label is informational; it is not a separate permission boundary.
 
 ## Current Limitation

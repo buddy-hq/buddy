@@ -1,0 +1,65 @@
+name: publish-skill-artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_fingerprint:
+        description: Existing bundled system-skill fingerprint to target; blank targets this checkout
+        required: false
+        type: string
+      system_revision:
+        description: System pack revision; blank uses the library catalog revision
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-skill-artifacts
+  cancel-in-progress: false
+
+env:
+  BUN_VERSION: "1.3.14"
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - run: bun install --frozen-lockfile
+
+      - name: Verify repository
+        run: |
+          bun lint
+          bun typecheck
+          cd packages/buddy
+          bun test --preload ./test/preload.ts \
+              test/skills/signed-artifact.test.ts \
+              test/skills/system-pack.test.ts \
+              test/skills/library.test.ts \
+              test/skills/skill-curation.test.ts
+
+      - name: Publish signed skill artifacts
+        env:
+          BUDDY_SKILL_SIGNING_PRIVATE_KEY: ${{ secrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY }}
+          BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD }}
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          INPUT_BASE_FINGERPRINT: ${{ inputs.base_fingerprint }}
+          INPUT_SYSTEM_REVISION: ${{ inputs.system_revision }}
+        run: |
+          args=(--publish)
+          if [[ -n "$INPUT_BASE_FINGERPRINT" ]]; then
+            args+=(--base-fingerprint "$INPUT_BASE_FINGERPRINT")
+          fi
+          if [[ -n "$INPUT_SYSTEM_REVISION" ]]; then
+            args+=(--system-revision "$INPUT_SYSTEM_REVISION")
+          fi
+          bun ./script/publish-skill-artifacts.ts "${args[@]}"
+        working-directory: packages/buddy

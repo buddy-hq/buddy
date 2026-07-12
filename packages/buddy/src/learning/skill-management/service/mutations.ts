@@ -12,7 +12,11 @@ import {
 } from "./documents"
 import { resolveInstalledSkillByName } from "./discovery"
 import { fetchPinnedGitHubSkill, type FetchedGitHubSkill } from "./github-fetcher"
-import { isCatalogSkillUpdateAvailable, readCatalogEntryByID } from "./library"
+import {
+  isCatalogSkillUpdateAvailable,
+  readCatalogEntryByID,
+  readCatalogRevision,
+} from "./library"
 import { readInstalledSkillLock, writeInstalledSkillLock } from "./lock"
 import {
   curatedSkillsCacheRoot,
@@ -44,6 +48,7 @@ async function refreshSkillRuntime() {
 
 export type InstallCuratedLibrarySkillDependencies = {
   readCatalogEntryByID?: typeof readCatalogEntryByID
+  readCatalogRevision?: typeof readCatalogRevision
   fetchPinnedGitHubSkill?: (source: FetchedGitHubSkill["source"]) => Promise<FetchedGitHubSkill>
   resolveInstalledSkillByName?: typeof resolveInstalledSkillByName
   refreshSkillRuntime?: () => Promise<void>
@@ -223,11 +228,15 @@ export async function installCuratedLibrarySkill(
 ) {
   const normalizedSkillID = validateLibrarySkillID(skillID)
   const readCatalogEntry = dependencies?.readCatalogEntryByID ?? readCatalogEntryByID
+  const readRevision = dependencies?.readCatalogRevision ?? readCatalogRevision
   const fetchSkill = dependencies?.fetchPinnedGitHubSkill ?? fetchPinnedGitHubSkill
   const resolveInstalledSkill =
     dependencies?.resolveInstalledSkillByName ?? resolveInstalledSkillByName
   const refreshRuntime = dependencies?.refreshSkillRuntime ?? refreshSkillRuntime
-  const entry = await readCatalogEntry(normalizedSkillID)
+  const [entry, catalogRevision] = await Promise.all([
+    readCatalogEntry(normalizedSkillID),
+    readRevision(),
+  ])
   if (!entry || entry.status !== "approved") {
     throw new SkillServiceError("not_found", "Unknown skill library item")
   }
@@ -327,6 +336,23 @@ export async function installCuratedLibrarySkill(
       ).toSorted(),
     })
 
+    const [currentEntry, currentCatalogRevision] = await Promise.all([
+      readCatalogEntry(normalizedSkillID),
+      readRevision(),
+    ])
+    if (
+      !currentEntry ||
+      currentEntry.status !== "approved" ||
+      currentCatalogRevision !== catalogRevision ||
+      JSON.stringify(currentEntry.source) !== JSON.stringify(entry.source) ||
+      JSON.stringify(currentEntry.integrity) !== JSON.stringify(entry.integrity)
+    ) {
+      throw new SkillServiceError(
+        "conflict",
+        "The skill catalog changed during installation; refresh and try again",
+      )
+    }
+
     publishedSkillTree = await publishSkillTree({
       catalogId: normalizedSkillID,
       sourceRoot: fetched.skillRoot,
@@ -349,6 +375,7 @@ export async function installCuratedLibrarySkill(
       },
       installedAt: new Date().toISOString(),
       scannerPolicyVersion: SCANNER_POLICY_VERSION,
+      catalogRevision,
       state: "active",
       installedPath: targetRoot,
     }
