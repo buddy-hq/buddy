@@ -9,6 +9,20 @@ import { findPreferredOAuthMethodIndex } from "./provider-auth"
 
 const PROVIDER_CONNECTION_POLL_INTERVAL_MS = 1_000
 const PROVIDER_CONNECTION_TIMEOUT_MS = 45_000
+const PREFERRED_FREE_ONBOARDING_MODEL_ID = "deepseek-v4-flash-free"
+const PREFERRED_FREE_ONBOARDING_VARIANT = "max"
+
+export const ONBOARDING_PROVIDER_SELECTION_ACTION = {
+  showLocation: "show_location",
+  configureExistingNotebook: "configure_existing_notebook",
+} as const
+
+export type OnboardingProviderSelectionAction =
+  | { type: typeof ONBOARDING_PROVIDER_SELECTION_ACTION.showLocation }
+  | {
+      type: typeof ONBOARDING_PROVIDER_SELECTION_ACTION.configureExistingNotebook
+      directory: string
+    }
 
 export function resolveOnboardingProviderID(choice: OnboardingAuthChoice) {
   return choice === "chatgpt_plus" ? OPENAI_PROVIDER_ID : OPENCODE_PROVIDER_ID
@@ -26,6 +40,20 @@ export function shouldResumeOnboardingPersonalization(input: {
     typeof input.existingDirectory === "string" &&
     input.existingDirectory.length > 0
   )
+}
+
+export function resolveOnboardingProviderSelectionAction(input: {
+  showProviderSelectionStep: boolean
+  existingDirectory?: string
+}): OnboardingProviderSelectionAction {
+  if (input.showProviderSelectionStep && input.existingDirectory) {
+    return {
+      type: ONBOARDING_PROVIDER_SELECTION_ACTION.configureExistingNotebook,
+      directory: input.existingDirectory,
+    }
+  }
+
+  return { type: ONBOARDING_PROVIDER_SELECTION_ACTION.showLocation }
 }
 
 export function shouldAutoContinueConnectedOpenAiOnboarding(input: {
@@ -52,6 +80,27 @@ export function shouldShowOnboardingPersonalizationStep(input: {
 
 export function shouldShowOnboardingPrimaryUseStep(primaryUse: PrimaryUse | undefined) {
   return primaryUse === undefined
+}
+
+function resolvePreferredFreeOnboardingModel(catalog: ProviderCatalogState) {
+  const openAiConnected = catalog.providers.some(
+    (provider) => provider.id === OPENAI_PROVIDER_ID && provider.connected,
+  )
+  if (openAiConnected) return undefined
+
+  const provider = catalog.providers.find((entry) => entry.id === OPENCODE_PROVIDER_ID)
+  const model = provider?.models.find(
+    (entry) =>
+      entry.id === PREFERRED_FREE_ONBOARDING_MODEL_ID &&
+      entry.variants.includes(PREFERRED_FREE_ONBOARDING_VARIANT),
+  )
+  if (!provider || !model) return undefined
+
+  return {
+    providerID: provider.id,
+    modelID: model.id,
+    variant: PREFERRED_FREE_ONBOARDING_VARIANT,
+  }
 }
 
 export async function connectChatGptPlusForOnboarding(input: {
@@ -150,11 +199,17 @@ export async function configureNotebookForOnboarding(input: {
 }) {
   const nextDirectory = await input.prepareNotebook()
   const providerCatalog = await input.loadProviderCatalog(nextDirectory)
-  const model = resolveCatalogProviderModelSelection({
-    catalog: providerCatalog,
-    providerID: resolveOnboardingProviderID(input.authChoice),
-    requireConnected: input.authChoice !== "free_models",
-  })
+  const preferredFreeModel =
+    input.authChoice === "free_models"
+      ? resolvePreferredFreeOnboardingModel(providerCatalog)
+      : undefined
+  const model =
+    preferredFreeModel ??
+    resolveCatalogProviderModelSelection({
+      catalog: providerCatalog,
+      providerID: resolveOnboardingProviderID(input.authChoice),
+      requireConnected: input.authChoice !== "free_models",
+    })
 
   if (!model) {
     throw new Error(
@@ -169,5 +224,6 @@ export async function configureNotebookForOnboarding(input: {
   return {
     directory: nextDirectory,
     model: configuredModel,
+    ...(preferredFreeModel ? { variant: preferredFreeModel.variant } : {}),
   }
 }

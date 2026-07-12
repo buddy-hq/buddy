@@ -19,7 +19,7 @@ describe("applyOnboardingModelSelection", () => {
   })
 
   test("seeds the notebook draft model and updates recent models", () => {
-    applyOnboardingModelSelection("/repo", "openai/gpt-5-mini")
+    applyOnboardingModelSelection({ directory: "/repo", model: "openai/gpt-5-mini" })
 
     expect(
       useModelSelectionStore.getState().selectedModelByKey[getModelSelectionScopeKey("/repo")],
@@ -28,5 +28,19 @@ describe("applyOnboardingModelSelection", () => {
       "openai/gpt-5-mini",
       "anthropic/claude-sonnet-4",
     ])
+  })
+
+  test("seeds the preferred reasoning variant when onboarding supplies one", () => {
+    applyOnboardingModelSelection({
+      directory: "/repo",
+      model: "opencode/deepseek-v4-flash-free",
+      variant: "max",
+    })
+
+    const scopeKey = getModelSelectionScopeKey("/repo")
+    expect(useModelSelectionStore.getState().selectedModelByKey[scopeKey]).toBe(
+      "opencode/deepseek-v4-flash-free",
+    )
+    expect(useModelSelectionStore.getState().selectedVariantByKey[scopeKey]).toBe("max")
   })
 })

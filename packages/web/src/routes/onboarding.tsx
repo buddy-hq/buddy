@@ -1,17 +1,31 @@
 import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router"
-import { Button } from "@buddy/ui"
-import { ArrowLeftIcon } from "lucide-react"
-import { motion, AnimatePresence } from "motion/react"
-import { useEffect, useRef, useState } from "react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { useEffect, useRef, useState, type CSSProperties } from "react"
+import type { OnboardingAuthChoice } from "@/components/onboarding"
 import {
-  type OnboardingAuthChoice,
-  OnboardingSetup,
-  OnboardingHeader,
-  PrimaryUseSelection,
-} from "@/components/onboarding"
-import { SharedPersonalizationFormFields } from "@/components/settings/shared-personalization-form"
+  Aurora,
+  AuthOverlay,
+  DetailsScreen,
+  EngineScreen,
+  FINISH_EXPAND_DELAY_MS,
+  FINISH_NAVIGATE_DELAY_MS,
+  Finish,
+  HeaderRail,
+  Intro,
+  LocationScreen,
+  ModeScreen,
+  SANS,
+  SPACES,
+  StyleTag,
+  Sweep,
+  THEMES,
+  container,
+  useFont,
+  type CinematicOnboardingStep,
+  type MoodKey,
+} from "@/components/onboarding/cinematic"
 import { language } from "@/context/language"
 import { getPlatform, usePlatform } from "@/context/platform"
 import {
@@ -27,8 +41,10 @@ import {
   isOnboardingTestSearch,
 } from "@/lib/onboarding-test-mode"
 import {
+  ONBOARDING_PROVIDER_SELECTION_ACTION,
   configureNotebookForOnboarding,
   connectChatGptPlusForOnboarding,
+  resolveOnboardingProviderSelectionAction,
   shouldAutoContinueConnectedOpenAiOnboarding,
   shouldShowOnboardingPrimaryUseStep,
   shouldShowOnboardingPersonalizationStep,
@@ -80,15 +96,15 @@ const EMPTY_PROVIDER_CATALOG_SNAPSHOT: ProviderCatalogState = {
     status: "not_connected",
   },
 }
-const EASE_OUT = [0.23, 1, 0.32, 1] as const
-const TOTAL_ONBOARDING_STEPS = 4
+const DEFAULT_HOME_DIRECTORY = "~/Documents/Buddy"
 
-function StepBadge({ current, total }: { current: number; total: number }) {
-  return (
-    <span className="text-xs font-medium text-text-weaker">
-      {current} / {total}
-    </span>
-  )
+type CinematicBrandStyle = CSSProperties & {
+  "--brand-ring": string
+  "--brand-ring2": string
+  "--brand-soft": string
+  "--brand-word": string
+  "--brand-ink": string
+  "--brand-bloom": string
 }
 
 export const Route = createFileRoute("/onboarding")({
@@ -128,6 +144,8 @@ export const Route = createFileRoute("/onboarding")({
 })
 
 function OnboardingRoute() {
+  useFont()
+  const reduceMotion = useReducedMotion() === true
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { test } = useSearch({ from: "/onboarding" })
@@ -175,6 +193,15 @@ function OnboardingRoute() {
   const [personalizationDirectory, setPersonalizationDirectory] = useState<string | undefined>(
     undefined,
   )
+  const [introVisible, setIntroVisible] = useState(true)
+  const [introComplete, setIntroComplete] = useState(false)
+  const [stageCentered, setStageCentered] = useState(true)
+  const [hoverPrimaryUse, setHoverPrimaryUse] = useState<PrimaryUse | undefined>(undefined)
+  const [selectedHomeDirectory, setSelectedHomeDirectory] = useState<string | undefined>(undefined)
+  const [selectedCustomHome, setSelectedCustomHome] = useState(false)
+  const [finishDestination, setFinishDestination] = useState<string | null | undefined>(undefined)
+  const [finishReady, setFinishReady] = useState(false)
+  const [finishExpanding, setFinishExpanding] = useState(false)
   const notebookHomeAccessQuery = useQuery({
     ...notebookHomeAccessQueryOptions(),
     enabled: Boolean(authChoice) && !showFolderRecovery,
@@ -193,6 +220,37 @@ function OnboardingRoute() {
     showProviderSelectionStep,
     exitPending: personalizationExitPending,
   })
+
+  useEffect(() => {
+    if (finishDestination === undefined || !finishReady) return
+
+    const expandTimer = window.setTimeout(() => {
+      setFinishExpanding(true)
+    }, FINISH_EXPAND_DELAY_MS)
+    const navigateTimer = window.setTimeout(() => {
+      const destination = finishDestination
+      const navigation = destination
+        ? navigate({
+            to: "/$directory/chat",
+            params: { directory: encodeDirectory(destination) },
+            replace: true,
+          })
+        : navigate({ to: "/chat", replace: true })
+
+      void navigation.catch((navigationError: unknown) => {
+        setFinishDestination(undefined)
+        setFinishReady(false)
+        setFinishExpanding(false)
+        setPersonalizationExitPending(false)
+        setError(navigationError instanceof Error ? navigationError.message : String(navigationError))
+      })
+    }, FINISH_NAVIGATE_DELAY_MS)
+
+    return () => {
+      window.clearTimeout(expandTimer)
+      window.clearTimeout(navigateTimer)
+    }
+  }, [finishDestination, finishReady, navigate])
 
   useEffect(() => {
     let cancelled = false
@@ -317,27 +375,11 @@ function OnboardingRoute() {
     }
   }
 
-  async function completePersonalizationAndNavigate(markCompleted: () => void) {
-    // Keep the personalization step mounted until the route transition completes.
+  function completePersonalizationAndNavigate(markCompleted: () => void) {
     setPersonalizationExitPending(true)
     markCompleted()
     setShowProviderSelectionStep(false)
-
-    try {
-      const nextDirectory = useChatStore.getState().activeDirectory
-      if (nextDirectory) {
-        await navigateToDirectoryChat(nextDirectory)
-        return
-      }
-
-      await navigate({
-        to: "/chat",
-        replace: true,
-      })
-    } catch (error) {
-      setPersonalizationExitPending(false)
-      throw error
-    }
+    setFinishDestination(useChatStore.getState().activeDirectory ?? null)
   }
 
   async function completeSetupAndContinue(directory: string) {
@@ -382,7 +424,7 @@ function OnboardingRoute() {
         setNotebookHomeQueryData(queryClient, savedNotebookHome)
       }
 
-      applyOnboardingModelSelection(result.directory, result.model)
+      applyOnboardingModelSelection(result)
       setPersonalizationDirectory(result.directory)
       await completeSetupAndContinue(result.directory)
     } catch (err) {
@@ -403,6 +445,8 @@ function OnboardingRoute() {
       const normalized = normalizeDirectory(picked)
       if (!normalized) return
 
+      setSelectedHomeDirectory(normalized)
+      setSelectedCustomHome(true)
       await finalizeNotebookSelection(authChoice, normalized)
     } catch (err) {
       setError(
@@ -414,6 +458,8 @@ function OnboardingRoute() {
   async function handleUseDefaultHome() {
     setShowFolderRecovery(false)
     const accessState = await queryClient.ensureQueryData(notebookHomeAccessQueryOptions())
+    setSelectedHomeDirectory(accessState.defaultDirectory)
+    setSelectedCustomHome(false)
     await finalizeNotebookSelection(authChoice, accessState.defaultDirectory)
   }
 
@@ -432,7 +478,7 @@ function OnboardingRoute() {
         },
       )
       form.setErrorMap({ onSubmit: undefined })
-      await completePersonalizationAndNavigate(() => {
+      completePersonalizationAndNavigate(() => {
         markPersonalizationCompleted()
       })
     } catch (err) {
@@ -451,7 +497,7 @@ function OnboardingRoute() {
     setPersonalizationBusy(true)
 
     try {
-      await completePersonalizationAndNavigate(() => {
+      completePersonalizationAndNavigate(() => {
         markPersonalizationSkipped()
       })
     } catch (err) {
@@ -463,19 +509,10 @@ function OnboardingRoute() {
     }
   }
 
-  function handleBackToProviderSelection() {
-    setError(undefined)
-    setShowFolderRecovery(false)
-    setShowProviderSelectionStep(true)
-  }
-
-  async function finalizeExistingNotebookProviderSelection(choice: OnboardingAuthChoice) {
-    const existingDirectory = personalizationDirectory ?? onboardingPersonalizationDirectory
-    if (!existingDirectory) {
-      await finalizeNotebookSelection(choice)
-      return
-    }
-
+  async function finalizeExistingNotebookProviderSelection(
+    choice: OnboardingAuthChoice,
+    existingDirectory: string,
+  ) {
     setFolderBusy(true)
     setError(undefined)
 
@@ -486,7 +523,7 @@ function OnboardingRoute() {
         loadProviderCatalog,
       })
 
-      applyOnboardingModelSelection(result.directory, result.model)
+      applyOnboardingModelSelection(result)
       setPersonalizationDirectory(result.directory)
       await completeSetupAndContinue(result.directory)
     } catch (err) {
@@ -503,6 +540,26 @@ function OnboardingRoute() {
     setShowFolderRecovery(false)
 
     const existingDirectory = personalizationDirectory ?? onboardingPersonalizationDirectory
+    const providerSelectionAction = resolveOnboardingProviderSelectionAction({
+      showProviderSelectionStep,
+      existingDirectory,
+    })
+
+    async function continueAfterProviderSelection() {
+      if (
+        providerSelectionAction.type ===
+        ONBOARDING_PROVIDER_SELECTION_ACTION.configureExistingNotebook
+      ) {
+        await finalizeExistingNotebookProviderSelection(
+          choice,
+          providerSelectionAction.directory,
+        )
+        return
+      }
+
+      setShowProviderSelectionStep(false)
+    }
+
     const shouldResumePersonalization = shouldResumeOnboardingPersonalization({
       showProviderSelectionStep,
       currentChoice: authChoice,
@@ -516,17 +573,13 @@ function OnboardingRoute() {
 
     if (choice === "free_models") {
       setAuthChoice(choice)
-      if (showProviderSelectionStep) {
-        await finalizeExistingNotebookProviderSelection(choice)
-      }
+      await continueAfterProviderSelection()
       return
     }
 
     if (connectedAuthChoice === "chatgpt_plus") {
       setAuthChoice(choice)
-      if (showProviderSelectionStep) {
-        await finalizeExistingNotebookProviderSelection(choice)
-      }
+      await continueAfterProviderSelection()
       return
     }
 
@@ -557,9 +610,7 @@ function OnboardingRoute() {
 
       setConnectedAuthChoice(choice)
       setAuthChoice(choice)
-      if (showProviderSelectionStep) {
-        await finalizeExistingNotebookProviderSelection(choice)
-      }
+      await continueAfterProviderSelection()
     } catch (err) {
       if (!abort.signal.aborted) {
         abort.abort()
@@ -574,134 +625,149 @@ function OnboardingRoute() {
     }
   }
 
-  const currentStep = personalizationStepVisible ? 4 : 2
+  const step: CinematicOnboardingStep = showPrimaryUseStep
+    ? "mode"
+    : personalizationStepVisible
+      ? "details"
+      : showProviderSelectionStep || !authChoice
+        ? "engine"
+        : "location"
+  const finished = finishDestination !== undefined
+  const showChrome = introComplete && !finished
+  const moodKey: MoodKey = selectedPrimaryUse ?? hoverPrimaryUse ?? "neutral"
+  const theme = THEMES.nocturne
+  const space = SPACES["nebula-orion"]
+  const homeDirectory =
+    selectedHomeDirectory ?? notebookHomeAccess?.defaultDirectory ?? DEFAULT_HOME_DIRECTORY
+  const cinematicStyle: CinematicBrandStyle = {
+    background: space.bg,
+    fontFamily: SANS,
+    "--brand-ring": theme.ring,
+    "--brand-ring2": theme.ring2,
+    "--brand-soft": theme.soft,
+    "--brand-word": theme.word,
+    "--brand-ink": theme.ink,
+    "--brand-bloom": theme.bloom,
+  }
+
+  function handleBack() {
+    setError(undefined)
+    setShowFolderRecovery(false)
+
+    if (step === "details" || step === "location") {
+      setShowProviderSelectionStep(true)
+      return
+    }
+
+    if (step === "engine") {
+      setShowPrimaryUseStep(true)
+    }
+  }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-start bg-background-base px-6 pb-20 pt-[15vh] text-text-base">
-      <div className="flex w-full max-w-md flex-col gap-14">
-        <OnboardingHeader />
+    <div
+      className="relative flex h-screen w-full flex-col overflow-hidden text-[#ffffff]"
+      style={cinematicStyle}
+    >
+      <Aurora
+        mood={space.moods[moodKey]}
+        bloom={finished && !reduceMotion}
+        expanding={finishExpanding}
+      />
+      {!reduceMotion && (showChrome || finished) ? (
+        <Sweep stepKey={finished ? "finished-nav" : step} />
+      ) : null}
 
-        <AnimatePresence mode="wait">
-          {showPrimaryUseStep ? (
-            <PrimaryUseSelection
-              busy={primaryUseBusy}
-              error={error}
-              currentStep={1}
-              totalSteps={TOTAL_ONBOARDING_STEPS}
-              value={selectedPrimaryUse}
-              onSelect={(primaryUse) => {
-                void handlePrimaryUseSelect(primaryUse)
-              }}
-            />
-          ) : personalizationStepVisible ? (
-            <motion.div
-              key="personalization"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.3, ease: EASE_OUT }}
-              className="flex w-full flex-col gap-6"
-            >
-              {/* Navigation + Step badge */}
-              <div className="flex items-center justify-between">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="-ml-3 px-3"
-                  onClick={handleBackToProviderSelection}
-                >
-                  <ArrowLeftIcon className="mr-2 size-4" />
-                  {language.t("onboardingPersonalization.back")}
-                </Button>
-                <StepBadge current={currentStep} total={TOTAL_ONBOARDING_STEPS} />
-              </div>
+      <HeaderRail visible={showChrome} step={step} onBack={handleBack} />
 
-              <div className="flex flex-col pb-2 pt-2">
-                <h2 className="text-sm font-medium text-text-weaker">Make buddy your own</h2>
-              </div>
+      <div className="relative z-10 flex flex-1 items-center px-9 sm:px-14">
+        <div className={stageCentered ? "mx-auto w-full max-w-xl" : "w-full max-w-xl"}>
+          <AnimatePresence
+            mode="wait"
+            onExitComplete={() => {
+              if (!introVisible && !introComplete) {
+                setStageCentered(false)
+                setIntroComplete(true)
+                return
+              }
 
-              {/* Form fields — flat, no card wrapper */}
-              <div className="flex flex-col gap-6 pb-2">
-                <SharedPersonalizationFormFields form={form} includePrimaryUse={false} />
-
-                {/* Error */}
-                <AnimatePresence>
-                  {error ? (
-                    <motion.div
-                      role="alert"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2, ease: EASE_OUT }}
-                    >
-                      <div className="rounded-xl border-l-2 border-l-border-critical-base bg-surface-critical-weak px-3 py-2.5">
-                        <p className="text-sm font-medium text-icon-critical-base">{error}</p>
-                      </div>
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center justify-end gap-3">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => {
-                    void handleSkipPersonalization()
-                  }}
-                  disabled={personalizationBusy}
-                >
-                  {language.t("onboardingPersonalization.skip")}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    void handleSubmitPersonalization()
-                  }}
-                  disabled={personalizationBusy}
-                  className="min-w-32"
-                >
-                  {personalizationBusy
-                    ? language.t("onboardingPersonalization.submitting")
-                    : language.t("onboardingPersonalization.next")}
-                </Button>
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="setup"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2, ease: EASE_OUT }}
-              className="flex w-full flex-col"
-            >
-              <OnboardingSetup
-                authChoice={authChoice}
-                connectedAuthChoice={connectedAuthChoice}
-                busyChoice={busyChoice}
-                documentsAccessGranted={notebookHomeAccess?.granted ?? false}
-                stepOffset={1}
-                folderBusy={folderBusy}
-                showFolderRecovery={showFolderRecovery}
-                defaultHomeDirectory={notebookHomeAccess?.defaultDirectory}
-                error={error}
-                onChoose={handleChoose}
-                onUseDefaultHome={() => {
-                  void handleUseDefaultHome()
-                }}
-                onPickFolder={() => {
-                  void handlePickFolder()
-                }}
-                onCancelAuth={() => {
-                  authAbort?.abort()
-                }}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+              if (finished && !finishReady) {
+                setStageCentered(true)
+                setFinishReady(true)
+              }
+            }}
+          >
+            {introVisible ? (
+              <Intro key="intro" onBegin={() => setIntroVisible(false)} />
+            ) : !introComplete || (finished && !finishReady) ? null : finished ? (
+              <Finish key="done" expanding={finishExpanding} />
+            ) : (
+              <motion.div
+                key={step}
+                variants={container}
+                initial="hidden"
+                animate="show"
+                exit="exit"
+              >
+                {step === "mode" ? (
+                  <ModeScreen
+                    value={selectedPrimaryUse}
+                    busy={primaryUseBusy}
+                    error={error}
+                    onHover={setHoverPrimaryUse}
+                    onSelect={(primaryUse) => {
+                      void handlePrimaryUseSelect(primaryUse)
+                    }}
+                  />
+                ) : null}
+                {step === "engine" ? (
+                  <EngineScreen
+                    selected={authChoice}
+                    busy={busyChoice !== undefined || folderBusy}
+                    error={error}
+                    onChooseChatGpt={() => {
+                      void handleChoose("chatgpt_plus")
+                    }}
+                    onChooseFree={() => {
+                      void handleChoose("free_models")
+                    }}
+                  />
+                ) : null}
+                {step === "location" ? (
+                  <LocationScreen
+                    homeDirectory={homeDirectory}
+                    custom={selectedCustomHome}
+                    busy={folderBusy}
+                    error={error}
+                    onUseDefault={() => {
+                      void handleUseDefaultHome()
+                    }}
+                    onPickFolder={() => {
+                      void handlePickFolder()
+                    }}
+                  />
+                ) : null}
+                {step === "details" ? (
+                  <DetailsScreen
+                    form={form}
+                    busy={personalizationBusy}
+                    error={error}
+                    onFinish={() => {
+                      void handleSubmitPersonalization()
+                    }}
+                    onSkip={() => {
+                      void handleSkipPersonalization()
+                    }}
+                  />
+                ) : null}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
+
+      <AuthOverlay open={busyChoice === "chatgpt_plus"} onCancel={() => authAbort?.abort()} />
+      <StyleTag />
     </div>
   )
 }

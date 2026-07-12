@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import {
+  ONBOARDING_PROVIDER_SELECTION_ACTION,
   configureNotebookForOnboarding,
   connectChatGptPlusForOnboarding,
+  resolveOnboardingProviderSelectionAction,
   shouldAutoContinueConnectedOpenAiOnboarding,
   shouldShowOnboardingPrimaryUseStep,
   shouldShowOnboardingPersonalizationStep,
@@ -381,6 +383,26 @@ describe("onboarding store", () => {
 })
 
 describe("onboarding personalization resume", () => {
+  test("returns to location when provider selection was opened before notebook setup", () => {
+    expect(
+      resolveOnboardingProviderSelectionAction({
+        showProviderSelectionStep: true,
+      }),
+    ).toEqual({ type: ONBOARDING_PROVIDER_SELECTION_ACTION.showLocation })
+  })
+
+  test("reconfigures the existing notebook when provider selection was opened from personalization", () => {
+    expect(
+      resolveOnboardingProviderSelectionAction({
+        showProviderSelectionStep: true,
+        existingDirectory: "/repo",
+      }),
+    ).toEqual({
+      type: ONBOARDING_PROVIDER_SELECTION_ACTION.configureExistingNotebook,
+      directory: "/repo",
+    })
+  })
+
   test("resumes personalization immediately when the user reselects the same provider", () => {
     expect(
       shouldResumeOnboardingPersonalization({
@@ -680,6 +702,122 @@ describe("notebook onboarding configuration", () => {
                 name: "OpenCode Zen",
                 connected: false,
                 models: [createModel("zen-free", "Zen Free")],
+              }),
+            ],
+            default: {
+              opencode: "zen-free",
+            },
+          })
+        },
+      }),
+    ).resolves.toEqual({
+      directory: PREPARED_DIRECTORY,
+      model: "opencode/zen-free",
+    })
+  })
+
+  test("prefers DeepSeek V4 Flash with max reasoning when OpenAI is not connected", async () => {
+    const PREPARED_DIRECTORY = "/repo" as const
+    const preferredModel = createModel(
+      "deepseek-v4-flash-free",
+      "DeepSeek V4 Flash Free",
+    )
+    preferredModel.variants = ["high", "max"]
+
+    await expect(
+      configureNotebookForOnboarding({
+        authChoice: "free_models",
+        async prepareNotebook() {
+          return PREPARED_DIRECTORY
+        },
+        async loadProviderCatalog() {
+          return createCatalog({
+            providers: [
+              createProvider({
+                id: "openai",
+                name: "OpenAI",
+                connected: false,
+              }),
+              createProvider({
+                id: "opencode",
+                name: "OpenCode Zen",
+                models: [createModel("zen-free", "Zen Free"), preferredModel],
+              }),
+            ],
+            default: {
+              opencode: "zen-free",
+            },
+          })
+        },
+      }),
+    ).resolves.toEqual({
+      directory: PREPARED_DIRECTORY,
+      model: "opencode/deepseek-v4-flash-free",
+      variant: "max",
+    })
+  })
+
+  test("keeps the current free-model default when OpenAI is connected", async () => {
+    const PREPARED_DIRECTORY = "/repo" as const
+    const preferredModel = createModel(
+      "deepseek-v4-flash-free",
+      "DeepSeek V4 Flash Free",
+    )
+    preferredModel.variants = ["max"]
+
+    await expect(
+      configureNotebookForOnboarding({
+        authChoice: "free_models",
+        async prepareNotebook() {
+          return PREPARED_DIRECTORY
+        },
+        async loadProviderCatalog() {
+          return createCatalog({
+            providers: [
+              createProvider({
+                id: "openai",
+                name: "OpenAI",
+                connected: true,
+              }),
+              createProvider({
+                id: "opencode",
+                name: "OpenCode Zen",
+                models: [createModel("zen-free", "Zen Free"), preferredModel],
+              }),
+            ],
+            default: {
+              opencode: "zen-free",
+            },
+          })
+        },
+      }),
+    ).resolves.toEqual({
+      directory: PREPARED_DIRECTORY,
+      model: "opencode/zen-free",
+    })
+  })
+
+  test("keeps the current free-model default when the preferred model lacks max reasoning", async () => {
+    const PREPARED_DIRECTORY = "/repo" as const
+    const preferredModel = createModel(
+      "deepseek-v4-flash-free",
+      "DeepSeek V4 Flash Free",
+    )
+    preferredModel.variants = ["high"]
+
+    await expect(
+      configureNotebookForOnboarding({
+        authChoice: "free_models",
+        async prepareNotebook() {
+          return PREPARED_DIRECTORY
+        },
+        async loadProviderCatalog() {
+          return createCatalog({
+            providers: [
+              createProvider({
+                id: "opencode",
+                name: "OpenCode Zen",
+                models: [createModel("zen-free", "Zen Free"), preferredModel],
               }),
             ],
             default: {
