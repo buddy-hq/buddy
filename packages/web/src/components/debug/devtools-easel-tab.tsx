@@ -41,6 +41,8 @@ import {
 } from "lucide-react"
 import { NotebookSearchDrawer, type EaselSearchResult } from "./easel/notebook-search-drawer"
 import { EaselOnboarding } from "./easel/easel-onboarding"
+import { OnboardingNocturne } from "./easel/onboarding-nocturne"
+import { OnboardingAtelier } from "./easel/onboarding-atelier"
 
 type EaselSectionID = "search" | "sources" | "practice" | "creations" | "boards" | "files"
 type EaselRailItemID = EaselSectionID | "agents"
@@ -56,6 +58,8 @@ type EaselRailItem = {
 type EaselPrototype =
   | "right-workspace"
   | "onboarding-easel"
+  | "onboarding-nocturne"
+  | "onboarding-atelier"
 
 type EaselPrototypeConfig = {
   id: EaselPrototype
@@ -65,13 +69,23 @@ type EaselPrototypeConfig = {
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
   {
+    id: "onboarding-nocturne",
+    label: "Onboarding · Nocturne (Brief A)",
+    subtitle: "Cinematic single-canvas · living aurora recolours to your goal",
+  },
+  {
+    id: "onboarding-atelier",
+    label: "Onboarding · Atelier (Brief B)",
+    subtitle: "Two-panel · a living identity card assembles itself as you answer",
+  },
+  {
     id: "right-workspace",
     label: "Right workspace navigator",
     subtitle: "Drawer-only concept · the rail owns category navigation",
   },
   {
     id: "onboarding-easel",
-    label: "Onboarding Easel",
+    label: "Onboarding Easel (old brainstorm)",
     subtitle: "Interview-paradigm suite · 5 layout concepts",
   },
 ]
@@ -973,7 +987,7 @@ export function DevToolsEaselTab() {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("onboarding-easel")
+  const [prototype, setPrototype] = useState<EaselPrototype>("onboarding-nocturne")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1205,6 +1219,22 @@ export function DevToolsEaselTab() {
                   )
                 })}
               </nav>
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "onboarding-nocturne" ? (
+          <div className="relative flex h-full min-h-0 w-full max-w-5xl items-center justify-center">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden rounded-lg border border-border-base shadow-lg">
+              <OnboardingNocturne />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "onboarding-atelier" ? (
+          <div className="relative flex h-full min-h-0 w-full max-w-5xl items-center justify-center">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden rounded-lg border border-border-base shadow-lg">
+              <OnboardingAtelier />
             </div>
           </div>
         ) : null}
