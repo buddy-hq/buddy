@@ -11,6 +11,7 @@ import { mathFeature } from "../features/math/feature"
 import { mediaPresentationsFeature } from "../features/media-presentations/feature"
 import { memoryFeature } from "../features/memory/feature"
 import { platformFeature } from "../features/platform/feature"
+import { obsidianVaultFeature } from "../features/obsidian-vault/feature"
 import { practiceFeature } from "../features/practice/feature"
 import { questionSetsFeature } from "../features/question-sets/feature"
 import { readingFeature } from "../features/reading/feature"
@@ -40,4 +41,5 @@ export const BUDDY_SHARED_FEATURES = [
   mathFeature,
   whiteboardFeature,
   platformFeature,
+  obsidianVaultFeature,
 ] as const

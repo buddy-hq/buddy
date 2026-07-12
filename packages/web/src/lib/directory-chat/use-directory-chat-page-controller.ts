@@ -88,6 +88,7 @@ import {
   upsertDirectorySessionQueryData,
 } from "../../state/directory-chat-query"
 import { teachingSessionStateQueryOptions } from "../../state/teaching-session-query"
+import { invalidateObsidianWatcherCaches } from "../../state/obsidian-vault-query"
 import {
   clonePromptDraft,
   getPromptDraft,
@@ -385,12 +386,20 @@ export function useDirectoryChatPageController(
     [workspace.lifecycle],
   )
   const onWorkspaceFileChanged = useCallback(
-    (input: { path: string }) =>
-      workspace.lifecycle.synchronizeWorkspaceFile({
-        path: input.path,
-        reason: "watcher",
-      }),
-    [workspace.lifecycle],
+    async (input: { path: string; event: "add" | "change" | "unlink" }) => {
+      await Promise.all([
+        workspace.lifecycle.synchronizeWorkspaceFile({
+          path: input.path,
+          reason: "watcher",
+        }),
+        invalidateObsidianWatcherCaches(queryClient, {
+          directory: decodedDirectory,
+          path: input.path,
+          event: input.event,
+        }),
+      ])
+    },
+    [decodedDirectory, queryClient, workspace.lifecycle],
   )
   const visibleReadingResource =
     benchPolicyStateForPrompt.status === "open" &&

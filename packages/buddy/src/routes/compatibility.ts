@@ -15,6 +15,7 @@ import {
   SSE_EVENT_TYPE_CLIENT_LEASE,
   benchClientActionBroker,
 } from "../learning/features/bench/client-actions"
+import { updateObsidianVaultIndex } from "../learning/features/obsidian-vault/service"
 import {
   routeErrors,
   directoryForbiddenResponse,
@@ -529,14 +530,18 @@ export const CompatibilityRoutes = new Hono()
         runRouteTask({
           task: async () => {
             const payload = c.req.valid("json")
-            return c.json(
-              await saveProjectTextFile({
-                directory: context.directory,
-                path: c.req.valid("query").path,
-                content: payload.content,
-                expectedVersion: payload.expectedVersion,
-              }),
-            )
+            const saved = await saveProjectTextFile({
+              directory: context.directory,
+              path: c.req.valid("query").path,
+              content: payload.content,
+              expectedVersion: payload.expectedVersion,
+            })
+            await updateObsidianVaultIndex({
+              directory: context.directory,
+              path: saved.path,
+              event: "change",
+            })
+            return c.json(saved)
           },
           mapError: mapProjectTextFileEditorError,
         }),

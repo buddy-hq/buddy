@@ -14,6 +14,7 @@ import { LearnerRoutes } from "./routes"
 import { LocalRuntimeRoutes } from "./routes"
 import { McpRoutes } from "./routes"
 import { ObjectsRoutes } from "./routes"
+import { ObsidianRoutes } from "./routes"
 import { OpenProjectsRoutes } from "./routes"
 import { PermissionRoutes } from "./routes"
 import { ProjectRoutes } from "./routes"
@@ -107,6 +108,7 @@ api.route("/auth", AuthRoutes)
 api.route("/bench", BenchRoutes)
 api.route("/mcp", McpRoutes)
 api.route("/objects", ObjectsRoutes)
+api.route("/obsidian", ObsidianRoutes)
 api.route("/config", ConfigRoutes)
 api.route("/permission", PermissionRoutes)
 api.route("/session", SessionRoutes)

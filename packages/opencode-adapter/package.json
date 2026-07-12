@@ -38,6 +38,7 @@
     "./skill": "./src/skill.ts",
     "./skill-live": "./src/skill-live.ts",
     "./file-watcher": "./src/file-watcher.ts",
+    "./file-watcher-native": "./src/file-watcher-native.ts",
     "./file": "./src/file.ts",
     "./global": "./src/global.ts",
     "./provider": "./src/provider.ts",
@@ -53,6 +54,7 @@
     "typecheck:raw": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit"
   },
   "dependencies": {
+    "@parcel/watcher": "2.5.1",
     "@opencode-ai/core": "workspace:*",
     "@opencode-ai/plugin": "workspace:*",
     "ai": "catalog:",

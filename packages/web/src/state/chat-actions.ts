@@ -74,6 +74,8 @@ import {
   normalizeSessionStatusValue,
 } from "./session-status"
 import type { PermissionReply } from "./permission-types"
+import { appQueryClient } from "./query-client"
+import { invalidateObsidianFileCaches } from "./obsidian-vault-query"
 
 export type PersonaConfigOption = {
   id: string
@@ -2771,6 +2773,7 @@ export async function saveProjectExplorerEditableFile(input: {
   directory: string
   path: string
   content: string
+  previousContent?: string
   expectedVersion?: string | null
 }): Promise<ProjectExplorerEditableFileSaveResult> {
   const response = await getBuddyClient(input.directory).explorer.file.edit.save({
@@ -2781,7 +2784,14 @@ export async function saveProjectExplorerEditableFile(input: {
   if (response.response?.status === 409) {
     throw new ProjectExplorerFileVersionConflictError(buddyResultMessage(response))
   }
-  return requireBuddyData<ProjectExplorerEditableFileSaveResult>(response)
+  const saved = requireBuddyData<ProjectExplorerEditableFileSaveResult>(response)
+  void invalidateObsidianFileCaches(appQueryClient, {
+    directory: input.directory,
+    path: input.path,
+    content: saved.content,
+    previousContent: input.previousContent,
+  })
+  return saved
 }
 
 export async function findWorkspaceFiles(

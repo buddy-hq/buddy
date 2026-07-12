@@ -21,6 +21,7 @@ import { htmlWidgetsFeature } from "./html-widgets/feature"
 import { mathFeature } from "./math/feature"
 import { whiteboardFeature } from "./whiteboard/feature"
 import { platformFeature } from "./platform/feature"
+import { obsidianVaultFeature } from "./obsidian-vault/feature"
 
 const ALL_BUDDY_FEATURES = [
   curriculumFeature,
@@ -46,6 +47,7 @@ const ALL_BUDDY_FEATURES = [
   mathFeature,
   whiteboardFeature,
   platformFeature,
+  obsidianVaultFeature,
 ] as const
 
 export {
@@ -72,5 +74,6 @@ export {
   mathFeature,
   whiteboardFeature,
   platformFeature,
+  obsidianVaultFeature,
   ALL_BUDDY_FEATURES,
 }

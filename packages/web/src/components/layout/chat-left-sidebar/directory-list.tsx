@@ -6,6 +6,7 @@
 //   type LucideIcon,
 // } from "lucide-react"
 import { SlidersHorizontalIcon } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
 import {
   ArchiveIcon,
   BookOpenIcon,
@@ -34,6 +35,7 @@ import {
   BookIcon,
 } from "@buddy/ui"
 import { language } from "@/context/language"
+import obsidianIconUrl from "@/assets/obsidian-icon.svg"
 import { formatSessionTitle } from "@/lib/session-title"
 import {
   DIRECTORY_CHAT_SHELL_VIEW,
@@ -42,6 +44,7 @@ import {
 import { collectSessionFamilyIDs } from "@/lib/session-family"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import { isSessionWorking } from "@/state/session-status"
+import { obsidianVaultProfileQueryOptions } from "@/state/obsidian-vault-query"
 import { getFilename } from "../sidebar-helpers"
 import {
   buildSessionChildrenByParent,
@@ -240,6 +243,11 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
 function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
   const directoryLabel = getFilename(props.group.directory)
   const isQuickChatGroup = isInboxDirectory(props.group.directory)
+  const obsidianProfileQuery = useQuery({
+    ...obsidianVaultProfileQueryOptions(props.group.directory),
+    enabled: !isQuickChatGroup,
+  })
+  const isObsidianVault = obsidianProfileQuery.data?.compatible === true
   const collapsedCount = isQuickChatGroup ? QUICK_CHAT_COLLAPSED_COUNT : COLLAPSED_COUNT
   const visibleSessions = props.expanded
     ? props.group.sessions
@@ -297,6 +305,27 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
         >
           {isQuickChatGroup ? (
             <MessagesSquareIcon className="size-3.5 shrink-0" />
+          ) : isObsidianVault ? (
+            <span className="relative flex size-3.5 shrink-0">
+              <img
+                src={obsidianIconUrl}
+                alt=""
+                aria-hidden="true"
+                data-component="left-sidebar-obsidian-vault-icon"
+                className={`absolute inset-0 size-3.5 rounded-[3px] transition-opacity duration-200 ${
+                  props.collapsed
+                    ? "opacity-100 group-hover/notebook-header:opacity-0"
+                    : "opacity-100"
+                }`}
+              />
+              <ChevronRightIcon
+                className={`absolute inset-0 size-3.5 transition-opacity duration-200 ${
+                  props.collapsed
+                    ? "opacity-0 group-hover/notebook-header:opacity-100"
+                    : "opacity-0"
+                }`}
+              />
+            </span>
           ) : (
             <span className="relative flex size-3.5 shrink-0">
               <BookIcon
