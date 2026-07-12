@@ -3,6 +3,7 @@ import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
   benchTargetKey,
+  isSameBenchTarget,
   type BenchTarget,
 } from "../src/lib/bench-navigation"
 import {
@@ -141,7 +142,9 @@ describe("bench target keys", () => {
         viewer: "file",
       }),
     ).toBe(
-      ["workspace-file", "file", "docs%2Fintro%20notes.md"].join(BENCH_TARGET_KEY_PART_SEPARATOR),
+      ["workspace-file", "file", "docs%2Fintro%20notes.md"].join(
+        BENCH_TARGET_KEY_PART_SEPARATOR,
+      ),
     )
 
     expect(
@@ -189,8 +192,12 @@ describe("bench target keys", () => {
     )
   })
 
-  test("derive canonical keys from the complete target identity and exclude mode", () => {
+  test("derives shared content keys while keeping route-only fragments separate", () => {
     expect(benchTargetKey(FILE_TARGET)).not.toBe(benchTargetKey(FILE_TARGET_AS_FILE))
+    expect(benchTargetKey(FILE_TARGET)).toBe(
+      benchTargetKey({ ...FILE_TARGET, fragment: "Details" }),
+    )
+    expect(isSameBenchTarget(FILE_TARGET, { ...FILE_TARGET, fragment: "Details" })).toBe(false)
     expect(benchTargetKey(OBJECT_TARGET)).not.toBe(benchTargetKey(OBJECT_TARGET_NEXT_VIEW))
 
     expect(

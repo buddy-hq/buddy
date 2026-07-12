@@ -30,11 +30,13 @@ import { consumeWorkspaceFileLargeOpenApproval } from "@/state/workspace-file-op
 import type { BenchTarget } from "@/lib/bench-navigation"
 
 type ProjectFileBenchSearch = {
+  fragment?: string
   path?: string
 }
 
 export const Route = createFileRoute("/$directory/_bench/file")({
   validateSearch: (search: Record<string, unknown>): ProjectFileBenchSearch => ({
+    fragment: typeof search.fragment === "string" ? search.fragment : undefined,
     path: typeof search.path === "string" ? search.path : undefined,
   }),
   loaderDeps: ({ search }) => ({ path: search.path }),
@@ -99,7 +101,12 @@ function ProjectFileBenchRoute() {
         <DirectoryChatReadingPage
           directory={directory}
           resourcePath={search.path}
-          target={{ type: "workspace-file", path: search.path, viewer: "file" }}
+          target={{
+            type: "workspace-file",
+            path: search.path,
+            viewer: "file",
+            ...(search.fragment ? { fragment: search.fragment } : {}),
+          }}
         />
       )
     }

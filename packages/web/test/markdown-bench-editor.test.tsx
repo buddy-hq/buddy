@@ -5,6 +5,7 @@ import {
   MarkdownBenchEditor,
   type MarkdownBenchEditorHandle,
 } from "../src/components/bench/markdown-bench-editor"
+import type { ObsidianWikiLinkContext } from "../src/components/bench/markdown-bench-obsidian-plugin"
 import { createMermaidThemeConfig } from "../src/components/media/renderers/mermaid/lib/theme"
 import { ThemeProvider } from "../src/theme"
 
@@ -396,6 +397,81 @@ describe("MarkdownBenchEditor", () => {
     expect(container.textContent).toContain("Error parsing markdown")
   })
 
+  test("renders Markdown angle placeholders without treating them as MDX tags", async () => {
+    const editorRef = createRef<MarkdownBenchEditorHandle>()
+    const markdown = [
+      'Analyze the {argument name="What to Analyse?"}.',
+      "",
+      "## Argument #_n_: <detailed argument>",
+      "## Conclusion: <conclusion>",
+      "## Premises:",
+      "    1. <premise> [explicit/implicit]",
+      "    2. ...",
+      "* Type: <type>:<reasoning>",
+      "* Strength: <...>",
+      "Literal authored escape: \\<widget>",
+      "",
+      "---",
+      "<overarching argument flow: how one text flows from one argument to another.>",
+    ].join("\n")
+
+    await act(async () => {
+      root.render(
+        <ThemeProvider>
+          <MarkdownBenchEditor
+            ref={editorRef}
+            markdown={markdown}
+            version="version-1"
+            dirty={false}
+            saving={false}
+            conflict={false}
+            directory="/tmp/test-dir"
+            documentFormat="markdown"
+            path="prompt.md"
+            onChange={() => {}}
+          />
+        </ThemeProvider>,
+      )
+      await flushEffects(50)
+    })
+
+    expect(container.querySelector(".mdxeditor-source-editor")).toBeNull()
+    expect(container.textContent).not.toContain("Error parsing markdown")
+    expect(container.textContent).toContain("<premise>")
+    expect(editorRef.current?.getMarkdown()).toContain("<premise>")
+    expect(editorRef.current?.getMarkdown()).toContain("Literal authored escape: \\<widget>")
+  })
+
+  test("round-trips HTML void tags with attributes without adding Markdown escapes", async () => {
+    const editorRef = createRef<MarkdownBenchEditorHandle>()
+    const markdown = [
+      'Before <img src="particle.png" alt="Particle *model* > state"> after.',
+      '<input type="checkbox" disabled>',
+    ].join("\n")
+
+    await act(async () => {
+      root.render(
+        <ThemeProvider>
+          <MarkdownBenchEditor
+            ref={editorRef}
+            markdown={markdown}
+            version="version-1"
+            dirty={false}
+            saving={false}
+            conflict={false}
+            directory="/tmp/test-dir"
+            documentFormat="markdown"
+            path="test.md"
+            onChange={() => {}}
+          />
+        </ThemeProvider>,
+      )
+      await flushEffects(50)
+    })
+
+    expect(editorRef.current?.getMarkdown()).toBe(markdown)
+  })
+
   test("renders allowlisted intrinsic SVG without executing unsafe markup", async () => {
     const markdown = [
       '<div style="display:flex;justify-content:center;background:#f8fafc">',
@@ -684,5 +760,148 @@ describe("MarkdownBenchEditor", () => {
     expect(serialized).toContain("```mermaid")
     expect(serialized).toContain("{/* teacher annotation */}")
     expect(serialized).toContain("<svg")
+  })
+
+  test("renders and losslessly serializes Obsidian wikilinks, embeds, and callouts", async () => {
+    const editorRef = createRef<MarkdownBenchEditorHandle>()
+    const openedTargets: string[] = []
+    const markdown = [
+      "Read [[Notes/Alpha#Details|the explanation]].",
+      "",
+      "![[assets/diagram.png]]",
+      "",
+      "![[references/source.pdf]]",
+      "",
+      "> [!tip]+ Evidence",
+      "> Connect the observation.",
+    ].join("\n")
+    const obsidianWikiLinkContext: ObsidianWikiLinkContext = {
+      directory: "/tmp/test-vault",
+      documentPath: "Current.md",
+      compatible: true,
+      resolutions: new Map([
+        [
+          "Notes/Alpha#Details",
+          {
+            target: "Notes/Alpha#Details",
+            status: "resolved",
+            path: "Notes/Alpha.md",
+            fragment: "Details",
+            kind: "markdown",
+          },
+        ],
+        [
+          "assets/diagram.png",
+          {
+            target: "assets/diagram.png",
+            status: "resolved",
+            path: "assets/diagram.png",
+            kind: "image",
+          },
+        ],
+        [
+          "references/source.pdf",
+          {
+            target: "references/source.pdf",
+            status: "resolved",
+            path: "references/source.pdf",
+            kind: "file",
+          },
+        ],
+      ]),
+      openResolution(resolution) {
+        openedTargets.push(resolution.target)
+      },
+    }
+
+    await act(async () => {
+      root.render(
+        <ThemeProvider>
+          <MarkdownBenchEditor
+            ref={editorRef}
+            markdown={markdown}
+            version="version-1"
+            dirty={false}
+            saving={false}
+            conflict={false}
+            directory="/tmp/test-vault"
+            documentFormat="markdown"
+            path="Current.md"
+            obsidianWikiLinkContext={obsidianWikiLinkContext}
+            onChange={() => {}}
+          />
+        </ThemeProvider>,
+      )
+      await flushEffects()
+    })
+
+    expect(
+      container.querySelector('[data-component="markdown-bench-editor"]')?.getAttribute(
+        "data-obsidian-vault",
+      ),
+    ).toBe("true")
+    expect(
+      container.querySelector('[data-component="markdown-bench-obsidian-link"]')?.textContent,
+    ).toContain("the explanation")
+    const wikiLink = container.querySelector<HTMLButtonElement>(
+      '[data-component="markdown-bench-obsidian-link"]',
+    )
+    await act(async () => {
+      wikiLink?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }))
+      await flushEffects()
+    })
+    expect(openedTargets).toContain("Notes/Alpha#Details")
+    expect(container.querySelector('img[alt="assets/diagram.png"]')).not.toBeNull()
+    const attachment = container.querySelector<HTMLButtonElement>(
+      '[data-component="markdown-bench-obsidian-embed"]',
+    )
+    expect(attachment?.textContent).toContain("Open attachment")
+    await act(async () => {
+      attachment?.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0 }))
+      await flushEffects()
+    })
+    expect(openedTargets).toContain("references/source.pdf")
+    expect(
+      container.querySelector('[data-component="markdown-bench-obsidian-callout"]'),
+    ).not.toBeNull()
+
+    const serialized = editorRef.current?.getMarkdown() ?? ""
+    expect(serialized).toContain("[[Notes/Alpha#Details|the explanation]]")
+    expect(serialized).toContain("![[assets/diagram.png]]")
+    expect(serialized).toContain("![[references/source.pdf]]")
+    expect(serialized).toContain("> [!tip]+ Evidence")
+    expect(serialized).toContain("> Connect the observation.")
+  })
+
+  test("routes rendered Markdown links through the Bench link handler", async () => {
+    const openedLinks: string[] = []
+
+    await act(async () => {
+      root.render(
+        <ThemeProvider>
+          <MarkdownBenchEditor
+            markdown="[Polynomial Functions](#Polynomial%20Functions)"
+            version="version-1"
+            dirty={false}
+            saving={false}
+            conflict={false}
+            directory="/tmp/test-vault"
+            documentFormat="markdown"
+            path="Index.md"
+            onChange={() => {}}
+            onOpenLink={(href) => openedLinks.push(href)}
+          />
+        </ThemeProvider>,
+      )
+      await flushEffects()
+    })
+
+    const link = container.querySelector<HTMLAnchorElement>("a")
+    expect(link).not.toBeNull()
+    await act(async () => {
+      link?.click()
+      await flushEffects()
+    })
+    expect(openedLinks).toEqual(["#Polynomial%20Functions"])
   })
 })

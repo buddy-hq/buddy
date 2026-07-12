@@ -23,6 +23,7 @@ const AGENTS_MD_PATH = "AGENTS.md"
 const AGENTS_MD_PLACEHOLDER = "Set rules and customize how Buddy responds in this notebook."
 
 type MarkdownBenchSearch = {
+  fragment?: string
   path?: string
 }
 
@@ -39,6 +40,7 @@ type MarkdownBenchLoaderData =
 
 export const Route = createFileRoute("/$directory/_bench/markdown")({
   validateSearch: (search: Record<string, unknown>): MarkdownBenchSearch => ({
+    fragment: typeof search.fragment === "string" ? search.fragment : undefined,
     path: typeof search.path === "string" ? search.path : undefined,
   }),
   loaderDeps: ({ search }) => ({
@@ -132,6 +134,7 @@ function MarkdownBenchRoute() {
       <LargeMarkdownBenchGate
         key={workspaceFileInstanceKey({ directory, path: search.path })}
         directory={directory}
+        fragment={search.fragment}
         path={search.path}
         loaderData={loaderData}
       />
@@ -143,6 +146,7 @@ function MarkdownBenchRoute() {
 
 function LargeMarkdownBenchGate(props: {
   directory: string
+  fragment: string | undefined
   path: string
   loaderData: MarkdownBenchLoaderData
 }) {
@@ -152,6 +156,7 @@ function LargeMarkdownBenchGate(props: {
     return (
       <MarkdownBenchPage
         directory={props.directory}
+        fragment={props.fragment}
         path={props.path}
         initialFile={props.loaderData.initialFile}
         placeholder={props.path === AGENTS_MD_PATH ? AGENTS_MD_PLACEHOLDER : undefined}
@@ -181,7 +186,13 @@ function LargeMarkdownBenchGate(props: {
     )
   }
 
-  return <ApprovedMarkdownBenchLoader directory={props.directory} path={props.path} />
+  return (
+    <ApprovedMarkdownBenchLoader
+      directory={props.directory}
+      fragment={props.fragment}
+      path={props.path}
+    />
+  )
 }
 
 type ApprovedMarkdownBenchLoaderState =
@@ -189,7 +200,11 @@ type ApprovedMarkdownBenchLoaderState =
   | { status: "ready"; initialFile: ProjectExplorerEditableFileState }
   | { status: "error" }
 
-function ApprovedMarkdownBenchLoader(props: { directory: string; path: string }) {
+function ApprovedMarkdownBenchLoader(props: {
+  directory: string
+  fragment: string | undefined
+  path: string
+}) {
   const [state, setState] = useState<ApprovedMarkdownBenchLoaderState>({ status: "loading" })
 
   useEffect(() => {
@@ -218,6 +233,7 @@ function ApprovedMarkdownBenchLoader(props: { directory: string; path: string })
   return (
     <MarkdownBenchPage
       directory={props.directory}
+      fragment={props.fragment}
       path={props.path}
       initialFile={state.initialFile}
       placeholder={props.path === AGENTS_MD_PATH ? AGENTS_MD_PLACEHOLDER : undefined}

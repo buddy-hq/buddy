@@ -45,6 +45,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type MouseEvent as ReactMouseEvent,
 } from "react"
 import type { RootContent } from "mdast"
 import { cn } from "@buddy/ui"
@@ -53,6 +54,7 @@ import { markdownClassName } from "@/components/markdown/markdown-html-segment"
 import {
   prepareMarkdownForMdxEditor,
   prepareMdxForMdxEditor,
+  restoreMarkdownFromMdxEditor,
 } from "@/components/bench/markdown-bench-compatibility"
 import {
   canRenderMdxIntrinsic,
@@ -73,6 +75,11 @@ import {
   type MarkdownBenchContentTheme,
 } from "@/components/bench/markdown-bench-document-theme"
 import { MARKDOWN_BENCH_DIRECTIVE_DESCRIPTORS } from "@/components/bench/markdown-bench-directives"
+import { restoreObsidianCalloutsFromMdxEditor } from "@/components/bench/markdown-bench-obsidian-callouts"
+import {
+  buddyObsidianWikiLinkPlugin,
+  type ObsidianWikiLinkContext,
+} from "@/components/bench/markdown-bench-obsidian-plugin"
 
 export type MarkdownBenchEditorContract = {
   markdown: string
@@ -94,6 +101,7 @@ export type MarkdownBenchEditorHandle = Pick<
   "getMarkdown" | "getSelectionMarkdown" | "setMarkdown" | "focus"
 > & {
   redo(): void
+  scrollToFragment(fragment: string): boolean
   undo(): void
 }
 
@@ -128,7 +136,9 @@ type MarkdownBenchEditorProps = Pick<
   documentFormat: MarkdownBenchDocumentFormat
   path: string
   placeholder?: ReactNode
+  obsidianWikiLinkContext?: ObsidianWikiLinkContext
   onHistoryControlsChange?(controls: MarkdownBenchHistoryControlsState): void
+  onOpenLink?(href: string): void
   onSelectionChange?(selection: MarkdownBenchDocumentSelection): void
 }
 
@@ -150,6 +160,45 @@ const MARKDOWN_SERIALIZATION_OPTIONS = {
   listItemIndent: "one",
   resourceLink: false,
 } as const
+
+const MARKDOWN_FRAGMENT_TARGET_SELECTOR = "[id],h1,h2,h3,h4,h5,h6,p,li,blockquote"
+
+function normalizedMarkdownFragment(value: string): string {
+  return value
+    .normalize("NFKC")
+    .trim()
+    .replace(/^#+/u, "")
+    .replace(/^\^/u, "")
+    .replaceAll("-", " ")
+    .replace(/\s+/gu, " ")
+    .toLocaleLowerCase()
+}
+
+function decodedMarkdownFragment(fragment: string): string {
+  try {
+    return decodeURIComponent(fragment)
+  } catch {
+    return fragment
+  }
+}
+
+export function findMarkdownBenchFragmentTarget(
+  root: HTMLElement,
+  fragment: string,
+): HTMLElement | undefined {
+  const decoded = decodedMarkdownFragment(fragment).trim()
+  if (!decoded) return undefined
+  const normalized = normalizedMarkdownFragment(decoded)
+  const blockMarker = decoded.startsWith("^") ? decoded : `^${decoded}`
+  return Array.from(root.querySelectorAll<HTMLElement>(MARKDOWN_FRAGMENT_TARGET_SELECTOR)).find(
+    (element) => {
+      if (element.id === decoded) return true
+      const text = element.textContent?.trim() ?? ""
+      if (decoded.startsWith("^") && text.endsWith(blockMarker)) return true
+      return /^H[1-6]$/u.test(element.tagName) && normalizedMarkdownFragment(text) === normalized
+    },
+  )
+}
 
 type MdxFlowChild = Extract<
   JsxEditorProps["mdastNode"],
@@ -530,12 +579,33 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       }
     }, [props.contentTheme])
     const isPrintView = props.contentTheme?.mode === "print"
+    const fallbackObsidianWikiLinkContext = useMemo<ObsidianWikiLinkContext>(
+      () => ({
+        directory: props.directory,
+        documentPath: props.path,
+        compatible: false,
+        resolutions: new Map(),
+        openResolution() {},
+      }),
+      [props.directory, props.path],
+    )
+    const obsidianWikiLinkContext =
+      props.obsidianWikiLinkContext ?? fallbackObsidianWikiLinkContext
     const editorMarkdown = useMemo(
       () =>
         props.documentFormat === "mdx"
           ? prepareMdxForMdxEditor(props.markdown)
           : prepareMarkdownForMdxEditor(props.markdown),
       [props.documentFormat, props.markdown],
+    )
+    const restoreEditorMarkdown = useCallback(
+      (markdown: string) => {
+        const restoredCallouts = restoreObsidianCalloutsFromMdxEditor(markdown)
+        return props.documentFormat === "mdx"
+          ? restoredCallouts
+          : restoreMarkdownFromMdxEditor(restoredCallouts)
+      },
+      [props.documentFormat],
     )
     const onSelectionChange = props.onSelectionChange
     const handleHistoryControlsChange = useCallback((controls: MarkdownBenchHistoryControls) => {
@@ -574,6 +644,20 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         })
       })
     }, [onSelectionChange])
+    const onOpenLink = props.onOpenLink
+    const openLink = useCallback(
+      (event: ReactMouseEvent<HTMLDivElement>) => {
+        if (!onOpenLink || !(event.target instanceof Element)) return
+        const anchor = event.target.closest("a")
+        if (!(anchor instanceof HTMLAnchorElement)) return
+        const href = anchor.getAttribute("href")
+        if (!href) return
+        event.preventDefault()
+        event.stopPropagation()
+        onOpenLink(href)
+      },
+      [onOpenLink],
+    )
     const plugins = useMemo(
       () => [
         diffSourcePlugin({
@@ -586,6 +670,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         thematicBreakPlugin(),
         buddyMathPlugin(),
         buddyMermaidPlugin(),
+        buddyObsidianWikiLinkPlugin({ context: obsidianWikiLinkContext }),
         linkPlugin(),
         linkDialogPlugin({
           showLinkTitleField: true,
@@ -632,6 +717,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       ],
       [
         handleHistoryControlsChange,
+        obsidianWikiLinkContext,
         props.advancedToolbarContainer,
         props.directory,
         props.documentFormat,
@@ -651,7 +737,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       ref,
       () => ({
         getMarkdown() {
-          return editorRef.current?.getMarkdown() ?? ""
+          return restoreEditorMarkdown(editorRef.current?.getMarkdown() ?? "")
         },
         getSelectionMarkdown() {
           return editorRef.current?.getSelectionMarkdown() ?? ""
@@ -673,17 +759,25 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         redo() {
           historyControlsRef.current.redo()
         },
+        scrollToFragment(fragment: string) {
+          const editorRoot = editorRootRef.current
+          if (!editorRoot) return false
+          const target = findMarkdownBenchFragmentTarget(editorRoot, fragment)
+          if (!target) return false
+          target.scrollIntoView({ block: "center" })
+          return true
+        },
         undo() {
           historyControlsRef.current.undo()
         },
       }),
-      [props.documentFormat],
+      [props.documentFormat, restoreEditorMarkdown],
     )
 
     useEffect(() => {
       const editor = editorRef.current
       if (!editor) return
-      const currentMarkdown = editor.getMarkdown()
+      const currentMarkdown = restoreEditorMarkdown(editor.getMarkdown())
       if (currentMarkdown === props.markdown) {
         return
       }
@@ -693,7 +787,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       window.queueMicrotask(() => {
         applyingExternalMarkdownRef.current = false
       })
-    }, [editorMarkdown, props.markdown])
+    }, [editorMarkdown, props.markdown, restoreEditorMarkdown])
 
     const mdxEditorElement = (
       <div
@@ -717,7 +811,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
             if (initialMarkdownNormalize || applyingExternalMarkdownRef.current) {
               return
             }
-            props.onChange(nextMarkdown)
+            props.onChange(restoreEditorMarkdown(nextMarkdown))
           }}
           contentEditableClassName={MARKDOWN_CONTENT_CLASS_NAME}
         />
@@ -733,6 +827,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         data-conflict={props.conflict ? "true" : "false"}
         data-version={props.version}
         data-content-theme={props.contentTheme?.mode}
+        data-obsidian-vault={obsidianWikiLinkContext.compatible ? "true" : "false"}
         data-markdown-bench-theme-scope={themeScopeID}
         className={cn(
           "markdown-bench-editor relative h-full min-h-0 overflow-y-auto bg-background-weak pb-48 text-text-base",
@@ -741,6 +836,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         )}
         onPointerUp={notifySelectionChange}
         onKeyUp={notifySelectionChange}
+        onClickCapture={openLink}
       >
         {selectionSection ? (
           <div

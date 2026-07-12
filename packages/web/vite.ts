@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url"
 import type { PluginOption, UserConfig } from "vite"
-import { createFoliatePdfVitePlugin } from "./scripts/create-foliate-pdf-vite-plugin.ts"
+import { createFoliatePdfVitePlugin } from "./scripts/create-foliate-pdf-vite-plugin"
 
 const BUDDY_WEB_PACKAGE_NAME = "@buddy/web"
 const BUDDY_WEB_SOURCE_ALIAS = "@"
@@ -10,6 +10,11 @@ const WEB_SOURCE_DIRECTORY = fileURLToPath(new URL("./src", import.meta.url))
 const WEB_OPTIMIZE_DEPS_INCLUDES = [
   "@mdxeditor/editor",
   "lexical",
+  // Markdown highlighting starts its worker on the first code block. Vite does
+  // not discover worker-only imports during its initial dependency crawl, so
+  // discovering these later would rebuild the prebundle and reload the app.
+  "@shikijs/stream",
+  "shiki",
   // CJS-only UMD package. Excalidraw's exportToBlob -> loadSceneFonts path
   // does `new PromisePool(...)`. Without pre-bundling, Vite's runtime CJS
   // interop exposes the constructor on the wrong slot, so `default` is not a

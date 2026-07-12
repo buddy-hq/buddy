@@ -163,6 +163,62 @@ function MarkdownBenchAdmonitionEditor({
   )
 }
 
+function readDirectiveAttribute(
+  node: ContainerDirectiveNode,
+  name: string,
+): string | undefined {
+  const value = node.attributes?.[name]
+  return typeof value === "string" && value.length > 0 ? value : undefined
+}
+
+function MarkdownBenchObsidianCalloutEditor({
+  mdastNode,
+}: DirectiveEditorProps<ContainerDirectiveNode>) {
+  const kind = readDirectiveAttribute(mdastNode, "kind") ?? "note"
+  const fold = readDirectiveAttribute(mdastNode, "fold")
+  const customTitle = readDirectiveAttribute(mdastNode, "title")
+  const config = isMarkdownBenchAdmonitionName(kind)
+    ? MARKDOWN_BENCH_ADMONITION_CONFIGS[kind]
+    : MARKDOWN_BENCH_ADMONITION_CONFIGS.note
+  const label = customTitle ?? config.label
+  const shellClassName = cn(
+    MARKDOWN_BENCH_DIRECTIVE_SHELL_CLASS_NAME,
+    MARKDOWN_BENCH_ADMONITION_TONE_CLASS_NAMES[config.tone],
+  )
+  const labelClassName = cn(
+    MARKDOWN_BENCH_DIRECTIVE_LABEL_CLASS_NAME,
+    MARKDOWN_BENCH_ADMONITION_LABEL_CLASS_NAMES[config.tone],
+  )
+
+  if (fold === "+" || fold === "-") {
+    return (
+      <details
+        data-component="markdown-bench-obsidian-callout"
+        data-admonition-kind={kind}
+        data-admonition-tone={config.tone}
+        data-callout-fold={fold}
+        className={shellClassName}
+        open={fold === "+"}
+      >
+        <summary className={cn(labelClassName, "cursor-pointer select-none")}>{label}</summary>
+        <MarkdownBenchContainerDirectiveBody mdastNode={mdastNode} />
+      </details>
+    )
+  }
+
+  return (
+    <section
+      data-component="markdown-bench-obsidian-callout"
+      data-admonition-kind={kind}
+      data-admonition-tone={config.tone}
+      className={shellClassName}
+    >
+      <div className={labelClassName}>{label}</div>
+      <MarkdownBenchContainerDirectiveBody mdastNode={mdastNode} />
+    </section>
+  )
+}
+
 function MarkdownBenchGenericContainerDirectiveEditor({
   mdastNode,
 }: DirectiveEditorProps<ContainerDirectiveNode>) {
@@ -200,7 +256,19 @@ const MARKDOWN_BENCH_CONTAINER_DIRECTIVE_DESCRIPTOR: DirectiveDescriptor<Contain
   Editor: MarkdownBenchGenericContainerDirectiveEditor,
 }
 
+const MARKDOWN_BENCH_OBSIDIAN_CALLOUT_DESCRIPTOR: DirectiveDescriptor<ContainerDirectiveNode> = {
+  name: "obsidian-callout",
+  attributes: ["kind", "fold", "title"],
+  hasChildren: true,
+  type: "containerDirective",
+  testNode(node) {
+    return node.type === "containerDirective" && node.name === "obsidian-callout"
+  },
+  Editor: MarkdownBenchObsidianCalloutEditor,
+}
+
 export const MARKDOWN_BENCH_DIRECTIVE_DESCRIPTORS: DirectiveDescriptor<ContainerDirectiveNode>[] = [
+  MARKDOWN_BENCH_OBSIDIAN_CALLOUT_DESCRIPTOR,
   MARKDOWN_BENCH_ADMONITION_DIRECTIVE_DESCRIPTOR,
   MARKDOWN_BENCH_CONTAINER_DIRECTIVE_DESCRIPTOR,
 ]

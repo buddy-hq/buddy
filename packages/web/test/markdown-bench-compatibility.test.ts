@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   prepareMarkdownForMdxEditor,
   prepareMdxForMdxEditor,
+  restoreMarkdownFromMdxEditor,
 } from "../src/components/bench/markdown-bench-compatibility"
 
 describe("Markdown Bench compatibility", () => {
@@ -50,6 +51,78 @@ describe("Markdown Bench compatibility", () => {
     ].join("\n")
 
     expect(prepareMarkdownForMdxEditor(markdown)).toBe(markdown)
+  })
+
+  test("protects prose placeholders from MDX tag parsing", () => {
+    const markdown = [
+      "## Argument #_n_: <detailed argument>",
+      "## Conclusion: <conclusion>",
+      "    1. <premise> [explicit/implicit]",
+      "* Type: <type>:<reasoning>",
+      "* Notes: <hidden assumptions, ambiguities, possible counterexamples>",
+      "* Strength: <...>",
+    ].join("\n")
+    const prepared = prepareMarkdownForMdxEditor(markdown)
+    const visiblePrepared = prepared.replaceAll("\u2060", "")
+
+    expect(visiblePrepared).toContain("\\<detailed argument>")
+    expect(visiblePrepared).toContain("\\<...>")
+    expect(restoreMarkdownFromMdxEditor(prepared)).toBe(markdown)
+  })
+
+  test("preserves authored angle escapes separately from inserted parser escapes", () => {
+    const markdown = "Literal \\<widget> and generated <premise>."
+    const prepared = prepareMarkdownForMdxEditor(markdown)
+
+    expect(prepared).toContain("Literal \\<widget>")
+    expect(restoreMarkdownFromMdxEditor(prepared)).toBe(markdown)
+  })
+
+  test("preserves authored angle entities while restoring marked placeholders", () => {
+    const markdown = "Literal &lt;T&gt; and &lt;widget&gt;."
+
+    expect(restoreMarkdownFromMdxEditor(markdown)).toBe(markdown)
+    expect(restoreMarkdownFromMdxEditor(`Generated \u2060&lt;premise&gt;.`)).toBe(
+      "Generated <premise>.",
+    )
+  })
+
+  test("protects placeholders in indented template lists that MDX parses as JSX", () => {
+    const markdown = ["## Premises:", "    1. <premise> [explicit/implicit]"].join("\n")
+    expect(prepareMarkdownForMdxEditor(markdown).replaceAll("\u2060", "")).toContain(
+      "\\<premise>",
+    )
+  })
+
+  test("protects malformed and example angle syntax while preserving the source", () => {
+    const markdown = [
+      "Give <9000 negative sum.",
+      "Endpoint <>:3000.",
+      "A typo can be m<ore disruptive than expected.",
+      "New subject <ownership is with teacher",
+      "Literal HTML example: <input>",
+      "- <ul>",
+      "  - <li>Applesauce</li>",
+      "  - </ul>",
+    ].join("\n")
+    const prepared = prepareMarkdownForMdxEditor(markdown)
+    const visiblePrepared = prepared.replaceAll("\u2060", "")
+
+    expect(visiblePrepared).toContain("\\<9000")
+    expect(visiblePrepared).toContain("\\<>:3000")
+    expect(visiblePrepared).toContain("m\\<ore")
+    expect(visiblePrepared).toContain("\\<input>")
+    expect(visiblePrepared).toContain("- \\<ul>")
+    expect(restoreMarkdownFromMdxEditor(prepared)).toBe(markdown)
+  })
+
+  test("keeps standard HTML and MDX component tags executable", () => {
+    expect(prepareMarkdownForMdxEditor("<details><summary>Open</summary></details>")).toBe(
+      "<details><summary>Open</summary></details>",
+    )
+    expect(prepareMdxForMdxEditor("<ArgumentCard>Reason</ArgumentCard>")).toBe(
+      "<ArgumentCard>Reason</ArgumentCard>",
+    )
   })
 
   test("normalizes Buddy inline and display math for the editor parser", () => {

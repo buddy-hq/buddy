@@ -155,12 +155,28 @@ function readBenchTargetFromLocation(input: {
 
   if (childPath === "markdown") {
     const path = readStringSearchValue(search, "path")
-    return path ? { type: "workspace-file", path, viewer: "markdown" } : undefined
+    const fragment = readStringSearchValue(search, "fragment")
+    return path
+      ? {
+          type: "workspace-file",
+          path,
+          viewer: "markdown",
+          ...(fragment ? { fragment } : {}),
+        }
+      : undefined
   }
 
   if (childPath === "file") {
     const path = readStringSearchValue(search, "path")
-    return path ? { type: "workspace-file", path, viewer: "file" } : undefined
+    const fragment = readStringSearchValue(search, "fragment")
+    return path
+      ? {
+          type: "workspace-file",
+          path,
+          viewer: "file",
+          ...(fragment ? { fragment } : {}),
+        }
+      : undefined
   }
 
   if (!childPath.startsWith(BENCH_OBJECT_ROUTE_CHILD_PREFIX)) {
@@ -234,7 +250,13 @@ function buildBenchNavigation(input: {
     return {
       to,
       params: { directory: encodedDirectory },
-      search: withBenchModeSearch({ path: target.path }, mode),
+      search: withBenchModeSearch(
+        {
+          path: target.path,
+          ...(target.fragment ? { fragment: target.fragment } : {}),
+        },
+        mode,
+      ),
     }
   }
 

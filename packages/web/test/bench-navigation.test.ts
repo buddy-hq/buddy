@@ -10,6 +10,7 @@ import {
   BENCH_LAYOUT_PROFILE_READING,
   BENCH_LAYOUT_PROFILE_VISUAL,
   BENCH_MODE_REQUEST_POLICY,
+  buildBenchNavigation,
   isBenchRoutePathname,
   readBenchOpenPolicyStateFromLocation,
   readBenchTargetFromLocation,
@@ -572,6 +573,28 @@ describe("bench navigation policy", () => {
       target: WHITEBOARD_OBJECT_TARGET,
       mode: BENCH_CHAT_LAYOUT_FLOATING,
     })
+  })
+
+  test("round-trips Markdown fragments through Bench navigation", () => {
+    const target = {
+      type: "workspace-file",
+      path: "Notes/Alpha.md",
+      viewer: "markdown",
+      fragment: "Details",
+    } satisfies BenchTarget
+    const navigation = buildBenchNavigation({
+      directory: DIRECTORY,
+      target,
+      mode: BENCH_CHAT_LAYOUT_DOCKED,
+    })
+
+    expect(navigation.search).toEqual({ path: "Notes/Alpha.md", fragment: "Details" })
+    expect(
+      readBenchTargetFromLocation({
+        pathname: `/${encodeDirectory(DIRECTORY)}/markdown`,
+        search: navigation.search,
+      }),
+    ).toEqual(target)
   })
 
   test("rejects malformed object Bench routes with extra path segments", () => {

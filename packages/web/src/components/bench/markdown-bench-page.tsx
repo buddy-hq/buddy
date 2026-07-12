@@ -24,9 +24,14 @@ import {
   TriangleAlertIcon,
   Undo2Icon,
 } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
 import { Button, ToggleGroup, ToggleGroupItem, toast } from "@buddy/ui"
-import { markdownBenchDocumentFormatFromPath } from "@buddy/workspace-file-policy"
+import {
+  isMarkdownBenchPath,
+  markdownBenchDocumentFormatFromPath,
+} from "@buddy/workspace-file-policy"
 import { BenchViewerShell, type BenchViewerAction } from "@/components/bench/bench-viewer-shell"
+import { resolveMarkdownBenchLink } from "@/components/bench/markdown-bench-link-navigation"
 import {
   useRegisterBenchContextProvider,
   type BenchContextProvider,
@@ -40,6 +45,11 @@ import {
   type MarkdownBenchHistoryControlsState,
   type MarkdownBenchEditorHandle,
 } from "@/components/bench/markdown-bench-editor"
+import {
+  collectObsidianWikiLinkTargets,
+  useObsidianResolutionMap,
+  viewerForObsidianResolution,
+} from "@/components/bench/markdown-bench-obsidian-plugin"
 import {
   isMarkdownBenchContentThemeMode,
   resolveMarkdownBenchContentTheme,
@@ -56,7 +66,11 @@ import {
   waitForMarkdownPdfRenderReady,
 } from "@/lib/markdown-pdf-export"
 import { fileNameFromPath, workspaceFileInstanceKey } from "@/lib/workspace-file-paths"
-import type { BenchTarget } from "@/lib/bench-navigation"
+import {
+  BENCH_MODE_REQUEST_POLICY,
+  useOpenBench,
+  type BenchTarget,
+} from "@/lib/bench-navigation"
 import {
   ProjectExplorerFileVersionConflictError,
   readProjectExplorerEditableFile,
@@ -72,6 +86,11 @@ import {
   useMarkdownBenchPreferences,
 } from "@/state/markdown-bench-preferences"
 import { getPromptDraft, usePromptStore } from "@/state/prompt-store"
+import {
+  obsidianLinkResolutionsQueryOptions,
+  obsidianVaultProfileQueryOptions,
+  type ObsidianLinkResolution,
+} from "@/state/obsidian-vault-query"
 
 const MARKDOWN_SAVE_DEBOUNCE_MS = 900
 const MARKDOWN_LEAVE_GUARD_WAIT_MS = 5000
@@ -79,10 +98,12 @@ const MARKDOWN_LEAVE_GUARD_POLL_MS = 50
 const MARKDOWN_FILE_UNAVAILABLE_MESSAGE = "Markdown file was deleted or moved on disk."
 const MARKDOWN_FILE_CHANGED_MESSAGE = "Markdown file changed on disk."
 const MARKDOWN_CONTEXT_SEMANTIC_KEY_SEPARATOR = "\u0000"
+const MARKDOWN_FRAGMENT_SCROLL_MAX_FRAMES = 30
 const FILE_EDIT_TOOL_NAMES = new Set(["edit", "write", "apply_patch"])
 
 type MarkdownBenchPageProps = {
   directory: string
+  fragment?: string
   path: string
   initialFile: ProjectExplorerEditableFileState
   placeholder?: ReactNode
@@ -231,6 +252,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
   }
 
   const { controller } = useDirectoryNotebookRouteContext()
+  const openBenchRoute = useOpenBench()
   const platform = usePlatform()
   const { themeId, themes } = useTheme()
   const editorRef = useRef<MarkdownBenchEditorHandle>(null)
@@ -277,7 +299,94 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
     [activeMessages, props.path],
   )
   const dirty = markdown !== savedMarkdown
+  const obsidianTargets = useMemo(() => collectObsidianWikiLinkTargets(markdown), [markdown])
+  const obsidianProfileQuery = useQuery(obsidianVaultProfileQueryOptions(props.directory))
+  const obsidianLinksQuery = useQuery(
+    obsidianLinkResolutionsQueryOptions({
+      directory: props.directory,
+      documentPath: props.path,
+      enabled: obsidianProfileQuery.data?.compatible === true,
+      targets: obsidianTargets,
+    }),
+  )
+  const obsidianResolutions = useObsidianResolutionMap(obsidianLinksQuery.data?.links)
+  const openObsidianResolution = useCallback(
+    (resolution: ObsidianLinkResolution) => {
+      if (resolution.status !== "resolved" || !resolution.path) return
+      void openBenchRoute({
+        directory: props.directory,
+        target: {
+          type: "workspace-file",
+          path: resolution.path,
+          viewer: viewerForObsidianResolution(resolution),
+          ...(resolution.fragment ? { fragment: resolution.fragment } : {}),
+        },
+        mode: BENCH_MODE_REQUEST_POLICY,
+        autoOpen: null,
+      })
+    },
+    [openBenchRoute, props.directory],
+  )
+  const openMarkdownLink = useCallback(
+    (href: string) => {
+      const target = resolveMarkdownBenchLink(props.path, href)
+      if (!target) return
+      if (target.type === "external") {
+        platform.openLink(target.url)
+        return
+      }
+      void openBenchRoute({
+        directory: props.directory,
+        target: {
+          type: "workspace-file",
+          path: target.path,
+          viewer: isMarkdownBenchPath(target.path) ? "markdown" : "file",
+          ...(target.fragment ? { fragment: target.fragment } : {}),
+        },
+        mode: BENCH_MODE_REQUEST_POLICY,
+        autoOpen: null,
+      })
+    },
+    [openBenchRoute, platform, props.directory, props.path],
+  )
+  const obsidianWikiLinkContext = useMemo(
+    () => ({
+      directory: props.directory,
+      documentPath: props.path,
+      compatible: obsidianProfileQuery.data?.compatible === true,
+      resolutions: obsidianResolutions,
+      openResolution: openObsidianResolution,
+    }),
+    [
+      obsidianProfileQuery.data?.compatible,
+      obsidianResolutions,
+      openObsidianResolution,
+      props.directory,
+      props.path,
+    ],
+  )
   const title = fileNameFromPath(props.path) || props.path
+
+  useEffect(() => {
+    if (!props.fragment) return
+    let cancelled = false
+    let frameCount = 0
+    let animationFrameID = 0
+    const scrollWhenReady = () => {
+      if (cancelled || !props.fragment) return
+      if (editorRef.current?.scrollToFragment(props.fragment)) return
+      frameCount += 1
+      if (frameCount < MARKDOWN_FRAGMENT_SCROLL_MAX_FRAMES) {
+        animationFrameID = window.requestAnimationFrame(scrollWhenReady)
+      }
+    }
+    animationFrameID = window.requestAnimationFrame(scrollWhenReady)
+    return () => {
+      cancelled = true
+      window.cancelAnimationFrame(animationFrameID)
+    }
+  }, [props.fragment, props.path])
+
   const saveState = conflict ? "conflict" : saveError ? "error" : saving ? "saving" : "ready"
   const targetStatus = !exists
     ? "unavailable"
@@ -315,8 +424,13 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
     }
   }, [])
   const contextTarget = useMemo<BenchTarget>(
-    () => ({ type: "workspace-file", path: props.path, viewer: "markdown" }),
-    [props.path],
+    () => ({
+      type: "workspace-file",
+      path: props.path,
+      viewer: "markdown",
+      ...(props.fragment ? { fragment: props.fragment } : {}),
+    }),
+    [props.fragment, props.path],
   )
   const contextSemanticKey = useMemo(
     () =>
@@ -740,6 +854,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
           directory: props.directory,
           path: props.path,
           content: markdown,
+          previousContent: input?.overwrite ? undefined : savedMarkdown,
           expectedVersion: input?.overwrite ? undefined : version,
         })
         const nextVersion = saved.version ?? ""
@@ -792,7 +907,7 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         setSaving(false)
       }
     },
-    [dirty, exists, markdown, patchFileStateRef, props.directory, props.path, version],
+    [dirty, exists, markdown, patchFileStateRef, props.directory, props.path, savedMarkdown, version],
   )
 
   useEffect(() => {
@@ -1225,8 +1340,10 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
             documentFormat={documentFormat}
             path={props.path}
             placeholder={props.placeholder}
+            obsidianWikiLinkContext={obsidianWikiLinkContext}
             onChange={changeMarkdown}
             onHistoryControlsChange={setHistoryControls}
+            onOpenLink={openMarkdownLink}
             onSelectionChange={syncSelectionToChat}
           />
         )}

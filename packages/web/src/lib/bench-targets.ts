@@ -34,7 +34,12 @@ export type BenchObjectRef = {
 }
 
 export type BenchTarget =
-  | { type: "workspace-file"; path: string; viewer: "markdown" | "file" }
+  | {
+      type: "workspace-file"
+      path: string
+      viewer: "markdown" | "file"
+      fragment?: string
+    }
   | { type: "object"; ref: BenchObjectRef; viewID: string }
 
 export type BenchMode = typeof BENCH_CHAT_LAYOUT_DOCKED | typeof BENCH_CHAT_LAYOUT_FLOATING
@@ -138,6 +143,8 @@ function benchModePreferenceKey(target: BenchTarget): BenchModePreferenceKey {
 
 function benchTargetKey(target: BenchTarget): string {
   if (target.type === "workspace-file") {
+    // This is the shared frontend/backend content identity. Route-only state such as a
+    // Markdown fragment must not change the key used by Bench context acknowledgements.
     return ["workspace-file", target.viewer, encodeURIComponent(target.path)].join(
       BENCH_TARGET_KEY_PART_SEPARATOR,
     )
@@ -154,6 +161,10 @@ function benchTargetKey(target: BenchTarget): string {
 }
 
 function isSameBenchTarget(left: BenchTarget, right: BenchTarget): boolean {
+  if (left.type === "workspace-file" && right.type === "workspace-file") {
+    return benchTargetKey(left) === benchTargetKey(right) && left.fragment === right.fragment
+  }
+
   return benchTargetKey(left) === benchTargetKey(right)
 }
 
