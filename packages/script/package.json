@@ -7,11 +7,15 @@
     ".": "./src/index.ts",
     "./branding": "./src/branding.ts",
     "./channel": "./src/channel.ts",
+    "./minisign": "./src/minisign.ts",
     "./release-version": "./src/release-version.ts",
     "./storage-env": "./src/storage-env.ts"
   },
   "scripts": {
     "lint": "oxlint"
+  },
+  "dependencies": {
+    "blakejs": "^1.2.1"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

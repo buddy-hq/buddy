@@ -1,5 +1,5 @@
 import { latestReleaseVersionFromReleases } from "@buddy/script/release-version"
-import { verifySignedMessage } from "./minisign"
+import { verifySignedMessage } from "@buddy/script/minisign"
 import type { UpdateRing } from "../shared/update-state"
 import { UPDATE_RING_PREVIEW } from "../shared/update-state"
 
