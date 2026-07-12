@@ -17,6 +17,7 @@ const ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS = ["dist", "advanced-math-runtime"
 const STANDARDS_LOCAL_ASSET_PATH_SEGMENTS = ["resources", "knowledge-graph"] as const
 const BUNDLED_MIGRATIONS_DIRECTORY_NAME = "migrations"
 const BUDDY_MIGRATION_DIRECTORY_NAME = "buddy"
+const OPENAI_AUTH_TRACE_FILENAME = "openai-auth-debug.jsonl"
 const DEVELOPMENT_BACKEND_PACKAGE_NAME = "buddy"
 const DEVELOPMENT_BACKEND_ENTRYPOINT_PATH_SEGMENTS = ["src", "index.ts"] as const
 const DEVELOPMENT_BACKEND_MIGRATION_PATH_SEGMENTS = ["migration"] as const
@@ -125,6 +126,12 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
     [OPENCODE_ENV.EXPERIMENTAL_FILEWATCHER]: "true",
     [OPENCODE_ENV.DB]: OPENCODE_DB_FILENAME,
     [OPENCODE_ENV.CLIENT]: "desktop",
+  }
+  if (shouldIsolateDevRuntime) {
+    environment[BUDDY_ENV.OPENAI_AUTH_TRACE_FILE] = path.join(
+      app.getPath("logs"),
+      OPENAI_AUTH_TRACE_FILENAME,
+    )
   }
 
   const advancedMathAssetDir = resolveDevelopmentAdvancedMathAssetDir()

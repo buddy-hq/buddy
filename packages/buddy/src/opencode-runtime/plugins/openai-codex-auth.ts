@@ -13,6 +13,7 @@ import {
   type OpenAICodexStoredAuth,
   type OpenAICodexTokenResponse,
 } from "./openai-codex-credentials"
+import { traceOpenAIAuth } from "./openai-auth-trace"
 
 const CODEX_API_ENDPOINT = "https://chatgpt.com/backend-api/codex/responses"
 const OAUTH_PORT = 1455
@@ -21,6 +22,7 @@ export { OPENAI_PROVIDER_ID }
 const WINDOW_CLOSE_DELAY_MS = 1_500
 const OPENCODE_OAUTH_USER_AGENT = "opencode/local"
 const CANCELLED_AUTHORIZATION_ERROR = "Authorization cancelled"
+const TOKEN_ERROR_DETAIL_MAX_LENGTH = 500
 
 type PkceCodes = {
   verifier: string
@@ -69,6 +71,7 @@ function rejectPendingOAuth(kind: OpenAICodexAuthAbortKind, message: string) {
 
 export function cancelOpenAICodexAuthorization() {
   const cancelled = rejectPendingOAuth("cancelled", CANCELLED_AUTHORIZATION_ERROR)
+  void traceOpenAIAuth("authorization_cancelled", { hadPendingAuthorization: cancelled })
   stopOAuthServer()
   return cancelled
 }
@@ -102,6 +105,34 @@ function generateState() {
   return base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)).buffer)
 }
 
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function readTokenErrorDetails(text: string) {
+  try {
+    const parsed: unknown = JSON.parse(text)
+    if (!isRecord(parsed)) return {}
+    const code = typeof parsed.error === "string" ? parsed.error : undefined
+    const description =
+      typeof parsed.error_description === "string"
+        ? parsed.error_description
+        : typeof parsed.message === "string"
+          ? parsed.message
+          : undefined
+    return {
+      errorCode: code?.slice(0, TOKEN_ERROR_DETAIL_MAX_LENGTH),
+      errorDescription: description?.slice(0, TOKEN_ERROR_DETAIL_MAX_LENGTH),
+    }
+  } catch {
+    return {}
+  }
+}
+
 function buildAuthorizeUrl(redirectUri: string, pkce: PkceCodes, state: string) {
   const params = new URLSearchParams({
     response_type: "code",
@@ -119,6 +150,10 @@ function buildAuthorizeUrl(redirectUri: string, pkce: PkceCodes, state: string) 
 }
 
 async function exchangeCodeForTokens(code: string, redirectUri: string, pkce: PkceCodes) {
+  const startedAt = Date.now()
+  await traceOpenAIAuth("token_exchange_started", {
+    redirectHost: new URL(redirectUri).host,
+  })
   const response = await fetch(`${OPENAI_CODEX_AUTH_ISSUER}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -131,11 +166,36 @@ async function exchangeCodeForTokens(code: string, redirectUri: string, pkce: Pk
     }).toString(),
   })
 
+  await traceOpenAIAuth("token_exchange_response", {
+    status: response.status,
+    ok: response.ok,
+    durationMs: Date.now() - startedAt,
+    server: response.headers.get("server") ?? undefined,
+    cloudflareMitigated: response.headers.get("cf-mitigated") ?? undefined,
+    contentType: response.headers.get("content-type") ?? undefined,
+  })
+
   if (!response.ok) {
-    throw new Error(`Token exchange failed: ${response.status}`)
+    const details = readTokenErrorDetails(await response.text())
+    await traceOpenAIAuth("token_exchange_failed", {
+      status: response.status,
+      ...details,
+    })
+    const detail = details.errorDescription ?? details.errorCode
+    throw new Error(
+      detail
+        ? `Token exchange failed: ${response.status} (${detail})`
+        : `Token exchange failed: ${response.status}`,
+    )
   }
 
-  return parseOpenAICodexTokenResponse(await response.json())
+  const tokens = parseOpenAICodexTokenResponse(await response.json())
+  await traceOpenAIAuth("token_exchange_succeeded", {
+    hasAccessToken: tokens.access_token.length > 0,
+    hasRefreshToken: tokens.refresh_token.length > 0,
+    hasIdToken: Boolean(tokens.id_token),
+  })
+  return tokens
 }
 
 export function buildBuddyCodexSuccessHtml() {
@@ -293,10 +353,12 @@ export function createBuddyCodexLoader(input: {
 async function startOAuthServer() {
   const redirectUri = `http://localhost:${OAUTH_PORT}/auth/callback`
   if (oauthServer) {
+    await traceOpenAIAuth("callback_server_reused", { port: OAUTH_PORT })
     return { redirectUri }
   }
 
-  oauthServer = createServer((req, res) => {
+  await traceOpenAIAuth("callback_server_starting", { port: OAUTH_PORT })
+  oauthServer = createServer(async (req, res) => {
     const url = new URL(req.url || "/", `http://localhost:${OAUTH_PORT}`)
 
     if (url.pathname === "/auth/callback") {
@@ -304,9 +366,19 @@ async function startOAuthServer() {
       const state = url.searchParams.get("state")
       const error = url.searchParams.get("error")
       const errorDescription = url.searchParams.get("error_description")
+      await traceOpenAIAuth("callback_received", {
+        hasCode: Boolean(code),
+        hasState: Boolean(state),
+        hasProviderError: Boolean(error),
+        stateMatches: Boolean(pendingOAuth && state === pendingOAuth.state),
+      })
 
       if (error) {
         const errorMessage = errorDescription || error
+        await traceOpenAIAuth("callback_provider_error", {
+          error: error.slice(0, TOKEN_ERROR_DETAIL_MAX_LENGTH),
+          description: errorDescription?.slice(0, TOKEN_ERROR_DETAIL_MAX_LENGTH),
+        })
         pendingOAuth?.reject(new Error(errorMessage))
         pendingOAuth = undefined
         res.writeHead(200, { "Content-Type": "text/html" })
@@ -316,6 +388,7 @@ async function startOAuthServer() {
 
       if (!code) {
         const errorMessage = "Missing authorization code"
+        await traceOpenAIAuth("callback_missing_code")
         pendingOAuth?.reject(new Error(errorMessage))
         pendingOAuth = undefined
         res.writeHead(400, { "Content-Type": "text/html" })
@@ -325,6 +398,9 @@ async function startOAuthServer() {
 
       if (!pendingOAuth || state !== pendingOAuth.state) {
         const errorMessage = "Invalid state - potential CSRF attack"
+        await traceOpenAIAuth("callback_state_mismatch", {
+          hasPendingAuthorization: Boolean(pendingOAuth),
+        })
         pendingOAuth?.reject(new Error(errorMessage))
         pendingOAuth = undefined
         res.writeHead(400, { "Content-Type": "text/html" })
@@ -335,13 +411,18 @@ async function startOAuthServer() {
       const current = pendingOAuth
       pendingOAuth = undefined
 
+      await traceOpenAIAuth("callback_exchanging_code")
       void exchangeCodeForTokens(code, redirectUri, current.pkce)
-        .then((tokens) => current.resolve(tokens))
-        .catch((oauthError: unknown) =>
+        .then(async (tokens) => {
+          await traceOpenAIAuth("callback_resolved")
+          current.resolve(tokens)
+        })
+        .catch(async (oauthError: unknown) => {
+          await traceOpenAIAuth("callback_rejected", { error: errorMessage(oauthError) })
           current.reject(
             oauthError instanceof Error ? oauthError : new Error("Token exchange failed"),
-          ),
-        )
+          )
+        })
 
       res.writeHead(200, { "Content-Type": "text/html" })
       res.end(buildBuddyCodexSuccessHtml())
@@ -360,8 +441,14 @@ async function startOAuthServer() {
   })
 
   await new Promise<void>((resolve, reject) => {
-    oauthServer?.listen(OAUTH_PORT, () => resolve())
-    oauthServer?.on("error", reject)
+    oauthServer?.listen(OAUTH_PORT, () => {
+      void traceOpenAIAuth("callback_server_started", { port: OAUTH_PORT })
+      resolve()
+    })
+    oauthServer?.on("error", (error) => {
+      void traceOpenAIAuth("callback_server_error", { error: error.message })
+      reject(error)
+    })
   })
 
   return { redirectUri }
@@ -370,16 +457,19 @@ async function startOAuthServer() {
 function stopOAuthServer() {
   oauthServer?.close()
   oauthServer = undefined
+  void traceOpenAIAuth("callback_server_stopped", { port: OAUTH_PORT })
 }
 
 function waitForOAuthCallback(pkce: PkceCodes, state: string): Promise<OpenAICodexTokenResponse> {
   return new Promise((resolve, reject) => {
-    rejectPendingOAuth("superseded", SUPERSEDED_AUTHORIZATION_ERROR)
+    const superseded = rejectPendingOAuth("superseded", SUPERSEDED_AUTHORIZATION_ERROR)
+    void traceOpenAIAuth("callback_wait_started", { supersededPreviousAttempt: superseded })
 
     const timeout = setTimeout(
       () => {
         if (!pendingOAuth) return
         pendingOAuth = undefined
+        void traceOpenAIAuth("callback_wait_timed_out")
         reject(new Error("OAuth callback timeout - authorization took too long"))
       },
       5 * 60 * 1_000,
@@ -431,11 +521,15 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
         label: "ChatGPT Pro/Plus (browser)",
         type: "oauth",
         authorize: async () => {
+          await traceOpenAIAuth("browser_authorization_started")
           const { redirectUri } = await startOAuthServer()
           const pkce = await generatePKCE()
           const state = generateState()
           const authUrl = buildAuthorizeUrl(redirectUri, pkce, state)
           const callbackPromise = waitForOAuthCallback(pkce, state)
+          await traceOpenAIAuth("browser_authorization_ready", {
+            redirectHost: new URL(redirectUri).host,
+          })
 
           return {
             url: authUrl,
@@ -443,9 +537,13 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
               "Complete authorization in your browser. Buddy will reconnect automatically.",
             method: "auto" as const,
             callback: async () => {
+              await traceOpenAIAuth("provider_callback_started")
               try {
                 const tokens = await callbackPromise
                 const accountId = extractOpenAICodexAccountId(tokens)
+                await traceOpenAIAuth("provider_callback_succeeded", {
+                  hasAccountId: Boolean(accountId),
+                })
                 return {
                   type: "success" as const,
                   refresh: tokens.refresh_token,
@@ -453,6 +551,9 @@ export function createOpenAICodexAuthHook(): NonNullable<AuthHook> {
                   expires: Date.now() + (tokens.expires_in ?? 3_600) * 1_000,
                   ...(accountId ? { accountId } : {}),
                 }
+              } catch (error) {
+                await traceOpenAIAuth("provider_callback_failed", { error: errorMessage(error) })
+                throw error
               } finally {
                 stopOAuthServer()
               }

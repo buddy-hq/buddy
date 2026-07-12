@@ -1,4 +1,8 @@
 import { afterEach, describe, expect, mock, test } from "bun:test"
+import fs from "node:fs/promises"
+import os from "node:os"
+import path from "node:path"
+import { BUDDY_ENV } from "../../src/storage/constants"
 import {
   buildBuddyCodexErrorHtml,
   buildBuddyCodexSuccessHtml,
@@ -8,11 +12,13 @@ import {
   resolveOpenAICodexAuth,
   type OpenAICodexStoredAuth,
 } from "../../src/opencode-runtime/plugins/openai-codex-credentials"
+import { traceOpenAIAuth } from "../../src/opencode-runtime/plugins/openai-auth-trace"
 
 const originalFetch = globalThis.fetch
 
 afterEach(() => {
   globalThis.fetch = originalFetch
+  delete process.env[BUDDY_ENV.OPENAI_AUTH_TRACE_FILE]
 })
 
 function readRequestUrl(input: RequestInfo | URL) {
@@ -37,6 +43,21 @@ function createDeferredResponse() {
 }
 
 describe("OpenAI Codex auth hook", () => {
+  test("writes structured auth diagnostics when the dev trace file is configured", async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-openai-auth-trace-"))
+    const traceFile = path.join(directory, "auth.jsonl")
+    process.env[BUDDY_ENV.OPENAI_AUTH_TRACE_FILE] = traceFile
+
+    try {
+      await traceOpenAIAuth("test_event", { status: 200, ok: true })
+      const entry: unknown = JSON.parse((await fs.readFile(traceFile, "utf8")).trim())
+
+      expect(entry).toMatchObject({ event: "test_event", status: 200, ok: true })
+    } finally {
+      await fs.rm(directory, { recursive: true, force: true })
+    }
+  })
+
   test("brands the success callback page for Buddy", () => {
     const html = buildBuddyCodexSuccessHtml()
 

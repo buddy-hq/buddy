@@ -25,6 +25,7 @@ import {
   openAIUsageResponseSchema,
 } from "../opencode-runtime/plugins/openai-codex-account"
 import { ensureGlobalBootstrapWorkspaceDirectory } from "../project"
+import { traceOpenAIAuth } from "../opencode-runtime/plugins/openai-auth-trace"
 
 const oauthMethodRequestSchema = z.object({
   method: z.number().int(),
@@ -245,12 +246,22 @@ export const ProviderRoutes = new Hono()
 
         const providerID = c.req.valid("param").providerID
         const body = c.req.valid("json")
+        if (providerID === OPENAI_PROVIDER_ID) {
+          await traceOpenAIAuth("authorize_route_started", { methodIndex: body.method })
+        }
         const client = await getOpenCodeClient(directoryResult.directory)
         const result = await client.provider.oauth.authorize({
           providerID,
           method: body.method,
           ...openCodeDirectoryParams(directoryResult.directory),
         })
+        if (providerID === OPENAI_PROVIDER_ID) {
+          await traceOpenAIAuth("authorize_route_completed", {
+            methodIndex: body.method,
+            ok: result.error === undefined,
+            status: result.response?.status,
+          })
+        }
         return respondWithSdkResult(c, result)
       }),
   )
@@ -279,6 +290,9 @@ export const ProviderRoutes = new Hono()
 
         const providerID = c.req.valid("param").providerID
         const body = c.req.valid("json")
+        if (providerID === OPENAI_PROVIDER_ID) {
+          await traceOpenAIAuth("callback_route_started", { methodIndex: body.method })
+        }
         const client = await getOpenCodeClient(directoryResult.directory)
         const result = await client.provider.oauth.callback({
           providerID,
@@ -286,6 +300,13 @@ export const ProviderRoutes = new Hono()
           code: body.code,
           ...openCodeDirectoryParams(directoryResult.directory),
         })
+        if (providerID === OPENAI_PROVIDER_ID) {
+          await traceOpenAIAuth("callback_route_completed", {
+            methodIndex: body.method,
+            ok: result.error === undefined,
+            status: result.response?.status,
+          })
+        }
         return respondWithSdkResult(c, result)
       }),
   )
