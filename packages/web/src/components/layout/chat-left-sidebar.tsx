@@ -414,6 +414,14 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
 
           <div className="mx-1.5 mb-2 border-t border-border-weaker-base [box-shadow:0_2px_4px_rgba(0,0,0,0.06)]" />
 
+          {showGetStartedChats && onStartGetStartedChat ? (
+            <GetStartedChats
+              chats={getStartedChats}
+              onStart={onStartGetStartedChat}
+              onDismiss={() => setGetStartedChatsVisible(false)}
+            />
+          ) : null}
+
           <ChatLeftSidebarToolbar
             organizeMode={organizeMode}
             sortMode={sortMode}
@@ -425,14 +433,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             onSortModeChange={setSortMode}
             onShowModeChange={setShowMode}
           />
-
-          {showGetStartedChats && onStartGetStartedChat ? (
-            <GetStartedChats
-              chats={getStartedChats}
-              onStart={onStartGetStartedChat}
-              onDismiss={() => setGetStartedChatsVisible(false)}
-            />
-          ) : null}
 
           <ChatLeftSidebarDirectoryList
             directoryGroups={orderedDirectoryGroups}
