@@ -2,7 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
-import { extractResourcePack } from "../../src/resource-packs/extractors"
+import {
+  extractPdfResourceWithMetadataExtractorForTests,
+  extractResourcePack,
+} from "../../src/resource-packs/extractors"
 import { resolveLiteParseTessdataDirectory } from "../../src/resource-packs/pdf/liteparse-parser"
 import type { ResourceClassification } from "../../src/resource-packs/contracts"
 import { createTextPdf } from "../helpers/pdf"
@@ -45,6 +48,29 @@ describe("PDF LiteParse extraction", () => {
       expect(result.extractor).toBe("@llamaindex/liteparse")
       expect(result.fullText).toContain(TEST_PDF_TEXT)
       expect(result.pageMarkdowns).toHaveLength(1)
+    },
+    LITEPARSE_INTEGRATION_TEST_TIMEOUT_MS,
+  )
+
+  test(
+    "still uses LiteParse when PDF outline metadata extraction fails",
+    async () => {
+      const directory = await mkdtemp(path.join(os.tmpdir(), "buddy-liteparse-test-"))
+      temporaryDirectories.push(directory)
+      const sourcePath = path.join(directory, TEST_PDF_FILENAME)
+      await writeFile(sourcePath, createTextPdf(TEST_PDF_TEXT), "binary")
+
+      const result = await extractPdfResourceWithMetadataExtractorForTests(
+        sourcePath,
+        async () => {
+          throw new Error("metadata parser failed")
+        },
+      )
+
+      expect(result.status).toBe("ready")
+      expect(result.extractor).toBe("@llamaindex/liteparse")
+      expect(result.fullText).toContain(TEST_PDF_TEXT)
+      expect(result.warnings).toContain("PDF outline extraction failed: metadata parser failed")
     },
     LITEPARSE_INTEGRATION_TEST_TIMEOUT_MS,
   )

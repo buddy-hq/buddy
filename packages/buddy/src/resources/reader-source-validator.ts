@@ -6,6 +6,11 @@ import {
   type ReaderSourceFormat,
   type ReaderSourceValidity,
 } from "@buddy/workspace-file-policy"
+import {
+  assertResourceArchiveBudget,
+  assertResourceSourceSize,
+  ResourceBudgetExceededError,
+} from "../resource-packs/budgets"
 
 const READER_SOURCE_PREFIX_BYTES = 1024
 const EPUB_MIMETYPE_ENTRY = "mimetype" as const
@@ -150,6 +155,7 @@ async function probeEpub(bytes: Uint8Array): Promise<ReaderSourceValidation> {
   const reader = new ZipReader<Blob>(new BlobReader(new Blob([Uint8Array.from(bytes)])))
   try {
     const entries = await reader.getEntries()
+    assertResourceArchiveBudget(entries)
     const files = new Map(
       entries.filter(isFileEntry).map((entry) => [entry.filename.replaceAll("\\", "/"), entry]),
     )
@@ -206,6 +212,19 @@ export async function validateReaderSourcePath(filepath: string): Promise<Reader
   const identity = `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`
   const cached = validationCache.get(filepath)
   if (cached?.identity === identity) return cached.validation
+
+  try {
+    assertResourceSourceSize(stat.size)
+  } catch (error) {
+    if (!(error instanceof ResourceBudgetExceededError)) throw error
+    const validation: ReaderSourceValidation = {
+      format,
+      sourceValidity: "invalid",
+      reason: error.message,
+    }
+    validationCache.set(filepath, { identity, validation })
+    return validation
+  }
 
   const handle = await fs.open(filepath, "r")
   let prefix: Uint8Array

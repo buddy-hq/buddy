@@ -22,6 +22,27 @@ import {
 } from "./types"
 import { LearnerMemoryPath } from "./paths"
 import { LEARNER_MEMORY_STORAGE_TUNING } from "./tuning"
+import { withLearnerMemoryMutationLock } from "./mutation-lock"
+import { withRecoveredConsolidationPublication } from "./consolidation-publication"
+import { listLearnerEventRecords } from "./evidence"
+
+type CreateLearnerMemoryRecordInput = {
+  type: LearnerMemoryType
+  title: string
+  body: string
+  tags: string[]
+  projectPath?: string
+  confidence?: number
+  strength?: number
+  status?: LearnerMemoryStatus
+  source: LearnerMemorySource
+  sourceEventIds?: string[]
+}
+
+type AtomicLearnerMemoryUpsertResult = {
+  created: boolean
+  memory: LearnerMemory
+}
 
 function retentionTypeForPedagogyKind(type: LearnerMemoryType): LearnerMemoryRetentionType {
   switch (type) {
@@ -64,6 +85,8 @@ function eventYearMonth(createdAt: string): string {
 }
 
 function createLearnerEvent(input: {
+  id?: string
+  createdAt?: string
   type: LearnerEvent["type"]
   sourceKind: string
   searchableText: string
@@ -72,9 +95,9 @@ function createLearnerEvent(input: {
   projectPath?: string
   sourceId?: string
 }): LearnerEvent {
-  const createdAt = new Date().toISOString()
+  const createdAt = input.createdAt ?? new Date().toISOString()
   return LearnerEventSchema.parse({
-    id: `evt_${ulid()}`,
+    id: input.id ?? `evt_${ulid()}`,
     schemaVersion: 1,
     type: input.type,
     createdAt,
@@ -87,19 +110,43 @@ function createLearnerEvent(input: {
   })
 }
 
+async function appendLearnerEventInternal(input: {
+  directory: string
+  event: LearnerEvent
+  onlyIfMissing: boolean
+}): Promise<void> {
+  const parsedEvent = LearnerEventSchema.parse(input.event)
+  await withLearnerMemoryMutationLock(input.directory, async () => {
+    await ensureLearnerMemoryLayout(input.directory)
+    const eventFile = LearnerMemoryPath.eventFile(
+      input.directory,
+      eventYearMonth(parsedEvent.createdAt),
+    )
+    const exists =
+      input.onlyIfMissing &&
+      (await listLearnerEventRecords(input.directory)).some(
+        (record) => record.event.id === parsedEvent.id,
+      )
+    if (!exists) {
+      await fs.appendFile(eventFile, `${JSON.stringify(parsedEvent)}\n`, "utf8")
+    }
+    try {
+      await rebuildLearnerMemoryIndex(input.directory)
+    } catch (error) {
+      await fs
+        .rm(LearnerMemoryPath.indexFile(input.directory), { force: true })
+        .catch(() => undefined)
+      throw error
+    }
+  })
+}
+
 async function appendLearnerEvent(directory: string, event: LearnerEvent): Promise<void> {
-  await ensureLearnerMemoryLayout(directory)
-  await fs.appendFile(
-    LearnerMemoryPath.eventFile(directory, eventYearMonth(event.createdAt)),
-    `${JSON.stringify(LearnerEventSchema.parse(event))}\n`,
-    "utf8",
-  )
-  try {
-    await rebuildLearnerMemoryIndex(directory)
-  } catch (error) {
-    await fs.rm(LearnerMemoryPath.indexFile(directory), { force: true }).catch(() => undefined)
-    throw error
-  }
+  await appendLearnerEventInternal({ directory, event, onlyIfMissing: false })
+}
+
+async function appendLearnerEventOnce(directory: string, event: LearnerEvent): Promise<void> {
+  await appendLearnerEventInternal({ directory, event, onlyIfMissing: true })
 }
 
 async function readWorkingMemoryRegistry(
@@ -111,7 +158,7 @@ async function readWorkingMemoryRegistry(
   return parseLearnerMemoryRegistry(markdown)
 }
 
-async function writeLearnerMemory(directory: string, memory: LearnerMemory): Promise<void> {
+async function writeLearnerMemoryUnlocked(directory: string, memory: LearnerMemory): Promise<void> {
   await ensureLearnerMemoryLayout(directory)
   const parsedMemory = LearnerMemorySchema.parse(memory)
   const registry = await readWorkingMemoryRegistry(directory)
@@ -125,22 +172,15 @@ async function writeLearnerMemory(directory: string, memory: LearnerMemory): Pro
   await rebuildLearnerMemoryIndex(directory)
 }
 
-async function createLearnerMemory(input: {
-  directory: string
-  type: LearnerMemoryType
-  title: string
-  body: string
-  tags: string[]
-  projectPath?: string
-  confidence?: number
-  strength?: number
-  status?: LearnerMemoryStatus
-  source: LearnerMemorySource
-  sourceEventIds?: string[]
-  reason: string
-}): Promise<LearnerMemory> {
+async function writeLearnerMemory(directory: string, memory: LearnerMemory): Promise<void> {
+  await withLearnerMemoryMutationLock(directory, () =>
+    writeLearnerMemoryUnlocked(directory, memory),
+  )
+}
+
+function createLearnerMemoryRecord(input: CreateLearnerMemoryRecordInput): LearnerMemory {
   const now = new Date().toISOString()
-  const memory = LearnerMemorySchema.parse({
+  return LearnerMemorySchema.parse({
     id: `mem_${ulid()}`,
     schemaVersion: 1,
     memoryType: retentionTypeForPedagogyKind(input.type),
@@ -163,6 +203,41 @@ async function createLearnerMemory(input: {
     createdAt: now,
     updatedAt: now,
   })
+}
+
+async function upsertLearnerMemoryAtomically(input: {
+  directory: string
+  find: (memories: readonly LearnerMemory[]) => LearnerMemory | undefined
+  create: () => LearnerMemory
+  update: (memory: LearnerMemory) => LearnerMemory
+}): Promise<AtomicLearnerMemoryUpsertResult> {
+  return withLearnerMemoryMutationLock(input.directory, async () => {
+    await ensureLearnerMemoryLayout(input.directory)
+    const existing = input.find((await readWorkingMemoryRegistry(input.directory)).memories)
+    const memory = LearnerMemorySchema.parse(existing ? input.update(existing) : input.create())
+    if (existing && memory.id !== existing.id) {
+      throw new Error("An atomic learner-memory upsert cannot replace the selected memory identity.")
+    }
+    await writeLearnerMemoryUnlocked(input.directory, memory)
+    return { created: existing === undefined, memory }
+  })
+}
+
+async function createLearnerMemory(input: {
+  directory: string
+  type: LearnerMemoryType
+  title: string
+  body: string
+  tags: string[]
+  projectPath?: string
+  confidence?: number
+  strength?: number
+  status?: LearnerMemoryStatus
+  source: LearnerMemorySource
+  sourceEventIds?: string[]
+  reason: string
+}): Promise<LearnerMemory> {
+  const memory = createLearnerMemoryRecord(input)
   await writeLearnerMemory(input.directory, memory)
   await appendLearnerEvent(
     input.directory,
@@ -184,9 +259,9 @@ async function listLearnerMemories(directory: string): Promise<LearnerMemory[]> 
 
 async function listConsolidatedLearnerMemories(directory: string): Promise<LearnerMemory[]> {
   await ensureLearnerMemoryLayout(directory)
-  const markdown = await fs
-    .readFile(LearnerMemoryPath.memoryRegistryFile(directory), "utf8")
-    .catch(() => "")
+  const markdown = await withRecoveredConsolidationPublication(directory, () =>
+    fs.readFile(LearnerMemoryPath.memoryRegistryFile(directory), "utf8").catch(() => ""),
+  )
   return parseLearnerMemoryRegistryMarkdown(markdown)
 }
 
@@ -211,13 +286,35 @@ async function findLearnerMemory(input: {
   )
 }
 
+type LearnerMemoryMutation = {
+  previous: LearnerMemory
+  updated: LearnerMemory
+}
+
+async function mutateLearnerMemory(input: {
+  directory: string
+  memoryId: string
+  update: (memory: LearnerMemory) => LearnerMemory
+}): Promise<LearnerMemoryMutation | undefined> {
+  return withLearnerMemoryMutationLock(input.directory, async () => {
+    const previous = await findLearnerMemory(input)
+    if (!previous) return undefined
+
+    const updated = LearnerMemorySchema.parse(input.update(previous))
+    await writeLearnerMemoryUnlocked(input.directory, updated)
+    return { previous, updated }
+  })
+}
+
 async function writeCandidatePatches(
   directory: string,
   patches: readonly CandidateMemoryPatch[],
 ): Promise<void> {
-  await ensureLearnerMemoryLayout(directory)
-  const parsed = patches.map((patch) => CandidateMemoryPatchSchema.parse(patch))
-  await writeJsonFile(LearnerMemoryPath.candidatePatchesFile(directory), parsed)
+  await withLearnerMemoryMutationLock(directory, async () => {
+    await ensureLearnerMemoryLayout(directory)
+    const parsed = patches.map((patch) => CandidateMemoryPatchSchema.parse(patch))
+    await writeJsonFile(LearnerMemoryPath.candidatePatchesFile(directory), parsed)
+  })
 }
 
 async function readCandidatePatches(directory: string): Promise<CandidateMemoryPatch[]> {
@@ -261,26 +358,27 @@ async function updateLearnerMemoryStatus(input: {
   sourceKind: string
   reason: string
 }): Promise<LearnerMemory | undefined> {
-  const memory = await findLearnerMemory(input)
-  if (!memory) return undefined
-
-  const updated = LearnerMemorySchema.parse({
-    ...memory,
-    status: input.status,
-    updatedAt: new Date().toISOString(),
+  const mutation = await mutateLearnerMemory({
+    ...input,
+    update: (memory) =>
+      LearnerMemorySchema.parse({
+        ...memory,
+        status: input.status,
+        updatedAt: new Date().toISOString(),
+      }),
   })
-  await writeLearnerMemory(input.directory, updated)
+  if (!mutation) return undefined
   await appendLearnerEvent(
     input.directory,
     createLearnerEvent({
       type: input.eventType,
       sourceKind: input.sourceKind,
       sourceId: input.memoryId,
-      searchableText: `Memory ${input.status}: ${memory.title}`,
+      searchableText: `Memory ${input.status}: ${mutation.updated.title}`,
       payload: { reason: input.reason },
     }),
   )
-  return updated
+  return mutation.updated
 }
 
 async function hideLearnerMemory(input: {
@@ -346,29 +444,30 @@ async function editLearnerMemory(input: {
   projectPath?: string
   reason: string
 }): Promise<LearnerMemory | undefined> {
-  const memory = await findLearnerMemory(input)
-  if (!memory) return undefined
-
-  const updated = LearnerMemorySchema.parse({
-    ...memory,
-    ...(input.title ? { title: input.title } : {}),
-    ...(input.body ? { body: input.body } : {}),
-    ...(input.tags ? { tags: input.tags } : {}),
-    ...(input.projectPath ? { projectPath: input.projectPath } : {}),
-    updatedAt: new Date().toISOString(),
+  const mutation = await mutateLearnerMemory({
+    ...input,
+    update: (memory) =>
+      LearnerMemorySchema.parse({
+        ...memory,
+        ...(input.title ? { title: input.title } : {}),
+        ...(input.body ? { body: input.body } : {}),
+        ...(input.tags ? { tags: input.tags } : {}),
+        ...(input.projectPath ? { projectPath: input.projectPath } : {}),
+        updatedAt: new Date().toISOString(),
+      }),
   })
-  await writeLearnerMemory(input.directory, updated)
+  if (!mutation) return undefined
   await appendLearnerEvent(
     input.directory,
     createLearnerEvent({
       type: "memory_edited",
       sourceKind: "learner_correction",
       sourceId: input.memoryId,
-      searchableText: `Memory edited: ${updated.title}`,
+      searchableText: `Memory edited: ${mutation.updated.title}`,
       payload: { reason: input.reason },
     }),
   )
-  return updated
+  return mutation.updated
 }
 
 async function pinLearnerMemory(input: {
@@ -377,29 +476,30 @@ async function pinLearnerMemory(input: {
   pinned: boolean
   reason: string
 }): Promise<LearnerMemory | undefined> {
-  const memory = await findLearnerMemory(input)
-  if (!memory) return undefined
-
-  const updated = LearnerMemorySchema.parse({
-    ...memory,
-    pinned: input.pinned,
-    strength: input.pinned
-      ? Math.max(memory.strength, LEARNER_MEMORY_STORAGE_TUNING.learnerAuthoredMemoryStrength)
-      : memory.strength,
-    updatedAt: new Date().toISOString(),
+  const mutation = await mutateLearnerMemory({
+    ...input,
+    update: (memory) =>
+      LearnerMemorySchema.parse({
+        ...memory,
+        pinned: input.pinned,
+        strength: input.pinned
+          ? Math.max(memory.strength, LEARNER_MEMORY_STORAGE_TUNING.learnerAuthoredMemoryStrength)
+          : memory.strength,
+        updatedAt: new Date().toISOString(),
+      }),
   })
-  await writeLearnerMemory(input.directory, updated)
+  if (!mutation) return undefined
   await appendLearnerEvent(
     input.directory,
     createLearnerEvent({
       type: input.pinned ? "memory_pinned" : "memory_unpinned",
       sourceKind: "learner_correction",
       sourceId: input.memoryId,
-      searchableText: `Memory ${input.pinned ? "pinned" : "unpinned"}: ${memory.title}`,
+      searchableText: `Memory ${input.pinned ? "pinned" : "unpinned"}: ${mutation.updated.title}`,
       payload: { reason: input.reason, pinned: input.pinned },
     }),
   )
-  return updated
+  return mutation.updated
 }
 
 async function supersedeLearnerMemory(input: {
@@ -408,27 +508,28 @@ async function supersedeLearnerMemory(input: {
   supersededById: string
   reason: string
 }): Promise<LearnerMemory | undefined> {
-  const memory = await findLearnerMemory(input)
-  if (!memory) return undefined
-
-  const updated = LearnerMemorySchema.parse({
-    ...memory,
-    status: "stale",
-    supersededById: input.supersededById,
-    updatedAt: new Date().toISOString(),
+  const mutation = await mutateLearnerMemory({
+    ...input,
+    update: (memory) =>
+      LearnerMemorySchema.parse({
+        ...memory,
+        status: "stale",
+        supersededById: input.supersededById,
+        updatedAt: new Date().toISOString(),
+      }),
   })
-  await writeLearnerMemory(input.directory, updated)
+  if (!mutation) return undefined
   await appendLearnerEvent(
     input.directory,
     createLearnerEvent({
       type: "memory_superseded",
       sourceKind: "consolidation",
       sourceId: input.memoryId,
-      searchableText: `Memory superseded: ${memory.title}`,
+      searchableText: `Memory superseded: ${mutation.updated.title}`,
       payload: { reason: input.reason, supersededById: input.supersededById },
     }),
   )
-  return updated
+  return mutation.updated
 }
 
 async function strengthenLearnerMemory(input: {
@@ -437,35 +538,37 @@ async function strengthenLearnerMemory(input: {
   sourceKind: string
   amount?: number
 }): Promise<LearnerMemory | undefined> {
-  const memory = await findLearnerMemory(input)
-  if (!memory) return undefined
-
-  const now = new Date().toISOString()
-  const strength = Math.min(
-    1,
-    memory.strength + (input.amount ?? LEARNER_MEMORY_STORAGE_TUNING.memorySearchStrengthBoost),
-  )
-  const updated = LearnerMemorySchema.parse({
-    ...memory,
-    strength,
-    lastUsedAt: now,
-    updatedAt: now,
+  const mutation = await mutateLearnerMemory({
+    ...input,
+    update: (memory) => {
+      const now = new Date().toISOString()
+      return LearnerMemorySchema.parse({
+        ...memory,
+        strength: Math.min(
+          1,
+          memory.strength +
+            (input.amount ?? LEARNER_MEMORY_STORAGE_TUNING.memorySearchStrengthBoost),
+        ),
+        lastUsedAt: now,
+        updatedAt: now,
+      })
+    },
   })
-  await writeLearnerMemory(input.directory, updated)
+  if (!mutation) return undefined
   await appendLearnerEvent(
     input.directory,
     createLearnerEvent({
       type: "memory_strengthened",
       sourceKind: input.sourceKind,
       sourceId: input.memoryId,
-      searchableText: `Memory strengthened: ${memory.title}`,
+      searchableText: `Memory strengthened: ${mutation.updated.title}`,
       payload: {
         amount: input.amount ?? LEARNER_MEMORY_STORAGE_TUNING.memorySearchStrengthBoost,
-        strength,
+        strength: mutation.updated.strength,
       },
     }),
   )
-  return updated
+  return mutation.updated
 }
 
 async function decayLearnerMemory(input: {
@@ -474,28 +577,28 @@ async function decayLearnerMemory(input: {
   reason: string
   amount?: number
 }): Promise<LearnerMemory | undefined> {
-  const memory = await findLearnerMemory(input)
-  if (!memory) return undefined
-
   const amount = input.amount ?? LEARNER_MEMORY_STORAGE_TUNING.memoryDecayAmount
-  const strength = Math.max(0, memory.strength - amount)
-  const updated = LearnerMemorySchema.parse({
-    ...memory,
-    strength,
-    updatedAt: new Date().toISOString(),
+  const mutation = await mutateLearnerMemory({
+    ...input,
+    update: (memory) =>
+      LearnerMemorySchema.parse({
+        ...memory,
+        strength: Math.max(0, memory.strength - amount),
+        updatedAt: new Date().toISOString(),
+      }),
   })
-  await writeLearnerMemory(input.directory, updated)
+  if (!mutation) return undefined
   await appendLearnerEvent(
     input.directory,
     createLearnerEvent({
       type: "memory_decayed",
       sourceKind: "decay",
       sourceId: input.memoryId,
-      searchableText: `Memory decayed: ${memory.title}`,
-      payload: { reason: input.reason, amount, strength },
+      searchableText: `Memory decayed: ${mutation.updated.title}`,
+      payload: { reason: input.reason, amount, strength: mutation.updated.strength },
     }),
   )
-  return updated
+  return mutation.updated
 }
 
 async function deleteLearnerMemory(input: {
@@ -503,18 +606,22 @@ async function deleteLearnerMemory(input: {
   memoryId: string
   reason: string
 }): Promise<boolean> {
-  const memory = await findLearnerMemory(input)
-  if (!memory) return false
+  const memory = await withLearnerMemoryMutationLock(input.directory, async () => {
+    const current = await findLearnerMemory(input)
+    if (!current) return undefined
 
-  const memories = (await listLearnerMemories(input.directory)).filter(
-    (candidate) => candidate.id !== input.memoryId,
-  )
-  const registry = await readWorkingMemoryRegistry(input.directory)
-  await writeTextFileAtomic(
-    LearnerMemoryPath.workingMemoryFile(input.directory),
-    renderRegistryMarkdown(memories, { invalidBlocks: registry.invalidBlocks }),
-  )
-  await rebuildLearnerMemoryIndex(input.directory)
+    const memories = (await listLearnerMemories(input.directory)).filter(
+      (candidate) => candidate.id !== input.memoryId,
+    )
+    const registry = await readWorkingMemoryRegistry(input.directory)
+    await writeTextFileAtomic(
+      LearnerMemoryPath.workingMemoryFile(input.directory),
+      renderRegistryMarkdown(memories, { invalidBlocks: registry.invalidBlocks }),
+    )
+    await rebuildLearnerMemoryIndex(input.directory)
+    return current
+  })
+  if (!memory) return false
   await appendLearnerEvent(
     input.directory,
     createLearnerEvent({
@@ -529,12 +636,14 @@ async function deleteLearnerMemory(input: {
 }
 
 async function resetLearnerMemory(input: { directory: string; reason: string }): Promise<void> {
-  await ensureLearnerMemoryLayout(input.directory)
-  await Promise.all([
-    fs.rm(LearnerMemoryPath.workingMemoryFile(input.directory), { force: true }),
-    fs.rm(LearnerMemoryPath.workingSummaryFile(input.directory), { force: true }),
-  ])
-  await rebuildLearnerMemoryIndex(input.directory)
+  await withLearnerMemoryMutationLock(input.directory, async () => {
+    await ensureLearnerMemoryLayout(input.directory)
+    await Promise.all([
+      fs.rm(LearnerMemoryPath.workingMemoryFile(input.directory), { force: true }),
+      fs.rm(LearnerMemoryPath.workingSummaryFile(input.directory), { force: true }),
+    ])
+    await rebuildLearnerMemoryIndex(input.directory)
+  })
   await appendLearnerEvent(
     input.directory,
     createLearnerEvent({
@@ -547,7 +656,9 @@ async function resetLearnerMemory(input: { directory: string; reason: string }):
 }
 
 export {
+  appendLearnerEventOnce,
   appendLearnerEvent,
+  createLearnerMemoryRecord,
   createLearnerEvent,
   createLearnerMemory,
   decayLearnerMemory,
@@ -568,6 +679,7 @@ export {
   resolveLearnerMemory,
   strengthenLearnerMemory,
   supersedeLearnerMemory,
+  upsertLearnerMemoryAtomically,
   writeCandidatePatches,
   writeJsonFile,
   writeLearnerMemory,

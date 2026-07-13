@@ -72,6 +72,43 @@ describe("config routes", () => {
     expect(fs.existsSync(projectConfigFile(repo))).toBe(true)
   })
 
+  test("preserves concurrent project config patches", async () => {
+    const repo = createGitRepo("buddy-route-config-project-concurrent")
+    const nestedDirectory = path.join(repo, "nested")
+    fs.mkdirSync(nestedDirectory)
+
+    const [personaResponse, modelResponse] = await Promise.all([
+      app.request("/api/config", {
+        method: "PATCH",
+        headers: {
+          "x-buddy-directory": repo,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ default_persona: "teaching-buddy" }),
+      }),
+      app.request("/api/config", {
+        method: "PATCH",
+        headers: {
+          "x-buddy-directory": nestedDirectory,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ model: "anthropic/project-concurrent-patch" }),
+      }),
+    ])
+
+    expect(personaResponse.status).toBe(200)
+    expect(modelResponse.status).toBe(200)
+
+    const getResponse = await app.request("/api/config", {
+      headers: { "x-buddy-directory": repo },
+    })
+    expect(getResponse.status).toBe(200)
+    expect(await getResponse.json()).toMatchObject({
+      default_persona: "teaching-buddy",
+      model: "anthropic/project-concurrent-patch",
+    })
+  })
+
   test("uses only the project root config when nested folders are opened", async () => {
     const repo = createGitRepo("buddy-route-config-root-only")
     const nested = path.join(repo, "nested")

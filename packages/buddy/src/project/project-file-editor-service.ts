@@ -4,11 +4,16 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { File as OpenCodeFile } from "@buddy/opencode-adapter/file"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
+import { Global } from "../storage"
+import { writeTextFileAtomic } from "../storage/atomic-file"
+import { withFileLock } from "../storage/file-lock"
 
 const PROJECT_FILE_ESCAPE_ERROR = "Access denied: path escapes project directory"
 const PROJECT_FILE_NOT_FOUND_ERROR = "File not found"
 const PROJECT_TEXT_FILE_UNSUPPORTED_ERROR = "File type is not supported for in-app editing."
 const PROJECT_TEXT_FILE_CONFLICT_ERROR = "File changed on disk. Reload or overwrite to continue."
+const PROJECT_TEXT_FILE_LOCK_DIRECTORY = "project-file-locks"
+const PROJECT_TEXT_FILE_LOCK_EXTENSION = ".lock"
 
 export type ProjectTextFileState = {
   path: string
@@ -48,6 +53,15 @@ function normalizeRelativePath(filepath: string) {
 function contentVersion(content: string | undefined) {
   if (content === undefined) return null
   return createHash("sha256").update(content, "utf8").digest("hex")
+}
+
+function projectTextFileLockPath(targetPath: string): string {
+  const identity = createHash("sha256").update(path.resolve(targetPath), "utf8").digest("hex")
+  return path.join(
+    Global.Path.state,
+    PROJECT_TEXT_FILE_LOCK_DIRECTORY,
+    `${identity}${PROJECT_TEXT_FILE_LOCK_EXTENSION}`,
+  )
 }
 
 async function readFileContent(filePath: string) {
@@ -212,7 +226,7 @@ export async function saveProjectTextFile(input: {
   return OpenCodeInstance.provide({
     directory: input.directory,
     fn: async () => {
-      const containedFile = await resolveContainedFile(input.directory, normalizedPath).catch(
+      const initialContainedFile = await resolveContainedFile(input.directory, normalizedPath).catch(
         (error: unknown) => {
           if (error instanceof ProjectFileNotFoundError) {
             return undefined
@@ -221,31 +235,68 @@ export async function saveProjectTextFile(input: {
         },
       )
 
-      if (containedFile) {
+      if (initialContainedFile) {
         await assertTextEditableFile(normalizedPath)
       } else {
         await assertContainedParentDirectory(input.directory, normalizedPath)
       }
 
-      const currentContent = containedFile
-        ? await readFileContent(containedFile.realPath)
-        : undefined
-      const currentVersion = contentVersion(currentContent)
+      const lexicalTargetPath = path.resolve(input.directory, normalizedPath)
+      const lockPath = projectTextFileLockPath(lexicalTargetPath)
 
-      if (input.expectedVersion !== undefined && input.expectedVersion !== currentVersion) {
-        throw new ProjectTextFileVersionConflictError(PROJECT_TEXT_FILE_CONFLICT_ERROR)
-      }
+      return withFileLock(lockPath, async () => {
+        const containedFile = await resolveContainedFile(input.directory, normalizedPath).catch(
+          (error: unknown) => {
+            if (error instanceof ProjectFileNotFoundError) {
+              return undefined
+            }
+            throw error
+          },
+        )
 
-      const nextAbsolutePath =
-        containedFile?.absolutePath ?? path.resolve(input.directory, normalizedPath)
-      await fs.mkdir(path.dirname(nextAbsolutePath), { recursive: true })
-      await fs.writeFile(nextAbsolutePath, input.content, "utf8")
+        if (containedFile) {
+          await assertTextEditableFile(normalizedPath)
+        } else {
+          await assertContainedParentDirectory(input.directory, normalizedPath)
+        }
 
-      return {
-        path: normalizedPath,
-        content: input.content,
-        version: contentVersion(input.content) ?? "",
-      }
+        const nextPath = containedFile?.realPath ?? path.resolve(input.directory, normalizedPath)
+        const save = async () => {
+          await writeTextFileAtomic(nextPath, input.content, async () => {
+            const latestContainedFile = await resolveContainedFile(
+              input.directory,
+              normalizedPath,
+            ).catch((error: unknown) => {
+              if (error instanceof ProjectFileNotFoundError) return undefined
+              throw error
+            })
+            const latestPath = latestContainedFile?.realPath ?? lexicalTargetPath
+            if (latestPath !== nextPath) {
+              throw new ProjectTextFileVersionConflictError(PROJECT_TEXT_FILE_CONFLICT_ERROR)
+            }
+
+            const currentContent = latestContainedFile
+              ? await readFileContent(latestContainedFile.realPath)
+              : undefined
+            const currentVersion = contentVersion(currentContent)
+            if (input.expectedVersion !== undefined && input.expectedVersion !== currentVersion) {
+              throw new ProjectTextFileVersionConflictError(PROJECT_TEXT_FILE_CONFLICT_ERROR)
+            }
+          })
+        }
+
+        if (nextPath === lexicalTargetPath) {
+          await save()
+        } else {
+          await withFileLock(projectTextFileLockPath(nextPath), save)
+        }
+
+        return {
+          path: normalizedPath,
+          content: input.content,
+          version: contentVersion(input.content) ?? "",
+        }
+      })
     },
   })
 }

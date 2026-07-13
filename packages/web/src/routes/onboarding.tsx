@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, redirect, useNavigate, useSearch } from "@tanstack/react-router"
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useEffect, useRef, useState, type CSSProperties } from "react"
 import type { OnboardingAuthChoice } from "@/components/onboarding"
@@ -30,7 +30,6 @@ import { language } from "@/context/language"
 import { getPlatform, usePlatform } from "@/context/platform"
 import {
   hasConnectedOpenAiProvider,
-  resolveDesktopOnboardingAutoContinueDirectory,
   shouldShowCurrentDesktopOnboarding,
 } from "@/lib/desktop-onboarding"
 import { encodeDirectory } from "@/lib/directory-token"
@@ -88,7 +87,6 @@ import {
   shouldResetPersonalizationForm,
 } from "@/state/project-config-readers"
 
-const EMPTY_OPEN_PROJECTS: string[] = []
 const EMPTY_PROVIDER_CATALOG_SNAPSHOT: ProviderCatalogState = {
   providers: [],
   default: {},
@@ -148,7 +146,6 @@ function OnboardingRoute() {
   const reduceMotion = useReducedMotion() === true
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const { test } = useSearch({ from: "/onboarding" })
   const platform = usePlatform()
   const authChoice = useOnboardingStore((state) => state.authChoice)
   const setAuthChoice = useOnboardingStore((state) => state.setAuthChoice)
@@ -170,9 +167,7 @@ function OnboardingRoute() {
     (state) => state.personalizationVersionCompleted,
   )
   const setActiveDirectory = useChatStore((state) => state.setActiveDirectory)
-  const openProjectsQuery = useQuery(openProjectsQueryOptions())
   const providerCatalogSnapshotQuery = useQuery(providerCatalogSnapshotQueryOptions())
-  const openProjects = openProjectsQuery.data ?? EMPTY_OPEN_PROJECTS
   const providerCatalogSnapshot =
     providerCatalogSnapshotQuery.data ?? EMPTY_PROVIDER_CATALOG_SNAPSHOT
 
@@ -305,38 +300,14 @@ function OnboardingRoute() {
     }
 
     autoContinueHandledRef.current = true
-
-    const nextDirectory =
-      test === ONBOARDING_TEST_SEARCH_VALUE
-        ? undefined
-        : resolveDesktopOnboardingAutoContinueDirectory({
-            connectedOpenAiProvider: true,
-            openProjects,
-            activeDirectory: useChatStore.getState().activeDirectory,
-          })
-
-    if (nextDirectory) {
-      markSetupCompleted()
-      navigate({
-        to: "/$directory/chat",
-        params: { directory: encodeDirectory(nextDirectory) },
-        replace: true,
-      })
-      return
-    }
-
     setConnectedAuthChoice("chatgpt_plus")
     setAuthChoice("chatgpt_plus")
   }, [
-    markSetupCompleted,
-    navigate,
-    openProjects,
     personalizationStepVisible,
     providerCatalogSnapshot,
     setAuthChoice,
     showPrimaryUseStep,
     showProviderSelectionStep,
-    test,
   ])
 
   function navigateToDirectoryChat(directory: string) {

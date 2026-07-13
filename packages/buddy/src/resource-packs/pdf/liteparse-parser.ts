@@ -3,6 +3,10 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import type { PageComplexityStats, ParsedPage } from "@llamaindex/liteparse"
 import { BUDDY_ENV } from "../../storage"
+import {
+  assertResourcePageCount,
+  assertResourceTextCharacterCount,
+} from "../budgets"
 
 const ENGLISH_TESSDATA_FILENAME = "eng.traineddata" as const
 const LITEPARSE_EXTRACTOR = "@llamaindex/liteparse" as const
@@ -129,18 +133,24 @@ export async function resolveLiteParseTessdataDirectory(): Promise<string> {
 }
 
 function normalizePageTexts(pages: ParsedPage[]): string[] {
+  assertResourcePageCount(pages.length)
   const orderedPages = pages.toSorted((left, right) => left.pageNum - right.pageNum)
   const lastPageNumber = orderedPages.at(-1)?.pageNum
   if (lastPageNumber === undefined || !Number.isInteger(lastPageNumber) || lastPageNumber < 1) {
     return []
   }
+  assertResourcePageCount(lastPageNumber)
 
   const pageTexts = Array.from({ length: lastPageNumber }, () => "")
+  let textCharacters = 0
   for (const page of orderedPages) {
     if (!isValidPageNumber(page.pageNum, pageTexts.length)) {
       throw new Error(`LiteParse returned invalid PDF page number ${page.pageNum}.`)
     }
-    pageTexts[page.pageNum - 1] = page.text.trim()
+    const pageText = page.text.trim()
+    textCharacters += pageText.length
+    assertResourceTextCharacterCount(textCharacters)
+    pageTexts[page.pageNum - 1] = pageText
   }
   return pageTexts
 }

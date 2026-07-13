@@ -11,6 +11,7 @@ import type {
   TeachingWorkspaceResponse,
 } from "../model/types"
 import { TeachingWorkspaceRecordSchema } from "../model/types"
+import { writeTextFileAtomic } from "../../../../storage/atomic-file"
 
 export type ResolvedTeachingFile = TeachingWorkspaceFile & {
   fileHash: string
@@ -50,7 +51,7 @@ export async function readFileOrDefault(filepath: string, fallback = "") {
 
 export async function writeRecord(directory: string, record: TeachingWorkspaceRecord) {
   const filepath = TeachingPath.metadata(directory, record.sessionID)
-  await fs.writeFile(filepath, JSON.stringify(record, null, 2), "utf8")
+  await writeTextFileAtomic(filepath, JSON.stringify(record, null, 2))
 }
 
 async function readRecordRaw(directory: string, sessionID: string) {
@@ -189,8 +190,8 @@ async function migrateLegacyRecord(directory: string, record: TeachingWorkspaceR
     ensureParentDirectory(nextCheckpointFilePath),
   ])
   await Promise.all([
-    fs.writeFile(nextLessonFilePath, lessonCode, "utf8"),
-    fs.writeFile(nextCheckpointFilePath, checkpointCode, "utf8"),
+    writeTextFileAtomic(nextLessonFilePath, lessonCode),
+    writeTextFileAtomic(nextCheckpointFilePath, checkpointCode),
   ])
 
   if (record.lessonFilePath !== nextLessonFilePath) {
@@ -285,8 +286,8 @@ export async function syncRecord(directory: string, record: TeachingWorkspaceRec
       ensureParentDirectory(fallbackCheckpointPath),
     ])
     await Promise.all([
-      fs.writeFile(fallbackFilePath, fallbackCode, "utf8"),
-      fs.writeFile(fallbackCheckpointPath, fallbackCode, "utf8"),
+      writeTextFileAtomic(fallbackFilePath, fallbackCode),
+      writeTextFileAtomic(fallbackCheckpointPath, fallbackCode),
     ])
 
     nextFiles.push({

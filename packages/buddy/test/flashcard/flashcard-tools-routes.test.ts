@@ -5,6 +5,7 @@ import z from "zod"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { app } from "../../src/index.ts"
+import { createIdempotencyKeyDigest } from "../../src/http/idempotency"
 import {
   BUDDY_OBJECT_KINDS,
   BuddyObjectPath,
@@ -46,6 +47,7 @@ const OPEN_PROJECT_REGISTRY_CORRUPT_PREFIX = "desktop-notebooks.corrupt."
 const OPEN_PROJECT_REGISTRY_CORRUPT_SUFFIX = ".json"
 const REVIEW_DIRECTORY_NAME = "reviews"
 const PENDING_REVIEW_FILE_NAME = "pending-review.json"
+const REVIEW_IDEMPOTENCY_DIRECTORY_NAME = "idempotency"
 
 const ObjectListBodySchema = z
   .object({
@@ -130,6 +132,22 @@ function pendingFlashcardReviewFile(directory: string, objectID: string): string
     "state",
     REVIEW_DIRECTORY_NAME,
     PENDING_REVIEW_FILE_NAME,
+  )
+}
+
+function flashcardReviewIdempotencyFile(
+  directory: string,
+  objectID: string,
+  submissionID: string,
+): string {
+  return BuddyObjectPath.objectFile(
+    directory,
+    BUDDY_OBJECT_KINDS.flashcardDeck,
+    objectID,
+    "state",
+    REVIEW_DIRECTORY_NAME,
+    REVIEW_IDEMPOTENCY_DIRECTORY_NAME,
+    `${createIdempotencyKeyDigest(submissionID)}.json`,
   )
 }
 
@@ -334,6 +352,78 @@ describe("flashcard tools and routes", () => {
     expect(NextCardBodySchema.parse(await response.json()).card).toBeNull()
   })
 
+  test("returns the committed flashcard review for an idempotent retry", async () => {
+    await using project = await tmpdir({ git: true })
+    const saved = await saveFlashcardDeckWithTool(project.path, "ses_flashcard_idempotency")
+    const nextCardResponse = await app.request(
+      `/api/objects/flashcard-deck/${saved.ref.objectID}/next-card?directory=${encodeURIComponent(
+        project.path,
+      )}`,
+    )
+    const card = NextCardBodySchema.parse(await nextCardResponse.json()).card
+    expect(card).not.toBeNull()
+    if (!card) return
+
+    const submissionID = crypto.randomUUID()
+    const submit = () =>
+      app.request(
+        `/api/objects/flashcard-deck/${saved.ref.objectID}/reviews?directory=${encodeURIComponent(
+          project.path,
+        )}`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "idempotency-key": submissionID,
+          },
+          body: JSON.stringify({
+            cardID: card.cardID,
+            rating: "good",
+            timeTakenMs: 500,
+          }),
+        },
+      )
+
+    const first = await submit()
+    const retry = await submit()
+    const conflictingRetry = await app.request(
+      `/api/objects/flashcard-deck/${saved.ref.objectID}/reviews?directory=${encodeURIComponent(
+        project.path,
+      )}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": submissionID,
+        },
+        body: JSON.stringify({
+          cardID: card.cardID,
+          rating: "hard",
+          timeTakenMs: 500,
+        }),
+      },
+    )
+    expect(first.status).toBe(200)
+    expect(retry.status).toBe(200)
+    expect(conflictingRetry.status).toBe(409)
+    expect(await retry.json()).toEqual(await first.json())
+
+    const deck = await readFlashcardDeckObject(project.path, saved.ref.objectID)
+    expect(deck.cards.find((candidate) => candidate.cardID === card.cardID)?.reps).toBe(1)
+
+    await fs.writeFile(
+      flashcardReviewIdempotencyFile(project.path, saved.ref.objectID, submissionID),
+      "{",
+      "utf8",
+    )
+    const nextCardAfterCompletedHistory = await app.request(
+      `/api/objects/flashcard-deck/${saved.ref.objectID}/next-card?directory=${encodeURIComponent(
+        project.path,
+      )}`,
+    )
+    expect(nextCardAfterCompletedHistory.status).toBe(200)
+  })
+
   test("keeps valid decks visible while surfacing corrupt manifest load errors", async () => {
     await using project = await tmpdir({ git: true })
     const deck = await createStoredFlashcardDeck(project.path)
@@ -397,11 +487,22 @@ describe("flashcard tools and routes", () => {
       previousEaseFactor: card.easeFactor,
       newEaseFactor: card.easeFactor,
     })
+    const submissionID = crypto.randomUUID()
+    const output = {
+      cardID: card.cardID,
+      newState: "review" as const,
+      newInterval: 1,
+      newEaseFactor: card.easeFactor,
+      nextDue: answeredAt + 86_400_000,
+      isLeech: false,
+    }
 
     await writePendingFlashcardObjectReviewTransaction({
       directory: project.path,
       deck: updatedDeck,
       record,
+      submissionID,
+      output,
     })
 
     const nextCardResponse = await app.request(

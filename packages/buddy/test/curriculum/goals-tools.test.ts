@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import { ToolRegistry } from "@buddy/opencode-adapter/registry"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { listActiveGoals } from "../../src/learning/features/memory/goals/storage"
+import {
+  listActiveGoals,
+  replaceActiveGoalSet,
+} from "../../src/learning/features/memory/goals/storage"
 import { tmpdir } from "../helpers/tmpdir"
 import {
   createToolContext,
@@ -11,6 +14,40 @@ import {
 } from "../helpers/tools"
 
 describe("goal tools", () => {
+  test("archives only the prior goal set for the same scope and context", async () => {
+    await using project = await tmpdir({ git: true })
+    const goal = {
+      statement: "Apply a concrete concept.",
+      actionVerb: "apply",
+      task: "Apply the concept.",
+      cognitiveLevel: "Application",
+      howToTest: "Complete one applied exercise.",
+    }
+
+    const math = await replaceActiveGoalSet({
+      directory: project.path,
+      scope: "course",
+      contextLabel: "Math",
+      goals: [goal],
+    })
+    const physics = await replaceActiveGoalSet({
+      directory: project.path,
+      scope: "course",
+      contextLabel: "Physics",
+      goals: [goal],
+    })
+    const replacement = await replaceActiveGoalSet({
+      directory: project.path,
+      scope: "course",
+      contextLabel: "Math",
+      goals: [goal],
+    })
+
+    expect(replacement.archivedSetIds).toEqual([math.setId])
+    const activeSetIDs = new Set((await listActiveGoals(project.path)).map((goal) => goal.setId))
+    expect(activeSetIDs).toEqual(new Set([physics.setId, replacement.setId]))
+  })
+
   test("goal_commit persists learner goals as markdown artifacts", async () => {
     await using project = await tmpdir({ git: true })
     await ensureBuddyPluginTools(project.path)

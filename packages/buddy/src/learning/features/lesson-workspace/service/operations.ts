@@ -1,4 +1,7 @@
 import fs from "node:fs/promises"
+import path from "node:path"
+import { writeTextFileAtomic } from "../../../../storage/atomic-file"
+import { withFileLock } from "../../../../storage/file-lock"
 import { TeachingPath } from "../paths/path"
 import { ingestTeachingCheckpoint } from "../../memory/ingestion"
 import type {
@@ -30,6 +33,19 @@ import {
   toWorkspaceResponse,
   writeRecord,
 } from "./workspace"
+
+const TEACHING_WORKSPACE_MUTATION_LOCK_FILE = ".workspace.lock"
+
+function withTeachingWorkspaceLock<T>(
+  directory: string,
+  sessionID: string,
+  task: () => Promise<T>,
+): Promise<T> {
+  return withFileLock(
+    path.join(TeachingPath.root(directory, sessionID), TEACHING_WORKSPACE_MUTATION_LOCK_FILE),
+    task,
+  )
+}
 
 async function buildResponse(
   directory: string,
@@ -92,8 +108,8 @@ async function ensure(directory: string, sessionID: string, language: TeachingLa
     fs.mkdir(TeachingPath.checkpointsRoot(directory, sessionID), { recursive: true }),
   ])
   await Promise.all([
-    fs.writeFile(lessonFilePath, code, "utf8"),
-    fs.writeFile(checkpointFilePath, code, "utf8"),
+    writeTextFileAtomic(lessonFilePath, code),
+    writeTextFileAtomic(checkpointFilePath, code),
     writeRecord(directory, record),
   ])
 
@@ -154,9 +170,9 @@ async function save(directory: string, sessionID: string, input: TeachingWorkspa
     ensureParentDirectory(nextLessonFilePath),
     ensureParentDirectory(nextCheckpointFilePath),
   ])
-  await fs.writeFile(nextLessonFilePath, input.code, "utf8")
+  await writeTextFileAtomic(nextLessonFilePath, input.code)
   if (nextCheckpointFilePath !== currentResolved.checkpointFilePath) {
-    await fs.writeFile(nextCheckpointFilePath, checkpointCode, "utf8")
+    await writeTextFileAtomic(nextCheckpointFilePath, checkpointCode)
     await fs.rm(currentResolved.checkpointFilePath, { force: true })
   }
   if (nextLessonFilePath !== currentResolved.filePath) {
@@ -197,7 +213,7 @@ async function checkpoint(directory: string, sessionID: string) {
         changedSinceLastCheckpoint = true
       }
       await ensureParentDirectory(checkpointFilePath)
-      await fs.writeFile(checkpointFilePath, lessonCode, "utf8")
+      await writeTextFileAtomic(checkpointFilePath, lessonCode)
     }),
   )
   await ingestTeachingCheckpoint({
@@ -264,7 +280,7 @@ async function setLesson(
     language: input.language,
   })
 
-  await fs.writeFile(saved.checkpointFilePath, saved.code, "utf8")
+  await writeTextFileAtomic(saved.checkpointFilePath, saved.code)
   return read(directory, sessionID)
 }
 
@@ -287,7 +303,7 @@ async function restore(directory: string, sessionID: string) {
         changed = true
       }
       await ensureParentDirectory(lessonFilePath)
-      await fs.writeFile(lessonFilePath, checkpointCode, "utf8")
+      await writeTextFileAtomic(lessonFilePath, checkpointCode)
       return Object.assign(file, { fileHash: nextHash })
     }),
   )
@@ -328,8 +344,8 @@ async function addFile(
     ensureParentDirectory(checkpointFilePath),
   ])
   await Promise.all([
-    fs.writeFile(lessonFilePath, code, "utf8"),
-    fs.writeFile(checkpointFilePath, code, "utf8"),
+    writeTextFileAtomic(lessonFilePath, code),
+    writeTextFileAtomic(checkpointFilePath, code),
   ])
 
   const activate = input.activate !== false
@@ -367,7 +383,7 @@ async function trackExistingFile(
   const fileHash = hashContent(code)
 
   await ensureParentDirectory(checkpointFilePath)
-  await fs.writeFile(checkpointFilePath, code, "utf8")
+  await writeTextFileAtomic(checkpointFilePath, code)
 
   const activate = input.activate !== false
   const nextRecord = syncDerivedFields(directory, {
@@ -406,14 +422,35 @@ async function activateFile(directory: string, sessionID: string, relativePath: 
 }
 
 export const TeachingService = {
-  ensure,
-  read,
-  save,
-  checkpoint,
-  status,
-  setLesson,
-  restore,
-  addFile,
-  trackExistingFile,
-  activateFile,
+  ensure: (directory: string, sessionID: string, language?: TeachingLanguage) =>
+    withTeachingWorkspaceLock(directory, sessionID, () => ensure(directory, sessionID, language)),
+  read: (directory: string, sessionID: string) =>
+    withTeachingWorkspaceLock(directory, sessionID, () => read(directory, sessionID)),
+  save: (directory: string, sessionID: string, input: TeachingWorkspaceUpdateRequest) =>
+    withTeachingWorkspaceLock(directory, sessionID, () => save(directory, sessionID, input)),
+  checkpoint: (directory: string, sessionID: string) =>
+    withTeachingWorkspaceLock(directory, sessionID, () => checkpoint(directory, sessionID)),
+  status: (directory: string, sessionID: string) =>
+    withTeachingWorkspaceLock(directory, sessionID, () => status(directory, sessionID)),
+  setLesson: (
+    directory: string,
+    sessionID: string,
+    input: { content: string; language?: TeachingLanguage },
+  ) => withTeachingWorkspaceLock(directory, sessionID, () => setLesson(directory, sessionID, input)),
+  restore: (directory: string, sessionID: string) =>
+    withTeachingWorkspaceLock(directory, sessionID, () => restore(directory, sessionID)),
+  addFile: (directory: string, sessionID: string, input: TeachingWorkspaceCreateFileRequest) =>
+    withTeachingWorkspaceLock(directory, sessionID, () => addFile(directory, sessionID, input)),
+  trackExistingFile: (
+    directory: string,
+    sessionID: string,
+    input: { relativePath: string; activate?: boolean },
+  ) =>
+    withTeachingWorkspaceLock(directory, sessionID, () =>
+      trackExistingFile(directory, sessionID, input),
+    ),
+  activateFile: (directory: string, sessionID: string, relativePath: string) =>
+    withTeachingWorkspaceLock(directory, sessionID, () =>
+      activateFile(directory, sessionID, relativePath),
+    ),
 }

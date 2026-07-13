@@ -1,7 +1,9 @@
 import { describe, expect, setDefaultTimeout, test } from "bun:test"
 import fs from "node:fs/promises"
+import path from "node:path"
 import z from "zod"
 import { app } from "../../src/index.ts"
+import { createIdempotencyKeyDigest } from "../../src/http/idempotency"
 import {
   BUDDY_OBJECT_KINDS,
   BuddyObjectPath,
@@ -24,6 +26,8 @@ import { tmpdir } from "../helpers/tmpdir"
 import { createBuddyToolContext } from "../helpers/tools"
 
 const QUESTION_SET_FILE_NAME = "question-set.json"
+const QUESTION_SET_ATTEMPT_IDEMPOTENCY_DIRECTORY = "attempt-idempotency"
+const QUESTION_SET_PENDING_ATTEMPT_DIRECTORY = "pending-attempts"
 const APP_BACKED_TOOL_TEST_TIMEOUT_MS = 20_000
 
 setDefaultTimeout(APP_BACKED_TOOL_TEST_TIMEOUT_MS)
@@ -73,6 +77,15 @@ const AttemptResponseSchema = z
   })
   .strict()
 
+const PersistedAttemptIdempotencySchema = z
+  .object({
+    submissionID: z.string().uuid(),
+    requestHash: z.string(),
+    output: AttemptResponseSchema,
+    ingestion: z.object({ completed: z.boolean() }).passthrough(),
+  })
+  .passthrough()
+
 function questionSetFile(directory: string, objectID: string, revisionID: string): string {
   return BuddyObjectPath.objectFile(
     directory,
@@ -92,6 +105,36 @@ function questionSetAttemptFile(directory: string, objectID: string, attemptID: 
     "state",
     "attempts",
     `${attemptID}.json`,
+  )
+}
+
+function questionSetAttemptIdempotencyFile(
+  directory: string,
+  objectID: string,
+  submissionID: string,
+): string {
+  return BuddyObjectPath.objectFile(
+    directory,
+    BUDDY_OBJECT_KINDS.questionSet,
+    objectID,
+    "state",
+    QUESTION_SET_ATTEMPT_IDEMPOTENCY_DIRECTORY,
+    `${createIdempotencyKeyDigest(submissionID)}.json`,
+  )
+}
+
+function pendingQuestionSetAttemptFile(
+  directory: string,
+  objectID: string,
+  submissionID: string,
+): string {
+  return BuddyObjectPath.objectFile(
+    directory,
+    BUDDY_OBJECT_KINDS.questionSet,
+    objectID,
+    "state",
+    QUESTION_SET_PENDING_ATTEMPT_DIRECTORY,
+    `${createIdempotencyKeyDigest(submissionID)}.json`,
   )
 }
 
@@ -346,12 +389,14 @@ describe("question-set tools and routes", () => {
     await using project = await tmpdir({ git: true })
     const saved = await saveQuestionSetWithTool(project.path, "ses_grade")
 
-    const response = await app.request(
+    const submissionID = crypto.randomUUID()
+    const requestAttempt = () => app.request(
       `/api/objects/question-set/${saved.ref.objectID}/attempts?directory=${encodeURIComponent(project.path)}`,
       {
         method: "POST",
         headers: {
           "content-type": "application/json",
+          "idempotency-key": submissionID,
         },
         body: JSON.stringify({
           answers: [
@@ -361,6 +406,7 @@ describe("question-set tools and routes", () => {
         }),
       },
     )
+    const response = await requestAttempt()
 
     expect(response.status).toBe(200)
     const body = AttemptResponseSchema.parse(await response.json())
@@ -375,6 +421,101 @@ describe("question-set tools and routes", () => {
     const attemptFile = questionSetAttemptFile(project.path, saved.ref.objectID, body.attemptID)
     const attemptText = await fs.readFile(attemptFile, "utf8")
     expect(attemptText).toContain(`"objectID": "${saved.ref.objectID}"`)
+
+    const retry = await requestAttempt()
+    expect(retry.status).toBe(200)
+    expect(AttemptResponseSchema.parse(await retry.json()).attemptID).toBe(body.attemptID)
+
+    const conflictingRetry = await app.request(
+      `/api/objects/question-set/${saved.ref.objectID}/attempts?directory=${encodeURIComponent(project.path)}`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": submissionID,
+        },
+        body: JSON.stringify({
+          answers: [{ questionID: "q1", selectedChoiceIds: ["q1-b"] }],
+        }),
+      },
+    )
+    expect(conflictingRetry.status).toBe(409)
+  })
+
+  test("recovers an orphaned attempt when the client retries with a new submission key", async () => {
+    await using project = await tmpdir({ git: true })
+    const saved = await saveQuestionSetWithTool(project.path, "ses_recover_attempt")
+    const answers = [
+      { questionID: "q1", selectedChoiceIds: ["q1-b"] },
+      { questionID: "q2", selectedChoiceIds: ["q2-a", "q2-b"] },
+    ]
+    const requestAttempt = (submissionID: string) =>
+      app.request(
+        `/api/objects/question-set/${saved.ref.objectID}/attempts?directory=${encodeURIComponent(project.path)}`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "idempotency-key": submissionID,
+          },
+          body: JSON.stringify({ answers }),
+        },
+      )
+
+    const originalSubmissionID = crypto.randomUUID()
+    const originalResponse = await requestAttempt(originalSubmissionID)
+    expect(originalResponse.status).toBe(200)
+    const original = AttemptResponseSchema.parse(await originalResponse.json())
+    const originalIdempotencyFile = questionSetAttemptIdempotencyFile(
+      project.path,
+      saved.ref.objectID,
+      originalSubmissionID,
+    )
+    const committed = PersistedAttemptIdempotencySchema.parse(
+      JSON.parse(await fs.readFile(originalIdempotencyFile, "utf8")),
+    )
+    const attemptRecord: unknown = JSON.parse(
+      await fs.readFile(
+        questionSetAttemptFile(project.path, saved.ref.objectID, original.attemptID),
+        "utf8",
+      ),
+    )
+    const pendingFile = pendingQuestionSetAttemptFile(
+      project.path,
+      saved.ref.objectID,
+      originalSubmissionID,
+    )
+    await fs.mkdir(path.dirname(pendingFile), { recursive: true })
+    await fs.writeFile(
+      pendingFile,
+      JSON.stringify({
+        attemptRecord,
+        committed: {
+          ...committed,
+          ingestion: { ...committed.ingestion, completed: false },
+        },
+      }),
+      "utf8",
+    )
+    await fs.rm(originalIdempotencyFile)
+
+    const replacementSubmissionID = crypto.randomUUID()
+    const recoveredResponse = await requestAttempt(replacementSubmissionID)
+    expect(recoveredResponse.status).toBe(200)
+    expect(AttemptResponseSchema.parse(await recoveredResponse.json()).attemptID).toBe(
+      original.attemptID,
+    )
+
+    const retryResponse = await requestAttempt(replacementSubmissionID)
+    expect(AttemptResponseSchema.parse(await retryResponse.json()).attemptID).toBe(
+      original.attemptID,
+    )
+    const attemptsDirectory = path.dirname(
+      questionSetAttemptFile(project.path, saved.ref.objectID, original.attemptID),
+    )
+    expect((await fs.readdir(attemptsDirectory)).filter((entry) => entry.endsWith(".json"))).toEqual(
+      [`${original.attemptID}.json`],
+    )
   })
 
   test("rejects invalid submitted choice ids and none-of-the-above exclusivity violations", async () => {
@@ -385,7 +526,10 @@ describe("question-set tools and routes", () => {
       `/api/objects/question-set/${saved.ref.objectID}/attempts?directory=${encodeURIComponent(project.path)}`,
       {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": crypto.randomUUID(),
+        },
         body: JSON.stringify({
           answers: [{ questionID: "q1", selectedChoiceIds: ["does-not-exist"] }],
         }),
@@ -397,7 +541,10 @@ describe("question-set tools and routes", () => {
       `/api/objects/question-set/${saved.ref.objectID}/attempts?directory=${encodeURIComponent(project.path)}`,
       {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": crypto.randomUUID(),
+        },
         body: JSON.stringify({
           answers: [{ questionID: "q999", selectedChoiceIds: [] }],
         }),
@@ -409,7 +556,10 @@ describe("question-set tools and routes", () => {
       `/api/objects/question-set/${saved.ref.objectID}/attempts?directory=${encodeURIComponent(project.path)}`,
       {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": crypto.randomUUID(),
+        },
         body: JSON.stringify({
           answers: [{ questionID: "q2", selectedChoiceIds: ["q2-none", "q2-a"] }],
         }),

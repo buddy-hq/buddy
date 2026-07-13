@@ -1,4 +1,5 @@
 import { generateObjectID } from "../../../../objects"
+import { assertIdempotencyRequestHash } from "../../../../http/idempotency"
 import { scheduleReview, selectNextDueCard } from "./scheduler"
 import {
   DeckConfigSchema,
@@ -11,9 +12,15 @@ import {
 import { readFlashcardDeckObject, readFlashcardObjectReviewedTodayCounts } from "./read-deck"
 import {
   commitFlashcardObjectReviewTransaction,
+  flashcardReviewRequestHash,
+  listPendingFlashcardReviewIngestions,
+  markFlashcardReviewIngestionCompleted,
+  readCommittedFlashcardObjectReview,
   recoverPendingFlashcardObjectReview,
+  writeRecoveredFlashcardReviewAlias,
   writePendingFlashcardObjectReviewTransaction,
 } from "./review-transaction"
+import type { CommittedFlashcardReview } from "./review-transaction"
 import { ingestFlashcardReview } from "../../memory"
 
 const FLASHCARD_REVIEW_QUEUE_SEPARATOR = "\u0000"
@@ -27,25 +34,14 @@ class FlashcardCardNotFoundError extends Error {
   }
 }
 
-type FlashcardReviewMutation = {
-  output: SubmitReviewOutput
-  record: ReviewRecord
-  deckTitle: string
-  noteTags: string[]
-  previousState: FlashcardCard["state"]
-  newState: FlashcardCard["state"]
-  isLeech: boolean
-  nextDue: number
-}
-
 function flashcardObjectReviewQueueKey(directory: string, objectID: string): string {
   return `${directory}${FLASHCARD_REVIEW_QUEUE_SEPARATOR}${objectID}`
 }
 
-async function runFlashcardObjectReviewMutation(
+async function runFlashcardObjectReviewMutation<T>(
   input: { directory: string; objectID: string },
-  operation: () => Promise<FlashcardReviewMutation>,
-): Promise<FlashcardReviewMutation> {
+  operation: () => Promise<T>,
+): Promise<T> {
   const key = flashcardObjectReviewQueueKey(input.directory, input.objectID)
   const previous = flashcardReviewQueues.get(key) ?? Promise.resolve()
   const current = previous.catch(() => undefined).then(operation)
@@ -64,15 +60,67 @@ async function runFlashcardObjectReviewMutation(
   }
 }
 
+async function reconcileFlashcardReviewIngestion(input: {
+  directory: string
+  record: CommittedFlashcardReview
+}): Promise<void> {
+  if (input.record.ingestion.completed) return
+  const ingestion = input.record.ingestion
+  await ingestFlashcardReview({
+    directory: input.directory,
+    eventID: ingestion.eventID,
+    eventCreatedAt: ingestion.eventCreatedAt,
+    objectID: ingestion.objectID,
+    cardID: ingestion.cardID,
+    deckTitle: ingestion.deckTitle,
+    tags: ingestion.tags,
+    rating: ingestion.rating,
+    previousState: ingestion.previousState,
+    newState: ingestion.newState,
+    isLeech: ingestion.isLeech,
+    nextDue: ingestion.nextDue,
+  })
+  await markFlashcardReviewIngestionCompleted(input)
+}
+
+async function reconcilePendingFlashcardReviewIngestions(input: {
+  directory: string
+  objectID: string
+}): Promise<void> {
+  const pending = await listPendingFlashcardReviewIngestions(input.directory, input.objectID)
+  for (const record of pending) {
+    await reconcileFlashcardReviewIngestion({ directory: input.directory, record }).catch((error) => {
+      console.warn("Failed to reconcile a committed flashcard review into learner memory:", error)
+    })
+  }
+}
+
 async function submitFlashcardObjectReview(input: {
   directory: string
   objectID: string
   cardID: string
   rating: CardRating
   timeTakenMs: number
+  submissionID: string
 }): Promise<SubmitReviewOutput> {
-  const mutation = await runFlashcardObjectReviewMutation(input, async () => {
-    await recoverPendingFlashcardObjectReview(input.directory, input.objectID)
+  return runFlashcardObjectReviewMutation<SubmitReviewOutput>(input, async () => {
+    const recovered = await recoverPendingFlashcardObjectReview(input.directory, input.objectID)
+    await reconcilePendingFlashcardReviewIngestions(input)
+    const requestHash = flashcardReviewRequestHash(input)
+    const committed = await readCommittedFlashcardObjectReview(
+      input.directory,
+      input.objectID,
+      input.submissionID,
+    )
+    if (committed) {
+      assertIdempotencyRequestHash(committed.requestHash, requestHash)
+      return committed.output
+    }
+
+    if (recovered?.requestHash === requestHash) {
+      return writeRecoveredFlashcardReviewAlias({ ...input, recovered })
+    }
+
     const deck = await readFlashcardDeckObject(input.directory, input.objectID)
     const cardIndex = deck.cards.findIndex((card) => card.cardID === input.cardID)
     if (cardIndex < 0) {
@@ -111,68 +159,53 @@ async function submitFlashcardObjectReview(input: {
       previousEaseFactor: card.easeFactor,
       newEaseFactor: result.newEaseFactor,
     })
+    const output: SubmitReviewOutput = {
+      cardID: input.cardID,
+      newState: result.newState,
+      newInterval: result.newInterval,
+      newEaseFactor: result.newEaseFactor,
+      nextDue: result.nextDue,
+      isLeech: result.isLeech,
+    }
     const transaction = await writePendingFlashcardObjectReviewTransaction({
       directory: input.directory,
       deck,
       record,
+      submissionID: input.submissionID,
+      output,
     })
     await commitFlashcardObjectReviewTransaction(input.directory, transaction)
-
-    const note = deck.notes.find((candidate) => candidate.noteID === card.noteID)
-
-    return {
-      output: {
-        cardID: input.cardID,
-        newState: result.newState,
-        newInterval: result.newInterval,
-        newEaseFactor: result.newEaseFactor,
-        nextDue: result.nextDue,
-        isLeech: result.isLeech,
-      },
-      record,
-      deckTitle: deck.title,
-      noteTags: note?.tags ?? [],
-      previousState: card.state,
-      newState: result.newState,
-      isLeech: result.isLeech,
-      nextDue: result.nextDue,
-    }
+    await reconcileFlashcardReviewIngestion({
+      directory: input.directory,
+      record: transaction.committed,
+    }).catch((error) => {
+      console.warn("Failed to ingest a committed flashcard review into learner memory:", error)
+    })
+    return output
   })
-
-  await ingestFlashcardReview({
-    directory: input.directory,
-    objectID: input.objectID,
-    cardID: input.cardID,
-    deckTitle: mutation.deckTitle,
-    tags: mutation.noteTags,
-    rating: input.rating,
-    previousState: mutation.previousState,
-    newState: mutation.newState,
-    isLeech: mutation.isLeech,
-    nextDue: mutation.nextDue,
-  })
-
-  return mutation.output
 }
 
 async function getNextFlashcardObjectForReview(input: {
   directory: string
   objectID: string
 }): Promise<FlashcardCard | undefined> {
-  await recoverPendingFlashcardObjectReview(input.directory, input.objectID)
-  const deck = await readFlashcardDeckObject(input.directory, input.objectID)
-  const config = DeckConfigSchema.parse(deck.config)
-  const now = Date.now()
-  const reviewedToday = await readFlashcardObjectReviewedTodayCounts(
-    input.directory,
-    input.objectID,
-  )
+  return runFlashcardObjectReviewMutation(input, async () => {
+    await recoverPendingFlashcardObjectReview(input.directory, input.objectID)
+    await reconcilePendingFlashcardReviewIngestions(input)
+    const deck = await readFlashcardDeckObject(input.directory, input.objectID)
+    const config = DeckConfigSchema.parse(deck.config)
+    const now = Date.now()
+    const reviewedToday = await readFlashcardObjectReviewedTodayCounts(
+      input.directory,
+      input.objectID,
+    )
 
-  return selectNextDueCard({
-    cards: deck.cards,
-    config,
-    now,
-    reviewedToday,
+    return selectNextDueCard({
+      cards: deck.cards,
+      config,
+      now,
+      reviewedToday,
+    })
   })
 }
 

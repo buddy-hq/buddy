@@ -2,6 +2,7 @@ import { ToolOutputPanel } from "../../../tools/tool-output-panel"
 import type { ToolPartProps } from "../../registry"
 import { language } from "@/context/language"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
+import { IDEMPOTENCY_KEY_PARAMETER } from "@/lib/idempotency"
 import { BENCH_MODE_REQUEST_POLICY, useOpenBench } from "@/lib/bench-navigation"
 import {
   QuestionSetInlineView,
@@ -93,12 +94,13 @@ function CompletedQuestionSetTool(props: {
               }
             : undefined
         }
-        onSubmit={async (answers) => {
+        onSubmit={async (answers, submissionID) => {
           if (!directory) {
             throw new Error(language.t("chatTools.questionSetNoWorkspaceDirectory"))
           }
           const response: SubmitQuestionSetAttemptOutput = requireBuddyData(
             await getBuddyClient(directory).objectQuestionSet.submitAttempt({
+              [IDEMPOTENCY_KEY_PARAMETER]: submissionID,
               directory,
               objectID: parsed.questionSet.objectID,
               answers: parsed.questionSet.questions.map((question) => ({

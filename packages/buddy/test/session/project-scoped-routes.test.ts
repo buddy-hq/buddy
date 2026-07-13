@@ -63,7 +63,7 @@ describe("project-scoped session routes", () => {
     expect(getB.status).toBe(404)
   })
 
-  test("uses query directory before directory header", async () => {
+  test("rejects conflicting query and header directory scopes", async () => {
     const queryDirectory = createMarkedGitRepo("buddy-route-query-priority")
     const headerDirectory = createMarkedGitRepo("buddy-route-header-priority")
 
@@ -76,21 +76,22 @@ describe("project-scoped session routes", () => {
         },
       },
     )
-    expect(create.status).toBe(200)
-    const body = await json(create)
-    const sessionID = String(body.id)
-
-    const fromQueryDirectory = await app.request(
-      `/api/session/${sessionID}?directory=${encodeURIComponent(queryDirectory)}`,
-    )
-    expect(fromQueryDirectory.status).toBe(200)
-
-    const fromHeaderDirectory = await app.request(`/api/session/${sessionID}`, {
-      headers: {
-        "x-buddy-directory": headerDirectory,
-      },
+    expect(create.status).toBe(400)
+    expect(await json(create)).toEqual({
+      error:
+        "Conflicting directory scopes were provided. Use one directory or make every scope identical.",
     })
-    expect(fromHeaderDirectory.status).toBe(404)
+
+    const matchingScopes = await app.request(
+      `/api/session?directory=${encodeURIComponent(queryDirectory)}`,
+      {
+        method: "POST",
+        headers: {
+          "x-buddy-directory": queryDirectory,
+        },
+      },
+    )
+    expect(matchingScopes.status).toBe(200)
   })
 
   test("lists sessions project-wide by default and supports directory filtering", async () => {
@@ -136,11 +137,6 @@ describe("project-scoped session routes", () => {
 
     const rootOnly = await app.request(
       `/api/session?directory=${encodeURIComponent(rootDirectory)}`,
-      {
-        headers: {
-          "x-buddy-directory": nestedDirectory,
-        },
-      },
     )
     expect(rootOnly.status).toBe(200)
     const rootOnlyBody = (await rootOnly.json()) as Array<{ id: string }>
@@ -148,11 +144,6 @@ describe("project-scoped session routes", () => {
 
     const nestedOnly = await app.request(
       `/api/session?directory=${encodeURIComponent(nestedDirectory)}`,
-      {
-        headers: {
-          "x-buddy-directory": rootDirectory,
-        },
-      },
     )
     expect(nestedOnly.status).toBe(200)
     const nestedOnlyBody = (await nestedOnly.json()) as Array<{ id: string }>

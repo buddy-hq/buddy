@@ -4,6 +4,7 @@ import { ulid } from "ulid"
 import z from "zod"
 import { LearnerMemoryPath } from "../paths"
 import { writeJsonFile } from "../storage"
+import { withLearnerMemoryMutationLock } from "../mutation-lock"
 
 const GOALS_FILE = "goals.json"
 
@@ -70,41 +71,49 @@ async function replaceActiveGoalSet(input: {
   goalIds: string[]
   archivedSetIds: string[]
 }> {
-  const store = await readGoalStore(input.directory)
-  const now = new Date().toISOString()
-  const archivedSetIds = [
-    ...new Set(store.goals.filter((goal) => goal.status === "active").map((goal) => goal.setId)),
-  ]
-  const setId = `goalset_${ulid()}`
-  const nextGoals = input.goals.map((goal) =>
-    GoalRecordSchema.parse({
-      id: `goal_${ulid()}`,
-      setId,
-      scope: input.scope,
-      contextLabel: input.contextLabel,
-      statement: goal.statement,
-      actionVerb: goal.actionVerb,
-      task: goal.task,
-      cognitiveLevel: goal.cognitiveLevel,
-      howToTest: goal.howToTest,
-      status: "active",
-      createdAt: now,
-    }),
-  )
-  const archivedGoals = store.goals.map((goal) =>
-    goal.status === "active" ? GoalRecordSchema.parse({ ...goal, status: "archived" }) : goal,
-  )
-  await writeGoalStore(input.directory, {
-    schemaVersion: 1,
-    goals: [...archivedGoals, ...nextGoals],
-  })
+  return withLearnerMemoryMutationLock(input.directory, async () => {
+    const store = await readGoalStore(input.directory)
+    const now = new Date().toISOString()
+    const replacesSameContext = (goal: GoalRecord) =>
+      goal.status === "active" &&
+      goal.scope === input.scope &&
+      goal.contextLabel === input.contextLabel
+    const archivedSetIds = [
+      ...new Set(store.goals.filter(replacesSameContext).map((goal) => goal.setId)),
+    ]
+    const setId = `goalset_${ulid()}`
+    const nextGoals = input.goals.map((goal) =>
+      GoalRecordSchema.parse({
+        id: `goal_${ulid()}`,
+        setId,
+        scope: input.scope,
+        contextLabel: input.contextLabel,
+        statement: goal.statement,
+        actionVerb: goal.actionVerb,
+        task: goal.task,
+        cognitiveLevel: goal.cognitiveLevel,
+        howToTest: goal.howToTest,
+        status: "active",
+        createdAt: now,
+      }),
+    )
+    const archivedGoals = store.goals.map((goal) =>
+      replacesSameContext(goal)
+        ? GoalRecordSchema.parse({ ...goal, status: "archived" })
+        : goal,
+    )
+    await writeGoalStore(input.directory, {
+      schemaVersion: 1,
+      goals: [...archivedGoals, ...nextGoals],
+    })
 
-  return {
-    filePath: goalsFile(input.directory),
-    setId,
-    goalIds: nextGoals.map((goal) => goal.id),
-    archivedSetIds,
-  }
+    return {
+      filePath: goalsFile(input.directory),
+      setId,
+      goalIds: nextGoals.map((goal) => goal.id),
+      archivedSetIds,
+    }
+  })
 }
 
 export { GoalRecordSchema, goalsFile, listActiveGoals, listGoals, replaceActiveGoalSet }

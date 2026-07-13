@@ -328,6 +328,19 @@ global queue until the remaining work has an explicit owner, bounded waiting, an
   resource tests passed after removing the ownerless global queue and restoring selective-PDF
   parallelism. `L10-C04` remains partial/open for deadlines, cancellation, actual inflated bytes,
   bounded concurrency, and empirical validation of the source ceiling.
+- **2026-07-14:** Accepted reviewer finding P2 on append-once learner events. Event IDs are global
+  across the learner event log, but the first implementation checked only the incoming event's
+  month partition. Append-once now searches every event partition while holding the existing
+  learner-global mutation lock. No new lock or index owner was added; a cross-month replay
+  regression test covers the failure that previously poisoned SQLite index rebuilds.
+- **2026-07-14:** Accepted reviewer finding P2 on PDF metadata failure. Early PDF.js metadata
+  extraction remains in place for page-budget admission, but only `ResourceBudgetExceededError`
+  aborts extraction. Other metadata failures now produce empty outline metadata plus a warning and
+  still proceed through LiteParse/OCR before the existing PDF.js/system fallback chain. A focused
+  regression test forces metadata failure while verifying successful LiteParse extraction.
+- **2026-07-14:** Verification for both reviewer fixes passed: 57 focused learner-memory and
+  resource tests, repository lint, and the single root typecheck. Lint reported only four existing
+  warnings in dotted-glow and the Bench iframe test. No formatting was run.
 
 ## Repository checkpoint
 

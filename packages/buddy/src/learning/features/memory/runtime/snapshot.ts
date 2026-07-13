@@ -6,6 +6,7 @@ import { readLearnerMemorySettings } from "../settings"
 import { listLearnerMemories } from "../storage"
 import { LEARNER_MEMORY_RUNTIME_TUNING } from "../tuning"
 import type { LearnerMemory } from "../types"
+import { withRecoveredConsolidationPublication } from "../consolidation-publication"
 
 type LearnerRuntimeSnapshot = {
   workspace: { label: string }
@@ -55,9 +56,9 @@ function prioritizedMemories(
 }
 
 async function readBaseMemorySummary(directory: string): Promise<string[]> {
-  const markdown = await fs
-    .readFile(LearnerMemoryPath.summaryFile(directory), "utf8")
-    .catch(() => "")
+  const markdown = await withRecoveredConsolidationPublication(directory, () =>
+    fs.readFile(LearnerMemoryPath.summaryFile(directory), "utf8").catch(() => ""),
+  )
   return markdown
     .split(/\r?\n/u)
     .map((line) => line.trim())

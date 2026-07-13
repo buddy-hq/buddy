@@ -11,7 +11,6 @@ import {
 } from "../src/lib/onboarding-flow"
 import {
   resolveDesktopEntryPath,
-  resolveDesktopOnboardingAutoContinueDirectory,
   resolveDesktopEntryPathWithSnapshots,
 } from "../src/lib/desktop-onboarding"
 import type {
@@ -131,11 +130,26 @@ describe("desktop onboarding entry routing", () => {
     ).toBe("/onboarding")
   })
 
-  test("skips onboarding when existing chat context is available", () => {
+  test("keeps onboarding visible when notebook creation outlives incomplete setup", () => {
     expect(
       resolveDesktopEntryPath({
         platform: "desktop",
         setupCompleted: false,
+        personalizationStepPending: false,
+        openProjects: ["/repo"],
+        activeDirectory: "/repo",
+        pendingActiveDirectory: undefined,
+        lastSessionByDirectory: {},
+        directories: {},
+      }),
+    ).toBe("/onboarding")
+  })
+
+  test("skips onboarding when setup and existing chat context are complete", () => {
+    expect(
+      resolveDesktopEntryPath({
+        platform: "desktop",
+        setupCompleted: true,
         personalizationStepPending: false,
         openProjects: ["/repo"],
         activeDirectory: "/repo",
@@ -186,12 +200,32 @@ describe("desktop onboarding entry routing", () => {
     ).resolves.toBe("/onboarding")
   })
 
-  test("skips onboarding when open projects already exist in the backend registry", async () => {
+  test("does not let a partial backend notebook registration attest completed setup", async () => {
     await expect(
       resolveDesktopEntryPathWithSnapshots({
         state: {
           platform: "desktop",
           setupCompleted: false,
+          personalizationStepPending: false,
+          openProjects: [],
+          activeDirectory: undefined,
+          pendingActiveDirectory: undefined,
+          lastSessionByDirectory: {},
+          directories: {},
+        },
+        async loadOpenProjectsSnapshot() {
+          return ["/repo"]
+        },
+      }),
+    ).resolves.toBe("/onboarding")
+  })
+
+  test("uses the backend registry after setup is complete", async () => {
+    await expect(
+      resolveDesktopEntryPathWithSnapshots({
+        state: {
+          platform: "desktop",
+          setupCompleted: true,
           personalizationStepPending: false,
           openProjects: [],
           activeDirectory: undefined,
@@ -233,7 +267,7 @@ describe("desktop onboarding entry routing", () => {
       resolveDesktopEntryPathWithSnapshots({
         state: {
           platform: "desktop",
-          setupCompleted: false,
+          setupCompleted: true,
           personalizationStepPending: false,
           openProjects: [],
           activeDirectory: undefined,
@@ -266,32 +300,6 @@ describe("desktop onboarding entry routing", () => {
         },
       }),
     ).resolves.toBe("/onboarding")
-  })
-
-  test("auto-continues onboarding to the active open project when OpenAI is connected", () => {
-    expect(
-      resolveDesktopOnboardingAutoContinueDirectory({
-        connectedOpenAiProvider: true,
-        openProjects: ["/repo-a", "/repo-b"],
-        activeDirectory: "/repo-b",
-      }),
-    ).toBe("/repo-b")
-
-    expect(
-      resolveDesktopOnboardingAutoContinueDirectory({
-        connectedOpenAiProvider: true,
-        openProjects: ["/repo-a", "/repo-b"],
-        activeDirectory: undefined,
-      }),
-    ).toBe("/repo-a")
-
-    expect(
-      resolveDesktopOnboardingAutoContinueDirectory({
-        connectedOpenAiProvider: false,
-        openProjects: ["/repo-a"],
-        activeDirectory: "/repo-a",
-      }),
-    ).toBeUndefined()
   })
 
   test("keeps onboarding visible while personalization is still pending", () => {

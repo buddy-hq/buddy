@@ -39,6 +39,7 @@ import {
   RESOURCE_PACK_UNIT_KIND_SECTION,
   estimateTokenCountFromText,
 } from "./chunking-config"
+import { assertResourceChunkUnitCount } from "./budgets"
 
 type ChunkThreshold = {
   maxTokens: number
@@ -66,6 +67,7 @@ export async function buildResourceChunkFiles(input: {
     input.chunkUnits && input.chunkUnits.length > 0
       ? input.chunkUnits.filter((seed) => seed.text.trim().length > 0)
       : deriveUnitSeedsFromFullText(normalizedFullText)
+  assertResourceChunkUnitCount(seeds.length)
 
   const normalizedSeeds =
     seeds.length > 0
@@ -92,6 +94,7 @@ export async function buildResourceChunkFiles(input: {
     const unitIndex = seed.unitIndex ?? seedIndex + 1
     const parts = await splitSeedIntoParts(seed, threshold, { format: input.format })
     const partCount = parts.length
+    assertResourceChunkUnitCount(chunkFiles.length + partCount)
 
     for (let partOffset = 0; partOffset < partCount; partOffset += 1) {
       const part = parts[partOffset]
@@ -219,6 +222,7 @@ function splitMarkdownByHeadingLevel(
       text: body,
       splitReason,
     })
+    assertResourceChunkUnitCount(units.length)
     currentBody = []
     currentTitle = ""
     fallbackIndex += 1
@@ -261,6 +265,7 @@ function splitMarkdownByAnyHeading(
       text: body,
       splitReason,
     })
+    assertResourceChunkUnitCount(units.length)
     currentBody = []
     currentTitle = ""
     fallbackIndex += 1

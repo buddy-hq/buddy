@@ -802,4 +802,61 @@ describe("bench surface rendering", () => {
     expect(container.textContent).toContain("Pick another.")
     expect(container.textContent).toContain("Submit Entire Quiz")
   })
+
+  test("rotates the Bench question-set submission key only after an answer changes", async () => {
+    const submissionIDs: string[] = []
+    await act(async () => {
+      root.render(
+        <TestBenchContextProvider>
+          <QuestionSetBenchReview
+            directory={TEST_DIRECTORY}
+            target={TEST_QUESTION_SET_TARGET}
+            questionSet={createRandomizedQuestionSet()}
+            onSubmit={async (_answers, submissionID) => {
+              submissionIDs.push(submissionID)
+              throw new Error("Ambiguous network failure")
+            }}
+          />
+        </TestBenchContextProvider>,
+      )
+      await flushEffects()
+    })
+
+    const findButton = (label: string) =>
+      Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) =>
+        button.textContent?.includes(label),
+      )
+    const firstChoice = findButton("Choice A")
+    const listButton = findButton("List")
+    if (!firstChoice || !listButton) throw new Error("Expected question-set controls.")
+
+    await act(async () => {
+      firstChoice.click()
+      listButton.click()
+      await flushEffects()
+    })
+
+    const submitButton = findButton("Submit Entire Quiz")
+    if (!submitButton) throw new Error("Expected the question-set submit button.")
+    await act(async () => {
+      submitButton.click()
+      await flushEffects()
+    })
+    await act(async () => {
+      submitButton.click()
+      await flushEffects()
+    })
+    expect(submissionIDs).toHaveLength(2)
+    expect(submissionIDs[1]).toBe(submissionIDs[0])
+
+    const changedChoice = findButton("Choice C")
+    if (!changedChoice) throw new Error("Expected an alternate question-set choice.")
+    await act(async () => {
+      changedChoice.click()
+      submitButton.click()
+      await flushEffects()
+    })
+    expect(submissionIDs).toHaveLength(3)
+    expect(submissionIDs[2]).not.toBe(submissionIDs[1])
+  })
 })

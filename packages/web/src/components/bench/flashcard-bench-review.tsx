@@ -17,6 +17,7 @@ import type {
 } from "@buddy/sdk/types"
 import { buildFlashcardVisibleContent } from "@/components/flashcard/flashcard-card-content"
 import type { BenchTarget } from "@/lib/bench-navigation"
+import { createIdempotencyKey, IDEMPOTENCY_KEY_PARAMETER } from "@/lib/idempotency"
 
 type FlashcardBenchReviewProps = {
   directory: string
@@ -83,6 +84,7 @@ export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
   const [swipeRating, setSwipeRating] = useState<CardRating | null>(null)
   const cardsReviewedRef = useRef(0)
   const cardStartTimeRef = useRef(Date.now())
+  const submissionInFlightRef = useRef(false)
   const contextProvider = useMemo<BenchContextProvider>(
     () => ({
       read: () => ({
@@ -164,10 +166,12 @@ export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
 
   const handleRate = useCallback(
     async (rating: CardRating) => {
-      if (phase.kind !== "card" || submitting) return
+      if (phase.kind !== "card" || submissionInFlightRef.current) return
 
+      submissionInFlightRef.current = true
       setSubmitting(true)
       const timeTakenMs = Date.now() - cardStartTimeRef.current
+      const submissionID = createIdempotencyKey()
       setSwipeDirection(rating === "again" || rating === "hard" ? -1 : 1)
       setSwipeRating(rating)
 
@@ -176,6 +180,7 @@ export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
           await getBuddyClient(props.directory).objectFlashcardDeck.submitReview({
             directory: props.directory,
             objectID: props.objectID,
+            [IDEMPOTENCY_KEY_PARAMETER]: submissionID,
             cardID: phase.card.cardID,
             rating,
             timeTakenMs,
@@ -190,16 +195,17 @@ export function FlashcardBenchReview(props: FlashcardBenchReviewProps) {
         cardsReviewedRef.current += 1
         setCardsReviewed(cardsReviewedRef.current)
         await fetchNextCard()
-        setSubmitting(false)
       } catch (error) {
-        setSubmitting(false)
         setPhase({
           kind: "error",
           message: error instanceof Error ? error.message : String(error),
         })
+      } finally {
+        submissionInFlightRef.current = false
+        setSubmitting(false)
       }
     },
-    [fetchNextCard, phase, props.directory, props.objectID, submitting],
+    [fetchNextCard, phase, props.directory, props.objectID],
   )
 
   return (

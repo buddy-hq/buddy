@@ -32,6 +32,7 @@ import {
 import { FlashcardCardDisplay } from "@/components/flashcard/flashcard-card-display"
 import { FlashcardReviewRatings } from "@/components/flashcard/flashcard-review-ratings"
 import { useInvalidateQueryOnChatIdle } from "@/components/layout/use-invalidate-query-on-chat-idle"
+import { createIdempotencyKey, IDEMPOTENCY_KEY_PARAMETER } from "@/lib/idempotency"
 
 // ---------------------------------------------------------------------------
 // Types (from generated SDK)
@@ -140,6 +141,7 @@ function ReviewSession(props: {
   const [swipeDirection, setSwipeDirection] = useState<1 | -1 | null>(null)
   const [swipeRating, setSwipeRating] = useState<CardRating | null>(null)
   const cardStartTimeRef = useRef(Date.now())
+  const submissionInFlightRef = useRef(false)
   const deckSummary = deck ? getFlashcardDeckObjectSummary(deck) : undefined
 
   const fetchNextCard = useCallback(async (): Promise<void> => {
@@ -187,10 +189,12 @@ function ReviewSession(props: {
 
   const handleRate = useCallback(
     async (rating: CardRating) => {
-      if (!deck || submitting || phase.kind !== "card") return
+      if (!deck || submissionInFlightRef.current || phase.kind !== "card") return
+      submissionInFlightRef.current = true
       setSubmitting(true)
       setLeechWarning(false)
       const timeTakenMs = Date.now() - cardStartTimeRef.current
+      const submissionID = createIdempotencyKey()
 
       // Set swipe direction: 1, 2 (Again, Hard) = -1 (left), 3, 4 (Good, Easy) = 1 (right)
       setSwipeDirection(rating === "again" || rating === "hard" ? -1 : 1)
@@ -202,6 +206,7 @@ function ReviewSession(props: {
           await client.objectFlashcardDeck.submitReview({
             directory,
             objectID,
+            [IDEMPOTENCY_KEY_PARAMETER]: submissionID,
             cardID: phase.card.cardID,
             rating,
             timeTakenMs,
@@ -230,13 +235,14 @@ function ReviewSession(props: {
         void queryClient.invalidateQueries({
           queryKey: workspaceObjectsQueryKeys.flashcard(directory),
         })
-        setSubmitting(false)
       } catch (err) {
-        setSubmitting(false)
         setPhase({ kind: "error", message: err instanceof Error ? err.message : String(err) })
+      } finally {
+        submissionInFlightRef.current = false
+        setSubmitting(false)
       }
     },
-    [phase, deck, submitting, directory, objectID, fetchNextCard, queryClient],
+    [phase, deck, directory, objectID, fetchNextCard, queryClient],
   )
 
   const handleToggleReveal = useCallback(() => {

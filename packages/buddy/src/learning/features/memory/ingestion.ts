@@ -1,8 +1,8 @@
 import { loadProjectConfig } from "../../../config/store/read-config"
 import { recordCheckpointMemory, recordFlashcardReviewMemory, recordQuestionSetAttemptMemory } from "./deterministic"
-import { writeLearnerEvidenceForEvent } from "./evidence"
+import { findLearnerEvidence, writeLearnerEvidenceForEvent } from "./evidence"
 import { readLearnerMemorySettings } from "./settings"
-import { appendLearnerEvent, createLearnerEvent } from "./storage"
+import { appendLearnerEvent, appendLearnerEventOnce, createLearnerEvent } from "./storage"
 
 async function learnerMemoryIsActive(directory: string): Promise<boolean> {
   const config = await loadProjectConfig(directory).catch(() => undefined)
@@ -11,6 +11,8 @@ async function learnerMemoryIsActive(directory: string): Promise<boolean> {
 
 async function ingestQuestionSetAttempt(input: {
   directory: string
+  eventID?: string
+  eventCreatedAt?: string
   objectID: string
   attemptID: string
   title: string
@@ -22,8 +24,11 @@ async function ingestQuestionSetAttempt(input: {
   result: unknown
 }): Promise<void> {
   if (!(await learnerMemoryIsActive(input.directory))) return
+  if (input.eventID && (await findLearnerEvidence(input.directory, input.eventID))) return
 
   const learnerEvent = createLearnerEvent({
+    ...(input.eventID ? { id: input.eventID } : {}),
+    ...(input.eventCreatedAt ? { createdAt: input.eventCreatedAt } : {}),
     type: "question_set_attempt_ingested",
     sourceKind: "question_set_attempt",
     sourceId: input.attemptID,
@@ -34,7 +39,7 @@ async function ingestQuestionSetAttempt(input: {
       result: input.result,
     },
   })
-  await appendLearnerEvent(input.directory, learnerEvent)
+  await appendLearnerEventOnce(input.directory, learnerEvent)
   const memory = await recordQuestionSetAttemptMemory({
     directory: input.directory,
     eventId: learnerEvent.id,
@@ -80,6 +85,8 @@ async function ingestQuestionSetAttempt(input: {
 
 async function ingestFlashcardReview(input: {
   directory: string
+  eventID?: string
+  eventCreatedAt?: string
   objectID: string
   cardID: string
   deckTitle: string
@@ -91,8 +98,11 @@ async function ingestFlashcardReview(input: {
   nextDue: number
 }): Promise<void> {
   if (!(await learnerMemoryIsActive(input.directory))) return
+  if (input.eventID && (await findLearnerEvidence(input.directory, input.eventID))) return
 
   const learnerEvent = createLearnerEvent({
+    ...(input.eventID ? { id: input.eventID } : {}),
+    ...(input.eventCreatedAt ? { createdAt: input.eventCreatedAt } : {}),
     type: "flashcard_review_ingested",
     sourceKind: "flashcard_review",
     sourceId: input.cardID,
@@ -106,7 +116,7 @@ async function ingestFlashcardReview(input: {
       isLeech: input.isLeech,
     },
   })
-  await appendLearnerEvent(input.directory, learnerEvent)
+  await appendLearnerEventOnce(input.directory, learnerEvent)
   const memory = await recordFlashcardReviewMemory({
     directory: input.directory,
     eventId: learnerEvent.id,

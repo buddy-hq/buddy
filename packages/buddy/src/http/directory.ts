@@ -36,6 +36,12 @@ export type OptionalDirectoryRequestContext = {
 
 const DIRECTORY_FORBIDDEN_STATUS = 403
 const DIRECTORY_NOT_FOUND_STATUS = 404
+const DIRECTORY_CONFLICT_STATUS = 400
+const DIRECTORY_QUERY_PARAMETER = "directory"
+const BUDDY_DIRECTORY_HEADER = "x-buddy-directory"
+const OPENCODE_DIRECTORY_HEADER = "x-opencode-directory"
+const DIRECTORY_CONFLICT_ERROR =
+  "Conflicting directory scopes were provided. Use one directory or make every scope identical."
 const DIRECTORY_ACCESS_DENIED_ERROR_CODES = new Set(["EACCES", "EPERM"])
 
 type NodeErrorWithCode = {
@@ -104,25 +110,65 @@ function readSourceHeader(source: DirectoryRequestSource, name: string): string 
   return source.req.header(name) ?? null
 }
 
-function readRawDirectory(source: DirectoryRequestSource) {
+type RawDirectoryResult =
+  | {
+      ok: true
+      requestURL: URL
+      rawDirectory?: string
+    }
+  | {
+      ok: false
+      response: Response
+    }
+
+function nonEmptyDirectory(value: string | null): string | undefined {
+  if (value === null || value.trim().length === 0) return undefined
+  return value
+}
+
+function readRawDirectory(source: DirectoryRequestSource): RawDirectoryResult {
   const requestURL = readSourceURL(source)
-  const rawDirectory =
-    requestURL.searchParams.get("directory") ??
-    readSourceHeader(source, "x-buddy-directory") ??
-    readSourceHeader(source, "x-opencode-directory")
+  const candidates = [
+    nonEmptyDirectory(requestURL.searchParams.get(DIRECTORY_QUERY_PARAMETER)),
+    nonEmptyDirectory(readSourceHeader(source, BUDDY_DIRECTORY_HEADER)),
+    nonEmptyDirectory(readSourceHeader(source, OPENCODE_DIRECTORY_HEADER)),
+  ].filter((value): value is string => value !== undefined)
+
+  const resolvedDirectories = new Set(candidates.map(resolveDirectory))
+  if (resolvedDirectories.size > 1) {
+    return {
+      ok: false,
+      response: Response.json(
+        { error: DIRECTORY_CONFLICT_ERROR },
+        { status: DIRECTORY_CONFLICT_STATUS },
+      ),
+    }
+  }
 
   return {
+    ok: true,
     requestURL,
-    rawDirectory,
+    rawDirectory: candidates[0],
   }
 }
 
-function requestDirectory(source: DirectoryRequestSource): { requestURL: URL; directory: string } {
-  const { requestURL, rawDirectory } = readRawDirectory(source)
+function requestDirectory(source: DirectoryRequestSource):
+  | {
+      ok: true
+      requestURL: URL
+      directory: string
+    }
+  | {
+      ok: false
+      response: Response
+    } {
+  const raw = readRawDirectory(source)
+  if (!raw.ok) return raw
 
   return {
-    requestURL,
-    directory: resolveDirectory(rawDirectory ?? ""),
+    ok: true,
+    requestURL: raw.requestURL,
+    directory: resolveDirectory(raw.rawDirectory ?? ""),
   }
 }
 
@@ -153,8 +199,9 @@ function validateAllowedDirectory(requestURL: URL, directory: string): AllowedDi
 }
 
 export const ensureAllowedDirectory: EnsureAllowedDirectory = (source) => {
-  const { requestURL, directory } = requestDirectory(source)
-  return validateAllowedDirectory(requestURL, directory)
+  const requested = requestDirectory(source)
+  if (!requested.ok) return requested
+  return validateAllowedDirectory(requested.requestURL, requested.directory)
 }
 
 export function resolveOptionalDirectoryRequestContext(source: DirectoryRequestSource):
@@ -166,23 +213,24 @@ export function resolveOptionalDirectoryRequestContext(source: DirectoryRequestS
       ok: false
       response: Response
     } {
-  const { requestURL, rawDirectory } = readRawDirectory(source)
-  if (typeof rawDirectory !== "string" || rawDirectory.trim().length === 0) {
+  const raw = readRawDirectory(source)
+  if (!raw.ok) return raw
+  if (raw.rawDirectory === undefined) {
     return {
       ok: true,
       context: {
-        requestURL,
+        requestURL: raw.requestURL,
       },
     }
   }
 
-  const allowed = validateAllowedDirectory(requestURL, resolveDirectory(rawDirectory))
+  const allowed = validateAllowedDirectory(raw.requestURL, resolveDirectory(raw.rawDirectory))
   if (!allowed.ok) return allowed
 
   return {
     ok: true,
     context: {
-      requestURL,
+      requestURL: raw.requestURL,
       directory: allowed.directory,
     },
   }

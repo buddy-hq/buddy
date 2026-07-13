@@ -12,6 +12,7 @@ import {
   type ResourcePackResolution,
 } from "./contracts"
 import { extractResourcePack } from "./extractors"
+import { assertResourceExtractionBudget, assertResourceSourceSize } from "./budgets"
 import {
   createPendingResourcePackSnapshot,
   loadFreshResourcePackSnapshot,
@@ -80,7 +81,9 @@ async function buildResourcePack(input: ResourcePackBuildInput): Promise<void> {
   })
 
   try {
+    assertResourceSourceSize(Number(input.sourceStat.size))
     const extraction = await extractResourcePack(input.sourcePath, input.classification)
+    assertResourceExtractionBudget(extraction)
     const resourceAlias =
       input.resourceAlias ?? input.objectID ?? path.basename(input.sourceRelpath)
     const chunkUnits =

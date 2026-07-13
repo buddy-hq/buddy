@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Button, cn } from "@buddy/ui"
 import { CheckIcon, ListIcon, PresentationIcon, XIcon } from "lucide-react"
@@ -17,6 +17,7 @@ import type {
   ObjectQuestionSetSubmitAttemptResponse,
 } from "@buddy/sdk/types"
 import type { BenchTarget } from "@/lib/bench-navigation"
+import { createIdempotencyKey } from "@/lib/idempotency"
 
 type AnswerState = Record<string, string[]>
 type QuestionSetObject = ObjectQuestionSetReadQuestionsResponse
@@ -27,7 +28,7 @@ type QuestionSetBenchReviewProps = {
   directory: string
   target: Extract<BenchTarget, { type: "object" }>
   questionSet: QuestionSetObject
-  onSubmit: (answers: AnswerState) => Promise<QuestionSetEvaluationResult>
+  onSubmit: (answers: AnswerState, submissionID: string) => Promise<QuestionSetEvaluationResult>
 }
 
 const HASH_OFFSET_BASIS = 2166136261
@@ -145,6 +146,7 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
   const [viewMode, setViewMode] = useState<"wizard" | "list">("wizard")
   const [currentStep, setCurrentStep] = useState(0)
   const [slideDirection, setSlideDirection] = useState<1 | -1>(1)
+  const submissionIDRef = useRef(createIdempotencyKey())
   const evaluationByQuestionID = useMemo(
     () => new Map(result?.questions.map((question) => [question.questionID, question]) ?? []),
     [result],
@@ -211,6 +213,7 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
   useRegisterBenchContextProvider({ target: props.target, provider: contextProvider })
 
   function updateAnswer(questionID: string, nextSelectedChoiceIds: string[]) {
+    submissionIDRef.current = createIdempotencyKey()
     if (result) {
       setRandomizeSeed((current) => current + 1)
     }
@@ -258,7 +261,9 @@ export function QuestionSetBenchReview(props: QuestionSetBenchReviewProps) {
     setSubmitting(true)
     setError(undefined)
     try {
-      setResult(await props.onSubmit(answers))
+      const result = await props.onSubmit(answers, submissionIDRef.current)
+      submissionIDRef.current = createIdempotencyKey()
+      setResult(result)
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : String(submitError))
     } finally {

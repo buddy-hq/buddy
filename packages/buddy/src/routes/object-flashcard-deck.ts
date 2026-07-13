@@ -1,7 +1,15 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
-import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
+import {
+  directoryQuerySchema,
+  IDEMPOTENCY_KEY_HEADER,
+  idempotencyHeaderSchema,
+  mapIdempotencyRouteError,
+  routeErrors,
+  runRouteTask,
+  withDirectoryRoute,
+} from "../http"
 import { BuddyObjectIDSchema, mapBuddyObjectRouteError } from "../objects"
 import { readFlashcardDeckObject } from "../learning/features/flashcards/storage/read-deck"
 import {
@@ -32,7 +40,7 @@ function mapFlashcardObjectRouteError(error: unknown): Response | undefined {
   if (error instanceof FlashcardCardNotFoundError) {
     return Response.json({ error: error.message }, { status: 404 })
   }
-  return mapBuddyObjectRouteError(error)
+  return mapIdempotencyRouteError(error) ?? mapBuddyObjectRouteError(error)
 }
 
 export const ObjectFlashcardDeckRoutes = new Hono()
@@ -116,17 +124,19 @@ export const ObjectFlashcardDeckRoutes = new Hono()
             },
           },
         },
-        ...routeErrors(400, 403, 404, 410, 500),
+        ...routeErrors(400, 403, 404, 409, 410, 500),
       },
     }),
     validator("query", directoryQuerySchema),
     validator("param", objectIDParamSchema),
+    validator("header", idempotencyHeaderSchema),
     validator("json", SubmitReviewInputSchema.omit({ objectID: true })),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
             const { objectID } = c.req.valid("param")
+            const submissionID = c.req.valid("header")[IDEMPOTENCY_KEY_HEADER]
             const payload = c.req.valid("json")
             const result = await submitFlashcardObjectReview({
               directory: context.directory,
@@ -134,6 +144,7 @@ export const ObjectFlashcardDeckRoutes = new Hono()
               cardID: payload.cardID,
               rating: payload.rating,
               timeTakenMs: payload.timeTakenMs,
+              submissionID,
             })
             return c.json(result)
           },

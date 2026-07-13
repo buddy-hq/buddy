@@ -60,7 +60,7 @@ async function withProjectConfigChangeLock<T>(
   directory: string,
   task: () => Promise<T>,
 ): Promise<T> {
-  const key = path.resolve(directory)
+  const key = path.resolve(await resolveProjectConfigPath(directory))
   const previous = projectConfigChangeLocks.get(key) ?? Promise.resolve()
   let releaseLock!: () => void
   const current = new Promise<void>((resolve) => {
@@ -145,14 +145,16 @@ async function applyAndSyncProjectConfigChange(input: {
 }
 
 export async function patchProjectConfig(input: { directory: string; payload: unknown }) {
-  const parsed = mergeAndValidateConfigPatch({
-    current: await readProjectConfigFile(input.directory),
-    patch: input.payload,
-    parse: Config.ProjectInfo.parse,
-  })
   await applyAndSyncProjectConfigChange({
     directory: input.directory,
-    apply: () => Config.updateProject(input.directory, parsed),
+    apply: async () => {
+      const parsed = mergeAndValidateConfigPatch({
+        current: await readProjectConfigFile(input.directory),
+        patch: input.payload,
+        parse: Config.ProjectInfo.parse,
+      })
+      await Config.updateProject(input.directory, parsed)
+    },
   })
 
   return readProjectConfig(input.directory)

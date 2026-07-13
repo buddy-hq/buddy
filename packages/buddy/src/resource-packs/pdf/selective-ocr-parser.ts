@@ -5,6 +5,7 @@ import {
   parsePdfPagesWithLiteParse,
   type LiteParsePdfExtraction,
 } from "./liteparse-parser"
+import { assertResourcePageCount } from "../budgets"
 
 const OCR_REASON_SCANNED = "scanned" as const
 const OCR_REASON_NO_TEXT = "no-text" as const
@@ -46,6 +47,7 @@ export async function extractPdfWithSelectiveOcr(
       ocrEnabled: false,
     }),
   ])
+  assertResourcePageCount(complexity.length)
   const ocrPageNumbers = selectPdfPagesForOcr(complexity)
   if (ocrPageNumbers.length === 0) {
     return buildLiteParsePdfExtraction(nativePages)

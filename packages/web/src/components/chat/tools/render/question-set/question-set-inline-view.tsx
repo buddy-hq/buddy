@@ -10,6 +10,7 @@ import {
 } from "@buddy/ui"
 import { language } from "@/context/language"
 import { CheckIcon, XIcon, ListIcon, PresentationIcon } from "lucide-react"
+import { createIdempotencyKey } from "@/lib/idempotency"
 import { cn } from "@buddy/ui"
 import { QuestionMarkdown, buildQuestionMarkdownCacheKey } from "./question-markdown"
 
@@ -68,6 +69,7 @@ type QuestionSetInlineSessionState = {
   error?: string
   randomizeSeed: number
   result?: QuestionSetEvaluationResult
+  submissionID: string
 }
 
 const HASH_OFFSET_BASIS = 2166136261
@@ -121,7 +123,10 @@ export function orderedChoicesForQuestion(input: {
 
 export function QuestionSetInlineView(props: {
   questionSet: QuestionSetObject
-  onSubmit: (answers: Record<string, string[]>) => Promise<QuestionSetEvaluationResult>
+  onSubmit: (
+    answers: Record<string, string[]>,
+    submissionID: string,
+  ) => Promise<QuestionSetEvaluationResult>
   persistKey?: string
   defaultOpen?: boolean
   hideCard?: boolean
@@ -135,6 +140,9 @@ export function QuestionSetInlineView(props: {
   const [error, setError] = useState<string | undefined>(cachedState?.error)
   const [result, setResult] = useState<QuestionSetEvaluationResult | undefined>(cachedState?.result)
   const [randomizeSeed, setRandomizeSeed] = useState(cachedState?.randomizeSeed ?? 0)
+  const [submissionID, setSubmissionID] = useState(
+    () => cachedState?.submissionID ?? createIdempotencyKey(),
+  )
 
   const [isOpen, setIsOpen] = useState(props.defaultOpen ?? false)
   const [viewMode, setViewMode] = useState<"wizard" | "list">("wizard")
@@ -167,14 +175,16 @@ export function QuestionSetInlineView(props: {
       ...(error ? { error } : {}),
       randomizeSeed,
       ...(result ? { result } : {}),
+      submissionID,
     })
-  }, [answers, error, persistKey, randomizeSeed, result])
+  }, [answers, error, persistKey, randomizeSeed, result, submissionID])
 
   function updateAnswer(questionID: string, nextSelectedChoiceIds: string[]) {
     if (result) {
       // Start of a retry attempt: reshuffle randomized questions.
       setRandomizeSeed((current) => current + 1)
     }
+    setSubmissionID(createIdempotencyKey())
     setResult(undefined)
     setError(undefined)
     setAnswers((current) => ({
@@ -220,7 +230,8 @@ export function QuestionSetInlineView(props: {
     setError(undefined)
 
     try {
-      const response = await props.onSubmit(answers)
+      const response = await props.onSubmit(answers, submissionID)
+      setSubmissionID(createIdempotencyKey())
       setResult(response)
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : String(submitError))

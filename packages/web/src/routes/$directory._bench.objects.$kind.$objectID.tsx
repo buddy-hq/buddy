@@ -48,6 +48,7 @@ import {
   type BenchTarget,
 } from "@/lib/bench-navigation"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
+import { IDEMPOTENCY_KEY_PARAMETER } from "@/lib/idempotency"
 import { decodeDirectory } from "@/lib/directory-token"
 import { resolveResourceObjectViewerPathWithFallback } from "@/lib/resource-object-viewer-path"
 import { resolveAssetUrl } from "@/lib/resource-url"
@@ -1023,8 +1024,9 @@ function QuestionSetObjectBenchView(props: {
       directory={props.directory}
       target={objectBenchTarget(props.view)}
       questionSet={questionSet}
-      onSubmit={async (answers) => {
+      onSubmit={async (answers, submissionID) => {
         const response = await getBuddyClient(props.directory).objectQuestionSet.submitAttempt({
+          [IDEMPOTENCY_KEY_PARAMETER]: submissionID,
           directory: props.directory,
           objectID: questionSet.objectID,
           answers: questionSet.questions.map((question) => ({

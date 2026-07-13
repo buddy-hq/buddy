@@ -1,14 +1,15 @@
+import { createHash } from "node:crypto"
 import path from "node:path"
 import {
-  appendLearnerEvent,
+  appendLearnerEventOnce,
   createLearnerEvent,
-  createLearnerMemory,
-  listLearnerMemories,
-  writeLearnerMemory,
+  createLearnerMemoryRecord,
+  upsertLearnerMemoryAtomically,
 } from "./storage"
 import { LearnerMemorySchema, type LearnerMemory, type LearnerMemoryType } from "./types"
 
 const ACTIVE_MEMORY_STATUSES = new Set<LearnerMemory["status"]>(["active", "resolved", "stale"])
+const DETERMINISTIC_MEMORY_EFFECT_EVENT_NAMESPACE = "deterministic_memory_effect"
 
 function dedupeStrings(values: readonly string[]): string[] {
   return [...new Set(values.map((value) => value.trim()).filter((value) => value.length > 0))]
@@ -40,6 +41,13 @@ function matchingDeterministicMemory(input: {
   )
 }
 
+function deterministicMemoryEffectEventID(sourceEventID: string): string {
+  const digest = createHash("sha256")
+    .update(`${DETERMINISTIC_MEMORY_EFFECT_EVENT_NAMESPACE}\u0000${sourceEventID}`)
+    .digest("hex")
+  return `evt_${DETERMINISTIC_MEMORY_EFFECT_EVENT_NAMESPACE}_${digest}`
+}
+
 async function upsertDeterministicLearnerMemory(input: {
   directory: string
   type: LearnerMemoryType
@@ -53,62 +61,61 @@ async function upsertDeterministicLearnerMemory(input: {
   strengthFloor: number
   status?: Extract<LearnerMemory["status"], "active" | "resolved">
 }): Promise<LearnerMemory> {
-  const memories = await listLearnerMemories(input.directory)
-  const existing = matchingDeterministicMemory({
-    memories,
-    type: input.type,
-    title: input.title,
-    projectPath: input.projectPath,
+  const result = await upsertLearnerMemoryAtomically({
+    directory: input.directory,
+    find: (memories) =>
+      matchingDeterministicMemory({
+        memories,
+        type: input.type,
+        title: input.title,
+        projectPath: input.projectPath,
+      }),
+    create: () =>
+      createLearnerMemoryRecord({
+        type: input.type,
+        title: input.title,
+        body: input.body,
+        tags: dedupeStrings(input.tags),
+        projectPath: input.projectPath,
+        confidence: input.confidence,
+        strength: input.strengthFloor,
+        status: input.status ?? "active",
+        source: "deterministic",
+        sourceEventIds: [input.sourceEventId],
+      }),
+    update: (existing) => {
+      const now = new Date().toISOString()
+      return LearnerMemorySchema.parse({
+        ...existing,
+        body: input.body,
+        tags: dedupeStrings([...existing.tags, ...input.tags]),
+        confidence: Math.max(existing.confidence, input.confidence),
+        strength: Math.max(existing.strength, input.strengthFloor),
+        status: input.status ?? (existing.status === "resolved" ? "resolved" : "active"),
+        source: "deterministic",
+        sourceEventIds: dedupeStrings([...existing.sourceEventIds, input.sourceEventId]),
+        lastUsedAt: now,
+        updatedAt: now,
+      })
+    },
   })
-
-  if (!existing) {
-    return createLearnerMemory({
-      directory: input.directory,
-      type: input.type,
-      title: input.title,
-      body: input.body,
-      tags: dedupeStrings(input.tags),
-      projectPath: input.projectPath,
-      confidence: input.confidence,
-      strength: input.strengthFloor,
-      status: input.status ?? "active",
-      source: "deterministic",
-      sourceEventIds: [input.sourceEventId],
-      reason: input.reason,
-    })
-  }
-
-  const now = new Date().toISOString()
-  const updated = LearnerMemorySchema.parse({
-    ...existing,
-    body: input.body,
-    tags: dedupeStrings([...existing.tags, ...input.tags]),
-    confidence: Math.max(existing.confidence, input.confidence),
-    strength: Math.max(existing.strength, input.strengthFloor),
-    status: input.status ?? (existing.status === "resolved" ? "resolved" : "active"),
-    source: "deterministic",
-    sourceEventIds: dedupeStrings([...existing.sourceEventIds, input.sourceEventId]),
-    lastUsedAt: now,
-    updatedAt: now,
-  })
-  await writeLearnerMemory(input.directory, updated)
-  await appendLearnerEvent(
+  await appendLearnerEventOnce(
     input.directory,
     createLearnerEvent({
+      id: deterministicMemoryEffectEventID(input.sourceEventId),
       type: "memory_applied",
-      sessionId: undefined,
       projectPath: input.projectPath,
       sourceKind: "deterministic",
-      sourceId: updated.id,
-      searchableText: `Deterministic learner memory updated: ${updated.title}`,
+      sourceId: result.memory.id,
+      searchableText: `Deterministic learner memory ${result.created ? "created" : "updated"}: ${result.memory.title}`,
       payload: {
         reason: input.reason,
-        memoryId: updated.id,
+        memoryId: result.memory.id,
         sourceEventId: input.sourceEventId,
       },
     }),
   )
-  return updated
+  return result.memory
 }
 
 async function recordQuestionSetAttemptMemory(input: {

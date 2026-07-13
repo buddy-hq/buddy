@@ -48,6 +48,10 @@ import {
 import { resolveBenchReadingResourceRelpath } from "../learning/features/bench/reading-resource"
 import type { ReaderSourceValidity } from "@buddy/workspace-file-policy"
 import { validateReaderSourcePath, type ReaderSourceValidation } from "./reader-source-validator"
+import {
+  assertResourceSourceSize,
+  ResourceBudgetExceededError,
+} from "../resource-packs/budgets"
 
 const RESOURCE_ALIAS_DEFAULT = "resource" as const
 const RESOURCE_ALIAS_REPLACE_REGEX = /[^a-z0-9._-]+/g
@@ -222,6 +226,12 @@ export async function addResource(input: {
   }
   if (!sourceStat.isFile()) {
     throw new ResourceValidationError(RESOURCE_SOURCE_NOT_FILE_ERROR)
+  }
+  try {
+    assertResourceSourceSize(Number(sourceStat.size))
+  } catch (error) {
+    if (!(error instanceof ResourceBudgetExceededError)) throw error
+    throw new ResourceValidationError(error.message)
   }
   const sourceValidation = await validateReaderSourcePath(absoluteSourcePath)
   if (sourceValidation.sourceValidity === "invalid") {

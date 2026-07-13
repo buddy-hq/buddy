@@ -34,6 +34,10 @@ export function shouldShowDesktopOnboarding(input: DesktopOnboardingState) {
     return true
   }
 
+  if (!input.setupCompleted) {
+    return true
+  }
+
   return !hasExistingChatContext(input)
 }
 
@@ -47,27 +51,6 @@ export function hasConnectedOpenAiProvider(input: ProviderCatalogState) {
   )
 }
 
-export function resolveDesktopOnboardingAutoContinueDirectory(input: {
-  connectedOpenAiProvider: boolean
-  openProjects: string[]
-  activeDirectory?: string
-}) {
-  if (!input.connectedOpenAiProvider || input.openProjects.length === 0) {
-    return undefined
-  }
-
-  const activeDirectory = input.activeDirectory
-  if (
-    typeof activeDirectory === "string" &&
-    hasDirectoryValue(activeDirectory) &&
-    input.openProjects.includes(activeDirectory)
-  ) {
-    return activeDirectory
-  }
-
-  return input.openProjects[0]
-}
-
 export async function resolveDesktopEntryPathWithSnapshots(input: {
   state: DesktopOnboardingState
   loadOpenProjectsSnapshot: () => Promise<string[]>
@@ -77,6 +60,10 @@ export async function resolveDesktopEntryPathWithSnapshots(input: {
   }
 
   if (input.state.personalizationStepPending) {
+    return "/onboarding"
+  }
+
+  if (!input.state.setupCompleted) {
     return "/onboarding"
   }
 

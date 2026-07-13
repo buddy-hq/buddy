@@ -92,6 +92,7 @@ export {
 export type { LearnerMemoryStartupResult, LearnerMemoryStartupSessionResult } from "./startup"
 export {
   appendLearnerEvent,
+  appendLearnerEventOnce,
   createLearnerMemory,
   createLearnerEvent,
   decayLearnerMemory,

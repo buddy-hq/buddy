@@ -135,6 +135,36 @@ describe("project file editor routes", () => {
     expect(saveResponse.status).toBe(409)
   })
 
+  test("serializes concurrent saves that use the same expected version", async () => {
+    const repo = createGitRepo("buddy-project-file-editor-concurrent")
+    const targetPath = path.join(repo, "src", "app.ts")
+    await fs.mkdir(path.dirname(targetPath), { recursive: true })
+    await fs.writeFile(targetPath, "export const value = 1\n", "utf8")
+
+    const readResponse = await app.request("/api/file/edit?path=src/app.ts", {
+      headers: {
+        "x-buddy-directory": repo,
+      },
+    })
+    const readBody = (await readResponse.json()) as { version: string | null }
+
+    const save = (content: string) =>
+      app.request("/api/file/edit?path=src/app.ts", {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          "x-buddy-directory": repo,
+        },
+        body: JSON.stringify({ content, expectedVersion: readBody.version }),
+      })
+    const contents = ["export const value = 2\n", "export const value = 3\n"]
+    const responses = await Promise.all(contents.map(save))
+
+    expect(responses.map((response) => response.status).toSorted()).toEqual([200, 409])
+    const winningIndex = responses.findIndex((response) => response.status === 200)
+    await expect(fs.readFile(targetPath, "utf8")).resolves.toBe(contents[winningIndex])
+  })
+
   test("rejects unsupported binary files", async () => {
     const repo = createGitRepo("buddy-project-file-editor-binary")
     const targetPath = path.join(repo, "report.pdf")

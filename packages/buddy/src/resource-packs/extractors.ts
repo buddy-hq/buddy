@@ -45,6 +45,14 @@ import {
 } from "./pdf/extraction-mode"
 import { extractPdfWithLiteParse } from "./pdf/liteparse-parser"
 import { extractPdfWithSelectiveOcr } from "./pdf/selective-ocr-parser"
+import {
+  assertResourceArchiveBudget,
+  assertResourceChunkUnitCount,
+  assertResourcePageCount,
+  assertResourceTextCharacterCount,
+  RESOURCE_MAX_FULL_TEXT_UTF8_BYTES,
+  ResourceBudgetExceededError,
+} from "./budgets"
 
 type XmlRecord = Record<string, unknown>
 type ResourcePackZipEntry = FileEntry
@@ -53,6 +61,12 @@ type PdfOutlinePoint = {
   depth: number
   pageNumber: number
 }
+type PdfOutlineMetadata = {
+  outlinePoints: PdfOutlinePoint[]
+  tocLines: string[]
+  warning?: string
+}
+type PdfOutlineMetadataExtractor = (sourcePath: string) => Promise<PdfOutlineMetadata>
 type PdfTextContentLike = {
   items: unknown[]
 }
@@ -68,7 +82,7 @@ type PdfDocumentLike = {
 }
 
 const execFileAsync = promisify(execFile)
-const PDF_TEXT_COMMAND_BUFFER_BYTES = 128 * 1024 * 1024
+const PDF_TEXT_COMMAND_BUFFER_BYTES = RESOURCE_MAX_FULL_TEXT_UTF8_BYTES
 const PDF_COVER_COMMAND_BUFFER_BYTES = 32 * 1024 * 1024
 const PDF_COVER_TMPDIR_PREFIX = "buddy-pdf-cover-" as const
 const PDF_COVER_OUTPUT_PREFIX = "cover" as const
@@ -328,10 +342,26 @@ export async function extractResourcePack(
 }
 
 async function extractPdfResource(sourcePath: string): Promise<ResourceExtractionResult> {
+  return extractPdfResourceWithMetadataExtractor(sourcePath, extractPdfOutlineMetadata)
+}
+
+async function extractPdfResourceWithMetadataExtractor(
+  sourcePath: string,
+  metadataExtractor: PdfOutlineMetadataExtractor,
+): Promise<ResourceExtractionResult> {
   const extractionMode = resolvePdfExtractionMode()
   if (extractionMode === PDF_EXTRACTION_MODE_LEGACY) {
     return extractPdfResourceWithPdfJsPipeline(sourcePath)
   }
+
+  const metadataResult = await metadataExtractor(sourcePath).catch((error) => {
+    if (error instanceof ResourceBudgetExceededError) throw error
+    return {
+      outlinePoints: [],
+      tocLines: [],
+      warning: `${PDF_LITEPARSE_METADATA_WARNING_PREFIX} ${errorMessage(error)}`,
+    }
+  })
 
   try {
     const liteParseResult =
@@ -340,12 +370,6 @@ async function extractPdfResource(sourcePath: string): Promise<ResourceExtractio
         : await extractPdfWithLiteParse(sourcePath, {
             ocrEnabled: extractionMode !== PDF_EXTRACTION_MODE_LITEPARSE_NO_OCR,
           })
-    const metadataResult = await extractPdfOutlineMetadata(sourcePath).catch((error) => ({
-      outlinePoints: [],
-      tocLines: [],
-      warning: `${PDF_LITEPARSE_METADATA_WARNING_PREFIX} ${errorMessage(error)}`,
-    }))
-
     return buildPdfExtractionResult({
       extractor: liteParseResult.extractor,
       pageTexts: liteParseResult.pageTexts,
@@ -358,6 +382,7 @@ async function extractPdfResource(sourcePath: string): Promise<ResourceExtractio
       coverImage: await extractPdfCoverImage(sourcePath),
     })
   } catch (error) {
+    if (error instanceof ResourceBudgetExceededError) throw error
     const fallback = await extractPdfResourceWithPdfJsPipeline(sourcePath)
     return {
       ...fallback,
@@ -367,6 +392,13 @@ async function extractPdfResource(sourcePath: string): Promise<ResourceExtractio
       ],
     }
   }
+}
+
+export async function extractPdfResourceWithMetadataExtractorForTests(
+  sourcePath: string,
+  metadataExtractor: PdfOutlineMetadataExtractor,
+): Promise<ResourceExtractionResult> {
+  return extractPdfResourceWithMetadataExtractor(sourcePath, metadataExtractor)
 }
 
 async function extractPdfResourceWithPdfJsPipeline(
@@ -382,6 +414,7 @@ async function extractPdfResourceWithPdfJsPipeline(
       isEvalSupported: false,
     })
     const document = asPdfDocument(await loadingTask.promise)
+    assertResourcePageCount(document.numPages)
     const pageMarkdowns: Array<{ pageNumber: number; markdown: string }> = []
     const pageTexts: string[] = []
     const tocLines: string[] = []
@@ -395,18 +428,23 @@ async function extractPdfResourceWithPdfJsPipeline(
     const outlinePoints = await buildPdfOutlinePoints(document, outlineNodes)
 
     let extractedCharacters = 0
+    let fullTextCharacters = 0
     for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
       try {
         const page = await document.getPage(pageNumber)
         const content = await page.getTextContent()
         const pageText = renderPdfTextContent(content.items)
+        const pageMarkdown = renderPageMarkdown(pageNumber, pageText)
+        fullTextCharacters += pageMarkdown.length + (pageMarkdowns.length > 0 ? 2 : 0)
+        assertResourceTextCharacterCount(fullTextCharacters)
         pageTexts.push(pageText)
         extractedCharacters += pageText.replace(/\s+/g, "").length
         pageMarkdowns.push({
           pageNumber,
-          markdown: renderPageMarkdown(pageNumber, pageText),
+          markdown: pageMarkdown,
         })
       } catch (error) {
+        if (error instanceof ResourceBudgetExceededError) throw error
         warnings.push(`Failed to extract PDF page ${pageNumber}: ${errorMessage(error)}`)
       }
     }
@@ -440,6 +478,7 @@ async function extractPdfResourceWithPdfJsPipeline(
         warnings.push(PDF_CHUNKING_GENERIC_WARNING)
       }
     }
+    assertResourceChunkUnitCount(chunkUnits.length)
 
     if (extractedCharacters === 0) {
       status = RESOURCE_PACK_STATUS_UNSUPPORTED
@@ -458,15 +497,12 @@ async function extractPdfResourceWithPdfJsPipeline(
       coverImage,
     }
   } catch (error) {
+    if (error instanceof ResourceBudgetExceededError) throw error
     return extractPdfResourceWithSystemFallback(sourcePath, errorMessage(error))
   }
 }
 
-async function extractPdfOutlineMetadata(sourcePath: string): Promise<{
-  outlinePoints: PdfOutlinePoint[]
-  tocLines: string[]
-  warning?: string
-}> {
+async function extractPdfOutlineMetadata(sourcePath: string): Promise<PdfOutlineMetadata> {
   installPdfJsDOMMatrixFallback()
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs")
   const bytes = new Uint8Array(await fs.readFile(sourcePath))
@@ -476,6 +512,7 @@ async function extractPdfOutlineMetadata(sourcePath: string): Promise<{
     isEvalSupported: false,
   })
   const document = asPdfDocument(await loadingTask.promise)
+  assertResourcePageCount(document.numPages)
   const outline = await document.getOutline().catch(() => undefined)
   const outlineNodes = Array.isArray(outline) ? outline : []
   const tocLines: string[] = []
@@ -497,10 +534,16 @@ function buildPdfExtractionResult(input: {
   warnings: string[]
   coverImage?: ResourceExtractionCover
 }): ResourceExtractionResult {
-  const pageMarkdowns = input.pageTexts.map((pageText, index) => ({
-    pageNumber: index + 1,
-    markdown: renderPageMarkdown(index + 1, pageText),
-  }))
+  assertResourcePageCount(input.pageTexts.length)
+  const pageMarkdowns: Array<{ pageNumber: number; markdown: string }> = []
+  let fullTextCharacters = 0
+  for (let index = 0; index < input.pageTexts.length; index += 1) {
+    const pageNumber = index + 1
+    const markdown = renderPageMarkdown(pageNumber, input.pageTexts[index] ?? "")
+    fullTextCharacters += markdown.length + (pageMarkdowns.length > 0 ? 2 : 0)
+    assertResourceTextCharacterCount(fullTextCharacters)
+    pageMarkdowns.push({ pageNumber, markdown })
+  }
   const fullText = pageMarkdowns.map((page) => page.markdown).join("\n\n")
   const warnings = [...input.warnings]
   let chunkUnits = buildPdfOutlineChunkUnits({
@@ -528,6 +571,7 @@ function buildPdfExtractionResult(input: {
     ]
     warnings.push(PDF_CHUNKING_GENERIC_WARNING)
   }
+  assertResourceChunkUnitCount(chunkUnits.length)
 
   const extractedCharacters = input.pageTexts.reduce(
     (total, pageText) => total + pageText.replace(/\s+/g, "").length,
@@ -578,6 +622,7 @@ async function extractPdfResourceWithSystemFallback(
     }
 
     const extractedText = commandResult.output.trim()
+    assertResourceTextCharacterCount(extractedText.length)
     if (extractedText.length === 0) {
       fallbackWarnings.push(`${attempt.command} returned no text.`)
       continue
@@ -587,11 +632,13 @@ async function extractPdfResourceWithSystemFallback(
       .split(PDF_PAGE_DELIMITER_REGEX)
       .map((value) => value.trim())
       .filter((value) => value.length > 0)
+    assertResourcePageCount(pageTexts.length)
     const pageMarkdowns = pageTexts.map((text, index) => ({
       pageNumber: index + 1,
       markdown: renderPageMarkdown(index + 1, text),
     }))
     const chunkUnits = buildPdfPageWindowChunkUnits(pageTexts)
+    assertResourceChunkUnitCount(chunkUnits.length)
     const fullText =
       pageMarkdowns.length > 0
         ? pageMarkdowns.map((page) => page.markdown).join("\n\n")
@@ -732,6 +779,7 @@ async function extractEpubResource(sourcePath: string): Promise<ResourceExtracti
   const bytes = await fs.readFile(sourcePath)
   const zipReader = new ZipReader<Blob>(new BlobReader(new Blob([Uint8Array.from(bytes)])))
   const entries = await zipReader.getEntries()
+  assertResourceArchiveBudget(entries)
   const entryByName = new Map(
     entries.filter(isFileEntry).map((entry) => [normalizeZipPath(entry.filename), entry] as const),
   )
@@ -760,6 +808,8 @@ async function extractEpubResource(sourcePath: string): Promise<ResourceExtracti
       ? await extractEpubTocMarkdown(entryByName, tocEntryName)
       : undefined
     const chapters: Array<{ title: string; body: string }> = []
+    let fullTextCharacters = 0
+    assertResourceChunkUnitCount(spineItems.length)
 
     for (let index = 0; index < spineItems.length; index += 1) {
       const spineItem = spineItems[index]
@@ -770,9 +820,13 @@ async function extractEpubResource(sourcePath: string): Promise<ResourceExtracti
 
       const chapterPath = path.posix.normalize(path.posix.join(opfDir, href))
       const chapterMarkup = await readZipEntryText(entryByName, chapterPath)
+      assertResourceTextCharacterCount(chapterMarkup.length)
       const chapterMarkdown = resourceTurndown.turndown(chapterMarkup).trim()
       if (!chapterMarkdown) continue
       const title = path.posix.basename(href)
+      fullTextCharacters +=
+        title.length + chapterMarkdown.length + (chapters.length > 0 ? 6 : 4)
+      assertResourceTextCharacterCount(fullTextCharacters)
       chapters.push({ title, body: chapterMarkdown })
     }
 
@@ -782,6 +836,7 @@ async function extractEpubResource(sourcePath: string): Promise<ResourceExtracti
 
     const fullText = chapters.map((chapter) => `# ${chapter.title}\n\n${chapter.body}`).join("\n\n")
     const chunkUnits = buildStructuredChunkUnits(chapters, RESOURCE_PACK_UNIT_KIND_CHAPTER)
+    assertResourceChunkUnitCount(chunkUnits.length)
 
     return {
       status: RESOURCE_PACK_STATUS_READY,
@@ -800,13 +855,16 @@ async function extractEpubResource(sourcePath: string): Promise<ResourceExtracti
 }
 
 async function extractDocxResource(sourcePath: string): Promise<ResourceExtractionResult> {
+  await assertZipResourceArchiveBudget(sourcePath)
   const converted = await mammoth.convertToHtml({ path: sourcePath })
+  assertResourceTextCharacterCount(converted.value.length)
   const html = converted.value.trim()
   if (!html) {
     return unsupportedExtraction("DOCX conversion produced no readable text.")
   }
 
   const markdown = resourceTurndown.turndown(html).trim()
+  assertResourceTextCharacterCount(markdown.length)
   const warnings = converted.messages
     .map((message) => message.message)
     .filter((message) => message.trim().length > 0)
@@ -824,7 +882,9 @@ async function extractHtmlResource(
   format: string,
 ): Promise<ResourceExtractionResult> {
   const html = await fs.readFile(sourcePath, "utf8")
+  assertResourceTextCharacterCount(html.length)
   const markdown = resourceTurndown.turndown(html).trim()
+  assertResourceTextCharacterCount(markdown.length)
   if (!markdown) {
     return unsupportedExtraction(`No readable text was found in the ${format.toUpperCase()} file.`)
   }
@@ -843,6 +903,7 @@ async function extractTextResource(
   format: string,
 ): Promise<ResourceExtractionResult> {
   const text = await fs.readFile(sourcePath, "utf8")
+  assertResourceTextCharacterCount(text.length)
   const trimmed = text.trim()
   if (!trimmed) {
     return unsupportedExtraction(`No readable text was found in the ${format.toUpperCase()} file.`)
@@ -854,6 +915,16 @@ async function extractTextResource(
     extractor: "plain-text",
     fullText: text,
     tocMarkdown: buildHeadingTocMarkdown(text),
+  }
+}
+
+async function assertZipResourceArchiveBudget(sourcePath: string): Promise<void> {
+  const bytes = await fs.readFile(sourcePath)
+  const zipReader = new ZipReader<Blob>(new BlobReader(new Blob([Uint8Array.from(bytes)])))
+  try {
+    assertResourceArchiveBudget(await zipReader.getEntries())
+  } finally {
+    await zipReader.close()
   }
 }
 

@@ -24,6 +24,12 @@ import {
 } from "./stage-one-store"
 import { appendLearnerEvent, createLearnerEvent } from "./storage"
 import type { LearnerMemoryStageOneOutput } from "./types"
+import { parseLearnerMemoryRegistry } from "./memory-registry-markdown"
+import { writeTextFileAtomic } from "../../../storage/atomic-file"
+import {
+  publishConsolidationGeneration,
+  withRecoveredConsolidationPublication,
+} from "./consolidation-publication"
 
 const CONSOLIDATION_TOOLS: Record<string, boolean> = {
   apply_patch: false,
@@ -76,6 +82,13 @@ const ConsolidationModelOutputSchema = z.object({
   rationale: z.string().min(1),
 })
 
+const CONSOLIDATION_STAGING_DIRECTORY_PREFIX = ".consolidation-"
+const CONSOLIDATION_STAGING_DIRECTORY_SUFFIX = ".tmp"
+const MEMORY_REGISTRY_HEADING = "# Memory Registry"
+const MEMORY_SUMMARY_HEADING = "# Memory Summary"
+const EMPTY_MEMORY_REGISTRY = `${MEMORY_REGISTRY_HEADING}\n\nNo consolidated memories yet.\n`
+const EMPTY_MEMORY_SUMMARY = `${MEMORY_SUMMARY_HEADING}\n\nNo consolidated memories yet.\n`
+
 type LearnerMemoryConsolidationResult = {
   claimed: boolean
   skippedReason?: string
@@ -85,6 +98,8 @@ type LearnerMemoryConsolidationResult = {
 
 function buildConsolidationPrompt(input: {
   directory: string
+  memoryRegistryPath: string
+  memorySummaryPath: string
   outputs: readonly LearnerMemoryStageOneOutput[]
   rawMemoriesPath: string
   rolloutSummaryPaths: readonly string[]
@@ -96,8 +111,8 @@ function buildConsolidationPrompt(input: {
 }): string {
   return [
     `Learner memory root: ${LearnerMemoryPath.root(input.directory)}`,
-    `Existing memory registry: ${LearnerMemoryPath.memoryRegistryFile(input.directory)}`,
-    `Existing memory summary: ${LearnerMemoryPath.summaryFile(input.directory)}`,
+    `Staged memory registry: ${input.memoryRegistryPath}`,
+    `Staged memory summary: ${input.memorySummaryPath}`,
     `Selected raw memories: ${input.rawMemoriesPath}`,
     "Selected rollout summaries:",
     ...(input.rolloutSummaryPaths.length > 0
@@ -112,9 +127,10 @@ function buildConsolidationPrompt(input: {
     "Action required:",
     "1. Read the selected raw memories and rollout summaries.",
     "2. Read the existing memory registry and summary when present.",
-    "3. Edit or write the memory registry and summary directly under the learner memory root.",
+    "3. Edit only the staged memory registry and staged summary paths listed above.",
     "4. Merge, update, supersede, or skip duplicates in those files. Do not rely on app-level title matching.",
-    "5. Return structured output only after the files are written.",
+    "5. Classify every candidate id exactly once as selected or rejected.",
+    "6. Return structured output only after the files are written.",
     "",
     "The selected candidate ids must be the source candidates represented in the files you wrote.",
     "The filesWritten field must include the absolute paths of the memory registry and memory summary.",
@@ -128,17 +144,28 @@ function uniqueStrings(values: readonly string[]): string[] {
 async function memoryRootPermissionPatterns(input: {
   directory: string
   worktree: string
+  editableRoot: string
 }): Promise<{ read: string[]; edit: string[]; write: string[]; externalDirectory: string[] }> {
   const memoryRoot = LearnerMemoryPath.root(input.directory)
   const realMemoryRoot = await fs.realpath(memoryRoot).catch(() => memoryRoot)
+  const realEditableRoot = await fs.realpath(input.editableRoot).catch(() => input.editableRoot)
   const read = uniqueStrings([path.join(memoryRoot, "*"), path.join(realMemoryRoot, "*")])
-  const externalDirectory = uniqueStrings([memoryRoot, realMemoryRoot, ...read])
+  const editablePatterns = uniqueStrings([
+    path.join(input.editableRoot, "*"),
+    path.join(realEditableRoot, "*"),
+  ])
+  const externalDirectory = uniqueStrings([
+    memoryRoot,
+    realMemoryRoot,
+    input.editableRoot,
+    realEditableRoot,
+    ...read,
+    ...editablePatterns,
+  ])
   const edit = uniqueStrings([
-    path.join(memoryRoot, "*"),
-    path.join(realMemoryRoot, "*"),
-    path.join(path.relative(input.worktree, memoryRoot), "*"),
-    path.join(path.relative(input.worktree, realMemoryRoot), "*"),
-    LEARNER_MEMORY_CONSOLIDATION_TUNING.memoryRootRelativePattern,
+    ...editablePatterns,
+    path.join(path.relative(input.worktree, input.editableRoot), "*"),
+    path.join(path.relative(input.worktree, realEditableRoot), "*"),
   ])
   return { read, edit, write: edit, externalDirectory }
 }
@@ -147,8 +174,7 @@ async function writeFileIfMissing(filePath: string, content: string): Promise<vo
   try {
     await fs.access(filePath)
   } catch {
-    await fs.mkdir(path.dirname(filePath), { recursive: true })
-    await fs.writeFile(filePath, content, "utf8")
+    await writeTextFileAtomic(filePath, content)
   }
 }
 
@@ -157,20 +183,120 @@ async function ensureConsolidationTargetFiles(directory: string): Promise<void> 
   await Promise.all([
     writeFileIfMissing(
       LearnerMemoryPath.memoryRegistryFile(directory),
-      "# Memory Registry\n\nNo consolidated memories yet.\n",
+      EMPTY_MEMORY_REGISTRY,
     ),
     writeFileIfMissing(
       LearnerMemoryPath.summaryFile(directory),
-      "# Memory Summary\n\nNo consolidated memories yet.\n",
+      EMPTY_MEMORY_SUMMARY,
     ),
   ])
 }
 
-async function assertConsolidationFilesExist(directory: string): Promise<void> {
-  await Promise.all([
-    fs.access(LearnerMemoryPath.memoryRegistryFile(directory)),
-    fs.access(LearnerMemoryPath.summaryFile(directory)),
+type ConsolidationStagingTargets = {
+  root: string
+  memoryRegistryPath: string
+  memorySummaryPath: string
+  baseMemoryRegistry: string
+  baseMemorySummary: string
+}
+
+async function createConsolidationStagingTargets(
+  directory: string,
+): Promise<ConsolidationStagingTargets> {
+  const root = path.join(
+    LearnerMemoryPath.root(directory),
+    `${CONSOLIDATION_STAGING_DIRECTORY_PREFIX}${ulid()}${CONSOLIDATION_STAGING_DIRECTORY_SUFFIX}`,
+  )
+  const memoryRegistryPath = path.join(
+    root,
+    path.basename(LearnerMemoryPath.memoryRegistryFile(directory)),
+  )
+  const memorySummaryPath = path.join(root, path.basename(LearnerMemoryPath.summaryFile(directory)))
+  try {
+    return await withRecoveredConsolidationPublication(directory, async () => {
+      await ensureConsolidationTargetFiles(directory)
+      const [baseMemoryRegistry, baseMemorySummary] = await Promise.all([
+        fs.readFile(LearnerMemoryPath.memoryRegistryFile(directory), "utf8"),
+        fs.readFile(LearnerMemoryPath.summaryFile(directory), "utf8"),
+      ])
+      await Promise.all([
+        writeTextFileAtomic(memoryRegistryPath, baseMemoryRegistry),
+        writeTextFileAtomic(memorySummaryPath, baseMemorySummary),
+      ])
+      return {
+        root,
+        memoryRegistryPath,
+        memorySummaryPath,
+        baseMemoryRegistry,
+        baseMemorySummary,
+      }
+    })
+  } catch (error) {
+    await fs.rm(root, { recursive: true, force: true }).catch(() => undefined)
+    throw error
+  }
+}
+
+function assertCandidateDisposition(input: {
+  outputs: readonly LearnerMemoryStageOneOutput[]
+  selectedCandidateIds: readonly string[]
+  rejectedCandidateIds: readonly string[]
+}): void {
+  const available = new Set(
+    input.outputs.flatMap((output) => output.candidatePatches.map((candidate) => candidate.id)),
+  )
+  const selected = new Set(input.selectedCandidateIds)
+  const rejected = new Set(input.rejectedCandidateIds)
+  if (
+    selected.size !== input.selectedCandidateIds.length ||
+    rejected.size !== input.rejectedCandidateIds.length
+  ) {
+    throw new Error("Memory consolidation reported duplicate candidate ids.")
+  }
+  for (const candidateID of selected) {
+    if (!available.has(candidateID) || rejected.has(candidateID)) {
+      throw new Error(`Memory consolidation reported an invalid selected candidate: ${candidateID}`)
+    }
+  }
+  for (const candidateID of rejected) {
+    if (!available.has(candidateID)) {
+      throw new Error(`Memory consolidation reported an invalid rejected candidate: ${candidateID}`)
+    }
+  }
+  if (selected.size + rejected.size !== available.size) {
+    throw new Error("Memory consolidation must classify every selected source candidate.")
+  }
+}
+
+async function validateAndPublishConsolidation(input: {
+  directory: string
+  staging: ConsolidationStagingTargets
+}): Promise<void> {
+  const [registryMarkdown, summaryMarkdown] = await Promise.all([
+    fs.readFile(input.staging.memoryRegistryPath, "utf8"),
+    fs.readFile(input.staging.memorySummaryPath, "utf8"),
   ])
+  const registry = parseLearnerMemoryRegistry(registryMarkdown)
+  if (registry.invalidBlocks.length > 0) {
+    throw new Error("Memory consolidation produced an invalid memory registry.")
+  }
+  if (registryMarkdown.split(/\r?\n/u)[0]?.trim() !== MEMORY_REGISTRY_HEADING) {
+    throw new Error("Memory consolidation produced a registry without its required heading.")
+  }
+  if (new Set(registry.memories.map((memory) => memory.id)).size !== registry.memories.length) {
+    throw new Error("Memory consolidation produced duplicate memory ids.")
+  }
+  if (summaryMarkdown.split(/\r?\n/u)[0]?.trim() !== MEMORY_SUMMARY_HEADING) {
+    throw new Error("Memory consolidation produced a summary without its required heading.")
+  }
+
+  await publishConsolidationGeneration({
+    directory: input.directory,
+    expectedRegistryMarkdown: input.staging.baseMemoryRegistry,
+    expectedSummaryMarkdown: input.staging.baseMemorySummary,
+    registryMarkdown,
+    summaryMarkdown,
+  })
 }
 
 async function resolveExistingPath(filePath: string): Promise<string> {
@@ -180,6 +306,7 @@ async function resolveExistingPath(filePath: string): Promise<string> {
 async function assertConsolidationOutputReferencesTargetFiles(input: {
   directory: string
   filesWritten: readonly string[]
+  requiredFiles: readonly string[]
 }): Promise<void> {
   const writtenFiles = new Set(
     await Promise.all(
@@ -188,12 +315,7 @@ async function assertConsolidationOutputReferencesTargetFiles(input: {
       ),
     ),
   )
-  const requiredFiles = await Promise.all(
-    [
-      LearnerMemoryPath.memoryRegistryFile(input.directory),
-      LearnerMemoryPath.summaryFile(input.directory),
-    ].map((filePath) => resolveExistingPath(filePath)),
-  )
+  const requiredFiles = await Promise.all(input.requiredFiles.map(resolveExistingPath))
   for (const requiredFile of requiredFiles) {
     if (!writtenFiles.has(requiredFile)) {
       throw new Error(`Memory consolidation did not report writing ${requiredFile}`)
@@ -205,10 +327,12 @@ async function runConsolidationSubagent(input: {
   directory: string
   model: NonNullable<Awaited<ReturnType<typeof resolveLearnerMemoryModel>>>
   prompt: string
+  editableRoot: string
 }): Promise<z.infer<typeof ConsolidationModelOutputSchema>> {
   const permissionPatterns = await memoryRootPermissionPatterns({
     directory: input.directory,
     worktree: OpenCodeInstance.worktree,
+    editableRoot: input.editableRoot,
   })
   const session = await OpenCodeSession.create({
     title: LEARNER_MEMORY_CONSOLIDATION_SESSION_TITLE,
@@ -331,6 +455,7 @@ async function runLearnerMemoryConsolidation(input: {
       console.warn("Learner memory phase-two heartbeat failed:", error)
     })
   }, LEARNER_MEMORY_CONSOLIDATION_TUNING.heartbeatIntervalMs)
+  let staging: ConsolidationStagingTargets | undefined
 
   try {
     await syncOpenCodeProjectConfig(input.directory)
@@ -360,7 +485,8 @@ async function runLearnerMemoryConsolidation(input: {
         memoryIds: [],
       }
     }
-    await ensureConsolidationTargetFiles(input.directory)
+    const activeStaging = await createConsolidationStagingTargets(input.directory)
+    staging = activeStaging
 
     const model = await OpenCodeInstance.provide({
       directory: input.directory,
@@ -390,8 +516,11 @@ async function runLearnerMemoryConsolidation(input: {
         runConsolidationSubagent({
           directory: input.directory,
           model,
+          editableRoot: activeStaging.root,
           prompt: buildConsolidationPrompt({
             directory: input.directory,
+            memoryRegistryPath: activeStaging.memoryRegistryPath,
+            memorySummaryPath: activeStaging.memorySummaryPath,
             outputs,
             rawMemoriesPath: artifacts.rawMemoriesPath,
             rolloutSummaryPaths: artifacts.rolloutSummaryPaths,
@@ -400,14 +529,25 @@ async function runLearnerMemoryConsolidation(input: {
         }),
     })
     await assertConsolidationOutputReferencesTargetFiles({
-      directory: input.directory,
+      directory: activeStaging.root,
       filesWritten: parsed.filesWritten,
+      requiredFiles: [activeStaging.memoryRegistryPath, activeStaging.memorySummaryPath],
     })
-    await assertConsolidationFilesExist(input.directory)
+    assertCandidateDisposition({
+      outputs,
+      selectedCandidateIds: parsed.selectedCandidateIds,
+      rejectedCandidateIds: parsed.rejectedCandidateIds,
+    })
+    await validateAndPublishConsolidation({
+      directory: input.directory,
+      staging: activeStaging,
+    })
     await recordSelectedCandidateUsage({
       directory: input.directory,
       outputs,
       selectedCandidateIds: parsed.selectedCandidateIds,
+    }).catch((error) => {
+      console.warn("Failed to record consolidated learner-memory candidate usage:", error)
     })
     await markLearnerMemoryPhaseTwoJobSucceeded({
       directory: input.directory,
@@ -429,8 +569,15 @@ async function runLearnerMemoryConsolidation(input: {
     throw error
   } finally {
     clearInterval(heartbeat)
+    if (staging) {
+      await fs.rm(staging.root, { recursive: true, force: true }).catch(() => undefined)
+    }
   }
 }
 
-export { runLearnerMemoryConsolidation }
-export type { LearnerMemoryConsolidationResult }
+export {
+  createConsolidationStagingTargets,
+  runLearnerMemoryConsolidation,
+  validateAndPublishConsolidation,
+}
+export type { ConsolidationStagingTargets, LearnerMemoryConsolidationResult }

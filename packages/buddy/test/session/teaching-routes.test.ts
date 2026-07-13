@@ -5,6 +5,31 @@ import { writeProjectConfig } from "../helpers/project-config"
 import { createGitRepo } from "../helpers/repo"
 
 describe("teaching routes", () => {
+  test("serializes saves that use the same lesson revision", async () => {
+    const repo = createGitRepo("buddy-route-teaching-concurrent-saves")
+    const sessionID = "session_concurrent_saves"
+    const initial = await TeachingService.ensure(repo, sessionID, "ts")
+
+    const results = await Promise.allSettled([
+      TeachingService.save(repo, sessionID, {
+        code: "export const winner = 1\n",
+        expectedRevision: initial.revision,
+        relativePath: initial.activeRelativePath,
+      }),
+      TeachingService.save(repo, sessionID, {
+        code: "export const winner = 2\n",
+        expectedRevision: initial.revision,
+        relativePath: initial.activeRelativePath,
+      }),
+    ])
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1)
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1)
+    const current = await TeachingService.read(repo, sessionID)
+    expect(current.revision).toBe(initial.revision + 1)
+    expect(["export const winner = 1\n", "export const winner = 2\n"]).toContain(current.code)
+  })
+
   test("returns 400 for invalid project config when starting a workspace", async () => {
     const repo = createGitRepo("buddy-route-teaching-invalid-config")
     writeProjectConfig(

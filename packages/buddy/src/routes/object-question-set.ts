@@ -1,7 +1,15 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
-import { directoryQuerySchema, routeErrors, runRouteTask, withDirectoryRoute } from "../http"
+import {
+  directoryQuerySchema,
+  IDEMPOTENCY_KEY_HEADER,
+  idempotencyHeaderSchema,
+  mapIdempotencyRouteError,
+  routeErrors,
+  runRouteTask,
+  withDirectoryRoute,
+} from "../http"
 import { BuddyObjectIDSchema, mapBuddyObjectRouteError } from "../objects"
 import {
   PublicQuestionSetObjectReadSchema,
@@ -28,7 +36,7 @@ const SubmitQuestionSetObjectAttemptOutputSchema = z
   .strict()
 
 function mapQuestionSetObjectRouteError(error: unknown): Response | undefined {
-  return mapBuddyObjectRouteError(error)
+  return mapIdempotencyRouteError(error) ?? mapBuddyObjectRouteError(error)
 }
 
 export const ObjectQuestionSetRoutes = new Hono()
@@ -80,22 +88,25 @@ export const ObjectQuestionSetRoutes = new Hono()
             },
           },
         },
-        ...routeErrors(400, 403, 404, 410, 500),
+        ...routeErrors(400, 403, 404, 409, 410, 500),
       },
     }),
     validator("query", directoryQuerySchema),
     validator("param", objectIDParamSchema),
+    validator("header", idempotencyHeaderSchema),
     validator("json", SubmitQuestionSetAttemptInputSchema),
     async (c) =>
       withDirectoryRoute(c, async (context) =>
         runRouteTask({
           task: async () => {
             const params = c.req.valid("param")
+            const submissionID = c.req.valid("header")[IDEMPOTENCY_KEY_HEADER]
             const payload = c.req.valid("json")
             const result = await submitQuestionSetObjectAttempt({
               directory: context.directory,
               objectID: params.objectID,
               answers: payload.answers,
+              submissionID,
             })
             return c.json(SubmitQuestionSetObjectAttemptOutputSchema.parse(result))
           },
