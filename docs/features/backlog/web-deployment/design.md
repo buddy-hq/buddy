@@ -33,7 +33,7 @@ The desired user experience is:
    - This does not mean deployment credentials must be stored in the same LLM-provider auth namespace.
 
 2. Agent-discovered CLI login is a fallback.
-   - If the user explicitly asks the agent to log in, or the provider is not connected in Buddy, the agent may run `npx netlify login` or `npx vercel login`.
+   - If the user explicitly asks the agent to log in, or the provider is not connected in Buddy, the agent may run the pinned provider CLI's normal login flow in explicit ambient mode.
    - Deployments that rely on ambient CLI login are valid but unmanaged by Buddy.
 
 3. Buddy-managed provider state is separate from ambient CLI state.
@@ -60,11 +60,10 @@ The desired user experience is:
    - Store Netlify and Vercel credentials in a Buddy-owned local credential store for deployment providers.
    - Keep deployment credentials separate from the existing LLM provider auth model unless that model is intentionally generalized.
    - Tokens should never be written into prompts, transcripts, skills, widget source, deployment records, or logs.
-   - Deploy runs should receive tokens only through child-process environment variables such as `NETLIFY_AUTH_TOKEN` or `VERCEL_TOKEN`.
-   - Token injection should be scoped to agent sessions or shell commands where deployment auth is intentionally enabled, not the whole Buddy app process.
+   - The actual provider CLI child should receive tokens only through its environment, using bindings such as `NETLIFY_AUTH_TOKEN` or `VERCEL_TOKEN`.
+   - The general agent shell should receive only a short-lived, single-use credential lease bound to one prepared deployment run, never the token itself.
    - The agent should learn whether a provider is connected from Buddy's non-secret session hint and enabled skills, not from inspecting token values.
-   - Once a token is injected into a shell environment, the agent can technically inspect it. Buddy should not pretend this is preventable.
-   - The practical boundary is: do not put token values in model-visible hints, redact known token values from command output, and inject them only when deployment auth is intentionally enabled for the session or command.
+   - The launcher should restrict managed auth to the prepared static deployment, reject arbitrary CLI commands and paths, and redact known token values from command output.
    - Stored account metadata can be non-secret: provider, account/team label, user email when available, scopes when useful, and timestamps.
 
 7. Generated widgets are the first product target.
@@ -82,7 +81,7 @@ In scope:
 - A lightweight deployment router skill.
 - Conditional enablement of existing Netlify and Vercel deployment skills.
 - Session hinting for connected deployment providers.
-- CLI-based deployment from generated widgets or small web apps.
+- CLI-based deployment from Buddy-managed HTML widgets in V1.
 - Agent-initiated deployment from chat.
 - Optional deploy request UI that sends structured instructions into the agent flow.
 - Deployment result display with the published URL.
@@ -95,17 +94,23 @@ Out of scope for this design brief:
 - A first-class provider deploy API.
 - A deploy button that bypasses the agent, provider skills, or provider CLI workflow.
 - Team/project/site management beyond the minimum needed to deploy.
-- Choosing the final credential storage implementation.
-- A detailed implementation plan.
 
-## Open Questions
+## Resolved Planning Questions
 
-- Should Buddy offer an explicit "import existing CLI login" action?
-- Should unmanaged CLI deployments appear in the same deployment history as Buddy-managed deployments?
-- Should v1 support both Netlify and Vercel, or start with Netlify static widget deployment first?
-- What is the smallest useful deployment record for a widget: provider, URL, timestamp, and auth mode?
-- Should deployment credentials use the existing OpenCode `auth.json` mechanism, a new Buddy-only file with strict permissions, or OS keychain storage?
+- V1 supports both Netlify and Vercel.
+- Existing global CLI login is not imported in V1. Explicit ambient-CLI
+  deployments remain available as an unmanaged fallback.
+- Managed and ambient-CLI successes share one deployment history and identify
+  their auth mode.
+- Deployment records include provider, object and source version, intent, URL,
+  provider identifiers when available, auth mode, origin, and timestamp.
+- Deployment credentials use a new provider-neutral Buddy store encrypted by a
+  master key protected with Electron `safeStorage`; they do not use OpenCode's
+  LLM-provider auth namespace.
 
 ## Implementation Boundary
 
-This file is a design brief only. Implementation details should live in a separate implementation document if this backlog item moves forward.
+This file is the product design brief. The proposed repository architecture,
+provider feasibility decisions, delivery phases, tests, and acceptance criteria
+live in [implementation-plan.md](./implementation-plan.md). Implementation has
+not started.
