@@ -45,3 +45,35 @@ The command also removes dev-only macOS caches, cookies, HTTP storage, logs, pre
 User notebook files are documents rather than application state and are intentionally preserved, including notebooks under `~/Documents/Buddy`.
 
 Before rebuilding, the command removes the gitignored `packages/desktop-electron/dist` directory so installers and unpacked applications from older builds cannot accumulate. After installation succeeds, it removes intermediate and duplicated packaging output and keeps only the current DMG at `packages/desktop-electron/dist/buddy-v<version>-macos-<architecture>.dmg`.
+
+## Reset the local macOS production install
+
+From the repository root:
+
+```bash
+bun run cleanup:mac:preview
+bun run cleanup:mac:stable
+```
+
+Or with an explicit kind / tag:
+
+```bash
+bun run cleanup:mac -- preview
+bun run cleanup:mac -- stable
+bun run cleanup:mac -- preview v0.0.50
+```
+
+This is a factory reset for production Buddy (`ai.buddy.desktop` / `Buddy.app`). It validates and fully stages the chosen GitHub release before quitting the app or deleting production state, installs the staged app, and opens it.
+
+- `preview` installs the latest published Preview prerelease
+- `stable` installs the latest stable release
+- Preview and stable reinstall the same production app identity and shared state; only the release channel differs
+
+Removed production roots include:
+
+- `/Applications/Buddy.app` (or `$BUDDY_INSTALL_DIR`)
+- `~/Library/Application Support/ai.buddy.desktop` and related caches, logs, preferences, WebKit, and temp updater state
+- `~/.buddy`
+- `~/.local/share/buddy`, `~/.cache/buddy`, `~/.local/state/buddy`
+
+Requires `gh` authenticated against the releases repo. Preserves Buddy Dev (`ai.buddy.desktop.dev`) and notebook documents under `~/Documents/Buddy`.

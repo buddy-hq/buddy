@@ -131,6 +131,9 @@
     "install:release": "bash ./script/install-release.sh",
     "cleanup:windows": "powershell -ExecutionPolicy Bypass -File ./scripts/cleanup-buddy-windows.ps1",
     "cleanup:dev:mac": "bash ./scripts/cleanup-buddy-dev-macos.sh",
+    "cleanup:mac": "bash ./scripts/cleanup-buddy-macos.sh",
+    "cleanup:mac:preview": "bash ./scripts/cleanup-buddy-macos.sh preview",
+    "cleanup:mac:stable": "bash ./scripts/cleanup-buddy-macos.sh stable",
     "cfmt": "bun fmt && git add . && git commit -m 'chore: run formatter' && git push"
   },
   "dependencies": {
