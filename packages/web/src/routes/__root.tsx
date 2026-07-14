@@ -12,6 +12,10 @@ import {
   isBenchRoutePathname,
   readBenchChatLayoutMode,
 } from "@/lib/bench-navigation"
+import {
+  createDesktopUpdateNotificationTracker,
+  type DesktopUpdateNotificationTracker,
+} from "@/lib/desktop-update-notification-tracker"
 import { showDesktopUpdateProgressToast, showDesktopUpdateToast } from "../lib/desktop-updates"
 
 const RELEASE_UPDATE_POLL_INTERVAL_MS = 10 * 60 * 1000
@@ -28,7 +32,11 @@ function readSearchParam(search: unknown, key: string): unknown {
 
 function ReleaseUpdateWatcher() {
   const platform = usePlatform()
-  const shownRef = useRef(false)
+  const notificationTrackerRef = useRef<DesktopUpdateNotificationTracker | null>(null)
+  if (notificationTrackerRef.current === null) {
+    notificationTrackerRef.current = createDesktopUpdateNotificationTracker()
+  }
+  const notificationTracker = notificationTrackerRef.current
 
   useEffect(() => {
     if (!platform.checkUpdate || !platform.update || !platform.restart) return
@@ -46,17 +54,19 @@ function ReleaseUpdateWatcher() {
       const next = await platform.checkUpdate?.().catch(() => null)
       checking = false
 
-      if (cancelled || next?.status !== "ready" || shownRef.current) return
+      if (cancelled || next?.status !== "ready") return
 
-      shownRef.current = true
+      const notification = notificationTracker.begin(next.version)
+      if (!notification) return
+
       showDesktopUpdateToast({
         platform,
-        version: next.version,
+        version: notification.version,
         onDeferred: () => {
-          shownRef.current = false
+          notificationTracker.clear(notification)
         },
         onInstallFailed: () => {
-          shownRef.current = false
+          notificationTracker.clear(notification)
         },
       })
     }
@@ -84,7 +94,7 @@ function ReleaseUpdateWatcher() {
       window.removeEventListener("focus", pollWhenVisible)
       document.removeEventListener("visibilitychange", pollWhenVisible)
     }
-  }, [platform])
+  }, [notificationTracker, platform])
 
   useEffect(() => {
     if (!platform.onUpdateProgress) return
