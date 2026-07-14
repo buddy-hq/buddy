@@ -50,7 +50,7 @@ MDX is a superset of Markdown: everything Markdown can do, MDX can do, plus more
 
 Use plain `.md` only when the teacher specifically asks for Markdown.
 
-To see exactly what the Bench mdx surface supports and how to use each feature, read `references/buddy-mdx-support.md`. In short, it covers headings, lists, tables, links, code blocks, rendered math, rendered Mermaid diagrams, callout blocks for teacher notes and checks for understanding, YAML frontmatter, images, safe HTML for cards/grids/timelines, and inline safe SVG for labeled diagrams and printable visuals. Custom JSX/MDX components are preserved but shown inertly — they will not execute as code. If the teacher wants something genuinely interactive or application-like, that is a different surface; let them know and use Buddy's HTML widgets for that instead.
+To see exactly what the Bench mdx surface supports and how to use each feature, read `references/buddy-mdx-support.md` (includes a worked `render_svg` → MDX image example). In short, it covers headings, lists, tables, links, code blocks, rendered math, rendered Mermaid and chemistry fences, callout blocks for teacher notes and checks for understanding, YAML frontmatter, images, safe HTML for cards/grids/timelines, and inline safe SVG for labeled diagrams and printable visuals. Prefer native chemistry fences when the visual can remain in MDX. Use `render_svg` only when the resource or export needs an actual standalone SVG file; reference the resulting file from MDX and keep its accessibility text at the usage site. After the file exists, you can manually edit the SVG or the image markup to make it larger or smaller when the teacher asks—do not re-run `render_svg` for size-only tweaks. Custom JSX/MDX components are preserved but shown inertly — they will not execute as code. If the teacher wants something genuinely interactive or application-like, that is a different surface; let them know and use Buddy's HTML widgets for that instead.
 
 ### Export and convert
 
@@ -212,6 +212,8 @@ Use combinations when the user is building a real classroom packet:
 Use `learning-design-frameworks` when the user needs a design lens or audit question: alignment, rigor, access, learner variability, formative evidence, metacognition, classroom culture, or technology use.
 
 Use `teaching-models` when the user needs Buddy to choose a concrete way to teach in the moment, especially after confusion, boredom, or a failed explanation.
+
+Use `teach-chemistry` when the artifact (or in-session explanation) needs chemistry equations, structure fences, reaction schemes, or `render_svg` chemistry file assets—display rules and format contracts live there; this skill owns Bench MDX resource workflow.
 
 Use this skill when the result should be an artifact or a review of an artifact.
 
