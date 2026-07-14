@@ -78,6 +78,7 @@ export function showDesktopUpdateProgressToast(args: {
       })
       return
     case "downloading":
+      toast.dismiss(UPDATE_READY_TOAST_ID)
       toast(language.t("desktopUpdates.downloadingTitle"), {
         id: UPDATE_PROGRESS_TOAST_ID,
         description: updateProgressDescription(args.progress),
@@ -93,12 +94,16 @@ export function showDesktopUpdateProgressToast(args: {
       })
       return
     case "error":
+      if (args.progress.version !== undefined) {
+        toast.dismiss(UPDATE_READY_TOAST_ID)
+      }
       toast.dismiss(UPDATE_PROGRESS_TOAST_ID)
       return
     case "ready":
       toast.dismiss(UPDATE_PROGRESS_TOAST_ID)
       return
     case "idle":
+      toast.dismiss(UPDATE_READY_TOAST_ID)
       toast.dismiss(UPDATE_PROGRESS_TOAST_ID)
       return
   }

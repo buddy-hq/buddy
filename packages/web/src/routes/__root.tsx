@@ -99,9 +99,17 @@ function ReleaseUpdateWatcher() {
   useEffect(() => {
     if (!platform.onUpdateProgress) return
     return platform.onUpdateProgress((progress) => {
+      if (
+        progress.status === "downloading" ||
+        progress.status === "idle" ||
+        progress.status === "installing" ||
+        (progress.status === "error" && progress.version !== undefined)
+      ) {
+        notificationTracker.reset()
+      }
       showDesktopUpdateProgressToast({ progress })
     })
-  }, [platform])
+  }, [notificationTracker, platform])
 
   return null
 }

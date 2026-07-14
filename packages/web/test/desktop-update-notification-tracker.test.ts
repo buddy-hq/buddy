@@ -32,4 +32,13 @@ describe("desktop update notification tracker", () => {
       version: REPLACEMENT_UPDATE_VERSION,
     })
   })
+
+  test("allows the same version to be shown after readiness is invalidated", () => {
+    const tracker = createDesktopUpdateNotificationTracker()
+    expect(tracker.begin(FIRST_UPDATE_VERSION)).toEqual({ version: FIRST_UPDATE_VERSION })
+
+    tracker.reset()
+
+    expect(tracker.begin(FIRST_UPDATE_VERSION)).toEqual({ version: FIRST_UPDATE_VERSION })
+  })
 })

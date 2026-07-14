@@ -5,6 +5,7 @@ export type DesktopUpdateNotification = {
 export type DesktopUpdateNotificationTracker = {
   begin: (version: string | undefined) => DesktopUpdateNotification | undefined
   clear: (notification: DesktopUpdateNotification) => void
+  reset: () => void
 }
 
 export function createDesktopUpdateNotificationTracker(): DesktopUpdateNotificationTracker {
@@ -24,6 +25,9 @@ export function createDesktopUpdateNotificationTracker(): DesktopUpdateNotificat
       if (activeNotification === notification) {
         activeNotification = null
       }
+    },
+    reset() {
+      activeNotification = null
     },
   }
 }
