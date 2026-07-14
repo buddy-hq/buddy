@@ -1,6 +1,16 @@
 ---
 import BuddyWorkspaceMock from "./BuddyWorkspaceMock.astro"
+import type { Audience } from "../content/site"
 import { content } from "../content/site"
+import { AUDIENCE_EDUCATORS, AUDIENCE_LEARNERS } from "../lib/constants"
+
+type Props = {
+  initialAudience?: Audience
+}
+
+const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
+const LearnerHeading = initialAudience === AUDIENCE_LEARNERS ? "h1" : "h2"
+const EducatorHeading = initialAudience === AUDIENCE_EDUCATORS ? "h1" : "h2"
 ---
 
 <section class="hero animate-in" data-analytics-section="hero">
@@ -9,22 +19,22 @@ import { content } from "../content/site"
 
     <!-- Hero Header -->
     <div class="hero-header-section">
-      <div class="swap swap-content swap-audience-learners active">
-        <h1 class="hero-title">
+      <div class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>
+        <LearnerHeading class="hero-title">
           {content.learners.hero.headlineLines[0]}<br />
           {content.learners.hero.headlineLines[1]}
-        </h1>
+        </LearnerHeading>
         <div class="hero-header-row">
           <div class="hero-header-left">
             <p class="hero-subtitle">{content.learners.hero.subtext}</p>
           </div>
         </div>
       </div>
-      <div class="swap swap-content swap-audience-educators">
-        <h2 class="hero-title">
+      <div class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
+        <EducatorHeading class="hero-title">
           {content.educators.hero.headlineLines[0]}<br />
           {content.educators.hero.headlineLines[1]}
-        </h2>
+        </EducatorHeading>
         <div class="hero-header-row">
           <div class="hero-header-left">
             <p class="hero-subtitle">{content.educators.hero.subtext}</p>

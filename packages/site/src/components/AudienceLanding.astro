@@ -1,0 +1,43 @@
+---
+import type { Audience } from "../content/site"
+import { content } from "../content/site"
+import Landing from "../layouts/Landing.astro"
+import BringYourOwn from "./BringYourOwn.astro"
+import CapabilitiesSection from "./CapabilitiesSection.astro"
+import Footer from "./Footer.astro"
+import Header from "./Header.astro"
+import Hero from "./Hero.astro"
+import InstallSection from "./InstallSection.astro"
+import PhilosophyNew from "./PhilosophyNew.astro"
+import FeatureSteps from "./features/FeatureSteps.astro"
+
+type Props = {
+  audience: Audience
+}
+
+const { audience } = Astro.props
+const seo = content[audience].seo
+---
+
+<Landing
+  title={seo.title}
+  description={seo.description}
+  ogImagePath={seo.ogImagePath}
+  ogImageAlt={seo.ogImageAlt}
+>
+  <Header initialAudience={audience} />
+  <main>
+    <Hero initialAudience={audience} />
+    <hr />
+    <PhilosophyNew initialAudience={audience} />
+    <hr style="max-width: 100%" />
+    <FeatureSteps initialAudience={audience} />
+    <hr />
+    <CapabilitiesSection />
+    <hr />
+    <BringYourOwn />
+    <hr />
+    <InstallSection initialAudience={audience} />
+  </main>
+  <Footer />
+</Landing>

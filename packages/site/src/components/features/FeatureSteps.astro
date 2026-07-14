@@ -1,5 +1,7 @@
 ---
+import type { Audience } from "../../content/site"
 import { content } from "../../content/site"
+import { AUDIENCE_EDUCATORS, AUDIENCE_LEARNERS } from "../../lib/constants"
 import LearnerReadMock from "./mocks/LearnerReadMock.astro"
 import LearnerPlayMock from "./mocks/LearnerPlayMock.astro"
 import LearnerDrawMock from "./mocks/LearnerDrawMock.astro"
@@ -17,6 +19,12 @@ const educatorsSteps = content.educators.features
 const learnersHeader = content.learners.featuresHeader
 const educatorsHeader = content.educators.featuresHeader
 const toAnalyticsKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "")
+
+type Props = {
+  initialAudience?: Audience
+}
+
+const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
 ---
 
 <section class="features-section" data-analytics-section="features">
@@ -38,18 +46,18 @@ const toAnalyticsKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]
             <div class="bookend-card-body">
               <div class="bookend-card-left">
                 <div class="step-tag-wrapper">
-                  <span class="step-tag swap swap-content swap-audience-learners active">{learnerStep.tag}</span>
-                  <span class="step-tag swap swap-content swap-audience-educators">{educatorStep.tag}</span>
+                  <span class:list={["step-tag swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>{learnerStep.tag}</span>
+                  <span class:list={["step-tag swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>{educatorStep.tag}</span>
                 </div>
                 
                 <!-- Learners Content -->
-                <div class="swap swap-content swap-audience-learners active">
+                <div class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>
                   <h3 class="step-title">{learnerStep.title}</h3>
                   <p class="step-desc">{learnerStep.subtext}</p>
                 </div>
 
                 <!-- Educators Content -->
-                <div class="swap swap-content swap-audience-educators">
+                <div class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
                   <h3 class="step-title">{educatorStep.title}</h3>
                   <p class="step-desc">{educatorStep.subtext}</p>
                 </div>
@@ -58,7 +66,7 @@ const toAnalyticsKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]
                 <div class="sticky-mockup-wrapper">
                   <div class="mockup-viewport">
                     <!-- Learners Mocks -->
-                    <div class="swap swap-content swap-audience-learners active">
+                    <div class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>
                       {i === 0 && <LearnerReadMock />}
                       {i === 1 && <LearnerPlayMock />}
                       {i === 2 && <LearnerDrawMock />}
@@ -67,7 +75,7 @@ const toAnalyticsKey = (value: string) => value.toLowerCase().replace(/[^a-z0-9]
                     </div>
 
                     <!-- Educators Mocks -->
-                    <div class="swap swap-content swap-audience-educators">
+                    <div class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
                       {i === 0 && <EducatorAlignMock />}
                       {i === 1 && <EducatorPlanMock />}
                       {i === 2 && <EducatorCreateMock />}

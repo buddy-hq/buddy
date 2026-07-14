@@ -1,9 +1,21 @@
 ---
 import { Image } from "astro:assets"
+import type { Audience } from "../content/site"
 import { content } from "../content/site"
 import buddyAppIcon from "../assets/buddy-app-icon.png"
+import {
+  AUDIENCE_EDUCATORS,
+  AUDIENCE_LEARNERS,
+  EDUCATOR_PATH,
+  LEARNER_PATH,
+} from "../lib/constants"
+
+type Props = {
+  initialAudience?: Audience
+}
 
 const { header: headerContent } = content
+const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
 ---
 
 <header>
@@ -21,8 +33,22 @@ const { header: headerContent } = content
 
     <!-- Restored Audience Selector Toggle -->
     <div class="audience-toggle" role="tablist" aria-label="Select audience">
-      <button class="audience-toggle-btn active" role="tab" aria-selected="true" data-audience="learners">{headerContent.audienceLearnersLabel}</button>
-      <button class="audience-toggle-btn" role="tab" aria-selected="false" data-audience="educators">{headerContent.audienceEducatorsLabel}</button>
+      <button
+        class:list={["audience-toggle-btn", { active: initialAudience === AUDIENCE_LEARNERS }]}
+        type="button"
+        role="tab"
+        aria-selected={initialAudience === AUDIENCE_LEARNERS}
+        data-audience={AUDIENCE_LEARNERS}
+        data-audience-path={LEARNER_PATH}
+      >{headerContent.audienceLearnersLabel}</button>
+      <button
+        class:list={["audience-toggle-btn", { active: initialAudience === AUDIENCE_EDUCATORS }]}
+        type="button"
+        role="tab"
+        aria-selected={initialAudience === AUDIENCE_EDUCATORS}
+        data-audience={AUDIENCE_EDUCATORS}
+        data-audience-path={EDUCATOR_PATH}
+      >{headerContent.audienceEducatorsLabel}</button>
     </div>
     
     <div class="nav-actions">
@@ -223,18 +249,18 @@ const { header: headerContent } = content
     })
   }
 
-  // Audience toggle — sync toggle buttons + swap all audience content
-  const audienceLearners = "learners"
-  const audienceEducators = "educators"
+  // Audience toggle — navigate so URL, metadata, headings, and content stay in sync.
   const audienceBtns = document.querySelectorAll(".audience-toggle-btn")
   audienceBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
       const target = btn.getAttribute("data-audience")
-      if (target !== audienceLearners && target !== audienceEducators) return
+      const targetPath = btn.getAttribute("data-audience-path")
+      if (!target || !targetPath) return
       if (btn.classList.contains("active")) return
-      const previousAudience =
-        document.querySelector(".audience-toggle-btn.active")?.getAttribute("data-audience") ??
-        audienceLearners
+      const previousAudience = document
+        .querySelector(".audience-toggle-btn.active")
+        ?.getAttribute("data-audience")
+      if (!previousAudience) return
 
       window.dispatchEvent(
         new CustomEvent("buddy:audience-changing", {
@@ -245,19 +271,6 @@ const { header: headerContent } = content
           },
         }),
       )
-
-      audienceBtns.forEach((b) => {
-        b.classList.remove("active")
-        b.setAttribute("aria-selected", "false")
-      })
-      document.querySelectorAll(`.audience-toggle-btn[data-audience="${target}"]`).forEach((b) => {
-        b.classList.add("active")
-        b.setAttribute("aria-selected", "true")
-      })
-
-      const inactive = target === audienceLearners ? audienceEducators : audienceLearners
-      document.querySelectorAll(`.swap-audience-${inactive}`).forEach((el) => el.classList.remove("active"))
-      document.querySelectorAll(`.swap-audience-${target}`).forEach((el) => el.classList.add("active"))
 
       window.dispatchEvent(
         new CustomEvent("buddy:analytics", {
@@ -271,6 +284,8 @@ const { header: headerContent } = content
           },
         }),
       )
+
+      window.location.assign(targetPath)
     })
   })
 
