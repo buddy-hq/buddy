@@ -137,8 +137,9 @@ function formatBoardDate(now: Date) {
 
 export function ChatEmptyStateBoard(props: ChatEmptyStateBoardProps) {
   const isInbox = isInboxDirectory(props.directory)
-  const headline =
-    props.persona === "teaching-buddy"
+  const headline = isInbox
+    ? language.t("chat.emptyState.inboxTitle")
+    : props.persona === "teaching-buddy"
       ? language.t("chat.emptyState.teachTitle")
       : language.t("chat.emptyState.title")
   const boardDate = useMemo(() => formatBoardDate(new Date()), [])

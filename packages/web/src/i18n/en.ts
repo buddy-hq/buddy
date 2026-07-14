@@ -16,6 +16,7 @@ export const dict = {
   "actions.goHome": "Go Home",
   "chat.emptyState.inboxHint":
     "Use Inbox for quick chats and loose notes. Create notebooks for dedicated spaces.",
+  "chat.emptyState.inboxTitle": "Ask me anything",
   "chat.emptyState.notebookHint":
     "Start a new thread here, or create another notebook from the sidebar when you want a separate space.",
   "chat.emptyState.title": "Let's understand",
