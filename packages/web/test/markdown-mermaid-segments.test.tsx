@@ -68,6 +68,21 @@ describe("markdown mermaid segments", () => {
     expect(canContainMermaidBlock("Before\n   ```mermaid\ngraph TD\nA-->B\n   ```")).toBe(true)
   })
 
+  test("preserves line endings while applying CommonMark fence indentation", () => {
+    const segments = parseMarkdownSegments(
+      "   ```mermaid\r\n   graph TD\r\n  A-->B\r\n   ```",
+    )
+
+    expect(segments).toEqual([
+      {
+        kind: "mermaid",
+        source: "graph TD\r\nA-->B",
+        raw: "   ```mermaid\r\n   graph TD\r\n  A-->B\r\n   ```",
+        segmentIndex: 0,
+      },
+    ])
+  })
+
   test("keeps unclosed mermaid fences in html output", () => {
     const segments = parseMarkdownSegments("Start\n```mermaid\ngraph TD\nA-->B")
 

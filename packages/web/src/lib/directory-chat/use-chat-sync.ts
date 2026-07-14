@@ -29,6 +29,10 @@ import {
 import { useNotifications } from "@/state/notifications"
 import { useNotificationPreferences } from "@/state/notification-preferences"
 import { getModelSelectionScopeKey, useModelSelectionStore } from "@/state/model-selection-store"
+import {
+  readBrowserSvgRenderRequestEvent,
+  synchronizeBrowserSvgRenderRequests,
+} from "@/lib/browser-svg-render-requests"
 import { IDLE_SESSION_STATUS, normalizeSessionStatusValue } from "@/state/session-status"
 import { invalidateReferenceList } from "@/state/reference-query"
 import { refetchActiveWorkspaceObjectQueries } from "@/state/workspace-objects-query"
@@ -257,6 +261,9 @@ export function useChatSync(props: UseChatSyncProps) {
       onStatus(status) {
         setStreamStatus(status)
         if (status === "connected") {
+          void synchronizeBrowserSvgRenderRequests(decodedDirectory).catch((error: unknown) => {
+            console.error("Failed to recover pending browser SVG renders", error)
+          })
           if (hasConnected && shouldRecoverOnReconnect && decodedDirectory !== "/") {
             shouldRecoverOnReconnect = false
             void resyncDirectoryAfterReconnect(decodedDirectory)
@@ -282,6 +289,16 @@ export function useChatSync(props: UseChatSyncProps) {
         }
 
         const payload = event.payload
+        const svgRenderRequestID = readBrowserSvgRenderRequestEvent(payload)
+        if (svgRenderRequestID) {
+          void synchronizeBrowserSvgRenderRequests(directory).catch((error: unknown) => {
+            console.error(
+              `Failed to synchronize browser SVG render ${svgRenderRequestID}`,
+              error,
+            )
+          })
+          return
+        }
         const benchLease = readBenchClientLeaseEvent(payload)
         if (benchLease) {
           onBenchClientLease?.(benchLease)

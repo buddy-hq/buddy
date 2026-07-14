@@ -65,6 +65,11 @@ import { resolveMarkdownBenchImageSrc } from "@/lib/markdown-bench-image-src"
 import { BUDDY_CODE_MIRROR_EXTENSIONS } from "@/components/bench/markdown-bench-code-theme"
 import { buddyMathPlugin } from "@/components/bench/markdown-bench-math-plugin"
 import {
+  MarkdownBenchChemistryViewProvider,
+  buddyChemistryPlugin,
+  type MarkdownBenchChemistryViewOptions,
+} from "@/components/bench/markdown-bench-chemistry-plugin"
+import {
   MarkdownBenchMermaidViewProvider,
   buddyMermaidPlugin,
   type MarkdownBenchMermaidViewOptions,
@@ -579,6 +584,14 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       }
     }, [props.contentTheme])
     const isPrintView = props.contentTheme?.mode === "print"
+    const chemistryViewOptions = useMemo<MarkdownBenchChemistryViewOptions>(
+      () => ({
+        directory: props.directory,
+        documentPath: props.path,
+        presentation: isPrintView ? "static" : "interactive",
+      }),
+      [isPrintView, props.directory, props.path],
+    )
     const fallbackObsidianWikiLinkContext = useMemo<ObsidianWikiLinkContext>(
       () => ({
         directory: props.directory,
@@ -670,6 +683,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         thematicBreakPlugin(),
         buddyMathPlugin(),
         buddyMermaidPlugin(),
+        buddyChemistryPlugin(),
         buddyObsidianWikiLinkPlugin({ context: obsidianWikiLinkContext }),
         linkPlugin(),
         linkDialogPlugin({
@@ -868,21 +882,23 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
         <style data-markdown-bench-mdx-popup-layer-style data-markdown-export-ignore>
           {MARKDOWN_BENCH_MDX_POPUP_LAYER_CSS}
         </style>
-        {mermaidViewOptions ? (
-          <MarkdownBenchMermaidViewProvider value={mermaidViewOptions}>
+        <MarkdownBenchChemistryViewProvider value={chemistryViewOptions}>
+          {mermaidViewOptions ? (
+            <MarkdownBenchMermaidViewProvider value={mermaidViewOptions}>
+              <MarkdownBenchIntrinsicScope
+                value={{ directory: props.directory, documentPath: props.path }}
+              >
+                {mdxEditorElement}
+              </MarkdownBenchIntrinsicScope>
+            </MarkdownBenchMermaidViewProvider>
+          ) : (
             <MarkdownBenchIntrinsicScope
               value={{ directory: props.directory, documentPath: props.path }}
             >
               {mdxEditorElement}
             </MarkdownBenchIntrinsicScope>
-          </MarkdownBenchMermaidViewProvider>
-        ) : (
-          <MarkdownBenchIntrinsicScope
-            value={{ directory: props.directory, documentPath: props.path }}
-          >
-            {mdxEditorElement}
-          </MarkdownBenchIntrinsicScope>
-        )}
+          )}
+        </MarkdownBenchChemistryViewProvider>
       </div>
     )
   },

@@ -1,11 +1,14 @@
 import { memo } from "react"
 import { Markdown } from "@/components/markdown/Markdown"
 import type { MarkdownMermaidContext } from "@/components/markdown/Markdown"
+import type { MarkdownChemistryContext } from "@/components/markdown/Markdown"
 import { CopyAction } from "../../copy-action"
 import { useAdaptiveStreamingText } from "../../hooks/use-streaming-text"
 import { cn } from "@buddy/ui"
 import type { WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
+import { useTranscriptMessage } from "@/state/transcript-repository"
 import type { ChatTextPart } from "../../utils/part-guards"
+import { isSvgAutoRepairAssistantMessage } from "../../utils/message-visibility"
 
 type AssistantTextPartProps = {
   part: ChatTextPart
@@ -94,8 +97,22 @@ export const AssistantTextPart = memo(function AssistantTextPart({
     live: streaming && interrupted !== true,
   })
   const useStreamingMath = streaming || displayedText !== visibleText || interrupted === true
+  const message = useTranscriptMessage(part.messageID)
   const mermaidContext: MarkdownMermaidContext | undefined =
     directory && part.sessionID && part.messageID && part.id
+      ? {
+          directory,
+          sessionID: part.sessionID,
+          messageID: part.messageID,
+          partID: part.id,
+        }
+      : undefined
+  const chemistryContext: MarkdownChemistryContext | undefined =
+    directory &&
+    part.sessionID &&
+    part.messageID &&
+    part.id &&
+    !isSvgAutoRepairAssistantMessage(message)
       ? {
           directory,
           sessionID: part.sessionID,
@@ -112,6 +129,7 @@ export const AssistantTextPart = memo(function AssistantTextPart({
           text={displayedText}
           cacheKey={part.id}
           mermaidContext={mermaidContext}
+          chemistryContext={chemistryContext}
           isStreaming={useStreamingMath}
           isInterrupted={interrupted}
           preferEagerRender={preferEagerMarkdown}
