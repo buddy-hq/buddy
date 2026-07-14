@@ -7,6 +7,7 @@ import { logger } from "hono/logger"
 import { AgentsMdRoutes } from "./routes"
 import { AuthRoutes } from "./routes"
 import { BenchRoutes } from "./routes"
+import { ChemistryRoutes } from "./routes"
 import { CompatibilityRoutes } from "./routes"
 import { ConfigRoutes } from "./routes"
 import { GlobalRoutes } from "./routes"
@@ -23,6 +24,7 @@ import { QuestionRoutes } from "./routes"
 import { ReferenceRoutes } from "./routes"
 import { SessionRoutes } from "./routes"
 import { SkillsRoutes } from "./routes"
+import { SvgRenderingRoutes } from "./routes"
 import { TeachingRoutes } from "./routes"
 import { isJsonContentType, normalizeValidationFailureResponse } from "./http"
 import { BUDDY_ENV } from "./storage"
@@ -106,6 +108,7 @@ api.route("/question", QuestionRoutes)
 api.route("/reference", ReferenceRoutes)
 api.route("/auth", AuthRoutes)
 api.route("/bench", BenchRoutes)
+api.route("/chemistry", ChemistryRoutes)
 api.route("/mcp", McpRoutes)
 api.route("/objects", ObjectsRoutes)
 api.route("/obsidian", ObsidianRoutes)
@@ -113,6 +116,7 @@ api.route("/config", ConfigRoutes)
 api.route("/permission", PermissionRoutes)
 api.route("/session", SessionRoutes)
 api.route("/skills", SkillsRoutes)
+api.route("/svg-rendering", SvgRenderingRoutes)
 
 app.use(logger())
 app.use(cors({ origin: "*" }))

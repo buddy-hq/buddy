@@ -17,6 +17,7 @@ import { questionSetsFeature } from "../features/question-sets/feature"
 import { readingFeature } from "../features/reading/feature"
 import { standardsFeature } from "../features/standards/feature"
 import { stepwiseSolvingFeature } from "../features/stepwise-solving/feature"
+import { svgRenderingFeature } from "../features/svg-rendering/feature"
 import { teachingGuidanceFeature } from "../features/teaching-guidance/feature"
 import { whiteboardFeature } from "../features/whiteboard/feature"
 
@@ -29,6 +30,7 @@ export const BUDDY_SHARED_FEATURES = [
   teachingGuidanceFeature,
   analogiesFeature,
   stepwiseSolvingFeature,
+  svgRenderingFeature,
   diagramsFeature,
   figureRenderingFeature,
   calculatorFeature,
