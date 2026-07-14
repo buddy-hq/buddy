@@ -845,7 +845,7 @@ async function checkCustomMacUpdate(ring: UpdateRing): Promise<UpdateCheckResult
     return { updateAvailable: false }
   }
 
-  readyUpdateStore.clear()
+  const previousReadyUpdate = readyUpdateStore.get()
   let downloadStarted = false
   setUpdateProgress({
     ring,
@@ -878,10 +878,19 @@ async function checkCustomMacUpdate(ring: UpdateRing): Promise<UpdateCheckResult
     return result
   }
 
+  const previousUpdateStillReady =
+    previousReadyUpdate?.ring === ring && updater.isUpdateReady(previousReadyUpdate.version)
+  if (!previousUpdateStillReady) {
+    readyUpdateStore.take(ring)
+  }
+
   if (result.failed) {
     setUpdateError({
       ring,
       stage: downloadStarted ? "download" : "check",
+      ...(!previousUpdateStillReady && previousReadyUpdate?.ring === ring
+        ? { version: previousReadyUpdate.version }
+        : {}),
     })
     return result
   }
@@ -891,7 +900,7 @@ async function checkCustomMacUpdate(ring: UpdateRing): Promise<UpdateCheckResult
 }
 
 async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckResult> {
-  const previousReadyUpdate = readyUpdateStore.take(ring)
+  const previousReadyUpdate = readyUpdateStore.get()
   let signedFeed: SignedWindowsUpdateFeed | undefined
   let downloadStarted = false
   setUpdateProgress({
@@ -904,6 +913,7 @@ async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckResult> 
     const version = signedFeed.version
 
     if (compareVersions(version, app.getVersion()) <= 0) {
+      readyUpdateStore.take(ring)
       logger.info("normal update check ignored same or older version", {
         currentVersion: app.getVersion(),
         ring,
@@ -914,6 +924,7 @@ async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckResult> 
     }
 
     if (isUpdateVersionBlocked(version)) {
+      readyUpdateStore.take(ring)
       logger.warn("update check suppressed blocked version", { version })
       setUpdateIdle(ring)
       return { blocked: true, updateAvailable: false }
@@ -930,6 +941,7 @@ async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckResult> 
       return { updateAvailable: true, version }
     }
 
+    readyUpdateStore.take(ring)
     autoUpdater.allowPrerelease = ring === UPDATE_RING_PREVIEW
     autoUpdater.allowDowngrade = false
 
@@ -975,6 +987,7 @@ async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckResult> 
     setUpdateError({
       ring,
       stage: downloadStarted ? "download" : "check",
+      ...(signedFeed ? { version: signedFeed.version } : {}),
     })
     return { updateAvailable: false, failed: true }
   } finally {
@@ -1203,6 +1216,10 @@ function configureDefaultElectronUpdaterProvider() {
 }
 
 async function installUpdate() {
+  await updateCheckCoordinator.runExclusive(installReadyUpdate)
+}
+
+async function installReadyUpdate() {
   const ring = getUpdateRing()
   const readyUpdate = readyUpdateStore.get()
   if (readyUpdate?.ring !== ring) {

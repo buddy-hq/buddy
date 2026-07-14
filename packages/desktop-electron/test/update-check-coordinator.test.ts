@@ -69,4 +69,29 @@ describe("update check coordinator", () => {
     await expect(second).resolves.toBe(FIRST_UPDATE_VERSION)
     expect(checks).toBe(1)
   })
+
+  test("runs install work after an active update check settles", async () => {
+    const events: string[] = []
+    let finishCheck: (() => void) | undefined
+    const checkGate = new Promise<void>((resolve) => {
+      finishCheck = resolve
+    })
+    const coordinator = createUpdateCheckCoordinator(async () => {
+      events.push("check-started")
+      await checkGate
+      events.push("check-finished")
+      return FIRST_UPDATE_VERSION
+    })
+
+    const check = coordinator.check("preview")
+    const install = coordinator.runExclusive(async () => {
+      events.push("install-started")
+    })
+    await Promise.resolve()
+    expect(events).toEqual(["check-started"])
+
+    finishCheck?.()
+    await Promise.all([check, install])
+    expect(events).toEqual(["check-started", "check-finished", "install-started"])
+  })
 })

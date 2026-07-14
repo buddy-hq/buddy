@@ -129,6 +129,9 @@ export function createCustomMacUpdater(
   const checkForVersionTasks = new Map<string, Promise<MacUpdaterResult>>()
 
   return {
+    isUpdateReady(expectedVersion: string): boolean {
+      return pendingUpdate?.version === expectedVersion
+    },
     async checkForUpdate(input: CheckForUpdateInput = {}): Promise<MacUpdaterResult> {
       if (!options.packaged) {
         return { updateAvailable: false }

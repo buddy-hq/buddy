@@ -156,16 +156,35 @@ describe("custom mac updater refresh", () => {
       updateAvailable: true,
       version: FIRST_UPDATE_VERSION,
     })
+    expect(updater.isUpdateReady(FIRST_UPDATE_VERSION)).toBe(true)
     await expect(updater.checkForUpdate({ ring: "preview" })).resolves.toEqual({
       updateAvailable: true,
       version: REPLACEMENT_UPDATE_VERSION,
     })
+    expect(updater.isUpdateReady(FIRST_UPDATE_VERSION)).toBe(false)
+    expect(updater.isUpdateReady(REPLACEMENT_UPDATE_VERSION)).toBe(true)
     await expect(updater.checkForUpdate({ ring: "preview" })).resolves.toEqual({
       updateAvailable: true,
       version: REPLACEMENT_UPDATE_VERSION,
     })
     expect(getManifestChecks()).toBe(versions.length)
     expect(downloadedVersions).toEqual([FIRST_UPDATE_VERSION, REPLACEMENT_UPDATE_VERSION])
+  })
+
+  test("keeps a downloaded update ready when manifest revalidation fails", async () => {
+    const { updater } = createTestCustomMacUpdater({
+      versions: [FIRST_UPDATE_VERSION],
+    })
+
+    await expect(updater.checkForUpdate({ ring: "preview" })).resolves.toEqual({
+      updateAvailable: true,
+      version: FIRST_UPDATE_VERSION,
+    })
+    await expect(updater.checkForUpdate({ ring: "preview" })).resolves.toEqual({
+      failed: true,
+      updateAvailable: false,
+    })
+    expect(updater.isUpdateReady(FIRST_UPDATE_VERSION)).toBe(true)
   })
 })
 
