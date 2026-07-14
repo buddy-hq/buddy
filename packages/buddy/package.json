@@ -73,6 +73,7 @@
     "jsonc-parser": "^3.3.1",
     "mammoth": "^1.12.0",
     "mime-types": "^3.0.2",
+    "node-tikzjax": "1.0.5",
     "pdfjs-dist": "^5.5.207",
     "remeda": "^2.33.0",
     "turndown": "^7.2.2",

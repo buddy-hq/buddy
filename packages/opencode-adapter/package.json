@@ -41,6 +41,7 @@
     "./file-watcher-native": "./src/file-watcher-native.ts",
     "./file": "./src/file.ts",
     "./global": "./src/global.ts",
+    "./global-event": "./src/global-event.ts",
     "./provider": "./src/provider.ts",
     "./llm": "./src/llm.ts",
     "./theme": "./src/theme.ts",

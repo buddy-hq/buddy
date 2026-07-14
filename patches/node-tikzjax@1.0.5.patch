@@ -1,0 +1,30 @@
+diff --git a/dist/bootstrap.js b/dist/bootstrap.js
+index 25b173c46dc5781134845b7fffcfd825aa6c5c16..dbd0e1bc3995b213b2132f565d4e18207fa4e151 100644
+--- a/dist/bootstrap.js
++++ b/dist/bootstrap.js
+@@ -37,7 +37,10 @@ let bytecode;
+ // The memory filesystem that stores the TeX files extracted from `tex_files.tar.gz`.
+ let memfs;
+ // The directory where the TeX files are located (core.dump.gz, tex.wasm.gz, tex_files.tar.gz).
+-const TEX_DIR = (0, path_1.join)(__dirname, '../tex');
++const TEX_DIR = process.env.BUDDY_CHEMFIG_TEX_DIR;
++if (!TEX_DIR) {
++    throw new Error('BUDDY_CHEMFIG_TEX_DIR is required.');
++}
+ // Paths of the TeX files.
+ const COREDUMP_PATH = (0, path_1.join)(TEX_DIR, 'core.dump.gz');
+ const BYTECODE_PATH = (0, path_1.join)(TEX_DIR, 'tex.wasm.gz');
+diff --git a/dist/dvi2svg.js b/dist/dvi2svg.js
+index a9834a5d7cd293f3f65475042308850b444a182a..3f4d693a9cdca2af16e63dcb08375fdcb73613b7 100644
+--- a/dist/dvi2svg.js
++++ b/dist/dvi2svg.js
+@@ -49,6 +49,9 @@ async function dvi2svg(dvi, options = {}) {
+     // Fix errors in the generated HTML.
+     const container = document.createRange().createContextualFragment(html);
+     const svg = container.querySelector('svg');
++    if (!svg) {
++        throw new Error('DVI conversion did not produce an SVG document.');
++    }
+     if (options.embedFontCss) {
+         const defs = document.createElement('defs');
+         const style = document.createElement('style');
