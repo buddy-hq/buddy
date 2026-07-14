@@ -1076,7 +1076,7 @@ export function EaselOnboarding() {
           setIsNotesOpen={setIsNotesOpen}
           bullets={[
             "Highly interactive chat onboarding.",
-            "Answers inputs directly into the thread.",
+            "Answers inputs directly into the chat.",
             "Simulates the core OAuth window flow for ChatGPT Plus.",
           ]}
         />

@@ -127,7 +127,7 @@ Use when the user asks about the whiteboard, Boards drawer, drawing on canvas, s
 
 ### Defaults
 
-- One mutable **current board per chat session** (thread). Drawer lists that board only — not a multi-board library.
+- One mutable **current board per chat session** (chat). Drawer lists that board only — not a multi-board library.
 - New topics usually continue on the same board unless the user asked to wipe the whole board.
 - Drawing may appear step-by-step; the finished board is what is saved.
 - Share is the export path found.
@@ -138,7 +138,7 @@ Use when the user asks about the whiteboard, Boards drawer, drawing on canvas, s
 - While Buddy draws, canvas is view-only; edit after the turn settles.
 - Destructive full replace: no in-app restore of the overwritten board.
 - Share leaves Buddy (excalidraw.com). Fails offline.
-- Other threads’ boards: switch thread, then Boards — do not claim a global board browser.
+- Other chats’ boards: switch chat, then Boards — do not claim a global board browser.
 
 ### Related
 

@@ -29,7 +29,7 @@ No Buddy multi-user accounts. AI providers may still need login or keys — `pro
 | Large files, widgets, boards, reading | Bench | `workspace.md` |
 | Layout / library rail | Chrome around chat | `workspace.md` |
 | Notebooks, Home, Inbox | Open a notebook | `notebooks.md` |
-| Threads / history | Sidebar threads | `notebooks.md` |
+| Chats / history | Sidebar chats | `notebooks.md` |
 | PDF/EPUB | Sources | `library.md` |
 | Flashcards / quizzes | Practice | `practice.md` |
 | Whiteboard | Boards | `library.md` |
@@ -56,7 +56,7 @@ No Buddy multi-user accounts. AI providers may still need login or keys — `pro
 
 Use when the user asks where panels live, how to show/hide sidebar or right workspace, what the rail icons are, or why the layout changed with Bench.
 
-Not for Bench present/park/close (Bench below), thread history (`notebooks.md`), notebook create/home (`notebooks.md`), or chat docks (`chat.md`).
+Not for Bench present/park/close (Bench below), chat history (`notebooks.md`), notebook create/home (`notebooks.md`), or chat docks (`chat.md`).
 
 ### Map
 
@@ -64,7 +64,7 @@ Three columns in a notebook chat:
 
 | Region | Holds |
 | --- | --- |
-| **Left sidebar** | Skills, notebooks + threads, Settings |
+| **Left sidebar** | Skills, notebooks + chats, Settings |
 | **Center** | Conversation (transcript + composer) |
 | **Right workspace** | Library rail, optional drawer, optional Bench |
 
@@ -73,7 +73,7 @@ Titlebar (desktop): **left panel** toggle, **right panel** toggle, optional **Po
 ### Left sidebar
 
 - Top: **Skills**.
-- Body: **Notebooks** — each notebook lists **threads** (pin, unread, archive, rename).
+- Body: **Notebooks** — each notebook lists **chats** (pin, unread, archive, rename).
 - Hover toolbar: organize (by notebook / chronological), sort (created / updated), create notebook.
 - Footer: **Settings**.
 
@@ -128,7 +128,7 @@ Buddy may auto-float if the docked split is dragged past a workable width. Users
 
 - Bench below — docked/floating, park, close
 - `notebooks.md` — notebooks, Home, Inbox
-- `notebooks.md` — threads, pin, archive
+- `notebooks.md` — chats, pin, archive
 - `chat.md` — composer, docks
 - `settings.md` — Settings (entry is left sidebar footer)
 

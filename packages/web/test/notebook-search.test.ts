@@ -67,7 +67,7 @@ describe("notebook search", () => {
         result: searchResult({
           id: "thread-1",
           kind: "thread",
-          title: "Thread",
+          title: "Chat",
         }),
         score: 100,
       },

@@ -64,8 +64,8 @@ const SEARCHING_ROW_COUNT = 5
 const SEARCH_KIND_DEFINITIONS: SearchKindDefinition[] = [
   {
     kind: "thread",
-    label: "Threads",
-    singularLabel: "Thread",
+    label: "Chats",
+    singularLabel: "Chat",
     icon: MessageSquareTextIcon,
   },
   {
@@ -105,7 +105,7 @@ const BASE_SEARCH_RESULTS: EaselSearchResult[] = [
     id: "thread-industrial-revolution",
     kind: "thread",
     title: "Industrial Revolution study plan",
-    metadata: "Thread · Updated 8 minutes ago",
+    metadata: "Chat · Updated 8 minutes ago",
     keywords: "factory history lesson discussion",
   },
   {
@@ -147,7 +147,7 @@ const BASE_SEARCH_RESULTS: EaselSearchResult[] = [
     id: "thread-learning-theories",
     kind: "thread",
     title: "Learning theories and classroom practice",
-    metadata: "Thread · Updated yesterday",
+    metadata: "Chat · Updated yesterday",
     keywords: "pedagogy education discussion",
   },
   {

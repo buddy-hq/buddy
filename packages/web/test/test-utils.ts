@@ -38,7 +38,7 @@ export function createDirectoryChatState(
 ): DirectoryChatState {
   const { messages: _messages, messagesBySessionID: _messagesBySessionID, ...stateInput } = input
   const merged = {
-    sessionTitle: "New thread",
+    sessionTitle: "New chat",
     sessions: [],
     sessionStatusByID: {},
     pendingPermissions: [],

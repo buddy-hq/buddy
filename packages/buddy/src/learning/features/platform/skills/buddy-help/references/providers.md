@@ -33,7 +33,7 @@ Onboarding: ChatGPT → OpenAI-style connection; Free Models → free hosted mod
 
 - Picker shows models for **connected** providers (and free zero-cost models when available).
 - ChatGPT OAuth may **filter** models to what the account allows.
-- Selection is per notebook/thread on this machine. Opening a thread can restore its last model.
+- Selection is per notebook/chat on this machine. Opening a chat can restore its last model.
 - Image/sketch needs a model that accepts images; switch model if the toolbar blocks attachments.
 
 There is no Settings “Model” tab — pick models in chat. Memory has its own model controls (`learner-memory.md`).

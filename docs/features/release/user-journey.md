@@ -20,7 +20,7 @@ Everything Buddy ships, grouped by how the user reaches it. Agent-only rows are 
 | Onboarding | ChatGPT Plus OAuth or free models; default Buddy Home notebook; optional personalization | `/onboarding` |
 | Entry hub | Quick chat, new notebook, open existing, recovery | `/chat` |
 | Notebook | Create, open, close, reorder; learner memory defaults on create | Left sidebar |
-| Sessions | New thread, select, rename, archive, pin, unread | Left sidebar |
+| Sessions | New chat, select, rename, archive, pin, unread | Left sidebar |
 | Settings | General, Providers, MCPs, Personalization, Learner memory, Advanced, Attribution, Standards* | `/settings` |
 
 \*Standards tab appears only after the standards package is installed (Settings → Advanced → Packages).

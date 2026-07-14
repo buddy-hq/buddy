@@ -62,7 +62,7 @@ import { encodeDirectory } from "../directory-token"
 const DOCUMENT_VISIBILITY_VISIBLE = "visible"
 const PERMISSION_NOTIFICATION_COOLDOWN_MS = 15_000
 const NOTIFICATION_PREVIEW_MAX_LENGTH = 360
-const DEFAULT_SESSION_TITLE = "New thread"
+const DEFAULT_SESSION_TITLE = "New chat"
 const GLOBAL_NOTIFICATION_SESSION = "global"
 
 function sessionHref(directory: string, sessionID: string) {

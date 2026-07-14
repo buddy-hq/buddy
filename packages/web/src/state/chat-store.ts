@@ -147,7 +147,7 @@ export function resourceSessionKey(directory: string, objectID: string) {
   return `${directory}::${objectID}`
 }
 
-const DEFAULT_TITLE = "New thread"
+const DEFAULT_TITLE = "New chat"
 const CHAT_STORAGE_FILE = "buddy.chat.dat"
 const CHAT_STORAGE_KEY = "buddy.chat.v4"
 const STREAM_STATUS_IDLE: StreamStatus = "idle"

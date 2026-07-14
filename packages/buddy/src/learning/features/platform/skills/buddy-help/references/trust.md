@@ -76,13 +76,13 @@ Permission dock (above chat) ≠ question UI (structured agent questions). Not t
 
 ### What it is
 
-When an action needs consent, the run **blocks** and a **permission dock** appears above chat input for the active thread.
+When an action needs consent, the run **blocks** and a **permission dock** appears above chat input for the active chat.
 
 Buttons (left → right):
 
 | Button | Meaning |
 | --- | --- |
-| **Reject** | Don't allow. Fails this ask; other pending permission asks in the **same thread** are rejected too. |
+| **Reject** | Don't allow. Fails this ask; other pending permission asks in the **same chat** are rejected too. |
 | **Allow always** | Allow this scope and remember it **until Buddy restarts** — not forever. |
 | **Allow once** | Only this time. Not saved. |
 
@@ -105,6 +105,6 @@ Headline examples: Access external folder, Read/Edit file, Run command, or gener
 ### Gotchas
 
 - **Allow always ≠ permanent.** Tooltip: “Remember until Buddy is restarted.”
-- **Reject** also clears other open permission prompts in that thread — not only the visible card.
+- **Reject** also clears other open permission prompts in that chat — not only the visible card.
 - Skills library allow/deny is **durable skill config** — not the same as dock **Allow always**. See `extend.md`.
 - Denied actions show as quiet permission denial in the transcript, not a generic crash.

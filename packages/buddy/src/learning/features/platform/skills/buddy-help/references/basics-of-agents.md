@@ -7,7 +7,7 @@ description: "General agent vocabulary: model, provider, tools, skills, MCP, sub
 
 ## Why this file exists
 
-- Buddy users hit product nouns (skills, MCP, thread, provider, Bench) without agent foundations.
+- Buddy users hit product nouns (skills, MCP, chat, provider, Bench) without agent foundations.
 - This file is the **general** agent primer in buddy-help — industry vocabulary, not Buddy menus.
 - Goal: teach foundations first, then **relate** each concept to how Buddy uses it (product refs for UI truth).
 - Use only when user is a **complete newbie to agents** or asks **fundamental** agent questions.
@@ -30,8 +30,8 @@ Use after the general definition. Product detail → listed ref.
 | agent / host / runtime | Buddy desktop (or web) runs the agent session | `workspace.md` |
 | provider / model | Settings → Providers; model on chat toolbar | `providers.md` |
 | workspace | notebook ≈ folder user opened | `notebooks.md` |
-| session | thread in sidebar | `notebooks.md` |
-| compaction | compact / auto-compaction on long threads | `notebooks.md` |
+| session | chat in sidebar | `notebooks.md` |
+| compaction | compact / auto-compaction on long chats | `notebooks.md` |
 | tools | capabilities Buddy/agent can call (not listed by id here) | product + live tools |
 | skills | Skills library; skill packages on demand | `extend.md` |
 | MCP | Settings → MCPs; per-notebook on/off | `extend.md` |
@@ -49,7 +49,7 @@ Use after the general definition. Product detail → listed ref.
 - Agent ≠ chatbot: goal + tools + multi-step work, not one reply.
 - Host ≠ provider ≠ model.
 - Context window = working RAM for this turn; finite tokens.
-- Session = durable thread of work; leave and reopen.
+- Session = durable chat of work; leave and reopen.
 - Compaction shrinks *this* session history ≠ long-term memory.
 - Skills = procedure; tools/MCP = capability.
 - Workspace = folder scope; outside often needs extra consent.
@@ -128,7 +128,7 @@ Typical window contents:
 
 ## Sessions
 
-- Session = one durable work thread: messages + tool history + identity.
+- Session = one durable work chat: messages + tool history + identity.
 - Not whole app. Not one message.
 
 | Action | Effect |
@@ -137,7 +137,7 @@ Typical window contents:
 | **Continue** | history (or compacted form) still in play |
 | **Fork / branch** | copy history to point; new session diverges |
 
-- UI may say thread / chat / conversation — same idea: reopenable multi-turn state.
+- UI may say chat / conversation — same idea: reopenable multi-turn state.
 - Host may own storage; model only sees what is re-fed each turn.
 
 ### Learn more

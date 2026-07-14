@@ -7,7 +7,7 @@ description: "Buddy chat: composer, slash, @ files, follow-ups, question UI, tas
 
 Use when the user asks about the chat box, slash commands, @ mentions, follow-ups while Buddy is busy, agent questions, Stop, or transcript cards.
 
-Not for: thread history (`notebooks.md`), permission Allow once/always (`trust.md`), Bench layout (`workspace.md`), Practice quizzes (`practice.md`), skills library install (`extend.md`).
+Not for: chat history (`notebooks.md`), permission Allow once/always (`trust.md`), Bench layout (`workspace.md`), Practice quizzes (`practice.md`), skills library install (`extend.md`).
 
 ## Dual language
 
@@ -24,12 +24,12 @@ Never call Practice MCQ UI the question dock.
 
 ## Composer
 
-- Bottom of the conversation pane in a notebook thread.
+- Bottom of the conversation pane in a notebook chat.
 - Type, attach files, optional sketch (images need a vision-capable model).
 - **Enter** sends. **Shift+Enter** newline.
 - While Buddy is working, primary control is **Stop** (aborts the run). Enter does **not** Stop — it steers or queues (below).
 - Model / thinking pickers live on the composer toolbar.
-- Hidden when a nested helper task is open. Continue from the parent thread.
+- Hidden when a nested helper task is open. Continue from the parent chat.
 
 ## Follow-ups while busy
 
@@ -50,7 +50,7 @@ Type `/` at the **start** of the box for autocomplete. Mix of built-ins + entrie
 
 | Command | Does |
 | --- | --- |
-| `/new` | New thread in this notebook |
+| `/new` | New chat in this notebook |
 | `/model` | Open model picker |
 | `/mcp` | Settings → MCP |
 | `/play` | Buddy Arcade |
@@ -61,7 +61,7 @@ Type `/` at the **start** of the box for autocomplete. Mix of built-ins + entrie
 | --- | --- |
 | `/undo` | Undo last message (may put text back in composer) |
 | `/redo` | Restore last undo |
-| `/branch` (`/fork`) | Branch thread from latest user message |
+| `/branch` (`/fork`) | Branch chat from latest user message |
 | `/compact` (`/summarize`) | Compact session — needs selected model + active session |
 | `/quiz [topic]` | Sends a quiz-create prompt (rewritten user message) |
 
@@ -108,7 +108,7 @@ Structured choices mid-turn appear in the **question UI** above the composer —
 
 ## Related
 
-- `notebooks.md` — threads, compact, branch
+- `notebooks.md` — chats, compact, branch
 - `trust.md` — permission dock
 - `extend.md` — skill library
 - `practice.md` — flashcards, question sets

@@ -1,25 +1,25 @@
 ---
 name: notebooks
-description: "Buddy notebooks, Home, Inbox, threads, pin, archive, branch, compact."
+description: "Buddy notebooks, Home, Inbox, chats, pin, archive, branch, compact."
 ---
 
 # Notebooks
 
-Use when the user asks what a notebook is, Buddy Home, Inbox / Quick Chat, or threads (pin, archive, branch, compact, undo).
+Use when the user asks what a notebook is, Buddy Home, Inbox / Quick Chat, or chats (pin, archive, branch, compact, undo).
 
-A **notebook** is a **folder** Buddy has open. **Threads** live inside it. Sidebar chrome → `workspace.md`. First-launch home → `setup.md`.
+A **notebook** is a **folder** Buddy has open. **Chats** live inside it. Sidebar chrome → `workspace.md`. First-launch home → `setup.md`.
 
 ## Notebooks
 
 Use when the user asks what a notebook is, how to open or create one, Buddy Home, Inbox / Quick Chat, or why a notebook list is empty/broken.
 
-A **notebook** is a **folder** Buddy has open (workspace). Threads live inside a notebook → Threads / sessions below. Sidebar chrome → `workspace.md`. First-launch home pick → `setup.md`.
+A **notebook** is a **folder** Buddy has open (workspace). Chats live inside a notebook → Chats / sessions below. Sidebar chrome → `workspace.md`. First-launch home pick → `setup.md`.
 
 ### Defaults
 
 - **Buddy Home** (managed create root): `Documents/Buddy` under the user’s home, unless they set another folder
 - **Inbox**: managed folder named `Inbox` under Buddy Home
-- **Quick Chat** = open/create Inbox, then a new thread there
+- **Quick Chat** = open/create Inbox, then a new chat there
 - **Open list**: curated list of open notebooks — not every folder on disk
 - Managed create goes under Buddy Home; **Open existing folder** can open any folder as a notebook
 
@@ -27,8 +27,8 @@ A **notebook** is a **folder** Buddy has open (workspace). Threads live inside a
 
 | Goal | Path |
 | --- | --- |
-| Quick / throwaway chat | **Quick chat in Inbox** (opens Inbox, new thread) |
-| Dedicated space | **New notebook** → name → folder under Buddy Home → opens with a new thread |
+| Quick / throwaway chat | **Quick chat in Inbox** (opens Inbox, new chat) |
+| Dedicated space | **New notebook** → name → folder under Buddy Home → opens with a new chat |
 | Use an existing project/folder | **Open existing folder** → that folder becomes the notebook |
 | Leave a notebook open list | **Close notebook** — removes from open list; **does not delete** the folder on disk |
 | Change where new managed notebooks go | Settings → **Advanced** → Buddy Home → **Change Home** |
@@ -40,7 +40,7 @@ Empty-state intent: **Inbox** for quick chats and loose notes; named notebooks f
 
 - Sidebar labels the `Inbox` folder **Quick chats** (basename still `Inbox` on disk).
 - Named notebooks show the folder name.
-- Same object type: both are folders with their own threads, files, and notebook settings.
+- Same object type: both are folders with their own chats, files, and notebook settings.
 
 ### Buddy Home
 
@@ -77,9 +77,9 @@ Do not invent other recovery UIs.
 - Dialog copy may say “documents folder” even if Home was customized — truth is under Buddy Home.
 - Any folder is a notebook once opened: projects, notes folders, etc.
 
-## Threads / sessions
+## Chats / sessions
 
-Use for **threads** in the sidebar and history inside a notebook. A **thread is a session** — same object (UI noun vs product noun).
+Use for **chats** in the sidebar and history inside a notebook. A **chat is a session** — same object (UI noun vs product noun).
 
 Not for chat input beyond session slashes — `chat.md`. Notebook create/open — Notebooks above.
 
@@ -87,8 +87,8 @@ Not for chat input beyond session slashes — `chat.md`. Notebook create/open �
 
 | User | Product |
 | --- | --- |
-| thread | session |
-| Branch / Branch from here | fork history into a new thread |
+| chat | session |
+| Branch / Branch from here | fork history into a new chat |
 | Undo message | soft-hide that turn and later turns |
 | Restore / redo | bring undone turns back |
 | Compact session | summarize earlier context to fit the model window |
@@ -96,17 +96,17 @@ Not for chat input beyond session slashes — `chat.md`. Notebook create/open �
 
 ### Where
 
-- Left sidebar under each open **notebook**: thread list, **New thread**, context menu.
-- History / **All threads** popover: search titles in this notebook’s active threads.
+- Left sidebar under each open **notebook**: chat list, **New chat**, context menu.
+- History / **All chats** popover: search titles in this notebook’s active chats.
 - User-message actions: **Branch from here**, **Undo message**.
 - Composer slash: `/new`, `/branch`, `/undo`, `/redo`, `/compact`.
 
 ### Defaults
 
-- Thread lives in one notebook. New thread = draft until first send.
-- Title starts as **New thread**; may auto-title after first real message. Rename anytime.
+- Chat lives in one notebook. New chat = draft until first send.
+- Title starts as **New chat**; may auto-title after first real message. Rename anytime.
 - **Pin** and **unread** are local UI prefs on this machine.
-- **Archive** drops the thread from the active list (confirm). No in-app unarchive UI found — under-claim recovery.
+- **Archive** drops the chat from the active list (confirm). No in-app unarchive UI found — under-claim recovery.
 - Auto-compaction **on** by default. Toggle: Settings → Advanced → **Auto-compaction**. Manual `/compact` still works when off.
 - Manual compact needs a selected model and an existing session.
 
@@ -114,29 +114,29 @@ Not for chat input beyond session slashes — `chat.md`. Notebook create/open �
 
 #### New / switch
 
-1. Sidebar **New thread** or `/new` → empty draft in this notebook.
-2. Click a thread row to open it (clears unread).
+1. Sidebar **New chat** or `/new` → empty draft in this notebook.
+2. Click a chat row to open it (clears unread).
 3. First send creates the durable session if still draft.
 
 #### Pin, rename, archive, unread
 
-Context menu on a thread row:
+Context menu on a chat row:
 
 | Action | Effect |
 | --- | --- |
-| Pin / Unpin | Keeps thread high in sort |
+| Pin / Unpin | Keeps chat high in sort |
 | Rename | Dialog → short title |
 | Archive | Confirm → remove from active list |
 | Mark as unread / read | Unread dot; auto-unread when another session finishes while this one is not focused |
 
 #### Organize list
 
-Sidebar **Organize threads**: by notebook · chronological; sort created · updated; show **All threads** · **Relevant**.
+Sidebar **Organize chats**: by notebook · chronological; sort created · updated; show **All chats** · **Relevant**.
 
 #### Branch
 
 - On a user message: **Branch from here**, or `/branch`.
-- Creates a **new root thread** with history up to that point. Not a nested helper-task row.
+- Creates a **new root chat** with history up to that point. Not a nested helper-task row.
 
 #### Undo / restore
 
@@ -152,20 +152,20 @@ Sidebar **Organize threads**: by notebook · chronological; sort created · upda
 
 ### Guardrails
 
-- Prefer **thread** for users; **session** when the product noun helps — dual once if needed.
-- Do not invent delete/share/cloud-sync for threads.
+- Prefer **chat** for users; **session** when the product noun helps — dual once if needed.
+- Do not invent delete/share/cloud-sync for chats.
 - Compaction rewrites **context** for the model; do not claim full transcript hard-delete unless the UI shows that.
 
 ### Gotchas
 
-- Thread ≠ a different object from session.
+- Chat ≠ a different object from session.
 - **Pin/unread** do not travel across machines.
 - **Archive** is not proven “delete forever,” but users currently lack a restore UI.
-- **Branch** = new sibling thread with copied history, not a helper task.
+- **Branch** = new sibling chat with copied history, not a helper task.
 - **Undo** hides turns until restore.
 - **Compact** fails without a model/session.
-- Empty **New thread** drafts may not show as durable history until the first message.
-- Helper-task rows nest under the parent thread.
+- Empty **New chat** drafts may not show as durable history until the first message.
+- Helper-task rows nest under the parent chat.
 
 ### Related
 

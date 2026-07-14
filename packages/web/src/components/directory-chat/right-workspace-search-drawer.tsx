@@ -90,7 +90,7 @@ type RemoteSearchState =
   | { status: "ready"; query: string; data: RemoteNotebookSearchResult }
 
 const SEARCH_KIND_DEFINITIONS: SearchKindDefinition[] = [
-  { kind: "thread", label: "Threads", icon: MessageSquareTextIcon },
+  { kind: "thread", label: "Chats", icon: MessageSquareTextIcon },
   { kind: "source", label: "Sources", icon: BookOpenIcon },
   { kind: "creation", label: "Creations", icon: ShapesIcon },
   { kind: "practice", label: "Practice", icon: BrainIcon },
@@ -150,7 +150,7 @@ function sessionSearchResult(session: SessionInfo): NotebookSearchResult {
     id: `thread:${session.id}`,
     kind: "thread",
     title: session.title,
-    metadata: notebookSearchTimestampMetadata("Thread", updatedAt),
+    metadata: notebookSearchTimestampMetadata("Chat", updatedAt),
     updatedAtMs: updatedAt,
     target: { type: "thread", sessionID: session.id },
   }
@@ -515,7 +515,7 @@ export function RightWorkspaceSearchDrawer(props: RightWorkspaceSearchDrawerProp
                 </EmptyMedia>
                 <EmptyTitle>Nothing to search yet</EmptyTitle>
                 <EmptyDescription>
-                  Threads, sources, creations, practice, boards, and files appear here.
+                  Chats, sources, creations, practice, boards, and files appear here.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
