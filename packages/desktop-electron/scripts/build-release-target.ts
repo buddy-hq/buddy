@@ -7,8 +7,13 @@ import {
   RELEASE_SMOKE_TARGETS,
   releaseTargetEnvironment,
 } from "./release-smoke-target"
+import {
+  isMacOsReleaseArch,
+  resolveMacOsReleaseArtifactFilename,
+} from "../src/shared/release-asset-names"
 import { readDesktopPackageVersion, updateDesktopPackageVersion } from "./utils"
 import { buildElectronPackageAndSmoke } from "./package-electron"
+import { verifyMacUpdateArchive } from "./verify-mac-update-archive"
 
 const TARGET_FLAG = "--target"
 const PRODUCTION_CHANNEL = "prod"
@@ -62,6 +67,18 @@ try {
     electronBuilderArguments: [...target.electronBuilderArguments, "--publish", "never"],
     environment,
   })
+  if (target.platform === "darwin") {
+    if (!isMacOsReleaseArch(target.architecture)) {
+      throw new Error(`Unsupported macOS release architecture: ${target.architecture}`)
+    }
+    verifyMacUpdateArchive(
+      path.join(
+        packageDirectory,
+        "dist",
+        resolveMacOsReleaseArtifactFilename(version, target.architecture, "zip"),
+      ),
+    )
+  }
 } finally {
   if (readDesktopPackageVersion() !== originalVersion) {
     updateDesktopPackageVersion(originalVersion)

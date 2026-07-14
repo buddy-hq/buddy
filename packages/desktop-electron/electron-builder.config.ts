@@ -16,6 +16,7 @@ const channel = readBuddyReleaseChannel()
 const runtimeResourceNames = ["backend", "knowledge-graph", "migrations", "tessdata"] as const
 const DEV_PRODUCT_NAME = `${BUDDY_BRANDING.productName} Dev`
 const BETA_PRODUCT_NAME = `${BUDDY_BRANDING.productName} Beta`
+const MACOS_AD_HOC_SIGNING_IDENTITY = "-"
 const CHEMFIG_RUNTIME_ASAR_PATTERN = path.posix.join(
   "out/main",
   ...ELECTRON_CHEMFIG_RUNTIME_PATH_SEGMENTS,
@@ -70,8 +71,10 @@ const BASE_CONFIGURATION: Configuration = {
   mac: {
     artifactName: resolveMacOsReleaseArtifactPattern(),
     category: "public.app-category.developer-tools",
+    forceCodeSigning: true,
     icon: "resources/icons/icon.icns",
     hardenedRuntime: true,
+    identity: MACOS_AD_HOC_SIGNING_IDENTITY,
     gatekeeperAssess: false,
     entitlements: "resources/entitlements.plist",
     entitlementsInherit: "resources/entitlements.plist",
