@@ -4,16 +4,14 @@ import fs from "node:fs/promises"
 import path from "node:path"
 import { File as OpenCodeFile } from "@buddy/opencode-adapter/file"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
-import { Global } from "../storage"
 import { writeTextFileAtomic } from "../storage/atomic-file"
 import { withFileLock } from "../storage/file-lock"
+import { textFileWriteLockPath } from "../storage/locked-atomic-file"
 
 const PROJECT_FILE_ESCAPE_ERROR = "Access denied: path escapes project directory"
 const PROJECT_FILE_NOT_FOUND_ERROR = "File not found"
 const PROJECT_TEXT_FILE_UNSUPPORTED_ERROR = "File type is not supported for in-app editing."
 const PROJECT_TEXT_FILE_CONFLICT_ERROR = "File changed on disk. Reload or overwrite to continue."
-const PROJECT_TEXT_FILE_LOCK_DIRECTORY = "project-file-locks"
-const PROJECT_TEXT_FILE_LOCK_EXTENSION = ".lock"
 
 export type ProjectTextFileState = {
   path: string
@@ -53,15 +51,6 @@ function normalizeRelativePath(filepath: string) {
 function contentVersion(content: string | undefined) {
   if (content === undefined) return null
   return createHash("sha256").update(content, "utf8").digest("hex")
-}
-
-function projectTextFileLockPath(targetPath: string): string {
-  const identity = createHash("sha256").update(path.resolve(targetPath), "utf8").digest("hex")
-  return path.join(
-    Global.Path.state,
-    PROJECT_TEXT_FILE_LOCK_DIRECTORY,
-    `${identity}${PROJECT_TEXT_FILE_LOCK_EXTENSION}`,
-  )
 }
 
 async function readFileContent(filePath: string) {
@@ -242,7 +231,7 @@ export async function saveProjectTextFile(input: {
       }
 
       const lexicalTargetPath = path.resolve(input.directory, normalizedPath)
-      const lockPath = projectTextFileLockPath(lexicalTargetPath)
+      const lockPath = textFileWriteLockPath(lexicalTargetPath)
 
       return withFileLock(lockPath, async () => {
         const containedFile = await resolveContainedFile(input.directory, normalizedPath).catch(
@@ -288,7 +277,7 @@ export async function saveProjectTextFile(input: {
         if (nextPath === lexicalTargetPath) {
           await save()
         } else {
-          await withFileLock(projectTextFileLockPath(nextPath), save)
+          await withFileLock(textFileWriteLockPath(nextPath), save)
         }
 
         return {

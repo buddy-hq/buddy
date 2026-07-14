@@ -20,6 +20,7 @@ export {
   getSessionMermaidRepairStatus,
   postSessionCommand,
   postSessionMermaidRepairAsync,
+  postSessionSvgRepairAsync,
   postSessionPrompt,
   postSessionPromptAsync,
 } from "./orchestration/interaction-actions"

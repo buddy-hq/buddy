@@ -1,19 +1,10 @@
 import type { Context } from "hono"
-import { isJsonContentType, parseJsonText } from "../../http/http"
+import { isJsonContentType } from "../../http/http"
 import { invalidJsonResponse } from "../../http/request-json"
 import { flattenPromptPartsForRuntime } from "../../learning/prompt/workspace-file-references"
 
-type JsonValidatorRequest = {
-  valid: (target: "json") => unknown
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
-}
-
-function validatedJsonBody(c: Context): unknown {
-  const request = c.req as unknown as JsonValidatorRequest
-  return request.valid("json")
 }
 
 function validateJsonObjectBody(value: unknown): Record<string, unknown> | undefined {
@@ -23,19 +14,14 @@ function validateJsonObjectBody(value: unknown): Record<string, unknown> | undef
   return value
 }
 
-async function parseRawJsonObject(c: Context): Promise<Record<string, unknown> | Response> {
-  const raw = await c.req.raw.text()
-  const parsedResult =
-    raw.trim().length > 0 ? parseJsonText(raw) : { ok: true as const, value: {} as unknown }
-  if (!parsedResult.ok) {
+async function parseJsonObject(c: Context): Promise<Record<string, unknown> | Response> {
+  let value: unknown
+  try {
+    value = await c.req.json()
+  } catch {
     return invalidJsonResponse()
   }
-
-  const parsed = validateJsonObjectBody(parsedResult.value)
-  if (!parsed) {
-    return invalidJsonResponse()
-  }
-  return parsed
+  return validateJsonObjectBody(value) ?? invalidJsonResponse()
 }
 
 export async function readValidatedJsonObject(
@@ -46,12 +32,7 @@ export async function readValidatedJsonObject(
     return invalidJsonResponse()
   }
 
-  const validated = validateJsonObjectBody(validatedJsonBody(c))
-  if (validated) {
-    return validated
-  }
-
-  return parseRawJsonObject(c)
+  return parseJsonObject(c)
 }
 
 export function prepareRuntimePromptBody(body: Record<string, unknown>) {

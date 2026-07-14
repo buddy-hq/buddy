@@ -28,6 +28,7 @@ import {
   patchSessionById,
   postSessionCommand,
   postSessionMermaidRepairAsync,
+  postSessionSvgRepairAsync,
   postSessionPrompt,
   postSessionPromptAsync,
   proxySessionCollection,
@@ -36,8 +37,24 @@ import {
   unrevertSessionById,
 } from "../session"
 import { getTeachingState } from "../learning/adapters/http/session/state-actions"
+import {
+  SVG_RENDER_MAX_SOURCE_BYTES,
+  SVG_REPORTED_FENCE_MAX_BYTES,
+  SVG_SOURCE_FORMATS,
+  SvgTextSourceSchema,
+} from "../learning/features/svg-rendering/service/contracts"
+import { readBoundedRequestBody, replayRequestBody } from "../http/bounded-request-body"
 
 const sessionRouteFactory = createFactory()
+const SESSION_SVG_REPAIR_ID_MAX_CHARACTERS = 256
+const SESSION_SVG_REPAIR_JSON_STRING_EXPANSION_FACTOR = 6
+const SESSION_SVG_REPAIR_JSON_FIXED_BYTES = 4 * 1024
+const SESSION_SVG_REPAIR_MAX_REQUEST_BODY_BYTES =
+  (SVG_REPORTED_FENCE_MAX_BYTES +
+    SVG_RENDER_MAX_SOURCE_BYTES +
+    SESSION_SVG_REPAIR_ID_MAX_CHARACTERS * 2) *
+    SESSION_SVG_REPAIR_JSON_STRING_EXPANSION_FACTOR +
+  SESSION_SVG_REPAIR_JSON_FIXED_BYTES
 
 const [listSessionsHandler] = sessionRouteFactory.createHandlers(proxySessionCollection)
 const [createSessionHandler] = sessionRouteFactory.createHandlers(proxySessionCollection)
@@ -51,6 +68,9 @@ const [postSessionPromptAsyncHandler] = sessionRouteFactory.createHandlers(postS
 const [postSessionCommandHandler] = sessionRouteFactory.createHandlers(postSessionCommand)
 const [postSessionMermaidRepairAsyncHandler] = sessionRouteFactory.createHandlers(
   postSessionMermaidRepairAsync,
+)
+const [postSessionSvgRepairAsyncHandler] = sessionRouteFactory.createHandlers(
+  postSessionSvgRepairAsync,
 )
 const [getSessionMermaidRepairStatusHandler] = sessionRouteFactory.createHandlers(
   getSessionMermaidRepairStatus,
@@ -173,6 +193,53 @@ const sessionSummarizeBodyOpenApiSchema = {
 const sessionMermaidRepairBodySchema = z.object({
   objectID: z.string().min(1),
   failedRenderKey: z.string().min(1),
+})
+
+const sessionSvgRepairBodySchema = z.object({
+  assistantMessageID: z.string().min(1).max(SESSION_SVG_REPAIR_ID_MAX_CHARACTERS),
+  partID: z.string().min(1).max(SESSION_SVG_REPAIR_ID_MAX_CHARACTERS),
+  segmentIndex: z.number().int().nonnegative(),
+  rawFence: z
+    .string()
+    .min(1)
+    .refine(
+      (rawFence) => Buffer.byteLength(rawFence, "utf8") <= SVG_REPORTED_FENCE_MAX_BYTES,
+      `Reported chemistry fence exceeds the ${SVG_REPORTED_FENCE_MAX_BYTES}-byte limit.`,
+    ),
+  format: z.enum(SVG_SOURCE_FORMATS),
+  source: SvgTextSourceSchema,
+}).strict()
+
+const sessionSvgRepairBodyOpenApiSchema = {
+  type: "object" as const,
+  required: [
+    "assistantMessageID",
+    "partID",
+    "segmentIndex",
+    "rawFence",
+    "format",
+    "source",
+  ],
+  additionalProperties: false,
+  properties: {
+    assistantMessageID: {
+      type: "string" as const,
+      maxLength: SESSION_SVG_REPAIR_ID_MAX_CHARACTERS,
+    },
+    partID: {
+      type: "string" as const,
+      maxLength: SESSION_SVG_REPAIR_ID_MAX_CHARACTERS,
+    },
+    segmentIndex: { type: "integer" as const, minimum: 0 },
+    rawFence: { type: "string" as const, maxLength: SVG_REPORTED_FENCE_MAX_BYTES },
+    format: { type: "string" as const, enum: [...SVG_SOURCE_FORMATS] },
+    source: { type: "string" as const, maxLength: SVG_RENDER_MAX_SOURCE_BYTES },
+  },
+}
+
+const svgRepairStatusResponseSchema = z.object({
+  repairRequestID: z.string().min(1),
+  status: z.enum(["running", "validated", "exhausted"]),
 })
 
 const sessionMermaidRepairBodyOpenApiSchema = {
@@ -504,13 +571,54 @@ export const SessionRoutes = new Hono()
             },
           },
         },
-        ...routeErrors(400, 403, 404, 409),
+        ...routeErrors(400, 403, 404, 409, 413),
       },
     }),
     validator("query", directoryQuerySchema),
     validator("param", SessionIDParamSchema),
     validator("json", sessionMermaidRepairBodySchema),
     postSessionMermaidRepairAsyncHandler,
+  )
+  .post(
+    "/:sessionID/svg-repair-async",
+    describeRoute({
+      operationId: "session.svgRepairAsync",
+      summary: "Queue an SVG auto-repair prompt for a failed native render",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: sessionSvgRepairBodyOpenApiSchema,
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "SVG repair request accepted or already recorded",
+          content: {
+            "application/json": {
+              schema: resolver(svgRepairStatusResponseSchema),
+            },
+          },
+        },
+        ...routeErrors(400, 403, 404, 409, 413),
+      },
+    }),
+    validator("query", directoryQuerySchema),
+    validator("param", SessionIDParamSchema),
+    async (c, next) => {
+      const result = await readBoundedRequestBody(
+        c.req.raw,
+        SESSION_SVG_REPAIR_MAX_REQUEST_BODY_BYTES,
+      )
+      if (result.status === "too_large") {
+        return c.json({ error: "SVG repair request exceeds the request size limit." }, 413)
+      }
+      c.req.raw = replayRequestBody(c.req.raw, result.body)
+      await next()
+    },
+    validator("json", sessionSvgRepairBodySchema),
+    postSessionSvgRepairAsyncHandler,
   )
   .get(
     "/:sessionID/mermaid-repair/:repairRequestID",
