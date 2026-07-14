@@ -1,6 +1,6 @@
 import fsp from "node:fs/promises"
-import path from "node:path"
 import { z } from "zod"
+import { writeJsonFileAtomic } from "../../../storage/atomic-file"
 import { skillArtifactIntegritySchema, skillSourceRefSchema } from "./catalog-schemas"
 import { installedSkillLockPath } from "./paths"
 
@@ -87,10 +87,5 @@ export async function readInstalledSkillLock(): Promise<InstalledSkillLock> {
 
 export async function writeInstalledSkillLock(lock: InstalledSkillLock): Promise<void> {
   const parsed = parseInstalledSkillLock(lock)
-  const filepath = installedSkillLockPath()
-  const temporaryPath = `${filepath}.tmp-${process.pid}-${Date.now()}`
-
-  await fsp.mkdir(path.dirname(filepath), { recursive: true })
-  await fsp.writeFile(temporaryPath, `${JSON.stringify(parsed, null, 2)}\n`, "utf8")
-  await fsp.rename(temporaryPath, filepath)
+  await writeJsonFileAtomic(installedSkillLockPath(), parsed)
 }

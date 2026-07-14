@@ -15,6 +15,21 @@ const testArtifactSchema = z.strictObject({
 
 type TestArtifact = z.infer<typeof testArtifactSchema>
 
+function ignoreDeferredResolution(): void {
+  return undefined
+}
+
+function createDeferredResolution() {
+  let resolveCompletion: () => void = ignoreDeferredResolution
+  const completion = new Promise<void>((resolve) => {
+    resolveCompletion = resolve
+  })
+  return {
+    completion,
+    resolve: resolveCompletion,
+  }
+}
+
 function payload(artifact: TestArtifact): Uint8Array {
   return Buffer.from(`${JSON.stringify(artifact)}\n`, "utf8")
 }
@@ -33,15 +48,19 @@ function store(input: {
   bundled: TestArtifact
   remote: () => TestArtifact
   signatureValid?: boolean
+  beforeLoadBundled?: () => Promise<void>
 }) {
   return createSignedArtifactStore<TestArtifact>({
     artifactLabel: "test artifact",
     cacheRoot: () => input.cacheRoot,
-    loadBundled: async () => ({
-      value: input.bundled,
-      payloadBytes: payload(input.bundled),
-      revision: input.bundled.revision,
-    }),
+    loadBundled: async () => {
+      await input.beforeLoadBundled?.()
+      return {
+        value: input.bundled,
+        payloadBytes: payload(input.bundled),
+        revision: input.bundled.revision,
+      }
+    },
     parsePayload: (value) => testArtifactSchema.parse(value),
     publicKey: () => "test-public-key",
     remoteUrl: () => "https://example.invalid/artifact.json",
@@ -84,6 +103,40 @@ describe("signed skill artifact store", () => {
     const cached = await reloaded.get()
     expect(cached.value).toEqual(remote)
     expect(cached.source).toBe("cache")
+  })
+
+  test("shares initial resolution between startup refresh and request-time reads", async () => {
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), "buddy-signed-concurrent-"))
+    const loadBarrier = createDeferredResolution()
+    let loadCount = 0
+    const artifactStore = store({
+      cacheRoot: root,
+      bundled: { revision: 1, value: "bundled" },
+      remote: () => ({ revision: 2, value: "remote" }),
+      beforeLoadBundled: async () => {
+        loadCount += 1
+        await loadBarrier.completion
+      },
+    })
+
+    try {
+      const requestRead = artifactStore.get()
+      const startupRefresh = artifactStore.refresh()
+      loadBarrier.resolve()
+      const [requestResolution, refreshResolution] = await Promise.all([
+        requestRead,
+        startupRefresh,
+      ])
+
+      expect(loadCount).toBe(1)
+      expect(requestResolution.value.value).toBe("bundled")
+      expect(refreshResolution.value.value).toBe("remote")
+      await expect(fsp.readFile(path.join(root, "state.json"), "utf8")).resolves.toContain(
+        '"highestAcceptedRevision": 2',
+      )
+    } finally {
+      await fsp.rm(root, { recursive: true, force: true })
+    }
   })
 
   test("recovers an accepted revision when its cached envelope is missing", async () => {

@@ -3,6 +3,7 @@ import fsp from "node:fs/promises"
 import path from "node:path"
 import { verifySignedMessage } from "@buddy/script/minisign"
 import { z } from "zod"
+import { writeTextFileAtomic } from "../../../storage/atomic-file"
 
 const ENVELOPE_SCHEMA_VERSION = 1
 const ARTIFACT_STATE_SCHEMA_VERSION = 1
@@ -120,18 +121,6 @@ async function readOptionalFile(filepath: string): Promise<string | undefined> {
   })
 }
 
-async function writeAtomicFile(filepath: string, content: string): Promise<void> {
-  const temporaryPath = `${filepath}.tmp-${process.pid}-${Date.now()}`
-  await fsp.mkdir(path.dirname(filepath), { recursive: true })
-  try {
-    await fsp.writeFile(temporaryPath, content, "utf8")
-    await fsp.rename(temporaryPath, filepath)
-  } catch (error) {
-    await fsp.rm(temporaryPath, { force: true }).catch(() => undefined)
-    throw error
-  }
-}
-
 async function readState(cacheRoot: string): Promise<SignedArtifactState | undefined> {
   const source = await readOptionalFile(path.join(cacheRoot, ARTIFACT_STATE_FILE_NAME))
   if (!source) return undefined
@@ -148,7 +137,7 @@ async function writeState(
     payloadSha256: resolution.payloadSha256,
     acceptedAt: new Date().toISOString(),
   })
-  await writeAtomicFile(
+  await writeTextFileAtomic(
     path.join(cacheRoot, ARTIFACT_STATE_FILE_NAME),
     `${JSON.stringify(state, null, 2)}\n`,
   )
@@ -236,6 +225,12 @@ export function createSignedArtifactEnvelope(input: {
 export function createSignedArtifactStore<T>(options: SignedArtifactStoreOptions<T>) {
   let loadedCacheRoot: string | undefined
   let active: SignedArtifactResolution<T> | undefined
+  let resolutionTask:
+    | {
+        cacheRoot: string
+        promise: Promise<SignedArtifactResolution<T>>
+      }
+    | undefined
   let refreshTask: Promise<SignedArtifactResolution<T>> | undefined
 
   async function verifyEnvelope(
@@ -275,12 +270,7 @@ export function createSignedArtifactStore<T>(options: SignedArtifactStoreOptions
     return await verifyEnvelope(source, "cache")
   }
 
-  async function resolveActive(): Promise<SignedArtifactResolution<T>> {
-    const cacheRoot = options.cacheRoot()
-    if (loadedCacheRoot === cacheRoot && active) return active
-
-    loadedCacheRoot = cacheRoot
-    active = undefined
+  async function resolveActiveOnce(cacheRoot: string): Promise<SignedArtifactResolution<T>> {
     const bundledPayload = await options.loadBundled()
     const bundled: SignedArtifactResolution<T> = {
       ...bundledPayload,
@@ -297,7 +287,6 @@ export function createSignedArtifactStore<T>(options: SignedArtifactStoreOptions
     }
 
     const selected = selectActiveResolution({ bundled, cached, state })
-    active = syncError ? { ...selected, syncError } : selected
     if (
       !state ||
       selected.revision > state.highestAcceptedRevision ||
@@ -306,7 +295,29 @@ export function createSignedArtifactStore<T>(options: SignedArtifactStoreOptions
     ) {
       await writeState(cacheRoot, selected)
     }
-    return active
+    const resolved = syncError ? { ...selected, syncError } : selected
+    loadedCacheRoot = cacheRoot
+    active = resolved
+    return resolved
+  }
+
+  async function resolveActive(): Promise<SignedArtifactResolution<T>> {
+    const cacheRoot = options.cacheRoot()
+    if (loadedCacheRoot === cacheRoot && active) return active
+
+    if (resolutionTask?.cacheRoot === cacheRoot) {
+      return await resolutionTask.promise
+    }
+
+    const promise = resolveActiveOnce(cacheRoot)
+    resolutionTask = { cacheRoot, promise }
+    try {
+      return await promise
+    } finally {
+      if (resolutionTask?.promise === promise) {
+        resolutionTask = undefined
+      }
+    }
   }
 
   async function refreshOnce(): Promise<SignedArtifactResolution<T>> {
@@ -350,7 +361,7 @@ export function createSignedArtifactStore<T>(options: SignedArtifactStoreOptions
         )
       }
 
-      await writeAtomicFile(
+      await writeTextFileAtomic(
         path.join(cacheRoot, ARTIFACT_ENVELOPE_FILE_NAME),
         `${JSON.stringify(parseJson(envelopeText, `${options.artifactLabel} envelope`), null, 2)}\n`,
       )
@@ -386,6 +397,7 @@ export function createSignedArtifactStore<T>(options: SignedArtifactStoreOptions
   function reset(): void {
     loadedCacheRoot = undefined
     active = undefined
+    resolutionTask = undefined
     refreshTask = undefined
   }
 
