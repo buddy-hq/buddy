@@ -2,6 +2,7 @@ import { join } from "node:path"
 import type { BuddyReleaseChannel } from "@buddy/script/channel"
 import {
   BUDDY_APP_NAME,
+  BUDDY_ENV,
   BUDDY_OPENCODE_DB_FILENAME,
   BUDDY_OPENCODE_RUNTIME_DIRECTORY_NAME,
   DEFAULT_NOTEBOOK_HOME_SEGMENTS,
@@ -15,6 +16,7 @@ export type StorageChannel = BuddyReleaseChannel
 const DEV_XDG_DIRECTORY_NAME = "xdg"
 export const DESKTOP_XDG_ENV = {
   CACHE_HOME: XDG_ENV.CACHE_HOME,
+  CONFIG_HOME: XDG_ENV.CONFIG_HOME,
   DATA_HOME: XDG_ENV.DATA_HOME,
   STATE_HOME: XDG_ENV.STATE_HOME,
 } as const
@@ -38,12 +40,29 @@ export function resolveRuntimeXdgEnvironment(runtimeRoot: string): Record<string
   return {
     [DESKTOP_XDG_ENV.DATA_HOME]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.data),
     [DESKTOP_XDG_ENV.CACHE_HOME]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.cache),
+    [DESKTOP_XDG_ENV.CONFIG_HOME]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.config),
     [DESKTOP_XDG_ENV.STATE_HOME]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.state),
   }
 }
 
 export function resolveDevXdgEnvironment(userDataPath: string): Record<string, string> {
   return resolveRuntimeXdgEnvironment(join(userDataPath, DEV_XDG_DIRECTORY_NAME))
+}
+
+export function resolveDevRuntimeEnvironment(userDataPath: string): Record<string, string> {
+  const runtimeRoot = join(userDataPath, DEV_XDG_DIRECTORY_NAME)
+
+  return {
+    ...resolveRuntimeXdgEnvironment(runtimeRoot),
+    [BUDDY_ENV.DATA_DIR]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.data, BUDDY_APP_NAME),
+    [BUDDY_ENV.CACHE_DIR]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.cache, BUDDY_APP_NAME),
+    [BUDDY_ENV.GLOBAL_CONFIG_DIR]: join(
+      runtimeRoot,
+      RUNTIME_ROOT_SEGMENTS.config,
+      BUDDY_APP_NAME,
+    ),
+    [BUDDY_ENV.STATE_DIR]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.state, BUDDY_APP_NAME),
+  }
 }
 
 function resolveConfiguredDesktopPath(value: string | undefined): string | undefined {

@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test"
 import path from "node:path"
+import { BUDDY_ENV } from "@buddy/script/storage-env"
 import {
   DESKTOP_XDG_ENV,
   resolveAllowedDirectoryRoots,
   resolveBuddyDataDir,
   resolveDefaultNotebookHome,
+  resolveDevRuntimeEnvironment,
   resolveDevXdgEnvironment,
   resolveOpenCodeSqlitePath,
   resolveRuntimeXdgEnvironment,
@@ -39,15 +41,30 @@ describe("desktop storage paths", () => {
     ).toBe(false)
   })
 
-  test("builds dev XDG data/cache/state under Electron userData only", () => {
+  test("builds dev XDG data/cache/config/state under Electron userData only", () => {
     const userData = path.join("/tmp", "Buddy Dev")
 
     expect(resolveDevXdgEnvironment(userData)).toEqual({
       [DESKTOP_XDG_ENV.DATA_HOME]: path.join(userData, "xdg", "data"),
       [DESKTOP_XDG_ENV.CACHE_HOME]: path.join(userData, "xdg", "cache"),
+      [DESKTOP_XDG_ENV.CONFIG_HOME]: path.join(userData, "xdg", "config"),
       [DESKTOP_XDG_ENV.STATE_HOME]: path.join(userData, "xdg", "state"),
     })
-    expect(resolveDevXdgEnvironment(userData)).not.toHaveProperty("XDG_CONFIG_HOME")
+  })
+
+  test("pins every mutable Buddy Dev root under Electron userData", () => {
+    const userData = path.join("/tmp", "Buddy Dev")
+
+    expect(resolveDevRuntimeEnvironment(userData)).toEqual({
+      [DESKTOP_XDG_ENV.DATA_HOME]: path.join(userData, "xdg", "data"),
+      [DESKTOP_XDG_ENV.CACHE_HOME]: path.join(userData, "xdg", "cache"),
+      [DESKTOP_XDG_ENV.CONFIG_HOME]: path.join(userData, "xdg", "config"),
+      [DESKTOP_XDG_ENV.STATE_HOME]: path.join(userData, "xdg", "state"),
+      [BUDDY_ENV.DATA_DIR]: path.join(userData, "xdg", "data", "buddy"),
+      [BUDDY_ENV.CACHE_DIR]: path.join(userData, "xdg", "cache", "buddy"),
+      [BUDDY_ENV.GLOBAL_CONFIG_DIR]: path.join(userData, "xdg", "config", "buddy"),
+      [BUDDY_ENV.STATE_DIR]: path.join(userData, "xdg", "state", "buddy"),
+    })
   })
 
   test("builds XDG roots from an explicit runtime root", () => {
@@ -56,6 +73,7 @@ describe("desktop storage paths", () => {
     expect(resolveRuntimeXdgEnvironment(runtimeRoot)).toEqual({
       [DESKTOP_XDG_ENV.DATA_HOME]: path.join(runtimeRoot, "data"),
       [DESKTOP_XDG_ENV.CACHE_HOME]: path.join(runtimeRoot, "cache"),
+      [DESKTOP_XDG_ENV.CONFIG_HOME]: path.join(runtimeRoot, "config"),
       [DESKTOP_XDG_ENV.STATE_HOME]: path.join(runtimeRoot, "state"),
     })
   })

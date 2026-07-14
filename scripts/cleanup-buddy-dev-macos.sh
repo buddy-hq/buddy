@@ -10,6 +10,7 @@ readonly DESKTOP_DIST_DIRECTORY="${REPO_ROOT}/packages/desktop-electron/dist"
 readonly INSTALL_DIRECTORY="${BUDDY_DEV_INSTALL_DIR:-/Applications}"
 readonly INSTALLED_APP_PATH="${INSTALL_DIRECTORY}/${APP_NAME}.app"
 readonly USER_LIBRARY_DIRECTORY="${HOME}/Library"
+readonly DEV_USER_DATA_DIRECTORY="${USER_LIBRARY_DIRECTORY}/Application Support/${APP_ID}"
 readonly TEMPORARY_DIRECTORY_PREFIX="buddy-dev-reinstall"
 readonly QUARANTINE_ATTRIBUTE="com.apple.quarantine"
 
@@ -117,14 +118,23 @@ stop_dev_app() {
 }
 
 remove_dev_paths() {
+  defaults delete "${APP_ID}" >/dev/null 2>&1 || true
+
   local dev_paths=(
     "${INSTALLED_APP_PATH}"
-    "${USER_LIBRARY_DIRECTORY}/Application Support/${APP_ID}"
+    "${DEV_USER_DATA_DIRECTORY}"
+    "${USER_LIBRARY_DIRECTORY}/Application Scripts/${APP_ID}"
     "${USER_LIBRARY_DIRECTORY}/Caches/${APP_ID}"
     "${USER_LIBRARY_DIRECTORY}/Caches/${APP_NAME}"
+    "${USER_LIBRARY_DIRECTORY}/Containers/${APP_ID}"
+    "${USER_LIBRARY_DIRECTORY}/Cookies/${APP_ID}.binarycookies"
+    "${USER_LIBRARY_DIRECTORY}/HTTPStorages/${APP_ID}"
+    "${USER_LIBRARY_DIRECTORY}/HTTPStorages/${APP_ID}.binarycookies"
+    "${USER_LIBRARY_DIRECTORY}/Logs/${APP_ID}"
     "${USER_LIBRARY_DIRECTORY}/Logs/${APP_NAME}"
     "${USER_LIBRARY_DIRECTORY}/Preferences/${APP_ID}.plist"
     "${USER_LIBRARY_DIRECTORY}/Saved Application State/${APP_ID}.savedState"
+    "${USER_LIBRARY_DIRECTORY}/WebKit/${APP_ID}"
   )
   local path
 
@@ -138,11 +148,46 @@ remove_dev_paths() {
   done
 }
 
+clean_desktop_build_artifacts() {
+  if [[ ! -e "${DESKTOP_DIST_DIRECTORY}" ]]; then
+    ok "No previous Electron packaging artifacts found"
+    return
+  fi
+
+  info "Removing previous Electron packaging artifacts"
+  rm -rf "${DESKTOP_DIST_DIRECTORY}"
+  ok "Removed ${DESKTOP_DIST_DIRECTORY}"
+}
+
+resolve_dev_installer_path() {
+  local version="$1"
+  local architecture_label="$2"
+  printf "%s/buddy-v%s-macos-%s.dmg\n" \
+    "${DESKTOP_DIST_DIRECTORY}" \
+    "${version}" \
+    "${architecture_label}"
+}
+
+keep_current_dev_installer_only() {
+  local artifact_path="$1"
+
+  if [[ ! -f "${artifact_path}" ]]; then
+    fail "Cannot preserve missing Buddy Dev installer: ${artifact_path}"
+    exit 1
+  fi
+
+  info "Pruning intermediate Electron packaging artifacts"
+  find "${DESKTOP_DIST_DIRECTORY}" \
+    -mindepth 1 \
+    -maxdepth 1 \
+    ! -path "${artifact_path}" \
+    -exec rm -rf {} +
+  ok "Kept current installer at ${artifact_path}"
+}
+
 install_dev_app() {
   (
-    local version="$1"
-    local architecture_label="$2"
-    local artifact_path="${DESKTOP_DIST_DIRECTORY}/buddy-v${version}-macos-${architecture_label}.dmg"
+    local artifact_path="$1"
     local temporary_directory
     local mount_directory
     local source_app_path
@@ -191,6 +236,7 @@ install_dev_app() {
 main() {
   local desktop_version
   local architecture_label
+  local artifact_path
 
   if [[ "$(uname -s)" != "${MACOS_NAME}" ]]; then
     fail "This command only supports macOS"
@@ -198,7 +244,9 @@ main() {
   fi
 
   require_command bun
+  require_command defaults
   require_command ditto
+  require_command find
   require_command hdiutil
   require_command open
   require_command osascript
@@ -210,6 +258,7 @@ main() {
 
   stop_dev_app
   remove_dev_paths
+  clean_desktop_build_artifacts
 
   info "Building the current Buddy Dev installable"
   (
@@ -219,7 +268,9 @@ main() {
 
   desktop_version="$(read_desktop_version)"
   architecture_label="$(resolve_architecture_label)"
-  install_dev_app "${desktop_version}" "${architecture_label}"
+  artifact_path="$(resolve_dev_installer_path "${desktop_version}" "${architecture_label}")"
+  install_dev_app "${artifact_path}"
+  keep_current_dev_installer_only "${artifact_path}"
 
   info "Opening ${APP_NAME}"
   open "${INSTALLED_APP_PATH}"

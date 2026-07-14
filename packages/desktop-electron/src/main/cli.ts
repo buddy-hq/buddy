@@ -9,7 +9,7 @@ import { getUserShell, loadShellEnv, mergeShellEnv } from "./shell-env"
 import {
   resolveAllowedDirectoryRoots,
   resolveDefaultNotebookHome,
-  resolveDevXdgEnvironment,
+  resolveDevRuntimeEnvironment,
   shouldUseDevRuntimeIsolation,
 } from "./storage-paths"
 
@@ -92,8 +92,8 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
     channel: CHANNEL,
     isPackaged: app.isPackaged,
   })
-  const runtimeXdgEnvironment = shouldIsolateDevRuntime
-    ? resolveDevXdgEnvironment(app.getPath("userData"))
+  const isolatedRuntimeEnvironment = shouldIsolateDevRuntime
+    ? resolveDevRuntimeEnvironment(app.getPath("userData"))
     : {}
   const appEnvironment = Object.fromEntries(
     Object.entries(process.env).filter(
@@ -104,11 +104,11 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
   const base = mergeShellEnv(shellEnvironment, appEnvironment)
   delete base[BUDDY_ENV.RUNTIME_ROOT]
   delete base[OPENCODE_ENV.DISABLE_CHANNEL_DB]
-  ensureDirectories(Object.values(runtimeXdgEnvironment))
+  ensureDirectories(Object.values(isolatedRuntimeEnvironment))
 
   const environment: Record<string, string> = {
     ...base,
-    ...runtimeXdgEnvironment,
+    ...isolatedRuntimeEnvironment,
     [BUDDY_ENV.SERVER_USERNAME]: BACKEND_SERVER_USERNAME,
     [BUDDY_ENV.SERVER_PASSWORD]: password,
     [OPENCODE_ENV.SERVER_USERNAME]: BACKEND_SERVER_USERNAME,
