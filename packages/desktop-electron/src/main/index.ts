@@ -34,6 +34,12 @@ import { checkAppExists, resolveAppPath, wslPath } from "./apps"
 import { buildRuntimeEnvironment, installCli } from "./cli"
 import { registerIpcHandlers, sendDeepLinks, sendMenuCommand } from "./ipc"
 import { initLogging, safelyWriteToStandardStream } from "./logging"
+import {
+  MAC_INSTALLER_FAILURE_BUTTONS,
+  MAC_INSTALLER_FAILURE_MESSAGE,
+  MAC_INSTALLER_FAILURE_TITLE,
+  macInstallerFailureDetail,
+} from "./mac-installer-failure-dialog"
 import { parseMarkdown } from "./markdown"
 import { exportMarkdownPdf } from "./markdown-pdf"
 import { createMenu } from "./menu"
@@ -66,6 +72,11 @@ import {
   resolveVersionedReleaseAssetUrls,
   SignedUpdateFetchError,
 } from "./update-common"
+import {
+  createReadyUpdateStore,
+  createUpdateCheckCoordinator,
+  isReadyUpdateCurrent,
+} from "./update-check-coordinator"
 import { compareVersions } from "./recovery-policy-core"
 import type {
   UpdateProgressErrorStage,
@@ -95,7 +106,6 @@ const SECONDARY_DIALOG_RESPONSE = 1
 const STARTUP_FAILURE_UPDATE_CHECK_BUTTONS = ["Check for Update", "Quit"] as const
 const STARTUP_FAILURE_UPDATE_INSTALL_BUTTONS = ["Install and Restart", "Quit"] as const
 const STARTUP_FAILURE_UPDATE_MISSING_BUTTONS = ["Open Download Page", "Quit"] as const
-const MAC_INSTALLER_FAILURE_BUTTONS = ["OK", "Open Log"] as const
 const UPDATE_READY_RESTART_BUTTONS = ["Restart", "Later"] as const
 const BLOCKED_UPDATE_DIALOG_MESSAGE = "No updates available at this time."
 
@@ -111,13 +121,8 @@ const initEmitter = new EventEmitter()
 let initStep: InitStep = { phase: "server_waiting" }
 let mainWindow: BrowserWindow | null = null
 let backendUtility: CommandChild | null = null
-let updateReady = false
-let readyUpdateVersion: string | undefined
-let readyUpdateRing: UpdateRing | undefined
 let updaterEnabled = UPDATER_ENABLED
 let customMacUpdater: ReturnType<typeof createCustomMacUpdater> | null = null
-const checkUpdateTasks = new Map<UpdateRing, Promise<UpdateCheckResult>>()
-let checkUpdateQueue: Promise<void> = Promise.resolve()
 let updateProgress: UpdateProgressSnapshot = createIdleUpdateProgress(getUpdateRing())
 let activeWindowsDownload:
   | {
@@ -141,6 +146,10 @@ type SignedWindowsUpdateFeed = WindowsUpdateFeed & {
 const loadingComplete = defer<void>()
 const serverReady = defer<ServerReadyData>()
 const pendingDeepLinks: string[] = []
+const readyUpdateStore = createReadyUpdateStore()
+const updateCheckCoordinator = createUpdateCheckCoordinator<UpdateCheckResult>(
+  runLatestUpdateCheck,
+)
 
 setupApplication()
 
@@ -499,9 +508,9 @@ async function reportPreviousMacInstallerResult(): Promise<void> {
 
   try {
     const response = await dialog.showMessageBox({
-      type: "error",
-      title: "Update Install Failed",
-      message: "Buddy could not finish installing the previous update.",
+      type: "warning",
+      title: MAC_INSTALLER_FAILURE_TITLE,
+      message: MAC_INSTALLER_FAILURE_MESSAGE,
       detail: macInstallerFailureDetail(result, logPath),
       buttons: [...MAC_INSTALLER_FAILURE_BUTTONS],
       defaultId: PRIMARY_DIALOG_RESPONSE,
@@ -548,12 +557,6 @@ async function consumePreviousMacInstallerResult(): Promise<MacInstallerResult |
     logger.warn("failed to clear mac installer result", error)
   })
   return result
-}
-
-function macInstallerFailureDetail(result: MacInstallerResult, logPath: string): string {
-  const exitCode =
-    result.exitCode === undefined ? "" : `\n\nInstaller exit code: ${result.exitCode}`
-  return `The updater helper reported a failure after Buddy quit.${exitCode}\n\nLog file: ${logPath}`
 }
 
 async function openInstallerLog(logPath: string): Promise<void> {
@@ -820,53 +823,19 @@ function setupAutoUpdater() {
 
 async function checkUpdate(): Promise<UpdateCheckResult> {
   if (!updaterEnabled) return { updateAvailable: false }
-
-  const ring = getUpdateRing()
-  if (updateReady && readyUpdateVersion && readyUpdateRing === ring) {
-    if (isUpdateVersionBlocked(readyUpdateVersion)) {
-      return { blocked: true, updateAvailable: false }
-    }
-
-    setUpdateProgress({
-      percent: 100,
-      ring,
-      status: "ready",
-      version: readyUpdateVersion,
-    })
-    return {
-      updateAvailable: true,
-      version: readyUpdateVersion,
-    }
-  }
-
-  const existingTask = checkUpdateTasks.get(ring)
-  if (existingTask) {
-    return await existingTask
-  }
-
-  const task = enqueueUpdateCheck(async () => {
-    try {
-      if (process.platform === "darwin" && customMacUpdater) {
-        return await checkCustomMacUpdate(ring)
-      }
-
-      return await checkWindowsUpdate(ring)
-    } finally {
-      checkUpdateTasks.delete(ring)
-    }
-  })
-
-  checkUpdateTasks.set(ring, task)
-  return await task
+  return await updateCheckCoordinator.check(getUpdateRing())
 }
 
-function enqueueUpdateCheck(run: () => Promise<UpdateCheckResult>): Promise<UpdateCheckResult> {
-  const task = checkUpdateQueue.then(run, run)
-  checkUpdateQueue = task.then(
-    () => undefined,
-    () => undefined,
-  )
-  return task
+async function runLatestUpdateCheck(ring: UpdateRing): Promise<UpdateCheckResult> {
+  if (process.platform === "darwin" && customMacUpdater) {
+    return await checkCustomMacUpdate(ring)
+  }
+
+  return await checkWindowsUpdate(ring)
+}
+
+function setReadyUpdate(ring: UpdateRing, version: string): void {
+  readyUpdateStore.set({ ring, version })
 }
 
 async function checkCustomMacUpdate(ring: UpdateRing): Promise<UpdateCheckResult> {
@@ -876,6 +845,7 @@ async function checkCustomMacUpdate(ring: UpdateRing): Promise<UpdateCheckResult
     return { updateAvailable: false }
   }
 
+  readyUpdateStore.clear()
   let downloadStarted = false
   setUpdateProgress({
     ring,
@@ -898,9 +868,7 @@ async function checkCustomMacUpdate(ring: UpdateRing): Promise<UpdateCheckResult
   })
 
   if (result.updateAvailable) {
-    updateReady = true
-    readyUpdateRing = ring
-    readyUpdateVersion = result.version
+    setReadyUpdate(ring, result.version)
     setUpdateProgress({
       percent: 100,
       ring,
@@ -923,6 +891,7 @@ async function checkCustomMacUpdate(ring: UpdateRing): Promise<UpdateCheckResult
 }
 
 async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckResult> {
+  const previousReadyUpdate = readyUpdateStore.take(ring)
   let signedFeed: SignedWindowsUpdateFeed | undefined
   let downloadStarted = false
   setUpdateProgress({
@@ -932,24 +901,7 @@ async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckResult> 
 
   try {
     signedFeed = await configureSignedWindowsUpdateFeed(undefined, ring)
-    autoUpdater.allowPrerelease = ring === UPDATE_RING_PREVIEW
-    autoUpdater.allowDowngrade = false
-
-    const result = await autoUpdater.checkForUpdates()
-    const version = result?.updateInfo?.version
-    if (result?.isUpdateAvailable === false || !version) {
-      setUpdateIdle(ring)
-      return { updateAvailable: false }
-    }
-
-    if (version !== signedFeed.version) {
-      logger.error("signed update manifest version mismatch", {
-        resolvedVersion: version,
-        signedManifestVersion: signedFeed.version,
-      })
-      setUpdateError({ ring, stage: "check", version })
-      return { updateAvailable: false, failed: true }
-    }
+    const version = signedFeed.version
 
     if (compareVersions(version, app.getVersion()) <= 0) {
       logger.info("normal update check ignored same or older version", {
@@ -967,6 +919,36 @@ async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckResult> 
       return { blocked: true, updateAvailable: false }
     }
 
+    if (isReadyUpdateCurrent(previousReadyUpdate, ring, version)) {
+      setReadyUpdate(ring, version)
+      setUpdateProgress({
+        percent: 100,
+        ring,
+        status: "ready",
+        version,
+      })
+      return { updateAvailable: true, version }
+    }
+
+    autoUpdater.allowPrerelease = ring === UPDATE_RING_PREVIEW
+    autoUpdater.allowDowngrade = false
+
+    const result = await autoUpdater.checkForUpdates()
+    const resolvedVersion = result?.updateInfo?.version
+    if (result?.isUpdateAvailable === false || !resolvedVersion) {
+      setUpdateIdle(ring)
+      return { updateAvailable: false }
+    }
+
+    if (resolvedVersion !== version) {
+      logger.error("signed update manifest version mismatch", {
+        resolvedVersion,
+        signedManifestVersion: version,
+      })
+      setUpdateError({ ring, stage: "check", version: resolvedVersion })
+      return { updateAvailable: false, failed: true }
+    }
+
     downloadStarted = true
     activeWindowsDownload = { ring, version }
     setUpdateProgress({
@@ -977,9 +959,7 @@ async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckResult> 
       version,
     })
     await autoUpdater.downloadUpdate()
-    updateReady = true
-    readyUpdateRing = ring
-    readyUpdateVersion = version
+    setReadyUpdate(ring, version)
     setUpdateProgress({
       percent: 100,
       ring,
@@ -1007,11 +987,17 @@ async function checkWindowsUpdate(ring: UpdateRing): Promise<UpdateCheckResult> 
 async function checkUpdateForVersion(version: string): Promise<UpdateCheckResult> {
   if (!updaterEnabled) return { updateAvailable: false }
 
-  return await enqueueUpdateCheck(() => checkUpdateForVersionNow(version))
+  return await updateCheckCoordinator.runExclusive(() => checkUpdateForVersionNow(version))
 }
 
 async function checkUpdateForVersionNow(version: string): Promise<UpdateCheckResult> {
   const ring = getUpdateRing()
+  const macUpdater = process.platform === "darwin" ? customMacUpdater : null
+  if (macUpdater) {
+    readyUpdateStore.clear()
+  } else {
+    readyUpdateStore.take(ring)
+  }
   setUpdateProgress({
     ring,
     status: "checking",
@@ -1024,12 +1010,10 @@ async function checkUpdateForVersionNow(version: string): Promise<UpdateCheckRes
     return { blocked: true, updateAvailable: false }
   }
 
-  if (process.platform === "darwin" && customMacUpdater) {
-    const result = await customMacUpdater.checkForVersion(version)
+  if (macUpdater) {
+    const result = await macUpdater.checkForVersion(version)
     if (result.updateAvailable) {
-      updateReady = true
-      readyUpdateRing = ring
-      readyUpdateVersion = result.version
+      setReadyUpdate(ring, result.version)
       setUpdateProgress({
         percent: 100,
         ring,
@@ -1087,9 +1071,7 @@ async function checkUpdateForVersionNow(version: string): Promise<UpdateCheckRes
       version: resolvedVersion,
     })
     await autoUpdater.downloadUpdate()
-    updateReady = true
-    readyUpdateRing = ring
-    readyUpdateVersion = resolvedVersion
+    setReadyUpdate(ring, resolvedVersion)
     setUpdateProgress({
       percent: 100,
       ring,
@@ -1222,7 +1204,8 @@ function configureDefaultElectronUpdaterProvider() {
 
 async function installUpdate() {
   const ring = getUpdateRing()
-  if (!updateReady || readyUpdateRing !== ring) {
+  const readyUpdate = readyUpdateStore.get()
+  if (readyUpdate?.ring !== ring) {
     setUpdateIdle(ring)
     throw new Error("No update is ready for the selected update ring")
   }
@@ -1232,9 +1215,14 @@ async function installUpdate() {
       percent: 100,
       ring,
       status: "installing",
-      version: readyUpdateVersion,
+      version: readyUpdate.version,
     })
-    await customMacUpdater.installUpdate()
+    try {
+      await customMacUpdater.installUpdate(readyUpdate.version)
+    } catch (error) {
+      setUpdateError({ ring, stage: "install", version: readyUpdate.version })
+      throw error
+    }
     return
   }
 
@@ -1242,7 +1230,7 @@ async function installUpdate() {
     percent: 100,
     ring,
     status: "installing",
-    version: readyUpdateVersion,
+    version: readyUpdate.version,
   })
   await killBackendUtility()
   autoUpdater.quitAndInstall()
