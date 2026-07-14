@@ -1,15 +1,23 @@
 ---
+import type { Audience } from "../content/site"
 import { content } from "../content/site"
+import { AUDIENCE_EDUCATORS, AUDIENCE_LEARNERS } from "../lib/constants"
+
+type Props = {
+  initialAudience?: Audience
+}
 
 const learnersPhilosophy = content.learners.philosophy
 const educatorsPhilosophy = content.educators.philosophy
 
 const philosophyItems = learnersPhilosophy.items
+const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
+const philosophyHeadingId = `philosophy-heading-${initialAudience}`
 ---
 
 <section
   class="philosophy-new"
-  aria-labelledby="philosophy-heading-learners"
+  aria-labelledby={philosophyHeadingId}
   data-analytics-section="philosophy"
 >
   <div class="container">
@@ -17,11 +25,11 @@ const philosophyItems = learnersPhilosophy.items
 
       <div class="header-zone">
         <!-- Learners Content -->
-        <div class="swap swap-content swap-audience-learners active">
+        <div class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>
           <h2 id="philosophy-heading-learners" class="section-title">{learnersPhilosophy.headline}</h2>
         </div>
         <!-- Educators Content -->
-        <div class="swap swap-content swap-audience-educators">
+        <div class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
           <h2 id="philosophy-heading-educators" class="section-title">{educatorsPhilosophy.headline}</h2>
         </div>
       </div>
@@ -33,12 +41,12 @@ const philosophyItems = learnersPhilosophy.items
             <div class="col-index">0{idx + 1}</div>
 
             <h3 class="label">
-              <span class="swap swap-content swap-audience-learners active">{learnersPhilosophy.items[idx].label}</span>
-              <span class="swap swap-content swap-audience-educators">{educatorsPhilosophy.items[idx].label}</span>
+              <span class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>{learnersPhilosophy.items[idx].label}</span>
+              <span class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>{educatorsPhilosophy.items[idx].label}</span>
             </h3>
             <p class="detail">
-              <span class="swap swap-content swap-audience-learners active">{learnersPhilosophy.items[idx].detail}</span>
-              <span class="swap swap-content swap-audience-educators">{educatorsPhilosophy.items[idx].detail}</span>
+              <span class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>{learnersPhilosophy.items[idx].detail}</span>
+              <span class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>{educatorsPhilosophy.items[idx].detail}</span>
             </p>
           </div>
         ))}

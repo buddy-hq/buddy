@@ -8,6 +8,8 @@ import geistMonoLatinFontUrl from "../assets/fonts/geist-mono-latin.woff2?url"
 type Props = {
   title?: string
   description?: string
+  ogImagePath?: string
+  ogImageAlt?: string
 }
 
 const { meta } = content
@@ -15,12 +17,16 @@ const { meta } = content
 const {
   title = meta.defaultTitle,
   description = meta.defaultDescription,
+  ogImagePath = meta.defaultOgImagePath,
+  ogImageAlt = meta.defaultOgImageAlt,
 } = Astro.props
 
 const canonicalURL = new URL(Astro.url.pathname, meta.siteUrl).href
-const ogImage = `${meta.siteUrl}/og.png`
+const ogImage = new URL(ogImagePath, meta.siteUrl).href
 const organizationId = `${meta.siteUrl}/#organization`
 const softwareApplicationId = `${meta.siteUrl}/#software-application`
+const websiteId = `${meta.siteUrl}/#website`
+const webPageId = `${canonicalURL}#webpage`
 const postHogCaptureEndpoint = meta.analytics.postHogCaptureEndpoint
 const postHogProjectToken = meta.analytics.postHogProjectToken
 
@@ -54,9 +60,39 @@ const organizationJsonLd = {
   sameAs: meta.organizationSameAs,
 }
 
+const websiteJsonLd = {
+  "@type": "WebSite",
+  "@id": websiteId,
+  url: meta.siteUrl,
+  name: meta.siteName,
+  publisher: {
+    "@id": organizationId,
+  },
+}
+
+const webPageJsonLd = {
+  "@type": "WebPage",
+  "@id": webPageId,
+  url: canonicalURL,
+  name: title,
+  description,
+  isPartOf: {
+    "@id": websiteId,
+  },
+  about: {
+    "@id": softwareApplicationId,
+  },
+  primaryImageOfPage: {
+    "@type": "ImageObject",
+    url: ogImage,
+    width: Number(meta.ogImageWidth),
+    height: Number(meta.ogImageHeight),
+  },
+}
+
 const jsonLd = {
   "@context": "https://schema.org",
-  "@graph": [softwareApplicationJsonLd, organizationJsonLd],
+  "@graph": [softwareApplicationJsonLd, organizationJsonLd, websiteJsonLd, webPageJsonLd],
 }
 ---
 
@@ -74,11 +110,14 @@ const jsonLd = {
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalURL} />
     <meta property="og:image" content={ogImage} />
-    <meta property="og:image:alt" content={title} />
+    <meta property="og:image:secure_url" content={ogImage} />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:alt" content={ogImageAlt} />
     <meta property="og:image:width" content={meta.ogImageWidth} />
     <meta property="og:image:height" content={meta.ogImageHeight} />
     <meta property="og:site_name" content={meta.siteName} />
@@ -89,6 +128,7 @@ const jsonLd = {
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:image:alt" content={ogImageAlt} />
 
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
 

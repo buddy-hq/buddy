@@ -1,19 +1,30 @@
 ---
+import type { Audience } from "../content/site"
 import { content } from "../content/site"
-import { MAC_INSTALL_CMD, WIN_INSTALL_CMD } from "../lib/constants"
+import {
+  AUDIENCE_EDUCATORS,
+  AUDIENCE_LEARNERS,
+  MAC_INSTALL_CMD,
+  WIN_INSTALL_CMD,
+} from "../lib/constants"
+
+type Props = {
+  initialAudience?: Audience
+}
 
 const { learners, educators, install: installContent, meta } = content
 const installShareUrl = new URL("#install", meta.siteUrl).href
+const { initialAudience = AUDIENCE_LEARNERS } = Astro.props
 ---
 
 <section id="install" class="install-section reveal" data-analytics-section="install">
   <div class="container">
     <div class="install-card">
-      <div class="swap swap-content swap-audience-learners active">
+      <div class:list={["swap swap-content swap-audience-learners", { active: initialAudience === AUDIENCE_LEARNERS }]}>
         <p class="install-subtitle">{learners.download.tagline}</p>
         <h2 class="install-title">{installContent.title}</h2>
       </div>
-      <div class="swap swap-content swap-audience-educators">
+      <div class:list={["swap swap-content swap-audience-educators", { active: initialAudience === AUDIENCE_EDUCATORS }]}>
         <p class="install-subtitle">{educators.download.tagline}</p>
         <h2 class="install-title">{installContent.title}</h2>
       </div>

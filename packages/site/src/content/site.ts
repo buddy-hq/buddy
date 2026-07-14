@@ -1,5 +1,12 @@
 export type Audience = "learners" | "educators"
 
+export type Seo = {
+  readonly title: string
+  readonly description: string
+  readonly ogImagePath: string
+  readonly ogImageAlt: string
+}
+
 export type Header = {
   readonly brandName: string
   readonly audienceLearnersLabel: string
@@ -102,6 +109,8 @@ export type Meta = {
   readonly siteName: string
   readonly defaultTitle: string
   readonly defaultDescription: string
+  readonly defaultOgImagePath: string
+  readonly defaultOgImageAlt: string
   readonly twitterHandle: string
   readonly organizationSameAs: readonly [string, string, string]
   readonly analytics: {
@@ -238,12 +247,29 @@ const header: Header = {
   downloadLabel: "Download",
 }
 
+const learnerSeo: Seo = {
+  title: "Buddy - The Learning Superapp",
+  description:
+    "Read, understand, and remember with Buddy—the local-first learning superapp for Mac and Windows.",
+  ogImagePath: "/og-learning-superapp.png",
+  ogImageAlt: "Buddy — The Learning Superapp",
+}
+
+const educatorSeo: Seo = {
+  title: "Buddy - The Teaching Superapp",
+  description:
+    "Plan lessons, align to standards, create materials, and assess with Buddy—the local-first teaching superapp for Mac and Windows.",
+  ogImagePath: "/og-teaching-superapp.png",
+  ogImageAlt: "Buddy — The Teaching Superapp",
+}
+
 const meta: Meta = {
   siteUrl: "https://hibuddy.in",
   siteName: "Buddy",
-  defaultTitle: "Buddy - Agentic Learning Companion for Mac and Windows",
-  defaultDescription:
-    "Learn with a local-first AI desktop app for students and educators. Use your own AI, keep files on your computer, and make study stick. Download Buddy.",
+  defaultTitle: learnerSeo.title,
+  defaultDescription: learnerSeo.description,
+  defaultOgImagePath: learnerSeo.ogImagePath,
+  defaultOgImageAlt: learnerSeo.ogImageAlt,
   twitterHandle: "@prashant_hq",
   organizationSameAs: [
     "https://x.com/prashant_hq",
@@ -298,6 +324,7 @@ const install: Install = {
 
 export const content = {
   learners: {
+    seo: learnerSeo,
     hero: {
       headlineLines: ["A learning buddy", "that lives on your computer."],
       subtext:
@@ -344,6 +371,7 @@ export const content = {
     },
   },
   educators: {
+    seo: educatorSeo,
     hero: {
       headlineLines: ["A teaching buddy", "for whatever's next on your list."],
       subtext: "Plan, create, and assess with a teaching assistant that lives on your computer.",
@@ -397,6 +425,7 @@ export const content = {
 } as const satisfies Record<
   Audience,
   {
+    seo: Seo
     hero: {
       headlineLines: readonly [string, string]
       subtext: string

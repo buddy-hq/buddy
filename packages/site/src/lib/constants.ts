@@ -1,3 +1,9 @@
+import type { Audience } from "../content/site"
+
+export const AUDIENCE_LEARNERS = "learners" satisfies Audience
+export const AUDIENCE_EDUCATORS = "educators" satisfies Audience
+export const LEARNER_PATH = "/"
+export const EDUCATOR_PATH = "/teachers/"
 export const DOCS_PATH = "/docs/"
 export const GITHUB_URL = "https://github.com/prashantbhudwal/buddy"
 export const GITHUB_RELEASES_URL = "https://github.com/prashantbhudwal/buddy/releases"
