@@ -5,6 +5,7 @@ import {
   isGetStartedChatTestMode,
   type GetStartedChatTestMode,
 } from "@/lib/get-started-chats"
+import { useGetStartedFlowStore } from "./get-started-flow-store"
 
 const GET_STARTED_CHAT_TEST_MODE_STORAGE_KEY = "buddy.devtools.get-started-chat-test-mode.v1"
 
@@ -22,7 +23,12 @@ export const useGetStartedChatTestMode = create<GetStartedChatTestModeStore>()(
   persist(
     (set) => ({
       mode: GET_STARTED_CHAT_TEST_MODE.hidden,
-      setMode: (mode) => set({ mode }),
+      setMode(mode) {
+        set({ mode })
+        useGetStartedFlowStore
+          .getState()
+          .setEnabled(mode !== GET_STARTED_CHAT_TEST_MODE.hidden)
+      },
     }),
     {
       name: GET_STARTED_CHAT_TEST_MODE_STORAGE_KEY,

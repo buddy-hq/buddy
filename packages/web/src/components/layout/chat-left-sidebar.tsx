@@ -10,19 +10,13 @@ import {
   type DirectoryChatShellView,
 } from "@/lib/directory-chat/directory-chat-shell-view"
 import { globalConfigQueryOptions } from "@/state/global-config-query"
-import {
-  GET_STARTED_CHAT_TEST_MODE,
-  getStartedChatsForPrimaryUse,
-  getStartedChatsForTestMode,
-  shouldShowGetStartedChats,
-  type GetStartedChat,
-} from "@/lib/get-started-chats"
+import type { GetStartedChat } from "@/lib/get-started-chats"
 import {
   loadNotebookLearnerMemoryDefaults,
   resolveNotebookLearnerMemorySelection,
 } from "@/state/learner-memory-settings"
 import { readPersonalization } from "@/state/project-config-readers"
-import { useGetStartedChatTestMode } from "@/state/get-started-chat-test-mode"
+import { useGetStartedFlow } from "@/state/use-get-started-flow"
 import { useUiPreferences, useUiPreferencesHydrated } from "@/state/ui-preferences"
 import {
   EXPERIMENTAL_FEATURE_ID,
@@ -53,8 +47,6 @@ import {
   ensureTeacherStandards,
   shouldAutoSetupTeacherStandards,
 } from "@/lib/teacher-standards"
-
-const INBOX_DIRECTORY_NAME = "inbox" as const
 
 type ChatLeftSidebarProps = {
   directories: string[]
@@ -171,10 +163,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     [globalConfigQuery.data],
   )
   const primaryUse = readPersonalization(globalConfigQuery.data ?? {}).primaryUse
-  const getStartedChatsVisible = useUiPreferences((state) => state.getStartedChatsVisible)
-  const setGetStartedChatsVisible = useUiPreferences(
-    (state) => state.setGetStartedChatsVisible,
-  )
+  const getStartedFlow = useGetStartedFlow(props.currentDirectory)
   const teacherStandardsAutoSetupComplete = useUiPreferences(
     (state) => state.teacherStandardsAutoSetupComplete,
   )
@@ -182,22 +171,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
     (state) => state.setTeacherStandardsAutoSetupComplete,
   )
   const uiPreferencesHydrated = useUiPreferencesHydrated()
-  const getStartedChatTestMode = useGetStartedChatTestMode((state) => state.mode)
-  const forceGetStartedChatsVisible =
-    import.meta.env.DEV && getStartedChatTestMode !== GET_STARTED_CHAT_TEST_MODE.hidden
-  const getStartedChats = import.meta.env.DEV
-    ? getStartedChatsForTestMode(getStartedChatTestMode)
-    : getStartedChatsForPrimaryUse(primaryUse)
   const onStartGetStartedChat = props.onStartGetStartedChat
-  const currentDirectoryIsInbox =
-    getFilename(props.currentDirectory).toLowerCase() === INBOX_DIRECTORY_NAME
-  const showGetStartedChats = shouldShowGetStartedChats({
-    enabled: getStartedChatsVisible,
-    hasChats: getStartedChats.length > 0,
-    hasStartHandler: onStartGetStartedChat !== undefined,
-    currentDirectoryIsInbox,
-    forceVisible: forceGetStartedChatsVisible,
-  })
 
   useEffect(() => {
     if (!uiPreferencesHydrated) return
@@ -414,11 +388,11 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
 
           <div className="mx-1.5 mb-2 border-t border-border-weaker-base [box-shadow:0_2px_4px_rgba(0,0,0,0.06)]" />
 
-          {showGetStartedChats && onStartGetStartedChat ? (
+          {getStartedFlow.isActive && onStartGetStartedChat ? (
             <GetStartedChats
-              chats={getStartedChats}
+              chats={getStartedFlow.chats}
               onStart={onStartGetStartedChat}
-              onDismiss={() => setGetStartedChatsVisible(false)}
+              onDismiss={getStartedFlow.dismiss}
             />
           ) : null}
 

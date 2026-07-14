@@ -17,7 +17,6 @@ type PersistedUiPreferences = {
   chatLeftSidebarWidth?: number
   settingsSidebarWidth?: number
   projectFileTreeOpen?: boolean
-  getStartedChatsVisible?: boolean
   teacherStandardsAutoSetupComplete?: boolean
   mainPaneTab?: unknown
 }
@@ -40,7 +39,6 @@ export type UiPreferencesStore = {
   chatLeftSidebarWidth: number
   settingsSidebarWidth: number
   projectFileTreeOpen: boolean
-  getStartedChatsVisible: boolean
   teacherStandardsAutoSetupComplete: boolean
   isPinned: (directory: string, sessionID: string) => boolean
   togglePinned: (directory: string, sessionID: string) => void
@@ -52,7 +50,6 @@ export type UiPreferencesStore = {
   setChatLeftSidebarWidth: (width: number) => void
   setSettingsSidebarWidth: (width: number) => void
   setProjectFileTreeOpen: (open: boolean) => void
-  setGetStartedChatsVisible: (visible: boolean) => void
   setTeacherStandardsAutoSetupComplete: (complete: boolean) => void
 }
 
@@ -157,17 +154,8 @@ export const useUiPreferences = create<UiPreferencesStore>()(
 
       const discoverySlice: Pick<
         UiPreferencesStore,
-        | "getStartedChatsVisible"
-        | "setGetStartedChatsVisible"
-        | "teacherStandardsAutoSetupComplete"
-        | "setTeacherStandardsAutoSetupComplete"
+        "teacherStandardsAutoSetupComplete" | "setTeacherStandardsAutoSetupComplete"
       > = {
-        getStartedChatsVisible: true,
-        setGetStartedChatsVisible(visible) {
-          set((state) => {
-            state.getStartedChatsVisible = visible
-          })
-        },
         teacherStandardsAutoSetupComplete: false,
         setTeacherStandardsAutoSetupComplete(complete) {
           set((state) => {
@@ -184,7 +172,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
     }),
     {
       name: UI_PREFERENCES_STORAGE_KEY,
-      version: 17,
+      version: 18,
       storage: createPlatformJsonStorage("buddy.ui.dat"),
       migrate(persistedState) {
         const state = isPersistedUiPreferences(persistedState) ? persistedState : undefined
@@ -196,7 +184,6 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           chatLeftSidebarWidth: state?.chatLeftSidebarWidth ?? legacyLeftSidebarWidth,
           settingsSidebarWidth: state?.settingsSidebarWidth ?? legacyLeftSidebarWidth,
           projectFileTreeOpen: state?.projectFileTreeOpen ?? DEFAULT_PROJECT_FILE_TREE_OPEN,
-          getStartedChatsVisible: state?.getStartedChatsVisible ?? true,
           teacherStandardsAutoSetupComplete:
             state?.teacherStandardsAutoSetupComplete ?? false,
         }
@@ -209,7 +196,6 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           chatLeftSidebarWidth: state.chatLeftSidebarWidth,
           settingsSidebarWidth: state.settingsSidebarWidth,
           projectFileTreeOpen: state.projectFileTreeOpen,
-          getStartedChatsVisible: state.getStartedChatsVisible,
           teacherStandardsAutoSetupComplete: state.teacherStandardsAutoSetupComplete,
         }
       },

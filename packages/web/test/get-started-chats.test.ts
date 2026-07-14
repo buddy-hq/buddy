@@ -4,9 +4,9 @@ import {
   GET_STARTED_CHAT_TEST_MODE,
   getStartedChatsForPrimaryUse,
   getStartedChatsForTestMode,
-  shouldShowGetStartedChats,
 } from "../src/lib/get-started-chats"
 import { useGetStartedChatTestMode } from "../src/state/get-started-chat-test-mode"
+import { useGetStartedFlowStore } from "../src/state/get-started-flow-store"
 
 const LEARNER_CHAT_IDS = [
   "buddy-help-tour",
@@ -95,42 +95,12 @@ describe("get started chats", () => {
     expect(studentTour?.capabilities).toContain(GET_STARTED_CAPABILITY.htmlWidget)
   })
 
-  test("forces test prompts to remain visible after a chat exists", () => {
-    expect(
-      shouldShowGetStartedChats({
-        enabled: false,
-        hasChats: true,
-        hasStartHandler: true,
-        currentDirectoryIsInbox: false,
-        forceVisible: true,
-      }),
-    ).toBe(true)
-
-    expect(
-      shouldShowGetStartedChats({
-        enabled: true,
-        hasChats: true,
-        hasStartHandler: true,
-        currentDirectoryIsInbox: true,
-        forceVisible: false,
-      }),
-    ).toBe(true)
-  })
-
-  test("hides starter chats after the user dismisses them", () => {
-    expect(
-      shouldShowGetStartedChats({
-        enabled: false,
-        hasChats: true,
-        hasStartHandler: true,
-        currentDirectoryIsInbox: true,
-        forceVisible: false,
-      }),
-    ).toBe(false)
-  })
-
   test("updates the shared developer selection", () => {
     useGetStartedChatTestMode.getState().setMode(GET_STARTED_CHAT_TEST_MODE.teacher)
     expect(useGetStartedChatTestMode.getState().mode).toBe(GET_STARTED_CHAT_TEST_MODE.teacher)
+    expect(useGetStartedFlowStore.getState().enabled).toBe(true)
+
+    useGetStartedChatTestMode.getState().setMode(GET_STARTED_CHAT_TEST_MODE.hidden)
+    expect(useGetStartedFlowStore.getState().enabled).toBe(false)
   })
 })

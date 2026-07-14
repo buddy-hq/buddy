@@ -23,7 +23,7 @@ import {
   type TGamePromptPreference,
 } from "@/state/game-store"
 import { useNotificationPreferences } from "@/state/notification-preferences"
-import { useUiPreferences } from "@/state/ui-preferences"
+import { useGetStartedFlowStore } from "@/state/get-started-flow-store"
 import { useTheme, type ColorScheme } from "@/theme"
 import {
   CODE_FONT_PLACEHOLDER,
@@ -125,10 +125,8 @@ export function GeneralSettings() {
   const setErrorNotifications = useNotificationPreferences((state) => state.setErrors)
   const gamePromptPreference = useGameStore((state) => state.gamePromptPreference)
   const setGamePromptPreference = useGameStore((state) => state.setGamePromptPreference)
-  const getStartedChatsVisible = useUiPreferences((state) => state.getStartedChatsVisible)
-  const setGetStartedChatsVisible = useUiPreferences(
-    (state) => state.setGetStartedChatsVisible,
-  )
+  const getStartedFlowEnabled = useGetStartedFlowStore((state) => state.enabled)
+  const setGetStartedFlowEnabled = useGetStartedFlowStore((state) => state.setEnabled)
 
   const colorSchemeOptions: ReadonlyArray<{ value: ColorScheme; label: string }> = [
     { value: "system", label: language.t("settings.appearance.colorSchemes.system") },
@@ -283,8 +281,8 @@ export function GeneralSettings() {
           control={
             <Switch
               data-action="settings-get-started-chats"
-              checked={getStartedChatsVisible}
-              onCheckedChange={setGetStartedChatsVisible}
+              checked={getStartedFlowEnabled}
+              onCheckedChange={setGetStartedFlowEnabled}
               aria-label={language.t("settings.general.getStartedChatsAria")}
             />
           }

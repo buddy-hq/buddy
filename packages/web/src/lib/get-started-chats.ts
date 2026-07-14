@@ -203,14 +203,3 @@ export function getStartedChatsForTestMode(
   }
   return EMPTY_GET_STARTED_CHATS
 }
-
-export function shouldShowGetStartedChats(input: {
-  enabled: boolean
-  hasChats: boolean
-  hasStartHandler: boolean
-  currentDirectoryIsInbox: boolean
-  forceVisible: boolean
-}): boolean {
-  if (!input.hasChats || !input.hasStartHandler) return false
-  return input.forceVisible || (input.enabled && input.currentDirectoryIsInbox)
-}

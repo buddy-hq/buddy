@@ -1,0 +1,185 @@
+import { beforeEach, describe, expect, test } from "bun:test"
+import { GET_STARTED_CHAT_TEST_MODE } from "../src/lib/get-started-chats"
+import {
+  GET_STARTED_FLOW_STATUS,
+  resolveGetStartedFlow,
+  type GetStartedFlowInput,
+} from "../src/lib/get-started-flow"
+import {
+  GET_STARTED_FLOW_STORAGE_KEY,
+  useGetStartedFlowStore,
+} from "../src/state/get-started-flow-store"
+
+const ACTIVE_LEARNER_INPUT = {
+  enabled: true,
+  persistedStateHydrated: true,
+  personalizationResolved: true,
+  primaryUse: "learn",
+  currentDirectory: "/Users/buddy/Inbox",
+  testMode: undefined,
+} as const satisfies GetStartedFlowInput
+
+beforeEach(() => {
+  localStorage.clear()
+  useGetStartedFlowStore.getState().setEnabled(true)
+})
+
+describe("get started flow rules", () => {
+  test("waits for both persisted participation and personalization", () => {
+    expect(
+      resolveGetStartedFlow({
+        ...ACTIVE_LEARNER_INPUT,
+        persistedStateHydrated: false,
+      }).status,
+    ).toBe(GET_STARTED_FLOW_STATUS.loading)
+    expect(
+      resolveGetStartedFlow({
+        ...ACTIVE_LEARNER_INPUT,
+        personalizationResolved: false,
+      }).status,
+    ).toBe(GET_STARTED_FLOW_STATUS.loading)
+  })
+
+  test("is unavailable until onboarding records a primary use", () => {
+    const flow = resolveGetStartedFlow({
+      ...ACTIVE_LEARNER_INPUT,
+      primaryUse: undefined,
+    })
+
+    expect(flow.status).toBe(GET_STARTED_FLOW_STATUS.unavailable)
+    expect(flow.isActive).toBe(false)
+    expect(flow.chats).toEqual([])
+  })
+
+  test("becomes active in the Inbox independently of sessions or render callbacks", () => {
+    const flow = resolveGetStartedFlow(ACTIVE_LEARNER_INPUT)
+
+    expect(flow.status).toBe(GET_STARTED_FLOW_STATUS.active)
+    expect(flow.isActive).toBe(true)
+    expect(flow.chats).not.toHaveLength(0)
+  })
+
+  test("supports Windows Inbox paths", () => {
+    const flow = resolveGetStartedFlow({
+      ...ACTIVE_LEARNER_INPUT,
+      currentDirectory: "C:\\Users\\Buddy\\inbox\\",
+    })
+
+    expect(flow.status).toBe(GET_STARTED_FLOW_STATUS.active)
+  })
+
+  test("distinguishes dismissal from being outside the Inbox", () => {
+    expect(
+      resolveGetStartedFlow({
+        ...ACTIVE_LEARNER_INPUT,
+        enabled: false,
+      }).status,
+    ).toBe(GET_STARTED_FLOW_STATUS.dismissed)
+    expect(
+      resolveGetStartedFlow({
+        ...ACTIVE_LEARNER_INPUT,
+        currentDirectory: "/Users/buddy/Notebook",
+      }).status,
+    ).toBe(GET_STARTED_FLOW_STATUS.outOfScope)
+  })
+
+  test("re-enabling a dismissed flow makes it active again", () => {
+    const dismissed = resolveGetStartedFlow({
+      ...ACTIVE_LEARNER_INPUT,
+      enabled: false,
+    })
+    const reEnabled = resolveGetStartedFlow({
+      ...ACTIVE_LEARNER_INPUT,
+      enabled: true,
+    })
+
+    expect(dismissed.status).toBe(GET_STARTED_FLOW_STATUS.dismissed)
+    expect(reEnabled.status).toBe(GET_STARTED_FLOW_STATUS.active)
+  })
+
+  test("restores the onboarding prompt set after Settings re-enables a clean Buddy Dev flow", () => {
+    const cleanInstalledFlow = {
+      ...ACTIVE_LEARNER_INPUT,
+      primaryUse: "teach",
+      testMode: GET_STARTED_CHAT_TEST_MODE.hidden,
+    } as const satisfies GetStartedFlowInput
+
+    const initiallyActive = resolveGetStartedFlow(cleanInstalledFlow)
+    const dismissed = resolveGetStartedFlow({
+      ...cleanInstalledFlow,
+      enabled: false,
+    })
+    const reEnabled = resolveGetStartedFlow({
+      ...cleanInstalledFlow,
+      enabled: true,
+    })
+
+    expect(initiallyActive.status).toBe(GET_STARTED_FLOW_STATUS.active)
+    expect(initiallyActive.chats.some((chat) => chat.id === "standards-lesson")).toBe(true)
+    expect(dismissed.status).toBe(GET_STARTED_FLOW_STATUS.dismissed)
+    expect(reEnabled.status).toBe(GET_STARTED_FLOW_STATUS.active)
+  })
+
+  test("developer prompt selections still respect the shared flag and Inbox scope", () => {
+    const hidden = resolveGetStartedFlow({
+      ...ACTIVE_LEARNER_INPUT,
+      enabled: false,
+      testMode: GET_STARTED_CHAT_TEST_MODE.hidden,
+    })
+    const disabledTeacher = resolveGetStartedFlow({
+      ...ACTIVE_LEARNER_INPUT,
+      enabled: false,
+      personalizationResolved: false,
+      primaryUse: undefined,
+      testMode: GET_STARTED_CHAT_TEST_MODE.teacher,
+    })
+    const teacherOutsideInbox = resolveGetStartedFlow({
+      ...ACTIVE_LEARNER_INPUT,
+      personalizationResolved: false,
+      primaryUse: undefined,
+      currentDirectory: "/Users/buddy/Notebook",
+      testMode: GET_STARTED_CHAT_TEST_MODE.teacher,
+    })
+    const activeTeacher = resolveGetStartedFlow({
+      ...ACTIVE_LEARNER_INPUT,
+      personalizationResolved: false,
+      primaryUse: undefined,
+      testMode: GET_STARTED_CHAT_TEST_MODE.teacher,
+    })
+
+    expect(hidden.status).toBe(GET_STARTED_FLOW_STATUS.dismissed)
+    expect(disabledTeacher.status).toBe(GET_STARTED_FLOW_STATUS.dismissed)
+    expect(teacherOutsideInbox.status).toBe(GET_STARTED_FLOW_STATUS.outOfScope)
+    expect(activeTeacher.status).toBe(GET_STARTED_FLOW_STATUS.active)
+    expect(activeTeacher.chats.some((chat) => chat.id === "standards-lesson")).toBe(true)
+  })
+})
+
+describe("get started flow participation", () => {
+  test("persists Settings re-enablement across app hydration", async () => {
+    const state = useGetStartedFlowStore.getState()
+
+    state.dismiss()
+    expect(useGetStartedFlowStore.getState().enabled).toBe(false)
+
+    useGetStartedFlowStore.getState().setEnabled(true)
+    expect(useGetStartedFlowStore.getState().enabled).toBe(true)
+
+    const raw = localStorage.getItem(GET_STARTED_FLOW_STORAGE_KEY)
+    expect(raw).toBeTruthy()
+    const persisted = JSON.parse(raw as string) as { state: Record<string, unknown> }
+    expect(persisted.state).toEqual({ enabled: true })
+
+    useGetStartedFlowStore.setState({ enabled: false })
+    localStorage.setItem(GET_STARTED_FLOW_STORAGE_KEY, raw as string)
+    await useGetStartedFlowStore.persist.rehydrate()
+
+    expect(useGetStartedFlowStore.getState().enabled).toBe(true)
+    expect(
+      resolveGetStartedFlow({
+        ...ACTIVE_LEARNER_INPUT,
+        enabled: useGetStartedFlowStore.getState().enabled,
+      }).status,
+    ).toBe(GET_STARTED_FLOW_STATUS.active)
+  })
+})
