@@ -6,6 +6,7 @@ import { explainSkill } from "./skills/explain"
 import { learnSkill } from "./skills/learn"
 import { alignTeachingTopicsToGradeLevelAndAgeSkill } from "./skills/align-teaching-topics-to-grade-level-and-age"
 import { findIndianEducationResourcesSkill } from "./skills/find-indian-education-resources"
+import { fetchIndianCompetitionPapersSkill } from "./skills/fetch-indian-competition-papers"
 import { learningDesignFrameworksSkill } from "./skills/learning-design-frameworks"
 import { practiceSkill } from "./skills/practice"
 import { teachingModelsSkill } from "./skills/teaching-models"
@@ -30,6 +31,7 @@ export const teachingGuidanceFeature = defineBuddyFeature({
     teachingResourceAuthoringSkill,
     alignTeachingTopicsToGradeLevelAndAgeSkill,
     findIndianEducationResourcesSkill,
+    fetchIndianCompetitionPapersSkill,
     teachChemistrySkill,
   ],
   subagents: [],
