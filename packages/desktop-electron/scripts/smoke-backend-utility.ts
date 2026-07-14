@@ -1,6 +1,14 @@
 #!/usr/bin/env bun
 
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import {
@@ -32,8 +40,25 @@ import {
   resolveExplicitRuntimeRootPaths,
   syncDesktopRuntimeResources,
 } from "./utils"
+import type { DesktopRuntimeResources } from "./utils"
 import { resolveElectronBin } from "./electron-bin"
-import { BUDDY_ENV, OPENCODE_ENV } from "@buddy/script/storage-env"
+import {
+  BUDDY_ENV,
+  BUDDY_HOME_DIRECTORY_NAME,
+  OPENCODE_ENV,
+} from "@buddy/script/storage-env"
+import {
+  CHEMFIG_CHILD_FILENAME,
+  CHEMFIG_TEX_ASSET_FILENAMES,
+  CHEMFIG_TEX_DIRECTORY_NAME,
+  ELECTRON_CHEMFIG_RUNTIME_PATH_SEGMENTS,
+} from "@buddy/script/chemfig-runtime"
+import {
+  ELECTRON_ASAR_FILENAME,
+  PACKAGED_RESOURCES_DIRECTORY_ENV,
+  resolvePackagedResourcesDirectory,
+} from "./packaged-resources"
+import { createBuddyClient } from "@buddy/sdk"
 
 const BACKEND_UTILITY_SCRIPT = "backend-utility.js" as const
 const ELECTRON_RUN_AS_NODE_ENV = "ELECTRON_RUN_AS_NODE" as const
@@ -42,6 +67,9 @@ const SMOKE_READY_FILENAME = "backend-utility-ready.json" as const
 const SMOKE_STOP_FILENAME = "backend-utility-stop.json" as const
 const SMOKE_ROOT_PREFIX = "buddy-backend-utility-smoke-" as const
 const SMOKE_EXIT_TIMEOUT_MS = 45_000
+const PACKAGED_SMOKE_ARGUMENT = "--packaged" as const
+const ELECTRON_ASAR_UNPACKED_DIRECTORY_NAME = "app.asar.unpacked" as const
+const ELECTRON_MAIN_RELATIVE_PATH_SEGMENTS = ["out", "main"] as const
 const UTILITY_CWD_ENV = "BUDDY_BACKEND_UTILITY_SMOKE_CWD" as const
 const UTILITY_EXIT_TIMEOUT_ENV = "BUDDY_BACKEND_UTILITY_SMOKE_EXIT_TIMEOUT_MS" as const
 const UTILITY_HOSTNAME_ENV = "BUDDY_BACKEND_UTILITY_SMOKE_HOSTNAME" as const
@@ -55,14 +83,33 @@ const API_HEALTH_PATH = "/api/health" as const
 const API_PROVIDER_PATH = "/api/provider" as const
 const API_PROVIDER_AUTH_PATH = "/api/provider/auth" as const
 const API_SESSION_PATH = "/api/session" as const
-const JSON_CONTENT_TYPE = "application/json" as const
+const API_CHEMFIG_RENDER_PATH = "/api/chemistry/chemfig/render" as const
+const API_BASE_PATH = "/api" as const
+const CHEMFIG_SMOKE_SOURCE = String.raw`\chemfig{C=C}`
+const CHEMFIG_RENDERER_NAME = "node-tikzjax" as const
+const FORBIDDEN_CHEMFIG_SVG_PATTERN =
+  /<(?:script|foreignObject)\b|(?:href|src)\s*=\s*["']https?:\/\/|url\(\s*["']?https?:\/\//iu
+const USER_CONFIG_ENVIRONMENT_KEYS = new Set<string>([
+  BUDDY_ENV.CONFIG,
+  BUDDY_ENV.CONFIG_CONTENT,
+])
 
 const packageDir = path.resolve(import.meta.dir, "..")
 const smokeMainScript = path.resolve(import.meta.dir, "backend-utility-smoke-main.mjs")
 const nativePackageProbeScript = path.resolve(import.meta.dir, "native-package-probe.mjs")
 const mainOutputDir = path.resolve(packageDir, "out", "main")
-const utilityPath = path.resolve(mainOutputDir, BACKEND_UTILITY_SCRIPT)
 const electronBin = resolveElectronBin(packageDir)
+const packagedSmoke = process.argv.includes(PACKAGED_SMOKE_ARGUMENT)
+
+type SmokeMainOutput = {
+  mainDir: string
+  utilityPath: string
+}
+
+type SmokeRuntimeResources = Pick<
+  DesktopRuntimeResources,
+  "backendResources" | "migrations" | "tessdata"
+>
 
 function baseEnvironment(): Record<string, string> {
   return Object.fromEntries(
@@ -70,6 +117,7 @@ function baseEnvironment(): Record<string, string> {
       (entry): entry is [string, string] =>
         entry[0] !== NODE_PATH_ENV_KEY &&
         entry[0] !== ELECTRON_RUN_AS_NODE_ENV &&
+        !USER_CONFIG_ENVIRONMENT_KEYS.has(entry[0]) &&
         typeof entry[1] === "string",
     ),
   )
@@ -96,11 +144,16 @@ function createBackendEnvironment(input: {
     [BUDDY_ENV.ALLOWED_DIRECTORY_ROOTS]: notebookRoot,
     [BUDDY_ENV.APP_VERSION]: "backend-utility-smoke",
     [BUDDY_ENV.BACKEND_RESOURCES_DIR]: input.backendResources,
+    [BUDDY_ENV.GLOBAL_CONFIG_DIR]: path.join(
+      input.runtimeRoot,
+      BUDDY_HOME_DIRECTORY_NAME,
+    ),
     [BUDDY_ENV.TESSDATA_DIR]: input.tessdata,
     [BUDDY_ENV.DIRECTORY_BASE]: notebookRoot,
     [BUDDY_ENV.MIGRATION_DIR]: path.join(input.migrations, "buddy"),
     [BUDDY_ENV.SERVER_PASSWORD]: PASSWORD,
     [BUDDY_ENV.SERVER_USERNAME]: USERNAME,
+    [BUDDY_ENV.TEST_HOME]: input.runtimeRoot,
     [OPENCODE_ENV.CLIENT]: "desktop",
     [OPENCODE_ENV.DISABLE_DEFAULT_PLUGINS]: "1",
     [OPENCODE_ENV.DISABLE_EXTERNAL_SKILLS]: "1",
@@ -113,16 +166,44 @@ function createBackendEnvironment(input: {
   }
 }
 
-function createIsolatedMainOutput(smokeRoot: string): {
-  isolatedMainDir: string
-  utilityPath: string
-} {
+function createIsolatedMainOutput(smokeRoot: string): SmokeMainOutput {
   const isolatedMainDir = path.join(smokeRoot, "main")
   cpSync(mainOutputDir, isolatedMainDir, { recursive: true, dereference: false })
   return {
-    isolatedMainDir,
+    mainDir: isolatedMainDir,
     utilityPath: path.join(isolatedMainDir, BACKEND_UTILITY_SCRIPT),
   }
+}
+
+function packagedMainOutput(resourcesDirectory: string): SmokeMainOutput {
+  const mainPathSegments = [...ELECTRON_MAIN_RELATIVE_PATH_SEGMENTS]
+  return {
+    mainDir: path.join(
+      resourcesDirectory,
+      ELECTRON_ASAR_UNPACKED_DIRECTORY_NAME,
+      ...mainPathSegments,
+    ),
+    utilityPath: path.join(
+      resourcesDirectory,
+      ELECTRON_ASAR_FILENAME,
+      ...mainPathSegments,
+      BACKEND_UTILITY_SCRIPT,
+    ),
+  }
+}
+
+function packagedRuntimeResources(resourcesDirectory: string): SmokeRuntimeResources {
+  const resources = {
+    backendResources: path.join(resourcesDirectory, "backend"),
+    migrations: path.join(resourcesDirectory, "migrations"),
+    tessdata: path.join(resourcesDirectory, "tessdata"),
+  }
+  for (const directory of Object.values(resources)) {
+    if (!existsSync(directory)) {
+      throw new Error(`Packaged Electron runtime resource missing at ${directory}`)
+    }
+  }
+  return resources
 }
 
 function electronCommand(mainScript: string): string[] {
@@ -133,115 +214,89 @@ function readableStream(stream: NodeArtifactProcess["stdout"]): ReadableStream<U
   return stream instanceof ReadableStream ? stream : null
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
-
-function requireRecord(value: unknown, label: string): Record<string, unknown> {
-  if (isRecord(value)) return value
-  throw new Error(`${label} response must be a JSON object`)
-}
-
-function requireString(value: unknown, label: string): string {
-  if (typeof value === "string" && value.length > 0) return value
-  throw new Error(`${label} must be a non-empty string`)
-}
-
-function requireArray(value: unknown, label: string): unknown[] {
-  if (Array.isArray(value)) return value
-  throw new Error(`${label} must be an array`)
-}
-
-async function requestJson(input: {
-  baseUrl: string
-  body?: unknown
-  method?: "GET" | "POST"
-  pathname: string
-  search?: Record<string, string>
-}): Promise<unknown> {
-  const url = new URL(input.pathname, input.baseUrl)
-  for (const [key, value] of Object.entries(input.search ?? {})) {
-    url.searchParams.set(key, value)
-  }
-
-  const response = await fetch(url, {
-    method: input.method ?? "GET",
-    headers: {
-      authorization: authorizationHeader(),
-      ...(input.body === undefined ? {} : { "content-type": JSON_CONTENT_TYPE }),
-    },
-    body: input.body === undefined ? undefined : JSON.stringify(input.body),
-  })
-  const text = await response.text()
-  if (!response.ok) {
-    throw new Error(`${input.pathname} failed (${response.status}): ${text}`)
-  }
-  if (text.length === 0) return undefined
-  const parsed: unknown = JSON.parse(text)
-  return parsed
-}
-
 async function smokeApiRoutes(input: { baseUrl: string; directory: string }): Promise<void> {
-  const health = requireRecord(
-    await requestJson({ baseUrl: input.baseUrl, pathname: API_HEALTH_PATH }),
-    API_HEALTH_PATH,
-  )
+  const client = createBuddyClient({
+    baseUrl: new URL(API_BASE_PATH, input.baseUrl).toString(),
+    headers: { authorization: authorizationHeader() },
+  })
+  const health = (await client.health.check({ throwOnError: true })).data
   if (health.healthy !== true) {
     throw new Error(`${API_HEALTH_PATH} did not report healthy`)
   }
 
-  const providerList = requireRecord(
-    await requestJson({
-      baseUrl: input.baseUrl,
-      pathname: API_PROVIDER_PATH,
-      search: { directory: input.directory },
-    }),
-    API_PROVIDER_PATH,
-  )
-  requireArray(providerList.all, `${API_PROVIDER_PATH}.all`)
-  requireRecord(providerList.default, `${API_PROVIDER_PATH}.default`)
-  requireArray(providerList.connected, `${API_PROVIDER_PATH}.connected`)
-
-  const providerAuth = requireRecord(
-    await requestJson({
-      baseUrl: input.baseUrl,
-      pathname: API_PROVIDER_AUTH_PATH,
-      search: { directory: input.directory },
-    }),
-    API_PROVIDER_AUTH_PATH,
-  )
-  for (const [providerID, methods] of Object.entries(providerAuth)) {
-    requireArray(methods, `${API_PROVIDER_AUTH_PATH}.${providerID}`)
+  const providerList = (
+    await client.provider.list(
+      { directory: input.directory },
+      { throwOnError: true },
+    )
+  ).data
+  if (
+    !Array.isArray(providerList.all) ||
+    typeof providerList.default !== "object" ||
+    providerList.default === null ||
+    !Array.isArray(providerList.connected)
+  ) {
+    throw new Error(`${API_PROVIDER_PATH} returned an invalid provider list`)
   }
 
-  const createdSession = requireRecord(
-    await requestJson({
-      baseUrl: input.baseUrl,
-      body: {},
-      method: "POST",
-      pathname: API_SESSION_PATH,
-      search: { directory: input.directory },
-    }),
-    API_SESSION_PATH,
-  )
-  const sessionID = requireString(createdSession.id, `${API_SESSION_PATH}.id`)
+  const providerAuth = (
+    await client.provider.auth(
+      { directory: input.directory },
+      { throwOnError: true },
+    )
+  ).data
+  for (const [providerID, methods] of Object.entries(providerAuth)) {
+    if (!Array.isArray(methods)) {
+      throw new Error(`${API_PROVIDER_AUTH_PATH}.${providerID} must be an array`)
+    }
+  }
 
-  requireRecord(
-    await requestJson({
-      baseUrl: input.baseUrl,
-      pathname: `${API_SESSION_PATH}/${sessionID}`,
-      search: { directory: input.directory },
-    }),
-    `${API_SESSION_PATH}/${sessionID}`,
-  )
-  requireArray(
-    await requestJson({
-      baseUrl: input.baseUrl,
-      pathname: `${API_SESSION_PATH}/${sessionID}/message`,
-      search: { directory: input.directory },
-    }),
-    `${API_SESSION_PATH}/${sessionID}/message`,
-  )
+  const createdSession = (
+    await client.session.create(
+      { directory: input.directory, body: {} },
+      { throwOnError: true },
+    )
+  ).data
+  const sessionID = createdSession.id
+
+  const loadedSession = (
+    await client.session.get(
+      { directory: input.directory, sessionID },
+      { throwOnError: true },
+    )
+  ).data
+  if (loadedSession.id !== sessionID) {
+    throw new Error(`${API_SESSION_PATH}/${sessionID} returned a different session`)
+  }
+  const messages = (
+    await client.session.messages(
+      { directory: input.directory, sessionID },
+      { throwOnError: true },
+    )
+  ).data
+  if (!Array.isArray(messages)) {
+    throw new Error(`${API_SESSION_PATH}/${sessionID}/message must be an array`)
+  }
+
+  const chemistryRender = (
+    await client.chemistry.renderChemfig(
+      { directory: input.directory, source: CHEMFIG_SMOKE_SOURCE },
+      { throwOnError: true },
+    )
+  ).data
+  if (chemistryRender.status !== "rendered") {
+    throw new Error(`${API_CHEMFIG_RENDER_PATH}.status must be rendered`)
+  }
+  if (chemistryRender.rendererName !== CHEMFIG_RENDERER_NAME) {
+    throw new Error(`${API_CHEMFIG_RENDER_PATH}.rendererName must be ${CHEMFIG_RENDERER_NAME}`)
+  }
+  const chemistrySvg = chemistryRender.svg
+  if (!chemistrySvg.startsWith("<svg")) {
+    throw new Error(`${API_CHEMFIG_RENDER_PATH}.svg must start with <svg`)
+  }
+  if (FORBIDDEN_CHEMFIG_SVG_PATTERN.test(chemistrySvg)) {
+    throw new Error(`${API_CHEMFIG_RENDER_PATH}.svg contains unsafe or remote content`)
+  }
 }
 
 function assertDesktopBuildContract(mainDir: string): void {
@@ -256,6 +311,47 @@ function assertDesktopBuildContract(mainDir: string): void {
       `Electron main output packaged forbidden runtime node_modules: ${forbiddenPackagedPackages.join(", ")}`,
     )
   }
+
+  assertChemfigRuntimeBuildContract(mainDir)
+}
+
+function assertChemfigRuntimeBuildContract(mainDir: string): void {
+  const runtimeDirectory = electronChemfigRuntimeDirectory(mainDir)
+  const expectedFiles = [
+    CHEMFIG_CHILD_FILENAME,
+    ...CHEMFIG_TEX_ASSET_FILENAMES.map((assetFilename) =>
+      path.join(CHEMFIG_TEX_DIRECTORY_NAME, assetFilename),
+    ),
+  ].toSorted()
+  const actualFiles = collectRelativeFilePaths(runtimeDirectory).toSorted()
+  if (
+    actualFiles.length !== expectedFiles.length ||
+    actualFiles.some((filePath, index) => filePath !== expectedFiles[index])
+  ) {
+    throw new Error(
+      `Electron chemfig runtime files do not match the build contract. Expected ${expectedFiles.join(", ")}; found ${actualFiles.join(", ") || "none"}`,
+    )
+  }
+}
+
+function electronChemfigRuntimeDirectory(mainDir: string): string {
+  return path.join(mainDir, ...ELECTRON_CHEMFIG_RUNTIME_PATH_SEGMENTS)
+}
+
+function collectRelativeFilePaths(directory: string, relativeDirectory = ""): string[] {
+  if (!existsSync(directory)) return []
+  const files: string[] = []
+  for (const entry of readdirSync(path.join(directory, relativeDirectory), {
+    withFileTypes: true,
+  })) {
+    const relativePath = path.join(relativeDirectory, entry.name)
+    if (entry.isDirectory()) {
+      files.push(...collectRelativeFilePaths(directory, relativePath))
+      continue
+    }
+    if (entry.isFile()) files.push(relativePath)
+  }
+  return files
 }
 
 function runtimePackageNames(): string[] {
@@ -343,9 +439,10 @@ async function waitForProcessExit(
   }
 }
 
-if (!existsSync(utilityPath)) {
+const workspaceUtilityPath = path.resolve(mainOutputDir, BACKEND_UTILITY_SCRIPT)
+if (!packagedSmoke && !existsSync(workspaceUtilityPath)) {
   throw new Error(
-    `Backend utility build output missing at ${utilityPath}. Run desktop build first.`,
+    `Backend utility build output missing at ${workspaceUtilityPath}. Run desktop build first.`,
   )
 }
 if (!existsSync(electronBin)) {
@@ -358,19 +455,35 @@ if (!existsSync(nativePackageProbeScript)) {
   throw new Error(`Native package probe script missing at ${nativePackageProbeScript}`)
 }
 
-const resources = syncDesktopRuntimeResources()
+const packagedResourcesDirectory = packagedSmoke
+  ? resolvePackagedResourcesDirectory({
+      distDirectory: path.join(packageDir, "dist"),
+      explicitDirectory: process.env[PACKAGED_RESOURCES_DIRECTORY_ENV],
+    })
+  : undefined
+const resources: SmokeRuntimeResources = packagedResourcesDirectory
+  ? packagedRuntimeResources(packagedResourcesDirectory)
+  : syncDesktopRuntimeResources()
 const smokeRoot = mkdtempSync(path.join(os.tmpdir(), SMOKE_ROOT_PREFIX))
 const runtimeRoot = path.join(smokeRoot, "runtime")
 const readyPath = path.join(smokeRoot, SMOKE_READY_FILENAME)
 const stopPath = path.join(smokeRoot, SMOKE_STOP_FILENAME)
 const port = await allocatePort()
 const mainScript = smokeMainScript
-const isolatedMain = createIsolatedMainOutput(smokeRoot)
+const smokeMain = packagedResourcesDirectory
+  ? packagedMainOutput(packagedResourcesDirectory)
+  : createIsolatedMainOutput(smokeRoot)
 const notebookRoot = path.join(runtimeRoot, "notebook")
 
-assertDesktopBuildContract(isolatedMain.isolatedMainDir)
-for (const packageName of runtimePackageNames()) {
-  await assertRuntimePackageLoadable({ mainDir: isolatedMain.isolatedMainDir, packageName })
+if (packagedSmoke) {
+  assertChemfigRuntimeBuildContract(smokeMain.mainDir)
+} else {
+  assertDesktopBuildContract(smokeMain.mainDir)
+}
+if (!packagedSmoke) {
+  for (const packageName of runtimePackageNames()) {
+    await assertRuntimePackageLoadable({ mainDir: smokeMain.mainDir, packageName })
+  }
 }
 
 let child: NodeArtifactProcess | undefined
@@ -388,10 +501,10 @@ try {
         runtimeRoot,
         tessdata: resources.tessdata,
       }),
-      [UTILITY_CWD_ENV]: isolatedMain.isolatedMainDir,
+      [UTILITY_CWD_ENV]: smokeMain.mainDir,
       [UTILITY_EXIT_TIMEOUT_ENV]: String(SMOKE_EXIT_TIMEOUT_MS),
       [UTILITY_HOSTNAME_ENV]: HOSTNAME,
-      [UTILITY_PATH_ENV]: isolatedMain.utilityPath,
+      [UTILITY_PATH_ENV]: smokeMain.utilityPath,
       [UTILITY_READY_ENV]: readyPath,
       [UTILITY_STARTUP_TIMEOUT_ENV]: String(DEFAULT_STARTUP_TIMEOUT_MS),
       [UTILITY_STOP_ENV]: stopPath,
@@ -430,7 +543,11 @@ try {
   writeFileSync(stopPath, JSON.stringify({ stop: true }), "utf8")
   await waitForProcessExit(child, stdoutText, stderrText)
 
-  console.log("Electron backend utility smoke passed")
+  console.log(
+    packagedSmoke
+      ? "Packaged Electron backend utility chemistry smoke passed"
+      : "Electron backend utility smoke passed",
+  )
 } catch (error) {
   if (child) {
     child.kill()

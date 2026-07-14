@@ -1,15 +1,15 @@
 #!/usr/bin/env bun
 
-const TARGET_FLAG = "--target" as const
+export const PACKAGE_TARGET_FLAG = "--target" as const
 
-type PackageTarget = "mac" | "win"
+export type PackageTarget = "mac" | "win"
 
 type TargetRuntime = {
   electronBuilderFlag: string
   platform: NodeJS.Platform
 }
 
-const TARGET_RUNTIMES = {
+export const PACKAGE_TARGETS = {
   mac: {
     electronBuilderFlag: "--mac",
     platform: "darwin",
@@ -22,20 +22,26 @@ const TARGET_RUNTIMES = {
 
 function readTarget(): PackageTarget {
   const args = Bun.argv.slice(2)
-  const target = args[args.indexOf(TARGET_FLAG) + 1]
+  const target = args[args.indexOf(PACKAGE_TARGET_FLAG) + 1]
   if (target === "mac" || target === "win") return target
-  throw new Error(`Expected ${TARGET_FLAG} mac|win`)
+  throw new Error(`Expected ${PACKAGE_TARGET_FLAG} mac|win`)
 }
 
-const target = readTarget()
-const runtime = TARGET_RUNTIMES[target]
-
-if (process.platform !== runtime.platform) {
+export function assertPackageTarget(
+  target: PackageTarget,
+  platform: NodeJS.Platform = process.platform,
+): void {
+  const runtime = PACKAGE_TARGETS[target]
+  if (platform === runtime.platform) return
   throw new Error(
     [
-      `Cannot run electron-builder ${runtime.electronBuilderFlag} on ${process.platform}.`,
+      `Cannot run electron-builder ${runtime.electronBuilderFlag} on ${platform}.`,
       "The Electron main output embeds target-native utility-process dependencies.",
       `Build and package ${target} on ${runtime.platform}.`,
     ].join(" "),
   )
+}
+
+if (import.meta.main) {
+  assertPackageTarget(readTarget())
 }

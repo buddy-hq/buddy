@@ -8,6 +8,7 @@ import {
   releaseTargetEnvironment,
 } from "./release-smoke-target"
 import { readDesktopPackageVersion, updateDesktopPackageVersion } from "./utils"
+import { buildElectronPackageAndSmoke } from "./package-electron"
 
 const TARGET_FLAG = "--target"
 const PRODUCTION_CHANNEL = "prod"
@@ -57,9 +58,10 @@ try {
   await $`bun run prepare:release`.cwd(packageDirectory).env(environment)
   await $`bun run build`.cwd(packageDirectory).env(environment)
   await $`bun run smoke:backend-utility`.cwd(packageDirectory).env(environment)
-  await $`bunx --bun electron-builder ${target.electronBuilderArguments} --publish never --config electron-builder.config.ts`
-    .cwd(packageDirectory)
-    .env(environment)
+  await buildElectronPackageAndSmoke({
+    electronBuilderArguments: [...target.electronBuilderArguments, "--publish", "never"],
+    environment,
+  })
 } finally {
   if (readDesktopPackageVersion() !== originalVersion) {
     updateDesktopPackageVersion(originalVersion)

@@ -1,7 +1,9 @@
 import { existsSync } from "node:fs"
+import path from "node:path"
 import type { Configuration } from "electron-builder"
 import { BUDDY_BRANDING, formatCopyrightNotice } from "@buddy/script/branding"
 import { readBuddyReleaseChannel } from "@buddy/script/channel"
+import { ELECTRON_CHEMFIG_RUNTIME_PATH_SEGMENTS } from "@buddy/script/chemfig-runtime"
 import {
   WINDOWS_RELEASE_ARCHS,
   resolveMacOsReleaseArtifactPattern,
@@ -14,6 +16,11 @@ const channel = readBuddyReleaseChannel()
 const runtimeResourceNames = ["backend", "knowledge-graph", "migrations", "tessdata"] as const
 const DEV_PRODUCT_NAME = `${BUDDY_BRANDING.productName} Dev`
 const BETA_PRODUCT_NAME = `${BUDDY_BRANDING.productName} Beta`
+const CHEMFIG_RUNTIME_ASAR_PATTERN = path.posix.join(
+  "out/main",
+  ...ELECTRON_CHEMFIG_RUNTIME_PATH_SEGMENTS,
+  "**/*",
+)
 
 function requiredRuntimeResource(name: (typeof runtimeResourceNames)[number]) {
   const resourceDir = new URL(`./resources/${name}`, import.meta.url)
@@ -42,6 +49,7 @@ const BASE_CONFIGURATION: Configuration = {
     description: BUDDY_BRANDING.desktopPackageDescription,
   },
   asarUnpack: [
+    CHEMFIG_RUNTIME_ASAR_PATTERN,
     "out/main/chunks/node_modules/@llamaindex/liteparse-*/**/*",
     "out/main/chunks/node_modules/@lydell/node-pty-*/**/*",
     "out/main/chunks/node_modules/@parcel/watcher-*/**/*",

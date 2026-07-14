@@ -7,6 +7,10 @@ import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import { BUDDY_CHANNEL_ENV, readBuddyReleaseChannel } from "@buddy/script/channel"
 import {
+  CHEMFIG_RUNTIME_DIRECTORY_NAME,
+  ELECTRON_CHEMFIG_RUNTIME_PATH_SEGMENTS,
+} from "@buddy/script/chemfig-runtime"
+import {
   LITEPARSE_PACKAGE_NAME,
   TYPESCRIPT_RUNTIME_PACKAGE_NAME,
   currentBackendNodeArtifactTarget,
@@ -20,6 +24,7 @@ const webDir = path.resolve(__dirname, "../web")
 const buddyDir = path.resolve(__dirname, "../buddy")
 const BUDDY_SERVER_DIST = path.resolve(__dirname, "../buddy/dist/node")
 const BUDDY_SERVER_ENTRY = path.resolve(BUDDY_SERVER_DIST, "node.js")
+const MAIN_OUTPUT_DIR = path.resolve(__dirname, "out/main")
 const MAIN_CHUNKS_DIR = path.resolve(__dirname, "out/main/chunks")
 const nativeTarget = currentBackendNodeArtifactTarget()
 const liteParseNativePkg = liteParseNativePackageName(nativeTarget)
@@ -108,6 +113,7 @@ export default defineConfig({
         name: "buddy:copy-server-assets",
         async writeBundle() {
           await copyWasmAssets(BUDDY_SERVER_DIST, MAIN_CHUNKS_DIR)
+          await copyChemfigRuntime()
           await copyRuntimePackages()
         },
       },
@@ -164,6 +170,16 @@ async function copyWasmAssets(sourceDir: string, destinationDir: string) {
       await fs.copyFile(source, destination)
     }
   }
+}
+
+async function copyChemfigRuntime() {
+  const source = path.join(BUDDY_SERVER_DIST, CHEMFIG_RUNTIME_DIRECTORY_NAME)
+  const destination = path.join(MAIN_OUTPUT_DIR, ...ELECTRON_CHEMFIG_RUNTIME_PATH_SEGMENTS)
+  if (!(await fileExists(source))) {
+    throw new Error(`Buddy chemfig runtime not found at ${source}`)
+  }
+  await fs.rm(destination, { recursive: true, force: true })
+  await fs.cp(source, destination, { recursive: true, dereference: false })
 }
 
 async function copyRuntimePackages() {

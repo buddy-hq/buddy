@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2023"],
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
@@ -24,5 +24,6 @@
     "../../script/desktop-runtime-resources.ts",
     "../../script/release-local-gate.ts",
     "../../script/release-repositories.ts"
-  ]
+  ],
+  "references": [{ "path": "../sdk" }]
 }
