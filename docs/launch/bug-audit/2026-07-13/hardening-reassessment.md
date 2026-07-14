@@ -341,6 +341,23 @@ global queue until the remaining work has an explicit owner, bounded waiting, an
 - **2026-07-14:** Verification for both reviewer fixes passed: 57 focused learner-memory and
   resource tests, repository lint, and the single root typecheck. Lint reported only four existing
   warnings in dotted-glow and the Bench iframe test. No formatting was run.
+- **2026-07-14:** Transplanted the chemistry pipeline onto the reassessed `main` by applying only
+  chemistry commits `041212e189` and `d4f8ae5e66` plus the staged chemistry follow-up patch. The
+  `chemistry-pipeline` branch itself was not merged because it also contains the rejected original
+  hardening chain. Kept `execution-admission.ts` and its tests deleted, removed chemistry
+  auto-repair's admission wait and completion monitor, and queued its hidden repair prompt through
+  the same vendor-backed async prompt path used by current Mermaid repair. Independent chemistry
+  repairs have an explicit regression test proving there is no Buddy turn gate.
+- **2026-07-14:** Reconciled chemistry's locked atomic writer with the accepted project-editor
+  design. Both now share one hashed lock identity under Buddy global state; no lock file is written
+  beside the user's project file. This preserves cross-process compare-and-replace behavior without
+  restoring the discarded adjacent `.buddy-write.lock` pattern.
+- **2026-07-14:** Chemistry reconciliation verification passed: 87 focused Buddy chemistry,
+  SVG-rendering, session, and project-editor tests; 77 focused Web renderer, Markdown, editor,
+  visibility, and auto-repair tests; and 3 Electron packaging/OpenCode-adapter tests. Repository
+  lint and the single root typecheck passed. Lint reported only the same four existing dotted-glow
+  and Bench iframe warnings. The SDK was regenerated from the reconciled backend route surface;
+  generated files remain untracked as required. No formatting was run.
 
 ## Repository checkpoint
 
