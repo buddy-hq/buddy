@@ -38,10 +38,7 @@ function isEnabledLabel(config: McpConfig) {
     : language.t("mcp.settings.defaultOn")
 }
 
-function getConnectButtonLabel(input: {
-  pending: boolean
-  status: McpStatusInfo | undefined
-}) {
+function getConnectButtonLabel(input: { pending: boolean; status: McpStatusInfo | undefined }) {
   if (mcpNeedsClientRegistration(input.status)) {
     return language.t("mcp.listPanel.editDetails")
   }

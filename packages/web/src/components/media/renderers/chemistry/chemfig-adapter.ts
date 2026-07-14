@@ -33,8 +33,5 @@ export async function renderChemfigWithBuddy(input: {
   if (result.response?.ok && result.error === undefined && result.data !== undefined) {
     return result.data
   }
-  throw new ChemfigRenderRequestError(
-    buddyResultMessage(result),
-    errorCode(result.error),
-  )
+  throw new ChemfigRenderRequestError(buddyResultMessage(result), errorCode(result.error))
 }

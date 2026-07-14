@@ -109,7 +109,10 @@ export function PrimaryUseSelection(props: PrimaryUseSelectionProps) {
       </div>
 
       {props.error ? (
-        <p role="alert" className="rounded-xl border-l-2 border-l-border-critical-base bg-surface-critical-weak px-3 py-2.5 text-sm font-medium text-icon-critical-base">
+        <p
+          role="alert"
+          className="rounded-xl border-l-2 border-l-border-critical-base bg-surface-critical-weak px-3 py-2.5 text-sm font-medium text-icon-critical-base"
+        >
           {props.error}
         </p>
       ) : null}

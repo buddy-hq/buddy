@@ -13,9 +13,7 @@ export type SkillArtifactRefreshResult = {
 
 type SkillArtifactRefreshDependencies = {
   readCatalog(): Promise<SkillArtifactRefreshResult["catalog"]>
-  reconcileCatalog(
-    catalog: SkillArtifactRefreshResult["catalog"]["document"],
-  ): Promise<void>
+  reconcileCatalog(catalog: SkillArtifactRefreshResult["catalog"]["document"]): Promise<void>
   refreshSystem(): Promise<SkillArtifactRefreshResult["system"]>
 }
 

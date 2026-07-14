@@ -108,10 +108,7 @@ export function filterMentionableFiles(files: MentionableFile[], query: string) 
     })
 }
 
-export function filterMentionableReferences(
-  references: MentionableReference[],
-  query: string,
-) {
+export function filterMentionableReferences(references: MentionableReference[], query: string) {
   const normalized = query.trim().toLowerCase()
 
   return references

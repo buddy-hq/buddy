@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { ChemfigRenderRequestError } from "./chemfig-adapter"
 import type { ChemistryFormat } from "./formats"
-import {
-  readCachedChemistrySvg,
-  renderChemistrySvg,
-  type ChemistryRenderResult,
-} from "./render"
+import { readCachedChemistrySvg, renderChemistrySvg, type ChemistryRenderResult } from "./render"
 
 export type ChemistryRenderState =
   | {
@@ -53,10 +49,7 @@ function renderErrorState(error: unknown): ChemistryRenderState {
     return { status: "error", message: error.message, code: error.code }
   }
   const code =
-    error !== null &&
-    typeof error === "object" &&
-    "code" in error &&
-    typeof error.code === "string"
+    error !== null && typeof error === "object" && "code" in error && typeof error.code === "string"
       ? error.code
       : undefined
   if (error instanceof Error && error.message.trim()) {

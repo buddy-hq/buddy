@@ -158,7 +158,9 @@ function validateSystemSkillPackContents(pack: SystemSkillPack): SystemSkillPack
   }
 
   if (fileCount > SYSTEM_SKILL_PACK_MAX_FILES) {
-    throw new Error(`System skill pack has ${fileCount} files; limit is ${SYSTEM_SKILL_PACK_MAX_FILES}`)
+    throw new Error(
+      `System skill pack has ${fileCount} files; limit is ${SYSTEM_SKILL_PACK_MAX_FILES}`,
+    )
   }
   if (totalBytes > SYSTEM_SKILL_PACK_MAX_TOTAL_BYTES) {
     throw new Error("System skill pack exceeds the total size limit")
@@ -191,8 +193,9 @@ function validateCompatibility(
     if (
       !expectedManifest ||
       !packedManifest ||
-      new TextDecoder("utf-8", { fatal: true }).decode(decodeFileContent(packedManifest.content)) !==
-        expectedManifest
+      new TextDecoder("utf-8", { fatal: true }).decode(
+        decodeFileContent(packedManifest.content),
+      ) !== expectedManifest
     ) {
       throw new Error(`System skill pack metadata does not match registered skill "${skill.name}"`)
     }
@@ -267,7 +270,9 @@ async function collectSystemSkillSources(
     for (const entry of entries) {
       if (!entry.isDirectory()) continue
       const directory = path.join(root, entry.name)
-      const document = await loadManagedSkillFile(path.join(directory, SYSTEM_SKILL_DOCUMENT_FILENAME))
+      const document = await loadManagedSkillFile(
+        path.join(directory, SYSTEM_SKILL_DOCUMENT_FILENAME),
+      )
       if (!document || sources.has(document.name)) continue
       const registeredSkill = registered.get(document.name)
       if (!registeredSkill) {

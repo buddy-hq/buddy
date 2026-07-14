@@ -7,9 +7,7 @@ export function isSvgAutoRepairMessageID(value: unknown): boolean {
   return typeof value === "string" && value.startsWith(SVG_AUTO_REPAIR_MESSAGE_ID_PREFIX)
 }
 
-export function isSvgAutoRepairAssistantMessage(
-  message: MessageInfo | undefined,
-): boolean {
+export function isSvgAutoRepairAssistantMessage(message: MessageInfo | undefined): boolean {
   return message?.role === "assistant" && isSvgAutoRepairMessageID(message.parentID)
 }
 

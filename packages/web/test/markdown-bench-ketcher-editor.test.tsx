@@ -85,9 +85,8 @@ describe("Markdown Bench Ketcher editor reliability", () => {
   })
 
   test("keeps Cancel available during save and ignores a late export", async () => {
-    const { default: MarkdownBenchKetcherEditor } = await import(
-      "../src/components/bench/markdown-bench-ketcher-editor"
-    )
+    const { default: MarkdownBenchKetcherEditor } =
+      await import("../src/components/bench/markdown-bench-ketcher-editor")
     let saveCount = 0
     let cancelCount = 0
 
@@ -140,22 +139,16 @@ describe("Markdown Bench Ketcher editor reliability", () => {
   })
 
   test("bounds a never-resolving operation with a named timeout", async () => {
-    const { withKetcherOperationTimeout } = await import(
-      "../src/components/bench/markdown-bench-ketcher-editor"
-    )
+    const { withKetcherOperationTimeout } =
+      await import("../src/components/bench/markdown-bench-ketcher-editor")
     await expect(
-      withKetcherOperationTimeout(
-        new Promise<string>(() => undefined),
-        "Structure export",
-        5,
-      ),
+      withKetcherOperationTimeout(new Promise<string>(() => undefined), "Structure export", 5),
     ).rejects.toThrow("Structure export exceeded 5 milliseconds")
   })
 
   test("never enables Save after initialization fails", async () => {
-    const { default: MarkdownBenchKetcherEditor } = await import(
-      "../src/components/bench/markdown-bench-ketcher-editor"
-    )
+    const { default: MarkdownBenchKetcherEditor } =
+      await import("../src/components/bench/markdown-bench-ketcher-editor")
     initializationShouldFail = true
     await act(async () => {
       root.render(

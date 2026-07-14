@@ -15,11 +15,9 @@ type MarkdownRange = {
 
 const LEGACY_BUDDY_DISPLAY_MATH_MARKER = "%__BUDDY_DISPLAY_MATH__\n"
 const MARKDOWN_INSERTED_ANGLE_ESCAPE_MARKER = "\u2060"
-const MARKDOWN_MARKED_ENTITY_ANGLE_PLACEHOLDER_PATTERN =
-  /\u2060&lt;([^<>&\r\n]+)&gt;/gu
+const MARKDOWN_MARKED_ENTITY_ANGLE_PLACEHOLDER_PATTERN = /\u2060&lt;([^<>&\r\n]+)&gt;/gu
 const MARKDOWN_MARKED_ESCAPED_ANGLE_PREFIX = `${MARKDOWN_INSERTED_ANGLE_ESCAPE_MARKER}\\<`
-const MARKDOWN_ESCAPED_ASCII_PUNCTUATION_PATTERN =
-  /\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/gu
+const MARKDOWN_ESCAPED_ASCII_PUNCTUATION_PATTERN = /\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/gu
 const MARKDOWN_HTML_TAG_NAMES = new Set(
   "a abbr address area article aside audio b base bdi bdo blockquote body br button canvas caption cite code col colgroup data datalist dd del details dfn dialog div dl dt em embed fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6 head header hgroup hr html i iframe img input ins kbd label legend li link main map mark menu meta meter nav noscript object ol optgroup option output p picture pre progress q rp rt ruby s samp script search section select slot small source span strong style sub summary sup table tbody td template textarea tfoot th thead time title tr track u ul var video wbr svg animate circle clipPath defs ellipse feBlend feColorMatrix feComponentTransfer feComposite feConvolveMatrix feDiffuseLighting feDisplacementMap feDistantLight feDropShadow feFlood feFuncA feFuncB feFuncG feFuncR feGaussianBlur feImage feMerge feMergeNode feMorphology feOffset fePointLight feSpecularLighting feSpotLight feTile feTurbulence filter foreignObject g image line linearGradient marker mask path pattern polygon polyline radialGradient rect stop symbol text textPath tspan use view".split(
     " ",
@@ -123,7 +121,7 @@ function restoreMarkedEscapedAngles(markdown: string): string {
 
     restored += markdown.slice(cursor, start)
     const contentStart = start + MARKDOWN_MARKED_ESCAPED_ANGLE_PREFIX.length
-    let quote: "\"" | "'" | undefined
+    let quote: '"' | "'" | undefined
     let end = contentStart
     for (; end < markdown.length; end += 1) {
       const character = markdown[end]
@@ -132,7 +130,7 @@ function restoreMarkedEscapedAngles(markdown: string): string {
         if (character === quote && markdown[end - 1] !== "\\") quote = undefined
         continue
       }
-      if (character === "\"" || character === "'") {
+      if (character === '"' || character === "'") {
         quote = character
         continue
       }
@@ -444,11 +442,10 @@ export function prepareMarkdownForMdxEditor(markdown: string): string {
 
 export function restoreMarkdownFromMdxEditor(markdown: string): string {
   return restoreMarkedEscapedAngles(
-    markdown
-      .replace(MARKDOWN_MARKED_ENTITY_ANGLE_PLACEHOLDER_PATTERN, (raw, inner: string) => {
-        const placeholder = `<${inner}>`
-        return isMarkdownAnglePlaceholder(placeholder) ? placeholder : raw
-      }),
+    markdown.replace(MARKDOWN_MARKED_ENTITY_ANGLE_PLACEHOLDER_PATTERN, (raw, inner: string) => {
+      const placeholder = `<${inner}>`
+      return isMarkdownAnglePlaceholder(placeholder) ? placeholder : raw
+    }),
   ).replaceAll(`${MARKDOWN_INSERTED_ANGLE_ESCAPE_MARKER}\\<`, "<")
 }
 

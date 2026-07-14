@@ -436,7 +436,8 @@ export const TeachingService = {
     directory: string,
     sessionID: string,
     input: { content: string; language?: TeachingLanguage },
-  ) => withTeachingWorkspaceLock(directory, sessionID, () => setLesson(directory, sessionID, input)),
+  ) =>
+    withTeachingWorkspaceLock(directory, sessionID, () => setLesson(directory, sessionID, input)),
   restore: (directory: string, sessionID: string) =>
     withTeachingWorkspaceLock(directory, sessionID, () => restore(directory, sessionID)),
   addFile: (directory: string, sessionID: string, input: TeachingWorkspaceCreateFileRequest) =>

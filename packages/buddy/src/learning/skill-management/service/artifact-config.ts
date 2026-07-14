@@ -23,9 +23,7 @@ export function skillArtifactFetchEnabled(): boolean {
 }
 
 export function skillArtifactPublicKey(): string {
-  return (
-    configuredValue(BUDDY_ENV.SKILL_ARTIFACT_PUBLIC_KEY) ?? BUDDY_SKILL_ARTIFACT_PUBLIC_KEY
-  )
+  return configuredValue(BUDDY_ENV.SKILL_ARTIFACT_PUBLIC_KEY) ?? BUDDY_SKILL_ARTIFACT_PUBLIC_KEY
 }
 
 export function libraryCatalogArtifactUrl(): string | undefined {

@@ -93,12 +93,11 @@ async function resolveDynamicLearningToolContext(input: {
     { readProjectConfig },
     { getBuddyPersona, getDefaultBuddyPersona },
     { readTeachingSessionState },
-  ] =
-    await Promise.all([
-      import("../../config/runtime/project-config.js"),
-      import("../personas/wiring/persona-profiles"),
-      import("../agent-execution/state/session-state"),
-    ])
+  ] = await Promise.all([
+    import("../../config/runtime/project-config.js"),
+    import("../personas/wiring/persona-profiles"),
+    import("../agent-execution/state/session-state"),
+  ])
   const [projectConfig, teachingState] = await Promise.all([
     readProjectConfig(input.directory),
     Promise.resolve(readTeachingSessionState(input.directory, input.sessionID)),

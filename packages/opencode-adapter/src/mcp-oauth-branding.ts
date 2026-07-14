@@ -42,9 +42,7 @@ function brandClientMetadata(input: unknown, fallbackRedirectUrl: string): McpOA
     client_name: BUDDY_MCP_OAUTH_CLIENT_NAME,
     client_uri: BUDDY_MCP_OAUTH_CLIENT_URI,
     logo_uri: BUDDY_MCP_OAUTH_LOGO_URI,
-    ...(tokenEndpointAuthMethod
-      ? { token_endpoint_auth_method: tokenEndpointAuthMethod }
-      : {}),
+    ...(tokenEndpointAuthMethod ? { token_endpoint_auth_method: tokenEndpointAuthMethod } : {}),
     ...(grantTypes ? { grant_types: grantTypes } : {}),
     ...(responseTypes ? { response_types: responseTypes } : {}),
     ...(scope ? { scope } : {}),
@@ -116,7 +114,10 @@ export function brandMcpOAuthCallbackHtml(html: string) {
   return html
     .replace(OPENCODE_MCP_OAUTH_ERROR_TITLE, "<title>Buddy - Authorization Failed</title>")
     .replace("background: #1a1a2e; color: #eee;", "background: #131010; color: #f1ecec;")
-    .replace("h1 { color: #f87171; margin-bottom: 1rem; }", "h1 { color: #fc533a; margin-bottom: 1rem; }")
+    .replace(
+      "h1 { color: #f87171; margin-bottom: 1rem; }",
+      "h1 { color: #fc533a; margin-bottom: 1rem; }",
+    )
     .replace("p { color: #aaa; }", "p { color: #b7b1b1; }")
     .replace("color: #fca5a5;", "color: #ff917b;")
     .replace("background: rgba(248,113,113,0.1);", "background: #3c140d;")
@@ -152,7 +153,11 @@ export function createMcpOAuthCallbackBrandedEnd(
   originalEnd: ServerResponse["end"],
 ): ServerResponse["end"] {
   function brandedEnd(this: ServerResponse, callback?: () => void): ServerResponse
-  function brandedEnd(this: ServerResponse, chunk: string | Uint8Array, callback?: () => void): ServerResponse
+  function brandedEnd(
+    this: ServerResponse,
+    chunk: string | Uint8Array,
+    callback?: () => void,
+  ): ServerResponse
   function brandedEnd(
     this: ServerResponse,
     chunk: string | Uint8Array,

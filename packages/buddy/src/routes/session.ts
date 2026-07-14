@@ -69,9 +69,8 @@ const [postSessionCommandHandler] = sessionRouteFactory.createHandlers(postSessi
 const [postSessionMermaidRepairAsyncHandler] = sessionRouteFactory.createHandlers(
   postSessionMermaidRepairAsync,
 )
-const [postSessionSvgRepairAsyncHandler] = sessionRouteFactory.createHandlers(
-  postSessionSvgRepairAsync,
-)
+const [postSessionSvgRepairAsyncHandler] =
+  sessionRouteFactory.createHandlers(postSessionSvgRepairAsync)
 const [getSessionMermaidRepairStatusHandler] = sessionRouteFactory.createHandlers(
   getSessionMermaidRepairStatus,
 )
@@ -195,31 +194,26 @@ const sessionMermaidRepairBodySchema = z.object({
   failedRenderKey: z.string().min(1),
 })
 
-const sessionSvgRepairBodySchema = z.object({
-  assistantMessageID: z.string().min(1).max(SESSION_SVG_REPAIR_ID_MAX_CHARACTERS),
-  partID: z.string().min(1).max(SESSION_SVG_REPAIR_ID_MAX_CHARACTERS),
-  segmentIndex: z.number().int().nonnegative(),
-  rawFence: z
-    .string()
-    .min(1)
-    .refine(
-      (rawFence) => Buffer.byteLength(rawFence, "utf8") <= SVG_REPORTED_FENCE_MAX_BYTES,
-      `Reported chemistry fence exceeds the ${SVG_REPORTED_FENCE_MAX_BYTES}-byte limit.`,
-    ),
-  format: z.enum(SVG_SOURCE_FORMATS),
-  source: SvgTextSourceSchema,
-}).strict()
+const sessionSvgRepairBodySchema = z
+  .object({
+    assistantMessageID: z.string().min(1).max(SESSION_SVG_REPAIR_ID_MAX_CHARACTERS),
+    partID: z.string().min(1).max(SESSION_SVG_REPAIR_ID_MAX_CHARACTERS),
+    segmentIndex: z.number().int().nonnegative(),
+    rawFence: z
+      .string()
+      .min(1)
+      .refine(
+        (rawFence) => Buffer.byteLength(rawFence, "utf8") <= SVG_REPORTED_FENCE_MAX_BYTES,
+        `Reported chemistry fence exceeds the ${SVG_REPORTED_FENCE_MAX_BYTES}-byte limit.`,
+      ),
+    format: z.enum(SVG_SOURCE_FORMATS),
+    source: SvgTextSourceSchema,
+  })
+  .strict()
 
 const sessionSvgRepairBodyOpenApiSchema = {
   type: "object" as const,
-  required: [
-    "assistantMessageID",
-    "partID",
-    "segmentIndex",
-    "rawFence",
-    "format",
-    "source",
-  ],
+  required: ["assistantMessageID", "partID", "segmentIndex", "rawFence", "format", "source"],
   additionalProperties: false,
   properties: {
     assistantMessageID: {
@@ -303,7 +297,7 @@ const sessionRuntimeActionSchema = z.enum(["allow", "deny"])
 const resolvedSessionRuntimeSchema = z.object({
   persona: z.enum(PERSONAS),
   teachingWorkspaceState: z.enum(TEACHING_WORKSPACE_STATES),
-    enabledFeatureIDs: z.array(z.string()),
+  enabledFeatureIDs: z.array(z.string()),
   access: z.object({
     tools: z.record(z.string(), sessionRuntimeActionSchema),
     skills: z.record(z.string(), sessionRuntimeActionSchema),

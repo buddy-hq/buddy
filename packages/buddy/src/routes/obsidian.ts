@@ -52,7 +52,9 @@ export const ObsidianRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     async (c) =>
-      withDirectoryRoute(c, async (context) => c.json(await inspectObsidianVault(context.directory))),
+      withDirectoryRoute(c, async (context) =>
+        c.json(await inspectObsidianVault(context.directory)),
+      ),
   )
   .post(
     "/resolve-links",

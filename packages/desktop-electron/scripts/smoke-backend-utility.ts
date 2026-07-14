@@ -42,11 +42,7 @@ import {
 } from "./utils"
 import type { DesktopRuntimeResources } from "./utils"
 import { resolveElectronBin } from "./electron-bin"
-import {
-  BUDDY_ENV,
-  BUDDY_HOME_DIRECTORY_NAME,
-  OPENCODE_ENV,
-} from "@buddy/script/storage-env"
+import { BUDDY_ENV, BUDDY_HOME_DIRECTORY_NAME, OPENCODE_ENV } from "@buddy/script/storage-env"
 import {
   CHEMFIG_CHILD_FILENAME,
   CHEMFIG_TEX_ASSET_FILENAMES,
@@ -89,10 +85,7 @@ const CHEMFIG_SMOKE_SOURCE = String.raw`\chemfig{C=C}`
 const CHEMFIG_RENDERER_NAME = "node-tikzjax" as const
 const FORBIDDEN_CHEMFIG_SVG_PATTERN =
   /<(?:script|foreignObject)\b|(?:href|src)\s*=\s*["']https?:\/\/|url\(\s*["']?https?:\/\//iu
-const USER_CONFIG_ENVIRONMENT_KEYS = new Set<string>([
-  BUDDY_ENV.CONFIG,
-  BUDDY_ENV.CONFIG_CONTENT,
-])
+const USER_CONFIG_ENVIRONMENT_KEYS = new Set<string>([BUDDY_ENV.CONFIG, BUDDY_ENV.CONFIG_CONTENT])
 
 const packageDir = path.resolve(import.meta.dir, "..")
 const smokeMainScript = path.resolve(import.meta.dir, "backend-utility-smoke-main.mjs")
@@ -144,10 +137,7 @@ function createBackendEnvironment(input: {
     [BUDDY_ENV.ALLOWED_DIRECTORY_ROOTS]: notebookRoot,
     [BUDDY_ENV.APP_VERSION]: "backend-utility-smoke",
     [BUDDY_ENV.BACKEND_RESOURCES_DIR]: input.backendResources,
-    [BUDDY_ENV.GLOBAL_CONFIG_DIR]: path.join(
-      input.runtimeRoot,
-      BUDDY_HOME_DIRECTORY_NAME,
-    ),
+    [BUDDY_ENV.GLOBAL_CONFIG_DIR]: path.join(input.runtimeRoot, BUDDY_HOME_DIRECTORY_NAME),
     [BUDDY_ENV.TESSDATA_DIR]: input.tessdata,
     [BUDDY_ENV.DIRECTORY_BASE]: notebookRoot,
     [BUDDY_ENV.MIGRATION_DIR]: path.join(input.migrations, "buddy"),
@@ -225,10 +215,7 @@ async function smokeApiRoutes(input: { baseUrl: string; directory: string }): Pr
   }
 
   const providerList = (
-    await client.provider.list(
-      { directory: input.directory },
-      { throwOnError: true },
-    )
+    await client.provider.list({ directory: input.directory }, { throwOnError: true })
   ).data
   if (
     !Array.isArray(providerList.all) ||
@@ -240,10 +227,7 @@ async function smokeApiRoutes(input: { baseUrl: string; directory: string }): Pr
   }
 
   const providerAuth = (
-    await client.provider.auth(
-      { directory: input.directory },
-      { throwOnError: true },
-    )
+    await client.provider.auth({ directory: input.directory }, { throwOnError: true })
   ).data
   for (const [providerID, methods] of Object.entries(providerAuth)) {
     if (!Array.isArray(methods)) {
@@ -252,27 +236,18 @@ async function smokeApiRoutes(input: { baseUrl: string; directory: string }): Pr
   }
 
   const createdSession = (
-    await client.session.create(
-      { directory: input.directory, body: {} },
-      { throwOnError: true },
-    )
+    await client.session.create({ directory: input.directory, body: {} }, { throwOnError: true })
   ).data
   const sessionID = createdSession.id
 
   const loadedSession = (
-    await client.session.get(
-      { directory: input.directory, sessionID },
-      { throwOnError: true },
-    )
+    await client.session.get({ directory: input.directory, sessionID }, { throwOnError: true })
   ).data
   if (loadedSession.id !== sessionID) {
     throw new Error(`${API_SESSION_PATH}/${sessionID} returned a different session`)
   }
   const messages = (
-    await client.session.messages(
-      { directory: input.directory, sessionID },
-      { throwOnError: true },
-    )
+    await client.session.messages({ directory: input.directory, sessionID }, { throwOnError: true })
   ).data
   if (!Array.isArray(messages)) {
     throw new Error(`${API_SESSION_PATH}/${sessionID}/message must be an array`)

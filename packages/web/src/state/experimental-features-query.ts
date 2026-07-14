@@ -9,8 +9,7 @@ export const EXPERIMENTAL_FEATURE_ID = {
   learnerMemory: "learner_memory",
 } as const
 
-type ExperimentalFeatureID =
-  (typeof EXPERIMENTAL_FEATURE_ID)[keyof typeof EXPERIMENTAL_FEATURE_ID]
+type ExperimentalFeatureID = (typeof EXPERIMENTAL_FEATURE_ID)[keyof typeof EXPERIMENTAL_FEATURE_ID]
 type ExperimentalFeatureStatus = GlobalExperimentalFeaturesListResponse["features"][number]
 type ExperimentalFeaturesResponse = GlobalExperimentalFeaturesListResponse
 

@@ -796,10 +796,7 @@ describe("notebook onboarding configuration", () => {
 
   test("prefers DeepSeek V4 Flash with max reasoning when OpenAI is not connected", async () => {
     const PREPARED_DIRECTORY = "/repo" as const
-    const preferredModel = createModel(
-      "deepseek-v4-flash-free",
-      "DeepSeek V4 Flash Free",
-    )
+    const preferredModel = createModel("deepseek-v4-flash-free", "DeepSeek V4 Flash Free")
     preferredModel.variants = ["high", "max"]
 
     await expect(
@@ -837,10 +834,7 @@ describe("notebook onboarding configuration", () => {
 
   test("keeps the current free-model default when OpenAI is connected", async () => {
     const PREPARED_DIRECTORY = "/repo" as const
-    const preferredModel = createModel(
-      "deepseek-v4-flash-free",
-      "DeepSeek V4 Flash Free",
-    )
+    const preferredModel = createModel("deepseek-v4-flash-free", "DeepSeek V4 Flash Free")
     preferredModel.variants = ["max"]
 
     await expect(
@@ -877,10 +871,7 @@ describe("notebook onboarding configuration", () => {
 
   test("keeps the current free-model default when the preferred model lacks max reasoning", async () => {
     const PREPARED_DIRECTORY = "/repo" as const
-    const preferredModel = createModel(
-      "deepseek-v4-flash-free",
-      "DeepSeek V4 Flash Free",
-    )
+    const preferredModel = createModel("deepseek-v4-flash-free", "DeepSeek V4 Flash Free")
     preferredModel.variants = ["high"]
 
     await expect(

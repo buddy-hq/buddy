@@ -263,7 +263,10 @@ function pendingAttemptIngestionFile(input: {
   })
 }
 
-async function readJsonIfPresent<T>(filePath: string, schema: z.ZodSchema<T>): Promise<T | undefined> {
+async function readJsonIfPresent<T>(
+  filePath: string,
+  schema: z.ZodSchema<T>,
+): Promise<T | undefined> {
   const raw = await fs.readFile(filePath, "utf8").catch((error: unknown) => {
     if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
       return undefined

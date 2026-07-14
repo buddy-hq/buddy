@@ -60,12 +60,9 @@ describe("PDF LiteParse extraction", () => {
       const sourcePath = path.join(directory, TEST_PDF_FILENAME)
       await writeFile(sourcePath, createTextPdf(TEST_PDF_TEXT), "binary")
 
-      const result = await extractPdfResourceWithMetadataExtractorForTests(
-        sourcePath,
-        async () => {
-          throw new Error("metadata parser failed")
-        },
-      )
+      const result = await extractPdfResourceWithMetadataExtractorForTests(sourcePath, async () => {
+        throw new Error("metadata parser failed")
+      })
 
       expect(result.status).toBe("ready")
       expect(result.extractor).toBe("@llamaindex/liteparse")

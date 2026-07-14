@@ -3,13 +3,7 @@ import { useEffect, useRef, useState } from "react"
 import { motion, useInView } from "motion/react"
 import { cn } from "@buddy/ui"
 import { ArrowUpRightIcon } from "lucide-react"
-import {
-  EASE_OUT,
-  SERIF,
-  rise,
-  lineMask,
-  lineInner,
-} from "./constants"
+import { EASE_OUT, SERIF, rise, lineMask, lineInner } from "./constants"
 
 // ── Big masked-line serif heading (choreographed) ──
 export function Heading({
@@ -24,10 +18,7 @@ export function Heading({
   return (
     <motion.h2
       variants={lineMask}
-      className={
-        className ??
-        "text-[clamp(30px,4.4vw,46px)] leading-[1.04] tracking-[-0.01em]"
-      }
+      className={className ?? "text-[clamp(30px,4.4vw,46px)] leading-[1.04] tracking-[-0.01em]"}
       style={{ fontFamily: SERIF, fontWeight: 500, color: "#faf6f0" }}
     >
       {lines.map((line, i) => (
@@ -36,7 +27,9 @@ export function Heading({
           <motion.span
             variants={lineInner}
             className="block"
-            style={emphasizeLast && i === lines.length - 1 ? { color: "var(--brand-word)" } : undefined}
+            style={
+              emphasizeLast && i === lines.length - 1 ? { color: "var(--brand-word)" } : undefined
+            }
           >
             {line}
           </motion.span>
@@ -96,7 +89,11 @@ export function MenuChoice(props: MenuChoiceProps) {
       <span className="min-w-0 flex-1">
         <span
           className="block text-[22px] leading-tight tracking-[-0.01em] transition-colors duration-200"
-          style={{ fontFamily: SERIF, fontWeight: 500, color: props.selected ? "var(--brand-word)" : "#f3ede4" }}
+          style={{
+            fontFamily: SERIF,
+            fontWeight: 500,
+            color: props.selected ? "var(--brand-word)" : "#f3ede4",
+          }}
         >
           {props.title}
         </span>
@@ -133,7 +130,11 @@ export function Pill({
       whileTap={{ scale: 0.97 }}
       transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
       className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-[14px] font-medium disabled:opacity-50"
-      style={{ background: "var(--brand-ring)", color: "var(--brand-ink)", boxShadow: "0 14px 44px var(--brand-soft)" }}
+      style={{
+        background: "var(--brand-ring)",
+        color: "var(--brand-ink)",
+        boxShadow: "0 14px 44px var(--brand-soft)",
+      }}
     >
       {children}
     </motion.button>

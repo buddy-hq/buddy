@@ -17,12 +17,7 @@ type TextFileWriteSnapshot = {
 }
 
 function isNodeErrorCode(error: unknown, code: string): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === code
-  )
+  return typeof error === "object" && error !== null && "code" in error && error.code === code
 }
 
 function textFileWriteLockPath(targetPath: string): string {
@@ -68,7 +63,9 @@ async function resolveAtomicWriteTarget(lexicalTargetPath: string): Promise<stri
 
 async function textFileVersion(targetPath: string): Promise<string | null> {
   try {
-    return createHash("sha256").update(await fs.readFile(targetPath)).digest("hex")
+    return createHash("sha256")
+      .update(await fs.readFile(targetPath))
+      .digest("hex")
   } catch (error) {
     if (isNodeErrorCode(error, "ENOENT")) return null
     throw error

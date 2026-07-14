@@ -17,11 +17,7 @@ afterEach(() => {
   browserSvgRenderRequests.reset()
 })
 
-function svgRenderingRequest(
-  directory: string,
-  pathname: string,
-  init?: RequestInit,
-) {
+function svgRenderingRequest(directory: string, pathname: string, init?: RequestInit) {
   return app.request(`/api/svg-rendering${pathname}`, {
     ...init,
     headers: {
@@ -61,9 +57,9 @@ describe("SVG rendering routes", () => {
       },
     )
     expect(completeResponse.status).toBe(200)
-    expect(
-      BrowserSvgRenderCompletionResponseSchema.parse(await completeResponse.json()),
-    ).toEqual({ status: "completed" })
+    expect(BrowserSvgRenderCompletionResponseSchema.parse(await completeResponse.json())).toEqual({
+      status: "completed",
+    })
     await expect(enqueued.completion).resolves.toEqual({
       status: "completed",
       svg: SAFE_SVG,

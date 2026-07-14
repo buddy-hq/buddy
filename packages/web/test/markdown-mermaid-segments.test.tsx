@@ -69,9 +69,7 @@ describe("markdown mermaid segments", () => {
   })
 
   test("preserves line endings while applying CommonMark fence indentation", () => {
-    const segments = parseMarkdownSegments(
-      "   ```mermaid\r\n   graph TD\r\n  A-->B\r\n   ```",
-    )
+    const segments = parseMarkdownSegments("   ```mermaid\r\n   graph TD\r\n  A-->B\r\n   ```")
 
     expect(segments).toEqual([
       {

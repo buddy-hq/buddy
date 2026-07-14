@@ -22,9 +22,7 @@ import {
   systemSkillPackCompatibilityFromPack,
   systemSkillPackPayloadBytes,
 } from "../src/learning/skill-management/service/system-pack"
-import {
-  parseSkillCatalogDocument,
-} from "../src/learning/skill-management/service/library"
+import { parseSkillCatalogDocument } from "../src/learning/skill-management/service/library"
 import { resolveBuddyBundledSkillRoots } from "../src/config/opencode/skills"
 import { allBuddySkills } from "../src/learning/runtime/feature-registry"
 
@@ -107,13 +105,17 @@ async function signingConfiguration(): Promise<SigningConfiguration> {
   }
 
   const keyDirectory = path.join(os.homedir(), ...LOCAL_KEY_DIRECTORY_SEGMENTS)
-  const privateKeyPath = configuredPrivateKeyPath ?? path.join(keyDirectory, LOCAL_PRIVATE_KEY_FILENAME)
+  const privateKeyPath =
+    configuredPrivateKeyPath ?? path.join(keyDirectory, LOCAL_PRIVATE_KEY_FILENAME)
   const passwordPath = path.join(keyDirectory, LOCAL_PASSWORD_FILENAME)
   const [privateKey, password, publicKeySource] = await Promise.all([
     fsp.readFile(privateKeyPath, "utf8").catch(() => undefined),
     configuredPassword
       ? Promise.resolve(configuredPassword)
-      : fsp.readFile(passwordPath, "utf8").then((value) => value.trim()).catch(() => undefined),
+      : fsp
+          .readFile(passwordPath, "utf8")
+          .then((value) => value.trim())
+          .catch(() => undefined),
     fsp.readFile(`${privateKeyPath}.pub`, "utf8").catch(() => undefined),
   ])
   if (!privateKey) {
@@ -152,7 +154,9 @@ async function readPublishedPayload<T>(
   })
   if (response.status === 404) return undefined
   if (!response.ok) {
-    throw new Error(`Failed to read published skill artifact: ${response.status} ${response.statusText}`)
+    throw new Error(
+      `Failed to read published skill artifact: ${response.status} ${response.statusText}`,
+    )
   }
   const envelopeText = await response.text()
   const envelope = parseSignedArtifactEnvelope(JSON.parse(envelopeText))
@@ -317,10 +321,7 @@ if (
   baseFingerprint !== baselinePack.contentFingerprint &&
   publishedSystemPack
 ) {
-  parseSystemSkillPack(
-    systemPack,
-    systemSkillPackCompatibilityFromPack(publishedSystemPack.value),
-  )
+  parseSystemSkillPack(systemPack, systemSkillPackCompatibilityFromPack(publishedSystemPack.value))
 }
 
 const libraryEnvelopePath = path.join(outputDirectory, LIBRARY_CATALOG_ARTIFACT_FILENAME)

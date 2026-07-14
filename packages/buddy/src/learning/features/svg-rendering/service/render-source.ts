@@ -1,14 +1,8 @@
 import { createHash } from "node:crypto"
 import { renderChemfig } from "@buddy/backend/chemistry/chemfig-renderer"
 import { sanitizeChemistrySvg } from "@buddy/backend/chemistry/svg-sanitize"
-import {
-  browserSvgRenderRequests,
-  type BrowserSvgRenderTerminal,
-} from "./browser-render-requests"
-import {
-  isBrowserSvgSourceFormat,
-  type SvgSourceFormat,
-} from "./contracts"
+import { browserSvgRenderRequests, type BrowserSvgRenderTerminal } from "./browser-render-requests"
+import { isBrowserSvgSourceFormat, type SvgSourceFormat } from "./contracts"
 
 type RenderedSvgSource = {
   svg: string

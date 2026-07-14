@@ -1,12 +1,6 @@
 import { AnimatePresence, motion } from "motion/react"
 import { useEffect } from "react"
-import {
-  EASE_OUT,
-  FONT_HREF,
-  FONT_LINK_ID,
-  getBgFilter,
-  type MoodColors,
-} from "./constants"
+import { EASE_OUT, FONT_HREF, FONT_LINK_ID, getBgFilter, type MoodColors } from "./constants"
 
 export function useFont() {
   useEffect(() => {
@@ -25,12 +19,7 @@ function NebulaOrionBackground({ mood }: { mood: MoodColors }) {
       <svg style={{ position: "absolute", width: 0, height: 0 }}>
         <defs>
           <filter id="orion-nebula-filter">
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.007"
-              numOctaves="4"
-              result="noise"
-            />
+            <feTurbulence type="fractalNoise" baseFrequency="0.007" numOctaves="4" result="noise" />
             <feDisplacementMap
               in="SourceGraphic"
               in2="noise"

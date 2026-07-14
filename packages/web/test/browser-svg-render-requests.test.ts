@@ -17,9 +17,7 @@ function ignorePendingRequests(_requests: BrowserSvgRenderRequest[]): void {
   return undefined
 }
 
-function renderRequest(
-  overrides: Partial<BrowserSvgRenderRequest> = {},
-): BrowserSvgRenderRequest {
+function renderRequest(overrides: Partial<BrowserSvgRenderRequest> = {}): BrowserSvgRenderRequest {
   return {
     version: 1,
     requestID: "svg_render_test",
@@ -122,14 +120,11 @@ describe("browser SVG render requests", () => {
     await executor.synchronize(DIRECTORY)
 
     expect(fixture.renderCount()).toBe(1)
-    expect(fixture.completions.map((entry) => entry.requestID)).toEqual([
-      "svg_render_recovered",
-    ])
+    expect(fixture.completions.map((entry) => entry.requestID)).toEqual(["svg_render_recovered"])
   })
 
   test("coalesces recovery notifications received before a scan starts", async () => {
-    let releasePendingList: (requests: BrowserSvgRenderRequest[]) => void =
-      ignorePendingRequests
+    let releasePendingList: (requests: BrowserSvgRenderRequest[]) => void = ignorePendingRequests
     const pendingList = new Promise<BrowserSvgRenderRequest[]>((resolve) => {
       releasePendingList = resolve
     })

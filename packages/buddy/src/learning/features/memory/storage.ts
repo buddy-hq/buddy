@@ -216,7 +216,9 @@ async function upsertLearnerMemoryAtomically(input: {
     const existing = input.find((await readWorkingMemoryRegistry(input.directory)).memories)
     const memory = LearnerMemorySchema.parse(existing ? input.update(existing) : input.create())
     if (existing && memory.id !== existing.id) {
-      throw new Error("An atomic learner-memory upsert cannot replace the selected memory identity.")
+      throw new Error(
+        "An atomic learner-memory upsert cannot replace the selected memory identity.",
+      )
     }
     await writeLearnerMemoryUnlocked(input.directory, memory)
     return { created: existing === undefined, memory }

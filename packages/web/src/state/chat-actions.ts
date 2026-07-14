@@ -822,11 +822,7 @@ export function normalizeProviderCatalog(
           if (provider.id === OPENCODE_PROVIDER_ID && !credentialConnected) {
             return isPublicOpenCodeModel(model)
           }
-          if (
-            provider.id === OPENAI_PROVIDER_ID &&
-            credentialConnected &&
-            availableOpenAIModels
-          ) {
+          if (provider.id === OPENAI_PROVIDER_ID && credentialConnected && availableOpenAIModels) {
             return availableOpenAIModels.has(model.id)
           }
           return true

@@ -28,16 +28,12 @@ describe("Obsidian Markdown compatibility", () => {
     ].join("\n")
 
     const prepared = prepareObsidianCalloutsForMdxEditor(markdown)
-    expect(prepared).toContain(
-      ':::obsidian-callout{kind="tip" fold="+" title="Evidence"}',
-    )
+    expect(prepared).toContain(':::obsidian-callout{kind="tip" fold="+" title="Evidence"}')
     expect(restoreObsidianCalloutsFromMdxEditor(prepared)).toBe(markdown)
   })
 
   test("leaves ordinary blockquotes and container directives unchanged", () => {
-    const markdown = ["> Ordinary quote", "", ":::tip", "Keep this directive.", ":::"].join(
-      "\n",
-    )
+    const markdown = ["> Ordinary quote", "", ":::tip", "Keep this directive.", ":::"].join("\n")
 
     expect(prepareObsidianCalloutsForMdxEditor(markdown)).toBe(markdown)
     expect(restoreObsidianCalloutsFromMdxEditor(markdown)).toBe(markdown)
@@ -119,11 +115,9 @@ describe("Obsidian Markdown compatibility", () => {
     const directory = "/tmp/obsidian-vault"
     const path = "Notes/Alpha.md"
     const linkKey = obsidianVaultQueryKeys.links(directory, "Index.md", ["Shared"])
-    const otherDirectoryLinkKey = obsidianVaultQueryKeys.links(
-      "/tmp/other-vault",
-      "Index.md",
-      ["Shared"],
-    )
+    const otherDirectoryLinkKey = obsidianVaultQueryKeys.links("/tmp/other-vault", "Index.md", [
+      "Shared",
+    ])
     const embeddedNoteKey = obsidianVaultQueryKeys.embeddedNote(directory, path)
     queryClient.setQueryData(linkKey, { links: [], partial: false })
     queryClient.setQueryData(otherDirectoryLinkKey, { links: [], partial: false })

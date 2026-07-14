@@ -155,10 +155,7 @@ export function parseConfigText(text: string, filepath: string): ConfigSchema.In
   return parseConfigTextWithSchema(text, filepath, ConfigSchema.Info)
 }
 
-export function parseProjectConfigText(
-  text: string,
-  filepath: string,
-): ConfigSchema.ProjectInfo {
+export function parseProjectConfigText(text: string, filepath: string): ConfigSchema.ProjectInfo {
   return parseConfigTextWithSchema(text, filepath, ConfigSchema.ProjectInfo)
 }
 

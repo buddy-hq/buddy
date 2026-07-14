@@ -184,8 +184,7 @@ export const useUiPreferences = create<UiPreferencesStore>()(
           chatLeftSidebarWidth: state?.chatLeftSidebarWidth ?? legacyLeftSidebarWidth,
           settingsSidebarWidth: state?.settingsSidebarWidth ?? legacyLeftSidebarWidth,
           projectFileTreeOpen: state?.projectFileTreeOpen ?? DEFAULT_PROJECT_FILE_TREE_OPEN,
-          teacherStandardsAutoSetupComplete:
-            state?.teacherStandardsAutoSetupComplete ?? false,
+          teacherStandardsAutoSetupComplete: state?.teacherStandardsAutoSetupComplete ?? false,
         }
       },
       partialize(state) {

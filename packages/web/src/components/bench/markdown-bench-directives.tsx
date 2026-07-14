@@ -163,10 +163,7 @@ function MarkdownBenchAdmonitionEditor({
   )
 }
 
-function readDirectiveAttribute(
-  node: ContainerDirectiveNode,
-  name: string,
-): string | undefined {
+function readDirectiveAttribute(node: ContainerDirectiveNode, name: string): string | undefined {
   const value = node.attributes?.[name]
   return typeof value === "string" && value.length > 0 ? value : undefined
 }

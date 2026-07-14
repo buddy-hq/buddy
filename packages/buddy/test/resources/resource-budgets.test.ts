@@ -17,9 +17,7 @@ import { RESOURCE_PACK_STATUS_READY } from "../../src/resource-packs/contracts"
 
 describe("resource preparation budgets", () => {
   test("allows the UTF-8 byte size of the full text character budget", () => {
-    expect(RESOURCE_MAX_FULL_TEXT_UTF8_BYTES).toBeGreaterThan(
-      RESOURCE_MAX_FULL_TEXT_CHARACTERS,
-    )
+    expect(RESOURCE_MAX_FULL_TEXT_UTF8_BYTES).toBeGreaterThan(RESOURCE_MAX_FULL_TEXT_CHARACTERS)
     expect(RESOURCE_MAX_FULL_TEXT_UTF8_BYTES).toBe(
       Buffer.byteLength("界", "utf8") * RESOURCE_MAX_FULL_TEXT_CHARACTERS,
     )
@@ -34,9 +32,7 @@ describe("resource preparation budgets", () => {
 
   test("rejects archives above the aggregate expansion limit", () => {
     const entryCount = 5
-    const expandedBytesPerEntry = Math.ceil(
-      RESOURCE_MAX_ARCHIVE_EXPANDED_BYTES / (entryCount - 1),
-    )
+    const expandedBytesPerEntry = Math.ceil(RESOURCE_MAX_ARCHIVE_EXPANDED_BYTES / (entryCount - 1))
     expect(() =>
       assertResourceArchiveBudget(
         Array.from({ length: entryCount }, (_, index) => ({
@@ -60,9 +56,9 @@ describe("resource preparation budgets", () => {
   })
 
   test("rejects parser growth as soon as an extraction limit is crossed", () => {
-    expect(() =>
-      assertResourceTextCharacterCount(RESOURCE_MAX_FULL_TEXT_CHARACTERS + 1),
-    ).toThrow("maximum supported count")
+    expect(() => assertResourceTextCharacterCount(RESOURCE_MAX_FULL_TEXT_CHARACTERS + 1)).toThrow(
+      "maximum supported count",
+    )
     expect(() => assertResourcePageCount(RESOURCE_MAX_PAGE_COUNT + 1)).toThrow(
       "maximum supported count",
     )

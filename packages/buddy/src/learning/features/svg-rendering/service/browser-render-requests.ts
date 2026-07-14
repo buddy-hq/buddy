@@ -201,10 +201,11 @@ export class BrowserSvgRenderRequests {
       Math.max(0, request.expiresAt - this.#clock.now()),
     )
     if (input.signal) {
-      entry.abortListener = () => this.cancel({
-        directory: state.directory,
-        requestID: request.requestID,
-      })
+      entry.abortListener = () =>
+        this.cancel({
+          directory: state.directory,
+          requestID: request.requestID,
+        })
       input.signal.addEventListener("abort", entry.abortListener, { once: true })
     }
 
@@ -319,12 +320,7 @@ export class BrowserSvgRenderRequests {
     state: BrowserSvgRenderRequestDirectoryState,
     entry: BrowserSvgRenderRequestEntry,
   ): void {
-    this.#settle(
-      state,
-      entry,
-      { status: "expired" },
-      null,
-    )
+    this.#settle(state, entry, { status: "expired" }, null)
   }
 
   #settle(
@@ -389,10 +385,7 @@ export class BrowserSvgRenderRequests {
     return { status: "conflict" }
   }
 
-  #evictTombstones(
-    state: BrowserSvgRenderRequestDirectoryState,
-    releaseEmptyState = false,
-  ): void {
+  #evictTombstones(state: BrowserSvgRenderRequestDirectoryState, releaseEmptyState = false): void {
     const now = this.#clock.now()
     for (const [requestID, tombstone] of state.tombstones) {
       if (tombstone.expiresAt <= now) {
@@ -407,10 +400,7 @@ export class BrowserSvgRenderRequests {
     this.#scheduleStateCleanup(state, releaseEmptyState)
   }
 
-  #deleteTombstone(
-    state: BrowserSvgRenderRequestDirectoryState,
-    requestID: string,
-  ): void {
+  #deleteTombstone(state: BrowserSvgRenderRequestDirectoryState, requestID: string): void {
     state.tombstones.delete(requestID)
     this.#tombstoneOrder.delete(requestID)
   }
@@ -444,11 +434,14 @@ export class BrowserSvgRenderRequests {
       if (releaseEmptyState) this.#releaseStateIfEmpty(state)
       return
     }
-    state.cleanupTimer = this.#clock.setTimeout(() => {
-      state.cleanupTimer = null
-      if (this.#directories.get(state.directory) !== state) return
-      this.#evictTombstones(state, true)
-    }, Math.max(0, earliestExpiry - this.#clock.now()))
+    state.cleanupTimer = this.#clock.setTimeout(
+      () => {
+        state.cleanupTimer = null
+        if (this.#directories.get(state.directory) !== state) return
+        this.#evictTombstones(state, true)
+      },
+      Math.max(0, earliestExpiry - this.#clock.now()),
+    )
   }
 
   #releaseStateIfEmpty(state: BrowserSvgRenderRequestDirectoryState): void {

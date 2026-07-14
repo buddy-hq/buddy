@@ -104,10 +104,7 @@ function personaCatalogEntries(input?: {
     (persona) => !persona.hidden,
   )
 
-  return [
-    defaultPersona,
-    ...visiblePersonas.filter((persona) => persona.id !== defaultPersona.id),
-  ]
+  return [defaultPersona, ...visiblePersonas.filter((persona) => persona.id !== defaultPersona.id)]
 }
 
 export {

@@ -11,7 +11,10 @@ import type { Hooks } from "@opencode-ai/plugin"
 import { withCurrentInstance } from "./effect-runtime"
 
 const runtime = makeRuntime(OpenCodePlugin.Service, AppNodeBuilderV1.build(OpenCodePlugin.node))
-const configRuntime = makeRuntime(OpenCodeConfig.Service, AppNodeBuilderV1.build(OpenCodeConfig.node))
+const configRuntime = makeRuntime(
+  OpenCodeConfig.Service,
+  AppNodeBuilderV1.build(OpenCodeConfig.node),
+)
 const patchedServices = new WeakSet<OpenCodePlugin.Interface>()
 const runtimePluginFactories = new Set<RuntimePluginFactory>()
 const hookPromisesByInstance = new Map<string, Promise<RuntimeHooks[]>>()

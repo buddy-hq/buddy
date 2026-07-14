@@ -98,10 +98,7 @@ const NOTEBOOK_FILE_SEARCH_EXCLUDED_DIRECTORY_SET = new Set<string>(
   NOTEBOOK_FILE_SEARCH_EXCLUDED_DIRECTORIES,
 )
 const NOTEBOOK_FILE_SEARCH_GLOB = `!**/{${NOTEBOOK_FILE_SEARCH_EXCLUDED_DIRECTORIES.join(",")}}/**`
-const ripgrepRuntime = makeRuntime(
-  Ripgrep.Service,
-  AppNodeBuilder.build(Ripgrep.node),
-)
+const ripgrepRuntime = makeRuntime(Ripgrep.Service, AppNodeBuilder.build(Ripgrep.node))
 
 type RankedFileSearchPath = {
   path: string
@@ -294,9 +291,9 @@ export namespace File {
         signal: input.signal,
       }),
     )
-    const candidates = entries.slice(0, scanLimit).filter((entry) =>
-      isNotebookFileSearchPath(entry.path),
-    )
+    const candidates = entries
+      .slice(0, scanLimit)
+      .filter((entry) => isNotebookFileSearchPath(entry.path))
 
     return {
       matches: rankNotebookFileSearchPaths({

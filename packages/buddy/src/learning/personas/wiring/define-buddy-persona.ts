@@ -64,9 +64,7 @@ function assertRuntimeSubagentsAreDelegatable(input: {
 
   const internalSubagentIDs = new Set(
     input.features.flatMap((feature) =>
-      feature.subagents
-        .filter((subagent) => !subagent.delegatable)
-        .map((subagent) => subagent.key),
+      feature.subagents.filter((subagent) => !subagent.delegatable).map((subagent) => subagent.key),
     ),
   )
 

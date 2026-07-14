@@ -149,52 +149,52 @@ export namespace ConfigSchema {
   type ProjectInfoBase = z.output<typeof ProjectInfoBase>
 
   function validateInfo(value: ProjectInfoBase, ctx: z.RefinementCtx): void {
-      const profiles = resolveBuddyPersonaMetadata(value.personas)
+    const profiles = resolveBuddyPersonaMetadata(value.personas)
 
-      for (const personaID of PERSONAS) {
-        const override = value.personas?.[personaID]
-        if (!override) {
-          continue
-        }
+    for (const personaID of PERSONAS) {
+      const override = value.personas?.[personaID]
+      if (!override) {
+        continue
+      }
 
-        const profile = profiles[personaID]
-        if (profile.surfaces.includes(profile.defaultSurface)) {
-          continue
-        }
+      const profile = profiles[personaID]
+      if (profile.surfaces.includes(profile.defaultSurface)) {
+        continue
+      }
 
+      ctx.addIssue({
+        code: "custom",
+        path: ["personas", personaID, "surfaces"],
+        message: `defaultSurface "${profile.defaultSurface}" must remain available for ${personaID}`,
+      })
+    }
+
+    if (value.default_persona && profiles[value.default_persona].hidden) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["default_persona"],
+        message: `default_persona "${value.default_persona}" cannot point to a hidden persona`,
+      })
+    }
+
+    if (PERSONAS.every((personaID) => profiles[personaID].hidden)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["personas"],
+        message: "At least one Buddy persona must remain visible",
+      })
+    }
+
+    if (typeof value.notebook_home === "string") {
+      const notebookHomePath = value.notebook_home.trim()
+      if (!path.isAbsolute(notebookHomePath)) {
         ctx.addIssue({
           code: "custom",
-          path: ["personas", personaID, "surfaces"],
-          message: `defaultSurface "${profile.defaultSurface}" must remain available for ${personaID}`,
+          path: ["notebook_home"],
+          message: NOTEBOOK_HOME_PATH_ERROR_MESSAGE,
         })
       }
-
-      if (value.default_persona && profiles[value.default_persona].hidden) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["default_persona"],
-          message: `default_persona "${value.default_persona}" cannot point to a hidden persona`,
-        })
-      }
-
-      if (PERSONAS.every((personaID) => profiles[personaID].hidden)) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["personas"],
-          message: "At least one Buddy persona must remain visible",
-        })
-      }
-
-      if (typeof value.notebook_home === "string") {
-        const notebookHomePath = value.notebook_home.trim()
-        if (!path.isAbsolute(notebookHomePath)) {
-          ctx.addIssue({
-            code: "custom",
-            path: ["notebook_home"],
-            message: NOTEBOOK_HOME_PATH_ERROR_MESSAGE,
-          })
-        }
-      }
+    }
   }
 
   export const ProjectInfo = ProjectInfoBase.superRefine(validateInfo)

@@ -81,11 +81,8 @@ describe("Markdown Bench chemistry authoring", () => {
   })
 
   async function renderTwoChemistryNodes(): Promise<void> {
-    const {
-      BuddyChemistryEditor,
-      BuddyChemistryNode,
-      MarkdownBenchChemistryViewProvider,
-    } = await import("../src/components/bench/markdown-bench-chemistry-plugin")
+    const { BuddyChemistryEditor, BuddyChemistryNode, MarkdownBenchChemistryViewProvider } =
+      await import("../src/components/bench/markdown-bench-chemistry-plugin")
     editor = createEditor({
       namespace: "markdown-bench-chemistry-authoring-test",
       nodes: [BuddyChemistryNode],
@@ -97,12 +94,7 @@ describe("Markdown Bench chemistry authoring", () => {
     let second: InstanceType<typeof BuddyChemistryNode> | undefined
     editor.update(
       () => {
-        first = new BuddyChemistryNode(
-          "smiles",
-          "smiles",
-          "CCO",
-          FIRST_CHEMISTRY_METADATA,
-        )
+        first = new BuddyChemistryNode("smiles", "smiles", "CCO", FIRST_CHEMISTRY_METADATA)
         second = new BuddyChemistryNode("smiles", "smiles", "CCC", null)
         $getRoot().append(first, second)
       },
@@ -144,9 +136,7 @@ describe("Markdown Bench chemistry authoring", () => {
     await renderTwoChemistryNodes()
     await waitFor(() => container.querySelectorAll('[role="img"]').length === 2)
     const renderedStructures = container.querySelectorAll('[role="img"]')
-    expect(renderedStructures[0]?.getAttribute("aria-label")).toBe(
-      "Ethanol skeletal structure",
-    )
+    expect(renderedStructures[0]?.getAttribute("aria-label")).toBe("Ethanol skeletal structure")
     expect(renderedStructures[1]?.getAttribute("aria-label")).toContain("CCC")
     expect(container.textContent).not.toContain("A two-carbon alcohol")
     expect(container.textContent).not.toContain("SMILES")

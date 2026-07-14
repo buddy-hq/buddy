@@ -117,8 +117,14 @@ type CardState = {
 function IdentityCard({ state, reduce }: { state: CardState; reduce: boolean }) {
   const rx = useMotionValue(0)
   const ry = useMotionValue(0)
-  const rotateX = useSpring(useTransform(rx, (v) => v), { stiffness: 120, damping: 14 })
-  const rotateY = useSpring(useTransform(ry, (v) => v), { stiffness: 120, damping: 14 })
+  const rotateX = useSpring(
+    useTransform(rx, (v) => v),
+    { stiffness: 120, damping: 14 },
+  )
+  const rotateY = useSpring(
+    useTransform(ry, (v) => v),
+    { stiffness: 120, damping: 14 },
+  )
 
   const onMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (reduce) return
@@ -240,7 +246,9 @@ function IdentityCard({ state, reduce }: { state: CardState; reduce: boolean }) 
                       ? "Free models"
                       : undefined
               }
-              icon={state.connecting ? <Loader2Icon className="size-3.5 animate-spin" /> : undefined}
+              icon={
+                state.connecting ? <Loader2Icon className="size-3.5 animate-spin" /> : undefined
+              }
             />
             <CardRow
               label="Workspace"
@@ -319,7 +327,10 @@ function CardRow({
       >
         {filled ? <CheckIcon className="size-3" strokeWidth={3} /> : null}
       </span>
-      <span className="w-[72px] shrink-0 text-[11px] uppercase tracking-wide" style={{ color: INK_FAINT }}>
+      <span
+        className="w-[72px] shrink-0 text-[11px] uppercase tracking-wide"
+        style={{ color: INK_FAINT }}
+      >
         {label}
       </span>
       <div className="min-w-0 flex-1 text-right">
@@ -397,7 +408,10 @@ function Tile({
         {icon}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[15px]" style={{ fontFamily: DISPLAY, fontWeight: 600, color: INK }}>
+        <span
+          className="block text-[15px]"
+          style={{ fontFamily: DISPLAY, fontWeight: 600, color: INK }}
+        >
           {title}
         </span>
         <span className="mt-0.5 block text-[13px] leading-snug" style={{ color: INK_SOFT }}>
@@ -474,10 +488,16 @@ function Field({
 function Header({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <div className="mb-6">
-      <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>
+      <p
+        className="mb-2 text-[11px] font-bold uppercase tracking-[0.16em]"
+        style={{ color: ACCENT }}
+      >
         {eyebrow}
       </p>
-      <h2 className="text-[28px] leading-[1.08]" style={{ fontFamily: DISPLAY, fontWeight: 700, color: INK }}>
+      <h2
+        className="text-[28px] leading-[1.08]"
+        style={{ fontFamily: DISPLAY, fontWeight: 700, color: INK }}
+      >
         {title}
       </h2>
     </div>
@@ -596,7 +616,10 @@ export function OnboardingAtelier() {
           >
             <ZapIcon className="size-3.5" />
           </span>
-          <span className="text-[14px]" style={{ fontFamily: DISPLAY, fontWeight: 700, color: INK }}>
+          <span
+            className="text-[14px]"
+            style={{ fontFamily: DISPLAY, fontWeight: 700, color: INK }}
+          >
             Buddy
           </span>
         </div>
@@ -634,9 +657,12 @@ export function OnboardingAtelier() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, ease: EASE_OUT }}
                 >
-                  <Header eyebrow="All set" title={`Welcome aboard${
-                    details.name.trim() ? `, ${details.name.trim()}` : ""
-                  }.`} />
+                  <Header
+                    eyebrow="All set"
+                    title={`Welcome aboard${
+                      details.name.trim() ? `, ${details.name.trim()}` : ""
+                    }.`}
+                  />
                   <p className="text-[15px] leading-relaxed" style={{ color: INK_SOFT }}>
                     Your card is complete. Buddy is tuned for{" "}
                     <span style={{ color: ACCENT, fontWeight: 600 }}>
@@ -757,7 +783,9 @@ export function OnboardingAtelier() {
                         <Tile
                           title="Choose another folder"
                           description={
-                            locationKind === "custom" ? homePath : "Pick where Buddy creates notebooks."
+                            locationKind === "custom"
+                              ? homePath
+                              : "Pick where Buddy creates notebooks."
                           }
                           icon={<FolderIcon className="size-5" />}
                           selected={locationKind === "custom"}

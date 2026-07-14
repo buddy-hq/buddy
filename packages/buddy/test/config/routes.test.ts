@@ -469,9 +469,7 @@ describe("config routes", () => {
       })
 
       const configFile = projectConfigFile(repo)
-      expect(fs.readFileSync(configFile, "utf8")).toContain(
-        '"default_persona": "teaching-buddy"',
-      )
+      expect(fs.readFileSync(configFile, "utf8")).toContain('"default_persona": "teaching-buddy"')
       expect(fs.readFileSync(configFile, "utf8")).not.toContain("anthropic/route-global-only")
     } finally {
       if (previousGlobal === undefined) {

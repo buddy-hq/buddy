@@ -117,9 +117,7 @@ export async function replaceGlobalConfig(config: ConfigInfo): Promise<ConfigInf
   return mutateGlobalConfig(() => config)
 }
 
-export async function mutateGlobalConfig(
-  mutation: GlobalConfigMutation,
-): Promise<ConfigInfo> {
+export async function mutateGlobalConfig(mutation: GlobalConfigMutation): Promise<ConfigInfo> {
   return withGlobalConfigChangeLock(async () => {
     const filepath = resolveGlobalConfigFile()
     await ensureParentDirectory(filepath)

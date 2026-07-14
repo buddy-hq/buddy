@@ -1,10 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
-import {
-  canContainChemistryBlock,
-  Markdown,
-} from "../src/components/markdown/Markdown"
+import { canContainChemistryBlock, Markdown } from "../src/components/markdown/Markdown"
 import { parseMarkdownSegments } from "../src/components/markdown/markdown-segments"
 import {
   CHEMISTRY_FORMATS,
@@ -36,9 +33,7 @@ function chemistrySegments(markdown: string): Array<{
   source: string
 }> {
   return parseMarkdownSegments(markdown).flatMap((segment) =>
-    segment.kind === "chemistry"
-      ? [{ format: segment.format, source: segment.source }]
-      : [],
+    segment.kind === "chemistry" ? [{ format: segment.format, source: segment.source }] : [],
   )
 }
 
@@ -75,18 +70,13 @@ describe("Markdown chemistry segments", () => {
     expect(chemistrySegments(markdown)).toEqual(
       CHEMISTRY_FORMATS.map((format) => ({ format, source: `source-${format}` })),
     )
-    expect(canContainChemistryBlock(`Before\n   \`\`\`SMILES\nCCO\n   \`\`\``)).toBe(
-      true,
-    )
+    expect(canContainChemistryBlock(`Before\n   \`\`\`SMILES\nCCO\n   \`\`\``)).toBe(true)
   })
 
   test("uses deterministic viewport heights by chemistry format", () => {
     expect(
       Object.fromEntries(
-        CHEMISTRY_FORMATS.map((format) => [
-          format,
-          chemistryDiagramViewportClass(format),
-        ]),
+        CHEMISTRY_FORMATS.map((format) => [format, chemistryDiagramViewportClass(format)]),
       ),
     ).toEqual({
       smiles: "h-64",
@@ -149,19 +139,16 @@ describe("Markdown chemistry segments", () => {
   })
 
   test("delegates list-nested chemistry fences as one unmodified Markdown segment", () => {
-    const markdown = "- Compound\n\n  ```smiles alt=\"Ethanol\"\n  CCO\n  ```\n\n- Next"
+    const markdown = '- Compound\n\n  ```smiles alt="Ethanol"\n  CCO\n  ```\n\n- Next'
 
-    expect(parseMarkdownSegments(markdown)).toEqual([
-      { kind: "html", markdown, segmentIndex: 0 },
-    ])
+    expect(parseMarkdownSegments(markdown)).toEqual([{ kind: "html", markdown, segmentIndex: 0 }])
   })
 
   test("delegates ordered-list and continuation-contained fences", () => {
     const ordered = "1. Compound\n\n   ```smiles\n   CCO\n   ```"
     const continued = "- Compound\n  notes\n  ```smiles\n  CCO\n  ```"
     const loose = "- Compound\n\n\n  ```smiles\n  CCO\n  ```"
-    const variablyIndentedContinuation =
-      "- Compound\n  continuation\n   ```smiles\n   CCO\n   ```"
+    const variablyIndentedContinuation = "- Compound\n  continuation\n   ```smiles\n   CCO\n   ```"
 
     expect(parseMarkdownSegments(ordered)).toEqual([
       { kind: "html", markdown: ordered, segmentIndex: 0 },
@@ -191,19 +178,14 @@ describe("Markdown chemistry segments", () => {
   })
 
   test("keeps chemistry after an indented thematic break inside its list container", () => {
-    const markdown =
-      "- Compound\n\n  ---\n\n  ```smiles alt=\"Ethanol\"\n  CCO\n  ```\n\n- Next"
+    const markdown = '- Compound\n\n  ---\n\n  ```smiles alt="Ethanol"\n  CCO\n  ```\n\n- Next'
 
-    expect(parseMarkdownSegments(markdown)).toEqual([
-      { kind: "html", markdown, segmentIndex: 0 },
-    ])
+    expect(parseMarkdownSegments(markdown)).toEqual([{ kind: "html", markdown, segmentIndex: 0 }])
   })
 
   test("does not treat tab-indented fences as CommonMark fenced blocks", () => {
     const markdown = "\t```smiles\nCCO\n\t```"
-    expect(parseMarkdownSegments(markdown)).toEqual([
-      { kind: "html", markdown, segmentIndex: 0 },
-    ])
+    expect(parseMarkdownSegments(markdown)).toEqual([{ kind: "html", markdown, segmentIndex: 0 }])
   })
 
   test("does not extract chemistry nested inside another fenced code block", () => {
@@ -239,9 +221,7 @@ describe("Markdown chemistry segments", () => {
     expect(
       container.querySelector('[data-component="chemistry-diagram"] > div')?.classList,
     ).toContain(chemistryDiagramViewportClass("smiles"))
-    expect(chemistry?.getAttribute("aria-label")).toBe(
-      "SMILES chemistry structure: CCO",
-    )
+    expect(chemistry?.getAttribute("aria-label")).toBe("SMILES chemistry structure: CCO")
     expect(container.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe(
       "SMILES chemistry structure: CCO",
     )
@@ -330,16 +310,9 @@ describe("Markdown chemistry segments", () => {
     globalThis.__BUDDY_TEST_CHEMISTRY_RENDERER__ = async () => ({
       svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 40"><path d="M0 20h80" /></svg>',
     })
-    const markdown = [
-      "```mermaid",
-      "graph TD",
-      "A-->B",
-      "```",
-      "",
-      "```smiles",
-      "CCO",
-      "```",
-    ].join("\n")
+    const markdown = ["```mermaid", "graph TD", "A-->B", "```", "", "```smiles", "CCO", "```"].join(
+      "\n",
+    )
 
     await act(async () => {
       root.render(<Markdown text={markdown} />)

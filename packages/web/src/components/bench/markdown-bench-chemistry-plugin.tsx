@@ -96,24 +96,19 @@ function MarkdownBenchChemistryCoordinatorProvider(props: {
   children: ReactNode
   value: MarkdownBenchChemistryViewOptions
 }): ReactElement {
-  const [activeStructureEditorKey, setActiveStructureEditorKey] =
-    useState<NodeKey | null>(null)
+  const [activeStructureEditorKey, setActiveStructureEditorKey] = useState<NodeKey | null>(null)
   const activeStructureEditorKeyRef = useRef<NodeKey | null>(null)
-  const activeStructureEditorRegistrationRef =
-    useRef<StructureEditorRegistration | null>(null)
+  const activeStructureEditorRegistrationRef = useRef<StructureEditorRegistration | null>(null)
 
-  const registerStructureEditor = useCallback(
-    (key: NodeKey, element: HTMLElement | null): void => {
-      if (element) {
-        activeStructureEditorRegistrationRef.current = { key, element }
-        return
-      }
-      if (activeStructureEditorRegistrationRef.current?.key === key) {
-        activeStructureEditorRegistrationRef.current = null
-      }
-    },
-    [],
-  )
+  const registerStructureEditor = useCallback((key: NodeKey, element: HTMLElement | null): void => {
+    if (element) {
+      activeStructureEditorRegistrationRef.current = { key, element }
+      return
+    }
+    if (activeStructureEditorRegistrationRef.current?.key === key) {
+      activeStructureEditorRegistrationRef.current = null
+    }
+  }, [])
   const releaseStructureEditor = useCallback((key: NodeKey): void => {
     if (activeStructureEditorKeyRef.current !== key) return
     activeStructureEditorKeyRef.current = null
@@ -218,10 +213,7 @@ export function BuddyChemistryEditor(props: BuddyChemistryEditorProps): ReactEle
   const pendingFocusReturnRef = useRef<ChemistryFocusReturnTarget | null>(null)
   const editorKey = props.node.getKey()
   const formatLabel = chemistryFormatLabel(props.format)
-  const fenceMetadata = useMemo(
-    () => parseChemistryFenceMetadata(props.meta ?? ""),
-    [props.meta],
-  )
+  const fenceMetadata = useMemo(() => parseChemistryFenceMetadata(props.meta ?? ""), [props.meta])
   const accessibleLabel = chemistryFenceAccessibleLabel({
     format: props.format,
     source: props.source,
@@ -293,10 +285,7 @@ export function BuddyChemistryEditor(props: BuddyChemistryEditorProps): ReactEle
     event.stopPropagation()
   }
 
-  const returnToPreview = (
-    focusTarget: ChemistryFocusReturnTarget,
-    restoreFocus = true,
-  ): void => {
+  const returnToPreview = (focusTarget: ChemistryFocusReturnTarget, restoreFocus = true): void => {
     if (restoreFocus) pendingFocusReturnRef.current = focusTarget
     releaseStructureEditor?.(editorKey)
     setEditingMode("preview")

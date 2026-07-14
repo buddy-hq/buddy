@@ -98,9 +98,7 @@ async function replaceActiveGoalSet(input: {
       }),
     )
     const archivedGoals = store.goals.map((goal) =>
-      replacesSameContext(goal)
-        ? GoalRecordSchema.parse({ ...goal, status: "archived" })
-        : goal,
+      replacesSameContext(goal) ? GoalRecordSchema.parse({ ...goal, status: "archived" }) : goal,
     )
     await writeGoalStore(input.directory, {
       schemaVersion: 1,

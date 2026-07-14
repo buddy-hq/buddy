@@ -181,14 +181,8 @@ async function writeFileIfMissing(filePath: string, content: string): Promise<vo
 async function ensureConsolidationTargetFiles(directory: string): Promise<void> {
   await fs.mkdir(LearnerMemoryPath.root(directory), { recursive: true })
   await Promise.all([
-    writeFileIfMissing(
-      LearnerMemoryPath.memoryRegistryFile(directory),
-      EMPTY_MEMORY_REGISTRY,
-    ),
-    writeFileIfMissing(
-      LearnerMemoryPath.summaryFile(directory),
-      EMPTY_MEMORY_SUMMARY,
-    ),
+    writeFileIfMissing(LearnerMemoryPath.memoryRegistryFile(directory), EMPTY_MEMORY_REGISTRY),
+    writeFileIfMissing(LearnerMemoryPath.summaryFile(directory), EMPTY_MEMORY_SUMMARY),
   ])
 }
 

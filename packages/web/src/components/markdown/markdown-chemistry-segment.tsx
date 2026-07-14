@@ -59,10 +59,7 @@ export function MarkdownChemistrySegment(props: {
   const repairSegmentIndex = props.autoRepairContext?.segmentIndex
   const repairRawFence = props.autoRepairContext?.rawFence
   const viewportClass = chemistryDiagramViewportClass(props.format)
-  const ChemistryDiagram = useMemo(
-    () => lazyChemistryDiagramForAttempt(loadAttempt),
-    [loadAttempt],
-  )
+  const ChemistryDiagram = useMemo(() => lazyChemistryDiagramForAttempt(loadAttempt), [loadAttempt])
   const onRenderStateChange = useCallback(
     (state: ChemistryDiagramRenderState) => {
       if (

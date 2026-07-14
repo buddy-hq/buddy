@@ -1,8 +1,5 @@
 import { Config } from "../config"
-import {
-  EXPERIMENTAL_FEATURE_IDS,
-  type ExperimentalFeatureId,
-} from "./catalog"
+import { EXPERIMENTAL_FEATURE_IDS, type ExperimentalFeatureId } from "./catalog"
 
 export type ExperimentalFeatureStatus = {
   id: ExperimentalFeatureId
@@ -16,9 +13,7 @@ export function experimentalFeatureIsEnabled(
   return config.experimental_features?.[featureID] === true
 }
 
-export function listExperimentalFeatureStatuses(
-  config: Config.Info,
-): ExperimentalFeatureStatus[] {
+export function listExperimentalFeatureStatuses(config: Config.Info): ExperimentalFeatureStatus[] {
   return EXPERIMENTAL_FEATURE_IDS.map((featureID) => ({
     id: featureID,
     enabled: experimentalFeatureIsEnabled(config, featureID),

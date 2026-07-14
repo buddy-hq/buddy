@@ -1,11 +1,6 @@
 import type { AnyFieldApi } from "@tanstack/react-form"
 import { AnimatePresence, motion } from "motion/react"
-import {
-  ArrowLeftIcon,
-  ArrowUpRightIcon,
-  FolderIcon,
-  XIcon,
-} from "lucide-react"
+import { ArrowLeftIcon, ArrowUpRightIcon, FolderIcon, XIcon } from "lucide-react"
 import type { PrimaryUse, PersonalizationSettings } from "@/state/project-config-readers"
 import { resolveBuddyIconUrl } from "@/lib/static-asset"
 import {
@@ -28,7 +23,11 @@ type PersonalizationFormApi = {
   }) => React.ReactNode
 }
 
-function FeedbackLine({ error, fallback, indented = false }: {
+function FeedbackLine({
+  error,
+  fallback,
+  indented = false,
+}: {
   error?: string
   fallback: string
   indented?: boolean
@@ -86,10 +85,7 @@ export function Intro({ onBegin }: { onBegin: () => void }) {
           style={{ filter: "drop-shadow(0 10px 40px var(--brand-bloom))" }}
         />
       </motion.div>
-      <Heading
-        lines={COPY.intro.heading}
-        className="text-[clamp(34px,5vw,52px)] leading-[1.02]"
-      />
+      <Heading lines={COPY.intro.heading} className="text-[clamp(34px,5vw,52px)] leading-[1.02]" />
       <motion.p variants={rise} className="mt-4 text-[15px] text-white/50">
         {COPY.intro.subtitle}
       </motion.p>
@@ -429,8 +425,7 @@ export function HeaderRail({
                 initial={false}
                 animate={{
                   scaleX: progressIndex <= index ? 1 : 0,
-                  opacity:
-                    progressIndex < index ? 0.55 : progressIndex === index ? 1 : 0,
+                  opacity: progressIndex < index ? 0.55 : progressIndex === index ? 1 : 0,
                 }}
                 transition={{ duration: 0.45, ease: EASE_OUT }}
                 style={{ background: "var(--brand-ring)" }}

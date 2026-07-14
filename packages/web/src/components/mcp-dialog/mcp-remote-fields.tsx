@@ -18,13 +18,15 @@ type McpRemoteFieldsProps = {
 
 export function McpRemoteFields(props: McpRemoteFieldsProps) {
   const hasHeaders = props.draft.headersText.trim().length > 0
-  const showAdvancedFields =
-    props.showOAuthClientFields || hasHeaders || !props.draft.oauthEnabled
+  const showAdvancedFields = props.showOAuthClientFields || hasHeaders || !props.draft.oauthEnabled
 
   return (
     <>
       <Field className="space-y-1.5">
-        <FieldLabel className="text-xs font-semibold text-text-weak uppercase tracking-wider" htmlFor="mcp-url">
+        <FieldLabel
+          className="text-xs font-semibold text-text-weak uppercase tracking-wider"
+          htmlFor="mcp-url"
+        >
           {language.t("mcp.remoteFields.remoteUrl")}
         </FieldLabel>
         <Input
@@ -94,7 +96,10 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
       {showAdvancedFields ? (
         <>
           <Field className="space-y-1.5">
-            <FieldLabel className="text-xs font-semibold text-text-weak uppercase tracking-wider" htmlFor="mcp-headers">
+            <FieldLabel
+              className="text-xs font-semibold text-text-weak uppercase tracking-wider"
+              htmlFor="mcp-headers"
+            >
               {language.t("mcp.remoteFields.headersJson")}
             </FieldLabel>
             <Textarea
@@ -131,7 +136,10 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
               </div>
 
               <Field className="space-y-1.5">
-                <FieldLabel className="text-xs font-semibold text-text-weak uppercase tracking-wider" htmlFor="mcp-client-id">
+                <FieldLabel
+                  className="text-xs font-semibold text-text-weak uppercase tracking-wider"
+                  htmlFor="mcp-client-id"
+                >
                   {language.t("mcp.remoteFields.clientIdOptional")}
                 </FieldLabel>
                 <Input
@@ -141,14 +149,17 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
                     props.setDraft((current) => ({
                       ...current,
                       clientId: event.target.value,
-                     }))
+                    }))
                   }}
                   className="h-10 text-sm px-3 rounded-lg border-border-base focus-visible:ring-1 focus-visible:ring-border-interactive-base"
                 />
               </Field>
 
               <Field className="space-y-1.5">
-                <FieldLabel className="text-xs font-semibold text-text-weak uppercase tracking-wider" htmlFor="mcp-client-secret">
+                <FieldLabel
+                  className="text-xs font-semibold text-text-weak uppercase tracking-wider"
+                  htmlFor="mcp-client-secret"
+                >
                   {language.t("mcp.remoteFields.clientSecretOptional")}
                 </FieldLabel>
                 <Input
@@ -165,7 +176,10 @@ export function McpRemoteFields(props: McpRemoteFieldsProps) {
               </Field>
 
               <Field className="space-y-1.5">
-                <FieldLabel className="text-xs font-semibold text-text-weak uppercase tracking-wider" htmlFor="mcp-scope">
+                <FieldLabel
+                  className="text-xs font-semibold text-text-weak uppercase tracking-wider"
+                  htmlFor="mcp-scope"
+                >
                   {language.t("mcp.remoteFields.scopeOptional")}
                 </FieldLabel>
                 <Input

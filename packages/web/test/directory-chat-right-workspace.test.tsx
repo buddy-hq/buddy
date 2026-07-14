@@ -389,6 +389,8 @@ describe("DirectoryChatRightWorkspace", () => {
     expect(
       container.querySelectorAll('[class*="view-transition-name:buddy-bench-surface"]'),
     ).toHaveLength(1)
-    expect(container.querySelector('[data-component="right-workspace-bench-target"]')).not.toBeNull()
+    expect(
+      container.querySelector('[data-component="right-workspace-bench-target"]'),
+    ).not.toBeNull()
   })
 })

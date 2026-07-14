@@ -30,9 +30,7 @@ describe("chemistry fence metadata", () => {
   })
 
   test("does not reinterpret text after a malformed quoted entry", () => {
-    const parsed = parseChemistryFenceMetadata(
-      'alt="unterminated caption="Not a separate field"',
-    )
+    const parsed = parseChemistryFenceMetadata('alt="unterminated caption="Not a separate field"')
 
     expect(parsed).toEqual({
       rawMetadata: 'alt="unterminated caption="Not a separate field"',
@@ -46,9 +44,7 @@ describe("chemistry fence metadata", () => {
     const source = `  C[C@H](O)C(=O)O\r\n${"N".repeat(400)}`
     const label = chemistryFenceAccessibleLabel({ format: "smiles", source })
 
-    expect(label.startsWith("SMILES chemistry structure: C[C@H](O)C(=O)O NNN")).toBe(
-      true,
-    )
+    expect(label.startsWith("SMILES chemistry structure: C[C@H](O)C(=O)O NNN")).toBe(true)
     expect(Array.from(label).length).toBeLessThanOrEqual(200)
     expect(label.endsWith("…")).toBe(true)
     expect(chemistryFenceAccessibleLabel({ format: "smiles", source, alt: "  Lactate  " })).toBe(

@@ -1,25 +1,7 @@
-import {
-  AnimatePresence,
-  motion,
-  useReducedMotion,
-  useInView,
-  type Transition,
-} from "motion/react"
+import { AnimatePresence, motion, useReducedMotion, useInView, type Transition } from "motion/react"
 import { cn } from "@buddy/ui"
-import {
-  ArrowLeftIcon,
-  ArrowUpRightIcon,
-  FolderIcon,
-  SparklesIcon,
-  XIcon,
-} from "lucide-react"
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react"
+import { ArrowLeftIcon, ArrowUpRightIcon, FolderIcon, SparklesIcon, XIcon } from "lucide-react"
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { resolveBuddyIconUrl } from "@/lib/static-asset"
 
 /**
@@ -168,7 +150,8 @@ export const COPY = {
   },
   end: {
     heading: "Welcome to your Workspace",
-    description: "This is the main application workspace where your custom learning environments, workspace index, and chat session would load.",
+    description:
+      "This is the main application workspace where your custom learning environments, workspace index, and chat session would load.",
     btnReplay: "Replay onboarding",
   },
   chrome: {
@@ -222,10 +205,6 @@ export const SPACES: Record<SpaceId, SpaceConfig> = {
   },
 }
 
-
-
-
-
 function useFont() {
   useEffect(() => {
     if (document.getElementById(FONT_LINK_ID)) return
@@ -265,7 +244,13 @@ function NebulaOrionBackground({ mood }: { mood: MoodColors; bloom: boolean }) {
         <defs>
           <filter id="orion-nebula-filter">
             <feTurbulence type="fractalNoise" baseFrequency="0.007" numOctaves="4" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="110" xChannelSelector="R" yChannelSelector="G" />
+            <feDisplacementMap
+              in="SourceGraphic"
+              in2="noise"
+              scale="110"
+              xChannelSelector="R"
+              yChannelSelector="G"
+            />
           </filter>
         </defs>
       </svg>
@@ -284,10 +269,6 @@ function NebulaOrionBackground({ mood }: { mood: MoodColors; bloom: boolean }) {
     </div>
   )
 }
-
-
-
-
 
 // ── Master Background Assembly ──
 function Aurora({
@@ -341,7 +322,9 @@ function Aurora({
             animate={{ opacity: [0, 0.95, 0], scale: 1.7 }}
             transition={{ duration: 1.5, ease: EASE_OUT }}
             className="absolute left-1/2 top-1/2 size-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full"
-            style={{ background: "radial-gradient(closest-side, var(--brand-bloom), transparent 70%)" }}
+            style={{
+              background: "radial-gradient(closest-side, var(--brand-bloom), transparent 70%)",
+            }}
           />
         ) : null}
       </AnimatePresence>
@@ -381,7 +364,8 @@ function Sweep({
               transition={{ duration: 1.8, ease: "easeInOut" }}
               className="absolute inset-y-0 w-[80vw] pointer-events-none -skew-x-12"
               style={{
-                background: "linear-gradient(90deg, transparent 0%, var(--brand-soft) 50%, transparent 100%)",
+                background:
+                  "linear-gradient(90deg, transparent 0%, var(--brand-soft) 50%, transparent 100%)",
               }}
             />
           )}
@@ -413,7 +397,8 @@ function Sweep({
               <div
                 className="absolute inset-0 opacity-40"
                 style={{
-                  backgroundImage: "radial-gradient(1.5px 1.5px at 20px 30px, #ffffff, transparent), radial-gradient(2px 2px at 40px 70px, #ffffff, transparent), radial-gradient(1.5px 1.5px at 50px 10px, #ffffff, transparent)",
+                  backgroundImage:
+                    "radial-gradient(1.5px 1.5px at 20px 30px, #ffffff, transparent), radial-gradient(2px 2px at 40px 70px, #ffffff, transparent), radial-gradient(1.5px 1.5px at 50px 10px, #ffffff, transparent)",
                   backgroundSize: "80px 80px",
                 }}
               />
@@ -446,7 +431,8 @@ function Sweep({
               transition={{ duration: 1.6, ease: "easeInOut" }}
               className="absolute inset-0"
               style={{
-                background: "radial-gradient(circle at center, transparent 30%, rgba(10, 10, 12, 0.75) 70%, rgba(10, 10, 12, 0.95) 100%)",
+                background:
+                  "radial-gradient(circle at center, transparent 30%, rgba(10, 10, 12, 0.75) 70%, rgba(10, 10, 12, 0.95) 100%)",
               }}
             />
           )}
@@ -469,10 +455,7 @@ function Heading({
   return (
     <motion.h2
       variants={lineMask}
-      className={
-        className ??
-        "text-[clamp(30px,4.4vw,46px)] leading-[1.04] tracking-[-0.01em]"
-      }
+      className={className ?? "text-[clamp(30px,4.4vw,46px)] leading-[1.04] tracking-[-0.01em]"}
       style={{ fontFamily: SERIF, fontWeight: 500, color: "#faf6f0" }}
     >
       {lines.map((line, i) => (
@@ -481,7 +464,9 @@ function Heading({
           <motion.span
             variants={lineInner}
             className="block"
-            style={emphasizeLast && i === lines.length - 1 ? { color: "var(--brand-word)" } : undefined}
+            style={
+              emphasizeLast && i === lines.length - 1 ? { color: "var(--brand-word)" } : undefined
+            }
           >
             {line}
           </motion.span>
@@ -548,7 +533,11 @@ function MenuChoice(props: MenuChoiceProps) {
       <span className="min-w-0 flex-1">
         <span
           className="block text-[22px] leading-tight tracking-[-0.01em] transition-colors duration-200"
-          style={{ fontFamily: SERIF, fontWeight: 500, color: props.selected ? "var(--brand-word)" : "#f3ede4" }}
+          style={{
+            fontFamily: SERIF,
+            fontWeight: 500,
+            color: props.selected ? "var(--brand-word)" : "#f3ede4",
+          }}
         >
           {props.title}
         </span>
@@ -567,14 +556,7 @@ function MenuChoice(props: MenuChoiceProps) {
 
 // ── Inline fill-in-the-blank (auto-width, baseline-aligned inside the sentence) ──
 
-
-function Pill({
-  children,
-  onClick,
-}: {
-  children: ReactNode
-  onClick: () => void
-}) {
+function Pill({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return (
     <motion.button
       type="button"
@@ -584,7 +566,11 @@ function Pill({
       whileTap={{ scale: 0.97 }}
       transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
       className="inline-flex items-center gap-2 rounded-full px-7 py-3 text-[14px] font-medium"
-      style={{ background: "var(--brand-ring)", color: "var(--brand-ink)", boxShadow: "0 14px 44px var(--brand-soft)" }}
+      style={{
+        background: "var(--brand-ring)",
+        color: "var(--brand-ink)",
+        boxShadow: "0 14px 44px var(--brand-soft)",
+      }}
     >
       {children}
     </motion.button>
@@ -592,7 +578,6 @@ function Pill({
 }
 
 // ── Floating Control Panel containing UI Theme and Background selectors ──
-
 
 const chatgptGlyph = (
   <svg viewBox="0 0 24 24" fill="currentColor" className="size-full">
@@ -608,7 +593,12 @@ function Intro({ onSkip }: { onSkip: () => void }) {
       key="intro"
       initial="hidden"
       animate="show"
-      exit={{ opacity: 0, y: -26, filter: "blur(8px)", transition: { duration: 0.5, ease: EASE_OUT } }}
+      exit={{
+        opacity: 0,
+        y: -26,
+        filter: "blur(8px)",
+        transition: { duration: 0.5, ease: EASE_OUT },
+      }}
       variants={container}
       onClick={onSkip}
       className="flex cursor-pointer flex-col items-center text-center"
@@ -622,7 +612,9 @@ function Intro({ onSkip }: { onSkip: () => void }) {
       >
         <div
           className="absolute inset-0 -z-10 scale-[1.7] rounded-full blur-2xl opacity-70"
-          style={{ background: "radial-gradient(closest-side, var(--brand-bloom), transparent 70%)" }}
+          style={{
+            background: "radial-gradient(closest-side, var(--brand-bloom), transparent 70%)",
+          }}
         />
         <img
           src={iconUrl}
@@ -632,10 +624,18 @@ function Intro({ onSkip }: { onSkip: () => void }) {
         />
       </motion.div>
       <Heading lines={COPY.intro.heading} className="text-[clamp(34px,5vw,52px)] leading-[1.02]" />
-      <motion.p variants={rise} className="mt-4 text-[15px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+      <motion.p
+        variants={rise}
+        className="mt-4 text-[15px]"
+        style={{ color: "rgba(255,255,255,0.5)" }}
+      >
         {COPY.intro.subtitle}
       </motion.p>
-      <motion.span variants={rise} className="mt-10 text-[12px] uppercase tracking-[0.24em]" style={{ color: "rgba(255,255,255,0.3)" }}>
+      <motion.span
+        variants={rise}
+        className="mt-10 text-[12px] uppercase tracking-[0.24em]"
+        style={{ color: "rgba(255,255,255,0.3)" }}
+      >
         {COPY.intro.clickToBegin}
       </motion.span>
     </motion.div>
@@ -697,8 +697,6 @@ export function OnboardingNocturne() {
       clearTimeout(t2)
     }
   }, [finished, ended])
-
-
 
   const moodKey: MoodKey = mode ?? hoverMode ?? "neutral"
   const index = STEPS.indexOf(step)
@@ -789,10 +787,22 @@ export function OnboardingNocturne() {
       />
       */}
       {!ended && (
-        <Aurora space={space} activeKey={moodKey} bloom={finished && !reduce} expanding={expanding} spaceColorId={spaceColorId} themeId={themeId} />
+        <Aurora
+          space={space}
+          activeKey={moodKey}
+          bloom={finished && !reduce}
+          expanding={expanding}
+          spaceColorId={spaceColorId}
+          themeId={themeId}
+        />
       )}
       {!reduce && (showChrome || finished) ? (
-        <Sweep stepKey={finished ? "finished-nav" : step} transitionId={transitionId} spaceColorId={spaceColorId} themeId={themeId} />
+        <Sweep
+          stepKey={finished ? "finished-nav" : step}
+          transitionId={transitionId}
+          spaceColorId={spaceColorId}
+          themeId={themeId}
+        />
       ) : null}
 
       {/* header rail */}
@@ -828,7 +838,10 @@ export function OnboardingNocturne() {
                 <motion.div
                   className="h-full w-full origin-left rounded-full"
                   initial={false}
-                  animate={{ scaleX: i <= index ? 1 : 0, opacity: i < index ? 0.55 : i === index ? 1 : 0 }}
+                  animate={{
+                    scaleX: i <= index ? 1 : 0,
+                    opacity: i < index ? 0.55 : i === index ? 1 : 0,
+                  }}
                   transition={{ duration: 0.45, ease: EASE_OUT }}
                   style={{ background: "var(--brand-ring)" }}
                 />
@@ -851,7 +864,13 @@ export function OnboardingNocturne() {
             ) : finished ? (
               <Finish key="done" expanding={expanding} />
             ) : (
-              <motion.div key={step} variants={container} initial="hidden" animate="show" exit="exit">
+              <motion.div
+                key={step}
+                variants={container}
+                initial="hidden"
+                animate="show"
+                exit="exit"
+              >
                 {step === "mode" ? (
                   <>
                     <Eyebrow>{COPY.mode.eyebrow}</Eyebrow>
@@ -926,16 +945,23 @@ export function OnboardingNocturne() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="text-[11px] uppercase tracking-[0.16em] text-white/35">
-                          {locationKind === "custom" ? COPY.location.folderLabelCustom : COPY.location.folderLabelDefault}
+                          {locationKind === "custom"
+                            ? COPY.location.folderLabelCustom
+                            : COPY.location.folderLabelDefault}
                         </p>
-                        <p className="mt-1 truncate text-[15px] text-white/90" style={{ fontFamily: MONO }}>
+                        <p
+                          className="mt-1 truncate text-[15px] text-white/90"
+                          style={{ fontFamily: MONO }}
+                        >
                           {homePath}
                         </p>
                       </div>
                     </motion.div>
                     <motion.div variants={rise} className="mt-7 flex items-center gap-6">
                       <Pill onClick={chooseDefaultHome}>
-                        {pickingFolder && locationKind !== "custom" ? COPY.location.btnConfirmSettingUp : COPY.location.btnConfirm}
+                        {pickingFolder && locationKind !== "custom"
+                          ? COPY.location.btnConfirmSettingUp
+                          : COPY.location.btnConfirm}
                         <ArrowUpRightIcon className="size-4" strokeWidth={2.4} />
                       </Pill>
                       <button
@@ -957,10 +983,13 @@ export function OnboardingNocturne() {
                   <>
                     <Eyebrow>{COPY.details.eyebrow}</Eyebrow>
                     <Heading lines={COPY.details.heading} />
-                    
+
                     <motion.div variants={rise} className="mt-8 flex flex-col gap-6">
                       <div className="flex flex-col gap-2">
-                        <label className="text-[12px] font-medium tracking-wide text-white/50" htmlFor="ob-name">
+                        <label
+                          className="text-[12px] font-medium tracking-wide text-white/50"
+                          htmlFor="ob-name"
+                        >
                           {COPY.details.labelName}
                         </label>
                         <input
@@ -975,7 +1004,10 @@ export function OnboardingNocturne() {
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <label className="text-[12px] font-medium tracking-wide text-white/50" htmlFor="ob-occupation">
+                        <label
+                          className="text-[12px] font-medium tracking-wide text-white/50"
+                          htmlFor="ob-occupation"
+                        >
                           {COPY.details.labelOccupation}
                         </label>
                         <input
@@ -983,14 +1015,19 @@ export function OnboardingNocturne() {
                           type="text"
                           value={details.occupation}
                           placeholder={COPY.details.placeholderOccupation}
-                          onChange={(e) => setDetails((d) => ({ ...d, occupation: e.target.value }))}
+                          onChange={(e) =>
+                            setDetails((d) => ({ ...d, occupation: e.target.value }))
+                          }
                           className="w-full rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.05] focus:border-white/20 px-4 py-3 text-[15px] text-[#ffffff] outline-none transition-colors placeholder:text-white/20"
                           style={{ caretColor: "var(--brand-ring)" }}
                         />
                       </div>
 
                       <div className="flex flex-col gap-2">
-                        <label className="text-[12px] font-medium tracking-wide text-white/50" htmlFor="ob-about">
+                        <label
+                          className="text-[12px] font-medium tracking-wide text-white/50"
+                          htmlFor="ob-about"
+                        >
                           {COPY.details.labelAbout}
                         </label>
                         <textarea
@@ -1041,14 +1078,19 @@ export function OnboardingNocturne() {
               <div
                 className="ob-orbit absolute inset-0 rounded-full"
                 style={{
-                  background: "conic-gradient(from 0deg, transparent, var(--brand-ring), transparent 62%)",
-                  WebkitMask: "radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px))",
+                  background:
+                    "conic-gradient(from 0deg, transparent, var(--brand-ring), transparent 62%)",
+                  WebkitMask:
+                    "radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px))",
                   mask: "radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 3px))",
                 }}
               />
               <span className="size-7 text-white/85">{chatgptGlyph}</span>
             </div>
-            <p className="mt-7 text-[22px] text-white/95" style={{ fontFamily: SERIF, fontWeight: 500 }}>
+            <p
+              className="mt-7 text-[22px] text-white/95"
+              style={{ fontFamily: SERIF, fontWeight: 500 }}
+            >
               Connecting ChatGPT
             </p>
             <p className="mt-1.5 text-[13px] text-white/40">Finish sign-in in your browser…</p>
@@ -1194,11 +1236,7 @@ function EncryptedText({
   )
 }
 
-function Finish({
-  expanding,
-}: {
-  expanding: boolean
-}) {
+function Finish({ expanding }: { expanding: boolean }) {
   return (
     <motion.div
       key="done"
@@ -1249,15 +1287,23 @@ function End({ onRestart }: { onRestart: () => void }) {
         {/* Decorative ambient workspace glow */}
         <div
           className="absolute inset-0 -z-10 rounded-3xl opacity-20 blur-xl animate-pulse"
-          style={{ background: "radial-gradient(circle at 50% 50%, var(--brand-ring), transparent 70%)" }}
+          style={{
+            background: "radial-gradient(circle at 50% 50%, var(--brand-ring), transparent 70%)",
+          }}
         />
 
         <div className="flex flex-col items-center">
           <div className="mb-6 flex size-14 items-center justify-center rounded-2xl bg-white/[0.04] border border-white/12 shadow-[0_8px_20px_var(--brand-soft)]">
-            <span className="size-4 rounded-full animate-ping" style={{ background: "var(--brand-ring)" }} />
+            <span
+              className="size-4 rounded-full animate-ping"
+              style={{ background: "var(--brand-ring)" }}
+            />
           </div>
 
-          <h2 className="text-[28px] font-semibold tracking-tight text-white/95" style={{ fontFamily: SERIF }}>
+          <h2
+            className="text-[28px] font-semibold tracking-tight text-white/95"
+            style={{ fontFamily: SERIF }}
+          >
             {COPY.end.heading}
           </h2>
 

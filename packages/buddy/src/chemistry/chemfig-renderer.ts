@@ -13,11 +13,7 @@ import {
 } from "@buddy/script/chemfig-runtime"
 import { BUDDY_ENV } from "@buddy/script/storage-env"
 import z from "zod"
-import {
-  BUDDY_DIRECTORY_NAME,
-  isNodeErrorCode,
-  readJsonFile,
-} from "../objects"
+import { BUDDY_DIRECTORY_NAME, isNodeErrorCode, readJsonFile } from "../objects"
 import { writeJsonFileAtomic } from "../storage/atomic-file"
 import { ChemistryRenderError } from "./errors"
 import {
@@ -49,9 +45,7 @@ const ELECTRON_RUN_AS_NODE_ENV = "ELECTRON_RUN_AS_NODE"
 const ELECTRON_RUN_AS_NODE_VALUE = "1"
 const APP_ASAR_DIRECTORY_NAME = "app.asar"
 const APP_ASAR_UNPACKED_DIRECTORY_NAME = "app.asar.unpacked"
-const SOURCE_TIKZJAX_PACKAGE_MANIFEST_SPECIFIER = ["node-tikzjax", "package.json"].join(
-  "/",
-)
+const SOURCE_TIKZJAX_PACKAGE_MANIFEST_SPECIFIER = ["node-tikzjax", "package.json"].join("/")
 const CHEMFIG_DOCUMENT_PREFIX = String.raw`\begin{document}
 \begingroup
 \centering
@@ -287,9 +281,7 @@ function containsForbiddenChemfigControlWord(source: string): boolean {
     const controlWord = source.slice(controlWordStart, controlWordEnd).toLowerCase()
     if (
       FORBIDDEN_CHEMFIG_CONTROL_WORDS.has(controlWord) ||
-      FORBIDDEN_CHEMFIG_CONTROL_WORD_FRAGMENTS.some((fragment) =>
-        controlWord.includes(fragment),
-      ) ||
+      FORBIDDEN_CHEMFIG_CONTROL_WORD_FRAGMENTS.some((fragment) => controlWord.includes(fragment)) ||
       controlWord.startsWith("pdf")
     ) {
       return true
@@ -316,14 +308,12 @@ function validateChemfigSource(source: string): void {
       message: `chemfig source exceeds the ${CHEMFIG_MAX_SOURCE_BYTES}-byte limit.`,
     })
   }
-  if (
-    containsForbiddenChemfigControlWord(source) ||
-    TEX_CHARACTER_EXPANSION_PATTERN.test(source)
-  ) {
+  if (containsForbiddenChemfigControlWord(source) || TEX_CHARACTER_EXPANSION_PATTERN.test(source)) {
     throw new ChemistryRenderError({
       code: "unsafe_source",
       httpStatus: 400,
-      message: "chemfig source contains a document, package, file, or macro control sequence that is not allowed.",
+      message:
+        "chemfig source contains a document, package, file, or macro control sequence that is not allowed.",
     })
   }
 }
@@ -332,13 +322,11 @@ function fixedChemfigDocument(source: string): string {
   return `${CHEMFIG_DOCUMENT_PREFIX}${source}${CHEMFIG_DOCUMENT_SUFFIX}`
 }
 
-async function readCachedChemfigRender(
-  input: {
-    directory: string
-    renderKey: string
-    sourceHash: string
-  },
-): Promise<ChemfigRenderRecord | undefined> {
+async function readCachedChemfigRender(input: {
+  directory: string
+  renderKey: string
+  sourceHash: string
+}): Promise<ChemfigRenderRecord | undefined> {
   const cacheFile = chemfigRenderCacheFile(input.directory, input.renderKey)
   try {
     const cacheStats = await fs.stat(cacheFile)
@@ -479,12 +467,14 @@ function runInSerializedRenderQueue<T>(input: {
     })
   }
   pendingRenderCount += 1
-  const current = renderQueueTail.catch(() => undefined).then(async () => {
-    throwIfRenderCannotContinue(input.signal, input.deadlineAt)
-    const result = await input.operation()
-    throwIfRenderCannotContinue(input.signal, input.deadlineAt)
-    return result
-  })
+  const current = renderQueueTail
+    .catch(() => undefined)
+    .then(async () => {
+      throwIfRenderCannotContinue(input.signal, input.deadlineAt)
+      const result = await input.operation()
+      throwIfRenderCannotContinue(input.signal, input.deadlineAt)
+      return result
+    })
   renderQueueTail = current.then(
     () => undefined,
     () => undefined,
@@ -511,10 +501,7 @@ function hasChemfigTexAssets(texDirectory: string): boolean {
 function asarUnpackedDirectory(directory: string): string | undefined {
   const asarSegment = `${path.sep}${APP_ASAR_DIRECTORY_NAME}${path.sep}`
   if (!directory.includes(asarSegment)) return undefined
-  return directory.replace(
-    asarSegment,
-    `${path.sep}${APP_ASAR_UNPACKED_DIRECTORY_NAME}${path.sep}`,
-  )
+  return directory.replace(asarSegment, `${path.sep}${APP_ASAR_UNPACKED_DIRECTORY_NAME}${path.sep}`)
 }
 
 function sourceChildRuntime(): ChemfigChildRuntime | undefined {
@@ -522,13 +509,8 @@ function sourceChildRuntime(): ChemfigChildRuntime | undefined {
   const childPath = fileURLToPath(new URL("./chemfig-child.ts", import.meta.url))
   if (!existsSync(childPath)) return undefined
   try {
-    const packageManifestPath = sourceRequire.resolve(
-      SOURCE_TIKZJAX_PACKAGE_MANIFEST_SPECIFIER,
-    )
-    const texDirectory = path.join(
-      path.dirname(packageManifestPath),
-      CHEMFIG_TEX_DIRECTORY_NAME,
-    )
+    const packageManifestPath = sourceRequire.resolve(SOURCE_TIKZJAX_PACKAGE_MANIFEST_SPECIFIER)
+    const texDirectory = path.join(path.dirname(packageManifestPath), CHEMFIG_TEX_DIRECTORY_NAME)
     return hasChemfigTexAssets(texDirectory) ? { childPath, texDirectory } : undefined
   } catch {
     return undefined

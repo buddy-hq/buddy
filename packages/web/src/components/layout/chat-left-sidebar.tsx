@@ -43,10 +43,7 @@ import type {
 } from "./chat-left-sidebar/types"
 import { SettingsIcon } from "./sidebar-icons"
 import { getFilename } from "./sidebar-helpers"
-import {
-  ensureTeacherStandards,
-  shouldAutoSetupTeacherStandards,
-} from "@/lib/teacher-standards"
+import { ensureTeacherStandards, shouldAutoSetupTeacherStandards } from "@/lib/teacher-standards"
 
 type ChatLeftSidebarProps = {
   directories: string[]
@@ -528,9 +525,7 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
             props.onOpenDirectory()
           }
         }}
-        enableLearnerMemory={
-          learnerMemoryExperimentEnabled ? learnerMemoryEnabled : undefined
-        }
+        enableLearnerMemory={learnerMemoryExperimentEnabled ? learnerMemoryEnabled : undefined}
         onLearnerMemoryChange={setLearnerMemoryEnabled}
         enableAutoExtract={learnerMemoryExperimentEnabled ? autoExtractEnabled : undefined}
         onAutoExtractChange={setAutoExtractEnabled}

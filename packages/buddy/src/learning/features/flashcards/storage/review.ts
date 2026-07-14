@@ -89,9 +89,11 @@ async function reconcilePendingFlashcardReviewIngestions(input: {
 }): Promise<void> {
   const pending = await listPendingFlashcardReviewIngestions(input.directory, input.objectID)
   for (const record of pending) {
-    await reconcileFlashcardReviewIngestion({ directory: input.directory, record }).catch((error) => {
-      console.warn("Failed to reconcile a committed flashcard review into learner memory:", error)
-    })
+    await reconcileFlashcardReviewIngestion({ directory: input.directory, record }).catch(
+      (error) => {
+        console.warn("Failed to reconcile a committed flashcard review into learner memory:", error)
+      },
+    )
   }
 }
 

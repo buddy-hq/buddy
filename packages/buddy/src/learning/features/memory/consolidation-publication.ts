@@ -14,19 +14,11 @@ const ConsolidationPublicationJournalSchema = z.object({
 })
 
 function consolidationPublicationJournalFile(directory: string): string {
-  return path.join(
-    LearnerMemoryPath.root(directory),
-    CONSOLIDATION_PUBLICATION_JOURNAL_FILE_NAME,
-  )
+  return path.join(LearnerMemoryPath.root(directory), CONSOLIDATION_PUBLICATION_JOURNAL_FILE_NAME)
 }
 
 function isMissingFileError(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === "ENOENT"
-  )
+  return typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT"
 }
 
 async function readPublicationJournal(

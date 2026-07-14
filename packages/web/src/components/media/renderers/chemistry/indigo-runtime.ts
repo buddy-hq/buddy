@@ -56,11 +56,9 @@ function decodeSvgBase64(value: string): string {
   try {
     binary = atob(encoded)
   } catch (error) {
-    throw new IndigoRenderError(
-      "indigo_render_failed",
-      "Indigo returned malformed SVG data.",
-      { cause: error },
-    )
+    throw new IndigoRenderError("indigo_render_failed", "Indigo returned malformed SVG data.", {
+      cause: error,
+    })
   }
   if (binary.length > MAX_RENDERED_SVG_BYTES) {
     throw new IndigoRenderError(
@@ -78,11 +76,9 @@ function decodeSvgBase64(value: string): string {
       .replace(XML_DECLARATION_PATTERN, "")
       .trim()
   } catch (error) {
-    throw new IndigoRenderError(
-      "indigo_render_failed",
-      "Indigo returned malformed SVG text.",
-      { cause: error },
-    )
+    throw new IndigoRenderError("indigo_render_failed", "Indigo returned malformed SVG text.", {
+      cause: error,
+    })
   }
 }
 
@@ -111,18 +107,13 @@ function readWarnings(value: string): string[] {
 
 function normalizeWarnings(values: readonly unknown[]): string[] {
   return values
-    .flatMap((value) =>
-      typeof value === "string" && value.trim() ? [value.trim()] : [],
-    )
+    .flatMap((value) => (typeof value === "string" && value.trim() ? [value.trim()] : []))
     .slice(0, MAX_INDIGO_WARNINGS)
     .map((warning) => warning.slice(0, MAX_INDIGO_WARNING_CHARACTERS))
 }
 
 function isIndigoSemanticFormat(value: unknown): value is IndigoWorkerRenderRequest["format"] {
-  return (
-    typeof value === "string" &&
-    INDIGO_SEMANTIC_FORMATS.some((format) => format === value)
-  )
+  return typeof value === "string" && INDIGO_SEMANTIC_FORMATS.some((format) => format === value)
 }
 
 export function indigoErrorMessage(error: unknown): string {
@@ -164,11 +155,9 @@ export async function renderWithIndigo(
   try {
     runtime = await loadIndigoRuntime()
   } catch (error) {
-    throw new IndigoRenderError(
-      "indigo_runtime_unavailable",
-      indigoErrorMessage(error),
-      { cause: error },
-    )
+    throw new IndigoRenderError("indigo_runtime_unavailable", indigoErrorMessage(error), {
+      cause: error,
+    })
   }
   const validationOptions = new runtime.MapStringString()
   let renderOptions: InstanceType<IndigoRuntime["MapStringString"]> | undefined

@@ -1,9 +1,6 @@
 /// <reference lib="webworker" />
 
-import type {
-  IndigoWorkerRenderFailure,
-  IndigoWorkerRenderResponse,
-} from "./worker-protocol"
+import type { IndigoWorkerRenderFailure, IndigoWorkerRenderResponse } from "./worker-protocol"
 import {
   indigoErrorCode,
   indigoErrorMessage,

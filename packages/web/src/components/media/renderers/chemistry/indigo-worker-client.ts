@@ -32,9 +32,7 @@ type ActiveRender = {
   requestID: string
 }
 
-function isIndigoWorkerErrorCode(
-  value: unknown,
-): value is IndigoWorkerRenderFailure["code"] {
+function isIndigoWorkerErrorCode(value: unknown): value is IndigoWorkerRenderFailure["code"] {
   return INDIGO_WORKER_ERROR_CODES.some((code) => code === value)
 }
 

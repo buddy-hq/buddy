@@ -44,10 +44,7 @@ describe("ensureMcpOAuthBrandingPatched", () => {
   test("preserves an end callback when encoding is explicitly undefined", () => {
     let receivedArgs: unknown[] = []
     let callbackInvoked = false
-    const originalEnd: ServerResponse["end"] = function (
-      this: ServerResponse,
-      ...args: unknown[]
-    ) {
+    const originalEnd: ServerResponse["end"] = function (this: ServerResponse, ...args: unknown[]) {
       receivedArgs = args
       return this
     }

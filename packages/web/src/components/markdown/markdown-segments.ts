@@ -69,8 +69,7 @@ function splitMarkdownLines(markdown: string): MarkdownLine[] {
     const character = markdown[offset]
     if (character !== "\r" && character !== "\n") continue
 
-    const lineEnding =
-      character === "\r" && markdown[offset + 1] === "\n" ? "\r\n" : character
+    const lineEnding = character === "\r" && markdown[offset + 1] === "\n" ? "\r\n" : character
     lines.push({ content: markdown.slice(lineStart, offset), lineEnding })
     if (lineEnding === "\r\n") offset += 1
     lineStart = offset + 1
@@ -90,18 +89,12 @@ function joinMarkdownLines(lines: readonly MarkdownLine[]): string {
 
 function fenceInfo(info: string): EmbeddedFence | undefined {
   let languageStart = 0
-  while (
-    languageStart < info.length &&
-    INFO_WHITESPACE_RE.test(info[languageStart] ?? "")
-  ) {
+  while (languageStart < info.length && INFO_WHITESPACE_RE.test(info[languageStart] ?? "")) {
     languageStart += 1
   }
 
   let languageEnd = languageStart
-  while (
-    languageEnd < info.length &&
-    !INFO_WHITESPACE_RE.test(info[languageEnd] ?? "")
-  ) {
+  while (languageEnd < info.length && !INFO_WHITESPACE_RE.test(info[languageEnd] ?? "")) {
     languageEnd += 1
   }
   const language = info.slice(languageStart, languageEnd).toLowerCase()
@@ -109,10 +102,7 @@ function fenceInfo(info: string): EmbeddedFence | undefined {
   if (!isChemistryFormat(language)) return undefined
 
   let metadataStart = languageEnd
-  while (
-    metadataStart < info.length &&
-    INFO_WHITESPACE_RE.test(info[metadataStart] ?? "")
-  ) {
+  while (metadataStart < info.length && INFO_WHITESPACE_RE.test(info[metadataStart] ?? "")) {
     metadataStart += 1
   }
   return {
@@ -145,9 +135,7 @@ function isClosingFence(line: string, opening: FenceMatch): boolean {
   const match = line.match(CLOSING_FENCE_RE)
   const fence = match?.[2]
   return (
-    fence !== undefined &&
-    fence[0] === opening.fenceChar &&
-    fence.length >= opening.fenceLength
+    fence !== undefined && fence[0] === opening.fenceChar && fence.length >= opening.fenceLength
   )
 }
 
@@ -160,7 +148,8 @@ function listMarkerContentIndent(line: string): number | undefined {
 
   const firstSpacingCharacter = spacing?.[0]
   const spacingWidth =
-    firstSpacingCharacter === "\t" || !spacing ||
+    firstSpacingCharacter === "\t" ||
+    !spacing ||
     spacing.length > COMMONMARK_MAX_LIST_MARKER_SPACING
       ? 1
       : spacing.length
@@ -174,10 +163,7 @@ function isListNestedFence(
 ): boolean {
   if (openingIndentation === 0) return false
 
-  const earliestLineIndex = Math.max(
-    0,
-    openingLineIndex - MAX_LIST_CONTAINER_LOOKBACK_LINES,
-  )
+  const earliestLineIndex = Math.max(0, openingLineIndex - MAX_LIST_CONTAINER_LOOKBACK_LINES)
   let minimumContinuationIndent = Number.POSITIVE_INFINITY
   for (let index = openingLineIndex - 1; index >= earliestLineIndex; index -= 1) {
     const line = lines[index]?.content ?? ""
@@ -193,8 +179,7 @@ function isListNestedFence(
     const listContentIndent = listMarkerContentIndent(line)
     if (listContentIndent !== undefined) {
       return (
-        openingIndentation >= listContentIndent &&
-        minimumContinuationIndent >= listContentIndent
+        openingIndentation >= listContentIndent && minimumContinuationIndent >= listContentIndent
       )
     }
 
@@ -236,12 +221,10 @@ function fenceSource(
   closingLineIndex: number,
   indentation: number,
 ): string {
-  const sourceLines = lines
-    .slice(openingLineIndex + 1, closingLineIndex)
-    .map((line) => ({
-      content: dedentFenceContentLine(line.content, indentation),
-      lineEnding: line.lineEnding,
-    }))
+  const sourceLines = lines.slice(openingLineIndex + 1, closingLineIndex).map((line) => ({
+    content: dedentFenceContentLine(line.content, indentation),
+    lineEnding: line.lineEnding,
+  }))
   return joinMarkdownLines(sourceLines)
 }
 
@@ -286,10 +269,7 @@ export function parseMarkdownSegments(markdown: string): MarkdownSegment[] {
     }
 
     const rawLines = lines.slice(lineIndex, closingIndex + 1)
-    if (
-      !openingFence.embedded ||
-      isListNestedFence(lines, lineIndex, openingFence.indentation)
-    ) {
+    if (!openingFence.embedded || isListNestedFence(lines, lineIndex, openingFence.indentation)) {
       htmlBuffer.push(...rawLines)
       lineIndex = closingIndex + 1
       continue
@@ -298,12 +278,7 @@ export function parseMarkdownSegments(markdown: string): MarkdownSegment[] {
     segmentIndex = pushHtmlSegment(segments, htmlBuffer, segmentIndex)
     htmlBuffer = []
 
-    const source = fenceSource(
-      lines,
-      lineIndex,
-      closingIndex,
-      openingFence.indentation,
-    )
+    const source = fenceSource(lines, lineIndex, closingIndex, openingFence.indentation)
     const raw = joinMarkdownLines(rawLines)
     if (openingFence.embedded.kind === "mermaid") {
       segments.push({ kind: "mermaid", source, raw, segmentIndex })

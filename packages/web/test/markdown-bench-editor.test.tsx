@@ -836,9 +836,9 @@ describe("MarkdownBenchEditor", () => {
     })
 
     expect(
-      container.querySelector('[data-component="markdown-bench-editor"]')?.getAttribute(
-        "data-obsidian-vault",
-      ),
+      container
+        .querySelector('[data-component="markdown-bench-editor"]')
+        ?.getAttribute("data-obsidian-vault"),
     ).toBe("true")
     expect(
       container.querySelector('[data-component="markdown-bench-obsidian-link"]')?.textContent,

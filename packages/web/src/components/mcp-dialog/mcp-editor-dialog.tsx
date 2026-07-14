@@ -67,7 +67,9 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
                     ? language.t("mcp.editorDialog.addTitle")
                     : language.t("mcp.editorDialog.editTitle", { name: props.draft.name })}
                 </span>
-                {props.editorSaving && <Spinner className="size-3.5 text-text-interactive-base shrink-0" />}
+                {props.editorSaving && (
+                  <Spinner className="size-3.5 text-text-interactive-base shrink-0" />
+                )}
               </DialogTitle>
               <DialogDescription className="text-xs text-text-weak leading-normal mt-1 select-none">
                 {props.description ?? language.t("mcp.editorDialog.description")}
@@ -78,7 +80,10 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
 
         <div className="grid gap-4 py-1.5">
           <Field className="space-y-1.5">
-            <FieldLabel className="text-xs font-semibold text-text-weak uppercase tracking-wider" htmlFor="mcp-name">
+            <FieldLabel
+              className="text-xs font-semibold text-text-weak uppercase tracking-wider"
+              htmlFor="mcp-name"
+            >
               {language.t("mcp.editorDialog.name")}
             </FieldLabel>
             <Input
@@ -157,10 +162,7 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
             orientation="horizontal"
             className="items-center justify-between gap-4 px-1 py-1.5"
           >
-            <FieldLabel
-              htmlFor="mcp-timeout"
-              className="text-sm font-semibold text-text-strong"
-            >
+            <FieldLabel htmlFor="mcp-timeout" className="text-sm font-semibold text-text-strong">
               {language.t("mcp.editorDialog.timeoutSeconds")}
             </FieldLabel>
             <div className="w-24">
@@ -183,7 +185,10 @@ export function McpEditorDialog(props: McpEditorDialogProps) {
             </div>
           </Field>
           {props.fieldErrors.timeout ? (
-            <p id={getFieldErrorId("timeout")} className="text-xs text-icon-critical-base px-1 -mt-2">
+            <p
+              id={getFieldErrorId("timeout")}
+              className="text-xs text-icon-critical-base px-1 -mt-2"
+            >
               {props.fieldErrors.timeout}
             </p>
           ) : null}

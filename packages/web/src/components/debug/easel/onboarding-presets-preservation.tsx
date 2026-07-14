@@ -5,8 +5,21 @@ import { PaintbrushIcon, ChevronDownIcon } from "lucide-react"
 // ── TYPES PRESERVATION ──
 
 export type ThemeId = "nocturne" | "bamboo" | "cosmic" | "lyceum" | "cyber" | "abyssal"
-export type SpaceId = "nocturne" | "nebula" | "aurora-green" | "nebula-orion" | "nebula-dust" | "dust-cygnus"
-export type SpaceColorId = "theme" | "emerald" | "amethyst" | "sapphire" | "amber" | "ruby" | "monochrome"
+export type SpaceId =
+  | "nocturne"
+  | "nebula"
+  | "aurora-green"
+  | "nebula-orion"
+  | "nebula-dust"
+  | "dust-cygnus"
+export type SpaceColorId =
+  | "theme"
+  | "emerald"
+  | "amethyst"
+  | "sapphire"
+  | "amber"
+  | "ruby"
+  | "monochrome"
 export type TransitionId = "diagonal" | "ripple" | "warp" | "dissolve" | "eclipse"
 export type MoodKey = "neutral" | "learn" | "teach"
 
@@ -316,7 +329,13 @@ export function NebulaBackground({ mood, _bloom }: { mood: MoodColors; _bloom: b
         <defs>
           <filter id="nebula-drift-filter">
             <feTurbulence type="fractalNoise" baseFrequency="0.006" numOctaves="4" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="120" xChannelSelector="R" yChannelSelector="G" />
+            <feDisplacementMap
+              in="SourceGraphic"
+              in2="noise"
+              scale="120"
+              xChannelSelector="R"
+              yChannelSelector="G"
+            />
           </filter>
         </defs>
       </svg>
@@ -358,7 +377,13 @@ export function NebulaDustBackground({ mood, _bloom }: { mood: MoodColors; _bloo
         <defs>
           <filter id="dust-lane-filter">
             <feTurbulence type="fractalNoise" baseFrequency="0.008" numOctaves="5" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="130" xChannelSelector="R" yChannelSelector="G" />
+            <feDisplacementMap
+              in="SourceGraphic"
+              in2="noise"
+              scale="130"
+              xChannelSelector="R"
+              yChannelSelector="G"
+            />
           </filter>
         </defs>
       </svg>
@@ -383,7 +408,13 @@ export function DustCygnusBackground({ mood, _bloom }: { mood: MoodColors; _bloo
         <defs>
           <filter id="cygnus-rift-filter">
             <feTurbulence type="fractalNoise" baseFrequency="0.007" numOctaves="4" result="noise" />
-            <feDisplacementMap in="SourceGraphic" in2="noise" scale="115" xChannelSelector="R" yChannelSelector="G" />
+            <feDisplacementMap
+              in="SourceGraphic"
+              in2="noise"
+              scale="115"
+              xChannelSelector="R"
+              yChannelSelector="G"
+            />
           </filter>
         </defs>
       </svg>
@@ -456,7 +487,9 @@ export function ControlPanel({
       >
         <PaintbrushIcon className="size-3.5" style={{ color: "var(--brand-word)" }} />
         <span>Easel Customize</span>
-        <ChevronDownIcon className={`size-3 text-white/40 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+        <ChevronDownIcon
+          className={`size-3 text-white/40 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       <AnimatePresence>
@@ -475,9 +508,7 @@ export function ControlPanel({
                 <span className="text-[10px] font-bold uppercase tracking-wider text-white/45">
                   1. UI Theme Accent
                 </span>
-                <span className="text-[11px] text-white/80 font-medium">
-                  {currentTheme.name}
-                </span>
+                <span className="text-[11px] text-white/80 font-medium">{currentTheme.name}</span>
               </div>
               <div className="flex gap-2.5">
                 {Object.values(THEMES).map((t) => {

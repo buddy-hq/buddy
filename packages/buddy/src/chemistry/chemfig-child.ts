@@ -1,8 +1,5 @@
 import { dvi2svg, load, tex } from "node-tikzjax"
-import {
-  CHEMFIG_CHILD_FAILURE_STAGES,
-  type ChemfigChildFailureStage,
-} from "./types"
+import { CHEMFIG_CHILD_FAILURE_STAGES, type ChemfigChildFailureStage } from "./types"
 
 const CHEMFIG_TEX_PACKAGES = { chemfig: "" } as const
 const CHEMFIG_RENDER_OPTIONS = {

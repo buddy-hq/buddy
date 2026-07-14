@@ -45,13 +45,7 @@ describe("render_svg tool", () => {
         filePath: { type: "string" },
         format: {
           type: "string",
-          enum: [
-            "smiles",
-            "cxsmiles",
-            "reaction-smiles",
-            "ket",
-            "chemfig",
-          ],
+          enum: ["smiles", "cxsmiles", "reaction-smiles", "ket", "chemfig"],
         },
         source: { type: "string" },
       },
@@ -361,16 +355,10 @@ describe("render_svg tool", () => {
       agent: "buddy",
     })
 
-    const firstResult = renderSvgTool.run(
-      { filePath, format: "smiles", source: SOURCE },
-      context,
-    )
+    const firstResult = renderSvgTool.run({ filePath, format: "smiles", source: SOURCE }, context)
     const browserRequest = await nextPendingRequest(project.path)
     await expect(
-      renderSvgTool.run(
-        { filePath, format: "smiles", source: "CCC" },
-        context,
-      ),
+      renderSvgTool.run({ filePath, format: "smiles", source: "CCC" }, context),
     ).rejects.toThrow("already evaluating this repair request")
     expect(browserSvgRenderRequests.listPending(project.path)).toHaveLength(1)
 
@@ -498,9 +486,7 @@ describe("render_svg tool", () => {
       renderAttempts: 1,
       lastErrorMessage: "Browser SVG rendering failed: parse failure",
     })
-    expect(await readSvgAutoRepairRequest(project.path, requestID)).not.toHaveProperty(
-      "source",
-    )
+    expect(await readSvgAutoRepairRequest(project.path, requestID)).not.toHaveProperty("source")
   })
 
   test("hard-stops the fifth render_svg call in one repair turn", async () => {
@@ -610,14 +596,11 @@ describe("render_svg tool", () => {
     const retainedTerminalRequests = await Promise.allSettled(
       requests.map((requestID) => readSvgAutoRepairRequest(project.path, requestID)),
     )
+    expect(retainedTerminalRequests.filter((result) => result.status === "fulfilled")).toHaveLength(
+      1,
+    )
     expect(
-      retainedTerminalRequests.filter((result) => result.status === "fulfilled"),
-    ).toHaveLength(1)
-    expect(
-      await readSvgAutoRepairRequest(
-        project.path,
-        running.request.repairRequestID,
-      ),
+      await readSvgAutoRepairRequest(project.path, running.request.repairRequestID),
     ).toMatchObject({ status: "running", source: "broken-running" })
   })
 })

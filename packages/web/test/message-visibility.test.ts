@@ -54,12 +54,10 @@ describe("message visibility", () => {
   })
 
   test("hides SVG and Mermaid synthetic repair prompts", () => {
-    expect(
-      isHiddenFromUserMessage(userMessage("msg_buddy_svg_auto_repair_deadbeef")),
-    ).toBe(true)
-    expect(
-      isHiddenFromUserMessage(userMessage("msg_buddy_mermaid_auto_repair_deadbeef")),
-    ).toBe(true)
+    expect(isHiddenFromUserMessage(userMessage("msg_buddy_svg_auto_repair_deadbeef"))).toBe(true)
+    expect(isHiddenFromUserMessage(userMessage("msg_buddy_mermaid_auto_repair_deadbeef"))).toBe(
+      true,
+    )
     expect(isHiddenFromUserMessage(userMessage("msg_regular_user"))).toBe(false)
   })
 })

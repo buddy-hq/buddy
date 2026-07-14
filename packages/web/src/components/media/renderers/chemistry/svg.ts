@@ -107,9 +107,7 @@ function stripUnsafeChemistryAttributes(svg: string): string {
 
 export function prepareChemistrySvg(rawSvg: string): string {
   const sanitized = stripUnsafeChemistryAttributes(
-    sanitizeGeneratedSvg(
-      stripUnsafeChemistryElements(rawSvg.replace(XML_DECLARATION_PATTERN, "")),
-    ),
+    sanitizeGeneratedSvg(stripUnsafeChemistryElements(rawSvg.replace(XML_DECLARATION_PATTERN, ""))),
   ).trim()
   if (!SVG_ROOT_PATTERN.test(sanitized)) {
     throw new Error("Chemistry renderer returned an invalid SVG document.")

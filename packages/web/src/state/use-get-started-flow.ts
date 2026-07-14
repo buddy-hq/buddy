@@ -3,10 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { resolveGetStartedFlow, type GetStartedFlowSnapshot } from "@/lib/get-started-flow"
 import { globalConfigQueryOptions } from "./global-config-query"
 import { useGetStartedChatTestMode } from "./get-started-chat-test-mode"
-import {
-  useGetStartedFlowStore,
-  useGetStartedFlowStoreHydrated,
-} from "./get-started-flow-store"
+import { useGetStartedFlowStore, useGetStartedFlowStoreHydrated } from "./get-started-flow-store"
 import { readPersonalization } from "./project-config-readers"
 
 export type GetStartedFlow = GetStartedFlowSnapshot & {

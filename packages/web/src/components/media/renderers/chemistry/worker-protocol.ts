@@ -22,6 +22,4 @@ export type IndigoWorkerRenderFailure = {
   message: string
 }
 
-export type IndigoWorkerRenderResponse =
-  | IndigoWorkerRenderSuccess
-  | IndigoWorkerRenderFailure
+export type IndigoWorkerRenderResponse = IndigoWorkerRenderSuccess | IndigoWorkerRenderFailure

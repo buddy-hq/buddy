@@ -215,14 +215,15 @@ export async function saveProjectTextFile(input: {
   return OpenCodeInstance.provide({
     directory: input.directory,
     fn: async () => {
-      const initialContainedFile = await resolveContainedFile(input.directory, normalizedPath).catch(
-        (error: unknown) => {
-          if (error instanceof ProjectFileNotFoundError) {
-            return undefined
-          }
-          throw error
-        },
-      )
+      const initialContainedFile = await resolveContainedFile(
+        input.directory,
+        normalizedPath,
+      ).catch((error: unknown) => {
+        if (error instanceof ProjectFileNotFoundError) {
+          return undefined
+        }
+        throw error
+      })
 
       if (initialContainedFile) {
         await assertTextEditableFile(normalizedPath)

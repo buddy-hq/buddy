@@ -292,10 +292,7 @@ export function useChatSync(props: UseChatSyncProps) {
         const svgRenderRequestID = readBrowserSvgRenderRequestEvent(payload)
         if (svgRenderRequestID) {
           void synchronizeBrowserSvgRenderRequests(directory).catch((error: unknown) => {
-            console.error(
-              `Failed to synchronize browser SVG render ${svgRenderRequestID}`,
-              error,
-            )
+            console.error(`Failed to synchronize browser SVG render ${svgRenderRequestID}`, error)
           })
           return
         }

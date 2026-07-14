@@ -85,10 +85,7 @@ import {
   buildPersonalizationPatch,
 } from "@/state/project-config-readers"
 import { setPersonalizationSettingsQueryData } from "@/state/personalization-settings-query"
-import {
-  GET_STARTED_CHAT_TEST_MODE,
-  isGetStartedChatTestMode,
-} from "@/lib/get-started-chats"
+import { GET_STARTED_CHAT_TEST_MODE, isGetStartedChatTestMode } from "@/lib/get-started-chats"
 type BuddyDevToolsTab =
   | "palette"
   | "trace"
@@ -1573,9 +1570,9 @@ function MemoryTestLab(props: { directory: string; sessionID?: string; onAfterRu
           </p>
           {selection.pipelineMode === MEMORY_TEST_PIPELINE_MODE.production && !runEnabled ? (
             <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-2.5 py-2 text-[11px] leading-relaxed text-icon-critical-base">
-              Default production pipeline will skip immediately because memory is currently
-              disabled for this lab run. Use `Forced pipeline` or turn on `Enabled gate` under other
-              lab-only tuning if you want to exercise extraction without changing real settings.
+              Default production pipeline will skip immediately because memory is currently disabled
+              for this lab run. Use `Forced pipeline` or turn on `Enabled gate` under other lab-only
+              tuning if you want to exercise extraction without changing real settings.
             </p>
           ) : null}
           <div className="grid gap-2 md:grid-cols-1">
@@ -2667,10 +2664,9 @@ export function BuddyDevTools() {
   const getStartedChatTestMode = useGetStartedChatTestMode((state) => state.mode)
   const setGetStartedChatTestMode = useGetStartedChatTestMode((state) => state.setMode)
 
-  const onboardingToggleLabel =
-    isResettingOnboarding
-      ? language.t("desktopTitlebar.resettingOnboarding")
-      : pathname === "/onboarding"
+  const onboardingToggleLabel = isResettingOnboarding
+    ? language.t("desktopTitlebar.resettingOnboarding")
+    : pathname === "/onboarding"
       ? language.t("desktopTitlebar.exitOnboarding")
       : language.t("desktopTitlebar.testOnboarding")
 

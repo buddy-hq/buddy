@@ -25,9 +25,7 @@ export const useGetStartedChatTestMode = create<GetStartedChatTestModeStore>()(
       mode: GET_STARTED_CHAT_TEST_MODE.hidden,
       setMode(mode) {
         set({ mode })
-        useGetStartedFlowStore
-          .getState()
-          .setEnabled(mode !== GET_STARTED_CHAT_TEST_MODE.hidden)
+        useGetStartedFlowStore.getState().setEnabled(mode !== GET_STARTED_CHAT_TEST_MODE.hidden)
       },
     }),
     {
@@ -40,9 +38,7 @@ export const useGetStartedChatTestMode = create<GetStartedChatTestModeStore>()(
         return {
           ...currentState,
           mode:
-            typeof mode === "string" && isGetStartedChatTestMode(mode)
-              ? mode
-              : currentState.mode,
+            typeof mode === "string" && isGetStartedChatTestMode(mode) ? mode : currentState.mode,
         }
       },
     },

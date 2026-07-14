@@ -390,22 +390,23 @@ describe("question-set tools and routes", () => {
     const saved = await saveQuestionSetWithTool(project.path, "ses_grade")
 
     const submissionID = crypto.randomUUID()
-    const requestAttempt = () => app.request(
-      `/api/objects/question-set/${saved.ref.objectID}/attempts?directory=${encodeURIComponent(project.path)}`,
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "idempotency-key": submissionID,
+    const requestAttempt = () =>
+      app.request(
+        `/api/objects/question-set/${saved.ref.objectID}/attempts?directory=${encodeURIComponent(project.path)}`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "idempotency-key": submissionID,
+          },
+          body: JSON.stringify({
+            answers: [
+              { questionID: "q1", selectedChoiceIds: ["q1-a"] },
+              { questionID: "q2", selectedChoiceIds: ["q2-a", "q2-b"] },
+            ],
+          }),
         },
-        body: JSON.stringify({
-          answers: [
-            { questionID: "q1", selectedChoiceIds: ["q1-a"] },
-            { questionID: "q2", selectedChoiceIds: ["q2-a", "q2-b"] },
-          ],
-        }),
-      },
-    )
+      )
     const response = await requestAttempt()
 
     expect(response.status).toBe(200)
@@ -513,9 +514,9 @@ describe("question-set tools and routes", () => {
     const attemptsDirectory = path.dirname(
       questionSetAttemptFile(project.path, saved.ref.objectID, original.attemptID),
     )
-    expect((await fs.readdir(attemptsDirectory)).filter((entry) => entry.endsWith(".json"))).toEqual(
-      [`${original.attemptID}.json`],
-    )
+    expect(
+      (await fs.readdir(attemptsDirectory)).filter((entry) => entry.endsWith(".json")),
+    ).toEqual([`${original.attemptID}.json`])
   })
 
   test("rejects invalid submitted choice ids and none-of-the-above exclusivity violations", async () => {

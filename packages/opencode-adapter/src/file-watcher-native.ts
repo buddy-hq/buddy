@@ -31,8 +31,7 @@ export async function subscribeNativeWorkspaceFileWatcher(
       for (const event of events) {
         options.onUpdate({
           absolutePath: event.path,
-          event:
-            event.type === "create" ? "add" : event.type === "update" ? "change" : "unlink",
+          event: event.type === "create" ? "add" : event.type === "update" ? "change" : "unlink",
         })
       }
     },

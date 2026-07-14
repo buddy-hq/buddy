@@ -36,8 +36,7 @@ const SVG_AUTO_REPAIR_DIRECTORY_SEGMENTS = [
   `v${SVG_AUTO_REPAIR_RECORD_VERSION}`,
 ] as const
 const SVG_AUTO_REPAIR_ID_PATTERN = /^msg_buddy_svg_auto_repair_[a-f0-9]{64}$/u
-const SVG_AUTO_REPAIR_RECORD_FILENAME_PATTERN =
-  /^(msg_buddy_svg_auto_repair_[a-f0-9]{64})\.json$/u
+const SVG_AUTO_REPAIR_RECORD_FILENAME_PATTERN = /^(msg_buddy_svg_auto_repair_[a-f0-9]{64})\.json$/u
 
 const SvgAutoRepairRequestSchema = z
   .object({
@@ -84,12 +83,7 @@ const DEFAULT_SVG_AUTO_REPAIR_RECORD_LIMITS: SvgAutoRepairRecordLimits = {
 }
 
 function isNodeErrorCode(error: unknown, code: string): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    error.code === code
-  )
+  return typeof error === "object" && error !== null && "code" in error && error.code === code
 }
 
 function parseSvgAutoRepairRequest(rawText: string): SvgAutoRepairRequest | undefined {
@@ -268,45 +262,38 @@ async function createSvgAutoRepairRequest(input: {
 }): Promise<{ created: boolean; request: SvgAutoRepairRequest }> {
   const requestID = repairRequestID(input)
   return withSvgAutoRepairRetentionLock(input.directory, async () => {
-    const result = await withSvgAutoRepairRequestLock(
-      input.directory,
-      requestID,
-      async () => {
-        const existing = await readSvgAutoRepairRequestIfPresentUnlocked(
-          input.directory,
-          requestID,
-        )
-        if (existing) return { created: false, request: existing }
+    const result = await withSvgAutoRepairRequestLock(input.directory, requestID, async () => {
+      const existing = await readSvgAutoRepairRequestIfPresentUnlocked(input.directory, requestID)
+      if (existing) return { created: false, request: existing }
 
-        const now = new Date().toISOString()
-        const request = SvgAutoRepairRequestSchema.parse({
-          version: SVG_AUTO_REPAIR_RECORD_VERSION,
-          runtimeID: SVG_AUTO_REPAIR_RUNTIME_ID,
-          repairRequestID: requestID,
-          sessionID: input.sessionID,
-          assistantMessageID: input.assistantMessageID,
-          partID: input.partID,
-          segmentIndex: input.segmentIndex,
-          format: input.format,
-          source: input.source,
-          sourceHash: input.sourceHash,
-          status: "running",
-          renderAttempts: 0,
-          createdAt: now,
-          updatedAt: now,
-        })
-        const targetPath = await resolveSvgAutoRepairStoragePath(
-          input.directory,
-          repairFile(input.directory, requestID),
-        )
-        const snapshot = await captureTextFileWriteSnapshot(targetPath)
-        if (snapshot.version !== null) {
-          throw new Error("SVG auto-repair record appeared while it was being created.")
-        }
-        await writeSvgAutoRepairRequest(input.directory, requestID, request, snapshot)
-        return { created: true, request }
-      },
-    )
+      const now = new Date().toISOString()
+      const request = SvgAutoRepairRequestSchema.parse({
+        version: SVG_AUTO_REPAIR_RECORD_VERSION,
+        runtimeID: SVG_AUTO_REPAIR_RUNTIME_ID,
+        repairRequestID: requestID,
+        sessionID: input.sessionID,
+        assistantMessageID: input.assistantMessageID,
+        partID: input.partID,
+        segmentIndex: input.segmentIndex,
+        format: input.format,
+        source: input.source,
+        sourceHash: input.sourceHash,
+        status: "running",
+        renderAttempts: 0,
+        createdAt: now,
+        updatedAt: now,
+      })
+      const targetPath = await resolveSvgAutoRepairStoragePath(
+        input.directory,
+        repairFile(input.directory, requestID),
+      )
+      const snapshot = await captureTextFileWriteSnapshot(targetPath)
+      if (snapshot.version !== null) {
+        throw new Error("SVG auto-repair record appeared while it was being created.")
+      }
+      await writeSvgAutoRepairRequest(input.directory, requestID, request, snapshot)
+      return { created: true, request }
+    })
     if (result.created) {
       await enforceSvgAutoRepairRecordLimitsUnlocked(
         input.directory,
@@ -326,14 +313,8 @@ async function findSvgAutoRepairRequest(input: {
   format: SvgSourceFormat
   sourceHash: string
 }): Promise<SvgAutoRepairRequest | undefined> {
-  const existing = await readSvgAutoRepairRequestIfPresent(
-    input.directory,
-    repairRequestID(input),
-  )
-  if (
-    existing?.status === "running" &&
-    existing.runtimeID !== SVG_AUTO_REPAIR_RUNTIME_ID
-  ) {
+  const existing = await readSvgAutoRepairRequestIfPresent(input.directory, repairRequestID(input))
+  if (existing?.status === "running" && existing.runtimeID !== SVG_AUTO_REPAIR_RUNTIME_ID) {
     return exhaustSvgAutoRepairRequest({
       directory: input.directory,
       requestID: existing.repairRequestID,
@@ -348,17 +329,9 @@ async function updateSvgAutoRepairRequest(input: {
   requestID: string
   update: (current: SvgAutoRepairRequest) => SvgAutoRepairRequest
 }): Promise<SvgAutoRepairRequest> {
-  const current = await readSvgAutoRepairRequestWithSnapshot(
-    input.directory,
-    input.requestID,
-  )
+  const current = await readSvgAutoRepairRequestWithSnapshot(input.directory, input.requestID)
   const next = SvgAutoRepairRequestSchema.parse(input.update(current.request))
-  await writeSvgAutoRepairRequest(
-    input.directory,
-    input.requestID,
-    next,
-    current.snapshot,
-  )
+  await writeSvgAutoRepairRequest(input.directory, input.requestID, next, current.snapshot)
   return next
 }
 
@@ -403,12 +376,14 @@ async function listSvgAutoRepairRecordCandidates(
       return [
         fs
           .stat(path.join(rootPath, entry.name))
-          .then((stats): SvgAutoRepairRecordCandidate => ({
-            requestID,
-            fileName: entry.name,
-            size: stats.size,
-            modifiedAt: stats.mtimeMs,
-          }))
+          .then(
+            (stats): SvgAutoRepairRecordCandidate => ({
+              requestID,
+              fileName: entry.name,
+              size: stats.size,
+              modifiedAt: stats.mtimeMs,
+            }),
+          )
           .catch((error: unknown) => {
             if (isNodeErrorCode(error, "ENOENT")) return undefined
             throw error
@@ -420,8 +395,7 @@ async function listSvgAutoRepairRecordCandidates(
     .filter((candidate) => candidate !== undefined)
     .toSorted(
       (left, right) =>
-        left.modifiedAt - right.modifiedAt ||
-        left.fileName.localeCompare(right.fileName),
+        left.modifiedAt - right.modifiedAt || left.fileName.localeCompare(right.fileName),
     )
 }
 
@@ -443,10 +417,7 @@ async function removeTerminalSvgAutoRepairRecord(
         throw error
       }
       const request = parseSvgAutoRepairRequest(rawText)
-      if (
-        request?.status === "running" &&
-        request.runtimeID === SVG_AUTO_REPAIR_RUNTIME_ID
-      ) {
+      if (request?.status === "running" && request.runtimeID === SVG_AUTO_REPAIR_RUNTIME_ID) {
         return false
       }
       await fs.rm(targetPath)
@@ -511,12 +482,12 @@ async function beginSvgAutoRepairRenderAttempt(input: {
           throw new Error("SVG auto-repair request is no longer active after a backend restart.")
         }
         if (current.activeRenderAttemptID) {
-          throw new Error(
-            "Another render_svg call is already evaluating this repair request.",
-          )
+          throw new Error("Another render_svg call is already evaluating this repair request.")
         }
         if (current.status === "validated") {
-          throw new Error("SVG source has already rendered successfully; emit the corrected fence now.")
+          throw new Error(
+            "SVG source has already rendered successfully; emit the corrected fence now.",
+          )
         }
         if (
           current.status === "exhausted" ||
@@ -573,8 +544,7 @@ async function completeSvgAutoRepairRenderAttempt(input: {
           ...completed
         } = current
         const exhausted =
-          current.turnSettled ||
-          current.renderAttempts >= SVG_AUTO_REPAIR_MAX_RENDER_ATTEMPTS
+          current.turnSettled || current.renderAttempts >= SVG_AUTO_REPAIR_MAX_RENDER_ATTEMPTS
         if (exhausted) {
           const { source: _source, ...terminal } = completed
           return {

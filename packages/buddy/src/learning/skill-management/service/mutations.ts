@@ -12,11 +12,7 @@ import {
 } from "./documents"
 import { resolveInstalledSkillByName } from "./discovery"
 import { fetchPinnedGitHubSkill, type FetchedGitHubSkill } from "./github-fetcher"
-import {
-  isCatalogSkillUpdateAvailable,
-  readCatalogEntryByID,
-  readCatalogRevision,
-} from "./library"
+import { isCatalogSkillUpdateAvailable, readCatalogEntryByID, readCatalogRevision } from "./library"
 import { readInstalledSkillLock, writeInstalledSkillLock } from "./lock"
 import {
   curatedSkillsCacheRoot,

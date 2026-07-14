@@ -2,12 +2,14 @@ import fsp from "node:fs/promises"
 import path from "node:path"
 import { Instance as OpenCodeInstance } from "@buddy/opencode-adapter/instance"
 import type { BuddySkill } from "../../runtime/define-buddy-skill"
-import {
-  skillArtifactPublicKey,
-  systemSkillPackArtifactUrl,
-} from "./artifact-config"
+import { skillArtifactPublicKey, systemSkillPackArtifactUrl } from "./artifact-config"
 import { renderBuddySkillManifest } from "./manifests"
-import { ensureManagedSkillPathReady, managedSkillsRoot, managedSystemRoot, systemSkillPackCacheRoot } from "./paths"
+import {
+  ensureManagedSkillPathReady,
+  managedSkillsRoot,
+  managedSystemRoot,
+  systemSkillPackCacheRoot,
+} from "./paths"
 import { createSignedArtifactStore, type SignedArtifactResolution } from "./signed-artifact"
 import {
   buildBundledSystemSkillPack,
@@ -116,7 +118,9 @@ async function destinationMatchesPack(pack: SystemSkillPack): Promise<boolean> {
     .catch(() => undefined)
   if (fingerprint?.trim() !== pack.contentFingerprint) return false
 
-  const rootEntries = await fsp.readdir(managedSystemRoot(), { withFileTypes: true }).catch(() => [])
+  const rootEntries = await fsp
+    .readdir(managedSystemRoot(), { withFileTypes: true })
+    .catch(() => [])
   const installedSkillNames = rootEntries
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)

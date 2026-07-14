@@ -5,10 +5,7 @@ import type { MessageV2 } from "@buddy/opencode-adapter/message"
 import { Session as OpenCodeSession } from "@buddy/opencode-adapter/session"
 import { SessionStatus as OpenCodeSessionStatus } from "@buddy/opencode-adapter/session-status"
 import { SessionV2 as OpenCodeSessionV2 } from "@buddy/opencode-adapter/session-v2"
-import {
-  subscribeGlobalEvent,
-  type BuddyGlobalEvent,
-} from "@buddy/opencode-adapter/global-event"
+import { subscribeGlobalEvent, type BuddyGlobalEvent } from "@buddy/opencode-adapter/global-event"
 import { withConfigSync } from "../../http"
 import {
   extractSdkErrorMessage,
@@ -190,20 +187,12 @@ function svgAutoRepairTurnSettlementMessage(
   if (event.payload.type !== OPENCODE_MESSAGE_UPDATED_EVENT_TYPE) return undefined
 
   const info = properties.info
-  if (
-    !isRecord(info) ||
-    info.role !== "assistant" ||
-    info.parentID !== input.repairRequestID
-  ) {
+  if (!isRecord(info) || info.role !== "assistant" || info.parentID !== input.repairRequestID) {
     return undefined
   }
   if (info.error !== undefined) return SVG_AUTO_REPAIR_TURN_FAILED_MESSAGE
   const time = info.time
-  if (
-    !isRecord(time) ||
-    typeof time.completed !== "number" ||
-    !Number.isFinite(time.completed)
-  ) {
+  if (!isRecord(time) || typeof time.completed !== "number" || !Number.isFinite(time.completed)) {
     return undefined
   }
   return SVG_AUTO_REPAIR_COMPLETED_WITHOUT_VALIDATION_MESSAGE
@@ -256,13 +245,8 @@ async function resolveSvgAutoRepairOriginFromOpenCode(input: {
       ) {
         return undefined
       }
-      const part = message.parts.find(
-        (entry) => entry.id === input.partID && entry.type === "text",
-      )
-      if (
-        part?.type !== "text" ||
-        !containsStandaloneReportedSvgFence(part.text, input.rawFence)
-      ) {
+      const part = message.parts.find((entry) => entry.id === input.partID && entry.type === "text")
+      if (part?.type !== "text" || !containsStandaloneReportedSvgFence(part.text, input.rawFence)) {
         return undefined
       }
       return {
@@ -327,11 +311,7 @@ function reportedSvgFenceMatches(input: {
     languageStart += 1
   }
   let languageEnd = languageStart
-  while (
-    languageEnd < info.length &&
-    info[languageEnd] !== " " &&
-    info[languageEnd] !== "\t"
-  ) {
+  while (languageEnd < info.length && info[languageEnd] !== " " && info[languageEnd] !== "\t") {
     languageEnd += 1
   }
   const language = info.slice(languageStart, languageEnd).toLowerCase()
@@ -341,9 +321,7 @@ function reportedSvgFenceMatches(input: {
     return false
   }
   if (
-    lines
-      .slice(1, -1)
-      .some((line) => isReportedSvgFenceClosingLine(line.content, openingFence))
+    lines.slice(1, -1).some((line) => isReportedSvgFenceClosingLine(line.content, openingFence))
   ) {
     return false
   }
@@ -360,9 +338,7 @@ function reportedSvgFenceMatches(input: {
 function isReportedSvgFenceClosingLine(line: string, openingFence: string): boolean {
   const closing = line.match(REPORTED_FENCE_CLOSING_PATTERN)?.[2]
   return (
-    closing !== undefined &&
-    closing[0] === openingFence[0] &&
-    closing.length >= openingFence.length
+    closing !== undefined && closing[0] === openingFence[0] && closing.length >= openingFence.length
   )
 }
 
@@ -1116,26 +1092,22 @@ export async function postSessionSvgRepairAsync(c: Context): Promise<Response> {
       })
     }
 
-    const temporaryFilePath = svgAutoRepairScratchFile(
-      directory,
-      created.request.repairRequestID,
-    )
+    const temporaryFilePath = svgAutoRepairScratchFile(directory, created.request.repairRequestID)
     let cancelTurnSettlement = noop
     let response: Response
     try {
-      cancelTurnSettlement =
-        sessionInteractionRuntime.subscribeSvgAutoRepairTurnSettlement({
-          directory,
-          sessionID,
-          repairRequestID: created.request.repairRequestID,
-          async settle(errorMessage) {
-            await settleSvgAutoRepairTurn({
-              directory,
-              requestID: created.request.repairRequestID,
-              errorMessage,
-            })
-          },
-        })
+      cancelTurnSettlement = sessionInteractionRuntime.subscribeSvgAutoRepairTurnSettlement({
+        directory,
+        sessionID,
+        repairRequestID: created.request.repairRequestID,
+        async settle(errorMessage) {
+          await settleSvgAutoRepairTurn({
+            directory,
+            requestID: created.request.repairRequestID,
+            errorMessage,
+          })
+        },
+      })
       response = await queueSessionPromptAsync({
         directory,
         sessionID,
@@ -1261,8 +1233,4 @@ export async function getSessionMermaidRepairStatus(c: Context): Promise<Respons
   }
 }
 
-export {
-  containsStandaloneReportedSvgFence,
-  queueSessionPromptAsync,
-  reportedSvgFenceMatches,
-}
+export { containsStandaloneReportedSvgFence, queueSessionPromptAsync, reportedSvgFenceMatches }

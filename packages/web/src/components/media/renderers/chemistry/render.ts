@@ -92,9 +92,7 @@ function isExactSourceEntry(
 
 function touchCache(key: string, entry: ChemistryCacheEntry): void {
   const currentBucket = svgCache.get(key) ?? []
-  const retainedEntries = currentBucket.filter(
-    (candidate) => !isExactSourceEntry(candidate, entry),
-  )
+  const retainedEntries = currentBucket.filter((candidate) => !isExactSourceEntry(candidate, entry))
   for (const replaced of currentBucket) {
     if (!retainedEntries.includes(replaced)) {
       svgCacheBytes -= replaced.weightBytes
@@ -123,9 +121,7 @@ function getCachedResult(input: {
   format: ChemistryFormat
   source: string
 }): ChemistryRenderResult | undefined {
-  const cached = svgCache
-    .get(input.key)
-    ?.find((candidate) => isExactSourceEntry(candidate, input))
+  const cached = svgCache.get(input.key)?.find((candidate) => isExactSourceEntry(candidate, input))
   if (cached) {
     touchCache(input.key, cached)
     return cached.result
@@ -308,8 +304,7 @@ export async function renderChemistrySvg(input: {
     .get(cacheKey)
     ?.find(
       (candidate) =>
-        !candidate.abortController.signal.aborted &&
-        isExactSourceEntry(candidate, validated),
+        !candidate.abortController.signal.aborted && isExactSourceEntry(candidate, validated),
     )
   if (inFlight) {
     return subscribeToInFlightRender(inFlight, input.signal)

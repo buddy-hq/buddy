@@ -133,13 +133,11 @@ export function Markdown(props: MarkdownProps): ReactNode {
     (!!props.mermaidContext || props.renderMermaid === true) && canContainMermaidBlock(props.text)
   const canContainChemistry = canContainChemistryBlock(props.text)
   const segments = useMemo(
-    () =>
-      canRenderMermaid || canContainChemistry ? parseMarkdownSegments(props.text) : [],
+    () => (canRenderMermaid || canContainChemistry ? parseMarkdownSegments(props.text) : []),
     [canContainChemistry, canRenderMermaid, props.text],
   )
   const hasRenderableSegments = segments.some(
-    (segment) =>
-      segment.kind === "chemistry" || (segment.kind === "mermaid" && canRenderMermaid),
+    (segment) => segment.kind === "chemistry" || (segment.kind === "mermaid" && canRenderMermaid),
   )
 
   if (!hasRenderableSegments) {
@@ -172,9 +170,7 @@ export function Markdown(props: MarkdownProps): ReactNode {
 
   return (
     <div className={cn(markdownClassName, props.className)}>
-      {segments.map((segment) =>
-        renderMarkdownSegment({ baseCacheKey, segment, props }),
-      )}
+      {segments.map((segment) => renderMarkdownSegment({ baseCacheKey, segment, props }))}
     </div>
   )
 }

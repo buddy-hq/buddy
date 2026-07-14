@@ -10,9 +10,7 @@ type GetStartedChatsProps = {
 }
 
 export function GetStartedChats(props: GetStartedChatsProps) {
-  const [startingChatID, setStartingChatID] = useState<GetStartedChat["id"] | undefined>(
-    undefined,
-  )
+  const [startingChatID, setStartingChatID] = useState<GetStartedChat["id"] | undefined>(undefined)
 
   async function startChat(chat: GetStartedChat) {
     if (startingChatID || props.disabled) return
@@ -64,9 +62,7 @@ export function GetStartedChats(props: GetStartedChatsProps) {
               void startChat(chat)
             }}
           >
-            <span className="min-w-0 flex-1 truncate text-xs font-light">
-              {chat.title}
-            </span>
+            <span className="min-w-0 flex-1 truncate text-xs font-light">{chat.title}</span>
           </button>
         ))}
       </div>

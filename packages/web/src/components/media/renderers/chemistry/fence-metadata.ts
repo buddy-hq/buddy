@@ -103,10 +103,7 @@ function parseQuotedMetadataValue(input: {
   return undefined
 }
 
-function parseMetadataEntry(
-  rawMetadata: string,
-  offset: number,
-): MetadataEntryResult {
+function parseMetadataEntry(rawMetadata: string, offset: number): MetadataEntryResult {
   const fieldStart = offset
   const firstCharacter = rawMetadata[offset] ?? ""
   if (!METADATA_FIELD_START_RE.test(firstCharacter)) {
@@ -254,9 +251,7 @@ function boundedAccessibleText(value: string): string {
 
   if (characters.length === 0) return ""
   if (!truncated) return characters.join("")
-  return `${characters
-    .slice(0, CHEMISTRY_ACCESSIBLE_LABEL_MAX_CHARACTERS - 1)
-    .join("")}…`
+  return `${characters.slice(0, CHEMISTRY_ACCESSIBLE_LABEL_MAX_CHARACTERS - 1).join("")}…`
 }
 
 export function chemistryFenceAccessibleLabel(input: {

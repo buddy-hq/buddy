@@ -34,19 +34,10 @@ const bundledAdvancedMathRuntimeVersion = computeAdvancedMathRuntimeVersion()
 const chonkieWasmOutputPath = path.resolve(outdir, "pkg/chonkiejs_chunk_bg.wasm")
 const tessdataSourcePath = path.resolve(backendDir, "resources/tessdata")
 const tessdataOutputPath = path.resolve(outdir, "resources/tessdata")
-const chemfigChildEntryPath = path.resolve(
-  backendDir,
-  "src/chemistry/chemfig-child.ts",
-)
+const chemfigChildEntryPath = path.resolve(backendDir, "src/chemistry/chemfig-child.ts")
 const chemfigRuntimeOutputPath = path.resolve(outdir, CHEMFIG_RUNTIME_DIRECTORY_NAME)
-const chemfigChildOutputPath = path.resolve(
-  chemfigRuntimeOutputPath,
-  CHEMFIG_CHILD_FILENAME,
-)
-const chemfigTexOutputPath = path.resolve(
-  chemfigRuntimeOutputPath,
-  CHEMFIG_TEX_DIRECTORY_NAME,
-)
+const chemfigChildOutputPath = path.resolve(chemfigRuntimeOutputPath, CHEMFIG_CHILD_FILENAME)
+const chemfigTexOutputPath = path.resolve(chemfigRuntimeOutputPath, CHEMFIG_TEX_DIRECTORY_NAME)
 const firstStageExternals = [
   "jsonc-parser",
   "@lydell/node-pty",
@@ -154,22 +145,19 @@ async function buildChemfigChild(): Promise<void> {
       {
         name: "buddy:chemfig-checkout-independent-jsdom",
         setup(build) {
-          build.onLoad(
-            { filter: JSDOM_XML_HTTP_REQUEST_IMPLEMENTATION_PATTERN },
-            async (args) => {
-              const source = await Bun.file(args.path).text()
-              const contents = source.replace(
-                JSDOM_SYNC_WORKER_RESOLUTION,
-                BUNDLED_JSDOM_SYNC_WORKER_RESOLUTION,
+          build.onLoad({ filter: JSDOM_XML_HTTP_REQUEST_IMPLEMENTATION_PATTERN }, async (args) => {
+            const source = await Bun.file(args.path).text()
+            const contents = source.replace(
+              JSDOM_SYNC_WORKER_RESOLUTION,
+              BUNDLED_JSDOM_SYNC_WORKER_RESOLUTION,
+            )
+            if (contents === source) {
+              throw new Error(
+                `Expected jsdom synchronous worker resolution was not found in ${args.path}`,
               )
-              if (contents === source) {
-                throw new Error(
-                  `Expected jsdom synchronous worker resolution was not found in ${args.path}`,
-                )
-              }
-              return { contents, loader: "js" }
-            },
-          )
+            }
+            return { contents, loader: "js" }
+          })
         },
       },
     ],

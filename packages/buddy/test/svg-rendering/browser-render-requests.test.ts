@@ -35,9 +35,7 @@ function createClock(): BrowserSvgRenderRequestClock & {
     advance(milliseconds) {
       now += milliseconds
       while (true) {
-        const due = Array.from(timers.entries()).find(
-          ([, timer]) => timer.deadline <= now,
-        )
+        const due = Array.from(timers.entries()).find(([, timer]) => timer.deadline <= now)
         if (!due) return
         const [release, timer] = due
         release()

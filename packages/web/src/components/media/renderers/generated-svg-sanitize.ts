@@ -18,8 +18,7 @@ const HTML_CHARACTER_REFERENCES: Record<string, string> = {
   Tab: "\t",
 }
 
-const HTML_CHARACTER_REFERENCE_PATTERN =
-  /&(?:#x([\da-f]+)|#(\d+)|([A-Za-z][A-Za-z\d]+));?/giu
+const HTML_CHARACTER_REFERENCE_PATTERN = /&(?:#x([\da-f]+)|#(\d+)|([A-Za-z][A-Za-z\d]+));?/giu
 const UNSAFE_REFERENCE_SCHEME_PATTERN = /^(?:javascript:|data:text\/html)/iu
 const MIN_URL_SCHEME_IGNORED_CODE_POINT = 0x00
 const MAX_URL_SCHEME_SPACE_CODE_POINT = 0x20

@@ -328,10 +328,7 @@ export function createSignedArtifactStore<T>(options: SignedArtifactStoreOptions
       const verified = await verifyEnvelope(envelopeText, "remote")
       const cacheRoot = options.cacheRoot()
       const state = await readState(cacheRoot)
-      const acceptedRevision = Math.max(
-        state?.highestAcceptedRevision ?? 0,
-        current?.revision ?? 0,
-      )
+      const acceptedRevision = Math.max(state?.highestAcceptedRevision ?? 0, current?.revision ?? 0)
       if (verified.resolution.revision < acceptedRevision) {
         throw new Error(
           `${options.artifactLabel} revision ${verified.resolution.revision} is older than accepted revision ${acceptedRevision}`,

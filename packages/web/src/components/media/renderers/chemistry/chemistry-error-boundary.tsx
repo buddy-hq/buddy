@@ -21,10 +21,7 @@ function normalizeChemistryBoundaryError(error: unknown): Error {
   return new Error("The chemistry interface could not be loaded.")
 }
 
-function resetKeysChanged(
-  previous: readonly unknown[],
-  current: readonly unknown[],
-): boolean {
+function resetKeysChanged(previous: readonly unknown[], current: readonly unknown[]): boolean {
   return (
     previous.length !== current.length ||
     previous.some((value, index) => !Object.is(value, current[index]))
@@ -42,10 +39,7 @@ export class ChemistryErrorBoundary extends Component<
   }
 
   componentDidUpdate(previousProps: ChemistryErrorBoundaryProps): void {
-    if (
-      this.state.error &&
-      resetKeysChanged(previousProps.resetKeys, this.props.resetKeys)
-    ) {
+    if (this.state.error && resetKeysChanged(previousProps.resetKeys, this.props.resetKeys)) {
       this.setState({ error: null })
     }
   }

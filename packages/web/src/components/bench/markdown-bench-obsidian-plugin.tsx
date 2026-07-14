@@ -37,10 +37,7 @@ import { MarkdownHtmlSegment } from "@/components/markdown/markdown-html-segment
 import { buildProjectFileRawUrl } from "@/lib/project-file-raw-url"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { readProjectExplorerEditableFile } from "@/state/chat-actions"
-import {
-  obsidianVaultQueryKeys,
-  type ObsidianLinkResolution,
-} from "@/state/obsidian-vault-query"
+import { obsidianVaultQueryKeys, type ObsidianLinkResolution } from "@/state/obsidian-vault-query"
 
 const LEFT_SQUARE_BRACKET_CODE = 91
 const RIGHT_SQUARE_BRACKET_CODE = 93
@@ -336,9 +333,7 @@ class ObsidianWikiLinkNode extends DecoratorNode<JSX.Element> {
   }
 
   decorate(): JSX.Element {
-    return (
-      <ObsidianWikiLinkView target={this.__target} alias={this.__alias} embed={this.__embed} />
-    )
+    return <ObsidianWikiLinkView target={this.__target} alias={this.__alias} embed={this.__embed} />
   }
 
   toMdast(): ObsidianWikiLinkMdastNode {
@@ -361,7 +356,9 @@ function $createObsidianWikiLinkNode(input: {
   return new ObsidianWikiLinkNode(input)
 }
 
-function $isObsidianWikiLinkNode(node: LexicalNode | null | undefined): node is ObsidianWikiLinkNode {
+function $isObsidianWikiLinkNode(
+  node: LexicalNode | null | undefined,
+): node is ObsidianWikiLinkNode {
   return node instanceof ObsidianWikiLinkNode
 }
 
@@ -398,8 +395,7 @@ function ObsidianEmbeddedNote(props: {
   const path = props.resolution.path ?? ""
   const noteQuery = useQuery({
     queryKey: obsidianVaultQueryKeys.embeddedNote(props.context.directory, path),
-    queryFn: () =>
-      readProjectExplorerEditableFile({ directory: props.context.directory, path }),
+    queryFn: () => readProjectExplorerEditableFile({ directory: props.context.directory, path }),
     enabled: path.length > 0,
     staleTime: OBSIDIAN_EMBED_PREVIEW_STALE_TIME_MS,
   })
@@ -461,13 +457,7 @@ function ObsidianWikiLinkView(props: { target: string; alias?: string; embed: bo
   }
 
   if (props.embed && resolvedResolution?.kind === "markdown") {
-    return (
-      <ObsidianEmbeddedNote
-        context={context}
-        resolution={resolvedResolution}
-        label={label}
-      />
-    )
+    return <ObsidianEmbeddedNote context={context} resolution={resolvedResolution} label={label} />
   }
 
   const open = () => {
@@ -488,7 +478,9 @@ function ObsidianWikiLinkView(props: { target: string; alias?: string; embed: bo
   return (
     <button
       type="button"
-      data-component={props.embed ? "markdown-bench-obsidian-embed" : "markdown-bench-obsidian-link"}
+      data-component={
+        props.embed ? "markdown-bench-obsidian-embed" : "markdown-bench-obsidian-link"
+      }
       data-resolved={resolved ? "true" : "false"}
       className={cn(
         props.embed
@@ -498,11 +490,7 @@ function ObsidianWikiLinkView(props: { target: string; alias?: string; embed: bo
           ? "cursor-pointer text-text-interactive-base"
           : "cursor-default text-text-weaker decoration-border-strong-base",
       )}
-      title={
-        resolvedResolution
-          ? resolvedPath
-          : `Unresolved Obsidian link: ${props.target}`
-      }
+      title={resolvedResolution ? resolvedPath : `Unresolved Obsidian link: ${props.target}`}
       disabled={!resolved}
       onClick={openFromKeyboard}
       onPointerDown={openFromPointer}
@@ -552,7 +540,9 @@ export function useObsidianResolutionMap(
   return useMemo(() => new Map(links?.map((link) => [link.target, link]) ?? []), [links])
 }
 
-export function viewerForObsidianResolution(resolution: ObsidianLinkResolution): "file" | "markdown" {
+export function viewerForObsidianResolution(
+  resolution: ObsidianLinkResolution,
+): "file" | "markdown" {
   return resolution.path && isMarkdownBenchPath(resolution.path) ? "markdown" : "file"
 }
 

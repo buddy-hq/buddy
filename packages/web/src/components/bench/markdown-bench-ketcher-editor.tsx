@@ -130,10 +130,7 @@ export default function MarkdownBenchKetcherEditor(
     operationTokenRef.current = operationToken
     setSaving(true)
     setError(null)
-    void withKetcherOperationTimeout(
-      exportKetcherSource(ketcher, format),
-      "Structure export",
-    )
+    void withKetcherOperationTimeout(exportKetcherSource(ketcher, format), "Structure export")
       .then((nextSource) => {
         if (!mountedRef.current || operationTokenRef.current !== operationToken) return
         onSave(nextSource)
@@ -161,7 +158,8 @@ export default function MarkdownBenchKetcherEditor(
           aria-live={error ? "assertive" : "polite"}
           className="min-w-0 truncate text-xs text-text-weak"
         >
-          {error ?? (initializing ? "Preparing structure editor…" : "Changes stay local until saved.")}
+          {error ??
+            (initializing ? "Preparing structure editor…" : "Changes stay local until saved.")}
         </p>
         <div className="flex shrink-0 items-center gap-2">
           <Button type="button" variant="ghost" size="sm" onClick={cancel}>

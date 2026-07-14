@@ -21,10 +21,7 @@ export type ValidatedChemistrySource = {
 export class ChemistrySourceError extends Error {
   readonly code: "invalid_source" | "source_too_large"
 
-  constructor(
-    message: string,
-    code: "invalid_source" | "source_too_large" = "invalid_source",
-  ) {
+  constructor(message: string, code: "invalid_source" | "source_too_large" = "invalid_source") {
     super(message)
     this.name = "ChemistrySourceError"
     this.code = code
@@ -62,9 +59,7 @@ function validateKet(source: string): void {
     throw new ChemistrySourceError("KET source must contain a JSON object.")
   }
   if (!isRecord(parsed.root) || !Array.isArray(parsed.root.nodes)) {
-    throw new ChemistrySourceError(
-      'KET source must contain a "root.nodes" array.',
-    )
+    throw new ChemistrySourceError('KET source must contain a "root.nodes" array.')
   }
   if (parsed.root.nodes.length === 0) {
     throw new ChemistrySourceError("KET source must contain at least one root node.")

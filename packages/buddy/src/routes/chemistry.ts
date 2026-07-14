@@ -2,10 +2,7 @@ import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
 import { mapChemistryRouteError } from "../chemistry/errors"
-import {
-  ChemfigRenderRecordSchema,
-  renderChemfig,
-} from "../chemistry/chemfig-renderer"
+import { ChemfigRenderRecordSchema, renderChemfig } from "../chemistry/chemfig-renderer"
 import {
   CHEMFIG_MAX_REQUEST_BODY_BYTES,
   ChemistryRenderErrorCodeSchema,

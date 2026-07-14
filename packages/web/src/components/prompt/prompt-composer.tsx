@@ -1569,9 +1569,7 @@ export function PromptComposer(props: PromptComposerProps) {
 
       {props.sessionContextUsage ? (
         <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
-          <div className="flex min-w-0 items-center gap-1.5">
-            {props.contextActions}
-          </div>
+          <div className="flex min-w-0 items-center gap-1.5">{props.contextActions}</div>
           <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"

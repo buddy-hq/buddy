@@ -43,9 +43,4 @@ function defineBuddyFeature<const Id extends string>(
 
 export { defineBuddyFeature }
 
-export type {
-  BuddyFeatureDefinition,
-  BuddyFeaturePrompt,
-  BuddyFeatureRelease,
-  DefinedBuddyFeature,
-}
+export type { BuddyFeatureDefinition, BuddyFeaturePrompt, BuddyFeatureRelease, DefinedBuddyFeature }

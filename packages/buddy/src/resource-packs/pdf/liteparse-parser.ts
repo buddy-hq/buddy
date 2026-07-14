@@ -3,10 +3,7 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import type { PageComplexityStats, ParsedPage } from "@llamaindex/liteparse"
 import { BUDDY_ENV } from "../../storage"
-import {
-  assertResourcePageCount,
-  assertResourceTextCharacterCount,
-} from "../budgets"
+import { assertResourcePageCount, assertResourceTextCharacterCount } from "../budgets"
 
 const ENGLISH_TESSDATA_FILENAME = "eng.traineddata" as const
 const LITEPARSE_EXTRACTOR = "@llamaindex/liteparse" as const

@@ -19,12 +19,7 @@ const SVG_RENDER_MAX_WARNING_CHARACTERS = 1_000
 const SVG_RENDER_MAX_ERROR_CHARACTERS = 2_000
 const SVG_SOURCE_HASH_PATTERN = /^[a-f0-9]{64}$/u
 
-const BROWSER_SVG_SOURCE_FORMATS = [
-  "smiles",
-  "cxsmiles",
-  "reaction-smiles",
-  "ket",
-] as const
+const BROWSER_SVG_SOURCE_FORMATS = ["smiles", "cxsmiles", "reaction-smiles", "ket"] as const
 
 const SVG_SOURCE_FORMATS = [...BROWSER_SVG_SOURCE_FORMATS, "chemfig"] as const
 
@@ -88,13 +83,9 @@ type BrowserSvgSourceFormat = z.infer<typeof BrowserSvgSourceFormatSchema>
 type SvgSourceFormat = z.infer<typeof SvgSourceFormatSchema>
 type BrowserSvgRenderRequest = z.infer<typeof BrowserSvgRenderRequestSchema>
 type BrowserSvgRenderCompletion = z.infer<typeof BrowserSvgRenderCompletionSchema>
-type BrowserSvgRenderCompletionResponse = z.infer<
-  typeof BrowserSvgRenderCompletionResponseSchema
->
+type BrowserSvgRenderCompletionResponse = z.infer<typeof BrowserSvgRenderCompletionResponseSchema>
 
-function isBrowserSvgSourceFormat(
-  format: SvgSourceFormat,
-): format is BrowserSvgSourceFormat {
+function isBrowserSvgSourceFormat(format: SvgSourceFormat): format is BrowserSvgSourceFormat {
   return format !== "chemfig"
 }
 

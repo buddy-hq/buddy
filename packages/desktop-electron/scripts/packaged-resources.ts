@@ -12,15 +12,9 @@ type PackagedResourcesFingerprint = {
   size: number
 }
 
-export type PackagedResourcesSnapshot = ReadonlyMap<
-  string,
-  PackagedResourcesFingerprint
->
+export type PackagedResourcesSnapshot = ReadonlyMap<string, PackagedResourcesFingerprint>
 
-function collectPackagedResourcesDirectories(
-  directory: string,
-  depth = 0,
-): string[] {
+function collectPackagedResourcesDirectories(directory: string, depth = 0): string[] {
   if (!existsSync(directory) || depth > PACKAGED_RESOURCES_SCAN_MAX_DEPTH) return []
   const resourcesDirectories: string[] = []
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -38,9 +32,7 @@ function collectPackagedResourcesDirectories(
   return resourcesDirectories
 }
 
-export function capturePackagedResourcesSnapshot(
-  distDirectory: string,
-): PackagedResourcesSnapshot {
+export function capturePackagedResourcesSnapshot(distDirectory: string): PackagedResourcesSnapshot {
   return new Map(
     collectPackagedResourcesDirectories(distDirectory).map((resourcesDirectory) => {
       const stats = statSync(path.join(resourcesDirectory, ELECTRON_ASAR_FILENAME))
@@ -61,9 +53,7 @@ function fingerprintsMatch(
   right: PackagedResourcesFingerprint,
 ): boolean {
   return (
-    left.ctimeMs === right.ctimeMs &&
-    left.mtimeMs === right.mtimeMs &&
-    left.size === right.size
+    left.ctimeMs === right.ctimeMs && left.mtimeMs === right.mtimeMs && left.size === right.size
   )
 }
 

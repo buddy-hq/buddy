@@ -55,9 +55,9 @@
     "typecheck:raw": "bun ../../node_modules/@typescript/native-preview/bin/tsgo.js --noEmit"
   },
   "dependencies": {
-    "@parcel/watcher": "2.5.1",
     "@opencode-ai/core": "workspace:*",
     "@opencode-ai/plugin": "workspace:*",
+    "@parcel/watcher": "2.5.1",
     "ai": "catalog:",
     "effect": "catalog:",
     "opencode": "workspace:*"

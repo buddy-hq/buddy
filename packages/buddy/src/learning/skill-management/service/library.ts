@@ -24,10 +24,7 @@ import {
 } from "./paths"
 import { BUDDY_ENV } from "../../../storage"
 import { allBuddySkills } from "../../runtime/feature-registry"
-import {
-  libraryCatalogArtifactUrl,
-  skillArtifactPublicKey,
-} from "./artifact-config"
+import { libraryCatalogArtifactUrl, skillArtifactPublicKey } from "./artifact-config"
 import { createSignedArtifactStore } from "./signed-artifact"
 import { clearSkillPermission, setSkillPermission } from "./permissions"
 

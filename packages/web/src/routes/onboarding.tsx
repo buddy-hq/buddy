@@ -235,7 +235,9 @@ function OnboardingRoute() {
         setFinishDestination(undefined)
         setFinishExpanding(false)
         setPersonalizationExitPending(false)
-        setError(navigationError instanceof Error ? navigationError.message : String(navigationError))
+        setError(
+          navigationError instanceof Error ? navigationError.message : String(navigationError),
+        )
       })
     }, FINISH_NAVIGATE_DELAY_MS)
 
@@ -520,10 +522,7 @@ function OnboardingRoute() {
         providerSelectionAction.type ===
         ONBOARDING_PROVIDER_SELECTION_ACTION.configureExistingNotebook
       ) {
-        await finalizeExistingNotebookProviderSelection(
-          choice,
-          providerSelectionAction.directory,
-        )
+        await finalizeExistingNotebookProviderSelection(choice, providerSelectionAction.directory)
         return
       }
 

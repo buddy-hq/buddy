@@ -10,9 +10,9 @@ import {
 
 describe("experimentalFeatureIsEnabled", () => {
   test("fails closed before the experimental feature catalog loads", () => {
-    expect(
-      experimentalFeatureIsEnabled(undefined, EXPERIMENTAL_FEATURE_ID.learnerMemory),
-    ).toBe(false)
+    expect(experimentalFeatureIsEnabled(undefined, EXPERIMENTAL_FEATURE_ID.learnerMemory)).toBe(
+      false,
+    )
   })
 
   test("only enables an explicitly opted-in feature", () => {

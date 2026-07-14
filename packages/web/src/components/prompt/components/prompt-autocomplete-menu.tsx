@@ -55,7 +55,7 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
         ? `agent:${mentionActive.name}`
         : mentionActive.type === "reference"
           ? `reference:${mentionActive.name}`
-        : `file:${mentionActive.path}`
+          : `file:${mentionActive.path}`
       : undefined
 
   React.useLayoutEffect(() => {
@@ -156,7 +156,7 @@ export function PromptAutocompleteMenu(props: PromptAutocompleteMenuProps) {
                     ? `@${option.name}`
                     : option.type === "reference"
                       ? `@${option.name}`
-                    : `@${fileParts?.label ?? option.path}`
+                      : `@${fileParts?.label ?? option.path}`
                 return (
                   <CommandItem
                     key={key}

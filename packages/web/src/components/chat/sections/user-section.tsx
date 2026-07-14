@@ -145,12 +145,7 @@ export const UserSection = memo(function UserSection({
         ...userOpenCodeReferenceParts,
         ...userWorkspaceReferenceParts,
       ]),
-    [
-      userAgentParts,
-      userInlineFileParts,
-      userOpenCodeReferenceParts,
-      userWorkspaceReferenceParts,
-    ],
+    [userAgentParts, userInlineFileParts, userOpenCodeReferenceParts, userWorkspaceReferenceParts],
   )
   const combinedTextPart = useMemo(() => {
     const displayParts = userParts.flatMap((part) => {

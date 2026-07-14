@@ -56,10 +56,7 @@ import {
   buildNotebookStandardsOverridePatch,
   resolveNotebookStandardEnabled,
 } from "@/state/standards-settings"
-import {
-  SettingsListCard,
-  SettingsSectionHeader,
-} from "../../settings/settings-primitives"
+import { SettingsListCard, SettingsSectionHeader } from "../../settings/settings-primitives"
 import { useStandardsRuntime } from "../../settings/use-standards-runtime"
 import type { ArchiveState, RenameState } from "./types"
 import {
@@ -109,10 +106,7 @@ type ChatLeftSidebarDialogsProps = {
   onRenameTitleChange: (title: string) => void
 }
 
-function getMcpRepairButtonLabel(input: {
-  pending: boolean
-  status: McpStatusInfo | undefined
-}) {
+function getMcpRepairButtonLabel(input: { pending: boolean; status: McpStatusInfo | undefined }) {
   if (mcpNeedsClientRegistration(input.status)) {
     return language.t("mcp.listPanel.editDetails")
   }
@@ -157,7 +151,9 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
               <ArchiveIcon className="size-5.5" />
             </div>
             <div className="space-y-1">
-              <DialogTitle className="text-lg font-semibold">{language.t("sidebar.archiveThreadTitle")}</DialogTitle>
+              <DialogTitle className="text-lg font-semibold">
+                {language.t("sidebar.archiveThreadTitle")}
+              </DialogTitle>
               <DialogDescription className="text-sm text-text-weak max-w-xs mx-auto leading-normal">
                 {props.archiveState
                   ? language.t("sidebar.archiveThreadQuestion", { title: props.archiveState.title })
@@ -203,7 +199,9 @@ export function ChatLeftSidebarDialogs(props: ChatLeftSidebarDialogsProps) {
               <PencilIcon className="size-5.5" />
             </div>
             <div className="space-y-1">
-              <DialogTitle className="text-lg font-semibold">{language.t("sidebar.renameThread")}</DialogTitle>
+              <DialogTitle className="text-lg font-semibold">
+                {language.t("sidebar.renameThread")}
+              </DialogTitle>
               <DialogDescription className="text-sm text-text-weak max-w-xs mx-auto leading-normal">
                 {language.t("sidebar.renameThreadHint")}
               </DialogDescription>
@@ -261,19 +259,19 @@ function SettingsItemRow({ title, description, control, badge, disabled }: Setti
     <div
       className={cn(
         "flex items-start justify-between gap-4 px-4 py-3.5 sm:px-5 border-t border-border-base/40 first:border-t-0 hover:bg-surface-weak/5 transition-[background-color,opacity]",
-        disabled && "opacity-45 pointer-events-none"
+        disabled && "opacity-45 pointer-events-none",
       )}
     >
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[13px] font-semibold text-text-strong tracking-[-0.01em]">{title}</span>
+          <span className="text-[13px] font-semibold text-text-strong tracking-[-0.01em]">
+            {title}
+          </span>
           {badge}
         </div>
         {description && <div className="text-xs text-text-weak leading-normal">{description}</div>}
       </div>
-      <div className="flex shrink-0 items-center gap-2.5">
-        {control}
-      </div>
+      <div className="flex shrink-0 items-center gap-2.5">{control}</div>
     </div>
   )
 }
@@ -324,9 +322,7 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
     experimentalFeaturesQuery.data,
     EXPERIMENTAL_FEATURE_ID.learnerMemory,
   )
-  const notebookControlsDisabled =
-    globalConfigQuery.isPending ||
-    rawProjectConfigQuery.isPending
+  const notebookControlsDisabled = globalConfigQuery.isPending || rawProjectConfigQuery.isPending
   const autoExtractDisabled =
     globalConfigQuery.isPending ||
     rawProjectConfigQuery.isPending ||
@@ -480,232 +476,241 @@ export function NotebookSettingsDialog(props: NotebookSettingsDialogProps) {
   return (
     <>
       <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader className="flex flex-col items-start space-y-3.5">
-          <div className="flex items-center gap-3 w-full">
-            <div className="flex size-10 items-center justify-center rounded-xl border border-border-weak bg-surface-weak/50 text-icon-brand-base shrink-0">
-              <BookIcon className="size-5" />
-            </div>
-            <div className="min-w-0 text-left w-full">
-              <DialogTitle className="text-lg font-semibold flex items-center gap-2">
-                <span className="truncate max-w-[320px]" title={props.notebookName}>{props.notebookName}</span>
-                {pendingKey && <Spinner className="size-3.5 text-text-interactive-base shrink-0" />}
-              </DialogTitle>
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="space-y-4">
-          <div className="max-h-[50vh] overflow-y-auto pr-1 -mr-2 space-y-5">
-            {learnerMemoryExperimentEnabled ? (
-              <div className="space-y-3">
-                <SettingsSectionHeader
-                  title={language.t("sidebar.notebookSettingsLearnerMemorySectionTitle")}
-                />
-                <SettingsListCard>
-                  <SettingsItemRow
-                    title={language.t("settings.notebook.learnerMemoryTitle")}
-                    disabled={notebookControlsDisabled || pendingKey === "learner-memory"}
-                    control={
-                      <Switch
-                        data-action="notebook-settings-learner-memory"
-                        checked={learnerMemorySelection.enabled}
-                        onCheckedChange={(checked) => {
-                          void onToggleNotebookLearnerMemory(checked)
-                        }}
-                        disabled={notebookControlsDisabled || pendingKey === "learner-memory"}
-                        aria-label={language.t("settings.notebook.learnerMemoryAria")}
-                      />
-                    }
-                  />
-                  <SettingsItemRow
-                    title={language.t("settings.notebook.learnerMemoryAutoExtractTitle")}
-                    disabled={autoExtractDisabled || pendingKey === "learner-memory-auto-extract"}
-                    control={
-                      <Switch
-                        data-action="notebook-settings-learner-memory-auto"
-                        checked={learnerMemorySelection.autoExtract}
-                        onCheckedChange={(checked) => {
-                          void onToggleNotebookLearnerMemoryAutoExtract(checked)
-                        }}
-                        disabled={
-                          autoExtractDisabled || pendingKey === "learner-memory-auto-extract"
-                        }
-                        aria-label={language.t("settings.notebook.learnerMemoryAutoExtractAria")}
-                      />
-                    }
-                  />
-                </SettingsListCard>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader className="flex flex-col items-start space-y-3.5">
+            <div className="flex items-center gap-3 w-full">
+              <div className="flex size-10 items-center justify-center rounded-xl border border-border-weak bg-surface-weak/50 text-icon-brand-base shrink-0">
+                <BookIcon className="size-5" />
               </div>
-            ) : null}
+              <div className="min-w-0 text-left w-full">
+                <DialogTitle className="text-lg font-semibold flex items-center gap-2">
+                  <span className="truncate max-w-[320px]" title={props.notebookName}>
+                    {props.notebookName}
+                  </span>
+                  {pendingKey && (
+                    <Spinner className="size-3.5 text-text-interactive-base shrink-0" />
+                  )}
+                </DialogTitle>
+              </div>
+            </div>
+          </DialogHeader>
 
-            {standardsLoading || standardsEnabled ? (
+          <div className="space-y-4">
+            <div className="max-h-[50vh] overflow-y-auto pr-1 -mr-2 space-y-5">
+              {learnerMemoryExperimentEnabled ? (
+                <div className="space-y-3">
+                  <SettingsSectionHeader
+                    title={language.t("sidebar.notebookSettingsLearnerMemorySectionTitle")}
+                  />
+                  <SettingsListCard>
+                    <SettingsItemRow
+                      title={language.t("settings.notebook.learnerMemoryTitle")}
+                      disabled={notebookControlsDisabled || pendingKey === "learner-memory"}
+                      control={
+                        <Switch
+                          data-action="notebook-settings-learner-memory"
+                          checked={learnerMemorySelection.enabled}
+                          onCheckedChange={(checked) => {
+                            void onToggleNotebookLearnerMemory(checked)
+                          }}
+                          disabled={notebookControlsDisabled || pendingKey === "learner-memory"}
+                          aria-label={language.t("settings.notebook.learnerMemoryAria")}
+                        />
+                      }
+                    />
+                    <SettingsItemRow
+                      title={language.t("settings.notebook.learnerMemoryAutoExtractTitle")}
+                      disabled={autoExtractDisabled || pendingKey === "learner-memory-auto-extract"}
+                      control={
+                        <Switch
+                          data-action="notebook-settings-learner-memory-auto"
+                          checked={learnerMemorySelection.autoExtract}
+                          onCheckedChange={(checked) => {
+                            void onToggleNotebookLearnerMemoryAutoExtract(checked)
+                          }}
+                          disabled={
+                            autoExtractDisabled || pendingKey === "learner-memory-auto-extract"
+                          }
+                          aria-label={language.t("settings.notebook.learnerMemoryAutoExtractAria")}
+                        />
+                      }
+                    />
+                  </SettingsListCard>
+                </div>
+              ) : null}
+
+              {standardsLoading || standardsEnabled ? (
+                <>
+                  <div className="h-[1px] bg-border-base/40 w-full" />
+                  <div className="space-y-3">
+                    <SettingsSectionHeader
+                      title={language.t("sidebar.notebookSettingsStandardsSectionTitle")}
+                    />
+                    {standardsLoading ? (
+                      <div className="rounded-md border border-border-base/60 bg-surface-weak/30 px-3 py-2 text-xs text-text-weak">
+                        {language.t("mcp.listPanel.loading")}
+                      </div>
+                    ) : (
+                      <SettingsListCard>
+                        {STANDARDS_TOOL_IDS.map((toolId) => (
+                          <SettingsItemRow
+                            key={toolId}
+                            title={STANDARDS_TOOL_DISPLAY_NAMES[toolId]}
+                            disabled={pendingKey === `standards:${toolId}`}
+                            control={
+                              <Switch
+                                data-action={`notebook-settings-standards-${toolId}`}
+                                checked={resolveNotebookStandardEnabled(
+                                  globalConfig,
+                                  rawProjectConfig,
+                                  toolId,
+                                )}
+                                disabled={pendingKey === `standards:${toolId}`}
+                                aria-label={language.t("settings.tools.toggleAria", {
+                                  tool: STANDARDS_TOOL_DISPLAY_NAMES[toolId],
+                                })}
+                                onCheckedChange={(checked) => {
+                                  void onToggleNotebookStandardsTool(toolId, checked)
+                                }}
+                              />
+                            }
+                          />
+                        ))}
+                      </SettingsListCard>
+                    )}
+                  </div>
+                </>
+              ) : null}
+
               <>
                 <div className="h-[1px] bg-border-base/40 w-full" />
                 <div className="space-y-3">
                   <SettingsSectionHeader
-                    title={language.t("sidebar.notebookSettingsStandardsSectionTitle")}
+                    title={language.t("sidebar.notebookSettingsMcpSectionTitle")}
                   />
-                  {standardsLoading ? (
+                  {globalConfigQuery.isPending || rawProjectConfigQuery.isPending ? (
                     <div className="rounded-md border border-border-base/60 bg-surface-weak/30 px-3 py-2 text-xs text-text-weak">
                       {language.t("mcp.listPanel.loading")}
                     </div>
+                  ) : mcpNames.length === 0 ? (
+                    <div className="rounded-md border border-border-base/60 bg-surface-weak/30 px-3 py-2 text-xs text-text-weak">
+                      {language.t("sidebar.notebookSettingsMcpEmpty")}
+                    </div>
                   ) : (
                     <SettingsListCard>
-                      {STANDARDS_TOOL_IDS.map((toolId) => (
-                        <SettingsItemRow
-                          key={toolId}
-                          title={STANDARDS_TOOL_DISPLAY_NAMES[toolId]}
-                          disabled={pendingKey === `standards:${toolId}`}
-                          control={
-                            <Switch
-                              data-action={`notebook-settings-standards-${toolId}`}
-                              checked={resolveNotebookStandardEnabled(
-                                globalConfig,
-                                rawProjectConfig,
-                                toolId,
-                              )}
-                              disabled={pendingKey === `standards:${toolId}`}
-                              aria-label={language.t("settings.tools.toggleAria", {
-                                tool: STANDARDS_TOOL_DISPLAY_NAMES[toolId],
-                              })}
-                              onCheckedChange={(checked) => {
-                                void onToggleNotebookStandardsTool(toolId, checked)
-                              }}
-                            />
-                          }
-                        />
-                      ))}
+                      {mcpNames.map((name) => {
+                        const config = notebookMcpConfigByName[name] ?? globalMcpConfigByName[name]
+                        const enabled = resolveNotebookMcpEnabled(
+                          globalMcpConfigByName,
+                          rawProjectConfig,
+                          name,
+                        )
+                        const status = enabled ? mcpStatusByName[name] : undefined
+                        const pending = pendingKey === `mcp:${name}`
+                        const statusLabel = !enabled
+                          ? language.t("mcp.statusLabels.disabled")
+                          : status
+                            ? getMcpStatusLabel(status.status)
+                            : language.t("mcp.listPanel.configured")
+                        const showRepairAction =
+                          enabled && status?.status !== "connected" && status?.status !== "disabled"
+
+                        const statusColorClass = !enabled
+                          ? "text-text-weakest font-normal"
+                          : status?.status === "connected"
+                            ? "text-text-success-base font-medium"
+                            : status?.status === "failed"
+                              ? "text-text-critical-base font-medium"
+                              : mcpNeedsClientRegistration(status)
+                                ? "text-text-critical-base font-medium"
+                                : mcpNeedsAuth(status)
+                                  ? "text-text-warning-base font-medium"
+                                  : "text-text-info-strong font-medium"
+
+                        const mcpDescription = (
+                          <span className="flex items-center gap-1.5 flex-wrap text-text-weak">
+                            <span
+                              className="truncate max-w-[260px]"
+                              title={getMcpConfigDescription(config, status)}
+                            >
+                              {getMcpConfigDescription(config, status)}
+                            </span>
+                            <span className="text-text-weakest select-none font-normal shrink-0">
+                              •
+                            </span>
+                            <span className={cn("shrink-0", statusColorClass)}>{statusLabel}</span>
+                          </span>
+                        )
+
+                        return (
+                          <SettingsItemRow
+                            key={name}
+                            title={name}
+                            description={mcpDescription}
+                            control={
+                              <div className="flex items-center gap-2">
+                                {showRepairAction ? (
+                                  <Button
+                                    type="button"
+                                    size="xs"
+                                    variant="outline"
+                                    disabled={pending}
+                                    onClick={() => {
+                                      void onRepairNotebookMcp(name)
+                                    }}
+                                    className="h-7 text-xs px-2.5 active:scale-[0.97] transition-transform"
+                                  >
+                                    {getMcpRepairButtonLabel({ pending, status })}
+                                  </Button>
+                                ) : null}
+                                <Switch
+                                  data-action={`notebook-settings-mcp-${name}`}
+                                  checked={enabled}
+                                  disabled={pending}
+                                  aria-label={language.t(
+                                    enabled
+                                      ? "mcp.listPanel.switchAria.disable"
+                                      : "mcp.listPanel.switchAria.enable",
+                                    { name },
+                                  )}
+                                  onCheckedChange={(checked) => {
+                                    void onToggleNotebookMcp(name, checked)
+                                  }}
+                                />
+                              </div>
+                            }
+                          />
+                        )
+                      })}
                     </SettingsListCard>
                   )}
                 </div>
               </>
+            </div>
+
+            {notebookMcpQueryError ? (
+              <p className="text-sm text-text-critical-base bg-surface-critical-weak/10 border border-border-critical-weak/30 rounded-lg p-2.5">
+                {formatMcpError(notebookMcpQueryError)}
+              </p>
             ) : null}
-
-            <>
-              <div className="h-[1px] bg-border-base/40 w-full" />
-              <div className="space-y-3">
-                <SettingsSectionHeader
-                  title={language.t("sidebar.notebookSettingsMcpSectionTitle")}
-                />
-                {globalConfigQuery.isPending || rawProjectConfigQuery.isPending ? (
-                  <div className="rounded-md border border-border-base/60 bg-surface-weak/30 px-3 py-2 text-xs text-text-weak">
-                    {language.t("mcp.listPanel.loading")}
-                  </div>
-                ) : mcpNames.length === 0 ? (
-                  <div className="rounded-md border border-border-base/60 bg-surface-weak/30 px-3 py-2 text-xs text-text-weak">
-                    {language.t("sidebar.notebookSettingsMcpEmpty")}
-                  </div>
-                ) : (
-                  <SettingsListCard>
-                    {mcpNames.map((name) => {
-                      const config = notebookMcpConfigByName[name] ?? globalMcpConfigByName[name]
-                      const enabled = resolveNotebookMcpEnabled(
-                        globalMcpConfigByName,
-                        rawProjectConfig,
-                        name,
-                      )
-                      const status = enabled ? mcpStatusByName[name] : undefined
-                      const pending = pendingKey === `mcp:${name}`
-                      const statusLabel = !enabled
-                        ? language.t("mcp.statusLabels.disabled")
-                        : status
-                          ? getMcpStatusLabel(status.status)
-                          : language.t("mcp.listPanel.configured")
-                      const showRepairAction =
-                        enabled && status?.status !== "connected" && status?.status !== "disabled"
-
-                      const statusColorClass = !enabled
-                        ? "text-text-weakest font-normal"
-                        : status?.status === "connected"
-                          ? "text-text-success-base font-medium"
-                          : status?.status === "failed"
-                            ? "text-text-critical-base font-medium"
-                            : mcpNeedsClientRegistration(status)
-                              ? "text-text-critical-base font-medium"
-                              : mcpNeedsAuth(status)
-                                ? "text-text-warning-base font-medium"
-                                : "text-text-info-strong font-medium"
-
-                      const mcpDescription = (
-                        <span className="flex items-center gap-1.5 flex-wrap text-text-weak">
-                          <span className="truncate max-w-[260px]" title={getMcpConfigDescription(config, status)}>
-                            {getMcpConfigDescription(config, status)}
-                          </span>
-                          <span className="text-text-weakest select-none font-normal shrink-0">•</span>
-                          <span className={cn("shrink-0", statusColorClass)}>{statusLabel}</span>
-                        </span>
-                      )
-
-                      return (
-                        <SettingsItemRow
-                          key={name}
-                          title={name}
-                          description={mcpDescription}
-                          control={
-                            <div className="flex items-center gap-2">
-                              {showRepairAction ? (
-                                <Button
-                                  type="button"
-                                  size="xs"
-                                  variant="outline"
-                                  disabled={pending}
-                                  onClick={() => {
-                                    void onRepairNotebookMcp(name)
-                                  }}
-                                  className="h-7 text-xs px-2.5 active:scale-[0.97] transition-transform"
-                                >
-                                  {getMcpRepairButtonLabel({ pending, status })}
-                                </Button>
-                              ) : null}
-                              <Switch
-                                data-action={`notebook-settings-mcp-${name}`}
-                                checked={enabled}
-                                disabled={pending}
-                                aria-label={language.t(
-                                  enabled
-                                    ? "mcp.listPanel.switchAria.disable"
-                                    : "mcp.listPanel.switchAria.enable",
-                                  { name },
-                                )}
-                                onCheckedChange={(checked) => {
-                                  void onToggleNotebookMcp(name, checked)
-                                }}
-                              />
-                            </div>
-                          }
-                        />
-                      )
-                    })}
-                  </SettingsListCard>
-                )}
-              </div>
-            </>
+            {settingsError ? (
+              <p className="text-sm text-text-critical-base bg-surface-critical-weak/10 border border-border-critical-weak/30 rounded-lg p-2.5">
+                {settingsError}
+              </p>
+            ) : null}
           </div>
 
-          {notebookMcpQueryError ? (
-            <p className="text-sm text-text-critical-base bg-surface-critical-weak/10 border border-border-critical-weak/30 rounded-lg p-2.5">
-              {formatMcpError(notebookMcpQueryError)}
-            </p>
-          ) : null}
-          {settingsError ? (
-            <p className="text-sm text-text-critical-base bg-surface-critical-weak/10 border border-border-critical-weak/30 rounded-lg p-2.5">
-              {settingsError}
-            </p>
-          ) : null}
-        </div>
-
-        <DialogFooter className="mt-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => props.onOpenChange(false)}
-            className="active:scale-[0.97] transition-transform"
-          >
-            {language.t("common.close")}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+          <DialogFooter className="mt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => props.onOpenChange(false)}
+              className="active:scale-[0.97] transition-transform"
+            >
+              {language.t("common.close")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
       <McpEditorDialog
         open={notebookMcpEditor.editorOpen}
@@ -792,7 +797,7 @@ export function NotebookCreationDialog(props: NotebookCreationDialogProps) {
                 <div
                   className={cn(
                     "border-t border-border-weak/60 pt-4 flex items-start justify-between gap-4 transition-opacity duration-200",
-                    !props.enableLearnerMemory && "opacity-40 pointer-events-none"
+                    !props.enableLearnerMemory && "opacity-40 pointer-events-none",
                   )}
                 >
                   <div className="space-y-1 pl-2">

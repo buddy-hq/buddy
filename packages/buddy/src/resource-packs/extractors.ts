@@ -824,8 +824,7 @@ async function extractEpubResource(sourcePath: string): Promise<ResourceExtracti
       const chapterMarkdown = resourceTurndown.turndown(chapterMarkup).trim()
       if (!chapterMarkdown) continue
       const title = path.posix.basename(href)
-      fullTextCharacters +=
-        title.length + chapterMarkdown.length + (chapters.length > 0 ? 6 : 4)
+      fullTextCharacters += title.length + chapterMarkdown.length + (chapters.length > 0 ? 6 : 4)
       assertResourceTextCharacterCount(fullTextCharacters)
       chapters.push({ title, body: chapterMarkdown })
     }

@@ -1,7 +1,4 @@
-import type {
-  ObsidianProfileResponses,
-  ObsidianResolveLinksResponses,
-} from "@buddy/sdk"
+import type { ObsidianProfileResponses, ObsidianResolveLinksResponses } from "@buddy/sdk"
 import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 
@@ -146,10 +143,7 @@ export async function invalidateObsidianWatcherCaches(
       }),
     )
   }
-  if (
-    input.event !== "change" ||
-    input.path.toLocaleLowerCase().endsWith(MARKDOWN_EXTENSION)
-  ) {
+  if (input.event !== "change" || input.path.toLocaleLowerCase().endsWith(MARKDOWN_EXTENSION)) {
     invalidations.push(
       queryClient.invalidateQueries({
         queryKey: obsidianVaultQueryKeys.linkScope(input.directory),

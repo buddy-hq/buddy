@@ -13,10 +13,7 @@ type BuddyFileSystemChangeEvent = "add" | "change"
 
 const FILE_EDITED_EVENT_TYPE = "file.edited"
 
-function workspaceRelativeFilePath(
-  directory: string,
-  filePath: string,
-): string | undefined {
+function workspaceRelativeFilePath(directory: string, filePath: string): string | undefined {
   const relativePath = path.relative(path.resolve(directory), path.resolve(filePath))
   if (
     relativePath.length === 0 ||

@@ -164,7 +164,6 @@ export function ChemistryDiagram(props: ChemistryDiagramProps) {
             </div>
           ) : null}
         </div>
-
       </figure>
     </div>
   )

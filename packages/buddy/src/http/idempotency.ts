@@ -4,9 +4,7 @@ import z from "zod"
 export const IDEMPOTENCY_KEY_HEADER = "idempotency-key" as const
 const IDEMPOTENCY_REQUEST_HASH_LENGTH = 64
 
-export const IdempotencyRequestHashSchema = z
-  .string()
-  .length(IDEMPOTENCY_REQUEST_HASH_LENGTH)
+export const IdempotencyRequestHashSchema = z.string().length(IDEMPOTENCY_REQUEST_HASH_LENGTH)
 
 export class IdempotencyPayloadConflictError extends Error {
   constructor() {
@@ -15,10 +13,9 @@ export class IdempotencyPayloadConflictError extends Error {
   }
 }
 
-export const idempotencyHeaderSchema = z
-  .object({
-    [IDEMPOTENCY_KEY_HEADER]: z.string().uuid(),
-  })
+export const idempotencyHeaderSchema = z.object({
+  [IDEMPOTENCY_KEY_HEADER]: z.string().uuid(),
+})
 
 export function createIdempotencyRequestHash(payload: Record<string, unknown>): string {
   return createHash("sha256").update(JSON.stringify(payload)).digest("hex")

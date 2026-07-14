@@ -11,10 +11,7 @@ import {
   type BuddyToolContext,
 } from "@buddy/backend/learning/runtime/create-buddy-tool"
 import RENDER_SVG_DESCRIPTION from "./render-svg.md"
-import {
-  SvgSourceFormatSchema,
-  SvgTextSourceSchema,
-} from "../service/contracts"
+import { SvgSourceFormatSchema, SvgTextSourceSchema } from "../service/contracts"
 import { renderSvgSource, sha256Text } from "../service/render-source"
 import {
   SVG_AUTO_REPAIR_MAX_RENDER_ATTEMPTS,
@@ -58,10 +55,9 @@ const RenderSvgInputSchema = z
 type RenderSvgInput = z.infer<typeof RenderSvgInputSchema>
 
 function renderSvgOutput(filePath: string, warnings: readonly string[]): string {
-  return [
-    `Rendered SVG to ${filePath}.`,
-    ...warnings.map((warning) => `Warning: ${warning}`),
-  ].join("\n")
+  return [`Rendered SVG to ${filePath}.`, ...warnings.map((warning) => `Warning: ${warning}`)].join(
+    "\n",
+  )
 }
 
 function currentAutoRepairRequestID(ctx: BuddyToolContext): string | undefined {
@@ -106,10 +102,7 @@ const renderSvgTool = createBuddyTool({
       if (filePath !== scratchFile) {
         throw new Error(`Use the exact temporary filePath from the repair prompt: ${scratchFile}`)
       }
-      verifiedRepairTargetPath = await resolveSvgAutoRepairStoragePath(
-        ctx.directory,
-        filePath,
-      )
+      verifiedRepairTargetPath = await resolveSvgAutoRepairStoragePath(ctx.directory, filePath)
       await beginSvgAutoRepairRenderAttempt({
         attemptID: repairAttemptID,
         directory: ctx.directory,
@@ -129,10 +122,7 @@ const renderSvgTool = createBuddyTool({
 
     try {
       const writeSnapshot = await captureTextFileWriteSnapshot(filePath)
-      if (
-        verifiedRepairTargetPath &&
-        writeSnapshot.targetPath !== verifiedRepairTargetPath
-      ) {
+      if (verifiedRepairTargetPath && writeSnapshot.targetPath !== verifiedRepairTargetPath) {
         throw new Error("SVG auto-repair storage path changed before rendering started.")
       }
       const fileExisted = writeSnapshot.version !== null
@@ -155,10 +145,7 @@ const renderSvgTool = createBuddyTool({
           requestID: repairRequest.repairRequestID,
           sourceHash: sha256Text(params.source),
         })
-        scheduleSvgAutoRepairScratchCleanup(
-          ctx.directory,
-          repairRequest.repairRequestID,
-        )
+        scheduleSvgAutoRepairScratchCleanup(ctx.directory, repairRequest.repairRequestID)
       }
 
       if (!repairRequest) {

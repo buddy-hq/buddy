@@ -66,11 +66,7 @@ import {
   waitForMarkdownPdfRenderReady,
 } from "@/lib/markdown-pdf-export"
 import { fileNameFromPath, workspaceFileInstanceKey } from "@/lib/workspace-file-paths"
-import {
-  BENCH_MODE_REQUEST_POLICY,
-  useOpenBench,
-  type BenchTarget,
-} from "@/lib/bench-navigation"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench, type BenchTarget } from "@/lib/bench-navigation"
 import {
   ProjectExplorerFileVersionConflictError,
   readProjectExplorerEditableFile,
@@ -907,7 +903,16 @@ function MarkdownBenchPageInstance(props: MarkdownBenchPageProps) {
         setSaving(false)
       }
     },
-    [dirty, exists, markdown, patchFileStateRef, props.directory, props.path, savedMarkdown, version],
+    [
+      dirty,
+      exists,
+      markdown,
+      patchFileStateRef,
+      props.directory,
+      props.path,
+      savedMarkdown,
+      version,
+    ],
   )
 
   useEffect(() => {

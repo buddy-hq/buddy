@@ -44,9 +44,7 @@ describe("experimental feature gating", () => {
     })
 
     expect(config.learner_memory).toEqual({ enabled: true })
-    expect(
-      experimentalFeatureIsEnabled(config, EXPERIMENTAL_FEATURE_ID.learnerMemory),
-    ).toBe(false)
+    expect(experimentalFeatureIsEnabled(config, EXPERIMENTAL_FEATURE_ID.learnerMemory)).toBe(false)
   })
 
   test("catalog status is disabled unless explicitly opted in", () => {
@@ -89,16 +87,13 @@ describe("experimental feature gating", () => {
     })
     const sessionPermission = buildBuddyRuntimeSessionPermissions({ sessionRuntime })
 
-    expect(
-      getBuddySubagentDefinition(LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY)?.delegatable,
-    ).toBe(false)
+    expect(getBuddySubagentDefinition(LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY)?.delegatable).toBe(
+      false,
+    )
     expect(sessionRuntime.access.subagents[LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY]).toBeUndefined()
     expect(
-      PermissionNext.evaluate(
-        "task",
-        LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY,
-        sessionPermission,
-      ).action,
+      PermissionNext.evaluate("task", LEARNER_MEMORY_CONSOLIDATOR_AGENT_KEY, sessionPermission)
+        .action,
     ).toBe("deny")
   })
 

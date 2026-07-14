@@ -11,9 +11,7 @@ import {
 } from "../src/components/media/renderers/chemistry/validation"
 
 type BrowserChemistryFormat = Exclude<ChemistryFormat, "chemfig">
-type StressExpectation =
-  | { outcome: "rendered" }
-  | { messageIncludes: string; outcome: "rejected" }
+type StressExpectation = { outcome: "rendered" } | { messageIncludes: string; outcome: "rejected" }
 type StressCase = {
   expectation: StressExpectation
   format: BrowserChemistryFormat
@@ -43,11 +41,7 @@ const ARGUMENT_PREFIXES = {
   warmup: "--warmup=",
 } as const
 
-function readPositiveIntegerArgument(
-  prefix: string,
-  fallback: number,
-  name: string,
-): number {
+function readPositiveIntegerArgument(prefix: string, fallback: number, name: string): number {
   const argument = Bun.argv.find((value) => value.startsWith(prefix))
   if (!argument) return fallback
   const parsed = Number.parseInt(argument.slice(prefix.length), 10)
@@ -75,11 +69,7 @@ function readConfiguration(): StressConfiguration {
       DEFAULT_ITERATIONS,
       "--iterations",
     ),
-    warmup: readPositiveIntegerArgument(
-      ARGUMENT_PREFIXES.warmup,
-      DEFAULT_WARMUP,
-      "--warmup",
-    ),
+    warmup: readPositiveIntegerArgument(ARGUMENT_PREFIXES.warmup, DEFAULT_WARMUP, "--warmup"),
   }
 }
 
@@ -276,12 +266,7 @@ try {
   const memoryBefore = process.memoryUsage()
   const startedAt = performance.now()
   const expectedSvg = new Map<string, string>()
-  const results = await runBurst(
-    client,
-    workload,
-    configuration.concurrency,
-    expectedSvg,
-  )
+  const results = await runBurst(client, workload, configuration.concurrency, expectedSvg)
   const elapsedMs = performance.now() - startedAt
   Bun.gc(true)
   const memoryAfter = process.memoryUsage()

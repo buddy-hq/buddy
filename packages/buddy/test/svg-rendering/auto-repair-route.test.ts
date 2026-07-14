@@ -149,9 +149,7 @@ describe("SVG auto-repair route", () => {
         },
       },
     })
-    expect(messages).toEqual([
-      "Automatic SVG repair completed without producing a validated SVG.",
-    ])
+    expect(messages).toEqual(["Automatic SVG repair completed without producing a validated SVG."])
 
     publishGlobalEvent({
       directory: "/workspace",
@@ -165,18 +163,11 @@ describe("SVG auto-repair route", () => {
   })
 
   test("accepts only standalone transcript fences with the first valid closing delimiter", () => {
-    expect(
-      containsStandaloneReportedSvgFence(
-        `Before\r\n${RAW_FENCE}\r\nAfter`,
-        RAW_FENCE,
-      ),
-    ).toBe(true)
-    expect(containsStandaloneReportedSvgFence(`Before ${RAW_FENCE}`, RAW_FENCE)).toBe(
-      false,
+    expect(containsStandaloneReportedSvgFence(`Before\r\n${RAW_FENCE}\r\nAfter`, RAW_FENCE)).toBe(
+      true,
     )
-    expect(containsStandaloneReportedSvgFence(`${RAW_FENCE} after`, RAW_FENCE)).toBe(
-      false,
-    )
+    expect(containsStandaloneReportedSvgFence(`Before ${RAW_FENCE}`, RAW_FENCE)).toBe(false)
+    expect(containsStandaloneReportedSvgFence(`${RAW_FENCE} after`, RAW_FENCE)).toBe(false)
     expect(
       reportedSvgFenceMatches({
         format: "smiles",

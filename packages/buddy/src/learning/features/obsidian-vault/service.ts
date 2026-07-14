@@ -101,7 +101,10 @@ type ObsidianVaultIndexCacheEntry = {
 const vaultIndexCache = new Map<string, ObsidianVaultIndexCacheEntry>()
 
 function normalizedVaultPath(value: string): string {
-  return value.trim().replaceAll("\\", "/").replace(/^\/+|\/+$/gu, "")
+  return value
+    .trim()
+    .replaceAll("\\", "/")
+    .replace(/^\/+|\/+$/gu, "")
 }
 
 function normalizedLookupKey(value: string): string {
@@ -144,7 +147,9 @@ function removeLookupEntry(
 }
 
 function isObsidianConfigDirectoryName(name: string): boolean {
-  return name === OBSIDIAN_DEFAULT_CONFIG_DIRECTORY || name.startsWith(OBSIDIAN_CONFIG_DIRECTORY_PREFIX)
+  return (
+    name === OBSIDIAN_DEFAULT_CONFIG_DIRECTORY || name.startsWith(OBSIDIAN_CONFIG_DIRECTORY_PREFIX)
+  )
 }
 
 async function directoryHasObsidianConfigMarkers(directory: string): Promise<boolean> {
@@ -207,9 +212,7 @@ async function listVaultEntries(
   while (directories.length > 0 && !partial) {
     const currentDirectory = directories.shift()
     if (!currentDirectory) break
-    const children = await fsp
-      .readdir(currentDirectory, { withFileTypes: true })
-      .catch(() => [])
+    const children = await fsp.readdir(currentDirectory, { withFileTypes: true }).catch(() => [])
 
     for (const child of children) {
       if (child.isDirectory()) {
@@ -257,9 +260,7 @@ function aliasesFromFrontmatter(source: string): string[] {
     const data: unknown = matter(source).data
     const parsed = obsidianAliasesSchema.safeParse(data)
     if (!parsed.success || parsed.data.aliases === undefined) return []
-    return typeof parsed.data.aliases === "string"
-      ? [parsed.data.aliases]
-      : parsed.data.aliases
+    return typeof parsed.data.aliases === "string" ? [parsed.data.aliases] : parsed.data.aliases
   } catch {
     return []
   }
@@ -424,19 +425,13 @@ function closeVaultIndexEntry(entry: ObsidianVaultIndexCacheEntry): void {
   void entry.close().catch(() => undefined)
 }
 
-function invalidateVaultIndexEntry(
-  directory: string,
-  entry: ObsidianVaultIndexCacheEntry,
-): void {
+function invalidateVaultIndexEntry(directory: string, entry: ObsidianVaultIndexCacheEntry): void {
   if (vaultIndexCache.get(directory) !== entry) return
   vaultIndexCache.delete(directory)
   closeVaultIndexEntry(entry)
 }
 
-function cacheVaultIndexEntry(
-  directory: string,
-  entry: ObsidianVaultIndexCacheEntry,
-): void {
+function cacheVaultIndexEntry(directory: string, entry: ObsidianVaultIndexCacheEntry): void {
   vaultIndexCache.set(directory, entry)
   while (vaultIndexCache.size > OBSIDIAN_INDEX_CACHE_MAX_VAULTS) {
     const oldest = vaultIndexCache.entries().next().value
@@ -445,10 +440,7 @@ function cacheVaultIndexEntry(
   }
 }
 
-function touchVaultIndexEntry(
-  directory: string,
-  entry: ObsidianVaultIndexCacheEntry,
-): void {
+function touchVaultIndexEntry(directory: string, entry: ObsidianVaultIndexCacheEntry): void {
   if (vaultIndexCache.get(directory) !== entry) return
   vaultIndexCache.delete(directory)
   vaultIndexCache.set(directory, entry)
@@ -558,7 +550,10 @@ function directPathCandidates(file: string, documentPath: string): string[] {
   )
   const candidates = [relativeCandidate, normalizedFile]
   if (!path.posix.extname(normalizedFile)) {
-    candidates.push(`${relativeCandidate}${MARKDOWN_EXTENSION}`, `${normalizedFile}${MARKDOWN_EXTENSION}`)
+    candidates.push(
+      `${relativeCandidate}${MARKDOWN_EXTENSION}`,
+      `${normalizedFile}${MARKDOWN_EXTENSION}`,
+    )
   }
   return Array.from(new Set(candidates))
 }
@@ -592,7 +587,10 @@ function resolvedLinkKind(entry: ObsidianVaultEntry): ObsidianResolvedLinkKind {
   return "file"
 }
 
-async function resolvedEntryStillExists(directory: string, entry: ObsidianVaultEntry): Promise<boolean> {
+async function resolvedEntryStillExists(
+  directory: string,
+  entry: ObsidianVaultEntry,
+): Promise<boolean> {
   return fsp.stat(path.join(directory, entry.path)).then(
     (stats) => stats.isFile(),
     () => false,
@@ -644,7 +642,9 @@ export async function resolveObsidianVaultLinks(input: {
   documentPath: string
   targets: string[]
 }): Promise<{ links: ObsidianResolvedLink[]; partial: boolean }> {
-  const uniqueTargets = Array.from(new Set(input.targets.map((target) => target.trim()).filter(Boolean)))
+  const uniqueTargets = Array.from(
+    new Set(input.targets.map((target) => target.trim()).filter(Boolean)),
+  )
   const index = await getObsidianVaultIndex(input.directory)
   const links = await resolveTargetsWithIndex({ ...input, targets: uniqueTargets, index })
 

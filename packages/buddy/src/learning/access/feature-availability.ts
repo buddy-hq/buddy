@@ -1,10 +1,7 @@
 import type { Config } from "@buddy/backend/config"
 import type { DefinedBuddyFeature } from "../runtime/define-buddy-feature"
 
-export function buddyFeatureIsEnabled(
-  feature: DefinedBuddyFeature,
-  config: Config.Info,
-): boolean {
+export function buddyFeatureIsEnabled(feature: DefinedBuddyFeature, config: Config.Info): boolean {
   if (
     feature.release?.channel === "experimental" &&
     config.experimental_features?.[feature.release.experimentalFeatureID] !== true

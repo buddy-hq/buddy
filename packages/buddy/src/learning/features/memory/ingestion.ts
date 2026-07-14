@@ -1,5 +1,9 @@
 import { loadProjectConfig } from "../../../config/store/read-config"
-import { recordCheckpointMemory, recordFlashcardReviewMemory, recordQuestionSetAttemptMemory } from "./deterministic"
+import {
+  recordCheckpointMemory,
+  recordFlashcardReviewMemory,
+  recordQuestionSetAttemptMemory,
+} from "./deterministic"
 import { findLearnerEvidence, writeLearnerEvidenceForEvent } from "./evidence"
 import { readLearnerMemorySettings } from "./settings"
 import { appendLearnerEvent, appendLearnerEventOnce, createLearnerEvent } from "./storage"

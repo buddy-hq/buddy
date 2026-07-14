@@ -32,9 +32,7 @@ type OpenApiRequestBodyObject = Extract<
   NonNullable<DescribeRouteOptions["requestBody"]>,
   { content: unknown }
 >
-type OpenApiRequestBodySchema = NonNullable<
-  OpenApiRequestBodyObject["content"][string]["schema"]
->
+type OpenApiRequestBodySchema = NonNullable<OpenApiRequestBodyObject["content"][string]["schema"]>
 
 const sourceHashOpenApiSchema = {
   type: "string" as const,
@@ -189,10 +187,7 @@ export const SvgRenderingRoutes = new Hono()
         BROWSER_SVG_RENDER_COMPLETION_MAX_REQUEST_BODY_BYTES,
       )
       if (result.status === "too_large") {
-        return c.json(
-          invalidRequest("SVG render completion exceeds the request size limit."),
-          413,
-        )
+        return c.json(invalidRequest("SVG render completion exceeds the request size limit."), 413)
       }
 
       try {

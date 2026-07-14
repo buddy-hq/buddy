@@ -34,8 +34,7 @@ export const useGetStartedFlowStore = create<GetStartedFlowStore>()(
 
 function subscribeToGetStartedFlowHydration(onStoreChange: () => void): () => void {
   const unsubscribeHydrate = useGetStartedFlowStore.persist.onHydrate(onStoreChange)
-  const unsubscribeFinishHydration =
-    useGetStartedFlowStore.persist.onFinishHydration(onStoreChange)
+  const unsubscribeFinishHydration = useGetStartedFlowStore.persist.onFinishHydration(onStoreChange)
 
   return () => {
     unsubscribeHydrate()

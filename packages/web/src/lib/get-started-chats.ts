@@ -137,10 +137,7 @@ const EDUCATOR_GET_STARTED_CHATS = [
     title: "Brainstorm a unit",
     prompt:
       "Be my brainstorming partner on the whiteboard. I need to teach Grade 8 why seasons change. Sketch 2–3 possible lesson arcs on the board and help me choose the strongest. Stay on the whiteboard — do not write a full lesson plan or other documents yet.",
-    capabilities: [
-      GET_STARTED_CAPABILITY.bench,
-      GET_STARTED_CAPABILITY.whiteboard,
-    ],
+    capabilities: [GET_STARTED_CAPABILITY.bench, GET_STARTED_CAPABILITY.whiteboard],
   },
   {
     id: "standards-lesson",
@@ -158,10 +155,7 @@ const EDUCATOR_GET_STARTED_CHATS = [
     title: "Interactive activity",
     prompt:
       "Create one student-facing interactive Bench widget for Grade 7 mean vs median with outliers. Students drag data points and both statistics update live. That is the only deliverable — no teacher notes, quizzes, or extra docs.",
-    capabilities: [
-      GET_STARTED_CAPABILITY.bench,
-      GET_STARTED_CAPABILITY.htmlWidget,
-    ],
+    capabilities: [GET_STARTED_CAPABILITY.bench, GET_STARTED_CAPABILITY.htmlWidget],
   },
   {
     id: "differentiated-task",

@@ -56,11 +56,7 @@ export function resolveDevRuntimeEnvironment(userDataPath: string): Record<strin
     ...resolveRuntimeXdgEnvironment(runtimeRoot),
     [BUDDY_ENV.DATA_DIR]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.data, BUDDY_APP_NAME),
     [BUDDY_ENV.CACHE_DIR]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.cache, BUDDY_APP_NAME),
-    [BUDDY_ENV.GLOBAL_CONFIG_DIR]: join(
-      runtimeRoot,
-      RUNTIME_ROOT_SEGMENTS.config,
-      BUDDY_APP_NAME,
-    ),
+    [BUDDY_ENV.GLOBAL_CONFIG_DIR]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.config, BUDDY_APP_NAME),
     [BUDDY_ENV.STATE_DIR]: join(runtimeRoot, RUNTIME_ROOT_SEGMENTS.state, BUDDY_APP_NAME),
   }
 }

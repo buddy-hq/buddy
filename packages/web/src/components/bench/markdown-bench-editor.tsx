@@ -602,8 +602,7 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
       }),
       [props.directory, props.path],
     )
-    const obsidianWikiLinkContext =
-      props.obsidianWikiLinkContext ?? fallbackObsidianWikiLinkContext
+    const obsidianWikiLinkContext = props.obsidianWikiLinkContext ?? fallbackObsidianWikiLinkContext
     const editorMarkdown = useMemo(
       () =>
         props.documentFormat === "mdx"

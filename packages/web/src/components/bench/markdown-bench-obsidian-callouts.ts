@@ -35,7 +35,7 @@ function splitMarkdownSource(markdown: string): MarkdownSourceLine[] {
     }
 
     const ending =
-      markdown[end] === "\r" && markdown[end + 1] === "\n" ? "\r\n" : markdown[end] ?? ""
+      markdown[end] === "\r" && markdown[end + 1] === "\n" ? "\r\n" : (markdown[end] ?? "")
     lines.push({ content: markdown.slice(start, end), ending })
     start = end + ending.length
   }
@@ -89,9 +89,8 @@ function renderReplacementBlock(input: {
   contents: readonly string[]
 }): string {
   const internalEnding =
-    input.lines
-      .slice(input.start, input.end + 1)
-      .find((line) => line.ending.length > 0)?.ending ?? preferredLineEnding(input.lines)
+    input.lines.slice(input.start, input.end + 1).find((line) => line.ending.length > 0)?.ending ??
+    preferredLineEnding(input.lines)
   const trailingEnding = input.lines[input.end]?.ending ?? ""
   return input.contents
     .map((content, index) => {
@@ -114,7 +113,9 @@ function renderDirectiveStart(attributes: ObsidianCalloutAttributes): string {
   return `:::obsidian-callout{${serialized.join(" ")}}`
 }
 
-function parseDirectiveAttributes(source: string | undefined): ObsidianCalloutAttributes | undefined {
+function parseDirectiveAttributes(
+  source: string | undefined,
+): ObsidianCalloutAttributes | undefined {
   if (!source) return undefined
   const attributes = new Map<string, string>()
   for (const match of source.matchAll(OBSIDIAN_CALLOUT_ATTRIBUTE_PATTERN)) {
@@ -219,11 +220,13 @@ export function restoreObsidianCalloutsFromMdxEditor(markdown: string): string {
       continue
     }
 
-    const body = lines.slice(index + 1, blockEnd).map((bodyLine) =>
-      bodyLine.content.startsWith(indent)
-        ? bodyLine.content.slice(indent.length)
-        : bodyLine.content,
-    )
+    const body = lines
+      .slice(index + 1, blockEnd)
+      .map((bodyLine) =>
+        bodyLine.content.startsWith(indent)
+          ? bodyLine.content.slice(indent.length)
+          : bodyLine.content,
+      )
     const marker = `[!${attributes.kind}]${attributes.fold ?? ""}`
     output.push(
       renderReplacementBlock({

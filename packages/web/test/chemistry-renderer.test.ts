@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import createIndigoRuntime from "indigo-ketcher"
-import { IndigoWorkerClient, INDIGO_MAX_PENDING_RENDERS } from "../src/components/media/renderers/chemistry/indigo-worker-client"
+import {
+  IndigoWorkerClient,
+  INDIGO_MAX_PENDING_RENDERS,
+} from "../src/components/media/renderers/chemistry/indigo-worker-client"
 import { renderWithIndigo } from "../src/components/media/renderers/chemistry/indigo-runtime"
 import {
   clearChemistryRenderCacheForTests,
@@ -53,9 +56,7 @@ afterEach(() => {
 
 describe("production chemistry renderer", () => {
   test("assigns every format to one rendering owner", () => {
-    expect(
-      CHEMISTRY_FORMATS.map((format) => [format, chemistryRenderOwner(format)]),
-    ).toEqual([
+    expect(CHEMISTRY_FORMATS.map((format) => [format, chemistryRenderOwner(format)])).toEqual([
       ["smiles", "browser"],
       ["cxsmiles", "browser"],
       ["reaction-smiles", "browser"],
@@ -199,9 +200,9 @@ describe("production chemistry renderer", () => {
       options.delete()
     }
 
-    expect(() =>
-      validateChemistrySource({ format: "ket", source: '{"version":1}' }),
-    ).toThrow('KET source must contain a "root.nodes" array')
+    expect(() => validateChemistrySource({ format: "ket", source: '{"version":1}' })).toThrow(
+      'KET source must contain a "root.nodes" array',
+    )
     expect(() =>
       validateChemistrySource({
         format: "ket",
@@ -260,10 +261,7 @@ describe("production chemistry renderer", () => {
         ControllableWorker.instances.push(this)
       }
 
-      addEventListener(
-        type: string,
-        listener: EventListenerOrEventListenerObject,
-      ): void {
+      addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
         if (typeof listener === "function") {
           this.listeners.set(type, listener)
         }
@@ -329,10 +327,7 @@ describe("production chemistry renderer", () => {
         StrictModeWorker.instances.push(this)
       }
 
-      addEventListener(
-        type: string,
-        listener: EventListenerOrEventListenerObject,
-      ): void {
+      addEventListener(type: string, listener: EventListenerOrEventListenerObject): void {
         if (typeof listener === "function") {
           this.listeners.set(type, listener)
         }

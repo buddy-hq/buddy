@@ -28,10 +28,7 @@ describe("Markdown Bench link navigation", () => {
       url: "mailto:person@example.com",
     })
     expect(
-      resolveMarkdownBenchLink(
-        "Notes/Current.md",
-        "obsidian://open?vault=Notes&file=Current",
-      ),
+      resolveMarkdownBenchLink("Notes/Current.md", "obsidian://open?vault=Notes&file=Current"),
     ).toEqual({
       type: "external",
       url: "obsidian://open?vault=Notes&file=Current",

@@ -23,9 +23,7 @@ const SKILL_SIZE_BYTES = 100
 const SKILL_FILE_COUNT = 1
 const SCANNER_POLICY_VERSION = 1
 
-function activeLockEntry(
-  sha256: string,
-): Extract<InstalledSkillLockEntry, { state: "active" }> {
+function activeLockEntry(sha256: string): Extract<InstalledSkillLockEntry, { state: "active" }> {
   return {
     catalogId: "sample-skill",
     displayName: "Sample Skill",

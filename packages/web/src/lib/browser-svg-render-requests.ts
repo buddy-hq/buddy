@@ -11,12 +11,7 @@ const SVG_RENDER_MAX_ERROR_CHARACTERS = 2_000
 const SVG_RENDER_MAX_WARNINGS = 16
 const SVG_RENDER_MAX_WARNING_CHARACTERS = 1_000
 
-const BROWSER_SVG_SOURCE_FORMATS = [
-  "smiles",
-  "cxsmiles",
-  "reaction-smiles",
-  "ket",
-] as const
+const BROWSER_SVG_SOURCE_FORMATS = ["smiles", "cxsmiles", "reaction-smiles", "ket"] as const
 
 type BrowserSvgRenderRequest = SvgRenderingListBrowserRenderRequestsResponses[200][number]
 type BrowserSvgRenderCompletion = NonNullable<SvgRenderingCompleteBrowserRenderData["body"]>
@@ -74,10 +69,7 @@ function bytesToHex(bytes: Uint8Array): string {
 }
 
 async function hashSource(source: string): Promise<string> {
-  const digest = await globalThis.crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(source),
-  )
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(source))
   return bytesToHex(new Uint8Array(digest))
 }
 
@@ -87,9 +79,7 @@ async function renderSvgInBrowser(input: {
   source: string
   signal: AbortSignal
 }): Promise<{ svg: string; warnings: string[] }> {
-  const { renderChemistrySvg } = await import(
-    "@/components/media/renderers/chemistry/render"
-  )
+  const { renderChemistrySvg } = await import("@/components/media/renderers/chemistry/render")
   const rendered = await renderChemistrySvg(input)
   return {
     svg: rendered.svg,
@@ -110,12 +100,8 @@ async function completeBrowserSvgRender(input: {
   )
 }
 
-async function listPendingBrowserSvgRenders(
-  directory: string,
-): Promise<BrowserSvgRenderRequest[]> {
-  return requireBuddyData(
-    await getBuddyClient(directory).svgRendering.listBrowserRenderRequests(),
-  )
+async function listPendingBrowserSvgRenders(directory: string): Promise<BrowserSvgRenderRequest[]> {
+  return requireBuddyData(await getBuddyClient(directory).svgRendering.listBrowserRenderRequests())
 }
 
 function errorMessage(error: unknown): string {
@@ -133,12 +119,9 @@ function normalizeWarnings(warnings: readonly string[]): string[] {
 }
 
 function requestKey(request: BrowserSvgRenderRequest): string {
-  return [
-    request.directory,
-    request.format,
-    request.sourceHash,
-    String(request.expiresAt),
-  ].join("\0")
+  return [request.directory, request.format, request.sourceHash, String(request.expiresAt)].join(
+    "\0",
+  )
 }
 
 export class BrowserSvgRenderRequestExecutor {

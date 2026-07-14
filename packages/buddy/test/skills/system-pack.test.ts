@@ -43,7 +43,11 @@ async function fixture() {
       "utf8",
     ),
     fsp.writeFile(path.join(skillRoot, "references", "guide.md"), "# Guide\n", "utf8"),
-    fsp.writeFile(path.join(skillRoot, "index.ts"), "throw new Error('not runtime content')\n", "utf8"),
+    fsp.writeFile(
+      path.join(skillRoot, "index.ts"),
+      "throw new Error('not runtime content')\n",
+      "utf8",
+    ),
   ])
   return {
     root,
@@ -121,12 +125,7 @@ describe("system skill packs", () => {
 
     try {
       await ensureSystemSkillsInstalled([input.sourceRoot], [input.skill])
-      const manifestPath = path.join(
-        managedSystemRoot(),
-        input.skill.name,
-        "agents",
-        "buddy.yaml",
-      )
+      const manifestPath = path.join(managedSystemRoot(), input.skill.name, "agents", "buddy.yaml")
       await fsp.rm(manifestPath)
       let refreshCount = 0
       const refresh = await refreshSystemSkillPack([input.sourceRoot], [input.skill], {
@@ -157,12 +156,7 @@ describe("system skill packs", () => {
 
     try {
       await ensureSystemSkillsInstalled([input.sourceRoot], [input.skill])
-      const guidePath = path.join(
-        managedSystemRoot(),
-        input.skill.name,
-        "references",
-        "guide.md",
-      )
+      const guidePath = path.join(managedSystemRoot(), input.skill.name, "references", "guide.md")
       await fsp.writeFile(guidePath, "# Other\n", "utf8")
 
       await ensureSystemSkillsInstalled([input.sourceRoot], [input.skill])

@@ -47,18 +47,18 @@ describe("chemfig renderer reliability", () => {
 
   test("validates TeX control tokens instead of substring matching", () => {
     expect(() => validateChemfigSource(String.raw`\chemfig{C-C}`)).not.toThrow()
-    expect(() =>
-      validateChemfigSource(String.raw`\chemfig{C}\%\input{outside}`),
-    ).toThrow("control sequence")
+    expect(() => validateChemfigSource(String.raw`\chemfig{C}\%\input{outside}`)).toThrow(
+      "control sequence",
+    )
     expect(() => validateChemfigSource(String.raw`\chemfig{C}\InPuT{outside}`)).toThrow(
       "control sequence",
     )
     expect(() =>
       validateChemfigSource(String.raw`\chemfig{C}\InputIfFileExists{outside}{}{}`),
     ).toThrow("control sequence")
-    expect(() =>
-      validateChemfigSource(String.raw`\chemfig{C}\csname input\endcsname`),
-    ).toThrow("control sequence")
+    expect(() => validateChemfigSource(String.raw`\chemfig{C}\csname input\endcsname`)).toThrow(
+      "control sequence",
+    )
     expect(() => validateChemfigSource(String.raw`\chemfig{C}\in^^70ut{outside}`)).toThrow(
       "control sequence",
     )

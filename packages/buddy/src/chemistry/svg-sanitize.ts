@@ -191,16 +191,14 @@ function containsXmlControlCharacter(value: string): boolean {
     const codePoint = character.codePointAt(0)
     if (codePoint === undefined) continue
     if (
-      (codePoint >= XML_FIRST_CONTROL_CODE_POINT &&
-        codePoint <= XML_FIRST_CONTROL_RANGE_END) ||
+      (codePoint >= XML_FIRST_CONTROL_CODE_POINT && codePoint <= XML_FIRST_CONTROL_RANGE_END) ||
       codePoint === XML_VERTICAL_TAB_CODE_POINT ||
       codePoint === XML_FORM_FEED_CODE_POINT
     ) {
       return true
     }
     if (
-      (codePoint >= XML_SECOND_CONTROL_RANGE_START &&
-        codePoint <= XML_SECOND_CONTROL_RANGE_END) ||
+      (codePoint >= XML_SECOND_CONTROL_RANGE_START && codePoint <= XML_SECOND_CONTROL_RANGE_END) ||
       codePoint === XML_DELETE_CODE_POINT
     ) {
       return true

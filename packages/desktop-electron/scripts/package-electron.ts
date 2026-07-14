@@ -34,12 +34,10 @@ export async function buildElectronPackageAndSmoke(
     before,
     after: capturePackagedResourcesSnapshot(distDirectory),
   })
-  await $`bun run smoke:packaged-backend-utility`
-    .cwd(packageDirectory)
-    .env({
-      ...input.environment,
-      [PACKAGED_RESOURCES_DIRECTORY_ENV]: resourcesDirectory,
-    })
+  await $`bun run smoke:packaged-backend-utility`.cwd(packageDirectory).env({
+    ...input.environment,
+    [PACKAGED_RESOURCES_DIRECTORY_ENV]: resourcesDirectory,
+  })
 }
 
 function readOptionalPackageTarget(args: readonly string[]): PackageTarget | undefined {
@@ -58,9 +56,7 @@ function readOptionalPackageTarget(args: readonly string[]): PackageTarget | und
 async function runPackageCommand(): Promise<void> {
   const target = readOptionalPackageTarget(Bun.argv.slice(2))
   const environment = { ...process.env }
-  const electronBuilderArguments = target
-    ? [PACKAGE_TARGETS[target].electronBuilderFlag]
-    : []
+  const electronBuilderArguments = target ? [PACKAGE_TARGETS[target].electronBuilderFlag] : []
   if (target) assertPackageTarget(target)
 
   await $`bun run smoke:backend-utility`.cwd(packageDirectory).env(environment)

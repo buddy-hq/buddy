@@ -145,10 +145,7 @@ export function LearnerMemorySettings() {
                 dataAction="settings-global-learner-memory-auto-default"
                 checked={settings.selection.learnerMemoryDefaultAutoExtract}
                 onCheckedChange={settings.actions.setLearnerMemoryDefaultAutoExtract}
-                disabled={
-                  globalControlsDisabled ||
-                  !settings.selection.learnerMemoryDefaultEnabled
-                }
+                disabled={globalControlsDisabled || !settings.selection.learnerMemoryDefaultEnabled}
                 ariaLabel="Enable memory auto-extract by default for notebooks"
                 onLabel={language.t("settings.notebook.on")}
                 offLabel={language.t("settings.notebook.off")}
