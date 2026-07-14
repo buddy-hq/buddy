@@ -40,14 +40,19 @@ import {
   isOnboardingTestSearch,
 } from "@/lib/onboarding-test-mode"
 import {
+  CINEMATIC_ONBOARDING_SCENE,
+  ONBOARDING_PERSONALIZATION_COMMIT,
   ONBOARDING_PROVIDER_SELECTION_ACTION,
+  buildOnboardingPersonalizationPatch,
   configureNotebookForOnboarding,
   connectChatGptPlusForOnboarding,
+  resolveCinematicOnboardingScene,
   resolveOnboardingProviderSelectionAction,
   shouldAutoContinueConnectedOpenAiOnboarding,
   shouldShowOnboardingPrimaryUseStep,
   shouldShowOnboardingPersonalizationStep,
   shouldResumeOnboardingPersonalization,
+  type OnboardingPersonalizationCommit,
 } from "@/lib/onboarding-flow"
 import { applyOnboardingModelSelection } from "@/lib/onboarding-model-selection"
 import {
@@ -71,19 +76,15 @@ import {
   setOpenProjectsQueryData,
 } from "@/state/bootstrap-query"
 import { useChatStore } from "@/state/chat-store"
-import { setGlobalConfigQueryData } from "@/state/global-config-query"
 import type { ProviderCatalogState } from "@/state/chat-types"
 import { useOnboardingStore } from "@/state/onboarding-store"
 import {
-  personalizationSettingsQueryKeys,
   personalizationSettingsQueryOptions,
-  type PersonalizationSettingsBundle,
+  setPersonalizationSettingsQueryData,
 } from "@/state/personalization-settings-query"
 import {
   EMPTY_PERSONALIZATION_SETTINGS,
-  buildPersonalizationPatch,
   type PrimaryUse,
-  readPersonalization,
   shouldResetPersonalizationForm,
 } from "@/state/project-config-readers"
 
@@ -190,12 +191,10 @@ function OnboardingRoute() {
   )
   const [introVisible, setIntroVisible] = useState(true)
   const [introComplete, setIntroComplete] = useState(false)
-  const [stageCentered, setStageCentered] = useState(true)
   const [hoverPrimaryUse, setHoverPrimaryUse] = useState<PrimaryUse | undefined>(undefined)
   const [selectedHomeDirectory, setSelectedHomeDirectory] = useState<string | undefined>(undefined)
   const [selectedCustomHome, setSelectedCustomHome] = useState(false)
   const [finishDestination, setFinishDestination] = useState<string | null | undefined>(undefined)
-  const [finishReady, setFinishReady] = useState(false)
   const [finishExpanding, setFinishExpanding] = useState(false)
   const notebookHomeAccessQuery = useQuery({
     ...notebookHomeAccessQueryOptions(),
@@ -217,7 +216,7 @@ function OnboardingRoute() {
   })
 
   useEffect(() => {
-    if (finishDestination === undefined || !finishReady) return
+    if (finishDestination === undefined) return
 
     const expandTimer = window.setTimeout(() => {
       setFinishExpanding(true)
@@ -234,7 +233,6 @@ function OnboardingRoute() {
 
       void navigation.catch((navigationError: unknown) => {
         setFinishDestination(undefined)
-        setFinishReady(false)
         setFinishExpanding(false)
         setPersonalizationExitPending(false)
         setError(navigationError instanceof Error ? navigationError.message : String(navigationError))
@@ -245,7 +243,7 @@ function OnboardingRoute() {
       window.clearTimeout(expandTimer)
       window.clearTimeout(navigateTimer)
     }
-  }, [finishDestination, finishReady, navigate])
+  }, [finishDestination, navigate])
 
   useEffect(() => {
     let cancelled = false
@@ -329,14 +327,7 @@ function OnboardingRoute() {
           primary_use: primaryUse,
         },
       })
-      setGlobalConfigQueryData(queryClient, updatedGlobal)
-      queryClient.setQueryData<PersonalizationSettingsBundle>(
-        personalizationSettingsQueryKeys.bundle(),
-        {
-          globalConfig: updatedGlobal,
-          personalization: readPersonalization(updatedGlobal),
-        },
-      )
+      setPersonalizationSettingsQueryData(queryClient, updatedGlobal)
       form.setFieldValue("primaryUse", primaryUse)
       setShowPrimaryUseStep(false)
     } catch (err) {
@@ -439,15 +430,7 @@ function OnboardingRoute() {
     setError(undefined)
 
     try {
-      const nextValues = form.state.values
-      const updatedGlobal = await patchGlobalConfig(buildPersonalizationPatch(nextValues))
-      queryClient.setQueryData<PersonalizationSettingsBundle>(
-        personalizationSettingsQueryKeys.bundle(),
-        {
-          globalConfig: updatedGlobal,
-          personalization: readPersonalization(updatedGlobal),
-        },
-      )
+      await persistOnboardingPersonalization(ONBOARDING_PERSONALIZATION_COMMIT.saveDetails)
       form.setErrorMap({ onSubmit: undefined })
       completePersonalizationAndNavigate(() => {
         markPersonalizationCompleted()
@@ -468,6 +451,7 @@ function OnboardingRoute() {
     setPersonalizationBusy(true)
 
     try {
+      await persistOnboardingPersonalization(ONBOARDING_PERSONALIZATION_COMMIT.skipDetails)
       completePersonalizationAndNavigate(() => {
         markPersonalizationSkipped()
       })
@@ -478,6 +462,21 @@ function OnboardingRoute() {
     } finally {
       setPersonalizationBusy(false)
     }
+  }
+
+  async function persistOnboardingPersonalization(commit: OnboardingPersonalizationCommit) {
+    const patch = buildOnboardingPersonalizationPatch({
+      commit,
+      selectedPrimaryUse,
+      values: form.state.values,
+    })
+    if (!patch) {
+      setShowPrimaryUseStep(true)
+      throw new Error(language.t("routes.onboarding.primaryUseRequired"))
+    }
+
+    const updatedGlobal = await patchGlobalConfig(patch)
+    setPersonalizationSettingsQueryData(queryClient, updatedGlobal)
   }
 
   async function finalizeExistingNotebookProviderSelection(
@@ -604,6 +603,11 @@ function OnboardingRoute() {
         ? "engine"
         : "location"
   const finished = finishDestination !== undefined
+  const scene = resolveCinematicOnboardingScene({
+    introVisible,
+    introComplete,
+    finished,
+  })
   const showChrome = introComplete && !finished
   const moodKey: MoodKey = selectedPrimaryUse ?? hoverPrimaryUse ?? "neutral"
   const theme = THEMES.nocturne
@@ -651,26 +655,20 @@ function OnboardingRoute() {
 
       <HeaderRail visible={showChrome} step={step} onBack={handleBack} />
 
-      <div className="relative z-10 flex flex-1 items-center px-9 sm:px-14">
-        <div className={stageCentered ? "mx-auto w-full max-w-xl" : "w-full max-w-xl"}>
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-9 sm:px-14">
+        <div className="w-full max-w-xl">
           <AnimatePresence
             mode="wait"
             onExitComplete={() => {
               if (!introVisible && !introComplete) {
-                setStageCentered(false)
                 setIntroComplete(true)
-                return
-              }
-
-              if (finished && !finishReady) {
-                setStageCentered(true)
-                setFinishReady(true)
               }
             }}
           >
-            {introVisible ? (
+            {scene === CINEMATIC_ONBOARDING_SCENE.intro ? (
               <Intro key="intro" onBegin={() => setIntroVisible(false)} />
-            ) : !introComplete || (finished && !finishReady) ? null : finished ? (
+            ) : scene === CINEMATIC_ONBOARDING_SCENE.introExit ? null : scene ===
+              CINEMATIC_ONBOARDING_SCENE.finish ? (
               <Finish key="done" expanding={finishExpanding} />
             ) : (
               <motion.div

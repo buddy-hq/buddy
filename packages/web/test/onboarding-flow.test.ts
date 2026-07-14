@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import {
+  CINEMATIC_ONBOARDING_SCENE,
+  ONBOARDING_PERSONALIZATION_COMMIT,
   ONBOARDING_PROVIDER_SELECTION_ACTION,
+  buildOnboardingPersonalizationPatch,
   configureNotebookForOnboarding,
   connectChatGptPlusForOnboarding,
+  resolveCinematicOnboardingScene,
   resolveOnboardingProviderSelectionAction,
   shouldAutoContinueConnectedOpenAiOnboarding,
   shouldShowOnboardingPrimaryUseStep,
@@ -391,6 +395,72 @@ describe("onboarding store", () => {
 })
 
 describe("onboarding personalization resume", () => {
+  test("persists the selected primary use when the details form has stale empty state", () => {
+    expect(
+      buildOnboardingPersonalizationPatch({
+        commit: ONBOARDING_PERSONALIZATION_COMMIT.saveDetails,
+        selectedPrimaryUse: "teach",
+        values: {
+          primaryUse: undefined,
+          preferredName: "Ada",
+          occupation: "Teacher",
+          moreAboutYou: "I teach science.",
+        },
+      }),
+    ).toEqual({
+      personalization: {
+        primary_use: "teach",
+        preferred_name: "Ada",
+        occupation: "Teacher",
+        more_about_you: "I teach science.",
+      },
+    })
+  })
+
+  test("persists only the primary use when optional personalization is skipped", () => {
+    expect(
+      buildOnboardingPersonalizationPatch({
+        commit: ONBOARDING_PERSONALIZATION_COMMIT.skipDetails,
+        selectedPrimaryUse: "learn",
+        values: {
+          primaryUse: undefined,
+          preferredName: "Unsaved name",
+          occupation: "Unsaved occupation",
+          moreAboutYou: "Unsaved context",
+        },
+      }),
+    ).toEqual({
+      personalization: {
+        primary_use: "learn",
+      },
+    })
+  })
+
+  test("does not allow onboarding to finish without a primary use", () => {
+    expect(
+      buildOnboardingPersonalizationPatch({
+        commit: ONBOARDING_PERSONALIZATION_COMMIT.saveDetails,
+        selectedPrimaryUse: undefined,
+        values: {
+          primaryUse: undefined,
+          preferredName: "Ada",
+          occupation: "",
+          moreAboutYou: "",
+        },
+      }),
+    ).toBeUndefined()
+  })
+
+  test("renders the finish scene as soon as an async personalization save finishes", () => {
+    expect(
+      resolveCinematicOnboardingScene({
+        introVisible: false,
+        introComplete: true,
+        finished: true,
+      }),
+    ).toBe(CINEMATIC_ONBOARDING_SCENE.finish)
+  })
+
   test("returns to location when provider selection was opened before notebook setup", () => {
     expect(
       resolveOnboardingProviderSelectionAction({

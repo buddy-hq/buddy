@@ -2,7 +2,12 @@ import type { ProviderAuthAuthorization } from "@opencode-ai/sdk/v2/client"
 import type { OnboardingAuthChoice } from "@/components/onboarding"
 import { language } from "@/context/language"
 import type { ProviderCatalogState } from "@/state/chat-types"
-import type { PrimaryUse } from "@/state/project-config-readers"
+import {
+  EMPTY_PERSONALIZATION_SETTINGS,
+  buildPersonalizationPatch,
+  type PersonalizationSettings,
+  type PrimaryUse,
+} from "@/state/project-config-readers"
 import { resolveCatalogProviderModelSelection } from "./provider-catalog"
 import { OPENAI_PROVIDER_ID, OPENCODE_PROVIDER_ID } from "./provider-ids"
 import { findPreferredOAuthMethodIndex } from "./provider-auth"
@@ -16,6 +21,24 @@ export const ONBOARDING_PROVIDER_SELECTION_ACTION = {
   showLocation: "show_location",
   configureExistingNotebook: "configure_existing_notebook",
 } as const
+
+export const CINEMATIC_ONBOARDING_SCENE = {
+  intro: "intro",
+  introExit: "intro_exit",
+  step: "step",
+  finish: "finish",
+} as const
+
+export const ONBOARDING_PERSONALIZATION_COMMIT = {
+  saveDetails: "save_details",
+  skipDetails: "skip_details",
+} as const
+
+export type CinematicOnboardingScene =
+  (typeof CINEMATIC_ONBOARDING_SCENE)[keyof typeof CINEMATIC_ONBOARDING_SCENE]
+
+export type OnboardingPersonalizationCommit =
+  (typeof ONBOARDING_PERSONALIZATION_COMMIT)[keyof typeof ONBOARDING_PERSONALIZATION_COMMIT]
 
 export type OnboardingProviderSelectionAction =
   | { type: typeof ONBOARDING_PROVIDER_SELECTION_ACTION.showLocation }
@@ -80,6 +103,41 @@ export function shouldShowOnboardingPersonalizationStep(input: {
 
 export function shouldShowOnboardingPrimaryUseStep(primaryUse: PrimaryUse | undefined) {
   return primaryUse === undefined
+}
+
+export function buildOnboardingPersonalizationPatch(input: {
+  commit: OnboardingPersonalizationCommit
+  selectedPrimaryUse: PrimaryUse | undefined
+  values: PersonalizationSettings
+}): Record<string, unknown> | undefined {
+  const primaryUse = input.selectedPrimaryUse ?? input.values.primaryUse
+  if (!primaryUse) return undefined
+
+  const values =
+    input.commit === ONBOARDING_PERSONALIZATION_COMMIT.saveDetails
+      ? input.values
+      : EMPTY_PERSONALIZATION_SETTINGS
+
+  return buildPersonalizationPatch({
+    ...values,
+    primaryUse,
+  })
+}
+
+export function resolveCinematicOnboardingScene(input: {
+  introVisible: boolean
+  introComplete: boolean
+  finished: boolean
+}): CinematicOnboardingScene {
+  if (input.introVisible) {
+    return CINEMATIC_ONBOARDING_SCENE.intro
+  }
+
+  if (!input.introComplete) {
+    return CINEMATIC_ONBOARDING_SCENE.introExit
+  }
+
+  return input.finished ? CINEMATIC_ONBOARDING_SCENE.finish : CINEMATIC_ONBOARDING_SCENE.step
 }
 
 function resolvePreferredFreeOnboardingModel(catalog: ProviderCatalogState) {

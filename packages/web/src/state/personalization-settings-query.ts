@@ -1,5 +1,6 @@
-import { queryOptions } from "@tanstack/react-query"
+import { queryOptions, type QueryClient } from "@tanstack/react-query"
 import { loadGlobalConfig } from "./chat-actions"
+import { setGlobalConfigQueryData } from "./global-config-query"
 import { readPersonalization, type PersonalizationSettings } from "./project-config-readers"
 
 const PERSONALIZATION_SETTINGS_QUERY_SCOPE = "personalization-settings" as const
@@ -29,4 +30,18 @@ export function personalizationSettingsQueryOptions() {
     queryKey: personalizationSettingsQueryKeys.bundle(),
     queryFn: () => loadPersonalizationSettingsBundle(),
   })
+}
+
+export function setPersonalizationSettingsQueryData(
+  queryClient: QueryClient,
+  globalConfig: Record<string, unknown>,
+): PersonalizationSettingsBundle {
+  const bundle = {
+    globalConfig,
+    personalization: readPersonalization(globalConfig),
+  }
+
+  setGlobalConfigQueryData(queryClient, globalConfig)
+  queryClient.setQueryData(personalizationSettingsQueryKeys.bundle(), bundle)
+  return bundle
 }

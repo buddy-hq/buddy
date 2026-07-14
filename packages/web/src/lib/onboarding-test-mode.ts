@@ -8,6 +8,22 @@ export type OnboardingTestSearch = {
   returnTo?: string
 }
 
+export type OnboardingTestResetOperations = {
+  clearPersonalization: () => Promise<void>
+  disconnectOpenAiAndReloadProviderRuntime: () => Promise<void>
+  refreshProviderCatalog: () => Promise<void>
+  resetOnboardingState: () => void
+}
+
+export async function runOnboardingTestReset(
+  operations: OnboardingTestResetOperations,
+): Promise<void> {
+  await operations.clearPersonalization()
+  await operations.disconnectOpenAiAndReloadProviderRuntime()
+  await operations.refreshProviderCatalog()
+  operations.resetOnboardingState()
+}
+
 export function buildOnboardingTestSearch(returnTo?: string): OnboardingTestSearch {
   return returnTo
     ? { test: ONBOARDING_TEST_SEARCH_VALUE, returnTo }

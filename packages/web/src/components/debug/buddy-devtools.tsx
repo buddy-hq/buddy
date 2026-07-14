@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type {
   LearnerMemoryArtifactsResponses,
   LearnerMemoryEvaluationRunResponses,
@@ -53,6 +53,7 @@ import { teachingSessionKey, useTeachingRuntime } from "@/state/teaching-runtime
 import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
 import { useOnboardingStore } from "@/state/onboarding-store"
 import { useGetStartedChatTestMode } from "@/state/get-started-chat-test-mode"
+import { invalidateAllProviderCatalogSnapshotQueries } from "@/state/bootstrap-query"
 import {
   EXPERIMENTAL_FEATURE_ID,
   experimentalFeatureIsEnabled,
@@ -76,7 +77,14 @@ import {
   isOnboardingTestSearch,
   readOnboardingTestReturnTo,
   buildOnboardingChatEntryReturnTo,
+  runOnboardingTestReset,
 } from "@/lib/onboarding-test-mode"
+import { patchGlobalConfig } from "@/state/chat-actions"
+import {
+  EMPTY_PERSONALIZATION_SETTINGS,
+  buildPersonalizationPatch,
+} from "@/state/project-config-readers"
+import { setPersonalizationSettingsQueryData } from "@/state/personalization-settings-query"
 import {
   GET_STARTED_CHAT_TEST_MODE,
   isGetStartedChatTestMode,
@@ -2578,12 +2586,18 @@ function readDevInstanceName(): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined
 }
 
+async function disconnectOpenAiAndReloadProviderRuntime(): Promise<void> {
+  await removeProviderAuth({ providerID: OPENAI_PROVIDER_ID })
+  await reloadProviderRuntime()
+}
+
 export function BuddyDevTools() {
   const [buddyOpen, setBuddyOpen] = useState(false)
   const [routerOpen, setRouterOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<BuddyDevToolsTab>("palette")
   const [isCopied, setIsCopied] = useState(false)
   const [isDisconnectingOpenAi, setIsDisconnectingOpenAi] = useState(false)
+  const [isResettingOnboarding, setIsResettingOnboarding] = useState(false)
   const [affordancePosition, setAffordancePosition] = useState<DevToolsAffordancePosition>(
     readStoredDevToolsAffordancePosition,
   )
@@ -2645,6 +2659,7 @@ export function BuddyDevTools() {
     return resolvedTitle || directoryState.sessionTitle || undefined
   })
 
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
   const location = useLocation()
   const pathname = location.pathname
@@ -2653,7 +2668,9 @@ export function BuddyDevTools() {
   const setGetStartedChatTestMode = useGetStartedChatTestMode((state) => state.setMode)
 
   const onboardingToggleLabel =
-    pathname === "/onboarding"
+    isResettingOnboarding
+      ? language.t("desktopTitlebar.resettingOnboarding")
+      : pathname === "/onboarding"
       ? language.t("desktopTitlebar.exitOnboarding")
       : language.t("desktopTitlebar.testOnboarding")
 
@@ -2699,8 +2716,7 @@ export function BuddyDevTools() {
   const handleDisconnectOpenAi = useCallback(async () => {
     setIsDisconnectingOpenAi(true)
     try {
-      await removeProviderAuth({ providerID: OPENAI_PROVIDER_ID })
-      await reloadProviderRuntime()
+      await disconnectOpenAiAndReloadProviderRuntime()
       toast.success(language.t("desktopTitlebar.openAiDisconnected"))
     } catch (error) {
       toast.error(
@@ -2720,18 +2736,18 @@ export function BuddyDevTools() {
     [setGetStartedChatTestMode],
   )
 
-  const handleToggleOnboarding = useCallback(() => {
+  const handleToggleOnboarding = useCallback(async () => {
     if (pathname === "/onboarding") {
       const returnTo = readOnboardingTestReturnTo(location.search)
       if (returnTo) {
         const target = parseRelativeHref(returnTo)
-        void navigate({
+        await navigate({
           to: target.pathname,
           ...(target.search ? { search: target.search } : {}),
         })
         return
       }
-      void navigate({
+      await navigate({
         to: CHAT_ENTRY_PATH,
         search: buildOnboardingTestSearch(),
       })
@@ -2743,12 +2759,32 @@ export function BuddyDevTools() {
       pathname === CHAT_ENTRY_PATH && !isOnboardingTestSearch(location.search)
         ? buildOnboardingChatEntryReturnTo()
         : currentHref
-    useOnboardingStore.getState().reset()
-    void navigate({
-      to: "/onboarding",
-      search: buildOnboardingTestSearch(returnTo),
-    })
-  }, [location.pathname, location.search, location.searchStr, navigate, pathname])
+
+    setIsResettingOnboarding(true)
+    try {
+      await runOnboardingTestReset({
+        clearPersonalization: async () => {
+          const updatedGlobal = await patchGlobalConfig(
+            buildPersonalizationPatch(EMPTY_PERSONALIZATION_SETTINGS),
+          )
+          setPersonalizationSettingsQueryData(queryClient, updatedGlobal)
+        },
+        disconnectOpenAiAndReloadProviderRuntime,
+        refreshProviderCatalog: () => invalidateAllProviderCatalogSnapshotQueries(queryClient),
+        resetOnboardingState: () => useOnboardingStore.getState().reset(),
+      })
+      await navigate({
+        to: "/onboarding",
+        search: buildOnboardingTestSearch(returnTo),
+      })
+    } catch (error) {
+      toast.error(
+        formatProviderAuthError(error, language.t("desktopTitlebar.resetOnboardingFailed")),
+      )
+    } finally {
+      setIsResettingOnboarding(false)
+    }
+  }, [location.pathname, location.search, location.searchStr, navigate, pathname, queryClient])
 
   if (!import.meta.env.DEV) {
     return null
@@ -3031,7 +3067,7 @@ export function BuddyDevTools() {
                       variant="outline"
                       size="sm"
                       className="h-7 gap-1 text-[11px]"
-                      disabled={isDisconnectingOpenAi}
+                      disabled={isDisconnectingOpenAi || isResettingOnboarding}
                       onClick={handleDisconnectOpenAi}
                     >
                       <PowerIcon className="size-3.5" />
@@ -3048,7 +3084,10 @@ export function BuddyDevTools() {
                       variant="outline"
                       size="sm"
                       className="h-7 gap-1 text-[11px]"
-                      onClick={handleToggleOnboarding}
+                      disabled={isDisconnectingOpenAi || isResettingOnboarding}
+                      onClick={() => {
+                        void handleToggleOnboarding()
+                      }}
                     >
                       <SparklesIcon className="size-3.5" />
                       {onboardingToggleLabel}

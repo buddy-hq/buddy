@@ -59,7 +59,7 @@ export function Intro({ onBegin }: { onBegin: () => void }) {
       }}
       variants={container}
       onClick={onBegin}
-      className="flex cursor-pointer flex-col items-center text-center"
+      className="flex w-full cursor-pointer flex-col items-center text-center"
     >
       <motion.div
         variants={{
@@ -359,7 +359,7 @@ export function Finish({ expanding }: { expanding: boolean }) {
       variants={container}
       initial="hidden"
       animate="show"
-      className="flex flex-col items-center justify-center text-center"
+      className="flex w-full flex-col items-center justify-center text-center"
     >
       <motion.div
         animate={{ opacity: expanding ? 0 : 1, y: expanding ? -30 : 0 }}
@@ -397,7 +397,7 @@ export function HeaderRail({
       initial={false}
       animate={{ opacity: visible ? 1 : 0 }}
       transition={{ duration: 0.4, ease: EASE_OUT }}
-      className="relative z-10 flex items-center justify-between px-9 pt-8 sm:px-14"
+      className="relative z-10 flex items-center justify-between px-9 pt-14 sm:px-14"
     >
       <div className="flex w-16 justify-start">
         <AnimatePresence>
