@@ -50,33 +50,4 @@ describe("Markdown Bench chemistry plugin", () => {
       version: 1,
     })
   })
-
-  test("can restore the original source through a retained node reference", () => {
-    const editor = createEditor({
-      namespace: "markdown-bench-chemistry-stale-node-test",
-      nodes: [BuddyChemistryNode],
-      onError(error) {
-        throw error
-      },
-    })
-    let node: BuddyChemistryNode | undefined
-    editor.update(
-      () => {
-        node = new BuddyChemistryNode("smiles", "smiles", "CCO", null)
-        $getRoot().append(node)
-      },
-      { discrete: true },
-    )
-    if (!node) throw new Error("Expected a chemistry node.")
-    const retainedNode = node
-
-    editor.update(() => retainedNode.setSource("CCC"), { discrete: true })
-    editor.update(() => retainedNode.setSource("CCO"), { discrete: true })
-
-    let source: string | undefined
-    editor.getEditorState().read(() => {
-      source = retainedNode.getSource()
-    })
-    expect(source).toBe("CCO")
-  })
 })

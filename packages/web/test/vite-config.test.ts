@@ -3,11 +3,7 @@ import { resolveConfig } from "vite"
 import buddyWebVitePlugin from "../vite"
 
 const MARKDOWN_WORKER_DEPENDENCIES = ["@shikijs/stream", "shiki"] as const
-const LAZY_CHEMISTRY_DEPENDENCIES = [
-  "indigo-ketcher",
-  "ketcher-react",
-  "ketcher-standalone",
-] as const
+const SEPARATE_WASM_CHEMISTRY_DEPENDENCY = "indigo-ketcher/binaryWasm"
 const BUDDY_WEB_PACKAGE_NAME = "@buddy/web"
 
 describe("Buddy web Vite config", () => {
@@ -27,20 +23,20 @@ describe("Buddy web Vite config", () => {
     }
   })
 
-  test("prebundles lazy chemistry dependencies for web development", async () => {
+  test("does not prebundle the separate-WASM chemistry runtime for web development", async () => {
     const config = await resolveBuddyWebConfig(false)
 
-    for (const dependency of LAZY_CHEMISTRY_DEPENDENCIES) {
-      expect(config.optimizeDeps.include).toContain(dependency)
-    }
+    expect(config.optimizeDeps.include).not.toContain(SEPARATE_WASM_CHEMISTRY_DEPENDENCY)
+    expect(config.optimizeDeps.exclude).toContain(SEPARATE_WASM_CHEMISTRY_DEPENDENCY)
   })
 
-  test("prebundles lazy chemistry dependencies for Electron development", async () => {
+  test("does not prebundle the separate-WASM chemistry runtime for Electron development", async () => {
     const config = await resolveBuddyWebConfig(true)
 
-    for (const dependency of LAZY_CHEMISTRY_DEPENDENCIES) {
-      expect(config.optimizeDeps.include).toContain(`${BUDDY_WEB_PACKAGE_NAME} > ${dependency}`)
-    }
+    expect(config.optimizeDeps.include).not.toContain(
+      `${BUDDY_WEB_PACKAGE_NAME} > ${SEPARATE_WASM_CHEMISTRY_DEPENDENCY}`,
+    )
+    expect(config.optimizeDeps.exclude).toContain(SEPARATE_WASM_CHEMISTRY_DEPENDENCY)
   })
 })
 

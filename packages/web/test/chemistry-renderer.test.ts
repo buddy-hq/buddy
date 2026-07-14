@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test"
-import createIndigoRuntime from "indigo-ketcher"
+import createIndigoRuntime from "indigo-ketcher/binaryWasm"
 import {
   IndigoWorkerClient,
   INDIGO_MAX_PENDING_RENDERS,

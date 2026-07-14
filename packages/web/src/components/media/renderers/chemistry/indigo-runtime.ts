@@ -1,4 +1,4 @@
-import createIndigoRuntime from "indigo-ketcher"
+import createIndigoRuntime from "indigo-ketcher/binaryWasm"
 import type {
   IndigoWorkerRenderFailure,
   IndigoWorkerRenderRequest,

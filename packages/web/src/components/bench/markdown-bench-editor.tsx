@@ -587,10 +587,8 @@ export const MarkdownBenchEditor = forwardRef<MarkdownBenchEditorHandle, Markdow
     const chemistryViewOptions = useMemo<MarkdownBenchChemistryViewOptions>(
       () => ({
         directory: props.directory,
-        documentPath: props.path,
-        presentation: isPrintView ? "static" : "interactive",
       }),
-      [isPrintView, props.directory, props.path],
+      [props.directory],
     )
     const fallbackObsidianWikiLinkContext = useMemo<ObsidianWikiLinkContext>(
       () => ({

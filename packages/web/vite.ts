@@ -15,12 +15,6 @@ const WEB_OPTIMIZE_DEPS_INCLUDES = [
   // discovering these later would rebuild the prebundle and reload the app.
   "@shikijs/stream",
   "shiki",
-  // Chemistry diagrams start Indigo in a worker, while the Ketcher editor is
-  // loaded only when an editable chemistry fence is opened. Neither lazy
-  // boundary participates reliably in Vite's initial dependency crawl.
-  "indigo-ketcher",
-  "ketcher-react",
-  "ketcher-standalone",
   // CJS-only UMD package. Excalidraw's exportToBlob -> loadSceneFonts path
   // does `new PromisePool(...)`. Without pre-bundling, Vite's runtime CJS
   // interop exposes the constructor on the wrong slot, so `default` is not a
@@ -28,6 +22,10 @@ const WEB_OPTIMIZE_DEPS_INCLUDES = [
   "es6-promise-pool",
 ]
 const WEB_OPTIMIZE_DEPS_EXCLUDES = [
+  // Indigo resolves its separate WASM relative to import.meta.url. Prebundling
+  // moves the JavaScript into .vite/deps without copying the sibling WASM,
+  // so the development worker must load this entry from its package location.
+  "indigo-ketcher/binaryWasm",
   "foliate-js/view.js",
   "foliate-js/pdf.js",
   "foliate-js/overlayer.js",
