@@ -575,7 +575,7 @@ function ContrastTestPage() {
     return () => cancelAnimationFrame(raf)
   }, [themeId, colorScheme, mode])
 
-  const quickThemes = ["oc-2", "dracula", "github", "everforest", "vesper"]
+  const quickThemes = ["dracula", "github", "everforest", "vesper", "nord"]
 
   return (
     <div className="min-h-screen bg-background-base p-8 text-text-base transition-colors duration-200">

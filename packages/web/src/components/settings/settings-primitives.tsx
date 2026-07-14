@@ -107,7 +107,7 @@ export function SettingsListCard(props: { children: ReactNode }) {
 
 export function SettingsRow(props: {
   title: ReactNode
-  description: string
+  description?: string
   control: ReactNode
   /** @deprecated No longer needed — rows use CSS border-t separators automatically */
   last?: boolean
@@ -117,7 +117,7 @@ export function SettingsRow(props: {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1 space-y-1">
           <p className="text-[13px] font-medium tracking-[-0.01em] text-text-base">{props.title}</p>
-          <p className="text-xs text-text-weak">{props.description}</p>
+          {props.description ? <p className="text-xs text-text-weak">{props.description}</p> : null}
         </div>
         <div className="flex shrink-0 items-center gap-2 sm:min-w-44 sm:justify-end">
           {props.control}

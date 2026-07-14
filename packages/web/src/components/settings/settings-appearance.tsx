@@ -59,7 +59,6 @@ export function AppearanceSettings() {
           <SettingsListCard>
             <SettingsRow
               title={language.t("settings.appearance.colorSchemeTitle")}
-              description={language.t("settings.appearance.colorSchemeDescription")}
               control={
                 <Select
                   value={colorScheme}
@@ -82,7 +81,6 @@ export function AppearanceSettings() {
             />
             <SettingsRow
               title={language.t("settings.appearance.themeTitle")}
-              description={language.t("settings.appearance.themeDescription")}
               control={
                 <Select value={themeId} onValueChange={setTheme}>
                   <SelectTrigger data-action="settings-theme" className="w-full">

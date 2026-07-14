@@ -9,7 +9,7 @@ function cssValue(css: string, key: string) {
 
 describe("themeToCss", () => {
   test("serializes dark theme tokens as raw css custom properties", () => {
-    const tokens = resolveThemeVariant(defaultThemes["oc-2"].dark, true)
+    const tokens = resolveThemeVariant(defaultThemes.dracula.dark, true)
     const css = themeToCss(tokens)
 
     expect(cssValue(css, "--background-base")).toBe(tokens["background-base"])
@@ -21,7 +21,7 @@ describe("themeToCss", () => {
   })
 
   test("serializes light theme tokens", () => {
-    const tokens = resolveThemeVariant(defaultThemes["oc-2"].light, false)
+    const tokens = resolveThemeVariant(defaultThemes.dracula.light, false)
     const css = themeToCss(tokens)
 
     expect(cssValue(css, "--background-base")).toBe(tokens["background-base"])

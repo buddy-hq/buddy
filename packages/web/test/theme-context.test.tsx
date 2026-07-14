@@ -68,7 +68,7 @@ describe("ThemeProvider", () => {
   async function renderThemeProvider(): Promise<ThemeApi> {
     await act(async () => {
       root.render(
-        <ThemeProvider defaultTheme="oc-2">
+        <ThemeProvider defaultTheme="dracula">
           <ThemeCapture />
         </ThemeProvider>,
       )
@@ -98,6 +98,27 @@ describe("ThemeProvider", () => {
     expect(localStorage.getItem("opencode-theme-css-dark")).not.toBe("stale-dark")
     expect(localStorage.getItem("opencode-theme-css-light")).toContain("--background-base:")
     expect(localStorage.getItem("opencode-theme-css-dark")).toContain("--background-base:")
+  })
+
+  test("migrates brand-hidden theme ids to the default", async () => {
+    for (const retiredId of ["oc-2", "opencode"] as const) {
+      localStorage.clear()
+      localStorage.setItem("opencode-theme-id", retiredId)
+
+      await act(async () => {
+        root.unmount()
+        await flushEffects()
+      })
+      root = createRoot(container)
+      themeApi = null
+
+      const api = await renderThemeProvider()
+
+      expect(localStorage.getItem("opencode-theme-id")).toBe("dracula")
+      expect(document.documentElement.dataset.theme).toBe("dracula")
+      expect(api.themes[retiredId]).toBeUndefined()
+      expect(api.themeId).toBe("dracula")
+    }
   })
 
   test("caches the default theme and keeps the dark class in sync with scheme changes", async () => {

@@ -177,7 +177,6 @@ export function GeneralSettings() {
       <SettingsSection title="Appearance">
         <SettingsRow
           title={language.t("settings.appearance.colorSchemeTitle")}
-          description={language.t("settings.appearance.colorSchemeDescription")}
           control={
             <Select
               value={colorScheme}
@@ -204,7 +203,6 @@ export function GeneralSettings() {
         />
         <SettingsRow
           title={language.t("settings.appearance.themeTitle")}
-          description={language.t("settings.appearance.themeDescription")}
           control={
             <Select value={themeId} onValueChange={setTheme}>
               <SelectTrigger data-action="settings-theme" className="w-full">
@@ -222,7 +220,6 @@ export function GeneralSettings() {
         />
         <SettingsRow
           title={language.t("settings.general.uiFontTitle")}
-          description={language.t("settings.general.uiFontDescription")}
           control={
             <FontTextInput
               dataAction="settings-ui-font"
@@ -236,7 +233,6 @@ export function GeneralSettings() {
         />
         <SettingsRow
           title={language.t("settings.general.codeFontTitle")}
-          description={language.t("settings.general.codeFontDescription")}
           control={
             <FontTextInput
               dataAction="settings-code-font"
@@ -250,7 +246,6 @@ export function GeneralSettings() {
         />
         <SettingsRow
           title={language.t("settings.general.uiFontSizeTitle")}
-          description={language.t("settings.general.uiFontSizeDescription")}
           control={
             <FontSizeInput
               dataAction="settings-ui-font-size"
@@ -262,7 +257,6 @@ export function GeneralSettings() {
         />
         <SettingsRow
           title={language.t("settings.general.codeFontSizeTitle")}
-          description={language.t("settings.general.codeFontSizeDescription")}
           control={
             <FontSizeInput
               dataAction="settings-code-font-size"

@@ -12,8 +12,11 @@ export const PRELOAD_STYLE_ID = "oc-theme-preload"
 export const THEME_CACHE_VERSION = "5"
 export const DEFAULT_THEME_ID = "dracula"
 
+/** Legacy or brand-hidden theme ids remapped to the product default. */
+const RETIRED_THEME_IDS = new Set(["oc-1", "oc-2", "opencode"])
+
 export function normalizeThemeID(id: string | null | undefined): string | null {
-  if (id === "oc-1") return DEFAULT_THEME_ID
   if (!id) return null
+  if (RETIRED_THEME_IDS.has(id)) return DEFAULT_THEME_ID
   return id
 }
