@@ -42,9 +42,7 @@ export function verifyMacUpdateArchive(archivePath: string): void {
     throw new Error(`macOS update archive missing at ${archivePath}`)
   }
 
-  const extractionDirectory = mkdtempSync(
-    path.join(os.tmpdir(), EXTRACTION_DIRECTORY_PREFIX),
-  )
+  const extractionDirectory = mkdtempSync(path.join(os.tmpdir(), EXTRACTION_DIRECTORY_PREFIX))
   try {
     runRequiredCommand(DITTO_COMMAND, ["-x", "-k", archivePath, extractionDirectory])
     const appPath = resolveExtractedMacAppPath(extractionDirectory)

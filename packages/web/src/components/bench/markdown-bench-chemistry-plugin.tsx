@@ -43,8 +43,9 @@ export type MarkdownBenchChemistryViewOptions = {
 }
 
 const CHEMISTRY_IMPORT_PRIORITY = 100
-const MarkdownBenchChemistryViewContext =
-  createContext<MarkdownBenchChemistryViewOptions | null>(null)
+const MarkdownBenchChemistryViewContext = createContext<MarkdownBenchChemistryViewOptions | null>(
+  null,
+)
 
 export function MarkdownBenchChemistryViewProvider(props: {
   children: ReactNode
