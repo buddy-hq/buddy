@@ -6,6 +6,7 @@ Audited on 2026-07-13 after the single-renderer-ownership refactor.
 
 - SMILES, CXSMILES, reaction SMILES, and KET are rendered in the browser.
 - Chemfig is rendered only by the backend through `/api/chemistry/chemfig/render`.
+- Markdown Bench chemistry nodes are render-only; Buddy does not bundle a chemistry-specific visual or source editor.
 - The `render_chemistry` agent tool and chemistry object persistence have been removed.
 - Chemistry remains fenced Markdown. The backend Chemfig cache is an implementation cache, not a user artifact.
 - The generic `render_svg` tool can create an explicit standalone file on demand. Browser-owned formats are rendered by the same browser renderer used for fences; Chemfig stays on its backend renderer. The tool validates and atomically writes the returned SVG but does not create a chemistry object.
@@ -36,7 +37,7 @@ Audited on 2026-07-13 after the single-renderer-ownership refactor.
 | BUG-022 | Fixed | The lazy-loading fallback uses the same viewport dimensions as the renderer. |
 | BUG-023 | Not reproduced | Only completed fences are extracted; append-only streaming preserves ordinary Markdown until completion. Regression coverage remains in place. |
 | BUG-024 | Obsolete by design | Chemistry no longer has an object or Bench-presentation contract. Authoring is fence-based. |
-| BUG-025 | Not confirmed | The heavy chemistry module remains intentionally lazy-loaded, and rendering begins only after component activation. The fixed shell prevents visible layout flicker. |
+| BUG-025 | Fixed | Indigo remains worker-owned and lazy at runtime, while its separate-WASM entry keeps the binary out of Vite's JavaScript transform path. The fixed shell prevents visible layout flicker. |
 | BUG-026 | Fixed | Chemfig labels without an explicit SVG fill now inherit `currentColor`, so atom labels and black bonds remain readable on both light and dark transcript themes without recoloring explicit atom colors. |
 | BUG-027 | Fixed | Chemistry diagrams no longer add a card background, border, rounded shell, or visible format label. Loading, ready, renderer-error, and lazy-module-error states retain the same fixed transparent viewport for stable transcript virtualization. |
 | BUG-028 | Fixed | KET validation now requires the document reference structure instead of accepting arbitrary JSON. Unsupported CXSMILES S-group spellings fail with format-specific guidance, while coordinates and supported `n`/`gen` S-groups remain renderable. |

@@ -1,6 +1,6 @@
 # KET and render_svg
 
-Prefer `smiles` / `reaction-smiles` / `\ce` for most teaching. Use KET only when Ketcher round-tripping is required.
+Prefer `smiles` / `reaction-smiles` / `\ce` for most teaching. Use KET only when an existing coordinate-preserving document must be retained.
 
 If tempted to invent `inchi`, `smarts`, `sdf`, `cml`, `lewis`, `smile`, `reaction_smiles`, or `smiles-reaction` fences — stop. Use a supported chemistry format instead.
 
@@ -8,8 +8,8 @@ If tempted to invent `inchi`, `smarts`, `sdf`, `cml`, `lewis`, `smile`, `reactio
 
 - Valid JSON **object** (not array/string).
 - Must include non-empty `root.nodes` and `$ref` targets that resolve to objects.
-- Interchange with Ketcher / structure editors.
-- Prefer SMILES unless round-tripping editor JSON.
+- Accept generated or imported coordinate-preserving structure documents.
+- Prefer SMILES unless existing KET JSON must be preserved.
 
 ## `render_svg` tool
 

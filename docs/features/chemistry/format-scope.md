@@ -7,7 +7,7 @@ Buddy supports chemistry source formats for teaching, not as a general chemical-
 - `smiles` for molecule connectivity
 - `cxsmiles` when supported CX extensions are required
 - `reaction-smiles` for reaction schemes
-- `ket` for Ketcher round-tripping
+- `ket` for generated or imported coordinate-preserving structure documents
 - `chemfig` for deliberately arranged or custom structure art
 - mhchem `\ce` / `\pu` inside math for formulas, quantities, and equations
 
@@ -23,6 +23,6 @@ Removing them keeps the model-facing format set smaller and makes the reliable p
 - reaction diagrams use `reaction-smiles`;
 - equations use mhchem;
 - custom layouts use `chemfig`;
-- structures edited in Ketcher round-trip as `ket`.
+- generated or imported coordinate-preserving structures use `ket`.
 
-This is an intentional product boundary, not a limitation of Indigo or Ketcher. The underlying libraries may understand additional chemistry formats, but Buddy exposes only formats that materially improve its teaching workflows.
+This is an intentional product boundary, not a limitation of Indigo. The underlying renderer may understand additional chemistry formats, but Buddy exposes only formats that materially improve its teaching workflows. Buddy renders chemistry source but does not bundle a chemistry-specific visual editor.

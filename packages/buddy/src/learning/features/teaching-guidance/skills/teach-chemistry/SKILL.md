@@ -34,7 +34,7 @@ Do **not** announce this skill or its section names to the learner.
 | Coordination geometry or deliberately positioned ligands | `chemfig` |
 | Resonance contributors requiring exact layout | Separate `chemfig` structures |
 | Curved-arrow mechanism or electron flow | One short `chemfig` block per elementary step |
-| Existing Ketcher document requiring editing or round-trip | `ket` |
+| Existing coordinate-preserving KET document supplied as source | `ket` |
 | Standalone chemistry image file for MDX, PDF, or slides | `render_svg` with a native chemistry format |
 | Energy-level, reaction-coordinate, orbital-splitting, titration, rate, or phase graph | `render_figure` when its schema fits; otherwise freeform |
 | Apparatus, electrochemical-cell layout, orbital illustration | HTML, whiteboard, or freeform; keep molecular structures native |
@@ -115,7 +115,7 @@ Use **only** when a worksheet, deck, PDF, or export needs a real `.svg` file.
 
 - chemfig is heavier (timeouts, TeX/dvi failures). Prefer SMILES when connectivity is enough.
 - Indigo rejects bad valence / bad reaction shape — fix source and re-fence.
-- Do not freehand KET for chat; prefer SMILES unless Ketcher round-tripping is required.
+- Do not freehand KET for chat; prefer SMILES unless an existing KET document must be preserved.
 
 ## Relationship to other skills
 
@@ -193,4 +193,4 @@ Use this section only to choose a format. Read its owning reference before writi
 ### `ket`
 
 - JSON **object** with non-empty `root.nodes` and valid `$ref` targets (see `references/advanced-formats.md`).
-- Source must be non-empty after trim. Prefer SMILES / reaction-smiles unless Ketcher round-tripping is required.
+- Source must be non-empty after trim. Prefer SMILES / reaction-smiles unless an existing KET document must be preserved.
