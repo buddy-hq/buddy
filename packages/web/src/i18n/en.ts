@@ -632,7 +632,7 @@ export const dict = {
   "routes.settings.nav.learnerMemory": "Memory",
   "routes.settings.nav.mcps": "MCPs",
   "routes.settings.nav.notebook": "Notebook",
-  "routes.settings.nav.providers": "Providers",
+  "routes.settings.nav.providers": "AI Providers",
   "routes.settings.nav.skills": "Skills",
   "routes.settings.nav.standards": "Standards",
   "routes.settings.nav.tools": "Tools",
@@ -878,7 +878,7 @@ export const dict = {
   "settings.providers.allProvidersSection": "All providers",
   "settings.providers.availableProviders": "Available providers",
   "settings.providers.chatGptDescription":
-    "Connect your account. Available models and usage limits depend on your ChatGPT plan.",
+    "Simplest way to use AI in Buddy. Login and use your subscription.",
   "settings.providers.chatGptModelsAvailable": "{{count}} models available for this account",
   "settings.providers.chatGptModelsChecking": "Checking models available to this account…",
   "settings.providers.chatGptModelsFallback":
@@ -907,7 +907,8 @@ export const dict = {
   "settings.providers.hideAllProviders": "Hide all providers",
   "settings.providers.noProvidersConnected": "No providers are connected yet.",
   "settings.providers.noOtherProviders": "No other providers are available right now.",
-  "settings.providers.openCodeGoDescription": "Start with the hosted OpenCode models.",
+  "settings.providers.openCodeGoDescription": "Most affordable way to use AI in Buddy.",
+  "settings.providers.learnMore": "Learn more",
   "settings.providers.openCodeGoTitle": "OpenCode Go",
   "settings.providers.recommendedSection": "Recommended",
   "settings.providers.sourceApiKey": "API key",

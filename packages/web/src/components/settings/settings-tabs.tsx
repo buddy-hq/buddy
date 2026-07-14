@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { BotIcon } from "@buddy/ui"
 import {
   BlocksIcon,
   BookOpenIcon,
@@ -7,7 +8,6 @@ import {
   RefreshCwIcon,
   UserRoundIcon,
   ScaleIcon,
-  SettingsIcon,
   SlidersHorizontalIcon,
   type LucideIcon,
 } from "lucide-react"
@@ -83,7 +83,7 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
   {
     id: "providers",
     navLabelKey: "routes.settings.nav.providers",
-    icon: SettingsIcon,
+    icon: BotIcon,
     layout: "standard",
     group: "main",
     scope: "global",

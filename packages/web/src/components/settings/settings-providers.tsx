@@ -3,8 +3,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Badge,
   Button,
-  Card,
-  CardContent,
   CheckIcon,
   Dialog,
   DialogContent,
@@ -46,6 +44,8 @@ import {
 import { ProviderSourceBadge, SettingsListCard, SettingsContent } from "./settings-primitives"
 
 const OPENCODE_GO_PROVIDER_ID = "opencode-go"
+const OPENCODE_GO_LEARN_MORE_URL = "https://opencode.ai/go"
+const CHATGPT_LEARN_MORE_URL = "https://chatgpt.com/pricing/"
 const PROVIDER_SEARCH_VISIBLE_THRESHOLD = 3
 const SECONDS_PER_MINUTE = 60
 const MINUTES_PER_HOUR = 60
@@ -60,6 +60,8 @@ type RecommendedProviderDefinition = {
   description: string
   iconID: string
   connectLabel: string
+  learnMoreHref?: string
+  learnMoreLabel?: string
 }
 
 type RecommendedProviderCardProps = {
@@ -68,6 +70,8 @@ type RecommendedProviderCardProps = {
   description: string
   iconID: string
   connectLabel: string
+  learnMoreHref?: string
+  learnMoreLabel?: string
   unavailableLabel: string
   busy?: boolean
   error?: string
@@ -90,7 +94,9 @@ const RECOMMENDED_PROVIDER_DEFINITIONS: RecommendedProviderDefinition[] = [
     title: language.t("settings.providers.chatGptTitle"),
     description: language.t("settings.providers.chatGptDescription"),
     iconID: OPENAI_PROVIDER_ID,
-    connectLabel: language.t("settings.providers.connectChatGpt"),
+    connectLabel: language.t("common.connect"),
+    learnMoreHref: CHATGPT_LEARN_MORE_URL,
+    learnMoreLabel: language.t("settings.providers.learnMore"),
   },
   {
     providerID: OPENCODE_GO_PROVIDER_ID,
@@ -98,6 +104,8 @@ const RECOMMENDED_PROVIDER_DEFINITIONS: RecommendedProviderDefinition[] = [
     description: language.t("settings.providers.openCodeGoDescription"),
     iconID: OPENCODE_GO_PROVIDER_ID,
     connectLabel: language.t("common.connect"),
+    learnMoreHref: OPENCODE_GO_LEARN_MORE_URL,
+    learnMoreLabel: language.t("settings.providers.learnMore"),
   },
 ]
 
@@ -325,75 +333,89 @@ function ProviderSection(props: { title: string; action?: ReactNode; children: R
 }
 
 function RecommendedProviderCard(props: RecommendedProviderCardProps) {
+  const platform = usePlatform()
   const connected = Boolean(props.provider?.connected)
   const unavailable = !props.provider
+  const learnMoreHref = props.learnMoreHref
+  const learnMoreLabel = props.learnMoreLabel
 
   return (
-    <Card
+    <div
+      data-component="settings-recommended-provider-row"
       className={cn(
-        "border-border-base/80 transition-colors",
-        connected
-          ? "bg-surface-success-base/10"
-          : "bg-surface-raised-base hover:border-border-interactive-base/70",
+        "flex flex-col gap-2 px-3.5 py-3 transition-colors duration-150",
+        "hover:bg-surface-raised-base-hover/60",
       )}
     >
-      <CardContent className="flex h-full flex-col gap-4 p-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 items-start gap-3">
-            <div
-              className={cn(
-                "flex size-11 shrink-0 items-center justify-center rounded-2xl border",
-                connected
-                  ? "border-border-success-base bg-surface-success-base/10 text-text-success-base"
-                  : "border-border-base bg-background-base text-text-base",
-              )}
-            >
-              <ProviderIcon id={props.iconID} className="size-5" />
-            </div>
-            <div className="min-w-0 space-y-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-medium text-text-base">{props.title}</p>
-                {connected ? (
-                  <Badge variant="outline" className="h-5 gap-1 border-border-success-base">
-                    <CheckIcon className="size-3.5" />
-                    {language.t("onboardingSetup.engineSelection.connected")}
-                  </Badge>
-                ) : null}
-                {unavailable ? (
-                  <Badge variant="outline" className="h-5">
-                    {props.unavailableLabel}
-                  </Badge>
-                ) : null}
-              </div>
-              <p className="text-sm text-text-weak">{props.description}</p>
-            </div>
+      <div className="flex items-center gap-3">
+        <div
+          className={cn(
+            "flex size-9 shrink-0 items-center justify-center rounded-lg border",
+            connected
+              ? "border-border-success-base bg-surface-success-base/10 text-text-success-base"
+              : "border-border-weaker-base bg-background-base text-text-base",
+          )}
+        >
+          <ProviderIcon id={props.iconID} className="size-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <p className="truncate text-sm font-medium text-text-strong">{props.title}</p>
+            {connected ? (
+              <Badge variant="outline" className="h-5 gap-1 border-border-success-base">
+                <CheckIcon className="size-3.5" />
+                {language.t("onboardingSetup.engineSelection.connected")}
+              </Badge>
+            ) : null}
+            {unavailable ? (
+              <Badge variant="outline" className="h-5">
+                {props.unavailableLabel}
+              </Badge>
+            ) : null}
           </div>
-          {props.provider ? <ProviderSourceBadge provider={props.provider} /> : null}
-        </div>
-
-        {props.error ? (
-          <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-3 py-2 text-xs text-icon-critical-base">
-            {props.error}
+          <p className="mt-0.5 line-clamp-2 text-xs text-text-weak">
+            <span>{props.description}</span>
+            {learnMoreHref && learnMoreLabel ? (
+              <>
+                {" "}
+                <a
+                  href={learnMoreHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-text-interactive-base underline-offset-2 hover:underline"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    platform.openLink(learnMoreHref)
+                  }}
+                >
+                  {learnMoreLabel}
+                </a>
+              </>
+            ) : null}
           </p>
-        ) : null}
-
-        <div className="mt-auto flex items-center gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            className="min-w-[9rem]"
-            disabled={unavailable || props.busy}
-            onClick={connected ? props.onManage : props.onConnect}
-          >
-            {connected
-              ? language.t("settings.providers.editConnection")
-              : props.busy
-                ? language.t("onboardingSetup.chatGptModal.waitingLabel")
-                : props.connectLabel}
-          </Button>
         </div>
-      </CardContent>
-    </Card>
+        <Button
+          type="button"
+          size="sm"
+          variant={connected ? "secondary" : "default"}
+          className="shrink-0 active:scale-[0.97]"
+          disabled={unavailable || props.busy}
+          onClick={connected ? props.onManage : props.onConnect}
+        >
+          {connected
+            ? language.t("settings.providers.editConnection")
+            : props.busy
+              ? language.t("onboardingSetup.chatGptModal.waitingLabel")
+              : props.connectLabel}
+        </Button>
+      </div>
+      {props.error ? (
+        <p className="rounded-md border border-border-critical-base/40 bg-surface-critical-base/10 px-3 py-2 text-xs text-icon-critical-base">
+          {props.error}
+        </p>
+      ) : null}
+    </div>
   )
 }
 
@@ -668,38 +690,50 @@ export function ProvidersSettings() {
 
         {filteredRecommendedProviders.length > 0 ? (
           <ProviderSection title={language.t("settings.providers.recommendedSection")}>
-            <div className="grid gap-3 md:grid-cols-2">
-              {filteredRecommendedProviders.map((provider) => {
+            <SettingsListCard>
+              {filteredRecommendedProviders.map((provider, index) => {
                 const definition = RECOMMENDED_PROVIDER_DEFINITIONS.find(
                   (item) => item.providerID === provider.id,
                 )
                 if (!definition) return null
 
                 return (
-                  <RecommendedProviderCard
+                  <div
                     key={definition.providerID}
-                    provider={provider}
-                    title={definition.title}
-                    description={definition.description}
-                    iconID={definition.iconID}
-                    connectLabel={definition.connectLabel}
-                    unavailableLabel={language.t("settings.providers.unavailable")}
-                    busy={
-                      definition.providerID === OPENAI_PROVIDER_ID ? chatGptConnecting : undefined
+                    className={
+                      index > 0 ? "border-t border-border-weaker-base" : undefined
                     }
-                    error={definition.providerID === OPENAI_PROVIDER_ID ? chatGptError : undefined}
-                    onConnect={() => {
-                      if (definition.providerID === OPENAI_PROVIDER_ID) {
-                        void handleConnectChatGpt()
-                        return
+                  >
+                    <RecommendedProviderCard
+                      provider={provider}
+                      title={definition.title}
+                      description={definition.description}
+                      iconID={definition.iconID}
+                      connectLabel={definition.connectLabel}
+                      learnMoreHref={definition.learnMoreHref}
+                      learnMoreLabel={definition.learnMoreLabel}
+                      unavailableLabel={language.t("settings.providers.unavailable")}
+                      busy={
+                        definition.providerID === OPENAI_PROVIDER_ID
+                          ? chatGptConnecting
+                          : undefined
                       }
-                      openProviderDialog(definition.providerID)
-                    }}
-                    onManage={() => openProviderDialog(definition.providerID)}
-                  />
+                      error={
+                        definition.providerID === OPENAI_PROVIDER_ID ? chatGptError : undefined
+                      }
+                      onConnect={() => {
+                        if (definition.providerID === OPENAI_PROVIDER_ID) {
+                          void handleConnectChatGpt()
+                          return
+                        }
+                        openProviderDialog(definition.providerID)
+                      }}
+                      onManage={() => openProviderDialog(definition.providerID)}
+                    />
+                  </div>
                 )
               })}
-            </div>
+            </SettingsListCard>
           </ProviderSection>
         ) : null}
 
