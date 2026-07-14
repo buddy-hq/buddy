@@ -14,6 +14,7 @@ import { releaseRepository, sourceRepository } from "./release-repositories"
 const ROOT_DIR = path.resolve(import.meta.dir, "..")
 const RELEASE_BRANCH = "main"
 const RELEASE_WORKFLOW_FILENAME = "publish-cheap.yml"
+const FAST_SKIP_FLAG = "--fs"
 
 type SyncState = "in-sync" | "ahead" | "behind" | "diverged"
 
@@ -43,6 +44,7 @@ type ReleaseTargets = {
 type ReleaseWizardFlags = {
   fast: boolean
   help: boolean
+  skipLocalReleaseGates: boolean
   targets: ReleaseTargets | undefined
 }
 
@@ -611,11 +613,18 @@ function parseArgs(): ReleaseWizardFlags {
   let targets: ReleaseTargets | undefined
   let fast = false
   let help = false
+  let skipLocalReleaseGates = false
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]
     if (arg === "--fast") {
       fast = true
+      continue
+    }
+
+    if (arg === FAST_SKIP_FLAG) {
+      fast = true
+      skipLocalReleaseGates = true
       continue
     }
 
@@ -645,6 +654,7 @@ function parseArgs(): ReleaseWizardFlags {
   return {
     fast,
     help,
+    skipLocalReleaseGates,
     targets,
   }
 }
@@ -652,7 +662,9 @@ function parseArgs(): ReleaseWizardFlags {
 function printUsage(): void {
   console.log(
     [
-      "Usage: bun ./script/cut-release.ts [--fast] [--targets <target-list>]",
+      `Usage: bun ./script/cut-release.ts [--fast | ${FAST_SKIP_FLAG}] [--targets <target-list>]`,
+      "",
+      `${FAST_SKIP_FLAG} runs the fast flow and skips the local Buddy Dev installable and production release smoke builds.`,
       "",
       "Target list examples:",
       "  --targets all",
@@ -851,7 +863,14 @@ async function main() {
 
       runRequiredGates()
       await ensureCleanTree()
-      runLocalReleaseGates(version, targetSha, targets)
+      if (flags.skipLocalReleaseGates) {
+        printStep(
+          "Local Release Gates",
+          `Skipped local Buddy Dev and production release builds via ${FAST_SKIP_FLAG}.`,
+        )
+      } else {
+        runLocalReleaseGates(version, targetSha, targets)
+      }
       await ensureCleanTree()
 
       const release = await upsertDraftRelease(
