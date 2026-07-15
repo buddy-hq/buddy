@@ -1,33 +1,40 @@
-import { cn, Input, Textarea } from "@buddy/ui"
+import {
+  cn,
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+  FieldTitle,
+  Input,
+  RadioGroup,
+  RadioGroupItem,
+  Textarea,
+} from "@buddy/ui"
 import { BookOpenTextIcon, SchoolIcon } from "lucide-react"
-import { motion } from "motion/react"
 import { language } from "@/context/language"
 import type { AnyFieldApi } from "@tanstack/react-form"
-import type { PersonalizationSettings } from "@/state/project-config-readers"
+import {
+  isPrimaryUse,
+  type PersonalizationSettings,
+} from "@/state/project-config-readers"
+import { SettingsListCard } from "./settings-primitives"
 
-const EASE_OUT = [0.23, 1, 0.32, 1] as const
-
-export function PersonalizationFormField({
-  index,
-  label,
-  children,
-}: {
-  index: number
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: EASE_OUT, delay: index * 0.06 }}
-      className="flex flex-col gap-2"
-    >
-      <p className="text-sm font-medium text-text-weaker">{label}</p>
-      {children}
-    </motion.div>
-  )
-}
+const PRIMARY_USE_OPTIONS = [
+  {
+    value: "learn",
+    fieldId: "personalization-primary-use-learn",
+    icon: BookOpenTextIcon,
+    titleKey: "settings.personalization.primaryUseLearn",
+    descriptionKey: "settings.personalization.primaryUseLearnDescription",
+  },
+  {
+    value: "teach",
+    fieldId: "personalization-primary-use-teach",
+    icon: SchoolIcon,
+    titleKey: "settings.personalization.primaryUseTeach",
+    descriptionKey: "settings.personalization.primaryUseTeachDescription",
+  },
+] as const
 
 type PersonalizationFormApi = {
   Field: (props: {
@@ -38,113 +45,111 @@ type PersonalizationFormApi = {
 
 type SharedPersonalizationFormFieldsProps = {
   form: PersonalizationFormApi
-  includePrimaryUse?: boolean
+}
+
+function FieldBlock(props: {
+  title: string
+  children: React.ReactNode
+  first?: boolean
+}) {
+  return (
+    <div
+      className={cn(
+        "space-y-2 px-4 py-3.5 sm:px-5",
+        props.first ? undefined : "border-t border-border-base/60",
+      )}
+    >
+      <p className="text-[13px] font-medium tracking-[-0.01em] text-text-base">{props.title}</p>
+      {props.children}
+    </div>
+  )
+}
+
+export function SharedPersonalizationPrimaryUseField(props: {
+  form: PersonalizationFormApi
+  onPrimaryUseChange?: () => void
+}) {
+  return (
+    <props.form.Field name="primaryUse">
+      {(field: AnyFieldApi) => (
+        <RadioGroup
+          aria-label={language.t("settings.personalization.primaryUseTitle")}
+          className="grid-cols-1 sm:grid-cols-2"
+          value={field.state.value}
+          onValueChange={(value) => {
+            if (isPrimaryUse(value)) {
+              field.handleChange(value)
+              props.onPrimaryUseChange?.()
+            }
+          }}
+        >
+          {PRIMARY_USE_OPTIONS.map((option) => {
+            const Icon = option.icon
+
+            return (
+              <FieldLabel key={option.value} htmlFor={option.fieldId} className="cursor-pointer">
+                <Field orientation="horizontal" className="min-w-0 gap-3">
+                  <Icon className="size-4 shrink-0 text-icon-base" />
+                  <FieldContent>
+                    <FieldTitle>{language.t(option.titleKey)}</FieldTitle>
+                    <FieldDescription>{language.t(option.descriptionKey)}</FieldDescription>
+                  </FieldContent>
+                  <RadioGroupItem id={option.fieldId} value={option.value} />
+                </Field>
+              </FieldLabel>
+            )
+          })}
+        </RadioGroup>
+      )}
+    </props.form.Field>
+  )
 }
 
 export function SharedPersonalizationFormFields(props: SharedPersonalizationFormFieldsProps) {
-  const includePrimaryUse = props.includePrimaryUse ?? true
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: EASE_OUT, delay: 0.1 }}
-      className="flex flex-col gap-6"
-    >
-      {includePrimaryUse ? (
-        <props.form.Field name="primaryUse">
-          {(field: AnyFieldApi) => (
-            <PersonalizationFormField
-              index={0}
-              label={language.t("settings.personalization.primaryUseTitle")}
-            >
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  aria-pressed={field.state.value === "learn"}
-                  className={cn(
-                    "flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-border-interactive-base",
-                    field.state.value === "learn"
-                      ? "border-border-interactive-base bg-surface-interactive-weak text-text-strong"
-                      : "border-border-base bg-surface-raised-base text-text-weak hover:bg-surface-raised-base-hover",
-                  )}
-                  onClick={() => field.handleChange("learn")}
-                >
-                  <BookOpenTextIcon className="size-4 shrink-0" />
-                  <span className="truncate text-sm font-medium">
-                    {language.t("settings.personalization.primaryUseLearn")}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={field.state.value === "teach"}
-                  className={cn(
-                    "flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-border-interactive-base",
-                    field.state.value === "teach"
-                      ? "border-border-interactive-base bg-surface-interactive-weak text-text-strong"
-                      : "border-border-base bg-surface-raised-base text-text-weak hover:bg-surface-raised-base-hover",
-                  )}
-                  onClick={() => field.handleChange("teach")}
-                >
-                  <SchoolIcon className="size-4 shrink-0" />
-                  <span className="truncate text-sm font-medium">
-                    {language.t("settings.personalization.primaryUseTeach")}
-                  </span>
-                </button>
-              </div>
-            </PersonalizationFormField>
-          )}
-        </props.form.Field>
-      ) : null}
-
+    <SettingsListCard>
       <props.form.Field name="preferredName">
         {(field: AnyFieldApi) => (
-          <PersonalizationFormField
-            index={includePrimaryUse ? 1 : 0}
-            label={language.t("settings.personalization.preferredNameTitle")}
-          >
+          <FieldBlock title={language.t("settings.personalization.preferredNameTitle")} first>
             <Input
               value={field.state.value}
               onBlur={field.handleBlur}
               onChange={(event) => field.handleChange(event.target.value)}
               placeholder="What should Buddy call you?"
+              className="w-full"
             />
-          </PersonalizationFormField>
+          </FieldBlock>
         )}
       </props.form.Field>
 
       <props.form.Field name="occupation">
         {(field: AnyFieldApi) => (
-          <PersonalizationFormField
-            index={includePrimaryUse ? 2 : 1}
-            label={language.t("settings.personalization.occupationTitle")}
-          >
+          <FieldBlock title={language.t("settings.personalization.occupationTitle")}>
             <Input
               value={field.state.value}
               onBlur={field.handleBlur}
               onChange={(event) => field.handleChange(event.target.value)}
               placeholder="Student, engineer..."
+              className="w-full"
             />
-          </PersonalizationFormField>
+          </FieldBlock>
         )}
       </props.form.Field>
 
       <props.form.Field name="moreAboutYou">
         {(field: AnyFieldApi) => (
-          <PersonalizationFormField
-            index={includePrimaryUse ? 3 : 2}
-            label={language.t("settings.personalization.moreAboutYouTitle")}
-          >
+          <FieldBlock title={language.t("settings.personalization.moreAboutYouTitle")}>
             <Textarea
               value={field.state.value}
               onBlur={field.handleBlur}
               onChange={(event) => field.handleChange(event.target.value)}
               placeholder="Goals, context, preferences..."
               rows={4}
+              className="w-full resize-y"
             />
-          </PersonalizationFormField>
+          </FieldBlock>
         )}
       </props.form.Field>
-    </motion.div>
+    </SettingsListCard>
   )
 }

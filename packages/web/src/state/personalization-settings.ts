@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { useStore } from "@tanstack/react-form"
 import type { AnyFormApi } from "@tanstack/react-form"
 import { patchGlobalConfig } from "./chat-actions"
@@ -10,15 +10,42 @@ import {
   readPersonalization,
   type PersonalizationSettings,
 } from "./project-config-readers"
-import {
-  personalizationSettingsQueryOptions,
-  personalizationSettingsQueryKeys,
-  setPersonalizationSettingsQueryData,
-  type PersonalizationSettingsBundle,
-} from "./personalization-settings-query"
+import { setPersonalizationSettingsQueryData } from "./personalization-settings-query"
 import { directoryChatQueryKeys } from "@/lib/directory-chat/chat-config-query"
+import { globalConfigQueryKeys } from "./global-config-query"
 
 const AUTO_SAVE_DELAY_MS = 250
+const PERSONALIZATION_HYDRATION_OPTIONS = {
+  dontRunListeners: true,
+  dontUpdateMeta: true,
+  dontValidate: true,
+} as const
+
+function hydratePersonalizationForm(
+  form: AnyFormApi,
+  personalization: PersonalizationSettings,
+) {
+  form.setFieldValue(
+    "primaryUse",
+    personalization.primaryUse,
+    PERSONALIZATION_HYDRATION_OPTIONS,
+  )
+  form.setFieldValue(
+    "preferredName",
+    personalization.preferredName,
+    PERSONALIZATION_HYDRATION_OPTIONS,
+  )
+  form.setFieldValue(
+    "occupation",
+    personalization.occupation,
+    PERSONALIZATION_HYDRATION_OPTIONS,
+  )
+  form.setFieldValue(
+    "moreAboutYou",
+    personalization.moreAboutYou,
+    PERSONALIZATION_HYDRATION_OPTIONS,
+  )
+}
 
 function stringifyError(error: unknown) {
   if (error instanceof Error) return error.message
@@ -30,9 +57,14 @@ function stringifyError(error: unknown) {
   }
 }
 
-export function usePersonalizationSettingsAutosave(form: AnyFormApi) {
+export function usePersonalizationSettingsAutosave(
+  form: AnyFormApi,
+  input: {
+    globalConfig?: Record<string, unknown>
+    isPending: boolean
+  },
+) {
   const queryClient = useQueryClient()
-  const settingsQuery = useQuery(personalizationSettingsQueryOptions())
   const values = useStore(form.store, (state) => state.values)
   const isSubmitting = useStore(form.store, (state) => state.isSubmitting)
   const lastSavedValuesRef = useRef<PersonalizationSettings | undefined>(undefined)
@@ -41,37 +73,37 @@ export function usePersonalizationSettingsAutosave(form: AnyFormApi) {
   const saveRef = useRef<() => Promise<boolean>>(async () => false)
 
   useEffect(() => {
-    const bundle = settingsQuery.data
-    if (!bundle) {
+    if (!input.globalConfig) {
       return
     }
 
+    const personalization = readPersonalization(input.globalConfig)
     const previousSavedValues = lastSavedValuesRef.current
     if (
       !shouldResetPersonalizationForm({
         nextValues: values,
-        currentValues: bundle.personalization,
+        currentValues: personalization,
         lastSavedValues: previousSavedValues,
       })
     ) {
-      lastSavedValuesRef.current = bundle.personalization
+      lastSavedValuesRef.current = personalization
       return
     }
 
-    lastSavedValuesRef.current = bundle.personalization
-    form.reset(bundle.personalization)
-  }, [form, settingsQuery.data, values])
+    lastSavedValuesRef.current = personalization
+    hydratePersonalizationForm(form, personalization)
+  }, [form, input.globalConfig, values])
 
   const performSave = useCallback(async () => {
-    const bundle = queryClient.getQueryData<PersonalizationSettingsBundle>(
-      personalizationSettingsQueryKeys.bundle(),
+    const globalConfig = queryClient.getQueryData<Record<string, unknown>>(
+      globalConfigQueryKeys.bundle(),
     )
-    if (!bundle) {
+    if (!globalConfig) {
       return false
     }
 
     const nextValues = form.state.values as PersonalizationSettings
-    const currentValues = readPersonalization(bundle.globalConfig)
+    const currentValues = readPersonalization(globalConfig)
     if (personalizationSettingsMatch(nextValues, currentValues)) {
       lastSavedValuesRef.current = currentValues
       return true
@@ -127,13 +159,15 @@ export function usePersonalizationSettingsAutosave(form: AnyFormApi) {
   }, [save])
 
   useEffect(() => {
-    const bundle = settingsQuery.data
-    if (!bundle || settingsQuery.isPending || isSubmitting) {
+    if (!input.globalConfig || input.isPending || isSubmitting) {
       return
     }
 
     if (
-      personalizationSettingsMatch(values, lastSavedValuesRef.current ?? bundle.personalization)
+      personalizationSettingsMatch(
+        values,
+        lastSavedValuesRef.current ?? readPersonalization(input.globalConfig),
+      )
     ) {
       return
     }
@@ -145,10 +179,9 @@ export function usePersonalizationSettingsAutosave(form: AnyFormApi) {
     return () => {
       window.clearTimeout(timeout)
     }
-  }, [isSubmitting, save, settingsQuery.data, settingsQuery.isPending, values])
+  }, [input.globalConfig, input.isPending, isSubmitting, save, values])
 
   return {
-    settingsQuery,
     save,
   }
 }

@@ -26,7 +26,7 @@ import { mcpStatusQueryOptions } from "@/state/mcp-directory-query"
 import { notebookDefinesMcp } from "@/state/mcp-settings"
 import { notebookRawProjectConfigQueryOptions } from "@/state/notebook-settings-query"
 import { useChatStore } from "@/state/chat-store"
-import { SettingsContent } from "./settings-primitives"
+import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primitives"
 
 const MCP_SEARCH_VISIBLE_THRESHOLD = 3
 const EMPTY_CONFIG: Record<string, unknown> = {}
@@ -192,17 +192,17 @@ export function McpsSettings() {
     <>
       <SettingsContent>
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-border-base/60 bg-surface-weak/20 px-3 py-2">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-text-base">
-                {language.t("mcp.listPanel.title")}
-              </p>
-              <p className="text-xs text-text-weak">{language.t("mcp.settings.description")}</p>
-            </div>
-            <Button type="button" size="sm" className="shrink-0" onClick={openCreateEditor}>
-              {language.t("mcp.listPanel.addMcp")}
-            </Button>
-          </div>
+          <SettingsListCard>
+            <SettingsRow
+              title={language.t("mcp.listPanel.title")}
+              description={language.t("mcp.settings.description")}
+              control={
+                <Button type="button" size="sm" className="shrink-0" onClick={openCreateEditor}>
+                  {language.t("mcp.listPanel.addMcp")}
+                </Button>
+              }
+            />
+          </SettingsListCard>
 
           {showSearch ? (
             <Input
@@ -212,13 +212,13 @@ export function McpsSettings() {
             />
           ) : null}
 
-          <div className="rounded-xl border border-border-base/60 bg-surface-raised-base">
+          <SettingsListCard>
             {globalConfigQuery.isPending ? (
-              <div className="px-4 py-8 text-sm text-text-weak">
+              <div className="px-4 py-8 text-sm text-text-weaker">
                 {language.t("mcp.listPanel.loading")}
               </div>
             ) : entries.length === 0 ? (
-              <div className="flex flex-col items-start gap-3 px-4 py-8 text-sm text-text-weak">
+              <div className="flex flex-col items-start gap-3 px-4 py-8 text-sm text-text-weaker">
                 <p>
                   {showSearch
                     ? language.t("mcp.listPanel.noMatch")
@@ -231,7 +231,7 @@ export function McpsSettings() {
                 ) : null}
               </div>
             ) : (
-              entries.map((name, index) => {
+              entries.map((name) => {
                 const config = configByName[name]
                 const removing = pendingRemoveName === name
                 const notebookDefinitionShadowsGlobal = notebookDefinesMcp(
@@ -248,36 +248,31 @@ export function McpsSettings() {
                   config.enabled !== false &&
                   status?.status !== "connected" &&
                   status?.status !== "disabled"
+                const detail =
+                  config.type === "remote" ? config.url : config.command.join(" ")
 
                 return (
-                  <div
+                  <SettingsRow
                     key={name}
-                    className={
-                      index === 0 ? "px-4 py-3" : "border-t border-border-base/60 px-4 py-3"
-                    }
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-sm font-medium text-text-base">{name}</p>
+                    title={
+                      <span className="flex min-w-0 flex-wrap items-center gap-2">
+                        <span className="truncate">{name}</span>
+                        <Badge variant="outline" className="h-5">
+                          {isEnabledLabel(config)}
+                        </Badge>
+                        <Badge variant="secondary" className="h-5">
+                          {config.type}
+                        </Badge>
+                        {status ? (
                           <Badge variant="outline" className="h-5">
-                            {isEnabledLabel(config)}
+                            {getMcpStatusLabel(status.status)}
                           </Badge>
-                          <Badge variant="secondary" className="h-5">
-                            {config.type}
-                          </Badge>
-                          {status ? (
-                            <Badge variant="outline" className="h-5">
-                              {getMcpStatusLabel(status.status)}
-                            </Badge>
-                          ) : null}
-                        </div>
-                        <p className="mt-1 truncate text-xs text-text-weak">
-                          {config.type === "remote" ? config.url : config.command.join(" ")}
-                        </p>
-                      </div>
-
-                      <div className="flex shrink-0 items-center gap-2">
+                        ) : null}
+                      </span>
+                    }
+                    description={detail}
+                    control={
+                      <>
                         {showConnectAction ? (
                           <Button
                             type="button"
@@ -311,13 +306,13 @@ export function McpsSettings() {
                         >
                           {removing ? language.t("common.saving") : language.t("common.remove")}
                         </Button>
-                      </div>
-                    </div>
-                  </div>
+                      </>
+                    }
+                  />
                 )
               })
             )}
-          </div>
+          </SettingsListCard>
 
           {panelError ? <p className="text-sm text-icon-critical-base">{panelError}</p> : null}
           {globalConfigQuery.error ? (
