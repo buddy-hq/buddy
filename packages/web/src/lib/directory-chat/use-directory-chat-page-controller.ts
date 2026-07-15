@@ -1738,6 +1738,7 @@ export function useDirectoryChatPageController(
     onSelectNotebook: (targetDirectory) => {
       void onNewSession(targetDirectory)
     },
+    onStartGetStartedChat,
   }
 
   const shellProps: ReadyDirectoryChatPageControllerState["shellProps"] = {

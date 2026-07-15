@@ -15,6 +15,105 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /*
+   * Action chips: chalk ink + clear click affordance (pointer, lift on hover).
+   * Color pinned so utility/button cascade cannot fall back to dark grey.
+   */
+  .chat-empty-board-action {
+    cursor: pointer;
+    color: var(--text-subtle);
+    -webkit-text-fill-color: var(--text-subtle);
+    background-color: color-mix(in oklab, var(--text-subtle) 4%, transparent);
+    border-color: color-mix(in oklab, var(--text-weaker) 55%, transparent);
+    transition:
+      border-color 150ms ease,
+      background-color 150ms ease,
+      transform 150ms ease;
+  }
+
+  .chat-empty-board-action:hover:not(:disabled) {
+    cursor: pointer;
+    color: var(--text-subtle);
+    -webkit-text-fill-color: var(--text-subtle);
+    background-color: color-mix(in oklab, var(--text-subtle) 10%, transparent);
+    border-color: color-mix(in oklab, var(--text-subtle) 75%, transparent);
+  }
+
+  .chat-empty-board-action:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  .chat-empty-board-action:disabled {
+    cursor: wait;
+  }
+
+  .chat-empty-board-action .chat-empty-board-chalk,
+  .chat-empty-board-action svg {
+    color: inherit;
+    -webkit-text-fill-color: inherit;
+  }
+
+  /*
+   * Board height strategy:
+   * - Always cap to parent (`max-height: 100%`) so short panes / short windows
+   *   cannot push the mascot under the prompt composer.
+   * - Width-first aspect when there is room; flatter ratios under short viewports
+   *   (viewport height — correct here; floating chat short-height is still viewport-ish
+   *   via parent max-height).
+   * - Narrow panes use a taller 4:3 only when height is comfortable.
+   */
+  .chat-empty-board-card {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: 100%;
+    min-height: 0;
+    aspect-ratio: 4 / 3;
+  }
+
+  @container (min-width: 28rem) {
+    .chat-empty-board-card {
+      aspect-ratio: 16 / 9;
+    }
+  }
+
+  /* Short window: flatten so the board fits above the composer without scroll/overlap. */
+  @media (max-height: 720px) {
+    .chat-empty-board-card {
+      aspect-ratio: 2 / 1;
+    }
+  }
+
+  @media (max-height: 560px) {
+    .chat-empty-board-card {
+      aspect-ratio: 2.5 / 1;
+    }
+  }
+
+  /*
+   * Mascot: fluid to board size (no fixed rem freeze).
+   * Height-primary so short boards shrink it; width capped by the flex slot
+   * and a 14rem ceiling (original md:w-56).
+   */
+  .chat-empty-board-mascot {
+    display: block;
+    width: auto;
+    height: 90%;
+    max-width: min(100%, 14rem);
+    max-height: 100%;
+    object-fit: contain;
+    object-position: bottom right;
+  }
+
+  /*
+   * Headline: fluid to board container width (cqw).
+   * Floor ~text-2xl, ceiling text-4xl (2.25rem). Scales smoothly between.
+   */
+  .chat-empty-board-headline {
+    font-size: clamp(1.5rem, 0.75rem + 4.5cqw, 2.25rem);
+    line-height: 1.1;
+  }
+
   /* Matches board article: base fill + chalk grain (popup is portaled). */
   .chat-empty-board-grain {
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");

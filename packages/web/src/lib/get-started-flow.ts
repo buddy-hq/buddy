@@ -7,12 +7,11 @@ import {
 } from "./get-started-chats"
 import type { PrimaryUse } from "@/state/project-config-readers"
 
-const GET_STARTED_FLOW_DIRECTORY_NAME = "inbox" as const
-
 export const GET_STARTED_FLOW_STATUS = {
   loading: "loading",
   dismissed: "dismissed",
   overriddenHidden: "overridden_hidden",
+  /** @deprecated Directory no longer gates the flow; board Inbox scope is UI-only. */
   outOfScope: "out_of_scope",
   active: "active",
 } as const
@@ -22,6 +21,7 @@ export type GetStartedFlowStatus =
 
 export type GetStartedFlowSnapshot = {
   status: GetStartedFlowStatus
+  /** True when the sidebar (and other non-Inbox-scoped surfaces) should show Get Started. */
   isActive: boolean
   enabled: boolean
   chats: readonly GetStartedChat[]
@@ -32,6 +32,10 @@ export type GetStartedFlowInput = {
   persistedStateHydrated: boolean
   personalizationResolved: boolean
   primaryUse: PrimaryUse | undefined
+  /**
+   * Still accepted for call-site compatibility. Directory does not gate
+   * `isActive` — the empty board decides Inbox-only presentation itself.
+   */
   currentDirectory: string
   devtoolsMode: GetStartedFlowDevtoolsMode | undefined
 }
@@ -49,12 +53,6 @@ function isDeveloperAudienceOverride(
     devtoolsMode === GET_STARTED_FLOW_DEVTOOLS_MODE.student ||
     devtoolsMode === GET_STARTED_FLOW_DEVTOOLS_MODE.teacher
   )
-}
-
-function isInboxDirectory(directory: string): boolean {
-  const cleaned = directory.replace(/[\\/]+$/, "")
-  const parts = cleaned.split(/[\\/]/).filter(Boolean)
-  return parts.at(-1)?.toLowerCase() === GET_STARTED_FLOW_DIRECTORY_NAME
 }
 
 function createSnapshot(
@@ -89,9 +87,8 @@ export function resolveGetStartedFlow(input: GetStartedFlowInput): GetStartedFlo
   if (!hasDeveloperAudienceOverride && !input.enabled) {
     return createSnapshot(GET_STARTED_FLOW_STATUS.dismissed, input.enabled, chats)
   }
-  if (!isInboxDirectory(input.currentDirectory)) {
-    return createSnapshot(GET_STARTED_FLOW_STATUS.outOfScope, input.enabled, chats)
-  }
 
+  // Active in every notebook for the sidebar. Empty-board cards stay Inbox-only
+  // via ChatEmptyStateBoard (`isInbox && isActive`).
   return createSnapshot(GET_STARTED_FLOW_STATUS.active, input.enabled, chats)
 }

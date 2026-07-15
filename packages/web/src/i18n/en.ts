@@ -19,8 +19,11 @@ export const dict = {
   "chat.emptyState.inboxTitle": "Ask me anything",
   "chat.emptyState.notebookHint":
     "Start a new chat here, or create another notebook from the sidebar when you want a separate space.",
-  "chat.emptyState.title": "Let's understand",
-  "chat.emptyState.teachTitle": "What are you planning or creating?",
+  "chat.emptyState.title": "What are we learning?",
+  "chat.emptyState.teachTitle": "What are we building?",
+  "chat.emptyState.welcomeToBuddy": "Welcome to Buddy",
+  "chat.emptyState.tryThese": "Try these",
+  "chat.emptyState.hideGetStarted": "Hide Try these",
   "chat.jumpToLatest": "Jump to latest",
   "chat.permissionDock.action.bash": "Run command",
   "chat.permissionDock.action.edit": "Edit {{path}}",
@@ -783,10 +786,10 @@ export const dict = {
   "settings.general.notificationsErrorsDescription":
     "Show a system notification when a chat run fails.",
   "settings.general.notificationsErrorsAria": "Enable error notifications",
-  "settings.general.getStartedChatsTitle": "Show Get Started",
+  "settings.general.getStartedChatsTitle": "Show Try these",
   "settings.general.getStartedChatsDescription":
-    "Show capability examples in the Inbox sidebar. You can hide them again from the sidebar.",
-  "settings.general.getStartedChatsAria": "Show Get Started examples",
+    "Starter prompts in the sidebar and on the Inbox empty board.",
+  "settings.general.getStartedChatsAria": "Show Try these prompts",
   "notification.session.responseReady.fallbackDescription": "Buddy finished responding.",
   "notification.session.error.title": "Session error",
   "notification.permission.title": "Permission required",

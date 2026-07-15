@@ -51,7 +51,7 @@ describe("get started flow rules", () => {
     expect(flow.chats.some((chat) => chat.id === "practice-set")).toBe(true)
   })
 
-  test("becomes active in the Inbox independently of sessions or render callbacks", () => {
+  test("becomes active independently of sessions, render callbacks, or directory", () => {
     const flow = resolveGetStartedFlow(ACTIVE_LEARNER_INPUT)
 
     expect(flow.status).toBe(GET_STARTED_FLOW_STATUS.active)
@@ -59,28 +59,24 @@ describe("get started flow rules", () => {
     expect(flow.chats).not.toHaveLength(0)
   })
 
-  test("supports Windows Inbox paths", () => {
+  test("stays active in notebooks so the sidebar Get Started list can show everywhere", () => {
     const flow = resolveGetStartedFlow({
       ...ACTIVE_LEARNER_INPUT,
-      currentDirectory: "C:\\Users\\Buddy\\inbox\\",
+      currentDirectory: "/Users/buddy/Notebook",
     })
 
     expect(flow.status).toBe(GET_STARTED_FLOW_STATUS.active)
+    expect(flow.isActive).toBe(true)
+    expect(flow.chats).not.toHaveLength(0)
   })
 
-  test("distinguishes dismissal from being outside the Inbox", () => {
+  test("marks dismissal separately from directory", () => {
     expect(
       resolveGetStartedFlow({
         ...ACTIVE_LEARNER_INPUT,
         enabled: false,
       }).status,
     ).toBe(GET_STARTED_FLOW_STATUS.dismissed)
-    expect(
-      resolveGetStartedFlow({
-        ...ACTIVE_LEARNER_INPUT,
-        currentDirectory: "/Users/buddy/Notebook",
-      }).status,
-    ).toBe(GET_STARTED_FLOW_STATUS.outOfScope)
   })
 
   test("re-enabling a dismissed flow makes it active again", () => {
@@ -120,7 +116,7 @@ describe("get started flow rules", () => {
     expect(reEnabled.status).toBe(GET_STARTED_FLOW_STATUS.active)
   })
 
-  test("developer overrides supersede app visibility without changing Inbox scope", () => {
+  test("developer overrides supersede app visibility in any directory", () => {
     const appHidden = resolveGetStartedFlow({
       ...ACTIVE_LEARNER_INPUT,
       enabled: false,
@@ -138,7 +134,7 @@ describe("get started flow rules", () => {
       primaryUse: undefined,
       devtoolsMode: GET_STARTED_FLOW_DEVTOOLS_MODE.teacher,
     })
-    const teacherOutsideInbox = resolveGetStartedFlow({
+    const teacherInNotebook = resolveGetStartedFlow({
       ...ACTIVE_LEARNER_INPUT,
       personalizationResolved: false,
       primaryUse: undefined,
@@ -155,7 +151,8 @@ describe("get started flow rules", () => {
     expect(appHidden.status).toBe(GET_STARTED_FLOW_STATUS.dismissed)
     expect(forcedHidden.status).toBe(GET_STARTED_FLOW_STATUS.overriddenHidden)
     expect(forcedTeacher.status).toBe(GET_STARTED_FLOW_STATUS.active)
-    expect(teacherOutsideInbox.status).toBe(GET_STARTED_FLOW_STATUS.outOfScope)
+    expect(teacherInNotebook.status).toBe(GET_STARTED_FLOW_STATUS.active)
+    expect(teacherInNotebook.isActive).toBe(true)
     expect(activeTeacher.status).toBe(GET_STARTED_FLOW_STATUS.active)
     expect(activeTeacher.chats.some((chat) => chat.id === "standards-lesson")).toBe(true)
   })

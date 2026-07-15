@@ -22,6 +22,7 @@ import {
 import { language } from "@/context/language"
 import { PromptComposer } from "@/components/prompt/prompt-composer"
 import { useAdaptiveSelectMode } from "@/components/prompt/use-adaptive-select-mode"
+import type { GetStartedChat } from "@/lib/get-started-chats"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
 import { getSessionContextMetrics } from "@/state/context-metrics"
 import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
@@ -73,6 +74,7 @@ type DirectoryChatMainPaneProps = {
   topContent?: ReactNode
   directories: string[]
   onSelectNotebook: (directory: string) => void
+  onStartGetStartedChat?: (chat: GetStartedChat) => Promise<void> | void
 }
 
 const COMPACTION_BUFFER_TOKENS = 20_000
@@ -262,8 +264,10 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
             >
               <div
                 onClick={onTranscriptInteraction}
-                className={`mx-auto min-w-0 w-full max-w-full px-4 pt-4 pb-12 space-y-4 md:max-w-200 ${
-                  chatState.messages.length === 0 && chatState.isReady ? "h-full" : ""
+                className={`mx-auto min-w-0 w-full max-w-full px-4 pt-4 space-y-4 md:max-w-200 ${
+                  chatState.messages.length === 0 && chatState.isReady
+                    ? "flex h-full min-h-0 flex-col pb-3"
+                    : "pb-12"
                 }`}
               >
                 {!chatState.isReady ? (
@@ -284,12 +288,13 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                     </div>
                   </div>
                 ) : chatState.messages.length === 0 ? (
-                  <div className="h-full flex flex-col">
+                  <div className="flex h-full min-h-0 flex-col overflow-visible py-1">
                     <ChatEmptyStateBoard
                       directory={directory}
                       directories={props.directories}
                       persona={chatState.selectedPersona}
                       onSelectNotebook={props.onSelectNotebook}
+                      onStartGetStartedChat={props.onStartGetStartedChat}
                     />
                   </div>
                 ) : (
