@@ -141,11 +141,7 @@ describe("custom mac updater refresh", () => {
   })
 
   test("replaces a downloaded update when a newer manifest appears", async () => {
-    const versions = [
-      FIRST_UPDATE_VERSION,
-      REPLACEMENT_UPDATE_VERSION,
-      REPLACEMENT_UPDATE_VERSION,
-    ]
+    const versions = [FIRST_UPDATE_VERSION, REPLACEMENT_UPDATE_VERSION, REPLACEMENT_UPDATE_VERSION]
     const downloadedVersions: string[] = []
     const { getManifestChecks, updater } = createTestCustomMacUpdater({
       onDownload: (version) => downloadedVersions.push(version),

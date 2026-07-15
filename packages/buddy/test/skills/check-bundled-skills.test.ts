@@ -69,9 +69,7 @@ describe("bundled skill registrations", () => {
       registrations.some((registration) => registration.skillName === "resolve-confusions"),
     ).toBe(true)
     expect(
-      registrations.every(
-        (registration) => !isDisabledBundledSkillName(registration.skillName),
-      ),
+      registrations.every((registration) => !isDisabledBundledSkillName(registration.skillName)),
     ).toBe(true)
   })
 

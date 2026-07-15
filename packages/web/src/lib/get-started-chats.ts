@@ -127,10 +127,7 @@ const LEARNER_GET_STARTED_CHATS = [
     description: "You’ll get a tiny natural-selection toy you can tweak once.",
     prompt:
       "Help me get the idea of natural selection. Build one small interactive Bench widget only: a beetle population with a single slider (predator pressure) and a simple count or bar that updates. No multi-screen UI, no long tutorial copy. Start with the widget, keep chat short, and stop after one brief line on what I can try. That is the only deliverable — no quiz and no second artifact.",
-    capabilities: [
-      GET_STARTED_CAPABILITY.bench,
-      GET_STARTED_CAPABILITY.htmlWidget,
-    ],
+    capabilities: [GET_STARTED_CAPABILITY.bench, GET_STARTED_CAPABILITY.htmlWidget],
   },
   {
     id: "read-a-classic",
@@ -139,10 +136,7 @@ const LEARNER_GET_STARTED_CHATS = [
     description: "You’ll get a free classic open in the reader, ready to study with Buddy.",
     prompt:
       "Help me start reading a free classic from Project Gutenberg. Load the reading skill first, then work from it. Prefer The Adventures of Sherlock Holmes (Arthur Conan Doyle) if it has a real EPUB download; otherwise pick another short, well-known public-domain classic with a real EPUB. Bring that EPUB into this workspace, prepare it as a reading resource, open it on the Bench reader, and then help me begin — a short grounded orientation to the book and one clear next reading step. Prefer EPUB over plain text so the built-in reader can open it. Keep the chat short; put the book on Bench, not a long lecture in chat. Do not use the to-do list tool for this. When you finish, briefly tell me what you did (which book, that it’s open in the reader), then invite me to select something in the book and see what happens.",
-    capabilities: [
-      GET_STARTED_CAPABILITY.bench,
-      GET_STARTED_CAPABILITY.reader,
-    ],
+    capabilities: [GET_STARTED_CAPABILITY.bench, GET_STARTED_CAPABILITY.reader],
   },
   {
     id: "practice-set",
@@ -227,8 +221,7 @@ export function getStartedChatsForPrimaryUse(primaryUse: PrimaryUse | undefined)
 export function getStartedChatsForDevtoolsMode(
   devtoolsMode: Exclude<
     GetStartedFlowDevtoolsMode,
-    | typeof GET_STARTED_FLOW_DEVTOOLS_MODE.appState
-    | typeof GET_STARTED_FLOW_DEVTOOLS_MODE.hidden
+    typeof GET_STARTED_FLOW_DEVTOOLS_MODE.appState | typeof GET_STARTED_FLOW_DEVTOOLS_MODE.hidden
   >,
 ): readonly GetStartedChat[] {
   return devtoolsMode === GET_STARTED_FLOW_DEVTOOLS_MODE.student

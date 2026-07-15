@@ -152,9 +152,7 @@ export function GetStartedChats(props: GetStartedChatsProps) {
                         <p className="text-sm font-medium leading-snug text-text-strong">
                           {chat.title}
                         </p>
-                        <p className="text-xs leading-relaxed text-text-weak">
-                          {chat.description}
-                        </p>
+                        <p className="text-xs leading-relaxed text-text-weak">{chat.description}</p>
                       </div>
                     </div>
                     {tags.length > 0 ? (

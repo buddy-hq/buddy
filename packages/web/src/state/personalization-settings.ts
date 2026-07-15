@@ -21,25 +21,14 @@ const PERSONALIZATION_HYDRATION_OPTIONS = {
   dontValidate: true,
 } as const
 
-function hydratePersonalizationForm(
-  form: AnyFormApi,
-  personalization: PersonalizationSettings,
-) {
-  form.setFieldValue(
-    "primaryUse",
-    personalization.primaryUse,
-    PERSONALIZATION_HYDRATION_OPTIONS,
-  )
+function hydratePersonalizationForm(form: AnyFormApi, personalization: PersonalizationSettings) {
+  form.setFieldValue("primaryUse", personalization.primaryUse, PERSONALIZATION_HYDRATION_OPTIONS)
   form.setFieldValue(
     "preferredName",
     personalization.preferredName,
     PERSONALIZATION_HYDRATION_OPTIONS,
   )
-  form.setFieldValue(
-    "occupation",
-    personalization.occupation,
-    PERSONALIZATION_HYDRATION_OPTIONS,
-  )
+  form.setFieldValue("occupation", personalization.occupation, PERSONALIZATION_HYDRATION_OPTIONS)
   form.setFieldValue(
     "moreAboutYou",
     personalization.moreAboutYou,

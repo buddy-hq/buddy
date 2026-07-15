@@ -18,9 +18,7 @@ type ReleaseSourceMetadata = {
   sourceSha: string
 }
 
-type ReleaseSourceMode =
-  | typeof RELEASE_SOURCE_MODE_RECORD
-  | typeof RELEASE_SOURCE_MODE_VERIFY
+type ReleaseSourceMode = typeof RELEASE_SOURCE_MODE_RECORD | typeof RELEASE_SOURCE_MODE_VERIFY
 
 function objectRecord(value: unknown): Record<string, unknown> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
@@ -194,10 +192,6 @@ if (import.meta.main) {
   await main()
 }
 
-export {
-  RELEASE_SOURCE_METADATA_FILENAME,
-  parseReleaseSourceMetadata,
-  renderReleaseSourceMetadata,
-}
+export { RELEASE_SOURCE_METADATA_FILENAME, parseReleaseSourceMetadata, renderReleaseSourceMetadata }
 
 export type { ReleaseSourceMetadata }

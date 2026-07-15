@@ -1,11 +1,7 @@
 import { useEffect } from "react"
 import { useForm, useStore } from "@tanstack/react-form"
 import { useQuery } from "@tanstack/react-query"
-import {
-  SettingsContent,
-  SettingsListCard,
-  SettingsSectionHeader,
-} from "./settings-primitives"
+import { SettingsContent, SettingsListCard, SettingsSectionHeader } from "./settings-primitives"
 import { GlobalAgentsMdSettingsPanel } from "./global-agents-md-settings-panel"
 import { language } from "@/context/language"
 import { usePersonalizationSettingsAutosave } from "@/state/personalization-settings"
@@ -48,9 +44,7 @@ export function PersonalizationSettings() {
     <SettingsContent>
       <div className="space-y-8">
         <div className="space-y-2.5">
-          <SettingsSectionHeader
-            title={language.t("settings.personalization.primaryUseTitle")}
-          />
+          <SettingsSectionHeader title={language.t("settings.personalization.primaryUseTitle")} />
           <SharedPersonalizationPrimaryUseField
             form={form}
             onPrimaryUseChange={() => void save()}

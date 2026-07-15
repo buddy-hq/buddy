@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import {
-  parseReleaseSourceMetadata,
-  renderReleaseSourceMetadata,
-} from "./release-source-metadata"
+import { parseReleaseSourceMetadata, renderReleaseSourceMetadata } from "./release-source-metadata"
 
 const SOURCE_SHA = "0123456789abcdef0123456789abcdef01234567"
 

@@ -88,14 +88,10 @@ describe("get started chats", () => {
 
   test("maps each developer audience override to the complete matching prompt set", () => {
     expect(
-      getStartedChatsForDevtoolsMode(GET_STARTED_FLOW_DEVTOOLS_MODE.student).map(
-        (chat) => chat.id,
-      ),
+      getStartedChatsForDevtoolsMode(GET_STARTED_FLOW_DEVTOOLS_MODE.student).map((chat) => chat.id),
     ).toEqual([...LEARNER_CHAT_IDS])
     expect(
-      getStartedChatsForDevtoolsMode(GET_STARTED_FLOW_DEVTOOLS_MODE.teacher).map(
-        (chat) => chat.id,
-      ),
+      getStartedChatsForDevtoolsMode(GET_STARTED_FLOW_DEVTOOLS_MODE.teacher).map((chat) => chat.id),
     ).toEqual([...EDUCATOR_CHAT_IDS])
   })
 
@@ -117,9 +113,7 @@ describe("get started chats", () => {
   test("keeps the developer audience independent from the shared visibility preference", () => {
     useGetStartedFlowStore.getState().setEnabled(false)
     useGetStartedFlowDevtools.getState().setMode(GET_STARTED_FLOW_DEVTOOLS_MODE.teacher)
-    expect(useGetStartedFlowDevtools.getState().mode).toBe(
-      GET_STARTED_FLOW_DEVTOOLS_MODE.teacher,
-    )
+    expect(useGetStartedFlowDevtools.getState().mode).toBe(GET_STARTED_FLOW_DEVTOOLS_MODE.teacher)
     expect(useGetStartedFlowStore.getState().enabled).toBe(false)
 
     useGetStartedFlowStore.getState().setEnabled(true)

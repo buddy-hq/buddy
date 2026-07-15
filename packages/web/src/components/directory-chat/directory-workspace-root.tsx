@@ -695,9 +695,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
             conversation={() => (
               <DirectoryChatBenchConversationPane
                 {...controller.mainPaneProps}
-                compactPromptComposer={
-                  effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING
-                }
+                compactPromptComposer={effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING}
                 linkedSessionID={linkedReadingSessionID}
                 showThreadBrowser={false}
                 onNewSession={handleNewSession}
@@ -714,9 +712,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
         leftSidebarOverlayEnabled={presentation.leftSidebar.overlayEnabled}
         leftSidebarOverlayOpen={leftSidebarOverlayOpen}
         onLeftSidebarOverlayOpenChange={setLeftSidebarOverlayOpen}
-        onLeftSidebarToggle={
-          presentation.dockedBenchVisible ? handleLeftSidebarToggle : undefined
-        }
+        onLeftSidebarToggle={presentation.dockedBenchVisible ? handleLeftSidebarToggle : undefined}
         onRightWorkspaceToggle={
           transientBenchActive
             ? () => {

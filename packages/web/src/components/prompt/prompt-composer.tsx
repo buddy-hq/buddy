@@ -1320,9 +1320,7 @@ export function PromptComposer(props: PromptComposerProps) {
               aria-multiline="true"
               className={cn(
                 "w-full overflow-y-auto rounded-[16px] border-0 bg-transparent px-3 pt-3 text-sm leading-6 text-text-base focus:outline-none",
-                props.compact
-                  ? PROMPT_EDITOR_COMPACT_SIZE_CLASS
-                  : PROMPT_EDITOR_REGULAR_SIZE_CLASS,
+                props.compact ? PROMPT_EDITOR_COMPACT_SIZE_CLASS : PROMPT_EDITOR_REGULAR_SIZE_CLASS,
               )}
               onInput={() => {
                 handleEditorInput()

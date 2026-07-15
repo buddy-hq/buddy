@@ -147,9 +147,7 @@ const loadingComplete = defer<void>()
 const serverReady = defer<ServerReadyData>()
 const pendingDeepLinks: string[] = []
 const readyUpdateStore = createReadyUpdateStore()
-const updateCheckCoordinator = createUpdateCheckCoordinator<UpdateCheckResult>(
-  runLatestUpdateCheck,
-)
+const updateCheckCoordinator = createUpdateCheckCoordinator<UpdateCheckResult>(runLatestUpdateCheck)
 
 setupApplication()
 

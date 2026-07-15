@@ -42,8 +42,7 @@ export type GetStartedFlowInput = {
 
 type GetStartedDeveloperAudience = Exclude<
   GetStartedFlowDevtoolsMode,
-  | typeof GET_STARTED_FLOW_DEVTOOLS_MODE.appState
-  | typeof GET_STARTED_FLOW_DEVTOOLS_MODE.hidden
+  typeof GET_STARTED_FLOW_DEVTOOLS_MODE.appState | typeof GET_STARTED_FLOW_DEVTOOLS_MODE.hidden
 >
 
 function isDeveloperAudienceOverride(

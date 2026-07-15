@@ -19,8 +19,7 @@ mock.module("@/state/skills-actions", () => ({
   loadSkillsCatalog: () => loadCatalog(),
   installLibrarySkill: (skillID: string) => installSkill(skillID),
   removeLibrarySkill: (skillID: string) => removeSkill(skillID),
-  setSkillPermissionAction: (name: string, action: "allow" | "deny") =>
-    setPermission(name, action),
+  setSkillPermissionAction: (name: string, action: "allow" | "deny") => setPermission(name, action),
 }))
 
 function installedSkill(
@@ -168,9 +167,8 @@ describe("RightWorkspaceSkillsDrawer", () => {
   })
 
   async function renderDrawer() {
-    const { RightWorkspaceSkillsDrawer } = await import(
-      "../src/components/directory-chat/right-workspace-skills-drawer"
-    )
+    const { RightWorkspaceSkillsDrawer } =
+      await import("../src/components/directory-chat/right-workspace-skills-drawer")
     await act(async () => {
       root.render(
         <QueryClientProvider client={queryClient}>
@@ -195,7 +193,9 @@ describe("RightWorkspaceSkillsDrawer", () => {
   }
 
   async function searchFor(value: string) {
-    const searchInput = container.querySelector<HTMLInputElement>('input[aria-label="Search skills"]')
+    const searchInput = container.querySelector<HTMLInputElement>(
+      'input[aria-label="Search skills"]',
+    )
     expect(searchInput).not.toBeNull()
     await act(async () => {
       if (!searchInput) return

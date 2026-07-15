@@ -92,10 +92,7 @@ import {
   GET_STARTED_FLOW_DEVTOOLS_MODE,
   isGetStartedFlowDevtoolsMode,
 } from "@/lib/get-started-chats"
-import {
-  GET_STARTED_FLOW_STATUS,
-  type GetStartedFlowStatus,
-} from "@/lib/get-started-flow"
+import { GET_STARTED_FLOW_STATUS, type GetStartedFlowStatus } from "@/lib/get-started-flow"
 type BuddyDevToolsTab =
   | "palette"
   | "trace"

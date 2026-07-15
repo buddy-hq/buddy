@@ -133,8 +133,7 @@ function formatBoardDate(now: Date) {
 export function ChatEmptyStateBoard(props: ChatEmptyStateBoardProps) {
   const isInbox = isInboxDirectory(props.directory)
   const getStartedFlow = useGetStartedFlow(props.directory)
-  const showGetStarted =
-    isInbox && getStartedFlow.isActive && Boolean(props.onStartGetStartedChat)
+  const showGetStarted = isInbox && getStartedFlow.isActive && Boolean(props.onStartGetStartedChat)
   const headline = isInbox
     ? language.t("chat.emptyState.inboxTitle")
     : props.persona === "teaching-buddy"
@@ -164,138 +163,138 @@ export function ChatEmptyStateBoard(props: ChatEmptyStateBoardProps) {
           <article
             className={`relative flex h-full min-h-0 w-full overflow-hidden border border-border-weaker-base bg-background-base ${BOARD_CORNER_RADIUS_CLASS}`}
           >
-          <div
-            aria-hidden
-            className="chat-empty-board-grain pointer-events-none absolute inset-0 z-[1] opacity-[0.12]"
-          />
+            <div
+              aria-hidden
+              className="chat-empty-board-grain pointer-events-none absolute inset-0 z-[1] opacity-[0.12]"
+            />
 
-          <div className="absolute left-0 top-0 z-[3] max-[560px]:origin-top-left max-[560px]:scale-90">
-            <BoardDateCorner dateLine={boardDate.dateLine} weekday={boardDate.weekday} />
-          </div>
+            <div className="absolute left-0 top-0 z-[3] max-[560px]:origin-top-left max-[560px]:scale-90">
+              <BoardDateCorner dateLine={boardDate.dateLine} weekday={boardDate.weekday} />
+            </div>
 
-          {showGetStarted && props.onStartGetStartedChat ? (
-            /*
+            {showGetStarted && props.onStartGetStartedChat ? (
+              /*
               Get Started: idea mascot bottom-left (faces into the cards).
               Chalk "TRY THESE" heading above the card grid — no thought bubble.
             */
-            <>
-              {/*
+              <>
+                {/*
                 Asymmetric vertical padding biases the block upward (~extra 10–16px)
                 vs pure justify-center, which ignored a small -mt.
               */}
-              <div className="relative z-[2] flex min-h-0 min-w-0 flex-1 flex-col justify-center overflow-hidden pb-10 pl-[4.75rem] pr-3 pt-12 @[28rem]:pb-12 @[28rem]:pl-36 @[28rem]:pr-8 @[28rem]:pt-14 @[32rem]:pl-44 @[40rem]:pl-48 @[40rem]:pr-10">
-                <div className="flex min-h-0 min-w-0 w-full max-w-2xl -translate-y-2.5 flex-col gap-5 @[28rem]:gap-6">
-                  <div className="w-fit px-0.5">
-                    <p className="chat-empty-board-chalk text-left text-base leading-none text-text-subtle @[28rem]:text-lg @[32rem]:text-xl">
-                      {language.t("chat.emptyState.tryThese").toUpperCase()}
-                    </p>
-                    {/* Chalk underline — same stroke language as the date L-bracket. */}
-                    <svg
-                      aria-hidden
-                      className="mt-1.5 h-1.5 w-full text-text-weaker @[28rem]:mt-2"
-                      viewBox="0 0 100 6"
-                      preserveAspectRatio="none"
-                      fill="none"
-                    >
-                      <path
-                        d="M1 3.5 Q28 1.5 52 3.2 T99 2.8"
-                        stroke="currentColor"
-                        strokeWidth={BOARD_DATE_CHALK_STROKE_WIDTH}
-                        strokeLinecap="round"
-                        opacity={BOARD_DATE_CHALK_STROKE_OPACITY}
-                      />
-                    </svg>
+                <div className="relative z-[2] flex min-h-0 min-w-0 flex-1 flex-col justify-center overflow-hidden pb-10 pl-[4.75rem] pr-3 pt-12 @[28rem]:pb-12 @[28rem]:pl-36 @[28rem]:pr-8 @[28rem]:pt-14 @[32rem]:pl-44 @[40rem]:pl-48 @[40rem]:pr-10">
+                  <div className="flex min-h-0 min-w-0 w-full max-w-2xl -translate-y-2.5 flex-col gap-5 @[28rem]:gap-6">
+                    <div className="w-fit px-0.5">
+                      <p className="chat-empty-board-chalk text-left text-base leading-none text-text-subtle @[28rem]:text-lg @[32rem]:text-xl">
+                        {language.t("chat.emptyState.tryThese").toUpperCase()}
+                      </p>
+                      {/* Chalk underline — same stroke language as the date L-bracket. */}
+                      <svg
+                        aria-hidden
+                        className="mt-1.5 h-1.5 w-full text-text-weaker @[28rem]:mt-2"
+                        viewBox="0 0 100 6"
+                        preserveAspectRatio="none"
+                        fill="none"
+                      >
+                        <path
+                          d="M1 3.5 Q28 1.5 52 3.2 T99 2.8"
+                          stroke="currentColor"
+                          strokeWidth={BOARD_DATE_CHALK_STROKE_WIDTH}
+                          strokeLinecap="round"
+                          opacity={BOARD_DATE_CHALK_STROKE_OPACITY}
+                        />
+                      </svg>
+                    </div>
+                    <GetStartedChats
+                      variant="board"
+                      chats={getStartedFlow.chats}
+                      onStart={props.onStartGetStartedChat}
+                      onDismiss={getStartedFlow.dismiss}
+                    />
                   </div>
-                  <GetStartedChats
-                    variant="board"
-                    chats={getStartedFlow.chats}
-                    onStart={props.onStartGetStartedChat}
-                    onDismiss={getStartedFlow.dismiss}
+                </div>
+                <div className="pointer-events-none absolute bottom-0 left-0 z-[2] pl-2 @[28rem]:pl-6 @[40rem]:pl-8">
+                  <img
+                    src={buddyMascotIdeaUrl}
+                    alt={`${language.t("routes.chat.productName")} mascot`}
+                    className={`relative -bottom-0.5 block h-auto w-16 select-none object-contain object-bottom @[28rem]:w-32 @[32rem]:w-36 @[40rem]:w-40 ${BOARD_MASCOT_DROP_SHADOW_CLASS}`}
                   />
                 </div>
-              </div>
-              <div className="pointer-events-none absolute bottom-0 left-0 z-[2] pl-2 @[28rem]:pl-6 @[40rem]:pl-8">
-                <img
-                  src={buddyMascotIdeaUrl}
-                  alt={`${language.t("routes.chat.productName")} mascot`}
-                  className={`relative -bottom-0.5 block h-auto w-16 select-none object-contain object-bottom @[28rem]:w-32 @[32rem]:w-36 @[40rem]:w-40 ${BOARD_MASCOT_DROP_SHADOW_CLASS}`}
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Copy — reserved flex column so mascot cannot paint over it. */}
-              <div className="relative z-[2] flex min-h-0 min-w-0 flex-1 flex-col justify-center py-3 pl-5 pr-2 pt-12 max-[720px]:py-2.5 max-[720px]:pt-11 max-[560px]:py-2 max-[560px]:pt-10 @[28rem]:py-6 @[28rem]:pl-10 @[28rem]:pr-3 @[28rem]:pt-6 max-[720px]:@[28rem]:py-4 max-[720px]:@[28rem]:pt-5 @[40rem]:pl-16">
-                <div className={BOARD_COPY_BLOCK_CLASS}>
-                  <h1 className="chat-empty-board-headline col-start-1 row-start-1 font-semibold tracking-tight text-text-subtle">
-                    {headline}
-                  </h1>
-                  {props.directories.length > 0 ? (
-                    <div className={BOARD_COMBOBOX_ROW_CLASS}>
-                      <Combobox
-                        value={props.directory}
-                        onValueChange={(nextDirectory) => {
-                          if (!nextDirectory || nextDirectory === props.directory) return
-                          props.onSelectNotebook(nextDirectory)
-                        }}
-                      >
-                        <ComboboxTrigger
-                          data-action="chat-empty-state-notebook-select"
-                          className={BOARD_COMBOBOX_TRIGGER_CLASS}
-                          aria-label={language.t("sidebar.optionsForDirectory", {
-                            directoryLabel: notebookLabel(props.directory),
-                          })}
+              </>
+            ) : (
+              <>
+                {/* Copy — reserved flex column so mascot cannot paint over it. */}
+                <div className="relative z-[2] flex min-h-0 min-w-0 flex-1 flex-col justify-center py-3 pl-5 pr-2 pt-12 max-[720px]:py-2.5 max-[720px]:pt-11 max-[560px]:py-2 max-[560px]:pt-10 @[28rem]:py-6 @[28rem]:pl-10 @[28rem]:pr-3 @[28rem]:pt-6 max-[720px]:@[28rem]:py-4 max-[720px]:@[28rem]:pt-5 @[40rem]:pl-16">
+                  <div className={BOARD_COPY_BLOCK_CLASS}>
+                    <h1 className="chat-empty-board-headline col-start-1 row-start-1 font-semibold tracking-tight text-text-subtle">
+                      {headline}
+                    </h1>
+                    {props.directories.length > 0 ? (
+                      <div className={BOARD_COMBOBOX_ROW_CLASS}>
+                        <Combobox
+                          value={props.directory}
+                          onValueChange={(nextDirectory) => {
+                            if (!nextDirectory || nextDirectory === props.directory) return
+                            props.onSelectNotebook(nextDirectory)
+                          }}
                         >
-                          {isInbox ? (
-                            <MessagesSquareIcon className="size-4 shrink-0" />
-                          ) : (
-                            <BookIcon className="size-4 shrink-0" />
-                          )}
-                          <span className={BOARD_COMBOBOX_LABEL_CLASS}>
-                            {notebookLabel(props.directory)}
-                          </span>
-                        </ComboboxTrigger>
-                        <ComboboxContent className={BOARD_COMBOBOX_CONTENT_CLASS}>
-                          <ComboboxList>
-                            {props.directories.map((directory) => (
-                              <ComboboxItem
-                                key={directory}
-                                value={directory}
-                                className={BOARD_COMBOBOX_ITEM_CLASS}
-                              >
-                                <span className="flex min-w-0 items-center gap-1.5">
-                                  {isInboxDirectory(directory) ? (
-                                    <MessagesSquareIcon className="size-3.5 shrink-0" />
-                                  ) : (
-                                    <BookIcon className="size-3.5 shrink-0" />
-                                  )}
-                                  <span className="truncate">{notebookLabel(directory)}</span>
-                                </span>
-                              </ComboboxItem>
-                            ))}
-                          </ComboboxList>
-                        </ComboboxContent>
-                      </Combobox>
-                    </div>
-                  ) : null}
+                          <ComboboxTrigger
+                            data-action="chat-empty-state-notebook-select"
+                            className={BOARD_COMBOBOX_TRIGGER_CLASS}
+                            aria-label={language.t("sidebar.optionsForDirectory", {
+                              directoryLabel: notebookLabel(props.directory),
+                            })}
+                          >
+                            {isInbox ? (
+                              <MessagesSquareIcon className="size-4 shrink-0" />
+                            ) : (
+                              <BookIcon className="size-4 shrink-0" />
+                            )}
+                            <span className={BOARD_COMBOBOX_LABEL_CLASS}>
+                              {notebookLabel(props.directory)}
+                            </span>
+                          </ComboboxTrigger>
+                          <ComboboxContent className={BOARD_COMBOBOX_CONTENT_CLASS}>
+                            <ComboboxList>
+                              {props.directories.map((directory) => (
+                                <ComboboxItem
+                                  key={directory}
+                                  value={directory}
+                                  className={BOARD_COMBOBOX_ITEM_CLASS}
+                                >
+                                  <span className="flex min-w-0 items-center gap-1.5">
+                                    {isInboxDirectory(directory) ? (
+                                      <MessagesSquareIcon className="size-3.5 shrink-0" />
+                                    ) : (
+                                      <BookIcon className="size-3.5 shrink-0" />
+                                    )}
+                                    <span className="truncate">{notebookLabel(directory)}</span>
+                                  </span>
+                                </ComboboxItem>
+                              ))}
+                            </ComboboxList>
+                          </ComboboxContent>
+                        </Combobox>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
 
-              {/*
+                {/*
                 Mascot scales with the board:
                 - slot width tracks board width (~40%)
                 - image height tracks board height (~90% of slot)
                 - max-width 14rem matches the old md:w-56 ceiling
               */}
-              <div className="pointer-events-none relative z-[2] flex w-[38%] shrink-0 items-end justify-end self-stretch pr-4 @[28rem]:w-[40%] @[28rem]:pr-8 @[40rem]:w-[42%] @[40rem]:pr-12">
-                <img
-                  src={buddyMascotWaveUrl}
-                  alt={`${language.t("routes.chat.productName")} mascot waving`}
-                  className={`chat-empty-board-mascot relative -bottom-0.5 select-none ${BOARD_MASCOT_DROP_SHADOW_CLASS}`}
-                />
-              </div>
-            </>
-          )}
+                <div className="pointer-events-none relative z-[2] flex w-[38%] shrink-0 items-end justify-end self-stretch pr-4 @[28rem]:w-[40%] @[28rem]:pr-8 @[40rem]:w-[42%] @[40rem]:pr-12">
+                  <img
+                    src={buddyMascotWaveUrl}
+                    alt={`${language.t("routes.chat.productName")} mascot waving`}
+                    className={`chat-empty-board-mascot relative -bottom-0.5 select-none ${BOARD_MASCOT_DROP_SHADOW_CLASS}`}
+                  />
+                </div>
+              </>
+            )}
           </article>
         </div>
       </div>

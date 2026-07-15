@@ -618,9 +618,7 @@ export function DirectoryChatBenchPageLayout(props: DirectoryChatBenchPageLayout
         containerSizeRef.current,
       )
       setContainerSize(nextContainerSize)
-      onFloatingRectChange(
-        resolveDefaultFloatingChatRect(nextContainerSize, props.layoutProfile),
-      )
+      onFloatingRectChange(resolveDefaultFloatingChatRect(nextContainerSize, props.layoutProfile))
       setFloatingEntryAnimation(true)
       return
     }

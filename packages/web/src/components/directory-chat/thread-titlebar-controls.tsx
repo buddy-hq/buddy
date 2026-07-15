@@ -123,7 +123,8 @@ export function ThreadActionPill(props: ThreadActionPillProps) {
   const leadingControlCount = Number(showHistory) + Number(showNewSession) + Number(showFloat)
   // Single lone control (e.g. new-chat only) should not get the pill "halo" border.
   // Title + any control always uses pill chrome so the label sits inside the shell.
-  const usePillChrome = showWindowControls || leadingControlCount > 1 || (hasTitle && hasLeadingControls)
+  const usePillChrome =
+    showWindowControls || leadingControlCount > 1 || (hasTitle && hasLeadingControls)
 
   if (!hasLeadingControls && !showWindowControls && !hasTitle) {
     return null

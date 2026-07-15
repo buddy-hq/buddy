@@ -354,8 +354,7 @@ export const dict = {
   "markdownEditor.retrySave": "Retry save",
   "markdownEditor.saveError": "Save error",
   "mcp.editorDialog.addTitle": "Add extension",
-  "mcp.editorDialog.description":
-    "Define once, connect per notebook.",
+  "mcp.editorDialog.description": "Define once, connect per notebook.",
   "mcp.editorDialog.enabledByDefault": "Enabled by default",
   "mcp.editorDialog.enabledByDefaultDescription": "New notebooks use this unless they override it.",
   "mcp.editorDialog.local": "Local",
@@ -444,8 +443,7 @@ export const dict = {
     "We've opened a browser window for you to sign in. Please complete authorization to continue.",
   "onboardingSetup.chatGptModal.title": "Connecting ChatGPT",
   "onboardingSetup.chatGptModal.waitingLabel": "Waiting for browser...",
-  "onboardingSetup.engineSelection.chatGpt.description":
-    "Use models from your ChatGPT plan.",
+  "onboardingSetup.engineSelection.chatGpt.description": "Use models from your ChatGPT plan.",
   "onboardingSetup.engineSelection.chatGpt.title": "ChatGPT",
   "onboardingSetup.engineSelection.connected": "Connected",
   "onboardingSetup.engineSelection.freeModels.description": "Start instantly with free models.",
@@ -470,21 +468,17 @@ export const dict = {
   "onboardingSetup.storageSetup.buttonContinueBusy": "Continuing…",
   "onboardingPersonalization.badge": "Optional",
   "onboardingPersonalization.back": "Back",
-  "onboardingPersonalization.description":
-    "A little context helps Buddy work better with you.",
+  "onboardingPersonalization.description": "A little context helps Buddy work better with you.",
   "onboardingPersonalization.next": "Next",
   "onboardingPersonalization.skip": "Skip for now",
   "onboardingPersonalization.submitting": "Saving...",
   "onboardingPersonalization.title": "Personalize Buddy",
   "onboardingPrimaryUse.changeLater": "You can change this anytime in Personalization.",
-  "onboardingPrimaryUse.description":
-    "This shapes how Buddy works with you from the start.",
+  "onboardingPrimaryUse.description": "This shapes how Buddy works with you from the start.",
   "onboardingPrimaryUse.eyebrow": "Start here",
-  "onboardingPrimaryUse.learn.description":
-    "Explore, practise, and remember what matters to you.",
+  "onboardingPrimaryUse.learn.description": "Explore, practise, and remember what matters to you.",
   "onboardingPrimaryUse.learn.title": "Learn with Buddy",
-  "onboardingPrimaryUse.teach.description":
-    "Plan, create, and assess learning experiences.",
+  "onboardingPrimaryUse.teach.description": "Plan, create, and assess learning experiences.",
   "onboardingPrimaryUse.teach.title": "Teach with Buddy",
   "onboardingPrimaryUse.title": "How would you like to use Buddy?",
   "pickers.absoluteDirectoryRequired": "Please enter an absolute directory path",
@@ -875,8 +869,7 @@ export const dict = {
   "settings.providers.allConnected": "All available providers are already connected.",
   "settings.providers.allProvidersSection": "All providers",
   "settings.providers.availableProviders": "Available providers",
-  "settings.providers.chatGptDescription":
-    "Sign in with your ChatGPT account.",
+  "settings.providers.chatGptDescription": "Sign in with your ChatGPT account.",
   "settings.providers.chatGptModelsAvailable": "{{count}} models available for this account",
   "settings.providers.chatGptModelsChecking": "Checking models available to this account…",
   "settings.providers.chatGptModelsFallback":
@@ -897,8 +890,7 @@ export const dict = {
   "settings.providers.connectionAvailable": "Connection available",
   "settings.providers.connectChatGpt": "Connect ChatGPT",
   "settings.providers.connectProvider": "Connect provider",
-  "settings.providers.description":
-    "Connect a provider to start using AI.",
+  "settings.providers.description": "Connect a provider to start using AI.",
   "settings.providers.editConnection": "Edit connection",
   "settings.providers.searchPlaceholder": "Search providers",
   "settings.providers.noResults": "No providers found",
@@ -1017,8 +1009,7 @@ export const dict = {
   "sidebar.library": "Library",
   "sidebar.appLibrary": "App Library",
   "sidebar.libraryEmpty": "No books in your library yet",
-  "sidebar.libraryEmptyDescription":
-    "Add PDFs or EPUBs to a notebook and they'll appear here.",
+  "sidebar.libraryEmptyDescription": "Add PDFs or EPUBs to a notebook and they'll appear here.",
   "sidebar.openResource": "Open {{name}}",
   "sidebar.libraryFlashcardsEmpty": "No flashcards ready yet",
   "sidebar.libraryFlashcardsEmptyDescription":

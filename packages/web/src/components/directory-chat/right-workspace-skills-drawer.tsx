@@ -52,9 +52,7 @@ import { RightWorkspaceDrawerShell } from "./right-workspace-drawer-ui"
 
 type SkillsTab = "installed" | "discover"
 type BusyOperation = "install" | "permission" | "remove" | "update"
-type SelectedSkill =
-  | { kind: "library"; skillID: string }
-  | { kind: "installed"; skillName: string }
+type SelectedSkill = { kind: "library"; skillID: string } | { kind: "installed"; skillName: string }
 
 const SKILL_LIST_SKELETON_COUNT = 5
 const UPDATE_ALL_BUSY_KEY = "update-all"
@@ -124,9 +122,13 @@ function libraryBusyLabel(action: SkillLibraryAction): string {
 function matchesLibrarySearch(skill: SkillLibraryEntry, query: string): boolean {
   const normalizedQuery = query.trim().toLocaleLowerCase()
   if (!normalizedQuery) return true
-  return [skill.displayName, skill.summary, skill.sourceLabel, ...skill.categories, ...skill.tags].some(
-    (value) => value.toLocaleLowerCase().includes(normalizedQuery),
-  )
+  return [
+    skill.displayName,
+    skill.summary,
+    skill.sourceLabel,
+    ...skill.categories,
+    ...skill.tags,
+  ].some((value) => value.toLocaleLowerCase().includes(normalizedQuery))
 }
 
 function installedSourceOrder(source: InstalledSkillInfo["source"]): number {
@@ -257,7 +259,9 @@ function InstalledToggle(props: {
       {props.pending ? (
         <Spinner className="size-3.5" />
       ) : (
-        <span className="text-xs text-text-weaker">{statusLabel(props.skill.permissionAction)}</span>
+        <span className="text-xs text-text-weaker">
+          {statusLabel(props.skill.permissionAction)}
+        </span>
       )}
       <Switch
         size="sm"
@@ -282,9 +286,7 @@ function SkillActivationControl(props: {
     >
       <div className="flex min-w-0 flex-col gap-0.5">
         <span className="text-sm font-medium text-text-base">{language.t("skills.active")}</span>
-        <span className="text-xs text-text-weaker">
-          {language.t("skills.activeDescription")}
-        </span>
+        <span className="text-xs text-text-weaker">{language.t("skills.activeDescription")}</span>
       </div>
       <div className="flex items-center gap-2">
         {props.pending ? <Spinner className="size-3.5" /> : null}
@@ -601,9 +603,7 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
                 <h2 className="text-xs font-medium text-text-strong">
                   {language.t("skills.searchResults")}
                 </h2>
-                <p className="text-[11px] text-text-weaker">
-                  {language.t("skills.searchAcross")}
-                </p>
+                <p className="text-[11px] text-text-weaker">{language.t("skills.searchAcross")}</p>
               </div>
               <span className="text-xs text-text-weaker">{searchResultCount}</span>
             </div>
@@ -682,9 +682,7 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
               aria-busy={loading || refreshing}
             >
               {loading ? <SkillListSkeleton /> : null}
-              {!loading && visibleLibrary.length === 0 ? (
-                <SkillEmptyState kind="discover" />
-              ) : null}
+              {!loading && visibleLibrary.length === 0 ? <SkillEmptyState kind="discover" /> : null}
               {!loading && visibleLibrary.length > 0 ? (
                 <div>{renderLibrarySkills(visibleLibrary)}</div>
               ) : null}
@@ -714,10 +712,7 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
                     permissionBusyKey(selectedLibraryInstalledSkill.name),
                   )}
                   onToggle={(checked) =>
-                    updateSkillPermission(
-                      selectedLibraryInstalledSkill,
-                      checked ? "allow" : "deny",
-                    )
+                    updateSkillPermission(selectedLibraryInstalledSkill, checked ? "allow" : "deny")
                   }
                 />
               ) : null}
@@ -740,7 +735,9 @@ export function RightWorkspaceSkillsDrawer(props: { directory: string; onClose: 
                   <Button
                     type="button"
                     variant="destructive"
-                    disabled={libraryBusyAction(selectedLibrarySkill.id, busyOperations) !== undefined}
+                    disabled={
+                      libraryBusyAction(selectedLibrarySkill.id, busyOperations) !== undefined
+                    }
                     onClick={() => {
                       closeDetail()
                       void runLibraryMutation(selectedLibrarySkill, "remove")

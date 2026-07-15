@@ -15,9 +15,7 @@ const SAVED_GLOBAL_CONFIG = {
   },
 }
 
-function PersonalizationHydrationProbe(props: {
-  globalConfig?: Record<string, unknown>
-}) {
+function PersonalizationHydrationProbe(props: { globalConfig?: Record<string, unknown> }) {
   const form = useForm({
     defaultValues: readPersonalization({}),
     onSubmit: async () => undefined,
@@ -79,9 +77,7 @@ describe("personalization settings", () => {
       )
     })
 
-    expect(container.querySelector('[data-testid="primary-use"]')?.textContent).toBe(
-      "unselected",
-    )
+    expect(container.querySelector('[data-testid="primary-use"]')?.textContent).toBe("unselected")
 
     await act(async () => {
       root.render(

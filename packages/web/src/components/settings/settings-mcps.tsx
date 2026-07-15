@@ -248,8 +248,7 @@ export function McpsSettings() {
                   config.enabled !== false &&
                   status?.status !== "connected" &&
                   status?.status !== "disabled"
-                const detail =
-                  config.type === "remote" ? config.url : config.command.join(" ")
+                const detail = config.type === "remote" ? config.url : config.command.join(" ")
 
                 return (
                   <SettingsRow

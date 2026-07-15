@@ -700,9 +700,7 @@ export function ProvidersSettings() {
                 return (
                   <div
                     key={definition.providerID}
-                    className={
-                      index > 0 ? "border-t border-border-weaker-base" : undefined
-                    }
+                    className={index > 0 ? "border-t border-border-weaker-base" : undefined}
                   >
                     <RecommendedProviderCard
                       provider={provider}
@@ -714,9 +712,7 @@ export function ProvidersSettings() {
                       learnMoreLabel={definition.learnMoreLabel}
                       unavailableLabel={language.t("settings.providers.unavailable")}
                       busy={
-                        definition.providerID === OPENAI_PROVIDER_ID
-                          ? chatGptConnecting
-                          : undefined
+                        definition.providerID === OPENAI_PROVIDER_ID ? chatGptConnecting : undefined
                       }
                       error={
                         definition.providerID === OPENAI_PROVIDER_ID ? chatGptError : undefined

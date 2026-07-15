@@ -13,10 +13,7 @@ import {
 import { BookOpenTextIcon, SchoolIcon } from "lucide-react"
 import { language } from "@/context/language"
 import type { AnyFieldApi } from "@tanstack/react-form"
-import {
-  isPrimaryUse,
-  type PersonalizationSettings,
-} from "@/state/project-config-readers"
+import { isPrimaryUse, type PersonalizationSettings } from "@/state/project-config-readers"
 import { SettingsListCard } from "./settings-primitives"
 
 const PRIMARY_USE_OPTIONS = [
@@ -47,11 +44,7 @@ type SharedPersonalizationFormFieldsProps = {
   form: PersonalizationFormApi
 }
 
-function FieldBlock(props: {
-  title: string
-  children: React.ReactNode
-  first?: boolean
-}) {
+function FieldBlock(props: { title: string; children: React.ReactNode; first?: boolean }) {
   return (
     <div
       className={cn(
