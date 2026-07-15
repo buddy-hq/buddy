@@ -106,5 +106,5 @@ Headline examples: Access external folder, Read/Edit file, Run command, or gener
 
 - **Allow always ≠ permanent.** Tooltip: “Remember until Buddy is restarted.”
 - **Reject** also clears other open permission prompts in that chat — not only the visible card.
-- Skills library allow/deny is **durable skill config** — not the same as dock **Allow always**. See `extend.md`.
+- Skills drawer Active On/Off is **durable skill config** — not the same as dock **Allow always**. See `extend.md`.
 - Denied actions show as quiet permission denial in the transcript, not a generic crash.

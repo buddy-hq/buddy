@@ -1,15 +1,15 @@
 ---
 name: extend
-description: "Extend Buddy: skills library, MCP servers, Advanced Math and Standards packages."
+description: "Extend Buddy: Skills drawer (right rail), MCP servers, Advanced Math and Standards packages."
 ---
 
 # Extend
 
-Use when the user asks how to add capabilities: **Skills** library, **MCP** servers, or optional **Advanced Math** / **Standards** packages.
+Use when the user asks how to add capabilities: **Skills** (right rail), **MCP** servers, or optional **Advanced Math** / **Standards** packages.
 
 Not desktop app install (`setup.md`). Not AGENTS.md profile (`instructions.md`).
 
-## Skills library
+## Skills
 
 Use when the user asks how skills work, how to install or block them, or how skills show up for the agent.
 
@@ -19,59 +19,62 @@ Not app install (`setup.md`), MCP (MCP below), optional runtimes (Packages below
 
 A skill is a package of workflow instructions Buddy loads on demand. Not a separate app, provider, or MCP server.
 
-**UI:** Skills library (sidebar → **Skills**).
+**UI:** Skills drawer on the **right workspace rail** (not the left sidebar).
 
-### Open the library
+### Open Skills
 
-1. Left sidebar → **Skills**.
+1. Right workspace rail → **Skills** (near Files / Notebook Instructions; separator before it).
 2. Tabs:
-   - **Library** — Buddy-approved catalog; Install / Update / Remove.
-   - **Default** — built-in skills shipped with Buddy (not removable).
-   - **Custom** — only if custom or externally detected skills exist.
+   - **Installed** — skills already on this machine (built-in / curated / custom / detected). Active On/Off per skill.
+   - **Discover** — Buddy-approved catalog; Install / Update.
 
-Search filters the list. Refresh rescans installed skills.
+Search filters across **Discover** and **Installed**. Refresh rescans the catalog.
 
-### Install / update / remove (Library)
+Drawer unavailable while Bench is **floating** — dock chat for the rail.
 
-- Install only from the **Library** list (approved catalog). Network required. Bad or mismatched downloads fail safely.
-- **Update** when the catalog has a newer reviewed version.
-- **Remove** uninstalls that curated skill from this machine.
+### Install / update / remove
+
+- Install only from **Discover** (approved catalog). Network required. Bad or mismatched downloads fail safely.
+- **Update** when the catalog has a newer reviewed version (row action, detail dialog, or **Update all** on Installed when updates exist).
+- **Remove** uninstalls that curated skill from this machine (from the skill detail dialog).
 - Withdrawn catalog skills cannot be reinstalled; remove only if still present.
 
 External skills outside this catalog are never “Install” targets here.
 
 ### Allow / block
 
-On **Default** or installed tiles: **Active** switch.
+On **Installed** rows (and the detail dialog): **Active** switch (list shows **On** / **Off**).
 
 | Switch | Effect |
 | --- | --- |
-| On (**Allowed**) | Skill may appear and can be used. |
-| Off (**Blocked**) | Not listed, not loadable. |
+| On | Skill may appear and can be used. |
+| Off | Not loadable for the agent. |
 
 - Rules are **by skill name, machine-wide** — not per notebook.
 - Blocking is not the same as Remove: files can remain until Remove.
-- Built-in skills: block only; cannot remove.
+- Built-in (system) skills: block only; cannot remove.
 
 ### How skills show up
 
 - When the user names a skill or the task matches a skill description, Buddy can load it for that turn.
 - User may also invoke via slash if the catalog lists the name.
+- Installed detail shows **source** (System / Curated / Custom / Detected) and **scope** (Global / Workspace).
 
 ### External discovery (optional)
 
 Settings → **Advanced** → **Skill discovery** → discover external skills (e.g. from `.agents` / `.claude` folders).
 
 - Off by default.
-- When on, those skills can appear as **Detected** (Custom tab).
-- Outside curated trust: not Library-approved.
+- When on, those skills can appear on **Installed** as **Detected**.
+- Outside curated trust: not Discover-approved.
 
 ### Gotchas
 
-- **Blocked ≠ uninstalled** — turn Active on to restore without reinstall if files remain.
+- **Off ≠ uninstalled** — turn Active on to restore without reinstall if files remain.
 - **Name collisions** key off skill **name** globally.
 - **No reachable “New skill” control** in the current Skills UI — do not invent one.
 - Some built-in skills may be hidden from Buddy’s list.
+- Skills lives on the **right rail**, not left sidebar or Settings.
 
 ### Related
 
@@ -81,7 +84,7 @@ Settings → **Advanced** → **Skill discovery** → discover external skills (
 
 Use when the user asks how to add MCP servers, enable them per notebook, connect/sign in, or why tools from an MCP are missing.
 
-External servers only. Skills library: Skills library above. Permission prompts: `trust.md`. Hand-edit files / agent enable via config: `config-mcp.md`.
+External servers only. Skills: Skills above. Permission prompts: `trust.md`. Hand-edit files / agent enable via config: `config-mcp.md`.
 
 ### What it is
 
@@ -147,7 +150,7 @@ Definitions are **global**. Notebook settings only turn participation on/off and
 
 Use when the user wants optional **Advanced Math** or **Standards** on this machine, or why math/standards features are missing.
 
-Not app install (`setup.md`). Not skills (Skills library above). Not MCP (MCP below).
+Not app install (`setup.md`). Not skills (Skills above). Not MCP (MCP below).
 
 ### What they are
 

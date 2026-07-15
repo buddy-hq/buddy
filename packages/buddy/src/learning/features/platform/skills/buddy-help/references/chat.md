@@ -7,7 +7,7 @@ description: "Buddy chat: composer, slash, @ files, follow-ups, question UI, tas
 
 Use when the user asks about the chat box, slash commands, @ mentions, follow-ups while Buddy is busy, agent questions, Stop, or transcript cards.
 
-Not for: chat history (`notebooks.md`), permission Allow once/always (`trust.md`), Bench layout (`workspace.md`), Practice quizzes (`practice.md`), skills library install (`extend.md`).
+Not for: chat history (`notebooks.md`), permission Allow once/always (`trust.md`), Bench layout (`workspace.md`), Practice quizzes (`practice.md`), Skills install/manage (`extend.md`).
 
 ## Dual language
 
@@ -88,7 +88,7 @@ Structured choices mid-turn appear in the **question UI** above the composer —
 ## Task and skill cards
 
 - **Task / agent card**: a helper task ran; the main chat summarizes the result.
-- **Skill card**: a skill was loaded mid-run. User-facing skill install is `extend.md`.
+- **Skill card**: a skill was loaded mid-run. User-facing skill install/manage is right rail → Skills (`extend.md`).
 
 ## Transcript chrome (chat-adjacent)
 
@@ -110,7 +110,7 @@ Structured choices mid-turn appear in the **question UI** above the composer —
 
 - `notebooks.md` — chats, compact, branch
 - `trust.md` — permission dock
-- `extend.md` — skill library
+- `extend.md` — Skills drawer (right rail)
 - `practice.md` — flashcards, question sets
 - `providers.md` — models, vision, connect
 - `workspace.md` — docked/floating chat next to Bench

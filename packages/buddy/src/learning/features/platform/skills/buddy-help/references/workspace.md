@@ -35,7 +35,7 @@ No Buddy multi-user accounts. AI providers may still need login or keys — `pro
 | Whiteboard | Boards | `library.md` |
 | Widgets / diagrams / media | Creations | `library.md` |
 | Files | Files explorer | `library.md` |
-| Extra agent workflows | Skills | `extend.md` |
+| Extra agent workflows | Right rail → Skills | `extend.md` |
 | Profile / AGENTS.md | Instructions | `instructions.md` |
 | Models / keys / OAuth | Providers | `providers.md` |
 | Permission prompts | Allow once / always / reject | `trust.md` |
@@ -64,7 +64,7 @@ Three columns in a notebook chat:
 
 | Region | Holds |
 | --- | --- |
-| **Left sidebar** | Skills, notebooks + chats, Settings |
+| **Left sidebar** | Notebooks + chats, Settings |
 | **Center** | Conversation (transcript + composer) |
 | **Right workspace** | Library rail, optional drawer, optional Bench |
 
@@ -72,7 +72,6 @@ Titlebar (desktop): **left panel** toggle, **right panel** toggle, optional **Po
 
 ### Left sidebar
 
-- Top: **Skills**.
 - Body: **Notebooks** — each notebook lists **chats** (pin, unread, archive, rename).
 - Hover toolbar: organize (by notebook / chronological), sort (created / updated), create notebook.
 - Footer: **Settings**.
@@ -95,6 +94,7 @@ Right edge is a vertical **rail**. Icons open drawers (same icon again closes wh
 | **Creations** | Widgets, diagrams, media |
 | **Boards** | Whiteboards |
 | **Files** | Project file tree |
+| **Skills** | Installable skill packages (Installed / Discover) — `extend.md` |
 | **Notebook Instructions** | Not a list — opens `AGENTS.md` on Bench |
 
 Show/hide whole right side: titlebar **Expand/Collapse right panel**.
@@ -118,7 +118,7 @@ Buddy may auto-float if the docked split is dragged past a workable width. Users
 
 ### Gotchas
 
-- **Floating hides the rail.** Sources/Files/etc. need docked chat again.
+- **Floating hides the rail.** Sources/Files/Skills/etc. need docked chat again.
 - **Right panel expand ≠ empty forever** — with no Bench, last drawer (often Sources) reopens.
 - **Notebook Instructions** is on the rail but opens a file, not a catalog drawer.
 - Panel toggles live in the **desktop titlebar** (“left panel” / “right panel”), not Settings.

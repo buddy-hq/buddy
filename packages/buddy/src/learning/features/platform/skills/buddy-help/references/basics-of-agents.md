@@ -33,7 +33,7 @@ Use after the general definition. Product detail → listed ref.
 | session | chat in sidebar | `notebooks.md` |
 | compaction | compact / auto-compaction on long chats | `notebooks.md` |
 | tools | capabilities Buddy/agent can call (not listed by id here) | product + live tools |
-| skills | Skills library; skill packages on demand | `extend.md` |
+| skills | Right rail → **Skills**; skill packages on demand | `extend.md` |
 | MCP | Settings → MCPs; per-notebook on/off | `extend.md` |
 | subagent | helper/task cards; nested helper work | `chat.md` |
 | instruction layers | Profile + AGENTS.md (global / notebook) | `instructions.md` |

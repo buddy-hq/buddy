@@ -69,7 +69,7 @@ Status row: idle / checking / downloading / ready / installing / error.
 - Preview can be rougher than Stable.
 - Fresh install script pulls **latest stable**, not Preview.
 - Gatekeeper/SmartScreen: script strips quarantine on download; OS security prompts may still appear.
-- Skills library “install” ≠ app install.
+- Skills drawer “install” (right rail) ≠ app install.
 
 ## Desktop process
 

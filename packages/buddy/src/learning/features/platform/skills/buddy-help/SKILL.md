@@ -40,7 +40,7 @@ Not for subject teaching (math, history, code lessons as content). Use pedagogy 
 | Sources, PDF/EPUB, Files, Boards, Creations | `references/library.md` |
 | Flashcards, question sets, Practice | `references/practice.md` |
 | Providers, API keys, ChatGPT login, models, usage | `references/providers.md` |
-| Skills library, MCP servers, Advanced Math / Standards packages | `references/extend.md` |
+| Skills (right rail), MCP servers, Advanced Math / Standards packages | `references/extend.md` |
 | Hand-edit MCP config, enable MCP via buddy.jsonc, notebook mcp override | `references/config-mcp.md` |
 | AGENTS.md, instructions, personalization profile | `references/instructions.md` |
 | Memory, “does Buddy remember me” | `references/learner-memory.md` |
@@ -68,7 +68,7 @@ Not for subject teaching (math, history, code lessons as content). Use pedagogy 
 | Practice | flashcards and question sets |
 | Boards | whiteboard catalog |
 | Creations | widgets, diagrams, figures, media catalog |
-| Skills library | installable skill packages (UI) |
+| Skills | right-rail Skills drawer (Installed / Discover) |
 | chat input / composer | user message entry (not a tool) |
 | slash commands | user input |
 
