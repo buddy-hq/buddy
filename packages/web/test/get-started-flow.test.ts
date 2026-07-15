@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test"
-import { GET_STARTED_CHAT_TEST_MODE } from "../src/lib/get-started-chats"
+import { GET_STARTED_FLOW_DEVTOOLS_MODE } from "../src/lib/get-started-chats"
 import {
   GET_STARTED_FLOW_STATUS,
   resolveGetStartedFlow,
@@ -16,7 +16,7 @@ const ACTIVE_LEARNER_INPUT = {
   personalizationResolved: true,
   primaryUse: "learn",
   currentDirectory: "/Users/buddy/Inbox",
-  testMode: undefined,
+  devtoolsMode: undefined,
 } as const satisfies GetStartedFlowInput
 
 beforeEach(() => {
@@ -40,15 +40,15 @@ describe("get started flow rules", () => {
     ).toBe(GET_STARTED_FLOW_STATUS.loading)
   })
 
-  test("is unavailable until onboarding records a primary use", () => {
+  test("falls back to learner prompts when onboarding has no primary use", () => {
     const flow = resolveGetStartedFlow({
       ...ACTIVE_LEARNER_INPUT,
       primaryUse: undefined,
     })
 
-    expect(flow.status).toBe(GET_STARTED_FLOW_STATUS.unavailable)
-    expect(flow.isActive).toBe(false)
-    expect(flow.chats).toEqual([])
+    expect(flow.status).toBe(GET_STARTED_FLOW_STATUS.active)
+    expect(flow.isActive).toBe(true)
+    expect(flow.chats.some((chat) => chat.id === "practice-set")).toBe(true)
   })
 
   test("becomes active in the Inbox independently of sessions or render callbacks", () => {
@@ -101,7 +101,7 @@ describe("get started flow rules", () => {
     const cleanInstalledFlow = {
       ...ACTIVE_LEARNER_INPUT,
       primaryUse: "teach",
-      testMode: GET_STARTED_CHAT_TEST_MODE.hidden,
+      devtoolsMode: GET_STARTED_FLOW_DEVTOOLS_MODE.appState,
     } as const satisfies GetStartedFlowInput
 
     const initiallyActive = resolveGetStartedFlow(cleanInstalledFlow)
@@ -120,35 +120,41 @@ describe("get started flow rules", () => {
     expect(reEnabled.status).toBe(GET_STARTED_FLOW_STATUS.active)
   })
 
-  test("developer prompt selections still respect the shared flag and Inbox scope", () => {
-    const hidden = resolveGetStartedFlow({
+  test("developer overrides supersede app visibility without changing Inbox scope", () => {
+    const appHidden = resolveGetStartedFlow({
       ...ACTIVE_LEARNER_INPUT,
       enabled: false,
-      testMode: GET_STARTED_CHAT_TEST_MODE.hidden,
+      devtoolsMode: GET_STARTED_FLOW_DEVTOOLS_MODE.appState,
     })
-    const disabledTeacher = resolveGetStartedFlow({
+    const forcedHidden = resolveGetStartedFlow({
+      ...ACTIVE_LEARNER_INPUT,
+      enabled: true,
+      devtoolsMode: GET_STARTED_FLOW_DEVTOOLS_MODE.hidden,
+    })
+    const forcedTeacher = resolveGetStartedFlow({
       ...ACTIVE_LEARNER_INPUT,
       enabled: false,
       personalizationResolved: false,
       primaryUse: undefined,
-      testMode: GET_STARTED_CHAT_TEST_MODE.teacher,
+      devtoolsMode: GET_STARTED_FLOW_DEVTOOLS_MODE.teacher,
     })
     const teacherOutsideInbox = resolveGetStartedFlow({
       ...ACTIVE_LEARNER_INPUT,
       personalizationResolved: false,
       primaryUse: undefined,
       currentDirectory: "/Users/buddy/Notebook",
-      testMode: GET_STARTED_CHAT_TEST_MODE.teacher,
+      devtoolsMode: GET_STARTED_FLOW_DEVTOOLS_MODE.teacher,
     })
     const activeTeacher = resolveGetStartedFlow({
       ...ACTIVE_LEARNER_INPUT,
       personalizationResolved: false,
       primaryUse: undefined,
-      testMode: GET_STARTED_CHAT_TEST_MODE.teacher,
+      devtoolsMode: GET_STARTED_FLOW_DEVTOOLS_MODE.teacher,
     })
 
-    expect(hidden.status).toBe(GET_STARTED_FLOW_STATUS.dismissed)
-    expect(disabledTeacher.status).toBe(GET_STARTED_FLOW_STATUS.dismissed)
+    expect(appHidden.status).toBe(GET_STARTED_FLOW_STATUS.dismissed)
+    expect(forcedHidden.status).toBe(GET_STARTED_FLOW_STATUS.overriddenHidden)
+    expect(forcedTeacher.status).toBe(GET_STARTED_FLOW_STATUS.active)
     expect(teacherOutsideInbox.status).toBe(GET_STARTED_FLOW_STATUS.outOfScope)
     expect(activeTeacher.status).toBe(GET_STARTED_FLOW_STATUS.active)
     expect(activeTeacher.chats.some((chat) => chat.id === "standards-lesson")).toBe(true)

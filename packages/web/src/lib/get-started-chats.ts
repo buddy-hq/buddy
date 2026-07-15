@@ -60,13 +60,14 @@ export type GetStartedChat = {
   capabilities: readonly GetStartedCapability[]
 }
 
-export const GET_STARTED_CHAT_TEST_MODE = {
+export const GET_STARTED_FLOW_DEVTOOLS_MODE = {
+  appState: "app_state",
   hidden: "hidden",
   student: "student",
   teacher: "teacher",
 } as const
-export type GetStartedChatTestMode =
-  (typeof GET_STARTED_CHAT_TEST_MODE)[keyof typeof GET_STARTED_CHAT_TEST_MODE]
+export type GetStartedFlowDevtoolsMode =
+  (typeof GET_STARTED_FLOW_DEVTOOLS_MODE)[keyof typeof GET_STARTED_FLOW_DEVTOOLS_MODE]
 
 const BUDDY_HELP_TOUR_CHAT = {
   id: "buddy-help-tour",
@@ -175,25 +176,24 @@ const GET_STARTED_CHATS_BY_PRIMARY_USE = {
   teach: EDUCATOR_GET_STARTED_CHATS,
 } as const satisfies Record<PrimaryUse, readonly GetStartedChat[]>
 
-const EMPTY_GET_STARTED_CHATS: readonly GetStartedChat[] = []
+const DEFAULT_GET_STARTED_PRIMARY_USE = "learn" satisfies PrimaryUse
 
-export function isGetStartedChatTestMode(value: string): value is GetStartedChatTestMode {
-  return Object.values(GET_STARTED_CHAT_TEST_MODE).some((mode) => mode === value)
+export function isGetStartedFlowDevtoolsMode(value: string): value is GetStartedFlowDevtoolsMode {
+  return Object.values(GET_STARTED_FLOW_DEVTOOLS_MODE).some((mode) => mode === value)
 }
 
 export function getStartedChatsForPrimaryUse(primaryUse: PrimaryUse | undefined) {
-  if (!primaryUse) return EMPTY_GET_STARTED_CHATS
-  return GET_STARTED_CHATS_BY_PRIMARY_USE[primaryUse]
+  return GET_STARTED_CHATS_BY_PRIMARY_USE[primaryUse ?? DEFAULT_GET_STARTED_PRIMARY_USE]
 }
 
-export function getStartedChatsForTestMode(
-  testMode: GetStartedChatTestMode,
+export function getStartedChatsForDevtoolsMode(
+  devtoolsMode: Exclude<
+    GetStartedFlowDevtoolsMode,
+    | typeof GET_STARTED_FLOW_DEVTOOLS_MODE.appState
+    | typeof GET_STARTED_FLOW_DEVTOOLS_MODE.hidden
+  >,
 ): readonly GetStartedChat[] {
-  if (testMode === GET_STARTED_CHAT_TEST_MODE.student) {
-    return LEARNER_GET_STARTED_CHATS
-  }
-  if (testMode === GET_STARTED_CHAT_TEST_MODE.teacher) {
-    return EDUCATOR_GET_STARTED_CHATS
-  }
-  return EMPTY_GET_STARTED_CHATS
+  return devtoolsMode === GET_STARTED_FLOW_DEVTOOLS_MODE.student
+    ? LEARNER_GET_STARTED_CHATS
+    : EDUCATOR_GET_STARTED_CHATS
 }

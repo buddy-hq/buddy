@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, test } from "bun:test"
 import {
   GET_STARTED_CAPABILITY,
-  GET_STARTED_CHAT_TEST_MODE,
+  GET_STARTED_FLOW_DEVTOOLS_MODE,
   getStartedChatsForPrimaryUse,
-  getStartedChatsForTestMode,
+  getStartedChatsForDevtoolsMode,
 } from "../src/lib/get-started-chats"
-import { useGetStartedChatTestMode } from "../src/state/get-started-chat-test-mode"
+import { useGetStartedFlowDevtools } from "../src/state/get-started-flow-devtools"
 import { useGetStartedFlowStore } from "../src/state/get-started-flow-store"
 
 const LEARNER_CHAT_IDS = [
@@ -26,12 +26,15 @@ const EDUCATOR_CHAT_IDS = [
 
 beforeEach(() => {
   sessionStorage.clear()
-  useGetStartedChatTestMode.getState().setMode(GET_STARTED_CHAT_TEST_MODE.hidden)
+  useGetStartedFlowDevtools.getState().setMode(GET_STARTED_FLOW_DEVTOOLS_MODE.appState)
+  useGetStartedFlowStore.getState().setEnabled(true)
 })
 
 describe("get started chats", () => {
-  test("does not expose starter chats until the user chooses a primary use", () => {
-    expect(getStartedChatsForPrimaryUse(undefined)).toEqual([])
+  test("falls back to learner prompts when personalization has no audience", () => {
+    expect(getStartedChatsForPrimaryUse(undefined).map((chat) => chat.id)).toEqual([
+      ...LEARNER_CHAT_IDS,
+    ])
   })
 
   test("provides learner scenarios that explicitly demonstrate Bench work", () => {
@@ -70,13 +73,16 @@ describe("get started chats", () => {
     expect(chats.every((chat) => chat.capabilities.length > 0)).toBe(true)
   })
 
-  test("maps each developer test state to the complete matching prompt set", () => {
-    expect(getStartedChatsForTestMode(GET_STARTED_CHAT_TEST_MODE.hidden)).toEqual([])
+  test("maps each developer audience override to the complete matching prompt set", () => {
     expect(
-      getStartedChatsForTestMode(GET_STARTED_CHAT_TEST_MODE.student).map((chat) => chat.id),
+      getStartedChatsForDevtoolsMode(GET_STARTED_FLOW_DEVTOOLS_MODE.student).map(
+        (chat) => chat.id,
+      ),
     ).toEqual([...LEARNER_CHAT_IDS])
     expect(
-      getStartedChatsForTestMode(GET_STARTED_CHAT_TEST_MODE.teacher).map((chat) => chat.id),
+      getStartedChatsForDevtoolsMode(GET_STARTED_FLOW_DEVTOOLS_MODE.teacher).map(
+        (chat) => chat.id,
+      ),
     ).toEqual([...EDUCATOR_CHAT_IDS])
   })
 
@@ -95,12 +101,19 @@ describe("get started chats", () => {
     expect(studentTour?.capabilities).toContain(GET_STARTED_CAPABILITY.htmlWidget)
   })
 
-  test("updates the shared developer selection", () => {
-    useGetStartedChatTestMode.getState().setMode(GET_STARTED_CHAT_TEST_MODE.teacher)
-    expect(useGetStartedChatTestMode.getState().mode).toBe(GET_STARTED_CHAT_TEST_MODE.teacher)
+  test("keeps the developer audience independent from the shared visibility preference", () => {
+    useGetStartedFlowStore.getState().setEnabled(false)
+    useGetStartedFlowDevtools.getState().setMode(GET_STARTED_FLOW_DEVTOOLS_MODE.teacher)
+    expect(useGetStartedFlowDevtools.getState().mode).toBe(
+      GET_STARTED_FLOW_DEVTOOLS_MODE.teacher,
+    )
+    expect(useGetStartedFlowStore.getState().enabled).toBe(false)
+
+    useGetStartedFlowStore.getState().setEnabled(true)
+    useGetStartedFlowDevtools.getState().setMode(GET_STARTED_FLOW_DEVTOOLS_MODE.hidden)
     expect(useGetStartedFlowStore.getState().enabled).toBe(true)
 
-    useGetStartedChatTestMode.getState().setMode(GET_STARTED_CHAT_TEST_MODE.hidden)
-    expect(useGetStartedFlowStore.getState().enabled).toBe(false)
+    useGetStartedFlowDevtools.getState().setMode(GET_STARTED_FLOW_DEVTOOLS_MODE.appState)
+    expect(useGetStartedFlowStore.getState().enabled).toBe(true)
   })
 })

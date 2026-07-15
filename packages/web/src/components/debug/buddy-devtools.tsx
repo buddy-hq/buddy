@@ -15,6 +15,7 @@ import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools"
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools"
 import { BugIcon, GripVerticalIcon, PowerIcon, RotateCcwIcon, XIcon } from "lucide-react"
 import {
+  Badge,
   Button,
   Card,
   CardContent,
@@ -29,6 +30,7 @@ import {
   ContextMenuTrigger,
   CopyIcon,
   Field,
+  FieldGroup,
   FieldLabel,
   Select,
   SelectContent,
@@ -52,7 +54,8 @@ import { useGlobalLearnerMemorySettings } from "@/state/learner-memory-settings"
 import { teachingSessionKey, useTeachingRuntime } from "@/state/teaching-runtime"
 import { learnerSnapshotViewsQueryOptions } from "@/state/learner-query"
 import { useOnboardingStore } from "@/state/onboarding-store"
-import { useGetStartedChatTestMode } from "@/state/get-started-chat-test-mode"
+import { useGetStartedFlowDevtools } from "@/state/get-started-flow-devtools"
+import { useGetStartedFlow } from "@/state/use-get-started-flow"
 import { invalidateAllProviderCatalogSnapshotQueries } from "@/state/bootstrap-query"
 import {
   EXPERIMENTAL_FEATURE_ID,
@@ -85,7 +88,14 @@ import {
   buildPersonalizationPatch,
 } from "@/state/project-config-readers"
 import { setPersonalizationSettingsQueryData } from "@/state/personalization-settings-query"
-import { GET_STARTED_CHAT_TEST_MODE, isGetStartedChatTestMode } from "@/lib/get-started-chats"
+import {
+  GET_STARTED_FLOW_DEVTOOLS_MODE,
+  isGetStartedFlowDevtoolsMode,
+} from "@/lib/get-started-chats"
+import {
+  GET_STARTED_FLOW_STATUS,
+  type GetStartedFlowStatus,
+} from "@/lib/get-started-flow"
 type BuddyDevToolsTab =
   | "palette"
   | "trace"
@@ -122,7 +132,7 @@ const DEFAULT_DEVTOOLS_WIDTH = 420
 const DEVTOOLS_FLOATING_PADDING_PX = 12
 const DEVTOOLS_RECT_STORAGE_KEY = "buddy-devtools-rect-v3"
 const DEVTOOLS_AFFORDANCE_POSITION_STORAGE_KEY = "buddy-devtools-affordance-position-v1"
-const GET_STARTED_CHAT_TEST_MODE_SELECT_ID = "get-started-chat-test-mode"
+const GET_STARTED_FLOW_DEVTOOLS_MODE_SELECT_ID = "get-started-flow-devtools-mode"
 const DEFAULT_DEVTOOLS_AFFORDANCE_POSITION: DevToolsAffordancePosition = "bottom-right"
 const DESKTOP_TITLEBAR_SELECTOR = '[data-component="desktop-titlebar"]'
 const MEMORY_DEVTOOLS_LIMIT = 30
@@ -137,6 +147,13 @@ const DEVTOOLS_AFFORDANCE_POSITION_LABELS: Record<DevToolsAffordancePosition, st
   "bottom-left": "Bottom left",
   "top-left": "Top left",
 }
+const GET_STARTED_FLOW_STATUS_LABELS = {
+  [GET_STARTED_FLOW_STATUS.loading]: "Loading saved state",
+  [GET_STARTED_FLOW_STATUS.dismissed]: "Hidden by app preference",
+  [GET_STARTED_FLOW_STATUS.overriddenHidden]: "Forced hidden by DevTools",
+  [GET_STARTED_FLOW_STATUS.outOfScope]: "Only shown in Inbox",
+  [GET_STARTED_FLOW_STATUS.active]: "Visible",
+} as const satisfies Record<GetStartedFlowStatus, string>
 const DEVTOOLS_AFFORDANCE_POSITION_CLASS_NAMES: Record<DevToolsAffordancePosition, string> = {
   "bottom-right": "bottom-3 right-3 items-end",
   "top-right": "right-3 items-end",
@@ -2661,8 +2678,9 @@ export function BuddyDevTools() {
   const location = useLocation()
   const pathname = location.pathname
   const devInstanceName = readDevInstanceName()
-  const getStartedChatTestMode = useGetStartedChatTestMode((state) => state.mode)
-  const setGetStartedChatTestMode = useGetStartedChatTestMode((state) => state.setMode)
+  const getStartedFlowDevtoolsMode = useGetStartedFlowDevtools((state) => state.mode)
+  const setGetStartedFlowDevtoolsMode = useGetStartedFlowDevtools((state) => state.setMode)
+  const getStartedFlow = useGetStartedFlow(activeDirectory ?? "")
 
   const onboardingToggleLabel = isResettingOnboarding
     ? language.t("desktopTitlebar.resettingOnboarding")
@@ -2723,13 +2741,13 @@ export function BuddyDevTools() {
     }
   }, [])
 
-  const handleGetStartedChatTestModeChange = useCallback(
+  const handleGetStartedFlowDevtoolsModeChange = useCallback(
     (value: string) => {
-      if (isGetStartedChatTestMode(value)) {
-        setGetStartedChatTestMode(value)
+      if (isGetStartedFlowDevtoolsMode(value)) {
+        setGetStartedFlowDevtoolsMode(value)
       }
     },
-    [setGetStartedChatTestMode],
+    [setGetStartedFlowDevtoolsMode],
   )
 
   const handleToggleOnboarding = useCallback(async () => {
@@ -3088,39 +3106,50 @@ export function BuddyDevTools() {
                       <SparklesIcon className="size-3.5" />
                       {onboardingToggleLabel}
                     </Button>
-                    <Field orientation="horizontal" className="max-w-xs">
-                      <FieldLabel
-                        htmlFor={GET_STARTED_CHAT_TEST_MODE_SELECT_ID}
-                        className="text-xs text-text-weak"
-                      >
-                        Get started prompts
-                      </FieldLabel>
-                      <Select
-                        value={getStartedChatTestMode}
-                        onValueChange={handleGetStartedChatTestModeChange}
-                      >
-                        <SelectTrigger
-                          id={GET_STARTED_CHAT_TEST_MODE_SELECT_ID}
-                          size="sm"
-                          className="min-w-36 text-xs"
+                    <FieldGroup className="max-w-xs gap-2">
+                      <Field orientation="horizontal">
+                        <FieldLabel
+                          htmlFor={GET_STARTED_FLOW_DEVTOOLS_MODE_SELECT_ID}
+                          className="text-xs text-text-weak"
                         >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="z-[10050]" position="popper">
-                          <SelectGroup>
-                            <SelectItem value={GET_STARTED_CHAT_TEST_MODE.hidden}>
-                              Nothing
-                            </SelectItem>
-                            <SelectItem value={GET_STARTED_CHAT_TEST_MODE.student}>
-                              Student prompts
-                            </SelectItem>
-                            <SelectItem value={GET_STARTED_CHAT_TEST_MODE.teacher}>
-                              Teacher prompts
-                            </SelectItem>
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </Field>
+                          Get Started override
+                        </FieldLabel>
+                        <Select
+                          value={getStartedFlowDevtoolsMode}
+                          onValueChange={handleGetStartedFlowDevtoolsModeChange}
+                        >
+                          <SelectTrigger
+                            id={GET_STARTED_FLOW_DEVTOOLS_MODE_SELECT_ID}
+                            size="sm"
+                            className="min-w-36 text-xs"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="z-[10050]" position="popper">
+                            <SelectGroup>
+                              <SelectItem value={GET_STARTED_FLOW_DEVTOOLS_MODE.appState}>
+                                Use app state
+                              </SelectItem>
+                              <SelectItem value={GET_STARTED_FLOW_DEVTOOLS_MODE.hidden}>
+                                Force hidden
+                              </SelectItem>
+                              <SelectItem value={GET_STARTED_FLOW_DEVTOOLS_MODE.student}>
+                                Force student prompts
+                              </SelectItem>
+                              <SelectItem value={GET_STARTED_FLOW_DEVTOOLS_MODE.teacher}>
+                                Force teacher prompts
+                              </SelectItem>
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    </FieldGroup>
+                    <Badge variant="outline">
+                      App setting: {getStartedFlow.enabled ? "On" : "Off"}
+                    </Badge>
+                    <Badge variant="secondary">
+                      Effective: {GET_STARTED_FLOW_STATUS_LABELS[getStartedFlow.status]}
+                    </Badge>
                   </div>
                 </div>
               </div>

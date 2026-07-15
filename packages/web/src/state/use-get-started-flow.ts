@@ -2,12 +2,11 @@ import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { resolveGetStartedFlow, type GetStartedFlowSnapshot } from "@/lib/get-started-flow"
 import { globalConfigQueryOptions } from "./global-config-query"
-import { useGetStartedChatTestMode } from "./get-started-chat-test-mode"
+import { useGetStartedFlowDevtools } from "./get-started-flow-devtools"
 import { useGetStartedFlowStore, useGetStartedFlowStoreHydrated } from "./get-started-flow-store"
 import { readPersonalization } from "./project-config-readers"
 
 export type GetStartedFlow = GetStartedFlowSnapshot & {
-  setEnabled: (enabled: boolean) => void
   dismiss: () => void
 }
 
@@ -17,11 +16,10 @@ export function useGetStartedFlow(currentDirectory: string): GetStartedFlow {
     select: (globalConfig) => readPersonalization(globalConfig).primaryUse,
   })
   const enabled = useGetStartedFlowStore((state) => state.enabled)
-  const setEnabled = useGetStartedFlowStore((state) => state.setEnabled)
   const dismiss = useGetStartedFlowStore((state) => state.dismiss)
   const persistedStateHydrated = useGetStartedFlowStoreHydrated()
-  const developerTestMode = useGetStartedChatTestMode((state) => state.mode)
-  const testMode = import.meta.env.DEV ? developerTestMode : undefined
+  const developerMode = useGetStartedFlowDevtools((state) => state.mode)
+  const devtoolsMode = import.meta.env.DEV ? developerMode : undefined
 
   return useMemo(
     () => ({
@@ -31,9 +29,8 @@ export function useGetStartedFlow(currentDirectory: string): GetStartedFlow {
         personalizationResolved: !primaryUseQuery.isPending,
         primaryUse: primaryUseQuery.data,
         currentDirectory,
-        testMode,
+        devtoolsMode,
       }),
-      setEnabled,
       dismiss,
     }),
     [
@@ -43,8 +40,7 @@ export function useGetStartedFlow(currentDirectory: string): GetStartedFlow {
       persistedStateHydrated,
       primaryUseQuery.data,
       primaryUseQuery.isPending,
-      setEnabled,
-      testMode,
+      devtoolsMode,
     ],
   )
 }

@@ -1,9 +1,9 @@
 import {
-  GET_STARTED_CHAT_TEST_MODE,
+  GET_STARTED_FLOW_DEVTOOLS_MODE,
   getStartedChatsForPrimaryUse,
-  getStartedChatsForTestMode,
+  getStartedChatsForDevtoolsMode,
   type GetStartedChat,
-  type GetStartedChatTestMode,
+  type GetStartedFlowDevtoolsMode,
 } from "./get-started-chats"
 import type { PrimaryUse } from "@/state/project-config-readers"
 
@@ -11,8 +11,8 @@ const GET_STARTED_FLOW_DIRECTORY_NAME = "inbox" as const
 
 export const GET_STARTED_FLOW_STATUS = {
   loading: "loading",
-  unavailable: "unavailable",
   dismissed: "dismissed",
+  overriddenHidden: "overridden_hidden",
   outOfScope: "out_of_scope",
   active: "active",
 } as const
@@ -33,20 +33,21 @@ export type GetStartedFlowInput = {
   personalizationResolved: boolean
   primaryUse: PrimaryUse | undefined
   currentDirectory: string
-  testMode: GetStartedChatTestMode | undefined
+  devtoolsMode: GetStartedFlowDevtoolsMode | undefined
 }
 
 type GetStartedDeveloperAudience = Exclude<
-  GetStartedChatTestMode,
-  typeof GET_STARTED_CHAT_TEST_MODE.hidden
+  GetStartedFlowDevtoolsMode,
+  | typeof GET_STARTED_FLOW_DEVTOOLS_MODE.appState
+  | typeof GET_STARTED_FLOW_DEVTOOLS_MODE.hidden
 >
 
 function isDeveloperAudienceOverride(
-  testMode: GetStartedChatTestMode | undefined,
-): testMode is GetStartedDeveloperAudience {
+  devtoolsMode: GetStartedFlowDevtoolsMode | undefined,
+): devtoolsMode is GetStartedDeveloperAudience {
   return (
-    testMode === GET_STARTED_CHAT_TEST_MODE.student ||
-    testMode === GET_STARTED_CHAT_TEST_MODE.teacher
+    devtoolsMode === GET_STARTED_FLOW_DEVTOOLS_MODE.student ||
+    devtoolsMode === GET_STARTED_FLOW_DEVTOOLS_MODE.teacher
   )
 }
 
@@ -70,22 +71,23 @@ function createSnapshot(
 }
 
 export function resolveGetStartedFlow(input: GetStartedFlowInput): GetStartedFlowSnapshot {
-  const hasDeveloperAudienceOverride = isDeveloperAudienceOverride(input.testMode)
+  if (input.devtoolsMode === GET_STARTED_FLOW_DEVTOOLS_MODE.hidden) {
+    return createSnapshot(GET_STARTED_FLOW_STATUS.overriddenHidden, input.enabled, [])
+  }
+
+  const hasDeveloperAudienceOverride = isDeveloperAudienceOverride(input.devtoolsMode)
   if (
-    !input.persistedStateHydrated ||
-    (!hasDeveloperAudienceOverride && !input.personalizationResolved)
+    !hasDeveloperAudienceOverride &&
+    (!input.persistedStateHydrated || !input.personalizationResolved)
   ) {
     return createSnapshot(GET_STARTED_FLOW_STATUS.loading, input.enabled, [])
   }
 
-  const chats = isDeveloperAudienceOverride(input.testMode)
-    ? getStartedChatsForTestMode(input.testMode)
+  const chats = isDeveloperAudienceOverride(input.devtoolsMode)
+    ? getStartedChatsForDevtoolsMode(input.devtoolsMode)
     : getStartedChatsForPrimaryUse(input.primaryUse)
-  if (!input.enabled) {
+  if (!hasDeveloperAudienceOverride && !input.enabled) {
     return createSnapshot(GET_STARTED_FLOW_STATUS.dismissed, input.enabled, chats)
-  }
-  if (chats.length === 0) {
-    return createSnapshot(GET_STARTED_FLOW_STATUS.unavailable, input.enabled, chats)
   }
   if (!isInboxDirectory(input.currentDirectory)) {
     return createSnapshot(GET_STARTED_FLOW_STATUS.outOfScope, input.enabled, chats)
