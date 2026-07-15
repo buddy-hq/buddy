@@ -21,7 +21,15 @@ import { dispatchBestEffortBenchPresent } from "../../bench/auto-open"
 const HTML_WIDGET_RUNTIME_VIEW_ID = "runtime" as const
 const HTML_WIDGET_AUTO_OPEN_POLICY_ID = "fullscreen-html-widget" as const
 const HTML_WIDGET_AUTO_OPEN_EVENT_PREFIX = "fullscreen-html-widget:" as const
-const HTML_WIDGET_AUTO_OPEN_VIEWPORT_PRESETS = new Set(["standard_16_10", "wide_16_9"])
+// Temporarily auto-open every viewport preset on Bench until we find a better
+// pattern for which widgets stay inline-only vs open on Bench.
+const HTML_WIDGET_AUTO_OPEN_VIEWPORT_PRESETS = new Set([
+  "compact_4_3",
+  "standard_16_10",
+  "wide_16_9",
+  "square",
+  "tall_mobile",
+])
 
 const nullableStringField = nonEmptyString.nullable()
 const nullableObjectIDField = BuddyObjectIDSchema.nullable()
