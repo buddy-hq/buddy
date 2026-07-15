@@ -1,12 +1,55 @@
 name: publish-skill-artifacts
 
 on:
+  workflow_call:
+    inputs:
+      base_fingerprint:
+        required: false
+        type: string
+      publish:
+        required: false
+        type: boolean
+        default: true
+      release_dry_run:
+        required: false
+        type: boolean
+        default: false
+      release_repo:
+        required: false
+        type: string
+      release_source_mode:
+        required: false
+        type: string
+      release_source_repository:
+        required: false
+        type: string
+      release_source_sha:
+        required: false
+        type: string
+      release_tag:
+        required: false
+        type: string
+      system_revision:
+        required: false
+        type: string
+    secrets:
+      BUDDY_RELEASE_TOKEN:
+        required: true
+      BUDDY_SKILL_SIGNING_PRIVATE_KEY:
+        required: true
+      BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD:
+        required: true
   workflow_dispatch:
     inputs:
       base_fingerprint:
         description: Existing bundled system-skill fingerprint to target; blank targets this checkout
         required: false
         type: string
+      publish:
+        description: Publish artifacts after building and verifying them
+        required: false
+        default: true
+        type: boolean
       system_revision:
         description: System pack revision; blank uses the library catalog revision
         required: false
@@ -28,10 +71,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
 
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Record or verify desktop release source
+        if: ${{ inputs.release_source_mode != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
+          BUDDY_RELEASE_REPO: ${{ inputs.release_repo }}
+          BUDDY_RELEASE_SOURCE_DRY_RUN: ${{ inputs.release_dry_run && '1' || '' }}
+          BUDDY_RELEASE_SOURCE_MODE: ${{ inputs.release_source_mode }}
+          BUDDY_RELEASE_SOURCE_REPOSITORY: ${{ inputs.release_source_repository }}
+          BUDDY_RELEASE_SOURCE_SHA: ${{ inputs.release_source_sha }}
+          BUDDY_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: bun ./script/release-source-metadata.ts
 
       - run: bun install --frozen-lockfile
 
@@ -46,15 +103,19 @@ jobs:
               test/skills/library.test.ts \
               test/skills/skill-curation.test.ts
 
-      - name: Publish signed skill artifacts
+      - name: Build and optionally publish signed skill artifacts
         env:
           BUDDY_SKILL_SIGNING_PRIVATE_KEY: ${{ secrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY }}
           BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD }}
           GH_TOKEN: ${{ secrets.BUDDY_RELEASE_TOKEN }}
           INPUT_BASE_FINGERPRINT: ${{ inputs.base_fingerprint }}
+          INPUT_PUBLISH: ${{ inputs.publish }}
           INPUT_SYSTEM_REVISION: ${{ inputs.system_revision }}
         run: |
-          args=(--publish)
+          args=()
+          if [[ "$INPUT_PUBLISH" == "true" ]]; then
+            args+=(--publish)
+          fi
           if [[ -n "$INPUT_BASE_FINGERPRINT" ]]; then
             args+=(--base-fingerprint "$INPUT_BASE_FINGERPRINT")
           fi

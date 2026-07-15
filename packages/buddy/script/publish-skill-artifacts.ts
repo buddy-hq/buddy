@@ -43,6 +43,7 @@ const TAURI_PRIVATE_KEY_ENV = "TAURI_SIGNING_PRIVATE_KEY"
 const TAURI_PRIVATE_KEY_PATH_ENV = "TAURI_SIGNING_PRIVATE_KEY_PATH"
 const TAURI_PRIVATE_KEY_PASSWORD_ENV = "TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
 const PUBLIC_KEY_PREFIX = "RW"
+const PUBLISHED_ARTIFACT_VERIFICATION_DIRECTORY_PREFIX = "buddy-skill-artifacts-verify-"
 const DEFAULT_OUTPUT_DIRECTORY = path.resolve(import.meta.dir, "../dist/skill-artifacts")
 const TAURI_SIGNER_PATH = path.resolve(
   import.meta.dir,
@@ -232,6 +233,46 @@ function ensureReleaseExists(environment: NodeJS.ProcessEnv): void {
   )
 }
 
+async function verifyPublishedArtifacts(
+  artifactPaths: readonly string[],
+  environment: NodeJS.ProcessEnv,
+): Promise<void> {
+  const verificationDirectory = await fsp.mkdtemp(
+    path.join(os.tmpdir(), PUBLISHED_ARTIFACT_VERIFICATION_DIRECTORY_PREFIX),
+  )
+
+  try {
+    const filenames = artifactPaths.map((artifactPath) => path.basename(artifactPath))
+    run(
+      "gh",
+      [
+        "release",
+        "download",
+        RELEASE_TAG,
+        "--repo",
+        RELEASE_REPOSITORY,
+        "--dir",
+        verificationDirectory,
+        ...filenames.flatMap((filename) => ["--pattern", filename]),
+      ],
+      environment,
+    )
+
+    for (const artifactPath of artifactPaths) {
+      const filename = path.basename(artifactPath)
+      const [expected, published] = await Promise.all([
+        fsp.readFile(artifactPath),
+        fsp.readFile(path.join(verificationDirectory, filename)),
+      ])
+      if (!expected.equals(published)) {
+        throw new Error(`Published skill artifact does not match the generated ${filename}`)
+      }
+    }
+  } finally {
+    await fsp.rm(verificationDirectory, { recursive: true, force: true })
+  }
+}
+
 const outputDirectory = path.resolve(flagValue(OUTPUT_FLAG) ?? DEFAULT_OUTPUT_DIRECTORY)
 await fsp.rm(outputDirectory, { recursive: true, force: true })
 await fsp.mkdir(outputDirectory, { recursive: true })
@@ -342,20 +383,13 @@ await Promise.all([
 
 if (process.argv.includes(PUBLISH_FLAG)) {
   ensureReleaseExists(process.env)
+  const artifactPaths = [libraryEnvelopePath, systemEnvelopePath]
   run(
     "gh",
-    [
-      "release",
-      "upload",
-      RELEASE_TAG,
-      libraryEnvelopePath,
-      systemEnvelopePath,
-      "--clobber",
-      "--repo",
-      RELEASE_REPOSITORY,
-    ],
+    ["release", "upload", RELEASE_TAG, ...artifactPaths, "--clobber", "--repo", RELEASE_REPOSITORY],
     process.env,
   )
+  await verifyPublishedArtifacts(artifactPaths, process.env)
 }
 
 console.log(`Built signed library catalog revision ${catalog.revision}`)

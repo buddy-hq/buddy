@@ -36,6 +36,10 @@ on:
     secrets:
       BUDDY_RELEASE_TOKEN:
         required: true
+      BUDDY_SKILL_SIGNING_PRIVATE_KEY:
+        required: true
+      BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD:
+        required: true
       TAURI_SIGNING_PRIVATE_KEY:
         required: false
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD:
@@ -657,7 +661,7 @@ jobs:
             --clobber \
             --repo "$BUDDY_RELEASE_REPO"
 
-  finalize-and-publish:
+  publish-skill-artifacts:
     if: |
       always() &&
       needs.preflight.result == 'success' &&
@@ -677,6 +681,25 @@ jobs:
       - build-advanced-math-macos-arm64
       - build-advanced-math-macos-x64
       - build-standards
+    uses: ./.github/workflows/publish-skill-artifacts.yml
+    with:
+      publish: ${{ !inputs.dry_run }}
+      release_dry_run: ${{ inputs.dry_run }}
+      release_repo: ${{ needs.preflight.outputs.release_repo }}
+      release_source_mode: ${{ inputs.resume_draft && 'verify' || 'record' }}
+      release_source_repository: ${{ needs.preflight.outputs.source_repo }}
+      release_source_sha: ${{ github.sha }}
+      release_tag: ${{ needs.preflight.outputs.tag }}
+    secrets: inherit
+
+  finalize-and-publish:
+    if: |
+      always() &&
+      needs.preflight.result == 'success' &&
+      needs.publish-skill-artifacts.result == 'success'
+    needs:
+      - preflight
+      - publish-skill-artifacts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
