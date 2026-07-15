@@ -171,6 +171,7 @@ const BENCH_DRAWER_LABELS = {
   creations: "Creations",
   boards: "Boards",
   files: "Files",
+  skills: "Skills",
 } as const
 
 function benchSurfaceLabel(context: PromptContext): string {

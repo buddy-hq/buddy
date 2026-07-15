@@ -13,6 +13,7 @@ const BENCH_DRAWER_KIND_VALUES = [
   "creations",
   "boards",
   "files",
+  "skills",
 ] as const
 
 const BenchContextStatusSchema = z.enum(["ready", "loading", "dirty", "error", "unavailable"])

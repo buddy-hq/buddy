@@ -180,6 +180,7 @@ describe("bench target keys", () => {
 describe("Bench drawer context", () => {
   test("accepts every right-workspace drawer and rejects the removed Library taxonomy", () => {
     expect(BENCH_DRAWER_KIND_VALUES).toContain("search")
+    expect(BENCH_DRAWER_KIND_VALUES).toContain("skills")
     for (const kind of BENCH_DRAWER_KIND_VALUES) {
       expect(
         BenchDrawerContextSchema.parse({
