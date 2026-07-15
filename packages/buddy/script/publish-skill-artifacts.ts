@@ -22,7 +22,10 @@ import {
   systemSkillPackCompatibilityFromPack,
   systemSkillPackPayloadBytes,
 } from "../src/learning/skill-management/service/system-pack"
-import { parseSkillCatalogDocument } from "../src/learning/skill-management/service/library"
+import {
+  parseSkillCatalogDocument,
+  skillCatalogPayloadBytes,
+} from "../src/learning/skill-management/service/library"
 import { resolveBuddyBundledSkillRoots } from "../src/config/opencode/skills"
 import { allBuddySkills } from "../src/learning/runtime/feature-registry"
 
@@ -282,9 +285,9 @@ if (signing.publicKey && signing.publicKey !== BUDDY_SKILL_ARTIFACT_PUBLIC_KEY) 
   throw new Error("Skill artifact signing key does not match the public key embedded in Buddy")
 }
 
-const catalogSource = await fsp.readFile(SOURCE_CATALOG_PATH, "utf8")
-const catalogJson: unknown = JSON.parse(catalogSource)
+const catalogJson: unknown = JSON.parse(await fsp.readFile(SOURCE_CATALOG_PATH, "utf8"))
 const catalog = parseSkillCatalogDocument(catalogJson)
+const catalogPayloadBytes = skillCatalogPayloadBytes(catalog)
 const publishedCatalog = await readPublishedPayload(
   DEFAULT_LIBRARY_CATALOG_URL,
   parseSkillCatalogDocument,
@@ -297,7 +300,7 @@ if (publishedCatalog) {
   }
   if (
     publishedCatalog.value.revision === catalog.revision &&
-    !Buffer.from(publishedCatalog.bytes).equals(Buffer.from(catalogSource, "utf8"))
+    !Buffer.from(publishedCatalog.bytes).equals(Buffer.from(catalogPayloadBytes))
   ) {
     throw new Error("Library catalog content changed without a revision increment")
   }
@@ -368,8 +371,8 @@ if (
 const libraryEnvelopePath = path.join(outputDirectory, LIBRARY_CATALOG_ARTIFACT_FILENAME)
 const systemEnvelopePath = path.join(outputDirectory, systemFilename)
 await Promise.all([
-  signPayload(Buffer.from(catalogSource, "utf8"), "library-catalog", outputDirectory, signing).then(
-    (envelope) => fsp.writeFile(libraryEnvelopePath, envelope, "utf8"),
+  signPayload(catalogPayloadBytes, "library-catalog", outputDirectory, signing).then((envelope) =>
+    fsp.writeFile(libraryEnvelopePath, envelope, "utf8"),
   ),
   reusePublishedSystemPack
     ? fsp.writeFile(systemEnvelopePath, publishedSystemPack.envelopeText, "utf8")

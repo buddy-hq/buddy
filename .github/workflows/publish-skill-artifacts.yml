@@ -10,6 +10,10 @@ on:
         required: false
         type: boolean
         default: true
+      prevalidated:
+        required: false
+        type: boolean
+        default: false
       release_dry_run:
         required: false
         type: boolean
@@ -92,19 +96,12 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - name: Generate SDK
-        run: bun run sdk:generate
-
-      - name: Verify repository
-        run: |
-          bun lint
-          bun typecheck
-          cd packages/buddy
-          bun test --preload ./test/preload.ts \
-              test/skills/signed-artifact.test.ts \
-              test/skills/system-pack.test.ts \
-              test/skills/library.test.ts \
-              test/skills/skill-curation.test.ts
+      - if: ${{ !inputs.prevalidated }}
+        name: Validate repository and signed skill artifacts
+        env:
+          BUDDY_SKILL_SIGNING_PRIVATE_KEY: ${{ secrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY }}
+          BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bun run release:validate-skill-artifacts
 
       - name: Build and optionally publish signed skill artifacts
         env:

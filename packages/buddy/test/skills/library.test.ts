@@ -10,6 +10,7 @@ import {
   reconcileWithdrawnLibrarySkills,
   resolveCatalogSkillState,
   resolveCatalogPathFromCandidates,
+  skillCatalogPayloadBytes,
 } from "../../src/learning/skill-management/service/library"
 import type { InstalledSkillLockEntry } from "../../src/learning/skill-management/service/lock"
 import {
@@ -48,6 +49,25 @@ function activeLockEntry(sha256: string): Extract<InstalledSkillLockEntry, { sta
 }
 
 describe("skill catalog library", () => {
+  test("serializes signed catalog payloads independently of source formatting", () => {
+    const compact = '{"schemaVersion":1,"revision":4,"entries":[]}'
+    const expanded = `{
+      "schemaVersion": 1,
+      "revision": 4,
+      "entries": []
+    }`
+
+    const compactPayload = skillCatalogPayloadBytes(parseSkillCatalogDocument(JSON.parse(compact)))
+    const expandedPayload = skillCatalogPayloadBytes(
+      parseSkillCatalogDocument(JSON.parse(expanded)),
+    )
+
+    expect(compactPayload).toEqual(expandedPayload)
+    expect(Buffer.from(compactPayload).toString("utf8")).toBe(
+      `${JSON.stringify({ schemaVersion: 1, revision: 4, entries: [] }, null, 2)}\n`,
+    )
+  })
+
   test("resolves catalog candidates from source and bundled runtime entrypoints", () => {
     const root = mkdtempSync(path.join(os.tmpdir(), "buddy-skill-catalog-paths-"))
     const sourceModule = path.join(root, "source", "library.js")

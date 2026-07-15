@@ -125,6 +125,12 @@ jobs:
 
       - run: bun install
 
+      - name: Validate repository and signed skill artifacts before platform builds
+        env:
+          BUDDY_SKILL_SIGNING_PRIVATE_KEY: ${{ secrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY }}
+          BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.BUDDY_SKILL_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: bun run release:validate-skill-artifacts
+
       - name: Verify mac updater signer tooling
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -683,6 +689,7 @@ jobs:
       - build-standards
     uses: ./.github/workflows/publish-skill-artifacts.yml
     with:
+      prevalidated: true
       publish: ${{ !inputs.dry_run }}
       release_dry_run: ${{ inputs.dry_run }}
       release_repo: ${{ needs.preflight.outputs.release_repo }}

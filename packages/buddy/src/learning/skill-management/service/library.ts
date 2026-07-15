@@ -102,6 +102,10 @@ export function parseSkillCatalogDocument(input: unknown): SkillCatalogDocument 
   return result.data
 }
 
+export function skillCatalogPayloadBytes(catalog: SkillCatalogDocument): Uint8Array {
+  return Buffer.from(`${JSON.stringify(parseSkillCatalogDocument(catalog), null, 2)}\n`, "utf8")
+}
+
 export function sourceLabel(source: SkillSourceRef): string {
   return `${source.repo}/${source.path}`
 }
@@ -206,7 +210,7 @@ async function readBundledCatalogPayload() {
   const value = parseSkillCatalogDocument(parseCatalogJson(source))
   return {
     value,
-    payloadBytes: Buffer.from(source, "utf8"),
+    payloadBytes: skillCatalogPayloadBytes(value),
     revision: value.revision,
   }
 }
