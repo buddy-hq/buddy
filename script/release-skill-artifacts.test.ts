@@ -47,6 +47,10 @@ describe("release skill artifacts", () => {
     expect(source).toContain("ref: ${{ github.sha }}")
     expect(source).toContain("if: ${{ inputs.release_source_mode != '' }}")
     expect(source).toContain("run: bun ./script/release-source-metadata.ts")
+    expect(source).toContain("run: bun run sdk:generate")
+    expect(source.indexOf("run: bun run sdk:generate")).toBeLessThan(
+      source.indexOf("bun typecheck"),
+    )
     expect(source).toContain('if [[ "$INPUT_PUBLISH" == "true" ]]')
     expect(source).not.toContain("actions/upload-artifact")
     expect(source).not.toContain("actions/download-artifact")

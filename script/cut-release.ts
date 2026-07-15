@@ -500,6 +500,7 @@ async function upsertDraftRelease(
 
 function runRequiredGates() {
   printStep("Validation", "Running required repo gates before dispatching the release.")
+  runCommand("bun", ["run", "sdk:generate"])
   runCommand("bun", ["fmt"])
   runCommand("bun", ["lint"])
   runCommand("bun", ["typecheck"])

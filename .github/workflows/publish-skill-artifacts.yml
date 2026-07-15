@@ -92,6 +92,9 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
+      - name: Generate SDK
+        run: bun run sdk:generate
+
       - name: Verify repository
         run: |
           bun lint
