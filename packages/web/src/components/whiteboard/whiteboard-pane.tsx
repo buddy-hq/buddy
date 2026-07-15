@@ -1,8 +1,7 @@
-import { Button } from "@buddy/ui"
+import { toast } from "@buddy/ui"
 import type { ObjectWhiteboardSessionReadResponse } from "@buddy/sdk/types"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ExternalLinkIcon, PresentationIcon } from "lucide-react"
 import { usePlatform } from "@/context/platform"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { whiteboardQueryKeys, whiteboardSessionQueryOptions } from "./whiteboard-query"
@@ -51,6 +50,9 @@ type ActiveWhiteboardBase = {
 
 const WHITEBOARD_CANVAS_EMPTY_KEY = "empty"
 const ACTIVE_WHITEBOARD_REFETCH_INTERVAL_MS = 250
+const WHITEBOARD_SHARE_OPENING_MESSAGE = "Opening shared board..."
+const WHITEBOARD_SHARE_SAVE_FAILED_MESSAGE =
+  "The pending whiteboard edit did not save. Try sharing again after it saves."
 
 function resolveWhiteboardCanvasKey(input: { sessionID?: string }): string {
   return input.sessionID ?? WHITEBOARD_CANVAS_EMPTY_KEY
@@ -133,10 +135,10 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
   const platform = usePlatform()
   const queryClient = useQueryClient()
   const [sharingBoard, setSharingBoard] = useState(false)
-  const [saveError, setSaveError] = useState<string>()
-  const [shareStatus, setShareStatus] = useState<string>()
-  const [liveDraftBoard, setLiveDraftBoard] = useState<LiveWhiteboardBoard>()
   const [activeWhiteboardBase, setActiveWhiteboardBase] = useState<ActiveWhiteboardBase>()
+  // Canvas edits are transient share/save input. Keeping them outside render state prevents an
+  // Excalidraw text-submit from synchronously rerendering the editor during its own cleanup.
+  const liveDraftBoardRef = useRef<LiveWhiteboardBoard>()
   const liveViewportRef = useRef<{
     sessionID?: string
     viewport: WhiteboardViewport
@@ -280,9 +282,7 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     if (previousBoardKeyRef.current === boardKey) return
     previousBoardKeyRef.current = boardKey
     setProgressivePreview(undefined)
-    setLiveDraftBoard(undefined)
-    setSaveError(undefined)
-    setShareStatus(undefined)
+    liveDraftBoardRef.current = undefined
   }, [boardID, sessionID])
 
   const updateSessionData = useCallback(
@@ -296,12 +296,11 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
   const shareBoard = useCallback(async () => {
     if (!sessionID || !displayedBoard || sharingBoard) return
     setSharingBoard(true)
-    setSaveError(undefined)
-    setShareStatus(undefined)
     try {
       const saveSettled = await settleLearnerSaveRef.current?.()
+      const liveDraftBoard = liveDraftBoardRef.current
       if (saveSettled === false && !liveDraftBoard) {
-        setSaveError("The pending whiteboard edit did not save. Try sharing again after it saves.")
+        toast.error(WHITEBOARD_SHARE_SAVE_FAILED_MESSAGE)
         return
       }
       const refetched = await refetchSession()
@@ -319,14 +318,14 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
           json,
         }),
       )
-      setShareStatus("Opening shared board...")
+      toast(WHITEBOARD_SHARE_OPENING_MESSAGE)
       platform.openLink(result.url)
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : String(error))
+      toast.error(error instanceof Error ? error.message : String(error))
     } finally {
       setSharingBoard(false)
     }
-  }, [directory, displayedBoard, liveDraftBoard, platform, refetchSession, sessionID, sharingBoard])
+  }, [directory, displayedBoard, platform, refetchSession, sessionID, sharingBoard])
 
   const registerLearnerSaveSettler = useCallback((settle: (() => Promise<boolean>) | undefined) => {
     settleLearnerSaveRef.current = settle
@@ -342,6 +341,10 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     [sessionID],
   )
 
+  const captureLiveDraftBoard = useCallback((board: LiveWhiteboardBoard | undefined) => {
+    liveDraftBoardRef.current = board
+  }, [])
+
   const saveLearnerEdit = useCallback<WhiteboardLearnerSaveHandler>(
     async (input: {
       baseBoardID: string
@@ -351,8 +354,6 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
       if (!sessionID) {
         return { status: "skipped" }
       }
-      setSaveError(undefined)
-      setShareStatus(undefined)
       try {
         const result = await getBuddyClient(directory).objectWhiteboard.session.saveLearnerEdit({
           directory,
@@ -363,16 +364,16 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
         })
         if (result.response?.status === 409) {
           await refetchSession()
-          setLiveDraftBoard(undefined)
+          liveDraftBoardRef.current = undefined
           return { status: "skipped" }
         }
         const data = requireBuddyData(result)
         updateSessionData(data)
-        setLiveDraftBoard(undefined)
+        liveDraftBoardRef.current = undefined
         return data.currentBoard ? { status: "saved" } : { status: "failed" }
       } catch (error) {
         await refetchSession()
-        setSaveError(error instanceof Error ? error.message : String(error))
+        toast.error(error instanceof Error ? error.message : String(error))
         return { status: "failed" }
       }
     },
@@ -395,35 +396,21 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
     [directory, sessionID],
   )
 
-  const boardStatus = displayedBoard ? "Current board" : undefined
-
+  const shareAction = useMemo(
+    () => ({
+      disabled: !sessionID || !displayedBoard || sharingBoard || hasActiveWhiteboardCreateTool,
+      isSharing: sharingBoard,
+      onShare: () => {
+        void shareBoard()
+      },
+    }),
+    [displayedBoard, hasActiveWhiteboardCreateTool, sessionID, shareBoard, sharingBoard],
+  )
   return (
     <section
       data-component="whiteboard-pane"
       className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-background-base"
     >
-      <header className="flex min-h-10 items-center gap-2 border-b border-border-base/60 bg-background-stronger/95 px-2.5">
-        <PresentationIcon className="size-4 text-text-interactive-base" />
-        <span className="text-xs font-medium text-text-base">Whiteboard</span>
-        <span
-          className={`min-w-0 flex-1 truncate text-[11px] ${
-            saveError ? "text-icon-critical-base" : "text-text-weaker"
-          }`}
-        >
-          {saveError ?? shareStatus ?? boardStatus}
-        </span>
-        <Button
-          type="button"
-          size="xs"
-          variant="outline"
-          disabled={!sessionID || !displayedBoard || sharingBoard || hasActiveWhiteboardCreateTool}
-          title="Upload the encrypted board to excalidraw.com and open the share link"
-          onClick={() => void shareBoard()}
-        >
-          <ExternalLinkIcon />
-          {sharingBoard ? "Sharing..." : "Share board"}
-        </Button>
-      </header>
       <div className="min-h-0 flex-1">
         {displayedBoard ? (
           <Suspense
@@ -440,9 +427,10 @@ export function WhiteboardPane(props: WhiteboardPaneProps) {
               renderReportKey={renderReportKey}
               readOnly={Boolean(progressivePreview) || hasActiveWhiteboardCreateTool}
               reportReadOnlyBoard={shouldUseFetchedBoardDuringActiveCreate}
+              shareAction={shareAction}
               onViewportChange={captureLiveViewport}
               onSave={saveLearnerEdit}
-              onLiveBoardChange={setLiveDraftBoard}
+              onLiveBoardChange={captureLiveDraftBoard}
               onSaveSettlerChange={registerLearnerSaveSettler}
               onRenderReport={saveRenderReport}
             />

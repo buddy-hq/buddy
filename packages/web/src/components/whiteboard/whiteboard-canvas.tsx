@@ -1,5 +1,6 @@
 import "@excalidraw/excalidraw/index.css"
 
+import { Button } from "@buddy/ui"
 import {
   CaptureUpdateAction,
   convertToExcalidrawElements,
@@ -12,15 +13,16 @@ import {
 import type { SceneBounds } from "@excalidraw/excalidraw/element/bounds"
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types"
 import type { AppState, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { LinkIcon, Loader2Icon } from "lucide-react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTheme } from "@/theme"
 import {
   createWhiteboardRenderReport,
   elementVersionSignature,
   resolveWhiteboardRemoteSceneViewport,
+  resolveWhiteboardViewportFromAppState,
   toEditorElementConversion,
   toPersistedElements,
-  viewportFromAppState,
   viewportToAppState,
   whiteboardRenderReportSignature,
   type WhiteboardElementPreparation,
@@ -53,9 +55,38 @@ const WHITEBOARD_EXCALIDRAW_UI_OPTIONS = {
     image: false,
   },
 } as const
+
+/** Hide stock chrome pieces we do not want on the bench whiteboard. */
+const WHITEBOARD_CANVAS_CSS = `
+[data-component="whiteboard-canvas"] .default-sidebar-trigger {
+  display: none !important;
+}
+
+/* Align Buddy share control with the stock top-right chrome slot (where Library sat). */
+[data-component="whiteboard-canvas"] .layer-ui__wrapper__top-right {
+  align-items: flex-start;
+}
+
+/*
+ * Stock menu wraps social links in a group, with a separator above and below.
+ * Hide the group and both adjacent bare separator divs so we don't leave double rules.
+ */
+[data-component="whiteboard-canvas"] .dropdown-menu > div:has(+ .dropdown-menu-group),
+[data-component="whiteboard-canvas"] .dropdown-menu .dropdown-menu-group,
+[data-component="whiteboard-canvas"] .dropdown-menu .dropdown-menu-group + div {
+  display: none !important;
+}
+`
+
 let whiteboardFontsReadyPromise: Promise<void> | undefined
 
 type RestoredViewportAppState = Pick<AppState, "scrollX" | "scrollY" | "zoom">
+
+type WhiteboardCanvasShareAction = {
+  disabled: boolean
+  isSharing: boolean
+  onShare: () => void
+}
 
 type WhiteboardCanvasProps = {
   board: {
@@ -67,6 +98,7 @@ type WhiteboardCanvasProps = {
   renderReportKey?: string
   readOnly: boolean
   reportReadOnlyBoard?: boolean
+  shareAction?: WhiteboardCanvasShareAction
   onSave: WhiteboardLearnerSaveHandler
   onViewportChange?: (viewport: WhiteboardViewport) => void
   onLiveBoardChange?: (
@@ -154,7 +186,7 @@ function viewportToRestoredAppState(
   }
 }
 
-export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
+export const WhiteboardCanvas = memo(function WhiteboardCanvas(props: WhiteboardCanvasProps) {
   const { mode } = useTheme()
   const onSaveSettlerChange = props.onSaveSettlerChange
   const [fontsReady, setFontsReady] = useState(false)
@@ -262,6 +294,7 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
         appState: api.getAppState(),
         readBounds: getCommonBounds,
       })
+      if (!report) return
       const signature = whiteboardRenderReportSignature(report)
       if (signature === lastRenderReportSignatureRef.current) return
       lastRenderReportSignatureRef.current = signature
@@ -285,7 +318,8 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
         baselineRef.current = elementVersionSignature(api.getSceneElements())
         boardIDRef.current = nextBoardID
         autosaveReadyRef.current = !readOnlyRef.current
-        viewportChangeRef.current?.(viewportFromAppState(api.getAppState()))
+        const settledViewport = resolveWhiteboardViewportFromAppState(api.getAppState())
+        if (settledViewport) viewportChangeRef.current?.(settledViewport)
         setCanvasSettled(true)
         scheduleRenderReport()
         pendingPostSettleRefreshTimeoutRef.current = window.setTimeout(() => {
@@ -485,7 +519,8 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
   const handleChange = useCallback(
     (nextElements: readonly OrderedExcalidrawElement[], appState: AppState) => {
       if (remoteSceneUpdateDepthRef.current > 0) return
-      const viewport = viewportFromAppState(appState)
+      const viewport = resolveWhiteboardViewportFromAppState(appState)
+      if (!viewport) return
       viewportChangeRef.current?.(viewport)
       if (readOnlyRef.current) return
       if (!autosaveReadyRef.current) return
@@ -508,8 +543,35 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
     [],
   )
 
+  const shareDisabled = props.shareAction?.disabled
+  const shareIsSharing = props.shareAction?.isSharing
+  const onShare = props.shareAction?.onShare
+  const renderTopRightUI = useCallback(() => {
+    if (!onShare) return null
+    return (
+      <div data-component="whiteboard-share-action" className="pointer-events-auto">
+        <Button
+          type="button"
+          size="icon-sm"
+          variant="secondary"
+          disabled={Boolean(shareDisabled)}
+          aria-label={shareIsSharing ? "Sharing board" : "Share board"}
+          title="Upload the encrypted board to excalidraw.com and open the share link"
+          onClick={onShare}
+        >
+          {shareIsSharing ? (
+            <Loader2Icon className="size-4 animate-spin" aria-hidden />
+          ) : (
+            <LinkIcon className="size-4" aria-hidden />
+          )}
+        </Button>
+      </div>
+    )
+  }, [onShare, shareDisabled, shareIsSharing])
+
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <div data-component="whiteboard-canvas" className="relative h-full w-full overflow-hidden">
+      <style>{WHITEBOARD_CANVAS_CSS}</style>
       {!fontsReady || !canvasSettled ? (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background-base text-xs text-text-weaker">
           Preparing whiteboard…
@@ -529,9 +591,10 @@ export function WhiteboardCanvas(props: WhiteboardCanvasProps) {
             theme={mode}
             viewModeEnabled={props.readOnly}
             UIOptions={WHITEBOARD_EXCALIDRAW_UI_OPTIONS}
+            renderTopRightUI={renderTopRightUI}
           />
         </div>
       ) : null}
     </div>
   )
-}
+})

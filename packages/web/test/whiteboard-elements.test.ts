@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test"
 import {
   createWhiteboardRenderReport,
   resolveWhiteboardRemoteSceneViewport,
+  resolveWhiteboardViewportFromAppState,
   toEditorElementConversion,
   toPersistedElements,
   viewportToAppState,
@@ -146,6 +147,26 @@ describe("whiteboard element conversion", () => {
     ).toBeUndefined()
   })
 
+  test("ignores the transient zero-sized viewport emitted while Bench closes", () => {
+    const collapsedAppState = {
+      scrollX: 0,
+      scrollY: 0,
+      width: 0,
+      height: 600,
+      zoom: { value: 1 },
+    }
+
+    expect(resolveWhiteboardViewportFromAppState(collapsedAppState)).toBeUndefined()
+    expect(
+      createWhiteboardRenderReport({
+        boardID: "board_1",
+        appState: collapsedAppState,
+        elements: [{ id: "box", type: "rectangle" }],
+        readBounds: () => [0, 0, 100, 80],
+      }),
+    ).toBeUndefined()
+  })
+
   test("builds rendered layout reports from measured scene element bounds", () => {
     const report = createWhiteboardRenderReport({
       boardID: "board_1",
@@ -274,6 +295,10 @@ describe("whiteboard element conversion", () => {
       elements: [{ id: "box", type: "text", version: 1, versionNonce: 11, fontSize: 13 }],
       readBounds: () => [0, 0, 100, 80],
     })
+
+    if (!base || !changedViewport || !changedStyle || !changedFontSize) {
+      throw new Error("Expected render reports for non-collapsed canvases")
+    }
 
     expect(whiteboardRenderReportSignature(base)).toBe(whiteboardRenderReportSignature(base))
     expect(whiteboardRenderReportSignature(base)).not.toBe(

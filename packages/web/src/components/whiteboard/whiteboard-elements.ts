@@ -93,6 +93,7 @@ const FNV_OFFSET_BASIS = 2_166_136_261
 const FNV_PRIME = 16_777_619
 const MAX_UNSUPPORTED_ELEMENT_DESCRIPTIONS = 3
 const RENDER_REPORT_SIGNATURE_PRECISION = 100
+const MIN_RENDERABLE_VIEWPORT_DIMENSION = 0
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value)
@@ -273,11 +274,13 @@ function createWhiteboardRenderReport<Element extends WhiteboardRenderedElementI
   elements: readonly Element[]
   appState: WhiteboardRenderReportAppState
   readBounds: WhiteboardElementBoundsReader<Element>
-}): WhiteboardRenderReport {
+}): WhiteboardRenderReport | undefined {
+  const viewport = resolveWhiteboardViewportFromAppState(input.appState)
+  if (!viewport) return undefined
   const liveElements = input.elements.filter((element) => element.isDeleted !== true)
   return {
     boardID: input.boardID,
-    viewport: viewportFromAppState(input.appState),
+    viewport,
     canvas: {
       width: input.appState.width,
       height: input.appState.height,
@@ -343,14 +346,27 @@ function elementVersionSignature(elements: readonly OrderedExcalidrawElement[]):
     .join("|")
 }
 
-function viewportFromAppState(appState: WhiteboardRenderReportAppState): WhiteboardViewport {
+function resolveWhiteboardViewportFromAppState(
+  appState: WhiteboardRenderReportAppState,
+): WhiteboardViewport | undefined {
   const scale = appState.zoom.value
-  return {
+  if (!isFiniteNumber(scale) || scale <= MIN_RENDERABLE_VIEWPORT_DIMENSION) return undefined
+  const viewport = {
     x: -appState.scrollX / scale,
     y: -appState.scrollY / scale,
     width: appState.width / scale,
     height: appState.height / scale,
   }
+  if (!isFiniteNumber(viewport.x) || !isFiniteNumber(viewport.y)) return undefined
+  if (
+    !isFiniteNumber(viewport.width) ||
+    viewport.width <= MIN_RENDERABLE_VIEWPORT_DIMENSION ||
+    !isFiniteNumber(viewport.height) ||
+    viewport.height <= MIN_RENDERABLE_VIEWPORT_DIMENSION
+  ) {
+    return undefined
+  }
+  return viewport
 }
 
 function viewportToAppState(
@@ -379,10 +395,10 @@ function resolveWhiteboardRemoteSceneViewport(input: {
 export {
   createWhiteboardRenderReport,
   elementVersionSignature,
+  resolveWhiteboardViewportFromAppState,
   resolveWhiteboardRemoteSceneViewport,
   toEditorElementConversion,
   toPersistedElements,
-  viewportFromAppState,
   viewportToAppState,
   whiteboardRenderReportSignature,
 }
