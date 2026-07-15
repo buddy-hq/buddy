@@ -18,6 +18,7 @@ import {
   ScrollTextIcon,
   SearchIcon,
   ShapesIcon,
+  SparklesIcon,
 } from "lucide-react"
 import type { SessionInfo } from "@/state/chat-types"
 import {
@@ -48,6 +49,7 @@ import { CreationsDrawer, PracticeDrawer, SourcesDrawer } from "./right-workspac
 import { RightWorkspaceBoardsDrawer } from "./right-workspace-boards-drawer"
 import { RightWorkspaceDrawerShell } from "./right-workspace-drawer-ui"
 import { RightWorkspaceSearchDrawer } from "./right-workspace-search-drawer"
+import { RightWorkspaceSkillsDrawer } from "./right-workspace-skills-drawer"
 
 type DirectoryChatRightWorkspaceProps = {
   directory: string
@@ -403,6 +405,9 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
         />
       )
     }
+    if (resolvedSelector === "skills") {
+      return <RightWorkspaceSkillsDrawer directory={props.directory} onClose={closeSelector} />
+    }
     return (
       <RightWorkspaceDrawerShell
         title="Files"
@@ -496,12 +501,19 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
       onClick: () => openSelector("files"),
     },
     {
+      id: "skills",
+      label: "Skills",
+      icon: <SparklesIcon />,
+      active: resolvedSelector === "skills",
+      separatorBefore: true,
+      onClick: () => openSelector("skills"),
+    },
+    {
       id: "instructions",
       label: "Notebook Instructions",
       icon: <ScrollTextIcon />,
       active: isInstructionsRoute && resolvedSelector === null,
       disabled: openingInstructions,
-      separatorBefore: true,
       onClick: () => void openInstructions(),
     },
   ]

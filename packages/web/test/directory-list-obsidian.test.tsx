@@ -4,7 +4,6 @@ import { TooltipProvider } from "@buddy/ui"
 import { act } from "react"
 import { createRoot, type Root } from "react-dom/client"
 import { ChatLeftSidebarDirectoryList } from "../src/components/layout/chat-left-sidebar/directory-list"
-import { DIRECTORY_CHAT_SHELL_VIEW } from "../src/lib/directory-chat/directory-chat-shell-view"
 import { obsidianVaultQueryKeys } from "../src/state/obsidian-vault-query"
 
 describe("Chat sidebar Obsidian vault icon", () => {
@@ -41,7 +40,6 @@ describe("Chat sidebar Obsidian vault icon", () => {
             <ChatLeftSidebarDirectoryList
               directoryGroups={[{ directory, sessions: [] }]}
               currentDirectory={directory}
-              shellView={DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE}
               sessionsByDirectory={{}}
               sessionStatusByDirectory={{}}
               pinnedByDirectory={{}}

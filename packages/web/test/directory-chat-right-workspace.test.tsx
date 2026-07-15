@@ -27,6 +27,7 @@ import { resolveWorkspacePresentation } from "../src/lib/directory-chat/workspac
 import { processedResourcesQueryKey } from "../src/state/resources-query"
 import { workspaceObjectsQueryKeys } from "../src/state/workspace-objects-query"
 import { whiteboardQueryKeys } from "../src/components/whiteboard/whiteboard-query"
+import { skillsCatalogQueryKeys } from "../src/state/skills-catalog-query"
 
 const TEST_DIRECTORY = "/repo"
 const TEST_RESOURCE_ID = "resource-1"
@@ -89,6 +90,13 @@ function createTestRouter(options?: { sessionID?: string }) {
     loadErrors: [],
   })
   queryClient.setQueryData(processedResourcesQueryKey(TEST_DIRECTORY), [])
+  queryClient.setQueryData(skillsCatalogQueryKeys.catalog(TEST_DIRECTORY), {
+    directory: TEST_DIRECTORY,
+    managedRoot: "/skills",
+    externalVendorRootsEnabled: true,
+    installed: [],
+    library: [],
+  })
   if (sessionID !== undefined) {
     queryClient.setQueryData(whiteboardQueryKeys.sessionPeek(TEST_DIRECTORY, sessionID), {
       objectID: null,
@@ -214,6 +222,7 @@ describe("DirectoryChatRightWorkspace", () => {
       "Creations",
       "Boards",
       "Files",
+      "Skills",
       "Notebook Instructions",
     ])
   })
@@ -241,6 +250,28 @@ describe("DirectoryChatRightWorkspace", () => {
       container.querySelector('[data-component="right-workspace-drawer"] h2')?.textContent,
     ).toBe("Search")
     expect(container.querySelector('[aria-label="Search this notebook…"]')).not.toBeNull()
+  })
+
+  test("opens Skills as a real right-workspace drawer", async () => {
+    Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true)
+    container = document.createElement("div")
+    document.body.appendChild(container)
+    root = createRoot(container)
+
+    await act(async () => {
+      root?.render(<RouterProvider router={createTestRouter()} />)
+      await flushEffects()
+    })
+
+    const skillsButton = container.querySelector<HTMLButtonElement>('[aria-label="Skills"]')
+    await act(async () => {
+      skillsButton?.click()
+      await flushEffects()
+    })
+
+    expect(skillsButton?.getAttribute("aria-pressed")).toBe("true")
+    expect(container.querySelector('[data-component="right-workspace-drawer"]')).not.toBeNull()
+    expect(container.textContent).toContain("No installed skills")
   })
 
   test("opens Boards from the non-creating peek state", async () => {

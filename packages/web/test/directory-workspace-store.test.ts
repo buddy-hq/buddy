@@ -12,6 +12,7 @@ import {
   DIRECTORY_WORKSPACE_DEFAULT_LAST_DRAWER,
   WORKSPACE_DRAWER_FILES,
   WORKSPACE_DRAWER_SEARCH,
+  WORKSPACE_DRAWER_SKILLS,
   WORKSPACE_DRAWER_SOURCES,
   WORKSPACE_PENDING_KIND_NAVIGATION,
   WORKSPACE_PENDING_KIND_WORKSPACE_ONLY,
@@ -441,6 +442,28 @@ describe("createDirectoryWorkspaceStore", () => {
 })
 
 describe("directory workspace persistence", () => {
+  test("accepts Skills as a durable last drawer", async () => {
+    const storage = createMemoryStorage()
+    await writePersistedDirectoryWorkspace({
+      directory: "/workspace",
+      storage,
+      state: {
+        visibility: WORKSPACE_VISIBILITY_EXPANDED,
+        lastDrawer: WORKSPACE_DRAWER_SKILLS,
+      },
+    })
+
+    await expect(
+      readPersistedDirectoryWorkspace({ directory: "/workspace", storage }),
+    ).resolves.toEqual({
+      status: "ready",
+      state: {
+        visibility: WORKSPACE_VISIBILITY_EXPANDED,
+        lastDrawer: WORKSPACE_DRAWER_SKILLS,
+      },
+    })
+  })
+
   test("accepts Search as a durable last drawer", async () => {
     const storage = createMemoryStorage()
     await writePersistedDirectoryWorkspace({

@@ -37,10 +37,6 @@ import {
 import { language } from "@/context/language"
 import obsidianIconUrl from "@/assets/obsidian-icon.svg"
 import { formatSessionTitle } from "@/lib/session-title"
-import {
-  DIRECTORY_CHAT_SHELL_VIEW,
-  type DirectoryChatShellView,
-} from "@/lib/directory-chat/directory-chat-shell-view"
 import { collectSessionFamilyIDs } from "@/lib/session-family"
 import type { SessionInfo, SessionStatusInfo } from "@/state/chat-types"
 import { isSessionWorking } from "@/state/session-status"
@@ -58,7 +54,6 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 type ChatLeftSidebarDirectoryListProps = {
   directoryGroups: DirectoryGroup[]
   currentDirectory: string
-  shellView?: DirectoryChatShellView
   activeSessionID?: string
   sessionsByDirectory: Record<string, SessionInfo[]>
   sessionStatusByDirectory: Record<string, Record<string, SessionStatusInfo>>
@@ -88,7 +83,6 @@ type ChatLeftSidebarDirectoryListProps = {
 type DirectoryGroupSectionProps = {
   group: DirectoryGroup
   currentDirectory: string
-  shellView?: DirectoryChatShellView
   activeSessionID?: string
   allSessions: SessionInfo[]
   sessionStatusByID: Record<string, SessionStatusInfo>
@@ -196,7 +190,6 @@ export function ChatLeftSidebarDirectoryList(props: ChatLeftSidebarDirectoryList
             <DirectoryGroupSection
               group={group}
               currentDirectory={props.currentDirectory}
-              shellView={props.shellView}
               activeSessionID={props.activeSessionID}
               allSessions={allSessions}
               sessionStatusByID={sessionStatusByID}
@@ -254,15 +247,14 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
     : props.group.sessions.slice(0, collapsedCount)
   const hasMore = props.group.sessions.length > collapsedCount
   const canDrag = props.organizeMode === "project"
-  const isWorkspaceView = props.shellView === DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE
-  const isCurrentDirectory = isWorkspaceView && props.group.directory === props.currentDirectory
+  const isCurrentDirectory = props.group.directory === props.currentDirectory
   const isDragging = props.draggedDirectory === props.group.directory
   const isDragOver =
     props.dragOverDirectory === props.group.directory &&
     props.draggedDirectory !== props.group.directory
   const childrenByParent = buildSessionChildrenByParent(props.allSessions)
   const sessionsByID = new Map(props.allSessions.map((session) => [session.id, session]))
-  const allowActiveThreadHighlight = isWorkspaceView
+  const allowActiveThreadHighlight = true
 
   const shouldShowContent = !props.collapsed
   const sessionsToRender = visibleSessions

@@ -17,7 +17,7 @@ export {
 }
 
 export function resolveRightWorkspaceSelectorDrawerWidth(input: {
-  selector: "search" | "sources" | "practice" | "creations" | "boards" | "files"
+  selector: "search" | "sources" | "practice" | "creations" | "boards" | "files" | "skills"
   workspaceWidthPx: number
 }) {
   const contentWidth = Math.max(0, input.workspaceWidthPx - RIGHT_WORKSPACE_RAIL_WIDTH_PX)

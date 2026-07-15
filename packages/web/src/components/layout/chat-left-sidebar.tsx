@@ -1,14 +1,9 @@
 import type { ReactNode } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { SparklesIcon } from "lucide-react"
 import { Button } from "@buddy/ui"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"
-import {
-  DIRECTORY_CHAT_SHELL_VIEW,
-  type DirectoryChatShellView,
-} from "@/lib/directory-chat/directory-chat-shell-view"
 import { globalConfigQueryOptions } from "@/state/global-config-query"
 import type { GetStartedChat } from "@/lib/get-started-chats"
 import {
@@ -71,8 +66,6 @@ type ChatLeftSidebarProps = {
   onRenameSession: (directory: string, sessionID: string, title: string) => Promise<void>
   onReorderDirectories: (newOrder: string[]) => void
   onCloseDirectory: (directory: string) => void
-  shellView?: DirectoryChatShellView
-  onSelectSkills?: () => void
   onOpenSettings: () => void
   onOpenMcpSettings: () => void
   showHeader?: boolean
@@ -132,7 +125,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
   const queryClient = useQueryClient()
   const isMacDesktop = platform.platform === "desktop" && platform.os === "macos"
   const [isFullscreen, setIsFullscreen] = useState(false)
-  const skillsOpen = props.shellView === DIRECTORY_CHAT_SHELL_VIEW.SKILLS
   const [archiveState, setArchiveState] = useState<ArchiveState | undefined>(undefined)
   const [archiveSaving, setArchiveSaving] = useState(false)
   const [renameState, setRenameState] = useState<RenameState | undefined>(undefined)
@@ -366,25 +358,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
         </div>
       ) : (
         <div className="scrollbar-hover flex-1 min-h-0 overflow-y-auto px-1.5 pb-3">
-          <div className="mb-1 space-y-0.5">
-            <Button
-              data-action="left-sidebar-toggle-skills"
-              variant="ghost"
-              size="sm"
-              className={`h-7 w-full justify-start rounded-lg px-2 text-xs font-medium ${
-                skillsOpen
-                  ? "bg-surface-raised-strong text-text-strong"
-                  : "text-text-base hover:bg-surface-raised-base-hover hover:text-text-strong"
-              }`}
-              onClick={() => props.onSelectSkills?.()}
-            >
-              <SparklesIcon className="size-3.5" />
-              {language.t("sidebar.skills")}
-            </Button>
-          </div>
-
-          <div className="mx-1.5 mb-2 border-t border-border-weaker-base [box-shadow:0_2px_4px_rgba(0,0,0,0.06)]" />
-
           {getStartedFlow.isActive && onStartGetStartedChat ? (
             <GetStartedChats
               chats={getStartedFlow.chats}
@@ -408,7 +381,6 @@ export function ChatLeftSidebar(props: ChatLeftSidebarProps) {
           <ChatLeftSidebarDirectoryList
             directoryGroups={orderedDirectoryGroups}
             currentDirectory={props.currentDirectory}
-            shellView={props.shellView}
             activeSessionID={props.activeSessionID}
             sessionsByDirectory={props.sessionsByDirectory}
             sessionStatusByDirectory={props.sessionStatusByDirectory}

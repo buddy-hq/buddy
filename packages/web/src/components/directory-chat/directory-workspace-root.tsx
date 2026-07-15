@@ -47,7 +47,6 @@ import type { ResizeHandleIntent } from "@buddy/ui"
 import { logBenchToggleStep } from "@/lib/bench-toggle-diagnostics"
 import { useStore } from "zustand"
 import { resolveWorkspacePresentation } from "@/lib/directory-chat/workspace-presentation"
-import { DIRECTORY_CHAT_SHELL_VIEW } from "@/lib/directory-chat/directory-chat-shell-view"
 import { requestPromptComposerFocus } from "@/components/prompt/prompt-composer-focus"
 import { createTextPromptDraft, getPromptDraft, usePromptStore } from "@/state/prompt-store"
 
@@ -234,18 +233,13 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
     Math.max(transientWorkspaceBounds.workspaceMinWidthPx, requestedWorkspaceWidthPx),
   )
   const workspaceLayoutMode = presentation.mode
-  const showingSkills = controller.mainPaneProps.shellView === DIRECTORY_CHAT_SHELL_VIEW.SKILLS
-  const effectiveWorkspaceLayoutMode = showingSkills
+  const effectiveWorkspaceLayoutMode = transientBenchActive
     ? BENCH_CHAT_LAYOUT_DOCKED
-    : transientBenchActive
-      ? BENCH_CHAT_LAYOUT_DOCKED
-      : workspaceLayoutMode
+    : workspaceLayoutMode
   const workspaceOpen = presentation.workspaceOpen
-  const effectiveWorkspaceOpen = showingSkills ? false : transientBenchActive || workspaceOpen
+  const effectiveWorkspaceOpen = transientBenchActive || workspaceOpen
   const workspaceHostOpen = presentation.workspaceOpen
-  const effectiveWorkspaceHostOpen = showingSkills
-    ? false
-    : transientBenchActive || workspaceHostOpen
+  const effectiveWorkspaceHostOpen = transientBenchActive || workspaceHostOpen
   const dockedWorkspaceDisplayWidthPx = transientBenchActive
     ? transientWorkspaceWidthPx
     : presentation.workspace.widthPx
@@ -258,11 +252,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
   const dockedWorkspaceChatMinWidthPx = transientBenchActive
     ? transientWorkspaceBounds.chatMinWidthPx
     : presentation.workspace.chatMinWidthPx
-  const dockedLeftSidebarVisible = showingSkills
-    ? controller.shellProps.leftSidebarOpen
-    : transientBenchActive
-      ? transientDockedShellLayout.leftSidebarVisible
-      : presentation.leftSidebar.visible
+  const dockedLeftSidebarVisible = transientBenchActive
+    ? transientDockedShellLayout.leftSidebarVisible
+    : presentation.leftSidebar.visible
   const canPinLeftSidebarWithoutResizing =
     dockedBenchViewport.widthPx >=
     chatState.leftSidebarDisplayWidth +
@@ -608,7 +600,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
       {benchRuntimeState ? (
         <BenchRouteContextProvider
           state={benchRuntimeState}
-          visible={!showingSkills && presentation.benchVisible}
+          visible={presentation.benchVisible}
           activeSessionID={activeSessionID}
           fallbackProvider={fallbackContextProvider}
           setMode={setBenchMode}
@@ -686,7 +678,7 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
               )
             }
             threadBrowserProps={
-              !showingSkills && presentation.controls.showThreadBrowserInPane
+              presentation.controls.showThreadBrowserInPane
                 ? {
                     sessionTitle: chatState.sessionTitle,
                     notebookName: controller.shellProps.projectName,
@@ -716,11 +708,11 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
           effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING && !transientBenchActive
         }
         leftSidebarOpen={shellLeftSidebarOpen}
-        leftSidebarOverlayEnabled={!showingSkills && presentation.leftSidebar.overlayEnabled}
-        leftSidebarOverlayOpen={showingSkills ? false : leftSidebarOverlayOpen}
+        leftSidebarOverlayEnabled={presentation.leftSidebar.overlayEnabled}
+        leftSidebarOverlayOpen={leftSidebarOverlayOpen}
         onLeftSidebarOverlayOpenChange={setLeftSidebarOverlayOpen}
         onLeftSidebarToggle={
-          !showingSkills && presentation.dockedBenchVisible ? handleLeftSidebarToggle : undefined
+          presentation.dockedBenchVisible ? handleLeftSidebarToggle : undefined
         }
         onRightWorkspaceToggle={
           transientBenchActive
@@ -732,21 +724,17 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
             : handleRightWorkspaceToggle
         }
         chatTitle={controller.mainPaneProps.chatState.sessionTitle}
-        titlebarVariant={showingSkills ? "shell" : "chat"}
+        titlebarVariant="chat"
         rightWorkspaceOpen={effectiveWorkspaceHostOpen}
-        showThreadBrowser={!showingSkills && presentation.controls.showThreadBrowserInTitlebar}
-        showSidebarThreadControls={
-          !showingSkills && presentation.controls.showSidebarThreadControls
-        }
+        showThreadBrowser={presentation.controls.showThreadBrowserInTitlebar}
+        showSidebarThreadControls={presentation.controls.showSidebarThreadControls}
         sessions={chatState.sessions}
         activeSessionID={chatState.sessionID}
         linkedSessionID={linkedReadingSessionID}
         parentSession={chatState.parentSession}
         onNewSession={handleNewSession}
         onSelectSession={handleSelectSession}
-        onFloatChat={
-          !showingSkills && presentation.controls.showFloatChat ? handleFloatChat : undefined
-        }
+        onFloatChat={presentation.controls.showFloatChat ? handleFloatChat : undefined}
       />
     </TransientBenchSurfaceProvider>
   )

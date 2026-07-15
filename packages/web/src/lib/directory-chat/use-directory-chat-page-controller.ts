@@ -116,10 +116,6 @@ import { useChatConfig } from "./use-chat-config"
 import { useTeachingWorkspace } from "./use-teaching-workspace"
 import { useAutoScroll } from "./use-auto-scroll"
 import {
-  DIRECTORY_CHAT_SHELL_VIEW,
-  type DirectoryChatShellView,
-} from "@/lib/directory-chat/directory-chat-shell-view"
-import {
   BENCH_CHAT_LAYOUT_DOCKED,
   readBenchOpenPolicyStateFromLocation,
   useOpenBench,
@@ -249,9 +245,6 @@ export function useDirectoryChatPageController(
       }
     | undefined
   >(undefined)
-  const [shellView, setShellView] = useState<DirectoryChatShellView>(
-    DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE,
-  )
   const [queuedFollowupsBySession, setQueuedFollowupsBySession] = useState<
     Record<string, QueuedFollowupDraft[]>
   >({})
@@ -670,18 +663,9 @@ export function useDirectoryChatPageController(
     setSelectedVariant(scopeKey, carryVariantKey)
   }
 
-  function showWorkspace() {
-    setShellView(DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE)
-  }
-
-  function showSkills() {
-    setShellView(DIRECTORY_CHAT_SHELL_VIEW.SKILLS)
-  }
-
   async function onNewSession(targetDirectory = decodedDirectory) {
     if (!targetDirectory) return
     try {
-      showWorkspace()
       startNewSessionDraft(targetDirectory)
       seedDraftModelSelection(targetDirectory)
       requestPromptComposerFocus(targetDirectory)
@@ -693,9 +677,6 @@ export function useDirectoryChatPageController(
 
   async function onSelectSession(targetDirectory: string, nextSessionID?: string) {
     if (!targetDirectory) return
-    if (shellView !== DIRECTORY_CHAT_SHELL_VIEW.WORKSPACE) {
-      showWorkspace()
-    }
     if (!nextSessionID) {
       if (targetDirectory !== decodedDirectory) onSwitchDirectory(targetDirectory)
       return
@@ -753,7 +734,6 @@ export function useDirectoryChatPageController(
       const picked = await pickProjectDirectory()
       if (!picked) return
       const nextDirectory = await openProject(picked)
-      showWorkspace()
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       cs.setActiveDirectory(nextDirectory)
       onSwitchDirectory(nextDirectory)
@@ -765,7 +745,6 @@ export function useDirectoryChatPageController(
   async function onQuickChat() {
     try {
       const inboxDirectory = await openInboxNotebook()
-      showWorkspace()
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       cs.setActiveDirectory(inboxDirectory)
       startNewSessionDraft(inboxDirectory)
@@ -785,7 +764,6 @@ export function useDirectoryChatPageController(
   ) {
     try {
       const nextDirectory = await createManagedNotebook(name)
-      showWorkspace()
       setOpenProjectsQueryData(queryClient, useChatStore.getState().openProjects)
       cs.setActiveDirectory(nextDirectory)
       startNewSessionDraft(nextDirectory)
@@ -1212,8 +1190,6 @@ export function useDirectoryChatPageController(
   )
 
   async function onStartGetStartedChat(chat: GetStartedChat) {
-    showWorkspace()
-
     try {
       const nextSession = await startNewSession(decodedDirectory)
       const defaultPersona = cs.primaryPersonaOptions[0]?.id ?? cs.selectedPersona
@@ -1656,8 +1632,6 @@ export function useDirectoryChatPageController(
     onCloseDirectory: (targetDirectory) => {
       void onCloseDirectory(targetDirectory)
     },
-    shellView,
-    onSelectSkills: showSkills,
     onOpenSettings: openSettingsPanel,
     onOpenMcpSettings: () => {
       openSettings("mcps")
@@ -1733,7 +1707,6 @@ export function useDirectoryChatPageController(
       editQueuedFollowup(sessionID, queuedFollowupID)
     },
     onOpenResource: openResourceInReadingMode,
-    shellView,
     directories: cs.sidebarDirectories,
     onSelectNotebook: (targetDirectory) => {
       void onNewSession(targetDirectory)
@@ -1745,7 +1718,7 @@ export function useDirectoryChatPageController(
     chatTitle: cs.sessionTitle,
     projectName: getFilename(decodedDirectory),
     isTurnActive: cs.isTurnActive,
-    titlebarVariant: shellView === DIRECTORY_CHAT_SHELL_VIEW.SKILLS ? "shell" : "chat",
+    titlebarVariant: "chat",
     leftSidebarOpen: cs.leftSidebarOpen,
     leftSidebarDisplayWidth: cs.leftSidebarDisplayWidth,
     leftSidebarWidth: cs.leftSidebarWidth,

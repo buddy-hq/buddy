@@ -16,6 +16,7 @@ export const WORKSPACE_DRAWER_PRACTICE = "practice"
 export const WORKSPACE_DRAWER_CREATIONS = "creations"
 export const WORKSPACE_DRAWER_BOARDS = "boards"
 export const WORKSPACE_DRAWER_FILES = "files"
+export const WORKSPACE_DRAWER_SKILLS = "skills"
 export const WORKSPACE_VISIBILITY_COLLAPSED = "collapsed"
 export const WORKSPACE_VISIBILITY_EXPANDED = "expanded"
 export const BENCH_ROUTE_STATUS_CLOSED = "closed"
@@ -38,6 +39,7 @@ export type DrawerKind =
   | typeof WORKSPACE_DRAWER_CREATIONS
   | typeof WORKSPACE_DRAWER_BOARDS
   | typeof WORKSPACE_DRAWER_FILES
+  | typeof WORKSPACE_DRAWER_SKILLS
 
 export type BenchRouteSnapshot =
   | { status: typeof BENCH_ROUTE_STATUS_CLOSED }
@@ -212,7 +214,8 @@ function isDrawerKind(value: unknown): value is DrawerKind {
     value === WORKSPACE_DRAWER_PRACTICE ||
     value === WORKSPACE_DRAWER_CREATIONS ||
     value === WORKSPACE_DRAWER_BOARDS ||
-    value === WORKSPACE_DRAWER_FILES
+    value === WORKSPACE_DRAWER_FILES ||
+    value === WORKSPACE_DRAWER_SKILLS
   )
 }
 
