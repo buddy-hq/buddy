@@ -35,6 +35,7 @@ async function flushEffects(delay = 0) {
 
 function renderPromptComposer(input: {
   onSubmit: Parameters<typeof PromptComposer>[0]["onSubmit"]
+  compact?: boolean
 }) {
   return (
     <PromptComposer
@@ -60,6 +61,7 @@ function renderPromptComposer(input: {
       onSubmit={input.onSubmit}
       onAbort={() => undefined}
       onNewSession={() => undefined}
+      compact={input.compact}
     />
   )
 }
@@ -162,5 +164,36 @@ describe("prompt composer submit", () => {
     expect(container.querySelector('[data-component="prompt-editor"]')?.textContent).toContain(
       TEST_PROMPT,
     )
+  })
+
+  test("uses compact editor bounds only when requested", async () => {
+    await act(async () => {
+      root.render(
+        renderPromptComposer({
+          onSubmit: () => undefined,
+        }),
+      )
+      await flushEffects()
+    })
+
+    const regularEditor = container.querySelector('[data-component="prompt-editor"]')
+    expect(regularEditor?.classList.contains("min-h-[84px]")).toBe(true)
+    expect(regularEditor?.classList.contains("max-h-[240px]")).toBe(true)
+    expect(regularEditor?.classList.contains("pb-12")).toBe(true)
+
+    await act(async () => {
+      root.render(
+        renderPromptComposer({
+          compact: true,
+          onSubmit: () => undefined,
+        }),
+      )
+      await flushEffects()
+    })
+
+    const compactEditor = container.querySelector('[data-component="prompt-editor"]')
+    expect(compactEditor?.classList.contains("min-h-[56px]")).toBe(true)
+    expect(compactEditor?.classList.contains("max-h-[120px]")).toBe(true)
+    expect(compactEditor?.classList.contains("pb-3")).toBe(true)
   })
 })

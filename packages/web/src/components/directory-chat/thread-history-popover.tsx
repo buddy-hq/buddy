@@ -99,12 +99,13 @@ export function ThreadHistoryPopover(props: ThreadHistoryPopoverProps) {
             variant="ghost"
             size="icon-xs"
             className={cn(
-              "size-8 rounded-full text-text-weaker transition-all hover:bg-surface-raised-base-hover hover:text-text-strong active:scale-[0.95] [-webkit-app-region:no-drag]",
-              props.triggerClassName,
+              "rounded-full text-icon-base transition-all hover:bg-surface-raised-base-hover hover:text-text-strong active:scale-[0.95] [-webkit-app-region:no-drag]",
+              // Size comes from triggerClassName (titlebar: h-6 w-8; default: size-6 via icon-xs).
+              props.triggerClassName ?? "size-6",
             )}
             aria-label={language.t("sidebar.showAllThreads")}
           >
-            <HistoryIcon className={cn("size-4", props.triggerIconClassName)} />
+            <HistoryIcon className={cn("size-3.5 shrink-0", props.triggerIconClassName)} />
           </Button>
         )}
       </PopoverTrigger>

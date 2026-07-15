@@ -153,7 +153,7 @@ describe("bench navigation policy", () => {
       ).toMatchObject({
         dockedChatMinWidthPx: expected.chatMin,
         benchMinWidthPx: expected.surfaceMin,
-        floatingMarginPx: 24,
+        floatingMarginPx: 16,
       })
     }
   })

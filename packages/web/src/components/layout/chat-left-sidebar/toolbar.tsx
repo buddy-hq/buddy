@@ -9,8 +9,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@buddy/ui"
+import { PlusIcon } from "lucide-react"
 import { language } from "@/context/language"
-import { FolderPlusIcon } from "../sidebar-icons"
 import type { OrganizeMode, ShowMode, SortMode } from "./types"
 
 type ChatLeftSidebarToolbarProps = {
@@ -102,10 +102,10 @@ export function ChatLeftSidebarToolbar(props: ChatLeftSidebarToolbarProps) {
             size="icon-xs"
             className="text-text-weaker hover:bg-surface-raised-base-hover hover:text-text-strong"
             onClick={props.onRequestCreateNotebook}
-            aria-label={language.t("sidebar.create")}
-            title={language.t("sidebar.create")}
+            aria-label={language.t("sidebar.createNotebook")}
+            title={language.t("sidebar.createNotebook")}
           >
-            <FolderPlusIcon className="size-3.5" />
+            <PlusIcon className="size-3.5" />
           </Button>
         </div>
       </div>

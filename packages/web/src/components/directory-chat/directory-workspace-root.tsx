@@ -695,6 +695,9 @@ function ReadyDirectoryWorkspaceRoot(props: { controller: ReadyDirectoryBenchCon
             conversation={() => (
               <DirectoryChatBenchConversationPane
                 {...controller.mainPaneProps}
+                compactPromptComposer={
+                  effectiveWorkspaceLayoutMode === BENCH_CHAT_LAYOUT_FLOATING
+                }
                 linkedSessionID={linkedReadingSessionID}
                 showThreadBrowser={false}
                 onNewSession={handleNewSession}

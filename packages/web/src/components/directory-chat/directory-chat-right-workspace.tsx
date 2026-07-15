@@ -1,4 +1,15 @@
-import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
+import {
+  Fragment,
+  cloneElement,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactElement,
+  type ReactNode,
+  type SVGProps,
+} from "react"
 import {
   Button,
   Separator,
@@ -11,6 +22,7 @@ import {
 } from "@buddy/ui"
 import {
   BookOpenIcon,
+  BoxesIcon,
   BrainIcon,
   FolderIcon,
   PresentationIcon,
@@ -18,7 +30,6 @@ import {
   ScrollTextIcon,
   SearchIcon,
   ShapesIcon,
-  SparklesIcon,
 } from "lucide-react"
 import type { SessionInfo } from "@/state/chat-types"
 import {
@@ -107,7 +118,18 @@ export function resolveRightWorkspaceOpenOutcome(
   return "opened"
 }
 
+const RIGHT_RAIL_ICON_SIZE_CLASS = "size-3.5 shrink-0"
+
+function railIcon(icon: ReactElement<SVGProps<SVGSVGElement>>) {
+  return cloneElement(icon, {
+    className: cn(RIGHT_RAIL_ICON_SIZE_CLASS, icon.props.className),
+  })
+}
+
 function RightWorkspaceRailButton(props: RightWorkspaceRailItem) {
+  const icon = isValidElement(props.icon)
+    ? railIcon(props.icon as ReactElement<SVGProps<SVGSVGElement>>)
+    : props.icon
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -119,12 +141,12 @@ function RightWorkspaceRailButton(props: RightWorkspaceRailItem) {
           aria-pressed={props.active}
           disabled={props.disabled}
           className={cn(
-            "rounded-lg text-icon-base hover:bg-surface-base-hover hover:text-text-base",
-            props.active ? "bg-surface-raised-base text-text-base" : undefined,
+            "rounded-lg text-icon-base hover:bg-surface-base-hover hover:text-icon-base",
+            props.active ? "bg-surface-raised-base text-icon-base" : undefined,
           )}
           onClick={props.onClick}
         >
-          {props.icon}
+          {icon}
         </Button>
       </TooltipTrigger>
       <TooltipContent side="left" sideOffset={8}>
@@ -503,7 +525,7 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     {
       id: "skills",
       label: "Skills",
-      icon: <SparklesIcon />,
+      icon: <BoxesIcon />,
       active: resolvedSelector === "skills",
       separatorBefore: true,
       onClick: () => openSelector("skills"),

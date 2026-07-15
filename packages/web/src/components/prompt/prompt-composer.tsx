@@ -114,6 +114,8 @@ const CURSOR_NAVIGATION_KEYS = new Set([
 ])
 
 const SKETCH_IMAGE_MODEL_SUGGESTION_LIMIT = 4
+const PROMPT_EDITOR_REGULAR_SIZE_CLASS = "min-h-[84px] max-h-[240px] pb-12"
+const PROMPT_EDITOR_COMPACT_SIZE_CLASS = "min-h-[56px] max-h-[120px] pb-3"
 
 const SketchDock = lazy(async () => {
   const module = await import("./sketch-dock")
@@ -161,6 +163,7 @@ type PromptComposerProps = {
   sessionContextUsage?: React.ReactNode
   contextActions?: React.ReactNode
   activeQuestionID?: string
+  compact?: boolean
 }
 
 const NON_EMPTY_TEXT = /[^\s\u200B]/
@@ -1315,7 +1318,12 @@ export function PromptComposer(props: PromptComposerProps) {
               suppressContentEditableWarning
               role="textbox"
               aria-multiline="true"
-              className="min-h-[84px] max-h-[240px] w-full overflow-y-auto rounded-[16px] border-0 bg-transparent px-3 pt-3 pb-12 text-sm leading-6 text-text-base focus:outline-none"
+              className={cn(
+                "w-full overflow-y-auto rounded-[16px] border-0 bg-transparent px-3 pt-3 text-sm leading-6 text-text-base focus:outline-none",
+                props.compact
+                  ? PROMPT_EDITOR_COMPACT_SIZE_CLASS
+                  : PROMPT_EDITOR_REGULAR_SIZE_CLASS,
+              )}
               onInput={() => {
                 handleEditorInput()
               }}

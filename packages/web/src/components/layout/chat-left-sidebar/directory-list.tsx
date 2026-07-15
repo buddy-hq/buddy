@@ -10,6 +10,7 @@ import { useQuery } from "@tanstack/react-query"
 import {
   ArchiveIcon,
   BookOpenIcon,
+  Button,
   ChevronRightIcon,
   Collapsible,
   CollapsibleTrigger,
@@ -25,7 +26,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-  PlusIcon,
+  SquarePenIcon,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -364,7 +365,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                 props.onNewSession()
               }}
             >
-              <PlusIcon
+              <SquarePenIcon
                 className="size-3.5 transition-transform duration-100 ease-out group-active/new-thread:scale-110"
                 strokeWidth={2}
               />
@@ -466,7 +467,7 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
                       props.onNewSession()
                     }}
                   >
-                    <PlusIcon className="size-3.5 transition-transform duration-100 ease-out group-active/new-thread-btn:scale-110" />
+                    <SquarePenIcon className="size-3.5 transition-transform duration-100 ease-out group-active/new-thread-btn:scale-110" />
                     {language.t("sidebar.newThread")}
                   </button>
                 </div>
@@ -521,19 +522,23 @@ function DirectoryGroupSection(props: DirectoryGroupSectionProps) {
           <div className="min-h-0 overflow-hidden">
             <div className="flex flex-col space-y-0.5 px-1.5">
               {props.group.sessions.length === 0 ? (
-                <button
-                  type="button"
-                  data-action="left-sidebar-directory-empty-new-thread"
-                  className="flex flex-1 items-center justify-center gap-2 py-8 text-xs font-light text-text-weaker transition-all hover:bg-surface-raised-base-hover hover:text-text-base active:scale-[0.98]"
-                  onClick={(event) => {
-                    event.preventDefault()
-                    event.stopPropagation()
-                    props.onNewSession()
-                  }}
-                >
-                  <PlusIcon className="size-3.5" />
-                  {language.t("sidebar.newThread")}
-                </button>
+                <div className="flex justify-center py-6">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    data-action="left-sidebar-directory-empty-new-thread"
+                    className="gap-1.5 text-xs font-light text-text-weaker hover:text-text-base"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      props.onNewSession()
+                    }}
+                  >
+                    <SquarePenIcon className="size-3.5" />
+                    {language.t("sidebar.newThread")}
+                  </Button>
+                </div>
               ) : (
                 sessionsToRender.map((session) => (
                   <DirectoryThreadRow

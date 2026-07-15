@@ -9,11 +9,13 @@ import {
   resolveFloatingChatSize,
   resolveInitialFloatingChatContainerSize,
   type FloatingChatBounds,
+  type FloatingChatRect,
 } from "../src/components/directory-chat/directory-chat-bench-page-layout"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,
   BENCH_CHAT_LAYOUT_FLOATING,
   BENCH_LAYOUT_PROFILE_DOCUMENT,
+  resolveBenchLayoutDefaults,
   type BenchChatLayoutMode,
 } from "../src/lib/bench-navigation"
 
@@ -89,15 +91,20 @@ function installPointerCapturePolyfill(): () => void {
   }
 }
 
-function TestBenchPageLayout(props: { initialMode?: BenchChatLayoutMode }) {
+function TestBenchPageLayout(props: {
+  initialMode?: BenchChatLayoutMode
+  initialFloatingRect?: FloatingChatRect
+}) {
   const [mode, setMode] = useState<BenchChatLayoutMode>(
     props.initialMode ?? BENCH_CHAT_LAYOUT_DOCKED,
   )
-  const [floatingRect, setFloatingRect] = useState(() =>
-    resolveDefaultFloatingChatRect(
-      resolveInitialFloatingChatContainerSize(),
-      BENCH_LAYOUT_PROFILE_DOCUMENT,
-    ),
+  const [floatingRect, setFloatingRect] = useState(
+    () =>
+      props.initialFloatingRect ??
+      resolveDefaultFloatingChatRect(
+        resolveInitialFloatingChatContainerSize(),
+        BENCH_LAYOUT_PROFILE_DOCUMENT,
+      ),
   )
   const [floatingChatState, setFloatingChatState] = useState<"open" | "minimized">("open")
 
@@ -236,14 +243,27 @@ describe("workspace floating chat helpers", () => {
   })
 
   test("shrinks the floating chat for narrow workspace viewports", () => {
-    const size = resolveFloatingChatSize({
+    const containerSize = {
       containerWidth: 300,
       containerHeight: 360,
       safeTop: 24,
+    }
+    const size = resolveFloatingChatSize(containerSize)
+    const defaults = resolveBenchLayoutDefaults({
+      profile: BENCH_LAYOUT_PROFILE_DOCUMENT,
+      viewport: {
+        widthPx: containerSize.containerWidth,
+        heightPx: containerSize.containerHeight,
+        safeTopPx: containerSize.safeTop,
+      },
     })
 
-    expect(size.width).toBeLessThanOrEqual(252)
-    expect(size.height).toBeLessThanOrEqual(312)
+    expect(size.width).toBeLessThanOrEqual(
+      containerSize.containerWidth - defaults.floatingMarginPx * 2,
+    )
+    expect(size.height).toBeLessThanOrEqual(
+      containerSize.containerHeight - containerSize.safeTop - defaults.floatingMarginPx,
+    )
     expect(size.width).toBeGreaterThan(0)
     expect(size.height).toBeGreaterThan(0)
   })
@@ -335,6 +355,53 @@ describe("DirectoryChatBenchPageLayout floating chat", () => {
       dockedConversation,
     )
     expect(container.querySelector('[data-component="bench-probe"]')).toBe(dockedBench)
+  })
+
+  test("keeps a newly floating chat anchored while its container changes", async () => {
+    const initialContainerSize = resolveInitialFloatingChatContainerSize()
+    const expectedRect = resolveDefaultFloatingChatRect(
+      initialContainerSize,
+      BENCH_LAYOUT_PROFILE_DOCUMENT,
+    )
+    const expectedDefaults = resolveBenchLayoutDefaults({
+      profile: BENCH_LAYOUT_PROFILE_DOCUMENT,
+      viewport: {
+        widthPx: initialContainerSize.containerWidth,
+        heightPx: initialContainerSize.containerHeight,
+        safeTopPx: initialContainerSize.safeTop,
+      },
+    })
+
+    await act(async () => {
+      root.render(
+        <TestBenchPageLayout
+          initialFloatingRect={{
+            x: 100,
+            y: 100,
+            width: expectedRect.width,
+            height: expectedRect.height,
+          }}
+        />,
+      )
+      await flushEffects()
+    })
+
+    await act(async () => {
+      requireElement(
+        container.querySelector<HTMLButtonElement>('[data-action="directory-chat-float"]'),
+      ).click()
+      await flushEffects()
+    })
+
+    const floatingWindow = requireElement(
+      container.querySelector<HTMLElement>('[data-component="directory-chat-floating-window"]'),
+    )
+    expect(floatingWindow.style.left).toBe("")
+    expect(floatingWindow.style.top).toBe("")
+    expect(floatingWindow.style.right).toBe(`${expectedDefaults.floatingMarginPx}px`)
+    expect(floatingWindow.style.bottom).toBe(`${expectedDefaults.floatingMarginPx}px`)
+    expect(floatingWindow.style.width).toBe(`${expectedRect.width}px`)
+    expect(floatingWindow.style.height).toBe(`${expectedRect.height}px`)
   })
 
   test("keeps stable hosts through visibility and mode changes and remounts only a new target", async () => {

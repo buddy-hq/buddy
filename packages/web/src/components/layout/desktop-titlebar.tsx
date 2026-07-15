@@ -1,7 +1,7 @@
 import type { MouseEvent } from "react"
 import { useEffect, useState } from "react"
 import { useLocation } from "@tanstack/react-router"
-import { Button } from "@buddy/ui"
+import { Button, cn } from "@buddy/ui"
 import {
   ArrowLeftIcon,
   PanelLeftIcon,
@@ -60,22 +60,24 @@ const CHAT_SIDEBAR_TOGGLE_RESERVED_PX = 76
 // Fixed toggle left positions
 const CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX = MAC_WINDOW_CONTROL_INSET_WIDTH
 const CHAT_SIDEBAR_TOGGLE_LEFT_DEFAULT_PX = 8
-const CHAT_SIDEBAR_TOGGLE_HEIGHT_PX = 30
 
-const TITLEBAR_ICON_STROKE_WIDTH = 1.5
+/** 14px glyphs; default Lucide stroke (2 on 24 viewBox) scales with size. */
+const TITLEBAR_ICON_SIZE_CLASS = "size-3.5 shrink-0"
+// No inset padding — hover fills flush with the outer rounded border (no halo gap).
 const TITLEBAR_TOGGLE_PILL_CLASS =
-  "flex shrink-0 items-center rounded-full border border-border-weaker-base bg-surface-raised-base/60 p-0.5 shadow-xs [-webkit-app-region:no-drag]"
+  "flex shrink-0 items-center overflow-hidden rounded-full border border-border-weaker-base bg-surface-raised-base/60 p-0 shadow-xs [-webkit-app-region:no-drag]"
 
-/** 14px Lucide icons with a constant on-screen stroke (avoids blurry sub-pixel scaling). */
+function titlebarToggleButtonClass(inPill: boolean) {
+  return cn(
+    "box-border h-6 w-8 p-0 text-icon-base hover:bg-surface-raised-base-hover hover:text-text-strong [-webkit-app-region:no-drag]",
+    inPill ? "rounded-none" : "rounded-full",
+  )
+}
+
+/** 14px Lucide icons with default scaled stroke (strokeWidth 2, no absoluteStrokeWidth). */
 function TitlebarIcon(props: { icon: LucideIcon }) {
   const Icon = props.icon
-  return (
-    <Icon
-      className="size-3.5 shrink-0"
-      absoluteStrokeWidth
-      strokeWidth={TITLEBAR_ICON_STROKE_WIDTH}
-    />
-  )
+  return <Icon className={TITLEBAR_ICON_SIZE_CLASS} />
 }
 
 export function DesktopTitlebar(props: DesktopTitlebarProps) {
@@ -266,40 +268,39 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         logBenchToggleDomEvent("right-toggle-wrapper-click-capture", event)
       }
     >
-      <div className={TITLEBAR_TOGGLE_PILL_CLASS}>
-        <Button
-          type="button"
-          data-action="titlebar-toggle-right-workspace"
-          variant="ghost"
-          className="relative h-6 w-8 p-0 box-border text-icon-base hover:bg-surface-raised-base-hover [-webkit-app-region:no-drag]"
-          aria-label={
-            rightWorkspaceOpen
-              ? language.t("desktopTitlebar.collapseRightPanel")
-              : language.t("desktopTitlebar.expandRightPanel")
-          }
-          aria-expanded={rightWorkspaceOpen}
-          title={
-            rightWorkspaceOpen
-              ? language.t("desktopTitlebar.collapseRightPanel")
-              : language.t("desktopTitlebar.expandRightPanel")
-          }
-          onPointerDownCapture={(event) =>
-            logBenchToggleDomEvent("right-toggle-button-pointerdown-capture", event)
-          }
-          onMouseDownCapture={(event) =>
-            logBenchToggleDomEvent("right-toggle-button-mousedown-capture", event)
-          }
-          onMouseUpCapture={(event) =>
-            logBenchToggleDomEvent("right-toggle-button-mouseup-capture", event)
-          }
-          onClickCapture={(event) =>
-            logBenchToggleDomEvent("right-toggle-button-click-capture", event)
-          }
-          onClick={onToggleRightWorkspace}
-        >
-          <TitlebarIcon icon={PanelRightIcon} />
-        </Button>
-      </div>
+      {/* Solo control — no pill chrome. */}
+      <Button
+        type="button"
+        data-action="titlebar-toggle-right-workspace"
+        variant="ghost"
+        className={cn(titlebarToggleButtonClass(false), "relative text-icon-base")}
+        aria-label={
+          rightWorkspaceOpen
+            ? language.t("desktopTitlebar.collapseRightPanel")
+            : language.t("desktopTitlebar.expandRightPanel")
+        }
+        aria-expanded={rightWorkspaceOpen}
+        title={
+          rightWorkspaceOpen
+            ? language.t("desktopTitlebar.collapseRightPanel")
+            : language.t("desktopTitlebar.expandRightPanel")
+        }
+        onPointerDownCapture={(event) =>
+          logBenchToggleDomEvent("right-toggle-button-pointerdown-capture", event)
+        }
+        onMouseDownCapture={(event) =>
+          logBenchToggleDomEvent("right-toggle-button-mousedown-capture", event)
+        }
+        onMouseUpCapture={(event) =>
+          logBenchToggleDomEvent("right-toggle-button-mouseup-capture", event)
+        }
+        onClickCapture={(event) =>
+          logBenchToggleDomEvent("right-toggle-button-click-capture", event)
+        }
+        onClick={onToggleRightWorkspace}
+      >
+        <TitlebarIcon icon={PanelRightIcon} />
+      </Button>
     </div>
   ) : null
 
@@ -310,7 +311,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       type="button"
       data-action="titlebar-toggle-left-sidebar"
       variant="ghost"
-      className="h-6 w-8 p-0 box-border text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong [-webkit-app-region:no-drag]"
+      className={titlebarToggleButtonClass(false)}
       aria-label={
         resolvedLeftSidebarOpen
           ? language.t("desktopTitlebar.collapseLeftPanel")
@@ -327,6 +328,10 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
       <TitlebarIcon icon={PanelLeftIcon} />
     </Button>
   )
+  const showChatFloatInLeftCluster = Boolean(
+    props.onFloatChat && (props.showSidebarThreadControls || props.showThreadBrowser),
+  )
+  const chatLeftClusterUsesPill = showChatFloatInLeftCluster
   return (
     <header
       data-component="desktop-titlebar"
@@ -357,7 +362,10 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         <div
           style={{
             position: "fixed",
-            top: (CHAT_TITLEBAR_HEIGHT_PX - CHAT_SIDEBAR_TOGGLE_HEIGHT_PX) / 2,
+            // Match the titlebar row: full bar height + flex center (same as in-flow controls).
+            // Previous top math used a 30px assumed height while buttons are h-6 (24px), so the pill sat high.
+            top: 0,
+            height: CHAT_TITLEBAR_HEIGHT_PX,
             left:
               isMac && !isFullscreen
                 ? CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX
@@ -367,12 +375,16 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
           }}
           className="motion-reduce:transition-none [-webkit-app-region:no-drag] flex items-center gap-1.5"
         >
-          <div className={TITLEBAR_TOGGLE_PILL_CLASS}>
+          <div
+            className={
+              chatLeftClusterUsesPill ? TITLEBAR_TOGGLE_PILL_CLASS : "flex shrink-0 items-center"
+            }
+          >
             <Button
               type="button"
               data-action="chat-toggle-left-sidebar"
               variant="ghost"
-              className="box-border h-6 w-8 p-0 text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong [-webkit-app-region:no-drag]"
+              className={titlebarToggleButtonClass(chatLeftClusterUsesPill)}
               aria-label={
                 resolvedLeftSidebarOpen
                   ? language.t("desktopTitlebar.collapseLeftPanel")
@@ -388,32 +400,20 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
             >
               <TitlebarIcon icon={PanelLeftIcon} />
             </Button>
-            {props.onFloatChat && (props.showSidebarThreadControls || props.showThreadBrowser) ? (
+            {showChatFloatInLeftCluster ? (
               <Button
                 type="button"
                 data-action="chat-pop-out"
                 variant="ghost"
-                className="box-border h-6 w-8 p-0 text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong [-webkit-app-region:no-drag]"
+                className={titlebarToggleButtonClass(true)}
                 aria-label={language.t("sidebar.popOutChat")}
                 title={language.t("sidebar.popOutChat")}
                 onClick={props.onFloatChat}
               >
-                <PictureInPicture2Icon className="size-3.5 shrink-0" />
+                <PictureInPicture2Icon className={TITLEBAR_ICON_SIZE_CLASS} />
               </Button>
             ) : null}
           </div>
-
-          {resolvedLeftSidebarOpen && props.showSidebarThreadControls ? (
-            <ThreadActionPill
-              sessions={props.sessions ?? []}
-              activeSessionID={props.activeSessionID}
-              linkedSessionID={props.linkedSessionID}
-              onSelectSession={props.onSelectSession ?? (() => undefined)}
-              onNewSession={props.onNewSession}
-              showHistory={false}
-              className="[-webkit-app-region:no-drag]"
-            />
-          ) : null}
         </div>
       ) : null}
       <div className="flex h-full items-center">
@@ -422,19 +422,18 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
         ) : null}
         {placement === "root" && props.showDockFloatingBench ? (
           <div className="ml-2 flex shrink-0 items-center [-webkit-app-region:no-drag]">
-            <div className={TITLEBAR_TOGGLE_PILL_CLASS}>
-              <Button
-                type="button"
-                data-action="titlebar-dock-floating-bench"
-                variant="ghost"
-                className="box-border h-6 w-8 p-0 text-text-weak hover:bg-surface-raised-base-hover hover:text-text-strong [-webkit-app-region:no-drag]"
-                aria-label={language.t("sidebar.dockChat")}
-                title={language.t("sidebar.dockChat")}
-                onClick={onDockFloatingBench}
-              >
-                <TitlebarIcon icon={ArrowLeftIcon} />
-              </Button>
-            </div>
+            {/* Solo control — no pill chrome. */}
+            <Button
+              type="button"
+              data-action="titlebar-dock-floating-bench"
+              variant="ghost"
+              className={titlebarToggleButtonClass(false)}
+              aria-label={language.t("sidebar.dockChat")}
+              title={language.t("sidebar.dockChat")}
+              onClick={onDockFloatingBench}
+            >
+              <TitlebarIcon icon={ArrowLeftIcon} />
+            </Button>
           </div>
         ) : null}
         {placement === "chat" && isDesktop ? (
@@ -444,15 +443,13 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
           />
         ) : null}
         {showLeftSidebarToggle ? (
-          <div className="ml-2 flex shrink-0 items-center">
-            <div className={TITLEBAR_TOGGLE_PILL_CLASS}>{leftSidebarToggleButton}</div>
-          </div>
+          <div className="ml-2 flex shrink-0 items-center">{leftSidebarToggleButton}</div>
         ) : null}
         {!isShellVariant &&
           (placement === "chat" ? (
             <div className="flex min-w-0 flex-1 items-stretch">
               {props.showThreadBrowser ? (
-                <div className="flex items-center gap-1 pl-3 pr-1 shrink-0">
+                <div className="flex min-w-0 items-center gap-1 pl-3 pr-1 shrink">
                   <ThreadParentReturnButton
                     parentSession={props.parentSession}
                     onSelectSession={props.onSelectSession}
@@ -467,6 +464,9 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                     notebookName={props.projectName}
                     onNewSession={props.onNewSession}
                     showHistory
+                    size="titlebar"
+                    title={props.chatTitle}
+                    titleActive={props.isTurnActive}
                     className="[-webkit-app-region:no-drag]"
                   />
                 </div>
@@ -480,7 +480,7 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                 </div>
               ) : null}
 
-              {props.chatTitle && props.onSelectSession ? (
+              {!props.showThreadBrowser && props.chatTitle && props.onSelectSession ? (
                 <ThreadHistoryPopover
                   sessions={props.sessions ?? []}
                   activeSessionID={props.activeSessionID}
@@ -491,26 +491,20 @@ export function DesktopTitlebar(props: DesktopTitlebarProps) {
                   trigger={
                     <button
                       type="button"
-                      className={`min-w-0 max-w-[24rem] self-center truncate text-left text-sm font-medium text-text-strong transition-colors hover:text-text-base [-webkit-app-region:no-drag] ${
-                        props.showThreadBrowser ? "pl-1 pr-4" : "px-4"
-                      }`}
+                      className="min-w-0 max-w-[24rem] self-center truncate px-4 text-left text-sm font-medium text-text-strong transition-colors hover:text-text-base [-webkit-app-region:no-drag]"
                       aria-label={language.t("sidebar.showAllThreads")}
                     >
                       <TextShimmer text={props.chatTitle} active={props.isTurnActive ?? false} />
                     </button>
                   }
                 />
-              ) : (
-                <h1
-                  className={`min-w-0 max-w-[24rem] self-center truncate text-sm font-medium text-text-strong ${
-                    props.showThreadBrowser ? "pl-1 pr-4" : "px-4"
-                  }`}
-                >
+              ) : !props.showThreadBrowser ? (
+                <h1 className="min-w-0 max-w-[24rem] self-center truncate px-4 text-sm font-medium text-text-strong">
                   {props.chatTitle ? (
                     <TextShimmer text={props.chatTitle} active={props.isTurnActive ?? false} />
                   ) : null}
                 </h1>
-              )}
+              ) : null}
               <div className="min-w-0 flex-1" />
             </div>
           ) : (

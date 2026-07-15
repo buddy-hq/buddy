@@ -75,6 +75,7 @@ type DirectoryChatMainPaneProps = {
   directories: string[]
   onSelectNotebook: (directory: string) => void
   onStartGetStartedChat?: (chat: GetStartedChat) => Promise<void> | void
+  compactPromptComposer?: boolean
 }
 
 const COMPACTION_BUFFER_TOKENS = 20_000
@@ -196,6 +197,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     onQuestionReply,
     onQuestionReject,
     promptComposerProps,
+    compactPromptComposer,
   } = props
   const autoCompactionWarning = useMemo(() => resolveAutoCompactionWarning(chatState), [chatState])
   const queuedFollowups = props.queuedFollowups ?? []
@@ -423,6 +425,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                 {...promptComposerProps}
                 activeQuestionID={activeQuestion?.id}
                 selectorMode={promptSelectorMode}
+                compact={compactPromptComposer}
                 className="mb-1"
                 sessionContextUsage={
                   <SessionContextUsage
