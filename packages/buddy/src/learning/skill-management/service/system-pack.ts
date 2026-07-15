@@ -3,6 +3,7 @@ import fsp from "node:fs/promises"
 import path from "node:path"
 import { z } from "zod"
 import type { BuddySkill } from "../../runtime/define-buddy-skill"
+import { isDisabledBundledSkillName } from "../disabled-bundled-skills"
 import { loadManagedSkillFile } from "./documents"
 import { BUDDY_SKILL_MANIFEST_RELATIVE_PATH, renderBuddySkillManifest } from "./manifests"
 import { collectRegularSkillFiles, toPosixRelativePath } from "./tree-limits"
@@ -276,6 +277,7 @@ async function collectSystemSkillSources(
       if (!document || sources.has(document.name)) continue
       const registeredSkill = registered.get(document.name)
       if (!registeredSkill) {
+        if (isDisabledBundledSkillName(document.name)) continue
         throw new Error(`Bundled skill "${document.name}" is not registered to a Buddy feature`)
       }
       sources.set(document.name, {

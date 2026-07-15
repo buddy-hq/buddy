@@ -5,6 +5,8 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { ALL_BUDDY_FEATURES } from "../src/learning/features"
 import type { BuddySkill } from "../src/learning/runtime/define-buddy-skill"
+import { isDisabledBundledSkillName } from "../src/learning/skill-management/disabled-bundled-skills"
+import { loadManagedSkillFile } from "../src/learning/skill-management/service/documents"
 
 const SKILL_DOCUMENT_FILENAME = "SKILL.md"
 const SKILLS_DIRECTORY_NAME = "skills"
@@ -99,9 +101,19 @@ async function checkBundledSkills(): Promise<RegisteredBundledSkill[]> {
   )
   const discoveredDocuments = await collectBundledSkillDocuments(FEATURES_ROOT)
   const sourceManifests = await collectSourceBuddyManifests(FEATURES_ROOT)
-  const unregisteredDocuments = discoveredDocuments.filter(
+  const unregisteredCandidates = discoveredDocuments.filter(
     (documentPath) => !registeredDocuments.has(documentPath),
   )
+  const unregisteredDocuments = (
+    await Promise.all(
+      unregisteredCandidates.map(async (documentPath) => ({
+        documentPath,
+        skill: await loadManagedSkillFile(documentPath),
+      })),
+    )
+  )
+    .filter(({ skill }) => !skill || !isDisabledBundledSkillName(skill.name))
+    .map(({ documentPath }) => documentPath)
   const missingDocuments = registrations
     .map((registration) => registration.skillDocumentPath)
     .filter((documentPath) => !discoveredDocuments.includes(documentPath))

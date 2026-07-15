@@ -4,6 +4,7 @@ import os from "node:os"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import type { BuddySkill } from "../../src/learning/runtime/define-buddy-skill"
+import { DISABLED_BUNDLED_SKILL_NAMES } from "../../src/learning/skill-management/disabled-bundled-skills"
 import {
   ensureSystemSkillsInstalled,
   refreshSystemSkillPack,
@@ -35,7 +36,10 @@ async function fixture() {
   const sourceRoot = path.join(root, "source")
   const skillRoot = path.join(sourceRoot, "explain-test")
   const documentPath = path.join(skillRoot, "SKILL.md")
+  const disabledSkillName = DISABLED_BUNDLED_SKILL_NAMES[0]
+  const disabledSkillRoot = path.join(sourceRoot, disabledSkillName)
   await fsp.mkdir(path.join(skillRoot, "references"), { recursive: true })
+  await fsp.mkdir(disabledSkillRoot, { recursive: true })
   await Promise.all([
     fsp.writeFile(
       documentPath,
@@ -46,6 +50,11 @@ async function fixture() {
     fsp.writeFile(
       path.join(skillRoot, "index.ts"),
       "throw new Error('not runtime content')\n",
+      "utf8",
+    ),
+    fsp.writeFile(
+      path.join(disabledSkillRoot, "SKILL.md"),
+      `---\nname: ${disabledSkillName}\ndescription: Disabled test skill.\n---\n\nDo not pack this skill.\n`,
       "utf8",
     ),
   ])
@@ -78,6 +87,7 @@ describe("system skill packs", () => {
     expect(paths).toContain("references/guide.md")
     expect(paths).toContain("agents/buddy.yaml")
     expect(paths).not.toContain("index.ts")
+    expect(parsed.skills.map((skill) => skill.name)).toEqual([input.skill.name])
     expect(() =>
       parseSystemSkillPack(pack, {
         baseFingerprint: pack.contentFingerprint,

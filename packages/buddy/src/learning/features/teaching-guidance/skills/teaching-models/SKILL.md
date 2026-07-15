@@ -295,10 +295,6 @@ Use `learning-design-frameworks` for broad planning, alignment, rigor, access, a
 
 Use `resolve-confusions` when there is evidence of a stable faulty learner model.
 
-Use `practice` after the selected teaching model has given the learner enough footing to act.
-
-Use `explain` only when direct concise explanation is the right model. Do not let `explain` become the default response to every struggle.
-
 ## Output Default
 
 When using this skill, Buddy should usually respond with:

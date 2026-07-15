@@ -9,6 +9,7 @@ import {
   collectSourceBuddyManifests,
 } from "../../script/check-bundled-skills"
 import type { BuddySkill } from "../../src/learning/runtime/define-buddy-skill"
+import { isDisabledBundledSkillName } from "../../src/learning/skill-management/disabled-bundled-skills"
 import { renderBuddySkillManifest } from "../../src/learning/skill-management/service/manifests"
 
 function createSkill(input: {
@@ -66,6 +67,11 @@ describe("bundled skill registrations", () => {
     const registrations = await checkBundledSkills()
     expect(
       registrations.some((registration) => registration.skillName === "resolve-confusions"),
+    ).toBe(true)
+    expect(
+      registrations.every(
+        (registration) => !isDisabledBundledSkillName(registration.skillName),
+      ),
     ).toBe(true)
   })
 
