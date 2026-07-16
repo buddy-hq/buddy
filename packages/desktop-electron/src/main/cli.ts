@@ -15,6 +15,8 @@ import {
 
 const ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS = ["dist", "advanced-math-runtime"] as const
 const STANDARDS_LOCAL_ASSET_PATH_SEGMENTS = ["resources", "knowledge-graph"] as const
+const BACKEND_SOURCE_RESOURCES_PATH_SEGMENTS = ["src"] as const
+const DEVELOPMENT_TESSDATA_PATH_SEGMENTS = ["resources", "tessdata"] as const
 const BUNDLED_MIGRATIONS_DIRECTORY_NAME = "migrations"
 const BUDDY_MIGRATION_DIRECTORY_NAME = "buddy"
 const OPENAI_AUTH_TRACE_FILENAME = "openai-auth-debug.jsonl"
@@ -49,12 +51,23 @@ function getBundledBackendResourcesDir() {
   return resourcesDir
 }
 
+function getBackendResourcesDir() {
+  return (
+    resolveDevelopmentBackendPath(BACKEND_SOURCE_RESOURCES_PATH_SEGMENTS) ??
+    getBundledBackendResourcesDir()
+  )
+}
+
 function getBundledTessdataDir() {
   const tessdataDir = path.join(resourcesDirectory(), "tessdata")
   if (!existsSync(tessdataDir)) {
     throw new Error(`Bundled Buddy tessdata directory not found at ${tessdataDir}`)
   }
   return tessdataDir
+}
+
+function getTessdataDir() {
+  return resolveDevelopmentBackendPath(DEVELOPMENT_TESSDATA_PATH_SEGMENTS) ?? getBundledTessdataDir()
 }
 
 function resolveDevelopmentBackendRoot() {
@@ -74,16 +87,19 @@ function resolveDevelopmentBackendRoot() {
   return undefined
 }
 
-function getBuddyMigrationDir() {
+function resolveDevelopmentBackendPath(pathSegments: readonly string[]) {
   const backendRoot = resolveDevelopmentBackendRoot()
-  if (backendRoot) {
-    const migrationDir = path.join(backendRoot, ...DEVELOPMENT_BACKEND_MIGRATION_PATH_SEGMENTS)
-    if (existsSync(migrationDir)) {
-      return migrationDir
-    }
-  }
+  if (!backendRoot) return undefined
 
-  return getBundledBuddyMigrationDir()
+  const candidate = path.join(backendRoot, ...pathSegments)
+  return existsSync(candidate) ? candidate : undefined
+}
+
+function getBuddyMigrationDir() {
+  return (
+    resolveDevelopmentBackendPath(DEVELOPMENT_BACKEND_MIGRATION_PATH_SEGMENTS) ??
+    getBundledBuddyMigrationDir()
+  )
 }
 
 export async function buildRuntimeEnvironment(password: string, port: number) {
@@ -114,8 +130,8 @@ export async function buildRuntimeEnvironment(password: string, port: number) {
     [OPENCODE_ENV.SERVER_USERNAME]: BACKEND_SERVER_USERNAME,
     [OPENCODE_ENV.SERVER_PASSWORD]: password,
     [BUDDY_ENV.APP_VERSION]: app.getVersion(),
-    [BUDDY_ENV.BACKEND_RESOURCES_DIR]: getBundledBackendResourcesDir(),
-    [BUDDY_ENV.TESSDATA_DIR]: getBundledTessdataDir(),
+    [BUDDY_ENV.BACKEND_RESOURCES_DIR]: getBackendResourcesDir(),
+    [BUDDY_ENV.TESSDATA_DIR]: getTessdataDir(),
     [BUDDY_ENV.MIGRATION_DIR]: getBuddyMigrationDir(),
     [BUDDY_ENV.DIRECTORY_BASE]: resolveDefaultNotebookHome(home),
     [BUDDY_ENV.ALLOWED_DIRECTORY_ROOTS]: resolveAllowedDirectoryRoots({
@@ -154,55 +170,11 @@ function ensureDirectories(directories: string[]) {
 }
 
 function resolveDevelopmentAdvancedMathAssetDir() {
-  if (app.isPackaged) return undefined
-
-  const appPathCandidate = path.resolve(
-    app.getAppPath(),
-    "..",
-    "buddy",
-    ...ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS,
-  )
-  if (existsSync(appPathCandidate)) {
-    return appPathCandidate
-  }
-
-  const cwdCandidate = path.resolve(
-    process.cwd(),
-    "..",
-    "buddy",
-    ...ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS,
-  )
-  if (existsSync(cwdCandidate)) {
-    return cwdCandidate
-  }
-
-  return undefined
+  return resolveDevelopmentBackendPath(ADVANCED_MATH_LOCAL_ASSET_PATH_SEGMENTS)
 }
 
 function resolveDevelopmentStandardsAssetDir() {
-  if (app.isPackaged) return undefined
-
-  const appPathCandidate = path.resolve(
-    app.getAppPath(),
-    "..",
-    "buddy",
-    ...STANDARDS_LOCAL_ASSET_PATH_SEGMENTS,
-  )
-  if (existsSync(appPathCandidate)) {
-    return appPathCandidate
-  }
-
-  const cwdCandidate = path.resolve(
-    process.cwd(),
-    "..",
-    "buddy",
-    ...STANDARDS_LOCAL_ASSET_PATH_SEGMENTS,
-  )
-  if (existsSync(cwdCandidate)) {
-    return cwdCandidate
-  }
-
-  return undefined
+  return resolveDevelopmentBackendPath(STANDARDS_LOCAL_ASSET_PATH_SEGMENTS)
 }
 
 function resolveStandardsAssetDir() {

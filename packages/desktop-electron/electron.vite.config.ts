@@ -19,6 +19,10 @@ import {
   parcelWatcherNativePackageName,
 } from "../../script/backend-node-artifact"
 import buddyWebVitePlugin from "../web/vite"
+import {
+  resolveExternalDevelopmentBackend,
+  shouldCopyPackagedRuntimeAssets,
+} from "./scripts/electron-vite-build-policy"
 
 const webDir = path.resolve(__dirname, "../web")
 const buddyDir = path.resolve(__dirname, "../buddy")
@@ -62,7 +66,7 @@ function isMainExternal(id: string) {
 
 const channel = readBuddyReleaseChannel()
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   main: {
     define: {
       [`import.meta.env.${BUDDY_CHANNEL_ENV}`]: JSON.stringify(channel),
@@ -106,12 +110,17 @@ export default defineConfig({
         name: "buddy:virtual-server-module",
         enforce: "pre",
         resolveId(id) {
-          if (id === "virtual:buddy-server") return this.resolve(BUDDY_SERVER_ENTRY)
+          if (id !== "virtual:buddy-server") return
+          return (
+            resolveExternalDevelopmentBackend(command, BUDDY_SERVER_ENTRY) ??
+            this.resolve(BUDDY_SERVER_ENTRY)
+          )
         },
       },
       {
         name: "buddy:copy-server-assets",
         async writeBundle() {
+          if (!shouldCopyPackagedRuntimeAssets(command)) return
           await copyWasmAssets(BUDDY_SERVER_DIST, MAIN_CHUNKS_DIR)
           await copyChemfigRuntime()
           await copyRuntimePackages()
@@ -151,7 +160,7 @@ export default defineConfig({
       },
     },
   },
-})
+}))
 
 async function copyWasmAssets(sourceDir: string, destinationDir: string) {
   const entries = await fs.readdir(sourceDir, { withFileTypes: true })

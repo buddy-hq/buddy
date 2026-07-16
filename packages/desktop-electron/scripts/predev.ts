@@ -1,8 +1,9 @@
 import { $ } from "bun"
-import { existsSync, readFileSync, rmSync } from "node:fs"
+import { existsSync, readFileSync } from "node:fs"
+import { rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { BUDDY_CHANNEL_ENV, readBuddyReleaseChannel } from "@buddy/script/channel"
-import { logDesktopRuntimeResources, syncDesktopRuntimeResources } from "./utils"
+import { generatedSdkNeedsRefresh, generatedSdkSourcePaths } from "./dev-sdk"
 
 function resolveMainRepoAdvancedMathCacheDir(packageDir: string): string | undefined {
   const gitFile = path.resolve(packageDir, "../../.git")
@@ -33,26 +34,53 @@ function resolveMainRepoAdvancedMathCacheDir(packageDir: string): string | undef
 }
 
 const desktopChannel = readBuddyReleaseChannel()
-
-await $`bun ./scripts/copy-icons.ts ${desktopChannel}`
-
 const packageDir = path.resolve(import.meta.dir, "..")
-const viteCacheDirectory = path.resolve(packageDir, "node_modules/.vite")
+const repositoryRoot = path.resolve(packageDir, "../..")
 const backendDir = path.resolve(packageDir, "../buddy")
-const webDir = path.resolve(packageDir, "../web")
+const adapterDir = path.resolve(packageDir, "../opencode-adapter")
+const sdkDir = path.resolve(packageDir, "../sdk")
+const generatedSdkDir = path.resolve(sdkDir, "src/gen")
+const generatedSdkOutputs = [
+  path.resolve(generatedSdkDir, "sdk.gen.ts"),
+  path.resolve(generatedSdkDir, "types.gen.ts"),
+  path.resolve(generatedSdkDir, "client/index.ts"),
+] as const
+const generatedSdkSuccessMarker = path.resolve(generatedSdkDir, ".generation-complete")
+const sdkSourcePaths = generatedSdkSourcePaths({
+  repositoryRoot,
+  backendDir,
+  adapterDir,
+  sdkDir,
+})
 
 const mainCacheDir = resolveMainRepoAdvancedMathCacheDir(packageDir)
 if (mainCacheDir) {
   process.env.BUDDY_ADVANCED_MATH_RUNTIME_CACHE_DIR = mainCacheDir
 }
 
-// Ensure renderer dependency graph is rebuilt after workspace dependency changes.
-rmSync(viteCacheDirectory, { recursive: true, force: true })
+async function ensureGeneratedSdk(): Promise<void> {
+  if (
+    !generatedSdkNeedsRefresh({
+      generatedOutputs: generatedSdkOutputs,
+      successMarker: generatedSdkSuccessMarker,
+      sourcePaths: sdkSourcePaths,
+    })
+  ) {
+    console.log("Buddy SDK is current")
+    return
+  }
 
-await $`bun run --cwd ${webDir} prepare:web`
-await $`bun run --cwd ${backendDir} ensure:advanced-math-runtime`
-await $`bun run --cwd ${backendDir} build:node`.env({
-  ...process.env,
-  [BUDDY_CHANNEL_ENV]: desktopChannel,
-})
-logDesktopRuntimeResources(syncDesktopRuntimeResources())
+  await rm(generatedSdkSuccessMarker, { force: true })
+  await $`bun run --cwd ${sdkDir} generate`
+  await writeFile(generatedSdkSuccessMarker, "")
+}
+
+await Promise.all([
+  $`bun ./scripts/copy-icons.ts ${desktopChannel}`,
+  $`bun run --cwd ${backendDir} ensure:advanced-math-runtime`,
+  $`bun run --cwd ${backendDir} build:node`.env({
+    ...process.env,
+    [BUDDY_CHANNEL_ENV]: desktopChannel,
+  }),
+  ensureGeneratedSdk(),
+])
