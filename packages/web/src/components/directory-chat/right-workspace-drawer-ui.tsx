@@ -1,7 +1,7 @@
 import { forwardRef, type ComponentType, type Ref, type ReactNode } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Badge, Button, Input, Skeleton, Spinner, XIcon, cn } from "@buddy/ui"
-import { ChevronRightIcon, SearchIcon } from "lucide-react"
+import { ChevronRightIcon, SearchIcon } from "@/icons/app-icons"
 
 const RIGHT_WORKSPACE_LIST_OVERSCAN = 8
 const RIGHT_WORKSPACE_ROW_ESTIMATE_PX = 56

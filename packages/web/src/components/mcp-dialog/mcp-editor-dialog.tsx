@@ -15,7 +15,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@buddy/ui"
-import { PlugIcon } from "lucide-react"
+import { PlugIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
 import {
   getFieldErrorId,

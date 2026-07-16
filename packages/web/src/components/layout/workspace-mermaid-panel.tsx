@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react"
 import { language } from "@/context/language"
 import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-diagram"
 import { MermaidToolCard } from "@/components/media/renderers/mermaid/mermaid-tool-card"
-import { LayoutTemplateIcon } from "lucide-react"
+import { LayoutTemplateIcon } from "@/icons/app-icons"
 import { stringifyError } from "@/lib/api-client"
 import {
   VIRTUAL_MERMAID_CARD_ESTIMATE_PX,

@@ -1,5 +1,5 @@
 import { Button, CheckIcon, cn } from "@buddy/ui"
-import { FolderIcon } from "lucide-react"
+import { FolderIcon } from "@/icons/app-icons"
 import { motion, AnimatePresence } from "motion/react"
 import { language } from "@/context/language"
 import { resolveBuddyIconUrl } from "@/lib/static-asset"

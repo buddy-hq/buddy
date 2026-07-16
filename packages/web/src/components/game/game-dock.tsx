@@ -9,7 +9,7 @@ import {
   ComposerDockFooter,
   cn,
 } from "@buddy/ui"
-import { XIcon, Gamepad2Icon, TrophyIcon, MinusIcon } from "lucide-react"
+import { XIcon, Gamepad2Icon, TrophyIcon, MinusIcon } from "@/icons/app-icons"
 import { Snake } from "./games/snake"
 import { ReactionTime } from "./games/reaction"
 import { MemoryGame } from "./games/memory"

@@ -1,6 +1,6 @@
 import type { AnyFieldApi } from "@tanstack/react-form"
 import { AnimatePresence, motion } from "motion/react"
-import { ArrowLeftIcon, ArrowUpRightIcon, FolderIcon, XIcon } from "lucide-react"
+import { ArrowLeftIcon, ArrowUpRightIcon, FolderIcon, XIcon } from "@/icons/app-icons"
 import type { PrimaryUse, PersonalizationSettings } from "@/state/project-config-readers"
 import { resolveBuddyIconUrl } from "@/lib/static-asset"
 import {

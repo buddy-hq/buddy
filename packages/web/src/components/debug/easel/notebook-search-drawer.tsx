@@ -28,8 +28,8 @@ import {
   PresentationIcon,
   SearchIcon,
   ShapesIcon,
-  type LucideIcon,
-} from "lucide-react"
+  type AppIcon,
+} from "@/icons/app-icons"
 
 type EaselSearchResultKind = "thread" | "source" | "creation" | "practice" | "board" | "file"
 
@@ -53,7 +53,7 @@ type SearchKindDefinition = {
   kind: EaselSearchResultKind
   label: string
   singularLabel: string
-  icon: LucideIcon
+  icon: AppIcon
 }
 
 const SEARCH_SETTLE_DELAY_MS = 550

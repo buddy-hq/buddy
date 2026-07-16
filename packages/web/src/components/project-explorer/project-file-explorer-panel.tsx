@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { Button, FolderIcon, cn, toast } from "@buddy/ui"
-import { ChevronDownIcon, ChevronRightIcon, Loader2Icon, RefreshCwIcon } from "lucide-react"
+import { ChevronDownIcon, ChevronRightIcon, Loader2Icon, RefreshCwIcon } from "@/icons/app-icons"
 import { FileTypeIcon } from "@/components/files/file-type-icon"
 import { language } from "@/context/language"
 import { usePlatform } from "@/context/platform"

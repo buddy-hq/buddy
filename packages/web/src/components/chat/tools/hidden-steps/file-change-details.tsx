@@ -7,7 +7,7 @@ import {
   CollapsibleTrigger,
   cn,
 } from "@buddy/ui"
-import { FileText } from "lucide-react"
+import { FileText } from "@/icons/app-icons"
 
 import { language } from "@/context/language"
 

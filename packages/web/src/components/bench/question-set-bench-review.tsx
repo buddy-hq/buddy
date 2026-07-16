@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { Button, cn } from "@buddy/ui"
-import { CheckIcon, ListIcon, PresentationIcon, XIcon } from "lucide-react"
+import { CheckIcon, ListIcon, PresentationIcon, XIcon } from "@/icons/app-icons"
 import { objectRef } from "@/components/bench/bench-context-utils"
 import {
   useRegisterBenchContextProvider,

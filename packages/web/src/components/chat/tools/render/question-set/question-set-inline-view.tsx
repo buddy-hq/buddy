@@ -9,7 +9,7 @@ import {
   DialogDescription,
 } from "@buddy/ui"
 import { language } from "@/context/language"
-import { CheckIcon, XIcon, ListIcon, PresentationIcon } from "lucide-react"
+import { CheckIcon, XIcon, ListIcon, PresentationIcon } from "@/icons/app-icons"
 import { createIdempotencyKey } from "@/lib/idempotency"
 import { cn } from "@buddy/ui"
 import { QuestionMarkdown, buildQuestionMarkdownCacheKey } from "./question-markdown"

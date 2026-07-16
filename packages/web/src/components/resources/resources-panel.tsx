@@ -21,7 +21,7 @@ import {
   EllipsisIcon,
   Skeleton,
 } from "@buddy/ui"
-import { RefreshCwIcon, PlusIcon, Loader2Icon, AlertCircleIcon } from "lucide-react"
+import { RefreshCwIcon, PlusIcon, Loader2Icon, AlertCircleIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"
 import { FileTypeIcon } from "@/components/files/file-type-icon"

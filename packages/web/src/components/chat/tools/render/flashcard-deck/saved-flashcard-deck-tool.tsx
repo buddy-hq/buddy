@@ -1,5 +1,5 @@
 import { Button } from "@buddy/ui"
-import { BookOpenIcon } from "lucide-react"
+import { BookOpenIcon } from "@/icons/app-icons"
 import { ObjectCard } from "../../object-card"
 import { ToolOutputPanel } from "../../tool-output-panel"
 import type { ToolPartProps } from "../../registry"

@@ -1,5 +1,5 @@
 import { createElement } from "react"
-import { Eye, FolderOpen } from "lucide-react"
+import { Eye, FolderOpen } from "@/icons/app-icons"
 import { cn } from "@buddy/ui"
 
 import { FileTypeIcon } from "@/components/files/file-type-icon"

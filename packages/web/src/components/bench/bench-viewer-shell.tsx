@@ -1,5 +1,5 @@
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger, cn } from "@buddy/ui"
-import { MinusIcon, PlusIcon, RotateCcwIcon } from "lucide-react"
+import { MinusIcon, PlusIcon, RotateCcwIcon } from "@/icons/app-icons"
 import {
   useCallback,
   useEffect,

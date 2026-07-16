@@ -6,7 +6,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@buddy/ui"
-import { AlertTriangleIcon, ImageIcon } from "lucide-react"
+import { AlertTriangleIcon, ImageIcon } from "@/icons/app-icons"
 import { MediaLoadingVisual } from "./loading"
 import { MediaActions } from "./media-action-bar"
 import type { MediaState } from "./types"

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, type ReactNode } from "react"
 import { motion, AnimatePresence, useReducedMotion } from "motion/react"
-import { Bot, BotMessageSquare, XCircle, ChevronDown, ChevronUp } from "lucide-react"
+import { Bot, BotMessageSquare, XCircle, ChevronDown, ChevronUp } from "@/icons/app-icons"
 import { cn } from "@buddy/ui"
 import { TextShimmer } from "../../text-shimmer"
 import { ToolErrorPanel } from "../../tool-error-panel"

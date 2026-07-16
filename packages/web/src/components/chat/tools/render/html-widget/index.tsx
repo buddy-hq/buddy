@@ -6,7 +6,7 @@ import {
   ExternalLinkIcon,
   Loader2Icon,
   RefreshCwIcon,
-} from "lucide-react"
+} from "@/icons/app-icons"
 import { ToolErrorPanel } from "../../tool-error-panel"
 import { TextShimmer } from "../../text-shimmer"
 import { ToolRow, ToolRowAction, ToolRowIcon } from "../../tool-row"

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { FileTextIcon } from "lucide-react"
+import { FileTextIcon } from "@/icons/app-icons"
 import { cn } from "@buddy/ui"
 import { resourceCoverQueryOptions, type ResourceFileExtension } from "@/state/resources-query"
 

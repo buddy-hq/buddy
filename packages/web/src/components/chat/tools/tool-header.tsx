@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react"
-import { XCircleIcon } from "lucide-react"
+import { XCircleIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
 import { MOTION_SNAPPY } from "./tool-motion"
 import type { ToolState } from "./registry"

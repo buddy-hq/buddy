@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "motion/react"
-import { PaintbrushIcon, ChevronDownIcon } from "lucide-react"
+import { PaintbrushIcon, ChevronDownIcon } from "@/icons/app-icons"
 
 // ── TYPES PRESERVATION ──
 

@@ -1,4 +1,4 @@
-import { BookOpenIcon } from "lucide-react"
+import { BookOpenIcon } from "@/icons/app-icons"
 import { Separator } from "@buddy/ui"
 import { DETAILS_EMPTY_MESSAGE } from "../foliate-reader-constants"
 import type { FoliateReaderSnapshot } from "../foliate-reader-types"

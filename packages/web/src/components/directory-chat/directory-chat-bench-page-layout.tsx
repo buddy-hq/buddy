@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react"
 import { Button, ResizeHandle, cn, type ResizeHandleIntent } from "@buddy/ui"
-import { MessageSquareIcon } from "lucide-react"
+import { MessageSquareIcon } from "@/icons/app-icons"
 import { readDesktopTitlebarBottomOffset } from "@/components/layout/desktop-titlebar-inset"
 import {
   BENCH_CHAT_LAYOUT_DOCKED,

@@ -1,6 +1,5 @@
-import { useState, type ComponentType, type SVGProps } from "react"
+import { useState } from "react"
 import {
-  Bookmark,
   BookOpen,
   Brain,
   Compass,
@@ -8,9 +7,11 @@ import {
   Gamepad2,
   Layers,
   Lightbulb,
+  NoteIcon,
   PencilRuler,
   ScrollText,
-} from "lucide-react"
+  type AppIcon,
+} from "@/icons/app-icons"
 import {
   ChevronRightIcon,
   HoverCard,
@@ -43,9 +44,7 @@ type GetStartedChatsProps = {
   variant?: GetStartedChatsVariant
 }
 
-type LucideIcon = ComponentType<SVGProps<SVGSVGElement> & { className?: string }>
-
-/** Full Lucide set — not limited to `@buddy/ui` re-exports. */
+/** App icon set for get-started scenarios. */
 const GET_STARTED_ICON_COMPONENT = {
   [GET_STARTED_ICON.tour]: Compass,
   [GET_STARTED_ICON.whiteboard]: PencilRuler,
@@ -56,7 +55,7 @@ const GET_STARTED_ICON_COMPONENT = {
   [GET_STARTED_ICON.standards]: ScrollText,
   [GET_STARTED_ICON.activity]: Gamepad2,
   [GET_STARTED_ICON.differentiate]: Layers,
-} as const satisfies Record<GetStartedIconId, LucideIcon>
+} as const satisfies Record<GetStartedIconId, AppIcon>
 
 function GetStartedBoardIcon(props: { icon: GetStartedIconId; className?: string }) {
   const Icon = GET_STARTED_ICON_COMPONENT[props.icon]
@@ -186,7 +185,7 @@ export function GetStartedChats(props: GetStartedChatsProps) {
     >
       <div className="flex items-center justify-between gap-2 px-2 py-1">
         <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-text-weak">
-          <Bookmark className="size-3 shrink-0 text-text-interactive-base" />
+          <NoteIcon className="size-3 shrink-0" />
           <h2 id="get-started-chats-title" className="min-w-0 truncate">
             {language.t("chat.emptyState.tryThese")}
           </h2>

@@ -1,5 +1,5 @@
 import { CheckIcon, cn } from "@buddy/ui"
-import { BookOpenTextIcon, SchoolIcon } from "lucide-react"
+import { BookOpenTextIcon, SchoolIcon } from "@/icons/app-icons"
 import { motion, useReducedMotion } from "motion/react"
 import { language } from "@/context/language"
 import type { PrimaryUse } from "@/state/project-config-readers"

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { cn } from "@buddy/ui"
-import { Loader2Icon } from "lucide-react"
+import { Loader2Icon } from "@/icons/app-icons"
 import { type HtmlWidgetPresentation, type HtmlWidgetViewport } from "@/lib/html-widgets"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { useKeyedMediaState } from "../use-keyed-media-state"

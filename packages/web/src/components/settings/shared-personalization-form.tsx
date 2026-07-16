@@ -10,7 +10,7 @@ import {
   RadioGroupItem,
   Textarea,
 } from "@buddy/ui"
-import { BookOpenTextIcon, SchoolIcon } from "lucide-react"
+import { BookOpenTextIcon, SchoolIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
 import type { AnyFieldApi } from "@tanstack/react-form"
 import { isPrimaryUse, type PersonalizationSettings } from "@/state/project-config-readers"

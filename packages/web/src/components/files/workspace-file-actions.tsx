@@ -12,7 +12,7 @@ import {
   EllipsisIcon,
   ExternalLinkIcon,
   FolderOpenIcon,
-} from "lucide-react"
+} from "@/icons/app-icons"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
 import { usePlatform } from "@/context/platform"
 import { stringifyError } from "@/lib/api-client"

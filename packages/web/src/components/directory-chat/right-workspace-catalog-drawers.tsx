@@ -46,7 +46,7 @@ import {
   Trash2Icon,
   UploadIcon,
   WorkflowIcon,
-} from "lucide-react"
+} from "@/icons/app-icons"
 import type { ObjectsViewResponse } from "@buddy/sdk/types"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"

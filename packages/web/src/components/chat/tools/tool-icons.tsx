@@ -1,5 +1,5 @@
 import { createElement } from "react"
-import { Boxes } from "lucide-react"
+import { Boxes } from "@/icons/app-icons"
 
 import type { ToolIconRenderer } from "./tool-registry-types"
 

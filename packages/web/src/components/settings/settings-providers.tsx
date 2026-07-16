@@ -12,7 +12,7 @@ import {
   Separator,
   cn,
 } from "@buddy/ui"
-import { Loader2Icon, RefreshCwIcon } from "lucide-react"
+import { Loader2Icon, RefreshCwIcon } from "@/icons/app-icons"
 import { ConnectProviderDialog } from "@/components/connect-provider-dialog"
 import { ProviderIcon } from "@/components/provider-icon"
 import { language } from "@/context/language"

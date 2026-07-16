@@ -1,5 +1,5 @@
 import { createElement } from "react"
-import { Wrench } from "lucide-react"
+import { Wrench } from "@/icons/app-icons"
 import { isBuddyCustomTool } from "../utils/tool"
 
 import type { ParsedToolUiMetadata } from "./parse-tool-ui-metadata"

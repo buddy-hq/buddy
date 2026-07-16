@@ -1,5 +1,5 @@
 import { Skeleton, cn } from "@buddy/ui"
-import { AlertTriangleIcon, FileQuestionIcon } from "lucide-react"
+import { AlertTriangleIcon, FileQuestionIcon } from "@/icons/app-icons"
 import { FileTypeIcon } from "@/components/files/file-type-icon"
 import { MediaActions } from "../media-action-bar"
 import {

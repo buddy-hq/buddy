@@ -9,7 +9,7 @@ import {
   CarouselNext,
   type CarouselApi,
 } from "@buddy/ui"
-import { ZoomInIcon, ZoomOutIcon } from "lucide-react"
+import { ZoomInIcon, ZoomOutIcon } from "@/icons/app-icons"
 import type { ReactNode } from "react"
 
 export type MultiViewItem = {

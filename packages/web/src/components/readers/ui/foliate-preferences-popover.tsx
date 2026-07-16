@@ -1,4 +1,4 @@
-import { ALargeSmall } from "lucide-react"
+import { ALargeSmall } from "@/icons/app-icons"
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@buddy/ui"
 import { FoliatePreferencesPanel } from "./foliate-preferences-panel"
 import type { FoliateReaderPreferences } from "../foliate-reader-types"

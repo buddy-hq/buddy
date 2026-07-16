@@ -37,8 +37,8 @@ import {
   ShapesIcon,
   ScrollTextIcon,
   WorkflowIcon,
-  type LucideIcon,
-} from "lucide-react"
+  type AppIcon,
+} from "@/icons/app-icons"
 import { NotebookSearchDrawer, type EaselSearchResult } from "./easel/notebook-search-drawer"
 import { EaselOnboarding } from "./easel/easel-onboarding"
 import { OnboardingNocturne } from "./easel/onboarding-nocturne"
@@ -52,7 +52,7 @@ type EaselPracticeFilter = "all" | "flashcards" | "question-sets"
 type EaselRailItem = {
   id: EaselRailItemID
   label: string
-  icon: LucideIcon
+  icon: AppIcon
 }
 
 type EaselPrototype =
@@ -100,7 +100,7 @@ type EaselDrawerShellProps = {
 }
 
 type EaselListRowProps = {
-  icon: LucideIcon
+  icon: AppIcon
   title: string
   metadata: string
   badge?: string
@@ -125,7 +125,7 @@ type EaselCreationKind = "widget" | "diagram" | "media" | "interactive"
 type EaselCreationItem = EaselStressItem & {
   id: string
   kind: EaselCreationKind
-  icon: LucideIcon
+  icon: AppIcon
 }
 
 type EaselBenchSurface =
@@ -553,7 +553,7 @@ function PracticeDrawer(props: { lotsOfContent: boolean; onClose: () => void }) 
   )
 }
 
-function stressCreationIcon(index: number): LucideIcon {
+function stressCreationIcon(index: number): AppIcon {
   switch (index % 4) {
     case 0:
       return PanelsTopLeftIcon
@@ -763,7 +763,7 @@ function BoardsDrawer(props: {
 }
 
 function FileTreeRow(props: {
-  icon: LucideIcon
+  icon: AppIcon
   label: string
   depth: "root" | "child" | "grandchild"
   expanded?: boolean

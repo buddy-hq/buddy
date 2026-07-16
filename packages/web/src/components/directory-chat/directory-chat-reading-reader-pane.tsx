@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Loader2Icon } from "lucide-react"
+import { Loader2Icon } from "@/icons/app-icons"
 import { cn } from "@buddy/ui"
 import {
   FoliateReader,

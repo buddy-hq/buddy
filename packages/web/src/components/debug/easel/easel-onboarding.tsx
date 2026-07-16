@@ -12,7 +12,7 @@ import {
   Settings,
   HelpCircle,
   Check,
-} from "lucide-react"
+} from "@/icons/app-icons"
 
 // Import mascot assets directly
 import buddyMascotWaveUrl from "../../../../../../assets/mascot/buddy-mascot-wave.png"

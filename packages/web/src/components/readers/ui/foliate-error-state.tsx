@@ -1,4 +1,4 @@
-import { AlertCircleIcon } from "lucide-react"
+import { AlertCircleIcon } from "@/icons/app-icons"
 import { DEFAULT_ERROR_TITLE, DEFAULT_ERROR_MESSAGE } from "../foliate-reader-constants"
 
 export interface FoliateErrorStateProps {

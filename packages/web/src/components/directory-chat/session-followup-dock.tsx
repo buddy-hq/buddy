@@ -1,5 +1,5 @@
 import { Button, cn } from "@buddy/ui"
-import { ChevronDownIcon, Loader2Icon, PencilIcon, SendHorizontalIcon } from "lucide-react"
+import { ChevronDownIcon, Loader2Icon, PencilIcon, SendHorizontalIcon } from "@/icons/app-icons"
 import { useState } from "react"
 import { language } from "@/context/language"
 

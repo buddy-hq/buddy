@@ -13,7 +13,7 @@ import type {
 } from "@buddy/sdk"
 import { ReactQueryDevtoolsPanel } from "@tanstack/react-query-devtools"
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools"
-import { BugIcon, GripVerticalIcon, PowerIcon, RotateCcwIcon, XIcon } from "lucide-react"
+import { BugIcon, GripVerticalIcon, PowerIcon, RotateCcwIcon, XIcon } from "@/icons/app-icons"
 import {
   Badge,
   Button,

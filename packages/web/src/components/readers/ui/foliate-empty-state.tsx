@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { ScrollTextIcon } from "lucide-react"
+import { ScrollTextIcon } from "@/icons/app-icons"
 import { DEFAULT_EMPTY_MESSAGE } from "../foliate-reader-constants"
 
 export interface FoliateEmptyStateProps {

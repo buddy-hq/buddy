@@ -2,15 +2,15 @@ import type { ReactNode } from "react"
 import { BotIcon } from "@buddy/ui"
 import {
   BlocksIcon,
-  BookOpenIcon,
   BrainIcon,
-  CogIcon,
+  CpuSettingsIcon,
   RefreshCwIcon,
   UserRoundIcon,
   ScaleIcon,
-  SlidersHorizontalIcon,
-  type LucideIcon,
-} from "lucide-react"
+  Settings05Icon,
+  TeachingIcon,
+  type AppIcon,
+} from "@/icons/app-icons"
 import { GeneralSettings } from "./settings-general"
 import { ProvidersSettings } from "./settings-providers"
 import { McpsSettings } from "./settings-mcps"
@@ -44,7 +44,7 @@ export type SettingsTabScope = "global" | "info"
 export type SettingsTabDefinition = {
   id: SettingsTab
   navLabelKey: string
-  icon: LucideIcon
+  icon: AppIcon
   layout: "standard" | "full-page"
   group: SettingsTabGroup
   scope: SettingsTabScope
@@ -65,7 +65,7 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
   {
     id: "general",
     navLabelKey: "routes.settings.nav.general",
-    icon: SlidersHorizontalIcon,
+    icon: Settings05Icon,
     layout: "standard",
     group: "main",
     scope: "global",
@@ -121,7 +121,7 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
   {
     id: "advanced",
     navLabelKey: "routes.settings.nav.advanced",
-    icon: CogIcon,
+    icon: CpuSettingsIcon,
     layout: "standard",
     group: "main",
     scope: "global",
@@ -139,7 +139,7 @@ export const SETTINGS_TABS: SettingsTabDefinition[] = [
   {
     id: "standards",
     navLabelKey: "routes.settings.nav.standards",
-    icon: BookOpenIcon,
+    icon: TeachingIcon,
     layout: "standard",
     group: "optional",
     scope: "global",

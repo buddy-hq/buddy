@@ -55,7 +55,7 @@ export const GET_STARTED_CAPABILITY_LABEL = {
   [GET_STARTED_CAPABILITY.reader]: "Reader",
 } as const satisfies Record<GetStartedCapability, string>
 
-/** Lucide icon keys resolved in the board UI. */
+/** Icon keys resolved in the board UI. */
 export const GET_STARTED_ICON = {
   tour: "tour",
   whiteboard: "whiteboard",
@@ -72,7 +72,7 @@ export type GetStartedIconId = (typeof GET_STARTED_ICON)[keyof typeof GET_STARTE
 export type GetStartedChat = {
   id: GetStartedChatID
   title: string
-  /** Leading Lucide icon on board cards (not sidebar). */
+  /** Leading icon on board cards (not sidebar). */
   icon: GetStartedIconId
   /** Short outcome-focused hover-card blurb (what you get, not how). */
   description: string

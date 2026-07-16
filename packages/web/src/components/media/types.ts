@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react"
+import type { AppIcon } from "@/icons/app-icons"
 import type { HtmlWidgetPresentation } from "@/lib/html-widgets"
 import type { WorkspaceMediaKind } from "@/lib/workspace-file-media"
 import type { PresentMediaResolvedItem } from "./presented-media-types"
@@ -42,7 +42,7 @@ export type MediaCommandAction = {
   kind?: "command"
   id: string
   label: string
-  icon: LucideIcon
+  icon: AppIcon
   disabled?: boolean
   loading?: boolean
   onSelect: () => void
@@ -53,7 +53,7 @@ export type MediaMenuItem =
       kind?: "command"
       id: string
       label: string
-      icon?: LucideIcon
+      icon?: AppIcon
       disabled?: boolean
       loading?: boolean
       onSelect: () => void
@@ -67,7 +67,7 @@ export type MediaMenuAction = {
   kind: "menu"
   id: string
   label: string
-  icon: LucideIcon
+  icon: AppIcon
   disabled?: boolean
   items: MediaMenuItem[]
 }

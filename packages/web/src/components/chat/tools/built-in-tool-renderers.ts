@@ -18,7 +18,7 @@ import {
   SquarePen,
   Terminal,
   Wrench,
-} from "lucide-react"
+} from "@/icons/app-icons"
 
 import { renderApplyPatchTool } from "./render/apply-patch"
 import { renderBashTool } from "./render/bash"

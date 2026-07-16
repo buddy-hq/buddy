@@ -23,7 +23,7 @@ import {
   SunIcon,
   TriangleAlertIcon,
   Undo2Icon,
-} from "lucide-react"
+} from "@/icons/app-icons"
 import { useQuery } from "@tanstack/react-query"
 import { Button, ToggleGroup, ToggleGroupItem, toast } from "@buddy/ui"
 import {

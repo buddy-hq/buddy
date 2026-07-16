@@ -1,4 +1,4 @@
-import { PinIcon, XIcon } from "lucide-react"
+import { PinIcon, XIcon } from "@/icons/app-icons"
 import { Button, ScrollArea } from "@buddy/ui"
 import { BOOKMARKS_EMPTY_MESSAGE, VIRTUALIZE_ROW_THRESHOLD } from "../foliate-reader-constants"
 import type { ReaderBookmark } from "../foliate-reader-types"

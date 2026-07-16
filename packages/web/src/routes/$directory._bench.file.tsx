@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { AlertCircleIcon, Loader2Icon } from "lucide-react"
+import { AlertCircleIcon, Loader2Icon } from "@/icons/app-icons"
 import { useMemo, useState } from "react"
 import { BenchMediaPreview } from "@/components/bench/bench-media-preview"
 import { BenchStaticContextProvider } from "@/components/bench/bench-static-context-provider"

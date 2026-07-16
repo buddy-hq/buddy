@@ -21,7 +21,7 @@ import type {
 } from "../foliate-reader-types"
 import { toPercentLabel } from "../utils/foliate-formatters"
 import { copyText } from "../utils/foliate-helpers"
-import { ArrowRightIcon } from "lucide-react"
+import { ArrowRightIcon } from "@/icons/app-icons"
 
 export interface FoliateLocationDialogProps {
   open: boolean

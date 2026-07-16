@@ -1,4 +1,4 @@
-import { PencilLineIcon, XIcon } from "lucide-react"
+import { PencilLineIcon, XIcon } from "@/icons/app-icons"
 import { Button, ScrollArea, cn } from "@buddy/ui"
 import { ANNOTATIONS_EMPTY_MESSAGE, VIRTUALIZE_ROW_THRESHOLD } from "../foliate-reader-constants"
 import type { ReaderAnnotation } from "../foliate-reader-types"

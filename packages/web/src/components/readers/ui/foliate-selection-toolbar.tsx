@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { CopyIcon, HighlighterIcon, PencilLineIcon, SearchIcon, XIcon } from "lucide-react"
+import { CopyIcon, HighlighterIcon, PencilLineIcon, SearchIcon, XIcon } from "@/icons/app-icons"
 import type { ReaderSelectionToolbarState } from "../foliate-reader-types"
 import { FoliateFloatingOverlay } from "./foliate-floating-overlay"
 

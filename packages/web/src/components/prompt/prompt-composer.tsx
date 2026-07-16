@@ -8,7 +8,7 @@ import {
   toast,
   cn,
 } from "@buddy/ui"
-import { Gamepad2Icon, PenLineIcon, XIcon } from "lucide-react"
+import { Gamepad2Icon, PenLineIcon, XIcon } from "@/icons/app-icons"
 import {
   lazy,
   startTransition,

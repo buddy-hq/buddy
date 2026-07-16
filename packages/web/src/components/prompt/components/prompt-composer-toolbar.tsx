@@ -15,7 +15,7 @@ import {
   SquareIcon,
   XIcon,
 } from "@buddy/ui"
-import { ImageIcon } from "lucide-react"
+import { ImageIcon } from "@/icons/app-icons"
 import type { RefObject } from "react"
 import * as React from "react"
 import { language } from "@/context/language"

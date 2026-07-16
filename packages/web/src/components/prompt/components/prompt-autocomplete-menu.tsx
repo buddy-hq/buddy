@@ -1,6 +1,6 @@
 import * as React from "react"
 import { BotIcon, Command, CommandItem, CommandList, FolderOpenIcon, cn } from "@buddy/ui"
-import { FileTextIcon } from "lucide-react"
+import { FileTextIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
 import { basename, dirname } from "../../chat/utils/path"
 import type { MentionOption } from "../mention-autocomplete"

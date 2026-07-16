@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { AlertCircleIcon } from "lucide-react"
+import { AlertCircleIcon } from "@/icons/app-icons"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
 import {
   VersionedTextFileEditor,

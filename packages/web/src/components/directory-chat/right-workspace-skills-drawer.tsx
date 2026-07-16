@@ -24,7 +24,7 @@ import {
   TabsTrigger,
   toast,
 } from "@buddy/ui"
-import { AlertTriangleIcon, RefreshCwIcon, SearchXIcon, SparklesIcon } from "lucide-react"
+import { AlertTriangleIcon, RefreshCwIcon, SearchXIcon, SparklesIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
 import {
   installLibrarySkill,

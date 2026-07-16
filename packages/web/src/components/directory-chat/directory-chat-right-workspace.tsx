@@ -21,16 +21,16 @@ import {
   toast,
 } from "@buddy/ui"
 import {
-  BookOpenIcon,
+  Books02Icon,
   BoxesIcon,
-  BrainIcon,
   FolderIcon,
   PresentationIcon,
   RefreshCwIcon,
   ScrollTextIcon,
   SearchIcon,
   ShapesIcon,
-} from "lucide-react"
+  StudyLampIcon,
+} from "@/icons/app-icons"
 import type { SessionInfo } from "@/state/chat-types"
 import {
   type RightWorkspaceOpenOutcome,
@@ -490,14 +490,14 @@ export function DirectoryChatRightWorkspace(props: DirectoryChatRightWorkspacePr
     {
       id: "sources",
       label: "Sources",
-      icon: <BookOpenIcon />,
+      icon: <Books02Icon />,
       active: resolvedSelector === "sources",
       onClick: () => openSelector("sources"),
     },
     {
       id: "practice",
       label: "Practice",
-      icon: <BrainIcon />,
+      icon: <StudyLampIcon />,
       active: resolvedSelector === "practice",
       onClick: () => openSelector("practice"),
     },

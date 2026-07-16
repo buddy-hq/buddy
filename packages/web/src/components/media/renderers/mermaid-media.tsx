@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import { cn } from "@buddy/ui"
-import { ClipboardCopyIcon, WrenchIcon } from "lucide-react"
+import { ClipboardCopyIcon, WrenchIcon } from "@/icons/app-icons"
 import {
   MermaidDiagram,
   type MermaidDiagramRenderState,

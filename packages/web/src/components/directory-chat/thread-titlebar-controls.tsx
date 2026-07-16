@@ -5,7 +5,7 @@ import {
   MinusIcon,
   PictureInPicture2Icon,
   SquarePenIcon,
-} from "lucide-react"
+} from "@/icons/app-icons"
 import { language } from "@/context/language"
 import { parseSubagentSession } from "@/lib/session-family"
 import type { SessionInfo } from "@/state/chat-types"
@@ -39,7 +39,7 @@ type ThreadParentReturnButtonProps = {
   className?: string
 }
 
-/** 14px; Lucide default stroke (2) scales with size. */
+/** 14px; the default stroke scales with size. */
 const CONTROL_ICON_SIZE_CLASS = "size-3.5 shrink-0"
 
 const CONTROL_SIZE_STYLES = {

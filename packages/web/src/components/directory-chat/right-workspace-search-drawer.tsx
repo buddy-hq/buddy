@@ -25,8 +25,8 @@ import {
   PresentationIcon,
   SearchIcon,
   ShapesIcon,
-  type LucideIcon,
-} from "lucide-react"
+  type AppIcon,
+} from "@/icons/app-icons"
 import type { SessionInfo } from "@/state/chat-types"
 import {
   NOTEBOOK_SEARCH_DEBOUNCE_MS,
@@ -81,7 +81,7 @@ type RightWorkspaceSearchDrawerProps = {
 type SearchKindDefinition = {
   kind: NotebookSearchResultKind
   label: string
-  icon: LucideIcon
+  icon: AppIcon
 }
 
 type RemoteSearchState =

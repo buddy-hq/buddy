@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "motion/react"
-import { ArrowLeftIcon } from "lucide-react"
+import { ArrowLeftIcon } from "@/icons/app-icons"
 import { Card, CardContent } from "@buddy/ui"
 import { language } from "@/context/language"
 import { stringifyError } from "@/lib/api-client"

@@ -1,5 +1,5 @@
 import * as React from "react"
-import { SearchIcon } from "lucide-react"
+import { SearchIcon } from "@/icons/app-icons"
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@buddy/ui"
 import { FoliateSearchPanel } from "./foliate-search-panel"
 import type { FoliateReaderSearchScope, ReaderSearchState } from "../foliate-reader-types"

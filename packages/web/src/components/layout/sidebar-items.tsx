@@ -2,7 +2,7 @@ import type { SessionInfo } from "@/state/chat-types"
 import { language } from "@/context/language"
 import { projectInitials, relativeTime } from "./sidebar-helpers"
 import { PlusIcon } from "./sidebar-icons"
-import { LoaderCircleIcon } from "lucide-react"
+import { LoaderCircleIcon } from "@/icons/app-icons"
 import { formatSessionTitle } from "@/lib/session-title"
 
 type ProjectIconProps = {

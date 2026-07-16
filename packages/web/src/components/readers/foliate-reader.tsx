@@ -35,7 +35,7 @@ import {
   Redo2Icon,
   ScrollTextIcon,
   Undo2Icon,
-} from "lucide-react"
+} from "@/icons/app-icons"
 import { FoliateAnnotationsPopover } from "./ui/foliate-annotations-popover"
 import { FoliateBookmarksPopover } from "./ui/foliate-bookmarks-popover"
 import { FoliateEmptyState } from "./ui/foliate-empty-state"

@@ -7,8 +7,8 @@ import {
   PanelLeftIcon,
   PanelRightIcon,
   PictureInPicture2Icon,
-  type LucideIcon,
-} from "lucide-react"
+  type AppIcon,
+} from "@/icons/app-icons"
 import {
   ThreadActionPill,
   ThreadParentReturnButton,
@@ -61,7 +61,7 @@ const CHAT_SIDEBAR_TOGGLE_RESERVED_PX = 76
 const CHAT_SIDEBAR_TOGGLE_LEFT_MAC_PX = MAC_WINDOW_CONTROL_INSET_WIDTH
 const CHAT_SIDEBAR_TOGGLE_LEFT_DEFAULT_PX = 8
 
-/** 14px glyphs; default Lucide stroke (2 on 24 viewBox) scales with size. */
+/** 14px glyphs; the default stroke scales with size. */
 const TITLEBAR_ICON_SIZE_CLASS = "size-3.5 shrink-0"
 // No inset padding — hover fills flush with the outer rounded border (no halo gap).
 const TITLEBAR_TOGGLE_PILL_CLASS =
@@ -74,8 +74,8 @@ function titlebarToggleButtonClass(inPill: boolean) {
   )
 }
 
-/** 14px Lucide icons with default scaled stroke (strokeWidth 2, no absoluteStrokeWidth). */
-function TitlebarIcon(props: { icon: LucideIcon }) {
+/** 14px icons with the default scaled stroke. */
+function TitlebarIcon(props: { icon: AppIcon }) {
   const Icon = props.icon
   return <Icon className={TITLEBAR_ICON_SIZE_CLASS} />
 }

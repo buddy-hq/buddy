@@ -10,7 +10,7 @@ import {
   PinIcon,
   SettingsIcon,
 } from "@buddy/ui"
-import { MapIcon, SearchIcon, PencilLineIcon, InfoIcon } from "lucide-react"
+import { MapIcon, SearchIcon, PencilLineIcon, InfoIcon } from "@/icons/app-icons"
 import {
   DEFAULT_AUTHOR,
   DEFAULT_TITLE,

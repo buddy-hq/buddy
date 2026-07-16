@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react"
-import { ClipboardPenLine } from "lucide-react"
+import { ClipboardPenLine } from "@/icons/app-icons"
 import { isRecord } from "../../tools/types"
 import { language } from "@/context/language"
 import { ToolRow, ToolRowAction, ToolRowIcon, ToolRowSubject } from "../tool-row"

@@ -1,5 +1,5 @@
 import { CardTitle } from "@buddy/ui"
-import { ScanText, ShieldAlert, SquarePen, Terminal } from "lucide-react"
+import { ScanText, ShieldAlert, SquarePen, Terminal } from "@/icons/app-icons"
 import type { TPermissionDockTitleIcon } from "@/lib/permission-dock-headline"
 
 const PERMISSION_DOCK_TITLE_ICONS = {

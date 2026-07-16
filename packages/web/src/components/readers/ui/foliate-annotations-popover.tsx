@@ -1,5 +1,5 @@
 import * as React from "react"
-import { PencilLineIcon } from "lucide-react"
+import { PencilLineIcon } from "@/icons/app-icons"
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@buddy/ui"
 import { FoliateAnnotationsPanel } from "./foliate-annotations-panel"
 import type { ReaderAnnotation } from "../foliate-reader-types"

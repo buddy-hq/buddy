@@ -10,8 +10,8 @@ import {
   FolderOpenIcon,
   Loader2Icon,
   RefreshCwIcon,
-  type LucideIcon,
-} from "lucide-react"
+  type AppIcon,
+} from "@/icons/app-icons"
 import { usePlatform } from "@/context/platform"
 import {
   MAX_INLINE_PRESENTED_MEDIA_BYTES,
@@ -89,7 +89,7 @@ function fileOpenTargetLabel(target: WorkspaceFileOpenTarget, revealLabel: strin
   return "Copy path"
 }
 
-function fileOpenTargetIcon(target: WorkspaceFileOpenTarget): LucideIcon {
+function fileOpenTargetIcon(target: WorkspaceFileOpenTarget): AppIcon {
   if (target === WORKSPACE_FILE_OPEN_TARGET_READING) return BookOpenIcon
   if (target === WORKSPACE_FILE_OPEN_TARGET_MARKDOWN_BENCH) return FileTextIcon
   if (target === WORKSPACE_FILE_OPEN_TARGET_FILE_BENCH) return FolderOpenIcon

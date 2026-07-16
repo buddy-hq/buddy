@@ -3,9 +3,9 @@
 //   SlidersHorizontalIcon,
 //   SquareLibraryIcon,
 //   ScrollTextIcon,
-//   type LucideIcon,
-// } from "lucide-react"
-import { SlidersHorizontalIcon } from "lucide-react"
+//   type AppIcon,
+// } from "@/icons/app-icons"
+import { SlidersHorizontalIcon } from "@/icons/app-icons"
 import { useQuery } from "@tanstack/react-query"
 import {
   ArchiveIcon,

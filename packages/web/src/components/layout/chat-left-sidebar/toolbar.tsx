@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@buddy/ui"
-import { PlusIcon } from "lucide-react"
+import { PlusIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
 import type { OrganizeMode, ShowMode, SortMode } from "./types"
 

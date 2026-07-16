@@ -12,7 +12,7 @@ import {
   // Icons from @buddy/ui
   ChevronDownIcon,
 } from "@buddy/ui"
-import { SearchIcon, ChevronUpIcon } from "lucide-react"
+import { SearchIcon, ChevronUpIcon } from "@/icons/app-icons"
 import {
   SEARCH_EMPTY_MESSAGE,
   SEARCH_SCOPE_BOOK,

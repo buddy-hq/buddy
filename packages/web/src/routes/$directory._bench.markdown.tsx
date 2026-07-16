@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { isMarkdownBenchPath } from "@buddy/workspace-file-policy"
-import { AlertCircleIcon, Loader2Icon } from "lucide-react"
+import { AlertCircleIcon, Loader2Icon } from "@/icons/app-icons"
 import { useEffect, useState } from "react"
 import { BenchViewerShell } from "@/components/bench/bench-viewer-shell"
 import { BenchStaticContextProvider } from "@/components/bench/bench-static-context-provider"

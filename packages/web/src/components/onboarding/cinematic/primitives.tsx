@@ -2,7 +2,7 @@ import type { ReactNode } from "react"
 import { useEffect, useRef, useState } from "react"
 import { motion, useInView } from "motion/react"
 import { cn } from "@buddy/ui"
-import { ArrowUpRightIcon } from "lucide-react"
+import { ArrowUpRightIcon } from "@/icons/app-icons"
 import { EASE_OUT, SERIF, rise, lineMask, lineInner } from "./constants"
 
 // ── Big masked-line serif heading (choreographed) ──

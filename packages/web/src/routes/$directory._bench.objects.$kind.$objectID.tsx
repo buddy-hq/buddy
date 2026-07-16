@@ -7,7 +7,7 @@ import {
   ExternalLinkIcon,
   FolderOpenIcon,
   Loader2Icon,
-} from "lucide-react"
+} from "@/icons/app-icons"
 import { useEffect, useMemo, type ReactNode } from "react"
 import {
   objectRef,

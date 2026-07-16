@@ -10,7 +10,7 @@ import {
   cn,
 } from "@buddy/ui"
 import { Popover, PopoverContent, PopoverTrigger } from "@buddy/ui/components/ui/popover"
-import { HistoryIcon, SearchIcon } from "lucide-react"
+import { HistoryIcon, SearchIcon } from "@/icons/app-icons"
 import { language } from "@/context/language"
 import type { SessionInfo } from "@/state/chat-types"
 import { formatThreadAge } from "@/components/layout/chat-left-sidebar/thread-helpers"

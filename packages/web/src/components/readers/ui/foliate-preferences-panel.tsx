@@ -5,7 +5,7 @@ import {
   ScrollTextIcon,
   AlignLeftIcon,
   AlignJustifyIcon,
-} from "lucide-react"
+} from "@/icons/app-icons"
 
 import {
   FONT_PUBLISHER,

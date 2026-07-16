@@ -8,7 +8,7 @@ import {
   VideoIcon,
   Volume2Icon,
   VolumeXIcon,
-} from "lucide-react"
+} from "@/icons/app-icons"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { usePresentedMediaPlaybackStore } from "@/state/presented-media-playback-store"
 import type { PresentMediaResolvedItem } from "../presented-media-types"

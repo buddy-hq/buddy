@@ -1,4 +1,4 @@
-import { LoaderCircleIcon } from "lucide-react"
+import { LoaderCircleIcon } from "@/icons/app-icons"
 import { useEffect, useState } from "react"
 import type { SessionStatusInfo } from "./types"
 

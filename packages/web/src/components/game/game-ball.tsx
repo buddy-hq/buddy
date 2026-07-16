@@ -1,6 +1,6 @@
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@buddy/ui"
 import { motion } from "motion/react"
-import { Gamepad2Icon } from "lucide-react"
+import { Gamepad2Icon } from "@/icons/app-icons"
 import { useRef } from "react"
 import { language } from "@/context/language"
 

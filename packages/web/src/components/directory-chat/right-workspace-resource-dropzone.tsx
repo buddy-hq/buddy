@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { useDropzone, type DropEvent } from "react-dropzone"
-import { UploadIcon } from "lucide-react"
+import { UploadIcon } from "@/icons/app-icons"
 import { getPlatform } from "@/context/platform"
 import { fileExtensionFromPath } from "@/lib/workspace-file-paths"
 

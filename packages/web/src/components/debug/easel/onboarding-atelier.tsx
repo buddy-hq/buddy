@@ -17,7 +17,7 @@ import {
   SparklesIcon,
   UserRoundIcon,
   ZapIcon,
-} from "lucide-react"
+} from "@/icons/app-icons"
 import {
   useCallback,
   useEffect,

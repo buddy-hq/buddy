@@ -11,7 +11,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@buddy/ui"
-import { AlertCircle, ArrowLeft, CheckCircle2, Globe, KeyRound } from "lucide-react"
+import { AlertCircle, ArrowLeft, CheckCircle2, Globe, KeyRound } from "@/icons/app-icons"
 
 type ConnectionMethod = {
   type: "oauth" | "api"

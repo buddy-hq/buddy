@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { useTheme } from "@/theme"
 import { useState, useEffect } from "react"
-import { SunIcon, MoonIcon, LaptopIcon, ImageIcon } from "lucide-react"
+import { SunIcon, MoonIcon, LaptopIcon, ImageIcon } from "@/icons/app-icons"
 
 export const Route = createFileRoute("/contrast-test")({
   component: ContrastTestPage,

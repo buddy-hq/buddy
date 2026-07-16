@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from "react"
 
 import { ChevronRightIcon, cn } from "@buddy/ui"
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react"
-import { AlertCircle, Wrench } from "lucide-react"
+import { AlertCircle, Wrench } from "@/icons/app-icons"
 
 import type { MessagePart } from "@/state/chat-types"
 

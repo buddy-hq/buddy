@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, useReducedMotion, useInView, type Transition } from "motion/react"
 import { cn } from "@buddy/ui"
-import { ArrowLeftIcon, ArrowUpRightIcon, FolderIcon, SparklesIcon, XIcon } from "lucide-react"
+import { ArrowLeftIcon, ArrowUpRightIcon, FolderIcon, SparklesIcon, XIcon } from "@/icons/app-icons"
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { resolveBuddyIconUrl } from "@/lib/static-asset"
 

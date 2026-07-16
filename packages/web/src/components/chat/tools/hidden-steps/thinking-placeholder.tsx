@@ -1,4 +1,4 @@
-import { Panda } from "lucide-react"
+import { Panda } from "@/icons/app-icons"
 import { TextShimmer } from "../text-shimmer"
 import { ABSTRACTED_THINKING_LABEL } from "./entries"
 

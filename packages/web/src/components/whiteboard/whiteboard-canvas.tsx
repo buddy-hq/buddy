@@ -13,7 +13,7 @@ import {
 import type { SceneBounds } from "@excalidraw/excalidraw/element/bounds"
 import type { OrderedExcalidrawElement } from "@excalidraw/excalidraw/element/types"
 import type { AppState, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types"
-import { LinkIcon, Loader2Icon } from "lucide-react"
+import { LinkIcon, Loader2Icon } from "@/icons/app-icons"
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useTheme } from "@/theme"
 import {

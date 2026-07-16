@@ -1,4 +1,4 @@
-import { PencilLineIcon, XIcon } from "lucide-react"
+import { PencilLineIcon, XIcon } from "@/icons/app-icons"
 import type { ReaderAnnotationPopoverState, ReaderAnnotation } from "../foliate-reader-types"
 import { getAnnotationAtValue } from "../utils/foliate-helpers"
 import { FoliateFloatingOverlay } from "./foliate-floating-overlay"

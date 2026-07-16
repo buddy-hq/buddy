@@ -1,5 +1,5 @@
 import * as React from "react"
-import { TableOfContents } from "lucide-react"
+import { TableOfContents } from "@/icons/app-icons"
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@buddy/ui"
 import { FoliateTocTree } from "./foliate-toc-tree"
 import type { FoliateReaderSnapshot } from "../foliate-reader-types"

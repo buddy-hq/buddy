@@ -1,5 +1,5 @@
 import { createElement } from "react"
-import { Panda } from "lucide-react"
+import { Panda } from "@/icons/app-icons"
 
 import type { MessagePart } from "@/state/chat-types"
 

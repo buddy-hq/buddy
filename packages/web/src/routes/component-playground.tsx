@@ -122,7 +122,7 @@ import {
   TooltipTrigger,
   cn,
 } from "@buddy/ui"
-import { BoldIcon, ItalicIcon, LaptopIcon, MoonIcon, SunIcon, Trash2Icon } from "lucide-react"
+import { BoldIcon, ItalicIcon, LaptopIcon, MoonIcon, SunIcon, Trash2Icon } from "@/icons/app-icons"
 
 export const Route = createFileRoute("/component-playground")({
   component: ComponentPlaygroundPage,

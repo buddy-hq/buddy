@@ -1,4 +1,4 @@
-import { ExternalLinkIcon } from "lucide-react"
+import { ExternalLinkIcon } from "@/icons/app-icons"
 import { usePlatform } from "@/context/platform"
 import { language } from "@/context/language"
 import { SettingsContent, SettingsListCard, SettingsRow } from "./settings-primitives"

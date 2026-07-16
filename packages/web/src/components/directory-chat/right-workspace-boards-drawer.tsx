@@ -8,7 +8,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@buddy/ui"
-import { PlusIcon, PresentationIcon } from "lucide-react"
+import { PlusIcon, PresentationIcon } from "@/icons/app-icons"
 import { whiteboardSessionPeekQueryOptions } from "@/components/whiteboard/whiteboard-query"
 import { stringifyError } from "@/lib/api-client"
 import { createBenchObjectTarget } from "@/components/layout/chat-left-sidebar/library-object-selectors"

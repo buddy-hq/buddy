@@ -1,5 +1,5 @@
 import * as React from "react"
-import { PinIcon } from "lucide-react"
+import { PinIcon } from "@/icons/app-icons"
 import { Button, Popover, PopoverContent, PopoverTrigger, cn } from "@buddy/ui"
 import { FoliateBookmarksPanel } from "./foliate-bookmarks-panel"
 import type { ReaderBookmark } from "../foliate-reader-types"
