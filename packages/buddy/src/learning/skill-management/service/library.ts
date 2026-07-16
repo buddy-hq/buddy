@@ -170,10 +170,17 @@ async function fileExists(filepath: string): Promise<boolean> {
 export function catalogPathCandidates(input: {
   argv: readonly string[]
   moduleUrl: string
+  resourcesRoot?: string
 }): string[] {
-  const resourcesRoot = process.env[BUDDY_ENV.BACKEND_RESOURCES_DIR]?.trim()
+  const resourcesRoot =
+    input.resourcesRoot?.trim() || process.env[BUDDY_ENV.BACKEND_RESOURCES_DIR]?.trim()
   const paths = [
-    ...(resourcesRoot ? [path.join(resourcesRoot, CATALOG_FILE_NAME)] : []),
+    ...(resourcesRoot
+      ? [
+          path.join(resourcesRoot, CATALOG_FILE_NAME),
+          path.join(resourcesRoot, "learning/skill-management/service", CATALOG_FILE_NAME),
+        ]
+      : []),
     path.join(path.dirname(fileURLToPath(input.moduleUrl)), CATALOG_FILE_NAME),
     ...input.argv.flatMap((arg) => {
       if (!RUNTIME_ENTRYPOINT_FILE_NAMES.has(path.basename(arg))) return []

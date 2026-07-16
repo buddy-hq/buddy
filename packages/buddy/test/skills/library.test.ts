@@ -86,6 +86,24 @@ describe("skill catalog library", () => {
     ])
   })
 
+  test("resolves the catalog directly from a development backend source root", () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "buddy-source-skill-catalog-paths-"))
+    const sourceModule = path.join(root, "runtime", "library.js")
+    const resourcesRoot = path.join(root, "packages", "buddy", "src")
+
+    const candidates = catalogPathCandidates({
+      argv: ["node"],
+      moduleUrl: pathToFileURL(sourceModule).href,
+      resourcesRoot,
+    })
+
+    expect(candidates).toEqual([
+      path.join(resourcesRoot, "catalog.json"),
+      path.join(resourcesRoot, "learning", "skill-management", "service", "catalog.json"),
+      path.join(root, "runtime", "catalog.json"),
+    ])
+  })
+
   test("skips missing catalog candidates until a readable asset exists", async () => {
     const root = mkdtempSync(path.join(os.tmpdir(), "buddy-skill-catalog-resolve-"))
     const missingCatalog = path.join(root, "missing", "catalog.json")
