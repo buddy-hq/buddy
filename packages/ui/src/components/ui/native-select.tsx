@@ -1,7 +1,8 @@
 import * as React from "react"
 
 import { cn } from "@buddy/ui/lib/utils"
-import { ChevronDownIcon } from "lucide-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { UnfoldMoreIcon } from "@hugeicons/core-free-icons"
 
 type NativeSelectProps = Omit<React.ComponentProps<"select">, "size"> & {
   size?: "sm" | "default"
@@ -37,7 +38,9 @@ function NativeSelect({
         aria-hidden="true"
         data-slot="native-select-icon-wrapper"
       >
-        <ChevronDownIcon
+        <HugeiconsIcon
+          icon={UnfoldMoreIcon}
+          strokeWidth={2}
           className="size-3.5 select-none"
           aria-hidden="true"
           data-slot="native-select-icon"

@@ -4,7 +4,13 @@ import * as React from "react"
 import { Select as SelectPrimitive } from "radix-ui"
 
 import { cn } from "@buddy/ui/lib/utils"
-import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  UnfoldMoreIcon,
+  ArrowUp01Icon,
+  ArrowDown01Icon,
+  Tick02Icon,
+} from "@hugeicons/core-free-icons"
 
 function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
   return <SelectPrimitive.Root data-slot="select" {...props} />
@@ -43,7 +49,11 @@ const SelectTrigger = React.forwardRef<
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <ChevronDownIcon className="text-text-weak size-4 pointer-events-none" />
+        <HugeiconsIcon
+          icon={UnfoldMoreIcon}
+          strokeWidth={2}
+          className="text-text-weak size-4 pointer-events-none"
+        />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   )
@@ -106,11 +116,20 @@ function SelectItem({
     <SelectPrimitive.Item
       data-slot="select-item"
       className={cn(
-        "data-[state=checked]:bg-surface-raised-base-active data-[state=checked]:text-text-strong data-[highlighted]:bg-surface-raised-base-hover data-[highlighted]:text-text-strong not-data-[variant=destructive]:data-[highlighted]:**:text-text-strong gap-1.5 rounded-md py-1 pr-2 pl-1.5 text-sm [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2 relative flex w-full cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "data-[state=checked]:bg-surface-raised-base-active data-[state=checked]:text-text-strong data-[highlighted]:bg-surface-raised-base-hover data-[highlighted]:text-text-strong not-data-[variant=destructive]:data-[highlighted]:**:text-text-strong gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2 relative flex w-full cursor-default items-center outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         className,
       )}
       {...props}
     >
+      <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
+        <SelectPrimitive.ItemIndicator>
+          <HugeiconsIcon
+            icon={Tick02Icon}
+            strokeWidth={2}
+            className="pointer-events-none"
+          />
+        </SelectPrimitive.ItemIndicator>
+      </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
   )
@@ -142,7 +161,7 @@ function SelectScrollUpButton({
       )}
       {...props}
     >
-      <ChevronUpIcon />
+      <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} />
     </SelectPrimitive.ScrollUpButton>
   )
 }
@@ -160,7 +179,7 @@ function SelectScrollDownButton({
       )}
       {...props}
     >
-      <ChevronDownIcon />
+      <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} />
     </SelectPrimitive.ScrollDownButton>
   )
 }

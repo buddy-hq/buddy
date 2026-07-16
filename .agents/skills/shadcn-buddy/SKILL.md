@@ -22,7 +22,7 @@ style radix-nova
 base radix
 rsc No
 typescript Yes
-iconLibrary lucide
+iconLibrary hugeicons
 rtl No
 menuColor default
 menuAccent subtle
@@ -109,8 +109,8 @@ These are the most common patterns that differentiate correct shadcn/ui code. Fo
 
 // Icons in buttons: data-icon, no sizing classes.
 <Button>
-  <SearchIcon data-icon="inline-start" />
-  Search
+  <PlusIcon data-icon="inline-start" />
+  Add
 </Button>
 
 // Spacing: gap-*, not space-y-*.
@@ -151,7 +151,7 @@ The injected project context contains these key fields:
 - **`tailwindVersion`** → `"v4"` uses `@theme inline` blocks; `"v3"` uses `tailwind.config.js`.
 - **`tailwindCssFile`** → the global CSS file where custom CSS variables are defined. Always edit this file, never create a new one.
 - **`style`** → component visual treatment (e.g. `nova`, `vega`).
-- **`iconLibrary`** → Use `lucide-react` for `lucide`
+- **`iconLibrary`** → Use `@hugeicons/react` + `@hugeicons/core-free-icons` for `hugeicons`
 - **`resolvedPaths`** → exact file-system destinations for components, utils, hooks, etc.
 
 See [cli.md — `info` command](./cli.md) for the full field reference.

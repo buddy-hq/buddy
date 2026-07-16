@@ -5,7 +5,8 @@ import { DayPicker, getDefaultClassNames, type DayButton, type Locale } from "re
 
 import { cn } from "@buddy/ui/lib/utils"
 import { Button, buttonVariants } from "@buddy/ui/components/ui/button"
-import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from "lucide-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ArrowLeftIcon, ArrowRightIcon, ArrowDownIcon } from "@hugeicons/core-free-icons"
 
 function Calendar({
   className,
@@ -115,14 +116,35 @@ function Calendar({
         },
         Chevron: ({ className, orientation, ...props }) => {
           if (orientation === "left") {
-            return <ChevronLeftIcon className={cn("size-4", className)} {...props} />
+            return (
+              <HugeiconsIcon
+                icon={ArrowLeftIcon}
+                strokeWidth={2}
+                className={cn("size-4", className)}
+                {...props}
+              />
+            )
           }
 
           if (orientation === "right") {
-            return <ChevronRightIcon className={cn("size-4", className)} {...props} />
+            return (
+              <HugeiconsIcon
+                icon={ArrowRightIcon}
+                strokeWidth={2}
+                className={cn("size-4", className)}
+                {...props}
+              />
+            )
           }
 
-          return <ChevronDownIcon className={cn("size-4", className)} {...props} />
+          return (
+            <HugeiconsIcon
+              icon={ArrowDownIcon}
+              strokeWidth={2}
+              className={cn("size-4", className)}
+              {...props}
+            />
+          )
         },
         DayButton: ({ ...props }) => <CalendarDayButton locale={locale} {...props} />,
         WeekNumber: ({ children, ...props }) => {

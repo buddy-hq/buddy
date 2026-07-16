@@ -10,7 +10,8 @@ import {
   DialogTitle,
 } from "@buddy/ui/components/ui/dialog"
 import { InputGroup, InputGroupAddon } from "@buddy/ui/components/ui/input-group"
-import { SearchIcon } from "lucide-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { SearchIcon, Tick02Icon } from "@hugeicons/core-free-icons"
 
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,
@@ -75,7 +76,7 @@ const CommandInput = React.forwardRef<
         {...props}
       />
       <InputGroupAddon>
-        <SearchIcon className="size-4 shrink-0 opacity-50" />
+        <HugeiconsIcon icon={SearchIcon} strokeWidth={2} className="size-4 shrink-0 opacity-50" />
       </InputGroupAddon>
     </InputGroup>
   </div>
@@ -154,6 +155,11 @@ const CommandItem = React.forwardRef<
     {...props}
   >
     {children}
+    <HugeiconsIcon
+      icon={Tick02Icon}
+      strokeWidth={2}
+      className="ml-auto opacity-0 group-has-data-[slot=command-shortcut]/command-item:hidden group-data-[checked=true]/command-item:opacity-100"
+    />
   </CommandPrimitive.Item>
 ))
 CommandItem.displayName = CommandPrimitive.Item.displayName

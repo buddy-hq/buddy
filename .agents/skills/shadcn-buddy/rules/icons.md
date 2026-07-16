@@ -1,6 +1,38 @@
 # Icons
 
-**Buddy uses Lucide for icons.** In this project, import icons from `lucide-react` unless a specific file already uses something else locally.
+**Buddy uses Hugeicons for icons.** Prefer importing stable wrapper components from `@buddy/ui` (e.g. `CheckIcon`, `XIcon`, `PlusIcon`) so consumer-facing names stay consistent. For primitives and new one-off icons, use the official shadcn Hugeicons pattern below.
+
+```tsx
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Cancel01Icon } from "@hugeicons/core-free-icons"
+import { SHADCN_HUGEICONS_STROKE_WIDTH } from "@buddy/ui"
+
+// Official shadcn CLI default: strokeWidth={2}
+<HugeiconsIcon icon={Cancel01Icon} strokeWidth={SHADCN_HUGEICONS_STROKE_WIDTH} className="..." />
+```
+
+**Defaults (shadcn official):**
+
+| Prop | Value | Source |
+|------|--------|--------|
+| `strokeWidth` | `2` | shadcn CLI `iconLibraries.hugeicons.usage` |
+| `color` | `currentColor` (package default) | `@hugeicons/react` |
+| sizing | CSS `size-*` / parent `[&_svg]` — do not pass `size` prop unless needed | shadcn components |
+
+**Icon *names* per component** must match the official radix-nova `IconPlaceholder` `hugeicons="..."` attrs (not a global Lucide rename). Verify with:
+
+```bash
+bun ./script/verify-shadcn-hugeicons.ts
+```
+
+Stable wrappers from `@buddy/ui` already render that pattern:
+
+```tsx
+import { CheckIcon, XIcon, PlusIcon } from "@buddy/ui"
+// Common names are re-exported as thin Hugeicons wrappers from packages/ui/src/icons.tsx
+```
+
+When a wrapper does not exist yet, import icon *data* from `@hugeicons/core-free-icons` and pass it to `HugeiconsIcon`, or add a wrapper in `packages/ui/src/icons.tsx` and re-export it from `packages/ui/src/index.ts`.
 
 ---
 
@@ -12,8 +44,8 @@ Add `data-icon="inline-start"` (prefix) or `data-icon="inline-end"` (suffix) to 
 
 ```tsx
 <Button>
-  <SearchIcon className="mr-2 size-4" />
-  Search
+  <PlusIcon className="mr-2 size-4" />
+  Add
 </Button>
 ```
 
@@ -21,8 +53,8 @@ Add `data-icon="inline-start"` (prefix) or `data-icon="inline-end"` (suffix) to 
 
 ```tsx
 <Button>
-  <SearchIcon data-icon="inline-start"/>
-  Search
+  <PlusIcon data-icon="inline-start"/>
+  Add
 </Button>
 
 <Button>
@@ -41,8 +73,8 @@ Components handle icon sizing via CSS. Don't add `size-4`, `w-4 h-4`, or other s
 
 ```tsx
 <Button>
-  <SearchIcon className="size-4" data-icon="inline-start" />
-  Search
+  <PlusIcon className="size-4" data-icon="inline-start" />
+  Add
 </Button>
 
 <DropdownMenuItem>
@@ -55,8 +87,8 @@ Components handle icon sizing via CSS. Don't add `size-4`, `w-4 h-4`, or other s
 
 ```tsx
 <Button>
-  <SearchIcon data-icon="inline-start" />
-  Search
+  <PlusIcon data-icon="inline-start" />
+  Add
 </Button>
 
 <DropdownMenuItem>
@@ -67,9 +99,9 @@ Components handle icon sizing via CSS. Don't add `size-4`, `w-4 h-4`, or other s
 
 ---
 
-## Pass icons as component objects, not string keys
+## Pass icons as component objects or Hugeicons data, not string keys
 
-Use `icon={CheckIcon}`, not a string key to a lookup map.
+Use a component (`icon={CheckIcon}`) or Hugeicons icon data (`icon={Tick02Icon}` on `HugeiconsIcon`), not a string key to a lookup map.
 
 **Incorrect:**
 
@@ -90,12 +122,20 @@ function StatusBadge({ icon }: { icon: string }) {
 **Correct:**
 
 ```tsx
-// Import from the project's configured iconLibrary.
-import { CheckIcon } from "lucide-react"
+// Prefer stable wrappers from @buddy/ui when available.
+import { CheckIcon } from "@buddy/ui"
 
 function StatusBadge({ icon: Icon }: { icon: React.ComponentType }) {
   return <Icon />
 }
 
 <StatusBadge icon={CheckIcon} />
+```
+
+```tsx
+// Or the official Hugeicons pattern for new / one-off icons.
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Tick02Icon } from "@hugeicons/core-free-icons"
+
+<HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
 ```

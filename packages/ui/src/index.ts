@@ -163,11 +163,17 @@ export { Textarea } from "./components/ui/textarea"
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/ui/tooltip"
 export { ThemeProvider } from "next-themes"
 export {
+  HugeiconsIcon,
+  // Component wrappers (stable consumer-facing names)
   ArchiveIcon,
   ArrowUpDownIcon,
   ArrowUpIcon,
+  ArrowDownIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
   BookOpenIcon,
   BookIcon,
+  NotebookIcon,
   BotIcon,
   BrainIcon,
   CheckIcon,
@@ -206,7 +212,33 @@ export {
   ZapIcon,
   XIcon,
   MessagesSquareIcon,
-} from "lucide-react"
+  // Raw free-icon data for HugeiconsIcon
+  ArrowDown01Icon,
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  ArrowUp01Icon,
+  Book01Icon,
+  BookOpen01Icon,
+  Cancel01Icon,
+  CheckmarkCircle02Icon,
+  Download01Icon,
+  NoteEditIcon,
+  FolderAddIcon,
+  Folder01Icon,
+  Home01Icon,
+  Mail01Icon,
+  MessageMultiple01Icon,
+  PlusSignIcon,
+  SearchRemoveIcon,
+  Settings01Icon,
+  Target01Icon,
+  Tick02Icon,
+} from "./icons"
+export type { IconProps, IconSvgElement } from "./icons"
+export {
+  SHADCN_HUGEICONS_STROKE_WIDTH,
+  SHADCN_HUGEICONS_DEFAULT_COLOR,
+} from "./lib/icon-defaults"
 export { cn } from "./lib/utils"
 export { toast } from "sonner"
 

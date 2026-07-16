@@ -4,7 +4,8 @@ import * as React from "react"
 import { Menubar as MenubarPrimitive } from "radix-ui"
 
 import { cn } from "@buddy/ui/lib/utils"
-import { CheckIcon, ChevronRightIcon } from "lucide-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Tick02Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons"
 
 function Menubar({ className, ...props }: React.ComponentProps<typeof MenubarPrimitive.Root>) {
   return (
@@ -120,7 +121,7 @@ function MenubarCheckboxItem({
     >
       <span className="left-1.5 size-4 [&_svg:not([class*='size-'])]:size-4 pointer-events-none absolute flex items-center justify-center">
         <MenubarPrimitive.ItemIndicator>
-          <CheckIcon />
+          <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
         </MenubarPrimitive.ItemIndicator>
       </span>
       {children}
@@ -148,7 +149,7 @@ function MenubarRadioItem({
     >
       <span className="left-1.5 size-4 [&_svg:not([class*='size-'])]:size-4 pointer-events-none absolute flex items-center justify-center">
         <MenubarPrimitive.ItemIndicator>
-          <CheckIcon />
+          <HugeiconsIcon icon={Tick02Icon} strokeWidth={2} />
         </MenubarPrimitive.ItemIndicator>
       </span>
       {children}
@@ -222,7 +223,7 @@ function MenubarSubTrigger({
       {...props}
     >
       {children}
-      <ChevronRightIcon className="ml-auto size-4" />
+      <HugeiconsIcon icon={ArrowRight01Icon} strokeWidth={2} className="ml-auto size-4" />
     </MenubarPrimitive.SubTrigger>
   )
 }
