@@ -163,6 +163,10 @@ function buildTeachingTurnContextPart(input: {
   }
 }
 
+function buildImageEditTurnContextPart(context: PromptContext): TurnContextPartBuild {
+  return context.imageEditIntent ? { text: "Edit the attached image" } : {}
+}
+
 const BENCH_TURN_CONTEXT_METADATA_LIMIT = 5
 const BENCH_DRAWER_LABELS = {
   search: "Search",
@@ -301,6 +305,7 @@ export function buildBuddyUserPrelude(input: {
 
   const readingTurnContext = buildReadingTurnContextPart(input.context)
   const benchTurnContext = buildBenchTurnContextPart(input.context)
+  const imageEditTurnContext = buildImageEditTurnContextPart(input.context)
   const teachingTurnContext = buildTeachingTurnContextPart({
     context: input.context,
     changedSinceCheckpoint: input.changedSinceCheckpoint,
@@ -309,6 +314,7 @@ export function buildBuddyUserPrelude(input: {
   const contextLines = [
     readingTurnContext.text,
     benchTurnContext.text,
+    imageEditTurnContext.text,
     teachingTurnContext.text,
   ].filter((line): line is string => line !== undefined)
 

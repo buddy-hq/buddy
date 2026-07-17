@@ -123,6 +123,7 @@ export async function runMessagePromptPipeline(input: {
   delete transformed.focusGoalIds
   delete transformed.modelRuntime
   delete transformed.teaching
+  delete transformed.imageEdit
 
   return {
     transformed,

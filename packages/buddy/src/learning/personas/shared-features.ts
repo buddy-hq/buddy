@@ -7,6 +7,7 @@ import { diagramsFeature } from "../features/diagrams/feature"
 import { figureRenderingFeature } from "../features/figure-rendering/feature"
 import { flashcardsFeature } from "../features/flashcards/feature"
 import { htmlWidgetsFeature } from "../features/html-widgets/feature"
+import { imageGenerationFeature } from "../features/image-generation/feature"
 import { mathFeature } from "../features/math/feature"
 import { mediaPresentationsFeature } from "../features/media-presentations/feature"
 import { memoryFeature } from "../features/memory/feature"
@@ -40,6 +41,7 @@ export const BUDDY_SHARED_FEATURES = [
   flashcardsFeature,
   mediaPresentationsFeature,
   htmlWidgetsFeature,
+  imageGenerationFeature,
   mathFeature,
   whiteboardFeature,
   platformFeature,

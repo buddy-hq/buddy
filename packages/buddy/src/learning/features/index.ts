@@ -23,6 +23,7 @@ import { mathFeature } from "./math/feature"
 import { whiteboardFeature } from "./whiteboard/feature"
 import { platformFeature } from "./platform/feature"
 import { obsidianVaultFeature } from "./obsidian-vault/feature"
+import { imageGenerationFeature } from "./image-generation/feature"
 
 const ALL_BUDDY_FEATURES = [
   curriculumFeature,
@@ -50,6 +51,7 @@ const ALL_BUDDY_FEATURES = [
   whiteboardFeature,
   platformFeature,
   obsidianVaultFeature,
+  imageGenerationFeature,
 ] as const
 
 export {
@@ -78,5 +80,6 @@ export {
   whiteboardFeature,
   platformFeature,
   obsidianVaultFeature,
+  imageGenerationFeature,
   ALL_BUDDY_FEATURES,
 }

@@ -29,6 +29,10 @@ import type {
   TeachingWorkspaceState,
 } from "@buddy/backend/learning/shared/teaching-vocabulary"
 import { listRegisteredResources } from "../../resources/resource-registry-service"
+import {
+  IMAGE_EDIT_TARGET_MAX,
+  type ImageEditIntent,
+} from "../features/image-generation/contracts"
 
 type MessagePromptProjectConfig = Awaited<ReturnType<typeof readProjectConfig>>
 
@@ -141,6 +145,7 @@ export type PromptContext = {
   model?: PromptModel
   personalization?: PromptPersonalization
   teachingContext?: TeachingPromptContext
+  imageEditIntent?: ImageEditIntent
   priorTurn?: PromptTurnSnapshot
 }
 
@@ -162,6 +167,22 @@ type CreatePromptContextInput = {
 function resolveTeachingContext(body: Record<string, unknown>): TeachingPromptContext | undefined {
   const result = TeachingPromptContextSchema.safeParse(body.teaching)
   return result.success ? result.data : undefined
+}
+
+function resolveImageEditIntent(body: Record<string, unknown>): ImageEditIntent | undefined {
+  const value = body.imageEdit
+  if (!value || typeof value !== "object" || !("targetPaths" in value)) return undefined
+  if (!Array.isArray(value.targetPaths)) return undefined
+
+  const targetPaths = value.targetPaths
+    .flatMap((targetPath) => {
+      if (typeof targetPath !== "string") return []
+      const trimmed = targetPath.trim()
+      return trimmed ? [trimmed] : []
+    })
+    .slice(0, IMAGE_EDIT_TARGET_MAX)
+
+  return targetPaths.length > 0 ? { targetPaths } : undefined
 }
 
 const MAX_PASSAGE_TEXT_CHARS = 1200
@@ -494,6 +515,7 @@ async function buildPromptContext(
   input: CreatePromptContextInput,
 ): Promise<CreatePromptContextResult> {
   const teachingContext = resolveTeachingContext(input.body)
+  const imageEditIntent = resolveImageEditIntent(input.body)
   const activeReadingContext = parseActiveReadingContext(input.body.reading)
   const personalization = resolvePromptPersonalization(input.projectConfig)
   const persona = getBuddyPersona(input.personaID, input.projectConfig.personas)
@@ -582,6 +604,7 @@ async function buildPromptContext(
       ...(model ? { model } : {}),
       ...(personalization ? { personalization } : {}),
       ...(teachingContext ? { teachingContext } : {}),
+      ...(imageEditIntent ? { imageEditIntent } : {}),
       ...(activeResource ? { activeResource } : {}),
       ...(benchContext ? { benchContext } : {}),
       ...(input.previousState
