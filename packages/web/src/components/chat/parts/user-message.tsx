@@ -3,8 +3,7 @@ import { language } from "@/context/language"
 import { HighlightedText } from "../highlighted-text"
 import { CopyAction } from "../copy-action"
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@buddy/ui"
-import { GitBranch, Undo2Icon } from "@/icons/app-icons"
-import { formatTime } from "../utils/format"
+import { Undo2Icon } from "@/icons/app-icons"
 import type { MessageInfo, ProviderInfo } from "@/state/chat-types"
 import type { ChatAgentPart, ChatFilePart, ChatTextPart } from "../utils/part-guards"
 
@@ -16,26 +15,7 @@ type UserMessagePartProps = {
   inlineReferences?: string[]
   providers?: ProviderInfo[]
   queued?: boolean
-  onForkMessage?: () => Promise<void> | void
   onRevertMessage?: () => Promise<void> | void
-}
-
-function getModelLabel(info: MessageInfo, providers?: ProviderInfo[]): string {
-  const providerID = "providerID" in info ? info.providerID : undefined
-  const modelID = "modelID" in info ? info.modelID : info.model?.modelID
-
-  if (providerID && modelID && providers) {
-    const match = providers.find((p) => p.id === providerID)
-    const models = match?.models
-    if (models && modelID in models) {
-      const entry = models[modelID as keyof typeof models]
-      if (entry && typeof entry === "object" && "name" in entry && entry.name) {
-        return String(entry.name)
-      }
-    }
-  }
-
-  return modelID ?? ""
 }
 
 function userMessagePartEqual(
@@ -57,7 +37,6 @@ function userMessagePartEqual(
   if (prevProps.agents !== nextProps.agents) return false
   if (prevProps.inlineReferences !== nextProps.inlineReferences) return false
   if (prevProps.providers !== nextProps.providers) return false
-  if (prevProps.onForkMessage !== nextProps.onForkMessage) return false
   if (prevProps.onRevertMessage !== nextProps.onRevertMessage) return false
 
   return true
@@ -65,25 +44,20 @@ function userMessagePartEqual(
 
 export const UserMessagePart = memo(function UserMessagePart({
   part,
-  info,
+  info: _info,
   references,
   agents,
   inlineReferences,
-  providers,
+  providers: _providers,
   queued,
-  onForkMessage,
   onRevertMessage,
 }: UserMessagePartProps) {
   const [reverting, setReverting] = useState(false)
-  const [branching, setBranching] = useState(false)
 
   if (part.synthetic === true) return null
 
   const text = part.text
   if (!text.trim()) return null
-
-  const metaHead = getModelLabel(info, providers)
-  const metaTail = formatTime(info.time?.created)
 
   async function handleRevertClick() {
     if (!onRevertMessage || reverting) return
@@ -93,19 +67,6 @@ export const UserMessagePart = memo(function UserMessagePart({
       await onRevertMessage()
     } finally {
       setReverting(false)
-    }
-  }
-
-  async function handleForkClick() {
-    if (!onForkMessage || branching) return
-
-    setBranching(true)
-    try {
-      await onForkMessage()
-    } catch {
-      // The action layer reports fork failures on the directory.
-    } finally {
-      setBranching(false)
     }
   }
 
@@ -131,38 +92,7 @@ export const UserMessagePart = memo(function UserMessagePart({
           </div>
         )}
       </div>
-      <div className="mt-1 flex min-h-6 w-full items-center justify-end gap-2.5 opacity-0 pointer-events-none transition-opacity group-hover/user:opacity-100 group-hover/user:pointer-events-auto group-focus-within/user:opacity-100 group-focus-within/user:pointer-events-auto">
-        {(metaHead || metaTail) && (
-          <span className="flex min-w-0 flex-1 items-center justify-end gap-1.5 overflow-hidden">
-            {metaHead && <span className="truncate text-xs text-text-weak">{metaHead}</span>}
-            {metaHead && metaTail && (
-              <span className="text-xs text-text-weak">{"\u00A0\u00B7\u00A0"}</span>
-            )}
-            {metaTail && (
-              <span className="shrink-0 whitespace-nowrap text-xs text-text-weak">{metaTail}</span>
-            )}
-          </span>
-        )}
-        {onForkMessage ? (
-          <Tooltip>
-            <TooltipTrigger
-              type="button"
-              disabled={branching}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={(event) => {
-                event.stopPropagation()
-                void handleForkClick()
-              }}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-text-weak transition-colors hover:bg-surface-weak hover:text-text-base disabled:cursor-not-allowed disabled:opacity-60"
-              aria-label={language.t("chat.userMessage.branch")}
-            >
-              <GitBranch className="h-4 w-4" />
-            </TooltipTrigger>
-            <TooltipContent side="top" sideOffset={4}>
-              <p>{language.t("chat.userMessage.branch")}</p>
-            </TooltipContent>
-          </Tooltip>
-        ) : null}
+      <div className="mt-1 flex min-h-6 w-full items-center justify-end gap-2.5 text-text-weaker opacity-0 pointer-events-none transition-opacity group-hover/user:opacity-100 group-hover/user:pointer-events-auto group-focus-within/user:opacity-100 group-focus-within/user:pointer-events-auto">
         {onRevertMessage ? (
           <Tooltip>
             <TooltipTrigger

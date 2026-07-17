@@ -60,7 +60,10 @@ type DirectoryChatMainPaneProps = {
     resource: ResourceReadingTarget,
     options?: ResourceOpenOptions,
   ) => void
-  onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
+  onForkMessage?: (input: {
+    sessionID: string
+    messageID?: string
+  }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRestoreRevertedMessages?: () => Promise<void> | void
   onPermissionReply: (reply: PermissionReply) => Promise<void>
@@ -334,18 +337,6 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
             </div>
           ) : null}
 
-          {activeQuestion ? (
-            <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
-              <QuestionDock
-                key={activeQuestion.id}
-                request={activeQuestion}
-                pendingCount={Math.max(0, currentSessionQuestions.length - 1)}
-                onReply={(answers) => onQuestionReply(activeQuestion.id, answers)}
-                onReject={() => onQuestionReject(activeQuestion.id)}
-              />
-            </div>
-          ) : null}
-
           {chatState.pendingPermissions.length > 0 ? (
             <div className="mx-auto w-full max-w-full px-4 pb-2 md:max-w-200">
               <PermissionDock
@@ -419,23 +410,34 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
             </div>
           ) : null}
 
-          <div className="mx-auto w-full max-w-full px-4 md:max-w-200">
-            {!chatState.parentSession && (
-              <PromptComposer
-                {...promptComposerProps}
-                activeQuestionID={activeQuestion?.id}
-                selectorMode={promptSelectorMode}
-                compact={compactPromptComposer}
-                className="mb-1"
-                sessionContextUsage={
-                  <SessionContextUsage
-                    messages={chatState.messages}
-                    providers={chatState.providers}
-                  />
-                }
+          {activeQuestion ? (
+            <div className="mx-auto w-full max-w-200 shrink-0 px-4 pb-4 pt-2">
+              <QuestionDock
+                key={activeQuestion.id}
+                request={activeQuestion}
+                pendingCount={Math.max(0, currentSessionQuestions.length - 1)}
+                onReply={(answers) => onQuestionReply(activeQuestion.id, answers)}
+                onReject={() => onQuestionReject(activeQuestion.id)}
               />
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="mx-auto w-full max-w-full px-4 md:max-w-200">
+              {!chatState.parentSession && (
+                <PromptComposer
+                  {...promptComposerProps}
+                  selectorMode={promptSelectorMode}
+                  compact={compactPromptComposer}
+                  className="mb-1"
+                  sessionContextUsage={
+                    <SessionContextUsage
+                      messages={chatState.messages}
+                      providers={chatState.providers}
+                    />
+                  }
+                />
+              )}
+            </div>
+          )}
         </div>
       </div>
     </main>

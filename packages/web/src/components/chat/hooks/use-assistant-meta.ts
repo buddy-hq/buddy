@@ -1,7 +1,7 @@
 import { useMemo } from "react"
 import type { MessageWithParts, ProviderInfo } from "@/state/chat-types"
 import { formatDuration } from "../utils/format"
-import { modelLabel } from "../utils/message-utils"
+import { resolveModelDisplayName } from "../utils/message-utils"
 
 export function useAssistantMeta(
   assistantMessages: MessageWithParts[],
@@ -13,22 +13,9 @@ export function useAssistantMeta(
     const info = assistantMessages[assistantMessages.length - 1]?.info
     if (!info) return ""
 
-    let modelName = modelLabel(info)
-    const providerID = "providerID" in info ? info.providerID : undefined
-    const modelID = "modelID" in info ? info.modelID : undefined
+    const modelName = resolveModelDisplayName(info, providers)
 
-    if (providerID && modelID) {
-      const match = providers.find((p) => p.id === providerID)
-      const models = match?.models
-      if (models && modelID in models) {
-        const entry = models[modelID as keyof typeof models]
-        if (entry && typeof entry === "object" && "name" in entry && entry.name) {
-          modelName = String(entry.name)
-        }
-      }
-    }
-
-    return [modelName, formatDuration(turnDurationMs), assistantAborted ? "Interrupted" : ""]
+    return [modelName, formatDuration(turnDurationMs), assistantAborted ? "Stopped" : ""]
       .filter((value) => !!value)
       .join(" · ")
   }, [assistantMessages, providers, turnDurationMs, assistantAborted])

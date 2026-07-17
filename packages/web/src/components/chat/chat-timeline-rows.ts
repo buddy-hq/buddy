@@ -57,6 +57,11 @@ export type TimelineRow =
       item: TimelineAssistantItem
       assistantMessageIDs: string[]
       assistantCopyPartID: string | undefined
+      /**
+       * Vendor fork boundary: keep messages with id < this. The next turn's user
+       * message includes this response; undefined clones the full session.
+       */
+      forkExclusiveMessageID: string | undefined
       assistantAborted: boolean
       turnDurationMs: number | undefined
       active: boolean
@@ -88,6 +93,8 @@ export type TimelineRow =
 
 type ProjectTimelineRowsInput = {
   messages: MessageWithParts[]
+  /** Exclusive boundary after the final visible message, such as a session revert point. */
+  forkExclusiveEndMessageID?: string
   isBusy: boolean
   sessionID: string | undefined
   directory: string | undefined
@@ -274,12 +281,19 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
       !hasReasoningSummaryRow &&
       (input.showReasoningSummaries ? assistantItems.length === 0 : true)
 
+    // Interrupted turns already end with a MessageDivider that owns inter-turn
+    // spacing. Stacking turn-gap only below that divider made vertical rhythm
+    // look uneven (tight above, loose below).
     if (turnIndex > 0) {
-      rows.push({
-        type: "turn-gap",
-        key: `turn-gap:${userMessageID}`,
-        userMessageID,
-      })
+      const previousTurn = turns[turnIndex - 1]
+      const previousAborted = assistantAborted(previousTurn.assistants)
+      if (!previousAborted) {
+        rows.push({
+          type: "turn-gap",
+          key: `turn-gap:${userMessageID}`,
+          userMessageID,
+        })
+      }
     }
 
     if (turn.user) {
@@ -303,6 +317,9 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
     }
 
     let previousPartID: string | undefined
+    const nextTurnUser = turns[turnIndex + 1]?.user
+    const forkExclusiveMessageID = nextTurnUser?.info.id ?? input.forkExclusiveEndMessageID
+
     assistantItems.forEach((item, itemIndex) => {
       const converted = convertAssistantItem(item, previousPartID)
       rows.push({
@@ -312,6 +329,7 @@ export function projectTimelineRows(input: ProjectTimelineRowsInput): TimelineRo
         item: converted,
         assistantMessageIDs: turn.assistants.map((message) => message.info.id),
         assistantCopyPartID: active ? undefined : textPartID,
+        forkExclusiveMessageID,
         assistantAborted: aborted,
         turnDurationMs: turnDurationMs(turn),
         active,
@@ -426,6 +444,7 @@ export function timelineRowsEqual(left: TimelineRow, right: TimelineRow) {
         assistantItemsEqual(left.item, right.item) &&
         stringArraysEqual(left.assistantMessageIDs, right.assistantMessageIDs) &&
         left.assistantCopyPartID === right.assistantCopyPartID &&
+        left.forkExclusiveMessageID === right.forkExclusiveMessageID &&
         left.assistantAborted === right.assistantAborted &&
         left.turnDurationMs === right.turnDurationMs &&
         left.active === right.active &&

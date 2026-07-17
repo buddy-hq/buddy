@@ -1,12 +1,15 @@
 import { useState } from "react"
-import { CopyIcon, CheckIcon, Tooltip, TooltipContent, TooltipTrigger } from "@buddy/ui"
+import { cn, CopyIcon, CheckIcon, Tooltip, TooltipContent, TooltipTrigger } from "@buddy/ui"
 
-interface CopyActionProps {
+type CopyActionProps = {
   value: string
   label?: string
+  /** Extra classes on the trigger (e.g. flush-left meta rows). */
+  className?: string
+  iconClassName?: string
 }
 
-export function CopyAction({ value, label }: CopyActionProps) {
+export function CopyAction({ value, label, className, iconClassName }: CopyActionProps) {
   const [copied, setCopied] = useState(false)
 
   async function onCopy() {
@@ -31,10 +34,17 @@ export function CopyAction({ value, label }: CopyActionProps) {
           void onCopy()
         }}
         onMouseDown={(e) => e.preventDefault()}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-text-weak transition-colors hover:bg-surface-weak hover:text-text-base"
+        className={cn(
+          "inline-flex h-8 w-8 items-center justify-center rounded-full text-text-weak transition-colors hover:bg-surface-weak hover:text-text-base",
+          className,
+        )}
         aria-label={copied ? "Copied" : (label ?? "Copy")}
       >
-        {copied ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
+        {copied ? (
+          <CheckIcon className={cn("h-4 w-4", iconClassName)} />
+        ) : (
+          <CopyIcon className={cn("h-4 w-4", iconClassName)} />
+        )}
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={4}>
         <p>{copied ? "Copied" : (label ?? "Copy")}</p>

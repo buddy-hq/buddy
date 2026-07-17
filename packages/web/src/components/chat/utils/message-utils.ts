@@ -1,4 +1,4 @@
-import type { MessageInfo, MessagePart, MessageWithParts } from "@/state/chat-types"
+import type { MessageInfo, MessagePart, MessageWithParts, ProviderInfo } from "@/state/chat-types"
 
 import { parseToolState } from "../tools/parse-tool-state"
 import { parseToolUiMetadata } from "../tools/parse-tool-ui-metadata"
@@ -19,6 +19,36 @@ export function modelLabel(info: MessageInfo): string {
     return info.model.modelID
   }
   return ""
+}
+
+function messageProviderID(info: MessageInfo): string | undefined {
+  if ("providerID" in info && typeof info.providerID === "string") {
+    return info.providerID
+  }
+  if ("model" in info && info.model?.providerID) {
+    return info.model.providerID
+  }
+  return undefined
+}
+
+/**
+ * Prefer the catalog display name over the raw model id/slug.
+ * Provider models are an array (not a map) — lookup must use find by id.
+ */
+export function resolveModelDisplayName(
+  info: MessageInfo,
+  providers: ReadonlyArray<ProviderInfo> | undefined,
+): string {
+  const slug = modelLabel(info)
+  const providerID = messageProviderID(info)
+  if (!providerID || !slug || !providers || providers.length === 0) {
+    return slug
+  }
+
+  const provider = providers.find((entry) => entry.id === providerID)
+  const model = provider?.models.find((entry) => entry.id === slug)
+  const name = model?.name?.trim()
+  return name && name.length > 0 ? name : slug
 }
 
 export function assistantPartRenderable(

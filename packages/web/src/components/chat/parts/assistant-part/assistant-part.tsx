@@ -27,6 +27,7 @@ export type AssistantPartRendererProps = {
     resource: ResourceReadingTarget,
     options?: ResourceOpenOptions,
   ) => void
+  onForkMessage?: () => Promise<void> | void
   stripLeadingFigureImage?: boolean
   stripLeadingMermaidSources?: string[]
   directory?: string
@@ -49,6 +50,7 @@ function assistantPartRendererEqual(
   if (prevProps.directory !== nextProps.directory) return false
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
   if (prevProps.onOpenResource !== nextProps.onOpenResource) return false
+  if (prevProps.onForkMessage !== nextProps.onForkMessage) return false
   if (prevProps.defaultOpen !== nextProps.defaultOpen) return false
 
   // Deep comparison for part content
@@ -68,12 +70,12 @@ function assistantPartRendererEqual(
 export const AssistantPartRenderer = memo(function AssistantPartRenderer({
   part,
   copyPartID,
-  metaText,
   interrupted,
   streaming = false,
   preferEagerMarkdown,
   onOpenSession,
   onOpenResource,
+  onForkMessage,
   stripLeadingFigureImage,
   stripLeadingMermaidSources,
   directory,
@@ -88,7 +90,6 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
       <AssistantTextPart
         part={part}
         copyEnabled={copyPartID === part.id}
-        metaText={metaText}
         interrupted={interrupted}
         streaming={streaming}
         preferEagerMarkdown={preferEagerMarkdown}
@@ -96,6 +97,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
         stripLeadingMermaidSources={stripLeadingMermaidSources}
         directory={directory}
         onOpenResource={onOpenResource}
+        onForkMessage={copyPartID === part.id ? onForkMessage : undefined}
       />
     )
   }

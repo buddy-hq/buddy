@@ -180,6 +180,8 @@ function estimateRowSize(row: TimelineRow | undefined) {
     case "thinking":
       return 52
     case "turn-divider":
+      // py-6 (24+24) + ~20px label row
+      return 72
     case "retry":
     case "error":
       return 96
@@ -327,6 +329,7 @@ function useProjectedRows(input: {
     () =>
       projectTimelineRows({
         messages: visibleMessages,
+        forkExclusiveEndMessageID: input.revertMessageID,
         isBusy: input.isBusy,
         sessionID: input.sessionID,
         directory: input.directory,
@@ -337,6 +340,7 @@ function useProjectedRows(input: {
       input.activeSessionStatus,
       input.directory,
       input.isBusy,
+      input.revertMessageID,
       input.sessionID,
       input.showReasoningSummaries,
       visibleMessages,
@@ -353,7 +357,6 @@ function TimelineUserRow(props: {
   row: Extract<TimelineRow, { type: "user" }>
   providers: ProviderInfo[]
   canRevert: boolean
-  onForkMessage: ChatTranscriptProps["onForkMessage"]
   onRevertMessage: ChatTranscriptProps["onRevertMessage"]
 }) {
   const info = useTranscriptMessage(props.row.userMessageID)
@@ -369,7 +372,6 @@ function TimelineUserRow(props: {
       <UserSection
         userMessage={userMessage}
         providers={props.providers}
-        onForkMessage={props.onForkMessage}
         onRevertMessage={props.canRevert ? props.onRevertMessage : undefined}
       />
     </article>
@@ -414,10 +416,12 @@ function TimelineAssistantRow(props: {
   editToolDefaultOpen: boolean
   onOpenSession: ChatTranscriptProps["onOpenSession"]
   onOpenResource: ChatTranscriptProps["onOpenResource"]
+  onForkMessage: ChatTranscriptProps["onForkMessage"]
   hiddenStepsExpansionState: HiddenStepsExpansionState | undefined
   onHiddenStepsExpansionStateChange: (state: HiddenStepsExpansionState) => void
   toolOpenByPartID: TimelineViewState["toolOpenByPartID"]
   onToolOpenChange: (partID: string, open: boolean) => void
+  askingQuestionsLabel?: string
 }) {
   const parts = useAssistantRowParts(props.row.item)
   const previousPart = usePreviousPart(props.row.item.previousPartID)
@@ -450,6 +454,25 @@ function TimelineAssistantRow(props: {
         )
       : undefined
   const itemPart = props.row.item.type === "part" ? parts[0] : undefined
+  const assistantSessionID = assistantMessageInfos.find((info) => info?.sessionID)?.sessionID
+  const requestFork = props.onForkMessage
+  const forkExclusiveMessageID = props.row.forkExclusiveMessageID
+  const rowActive = props.row.active
+  const onForkMessage = useCallback(() => {
+    if (!requestFork || !assistantSessionID || rowActive) return
+    return requestFork({
+      sessionID: assistantSessionID,
+      ...(forkExclusiveMessageID ? { messageID: forkExclusiveMessageID } : {}),
+    })
+  }, [assistantSessionID, forkExclusiveMessageID, requestFork, rowActive])
+  const availableOnForkMessage =
+    requestFork && assistantSessionID && !rowActive ? onForkMessage : undefined
+  // Final non-empty text of the turn: separate it from tools/steps above.
+  const showFinalTextSeparator =
+    itemPart != null &&
+    isChatTextPart(itemPart) &&
+    props.row.lastAssistantTextID === itemPart.id &&
+    props.row.previousAssistantPart
 
   return (
     <article
@@ -462,6 +485,15 @@ function TimelineAssistantRow(props: {
           props.row.previousAssistantPart ? "pt-2" : "pt-5"
         }`}
       >
+        {showFinalTextSeparator ? (
+          <div
+            data-timeline-separator="final-text"
+            className="w-full py-4"
+            aria-hidden="true"
+          >
+            <div className="h-px w-full bg-border-weak-base" />
+          </div>
+        ) : null}
         {props.row.item.type === "abstracted" ? (
           <HiddenSteps
             parts={parts}
@@ -472,6 +504,7 @@ function TimelineAssistantRow(props: {
             interrupted={props.row.assistantAborted}
             isBusy={props.row.active}
             isCurrent={props.row.itemActive}
+            workingLabel={props.askingQuestionsLabel}
             expansionState={props.hiddenStepsExpansionState ?? EMPTY_HIDDEN_STEPS_EXPANSION_STATE}
             onExpansionStateChange={props.onHiddenStepsExpansionStateChange}
           />
@@ -512,6 +545,7 @@ function TimelineAssistantRow(props: {
                 directory={props.directory}
                 onOpenSession={props.onOpenSession}
                 onOpenResource={props.onOpenResource}
+                onForkMessage={availableOnForkMessage}
                 defaultOpen={toolDefaultOpen(
                   String(itemPart.tool ?? ""),
                   props.shellToolDefaultOpen,
@@ -531,6 +565,7 @@ function TimelineAssistantRow(props: {
               directory={props.directory}
               onOpenSession={props.onOpenSession}
               onOpenResource={props.onOpenResource}
+              onForkMessage={availableOnForkMessage}
             />
           )
         ) : null}
@@ -539,9 +574,13 @@ function TimelineAssistantRow(props: {
   )
 }
 
-function TimelineThinkingRow(props: { row: Extract<TimelineRow, { type: "thinking" }> }) {
+function TimelineThinkingRow(props: {
+  row: Extract<TimelineRow, { type: "thinking" }>
+  askingQuestionsLabel?: string
+}) {
   const reasoningPart = useTranscriptPart(props.row.reasoningPartID)
   const detail =
+    props.askingQuestionsLabel ??
     props.row.reasoningHeading ??
     (reasoningPart && isChatReasoningPart(reasoningPart)
       ? reasoningHeading(reasoningPart.text)
@@ -575,6 +614,7 @@ function TimelineRowRenderer(props: {
   onHiddenStepsExpansionStateChange: (rowKey: string, state: HiddenStepsExpansionState) => void
   toolOpenByPartID: TimelineViewState["toolOpenByPartID"]
   onToolOpenChange: (partID: string, open: boolean) => void
+  askingQuestionsLabel?: string
 }) {
   switch (props.row.type) {
     case "turn-gap":
@@ -585,7 +625,6 @@ function TimelineRowRenderer(props: {
           row={props.row}
           providers={props.providers}
           canRevert={props.row.userMessageID === props.lastUserMessageID}
-          onForkMessage={props.onForkMessage}
           onRevertMessage={props.onRevertMessage}
         />
       )
@@ -600,7 +639,7 @@ function TimelineRowRenderer(props: {
             label={
               props.row.label === "compaction"
                 ? language.t("chat.compaction.compacted")
-                : "Interrupted"
+                : "Stopped"
             }
           />
         </article>
@@ -615,16 +654,23 @@ function TimelineRowRenderer(props: {
           editToolDefaultOpen={props.editToolDefaultOpen}
           onOpenSession={props.onOpenSession}
           onOpenResource={props.onOpenResource}
+          onForkMessage={props.onForkMessage}
           hiddenStepsExpansionState={props.hiddenStepsExpansionByRowKey[props.row.key]}
           onHiddenStepsExpansionStateChange={(state) =>
             props.onHiddenStepsExpansionStateChange(props.row.key, state)
           }
           toolOpenByPartID={props.toolOpenByPartID}
           onToolOpenChange={props.onToolOpenChange}
+          askingQuestionsLabel={props.askingQuestionsLabel}
         />
       )
     case "thinking":
-      return <TimelineThinkingRow row={props.row} />
+      return (
+        <TimelineThinkingRow
+          row={props.row}
+          askingQuestionsLabel={props.askingQuestionsLabel}
+        />
+      )
     case "retry":
       return (
         <article
@@ -759,6 +805,11 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
     directory ? state.directories[directory] : undefined,
   )
   const sessionID = directoryState?.sessionID
+  const askingQuestionsLabel =
+    sessionID &&
+    directoryState?.pendingQuestions.some((request) => request.sessionID === sessionID)
+      ? language.t("chatTools.asking.other")
+      : undefined
   const sessions = directoryState?.sessions ?? []
   const activeSession = sessionID ? sessions.find((session) => session.id === sessionID) : undefined
   const providers = directoryState?.providers ?? EMPTY_PROVIDERS
@@ -1150,6 +1201,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                     onHiddenStepsExpansionStateChange={handleHiddenStepsExpansionStateChange}
                     toolOpenByPartID={timelineViewState.toolOpenByPartID}
                     onToolOpenChange={handleToolOpenChange}
+                    askingQuestionsLabel={askingQuestionsLabel}
                   />
                 </TimelineVirtualRow>
               )

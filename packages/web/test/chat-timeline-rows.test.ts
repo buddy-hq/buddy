@@ -62,12 +62,14 @@ function toolPart(input: { id: string; tool: string }): MessagePart {
 
 function rowsFor(input: {
   messages: MessageWithParts[]
+  forkExclusiveEndMessageID?: string
   isBusy?: boolean
   status?: SessionStatusInfo
   showReasoningSummaries?: boolean
 }) {
   return projectTimelineRows({
     messages: input.messages,
+    forkExclusiveEndMessageID: input.forkExclusiveEndMessageID,
     isBusy: input.isBusy ?? false,
     sessionID: "ses_rows",
     directory: "/repo",
@@ -124,6 +126,72 @@ describe("chat timeline rows", () => {
     const reused = reuseTimelineRows(rows, nextRows)
     expect(reused[0]).toBe(rows[0])
     expect(reused[1]).toBe(rows[1])
+  })
+
+  test("uses the next user message as the assistant fork boundary", () => {
+    const messages = [
+      userMessage("msg_user_1"),
+      assistantMessage({
+        id: "msg_assistant_1",
+        parts: [
+          {
+            id: "prt_assistant_1",
+            sessionID: "ses_rows",
+            messageID: "msg_assistant_1",
+            type: "text",
+            text: "First response",
+          },
+        ],
+      }),
+      userMessage("msg_user_2"),
+      assistantMessage({
+        id: "msg_assistant_2",
+        parts: [
+          {
+            id: "prt_assistant_2",
+            sessionID: "ses_rows",
+            messageID: "msg_assistant_2",
+            type: "text",
+            text: "Second response",
+          },
+        ],
+      }),
+    ]
+
+    const assistantRows = rowsFor({ messages }).filter(
+      (row): row is Extract<TimelineRow, { type: "assistant" }> => row.type === "assistant",
+    )
+
+    expect(assistantRows.map((row) => row.forkExclusiveMessageID)).toEqual([
+      "msg_user_2",
+      undefined,
+    ])
+  })
+
+  test("uses the revert point as the final visible assistant fork boundary", () => {
+    const rows = rowsFor({
+      messages: [
+        userMessage("msg_user_visible"),
+        assistantMessage({
+          id: "msg_assistant_visible",
+          parts: [
+            {
+              id: "prt_assistant_visible",
+              sessionID: "ses_rows",
+              messageID: "msg_assistant_visible",
+              type: "text",
+              text: "Visible response",
+            },
+          ],
+        }),
+      ],
+      forkExclusiveEndMessageID: "msg_user_reverted",
+    })
+    const assistantRow = rows.find(
+      (row): row is Extract<TimelineRow, { type: "assistant" }> => row.type === "assistant",
+    )
+
+    expect(assistantRow?.forkExclusiveMessageID).toBe("msg_user_reverted")
   })
 
   test("projects active thinking, retry notices, and assistant errors", () => {
@@ -424,5 +492,34 @@ describe("chat timeline rows", () => {
       userMessageID: "msg_interrupted_user",
       label: "interrupted",
     })
+
+    // After an interrupted turn, the divider owns inter-turn spacing — do not
+    // stack an extra turn-gap only below INTERRUPTED.
+    const interruptedThenNext = rowsFor({
+      messages: [
+        userMessage("msg_interrupted_user"),
+        createMessageWithParts(
+          createAssistantMessageInfo({
+            id: "msg_interrupted_assistant",
+            sessionID: "ses_rows",
+            finish: "aborted",
+          }),
+        ),
+        userMessage("msg_next_user"),
+      ],
+    })
+    const interruptedIndex = interruptedThenNext.findIndex(
+      (row) => row.type === "turn-divider" && row.label === "interrupted",
+    )
+    const nextUserIndex = interruptedThenNext.findIndex(
+      (row) => row.type === "user" && row.userMessageID === "msg_next_user",
+    )
+    expect(interruptedIndex).toBeGreaterThanOrEqual(0)
+    expect(nextUserIndex).toBe(interruptedIndex + 1)
+    expect(
+      interruptedThenNext.some(
+        (row) => row.type === "turn-gap" && row.userMessageID === "msg_next_user",
+      ),
+    ).toBe(false)
   })
 })

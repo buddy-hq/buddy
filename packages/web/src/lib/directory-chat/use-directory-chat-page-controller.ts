@@ -53,7 +53,7 @@ import {
   prefetchSessionMessages,
   createManagedNotebook,
   compactSession,
-  forkSessionFromMessage,
+  forkSession,
   openInboxNotebook,
   openProject,
   rejectQuestion,
@@ -1019,19 +1019,6 @@ export function useDirectoryChatPageController(
     }
   }
 
-  function resolveUndoRestoreDraft(messageID?: string) {
-    const revertMessageID = cs.sessionFamily.current?.revert?.messageID
-    const targetUserMessage = messageID
-      ? cs.messages.find((message) => message.info.role === "user" && message.info.id === messageID)
-      : cs.messages.findLast(
-          (message) =>
-            message.info.role === "user" &&
-            (revertMessageID === undefined || message.info.id < revertMessageID),
-        )
-
-    return buildPromptDraftFromUserMessage(targetUserMessage, decodedDirectory)
-  }
-
   const sendRuntimePrompt = useCallback(
     async (input: {
       content: string
@@ -1347,12 +1334,12 @@ export function useDirectoryChatPageController(
       }
 
       if (slashCommand.command.name === UNDO_SLASH_COMMAND_NAME) {
-        const restoreDraft = resolveUndoRestoreDraft()
         cs.clearPromptDraft(cs.promptKey)
         try {
-          await undoLastSessionMessage(decodedDirectory, {
+          const result = await undoLastSessionMessage(decodedDirectory, {
             sessionID,
           })
+          const restoreDraft = buildPromptDraftFromUserMessage(result.message, decodedDirectory)
           if (restoreDraft) {
             cs.setPromptDraft(cs.promptKey, restoreDraft)
           }
@@ -1366,9 +1353,13 @@ export function useDirectoryChatPageController(
       if (slashCommand.command.name === REDO_SLASH_COMMAND_NAME) {
         cs.clearPromptDraft(cs.promptKey)
         try {
-          await restoreRevertedSessionMessage(decodedDirectory, {
+          const result = await restoreRevertedSessionMessage(decodedDirectory, {
             sessionID,
           })
+          const restoreDraft = buildPromptDraftFromUserMessage(result.message, decodedDirectory)
+          if (restoreDraft) {
+            cs.setPromptDraft(cs.promptKey, restoreDraft)
+          }
           void syncTeachingRuntimeSelection()
         } catch {
           restorePromptSnapshot(draftSnapshot)
@@ -1379,7 +1370,7 @@ export function useDirectoryChatPageController(
       if (slashCommand.command.name === FORK_SLASH_COMMAND_NAME) {
         cs.clearPromptDraft(cs.promptKey)
         try {
-          const forkedSession = await forkSessionFromMessage(decodedDirectory, {
+          const forkedSession = await forkSession(decodedDirectory, {
             sessionID,
           })
           void syncTeachingRuntimeSelection({
@@ -1657,15 +1648,18 @@ export function useDirectoryChatPageController(
     onTranscriptInteraction: autoScroll.handleInteraction,
     onOpenSession: handleOpenCurrentDirectorySession,
     onRevertMessage: async ({ sessionID, messageID }) => {
-      const restoreDraft = resolveUndoRestoreDraft(messageID)
-      await undoLastSessionMessage(decodedDirectory, { sessionID, messageID })
+      const result = await undoLastSessionMessage(decodedDirectory, { sessionID, messageID })
+      const restoreDraft = buildPromptDraftFromUserMessage(result.message, decodedDirectory)
       if (restoreDraft) {
         cs.setPromptDraft(cs.promptKey, restoreDraft)
       }
       void syncTeachingRuntimeSelection()
     },
     onForkMessage: async ({ sessionID, messageID }) => {
-      const forkedSession = await forkSessionFromMessage(decodedDirectory, { sessionID, messageID })
+      const forkedSession = await forkSession(decodedDirectory, {
+        sessionID,
+        ...(messageID ? { messageID } : {}),
+      })
       void syncTeachingRuntimeSelection({
         directory: decodedDirectory,
         sessionID: forkedSession.id,
@@ -1678,8 +1672,13 @@ export function useDirectoryChatPageController(
       const draftSnapshot = readPromptSnapshot()
 
       try {
-        await restoreRevertedSessionMessage(decodedDirectory, { sessionID })
-        cs.clearPromptDraft(cs.promptKey)
+        const result = await restoreRevertedSessionMessage(decodedDirectory, { sessionID })
+        const restoreDraft = buildPromptDraftFromUserMessage(result.message, decodedDirectory)
+        if (restoreDraft) {
+          cs.setPromptDraft(cs.promptKey, restoreDraft)
+        } else {
+          cs.clearPromptDraft(cs.promptKey)
+        }
         void syncTeachingRuntimeSelection()
       } catch {
         restorePromptSnapshot(draftSnapshot)

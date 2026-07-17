@@ -3,6 +3,7 @@ import { AppNodeBuilderV1 } from "opencode/effect/app-node-builder-v1"
 import { makeRuntime } from "opencode/effect/run-service"
 import * as OpenCodeSession from "opencode/session/session"
 import { withCurrentInstance } from "./effect-runtime"
+import { createForkedSessionTitle, removeForkTitleLineage } from "./session-title"
 
 const liveSessions = new Map<string, OpenCodeSession.Info>()
 const MAX_LIVE_SESSION_CACHE_SIZE = 256
@@ -130,6 +131,7 @@ function ensurePatched(service: OpenCodeSession.Interface) {
   const originalFork = service.fork.bind(service)
   const originalGet = service.get.bind(service)
   const originalSetTitle = service.setTitle.bind(service)
+  const originalSetMetadata = service.setMetadata.bind(service)
   const originalSetArchived = service.setArchived.bind(service)
   const originalSetPermission = service.setPermission.bind(service)
   const originalChildren = service.children.bind(service)
@@ -146,7 +148,19 @@ function ensurePatched(service: OpenCodeSession.Interface) {
   })
 
   const fork: OpenCodeSession.Interface["fork"] = Effect.fn("BuddySession.fork")(function* (input) {
-    return canonicalizeLiveSession(yield* originalFork(input))
+    const original = yield* originalGet(input.sessionID)
+    const session = yield* originalFork(input)
+    const forkTitle = createForkedSessionTitle({
+      title: original.title,
+      metadata: original.metadata,
+    })
+    yield* originalSetTitle({ sessionID: session.id, title: forkTitle.title })
+    yield* originalSetMetadata({ sessionID: session.id, metadata: forkTitle.metadata })
+    return canonicalizeLiveSession({
+      ...session,
+      title: forkTitle.title,
+      metadata: forkTitle.metadata,
+    })
   })
 
   const get: OpenCodeSession.Interface["get"] = Effect.fn("BuddySession.get")(function* (id) {
@@ -155,11 +169,19 @@ function ensurePatched(service: OpenCodeSession.Interface) {
 
   const setTitle: OpenCodeSession.Interface["setTitle"] = Effect.fn("BuddySession.setTitle")(
     function* (input) {
+      const session = yield* originalGet(input.sessionID).pipe(Effect.orDie)
+      const metadata = removeForkTitleLineage(session.metadata)
       yield* originalSetTitle(input)
+      if (metadata !== session.metadata) {
+        yield* originalSetMetadata({ sessionID: input.sessionID, metadata: metadata ?? {} })
+      }
       updateCachedSession({
         sessionID: input.sessionID,
         title: input.title,
         updated: Date.now(),
+      })
+      mutateCachedSession(input.sessionID, (cached) => {
+        cached.metadata = metadata
       })
     },
   )
