@@ -48,7 +48,9 @@ import {
   applyTranscriptMessageUpdated,
   applyTranscriptPartUpdated,
   getTranscriptMessages,
+  getTranscriptSessionMeta,
   hasTranscriptMessages,
+  loadOlderTranscriptMessages,
   loadTranscriptMessages,
   markTranscriptSessionOptimistic,
   setTranscriptSessionEmpty,
@@ -77,6 +79,7 @@ import {
 import type { PermissionReply } from "./permission-types"
 import { appQueryClient } from "./query-client"
 import { invalidateObsidianFileCaches } from "./obsidian-vault-query"
+import { resolveRedoTargetMessageID, resolveUndoTargetMessageID } from "./session-revert"
 
 export type PersonaConfigOption = {
   id: string
@@ -335,7 +338,7 @@ const SESSION_NOT_FOUND_ERROR = "Session not found"
 const UNDO_MISSING_SESSION_ERROR = "Start a session before undoing the last message."
 const UNDO_NO_MESSAGE_ERROR = "No user message is available to undo."
 const FORK_MISSING_SESSION_ERROR = "Start a session before forking."
-const FORK_NO_MESSAGE_ERROR = "No user message is available to fork from."
+const RESTORE_MISSING_SESSION_ERROR = "Start a session before restoring undone messages."
 const RESTORE_NO_MESSAGE_ERROR = "No undone message is available to restore."
 const pendingSessionCreations = new Map<string, Promise<SessionInfo>>()
 export const DEFAULT_INBOX_NOTEBOOK_NAME = "Inbox" as const
@@ -1217,7 +1220,7 @@ export async function loadMessages(directory: string, sessionID: string) {
   let lastError: unknown
 
   try {
-    const messages = await loadTranscriptMessages(directory, sessionID, {
+    let messages = await loadTranscriptMessages(directory, sessionID, {
       force: true,
       shouldRetryMissing: async (error) => {
         if (!isLatestTranscriptRequest(directory, requestSequence)) {
@@ -1231,6 +1234,14 @@ export async function loadMessages(directory: string, sessionID: string) {
         )
       },
     })
+
+    const session = useChatStore
+      .getState()
+      .directories[directory]?.sessions.find((item) => item.id === sessionID)
+    if (session?.revert?.messageID) {
+      await resolveSessionRedoTargetMessageID({ directory, sessionID, session })
+      messages = getTranscriptMessages(directory, sessionID)
+    }
 
     if (!isLatestTranscriptRequest(directory, requestSequence)) {
       return messages
@@ -1992,52 +2003,51 @@ export async function abortPrompt(directory: string) {
   return aborted
 }
 
-function resolveLatestVisibleUserMessageID(input: {
-  messages: MessageWithParts[]
-  session: SessionInfo | undefined
-}) {
-  const revertMessageID = input.session?.revert?.messageID
-  const latestUserMessage = input.messages.findLast(
-    (message) =>
-      message.info.role === "user" &&
-      (revertMessageID === undefined || message.info.id < revertMessageID),
-  )
-  if (!latestUserMessage || latestUserMessage.info.role !== "user") {
-    return undefined
-  }
-
-  return latestUserMessage.info.id
-}
-
-function resolveUndoTargetMessageID(input: {
-  messages: MessageWithParts[]
+async function resolveSessionUndoTargetMessageID(input: {
+  directory: string
+  sessionID: string
   session: SessionInfo | undefined
   explicitMessageID?: string
 }) {
-  return input.explicitMessageID ?? resolveLatestVisibleUserMessageID(input)
+  return resolveUndoTargetMessageID({
+    explicitMessageID: input.explicitMessageID,
+    revertMessageID: input.session?.revert?.messageID,
+    readTranscript: () => {
+      const meta = getTranscriptSessionMeta(input.directory, input.sessionID)
+      return {
+        messages: getTranscriptMessages(input.directory, input.sessionID),
+        complete: meta.complete,
+        cursor: meta.cursor,
+      }
+    },
+    loadOlder: async () => {
+      await loadOlderTranscriptMessages(input.directory, input.sessionID)
+    },
+  })
 }
 
-function resolveForkTargetMessageID(input: {
-  messages: MessageWithParts[]
-  session: SessionInfo | undefined
-  explicitMessageID?: string
+async function resolveSessionRedoTargetMessageID(input: {
+  directory: string
+  sessionID: string
+  session: SessionInfo
 }) {
-  return input.explicitMessageID ?? resolveLatestVisibleUserMessageID(input)
-}
+  const revertMessageID = input.session.revert?.messageID
+  if (!revertMessageID) return undefined
 
-function resolveRestoreTargetMessageID(input: {
-  messages: MessageWithParts[]
-  session: SessionInfo | undefined
-}) {
-  const revertMessageID = input.session?.revert?.messageID
-  if (!revertMessageID) {
-    return undefined
-  }
-
-  const nextUserMessage = input.messages.find(
-    (message) => message.info.role === "user" && message.info.id > revertMessageID,
-  )
-  return nextUserMessage?.info.id
+  return resolveRedoTargetMessageID({
+    revertMessageID,
+    readTranscript: () => {
+      const meta = getTranscriptSessionMeta(input.directory, input.sessionID)
+      return {
+        messages: getTranscriptMessages(input.directory, input.sessionID),
+        complete: meta.complete,
+        cursor: meta.cursor,
+      }
+    },
+    loadOlder: async () => {
+      await loadOlderTranscriptMessages(input.directory, input.sessionID)
+    },
+  })
 }
 
 async function performSessionRevertMutation(input: {
@@ -2051,18 +2061,34 @@ async function performSessionRevertMutation(input: {
   try {
     const session = await input.request()
 
-    selectCanonicalSession(input.directory, session)
-    await loadMessages(input.directory, input.sessionID)
+    invalidateSessionLists(input.directory)
+    store.applySessionUpdated(input.directory, session)
+    const targetIsActive =
+      useChatStore.getState().directories[input.directory]?.sessionID === input.sessionID
+    if (targetIsActive) {
+      await loadMessages(input.directory, input.sessionID)
+      if (session.revert?.messageID) {
+        await resolveSessionUndoTargetMessageID({
+          directory: input.directory,
+          sessionID: input.sessionID,
+          session,
+        })
+      }
+    }
     void loadSessions(input.directory).catch(() => undefined)
     store.applySessionStatus(input.directory, input.sessionID, IDLE_SESSION_STATUS)
-    store.clearDirectoryError(input.directory)
+    if (targetIsActive) {
+      store.clearDirectoryError(input.directory)
+    }
     return session
   } catch (error) {
     const missingSession = isMissingSessionError(error)
+    const targetIsActive =
+      useChatStore.getState().directories[input.directory]?.sessionID === input.sessionID
     store.applySessionStatus(input.directory, input.sessionID, IDLE_SESSION_STATUS)
-    if (missingSession) {
+    if (missingSession && targetIsActive) {
       selectDraftSession(input.directory)
-    } else {
+    } else if (!missingSession && targetIsActive) {
       void loadMessages(input.directory, input.sessionID).catch(() => undefined)
     }
     void loadSessions(input.directory).catch(() => undefined)
@@ -2095,8 +2121,9 @@ export async function undoLastSessionMessage(
 
   const latestState = useChatStore.getState().directories[directory]
   const activeSession = latestState?.sessions.find((session) => session.id === sessionID)
-  const messageID = resolveUndoTargetMessageID({
-    messages: getTranscriptMessages(directory, sessionID),
+  const messageID = await resolveSessionUndoTargetMessageID({
+    directory,
+    sessionID,
     session: activeSession,
     explicitMessageID: input?.messageID,
   })
@@ -2107,7 +2134,10 @@ export async function undoLastSessionMessage(
     throw error
   }
 
-  return performSessionRevertMutation({
+  const message = getTranscriptMessages(directory, sessionID).find(
+    (item) => item.info.id === messageID && item.info.role === "user",
+  )
+  const session = await performSessionRevertMutation({
     directory,
     sessionID,
     request: async () =>
@@ -2118,12 +2148,14 @@ export async function undoLastSessionMessage(
         }),
       ),
   })
+  return { session, message }
 }
 
-export async function forkSessionFromMessage(
+export async function forkSession(
   directory: string,
   input?: {
     sessionID?: string
+    /** Exclusive upper bound. Omit to clone the full session. */
     messageID?: string
   },
 ) {
@@ -2138,24 +2170,11 @@ export async function forkSessionFromMessage(
     throw error
   }
 
-  const activeSession = state?.sessions.find((session) => session.id === sessionID)
-  const messageID = resolveForkTargetMessageID({
-    messages: getTranscriptMessages(directory, sessionID),
-    session: activeSession,
-    explicitMessageID: input?.messageID,
-  })
-
-  if (!messageID) {
-    const error = new Error(FORK_NO_MESSAGE_ERROR)
-    store.setDirectoryError(directory, error.message)
-    throw error
-  }
-
   try {
     const forkedSession = requireBuddyData<SessionInfo>(
       await getBuddyClient(directory).session.fork({
         sessionID,
-        messageID,
+        ...(input?.messageID ? { messageID: input.messageID } : {}),
       }),
     )
 
@@ -2190,7 +2209,7 @@ export async function restoreRevertedSessionMessage(
   const initialState = store.directories[directory]
   const sessionID = input?.sessionID ?? initialState?.sessionID
   if (!sessionID) {
-    const error = new Error(UNDO_MISSING_SESSION_ERROR)
+    const error = new Error(RESTORE_MISSING_SESSION_ERROR)
     store.setDirectoryError(directory, error.message)
     throw error
   }
@@ -2201,19 +2220,23 @@ export async function restoreRevertedSessionMessage(
 
   const latestState = useChatStore.getState().directories[directory]
   const activeSession = latestState?.sessions.find((session) => session.id === sessionID)
-  const nextMessageID = resolveRestoreTargetMessageID({
-    messages: getTranscriptMessages(directory, sessionID),
-    session: activeSession,
-  })
-  const hasRevertState = !!activeSession?.revert?.messageID
-
-  if (!hasRevertState) {
+  if (!activeSession?.revert?.messageID) {
     const error = new Error(RESTORE_NO_MESSAGE_ERROR)
     store.setDirectoryError(directory, error.message)
     throw error
   }
 
-  return performSessionRevertMutation({
+  const nextMessageID = await resolveSessionRedoTargetMessageID({
+    directory,
+    sessionID,
+    session: activeSession,
+  })
+  const message = nextMessageID
+    ? getTranscriptMessages(directory, sessionID).find(
+        (item) => item.info.id === nextMessageID && item.info.role === "user",
+      )
+    : undefined
+  const session = await performSessionRevertMutation({
     directory,
     sessionID,
     request: async () =>
@@ -2230,6 +2253,7 @@ export async function restoreRevertedSessionMessage(
             }),
           ),
   })
+  return { session, message }
 }
 
 async function resyncDirectoryState(

@@ -1,8 +1,23 @@
 import { cn } from "@buddy/ui"
+import DOMPurify from "dompurify"
+import { marked } from "marked"
+import { useEffect, useState } from "react"
 import { Markdown } from "@/components/markdown/Markdown"
+import { parseInlineMarkdownToHtml } from "@/components/markdown/markdown-parser"
 
 const QUESTION_MARKDOWN_CACHE_KEY_PREFIX = "question"
 const QUESTION_MARKDOWN_EMPTY_PART = "_"
+const QUESTION_INLINE_MARKDOWN_CACHE_MAX = 200
+const QUESTION_DISPLAY_MATH_PATTERN = /(\$\$[\s\S]*\$\$|\\\[[\s\S]*\\\]|\\begin\{)/u
+const QUESTION_MARKDOWN_SPACE_TOKEN = "space"
+const QUESTION_MARKDOWN_PARAGRAPH_TOKEN = "paragraph"
+const questionInlineMarkdownCache = new Map<string, { source: string; html: string }>()
+
+type QuestionInlineMarkdownRender = {
+  cacheKey: string
+  source: string
+  html: string
+}
 
 const QUESTION_MARKDOWN_VARIANT_CLASS_NAME = {
   body: [
@@ -51,6 +66,85 @@ export function enumerateQuestionMarkdownText(values: string[]): QuestionMarkdow
       occurrence: nextOccurrence,
     }
   })
+}
+
+export function isQuestionMarkdownBlock(text: string): boolean {
+  if (QUESTION_DISPLAY_MATH_PATTERN.test(text)) return true
+  const contentTokens = marked
+    .lexer(text)
+    .filter((token) => token.type !== QUESTION_MARKDOWN_SPACE_TOKEN)
+  return (
+    contentTokens.length !== 1 || contentTokens[0]?.type !== QUESTION_MARKDOWN_PARAGRAPH_TOKEN
+  )
+}
+
+function cacheInlineQuestionMarkdown(key: string, source: string, html: string) {
+  questionInlineMarkdownCache.delete(key)
+  questionInlineMarkdownCache.set(key, { source, html })
+  if (questionInlineMarkdownCache.size <= QUESTION_INLINE_MARKDOWN_CACHE_MAX) return
+  const oldestKey = questionInlineMarkdownCache.keys().next().value
+  if (oldestKey) questionInlineMarkdownCache.delete(oldestKey)
+}
+
+export function QuestionInlineMarkdown(props: {
+  text: string
+  cacheKey: string
+  className?: string
+  wrapContent?: boolean
+}) {
+  const cached = questionInlineMarkdownCache.get(props.cacheKey)
+  const [rendered, setRendered] = useState<QuestionInlineMarkdownRender | undefined>(() =>
+    cached?.source === props.text
+      ? { cacheKey: props.cacheKey, source: props.text, html: cached.html }
+      : undefined,
+  )
+  const html =
+    rendered?.cacheKey === props.cacheKey && rendered.source === props.text
+      ? rendered.html
+      : undefined
+
+  useEffect(() => {
+    let cancelled = false
+    const current = questionInlineMarkdownCache.get(props.cacheKey)
+    if (current?.source === props.text) {
+      setRendered({ cacheKey: props.cacheKey, source: props.text, html: current.html })
+      return
+    }
+
+    void parseInlineMarkdownToHtml(props.text).then((parsed) => {
+      if (cancelled) return
+      const sanitized = DOMPurify.sanitize(parsed, {
+        USE_PROFILES: { html: true, mathMl: true, svg: true },
+        FORBID_TAGS: ["style"],
+        FORBID_CONTENTS: ["style", "script"],
+      })
+      cacheInlineQuestionMarkdown(props.cacheKey, props.text, sanitized)
+      setRendered({ cacheKey: props.cacheKey, source: props.text, html: sanitized })
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [props.cacheKey, props.text])
+
+  const content = html ? (
+    <span dangerouslySetInnerHTML={{ __html: html }} />
+  ) : (
+    <span>{props.text}</span>
+  )
+
+  if (props.wrapContent) {
+    return <span className={props.className}>{content}</span>
+  }
+
+  return (
+    <span
+      className={props.className}
+      dangerouslySetInnerHTML={html ? { __html: html } : undefined}
+    >
+      {html ? undefined : props.text}
+    </span>
+  )
 }
 
 export function QuestionMarkdown(props: {

@@ -487,6 +487,10 @@ function createParser(options: { suppressMathErrors?: boolean }) {
 const parser = createParser({ suppressMathErrors: false })
 const streamingParser = createParser({ suppressMathErrors: true })
 
+export async function parseInlineMarkdownToHtml(markdown: string): Promise<string> {
+  return await parser.parseInline(markdown)
+}
+
 // ── Per-block cache (streaming) ────────────────────────────────────────────
 
 type CacheEntry = { hash: string; html: string }

@@ -273,12 +273,11 @@ const sessionRevertBodyOpenApiSchema = {
 }
 
 const sessionForkBodySchema = z.object({
-  messageID: z.string().min(1),
+  messageID: z.string().min(1).optional(),
 })
 
 const sessionForkBodyOpenApiSchema = {
   type: "object" as const,
-  required: ["messageID"],
   additionalProperties: false,
   properties: {
     messageID: { type: "string" as const },
@@ -661,9 +660,9 @@ export const SessionRoutes = new Hono()
     "/:sessionID/fork",
     describeRoute({
       operationId: "session.fork",
-      summary: "Fork a session from a message",
+      summary: "Fork a session",
       requestBody: {
-        required: true,
+        required: false,
         content: {
           "application/json": { schema: sessionForkBodyOpenApiSchema },
         },
@@ -680,7 +679,7 @@ export const SessionRoutes = new Hono()
     }),
     validator("query", directoryQuerySchema),
     validator("param", SessionIDParamSchema),
-    validator("json", sessionForkBodySchema),
+    validator("json", sessionForkBodySchema.optional()),
     forkSessionHandler,
   )
   .post(

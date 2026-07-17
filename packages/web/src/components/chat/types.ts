@@ -38,13 +38,16 @@ export type ChatTranscriptProps = {
     resource: ResourceReadingTarget,
     options?: ResourceOpenOptions,
   ) => void
-  onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
+  onForkMessage?: (input: {
+    sessionID: string
+    /** Exclusive upper bound (keep id < messageID). Omit to clone the full session. */
+    messageID?: string
+  }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
 }
 
 export type UserSectionProps = {
   userMessage?: MessageWithParts
   providers: ProviderInfo[]
-  onForkMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
   onRevertMessage?: (input: { sessionID: string; messageID: string }) => Promise<void> | void
 }

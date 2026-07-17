@@ -140,7 +140,7 @@ describe("interrupted chat rendering", () => {
     })
 
     expect(container.textContent).toContain("Neyman-Pearson lemma")
-    expect(container.textContent).toContain("Interrupted")
+    expect(container.textContent).toContain("Stopped")
     expect(container.textContent).not.toContain("\\frac")
   })
 

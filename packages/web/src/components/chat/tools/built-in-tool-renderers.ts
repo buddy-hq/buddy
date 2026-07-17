@@ -7,7 +7,7 @@ import {
   FolderOpen,
   GitBranch,
   Globe,
-  HelpCircle,
+  ListChecksIcon,
   Image,
   ListTodo,
   Network,
@@ -216,7 +216,7 @@ export const builtInTools: Record<string, ToolRenderer> = {
   }),
   question: createToolRenderer({
     inline: true,
-    icon: (cn) => createElement(HelpCircle, { className: cn }),
+    icon: (cn) => createElement(ListChecksIcon, { className: cn }),
     card: renderQuestionTool,
   }),
   learning_tool_search: createToolRenderer({

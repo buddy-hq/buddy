@@ -619,6 +619,16 @@ describe("resolveHiddenStepsHeader", () => {
     expect(header.shimmer).toBe(true)
   })
 
+  test("uses a contextual label instead of a randomized working label", () => {
+    const entries = entriesFromParts([bashPart("completed")])
+
+    const header = resolveHiddenStepsHeader(entries, true, true, "Asking questions")
+
+    expect(header.label).toBe("Asking questions")
+    expect(header.icon).toBe(HIDDEN_STEPS_REASONING_ICON)
+    expect(header.shimmer).toBe(true)
+  })
+
   test("completed entries in an older live-turn group keep their settled summary", () => {
     const entries = entriesFromParts([bashPart("completed")])
 

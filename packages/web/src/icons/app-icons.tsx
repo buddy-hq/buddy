@@ -23,6 +23,7 @@ import {
   ArrowDown01Icon as ArrowDown01IconData,
   ArrowRight01Icon as ArrowRight01IconData,
   ArrowUp01Icon as ArrowUp01IconData,
+  ArrowMoveDownRightIcon as ArrowMoveDownRightIconData,
   Award01Icon as Award01IconData,
   BlocksIcon as BlocksIconData,
   BookAIcon as BookAIconData,
@@ -62,6 +63,7 @@ import {
   Gamepad2Icon as Gamepad2IconData,
   GitBranchIcon as GitBranchIconData,
   Globe02Icon as Globe02IconData,
+  SplitIcon as SplitIconData,
   GraduationCapIcon as GraduationCapIconData,
   HandIcon as HandIconData,
   HelpCircleIcon as HelpCircleIconData,
@@ -287,6 +289,10 @@ export const Compass = createIcon(Compass01IconData, "Compass")
 export const CpuSettingsIcon = createIcon(CpuSettingsIconData, "CpuSettingsIcon")
 export const CopyIcon = createIcon(CopyIconData, "CopyIcon")
 export const CornerUpLeftIcon = createIcon(CornerUpLeftIconData, "CornerUpLeftIcon")
+export const ArrowMoveDownRightIcon = createIcon(
+  ArrowMoveDownRightIconData,
+  "ArrowMoveDownRightIcon",
+)
 export const Dna = createIcon(DnaIconData, "Dna")
 /** Hugeicons free download-1 (`Download01Icon` / `DownloadIcon`) — tray + arrow. */
 export const DownloadIcon = createIcon(Download01IconData, "DownloadIcon")
@@ -308,6 +314,7 @@ export const Gamepad2 = createIcon(Gamepad2IconData, "Gamepad2")
 export const Gamepad2Icon = createIcon(Gamepad2IconData, "Gamepad2Icon")
 export const GitBranch = createIcon(GitBranchIconData, "GitBranch")
 export const Globe = createIcon(Globe02IconData, "Globe")
+export const SplitIcon = createIcon(SplitIconData, "SplitIcon")
 export const GraduationCapIcon = createIcon(GraduationCapIconData, "GraduationCapIcon")
 
 export const GripVerticalIcon = createIcon(DragDropVerticalIconData, "GripVerticalIcon")

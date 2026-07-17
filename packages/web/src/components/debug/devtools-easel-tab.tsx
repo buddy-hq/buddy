@@ -43,6 +43,8 @@ import { NotebookSearchDrawer, type EaselSearchResult } from "./easel/notebook-s
 import { EaselOnboarding } from "./easel/easel-onboarding"
 import { OnboardingNocturne } from "./easel/onboarding-nocturne"
 import { OnboardingAtelier } from "./easel/onboarding-atelier"
+import { QuestionToolAnsweredEasel } from "./easel/question-tool-answered"
+import { QuestionDockRedesignsEasel } from "./easel/question-dock-redesigns"
 
 type EaselSectionID = "search" | "sources" | "practice" | "creations" | "boards" | "files"
 type EaselRailItemID = EaselSectionID | "agents"
@@ -60,6 +62,8 @@ type EaselPrototype =
   | "onboarding-easel"
   | "onboarding-nocturne"
   | "onboarding-atelier"
+  | "question-tool-answered"
+  | "question-dock-redesigns"
 
 type EaselPrototypeConfig = {
   id: EaselPrototype
@@ -68,6 +72,16 @@ type EaselPrototypeConfig = {
 }
 
 const EASEL_PROTOTYPES: EaselPrototypeConfig[] = [
+  {
+    id: "question-dock-redesigns",
+    label: "Question dock · Spotlight",
+    subtitle: "One question owns the surface · Skip is first-class",
+  },
+  {
+    id: "question-tool-answered",
+    label: "Question tool · answered",
+    subtitle: "Full-fidelity transcript card options after the user submits answers",
+  },
   {
     id: "onboarding-nocturne",
     label: "Onboarding · Nocturne (Brief A)",
@@ -987,7 +1001,7 @@ export function DevToolsEaselTab() {
   const [boardCreated, setBoardCreated] = useState(false)
   const [benchSurface, setBenchSurface] = useState<EaselBenchSurface>({ type: "reading" })
   const [creationPreview, setCreationPreview] = useState<EaselCreationPreview>()
-  const [prototype, setPrototype] = useState<EaselPrototype>("onboarding-nocturne")
+  const [prototype, setPrototype] = useState<EaselPrototype>("question-dock-redesigns")
 
   function clearCreationPreviewTimers() {
     if (previewPrefetchTimeoutRef.current) clearTimeout(previewPrefetchTimeoutRef.current)
@@ -1143,7 +1157,14 @@ export function DevToolsEaselTab() {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 items-center justify-center bg-surface-inset-base p-3">
+      <div
+        className={cn(
+          "flex min-h-0 flex-1",
+          prototype === "question-dock-redesigns"
+            ? "items-stretch justify-stretch bg-background-base p-0"
+            : "items-center justify-center bg-surface-inset-base p-3",
+        )}
+      >
         {prototype === "right-workspace" ? (
           <div
             ref={stageRef}
@@ -1243,6 +1264,22 @@ export function DevToolsEaselTab() {
           <div className="relative flex h-full min-h-0 w-full max-w-4xl items-center justify-center">
             <div className="relative z-20 flex h-full min-h-0 w-full max-w-4xl overflow-hidden rounded-lg border border-border-base shadow-lg">
               <EaselOnboarding />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "question-tool-answered" ? (
+          <div className="relative flex h-full min-h-0 w-full max-w-5xl items-center justify-center">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden rounded-lg border border-border-base shadow-lg">
+              <QuestionToolAnsweredEasel />
+            </div>
+          </div>
+        ) : null}
+
+        {prototype === "question-dock-redesigns" ? (
+          <div className="relative flex h-full min-h-0 w-full items-stretch justify-stretch">
+            <div className="relative z-20 flex h-full min-h-0 w-full overflow-hidden">
+              <QuestionDockRedesignsEasel />
             </div>
           </div>
         ) : null}

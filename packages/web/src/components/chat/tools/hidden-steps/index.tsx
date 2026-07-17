@@ -318,6 +318,7 @@ type HiddenStepsProps = {
   interrupted?: boolean
   isBusy?: boolean
   isCurrent?: boolean
+  workingLabel?: string
   expansionState?: HiddenStepsExpansionState
   onExpansionStateChange?: (state: HiddenStepsExpansionState) => void
 }
@@ -336,6 +337,7 @@ export function HiddenSteps({
   interrupted,
   isBusy,
   isCurrent,
+  workingLabel,
   expansionState,
   onExpansionStateChange,
 }: HiddenStepsProps) {
@@ -365,9 +367,10 @@ export function HiddenSteps({
         entries,
         Boolean(isBusy),
         isCurrent ?? Boolean(isBusy),
+        workingLabel,
       ),
     }
-  }, [parts, isBusy, isCurrent])
+  }, [parts, isBusy, isCurrent, workingLabel])
 
   const displayHeader = useFileToolHeaderDisplay({
     label: resolvedHeader.label,
@@ -400,7 +403,9 @@ export function HiddenSteps({
   }
 
   return (
-    <div className="my-2 w-full">
+    // When the turn was interrupted, MessageDivider owns the space below this
+    // block. Keep only top margin so we don't stack extra gap above INTERRUPTED.
+    <div className={cn("w-full", interrupted ? "mt-2" : "my-2")}>
       <button
         type="button"
         onClick={() => {
@@ -421,7 +426,13 @@ export function HiddenSteps({
         {hasError && !isBusy && !isOpen ? (
           <AlertCircle className="h-3 w-3 shrink-0 text-text-weaker" />
         ) : null}
-        <div className="h-px min-w-6 grow bg-linear-to-r from-border to-transparent" />
+        {/* Trailing rule only while expanded. Collapsed keeps an invisible
+            flex spacer so the chevron stays pinned to the row end. */}
+        {isOpen ? (
+          <div className="h-px min-w-6 grow bg-linear-to-r from-border to-transparent" />
+        ) : (
+          <span className="min-w-0 flex-1" aria-hidden="true" />
+        )}
         {canOpen ? (
           <motion.div
             animate={{ rotate: isOpen ? 90 : 0 }}

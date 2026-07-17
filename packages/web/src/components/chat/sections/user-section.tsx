@@ -110,7 +110,6 @@ function dedupeReferenceParts(parts: StandaloneReferencePart[]): Set<StandaloneR
 export const UserSection = memo(function UserSection({
   userMessage,
   providers,
-  onForkMessage,
   onRevertMessage,
 }: UserSectionProps) {
   const userParts = useMemo(() => userMessage?.parts ?? [], [userMessage?.parts])
@@ -242,15 +241,6 @@ export const UserSection = memo(function UserSection({
             agents={userAgentParts}
             inlineReferences={inlineReferences}
             providers={providers}
-            onForkMessage={
-              onForkMessage
-                ? () =>
-                    onForkMessage({
-                      sessionID: userMessage.info.sessionID,
-                      messageID: userMessage.info.id,
-                    })
-                : undefined
-            }
             onRevertMessage={
               onRevertMessage
                 ? () =>

@@ -19,6 +19,15 @@ const SOURCE_EXTENSIONS = [".css", ".ts", ".tsx"] as const
 const IGNORED_PATH_PARTS = ["/designs/"] as const
 const UI_PRIMITIVES_ROOT = "packages/ui/src/components/ui" as const
 const PRIMITIVE_DARK_MODE_EXCEPTIONS = ["packages/ui/src/components/ui/chart.tsx"] as const
+const TOOLTIP_SOURCE_PATH = "packages/ui/src/components/ui/tooltip.tsx" as const
+const TOOLTIP_CONTRAST_CONTRACT = {
+  foregroundToken: "background-base",
+  foregroundUtility: "text-background-base",
+  backgroundTokens: ["text-strong"],
+  backgroundUtility: "bg-text-strong",
+  descendantForegroundUtility: "**:text-current",
+  arrowFillUtility: "fill-text-strong",
+} as const
 
 const FORBIDDEN_UTILITY_CLASSES = [
   "bg-amber-500",
@@ -135,9 +144,9 @@ const TEXT_CONTRAST_CHECKS = [
     minimum: CONTRAST_TARGET.normalText,
   },
   {
-    name: "tooltip text",
-    foreground: "text-strong",
-    background: ["surface-raised-stronger-non-alpha", "background-base"],
+    name: "inverse tooltip text",
+    foreground: TOOLTIP_CONTRAST_CONTRACT.foregroundToken,
+    background: TOOLTIP_CONTRAST_CONTRACT.backgroundTokens,
     minimum: CONTRAST_TARGET.normalText,
   },
   {
@@ -349,7 +358,32 @@ function auditPrimitiveContracts(): AuditFailure[] {
   return failures
 }
 
-const failures = [...auditContrast(), ...auditForbiddenUtilities(), ...auditPrimitiveContracts()]
+function auditTooltipContrastContract(): AuditFailure[] {
+  const source = readFileSync(TOOLTIP_SOURCE_PATH, "utf8")
+  const requiredUtilities = [
+    TOOLTIP_CONTRAST_CONTRACT.foregroundUtility,
+    TOOLTIP_CONTRAST_CONTRACT.backgroundUtility,
+    TOOLTIP_CONTRAST_CONTRACT.descendantForegroundUtility,
+    TOOLTIP_CONTRAST_CONTRACT.arrowFillUtility,
+  ]
+
+  return requiredUtilities.flatMap((utility): AuditFailure[] =>
+    source.includes(utility)
+      ? []
+      : [
+          {
+            message: `${TOOLTIP_SOURCE_PATH} must use ${utility} to match the audited inverse tooltip contrast contract`,
+          },
+        ],
+  )
+}
+
+const failures = [
+  ...auditContrast(),
+  ...auditForbiddenUtilities(),
+  ...auditPrimitiveContracts(),
+  ...auditTooltipContrastContract(),
+]
 
 if (failures.length > 0) {
   console.error(`Theme audit failed with ${failures.length} issue(s):`)

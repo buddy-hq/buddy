@@ -1,10 +1,12 @@
-import { memo } from "react"
+import { memo, useState } from "react"
 import { Markdown } from "@/components/markdown/Markdown"
 import type { MarkdownMermaidContext } from "@/components/markdown/Markdown"
 import type { MarkdownChemistryContext } from "@/components/markdown/Markdown"
 import { CopyAction } from "../../copy-action"
 import { useAdaptiveStreamingText } from "../../hooks/use-streaming-text"
-import { cn } from "@buddy/ui"
+import { cn, Tooltip, TooltipContent, TooltipTrigger } from "@buddy/ui"
+import { SplitIcon } from "@/icons/app-icons"
+import { language } from "@/context/language"
 import type { WorkspaceResourceOpener } from "@/lib/use-workspace-file-open"
 import { useTranscriptMessage } from "@/state/transcript-repository"
 import type { ChatTextPart } from "../../utils/part-guards"
@@ -13,7 +15,6 @@ import { isSvgAutoRepairAssistantMessage } from "../../utils/message-visibility"
 type AssistantTextPartProps = {
   part: ChatTextPart
   copyEnabled: boolean
-  metaText?: string
   interrupted?: boolean
   streaming?: boolean
   preferEagerMarkdown?: boolean
@@ -21,6 +22,7 @@ type AssistantTextPartProps = {
   stripLeadingMermaidSources?: string[]
   directory?: string
   onOpenResource?: WorkspaceResourceOpener
+  onForkMessage?: () => Promise<void> | void
 }
 
 function stripLeadingRenderFigureMarkdown(text: string): string {
@@ -63,7 +65,6 @@ function assistantTextPartEqual(
 ): boolean {
   if (prevProps.part.id !== nextProps.part.id) return false
   if (prevProps.copyEnabled !== nextProps.copyEnabled) return false
-  if (prevProps.metaText !== nextProps.metaText) return false
   if (prevProps.interrupted !== nextProps.interrupted) return false
   if (prevProps.streaming !== nextProps.streaming) return false
   if (prevProps.preferEagerMarkdown !== nextProps.preferEagerMarkdown) return false
@@ -71,13 +72,13 @@ function assistantTextPartEqual(
   if (prevProps.stripLeadingMermaidSources !== nextProps.stripLeadingMermaidSources) return false
   if (prevProps.directory !== nextProps.directory) return false
   if (prevProps.onOpenResource !== nextProps.onOpenResource) return false
+  if (prevProps.onForkMessage !== nextProps.onForkMessage) return false
   return prevProps.part.text === nextProps.part.text
 }
 
 export const AssistantTextPart = memo(function AssistantTextPart({
   part,
   copyEnabled,
-  metaText,
   interrupted,
   streaming = false,
   preferEagerMarkdown,
@@ -85,7 +86,9 @@ export const AssistantTextPart = memo(function AssistantTextPart({
   stripLeadingMermaidSources,
   directory,
   onOpenResource,
+  onForkMessage,
 }: AssistantTextPartProps) {
+  const [branching, setBranching] = useState(false)
   const text = part.text
   const withoutLeadingFigure = stripLeadingFigureImage
     ? stripLeadingRenderFigureMarkdown(text)
@@ -122,6 +125,18 @@ export const AssistantTextPart = memo(function AssistantTextPart({
       : undefined
   if (!displayedText.trim()) return null
 
+  async function handleForkClick() {
+    if (!onForkMessage || branching) return
+    setBranching(true)
+    try {
+      await onForkMessage()
+    } catch {
+      // Action layer reports fork failures on the directory.
+    } finally {
+      setBranching(false)
+    }
+  }
+
   return (
     <div className="group/text-part min-w-0 w-full max-w-full">
       <div className="min-w-0 w-full max-w-full transition-opacity duration-75 ease-out">
@@ -140,14 +155,38 @@ export const AssistantTextPart = memo(function AssistantTextPart({
       {copyEnabled ? (
         <div
           className={cn(
-            "mt-1 flex min-h-6 items-center gap-2.5 transition-opacity duration-200 ease-out",
+            "mt-3 flex min-h-6 items-center gap-2.5 text-text-weaker transition-opacity duration-200 ease-out",
             "opacity-0 group-hover/text-part:opacity-100 group-focus-within/text-part:opacity-100",
             "pointer-events-none group-hover/text-part:pointer-events-auto group-focus-within/text-part:pointer-events-auto",
             interrupted && "w-full justify-end",
           )}
         >
-          <CopyAction value={displayedText} label="Copy response" />
-          {metaText ? <span className="text-xs font-medium text-text-weak">{metaText}</span> : null}
+          {/* Same icon size as before; drop the 32×32 padded box so the row is left-flush. */}
+          <CopyAction
+            value={displayedText}
+            label="Copy response"
+            className="h-auto w-auto shrink-0 rounded-sm p-0 text-inherit hover:bg-transparent hover:text-text-weak"
+          />
+          {onForkMessage ? (
+            <Tooltip>
+              <TooltipTrigger
+                type="button"
+                disabled={branching}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  void handleForkClick()
+                }}
+                className="inline-flex h-auto w-auto shrink-0 items-center justify-center rounded-sm p-0 text-inherit transition-colors hover:bg-transparent hover:text-text-weak disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label={language.t("chat.assistantMessage.branch")}
+              >
+                <SplitIcon className="h-4 w-4 rotate-90" />
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={4}>
+                <p>{language.t("chat.assistantMessage.branch")}</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
         </div>
       ) : null}
     </div>

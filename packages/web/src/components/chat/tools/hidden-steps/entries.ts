@@ -707,6 +707,7 @@ export function resolveHiddenStepsHeader(
   entries: HiddenStepsEntry[],
   isBusy: boolean,
   isCurrent = isBusy,
+  workingLabel?: string,
 ): THiddenStepsHeaderResult {
   const activeEntry = isBusy ? getActiveHiddenStepsEntry(entries) : undefined
 
@@ -733,7 +734,7 @@ export function resolveHiddenStepsHeader(
 
   if (isBusy && isCurrent) {
     return {
-      label: getWorkingLabel(entries),
+      label: workingLabel ?? getWorkingLabel(entries),
       icon: HIDDEN_STEPS_REASONING_ICON,
       throttleFileTools: false,
       shimmer: true,

@@ -9,10 +9,10 @@ afterEach(async () => {
   await OpenCodeInstance.disposeAll()
 })
 
-async function createSession(directory: string) {
+async function createSession(directory: string, title?: string) {
   return OpenCodeInstance.provide({
     directory,
-    fn: () => OpenCodeSession.create({}),
+    fn: () => OpenCodeSession.create(title ? { title } : {}),
   })
 }
 
@@ -56,7 +56,104 @@ async function seedMultiPartMessage(input: { directory: string; sessionID: strin
   })
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+async function readRevertBoundary(response: Response): Promise<string | undefined> {
+  const body: unknown = await response.json()
+  if (!isRecord(body)) {
+    throw new Error("Expected session response")
+  }
+
+  const revert = body.revert
+  if (revert === undefined) return undefined
+  if (!isRecord(revert) || typeof revert.messageID !== "string") {
+    throw new Error("Expected a valid session revert boundary")
+  }
+  return revert.messageID
+}
+
 describe("Buddy session API parity", () => {
+  test("fork route clones the full session when messageID is omitted", async () => {
+    await using project = await tmpdir({ git: true })
+    const session = await createSession(project.path, "Fork title")
+    await seedMultiPartMessage({
+      directory: project.path,
+      sessionID: session.id,
+    })
+
+    const response = await app.request(`/api/session/${session.id}/fork`, {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+      },
+    })
+
+    expect(response.status).toBe(200)
+    const body: unknown = await response.json()
+    if (!isRecord(body) || typeof body.id !== "string") {
+      throw new Error("Expected fork route to return a session")
+    }
+    const forkedSessionID = body.id
+    expect(body.title).toBe("Fork title (2)")
+
+    const forkedMessages = await OpenCodeInstance.provide({
+      directory: project.path,
+      fn: () => OpenCodeSession.messages({ sessionID: SessionID.make(forkedSessionID) }),
+    })
+    expect(forkedMessages).toHaveLength(1)
+    expect(forkedMessages[0]?.parts).toHaveLength(2)
+
+    const secondForkResponse = await app.request(`/api/session/${body.id}/fork`, {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+      },
+    })
+    expect(secondForkResponse.status).toBe(200)
+    const secondFork: unknown = await secondForkResponse.json()
+    if (!isRecord(secondFork)) {
+      throw new Error("Expected second fork route to return a session")
+    }
+    expect(secondFork.title).toBe("Fork title (3)")
+  })
+
+  test("fork route preserves the vendor exclusive message boundary", async () => {
+    await using project = await tmpdir({ git: true })
+    const session = await createSession(project.path)
+    await seedMultiPartMessage({
+      directory: project.path,
+      sessionID: session.id,
+    })
+    const secondMessage = await seedMultiPartMessage({
+      directory: project.path,
+      sessionID: session.id,
+    })
+
+    const response = await app.request(`/api/session/${session.id}/fork`, {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ messageID: secondMessage.messageID }),
+    })
+
+    expect(response.status).toBe(200)
+    const body: unknown = await response.json()
+    if (!isRecord(body) || typeof body.id !== "string") {
+      throw new Error("Expected fork route to return a session")
+    }
+    const forkedSessionID = body.id
+
+    const forkedMessages = await OpenCodeInstance.provide({
+      directory: project.path,
+      fn: () => OpenCodeSession.messages({ sessionID: SessionID.make(forkedSessionID) }),
+    })
+    expect(forkedMessages).toHaveLength(1)
+  })
+
   test("revert route preserves partID when reverting a specific part", async () => {
     await using project = await tmpdir({ git: true })
     const session = await createSession(project.path)
@@ -82,5 +179,56 @@ describe("Buddy session API parity", () => {
     const body = (await response.json()) as { revert?: { messageID: string; partID?: string } }
     expect(body.revert?.messageID).toBe(seeded.messageID)
     expect(body.revert?.partID).toBe(seeded.secondPartID)
+  })
+
+  test("revert and unrevert routes preserve the vendor undo and redo sequence", async () => {
+    await using project = await tmpdir({ git: true })
+    const session = await createSession(project.path)
+    const first = await seedMultiPartMessage({
+      directory: project.path,
+      sessionID: session.id,
+    })
+    const second = await seedMultiPartMessage({
+      directory: project.path,
+      sessionID: session.id,
+    })
+    const third = await seedMultiPartMessage({
+      directory: project.path,
+      sessionID: session.id,
+    })
+
+    const revert = (messageID: string) =>
+      app.request(`/api/session/${session.id}/revert`, {
+        method: "POST",
+        headers: {
+          "x-buddy-directory": project.path,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ messageID }),
+      })
+
+    const firstUndo = await revert(third.messageID)
+    expect(firstUndo.status).toBe(200)
+    expect(await readRevertBoundary(firstUndo)).toBe(third.messageID)
+
+    const secondUndo = await revert(second.messageID)
+    expect(secondUndo.status).toBe(200)
+    expect(await readRevertBoundary(secondUndo)).toBe(second.messageID)
+
+    const firstRedo = await revert(third.messageID)
+    expect(firstRedo.status).toBe(200)
+    expect(await readRevertBoundary(firstRedo)).toBe(third.messageID)
+
+    const finalRedo = await app.request(`/api/session/${session.id}/unrevert`, {
+      method: "POST",
+      headers: {
+        "x-buddy-directory": project.path,
+      },
+    })
+    expect(finalRedo.status).toBe(200)
+    expect(await readRevertBoundary(finalRedo)).toBeUndefined()
+
+    expect(first.messageID < second.messageID).toBe(true)
+    expect(second.messageID < third.messageID).toBe(true)
   })
 })
