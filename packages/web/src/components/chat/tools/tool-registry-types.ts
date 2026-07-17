@@ -18,6 +18,7 @@ export type ToolPartProps = {
   tool: string
   icon?: ToolIconRenderer
   directory?: string
+  canEditImages?: boolean
   onOpenSession?: (sessionID: string) => void
   onOpenResource?: (
     directory: string,

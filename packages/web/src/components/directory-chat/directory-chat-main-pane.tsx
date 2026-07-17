@@ -1,4 +1,5 @@
 import { Button, ScrollArea } from "@buddy/ui"
+import { useQuery } from "@tanstack/react-query"
 import {
   useMemo,
   type ComponentProps,
@@ -25,12 +26,14 @@ import { useAdaptiveSelectMode } from "@/components/prompt/use-adaptive-select-m
 import type { GetStartedChat } from "@/lib/get-started-chats"
 import type { DirectoryChatState } from "@/lib/directory-chat/use-directory-chat-state"
 import { getSessionContextMetrics } from "@/state/context-metrics"
+import { providerCatalogSnapshotQueryOptions } from "@/state/bootstrap-query"
 import type { ResourceOpenOptions, ResourceReadingTarget } from "@/state/resources-query"
 import type { MessageWithParts, ProviderInfo, QuestionRequest } from "@/state/chat-types"
 import type { PermissionReply } from "@/state/permission-types"
 import { ArrowDownIcon, Redo2Icon } from "@/icons/app-icons"
 import { BenchClosedContextPublisher } from "@/components/bench/bench-route-context"
 import { isBenchRoutePathname } from "@/lib/bench-navigation"
+import { canEditImagesForModel } from "@/lib/image-editing"
 import { useLocation } from "@tanstack/react-router"
 import { WhiteboardBenchAutoOpen } from "@/components/whiteboard/whiteboard-bench-auto-open"
 
@@ -199,6 +202,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     promptComposerProps,
     compactPromptComposer,
   } = props
+  const providerCatalogQuery = useQuery(providerCatalogSnapshotQueryOptions(directory))
   const autoCompactionWarning = useMemo(() => resolveAutoCompactionWarning(chatState), [chatState])
   const queuedFollowups = props.queuedFollowups ?? []
   const currentSessionQuestions = useMemo(
@@ -227,6 +231,12 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
     sessionID: chatState.sessionID,
     isReady: chatState.isReady,
     messages: chatState.messages,
+  })
+  const canEditImages = canEditImagesForModel({
+    providerID: chatState.effectiveModelSelection?.providerID,
+    acceptsImages: chatState.selectedModelAcceptsImages,
+    chatGptOAuthReady:
+      providerCatalogQuery.data?.openAIModelAvailability.status === "ready",
   })
 
   return (
@@ -303,6 +313,7 @@ export function DirectoryChatMainPane(props: DirectoryChatMainPaneProps) {
                   <ChatTranscript
                     key={chatState.sessionID}
                     directory={directory}
+                    canEditImages={canEditImages}
                     scrollViewportRef={transcriptRef}
                     onOpenSession={onOpenSession}
                     onOpenResource={onOpenResource}

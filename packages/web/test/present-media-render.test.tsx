@@ -11,10 +11,16 @@ import { createRoot, type Root } from "react-dom/client"
 import { PlatformProvider, type Platform } from "../src/context/platform"
 import { ServerProvider, type ServerConnection } from "../src/context/server"
 import type { ToolPartProps } from "../src/components/chat/tools/registry"
-import { renderPresentMediaTool } from "../src/components/chat/tools/render/present-media"
+import { resolveToolRenderer } from "../src/components/chat/tools/registry"
+import {
+  GroupedImagegenToolCard,
+  renderPresentMediaTool,
+} from "../src/components/chat/tools/render/present-media"
 import { withFetchPreconnect } from "../src/lib/fetch-transport"
 import { RESOURCE_OPEN_SESSION_PREFERENCE_CURRENT } from "../src/state/resources-query"
 import { usePresentedMediaPlaybackStore } from "../src/state/presented-media-playback-store"
+import type { MessagePart } from "../src/state/chat-types"
+import { getPromptDraft, getPromptScopeKey, usePromptStore } from "../src/state/prompt-store"
 
 function PresentMediaToolHarness(props: ToolPartProps) {
   return renderPresentMediaTool(props)
@@ -190,6 +196,42 @@ function createToolProps(input: {
   }
 }
 
+function createImagegenPart(input: {
+  id: string
+  objectID: string
+  fileName: string
+  rawUrl: string
+}): MessagePart {
+  const props = createToolProps({
+    objectID: input.objectID,
+    layout: "single",
+    items: [
+      {
+        path: `generated/${input.fileName}`,
+        fileName: input.fileName,
+        mediaKind: "image",
+        renderMode: "image",
+        rawUrl: input.rawUrl,
+      },
+    ],
+  })
+  return {
+    id: input.id,
+    sessionID: "ses_media",
+    messageID: "msg_media",
+    callID: `call_${input.id}`,
+    type: "tool",
+    tool: "imagegen",
+    state: {
+      status: "completed",
+      input: {},
+      attachments: [],
+      metadata: props.state.metadata,
+      output: "",
+    },
+  }
+}
+
 describe("present media renderer", () => {
   let container: HTMLDivElement
   let root: Root
@@ -204,6 +246,11 @@ describe("present media renderer", () => {
       volume: 1,
       muted: false,
     })
+    usePromptStore.setState({
+      draftsByKey: {},
+      historyByDirectory: {},
+      historyNavigationByKey: {},
+    })
     container = document.createElement("div")
     document.body.appendChild(container)
     root = createRoot(container)
@@ -216,6 +263,201 @@ describe("present media renderer", () => {
     container.remove()
     globalThis.fetch = originalFetch
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT")
+  })
+
+  test("routes imagegen through the same inline media renderer as present_media", () => {
+    const imagegenRenderer = resolveToolRenderer("imagegen", undefined)
+    const presentMediaRenderer = resolveToolRenderer("present_media", undefined)
+
+    expect(imagegenRenderer.inline).toBe(true)
+    expect(imagegenRenderer.card).toBe(renderPresentMediaTool)
+    expect(imagegenRenderer.card).toBe(presentMediaRenderer.card)
+  })
+
+  test("uses the visual media loading shell while imagegen is running", async () => {
+    const props = createToolProps({
+      objectID: "object_loading",
+      layout: "single",
+      items: [],
+    })
+
+    await act(async () => {
+      renderHarness(
+        root,
+        <PresentMediaToolHarness
+          {...props}
+          tool="imagegen"
+          state={{
+            ...props.state,
+            status: "running",
+          }}
+        />,
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelector('[role="status"]')).not.toBeNull()
+  })
+
+  test("combines parallel imagegen results into one multi-image shell", async () => {
+    const first = createImagegenPart({
+      id: "prt_imagegen_1",
+      objectID: "object_imagegen_1",
+      fileName: "first.png",
+      rawUrl: "/api/objects/media-presentation/object_imagegen_1/raw/item_1",
+    })
+    const second = createImagegenPart({
+      id: "prt_imagegen_2",
+      objectID: "object_imagegen_2",
+      fileName: "second.png",
+      rawUrl: "/api/objects/media-presentation/object_imagegen_2/raw/item_1",
+    })
+    const fetchMock = mock(async (input: RequestInfo | URL) => {
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+      if (url.includes("/availability")) {
+        return Response.json({ status: "available", message: null })
+      }
+      throw new Error(`Unexpected fetch: GET ${url}`)
+    })
+    globalThis.fetch = withFetchPreconnect(fetchMock, originalFetch)
+
+    await act(async () => {
+      renderHarness(
+        root,
+        <GroupedImagegenToolCard parts={[first, second]} directory="/repo" />,
+      )
+      await flushEffects()
+    })
+
+    expect(container.querySelectorAll('[data-slot="carousel"]')).toHaveLength(1)
+    expect(container.querySelectorAll('[data-slot="carousel-item"]')).toHaveLength(2)
+  })
+
+  test("removes stale grouped image URLs when current availability is missing", async () => {
+    const first = createImagegenPart({
+      id: "prt_imagegen_available",
+      objectID: "object_imagegen_available",
+      fileName: "available.png",
+      rawUrl: "/api/objects/media-presentation/object_imagegen_available/raw/item_1",
+    })
+    const second = createImagegenPart({
+      id: "prt_imagegen_missing",
+      objectID: "object_imagegen_missing",
+      fileName: "missing.png",
+      rawUrl: "/api/objects/media-presentation/object_imagegen_missing/raw/item_1",
+    })
+    const fetchMock = mock(async (input: RequestInfo | URL) => {
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+      if (url.includes("object_imagegen_available") && url.includes("/availability")) {
+        return Response.json({ status: "available", message: null })
+      }
+      if (url.includes("object_imagegen_missing") && url.includes("/availability")) {
+        return Response.json({ status: "missing", message: "Media item is unavailable." })
+      }
+      throw new Error(`Unexpected fetch: GET ${url}`)
+    })
+    globalThis.fetch = withFetchPreconnect(fetchMock, originalFetch)
+
+    await act(async () => {
+      renderHarness(
+        root,
+        <GroupedImagegenToolCard parts={[first, second]} directory="/repo" />,
+      )
+      await flushEffects()
+    })
+    await waitForEffect(() => fetchMock.mock.calls.length === 2)
+
+    expect(container.querySelectorAll('img[src*="object_imagegen_available"]')).not.toHaveLength(0)
+    expect(container.querySelectorAll('img[src*="object_imagegen_missing"]')).toHaveLength(0)
+  })
+
+  test("stages a presented image with its exact local path when Edit image is selected", async () => {
+    const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url
+      const method = input instanceof Request ? input.method : (init?.method ?? "GET")
+
+      if (
+        method === "GET" &&
+        url.includes(
+          "/api/objects/media-presentation/object_edit/items/item_1/availability",
+        )
+      ) {
+        return Response.json({ status: "available", message: null })
+      }
+      if (
+        method === "GET" &&
+        url.includes("/api/objects/media-presentation/object_edit/raw/item_1")
+      ) {
+        return new Response(new Uint8Array([137, 80, 78, 71]), {
+          headers: { "content-type": "image/png" },
+        })
+      }
+
+      throw new Error(`Unexpected fetch: ${method} ${url}`)
+    })
+    globalThis.fetch = withFetchPreconnect(fetchMock, originalFetch)
+
+    await act(async () => {
+      renderHarness(
+        root,
+        <PlatformProvider value={createPlatform()}>
+          <ServerProvider value={createServerConnection()}>
+            <PresentMediaToolHarness
+              {...createToolProps({
+                objectID: "object_edit",
+                layout: "single",
+                items: [
+                  {
+                    path: "generated/edit-me.png",
+                    absolutePath: "/repo/generated/edit-me.png",
+                    fileName: "edit-me.png",
+                    mediaKind: "image",
+                    renderMode: "image",
+                    rawUrl:
+                      "/api/objects/media-presentation/object_edit/raw/item_1?directory=%2Frepo&fileName=edit-me.png",
+                  },
+                ],
+              })}
+              tool="present_media"
+              canEditImages
+            />
+          </ServerProvider>
+        </PlatformProvider>,
+      )
+      await flushEffects()
+    })
+    await waitForEffect(() => container.querySelector("img") !== null)
+    await act(async () => {
+      for (const image of container.querySelectorAll("img")) {
+        image.dispatchEvent(new Event("load", { bubbles: true }))
+      }
+      await flushEffects()
+    })
+
+    const editButton = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Edit image"]',
+    )
+    expect(editButton).not.toBeNull()
+
+    await act(async () => {
+      editButton?.click()
+      await flushEffects()
+    })
+    const promptKey = getPromptScopeKey("/repo", "ses_media")
+    await waitForEffect(
+      () => getPromptDraft(usePromptStore.getState(), promptKey).attachments.length === 1,
+    )
+
+    const attachment = getPromptDraft(usePromptStore.getState(), promptKey).attachments[0]
+    expect(attachment?.filename).toBe("edit-me.png")
+    expect(attachment?.mime).toBe("image/png")
+    expect(attachment?.kind).toBe("image")
+    expect(attachment?.localPath).toBe("/repo/generated/edit-me.png")
+    expect(attachment?.editTarget).toBe(true)
+    expect(attachment?.dataUrl).toStartWith("data:image/png;base64,")
   })
 
   test("renders a gallery for multiple images", async () => {

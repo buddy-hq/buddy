@@ -57,6 +57,7 @@ import { HiddenStepsPlaceholder } from "./tools/hidden-steps/thinking-placeholde
 import { parseToolState } from "./tools/parse-tool-state"
 import { GroupedIngestFullTextToolCard } from "./tools/render/ingest-full-text"
 import { parseRenderFigureOutput, GroupedFigureToolCard } from "./tools/render/render-figure"
+import { GroupedImagegenToolCard } from "./tools/render/present-media"
 import {
   parseRenderMermaidSources,
   GroupedMermaidToolCard,
@@ -157,6 +158,7 @@ function estimateAssistantToolRowSize(item: Extract<TimelineAssistantItem, { typ
     case "render_figure":
     case "render_freeform_figure":
       return ASSISTANT_FIGURE_ROW_ESTIMATE_PX
+    case "imagegen":
     case "present_media":
       return ASSISTANT_MEDIA_ROW_ESTIMATE_PX
     case "present_html_widget":
@@ -188,6 +190,7 @@ function estimateRowSize(row: TimelineRow | undefined) {
     case "assistant":
       if (row.item.type === "grouped-parts") {
         if (
+          row.item.tool === "imagegen" ||
           row.item.tool === "render_mermaid" ||
           row.item.tool === "render_figure" ||
           row.item.tool === "render_freeform_figure"
@@ -410,6 +413,7 @@ function TimelineAssistantRow(props: {
   row: Extract<TimelineRow, { type: "assistant" }>
   providers: ProviderInfo[]
   directory: string | undefined
+  canEditImages: boolean | undefined
   shellToolDefaultOpen: boolean
   editToolDefaultOpen: boolean
   onOpenSession: ChatTranscriptProps["onOpenSession"]
@@ -480,6 +484,13 @@ function TimelineAssistantRow(props: {
         {props.row.item.type === "grouped-parts" && props.row.item.tool === "render_mermaid" ? (
           <GroupedMermaidToolCard parts={parts} directory={props.directory} />
         ) : null}
+        {props.row.item.type === "grouped-parts" && props.row.item.tool === "imagegen" ? (
+          <GroupedImagegenToolCard
+            parts={parts}
+            directory={props.directory}
+            canEditImages={props.canEditImages}
+          />
+        ) : null}
         {props.row.item.type === "grouped-parts" &&
         (props.row.item.tool === "render_figure" ||
           props.row.item.tool === "render_freeform_figure") ? (
@@ -510,6 +521,7 @@ function TimelineAssistantRow(props: {
                 stripLeadingFigureImage={stripLeadingFigureImage}
                 stripLeadingMermaidSources={stripLeadingMermaidSources}
                 directory={props.directory}
+                canEditImages={props.canEditImages}
                 onOpenSession={props.onOpenSession}
                 onOpenResource={props.onOpenResource}
                 defaultOpen={toolDefaultOpen(
@@ -529,6 +541,7 @@ function TimelineAssistantRow(props: {
               stripLeadingFigureImage={stripLeadingFigureImage}
               stripLeadingMermaidSources={stripLeadingMermaidSources}
               directory={props.directory}
+              canEditImages={props.canEditImages}
               onOpenSession={props.onOpenSession}
               onOpenResource={props.onOpenResource}
             />
@@ -564,6 +577,7 @@ function TimelineRowRenderer(props: {
   row: TimelineRow
   providers: ProviderInfo[]
   directory: string | undefined
+  canEditImages: boolean | undefined
   lastUserMessageID: string | undefined
   shellToolDefaultOpen: boolean
   editToolDefaultOpen: boolean
@@ -611,6 +625,7 @@ function TimelineRowRenderer(props: {
           row={props.row}
           providers={props.providers}
           directory={props.directory}
+          canEditImages={props.canEditImages}
           shellToolDefaultOpen={props.shellToolDefaultOpen}
           editToolDefaultOpen={props.editToolDefaultOpen}
           onOpenSession={props.onOpenSession}
@@ -748,6 +763,7 @@ function TimelineVirtualRow(props: {
 
 export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscriptProps) {
   const {
+    canEditImages,
     directory,
     onForkMessage,
     onOpenSession,
@@ -1139,6 +1155,7 @@ export const ChatTranscript = memo(function ChatTranscript(props: ChatTranscript
                     row={row}
                     providers={providers}
                     directory={directory}
+                    canEditImages={canEditImages}
                     lastUserMessageID={lastUserMessageID}
                     shellToolDefaultOpen={shellToolDefaultOpen}
                     editToolDefaultOpen={editToolDefaultOpen}

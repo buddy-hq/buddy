@@ -53,6 +53,13 @@ const hiddenToolRenderer = createToolRenderer({
   hidden: true,
 })
 
+const mediaPresentationToolRenderer = createToolRenderer({
+  inline: true,
+  renderInlineErrorCard: true,
+  icon: (cn) => createElement(Image, { className: cn }),
+  card: renderPresentMediaTool,
+})
+
 export const builtInTools: Record<string, ToolRenderer> = {
   read: createToolRenderer({
     icon: (cn) => createElement(ScanText, { className: cn }),
@@ -200,11 +207,8 @@ export const builtInTools: Record<string, ToolRenderer> = {
     icon: (cn) => createElement(BookOpen, { className: cn }),
     card: renderSavedFlashcardDeckTool,
   }),
-  present_media: createToolRenderer({
-    inline: true,
-    icon: (cn) => createElement(Image, { className: cn }),
-    card: renderPresentMediaTool,
-  }),
+  imagegen: mediaPresentationToolRenderer,
+  present_media: mediaPresentationToolRenderer,
   present_html_widget: createToolRenderer({
     inline: true,
     icon: (cn) => createElement(AppWindow, { className: cn }),

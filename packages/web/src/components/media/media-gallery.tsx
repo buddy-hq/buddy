@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import {
+  Button,
   cn,
   Dialog,
   DialogContent,
@@ -7,7 +8,9 @@ import {
   DialogHeader,
   DialogTitle,
   Skeleton,
+  toast,
 } from "@buddy/ui"
+import { Loader2Icon, PencilIcon } from "@/icons/app-icons"
 import type { BenchTarget } from "@/lib/bench-navigation"
 import type { ReactNode } from "react"
 import { Media } from "./media"
@@ -23,6 +26,7 @@ export type ToolImageGalleryItem = {
   alt: string
   title: string
   caption?: string
+  localPath?: string
   benchTarget?: BenchTarget
 }
 
@@ -33,6 +37,7 @@ type ToolImageGalleryProps = {
   contentClassName?: string
   dialogDescription: string
   onOpenItem?: (item: ToolImageGalleryItem, index: number) => void
+  onEditItem?: (item: ToolImageGalleryItem, index: number) => Promise<void>
 }
 
 function GalleryImage(props: {
@@ -84,21 +89,39 @@ export function ToolImageGallery({
   contentClassName,
   dialogDescription,
   onOpenItem,
+  onEditItem,
 }: ToolImageGalleryProps) {
   const [open, setOpen] = useState(false)
-  const [idx, setIdx] = useState(0)
-  const current = items[idx] ?? items[0]
+  const [inlineIndex, setInlineIndex] = useState(0)
+  const [dialogIndex, setDialogIndex] = useState(0)
+  const [editingItemID, setEditingItemID] = useState<string>()
+  const current = items[dialogIndex] ?? items[0]
+  const inlineItem = items[inlineIndex] ?? items[0]
+
+  const editInlineItem = () => {
+    if (!onEditItem || !inlineItem?.src) return
+    setEditingItemID(inlineItem.id)
+    void onEditItem(inlineItem, inlineIndex)
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : String(error))
+      })
+      .finally(() => {
+        setEditingItemID((currentID) =>
+          currentID === inlineItem.id ? undefined : currentID,
+        )
+      })
+  }
 
   useEffect(() => {
     if (!open || items.length <= 1) return
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "ArrowLeft") {
         event.preventDefault()
-        setIdx((currentIndex) => Math.max(currentIndex - 1, 0))
+        setDialogIndex((currentIndex) => Math.max(currentIndex - 1, 0))
       }
       if (event.key === "ArrowRight") {
         event.preventDefault()
-        setIdx((currentIndex) => Math.min(currentIndex + 1, items.length - 1))
+        setDialogIndex((currentIndex) => Math.min(currentIndex + 1, items.length - 1))
       }
     }
     window.addEventListener("keydown", onKey)
@@ -114,6 +137,27 @@ export function ToolImageGallery({
       <MultiViewShell
         className={className}
         contentClassName={contentClassName ?? MEDIA_IMAGE_GALLERY_CONTENT_CLASS_NAME}
+        onIndexChange={setInlineIndex}
+        actions={
+          onEditItem && inlineItem?.src ? (
+            <Button
+              type="button"
+              aria-label="Edit image"
+              size="sm"
+              variant="secondary"
+              className="rounded-full border border-border-base/70 bg-background-base/92 shadow-lg backdrop-blur-xl"
+              disabled={editingItemID !== undefined}
+              onClick={editInlineItem}
+            >
+              {editingItemID === inlineItem.id ? (
+                <Loader2Icon className="animate-spin" aria-hidden />
+              ) : (
+                <PencilIcon aria-hidden />
+              )}
+              Edit image
+            </Button>
+          ) : undefined
+        }
         items={items.map((item, index) => {
           const mediaItem = galleryMediaItem(item)
           return {
@@ -130,7 +174,7 @@ export function ToolImageGallery({
                     onOpenItem(item, index)
                     return
                   }
-                  setIdx(index)
+                  setDialogIndex(index)
                   setOpen(true)
                 }}
               />
@@ -152,8 +196,8 @@ export function ToolImageGallery({
           <div className="w-full flex-1">
             <MultiViewShell
               thumbnailSize="lg"
-              defaultIndex={idx}
-              onIndexChange={setIdx}
+              defaultIndex={dialogIndex}
+              onIndexChange={setDialogIndex}
               showZoomControls={true}
               contentClassName="h-[60vh] md:h-[70vh] !bg-transparent !border-none"
               items={items.map((item) => ({

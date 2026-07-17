@@ -7,8 +7,9 @@ import {
   ExternalLinkIcon,
   FolderOpenIcon,
   Loader2Icon,
+  PencilIcon,
 } from "@/icons/app-icons"
-import { useEffect, useMemo, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import {
   objectRef,
   toolRef,
@@ -35,6 +36,7 @@ import { MermaidDiagram } from "@/components/media/renderers/mermaid/mermaid-dia
 import { DirectoryInvalidNotebook } from "@/components/directory-chat/directory-invalid-notebook"
 import { DirectoryChatReadingPage } from "@/components/directory-chat/directory-chat-reading-page"
 import { useDirectoryNotebookRouteContext } from "@/components/directory-chat/directory-notebook-route-context"
+import { stageMediaImageEdit } from "@/components/prompt/stage-media-image-edit"
 import { WhiteboardPane } from "@/components/whiteboard/whiteboard-pane"
 import { usePlatform } from "@/context/platform"
 import { stringifyError } from "@/lib/api-client"
@@ -49,12 +51,14 @@ import {
 } from "@/lib/bench-navigation"
 import { getBuddyClient, requireBuddyData } from "@/lib/buddy-client"
 import { IDEMPOTENCY_KEY_PARAMETER } from "@/lib/idempotency"
+import { canEditImagesForModel } from "@/lib/image-editing"
 import { decodeDirectory } from "@/lib/directory-token"
 import { resolveResourceObjectViewerPathWithFallback } from "@/lib/resource-object-viewer-path"
 import { resolveAssetUrl } from "@/lib/resource-url"
 import { isSvgMedia } from "@/lib/svg-media"
 import { fileExtensionFromPath } from "@/lib/workspace-file-paths"
 import { resourcesQueryOptions } from "@/state/resources-query"
+import { providerCatalogSnapshotQueryOptions } from "@/state/bootstrap-query"
 import {
   readProjectExplorerEditableFile,
   type ProjectExplorerEditableFileState,
@@ -753,6 +757,8 @@ function SelectedMediaObjectBenchView(props: {
   item: ObjectMediaGalleryItem
 }) {
   const platform = usePlatform()
+  const { controller } = useDirectoryNotebookRouteContext()
+  const [isStagingEdit, setIsStagingEdit] = useState(false)
   const availabilityQuery = useQuery(
     objectMediaAvailabilityQueryOptions({
       directory: props.directory,
@@ -760,6 +766,7 @@ function SelectedMediaObjectBenchView(props: {
       itemID: props.item.itemID,
     }),
   )
+  const providerCatalogQuery = useQuery(providerCatalogSnapshotQueryOptions(props.directory))
   const availability = availabilityQuery.data ?? mediaAvailabilityFromItem(props.item)
   const sourcePath = props.item.source.workspacePath ?? props.item.source.path
   const src = props.item.rawUrl ? resolveAssetUrl(props.item.rawUrl) : undefined
@@ -772,8 +779,48 @@ function SelectedMediaObjectBenchView(props: {
     fileName: props.item.fileName,
     mimeType: props.item.mimeType,
   })
+  const chatState = controller.status === "ready" ? controller.mainPaneProps.chatState : undefined
+  const sessionID = chatState?.sessionID
+  const canEditImage =
+    renderMode === "image" &&
+    availability.status === "available" &&
+    !!sessionID &&
+    canEditImagesForModel({
+      providerID: chatState?.effectiveModelSelection?.providerID,
+      acceptsImages: chatState?.selectedModelAcceptsImages ?? false,
+      chatGptOAuthReady:
+        providerCatalogQuery.data?.openAIModelAvailability.status === "ready",
+    })
   const actions = useMemo<BenchViewerAction[]>(
     () => [
+      ...(canEditImage && sessionID
+        ? [
+            {
+              label: "Edit image",
+              dataAction: "media-edit-image",
+              icon: isStagingEdit ? (
+                <Loader2Icon className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <PencilIcon className="size-4" aria-hidden />
+              ),
+              disabled: isStagingEdit,
+              onClick: () => {
+                setIsStagingEdit(true)
+                void stageMediaImageEdit({
+                  directory: props.directory,
+                  sessionID,
+                  objectID: props.view.ref.objectID,
+                  itemID: props.item.itemID,
+                  fileName: props.item.fileName ?? title,
+                  localPath: props.item.source.path,
+                })
+                  .then(() => toast("Image added to composer"))
+                  .catch((error: unknown) => toast(stringifyError(error)))
+                  .finally(() => setIsStagingEdit(false))
+              },
+            } satisfies BenchViewerAction,
+          ]
+        : []),
       {
         label: "Copy path",
         dataAction: "media-copy-path",
@@ -810,7 +857,19 @@ function SelectedMediaObjectBenchView(props: {
           ]
         : []),
     ],
-    [platform, sourcePath],
+    [
+      canEditImage,
+      isStagingEdit,
+      platform,
+      props.directory,
+      props.item.fileName,
+      props.item.itemID,
+      props.item.source.path,
+      props.view.ref.objectID,
+      sessionID,
+      sourcePath,
+      title,
+    ],
   )
 
   return (

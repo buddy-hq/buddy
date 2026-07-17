@@ -30,6 +30,7 @@ export type ChatTurn = {
 
 export type ChatTranscriptProps = {
   directory?: string
+  canEditImages?: boolean
   scrollViewportRef?: RefObject<HTMLElement | null>
   onOpenSession?: (sessionID: string) => void
   onOpenResource?: (

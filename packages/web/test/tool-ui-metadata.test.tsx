@@ -105,6 +105,7 @@ function visibleToolPart(input: {
   id: string
   tool: string
   status?: "completed" | "error"
+  metadata?: Record<string, unknown>
 }): MessagePart {
   const status = input.status ?? "completed"
   return {
@@ -119,7 +120,7 @@ function visibleToolPart(input: {
         ? {
             status,
             input: {},
-            metadata: {},
+            metadata: input.metadata ?? {},
             attachments: [],
             error: "boom",
             time: { start: 1, end: 2 },
@@ -127,10 +128,41 @@ function visibleToolPart(input: {
         : {
             status,
             input: {},
-            metadata: {},
+            metadata: input.metadata ?? {},
             attachments: [],
             output: "",
           },
+  }
+}
+
+function imagegenPresentationMetadata(objectID: string): Record<string, unknown> {
+  return {
+    buddyObjectResult: {
+      version: 1,
+      status: "ok",
+      reason: null,
+      message: "Generated image",
+      primaryRef: null,
+      objects: [],
+      presentations: [
+        {
+          ref: {
+            kind: "media-presentation",
+            objectID,
+            revisionID: null,
+            itemID: null,
+          },
+          viewID: "default",
+          surface: "inline",
+          data: {
+            renderer: "media-gallery",
+            layout: "single",
+            items: [],
+          },
+          autoOpen: null,
+        },
+      ],
+    },
   }
 }
 
@@ -409,6 +441,57 @@ describe("tool UI metadata", () => {
       tool: "render_figure",
       parts: [first, second],
     })
+  })
+
+  test("groups consecutive imagegen tool calls", () => {
+    const first = visibleToolPart({
+      id: "prt_imagegen_1",
+      tool: "imagegen",
+      metadata: imagegenPresentationMetadata("media-1"),
+    })
+    const second = visibleToolPart({
+      id: "prt_imagegen_2",
+      tool: "imagegen",
+      metadata: imagegenPresentationMetadata("media-2"),
+    })
+    const grouped = groupAssistantParts([first, second], true)
+
+    expect(grouped).toHaveLength(1)
+    expect(grouped[0]).toMatchObject({
+      type: "grouped-parts",
+      tool: "imagegen",
+      parts: [first, second],
+    })
+  })
+
+  test("keeps failed or presentation-less imagegen calls out of galleries", () => {
+    const completed = visibleToolPart({
+      id: "prt_imagegen_completed",
+      tool: "imagegen",
+      metadata: imagegenPresentationMetadata("media-completed"),
+    })
+    const failed = visibleToolPart({
+      id: "prt_imagegen_failed",
+      tool: "imagegen",
+      status: "error",
+    })
+    const missingPresentation = visibleToolPart({
+      id: "prt_imagegen_missing",
+      tool: "imagegen",
+    })
+
+    expect(groupAssistantParts([completed, failed], true)).toEqual([
+      { type: "part", key: `part:${completed.id}`, part: completed },
+      { type: "part", key: `part:${failed.id}`, part: failed },
+    ])
+    expect(groupAssistantParts([completed, missingPresentation], true)).toEqual([
+      { type: "part", key: `part:${completed.id}`, part: completed },
+      {
+        type: "part",
+        key: `part:${missingPresentation.id}`,
+        part: missingPresentation,
+      },
+    ])
   })
 
   test("groups consecutive render_freeform_figure tool calls", () => {

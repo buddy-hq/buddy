@@ -3,6 +3,7 @@ import type { MessageInfo, MessagePart, MessageWithParts } from "@/state/chat-ty
 import { parseToolState } from "../tools/parse-tool-state"
 import { parseToolUiMetadata } from "../tools/parse-tool-ui-metadata"
 import { resolveToolRenderer } from "../tools/registry"
+import { readInlinePresentation } from "../tools/render/buddy-object-result"
 import {
   isIngestFullTextScopedReadingFallback,
   isLegacyIngestFullTextScopedReadingError,
@@ -84,6 +85,14 @@ function isToolPartNamed(part: MessagePart, tool: string): boolean {
   return isChatToolPart(part) && part.tool === tool
 }
 
+const GROUPABLE_INLINE_TOOL_NAMES = new Set([
+  "imagegen",
+  "ingest_full_text",
+  "render_figure",
+  "render_freeform_figure",
+  "render_mermaid",
+])
+
 function toolRendererUsesInlinePresentation(
   renderer: ReturnType<typeof resolveToolRenderer>,
   state: ReturnType<typeof parseToolState>,
@@ -110,7 +119,12 @@ function collectConsecutiveToolParts(
 
   while (nextIndex < parts.length) {
     const part = parts[nextIndex]
-    if (!part || !isToolPartNamed(part, tool) || !toolPartUsesInlinePresentation(part)) {
+    if (
+      !part ||
+      !isToolPartNamed(part, tool) ||
+      !toolPartUsesInlinePresentation(part) ||
+      !toolPartCanJoinGroup(part, tool)
+    ) {
       break
     }
     groupedParts.push(part)
@@ -118,6 +132,17 @@ function collectConsecutiveToolParts(
   }
 
   return { parts: groupedParts, nextIndex }
+}
+
+function toolPartCanJoinGroup(part: MessagePart, tool: string): boolean {
+  if (tool !== "imagegen" || !isChatToolPart(part)) return true
+
+  const state = parseToolState(part)
+  if (state.status === "pending" || state.status === "running") return true
+  if (state.status === "error") return false
+
+  const presentation = readInlinePresentation(state.metadata, "media-gallery")
+  return presentation?.data?.renderer === "media-gallery"
 }
 
 export function groupAssistantParts(
@@ -161,84 +186,24 @@ export function groupAssistantParts(
       continue
     }
 
-    if (isToolPartNamed(part, "render_mermaid")) {
+    const groupedTool =
+      isChatToolPart(part) && GROUPABLE_INLINE_TOOL_NAMES.has(part.tool) ? part.tool : undefined
+
+    if (groupedTool) {
       flushContext(i - 1)
 
-      const { parts: mermaidParts, nextIndex } = collectConsecutiveToolParts(
+      const { parts: groupedParts, nextIndex } = collectConsecutiveToolParts(
         visibleParts,
         i,
-        "render_mermaid",
+        groupedTool,
       )
 
-      if (mermaidParts.length > 1) {
+      if (groupedParts.length > 1) {
         items.push({
           type: "grouped-parts",
-          key: `grouped-parts:render_mermaid:${part.id}`,
-          tool: "render_mermaid",
-          parts: mermaidParts,
-        })
-        i = nextIndex
-        continue
-      }
-    }
-
-    if (isToolPartNamed(part, "render_figure")) {
-      flushContext(i - 1)
-
-      const { parts: figureParts, nextIndex } = collectConsecutiveToolParts(
-        visibleParts,
-        i,
-        "render_figure",
-      )
-
-      if (figureParts.length > 1) {
-        items.push({
-          type: "grouped-parts",
-          key: `grouped-parts:render_figure:${part.id}`,
-          tool: "render_figure",
-          parts: figureParts,
-        })
-        i = nextIndex
-        continue
-      }
-    }
-
-    if (isToolPartNamed(part, "render_freeform_figure")) {
-      flushContext(i - 1)
-
-      const { parts: freeformParts, nextIndex } = collectConsecutiveToolParts(
-        visibleParts,
-        i,
-        "render_freeform_figure",
-      )
-
-      if (freeformParts.length > 1) {
-        items.push({
-          type: "grouped-parts",
-          key: `grouped-parts:render_freeform_figure:${part.id}`,
-          tool: "render_freeform_figure",
-          parts: freeformParts,
-        })
-        i = nextIndex
-        continue
-      }
-    }
-
-    if (isToolPartNamed(part, "ingest_full_text")) {
-      flushContext(i - 1)
-
-      const { parts: fullTextParts, nextIndex } = collectConsecutiveToolParts(
-        visibleParts,
-        i,
-        "ingest_full_text",
-      )
-
-      if (fullTextParts.length > 1) {
-        items.push({
-          type: "grouped-parts",
-          key: `grouped-parts:ingest_full_text:${part.id}`,
-          tool: "ingest_full_text",
-          parts: fullTextParts,
+          key: `grouped-parts:${groupedTool}:${part.id}`,
+          tool: groupedTool,
+          parts: groupedParts,
         })
         i = nextIndex
         continue
@@ -295,6 +260,7 @@ export function chatTranscriptEqual(
 ): boolean {
   return (
     prevProps.directory === nextProps.directory &&
+    prevProps.canEditImages === nextProps.canEditImages &&
     prevProps.scrollViewportRef === nextProps.scrollViewportRef &&
     prevProps.onOpenSession === nextProps.onOpenSession &&
     prevProps.onOpenResource === nextProps.onOpenResource &&

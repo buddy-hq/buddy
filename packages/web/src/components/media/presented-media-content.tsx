@@ -59,6 +59,7 @@ type PresentedMediaContentProps = {
   objectID: string
   items: PresentMediaResolvedItem[]
   onOpenResource?: WorkspaceResourceOpener
+  onEditImage?: (item: PresentMediaResolvedItem) => Promise<void>
 }
 
 type MediaInteractionProps = {
@@ -323,7 +324,11 @@ function PresentedFileMediaList(
 }
 
 function MediaImageGallery(
-  props: MediaInteractionProps & { objectID: string; items: PresentMediaResolvedItem[] },
+  props: MediaInteractionProps & {
+    objectID: string
+    items: PresentMediaResolvedItem[]
+    onEditImage?: (item: PresentMediaResolvedItem) => Promise<void>
+  },
 ) {
   const openBenchRoute = useOpenBench()
   const previewable = props.items.filter(
@@ -349,6 +354,7 @@ function MediaImageGallery(
         src: resolvePresentedMediaStreamUrl(item),
         alt: item.fileName,
         title: item.fileName,
+        localPath: item.absolutePath,
         benchTarget: {
           type: "object",
           ref: {
@@ -369,6 +375,17 @@ function MediaImageGallery(
           autoOpen: null,
         })
       }}
+      onEditItem={
+        props.onEditImage
+          ? (_item, index) => {
+              const presentedItem = previewable[index]
+              if (!presentedItem || !props.onEditImage) {
+                return Promise.reject(new Error("The image is unavailable."))
+              }
+              return props.onEditImage(presentedItem)
+            }
+          : undefined
+      }
     />
   )
 }
@@ -590,7 +607,12 @@ export function PresentedMediaContent(props: PresentedMediaContentProps) {
   return (
     <div className="flex flex-col gap-4">
       {images.length > 0 ? (
-        <MediaImageGallery {...interactionProps} objectID={props.objectID} items={images} />
+        <MediaImageGallery
+          {...interactionProps}
+          objectID={props.objectID}
+          items={images}
+          onEditImage={props.onEditImage}
+        />
       ) : null}
       {videos.length > 0 ? (
         <PresentedPlaybackCollection

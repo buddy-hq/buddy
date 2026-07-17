@@ -4,6 +4,7 @@ import {
   resolveAutoCompactionWarning,
   resolveCurrentSessionQuestions,
 } from "../src/components/directory-chat/directory-chat-main-pane"
+import { canEditImagesForModel } from "../src/lib/image-editing"
 import {
   createAssistantMessageInfo,
   createMessageWithParts,
@@ -13,6 +14,37 @@ import {
 } from "./test-utils"
 
 describe("directory chat main pane helpers", () => {
+  test("offers image editing only to image-capable OpenAI models", () => {
+    expect(
+      canEditImagesForModel({
+        providerID: "openai",
+        acceptsImages: true,
+        chatGptOAuthReady: true,
+      }),
+    ).toBe(true)
+    expect(
+      canEditImagesForModel({
+        providerID: "anthropic",
+        acceptsImages: true,
+        chatGptOAuthReady: true,
+      }),
+    ).toBe(false)
+    expect(
+      canEditImagesForModel({
+        providerID: "openai",
+        acceptsImages: false,
+        chatGptOAuthReady: true,
+      }),
+    ).toBe(false)
+    expect(
+      canEditImagesForModel({
+        providerID: "openai",
+        acceptsImages: true,
+        chatGptOAuthReady: false,
+      }),
+    ).toBe(false)
+  })
+
   test("shows only pending questions for the active session", () => {
     const questions = resolveCurrentSessionQuestions({
       sessionID: "session-2",

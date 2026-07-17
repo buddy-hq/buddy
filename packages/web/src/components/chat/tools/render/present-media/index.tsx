@@ -7,12 +7,23 @@ import {
   type MediaPresentationOutput,
   type PresentedMediaItem as PresentMediaItem,
 } from "@/lib/presented-media"
-import { PresentedMediaContent, type PresentMediaResolvedItem } from "@/components/media"
+import {
+  PresentedMediaContent,
+  ToolImageGallery,
+  type PresentMediaResolvedItem,
+  type ToolImageGalleryItem,
+} from "@/components/media"
 import type { ToolPartProps } from "../../registry"
 import { readInlinePresentation, type BuddyPresentationDescriptor } from "../buddy-object-result"
 import { useHydratedInlinePresentation } from "../use-hydrated-inline-presentation"
 import { objectMediaAvailabilityQueryOptions } from "@/state/workspace-objects-query"
 import type { ObjectMediaPresentationAvailabilityResponse } from "@buddy/sdk/types"
+import type { MessagePart } from "@/state/chat-types"
+import { parseToolState } from "../../parse-tool-state"
+import { getToolInfo } from "../../tool-info"
+import { resolveAssetUrl } from "@/lib/resource-url"
+import { BENCH_MODE_REQUEST_POLICY, useOpenBench, type BenchTarget } from "@/lib/bench-navigation"
+import { stageMediaImageEdit } from "@/components/prompt/stage-media-image-edit"
 
 function parseMediaPresentationOutput(
   presentation: BuddyPresentationDescriptor,
@@ -79,6 +90,174 @@ function usePresentedMediaAvailability(
   )
 }
 
+function groupedImagePlaceholder(part: MessagePart): ToolImageGalleryItem {
+  const state = parseToolState(part)
+  const toolName = part.type === "tool" && typeof part.tool === "string" ? part.tool : "imagegen"
+  const title = getToolInfo(toolName, state).title
+  return {
+    id: part.id,
+    src: null,
+    alt: title,
+    title,
+  }
+}
+
+type GroupedImageSource =
+  | { type: "placeholder"; item: ToolImageGalleryItem }
+  | {
+      type: "presented"
+      partID: string
+      ref: BuddyPresentationDescriptor["ref"]
+      viewID: string
+      item: PresentMediaItem
+    }
+
+function groupedImageSources(part: MessagePart): GroupedImageSource[] {
+  const state = parseToolState(part)
+  const presentation =
+    state.status === "completed"
+      ? readInlinePresentation(state.metadata, "media-gallery")
+      : undefined
+  if (!presentation || presentation.data?.renderer !== "media-gallery") {
+    return [{ type: "placeholder", item: groupedImagePlaceholder(part) }]
+  }
+
+  const items = presentation.data.items.flatMap((item) => {
+    const parsed = presentedMediaItemFromInlineItem(item)
+    if (!parsed || parsed.mediaKind !== "image") return []
+
+    return [
+      {
+        type: "presented" as const,
+        partID: part.id,
+        ref: presentation.ref,
+        viewID: presentation.viewID,
+        item: parsed,
+      },
+    ]
+  })
+
+  return items.length > 0
+    ? items
+    : [{ type: "placeholder", item: groupedImagePlaceholder(part) }]
+}
+
+function useGroupedImageItems(
+  parts: readonly MessagePart[],
+  directory: string | undefined,
+): ToolImageGalleryItem[] {
+  const sources = parts.flatMap(groupedImageSources)
+  const presentedSources = sources.filter(
+    (source): source is Extract<GroupedImageSource, { type: "presented" }> =>
+      source.type === "presented",
+  )
+  const availabilityQueries = useQueries({
+    queries: directory
+      ? presentedSources.map((source) =>
+          presentedMediaAvailabilityQuery(directory, source.ref.objectID, source.item.id),
+        )
+      : [],
+  })
+  let presentedIndex = 0
+
+  return sources.map((source) => {
+    if (source.type === "placeholder") return source.item
+
+    const availability = availabilityQueries[presentedIndex]?.data
+    presentedIndex += 1
+    const item = mergeResolvedPresentedMediaItem(source.item, availability)
+    const available = item.resolvedAvailability.status === "available"
+    const benchTarget: BenchTarget = {
+      type: "object",
+      ref: {
+        ...source.ref,
+        itemID: item.id,
+      },
+      viewID: source.viewID,
+    }
+
+    return {
+      id: `${source.partID}:${item.id}`,
+      src: available && item.rawUrl ? resolveAssetUrl(item.rawUrl) : null,
+      alt: item.fileName,
+      title: item.fileName,
+      localPath: available ? item.absolutePath : undefined,
+      benchTarget,
+    }
+  })
+}
+
+function ImagegenGallery(props: {
+  items: ToolImageGalleryItem[]
+  directory?: string
+  sessionID?: string
+  canEditImages?: boolean
+}) {
+  const openBenchRoute = useOpenBench()
+  const onEditItem =
+    props.canEditImages && props.directory && props.sessionID
+      ? async (item: ToolImageGalleryItem) => {
+          const target = item.benchTarget
+          if (
+            target?.type !== "object" ||
+            target.ref.kind !== "media-presentation" ||
+            !target.ref.itemID ||
+            !item.localPath ||
+            !props.directory ||
+            !props.sessionID
+          ) {
+            throw new Error("The image is unavailable for editing.")
+          }
+          await stageMediaImageEdit({
+            directory: props.directory,
+            sessionID: props.sessionID,
+            objectID: target.ref.objectID,
+            itemID: target.ref.itemID,
+            fileName: item.title,
+            localPath: item.localPath,
+          })
+        }
+      : undefined
+
+  return (
+    <ToolImageGallery
+      dialogDescription="Generated image preview"
+      items={props.items}
+      onEditItem={onEditItem}
+      onOpenItem={
+        props.directory
+          ? (item) => {
+              if (!item.benchTarget || !props.directory) return
+              void openBenchRoute({
+                directory: props.directory,
+                target: item.benchTarget,
+                mode: BENCH_MODE_REQUEST_POLICY,
+                autoOpen: null,
+              })
+            }
+          : undefined
+      }
+    />
+  )
+}
+
+export function GroupedImagegenToolCard(props: {
+  parts: MessagePart[]
+  directory?: string
+  canEditImages?: boolean
+}) {
+  const sessionID = props.parts[0]?.sessionID
+  const items = useGroupedImageItems(props.parts, props.directory)
+  return (
+    <ImagegenGallery
+      directory={props.directory}
+      sessionID={sessionID}
+      canEditImages={props.canEditImages}
+      items={items}
+    />
+  )
+}
+
 function CompletedPresentMediaTool(props: {
   toolProps: ToolPartProps
   presentation: BuddyPresentationDescriptor
@@ -115,6 +294,20 @@ function CompletedPresentMediaTool(props: {
       objectID={media.objectID}
       items={resolvedItems}
       onOpenResource={props.toolProps.onOpenResource}
+      onEditImage={
+        props.toolProps.canEditImages
+          ? async (item) => {
+              await stageMediaImageEdit({
+                directory: props.directory,
+                sessionID: props.toolProps.part.sessionID,
+                objectID: media.objectID,
+                itemID: item.id,
+                fileName: item.fileName,
+                localPath: item.absolutePath,
+              })
+            }
+          : undefined
+      }
     />
   )
 }
@@ -127,6 +320,22 @@ export function renderPresentMediaTool(props: ToolPartProps) {
       ? readInlinePresentation(props.state.metadata, "media-gallery")
       : undefined
   const running = props.state.status === "pending" || props.state.status === "running"
+
+  if (props.tool === "imagegen" && running) {
+    return (
+      <ImagegenGallery
+        directory={props.directory}
+        items={[
+          {
+            id: props.part.id,
+            src: null,
+            alt: props.info.title,
+            title: props.info.title,
+          },
+        ]}
+      />
+    )
+  }
 
   if (running || !presentation || !props.directory) {
     return (

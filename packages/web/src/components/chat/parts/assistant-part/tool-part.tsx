@@ -12,6 +12,7 @@ import type { ChatToolPart } from "../../utils/part-guards"
 type ToolPartRendererProps = {
   part: ChatToolPart
   directory?: string
+  canEditImages?: boolean
   onOpenSession?: (sessionID: string) => void
   onOpenResource?: (
     directory: string,
@@ -27,6 +28,7 @@ function toolPartCardEqual(
 ): boolean {
   if (prevProps.part.id !== nextProps.part.id) return false
   if (prevProps.directory !== nextProps.directory) return false
+  if (prevProps.canEditImages !== nextProps.canEditImages) return false
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
   if (prevProps.onOpenResource !== nextProps.onOpenResource) return false
   if (prevProps.defaultOpen !== nextProps.defaultOpen) return false
@@ -67,6 +69,7 @@ function DeferredToolCardContent(props: { card: ToolCardRenderer; toolProps: Too
 export const ToolPartCard = memo(function ToolPartCard({
   part,
   directory,
+  canEditImages,
   onOpenSession,
   onOpenResource,
   defaultOpen,
@@ -88,6 +91,7 @@ export const ToolPartCard = memo(function ToolPartCard({
     tool,
     icon: renderer.icon,
     directory,
+    canEditImages,
     onOpenSession,
     onOpenResource,
     defaultOpen,

@@ -30,6 +30,7 @@ export type AssistantPartRendererProps = {
   stripLeadingFigureImage?: boolean
   stripLeadingMermaidSources?: string[]
   directory?: string
+  canEditImages?: boolean
   defaultOpen?: boolean
 }
 
@@ -47,6 +48,7 @@ function assistantPartRendererEqual(
   if (prevProps.stripLeadingFigureImage !== nextProps.stripLeadingFigureImage) return false
   if (prevProps.stripLeadingMermaidSources !== nextProps.stripLeadingMermaidSources) return false
   if (prevProps.directory !== nextProps.directory) return false
+  if (prevProps.canEditImages !== nextProps.canEditImages) return false
   if (prevProps.onOpenSession !== nextProps.onOpenSession) return false
   if (prevProps.onOpenResource !== nextProps.onOpenResource) return false
   if (prevProps.defaultOpen !== nextProps.defaultOpen) return false
@@ -77,6 +79,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
   stripLeadingFigureImage,
   stripLeadingMermaidSources,
   directory,
+  canEditImages,
   defaultOpen,
 }: AssistantPartRendererProps) {
   if (part.type === "step-start" || part.type === "step-finish") {
@@ -114,6 +117,7 @@ export const AssistantPartRenderer = memo(function AssistantPartRenderer({
         <ToolPartCard
           part={part}
           directory={directory}
+          canEditImages={canEditImages}
           onOpenSession={onOpenSession}
           onOpenResource={onOpenResource}
           defaultOpen={defaultOpen}

@@ -41,7 +41,11 @@ function assistantMessage(input: {
   )
 }
 
-function toolPart(input: { id: string; tool: string }): MessagePart {
+function toolPart(input: {
+  id: string
+  tool: string
+  metadata?: Record<string, unknown>
+}): MessagePart {
   return {
     id: input.id,
     sessionID: "ses_rows",
@@ -52,10 +56,41 @@ function toolPart(input: { id: string; tool: string }): MessagePart {
     state: {
       status: "completed",
       input: {},
-      metadata: {},
+      metadata: input.metadata ?? {},
       attachments: [],
       output: "",
       time: { start: 1, end: 2 },
+    },
+  }
+}
+
+function imagegenPresentationMetadata(objectID: string): Record<string, unknown> {
+  return {
+    buddyObjectResult: {
+      version: 1,
+      status: "ok",
+      reason: null,
+      message: "Generated image",
+      primaryRef: null,
+      objects: [],
+      presentations: [
+        {
+          ref: {
+            kind: "media-presentation",
+            objectID,
+            revisionID: null,
+            itemID: null,
+          },
+          viewID: "default",
+          surface: "inline",
+          data: {
+            renderer: "media-gallery",
+            layout: "single",
+            items: [],
+          },
+          autoOpen: null,
+        },
+      ],
     },
   }
 }
@@ -124,6 +159,38 @@ describe("chat timeline rows", () => {
     const reused = reuseTimelineRows(rows, nextRows)
     expect(reused[0]).toBe(rows[0])
     expect(reused[1]).toBe(rows[1])
+  })
+
+  test("projects parallel image generation calls into one semantic row", () => {
+    const messages = [
+      userMessage(),
+      assistantMessage({
+        id: "msg_assistant",
+        parts: [
+          toolPart({
+            id: "prt_imagegen_1",
+            tool: "imagegen",
+            metadata: imagegenPresentationMetadata("object_imagegen_1"),
+          }),
+          toolPart({
+            id: "prt_imagegen_2",
+            tool: "imagegen",
+            metadata: imagegenPresentationMetadata("object_imagegen_2"),
+          }),
+        ],
+      }),
+    ]
+
+    const rows = rowsFor({ messages })
+    const assistantRow = rows.find(isGroupedAssistantRow)
+
+    expect(assistantRow?.item).toEqual({
+      type: "grouped-parts",
+      key: "grouped-parts:imagegen:prt_imagegen_1",
+      tool: "imagegen",
+      partIDs: ["prt_imagegen_1", "prt_imagegen_2"],
+      previousPartID: undefined,
+    })
   })
 
   test("projects active thinking, retry notices, and assistant errors", () => {
