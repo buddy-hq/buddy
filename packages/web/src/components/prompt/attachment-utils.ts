@@ -35,3 +35,15 @@ export function readFileAsDataUrl(file: File) {
     reader.readAsDataURL(file)
   })
 }
+
+export async function fileToPromptComposerAttachment(
+  file: File,
+): Promise<PromptComposerAttachment> {
+  return {
+    id: createAttachmentID(),
+    filename: file.name || (file.type.startsWith("image/") ? "image" : "attachment"),
+    mime: file.type || "application/octet-stream",
+    dataUrl: await readFileAsDataUrl(file),
+    kind: file.type.startsWith("image/") ? "image" : "file",
+  }
+}

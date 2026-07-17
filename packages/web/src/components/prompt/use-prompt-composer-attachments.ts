@@ -1,8 +1,7 @@
 import { useState } from "react"
 import {
   attachmentRequiresVisionInput,
-  createAttachmentID,
-  readFileAsDataUrl,
+  fileToPromptComposerAttachment,
 } from "./attachment-utils"
 import type { PromptComposerAttachment } from "./prompt-types"
 
@@ -29,15 +28,9 @@ export function usePromptComposerAttachments(props: UsePromptComposerAttachments
     }
     if (supported.length === 0) return
 
-    const next = await Promise.all(
-      supported.map(async (file) => ({
-        id: createAttachmentID(),
-        filename: file.name || (file.type.startsWith("image/") ? "image" : "attachment"),
-        mime: file.type || "application/octet-stream",
-        dataUrl: await readFileAsDataUrl(file),
-        kind: file.type.startsWith("image/") ? ("image" as const) : ("file" as const),
-      })),
-    ).catch(() => undefined)
+    const next = await Promise.all(supported.map(fileToPromptComposerAttachment)).catch(
+      () => undefined,
+    )
 
     if (!next) return
 

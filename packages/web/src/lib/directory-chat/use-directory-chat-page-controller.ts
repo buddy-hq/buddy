@@ -107,6 +107,8 @@ import { teachingSelectionKey, useTeachingRuntime } from "../../state/teaching-r
 import {
   buildCommandAttachmentParts,
   buildPromptDraftFromUserMessage,
+  buildPromptImageEditIntent,
+  buildPromptPreviewParts,
   buildPromptSubmissionParts,
 } from "./chat-prompt-helpers"
 import { useDirectoryChatState } from "./use-directory-chat-state"
@@ -1054,6 +1056,8 @@ export function useDirectoryChatPageController(
       )
       const promptPartsForSubmission = hasStructuredPromptParts ? promptParts : []
       const submissionParts = buildPromptSubmissionParts(promptPartsForSubmission, rawAttachments)
+      const optimisticParts = buildPromptPreviewParts(promptPartsForSubmission, rawAttachments)
+      const imageEdit = buildPromptImageEditIntent(rawAttachments)
       const contentForSubmission = hasStructuredPromptParts ? "" : content
 
       if (!contentForSubmission && submissionParts.length === 0) return false
@@ -1082,6 +1086,8 @@ export function useDirectoryChatPageController(
       const submittedSessionID = await sendPrompt(decodedDirectory, contentForSubmission, {
         sessionID: input.targetSessionID,
         parts: submissionParts,
+        optimisticParts,
+        ...(imageEdit ? { imageEdit } : {}),
         persona: input.persona ?? cs.selectedPersona,
         focusGoalIds: input.focusGoalIds,
         agent: currentAgentName,

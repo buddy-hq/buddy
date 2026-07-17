@@ -66,6 +66,7 @@ import {
   OPENCODE_REFERENCE_PART_TYPE,
   type PromptFilePart,
   type PromptSubmissionPart,
+  type PromptImageEditIntent,
 } from "../components/prompt/prompt-types"
 import {
   BUSY_SESSION_STATUS,
@@ -1579,6 +1580,8 @@ export async function sendPrompt(
   input?: {
     sessionID?: string
     parts?: PromptSubmissionPart[]
+    optimisticParts?: PromptSubmissionPart[]
+    imageEdit?: PromptImageEditIntent
     persona?: string
     focusGoalIds?: string[]
     agent?: string
@@ -1637,6 +1640,7 @@ export async function sendPrompt(
       messageID: optimisticMessageID,
       content,
       ...(promptParts.length > 0 ? { parts: promptParts } : {}),
+      ...(input?.imageEdit ? { imageEdit: input.imageEdit } : {}),
       ...target,
       ...(input?.focusGoalIds && input.focusGoalIds.length > 0
         ? { focusGoalIds: input.focusGoalIds }
@@ -1653,7 +1657,7 @@ export async function sendPrompt(
           sessionID: resolvedSessionID,
           messageID: optimisticMessageID,
           content,
-          parts: promptParts,
+          parts: input?.optimisticParts ?? promptParts,
           agent: input?.agent,
           persona: input?.persona,
           model: input?.model,
@@ -1706,7 +1710,7 @@ export async function sendPrompt(
             sessionID: recoveredSessionID,
             messageID: optimisticMessageID,
             content,
-            parts: promptParts,
+            parts: input?.optimisticParts ?? promptParts,
             agent: input?.agent,
             persona: input?.persona,
             model: input?.model,

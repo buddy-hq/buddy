@@ -13,6 +13,7 @@ import type {
   PromptAttachmentPart,
   PromptComposerAttachment,
   PromptComposerPart,
+  PromptImageEditIntent,
   PromptSelectionContextPart,
   PromptSubmissionPart,
 } from "@/components/prompt/prompt-types"
@@ -36,6 +37,62 @@ import {
 } from "@/state/chat-actions"
 
 const DATA_URL_PREFIX = "data:" as const
+
+function localPathToFileUrl(path: string): string | undefined {
+  if (path.startsWith("file:")) {
+    try {
+      return new URL(path).href
+    } catch {
+      return undefined
+    }
+  }
+
+  const normalized = path.replaceAll("\\", "/")
+  if (normalized.startsWith("//")) {
+    const [host, ...segments] = normalized.slice(2).split("/")
+    if (!host) return undefined
+    const url = new URL(`file://${host}/`)
+    url.pathname = `/${segments.join("/")}`
+    return url.href
+  }
+
+  if (!normalized.startsWith("/") && !/^[A-Za-z]:\//u.test(normalized)) {
+    return undefined
+  }
+
+  const url = new URL("file:///")
+  url.pathname = normalized.startsWith("/") ? normalized : `/${normalized}`
+  return url.href
+}
+
+function promptAttachmentUrl(attachment: PromptComposerAttachment): string {
+  if (attachment.editTarget) return attachment.dataUrl
+  return attachment.localPath
+    ? (localPathToFileUrl(attachment.localPath) ?? attachment.dataUrl)
+    : attachment.dataUrl
+}
+
+function promptAttachmentSource(attachment: PromptComposerAttachment) {
+  if (!attachment.localPath) return undefined
+  return {
+    type: "file" as const,
+    path: attachment.localPath,
+    text: {
+      value: attachment.filename,
+      start: 0,
+      end: attachment.filename.length,
+    },
+  }
+}
+
+export function buildPromptImageEditIntent(
+  attachments: PromptComposerAttachment[],
+): PromptImageEditIntent | undefined {
+  const targetPaths = attachments.flatMap((attachment) =>
+    attachment.editTarget && attachment.localPath ? [attachment.localPath] : [],
+  )
+  return targetPaths.length > 0 ? { targetPaths } : undefined
+}
 
 export function readSessionErrorMessage(error: unknown) {
   if (typeof error === "string" && error.trim()) {
@@ -125,9 +182,12 @@ function decodeAttachmentText(dataUrl: string) {
 
 function buildPromptAttachmentParts(
   attachments: PromptComposerAttachment[],
+  useLocalPaths = true,
 ): PromptAttachmentPart[] {
   return attachments.flatMap((attachment): PromptAttachmentPart[] => {
-    const textLike = attachment.mime === "image/svg+xml" || attachment.mime.startsWith("text/")
+    const textLike =
+      (!useLocalPaths || !attachment.localPath) &&
+      (attachment.mime === "image/svg+xml" || attachment.mime.startsWith("text/"))
     if (textLike) {
       const content = decodeAttachmentText(attachment.dataUrl)
       if (content !== undefined) {
@@ -140,15 +200,24 @@ function buildPromptAttachmentParts(
       }
     }
 
+    const source = promptAttachmentSource(attachment)
     return [
       {
         type: PROMPT_PART_TYPE_FILE,
         mime: attachment.mime,
-        url: attachment.dataUrl,
+        url: useLocalPaths ? promptAttachmentUrl(attachment) : attachment.dataUrl,
         filename: attachment.filename,
+        ...(source ? { source } : {}),
       },
     ]
   })
+}
+
+export function buildPromptPreviewParts(
+  promptParts: PromptComposerPart[],
+  attachments: PromptComposerAttachment[],
+): PromptSubmissionPart[] {
+  return [...promptParts.map((part) => ({ ...part })), ...buildPromptAttachmentParts(attachments, false)]
 }
 
 export function buildPromptSubmissionParts(
@@ -162,7 +231,7 @@ export function buildCommandAttachmentParts(attachments: PromptComposerAttachmen
   return attachments.map((attachment) => ({
     type: PROMPT_PART_TYPE_FILE,
     mime: attachment.mime === "text/plain" ? "application/octet-stream" : attachment.mime,
-    url: attachment.dataUrl,
+    url: promptAttachmentUrl(attachment),
     filename: attachment.filename,
   }))
 }
@@ -208,12 +277,20 @@ function toPromptComposerAttachment(part: MessagePart): PromptComposerAttachment
   if (!part.url.startsWith(DATA_URL_PREFIX)) return undefined
   if (typeof part.filename !== "string" || part.filename.length === 0) return undefined
 
+  const localPath =
+    part.source && typeof part.source === "object" && "path" in part.source
+      ? part.source.path
+      : undefined
+  const isImage = part.mime.startsWith("image/")
+  const hasLocalPath = typeof localPath === "string" && localPath.length > 0
+
   return {
     id: part.id,
     filename: part.filename,
     mime: part.mime,
     dataUrl: part.url,
-    kind: part.mime.startsWith("image/") ? "image" : "file",
+    ...(hasLocalPath ? { localPath, ...(isImage ? { editTarget: true } : {}) } : {}),
+    kind: isImage ? "image" : "file",
   }
 }
 

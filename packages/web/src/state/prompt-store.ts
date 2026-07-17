@@ -95,6 +95,8 @@ function isPromptComposerAttachment(value: unknown): value is PromptComposerAtta
     typeof value.filename === "string" &&
     typeof value.mime === "string" &&
     typeof value.dataUrl === "string" &&
+    (value.localPath === undefined || typeof value.localPath === "string") &&
+    (value.editTarget === undefined || value.editTarget === true) &&
     (value.kind === "image" || value.kind === "file")
   )
 }
@@ -399,6 +401,8 @@ function areAttachmentsEqual(left: PromptComposerAttachment[], right: PromptComp
     if (leftAttachment.filename !== rightAttachment.filename) return false
     if (leftAttachment.mime !== rightAttachment.mime) return false
     if (leftAttachment.dataUrl !== rightAttachment.dataUrl) return false
+    if (leftAttachment.localPath !== rightAttachment.localPath) return false
+    if (leftAttachment.editTarget !== rightAttachment.editTarget) return false
     if (leftAttachment.kind !== rightAttachment.kind) return false
   }
 

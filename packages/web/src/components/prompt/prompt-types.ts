@@ -3,7 +3,13 @@ export type PromptComposerAttachment = {
   filename: string
   mime: string
   dataUrl: string
+  localPath?: string
+  editTarget?: true
   kind: "image" | "file"
+}
+
+export type PromptImageEditIntent = {
+  targetPaths: string[]
 }
 
 export const PROMPT_PART_TYPE_TEXT = "text" as const
@@ -31,6 +37,15 @@ export type PromptFilePart = {
   mime: string
   url: string
   filename: string
+  source?: {
+    type: "file"
+    path: string
+    text: {
+      value: string
+      start: number
+      end: number
+    }
+  }
 }
 
 export type PromptAgentPart = {

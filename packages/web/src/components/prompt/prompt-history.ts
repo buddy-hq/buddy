@@ -49,6 +49,8 @@ function isHistoryEntryEqual(left: PromptHistoryEntry, right: PromptHistoryEntry
     if (leftAttachment.filename !== rightAttachment.filename) return false
     if (leftAttachment.mime !== rightAttachment.mime) return false
     if (leftAttachment.dataUrl !== rightAttachment.dataUrl) return false
+    if (leftAttachment.localPath !== rightAttachment.localPath) return false
+    if (leftAttachment.editTarget !== rightAttachment.editTarget) return false
     if (leftAttachment.kind !== rightAttachment.kind) return false
   }
 
