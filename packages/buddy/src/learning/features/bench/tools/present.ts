@@ -7,6 +7,11 @@ import {
   resolveResourceObjectByKey,
 } from "../../../../resources/resource-registry-service"
 import {
+  buildPresentedMediaObjectOutput,
+  normalizePresentedMediaPermissionPath,
+  PresentedMediaValidationError,
+} from "../../media-presentations/service/file-media"
+import {
   BUDDY_OBJECT_KINDS,
   BuddyObjectIDSchema,
   BuddyObjectNotFoundError,
@@ -21,7 +26,8 @@ import {
   type BuddyObjectRef,
   type BuddyObjectResult,
 } from "../../../../objects"
-import { createBuddyTool } from "../../../runtime/create-buddy-tool"
+import { createBuddyTool, type BuddyToolContext } from "../../../runtime/create-buddy-tool"
+import { authorizeFileReadPath } from "../../../runtime/external-file-authorization"
 import {
   BenchTargetSchema,
   type BenchContextTarget,
@@ -80,17 +86,19 @@ const BenchPresentReasonSchema = z.enum([
 const BenchPresentInputSchema = z
   .object({
     action: BenchPresentActionSchema.describe(
-      "What to show on Bench. Use present_file for a workspace file path, present_resource for a prepared reading resource by object id or alias, present_object for an existing Buddy object id, present_whiteboard for the current session whiteboard, and close only when the user asks to close Bench.",
+      "What to show on Bench. Use present_file for an existing local file, present_resource for a prepared reading resource by object id or alias, present_object for an existing Buddy object id, present_whiteboard for the current session whiteboard, and close only when the user asks to close Bench.",
     ),
     path: z
       .string()
+      .trim()
       .min(1)
       .nullable()
       .describe(
-        "Workspace-relative file path. Required only for present_file. Must be null for every other action. Do not invent paths. Do not use this for .html or .htm teaching widgets; use present_html_widget for those.",
+        "Existing local file path for present_file. Accepts workspace-relative paths, absolute paths, file:// URLs, and ~/ home-relative paths. A path that resolves outside the workspace requires external-folder permission. Must be null for every other action. Do not invent paths. Use present_html_widget for .html or .htm teaching widgets.",
       ),
     resourceKey: z
       .string()
+      .trim()
       .min(1)
       .nullable()
       .describe(
@@ -153,7 +161,7 @@ function normalizeBenchPresentInput(rawArgs: unknown): unknown {
   if (!isRecord(rawArgs)) return rawArgs
 
   return {
-    action: rawArgs.action,
+    ...rawArgs,
     path: rawArgs.path ?? null,
     resourceKey: rawArgs.resourceKey ?? null,
     objectID: rawArgs.objectID ?? null,
@@ -166,7 +174,7 @@ function formatBenchPresentValidationError(error: z.ZodError): string {
     "",
     "Use one of these exact shapes:",
     "",
-    "Open a workspace file:",
+    "Open a workspace or absolute local file:",
     JSON.stringify(
       {
         action: "present_file",
@@ -492,7 +500,7 @@ async function presentResolvedObject(input: {
   manifest: BuddyObjectManifest
   reason: Extract<
     BenchPresentReason,
-    "presented_object" | "presented_resource" | "presented_whiteboard"
+    "presented_file" | "presented_object" | "presented_resource" | "presented_whiteboard"
   >
   message: string
 }): Promise<BenchPresentOutput> {
@@ -544,22 +552,27 @@ async function presentResolvedObject(input: {
 
 async function presentFile(input: {
   directory: string
+  sessionID: string
   path: string
+  ask: BuddyToolContext["ask"]
 }): Promise<BenchPresentOutput> {
-  const relativePath = normalizeWorkspaceRelativePath(input.path)
-  if (!relativePath) {
+  let requestedPath: string
+  try {
+    requestedPath = normalizePresentedMediaPermissionPath(input.directory, input.path)
+  } catch (error) {
+    if (!(error instanceof PresentedMediaValidationError)) throw error
     return {
       status: "blocked",
       reason: "unsupported_target",
       target: null,
       benchTarget: null,
       mode: null,
-      message: "Bench can present only workspace-relative file paths.",
+      message: error.message,
       objectResult: null,
     }
   }
 
-  if (isHtmlPath(relativePath)) {
+  if (isHtmlPath(requestedPath)) {
     return {
       status: "blocked",
       reason: "unsupported_target",
@@ -572,25 +585,11 @@ async function presentFile(input: {
     }
   }
 
-  const absolutePath = absoluteWorkspacePath({
+  const canonicalPath = await authorizeFileReadPath(requestedPath, {
     directory: input.directory,
-    relativePath,
+    ask: input.ask,
   })
-  const workspaceRoot = path.resolve(input.directory)
-  const relativeFromRoot = path.relative(workspaceRoot, absolutePath)
-  if (relativeFromRoot.startsWith("..") || path.isAbsolute(relativeFromRoot)) {
-    return {
-      status: "blocked",
-      reason: "unsupported_target",
-      target: null,
-      benchTarget: null,
-      mode: null,
-      message: "Bench can present only files inside the current workspace.",
-      objectResult: null,
-    }
-  }
-
-  const stats = await fs.stat(absolutePath).catch(() => undefined)
+  const stats = await fs.stat(canonicalPath).catch(() => undefined)
   if (!stats?.isFile()) {
     return {
       status: "blocked",
@@ -598,7 +597,44 @@ async function presentFile(input: {
       target: null,
       benchTarget: null,
       mode: null,
-      message: `File not found: ${relativePath}`,
+      message: `File not found: ${input.path}`,
+      objectResult: null,
+    }
+  }
+
+  const workspaceRoot = await fs
+    .realpath(input.directory)
+    .catch(() => path.resolve(input.directory))
+  const relativeFromRoot = path.relative(workspaceRoot, canonicalPath)
+  const isWorkspaceFile =
+    relativeFromRoot !== "" &&
+    !relativeFromRoot.startsWith("..") &&
+    !path.isAbsolute(relativeFromRoot)
+
+  if (!isWorkspaceFile) {
+    const presentation = await buildPresentedMediaObjectOutput({
+      directory: input.directory,
+      title: path.basename(canonicalPath),
+      items: [{ path: canonicalPath }],
+    })
+    return presentResolvedObject({
+      directory: input.directory,
+      sessionID: input.sessionID,
+      manifest: presentation.manifest,
+      reason: "presented_file",
+      message: `Requested Bench presentation for ${canonicalPath}.`,
+    })
+  }
+
+  const relativePath = normalizeWorkspaceRelativePath(relativeFromRoot)
+  if (!relativePath) {
+    return {
+      status: "blocked",
+      reason: "unsupported_target",
+      target: null,
+      benchTarget: null,
+      mode: null,
+      message: "Bench could not resolve the file inside the current workspace.",
       objectResult: null,
     }
   }
@@ -993,6 +1029,7 @@ async function presentOnBench(input: {
   path: string | null
   resourceKey: string | null
   objectID: string | null
+  ask: BuddyToolContext["ask"]
 }): Promise<BenchPresentOutput> {
   if (input.action === "close") {
     const requested = {
@@ -1020,7 +1057,9 @@ async function presentOnBench(input: {
     case "present_file":
       requested = await presentFile({
         directory: input.directory,
+        sessionID: input.sessionID,
         path: input.path ?? "",
+        ask: input.ask,
       })
       break
     case "present_resource":
@@ -1081,11 +1120,11 @@ const benchPresentTool = createBuddyTool({
   description: [
     "Present an existing stable target on Bench, or close Bench.",
     "",
-    "Use this tool when the learner asks to focus a raw workspace file, prepared resource, existing Buddy object, or the current whiteboard on Bench.",
+    "Use this tool when the learner asks to focus an existing local file, prepared resource, existing Buddy object, or the current whiteboard on Bench. Files inside the workspace open directly. Paths that resolve outside it request external-folder permission and then open through a Bench-resolvable Buddy object.",
     "",
     "For Buddy objects, pass only objectID copied from a prior tool result. Do not pass object kind, revision id, item id, view id, routes, layout pixels, or user preferences.",
     "",
-    "Do not use this tool to create content, render media inline, create an HTML widget, edit a whiteboard, choose layout pixels, change user preferences, or build routes.",
+    "This tool does not author or modify content. For an approved external file it creates only a managed reference needed by Bench. Do not use it to render media inline, create an HTML widget, edit a whiteboard, choose layout pixels, change user preferences, or build routes.",
   ].join("\n"),
   parameters: BenchPresentInputSchema,
   normalizeInput: normalizeBenchPresentInput,
@@ -1108,6 +1147,7 @@ const benchPresentTool = createBuddyTool({
       path: params.path,
       resourceKey: params.resourceKey,
       objectID: params.objectID,
+      ask: ctx.ask,
     })
     const metadata = buildBenchPresentToolMetadata({
       action: params.action,

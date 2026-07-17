@@ -1,20 +1,17 @@
 import z from "zod"
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
 import {
-  BUDDY_OBJECT_KINDS,
-  BuddyObjectResultSchema,
   formatBuddyObjectRefLines,
   nonEmptyString,
-  objectSummaryBaseFromManifest,
-  type BuddyObjectResult,
 } from "../../../../objects"
 import {
   buildPresentedMediaObjectOutput,
   MEDIA_PRESENTATION_KIND,
   normalizePresentedMediaPermissionPath,
   PresentedMediaValidationError,
-  type PresentedMediaObjectOutput,
 } from "../service/file-media"
+import { buildPresentedMediaObjectResult } from "../service/object-result"
+import { authorizeFileReadPaths } from "../../../runtime/external-file-authorization"
 
 const PresentMediaInputSchema = z.object({
   items: z
@@ -29,63 +26,6 @@ const PresentMediaInputSchema = z.object({
 
 type PresentMediaInput = z.infer<typeof PresentMediaInputSchema>
 
-function buildPresentMediaObjectResult(input: {
-  output: PresentedMediaObjectOutput
-  title: string
-}): BuddyObjectResult {
-  const ref = {
-    kind: BUDDY_OBJECT_KINDS.mediaPresentation,
-    objectID: input.output.objectID,
-    revisionID: null,
-    itemID: null,
-  }
-  return BuddyObjectResultSchema.parse({
-    version: 1,
-    status: "ok",
-    reason: null,
-    message: `Presented ${input.output.items.length} media item${input.output.items.length === 1 ? "" : "s"}.`,
-    primaryRef: ref,
-    objects: [
-      objectSummaryBaseFromManifest({
-        kind: BUDDY_OBJECT_KINDS.mediaPresentation,
-        objectID: input.output.objectID,
-        title: input.title,
-        status: "ready",
-        lifecycle: "external-reference",
-        sourceRoot: null,
-      }),
-    ],
-    presentations: [
-      {
-        ref,
-        viewID: "gallery",
-        surface: "inline",
-        data: {
-          renderer: "media-gallery",
-          layout: input.output.layout,
-          items: input.output.items.map((item) => ({
-            itemID: item.id,
-            title: item.fileName,
-            mediaType: item.mediaKind,
-            mimeType: item.mimeType,
-            source: {
-              role: "external",
-              path: item.absolutePath,
-              displayPath: item.displayPath,
-              workspacePath: item.workspacePath,
-              availability: item.availability.status,
-            },
-            availability: item.availability.status,
-            rawUrl: item.rawUrl,
-            fileName: item.fileName,
-          })),
-        },
-        autoOpen: null,
-      },
-    ],
-  })
-}
-
 const presentMediaTool = createBuddyTool({
   id: "present_media",
   produces: {
@@ -98,11 +38,12 @@ const presentMediaTool = createBuddyTool({
     const permissionPaths = params.items.map((item) =>
       normalizePresentedMediaPermissionPath(ctx.directory, item.path),
     )
+    const authorizedPaths = await authorizeFileReadPaths(permissionPaths, ctx)
 
     await ctx.ask({
       permission: "present_media",
-      patterns: permissionPaths,
-      always: permissionPaths,
+      patterns: authorizedPaths,
+      always: authorizedPaths,
       metadata: {
         kind: MEDIA_PRESENTATION_KIND,
       },
@@ -111,11 +52,9 @@ const presentMediaTool = createBuddyTool({
     try {
       const result = await buildPresentedMediaObjectOutput({
         directory: ctx.directory,
-        items: params.items.map((item) => ({
-          path: item.path,
-        })),
+        items: authorizedPaths.map((authorizedPath) => ({ path: authorizedPath })),
       })
-      const buddyObjectResult = buildPresentMediaObjectResult({
+      const buddyObjectResult = buildPresentedMediaObjectResult({
         output: result.output,
         title: result.manifest.title,
       })

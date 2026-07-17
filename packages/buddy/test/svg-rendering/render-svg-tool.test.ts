@@ -100,13 +100,18 @@ describe("render_svg tool", () => {
     ).toEqual({ status: "completed" })
 
     const result = await resultPromise
+    const authorizedFilePath = path.join(
+      await fsp.realpath(project.path),
+      "worksheet-assets",
+      "ethanol.svg",
+    )
     expect(permissionRequests).toEqual([
       {
         permission: "edit",
-        patterns: [filePath],
-        always: [filePath],
+        patterns: [authorizedFilePath],
+        always: [authorizedFilePath],
         metadata: {
-          filePath,
+          filePath: authorizedFilePath,
           format: "smiles",
         },
       },

@@ -1882,7 +1882,9 @@ metadata: {
 ```
 
 Tools may return non-object results for actions that do not produce or present a
-managed object, such as closing Bench or presenting a raw workspace file.
+managed object, such as closing Bench or presenting a raw workspace file. An
+approved external file is represented by a managed external-reference object so
+the object route can resolve it without exposing an arbitrary-path endpoint.
 
 Presentation descriptors never carry Bench mode. Frontend opening uses
 `resolveBenchSurfaceDefaults` and `useOpenBench` with `mode: "policy"`.
@@ -1984,11 +1986,11 @@ const benchPresentTool = createBuddyTool({
   description: [
     "Present an existing stable target on Bench, or close Bench.",
     "",
-    "Use this tool when the learner asks to focus a raw workspace file, prepared resource, existing Buddy object, or the current whiteboard on Bench.",
+    "Use this tool when the learner asks to focus an existing local file, prepared resource, existing Buddy object, or the current whiteboard on Bench. Files inside the workspace open directly. Paths that resolve outside it request external-folder permission and then open through a Bench-resolvable Buddy object.",
     "",
     "For Buddy objects, pass only objectID copied from a prior tool result. Do not pass object kind, revision id, item id, view id, routes, layout pixels, or user preferences.",
     "",
-    "Do not use this tool to create content, render media inline, create an HTML widget, edit a whiteboard, choose layout pixels, change user preferences, or build routes.",
+    "This tool does not author or modify content. For an approved external file it creates only a managed reference needed by Bench. Do not use it to render media inline, create an HTML widget, edit a whiteboard, choose layout pixels, change user preferences, or build routes.",
   ].join("\n"),
   parameters: z
     .object({
@@ -2055,8 +2057,9 @@ nullable fields instead of one overloaded `target` string.
 
 Validation:
 
-- `present_file` requires `path` as a workspace-relative path; `resourceKey`
-  and `objectID` must be null.
+- `present_file` requires `path` as a workspace-relative or absolute local path;
+  `file://` and `~/` forms are also accepted. `resourceKey` and `objectID` must
+  be null.
 - `present_resource` requires `resourceKey` as a resource alias or resource
   `object_id`; `path` and `objectID` must be null.
 - `present_object` requires `objectID` copied from a prior tool
@@ -2068,14 +2071,20 @@ Validation:
 
 Runtime mapping:
 
-- `present_file`: validate the workspace-relative path, then open the Markdown
-  or file Bench surface. Raw `.html` and `.htm` files are rejected here; use
-  `present_html_widget` so HTML source and rendered widget presentation stay
+- `present_file`: canonicalize the local path before use. A file inside the
+  workspace opens on the Markdown or file Bench surface. A path resolving
+  outside the workspace first requires `external_directory`; after approval,
+  Buddy stores the canonical path in a `media-presentation` external-reference
+  object and opens its registered gallery view. Rejection must create no object
+  and dispatch no Bench action. Raw `.html` and `.htm` files remain rejected;
+  use `present_html_widget` so HTML source and rendered widget presentation stay
   under managed object control.
 - `present_resource`: resolve `resourceKey` through the resource object
   resolver by objectID first and alias second, then open the reader surface.
 - `present_object`: resolve `objectID` through the object registry, choose the
   object's default Bench view, and open that view.
+- Every `BuddyObjectKind` must be registered by its owning feature and provide a
+  default Bench view; startup/test coverage must fail when a kind is missing.
 - When `present_object` resolves to a resource, the resource kind's default
   Bench view must enforce the same `bench_reader=none` guard as
   `present_resource`.
@@ -2102,6 +2111,9 @@ Model-call examples:
   "objectID": null
 }
 ```
+
+An external file uses the same action and shape with an absolute `path`; Buddy
+requests external-folder permission before creating its managed reference.
 
 ```json
 {

@@ -10,6 +10,7 @@ import {
   createBuddyTool,
   type BuddyToolContext,
 } from "@buddy/backend/learning/runtime/create-buddy-tool"
+import { authorizeFileWritePath } from "@buddy/backend/learning/runtime/external-file-authorization"
 import RENDER_SVG_DESCRIPTION from "./render-svg.md"
 import { SvgSourceFormatSchema, SvgTextSourceSchema } from "../service/contracts"
 import { renderSvgSource, sha256Text } from "../service/render-source"
@@ -90,7 +91,7 @@ const renderSvgTool = createBuddyTool({
       ? await readSvgAutoRepairRequest(ctx.directory, repairRequestID)
       : undefined
     const repairAttemptID = ctx.callID ? String(ctx.callID) : randomUUID()
-    let verifiedRepairTargetPath: string | undefined
+    let authorizedTargetPath: string
     if (repairRequest) {
       if (repairRequest.sessionID !== String(ctx.sessionID)) {
         throw new Error("SVG auto-repair request does not belong to the current session.")
@@ -102,19 +103,20 @@ const renderSvgTool = createBuddyTool({
       if (filePath !== scratchFile) {
         throw new Error(`Use the exact temporary filePath from the repair prompt: ${scratchFile}`)
       }
-      verifiedRepairTargetPath = await resolveSvgAutoRepairStoragePath(ctx.directory, filePath)
+      authorizedTargetPath = await resolveSvgAutoRepairStoragePath(ctx.directory, filePath)
       await beginSvgAutoRepairRenderAttempt({
         attemptID: repairAttemptID,
         directory: ctx.directory,
         requestID: repairRequest.repairRequestID,
       })
     } else {
+      authorizedTargetPath = await authorizeFileWritePath(filePath, ctx)
       await ctx.ask({
         permission: RENDER_SVG_FILE_PERMISSION,
-        patterns: [filePath],
-        always: [filePath],
+        patterns: [authorizedTargetPath],
+        always: [authorizedTargetPath],
         metadata: {
-          filePath,
+          filePath: authorizedTargetPath,
           format: params.format,
         },
       })
@@ -122,8 +124,8 @@ const renderSvgTool = createBuddyTool({
 
     try {
       const writeSnapshot = await captureTextFileWriteSnapshot(filePath)
-      if (verifiedRepairTargetPath && writeSnapshot.targetPath !== verifiedRepairTargetPath) {
-        throw new Error("SVG auto-repair storage path changed before rendering started.")
+      if (writeSnapshot.targetPath !== authorizedTargetPath) {
+        throw new Error("SVG output path changed after authorization.")
       }
       const fileExisted = writeSnapshot.version !== null
       const rendered = await renderSvgSource({

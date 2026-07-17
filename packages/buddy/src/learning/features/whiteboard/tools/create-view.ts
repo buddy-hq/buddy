@@ -168,6 +168,12 @@ const createWhiteboardViewTool = createBuddyTool({
     const messageID = String(ctx.messageID)
     const callID = nullableCallID(ctx)
     const eventCallID = callID ?? createdByCallID(ctx)
+    await ctx.ask({
+      permission: "whiteboard_create_view",
+      patterns: ["*"],
+      always: ["*"],
+      metadata: {},
+    })
     const whiteboardObject = await ensureWhiteboardObjectForSession({
       directory: ctx.directory,
       sessionID,
@@ -198,12 +204,6 @@ const createWhiteboardViewTool = createBuddyTool({
         },
         viewID: WHITEBOARD_CURRENT_VIEW_ID,
       },
-    })
-    await ctx.ask({
-      permission: "whiteboard_create_view",
-      patterns: ["*"],
-      always: ["*"],
-      metadata: {},
     })
     const result = await applyWhiteboardDrawingProgram({
       directory: ctx.directory,

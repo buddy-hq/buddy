@@ -7,6 +7,7 @@ import {
   clearBenchContextRegistry,
   type BenchTarget,
 } from "../../src/learning/features/bench/context"
+import "../../src/learning/features"
 import {
   SSE_EVENT_TYPE_CLIENT_ACTION,
   benchClientActionBroker,
@@ -14,6 +15,10 @@ import {
   type BenchClientLease,
 } from "../../src/learning/features/bench/client-actions"
 import { benchPresentTool, presentOnBench } from "../../src/learning/features/bench/tools/present"
+import {
+  BUDDY_OBJECT_KIND_VALUES,
+  getBuddyObjectKindDefinition,
+} from "../../src/objects"
 import {
   addResource,
   resolveResourceObjectByKey,
@@ -219,13 +224,17 @@ function completeSupersededAction(input: {
 }
 
 function presentOnBenchWithTestContext(
-  input: Omit<Parameters<typeof presentOnBench>[0], "messageID" | "callID" | "abort">,
+  input: Omit<
+    Parameters<typeof presentOnBench>[0],
+    "messageID" | "callID" | "abort" | "ask"
+  >,
 ) {
   return presentOnBench({
     ...input,
     messageID: "msg_bench_present_test",
     callID: null,
     abort: new AbortController().signal,
+    ask: async () => undefined,
   })
 }
 
@@ -245,6 +254,15 @@ async function waitForResourceReader(input: {
 }
 
 describe("bench_present", () => {
+  test("has a registered Bench resolver for every Buddy object kind", () => {
+    expect(
+      BUDDY_OBJECT_KIND_VALUES.filter(
+        (kind) =>
+          typeof getBuddyObjectKindDefinition(kind)?.resolveBenchView !== "function",
+      ),
+    ).toEqual([])
+  })
+
   test("accepts omitted inactive nullable fields for close", async () => {
     await using project = await tmpdir({ git: true })
     const client = connectTestBenchClient({ directory: project.path })
@@ -272,6 +290,28 @@ describe("bench_present", () => {
       reason: "closed_by_request",
       benchTarget: null,
     })
+  })
+
+  test("rejects unknown fields instead of silently discarding them", async () => {
+    await using project = await tmpdir({ git: true })
+
+    await expect(
+      benchPresentTool.run(
+        {
+          action: "close",
+          path: null,
+          resourceKey: null,
+          objectID: null,
+          route: "/_bench/file",
+        },
+        createBuddyToolContext({
+          directory: project.path,
+          sessionID: SESSION_ID,
+          messageID: "msg_bench_present_unknown_field",
+          agent: "buddy",
+        }),
+      ),
+    ).rejects.toThrow("Unrecognized key")
   })
 
   test("presents an existing workspace file when Bench is synchronized closed", async () => {
@@ -336,6 +376,128 @@ describe("bench_present", () => {
         type: "workspace-file",
         path: "lesson.mdx",
         viewer: "markdown",
+      },
+    })
+  })
+
+  test("accepts an absolute path inside the workspace without external permission", async () => {
+    await using project = await tmpdir({
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "notes.md"), "# Notes\n")
+      },
+    })
+    const requests: Parameters<ReturnType<typeof createBuddyToolContext>["ask"]>[0][] = []
+    const client = connectTestBenchClient({ directory: project.path })
+    const context = createBuddyToolContext({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      messageID: "msg_bench_present_absolute_workspace",
+      agent: "buddy",
+    })
+    context.ask = async (request) => {
+      requests.push(request)
+    }
+
+    const run = benchPresentTool.run(
+      {
+        action: "present_file",
+        path: path.join(project.path, "notes.md"),
+        resourceKey: null,
+        objectID: null,
+      },
+      context,
+    )
+    const action = await readNextAction(client)
+    completeCommittedAction({ client, action, changed: true })
+    const result = await run
+
+    expect(requests).toEqual([])
+    expect(result.metadata).toMatchObject({
+      benchStatus: "presented",
+      reason: "presented_file",
+      benchTarget: {
+        type: "workspace-file",
+        path: "notes.md",
+        viewer: "markdown",
+      },
+    })
+  })
+
+  test("authorizes and resolves an external absolute path through an object target", async () => {
+    await using project = await tmpdir({ git: true })
+    await using external = await tmpdir({
+      init: async (directory) => {
+        await fs.writeFile(path.join(directory, "diagram.svg"), "<svg></svg>")
+      },
+    })
+    const externalPath = path.join(external.path, "diagram.svg")
+    const lexicalExternalPath = path.resolve(externalPath)
+    const canonicalExternalPath = await fs.realpath(externalPath)
+    const requests: Parameters<ReturnType<typeof createBuddyToolContext>["ask"]>[0][] = []
+    const client = connectTestBenchClient({ directory: project.path })
+    const context = createBuddyToolContext({
+      directory: project.path,
+      sessionID: SESSION_ID,
+      messageID: "msg_bench_present_absolute_external",
+      agent: "buddy",
+    })
+    context.ask = async (request) => {
+      requests.push(request)
+    }
+
+    const run = benchPresentTool.run(
+      {
+        action: "present_file",
+        path: externalPath,
+        resourceKey: null,
+        objectID: null,
+      },
+      context,
+    )
+    const action = await readNextAction(client)
+    expect(action.command).toMatchObject({
+      type: "present",
+      target: {
+        type: "object",
+        ref: { kind: "media-presentation" },
+        viewID: "gallery",
+      },
+    })
+    completeCommittedAction({ client, action, changed: true })
+    const result = await run
+
+    const expectedAuthorizedPaths =
+      lexicalExternalPath === canonicalExternalPath
+        ? [canonicalExternalPath]
+        : [lexicalExternalPath, canonicalExternalPath]
+    expect(requests).toHaveLength(expectedAuthorizedPaths.length)
+    expect(
+      requests.map((request) => ({
+        permission: request.permission,
+        patterns: request.patterns,
+        metadata: request.metadata,
+      })),
+    ).toEqual(
+      expectedAuthorizedPaths.map((authorizedPath) => ({
+        permission: "external_directory",
+        patterns: [path.join(path.dirname(authorizedPath), "*")],
+        metadata: {
+          filepath: authorizedPath,
+          parentDir: path.dirname(authorizedPath),
+        },
+      })),
+    )
+    expect(result.metadata).toMatchObject({
+      benchStatus: "presented",
+      reason: "presented_file",
+      benchTarget: {
+        type: "object",
+        ref: { kind: "media-presentation" },
+        viewID: "gallery",
+      },
+      buddyObjectResult: {
+        primaryRef: { kind: "media-presentation" },
+        presentations: [{ surface: "bench", viewID: "gallery" }],
       },
     })
   })

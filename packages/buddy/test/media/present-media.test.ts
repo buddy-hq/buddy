@@ -45,6 +45,20 @@ describe("present media", () => {
     expect(output.output.items.every((item) => item.renderMode === "image")).toBe(true)
   })
 
+  test("uses an explicit semantic object title", async () => {
+    await using project = await tmpdir({ git: true })
+    const imagePath = path.join(project.path, "generated.png")
+    await fs.writeFile(imagePath, "image")
+
+    const output = await buildPresentedMediaObjectOutput({
+      directory: project.path,
+      title: "Waving Orange Panda",
+      items: [{ path: imagePath }],
+    })
+
+    expect(output.manifest.title).toBe("Waving Orange Panda")
+  })
+
   test("returns raw URLs for absolute local paths outside the workspace", async () => {
     await using project = await tmpdir({ git: true })
     const localDir = await fs.mkdtemp(path.join(os.tmpdir(), "buddy-present-media-local-"))

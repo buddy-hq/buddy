@@ -447,6 +447,7 @@ function buildPresentedMediaObjectViews(input: {
 
 export async function buildPresentedMediaObjectOutput(input: {
   directory: string
+  title?: string
   items: Array<{
     path: string
   }>
@@ -513,7 +514,9 @@ export async function buildPresentedMediaObjectOutput(input: {
     version: 1,
     kind: BUDDY_OBJECT_KINDS.mediaPresentation,
     objectID,
-    title: items.length === 1 ? (items[0]?.fileName ?? "Media presentation") : "Media presentation",
+    title:
+      input.title ??
+      (items.length === 1 ? (items[0]?.fileName ?? "Media presentation") : "Media presentation"),
     status: "ready",
     lifecycle: "external-reference",
     createdAt: now,

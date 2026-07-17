@@ -214,7 +214,7 @@ export async function addResource(input: {
   sourcePath: string
   alias?: string
 }): Promise<ResourceRecord> {
-  const absoluteSourcePath = resolveInputSourcePath(input.directory, input.sourcePath)
+  const absoluteSourcePath = resolveResourceSourcePath(input.directory, input.sourcePath)
   const sourceStat = await fs.stat(absoluteSourcePath).catch(() => undefined)
   if (!sourceStat) {
     throw new ResourceValidationError(
@@ -1510,7 +1510,7 @@ function resourcePackDisplayRootPath(objectID: string): string {
   )
 }
 
-function resolveInputSourcePath(directory: string, rawPath: string): string {
+export function resolveResourceSourcePath(directory: string, rawPath: string): string {
   const trimmed = rawPath.trim()
   if (!trimmed) throw new ResourceValidationError(RESOURCE_SOURCE_PATH_REQUIRED_ERROR)
   return path.isAbsolute(trimmed) ? path.resolve(trimmed) : path.resolve(directory, trimmed)

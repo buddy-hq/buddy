@@ -153,7 +153,9 @@ describe("tool schema compatibility", () => {
       "close",
     ])
     const benchPathProperty = expectStringNullableProperty(benchProperties, "path")
-    expect(benchPathProperty.description).toContain("Workspace-relative")
+    expect(benchPathProperty.description).toContain("workspace-relative")
+    expect(benchPathProperty.description).toContain("absolute paths")
+    expect(benchPathProperty.description).toContain("external-folder permission")
     expect(benchPathProperty.description).toContain("present_html_widget")
     const resourceKeyProperty = expectStringNullableProperty(benchProperties, "resourceKey")
     expect(resourceKeyProperty.description).toContain("object id or alias")

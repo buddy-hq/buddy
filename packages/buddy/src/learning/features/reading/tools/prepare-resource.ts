@@ -5,6 +5,7 @@ import { RESOURCE_PACK_STATUS_PREPARING } from "../../../../resource-packs"
 import {
   addResource,
   getResourceByKey,
+  resolveResourceSourcePath,
   ResourceValidationError,
   type ResourceRecord,
   type ResourceStatus,
@@ -17,6 +18,7 @@ import {
   type BuddyObjectResult,
 } from "../../../../objects"
 import { createBuddyTool } from "../../../runtime/create-buddy-tool"
+import { authorizeFileReadPath } from "../../../runtime/external-file-authorization"
 
 const PREPARE_RESOURCE_TOOL_ID = "prepare_resource" as const
 const RESOURCE_PREPARATION_POLL_INTERVAL_MS = 500
@@ -239,10 +241,14 @@ export const prepareResourceTool = createBuddyTool({
   description: PREPARE_RESOURCE_DESCRIPTION,
   parameters: ResourcePrepareParameters,
   async execute(params, ctx) {
+    const sourcePath = await authorizeFileReadPath(
+      resolveResourceSourcePath(ctx.directory, params.sourcePath),
+      ctx,
+    )
     await ctx.ask({
       permission: PREPARE_RESOURCE_TOOL_ID,
-      patterns: [params.sourcePath],
-      always: [params.sourcePath],
+      patterns: [sourcePath],
+      always: [sourcePath],
       metadata: {
         alias: params.alias ?? null,
       },
@@ -252,7 +258,7 @@ export const prepareResourceTool = createBuddyTool({
     try {
       created = await addResource({
         directory: ctx.directory,
-        sourcePath: params.sourcePath,
+        sourcePath,
         alias: params.alias,
       })
     } catch (error) {
