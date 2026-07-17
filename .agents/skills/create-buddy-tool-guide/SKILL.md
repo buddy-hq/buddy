@@ -20,6 +20,14 @@ An invariant of after triggering this skill is if you are refactoring a tool or 
 ## Side-Effects
 Say you are refactoring a tool. You change the schema or you change the metadata or you change what it returns. Even say you change the name. You have to keep looking for side effects before closing that issue. By side effects, the side effects can be of the following types. Side effect number one could be that you have changed the name of the tool, but that name is referred at different places in different markdown files as a prompt. So if you change the name here, those prompts also need to change. Another side effect is you changed the metadata or you changed any trigger inside the tool that affects the front end. So the renderers might also need to change if you change any of the programmatic bits of the tool. For describe blocks and prompting, say you changed the describe blocks or prompting, but then you duplicate stuff in describe block in prompting. So make sure that is not the case. Similarly, look for side effects into different skills. So if you change the prompt here about how the tool works, but there's a different related skill that you find with a grep search, that skill is mentioning this tool working in a completely different way. For this, you may refer to how ingest full text and the reading skills work together. They depend on each other. So always check for side effects in front end, in the prompt layer, in the back end, in the skill layer before closing out on something. 
 
+## Permission boundaries
+
+- `ctx.ask` evaluates only the named permission; it does not guarantee a user prompt.
+- Tool visibility or an allowed tool permission does not authorize external filesystem access.
+- For model-controlled paths, use the shared external-file authorizer and its canonical paths.
+- Authorize before content reads, writes, persistence, background work, metadata, or UI dispatch.
+- Add a rejection test proving denied authorization leaves no side effects.
+
 ## Provider terms
 
 
