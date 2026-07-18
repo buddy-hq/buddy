@@ -118,13 +118,19 @@ type MarkdownCacheEntry = {
   html: string
 }
 
+type MarkdownImageSize = {
+  width: number
+  height: number
+}
+
 type MarkdownHtmlBlockMode = "full" | "live" | "code"
 
 const MARKDOWN_CACHE_MAX = 200
 const MARKDOWN_IMAGE_INTRINSIC_SIZE_CACHE_MAX = 200
 const MARKDOWN_IMAGE_FALLBACK_MIN_HEIGHT = "1.5rem"
+const MARKDOWN_IMAGE_MIN_DIMENSION_PX = 1
 const markdownCache = new Map<string, MarkdownCacheEntry>()
-const markdownImageIntrinsicSizeCache = new Map<string, { width: number; height: number }>()
+const markdownImageIntrinsicSizeCache = new Map<string, MarkdownImageSize>()
 const renderedCodeTokens = new WeakMap<HTMLDivElement, RenderedCodeState>()
 const CODE_FALLBACK_BACKGROUND_COLOR = "var(--color-background-stronger)"
 const CODE_FALLBACK_COLOR = "var(--color-text-base)"
@@ -251,10 +257,7 @@ function setIconVisibility(button: HTMLButtonElement) {
   checkIcon.style.display = copied ? "inline-flex" : "none"
 }
 
-function touchMarkdownImageIntrinsicSize(
-  key: string,
-  size: { width: number; height: number },
-) {
+function touchMarkdownImageIntrinsicSize(key: string, size: MarkdownImageSize) {
   markdownImageIntrinsicSizeCache.delete(key)
   markdownImageIntrinsicSizeCache.set(key, size)
   while (markdownImageIntrinsicSizeCache.size > MARKDOWN_IMAGE_INTRINSIC_SIZE_CACHE_MAX) {
@@ -262,6 +265,62 @@ function touchMarkdownImageIntrinsicSize(
     if (!oldestKey) break
     markdownImageIntrinsicSizeCache.delete(oldestKey)
   }
+}
+
+function authoredMarkdownImageDimension(
+  image: HTMLImageElement,
+  attribute: "width" | "height",
+) {
+  const rawValue = image.getAttribute(attribute)
+  if (rawValue === null) return
+  const value = Number(rawValue)
+  if (!Number.isSafeInteger(value) || value < MARKDOWN_IMAGE_MIN_DIMENSION_PX) return
+  return value
+}
+
+function scaledMarkdownImageDimension(input: {
+  authoredDimension: number
+  authoredIntrinsicDimension: number
+  missingIntrinsicDimension: number
+}) {
+  return Math.max(
+    MARKDOWN_IMAGE_MIN_DIMENSION_PX,
+    Math.round(
+      (input.authoredDimension * input.missingIntrinsicDimension) /
+        input.authoredIntrinsicDimension,
+    ),
+  )
+}
+
+function fillMissingMarkdownImageDimensions(image: HTMLImageElement, size: MarkdownImageSize) {
+  const hasAuthoredWidth = image.hasAttribute("width")
+  const hasAuthoredHeight = image.hasAttribute("height")
+  if (hasAuthoredWidth && hasAuthoredHeight) return
+
+  if (!hasAuthoredWidth && !hasAuthoredHeight) {
+    image.width = size.width
+    image.height = size.height
+    return
+  }
+
+  if (hasAuthoredWidth) {
+    const authoredWidth = authoredMarkdownImageDimension(image, "width")
+    if (authoredWidth === undefined) return
+    image.height = scaledMarkdownImageDimension({
+      authoredDimension: authoredWidth,
+      authoredIntrinsicDimension: size.width,
+      missingIntrinsicDimension: size.height,
+    })
+    return
+  }
+
+  const authoredHeight = authoredMarkdownImageDimension(image, "height")
+  if (authoredHeight === undefined) return
+  image.width = scaledMarkdownImageDimension({
+    authoredDimension: authoredHeight,
+    authoredIntrinsicDimension: size.height,
+    missingIntrinsicDimension: size.width,
+  })
 }
 
 function stabilizeMarkdownImages(root: HTMLDivElement) {
@@ -274,8 +333,7 @@ function stabilizeMarkdownImages(root: HTMLDivElement) {
     const source = image.getAttribute("src")
     const cachedSize = source ? markdownImageIntrinsicSizeCache.get(source) : undefined
     if (!cachedSize) continue
-    image.width = cachedSize.width
-    image.height = cachedSize.height
+    fillMissingMarkdownImageDimensions(image, cachedSize)
   }
 }
 
@@ -300,8 +358,7 @@ function setupMarkdownImages(root: HTMLDivElement) {
       const source = image.getAttribute("src")
       if (!source) return
       const size = { width: image.naturalWidth, height: image.naturalHeight }
-      image.width = size.width
-      image.height = size.height
+      fillMissingMarkdownImageDimensions(image, size)
       touchMarkdownImageIntrinsicSize(source, size)
     }
     const handleLoad = () => syncState()

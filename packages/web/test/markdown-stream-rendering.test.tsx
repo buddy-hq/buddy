@@ -229,6 +229,85 @@ describe("streaming markdown rendering", () => {
     expect(remountedImages[1]?.style.minHeight).toBe("1.5rem")
   })
 
+  test("preserves authored image dimensions after load and remount", async () => {
+    const text =
+      '<img src="https://assets.example/authored-size.png" alt="authored" width="100" height="50">'
+
+    await act(async () => {
+      root.render(<MarkdownHtmlSegment text={text} cacheKey="authored-image-size" />)
+      await flushUntil(() => container.querySelector("img") !== null)
+    })
+
+    const image = container.querySelector<HTMLImageElement>("img")
+    if (!image) throw new Error("Expected the authored Markdown image to render")
+    Object.defineProperties(image, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 640 },
+      naturalHeight: { configurable: true, value: 360 },
+    })
+    image.dispatchEvent(new Event("load"))
+
+    expect(image.getAttribute("width")).toBe("100")
+    expect(image.getAttribute("height")).toBe("50")
+
+    await act(async () => {
+      root.render(<div />)
+      await flushEffects()
+      root.render(<MarkdownHtmlSegment text={text} cacheKey="authored-image-size" />)
+      await flushUntil(() => container.querySelector("img") !== null)
+    })
+
+    const remountedImage = container.querySelector<HTMLImageElement>("img")
+    expect(remountedImage?.getAttribute("width")).toBe("100")
+    expect(remountedImage?.getAttribute("height")).toBe("50")
+  })
+
+  test("derives a missing authored image axis from its intrinsic aspect ratio", async () => {
+    const text = [
+      '<img src="https://assets.example/width-only.png" alt="width only" width="100">',
+      "",
+      '<img src="https://assets.example/height-only.png" alt="height only" height="50">',
+    ].join("\n")
+
+    await act(async () => {
+      root.render(<MarkdownHtmlSegment text={text} cacheKey="single-axis-image-size" />)
+      await flushUntil(() => container.querySelectorAll("img").length === 2)
+    })
+
+    const [widthOnlyImage, heightOnlyImage] = Array.from(
+      container.querySelectorAll<HTMLImageElement>("img"),
+    )
+    if (!widthOnlyImage || !heightOnlyImage) {
+      throw new Error("Expected both single-axis Markdown images to render")
+    }
+    for (const image of [widthOnlyImage, heightOnlyImage]) {
+      Object.defineProperties(image, {
+        complete: { configurable: true, value: true },
+        naturalWidth: { configurable: true, value: 640 },
+        naturalHeight: { configurable: true, value: 360 },
+      })
+      image.dispatchEvent(new Event("load"))
+    }
+
+    expect(widthOnlyImage.getAttribute("width")).toBe("100")
+    expect(widthOnlyImage.getAttribute("height")).toBe("56")
+    expect(heightOnlyImage.getAttribute("width")).toBe("89")
+    expect(heightOnlyImage.getAttribute("height")).toBe("50")
+
+    await act(async () => {
+      root.render(<div />)
+      await flushEffects()
+      root.render(<MarkdownHtmlSegment text={text} cacheKey="single-axis-image-size" />)
+      await flushUntil(() => container.querySelectorAll("img").length === 2)
+    })
+
+    const remountedImages = container.querySelectorAll<HTMLImageElement>("img")
+    expect(remountedImages[0]?.getAttribute("width")).toBe("100")
+    expect(remountedImages[0]?.getAttribute("height")).toBe("56")
+    expect(remountedImages[1]?.getAttribute("width")).toBe("89")
+    expect(remountedImages[1]?.getAttribute("height")).toBe("50")
+  })
+
   test("does not wait for the worker to render final non-code markdown", async () => {
     const originalWorker = globalThis.Worker
 
